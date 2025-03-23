@@ -15,6 +15,8 @@ class Token
     public const DIVIDE = 'DIVIDE';
     public const SEMICOLON = 'SEMICOLON';
     public const ECHO = 'ECHO';  // Echo keyword
+    public const LEFT_PAREN = 'LEFT_PAREN';  // Left parenthesis '('
+    public const RIGHT_PAREN = 'RIGHT_PAREN';  // Right parenthesis ')'
     public const EOF = 'EOF';  // End of file
     
     /**

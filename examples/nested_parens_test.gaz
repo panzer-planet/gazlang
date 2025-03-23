@@ -1,0 +1,7 @@
+// Test with deeply nested parentheses
+echo 2 * (3 + (4 * 2));  // Should output 22 (2 * (3 + 8))
+echo ((8 + 2) / 2) - 1;  // Should output 4 ((10 / 2) - 1)
+echo 3 * ((4 + 2) / (3 - 1));  // Should output 9 (3 * (6 / 2))
+echo (2 + (3 * (4 - 1))) * 2;  // Should output 22 ((2 + (3 * 3)) * 2)
+echo 2 + (3 * (4 - (1 + 1)));  // Should output 8 (2 + (3 * 2))
+echo (((10 + 2) - 2) / 2) * 3;  // Should output 15 (((12 - 2) / 2) * 3) 

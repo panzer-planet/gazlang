@@ -184,6 +184,16 @@ class Lexer
                 return new Token(Token::SEMICOLON, ';');
             }
             
+            if ($this->current_char === '(') {
+                $this->advance();
+                return new Token(Token::LEFT_PAREN, '(');
+            }
+            
+            if ($this->current_char === ')') {
+                $this->advance();
+                return new Token(Token::RIGHT_PAREN, ')');
+            }
+            
             $this->error();
         }
         

@@ -7,6 +7,7 @@ A simple programming language compiler that supports mathematical expressions wi
 - Statements terminated by semicolons (`;`)
 - Integer numbers
 - Mathematical operators: `+`, `-`, `*`, `/`
+- Parentheses for grouping expressions
 - Echo statements for output (`echo <expr>;`)
 - Single-line comments (`// comment`)
 - Ability to interpret expressions
@@ -33,7 +34,8 @@ Example expressions:
 ```
 calc> 5 + 3;           // Evaluates but no output
 calc> echo 10 * 2 - 5;  // Outputs: 15
-calc> echo 2 * (3 + 4); // Not supported yet (parentheses)
+calc> echo 2 * (3 + 4); // Outputs: 14 (parentheses for grouping)
+calc> echo (5 + 3) * 2; // Outputs: 16 (changes operator precedence)
 calc> echo 5 + 3; echo 10 * 2;  // Multiple outputs
 ```
 

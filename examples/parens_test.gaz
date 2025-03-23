@@ -1,0 +1,7 @@
+// Test expressions with parentheses
+echo 5 + 3 * 2;  // Should output 11 (normal precedence)
+echo (5 + 3) * 2;  // Should output 16 (parentheses override precedence)
+echo 10 / (2 + 3);  // Should output 2 (10 divided by 5)
+echo (2 + 3) * (4 + 2);  // Should output 30 (5 * 6)
+echo 2 * (3 + (4 * 2));  // Should output 22 (2 * (3 + 8))
+echo ((8 + 2) / 2) - 1;  // Should output 4 ((10 / 2) - 1) 

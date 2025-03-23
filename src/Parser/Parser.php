@@ -65,16 +65,26 @@ class Parser
     }
     
     /**
-     * Parse a factor (INTEGER)
+     * Parse a factor (INTEGER | LPAREN expr RPAREN)
      *
-     * @return Num
+     * @return Num|BinOp
      * @throws Exception
      */
     public function factor()
     {
         $token = $this->current_token;
-        $this->eat(Token::INTEGER);
-        return new Num($token);
+        
+        if ($token->type === Token::INTEGER) {
+            $this->eat(Token::INTEGER);
+            return new Num($token);
+        } elseif ($token->type === Token::LEFT_PAREN) {
+            $this->eat(Token::LEFT_PAREN);
+            $node = $this->expr();
+            $this->eat(Token::RIGHT_PAREN);
+            return $node;
+        }
+        
+        $this->error();
     }
     
     /**

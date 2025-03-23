@@ -80,4 +80,18 @@ class InterpreterTest extends TestCase
         
         $this->assertEquals("8" . PHP_EOL . "20" . PHP_EOL, $output);
     }
+    
+    public function testParenthesesInExpressions()
+    {
+        $lexer = new Lexer('echo (5 + 3) * 2; echo 10 / (2 + 3);');
+        $parser = new Parser($lexer);
+        $interpreter = new Interpreter($parser);
+        
+        // Capture output to test parentheses
+        ob_start();
+        $interpreter->interpret();
+        $output = ob_get_clean();
+        
+        $this->assertEquals("16" . PHP_EOL . "2" . PHP_EOL, $output);
+    }
 } 
