@@ -3,13 +3,13 @@
 namespace GazLang\CodeGenerator;
 
 use Exception;
-use GazLang\AST\BinOp;
-use GazLang\AST\Compound;
-use GazLang\AST\Num;
-use GazLang\AST\Statement;
-use GazLang\AST\EchoStatement;
-use GazLang\AST\Variable;
-use GazLang\AST\Assign;
+use GazLang\AST\BinOpAST;
+use GazLang\AST\CompoundAST;
+use GazLang\AST\NumAST;
+use GazLang\AST\StatementAST;
+use GazLang\AST\EchoStatementAST;
+use GazLang\AST\VariableAST;
+use GazLang\AST\AssignAST;
 use GazLang\Lexer\Token;
 
 /**
@@ -53,9 +53,9 @@ class CodeGenerator
     /**
      * Visit a Variable node
      *
-     * @param Variable $node The node to visit
+     * @param VariableAST $node The node to visit
      */
-    public function visit_Variable(Variable $node): void
+    public function visit_Variable(VariableAST $node): void
     {
         $var_name = $node->value;
         if (!isset($this->var_addresses[$var_name])) {
@@ -69,9 +69,9 @@ class CodeGenerator
     /**
      * Visit an Assign node
      *
-     * @param Assign $node The node to visit
+     * @param AssignAST $node The node to visit
      */
-    public function visit_Assign(Assign $node): void
+    public function visit_Assign(AssignAST $node): void
     {
         $var_name = $node->left->value;
         
@@ -93,9 +93,9 @@ class CodeGenerator
     /**
      * Visit a BinOp node
      *
-     * @param BinOp $node The node to visit
+     * @param BinOpAST $node The node to visit
      */
-    public function visit_BinOp(BinOp $node): void
+    public function visit_BinOp(BinOpAST $node): void
     {
         // Visit left and right nodes first (post-order traversal)
         $this->visit($node->left);
@@ -118,9 +118,9 @@ class CodeGenerator
     /**
      * Visit a Num node
      *
-     * @param Num $node The node to visit
+     * @param NumAST $node The node to visit
      */
-    public function visit_Num(Num $node): void
+    public function visit_Num(NumAST $node): void
     {
         // Push the number onto the stack
         $this->instructions[] = "PUSH {$node->value}";
@@ -129,9 +129,9 @@ class CodeGenerator
     /**
      * Visit a Statement node
      *
-     * @param Statement $node The node to visit
+     * @param StatementAST $node The node to visit
      */
-    public function visit_Statement(Statement $node): void
+    public function visit_Statement(StatementAST $node): void
     {
         // Evaluate the expression but don't output
         $this->visit($node->expr);
@@ -141,9 +141,9 @@ class CodeGenerator
     /**
      * Visit an EchoStatement node
      *
-     * @param EchoStatement $node The node to visit
+     * @param EchoStatementAST $node The node to visit
      */
-    public function visit_EchoStatement(EchoStatement $node): void
+    public function visit_EchoStatement(EchoStatementAST $node): void
     {
         $this->visit($node->expr);
         $this->instructions[] = 'PRINT';  // Output the result
@@ -152,9 +152,9 @@ class CodeGenerator
     /**
      * Visit a Compound node
      *
-     * @param Compound $node The node to visit
+     * @param CompoundAST $node The node to visit
      */
-    public function visit_Compound(Compound $node): void
+    public function visit_Compound(CompoundAST $node): void
     {
         foreach ($node->statements as $statement) {
             $this->visit($statement);
@@ -173,6 +173,8 @@ class CodeGenerator
         
         // Remove namespace from the method name
         $method = str_replace('GazLang\\AST\\', '', $method);
+        // Remove AST suffix from class name
+        $method = str_replace('AST', '', $method);
         
         if (method_exists($this, $method)) {
             $this->$method($node);

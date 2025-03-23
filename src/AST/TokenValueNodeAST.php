@@ -7,7 +7,7 @@ use GazLang\Lexer\Token;
 /**
  * Base class for AST nodes that hold a token and extract a value from it
  */
-abstract class TokenValueNode extends AST
+abstract class TokenValueNodeAST extends AST
 {
     /**
      * @var Token The token representing this node

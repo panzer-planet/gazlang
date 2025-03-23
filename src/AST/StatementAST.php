@@ -5,7 +5,7 @@ namespace GazLang\AST;
 /**
  * Statement represents a single statement in the AST
  */
-class Statement extends AbstractStatement
+class StatementAST extends AbstractStatementAST
 {
     // Uses the base class implementation
 } 

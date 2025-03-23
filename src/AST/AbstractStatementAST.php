@@ -5,7 +5,7 @@ namespace GazLang\AST;
 /**
  * AbstractStatement represents a base class for all statement nodes in the AST
  */
-abstract class AbstractStatement extends AST
+abstract class AbstractStatementAST extends AST
 {
     /**
      * @var object The expression in this statement

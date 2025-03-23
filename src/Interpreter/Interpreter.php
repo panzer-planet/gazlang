@@ -3,13 +3,13 @@
 namespace GazLang\Interpreter;
 
 use Exception;
-use GazLang\AST\BinOp;
-use GazLang\AST\Compound;
-use GazLang\AST\Num;
-use GazLang\AST\Statement;
-use GazLang\AST\EchoStatement;
-use GazLang\AST\Variable;
-use GazLang\AST\Assign;
+use GazLang\AST\BinOpAST;
+use GazLang\AST\CompoundAST;
+use GazLang\AST\NumAST;
+use GazLang\AST\StatementAST;
+use GazLang\AST\EchoStatementAST;
+use GazLang\AST\VariableAST;
+use GazLang\AST\AssignAST;
 use GazLang\Lexer\Token;
 use GazLang\Parser\Parser;
 
@@ -42,12 +42,12 @@ class Interpreter
     /**
      * Visit a Variable node
      *
-     * @param Variable $node The node to visit
+     * @param VariableAST $node The node to visit
      * 
      * @return int The value of the variable
      * @throws Exception If the variable is not defined
      */
-    public function visit_Variable(Variable $node): int
+    public function visit_Variable(VariableAST $node): int
     {
         $var_name = $node->value;
         if (!isset($this->symbol_table[$var_name])) {
@@ -59,11 +59,11 @@ class Interpreter
     /**
      * Visit an Assign node
      *
-     * @param Assign $node The node to visit
+     * @param AssignAST $node The node to visit
      * 
      * @return int The value assigned to the variable
      */
-    public function visit_Assign(Assign $node): int
+    public function visit_Assign(AssignAST $node): int
     {
         $var_name = $node->left->value;
         $var_value = $this->visit($node->right);
@@ -74,11 +74,11 @@ class Interpreter
     /**
      * Visit a BinOp node
      *
-     * @param BinOp $node The node to visit
+     * @param BinOpAST $node The node to visit
      * 
      * @return int The result of the binary operation
      */
-    public function visit_BinOp(BinOp $node): int
+    public function visit_BinOp(BinOpAST $node): int
     {
         if ($node->op->type === Token::PLUS) {
             return $this->visit($node->left) + $this->visit($node->right);
@@ -96,11 +96,11 @@ class Interpreter
     /**
      * Visit a Num node
      *
-     * @param Num $node The node to visit
+     * @param NumAST $node The node to visit
      * 
      * @return int The numeric value
      */
-    public function visit_Num(Num $node): int
+    public function visit_Num(NumAST $node): int
     {
         return $node->value;
     }
@@ -108,11 +108,11 @@ class Interpreter
     /**
      * Visit a Statement node
      *
-     * @param Statement $node The node to visit
+     * @param StatementAST $node The node to visit
      * 
      * @return int The result of the statement
      */
-    public function visit_Statement(Statement $node): int
+    public function visit_Statement(StatementAST $node): int
     {
         // Evaluate the expression but don't output it
         return $this->visit($node->expr);
@@ -121,11 +121,11 @@ class Interpreter
     /**
      * Visit an EchoStatement node
      *
-     * @param EchoStatement $node The node to visit
+     * @param EchoStatementAST $node The node to visit
      * 
      * @return int The result of the echo statement
      */
-    public function visit_EchoStatement(EchoStatement $node): int
+    public function visit_EchoStatement(EchoStatementAST $node): int
     {
         $result = $this->visit($node->expr);
         // Print the result directly to the terminal
@@ -136,11 +136,11 @@ class Interpreter
     /**
      * Visit a Compound node
      *
-     * @param Compound $node The node to visit
+     * @param CompoundAST $node The node to visit
      * 
      * @return array The results of each statement
      */
-    public function visit_Compound(Compound $node): array
+    public function visit_Compound(CompoundAST $node): array
     {
         $results = [];
         foreach ($node->statements as $statement) {
@@ -163,6 +163,8 @@ class Interpreter
         
         // Remove namespace from the method name
         $method = str_replace('GazLang\\AST\\', '', $method);
+        // Remove AST suffix from class name
+        $method = str_replace('AST', '', $method);
         
         if (method_exists($this, $method)) {
             return $this->$method($node);

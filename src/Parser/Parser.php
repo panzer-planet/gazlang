@@ -3,13 +3,13 @@
 namespace GazLang\Parser;
 
 use Exception;
-use GazLang\AST\BinOp;
-use GazLang\AST\Compound;
-use GazLang\AST\Num;
-use GazLang\AST\Statement;
-use GazLang\AST\EchoStatement;
-use GazLang\AST\Variable;
-use GazLang\AST\Assign;
+use GazLang\AST\BinOpAST;
+use GazLang\AST\CompoundAST;
+use GazLang\AST\NumAST;
+use GazLang\AST\StatementAST;
+use GazLang\AST\EchoStatementAST;
+use GazLang\AST\VariableAST;
+use GazLang\AST\AssignAST;
 use GazLang\Lexer\Lexer;
 use GazLang\Lexer\Token;
 
@@ -70,12 +70,12 @@ class Parser
     /**
      * Parse a variable
      *
-     * @return Variable
+     * @return VariableAST
      * @throws Exception
      */
     public function variable()
     {
-        $node = new Variable($this->current_token);
+        $node = new VariableAST($this->current_token);
         $this->eat(Token::VAR_IDENTIFIER);
         return $node;
     }
@@ -83,7 +83,7 @@ class Parser
     /**
      * Parse a factor (INTEGER | LPAREN expr RPAREN | variable)
      *
-     * @return Num|BinOp|Variable
+     * @return NumAST|BinOpAST|VariableAST
      * @throws Exception
      */
     public function factor()
@@ -92,7 +92,7 @@ class Parser
         
         if ($token->type === Token::INTEGER) {
             $this->eat(Token::INTEGER);
-            return new Num($token);
+            return new NumAST($token);
         } elseif ($token->type === Token::LEFT_PAREN) {
             $this->eat(Token::LEFT_PAREN);
             $node = $this->expr();
@@ -108,7 +108,7 @@ class Parser
     /**
      * Parse a term (factor ((MUL | DIV) factor)*)
      *
-     * @return BinOp|Num|Variable
+     * @return BinOpAST|NumAST|VariableAST
      * @throws Exception
      */
     public function term()
@@ -123,7 +123,7 @@ class Parser
                 $this->eat(Token::DIVIDE);
             }
             
-            $node = new BinOp($node, $token, $this->factor());
+            $node = new BinOpAST($node, $token, $this->factor());
         }
         
         return $node;
@@ -132,7 +132,7 @@ class Parser
     /**
      * Parse an expression (term ((PLUS | MINUS) term)* | variable ASSIGN expr)
      *
-     * @return BinOp|Num|Variable|Assign
+     * @return BinOpAST|NumAST|VariableAST|AssignAST
      * @throws Exception
      */
     public function expr()
@@ -141,12 +141,12 @@ class Parser
         $node = $this->term();
         
         // Handle assignment if the node is a variable
-        if ($node instanceof Variable && $this->current_token->type === Token::ASSIGN) {
+        if ($node instanceof VariableAST && $this->current_token->type === Token::ASSIGN) {
             $var_node = $node;
             $token = $this->current_token;
             $this->eat(Token::ASSIGN);
             $right = $this->expr();
-            return new Assign($var_node, $token, $right);
+            return new AssignAST($var_node, $token, $right);
         }
         
         // Handle addition/subtraction
@@ -158,7 +158,7 @@ class Parser
                 $this->eat(Token::MINUS);
             }
             
-            $node = new BinOp($node, $token, $this->term());
+            $node = new BinOpAST($node, $token, $this->term());
         }
         
         return $node;
@@ -167,7 +167,7 @@ class Parser
     /**
      * Parse a statement (expr SEMICOLON | echo_statement)
      *
-     * @return Statement|EchoStatement
+     * @return StatementAST|EchoStatementAST
      * @throws Exception
      */
     public function statement()
@@ -178,13 +178,13 @@ class Parser
         
         $expr = $this->expr();
         $this->eat(Token::SEMICOLON);
-        return new Statement($expr);
+        return new StatementAST($expr);
     }
     
     /**
      * Parse an echo statement (ECHO expr SEMICOLON)
      * 
-     * @return EchoStatement
+     * @return EchoStatementAST
      * @throws Exception
      */
     public function echo_statement()
@@ -192,18 +192,18 @@ class Parser
         $this->eat(Token::ECHO);
         $expr = $this->expr();
         $this->eat(Token::SEMICOLON);
-        return new EchoStatement($expr);
+        return new EchoStatementAST($expr);
     }
     
     /**
      * Parse a program (statement+)
      *
-     * @return Compound
+     * @return CompoundAST
      * @throws Exception
      */
     public function program()
     {
-        $root = new Compound();
+        $root = new CompoundAST();
         
         // Parse all statements
         while ($this->current_token->type !== Token::EOF) {
@@ -217,7 +217,7 @@ class Parser
     /**
      * Parse the input and return an AST
      *
-     * @return Compound
+     * @return CompoundAST
      * @throws Exception
      */
     public function parse()

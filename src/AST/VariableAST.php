@@ -7,7 +7,7 @@ use GazLang\Lexer\Token;
 /**
  * Variable node represents a variable reference in the AST
  */
-class Variable extends TokenValueNode
+class VariableAST extends TokenValueNodeAST
 {
     /**
      * Get the variable name (including $ prefix)

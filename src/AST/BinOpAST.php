@@ -7,7 +7,7 @@ use GazLang\Lexer\Token;
 /**
  * BinOp represents a binary operation in the AST (e.g., 1 + 2)
  */
-class BinOp extends AST
+class BinOpAST extends AST
 {
     /**
      * @var AST Left operand

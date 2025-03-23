@@ -7,7 +7,7 @@ use GazLang\Lexer\Token;
 /**
  * Num represents a number literal in the AST
  */
-class Num extends TokenValueNode
+class NumAST extends TokenValueNodeAST
 {
     /**
      * @var int The numeric value
