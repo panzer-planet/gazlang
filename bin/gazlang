@@ -67,12 +67,24 @@ if ($inputFile) {
     exit(0);
 }
 
+// Check if input is piped
+$isPiped = !posix_isatty(STDIN);
+
+if ($isPiped) {
+    // Process all piped input at once
+    $input = '';
+    while (!feof(STDIN)) {
+        $input .= fgets(STDIN);
+    }
+    processInput($input, $generateCode);
+    exit(0);
+}
+
 // Interactive mode
 echo "GazLang Interpreter\n";
 echo "Type 'exit' or 'quit' to exit\n";
 
 while (true) {
-    echo 'calc> ';
     $line = trim(fgets(STDIN));
     
     if ($line === 'exit' || $line === 'quit') {
