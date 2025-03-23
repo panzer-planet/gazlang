@@ -8,6 +8,8 @@ use GazLang\AST\Compound;
 use GazLang\AST\Num;
 use GazLang\AST\Statement;
 use GazLang\AST\EchoStatement;
+use GazLang\AST\Variable;
+use GazLang\AST\Assign;
 use GazLang\Lexer\Lexer;
 use GazLang\Lexer\Token;
 
@@ -44,7 +46,8 @@ class Parser
      */
     public function error(): void
     {
-        throw new Exception('Invalid syntax');
+        $token = $this->current_token ? $this->current_token->type . '(' . $this->current_token->value . ')' : 'null';
+        throw new Exception('Invalid syntax near token: ' . $token);
     }
     
     /**
@@ -65,9 +68,22 @@ class Parser
     }
     
     /**
-     * Parse a factor (INTEGER | LPAREN expr RPAREN)
+     * Parse a variable
      *
-     * @return Num|BinOp
+     * @return Variable
+     * @throws Exception
+     */
+    public function variable()
+    {
+        $node = new Variable($this->current_token);
+        $this->eat(Token::VAR_IDENTIFIER);
+        return $node;
+    }
+    
+    /**
+     * Parse a factor (INTEGER | LPAREN expr RPAREN | variable)
+     *
+     * @return Num|BinOp|Variable
      * @throws Exception
      */
     public function factor()
@@ -82,6 +98,8 @@ class Parser
             $node = $this->expr();
             $this->eat(Token::RIGHT_PAREN);
             return $node;
+        } elseif ($token->type === Token::VAR_IDENTIFIER) {
+            return $this->variable();
         }
         
         $this->error();
@@ -90,7 +108,7 @@ class Parser
     /**
      * Parse a term (factor ((MUL | DIV) factor)*)
      *
-     * @return BinOp|Num
+     * @return BinOp|Num|Variable
      * @throws Exception
      */
     public function term()
@@ -112,15 +130,26 @@ class Parser
     }
     
     /**
-     * Parse an expression (term ((PLUS | MINUS) term)*)
+     * Parse an expression (term ((PLUS | MINUS) term)* | variable ASSIGN expr)
      *
-     * @return BinOp|Num
+     * @return BinOp|Num|Variable|Assign
      * @throws Exception
      */
     public function expr()
     {
+        // First handle simple expressions (including variables in expressions)
         $node = $this->term();
         
+        // Handle assignment if the node is a variable
+        if ($node instanceof Variable && $this->current_token->type === Token::ASSIGN) {
+            $var_node = $node;
+            $token = $this->current_token;
+            $this->eat(Token::ASSIGN);
+            $right = $this->expr();
+            return new Assign($var_node, $token, $right);
+        }
+        
+        // Handle addition/subtraction
         while (in_array($this->current_token->type, [Token::PLUS, Token::MINUS])) {
             $token = $this->current_token;
             if ($token->type === Token::PLUS) {

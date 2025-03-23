@@ -7,13 +7,8 @@ use GazLang\Lexer\Token;
 /**
  * Num represents a number literal in the AST
  */
-class Num extends AST
+class Num extends TokenValueNode
 {
-    /**
-     * @var Token The token representing the number
-     */
-    public $token;
-    
     /**
      * @var int The numeric value
      */
@@ -26,7 +21,8 @@ class Num extends AST
      */
     public function __construct(Token $token)
     {
-        $this->token = $token;
-        $this->value = $token->value;
+        parent::__construct($token);
+        // Ensure value is an integer
+        $this->value = (int)$this->value;
     }
 } 

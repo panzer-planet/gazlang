@@ -9,6 +9,7 @@ A simple programming language compiler that supports mathematical expressions wi
 - Mathematical operators: `+`, `-`, `*`, `/`
 - Parentheses for grouping expressions
 - Echo statements for output (`echo <expr>;`)
+- Variables with `$` prefix (`$var = expression;`)
 - Single-line comments (`// comment`)
 - Ability to interpret expressions
 - Code generation for a stack-based virtual machine
@@ -36,7 +37,11 @@ calc> 5 + 3;           // Evaluates but no output
 calc> echo 10 * 2 - 5;  // Outputs: 15
 calc> echo 2 * (3 + 4); // Outputs: 14 (parentheses for grouping)
 calc> echo (5 + 3) * 2; // Outputs: 16 (changes operator precedence)
-calc> echo 5 + 3; echo 10 * 2;  // Multiple outputs
+calc> $x = 5;           // Assign value to variable
+calc> echo $x + 3;      // Outputs: 8 (using variables in expressions)
+calc> $y = $x * 2;      // Variables in assignment expressions
+calc> echo $y;          // Outputs: 10
+calc> echo $x + $y;     // Outputs: 15
 ```
 
 Run with a file:

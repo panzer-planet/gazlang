@@ -17,6 +17,8 @@ class Token
     public const ECHO = 'ECHO';  // Echo keyword
     public const LEFT_PAREN = 'LEFT_PAREN';  // Left parenthesis '('
     public const RIGHT_PAREN = 'RIGHT_PAREN';  // Right parenthesis ')'
+    public const VAR_IDENTIFIER = 'VAR_IDENTIFIER';  // Variable identifier (starting with $)
+    public const ASSIGN = 'ASSIGN';  // Assignment operator (=)
     public const EOF = 'EOF';  // End of file
     
     /**

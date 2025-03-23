@@ -8,6 +8,8 @@ use GazLang\AST\Compound;
 use GazLang\AST\Num;
 use GazLang\AST\Statement;
 use GazLang\AST\EchoStatement;
+use GazLang\AST\Variable;
+use GazLang\AST\Assign;
 use GazLang\Lexer\Token;
 
 /**
@@ -26,6 +28,16 @@ class CodeGenerator
     private $instructions;
     
     /**
+     * @var array Map of variable names to memory addresses
+     */
+    private $var_addresses;
+    
+    /**
+     * @var int Next available memory address for variable storage
+     */
+    private $next_address;
+    
+    /**
      * Constructor
      *
      * @param object $tree The AST to generate code from
@@ -34,6 +46,48 @@ class CodeGenerator
     {
         $this->tree = $tree;
         $this->instructions = [];
+        $this->var_addresses = [];
+        $this->next_address = 0;
+    }
+    
+    /**
+     * Visit a Variable node
+     *
+     * @param Variable $node The node to visit
+     */
+    public function visit_Variable(Variable $node): void
+    {
+        $var_name = $node->value;
+        if (!isset($this->var_addresses[$var_name])) {
+            throw new Exception("Undefined variable: {$var_name}");
+        }
+        
+        // Load the variable's value onto the stack
+        $this->instructions[] = "LOAD {$this->var_addresses[$var_name]}";
+    }
+    
+    /**
+     * Visit an Assign node
+     *
+     * @param Assign $node The node to visit
+     */
+    public function visit_Assign(Assign $node): void
+    {
+        $var_name = $node->left->value;
+        
+        // Allocate memory for the variable if not already allocated
+        if (!isset($this->var_addresses[$var_name])) {
+            $this->var_addresses[$var_name] = $this->next_address++;
+        }
+        
+        // Generate code for the right-hand side of the assignment
+        $this->visit($node->right);
+        
+        // Store the computed value in the variable's memory location
+        $this->instructions[] = "STORE {$this->var_addresses[$var_name]}";
+        
+        // Leave the value on the stack for potential use in larger expressions
+        $this->instructions[] = "LOAD {$this->var_addresses[$var_name]}";
     }
     
     /**

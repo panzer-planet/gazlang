@@ -1,0 +1,23 @@
+// GazLang Variable Example
+// This example demonstrates the use of variables in GazLang
+
+// Basic variable assignment
+$x = 5;
+echo $x;  // Outputs: 5
+
+// Using a variable in an expression
+$y = 10;
+echo $x + $y;  // Outputs: 15
+
+// Variable reassignment
+$x = 20;
+echo $x;  // Outputs: 20
+
+// Complex expressions with variables
+$z = $x * ($y + 5);  // 20 * (10 + 5) = 20 * 15 = 300
+echo $z;  // Outputs: 300
+
+// Using variables in different operations
+echo $z / $x;  // 300 / 20 = 15
+echo $z - $y;  // 300 - 10 = 290
+echo $x * $y;  // 20 * 10 = 200 

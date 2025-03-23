@@ -131,6 +131,30 @@ class Lexer
     }
     
     /**
+     * Return a variable identifier (starting with $)
+     * 
+     * @return Token
+     */
+    public function var_identifier(): Token
+    {
+        $result = '';
+        $result .= $this->current_char; // Add the $ sign
+        $this->advance();
+        
+        // Variable names must start with a letter or underscore after the $
+        if ($this->current_char === null || (!ctype_alpha($this->current_char) && $this->current_char !== '_')) {
+            throw new Exception("Invalid variable name: {$result}");
+        }
+        
+        while ($this->current_char !== null && (ctype_alnum($this->current_char) || $this->current_char === '_')) {
+            $result .= $this->current_char;
+            $this->advance();
+        }
+        
+        return new Token(Token::VAR_IDENTIFIER, $result);
+    }
+    
+    /**
      * Lexical analyzer (tokenizer)
      *
      * @return Token
@@ -155,6 +179,10 @@ class Lexer
                 return new Token(Token::INTEGER, $this->integer());
             }
             
+            if ($this->current_char === '$') {
+                return $this->var_identifier();
+            }
+            
             if (ctype_alpha($this->current_char)) {
                 return $this->identifier();
             }
@@ -177,6 +205,11 @@ class Lexer
             if ($this->current_char === '/') {
                 $this->advance();
                 return new Token(Token::DIVIDE, '/');
+            }
+            
+            if ($this->current_char === '=') {
+                $this->advance();
+                return new Token(Token::ASSIGN, '=');
             }
             
             if ($this->current_char === ';') {

@@ -32,11 +32,11 @@ class BinOp extends AST
     /**
      * Constructor
      *
-     * @param AST   $left  Left operand
-     * @param Token $op    Operation token
-     * @param AST   $right Right operand
+     * @param object $left  Left operand (AST or Variable)
+     * @param Token  $op    Operation token
+     * @param object $right Right operand (AST or Variable)
      */
-    public function __construct(AST $left, Token $op, AST $right)
+    public function __construct($left, Token $op, $right)
     {
         $this->left = $left;
         $this->token = $this->op = $op;

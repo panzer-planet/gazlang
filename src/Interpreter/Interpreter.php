@@ -8,6 +8,8 @@ use GazLang\AST\Compound;
 use GazLang\AST\Num;
 use GazLang\AST\Statement;
 use GazLang\AST\EchoStatement;
+use GazLang\AST\Variable;
+use GazLang\AST\Assign;
 use GazLang\Lexer\Token;
 use GazLang\Parser\Parser;
 
@@ -22,6 +24,11 @@ class Interpreter
     private $parser;
     
     /**
+     * @var array Symbol table to store variable values
+     */
+    private $symbol_table;
+    
+    /**
      * Constructor
      *
      * @param Parser $parser The parser to get the AST from
@@ -29,6 +36,39 @@ class Interpreter
     public function __construct(Parser $parser)
     {
         $this->parser = $parser;
+        $this->symbol_table = [];
+    }
+    
+    /**
+     * Visit a Variable node
+     *
+     * @param Variable $node The node to visit
+     * 
+     * @return int The value of the variable
+     * @throws Exception If the variable is not defined
+     */
+    public function visit_Variable(Variable $node): int
+    {
+        $var_name = $node->value;
+        if (!isset($this->symbol_table[$var_name])) {
+            throw new Exception("Undefined variable: {$var_name}");
+        }
+        return $this->symbol_table[$var_name];
+    }
+    
+    /**
+     * Visit an Assign node
+     *
+     * @param Assign $node The node to visit
+     * 
+     * @return int The value assigned to the variable
+     */
+    public function visit_Assign(Assign $node): int
+    {
+        $var_name = $node->left->value;
+        $var_value = $this->visit($node->right);
+        $this->symbol_table[$var_name] = $var_value;
+        return $var_value;
     }
     
     /**
