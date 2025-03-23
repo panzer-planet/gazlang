@@ -1,0 +1,7 @@
+// Echo test example
+5 + 3;  // This won't produce output
+echo 5 + 3;  // This will output 8
+10 + 10;  // No output
+echo 10 + 10;  // This will output 20
+7 * 2;  // No output
+echo 7 * 2;  // This will output 14 

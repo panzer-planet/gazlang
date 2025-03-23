@@ -1,0 +1,9 @@
+// Simple expressions without output
+5 + 3;
+10 * 2 - 5;
+2 * 3 + 4 * 2;
+
+// Echo statements with output
+echo 5 + 3;
+echo 10 * 2;
+echo 2 * 3 + 4 * 2; 

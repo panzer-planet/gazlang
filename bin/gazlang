@@ -1,0 +1,113 @@
+#!/usr/bin/env php
+<?php
+
+// Autoload classes
+$autoloadPaths = [
+    __DIR__ . '/../vendor/autoload.php', // Composer autoload
+    __DIR__ . '/../../../autoload.php', // Installed as a dependency
+];
+
+foreach ($autoloadPaths as $file) {
+    if (file_exists($file)) {
+        require_once $file;
+        break;
+    }
+}
+
+use GazLang\Lexer\Lexer;
+use GazLang\Parser\Parser;
+use GazLang\Interpreter\Interpreter;
+use GazLang\CodeGenerator\CodeGenerator;
+
+/**
+ * Display help message
+ */
+function showHelp() {
+    echo "GazLang - A simple programming language compiler\n";
+    echo "Usage: gazlang [options]\n";
+    echo "Options:\n";
+    echo "  -h, --help     Show this help message\n";
+    echo "  -v, --version  Show version information\n";
+    echo "  -c, --code     Generate stack-based VM code instead of interpreting\n";
+    echo "  -f, --file     Read input from a file instead of stdin\n";
+}
+
+/**
+ * Display version information
+ */
+function showVersion() {
+    echo "GazLang version 0.1.0\n";
+}
+
+// Parse command-line arguments
+$options = getopt("hvf:c", ["help", "version", "file:", "code"]);
+
+if (isset($options['h']) || isset($options['help'])) {
+    showHelp();
+    exit(0);
+}
+
+if (isset($options['v']) || isset($options['version'])) {
+    showVersion();
+    exit(0);
+}
+
+$generateCode = isset($options['c']) || isset($options['code']);
+$inputFile = $options['f'] ?? ($options['file'] ?? null);
+
+if ($inputFile) {
+    // Read from file
+    if (!file_exists($inputFile)) {
+        echo "Error: File not found: $inputFile\n";
+        exit(1);
+    }
+    
+    $text = file_get_contents($inputFile);
+    processInput($text, $generateCode);
+    exit(0);
+}
+
+// Interactive mode
+echo "GazLang Interpreter\n";
+echo "Type 'exit' or 'quit' to exit\n";
+
+while (true) {
+    echo 'calc> ';
+    $line = trim(fgets(STDIN));
+    
+    if ($line === 'exit' || $line === 'quit') {
+        break;
+    }
+    
+    if (empty($line)) {
+        continue;
+    }
+    
+    processInput($line, $generateCode);
+}
+
+/**
+ * Process input text
+ * 
+ * @param string $text         The input text to process
+ * @param bool   $generateCode Whether to generate code or interpret
+ */
+function processInput(string $text, bool $generateCode = false): void {
+    try {
+        $lexer = new Lexer($text);
+        $parser = new Parser($lexer);
+        
+        if ($generateCode) {
+            // Generate code
+            $codeGenerator = new CodeGenerator($parser->parse());
+            $code = $codeGenerator->generate();
+            echo "Generated code:\n$code\n";
+        } else {
+            // Interpret - echo statements handle their own output
+            $interpreter = new Interpreter($parser);
+            $interpreter->interpret();
+        }
+    } catch (Exception $e) {
+        echo "Error: " . $e->getMessage() . "\n";
+    }
+} 
