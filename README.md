@@ -17,7 +17,7 @@ A simple programming language compiler that supports mathematical expressions wi
 ## Installation
 
 ```bash
-git clone https://github.com/yourusername/gazlang.git
+git clone https://github.com/panzer-planet/gazlang.git
 cd gazlang
 composer install
 ```
@@ -33,15 +33,15 @@ php bin/gazlang
 Example expressions:
 
 ```
-calc> 5 + 3;           // Evaluates but no output
-calc> echo 10 * 2 - 5;  // Outputs: 15
-calc> echo 2 * (3 + 4); // Outputs: 14 (parentheses for grouping)
-calc> echo (5 + 3) * 2; // Outputs: 16 (changes operator precedence)
-calc> $x = 5;           // Assign value to variable
-calc> echo $x + 3;      // Outputs: 8 (using variables in expressions)
-calc> $y = $x * 2;      // Variables in assignment expressions
-calc> echo $y;          // Outputs: 10
-calc> echo $x + $y;     // Outputs: 15
+5 + 3;           // Evaluates but no output
+echo 10 * 2 - 5;  // Outputs: 15
+echo 2 * (3 + 4); // Outputs: 14 (parentheses for grouping)
+echo (5 + 3) * 2; // Outputs: 16 (changes operator precedence)
+$x = 5;           // Assign value to variable
+echo $x + 3;      // Outputs: 8 (using variables in expressions)
+$y = $x * 2;      // Variables in assignment expressions
+echo $y;          // Outputs: 10
+echo $x + $y;     // Outputs: 15
 ```
 
 Run with a file:
