@@ -1,0 +1,47 @@
+// Simple if-else if-else example
+if (1) {
+    echo 10;
+} else if (2) {
+    echo 20;
+} else {
+    echo 30;
+}
+
+// Multiple else-if blocks
+if (0) {
+    echo 100;
+} else if (0) {
+    echo 200;
+} else if (1) {
+    echo 300;
+} else {
+    echo 400;
+}
+
+// With variables in conditions
+$x = 0;
+$y = 5;
+$z = 0;
+
+if ($x) {
+    echo 1000;
+} else if ($y) {
+    echo 2000;
+} else if ($z) {
+    echo 3000;
+} else {
+    echo 4000;
+}
+
+// Nested if-else if-else
+if (1) {
+    if (0) {
+        echo 50;
+    } else if (1) {
+        echo 60;
+    } else {
+        echo 70;
+    }
+} else {
+    echo 80;
+}

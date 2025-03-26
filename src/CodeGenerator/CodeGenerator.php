@@ -191,9 +191,14 @@ class CodeGenerator
         // Jump to end after executing if block
         $this->instructions[] = "JMP {$end_label}";
         
-        // Else block
+        // Else or else-if block
         $this->instructions[] = "LABEL {$else_label}";
-        if ($node->else_body !== null) {
+        
+        if ($node->else_if !== null) {
+            // Handle else-if branch
+            $this->visit($node->else_if);
+        } else if ($node->else_body !== null) {
+            // Handle else branch
             $this->visit($node->else_body);
         }
         

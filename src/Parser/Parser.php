@@ -166,7 +166,9 @@ class Parser
     }
     
     /**
-     * Parse an if statement (IF LPAREN expr RPAREN LBRACE statement* RBRACE [ELSE LBRACE statement* RBRACE])
+     * Parse an if statement (IF LPAREN expr RPAREN LBRACE statement* RBRACE
+     *                       [ELSE IF LPAREN expr RPAREN LBRACE statement* RBRACE]*
+     *                       [ELSE LBRACE statement* RBRACE])
      * 
      * @return IfStatementAST
      * @throws Exception
@@ -187,22 +189,32 @@ class Parser
         }
         $this->eat(Token::RIGHT_BRACE);
         
-        // Check for else clause
+        // Check for else-if or else clause
+        $else_if = null;
         $else_body = null;
+        
         if ($this->current_token->type === Token::ELSE) {
             $this->eat(Token::ELSE);
-            $this->eat(Token::LEFT_BRACE);
             
-            // Parse else body statements
-            $else_body = new CompoundAST();
-            while ($this->current_token->type !== Token::RIGHT_BRACE) {
-                $statement = $this->statement();
-                $else_body->statements[] = $statement;
+            // Check if this is an else-if or a regular else
+            if ($this->current_token->type === Token::IF) {
+                // This is an else-if, parse it as a nested if statement
+                $else_if = $this->if_statement();
+            } else {
+                // This is a regular else
+                $this->eat(Token::LEFT_BRACE);
+                
+                // Parse else body statements
+                $else_body = new CompoundAST();
+                while ($this->current_token->type !== Token::RIGHT_BRACE) {
+                    $statement = $this->statement();
+                    $else_body->statements[] = $statement;
+                }
+                $this->eat(Token::RIGHT_BRACE);
             }
-            $this->eat(Token::RIGHT_BRACE);
         }
         
-        return new IfStatementAST($condition, $if_body, $else_body);
+        return new IfStatementAST($condition, $if_body, $else_if, $else_body);
     }
 
     /**

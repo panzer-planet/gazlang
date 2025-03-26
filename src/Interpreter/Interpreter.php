@@ -166,6 +166,9 @@ class Interpreter
         if ($condition_value != 0) {
             // Execute the if branch
             return $this->visit($node->if_body);
+        } else if ($node->else_if !== null) {
+            // Execute the else-if branch if it exists
+            return $this->visit($node->else_if);
         } else if ($node->else_body !== null) {
             // Execute the else branch if it exists
             return $this->visit($node->else_body);
