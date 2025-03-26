@@ -12,6 +12,13 @@ if (2 + 2 - 4) {
     echo 200;
 }
 
+// With more complex expressions
+if (5 * (10 - 8)) {
+    echo 300;
+} else {
+    echo 400;
+}
+
 // Nested if/else
 if (5) {
     if (0) {
@@ -21,6 +28,21 @@ if (5) {
     }
 } else {
     echo 3000;
+}
+
+// Double nested if/else
+if (1) {
+    if (1) {
+        if (0) {
+            echo 5000;
+        } else {
+            echo 6000;
+        }
+    } else {
+        echo 7000;
+    }
+} else {
+    echo 8000;
 }
 
 // With variables
@@ -36,4 +58,28 @@ if ($y) {
     echo 888;
 } else {
     echo 777;
+}
+
+// With variable assignments in condition
+$a = 5;
+if ($b = $a) {
+    echo $b;
+} else {
+    echo 0;
+}
+
+// With variable expressions in condition
+$c = 7;
+$d = 3;
+if ($c - $d) {
+    echo $c + $d;
+} else {
+    echo $c * $d;
+}
+
+// With arithmetic in condition
+if (15 / 3) {
+    echo 123;
+} else {
+    echo 456;
 }

@@ -8,6 +8,7 @@ use GazLang\AST\CompoundAST;
 use GazLang\AST\NumAST;
 use GazLang\AST\StatementAST;
 use GazLang\AST\EchoStatementAST;
+use GazLang\AST\IfStatementAST;
 use GazLang\AST\VariableAST;
 use GazLang\AST\AssignAST;
 use GazLang\Lexer\Token;
@@ -38,6 +39,11 @@ class CodeGenerator
     private $next_address;
     
     /**
+     * @var int Counter for generating unique labels
+     */
+    private $label_counter;
+    
+    /**
      * Constructor
      *
      * @param object $tree The AST to generate code from
@@ -48,6 +54,7 @@ class CodeGenerator
         $this->instructions = [];
         $this->var_addresses = [];
         $this->next_address = 0;
+        $this->label_counter = 0;
     }
     
     /**
@@ -159,6 +166,39 @@ class CodeGenerator
         foreach ($node->statements as $statement) {
             $this->visit($statement);
         }
+    }
+    
+    /**
+     * Visit an IfStatement node
+     *
+     * @param IfStatementAST $node The node to visit
+     */
+    public function visit_IfStatement(IfStatementAST $node): void
+    {
+        // Generate unique labels for this if/else block
+        $else_label = "ELSE_" . $this->label_counter;
+        $end_label = "ENDIF_" . $this->label_counter;
+        $this->label_counter++;
+        
+        // Evaluate the condition
+        $this->visit($node->condition);
+        
+        // Jump to else block if condition is false (0)
+        $this->instructions[] = "JZ {$else_label}";
+        
+        // If block
+        $this->visit($node->if_body);
+        // Jump to end after executing if block
+        $this->instructions[] = "JMP {$end_label}";
+        
+        // Else block
+        $this->instructions[] = "LABEL {$else_label}";
+        if ($node->else_body !== null) {
+            $this->visit($node->else_body);
+        }
+        
+        // End of if/else statement
+        $this->instructions[] = "LABEL {$end_label}";
     }
     
     /**
