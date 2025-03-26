@@ -29,6 +29,8 @@ class Lexer
      */
     private $reserved_keywords = [
         'echo' => 'ECHO',
+        'if' => 'IF',
+        'else' => 'ELSE',
     ];
     
     /**
@@ -50,6 +52,8 @@ class Lexer
      */
     public function error(): void
     {
+
+
         throw new Exception('Invalid character at position ' . $this->pos . ': ' . $this->current_char);
     }
     
@@ -225,6 +229,16 @@ class Lexer
             if ($this->current_char === ')') {
                 $this->advance();
                 return new Token(Token::RIGHT_PAREN, ')');
+            }
+            
+            if ($this->current_char === '{') {
+                $this->advance();
+                return new Token(Token::LEFT_BRACE, '{');
+            }
+            
+            if ($this->current_char === '}') {
+                $this->advance();
+                return new Token(Token::RIGHT_BRACE, '}');
             }
             
             $this->error();

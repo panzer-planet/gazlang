@@ -8,6 +8,7 @@ use GazLang\AST\CompoundAST;
 use GazLang\AST\NumAST;
 use GazLang\AST\StatementAST;
 use GazLang\AST\EchoStatementAST;
+use GazLang\AST\IfStatementAST;
 use GazLang\AST\VariableAST;
 use GazLang\AST\AssignAST;
 use GazLang\Lexer\Token;
@@ -147,6 +148,31 @@ class Interpreter
             $results[] = $this->visit($statement);
         }
         return $results;
+    }
+    
+    /**
+     * Visit an IfStatement node
+     *
+     * @param IfStatementAST $node The node to visit
+     * 
+     * @return mixed The result of the executed branch
+     */
+    public function visit_IfStatement(IfStatementAST $node)
+    {
+        // Evaluate the condition
+        $condition_value = $this->visit($node->condition);
+        
+        // In C-like fashion, any non-zero value is considered true
+        if ($condition_value != 0) {
+            // Execute the if branch
+            return $this->visit($node->if_body);
+        } else if ($node->else_body !== null) {
+            // Execute the else branch if it exists
+            return $this->visit($node->else_body);
+        }
+        
+        // If condition is false and there's no else block, return empty result
+        return [];
     }
     
     /**

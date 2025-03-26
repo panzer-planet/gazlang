@@ -8,6 +8,7 @@ use GazLang\AST\CompoundAST;
 use GazLang\AST\NumAST;
 use GazLang\AST\StatementAST;
 use GazLang\AST\EchoStatementAST;
+use GazLang\AST\IfStatementAST;
 use GazLang\AST\VariableAST;
 use GazLang\AST\AssignAST;
 use GazLang\Lexer\Lexer;
@@ -165,15 +166,57 @@ class Parser
     }
     
     /**
-     * Parse a statement (expr SEMICOLON | echo_statement)
+     * Parse an if statement (IF LPAREN expr RPAREN LBRACE statement* RBRACE [ELSE LBRACE statement* RBRACE])
+     * 
+     * @return IfStatementAST
+     * @throws Exception
+     */
+    public function if_statement()
+    {
+        $this->eat(Token::IF);
+        $this->eat(Token::LEFT_PAREN);
+        $condition = $this->expr();
+        $this->eat(Token::RIGHT_PAREN);
+        $this->eat(Token::LEFT_BRACE);
+        
+        // Parse if body statements
+        $if_body = new CompoundAST();
+        while ($this->current_token->type !== Token::RIGHT_BRACE) {
+            $statement = $this->statement();
+            $if_body->statements[] = $statement;
+        }
+        $this->eat(Token::RIGHT_BRACE);
+        
+        // Check for else clause
+        $else_body = null;
+        if ($this->current_token->type === Token::ELSE) {
+            $this->eat(Token::ELSE);
+            $this->eat(Token::LEFT_BRACE);
+            
+            // Parse else body statements
+            $else_body = new CompoundAST();
+            while ($this->current_token->type !== Token::RIGHT_BRACE) {
+                $statement = $this->statement();
+                $else_body->statements[] = $statement;
+            }
+            $this->eat(Token::RIGHT_BRACE);
+        }
+        
+        return new IfStatementAST($condition, $if_body, $else_body);
+    }
+
+    /**
+     * Parse a statement (expr SEMICOLON | echo_statement | if_statement)
      *
-     * @return StatementAST|EchoStatementAST
+     * @return StatementAST|EchoStatementAST|IfStatementAST
      * @throws Exception
      */
     public function statement()
     {
         if ($this->current_token->type === Token::ECHO) {
             return $this->echo_statement();
+        } else if ($this->current_token->type === Token::IF) {
+            return $this->if_statement();
         }
         
         $expr = $this->expr();

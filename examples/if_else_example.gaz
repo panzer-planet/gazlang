@@ -1,0 +1,39 @@
+// Simple if/else example
+if (1) {
+    echo 42;
+} else {
+    echo 0;
+}
+
+// With expressions in the condition
+if (2 + 2 - 4) {
+    echo 100;
+} else {
+    echo 200;
+}
+
+// Nested if/else
+if (5) {
+    if (0) {
+        echo 1000;
+    } else {
+        echo 2000;
+    }
+} else {
+    echo 3000;
+}
+
+// With variables
+$x = 10;
+if ($x) {
+    echo $x;
+} else {
+    echo 999;
+}
+
+$y = 0;
+if ($y) {
+    echo 888;
+} else {
+    echo 777;
+}

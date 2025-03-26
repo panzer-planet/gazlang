@@ -20,6 +20,10 @@ class Token
     public const VAR_IDENTIFIER = 'VAR_IDENTIFIER';  // Variable identifier (starting with $)
     public const ASSIGN = 'ASSIGN';  // Assignment operator (=)
     public const EOF = 'EOF';  // End of file
+    public const IF = 'IF';  // If keyword
+    public const ELSE = 'ELSE';  // Else keyword
+    public const LEFT_BRACE = 'LEFT_BRACE';  // Left curly brace '{'
+    public const RIGHT_BRACE = 'RIGHT_BRACE';  // Right curly brace '}'
     
     /**
      * @var string The token type
