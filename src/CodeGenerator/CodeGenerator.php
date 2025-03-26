@@ -3,6 +3,7 @@
 namespace GazLang\CodeGenerator;
 
 use Exception;
+use GazLang\AST\AbstractNodeVisitor;
 use GazLang\AST\BinOpAST;
 use GazLang\AST\CompoundAST;
 use GazLang\AST\NumAST;
@@ -16,7 +17,7 @@ use GazLang\Lexer\Token;
 /**
  * CodeGenerator class transforms the AST into stack-based VM code
  */
-class CodeGenerator
+class CodeGenerator extends AbstractNodeVisitor
 {
     /**
      * @var object The AST to generate code from
@@ -61,8 +62,9 @@ class CodeGenerator
      * Visit a Variable node
      *
      * @param VariableAST $node The node to visit
+     * @return void
      */
-    public function visit_Variable(VariableAST $node): void
+    public function visitVariable(VariableAST $node): void
     {
         $var_name = $node->value;
         if (!isset($this->var_addresses[$var_name])) {
@@ -77,8 +79,9 @@ class CodeGenerator
      * Visit an Assign node
      *
      * @param AssignAST $node The node to visit
+     * @return void
      */
-    public function visit_Assign(AssignAST $node): void
+    public function visitAssign(AssignAST $node): void
     {
         $var_name = $node->left->value;
         
@@ -101,8 +104,9 @@ class CodeGenerator
      * Visit a BinOp node
      *
      * @param BinOpAST $node The node to visit
+     * @return void
      */
-    public function visit_BinOp(BinOpAST $node): void
+    public function visitBinOp(BinOpAST $node): void
     {
         // Visit left and right nodes first (post-order traversal)
         $this->visit($node->left);
@@ -126,8 +130,9 @@ class CodeGenerator
      * Visit a Num node
      *
      * @param NumAST $node The node to visit
+     * @return void
      */
-    public function visit_Num(NumAST $node): void
+    public function visitNum(NumAST $node): void
     {
         // Push the number onto the stack
         $this->instructions[] = "PUSH {$node->value}";
@@ -137,8 +142,9 @@ class CodeGenerator
      * Visit a Statement node
      *
      * @param StatementAST $node The node to visit
+     * @return void
      */
-    public function visit_Statement(StatementAST $node): void
+    public function visitStatement(StatementAST $node): void
     {
         // Evaluate the expression but don't output
         $this->visit($node->expr);
@@ -149,8 +155,9 @@ class CodeGenerator
      * Visit an EchoStatement node
      *
      * @param EchoStatementAST $node The node to visit
+     * @return void
      */
-    public function visit_EchoStatement(EchoStatementAST $node): void
+    public function visitEchoStatement(EchoStatementAST $node): void
     {
         $this->visit($node->expr);
         $this->instructions[] = 'PRINT';  // Output the result
@@ -160,8 +167,9 @@ class CodeGenerator
      * Visit a Compound node
      *
      * @param CompoundAST $node The node to visit
+     * @return void
      */
-    public function visit_Compound(CompoundAST $node): void
+    public function visitCompound(CompoundAST $node): void
     {
         foreach ($node->statements as $statement) {
             $this->visit($statement);
@@ -172,8 +180,9 @@ class CodeGenerator
      * Visit an IfStatement node
      *
      * @param IfStatementAST $node The node to visit
+     * @return void
      */
-    public function visit_IfStatement(IfStatementAST $node): void
+    public function visitIfStatement(IfStatementAST $node): void
     {
         // Generate unique labels for this if/else block
         $else_label = "ELSE_" . $this->label_counter;
@@ -206,28 +215,7 @@ class CodeGenerator
         $this->instructions[] = "LABEL {$end_label}";
     }
     
-    /**
-     * Visit a node
-     *
-     * @param object $node The node to visit
-     * @throws Exception If there's no visitor method for the node type
-     */
-    public function visit(object $node): void
-    {
-        $method = 'visit_' . get_class($node);
-        
-        // Remove namespace from the method name
-        $method = str_replace('GazLang\\AST\\', '', $method);
-        // Remove AST suffix from class name
-        $method = str_replace('AST', '', $method);
-        
-        if (method_exists($this, $method)) {
-            $this->$method($node);
-            return;
-        }
-        
-        throw new Exception("No {$method} method");
-    }
+    // The visit method is now implemented in AbstractNodeVisitor
     
     /**
      * Generate code from the AST

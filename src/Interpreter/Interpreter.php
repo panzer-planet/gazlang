@@ -3,6 +3,7 @@
 namespace GazLang\Interpreter;
 
 use Exception;
+use GazLang\AST\AbstractNodeVisitor;
 use GazLang\AST\BinOpAST;
 use GazLang\AST\CompoundAST;
 use GazLang\AST\NumAST;
@@ -17,7 +18,7 @@ use GazLang\Parser\Parser;
 /**
  * Interpreter class evaluates the AST
  */
-class Interpreter
+class Interpreter extends AbstractNodeVisitor
 {
     /**
      * @var Parser The parser that provides the AST
@@ -48,7 +49,7 @@ class Interpreter
      * @return int The value of the variable
      * @throws Exception If the variable is not defined
      */
-    public function visit_Variable(VariableAST $node): int
+    public function visitVariable(VariableAST $node): int
     {
         $var_name = $node->value;
         if (!isset($this->symbol_table[$var_name])) {
@@ -64,7 +65,7 @@ class Interpreter
      * 
      * @return int The value assigned to the variable
      */
-    public function visit_Assign(AssignAST $node): int
+    public function visitAssign(AssignAST $node): int
     {
         $var_name = $node->left->value;
         $var_value = $this->visit($node->right);
@@ -79,7 +80,7 @@ class Interpreter
      * 
      * @return int The result of the binary operation
      */
-    public function visit_BinOp(BinOpAST $node): int
+    public function visitBinOp(BinOpAST $node): int
     {
         if ($node->op->type === Token::PLUS) {
             return $this->visit($node->left) + $this->visit($node->right);
@@ -101,7 +102,7 @@ class Interpreter
      * 
      * @return int The numeric value
      */
-    public function visit_Num(NumAST $node): int
+    public function visitNum(NumAST $node): int
     {
         return $node->value;
     }
@@ -113,7 +114,7 @@ class Interpreter
      * 
      * @return int The result of the statement
      */
-    public function visit_Statement(StatementAST $node): int
+    public function visitStatement(StatementAST $node): int
     {
         // Evaluate the expression but don't output it
         return $this->visit($node->expr);
@@ -126,7 +127,7 @@ class Interpreter
      * 
      * @return int The result of the echo statement
      */
-    public function visit_EchoStatement(EchoStatementAST $node): int
+    public function visitEchoStatement(EchoStatementAST $node): int
     {
         $result = $this->visit($node->expr);
         // Print the result directly to the terminal
@@ -141,7 +142,7 @@ class Interpreter
      * 
      * @return array The results of each statement
      */
-    public function visit_Compound(CompoundAST $node): array
+    public function visitCompound(CompoundAST $node): array
     {
         $results = [];
         foreach ($node->statements as $statement) {
@@ -157,7 +158,7 @@ class Interpreter
      * 
      * @return mixed The result of the executed branch
      */
-    public function visit_IfStatement(IfStatementAST $node)
+    public function visitIfStatement(IfStatementAST $node)
     {
         // Evaluate the condition
         $condition_value = $this->visit($node->condition);
@@ -178,29 +179,7 @@ class Interpreter
         return [];
     }
     
-    /**
-     * Visit a node
-     *
-     * @param object $node The node to visit
-     * 
-     * @return mixed The result of visiting the node
-     * @throws Exception If there's no visitor method for the node type
-     */
-    public function visit(object $node)
-    {
-        $method = 'visit_' . get_class($node);
-        
-        // Remove namespace from the method name
-        $method = str_replace('GazLang\\AST\\', '', $method);
-        // Remove AST suffix from class name
-        $method = str_replace('AST', '', $method);
-        
-        if (method_exists($this, $method)) {
-            return $this->$method($node);
-        }
-        
-        throw new Exception("No {$method} method");
-    }
+    // The visit method is now implemented in AbstractNodeVisitor
     
     /**
      * Interpret the AST
