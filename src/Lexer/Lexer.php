@@ -108,6 +108,61 @@ class Lexer
         }
         return (int)$result;
     }
+    
+    /**
+     * Parse a string literal enclosed in double quotes
+     * Handles escape sequences like \n, \t, \", etc.
+     *
+     * @return string
+     * @throws Exception
+     */
+    public function string(): string
+    {
+        // Skip the opening quote
+        $this->advance();
+        
+        $result = '';
+        $escape = false;
+        
+        while ($this->current_char !== null && ($this->current_char !== '"' || $escape)) {
+            if ($escape) {
+                // Handle escape sequences
+                switch ($this->current_char) {
+                    case 'n':
+                        $result .= "\n";
+                        break;
+                    case 't':
+                        $result .= "\t";
+                        break;
+                    case '"':
+                        $result .= '"';
+                        break;
+                    case '\\':
+                        $result .= '\\';
+                        break;
+                    default:
+                        // For any other character, just add the character itself
+                        $result .= $this->current_char;
+                }
+                $escape = false;
+            } else if ($this->current_char === '\\') {
+                $escape = true;
+            } else {
+                $result .= $this->current_char;
+            }
+            
+            $this->advance();
+        }
+        
+        if ($this->current_char === null) {
+            throw new Exception('Unterminated string literal');
+        }
+        
+        // Skip the closing quote
+        $this->advance();
+        
+        return $result;
+    }
 
     /**
      * Return an identifier or reserved keyword
@@ -183,6 +238,10 @@ class Lexer
                 return new Token(Token::INTEGER, $this->integer());
             }
             
+            if ($this->current_char === '"') {
+                return new Token(Token::STRING, $this->string());
+            }
+            
             if ($this->current_char === '$') {
                 return $this->var_identifier();
             }
@@ -213,6 +272,11 @@ class Lexer
             
             if ($this->current_char === '=') {
                 $this->advance();
+                // Check for equality operator (==)
+                if ($this->current_char === '=') {
+                    $this->advance();
+                    return new Token(Token::EQUALS, '==');
+                }
                 return new Token(Token::ASSIGN, '=');
             }
             

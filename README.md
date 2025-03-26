@@ -1,12 +1,16 @@
 # GazLang
 
-A simple programming language compiler that supports mathematical expressions with integers and basic operators.
+A simple programming language compiler that supports dynamic typing with integers and strings, basic operators, control flow, and variables.
 
 ## Features
 
 - Statements terminated by semicolons (`;`)
-- Integer numbers
+- Dynamic typing with support for integers and strings
+- String literals with double quotes (`"Hello, World!"`)
+- String escape sequences (`\n`, `\t`, `\"`, `\\`)
+- String concatenation with the `+` operator
 - Mathematical operators: `+`, `-`, `*`, `/`
+- Comparison operator: `==`
 - Parentheses for grouping expressions
 - Echo statements for output (`echo <expr>;`)
 - Variables with `$` prefix (`$var = expression;`)
@@ -43,6 +47,21 @@ echo $x + 3;      // Outputs: 8 (using variables in expressions)
 $y = $x * 2;      // Variables in assignment expressions
 echo $y;          // Outputs: 10
 echo $x + $y;     // Outputs: 15
+
+// String examples
+echo "Hello, World!";     // Outputs: Hello, World!
+$greeting = "Hello";      // String assignment
+$name = "GazLang";        // Another string assignment
+echo $greeting + ", " + $name + "!";  // Outputs: Hello, GazLang!
+
+// String concatenation with numbers
+echo "The answer is " + 42;  // Outputs: The answer is 42
+echo 2025 + " is the year";  // Outputs: 2025 is the year
+
+// String escape sequences
+echo "Line 1\nLine 2";            // Outputs two lines
+echo "Tab\tcharacter";            // Outputs with tab
+echo "Double \"quotes\" inside";  // Outputs quotes within string
 
 // If/else statements
 if (1) {

@@ -7,6 +7,7 @@ use GazLang\AST\AbstractNodeVisitor;
 use GazLang\AST\BinOpAST;
 use GazLang\AST\CompoundAST;
 use GazLang\AST\NumAST;
+use GazLang\AST\StringAST;
 use GazLang\AST\StatementAST;
 use GazLang\AST\EchoStatementAST;
 use GazLang\AST\IfStatementAST;
@@ -114,13 +115,16 @@ class CodeGenerator extends AbstractNodeVisitor
         
         // Now emit the operation instruction
         if ($node->op->type === Token::PLUS) {
-            $this->instructions[] = 'ADD';
+            // For plus, we need to handle possible string concatenation
+            $this->instructions[] = 'ADD_OR_CONCAT';
         } else if ($node->op->type === Token::MINUS) {
             $this->instructions[] = 'SUB';
         } else if ($node->op->type === Token::MULTIPLY) {
             $this->instructions[] = 'MUL';
         } else if ($node->op->type === Token::DIVIDE) {
             $this->instructions[] = 'DIV';
+        } else if ($node->op->type === Token::EQUALS) {
+            $this->instructions[] = 'EQUALS';
         } else {
             throw new Exception("Unknown operator: {$node->op->type}");
         }
@@ -136,6 +140,21 @@ class CodeGenerator extends AbstractNodeVisitor
     {
         // Push the number onto the stack
         $this->instructions[] = "PUSH {$node->value}";
+    }
+    
+    /**
+     * Visit a String node
+     *
+     * @param StringAST $node The node to visit
+     * @return void
+     */
+    public function visitString(StringAST $node): void
+    {
+        // Escape special characters in the string for the code representation
+        $escapedValue = addcslashes($node->value, "\"\n\r\t\\");
+        
+        // Push the string onto the stack
+        $this->instructions[] = "PUSH_STR \"{$escapedValue}\"";
     }
     
     /**

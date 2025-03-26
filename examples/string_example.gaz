@@ -1,0 +1,51 @@
+// Basic string output
+echo "Hello, GazLang!";
+
+// String assignment to variables
+$greeting = "Hello";
+$name = "World";
+echo $greeting;
+echo $name;
+
+// String concatenation
+echo $greeting + ", " + $name + "!";
+
+// Mixed types - string and integer concatenation
+$year = 2025;
+echo "The year is " + $year;
+
+// String in if conditions (non-empty strings are considered true)
+$emptyString = "";
+$nonEmptyString = "text";
+
+if ($nonEmptyString) {
+    echo "Non-empty string is true";
+} else {
+    echo "Non-empty string is false";
+}
+
+if ($emptyString) {
+    echo "Empty string is true";
+} else {
+    echo "Empty string is false";
+}
+
+// String comparison (using == like in PHP)
+$a = "hello";
+$b = "hello";
+$c = "world";
+
+if (1) {  // For now use 1 instead of the comparison
+    echo "Strings a and b are equal";
+}
+
+if (0) {  // For now use 0 instead of the comparison
+    echo "Strings a and c are equal";
+} else {
+    echo "Strings a and c are not equal";
+}
+
+// Escaping special characters
+echo "Line 1\nLine 2";  // Newline
+echo "Tab\tcharacter";   // Tab
+echo "Double \"quotes\" inside";  // Escaped quotes

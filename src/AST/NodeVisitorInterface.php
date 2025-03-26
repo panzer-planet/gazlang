@@ -36,6 +36,14 @@ interface NodeVisitorInterface
     public function visitNum(NumAST $node);
     
     /**
+     * Visit a String node
+     *
+     * @param StringAST $node The node to visit
+     * @return mixed The result of visiting the node
+     */
+    public function visitString(StringAST $node);
+    
+    /**
      * Visit a Variable node
      *
      * @param VariableAST $node The node to visit

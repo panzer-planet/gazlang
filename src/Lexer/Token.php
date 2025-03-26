@@ -9,6 +9,7 @@ class Token
 {
     // Token types
     public const INTEGER = 'INTEGER';
+    public const STRING = 'STRING';  // String literal
     public const PLUS = 'PLUS';
     public const MINUS = 'MINUS';
     public const MULTIPLY = 'MULTIPLY';
@@ -24,6 +25,7 @@ class Token
     public const ELSE = 'ELSE';  // Else keyword
     public const LEFT_BRACE = 'LEFT_BRACE';  // Left curly brace '{'
     public const RIGHT_BRACE = 'RIGHT_BRACE';  // Right curly brace '}'
+    public const EQUALS = 'EQUALS';  // Equality operator (==)
     
     /**
      * @var string The token type

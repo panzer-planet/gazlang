@@ -7,6 +7,7 @@ use GazLang\AST\AbstractNodeVisitor;
 use GazLang\AST\BinOpAST;
 use GazLang\AST\CompoundAST;
 use GazLang\AST\NumAST;
+use GazLang\AST\StringAST;
 use GazLang\AST\StatementAST;
 use GazLang\AST\EchoStatementAST;
 use GazLang\AST\IfStatementAST;
@@ -46,10 +47,10 @@ class Interpreter extends AbstractNodeVisitor
      *
      * @param VariableAST $node The node to visit
      * 
-     * @return int The value of the variable
+     * @return mixed The value of the variable
      * @throws Exception If the variable is not defined
      */
-    public function visitVariable(VariableAST $node): int
+    public function visitVariable(VariableAST $node)
     {
         $var_name = $node->value;
         if (!isset($this->symbol_table[$var_name])) {
@@ -63,9 +64,9 @@ class Interpreter extends AbstractNodeVisitor
      *
      * @param AssignAST $node The node to visit
      * 
-     * @return int The value assigned to the variable
+     * @return mixed The value assigned to the variable
      */
-    public function visitAssign(AssignAST $node): int
+    public function visitAssign(AssignAST $node)
     {
         $var_name = $node->left->value;
         $var_value = $this->visit($node->right);
@@ -78,21 +79,61 @@ class Interpreter extends AbstractNodeVisitor
      *
      * @param BinOpAST $node The node to visit
      * 
-     * @return int The result of the binary operation
+     * @return mixed The result of the binary operation (int or string)
      */
-    public function visitBinOp(BinOpAST $node): int
+    public function visitBinOp(BinOpAST $node)
     {
+        $left = $this->visit($node->left);
+        $right = $this->visit($node->right);
+        
         if ($node->op->type === Token::PLUS) {
-            return $this->visit($node->left) + $this->visit($node->right);
+            // If either operand is a string, perform string concatenation
+            if (is_string($left) || is_string($right)) {
+                return $this->toString($left) . $this->toString($right);
+            }
+            // Otherwise, perform numeric addition
+            return $left + $right;
         } else if ($node->op->type === Token::MINUS) {
-            return $this->visit($node->left) - $this->visit($node->right);
+            // String operation not supported for minus
+            if (is_string($left) || is_string($right)) {
+                throw new Exception("Cannot perform subtraction on strings");
+            }
+            return $left - $right;
         } else if ($node->op->type === Token::MULTIPLY) {
-            return $this->visit($node->left) * $this->visit($node->right);
+            // String operation not supported for multiply
+            if (is_string($left) || is_string($right)) {
+                throw new Exception("Cannot perform multiplication on strings");
+            }
+            return $left * $right;
         } else if ($node->op->type === Token::DIVIDE) {
-            return intdiv($this->visit($node->left), $this->visit($node->right)); // Integer division
+            // String operation not supported for divide
+            if (is_string($left) || is_string($right)) {
+                throw new Exception("Cannot perform division on strings");
+            }
+            return intdiv($left, $right); // Integer division
+        } else if ($node->op->type === Token::EQUALS) {
+            // Equals operator works for both numbers and strings
+            return $left == $right ? 1 : 0; // Return 1 for true, 0 for false
         }
         
         throw new Exception("Unknown operator: {$node->op->type}");
+    }
+    
+    /**
+     * Convert a value to string for string operations
+     *
+     * @param mixed $value The value to convert
+     * @return string The string representation
+     */
+    private function toString($value): string
+    {
+        if (is_string($value)) {
+            return $value;
+        } else if (is_int($value)) {
+            return (string)$value;
+        } else {
+            return '';
+        }
     }
     
     /**
@@ -108,13 +149,25 @@ class Interpreter extends AbstractNodeVisitor
     }
     
     /**
+     * Visit a String node
+     *
+     * @param StringAST $node The node to visit
+     * 
+     * @return string The string value
+     */
+    public function visitString(StringAST $node): string
+    {
+        return $node->value;
+    }
+    
+    /**
      * Visit a Statement node
      *
      * @param StatementAST $node The node to visit
      * 
-     * @return int The result of the statement
+     * @return mixed The result of the statement
      */
-    public function visitStatement(StatementAST $node): int
+    public function visitStatement(StatementAST $node)
     {
         // Evaluate the expression but don't output it
         return $this->visit($node->expr);
@@ -125,9 +178,9 @@ class Interpreter extends AbstractNodeVisitor
      *
      * @param EchoStatementAST $node The node to visit
      * 
-     * @return int The result of the echo statement
+     * @return mixed The result of the echo statement
      */
-    public function visitEchoStatement(EchoStatementAST $node): int
+    public function visitEchoStatement(EchoStatementAST $node)
     {
         $result = $this->visit($node->expr);
         // Print the result directly to the terminal

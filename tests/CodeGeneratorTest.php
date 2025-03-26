@@ -16,7 +16,7 @@ class CodeGeneratorTest extends TestCase
         $codeGenerator = new CodeGenerator($parser->parse());
         
         $code = $codeGenerator->generate();
-        $expectedCode = "PUSH 3\nPUSH 4\nADD\nPOP";
+        $expectedCode = "PUSH 3\nPUSH 4\nADD_OR_CONCAT\nPOP";
         
         $this->assertEquals($expectedCode, $code);
     }
@@ -28,7 +28,7 @@ class CodeGeneratorTest extends TestCase
         $codeGenerator = new CodeGenerator($parser->parse());
         
         $code = $codeGenerator->generate();
-        $expectedCode = "PUSH 3\nPUSH 4\nPUSH 2\nMUL\nADD\nPOP";
+        $expectedCode = "PUSH 3\nPUSH 4\nPUSH 2\nMUL\nADD_OR_CONCAT\nPOP";
         
         $this->assertEquals($expectedCode, $code);
     }
@@ -40,7 +40,7 @@ class CodeGeneratorTest extends TestCase
         $codeGenerator = new CodeGenerator($parser->parse());
         
         $code = $codeGenerator->generate();
-        $expectedCode = "PUSH 5\nPUSH 3\nADD\nPOP\nPUSH 10\nPUSH 2\nMUL\nPOP";
+        $expectedCode = "PUSH 5\nPUSH 3\nADD_OR_CONCAT\nPOP\nPUSH 10\nPUSH 2\nMUL\nPOP";
         
         $this->assertEquals($expectedCode, $code);
     }
@@ -52,7 +52,7 @@ class CodeGeneratorTest extends TestCase
         $codeGenerator = new CodeGenerator($parser->parse());
         
         $code = $codeGenerator->generate();
-        $expectedCode = "PUSH 3\nPUSH 4\nADD\nPRINT";
+        $expectedCode = "PUSH 3\nPUSH 4\nADD_OR_CONCAT\nPRINT";
         
         $this->assertEquals($expectedCode, $code);
     }
@@ -64,7 +64,7 @@ class CodeGeneratorTest extends TestCase
         $codeGenerator = new CodeGenerator($parser->parse());
         
         $code = $codeGenerator->generate();
-        $expectedCode = "PUSH 5\nPUSH 3\nADD\nPOP\nPUSH 10\nPUSH 2\nMUL\nPRINT\nPUSH 7\nPUSH 2\nSUB\nPOP";
+        $expectedCode = "PUSH 5\nPUSH 3\nADD_OR_CONCAT\nPOP\nPUSH 10\nPUSH 2\nMUL\nPRINT\nPUSH 7\nPUSH 2\nSUB\nPOP";
         
         $this->assertEquals($expectedCode, $code);
     }

@@ -6,6 +6,7 @@ use Exception;
 use GazLang\AST\BinOpAST;
 use GazLang\AST\CompoundAST;
 use GazLang\AST\NumAST;
+use GazLang\AST\StringAST;
 use GazLang\AST\StatementAST;
 use GazLang\AST\EchoStatementAST;
 use GazLang\AST\IfStatementAST;
@@ -82,9 +83,9 @@ class Parser
     }
     
     /**
-     * Parse a factor (INTEGER | LPAREN expr RPAREN | variable)
+     * Parse a factor (INTEGER | STRING | LPAREN expr RPAREN | variable)
      *
-     * @return NumAST|BinOpAST|VariableAST
+     * @return NumAST|StringAST|BinOpAST|VariableAST
      * @throws Exception
      */
     public function factor()
@@ -94,6 +95,9 @@ class Parser
         if ($token->type === Token::INTEGER) {
             $this->eat(Token::INTEGER);
             return new NumAST($token);
+        } elseif ($token->type === Token::STRING) {
+            $this->eat(Token::STRING);
+            return new StringAST($token);
         } elseif ($token->type === Token::LEFT_PAREN) {
             $this->eat(Token::LEFT_PAREN);
             $node = $this->expr();
@@ -131,7 +135,7 @@ class Parser
     }
     
     /**
-     * Parse an expression (term ((PLUS | MINUS) term)* | variable ASSIGN expr)
+     * Parse an expression (term ((PLUS | MINUS) term)* | variable ASSIGN expr | equality)
      *
      * @return BinOpAST|NumAST|VariableAST|AssignAST
      * @throws Exception
@@ -160,6 +164,14 @@ class Parser
             }
             
             $node = new BinOpAST($node, $token, $this->term());
+        }
+        
+        // Handle equality (==)
+        if ($this->current_token->type === Token::EQUALS) {
+            $token = $this->current_token;
+            $this->eat(Token::EQUALS);
+            $right = $this->expr();
+            $node = new BinOpAST($node, $token, $right);
         }
         
         return $node;
