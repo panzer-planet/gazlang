@@ -4,6 +4,14 @@
          bootstrap="vendor/autoload.php"
          colors="true"
          stopOnFailure="false">
+    <coverage>
+        <include>
+            <directory suffix=".php">./src</directory>
+        </include>
+        <exclude>
+            <directory suffix=".php">./tests</directory>
+        </exclude>
+    </coverage>
     <testsuites>
         <testsuite name="GazLang Test Suite">
             <directory>tests</directory>
