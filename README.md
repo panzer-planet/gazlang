@@ -10,7 +10,9 @@ A simple programming language compiler that supports dynamic typing with integer
 - String escape sequences (`\n`, `\t`, `\"`, `\\`)
 - String concatenation with the `+` operator
 - Mathematical operators: `+`, `-`, `*`, `/`
-- Comparison operator: `==`
+- Operator precedence with parentheses
+- Boolean values: `true`, `false`
+- Comparison operators: `==`, `!=`
 - Parentheses for grouping expressions
 - Echo statements for output (`echo <expr>;`)
 - Variables with `$` prefix (`$var = expression;`)

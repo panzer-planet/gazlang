@@ -1,15 +1,17 @@
 <?php
 
+namespace GazLang\Tests;
+
+use GazLang\Interpreter\Interpreter;
 use GazLang\Lexer\Lexer;
 use GazLang\Parser\Parser;
-use GazLang\Interpreter\Interpreter;
 use PHPUnit\Framework\TestCase;
 
 class IfElseTest extends TestCase
 {
-    public function testIfElse()
+    public function test_if_else()
     {
-        $code = <<<CODE
+        $code = <<<'CODE'
         if (1) {
             echo 42;
         } else {
@@ -25,9 +27,9 @@ class IfElseTest extends TestCase
         $interpreter->interpret();
     }
 
-    public function testIfElseFalseCondition()
+    public function test_if_else_false_condition()
     {
-        $code = <<<CODE
+        $code = <<<'CODE'
         if (0) {
             echo 42;
         } else {
@@ -42,10 +44,10 @@ class IfElseTest extends TestCase
         $this->expectOutputString("0\n");
         $interpreter->interpret();
     }
-    
-    public function testNestedIfElse()
+
+    public function test_nested_if_else()
     {
-        $code = <<<CODE
+        $code = <<<'CODE'
         if (1) {
             if (0) {
                 echo 10;
@@ -64,8 +66,8 @@ class IfElseTest extends TestCase
         $this->expectOutputString("20\n");
         $interpreter->interpret();
     }
-    
-    public function testVariableInCondition()
+
+    public function test_variable_in_condition()
     {
         $code = <<<'CODE'
         $x = 5;
@@ -90,10 +92,10 @@ class IfElseTest extends TestCase
         $this->expectOutputString("100\n400\n");
         $interpreter->interpret();
     }
-    
-    public function testElseIf()
+
+    public function test_else_if()
     {
-        $code = <<<CODE
+        $code = <<<'CODE'
         if (0) {
             echo 10;
         } else if (1) {
@@ -110,10 +112,10 @@ class IfElseTest extends TestCase
         $this->expectOutputString("20\n");
         $interpreter->interpret();
     }
-    
-    public function testMultipleElseIf()
+
+    public function test_multiple_else_if()
     {
-        $code = <<<CODE
+        $code = <<<'CODE'
         if (0) {
             echo 100;
         } else if (0) {
@@ -132,10 +134,10 @@ class IfElseTest extends TestCase
         $this->expectOutputString("300\n");
         $interpreter->interpret();
     }
-    
-    public function testNestedElseIf()
+
+    public function test_nested_else_if()
     {
-        $code = <<<CODE
+        $code = <<<'CODE'
         if (1) {
             if (0) {
                 echo 500;

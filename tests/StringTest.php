@@ -1,13 +1,15 @@
 <?php
 
+namespace GazLang\Tests;
+
+use GazLang\Interpreter\Interpreter;
 use GazLang\Lexer\Lexer;
 use GazLang\Parser\Parser;
-use GazLang\Interpreter\Interpreter;
 use PHPUnit\Framework\TestCase;
 
 class StringTest extends TestCase
 {
-    public function testSimpleString()
+    public function test_simple_string()
     {
         $code = <<<'CODE'
         echo "Hello, World!";
@@ -20,8 +22,8 @@ class StringTest extends TestCase
         $this->expectOutputString("Hello, World!\n");
         $interpreter->interpret();
     }
-    
-    public function testStringAssignment()
+
+    public function test_string_assignment()
     {
         $code = <<<'CODE'
         $message = "Hello, GazLang!";
@@ -35,8 +37,8 @@ class StringTest extends TestCase
         $this->expectOutputString("Hello, GazLang!\n");
         $interpreter->interpret();
     }
-    
-    public function testStringConcatenation()
+
+    public function test_string_concatenation()
     {
         $code = <<<'CODE'
         echo "Hello, " + "World!";
@@ -52,8 +54,8 @@ class StringTest extends TestCase
         $this->expectOutputString("Hello, World!\nGazLang is awesome\n");
         $interpreter->interpret();
     }
-    
-    public function testMixedTypeOperations()
+
+    public function test_mixed_type_operations()
     {
         $code = <<<'CODE'
         // String + number concatenates by converting number to string
@@ -72,6 +74,23 @@ class StringTest extends TestCase
         $interpreter = new Interpreter($parser);
 
         $this->expectOutputString("Count: 42\n2022 is the year\nThe year is 2025\n");
+        $interpreter->interpret();
+    }
+
+    public function test_escape_sequences()
+    {
+        $code = <<<'CODE'
+        echo "Hello, \"GazLang\"!";
+        echo "This is a new line\n";
+        echo "This is a tab\t";
+        echo "This is a backslash\\";
+        CODE;
+
+        $lexer = new Lexer($code);
+        $parser = new Parser($lexer);
+        $interpreter = new Interpreter($parser);
+
+        $this->expectOutputString("Hello, \"GazLang\"!\nThis is a new line\n\nThis is a tab\t\nThis is a backslash\\\n");
         $interpreter->interpret();
     }
 }

@@ -8,4 +8,4 @@ namespace GazLang\AST;
 class StatementAST extends AbstractStatementAST
 {
     // Uses the base class implementation
-} 
+}

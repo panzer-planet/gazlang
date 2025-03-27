@@ -12,7 +12,7 @@ class StringAST extends TokenValueNodeAST
     /**
      * Constructor
      *
-     * @param Token $token The token containing the string value
+     * @param  Token  $token  The token containing the string value
      */
     public function __construct(Token $token)
     {
