@@ -14,10 +14,13 @@ vendor/bin/phpunit tests/SpecificTest.php
 # Run a specific test method
 vendor/bin/phpunit --filter=testMethodName tests/SpecificTest.php
  
-# Run interpreter on a file
+# Run a file (compiled and run on the VM)
 php bin/gazlang -f examples/functions_example.gaz
- 
-# Generate code instead of interpreting
+
+# Run a file on the tree-walking interpreter instead
+php bin/gazlang --interpreter -f examples/functions_example.gaz
+
+# Print the compiled VM code instead of running it
 php bin/gazlang -f examples/functions_example.gaz -c
 ```
  
@@ -53,9 +56,8 @@ each step depends on the ones before it.
    `-` via `UnaryOpAST`. `!=`, `===` and `!==` sit at the equality level, C-style. There is a
    real boolean type (`BooleanAST`, `true`/`false` keywords):
    - Comparisons, `!`, `&&` and `||` return booleans; `echo 1 < 2` prints `true`.
-   - Truthiness lives in `Runtime\Values::isTruthy()`, shared by the interpreter's
-     `if`, `while`, `!`, `&&`, `||`. The code generator's `JZ`/`NOT` have no VM
-     defined behind them yet; a VM must reuse the same rules. Numbers and booleans are C-like (`if (5)` is true,
+   - Truthiness lives in `Runtime\Values::isTruthy()`, shared by both backends'
+     `if`, `while`, `!`, `&&`, `||` (the VM's `JZ`/`NOT`). Numbers and booleans are C-like (`if (5)` is true,
      `if (0)` is false); strings are true unless empty, so `"0"` is true.
    - Booleans act as 1/0 in arithmetic and comparisons: `true + 1` is `2`,
      `true == 1` is true.
@@ -113,15 +115,16 @@ each step depends on the ones before it.
      pushes the return value onto the caller's stack. `LOAD`/`STORE` address
      frame locals, `LOAD_GLOBAL`/`STORE_GLOBAL` globals. Top level code ends in
      `HALT` (only emitted when there are functions), followed by the bodies.
-   - Function calls are capped at `Interpreter::MAX_CALL_DEPTH` (10000), so runaway
+   - Function calls are capped at `Values::MAX_CALL_DEPTH` (10000) in both backends, so runaway
      recursion is a GazLang error rather than a PHP out-of-memory fatal. `return`,
      `break` and `continue` rethrow one preallocated signal each: creating a new
      exception per return records a stack trace and made deep recursion quadratic.
    - With the pcov extension enabled every PHP call uses the C stack and deep
-     GazLang recursion segfaults (exit 139) before the limit, so `bin/gazlang`
-     restarts itself with `-d pcov.enabled=0`. In-process code (phpunit) still
-     runs with pcov, so tests of deep recursion go through the CLI. Xdebug has
-     the same problem and is not handled.
+     recursion in the interpreter segfaults (exit 139) before the limit, so
+     `bin/gazlang` restarts itself with `-d pcov.enabled=0`. In-process code
+     (phpunit) still runs with pcov, so tests of deep recursion on the interpreter
+     go through the CLI. The VM doesn't recurse in PHP and is unaffected. Xdebug
+     has the same problem and is not handled.
    - Reserved for later: `#` for object properties (`@` is taken by globals).
 5. ~~**Add arrays (and maybe maps).**~~ Done. One PHP-style ordered array type
    serves as both list and map. Decided semantics:
@@ -149,11 +152,10 @@ each step depends on the ones before it.
      functions, and can't be redeclared; the code generator emits
      `CALL_BUILTIN name argc`.
    - Code generator: `NEW_ARRAY`, `ARRAY_PUSH`, `ARRAY_SET`, `INDEX_GET`; an
-     indexed assignment pushes keys, value, then `LOAD`s the array, and
-     `SET_PATH n` / `APPEND_PATH n` then `STORE` the updated array (stack
-     effects are documented on `CodeGenerator`).
-   - Not yet: removing elements (build a new array instead), `foreach` (loop
-     over `keys()`).
+     indexed assignment pushes keys and value, then `SET_PATH n slot` /
+     `APPEND_PATH n slot` (`_GLOBAL` for globals) updates the variable in place
+     through `Values::store()` (stack effects are documented on `CodeGenerator`).
+   - Not yet: removing elements (build a new array instead).
    - A builtin's arity is an int, or `[fewest, most]` when it has optional
      parameters (`index_of`, `slice`); the parser checks calls against the range,
      the same way as for user functions with defaults.
@@ -346,8 +348,8 @@ to the working directory; the main file shows as given on the command line.
   through array paths). It does not decide what values mean.
 - `src/Runtime`: what values mean, shared by every backend. `Values` holds the
   operators, truthiness, printing, array keys and indexing as static pure
-  functions; `Builtins` holds the builtin functions and their arities. A future
-  VM should call these rather than reimplement them.
+  functions; `Builtins` holds the builtin functions and their arities. Both backends
+  call these rather than reimplementing them.
 - `src/CodeGenerator`: compiles the AST to a `Program` of stack VM instructions, each
   with the file and line it came from, plus the variable name in each slot.
 - `src/VM`: runs a `Program`. It is the default backend for `php bin/gazlang`;
@@ -355,12 +357,17 @@ to the working directory; the main file shows as given on the command line.
 
 ## VM
 
-`VM::run()` links the program (labels become instruction positions), then runs one
+`VM::link()` collapses `STORE x; LOAD x; POP` into `STORE x`, resolves labels to
+instruction positions and splits the instructions into parallel opcode and argument
+arrays. `VM::run()` then runs one
 dispatch loop over a value stack, globals, the current frame's locals and argument
 count, a stack of callers' frames, and a stack of try handlers. Every operator and
 builtin goes through `Runtime\Values` / `Runtime\Builtins`, and assignment through
 `Values::store()`, so the VM and the interpreter share their semantics rather than
-reimplementing them. Calls are frames in an array, not PHP recursion, so deep
+reimplementing them. The only exceptions are fast paths in the loop for the commonest
+cases whose result is obvious (arithmetic and comparisons on two ints that don't
+overflow, `===`, `JZ`/`NOT` on bools, `INDEX_GET` on an array, `INC`/`DEC` on an int);
+anything else, errors included, falls through to `Values`. Keep fast paths that way. Calls are frames in an array, not PHP recursion, so deep
 recursion doesn't depend on PHP's C stack. Errors get the location of the instruction
 that raised it (the innermost node the code generator was compiling, which is the node
 the interpreter reports), then unwind to the innermost handler: frames made inside the
@@ -369,8 +376,8 @@ try are dropped, the stack is cut back, and the error array is pushed for the ca
 **The two backends must agree.** `GazLangTestCase::executeCode()` runs every snippet on
 the interpreter and on the VM and fails if the output or error message differs, and
 `GazProgramTest`, `JsonTest` and `VMTest` (examples) do the same for whole programs. So
-any new language feature needs both backends, or those tests fail. The VM is roughly
-1.5 to 1.7 times as fast as the interpreter so far.
+any new language feature needs both backends, or those tests fail. After tuning, the
+VM runs fib, arithmetic loops and JSON 2 to 5 times as fast as the interpreter.
 
 **Note:** any new AST node type (e.g. new BinOp/UnaryOp variants)
 needs visitor support in *both* `Interpreter/Interpreter.php` and

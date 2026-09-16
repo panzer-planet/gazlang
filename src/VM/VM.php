@@ -64,18 +64,26 @@ final class VM
     /**
      * Run the program until HALT or its last instruction
      *
+     * The hot loop: instructions are pre-split into parallel arrays by link(), and the
+     * commonest operations on ints and bools skip the general Values functions. Those fast
+     * paths only cover cases whose result is obvious (an int result that didn't overflow,
+     * a comparison of two ints); anything else, errors included, goes through Values, and
+     * the tests compare every program's output and errors with the interpreter's.
+     *
      * @throws GazLangError If an error isn't caught by a try
      */
     public function run(): void
     {
-        $code = $this->link();
-        $end = count($code);
+        [$ops, $arg0, $arg1, $arg2, $locations] = $this->link();
+        $end = count($ops);
         $tokens = [];
         foreach (self::BINARY as $opcode => [$type, $symbol]) {
             $tokens[$opcode] = new Token($type, $symbol);
         }
         $increment = new Token(Token::INCREMENT, '++');
         $decrement = new Token(Token::DECREMENT, '--');
+        $local_names = $this->program->local_names;
+        $global_names = $this->program->global_names;
 
         $pc = 0;
         $stack = [];
@@ -92,54 +100,135 @@ final class VM
         while (true) {
             try {
                 while ($pc < $end) {
-                    [$opcode, $args] = $code[$pc++];
-
-                    switch ($opcode) {
+                    switch ($ops[$pc++]) {
+                        case 'LOAD':
+                            $slot = $arg0[$pc - 1];
+                            if (isset($locals[$slot]) || array_key_exists($slot, $locals)) {
+                                $stack[] = $locals[$slot];
+                            } else {
+                                throw new Exception("Undefined variable: {$local_names[$function][$slot]}");
+                            }
+                            break;
+                        case 'STORE':
+                            $locals[$arg0[$pc - 1]] = array_pop($stack);
+                            break;
                         case 'PUSH':
                         case 'PUSH_STR':
-                            $stack[] = $args[0];
+                            $stack[] = $arg0[$pc - 1];
                             break;
                         case 'POP':
                             array_pop($stack);
                             break;
-                        case 'LOAD':
-                            if (! array_key_exists($args[0], $locals)) {
-                                throw new Exception('Undefined variable: '.$this->program->local_names[$function][$args[0]]);
-                            }
-                            $stack[] = $locals[$args[0]];
+                        case 'JMP':
+                            $pc = $arg0[$pc - 1];
                             break;
-                        case 'STORE':
-                            $locals[$args[0]] = array_pop($stack);
+                        case 'JZ':
+                            $value = array_pop($stack);
+                            if ($value === false || ($value !== true && ! Values::isTruthy($value))) {
+                                $pc = $arg0[$pc - 1];
+                            }
+                            break;
+                        case 'ADD_OR_CONCAT':
+                            $right = array_pop($stack);
+                            $left = array_pop($stack);
+                            // An int result that overflows is a float in PHP, which Values reports as an error
+                            // @phpstan-ignore booleanAnd.rightAlwaysTrue
+                            if (is_int($left) && is_int($right) && is_int($result = $left + $right)) {
+                                $stack[] = $result;
+                            } else {
+                                $stack[] = Values::binary($tokens['ADD_OR_CONCAT'], $left, $right);
+                            }
+                            break;
+                        case 'SUB':
+                            $right = array_pop($stack);
+                            $left = array_pop($stack);
+                            // An int result that overflows is a float in PHP, which Values reports as an error
+                            // @phpstan-ignore booleanAnd.rightAlwaysTrue
+                            if (is_int($left) && is_int($right) && is_int($result = $left - $right)) {
+                                $stack[] = $result;
+                            } else {
+                                $stack[] = Values::binary($tokens['SUB'], $left, $right);
+                            }
+                            break;
+                        case 'MUL':
+                            $right = array_pop($stack);
+                            $left = array_pop($stack);
+                            // An int result that overflows is a float in PHP, which Values reports as an error
+                            // @phpstan-ignore booleanAnd.rightAlwaysTrue
+                            if (is_int($left) && is_int($right) && is_int($result = $left * $right)) {
+                                $stack[] = $result;
+                            } else {
+                                $stack[] = Values::binary($tokens['MUL'], $left, $right);
+                            }
+                            break;
+                        case 'MOD':
+                            $right = array_pop($stack);
+                            $left = array_pop($stack);
+                            // PHP_INT_MIN % -1 is 0 in PHP, as in Values
+                            $stack[] = is_int($left) && is_int($right) && $right !== 0
+                                ? $left % $right
+                                : Values::binary($tokens['MOD'], $left, $right);
+                            break;
+                        case 'LT':
+                        case 'LE':
+                        case 'GT':
+                        case 'GE':
+                        case 'EQUALS':
+                        case 'NOT_EQUALS':
+                            $opcode = $ops[$pc - 1];
+                            $right = array_pop($stack);
+                            $left = array_pop($stack);
+                            if (is_int($left) && is_int($right)) {
+                                $stack[] = match ($opcode) {
+                                    'LT' => $left < $right,
+                                    'LE' => $left <= $right,
+                                    'GT' => $left > $right,
+                                    'GE' => $left >= $right,
+                                    'EQUALS' => $left === $right,
+                                    'NOT_EQUALS' => $left !== $right,
+                                    default => throw new Exception("Unknown instruction: {$opcode}"),
+                                };
+                            } else {
+                                $stack[] = Values::binary($tokens[$opcode], $left, $right);
+                            }
+                            break;
+                        case 'STRICT_EQUALS':
+                            // Values::binary compares === before any conversion, for every type
+                            $right = array_pop($stack);
+                            $stack[] = array_pop($stack) === $right;
+                            break;
+                        case 'STRICT_NOT_EQUALS':
+                            $right = array_pop($stack);
+                            $stack[] = array_pop($stack) !== $right;
                             break;
                         case 'LOAD_GLOBAL':
-                            if (! array_key_exists($args[0], $globals)) {
-                                throw new Exception('Undefined variable: '.$this->program->global_names[$args[0]]);
+                            $slot = $arg0[$pc - 1];
+                            if (isset($globals[$slot]) || array_key_exists($slot, $globals)) {
+                                $stack[] = $globals[$slot];
+                            } else {
+                                throw new Exception("Undefined variable: {$global_names[$slot]}");
                             }
-                            $stack[] = $globals[$args[0]];
                             break;
                         case 'STORE_GLOBAL':
-                            $globals[$args[0]] = array_pop($stack);
+                            $globals[$arg0[$pc - 1]] = array_pop($stack);
                             break;
                         case 'PRINT':
                             echo Values::toString(array_pop($stack)).PHP_EOL;
                             break;
                         case 'NOT':
-                            $stack[] = ! Values::isTruthy(array_pop($stack));
+                            $value = array_pop($stack);
+                            $stack[] = $value === false || ($value !== true && ! Values::isTruthy($value));
                             break;
                         case 'NEG':
                             $stack[] = Values::negate(array_pop($stack));
                             break;
                         case 'INC':
+                            $value = array_pop($stack);
+                            $stack[] = is_int($value) && $value !== PHP_INT_MAX ? $value + 1 : Values::step($value, $increment);
+                            break;
                         case 'DEC':
-                            $stack[] = Values::step(array_pop($stack), $opcode === 'INC' ? $increment : $decrement);
-                            break;
-                        case 'JMP':
-                            $pc = $args[0];
-                            break;
-                        case 'JZ':
-                            if (! Values::isTruthy(array_pop($stack))) {
-                                $pc = $args[0];
-                            }
+                            $value = array_pop($stack);
+                            $stack[] = is_int($value) && $value !== PHP_INT_MIN ? $value - 1 : Values::step($value, $decrement);
                             break;
                         case 'NEW_ARRAY':
                             $stack[] = [];
@@ -155,7 +244,10 @@ final class VM
                             break;
                         case 'INDEX_GET':
                             $index = array_pop($stack);
-                            $stack[] = Values::index(array_pop($stack), $index);
+                            $target = array_pop($stack);
+                            $stack[] = is_array($target) && (is_int($index) || is_string($index))
+                                ? $target[$index] ?? null
+                                : Values::index($target, $index);
                             break;
                         case 'INDEX_GET_EXISTING':
                             $index = array_pop($stack);
@@ -163,14 +255,16 @@ final class VM
                             break;
                         case 'SET_PATH':
                         case 'APPEND_PATH':
-                            [$keys, $value] = $this->pathOperands($stack, $args[0], $opcode === 'APPEND_PATH');
-                            Values::store($locals, $args[1], $this->program->local_names[$function][$args[1]], $keys, null, $value);
+                            [$keys, $value] = $this->pathOperands($stack, $arg0[$pc - 1], $ops[$pc - 1] === 'APPEND_PATH');
+                            $slot = $arg1[$pc - 1];
+                            Values::store($locals, $slot, $local_names[$function][$slot], $keys, null, $value);
                             $stack[] = $value;
                             break;
                         case 'SET_PATH_GLOBAL':
                         case 'APPEND_PATH_GLOBAL':
-                            [$keys, $value] = $this->pathOperands($stack, $args[0], $opcode === 'APPEND_PATH_GLOBAL');
-                            Values::store($globals, $args[1], $this->program->global_names[$args[1]], $keys, null, $value);
+                            [$keys, $value] = $this->pathOperands($stack, $arg0[$pc - 1], $ops[$pc - 1] === 'APPEND_PATH_GLOBAL');
+                            $slot = $arg1[$pc - 1];
+                            Values::store($globals, $slot, $global_names[$slot], $keys, null, $value);
                             $stack[] = $value;
                             break;
                         case 'FOREACH_CHECK':
@@ -180,13 +274,14 @@ final class VM
                             }
                             break;
                         case 'CALL':
-                            [$target, $count, $name] = $args;
                             if (count($frames) === Values::MAX_CALL_DEPTH) {
-                                throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$name}");
+                                throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$arg2[$pc - 1]}");
                             }
                             $frames[] = [$locals, $pc, $function, $argc];
-                            $locals = $count === 0 ? [] : array_splice($stack, -$count);
-                            [$function, $argc, $pc] = [$name, $count, $target];
+                            $argc = $arg1[$pc - 1];
+                            $locals = $argc === 0 ? [] : array_splice($stack, -$argc);
+                            $function = $arg2[$pc - 1];
+                            $pc = $arg0[$pc - 1];
                             break;
                         case 'ARGC':
                             $stack[] = $argc;
@@ -199,11 +294,12 @@ final class VM
                             [$locals, $pc, $function, $argc] = array_pop($frames);
                             break;
                         case 'CALL_BUILTIN':
-                            $call_args = $args[1] === 0 ? [] : array_splice($stack, -$args[1]);
-                            $stack[] = $this->builtins->call($args[0], $call_args);
+                            $count = $arg1[$pc - 1];
+                            $call_args = $count === 0 ? [] : array_splice($stack, -$count);
+                            $stack[] = $this->builtins->call($arg0[$pc - 1], $call_args);
                             break;
                         case 'TRY':
-                            $handlers[] = [count($frames), count($stack), $args[0]];
+                            $handlers[] = [count($frames), count($stack), $arg0[$pc - 1]];
                             break;
                         case 'END_TRY':
                             array_pop($handlers);
@@ -211,6 +307,7 @@ final class VM
                         case 'HALT':
                             return;
                         default:
+                            $opcode = $ops[$pc - 1];
                             if (! isset($tokens[$opcode])) {
                                 throw new Exception("Unknown instruction: {$opcode}");
                             }
@@ -221,7 +318,7 @@ final class VM
 
                 return;
             } catch (Exception $e) {
-                $error = $this->locate($e, $code[$pc - 1]);
+                $error = $this->locate($e, $locations[$pc - 1]);
                 if (! $error instanceof GazLangError || $handlers === []) {
                     throw $error;
                 }
@@ -240,34 +337,57 @@ final class VM
     }
 
     /**
-     * Resolve labels to instruction positions and drop the LABEL instructions
+     * Prepare the program to run: simplify, resolve labels, and split into parallel arrays
      *
-     * JMP, JZ and TRY get the position to jump to; CALL gets [position, argument count,
-     * function name], the name for the call depth error.
+     * - STORE x; LOAD x; POP (an assignment used as a statement) becomes STORE x.
+     * - LABEL instructions are dropped; JMP, JZ and TRY get the position to jump to, and
+     *   CALL gets the position, the argument count and the function name (for the call
+     *   depth error).
+     * - Each instruction's opcode and first three arguments go into their own arrays, so
+     *   the loop reads what it needs without unpacking an instruction each time, and its
+     *   [file, line] into $locations, only read when there is an error.
      *
-     * @return list<array{0: string, 1: array, 2: string|null, 3: int|null}> The linked instructions
+     * @return array{0: list<string>, 1: list<mixed>, 2: list<mixed>, 3: list<mixed>, 4: list<array{0: string|null, 1: int|null}>}
      */
     private function link(): array
     {
-        $positions = [];
         $code = [];
         foreach ($this->program->instructions as $instruction) {
+            $code[] = $instruction;
+            $n = count($code);
+            if ($n >= 3 && $instruction[0] === 'POP'
+                && in_array($code[$n - 3][0], ['STORE', 'STORE_GLOBAL'], true)
+                && $code[$n - 2][0] === ($code[$n - 3][0] === 'STORE' ? 'LOAD' : 'LOAD_GLOBAL')
+                && $code[$n - 2][1] === $code[$n - 3][1]) {
+                array_splice($code, -2);
+            }
+        }
+
+        $positions = [];
+        $linked = [];
+        foreach ($code as $instruction) {
             if ($instruction[0] === 'LABEL') {
-                $positions[$instruction[1][0]] = count($code);
+                $positions[$instruction[1][0]] = count($linked);
             } else {
-                $code[] = $instruction;
+                $linked[] = $instruction;
             }
         }
 
-        foreach ($code as &$instruction) {
-            if (in_array($instruction[0], ['JMP', 'JZ', 'TRY'], true)) {
-                $instruction[1][0] = $positions[$instruction[1][0]];
-            } elseif ($instruction[0] === 'CALL') {
-                $instruction[1] = [$positions[$instruction[1][0]], $instruction[1][1], substr($instruction[1][0], 3)];
+        $ops = $arg0 = $arg1 = $arg2 = $locations = [];
+        foreach ($linked as [$opcode, $args, $file, $line]) {
+            if (in_array($opcode, ['JMP', 'JZ', 'TRY'], true)) {
+                $args[0] = $positions[$args[0]];
+            } elseif ($opcode === 'CALL') {
+                $args = [$positions[$args[0]], $args[1], substr($args[0], 3)];
             }
+            $ops[] = $opcode;
+            $arg0[] = $args[0] ?? null;
+            $arg1[] = $args[1] ?? null;
+            $arg2[] = $args[2] ?? null;
+            $locations[] = [$file, $line];
         }
 
-        return $code;
+        return [$ops, $arg0, $arg1, $arg2, $locations];
     }
 
     /**
@@ -293,11 +413,11 @@ final class VM
      * Give an error the location of the instruction that raised it, as the interpreter's visit() does
      *
      * @param  Exception  $error  The error
-     * @param  array{0: string, 1: array, 2: string|null, 3: int|null}  $instruction  The instruction that raised it
+     * @param  array{0: string|null, 1: int|null}  $location  The [file, line] of the instruction that raised it
      */
-    private function locate(Exception $error, array $instruction): Exception
+    private function locate(Exception $error, array $location): Exception
     {
-        [, , $file, $line] = $instruction;
+        [$file, $line] = $location;
         if ($line === null || ($error instanceof GazLangError && $error->line_number !== null)) {
             return $error;
         }
