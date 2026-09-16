@@ -44,6 +44,7 @@ check("0.5 is true", !0.5, false);
 check("to_float int", to_float(3), 3.0);
 check("to_float string", to_float("-1e3"), -1000.0);
 check("to_float integer string", to_float("7"), 7.0);
+check("to_float integer string too large for an int", to_float("-99999999999999999999"), -1e20);
 check("to_int truncates toward zero", [to_int(1.9), to_int(-1.9)], [1, -1]);
 check("type_of", type_of(1.5), "float");
 

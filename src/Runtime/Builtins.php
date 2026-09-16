@@ -283,6 +283,10 @@ final class Builtins
         if (is_string($value) && ($number = Lexer::parse_number($value)) !== null) {
             return (float) $number;
         }
+        // Integer digits too large for an int are still a fine float: "99999999999999999999" is 1.0E+20
+        if (is_string($value) && preg_match('/^-?[0-9]+$/', $value)) {
+            return (float) $value;
+        }
 
         throw new Exception('to_float() cannot convert '.(is_string($value) ? Lexer::quote($value) : get_debug_type($value)));
     }

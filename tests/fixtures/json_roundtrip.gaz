@@ -1,0 +1,4 @@
+// Decodes the JSON file named by the first argument and prints it encoded again
+include "../../lib/json.gaz";
+
+echo json_encode(json_decode(read_file(args()[0])));

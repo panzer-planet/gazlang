@@ -1,0 +1,51 @@
+include "../check.gaz";
+include "../../../lib/json.gaz";
+
+// Unicode escapes are built from parts so they stay escapes in this source file
+$u = "\\" + "u";
+
+// Decoding: types
+check("int", json_decode("42"), 42);
+check("negative zero int", json_decode("-0"), 0);
+check("float", json_decode("1.5"), 1.5);
+check("exponent makes a float", json_decode("1e2"), 100.0);
+check("negative zero float", to_string(json_decode("-0.0")), "-0.0");
+check("largest int stays an int", json_decode("9223372036854775807"), 9223372036854775807);
+check("smallest int stays an int", json_decode("-9223372036854775808"), -9223372036854775807 - 1);
+check("too large for an int becomes a float", json_decode("9223372036854775808"), 9.223372036854775808e18);
+check("true, false, null", json_decode("[true, false, null]"), [true, false, null]);
+check("string", json_decode("\"text\""), "text");
+
+// Decoding: structures
+check("object", json_decode("{\"a\": 1, \"b\": [2]}"), ["a" => 1, "b" => [2]]);
+check("empty object and array", json_decode("[{}, []]"), [[], []]);
+check("numeric object keys become ints", json_decode("{\"0\": \"a\", \"1\": \"b\"}"), ["a", "b"]);
+check("leading zero key stays a string", has_key(json_decode("{\"01\": 1}"), "01"), true);
+check("empty key", json_decode("{\"\": 1}"), ["" => 1]);
+check("duplicate keys: last wins", json_decode("{\"a\": 1, \"a\": 2}"), ["a" => 2]);
+check("whitespace", json_decode(" \t\n\r[ 1 , 2 ]\r\n "), [1, 2]);
+
+// Decoding: strings
+check("simple escapes", json_decode("\"\\\"\\\\\\/\\b\\f\\n\\r\\t\""), "\"\\/" + chr(8) + "\f\n\r\t");
+check("unicode escape", json_decode("\"" + $u + "0041" + $u + "00e9\""), "A" + chr(195) + chr(169));
+check("three byte UTF-8", json_decode("\"" + $u + "20ac\""), chr(226) + chr(130) + chr(172));
+check("surrogate pair", json_decode("\"" + $u + "d83d" + $u + "de00\""), chr(240) + chr(159) + chr(152) + chr(128));
+check("escaped NUL", json_decode("\"" + $u + "0000\""), chr(0));
+check("raw UTF-8 passes through", json_decode("\"caf" + chr(195) + chr(169) + "\""), "caf" + chr(195) + chr(169));
+
+// Encoding
+check("encode scalars", json_encode([1, -2, 1.5, 1.0, true, false, null]), "[1,-2,1.5,1.0,true,false,null]");
+check("encode exact floats", json_encode([0.1 + 0.2, 1e25]), "[0.30000000000000004,1.0E+25]");
+check("encode object", json_encode(["a" => 1, "b" => ["c" => null]]), "{\"a\":1,\"b\":{\"c\":null}}");
+check("list keys must be 0, 1, 2 in order", json_encode([1 => "a", 0 => "b"]), "{\"1\":\"a\",\"0\":\"b\"}");
+check("empty array is a list", json_encode([]), "[]");
+check("encode string escapes", json_encode("\"\\/\n\r\t\f" + chr(8)), "\"\\\"\\\\/\\n\\r\\t\\f\\b\"");
+check("encode other control bytes", json_encode(chr(1) + chr(31)), "\"" + $u + "0001" + $u + "001f\"");
+check("encode UTF-8 as is", json_encode("caf" + chr(195) + chr(169)), "\"caf" + chr(195) + chr(169) + "\"");
+check("encode $ and { literally", json_encode('{$x} $y'), '"{$x} $y"');
+
+// Round trips
+$document = ["name" => "Gaz", "tags" => ["a", "b"], "n" => -12, "f" => 0.1, "nested" => [[], ["k" => false]]];
+check("decode undoes encode", json_decode(json_encode($document)), $document);
+$text = "{\"a\":[1,2.5,\"x\"],\"b\":{\"c\":null}}";
+check("encode undoes decode for compact JSON", json_encode(json_decode($text)), $text);

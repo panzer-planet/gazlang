@@ -212,7 +212,10 @@ each step depends on the ones before it.
    must print exactly its `*_test.expected` (`GazProgramTest`); other `.gaz`
    files there are helpers, like `check.gaz`'s `check($label, $actual, $expected)`,
    which prints `ok <label>` or a FAIL line with both values. Reusable GazLang
-   code lives in `lib/`; the lexer's character classes are ASCII and explicit
+   code lives in `lib/`. `lib/json.gaz` is the first real GazLang tool:
+   `json_decode` follows PHP's `json_decode($text, true)` (checked against it by
+   `JsonTest` on every `tests/json/y_*.json` and `n_*.json`, where the prefix says
+   whether it must parse) and `json_encode` writes compact JSON; the lexer's character classes are ASCII and explicit
    (`Lexer::is_space` is only space, tab, newline and carriage return).
 
 ## Numbers

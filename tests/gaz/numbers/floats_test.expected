@@ -30,6 +30,7 @@ ok 0.5 is true
 ok to_float int
 ok to_float string
 ok to_float integer string
+ok to_float integer string too large for an int
 ok to_int truncates toward zero
 ok type_of
 ok floor
