@@ -267,6 +267,12 @@ final class VM
                             Values::store($globals, $slot, $global_names[$slot], $keys, null, $value);
                             $stack[] = $value;
                             break;
+                        case 'KEY_CHECK':
+                            $key = $stack[array_key_last($stack)];
+                            if (! is_int($key) && ! is_string($key)) {
+                                Values::arrayKey($key);
+                            }
+                            break;
                         case 'FOREACH_CHECK':
                             $iterable = $stack[array_key_last($stack)];
                             if (! is_array($iterable)) {
@@ -279,7 +285,7 @@ final class VM
                             }
                             $frames[] = [$locals, $pc, $function, $argc];
                             $argc = $arg1[$pc - 1];
-                            $locals = $argc === 0 ? [] : array_splice($stack, -$argc);
+                            $locals = $this->popMany($stack, $argc);
                             $function = $arg2[$pc - 1];
                             $pc = $arg0[$pc - 1];
                             break;
@@ -295,7 +301,7 @@ final class VM
                             break;
                         case 'CALL_BUILTIN':
                             $count = $arg1[$pc - 1];
-                            $call_args = $count === 0 ? [] : array_splice($stack, -$count);
+                            $call_args = $this->popMany($stack, $count);
                             $stack[] = $this->builtins->call($arg0[$pc - 1], $call_args);
                             break;
                         case 'TRY':
@@ -401,12 +407,36 @@ final class VM
     private function pathOperands(array &$stack, int $count, bool $append): array
     {
         $value = array_pop($stack);
-        $keys = $count === 0 ? [] : array_map(Values::arrayKey(...), array_splice($stack, -$count));
+        // Already checked by KEY_CHECK when they were pushed
+        $keys = $this->popMany($stack, $count);
         if ($append) {
             $keys[] = null;
         }
 
         return [$keys, $value];
+    }
+
+    /**
+     * Pop the top $count values, returning them in the order they were pushed
+     *
+     * Not array_splice(), which rebuilds the whole stack and so made each call cost time
+     * in proportion to the stack's size.
+     *
+     * @param  array  $stack  The value stack, by reference
+     * @param  int  $count  How many values to pop
+     * @return list<mixed> The values, bottom first
+     */
+    private function popMany(array &$stack, int $count): array
+    {
+        if ($count === 0) {
+            return [];
+        }
+        $values = array_slice($stack, -$count);
+        for ($i = 0; $i < $count; $i++) {
+            array_pop($stack);
+        }
+
+        return $values;
     }
 
     /**

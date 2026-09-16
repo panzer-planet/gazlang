@@ -3,6 +3,7 @@
 namespace GazLang\Tests;
 
 use GazLang\CodeGenerator\CodeGenerator;
+use GazLang\GazLangError;
 use GazLang\Interpreter\Interpreter;
 use GazLang\Lexer\Lexer;
 use GazLang\Parser\Parser;
@@ -102,7 +103,11 @@ abstract class GazLangTestCase extends TestCase
             fn () => (new VM((new CodeGenerator($this->createParser($input)->parse()))->compile()))->run()
         );
         $this->assertSame($output, $vm_output, "The VM printed something else for:\n{$input}");
-        $this->assertSame($error?->getMessage(), $vm_error?->getMessage(), "The VM failed differently for:\n{$input}");
+        $describe = fn (?Throwable $e) => $e === null ? null : [
+            get_class($e), $e->getMessage(), $e instanceof GazLangError ? [$e->path, $e->line_number] : null,
+        ];
+        // Class and location too: error() messages carry no location, but catch sees it
+        $this->assertSame($describe($error), $describe($vm_error), "The VM failed differently for:\n{$input}");
 
         if ($error !== null) {
             throw $error;

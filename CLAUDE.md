@@ -374,9 +374,12 @@ the interpreter reports), then unwind to the innermost handler: frames made insi
 try are dropped, the stack is cut back, and the error array is pushed for the catch.
 
 **The two backends must agree.** `GazLangTestCase::executeCode()` runs every snippet on
-the interpreter and on the VM and fails if the output or error message differs, and
+the interpreter and on the VM and fails if the output differs, or the error's class,
+message, file or line (what catch sees) differs, and
 `GazProgramTest`, `JsonTest` and `VMTest` (examples) do the same for whole programs. So
-any new language feature needs both backends, or those tests fail. After tuning, the
+any new language feature needs both backends, or those tests fail. Order matters as
+much as results: the VM's `KEY_CHECK` exists so a bad array key fails before later
+keys and the value run, exactly when the interpreter's does. After tuning, the
 VM runs fib, arithmetic loops and JSON 2 to 5 times as fast as the interpreter.
 
 **Note:** any new AST node type (e.g. new BinOp/UnaryOp variants)

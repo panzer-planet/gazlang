@@ -42,7 +42,9 @@ use GazLang\Runtime\Builtins;
  *
  * Arrays are values. NEW_ARRAY pushes an empty array; ARRAY_PUSH pops a value
  * and appends it to the array below, ARRAY_SET pops a value and a key and sets
- * it. INDEX_GET pops an index and an array or string and pushes the element (or
+ * it. KEY_CHECK fails unless the value on top of the stack can be an array key, and is
+ * emitted right after each key expression, so a bad key fails before later keys and the
+ * value run, as in the interpreter. INDEX_GET pops an index and an array or string and pushes the element (or
  * null). For an indexed assignment the keys, then the value are pushed, and
  * SET_PATH n slot pops the value and n keys, sets the element of the variable in
  * that local slot in place (SET_PATH_GLOBAL for a global), and pushes the value;
@@ -275,7 +277,9 @@ class CodeGenerator extends AbstractNodeVisitor
         $place = $target instanceof IndexAST ? $target->rootVariable() : $target;
         foreach ($indexes as $i => $index) {
             $key = $hidden("key{$i}");
-            $this->visit(new StatementAST($assign($key, $index)));
+            $this->visit($index);
+            $this->emit('KEY_CHECK');
+            $this->emitVariable('STORE', $key);
             $place = new IndexAST($place, $key);
             // The update reads the current value strictly, like the interpreter's store()
             $place->existing = true;
@@ -320,6 +324,10 @@ class CodeGenerator extends AbstractNodeVisitor
 
         foreach ($indexes as $index) {
             $this->visit($index);
+            // A hidden $# variable holds a key update() already checked
+            if (! ($index instanceof VariableAST && str_starts_with($index->value, '$#'))) {
+                $this->emit('KEY_CHECK');
+            }
         }
         $this->visit($node->right);
 
@@ -444,6 +452,7 @@ class CodeGenerator extends AbstractNodeVisitor
         foreach ($node->entries as [$key, $value]) {
             if ($key !== null) {
                 $this->visit($key);
+                $this->emit('KEY_CHECK');
             }
             $this->visit($value);
             $this->emit($key === null ? 'ARRAY_PUSH' : 'ARRAY_SET');

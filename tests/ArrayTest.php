@@ -84,6 +84,29 @@ class ArrayTest extends GazLangTestCase
         ));
     }
 
+    /**
+     * @dataProvider badKeysBeforeValues
+     */
+    public function test_a_bad_key_fails_before_later_keys_and_the_value_run(string $code)
+    {
+        // executeCode also runs this on the VM, which must check keys just as early
+        $this->assertEquals("Array keys must be int or string\n", $this->executeCode(
+            'function side() { echo "side effect"; return 1; } $a = []; '
+            .'try { '.$code.' } catch ($e) { echo slice($e["message"], 0, 32); }'
+        ));
+    }
+
+    public static function badKeysBeforeValues(): array
+    {
+        return [
+            'assignment' => ['$a[true] = side();'],
+            'assignment, first of two keys' => ['$a[null][side()] = 1;'],
+            'array literal' => ['$x = [true => side()];'],
+            'compound assignment' => ['$a[1.5] += side();'],
+            'increment, first of two keys' => ['$a[true][side()]++;'],
+        ];
+    }
+
     public function test_len()
     {
         $this->assertEquals("0\n3\n5\n", $this->executeCode('echo len([]); echo len([1, [2, 3], 4]); echo len("hello");'));
@@ -151,7 +174,7 @@ class ArrayTest extends GazLangTestCase
     public function test_code_gen_for_literals_and_indexing()
     {
         $this->assertEquals(
-            "NEW_ARRAY\nPUSH 1\nARRAY_PUSH\nPUSH_STR \"k\"\nPUSH true\nARRAY_SET\nPUSH 0\nINDEX_GET\nPRINT",
+            "NEW_ARRAY\nPUSH 1\nARRAY_PUSH\nPUSH_STR \"k\"\nKEY_CHECK\nPUSH true\nARRAY_SET\nPUSH 0\nINDEX_GET\nPRINT",
             $this->generateCode('echo [1, "k" => true][0];')
         );
     }
@@ -160,7 +183,7 @@ class ArrayTest extends GazLangTestCase
     {
         $this->assertEquals(
             "NEW_ARRAY\nSTORE 0\nLOAD 0\nPOP\n"
-            ."PUSH_STR \"k\"\nPUSH 0\nPUSH 5\nSET_PATH 2 0\nPOP\n"
+            ."PUSH_STR \"k\"\nKEY_CHECK\nPUSH 0\nKEY_CHECK\nPUSH 5\nSET_PATH 2 0\nPOP\n"
             ."LOAD 0\nAPPEND_PATH_GLOBAL 0 0\nPOP\n"
             ."LOAD 0\nCALL_BUILTIN len 1\nPRINT",
             $this->generateCode('$a = []; $a["k"][0] = 5; @all[] = $a; echo len($a);')
