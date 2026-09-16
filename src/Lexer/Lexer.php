@@ -118,7 +118,7 @@ class Lexer
     /**
      * Return a (multidigit) integer from the input
      *
-     * @throws GazLangError If the literal doesn't fit in an int
+     * @throws GazLangError If the literal runs into letters (12abc) or doesn't fit in an int
      */
     public function integer(): int
     {
@@ -128,7 +128,25 @@ class Lexer
             $this->advance();
         }
 
+        if ($this->current_char !== null && (ctype_alpha($this->current_char) || $this->current_char === '_')) {
+            throw new GazLangError('Invalid integer literal: '.$result.$this->read_word(), null, $this->line);
+        }
+
         return self::parse_integer($result) ?? throw new GazLangError("Integer literal too large: {$result}", null, $this->line);
+    }
+
+    /**
+     * Read letters, digits and underscores from the current character on
+     */
+    private function read_word(): string
+    {
+        $result = '';
+        while ($this->current_char !== null && (ctype_alnum($this->current_char) || $this->current_char === '_')) {
+            $result .= $this->current_char;
+            $this->advance();
+        }
+
+        return $result;
     }
 
     /**
@@ -211,11 +229,7 @@ class Lexer
      */
     public function identifier(): Token
     {
-        $result = '';
-        while ($this->current_char !== null && (ctype_alnum($this->current_char) || $this->current_char === '_')) {
-            $result .= $this->current_char;
-            $this->advance();
-        }
+        $result = $this->read_word();
 
         return new Token($this->reserved_keywords[strtolower($result)] ?? Token::IDENTIFIER, $result);
     }
@@ -229,17 +243,13 @@ class Lexer
         $result = $this->current_char; // Keep the sigil as part of the name
         $this->advance();
 
-        // Variable names must start with a letter or underscore after the $
+        // Variable names must start with a letter or underscore after the $; the whole
+        // bad name is shown, so $1abc reads as one mistake rather than a lone $
         if ($this->current_char === null || (! ctype_alpha($this->current_char) && $this->current_char !== '_')) {
-            throw new GazLangError("Invalid variable name: {$result}", null, $this->line);
+            throw new GazLangError('Invalid variable name: '.$result.$this->read_word(), null, $this->line);
         }
 
-        while ($this->current_char !== null && (ctype_alnum($this->current_char) || $this->current_char === '_')) {
-            $result .= $this->current_char;
-            $this->advance();
-        }
-
-        return new Token($type, $result);
+        return new Token($type, $result.$this->read_word());
     }
 
     /**

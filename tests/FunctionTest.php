@@ -21,7 +21,7 @@ class FunctionTest extends GazLangTestCase
 
     public function test_invalid_global_variable_name()
     {
-        $this->expectExceptionMessage('Invalid variable name: @');
+        $this->expectExceptionMessage('Invalid variable name: @1 on line 1');
         $this->createLexer('@1')->get_next_token();
     }
 

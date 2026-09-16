@@ -66,6 +66,34 @@ class LexerTest extends TestCase
         );
     }
 
+    /**
+     * @dataProvider invalidWords
+     */
+    public function test_invalid_numbers_and_variable_names_show_the_whole_word(string $source, string $message)
+    {
+        $this->expectExceptionMessage($message);
+        $this->lex($source);
+    }
+
+    public static function invalidWords(): array
+    {
+        return [
+            'number running into letters' => ['12abc', 'Invalid integer literal: 12abc on line 1'],
+            'number running into an underscore' => ['7_000', 'Invalid integer literal: 7_000 on line 1'],
+            'variable starting with a digit' => ['$1abc', 'Invalid variable name: $1abc on line 1'],
+            'global starting with a digit' => ['@2x_y', 'Invalid variable name: @2x_y on line 1'],
+            'lone sigil' => ['$ = 1', 'Invalid variable name: $ on line 1'],
+        ];
+    }
+
+    public function test_numbers_may_touch_operators_and_sigils()
+    {
+        $this->assertSame(
+            [[Token::INTEGER, 1], [Token::PLUS, '+'], [Token::INTEGER, 2], [Token::INTEGER, 3], [Token::VAR_IDENTIFIER, '$x']],
+            $this->lex('1+2 3$x')
+        );
+    }
+
     public function test_integer_literals_must_fit()
     {
         $this->assertSame([[Token::INTEGER, PHP_INT_MAX], [Token::INTEGER, 7]], $this->lex('9223372036854775807 007'));
