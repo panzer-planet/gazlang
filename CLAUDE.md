@@ -250,6 +250,17 @@ each step depends on the ones before it.
 `docs/design-review.md` (2026-09-17) lists the design questions to settle before objects,
 ranked, with a status on each; update it as they are decided.
 
+Operator changes decided on 2026-09-17 from that review, each its own commit, before
+function values (their tests would otherwise assert the old semantics):
+- **Concatenation gets its own operator, `..`** (Lua), which converts non-strings the
+  way `echo` does. Interpolation desugars to it. `+` is numeric only: a string on
+  either side is an error, so two CSV fields can't quietly join instead of adding.
+- **`==` and `!=` stop coercing.** A string never equals a number (`"5" == 5` is
+  false; compare with `to_float`); int and float still compare by value (`1 == 1.0`);
+  arrays structural, functions and objects by identity. `===` and `!==` are removed.
+  Booleans stay as they are (`true == 1`) unless that proves a problem.
+- **`/` always gives a float** (Python 3, Lua 5.3); `intdiv` is integer division.
+
 Design agreed on 2026-09-17, to build in phases (each committed and reviewed):
 1. Named functions as values, by bare name (`$f = add;`, builtins too: `len`), and
    calling any function value: `$f(1)`, `$handlers["save"]($doc)`, `make_adder(2)(3)`.
@@ -267,7 +278,7 @@ Design agreed on 2026-09-17, to build in phases (each committed and reviewed):
      and all existing errors (`Cannot use [] on function`, `foreach expects an
      array, got function`, ...) follow with no other edits. Functions are true in
      conditions; `==`/`!=` are identity and any other operator throws, as for arrays;
-     `"x" + add` is `"xfunction add"`; `echo add` prints `function add`, in an array
+     `"x" .. add` is `"xfunction add"`; `echo add` prints `function add`, in an array
      `[function add]`. `Builtins::arityError($name, $arity, $argc)` formats the parser's
      "Function add expects 2 arguments, 1 given" for the parser and both backends.
    - AST: `FunctionRefAST { name }` (a bare name as a value) and `CallValueAST
@@ -296,8 +307,8 @@ Design agreed on 2026-09-17, to build in phases (each committed and reviewed):
      error message and line: assign and call; builtin as value; array of handlers;
      `pick()(1, 2)`; `(add)(1, 2)`; a ref in an included file; a `@global` called
      inside a function; `$cb = len` as a default; `foreach ([add, len] as $f)`;
-     `"{$f(1)}"`; `echo add`, `echo [add]`, `type_of`, `===`, `==`, `in_array`,
-     `if (add)`, `"x" + add`; parse errors for an undeclared bare name and
+     `"{$f(1)}"`; `echo add`, `echo [add]`, `type_of`, `==`, `in_array`,
+     `if (add)`, `"x" .. add`; parse errors for an undeclared bare name and
      `$f(1) = 2`; runtime errors caught by try/catch with the line: `Cannot call
      int`, `null(1)`, wrong arity through a value, `add + 1`, `$a[add]`, `[add => 1]`,
      `foreach (add as $x)`, `add < len`; `error` as a value, uncaught (`Error: boom`,
@@ -317,11 +328,41 @@ Design agreed on 2026-09-17, to build in phases (each committed and reviewed):
    in GazLang (builtins calling back into GazLang would need a re-entrant VM). The
    CSV report's sorting is the real-world test.
 
-Objects, later: properties are `.` (`$user.name`, `$rows[0].total`), never spaced
-around the dot. In strings, property paths need braces, `"{$user.name}"`: the
-shorthand `"$name"` stays a variable (plus one `[index]`), so `"Saved $file.txt"` and
-`"Hi $name."` keep meaning what they say. A `<=>` operator would suit comparison
-functions.
+### Objects (decided 2026-09-17, after function values)
+
+- **Classes are values and constructing is a call:** `class Point { ... }` then
+  `Point(1, 2)`; no `new`. The parser's bare-name check becomes "names a function or
+  class". `type_of` gives `"object"`; `is_a($x, Point)` tests the class.
+- **Fields are declared up front** in the class body (a property must be declared to
+  be read or written; the parser can check `#x` against the declarations). The
+  declaration syntax is still to be chosen; `#x;` is the candidate.
+- **The constructor is the method named `_`:** `function _($x, $y) { #x = $x; #y = $y; }`.
+- **`#` is the object sigil:** `#name` is exactly `this.name` (same lookup, no
+  visibility, no accessor path); `#save()` calls this object's method; `#` alone is
+  the object itself (PHP `$this`); `#x` outside a method is a parse error, checked the
+  way `return` is. Tentative: `##` for the class of the current object (PHP `self::`),
+  for class-level state like `##created`, which is otherwise `Point.created` through
+  the class value. No fourth sigil.
+- **Objects are handles** (PHP, Python, Ruby, Lua): `$b = $a; $b.x = 1` changes `$a`;
+  arrays inside objects stay values. `==` on objects is identity. Objects are always
+  true in conditions.
+- **Properties are `.`** (`$user.name`, `$rows[0].total`), never spaced around the dot.
+  A write path is a list of steps of two kinds, index and property, so `Values::store()`
+  and `SET_PATH` need a tagged step. `$obj.method` is a bound method value (Python), so
+  `["save" => $doc.save]` works.
+- **In strings, `#name` and property paths interpolate only inside braces:**
+  `"{#name}"`, `"{$user.name}"`. Bare `"#fff"` and `"#1"` stay literal (Ruby); the
+  shorthand `"$name"` stays a variable (plus one `[index]`), so `"Saved $file.txt"` and
+  `"Hi $name."` keep meaning what they say.
+- **A closure created inside a method binds the receiver automatically** (PHP
+  closures, JS arrows), so `() -> #save()` works; locals are still captured by value.
+- **`to_string()` is the one protocol method:** `echo`, `..` and interpolation use it.
+  No operator overloading.
+- **`error()` takes any value,** so `error(ParseError("bad", 3))` works and `catch
+  (ParseError $e)` filters by class; a string error keeps today's array shape.
+  `finally` arrives with objects.
+- **No inheritance in the first cut:** composition and duck typing first; see whether
+  the self-hosted parser needs more. A `<=>` operator would suit comparison functions.
 
 ## Assignment
 
