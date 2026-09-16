@@ -1,0 +1,15 @@
+ok two decimals by default
+ok thousands
+ok negative
+ok no decimals
+ok ints
+ok rounds half away from zero
+ok rounding carries into the whole part
+ok negative that rounds to zero isn't shown as negative
+ok small
+ok custom separator
+ok no separator
+ok pad_left
+ok pad_left with zeros
+ok pad_right
+ok already wide enough

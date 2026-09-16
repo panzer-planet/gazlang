@@ -227,7 +227,11 @@ each step depends on the ones before it.
    code lives in `lib/`. `lib/json.gaz` is the first real GazLang tool:
    `json_decode` follows PHP's `json_decode($text, true)` (checked against it by
    `JsonTest` on every `tests/json/y_*.json` and `n_*.json`, where the prefix says
-   whether it must parse) and `json_encode` writes compact JSON; the lexer's character classes are ASCII and explicit
+   whether it must parse) and `json_encode` writes compact JSON. `lib/csv.gaz`
+   (RFC 4180, checked against PHP's `fgetcsv` by `CsvTest` on `tests/csv/y_*.csv` and
+   `n_*.csv`), `lib/sort.gaz` and `lib/format.gaz` back `examples/csv_report.gaz`. Scan
+   long strings with `index_of` rather than character by character in GazLang: that
+   halved CSV parsing time; the lexer's character classes are ASCII and explicit
    (`Lexer::is_space` is only space, tab, newline and carriage return).
 
 ## Assignment

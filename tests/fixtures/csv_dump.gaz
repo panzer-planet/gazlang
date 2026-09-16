@@ -1,0 +1,7 @@
+// Parses the CSV file named by the first argument and prints each row as JSON
+include "../../lib/csv.gaz";
+include "../../lib/json.gaz";
+
+foreach (csv_parse(read_file(args()[0])) as $row) {
+    echo json_encode($row);
+}

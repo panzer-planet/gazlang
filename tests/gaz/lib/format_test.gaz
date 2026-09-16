@@ -1,0 +1,19 @@
+include "../check.gaz";
+include "../../../lib/format.gaz";
+
+check("two decimals by default", format_number(1234.5), "1,234.50");
+check("thousands", format_number(1234567.891, 1), "1,234,567.9");
+check("negative", format_number(-9876.5), "-9,876.50");
+check("no decimals", format_number(1999.5, 0), "2,000");
+check("ints", format_number(1000), "1,000.00");
+check("rounds half away from zero", [format_number(0.125), format_number(-0.125)], ["0.13", "-0.13"]);
+check("rounding carries into the whole part", format_number(999.999), "1,000.00");
+check("negative that rounds to zero isn't shown as negative", format_number(-0.004), "0.00");
+check("small", format_number(0.05), "0.05");
+check("custom separator", format_number(1234567, 0, " "), "1 234 567");
+check("no separator", format_number(1234567, 2, ""), "1234567.00");
+
+check("pad_left", pad_left("7", 3), "  7");
+check("pad_left with zeros", pad_left("7", 3, "0"), "007");
+check("pad_right", pad_right("ab", 4, "."), "ab..");
+check("already wide enough", [pad_left("wide", 2), pad_right("wide", 4)], ["wide", "wide"]);

@@ -1,0 +1,58 @@
+// Sorting for GazLang. There are no function values yet, so there is no sort($array,
+// $compare): instead, sort_values() sorts plain values and sort_by() sorts rows (arrays)
+// by one of their keys.
+//
+// Both are stable merge sorts (equal items keep their order) and return a new list;
+// keys are not kept. Values are compared with < and >, so mixing types that can't be
+// ordered (a number and a non-number string, arrays, null) is an error.
+
+// $values sorted, smallest first, or largest first if $descending
+function sort_values($values, $descending = false) {
+    $rows = [];
+    foreach ($values as $value) {
+        $rows[] = [$value];
+    }
+    $sorted = [];
+    foreach (sort_by($rows, 0, $descending) as $row) {
+        $sorted[] = $row[0];
+    }
+    return $sorted;
+}
+
+// $rows sorted by $row[$key], smallest first, or largest first if $descending
+function sort_by($rows, $key, $descending = false) {
+    $list = [];
+    foreach ($rows as $row) {
+        $list[] = $row;
+    }
+    if (len($list) < 2) {
+        return $list;
+    }
+
+    $middle = intdiv(len($list), 2);
+    $left = sort_by(slice($list, 0, $middle), $key, $descending);
+    $right = sort_by(slice($list, $middle), $key, $descending);
+
+    $merged = [];
+    $l = 0;
+    $r = 0;
+    while ($l < len($left) && $r < len($right)) {
+        // Take from the right only when it must come first, so equal items stay in order
+        $right_first = $right[$r][$key] < $left[$l][$key];
+        if ($descending) {
+            $right_first = $right[$r][$key] > $left[$l][$key];
+        }
+        if ($right_first) {
+            $merged[] = $right[$r++];
+        } else {
+            $merged[] = $left[$l++];
+        }
+    }
+    while ($l < len($left)) {
+        $merged[] = $left[$l++];
+    }
+    while ($r < len($right)) {
+        $merged[] = $right[$r++];
+    }
+    return $merged;
+}

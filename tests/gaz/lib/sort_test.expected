@@ -1,0 +1,11 @@
+ok numbers
+ok descending
+ok strings compare byte by byte
+ok floats and ints together
+ok empty
+ok one item
+ok keys are dropped
+ok sort_by is stable
+ok stable when descending too
+ok sort_by an int key
+ok values that can't be ordered

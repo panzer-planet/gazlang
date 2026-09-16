@@ -1,0 +1,111 @@
+<?php
+
+namespace GazLang\Tests;
+
+/**
+ * lib/csv.gaz against PHP's fgetcsv, and examples/csv_report.gaz end to end
+ *
+ * tests/csv/y_*.csv must parse to the same rows as fgetcsv (with no escape character,
+ * as RFC 4180 has none, and without the [null] rows fgetcsv gives blank lines);
+ * n_*.csv must be rejected with a "CSV error". Everything runs on both backends.
+ */
+class CsvTest extends GazLangTestCase
+{
+    public static function documents(): array
+    {
+        $documents = [];
+        foreach (glob(self::ROOT.'/tests/csv/*.csv') as $path) {
+            $documents[basename($path)] = ['tests/csv/'.basename($path)];
+        }
+        $documents['sales.csv'] = ['examples/data/sales.csv'];
+
+        return $documents;
+    }
+
+    /**
+     * @dataProvider documents
+     */
+    public function test_document_matches_php(string $file)
+    {
+        foreach ([false, true] as $vm) {
+            [$output, $exit_code] = $this->runProgram('tests/fixtures/csv_dump.gaz', [$file], $vm);
+
+            if (str_starts_with(basename($file), 'n_')) {
+                $this->assertStringStartsWith('Error: CSV error on line ', $output);
+                $this->assertSame(1, $exit_code);
+
+                continue;
+            }
+
+            $this->assertSame(0, $exit_code, $output);
+            $rows = array_map(fn ($line) => json_decode($line, true), array_filter(explode("\n", $output), fn ($line) => $line !== ''));
+            $this->assertSame($this->phpRows($file), $rows, $file.($vm ? ' on the VM' : ''));
+        }
+    }
+
+    public function test_report_on_the_sample_data()
+    {
+        $expected = <<<'TEXT'
+            REGION  ROWS      TOTAL   AVERAGE
+            South      3   4,560.49  1,520.16
+            East       3   3,436.09  1,145.36
+            North      4   1,524.00    381.00
+            West       3     899.95    299.98
+            ---------------------------------
+            All       13  10,420.53    801.58
+
+            TEXT;
+
+        $this->assertSame([$expected, 0], $this->runProgram('examples/csv_report.gaz'));
+        $this->assertSame([$expected, 0], $this->runProgram('examples/csv_report.gaz', [], true));
+    }
+
+    public function test_report_groups_by_any_column_and_keeps_line_breaks_out_of_the_table()
+    {
+        [$output] = $this->runProgram('examples/csv_report.gaz', ['examples/data/sales.csv', 'product', 'amount'], true);
+
+        $this->assertStringContainsString("\nService plan (12 months)     1     480.00    480.00\n", $output);
+        // Equal totals keep the order they first appeared in
+        $this->assertMatchesRegularExpression('/The "Deluxe" Gizmo .*\nGizmo /', $output);
+    }
+
+    /**
+     * @dataProvider reportErrors
+     */
+    public function test_report_errors(array $args, string $message)
+    {
+        $usage = "Usage: php bin/gazlang -f examples/csv_report.gaz -- FILE GROUP_COLUMN AMOUNT_COLUMN\n";
+
+        $this->assertSame([$usage."Error: {$message}\n", 1], $this->runProgram('examples/csv_report.gaz', $args, true));
+        $this->assertSame([$usage."Error: {$message}\n", 1], $this->runProgram('examples/csv_report.gaz', $args));
+    }
+
+    public static function reportErrors(): array
+    {
+        return [
+            'wrong argument count' => [['a.csv'], 'expected 3 arguments, got 1'],
+            'missing file' => [['nope.csv', 'a', 'b'], 'Cannot read file: nope.csv'],
+            'unknown column' => [['examples/data/sales.csv', 'regin', 'amount'], 'examples/data/sales.csv has no column "regin" (columns: date, region, product, amount)'],
+            'invalid CSV' => [['tests/csv/n_unclosed_quote.csv', 'a', 'b'], 'CSV error on line 2: quoted field is never closed'],
+            'ragged row' => [['tests/csv/y_ragged_rows.csv', 'a', 'b'], 'CSV error in row 3: 1 field, but the header has 2'],
+            'not a number' => [['tests/csv/y_simple.csv', 'age', 'name'], 'row 2: name "Ada" is not a number'],
+        ];
+    }
+
+    /**
+     * The rows PHP's fgetcsv reads from a file, without the [null] rows of blank lines
+     */
+    private function phpRows(string $file): array
+    {
+        $handle = fopen(self::ROOT."/{$file}", 'r');
+        $rows = [];
+        while (($row = fgetcsv($handle, null, ',', '"', '')) !== false) {
+            if ($row !== [null]) {
+                $rows[] = $row;
+            }
+        }
+        fclose($handle);
+
+        return $rows;
+    }
+}

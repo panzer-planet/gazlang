@@ -1,0 +1,16 @@
+date,region,product,amount
+2026-01-03,North,"Widget, large",1250.00
+2026-01-04,South,Gadget,310.50
+2026-01-04,East,"The ""Deluxe"" Gizmo",2999.99
+2026-01-05,North,Gadget,305.25
+2026-01-07,West,Widget,120.00
+2026-01-08,South,"Widget, large",1250.00
+2026-01-09,East,Gadget,315.00
+
+2026-01-10,North,Refund,-150.00
+2026-01-11,West,"Service plan
+(12 months)",480.00
+2026-01-12,South,Gizmo,2999.99
+2026-01-14,North,Widget,118.75
+2026-01-15,East,Widget,121.10
+2026-01-15,West,Gadget,299.95

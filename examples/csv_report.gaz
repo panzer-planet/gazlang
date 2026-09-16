@@ -1,0 +1,104 @@
+// Summarise a CSV file: group rows by one column and total another.
+//
+//   php bin/gazlang -f examples/csv_report.gaz -- FILE GROUP_COLUMN AMOUNT_COLUMN
+//
+// With no arguments it reports examples/data/sales.csv by region and amount.
+include "../lib/csv.gaz";
+include "../lib/sort.gaz";
+include "../lib/format.gaz";
+
+// Print the usage and stop with an error (there is no exit(), so error() sets the exit code)
+function fail($message) {
+    echo "Usage: php bin/gazlang -f examples/csv_report.gaz -- FILE GROUP_COLUMN AMOUNT_COLUMN";
+    error($message);
+}
+
+$arguments = args();
+if (len($arguments) === 0) {
+    $arguments = ["examples/data/sales.csv", "region", "amount"];
+}
+if (len($arguments) !== 3) {
+    fail("expected 3 arguments, got " + len($arguments));
+}
+$file = $arguments[0];
+$group_column = $arguments[1];
+$amount_column = $arguments[2];
+
+try {
+    $rows = csv_parse(read_file($file));
+    $records = csv_records($rows);
+} catch ($e) {
+    fail($e["message"]);
+}
+if (len($rows) === 0) {
+    fail("$file is empty");
+}
+foreach ([$group_column, $amount_column] as $column) {
+    if (!in_array($column, $rows[0])) {
+        fail("$file has no column \"$column\" (columns: " + join($rows[0], ", ") + ")");
+    }
+}
+
+// Total and count the amounts in each group
+$totals = [];
+$counts = [];
+foreach ($records as $i => $record) {
+    $text = trim($record[$amount_column]);
+    try {
+        $amount = to_float($text);
+    } catch ($e) {
+        // Row numbers count the header as row 1, like a spreadsheet
+        fail("row " + ($i + 2) + ": $amount_column \"$text\" is not a number");
+    }
+    $group = $record[$group_column];
+    if (!has_key($totals, $group)) {
+        $totals[$group] = 0.0;
+        $counts[$group] = 0;
+    }
+    $totals[$group] += $amount;
+    $counts[$group]++;
+}
+
+// Largest total first; to_string keeps numeric group names like "2026" as text
+$summary = [];
+$grand_total = 0.0;
+foreach ($totals as $group => $total) {
+    $summary[] = [
+        "group" => to_string($group),
+        "count" => to_string($counts[$group]),
+        "total" => $total,
+        "average" => $total / $counts[$group],
+    ];
+    $grand_total += $total;
+}
+$summary = sort_by($summary, "total", true);
+
+// The table, with every column as wide as its widest cell
+$table = [[upper($group_column), "ROWS", "TOTAL", "AVERAGE"]];
+foreach ($summary as $line) {
+    // A quoted field can contain line breaks, which would break the table
+    $group = replace(replace($line["group"], "\r", ""), "\n", " ");
+    $table[] = [$group, $line["count"], format_number($line["total"]), format_number($line["average"])];
+}
+$table[] = ["All", to_string(len($records)), format_number($grand_total), format_number($grand_total / len($records))];
+
+$widths = [0, 0, 0, 0];
+foreach ($table as $cells) {
+    foreach ($cells as $column => $cell) {
+        if (len($cell) > $widths[$column]) {
+            $widths[$column] = len($cell);
+        }
+    }
+}
+
+foreach ($table as $row_number => $cells) {
+    // Text left aligned, numbers right aligned
+    $line = pad_right($cells[0], $widths[0]);
+    for ($column = 1; $column < 4; $column++) {
+        $line += "  " + pad_left($cells[$column], $widths[$column]);
+    }
+    if ($row_number === len($table) - 1) {
+        echo repeat("-", len($line));
+    }
+    echo $line;
+}

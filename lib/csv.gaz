@@ -1,0 +1,137 @@
+// CSV (RFC 4180) for GazLang: csv_parse($text) and csv_records($rows).
+//
+// - Fields are separated by commas and rows by \n or \r\n.
+// - A field in double quotes can contain commas, quotes (written "") and line breaks.
+// - Blank lines are skipped, and a line break after the last row is optional.
+// - A quote inside an unquoted field, text after a closing quote, and an unclosed quoted
+//   field are errors: "CSV error on line N: <what>", catchable with try/catch.
+// - Every field is a string; converting numbers is up to the caller.
+
+include "chars.gaz";
+
+function csv_parse($text) {
+    $rows = [];
+    $row = [];
+    $pos = 0;
+    $line = 1;
+    $length = len($text);
+    // Where the next line break is, found with index_of rather than by scanning each
+    // character in GazLang, which is much slower; -1 means it needs finding again
+    $next_newline = -1;
+
+    while ($pos < $length) {
+        $field_line = $line;
+        $quoted = $text[$pos] === "\"";
+        if ($quoted) {
+            // Quoted: copy up to each quote, then a second quote is a literal one
+            $pos++;
+            $field = "";
+            while (true) {
+                $quote = index_of($text, "\"", $pos);
+                if ($quote === null) {
+                    error("CSV error on line $field_line: quoted field is never closed");
+                }
+                $chunk = slice($text, $pos, $quote - $pos);
+                if (contains($chunk, "\n")) {
+                    $line += len(split($chunk, "\n")) - 1;
+                }
+                $field += $chunk;
+                $pos = $quote + 1;
+                if (char_at($text, $pos) !== "\"") {
+                    break;
+                }
+                $field += "\"";
+                $pos++;
+            }
+            $after = char_at($text, $pos);
+            if ($after !== "" && $after !== "," && $after !== "\n" && !($after === "\r" && char_at($text, $pos + 1) === "\n")) {
+                error("CSV error on line $line: unexpected " + csv_describe($after) + " after a closing quote");
+            }
+        } else {
+            // Unquoted: up to the next comma or line break, whichever comes first
+            if ($next_newline < $pos) {
+                $next_newline = index_of($text, "\n", $pos);
+                if ($next_newline === null) {
+                    $next_newline = $length;
+                }
+            }
+            $end = $next_newline;
+            $comma = index_of($text, ",", $pos);
+            if ($comma !== null && $comma < $end) {
+                $end = $comma;
+            }
+            // The \r of a \r\n line break isn't part of the field
+            if ($end === $next_newline && $end > $pos && $text[$end - 1] === "\r") {
+                $end--;
+            }
+            $field = slice($text, $pos, $end - $pos);
+            if (contains($field, "\"")) {
+                error("CSV error on line $line: quote inside an unquoted field");
+            }
+            $pos = $end;
+        }
+
+        $row[] = $field;
+        $c = char_at($text, $pos);
+        if ($c === ",") {
+            $pos++;
+            // A comma at the very end still means one more (empty) field
+            if ($pos === $length) {
+                $row[] = "";
+            }
+            continue;
+        }
+
+        // End of the row: \r\n, \n or the end of the text
+        if ($c === "\r") {
+            $pos += 2;
+        } else if ($c !== "") {
+            $pos++;
+        }
+        if ($c !== "") {
+            $line++;
+        }
+        // A blank line is one empty unquoted field: skip it
+        if (!(len($row) === 1 && $row[0] === "" && !$quoted)) {
+            $rows[] = $row;
+        }
+        $row = [];
+    }
+
+    if (len($row) > 0) {
+        $rows[] = $row;
+    }
+    return $rows;
+}
+
+// Rows after the first as maps from the first row's names: [["name" => ..., ...], ...]
+function csv_records($rows) {
+    if (len($rows) === 0) {
+        return [];
+    }
+    $header = $rows[0];
+    $records = [];
+    for ($i = 1; $i < len($rows); $i++) {
+        if (len($rows[$i]) !== len($header)) {
+            $fields = "fields";
+            if (len($rows[$i]) === 1) {
+                $fields = "field";
+            }
+            error("CSV error in row " + ($i + 1) + ": " + len($rows[$i]) + " $fields, but the header has " + len($header));
+        }
+        $record = [];
+        foreach ($header as $column => $name) {
+            $record[$name] = $rows[$i][$column];
+        }
+        $records[] = $record;
+    }
+    return $records;
+}
+
+// A character for an error message, with control characters made visible
+function csv_describe($c) {
+    if (ord($c) < 32) {
+        return "character " + ord($c);
+    }
+    return "'$c'";
+}

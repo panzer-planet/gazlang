@@ -1,0 +1,48 @@
+// Formatting numbers and text for display.
+
+// $number with $decimals digits after the point and thousands separated:
+// format_number(1234.5) is "1,234.50", format_number(-0.004) is "0.00".
+// Halves round away from zero, like round(). The number must fit in an int once
+// scaled by 10^$decimals.
+function format_number($number, $decimals = 2, $thousands = ",") {
+    $scale = 1;
+    for ($i = 0; $i < $decimals; $i++) {
+        $scale *= 10;
+    }
+    $scaled = to_int(round(abs($number) * $scale));
+
+    $whole = to_string(intdiv($scaled, $scale));
+    $grouped = "";
+    while (len($whole) > 3) {
+        $grouped = $thousands + slice($whole, -3) + $grouped;
+        $whole = slice($whole, 0, -3);
+    }
+    $text = $whole + $grouped;
+
+    if ($decimals > 0) {
+        $text += "." + pad_left(to_string($scaled % $scale), $decimals, "0");
+    }
+    // Only negative if something non-zero is shown
+    if ($number < 0 && $scaled > 0) {
+        $text = "-" + $text;
+    }
+    return $text;
+}
+
+// $text padded with $pad on the left to at least $width characters (bytes)
+function pad_left($text, $width, $pad = " ") {
+    $missing = $width - len($text);
+    if ($missing <= 0) {
+        return $text;
+    }
+    return repeat($pad, $missing) + $text;
+}
+
+// $text padded with $pad on the right to at least $width characters (bytes)
+function pad_right($text, $width, $pad = " ") {
+    $missing = $width - len($text);
+    if ($missing <= 0) {
+        return $text;
+    }
+    return $text + repeat($pad, $missing);
+}
