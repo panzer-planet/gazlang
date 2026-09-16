@@ -109,6 +109,64 @@ class LexerTest extends TestCase
         $this->lex("1;\n'open\n\nnever");
     }
 
+    public function test_interpolated_strings_are_split_into_parts_and_expression_tokens()
+    {
+        $this->assertSame(
+            [
+                [Token::STRING_START, 'Hi '], [Token::VAR_IDENTIFIER, '$name'],
+                [Token::STRING_MIDDLE, ', '], [Token::GLOBAL_VAR_IDENTIFIER, '@n'], [Token::PLUS, '+'], [Token::INTEGER, 1],
+                [Token::STRING_MIDDLE, ' '], [Token::VAR_IDENTIFIER, '$m'], [Token::LEFT_BRACKET, '['],
+                [Token::STRING_START, 'k'], [Token::VAR_IDENTIFIER, '$x'], [Token::STRING_END, ''],
+                [Token::RIGHT_BRACKET, ']'], [Token::STRING_END, '!'],
+            ],
+            $this->lex('"Hi $name, {@n + 1} {$m["k$x"]}!"')
+        );
+    }
+
+    public function test_strings_without_interpolation_stay_one_token()
+    {
+        $this->assertSame(
+            [[Token::STRING, 'costs $5, me@x.com { $y} {} $ $a {$b']],
+            $this->lex('"costs $5, me@x.com { \\$y} {} $ \\$a \\{\\$b"')
+        );
+    }
+
+    public function test_interpolation_tokens_keep_their_lines()
+    {
+        $lexer = new Lexer("\"a\n{\$x\n}b\n\$y\"");
+        $lines = [];
+        while (($token = $lexer->get_next_token())->type !== Token::EOF) {
+            $lines[] = [$token->type, $token->line];
+        }
+
+        $this->assertSame([[Token::STRING_START, 1], [Token::VAR_IDENTIFIER, 2], [Token::STRING_MIDDLE, 3], [Token::VAR_IDENTIFIER, 4], [Token::STRING_END, 4]], $lines);
+    }
+
+    /**
+     * @dataProvider unterminatedInterpolations
+     */
+    public function test_unterminated_interpolation_reports_where_the_string_starts(string $source)
+    {
+        $this->expectExceptionMessage('Unterminated string on line 2');
+        $this->lex($source);
+    }
+
+    public static function unterminatedInterpolations(): array
+    {
+        return [
+            'end of file inside braces' => ["1;\n\"a {\$x\n\n"],
+            'end of file after the braces' => ["1;\n\"a {\$x}\n\n"],
+            'end of file after a bare variable' => ["1;\n\"a \$x\n\n"],
+        ];
+    }
+
+    public function test_quote_escapes_only_what_would_interpolate()
+    {
+        $value = '$a {$b {@c $5 { $d} $ {';
+        $this->assertSame('"\\$a \\{\\$b \\{@c $5 { \\$d} $ {"', Lexer::quote($value));
+        $this->assertSame([[Token::STRING, $value]], $this->lex(Lexer::quote($value)));
+    }
+
     public function test_unknown_escape_is_an_error()
     {
         $this->expectExceptionMessage('Unknown escape sequence \q in string on line 2');

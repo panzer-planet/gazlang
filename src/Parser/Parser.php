@@ -147,7 +147,7 @@ class Parser
     {
         return match ($token->type) {
             Token::EOF => 'end of file',
-            Token::STRING => 'string '.Lexer::quote($token->value),
+            Token::STRING, Token::STRING_START, Token::STRING_MIDDLE, Token::STRING_END => 'string '.Lexer::quote($token->value),
             default => "'{$token->value}'",
         };
     }
@@ -256,7 +256,8 @@ class Parser
     }
 
     /**
-     * Parse a primary (INTEGER | STRING | TRUE | FALSE | NULL | LPAREN expr RPAREN | variable | function_call | array_literal)
+     * Parse a primary (INTEGER | STRING | interpolated_string | TRUE | FALSE | NULL | LPAREN expr RPAREN
+     *                  | variable | function_call | array_literal)
      *
      * @return AST
      *
@@ -274,6 +275,8 @@ class Parser
             $this->eat(Token::STRING);
 
             return $this->at(new StringAST($token), $token);
+        } elseif ($token->type === Token::STRING_START) {
+            return $this->interpolated_string();
         } elseif ($token->type === Token::TRUE || $token->type === Token::FALSE) {
             $this->eat($token->type);
 
@@ -297,6 +300,45 @@ class Parser
         }
 
         $this->error();
+    }
+
+    /**
+     * Parse an interpolated string (STRING_START expr (STRING_MIDDLE expr)* STRING_END)
+     *
+     * Desugared into concatenation: "Hi {$name}!" is "Hi " + $name + "!". The first
+     * operand is always a string, even an empty one, so every + concatenates and
+     * converts values the way echo does; the backends need nothing new.
+     *
+     * @return AST
+     *
+     * @throws GazLangError
+     */
+    public function interpolated_string()
+    {
+        $start = $this->current_token;
+        $this->eat(Token::STRING_START);
+        $node = $this->at(new StringAST($start), $start);
+
+        while (true) {
+            $value = $this->expr();
+
+            $part = $this->current_token;
+            if ($part->type !== Token::STRING_MIDDLE && $part->type !== Token::STRING_END) {
+                $this->fail("Expected '}' but found ".$this->describe($part));
+            }
+            $this->eat($part->type);
+
+            $plus = new Token(Token::PLUS, '+');
+            $plus->line = $part->line;
+            $node = $this->at(new BinOpAST($node, $plus, $value), $plus);
+            if ($part->value !== '') {
+                $node = $this->at(new BinOpAST($node, $plus, $this->at(new StringAST($part), $part)), $plus);
+            }
+
+            if ($part->type === Token::STRING_END) {
+                return $node;
+            }
+        }
     }
 
     /**
@@ -835,6 +877,10 @@ class Parser
     {
         $this->eat(Token::INCLUDE);
         $path_token = $this->current_token;
+        if ($path_token->type === Token::STRING_START) {
+            // Includes are resolved while parsing, before any variable has a value
+            $this->fail('include paths cannot use interpolation');
+        }
         $this->eat(Token::STRING);
         $this->eat(Token::SEMICOLON);
 

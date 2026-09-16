@@ -30,6 +30,9 @@ class ErrorTest extends GazLangTestCase
             'keyword expected' => ['function f() { } function g() { } echo 1 if', "Expected ';' but found 'if' on line 1"],
             'comments count as lines' => ["// one\n// two\necho $;", 'Invalid variable name: $ on line 3'],
             'undefined function, at the call' => ["function f() {}\n\nmissing();", 'Undefined function: missing on line 3'],
+            'interpolation not closed by }' => ['echo "a {$x $y} b";', "Expected '}' but found '\$y' on line 1"],
+            'empty interpolation' => ['echo "a {$}";', 'Invalid variable name: $ on line 1'],
+            'include with interpolation' => ["\$f = 1;\ninclude \"lib/{\$f}.gaz\";", 'include paths cannot use interpolation on line 2'],
             'duplicate parameter' => ["function f(\$a,\n \$a) {}", 'Duplicate parameter $a in function f on line 2'],
         ];
     }

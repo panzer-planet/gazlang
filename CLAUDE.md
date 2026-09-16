@@ -200,13 +200,29 @@ each step depends on the ones before it.
 
 ## Strings
 
-Strings are byte strings. Single-quoted literals are raw, with PHP's rules: only
-`\'` and `\\` are escapes and any other backslash is kept. Double-quoted literals support `\n \t \r \v \f \e \0 \\ \"`, `\xHH` (exactly
-two hex digits) and `\u{H}` (1 to 6 hex digits, a code point up to 10FFFF that
-isn't a surrogate, written as UTF-8). Any other escape is a lexer error, and so is
-`\0` followed by a digit, which would be octal in PHP and C. `Lexer::quote()` is
-the exact inverse: named escapes, `\xHH` for other control bytes and NUL, other
-bytes as is. Anything that shows a string as source uses it.
+Strings are byte strings (like PHP: `len("é")` is 2, `upper` and the character
+classes are ASCII; UTF-8 passes through untouched). Names stay ASCII only.
+
+Single-quoted literals are raw, with PHP's rules: only `\'` and `\\` are escapes
+and any other backslash is kept. Double-quoted literals support
+`\n \t \r \v \f \e \0 \\ \" \$ \{`, `\xHH` (exactly two hex digits) and `\u{H}` (1 to 6 hex
+digits, a code point up to 10FFFF that isn't a surrogate, written as UTF-8). Any
+other escape is a lexer error, and so is `\0` followed by a digit, which would be
+octal in PHP and C.
+
+Double-quoted strings interpolate, PHP style: `"Hi $name"` (a `$` followed by a
+letter or `_`, then the greedy name) and `"{$expr}"` / `"{@expr}"` (any expression
+starting with that sigil, up to the `}`). Anything else stays literal: `$5`, a lone
+`$`, `me@example.com`, `{ $x}`'s brace, `{}`. The lexer emits `STRING_START`, the
+expression's tokens, `STRING_MIDDLE` between interpolations and `STRING_END`
+(a string without interpolation is one `STRING`), tracking open strings on a
+stack so strings nest inside interpolations. The parser desugars to `+`
+(`"Hi {$n}!"` is `"Hi " + $n + "!"`, always starting with a string), so values
+convert like `echo` and the backends need nothing. Include paths can't interpolate.
+
+`Lexer::quote()` is the exact inverse of a literal: named escapes, `\xHH` for
+other control bytes and NUL, `\$` and `\{` only where they would interpolate,
+other bytes as is. Anything that shows a string as source uses it.
 
 ## Errors
 
@@ -235,8 +251,6 @@ to the working directory; the main file shows as given on the command line.
 
 ## Later
 
-- String interpolation, decided but not designed: it will apply to double-quoted
-  strings only, so single-quoted strings stay raw and keep their meaning.
 - A VM that runs the code generator's output, calling `src/Runtime` for semantics.
 
 **Note:** any new AST node type (e.g. new BinOp/UnaryOp variants)

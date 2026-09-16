@@ -1,0 +1,38 @@
+include "../check.gaz";
+
+$name = "Gaz";
+$name_2 = "two";
+$items = ["first", "second"];
+$user = ["name" => "Werner", "tags" => ["admin"]];
+@count = 41;
+
+// Shorthand: $name, greedy over letters, digits and underscores
+check("bare variable", "Hi $name!", "Hi Gaz!");
+check("bare variable at the start and end", "$name", "Gaz");
+check("bare variable is greedy", "$name_2", "two");
+
+// Braces: any expression starting with $ or @
+check("braces", "Hi {$name}!", "Hi Gaz!");
+check("braces around a longer name", "{$name}_2", "Gaz_2");
+check("index", "{$items[1]}", "second");
+check("nested keys with quotes inside", "{$user["tags"][0]}", "admin");
+check("global", "{@count} calls", "41 calls");
+check("expression", "{@count + 1}", "42");
+check("function call after the sigil", "{$items[len($items) - 1]}", "second");
+check("several in a row", "$name{$name}$name", "GazGazGaz");
+check("interpolated string inside interpolation", "{$user["na{$name}"]}", "null");
+
+// Values convert like echo and +
+check("ints convert", "n={@count}", "n=41");
+check("null and arrays", "{$user["missing"]} " + "{$user["tags"]}", "null [\"admin\"]");
+
+// Not interpolation
+check("dollar before a digit", "costs $5", "costs " + "$" + "5");
+check("lone dollar", "$", "\$");
+check("email address", "me@example.com", "me" + "@" + "example.com");
+check("brace before a space", "{ $name}", "{ Gaz}");
+check("brace alone", "{}", "{" + "}");
+check("escaped dollar", "\$name", "$" + "name");
+check("escaped brace", "\{$name}", "{Gaz}");
+check("escaped both", "\{\$name}", "{" + "$" + "name}");
+check("single quotes stay raw", '$name {$name}', "\$name \{\$name}");

@@ -1,0 +1,23 @@
+ok bare variable
+ok bare variable at the start and end
+ok bare variable is greedy
+ok braces
+ok braces around a longer name
+ok index
+ok nested keys with quotes inside
+ok global
+ok expression
+ok function call after the sigil
+ok several in a row
+ok interpolated string inside interpolation
+ok ints convert
+ok null and arrays
+ok dollar before a digit
+ok lone dollar
+ok email address
+ok brace before a space
+ok brace alone
+ok escaped dollar
+ok escaped brace
+ok escaped both
+ok single quotes stay raw

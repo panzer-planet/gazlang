@@ -1,0 +1,11 @@
+// Interpolation: shorthand, braces, globals, nesting, and look-alikes that stay literal
+$name = "Gaz";
+echo "Hi $name! {$name}_2 $name_2";
+echo "{@count + 1} {$items[len($items) - 1]} {$user["tags"][0]}";
+echo "nested {$m["k {$name} z"]} done" + "$name{$name}$name";
+echo "costs $5, me@example.com { $name} {} $ \$name \{$name} \{\$name}";
+echo "multi
+line $name
+{$name
+} end";
+echo '$name {$name} stays raw';

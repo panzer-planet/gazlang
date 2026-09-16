@@ -10,7 +10,13 @@ class Token
     // Token types
     public const INTEGER = 'INTEGER';
 
-    public const STRING = 'STRING';  // String literal
+    public const STRING = 'STRING';  // String literal without interpolation
+
+    public const STRING_START = 'STRING_START';  // Text of an interpolated string before its first interpolation
+
+    public const STRING_MIDDLE = 'STRING_MIDDLE';  // Text between two interpolations
+
+    public const STRING_END = 'STRING_END';  // Text after the last interpolation, up to the closing quote
 
     public const PLUS = 'PLUS';
 
@@ -126,7 +132,7 @@ class Token
     /**
      * The token as one line of `gazlang --tokens` output: LINE TYPE VALUE
      *
-     * String values are quoted as literals and integers written as digits; every other
+     * String values (including the parts of interpolated strings) are quoted as literals and integers written as digits; every other
      * value is the source text, which never contains spaces. EOF has no value. The
      * self-hosted lexer must print exactly this, so the two can be diffed.
      */
@@ -134,7 +140,7 @@ class Token
     {
         $value = match (true) {
             $this->type === self::EOF => '',
-            $this->type === self::STRING => ' '.Lexer::quote($this->value),
+            in_array($this->type, [self::STRING, self::STRING_START, self::STRING_MIDDLE, self::STRING_END], true) => ' '.Lexer::quote($this->value),
             default => " {$this->value}",
         };
 

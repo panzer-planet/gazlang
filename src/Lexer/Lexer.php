@@ -30,6 +30,15 @@ class Lexer
     private $line = 1;
 
     /**
+     * @var array<array{0: string, 1: int}> Double-quoted strings with an interpolation in progress,
+     *                                      innermost last, as [state, line the string starts on].
+     *                                      "braces": inside {$...}, where } resumes the string.
+     *                                      "bare": the next token is the $name of "Hi $name".
+     *                                      "after_bare": that $name was read, so the string resumes.
+     */
+    private $interpolations = [];
+
+    /**
      * Single character escapes in string literals: the character after the backslash, and what it stands for
      */
     private const ESCAPES = [
@@ -42,6 +51,8 @@ class Lexer
         '0' => "\0",
         '\\' => '\\',
         '"' => '"',
+        '$' => '$',
+        '{' => '{',
     ];
 
     /**
@@ -226,12 +237,13 @@ class Lexer
     }
 
     /**
-     * Write a string as a GazLang string literal, the inverse of string()
+     * Write a string as a double-quoted GazLang string literal that reads back as exactly $value
      *
      * Used wherever strings are shown as source: printed arrays, syntax errors, generated
      * code and --tokens. Backslash, quote and the named control characters use their
      * escapes, other control bytes (and NUL, so a following digit can't make it look
-     * octal) use \xHH, and everything else, including UTF-8, is written as is.
+     * octal) use \xHH, and everything else, including UTF-8, is written as is. $ and {
+     * are escaped only where they would start an interpolation ($name, {$, {@).
      *
      * @param  string  $value  The string
      */
@@ -240,38 +252,59 @@ class Lexer
         $named = array_flip(array_diff_key(self::ESCAPES, ['0' => true]));
 
         return '"'.preg_replace_callback(
-            '/[\x00-\x1F\x7F"\\\\]/',
+            '/[\x00-\x1F\x7F"\\\\]|\$(?=[A-Za-z_])|\{(?=[$@])/',
             fn ($match) => isset($named[$match[0]]) ? '\\'.$named[$match[0]] : sprintf('\\x%02X', ord($match[0])),
             $value
         ).'"';
     }
 
     /**
-     * Parse a string literal enclosed in double quotes
+     * Read the text of a double-quoted string, up to its closing quote or next interpolation
      *
-     * Escapes: \n \t \r \v \f \e \0 \\ \", \xHH for a byte, and \u{H} (1 to 6 hex
-     * digits) for a Unicode code point written as UTF-8. Anything else after a
+     * A string without interpolation is one STRING token. With interpolation it is
+     * STRING_START (the text before the first one), the tokens of each interpolated
+     * expression, STRING_MIDDLE for the text between them and STRING_END for the text
+     * after the last. "$name" interpolates a variable, "{$...}" and "{@...}" an
+     * expression; the braces themselves produce no tokens.
+     *
+     * Escapes: \n \t \r \v \f \e \0 \\ \" \$ \{, \xHH for a byte, and \u{H} (1 to 6
+     * hex digits) for a Unicode code point written as UTF-8. Anything else after a
      * backslash is an error, including \0 followed by a digit, which is an octal
      * escape in PHP and C.
      *
-     * @throws GazLangError
+     * @param  bool  $first  True at the opening quote, false when resuming after an interpolation
+     *
+     * @throws GazLangError If the string is not closed
      */
-    public function string(): string
+    private function string_part(bool $first): Token
     {
-        // Skip the opening quote; an unterminated string is reported where it starts
-        $start_line = $this->line;
-        $this->advance();
+        if ($first) {
+            // An unterminated string is reported where it starts
+            $start_line = $this->line;
+            $this->advance();
+        } else {
+            [, $start_line] = array_pop($this->interpolations);
+        }
 
-        $result = '';
+        $text = '';
         while ($this->current_char !== null && $this->current_char !== '"') {
             if ($this->current_char === '\\') {
                 $this->advance();
                 if ($this->current_char === null) {
                     break;
                 }
-                $result .= $this->escape();
+                $text .= $this->escape();
+            } elseif ($this->current_char === '$' && $this->peek() !== null && (self::is_alpha($this->peek()) || $this->peek() === '_')) {
+                $this->interpolations[] = ['bare', $start_line];
+
+                return new Token($first ? Token::STRING_START : Token::STRING_MIDDLE, $text);
+            } elseif ($this->current_char === '{' && ($this->peek() === '$' || $this->peek() === '@')) {
+                $this->advance();
+                $this->interpolations[] = ['braces', $start_line];
+
+                return new Token($first ? Token::STRING_START : Token::STRING_MIDDLE, $text);
             } else {
-                $result .= $this->current_char;
+                $text .= $this->current_char;
                 $this->advance();
             }
         }
@@ -283,7 +316,7 @@ class Lexer
         // Skip the closing quote
         $this->advance();
 
-        return $result;
+        return new Token($first ? Token::STRING : Token::STRING_END, $text);
     }
 
     /**
@@ -443,18 +476,30 @@ class Lexer
      */
     public function get_next_token(): Token
     {
-        while ($this->current_char !== null) {
-            if (self::is_space($this->current_char)) {
-                $this->skip_whitespace();
-            } elseif ($this->current_char === '/' && $this->peek() === '/') {
-                $this->skip_comment();
-            } else {
-                break;
+        $line = $this->line;
+        $state = $this->interpolations === [] ? null : $this->interpolations[array_key_last($this->interpolations)][0];
+
+        if ($state === 'bare') {
+            // "Hi $name": the variable, then the rest of the string
+            $this->interpolations[array_key_last($this->interpolations)][0] = 'after_bare';
+            $token = $this->var_identifier();
+        } elseif ($state === 'after_bare') {
+            $token = $this->string_part(false);
+        } else {
+            while ($this->current_char !== null) {
+                if (self::is_space($this->current_char)) {
+                    $this->skip_whitespace();
+                } elseif ($this->current_char === '/' && $this->peek() === '/') {
+                    $this->skip_comment();
+                } else {
+                    break;
+                }
             }
+
+            $line = $this->line;
+            $token = $this->scan_token();
         }
 
-        $line = $this->line;
-        $token = $this->scan_token();
         $token->line = $line;
 
         return $token;
@@ -473,7 +518,7 @@ class Lexer
             }
 
             if ($this->current_char === '"') {
-                return new Token(Token::STRING, $this->string());
+                return $this->string_part(true);
             }
 
             if ($this->current_char === "'") {
@@ -632,10 +677,20 @@ class Lexer
             if ($this->current_char === '}') {
                 $this->advance();
 
+                // The } closing "{$...}" resumes the string it interpolates into
+                if ($this->interpolations !== [] && $this->interpolations[array_key_last($this->interpolations)][0] === 'braces') {
+                    return $this->string_part(false);
+                }
+
                 return new Token(Token::RIGHT_BRACE, '}');
             }
 
             $this->error();
+        }
+
+        if ($this->interpolations !== []) {
+            // The file ended inside "{$...": report the string where it starts
+            throw new GazLangError('Unterminated string', null, $this->interpolations[array_key_last($this->interpolations)][1]);
         }
 
         return new Token(Token::EOF, null);

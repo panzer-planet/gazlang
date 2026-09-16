@@ -11,6 +11,7 @@ A small, PHP-flavoured programming language with an interpreter and a stack-VM c
 - String literals with double quotes (`"Hello, World!"`, with escapes) or single quotes (`'C:\raw\path'`, raw: only `\'` and `\\` are escapes)
 - String escape sequences: `\n` `\t` `\r` `\v` `\f` `\e` `\0` `\\` `\"`, `\xHH` for a byte and `\u{1F600}` for a Unicode code point (as UTF-8); anything else, including octal like `\012`, is an error
 - String concatenation with the `+` operator
+- String interpolation in double-quoted strings: `"Hi $name!"`, `"{$user["name"]} has {@count} items"`
 - Mathematical operators: `+`, `-`, `*`, `/`, unary `-`
 - Comparison operators: `==`, `!=`, `===`, `!==` (no type conversion), `<`, `<=`, `>`, `>=`
 - Logical operators: `&&`, `||` (short-circuiting), `!`
