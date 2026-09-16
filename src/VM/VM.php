@@ -300,9 +300,35 @@ final class VM
                             [$locals, $pc, $function, $argc] = array_pop($frames);
                             break;
                         case 'CALL_BUILTIN':
-                            $count = $arg1[$pc - 1];
-                            $call_args = $this->popMany($stack, $count);
-                            $stack[] = $this->builtins->call($arg0[$pc - 1], $call_args);
+                            $name = $arg0[$pc - 1];
+                            // Most builtins take one or two arguments, so pop those directly
+                            switch ($arg1[$pc - 1]) {
+                                case 1:
+                                    $first = array_pop($stack);
+                                    // Fast paths for the hottest builtins when the result is obvious;
+                                    // anything else, errors included, goes through Builtins::call()
+                                    if ($name === 'len' && is_string($first)) {
+                                        $stack[] = strlen($first);
+                                    } elseif ($name === 'ord' && is_string($first) && strlen($first) === 1) {
+                                        $stack[] = ord($first);
+                                    } elseif ($name === 'len' && is_array($first)) {
+                                        $stack[] = count($first);
+                                    } elseif ($name === 'chr' && is_int($first) && $first >= 0 && $first <= 255) {
+                                        $stack[] = chr($first);
+                                    } else {
+                                        $stack[] = $this->builtins->call($name, [$first]);
+                                    }
+                                    break;
+                                case 2:
+                                    $second = array_pop($stack);
+                                    $first = array_pop($stack);
+                                    $stack[] = $name === 'in_array' && is_array($second)
+                                        ? in_array($first, $second, true)
+                                        : $this->builtins->call($name, [$first, $second]);
+                                    break;
+                                default:
+                                    $stack[] = $this->builtins->call($name, $this->popMany($stack, $arg1[$pc - 1]));
+                            }
                             break;
                         case 'TRY':
                             $handlers[] = [count($frames), count($stack), $arg0[$pc - 1]];
