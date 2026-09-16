@@ -119,7 +119,7 @@ class FunctionTest extends GazLangTestCase
         );
         exec($command, $output, $exit_code);
 
-        $this->assertSame(['Error: Maximum call depth of 10000 exceeded calling inf'], $output);
+        $this->assertSame(['Error: Maximum call depth of 10000 exceeded calling inf on line 1'], $output);
         $this->assertSame(1, $exit_code);
     }
 
@@ -149,7 +149,7 @@ class FunctionTest extends GazLangTestCase
 
     public function test_global_parameter_is_a_parse_error()
     {
-        $this->expectExceptionMessage('Invalid syntax near token: GLOBAL_VAR_IDENTIFIER(@a)');
+        $this->expectExceptionMessage("Expected a \$variable but found '@a'");
         $this->createParser('function f(@a) { }')->parse();
     }
 

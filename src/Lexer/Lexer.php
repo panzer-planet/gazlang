@@ -2,7 +2,7 @@
 
 namespace GazLang\Lexer;
 
-use Exception;
+use GazLang\GazLangError;
 
 /**
  * Lexer class tokenizes input code into a stream of tokens
@@ -23,6 +23,11 @@ class Lexer
      * @var string|null Current character being processed
      */
     private $current_char;
+
+    /**
+     * @var int The line of the current character, starting at 1
+     */
+    private $line = 1;
 
     /**
      * @var array Keywords in the language
@@ -58,12 +63,11 @@ class Lexer
     /**
      * Raise an error for invalid characters
      *
-     * @throws Exception
+     * @throws GazLangError
      */
-    public function error(): void
+    public function error(): never
     {
-
-        throw new Exception('Invalid character at position '.$this->pos.': '.$this->current_char);
+        throw new GazLangError("Unexpected character '{$this->current_char}'", null, $this->line);
     }
 
     /**
@@ -71,6 +75,9 @@ class Lexer
      */
     public function advance(): void
     {
+        if ($this->current_char === "\n") {
+            $this->line++;
+        }
         $this->pos++;
         if ($this->pos > strlen($this->text) - 1) {
             $this->current_char = null;  // End of input
@@ -90,7 +97,7 @@ class Lexer
     }
 
     /**
-     * Skip comments (// until end of line)
+     * Skip a comment, from // to the end of the line
      */
     public function skip_comment(): void
     {
@@ -121,11 +128,12 @@ class Lexer
      * Parse a string literal enclosed in double quotes
      * Handles escape sequences like \n, \t, \", etc.
      *
-     * @throws Exception
+     * @throws GazLangError
      */
     public function string(): string
     {
-        // Skip the opening quote
+        // Skip the opening quote; an unterminated string is reported where it starts
+        $start_line = $this->line;
         $this->advance();
 
         $result = '';
@@ -162,7 +170,7 @@ class Lexer
         }
 
         if ($this->current_char === null) {
-            throw new Exception('Unterminated string literal');
+            throw new GazLangError('Unterminated string', null, $start_line);
         }
 
         // Skip the closing quote
@@ -196,7 +204,7 @@ class Lexer
 
         // Variable names must start with a letter or underscore after the $
         if ($this->current_char === null || (! ctype_alpha($this->current_char) && $this->current_char !== '_')) {
-            throw new Exception("Invalid variable name: {$result}");
+            throw new GazLangError("Invalid variable name: {$result}", null, $this->line);
         }
 
         while ($this->current_char !== null && (ctype_alnum($this->current_char) || $this->current_char === '_')) {
@@ -208,27 +216,37 @@ class Lexer
     }
 
     /**
-     * Lexical analyzer (tokenizer)
+     * Lexical analyzer (tokenizer): skip whitespace and comments, then read one token
      *
-     * @throws Exception
+     * @throws GazLangError If the source has an invalid character, name or string
      */
     public function get_next_token(): Token
     {
         while ($this->current_char !== null) {
             if (ctype_space($this->current_char)) {
                 $this->skip_whitespace();
-
-                continue;
-            }
-
-            if ($this->current_char === '/' && $this->peek() === '/') {
-                $this->advance(); // Skip first '/'
-                $this->advance(); // Skip second '/'
+            } elseif ($this->current_char === '/' && $this->peek() === '/') {
                 $this->skip_comment();
-
-                continue;
+            } else {
+                break;
             }
+        }
 
+        $line = $this->line;
+        $token = $this->scan_token();
+        $token->line = $line;
+
+        return $token;
+    }
+
+    /**
+     * Read the token starting at the current character, which is not whitespace or a comment
+     *
+     * @throws GazLangError
+     */
+    private function scan_token(): Token
+    {
+        if ($this->current_char !== null) {
             if (ctype_digit($this->current_char)) {
                 return new Token(Token::INTEGER, $this->integer());
             }

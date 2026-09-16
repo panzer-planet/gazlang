@@ -13,6 +13,11 @@ use Exception;
 abstract class AbstractNodeVisitor implements NodeVisitorInterface
 {
     /**
+     * @var array<class-string, string> Visitor method names by node class
+     */
+    private static $methods = [];
+
+    /**
      * Visit a node and dispatch to the appropriate node-specific visitor method
      *
      * @param  object  $node  The node to visit
@@ -22,20 +27,13 @@ abstract class AbstractNodeVisitor implements NodeVisitorInterface
      */
     public function visit(object $node)
     {
-        // Get the class name
-        $className = get_class($node);
+        // The method name is worked out once per node class: visit() runs for every node evaluated
+        $method = self::$methods[$node::class] ??= 'visit'.str_replace('AST', '', substr(strrchr('\\'.$node::class, '\\'), 1));
 
-        // Extract just the class name without namespace
-        $parts = explode('\\', $className);
-        $shortClassName = end($parts);
-
-        // Remove the AST suffix
-        $methodName = 'visit'.str_replace('AST', '', $shortClassName);
-
-        if (method_exists($this, $methodName)) {
-            return $this->$methodName($node);
+        if (method_exists($this, $method)) {
+            return $this->$method($node);
         }
 
-        throw new Exception("No visitor method found for node type: $shortClassName");
+        throw new Exception('No visitor method found for node type: '.$node::class);
     }
 }

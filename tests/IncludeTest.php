@@ -41,7 +41,7 @@ class IncludeTest extends GazLangTestCase
 
     public function test_syntax_errors_name_the_included_file()
     {
-        $this->expectExceptionMessage('Invalid syntax near token: SEMICOLON(;) (in lib/bad.gaz)');
+        $this->expectExceptionMessage("Expected ')' but found ';' at tests/fixtures/include/lib/bad.gaz:1");
         $this->runFile('broken.gaz');
     }
 
@@ -81,7 +81,7 @@ class IncludeTest extends GazLangTestCase
 
     public function test_include_path_must_be_a_string_literal()
     {
-        $this->expectExceptionMessage('Invalid syntax near token: VAR_IDENTIFIER($file)');
+        $this->expectExceptionMessage("Expected a string but found '\$file'");
         $this->createParser('include $file;')->parse();
     }
 

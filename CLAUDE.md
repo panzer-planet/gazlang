@@ -140,8 +140,11 @@ each step depends on the ones before it.
    - Arrays: `len`, `slice`, `in_array($value, $array)` (strict, like `===`),
      `has_key($array, $key)`, `keys($array)`.
    - Other: `type_of($x)` (`int`, `string`, `bool`, `null`, `array`),
-     `error($message)` (stops with `Error: message`, exit 1), `read_file($path)`
-     (relative to the working directory), `args()` (the command line arguments
+     `error($message)` (stops with `Error: message`, exit 1, printed exactly as
+     given with no location), `read_file($path)` and `write_file($path, $string)`
+     (relative to the working directory; write creates or overwrites and returns
+     null), `read_stdin()` (all remaining standard input; empty when the program
+     itself was piped in), `args()` (the command line arguments
      after the gazlang options, or after `--`). `bin/gazlang` rejects options it
      doesn't know, since `getopt` would silently drop them, so a program's own
      flags must come after `--`.
@@ -152,10 +155,23 @@ each step depends on the ones before it.
      input). It is resolved at parse time: the included file's statements are
      spliced in where it is included and share the parser's function table, so
      the backends never see it. Each file is included once (the main file
-     counts), which also breaks cycles. Syntax errors get `(in path)` appended.
+     counts), which also breaks cycles.
 7. **Begin porting the lexer/parser to GazLang itself.** Only once functions,
    arrays, and a stdlib exist does porting `Lexer.php`, `Parser.php`, etc. into
    GazLang source become plausible. Everything before this step is groundwork.
+
+## Errors
+
+Every error a program can hit is a `GazLang\GazLangError` whose message ends in
+its location: ` at path/file.gaz:12`, or ` on line 12` for piped or inline
+source (`$reason`, `$path` and `$line_number` hold the parts). Tokens carry the
+line they start on; the parser stamps `line` and `file` on every AST node with
+`Parser::at()`, and routes lexer errors through `next_token()` to add the file.
+Syntax errors say what was expected and found ("Expected ')' but found ';'").
+`Interpreter::visit()` turns any plain `Exception` thrown while running a node
+into a `GazLangError` at that node, so the innermost located node wins and
+runtime code can keep throwing plain `Exception`s. Include paths show relative
+to the working directory; the main file shows as given on the command line.
 
 **Note:** any new AST node type (e.g. new BinOp/UnaryOp variants)
 needs visitor support in *both* `Interpreter/Interpreter.php` and

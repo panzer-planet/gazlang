@@ -1,0 +1,3 @@
+function fails($x) {
+    return $x + null;
+}

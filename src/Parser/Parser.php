@@ -23,6 +23,7 @@ use GazLang\AST\StringAST;
 use GazLang\AST\UnaryOpAST;
 use GazLang\AST\VariableAST;
 use GazLang\AST\WhileStatementAST;
+use GazLang\GazLangError;
 use GazLang\Lexer\Lexer;
 use GazLang\Lexer\Token;
 
@@ -31,6 +32,24 @@ use GazLang\Lexer\Token;
  */
 class Parser
 {
+    /**
+     * How expected tokens are described in syntax errors; other types are keywords, shown quoted and lowercase
+     */
+    private const EXPECTED = [
+        Token::LEFT_PAREN => "'('",
+        Token::RIGHT_PAREN => "')'",
+        Token::LEFT_BRACE => "'{'",
+        Token::RIGHT_BRACE => "'}'",
+        Token::LEFT_BRACKET => "'['",
+        Token::RIGHT_BRACKET => "']'",
+        Token::SEMICOLON => "';'",
+        Token::COMMA => "','",
+        Token::IDENTIFIER => 'a name',
+        Token::VAR_IDENTIFIER => 'a $variable',
+        Token::GLOBAL_VAR_IDENTIFIER => 'an @variable',
+        Token::STRING => 'a string',
+    ];
+
     /**
      * Builtin function names mapped to their parameter counts; both backends implement these
      */
@@ -46,6 +65,8 @@ class Parser
         'type_of' => 1,
         'error' => 1,
         'read_file' => 1,
+        'write_file' => 2,
+        'read_stdin' => 0,
         'args' => 0,
     ];
 
@@ -85,6 +106,11 @@ class Parser
     private $base_dir;
 
     /**
+     * @var string|null The file being parsed, as shown in errors
+     */
+    private $file;
+
+    /**
      * @var array<string, true> Real paths of every file parsed so far, so each is only included once
      */
     private $included = [];
@@ -97,24 +123,95 @@ class Parser
      */
     public function __construct(Lexer $lexer, ?string $path = null)
     {
-        $this->lexer = $lexer;
-        $this->current_token = $this->lexer->get_next_token();
-
         $real_path = $path === null ? false : realpath($path);
         if ($real_path !== false) {
             $this->included[$real_path] = true;
         }
         $this->base_dir = $real_path !== false ? dirname($real_path) : getcwd();
+        // The main file is shown as the user gave it; included files relative to the working directory
+        $this->file = $path;
+
+        $this->lexer = $lexer;
+        $this->current_token = $this->next_token();
     }
 
     /**
-     * Raise an error for invalid syntax
+     * Raise an error for an unexpected token
      *
-     * @throws Exception
+     * @throws GazLangError
      */
     public function error(): never
     {
-        throw new Exception("Invalid syntax near token: {$this->current_token->type}({$this->current_token->value})");
+        $this->fail('Unexpected '.$this->describe($this->current_token));
+    }
+
+    /**
+     * Raise an error at the current token's line
+     *
+     * @param  string  $message  The error message, without the location
+     *
+     * @throws GazLangError
+     */
+    private function fail(string $message): never
+    {
+        throw new GazLangError($message, $this->file, $this->current_token->line);
+    }
+
+    /**
+     * Describe a token the way it appears in the source, for error messages
+     *
+     * @param  Token  $token  The token
+     */
+    private function describe(Token $token): string
+    {
+        return match ($token->type) {
+            Token::EOF => 'end of file',
+            Token::STRING => 'string "'.addcslashes($token->value, "\"\n\r\t\\").'"',
+            default => "'{$token->value}'",
+        };
+    }
+
+    /**
+     * Get the next token, adding this file's name to lexer errors
+     *
+     * @throws GazLangError
+     */
+    private function next_token(): Token
+    {
+        try {
+            return $this->lexer->get_next_token();
+        } catch (GazLangError $e) {
+            throw new GazLangError($e->reason, $this->file, $e->line_number);
+        }
+    }
+
+    /**
+     * Record where a node came from, so errors about it can point at the source
+     *
+     * @template T of AST
+     *
+     * @param  T  $node  The node
+     * @param  Token  $token  The token the node starts at
+     * @return T The node
+     */
+    private function at(AST $node, Token $token): AST
+    {
+        $node->line = $token->line;
+        $node->file = $this->file;
+
+        return $node;
+    }
+
+    /**
+     * Show a real path relative to the working directory when it is inside it
+     *
+     * @param  string  $real_path  An absolute path
+     */
+    private function display_path(string $real_path): string
+    {
+        $cwd = getcwd().'/';
+
+        return str_starts_with($real_path, $cwd) ? substr($real_path, strlen($cwd)) : $real_path;
     }
 
     /**
@@ -123,15 +220,16 @@ class Parser
      *
      * @param  string  $token_type  The token type to match
      *
-     * @throws Exception If the token types don't match
+     * @throws GazLangError If the token types don't match
      */
     public function eat(string $token_type): void
     {
-        if ($this->current_token->type === $token_type) {
-            $this->current_token = $this->lexer->get_next_token();
-        } else {
-            $this->error();
+        if ($this->current_token->type !== $token_type) {
+            $expected = self::EXPECTED[$token_type] ?? "'".strtolower($token_type)."'";
+            $this->fail("Expected {$expected} but found ".$this->describe($this->current_token));
         }
+
+        $this->current_token = $this->next_token();
     }
 
     /**
@@ -143,7 +241,7 @@ class Parser
      */
     public function variable()
     {
-        $node = new VariableAST($this->current_token);
+        $node = $this->at(new VariableAST($this->current_token), $this->current_token);
         $this->eat($this->current_token->type === Token::GLOBAL_VAR_IDENTIFIER ? Token::GLOBAL_VAR_IDENTIFIER : Token::VAR_IDENTIFIER);
 
         return $node;
@@ -158,6 +256,7 @@ class Parser
      */
     public function function_call()
     {
+        $start = $this->current_token;
         $name = $this->current_token->value;
         $this->eat(Token::IDENTIFIER);
         $this->eat(Token::LEFT_PAREN);
@@ -172,7 +271,7 @@ class Parser
         }
         $this->eat(Token::RIGHT_PAREN);
 
-        return $this->calls[] = new FunctionCallAST($name, $args);
+        return $this->calls[] = $this->at(new FunctionCallAST($name, $args), $start);
     }
 
     /**
@@ -189,19 +288,19 @@ class Parser
         if ($token->type === Token::INTEGER) {
             $this->eat(Token::INTEGER);
 
-            return new NumAST($token);
+            return $this->at(new NumAST($token), $token);
         } elseif ($token->type === Token::STRING) {
             $this->eat(Token::STRING);
 
-            return new StringAST($token);
+            return $this->at(new StringAST($token), $token);
         } elseif ($token->type === Token::TRUE || $token->type === Token::FALSE) {
             $this->eat($token->type);
 
-            return new BooleanAST($token);
+            return $this->at(new BooleanAST($token), $token);
         } elseif ($token->type === Token::NULL) {
             $this->eat(Token::NULL);
 
-            return new NullAST($token);
+            return $this->at(new NullAST($token), $token);
         } elseif ($token->type === Token::IDENTIFIER) {
             return $this->function_call();
         } elseif ($token->type === Token::LEFT_BRACKET) {
@@ -228,6 +327,7 @@ class Parser
      */
     public function array_literal()
     {
+        $start = $this->current_token;
         $this->eat(Token::LEFT_BRACKET);
 
         $entries = [];
@@ -247,7 +347,7 @@ class Parser
         }
         $this->eat(Token::RIGHT_BRACKET);
 
-        return new ArrayLiteralAST($entries);
+        return $this->at(new ArrayLiteralAST($entries), $start);
     }
 
     /**
@@ -264,16 +364,17 @@ class Parser
         $node = $this->primary();
 
         while ($this->current_token->type === Token::LEFT_BRACKET) {
+            $bracket = $this->current_token;
             $this->eat(Token::LEFT_BRACKET);
             if ($this->current_token->type === Token::RIGHT_BRACKET) {
                 $this->eat(Token::RIGHT_BRACKET);
                 if ($this->current_token->type !== Token::ASSIGN) {
-                    throw new Exception('[] can only be used to append in an assignment');
+                    $this->fail('[] can only be used to append in an assignment');
                 }
 
-                return new IndexAST($node, null);
+                return $this->at(new IndexAST($node, null), $bracket);
             }
-            $node = new IndexAST($node, $this->expr());
+            $node = $this->at(new IndexAST($node, $this->expr()), $bracket);
             $this->eat(Token::RIGHT_BRACKET);
         }
 
@@ -294,7 +395,7 @@ class Parser
         if (in_array($token->type, [Token::MINUS, Token::NOT], true)) {
             $this->eat($token->type);
 
-            return new UnaryOpAST($token, $this->unary());
+            return $this->at(new UnaryOpAST($token, $this->unary()), $token);
         }
 
         return $this->postfix();
@@ -391,12 +492,12 @@ class Parser
 
         if ($this->current_token->type === Token::ASSIGN) {
             if (! $node instanceof VariableAST && ! ($node instanceof IndexAST && $node->rootVariable() !== null)) {
-                $this->error();
+                $this->fail('Can only assign to a variable or an element of one');
             }
             $token = $this->current_token;
             $this->eat(Token::ASSIGN);
 
-            return new AssignAST($node, $token, $this->expr());
+            return $this->at(new AssignAST($node, $token, $this->expr()), $token);
         }
 
         return $node;
@@ -418,7 +519,7 @@ class Parser
         while (in_array($this->current_token->type, $types, true)) {
             $token = $this->current_token;
             $this->eat($token->type);
-            $node = new BinOpAST($node, $token, $this->$operand());
+            $node = $this->at(new BinOpAST($node, $token, $this->$operand()), $token);
         }
 
         return $node;
@@ -433,6 +534,7 @@ class Parser
      */
     public function if_statement()
     {
+        $start = $this->current_token;
         $this->eat(Token::IF);
         $this->eat(Token::LEFT_PAREN);
         $condition = $this->expr();
@@ -456,7 +558,7 @@ class Parser
             }
         }
 
-        return new IfStatementAST($condition, $if_body, $else_if, $else_body);
+        return $this->at(new IfStatementAST($condition, $if_body, $else_if, $else_body), $start);
     }
 
     /**
@@ -488,12 +590,13 @@ class Parser
      */
     public function while_statement()
     {
+        $start = $this->current_token;
         $this->eat(Token::WHILE);
         $this->eat(Token::LEFT_PAREN);
         $condition = $this->expr();
         $this->eat(Token::RIGHT_PAREN);
 
-        return new WhileStatementAST($condition, $this->loop_body());
+        return $this->at(new WhileStatementAST($condition, $this->loop_body()), $start);
     }
 
     /**
@@ -508,6 +611,7 @@ class Parser
      */
     public function for_statement()
     {
+        $start = $this->current_token;
         $this->eat(Token::FOR);
         $this->eat(Token::LEFT_PAREN);
         $init = $this->expr();
@@ -517,10 +621,10 @@ class Parser
         $step = $this->expr();
         $this->eat(Token::RIGHT_PAREN);
 
-        $loop = new CompoundAST;
+        $loop = $this->at(new CompoundAST, $start);
         $loop->statements = [
-            new StatementAST($init),
-            new WhileStatementAST($condition, $this->loop_body(), new StatementAST($step)),
+            $this->at(new StatementAST($init), $start),
+            $this->at(new WhileStatementAST($condition, $this->loop_body(), $this->at(new StatementAST($step), $start)), $start),
         ];
 
         return $loop;
@@ -553,13 +657,13 @@ class Parser
     {
         $token = $this->current_token;
         if ($this->loop_depth === 0) {
-            throw new Exception("Cannot use {$token->value} outside of a loop");
+            $this->fail("Cannot use {$token->value} outside of a loop");
         }
 
         $this->eat($token->type);
         $this->eat(Token::SEMICOLON);
 
-        return new LoopControlAST($token);
+        return $this->at(new LoopControlAST($token), $token);
     }
 
     /**
@@ -585,15 +689,16 @@ class Parser
         } elseif ($this->current_token->type === Token::RETURN) {
             return $this->return_statement();
         } elseif ($this->current_token->type === Token::FUNCTION) {
-            throw new Exception('Functions can only be declared at the top level');
+            $this->fail('Functions can only be declared at the top level');
         } elseif ($this->current_token->type === Token::INCLUDE) {
-            throw new Exception('include can only be used at the top level');
+            $this->fail('include can only be used at the top level');
         }
 
+        $start = $this->current_token;
         $expr = $this->expr();
         $this->eat(Token::SEMICOLON);
 
-        return new StatementAST($expr);
+        return $this->at(new StatementAST($expr), $start);
     }
 
     /**
@@ -606,14 +711,15 @@ class Parser
     public function return_statement()
     {
         if (! $this->in_function) {
-            throw new Exception('Cannot use return outside of a function');
+            $this->fail('Cannot use return outside of a function');
         }
 
+        $start = $this->current_token;
         $this->eat(Token::RETURN);
         $expr = $this->current_token->type === Token::SEMICOLON ? null : $this->expr();
         $this->eat(Token::SEMICOLON);
 
-        return new ReturnStatementAST($expr);
+        return $this->at(new ReturnStatementAST($expr), $start);
     }
 
     /**
@@ -628,12 +734,13 @@ class Parser
      */
     public function function_declaration()
     {
+        $start = $this->current_token;
         $this->eat(Token::FUNCTION);
         $name = $this->current_token->value;
-        $this->eat(Token::IDENTIFIER);
         if (isset($this->functions[$name])) {
-            throw new Exception("Function {$name} is already declared");
+            $this->fail(isset(self::BUILTINS[$name]) ? "{$name} is a builtin function" : "Function {$name} is already declared");
         }
+        $this->eat(Token::IDENTIFIER);
 
         $this->eat(Token::LEFT_PAREN);
         $params = [];
@@ -642,10 +749,10 @@ class Parser
                 $this->eat(Token::COMMA);
             }
             $param = $this->current_token->value;
-            $this->eat(Token::VAR_IDENTIFIER);
             if (in_array($param, $params, true)) {
-                throw new Exception("Duplicate parameter {$param} in function {$name}");
+                $this->fail("Duplicate parameter {$param} in function {$name}");
             }
+            $this->eat(Token::VAR_IDENTIFIER);
             $params[] = $param;
         }
         $this->eat(Token::RIGHT_PAREN);
@@ -657,7 +764,7 @@ class Parser
         $body = $this->block();
         $this->in_function = false;
 
-        return new FunctionDeclarationAST($name, $params, $body);
+        return $this->at(new FunctionDeclarationAST($name, $params, $body), $start);
     }
 
     /**
@@ -669,11 +776,12 @@ class Parser
      */
     public function echo_statement()
     {
+        $start = $this->current_token;
         $this->eat(Token::ECHO);
         $expr = $this->expr();
         $this->eat(Token::SEMICOLON);
 
-        return new EchoStatementAST($expr);
+        return $this->at(new EchoStatementAST($expr), $start);
     }
 
     /**
@@ -693,10 +801,14 @@ class Parser
 
         foreach ($this->calls as $call) {
             if (! isset($this->functions[$call->name])) {
-                throw new Exception("Undefined function: {$call->name}");
+                throw new GazLangError("Undefined function: {$call->name}", $call->file, $call->line);
             }
             if (count($call->args) !== $this->functions[$call->name]) {
-                throw new Exception("Function {$call->name} expects {$this->functions[$call->name]} arguments, ".count($call->args).' given');
+                throw new GazLangError(
+                    "Function {$call->name} expects {$this->functions[$call->name]} arguments, ".count($call->args).' given',
+                    $call->file,
+                    $call->line
+                );
             }
         }
 
@@ -736,37 +848,37 @@ class Parser
      *
      * @return AST[] The included file's statements, or none if it was already included
      *
-     * @throws Exception If the file can't be read, or it has a syntax error
+     * @throws GazLangError If the file can't be read, or it has a syntax error
      */
     private function include_statement(): array
     {
         $this->eat(Token::INCLUDE);
-        $relative = $this->current_token->value;
+        $path_token = $this->current_token;
         $this->eat(Token::STRING);
         $this->eat(Token::SEMICOLON);
 
+        $relative = $path_token->value;
         $path = realpath(str_starts_with($relative, '/') ? $relative : $this->base_dir.'/'.$relative);
         // Checked before reading: an unreadable file would otherwise read as empty and vanish silently
         if ($path === false || ! is_file($path) || ! is_readable($path)) {
-            throw new Exception("Cannot include file: {$relative}");
+            throw new GazLangError("Cannot include file: {$relative}", $this->file, $path_token->line);
         }
         if (isset($this->included[$path])) {
             return [];
         }
         $this->included[$path] = true;
 
-        $outer = [$this->lexer, $this->current_token, $this->base_dir];
+        $outer = [$this->lexer, $this->current_token, $this->base_dir, $this->file];
         $this->lexer = new Lexer(file_get_contents($path));
         $this->base_dir = dirname($path);
+        $this->file = $this->display_path($path);
 
         try {
-            $this->current_token = $this->lexer->get_next_token();
+            $this->current_token = $this->next_token();
 
             return $this->top_level();
-        } catch (Exception $e) {
-            throw new Exception("{$e->getMessage()} (in {$relative})", 0, $e);
         } finally {
-            [$this->lexer, $this->current_token, $this->base_dir] = $outer;
+            [$this->lexer, $this->current_token, $this->base_dir, $this->file] = $outer;
         }
     }
 

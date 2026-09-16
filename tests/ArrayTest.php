@@ -141,10 +141,10 @@ class ArrayTest extends GazLangTestCase
     {
         return [
             'reading []' => ['$a = []; echo $a[];', '[] can only be used to append in an assignment'],
-            'assigning into a call' => ['function f() { return []; } f()[0] = 1;', 'Invalid syntax near token: ASSIGN(=)'],
+            'assigning into a call' => ['function f() { return []; } f()[0] = 1;', 'Can only assign to a variable or an element of one'],
             'len arity' => ['echo len([], []);', 'Function len expects 1 arguments, 2 given'],
-            'redeclaring len' => ['function len($x) { }', 'Function len is already declared'],
-            'unterminated literal' => ['echo [1, 2;', 'Invalid syntax near token: SEMICOLON(;)'],
+            'redeclaring len' => ['function len($x) { }', 'len is a builtin function'],
+            'unterminated literal' => ['echo [1, 2;', "Expected ',' but found ';'"],
         ];
     }
 

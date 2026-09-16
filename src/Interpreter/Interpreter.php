@@ -23,6 +23,7 @@ use GazLang\AST\StringAST;
 use GazLang\AST\UnaryOpAST;
 use GazLang\AST\VariableAST;
 use GazLang\AST\WhileStatementAST;
+use GazLang\GazLangError;
 use GazLang\Lexer\Token;
 use GazLang\Parser\Parser;
 
@@ -93,6 +94,32 @@ class Interpreter extends AbstractNodeVisitor
             Token::BREAK => new LoopSignal(Token::BREAK),
             Token::CONTINUE => new LoopSignal(Token::CONTINUE),
         ];
+    }
+
+    /**
+     * Visit a node, adding the node's file and line to errors raised while running it
+     *
+     * The innermost node with a location wins, since its visit sees the error first.
+     *
+     * @param  object  $node  The node to visit
+     * @return mixed The result of visiting the node
+     *
+     * @throws GazLangError
+     */
+    public function visit(object $node)
+    {
+        try {
+            return parent::visit($node);
+        } catch (GazLangError|LoopSignal|ReturnSignal $e) {
+            // Already located, or control flow rather than an error
+            throw $e;
+        } catch (Exception $e) {
+            if ($node->line === null) {
+                throw $e;
+            }
+
+            throw new GazLangError($e->getMessage(), $node->file, $node->line);
+        }
     }
 
     /**
@@ -241,7 +268,7 @@ class Interpreter extends AbstractNodeVisitor
                 Token::PLUS => $left + $right,
                 Token::MINUS => $left - $right,
                 Token::MULTIPLY => $left * $right,
-                Token::DIVIDE => intdiv($left, $right),
+                Token::DIVIDE => $right === 0 ? throw new Exception('Division by zero') : intdiv($left, $right),
             };
         }
 
@@ -624,8 +651,11 @@ class Interpreter extends AbstractNodeVisitor
             'has_key' => array_key_exists($this->arrayKey($args[1]), $this->argument($name, $args[0], 'array')),
             'keys' => array_keys($this->argument($name, $args[0], 'array')),
             'type_of' => get_debug_type($args[0]),
-            'error' => throw new Exception($this->toString($args[0])),
+            // The program's own message, printed as is: it describes a location in the program's input, not here
+            'error' => throw new GazLangError($this->toString($args[0])),
             'read_file' => $this->readFile($this->argument($name, $args[0], 'string')),
+            'write_file' => $this->writeFile($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string')),
+            'read_stdin' => stream_get_contents(STDIN),
             'args' => $this->args,
             default => throw new Exception("Unknown builtin: {$name}"),
         };
@@ -706,6 +736,25 @@ class Interpreter extends AbstractNodeVisitor
         }
 
         return $contents;
+    }
+
+    /**
+     * write_file($path, $contents): create or overwrite a file, relative paths resolved from the working directory
+     *
+     * @param  string  $path  The file path
+     * @param  string  $contents  What to write
+     * @return null write_file has no result
+     *
+     * @throws Exception If the file can't be written
+     */
+    private function writeFile(string $path, string $contents)
+    {
+        // @: the failure is reported as a GazLang error instead of a PHP warning
+        if (@file_put_contents($path, $contents) === false) {
+            throw new Exception("Cannot write file: {$path}");
+        }
+
+        return null;
     }
 
     /**

@@ -91,6 +91,45 @@ class StdlibTest extends GazLangTestCase
         $this->executeCode('read_file("nope.txt");');
     }
 
+    public function test_write_file_creates_and_overwrites()
+    {
+        $path = sys_get_temp_dir().'/gazlang_write_'.getmypid().'.txt';
+
+        try {
+            $this->assertEquals("null\nsecond\n", $this->executeCode(
+                'echo write_file("'.$path.'", "first"); write_file("'.$path.'", "second"); echo read_file("'.$path.'");'
+            ));
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    public function test_write_file_error()
+    {
+        $this->expectExceptionMessage('Cannot write file: /no/such/dir/out.txt on line 1');
+        $this->executeCode('write_file("/no/such/dir/out.txt", "x");');
+    }
+
+    public function test_write_file_only_writes_strings()
+    {
+        $this->expectExceptionMessage('write_file() expects string, got array');
+        $this->executeCode('write_file("out.txt", [1]);');
+    }
+
+    public function test_read_stdin()
+    {
+        exec(sprintf(
+            'printf %s | %s %s -f %s',
+            escapeshellarg("two\nlines"),
+            escapeshellarg(PHP_BINARY),
+            escapeshellarg(__DIR__.'/../bin/gazlang'),
+            escapeshellarg(__DIR__.'/fixtures/read_stdin.gaz')
+        ), $output, $exit_code);
+
+        $this->assertSame(['[two', 'lines]', '0'], $output);
+        $this->assertSame(0, $exit_code);
+    }
+
     public function test_args()
     {
         $interpreter = new Interpreter($this->createParser('echo args(); echo len(args());'), ['a', '-b']);

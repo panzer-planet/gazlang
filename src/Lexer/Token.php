@@ -107,6 +107,11 @@ class Token
     public $value;
 
     /**
+     * @var int|null The line the token starts on, set by the lexer
+     */
+    public $line;
+
+    /**
      * Constructor
      *
      * @param  string  $type  The token type
