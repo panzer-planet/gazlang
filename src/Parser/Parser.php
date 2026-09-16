@@ -746,7 +746,8 @@ class Parser
         $this->eat(Token::SEMICOLON);
 
         $path = realpath(str_starts_with($relative, '/') ? $relative : $this->base_dir.'/'.$relative);
-        if ($path === false || ! is_file($path)) {
+        // Checked before reading: an unreadable file would otherwise read as empty and vanish silently
+        if ($path === false || ! is_file($path) || ! is_readable($path)) {
             throw new Exception("Cannot include file: {$relative}");
         }
         if (isset($this->included[$path])) {

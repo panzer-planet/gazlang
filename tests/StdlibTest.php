@@ -113,6 +113,19 @@ class StdlibTest extends GazLangTestCase
         $this->assertSame(0, $exit_code);
     }
 
+    public function test_cli_rejects_unknown_options_instead_of_dropping_them()
+    {
+        exec(sprintf(
+            'echo %s | %s %s -n 5 2>&1',
+            escapeshellarg('echo args();'),
+            escapeshellarg(PHP_BINARY),
+            escapeshellarg(__DIR__.'/../bin/gazlang')
+        ), $output, $exit_code);
+
+        $this->assertSame(['Error: Unknown option -n (put program arguments after --)'], $output);
+        $this->assertSame(1, $exit_code);
+    }
+
     /**
      * @dataProvider wrongArgumentTypes
      */

@@ -51,6 +51,28 @@ class IncludeTest extends GazLangTestCase
         $this->createParser('include "nope.gaz";')->parse();
     }
 
+    public function test_unreadable_file_is_an_error_not_an_empty_file()
+    {
+        $dir = sys_get_temp_dir().'/gazlang_include_'.getmypid();
+        mkdir($dir);
+        file_put_contents("{$dir}/main.gaz", 'include "secret.gaz";');
+        file_put_contents("{$dir}/secret.gaz", 'function f() { return 1; }');
+        chmod("{$dir}/secret.gaz", 0);
+
+        try {
+            if (is_readable("{$dir}/secret.gaz")) {
+                $this->markTestSkipped('Running as a user that can read any file');
+            }
+            $this->expectExceptionMessage('Cannot include file: secret.gaz');
+            (new Parser(new Lexer('include "secret.gaz";'), "{$dir}/main.gaz"))->parse();
+        } finally {
+            chmod("{$dir}/secret.gaz", 0644);
+            unlink("{$dir}/secret.gaz");
+            unlink("{$dir}/main.gaz");
+            rmdir($dir);
+        }
+    }
+
     public function test_include_must_be_at_the_top_level()
     {
         $this->expectExceptionMessage('include can only be used at the top level');

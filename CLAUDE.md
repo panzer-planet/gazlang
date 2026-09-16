@@ -142,7 +142,9 @@ each step depends on the ones before it.
    - Other: `type_of($x)` (`int`, `string`, `bool`, `null`, `array`),
      `error($message)` (stops with `Error: message`, exit 1), `read_file($path)`
      (relative to the working directory), `args()` (the command line arguments
-     after the gazlang options, or after `--`).
+     after the gazlang options, or after `--`). `bin/gazlang` rejects options it
+     doesn't know, since `getopt` would silently drop them, so a program's own
+     flags must come after `--`.
    - Deliberately left to GazLang code: character classes (strings compare byte
      by byte, see `examples/lib/chars.gaz`), `join`, push/pop.
    - `include "path.gaz";` is top level only and takes a string literal. The

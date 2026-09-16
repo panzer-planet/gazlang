@@ -700,7 +700,7 @@ class Interpreter extends AbstractNodeVisitor
      */
     private function readFile(string $path): string
     {
-        $contents = is_file($path) ? file_get_contents($path) : false;
+        $contents = is_file($path) && is_readable($path) ? file_get_contents($path) : false;
         if ($contents === false) {
             throw new Exception("Cannot read file: {$path}");
         }

@@ -44,6 +44,17 @@ $options = getopt("hvf:c", ["help", "version", "file:", "code"], $rest_index);
 // Everything after the options (or after --) is passed to the program, see args()
 $programArgs = array_slice($argv, $rest_index);
 
+// getopt silently skips options it doesn't know, which would drop a program's own
+// flags (gazlang -f a.gaz -n 5 gives args() ["5"]), so reject them instead
+for ($i = 1; $i < $rest_index; $i++) {
+    if (preg_match('/^(-[hvc]*f|--file)$/', $argv[$i])) {
+        $i++; // the file name that follows
+    } elseif (! preg_match('/^(-[hvc]+|-[hvc]*f.+|--(help|version|code|file=.+)|--)$/', $argv[$i])) {
+        echo "Error: Unknown option {$argv[$i]} (put program arguments after --)\n";
+        exit(1);
+    }
+}
+
 if (isset($options['h']) || isset($options['help'])) {
     showHelp();
     exit(0);
