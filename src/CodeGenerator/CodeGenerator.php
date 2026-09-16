@@ -23,6 +23,7 @@ use GazLang\AST\NumAST;
 use GazLang\AST\ReturnStatementAST;
 use GazLang\AST\StatementAST;
 use GazLang\AST\StringAST;
+use GazLang\AST\TryStatementAST;
 use GazLang\AST\UnaryOpAST;
 use GazLang\AST\VariableAST;
 use GazLang\AST\WhileStatementAST;
@@ -109,9 +110,14 @@ class CodeGenerator extends AbstractNodeVisitor
     private $label_counter;
 
     /**
-     * @var array Stack of [continue label, end label] for the loops enclosing the current node
+     * @var array Stack of [continue label, end label, try depth] for the loops enclosing the current node
      */
     private $loop_labels = [];
+
+    /**
+     * @var int How many try blocks enclose the current node, so break and continue can leave them
+     */
+    private $try_depth = 0;
 
     /**
      * Constructor
@@ -555,7 +561,7 @@ class CodeGenerator extends AbstractNodeVisitor
         $this->visit($node->condition);
         $this->instructions[] = "JZ {$end_label}";
 
-        $this->loop_labels[] = [$continue_label, $end_label];
+        $this->loop_labels[] = [$continue_label, $end_label, $this->try_depth];
         $this->visit($node->body);
         array_pop($this->loop_labels);
 
@@ -565,6 +571,42 @@ class CodeGenerator extends AbstractNodeVisitor
         }
 
         $this->instructions[] = "JMP {$start_label}";
+        $this->instructions[] = "LABEL {$end_label}";
+    }
+
+    /**
+     * Visit a TryStatement node
+     *
+     *   TRY CATCH_n        installs a handler for errors raised until END_TRY
+     *   body
+     *   END_TRY            removes it
+     *   JMP ENDTRY_n
+     *   LABEL CATCH_n      an error unwinds to the frame and stack depth of the TRY,
+     *   STORE error_var    pushes ["message" => ..., "file" => ..., "line" => ...] and jumps here
+     *   catch body
+     *   LABEL ENDTRY_n
+     *
+     * break and continue emit END_TRY for each try they leave; RET removes the handlers
+     * installed by the returning function's frame.
+     *
+     * @param  TryStatementAST  $node  The node to visit
+     */
+    public function visitTryStatement(TryStatementAST $node): void
+    {
+        $catch_label = 'CATCH_'.$this->label_counter;
+        $end_label = 'ENDTRY_'.$this->label_counter;
+        $this->label_counter++;
+
+        $this->instructions[] = "TRY {$catch_label}";
+        $this->try_depth++;
+        $this->visit($node->body);
+        $this->try_depth--;
+        $this->instructions[] = 'END_TRY';
+        $this->instructions[] = "JMP {$end_label}";
+
+        $this->instructions[] = "LABEL {$catch_label}";
+        $this->instructions[] = $this->variableInstruction('STORE', $node->variable);
+        $this->visit($node->catch_body);
         $this->instructions[] = "LABEL {$end_label}";
     }
 
@@ -579,9 +621,13 @@ class CodeGenerator extends AbstractNodeVisitor
             throw new Exception("Cannot use {$node->token->value} outside of a loop");
         }
 
-        [$continue_label, $end_label] = end($this->loop_labels);
+        [$continue_label, $end_label, $loop_try_depth] = end($this->loop_labels);
         $label = $node->token->type === Token::BREAK ? $end_label : $continue_label;
 
+        // Jumping out of a try block leaves it, so its handler must be removed first
+        for ($depth = $this->try_depth; $depth > $loop_try_depth; $depth--) {
+            $this->instructions[] = 'END_TRY';
+        }
         $this->instructions[] = "JMP {$label}";
     }
 

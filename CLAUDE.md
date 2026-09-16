@@ -235,6 +235,25 @@ written if the operation fails. The code generator lowers compound assignment an
 `++`/`--` to plain assignments through hidden `$#update_*_n` variables in the same
 order, with `INC`/`DEC` instructions for the step.
 
+## Errors and try/catch
+
+`try { ... } catch ($e) { ... }` (`TryStatementAST`) catches any runtime error: a
+failed operator or builtin, an undefined variable or key, division by zero, running
+out of call depth, or `error($message)`, which is also how programs throw (and
+rethrow: `error($e["message"])`). Syntax and include errors happen before the
+program runs and can't be caught. `$e` (or `@e`) is
+`["message" => ..., "file" => ..., "line" => ...]`, the message without the location;
+`file` is null for piped input. `return`, `break` and `continue` are not errors and
+pass through. There is no `finally` yet.
+
+Every runtime error is a `GazLangError` by the time it leaves a node with a location
+(see "Errors" below), and `Interpreter::visitTryStatement()` catches exactly those, so
+PHP bugs (`TypeError` and the like) are not swallowed. `error()` messages have
+`show_location` false: uncaught they print exactly as given, but the location is
+still recorded for catch. The code generator emits `TRY CATCH_n` ... `END_TRY`, with
+the error array pushed at `LABEL CATCH_n`; break and continue emit `END_TRY` for each
+try they leave, and `RET` drops the returning frame's handlers.
+
 ## Numbers
 
 Ints and floats (64-bit, always finite: GazLang has no INF or NAN).

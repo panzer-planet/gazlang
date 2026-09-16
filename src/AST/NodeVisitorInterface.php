@@ -108,6 +108,14 @@ interface NodeVisitorInterface
     public function visitWhileStatement(WhileStatementAST $node);
 
     /**
+     * Visit a TryStatement node
+     *
+     * @param  TryStatementAST  $node  The node to visit
+     * @return mixed The result of visiting the node
+     */
+    public function visitTryStatement(TryStatementAST $node);
+
+    /**
      * Visit an Increment node
      *
      * @param  IncrementAST  $node  The node to visit

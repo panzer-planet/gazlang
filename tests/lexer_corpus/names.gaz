@@ -1,4 +1,4 @@
 ECHO Echo echo TRUE false Null
 function _helper2($If, @while_1) { RETURN; }
-break Continue include FOR WhIlE else foreach AS Foreach as_is asx
+break Continue include FOR WhIlE else foreach AS Foreach as_is asx try Catch TRY catcher
 $_ $a1 @b_2 someName x9

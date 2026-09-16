@@ -7,7 +7,8 @@
 // - true, false, null and strings map directly, with escapes decoded and surrogate
 //   pairs joined into one code point written as UTF-8;
 // - nesting deeper than 511 arrays or objects is an error, as with PHP's default depth.
-// Invalid JSON stops the program with "Invalid JSON: <what> at position <byte offset>".
+// Invalid JSON raises "Invalid JSON: <what> at position <byte offset>", which try/catch
+// can catch.
 // Differences from PHP: a number too large for a float is an error rather than INF
 // (GazLang has no INF), and strings are not checked for valid UTF-8.
 //

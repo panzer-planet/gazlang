@@ -1,0 +1,142 @@
+include "../check.gaz";
+include "../../../lib/json.gaz";
+
+// The caught error is ["message" => ..., "file" => ..., "line" => ...]
+try {
+    $x = 1 / 0;
+} catch ($e) {
+    check("message", $e["message"], "Division by zero");
+    check("file", $e["file"], "tests/gaz/errors/try_catch_test.gaz");
+    check("line", $e["line"], 6);
+}
+
+function fail_with($message) {
+    error($message);
+}
+
+try {
+    fail_with("custom problem");
+} catch ($e) {
+    check("error() message is exact", $e["message"], "custom problem");
+    check("error() line is where it was called", $e["line"], 14);
+}
+
+// Every kind of runtime error can be caught (running out of call depth too, tested in TryCatchTest,
+// since recursing that deep in-process can segfault while pcov is loaded)
+function caught_message($code) {
+    try {
+        if ($code === "undefined") { return $missing; }
+        if ($code === "type") { return "a" * 2; }
+        if ($code === "key") { $a = []; $a["x"]["y"] = 1; }
+        if ($code === "builtin") { return lower(5); }
+        if ($code === "file") { return read_file("tests/gaz/errors/no_such_file"); }
+        if ($code === "json") { return json_decode("[1,"); }
+    } catch ($e) {
+        return $e["message"];
+    }
+    return "nothing thrown";
+}
+check("undefined variable", caught_message("undefined"), "Undefined variable: \$missing");
+check("type error", caught_message("type"), "Cannot use * on string");
+check("missing key", caught_message("key"), "Undefined key: x");
+check("builtin argument", caught_message("builtin"), "lower() expects string, got int");
+check("file error", caught_message("file"), "Cannot read file: tests/gaz/errors/no_such_file");
+check("invalid JSON", caught_message("json"), "Invalid JSON: unexpected end of input at position 3");
+check("no error", caught_message("none"), "nothing thrown");
+
+// Execution continues after the catch block; nothing after the error in the try runs
+$steps = [];
+try {
+    $steps[] = "before";
+    error("stop");
+    $steps[] = "after";
+} catch ($e) {
+    $steps[] = "caught";
+}
+$steps[] = "continued";
+check("control flow", $steps, ["before", "caught", "continued"]);
+
+// A failed update changes nothing
+$item = ["count" => "not a number"];
+try {
+    $item["count"]++;
+} catch ($e) {
+}
+check("failed ++ leaves the value", $item, ["count" => "not a number"]);
+$totals = [];
+try {
+    $totals["missing"] += 1;
+} catch ($e) {
+}
+check("failed += creates no key", $totals, []);
+
+// Nesting and rethrowing
+try {
+    try {
+        error("inner");
+    } catch ($e) {
+        error("rethrown: " + $e["message"]);
+    }
+} catch ($outer) {
+    check("rethrow reaches the outer catch", $outer["message"], "rethrown: inner");
+}
+
+// return, break and continue are not errors: they pass through try
+function first_positive($numbers) {
+    foreach ($numbers as $n) {
+        try {
+            if ($n > 0) {
+                return $n;
+            }
+        } catch ($e) {
+            return null;
+        }
+    }
+    return null;
+}
+check("return from inside try", first_positive([-1, 0, 7, 8]), 7);
+
+$seen = [];
+foreach ([1, 2, 3, 4] as $n) {
+    try {
+        if ($n === 2) {
+            continue;
+        }
+        if ($n === 4) {
+            break;
+        }
+        $seen[] = $n;
+    } catch ($e) {
+    }
+}
+check("continue and break inside try", $seen, [1, 3]);
+
+// Errors keep unwinding through functions until a try catches them
+function level_three() { error("from level three"); }
+function level_two() { level_three(); return "unreachable"; }
+function level_one() {
+    try {
+        return level_two();
+    } catch ($e) {
+        return "level one caught: " + $e["message"];
+    }
+}
+check("unwinds through calls", level_one(), "level one caught: from level three");
+
+// Globals work as the catch variable
+try {
+    error("global");
+} catch (@last_error) {
+}
+check("global catch variable", @last_error["message"], "global");
+
+// Handling bad input without stopping: the reason json_decode needed try/catch
+function parse_config($text) {
+    try {
+        return ["ok" => true, "config" => json_decode($text)];
+    } catch ($e) {
+        return ["ok" => false, "reason" => $e["message"]];
+    }
+}
+check("valid config", parse_config("{\"debug\": true}"), ["ok" => true, "config" => ["debug" => true]]);
+check("invalid config", parse_config("{debug}")["ok"], false);

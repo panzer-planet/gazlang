@@ -22,6 +22,7 @@ use GazLang\AST\NumAST;
 use GazLang\AST\ReturnStatementAST;
 use GazLang\AST\StatementAST;
 use GazLang\AST\StringAST;
+use GazLang\AST\TryStatementAST;
 use GazLang\AST\UnaryOpAST;
 use GazLang\AST\VariableAST;
 use GazLang\AST\WhileStatementAST;
@@ -723,6 +724,26 @@ class Parser
     }
 
     /**
+     * Parse a try statement (TRY block CATCH LPAREN variable RPAREN block)
+     *
+     * @return TryStatementAST
+     *
+     * @throws GazLangError
+     */
+    public function try_statement()
+    {
+        $start = $this->current_token;
+        $this->eat(Token::TRY);
+        $body = $this->block();
+        $this->eat(Token::CATCH);
+        $this->eat(Token::LEFT_PAREN);
+        $variable = $this->variable();
+        $this->eat(Token::RIGHT_PAREN);
+
+        return $this->at(new TryStatementAST($body, $variable, $this->block()), $start);
+    }
+
+    /**
      * Parse a loop body, a block in which break and continue are allowed
      *
      * @return CompoundAST
@@ -759,7 +780,7 @@ class Parser
     }
 
     /**
-     * Parse a statement (expr SEMICOLON | echo_statement | if_statement | while_statement | for_statement | foreach_statement
+     * Parse a statement (expr SEMICOLON | echo_statement | if_statement | while_statement | for_statement | foreach_statement | try_statement
      *                    | loop_control | return_statement)
      *
      * @return AST
@@ -778,6 +799,8 @@ class Parser
             return $this->for_statement();
         } elseif ($this->current_token->type === Token::FOREACH) {
             return $this->foreach_statement();
+        } elseif ($this->current_token->type === Token::TRY) {
+            return $this->try_statement();
         } elseif ($this->current_token->type === Token::BREAK || $this->current_token->type === Token::CONTINUE) {
             return $this->loop_control();
         } elseif ($this->current_token->type === Token::RETURN) {

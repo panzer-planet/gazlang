@@ -111,8 +111,9 @@ final class Builtins
             'has_key' => array_key_exists(Values::arrayKey($args[1]), $this->argument($name, $args[0], 'array')),
             'keys' => array_keys($this->argument($name, $args[0], 'array')),
             'type_of' => get_debug_type($args[0]),
-            // The program's own message, printed as is: it describes a location in the program's input, not here
-            'error' => throw new GazLangError(Values::toString($args[0])),
+            // The program's own message, printed as is: it describes a location in the program's input,
+            // not here. The interpreter still records where error() was called, for catch.
+            'error' => throw new GazLangError(Values::toString($args[0]), null, null, false),
             'read_file' => $this->readFile($this->argument($name, $args[0], 'string')),
             'write_file' => $this->writeFile($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string')),
             'read_stdin' => stream_get_contents(STDIN),

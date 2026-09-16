@@ -94,6 +94,10 @@ class Token
 
     public const INCLUDE = 'INCLUDE';  // Include keyword
 
+    public const TRY = 'TRY';  // Try keyword
+
+    public const CATCH = 'CATCH';  // Catch keyword
+
     public const TRUE = 'TRUE';  // Boolean literal true
 
     public const FALSE = 'FALSE';  // Boolean literal false

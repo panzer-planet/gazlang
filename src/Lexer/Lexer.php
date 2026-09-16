@@ -89,6 +89,8 @@ class Lexer
         'return' => 'RETURN',
         'null' => 'NULL',
         'include' => 'INCLUDE',
+        'try' => 'TRY',
+        'catch' => 'CATCH',
         'true' => 'TRUE',
         'false' => 'FALSE',
     ];

@@ -22,6 +22,7 @@ use GazLang\AST\NumAST;
 use GazLang\AST\ReturnStatementAST;
 use GazLang\AST\StatementAST;
 use GazLang\AST\StringAST;
+use GazLang\AST\TryStatementAST;
 use GazLang\AST\UnaryOpAST;
 use GazLang\AST\VariableAST;
 use GazLang\AST\WhileStatementAST;
@@ -129,9 +130,16 @@ class Interpreter extends AbstractNodeVisitor
     {
         try {
             return parent::visit($node);
-        } catch (GazLangError|LoopSignal|ReturnSignal $e) {
-            // Already located, or control flow rather than an error
+        } catch (LoopSignal|ReturnSignal $e) {
+            // Control flow rather than an error
             throw $e;
+        } catch (GazLangError $e) {
+            // Already located, or raised without a location (by error()): add this node's
+            if ($e->line_number !== null || $node->line === null) {
+                throw $e;
+            }
+
+            throw new GazLangError($e->reason, $node->file, $node->line, $e->show_location);
         } catch (Exception $e) {
             if ($node->line === null) {
                 throw $e;
@@ -500,6 +508,33 @@ class Interpreter extends AbstractNodeVisitor
         } else {
             $this->locals[$variable->value] = $value;
         }
+    }
+
+    /**
+     * Visit a TryStatement node
+     *
+     * Any runtime error in the body (a GazLangError, which every error becomes once it
+     * passes a node with a location) is caught and assigned to the catch variable as
+     * ["message" => ..., "file" => ..., "line" => ...]. return, break and continue are
+     * not errors and pass straight through.
+     *
+     * @param  TryStatementAST  $node  The node to visit
+     * @return null Statements produce no result
+     */
+    public function visitTryStatement(TryStatementAST $node): null
+    {
+        try {
+            $this->visit($node->body);
+        } catch (GazLangError $error) {
+            $this->assignVariable($node->variable, [
+                'message' => $error->reason,
+                'file' => $error->path,
+                'line' => $error->line_number,
+            ]);
+            $this->visit($node->catch_body);
+        }
+
+        return null;
     }
 
     /**

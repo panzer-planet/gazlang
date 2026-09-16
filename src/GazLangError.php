@@ -26,16 +26,23 @@ class GazLangError extends Exception
     public $line_number;
 
     /**
+     * @var bool Whether the message ends in the location; false for error() messages, which
+     *           describe a place in the program's input rather than in the program
+     */
+    public $show_location;
+
+    /**
      * Constructor
      *
      * @param  string  $reason  The message without the location
      * @param  string|null  $path  The file, as shown to the user
      * @param  int|null  $line_number  The line number, starting at 1
+     * @param  bool  $show_location  Whether the message ends in the location
      */
-    public function __construct(string $reason, ?string $path = null, ?int $line_number = null)
+    public function __construct(string $reason, ?string $path = null, ?int $line_number = null, bool $show_location = true)
     {
         $location = match (true) {
-            $line_number === null => '',
+            $line_number === null || ! $show_location => '',
             $path === null => " on line {$line_number}",
             default => " at {$path}:{$line_number}",
         };
@@ -44,5 +51,6 @@ class GazLangError extends Exception
         $this->reason = $reason;
         $this->path = $path;
         $this->line_number = $line_number;
+        $this->show_location = $show_location;
     }
 }

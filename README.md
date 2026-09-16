@@ -20,6 +20,7 @@ A small, PHP-flavoured programming language with an interpreter and a stack-VM c
 - Assignment `=` and `+=`, `-=`, `*=`, `/=`, `%=`, `++`, `--` (prefix and postfix)
 - Local variables with `$` prefix (`$var = expression;`) and global variables with `@` prefix (`@count = 0;`)
 - Control flow with if/else and else if statements
+- Error handling: `try { ... } catch ($e) { echo $e["message"]; }`, and `error("...")` to raise one
 - Loops: `while (cond) { ... }`, `for (init; cond; step) { ... }` and `foreach ($array as $key => $value) { ... }`, with `break` and `continue`
 - Functions: `function add($a, $b) { return $a + $b; }`, callable before they are declared, with recursion
 - Standard library: `to_float`, `floor`, `ceil`, `round`, `abs`, `intdiv`, `len`, `slice`, `lower`, `upper`, `trim`, `split`, `join`, `replace`, `contains`, `starts_with`, `ends_with`, `index_of`, `repeat`, `chr`, `ord`, `to_int`, `to_string`, `in_array`, `has_key`, `keys`, `type_of`, `error`, `read_file`, `write_file`, `read_stdin`, `args`
