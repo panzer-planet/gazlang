@@ -42,6 +42,10 @@ class Token
 
     public const FOR = 'FOR';  // For keyword
 
+    public const BREAK = 'BREAK';  // Break keyword
+
+    public const CONTINUE = 'CONTINUE';  // Continue keyword
+
     public const TRUE = 'TRUE';  // Boolean literal true
 
     public const FALSE = 'FALSE';  // Boolean literal false

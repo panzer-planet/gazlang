@@ -3,7 +3,7 @@
 namespace GazLang\AST;
 
 /**
- * WhileStatement node represents a while loop (for loops are desugared into this)
+ * WhileStatement node represents a while loop (for loops are desugared into this, with a step)
  */
 class WhileStatementAST extends AST
 {
@@ -18,14 +18,21 @@ class WhileStatementAST extends AST
     public $body;
 
     /**
+     * @var StatementAST|null Runs after the body and on continue; set for desugared for loops
+     */
+    public $step;
+
+    /**
      * Constructor
      *
      * @param  object  $condition  The condition expression
      * @param  CompoundAST  $body  The loop body
+     * @param  StatementAST|null  $step  Runs after the body and on continue
      */
-    public function __construct(object $condition, CompoundAST $body)
+    public function __construct(object $condition, CompoundAST $body, ?StatementAST $step = null)
     {
         $this->condition = $condition;
         $this->body = $body;
+        $this->step = $step;
     }
 }

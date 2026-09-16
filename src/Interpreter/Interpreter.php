@@ -10,6 +10,7 @@ use GazLang\AST\BooleanAST;
 use GazLang\AST\CompoundAST;
 use GazLang\AST\EchoStatementAST;
 use GazLang\AST\IfStatementAST;
+use GazLang\AST\LoopControlAST;
 use GazLang\AST\NumAST;
 use GazLang\AST\StatementAST;
 use GazLang\AST\StringAST;
@@ -304,10 +305,32 @@ class Interpreter extends AbstractNodeVisitor
     public function visitWhileStatement(WhileStatementAST $node): array
     {
         while ($this->isTruthy($this->visit($node->condition))) {
-            $this->visit($node->body);
+            try {
+                $this->visit($node->body);
+            } catch (LoopSignal $signal) {
+                if ($signal->type === Token::BREAK) {
+                    break;
+                }
+            }
+
+            if ($node->step !== null) {
+                $this->visit($node->step);
+            }
         }
 
         return [];
+    }
+
+    /**
+     * Visit a LoopControl node by unwinding to the innermost loop
+     *
+     * @param  LoopControlAST  $node  The node to visit
+     *
+     * @throws LoopSignal Always, caught by visitWhileStatement
+     */
+    public function visitLoopControl(LoopControlAST $node): never
+    {
+        throw new LoopSignal($node->token->type);
     }
 
     // The visit method is now implemented in AbstractNodeVisitor

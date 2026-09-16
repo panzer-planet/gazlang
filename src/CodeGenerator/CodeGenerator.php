@@ -10,6 +10,7 @@ use GazLang\AST\BooleanAST;
 use GazLang\AST\CompoundAST;
 use GazLang\AST\EchoStatementAST;
 use GazLang\AST\IfStatementAST;
+use GazLang\AST\LoopControlAST;
 use GazLang\AST\NumAST;
 use GazLang\AST\StatementAST;
 use GazLang\AST\StringAST;
@@ -65,6 +66,11 @@ class CodeGenerator extends AbstractNodeVisitor
      * @var int Counter for generating unique labels
      */
     private $label_counter;
+
+    /**
+     * @var array Stack of [continue label, end label] for the loops enclosing the current node
+     */
+    private $loop_labels = [];
 
     /**
      * Constructor
@@ -308,14 +314,38 @@ class CodeGenerator extends AbstractNodeVisitor
     {
         $start_label = 'WHILE_'.$this->label_counter;
         $end_label = 'ENDWHILE_'.$this->label_counter;
+        // continue has to run the step, so a loop with one jumps to just before it
+        $continue_label = $node->step !== null ? 'CONTINUE_'.$this->label_counter : $start_label;
         $this->label_counter++;
 
         $this->instructions[] = "LABEL {$start_label}";
         $this->visit($node->condition);
         $this->instructions[] = "JZ {$end_label}";
+
+        $this->loop_labels[] = [$continue_label, $end_label];
         $this->visit($node->body);
+        array_pop($this->loop_labels);
+
+        if ($node->step !== null) {
+            $this->instructions[] = "LABEL {$continue_label}";
+            $this->visit($node->step);
+        }
+
         $this->instructions[] = "JMP {$start_label}";
         $this->instructions[] = "LABEL {$end_label}";
+    }
+
+    /**
+     * Visit a LoopControl node, jumping to the innermost loop's continue or end label
+     *
+     * @param  LoopControlAST  $node  The node to visit
+     */
+    public function visitLoopControl(LoopControlAST $node): void
+    {
+        [$continue_label, $end_label] = end($this->loop_labels);
+        $label = $node->token->type === Token::BREAK ? $end_label : $continue_label;
+
+        $this->instructions[] = "JMP {$label}";
     }
 
     // The visit method is now implemented in AbstractNodeVisitor

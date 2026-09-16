@@ -58,10 +58,14 @@ each step depends on the ones before it.
      `true === 1` are false.
    - Code generation pushes `PUSH true` / `PUSH false`.
 3. ~~**Add loops.**~~ Done. `while` has its own `WhileStatementAST`; `for` is
-   desugared in the parser into `{ init; while (cond) { body; step; } }`, so the
+   desugared in the parser into `{ init; while (cond) { body } }` with the step
+   stored on the while node (it runs after the body and on `continue`), so the
    backends only know about while. All three `for` clauses are required.
-   **Still open:** `break`/`continue`. Adding `continue` means giving `for` its
-   own node, since the desugared form would skip `step`.
+   `break;` and `continue;` (`LoopControlAST`) affect the innermost loop and are
+   a parse error outside one. The interpreter unwinds with `LoopSignal`; the
+   code generator jumps to the loop's `CONTINUE_n`/`WHILE_n` or `ENDWHILE_n`
+   label. Functions will need to reset `Parser::$loop_depth` and stop signals
+   at the function boundary; `return` can reuse the same unwinding approach.
 4. **Add functions and scoping.** Declarations, calls, parameters, `return`,
    and a proper environment/scope chain (variables are currently global-only).
    This is the single biggest unlock for self-hosting — a recursive-descent

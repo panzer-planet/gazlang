@@ -17,7 +17,7 @@ A simple programming language compiler that supports dynamic typing with integer
 - Echo statements for output (`echo <expr>;`)
 - Variables with `$` prefix (`$var = expression;`)
 - Control flow with if/else and else if statements
-- Loops: `while (cond) { ... }` and `for (init; cond; step) { ... }`
+- Loops: `while (cond) { ... }` and `for (init; cond; step) { ... }`, with `break` and `continue`
 - Single-line comments (`// comment`)
 - Ability to interpret expressions
 - Code generation for a stack-based virtual machine

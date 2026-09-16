@@ -10,6 +10,7 @@ use GazLang\AST\BooleanAST;
 use GazLang\AST\CompoundAST;
 use GazLang\AST\EchoStatementAST;
 use GazLang\AST\IfStatementAST;
+use GazLang\AST\LoopControlAST;
 use GazLang\AST\NumAST;
 use GazLang\AST\StatementAST;
 use GazLang\AST\StringAST;
@@ -33,6 +34,11 @@ class Parser
      * @var Token The current token being processed
      */
     private $current_token;
+
+    /**
+     * @var int How many loops enclose the statement being parsed, so break and continue can be checked
+     */
+    private $loop_depth = 0;
 
     /**
      * Constructor
@@ -336,14 +342,14 @@ class Parser
         $condition = $this->expr();
         $this->eat(Token::RIGHT_PAREN);
 
-        return new WhileStatementAST($condition, $this->block());
+        return new WhileStatementAST($condition, $this->loop_body());
     }
 
     /**
      * Parse a for statement (FOR LPAREN expr SEMICOLON expr SEMICOLON expr RPAREN block)
      *
-     * Desugared into { init; while (condition) { body; step; } }, so the
-     * backends only need to know about while loops.
+     * Desugared into { init; while (condition) { body } } with step set on the
+     * while node, so the backends only need to know about while loops.
      *
      * @return CompoundAST
      *
@@ -360,20 +366,55 @@ class Parser
         $step = $this->expr();
         $this->eat(Token::RIGHT_PAREN);
 
-        // ponytail: desugaring breaks once `continue` exists (it would skip $step), give for its own node then
-        $body = $this->block();
-        $body->statements[] = new StatementAST($step);
-
         $loop = new CompoundAST;
-        $loop->statements = [new StatementAST($init), new WhileStatementAST($condition, $body)];
+        $loop->statements = [
+            new StatementAST($init),
+            new WhileStatementAST($condition, $this->loop_body(), new StatementAST($step)),
+        ];
 
         return $loop;
     }
 
     /**
-     * Parse a statement (expr SEMICOLON | echo_statement | if_statement | while_statement | for_statement)
+     * Parse a loop body, a block in which break and continue are allowed
      *
-     * @return StatementAST|EchoStatementAST|IfStatementAST|WhileStatementAST|CompoundAST
+     * @return CompoundAST
+     *
+     * @throws Exception
+     */
+    private function loop_body()
+    {
+        $this->loop_depth++;
+        $body = $this->block();
+        $this->loop_depth--;
+
+        return $body;
+    }
+
+    /**
+     * Parse a break or continue statement ((BREAK | CONTINUE) SEMICOLON)
+     *
+     * @return LoopControlAST
+     *
+     * @throws Exception If used outside of a loop
+     */
+    public function loop_control()
+    {
+        $token = $this->current_token;
+        if ($this->loop_depth === 0) {
+            throw new Exception("Cannot use {$token->value} outside of a loop");
+        }
+
+        $this->eat($token->type);
+        $this->eat(Token::SEMICOLON);
+
+        return new LoopControlAST($token);
+    }
+
+    /**
+     * Parse a statement (expr SEMICOLON | echo_statement | if_statement | while_statement | for_statement | loop_control)
+     *
+     * @return StatementAST|EchoStatementAST|IfStatementAST|WhileStatementAST|CompoundAST|LoopControlAST
      *
      * @throws Exception
      */
@@ -387,6 +428,8 @@ class Parser
             return $this->while_statement();
         } elseif ($this->current_token->type === Token::FOR) {
             return $this->for_statement();
+        } elseif ($this->current_token->type === Token::BREAK || $this->current_token->type === Token::CONTINUE) {
+            return $this->loop_control();
         }
 
         $expr = $this->expr();

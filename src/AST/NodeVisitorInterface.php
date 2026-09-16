@@ -108,6 +108,14 @@ interface NodeVisitorInterface
     public function visitWhileStatement(WhileStatementAST $node);
 
     /**
+     * Visit a LoopControl (break or continue) node
+     *
+     * @param  LoopControlAST  $node  The node to visit
+     * @return mixed The result of visiting the node
+     */
+    public function visitLoopControl(LoopControlAST $node);
+
+    /**
      * Visit a Compound node
      *
      * @param  CompoundAST  $node  The node to visit

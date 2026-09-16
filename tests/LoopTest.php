@@ -52,7 +52,7 @@ class LoopTest extends GazLangTestCase
         $this->assertEquals(
             "PUSH 0\nSTORE 0\nLOAD 0\nPOP\n"
             ."LABEL WHILE_0\nLOAD 0\nPUSH 2\nLT\nJZ ENDWHILE_0\n"
-            ."LOAD 0\nPRINT\nLOAD 0\nPUSH 1\nADD_OR_CONCAT\nSTORE 0\nLOAD 0\nPOP\n"
+            ."LOAD 0\nPRINT\nLABEL CONTINUE_0\nLOAD 0\nPUSH 1\nADD_OR_CONCAT\nSTORE 0\nLOAD 0\nPOP\n"
             ."JMP WHILE_0\nLABEL ENDWHILE_0",
             $this->generateCode('for ($i = 0; $i < 2; $i = $i + 1) { echo $i; }')
         );
@@ -64,6 +64,64 @@ class LoopTest extends GazLangTestCase
 
         $this->assertEquals("0\n", $this->executeCode($code));
         $this->assertStringContainsString('LOAD 1', $this->generateCode($code));
+    }
+
+    public function test_break_leaves_the_loop()
+    {
+        $this->assertEquals("0\n1\nafter 2\n", $this->executeCode(
+            '$i = 0; while (true) { if ($i === 2) { break; } echo $i; $i = $i + 1; } echo "after " + $i;'
+        ));
+    }
+
+    public function test_continue_in_for_still_runs_the_step()
+    {
+        $this->assertEquals("1\n3\n", $this->executeCode(
+            'for ($i = 0; $i < 4; $i = $i + 1) { if ($i === 0 || $i === 2) { continue; } echo $i; }'
+        ));
+    }
+
+    public function test_continue_in_while_rechecks_the_condition()
+    {
+        $this->assertEquals("1\n3\n", $this->executeCode(
+            '$i = 0; while ($i < 3) { $i = $i + 1; if ($i === 2) { continue; } echo $i; }'
+        ));
+    }
+
+    public function test_break_and_continue_only_affect_the_innermost_loop()
+    {
+        $this->assertEquals("0 0\n1 0\n2 0\n", $this->executeCode(<<<'CODE'
+            for ($i = 0; $i < 3; $i = $i + 1) {
+                for ($j = 0; $j < 3; $j = $j + 1) {
+                    if ($j === 1) { break; }
+                    if ($i === 5) { continue; }
+                    echo $i + " " + $j;
+                }
+            }
+            CODE));
+    }
+
+    public function test_break_outside_a_loop_is_a_parse_error()
+    {
+        $this->expectExceptionMessage('Cannot use break outside of a loop');
+        $this->createParser('if (1) { break; }')->parse();
+    }
+
+    public function test_continue_after_a_loop_is_a_parse_error()
+    {
+        $this->expectExceptionMessage('Cannot use continue outside of a loop');
+        $this->createParser('while (0) { } continue;')->parse();
+    }
+
+    public function test_code_gen_for_break_and_continue()
+    {
+        $this->assertEquals(
+            "LABEL WHILE_0\nPUSH 1\nJZ ENDWHILE_0\nJMP ENDWHILE_0\nJMP WHILE_0\nJMP WHILE_0\nLABEL ENDWHILE_0",
+            $this->generateCode('while (1) { break; continue; }')
+        );
+        $this->assertStringContainsString(
+            "JZ ENDWHILE_0\nJMP CONTINUE_0\nLABEL CONTINUE_0",
+            $this->generateCode('for ($i = 0; $i < 3; $i = $i + 1) { continue; }')
+        );
     }
 
     public function test_code_gen_for_while()
