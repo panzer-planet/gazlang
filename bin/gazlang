@@ -22,6 +22,7 @@ foreach ($autoloadPaths as $file) {
 }
 
 use GazLang\Lexer\Lexer;
+use GazLang\Lexer\Token;
 use GazLang\Parser\Parser;
 use GazLang\Interpreter\Interpreter;
 use GazLang\CodeGenerator\CodeGenerator;
@@ -36,6 +37,7 @@ function showHelp() {
     echo "  -h, --help     Show this help message\n";
     echo "  -v, --version  Show version information\n";
     echo "  -c, --code     Generate stack-based VM code instead of interpreting\n";
+    echo "  -t, --tokens   Print the lexer's tokens, one LINE TYPE VALUE per line, instead of interpreting\n";
     echo "  -f, --file     Read input from a file instead of stdin\n";
 }
 
@@ -47,16 +49,16 @@ function showVersion() {
 }
 
 // Parse command-line arguments
-$options = getopt("hvf:c", ["help", "version", "file:", "code"], $rest_index);
+$options = getopt("hvf:ct", ["help", "version", "file:", "code", "tokens"], $rest_index);
 // Everything after the options (or after --) is passed to the program, see args()
 $programArgs = array_slice($argv, $rest_index);
 
 // getopt silently skips options it doesn't know, which would drop a program's own
 // flags (gazlang -f a.gaz -n 5 gives args() ["5"]), so reject them instead
 for ($i = 1; $i < $rest_index; $i++) {
-    if (preg_match('/^(-[hvc]*f|--file)$/', $argv[$i])) {
+    if (preg_match('/^(-[hvct]*f|--file)$/', $argv[$i])) {
         $i++; // the file name that follows
-    } elseif (! preg_match('/^(-[hvc]+|-[hvc]*f.+|--(help|version|code|file=.+)|--)$/', $argv[$i])) {
+    } elseif (! preg_match('/^(-[hvct]+|-[hvct]*f.+|--(help|version|code|tokens|file=.+)|--)$/', $argv[$i])) {
         echo "Error: Unknown option {$argv[$i]} (put program arguments after --)\n";
         exit(1);
     }
@@ -72,7 +74,11 @@ if (isset($options['v']) || isset($options['version'])) {
     exit(0);
 }
 
-$generateCode = isset($options['c']) || isset($options['code']);
+$mode = match (true) {
+    isset($options['t']) || isset($options['tokens']) => 'tokens',
+    isset($options['c']) || isset($options['code']) => 'code',
+    default => 'run',
+};
 $inputFile = $options['f'] ?? ($options['file'] ?? null);
 
 if ($inputFile) {
@@ -83,7 +89,7 @@ if ($inputFile) {
     }
     
     $text = file_get_contents($inputFile);
-    exit(processInput($text, $generateCode, $inputFile, $programArgs) ? 0 : 1);
+    exit(processInput($text, $mode, $inputFile, $programArgs) ? 0 : 1);
 }
 
 // Check if input is piped
@@ -95,7 +101,7 @@ if ($isPiped) {
     while (!feof(STDIN)) {
         $input .= fgets(STDIN);
     }
-    exit(processInput($input, $generateCode, null, $programArgs) ? 0 : 1);
+    exit(processInput($input, $mode, null, $programArgs) ? 0 : 1);
 }
 
 // Interactive mode
@@ -118,24 +124,35 @@ while (true) {
         continue;
     }
     
-    processInput($line, $generateCode, null, $programArgs);
+    processInput($line, $mode, null, $programArgs);
 }
 
 /**
  * Process input text
  * 
  * @param string $text         The input text to process
- * @param bool   $generateCode Whether to generate code or interpret
+ * @param string $mode         run (interpret), code (generate VM code) or tokens (print the tokens)
  * @param string|null $path    The file the text came from, so includes resolve relative to it
  * @param array  $args         Command line arguments for the program
  * @return bool Whether the input ran without errors
  */
-function processInput(string $text, bool $generateCode = false, ?string $path = null, array $args = []): bool {
+function processInput(string $text, string $mode = 'run', ?string $path = null, array $args = []): bool {
     try {
         $lexer = new Lexer($text);
+
+        if ($mode === 'tokens') {
+            // Streamed, so the tokens before a lexer error are still printed
+            do {
+                $token = $lexer->get_next_token();
+                echo $token, "\n";
+            } while ($token->type !== Token::EOF);
+
+            return true;
+        }
+
         $parser = new Parser($lexer, $path);
-        
-        if ($generateCode) {
+
+        if ($mode === 'code') {
             // Generate code
             $codeGenerator = new CodeGenerator($parser->parse());
             $code = $codeGenerator->generate();

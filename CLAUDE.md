@@ -170,6 +170,18 @@ each step depends on the ones before it.
    arrays, and a stdlib exist does porting `Lexer.php`, `Parser.php`, etc. into
    GazLang source become plausible. Everything before this step is groundwork.
 
+   **Port the lexer to `selfhost/lexer.gaz` against the PHP lexer, which is the
+   spec.** `tests/SelfHostedLexerTest.php` runs
+   `php bin/gazlang -f selfhost/lexer.gaz -- FILE` on every `.gaz` file in
+   `examples/`, `tests/fixtures/` and `tests/lexer_corpus/`, and requires output
+   and exit code identical to `php bin/gazlang --tokens -f FILE`: one line per
+   token, `LINE TYPE VALUE` as `Token::__toString()` formats it (strings quoted
+   with `Lexer::quote()`, integers as digits, other values as source text, EOF
+   with no value), then on a lexer error `error("<message> on line N")`, which
+   prints `Error: ...` and exits 1. The test skips once until the file exists. Add
+   a corpus file whenever the port reveals an untested case; files named `error_*`
+   must be exactly the ones that fail to lex.
+
 ## Errors
 
 Every error a program can hit is a `GazLang\GazLangError` whose message ends in

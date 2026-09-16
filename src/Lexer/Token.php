@@ -124,10 +124,20 @@ class Token
     }
 
     /**
-     * String representation of the token
+     * The token as one line of `gazlang --tokens` output: LINE TYPE VALUE
+     *
+     * String values are quoted as literals and integers written as digits; every other
+     * value is the source text, which never contains spaces. EOF has no value. The
+     * self-hosted lexer must print exactly this, so the two can be diffed.
      */
     public function __toString(): string
     {
-        return "Token({$this->type}, {$this->value})";
+        $value = match (true) {
+            $this->type === self::EOF => '',
+            $this->type === self::STRING => ' '.Lexer::quote($this->value),
+            default => " {$this->value}",
+        };
+
+        return "{$this->line} {$this->type}{$value}";
     }
 }

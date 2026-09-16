@@ -1,0 +1,7 @@
+// full line comment
+
+echo 1; // trailing comment
+//
+    // indented
+echo 8 / 2; // division then comment
+// last line comment without newline

@@ -121,6 +121,12 @@ Pass arguments to the program (read them with `args()`):
 php bin/gazlang -f examples/stdlib_example.gaz -- some_file.txt
 ```
 
+Print the tokens the lexer produces (one `LINE TYPE VALUE` per line):
+
+```bash
+php bin/gazlang --tokens -f examples/echo_example.gaz
+```
+
 Generate code instead of interpreting:
 
 ```bash

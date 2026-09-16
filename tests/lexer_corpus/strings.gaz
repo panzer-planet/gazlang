@@ -1,0 +1,8 @@
+echo "";
+echo "plain";
+echo "escapes \n \t \r \" \\ end";
+echo "// not a comment";
+echo "echo if function";
+echo "spans
+two lines";
+echo "after" + "adjacent""strings";
