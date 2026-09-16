@@ -232,6 +232,69 @@ final class Values
     }
 
     /**
+     * Write to a variable or an element of one: =, a compound assignment, or ++/--
+     *
+     * Shared by the interpreter (variables by name) and the VM (by slot), so both create,
+     * check and fail in exactly the same way. Plain assignment ($op null) may create the
+     * variable and the last key. A compound assignment (a binary operator token, + for +=)
+     * or ++/-- (an INCREMENT or DECREMENT token) combines with the current value, so the
+     * variable and every key must exist: reading a missing key as null would make
+     * $a["n"] += "x" quietly give "nullx". Missing keys along the way are never created,
+     * and nothing is written if computing the new value fails.
+     *
+     * Arrays are values: writing in place through a PHP reference only changes this
+     * variable's copy, and appending stays linear.
+     *
+     * @param  array  $table  The variables, by reference: locals or globals
+     * @param  int|string  $slot  The variable's key in $table
+     * @param  string  $name  The variable's name, for error messages
+     * @param  array  $keys  The evaluated index keys, outermost first; null for an append ([])
+     * @param  Token|null  $op  How to combine with the current value, or null to replace it
+     * @param  mixed  $value  The right hand side (unused for ++ and --)
+     * @return array{0: mixed, 1: mixed} The old value (null if there was none) and the new value
+     *
+     * @throws Exception If the variable or a key along the way is missing, or the operation fails
+     */
+    public static function store(array &$table, int|string $slot, string $name, array $keys, ?Token $op, $value): array
+    {
+        if (($keys !== [] || $op !== null) && ! array_key_exists($slot, $table)) {
+            throw new Exception("Undefined variable: {$name}");
+        }
+
+        $container = &$table;
+        $key = $slot;
+        foreach ($keys as $i => $next_key) {
+            if ($i > 0 && ! array_key_exists($key, $container)) {
+                throw new Exception("Undefined key: {$key}");
+            }
+            $container = &$container[$key];
+            if (! is_array($container)) {
+                throw new Exception('Cannot use [] on '.get_debug_type($container));
+            }
+            if ($next_key === null) {
+                $container[] = $value;
+
+                return [null, $value];
+            }
+            $key = $next_key;
+        }
+
+        if ($op !== null && ! array_key_exists($key, $container)) {
+            throw new Exception("Undefined key: {$key}");
+        }
+
+        $old = $container[$key] ?? null;
+        $new = match (true) {
+            $op === null => $value,
+            $op->type === Token::INCREMENT || $op->type === Token::DECREMENT => self::step($old, $op),
+            default => self::binary($op, $old, $value),
+        };
+        $container[$key] = $new;
+
+        return [$old, $new];
+    }
+
+    /**
      * Read an element that must exist, as a compound update (+=, ++) reads the value it combines with
      *
      * Stricter than index(): the target must be an array and the key must be there, with the
