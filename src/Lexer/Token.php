@@ -38,6 +38,10 @@ class Token
 
     public const ELSE = 'ELSE';  // Else keyword
 
+    public const WHILE = 'WHILE';  // While keyword
+
+    public const FOR = 'FOR';  // For keyword
+
     public const LEFT_BRACE = 'LEFT_BRACE';  // Left curly brace '{'
 
     public const RIGHT_BRACE = 'RIGHT_BRACE';  // Right curly brace '}'

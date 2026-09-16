@@ -14,6 +14,7 @@ use GazLang\AST\StatementAST;
 use GazLang\AST\StringAST;
 use GazLang\AST\UnaryOpAST;
 use GazLang\AST\VariableAST;
+use GazLang\AST\WhileStatementAST;
 use GazLang\Lexer\Token;
 use GazLang\Parser\Parser;
 
@@ -271,6 +272,22 @@ class Interpreter extends AbstractNodeVisitor
         }
 
         // If condition is false and there's no else block, return empty result
+        return [];
+    }
+
+    /**
+     * Visit a WhileStatement node
+     *
+     * @param  WhileStatementAST  $node  The node to visit
+     * @return array Loops produce no result
+     */
+    public function visitWhileStatement(WhileStatementAST $node): array
+    {
+        // Same truthiness as if conditions: anything that isn't 0 is true
+        while ($this->visit($node->condition) != 0) {
+            $this->visit($node->body);
+        }
+
         return [];
     }
 

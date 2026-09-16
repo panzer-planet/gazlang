@@ -14,6 +14,7 @@ use GazLang\AST\StatementAST;
 use GazLang\AST\StringAST;
 use GazLang\AST\UnaryOpAST;
 use GazLang\AST\VariableAST;
+use GazLang\AST\WhileStatementAST;
 use GazLang\Lexer\Lexer;
 use GazLang\Lexer\Token;
 
@@ -261,9 +262,7 @@ class Parser
     }
 
     /**
-     * Parse an if statement (IF LPAREN expr RPAREN LBRACE statement* RBRACE
-     *                       [ELSE IF LPAREN expr RPAREN LBRACE statement* RBRACE]*
-     *                       [ELSE LBRACE statement* RBRACE])
+     * Parse an if statement (IF LPAREN expr RPAREN block [ELSE IF ...]* [ELSE block])
      *
      * @return IfStatementAST
      *
@@ -275,15 +274,7 @@ class Parser
         $this->eat(Token::LEFT_PAREN);
         $condition = $this->expr();
         $this->eat(Token::RIGHT_PAREN);
-        $this->eat(Token::LEFT_BRACE);
-
-        // Parse if body statements
-        $if_body = new CompoundAST;
-        while ($this->current_token->type !== Token::RIGHT_BRACE) {
-            $statement = $this->statement();
-            $if_body->statements[] = $statement;
-        }
-        $this->eat(Token::RIGHT_BRACE);
+        $if_body = $this->block();
 
         // Check for else-if or else clause
         $else_if = null;
@@ -298,15 +289,7 @@ class Parser
                 $else_if = $this->if_statement();
             } else {
                 // This is a regular else
-                $this->eat(Token::LEFT_BRACE);
-
-                // Parse else body statements
-                $else_body = new CompoundAST;
-                while ($this->current_token->type !== Token::RIGHT_BRACE) {
-                    $statement = $this->statement();
-                    $else_body->statements[] = $statement;
-                }
-                $this->eat(Token::RIGHT_BRACE);
+                $else_body = $this->block();
             }
         }
 
@@ -314,9 +297,77 @@ class Parser
     }
 
     /**
-     * Parse a statement (expr SEMICOLON | echo_statement | if_statement)
+     * Parse a block (LBRACE statement* RBRACE)
      *
-     * @return StatementAST|EchoStatementAST|IfStatementAST
+     * @return CompoundAST
+     *
+     * @throws Exception
+     */
+    public function block()
+    {
+        $this->eat(Token::LEFT_BRACE);
+
+        $block = new CompoundAST;
+        while ($this->current_token->type !== Token::RIGHT_BRACE) {
+            $block->statements[] = $this->statement();
+        }
+        $this->eat(Token::RIGHT_BRACE);
+
+        return $block;
+    }
+
+    /**
+     * Parse a while statement (WHILE LPAREN expr RPAREN block)
+     *
+     * @return WhileStatementAST
+     *
+     * @throws Exception
+     */
+    public function while_statement()
+    {
+        $this->eat(Token::WHILE);
+        $this->eat(Token::LEFT_PAREN);
+        $condition = $this->expr();
+        $this->eat(Token::RIGHT_PAREN);
+
+        return new WhileStatementAST($condition, $this->block());
+    }
+
+    /**
+     * Parse a for statement (FOR LPAREN expr SEMICOLON expr SEMICOLON expr RPAREN block)
+     *
+     * Desugared into { init; while (condition) { body; step; } }, so the
+     * backends only need to know about while loops.
+     *
+     * @return CompoundAST
+     *
+     * @throws Exception
+     */
+    public function for_statement()
+    {
+        $this->eat(Token::FOR);
+        $this->eat(Token::LEFT_PAREN);
+        $init = $this->expr();
+        $this->eat(Token::SEMICOLON);
+        $condition = $this->expr();
+        $this->eat(Token::SEMICOLON);
+        $step = $this->expr();
+        $this->eat(Token::RIGHT_PAREN);
+
+        // ponytail: desugaring breaks once `continue` exists (it would skip $step), give for its own node then
+        $body = $this->block();
+        $body->statements[] = new StatementAST($step);
+
+        $loop = new CompoundAST;
+        $loop->statements = [new StatementAST($init), new WhileStatementAST($condition, $body)];
+
+        return $loop;
+    }
+
+    /**
+     * Parse a statement (expr SEMICOLON | echo_statement | if_statement | while_statement | for_statement)
+     *
+     * @return StatementAST|EchoStatementAST|IfStatementAST|WhileStatementAST|CompoundAST
      *
      * @throws Exception
      */
@@ -326,6 +377,10 @@ class Parser
             return $this->echo_statement();
         } elseif ($this->current_token->type === Token::IF) {
             return $this->if_statement();
+        } elseif ($this->current_token->type === Token::WHILE) {
+            return $this->while_statement();
+        } elseif ($this->current_token->type === Token::FOR) {
+            return $this->for_statement();
         }
 
         $expr = $this->expr();

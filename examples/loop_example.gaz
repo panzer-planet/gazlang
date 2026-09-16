@@ -1,0 +1,12 @@
+$n = 5;
+$fact = 1;
+for ($i = 2; $i <= $n; $i = $i + 1) {
+    $fact = $fact * $i;
+}
+echo "5! = " + $fact;
+
+// Countdown
+while ($n > 0) {
+    echo $n;
+    $n = $n - 1;
+}

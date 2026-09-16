@@ -46,8 +46,11 @@ each step depends on the ones before it.
    **Still open:** introduce a real boolean type. Comparisons and logic
    currently return int 1/0, and truthiness is "anything `!= 0`", shared by
    `if`, `!`, `&&` and `||`.
-3. **Add loops.** `while` and `for`. Should be straightforward once the
-   precedence tower is solid, since conditions just reuse `expr()`.
+3. ~~**Add loops.**~~ Done. `while` has its own `WhileStatementAST`; `for` is
+   desugared in the parser into `{ init; while (cond) { body; step; } }`, so the
+   backends only know about while. All three `for` clauses are required.
+   **Still open:** `break`/`continue`. Adding `continue` means giving `for` its
+   own node, since the desugared form would skip `step`.
 4. **Add functions and scoping.** Declarations, calls, parameters, `return`,
    and a proper environment/scope chain (variables are currently global-only).
    This is the single biggest unlock for self-hosting — a recursive-descent

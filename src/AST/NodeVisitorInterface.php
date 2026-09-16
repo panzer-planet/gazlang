@@ -92,6 +92,14 @@ interface NodeVisitorInterface
     public function visitIfStatement(IfStatementAST $node);
 
     /**
+     * Visit a WhileStatement node
+     *
+     * @param  WhileStatementAST  $node  The node to visit
+     * @return mixed The result of visiting the node
+     */
+    public function visitWhileStatement(WhileStatementAST $node);
+
+    /**
      * Visit a Compound node
      *
      * @param  CompoundAST  $node  The node to visit

@@ -31,6 +31,8 @@ class Lexer
         'echo' => 'ECHO',
         'if' => 'IF',
         'else' => 'ELSE',
+        'while' => 'WHILE',
+        'for' => 'FOR',
     ];
 
     /**

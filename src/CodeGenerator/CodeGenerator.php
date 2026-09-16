@@ -14,6 +14,7 @@ use GazLang\AST\StatementAST;
 use GazLang\AST\StringAST;
 use GazLang\AST\UnaryOpAST;
 use GazLang\AST\VariableAST;
+use GazLang\AST\WhileStatementAST;
 use GazLang\Lexer\Token;
 
 /**
@@ -287,6 +288,25 @@ class CodeGenerator extends AbstractNodeVisitor
         }
 
         // End of if/else statement
+        $this->instructions[] = "LABEL {$end_label}";
+    }
+
+    /**
+     * Visit a WhileStatement node
+     *
+     * @param  WhileStatementAST  $node  The node to visit
+     */
+    public function visitWhileStatement(WhileStatementAST $node): void
+    {
+        $start_label = 'WHILE_'.$this->label_counter;
+        $end_label = 'ENDWHILE_'.$this->label_counter;
+        $this->label_counter++;
+
+        $this->instructions[] = "LABEL {$start_label}";
+        $this->visit($node->condition);
+        $this->instructions[] = "JZ {$end_label}";
+        $this->visit($node->body);
+        $this->instructions[] = "JMP {$start_label}";
         $this->instructions[] = "LABEL {$end_label}";
     }
 
