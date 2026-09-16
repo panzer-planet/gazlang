@@ -145,6 +145,7 @@ each step depends on the ones before it.
    checked with the `type_of()` names.
    - Strings: `len($s)`, `slice($x, $start, $length)` (strings and arrays, PHP
      `substr`/`array_slice` rules including negatives), `lower($s)`,
+     `chr($byte)` (0 to 255) and `ord($char)` (exactly one byte),
      `to_int($x)` (ints, or strings of decimal digits with an optional `-`;
      anything else or overflow is an error), `to_string($x)` (same text as echo).
    - Arrays: `len`, `slice`, `in_array($value, $array)` (strict, like `===`),
@@ -191,6 +192,15 @@ each step depends on the ones before it.
    which prints `ok <label>` or a FAIL line with both values. Reusable GazLang
    code lives in `lib/`; the lexer's character classes are ASCII and explicit
    (`Lexer::is_space` is only space, tab, newline and carriage return).
+
+## Strings
+
+Strings are byte strings. Literals support `\n \t \r \v \f \e \0 \\ \"`, `\xHH` (exactly
+two hex digits) and `\u{H}` (1 to 6 hex digits, a code point up to 10FFFF that
+isn't a surrogate, written as UTF-8). Any other escape is a lexer error, and so is
+`\0` followed by a digit, which would be octal in PHP and C. `Lexer::quote()` is
+the exact inverse: named escapes, `\xHH` for other control bytes and NUL, other
+bytes as is. Anything that shows a string as source uses it.
 
 ## Errors
 

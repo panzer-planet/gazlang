@@ -30,9 +30,19 @@ class Lexer
     private $line = 1;
 
     /**
-     * Characters written with a backslash escape inside string literals, and their escapes
+     * Single character escapes in string literals: the character after the backslash, and what it stands for
      */
-    private const ESCAPES = ['\\' => '\\\\', '"' => '\\"', "\n" => '\\n', "\t" => '\\t', "\r" => '\\r'];
+    private const ESCAPES = [
+        'n' => "\n",
+        't' => "\t",
+        'r' => "\r",
+        'v' => "\v",
+        'f' => "\f",
+        'e' => "\e",
+        '0' => "\0",
+        '\\' => '\\',
+        '"' => '"',
+    ];
 
     /**
      * @var array Keywords in the language
@@ -218,18 +228,31 @@ class Lexer
     /**
      * Write a string as a GazLang string literal, the inverse of string()
      *
-     * Used wherever strings are shown as source: printed arrays, syntax errors and generated code.
+     * Used wherever strings are shown as source: printed arrays, syntax errors, generated
+     * code and --tokens. Backslash, quote and the named control characters use their
+     * escapes, other control bytes (and NUL, so a following digit can't make it look
+     * octal) use \xHH, and everything else, including UTF-8, is written as is.
      *
      * @param  string  $value  The string
      */
     public static function quote(string $value): string
     {
-        return '"'.strtr($value, self::ESCAPES).'"';
+        $named = array_flip(array_diff_key(self::ESCAPES, ['0' => true]));
+
+        return '"'.preg_replace_callback(
+            '/[\x00-\x1F\x7F"\\\\]/',
+            fn ($match) => isset($named[$match[0]]) ? '\\'.$named[$match[0]] : sprintf('\\x%02X', ord($match[0])),
+            $value
+        ).'"';
     }
 
     /**
      * Parse a string literal enclosed in double quotes
-     * Handles escape sequences like \n, \t, \", etc.
+     *
+     * Escapes: \n \t \r \v \f \e \0 \\ \", \xHH for a byte, and \u{H} (1 to 6 hex
+     * digits) for a Unicode code point written as UTF-8. Anything else after a
+     * backslash is an error, including \0 followed by a digit, which is an octal
+     * escape in PHP and C.
      *
      * @throws GazLangError
      */
@@ -240,23 +263,17 @@ class Lexer
         $this->advance();
 
         $result = '';
-        $escape = false;
-
-        while ($this->current_char !== null && ($this->current_char !== '"' || $escape)) {
-            if ($escape) {
-                $unescaped = array_search('\\'.$this->current_char, self::ESCAPES, true);
-                if ($unescaped === false) {
-                    throw new GazLangError("Unknown escape sequence \\{$this->current_char} in string", null, $this->line);
+        while ($this->current_char !== null && $this->current_char !== '"') {
+            if ($this->current_char === '\\') {
+                $this->advance();
+                if ($this->current_char === null) {
+                    break;
                 }
-                $result .= $unescaped;
-                $escape = false;
-            } elseif ($this->current_char === '\\') {
-                $escape = true;
+                $result .= $this->escape();
             } else {
                 $result .= $this->current_char;
+                $this->advance();
             }
-
-            $this->advance();
         }
 
         if ($this->current_char === null) {
@@ -267,6 +284,97 @@ class Lexer
         $this->advance();
 
         return $result;
+    }
+
+    /**
+     * Read the escape after a backslash in a string literal, and return what it stands for
+     *
+     * @throws GazLangError If the escape is unknown or malformed
+     */
+    private function escape(): string
+    {
+        $char = $this->current_char;
+        $this->advance();
+
+        if ($char === 'x') {
+            $hex = $this->read_hex(2);
+            if (strlen($hex) !== 2) {
+                throw new GazLangError("Invalid escape \\x{$hex}: expected two hex digits", null, $this->line);
+            }
+
+            return chr(hexdec($hex));
+        }
+
+        if ($char === 'u') {
+            $hex = $this->current_char === '{' ? $this->read_braced_hex() : null;
+            if ($hex === null) {
+                throw new GazLangError('Invalid escape \\u: expected \\u{...} with 1 to 6 hex digits', null, $this->line);
+            }
+            $code_point = hexdec($hex);
+            if ($code_point > 0x10FFFF || ($code_point >= 0xD800 && $code_point <= 0xDFFF)) {
+                throw new GazLangError("Invalid escape \\u{{$hex}}: not a Unicode code point", null, $this->line);
+            }
+
+            return self::utf8($code_point);
+        }
+
+        if ($char === '0' && $this->current_char !== null && self::is_digit($this->current_char)) {
+            throw new GazLangError("Octal escapes are not supported: \\0{$this->current_char} (use \\x)", null, $this->line);
+        }
+
+        return self::ESCAPES[$char] ?? throw new GazLangError("Unknown escape sequence \\{$char} in string", null, $this->line);
+    }
+
+    /**
+     * Read up to $max hex digits
+     *
+     * @param  int  $max  The most digits to read
+     */
+    private function read_hex(int $max): string
+    {
+        $hex = '';
+        while (strlen($hex) < $max && $this->current_char !== null && ctype_xdigit($this->current_char)) {
+            $hex .= $this->current_char;
+            $this->advance();
+        }
+
+        return $hex;
+    }
+
+    /**
+     * Read {H} with 1 to 6 hex digits, starting at the {
+     *
+     * @return string|null The hex digits, or null if the braces or digits are malformed
+     */
+    private function read_braced_hex(): ?string
+    {
+        $this->advance();
+        $hex = $this->read_hex(7);
+        if ($this->current_char !== '}' || $hex === '' || strlen($hex) > 6) {
+            return null;
+        }
+        $this->advance();
+
+        return $hex;
+    }
+
+    /**
+     * Encode a Unicode code point as UTF-8
+     *
+     * @param  int  $code_point  0 to 0x10FFFF, excluding surrogates
+     */
+    private static function utf8(int $code_point): string
+    {
+        if ($code_point < 0x80) {
+            return chr($code_point);
+        } elseif ($code_point < 0x800) {
+            return chr(0xC0 | ($code_point >> 6)).chr(0x80 | ($code_point & 0x3F));
+        } elseif ($code_point < 0x10000) {
+            return chr(0xE0 | ($code_point >> 12)).chr(0x80 | (($code_point >> 6) & 0x3F)).chr(0x80 | ($code_point & 0x3F));
+        }
+
+        return chr(0xF0 | ($code_point >> 18)).chr(0x80 | (($code_point >> 12) & 0x3F))
+            .chr(0x80 | (($code_point >> 6) & 0x3F)).chr(0x80 | ($code_point & 0x3F));
     }
 
     /**

@@ -33,6 +33,54 @@ class LexerTest extends TestCase
         $this->assertSame([[Token::STRING, $value]], $this->lex(Lexer::quote($value)));
     }
 
+    public function test_all_escape_sequences()
+    {
+        $this->assertSame(
+            [[Token::STRING, "\n\t\r\v\f\e\0\\\"AzAz\u{e9}\u{E9}\u{1F600}\u{0}"]],
+            $this->lex('"\n\t\r\v\f\e\0\\\\\"\x41\x7a\x41\x7A\u{e9}\u{E9}\u{1F600}\u{0}"')
+        );
+    }
+
+    /**
+     * @dataProvider invalidEscapes
+     */
+    public function test_invalid_escapes(string $source, string $message)
+    {
+        $this->expectExceptionMessage($message);
+        $this->lex($source);
+    }
+
+    public static function invalidEscapes(): array
+    {
+        return [
+            'one hex digit' => ['"\x4"', 'Invalid escape \x4: expected two hex digits on line 1'],
+            'no hex digits' => ['"\xZZ"', 'Invalid escape \x: expected two hex digits on line 1'],
+            // Built from parts: the escape must reach the lexer as backslash, u, 00e9
+            'unicode without braces' => ['"\\'.'u00e9"', 'Invalid escape \u: expected \u{...} with 1 to 6 hex digits on line 1'],
+            'unicode empty braces' => ['"\u{}"', 'Invalid escape \u: expected \u{...} with 1 to 6 hex digits on line 1'],
+            'unicode seven digits' => ['"\u{1234567}"', 'Invalid escape \u: expected \u{...} with 1 to 6 hex digits on line 1'],
+            'unicode unclosed' => ['"\u{41"', 'Invalid escape \u: expected \u{...} with 1 to 6 hex digits on line 1'],
+            'unicode past the last code point' => ['"\u{110000}"', 'Invalid escape \u{110000}: not a Unicode code point on line 1'],
+            'unicode surrogate' => ['"\u{D800}"', 'Invalid escape \u{D800}: not a Unicode code point on line 1'],
+            'octal' => ['"\012"', 'Octal escapes are not supported: \01 (use \x) on line 1'],
+            'uppercase escape letter' => ['"\N"', 'Unknown escape sequence \N in string on line 1'],
+            'backslash at the end, reported where the string starts' => ["\"one\ntwo\\", 'Unterminated string on line 1'],
+        ];
+    }
+
+    public function test_quote_round_trips_every_byte()
+    {
+        $all_bytes = implode('', array_map('chr', range(0, 255)));
+
+        $this->assertSame([[Token::STRING, $all_bytes]], $this->lex(Lexer::quote($all_bytes)));
+    }
+
+    public function test_quote_writes_readable_escapes()
+    {
+        // NUL is \x00 so a following digit can't turn it into an octal-looking \01
+        $this->assertSame('"\n\t\r\v\f\e\\\\\"\x0012 \x01\x7F é"', Lexer::quote("\n\t\r\v\f\e\\\"\x0012 \x01\x7F é"));
+    }
+
     public function test_unknown_escape_is_an_error()
     {
         $this->expectExceptionMessage('Unknown escape sequence \q in string on line 2');

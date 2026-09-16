@@ -19,6 +19,34 @@ class StdlibTest extends GazLangTestCase
         $this->assertEquals("function\n", $this->executeCode('echo lower("FuncTION");'));
     }
 
+    public function test_chr_and_ord()
+    {
+        $this->assertEquals("A\n97\ntrue\n255\n", $this->executeCode(
+            'echo chr(65); echo ord("a"); echo chr(0) === "\x00"; echo ord(chr(255));'
+        ));
+    }
+
+    /**
+     * @dataProvider invalidBytes
+     */
+    public function test_chr_and_ord_reject_what_is_not_one_byte(string $code, string $message)
+    {
+        $this->expectExceptionMessage($message);
+        $this->executeCode($code);
+    }
+
+    public static function invalidBytes(): array
+    {
+        return [
+            'chr above 255' => ['chr(256);', 'chr() expects a byte value from 0 to 255, got 256'],
+            'chr negative' => ['chr(-1);', 'chr() expects a byte value from 0 to 255, got -1'],
+            'chr string' => ['chr("A");', 'chr() expects int, got string'],
+            'ord empty' => ['ord("");', 'ord() expects a one character string, got ""'],
+            'ord two characters' => ['ord("ab");', 'ord() expects a one character string, got "ab"'],
+            'ord multibyte' => ['ord("\u{e9}");', 'ord() expects a one character string, got "é"'],
+        ];
+    }
+
     public function test_to_int()
     {
         $this->assertEquals("42\n-7\n8\n5\n", $this->executeCode(

@@ -21,6 +21,8 @@ final class Builtins
         'len' => 1,
         'slice' => 3,
         'lower' => 1,
+        'chr' => 1,
+        'ord' => 1,
         'to_int' => 1,
         'to_string' => 1,
         'in_array' => 2,
@@ -64,6 +66,8 @@ final class Builtins
             'len' => is_array($this->argument($name, $args[0], 'array', 'string')) ? count($args[0]) : strlen($args[0]),
             'slice' => $this->slice($args[0], $this->argument($name, $args[1], 'int'), $this->argument($name, $args[2], 'int')),
             'lower' => strtolower($this->argument($name, $args[0], 'string')),
+            'chr' => $this->chr($this->argument($name, $args[0], 'int')),
+            'ord' => $this->ord($this->argument($name, $args[0], 'string')),
             'to_int' => $this->toInt($args[0]),
             'to_string' => Values::toString($args[0]),
             // Strict, like ===
@@ -116,6 +120,38 @@ final class Builtins
         return is_array($this->argument('slice', $value, 'string', 'array'))
             ? array_slice($value, $start, $length)
             : substr($value, $start, $length);
+    }
+
+    /**
+     * chr($byte): the one character string for a byte value
+     *
+     * @param  int  $byte  0 to 255
+     *
+     * @throws Exception If the value is outside 0 to 255
+     */
+    private function chr(int $byte): string
+    {
+        if ($byte < 0 || $byte > 255) {
+            throw new Exception("chr() expects a byte value from 0 to 255, got {$byte}");
+        }
+
+        return chr($byte);
+    }
+
+    /**
+     * ord($char): the byte value of a one character string
+     *
+     * @param  string  $char  Exactly one character (byte)
+     *
+     * @throws Exception If the string isn't exactly one character
+     */
+    private function ord(string $char): int
+    {
+        if (strlen($char) !== 1) {
+            throw new Exception('ord() expects a one character string, got '.Lexer::quote($char));
+        }
+
+        return ord($char);
     }
 
     /**
