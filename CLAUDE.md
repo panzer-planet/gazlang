@@ -45,7 +45,11 @@ each step depends on the ones before it.
    unary `-` via `UnaryOpAST`. `!=` sits at the equality level, C-style.
    **Still open:** introduce a real boolean type. Comparisons and logic
    currently return int 1/0, and truthiness is "anything `!= 0`", shared by
-   `if`, `!`, `&&` and `||`.
+   `if`, `!`, `&&` and `||`. Decided semantics:
+   - `true` and `false` are keywords (boolean literals).
+   - Comparisons, `!`, `&&` and `||` return booleans; `echo 1 < 2` prints `true`.
+   - Truthiness stays C-like: `if (5)` is true, `if (0)` is false.
+   - Booleans act as 1/0 in arithmetic: `true + 1` is `2`.
 3. ~~**Add loops.**~~ Done. `while` has its own `WhileStatementAST`; `for` is
    desugared in the parser into `{ init; while (cond) { body; step; } }`, so the
    backends only know about while. All three `for` clauses are required.

@@ -63,8 +63,7 @@ if ($inputFile) {
     }
     
     $text = file_get_contents($inputFile);
-    processInput($text, $generateCode);
-    exit(0);
+    exit(processInput($text, $generateCode) ? 0 : 1);
 }
 
 // Check if input is piped
@@ -76,8 +75,7 @@ if ($isPiped) {
     while (!feof(STDIN)) {
         $input .= fgets(STDIN);
     }
-    processInput($input, $generateCode);
-    exit(0);
+    exit(processInput($input, $generateCode) ? 0 : 1);
 }
 
 // Interactive mode
@@ -103,8 +101,9 @@ while (true) {
  * 
  * @param string $text         The input text to process
  * @param bool   $generateCode Whether to generate code or interpret
+ * @return bool Whether the input ran without errors
  */
-function processInput(string $text, bool $generateCode = false): void {
+function processInput(string $text, bool $generateCode = false): bool {
     try {
         $lexer = new Lexer($text);
         $parser = new Parser($lexer);
@@ -121,5 +120,9 @@ function processInput(string $text, bool $generateCode = false): void {
         }
     } catch (Exception $e) {
         echo "Error: " . $e->getMessage() . "\n";
+
+        return false;
     }
+
+    return true;
 } 
