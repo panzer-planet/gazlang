@@ -141,6 +141,52 @@ class LoopTest extends GazLangTestCase
         (new CodeGenerator(new LoopControlAST(new Token(Token::BREAK, 'break'))))->generate();
     }
 
+    public function test_foreach_over_a_non_array_is_an_error()
+    {
+        $this->expectExceptionMessage('foreach expects an array, got string on line 2');
+        $this->executeCode("\$s = \"abc\";\nforeach (\$s as \$c) { }");
+    }
+
+    /**
+     * @dataProvider invalidForeach
+     */
+    public function test_foreach_parse_errors(string $code, string $message)
+    {
+        $this->expectExceptionMessage($message);
+        $this->createParser($code)->parse();
+    }
+
+    public static function invalidForeach(): array
+    {
+        return [
+            'missing as' => ['foreach ([1] $v) { }', "Expected 'as' but found '\$v'"],
+            'value is not a variable' => ['foreach ([1] as 1) { }', "Expected a \$variable but found '1'"],
+            'key is not a variable' => ['foreach ([1] as $k => 2) { }', "Expected a \$variable but found '2'"],
+            'index as the value' => ['foreach ([1] as $a[0]) { }', "Expected ')' but found '['"],
+            'break outside the body' => ['foreach ([1] as $v) { } break;', 'Cannot use break outside of a loop'],
+        ];
+    }
+
+    public function test_code_gen_lowers_foreach_to_a_while_loop_over_keys()
+    {
+        $code = $this->generateCode('foreach ([7] as $k => $v) { continue; }');
+
+        $this->assertStringContainsString("CALL_BUILTIN keys 1\nSTORE 1", $code);
+        $this->assertStringContainsString("LABEL WHILE_0\nLOAD 2\nLOAD 1\nCALL_BUILTIN len 1\nLT\nJZ ENDWHILE_0", $code);
+        // $k = $#keys[$#i]; $v = $#array[$#keys[$#i]]; continue jumps to the step
+        $this->assertStringContainsString("LOAD 1\nLOAD 2\nINDEX_GET\nSTORE 3\nLOAD 3\nPOP\nLOAD 0\nLOAD 1\nLOAD 2\nINDEX_GET\nINDEX_GET\nSTORE 4", $code);
+        $this->assertStringContainsString("JMP CONTINUE_0\nLABEL CONTINUE_0\nLOAD 2\nPUSH 1\nADD_OR_CONCAT\nSTORE 2", $code);
+    }
+
+    public function test_code_gen_gives_nested_foreach_loops_their_own_hidden_variables()
+    {
+        $code = $this->generateCode('foreach ([[1]] as $row) { foreach ($row as $cell) { } }');
+
+        // Two separate keys() results stored in two separate slots
+        preg_match_all('/CALL_BUILTIN keys 1\nSTORE (\d+)/', $code, $slots);
+        $this->assertCount(2, array_unique($slots[1]));
+    }
+
     public function test_code_gen_for_while()
     {
         $this->assertEquals(

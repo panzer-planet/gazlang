@@ -1,0 +1,82 @@
+include "../check.gaz";
+
+// Collects what a foreach saw, as "key=value" strings
+function pairs($array) {
+    $seen = [];
+    foreach ($array as $key => $value) {
+        $seen[] = "$key=" + to_string($value);
+    }
+    return $seen;
+}
+
+check("list keys and values", pairs(["a", "b"]), ["0=a", "1=b"]);
+check("map keys in insertion order", pairs(["y" => 1, "x" => 2, 7 => 3]), ["y=1", "x=2", "7=3"]);
+check("nested values", pairs([[1, 2]]), ["0=[1, 2]"]);
+check("empty array", pairs([]), []);
+
+$values = [];
+foreach ([3, 1, 2] as $value) {
+    $values[] = $value;
+}
+check("values only", $values, [3, 1, 2]);
+check("variables keep the last value", $value, 2);
+
+$sum = 0;
+foreach ([1, 2, 3, 4, 5] as $n) {
+    if ($n % 2 === 0) {
+        continue;
+    }
+    if ($n > 4) {
+        break;
+    }
+    $sum = $sum + $n;
+}
+check("continue and break", $sum, 4);
+
+// Arrays are values: the loop iterates the array as it was when the loop started
+$grow = [1, 2];
+$count = 0;
+foreach ($grow as $item) {
+    $grow[] = $item;
+    $count = $count + 1;
+}
+check("appending during the loop doesn't extend it", $count, 2);
+check("but the variable did change", $grow, [1, 2, 1, 2]);
+
+$totals = ["a" => 1, "b" => 2];
+foreach ($totals as $name => $total) {
+    $totals[$name] = $total * 10;
+}
+check("writing back by key", $totals, ["a" => 10, "b" => 20]);
+
+$cells = [];
+foreach ([[1, 2], [3]] as $row => $columns) {
+    foreach ($columns as $column => $cell) {
+        $cells[] = "$row.$column=$cell";
+    }
+}
+check("nested loops", $cells, ["0.0=1", "0.1=2", "1.0=3"]);
+
+// Globals work as loop variables
+foreach (["k" => "v"] as @last_key => @last_value) { }
+check("global loop variables", "{@last_key}{@last_value}", "kv");
+
+function first_even($numbers) {
+    foreach ($numbers as $n) {
+        if ($n % 2 === 0) {
+            return $n;
+        }
+    }
+    return null;
+}
+check("return from inside a foreach", first_even([1, 3, 4, 6]), 4);
+check("return after a foreach", first_even([1, 3]), null);
+
+// The array expression is evaluated once
+@calls = 0;
+function numbers() {
+    @calls = @calls + 1;
+    return [1, 2, 3];
+}
+foreach (numbers() as $n) { }
+check("array expression evaluated once", @calls, 1);

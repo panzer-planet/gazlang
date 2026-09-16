@@ -10,6 +10,7 @@ use GazLang\AST\BinOpAST;
 use GazLang\AST\BooleanAST;
 use GazLang\AST\CompoundAST;
 use GazLang\AST\EchoStatementAST;
+use GazLang\AST\ForeachStatementAST;
 use GazLang\AST\FunctionCallAST;
 use GazLang\AST\FunctionDeclarationAST;
 use GazLang\AST\IfStatementAST;
@@ -654,6 +655,32 @@ class Parser
     }
 
     /**
+     * Parse a foreach statement (FOREACH LPAREN expr AS variable [DOUBLE_ARROW variable] RPAREN block)
+     *
+     * @return ForeachStatementAST
+     *
+     * @throws GazLangError
+     */
+    public function foreach_statement()
+    {
+        $start = $this->current_token;
+        $this->eat(Token::FOREACH);
+        $this->eat(Token::LEFT_PAREN);
+        $iterable = $this->expr();
+        $this->eat(Token::AS);
+
+        $key = null;
+        $value = $this->variable();
+        if ($this->current_token->type === Token::DOUBLE_ARROW) {
+            $this->eat(Token::DOUBLE_ARROW);
+            [$key, $value] = [$value, $this->variable()];
+        }
+        $this->eat(Token::RIGHT_PAREN);
+
+        return $this->at(new ForeachStatementAST($iterable, $key, $value, $this->loop_body()), $start);
+    }
+
+    /**
      * Parse a loop body, a block in which break and continue are allowed
      *
      * @return CompoundAST
@@ -690,7 +717,7 @@ class Parser
     }
 
     /**
-     * Parse a statement (expr SEMICOLON | echo_statement | if_statement | while_statement | for_statement
+     * Parse a statement (expr SEMICOLON | echo_statement | if_statement | while_statement | for_statement | foreach_statement
      *                    | loop_control | return_statement)
      *
      * @return AST
@@ -707,6 +734,8 @@ class Parser
             return $this->while_statement();
         } elseif ($this->current_token->type === Token::FOR) {
             return $this->for_statement();
+        } elseif ($this->current_token->type === Token::FOREACH) {
+            return $this->foreach_statement();
         } elseif ($this->current_token->type === Token::BREAK || $this->current_token->type === Token::CONTINUE) {
             return $this->loop_control();
         } elseif ($this->current_token->type === Token::RETURN) {

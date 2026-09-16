@@ -74,6 +74,13 @@ each step depends on the ones before it.
    a parse error outside one. The interpreter unwinds with `LoopSignal`; the
    code generator jumps to the loop's `CONTINUE_n`/`WHILE_n` or `ENDWHILE_n`
    label.
+   `foreach ($array as [$key =>] $value) { }` (`ForeachStatementAST`) follows PHP:
+   the array expression is evaluated once and iterated as it was then (arrays are
+   values, so changing the variable in the body doesn't change the iteration), the
+   loop variables can be `$` or `@` and keep their last values, and a non-array is
+   "foreach expects an array". The interpreter runs it directly; the code
+   generator lowers it to a while loop over `keys()` with hidden `$#foreach_*_n`
+   variables (no program can name them), using the step for `continue`.
 4. ~~**Add functions and scoping.**~~ Done. Decided semantics:
    - `function name($a, $b) { ... }` is only allowed at the top level. Calls may
      come before the declaration (mutual recursion works). The parser checks
@@ -175,9 +182,13 @@ each step depends on the ones before it.
      spliced in where it is included and share the parser's function table, so
      the backends never see it. Each file is included once (the main file
      counts), which also breaks cycles.
-7. **Begin porting the lexer/parser to GazLang itself.** Only once functions,
-   arrays, and a stdlib exist does porting `Lexer.php`, `Parser.php`, etc. into
-   GazLang source become plausible. Everything before this step is groundwork.
+7. **Begin porting the lexer/parser to GazLang itself. Deferred** (decided
+   2026-09-16): while the syntax is still changing, a second lexer doubles the
+   work of every lexer change, and a GazLang toolchain on the tree-walking PHP
+   interpreter would be too slow to use. Port once the lexical syntax has been
+   stable for a while and something faster exists (the VM, or compiling to PHP).
+   Until then, grow the language by writing real GazLang (`lib/`, tools) and
+   fixing what hurts. The harness below is ready for when the port starts.
 
    **Port the lexer to `selfhost/lexer.gaz` against the PHP lexer, which is the
    spec.** `tests/SelfHostedLexerTest.php` runs

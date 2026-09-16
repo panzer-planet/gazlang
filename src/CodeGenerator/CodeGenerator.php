@@ -6,10 +6,12 @@ use Exception;
 use GazLang\AST\AbstractNodeVisitor;
 use GazLang\AST\ArrayLiteralAST;
 use GazLang\AST\AssignAST;
+use GazLang\AST\AST;
 use GazLang\AST\BinOpAST;
 use GazLang\AST\BooleanAST;
 use GazLang\AST\CompoundAST;
 use GazLang\AST\EchoStatementAST;
+use GazLang\AST\ForeachStatementAST;
 use GazLang\AST\FunctionCallAST;
 use GazLang\AST\FunctionDeclarationAST;
 use GazLang\AST\IfStatementAST;
@@ -86,6 +88,11 @@ class CodeGenerator extends AbstractNodeVisitor
      * @var array<string, int> Global variable names mapped to global slots
      */
     private $global_addresses = [];
+
+    /**
+     * @var int Numbers the hidden variables of each foreach, so nested loops don't share them
+     */
+    private $foreach_counter = 0;
 
     /**
      * @var FunctionDeclarationAST[] Functions to emit after the top level code
@@ -407,6 +414,52 @@ class CodeGenerator extends AbstractNodeVisitor
 
         // End of if/else statement
         $this->instructions[] = "LABEL {$end_label}";
+    }
+
+    /**
+     * Visit a ForeachStatement node by emitting the equivalent while loop over keys()
+     *
+     * foreach ($array as $key => $value) { body } becomes, with hidden variables whose
+     * names no program can write:
+     *
+     *   $#array = $array; $#keys = keys($#array); $#i = 0;
+     *   while ($#i < len($#keys); step $#i = $#i + 1) { $key = $#keys[$#i]; $value = $#array[$#keys[$#i]]; body }
+     *
+     * The step runs on continue, as for for loops. A non-array fails in keys() rather
+     * than with the interpreter's "foreach expects an array" message.
+     *
+     * @param  ForeachStatementAST  $node  The node to visit
+     */
+    public function visitForeachStatement(ForeachStatementAST $node): void
+    {
+        $n = $this->foreach_counter++;
+        $hidden = fn (string $name) => new VariableAST(new Token(Token::VAR_IDENTIFIER, "\$#foreach_{$name}_{$n}"));
+        $assign = fn (VariableAST $variable, AST $value) => new StatementAST(new AssignAST($variable, new Token(Token::ASSIGN, '='), $value));
+        $array = $hidden('array');
+        $keys = $hidden('keys');
+        $i = $hidden('i');
+        $key = new IndexAST($keys, $i);
+
+        $body = new CompoundAST;
+        if ($node->key !== null) {
+            $body->statements[] = $assign($node->key, $key);
+        }
+        $body->statements[] = $assign($node->value, new IndexAST($array, $key));
+        array_push($body->statements, ...$node->body->statements);
+
+        $loop = new CompoundAST;
+        $loop->statements = [
+            $assign($array, $node->iterable),
+            $assign($keys, new FunctionCallAST('keys', [$array])),
+            $assign($i, new NumAST(new Token(Token::INTEGER, 0))),
+            new WhileStatementAST(
+                new BinOpAST($i, new Token(Token::LESS_THAN, '<'), new FunctionCallAST('len', [$keys])),
+                $body,
+                $assign($i, new BinOpAST($i, new Token(Token::PLUS, '+'), new NumAST(new Token(Token::INTEGER, 1))))
+            ),
+        ];
+
+        $this->visit($loop);
     }
 
     /**

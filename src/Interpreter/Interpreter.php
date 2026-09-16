@@ -10,6 +10,7 @@ use GazLang\AST\BinOpAST;
 use GazLang\AST\BooleanAST;
 use GazLang\AST\CompoundAST;
 use GazLang\AST\EchoStatementAST;
+use GazLang\AST\ForeachStatementAST;
 use GazLang\AST\FunctionCallAST;
 use GazLang\AST\FunctionDeclarationAST;
 use GazLang\AST\IfStatementAST;
@@ -158,11 +159,7 @@ class Interpreter extends AbstractNodeVisitor
     {
         if ($node->left instanceof VariableAST) {
             $value = $this->visit($node->right);
-            if ($node->left->isGlobal()) {
-                $this->globals[$node->left->value] = $value;
-            } else {
-                $this->locals[$node->left->value] = $value;
-            }
+            $this->assignVariable($node->left, $value);
 
             return $value;
         }
@@ -379,6 +376,57 @@ class Interpreter extends AbstractNodeVisitor
         }
 
         return null;
+    }
+
+    /**
+     * Visit a ForeachStatement node
+     *
+     * The array is evaluated once and iterated as it was then: arrays are values, so
+     * changing the variable inside the loop doesn't change what is iterated.
+     *
+     * @param  ForeachStatementAST  $node  The node to visit
+     * @return null Loops produce no result
+     *
+     * @throws Exception If the expression is not an array
+     */
+    public function visitForeachStatement(ForeachStatementAST $node): null
+    {
+        $array = $this->visit($node->iterable);
+        if (! is_array($array)) {
+            throw new Exception('foreach expects an array, got '.get_debug_type($array));
+        }
+
+        foreach ($array as $key => $value) {
+            if ($node->key !== null) {
+                $this->assignVariable($node->key, $key);
+            }
+            $this->assignVariable($node->value, $value);
+
+            try {
+                $this->visit($node->body);
+            } catch (LoopSignal $signal) {
+                if ($signal->type === Token::BREAK) {
+                    break;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Assign a value to a local or global variable
+     *
+     * @param  VariableAST  $variable  The variable
+     * @param  mixed  $value  The value
+     */
+    private function assignVariable(VariableAST $variable, $value): void
+    {
+        if ($variable->isGlobal()) {
+            $this->globals[$variable->value] = $value;
+        } else {
+            $this->locals[$variable->value] = $value;
+        }
     }
 
     /**

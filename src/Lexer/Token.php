@@ -62,6 +62,10 @@ class Token
 
     public const FOR = 'FOR';  // For keyword
 
+    public const FOREACH = 'FOREACH';  // Foreach keyword
+
+    public const AS = 'AS';  // As keyword, in foreach
+
     public const BREAK = 'BREAK';  // Break keyword
 
     public const CONTINUE = 'CONTINUE';  // Continue keyword

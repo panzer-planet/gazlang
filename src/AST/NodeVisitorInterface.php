@@ -108,6 +108,14 @@ interface NodeVisitorInterface
     public function visitWhileStatement(WhileStatementAST $node);
 
     /**
+     * Visit a ForeachStatement node
+     *
+     * @param  ForeachStatementAST  $node  The node to visit
+     * @return mixed The result of visiting the node
+     */
+    public function visitForeachStatement(ForeachStatementAST $node);
+
+    /**
      * Visit a LoopControl (break or continue) node
      *
      * @param  LoopControlAST  $node  The node to visit

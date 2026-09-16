@@ -70,6 +70,8 @@ class Lexer
         'else' => 'ELSE',
         'while' => 'WHILE',
         'for' => 'FOR',
+        'foreach' => 'FOREACH',
+        'as' => 'AS',
         'break' => 'BREAK',
         'continue' => 'CONTINUE',
         'function' => 'FUNCTION',

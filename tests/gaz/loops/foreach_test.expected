@@ -1,0 +1,15 @@
+ok list keys and values
+ok map keys in insertion order
+ok nested values
+ok empty array
+ok values only
+ok variables keep the last value
+ok continue and break
+ok appending during the loop doesn't extend it
+ok but the variable did change
+ok writing back by key
+ok nested loops
+ok global loop variables
+ok return from inside a foreach
+ok return after a foreach
+ok array expression evaluated once
