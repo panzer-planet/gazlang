@@ -134,7 +134,9 @@ each step depends on the ones before it.
      (phpunit) still runs with pcov, so tests of deep recursion on the interpreter
      go through the CLI. The VM doesn't recurse in PHP and is unaffected. Xdebug
      has the same problem and is not handled.
-   - Reserved for later: `#` for object properties (`@` is taken by globals).
+   - Reserved for later: `.` for object properties, and possibly `#` as the sigil for
+     the current object (`#title` meaning this object's title), alongside `$` and `@`.
+     See "Decided, not built yet" below.
 5. ~~**Add arrays (and maybe maps).**~~ Done. One PHP-style ordered array type
    serves as both list and map. Decided semantics:
    - Literals `[1, 2]` and `["k" => 1, 5 => 2]` (trailing comma allowed,
@@ -242,6 +244,33 @@ each step depends on the ones before it.
    long strings with `index_of` rather than character by character in GazLang: that
    halved CSV parsing time; the lexer's character classes are ASCII and explicit
    (`Lexer::is_space` is only space, tab, newline and carriage return).
+
+## Decided, not built yet
+
+Design agreed on 2026-09-17, to build in phases (each committed and reviewed):
+1. Named functions as values, by bare name (`$f = add;`, builtins too: `len`), and
+   calling any function value: `$f(1)`, `$handlers["save"]($doc)`, `make_adder(2)(3)`.
+   A bare name is unambiguous because variables always have a sigil, and the parser
+   still checks at parse time that it names a function. Calls on values check arity
+   at runtime (a catchable error, like `Cannot call int`). `type_of` gives
+   `"function"`; echo prints something readable (`function add`, `-> at file:line`).
+2. Anonymous functions with `->`: `$x -> $x * 2`, `($a, $b = 1) -> $a + $b`,
+   `() -> 42`, and a block body `($a) -> { ...; return ...; }` (no implicit return).
+   `->` is right associative (`$x -> $y -> $x + $y`). Parsing `(` needs lookahead to
+   tell a parameter list from grouping.
+3. Capture is automatic and **by value at creation**: a function gets a copy of the
+   outer variables it uses, consistent with arrays being values. So a closure can't
+   keep a running counter in an outer variable; shared state goes in `@globals` (and
+   objects, later). No `use` clause, no references.
+4. `lib/functional.gaz`: `map`, `filter`, `reduce`, `sort($array, $compare)`, written
+   in GazLang (builtins calling back into GazLang would need a re-entrant VM). The
+   CSV report's sorting is the real-world test.
+
+Objects, later: properties are `.` (`$user.name`, `$rows[0].total`), never spaced
+around the dot. In strings, property paths need braces, `"{$user.name}"`: the
+shorthand `"$name"` stays a variable (plus one `[index]`), so `"Saved $file.txt"` and
+`"Hi $name."` keep meaning what they say. A `<=>` operator would suit comparison
+functions.
 
 ## Assignment
 
