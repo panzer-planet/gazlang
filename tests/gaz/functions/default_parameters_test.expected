@@ -1,0 +1,19 @@
+ok both defaults
+ok one default
+ok no defaults
+ok passing null doesn't use the default
+ok fresh default array
+ok still fresh on the next call
+ok default from an earlier parameter
+ok given explicitly
+ok default calls a function
+ok given explicitly, the default isn't evaluated
+ok evaluated again on the next call
+ok default doesn't see the caller's variables
+ok given explicitly, the default isn't evaluated either
+ok error in a default
+ok not evaluated when the argument is given
+ok recursion with a default
+ok slice to the end
+ok slice negative start to the end
+ok slice with a length

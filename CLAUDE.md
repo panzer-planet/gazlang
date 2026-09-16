@@ -91,6 +91,12 @@ each step depends on the ones before it.
      every call's name and argument count once the whole program is read, so
      both backends trust calls. Functions are not values; nested functions
      and closures wait until they are.
+   - Parameters can have defaults, `function f($a, $b = $a * 2)`, after all the
+     required ones. A default is any expression, evaluated inside the function on
+     each call that leaves the argument out (so it can use earlier parameters and
+     globals, and a default `[]` is never shared between calls). The function's
+     arity is then `[required, total]`. The code generator emits an `ARGC` check per
+     default at the start of the function.
    - `$x` is always local (to the running call, or to the top level) and `@x`
      is always global, everywhere. A function cannot read top-level `$x`.
      Parameters are `$` only. Because declarations are top level only, they are
@@ -149,14 +155,14 @@ each step depends on the ones before it.
    - Not yet: removing elements (build a new array instead), `foreach` (loop
      over `keys()`).
    - A builtin's arity is an int, or `[fewest, most]` when it has optional
-     parameters (`index_of`); the parser checks calls against the range. User
-     functions have no optional parameters.
+     parameters (`index_of`, `slice`); the parser checks calls against the range,
+     the same way as for user functions with defaults.
 6. ~~**Design a minimal standard library.**~~ Done. Builtins live in
    `Runtime\Builtins::ARITIES` (name → arity, or `[fewest, most]` for optional
    parameters), are implemented in `Runtime\Builtins::call()`, can't be
    redeclared, and compile to `CALL_BUILTIN name argc`. Argument types are
    checked with the `type_of()` names.
-   - Strings: `len($s)`, `slice($x, $start, $length)` (strings and arrays, PHP
+   - Strings: `len($s)`, `slice($x, $start, $length = to the end)` (strings and arrays, PHP
      `substr`/`array_slice` rules including negatives), `lower($s)`,
      `upper($s)`, `trim($s)` (only the lexer's whitespace), `split($s, $sep)` (an
      empty separator splits into characters), `join($array, $sep)` (elements

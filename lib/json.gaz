@@ -360,7 +360,7 @@ function json_int_fits($integer, $negative) {
     $digits = $integer;
     $limit = "9223372036854775807";
     if ($negative) {
-        $digits = slice($integer, 1, len($integer) - 1);
+        $digits = slice($integer, 1);
         $limit = "9223372036854775808";
     }
     return len($digits) < 19 || len($digits) === 19 && $digits <= $limit;

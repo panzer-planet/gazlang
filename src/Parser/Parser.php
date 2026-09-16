@@ -841,7 +841,8 @@ class Parser
     }
 
     /**
-     * Parse a function declaration (FUNCTION IDENTIFIER LPAREN [VAR_IDENTIFIER (COMMA VAR_IDENTIFIER)*] RPAREN block)
+     * Parse a function declaration (FUNCTION IDENTIFIER LPAREN [param (COMMA param)*] RPAREN block),
+     * param: VAR_IDENTIFIER [ASSIGN expr]
      *
      * Only allowed at the top level, which is also why break and continue can
      * never reach a caller's loop: a declaration is never inside a loop.
@@ -862,6 +863,7 @@ class Parser
 
         $this->eat(Token::LEFT_PAREN);
         $params = [];
+        $defaults = [];
         while ($this->current_token->type !== Token::RIGHT_PAREN) {
             if ($params !== []) {
                 $this->eat(Token::COMMA);
@@ -871,18 +873,28 @@ class Parser
                 $this->fail("Duplicate parameter {$param} in function {$name}");
             }
             $this->eat(Token::VAR_IDENTIFIER);
+
+            $default = null;
+            if ($this->current_token->type === Token::ASSIGN) {
+                $this->eat(Token::ASSIGN);
+                $default = $this->expr();
+            } elseif (array_filter($defaults) !== []) {
+                $this->fail("Required parameter {$param} can't follow a parameter with a default");
+            }
             $params[] = $param;
+            $defaults[] = $default;
         }
         $this->eat(Token::RIGHT_PAREN);
 
         // Declared before the body is parsed, so the function can call itself
-        $this->functions[$name] = count($params);
+        $required = count(array_filter($defaults, fn ($default) => $default === null));
+        $this->functions[$name] = $required === count($params) ? $required : [$required, count($params)];
 
         $this->in_function = true;
         $body = $this->block();
         $this->in_function = false;
 
-        return $this->at(new FunctionDeclarationAST($name, $params, $body), $start);
+        return $this->at(new FunctionDeclarationAST($name, $params, $defaults, $body), $start);
     }
 
     /**

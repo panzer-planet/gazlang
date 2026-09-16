@@ -20,7 +20,7 @@ final class Builtins
      */
     public const ARITIES = [
         'len' => 1,
-        'slice' => 3,
+        'slice' => [2, 3],
         'lower' => 1,
         'upper' => 1,
         'trim' => 1,
@@ -81,7 +81,7 @@ final class Builtins
     {
         return match ($name) {
             'len' => is_array($this->argument($name, $args[0], 'array', 'string')) ? count($args[0]) : strlen($args[0]),
-            'slice' => $this->slice($args[0], $this->argument($name, $args[1], 'int'), $this->argument($name, $args[2], 'int')),
+            'slice' => $this->slice($args[0], $this->argument($name, $args[1], 'int'), $this->argument($name, $args[2] ?? null, 'int', 'null')),
             'lower' => strtolower($this->argument($name, $args[0], 'string')),
             'upper' => strtoupper($this->argument($name, $args[0], 'string')),
             // The same whitespace the lexer skips: space, tab, newline, carriage return
@@ -142,17 +142,17 @@ final class Builtins
     }
 
     /**
-     * slice($x, $start, $length): part of a string or array, with PHP's substr/array_slice rules
+     * slice($x, $start, $length = to the end): part of a string or array, with PHP's substr/array_slice rules
      *
      * A negative start counts from the end, a negative length stops that many from the end.
      * Array string keys are kept, integer keys are renumbered from 0.
      *
      * @param  mixed  $value  A string or array
      * @param  int  $start  The first position
-     * @param  int  $length  How many characters or elements to take
+     * @param  int|null  $length  How many characters or elements to take, or null for the rest
      * @return string|array The slice
      */
-    private function slice($value, int $start, int $length): string|array
+    private function slice($value, int $start, ?int $length): string|array
     {
         return is_array($this->argument('slice', $value, 'string', 'array'))
             ? array_slice($value, $start, $length)

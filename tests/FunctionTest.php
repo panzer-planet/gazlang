@@ -123,6 +123,35 @@ class FunctionTest extends GazLangTestCase
         $this->assertSame(1, $exit_code);
     }
 
+    /**
+     * @dataProvider defaultParameterErrors
+     */
+    public function test_default_parameter_parse_errors(string $code, string $message)
+    {
+        $this->expectExceptionMessage($message);
+        $this->createParser($code)->parse();
+    }
+
+    public static function defaultParameterErrors(): array
+    {
+        return [
+            'required after optional' => ['function f($a = 1, $b) { }', "Required parameter \$b can't follow a parameter with a default on line 1"],
+            'too few arguments' => ['function f($a, $b = 1) { } f();', 'Function f expects 1 to 2 arguments, 0 given on line 1'],
+            'too many arguments' => ['function f($a, $b = 1) { } f(1, 2, 3);', 'Function f expects 1 to 2 arguments, 3 given on line 1'],
+            'all optional, too many' => ['function f($a = 1) { } f(1, 2);', 'Function f expects 0 to 1 arguments, 2 given on line 1'],
+            'undefined function in a default' => ['function f($a = missing()) { }', 'Undefined function: missing on line 1'],
+            'default without a value' => ['function f($a = ) { }', "Unexpected ')' on line 1"],
+        ];
+    }
+
+    public function test_code_gen_evaluates_defaults_only_for_missing_arguments()
+    {
+        $this->assertStringContainsString(
+            "LABEL FN_f\nARGC\nPUSH 1\nGT\nNOT\nJZ PASSED_0\nLOAD 0\nSTORE 1\nLABEL PASSED_0\nLOAD 1\nRET",
+            $this->generateCode('echo f(2); function f($a, $b = $a) { return $b; }')
+        );
+    }
+
     public function test_undefined_function_is_a_parse_error_even_if_never_called()
     {
         $this->expectExceptionMessage('Undefined function: missing');

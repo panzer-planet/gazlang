@@ -615,10 +615,16 @@ class Interpreter extends AbstractNodeVisitor
         }
 
         $caller_locals = $this->locals;
-        $this->locals = array_combine($function->params, $args);
+        $this->locals = array_combine(array_slice($function->params, 0, count($args)), $args);
         $this->call_depth++;
 
         try {
+            // Defaults are evaluated on every call that leaves them out, inside the function, so
+            // they can use earlier parameters and never share a value between calls
+            for ($i = count($args); $i < count($function->params); $i++) {
+                $this->locals[$function->params[$i]] = $this->visit($function->defaults[$i]);
+            }
+
             $this->visit($function->body);
 
             return null;

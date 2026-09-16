@@ -674,6 +674,34 @@ class CodeGenerator extends AbstractNodeVisitor
     }
 
     /**
+     * Emit a function's prologue for its default parameter values
+     *
+     * ARGC pushes how many arguments the caller passed. For each parameter with a default,
+     * if fewer than its position + 1 were passed, the default is evaluated and stored in the
+     * parameter's slot, so later defaults can use it.
+     *
+     * @param  FunctionDeclarationAST  $function  The function
+     */
+    private function defaultArguments(FunctionDeclarationAST $function): void
+    {
+        foreach ($function->defaults as $i => $default) {
+            if ($default === null) {
+                continue;
+            }
+            $skip_label = 'PASSED_'.$this->label_counter++;
+
+            $this->instructions[] = 'ARGC';
+            $this->instructions[] = "PUSH {$i}";
+            $this->instructions[] = 'GT';
+            $this->instructions[] = 'NOT';
+            $this->instructions[] = "JZ {$skip_label}";
+            $this->visit($default);
+            $this->instructions[] = "STORE {$i}";
+            $this->instructions[] = "LABEL {$skip_label}";
+        }
+    }
+
+    /**
      * Generate code from the AST
      *
      * @return string The generated code
@@ -691,6 +719,7 @@ class CodeGenerator extends AbstractNodeVisitor
             $this->var_addresses = array_flip($function->params);
 
             $this->instructions[] = "LABEL FN_{$function->name}";
+            $this->defaultArguments($function);
             $this->visit($function->body);
             // Falling off the end returns null
             $this->instructions[] = 'PUSH null';
