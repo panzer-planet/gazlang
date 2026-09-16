@@ -20,3 +20,13 @@ ok in interpolation
 ok counting
 ok indexing an int is still an error
 ok a bad key type is still an error
+ok ??= sets a missing key
+ok ??= sets a null key
+ok ??= keeps a set key, even 0
+ok ??= result
+ok ??= creates a variable
+ok ??= on a global
+ok right side not run when set
+ok key evaluated once, right side skipped
+ok grouping with ??=
+ok missing outer key is an error

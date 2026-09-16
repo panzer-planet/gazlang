@@ -182,6 +182,19 @@ class Interpreter extends AbstractNodeVisitor
         // Keys are evaluated left to right, then the value, and only then is the target
         // read and written, so the value expression can't invalidate the path
         $keys = $this->evaluateKeys($node->left);
+
+        // $a ??= $b is $a ?? ($a = $b): the right side only runs when the target is null or missing
+        if ($node->token->type === Token::COALESCE_ASSIGN) {
+            $variable = $node->left instanceof VariableAST ? $node->left : $node->left->rootVariable();
+            $current = ($variable->isGlobal() ? $this->globals : $this->locals)[$variable->value] ?? null;
+            foreach ($keys as $key) {
+                $current = $current === null ? null : Values::index($current, $key);
+            }
+            if ($current !== null) {
+                return $current;
+            }
+        }
+
         $value = $this->visit($node->right);
         $operator = self::COMPOUND_OPERATORS[$node->token->type] ?? null;
         [, $new] = $this->store($node->left, $keys, $operator === null ? null : new Token(...$operator), $value);

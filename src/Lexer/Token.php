@@ -128,6 +128,8 @@ class Token
 
     public const COALESCE = 'COALESCE';  // Null coalescing operator (??)
 
+    public const COALESCE_ASSIGN = 'COALESCE_ASSIGN';  // Null coalescing assignment (??=)
+
     public const NOT = 'NOT';  // Logical not operator (!)
 
     /**

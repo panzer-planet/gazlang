@@ -54,3 +54,39 @@ try {
 } catch ($e) {
     check("a bad key type is still an error", $e["message"], "Array keys must be int or string, got bool");
 }
+
+// ??= assigns only when the target is null or missing, and gives the resulting value
+$settings = ["port" => 0, "host" => null];
+check("??= sets a missing key", $settings["name"] ??= "app", "app");
+check("??= sets a null key", $settings["host"] ??= "localhost", "localhost");
+check("??= keeps a set key, even 0", $settings["port"] ??= 8080, 0);
+check("??= result", $settings, ["port" => 0, "host" => "localhost", "name" => "app"]);
+check("??= creates a variable", $created ??= [], []);
+@shared ??= "first";
+@shared ??= "second";
+check("??= on a global", @shared, "first");
+
+// The key runs once; the right side only when needed
+@keys = 0;
+function next_key() {
+    @keys++;
+    return "k";
+}
+$lazy = ["k" => "set"];
+check("right side not run when set", $lazy[next_key()] ??= called(), "set");
+check("key evaluated once, right side skipped", [@keys, @calls], [1, 1]);
+
+$groups = [];
+foreach (["x" => "a", "y" => "b", "z" => "a"] as $item => $group) {
+    $groups[$group] ??= [];
+    $groups[$group][] = $item;
+}
+check("grouping with ??=", $groups, ["a" => ["x", "z"], "b" => ["y"]]);
+
+// Like =, it doesn't create missing keys along the way
+try {
+    $empty = [];
+    $empty["outer"]["inner"] ??= 1;
+} catch ($e) {
+    check("missing outer key is an error", $e["message"], "Undefined key: outer");
+}

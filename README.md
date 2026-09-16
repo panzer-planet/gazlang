@@ -15,10 +15,10 @@ A small, PHP-flavoured programming language with an interpreter and a stack-VM c
 - Mathematical operators: `+`, `-`, `*`, `/` (`7 / 2` is `3.5`, `6 / 2` is `3`), `%`, unary `-`
 - Comparison operators: `==`, `!=`, `===`, `!==` (no type conversion), `<`, `<=`, `>`, `>=`
 - Logical operators: `&&`, `||` (short-circuiting), `!`
-- Null coalescing: `$config["port"] ?? 8080` (missing variables and keys give the default)
+- Null coalescing: `$config["port"] ?? 8080` (missing variables and keys give the default), and `$counts[$word] ??= 0`
 - Parentheses for grouping expressions
 - Echo statements for output (`echo <expr>;`)
-- Assignment `=` and `+=`, `-=`, `*=`, `/=`, `%=`, `++`, `--` (prefix and postfix)
+- Assignment `=` and `+=`, `-=`, `*=`, `/=`, `%=`, `??=`, `++`, `--` (prefix and postfix)
 - Local variables with `$` prefix (`$var = expression;`) and global variables with `@` prefix (`@count = 0;`)
 - Control flow with if/else and else if statements
 - Error handling: `try { ... } catch ($e) { echo $e["message"]; }`, and `error("...")` to raise one

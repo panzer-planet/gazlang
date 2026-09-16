@@ -106,6 +106,8 @@ class OperatorTest extends GazLangTestCase
             'prefix -- on a call' => ['function f() { return 1; } --f();', 'Can only use -- on a variable or an element of one'],
             '+= on an expression' => ['($a + 1) += 2;', 'Can only use += on a variable or an element of one'],
             'append with +=' => ['$a = []; $a[] += 1;', 'Cannot use += to append'],
+            'append with ??=' => ['$a = []; $a[] ??= 1;', 'Cannot use ??= to append'],
+            '??= on an expression' => ['1 ??= 2;', 'Can only use ??= on a variable or an element of one'],
             'append with ++' => ['$a = []; $a[]++;', '[] can only be used to append in an assignment'],
             'double postfix' => ['$a = 1; $a++++;', "Expected ';' but found '++'"],
         ];
@@ -147,6 +149,15 @@ class OperatorTest extends GazLangTestCase
             $this->generateCode('echo $a["k"] ?? 1;')
         );
         $this->assertStringStartsWith("LOAD_QUIET_GLOBAL 0\nJNN", $this->generateCode('echo @g ?? 1;'));
+    }
+
+    public function test_code_gen_for_coalesce_assignment()
+    {
+        // $#key0 = "k"; $a[$#key0] ?? ($a[$#key0] = 1)
+        $this->assertStringEndsWith(
+            "PUSH_STR \"k\"\nKEY_CHECK\nSTORE 1\nLOAD_QUIET 0\nLOAD 1\nINDEX_GET_QUIET\nJNN COALESCE_END_0\nLOAD 1\nPUSH 1\nSET_PATH 1 0\nLABEL COALESCE_END_0\nPOP",
+            $this->generateCode('$a = []; $a["k"] ??= 1;')
+        );
     }
 
     public function test_coalesce_parse_errors()

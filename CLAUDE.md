@@ -74,7 +74,10 @@ each step depends on the ones before it.
      of an error (other errors, like a bad key type or indexing an int, still happen).
      `0`, `false` and `""` are kept. The right side only runs when needed. Both
      backends share the rule (`Interpreter::quietly()`, and `LOAD_QUIET`,
-     `INDEX_GET_QUIET` and `JNN` in generated code). No `??=` yet.
+     `INDEX_GET_QUIET` and `JNN` in generated code). `$a ??= $b` is `$a ?? ($a = $b)`
+     with keys evaluated once, so the right side only runs when needed; like `=`, it
+     creates a missing variable or last key but not missing keys along the way
+     (PHP would create nested arrays).
    - `===` / `!==` compare type and value with no conversion: `"5" === 5` and
      `true === 1` are false.
    - Code generation pushes `PUSH true` / `PUSH false`.
@@ -242,7 +245,7 @@ each step depends on the ones before it.
 
 ## Assignment
 
-`=`, `+=`, `-=`, `*=`, `/=`, `%=` are right associative expressions whose value is the
+`=`, `+=`, `-=`, `*=`, `/=`, `%=`, `??=` are right associative expressions whose value is the
 new value (`AssignAST`, whose token says which). Compound assignment applies the
 binary operator, so `+=` concatenates strings. `++`/`--` (`IncrementAST`) work on
 numbers only; prefix gives the new value, postfix the old. Targets are a variable

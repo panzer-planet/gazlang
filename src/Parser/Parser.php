@@ -41,6 +41,7 @@ class Parser
      */
     private const ASSIGNMENTS = [
         Token::ASSIGN, Token::PLUS_ASSIGN, Token::MINUS_ASSIGN, Token::MULTIPLY_ASSIGN, Token::DIVIDE_ASSIGN, Token::MODULO_ASSIGN,
+        Token::COALESCE_ASSIGN,
     ];
 
     /**
@@ -549,7 +550,7 @@ class Parser
     }
 
     /**
-     * Parse an expression, the lowest precedence level ((variable | index) (= | += | -= | *= | /= | %=) expr | coalesce)
+     * Parse an expression, the lowest precedence level ((variable | index) (= | += | -= | *= | /= | %= | ??=) expr | coalesce)
      *
      * Assignment is right associative, so $a = $b = 1 assigns 1 to both.
      *

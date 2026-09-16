@@ -257,6 +257,7 @@ class CodeGenerator extends AbstractNodeVisitor
      *   $x += 1     becomes  $x = $x + 1          (a constant can't fail or change $x)
      *   ++$a[k]     becomes  $#k0 = k; $a[$#k0] = INC $a[$#k0]
      *   $a[k]++     becomes  $#k0 = k; $a[$#k0]; $a[$#k0] = INC $a[$#k0];   (the first read is the result)
+     *   $a[k] ??= v becomes  $#k0 = k; $a[$#k0] ?? ($a[$#k0] = v)
      *
      * Reading the target twice for postfix is safe: the keys are already evaluated and
      * nothing runs in between. A postfix ++ used as a statement is emitted as prefix (see
@@ -288,8 +289,20 @@ class CodeGenerator extends AbstractNodeVisitor
             $this->emit('KEY_CHECK');
             $this->emitVariable('STORE', $key);
             $place = new IndexAST($place, $key);
-            // The update reads the current value strictly, like the interpreter's store()
-            $place->existing = true;
+            // The update reads the current value strictly, like the interpreter's store(),
+            // except ??=, which reads it like ?? does
+            $place->existing = $op->type !== Token::COALESCE_ASSIGN;
+        }
+
+        if ($op->type === Token::COALESCE_ASSIGN) {
+            // $a ??= $b is $a ?? ($a = $b), with the keys already in hidden variables
+            $end_label = 'COALESCE_END_'.$this->label_counter++;
+            $this->quietly($place);
+            $this->emit('JNN', $end_label);
+            $this->visit($assign($place, $value));
+            $this->emit('LABEL', $end_label);
+
+            return;
         }
 
         if ($value !== null) {
