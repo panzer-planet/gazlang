@@ -45,8 +45,9 @@ each step depends on the ones before it.
    `-` via `UnaryOpAST`. `!=` sits at the equality level, C-style. There is a
    real boolean type (`BooleanAST`, `true`/`false` keywords):
    - Comparisons, `!`, `&&` and `||` return booleans; `echo 1 < 2` prints `true`.
-   - Truthiness stays C-like ("anything `!= 0`", shared by `if`, `while`, `!`,
-     `&&`, `||`): `if (5)` is true, `if (0)` is false.
+   - Truthiness lives in `Interpreter::isTruthy()`, shared by `if`, `while`,
+     `!`, `&&`, `||`. Numbers and booleans are C-like (`if (5)` is true,
+     `if (0)` is false); strings are true unless empty, so `"0"` is true.
    - Booleans act as 1/0 in arithmetic and comparisons: `true + 1` is `2`,
      `true == 1` is true.
    - Concatenation uses the same spelling as `echo`: `"x" + true` is `"xtrue"`.

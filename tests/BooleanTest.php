@@ -41,6 +41,14 @@ class BooleanTest extends GazLangTestCase
         ));
     }
 
+    public function test_strings_are_true_unless_empty()
+    {
+        $this->assertEquals("empty is false\nfalse\ntrue\ntrue\nfalse\n", $this->executeCode(
+            'if ("") { echo "empty is true"; } else { echo "empty is false"; }'
+            .' echo !"abc"; echo !""; echo "a" && "0"; echo "" || 0;'
+        ));
+    }
+
     public function test_code_gen_pushes_boolean_literals()
     {
         $this->assertEquals("PUSH true\nPUSH false\nEQUALS\nPRINT", $this->generateCode('echo true == false;'));

@@ -88,9 +88,9 @@ class Interpreter extends AbstractNodeVisitor
     {
         // Logical operators short-circuit, so the right side is only evaluated when needed
         if ($node->op->type === Token::AND) {
-            return $this->visit($node->left) != 0 && $this->visit($node->right) != 0;
+            return $this->isTruthy($this->visit($node->left)) && $this->isTruthy($this->visit($node->right));
         } elseif ($node->op->type === Token::OR) {
-            return $this->visit($node->left) != 0 || $this->visit($node->right) != 0;
+            return $this->isTruthy($this->visit($node->left)) || $this->isTruthy($this->visit($node->right));
         }
 
         $left = $this->visit($node->left);
@@ -157,8 +157,7 @@ class Interpreter extends AbstractNodeVisitor
         $value = $this->visit($node->expr);
 
         if ($node->op->type === Token::NOT) {
-            // Same truthiness as if conditions: anything that isn't 0 is true
-            return $value == 0;
+            return ! $this->isTruthy($value);
         } elseif ($node->op->type === Token::MINUS) {
             if (is_string($value)) {
                 throw new Exception('Cannot perform negation on strings');
@@ -168,6 +167,18 @@ class Interpreter extends AbstractNodeVisitor
         }
 
         throw new Exception("Unknown operator: {$node->op->type}");
+    }
+
+    /**
+     * Decide whether a value counts as true in conditions and logical operators
+     *
+     * Strings are true unless empty; everything else is C-like, true unless 0.
+     *
+     * @param  mixed  $value  The value to test
+     */
+    private function isTruthy($value): bool
+    {
+        return is_string($value) ? $value !== '' : $value != 0;
     }
 
     /**
@@ -273,11 +284,7 @@ class Interpreter extends AbstractNodeVisitor
      */
     public function visitIfStatement(IfStatementAST $node)
     {
-        // Evaluate the condition
-        $condition_value = $this->visit($node->condition);
-
-        // In C-like fashion, any non-zero value is considered true
-        if ($condition_value != 0) {
+        if ($this->isTruthy($this->visit($node->condition))) {
             // Execute the if branch
             return $this->visit($node->if_body);
         } elseif ($node->else_if !== null) {
@@ -300,8 +307,7 @@ class Interpreter extends AbstractNodeVisitor
      */
     public function visitWhileStatement(WhileStatementAST $node): array
     {
-        // Same truthiness as if conditions: anything that isn't 0 is true
-        while ($this->visit($node->condition) != 0) {
+        while ($this->isTruthy($this->visit($node->condition))) {
             $this->visit($node->body);
         }
 
