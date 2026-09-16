@@ -41,6 +41,9 @@ class GazProgramTest extends GazLangTestCase
         $expected = self::ROOT.'/'.substr($file, 0, -strlen('.gaz')).'.expected';
         $this->assertFileExists($expected, "Missing expected output for {$file}; it printed:\n{$output}");
         $this->assertSame(file_get_contents($expected), $output, $file);
+
+        [$vm_output] = $this->runProgram($file, [], true);
+        $this->assertSame(file_get_contents($expected), $vm_output, "{$file} on the VM");
     }
 
     public function test_in_process_run_matches_the_cli()

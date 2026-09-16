@@ -32,6 +32,7 @@ class JsonTest extends GazLangTestCase
         $text = file_get_contents(self::ROOT."/{$file}");
         $valid = str_starts_with(basename($file), 'y_');
         [$output, $exit_code] = $this->decodeAndEncode($file);
+        $this->assertSame([$output, $exit_code], $this->runProgram('tests/fixtures/json_roundtrip.gaz', [$file], true), "{$file} on the VM");
 
         if (! $valid) {
             $this->assertNull($this->phpDecode($text), "PHP accepts {$file}, so it should not be an n_ file");

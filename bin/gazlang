@@ -26,6 +26,7 @@ use GazLang\Lexer\Token;
 use GazLang\Parser\Parser;
 use GazLang\Interpreter\Interpreter;
 use GazLang\CodeGenerator\CodeGenerator;
+use GazLang\VM\VM;
 
 /**
  * Display help message
@@ -37,6 +38,7 @@ function showHelp() {
     echo "  -h, --help     Show this help message\n";
     echo "  -v, --version  Show version information\n";
     echo "  -c, --code     Generate stack-based VM code instead of interpreting\n";
+    echo "      --vm       Compile to VM code and run it on the VM instead of the interpreter\n";
     echo "  -t, --tokens   Print the lexer's tokens, one LINE TYPE VALUE per line, instead of interpreting\n";
     echo "  -f, --file     Read input from a file instead of stdin\n";
 }
@@ -49,7 +51,7 @@ function showVersion() {
 }
 
 // Parse command-line arguments
-$options = getopt("hvf:ct", ["help", "version", "file:", "code", "tokens"], $rest_index);
+$options = getopt("hvf:ct", ["help", "version", "file:", "code", "tokens", "vm"], $rest_index);
 // Everything after the options (or after --) is passed to the program, see args()
 $programArgs = array_slice($argv, $rest_index);
 
@@ -58,7 +60,7 @@ $programArgs = array_slice($argv, $rest_index);
 for ($i = 1; $i < $rest_index; $i++) {
     if (preg_match('/^(-[hvct]*f|--file)$/', $argv[$i])) {
         $i++; // the file name that follows
-    } elseif (! preg_match('/^(-[hvct]+|-[hvct]*f.+|--(help|version|code|tokens|file=.+)|--)$/', $argv[$i])) {
+    } elseif (! preg_match('/^(-[hvct]+|-[hvct]*f.+|--(help|version|code|tokens|vm|file=.+)|--)$/', $argv[$i])) {
         echo "Error: Unknown option {$argv[$i]} (put program arguments after --)\n";
         exit(1);
     }
@@ -76,6 +78,7 @@ if (isset($options['v']) || isset($options['version'])) {
 
 $mode = match (true) {
     isset($options['t']) || isset($options['tokens']) => 'tokens',
+    isset($options['vm']) => 'vm',
     isset($options['c']) || isset($options['code']) => 'code',
     default => 'run',
 };
@@ -131,7 +134,7 @@ while (true) {
  * Process input text
  * 
  * @param string $text         The input text to process
- * @param string $mode         run (interpret), code (generate VM code) or tokens (print the tokens)
+ * @param string $mode         run (interpret), vm (compile and run on the VM), code (print the VM code) or tokens (print the tokens)
  * @param string|null $path    The file the text came from, so includes resolve relative to it
  * @param array  $args         Command line arguments for the program
  * @return bool Whether the input ran without errors
@@ -157,6 +160,8 @@ function processInput(string $text, string $mode = 'run', ?string $path = null, 
             $codeGenerator = new CodeGenerator($parser->parse());
             $code = $codeGenerator->generate();
             echo "Generated code:\n$code\n";
+        } elseif ($mode === 'vm') {
+            (new VM((new CodeGenerator($parser->parse()))->compile(), $args))->run();
         } else {
             // Interpret - echo statements handle their own output
             $interpreter = new Interpreter($parser, $args);

@@ -17,6 +17,12 @@ use GazLang\Lexer\Token;
 final class Values
 {
     /**
+     * Deepest allowed function call nesting in either backend, so runaway recursion is a
+     * GazLang error instead of PHP running out of memory (a fatal error nothing can catch)
+     */
+    public const MAX_CALL_DEPTH = 10000;
+
+    /**
      * Decide whether a value counts as true in conditions and logical operators
      *
      * Strings and arrays are true unless empty, null is false; everything else is C-like, true unless 0.

@@ -42,12 +42,6 @@ use GazLang\Runtime\Values;
 class Interpreter extends AbstractNodeVisitor
 {
     /**
-     * Deepest allowed function call nesting, so runaway recursion is a GazLang error
-     * instead of PHP running out of memory (a fatal error nothing can catch)
-     */
-    private const MAX_CALL_DEPTH = 10000;
-
-    /**
      * The binary operator each compound assignment applies, as [token type, symbol]
      */
     private const COMPOUND_OPERATORS = [
@@ -573,8 +567,8 @@ class Interpreter extends AbstractNodeVisitor
 
         $function = $this->functions[$node->name];
 
-        if ($this->call_depth === self::MAX_CALL_DEPTH) {
-            throw new Exception('Maximum call depth of '.self::MAX_CALL_DEPTH." exceeded calling {$node->name}");
+        if ($this->call_depth === Values::MAX_CALL_DEPTH) {
+            throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$node->name}");
         }
 
         $caller_locals = $this->locals;
