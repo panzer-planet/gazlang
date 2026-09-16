@@ -3,6 +3,9 @@
 namespace GazLang\Tests;
 
 use Exception;
+use GazLang\AST\LoopControlAST;
+use GazLang\CodeGenerator\CodeGenerator;
+use GazLang\Lexer\Token;
 
 class LoopTest extends GazLangTestCase
 {
@@ -89,11 +92,12 @@ class LoopTest extends GazLangTestCase
 
     public function test_break_and_continue_only_affect_the_innermost_loop()
     {
-        $this->assertEquals("0 0\n1 0\n2 0\n", $this->executeCode(<<<'CODE'
+        // A continue that leaked outwards would print nothing; a leaking break would stop after "0 1"
+        $this->assertEquals("0 1\n1 1\n2 1\n", $this->executeCode(<<<'CODE'
             for ($i = 0; $i < 3; $i = $i + 1) {
                 for ($j = 0; $j < 3; $j = $j + 1) {
-                    if ($j === 1) { break; }
-                    if ($i === 5) { continue; }
+                    if ($j === 0) { continue; }
+                    if ($j === 2) { break; }
                     echo $i + " " + $j;
                 }
             }
@@ -118,10 +122,23 @@ class LoopTest extends GazLangTestCase
             "LABEL WHILE_0\nPUSH 1\nJZ ENDWHILE_0\nJMP ENDWHILE_0\nJMP WHILE_0\nJMP WHILE_0\nLABEL ENDWHILE_0",
             $this->generateCode('while (1) { break; continue; }')
         );
+        $this->assertEquals(
+            "LABEL WHILE_0\nPUSH 1\nJZ ENDWHILE_0\n"
+            ."LABEL WHILE_1\nPUSH 2\nJZ ENDWHILE_1\nJMP ENDWHILE_1\nJMP WHILE_1\nLABEL ENDWHILE_1\n"
+            ."JMP ENDWHILE_0\nJMP WHILE_0\nLABEL ENDWHILE_0",
+            $this->generateCode('while (1) { while (2) { break; } break; }')
+        );
         $this->assertStringContainsString(
             "JZ ENDWHILE_0\nJMP CONTINUE_0\nLABEL CONTINUE_0",
             $this->generateCode('for ($i = 0; $i < 3; $i = $i + 1) { continue; }')
         );
+    }
+
+    public function test_code_gen_rejects_loop_control_outside_a_loop()
+    {
+        // The parser already refuses this; the generator must not emit a JMP with no target if one slips through
+        $this->expectExceptionMessage('Cannot use break outside of a loop');
+        (new CodeGenerator(new LoopControlAST(new Token(Token::BREAK, 'break'))))->generate();
     }
 
     public function test_code_gen_for_while()

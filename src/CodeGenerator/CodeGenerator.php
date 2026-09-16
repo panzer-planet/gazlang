@@ -342,6 +342,10 @@ class CodeGenerator extends AbstractNodeVisitor
      */
     public function visitLoopControl(LoopControlAST $node): void
     {
+        if ($this->loop_labels === []) {
+            throw new Exception("Cannot use {$node->token->value} outside of a loop");
+        }
+
         [$continue_label, $end_label] = end($this->loop_labels);
         $label = $node->token->type === Token::BREAK ? $end_label : $continue_label;
 

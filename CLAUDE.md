@@ -64,8 +64,9 @@ each step depends on the ones before it.
    `break;` and `continue;` (`LoopControlAST`) affect the innermost loop and are
    a parse error outside one. The interpreter unwinds with `LoopSignal`; the
    code generator jumps to the loop's `CONTINUE_n`/`WHILE_n` or `ENDWHILE_n`
-   label. Functions will need to reset `Parser::$loop_depth` and stop signals
-   at the function boundary; `return` can reuse the same unwinding approach.
+   label. Function bodies must not see the caller's loops: save and reset
+   `Parser::$loop_depth` and `CodeGenerator::$loop_labels` around each body, and
+   stop `LoopSignal` at the call boundary. `return` can unwind the same way.
 4. **Add functions and scoping.** Declarations, calls, parameters, `return`,
    and a proper environment/scope chain (variables are currently global-only).
    This is the single biggest unlock for self-hosting — a recursive-descent
