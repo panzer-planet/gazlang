@@ -240,7 +240,7 @@ class Lexer
                 return $this->var_identifier();
             }
 
-            if (ctype_alpha($this->current_char)) {
+            if (ctype_alpha($this->current_char) || $this->current_char === '_') {
                 return $this->identifier();
             }
 

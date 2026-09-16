@@ -16,12 +16,9 @@ class ReturnSignal extends Exception
 
     /**
      * Constructor
-     *
-     * @param  mixed  $value  The returned value
      */
-    public function __construct($value)
+    public function __construct()
     {
         parent::__construct('return outside of a function');
-        $this->value = $value;
     }
 }

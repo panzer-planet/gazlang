@@ -87,6 +87,13 @@ each step depends on the ones before it.
      pushes the return value onto the caller's stack. `LOAD`/`STORE` address
      frame locals, `LOAD_GLOBAL`/`STORE_GLOBAL` globals. Top level code ends in
      `HALT` (only emitted when there are functions), followed by the bodies.
+   - Function calls are capped at `Interpreter::MAX_CALL_DEPTH` (10000), so runaway
+     recursion is a GazLang error rather than a PHP out-of-memory fatal. `return`,
+     `break` and `continue` rethrow one preallocated signal each: creating a new
+     exception per return records a stack trace and made deep recursion quadratic.
+   - Gotcha: with the pcov (or Xdebug) extension enabled, every PHP call uses the
+     C stack and deep GazLang recursion segfaults (exit 139) well before the limit.
+     Run with `-d pcov.enabled=0` when that matters.
    - Reserved for later: `#` for object properties (`@` is taken by globals).
 5. **Add arrays (and maybe maps).** At minimum arrays/lists with indexing;
    a hashmap/dict type will matter once GazLang needs to represent its own

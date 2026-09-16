@@ -30,6 +30,12 @@ use GazLang\Parser\Parser;
 class Interpreter extends AbstractNodeVisitor
 {
     /**
+     * Deepest allowed function call nesting, so runaway recursion is a GazLang error
+     * instead of PHP running out of memory (a fatal error nothing can catch)
+     */
+    private const MAX_CALL_DEPTH = 10000;
+
+    /**
      * @var Parser The parser that provides the AST
      */
     private $parser;
@@ -50,6 +56,22 @@ class Interpreter extends AbstractNodeVisitor
     private $functions = [];
 
     /**
+     * @var int How many function calls are currently running
+     */
+    private $call_depth = 0;
+
+    /**
+     * @var ReturnSignal Reused for every return: creating an exception records a stack trace
+     *                   (quadratic memory in deep recursion), rethrowing one does not
+     */
+    private $return_signal;
+
+    /**
+     * @var array<string, LoopSignal> Reused break and continue signals, keyed by token type, for the same reason
+     */
+    private $loop_signals;
+
+    /**
      * Constructor
      *
      * @param  Parser  $parser  The parser to get the AST from
@@ -57,6 +79,11 @@ class Interpreter extends AbstractNodeVisitor
     public function __construct(Parser $parser)
     {
         $this->parser = $parser;
+        $this->return_signal = new ReturnSignal;
+        $this->loop_signals = [
+            Token::BREAK => new LoopSignal(Token::BREAK),
+            Token::CONTINUE => new LoopSignal(Token::CONTINUE),
+        ];
     }
 
     /**
@@ -370,7 +397,7 @@ class Interpreter extends AbstractNodeVisitor
      */
     public function visitLoopControl(LoopControlAST $node): never
     {
-        throw new LoopSignal($node->token->type);
+        throw $this->loop_signals[$node->token->type];
     }
 
     /**
@@ -399,8 +426,13 @@ class Interpreter extends AbstractNodeVisitor
         // Arguments are evaluated in the caller's scope, before switching locals
         $args = array_map(fn ($arg) => $this->visit($arg), $node->args);
 
+        if ($this->call_depth === self::MAX_CALL_DEPTH) {
+            throw new Exception('Maximum call depth of '.self::MAX_CALL_DEPTH." exceeded calling {$node->name}");
+        }
+
         $caller_locals = $this->locals;
         $this->locals = array_combine($function->params, $args);
+        $this->call_depth++;
 
         try {
             $this->visit($function->body);
@@ -410,6 +442,7 @@ class Interpreter extends AbstractNodeVisitor
             return $signal->value;
         } finally {
             $this->locals = $caller_locals;
+            $this->call_depth--;
         }
     }
 
@@ -422,7 +455,9 @@ class Interpreter extends AbstractNodeVisitor
      */
     public function visitReturnStatement(ReturnStatementAST $node): never
     {
-        throw new ReturnSignal($node->expr === null ? null : $this->visit($node->expr));
+        $this->return_signal->value = $node->expr === null ? null : $this->visit($node->expr);
+
+        throw $this->return_signal;
     }
 
     // The visit method is now implemented in AbstractNodeVisitor

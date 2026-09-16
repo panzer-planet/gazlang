@@ -95,6 +95,34 @@ class FunctionTest extends GazLangTestCase
         ));
     }
 
+    public function test_function_names_can_start_with_an_underscore()
+    {
+        $this->assertEquals("1\n", $this->executeCode('function _helper() { return 1; } echo _helper();'));
+    }
+
+    public function test_deep_recursion_does_not_grow_memory_quadratically()
+    {
+        // Every return used to create an exception with a full stack trace: depth 400 took ~300MB
+        $this->executeCode('function down($n) { if ($n === 0) { return 0; } return down($n - 1); } down(400);');
+        $this->assertLessThan(64 * 1024 * 1024, memory_get_peak_usage());
+    }
+
+    public function test_runaway_recursion_is_a_gazlang_error()
+    {
+        // Runs in a separate PHP with pcov off: pcov makes every PHP call use the C stack,
+        // which segfaults long before the call depth limit is reached
+        $command = sprintf(
+            'echo %s | %s -d pcov.enabled=0 %s',
+            escapeshellarg('function inf() { return inf(); } echo inf();'),
+            escapeshellarg(PHP_BINARY),
+            escapeshellarg(__DIR__.'/../bin/gazlang')
+        );
+        exec($command, $output, $exit_code);
+
+        $this->assertSame(['Error: Maximum call depth of 10000 exceeded calling inf'], $output);
+        $this->assertSame(1, $exit_code);
+    }
+
     public function test_undefined_function_is_a_parse_error_even_if_never_called()
     {
         $this->expectExceptionMessage('Undefined function: missing');
