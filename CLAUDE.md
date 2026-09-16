@@ -145,7 +145,12 @@ each step depends on the ones before it.
    checked with the `type_of()` names.
    - Strings: `len($s)`, `slice($x, $start, $length)` (strings and arrays, PHP
      `substr`/`array_slice` rules including negatives), `lower($s)`,
-     `chr($byte)` (0 to 255) and `ord($char)` (exactly one byte),
+     `upper($s)`, `trim($s)` (only the lexer's whitespace), `split($s, $sep)` (an
+     empty separator splits into characters), `join($array, $sep)` (elements
+     converted like echo), `replace($s, $search, $replacement)` (every
+     occurrence; empty search is an error), `contains`, `starts_with`,
+     `ends_with`, `index_of($s, $needle)` (null when not found),
+     `repeat($s, $count)`, `chr($byte)` (0 to 255) and `ord($char)` (exactly one byte),
      `to_int($x)` (ints, or strings of decimal digits with an optional `-`;
      anything else or overflow is an error), `to_string($x)` (same text as echo).
    - Arrays: `len`, `slice`, `in_array($value, $array)` (strict, like `===`),
@@ -195,7 +200,8 @@ each step depends on the ones before it.
 
 ## Strings
 
-Strings are byte strings. Literals support `\n \t \r \v \f \e \0 \\ \"`, `\xHH` (exactly
+Strings are byte strings. Single-quoted literals are raw, with PHP's rules: only
+`\'` and `\\` are escapes and any other backslash is kept. Double-quoted literals support `\n \t \r \v \f \e \0 \\ \"`, `\xHH` (exactly
 two hex digits) and `\u{H}` (1 to 6 hex digits, a code point up to 10FFFF that
 isn't a surrogate, written as UTF-8). Any other escape is a lexer error, and so is
 `\0` followed by a digit, which would be octal in PHP and C. `Lexer::quote()` is
@@ -226,6 +232,12 @@ to the working directory; the main file shows as given on the command line.
   functions; `Builtins` holds the builtin functions and their arities. A future
   VM should call these rather than reimplement them.
 - `src/CodeGenerator`: emits stack VM instructions (there is no VM yet).
+
+## Later
+
+- String interpolation, decided but not designed: it will apply to double-quoted
+  strings only, so single-quoted strings stay raw and keep their meaning.
+- A VM that runs the code generator's output, calling `src/Runtime` for semantics.
 
 **Note:** any new AST node type (e.g. new BinOp/UnaryOp variants)
 needs visitor support in *both* `Interpreter/Interpreter.php` and

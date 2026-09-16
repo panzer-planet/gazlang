@@ -8,3 +8,6 @@ two lines";
 echo "after" + "adjacent""strings";
 echo "more \v \f \e \0 \x41\x7a \u{e9} \u{1F600} \u{0}";
 echo "\x0012";
+echo 'single' + '' + 'C:\path' + 'it\'s' + 'back\\' + 'no "escapes" \n';
+echo 'two
+lines';

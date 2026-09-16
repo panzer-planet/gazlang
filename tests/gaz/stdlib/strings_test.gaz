@@ -1,0 +1,47 @@
+include "../check.gaz";
+
+check("upper", upper("abC1_z"), "ABC1_Z");
+check("lower", lower("AbC1_Z"), "abc1_z");
+
+check("trim both ends", trim(" \t x y \n\r"), "x y");
+check("trim keeps inner whitespace", trim("a  b"), "a  b");
+check("trim only whitespace", trim(" \n "), "");
+check("trim leaves other control bytes", trim("\v x \f"), "\v x \f");
+
+check("split", split("a,b,c", ","), ["a", "b", "c"]);
+check("split keeps empty pieces", split(",a,,b,", ","), ["", "a", "", "b", ""]);
+check("split multi-character separator", split("a::b", "::"), ["a", "b"]);
+check("split without the separator", split("abc", ","), ["abc"]);
+check("split empty string", split("", ","), [""]);
+check("split into characters", split("abc", ""), ["a", "b", "c"]);
+check("split empty string into characters", split("", ""), []);
+
+check("join", join(["a", "b", "c"], ", "), "a, b, c");
+check("join converts like echo", join([1, true, false, null, [2]], "|"), "1|true|false|null|[2]");
+check("join empty array", join([], ","), "");
+check("join ignores keys", join(["x" => "a", "y" => "b"], "-"), "a-b");
+check("join undoes split", join(split("a b c", " "), " "), "a b c");
+
+check("replace every occurrence", replace("a.b.c", ".", "::"), "a::b::c");
+check("replace with empty", replace("a-b-c", "-", ""), "abc");
+check("replace not found", replace("abc", "x", "y"), "abc");
+
+check("contains", contains("hello", "ell"), true);
+check("contains not", contains("hello", "elo"), false);
+check("contains empty needle", contains("hello", ""), true);
+check("starts_with", starts_with("hello", "he"), true);
+check("starts_with not", starts_with("hello", "lo"), false);
+check("ends_with", ends_with("hello", "lo"), true);
+check("ends_with not", ends_with("hello", "he"), false);
+
+check("index_of first match", index_of("hello", "l"), 2);
+check("index_of at start", index_of("hello", "he"), 0);
+check("index_of not found is null", index_of("hello", "z"), null);
+check("index_of empty needle", index_of("abc", ""), 0);
+
+check("repeat", repeat("ab", 3), "ababab");
+check("repeat zero times", repeat("ab", 0), "");
+
+check("single quotes are raw", 'C:\path\new', "C:\\path\\new");
+check("single quote escapes", 'it\'s a back\\slash', "it's a back\\slash");
+check("single and double quotes concatenate", 'a' + "b", "ab");

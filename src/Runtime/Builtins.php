@@ -21,6 +21,16 @@ final class Builtins
         'len' => 1,
         'slice' => 3,
         'lower' => 1,
+        'upper' => 1,
+        'trim' => 1,
+        'split' => 2,
+        'join' => 2,
+        'replace' => 3,
+        'contains' => 2,
+        'starts_with' => 2,
+        'ends_with' => 2,
+        'index_of' => 2,
+        'repeat' => 2,
         'chr' => 1,
         'ord' => 1,
         'to_int' => 1,
@@ -66,6 +76,18 @@ final class Builtins
             'len' => is_array($this->argument($name, $args[0], 'array', 'string')) ? count($args[0]) : strlen($args[0]),
             'slice' => $this->slice($args[0], $this->argument($name, $args[1], 'int'), $this->argument($name, $args[2], 'int')),
             'lower' => strtolower($this->argument($name, $args[0], 'string')),
+            'upper' => strtoupper($this->argument($name, $args[0], 'string')),
+            // The same whitespace the lexer skips: space, tab, newline, carriage return
+            'trim' => trim($this->argument($name, $args[0], 'string'), " \t\n\r"),
+            'split' => $this->split($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string')),
+            'join' => implode($this->argument($name, $args[1], 'string'), array_map(Values::toString(...), $this->argument($name, $args[0], 'array'))),
+            'replace' => $this->replace($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string'), $this->argument($name, $args[2], 'string')),
+            'contains' => str_contains($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string')),
+            'starts_with' => str_starts_with($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string')),
+            'ends_with' => str_ends_with($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string')),
+            // null when not found, rather than PHP's false or a -1
+            'index_of' => ($position = strpos($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string'))) === false ? null : $position,
+            'repeat' => $this->repeat($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'int')),
             'chr' => $this->chr($this->argument($name, $args[0], 'int')),
             'ord' => $this->ord($this->argument($name, $args[0], 'string')),
             'to_int' => $this->toInt($args[0]),
@@ -120,6 +142,57 @@ final class Builtins
         return is_array($this->argument('slice', $value, 'string', 'array'))
             ? array_slice($value, $start, $length)
             : substr($value, $start, $length);
+    }
+
+    /**
+     * split($s, $separator): the pieces of $s between separators; an empty separator splits into characters
+     *
+     * @param  string  $string  The string to split
+     * @param  string  $separator  What to split on
+     * @return string[] The pieces (splitting "" on a separator gives [""], on "" gives [])
+     */
+    private function split(string $string, string $separator): array
+    {
+        if ($separator === '') {
+            return $string === '' ? [] : str_split($string);
+        }
+
+        return explode($separator, $string);
+    }
+
+    /**
+     * replace($s, $search, $replacement): $s with every occurrence of $search replaced
+     *
+     * @param  string  $string  The string to search
+     * @param  string  $search  What to replace, not empty
+     * @param  string  $replacement  What to put in its place
+     *
+     * @throws Exception If $search is empty, which has no sensible meaning
+     */
+    private function replace(string $string, string $search, string $replacement): string
+    {
+        if ($search === '') {
+            throw new Exception('replace() cannot search for an empty string');
+        }
+
+        return str_replace($search, $replacement, $string);
+    }
+
+    /**
+     * repeat($s, $count): $s repeated $count times
+     *
+     * @param  string  $string  The string to repeat
+     * @param  int  $count  How many times, 0 or more
+     *
+     * @throws Exception If $count is negative
+     */
+    private function repeat(string $string, int $count): string
+    {
+        if ($count < 0) {
+            throw new Exception("repeat() count must not be negative, got {$count}");
+        }
+
+        return str_repeat($string, $count);
     }
 
     /**

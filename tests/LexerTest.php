@@ -81,6 +81,34 @@ class LexerTest extends TestCase
         $this->assertSame('"\n\t\r\v\f\e\\\\\"\x0012 \x01\x7F é"', Lexer::quote("\n\t\r\v\f\e\\\"\x0012 \x01\x7F é"));
     }
 
+    /**
+     * @dataProvider singleQuotedStrings
+     */
+    public function test_single_quoted_strings_are_raw(string $source, string $value)
+    {
+        $this->assertSame([[Token::STRING, $value]], $this->lex($source));
+    }
+
+    public static function singleQuotedStrings(): array
+    {
+        return [
+            'plain' => ["'plain'", 'plain'],
+            'empty' => ["''", ''],
+            'other backslashes are kept' => ["'C:\\path\\n'", 'C:\\path\\n'],
+            'escaped quote' => ["'it\\'s'", "it's"],
+            'escaped backslash' => ["'a\\\\b'", 'a\\b'],
+            'backslash before the closing quote' => ["'end\\\\'", 'end\\'],
+            'double quotes and escapes are literal' => ["'\"x\\t\"'", '"x\\t"'],
+            'newlines are kept' => ["'two\nlines'", "two\nlines"],
+        ];
+    }
+
+    public function test_unterminated_single_quoted_string_reports_where_it_starts()
+    {
+        $this->expectExceptionMessage('Unterminated string on line 2');
+        $this->lex("1;\n'open\n\nnever");
+    }
+
     public function test_unknown_escape_is_an_error()
     {
         $this->expectExceptionMessage('Unknown escape sequence \q in string on line 2');

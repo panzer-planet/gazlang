@@ -287,6 +287,37 @@ class Lexer
     }
 
     /**
+     * Parse a raw string literal enclosed in single quotes, with PHP's rules
+     *
+     * Only \' and \\ are escapes; any other backslash is kept as is, so 'C:\path\n' is
+     * exactly those characters. Double-quoted strings are the ones that will get
+     * interpolation, so single-quoted strings stay raw.
+     *
+     * @throws GazLangError If the string is not closed
+     */
+    public function single_quoted_string(): string
+    {
+        $start_line = $this->line;
+        $this->advance();
+
+        $result = '';
+        while ($this->current_char !== null && $this->current_char !== "'") {
+            if ($this->current_char === '\\' && ($this->peek() === "'" || $this->peek() === '\\')) {
+                $this->advance();
+            }
+            $result .= $this->current_char;
+            $this->advance();
+        }
+
+        if ($this->current_char === null) {
+            throw new GazLangError('Unterminated string', null, $start_line);
+        }
+        $this->advance();
+
+        return $result;
+    }
+
+    /**
      * Read the escape after a backslash in a string literal, and return what it stands for
      *
      * @throws GazLangError If the escape is unknown or malformed
@@ -443,6 +474,10 @@ class Lexer
 
             if ($this->current_char === '"') {
                 return new Token(Token::STRING, $this->string());
+            }
+
+            if ($this->current_char === "'") {
+                return new Token(Token::STRING, $this->single_quoted_string());
             }
 
             if ($this->current_char === '$' || $this->current_char === '@') {

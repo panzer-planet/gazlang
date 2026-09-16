@@ -47,6 +47,31 @@ class StdlibTest extends GazLangTestCase
         ];
     }
 
+    /**
+     * @dataProvider stringBuiltinErrors
+     */
+    public function test_string_builtins_reject_bad_arguments(string $code, string $message)
+    {
+        $this->expectExceptionMessage($message);
+        $this->executeCode($code);
+    }
+
+    public static function stringBuiltinErrors(): array
+    {
+        return [
+            'upper on an int' => ['upper(1);', 'upper() expects string, got int'],
+            'trim on null' => ['trim(null);', 'trim() expects string, got null'],
+            'split separator' => ['split("a", 1);', 'split() expects string, got int'],
+            'join non-array' => ['join("abc", ",");', 'join() expects array, got string'],
+            'join separator' => ['join([], null);', 'join() expects string, got null'],
+            'replace empty search' => ['replace("abc", "", "x");', 'replace() cannot search for an empty string'],
+            'contains on an array' => ['contains(["a"], "a");', 'contains() expects string, got array'],
+            'index_of needle' => ['index_of("abc", 1);', 'index_of() expects string, got int'],
+            'repeat negative' => ['repeat("a", -1);', 'repeat() count must not be negative, got -1'],
+            'repeat count' => ['repeat("a", "2");', 'repeat() expects int, got string'],
+        ];
+    }
+
     public function test_to_int()
     {
         $this->assertEquals("42\n-7\n8\n5\n", $this->executeCode(
