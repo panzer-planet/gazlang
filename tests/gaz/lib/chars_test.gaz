@@ -1,0 +1,41 @@
+include "../check.gaz";
+include "../../../lib/chars.gaz";
+
+// char_at stays inside the string
+check("char_at first", char_at("abc", 0), "a");
+check("char_at last", char_at("abc", 2), "c");
+check("char_at past the end", char_at("abc", 3), "");
+check("char_at negative", char_at("abc", -1), "");
+check("char_at empty string", char_at("", 0), "");
+
+// Boundaries: the characters either side of each range
+check("digit below 0", is_digit("/"), false);
+check("digit 0", is_digit("0"), true);
+check("digit 9", is_digit("9"), true);
+check("digit above 9", is_digit(":"), false);
+check("alpha below A", is_alpha("@"), false);
+check("alpha A", is_alpha("A"), true);
+check("alpha Z", is_alpha("Z"), true);
+check("alpha above Z", is_alpha("["), false);
+check("alpha below a", is_alpha("`"), false);
+check("alpha a", is_alpha("a"), true);
+check("alpha z", is_alpha("z"), true);
+check("alpha above z", is_alpha("{"), false);
+check("underscore is not alpha", is_alpha("_"), false);
+check("alnum digit", is_alnum("7"), true);
+check("alnum letter", is_alnum("q"), true);
+check("alnum underscore", is_alnum("_"), false);
+
+check("space", is_space(" "), true);
+check("tab", is_space("\t"), true);
+check("newline", is_space("\n"), true);
+check("carriage return", is_space("\r"), true);
+check("not space", is_space("x"), false);
+
+// Only single characters count; anything else is false, not an error
+check("digit two characters", is_digit("12"), false);
+check("alpha empty string", is_alpha(""), false);
+check("space two spaces", is_space("  "), false);
+check("digit null", is_digit(null), false);
+check("alpha number", is_alpha(5), false);
+check("alnum past the end", is_alnum(char_at("ab", 2)), false);

@@ -158,8 +158,10 @@ each step depends on the ones before it.
      after the gazlang options, or after `--`). `bin/gazlang` rejects options it
      doesn't know, since `getopt` would silently drop them, so a program's own
      flags must come after `--`.
-   - Deliberately left to GazLang code: character classes (strings compare byte
-     by byte, see `examples/lib/chars.gaz`), `join`, push/pop.
+   - Deliberately left to GazLang code: character classes (`lib/chars.gaz`:
+     `char_at`, `is_char`, `is_digit`, `is_alpha`, `is_alnum`, `is_space`, which
+     `LibCharsTest` checks against `Lexer::is_*` for all 256 bytes), `join`,
+     push/pop.
    - `include "path.gaz";` is top level only and takes a string literal. The
      path is relative to the including file (the working directory for piped
      input). It is resolved at parse time: the included file's statements are
@@ -180,7 +182,15 @@ each step depends on the ones before it.
    with no value), then on a lexer error `error("<message> on line N")`, which
    prints `Error: ...` and exits 1. The test skips once until the file exists. Add
    a corpus file whenever the port reveals an untested case; files named `error_*`
-   must be exactly the ones that fail to lex.
+   must be exactly the ones that fail to lex. The comparison runs in-process
+   (`GazLangTestCase::runProgram()`), since a CLI run costs ~0.5s.
+
+   **Test GazLang code with GazLang programs.** Every `tests/gaz/**/*_test.gaz`
+   must print exactly its `*_test.expected` (`GazProgramTest`); other `.gaz`
+   files there are helpers, like `check.gaz`'s `check($label, $actual, $expected)`,
+   which prints `ok <label>` or a FAIL line with both values. Reusable GazLang
+   code lives in `lib/`; the lexer's character classes are ASCII and explicit
+   (`Lexer::is_space` is only space, tab, newline and carriage return).
 
 ## Errors
 

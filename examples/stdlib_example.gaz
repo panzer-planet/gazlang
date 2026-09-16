@@ -1,14 +1,6 @@
 // A tiny tokenizer built on the standard library.
 // Run it on its own string, or pass a file:  php bin/gazlang -f examples/stdlib_example.gaz -- some_file.txt
-include "lib/chars.gaz";
-
-// The character at $i, or "" past the end (indexing past the end gives null)
-function char_at($source, $i) {
-    if ($i < len($source)) {
-        return $source[$i];
-    }
-    return "";
-}
+include "../lib/chars.gaz";
 
 function tokenize($source) {
     $tokens = [];

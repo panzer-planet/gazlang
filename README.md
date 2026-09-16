@@ -145,8 +145,9 @@ php bin/gazlang -f examples/echo_example.gaz -c
   - `Interpreter/` - Executes the AST
   - `Runtime/` - Value semantics (operators, truthiness, printing) and builtin functions, shared by backends
   - `CodeGenerator/` - Generates stack-based VM code
+- `lib/` - Libraries written in GazLang (`chars.gaz`: character classes)
 - `bin/` - Executable scripts
-- `tests/` - Unit tests
+- `tests/` - Unit tests; `tests/gaz/` holds GazLang test programs with their expected output
 
 ## License
 

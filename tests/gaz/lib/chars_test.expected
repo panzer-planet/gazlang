@@ -1,0 +1,32 @@
+ok char_at first
+ok char_at last
+ok char_at past the end
+ok char_at negative
+ok char_at empty string
+ok digit below 0
+ok digit 0
+ok digit 9
+ok digit above 9
+ok alpha below A
+ok alpha A
+ok alpha Z
+ok alpha above Z
+ok alpha below a
+ok alpha a
+ok alpha z
+ok alpha above z
+ok underscore is not alpha
+ok alnum digit
+ok alnum letter
+ok alnum underscore
+ok space
+ok tab
+ok newline
+ok carriage return
+ok not space
+ok digit two characters
+ok alpha empty string
+ok space two spaces
+ok digit null
+ok alpha number
+ok alnum past the end

@@ -96,7 +96,7 @@ class Lexer
      */
     public function skip_whitespace(): void
     {
-        while ($this->current_char !== null && ctype_space($this->current_char)) {
+        while ($this->current_char !== null && self::is_space($this->current_char)) {
             $this->advance();
         }
     }
@@ -123,12 +123,12 @@ class Lexer
     public function integer(): int
     {
         $result = '';
-        while ($this->current_char !== null && ctype_digit($this->current_char)) {
+        while ($this->current_char !== null && self::is_digit($this->current_char)) {
             $result .= $this->current_char;
             $this->advance();
         }
 
-        if ($this->current_char !== null && (ctype_alpha($this->current_char) || $this->current_char === '_')) {
+        if ($this->current_char !== null && (self::is_alpha($this->current_char) || $this->current_char === '_')) {
             throw new GazLangError('Invalid integer literal: '.$result.$this->read_word(), null, $this->line);
         }
 
@@ -141,7 +141,7 @@ class Lexer
     private function read_word(): string
     {
         $result = '';
-        while ($this->current_char !== null && (ctype_alnum($this->current_char) || $this->current_char === '_')) {
+        while ($this->current_char !== null && (self::is_alnum($this->current_char) || $this->current_char === '_')) {
             $result .= $this->current_char;
             $this->advance();
         }
@@ -168,6 +168,51 @@ class Lexer
         $normalized = preg_replace(['/^(-?)0+(?=[0-9])/', '/^-0$/'], ['$1', '0'], $digits);
 
         return (string) (int) $digits === $normalized ? (int) $digits : null;
+    }
+
+    /**
+     * Whether a character is whitespace: space, tab, newline or carriage return
+     *
+     * The lexer's character classes are ASCII and spelled out rather than ctype_*, so
+     * lib/chars.gaz can match them exactly: ctype_space also accepts vertical tab and
+     * form feed, which GazLang strings can't express, and ctype_alpha depends on the
+     * locale (on macOS it accepts Latin-1 letters such as byte 233).
+     *
+     * @param  string  $char  One character
+     */
+    public static function is_space(string $char): bool
+    {
+        return $char === ' ' || $char === "\t" || $char === "\n" || $char === "\r";
+    }
+
+    /**
+     * Whether a character is an ASCII digit, 0 to 9
+     *
+     * @param  string  $char  One character
+     */
+    public static function is_digit(string $char): bool
+    {
+        return strlen($char) === 1 && str_contains('0123456789', $char);
+    }
+
+    /**
+     * Whether a character is an ASCII letter, a to z or A to Z
+     *
+     * @param  string  $char  One character
+     */
+    public static function is_alpha(string $char): bool
+    {
+        return strlen($char) === 1 && str_contains('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ', $char);
+    }
+
+    /**
+     * Whether a character is an ASCII letter or digit
+     *
+     * @param  string  $char  One character
+     */
+    public static function is_alnum(string $char): bool
+    {
+        return self::is_alpha($char) || self::is_digit($char);
     }
 
     /**
@@ -245,7 +290,7 @@ class Lexer
 
         // Variable names must start with a letter or underscore after the $; the whole
         // bad name is shown, so $1abc reads as one mistake rather than a lone $
-        if ($this->current_char === null || (! ctype_alpha($this->current_char) && $this->current_char !== '_')) {
+        if ($this->current_char === null || (! self::is_alpha($this->current_char) && $this->current_char !== '_')) {
             throw new GazLangError('Invalid variable name: '.$result.$this->read_word(), null, $this->line);
         }
 
@@ -260,7 +305,7 @@ class Lexer
     public function get_next_token(): Token
     {
         while ($this->current_char !== null) {
-            if (ctype_space($this->current_char)) {
+            if (self::is_space($this->current_char)) {
                 $this->skip_whitespace();
             } elseif ($this->current_char === '/' && $this->peek() === '/') {
                 $this->skip_comment();
@@ -284,7 +329,7 @@ class Lexer
     private function scan_token(): Token
     {
         if ($this->current_char !== null) {
-            if (ctype_digit($this->current_char)) {
+            if (self::is_digit($this->current_char)) {
                 return new Token(Token::INTEGER, $this->integer());
             }
 
@@ -296,7 +341,7 @@ class Lexer
                 return $this->var_identifier();
             }
 
-            if (ctype_alpha($this->current_char) || $this->current_char === '_') {
+            if (self::is_alpha($this->current_char) || $this->current_char === '_') {
                 return $this->identifier();
             }
 

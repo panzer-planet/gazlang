@@ -5,21 +5,20 @@ namespace GazLang\Tests;
 use GazLang\GazLangError;
 use GazLang\Lexer\Lexer;
 use GazLang\Lexer\Token;
-use PHPUnit\Framework\TestCase;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 
 /**
  * Checks the GazLang lexer (selfhost/lexer.gaz) against the PHP lexer, which is the spec
  *
  * For every corpus file the PHP lexer's `gazlang --tokens` output is the expected
- * output. The self-hosted lexer is run as `gazlang -f selfhost/lexer.gaz -- FILE` and
- * must print exactly the same lines and exit with the same code: each token as
+ * output. The self-hosted lexer is run as `gazlang -f selfhost/lexer.gaz -- FILE`
+ * (in-process, see runProgram()) and must print exactly the same lines and exit with the same code: each token as
  * Token::__toString() formats it, then on a lexer error the error message, printed
  * by error() as "Error: <message> on line N", with exit code 1.
  */
-class SelfHostedLexerTest extends TestCase
+class SelfHostedLexerTest extends GazLangTestCase
 {
-    private const ROOT = __DIR__.'/..';
-
     private const LEXER = 'selfhost/lexer.gaz';
 
     /**
@@ -28,11 +27,15 @@ class SelfHostedLexerTest extends TestCase
     public static function corpus(): array
     {
         $files = [];
-        foreach (['examples', 'examples/lib', 'tests/fixtures', 'tests/fixtures/include', 'tests/fixtures/include/lib', 'tests/lexer_corpus'] as $dir) {
-            foreach (glob(self::ROOT."/{$dir}/*.gaz") as $path) {
-                $files["{$dir}/".basename($path)] = ["{$dir}/".basename($path)];
+        foreach (['examples', 'lib', 'tests'] as $dir) {
+            foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(self::ROOT."/{$dir}")) as $path) {
+                if (str_ends_with($path, '.gaz')) {
+                    $file = substr($path, strlen(self::ROOT) + 1);
+                    $files[$file] = [$file];
+                }
             }
         }
+        ksort($files);
 
         return $files;
     }
@@ -97,16 +100,10 @@ class SelfHostedLexerTest extends TestCase
             $this->markTestSkipped(self::LEXER.' has not been written yet');
         }
 
-        exec(sprintf(
-            'cd %s && %s bin/gazlang -f %s -- %s 2>&1',
-            escapeshellarg(self::ROOT),
-            escapeshellarg(PHP_BINARY),
-            escapeshellarg(self::LEXER),
-            escapeshellarg($file)
-        ), $output, $exit_code);
+        [$output, $exit_code] = $this->runProgram(self::LEXER, [$file]);
 
         [$expected, $expected_exit_code] = self::phpTokens($file);
-        $this->assertSame($expected, implode("\n", $output), "Tokens differ for {$file}");
+        $this->assertSame($expected, rtrim($output, "\n"), "Tokens differ for {$file}");
         $this->assertSame($expected_exit_code, $exit_code, "Exit code differs for {$file}");
     }
 }
