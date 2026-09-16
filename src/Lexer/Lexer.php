@@ -145,23 +145,104 @@ class Lexer
     }
 
     /**
-     * Return a (multidigit) integer from the input
+     * Read a number literal: an INTEGER (42) or a FLOAT (1.5, 1e10, 2.5E-3)
      *
-     * @throws GazLangError If the literal runs into letters (12abc) or doesn't fit in an int
+     * A float has digits on both sides of the dot and/or an exponent with an optional
+     * sign; "1." and ".5" are not numbers. A number running straight into letters or
+     * an underscore (12abc, 1e, 1.5x) is an error.
+     *
+     * @throws GazLangError If the literal is malformed or doesn't fit
      */
-    public function integer(): int
+    public function number(): Token
     {
-        $result = '';
-        while ($this->current_char !== null && self::is_digit($this->current_char)) {
-            $result .= $this->current_char;
+        $text = $this->read_digits();
+        $is_float = false;
+
+        if ($this->current_char === '.' && $this->peek() !== null && self::is_digit($this->peek())) {
             $this->advance();
+            $text .= '.'.$this->read_digits();
+            $is_float = true;
+        }
+
+        $sign = $this->peek();
+        if (($this->current_char === 'e' || $this->current_char === 'E') && $sign !== null
+            && (self::is_digit($sign) || (($sign === '+' || $sign === '-') && $this->peek(2) !== null && self::is_digit($this->peek(2))))) {
+            $text .= $this->current_char;
+            $this->advance();
+            if ($this->current_char === '+' || $this->current_char === '-') {
+                $text .= $this->current_char;
+                $this->advance();
+            }
+            $text .= $this->read_digits();
+            $is_float = true;
         }
 
         if ($this->current_char !== null && (self::is_alpha($this->current_char) || $this->current_char === '_')) {
-            throw new GazLangError('Invalid integer literal: '.$result.$this->read_word(), null, $this->line);
+            throw new GazLangError('Invalid number literal: '.$text.$this->read_word(), null, $this->line);
         }
 
-        return self::parse_integer($result) ?? throw new GazLangError("Integer literal too large: {$result}", null, $this->line);
+        if (! $is_float) {
+            return new Token(Token::INTEGER, self::parse_integer($text) ?? throw new GazLangError("Integer literal too large: {$text}", null, $this->line));
+        }
+
+        return new Token(Token::FLOAT, self::parse_number($text) ?? throw new GazLangError("Float literal too large: {$text}", null, $this->line));
+    }
+
+    /**
+     * Read decimal digits from the current character on
+     */
+    private function read_digits(): string
+    {
+        $digits = '';
+        while ($this->current_char !== null && self::is_digit($this->current_char)) {
+            $digits .= $this->current_char;
+            $this->advance();
+        }
+
+        return $digits;
+    }
+
+    /**
+     * Parse a GazLang number written as text, with an optional leading minus: "-42", "1.5", "2e-3"
+     *
+     * The same syntax as number literals. Shared with the runtime (to_float, and
+     * comparing strings with numbers) so every place agrees on what a number string is.
+     *
+     * @param  string  $text  The text to parse
+     * @return int|float|null An int for integer syntax, a float for float syntax, or null if
+     *                        the text isn't a number or doesn't fit (an int overflow or an infinite float)
+     */
+    public static function parse_number(string $text): int|float|null
+    {
+        if (! preg_match('/^-?[0-9]+(\.[0-9]+)?([eE][+-]?[0-9]+)?$/', $text, $parts)) {
+            return null;
+        }
+        if (! isset($parts[1]) && ! isset($parts[2])) {
+            return self::parse_integer($text);
+        }
+
+        $float = (float) $text;
+
+        return is_finite($float) ? $float : null;
+    }
+
+    /**
+     * Write a float as a GazLang float literal that reads back as exactly the same float
+     *
+     * The shortest digits that round trip, always with a dot or exponent so a float never
+     * looks like an int: 1.0, 0.30000000000000004, 1.0E+25, -0.0. Used by echo, string
+     * conversion, --tokens and generated code. Floats are never INF or NAN in GazLang.
+     *
+     * @param  float  $value  A finite float
+     */
+    public static function format_float(float $value): string
+    {
+        // var_export honours serialize_precision; -1 (PHP's default) means shortest round trip
+        $precision = ini_set('serialize_precision', '-1');
+        $text = var_export($value, true);
+        ini_set('serialize_precision', (string) $precision);
+
+        return $text;
     }
 
     /**
@@ -574,7 +655,7 @@ class Lexer
     {
         if ($this->current_char !== null) {
             if (self::is_digit($this->current_char)) {
-                return new Token(Token::INTEGER, $this->integer());
+                return $this->number();
             }
 
             if ($this->current_char === '"') {
@@ -765,9 +846,9 @@ class Lexer
     /**
      * Peek at the next character without advancing
      */
-    private function peek(): ?string
+    private function peek(int $offset = 1): ?string
     {
-        $peek_pos = $this->pos + 1;
+        $peek_pos = $this->pos + $offset;
         if ($peek_pos > strlen($this->text) - 1) {
             return null;
         }

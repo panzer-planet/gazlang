@@ -9,7 +9,7 @@ use GazLang\Lexer\Token;
 /**
  * GazLang's value semantics: truthiness, printing, array keys, operators and indexing
  *
- * Values are plain PHP values: int, string, bool, null and array. Everything here is a
+ * Values are plain PHP values: int, float (always finite), string, bool, null and array. Everything here is a
  * pure function of values, so any backend that runs GazLang (the interpreter now, a VM
  * later) gets identical behaviour. Errors are plain Exceptions; the interpreter adds
  * the source location.
@@ -46,6 +46,8 @@ final class Values
             return $value;
         } elseif (is_int($value)) {
             return (string) $value;
+        } elseif (is_float($value)) {
+            return Lexer::format_float($value);
         } elseif (is_bool($value)) {
             return $value ? 'true' : 'false';
         } elseif ($value === null) {
@@ -90,11 +92,11 @@ final class Values
      * @param  Token  $op  The operator token (its value is used in error messages)
      * @param  mixed  $left  The left operand
      * @param  mixed  $right  The right operand
-     * @return int|string|bool The result
+     * @return int|float|string|bool The result
      *
      * @throws Exception If the operator can't be applied to these values
      */
-    public static function binary(Token $op, $left, $right): int|string|bool
+    public static function binary(Token $op, $left, $right): int|float|string|bool
     {
         $type = $op->type;
 
@@ -136,21 +138,23 @@ final class Values
             return self::arithmetic($op, $left, $right);
         }
 
-        // A string and an int only compare when the string holds an integer ("5" == 5);
-        // any other string never equals an int, and ordering them is an error
+        // A string and a number only compare when the string is a number literal ("5" == 5,
+        // "1.5" == 1.5); any other string never equals a number, and ordering them is an error
         if (is_string($left) !== is_string($right)) {
-            $int = Lexer::parse_integer(is_string($left) ? $left : $right);
-            if ($int === null) {
+            $number = Lexer::parse_number(is_string($left) ? $left : $right);
+            if ($number === null) {
+                $other = get_debug_type(is_string($left) ? $right : $left);
+
                 return match ($type) {
                     Token::EQUALS => false,
                     Token::NOT_EQUALS => true,
-                    default => throw new Exception("Cannot use {$op->value} on string and int"),
+                    default => throw new Exception("Cannot use {$op->value} on string and {$other}"),
                 };
             }
-            [$left, $right] = is_string($left) ? [$int, $right] : [$left, $int];
+            [$left, $right] = is_string($left) ? [$number, $right] : [$left, $number];
         }
 
-        // Two strings compare byte by byte, so "1" != "01" and "10" < "9"; two ints numerically
+        // Two strings compare byte by byte, so "1" != "01" and "10" < "9"; numbers numerically, 1 == 1.0
         $cmp = is_string($left) ? strcmp($left, $right) : $left <=> $right;
 
         return match ($type) {
@@ -169,10 +173,13 @@ final class Values
      *
      * @param  mixed  $value  The operand
      *
-     * @throws Exception If the value isn't an int or bool, or negating it overflows
+     * @throws Exception If the value isn't a number or bool, or negating it overflows
      */
-    public static function negate($value): int
+    public static function negate($value): int|float
     {
+        if (is_float($value)) {
+            return -$value;
+        }
         if (! is_int($value) && ! is_bool($value)) {
             throw new Exception('Cannot use - on '.get_debug_type($value));
         }
@@ -208,40 +215,52 @@ final class Values
     }
 
     /**
-     * Apply + - * / % to two ints (booleans already converted)
+     * Apply + - * / % to two numbers (booleans already converted)
+     *
+     * Two ints give an int, and a float on either side gives a float. / follows PHP: an
+     * exact int division stays an int (6 / 2 is 3), any other gives a float (7 / 2 is
+     * 3.5). % is for ints only. Nothing silently overflows: an int result that doesn't
+     * fit and a float result that is infinite are both errors.
      *
      * @param  Token  $op  The operator token
      * @param  mixed  $left  The left operand
      * @param  mixed  $right  The right operand
      *
-     * @throws Exception On strings, division by zero or overflow
+     * @throws Exception On strings, % on floats, division by zero or overflow
      */
-    private static function arithmetic(Token $op, $left, $right): int
+    private static function arithmetic(Token $op, $left, $right): int|float
     {
         if (is_string($left) || is_string($right)) {
             throw new Exception("Cannot use {$op->value} on string");
         }
-        if ($op->type === Token::DIVIDE && $right === 0) {
-            throw new Exception('Division by zero');
+        if ($op->type === Token::MODULO && (is_float($left) || is_float($right))) {
+            throw new Exception('Cannot use % on float');
         }
-        if ($op->type === Token::MODULO && $right === 0) {
-            throw new Exception('Modulo by zero');
+        if ($right == 0 && ($op->type === Token::DIVIDE || $op->type === Token::MODULO)) {
+            throw new Exception($op->type === Token::DIVIDE ? 'Division by zero' : 'Modulo by zero');
         }
 
+        $both_ints = is_int($left) && is_int($right);
         $result = match ($op->type) {
             Token::PLUS => $left + $right,
             Token::MINUS => $left - $right,
             Token::MULTIPLY => $left * $right,
-            // intdiv(PHP_INT_MIN, -1) throws ArithmeticError; its result wouldn't fit either
-            Token::DIVIDE => $left === PHP_INT_MIN && $right === -1 ? PHP_INT_MAX + 1 : intdiv($left, $right),
+            // PHP_INT_MIN % -1 is 0, so that division counts as exact and overflows below as an int
+            Token::DIVIDE => $both_ints && $left % $right === 0
+                ? ($left === PHP_INT_MIN && $right === -1 ? PHP_INT_MAX + 1 : intdiv($left, $right))
+                : $left / $right,
             // The sign follows the left operand, as in PHP and C: -7 % 3 is -1
             Token::MODULO => $left % $right,
             default => throw new Exception("Unknown operator: {$op->type}"),
         };
 
-        // PHP turns an int that overflows into a float, which GazLang has no type for
-        if (! is_int($result)) {
+        // PHP turns an int that overflows into a float, and a float that overflows into INF
+        $exact_int = $both_ints && ($op->type !== Token::DIVIDE || $left % $right === 0);
+        if ($exact_int && ! is_int($result)) {
             throw new Exception('Integer overflow');
+        }
+        if (is_float($result) && ! is_finite($result)) {
+            throw new Exception('Float overflow');
         }
 
         return $result;

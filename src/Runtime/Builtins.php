@@ -34,6 +34,12 @@ final class Builtins
         'chr' => 1,
         'ord' => 1,
         'to_int' => 1,
+        'to_float' => 1,
+        'floor' => 1,
+        'ceil' => 1,
+        'round' => 1,
+        'abs' => 1,
+        'intdiv' => 2,
         'to_string' => 1,
         'in_array' => 2,
         'has_key' => 2,
@@ -91,6 +97,14 @@ final class Builtins
             'chr' => $this->chr($this->argument($name, $args[0], 'int')),
             'ord' => $this->ord($this->argument($name, $args[0], 'string')),
             'to_int' => $this->toInt($args[0]),
+            'to_float' => $this->toFloat($args[0]),
+            // floor, ceil and round return floats, as in PHP; to_int() makes an int of the result
+            'floor' => floor($this->argument($name, $args[0], 'int', 'float')),
+            'ceil' => ceil($this->argument($name, $args[0], 'int', 'float')),
+            // Halves round away from zero: round(2.5) is 3.0, round(-2.5) is -3.0
+            'round' => round($this->argument($name, $args[0], 'int', 'float')),
+            'abs' => $this->abs($this->argument($name, $args[0], 'int', 'float')),
+            'intdiv' => $this->intdiv($this->argument($name, $args[0], 'int'), $this->argument($name, $args[1], 'int')),
             'to_string' => Values::toString($args[0]),
             // Strict, like ===
             'in_array' => in_array($args[0], $this->argument($name, $args[1], 'array'), true),
@@ -242,8 +256,71 @@ final class Builtins
         if (is_string($value) && ($int = Lexer::parse_integer($value)) !== null) {
             return $int;
         }
+        // Truncated toward zero, when the result fits: -2^63 <= value < 2^63
+        if (is_float($value) && $value >= -9.2233720368547758E+18 && $value < 9.2233720368547758E+18) {
+            return (int) $value;
+        }
 
-        throw new Exception('to_int() cannot convert '.(is_string($value) ? Lexer::quote($value) : get_debug_type($value)));
+        throw new Exception('to_int() cannot convert '.match (true) {
+            is_string($value) => Lexer::quote($value),
+            is_float($value) => Lexer::format_float($value),
+            default => get_debug_type($value),
+        });
+    }
+
+    /**
+     * to_float($x): a number as a float, or a string holding a GazLang number literal (with optional minus)
+     *
+     * @param  mixed  $value  The value to convert
+     *
+     * @throws Exception If the value is not a number or a string holding one that fits
+     */
+    private function toFloat($value): float
+    {
+        if (is_int($value) || is_float($value)) {
+            return (float) $value;
+        }
+        if (is_string($value) && ($number = Lexer::parse_number($value)) !== null) {
+            return (float) $number;
+        }
+
+        throw new Exception('to_float() cannot convert '.(is_string($value) ? Lexer::quote($value) : get_debug_type($value)));
+    }
+
+    /**
+     * abs($x): the absolute value, an int for an int and a float for a float
+     *
+     * @param  int|float  $value  The number
+     *
+     * @throws Exception If the value is the smallest int, whose absolute value doesn't fit
+     */
+    private function abs(int|float $value): int|float
+    {
+        if ($value === PHP_INT_MIN) {
+            throw new Exception('Integer overflow');
+        }
+
+        return abs($value);
+    }
+
+    /**
+     * intdiv($a, $b): integer division, truncated toward zero, for when / would give a float
+     *
+     * @param  int  $left  The dividend
+     * @param  int  $right  The divisor
+     *
+     * @throws Exception On division by zero, or intdiv(smallest int, -1), which doesn't fit
+     */
+    private function intdiv(int $left, int $right): int
+    {
+        if ($right === 0) {
+            throw new Exception('Division by zero');
+        }
+        if ($left === PHP_INT_MIN && $right === -1) {
+            throw new Exception('Integer overflow');
+        }
+
+        return intdiv($left, $right);
     }
 
     /**

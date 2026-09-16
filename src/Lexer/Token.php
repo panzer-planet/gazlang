@@ -10,6 +10,8 @@ class Token
     // Token types
     public const INTEGER = 'INTEGER';
 
+    public const FLOAT = 'FLOAT';  // Float literal: 1.5, 1e10
+
     public const STRING = 'STRING';  // String literal without interpolation
 
     public const STRING_START = 'STRING_START';  // Text of an interpolated string before its first interpolation
@@ -146,6 +148,7 @@ class Token
     {
         $value = match (true) {
             $this->type === self::EOF => '',
+            $this->type === self::FLOAT => ' '.Lexer::format_float($this->value),
             in_array($this->type, [self::STRING, self::STRING_START, self::STRING_MIDDLE, self::STRING_END], true) => ' '.Lexer::quote($this->value),
             default => " {$this->value}",
         };

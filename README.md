@@ -5,14 +5,14 @@ A small, PHP-flavoured programming language with an interpreter and a stack-VM c
 ## Features
 
 - Statements terminated by semicolons (`;`)
-- Dynamic typing with support for integers, strings, booleans, `null` and arrays
+- Dynamic typing with support for integers, floats (`1.5`, `2e-3`), strings, booleans, `null` and arrays
 - Arrays that work as lists and maps (`[1, 2]`, `["key" => 1]`), copied on assignment like PHP, with `$a[i]` indexing, `$a[] = v` appending and `len()`
 - Boolean literals `true` and `false`; comparisons and logical operators return booleans
 - String literals with double quotes (`"Hello, World!"`, with escapes) or single quotes (`'C:\raw\path'`, raw: only `\'` and `\\` are escapes)
 - String escape sequences: `\n` `\t` `\r` `\v` `\f` `\e` `\0` `\\` `\"`, `\xHH` for a byte and `\u{1F600}` for a Unicode code point (as UTF-8); anything else, including octal like `\012`, is an error
 - String concatenation with the `+` operator
 - String interpolation in double-quoted strings: `"Hi $name!"`, `"First: $items[0]"`, `"{$user["name"]} has {@count} items"`
-- Mathematical operators: `+`, `-`, `*`, `/`, `%`, unary `-`
+- Mathematical operators: `+`, `-`, `*`, `/` (`7 / 2` is `3.5`, `6 / 2` is `3`), `%`, unary `-`
 - Comparison operators: `==`, `!=`, `===`, `!==` (no type conversion), `<`, `<=`, `>`, `>=`
 - Logical operators: `&&`, `||` (short-circuiting), `!`
 - Parentheses for grouping expressions
@@ -21,7 +21,7 @@ A small, PHP-flavoured programming language with an interpreter and a stack-VM c
 - Control flow with if/else and else if statements
 - Loops: `while (cond) { ... }`, `for (init; cond; step) { ... }` and `foreach ($array as $key => $value) { ... }`, with `break` and `continue`
 - Functions: `function add($a, $b) { return $a + $b; }`, callable before they are declared, with recursion
-- Standard library: `len`, `slice`, `lower`, `upper`, `trim`, `split`, `join`, `replace`, `contains`, `starts_with`, `ends_with`, `index_of`, `repeat`, `chr`, `ord`, `to_int`, `to_string`, `in_array`, `has_key`, `keys`, `type_of`, `error`, `read_file`, `write_file`, `read_stdin`, `args`
+- Standard library: `to_float`, `floor`, `ceil`, `round`, `abs`, `intdiv`, `len`, `slice`, `lower`, `upper`, `trim`, `split`, `join`, `replace`, `contains`, `starts_with`, `ends_with`, `index_of`, `repeat`, `chr`, `ord`, `to_int`, `to_string`, `in_array`, `has_key`, `keys`, `type_of`, `error`, `read_file`, `write_file`, `read_stdin`, `args`
 - Error messages with file and line (`Error: Expected ')' but found ';' at lib/parser.gaz:12`)
 - `include "lib/helpers.gaz";` to split programs across files (each file is included once)
 - Single-line comments (`// comment`)

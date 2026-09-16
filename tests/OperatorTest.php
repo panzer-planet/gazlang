@@ -27,6 +27,43 @@ class OperatorTest extends GazLangTestCase
         $this->createLexer('&')->get_next_token();
     }
 
+    /**
+     * @dataProvider floatErrors
+     */
+    public function test_float_errors(string $code, string $message)
+    {
+        $this->expectExceptionMessage($message);
+        $this->executeCode($code);
+    }
+
+    public static function floatErrors(): array
+    {
+        return [
+            'float overflow' => ['echo 1e308 * 10;', 'Float overflow on line 1'],
+            'float overflow by division' => ['echo 1e308 / 1e-10;', 'Float overflow on line 1'],
+            'modulo with a float' => ['echo 5.5 % 2;', 'Cannot use % on float on line 1'],
+            'division by float zero' => ['echo 1 / 0.0;', 'Division by zero on line 1'],
+            'exact division that overflows' => ['echo (-9223372036854775807 - 1) / -1;', 'Integer overflow on line 1'],
+            'float array key' => ['echo [1.5 => 1];', 'Array keys must be int or string, got float on line 1'],
+            'float string position' => ['echo "abc"[1.0];', 'String positions must be int, got float on line 1'],
+            'ordering a non-number string' => ['echo "abc" < 1.5;', 'Cannot use < on string and float on line 1'],
+            'arithmetic on a string' => ['echo "1.5" + 1.5 * "2";', 'Cannot use * on string on line 1'],
+            'to_int out of range' => ['to_int(1e19);', 'to_int() cannot convert 1.0E+19 on line 1'],
+            'to_float of a non-number' => ['to_float("1.5x");', 'to_float() cannot convert "1.5x" on line 1'],
+            'to_float of a bool' => ['to_float(true);', 'to_float() cannot convert bool on line 1'],
+            'intdiv by zero' => ['intdiv(7, 0);', 'Division by zero on line 1'],
+            'intdiv with a float' => ['intdiv(7, 2.0);', 'intdiv() expects int, got float on line 1'],
+            'intdiv overflow' => ['intdiv(-9223372036854775807 - 1, -1);', 'Integer overflow on line 1'],
+            'abs overflow' => ['abs(-9223372036854775807 - 1);', 'Integer overflow on line 1'],
+            'round of a string' => ['round("1.5");', 'round() expects int or float, got string on line 1'],
+        ];
+    }
+
+    public function test_code_gen_pushes_floats_exactly()
+    {
+        $this->assertEquals("PUSH 0.1\nPUSH 1.0E+25\nMUL\nPRINT", $this->generateCode('echo 0.1 * 1e25;'));
+    }
+
     public function test_modulo()
     {
         // The sign follows the left operand; % binds like * and /

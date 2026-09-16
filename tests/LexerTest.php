@@ -249,8 +249,8 @@ class LexerTest extends TestCase
     public static function invalidWords(): array
     {
         return [
-            'number running into letters' => ['12abc', 'Invalid integer literal: 12abc on line 1'],
-            'number running into an underscore' => ['7_000', 'Invalid integer literal: 7_000 on line 1'],
+            'number running into letters' => ['12abc', 'Invalid number literal: 12abc on line 1'],
+            'number running into an underscore' => ['7_000', 'Invalid number literal: 7_000 on line 1'],
             'variable starting with a digit' => ['$1abc', 'Invalid variable name: $1abc on line 1'],
             'global starting with a digit' => ['@2x_y', 'Invalid variable name: @2x_y on line 1'],
             'lone sigil' => ['$ = 1', 'Invalid variable name: $ on line 1'],
@@ -263,6 +263,45 @@ class LexerTest extends TestCase
             [[Token::INTEGER, 1], [Token::PLUS, '+'], [Token::INTEGER, 2], [Token::INTEGER, 3], [Token::VAR_IDENTIFIER, '$x']],
             $this->lex('1+2 3$x')
         );
+    }
+
+    public function test_float_literals()
+    {
+        $this->assertSame(
+            [[Token::FLOAT, 1.5], [Token::FLOAT, 0.25], [Token::FLOAT, 1e10], [Token::FLOAT, 2.5E-3], [Token::FLOAT, 3e+2], [Token::FLOAT, 1e-999], [Token::INTEGER, 7]],
+            $this->lex('1.5 0.25 1e10 2.5E-3 3e+2 1e-999 7')
+        );
+    }
+
+    /**
+     * @dataProvider invalidFloats
+     */
+    public function test_invalid_float_literals(string $source, string $message)
+    {
+        $this->expectExceptionMessage($message);
+        $this->lex($source);
+    }
+
+    public static function invalidFloats(): array
+    {
+        return [
+            'dot without digits after' => ['1.', "Unexpected character '.' on line 1"],
+            'dot without digits before' => ['.5', "Unexpected character '.' on line 1"],
+            'exponent without digits' => ['1e', 'Invalid number literal: 1e on line 1'],
+            'exponent sign without digits' => ['1E+', 'Invalid number literal: 1E on line 1'],
+            'letters after a float' => ['1.5x', 'Invalid number literal: 1.5x on line 1'],
+            'too large' => ['1e999', 'Float literal too large: 1e999 on line 1'],
+            'second dot' => ['1.5.3', "Unexpected character '.' on line 1"],
+        ];
+    }
+
+    public function test_format_float_round_trips()
+    {
+        foreach ([0.1, 0.1 + 0.2, 1.0, -0.0, 1e25, 1.5e-7, 123456789.125, PHP_FLOAT_MAX, PHP_FLOAT_MIN, -2.5] as $float) {
+            $text = Lexer::format_float($float);
+            $this->assertMatchesRegularExpression('/[.E]/', $text, "{$text} must not look like an int");
+            $this->assertSame($float, (float) Lexer::parse_number(ltrim($text, '-')) * ($text[0] === '-' ? -1 : 1), $text);
+        }
     }
 
     public function test_integer_literals_must_fit()

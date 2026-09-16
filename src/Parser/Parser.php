@@ -148,6 +148,7 @@ class Parser
     {
         return match ($token->type) {
             Token::EOF => 'end of file',
+            Token::FLOAT => "'".Lexer::format_float($token->value)."'",
             Token::STRING, Token::STRING_START, Token::STRING_MIDDLE, Token::STRING_END => 'string '.Lexer::quote($token->value),
             default => "'{$token->value}'",
         };
@@ -257,7 +258,7 @@ class Parser
     }
 
     /**
-     * Parse a primary (INTEGER | STRING | interpolated_string | TRUE | FALSE | NULL | LPAREN expr RPAREN
+     * Parse a primary (INTEGER | FLOAT | STRING | interpolated_string | TRUE | FALSE | NULL | LPAREN expr RPAREN
      *                  | variable | function_call | array_literal)
      *
      * @return AST
@@ -268,8 +269,8 @@ class Parser
     {
         $token = $this->current_token;
 
-        if ($token->type === Token::INTEGER) {
-            $this->eat(Token::INTEGER);
+        if ($token->type === Token::INTEGER || $token->type === Token::FLOAT) {
+            $this->eat($token->type);
 
             return $this->at(new NumAST($token), $token);
         } elseif ($token->type === Token::STRING) {

@@ -75,12 +75,12 @@ class BooleanTest extends GazLangTestCase
         ];
     }
 
-    public function test_mixed_string_and_int_comparisons()
+    public function test_mixed_string_and_number_comparisons()
     {
-        // Integer strings compare as ints (booleans act as 1/0); any other string never equals an int
-        $this->assertEquals("true\ntrue\ntrue\nfalse\nfalse\nfalse\nfalse\ntrue\ntrue\n", $this->executeCode(
+        // Strings holding a number literal compare as numbers (booleans act as 1/0); any other string never equals a number
+        $this->assertEquals("true\ntrue\ntrue\nfalse\nfalse\ntrue\nfalse\ntrue\ntrue\ntrue\nfalse\n", $this->executeCode(
             'echo "5" == 5; echo 7 == "007"; echo true == "1"; echo true == "abc"; echo false == "";'
-            .' echo "1e0" == 1; echo " 5" == 5; echo "abc" != 1; echo "-3" < 2;'
+            .' echo "1e0" == 1; echo " 5" == 5; echo "abc" != 1; echo "-3" < 2; echo "2.50" == 2.5; echo "1." == 1;'
         ));
     }
 

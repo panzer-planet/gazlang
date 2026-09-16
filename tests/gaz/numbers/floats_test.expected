@@ -1,0 +1,38 @@
+ok literal
+ok exponent
+ok negative exponent
+ok prints with .0
+ok prints the shortest exact digits
+ok prints large floats with an exponent
+ok prints negative zero
+ok interpolates exactly
+ok int + int
+ok int + float
+ok float * int
+ok float - float
+ok bool acts as 1
+ok negate
+ok exact int division
+ok inexact int division
+ok negative inexact division
+ok division with a float
+ok intdiv truncates toward zero
+ok int equals float
+ok but not identical
+ok float ordering
+ok rounding error is visible
+ok string holding a float
+ok string with trailing zero
+ok string that isn't a number
+ok 0.0 is false
+ok -0.0 is false
+ok 0.5 is true
+ok to_float int
+ok to_float string
+ok to_float integer string
+ok to_int truncates toward zero
+ok type_of
+ok floor
+ok ceil
+ok round halves away from zero
+ok abs keeps the type

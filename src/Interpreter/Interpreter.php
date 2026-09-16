@@ -230,9 +230,9 @@ class Interpreter extends AbstractNodeVisitor
      * Visit a UnaryOp node
      *
      * @param  UnaryOpAST  $node  The node to visit
-     * @return int|bool The result of the unary operation
+     * @return int|float|bool The result of the unary operation
      */
-    public function visitUnaryOp(UnaryOpAST $node): int|bool
+    public function visitUnaryOp(UnaryOpAST $node): int|float|bool
     {
         $value = $this->visit($node->expr);
 
@@ -249,9 +249,9 @@ class Interpreter extends AbstractNodeVisitor
      * Visit a Num node
      *
      * @param  NumAST  $node  The node to visit
-     * @return int The numeric value
+     * @return int|float The numeric value
      */
-    public function visitNum(NumAST $node): int
+    public function visitNum(NumAST $node): int|float
     {
         return $node->value;
     }

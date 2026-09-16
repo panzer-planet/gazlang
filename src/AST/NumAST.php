@@ -10,19 +10,17 @@ use GazLang\Lexer\Token;
 class NumAST extends TokenValueNodeAST
 {
     /**
-     * @var int The numeric value
+     * @var int|float The numeric value
      */
     public $value;
 
     /**
      * Constructor
      *
-     * @param  Token  $token  The token representing the number
+     * @param  Token  $token  The INTEGER or FLOAT token
      */
     public function __construct(Token $token)
     {
         parent::__construct($token);
-        // Ensure value is an integer
-        $this->value = (int) $this->value;
     }
 }

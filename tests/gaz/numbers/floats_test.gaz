@@ -1,0 +1,54 @@
+include "../check.gaz";
+
+// Literals, and printing that reads back as the same float
+check("literal", 1.5, 3 / 2);
+check("exponent", 1e3, 1000.0);
+check("negative exponent", 2.5E-3, 0.0025);
+check("prints with .0", to_string(1.0), "1.0");
+check("prints the shortest exact digits", to_string(0.1 + 0.2), "0.30000000000000004");
+check("prints large floats with an exponent", to_string(1e25), "1.0E+25");
+check("prints negative zero", to_string(-0.0), "-0.0");
+$sum = 0.1 + 0.2;
+check("interpolates exactly", "sum=$sum", "sum=0.30000000000000004");
+
+// int with int stays int; a float on either side gives a float
+check("int + int", 2 + 3, 5);
+check("int + float", 2 + 0.5, 2.5);
+check("float * int", 1.5 * 2, 3.0);
+check("float - float", 0.5 - 0.25, 0.25);
+check("bool acts as 1", true + 0.5, 1.5);
+check("negate", -1.5 + 0, -1.5);
+
+// Division follows PHP: exact int division stays an int
+check("exact int division", 6 / 2, 3);
+check("inexact int division", 7 / 2, 3.5);
+check("negative inexact division", -7 / 2, -3.5);
+check("division with a float", 6.0 / 2, 3.0);
+check("intdiv truncates toward zero", [intdiv(7, 2), intdiv(-7, 2)], [3, -3]);
+
+// Comparisons
+check("int equals float", 1 == 1.0, true);
+check("but not identical", 1 === 1.0, false);
+check("float ordering", 2.5 > 2 && 2.5 < 3, true);
+check("rounding error is visible", 0.1 + 0.2 == 0.3, false);
+check("string holding a float", "1.5" == 1.5, true);
+check("string with trailing zero", "2.50" == 2.5, true);
+check("string that isn't a number", "1.5x" == 1.5, false);
+
+// Truthiness
+check("0.0 is false", !0.0, true);
+check("-0.0 is false", !-0.0, true);
+check("0.5 is true", !0.5, false);
+
+// Conversions
+check("to_float int", to_float(3), 3.0);
+check("to_float string", to_float("-1e3"), -1000.0);
+check("to_float integer string", to_float("7"), 7.0);
+check("to_int truncates toward zero", [to_int(1.9), to_int(-1.9)], [1, -1]);
+check("type_of", type_of(1.5), "float");
+
+// Rounding functions return floats, like PHP
+check("floor", [floor(1.5), floor(-1.5), floor(2)], [1.0, -2.0, 2.0]);
+check("ceil", [ceil(1.2), ceil(-1.2)], [2.0, -1.0]);
+check("round halves away from zero", [round(2.5), round(-2.5), round(2.4)], [3.0, -3.0, 2.0]);
+check("abs keeps the type", [abs(-3), abs(-2.5)], [3, 2.5]);

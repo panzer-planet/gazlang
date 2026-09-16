@@ -12,8 +12,8 @@ while ($n > 0) {
 }
 // First even number from 12 that is not a multiple of 3 (prints 14)
 for ($n = 12; $n < 100; $n = $n + 1) {
-    if ($n / 2 * 2 !== $n) { continue; }
-    if ($n / 3 * 3 === $n) { continue; }
+    if ($n % 2 !== 0) { continue; }
+    if ($n % 3 === 0) { continue; }
     echo $n;
     break;
 }

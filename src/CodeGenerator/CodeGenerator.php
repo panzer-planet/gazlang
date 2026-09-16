@@ -47,6 +47,9 @@ use GazLang\Runtime\Builtins;
  * value do to it. SET_PATH n pops the array, the value and n keys, and pushes the
  * value then the updated array; APPEND_PATH n does the same but appends after
  * following the n keys. The updated array is then stored back into the variable.
+ *
+ * Operators mean what Runtime\Values says: DIV keeps an exact int division an int
+ * and gives a float otherwise, MOD is ints only, and PUSH writes floats exactly.
  */
 class CodeGenerator extends AbstractNodeVisitor
 {
@@ -280,8 +283,8 @@ class CodeGenerator extends AbstractNodeVisitor
      */
     public function visitNum(NumAST $node): void
     {
-        // Push the number onto the stack
-        $this->instructions[] = "PUSH {$node->value}";
+        // Push the number onto the stack; floats are written so they read back exactly
+        $this->instructions[] = 'PUSH '.(is_float($node->value) ? Lexer::format_float($node->value) : $node->value);
     }
 
     /**

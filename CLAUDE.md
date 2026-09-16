@@ -56,13 +56,12 @@ each step depends on the ones before it.
      `true == 1` is true.
    - Concatenation uses the same spelling as `echo`: `"x" + true` is `"xtrue"`.
    - Two strings compare byte by byte (`"1" != "01"`, `"10" < "9"`). A string
-     and an int (or a bool, as 1/0) compare as ints only when the string is an
-     integer by `Lexer::parse_integer()` (`"5" == 5`, `"007" == 7`, `true == "1"`);
-     any other string is never `==` an int (`"1e0" != 1`, `true != "abc"`), and
-     ordering it against an int (`"abc" < 1`) is an error.
-   - Ints never silently overflow: literals that don't fit are a lexer error,
-     and arithmetic or negation that would leave the int range throws
-     `Integer overflow` (PHP would produce a float, which GazLang has no type for).
+     and a number (or a bool, as 1/0) compare numerically only when the string is
+     a number literal by `Lexer::parse_number()` (`"5" == 5`, `"007" == 7`,
+     `"1e0" == 1`, `"2.50" == 2.5`, `true == "1"`); any other string is never `==`
+     a number (`" 5" != 5`, `true != "abc"`), and ordering it against one
+     (`"abc" < 1`) is an error.
+   - Numbers never silently overflow, see "Numbers" below.
    - `===` / `!==` compare type and value with no conversion: `"5" === 5` and
      `true === 1` are false.
    - Code generation pushes `PUSH true` / `PUSH false`.
@@ -159,6 +158,7 @@ each step depends on the ones before it.
      occurrence; empty search is an error), `contains`, `starts_with`,
      `ends_with`, `index_of($s, $needle)` (null when not found),
      `repeat($s, $count)`, `chr($byte)` (0 to 255) and `ord($char)` (exactly one byte),
+     the number builtins listed under "Numbers",
      `to_int($x)` (ints, or strings of decimal digits with an optional `-`;
      anything else or overflow is an error), `to_string($x)` (same text as echo).
    - Arrays: `len`, `slice`, `in_array($value, $array)` (strict, like `===`),
@@ -210,6 +210,32 @@ each step depends on the ones before it.
    which prints `ok <label>` or a FAIL line with both values. Reusable GazLang
    code lives in `lib/`; the lexer's character classes are ASCII and explicit
    (`Lexer::is_space` is only space, tab, newline and carriage return).
+
+## Numbers
+
+Ints and floats (64-bit, always finite: GazLang has no INF or NAN).
+
+- Literals: `42`, `1.5`, `1e10`, `2.5E-3`, `3e+2`. A float needs digits on both sides
+  of the dot (`1.` and `.5` are errors) and/or an exponent. `Lexer::parse_number()`
+  parses the same syntax from strings (with an optional minus), for `to_float()`
+  and string comparisons. JSON numbers are valid GazLang number literals.
+- Printing is exact: `Lexer::format_float()` gives the shortest digits that read
+  back as the same float, always with a dot or exponent (`1.0`, `0.30000000000000004`,
+  `1.0E+25`, `-0.0`). echo, `to_string`, interpolation, `--tokens` and generated
+  code all use it.
+- Arithmetic (`Runtime\Values::binary()`): int with int gives an int, a float on
+  either side gives a float, bools act as 1/0. `/` follows PHP: an exact int
+  division stays an int (`6 / 2` is `3`), any other division gives a float
+  (`7 / 2` is `3.5`); `intdiv()` truncates. `%` is ints only (`Cannot use % on float`).
+- Nothing overflows silently: an int literal or int result that doesn't fit is
+  an error (`Integer overflow`, where PHP would switch to a float), a float
+  literal that is infinite is a lexer error, and a float result that is infinite
+  is `Float overflow`. Division by zero (`0` or `0.0`) is an error.
+- `1 == 1.0` is true, `1 === 1.0` is false. `0.0` and `-0.0` are false in
+  conditions. Floats can't be array keys or string positions.
+- Builtins: `to_float($x)`, `to_int($x)` (truncates a float toward zero; an error
+  outside the int range), `floor`, `ceil`, `round` (halves away from zero; all
+  three return floats, as in PHP), `abs` (keeps the type), `intdiv($a, $b)`.
 
 ## Strings
 
