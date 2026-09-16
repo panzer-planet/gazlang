@@ -526,7 +526,30 @@ class Parser
     }
 
     /**
-     * Parse an expression, the lowest precedence level ((variable | index) (= | += | -= | *= | /= | %=) expr | logical_or)
+     * Parse a null coalescing expression (logical_or [?? coalesce])
+     *
+     * Right associative, like PHP: $a ?? $b ?? $c is $a ?? ($b ?? $c).
+     *
+     * @return AST
+     *
+     * @throws GazLangError
+     */
+    public function coalesce()
+    {
+        $node = $this->logical_or();
+
+        $token = $this->current_token;
+        if ($token->type === Token::COALESCE) {
+            $this->eat(Token::COALESCE);
+
+            return $this->at(new BinOpAST($node, $token, $this->coalesce()), $token);
+        }
+
+        return $node;
+    }
+
+    /**
+     * Parse an expression, the lowest precedence level ((variable | index) (= | += | -= | *= | /= | %=) expr | coalesce)
      *
      * Assignment is right associative, so $a = $b = 1 assigns 1 to both.
      *
@@ -536,7 +559,7 @@ class Parser
      */
     public function expr()
     {
-        $node = $this->logical_or();
+        $node = $this->coalesce();
 
         $token = $this->current_token;
         if (in_array($token->type, self::ASSIGNMENTS, true)) {

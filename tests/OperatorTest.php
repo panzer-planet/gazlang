@@ -140,6 +140,21 @@ class OperatorTest extends GazLangTestCase
         $this->assertSame("PUSH 1\nSTORE 0\nLOAD 0\nPOP\nLOAD 0\nINC\nSTORE 0\nLOAD 0\nPOP", $this->generateCode('$x = 1; $x++;'));
     }
 
+    public function test_code_gen_for_coalesce()
+    {
+        $this->assertEquals(
+            "LOAD_QUIET 0\nPUSH_STR \"k\"\nINDEX_GET_QUIET\nJNN COALESCE_END_0\nPUSH 1\nLABEL COALESCE_END_0\nPRINT",
+            $this->generateCode('echo $a["k"] ?? 1;')
+        );
+        $this->assertStringStartsWith("LOAD_QUIET_GLOBAL 0\nJNN", $this->generateCode('echo @g ?? 1;'));
+    }
+
+    public function test_coalesce_parse_errors()
+    {
+        $this->expectExceptionMessage("Unexpected character '?' on line 1");
+        $this->createParser('echo $a ? 1;')->parse();
+    }
+
     public function test_modulo()
     {
         // The sign follows the left operand; % binds like * and /

@@ -38,7 +38,7 @@ final class Builtins
         'to_float' => 1,
         'floor' => 1,
         'ceil' => 1,
-        'round' => 1,
+        'round' => [1, 2],
         'abs' => 1,
         'intdiv' => 2,
         'to_string' => 1,
@@ -101,8 +101,10 @@ final class Builtins
             // floor, ceil and round return floats, as in PHP; to_int() makes an int of the result
             'floor' => floor($this->argument($name, $args[0], 'int', 'float')),
             'ceil' => ceil($this->argument($name, $args[0], 'int', 'float')),
-            // Halves round away from zero: round(2.5) is 3.0, round(-2.5) is -3.0
-            'round' => round($this->argument($name, $args[0], 'int', 'float')),
+            // PHP's round: halves away from zero (round(2.5) is 3.0), to a number of decimal places
+            // (round(1.005, 2) is 1.01, correcting for 1.005 being stored as 1.00499...), or to tens,
+            // hundreds... with a negative precision (round(1234, -2) is 1200.0)
+            'round' => round($this->argument($name, $args[0], 'int', 'float'), $this->argument($name, array_key_exists(1, $args) ? $args[1] : 0, 'int')),
             'abs' => $this->abs($this->argument($name, $args[0], 'int', 'float')),
             'intdiv' => $this->intdiv($this->argument($name, $args[0], 'int'), $this->argument($name, $args[1], 'int')),
             'to_string' => Values::toString($args[0]),

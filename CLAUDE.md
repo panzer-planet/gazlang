@@ -46,12 +46,12 @@ eventually rewritten *in GazLang itself*. Work toward that goal in this order;
 each step depends on the ones before it.
  
 1. ~~**Fix the precedence tower.**~~ Done. `Parser` is now `expr` (assignment,
-   right associative) → `logical_or` → `logical_and` → `equality` → `relational`
+   right associative) → `coalesce` (`??`, right associative) → `logical_or` → `logical_and` → `equality` → `relational`
    → `additive` → `multiplicative` → `unary` → `postfix` (`[index]`) → `primary`. Binary levels share
    `left_associative()`; add a new level by adding a one-line method there.
 2. ~~**Add comparison and logical operators.**~~ Done. `<`, `>`, `<=`, `>=`,
    `!=`, `==`, `===`, `!==`, `&&`, `||` (short-circuiting in both backends), `!`, `%`
-   (sign follows the left operand, at the `*` `/` level), `+= -= *= /= %=` and
+   (sign follows the left operand, at the `*` `/` level), `??` (see below), `+= -= *= /= %=` and
    prefix/postfix `++`/`--` (see "Assignment" below), and unary
    `-` via `UnaryOpAST`. `!=`, `===` and `!==` sit at the equality level, C-style. There is a
    real boolean type (`BooleanAST`, `true`/`false` keywords):
@@ -69,6 +69,12 @@ each step depends on the ones before it.
      a number (`" 5" != 5`, `true != "abc"`), and ordering it against one
      (`"abc" < 1`) is an error.
    - Numbers never silently overflow, see "Numbers" below.
+   - `$a ?? $b` is `$a` unless it is null or missing, like PHP: on its left an
+     undefined variable, a missing key, or indexing something missing is null instead
+     of an error (other errors, like a bad key type or indexing an int, still happen).
+     `0`, `false` and `""` are kept. The right side only runs when needed. Both
+     backends share the rule (`Interpreter::quietly()`, and `LOAD_QUIET`,
+     `INDEX_GET_QUIET` and `JNN` in generated code). No `??=` yet.
    - `===` / `!==` compare type and value with no conversion: `"5" === 5` and
      `true === 1` are false.
    - Code generation pushes `PUSH true` / `PUSH false`.
@@ -298,7 +304,9 @@ Ints and floats (64-bit, always finite: GazLang has no INF or NAN).
 - `1 == 1.0` is true, `1 === 1.0` is false. `0.0` and `-0.0` are false in
   conditions. Floats can't be array keys or string positions.
 - Builtins: `to_float($x)`, `to_int($x)` (truncates a float toward zero; an error
-  outside the int range), `floor`, `ceil`, `round` (halves away from zero; all
+  outside the int range), `floor`, `ceil`, `round($x, $precision = 0)` (PHP's round:
+  halves away from zero, correcting for halves stored as slightly less, so
+  `round(1.005, 2)` is `1.01`; a negative precision rounds to tens, hundreds...; all
   three return floats, as in PHP), `abs` (keeps the type), `intdiv($a, $b)`.
 
 ## Strings

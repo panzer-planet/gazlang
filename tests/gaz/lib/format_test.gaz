@@ -10,6 +10,7 @@ check("rounds half away from zero", [format_number(0.125), format_number(-0.125)
 check("rounding carries into the whole part", format_number(999.999), "1,000.00");
 check("negative that rounds to zero isn't shown as negative", format_number(-0.004), "0.00");
 check("small", format_number(0.05), "0.05");
+check("halves stored as slightly less still round up", [format_number(1.005), format_number(2.675), format_number(-1.005)], ["1.01", "2.68", "-1.01"]);
 check("custom separator", format_number(1234567, 0, " "), "1 234 567");
 check("no separator", format_number(1234567, 2, ""), "1234567.00");
 

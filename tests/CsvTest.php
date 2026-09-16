@@ -2,6 +2,8 @@
 
 namespace GazLang\Tests;
 
+use GazLang\Lexer\Lexer;
+
 /**
  * lib/csv.gaz against PHP's fgetcsv, and examples/csv_report.gaz end to end
  *
@@ -41,6 +43,23 @@ class CsvTest extends GazLangTestCase
             $rows = array_map(fn ($line) => json_decode($line, true), array_filter(explode("\n", $output), fn ($line) => $line !== ''));
             $this->assertSame($this->phpRows($file), $rows, $file.($vm ? ' on the VM' : ''));
         }
+    }
+
+    public function test_format_number_matches_php_number_format()
+    {
+        // Tricky halves, carries, negatives and zero, plus many ordinary amounts
+        $numbers = [0, 0.005, 1.005, 2.675, 1.255, 0.285, 5.045, 5.055, -1.005, 999.995, 999.999, -0.004, 1234567.891, -9876.5];
+        mt_srand(42);
+        for ($i = 0; $i < 300; $i++) {
+            $numbers[] = round(mt_rand(-10000000, 10000000) / 1000, 3);
+        }
+
+        $code = 'include "'.self::ROOT.'/lib/format.gaz"; foreach ('
+            .'['.implode(', ', array_map(fn ($n) => is_float($n) ? Lexer::format_float($n) : (string) $n, $numbers)).']'
+            .' as $n) { echo format_number($n) + " " + format_number($n, 1) + " " + format_number($n, 0); }';
+        $expected = implode('', array_map(fn ($n) => number_format($n, 2).' '.number_format($n, 1).' '.number_format($n, 0)."\n", $numbers));
+
+        $this->assertSame($expected, $this->executeCode($code));
     }
 
     public function test_report_on_the_sample_data()

@@ -126,6 +126,8 @@ class Token
 
     public const OR = 'OR';  // Logical or operator (||)
 
+    public const COALESCE = 'COALESCE';  // Null coalescing operator (??)
+
     public const NOT = 'NOT';  // Logical not operator (!)
 
     /**

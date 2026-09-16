@@ -37,3 +37,6 @@ ok floor
 ok ceil
 ok round halves away from zero
 ok abs keeps the type
+ok round to decimals
+ok round to tens and hundreds
+ok round with precision 0 is plain round

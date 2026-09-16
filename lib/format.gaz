@@ -2,14 +2,15 @@
 
 // $number with $decimals digits after the point and thousands separated:
 // format_number(1234.5) is "1,234.50", format_number(-0.004) is "0.00".
-// Halves round away from zero, like round(). The number must fit in an int once
-// scaled by 10^$decimals.
+// Rounds like round($number, $decimals), so format_number(1.005) is "1.01", as with PHP's
+// number_format. The number must fit in an int once scaled by 10^$decimals.
 function format_number($number, $decimals = 2, $thousands = ",") {
     $scale = 1;
     for ($i = 0; $i < $decimals; $i++) {
         $scale *= 10;
     }
-    $scaled = to_int(round(abs($number) * $scale));
+    // Rounding to the decimals first avoids float error: 1.005 * 100 is 100.49999...
+    $scaled = to_int(round(round(abs($number), $decimals) * $scale));
 
     $whole = to_string(intdiv($scaled, $scale));
     $grouped = "";

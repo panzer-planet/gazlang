@@ -201,6 +201,24 @@ final class VM
                             $right = array_pop($stack);
                             $stack[] = array_pop($stack) !== $right;
                             break;
+                        case 'LOAD_QUIET':
+                            $stack[] = $locals[$arg0[$pc - 1]] ?? null;
+                            break;
+                        case 'LOAD_QUIET_GLOBAL':
+                            $stack[] = $globals[$arg0[$pc - 1]] ?? null;
+                            break;
+                        case 'INDEX_GET_QUIET':
+                            $index = array_pop($stack);
+                            $target = array_pop($stack);
+                            $stack[] = $target === null ? null : Values::index($target, $index);
+                            break;
+                        case 'JNN':
+                            if ($stack[array_key_last($stack)] !== null) {
+                                $pc = $arg0[$pc - 1];
+                            } else {
+                                array_pop($stack);
+                            }
+                            break;
                         case 'LOAD_GLOBAL':
                             $slot = $arg0[$pc - 1];
                             if (isset($globals[$slot]) || array_key_exists($slot, $globals)) {
@@ -407,7 +425,7 @@ final class VM
 
         $ops = $arg0 = $arg1 = $arg2 = $locations = [];
         foreach ($linked as [$opcode, $args, $file, $line]) {
-            if (in_array($opcode, ['JMP', 'JZ', 'TRY'], true)) {
+            if (in_array($opcode, ['JMP', 'JZ', 'JNN', 'TRY'], true)) {
                 $args[0] = $positions[$args[0]];
             } elseif ($opcode === 'CALL') {
                 $args = [$positions[$args[0]], $args[1], substr($args[0], 3)];

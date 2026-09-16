@@ -1,0 +1,56 @@
+include "../check.gaz";
+
+$values = ["null" => null, "zero" => 0, "false" => false, "empty" => "", "list" => [10, 20]];
+
+// Only null or missing falls through to the right side
+check("null", $values["null"] ?? "default", "default");
+check("zero is kept", $values["zero"] ?? "default", 0);
+check("false is kept", $values["false"] ?? "default", false);
+check("empty string is kept", $values["empty"] ?? "default", "");
+check("a value", "value" ?? "default", "value");
+
+// Missing variables and keys are not errors on the left of ??
+check("undefined variable", $never_assigned ?? "default", "default");
+check("undefined global", @never_assigned ?? "default", "default");
+check("missing key", $values["missing"] ?? "default", "default");
+check("missing key of a missing key", $values["missing"]["deeper"] ?? "default", "default");
+check("missing index", $values["list"][5] ?? "default", "default");
+check("string position out of range", "abc"[10] ?? "default", "default");
+
+// Right associative, and the right side only runs when needed
+check("chain", null ?? $never_assigned ?? "last", "last");
+@calls = 0;
+function called() {
+    @calls++;
+    return "called";
+}
+check("not evaluated when the left is set", "set" ?? called(), "set");
+check("evaluated when the left is null", null ?? called(), "called");
+check("so called once", @calls, 1);
+
+// Precedence: lower than || and comparisons, higher than assignment
+check("|| first", false || null ?? "right", false);
+check("comparison first", 1 < 2 ?? "right", true);
+$assigned = $never_assigned ?? 7;
+check("assignment last", $assigned, 7);
+check("in interpolation", "{$values["missing"] ?? "fallback"}", "fallback");
+
+// Counting with ?? instead of checking has_key first
+$counts = [];
+foreach (["a", "b", "a", "a"] as $word) {
+    $counts[$word] = ($counts[$word] ?? 0) + 1;
+}
+check("counting", $counts, ["a" => 3, "b" => 1]);
+
+// Other errors on the left still happen
+try {
+    $n = 5;
+    echo $n["key"] ?? "default";
+} catch ($e) {
+    check("indexing an int is still an error", $e["message"], "Cannot use [] on int");
+}
+try {
+    echo $values[true] ?? "default";
+} catch ($e) {
+    check("a bad key type is still an error", $e["message"], "Array keys must be int or string, got bool");
+}

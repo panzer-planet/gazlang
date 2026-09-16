@@ -51,12 +51,8 @@ foreach ($records as $i => $record) {
         fail("row " + ($i + 2) + ": $amount_column \"$text\" is not a number");
     }
     $group = $record[$group_column];
-    if (!has_key($totals, $group)) {
-        $totals[$group] = 0.0;
-        $counts[$group] = 0;
-    }
-    $totals[$group] += $amount;
-    $counts[$group]++;
+    $totals[$group] = ($totals[$group] ?? 0.0) + $amount;
+    $counts[$group] = ($counts[$group] ?? 0) + 1;
 }
 
 // Largest total first; to_string keeps numeric group names like "2026" as text

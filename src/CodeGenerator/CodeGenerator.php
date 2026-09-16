@@ -405,6 +405,17 @@ class CodeGenerator extends AbstractNodeVisitor
             return;
         }
 
+        if ($node->op->type === Token::COALESCE) {
+            // JNN keeps the left value and jumps past the right side unless it is null
+            $end_label = 'COALESCE_END_'.$this->label_counter++;
+            $this->quietly($node->left);
+            $this->emit('JNN', $end_label);
+            $this->visit($node->right);
+            $this->emit('LABEL', $end_label);
+
+            return;
+        }
+
         // Visit left and right nodes first (post-order traversal)
         $this->visit($node->left);
         $this->visit($node->right);
@@ -414,6 +425,27 @@ class CodeGenerator extends AbstractNodeVisitor
         }
 
         $this->emit(self::BINARY_OPCODES[$node->op->type]);
+    }
+
+    /**
+     * Emit the left side of ??, where a missing variable or key is null (see Interpreter::quietly())
+     *
+     * LOAD_QUIET pushes null for an undefined variable; INDEX_GET_QUIET pushes null when
+     * the target is null, and otherwise reads like INDEX_GET.
+     *
+     * @param  AST  $node  The left side
+     */
+    private function quietly(AST $node): void
+    {
+        if ($node instanceof VariableAST) {
+            $this->emitVariable('LOAD_QUIET', $node);
+        } elseif ($node instanceof IndexAST && $node->index !== null) {
+            $this->quietly($node->target);
+            $this->visit($node->index);
+            $this->emit('INDEX_GET_QUIET');
+        } else {
+            $this->visit($node);
+        }
     }
 
     /**

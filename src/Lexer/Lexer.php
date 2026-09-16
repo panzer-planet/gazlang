@@ -809,6 +809,13 @@ class Lexer
                 return new Token(Token::OR, '||');
             }
 
+            if ($this->current_char === '?' && $this->peek() === '?') {
+                $this->advance();
+                $this->advance();
+
+                return new Token(Token::COALESCE, '??');
+            }
+
             if ($this->current_char === '[') {
                 $this->advance();
 

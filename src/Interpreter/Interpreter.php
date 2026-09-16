@@ -6,6 +6,7 @@ use Exception;
 use GazLang\AST\AbstractNodeVisitor;
 use GazLang\AST\ArrayLiteralAST;
 use GazLang\AST\AssignAST;
+use GazLang\AST\AST;
 use GazLang\AST\BinOpAST;
 use GazLang\AST\BooleanAST;
 use GazLang\AST\CompoundAST;
@@ -256,9 +257,36 @@ class Interpreter extends AbstractNodeVisitor
             return Values::isTruthy($this->visit($node->left)) && Values::isTruthy($this->visit($node->right));
         } elseif ($node->op->type === Token::OR) {
             return Values::isTruthy($this->visit($node->left)) || Values::isTruthy($this->visit($node->right));
+        } elseif ($node->op->type === Token::COALESCE) {
+            return $this->quietly($node->left) ?? $this->visit($node->right);
         }
 
         return Values::binary($node->op, $this->visit($node->left), $this->visit($node->right));
+    }
+
+    /**
+     * Evaluate the left side of ??, where a missing variable or key is null rather than an error
+     *
+     * Only what "missing" means is quiet: an undefined variable, a missing key, or indexing
+     * something already missing (null). Index expressions still run, and any other error,
+     * like a bad key type or indexing an int, is still raised.
+     *
+     * @param  AST  $node  The left side
+     * @return mixed The value, or null if it is missing
+     */
+    private function quietly(AST $node)
+    {
+        if ($node instanceof VariableAST) {
+            return ($node->isGlobal() ? $this->globals : $this->locals)[$node->value] ?? null;
+        }
+        if ($node instanceof IndexAST && $node->index !== null) {
+            $target = $this->quietly($node->target);
+            $index = $this->visit($node->index);
+
+            return $target === null ? null : Values::index($target, $index);
+        }
+
+        return $this->visit($node);
     }
 
     /**
