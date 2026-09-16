@@ -16,6 +16,12 @@ ok alpha a
 ok alpha z
 ok alpha above z
 ok underscore is not alpha
+ok hex digit 9
+ok hex digit f
+ok hex digit F
+ok hex digit above f
+ok hex digit above F
+ok hex digit two characters
 ok alnum digit
 ok alnum letter
 ok alnum underscore

@@ -29,7 +29,12 @@ ok ends_with not
 ok index_of first match
 ok index_of at start
 ok index_of not found is null
-ok index_of empty needle
+ok index_of from an offset
+ok index_of offset at the match
+ok index_of negative offset counts from the end
+ok index_of offset at the end
+ok index_of empty needle is an error
+ok index_of offset past the end is an error
 ok repeat
 ok repeat zero times
 ok single quotes are raw

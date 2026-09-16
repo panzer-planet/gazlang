@@ -1,5 +1,5 @@
 // Character helpers, matching the PHP lexer's character classes exactly
-// (Lexer::is_space, is_digit, is_alpha, is_alnum): ASCII only.
+// (Lexer::is_space, is_digit, is_hex_digit, is_alpha, is_alnum): ASCII only.
 //
 // Each is_* takes one character. Anything else (an empty or longer string, null, a
 // number) is false rather than an error, so reading past the end of a string is safe.
@@ -20,6 +20,11 @@ function is_char($c) {
 // 0 to 9
 function is_digit($c) {
     return is_char($c) && $c >= "0" && $c <= "9";
+}
+
+// 0 to 9, a to f or A to F
+function is_hex_digit($c) {
+    return is_digit($c) || is_char($c) && ($c >= "a" && $c <= "f" || $c >= "A" && $c <= "F");
 }
 
 // a to z or A to Z; strings compare byte by byte

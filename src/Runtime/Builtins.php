@@ -15,7 +15,8 @@ use GazLang\Lexer\Lexer;
 final class Builtins
 {
     /**
-     * Builtin function names mapped to their parameter counts
+     * Builtin function names mapped to their parameter counts: an int, or [fewest, most]
+     * for builtins with optional parameters
      */
     public const ARITIES = [
         'len' => 1,
@@ -29,7 +30,7 @@ final class Builtins
         'contains' => 2,
         'starts_with' => 2,
         'ends_with' => 2,
-        'index_of' => 2,
+        'index_of' => [2, 3],
         'repeat' => 2,
         'chr' => 1,
         'ord' => 1,
@@ -91,8 +92,7 @@ final class Builtins
             'contains' => str_contains($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string')),
             'starts_with' => str_starts_with($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string')),
             'ends_with' => str_ends_with($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string')),
-            // null when not found, rather than PHP's false or a -1
-            'index_of' => ($position = strpos($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string'))) === false ? null : $position,
+            'index_of' => $this->indexOf($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string'), $this->argument($name, $args[2] ?? 0, 'int')),
             'repeat' => $this->repeat($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'int')),
             'chr' => $this->chr($this->argument($name, $args[0], 'int')),
             'ord' => $this->ord($this->argument($name, $args[0], 'string')),
@@ -191,6 +191,32 @@ final class Builtins
         }
 
         return str_replace($search, $replacement, $string);
+    }
+
+    /**
+     * index_of($s, $needle, $offset = 0): the position of the first $needle at or after $offset, or null
+     *
+     * A negative offset counts from the end of $s, as in PHP's strpos.
+     *
+     * @param  string  $string  The string to search
+     * @param  string  $needle  What to find, not empty
+     * @param  int  $offset  Where to start searching
+     * @return int|null The position, or null when not found (rather than PHP's false or a -1)
+     *
+     * @throws Exception If $needle is empty (it would be found anywhere, which hides bugs such
+     *                   as searching for the "" that char_at() returns past the end), or $offset is outside $s
+     */
+    private function indexOf(string $string, string $needle, int $offset): ?int
+    {
+        if ($needle === '') {
+            throw new Exception('index_of() cannot search for an empty string');
+        }
+        if ($offset > strlen($string) || $offset < -strlen($string)) {
+            throw new Exception("index_of() offset {$offset} is outside the string");
+        }
+        $position = strpos($string, $needle, $offset);
+
+        return $position === false ? null : $position;
     }
 
     /**

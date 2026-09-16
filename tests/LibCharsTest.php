@@ -17,7 +17,7 @@ class LibCharsTest extends GazLangTestCase
             $char = chr($byte);
             $all_bytes .= $char;
             $flags = [];
-            foreach (['space', 'digit', 'alpha', 'alnum'] as $class) {
+            foreach (['space', 'digit', 'hex_digit', 'alpha', 'alnum'] as $class) {
                 $flags[] = Lexer::{"is_{$class}"}($char) ? $class : '-';
             }
             $expected .= "{$byte} ".implode(' ', $flags)."\n";
@@ -30,9 +30,10 @@ class LibCharsTest extends GazLangTestCase
             .'   $c = $bytes[$i]; $flags = [];'
             .'   if (is_space($c)) { $flags[] = "space"; } else { $flags[] = "-"; }'
             .'   if (is_digit($c)) { $flags[] = "digit"; } else { $flags[] = "-"; }'
+            .'   if (is_hex_digit($c)) { $flags[] = "hex_digit"; } else { $flags[] = "-"; }'
             .'   if (is_alpha($c)) { $flags[] = "alpha"; } else { $flags[] = "-"; }'
             .'   if (is_alnum($c)) { $flags[] = "alnum"; } else { $flags[] = "-"; }'
-            .'   echo to_string($i) + " " + $flags[0] + " " + $flags[1] + " " + $flags[2] + " " + $flags[3];'
+            .'   echo to_string($i) + " " + join($flags, " ");'
             .' }';
 
         $this->assertSame($expected, $this->executeCode($code));

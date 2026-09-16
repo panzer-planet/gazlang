@@ -244,57 +244,54 @@ function json_parse_escape() {
     $unit = json_parse_hex4(@json_pos + 2);
     @json_pos += 6;
 
-    // UTF-16 surrogates (D800 to DFFF): a high one followed by a low one make one code point
-    if ($unit >= 56320 && $unit <= 57343) {
+    // UTF-16 surrogates: a high one (0xD800 to 0xDBFF) followed by a low one (0xDC00 to
+    // 0xDFFF) make one code point
+    if ($unit >= 0xDC00 && $unit <= 0xDFFF) {
         json_fail("unpaired UTF-16 surrogate");
     }
-    if ($unit < 55296 || $unit > 56319) {
+    if ($unit < 0xD800 || $unit > 0xDBFF) {
         return json_utf8($unit);
     }
     if (slice(@json_text, @json_pos, 2) !== "\\u") {
         json_fail("unpaired UTF-16 surrogate");
     }
     $low = json_parse_hex4(@json_pos + 2);
-    if ($low < 56320 || $low > 57343) {
+    if ($low < 0xDC00 || $low > 0xDFFF) {
         json_fail("unpaired UTF-16 surrogate");
     }
     @json_pos += 6;
-    return json_utf8(65536 + ($unit - 55296) * 1024 + ($low - 56320));
+    return json_utf8(0x10000 + ($unit - 0xD800) * 0x400 + ($low - 0xDC00));
 }
 
 // The four hex digits starting at $at, as an int
 function json_parse_hex4($at) {
     $value = 0;
     for ($i = 0; $i < 4; $i++) {
-        $c = lower(char_at(@json_text, $at + $i));
-        // index_of finds "" at 0, so the end of the text needs its own check
-        $digit = null;
-        if ($c !== "") {
-            $digit = index_of("0123456789abcdef", $c);
-        }
-        if ($digit === null) {
+        $c = char_at(@json_text, $at + $i);
+        if (!is_hex_digit($c)) {
             @json_pos = $at + $i;
             json_fail("expected four hex digits after \\u");
         }
-        $value = $value * 16 + $digit;
+        $value = $value * 16 + index_of("0123456789abcdef", lower($c));
     }
     return $value;
 }
 
 // A code point written as UTF-8 bytes
+// (no bitwise operators: dividing by 0x40 shifts right 6 bits, % 0x40 keeps the low 6)
 function json_utf8($code_point) {
-    if ($code_point < 128) {
+    if ($code_point < 0x80) {
         return chr($code_point);
     }
-    $continuation = chr(128 + $code_point % 64);
-    if ($code_point < 2048) {
-        return chr(192 + intdiv($code_point, 64)) + $continuation;
+    $continuation = chr(0x80 + $code_point % 0x40);
+    if ($code_point < 0x800) {
+        return chr(0xC0 + intdiv($code_point, 0x40)) + $continuation;
     }
-    if ($code_point < 65536) {
-        return chr(224 + intdiv($code_point, 4096)) + chr(128 + intdiv($code_point, 64) % 64) + $continuation;
+    if ($code_point < 0x10000) {
+        return chr(0xE0 + intdiv($code_point, 0x1000)) + chr(0x80 + intdiv($code_point, 0x40) % 0x40) + $continuation;
     }
-    return chr(240 + intdiv($code_point, 262144)) + chr(128 + intdiv($code_point, 4096) % 64)
-        + chr(128 + intdiv($code_point, 64) % 64) + $continuation;
+    return chr(0xF0 + intdiv($code_point, 0x40000)) + chr(0x80 + intdiv($code_point, 0x1000) % 0x40)
+        + chr(0x80 + intdiv($code_point, 0x40) % 0x40) + $continuation;
 }
 
 // JSON's number grammar: -?(0|[1-9][0-9]*)(.[0-9]+)?([eE][+-]?[0-9]+)?

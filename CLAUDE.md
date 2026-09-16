@@ -148,11 +148,12 @@ each step depends on the ones before it.
      effects are documented on `CodeGenerator`).
    - Not yet: removing elements (build a new array instead), `foreach` (loop
      over `keys()`).
-   - `Builtins::ARITIES` records a fixed arity; variadic builtins will need that
-     to change.
+   - A builtin's arity is an int, or `[fewest, most]` when it has optional
+     parameters (`index_of`); the parser checks calls against the range. User
+     functions have no optional parameters.
 6. ~~**Design a minimal standard library.**~~ Done. Builtins live in
-   `Runtime\Builtins::ARITIES` (name → fixed arity; variadic builtins will need that to
-   change), are implemented in `Runtime\Builtins::call()`, can't be
+   `Runtime\Builtins::ARITIES` (name → arity, or `[fewest, most]` for optional
+   parameters), are implemented in `Runtime\Builtins::call()`, can't be
    redeclared, and compile to `CALL_BUILTIN name argc`. Argument types are
    checked with the `type_of()` names.
    - Strings: `len($s)`, `slice($x, $start, $length)` (strings and arrays, PHP
@@ -161,7 +162,9 @@ each step depends on the ones before it.
      empty separator splits into characters), `join($array, $sep)` (elements
      converted like echo), `replace($s, $search, $replacement)` (every
      occurrence; empty search is an error), `contains`, `starts_with`,
-     `ends_with`, `index_of($s, $needle)` (null when not found),
+     `ends_with`, `index_of($s, $needle, $offset = 0)` (null when not found; a
+     negative offset counts from the end, as in strpos; an empty needle or an offset
+     outside the string is an error),
      `repeat($s, $count)`, `chr($byte)` (0 to 255) and `ord($char)` (exactly one byte),
      the number builtins listed under "Numbers",
      `to_int($x)` (ints, or strings of decimal digits with an optional `-`;
@@ -178,7 +181,7 @@ each step depends on the ones before it.
      doesn't know, since `getopt` would silently drop them, so a program's own
      flags must come after `--`.
    - Deliberately left to GazLang code: character classes (`lib/chars.gaz`:
-     `char_at`, `is_char`, `is_digit`, `is_alpha`, `is_alnum`, `is_space`, which
+     `char_at`, `is_char`, `is_digit`, `is_hex_digit`, `is_alpha`, `is_alnum`, `is_space`, which
      `LibCharsTest` checks against `Lexer::is_*` for all 256 bytes) and push/pop
      (`$a[] = $v`, and `slice($a, 0, -1)` to drop the last element).
    - `include "path.gaz";` is top level only and takes a string literal. The
@@ -261,7 +264,9 @@ Ints and floats (64-bit, always finite: GazLang has no INF or NAN).
 - Literals: `42`, `1.5`, `1e10`, `2.5E-3`, `3e+2`. A float needs digits on both sides
   of the dot (`1.` and `.5` are errors) and/or an exponent. `Lexer::parse_number()`
   parses the same syntax from strings (with an optional minus), for `to_float()`
-  and string comparisons. JSON numbers are valid GazLang number literals.
+  and string comparisons. JSON numbers are valid GazLang number literals. Hex
+  literals `0xFF` / `0XdEaD` are ints (too large for an int is an error, `0x1e5` is
+  485: hex has no exponent); strings are never parsed as hex.
 - Printing is exact: `Lexer::format_float()` gives the shortest digits that read
   back as the same float, always with a dot or exponent (`1.0`, `0.30000000000000004`,
   `1.0E+25`, `-0.0`). echo, `to_string`, interpolation, `--tokens` and generated

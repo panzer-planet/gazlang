@@ -269,6 +269,33 @@ class LexerTest extends TestCase
         );
     }
 
+    public function test_hex_literals()
+    {
+        $this->assertSame(
+            [[Token::INTEGER, 255], [Token::INTEGER, 57005], [Token::INTEGER, PHP_INT_MAX], [Token::INTEGER, 485], [Token::INTEGER, 1], [Token::INTEGER, 0]],
+            $this->lex('0xff 0XdEaD 0x7FFFFFFFFFFFFFFF 0x1e5 0x0000000000000000001 0x0')
+        );
+    }
+
+    /**
+     * @dataProvider invalidHex
+     */
+    public function test_invalid_hex_literals(string $source, string $message)
+    {
+        $this->expectExceptionMessage($message);
+        $this->lex($source);
+    }
+
+    public static function invalidHex(): array
+    {
+        return [
+            'no digits' => ['0x', 'Invalid number literal: 0x on line 1'],
+            'letters after the digits' => ['0xFG', 'Invalid number literal: 0xFG on line 1'],
+            'too large' => ['0x8000000000000000', 'Integer literal too large: 0x8000000000000000 on line 1'],
+            'only after a single zero' => ['00x1', 'Invalid number literal: 00x1 on line 1'],
+        ];
+    }
+
     public function test_float_literals()
     {
         $this->assertSame(

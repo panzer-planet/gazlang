@@ -5,7 +5,7 @@ A small, PHP-flavoured programming language with an interpreter and a stack-VM c
 ## Features
 
 - Statements terminated by semicolons (`;`)
-- Dynamic typing with support for integers, floats (`1.5`, `2e-3`), strings, booleans, `null` and arrays
+- Dynamic typing with support for integers (`42`, `0xFF`), floats (`1.5`, `2e-3`), strings, booleans, `null` and arrays
 - Arrays that work as lists and maps (`[1, 2]`, `["key" => 1]`), copied on assignment like PHP, with `$a[i]` indexing, `$a[] = v` appending and `len()`
 - Boolean literals `true` and `false`; comparisons and logical operators return booleans
 - String literals with double quotes (`"Hello, World!"`, with escapes) or single quotes (`'C:\raw\path'`, raw: only `\'` and `\\` are escapes)

@@ -37,7 +37,20 @@ check("ends_with not", ends_with("hello", "he"), false);
 check("index_of first match", index_of("hello", "l"), 2);
 check("index_of at start", index_of("hello", "he"), 0);
 check("index_of not found is null", index_of("hello", "z"), null);
-check("index_of empty needle", index_of("abc", ""), 0);
+check("index_of from an offset", index_of("a-b-c", "-", 2), 3);
+check("index_of offset at the match", index_of("a-b-c", "-", 1), 1);
+check("index_of negative offset counts from the end", index_of("a-b-a", "a", -1), 4);
+check("index_of offset at the end", index_of("abc", "c", 3), null);
+try {
+    index_of("abc", "");
+} catch ($e) {
+    check("index_of empty needle is an error", $e["message"], "index_of() cannot search for an empty string");
+}
+try {
+    index_of("abc", "a", 4);
+} catch ($e) {
+    check("index_of offset past the end is an error", $e["message"], "index_of() offset 4 is outside the string");
+}
 
 check("repeat", repeat("ab", 3), "ababab");
 check("repeat zero times", repeat("ab", 0), "");

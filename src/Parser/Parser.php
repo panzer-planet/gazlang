@@ -82,7 +82,8 @@ class Parser
     private $in_function = false;
 
     /**
-     * @var array<string, int> Declared function names mapped to their parameter counts
+     * @var array<string, int|array{0: int, 1: int}> Declared function names mapped to their parameter
+     *                                               counts; builtins with optional parameters have [fewest, most]
      */
     private $functions = Builtins::ARITIES;
 
@@ -920,9 +921,12 @@ class Parser
             if (! isset($this->functions[$call->name])) {
                 throw new GazLangError("Undefined function: {$call->name}", $call->file, $call->line);
             }
-            if (count($call->args) !== $this->functions[$call->name]) {
+            $arity = $this->functions[$call->name];
+            [$fewest, $most] = is_int($arity) ? [$arity, $arity] : $arity;
+            if (count($call->args) < $fewest || count($call->args) > $most) {
+                $expected = $fewest === $most ? $fewest : "{$fewest} to {$most}";
                 throw new GazLangError(
-                    "Function {$call->name} expects {$this->functions[$call->name]} arguments, ".count($call->args).' given',
+                    "Function {$call->name} expects {$expected} arguments, ".count($call->args).' given',
                     $call->file,
                     $call->line
                 );

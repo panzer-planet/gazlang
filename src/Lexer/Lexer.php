@@ -158,7 +158,7 @@ class Lexer
     }
 
     /**
-     * Read a number literal: an INTEGER (42) or a FLOAT (1.5, 1e10, 2.5E-3)
+     * Read a number literal: an INTEGER (42, 0xFF) or a FLOAT (1.5, 1e10, 2.5E-3)
      *
      * A float has digits on both sides of the dot and/or an exponent with an optional
      * sign; "1." and ".5" are not numbers. A number running straight into letters or
@@ -170,6 +170,24 @@ class Lexer
     {
         $text = $this->read_digits();
         $is_float = false;
+
+        // Hex: 0x or 0X followed by hex digits, always an int
+        if ($text === '0' && ($this->current_char === 'x' || $this->current_char === 'X')
+            && $this->peek() !== null && self::is_hex_digit($this->peek())) {
+            $text .= $this->current_char;
+            $this->advance();
+            $hex = $this->read_hex(PHP_INT_MAX);
+            $text .= $hex;
+            if ($this->current_char !== null && (self::is_alpha($this->current_char) || $this->current_char === '_')) {
+                throw new GazLangError('Invalid number literal: '.$text.$this->read_word(), null, $this->line);
+            }
+            $value = hexdec($hex);
+            if (! is_int($value)) {
+                throw new GazLangError("Integer literal too large: {$text}", null, $this->line);
+            }
+
+            return new Token(Token::INTEGER, $value);
+        }
 
         if ($this->current_char === '.' && $this->peek() !== null && self::is_digit($this->peek())) {
             $this->advance();
@@ -326,6 +344,16 @@ class Lexer
     public static function is_alpha(string $char): bool
     {
         return strlen($char) === 1 && str_contains('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ', $char);
+    }
+
+    /**
+     * Whether a character is a hex digit: 0 to 9, a to f or A to F
+     *
+     * @param  string  $char  One character
+     */
+    public static function is_hex_digit(string $char): bool
+    {
+        return strlen($char) === 1 && str_contains('0123456789abcdefABCDEF', $char);
     }
 
     /**
@@ -544,7 +572,7 @@ class Lexer
     private function read_hex(int $max): string
     {
         $hex = '';
-        while (strlen($hex) < $max && $this->current_char !== null && ctype_xdigit($this->current_char)) {
+        while (strlen($hex) < $max && $this->current_char !== null && self::is_hex_digit($this->current_char)) {
             $hex .= $this->current_char;
             $this->advance();
         }
