@@ -1,0 +1,43 @@
+// Lists and maps are one type: an ordered array
+$primes = [2, 3, 5];
+$primes[] = 7;                        // append
+echo $primes;                         // [2, 3, 5, 7]
+echo len($primes);                    // 4
+
+$config = [
+    "name" => "gaz",
+    "tags" => ["lang"],
+];
+$config["tags"][] = "php";            // write through nested keys
+echo $config["tags"][1];              // php
+echo $config["missing"];              // null
+
+// Arrays are values: assigning or passing one makes a copy
+function with_extra($list) {
+    $list[] = "extra";
+    return $list;
+}
+
+$copy = with_extra($primes);
+echo len($primes) + " vs " + len($copy);   // 4 vs 5
+
+// Share an array between functions with a global
+@tokens = [];
+function emit($type, $text) {
+    @tokens[] = ["type" => $type, "text" => $text];
+}
+
+// A tiny tokenizer: strings can be indexed one character at a time
+$source = "a1 b22";
+$word = "";
+for ($i = 0; $i < len($source); $i = $i + 1) {
+    $char = $source[$i];
+    if ($char === " ") {
+        emit("word", $word);
+        $word = "";
+        continue;
+    }
+    $word = $word + $char;
+}
+emit("word", $word);
+echo @tokens;

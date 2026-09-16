@@ -5,7 +5,8 @@ A simple programming language compiler that supports dynamic typing with integer
 ## Features
 
 - Statements terminated by semicolons (`;`)
-- Dynamic typing with support for integers, strings, booleans and `null`
+- Dynamic typing with support for integers, strings, booleans, `null` and arrays
+- Arrays that work as lists and maps (`[1, 2]`, `["key" => 1]`), copied on assignment like PHP, with `$a[i]` indexing, `$a[] = v` appending and `len()`
 - Boolean literals `true` and `false`; comparisons and logical operators return booleans
 - String literals with double quotes (`"Hello, World!"`)
 - String escape sequences (`\n`, `\t`, `\"`, `\\`)

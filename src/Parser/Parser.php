@@ -3,6 +3,7 @@
 namespace GazLang\Parser;
 
 use Exception;
+use GazLang\AST\ArrayLiteralAST;
 use GazLang\AST\AssignAST;
 use GazLang\AST\AST;
 use GazLang\AST\BinOpAST;
@@ -12,6 +13,7 @@ use GazLang\AST\EchoStatementAST;
 use GazLang\AST\FunctionCallAST;
 use GazLang\AST\FunctionDeclarationAST;
 use GazLang\AST\IfStatementAST;
+use GazLang\AST\IndexAST;
 use GazLang\AST\LoopControlAST;
 use GazLang\AST\NullAST;
 use GazLang\AST\NumAST;
@@ -29,6 +31,11 @@ use GazLang\Lexer\Token;
  */
 class Parser
 {
+    /**
+     * Builtin function names mapped to their parameter counts; both backends implement these
+     */
+    public const BUILTINS = ['len' => 1];
+
     /**
      * @var Lexer The lexer that provides tokens
      */
@@ -52,7 +59,7 @@ class Parser
     /**
      * @var array<string, int> Declared function names mapped to their parameter counts
      */
-    private $functions = [];
+    private $functions = self::BUILTINS;
 
     /**
      * @var FunctionCallAST[] Every call parsed, checked against the declared functions once the whole program is read
@@ -139,7 +146,7 @@ class Parser
     }
 
     /**
-     * Parse a primary (INTEGER | STRING | TRUE | FALSE | NULL | LPAREN expr RPAREN | variable | function_call)
+     * Parse a primary (INTEGER | STRING | TRUE | FALSE | NULL | LPAREN expr RPAREN | variable | function_call | array_literal)
      *
      * @return AST
      *
@@ -167,6 +174,8 @@ class Parser
             return new NullAST($token);
         } elseif ($token->type === Token::IDENTIFIER) {
             return $this->function_call();
+        } elseif ($token->type === Token::LEFT_BRACKET) {
+            return $this->array_literal();
         } elseif ($token->type === Token::LEFT_PAREN) {
             $this->eat(Token::LEFT_PAREN);
             $node = $this->expr();
@@ -181,7 +190,68 @@ class Parser
     }
 
     /**
-     * Parse a unary expression ((MINUS | NOT) unary | primary)
+     * Parse an array literal (LBRACKET [entry (COMMA entry)* [COMMA]] RBRACKET), entry: [expr DOUBLE_ARROW] expr
+     *
+     * @return ArrayLiteralAST
+     *
+     * @throws Exception
+     */
+    public function array_literal()
+    {
+        $this->eat(Token::LEFT_BRACKET);
+
+        $entries = [];
+        while ($this->current_token->type !== Token::RIGHT_BRACKET) {
+            $value = $this->expr();
+            $key = null;
+            if ($this->current_token->type === Token::DOUBLE_ARROW) {
+                $this->eat(Token::DOUBLE_ARROW);
+                [$key, $value] = [$value, $this->expr()];
+            }
+            $entries[] = [$key, $value];
+
+            // A trailing comma is allowed, so multi-line literals diff cleanly
+            if ($this->current_token->type !== Token::RIGHT_BRACKET) {
+                $this->eat(Token::COMMA);
+            }
+        }
+        $this->eat(Token::RIGHT_BRACKET);
+
+        return new ArrayLiteralAST($entries);
+    }
+
+    /**
+     * Parse a postfix expression (primary (LBRACKET [expr] RBRACKET)*)
+     *
+     * Empty brackets ($a[] = ...) append, so they are only allowed directly before an assignment.
+     *
+     * @return AST
+     *
+     * @throws Exception
+     */
+    public function postfix()
+    {
+        $node = $this->primary();
+
+        while ($this->current_token->type === Token::LEFT_BRACKET) {
+            $this->eat(Token::LEFT_BRACKET);
+            if ($this->current_token->type === Token::RIGHT_BRACKET) {
+                $this->eat(Token::RIGHT_BRACKET);
+                if ($this->current_token->type !== Token::ASSIGN) {
+                    throw new Exception('[] can only be used to append in an assignment');
+                }
+
+                return new IndexAST($node, null);
+            }
+            $node = new IndexAST($node, $this->expr());
+            $this->eat(Token::RIGHT_BRACKET);
+        }
+
+        return $node;
+    }
+
+    /**
+     * Parse a unary expression ((MINUS | NOT) unary | postfix)
      *
      * @return AST
      *
@@ -197,7 +267,7 @@ class Parser
             return new UnaryOpAST($token, $this->unary());
         }
 
-        return $this->primary();
+        return $this->postfix();
     }
 
     /**
@@ -277,7 +347,7 @@ class Parser
     }
 
     /**
-     * Parse an expression, the lowest precedence level (variable ASSIGN expr | logical_or)
+     * Parse an expression, the lowest precedence level ((variable | index) ASSIGN expr | logical_or)
      *
      * Assignment is right associative, so $a = $b = 1 assigns 1 to both.
      *
@@ -290,7 +360,7 @@ class Parser
         $node = $this->logical_or();
 
         if ($this->current_token->type === Token::ASSIGN) {
-            if (! $node instanceof VariableAST) {
+            if (! $node instanceof VariableAST && ! ($node instanceof IndexAST && $node->rootVariable() !== null)) {
                 $this->error();
             }
             $token = $this->current_token;

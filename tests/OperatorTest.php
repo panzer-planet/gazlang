@@ -88,7 +88,7 @@ class OperatorTest extends GazLangTestCase
 
     public function test_arithmetic_on_strings_throws()
     {
-        $this->expectExceptionMessage('Cannot use * on strings');
+        $this->expectExceptionMessage('Cannot use * on string');
         $this->executeCode('echo "a" * 2;');
     }
 

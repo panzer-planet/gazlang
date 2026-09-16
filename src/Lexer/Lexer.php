@@ -270,6 +270,12 @@ class Lexer
 
             if ($this->current_char === '=') {
                 $this->advance();
+                if ($this->current_char === '>') {
+                    $this->advance();
+
+                    return new Token(Token::DOUBLE_ARROW, '=>');
+                }
+
                 // Check for equality operators (== and ===)
                 if ($this->current_char === '=') {
                     $this->advance();
@@ -335,6 +341,18 @@ class Lexer
                 $this->advance();
 
                 return new Token(Token::OR, '||');
+            }
+
+            if ($this->current_char === '[') {
+                $this->advance();
+
+                return new Token(Token::LEFT_BRACKET, '[');
+            }
+
+            if ($this->current_char === ']') {
+                $this->advance();
+
+                return new Token(Token::RIGHT_BRACKET, ']');
             }
 
             if ($this->current_char === ',') {

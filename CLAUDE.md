@@ -38,7 +38,7 @@ each step depends on the ones before it.
  
 1. ~~**Fix the precedence tower.**~~ Done. `Parser` is now `expr` (assignment,
    right associative) → `logical_or` → `logical_and` → `equality` → `relational`
-   → `additive` → `multiplicative` → `unary` → `primary`. Binary levels share
+   → `additive` → `multiplicative` → `unary` → `postfix` (`[index]`) → `primary`. Binary levels share
    `left_associative()`; add a new level by adding a one-line method there.
 2. ~~**Add comparison and logical operators.**~~ Done. `<`, `>`, `<=`, `>=`,
    `!=`, `==`, `===`, `!==`, `&&`, `||` (short-circuiting in both backends), `!`, and unary
@@ -95,11 +95,38 @@ each step depends on the ones before it.
      C stack and deep GazLang recursion segfaults (exit 139) well before the limit.
      Run with `-d pcov.enabled=0` when that matters.
    - Reserved for later: `#` for object properties (`@` is taken by globals).
-5. **Add arrays (and maybe maps).** At minimum arrays/lists with indexing;
-   a hashmap/dict type will matter once GazLang needs to represent its own
-   symbol tables and ASTs.
+5. ~~**Add arrays (and maybe maps).**~~ Done. One PHP-style ordered array type
+   serves as both list and map. Decided semantics:
+   - Literals `[1, 2]` and `["k" => 1, 5 => 2]` (trailing comma allowed,
+     duplicate keys keep the last value). Keys are int or string; as in PHP a
+     numeric string key like `"1"` is the same key as `1`.
+   - Arrays are values, like PHP: assigning or passing one copies it. The
+     interpreter writes in place through PHP references for speed (appending is
+     linear); PHP drops a reference once nothing else holds it, so later copies
+     don't share.
+   - `$a[i]` reads (also chained, and on any expression). A missing key, or a
+     string position out of range, reads `null`. Strings index by int position
+     to a one character string, read only.
+   - `$a[k] = v`, `$a[k1][k2] = v` and `$a[] = v` (append, only valid as an
+     assignment target) write through a variable (`$` or `@`). Keys are
+     evaluated before the value. The variable must exist and only the last key
+     may be new; missing keys along the way are an error, not auto-created.
+   - `echo` and `+` concatenation print arrays as literals (`[1, "a"]`,
+     `["k" => 1]`). Empty arrays are false in conditions. `==` on arrays is
+     strict (same keys, same order, identical values); arithmetic, ordering and
+     unary `-` on arrays throw.
+   - `len($x)` (array count or string length) is the first builtin. Builtins
+     live in `Parser::BUILTINS` (name → arity), share the call checks with user
+     functions, and can't be redeclared; the code generator emits
+     `CALL_BUILTIN name argc`.
+   - Code generator: `NEW_ARRAY`, `ARRAY_PUSH`, `ARRAY_SET`, `INDEX_GET`,
+     `SET_PATH n` / `APPEND_PATH n` then `STORE` the updated array (stack
+     effects are documented on `CodeGenerator`).
+   - Not yet: removing elements, iterating keys (`foreach` or a `keys()`
+     builtin), checking a key exists when its value may be null.
 6. **Design a minimal standard library.** File reading, string manipulation
-   builtins, basic I/O — the plumbing self-hosting quietly depends on.
+   builtins, basic I/O — the plumbing self-hosting quietly depends on. Add
+   builtins to `Parser::BUILTINS` and implement them in both backends.
 7. **Begin porting the lexer/parser to GazLang itself.** Only once functions,
    arrays, and a stdlib exist does porting `Lexer.php`, `Parser.php`, etc. into
    GazLang source become plausible. Everything before this step is groundwork.

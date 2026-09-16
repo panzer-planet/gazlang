@@ -4,6 +4,7 @@ namespace GazLang\CodeGenerator;
 
 use Exception;
 use GazLang\AST\AbstractNodeVisitor;
+use GazLang\AST\ArrayLiteralAST;
 use GazLang\AST\AssignAST;
 use GazLang\AST\BinOpAST;
 use GazLang\AST\BooleanAST;
@@ -12,6 +13,7 @@ use GazLang\AST\EchoStatementAST;
 use GazLang\AST\FunctionCallAST;
 use GazLang\AST\FunctionDeclarationAST;
 use GazLang\AST\IfStatementAST;
+use GazLang\AST\IndexAST;
 use GazLang\AST\LoopControlAST;
 use GazLang\AST\NullAST;
 use GazLang\AST\NumAST;
@@ -22,6 +24,7 @@ use GazLang\AST\UnaryOpAST;
 use GazLang\AST\VariableAST;
 use GazLang\AST\WhileStatementAST;
 use GazLang\Lexer\Token;
+use GazLang\Parser\Parser;
 
 /**
  * CodeGenerator class transforms the AST into stack-based VM code
@@ -32,6 +35,13 @@ use GazLang\Lexer\Token;
  * the value onto the caller's stack. LOAD/STORE address the current frame's
  * locals; LOAD_GLOBAL/STORE_GLOBAL address the globals shared by every frame.
  * Function bodies are emitted after the top level code, which ends in HALT.
+ *
+ * Arrays are values. NEW_ARRAY pushes an empty array; ARRAY_PUSH pops a value
+ * and appends it to the array below, ARRAY_SET pops a value and a key and sets
+ * it. INDEX_GET pops an index and an array or string and pushes the element (or
+ * null). SET_PATH n pops a value, n keys and an array, and pushes the value then
+ * the updated array; APPEND_PATH n does the same but appends after following the
+ * n keys. The updated array is then stored back into the variable.
  */
 class CodeGenerator extends AbstractNodeVisitor
 {
@@ -119,6 +129,12 @@ class CodeGenerator extends AbstractNodeVisitor
      */
     public function visitAssign(AssignAST $node): void
     {
+        if ($node->left instanceof IndexAST) {
+            $this->indexAssign($node);
+
+            return;
+        }
+
         $store = $this->variableInstruction('STORE', $node->left);
 
         // Generate code for the right-hand side of the assignment
@@ -127,6 +143,34 @@ class CodeGenerator extends AbstractNodeVisitor
         // Store the computed value, then leave it on the stack for larger expressions
         $this->instructions[] = $store;
         $this->instructions[] = $this->variableInstruction('LOAD', $node->left);
+    }
+
+    /**
+     * Emit an assignment through indexes, like $a["k"][0] = value or $a[] = value
+     *
+     * @param  AssignAST  $node  An assignment whose left side is an IndexAST rooted at a variable
+     */
+    private function indexAssign(AssignAST $node): void
+    {
+        $indexes = [];
+        for ($target = $node->left; $target instanceof IndexAST; $target = $target->target) {
+            array_unshift($indexes, $target->index);
+        }
+        $variable = $node->left->rootVariable();
+        $append = $node->left->index === null;
+        if ($append) {
+            array_pop($indexes);
+        }
+
+        $this->instructions[] = $this->variableInstruction('LOAD', $variable);
+        foreach ($indexes as $index) {
+            $this->visit($index);
+        }
+        $this->visit($node->right);
+
+        $this->instructions[] = ($append ? 'APPEND_PATH ' : 'SET_PATH ').count($indexes);
+        // Stores the updated array, leaving the assigned value on the stack
+        $this->instructions[] = $this->variableInstruction('STORE', $variable);
     }
 
     /**
@@ -246,6 +290,35 @@ class CodeGenerator extends AbstractNodeVisitor
     public function visitNull(NullAST $node): void
     {
         $this->instructions[] = 'PUSH null';
+    }
+
+    /**
+     * Visit an ArrayLiteral node
+     *
+     * @param  ArrayLiteralAST  $node  The node to visit
+     */
+    public function visitArrayLiteral(ArrayLiteralAST $node): void
+    {
+        $this->instructions[] = 'NEW_ARRAY';
+        foreach ($node->entries as [$key, $value]) {
+            if ($key !== null) {
+                $this->visit($key);
+            }
+            $this->visit($value);
+            $this->instructions[] = $key === null ? 'ARRAY_PUSH' : 'ARRAY_SET';
+        }
+    }
+
+    /**
+     * Visit an Index node
+     *
+     * @param  IndexAST  $node  The node to visit
+     */
+    public function visitIndex(IndexAST $node): void
+    {
+        $this->visit($node->target);
+        $this->visit($node->index);
+        $this->instructions[] = 'INDEX_GET';
     }
 
     /**
@@ -403,7 +476,9 @@ class CodeGenerator extends AbstractNodeVisitor
             $this->visit($arg);
         }
 
-        $this->instructions[] = "CALL FN_{$node->name} ".count($node->args);
+        $this->instructions[] = isset(Parser::BUILTINS[$node->name])
+            ? "CALL_BUILTIN {$node->name} ".count($node->args)
+            : "CALL FN_{$node->name} ".count($node->args);
     }
 
     /**

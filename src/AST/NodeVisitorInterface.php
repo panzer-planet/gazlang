@@ -124,6 +124,22 @@ interface NodeVisitorInterface
     public function visitNull(NullAST $node);
 
     /**
+     * Visit an ArrayLiteral node
+     *
+     * @param  ArrayLiteralAST  $node  The node to visit
+     * @return mixed The result of visiting the node
+     */
+    public function visitArrayLiteral(ArrayLiteralAST $node);
+
+    /**
+     * Visit an Index node
+     *
+     * @param  IndexAST  $node  The node to visit
+     * @return mixed The result of visiting the node
+     */
+    public function visitIndex(IndexAST $node);
+
+    /**
      * Visit a FunctionDeclaration node
      *
      * @param  FunctionDeclarationAST  $node  The node to visit

@@ -4,6 +4,7 @@ namespace GazLang\Interpreter;
 
 use Exception;
 use GazLang\AST\AbstractNodeVisitor;
+use GazLang\AST\ArrayLiteralAST;
 use GazLang\AST\AssignAST;
 use GazLang\AST\BinOpAST;
 use GazLang\AST\BooleanAST;
@@ -12,6 +13,7 @@ use GazLang\AST\EchoStatementAST;
 use GazLang\AST\FunctionCallAST;
 use GazLang\AST\FunctionDeclarationAST;
 use GazLang\AST\IfStatementAST;
+use GazLang\AST\IndexAST;
 use GazLang\AST\LoopControlAST;
 use GazLang\AST\NullAST;
 use GazLang\AST\NumAST;
@@ -114,15 +116,55 @@ class Interpreter extends AbstractNodeVisitor
      */
     public function visitAssign(AssignAST $node)
     {
-        $var_name = $node->left->value;
-        $var_value = $this->visit($node->right);
-        if ($node->left->isGlobal()) {
-            $this->globals[$var_name] = $var_value;
-        } else {
-            $this->locals[$var_name] = $var_value;
+        if ($node->left instanceof VariableAST) {
+            $value = $this->visit($node->right);
+            if ($node->left->isGlobal()) {
+                $this->globals[$node->left->value] = $value;
+            } else {
+                $this->locals[$node->left->value] = $value;
+            }
+
+            return $value;
         }
 
-        return $var_value;
+        // Keys are evaluated left to right before the value, and the path is only
+        // walked afterwards, so the value expression can't invalidate it
+        $keys = [];
+        for ($target = $node->left; $target instanceof IndexAST; $target = $target->target) {
+            array_unshift($keys, $target->index === null ? null : $this->arrayKey($this->visit($target->index)));
+        }
+        $value = $this->visit($node->right);
+
+        // Arrays are values: writing in place through a PHP reference only changes this variable's copy
+        $variable = $node->left->rootVariable();
+        if ($variable->isGlobal()) {
+            $container = &$this->globals;
+        } else {
+            $container = &$this->locals;
+        }
+        if (! array_key_exists($variable->value, $container)) {
+            throw new Exception("Undefined variable: {$variable->value}");
+        }
+        $container = &$container[$variable->value];
+
+        foreach ($keys as $i => $key) {
+            if (! is_array($container)) {
+                throw new Exception('Cannot use [] on '.get_debug_type($container));
+            }
+            if ($key === null) {
+                $container[] = $value;
+
+                return $value;
+            }
+            // Only the last key may be new; missing keys along the way are not created
+            if ($i < count($keys) - 1 && ! array_key_exists($key, $container)) {
+                throw new Exception("Undefined key: {$key}");
+            }
+            $container = &$container[$key];
+        }
+        $container = $value;
+
+        return $value;
     }
 
     /**
@@ -164,6 +206,15 @@ class Interpreter extends AbstractNodeVisitor
             };
         }
 
+        // Arrays are equal when they have the same keys, in the same order, with identical values
+        if (is_array($left) || is_array($right)) {
+            return match ($node->op->type) {
+                Token::EQUALS => $left === $right,
+                Token::NOT_EQUALS => $left !== $right,
+                default => throw new Exception("Cannot use {$node->op->value} on array"),
+            };
+        }
+
         // Everywhere else booleans act as 1/0, so true + 1 is 2 and true == 1
         $left = is_bool($left) ? (int) $left : $left;
         $right = is_bool($right) ? (int) $right : $right;
@@ -172,7 +223,7 @@ class Interpreter extends AbstractNodeVisitor
 
         if (in_array($type, [Token::PLUS, Token::MINUS, Token::MULTIPLY, Token::DIVIDE], true)) {
             if (is_string($left) || is_string($right)) {
-                throw new Exception("Cannot use {$node->op->value} on strings");
+                throw new Exception("Cannot use {$node->op->value} on string");
             }
 
             return match ($type) {
@@ -211,8 +262,8 @@ class Interpreter extends AbstractNodeVisitor
         if ($node->op->type === Token::NOT) {
             return ! $this->isTruthy($value);
         } elseif ($node->op->type === Token::MINUS) {
-            if (is_string($value) || $value === null) {
-                throw new Exception('Cannot use - on '.($value === null ? 'null' : 'strings'));
+            if (! is_int($value) && ! is_bool($value)) {
+                throw new Exception('Cannot use - on '.get_debug_type($value));
             }
 
             return -(int) $value;
@@ -224,13 +275,17 @@ class Interpreter extends AbstractNodeVisitor
     /**
      * Decide whether a value counts as true in conditions and logical operators
      *
-     * Strings are true unless empty, null is false; everything else is C-like, true unless 0.
+     * Strings and arrays are true unless empty, null is false; everything else is C-like, true unless 0.
      *
      * @param  mixed  $value  The value to test
      */
     private function isTruthy($value): bool
     {
-        return is_string($value) ? $value !== '' : $value !== null && $value != 0;
+        return match (true) {
+            is_string($value) => $value !== '',
+            is_array($value) => $value !== [],
+            default => $value !== null && $value != 0,
+        };
     }
 
     /**
@@ -249,9 +304,48 @@ class Interpreter extends AbstractNodeVisitor
             return $value ? 'true' : 'false';
         } elseif ($value === null) {
             return 'null';
+        } elseif (is_array($value)) {
+            // Printed as a literal: [1, "a"] for lists, ["key" => 1, 5 => 2] otherwise
+            $is_list = array_is_list($value);
+            $parts = [];
+            foreach ($value as $key => $item) {
+                $item = is_string($item) ? $this->quote($item) : $this->toString($item);
+                $parts[] = $is_list ? $item : (is_string($key) ? $this->quote($key) : $key).' => '.$item;
+            }
+
+            return '['.implode(', ', $parts).']';
         }
 
         throw new Exception('Cannot convert '.get_debug_type($value).' to string');
+    }
+
+    /**
+     * Quote a string the way it would be written in source, for printing inside arrays
+     *
+     * @param  string  $value  The string to quote
+     */
+    private function quote(string $value): string
+    {
+        return '"'.addcslashes($value, "\"\n\r\t\\").'"';
+    }
+
+    /**
+     * Check a value can be used as an array key
+     *
+     * PHP stores numeric string keys like "1" as the integer 1, so they name the same element.
+     *
+     * @param  mixed  $key  The key value
+     * @return int|string The key
+     *
+     * @throws Exception If the key is not an int or string
+     */
+    private function arrayKey($key): int|string
+    {
+        if (! is_int($key) && ! is_string($key)) {
+            throw new Exception('Array keys must be int or string, got '.get_debug_type($key));
+        }
+
+        return $key;
     }
 
     /**
@@ -401,6 +495,50 @@ class Interpreter extends AbstractNodeVisitor
     }
 
     /**
+     * Visit an ArrayLiteral node
+     *
+     * @param  ArrayLiteralAST  $node  The node to visit
+     */
+    public function visitArrayLiteral(ArrayLiteralAST $node): array
+    {
+        $array = [];
+        foreach ($node->entries as [$key, $value]) {
+            if ($key === null) {
+                $array[] = $this->visit($value);
+            } else {
+                // Duplicate keys: the last one wins
+                $array[$this->arrayKey($this->visit($key))] = $this->visit($value);
+            }
+        }
+
+        return $array;
+    }
+
+    /**
+     * Visit an Index node (reading only; writes go through visitAssign)
+     *
+     * @param  IndexAST  $node  The node to visit
+     * @return mixed The element, a one character string, or null if the key or position does not exist
+     */
+    public function visitIndex(IndexAST $node)
+    {
+        $target = $this->visit($node->target);
+        $index = $this->visit($node->index);
+
+        if (is_array($target)) {
+            return $target[$this->arrayKey($index)] ?? null;
+        } elseif (is_string($target)) {
+            if (! is_int($index)) {
+                throw new Exception('String positions must be int, got '.get_debug_type($index));
+            }
+
+            return $index >= 0 && $index < strlen($target) ? $target[$index] : null;
+        }
+
+        throw new Exception('Cannot use [] on '.get_debug_type($target));
+    }
+
+    /**
      * Visit a FunctionDeclaration node; declarations are registered up front by interpret()
      *
      * @param  FunctionDeclarationAST  $node  The node to visit
@@ -421,10 +559,14 @@ class Interpreter extends AbstractNodeVisitor
      */
     public function visitFunctionCall(FunctionCallAST $node)
     {
-        $function = $this->functions[$node->name];
-
         // Arguments are evaluated in the caller's scope, before switching locals
         $args = array_map(fn ($arg) => $this->visit($arg), $node->args);
+
+        if (isset(Parser::BUILTINS[$node->name])) {
+            return $this->callBuiltin($node->name, $args);
+        }
+
+        $function = $this->functions[$node->name];
 
         if ($this->call_depth === self::MAX_CALL_DEPTH) {
             throw new Exception('Maximum call depth of '.self::MAX_CALL_DEPTH." exceeded calling {$node->name}");
@@ -444,6 +586,25 @@ class Interpreter extends AbstractNodeVisitor
             $this->locals = $caller_locals;
             $this->call_depth--;
         }
+    }
+
+    /**
+     * Run a builtin function; the parser has checked the name and argument count
+     *
+     * @param  string  $name  The builtin name, a key of Parser::BUILTINS
+     * @param  array  $args  The evaluated arguments
+     * @return mixed The result
+     */
+    private function callBuiltin(string $name, array $args)
+    {
+        return match ($name) {
+            'len' => match (true) {
+                is_array($args[0]) => count($args[0]),
+                is_string($args[0]) => strlen($args[0]),
+                default => throw new Exception('len() expects an array or string, got '.get_debug_type($args[0])),
+            },
+            default => throw new Exception("Unknown builtin: {$name}"),
+        };
     }
 
     /**

@@ -36,6 +36,12 @@ class Token
 
     public const COMMA = 'COMMA';  // Comma ','
 
+    public const LEFT_BRACKET = 'LEFT_BRACKET';  // Left square bracket '['
+
+    public const RIGHT_BRACKET = 'RIGHT_BRACKET';  // Right square bracket ']'
+
+    public const DOUBLE_ARROW = 'DOUBLE_ARROW';  // Key/value separator '=>' in array literals
+
     public const ASSIGN = 'ASSIGN';  // Assignment operator (=)
 
     public const EOF = 'EOF';  // End of file
