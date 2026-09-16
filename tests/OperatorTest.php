@@ -9,10 +9,11 @@ class OperatorTest extends GazLangTestCase
 {
     public function test_lexes_new_operators()
     {
-        $lexer = $this->createLexer('< <= > >= != ! && || == =');
+        $lexer = $this->createLexer('< <= > >= != ! && || == = === !==');
         $expected = [
             Token::LESS_THAN, Token::LESS_EQUALS, Token::GREATER_THAN, Token::GREATER_EQUALS,
-            Token::NOT_EQUALS, Token::NOT, Token::AND, Token::OR, Token::EQUALS, Token::ASSIGN, Token::EOF,
+            Token::NOT_EQUALS, Token::NOT, Token::AND, Token::OR, Token::EQUALS, Token::ASSIGN,
+            Token::STRICT_EQUALS, Token::STRICT_NOT_EQUALS, Token::EOF,
         ];
 
         foreach ($expected as $type) {
@@ -31,6 +32,28 @@ class OperatorTest extends GazLangTestCase
         $this->assertEquals("true\nfalse\ntrue\ntrue\nfalse\ntrue\n", $this->executeCode(
             'echo 1 < 2; echo 2 < 2; echo 2 <= 2; echo 3 > 2; echo 2 >= 3; echo 1 != 2;'
         ));
+    }
+
+    public function test_strict_equality_compares_type_and_value()
+    {
+        $this->assertEquals("true\nfalse\ntrue\nfalse\ntrue\nfalse\ntrue\nfalse\n", $this->executeCode(
+            'echo "5" == 5; echo "5" === 5; echo true == 1; echo true === 1;'
+            .' echo 5 === 5; echo "1" === "01"; echo "5" !== 5; echo (1 < 2) !== true;'
+        ));
+    }
+
+    public function test_strict_equality_binds_like_equality()
+    {
+        // (1 + 1) === 2, and (1 === 1) == true
+        $this->assertEquals("true\ntrue\n", $this->executeCode('echo 1 + 1 === 2; echo 1 === 1 == true;'));
+    }
+
+    public function test_code_gen_for_strict_equality()
+    {
+        $this->assertEquals(
+            "PUSH_STR \"5\"\nPUSH 5\nSTRICT_EQUALS\nPUSH 1\nSTRICT_NOT_EQUALS\nPRINT",
+            $this->generateCode('echo "5" === 5 !== 1;')
+        );
     }
 
     public function test_chained_equality_is_left_associative()

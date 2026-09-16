@@ -11,7 +11,7 @@ A simple programming language compiler that supports dynamic typing with integer
 - String escape sequences (`\n`, `\t`, `\"`, `\\`)
 - String concatenation with the `+` operator
 - Mathematical operators: `+`, `-`, `*`, `/`, unary `-`
-- Comparison operators: `==`, `!=`, `<`, `<=`, `>`, `>=`
+- Comparison operators: `==`, `!=`, `===`, `!==` (no type conversion), `<`, `<=`, `>`, `>=`
 - Logical operators: `&&`, `||` (short-circuiting), `!`
 - Parentheses for grouping expressions
 - Echo statements for output (`echo <expr>;`)

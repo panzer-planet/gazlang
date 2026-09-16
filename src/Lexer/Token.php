@@ -54,6 +54,10 @@ class Token
 
     public const NOT_EQUALS = 'NOT_EQUALS';  // Inequality operator (!=)
 
+    public const STRICT_EQUALS = 'STRICT_EQUALS';  // Strict equality operator (===), no type conversion
+
+    public const STRICT_NOT_EQUALS = 'STRICT_NOT_EQUALS';  // Strict inequality operator (!==)
+
     public const LESS_THAN = 'LESS_THAN';  // Less than operator (<)
 
     public const LESS_EQUALS = 'LESS_EQUALS';  // Less than or equal operator (<=)

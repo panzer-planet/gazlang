@@ -41,8 +41,8 @@ each step depends on the ones before it.
    → `additive` → `multiplicative` → `unary` → `primary`. Binary levels share
    `left_associative()`; add a new level by adding a one-line method there.
 2. ~~**Add comparison and logical operators.**~~ Done. `<`, `>`, `<=`, `>=`,
-   `!=`, `==`, `&&`, `||` (short-circuiting in both backends), `!`, and unary
-   `-` via `UnaryOpAST`. `!=` sits at the equality level, C-style. There is a
+   `!=`, `==`, `===`, `!==`, `&&`, `||` (short-circuiting in both backends), `!`, and unary
+   `-` via `UnaryOpAST`. `!=`, `===` and `!==` sit at the equality level, C-style. There is a
    real boolean type (`BooleanAST`, `true`/`false` keywords):
    - Comparisons, `!`, `&&` and `||` return booleans; `echo 1 < 2` prints `true`.
    - Truthiness lives in `Interpreter::isTruthy()`, shared by the interpreter's
@@ -54,6 +54,8 @@ each step depends on the ones before it.
    - Concatenation uses the same spelling as `echo`: `"x" + true` is `"xtrue"`.
    - Two strings compare byte by byte (`"1" != "01"`, `"10" < "9"`). Mixed
      string/number comparisons still follow PHP (`"5" == 5`).
+   - `===` / `!==` compare type and value with no conversion: `"5" === 5` and
+     `true === 1` are false.
    - Code generation pushes `PUSH true` / `PUSH false`.
 3. ~~**Add loops.**~~ Done. `while` has its own `WhileStatementAST`; `for` is
    desugared in the parser into `{ init; while (cond) { body; step; } }`, so the

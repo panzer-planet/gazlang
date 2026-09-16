@@ -101,6 +101,13 @@ class Interpreter extends AbstractNodeVisitor
             return $this->toString($left).$this->toString($right);
         }
 
+        // Strict equality compares type and value as they are, before any conversion
+        if ($node->op->type === Token::STRICT_EQUALS) {
+            return $left === $right;
+        } elseif ($node->op->type === Token::STRICT_NOT_EQUALS) {
+            return $left !== $right;
+        }
+
         // Everywhere else booleans act as 1/0, so true + 1 is 2 and true == 1
         $left = is_bool($left) ? (int) $left : $left;
         $right = is_bool($right) ? (int) $right : $right;
