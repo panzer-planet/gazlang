@@ -30,6 +30,8 @@ A small, PHP-flavoured programming language with an interpreter and a stack-VM c
 
 ## Installation
 
+Requires PHP 8.5 or later.
+
 ```bash
 git clone https://github.com/panzer-planet/gazlang.git
 cd gazlang

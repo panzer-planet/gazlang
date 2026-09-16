@@ -22,6 +22,10 @@ php bin/gazlang -f examples/functions_example.gaz -c
 ```
  
 ## Code Style Guidelines
+- **PHP version**: 8.5 or later, so the pipe operator (`$x |> trim(...) |> strtolower(...)`)
+  is available. phpstan, pint and nikic/php-parser (5.5+, which phpunit's coverage uses)
+  all handle it. Use it where a chain of single-argument calls reads better; don't
+  force it on multi-argument calls.
 - **Namespaces**: Use `GazLang\` namespace root with PSR-4 autoloading
 - **Classes**: PascalCase (e.g., `Parser`)
 - **Methods/Functions**: camelCase (e.g., `visitBinOp()`, `isTruthy()`), except Lexer and Parser
