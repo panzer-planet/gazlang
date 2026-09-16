@@ -40,16 +40,17 @@ each step depends on the ones before it.
    right associative) → `logical_or` → `logical_and` → `equality` → `relational`
    → `additive` → `multiplicative` → `unary` → `primary`. Binary levels share
    `left_associative()`; add a new level by adding a one-line method there.
-2. **Add comparison and logical operators.** Operators done: `<`, `>`, `<=`,
-   `>=`, `!=`, `==`, `&&`, `||` (short-circuiting in both backends), `!`, and
-   unary `-` via `UnaryOpAST`. `!=` sits at the equality level, C-style.
-   **Still open:** introduce a real boolean type. Comparisons and logic
-   currently return int 1/0, and truthiness is "anything `!= 0`", shared by
-   `if`, `!`, `&&` and `||`. Decided semantics:
-   - `true` and `false` are keywords (boolean literals).
+2. ~~**Add comparison and logical operators.**~~ Done. `<`, `>`, `<=`, `>=`,
+   `!=`, `==`, `&&`, `||` (short-circuiting in both backends), `!`, and unary
+   `-` via `UnaryOpAST`. `!=` sits at the equality level, C-style. There is a
+   real boolean type (`BooleanAST`, `true`/`false` keywords):
    - Comparisons, `!`, `&&` and `||` return booleans; `echo 1 < 2` prints `true`.
-   - Truthiness stays C-like: `if (5)` is true, `if (0)` is false.
-   - Booleans act as 1/0 in arithmetic: `true + 1` is `2`.
+   - Truthiness stays C-like ("anything `!= 0`", shared by `if`, `while`, `!`,
+     `&&`, `||`): `if (5)` is true, `if (0)` is false.
+   - Booleans act as 1/0 in arithmetic and comparisons: `true + 1` is `2`,
+     `true == 1` is true.
+   - Concatenation uses the same spelling as `echo`: `"x" + true` is `"xtrue"`.
+   - Code generation pushes `PUSH true` / `PUSH false`.
 3. ~~**Add loops.**~~ Done. `while` has its own `WhileStatementAST`; `for` is
    desugared in the parser into `{ init; while (cond) { body; step; } }`, so the
    backends only know about while. All three `for` clauses are required.

@@ -42,6 +42,10 @@ class Token
 
     public const FOR = 'FOR';  // For keyword
 
+    public const TRUE = 'TRUE';  // Boolean literal true
+
+    public const FALSE = 'FALSE';  // Boolean literal false
+
     public const LEFT_BRACE = 'LEFT_BRACE';  // Left curly brace '{'
 
     public const RIGHT_BRACE = 'RIGHT_BRACE';  // Right curly brace '}'

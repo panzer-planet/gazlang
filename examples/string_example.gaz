@@ -35,11 +35,11 @@ $a = "hello";
 $b = "hello";
 $c = "world";
 
-if (1) {  // For now use 1 instead of the comparison
+if ($a == $b) {
     echo "Strings a and b are equal";
 }
 
-if (0) {  // For now use 0 instead of the comparison
+if ($a == $c) {
     echo "Strings a and c are equal";
 } else {
     echo "Strings a and c are not equal";

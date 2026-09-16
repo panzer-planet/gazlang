@@ -6,6 +6,7 @@ use Exception;
 use GazLang\AST\AssignAST;
 use GazLang\AST\AST;
 use GazLang\AST\BinOpAST;
+use GazLang\AST\BooleanAST;
 use GazLang\AST\CompoundAST;
 use GazLang\AST\EchoStatementAST;
 use GazLang\AST\IfStatementAST;
@@ -88,9 +89,9 @@ class Parser
     }
 
     /**
-     * Parse a primary (INTEGER | STRING | LPAREN expr RPAREN | variable)
+     * Parse a primary (INTEGER | STRING | TRUE | FALSE | LPAREN expr RPAREN | variable)
      *
-     * @return NumAST|StringAST|VariableAST|BinOpAST|UnaryOpAST|AssignAST
+     * @return NumAST|StringAST|BooleanAST|VariableAST|BinOpAST|UnaryOpAST|AssignAST
      *
      * @throws Exception
      */
@@ -106,6 +107,10 @@ class Parser
             $this->eat(Token::STRING);
 
             return new StringAST($token);
+        } elseif ($token->type === Token::TRUE || $token->type === Token::FALSE) {
+            $this->eat($token->type);
+
+            return new BooleanAST($token);
         } elseif ($token->type === Token::LEFT_PAREN) {
             $this->eat(Token::LEFT_PAREN);
             $node = $this->expr();

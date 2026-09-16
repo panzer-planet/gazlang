@@ -33,6 +33,8 @@ class Lexer
         'else' => 'ELSE',
         'while' => 'WHILE',
         'for' => 'FOR',
+        'true' => 'TRUE',
+        'false' => 'FALSE',
     ];
 
     /**

@@ -6,6 +6,7 @@ use Exception;
 use GazLang\AST\AbstractNodeVisitor;
 use GazLang\AST\AssignAST;
 use GazLang\AST\BinOpAST;
+use GazLang\AST\BooleanAST;
 use GazLang\AST\CompoundAST;
 use GazLang\AST\EchoStatementAST;
 use GazLang\AST\IfStatementAST;
@@ -168,10 +169,10 @@ class CodeGenerator extends AbstractNodeVisitor
             $this->instructions[] = "JZ {$short_label}";
         }
 
-        $this->instructions[] = $is_and ? 'PUSH 1' : 'PUSH 0';
+        $this->instructions[] = $is_and ? 'PUSH true' : 'PUSH false';
         $this->instructions[] = "JMP {$end_label}";
         $this->instructions[] = "LABEL {$short_label}";
-        $this->instructions[] = $is_and ? 'PUSH 0' : 'PUSH 1';
+        $this->instructions[] = $is_and ? 'PUSH false' : 'PUSH true';
         $this->instructions[] = "LABEL {$end_label}";
     }
 
@@ -202,6 +203,16 @@ class CodeGenerator extends AbstractNodeVisitor
     {
         // Push the number onto the stack
         $this->instructions[] = "PUSH {$node->value}";
+    }
+
+    /**
+     * Visit a Boolean node
+     *
+     * @param  BooleanAST  $node  The node to visit
+     */
+    public function visitBoolean(BooleanAST $node): void
+    {
+        $this->instructions[] = $node->value ? 'PUSH true' : 'PUSH false';
     }
 
     /**

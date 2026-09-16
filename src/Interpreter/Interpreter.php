@@ -6,6 +6,7 @@ use Exception;
 use GazLang\AST\AbstractNodeVisitor;
 use GazLang\AST\AssignAST;
 use GazLang\AST\BinOpAST;
+use GazLang\AST\BooleanAST;
 use GazLang\AST\CompoundAST;
 use GazLang\AST\EchoStatementAST;
 use GazLang\AST\IfStatementAST;
@@ -87,21 +88,24 @@ class Interpreter extends AbstractNodeVisitor
     {
         // Logical operators short-circuit, so the right side is only evaluated when needed
         if ($node->op->type === Token::AND) {
-            return $this->visit($node->left) != 0 && $this->visit($node->right) != 0 ? 1 : 0;
+            return $this->visit($node->left) != 0 && $this->visit($node->right) != 0;
         } elseif ($node->op->type === Token::OR) {
-            return $this->visit($node->left) != 0 || $this->visit($node->right) != 0 ? 1 : 0;
+            return $this->visit($node->left) != 0 || $this->visit($node->right) != 0;
         }
 
         $left = $this->visit($node->left);
         $right = $this->visit($node->right);
 
-        if ($node->op->type === Token::PLUS) {
-            // If either operand is a string, perform string concatenation
-            if (is_string($left) || is_string($right)) {
-                return $this->toString($left).$this->toString($right);
-            }
+        // If either operand is a string, plus performs string concatenation
+        if ($node->op->type === Token::PLUS && (is_string($left) || is_string($right))) {
+            return $this->toString($left).$this->toString($right);
+        }
 
-            // Otherwise, perform numeric addition
+        // Everywhere else booleans act as 1/0, so true + 1 is 2 and true == 1
+        $left = is_bool($left) ? (int) $left : $left;
+        $right = is_bool($right) ? (int) $right : $right;
+
+        if ($node->op->type === Token::PLUS) {
             return $left + $right;
         } elseif ($node->op->type === Token::MINUS) {
             // String operation not supported for minus
@@ -126,17 +130,17 @@ class Interpreter extends AbstractNodeVisitor
             return intdiv($left, $right); // Integer division
         } elseif ($node->op->type === Token::EQUALS) {
             // Equals operator works for both numbers and strings
-            return $left == $right ? 1 : 0; // Return 1 for true, 0 for false
+            return $left == $right;
         } elseif ($node->op->type === Token::NOT_EQUALS) {
-            return $left != $right ? 1 : 0;
+            return $left != $right;
         } elseif ($node->op->type === Token::LESS_THAN) {
-            return $left < $right ? 1 : 0;
+            return $left < $right;
         } elseif ($node->op->type === Token::LESS_EQUALS) {
-            return $left <= $right ? 1 : 0;
+            return $left <= $right;
         } elseif ($node->op->type === Token::GREATER_THAN) {
-            return $left > $right ? 1 : 0;
+            return $left > $right;
         } elseif ($node->op->type === Token::GREATER_EQUALS) {
-            return $left >= $right ? 1 : 0;
+            return $left >= $right;
         }
 
         throw new Exception("Unknown operator: {$node->op->type}");
@@ -146,21 +150,21 @@ class Interpreter extends AbstractNodeVisitor
      * Visit a UnaryOp node
      *
      * @param  UnaryOpAST  $node  The node to visit
-     * @return int The result of the unary operation
+     * @return int|bool The result of the unary operation
      */
-    public function visitUnaryOp(UnaryOpAST $node): int
+    public function visitUnaryOp(UnaryOpAST $node): int|bool
     {
         $value = $this->visit($node->expr);
 
         if ($node->op->type === Token::NOT) {
             // Same truthiness as if conditions: anything that isn't 0 is true
-            return $value != 0 ? 0 : 1;
+            return $value == 0;
         } elseif ($node->op->type === Token::MINUS) {
             if (is_string($value)) {
                 throw new Exception('Cannot perform negation on strings');
             }
 
-            return -$value;
+            return -(int) $value;
         }
 
         throw new Exception("Unknown operator: {$node->op->type}");
@@ -178,6 +182,8 @@ class Interpreter extends AbstractNodeVisitor
             return $value;
         } elseif (is_int($value)) {
             return (string) $value;
+        } elseif (is_bool($value)) {
+            return $value ? 'true' : 'false';
         } else {
             return '';
         }
@@ -190,6 +196,17 @@ class Interpreter extends AbstractNodeVisitor
      * @return int The numeric value
      */
     public function visitNum(NumAST $node): int
+    {
+        return $node->value;
+    }
+
+    /**
+     * Visit a Boolean node
+     *
+     * @param  BooleanAST  $node  The node to visit
+     * @return bool The boolean value
+     */
+    public function visitBoolean(BooleanAST $node): bool
     {
         return $node->value;
     }
@@ -227,7 +244,7 @@ class Interpreter extends AbstractNodeVisitor
     {
         $result = $this->visit($node->expr);
         // Print the result directly to the terminal
-        echo $result.PHP_EOL;
+        echo $this->toString($result).PHP_EOL;
 
         return $result;
     }

@@ -5,7 +5,8 @@ A simple programming language compiler that supports dynamic typing with integer
 ## Features
 
 - Statements terminated by semicolons (`;`)
-- Dynamic typing with support for integers and strings
+- Dynamic typing with support for integers, strings and booleans
+- Boolean literals `true` and `false`; comparisons and logical operators return booleans
 - String literals with double quotes (`"Hello, World!"`)
 - String escape sequences (`\n`, `\t`, `\"`, `\\`)
 - String concatenation with the `+` operator

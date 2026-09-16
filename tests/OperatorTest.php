@@ -28,32 +28,32 @@ class OperatorTest extends GazLangTestCase
 
     public function test_relational_and_equality()
     {
-        $this->assertEquals("1\n0\n1\n1\n0\n1\n", $this->executeCode(
+        $this->assertEquals("true\nfalse\ntrue\ntrue\nfalse\ntrue\n", $this->executeCode(
             'echo 1 < 2; echo 2 < 2; echo 2 <= 2; echo 3 > 2; echo 2 >= 3; echo 1 != 2;'
         ));
     }
 
     public function test_chained_equality_is_left_associative()
     {
-        // (1 == 2) == 0 is 1; the old parser read it as 1 == (2 == 0), which is 0
-        $this->assertEquals("1\n", $this->executeCode('echo 1 == 2 == 0;'));
+        // (1 == 2) == 0 is true; the old parser read it as 1 == (2 == 0), which is false
+        $this->assertEquals("true\n", $this->executeCode('echo 1 == 2 == 0;'));
     }
 
     public function test_relational_binds_tighter_than_equality()
     {
         // (2 < 1) == 0, not 2 < (1 == 0)
-        $this->assertEquals("1\n", $this->executeCode('echo 2 < 1 == 0;'));
+        $this->assertEquals("true\n", $this->executeCode('echo 2 < 1 == 0;'));
     }
 
     public function test_arithmetic_binds_tighter_than_relational()
     {
-        $this->assertEquals("1\n", $this->executeCode('echo 1 + 2 < 2 * 2;'));
+        $this->assertEquals("true\n", $this->executeCode('echo 1 + 2 < 2 * 2;'));
     }
 
     public function test_and_binds_tighter_than_or()
     {
-        // 1 || (0 && 0) is 1; (1 || 0) && 0 would be 0
-        $this->assertEquals("1\n", $this->executeCode('echo 1 || 0 && 0;'));
+        // 1 || (0 && 0) is true; (1 || 0) && 0 would be false
+        $this->assertEquals("true\n", $this->executeCode('echo 1 || 0 && 0;'));
     }
 
     public function test_logical_operators_short_circuit()
@@ -65,7 +65,7 @@ class OperatorTest extends GazLangTestCase
 
     public function test_unary_operators()
     {
-        $this->assertEquals("1\n0\n1\n2\n-6\n", $this->executeCode(
+        $this->assertEquals("true\nfalse\ntrue\n2\n-6\n", $this->executeCode(
             'echo !0; echo !5; echo !!5; echo -3 + 5; echo -(1 + 2) * 2;'
         ));
     }
@@ -73,12 +73,12 @@ class OperatorTest extends GazLangTestCase
     public function test_not_binds_tighter_than_equality()
     {
         // (!1) == 0
-        $this->assertEquals("1\n", $this->executeCode('echo !1 == 0;'));
+        $this->assertEquals("true\n", $this->executeCode('echo !1 == 0;'));
     }
 
     public function test_assignment_is_right_associative_and_lowest()
     {
-        $this->assertEquals("6\n1\n", $this->executeCode(
+        $this->assertEquals("6\ntrue\n", $this->executeCode(
             '$a = $b = 3; echo $a + $b; $c = $a < 4 && $b > 2; echo $c;'
         ));
     }
@@ -108,8 +108,8 @@ class OperatorTest extends GazLangTestCase
     public function test_code_gen_for_logical_and()
     {
         $this->assertEquals(
-            "PUSH 1\nJZ AND_FALSE_0\nPUSH 0\nJZ AND_FALSE_0\nPUSH 1\nJMP AND_END_0\n"
-            ."LABEL AND_FALSE_0\nPUSH 0\nLABEL AND_END_0\nPOP",
+            "PUSH 1\nJZ AND_FALSE_0\nPUSH 0\nJZ AND_FALSE_0\nPUSH true\nJMP AND_END_0\n"
+            ."LABEL AND_FALSE_0\nPUSH false\nLABEL AND_END_0\nPOP",
             $this->generateCode('1 && 0;')
         );
     }
@@ -117,8 +117,8 @@ class OperatorTest extends GazLangTestCase
     public function test_code_gen_for_logical_or()
     {
         $this->assertEquals(
-            "PUSH 1\nNOT\nJZ OR_TRUE_0\nPUSH 0\nNOT\nJZ OR_TRUE_0\nPUSH 0\nJMP OR_END_0\n"
-            ."LABEL OR_TRUE_0\nPUSH 1\nLABEL OR_END_0\nPOP",
+            "PUSH 1\nNOT\nJZ OR_TRUE_0\nPUSH 0\nNOT\nJZ OR_TRUE_0\nPUSH false\nJMP OR_END_0\n"
+            ."LABEL OR_TRUE_0\nPUSH true\nLABEL OR_END_0\nPOP",
             $this->generateCode('1 || 0;')
         );
     }
