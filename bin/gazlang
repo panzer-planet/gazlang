@@ -118,7 +118,7 @@ function processInput(string $text, bool $generateCode = false): bool {
             $interpreter = new Interpreter($parser);
             $interpreter->interpret();
         }
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         echo "Error: " . $e->getMessage() . "\n";
 
         return false;

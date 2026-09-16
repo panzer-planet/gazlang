@@ -47,6 +47,25 @@ class LoopTest extends GazLangTestCase
         $this->createParser('for ($i = 0; $i < 3) { echo $i; }')->parse();
     }
 
+    public function test_code_gen_for_for()
+    {
+        $this->assertEquals(
+            "PUSH 0\nSTORE 0\nLOAD 0\nPOP\n"
+            ."LABEL WHILE_0\nLOAD 0\nPUSH 2\nLT\nJZ ENDWHILE_0\n"
+            ."LOAD 0\nPRINT\nLOAD 0\nPUSH 1\nADD_OR_CONCAT\nSTORE 0\nLOAD 0\nPOP\n"
+            ."JMP WHILE_0\nLABEL ENDWHILE_0",
+            $this->generateCode('for ($i = 0; $i < 2; $i = $i + 1) { echo $i; }')
+        );
+    }
+
+    public function test_code_gen_allows_reading_a_variable_assigned_later_in_the_loop()
+    {
+        $code = '$i = 0; while ($i < 2) { if ($i > 0) { echo $p; } $p = $i; $i = $i + 1; }';
+
+        $this->assertEquals("0\n", $this->executeCode($code));
+        $this->assertStringContainsString('LOAD 1', $this->generateCode($code));
+    }
+
     public function test_code_gen_for_while()
     {
         $this->assertEquals(

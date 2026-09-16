@@ -82,7 +82,7 @@ class Interpreter extends AbstractNodeVisitor
      * Visit a BinOp node
      *
      * @param  BinOpAST  $node  The node to visit
-     * @return mixed The result of the binary operation (int or string)
+     * @return int|string|bool The result of the binary operation
      */
     public function visitBinOp(BinOpAST $node)
     {
@@ -105,45 +105,34 @@ class Interpreter extends AbstractNodeVisitor
         $left = is_bool($left) ? (int) $left : $left;
         $right = is_bool($right) ? (int) $right : $right;
 
-        if ($node->op->type === Token::PLUS) {
-            return $left + $right;
-        } elseif ($node->op->type === Token::MINUS) {
-            // String operation not supported for minus
+        $type = $node->op->type;
+
+        if (in_array($type, [Token::PLUS, Token::MINUS, Token::MULTIPLY, Token::DIVIDE], true)) {
             if (is_string($left) || is_string($right)) {
-                throw new Exception('Cannot perform subtraction on strings');
+                throw new Exception("Cannot use {$node->op->value} on strings");
             }
 
-            return $left - $right;
-        } elseif ($node->op->type === Token::MULTIPLY) {
-            // String operation not supported for multiply
-            if (is_string($left) || is_string($right)) {
-                throw new Exception('Cannot perform multiplication on strings');
-            }
-
-            return $left * $right;
-        } elseif ($node->op->type === Token::DIVIDE) {
-            // String operation not supported for divide
-            if (is_string($left) || is_string($right)) {
-                throw new Exception('Cannot perform division on strings');
-            }
-
-            return intdiv($left, $right); // Integer division
-        } elseif ($node->op->type === Token::EQUALS) {
-            // Equals operator works for both numbers and strings
-            return $left == $right;
-        } elseif ($node->op->type === Token::NOT_EQUALS) {
-            return $left != $right;
-        } elseif ($node->op->type === Token::LESS_THAN) {
-            return $left < $right;
-        } elseif ($node->op->type === Token::LESS_EQUALS) {
-            return $left <= $right;
-        } elseif ($node->op->type === Token::GREATER_THAN) {
-            return $left > $right;
-        } elseif ($node->op->type === Token::GREATER_EQUALS) {
-            return $left >= $right;
+            return match ($type) {
+                Token::PLUS => $left + $right,
+                Token::MINUS => $left - $right,
+                Token::MULTIPLY => $left * $right,
+                Token::DIVIDE => intdiv($left, $right),
+            };
         }
 
-        throw new Exception("Unknown operator: {$node->op->type}");
+        // Two strings compare byte by byte, so "1" != "01" and "10" < "9";
+        // anything else uses PHP's comparison, which matches == for scalars
+        $cmp = is_string($left) && is_string($right) ? strcmp($left, $right) : $left <=> $right;
+
+        return match ($type) {
+            Token::EQUALS => $cmp === 0,
+            Token::NOT_EQUALS => $cmp !== 0,
+            Token::LESS_THAN => $cmp < 0,
+            Token::LESS_EQUALS => $cmp <= 0,
+            Token::GREATER_THAN => $cmp > 0,
+            Token::GREATER_EQUALS => $cmp >= 0,
+            default => throw new Exception("Unknown operator: {$type}"),
+        };
     }
 
     /**
@@ -160,7 +149,7 @@ class Interpreter extends AbstractNodeVisitor
             return ! $this->isTruthy($value);
         } elseif ($node->op->type === Token::MINUS) {
             if (is_string($value)) {
-                throw new Exception('Cannot perform negation on strings');
+                throw new Exception('Cannot use - on strings');
             }
 
             return -(int) $value;
@@ -195,9 +184,9 @@ class Interpreter extends AbstractNodeVisitor
             return (string) $value;
         } elseif (is_bool($value)) {
             return $value ? 'true' : 'false';
-        } else {
-            return '';
         }
+
+        throw new Exception('Cannot convert '.get_debug_type($value).' to string');
     }
 
     /**

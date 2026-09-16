@@ -58,9 +58,13 @@ abstract class GazLangTestCase extends TestCase
         $interpreter = $this->createInterpreter($input);
 
         ob_start();
-        $interpreter->interpret();
+        try {
+            $interpreter->interpret();
+        } finally {
+            $output = ob_get_clean();
+        }
 
-        return ob_get_clean();
+        return $output;
     }
 
     /**

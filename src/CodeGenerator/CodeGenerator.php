@@ -24,6 +24,22 @@ use GazLang\Lexer\Token;
 class CodeGenerator extends AbstractNodeVisitor
 {
     /**
+     * Opcode emitted for each binary operator token (&& and || are jumps, see logicalOp)
+     */
+    private const BINARY_OPCODES = [
+        Token::PLUS => 'ADD_OR_CONCAT',
+        Token::MINUS => 'SUB',
+        Token::MULTIPLY => 'MUL',
+        Token::DIVIDE => 'DIV',
+        Token::EQUALS => 'EQUALS',
+        Token::NOT_EQUALS => 'NOT_EQUALS',
+        Token::LESS_THAN => 'LT',
+        Token::LESS_EQUALS => 'LE',
+        Token::GREATER_THAN => 'GT',
+        Token::GREATER_EQUALS => 'GE',
+    ];
+
+    /**
      * @var object The AST to generate code from
      */
     private $tree;
@@ -69,13 +85,9 @@ class CodeGenerator extends AbstractNodeVisitor
      */
     public function visitVariable(VariableAST $node): void
     {
-        $var_name = $node->value;
-        if (! isset($this->var_addresses[$var_name])) {
-            throw new Exception("Undefined variable: {$var_name}");
-        }
-
-        // Load the variable's value onto the stack
-        $this->instructions[] = "LOAD {$this->var_addresses[$var_name]}";
+        // Undefined variables are a runtime error: a loop can read a variable
+        // that is only assigned further down the source
+        $this->instructions[] = 'LOAD '.$this->address($node->value);
     }
 
     /**
@@ -85,21 +97,24 @@ class CodeGenerator extends AbstractNodeVisitor
      */
     public function visitAssign(AssignAST $node): void
     {
-        $var_name = $node->left->value;
-
-        // Allocate memory for the variable if not already allocated
-        if (! isset($this->var_addresses[$var_name])) {
-            $this->var_addresses[$var_name] = $this->next_address++;
-        }
+        $address = $this->address($node->left->value);
 
         // Generate code for the right-hand side of the assignment
         $this->visit($node->right);
 
-        // Store the computed value in the variable's memory location
-        $this->instructions[] = "STORE {$this->var_addresses[$var_name]}";
+        // Store the computed value, then leave it on the stack for larger expressions
+        $this->instructions[] = "STORE {$address}";
+        $this->instructions[] = "LOAD {$address}";
+    }
 
-        // Leave the value on the stack for potential use in larger expressions
-        $this->instructions[] = "LOAD {$this->var_addresses[$var_name]}";
+    /**
+     * Get a variable's memory address, allocating one the first time it is seen
+     *
+     * @param  string  $var_name  The variable name, including the $
+     */
+    private function address(string $var_name): int
+    {
+        return $this->var_addresses[$var_name] ??= $this->next_address++;
     }
 
     /**
@@ -119,38 +134,18 @@ class CodeGenerator extends AbstractNodeVisitor
         $this->visit($node->left);
         $this->visit($node->right);
 
-        // Now emit the operation instruction
-        if ($node->op->type === Token::PLUS) {
-            // For plus, we need to handle possible string concatenation
-            $this->instructions[] = 'ADD_OR_CONCAT';
-        } elseif ($node->op->type === Token::MINUS) {
-            $this->instructions[] = 'SUB';
-        } elseif ($node->op->type === Token::MULTIPLY) {
-            $this->instructions[] = 'MUL';
-        } elseif ($node->op->type === Token::DIVIDE) {
-            $this->instructions[] = 'DIV';
-        } elseif ($node->op->type === Token::EQUALS) {
-            $this->instructions[] = 'EQUALS';
-        } elseif ($node->op->type === Token::NOT_EQUALS) {
-            $this->instructions[] = 'NOT_EQUALS';
-        } elseif ($node->op->type === Token::LESS_THAN) {
-            $this->instructions[] = 'LT';
-        } elseif ($node->op->type === Token::LESS_EQUALS) {
-            $this->instructions[] = 'LE';
-        } elseif ($node->op->type === Token::GREATER_THAN) {
-            $this->instructions[] = 'GT';
-        } elseif ($node->op->type === Token::GREATER_EQUALS) {
-            $this->instructions[] = 'GE';
-        } else {
+        if (! isset(self::BINARY_OPCODES[$node->op->type])) {
             throw new Exception("Unknown operator: {$node->op->type}");
         }
+
+        $this->instructions[] = self::BINARY_OPCODES[$node->op->type];
     }
 
     /**
-     * Emit short-circuit code for && and ||, leaving 1 or 0 on the stack
+     * Emit short-circuit code for && and ||, leaving true or false on the stack
      *
-     * For &&, any false operand jumps to push 0. For ||, each operand is
-     * negated first, so any true operand jumps to push 1.
+     * For &&, any false operand jumps to push false. For ||, each operand is
+     * negated first, so any true operand jumps to push true.
      *
      * @param  BinOpAST  $node  The && or || node
      */

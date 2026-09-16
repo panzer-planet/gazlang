@@ -5,7 +5,7 @@ namespace GazLang\AST;
 /**
  * IfStatement node represents an if/else control structure
  */
-class IfStatementAST extends AbstractStatementAST
+class IfStatementAST extends AST
 {
     /**
      * @var object The condition expression

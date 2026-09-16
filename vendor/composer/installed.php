@@ -3,7 +3,7 @@
         'name' => 'werner/gazlang',
         'pretty_version' => 'dev-master',
         'version' => 'dev-master',
-        'reference' => '986081ee0c9b27353f097aca207db149cdc5d58b',
+        'reference' => 'e01801b695231ebf0d23b34cdf67653545982e24',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -283,7 +283,7 @@
         'werner/gazlang' => array(
             'pretty_version' => 'dev-master',
             'version' => 'dev-master',
-            'reference' => '986081ee0c9b27353f097aca207db149cdc5d58b',
+            'reference' => 'e01801b695231ebf0d23b34cdf67653545982e24',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

@@ -5,7 +5,7 @@ namespace GazLang\AST;
 /**
  * WhileStatement node represents a while loop (for loops are desugared into this)
  */
-class WhileStatementAST extends AbstractStatementAST
+class WhileStatementAST extends AST
 {
     /**
      * @var object The condition expression, checked before each iteration

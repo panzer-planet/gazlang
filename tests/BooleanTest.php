@@ -49,6 +49,20 @@ class BooleanTest extends GazLangTestCase
         ));
     }
 
+    public function test_strings_compare_byte_by_byte()
+    {
+        $this->assertEquals("false\ntrue\nfalse\ntrue\ntrue\n", $this->executeCode(
+            'echo "1" == "01"; echo "10" < "9"; echo "10" == "1e1"; echo "abc" == "abc"; echo "5" == 5;'
+        ));
+    }
+
+    public function test_echo_rejects_values_it_cannot_print()
+    {
+        // Integer overflow turns into a PHP float, which GazLang has no type for
+        $this->expectExceptionMessage('Cannot convert float to string');
+        $this->executeCode('echo 9223372036854775807 + 1;');
+    }
+
     public function test_code_gen_pushes_boolean_literals()
     {
         $this->assertEquals("PUSH true\nPUSH false\nEQUALS\nPRINT", $this->generateCode('echo true == false;'));

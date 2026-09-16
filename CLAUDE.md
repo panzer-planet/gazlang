@@ -45,12 +45,15 @@ each step depends on the ones before it.
    `-` via `UnaryOpAST`. `!=` sits at the equality level, C-style. There is a
    real boolean type (`BooleanAST`, `true`/`false` keywords):
    - Comparisons, `!`, `&&` and `||` return booleans; `echo 1 < 2` prints `true`.
-   - Truthiness lives in `Interpreter::isTruthy()`, shared by `if`, `while`,
-     `!`, `&&`, `||`. Numbers and booleans are C-like (`if (5)` is true,
+   - Truthiness lives in `Interpreter::isTruthy()`, shared by the interpreter's
+     `if`, `while`, `!`, `&&`, `||`. The code generator's `JZ`/`NOT` have no VM
+     defined behind them yet; a VM must reuse the same rules. Numbers and booleans are C-like (`if (5)` is true,
      `if (0)` is false); strings are true unless empty, so `"0"` is true.
    - Booleans act as 1/0 in arithmetic and comparisons: `true + 1` is `2`,
      `true == 1` is true.
    - Concatenation uses the same spelling as `echo`: `"x" + true` is `"xtrue"`.
+   - Two strings compare byte by byte (`"1" != "01"`, `"10" < "9"`). Mixed
+     string/number comparisons still follow PHP (`"5" == 5`).
    - Code generation pushes `PUSH true` / `PUSH false`.
 3. ~~**Add loops.**~~ Done. `while` has its own `WhileStatementAST`; `for` is
    desugared in the parser into `{ init; while (cond) { body; step; } }`, so the

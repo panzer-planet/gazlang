@@ -50,10 +50,9 @@ class Parser
      *
      * @throws Exception
      */
-    public function error(): void
+    public function error(): never
     {
-        $token = $this->current_token ? $this->current_token->type.'('.$this->current_token->value.')' : 'null';
-        throw new Exception('Invalid syntax near token: '.$token);
+        throw new Exception("Invalid syntax near token: {$this->current_token->type}({$this->current_token->value})");
     }
 
     /**
@@ -91,7 +90,7 @@ class Parser
     /**
      * Parse a primary (INTEGER | STRING | TRUE | FALSE | LPAREN expr RPAREN | variable)
      *
-     * @return NumAST|StringAST|BooleanAST|VariableAST|BinOpAST|UnaryOpAST|AssignAST
+     * @return AST
      *
      * @throws Exception
      */

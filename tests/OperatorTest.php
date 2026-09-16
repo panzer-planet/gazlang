@@ -63,6 +63,12 @@ class OperatorTest extends GazLangTestCase
         ));
     }
 
+    public function test_arithmetic_on_strings_throws()
+    {
+        $this->expectExceptionMessage('Cannot use * on strings');
+        $this->executeCode('echo "a" * 2;');
+    }
+
     public function test_unary_operators()
     {
         $this->assertEquals("true\nfalse\ntrue\n2\n-6\n", $this->executeCode(
