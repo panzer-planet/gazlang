@@ -247,13 +247,20 @@ class CodeGenerator extends AbstractNodeVisitor
     }
 
     /**
-     * Emit a compound assignment or ++/--, lowered to plain assignments through hidden variables
+     * Emit a compound assignment or ++/--, lowered to plain assignments
      *
      * Index keys and the right side are evaluated once, in the interpreter's order (keys,
-     * then the value, then read and write the target):
+     * then the value, then read and write the target), with keys and a non-constant
+     * right side held in hidden variables:
      *
      *   $a[k] += v  becomes  $#k0 = k; $#value = v; $a[$#k0] = $a[$#k0] + $#value
-     *   $a[k]++     becomes  $#k0 = k; $#old = $a[$#k0]; $a[$#k0] = INC $#old    (leaving $#old)
+     *   $x += 1     becomes  $x = $x + 1          (a constant can't fail or change $x)
+     *   ++$a[k]     becomes  $#k0 = k; $a[$#k0] = INC $a[$#k0]
+     *   $a[k]++     becomes  $#k0 = k; $a[$#k0]; $a[$#k0] = INC $a[$#k0];   (the first read is the result)
+     *
+     * Reading the target twice for postfix is safe: the keys are already evaluated and
+     * nothing runs in between. A postfix ++ used as a statement is emitted as prefix (see
+     * visitStatement()), so $i++ in a loop is LOAD, INC, STORE.
      *
      * INC and DEC add or subtract one and fail on anything but a number, like Values::step().
      * The current value is read with INDEX_GET_EXISTING (Values::indexExisting()): the target
@@ -286,23 +293,72 @@ class CodeGenerator extends AbstractNodeVisitor
         }
 
         if ($value !== null) {
-            $right = $hidden('value');
-            $this->visit(new StatementAST($assign($right, $value)));
+            $right = $value;
+            if (! self::isConstant($value)) {
+                $right = $hidden('value');
+                $this->visit(new StatementAST($assign($right, $value)));
+            }
             [$type, $symbol] = [str_replace('_ASSIGN', '', $op->type), substr($op->value, 0, -1)];
             $this->visit($assign($place, new BinOpAST($place, new Token($type, $symbol), $right)));
 
             return;
         }
 
-        $old = $hidden('old');
-        $this->visit(new StatementAST($assign($old, $place)));
-        $step = $assign($place, new UnaryOpAST($op, $old));
+        $step = $assign($place, new UnaryOpAST($op, $place));
         if ($prefix) {
             $this->visit($step);
         } else {
+            $this->visit($place);
             $this->visit(new StatementAST($step));
-            $this->visit($old);
         }
+    }
+
+    /**
+     * Whether a node is a literal whose evaluation can't fail or have side effects
+     *
+     * @param  AST  $node  The node
+     *
+     * @phpstan-assert-if-true NumAST|StringAST|BooleanAST|NullAST $node
+     */
+    private static function isConstant(AST $node): bool
+    {
+        return $node instanceof NumAST || $node instanceof StringAST || $node instanceof BooleanAST || $node instanceof NullAST;
+    }
+
+    /**
+     * The value of an array literal made only of constants with valid keys, or null if it isn't one
+     *
+     * Built exactly as the interpreter's visitArrayLiteral() would build it, so it can be
+     * pushed as one finished value. Arrays are values, so sharing it is safe.
+     *
+     * @param  ArrayLiteralAST  $node  The literal
+     */
+    private static function constantArray(ArrayLiteralAST $node): ?array
+    {
+        $array = [];
+        foreach ($node->entries as [$key, $value]) {
+            if ($key !== null && ! (($key instanceof NumAST && is_int($key->value)) || $key instanceof StringAST)) {
+                return null;
+            }
+            if ($value instanceof ArrayLiteralAST) {
+                $value = self::constantArray($value);
+                if ($value === null) {
+                    return null;
+                }
+            } elseif (self::isConstant($value)) {
+                $value = $value->value;
+            } else {
+                return null;
+            }
+
+            if ($key === null) {
+                $array[] = $value;
+            } else {
+                $array[$key->value] = $value;
+            }
+        }
+
+        return $array;
     }
 
     /**
@@ -448,6 +504,14 @@ class CodeGenerator extends AbstractNodeVisitor
      */
     public function visitArrayLiteral(ArrayLiteralAST $node): void
     {
+        // A literal of constants is built once, at compile time (an empty one is already one instruction)
+        $constant = $node->entries === [] ? null : self::constantArray($node);
+        if ($constant !== null) {
+            $this->emit('PUSH', $constant);
+
+            return;
+        }
+
         $this->emit('NEW_ARRAY');
         foreach ($node->entries as [$key, $value]) {
             if ($key !== null) {
@@ -488,6 +552,16 @@ class CodeGenerator extends AbstractNodeVisitor
      */
     public function visitStatement(StatementAST $node): void
     {
+        // The result is discarded, so a postfix ++/-- can be the cheaper prefix form
+        if ($node->expr instanceof IncrementAST && ! $node->expr->prefix) {
+            $prefix = clone $node->expr;
+            $prefix->prefix = true;
+            $this->visit($prefix);
+            $this->emit('POP');
+
+            return;
+        }
+
         // Evaluate the expression but don't output
         $this->visit($node->expr);
         $this->emit('POP');
@@ -560,8 +634,10 @@ class CodeGenerator extends AbstractNodeVisitor
      * foreach ($array as $key => $value) { body } becomes, with hidden variables whose
      * names no program can write:
      *
-     *   $#array = $array; $#keys = keys($#array); $#i = 0;
-     *   while ($#i < len($#keys); step $#i = $#i + 1) { $key = $#keys[$#i]; $value = $#array[$#keys[$#i]]; body }
+     *   $#array = $array; $#keys = keys($#array); $#count = len($#keys); $#i = 0;
+     *   while ($#i < $#count; step $#i = $#i + 1) { $key = $#keys[$#i]; $value = $#array[$#keys[$#i]]; body }
+     *
+     * The count is taken once: the loop iterates a copy, which the body can't change.
      *
      * The step runs on continue, as for for loops. FOREACH_CHECK fails on a non-array with
      * the interpreter's "foreach expects an array" message, leaving the value on the stack.
@@ -575,6 +651,7 @@ class CodeGenerator extends AbstractNodeVisitor
         $assign = fn (VariableAST $variable, AST $value) => new StatementAST(new AssignAST($variable, new Token(Token::ASSIGN, '='), $value));
         $array = $hidden('array');
         $keys = $hidden('keys');
+        $count = $hidden('count');
         $i = $hidden('i');
         $key = new IndexAST($keys, $i);
 
@@ -592,9 +669,10 @@ class CodeGenerator extends AbstractNodeVisitor
         $loop = new CompoundAST;
         $loop->statements = [
             $assign($keys, new FunctionCallAST('keys', [$array])),
+            $assign($count, new FunctionCallAST('len', [$keys])),
             $assign($i, new NumAST(new Token(Token::INTEGER, 0))),
             new WhileStatementAST(
-                new BinOpAST($i, new Token(Token::LESS_THAN, '<'), new FunctionCallAST('len', [$keys])),
+                new BinOpAST($i, new Token(Token::LESS_THAN, '<'), $count),
                 $body,
                 $assign($i, new BinOpAST($i, new Token(Token::PLUS, '+'), new NumAST(new Token(Token::INTEGER, 1))))
             ),

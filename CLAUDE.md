@@ -243,10 +243,12 @@ side, then reads and writes the target, so `$k += $k *= 2` sees the updated `$k`
 (as in PHP). A compound update needs the variable and every key to exist ("Undefined
 key: n"; reading a missing key as null would make `$a["n"] += "x"` quietly give
 `"nullx"`), so it never creates keys, and nothing is written if the operation fails.
-The code generator lowers compound assignment and `++`/`--` to plain assignments
-through hidden `$#update_*_n` variables in the same order, reading the current value
-with `INDEX_GET_EXISTING` (`Values::indexExisting()`, the same checks and messages)
-and stepping with `INC`/`DEC`.
+The code generator lowers compound assignment and `++`/`--` to plain assignments in
+the same order, holding index keys and a non-constant right side in hidden
+`$#update_*_n` variables (a constant right side is used directly), reading the
+current value with `INDEX_GET_EXISTING` (`Values::indexExisting()`, the same checks
+and messages) and stepping with `INC`/`DEC`. A postfix `++`/`--` used as a statement
+compiles as prefix, so `$i++` in a loop is `LOAD`, `INC`, `STORE`.
 
 ## Errors and try/catch
 
@@ -377,7 +379,9 @@ try are dropped, the stack is cut back, and the error array is pushed for the ca
 the interpreter and on the VM and fails if the output differs, or the error's class,
 message, file or line (what catch sees) differs, and
 `GazProgramTest`, `JsonTest` and `VMTest` (examples) do the same for whole programs. So
-any new language feature needs both backends, or those tests fail. Order matters as
+any new language feature needs both backends, or those tests fail. The code generator
+also builds array literals made only of constants (with int or string keys) once at
+compile time, pushed as one value, and `foreach` takes `len()` of its keys once. Order matters as
 much as results: the VM's `KEY_CHECK` exists so a bad array key fails before later
 keys and the value run, exactly when the interpreter's does. After tuning, the
 VM runs fib, arithmetic loops and JSON 2 to 5 times as fast as the interpreter.
