@@ -92,6 +92,6 @@ class InterpreterTest extends TestCase
         $interpreter->interpret();
         $output = ob_get_clean();
 
-        $this->assertEquals('16'.PHP_EOL.'2'.PHP_EOL, $output);
+        $this->assertEquals('16'.PHP_EOL.'2.0'.PHP_EOL, $output);
     }
 }

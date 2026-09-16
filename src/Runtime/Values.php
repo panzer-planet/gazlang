@@ -365,23 +365,19 @@ final class Values
             throw new Exception($op->type === Token::DIVIDE ? 'Division by zero' : 'Modulo by zero');
         }
 
-        $both_ints = is_int($left) && is_int($right);
         $result = match ($op->type) {
             Token::PLUS => $left + $right,
             Token::MINUS => $left - $right,
             Token::MULTIPLY => $left * $right,
-            // PHP_INT_MIN % -1 is 0, so that division counts as exact and overflows below as an int
-            Token::DIVIDE => $both_ints && $left % $right === 0
-                ? ($left === PHP_INT_MIN && $right === -1 ? PHP_INT_MAX + 1 : intdiv($left, $right))
-                : $left / $right,
+            // Always a float, as in Python 3 and Lua 5.3; intdiv() divides ints
+            Token::DIVIDE => (float) $left / $right,
             // The sign follows the left operand, as in PHP and C: -7 % 3 is -1
             Token::MODULO => $left % $right,
             default => throw new Exception("Unknown operator: {$op->type}"),
         };
 
         // PHP turns an int that overflows into a float, and a float that overflows into INF
-        $exact_int = $both_ints && ($op->type !== Token::DIVIDE || $left % $right === 0);
-        if ($exact_int && ! is_int($result)) {
+        if (is_int($left) && is_int($right) && $op->type !== Token::DIVIDE && ! is_int($result)) {
             throw new Exception('Integer overflow');
         }
         if (is_float($result) && ! is_finite($result)) {

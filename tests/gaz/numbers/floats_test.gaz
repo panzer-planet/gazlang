@@ -20,7 +20,7 @@ check("bool acts as 1", true + 0.5, 1.5);
 check("negate", -1.5 + 0, -1.5);
 
 // Division follows PHP: exact int division stays an int
-check("exact int division", 6 / 2, 3);
+check("division is always a float", 6 / 2, 3.0);
 check("inexact int division", 7 / 2, 3.5);
 check("negative inexact division", -7 / 2, -3.5);
 check("division with a float", 6.0 / 2, 3.0);

@@ -12,7 +12,7 @@ ok float * int
 ok float - float
 ok bool acts as 1
 ok negate
-ok exact int division
+ok division is always a float
 ok inexact int division
 ok negative inexact division
 ok division with a float

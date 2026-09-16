@@ -12,7 +12,7 @@ A small, PHP-flavoured programming language with an interpreter and a stack-VM c
 - String escape sequences: `\n` `\t` `\r` `\v` `\f` `\e` `\0` `\\` `\"`, `\xHH` for a byte and `\u{1F600}` for a Unicode code point (as UTF-8); anything else, including octal like `\012`, is an error
 - String concatenation with the `..` operator (`"n = " .. 1 + 2` is `"n = 3"`; `+` on a string is an error)
 - String interpolation in double-quoted strings: `"Hi $name!"`, `"First: $items[0]"`, `"{$user["name"]} has {@count} items"`
-- Mathematical operators: `+`, `-`, `*`, `/` (`7 / 2` is `3.5`, `6 / 2` is `3`), `%`, unary `-`
+- Mathematical operators: `+`, `-`, `*`, `/` (always a float: `6 / 2` is `3.0`; `intdiv` for ints), `%`, unary `-`
 - Comparison operators: `==`, `!=` (no conversion between strings and numbers: `"5" == 5` is false), `<`, `<=`, `>`, `>=`
 - Logical operators: `&&`, `||` (short-circuiting), `!`
 - Null coalescing: `$config["port"] ?? 8080` (missing variables and keys give the default), and `$counts[$word] ??= 0`

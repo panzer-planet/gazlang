@@ -418,9 +418,9 @@ Ints and floats (64-bit, always finite: GazLang has no INF or NAN).
   `1.0E+25`, `-0.0`). echo, `to_string`, interpolation, `--tokens` and generated
   code all use it.
 - Arithmetic (`Runtime\Values::binary()`): int with int gives an int, a float on
-  either side gives a float, bools act as 1/0. `/` follows PHP: an exact int
-  division stays an int (`6 / 2` is `3`), any other division gives a float
-  (`7 / 2` is `3.5`); `intdiv()` truncates. `%` is ints only (`Cannot use % on float`).
+  either side gives a float, bools act as 1/0. `/` always gives a float (`6 / 2`
+  is `3.0`), as in Python 3 and Lua 5.3; `intdiv()` divides ints, truncating. `%` is
+  ints only (`Cannot use % on float`).
 - Nothing overflows silently: an int literal or int result that doesn't fit is
   an error (`Integer overflow`, where PHP would switch to a float), a float
   literal that is infinite is a lexer error, and a float result that is infinite

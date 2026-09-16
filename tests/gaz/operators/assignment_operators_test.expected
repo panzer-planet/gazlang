@@ -1,8 +1,8 @@
 ok +=
 ok -=
 ok *=
-ok /= with an exact result stays an int
-ok /= follows / and gives a float
+ok /= gives a float
+ok /= again
 ok %=
 ok ..= concatenates, converting like ..
 ok value of a compound assignment

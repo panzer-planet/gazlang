@@ -18,6 +18,6 @@ $z = $x * ($y + 5);  // 20 * (10 + 5) = 20 * 15 = 300
 echo $z;  // Outputs: 300
 
 // Using variables in different operations
-echo $z / $x;  // 300 / 20 = 15
+echo $z / $x;  // 300 / 20 = 15.0
 echo $z - $y;  // 300 - 10 = 290
 echo $x * $y;  // 20 * 10 = 200 

@@ -42,7 +42,6 @@ class OperatorTest extends GazLangTestCase
             'float overflow by division' => ['echo 1e308 / 1e-10;', 'Float overflow on line 1'],
             'modulo with a float' => ['echo 5.5 % 2;', 'Cannot use % on float on line 1'],
             'division by float zero' => ['echo 1 / 0.0;', 'Division by zero on line 1'],
-            'exact division that overflows' => ['echo (-9223372036854775807 - 1) / -1;', 'Integer overflow on line 1'],
             'float array key' => ['echo [1.5 => 1];', 'Array keys must be int or string, got float on line 1'],
             'float string position' => ['echo "abc"[1.0];', 'String positions must be int, got float on line 1'],
             'ordering a non-number string' => ['echo "abc" < 1.5;', 'Cannot use < on string and float on line 1'],

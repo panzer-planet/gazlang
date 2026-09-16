@@ -83,7 +83,7 @@ class VariableTest extends GazLangTestCase
         $input = '$x = 10; $y = 2; echo $x + $y; echo $x - $y; echo $x * $y; echo $x / $y;';
         $output = $this->executeCode($input);
 
-        $this->assertEquals("12\n8\n20\n5\n", $output);
+        $this->assertEquals("12\n8\n20\n5.0\n", $output);
     }
 
     /**

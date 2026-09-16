@@ -71,7 +71,7 @@ class BooleanTest extends GazLangTestCase
             'multiply' => ['echo 4611686018427387904 * 2;'],
             'subtract' => ['echo -9223372036854775807 - 2;'],
             'negate the minimum' => ['$min = -9223372036854775807 - 1; echo -$min;'],
-            'divide the minimum by -1' => ['$min = -9223372036854775807 - 1; echo $min / -1;'],
+            'intdiv the minimum by -1' => ['$min = -9223372036854775807 - 1; echo intdiv($min, -1);'],
         ];
     }
 
