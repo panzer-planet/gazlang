@@ -160,8 +160,8 @@ class ArrayTest extends GazLangTestCase
     {
         $this->assertEquals(
             "NEW_ARRAY\nSTORE 0\nLOAD 0\nPOP\n"
-            ."PUSH_STR \"k\"\nPUSH 0\nPUSH 5\nLOAD 0\nSET_PATH 2\nSTORE 0\nPOP\n"
-            ."LOAD 0\nLOAD_GLOBAL 0\nAPPEND_PATH 0\nSTORE_GLOBAL 0\nPOP\n"
+            ."PUSH_STR \"k\"\nPUSH 0\nPUSH 5\nSET_PATH 2 0\nPOP\n"
+            ."LOAD 0\nAPPEND_PATH_GLOBAL 0 0\nPOP\n"
             ."LOAD 0\nCALL_BUILTIN len 1\nPRINT",
             $this->generateCode('$a = []; $a["k"][0] = 5; @all[] = $a; echo len($a);')
         );

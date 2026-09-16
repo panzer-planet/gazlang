@@ -27,7 +27,6 @@ use GazLang\AST\TryStatementAST;
 use GazLang\AST\UnaryOpAST;
 use GazLang\AST\VariableAST;
 use GazLang\AST\WhileStatementAST;
-use GazLang\Lexer\Lexer;
 use GazLang\Lexer\Token;
 use GazLang\Runtime\Builtins;
 
@@ -44,11 +43,11 @@ use GazLang\Runtime\Builtins;
  * Arrays are values. NEW_ARRAY pushes an empty array; ARRAY_PUSH pops a value
  * and appends it to the array below, ARRAY_SET pops a value and a key and sets
  * it. INDEX_GET pops an index and an array or string and pushes the element (or
- * null). For an indexed assignment the keys, then the value, then the variable's
- * current array are pushed, so the array is read after anything the keys and
- * value do to it. SET_PATH n pops the array, the value and n keys, and pushes the
- * value then the updated array; APPEND_PATH n does the same but appends after
- * following the n keys. The updated array is then stored back into the variable.
+ * null). For an indexed assignment the keys, then the value are pushed, and
+ * SET_PATH n slot pops the value and n keys, sets the element of the variable in
+ * that local slot in place (SET_PATH_GLOBAL for a global), and pushes the value;
+ * APPEND_PATH n slot appends after following the n keys. The variable is read
+ * after the keys and value run, as in the interpreter.
  *
  * Operators mean what Runtime\Values says: DIV keeps an exact int division an int
  * and gives a float otherwise, MOD is ints only, and PUSH writes floats exactly.
@@ -80,9 +79,19 @@ class CodeGenerator extends AbstractNodeVisitor
     private $tree;
 
     /**
-     * @var array The generated instructions
+     * @var list<array{0: string, 1: array, 2: string|null, 3: int|null}> The generated instructions, see Program
      */
     private $instructions;
+
+    /**
+     * @var string|null The file of the innermost node being compiled, recorded on each instruction
+     */
+    private $file;
+
+    /**
+     * @var int|null The line of the innermost node being compiled
+     */
+    private $line;
 
     /**
      * @var array<string, int> Local variable names mapped to slots in the current frame
@@ -132,6 +141,61 @@ class CodeGenerator extends AbstractNodeVisitor
     }
 
     /**
+     * Visit a node, recording its location on the instructions emitted for it
+     *
+     * The location is the innermost node that has one, the same node whose location the
+     * interpreter reports for an error, so both backends' errors point at the same place.
+     * Nodes the code generator builds itself (for lowered constructs) have none, and keep
+     * the location of the node they were built for.
+     *
+     * @param  object  $node  The node to visit
+     * @return mixed The result of visiting the node
+     */
+    public function visit(object $node)
+    {
+        if ($node->line === null) {
+            return parent::visit($node);
+        }
+
+        [$file, $line] = [$this->file, $this->line];
+        [$this->file, $this->line] = [$node->file, $node->line];
+        try {
+            return parent::visit($node);
+        } finally {
+            [$this->file, $this->line] = [$file, $line];
+        }
+    }
+
+    /**
+     * Append an instruction at the current location
+     *
+     * @param  string  $opcode  The opcode
+     * @param  mixed  ...$args  Its arguments
+     */
+    private function emit(string $opcode, ...$args): void
+    {
+        $this->instructions[] = [$opcode, $args, $this->file, $this->line];
+    }
+
+    /**
+     * Emit a variable instruction, allocating the variable's slot the first time it is seen
+     *
+     * @param  string  $op  LOAD, STORE, SET_PATH or APPEND_PATH; globals get the _GLOBAL form
+     * @param  VariableAST  $variable  The variable
+     * @param  mixed  ...$args  Arguments before the slot (the key count for the path instructions)
+     */
+    private function emitVariable(string $op, VariableAST $variable, ...$args): void
+    {
+        if ($variable->isGlobal()) {
+            $this->emit("{$op}_GLOBAL", ...$args, ...[$this->global_addresses[$variable->value] ??= count($this->global_addresses)]);
+
+            return;
+        }
+
+        $this->emit($op, ...$args, ...[$this->var_addresses[$variable->value] ??= count($this->var_addresses)]);
+    }
+
+    /**
      * Visit a Variable node
      *
      * @param  VariableAST  $node  The node to visit
@@ -140,7 +204,7 @@ class CodeGenerator extends AbstractNodeVisitor
     {
         // Undefined variables are a runtime error: a loop can read a variable
         // that is only assigned further down the source
-        $this->instructions[] = $this->variableInstruction('LOAD', $node);
+        $this->emitVariable('LOAD', $node);
     }
 
     /**
@@ -162,14 +226,12 @@ class CodeGenerator extends AbstractNodeVisitor
             return;
         }
 
-        $store = $this->variableInstruction('STORE', $node->left);
-
         // Generate code for the right-hand side of the assignment
         $this->visit($node->right);
 
         // Store the computed value, then leave it on the stack for larger expressions
-        $this->instructions[] = $store;
-        $this->instructions[] = $this->variableInstruction('LOAD', $node->left);
+        $this->emitVariable('STORE', $node->left);
+        $this->emitVariable('LOAD', $node->left);
     }
 
     /**
@@ -260,28 +322,10 @@ class CodeGenerator extends AbstractNodeVisitor
             $this->visit($index);
         }
         $this->visit($node->right);
-        // Loaded last, like the interpreter, so side effects of the keys and value aren't overwritten
-        $this->instructions[] = $this->variableInstruction('LOAD', $variable);
 
-        $this->instructions[] = ($append ? 'APPEND_PATH ' : 'SET_PATH ').count($indexes);
-        // Stores the updated array, leaving the assigned value on the stack
-        $this->instructions[] = $this->variableInstruction('STORE', $variable);
-    }
-
-    /**
-     * Build a LOAD/STORE instruction for a variable, allocating its slot the first time it is seen
-     *
-     * @param  string  $op  LOAD or STORE
-     * @param  VariableAST  $variable  The variable
-     * @return string e.g. "LOAD 0" for a local or "LOAD_GLOBAL 0" for a global
-     */
-    private function variableInstruction(string $op, VariableAST $variable): string
-    {
-        if ($variable->isGlobal()) {
-            return "{$op}_GLOBAL ".($this->global_addresses[$variable->value] ??= count($this->global_addresses));
-        }
-
-        return "{$op} ".($this->var_addresses[$variable->value] ??= count($this->var_addresses));
+        // The variable is only read now, like the interpreter, so side effects of the keys and
+        // value aren't overwritten; and it is updated in place, so appending stays linear
+        $this->emitVariable($append ? 'APPEND_PATH' : 'SET_PATH', $variable, count($indexes));
     }
 
     /**
@@ -305,7 +349,7 @@ class CodeGenerator extends AbstractNodeVisitor
             throw new Exception("Unknown operator: {$node->op->type}");
         }
 
-        $this->instructions[] = self::BINARY_OPCODES[$node->op->type];
+        $this->emit(self::BINARY_OPCODES[$node->op->type]);
     }
 
     /**
@@ -326,16 +370,16 @@ class CodeGenerator extends AbstractNodeVisitor
         foreach ([$node->left, $node->right] as $operand) {
             $this->visit($operand);
             if (! $is_and) {
-                $this->instructions[] = 'NOT';
+                $this->emit('NOT');
             }
-            $this->instructions[] = "JZ {$short_label}";
+            $this->emit('JZ', $short_label);
         }
 
-        $this->instructions[] = $is_and ? 'PUSH true' : 'PUSH false';
-        $this->instructions[] = "JMP {$end_label}";
-        $this->instructions[] = "LABEL {$short_label}";
-        $this->instructions[] = $is_and ? 'PUSH false' : 'PUSH true';
-        $this->instructions[] = "LABEL {$end_label}";
+        $this->emit('PUSH', $is_and);
+        $this->emit('JMP', $end_label);
+        $this->emit('LABEL', $short_label);
+        $this->emit('PUSH', ! $is_and);
+        $this->emit('LABEL', $end_label);
     }
 
     /**
@@ -348,12 +392,12 @@ class CodeGenerator extends AbstractNodeVisitor
         $this->visit($node->expr);
 
         if ($node->op->type === Token::NOT) {
-            $this->instructions[] = 'NOT';
+            $this->emit('NOT');
         } elseif ($node->op->type === Token::MINUS) {
-            $this->instructions[] = 'NEG';
+            $this->emit('NEG');
         } elseif ($node->op->type === Token::INCREMENT || $node->op->type === Token::DECREMENT) {
             // Only produced by update(), for ++ and --
-            $this->instructions[] = $node->op->type === Token::INCREMENT ? 'INC' : 'DEC';
+            $this->emit($node->op->type === Token::INCREMENT ? 'INC' : 'DEC');
         } else {
             throw new Exception("Unknown operator: {$node->op->type}");
         }
@@ -366,8 +410,7 @@ class CodeGenerator extends AbstractNodeVisitor
      */
     public function visitNum(NumAST $node): void
     {
-        // Push the number onto the stack; floats are written so they read back exactly
-        $this->instructions[] = 'PUSH '.(is_float($node->value) ? Lexer::format_float($node->value) : $node->value);
+        $this->emit('PUSH', $node->value);
     }
 
     /**
@@ -377,7 +420,7 @@ class CodeGenerator extends AbstractNodeVisitor
      */
     public function visitBoolean(BooleanAST $node): void
     {
-        $this->instructions[] = $node->value ? 'PUSH true' : 'PUSH false';
+        $this->emit('PUSH', $node->value);
     }
 
     /**
@@ -387,7 +430,7 @@ class CodeGenerator extends AbstractNodeVisitor
      */
     public function visitNull(NullAST $node): void
     {
-        $this->instructions[] = 'PUSH null';
+        $this->emit('PUSH', null);
     }
 
     /**
@@ -397,13 +440,13 @@ class CodeGenerator extends AbstractNodeVisitor
      */
     public function visitArrayLiteral(ArrayLiteralAST $node): void
     {
-        $this->instructions[] = 'NEW_ARRAY';
+        $this->emit('NEW_ARRAY');
         foreach ($node->entries as [$key, $value]) {
             if ($key !== null) {
                 $this->visit($key);
             }
             $this->visit($value);
-            $this->instructions[] = $key === null ? 'ARRAY_PUSH' : 'ARRAY_SET';
+            $this->emit($key === null ? 'ARRAY_PUSH' : 'ARRAY_SET');
         }
     }
 
@@ -416,7 +459,7 @@ class CodeGenerator extends AbstractNodeVisitor
     {
         $this->visit($node->target);
         $this->visit($node->index);
-        $this->instructions[] = $node->existing ? 'INDEX_GET_EXISTING' : 'INDEX_GET';
+        $this->emit($node->existing ? 'INDEX_GET_EXISTING' : 'INDEX_GET');
     }
 
     /**
@@ -426,7 +469,7 @@ class CodeGenerator extends AbstractNodeVisitor
      */
     public function visitString(StringAST $node): void
     {
-        $this->instructions[] = 'PUSH_STR '.Lexer::quote($node->value);
+        $this->emit('PUSH_STR', $node->value);
     }
 
     /**
@@ -438,7 +481,7 @@ class CodeGenerator extends AbstractNodeVisitor
     {
         // Evaluate the expression but don't output
         $this->visit($node->expr);
-        $this->instructions[] = 'POP';  // Just pop the result off the stack, no output
+        $this->emit('POP');
     }
 
     /**
@@ -449,7 +492,7 @@ class CodeGenerator extends AbstractNodeVisitor
     public function visitEchoStatement(EchoStatementAST $node): void
     {
         $this->visit($node->expr);
-        $this->instructions[] = 'PRINT';  // Output the result
+        $this->emit('PRINT');
     }
 
     /**
@@ -480,15 +523,15 @@ class CodeGenerator extends AbstractNodeVisitor
         $this->visit($node->condition);
 
         // Jump to else block if condition is false
-        $this->instructions[] = "JZ {$else_label}";
+        $this->emit('JZ', $else_label);
 
         // If block
         $this->visit($node->if_body);
         // Jump to end after executing if block
-        $this->instructions[] = "JMP {$end_label}";
+        $this->emit('JMP', $end_label);
 
         // Else or else-if block
-        $this->instructions[] = "LABEL {$else_label}";
+        $this->emit('LABEL', $else_label);
 
         if ($node->else_if !== null) {
             // Handle else-if branch
@@ -499,7 +542,7 @@ class CodeGenerator extends AbstractNodeVisitor
         }
 
         // End of if/else statement
-        $this->instructions[] = "LABEL {$end_label}";
+        $this->emit('LABEL', $end_label);
     }
 
     /**
@@ -511,8 +554,8 @@ class CodeGenerator extends AbstractNodeVisitor
      *   $#array = $array; $#keys = keys($#array); $#i = 0;
      *   while ($#i < len($#keys); step $#i = $#i + 1) { $key = $#keys[$#i]; $value = $#array[$#keys[$#i]]; body }
      *
-     * The step runs on continue, as for for loops. A non-array fails in keys() rather
-     * than with the interpreter's "foreach expects an array" message.
+     * The step runs on continue, as for for loops. FOREACH_CHECK fails on a non-array with
+     * the interpreter's "foreach expects an array" message, leaving the value on the stack.
      *
      * @param  ForeachStatementAST  $node  The node to visit
      */
@@ -533,9 +576,12 @@ class CodeGenerator extends AbstractNodeVisitor
         $body->statements[] = $assign($node->value, new IndexAST($array, $key));
         array_push($body->statements, ...$node->body->statements);
 
+        $this->visit($node->iterable);
+        $this->emit('FOREACH_CHECK');
+        $this->emitVariable('STORE', $array);
+
         $loop = new CompoundAST;
         $loop->statements = [
-            $assign($array, $node->iterable),
             $assign($keys, new FunctionCallAST('keys', [$array])),
             $assign($i, new NumAST(new Token(Token::INTEGER, 0))),
             new WhileStatementAST(
@@ -561,21 +607,21 @@ class CodeGenerator extends AbstractNodeVisitor
         $continue_label = $node->step !== null ? 'CONTINUE_'.$this->label_counter : $start_label;
         $this->label_counter++;
 
-        $this->instructions[] = "LABEL {$start_label}";
+        $this->emit('LABEL', $start_label);
         $this->visit($node->condition);
-        $this->instructions[] = "JZ {$end_label}";
+        $this->emit('JZ', $end_label);
 
         $this->loop_labels[] = [$continue_label, $end_label, $this->try_depth];
         $this->visit($node->body);
         array_pop($this->loop_labels);
 
         if ($node->step !== null) {
-            $this->instructions[] = "LABEL {$continue_label}";
+            $this->emit('LABEL', $continue_label);
             $this->visit($node->step);
         }
 
-        $this->instructions[] = "JMP {$start_label}";
-        $this->instructions[] = "LABEL {$end_label}";
+        $this->emit('JMP', $start_label);
+        $this->emit('LABEL', $end_label);
     }
 
     /**
@@ -601,17 +647,17 @@ class CodeGenerator extends AbstractNodeVisitor
         $end_label = 'ENDTRY_'.$this->label_counter;
         $this->label_counter++;
 
-        $this->instructions[] = "TRY {$catch_label}";
+        $this->emit('TRY', $catch_label);
         $this->try_depth++;
         $this->visit($node->body);
         $this->try_depth--;
-        $this->instructions[] = 'END_TRY';
-        $this->instructions[] = "JMP {$end_label}";
+        $this->emit('END_TRY');
+        $this->emit('JMP', $end_label);
 
-        $this->instructions[] = "LABEL {$catch_label}";
-        $this->instructions[] = $this->variableInstruction('STORE', $node->variable);
+        $this->emit('LABEL', $catch_label);
+        $this->emitVariable('STORE', $node->variable);
         $this->visit($node->catch_body);
-        $this->instructions[] = "LABEL {$end_label}";
+        $this->emit('LABEL', $end_label);
     }
 
     /**
@@ -630,9 +676,9 @@ class CodeGenerator extends AbstractNodeVisitor
 
         // Jumping out of a try block leaves it, so its handler must be removed first
         for ($depth = $this->try_depth; $depth > $loop_try_depth; $depth--) {
-            $this->instructions[] = 'END_TRY';
+            $this->emit('END_TRY');
         }
-        $this->instructions[] = "JMP {$label}";
+        $this->emit('JMP', $label);
     }
 
     /**
@@ -656,9 +702,11 @@ class CodeGenerator extends AbstractNodeVisitor
             $this->visit($arg);
         }
 
-        $this->instructions[] = isset(Builtins::ARITIES[$node->name])
-            ? "CALL_BUILTIN {$node->name} ".count($node->args)
-            : "CALL FN_{$node->name} ".count($node->args);
+        if (isset(Builtins::ARITIES[$node->name])) {
+            $this->emit('CALL_BUILTIN', $node->name, count($node->args));
+        } else {
+            $this->emit('CALL', "FN_{$node->name}", count($node->args));
+        }
     }
 
     /**
@@ -669,12 +717,12 @@ class CodeGenerator extends AbstractNodeVisitor
     public function visitReturnStatement(ReturnStatementAST $node): void
     {
         if ($node->expr === null) {
-            $this->instructions[] = 'PUSH null';
+            $this->emit('PUSH', null);
         } else {
             $this->visit($node->expr);
         }
 
-        $this->instructions[] = 'RET';
+        $this->emit('RET');
     }
 
     /**
@@ -694,42 +742,54 @@ class CodeGenerator extends AbstractNodeVisitor
             }
             $skip_label = 'PASSED_'.$this->label_counter++;
 
-            $this->instructions[] = 'ARGC';
-            $this->instructions[] = "PUSH {$i}";
-            $this->instructions[] = 'GT';
-            $this->instructions[] = 'NOT';
-            $this->instructions[] = "JZ {$skip_label}";
+            $this->emit('ARGC');
+            $this->emit('PUSH', $i);
+            $this->emit('GT');
+            $this->emit('NOT');
+            $this->emit('JZ', $skip_label);
             $this->visit($default);
-            $this->instructions[] = "STORE {$i}";
-            $this->instructions[] = "LABEL {$skip_label}";
+            $this->emit('STORE', $i);
+            $this->emit('LABEL', $skip_label);
         }
     }
 
     /**
-     * Generate code from the AST
-     *
-     * @return string The generated code
+     * Compile the AST into a program for the VM
      */
-    public function generate(): string
+    public function compile(): Program
     {
         $this->visit($this->tree);
+        $local_names = ['' => array_keys($this->var_addresses)];
 
         if ($this->functions !== []) {
-            $this->instructions[] = 'HALT';
+            $this->emit('HALT');
         }
 
         foreach ($this->functions as $function) {
             // Each function has its own frame, with the arguments in the first slots
             $this->var_addresses = array_flip($function->params);
+            [$this->file, $this->line] = [$function->file, $function->line];
 
-            $this->instructions[] = "LABEL FN_{$function->name}";
+            $this->emit('LABEL', "FN_{$function->name}");
             $this->defaultArguments($function);
             $this->visit($function->body);
             // Falling off the end returns null
-            $this->instructions[] = 'PUSH null';
-            $this->instructions[] = 'RET';
+            $this->emit('PUSH', null);
+            $this->emit('RET');
+
+            $local_names[$function->name] = array_keys($this->var_addresses);
         }
 
-        return implode("\n", $this->instructions);
+        return new Program($this->instructions, $local_names, array_keys($this->global_addresses));
+    }
+
+    /**
+     * Generate code from the AST, as text
+     *
+     * @return string The generated code, one instruction per line
+     */
+    public function generate(): string
+    {
+        return (string) $this->compile();
     }
 }

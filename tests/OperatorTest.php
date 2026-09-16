@@ -117,7 +117,7 @@ class OperatorTest extends GazLangTestCase
             "NEW_ARRAY\nSTORE 0\nLOAD 0\nPOP\n"
             // $#key0 = 1; $#value = 2; $a[$#key0] = $a[$#key0] * $#value
             ."PUSH 1\nSTORE 1\nLOAD 1\nPOP\nPUSH 2\nSTORE 2\nLOAD 2\nPOP\n"
-            ."LOAD 1\nLOAD 0\nLOAD 1\nINDEX_GET_EXISTING\nLOAD 2\nMUL\nLOAD 0\nSET_PATH 1\nSTORE 0\nPOP",
+            ."LOAD 1\nLOAD 0\nLOAD 1\nINDEX_GET_EXISTING\nLOAD 2\nMUL\nSET_PATH 1 0\nPOP",
             $this->generateCode('$a = []; $a[1] *= 2;')
         );
     }
