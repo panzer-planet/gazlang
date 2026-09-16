@@ -1,6 +1,6 @@
 # GazLang
 
-A simple programming language compiler that supports dynamic typing with integers and strings, basic operators, control flow, and variables.
+A small, PHP-flavoured programming language with an interpreter and a stack-VM code generator, written in PHP on the way to being self-hosting. It has integers, strings, booleans, null and arrays, functions with local and global variables, loops, includes and a small standard library.
 
 ## Features
 
@@ -9,7 +9,7 @@ A simple programming language compiler that supports dynamic typing with integer
 - Arrays that work as lists and maps (`[1, 2]`, `["key" => 1]`), copied on assignment like PHP, with `$a[i]` indexing, `$a[] = v` appending and `len()`
 - Boolean literals `true` and `false`; comparisons and logical operators return booleans
 - String literals with double quotes (`"Hello, World!"`)
-- String escape sequences (`\n`, `\t`, `\"`, `\\`)
+- String escape sequences (`\n`, `\t`, `\r`, `\"`, `\\`); any other escape is an error
 - String concatenation with the `+` operator
 - Mathematical operators: `+`, `-`, `*`, `/`, unary `-`
 - Comparison operators: `==`, `!=`, `===`, `!==` (no type conversion), `<`, `<=`, `>`, `>=`
@@ -37,13 +37,17 @@ composer install
 
 ## Usage
 
-Run the GazLang interpreter:
+Run a program from a file (the usual way):
 
 ```bash
-php bin/gazlang
+php bin/gazlang -f program.gaz
 ```
 
-Example expressions:
+`php bin/gazlang` on its own starts an interactive prompt, but each line runs as a
+separate program, so variables and functions don't carry over between lines.
+Piped input runs as one program: `cat program.gaz | php bin/gazlang`.
+
+Example program:
 
 ```
 5 + 3;           // Evaluates but no output

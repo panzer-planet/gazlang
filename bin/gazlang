@@ -1,6 +1,13 @@
 #!/usr/bin/env php
 <?php
 
+// With pcov enabled every PHP call uses the C stack, so deep GazLang recursion
+// segfaults long before the interpreter's call depth limit. Run again without it.
+if (extension_loaded('pcov') && ini_get('pcov.enabled')) {
+    passthru(implode(' ', array_map('escapeshellarg', [PHP_BINARY, '-d', 'pcov.enabled=0', ...$argv])), $exitCode);
+    exit($exitCode);
+}
+
 // Autoload classes
 $autoloadPaths = [
     __DIR__ . '/../vendor/autoload.php', // Composer autoload
@@ -70,8 +77,8 @@ $inputFile = $options['f'] ?? ($options['file'] ?? null);
 
 if ($inputFile) {
     // Read from file
-    if (!file_exists($inputFile)) {
-        echo "Error: File not found: $inputFile\n";
+    if (!is_file($inputFile) || !is_readable($inputFile)) {
+        echo "Error: Cannot read file: $inputFile\n";
         exit(1);
     }
     
@@ -96,8 +103,13 @@ echo "GazLang Interpreter\n";
 echo "Type 'exit' or 'quit' to exit\n";
 
 while (true) {
-    $line = trim(fgets(STDIN));
-    
+    $line = fgets(STDIN);
+    // End of input (Ctrl-D)
+    if ($line === false) {
+        break;
+    }
+    $line = trim($line);
+
     if ($line === 'exit' || $line === 'quit') {
         break;
     }

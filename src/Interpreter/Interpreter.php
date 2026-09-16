@@ -24,6 +24,7 @@ use GazLang\AST\UnaryOpAST;
 use GazLang\AST\VariableAST;
 use GazLang\AST\WhileStatementAST;
 use GazLang\GazLangError;
+use GazLang\Lexer\Lexer;
 use GazLang\Lexer\Token;
 use GazLang\Parser\Parser;
 
@@ -264,17 +265,42 @@ class Interpreter extends AbstractNodeVisitor
                 throw new Exception("Cannot use {$node->op->value} on string");
             }
 
-            return match ($type) {
+            if ($type === Token::DIVIDE && $right === 0) {
+                throw new Exception('Division by zero');
+            }
+
+            $result = match ($type) {
                 Token::PLUS => $left + $right,
                 Token::MINUS => $left - $right,
                 Token::MULTIPLY => $left * $right,
-                Token::DIVIDE => $right === 0 ? throw new Exception('Division by zero') : intdiv($left, $right),
+                // intdiv(PHP_INT_MIN, -1) throws ArithmeticError; its result wouldn't fit either
+                Token::DIVIDE => $left === PHP_INT_MIN && $right === -1 ? PHP_INT_MAX + 1 : intdiv($left, $right),
             };
+
+            // PHP turns an int that overflows into a float, which GazLang has no type for
+            if (! is_int($result)) {
+                throw new Exception('Integer overflow');
+            }
+
+            return $result;
         }
 
-        // Two strings compare byte by byte, so "1" != "01" and "10" < "9";
-        // anything else uses PHP's comparison, which matches == for scalars
-        $cmp = is_string($left) && is_string($right) ? strcmp($left, $right) : $left <=> $right;
+        // A string and an int only compare when the string holds an integer ("5" == 5);
+        // any other string never equals an int, and ordering them is an error
+        if (is_string($left) !== is_string($right)) {
+            $int = Lexer::parse_integer(is_string($left) ? $left : $right);
+            if ($int === null) {
+                return match ($type) {
+                    Token::EQUALS => false,
+                    Token::NOT_EQUALS => true,
+                    default => throw new Exception("Cannot use {$node->op->value} on string and int"),
+                };
+            }
+            [$left, $right] = is_string($left) ? [$int, $right] : [$left, $int];
+        }
+
+        // Two strings compare byte by byte, so "1" != "01" and "10" < "9"; two ints numerically
+        $cmp = is_string($left) ? strcmp($left, $right) : $left <=> $right;
 
         return match ($type) {
             Token::EQUALS => $cmp === 0,
@@ -302,6 +328,10 @@ class Interpreter extends AbstractNodeVisitor
         } elseif ($node->op->type === Token::MINUS) {
             if (! is_int($value) && ! is_bool($value)) {
                 throw new Exception('Cannot use - on '.get_debug_type($value));
+            }
+
+            if ($value === PHP_INT_MIN) {
+                throw new Exception('Integer overflow');
             }
 
             return -(int) $value;
@@ -347,24 +377,14 @@ class Interpreter extends AbstractNodeVisitor
             $is_list = array_is_list($value);
             $parts = [];
             foreach ($value as $key => $item) {
-                $item = is_string($item) ? $this->quote($item) : $this->toString($item);
-                $parts[] = $is_list ? $item : (is_string($key) ? $this->quote($key) : $key).' => '.$item;
+                $item = is_string($item) ? Lexer::quote($item) : $this->toString($item);
+                $parts[] = $is_list ? $item : (is_string($key) ? Lexer::quote($key) : $key).' => '.$item;
             }
 
             return '['.implode(', ', $parts).']';
         }
 
         throw new Exception('Cannot convert '.get_debug_type($value).' to string');
-    }
-
-    /**
-     * Quote a string the way it would be written in source, for printing inside arrays
-     *
-     * @param  string  $value  The string to quote
-     */
-    private function quote(string $value): string
-    {
-        return '"'.addcslashes($value, "\"\n\r\t\\").'"';
     }
 
     /**
@@ -460,48 +480,47 @@ class Interpreter extends AbstractNodeVisitor
      * Visit a Compound node
      *
      * @param  CompoundAST  $node  The node to visit
-     * @return array The results of each statement
+     * @return null Statements produce no result; keeping theirs would hold extra references
+     *              to arrays and make the next in-place write copy them
      */
-    public function visitCompound(CompoundAST $node): array
+    public function visitCompound(CompoundAST $node): null
     {
-        $results = [];
         foreach ($node->statements as $statement) {
-            $results[] = $this->visit($statement);
+            $this->visit($statement);
         }
 
-        return $results;
+        return null;
     }
 
     /**
      * Visit an IfStatement node
      *
      * @param  IfStatementAST  $node  The node to visit
-     * @return mixed The result of the executed branch
+     * @return null Statements produce no result
      */
-    public function visitIfStatement(IfStatementAST $node)
+    public function visitIfStatement(IfStatementAST $node): null
     {
         if ($this->isTruthy($this->visit($node->condition))) {
             // Execute the if branch
-            return $this->visit($node->if_body);
+            $this->visit($node->if_body);
         } elseif ($node->else_if !== null) {
             // Execute the else-if branch if it exists
-            return $this->visit($node->else_if);
+            $this->visit($node->else_if);
         } elseif ($node->else_body !== null) {
             // Execute the else branch if it exists
-            return $this->visit($node->else_body);
+            $this->visit($node->else_body);
         }
 
-        // If condition is false and there's no else block, return empty result
-        return [];
+        return null;
     }
 
     /**
      * Visit a WhileStatement node
      *
      * @param  WhileStatementAST  $node  The node to visit
-     * @return array Loops produce no result
+     * @return null Loops produce no result
      */
-    public function visitWhileStatement(WhileStatementAST $node): array
+    public function visitWhileStatement(WhileStatementAST $node): null
     {
         while ($this->isTruthy($this->visit($node->condition))) {
             try {
@@ -517,7 +536,7 @@ class Interpreter extends AbstractNodeVisitor
             }
         }
 
-        return [];
+        return null;
     }
 
     /**
@@ -580,11 +599,11 @@ class Interpreter extends AbstractNodeVisitor
      * Visit a FunctionDeclaration node; declarations are registered up front by interpret()
      *
      * @param  FunctionDeclarationAST  $node  The node to visit
-     * @return array Declarations produce no result
+     * @return null Declarations produce no result
      */
-    public function visitFunctionDeclaration(FunctionDeclarationAST $node): array
+    public function visitFunctionDeclaration(FunctionDeclarationAST $node): null
     {
-        return [];
+        return null;
     }
 
     /**
@@ -710,15 +729,11 @@ class Interpreter extends AbstractNodeVisitor
         if (is_int($value)) {
             return $value;
         }
-        if (is_string($value) && preg_match('/^-?[0-9]+$/', $value)) {
-            // (int) saturates on overflow, so the digits only survive a round trip if they fit
-            $normalized = preg_replace(['/^(-?)0+(?=[0-9])/', '/^-0$/'], ['$1', '0'], $value);
-            if ((string) (int) $value === $normalized) {
-                return (int) $value;
-            }
+        if (is_string($value) && ($int = Lexer::parse_integer($value)) !== null) {
+            return $int;
         }
 
-        throw new Exception('to_int() cannot convert '.(is_string($value) ? $this->quote($value) : get_debug_type($value)));
+        throw new Exception('to_int() cannot convert '.(is_string($value) ? Lexer::quote($value) : get_debug_type($value)));
     }
 
     /**
@@ -770,8 +785,6 @@ class Interpreter extends AbstractNodeVisitor
 
         throw $this->return_signal;
     }
-
-    // The visit method is now implemented in AbstractNodeVisitor
 
     /**
      * Interpret the AST

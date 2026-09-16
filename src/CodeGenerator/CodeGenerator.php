@@ -23,6 +23,7 @@ use GazLang\AST\StringAST;
 use GazLang\AST\UnaryOpAST;
 use GazLang\AST\VariableAST;
 use GazLang\AST\WhileStatementAST;
+use GazLang\Lexer\Lexer;
 use GazLang\Lexer\Token;
 use GazLang\Parser\Parser;
 
@@ -331,11 +332,7 @@ class CodeGenerator extends AbstractNodeVisitor
      */
     public function visitString(StringAST $node): void
     {
-        // Escape special characters in the string for the code representation
-        $escapedValue = addcslashes($node->value, "\"\n\r\t\\");
-
-        // Push the string onto the stack
-        $this->instructions[] = "PUSH_STR \"{$escapedValue}\"";
+        $this->instructions[] = 'PUSH_STR '.Lexer::quote($node->value);
     }
 
     /**
@@ -388,7 +385,7 @@ class CodeGenerator extends AbstractNodeVisitor
         // Evaluate the condition
         $this->visit($node->condition);
 
-        // Jump to else block if condition is false (0)
+        // Jump to else block if condition is false
         $this->instructions[] = "JZ {$else_label}";
 
         // If block
@@ -499,8 +496,6 @@ class CodeGenerator extends AbstractNodeVisitor
 
         $this->instructions[] = 'RET';
     }
-
-    // The visit method is now implemented in AbstractNodeVisitor
 
     /**
      * Generate code from the AST

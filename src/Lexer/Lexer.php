@@ -30,6 +30,11 @@ class Lexer
     private $line = 1;
 
     /**
+     * Characters written with a backslash escape inside string literals, and their escapes
+     */
+    private const ESCAPES = ['\\' => '\\\\', '"' => '\\"', "\n" => '\\n', "\t" => '\\t', "\r" => '\\r'];
+
+    /**
      * @var array Keywords in the language
      */
     private $reserved_keywords = [
@@ -112,6 +117,8 @@ class Lexer
 
     /**
      * Return a (multidigit) integer from the input
+     *
+     * @throws GazLangError If the literal doesn't fit in an int
      */
     public function integer(): int
     {
@@ -121,7 +128,40 @@ class Lexer
             $this->advance();
         }
 
-        return (int) $result;
+        return self::parse_integer($result) ?? throw new GazLangError("Integer literal too large: {$result}", null, $this->line);
+    }
+
+    /**
+     * Parse a string of decimal digits with an optional leading minus, as GazLang writes integers
+     *
+     * Shared with the interpreter (to_int, and comparing strings with ints) so every
+     * place agrees on what an integer string is.
+     *
+     * @param  string  $digits  The text to parse
+     * @return int|null The integer, or null if the text isn't one or doesn't fit in an int
+     */
+    public static function parse_integer(string $digits): ?int
+    {
+        if (! preg_match('/^-?[0-9]+$/', $digits)) {
+            return null;
+        }
+
+        // (int) saturates on overflow, so the digits only survive a round trip if they fit
+        $normalized = preg_replace(['/^(-?)0+(?=[0-9])/', '/^-0$/'], ['$1', '0'], $digits);
+
+        return (string) (int) $digits === $normalized ? (int) $digits : null;
+    }
+
+    /**
+     * Write a string as a GazLang string literal, the inverse of string()
+     *
+     * Used wherever strings are shown as source: printed arrays, syntax errors and generated code.
+     *
+     * @param  string  $value  The string
+     */
+    public static function quote(string $value): string
+    {
+        return '"'.strtr($value, self::ESCAPES).'"';
     }
 
     /**
@@ -141,24 +181,11 @@ class Lexer
 
         while ($this->current_char !== null && ($this->current_char !== '"' || $escape)) {
             if ($escape) {
-                // Handle escape sequences
-                switch ($this->current_char) {
-                    case 'n':
-                        $result .= "\n";
-                        break;
-                    case 't':
-                        $result .= "\t";
-                        break;
-                    case '"':
-                        $result .= '"';
-                        break;
-                    case '\\':
-                        $result .= '\\';
-                        break;
-                    default:
-                        // For any other character, just add the character itself
-                        $result .= $this->current_char;
+                $unescaped = array_search('\\'.$this->current_char, self::ESCAPES, true);
+                if ($unescaped === false) {
+                    throw new GazLangError("Unknown escape sequence \\{$this->current_char} in string", null, $this->line);
                 }
+                $result .= $unescaped;
                 $escape = false;
             } elseif ($this->current_char === '\\') {
                 $escape = true;

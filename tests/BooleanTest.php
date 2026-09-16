@@ -56,10 +56,44 @@ class BooleanTest extends GazLangTestCase
         ));
     }
 
-    public function test_echo_rejects_values_it_cannot_print()
+    /**
+     * @dataProvider overflows
+     */
+    public function test_overflow_cases(string $code)
     {
-        // Integer overflow turns into a PHP float, which GazLang has no type for
-        $this->expectExceptionMessage('Cannot convert float to string');
+        $this->expectExceptionMessage('Integer overflow');
+        $this->executeCode($code);
+    }
+
+    public static function overflows(): array
+    {
+        return [
+            'multiply' => ['echo 4611686018427387904 * 2;'],
+            'subtract' => ['echo -9223372036854775807 - 2;'],
+            'negate the minimum' => ['$min = -9223372036854775807 - 1; echo -$min;'],
+            'divide the minimum by -1' => ['$min = -9223372036854775807 - 1; echo $min / -1;'],
+        ];
+    }
+
+    public function test_mixed_string_and_int_comparisons()
+    {
+        // Integer strings compare as ints (booleans act as 1/0); any other string never equals an int
+        $this->assertEquals("true\ntrue\ntrue\nfalse\nfalse\nfalse\nfalse\ntrue\ntrue\n", $this->executeCode(
+            'echo "5" == 5; echo 7 == "007"; echo true == "1"; echo true == "abc"; echo false == "";'
+            .' echo "1e0" == 1; echo " 5" == 5; echo "abc" != 1; echo "-3" < 2;'
+        ));
+    }
+
+    public function test_ordering_a_non_integer_string_against_an_int_is_an_error()
+    {
+        $this->expectExceptionMessage('Cannot use < on string and int on line 1');
+        $this->executeCode('echo "abc" < 1;');
+    }
+
+    public function test_integer_overflow_is_an_error()
+    {
+        // PHP would silently turn the result into a float, which GazLang has no type for
+        $this->expectExceptionMessage('Integer overflow on line 1');
         $this->executeCode('echo 9223372036854775807 + 1;');
     }
 

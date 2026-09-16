@@ -166,7 +166,7 @@ class Parser
     {
         return match ($token->type) {
             Token::EOF => 'end of file',
-            Token::STRING => 'string "'.addcslashes($token->value, "\"\n\r\t\\").'"',
+            Token::STRING => 'string '.Lexer::quote($token->value),
             default => "'{$token->value}'",
         };
     }

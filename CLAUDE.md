@@ -15,16 +15,18 @@ vendor/bin/phpunit tests/SpecificTest.php
 vendor/bin/phpunit --filter=testMethodName tests/SpecificTest.php
  
 # Run interpreter on a file
-php bin/gazlang -f examples/example.gaz
+php bin/gazlang -f examples/functions_example.gaz
  
 # Generate code instead of interpreting
-php bin/gazlang -f examples/example.gaz -c
+php bin/gazlang -f examples/functions_example.gaz -c
 ```
  
 ## Code Style Guidelines
 - **Namespaces**: Use `GazLang\` namespace root with PSR-4 autoloading
 - **Classes**: PascalCase (e.g., `Parser`)
-- **Methods/Functions**: camelCase (e.g., `getNextToken()`)
+- **Methods/Functions**: camelCase (e.g., `visitBinOp()`, `isTruthy()`), except Lexer and Parser
+  methods, which are snake_case and named after the grammar rule or step they read
+  (`get_next_token()`, `function_call()`, `left_associative()`)
 - **Properties**: snake_case (e.g., `$current_char`)
 - **Constants**: UPPERCASE (e.g., `TOKEN::INTEGER`)
 - **Documentation**: PHPDoc for classes and methods with parameter/return types
@@ -52,8 +54,14 @@ each step depends on the ones before it.
    - Booleans act as 1/0 in arithmetic and comparisons: `true + 1` is `2`,
      `true == 1` is true.
    - Concatenation uses the same spelling as `echo`: `"x" + true` is `"xtrue"`.
-   - Two strings compare byte by byte (`"1" != "01"`, `"10" < "9"`). Mixed
-     string/number comparisons still follow PHP (`"5" == 5`).
+   - Two strings compare byte by byte (`"1" != "01"`, `"10" < "9"`). A string
+     and an int (or a bool, as 1/0) compare as ints only when the string is an
+     integer by `Lexer::parse_integer()` (`"5" == 5`, `"007" == 7`, `true == "1"`);
+     any other string is never `==` an int (`"1e0" != 1`, `true != "abc"`), and
+     ordering it against an int (`"abc" < 1`) is an error.
+   - Ints never silently overflow: literals that don't fit are a lexer error,
+     and arithmetic or negation that would leave the int range throws
+     `Integer overflow` (PHP would produce a float, which GazLang has no type for).
    - `===` / `!==` compare type and value with no conversion: `"5" === 5` and
      `true === 1` are false.
    - Code generation pushes `PUSH true` / `PUSH false`.
@@ -91,9 +99,11 @@ each step depends on the ones before it.
      recursion is a GazLang error rather than a PHP out-of-memory fatal. `return`,
      `break` and `continue` rethrow one preallocated signal each: creating a new
      exception per return records a stack trace and made deep recursion quadratic.
-   - Gotcha: with the pcov (or Xdebug) extension enabled, every PHP call uses the
-     C stack and deep GazLang recursion segfaults (exit 139) well before the limit.
-     Run with `-d pcov.enabled=0` when that matters.
+   - With the pcov extension enabled every PHP call uses the C stack and deep
+     GazLang recursion segfaults (exit 139) before the limit, so `bin/gazlang`
+     restarts itself with `-d pcov.enabled=0`. In-process code (phpunit) still
+     runs with pcov, so tests of deep recursion go through the CLI. Xdebug has
+     the same problem and is not handled.
    - Reserved for later: `#` for object properties (`@` is taken by globals).
 5. ~~**Add arrays (and maybe maps).**~~ Done. One PHP-style ordered array type
    serves as both list and map. Decided semantics:
@@ -124,8 +134,8 @@ each step depends on the ones before it.
      indexed assignment pushes keys, value, then `LOAD`s the array, and
      `SET_PATH n` / `APPEND_PATH n` then `STORE` the updated array (stack
      effects are documented on `CodeGenerator`).
-   - Not yet: removing elements, iterating keys (`foreach` or a `keys()`
-     builtin), checking a key exists when its value may be null.
+   - Not yet: removing elements (build a new array instead), `foreach` (loop
+     over `keys()`).
    - `Parser::BUILTINS` records a fixed arity; variadic builtins will need that
      to change.
 6. ~~**Design a minimal standard library.**~~ Done. Builtins live in

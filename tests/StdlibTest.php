@@ -152,6 +152,14 @@ class StdlibTest extends GazLangTestCase
         $this->assertSame(0, $exit_code);
     }
 
+    public function test_cli_rejects_a_file_it_cannot_read()
+    {
+        exec(sprintf('%s %s -f %s', escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang'), escapeshellarg(__DIR__)), $output, $exit_code);
+
+        $this->assertSame(['Error: Cannot read file: '.__DIR__], $output);
+        $this->assertSame(1, $exit_code);
+    }
+
     public function test_cli_rejects_unknown_options_instead_of_dropping_them()
     {
         exec(sprintf(
