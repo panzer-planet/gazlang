@@ -101,8 +101,8 @@ each step depends on the ones before it.
    - `function name($a, $b) { ... }` is only allowed at the top level. Calls may
      come before the declaration (mutual recursion works). The parser checks
      every call's name and argument count once the whole program is read, so
-     both backends trust calls. Functions are not values; nested functions
-     and closures wait until they are.
+     both backends trust calls. Functions are values, see "Function values"
+     below; nested functions and closures are next.
    - Parameters can have defaults, `function f($a, $b = $a * 2)`, after all the
      required ones. A default is any expression, evaluated inside the function on
      each call that leaves the argument out (so it can use earlier parameters and
@@ -251,8 +251,8 @@ each step depends on the ones before it.
 `docs/design-review.md` (2026-09-17) lists the design questions to settle before objects,
 ranked, with a status on each; update it as they are decided.
 
-Operator changes decided on 2026-09-17 from that review, each its own commit, before
-function values (their tests would otherwise assert the old semantics):
+Operator changes decided on 2026-09-17 from that review, each built as its own commit
+before function values:
 - **Concatenation gets its own operator, `..`** (Lua), which converts non-strings the
   way `echo` does. Interpolation desugars to it. `+` is numeric only: a string on
   either side is an error, so two CSV fields can't quietly join instead of adding.
@@ -263,60 +263,7 @@ function values (their tests would otherwise assert the old semantics):
 - **`/` always gives a float** (Python 3, Lua 5.3); `intdiv` is integer division.
 
 Design agreed on 2026-09-17, to build in phases (each committed and reviewed):
-1. Named functions as values, by bare name (`$f = add;`, builtins too: `len`), and
-   calling any function value: `$f(1)`, `$handlers["save"]($doc)`, `make_adder(2)(3)`.
-   A bare name is unambiguous because variables always have a sigil, and the parser
-   still checks at parse time that it names a function. Calls on values check arity
-   at runtime (a catchable error, like `Cannot call int`). `type_of` gives
-   `"function"`; echo prints something readable (`function add`, `-> at file:line`).
-
-   **Phase 1 plan** (reviewed 2026-09-17, not started):
-   - Runtime: `Runtime\FunctionValue` holds a `name`; `FunctionValue::named()` interns
-     one instance per name, so `add == add` and `in_array` work by identity. Only named
-     refs are interned: phase 2 closures are fresh per creation and compare by
-     identity, like PHP, so don't design phase 2 around `named()`. `Values::typeOf()`
-     replaces every `get_debug_type` under `src/` and says `function`, so `type_of`
-     and all existing errors (`Cannot use [] on function`, `foreach expects an
-     array, got function`, ...) follow with no other edits. Functions are true in
-     conditions; `==`/`!=` are identity and any other operator throws, as for arrays;
-     `"x" .. add` is `"xfunction add"`; `echo add` prints `function add`, in an array
-     `[function add]`. `Builtins::arityError($name, $arity, $argc)` formats the parser's
-     "Function add expects 2 arguments, 1 given" for the parser and both backends.
-   - AST: `FunctionRefAST { name }` (a bare name as a value) and `CallValueAST
-     { callee, args }` (a call on any expression). `FunctionCallAST` is untouched:
-     `add(1)` stays a static, parse-checked call (the code generator's foreach
-     lowering builds one by name). `FunctionDeclarationAST` gets `$arity` from the
-     parser, which the interpreter reads and `compile()` copies into
-     `Program::$functions` (`name => arity`) for the VM.
-   - Parser: an `IDENTIFIER` not followed by `(` is a `FunctionRefAST`, checked for
-     existence in `program()` like calls. `postfix()` accepts `(args)` as well as
-     `[index]`, so `$f(1)`, `$h["save"]($doc)`, `pick()(1, 2)` and `(add)(1)` are all
-     `CallValueAST`, unchecked at parse time. `assignable()` already rejects
-     `$f(1) = 2`. `isConstant()` must not learn about refs: `[add, len]` is built at
-     runtime. A typo like `retrun 1;` now fails as "Expected ';'" rather than
-     "Expected '('", because a bare name is an expression.
-   - Backends: `FunctionRefAST` compiles to `PUSH_FN add`; a `CallValueAST` to
-     callee, args, `CALL_VALUE argc`. Evaluation order in both backends: callee,
-     then args, then `Cannot call int` (via `typeOf`), then the arity check, then the
-     call (PHP checks callability before the args; not a goal). The interpreter's
-     `visitFunctionCall` body becomes `call($name, $args)`, shared with
-     `visitCallValue`; the VM's `CALL_VALUE` shares `CALL`'s frame push, so the depth
-     message and `RET`'s handler dropping stay identical, and names the frame after
-     the callee so `local_names` works. `-c` prints `PUSH_FN add` and `CALL_VALUE 2`.
-   - `lib/json.gaz`: `json_encode` errors on a function rather than writing `function add`.
-   - Tests, all through `executeCode()` so both backends must agree on output,
-     error message and line: assign and call; builtin as value; array of handlers;
-     `pick()(1, 2)`; `(add)(1, 2)`; a ref in an included file; a `@global` called
-     inside a function; `$cb = len` as a default; `foreach ([add, len] as $f)`;
-     `"{$f(1)}"`; `echo add`, `echo [add]`, `type_of`, `==`, `in_array`,
-     `if (add)`, `"x" .. add`; parse errors for an undeclared bare name and
-     `$f(1) = 2`; runtime errors caught by try/catch with the line: `Cannot call
-     int`, `null(1)`, wrong arity through a value, `add + 1`, `$a[add]`, `[add => 1]`,
-     `foreach (add as $x)`, `add < len`; `error` as a value, uncaught (`Error: boom`,
-     no location) and caught (line present); the depth limit through a value (via
-     the CLI); the order pin `$f = 5; $f(error("first"))` reports `first`; a
-     multi-line `$f(\n1,\n2)` with wrong arity; one `CodeGeneratorTest` line for
-     `PUSH_FN`/`CALL_VALUE`. Then move this item into the roadmap as done.
+1. ~~**Named functions as values.**~~ Done, see "Function values" below.
 2. Anonymous functions with `->`: `$x -> $x * 2`, `($a, $b = 1) -> $a + $b`,
    `() -> 42`, and a block body `($a) -> { ...; return ...; }` (no implicit return).
    `->` is right associative (`$x -> $y -> $x + $y`). Parsing `(` needs lookahead to
@@ -364,6 +311,37 @@ Design agreed on 2026-09-17, to build in phases (each committed and reviewed):
   `finally` arrives with objects.
 - **No inheritance in the first cut:** composition and duck typing first; see whether
   the self-hosted parser needs more. A `<=>` operator would suit comparison functions.
+
+## Function values
+
+A bare function name is a value (`$f = add;`, builtins too: `$l = len;`): `FunctionRefAST`,
+which the parser records and checks names a function once the whole program is read,
+like calls ("Undefined function: missing"). A bare name is unambiguous because variables
+always have a sigil; a typo like `retrun 1;` is now "Expected ';'" rather than
+"Expected '('". `Runtime\FunctionValue` holds the name; `FunctionValue::named()` interns
+one instance per name, so `add == add` and `in_array` work by identity. Anonymous
+functions (next) will be fresh per creation and compare by identity of creation, so
+nothing should depend on `named()`.
+
+Any postfix expression can be called: `$f(1)`, `$h["save"]($doc)`, `pick()(1, 2)`,
+`(add)(1)` are `CallValueAST` (callee, args), parsed by the same `postfix()` loop as
+`[index]` and located at the `(`. Only `add(1)`, a name directly followed by `(`, is a
+`FunctionCallAST`, checked at parse time and compiled as before. A call on a value is
+checked when it runs, in both backends in this order: the callee is evaluated, then the
+arguments, then `Cannot call int` (via `Values::typeOf()`) or the arity
+(`Builtins::arityError()`, the parser's wording: "Function add expects 2 arguments, 1
+given"), then the call. Both are catchable. `FunctionDeclarationAST::$arity` (a count or
+`[fewest, most]`) is set by the parser; the interpreter reads it and `compile()` copies
+it into `Program::$functions` for the VM.
+
+`type_of` gives `"function"`, `echo add` prints `function add` (`[function add]` in an
+array), functions are true in conditions, `==` is identity, and every other operator,
+key or index use is an error naming the type (`Cannot use + on function`). `Values::typeOf()`
+replaces `get_debug_type` everywhere, so every existing error message follows.
+`json_encode` refuses a function. Code generation: `PUSH_FN add`; a call on a value is
+callee, args, `CALL_VALUE argc`, which pops them and either calls the builtin or pushes a
+frame as `CALL` does (`VM::link()` resolves each function's entry from its label).
+`isConstant()` doesn't know about refs, so `[add, len]` is built at runtime.
 
 ## Assignment
 

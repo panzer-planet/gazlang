@@ -9,11 +9,13 @@ use GazLang\AST\AssignAST;
 use GazLang\AST\AST;
 use GazLang\AST\BinOpAST;
 use GazLang\AST\BooleanAST;
+use GazLang\AST\CallValueAST;
 use GazLang\AST\CompoundAST;
 use GazLang\AST\EchoStatementAST;
 use GazLang\AST\ForeachStatementAST;
 use GazLang\AST\FunctionCallAST;
 use GazLang\AST\FunctionDeclarationAST;
+use GazLang\AST\FunctionRefAST;
 use GazLang\AST\IfStatementAST;
 use GazLang\AST\IncrementAST;
 use GazLang\AST\IndexAST;
@@ -39,6 +41,10 @@ use GazLang\Runtime\Builtins;
  * the value onto the caller's stack. LOAD/STORE address the current frame's
  * locals; LOAD_GLOBAL/STORE_GLOBAL address the globals shared by every frame.
  * Function bodies are emitted after the top level code, which ends in HALT.
+ * PUSH_FN name pushes a function as a value, and CALL_VALUE argc pops argc
+ * arguments and the value under them and calls it, checking at runtime that it is a
+ * function taking that many arguments (the Program's function table gives each
+ * function's arity).
  *
  * Arrays are values. NEW_ARRAY pushes an empty array; ARRAY_PUSH pops a value
  * and appends it to the array below, ARRAY_SET pops a value and a key and sets
@@ -841,6 +847,31 @@ class CodeGenerator extends AbstractNodeVisitor
     }
 
     /**
+     * Visit a FunctionRef node
+     *
+     * @param  FunctionRefAST  $node  The node to visit
+     */
+    public function visitFunctionRef(FunctionRefAST $node): void
+    {
+        $this->emit('PUSH_FN', $node->name);
+    }
+
+    /**
+     * Visit a CallValue node: the callee, then the arguments, then CALL_VALUE (the interpreter's order)
+     *
+     * @param  CallValueAST  $node  The node to visit
+     */
+    public function visitCallValue(CallValueAST $node): void
+    {
+        $this->visit($node->callee);
+        foreach ($node->args as $arg) {
+            $this->visit($arg);
+        }
+
+        $this->emit('CALL_VALUE', count($node->args));
+    }
+
+    /**
      * Visit a ReturnStatement node
      *
      * @param  ReturnStatementAST  $node  The node to visit
@@ -891,12 +922,14 @@ class CodeGenerator extends AbstractNodeVisitor
     {
         $this->visit($this->tree);
         $local_names = ['' => array_keys($this->var_addresses)];
+        $arities = [];
 
         if ($this->functions !== []) {
             $this->emit('HALT');
         }
 
         foreach ($this->functions as $function) {
+            $arities[$function->name] = $function->arity;
             // Each function has its own frame, with the arguments in the first slots
             $this->var_addresses = array_flip($function->params);
             [$this->file, $this->line] = [$function->file, $function->line];
@@ -911,7 +944,7 @@ class CodeGenerator extends AbstractNodeVisitor
             $local_names[$function->name] = array_keys($this->var_addresses);
         }
 
-        return new Program($this->instructions, $local_names, array_keys($this->global_addresses));
+        return new Program($this->instructions, $local_names, array_keys($this->global_addresses), $arities);
     }
 
     /**

@@ -9,7 +9,8 @@ use GazLang\Lexer\Token;
 /**
  * GazLang's value semantics: truthiness, printing, array keys, operators and indexing
  *
- * Values are plain PHP values: int, float (always finite), string, bool, null and array. Everything here is a
+ * Values are plain PHP values: int, float (always finite), string, bool, null and array, plus
+ * FunctionValue for a function. Everything here is a
  * pure function of values, so any backend that runs GazLang (the interpreter now, a VM
  * later) gets identical behaviour. Errors are plain Exceptions; the interpreter adds
  * the source location.
@@ -23,9 +24,21 @@ final class Values
     public const MAX_CALL_DEPTH = 10000;
 
     /**
+     * The name of a value's type, as type_of() reports it and errors describe it
+     *
+     * @param  mixed  $value  The value
+     * @return string int, float, string, bool, null, array or function
+     */
+    public static function typeOf($value): string
+    {
+        return $value instanceof FunctionValue ? 'function' : get_debug_type($value);
+    }
+
+    /**
      * Decide whether a value counts as true in conditions and logical operators
      *
-     * Strings and arrays are true unless empty, null is false; everything else is C-like, true unless 0.
+     * Strings and arrays are true unless empty, null is false, functions are true; everything
+     * else is C-like, true unless 0.
      *
      * @param  mixed  $value  The value to test
      */
@@ -34,6 +47,7 @@ final class Values
         return match (true) {
             is_string($value) => $value !== '',
             is_array($value) => $value !== [],
+            is_object($value) => true,
             default => $value !== null && $value != 0,
         };
     }
@@ -58,6 +72,8 @@ final class Values
             return $value ? 'true' : 'false';
         } elseif ($value === null) {
             return 'null';
+        } elseif ($value instanceof FunctionValue) {
+            return "function {$value->name}";
         } elseif (is_array($value)) {
             // Printed as a literal: [1, "a"] for lists, ["key" => 1, 5 => 2] otherwise
             $is_list = array_is_list($value);
@@ -70,7 +86,7 @@ final class Values
             return '['.implode(', ', $parts).']';
         }
 
-        throw new Exception('Cannot convert '.get_debug_type($value).' to string');
+        throw new Exception('Cannot convert '.self::typeOf($value).' to string');
     }
 
     /**
@@ -86,7 +102,7 @@ final class Values
     public static function arrayKey($key): int|string
     {
         if (! is_int($key) && ! is_string($key)) {
-            throw new Exception('Array keys must be int or string, got '.get_debug_type($key));
+            throw new Exception('Array keys must be int or string, got '.self::typeOf($key));
         }
 
         return $key;
@@ -117,12 +133,11 @@ final class Values
             return ! self::equals($left, $right);
         }
 
-        // null and arrays only compare for equality
-        if ($left === null || $right === null) {
-            throw new Exception("Cannot use {$op->value} on null");
-        }
-        if (is_array($left) || is_array($right)) {
-            throw new Exception("Cannot use {$op->value} on array");
+        // null, arrays and functions only compare for equality
+        foreach ([$left, $right] as $operand) {
+            if ($operand === null || is_array($operand) || is_object($operand)) {
+                throw new Exception("Cannot use {$op->value} on ".self::typeOf($operand));
+            }
         }
 
         // Everywhere else booleans act as 1/0, so true + 1 is 2 and true == 1
@@ -135,7 +150,7 @@ final class Values
 
         // A string never orders against a number: there is no conversion
         if (is_string($left) !== is_string($right)) {
-            $other = get_debug_type(is_string($left) ? $right : $left);
+            $other = self::typeOf(is_string($left) ? $right : $left);
 
             throw new Exception("Cannot use {$op->value} on string and {$other}");
         }
@@ -158,8 +173,7 @@ final class Values
      * null only equals null. Numbers compare by value (1 == 1.0) with booleans as 1/0.
      * Strings compare byte by byte, so "1" != "01", and a string never equals a number.
      * Arrays are equal when they have the same keys in the same order and their
-     * elements are equal by this rule. Anything else (functions, later objects) is equal
-     * only to itself.
+     * elements are equal by this rule. A function is equal only to itself.
      *
      * @param  mixed  $left  One value
      * @param  mixed  $right  The other
@@ -201,7 +215,7 @@ final class Values
             return -$value;
         }
         if (! is_int($value) && ! is_bool($value)) {
-            throw new Exception('Cannot use - on '.get_debug_type($value));
+            throw new Exception('Cannot use - on '.self::typeOf($value));
         }
         if ($value === PHP_INT_MIN) {
             throw new Exception('Integer overflow');
@@ -221,7 +235,7 @@ final class Values
     public static function step($value, Token $op): int|float
     {
         if (! is_int($value) && ! is_float($value)) {
-            throw new Exception("Cannot use {$op->value} on ".get_debug_type($value));
+            throw new Exception("Cannot use {$op->value} on ".self::typeOf($value));
         }
 
         return self::binary(new Token($op->type === Token::INCREMENT ? Token::PLUS : Token::MINUS, $op->value), $value, 1);
@@ -242,13 +256,13 @@ final class Values
             return $target[self::arrayKey($index)] ?? null;
         } elseif (is_string($target)) {
             if (! is_int($index)) {
-                throw new Exception('String positions must be int, got '.get_debug_type($index));
+                throw new Exception('String positions must be int, got '.self::typeOf($index));
             }
 
             return $index >= 0 && $index < strlen($target) ? $target[$index] : null;
         }
 
-        throw new Exception('Cannot use [] on '.get_debug_type($target));
+        throw new Exception('Cannot use [] on '.self::typeOf($target));
     }
 
     /**
@@ -289,7 +303,7 @@ final class Values
             }
             $container = &$container[$key];
             if (! is_array($container)) {
-                throw new Exception('Cannot use [] on '.get_debug_type($container));
+                throw new Exception('Cannot use [] on '.self::typeOf($container));
             }
             if ($next_key === null) {
                 $container[] = $value;
@@ -329,7 +343,7 @@ final class Values
     public static function indexExisting($target, $index)
     {
         if (! is_array($target)) {
-            throw new Exception('Cannot use [] on '.get_debug_type($target));
+            throw new Exception('Cannot use [] on '.self::typeOf($target));
         }
         $key = self::arrayKey($index);
         if (! array_key_exists($key, $target)) {

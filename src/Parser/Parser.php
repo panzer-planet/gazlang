@@ -8,11 +8,13 @@ use GazLang\AST\AssignAST;
 use GazLang\AST\AST;
 use GazLang\AST\BinOpAST;
 use GazLang\AST\BooleanAST;
+use GazLang\AST\CallValueAST;
 use GazLang\AST\CompoundAST;
 use GazLang\AST\EchoStatementAST;
 use GazLang\AST\ForeachStatementAST;
 use GazLang\AST\FunctionCallAST;
 use GazLang\AST\FunctionDeclarationAST;
+use GazLang\AST\FunctionRefAST;
 use GazLang\AST\IfStatementAST;
 use GazLang\AST\IncrementAST;
 use GazLang\AST\IndexAST;
@@ -89,9 +91,14 @@ class Parser
     private $functions = Builtins::ARITIES;
 
     /**
-     * @var FunctionCallAST[] Every call parsed, checked against the declared functions once the whole program is read
+     * @var FunctionCallAST[] Every call by name parsed, checked against the declared functions once the whole program is read
      */
     private $calls = [];
+
+    /**
+     * @var FunctionRefAST[] Every bare name used as a value, checked to name a function once the whole program is read
+     */
+    private $references = [];
 
     /**
      * @var string Directory that include paths in the file being parsed are relative to
@@ -242,17 +249,27 @@ class Parser
     }
 
     /**
-     * Parse a function call (IDENTIFIER LPAREN [expr (COMMA expr)*] RPAREN)
+     * Parse a call by name (IDENTIFIER arguments), the name having been eaten
      *
+     * @param  Token  $name  The IDENTIFIER token
      * @return FunctionCallAST
      *
      * @throws Exception
      */
-    public function function_call()
+    public function function_call(Token $name)
     {
-        $start = $this->current_token;
-        $name = $this->current_token->value;
-        $this->eat(Token::IDENTIFIER);
+        return $this->calls[] = $this->at(new FunctionCallAST($name->value, $this->arguments()), $name);
+    }
+
+    /**
+     * Parse a call's arguments (LPAREN [expr (COMMA expr)*] RPAREN)
+     *
+     * @return AST[] The argument expressions, in order
+     *
+     * @throws Exception
+     */
+    public function arguments(): array
+    {
         $this->eat(Token::LEFT_PAREN);
 
         $args = [];
@@ -265,12 +282,15 @@ class Parser
         }
         $this->eat(Token::RIGHT_PAREN);
 
-        return $this->calls[] = $this->at(new FunctionCallAST($name, $args), $start);
+        return $args;
     }
 
     /**
      * Parse a primary (INTEGER | FLOAT | STRING | interpolated_string | TRUE | FALSE | NULL | LPAREN expr RPAREN
-     *                  | variable | function_call | array_literal)
+     *                  | variable | function_call | IDENTIFIER | array_literal)
+     *
+     * A bare IDENTIFIER not followed by ( is a function used as a value; that it names a
+     * function is checked once the whole program is read, like calls.
      *
      * @return AST
      *
@@ -299,7 +319,12 @@ class Parser
 
             return $this->at(new NullAST($token), $token);
         } elseif ($token->type === Token::IDENTIFIER) {
-            return $this->function_call();
+            $this->eat(Token::IDENTIFIER);
+            if ($this->current_token->type === Token::LEFT_PAREN) {
+                return $this->function_call($token);
+            }
+
+            return $this->references[] = $this->at(new FunctionRefAST($token->value), $token);
         } elseif ($token->type === Token::LEFT_BRACKET) {
             return $this->array_literal();
         } elseif ($token->type === Token::LEFT_PAREN) {
@@ -398,7 +423,14 @@ class Parser
     {
         $node = $this->primary();
 
-        while ($this->current_token->type === Token::LEFT_BRACKET) {
+        while ($this->current_token->type === Token::LEFT_BRACKET || $this->current_token->type === Token::LEFT_PAREN) {
+            if ($this->current_token->type === Token::LEFT_PAREN) {
+                // A call on a value: $f(1), $h["save"]($doc), pick()(2), (add)(1), located at its (
+                $paren = $this->current_token;
+                $node = $this->at(new CallValueAST($node, $this->arguments()), $paren);
+
+                continue;
+            }
             $bracket = $this->current_token;
             $this->eat(Token::LEFT_BRACKET);
             if ($this->current_token->type === Token::RIGHT_BRACKET) {
@@ -925,13 +957,14 @@ class Parser
 
         // Declared before the body is parsed, so the function can call itself
         $required = count(array_filter($defaults, fn ($default) => $default === null));
-        $this->functions[$name] = $required === count($params) ? $required : [$required, count($params)];
+        $arity = $required === count($params) ? $required : [$required, count($params)];
+        $this->functions[$name] = $arity;
 
         $this->in_function = true;
         $body = $this->block();
         $this->in_function = false;
 
-        return $this->at(new FunctionDeclarationAST($name, $params, $defaults, $body), $start);
+        return $this->at(new FunctionDeclarationAST($name, $params, $defaults, $body, $arity), $start);
     }
 
     /**
@@ -954,31 +987,28 @@ class Parser
     /**
      * Parse a program (top_level)
      *
-     * Calls are checked once everything is parsed, so a function can be called
-     * before it is declared and both backends can trust every call is valid.
+     * Calls by name and bare names are checked once everything is parsed, so a function
+     * can be used before it is declared and both backends can trust every call by name.
+     * Calls on values ($f(1)) are checked when they run.
      *
      * @return CompoundAST
      *
-     * @throws Exception If a call names an undeclared function or passes the wrong number of arguments
+     * @throws Exception If a name isn't a declared function or a call passes the wrong number of arguments
      */
     public function program()
     {
         $root = new CompoundAST;
         $root->statements = $this->top_level();
 
-        foreach ($this->calls as $call) {
-            if (! isset($this->functions[$call->name])) {
-                throw new GazLangError("Undefined function: {$call->name}", $call->file, $call->line);
+        foreach ([...$this->references, ...$this->calls] as $use) {
+            if (! isset($this->functions[$use->name])) {
+                throw new GazLangError("Undefined function: {$use->name}", $use->file, $use->line);
             }
-            $arity = $this->functions[$call->name];
-            [$fewest, $most] = is_int($arity) ? [$arity, $arity] : $arity;
-            if (count($call->args) < $fewest || count($call->args) > $most) {
-                $expected = $fewest === $most ? $fewest : "{$fewest} to {$most}";
-                throw new GazLangError(
-                    "Function {$call->name} expects {$expected} arguments, ".count($call->args).' given',
-                    $call->file,
-                    $call->line
-                );
+        }
+        foreach ($this->calls as $call) {
+            $error = Builtins::arityError($call->name, $this->functions[$call->name], count($call->args));
+            if ($error !== null) {
+                throw new GazLangError($error, $call->file, $call->line);
             }
         }
 

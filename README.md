@@ -24,6 +24,7 @@ A small, PHP-flavoured programming language with an interpreter and a stack-VM c
 - Error handling: `try { ... } catch ($e) { echo $e["message"]; }`, and `error("...")` to raise one
 - Loops: `while (cond) { ... }`, `for (init; cond; step) { ... }` and `foreach ($array as $key => $value) { ... }`, with `break` and `continue`
 - Functions: `function add($a, $b = 1) { return $a + $b; }` with default parameter values, callable before they are declared, with recursion
+- Functions as values: `$f = add; $f(1, 2)`, `$handlers["save"]($doc)`, `apply(len, "abc")`, builtins included; `echo add` prints `function add`
 - Standard library: `to_float`, `floor`, `ceil`, `round` (with an optional precision), `abs`, `intdiv`, `len`, `slice`, `lower`, `upper`, `trim`, `split`, `join`, `replace`, `contains`, `starts_with`, `ends_with`, `index_of`, `repeat`, `chr`, `ord`, `to_int`, `to_string`, `in_array`, `has_key`, `keys`, `type_of`, `error`, `read_file`, `write_file`, `read_stdin`, `args`
 - Error messages with file and line (`Error: Expected ')' but found ';' at lib/parser.gaz:12`)
 - `include "lib/helpers.gaz";` to split programs across files (each file is included once)

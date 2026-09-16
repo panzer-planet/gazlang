@@ -49,3 +49,11 @@ $document = ["name" => "Gaz", "tags" => ["a", "b"], "n" => -12, "f" => 0.1, "nes
 check("decode undoes encode", json_decode(json_encode($document)), $document);
 $text = "{\"a\":[1,2.5,\"x\"],\"b\":{\"c\":null}}";
 check("encode undoes decode for compact JSON", json_encode(json_decode($text)), $text);
+
+// Functions have no JSON form
+try {
+    json_encode([len]);
+    echo "FAIL encoding a function";
+} catch ($e) {
+    check("encoding a function is an error", $e["message"], "Cannot encode a function as JSON");
+}

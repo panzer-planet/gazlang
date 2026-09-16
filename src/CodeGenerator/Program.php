@@ -27,17 +27,24 @@ final class Program
     public $global_names;
 
     /**
+     * @var array<string, int|array{0: int, 1: int}> Each user function's arity, for calls on function values
+     */
+    public $functions;
+
+    /**
      * Constructor
      *
      * @param  list<array{0: string, 1: array, 2: string|null, 3: int|null}>  $instructions  The instructions
      * @param  array<string, list<string>>  $local_names  Local slot names by frame
      * @param  list<string>  $global_names  Global slot names
+     * @param  array<string, int|array{0: int, 1: int}>  $functions  Each user function's arity
      */
-    public function __construct(array $instructions, array $local_names, array $global_names)
+    public function __construct(array $instructions, array $local_names, array $global_names, array $functions = [])
     {
         $this->instructions = $instructions;
         $this->local_names = $local_names;
         $this->global_names = $global_names;
+        $this->functions = $functions;
     }
 
     /**

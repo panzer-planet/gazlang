@@ -32,3 +32,4 @@ ok encode UTF-8 as is
 ok encode $ and { literally
 ok decode undoes encode
 ok encode undoes decode for compact JSON
+ok encoding a function is an error

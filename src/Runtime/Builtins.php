@@ -69,6 +69,26 @@ final class Builtins
     }
 
     /**
+     * Describe a call with the wrong number of arguments, or null if the count fits the arity
+     *
+     * The parser uses this for calls by name and both backends for calls on function values.
+     *
+     * @param  string  $name  The function name
+     * @param  int|array{0: int, 1: int}  $arity  A count, or [fewest, most]
+     * @param  int  $argc  How many arguments were passed
+     */
+    public static function arityError(string $name, int|array $arity, int $argc): ?string
+    {
+        [$fewest, $most] = is_int($arity) ? [$arity, $arity] : $arity;
+        if ($argc >= $fewest && $argc <= $most) {
+            return null;
+        }
+        $expected = $fewest === $most ? $fewest : "{$fewest} to {$most}";
+
+        return "Function {$name} expects {$expected} arguments, {$argc} given";
+    }
+
+    /**
      * Run a builtin function
      *
      * @param  string  $name  The builtin name, a key of ARITIES
@@ -111,7 +131,7 @@ final class Builtins
             'in_array' => $this->inArray($args[0], $this->argument($name, $args[1], 'array')),
             'has_key' => array_key_exists(Values::arrayKey($args[1]), $this->argument($name, $args[0], 'array')),
             'keys' => array_keys($this->argument($name, $args[0], 'array')),
-            'type_of' => get_debug_type($args[0]),
+            'type_of' => Values::typeOf($args[0]),
             // The program's own message, printed as is: it describes a location in the program's input,
             // not here. The interpreter still records where error() was called, for catch.
             'error' => throw new GazLangError(Values::toString($args[0]), null, null, false),
@@ -135,8 +155,8 @@ final class Builtins
      */
     private function argument(string $builtin, $value, string ...$types)
     {
-        if (! in_array(get_debug_type($value), $types, true)) {
-            throw new Exception("{$builtin}() expects ".implode(' or ', $types).', got '.get_debug_type($value));
+        if (! in_array(Values::typeOf($value), $types, true)) {
+            throw new Exception("{$builtin}() expects ".implode(' or ', $types).', got '.Values::typeOf($value));
         }
 
         return $value;
@@ -292,7 +312,7 @@ final class Builtins
         throw new Exception('to_int() cannot convert '.match (true) {
             is_string($value) => Lexer::quote($value),
             is_float($value) => Lexer::format_float($value),
-            default => get_debug_type($value),
+            default => Values::typeOf($value),
         });
     }
 
@@ -316,7 +336,7 @@ final class Builtins
             return (float) $value;
         }
 
-        throw new Exception('to_float() cannot convert '.(is_string($value) ? Lexer::quote($value) : get_debug_type($value)));
+        throw new Exception('to_float() cannot convert '.(is_string($value) ? Lexer::quote($value) : Values::typeOf($value)));
     }
 
     /**

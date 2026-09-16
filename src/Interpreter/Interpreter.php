@@ -9,11 +9,13 @@ use GazLang\AST\AssignAST;
 use GazLang\AST\AST;
 use GazLang\AST\BinOpAST;
 use GazLang\AST\BooleanAST;
+use GazLang\AST\CallValueAST;
 use GazLang\AST\CompoundAST;
 use GazLang\AST\EchoStatementAST;
 use GazLang\AST\ForeachStatementAST;
 use GazLang\AST\FunctionCallAST;
 use GazLang\AST\FunctionDeclarationAST;
+use GazLang\AST\FunctionRefAST;
 use GazLang\AST\IfStatementAST;
 use GazLang\AST\IncrementAST;
 use GazLang\AST\IndexAST;
@@ -31,6 +33,7 @@ use GazLang\GazLangError;
 use GazLang\Lexer\Token;
 use GazLang\Parser\Parser;
 use GazLang\Runtime\Builtins;
+use GazLang\Runtime\FunctionValue;
 use GazLang\Runtime\Values;
 
 /**
@@ -470,7 +473,7 @@ class Interpreter extends AbstractNodeVisitor
     {
         $array = $this->visit($node->iterable);
         if (! is_array($array)) {
-            throw new Exception('foreach expects an array, got '.get_debug_type($array));
+            throw new Exception('foreach expects an array, got '.Values::typeOf($array));
         }
 
         foreach ($array as $key => $value) {
@@ -591,7 +594,18 @@ class Interpreter extends AbstractNodeVisitor
     }
 
     /**
-     * Visit a FunctionCall node, running the body with its own locals
+     * Visit a FunctionRef node
+     *
+     * @param  FunctionRefAST  $node  The node to visit
+     * @return FunctionValue The function as a value
+     */
+    public function visitFunctionRef(FunctionRefAST $node): FunctionValue
+    {
+        return FunctionValue::named($node->name);
+    }
+
+    /**
+     * Visit a FunctionCall node, a call by name
      *
      * The parser has already checked the function exists and the argument count matches.
      *
@@ -601,16 +615,54 @@ class Interpreter extends AbstractNodeVisitor
     public function visitFunctionCall(FunctionCallAST $node)
     {
         // Arguments are evaluated in the caller's scope, before switching locals
+        return $this->call($node->name, array_map(fn ($arg) => $this->visit($arg), $node->args));
+    }
+
+    /**
+     * Visit a CallValue node, a call on whatever an expression evaluates to
+     *
+     * The callee is evaluated, then the arguments, and only then is it checked to be a
+     * function that takes that many arguments; the code generator emits the same order.
+     *
+     * @param  CallValueAST  $node  The node to visit
+     * @return mixed The returned value
+     *
+     * @throws Exception If the callee is not a function or the argument count is wrong
+     */
+    public function visitCallValue(CallValueAST $node)
+    {
+        $callee = $this->visit($node->callee);
         $args = array_map(fn ($arg) => $this->visit($arg), $node->args);
 
-        if (isset(Builtins::ARITIES[$node->name])) {
-            return $this->builtins->call($node->name, $args);
+        if (! $callee instanceof FunctionValue) {
+            throw new Exception('Cannot call '.Values::typeOf($callee));
+        }
+        $arity = Builtins::ARITIES[$callee->name] ?? $this->functions[$callee->name]->arity;
+        $error = Builtins::arityError($callee->name, $arity, count($args));
+        if ($error !== null) {
+            throw new Exception($error);
         }
 
-        $function = $this->functions[$node->name];
+        return $this->call($callee->name, $args);
+    }
+
+    /**
+     * Call a builtin or user function with evaluated arguments, running a user function's body with its own locals
+     *
+     * @param  string  $name  The function name, already checked to exist and to take this many arguments
+     * @param  array  $args  The evaluated arguments
+     * @return mixed The returned value, or null if the function did not return one
+     */
+    private function call(string $name, array $args)
+    {
+        if (isset(Builtins::ARITIES[$name])) {
+            return $this->builtins->call($name, $args);
+        }
+
+        $function = $this->functions[$name];
 
         if ($this->call_depth === Values::MAX_CALL_DEPTH) {
-            throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$node->name}");
+            throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$name}");
         }
 
         $caller_locals = $this->locals;

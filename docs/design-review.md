@@ -116,7 +116,6 @@ The field declaration syntax and whether `##` earns its keep.
 
 ## Suggested order
 
-Items 1 and 2 as their own small commits before function values phase 1, since phase 1's
-tests would otherwise assert `"x" + add` and `add == add` semantics that are about to
-change. Item 3's tagged path step alongside phase 1. Items 4 to 7 are decisions to
+Done on branch function-values: items 1, 2 and 8, then function values phase 1.
+Item 3's tagged path step comes with objects. Items 4 to 7 are decisions to
 record in CLAUDE.md before the objects phase; they need no code yet.

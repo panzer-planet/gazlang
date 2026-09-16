@@ -180,6 +180,22 @@ interface NodeVisitorInterface
     public function visitFunctionCall(FunctionCallAST $node);
 
     /**
+     * Visit a FunctionRef node
+     *
+     * @param  FunctionRefAST  $node  The node to visit
+     * @return mixed The result of visiting the node
+     */
+    public function visitFunctionRef(FunctionRefAST $node);
+
+    /**
+     * Visit a CallValue node
+     *
+     * @param  CallValueAST  $node  The node to visit
+     * @return mixed The result of visiting the node
+     */
+    public function visitCallValue(CallValueAST $node);
+
+    /**
      * Visit a ReturnStatement node
      *
      * @param  ReturnStatementAST  $node  The node to visit

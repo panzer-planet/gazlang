@@ -7,6 +7,7 @@ use GazLang\CodeGenerator\Program;
 use GazLang\GazLangError;
 use GazLang\Lexer\Token;
 use GazLang\Runtime\Builtins;
+use GazLang\Runtime\FunctionValue;
 use GazLang\Runtime\Values;
 
 /**
@@ -73,7 +74,7 @@ final class VM
      */
     public function run(): void
     {
-        [$ops, $arg0, $arg1, $arg2, $locations] = $this->link();
+        [$ops, $arg0, $arg1, $arg2, $locations, $functions] = $this->link();
         $end = count($ops);
         $tokens = [];
         foreach (self::BINARY as $opcode => [$type, $symbol]) {
@@ -296,7 +297,7 @@ final class VM
                         case 'FOREACH_CHECK':
                             $iterable = $stack[array_key_last($stack)];
                             if (! is_array($iterable)) {
-                                throw new Exception('foreach expects an array, got '.get_debug_type($iterable));
+                                throw new Exception('foreach expects an array, got '.Values::typeOf($iterable));
                             }
                             break;
                         case 'CALL':
@@ -308,6 +309,35 @@ final class VM
                             $locals = $this->popMany($stack, $argc);
                             $function = $arg2[$pc - 1];
                             $pc = $arg0[$pc - 1];
+                            break;
+                        case 'PUSH_FN':
+                            $stack[] = FunctionValue::named($arg0[$pc - 1]);
+                            break;
+                        case 'CALL_VALUE':
+                            $args = $this->popMany($stack, $arg0[$pc - 1]);
+                            $callee = array_pop($stack);
+                            if (! $callee instanceof FunctionValue) {
+                                throw new Exception('Cannot call '.Values::typeOf($callee));
+                            }
+                            $name = $callee->name;
+                            $builtin = isset(Builtins::ARITIES[$name]);
+                            $error = Builtins::arityError($name, $builtin ? Builtins::ARITIES[$name] : $functions[$name][1], count($args));
+                            if ($error !== null) {
+                                throw new Exception($error);
+                            }
+                            if ($builtin) {
+                                $stack[] = $this->builtins->call($name, $args);
+                                break;
+                            }
+                            // The same frame push as CALL, with the arguments already popped
+                            if (count($frames) === Values::MAX_CALL_DEPTH) {
+                                throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$name}");
+                            }
+                            $frames[] = [$locals, $pc, $function, $argc];
+                            $argc = count($args);
+                            $locals = $args;
+                            $function = $name;
+                            $pc = $functions[$name][0];
                             break;
                         case 'ARGC':
                             $stack[] = $argc;
@@ -399,8 +429,9 @@ final class VM
      * - Each instruction's opcode and first three arguments go into their own arrays, so
      *   the loop reads what it needs without unpacking an instruction each time, and its
      *   [file, line] into $locations, only read when there is an error.
+     * - Each user function's entry position and arity go into $functions, for CALL_VALUE.
      *
-     * @return array{0: list<string>, 1: list<mixed>, 2: list<mixed>, 3: list<mixed>, 4: list<array{0: string|null, 1: int|null}>}
+     * @return array{0: list<string>, 1: list<mixed>, 2: list<mixed>, 3: list<mixed>, 4: list<array{0: string|null, 1: int|null}>, 5: array<string, array{0: int, 1: int|array{0: int, 1: int}}>}
      */
     private function link(): array
     {
@@ -440,7 +471,12 @@ final class VM
             $locations[] = [$file, $line];
         }
 
-        return [$ops, $arg0, $arg1, $arg2, $locations];
+        $functions = [];
+        foreach ($this->program->functions as $name => $arity) {
+            $functions[$name] = [$positions["FN_{$name}"], $arity];
+        }
+
+        return [$ops, $arg0, $arg1, $arg2, $locations, $functions];
     }
 
     /**

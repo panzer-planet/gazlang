@@ -28,18 +28,25 @@ class FunctionDeclarationAST extends AST
     public $body;
 
     /**
+     * @var int|array{0: int, 1: int} How many arguments a call takes: a count, or [fewest, most] with defaults
+     */
+    public $arity;
+
+    /**
      * Constructor
      *
      * @param  string  $name  The function name
      * @param  string[]  $params  The parameter names, including the $ prefix
      * @param  array<int, AST|null>  $defaults  Each parameter's default value expression, or null if required
      * @param  CompoundAST  $body  The function body
+     * @param  int|array{0: int, 1: int}  $arity  How many arguments a call takes
      */
-    public function __construct(string $name, array $params, array $defaults, CompoundAST $body)
+    public function __construct(string $name, array $params, array $defaults, CompoundAST $body, int|array $arity)
     {
         $this->name = $name;
         $this->params = $params;
         $this->defaults = $defaults;
         $this->body = $body;
+        $this->arity = $arity;
     }
 }
