@@ -39,9 +39,11 @@ use GazLang\Parser\Parser;
  * Arrays are values. NEW_ARRAY pushes an empty array; ARRAY_PUSH pops a value
  * and appends it to the array below, ARRAY_SET pops a value and a key and sets
  * it. INDEX_GET pops an index and an array or string and pushes the element (or
- * null). SET_PATH n pops a value, n keys and an array, and pushes the value then
- * the updated array; APPEND_PATH n does the same but appends after following the
- * n keys. The updated array is then stored back into the variable.
+ * null). For an indexed assignment the keys, then the value, then the variable's
+ * current array are pushed, so the array is read after anything the keys and
+ * value do to it. SET_PATH n pops the array, the value and n keys, and pushes the
+ * value then the updated array; APPEND_PATH n does the same but appends after
+ * following the n keys. The updated array is then stored back into the variable.
  */
 class CodeGenerator extends AbstractNodeVisitor
 {
@@ -162,11 +164,12 @@ class CodeGenerator extends AbstractNodeVisitor
             array_pop($indexes);
         }
 
-        $this->instructions[] = $this->variableInstruction('LOAD', $variable);
         foreach ($indexes as $index) {
             $this->visit($index);
         }
         $this->visit($node->right);
+        // Loaded last, like the interpreter, so side effects of the keys and value aren't overwritten
+        $this->instructions[] = $this->variableInstruction('LOAD', $variable);
 
         $this->instructions[] = ($append ? 'APPEND_PATH ' : 'SET_PATH ').count($indexes);
         // Stores the updated array, leaving the assigned value on the stack

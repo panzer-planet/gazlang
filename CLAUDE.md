@@ -109,7 +109,8 @@ each step depends on the ones before it.
      to a one character string, read only.
    - `$a[k] = v`, `$a[k1][k2] = v` and `$a[] = v` (append, only valid as an
      assignment target) write through a variable (`$` or `@`). Keys are
-     evaluated before the value. The variable must exist and only the last key
+     evaluated left to right, then the value, and only then is the variable's
+     array read, so side effects of the keys and value are kept. The variable must exist and only the last key
      may be new; missing keys along the way are an error, not auto-created.
    - `echo` and `+` concatenation print arrays as literals (`[1, "a"]`,
      `["k" => 1]`). Empty arrays are false in conditions. `==` on arrays is
@@ -119,11 +120,14 @@ each step depends on the ones before it.
      live in `Parser::BUILTINS` (name → arity), share the call checks with user
      functions, and can't be redeclared; the code generator emits
      `CALL_BUILTIN name argc`.
-   - Code generator: `NEW_ARRAY`, `ARRAY_PUSH`, `ARRAY_SET`, `INDEX_GET`,
+   - Code generator: `NEW_ARRAY`, `ARRAY_PUSH`, `ARRAY_SET`, `INDEX_GET`; an
+     indexed assignment pushes keys, value, then `LOAD`s the array, and
      `SET_PATH n` / `APPEND_PATH n` then `STORE` the updated array (stack
      effects are documented on `CodeGenerator`).
    - Not yet: removing elements, iterating keys (`foreach` or a `keys()`
      builtin), checking a key exists when its value may be null.
+   - `Parser::BUILTINS` records a fixed arity; variadic builtins will need that
+     to change.
 6. **Design a minimal standard library.** File reading, string manipulation
    builtins, basic I/O — the plumbing self-hosting quietly depends on. Add
    builtins to `Parser::BUILTINS` and implement them in both backends.

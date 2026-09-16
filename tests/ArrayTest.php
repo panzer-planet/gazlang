@@ -69,6 +69,21 @@ class ArrayTest extends GazLangTestCase
         $this->assertEquals("[1 => 2]\n", $this->executeCode('$i = 1; $a = []; $a[$i] = $i = 2; echo $a;'));
     }
 
+    public function test_keys_are_evaluated_left_to_right()
+    {
+        $this->assertEquals("key 0\nkey 1\n[[0, 5], [0, 0]]\n", $this->executeCode(
+            'function k($n) { echo "key " + $n; return $n; } $a = [[0, 0], [0, 0]]; $a[k(0)][k(1)] = 5; echo $a;'
+        ));
+    }
+
+    public function test_array_is_read_after_the_keys_and_value_run()
+    {
+        $this->assertEquals("[1, 1]\n[5, 6, 0]\n", $this->executeCode(
+            '$e = []; $e[] = $e[] = 1; echo $e;'
+            .' @g = [1]; function reset_g() { @g = [5, 6, 7]; return 0; } @g[2] = reset_g(); echo @g;'
+        ));
+    }
+
     public function test_len()
     {
         $this->assertEquals("0\n3\n5\n", $this->executeCode('echo len([]); echo len([1, [2, 3], 4]); echo len("hello");'));
@@ -145,8 +160,8 @@ class ArrayTest extends GazLangTestCase
     {
         $this->assertEquals(
             "NEW_ARRAY\nSTORE 0\nLOAD 0\nPOP\n"
-            ."LOAD 0\nPUSH_STR \"k\"\nPUSH 0\nPUSH 5\nSET_PATH 2\nSTORE 0\nPOP\n"
-            ."LOAD_GLOBAL 0\nLOAD 0\nAPPEND_PATH 0\nSTORE_GLOBAL 0\nPOP\n"
+            ."PUSH_STR \"k\"\nPUSH 0\nPUSH 5\nLOAD 0\nSET_PATH 2\nSTORE 0\nPOP\n"
+            ."LOAD 0\nLOAD_GLOBAL 0\nAPPEND_PATH 0\nSTORE_GLOBAL 0\nPOP\n"
             ."LOAD 0\nCALL_BUILTIN len 1\nPRINT",
             $this->generateCode('$a = []; $a["k"][0] = 5; @all[] = $a; echo len($a);')
         );

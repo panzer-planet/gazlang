@@ -129,9 +129,13 @@ class Interpreter extends AbstractNodeVisitor
 
         // Keys are evaluated left to right before the value, and the path is only
         // walked afterwards, so the value expression can't invalidate it
-        $keys = [];
+        $indexes = [];
         for ($target = $node->left; $target instanceof IndexAST; $target = $target->target) {
-            array_unshift($keys, $target->index === null ? null : $this->arrayKey($this->visit($target->index)));
+            array_unshift($indexes, $target->index);
+        }
+        $keys = [];
+        foreach ($indexes as $index) {
+            $keys[] = $index === null ? null : $this->arrayKey($this->visit($index));
         }
         $value = $this->visit($node->right);
 
@@ -581,7 +585,12 @@ class Interpreter extends AbstractNodeVisitor
 
             return null;
         } catch (ReturnSignal $signal) {
-            return $signal->value;
+            // The signal is reused, so let go of the value: holding a second reference
+            // to a returned array would make the next write to it copy the whole array
+            $value = $signal->value;
+            $signal->value = null;
+
+            return $value;
         } finally {
             $this->locals = $caller_locals;
             $this->call_depth--;
