@@ -35,6 +35,9 @@ class Lexer
         'for' => 'FOR',
         'break' => 'BREAK',
         'continue' => 'CONTINUE',
+        'function' => 'FUNCTION',
+        'return' => 'RETURN',
+        'null' => 'NULL',
         'true' => 'TRUE',
         'false' => 'FALSE',
     ];
@@ -168,7 +171,7 @@ class Lexer
     }
 
     /**
-     * Return an identifier or reserved keyword
+     * Return a reserved keyword, or an IDENTIFIER token for any other bare name
      */
     public function identifier(): Token
     {
@@ -178,25 +181,16 @@ class Lexer
             $this->advance();
         }
 
-        // Check if the identifier is a reserved keyword
-        $type = isset($this->reserved_keywords[strtolower($result)])
-            ? $this->reserved_keywords[strtolower($result)]
-            : null;
-
-        if ($type) {
-            return new Token($type, $result);
-        } else {
-            throw new Exception("Unknown identifier: {$result}");
-        }
+        return new Token($this->reserved_keywords[strtolower($result)] ?? Token::IDENTIFIER, $result);
     }
 
     /**
-     * Return a variable identifier (starting with $)
+     * Return a local ($name) or global (@name) variable identifier
      */
     public function var_identifier(): Token
     {
-        $result = '';
-        $result .= $this->current_char; // Add the $ sign
+        $type = $this->current_char === '@' ? Token::GLOBAL_VAR_IDENTIFIER : Token::VAR_IDENTIFIER;
+        $result = $this->current_char; // Keep the sigil as part of the name
         $this->advance();
 
         // Variable names must start with a letter or underscore after the $
@@ -209,7 +203,7 @@ class Lexer
             $this->advance();
         }
 
-        return new Token(Token::VAR_IDENTIFIER, $result);
+        return new Token($type, $result);
     }
 
     /**
@@ -242,7 +236,7 @@ class Lexer
                 return new Token(Token::STRING, $this->string());
             }
 
-            if ($this->current_char === '$') {
+            if ($this->current_char === '$' || $this->current_char === '@') {
                 return $this->var_identifier();
             }
 
@@ -341,6 +335,12 @@ class Lexer
                 $this->advance();
 
                 return new Token(Token::OR, '||');
+            }
+
+            if ($this->current_char === ',') {
+                $this->advance();
+
+                return new Token(Token::COMMA, ',');
             }
 
             if ($this->current_char === ';') {

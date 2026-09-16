@@ -28,7 +28,13 @@ class Token
 
     public const RIGHT_PAREN = 'RIGHT_PAREN';  // Right parenthesis ')'
 
-    public const VAR_IDENTIFIER = 'VAR_IDENTIFIER';  // Variable identifier (starting with $)
+    public const VAR_IDENTIFIER = 'VAR_IDENTIFIER';  // Local variable identifier (starting with $)
+
+    public const GLOBAL_VAR_IDENTIFIER = 'GLOBAL_VAR_IDENTIFIER';  // Global variable identifier (starting with @)
+
+    public const IDENTIFIER = 'IDENTIFIER';  // Bare name, e.g. a function name
+
+    public const COMMA = 'COMMA';  // Comma ','
 
     public const ASSIGN = 'ASSIGN';  // Assignment operator (=)
 
@@ -45,6 +51,12 @@ class Token
     public const BREAK = 'BREAK';  // Break keyword
 
     public const CONTINUE = 'CONTINUE';  // Continue keyword
+
+    public const FUNCTION = 'FUNCTION';  // Function keyword
+
+    public const RETURN = 'RETURN';  // Return keyword
+
+    public const NULL = 'NULL';  // Null literal
 
     public const TRUE = 'TRUE';  // Boolean literal true
 

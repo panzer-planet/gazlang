@@ -16,4 +16,12 @@ class VariableAST extends TokenValueNodeAST
     {
         return $this->value;
     }
+
+    /**
+     * Whether this is a global (@name) rather than a local ($name) variable
+     */
+    public function isGlobal(): bool
+    {
+        return $this->value[0] === '@';
+    }
 }

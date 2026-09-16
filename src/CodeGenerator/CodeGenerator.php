@@ -9,9 +9,13 @@ use GazLang\AST\BinOpAST;
 use GazLang\AST\BooleanAST;
 use GazLang\AST\CompoundAST;
 use GazLang\AST\EchoStatementAST;
+use GazLang\AST\FunctionCallAST;
+use GazLang\AST\FunctionDeclarationAST;
 use GazLang\AST\IfStatementAST;
 use GazLang\AST\LoopControlAST;
+use GazLang\AST\NullAST;
 use GazLang\AST\NumAST;
+use GazLang\AST\ReturnStatementAST;
 use GazLang\AST\StatementAST;
 use GazLang\AST\StringAST;
 use GazLang\AST\UnaryOpAST;
@@ -21,6 +25,13 @@ use GazLang\Lexer\Token;
 
 /**
  * CodeGenerator class transforms the AST into stack-based VM code
+ *
+ * Calling convention: the caller pushes arguments left to right and emits
+ * CALL FN_name argc. The callee gets a fresh frame whose local slots 0..argc-1
+ * hold the arguments, and RET pops the return value, drops the frame and pushes
+ * the value onto the caller's stack. LOAD/STORE address the current frame's
+ * locals; LOAD_GLOBAL/STORE_GLOBAL address the globals shared by every frame.
+ * Function bodies are emitted after the top level code, which ends in HALT.
  */
 class CodeGenerator extends AbstractNodeVisitor
 {
@@ -53,14 +64,19 @@ class CodeGenerator extends AbstractNodeVisitor
     private $instructions;
 
     /**
-     * @var array Map of variable names to memory addresses
+     * @var array<string, int> Local variable names mapped to slots in the current frame
      */
-    private $var_addresses;
+    private $var_addresses = [];
 
     /**
-     * @var int Next available memory address for variable storage
+     * @var array<string, int> Global variable names mapped to global slots
      */
-    private $next_address;
+    private $global_addresses = [];
+
+    /**
+     * @var FunctionDeclarationAST[] Functions to emit after the top level code
+     */
+    private $functions = [];
 
     /**
      * @var int Counter for generating unique labels
@@ -81,8 +97,6 @@ class CodeGenerator extends AbstractNodeVisitor
     {
         $this->tree = $tree;
         $this->instructions = [];
-        $this->var_addresses = [];
-        $this->next_address = 0;
         $this->label_counter = 0;
     }
 
@@ -95,7 +109,7 @@ class CodeGenerator extends AbstractNodeVisitor
     {
         // Undefined variables are a runtime error: a loop can read a variable
         // that is only assigned further down the source
-        $this->instructions[] = 'LOAD '.$this->address($node->value);
+        $this->instructions[] = $this->variableInstruction('LOAD', $node);
     }
 
     /**
@@ -105,24 +119,30 @@ class CodeGenerator extends AbstractNodeVisitor
      */
     public function visitAssign(AssignAST $node): void
     {
-        $address = $this->address($node->left->value);
+        $store = $this->variableInstruction('STORE', $node->left);
 
         // Generate code for the right-hand side of the assignment
         $this->visit($node->right);
 
         // Store the computed value, then leave it on the stack for larger expressions
-        $this->instructions[] = "STORE {$address}";
-        $this->instructions[] = "LOAD {$address}";
+        $this->instructions[] = $store;
+        $this->instructions[] = $this->variableInstruction('LOAD', $node->left);
     }
 
     /**
-     * Get a variable's memory address, allocating one the first time it is seen
+     * Build a LOAD/STORE instruction for a variable, allocating its slot the first time it is seen
      *
-     * @param  string  $var_name  The variable name, including the $
+     * @param  string  $op  LOAD or STORE
+     * @param  VariableAST  $variable  The variable
+     * @return string e.g. "LOAD 0" for a local or "LOAD_GLOBAL 0" for a global
      */
-    private function address(string $var_name): int
+    private function variableInstruction(string $op, VariableAST $variable): string
     {
-        return $this->var_addresses[$var_name] ??= $this->next_address++;
+        if ($variable->isGlobal()) {
+            return "{$op}_GLOBAL ".($this->global_addresses[$variable->value] ??= count($this->global_addresses));
+        }
+
+        return "{$op} ".($this->var_addresses[$variable->value] ??= count($this->var_addresses));
     }
 
     /**
@@ -216,6 +236,16 @@ class CodeGenerator extends AbstractNodeVisitor
     public function visitBoolean(BooleanAST $node): void
     {
         $this->instructions[] = $node->value ? 'PUSH true' : 'PUSH false';
+    }
+
+    /**
+     * Visit a Null node
+     *
+     * @param  NullAST  $node  The node to visit
+     */
+    public function visitNull(NullAST $node): void
+    {
+        $this->instructions[] = 'PUSH null';
     }
 
     /**
@@ -352,6 +382,46 @@ class CodeGenerator extends AbstractNodeVisitor
         $this->instructions[] = "JMP {$label}";
     }
 
+    /**
+     * Visit a FunctionDeclaration node, deferring its body until after the top level code
+     *
+     * @param  FunctionDeclarationAST  $node  The node to visit
+     */
+    public function visitFunctionDeclaration(FunctionDeclarationAST $node): void
+    {
+        $this->functions[] = $node;
+    }
+
+    /**
+     * Visit a FunctionCall node
+     *
+     * @param  FunctionCallAST  $node  The node to visit
+     */
+    public function visitFunctionCall(FunctionCallAST $node): void
+    {
+        foreach ($node->args as $arg) {
+            $this->visit($arg);
+        }
+
+        $this->instructions[] = "CALL FN_{$node->name} ".count($node->args);
+    }
+
+    /**
+     * Visit a ReturnStatement node
+     *
+     * @param  ReturnStatementAST  $node  The node to visit
+     */
+    public function visitReturnStatement(ReturnStatementAST $node): void
+    {
+        if ($node->expr === null) {
+            $this->instructions[] = 'PUSH null';
+        } else {
+            $this->visit($node->expr);
+        }
+
+        $this->instructions[] = 'RET';
+    }
+
     // The visit method is now implemented in AbstractNodeVisitor
 
     /**
@@ -362,6 +432,21 @@ class CodeGenerator extends AbstractNodeVisitor
     public function generate(): string
     {
         $this->visit($this->tree);
+
+        if ($this->functions !== []) {
+            $this->instructions[] = 'HALT';
+        }
+
+        foreach ($this->functions as $function) {
+            // Each function has its own frame, with the arguments in the first slots
+            $this->var_addresses = array_flip($function->params);
+
+            $this->instructions[] = "LABEL FN_{$function->name}";
+            $this->visit($function->body);
+            // Falling off the end returns null
+            $this->instructions[] = 'PUSH null';
+            $this->instructions[] = 'RET';
+        }
 
         return implode("\n", $this->instructions);
     }

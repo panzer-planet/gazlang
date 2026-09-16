@@ -9,9 +9,13 @@ use GazLang\AST\BinOpAST;
 use GazLang\AST\BooleanAST;
 use GazLang\AST\CompoundAST;
 use GazLang\AST\EchoStatementAST;
+use GazLang\AST\FunctionCallAST;
+use GazLang\AST\FunctionDeclarationAST;
 use GazLang\AST\IfStatementAST;
 use GazLang\AST\LoopControlAST;
+use GazLang\AST\NullAST;
 use GazLang\AST\NumAST;
+use GazLang\AST\ReturnStatementAST;
 use GazLang\AST\StatementAST;
 use GazLang\AST\StringAST;
 use GazLang\AST\UnaryOpAST;
@@ -39,6 +43,21 @@ class Parser
      * @var int How many loops enclose the statement being parsed, so break and continue can be checked
      */
     private $loop_depth = 0;
+
+    /**
+     * @var bool Whether a function body is being parsed, so return can be checked
+     */
+    private $in_function = false;
+
+    /**
+     * @var array<string, int> Declared function names mapped to their parameter counts
+     */
+    private $functions = [];
+
+    /**
+     * @var FunctionCallAST[] Every call parsed, checked against the declared functions once the whole program is read
+     */
+    private $calls = [];
 
     /**
      * Constructor
@@ -79,7 +98,7 @@ class Parser
     }
 
     /**
-     * Parse a variable
+     * Parse a local ($name) or global (@name) variable
      *
      * @return VariableAST
      *
@@ -88,13 +107,39 @@ class Parser
     public function variable()
     {
         $node = new VariableAST($this->current_token);
-        $this->eat(Token::VAR_IDENTIFIER);
+        $this->eat($this->current_token->type === Token::GLOBAL_VAR_IDENTIFIER ? Token::GLOBAL_VAR_IDENTIFIER : Token::VAR_IDENTIFIER);
 
         return $node;
     }
 
     /**
-     * Parse a primary (INTEGER | STRING | TRUE | FALSE | LPAREN expr RPAREN | variable)
+     * Parse a function call (IDENTIFIER LPAREN [expr (COMMA expr)*] RPAREN)
+     *
+     * @return FunctionCallAST
+     *
+     * @throws Exception
+     */
+    public function function_call()
+    {
+        $name = $this->current_token->value;
+        $this->eat(Token::IDENTIFIER);
+        $this->eat(Token::LEFT_PAREN);
+
+        $args = [];
+        if ($this->current_token->type !== Token::RIGHT_PAREN) {
+            $args[] = $this->expr();
+            while ($this->current_token->type === Token::COMMA) {
+                $this->eat(Token::COMMA);
+                $args[] = $this->expr();
+            }
+        }
+        $this->eat(Token::RIGHT_PAREN);
+
+        return $this->calls[] = new FunctionCallAST($name, $args);
+    }
+
+    /**
+     * Parse a primary (INTEGER | STRING | TRUE | FALSE | NULL | LPAREN expr RPAREN | variable | function_call)
      *
      * @return AST
      *
@@ -116,13 +161,19 @@ class Parser
             $this->eat($token->type);
 
             return new BooleanAST($token);
+        } elseif ($token->type === Token::NULL) {
+            $this->eat(Token::NULL);
+
+            return new NullAST($token);
+        } elseif ($token->type === Token::IDENTIFIER) {
+            return $this->function_call();
         } elseif ($token->type === Token::LEFT_PAREN) {
             $this->eat(Token::LEFT_PAREN);
             $node = $this->expr();
             $this->eat(Token::RIGHT_PAREN);
 
             return $node;
-        } elseif ($token->type === Token::VAR_IDENTIFIER) {
+        } elseif ($token->type === Token::VAR_IDENTIFIER || $token->type === Token::GLOBAL_VAR_IDENTIFIER) {
             return $this->variable();
         }
 
@@ -412,9 +463,10 @@ class Parser
     }
 
     /**
-     * Parse a statement (expr SEMICOLON | echo_statement | if_statement | while_statement | for_statement | loop_control)
+     * Parse a statement (expr SEMICOLON | echo_statement | if_statement | while_statement | for_statement
+     *                    | loop_control | return_statement)
      *
-     * @return StatementAST|EchoStatementAST|IfStatementAST|WhileStatementAST|CompoundAST|LoopControlAST
+     * @return AST
      *
      * @throws Exception
      */
@@ -430,12 +482,80 @@ class Parser
             return $this->for_statement();
         } elseif ($this->current_token->type === Token::BREAK || $this->current_token->type === Token::CONTINUE) {
             return $this->loop_control();
+        } elseif ($this->current_token->type === Token::RETURN) {
+            return $this->return_statement();
+        } elseif ($this->current_token->type === Token::FUNCTION) {
+            throw new Exception('Functions can only be declared at the top level');
         }
 
         $expr = $this->expr();
         $this->eat(Token::SEMICOLON);
 
         return new StatementAST($expr);
+    }
+
+    /**
+     * Parse a return statement (RETURN [expr] SEMICOLON)
+     *
+     * @return ReturnStatementAST
+     *
+     * @throws Exception If used outside of a function
+     */
+    public function return_statement()
+    {
+        if (! $this->in_function) {
+            throw new Exception('Cannot use return outside of a function');
+        }
+
+        $this->eat(Token::RETURN);
+        $expr = $this->current_token->type === Token::SEMICOLON ? null : $this->expr();
+        $this->eat(Token::SEMICOLON);
+
+        return new ReturnStatementAST($expr);
+    }
+
+    /**
+     * Parse a function declaration (FUNCTION IDENTIFIER LPAREN [VAR_IDENTIFIER (COMMA VAR_IDENTIFIER)*] RPAREN block)
+     *
+     * Only allowed at the top level, which is also why break and continue can
+     * never reach a caller's loop: a declaration is never inside a loop.
+     *
+     * @return FunctionDeclarationAST
+     *
+     * @throws Exception
+     */
+    public function function_declaration()
+    {
+        $this->eat(Token::FUNCTION);
+        $name = $this->current_token->value;
+        $this->eat(Token::IDENTIFIER);
+        if (isset($this->functions[$name])) {
+            throw new Exception("Function {$name} is already declared");
+        }
+
+        $this->eat(Token::LEFT_PAREN);
+        $params = [];
+        while ($this->current_token->type !== Token::RIGHT_PAREN) {
+            if ($params !== []) {
+                $this->eat(Token::COMMA);
+            }
+            $param = $this->current_token->value;
+            $this->eat(Token::VAR_IDENTIFIER);
+            if (in_array($param, $params, true)) {
+                throw new Exception("Duplicate parameter {$param} in function {$name}");
+            }
+            $params[] = $param;
+        }
+        $this->eat(Token::RIGHT_PAREN);
+
+        // Declared before the body is parsed, so the function can call itself
+        $this->functions[$name] = count($params);
+
+        $this->in_function = true;
+        $body = $this->block();
+        $this->in_function = false;
+
+        return new FunctionDeclarationAST($name, $params, $body);
     }
 
     /**
@@ -455,20 +575,32 @@ class Parser
     }
 
     /**
-     * Parse a program (statement+)
+     * Parse a program ((function_declaration | statement)*)
+     *
+     * Calls are checked once everything is parsed, so a function can be called
+     * before it is declared and both backends can trust every call is valid.
      *
      * @return CompoundAST
      *
-     * @throws Exception
+     * @throws Exception If a call names an undeclared function or passes the wrong number of arguments
      */
     public function program()
     {
         $root = new CompoundAST;
 
-        // Parse all statements
         while ($this->current_token->type !== Token::EOF) {
-            $statement = $this->statement();
-            $root->statements[] = $statement;
+            $root->statements[] = $this->current_token->type === Token::FUNCTION
+                ? $this->function_declaration()
+                : $this->statement();
+        }
+
+        foreach ($this->calls as $call) {
+            if (! isset($this->functions[$call->name])) {
+                throw new Exception("Undefined function: {$call->name}");
+            }
+            if (count($call->args) !== $this->functions[$call->name]) {
+                throw new Exception("Function {$call->name} expects {$this->functions[$call->name]} arguments, ".count($call->args).' given');
+            }
         }
 
         return $root;

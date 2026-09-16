@@ -64,13 +64,30 @@ each step depends on the ones before it.
    `break;` and `continue;` (`LoopControlAST`) affect the innermost loop and are
    a parse error outside one. The interpreter unwinds with `LoopSignal`; the
    code generator jumps to the loop's `CONTINUE_n`/`WHILE_n` or `ENDWHILE_n`
-   label. Function bodies must not see the caller's loops: save and reset
-   `Parser::$loop_depth` and `CodeGenerator::$loop_labels` around each body, and
-   stop `LoopSignal` at the call boundary. `return` can unwind the same way.
-4. **Add functions and scoping.** Declarations, calls, parameters, `return`,
-   and a proper environment/scope chain (variables are currently global-only).
-   This is the single biggest unlock for self-hosting — a recursive-descent
-   parser can't be written without functions to write it with.
+   label.
+4. ~~**Add functions and scoping.**~~ Done. Decided semantics:
+   - `function name($a, $b) { ... }` is only allowed at the top level. Calls may
+     come before the declaration (mutual recursion works). The parser checks
+     every call's name and argument count once the whole program is read, so
+     both backends trust calls. Functions are not values; nested functions
+     and closures wait until they are.
+   - `$x` is always local (to the running call, or to the top level) and `@x`
+     is always global, everywhere. A function cannot read top-level `$x`.
+     Parameters are `$` only. Because declarations are top level only, they are
+     never inside a loop, so `break`/`continue` cannot reach a caller's loop.
+   - `return [expr];` is a parse error outside a function. The interpreter
+     unwinds with `ReturnSignal`; a missing or bare return gives `null`.
+   - `null` is a keyword. `echo null` prints `null`, `"x" + null` is `"xnull"`,
+     null is false in conditions, it only `==` null (`null == 0` and
+     `null == false` are false), and arithmetic, ordering and unary `-` on it
+     throw. Variables are looked up with `array_key_exists`, not `isset`, so
+     one holding null is still defined.
+   - Code generator calling convention: push args left to right, `CALL FN_name
+     argc`; the callee's frame has the args in local slots 0..argc-1; `RET`
+     pushes the return value onto the caller's stack. `LOAD`/`STORE` address
+     frame locals, `LOAD_GLOBAL`/`STORE_GLOBAL` globals. Top level code ends in
+     `HALT` (only emitted when there are functions), followed by the bodies.
+   - Reserved for later: `#` for object properties (`@` is taken by globals).
 5. **Add arrays (and maybe maps).** At minimum arrays/lists with indexing;
    a hashmap/dict type will matter once GazLang needs to represent its own
    symbol tables and ASTs.

@@ -1,0 +1,164 @@
+<?php
+
+namespace GazLang\Tests;
+
+use GazLang\Lexer\Token;
+
+class FunctionTest extends GazLangTestCase
+{
+    public function test_lexes_function_syntax_and_global_variables()
+    {
+        $lexer = $this->createLexer('function add($a, @b) return null');
+        $expected = [
+            Token::FUNCTION, Token::IDENTIFIER, Token::LEFT_PAREN, Token::VAR_IDENTIFIER, Token::COMMA,
+            Token::GLOBAL_VAR_IDENTIFIER, Token::RIGHT_PAREN, Token::RETURN, Token::NULL, Token::EOF,
+        ];
+
+        foreach ($expected as $type) {
+            $this->assertEquals($type, $lexer->get_next_token()->type);
+        }
+    }
+
+    public function test_invalid_global_variable_name()
+    {
+        $this->expectExceptionMessage('Invalid variable name: @');
+        $this->createLexer('@1')->get_next_token();
+    }
+
+    public function test_call_with_arguments_and_return_value()
+    {
+        $this->assertEquals("5\nhi there\n", $this->executeCode(
+            'function add($a, $b) { return $a + $b; } echo add(2, 3); echo add("hi ", "there");'
+        ));
+    }
+
+    public function test_function_can_be_called_before_it_is_declared()
+    {
+        $this->assertEquals("42\n", $this->executeCode('echo answer(); function answer() { return 42; }'));
+    }
+
+    public function test_recursion_and_mutual_recursion()
+    {
+        $this->assertEquals("120\ntrue\nfalse\n", $this->executeCode(<<<'CODE'
+            function fact($n) { if ($n <= 1) { return 1; } return $n * fact($n - 1); }
+            function is_even($n) { if ($n === 0) { return true; } return is_odd($n - 1); }
+            function is_odd($n) { if ($n === 0) { return false; } return is_even($n - 1); }
+            echo fact(5);
+            echo is_even(10);
+            echo is_even(7);
+            CODE));
+    }
+
+    public function test_arguments_are_evaluated_in_the_callers_scope()
+    {
+        $this->assertEquals("7\n", $this->executeCode(
+            'function inc($x) { return $x + 1; } $x = 5; echo inc($x + 1);'
+        ));
+    }
+
+    public function test_locals_do_not_leak_between_caller_and_function()
+    {
+        $this->assertEquals("99\n7\n", $this->executeCode(
+            'function clobber() { $i = 99; return $i; } $i = 7; echo clobber(); echo $i;'
+        ));
+    }
+
+    public function test_function_cannot_read_top_level_locals()
+    {
+        $this->expectExceptionMessage('Undefined variable: $secret');
+        $this->executeCode('$secret = 1; function peek() { return $secret; } peek();');
+    }
+
+    public function test_globals_are_shared_and_separate_from_locals()
+    {
+        $this->assertEquals("3\nlocal\n", $this->executeCode(<<<'CODE'
+            @count = 0;
+            $count = "local";
+            function bump() { @count = @count + 1; }
+            bump(); bump(); bump();
+            echo @count;
+            echo $count;
+            CODE));
+    }
+
+    public function test_missing_return_value_is_null()
+    {
+        $this->assertEquals("null\nnull\n", $this->executeCode(
+            'function nothing() { } function bare() { return; } echo nothing(); echo bare();'
+        ));
+    }
+
+    public function test_return_from_inside_a_loop()
+    {
+        $this->assertEquals("3\n", $this->executeCode(
+            'function first_over($limit) { for ($i = 0; true; $i = $i + 1) { if ($i > $limit) { return $i; } } } echo first_over(2);'
+        ));
+    }
+
+    public function test_undefined_function_is_a_parse_error_even_if_never_called()
+    {
+        $this->expectExceptionMessage('Undefined function: missing');
+        $this->createParser('if (false) { missing(); }')->parse();
+    }
+
+    public function test_wrong_argument_count_is_a_parse_error()
+    {
+        $this->expectExceptionMessage('Function add expects 2 arguments, 1 given');
+        $this->createParser('echo add(1); function add($a, $b) { return $a + $b; }')->parse();
+    }
+
+    public function test_duplicate_function_is_a_parse_error()
+    {
+        $this->expectExceptionMessage('Function f is already declared');
+        $this->createParser('function f() { } function f() { }')->parse();
+    }
+
+    public function test_duplicate_parameter_is_a_parse_error()
+    {
+        $this->expectExceptionMessage('Duplicate parameter $a in function f');
+        $this->createParser('function f($a, $a) { }')->parse();
+    }
+
+    public function test_global_parameter_is_a_parse_error()
+    {
+        $this->expectExceptionMessage('Invalid syntax near token: GLOBAL_VAR_IDENTIFIER(@a)');
+        $this->createParser('function f(@a) { }')->parse();
+    }
+
+    public function test_nested_function_is_a_parse_error()
+    {
+        $this->expectExceptionMessage('Functions can only be declared at the top level');
+        $this->createParser('function outer() { function inner() { } }')->parse();
+    }
+
+    public function test_return_outside_a_function_is_a_parse_error()
+    {
+        $this->expectExceptionMessage('Cannot use return outside of a function');
+        $this->createParser('while (true) { return 1; }')->parse();
+    }
+
+    public function test_break_in_a_function_cannot_reach_the_callers_loop()
+    {
+        $this->expectExceptionMessage('Cannot use break outside of a loop');
+        $this->createParser('function stop() { break; } while (true) { stop(); }')->parse();
+    }
+
+    public function test_code_gen_for_functions_and_globals()
+    {
+        $this->assertEquals(
+            "PUSH 1\nPUSH 2\nCALL FN_add 2\nPRINT\nHALT\n"
+            ."LABEL FN_add\nLOAD_GLOBAL 0\nPUSH 1\nADD_OR_CONCAT\nSTORE_GLOBAL 0\nLOAD_GLOBAL 0\nPOP\n"
+            ."LOAD 0\nLOAD 1\nADD_OR_CONCAT\nRET\nPUSH null\nRET",
+            $this->generateCode('echo add(1, 2); function add($a, $b) { @calls = @calls + 1; return $a + $b; }')
+        );
+    }
+
+    public function test_code_gen_gives_each_function_its_own_frame()
+    {
+        $this->assertEquals(
+            "PUSH 1\nSTORE 0\nLOAD 0\nPOP\nCALL FN_f 0\nPOP\nHALT\n"
+            ."LABEL FN_f\nPUSH 2\nSTORE 0\nLOAD 0\nPOP\nPUSH null\nRET\nPUSH null\nRET",
+            $this->generateCode('$x = 1; f(); function f() { $y = 2; return; }')
+        );
+    }
+}

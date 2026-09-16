@@ -9,9 +9,13 @@ use GazLang\AST\BinOpAST;
 use GazLang\AST\BooleanAST;
 use GazLang\AST\CompoundAST;
 use GazLang\AST\EchoStatementAST;
+use GazLang\AST\FunctionCallAST;
+use GazLang\AST\FunctionDeclarationAST;
 use GazLang\AST\IfStatementAST;
 use GazLang\AST\LoopControlAST;
+use GazLang\AST\NullAST;
 use GazLang\AST\NumAST;
+use GazLang\AST\ReturnStatementAST;
 use GazLang\AST\StatementAST;
 use GazLang\AST\StringAST;
 use GazLang\AST\UnaryOpAST;
@@ -31,9 +35,19 @@ class Interpreter extends AbstractNodeVisitor
     private $parser;
 
     /**
-     * @var array Symbol table to store variable values
+     * @var array Global (@name) variables, shared by the top level and every function
      */
-    private $symbol_table;
+    private $globals = [];
+
+    /**
+     * @var array Local ($name) variables of the running function call, or of the top level
+     */
+    private $locals = [];
+
+    /**
+     * @var array<string, FunctionDeclarationAST> Declared functions by name
+     */
+    private $functions = [];
 
     /**
      * Constructor
@@ -43,7 +57,6 @@ class Interpreter extends AbstractNodeVisitor
     public function __construct(Parser $parser)
     {
         $this->parser = $parser;
-        $this->symbol_table = [];
     }
 
     /**
@@ -57,11 +70,13 @@ class Interpreter extends AbstractNodeVisitor
     public function visitVariable(VariableAST $node)
     {
         $var_name = $node->value;
-        if (! isset($this->symbol_table[$var_name])) {
+        $table = $node->isGlobal() ? $this->globals : $this->locals;
+        // Not isset: a variable holding null is still defined
+        if (! array_key_exists($var_name, $table)) {
             throw new Exception("Undefined variable: {$var_name}");
         }
 
-        return $this->symbol_table[$var_name];
+        return $table[$var_name];
     }
 
     /**
@@ -74,7 +89,11 @@ class Interpreter extends AbstractNodeVisitor
     {
         $var_name = $node->left->value;
         $var_value = $this->visit($node->right);
-        $this->symbol_table[$var_name] = $var_value;
+        if ($node->left->isGlobal()) {
+            $this->globals[$var_name] = $var_value;
+        } else {
+            $this->locals[$var_name] = $var_value;
+        }
 
         return $var_value;
     }
@@ -107,6 +126,15 @@ class Interpreter extends AbstractNodeVisitor
             return $left === $right;
         } elseif ($node->op->type === Token::STRICT_NOT_EQUALS) {
             return $left !== $right;
+        }
+
+        // null only equals null; arithmetic and ordering on it are errors
+        if ($left === null || $right === null) {
+            return match ($node->op->type) {
+                Token::EQUALS => $left === $right,
+                Token::NOT_EQUALS => $left !== $right,
+                default => throw new Exception("Cannot use {$node->op->value} on null"),
+            };
         }
 
         // Everywhere else booleans act as 1/0, so true + 1 is 2 and true == 1
@@ -156,8 +184,8 @@ class Interpreter extends AbstractNodeVisitor
         if ($node->op->type === Token::NOT) {
             return ! $this->isTruthy($value);
         } elseif ($node->op->type === Token::MINUS) {
-            if (is_string($value)) {
-                throw new Exception('Cannot use - on strings');
+            if (is_string($value) || $value === null) {
+                throw new Exception('Cannot use - on '.($value === null ? 'null' : 'strings'));
             }
 
             return -(int) $value;
@@ -169,13 +197,13 @@ class Interpreter extends AbstractNodeVisitor
     /**
      * Decide whether a value counts as true in conditions and logical operators
      *
-     * Strings are true unless empty; everything else is C-like, true unless 0.
+     * Strings are true unless empty, null is false; everything else is C-like, true unless 0.
      *
      * @param  mixed  $value  The value to test
      */
     private function isTruthy($value): bool
     {
-        return is_string($value) ? $value !== '' : $value != 0;
+        return is_string($value) ? $value !== '' : $value !== null && $value != 0;
     }
 
     /**
@@ -192,6 +220,8 @@ class Interpreter extends AbstractNodeVisitor
             return (string) $value;
         } elseif (is_bool($value)) {
             return $value ? 'true' : 'false';
+        } elseif ($value === null) {
+            return 'null';
         }
 
         throw new Exception('Cannot convert '.get_debug_type($value).' to string');
@@ -217,6 +247,16 @@ class Interpreter extends AbstractNodeVisitor
     public function visitBoolean(BooleanAST $node): bool
     {
         return $node->value;
+    }
+
+    /**
+     * Visit a Null node
+     *
+     * @param  NullAST  $node  The node to visit
+     */
+    public function visitNull(NullAST $node): null
+    {
+        return null;
     }
 
     /**
@@ -333,6 +373,58 @@ class Interpreter extends AbstractNodeVisitor
         throw new LoopSignal($node->token->type);
     }
 
+    /**
+     * Visit a FunctionDeclaration node; declarations are registered up front by interpret()
+     *
+     * @param  FunctionDeclarationAST  $node  The node to visit
+     * @return array Declarations produce no result
+     */
+    public function visitFunctionDeclaration(FunctionDeclarationAST $node): array
+    {
+        return [];
+    }
+
+    /**
+     * Visit a FunctionCall node, running the body with its own locals
+     *
+     * The parser has already checked the function exists and the argument count matches.
+     *
+     * @param  FunctionCallAST  $node  The node to visit
+     * @return mixed The returned value, or null if the function did not return one
+     */
+    public function visitFunctionCall(FunctionCallAST $node)
+    {
+        $function = $this->functions[$node->name];
+
+        // Arguments are evaluated in the caller's scope, before switching locals
+        $args = array_map(fn ($arg) => $this->visit($arg), $node->args);
+
+        $caller_locals = $this->locals;
+        $this->locals = array_combine($function->params, $args);
+
+        try {
+            $this->visit($function->body);
+
+            return null;
+        } catch (ReturnSignal $signal) {
+            return $signal->value;
+        } finally {
+            $this->locals = $caller_locals;
+        }
+    }
+
+    /**
+     * Visit a ReturnStatement node by unwinding to the function call
+     *
+     * @param  ReturnStatementAST  $node  The node to visit
+     *
+     * @throws ReturnSignal Always, caught by visitFunctionCall
+     */
+    public function visitReturnStatement(ReturnStatementAST $node): never
+    {
+        throw new ReturnSignal($node->expr === null ? null : $this->visit($node->expr));
+    }
+
     // The visit method is now implemented in AbstractNodeVisitor
 
     /**
@@ -343,6 +435,14 @@ class Interpreter extends AbstractNodeVisitor
     public function interpret(): void
     {
         $tree = $this->parser->parse();
+
+        // Register every function first, so calls can come before declarations
+        foreach ($tree->statements as $statement) {
+            if ($statement instanceof FunctionDeclarationAST) {
+                $this->functions[$statement->name] = $statement;
+            }
+        }
+
         $this->visit($tree);
     }
 }

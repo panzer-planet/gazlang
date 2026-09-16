@@ -5,7 +5,7 @@ A simple programming language compiler that supports dynamic typing with integer
 ## Features
 
 - Statements terminated by semicolons (`;`)
-- Dynamic typing with support for integers, strings and booleans
+- Dynamic typing with support for integers, strings, booleans and `null`
 - Boolean literals `true` and `false`; comparisons and logical operators return booleans
 - String literals with double quotes (`"Hello, World!"`)
 - String escape sequences (`\n`, `\t`, `\"`, `\\`)
@@ -15,9 +15,10 @@ A simple programming language compiler that supports dynamic typing with integer
 - Logical operators: `&&`, `||` (short-circuiting), `!`
 - Parentheses for grouping expressions
 - Echo statements for output (`echo <expr>;`)
-- Variables with `$` prefix (`$var = expression;`)
+- Local variables with `$` prefix (`$var = expression;`) and global variables with `@` prefix (`@count = 0;`)
 - Control flow with if/else and else if statements
 - Loops: `while (cond) { ... }` and `for (init; cond; step) { ... }`, with `break` and `continue`
+- Functions: `function add($a, $b) { return $a + $b; }`, callable before they are declared, with recursion
 - Single-line comments (`// comment`)
 - Ability to interpret expressions
 - Code generation for a stack-based virtual machine

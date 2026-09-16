@@ -116,6 +116,38 @@ interface NodeVisitorInterface
     public function visitLoopControl(LoopControlAST $node);
 
     /**
+     * Visit a Null node
+     *
+     * @param  NullAST  $node  The node to visit
+     * @return mixed The result of visiting the node
+     */
+    public function visitNull(NullAST $node);
+
+    /**
+     * Visit a FunctionDeclaration node
+     *
+     * @param  FunctionDeclarationAST  $node  The node to visit
+     * @return mixed The result of visiting the node
+     */
+    public function visitFunctionDeclaration(FunctionDeclarationAST $node);
+
+    /**
+     * Visit a FunctionCall node
+     *
+     * @param  FunctionCallAST  $node  The node to visit
+     * @return mixed The result of visiting the node
+     */
+    public function visitFunctionCall(FunctionCallAST $node);
+
+    /**
+     * Visit a ReturnStatement node
+     *
+     * @param  ReturnStatementAST  $node  The node to visit
+     * @return mixed The result of visiting the node
+     */
+    public function visitReturnStatement(ReturnStatementAST $node);
+
+    /**
      * Visit a Compound node
      *
      * @param  CompoundAST  $node  The node to visit
