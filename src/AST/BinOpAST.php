@@ -13,28 +13,28 @@ class BinOpAST extends AST
      * @var AST Left operand
      */
     public $left;
-    
+
     /**
      * @var Token Operation token
      */
     public $token;
-    
+
     /**
-     * @var Token Operation token (alias for $token)
+     * @var Token Operation token (alias for)
      */
     public $op;
-    
+
     /**
      * @var AST Right operand
      */
     public $right;
-    
+
     /**
      * Constructor
      *
-     * @param object $left  Left operand (AST or Variable)
-     * @param Token  $op    Operation token
-     * @param object $right Right operand (AST or Variable)
+     * @param  object  $left  Left operand (AST or Variable)
+     * @param  Token  $op  Operation token
+     * @param  object  $right  Right operand (AST or Variable)
      */
     public function __construct($left, Token $op, $right)
     {
@@ -42,4 +42,4 @@ class BinOpAST extends AST
         $this->token = $this->op = $op;
         $this->right = $right;
     }
-} 
+}

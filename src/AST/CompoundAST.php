@@ -11,7 +11,7 @@ class CompoundAST extends AST
      * @var array List of statements
      */
     public $statements;
-    
+
     /**
      * Constructor
      */
@@ -19,4 +19,4 @@ class CompoundAST extends AST
     {
         $this->statements = [];
     }
-} 
+}

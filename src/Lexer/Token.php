@@ -9,53 +9,84 @@ class Token
 {
     // Token types
     public const INTEGER = 'INTEGER';
+
     public const STRING = 'STRING';  // String literal
+
     public const PLUS = 'PLUS';
+
     public const MINUS = 'MINUS';
+
     public const MULTIPLY = 'MULTIPLY';
+
     public const DIVIDE = 'DIVIDE';
+
     public const SEMICOLON = 'SEMICOLON';
+
     public const ECHO = 'ECHO';  // Echo keyword
+
     public const LEFT_PAREN = 'LEFT_PAREN';  // Left parenthesis '('
+
     public const RIGHT_PAREN = 'RIGHT_PAREN';  // Right parenthesis ')'
+
     public const VAR_IDENTIFIER = 'VAR_IDENTIFIER';  // Variable identifier (starting with $)
+
     public const ASSIGN = 'ASSIGN';  // Assignment operator (=)
+
     public const EOF = 'EOF';  // End of file
+
     public const IF = 'IF';  // If keyword
+
     public const ELSE = 'ELSE';  // Else keyword
+
     public const LEFT_BRACE = 'LEFT_BRACE';  // Left curly brace '{'
+
     public const RIGHT_BRACE = 'RIGHT_BRACE';  // Right curly brace '}'
+
     public const EQUALS = 'EQUALS';  // Equality operator (==)
-    
+
+    public const NOT_EQUALS = 'NOT_EQUALS';  // Inequality operator (!=)
+
+    public const LESS_THAN = 'LESS_THAN';  // Less than operator (<)
+
+    public const LESS_EQUALS = 'LESS_EQUALS';  // Less than or equal operator (<=)
+
+    public const GREATER_THAN = 'GREATER_THAN';  // Greater than operator (>)
+
+    public const GREATER_EQUALS = 'GREATER_EQUALS';  // Greater than or equal operator (>=)
+
+    public const AND = 'AND';  // Logical and operator (&&)
+
+    public const OR = 'OR';  // Logical or operator (||)
+
+    public const NOT = 'NOT';  // Logical not operator (!)
+
     /**
      * @var string The token type
      */
     public $type;
-    
+
     /**
      * @var mixed The token value
      */
     public $value;
-    
+
     /**
      * Constructor
      *
-     * @param string $type  The token type
-     * @param mixed  $value The token value
+     * @param  string  $type  The token type
+     * @param  mixed  $value  The token value
      */
     public function __construct(string $type, $value)
     {
         $this->type = $type;
         $this->value = $value;
     }
-    
+
     /**
      * String representation of the token
-     *
-     * @return string
      */
     public function __toString(): string
     {
         return "Token({$this->type}, {$this->value})";
     }
-} 
+}

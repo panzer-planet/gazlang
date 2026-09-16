@@ -1,13 +1,13 @@
 <?php
 
+use GazLang\Interpreter\Interpreter;
 use GazLang\Lexer\Lexer;
 use GazLang\Parser\Parser;
-use GazLang\Interpreter\Interpreter;
 use PHPUnit\Framework\TestCase;
 
 class StringTest extends TestCase
 {
-    public function testSimpleString()
+    public function test_simple_string()
     {
         $code = <<<'CODE'
         echo "Hello, World!";
@@ -20,8 +20,8 @@ class StringTest extends TestCase
         $this->expectOutputString("Hello, World!\n");
         $interpreter->interpret();
     }
-    
-    public function testStringAssignment()
+
+    public function test_string_assignment()
     {
         $code = <<<'CODE'
         $message = "Hello, GazLang!";
@@ -35,8 +35,8 @@ class StringTest extends TestCase
         $this->expectOutputString("Hello, GazLang!\n");
         $interpreter->interpret();
     }
-    
-    public function testStringConcatenation()
+
+    public function test_string_concatenation()
     {
         $code = <<<'CODE'
         echo "Hello, " + "World!";
@@ -52,8 +52,8 @@ class StringTest extends TestCase
         $this->expectOutputString("Hello, World!\nGazLang is awesome\n");
         $interpreter->interpret();
     }
-    
-    public function testMixedTypeOperations()
+
+    public function test_mixed_type_operations()
     {
         $code = <<<'CODE'
         // String + number concatenates by converting number to string
