@@ -137,6 +137,7 @@ php bin/gazlang -f examples/echo_example.gaz -c
     - `AbstractNodeVisitor.php` - Base visitor implementation
     - Various AST node classes for different language constructs
   - `Interpreter/` - Executes the AST
+  - `Runtime/` - Value semantics (operators, truthiness, printing) and builtin functions, shared by backends
   - `CodeGenerator/` - Generates stack-based VM code
 - `bin/` - Executable scripts
 - `tests/` - Unit tests

@@ -47,7 +47,7 @@ each step depends on the ones before it.
    `-` via `UnaryOpAST`. `!=`, `===` and `!==` sit at the equality level, C-style. There is a
    real boolean type (`BooleanAST`, `true`/`false` keywords):
    - Comparisons, `!`, `&&` and `||` return booleans; `echo 1 < 2` prints `true`.
-   - Truthiness lives in `Interpreter::isTruthy()`, shared by the interpreter's
+   - Truthiness lives in `Runtime\Values::isTruthy()`, shared by the interpreter's
      `if`, `while`, `!`, `&&`, `||`. The code generator's `JZ`/`NOT` have no VM
      defined behind them yet; a VM must reuse the same rules. Numbers and booleans are C-like (`if (5)` is true,
      `if (0)` is false); strings are true unless empty, so `"0"` is true.
@@ -127,7 +127,7 @@ each step depends on the ones before it.
      strict (same keys, same order, identical values); arithmetic, ordering and
      unary `-` on arrays throw.
    - `len($x)` (array count or string length) is the first builtin. Builtins
-     live in `Parser::BUILTINS` (name → arity), share the call checks with user
+     live in `Runtime\Builtins::ARITIES` (name → arity), share the call checks with user
      functions, and can't be redeclared; the code generator emits
      `CALL_BUILTIN name argc`.
    - Code generator: `NEW_ARRAY`, `ARRAY_PUSH`, `ARRAY_SET`, `INDEX_GET`; an
@@ -136,11 +136,11 @@ each step depends on the ones before it.
      effects are documented on `CodeGenerator`).
    - Not yet: removing elements (build a new array instead), `foreach` (loop
      over `keys()`).
-   - `Parser::BUILTINS` records a fixed arity; variadic builtins will need that
+   - `Builtins::ARITIES` records a fixed arity; variadic builtins will need that
      to change.
 6. ~~**Design a minimal standard library.**~~ Done. Builtins live in
-   `Parser::BUILTINS` (name → fixed arity; variadic builtins will need that to
-   change), are implemented in `Interpreter::callBuiltin()`, can't be
+   `Runtime\Builtins::ARITIES` (name → fixed arity; variadic builtins will need that to
+   change), are implemented in `Runtime\Builtins::call()`, can't be
    redeclared, and compile to `CALL_BUILTIN name argc`. Argument types are
    checked with the `type_of()` names.
    - Strings: `len($s)`, `slice($x, $start, $length)` (strings and arrays, PHP
@@ -182,6 +182,18 @@ Syntax errors say what was expected and found ("Expected ')' but found ';'").
 into a `GazLangError` at that node, so the innermost located node wins and
 runtime code can keep throwing plain `Exception`s. Include paths show relative
 to the working directory; the main file shows as given on the command line.
+
+## Layout
+
+- `src/Lexer`, `src/Parser`, `src/AST`: source text to a tree. `Lexer::quote()` and
+  `Lexer::parse_integer()` are the one definition of string and integer literals.
+- `src/Interpreter`: runs the tree (scopes, calls, control flow signals, writes
+  through array paths). It does not decide what values mean.
+- `src/Runtime`: what values mean, shared by every backend. `Values` holds the
+  operators, truthiness, printing, array keys and indexing as static pure
+  functions; `Builtins` holds the builtin functions and their arities. A future
+  VM should call these rather than reimplement them.
+- `src/CodeGenerator`: emits stack VM instructions (there is no VM yet).
 
 **Note:** any new AST node type (e.g. new BinOp/UnaryOp variants)
 needs visitor support in *both* `Interpreter/Interpreter.php` and

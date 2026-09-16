@@ -25,7 +25,7 @@ use GazLang\AST\VariableAST;
 use GazLang\AST\WhileStatementAST;
 use GazLang\Lexer\Lexer;
 use GazLang\Lexer\Token;
-use GazLang\Parser\Parser;
+use GazLang\Runtime\Builtins;
 
 /**
  * CodeGenerator class transforms the AST into stack-based VM code
@@ -476,7 +476,7 @@ class CodeGenerator extends AbstractNodeVisitor
             $this->visit($arg);
         }
 
-        $this->instructions[] = isset(Parser::BUILTINS[$node->name])
+        $this->instructions[] = isset(Builtins::ARITIES[$node->name])
             ? "CALL_BUILTIN {$node->name} ".count($node->args)
             : "CALL FN_{$node->name} ".count($node->args);
     }

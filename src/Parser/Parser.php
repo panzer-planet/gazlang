@@ -26,6 +26,7 @@ use GazLang\AST\WhileStatementAST;
 use GazLang\GazLangError;
 use GazLang\Lexer\Lexer;
 use GazLang\Lexer\Token;
+use GazLang\Runtime\Builtins;
 
 /**
  * Parser class builds an AST from tokens
@@ -51,26 +52,6 @@ class Parser
     ];
 
     /**
-     * Builtin function names mapped to their parameter counts; both backends implement these
-     */
-    public const BUILTINS = [
-        'len' => 1,
-        'slice' => 3,
-        'lower' => 1,
-        'to_int' => 1,
-        'to_string' => 1,
-        'in_array' => 2,
-        'has_key' => 2,
-        'keys' => 1,
-        'type_of' => 1,
-        'error' => 1,
-        'read_file' => 1,
-        'write_file' => 2,
-        'read_stdin' => 0,
-        'args' => 0,
-    ];
-
-    /**
      * @var Lexer The lexer that provides tokens
      */
     private $lexer;
@@ -93,7 +74,7 @@ class Parser
     /**
      * @var array<string, int> Declared function names mapped to their parameter counts
      */
-    private $functions = self::BUILTINS;
+    private $functions = Builtins::ARITIES;
 
     /**
      * @var FunctionCallAST[] Every call parsed, checked against the declared functions once the whole program is read
@@ -738,7 +719,7 @@ class Parser
         $this->eat(Token::FUNCTION);
         $name = $this->current_token->value;
         if (isset($this->functions[$name])) {
-            $this->fail(isset(self::BUILTINS[$name]) ? "{$name} is a builtin function" : "Function {$name} is already declared");
+            $this->fail(isset(Builtins::ARITIES[$name]) ? "{$name} is a builtin function" : "Function {$name} is already declared");
         }
         $this->eat(Token::IDENTIFIER);
 
