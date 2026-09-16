@@ -233,9 +233,9 @@ class Interpreter extends AbstractNodeVisitor
      *
      * Plain assignment ($op null) may create the variable and the last key. A compound
      * assignment (a binary operator token, + for +=) or ++/-- (an INCREMENT or DECREMENT
-     * token) combines with the current value, which must exist: a missing last key reads
-     * as null, so it fails like null + 1. Missing keys along the way are never created,
-     * and nothing is written if computing the new value fails.
+     * token) combines with the current value, so the variable and every key must exist.
+     * Missing keys along the way are never created, and nothing is written if computing
+     * the new value fails.
      *
      * Arrays are values: writing in place through a PHP reference only changes this
      * variable's copy.
@@ -276,6 +276,12 @@ class Interpreter extends AbstractNodeVisitor
                 return [null, $value];
             }
             $key = $next_key;
+        }
+
+        // Combining needs something to combine with: a missing key is an error, even for
+        // strings, where null + "x" would quietly give "nullx"
+        if ($op !== null && ! array_key_exists($key, $container)) {
+            throw new Exception("Undefined key: {$key}");
         }
 
         $old = $container[$key] ?? null;
@@ -577,7 +583,10 @@ class Interpreter extends AbstractNodeVisitor
      */
     public function visitIndex(IndexAST $node)
     {
-        return Values::index($this->visit($node->target), $this->visit($node->index));
+        $target = $this->visit($node->target);
+        $index = $this->visit($node->index);
+
+        return $node->existing ? Values::indexExisting($target, $index) : Values::index($target, $index);
     }
 
     /**

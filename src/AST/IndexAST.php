@@ -18,6 +18,12 @@ class IndexAST extends AST
     public $index;
 
     /**
+     * @var bool Whether reading requires an array with this key (Values::indexExisting); set by
+     *           the code generator for the reads of a lowered compound update, never by the parser
+     */
+    public $existing = false;
+
+    /**
      * Constructor
      *
      * @param  AST  $target  The array or string being indexed

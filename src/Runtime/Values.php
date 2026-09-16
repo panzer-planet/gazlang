@@ -232,6 +232,31 @@ final class Values
     }
 
     /**
+     * Read an element that must exist, as a compound update (+=, ++) reads the value it combines with
+     *
+     * Stricter than index(): the target must be an array and the key must be there, with the
+     * same messages as the interpreter's own updates.
+     *
+     * @param  mixed  $target  The array
+     * @param  mixed  $index  The key
+     * @return mixed The element
+     *
+     * @throws Exception If the target is not an array or the key is missing
+     */
+    public static function indexExisting($target, $index)
+    {
+        if (! is_array($target)) {
+            throw new Exception('Cannot use [] on '.get_debug_type($target));
+        }
+        $key = self::arrayKey($index);
+        if (! array_key_exists($key, $target)) {
+            throw new Exception("Undefined key: {$key}");
+        }
+
+        return $target[$key];
+    }
+
+    /**
      * Apply + - * / % to two numbers (booleans already converted)
      *
      * Two ints give an int, and a float on either side gives a float. / follows PHP: an

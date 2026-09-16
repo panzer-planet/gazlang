@@ -241,6 +241,7 @@ class StdlibTest extends GazLangTestCase
             'slice target' => ['slice(5, 0, 1);', 'slice() expects string or array, got int'],
             'slice start' => ['slice("abc", "0", 1);', 'slice() expects int, got string'],
             'lower' => ['lower(1);', 'lower() expects string, got int'],
+            'index_of null offset' => ['index_of("abc", "c", null);', 'index_of() expects int, got null'],
             'in_array haystack' => ['in_array(1, "1");', 'in_array() expects array, got string'],
             'has_key array' => ['has_key("a", 1);', 'has_key() expects array, got string'],
             'has_key key' => ['has_key([], null);', 'Array keys must be int or string, got null'],

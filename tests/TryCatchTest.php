@@ -67,6 +67,23 @@ class TryCatchTest extends GazLangTestCase
         );
     }
 
+    public function test_code_gen_returns_from_inside_try_with_ret()
+    {
+        // RET drops the returning frame's handlers, so no END_TRY is emitted before it
+        $this->assertStringContainsString(
+            "LABEL FN_f\nTRY CATCH_0\nPUSH 1\nRET\nEND_TRY\nJMP ENDTRY_0\nLABEL CATCH_0\nSTORE 0\nLABEL ENDTRY_0",
+            $this->generateCode('f(); function f() { try { return 1; } catch ($e) { } }')
+        );
+    }
+
+    public function test_code_gen_leaves_try_when_breaking_out_of_a_foreach()
+    {
+        $code = $this->generateCode('foreach ([1] as $v) { try { continue; } catch ($e) { } }');
+
+        // The lowered foreach's continue runs its step, after leaving the try
+        $this->assertMatchesRegularExpression('/TRY CATCH_\d+\nEND_TRY\nJMP CONTINUE_\d+/', $code);
+    }
+
     public function test_code_gen_leaves_each_try_when_breaking_out_of_a_loop()
     {
         $code = $this->generateCode('try { while (true) { try { try { break; } catch ($a) { } } catch ($b) { } } } catch ($c) { }');

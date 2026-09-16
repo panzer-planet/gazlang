@@ -92,7 +92,7 @@ final class Builtins
             'contains' => str_contains($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string')),
             'starts_with' => str_starts_with($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string')),
             'ends_with' => str_ends_with($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string')),
-            'index_of' => $this->indexOf($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string'), $this->argument($name, $args[2] ?? 0, 'int')),
+            'index_of' => $this->indexOf($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string'), $this->argument($name, array_key_exists(2, $args) ? $args[2] : 0, 'int')),
             'repeat' => $this->repeat($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'int')),
             'chr' => $this->chr($this->argument($name, $args[0], 'int')),
             'ord' => $this->ord($this->argument($name, $args[0], 'string')),

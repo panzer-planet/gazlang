@@ -192,6 +192,8 @@ class CodeGenerator extends AbstractNodeVisitor
      *   $a[k]++     becomes  $#k0 = k; $#old = $a[$#k0]; $a[$#k0] = INC $#old    (leaving $#old)
      *
      * INC and DEC add or subtract one and fail on anything but a number, like Values::step().
+     * The current value is read with INDEX_GET_EXISTING (Values::indexExisting()): the target
+     * must be an array and the key must exist.
      *
      * @param  VariableAST|IndexAST  $target  The variable or element being updated
      * @param  Token  $op  The compound assignment, INCREMENT or DECREMENT token
@@ -213,6 +215,8 @@ class CodeGenerator extends AbstractNodeVisitor
             $key = $hidden("key{$i}");
             $this->visit(new StatementAST($assign($key, $index)));
             $place = new IndexAST($place, $key);
+            // The update reads the current value strictly, like the interpreter's store()
+            $place->existing = true;
         }
 
         if ($value !== null) {
@@ -412,7 +416,7 @@ class CodeGenerator extends AbstractNodeVisitor
     {
         $this->visit($node->target);
         $this->visit($node->index);
-        $this->instructions[] = 'INDEX_GET';
+        $this->instructions[] = $node->existing ? 'INDEX_GET_EXISTING' : 'INDEX_GET';
     }
 
     /**

@@ -152,6 +152,16 @@ class FunctionTest extends GazLangTestCase
         );
     }
 
+    public function test_code_gen_checks_each_default_against_its_position()
+    {
+        $this->assertStringContainsString(
+            "LABEL FN_f\n"
+            ."ARGC\nPUSH 1\nGT\nNOT\nJZ PASSED_0\nPUSH 2\nSTORE 1\nLABEL PASSED_0\n"
+            ."ARGC\nPUSH 2\nGT\nNOT\nJZ PASSED_1\nLOAD 1\nSTORE 2\nLABEL PASSED_1",
+            $this->generateCode('f(1); function f($a, $b = 2, $c = $b) { }')
+        );
+    }
+
     public function test_undefined_function_is_a_parse_error_even_if_never_called()
     {
         $this->expectExceptionMessage('Undefined function: missing');
