@@ -1,0 +1,13 @@
+// Character helpers, written in GazLang: strings compare byte by byte
+function is_digit($c) {
+    return $c >= "0" && $c <= "9";
+}
+
+function is_alpha($c) {
+    $c = lower($c);
+    return $c >= "a" && $c <= "z" || $c === "_";
+}
+
+function is_space($c) {
+    return in_array($c, [" ", "\t", "\n"]);
+}

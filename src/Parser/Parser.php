@@ -34,7 +34,20 @@ class Parser
     /**
      * Builtin function names mapped to their parameter counts; both backends implement these
      */
-    public const BUILTINS = ['len' => 1];
+    public const BUILTINS = [
+        'len' => 1,
+        'slice' => 3,
+        'lower' => 1,
+        'to_int' => 1,
+        'to_string' => 1,
+        'in_array' => 2,
+        'has_key' => 2,
+        'keys' => 1,
+        'type_of' => 1,
+        'error' => 1,
+        'read_file' => 1,
+        'args' => 0,
+    ];
 
     /**
      * @var Lexer The lexer that provides tokens
@@ -67,14 +80,31 @@ class Parser
     private $calls = [];
 
     /**
+     * @var string Directory that include paths in the file being parsed are relative to
+     */
+    private $base_dir;
+
+    /**
+     * @var array<string, true> Real paths of every file parsed so far, so each is only included once
+     */
+    private $included = [];
+
+    /**
      * Constructor
      *
      * @param  Lexer  $lexer  The lexer to get tokens from
+     * @param  string|null  $path  The file the source came from, if any; includes resolve relative to it
      */
-    public function __construct(Lexer $lexer)
+    public function __construct(Lexer $lexer, ?string $path = null)
     {
         $this->lexer = $lexer;
         $this->current_token = $this->lexer->get_next_token();
+
+        $real_path = $path === null ? false : realpath($path);
+        if ($real_path !== false) {
+            $this->included[$real_path] = true;
+        }
+        $this->base_dir = $real_path !== false ? dirname($real_path) : getcwd();
     }
 
     /**
@@ -556,6 +586,8 @@ class Parser
             return $this->return_statement();
         } elseif ($this->current_token->type === Token::FUNCTION) {
             throw new Exception('Functions can only be declared at the top level');
+        } elseif ($this->current_token->type === Token::INCLUDE) {
+            throw new Exception('include can only be used at the top level');
         }
 
         $expr = $this->expr();
@@ -645,7 +677,7 @@ class Parser
     }
 
     /**
-     * Parse a program ((function_declaration | statement)*)
+     * Parse a program (top_level)
      *
      * Calls are checked once everything is parsed, so a function can be called
      * before it is declared and both backends can trust every call is valid.
@@ -657,12 +689,7 @@ class Parser
     public function program()
     {
         $root = new CompoundAST;
-
-        while ($this->current_token->type !== Token::EOF) {
-            $root->statements[] = $this->current_token->type === Token::FUNCTION
-                ? $this->function_declaration()
-                : $this->statement();
-        }
+        $root->statements = $this->top_level();
 
         foreach ($this->calls as $call) {
             if (! isset($this->functions[$call->name])) {
@@ -674,6 +701,72 @@ class Parser
         }
 
         return $root;
+    }
+
+    /**
+     * Parse top level items until the end of the current file ((function_declaration | include | statement)*)
+     *
+     * @return AST[] The statements, with included files spliced in where they are included
+     *
+     * @throws Exception
+     */
+    private function top_level(): array
+    {
+        $statements = [];
+        while ($this->current_token->type !== Token::EOF) {
+            if ($this->current_token->type === Token::FUNCTION) {
+                $statements[] = $this->function_declaration();
+            } elseif ($this->current_token->type === Token::INCLUDE) {
+                array_push($statements, ...$this->include_statement());
+            } else {
+                $statements[] = $this->statement();
+            }
+        }
+
+        return $statements;
+    }
+
+    /**
+     * Parse an include (INCLUDE STRING SEMICOLON) and the top level of the included file
+     *
+     * The path is relative to the including file. The included file shares this
+     * parser's functions, so everything is checked and hoisted as one program, and
+     * a file already parsed (including the main file) is skipped, which also stops
+     * include cycles.
+     *
+     * @return AST[] The included file's statements, or none if it was already included
+     *
+     * @throws Exception If the file can't be read, or it has a syntax error
+     */
+    private function include_statement(): array
+    {
+        $this->eat(Token::INCLUDE);
+        $relative = $this->current_token->value;
+        $this->eat(Token::STRING);
+        $this->eat(Token::SEMICOLON);
+
+        $path = realpath(str_starts_with($relative, '/') ? $relative : $this->base_dir.'/'.$relative);
+        if ($path === false || ! is_file($path)) {
+            throw new Exception("Cannot include file: {$relative}");
+        }
+        if (isset($this->included[$path])) {
+            return [];
+        }
+        $this->included[$path] = true;
+
+        $outer = [$this->lexer, $this->current_token, $this->base_dir];
+        $this->lexer = new Lexer(file_get_contents($path));
+        $this->base_dir = dirname($path);
+
+        try {
+            $this->current_token = $this->lexer->get_next_token();
+
+            return $this->top_level();
+        } catch (Exception $e) {
+            throw new Exception("{$e->getMessage()} (in {$relative})", 0, $e);
+        } finally {
+            [$this->lexer, $this->current_token, $this->base_dir] = $outer;
+        }
     }
 
     /**

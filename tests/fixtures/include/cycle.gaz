@@ -1,0 +1,2 @@
+include "lib/math.gaz";
+echo "cycle runs first";

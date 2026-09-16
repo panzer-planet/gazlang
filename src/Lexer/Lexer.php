@@ -38,6 +38,7 @@ class Lexer
         'function' => 'FUNCTION',
         'return' => 'RETURN',
         'null' => 'NULL',
+        'include' => 'INCLUDE',
         'true' => 'TRUE',
         'false' => 'FALSE',
     ];

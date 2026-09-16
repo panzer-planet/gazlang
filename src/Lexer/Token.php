@@ -64,6 +64,8 @@ class Token
 
     public const NULL = 'NULL';  // Null literal
 
+    public const INCLUDE = 'INCLUDE';  // Include keyword
+
     public const TRUE = 'TRUE';  // Boolean literal true
 
     public const FALSE = 'FALSE';  // Boolean literal false

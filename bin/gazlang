@@ -24,7 +24,7 @@ use GazLang\CodeGenerator\CodeGenerator;
  */
 function showHelp() {
     echo "GazLang - A simple programming language compiler\n";
-    echo "Usage: gazlang [options]\n";
+    echo "Usage: gazlang [options] [--] [program arguments...]\n";
     echo "Options:\n";
     echo "  -h, --help     Show this help message\n";
     echo "  -v, --version  Show version information\n";
@@ -40,7 +40,9 @@ function showVersion() {
 }
 
 // Parse command-line arguments
-$options = getopt("hvf:c", ["help", "version", "file:", "code"]);
+$options = getopt("hvf:c", ["help", "version", "file:", "code"], $rest_index);
+// Everything after the options (or after --) is passed to the program, see args()
+$programArgs = array_slice($argv, $rest_index);
 
 if (isset($options['h']) || isset($options['help'])) {
     showHelp();
@@ -63,7 +65,7 @@ if ($inputFile) {
     }
     
     $text = file_get_contents($inputFile);
-    exit(processInput($text, $generateCode) ? 0 : 1);
+    exit(processInput($text, $generateCode, $inputFile, $programArgs) ? 0 : 1);
 }
 
 // Check if input is piped
@@ -75,7 +77,7 @@ if ($isPiped) {
     while (!feof(STDIN)) {
         $input .= fgets(STDIN);
     }
-    exit(processInput($input, $generateCode) ? 0 : 1);
+    exit(processInput($input, $generateCode, null, $programArgs) ? 0 : 1);
 }
 
 // Interactive mode
@@ -93,7 +95,7 @@ while (true) {
         continue;
     }
     
-    processInput($line, $generateCode);
+    processInput($line, $generateCode, null, $programArgs);
 }
 
 /**
@@ -101,12 +103,14 @@ while (true) {
  * 
  * @param string $text         The input text to process
  * @param bool   $generateCode Whether to generate code or interpret
+ * @param string|null $path    The file the text came from, so includes resolve relative to it
+ * @param array  $args         Command line arguments for the program
  * @return bool Whether the input ran without errors
  */
-function processInput(string $text, bool $generateCode = false): bool {
+function processInput(string $text, bool $generateCode = false, ?string $path = null, array $args = []): bool {
     try {
         $lexer = new Lexer($text);
-        $parser = new Parser($lexer);
+        $parser = new Parser($lexer, $path);
         
         if ($generateCode) {
             // Generate code
@@ -115,7 +119,7 @@ function processInput(string $text, bool $generateCode = false): bool {
             echo "Generated code:\n$code\n";
         } else {
             // Interpret - echo statements handle their own output
-            $interpreter = new Interpreter($parser);
+            $interpreter = new Interpreter($parser, $args);
             $interpreter->interpret();
         }
     } catch (Throwable $e) {

@@ -58,6 +58,11 @@ class Interpreter extends AbstractNodeVisitor
     private $functions = [];
 
     /**
+     * @var string[] Command line arguments passed to the program, returned by args()
+     */
+    private $args;
+
+    /**
      * @var int How many function calls are currently running
      */
     private $call_depth = 0;
@@ -77,10 +82,12 @@ class Interpreter extends AbstractNodeVisitor
      * Constructor
      *
      * @param  Parser  $parser  The parser to get the AST from
+     * @param  string[]  $args  Command line arguments for the program, returned by args()
      */
-    public function __construct(Parser $parser)
+    public function __construct(Parser $parser, array $args = [])
     {
         $this->parser = $parser;
+        $this->args = $args;
         $this->return_signal = new ReturnSignal;
         $this->loop_signals = [
             Token::BREAK => new LoopSignal(Token::BREAK),
@@ -607,13 +614,98 @@ class Interpreter extends AbstractNodeVisitor
     private function callBuiltin(string $name, array $args)
     {
         return match ($name) {
-            'len' => match (true) {
-                is_array($args[0]) => count($args[0]),
-                is_string($args[0]) => strlen($args[0]),
-                default => throw new Exception('len() expects an array or string, got '.get_debug_type($args[0])),
-            },
+            'len' => is_array($this->argument($name, $args[0], 'array', 'string')) ? count($args[0]) : strlen($args[0]),
+            'slice' => $this->slice($args[0], $this->argument($name, $args[1], 'int'), $this->argument($name, $args[2], 'int')),
+            'lower' => strtolower($this->argument($name, $args[0], 'string')),
+            'to_int' => $this->toInt($args[0]),
+            'to_string' => $this->toString($args[0]),
+            // Strict, like ===
+            'in_array' => in_array($args[0], $this->argument($name, $args[1], 'array'), true),
+            'has_key' => array_key_exists($this->arrayKey($args[1]), $this->argument($name, $args[0], 'array')),
+            'keys' => array_keys($this->argument($name, $args[0], 'array')),
+            'type_of' => get_debug_type($args[0]),
+            'error' => throw new Exception($this->toString($args[0])),
+            'read_file' => $this->readFile($this->argument($name, $args[0], 'string')),
+            'args' => $this->args,
             default => throw new Exception("Unknown builtin: {$name}"),
         };
+    }
+
+    /**
+     * Check a builtin argument has one of the allowed types
+     *
+     * @param  string  $builtin  The builtin name, for the error message
+     * @param  mixed  $value  The argument
+     * @param  string  ...$types  Allowed type names, as type_of() reports them
+     * @return mixed The argument
+     *
+     * @throws Exception If the argument has another type
+     */
+    private function argument(string $builtin, $value, string ...$types)
+    {
+        if (! in_array(get_debug_type($value), $types, true)) {
+            throw new Exception("{$builtin}() expects ".implode(' or ', $types).', got '.get_debug_type($value));
+        }
+
+        return $value;
+    }
+
+    /**
+     * slice($x, $start, $length): part of a string or array, with PHP's substr/array_slice rules
+     *
+     * A negative start counts from the end, a negative length stops that many from the end.
+     * Array string keys are kept, integer keys are renumbered from 0.
+     *
+     * @param  mixed  $value  A string or array
+     * @param  int  $start  The first position
+     * @param  int  $length  How many characters or elements to take
+     * @return string|array The slice
+     */
+    private function slice($value, int $start, int $length): string|array
+    {
+        return is_array($this->argument('slice', $value, 'string', 'array'))
+            ? array_slice($value, $start, $length)
+            : substr($value, $start, $length);
+    }
+
+    /**
+     * to_int($x): an int as is, or a string of decimal digits with an optional leading minus
+     *
+     * @param  mixed  $value  The value to convert
+     *
+     * @throws Exception If the value is not an int or a string holding one that fits
+     */
+    private function toInt($value): int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+        if (is_string($value) && preg_match('/^-?[0-9]+$/', $value)) {
+            // (int) saturates on overflow, so the digits only survive a round trip if they fit
+            $normalized = preg_replace(['/^(-?)0+(?=[0-9])/', '/^-0$/'], ['$1', '0'], $value);
+            if ((string) (int) $value === $normalized) {
+                return (int) $value;
+            }
+        }
+
+        throw new Exception('to_int() cannot convert '.(is_string($value) ? $this->quote($value) : get_debug_type($value)));
+    }
+
+    /**
+     * read_file($path): the contents of a file, relative paths resolved from the working directory
+     *
+     * @param  string  $path  The file path
+     *
+     * @throws Exception If the file can't be read
+     */
+    private function readFile(string $path): string
+    {
+        $contents = is_file($path) ? file_get_contents($path) : false;
+        if ($contents === false) {
+            throw new Exception("Cannot read file: {$path}");
+        }
+
+        return $contents;
     }
 
     /**

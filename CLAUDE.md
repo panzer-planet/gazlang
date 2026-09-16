@@ -128,9 +128,29 @@ each step depends on the ones before it.
      builtin), checking a key exists when its value may be null.
    - `Parser::BUILTINS` records a fixed arity; variadic builtins will need that
      to change.
-6. **Design a minimal standard library.** File reading, string manipulation
-   builtins, basic I/O — the plumbing self-hosting quietly depends on. Add
-   builtins to `Parser::BUILTINS` and implement them in both backends.
+6. ~~**Design a minimal standard library.**~~ Done. Builtins live in
+   `Parser::BUILTINS` (name → fixed arity; variadic builtins will need that to
+   change), are implemented in `Interpreter::callBuiltin()`, can't be
+   redeclared, and compile to `CALL_BUILTIN name argc`. Argument types are
+   checked with the `type_of()` names.
+   - Strings: `len($s)`, `slice($x, $start, $length)` (strings and arrays, PHP
+     `substr`/`array_slice` rules including negatives), `lower($s)`,
+     `to_int($x)` (ints, or strings of decimal digits with an optional `-`;
+     anything else or overflow is an error), `to_string($x)` (same text as echo).
+   - Arrays: `len`, `slice`, `in_array($value, $array)` (strict, like `===`),
+     `has_key($array, $key)`, `keys($array)`.
+   - Other: `type_of($x)` (`int`, `string`, `bool`, `null`, `array`),
+     `error($message)` (stops with `Error: message`, exit 1), `read_file($path)`
+     (relative to the working directory), `args()` (the command line arguments
+     after the gazlang options, or after `--`).
+   - Deliberately left to GazLang code: character classes (strings compare byte
+     by byte, see `examples/lib/chars.gaz`), `join`, push/pop.
+   - `include "path.gaz";` is top level only and takes a string literal. The
+     path is relative to the including file (the working directory for piped
+     input). It is resolved at parse time: the included file's statements are
+     spliced in where it is included and share the parser's function table, so
+     the backends never see it. Each file is included once (the main file
+     counts), which also breaks cycles. Syntax errors get `(in path)` appended.
 7. **Begin porting the lexer/parser to GazLang itself.** Only once functions,
    arrays, and a stdlib exist does porting `Lexer.php`, `Parser.php`, etc. into
    GazLang source become plausible. Everything before this step is groundwork.

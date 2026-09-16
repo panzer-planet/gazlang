@@ -20,6 +20,8 @@ A simple programming language compiler that supports dynamic typing with integer
 - Control flow with if/else and else if statements
 - Loops: `while (cond) { ... }` and `for (init; cond; step) { ... }`, with `break` and `continue`
 - Functions: `function add($a, $b) { return $a + $b; }`, callable before they are declared, with recursion
+- Standard library: `len`, `slice`, `lower`, `to_int`, `to_string`, `in_array`, `has_key`, `keys`, `type_of`, `error`, `read_file`, `args`
+- `include "lib/helpers.gaz";` to split programs across files (each file is included once)
 - Single-line comments (`// comment`)
 - Ability to interpret expressions
 - Code generation for a stack-based virtual machine
@@ -106,6 +108,12 @@ Run with a file:
 
 ```bash
 php bin/gazlang -f examples/echo_example.gaz
+```
+
+Pass arguments to the program (read them with `args()`):
+
+```bash
+php bin/gazlang -f examples/stdlib_example.gaz -- some_file.txt
 ```
 
 Generate code instead of interpreting:

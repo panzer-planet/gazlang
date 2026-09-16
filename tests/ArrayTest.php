@@ -91,7 +91,7 @@ class ArrayTest extends GazLangTestCase
 
     public function test_len_rejects_other_types()
     {
-        $this->expectExceptionMessage('len() expects an array or string, got int');
+        $this->expectExceptionMessage('len() expects array or string, got int');
         $this->executeCode('echo len(5);');
     }
 
