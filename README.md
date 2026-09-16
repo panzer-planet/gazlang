@@ -132,10 +132,11 @@ Print the tokens the lexer produces (one `LINE TYPE VALUE` per line):
 php bin/gazlang --tokens -f examples/echo_example.gaz
 ```
 
-Run on the VM instead of the interpreter (compiles to stack VM code first; same results, faster):
+Programs are compiled to stack VM code and run on the VM. To run on the tree-walking
+interpreter instead (same results, slower):
 
 ```bash
-php bin/gazlang --vm -f examples/functions_example.gaz
+php bin/gazlang --interpreter -f examples/functions_example.gaz
 ```
 
 Generate code instead of interpreting:

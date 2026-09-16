@@ -350,7 +350,8 @@ to the working directory; the main file shows as given on the command line.
   VM should call these rather than reimplement them.
 - `src/CodeGenerator`: compiles the AST to a `Program` of stack VM instructions, each
   with the file and line it came from, plus the variable name in each slot.
-- `src/VM`: runs a `Program` (`php bin/gazlang --vm`). See "VM" below.
+- `src/VM`: runs a `Program`. It is the default backend for `php bin/gazlang`;
+  `--interpreter` runs the tree-walking interpreter instead. See "VM" below.
 
 ## VM
 
