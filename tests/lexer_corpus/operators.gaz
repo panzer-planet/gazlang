@@ -1,4 +1,4 @@
 // Every operator and punctuation token, including longest-match cases
-=== == = => !== != ! < <= > >= && || + - * / ; , ( ) { } [ ]
+=== == = => !== != ! < <= > >= && || + - * / % ; , ( ) { } [ ]
 $a===$b==$c=>$d!==$e!=!$f<=$g>=$h
-1-2/3*4+5
+1-2/3*4+5%6

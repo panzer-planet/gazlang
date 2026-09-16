@@ -167,6 +167,43 @@ class LexerTest extends TestCase
         $this->assertSame([[Token::STRING, $value]], $this->lex(Lexer::quote($value)));
     }
 
+    public function test_shorthand_interpolation_reads_one_php_style_index()
+    {
+        $this->assertSame(
+            [
+                [Token::STRING_START, ''], [Token::VAR_IDENTIFIER, '$a'], [Token::LEFT_BRACKET, '['], [Token::INTEGER, -1], [Token::RIGHT_BRACKET, ']'],
+                [Token::STRING_MIDDLE, ' '], [Token::VAR_IDENTIFIER, '$a'], [Token::LEFT_BRACKET, '['], [Token::STRING, 'k_1'], [Token::RIGHT_BRACKET, ']'],
+                [Token::STRING_MIDDLE, ' '], [Token::VAR_IDENTIFIER, '$a'], [Token::LEFT_BRACKET, '['], [Token::VAR_IDENTIFIER, '$i'], [Token::RIGHT_BRACKET, ']'],
+                [Token::STRING_MIDDLE, ' '], [Token::VAR_IDENTIFIER, '$a'], [Token::LEFT_BRACKET, '['], [Token::STRING, '01'], [Token::RIGHT_BRACKET, ']'],
+                [Token::STRING_MIDDLE, ' '], [Token::VAR_IDENTIFIER, '$a'], [Token::LEFT_BRACKET, '['], [Token::INTEGER, 0], [Token::RIGHT_BRACKET, ']'],
+                [Token::STRING_END, '[1]'],
+            ],
+            $this->lex('"$a[-1] $a[k_1] $a[$i] $a[01] $a[0][1]"')
+        );
+    }
+
+    /**
+     * @dataProvider invalidInterpolatedIndexes
+     */
+    public function test_invalid_shorthand_index_is_an_error(string $index)
+    {
+        $this->expectExceptionMessage('Invalid array index in interpolated string');
+        $this->lex('"$a'.$index.'"');
+    }
+
+    public static function invalidInterpolatedIndexes(): array
+    {
+        return [
+            'space' => ['[ 0]'],
+            'empty' => ['[]'],
+            'lone minus' => ['[-]'],
+            'digits then letters' => ['[1x]'],
+            'quoted key' => ['["k"]'],
+            'expression' => ['[$i + 1]'],
+            'unclosed' => ['[0'],
+        ];
+    }
+
     public function test_unknown_escape_is_an_error()
     {
         $this->expectExceptionMessage('Unknown escape sequence \q in string on line 2');

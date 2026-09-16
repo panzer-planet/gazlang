@@ -27,7 +27,8 @@ class SelfHostedLexerTest extends GazLangTestCase
     public static function corpus(): array
     {
         $files = [];
-        foreach (['examples', 'lib', 'tests'] as $dir) {
+        // selfhost/ once it exists, so the ported lexer is also checked on its own source
+        foreach (array_filter(['examples', 'lib', 'selfhost', 'tests'], fn ($dir) => is_dir(self::ROOT."/{$dir}")) as $dir) {
             foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(self::ROOT."/{$dir}")) as $path) {
                 if (str_ends_with($path, '.gaz')) {
                     $file = substr($path, strlen(self::ROOT) + 1);

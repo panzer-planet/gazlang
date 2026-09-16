@@ -425,7 +425,7 @@ class Parser
     }
 
     /**
-     * Parse a multiplicative expression (unary ((MUL | DIV) unary)*)
+     * Parse a multiplicative expression (unary ((MUL | DIV | MOD) unary)*)
      *
      * @return AST
      *
@@ -433,7 +433,7 @@ class Parser
      */
     public function multiplicative()
     {
-        return $this->left_associative('unary', [Token::MULTIPLY, Token::DIVIDE]);
+        return $this->left_associative('unary', [Token::MULTIPLY, Token::DIVIDE, Token::MODULO]);
     }
 
     /**

@@ -27,6 +27,31 @@ class OperatorTest extends GazLangTestCase
         $this->createLexer('&')->get_next_token();
     }
 
+    public function test_modulo()
+    {
+        // The sign follows the left operand; % binds like * and /
+        $this->assertEquals("1\n-1\n1\n0\n8\n0\n", $this->executeCode(
+            'echo 7 % 3; echo -7 % 3; echo 7 % -3; echo 6 % 3; echo 2 + 7 % 4 * 2; echo (-9223372036854775807 - 1) % -1;'
+        ));
+    }
+
+    public function test_modulo_by_zero()
+    {
+        $this->expectExceptionMessage('Modulo by zero on line 1');
+        $this->executeCode('echo 1 % 0;');
+    }
+
+    public function test_modulo_on_a_string()
+    {
+        $this->expectExceptionMessage('Cannot use % on string');
+        $this->executeCode('echo "7" % 2;');
+    }
+
+    public function test_code_gen_for_modulo()
+    {
+        $this->assertEquals("PUSH 7\nPUSH 3\nMOD\nPRINT", $this->generateCode('echo 7 % 3;'));
+    }
+
     public function test_relational_and_equality()
     {
         $this->assertEquals("true\nfalse\ntrue\ntrue\nfalse\ntrue\n", $this->executeCode(

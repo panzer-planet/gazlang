@@ -1,0 +1,2 @@
+echo "ok $a[0]";
+echo "bad $a[ 0]";

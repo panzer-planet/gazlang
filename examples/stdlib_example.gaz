@@ -13,8 +13,8 @@ function tokenize($source) {
         } else if (is_digit($c)) {
             while (is_digit(char_at($source, $i))) { $i = $i + 1; }
             $tokens[] = ["INTEGER", to_int(slice($source, $start, $i - $start))];
-        } else if (is_alpha($c)) {
-            while (is_alpha(char_at($source, $i)) || is_digit(char_at($source, $i))) { $i = $i + 1; }
+        } else if (is_alpha($c) || $c === "_") {
+            while (is_alnum(char_at($source, $i)) || char_at($source, $i) === "_") { $i = $i + 1; }
             $tokens[] = ["WORD", slice($source, $start, $i - $start)];
         } else if (in_array($c, ["+", "-", "*", "/", "(", ")", ";"])) {
             $tokens[] = ["SYMBOL", $c];

@@ -39,6 +39,12 @@ class Lexer
     private $interpolations = [];
 
     /**
+     * @var Token[] Tokens already read that get_next_token() returns before reading more:
+     *              the [key] of a bare interpolation like "$a[0]"
+     */
+    private $queued_tokens = [];
+
+    /**
      * Single character escapes in string literals: the character after the backslash, and what it stands for
      */
     private const ESCAPES = [
@@ -195,9 +201,9 @@ class Lexer
      * Whether a character is whitespace: space, tab, newline or carriage return
      *
      * The lexer's character classes are ASCII and spelled out rather than ctype_*, so
-     * lib/chars.gaz can match them exactly: ctype_space also accepts vertical tab and
-     * form feed, which GazLang strings can't express, and ctype_alpha depends on the
-     * locale (on macOS it accepts Latin-1 letters such as byte 233).
+     * lib/chars.gaz can match them exactly: ctype_alpha depends on the locale (on macOS
+     * it accepts Latin-1 letters such as byte 233). Vertical tab and form feed are not
+     * whitespace, as in PHP's own tokenizer.
      *
      * @param  string  $char  One character
      */
@@ -351,6 +357,51 @@ class Lexer
     }
 
     /**
+     * Read the one [key] PHP allows after a bare interpolated variable, at the [
+     *
+     * "$a[0]" and "$a[-1]" index by int, "$a[key]" by the string "key" (unquoted, as in
+     * PHP) and "$a[$i]" by a variable. Digits that aren't a canonical int, like 01 or
+     * -0, are a string key, again as in PHP. Only one index is read: "$a[0][1]" is
+     * $a[0] followed by the text [1].
+     *
+     * @return Token[] The [, key and ] tokens
+     *
+     * @throws GazLangError If the brackets don't hold one of those forms
+     */
+    private function interpolated_index(): array
+    {
+        $line = $this->line;
+        $this->advance();
+
+        if ($this->current_char === '$') {
+            $key = $this->var_identifier();
+        } elseif ($this->current_char !== null && (self::is_digit($this->current_char) || $this->current_char === '-')) {
+            $digits = $this->current_char;
+            $this->advance();
+            while ($this->current_char !== null && self::is_digit($this->current_char)) {
+                $digits .= $this->current_char;
+                $this->advance();
+            }
+            $int = self::parse_integer($digits);
+            $key = $int !== null && (string) $int === $digits ? new Token(Token::INTEGER, $int) : new Token(Token::STRING, $digits);
+        } elseif ($this->current_char !== null && (self::is_alpha($this->current_char) || $this->current_char === '_')) {
+            $key = new Token(Token::STRING, $this->read_word());
+        }
+
+        if (! isset($key) || $key->value === '-' || $this->current_char !== ']') {
+            throw new GazLangError('Invalid array index in interpolated string: use "{$name[...]}" for anything but [0], [-1], [key] or [$i]', null, $line);
+        }
+        $this->advance();
+
+        $tokens = [new Token(Token::LEFT_BRACKET, '['), $key, new Token(Token::RIGHT_BRACKET, ']')];
+        foreach ($tokens as $token) {
+            $token->line = $line;
+        }
+
+        return $tokens;
+    }
+
+    /**
      * Read the escape after a backslash in a string literal, and return what it stands for
      *
      * @throws GazLangError If the escape is unknown or malformed
@@ -476,6 +527,10 @@ class Lexer
      */
     public function get_next_token(): Token
     {
+        if ($this->queued_tokens !== []) {
+            return array_shift($this->queued_tokens);
+        }
+
         $line = $this->line;
         $state = $this->interpolations === [] ? null : $this->interpolations[array_key_last($this->interpolations)][0];
 
@@ -483,6 +538,9 @@ class Lexer
             // "Hi $name": the variable, then the rest of the string
             $this->interpolations[array_key_last($this->interpolations)][0] = 'after_bare';
             $token = $this->var_identifier();
+            if ($this->current_char === '[') {
+                $this->queued_tokens = $this->interpolated_index();
+            }
         } elseif ($state === 'after_bare') {
             $token = $this->string_part(false);
         } else {
@@ -549,6 +607,12 @@ class Lexer
                 $this->advance();
 
                 return new Token(Token::MULTIPLY, '*');
+            }
+
+            if ($this->current_char === '%') {
+                $this->advance();
+
+                return new Token(Token::MODULO, '%');
             }
 
             if ($this->current_char === '/') {

@@ -9,3 +9,4 @@ line $name
 {$name
 } end";
 echo '$name {$name} stays raw';
+echo "$a[0] $a[-12] $a[key_1] $a[$i] $a[01] $a[-0] $a[0][1]";

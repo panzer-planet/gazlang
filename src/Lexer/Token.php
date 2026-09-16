@@ -26,6 +26,8 @@ class Token
 
     public const DIVIDE = 'DIVIDE';
 
+    public const MODULO = 'MODULO';  // Remainder operator (%)
+
     public const SEMICOLON = 'SEMICOLON';
 
     public const ECHO = 'ECHO';  // Echo keyword

@@ -132,7 +132,7 @@ final class Values
         $left = is_bool($left) ? (int) $left : $left;
         $right = is_bool($right) ? (int) $right : $right;
 
-        if (in_array($type, [Token::PLUS, Token::MINUS, Token::MULTIPLY, Token::DIVIDE], true)) {
+        if (in_array($type, [Token::PLUS, Token::MINUS, Token::MULTIPLY, Token::DIVIDE, Token::MODULO], true)) {
             return self::arithmetic($op, $left, $right);
         }
 
@@ -208,7 +208,7 @@ final class Values
     }
 
     /**
-     * Apply + - * / to two ints (booleans already converted)
+     * Apply + - * / % to two ints (booleans already converted)
      *
      * @param  Token  $op  The operator token
      * @param  mixed  $left  The left operand
@@ -224,6 +224,9 @@ final class Values
         if ($op->type === Token::DIVIDE && $right === 0) {
             throw new Exception('Division by zero');
         }
+        if ($op->type === Token::MODULO && $right === 0) {
+            throw new Exception('Modulo by zero');
+        }
 
         $result = match ($op->type) {
             Token::PLUS => $left + $right,
@@ -231,6 +234,8 @@ final class Values
             Token::MULTIPLY => $left * $right,
             // intdiv(PHP_INT_MIN, -1) throws ArithmeticError; its result wouldn't fit either
             Token::DIVIDE => $left === PHP_INT_MIN && $right === -1 ? PHP_INT_MAX + 1 : intdiv($left, $right),
+            // The sign follows the left operand, as in PHP and C: -7 % 3 is -1
+            Token::MODULO => $left % $right,
             default => throw new Exception("Unknown operator: {$op->type}"),
         };
 

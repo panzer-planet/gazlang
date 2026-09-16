@@ -43,7 +43,8 @@ each step depends on the ones before it.
    → `additive` → `multiplicative` → `unary` → `postfix` (`[index]`) → `primary`. Binary levels share
    `left_associative()`; add a new level by adding a one-line method there.
 2. ~~**Add comparison and logical operators.**~~ Done. `<`, `>`, `<=`, `>=`,
-   `!=`, `==`, `===`, `!==`, `&&`, `||` (short-circuiting in both backends), `!`, and unary
+   `!=`, `==`, `===`, `!==`, `&&`, `||` (short-circuiting in both backends), `!`, `%`
+   (sign follows the left operand, at the `*` `/` level), and unary
    `-` via `UnaryOpAST`. `!=`, `===` and `!==` sit at the equality level, C-style. There is a
    real boolean type (`BooleanAST`, `true`/`false` keywords):
    - Comparisons, `!`, `&&` and `||` return booleans; `echo 1 < 2` prints `true`.
@@ -166,8 +167,8 @@ each step depends on the ones before it.
      flags must come after `--`.
    - Deliberately left to GazLang code: character classes (`lib/chars.gaz`:
      `char_at`, `is_char`, `is_digit`, `is_alpha`, `is_alnum`, `is_space`, which
-     `LibCharsTest` checks against `Lexer::is_*` for all 256 bytes), `join`,
-     push/pop.
+     `LibCharsTest` checks against `Lexer::is_*` for all 256 bytes) and push/pop
+     (`$a[] = $v`, and `slice($a, 0, -1)` to drop the last element).
    - `include "path.gaz";` is top level only and takes a string literal. The
      path is relative to the including file (the working directory for piped
      input). It is resolved at parse time: the included file's statements are
@@ -180,8 +181,9 @@ each step depends on the ones before it.
 
    **Port the lexer to `selfhost/lexer.gaz` against the PHP lexer, which is the
    spec.** `tests/SelfHostedLexerTest.php` runs
-   `php bin/gazlang -f selfhost/lexer.gaz -- FILE` on every `.gaz` file in
-   `examples/`, `tests/fixtures/` and `tests/lexer_corpus/`, and requires output
+   `php bin/gazlang -f selfhost/lexer.gaz -- FILE` on every `.gaz` file under
+   `examples/`, `lib/`, `selfhost/` and `tests/` (including `tests/lexer_corpus/`,
+   the deliberately tricky cases, and `tests/gaz/`), and requires output
    and exit code identical to `php bin/gazlang --tokens -f FILE`: one line per
    token, `LINE TYPE VALUE` as `Token::__toString()` formats it (strings quoted
    with `Lexer::quote()`, integers as digits, other values as source text, EOF
@@ -211,8 +213,11 @@ other escape is a lexer error, and so is `\0` followed by a digit, which would b
 octal in PHP and C.
 
 Double-quoted strings interpolate, PHP style: `"Hi $name"` (a `$` followed by a
-letter or `_`, then the greedy name) and `"{$expr}"` / `"{@expr}"` (any expression
-starting with that sigil, up to the `}`). Anything else stays literal: `$5`, a lone
+letter or `_`, then the greedy name, optionally followed by one PHP-style index:
+`[0]`, `[-1]`, `[key]` as the string `"key"`, or `[$i]`; digits that aren't a
+canonical int, like `01`, are a string key, and any other bracket contents are an
+error) and `"{$expr}"` / `"{@expr}"` (any expression starting with that sigil, up
+to the `}`). Anything else stays literal: `$5`, a lone
 `$`, `me@example.com`, `{ $x}`'s brace, `{}`. The lexer emits `STRING_START`, the
 expression's tokens, `STRING_MIDDLE` between interpolations and `STRING_END`
 (a string without interpolation is one `STRING`), tracking open strings on a

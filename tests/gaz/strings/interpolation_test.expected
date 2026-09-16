@@ -1,6 +1,12 @@
 ok bare variable
 ok bare variable at the start and end
 ok bare variable is greedy
+ok shorthand int index
+ok shorthand negative index
+ok shorthand unquoted key
+ok shorthand variable index
+ok shorthand reads only one index
+ok shorthand non-canonical digits are a string key
 ok braces
 ok braces around a longer name
 ok index
