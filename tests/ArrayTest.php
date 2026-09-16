@@ -120,7 +120,8 @@ class ArrayTest extends GazLangTestCase
 
     public function test_equality_truthiness_and_concatenation()
     {
-        $this->assertEquals("true\nfalse\nfalse\nfalse\nempty\nx[1]\n", $this->executeCode(
+        // Elements compare with ==, so true equals 1
+        $this->assertEquals("true\ntrue\nfalse\nfalse\nempty\nx[1]\n", $this->executeCode(
             'echo [1, [2]] == [1, [2]]; echo [1] == [true]; echo ["a" => 1, "b" => 2] == ["b" => 2, "a" => 1]; echo [] == null;'
             .' if ([]) { echo "full"; } else { echo "empty"; } echo "x" .. [1];'
         ));

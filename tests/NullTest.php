@@ -11,9 +11,8 @@ class NullTest extends GazLangTestCase
 
     public function test_null_only_equals_null()
     {
-        $this->assertEquals("true\nfalse\nfalse\nfalse\ntrue\ntrue\nfalse\n", $this->executeCode(
-            'echo null == null; echo null == 0; echo null == false; echo "" == null;'
-            .' echo null != 0; echo null === null; echo null === false;'
+        $this->assertEquals("true\nfalse\nfalse\nfalse\ntrue\n", $this->executeCode(
+            'echo null == null; echo null == 0; echo null == false; echo "" == null; echo null != 0;'
         ));
     }
 

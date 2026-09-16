@@ -32,7 +32,7 @@ $source = "a1 b22";
 $word = "";
 for ($i = 0; $i < len($source); $i = $i + 1) {
     $char = $source[$i];
-    if ($char === " ") {
+    if ($char == " ") {
         emit("word", $word);
         $word = "";
         continue;

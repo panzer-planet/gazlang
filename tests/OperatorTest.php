@@ -9,11 +9,10 @@ class OperatorTest extends GazLangTestCase
 {
     public function test_lexes_new_operators()
     {
-        $lexer = $this->createLexer('< <= > >= != ! && || == = === !==');
+        $lexer = $this->createLexer('< <= > >= != ! && || == =');
         $expected = [
             Token::LESS_THAN, Token::LESS_EQUALS, Token::GREATER_THAN, Token::GREATER_EQUALS,
-            Token::NOT_EQUALS, Token::NOT, Token::AND, Token::OR, Token::EQUALS, Token::ASSIGN,
-            Token::STRICT_EQUALS, Token::STRICT_NOT_EQUALS, Token::EOF,
+            Token::NOT_EQUALS, Token::NOT, Token::AND, Token::OR, Token::EQUALS, Token::ASSIGN, Token::EOF,
         ];
 
         foreach ($expected as $type) {
@@ -198,26 +197,30 @@ class OperatorTest extends GazLangTestCase
         ));
     }
 
-    public function test_strict_equality_compares_type_and_value()
+    public function test_equality_never_converts_between_strings_and_numbers()
     {
-        $this->assertEquals("true\nfalse\ntrue\nfalse\ntrue\nfalse\ntrue\nfalse\n", $this->executeCode(
-            'echo "5" == 5; echo "5" === 5; echo true == 1; echo true === 1;'
-            .' echo 5 === 5; echo "1" === "01"; echo "5" !== 5; echo (1 < 2) !== true;'
+        $this->assertEquals("false\ntrue\nfalse\nfalse\ntrue\ntrue\nfalse\n", $this->executeCode(
+            'echo "5" == 5; echo "5" != 5; echo "1" == "01"; echo true == "1"; echo 1 == 1.0; echo true == 1; echo null == 0;'
         ));
     }
 
-    public function test_strict_equality_binds_like_equality()
+    public function test_arrays_compare_element_by_element()
     {
-        // (1 + 1) === 2, and (1 === 1) == true
-        $this->assertEquals("true\ntrue\n", $this->executeCode('echo 1 + 1 === 2; echo 1 === 1 == true;'));
+        $this->assertEquals("true\ntrue\nfalse\nfalse\nfalse\ntrue\n", $this->executeCode(
+            'echo [1, [2]] == [1, [2.0]]; echo [] == []; echo [1] == ["1"]; echo [1, 2] == [2, 1]; echo ["a" => 1] == [1]; echo [1] != [1, 1];'
+        ));
     }
 
-    public function test_code_gen_for_strict_equality()
+    public function test_ordering_a_string_against_a_number_throws()
     {
-        $this->assertEquals(
-            "PUSH_STR \"5\"\nPUSH 5\nSTRICT_EQUALS\nPUSH 1\nSTRICT_NOT_EQUALS\nPRINT",
-            $this->generateCode('echo "5" === 5 !== 1;')
-        );
+        $this->expectExceptionMessage('Cannot use < on string and int on line 1');
+        $this->executeCode('echo "5" < 6;');
+    }
+
+    public function test_strict_equality_operator_is_gone()
+    {
+        $this->expectExceptionMessage("Unexpected '=' on line 1");
+        $this->createParser('echo 1 === 1;')->parse();
     }
 
     public function test_chained_equality_is_left_associative()
@@ -259,8 +262,8 @@ class OperatorTest extends GazLangTestCase
 
     public function test_concatenation_binds_below_arithmetic_and_above_comparison()
     {
-        $this->assertEquals("n = 3\ntrue\nfalse\n", $this->executeCode(
-            'echo "n = " .. 1 + 2; echo "a" .. "b" == "ab"; echo 1 .. 2 < 3;'
+        $this->assertEquals("n = 3\ntrue\ntrue\n", $this->executeCode(
+            'echo "n = " .. 1 + 2; echo "a" .. "b" == "ab"; echo 1 .. 2 == "12";'
         ));
     }
 

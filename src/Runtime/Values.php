@@ -111,29 +111,18 @@ final class Values
             return self::toString($left).self::toString($right);
         }
 
-        // Strict equality compares type and value as they are, before any conversion
-        if ($type === Token::STRICT_EQUALS) {
-            return $left === $right;
-        } elseif ($type === Token::STRICT_NOT_EQUALS) {
-            return $left !== $right;
+        if ($type === Token::EQUALS) {
+            return self::equals($left, $right);
+        } elseif ($type === Token::NOT_EQUALS) {
+            return ! self::equals($left, $right);
         }
 
-        // null only equals null; arithmetic and ordering on it are errors
+        // null and arrays only compare for equality
         if ($left === null || $right === null) {
-            return match ($type) {
-                Token::EQUALS => $left === $right,
-                Token::NOT_EQUALS => $left !== $right,
-                default => throw new Exception("Cannot use {$op->value} on null"),
-            };
+            throw new Exception("Cannot use {$op->value} on null");
         }
-
-        // Arrays are equal when they have the same keys, in the same order, with identical values
         if (is_array($left) || is_array($right)) {
-            return match ($type) {
-                Token::EQUALS => $left === $right,
-                Token::NOT_EQUALS => $left !== $right,
-                default => throw new Exception("Cannot use {$op->value} on array"),
-            };
+            throw new Exception("Cannot use {$op->value} on array");
         }
 
         // Everywhere else booleans act as 1/0, so true + 1 is 2 and true == 1
@@ -144,34 +133,59 @@ final class Values
             return self::arithmetic($op, $left, $right);
         }
 
-        // A string and a number only compare when the string is a number literal ("5" == 5,
-        // "1.5" == 1.5); any other string never equals a number, and ordering them is an error
+        // A string never orders against a number: there is no conversion
         if (is_string($left) !== is_string($right)) {
-            $number = Lexer::parse_number(is_string($left) ? $left : $right);
-            if ($number === null) {
-                $other = get_debug_type(is_string($left) ? $right : $left);
+            $other = get_debug_type(is_string($left) ? $right : $left);
 
-                return match ($type) {
-                    Token::EQUALS => false,
-                    Token::NOT_EQUALS => true,
-                    default => throw new Exception("Cannot use {$op->value} on string and {$other}"),
-                };
-            }
-            [$left, $right] = is_string($left) ? [$number, $right] : [$left, $number];
+            throw new Exception("Cannot use {$op->value} on string and {$other}");
         }
 
-        // Two strings compare byte by byte, so "1" != "01" and "10" < "9"; numbers numerically, 1 == 1.0
+        // Two strings compare byte by byte, so "10" < "9"; numbers numerically
         $cmp = is_string($left) ? strcmp($left, $right) : $left <=> $right;
 
         return match ($type) {
-            Token::EQUALS => $cmp === 0,
-            Token::NOT_EQUALS => $cmp !== 0,
             Token::LESS_THAN => $cmp < 0,
             Token::LESS_EQUALS => $cmp <= 0,
             Token::GREATER_THAN => $cmp > 0,
             Token::GREATER_EQUALS => $cmp >= 0,
             default => throw new Exception("Unknown operator: {$type}"),
         };
+    }
+
+    /**
+     * Decide whether two values are equal (==), with no conversion between strings and numbers
+     *
+     * null only equals null. Numbers compare by value (1 == 1.0) with booleans as 1/0.
+     * Strings compare byte by byte, so "1" != "01", and a string never equals a number.
+     * Arrays are equal when they have the same keys in the same order and their
+     * elements are equal by this rule. Anything else (functions, later objects) is equal
+     * only to itself.
+     *
+     * @param  mixed  $left  One value
+     * @param  mixed  $right  The other
+     */
+    public static function equals($left, $right): bool
+    {
+        if (is_array($left) && is_array($right)) {
+            if (array_keys($left) !== array_keys($right)) {
+                return false;
+            }
+            foreach ($left as $key => $item) {
+                if (! self::equals($item, $right[$key])) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        $left = is_bool($left) ? (int) $left : $left;
+        $right = is_bool($right) ? (int) $right : $right;
+        if ((is_int($left) || is_float($left)) && (is_int($right) || is_float($right))) {
+            return $left == $right;
+        }
+
+        return $left === $right;
     }
 
     /**

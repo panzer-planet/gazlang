@@ -22,7 +22,7 @@ class StdlibTest extends GazLangTestCase
     public function test_chr_and_ord()
     {
         $this->assertEquals("A\n97\ntrue\n255\n", $this->executeCode(
-            'echo chr(65); echo ord("a"); echo chr(0) === "\x00"; echo ord(chr(255));'
+            'echo chr(65); echo ord("a"); echo chr(0) == "\x00"; echo ord(chr(255));'
         ));
     }
 
@@ -106,10 +106,10 @@ class StdlibTest extends GazLangTestCase
         ));
     }
 
-    public function test_in_array_is_strict()
+    public function test_in_array_compares_with_equals()
     {
-        $this->assertEquals("true\nfalse\nfalse\ntrue\n", $this->executeCode(
-            'echo in_array(1, [1, 2]); echo in_array("1", [1, 2]); echo in_array(true, [1]); echo in_array([1], [[1]]);'
+        $this->assertEquals("true\nfalse\ntrue\ntrue\ntrue\nfalse\n", $this->executeCode(
+            'echo in_array(1, [1, 2]); echo in_array("1", [1, 2]); echo in_array(true, [1]); echo in_array([1], [[1]]); echo in_array(1, [1.0]); echo in_array(null, [0]);'
         ));
     }
 

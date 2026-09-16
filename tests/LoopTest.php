@@ -72,21 +72,21 @@ class LoopTest extends GazLangTestCase
     public function test_break_leaves_the_loop()
     {
         $this->assertEquals("0\n1\nafter 2\n", $this->executeCode(
-            '$i = 0; while (true) { if ($i === 2) { break; } echo $i; $i = $i + 1; } echo "after " .. $i;'
+            '$i = 0; while (true) { if ($i == 2) { break; } echo $i; $i = $i + 1; } echo "after " .. $i;'
         ));
     }
 
     public function test_continue_in_for_still_runs_the_step()
     {
         $this->assertEquals("1\n3\n", $this->executeCode(
-            'for ($i = 0; $i < 4; $i = $i + 1) { if ($i === 0 || $i === 2) { continue; } echo $i; }'
+            'for ($i = 0; $i < 4; $i = $i + 1) { if ($i == 0 || $i == 2) { continue; } echo $i; }'
         ));
     }
 
     public function test_continue_in_while_rechecks_the_condition()
     {
         $this->assertEquals("1\n3\n", $this->executeCode(
-            '$i = 0; while ($i < 3) { $i = $i + 1; if ($i === 2) { continue; } echo $i; }'
+            '$i = 0; while ($i < 3) { $i = $i + 1; if ($i == 2) { continue; } echo $i; }'
         ));
     }
 
@@ -96,8 +96,8 @@ class LoopTest extends GazLangTestCase
         $this->assertEquals("0 1\n1 1\n2 1\n", $this->executeCode(<<<'CODE'
             for ($i = 0; $i < 3; $i = $i + 1) {
                 for ($j = 0; $j < 3; $j = $j + 1) {
-                    if ($j === 0) { continue; }
-                    if ($j === 2) { break; }
+                    if ($j == 0) { continue; }
+                    if ($j == 2) { break; }
                     echo $i .. " " .. $j;
                 }
             }

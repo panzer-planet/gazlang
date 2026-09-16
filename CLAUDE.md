@@ -50,10 +50,10 @@ each step depends on the ones before it.
    → `additive` → `multiplicative` → `unary` → `postfix` (`[index]`) → `primary`. Binary levels share
    `left_associative()`; add a new level by adding a one-line method there.
 2. ~~**Add comparison and logical operators.**~~ Done. `<`, `>`, `<=`, `>=`,
-   `!=`, `==`, `===`, `!==`, `&&`, `||` (short-circuiting in both backends), `!`, `%`
+   `!=`, `==`, `&&`, `||` (short-circuiting in both backends), `!`, `%`
    (sign follows the left operand, at the `*` `/` level), `??` (see below), `+= -= *= /= %=` and
    prefix/postfix `++`/`--` (see "Assignment" below), and unary
-   `-` via `UnaryOpAST`. `!=`, `===` and `!==` sit at the equality level, C-style. There is a
+   `-` via `UnaryOpAST`. `==` and `!=` sit at the equality level, C-style. There is a
    real boolean type (`BooleanAST`, `true`/`false` keywords):
    - Comparisons, `!`, `&&` and `||` return booleans; `echo 1 < 2` prints `true`.
    - Truthiness lives in `Runtime\Values::isTruthy()`, shared by both backends'
@@ -65,12 +65,12 @@ each step depends on the ones before it.
      `"xtrue"`, `1 .. 2` is `"12"`. It sits below `+`/`-` and above comparison (Lua,
      PHP 8), so `"n = " .. $a + $b` concatenates the sum. `..=` is its compound
      assignment. `+` is numeric only: `"1" + 1` is `Cannot use + on string`.
-   - Two strings compare byte by byte (`"1" != "01"`, `"10" < "9"`). A string
-     and a number (or a bool, as 1/0) compare numerically only when the string is
-     a number literal by `Lexer::parse_number()` (`"5" == 5`, `"007" == 7`,
-     `"1e0" == 1`, `"2.50" == 2.5`, `true == "1"`); any other string is never `==`
-     a number (`" 5" != 5`, `true != "abc"`), and ordering it against one
-     (`"abc" < 1`) is an error.
+   - `==` never converts between strings and numbers (`Values::equals()`, shared with
+     `in_array`): two strings compare byte by byte (`"1" != "01"`, `"10" < "9"`), a
+     string never equals a number or bool (`"5" != 5`, `true != "1"`; use `to_float`),
+     and ordering a string against a number (`"5" < 6`) is an error. Numbers compare
+     by value (`1 == 1.0`) with bools as 1/0. There is no `===`: `===` lexes as `==`
+     followed by `=`, a syntax error.
    - Numbers never silently overflow, see "Numbers" below.
    - `$a ?? $b` is `$a` unless it is null or missing, like PHP: on its left an
      undefined variable, a missing key, or indexing something missing is null instead
@@ -81,8 +81,6 @@ each step depends on the ones before it.
      with keys evaluated once, so the right side only runs when needed; like `=`, it
      creates a missing variable or last key but not missing keys along the way
      (PHP would create nested arrays).
-   - `===` / `!==` compare type and value with no conversion: `"5" === 5` and
-     `true === 1` are false.
    - Code generation pushes `PUSH true` / `PUSH false`.
 3. ~~**Add loops.**~~ Done. `while` has its own `WhileStatementAST`; `for` is
    desugared in the parser into `{ init; while (cond) { body } }` with the step
@@ -158,9 +156,9 @@ each step depends on the ones before it.
      array read, so side effects of the keys and value are kept. The variable must exist and only the last key
      may be new; missing keys along the way are an error, not auto-created.
    - `echo` and `..` print arrays as literals (`[1, "a"]`,
-     `["k" => 1]`). Empty arrays are false in conditions. `==` on arrays is
-     strict (same keys, same order, identical values); arithmetic, ordering and
-     unary `-` on arrays throw.
+     `["k" => 1]`). Empty arrays are false in conditions. `==` on arrays needs the
+     same keys in the same order with elements equal by `==` (`[1] == [1.0]`);
+     arithmetic, ordering and unary `-` on arrays throw.
    - `len($x)` (array count or string length) is the first builtin. Builtins
      live in `Runtime\Builtins::ARITIES` (name → arity), share the call checks with user
      functions, and can't be redeclared; the code generator emits
@@ -191,7 +189,7 @@ each step depends on the ones before it.
      the number builtins listed under "Numbers",
      `to_int($x)` (ints, or strings of decimal digits with an optional `-`;
      anything else or overflow is an error), `to_string($x)` (same text as echo).
-   - Arrays: `len`, `slice`, `in_array($value, $array)` (strict, like `===`),
+   - Arrays: `len`, `slice`, `in_array($value, $array)` (compares with `==`),
      `has_key($array, $key)`, `keys($array)`.
    - Other: `type_of($x)` (`int`, `string`, `bool`, `null`, `array`),
      `error($message)` (raises an error that try/catch can catch; uncaught it stops
@@ -274,7 +272,7 @@ Design agreed on 2026-09-17, to build in phases (each committed and reviewed):
 
    **Phase 1 plan** (reviewed 2026-09-17, not started):
    - Runtime: `Runtime\FunctionValue` holds a `name`; `FunctionValue::named()` interns
-     one instance per name, so `add === add` and strict `in_array` work. Only named
+     one instance per name, so `add == add` and `in_array` work by identity. Only named
      refs are interned: phase 2 closures are fresh per creation and compare by
      identity, like PHP, so don't design phase 2 around `named()`. `Values::typeOf()`
      replaces every `get_debug_type` under `src/` and says `function`, so `type_of`
@@ -412,8 +410,7 @@ Ints and floats (64-bit, always finite: GazLang has no INF or NAN).
 
 - Literals: `42`, `1.5`, `1e10`, `2.5E-3`, `3e+2`. A float needs digits on both sides
   of the dot (`1.` and `.5` are errors) and/or an exponent. `Lexer::parse_number()`
-  parses the same syntax from strings (with an optional minus), for `to_float()`
-  and string comparisons. JSON numbers are valid GazLang number literals. Hex
+  parses the same syntax from strings (with an optional minus), for `to_float()`. JSON numbers are valid GazLang number literals. Hex
   literals `0xFF` / `0XdEaD` are ints (too large for an int is an error, `0x1e5` is
   485: hex has no exponent); strings are never parsed as hex.
 - Printing is exact: `Lexer::format_float()` gives the shortest digits that read
@@ -428,7 +425,7 @@ Ints and floats (64-bit, always finite: GazLang has no INF or NAN).
   an error (`Integer overflow`, where PHP would switch to a float), a float
   literal that is infinite is a lexer error, and a float result that is infinite
   is `Float overflow`. Division by zero (`0` or `0.0`) is an error.
-- `1 == 1.0` is true, `1 === 1.0` is false. `0.0` and `-0.0` are false in
+- `1 == 1.0` is true. `0.0` and `-0.0` are false in
   conditions. Floats can't be array keys or string positions.
 - Builtins: `to_float($x)`, `to_int($x)` (truncates a float toward zero; an error
   outside the int range), `floor`, `ceil`, `round($x, $precision = 0)` (PHP's round:
@@ -507,7 +504,7 @@ builtin goes through `Runtime\Values` / `Runtime\Builtins`, and assignment throu
 `Values::store()`, so the VM and the interpreter share their semantics rather than
 reimplementing them. The only exceptions are fast paths in the loop for the commonest
 cases whose result is obvious (arithmetic and comparisons on two ints that don't
-overflow, `===`, `JZ`/`NOT` on bools, `INDEX_GET` on an array, `INC`/`DEC` on an int,
+overflow, `==` on two ints or two strings, `JZ`/`NOT` on bools, `INDEX_GET` on an array, `INC`/`DEC` on an int,
 and the builtins `len`, `ord`, `chr` and `in_array` when their arguments are plainly
 valid);
 anything else, errors included, falls through to `Values`. Keep fast paths that way. Calls are frames in an array, not PHP recursion, so deep

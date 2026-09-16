@@ -51,8 +51,8 @@ class BooleanTest extends GazLangTestCase
 
     public function test_strings_compare_byte_by_byte()
     {
-        $this->assertEquals("false\ntrue\nfalse\ntrue\ntrue\n", $this->executeCode(
-            'echo "1" == "01"; echo "10" < "9"; echo "10" == "1e1"; echo "abc" == "abc"; echo "5" == 5;'
+        $this->assertEquals("false\ntrue\nfalse\ntrue\n", $this->executeCode(
+            'echo "1" == "01"; echo "10" < "9"; echo "10" == "1e1"; echo "abc" == "abc";'
         ));
     }
 
@@ -77,10 +77,9 @@ class BooleanTest extends GazLangTestCase
 
     public function test_mixed_string_and_number_comparisons()
     {
-        // Strings holding a number literal compare as numbers (booleans act as 1/0); any other string never equals a number
-        $this->assertEquals("true\ntrue\ntrue\nfalse\nfalse\ntrue\nfalse\ntrue\ntrue\ntrue\nfalse\n", $this->executeCode(
-            'echo "5" == 5; echo 7 == "007"; echo true == "1"; echo true == "abc"; echo false == "";'
-            .' echo "1e0" == 1; echo " 5" == 5; echo "abc" != 1; echo "-3" < 2; echo "2.50" == 2.5; echo "1." == 1;'
+        // A string never equals a number or a bool, however it reads; to_float makes the comparison
+        $this->assertEquals("false\nfalse\nfalse\nfalse\nfalse\ntrue\ntrue\n", $this->executeCode(
+            'echo "5" == 5; echo 7 == "007"; echo true == "1"; echo false == ""; echo "1e0" == 1; echo "abc" != 1; echo to_float("2.50") == 2.5;'
         ));
     }
 

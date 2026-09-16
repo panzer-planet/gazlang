@@ -41,8 +41,8 @@ class FunctionTest extends GazLangTestCase
     {
         $this->assertEquals("120\ntrue\nfalse\n", $this->executeCode(<<<'CODE'
             function fact($n) { if ($n <= 1) { return 1; } return $n * fact($n - 1); }
-            function is_even($n) { if ($n === 0) { return true; } return is_odd($n - 1); }
-            function is_odd($n) { if ($n === 0) { return false; } return is_even($n - 1); }
+            function is_even($n) { if ($n == 0) { return true; } return is_odd($n - 1); }
+            function is_odd($n) { if ($n == 0) { return false; } return is_even($n - 1); }
             echo fact(5);
             echo is_even(10);
             echo is_even(7);
@@ -103,7 +103,7 @@ class FunctionTest extends GazLangTestCase
     public function test_deep_recursion_does_not_grow_memory_quadratically()
     {
         // Every return used to create an exception with a full stack trace: depth 400 took ~300MB
-        $this->executeCode('function down($n) { if ($n === 0) { return 0; } return down($n - 1); } down(400);');
+        $this->executeCode('function down($n) { if ($n == 0) { return 0; } return down($n - 1); } down(400);');
         $this->assertLessThan(64 * 1024 * 1024, memory_get_peak_usage());
     }
 

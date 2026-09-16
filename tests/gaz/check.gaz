@@ -1,7 +1,7 @@
 // Test helper for tests/gaz programs: prints "ok <label>", or what went wrong, so a
 // failing test shows up as a readable diff against the .expected file
 function check($label, $actual, $expected) {
-    if ($actual === $expected) {
+    if ($actual == $expected && type_of($actual) == type_of($expected)) {
         echo "ok " .. $label;
     } else {
         echo "FAIL " .. $label .. ": expected " .. to_string($expected) .. " (" .. type_of($expected) .. "), got " .. to_string($actual) .. " (" .. type_of($actual) .. ")";

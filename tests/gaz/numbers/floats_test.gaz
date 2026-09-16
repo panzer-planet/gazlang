@@ -28,12 +28,11 @@ check("intdiv truncates toward zero", [intdiv(7, 2), intdiv(-7, 2)], [3, -3]);
 
 // Comparisons
 check("int equals float", 1 == 1.0, true);
-check("but not identical", 1 === 1.0, false);
+check("float in an array equals an int", [1.0] == [1], true);
 check("float ordering", 2.5 > 2 && 2.5 < 3, true);
 check("rounding error is visible", 0.1 + 0.2 == 0.3, false);
-check("string holding a float", "1.5" == 1.5, true);
-check("string with trailing zero", "2.50" == 2.5, true);
-check("string that isn't a number", "1.5x" == 1.5, false);
+check("a string never equals a number", "1.5" == 1.5, false);
+check("to_float compares it", to_float("2.50") == 2.5, true);
 
 // Truthiness
 check("0.0 is false", !0.0, true);

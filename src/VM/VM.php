@@ -32,8 +32,6 @@ final class VM
         'MOD' => [Token::MODULO, '%'],
         'EQUALS' => [Token::EQUALS, '=='],
         'NOT_EQUALS' => [Token::NOT_EQUALS, '!='],
-        'STRICT_EQUALS' => [Token::STRICT_EQUALS, '==='],
-        'STRICT_NOT_EQUALS' => [Token::STRICT_NOT_EQUALS, '!=='],
         'LT' => [Token::LESS_THAN, '<'],
         'LE' => [Token::LESS_EQUALS, '<='],
         'GT' => [Token::GREATER_THAN, '>'],
@@ -181,8 +179,6 @@ final class VM
                         case 'LE':
                         case 'GT':
                         case 'GE':
-                        case 'EQUALS':
-                        case 'NOT_EQUALS':
                             $opcode = $ops[$pc - 1];
                             $right = array_pop($stack);
                             $left = array_pop($stack);
@@ -191,23 +187,21 @@ final class VM
                                     'LT' => $left < $right,
                                     'LE' => $left <= $right,
                                     'GT' => $left > $right,
-                                    'GE' => $left >= $right,
-                                    'EQUALS' => $left === $right,
-                                    'NOT_EQUALS' => $left !== $right,
-                                    default => throw new Exception("Unknown instruction: {$opcode}"),
+                                    default => $left >= $right,
                                 };
                             } else {
                                 $stack[] = Values::binary($tokens[$opcode], $left, $right);
                             }
                             break;
-                        case 'STRICT_EQUALS':
-                            // Values::binary compares === before any conversion, for every type
+                        case 'EQUALS':
+                        case 'NOT_EQUALS':
                             $right = array_pop($stack);
-                            $stack[] = array_pop($stack) === $right;
-                            break;
-                        case 'STRICT_NOT_EQUALS':
-                            $right = array_pop($stack);
-                            $stack[] = array_pop($stack) !== $right;
+                            $left = array_pop($stack);
+                            // Two ints or two strings are equal exactly when identical; Values::equals() decides the rest
+                            $equal = (is_int($left) && is_int($right)) || (is_string($left) && is_string($right))
+                                ? $left === $right
+                                : Values::equals($left, $right);
+                            $stack[] = $ops[$pc - 1] === 'EQUALS' ? $equal : ! $equal;
                             break;
                         case 'LOAD_QUIET':
                             $stack[] = $locals[$arg0[$pc - 1]] ?? null;
@@ -348,8 +342,9 @@ final class VM
                                 case 2:
                                     $second = array_pop($stack);
                                     $first = array_pop($stack);
-                                    $stack[] = $name === 'in_array' && is_array($second)
-                                        ? in_array($first, $second, true)
+                                    // An identical element is always equal; otherwise Builtins compares with ==
+                                    $stack[] = $name === 'in_array' && is_array($second) && in_array($first, $second, true)
+                                        ? true
                                         : $this->builtins->call($name, [$first, $second]);
                                     break;
                                 default:

@@ -60,7 +60,7 @@ check("not evaluated when the argument is given", strict(5), 5);
 
 // Recursion with a default accumulator
 function sum_to($n, $total = 0) {
-    if ($n === 0) {
+    if ($n == 0) {
         return $total;
     }
     return sum_to($n - 1, $total + $n);

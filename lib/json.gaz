@@ -42,10 +42,10 @@ function json_decode($text) {
 
 function json_encode($value) {
     $type = type_of($value);
-    if ($type === "string") {
+    if ($type == "string") {
         return json_encode_string($value);
     }
-    if ($type !== "array") {
+    if ($type != "array") {
         // null, true, false, ints and floats are already written the way JSON writes them
         return to_string($value);
     }
@@ -72,7 +72,7 @@ function json_fail($message) {
 // The character at the current position, quoted, or "end of input"
 function json_describe_char() {
     $c = char_at(@json_text, @json_pos);
-    if ($c === "") {
+    if ($c == "") {
         return "end of input";
     }
     return json_encode_string($c);
@@ -86,16 +86,16 @@ function json_skip_whitespace() {
 
 function json_parse_value() {
     $c = char_at(@json_text, @json_pos);
-    if ($c === "{") {
+    if ($c == "{") {
         return json_parse_object();
     }
-    if ($c === "[") {
+    if ($c == "[") {
         return json_parse_array();
     }
-    if ($c === "\"") {
+    if ($c == "\"") {
         return json_parse_string();
     }
-    if ($c === "-" || is_digit($c)) {
+    if ($c == "-" || is_digit($c)) {
         return json_parse_number();
     }
     if (json_match("true")) {
@@ -112,7 +112,7 @@ function json_parse_value() {
 
 // If the text continues with $word, move past it and return true
 function json_match($word) {
-    if (slice(@json_text, @json_pos, len($word)) === $word) {
+    if (slice(@json_text, @json_pos, len($word)) == $word) {
         @json_pos += len($word);
         return true;
     }
@@ -132,7 +132,7 @@ function json_enter() {
 function json_parse_array() {
     json_enter();
     $array = [];
-    if (char_at(@json_text, @json_pos) === "]") {
+    if (char_at(@json_text, @json_pos) == "]") {
         @json_pos++;
         @json_depth--;
         return $array;
@@ -144,12 +144,12 @@ function json_parse_array() {
         json_skip_whitespace();
 
         $c = char_at(@json_text, @json_pos);
-        if ($c === "]") {
+        if ($c == "]") {
             @json_pos++;
             @json_depth--;
             return $array;
         }
-        if ($c !== ",") {
+        if ($c != ",") {
             json_fail("expected , or ] but found " .. json_describe_char());
         }
         @json_pos++;
@@ -159,7 +159,7 @@ function json_parse_array() {
 function json_parse_object() {
     json_enter();
     $object = [];
-    if (char_at(@json_text, @json_pos) === "}") {
+    if (char_at(@json_text, @json_pos) == "}") {
         @json_pos++;
         @json_depth--;
         return $object;
@@ -167,13 +167,13 @@ function json_parse_object() {
 
     while (true) {
         json_skip_whitespace();
-        if (char_at(@json_text, @json_pos) !== "\"") {
+        if (char_at(@json_text, @json_pos) != "\"") {
             json_fail("expected a string key but found " .. json_describe_char());
         }
         $key = json_parse_string();
 
         json_skip_whitespace();
-        if (char_at(@json_text, @json_pos) !== ":") {
+        if (char_at(@json_text, @json_pos) != ":") {
             json_fail("expected : but found " .. json_describe_char());
         }
         @json_pos++;
@@ -183,12 +183,12 @@ function json_parse_object() {
         json_skip_whitespace();
 
         $c = char_at(@json_text, @json_pos);
-        if ($c === "}") {
+        if ($c == "}") {
             @json_pos++;
             @json_depth--;
             return $object;
         }
-        if ($c !== ",") {
+        if ($c != ",") {
             json_fail("expected , or } but found " .. json_describe_char());
         }
         @json_pos++;
@@ -207,11 +207,11 @@ function json_parse_string() {
 
     while ($pos < $length) {
         $c = $text[$pos];
-        if ($c === "\"") {
+        if ($c == "\"") {
             @json_pos = $pos + 1;
             return $result .. slice($text, $run_start, $pos - $run_start);
         }
-        if ($c === "\\") {
+        if ($c == "\\") {
             $result ..= slice($text, $run_start, $pos - $run_start);
             @json_pos = $pos;
             $result ..= json_parse_escape();
@@ -237,7 +237,7 @@ function json_parse_escape() {
         @json_pos += 2;
         return $simple[$c];
     }
-    if ($c !== "u") {
+    if ($c != "u") {
         json_fail("invalid escape " .. json_encode_string("\\" .. $c));
     }
 
@@ -252,7 +252,7 @@ function json_parse_escape() {
     if ($unit < 0xD800 || $unit > 0xDBFF) {
         return json_utf8($unit);
     }
-    if (slice(@json_text, @json_pos, 2) !== "\\u") {
+    if (slice(@json_text, @json_pos, 2) != "\\u") {
         json_fail("unpaired UTF-16 surrogate");
     }
     $low = json_parse_hex4(@json_pos + 2);
@@ -299,12 +299,12 @@ function json_parse_number() {
     $text = @json_text;
     $start = @json_pos;
     $pos = $start;
-    $negative = char_at($text, $pos) === "-";
+    $negative = char_at($text, $pos) == "-";
     if ($negative) {
         $pos++;
     }
 
-    if (char_at($text, $pos) === "0") {
+    if (char_at($text, $pos) == "0") {
         $pos++;
     } else if (is_digit(char_at($text, $pos))) {
         $pos = json_skip_digits($text, $pos);
@@ -315,7 +315,7 @@ function json_parse_number() {
     $digits_end = $pos;
 
     $is_float = false;
-    if (char_at($text, $pos) === ".") {
+    if (char_at($text, $pos) == ".") {
         if (!is_digit(char_at($text, $pos + 1))) {
             @json_pos = $pos + 1;
             json_fail("expected a digit after the decimal point");
@@ -325,10 +325,10 @@ function json_parse_number() {
     }
 
     $c = char_at($text, $pos);
-    if ($c === "e" || $c === "E") {
+    if ($c == "e" || $c == "E") {
         $pos++;
         $sign = char_at($text, $pos);
-        if ($sign === "+" || $sign === "-") {
+        if ($sign == "+" || $sign == "-") {
             $pos++;
         }
         if (!is_digit(char_at($text, $pos))) {
@@ -363,7 +363,7 @@ function json_int_fits($integer, $negative) {
         $digits = slice($integer, 1);
         $limit = "9223372036854775808";
     }
-    return len($digits) < 19 || len($digits) === 19 && $digits <= $limit;
+    return len($digits) < 19 || len($digits) == 19 && $digits <= $limit;
 }
 
 // --- Encoding ---
@@ -371,7 +371,7 @@ function json_int_fits($integer, $negative) {
 function json_is_list($array) {
     $expected = 0;
     foreach ($array as $key => $item) {
-        if ($key !== $expected) {
+        if ($key != $expected) {
             return false;
         }
         $expected++;
@@ -391,7 +391,7 @@ function json_encode_string($string) {
         $c = $string[$i];
         $code = ord($c);
         // Most characters need nothing, so test for that cheaply first
-        if ($code >= 32 && $c !== "\"" && $c !== "\\") {
+        if ($code >= 32 && $c != "\"" && $c != "\\") {
             continue;
         }
         $escaped = "\\u00" .. $hex[intdiv($code, 16)] .. $hex[$code % 16];

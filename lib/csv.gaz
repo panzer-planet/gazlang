@@ -21,14 +21,14 @@ function csv_parse($text) {
 
     while ($pos < $length) {
         $field_line = $line;
-        $quoted = $text[$pos] === "\"";
+        $quoted = $text[$pos] == "\"";
         if ($quoted) {
             // Quoted: copy up to each quote, then a second quote is a literal one
             $pos++;
             $field = "";
             while (true) {
                 $quote = index_of($text, "\"", $pos);
-                if ($quote === null) {
+                if ($quote == null) {
                     error("CSV error on line $field_line: quoted field is never closed");
                 }
                 $chunk = slice($text, $pos, $quote - $pos);
@@ -37,31 +37,31 @@ function csv_parse($text) {
                 }
                 $field ..= $chunk;
                 $pos = $quote + 1;
-                if (char_at($text, $pos) !== "\"") {
+                if (char_at($text, $pos) != "\"") {
                     break;
                 }
                 $field ..= "\"";
                 $pos++;
             }
             $after = char_at($text, $pos);
-            if ($after !== "" && $after !== "," && $after !== "\n" && !($after === "\r" && char_at($text, $pos + 1) === "\n")) {
+            if ($after != "" && $after != "," && $after != "\n" && !($after == "\r" && char_at($text, $pos + 1) == "\n")) {
                 error("CSV error on line $line: unexpected " .. csv_describe($after) .. " after a closing quote");
             }
         } else {
             // Unquoted: up to the next comma or line break, whichever comes first
             if ($next_newline < $pos) {
                 $next_newline = index_of($text, "\n", $pos);
-                if ($next_newline === null) {
+                if ($next_newline == null) {
                     $next_newline = $length;
                 }
             }
             $end = $next_newline;
             $comma = index_of($text, ",", $pos);
-            if ($comma !== null && $comma < $end) {
+            if ($comma != null && $comma < $end) {
                 $end = $comma;
             }
             // The \r of a \r\n line break isn't part of the field
-            if ($end === $next_newline && $end > $pos && $text[$end - 1] === "\r") {
+            if ($end == $next_newline && $end > $pos && $text[$end - 1] == "\r") {
                 $end--;
             }
             $field = slice($text, $pos, $end - $pos);
@@ -73,26 +73,26 @@ function csv_parse($text) {
 
         $row[] = $field;
         $c = char_at($text, $pos);
-        if ($c === ",") {
+        if ($c == ",") {
             $pos++;
             // A comma at the very end still means one more (empty) field
-            if ($pos === $length) {
+            if ($pos == $length) {
                 $row[] = "";
             }
             continue;
         }
 
         // End of the row: \r\n, \n or the end of the text
-        if ($c === "\r") {
+        if ($c == "\r") {
             $pos += 2;
-        } else if ($c !== "") {
+        } else if ($c != "") {
             $pos++;
         }
-        if ($c !== "") {
+        if ($c != "") {
             $line++;
         }
         // A blank line is one empty unquoted field: skip it
-        if (!(len($row) === 1 && $row[0] === "" && !$quoted)) {
+        if (!(len($row) == 1 && $row[0] == "" && !$quoted)) {
             $rows[] = $row;
         }
         $row = [];
@@ -106,15 +106,15 @@ function csv_parse($text) {
 
 // Rows after the first as maps from the first row's names: [["name" => ..., ...], ...]
 function csv_records($rows) {
-    if (len($rows) === 0) {
+    if (len($rows) == 0) {
         return [];
     }
     $header = $rows[0];
     $records = [];
     for ($i = 1; $i < len($rows); $i++) {
-        if (len($rows[$i]) !== len($header)) {
+        if (len($rows[$i]) != len($header)) {
             $fields = "fields";
-            if (len($rows[$i]) === 1) {
+            if (len($rows[$i]) == 1) {
                 $fields = "field";
             }
             error("CSV error in row " .. ($i + 1) .. ": " .. len($rows[$i]) .. " $fields, but the header has " .. len($header));

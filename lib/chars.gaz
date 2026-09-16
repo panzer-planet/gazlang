@@ -14,7 +14,7 @@ function char_at($s, $i) {
 
 // Whether $c is a one character string
 function is_char($c) {
-    return type_of($c) === "string" && len($c) === 1;
+    return type_of($c) == "string" && len($c) == 1;
 }
 
 // 0 to 9

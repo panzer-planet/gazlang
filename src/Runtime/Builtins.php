@@ -108,8 +108,7 @@ final class Builtins
             'abs' => $this->abs($this->argument($name, $args[0], 'int', 'float')),
             'intdiv' => $this->intdiv($this->argument($name, $args[0], 'int'), $this->argument($name, $args[1], 'int')),
             'to_string' => Values::toString($args[0]),
-            // Strict, like ===
-            'in_array' => in_array($args[0], $this->argument($name, $args[1], 'array'), true),
+            'in_array' => $this->inArray($args[0], $this->argument($name, $args[1], 'array')),
             'has_key' => array_key_exists(Values::arrayKey($args[1]), $this->argument($name, $args[0], 'array')),
             'keys' => array_keys($this->argument($name, $args[0], 'array')),
             'type_of' => get_debug_type($args[0]),
@@ -354,6 +353,23 @@ final class Builtins
         }
 
         return intdiv($left, $right);
+    }
+
+    /**
+     * in_array($value, $array): whether the array has an element equal (==) to the value
+     *
+     * @param  mixed  $value  The value
+     * @param  array  $array  The array
+     */
+    private function inArray($value, array $array): bool
+    {
+        foreach ($array as $item) {
+            if (Values::equals($value, $item)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

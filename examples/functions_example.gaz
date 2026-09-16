@@ -18,12 +18,12 @@ echo "fib(5) made " .. @calls .. " calls";
 
 // Mutual recursion
 function is_even($n) {
-    if ($n === 0) { return true; }
+    if ($n == 0) { return true; }
     return is_odd($n - 1);
 }
 
 function is_odd($n) {
-    if ($n === 0) { return false; }
+    if ($n == 0) { return false; }
     return is_even($n - 1);
 }
 
