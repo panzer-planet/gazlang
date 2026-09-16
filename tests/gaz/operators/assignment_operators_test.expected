@@ -4,7 +4,7 @@ ok *=
 ok /= with an exact result stays an int
 ok /= follows / and gives a float
 ok %=
-ok += concatenates strings, like +
+ok ..= concatenates, converting like ..
 ok value of a compound assignment
 ok right associative
 ok the target is read after the right side runs

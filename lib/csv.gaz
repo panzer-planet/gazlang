@@ -35,17 +35,17 @@ function csv_parse($text) {
                 if (contains($chunk, "\n")) {
                     $line += len(split($chunk, "\n")) - 1;
                 }
-                $field += $chunk;
+                $field ..= $chunk;
                 $pos = $quote + 1;
                 if (char_at($text, $pos) !== "\"") {
                     break;
                 }
-                $field += "\"";
+                $field ..= "\"";
                 $pos++;
             }
             $after = char_at($text, $pos);
             if ($after !== "" && $after !== "," && $after !== "\n" && !($after === "\r" && char_at($text, $pos + 1) === "\n")) {
-                error("CSV error on line $line: unexpected " + csv_describe($after) + " after a closing quote");
+                error("CSV error on line $line: unexpected " .. csv_describe($after) .. " after a closing quote");
             }
         } else {
             // Unquoted: up to the next comma or line break, whichever comes first
@@ -117,7 +117,7 @@ function csv_records($rows) {
             if (len($rows[$i]) === 1) {
                 $fields = "field";
             }
-            error("CSV error in row " + ($i + 1) + ": " + len($rows[$i]) + " $fields, but the header has " + len($header));
+            error("CSV error in row " .. ($i + 1) .. ": " .. len($rows[$i]) .. " $fields, but the header has " .. len($header));
         }
         $record = [];
         foreach ($header as $column => $name) {
@@ -131,7 +131,7 @@ function csv_records($rows) {
 // A character for an error message, with control characters made visible
 function csv_describe($c) {
     if (ord($c) < 32) {
-        return "character " + ord($c);
+        return "character " .. ord($c);
     }
     return "'$c'";
 }

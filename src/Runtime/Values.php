@@ -39,7 +39,7 @@ final class Values
     }
 
     /**
-     * Convert a value to the text echo prints and + concatenates
+     * Convert a value to the text echo prints and .. concatenates
      *
      * @param  mixed  $value  The value to convert
      * @return string The string representation
@@ -106,8 +106,8 @@ final class Values
     {
         $type = $op->type;
 
-        // If either operand is a string, plus performs string concatenation
-        if ($type === Token::PLUS && (is_string($left) || is_string($right))) {
+        // Concatenation converts both sides the way echo does
+        if ($type === Token::CONCAT) {
             return self::toString($left).self::toString($right);
         }
 

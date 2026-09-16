@@ -124,7 +124,7 @@ class OperatorTest extends GazLangTestCase
         );
         // A right side that isn't a constant is evaluated first, into a hidden variable
         $this->assertStringContainsString(
-            "LOAD 1\nSTORE 2\nLOAD 2\nPOP\nLOAD 0\nLOAD 2\nADD_OR_CONCAT\nSTORE 0",
+            "LOAD 1\nSTORE 2\nLOAD 2\nPOP\nLOAD 0\nLOAD 2\nADD\nSTORE 0",
             $this->generateCode('$x = 1; $y = 2; $x += $y;')
         );
     }
@@ -248,6 +248,45 @@ class OperatorTest extends GazLangTestCase
         $this->assertEquals("0\n0\n", $this->executeCode(
             '$x = 0; 0 && ($x = 1); echo $x; 1 || ($x = 2); echo $x;'
         ));
+    }
+
+    public function test_concatenation_converts_like_echo()
+    {
+        $this->assertEquals("ab\n12\nnulltrue\n[1]x\n1.5|\n", $this->executeCode(
+            'echo "a" .. "b"; echo 1 .. 2; echo null .. true; echo [1] .. "x"; echo 1.5 .. "|";'
+        ));
+    }
+
+    public function test_concatenation_binds_below_arithmetic_and_above_comparison()
+    {
+        $this->assertEquals("n = 3\ntrue\nfalse\n", $this->executeCode(
+            'echo "n = " .. 1 + 2; echo "a" .. "b" == "ab"; echo 1 .. 2 < 3;'
+        ));
+    }
+
+    public function test_concatenation_assignment()
+    {
+        $this->assertEquals("ab1\n[\"x1\"]\n", $this->executeCode(
+            '$s = "a"; $s ..= "b" .. 1; echo $s; $a = ["x"]; $a[0] ..= 1; echo $a;'
+        ));
+    }
+
+    public function test_plus_on_a_string_throws()
+    {
+        $this->expectExceptionMessage('Cannot use + on string on line 1');
+        $this->executeCode('echo "1" + 1;');
+    }
+
+    public function test_plus_on_null_throws()
+    {
+        $this->expectExceptionMessage('Cannot use + on null on line 1');
+        $this->executeCode('echo "x" + null;');
+    }
+
+    public function test_code_gen_for_concatenation()
+    {
+        $this->assertEquals("PUSH_STR \"a\"\nPUSH 1\nCONCAT\nPRINT", $this->generateCode('echo "a" .. 1;'));
+        $this->assertEquals("LOAD 0\nPUSH_STR \"b\"\nCONCAT\nSTORE 0\nLOAD 0\nPOP", $this->generateCode('$s ..= "b";'));
     }
 
     public function test_arithmetic_on_strings_throws()

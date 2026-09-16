@@ -51,6 +51,7 @@ class Interpreter extends AbstractNodeVisitor
         Token::MULTIPLY_ASSIGN => [Token::MULTIPLY, '*'],
         Token::DIVIDE_ASSIGN => [Token::DIVIDE, '/'],
         Token::MODULO_ASSIGN => [Token::MODULO, '%'],
+        Token::CONCAT_ASSIGN => [Token::CONCAT, '..'],
     ];
 
     /**

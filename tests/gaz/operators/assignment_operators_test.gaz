@@ -17,9 +17,9 @@ $m %= 5;
 check("%=", $m, 2);
 
 $s = "Hello";
-$s += ", ";
-$s += "world " + 1;
-check("+= concatenates strings, like +", $s, "Hello, world 1");
+$s ..= ", ";
+$s ..= "world " .. 1;
+check("..= concatenates, converting like ..", $s, "Hello, world 1");
 
 // The assignment is an expression with the new value, and is right associative
 $a = 2;

@@ -41,7 +41,7 @@ class Parser
      */
     private const ASSIGNMENTS = [
         Token::ASSIGN, Token::PLUS_ASSIGN, Token::MINUS_ASSIGN, Token::MULTIPLY_ASSIGN, Token::DIVIDE_ASSIGN, Token::MODULO_ASSIGN,
-        Token::COALESCE_ASSIGN,
+        Token::CONCAT_ASSIGN, Token::COALESCE_ASSIGN,
     ];
 
     /**
@@ -318,8 +318,7 @@ class Parser
     /**
      * Parse an interpolated string (STRING_START expr (STRING_MIDDLE expr)* STRING_END)
      *
-     * Desugared into concatenation: "Hi {$name}!" is "Hi " + $name + "!". The first
-     * operand is always a string, even an empty one, so every + concatenates and
+     * Desugared into concatenation: "Hi {$name}!" is "Hi " .. $name .. "!", which
      * converts values the way echo does; the backends need nothing new.
      *
      * @return AST
@@ -341,11 +340,11 @@ class Parser
             }
             $this->eat($part->type);
 
-            $plus = new Token(Token::PLUS, '+');
-            $plus->line = $part->line;
-            $node = $this->at(new BinOpAST($node, $plus, $value), $plus);
+            $concat = new Token(Token::CONCAT, '..');
+            $concat->line = $part->line;
+            $node = $this->at(new BinOpAST($node, $concat, $value), $concat);
             if ($part->value !== '') {
-                $node = $this->at(new BinOpAST($node, $plus, $this->at(new StringAST($part), $part)), $plus);
+                $node = $this->at(new BinOpAST($node, $concat, $this->at(new StringAST($part), $part)), $concat);
             }
 
             if ($part->type === Token::STRING_END) {
@@ -475,7 +474,21 @@ class Parser
     }
 
     /**
-     * Parse a relational expression (additive ((< | <= | > | >=) additive)*)
+     * Parse a concatenation (additive (CONCAT additive)*)
+     *
+     * Below + and - so "n = " .. $a + $b concatenates the sum, as in Lua and PHP 8.
+     *
+     * @return AST
+     *
+     * @throws Exception
+     */
+    public function concat()
+    {
+        return $this->left_associative('additive', [Token::CONCAT]);
+    }
+
+    /**
+     * Parse a relational expression (concat ((< | <= | > | >=) concat)*)
      *
      * @return AST
      *
@@ -483,7 +496,7 @@ class Parser
      */
     public function relational()
     {
-        return $this->left_associative('additive', [
+        return $this->left_associative('concat', [
             Token::LESS_THAN, Token::LESS_EQUALS, Token::GREATER_THAN, Token::GREATER_EQUALS,
         ]);
     }

@@ -2,7 +2,7 @@ include "../check.gaz";
 include "../../../lib/json.gaz";
 
 // Unicode escapes are built from parts so they stay escapes in this source file
-$u = "\\" + "u";
+$u = "\\" .. "u";
 
 // Decoding: types
 check("int", json_decode("42"), 42);
@@ -26,12 +26,12 @@ check("duplicate keys: last wins", json_decode("{\"a\": 1, \"a\": 2}"), ["a" => 
 check("whitespace", json_decode(" \t\n\r[ 1 , 2 ]\r\n "), [1, 2]);
 
 // Decoding: strings
-check("simple escapes", json_decode("\"\\\"\\\\\\/\\b\\f\\n\\r\\t\""), "\"\\/" + chr(8) + "\f\n\r\t");
-check("unicode escape", json_decode("\"" + $u + "0041" + $u + "00e9\""), "A" + chr(195) + chr(169));
-check("three byte UTF-8", json_decode("\"" + $u + "20ac\""), chr(226) + chr(130) + chr(172));
-check("surrogate pair", json_decode("\"" + $u + "d83d" + $u + "de00\""), chr(240) + chr(159) + chr(152) + chr(128));
-check("escaped NUL", json_decode("\"" + $u + "0000\""), chr(0));
-check("raw UTF-8 passes through", json_decode("\"caf" + chr(195) + chr(169) + "\""), "caf" + chr(195) + chr(169));
+check("simple escapes", json_decode("\"\\\"\\\\\\/\\b\\f\\n\\r\\t\""), "\"\\/" .. chr(8) .. "\f\n\r\t");
+check("unicode escape", json_decode("\"" .. $u .. "0041" .. $u .. "00e9\""), "A" .. chr(195) .. chr(169));
+check("three byte UTF-8", json_decode("\"" .. $u .. "20ac\""), chr(226) .. chr(130) .. chr(172));
+check("surrogate pair", json_decode("\"" .. $u .. "d83d" .. $u .. "de00\""), chr(240) .. chr(159) .. chr(152) .. chr(128));
+check("escaped NUL", json_decode("\"" .. $u .. "0000\""), chr(0));
+check("raw UTF-8 passes through", json_decode("\"caf" .. chr(195) .. chr(169) .. "\""), "caf" .. chr(195) .. chr(169));
 
 // Encoding
 check("encode scalars", json_encode([1, -2, 1.5, 1.0, true, false, null]), "[1,-2,1.5,1.0,true,false,null]");
@@ -39,9 +39,9 @@ check("encode exact floats", json_encode([0.1 + 0.2, 1e25]), "[0.300000000000000
 check("encode object", json_encode(["a" => 1, "b" => ["c" => null]]), "{\"a\":1,\"b\":{\"c\":null}}");
 check("list keys must be 0, 1, 2 in order", json_encode([1 => "a", 0 => "b"]), "{\"1\":\"a\",\"0\":\"b\"}");
 check("empty array is a list", json_encode([]), "[]");
-check("encode string escapes", json_encode("\"\\/\n\r\t\f" + chr(8)), "\"\\\"\\\\/\\n\\r\\t\\f\\b\"");
-check("encode other control bytes", json_encode(chr(1) + chr(31)), "\"" + $u + "0001" + $u + "001f\"");
-check("encode UTF-8 as is", json_encode("caf" + chr(195) + chr(169)), "\"caf" + chr(195) + chr(169) + "\"");
+check("encode string escapes", json_encode("\"\\/\n\r\t\f" .. chr(8)), "\"\\\"\\\\/\\n\\r\\t\\f\\b\"");
+check("encode other control bytes", json_encode(chr(1) .. chr(31)), "\"" .. $u .. "0001" .. $u .. "001f\"");
+check("encode UTF-8 as is", json_encode("caf" .. chr(195) .. chr(169)), "\"caf" .. chr(195) .. chr(169) .. "\"");
 check("encode $ and { literally", json_encode('{$x} $y'), '"{$x} $y"');
 
 // Round trips

@@ -6,7 +6,7 @@ class NullTest extends GazLangTestCase
 {
     public function test_null_prints_and_concatenates_as_null()
     {
-        $this->assertEquals("null\nxnull\nnullx\n", $this->executeCode('echo null; echo "x" + null; echo null + "x";'));
+        $this->assertEquals("null\nxnull\nnullx\n", $this->executeCode('echo null; echo "x" .. null; echo null .. "x";'));
     }
 
     public function test_null_only_equals_null()

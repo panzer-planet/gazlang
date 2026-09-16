@@ -24,7 +24,8 @@ final class VM
      * The binary operator token each operator instruction applies, as [token type, symbol]
      */
     private const BINARY = [
-        'ADD_OR_CONCAT' => [Token::PLUS, '+'],
+        'ADD' => [Token::PLUS, '+'],
+        'CONCAT' => [Token::CONCAT, '..'],
         'SUB' => [Token::MINUS, '-'],
         'MUL' => [Token::MULTIPLY, '*'],
         'DIV' => [Token::DIVIDE, '/'],
@@ -128,7 +129,7 @@ final class VM
                                 $pc = $arg0[$pc - 1];
                             }
                             break;
-                        case 'ADD_OR_CONCAT':
+                        case 'ADD':
                             $right = array_pop($stack);
                             $left = array_pop($stack);
                             // An int result that overflows is a float in PHP, which Values reports as an error
@@ -136,8 +137,15 @@ final class VM
                             if (is_int($left) && is_int($right) && is_int($result = $left + $right)) {
                                 $stack[] = $result;
                             } else {
-                                $stack[] = Values::binary($tokens['ADD_OR_CONCAT'], $left, $right);
+                                $stack[] = Values::binary($tokens['ADD'], $left, $right);
                             }
+                            break;
+                        case 'CONCAT':
+                            $right = array_pop($stack);
+                            $left = array_pop($stack);
+                            $stack[] = is_string($left) && is_string($right)
+                                ? $left.$right
+                                : Values::binary($tokens['CONCAT'], $left, $right);
                             break;
                         case 'SUB':
                             $right = array_pop($stack);

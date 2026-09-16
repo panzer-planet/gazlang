@@ -39,10 +39,10 @@ class StringTest extends TestCase
     public function test_string_concatenation()
     {
         $code = <<<'CODE'
-        echo "Hello, " + "World!";
+        echo "Hello, " .. "World!";
         $prefix = "GazLang ";
         $suffix = "is awesome";
-        echo $prefix + $suffix;
+        echo $prefix .. $suffix;
         CODE;
 
         $lexer = new Lexer($code);
@@ -56,15 +56,15 @@ class StringTest extends TestCase
     public function test_mixed_type_operations()
     {
         $code = <<<'CODE'
-        // String + number concatenates by converting number to string
-        echo "Count: " + 42;
+        // .. converts a number the way echo does
+        echo "Count: " .. 42;
         
-        // Number + string concatenates by converting number to string
-        echo 2022 + " is the year";
+        // On either side
+        echo 2022 .. " is the year";
         
         // Using variable
         $year = 2025;
-        echo "The year is " + $year;
+        echo "The year is " .. $year;
         CODE;
 
         $lexer = new Lexer($code);

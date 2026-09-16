@@ -20,7 +20,7 @@ function tokenize($source) {
             $tokens[] = ["SYMBOL", $c];
             $i = $i + 1;
         } else {
-            error("Unexpected character " + $c + " at position " + $i);
+            error("Unexpected character " .. $c .. " at position " .. $i);
         }
     }
     return $tokens;
@@ -45,6 +45,6 @@ for ($t = 0; $t < len($tokens); $t = $t + 1) {
 }
 $types = keys($counts);
 for ($t = 0; $t < len($types); $t = $t + 1) {
-    echo $types[$t] + ": " + $counts[$types[$t]];
+    echo $types[$t] .. ": " .. $counts[$types[$t]];
 }
-echo type_of($tokens) + " of " + to_string(len($tokens));
+echo type_of($tokens) .. " of " .. to_string(len($tokens));

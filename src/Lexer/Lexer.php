@@ -715,6 +715,18 @@ class Lexer
                 return $this->identifier();
             }
 
+            if ($this->current_char === '.' && $this->peek() === '.') {
+                $this->advance();
+                $this->advance();
+                if ($this->current_char === '=') {
+                    $this->advance();
+
+                    return new Token(Token::CONCAT_ASSIGN, '..=');
+                }
+
+                return new Token(Token::CONCAT, '..');
+            }
+
             if (isset(self::ARITHMETIC[$this->current_char])) {
                 // Longest match: += before +, and ++ before +
                 $char = $this->current_char;

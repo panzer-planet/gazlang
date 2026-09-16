@@ -30,7 +30,7 @@ class BooleanTest extends GazLangTestCase
 
     public function test_concatenation_uses_echo_spelling()
     {
-        $this->assertEquals("xtrue\nfalse!\n", $this->executeCode('echo "x" + true; echo (1 > 2) + "!";'));
+        $this->assertEquals("xtrue\nfalse!\n", $this->executeCode('echo "x" .. true; echo (1 > 2) .. "!";'));
     }
 
     public function test_truthiness_stays_c_like()

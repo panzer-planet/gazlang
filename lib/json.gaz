@@ -34,7 +34,7 @@ function json_decode($text) {
     $value = json_parse_value();
     json_skip_whitespace();
     if (@json_pos < len(@json_text)) {
-        json_fail("unexpected " + json_describe_char() + " after the value");
+        json_fail("unexpected " .. json_describe_char() .. " after the value");
     }
 
     return $value;
@@ -55,18 +55,18 @@ function json_encode($value) {
         foreach ($value as $item) {
             $parts[] = json_encode($item);
         }
-        return "[" + join($parts, ",") + "]";
+        return "[" .. join($parts, ",") .. "]";
     }
     foreach ($value as $key => $item) {
-        $parts[] = json_encode_string(to_string($key)) + ":" + json_encode($item);
+        $parts[] = json_encode_string(to_string($key)) .. ":" .. json_encode($item);
     }
-    return "{" + join($parts, ",") + "}";
+    return "{" .. join($parts, ",") .. "}";
 }
 
 // --- Decoding ---
 
 function json_fail($message) {
-    error("Invalid JSON: $message at position " + @json_pos);
+    error("Invalid JSON: $message at position " .. @json_pos);
 }
 
 // The character at the current position, quoted, or "end of input"
@@ -107,7 +107,7 @@ function json_parse_value() {
     if (json_match("null")) {
         return null;
     }
-    json_fail("unexpected " + json_describe_char());
+    json_fail("unexpected " .. json_describe_char());
 }
 
 // If the text continues with $word, move past it and return true
@@ -150,7 +150,7 @@ function json_parse_array() {
             return $array;
         }
         if ($c !== ",") {
-            json_fail("expected , or ] but found " + json_describe_char());
+            json_fail("expected , or ] but found " .. json_describe_char());
         }
         @json_pos++;
     }
@@ -168,13 +168,13 @@ function json_parse_object() {
     while (true) {
         json_skip_whitespace();
         if (char_at(@json_text, @json_pos) !== "\"") {
-            json_fail("expected a string key but found " + json_describe_char());
+            json_fail("expected a string key but found " .. json_describe_char());
         }
         $key = json_parse_string();
 
         json_skip_whitespace();
         if (char_at(@json_text, @json_pos) !== ":") {
-            json_fail("expected : but found " + json_describe_char());
+            json_fail("expected : but found " .. json_describe_char());
         }
         @json_pos++;
         json_skip_whitespace();
@@ -189,7 +189,7 @@ function json_parse_object() {
             return $object;
         }
         if ($c !== ",") {
-            json_fail("expected , or } but found " + json_describe_char());
+            json_fail("expected , or } but found " .. json_describe_char());
         }
         @json_pos++;
     }
@@ -209,12 +209,12 @@ function json_parse_string() {
         $c = $text[$pos];
         if ($c === "\"") {
             @json_pos = $pos + 1;
-            return $result + slice($text, $run_start, $pos - $run_start);
+            return $result .. slice($text, $run_start, $pos - $run_start);
         }
         if ($c === "\\") {
-            $result += slice($text, $run_start, $pos - $run_start);
+            $result ..= slice($text, $run_start, $pos - $run_start);
             @json_pos = $pos;
-            $result += json_parse_escape();
+            $result ..= json_parse_escape();
             $pos = @json_pos;
             $run_start = $pos;
         } else if (ord($c) < 32) {
@@ -238,7 +238,7 @@ function json_parse_escape() {
         return $simple[$c];
     }
     if ($c !== "u") {
-        json_fail("invalid escape " + json_encode_string("\\" + $c));
+        json_fail("invalid escape " .. json_encode_string("\\" .. $c));
     }
 
     $unit = json_parse_hex4(@json_pos + 2);
@@ -285,13 +285,13 @@ function json_utf8($code_point) {
     }
     $continuation = chr(0x80 + $code_point % 0x40);
     if ($code_point < 0x800) {
-        return chr(0xC0 + intdiv($code_point, 0x40)) + $continuation;
+        return chr(0xC0 + intdiv($code_point, 0x40)) .. $continuation;
     }
     if ($code_point < 0x10000) {
-        return chr(0xE0 + intdiv($code_point, 0x1000)) + chr(0x80 + intdiv($code_point, 0x40) % 0x40) + $continuation;
+        return chr(0xE0 + intdiv($code_point, 0x1000)) .. chr(0x80 + intdiv($code_point, 0x40) % 0x40) .. $continuation;
     }
-    return chr(0xF0 + intdiv($code_point, 0x40000)) + chr(0x80 + intdiv($code_point, 0x1000) % 0x40)
-        + chr(0x80 + intdiv($code_point, 0x40) % 0x40) + $continuation;
+    return chr(0xF0 + intdiv($code_point, 0x40000)) .. chr(0x80 + intdiv($code_point, 0x1000) % 0x40)
+        .. chr(0x80 + intdiv($code_point, 0x40) % 0x40) .. $continuation;
 }
 
 // JSON's number grammar: -?(0|[1-9][0-9]*)(.[0-9]+)?([eE][+-]?[0-9]+)?
@@ -310,7 +310,7 @@ function json_parse_number() {
         $pos = json_skip_digits($text, $pos);
     } else {
         @json_pos = $pos;
-        json_fail("expected a digit but found " + json_describe_char());
+        json_fail("expected a digit but found " .. json_describe_char());
     }
     $digits_end = $pos;
 
@@ -394,13 +394,13 @@ function json_encode_string($string) {
         if ($code >= 32 && $c !== "\"" && $c !== "\\") {
             continue;
         }
-        $escaped = "\\u00" + $hex[intdiv($code, 16)] + $hex[$code % 16];
+        $escaped = "\\u00" .. $hex[intdiv($code, 16)] .. $hex[$code % 16];
         if (has_key($escapes, $c)) {
             $escaped = $escapes[$c];
         }
-        $result += slice($string, $run_start, $i - $run_start) + $escaped;
+        $result ..= slice($string, $run_start, $i - $run_start) .. $escaped;
         $run_start = $i + 1;
     }
 
-    return "\"" + $result + slice($string, $run_start, $length - $run_start) + "\"";
+    return "\"" .. $result .. slice($string, $run_start, $length - $run_start) .. "\"";
 }

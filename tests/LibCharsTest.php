@@ -33,7 +33,7 @@ class LibCharsTest extends GazLangTestCase
             .'   if (is_hex_digit($c)) { $flags[] = "hex_digit"; } else { $flags[] = "-"; }'
             .'   if (is_alpha($c)) { $flags[] = "alpha"; } else { $flags[] = "-"; }'
             .'   if (is_alnum($c)) { $flags[] = "alnum"; } else { $flags[] = "-"; }'
-            .'   echo to_string($i) + " " + join($flags, " ");'
+            .'   echo to_string($i) .. " " .. join($flags, " ");'
             .' }';
 
         $this->assertSame($expected, $this->executeCode($code));

@@ -10,7 +10,7 @@ A small, PHP-flavoured programming language with an interpreter and a stack-VM c
 - Boolean literals `true` and `false`; comparisons and logical operators return booleans
 - String literals with double quotes (`"Hello, World!"`, with escapes) or single quotes (`'C:\raw\path'`, raw: only `\'` and `\\` are escapes)
 - String escape sequences: `\n` `\t` `\r` `\v` `\f` `\e` `\0` `\\` `\"`, `\xHH` for a byte and `\u{1F600}` for a Unicode code point (as UTF-8); anything else, including octal like `\012`, is an error
-- String concatenation with the `+` operator
+- String concatenation with the `..` operator (`"n = " .. 1 + 2` is `"n = 3"`; `+` on a string is an error)
 - String interpolation in double-quoted strings: `"Hi $name!"`, `"First: $items[0]"`, `"{$user["name"]} has {@count} items"`
 - Mathematical operators: `+`, `-`, `*`, `/` (`7 / 2` is `3.5`, `6 / 2` is `3`), `%`, unary `-`
 - Comparison operators: `==`, `!=`, `===`, `!==` (no type conversion), `<`, `<=`, `>`, `>=`

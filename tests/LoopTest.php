@@ -55,7 +55,7 @@ class LoopTest extends GazLangTestCase
         $this->assertEquals(
             "PUSH 0\nSTORE 0\nLOAD 0\nPOP\n"
             ."LABEL WHILE_0\nLOAD 0\nPUSH 2\nLT\nJZ ENDWHILE_0\n"
-            ."LOAD 0\nPRINT\nLABEL CONTINUE_0\nLOAD 0\nPUSH 1\nADD_OR_CONCAT\nSTORE 0\nLOAD 0\nPOP\n"
+            ."LOAD 0\nPRINT\nLABEL CONTINUE_0\nLOAD 0\nPUSH 1\nADD\nSTORE 0\nLOAD 0\nPOP\n"
             ."JMP WHILE_0\nLABEL ENDWHILE_0",
             $this->generateCode('for ($i = 0; $i < 2; $i = $i + 1) { echo $i; }')
         );
@@ -72,7 +72,7 @@ class LoopTest extends GazLangTestCase
     public function test_break_leaves_the_loop()
     {
         $this->assertEquals("0\n1\nafter 2\n", $this->executeCode(
-            '$i = 0; while (true) { if ($i === 2) { break; } echo $i; $i = $i + 1; } echo "after " + $i;'
+            '$i = 0; while (true) { if ($i === 2) { break; } echo $i; $i = $i + 1; } echo "after " .. $i;'
         ));
     }
 
@@ -98,7 +98,7 @@ class LoopTest extends GazLangTestCase
                 for ($j = 0; $j < 3; $j = $j + 1) {
                     if ($j === 0) { continue; }
                     if ($j === 2) { break; }
-                    echo $i + " " + $j;
+                    echo $i .. " " .. $j;
                 }
             }
             CODE));
@@ -179,7 +179,7 @@ class LoopTest extends GazLangTestCase
         $this->assertStringContainsString("LABEL WHILE_0\nLOAD 3\nLOAD 2\nLT\nJZ ENDWHILE_0", $code);
         // $k = $#keys[$#i]; $v = $#array[$#keys[$#i]]; continue jumps to the step
         $this->assertStringContainsString("LOAD 1\nLOAD 3\nINDEX_GET\nSTORE 4\nLOAD 4\nPOP\nLOAD 0\nLOAD 1\nLOAD 3\nINDEX_GET\nINDEX_GET\nSTORE 5", $code);
-        $this->assertStringContainsString("JMP CONTINUE_0\nLABEL CONTINUE_0\nLOAD 3\nPUSH 1\nADD_OR_CONCAT\nSTORE 3", $code);
+        $this->assertStringContainsString("JMP CONTINUE_0\nLABEL CONTINUE_0\nLOAD 3\nPUSH 1\nADD\nSTORE 3", $code);
     }
 
     public function test_code_gen_gives_nested_foreach_loops_their_own_hidden_variables()

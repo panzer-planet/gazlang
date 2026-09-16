@@ -14,7 +14,7 @@ function fib($n) {
 
 @calls = 0;
 echo fib(5);  // 5
-echo "fib(5) made " + @calls + " calls";
+echo "fib(5) made " .. @calls .. " calls";
 
 // Mutual recursion
 function is_even($n) {
@@ -31,7 +31,7 @@ echo is_even(10); // true
 
 // A function without a return value gives null
 function greet($name) {
-    echo "Hello, " + $name + "!";
+    echo "Hello, " .. $name .. "!";
 }
 
 $result = greet("GazLang");

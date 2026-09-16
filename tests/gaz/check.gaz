@@ -2,8 +2,8 @@
 // failing test shows up as a readable diff against the .expected file
 function check($label, $actual, $expected) {
     if ($actual === $expected) {
-        echo "ok " + $label;
+        echo "ok " .. $label;
     } else {
-        echo "FAIL " + $label + ": expected " + to_string($expected) + " (" + type_of($expected) + "), got " + to_string($actual) + " (" + type_of($actual) + ")";
+        echo "FAIL " .. $label .. ": expected " .. to_string($expected) .. " (" .. type_of($expected) .. "), got " .. to_string($actual) .. " (" .. type_of($actual) .. ")";
     }
 }

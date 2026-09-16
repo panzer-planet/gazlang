@@ -102,7 +102,7 @@ class StdlibTest extends GazLangTestCase
     public function test_to_string_matches_echo()
     {
         $this->assertEquals("42|true|null|[1, \"a\"]\n", $this->executeCode(
-            'echo to_string(42) + "|" + to_string(true) + "|" + to_string(null) + "|" + to_string([1, "a"]);'
+            'echo to_string(42) .. "|" .. to_string(true) .. "|" .. to_string(null) .. "|" .. to_string([1, "a"]);'
         ));
     }
 
@@ -123,14 +123,14 @@ class StdlibTest extends GazLangTestCase
     public function test_type_of()
     {
         $this->assertEquals("int string bool null array\n", $this->executeCode(
-            'echo type_of(1) + " " + type_of("") + " " + type_of(false) + " " + type_of(null) + " " + type_of([]);'
+            'echo type_of(1) .. " " .. type_of("") .. " " .. type_of(false) .. " " .. type_of(null) .. " " .. type_of([]);'
         ));
     }
 
     public function test_error_stops_the_program()
     {
         $this->expectExceptionMessage('Undefined variable: $x in 3');
-        $this->executeCode('error("Undefined variable: \$x in " + 3); echo "unreachable";');
+        $this->executeCode('error("Undefined variable: \$x in " .. 3); echo "unreachable";');
     }
 
     public function test_read_file()

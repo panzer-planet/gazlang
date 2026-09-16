@@ -75,7 +75,7 @@ try {
     try {
         error("inner");
     } catch ($e) {
-        error("rethrown: " + $e["message"]);
+        error("rethrown: " .. $e["message"]);
     }
 } catch ($outer) {
     check("rethrow reaches the outer catch", $outer["message"], "rethrown: inner");
@@ -118,7 +118,7 @@ function level_one() {
     try {
         return level_two();
     } catch ($e) {
-        return "level one caught: " + $e["message"];
+        return "level one caught: " .. $e["message"];
     }
 }
 check("unwinds through calls", level_one(), "level one caught: from level three");

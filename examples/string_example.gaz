@@ -8,11 +8,11 @@ echo $greeting;
 echo $name;
 
 // String concatenation
-echo $greeting + ", " + $name + "!";
+echo $greeting .. ", " .. $name .. "!";
 
 // Mixed types - string and integer concatenation
 $year = 2025;
-echo "The year is " + $year;
+echo "The year is " .. $year;
 
 // String in if conditions (non-empty strings are considered true)
 $emptyString = "";

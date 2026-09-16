@@ -18,7 +18,7 @@ if (len($arguments) === 0) {
     $arguments = ["examples/data/sales.csv", "region", "amount"];
 }
 if (len($arguments) !== 3) {
-    fail("expected 3 arguments, got " + len($arguments));
+    fail("expected 3 arguments, got " .. len($arguments));
 }
 $file = $arguments[0];
 $group_column = $arguments[1];
@@ -35,7 +35,7 @@ if (len($rows) === 0) {
 }
 foreach ([$group_column, $amount_column] as $column) {
     if (!in_array($column, $rows[0])) {
-        fail("$file has no column \"$column\" (columns: " + join($rows[0], ", ") + ")");
+        fail("$file has no column \"$column\" (columns: " .. join($rows[0], ", ") .. ")");
     }
 }
 
@@ -48,7 +48,7 @@ foreach ($records as $i => $record) {
         $amount = to_float($text);
     } catch ($e) {
         // Row numbers count the header as row 1, like a spreadsheet
-        fail("row " + ($i + 2) + ": $amount_column \"$text\" is not a number");
+        fail("row " .. ($i + 2) .. ": $amount_column \"$text\" is not a number");
     }
     $group = $record[$group_column];
     $totals[$group] = ($totals[$group] ?? 0.0) + $amount;
@@ -91,7 +91,7 @@ foreach ($table as $row_number => $cells) {
     // Text left aligned, numbers right aligned
     $line = pad_right($cells[0], $widths[0]);
     for ($column = 1; $column < 4; $column++) {
-        $line += "  " + pad_left($cells[$column], $widths[$column]);
+        $line ..= "  " .. pad_left($cells[$column], $widths[$column]);
     }
     if ($row_number === len($table) - 1) {
         echo repeat("-", len($line));

@@ -57,4 +57,4 @@ check("repeat zero times", repeat("ab", 0), "");
 
 check("single quotes are raw", 'C:\path\new', "C:\\path\\new");
 check("single quote escapes", 'it\'s a back\\slash', "it's a back\\slash");
-check("single and double quotes concatenate", 'a' + "b", "ab");
+check("single and double quotes concatenate", 'a' .. "b", "ab");

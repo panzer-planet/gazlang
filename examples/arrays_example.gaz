@@ -19,7 +19,7 @@ function with_extra($list) {
 }
 
 $copy = with_extra($primes);
-echo len($primes) + " vs " + len($copy);   // 4 vs 5
+echo len($primes) .. " vs " .. len($copy);   // 4 vs 5
 
 // Share an array between functions with a global
 @tokens = [];
@@ -37,7 +37,7 @@ for ($i = 0; $i < len($source); $i = $i + 1) {
         $word = "";
         continue;
     }
-    $word = $word + $char;
+    $word = $word .. $char;
 }
 emit("word", $word);
 echo @tokens;

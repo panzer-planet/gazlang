@@ -64,6 +64,10 @@ class Token
 
     public const MODULO_ASSIGN = 'MODULO_ASSIGN';  // %=
 
+    public const CONCAT = 'CONCAT';  // String concatenation (..)
+
+    public const CONCAT_ASSIGN = 'CONCAT_ASSIGN';  // ..=
+
     public const INCREMENT = 'INCREMENT';  // ++
 
     public const DECREMENT = 'DECREMENT';  // --

@@ -4,7 +4,7 @@ include "../check.gaz";
 function pairs($array) {
     $seen = [];
     foreach ($array as $key => $value) {
-        $seen[] = "$key=" + to_string($value);
+        $seen[] = "$key=" .. to_string($value);
     }
     return $seen;
 }

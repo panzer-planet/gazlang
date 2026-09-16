@@ -1,4 +1,4 @@
 include "lib/math.gaz";
 include "lib/math.gaz";
-echo "main sees " + @loaded;
+echo "main sees " .. @loaded;
 echo square(3);

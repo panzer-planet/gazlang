@@ -15,17 +15,17 @@ function format_number($number, $decimals = 2, $thousands = ",") {
     $whole = to_string(intdiv($scaled, $scale));
     $grouped = "";
     while (len($whole) > 3) {
-        $grouped = $thousands + slice($whole, -3) + $grouped;
+        $grouped = $thousands .. slice($whole, -3) .. $grouped;
         $whole = slice($whole, 0, -3);
     }
-    $text = $whole + $grouped;
+    $text = $whole .. $grouped;
 
     if ($decimals > 0) {
-        $text += "." + pad_left(to_string($scaled % $scale), $decimals, "0");
+        $text ..= "." .. pad_left(to_string($scaled % $scale), $decimals, "0");
     }
     // Only negative if something non-zero is shown
     if ($number < 0 && $scaled > 0) {
-        $text = "-" + $text;
+        $text = "-" .. $text;
     }
     return $text;
 }
@@ -36,7 +36,7 @@ function pad_left($text, $width, $pad = " ") {
     if ($missing <= 0) {
         return $text;
     }
-    return repeat($pad, $missing) + $text;
+    return repeat($pad, $missing) .. $text;
 }
 
 // $text padded with $pad on the right to at least $width characters (bytes)
@@ -45,5 +45,5 @@ function pad_right($text, $width, $pad = " ") {
     if ($missing <= 0) {
         return $text;
     }
-    return $text + repeat($pad, $missing);
+    return $text .. repeat($pad, $missing);
 }

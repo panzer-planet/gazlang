@@ -60,7 +60,8 @@ class CodeGenerator extends AbstractNodeVisitor
      * Opcode emitted for each binary operator token (&& and || are jumps, see logicalOp)
      */
     private const BINARY_OPCODES = [
-        Token::PLUS => 'ADD_OR_CONCAT',
+        Token::PLUS => 'ADD',
+        Token::CONCAT => 'CONCAT',
         Token::MINUS => 'SUB',
         Token::MULTIPLY => 'MUL',
         Token::DIVIDE => 'DIV',

@@ -61,7 +61,10 @@ each step depends on the ones before it.
      `if (0)` is false); strings are true unless empty, so `"0"` is true.
    - Booleans act as 1/0 in arithmetic and comparisons: `true + 1` is `2`,
      `true == 1` is true.
-   - Concatenation uses the same spelling as `echo`: `"x" + true` is `"xtrue"`.
+   - `..` concatenates, converting either side the way `echo` does: `"x" .. true` is
+     `"xtrue"`, `1 .. 2` is `"12"`. It sits below `+`/`-` and above comparison (Lua,
+     PHP 8), so `"n = " .. $a + $b` concatenates the sum. `..=` is its compound
+     assignment. `+` is numeric only: `"1" + 1` is `Cannot use + on string`.
    - Two strings compare byte by byte (`"1" != "01"`, `"10" < "9"`). A string
      and a number (or a bool, as 1/0) compare numerically only when the string is
      a number literal by `Lexer::parse_number()` (`"5" == 5`, `"007" == 7`,
@@ -114,7 +117,7 @@ each step depends on the ones before it.
      never inside a loop, so `break`/`continue` cannot reach a caller's loop.
    - `return [expr];` is a parse error outside a function. The interpreter
      unwinds with `ReturnSignal`; a missing or bare return gives `null`.
-   - `null` is a keyword. `echo null` prints `null`, `"x" + null` is `"xnull"`,
+   - `null` is a keyword. `echo null` prints `null`, `"x" .. null` is `"xnull"`,
      null is false in conditions, it only `==` null (`null == 0` and
      `null == false` are false), and arithmetic, ordering and unary `-` on it
      throw. Variables are looked up with `array_key_exists`, not `isset`, so
@@ -154,7 +157,7 @@ each step depends on the ones before it.
      evaluated left to right, then the value, and only then is the variable's
      array read, so side effects of the keys and value are kept. The variable must exist and only the last key
      may be new; missing keys along the way are an error, not auto-created.
-   - `echo` and `+` concatenation print arrays as literals (`[1, "a"]`,
+   - `echo` and `..` print arrays as literals (`[1, "a"]`,
      `["k" => 1]`). Empty arrays are false in conditions. `==` on arrays is
      strict (same keys, same order, identical values); arithmetic, ordering and
      unary `-` on arrays throw.
@@ -368,7 +371,7 @@ Design agreed on 2026-09-17, to build in phases (each committed and reviewed):
 
 `=`, `+=`, `-=`, `*=`, `/=`, `%=`, `??=` are right associative expressions whose value is the
 new value (`AssignAST`, whose token says which). Compound assignment applies the
-binary operator, so `+=` concatenates strings. `++`/`--` (`IncrementAST`) work on
+binary operator, so `..=` concatenates and `+=` on a string is an error. `++`/`--` (`IncrementAST`) work on
 numbers only; prefix gives the new value, postfix the old. Targets are a variable
 or an element of one (`$a["k"][0]++`), but appending (`$a[] = v`) is plain `=` only.
 
@@ -454,8 +457,8 @@ to the `}`). Anything else stays literal: `$5`, a lone
 `$`, `me@example.com`, `{ $x}`'s brace, `{}`. The lexer emits `STRING_START`, the
 expression's tokens, `STRING_MIDDLE` between interpolations and `STRING_END`
 (a string without interpolation is one `STRING`), tracking open strings on a
-stack so strings nest inside interpolations. The parser desugars to `+`
-(`"Hi {$n}!"` is `"Hi " + $n + "!"`, always starting with a string), so values
+stack so strings nest inside interpolations. The parser desugars to `..`
+(`"Hi {$n}!"` is `"Hi " .. $n .. "!"`), so values
 convert like `echo` and the backends need nothing. Include paths can't interpolate.
 
 `Lexer::quote()` is the exact inverse of a literal: named escapes, `\xHH` for

@@ -72,7 +72,7 @@ class ArrayTest extends GazLangTestCase
     public function test_keys_are_evaluated_left_to_right()
     {
         $this->assertEquals("key 0\nkey 1\n[[0, 5], [0, 0]]\n", $this->executeCode(
-            'function k($n) { echo "key " + $n; return $n; } $a = [[0, 0], [0, 0]]; $a[k(0)][k(1)] = 5; echo $a;'
+            'function k($n) { echo "key " .. $n; return $n; } $a = [[0, 0], [0, 0]]; $a[k(0)][k(1)] = 5; echo $a;'
         ));
     }
 
@@ -122,7 +122,7 @@ class ArrayTest extends GazLangTestCase
     {
         $this->assertEquals("true\nfalse\nfalse\nfalse\nempty\nx[1]\n", $this->executeCode(
             'echo [1, [2]] == [1, [2]]; echo [1] == [true]; echo ["a" => 1, "b" => 2] == ["b" => 2, "a" => 1]; echo [] == null;'
-            .' if ([]) { echo "full"; } else { echo "empty"; } echo "x" + [1];'
+            .' if ([]) { echo "full"; } else { echo "empty"; } echo "x" .. [1];'
         ));
     }
 

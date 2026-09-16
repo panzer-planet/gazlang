@@ -27,8 +27,8 @@ class FunctionTest extends GazLangTestCase
 
     public function test_call_with_arguments_and_return_value()
     {
-        $this->assertEquals("5\nhi there\n", $this->executeCode(
-            'function add($a, $b) { return $a + $b; } echo add(2, 3); echo add("hi ", "there");'
+        $this->assertEquals("5\n3.5\n", $this->executeCode(
+            'function add($a, $b) { return $a + $b; } echo add(2, 3); echo add(0.5, 3);'
         ));
     }
 
@@ -214,8 +214,8 @@ class FunctionTest extends GazLangTestCase
     {
         $this->assertEquals(
             "PUSH 1\nPUSH 2\nCALL FN_add 2\nPRINT\nHALT\n"
-            ."LABEL FN_add\nLOAD_GLOBAL 0\nPUSH 1\nADD_OR_CONCAT\nSTORE_GLOBAL 0\nLOAD_GLOBAL 0\nPOP\n"
-            ."LOAD 0\nLOAD 1\nADD_OR_CONCAT\nRET\nPUSH null\nRET",
+            ."LABEL FN_add\nLOAD_GLOBAL 0\nPUSH 1\nADD\nSTORE_GLOBAL 0\nLOAD_GLOBAL 0\nPOP\n"
+            ."LOAD 0\nLOAD 1\nADD\nRET\nPUSH null\nRET",
             $this->generateCode('echo add(1, 2); function add($a, $b) { @calls = @calls + 1; return $a + $b; }')
         );
     }

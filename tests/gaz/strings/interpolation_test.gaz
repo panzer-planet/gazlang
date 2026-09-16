@@ -34,15 +34,15 @@ check("interpolated string inside interpolation", "{$user["na{$name}"]}", "null"
 
 // Values convert like echo and +
 check("ints convert", "n={@count}", "n=41");
-check("null and arrays", "{$user["missing"]} " + "{$user["tags"]}", "null [\"admin\"]");
+check("null and arrays", "{$user["missing"]} " .. "{$user["tags"]}", "null [\"admin\"]");
 
 // Not interpolation
-check("dollar before a digit", "costs $5", "costs " + "$" + "5");
+check("dollar before a digit", "costs $5", "costs " .. "$" .. "5");
 check("lone dollar", "$", "\$");
-check("email address", "me@example.com", "me" + "@" + "example.com");
+check("email address", "me@example.com", "me" .. "@" .. "example.com");
 check("brace before a space", "{ $name}", "{ Gaz}");
-check("brace alone", "{}", "{" + "}");
-check("escaped dollar", "\$name", "$" + "name");
+check("brace alone", "{}", "{" .. "}");
+check("escaped dollar", "\$name", "$" .. "name");
 check("escaped brace", "\{$name}", "{Gaz}");
-check("escaped both", "\{\$name}", "{" + "$" + "name}");
+check("escaped both", "\{\$name}", "{" .. "$" .. "name}");
 check("single quotes stay raw", '$name {$name}', "\$name \{\$name}");
