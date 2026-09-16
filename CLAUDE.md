@@ -48,7 +48,8 @@ each step depends on the ones before it.
    `left_associative()`; add a new level by adding a one-line method there.
 2. ~~**Add comparison and logical operators.**~~ Done. `<`, `>`, `<=`, `>=`,
    `!=`, `==`, `===`, `!==`, `&&`, `||` (short-circuiting in both backends), `!`, `%`
-   (sign follows the left operand, at the `*` `/` level), and unary
+   (sign follows the left operand, at the `*` `/` level), `+= -= *= /= %=` and
+   prefix/postfix `++`/`--` (see "Assignment" below), and unary
    `-` via `UnaryOpAST`. `!=`, `===` and `!==` sit at the equality level, C-style. There is a
    real boolean type (`BooleanAST`, `true`/`false` keywords):
    - Comparisons, `!`, `&&` and `||` return booleans; `echo 1 < 2` prints `true`.
@@ -217,6 +218,22 @@ each step depends on the ones before it.
    `JsonTest` on every `tests/json/y_*.json` and `n_*.json`, where the prefix says
    whether it must parse) and `json_encode` writes compact JSON; the lexer's character classes are ASCII and explicit
    (`Lexer::is_space` is only space, tab, newline and carriage return).
+
+## Assignment
+
+`=`, `+=`, `-=`, `*=`, `/=`, `%=` are right associative expressions whose value is the
+new value (`AssignAST`, whose token says which). Compound assignment applies the
+binary operator, so `+=` concatenates strings. `++`/`--` (`IncrementAST`) work on
+numbers only; prefix gives the new value, postfix the old. Targets are a variable
+or an element of one (`$a["k"][0]++`), but appending (`$a[] = v`) is plain `=` only.
+
+The interpreter's `store()` evaluates index keys once, left to right, then the right
+side, then reads and writes the target, so `$k += $k *= 2` sees the updated `$k`
+(as in PHP). A compound update needs the variable to exist and reads a missing last
+key as null (so it fails like `null + 1`); it never creates keys, and nothing is
+written if the operation fails. The code generator lowers compound assignment and
+`++`/`--` to plain assignments through hidden `$#update_*_n` variables in the same
+order, with `INC`/`DEC` instructions for the step.
 
 ## Numbers
 

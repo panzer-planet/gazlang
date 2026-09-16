@@ -191,6 +191,23 @@ final class Values
     }
 
     /**
+     * Add or subtract one (++ and --); numbers only
+     *
+     * @param  mixed  $value  The current value
+     * @param  Token  $op  The INCREMENT or DECREMENT token
+     *
+     * @throws Exception If the value isn't an int or float, or the result overflows
+     */
+    public static function step($value, Token $op): int|float
+    {
+        if (! is_int($value) && ! is_float($value)) {
+            throw new Exception("Cannot use {$op->value} on ".get_debug_type($value));
+        }
+
+        return self::binary(new Token($op->type === Token::INCREMENT ? Token::PLUS : Token::MINUS, $op->value), $value, 1);
+    }
+
+    /**
      * Read an element of an array, or a character of a string
      *
      * @param  mixed  $target  The array or string

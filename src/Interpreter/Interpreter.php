@@ -14,6 +14,7 @@ use GazLang\AST\ForeachStatementAST;
 use GazLang\AST\FunctionCallAST;
 use GazLang\AST\FunctionDeclarationAST;
 use GazLang\AST\IfStatementAST;
+use GazLang\AST\IncrementAST;
 use GazLang\AST\IndexAST;
 use GazLang\AST\LoopControlAST;
 use GazLang\AST\NullAST;
@@ -44,6 +45,17 @@ class Interpreter extends AbstractNodeVisitor
      * instead of PHP running out of memory (a fatal error nothing can catch)
      */
     private const MAX_CALL_DEPTH = 10000;
+
+    /**
+     * The binary operator each compound assignment applies, as [token type, symbol]
+     */
+    private const COMPOUND_OPERATORS = [
+        Token::PLUS_ASSIGN => [Token::PLUS, '+'],
+        Token::MINUS_ASSIGN => [Token::MINUS, '-'],
+        Token::MULTIPLY_ASSIGN => [Token::MULTIPLY, '*'],
+        Token::DIVIDE_ASSIGN => [Token::DIVIDE, '/'],
+        Token::MODULO_ASSIGN => [Token::MODULO, '%'],
+    ];
 
     /**
      * @var Parser The parser that provides the AST
@@ -150,62 +162,123 @@ class Interpreter extends AbstractNodeVisitor
     }
 
     /**
-     * Visit an Assign node
+     * Visit an Assign node: =, or a compound assignment like +=
      *
      * @param  AssignAST  $node  The node to visit
-     * @return mixed The value assigned to the variable
+     * @return mixed The value assigned
      */
     public function visitAssign(AssignAST $node)
     {
-        if ($node->left instanceof VariableAST) {
+        if ($node->left instanceof VariableAST && $node->token->type === Token::ASSIGN) {
             $value = $this->visit($node->right);
             $this->assignVariable($node->left, $value);
 
             return $value;
         }
 
-        // Keys are evaluated left to right before the value, and the path is only
-        // walked afterwards, so the value expression can't invalidate it
+        // Keys are evaluated left to right, then the value, and only then is the target
+        // read and written, so the value expression can't invalidate the path
+        $keys = $this->evaluateKeys($node->left);
+        $value = $this->visit($node->right);
+        $operator = self::COMPOUND_OPERATORS[$node->token->type] ?? null;
+        [, $new] = $this->store($node->left, $keys, $operator === null ? null : new Token(...$operator), $value);
+
+        return $new;
+    }
+
+    /**
+     * Visit an Increment node (++ or --)
+     *
+     * @param  IncrementAST  $node  The node to visit
+     * @return int|float The new value for ++$x, the old value for $x++
+     */
+    public function visitIncrement(IncrementAST $node): int|float
+    {
+        [$old, $new] = $this->store($node->target, $this->evaluateKeys($node->target), $node->op, null);
+
+        return $node->prefix ? $new : $old;
+    }
+
+    /**
+     * Evaluate the index keys of an assignment target, left to right
+     *
+     * @param  VariableAST|IndexAST  $target  The target
+     * @return array The keys, outermost first; null for an append ([])
+     */
+    private function evaluateKeys(VariableAST|IndexAST $target): array
+    {
         $indexes = [];
-        for ($target = $node->left; $target instanceof IndexAST; $target = $target->target) {
+        for (; $target instanceof IndexAST; $target = $target->target) {
             array_unshift($indexes, $target->index);
         }
+
         $keys = [];
         foreach ($indexes as $index) {
             $keys[] = $index === null ? null : Values::arrayKey($this->visit($index));
         }
-        $value = $this->visit($node->right);
 
-        // Arrays are values: writing in place through a PHP reference only changes this variable's copy
-        $variable = $node->left->rootVariable();
+        return $keys;
+    }
+
+    /**
+     * Write to a variable or an element of one, given its evaluated keys
+     *
+     * Plain assignment ($op null) may create the variable and the last key. A compound
+     * assignment (a binary operator token, + for +=) or ++/-- (an INCREMENT or DECREMENT
+     * token) combines with the current value, which must exist: a missing last key reads
+     * as null, so it fails like null + 1. Missing keys along the way are never created,
+     * and nothing is written if computing the new value fails.
+     *
+     * Arrays are values: writing in place through a PHP reference only changes this
+     * variable's copy.
+     *
+     * @param  VariableAST|IndexAST  $target  The target
+     * @param  array  $keys  Its evaluated keys, from evaluateKeys()
+     * @param  Token|null  $op  How to combine with the current value, or null to replace it
+     * @param  mixed  $value  The right hand side (unused for ++ and --)
+     * @return array{0: mixed, 1: mixed} The old value (null if there was none) and the new value
+     *
+     * @throws Exception If a variable or key along the way is missing, or the operation fails
+     */
+    private function store(VariableAST|IndexAST $target, array $keys, ?Token $op, $value): array
+    {
+        $variable = $target instanceof VariableAST ? $target : $target->rootVariable();
         if ($variable->isGlobal()) {
             $container = &$this->globals;
         } else {
             $container = &$this->locals;
         }
-        if (! array_key_exists($variable->value, $container)) {
-            throw new Exception("Undefined variable: {$variable->value}");
+
+        $key = $variable->value;
+        if (($keys !== [] || $op !== null) && ! array_key_exists($key, $container)) {
+            throw new Exception("Undefined variable: {$key}");
         }
-        $container = &$container[$variable->value];
 
-        foreach ($keys as $i => $key) {
-            if (! is_array($container)) {
-                throw new Exception('Cannot use [] on '.get_debug_type($container));
-            }
-            if ($key === null) {
-                $container[] = $value;
-
-                return $value;
-            }
-            // Only the last key may be new; missing keys along the way are not created
-            if ($i < count($keys) - 1 && ! array_key_exists($key, $container)) {
+        foreach ($keys as $i => $next_key) {
+            if ($i > 0 && ! array_key_exists($key, $container)) {
                 throw new Exception("Undefined key: {$key}");
             }
             $container = &$container[$key];
-        }
-        $container = $value;
+            if (! is_array($container)) {
+                throw new Exception('Cannot use [] on '.get_debug_type($container));
+            }
+            if ($next_key === null) {
+                $container[] = $value;
 
-        return $value;
+                return [null, $value];
+            }
+            $key = $next_key;
+        }
+
+        $old = $container[$key] ?? null;
+        $new = match (true) {
+            $op === null => $value,
+            $op->type === Token::INCREMENT || $op->type === Token::DECREMENT => Values::step($old, $op),
+            default => Values::binary($op, $old, $value),
+        };
+        $container[$key] = $new;
+
+        return [$old, $new];
     }
 
     /**

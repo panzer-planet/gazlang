@@ -64,6 +64,73 @@ class OperatorTest extends GazLangTestCase
         $this->assertEquals("PUSH 0.1\nPUSH 1.0E+25\nMUL\nPRINT", $this->generateCode('echo 0.1 * 1e25;'));
     }
 
+    /**
+     * @dataProvider assignmentOperatorErrors
+     */
+    public function test_assignment_operator_errors(string $code, string $message)
+    {
+        $this->expectExceptionMessage($message);
+        $this->executeCode($code);
+    }
+
+    public static function assignmentOperatorErrors(): array
+    {
+        return [
+            'undefined variable' => ['$x += 1;', 'Undefined variable: $x on line 1'],
+            'undefined variable ++' => ['$x++;', 'Undefined variable: $x on line 1'],
+            '++ on a string' => ['$s = "a"; $s++;', 'Cannot use ++ on string on line 1'],
+            '-- on null' => ['$n = null; $n--;', 'Cannot use -- on null on line 1'],
+            'missing key' => ['$a = []; $a["x"] += 1;', 'Cannot use + on null on line 1'],
+            'missing key ++' => ['$a = []; $a["x"]++;', 'Cannot use ++ on null on line 1'],
+            'missing key on the way' => ['$a = []; $a["x"]["y"] += 1;', 'Undefined key: x on line 1'],
+            'overflow' => ['$m = 9223372036854775807; $m++;', 'Integer overflow on line 1'],
+            'modulo a float' => ['$f = 1.5; $f %= 2;', 'Cannot use % on float on line 1'],
+        ];
+    }
+
+    /**
+     * @dataProvider assignmentOperatorParseErrors
+     */
+    public function test_assignment_operator_parse_errors(string $code, string $message)
+    {
+        $this->expectExceptionMessage($message);
+        $this->createParser($code)->parse();
+    }
+
+    public static function assignmentOperatorParseErrors(): array
+    {
+        return [
+            'literal ++' => ['5++;', 'Can only use ++ on a variable or an element of one'],
+            'prefix -- on a call' => ['function f() { return 1; } --f();', 'Can only use -- on a variable or an element of one'],
+            '+= on an expression' => ['($a + 1) += 2;', 'Can only use += on a variable or an element of one'],
+            'append with +=' => ['$a = []; $a[] += 1;', 'Cannot use += to append'],
+            'append with ++' => ['$a = []; $a[]++;', '[] can only be used to append in an assignment'],
+            'double postfix' => ['$a = 1; $a++++;', "Expected ';' but found '++'"],
+        ];
+    }
+
+    public function test_code_gen_for_compound_assignment_evaluates_keys_once()
+    {
+        $this->assertEquals(
+            "NEW_ARRAY\nSTORE 0\nLOAD 0\nPOP\n"
+            // $#key0 = 1; $#value = 2; $a[$#key0] = $a[$#key0] * $#value
+            ."PUSH 1\nSTORE 1\nLOAD 1\nPOP\nPUSH 2\nSTORE 2\nLOAD 2\nPOP\n"
+            ."LOAD 1\nLOAD 0\nLOAD 1\nINDEX_GET\nLOAD 2\nMUL\nLOAD 0\nSET_PATH 1\nSTORE 0\nPOP",
+            $this->generateCode('$a = []; $a[1] *= 2;')
+        );
+    }
+
+    public function test_code_gen_for_postfix_and_prefix_increment()
+    {
+        // $x++: $#old = $x; $x = INC $#old; leaves $#old
+        $this->assertEquals(
+            "PUSH 1\nSTORE 0\nLOAD 0\nPOP\nLOAD 0\nSTORE 1\nLOAD 1\nPOP\nLOAD 1\nINC\nSTORE 0\nLOAD 0\nPOP\nLOAD 1\nPRINT",
+            $this->generateCode('$x = 1; echo $x++;')
+        );
+        // --$x leaves the new value
+        $this->assertStringEndsWith("LOAD 1\nDEC\nSTORE 0\nLOAD 0\nPRINT", $this->generateCode('$x = 1; echo --$x;'));
+    }
+
     public function test_modulo()
     {
         // The sign follows the left operand; % binds like * and /

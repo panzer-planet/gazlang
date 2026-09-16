@@ -54,6 +54,20 @@ class Token
 
     public const ASSIGN = 'ASSIGN';  // Assignment operator (=)
 
+    public const PLUS_ASSIGN = 'PLUS_ASSIGN';  // +=
+
+    public const MINUS_ASSIGN = 'MINUS_ASSIGN';  // -=
+
+    public const MULTIPLY_ASSIGN = 'MULTIPLY_ASSIGN';  // *=
+
+    public const DIVIDE_ASSIGN = 'DIVIDE_ASSIGN';  // /=
+
+    public const MODULO_ASSIGN = 'MODULO_ASSIGN';  // %=
+
+    public const INCREMENT = 'INCREMENT';  // ++
+
+    public const DECREMENT = 'DECREMENT';  // --
+
     public const EOF = 'EOF';  // End of file
 
     public const IF = 'IF';  // If keyword

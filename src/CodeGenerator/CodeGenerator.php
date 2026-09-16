@@ -15,6 +15,7 @@ use GazLang\AST\ForeachStatementAST;
 use GazLang\AST\FunctionCallAST;
 use GazLang\AST\FunctionDeclarationAST;
 use GazLang\AST\IfStatementAST;
+use GazLang\AST\IncrementAST;
 use GazLang\AST\IndexAST;
 use GazLang\AST\LoopControlAST;
 use GazLang\AST\NullAST;
@@ -93,9 +94,9 @@ class CodeGenerator extends AbstractNodeVisitor
     private $global_addresses = [];
 
     /**
-     * @var int Numbers the hidden variables of each foreach, so nested loops don't share them
+     * @var int Numbers the hidden variables of each lowered construct (foreach, +=, ++), so nested ones don't share them
      */
-    private $foreach_counter = 0;
+    private $hidden_counter = 0;
 
     /**
      * @var FunctionDeclarationAST[] Functions to emit after the top level code
@@ -143,6 +144,12 @@ class CodeGenerator extends AbstractNodeVisitor
      */
     public function visitAssign(AssignAST $node): void
     {
+        if ($node->token->type !== Token::ASSIGN) {
+            $this->update($node->left, $node->token, $node->right, true);
+
+            return;
+        }
+
         if ($node->left instanceof IndexAST) {
             $this->indexAssign($node);
 
@@ -157,6 +164,69 @@ class CodeGenerator extends AbstractNodeVisitor
         // Store the computed value, then leave it on the stack for larger expressions
         $this->instructions[] = $store;
         $this->instructions[] = $this->variableInstruction('LOAD', $node->left);
+    }
+
+    /**
+     * Visit an Increment node (++ or --)
+     *
+     * @param  IncrementAST  $node  The node to visit
+     */
+    public function visitIncrement(IncrementAST $node): void
+    {
+        $this->update($node->target, $node->op, null, $node->prefix);
+    }
+
+    /**
+     * Emit a compound assignment or ++/--, lowered to plain assignments through hidden variables
+     *
+     * Index keys and the right side are evaluated once, in the interpreter's order (keys,
+     * then the value, then read and write the target):
+     *
+     *   $a[k] += v  becomes  $#k0 = k; $#value = v; $a[$#k0] = $a[$#k0] + $#value
+     *   $a[k]++     becomes  $#k0 = k; $#old = $a[$#k0]; $a[$#k0] = INC $#old    (leaving $#old)
+     *
+     * INC and DEC add or subtract one and fail on anything but a number, like Values::step().
+     *
+     * @param  VariableAST|IndexAST  $target  The variable or element being updated
+     * @param  Token  $op  The compound assignment, INCREMENT or DECREMENT token
+     * @param  AST|null  $value  The right side of a compound assignment, null for ++ and --
+     * @param  bool  $prefix  For ++ and --, whether to leave the new value rather than the old one
+     */
+    private function update(VariableAST|IndexAST $target, Token $op, ?AST $value, bool $prefix): void
+    {
+        $n = $this->hidden_counter++;
+        $hidden = fn (string $name) => new VariableAST(new Token(Token::VAR_IDENTIFIER, "\$#update_{$name}_{$n}"));
+        $assign = fn (VariableAST|IndexAST $to, AST $from) => new AssignAST($to, new Token(Token::ASSIGN, '='), $from);
+
+        $indexes = [];
+        for ($node = $target; $node instanceof IndexAST; $node = $node->target) {
+            array_unshift($indexes, $node->index);
+        }
+        $place = $target instanceof IndexAST ? $target->rootVariable() : $target;
+        foreach ($indexes as $i => $index) {
+            $key = $hidden("key{$i}");
+            $this->visit(new StatementAST($assign($key, $index)));
+            $place = new IndexAST($place, $key);
+        }
+
+        if ($value !== null) {
+            $right = $hidden('value');
+            $this->visit(new StatementAST($assign($right, $value)));
+            [$type, $symbol] = [str_replace('_ASSIGN', '', $op->type), substr($op->value, 0, -1)];
+            $this->visit($assign($place, new BinOpAST($place, new Token($type, $symbol), $right)));
+
+            return;
+        }
+
+        $old = $hidden('old');
+        $this->visit(new StatementAST($assign($old, $place)));
+        $step = $assign($place, new UnaryOpAST($op, $old));
+        if ($prefix) {
+            $this->visit($step);
+        } else {
+            $this->visit(new StatementAST($step));
+            $this->visit($old);
+        }
     }
 
     /**
@@ -271,6 +341,9 @@ class CodeGenerator extends AbstractNodeVisitor
             $this->instructions[] = 'NOT';
         } elseif ($node->op->type === Token::MINUS) {
             $this->instructions[] = 'NEG';
+        } elseif ($node->op->type === Token::INCREMENT || $node->op->type === Token::DECREMENT) {
+            // Only produced by update(), for ++ and --
+            $this->instructions[] = $node->op->type === Token::INCREMENT ? 'INC' : 'DEC';
         } else {
             throw new Exception("Unknown operator: {$node->op->type}");
         }
@@ -435,7 +508,7 @@ class CodeGenerator extends AbstractNodeVisitor
      */
     public function visitForeachStatement(ForeachStatementAST $node): void
     {
-        $n = $this->foreach_counter++;
+        $n = $this->hidden_counter++;
         $hidden = fn (string $name) => new VariableAST(new Token(Token::VAR_IDENTIFIER, "\$#foreach_{$name}_{$n}"));
         $assign = fn (VariableAST $variable, AST $value) => new StatementAST(new AssignAST($variable, new Token(Token::ASSIGN, '='), $value));
         $array = $hidden('array');

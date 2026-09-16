@@ -1,0 +1,21 @@
+ok +=
+ok -=
+ok *=
+ok /= with an exact result stays an int
+ok /= follows / and gives a float
+ok %=
+ok += concatenates strings, like +
+ok value of a compound assignment
+ok right associative
+ok the target is read after the right side runs
+ok postfix ++ gives the old value
+ok and increments
+ok prefix ++ gives the new value
+ok postfix --
+ok prefix --
+ok ++ on a float
+ok elements
+ok global ++ inside a function
+ok keys evaluated once per update
+ok for with ++ and +=
+ok postfix -- in a condition

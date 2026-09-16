@@ -17,6 +17,7 @@ A small, PHP-flavoured programming language with an interpreter and a stack-VM c
 - Logical operators: `&&`, `||` (short-circuiting), `!`
 - Parentheses for grouping expressions
 - Echo statements for output (`echo <expr>;`)
+- Assignment `=` and `+=`, `-=`, `*=`, `/=`, `%=`, `++`, `--` (prefix and postfix)
 - Local variables with `$` prefix (`$var = expression;`) and global variables with `@` prefix (`@count = 0;`)
 - Control flow with if/else and else if statements
 - Loops: `while (cond) { ... }`, `for (init; cond; step) { ... }` and `foreach ($array as $key => $value) { ... }`, with `break` and `continue`

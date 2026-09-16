@@ -108,6 +108,14 @@ interface NodeVisitorInterface
     public function visitWhileStatement(WhileStatementAST $node);
 
     /**
+     * Visit an Increment node
+     *
+     * @param  IncrementAST  $node  The node to visit
+     * @return mixed The result of visiting the node
+     */
+    public function visitIncrement(IncrementAST $node);
+
+    /**
      * Visit a ForeachStatement node
      *
      * @param  ForeachStatementAST  $node  The node to visit

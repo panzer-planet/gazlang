@@ -14,6 +14,7 @@ use GazLang\AST\ForeachStatementAST;
 use GazLang\AST\FunctionCallAST;
 use GazLang\AST\FunctionDeclarationAST;
 use GazLang\AST\IfStatementAST;
+use GazLang\AST\IncrementAST;
 use GazLang\AST\IndexAST;
 use GazLang\AST\LoopControlAST;
 use GazLang\AST\NullAST;
@@ -34,6 +35,13 @@ use GazLang\Runtime\Builtins;
  */
 class Parser
 {
+    /**
+     * Assignment operator token types: = and the compound assignments
+     */
+    private const ASSIGNMENTS = [
+        Token::ASSIGN, Token::PLUS_ASSIGN, Token::MINUS_ASSIGN, Token::MULTIPLY_ASSIGN, Token::DIVIDE_ASSIGN, Token::MODULO_ASSIGN,
+    ];
+
     /**
      * How expected tokens are described in syntax errors; other types are keywords, shown quoted and lowercase
      */
@@ -376,7 +384,7 @@ class Parser
     }
 
     /**
-     * Parse a postfix expression (primary (LBRACKET [expr] RBRACKET)*)
+     * Parse a postfix expression (primary (LBRACKET [expr] RBRACKET)* [INCREMENT | DECREMENT])
      *
      * Empty brackets ($a[] = ...) append, so they are only allowed directly before an assignment.
      *
@@ -393,7 +401,7 @@ class Parser
             $this->eat(Token::LEFT_BRACKET);
             if ($this->current_token->type === Token::RIGHT_BRACKET) {
                 $this->eat(Token::RIGHT_BRACKET);
-                if ($this->current_token->type !== Token::ASSIGN) {
+                if (! in_array($this->current_token->type, self::ASSIGNMENTS, true)) {
                     $this->fail('[] can only be used to append in an assignment');
                 }
 
@@ -403,11 +411,18 @@ class Parser
             $this->eat(Token::RIGHT_BRACKET);
         }
 
+        $token = $this->current_token;
+        if ($token->type === Token::INCREMENT || $token->type === Token::DECREMENT) {
+            $this->eat($token->type);
+
+            return $this->at(new IncrementAST($this->assignable($node, $token), $token, false), $token);
+        }
+
         return $node;
     }
 
     /**
-     * Parse a unary expression ((MINUS | NOT) unary | postfix)
+     * Parse a unary expression ((MINUS | NOT) unary | (INCREMENT | DECREMENT) postfix | postfix)
      *
      * @return AST
      *
@@ -421,6 +436,12 @@ class Parser
             $this->eat($token->type);
 
             return $this->at(new UnaryOpAST($token, $this->unary()), $token);
+        }
+
+        if ($token->type === Token::INCREMENT || $token->type === Token::DECREMENT) {
+            $this->eat($token->type);
+
+            return $this->at(new IncrementAST($this->assignable($this->postfix(), $token), $token, true), $token);
         }
 
         return $this->postfix();
@@ -503,7 +524,7 @@ class Parser
     }
 
     /**
-     * Parse an expression, the lowest precedence level ((variable | index) ASSIGN expr | logical_or)
+     * Parse an expression, the lowest precedence level ((variable | index) (= | += | -= | *= | /= | %=) expr | logical_or)
      *
      * Assignment is right associative, so $a = $b = 1 assigns 1 to both.
      *
@@ -515,14 +536,34 @@ class Parser
     {
         $node = $this->logical_or();
 
-        if ($this->current_token->type === Token::ASSIGN) {
-            if (! $node instanceof VariableAST && ! ($node instanceof IndexAST && $node->rootVariable() !== null)) {
-                $this->fail('Can only assign to a variable or an element of one');
+        $token = $this->current_token;
+        if (in_array($token->type, self::ASSIGNMENTS, true)) {
+            $node = $this->assignable($node, $token);
+            // Appending ($a[] = ...) is a plain assignment: there is no current element to combine with
+            if ($token->type !== Token::ASSIGN && $node instanceof IndexAST && $node->index === null) {
+                $this->fail("Cannot use {$token->value} to append");
             }
-            $token = $this->current_token;
-            $this->eat(Token::ASSIGN);
+            $this->eat($token->type);
 
             return $this->at(new AssignAST($node, $token, $this->expr()), $token);
+        }
+
+        return $node;
+    }
+
+    /**
+     * Check a node can be assigned to: a variable, or an element of one
+     *
+     * @param  AST  $node  The node
+     * @param  Token  $operator  The assignment or ++/-- token, for the error message
+     * @return VariableAST|IndexAST The node
+     *
+     * @throws GazLangError If it can't be assigned to
+     */
+    private function assignable(AST $node, Token $operator): VariableAST|IndexAST
+    {
+        if (! $node instanceof VariableAST && ! ($node instanceof IndexAST && $node->rootVariable() !== null)) {
+            $this->fail("Can only use {$operator->value} on a variable or an element of one");
         }
 
         return $node;

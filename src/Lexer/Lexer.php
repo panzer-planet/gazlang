@@ -62,6 +62,17 @@ class Lexer
     ];
 
     /**
+     * Arithmetic operator characters: [operator, compound assignment, doubled] token types
+     */
+    private const ARITHMETIC = [
+        '+' => [Token::PLUS, Token::PLUS_ASSIGN, Token::INCREMENT],
+        '-' => [Token::MINUS, Token::MINUS_ASSIGN, Token::DECREMENT],
+        '*' => [Token::MULTIPLY, Token::MULTIPLY_ASSIGN, null],
+        '/' => [Token::DIVIDE, Token::DIVIDE_ASSIGN, null],
+        '%' => [Token::MODULO, Token::MODULO_ASSIGN, null],
+    ];
+
+    /**
      * @var array Keywords in the language
      */
     private $reserved_keywords = [
@@ -674,34 +685,23 @@ class Lexer
                 return $this->identifier();
             }
 
-            if ($this->current_char === '+') {
+            if (isset(self::ARITHMETIC[$this->current_char])) {
+                // Longest match: += before +, and ++ before +
+                $char = $this->current_char;
+                [$type, $assign_type, $double_type] = self::ARITHMETIC[$char];
                 $this->advance();
+                if ($this->current_char === '=') {
+                    $this->advance();
 
-                return new Token(Token::PLUS, '+');
-            }
+                    return new Token($assign_type, "{$char}=");
+                }
+                if ($double_type !== null && $this->current_char === $char) {
+                    $this->advance();
 
-            if ($this->current_char === '-') {
-                $this->advance();
+                    return new Token($double_type, $char.$char);
+                }
 
-                return new Token(Token::MINUS, '-');
-            }
-
-            if ($this->current_char === '*') {
-                $this->advance();
-
-                return new Token(Token::MULTIPLY, '*');
-            }
-
-            if ($this->current_char === '%') {
-                $this->advance();
-
-                return new Token(Token::MODULO, '%');
-            }
-
-            if ($this->current_char === '/') {
-                $this->advance();
-
-                return new Token(Token::DIVIDE, '/');
+                return new Token($type, $char);
             }
 
             if ($this->current_char === '=') {
