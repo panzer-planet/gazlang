@@ -434,7 +434,7 @@ class Interpreter extends AbstractNodeVisitor
      *
      * @param  LoopControlAST  $node  The node to visit
      *
-     * @throws LoopSignal Always, caught by visitWhileStatement
+     * @throws LoopSignal Always, caught by the innermost visitWhileStatement or visitForeachStatement
      */
     public function visitLoopControl(LoopControlAST $node): never
     {

@@ -69,7 +69,7 @@ each step depends on the ones before it.
 3. ~~**Add loops.**~~ Done. `while` has its own `WhileStatementAST`; `for` is
    desugared in the parser into `{ init; while (cond) { body } }` with the step
    stored on the while node (it runs after the body and on `continue`), so the
-   backends only know about while. All three `for` clauses are required.
+   backends have no separate `for` handling. All three `for` clauses are required.
    `break;` and `continue;` (`LoopControlAST`) affect the innermost loop and are
    a parse error outside one. The interpreter unwinds with `LoopSignal`; the
    code generator jumps to the loop's `CONTINUE_n`/`WHILE_n` or `ENDWHILE_n`
