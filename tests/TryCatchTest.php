@@ -8,9 +8,10 @@ class TryCatchTest extends GazLangTestCase
 {
     public function test_running_out_of_call_depth_can_be_caught()
     {
-        // Through the CLI, which runs without pcov: in-process, recursion this deep can segfault
+        // The interpreter, through the CLI, which runs without pcov: in-process, interpreter
+        // recursion this deep can segfault (VMTest covers the VM in-process)
         exec(sprintf(
-            'echo %s | %s %s',
+            'echo %s | %s %s --interpreter',
             escapeshellarg('function recurse() { return recurse(); } try { recurse(); } catch ($e) { echo $e["message"]; } echo "still running";'),
             escapeshellarg(PHP_BINARY),
             escapeshellarg(self::ROOT.'/bin/gazlang')

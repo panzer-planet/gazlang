@@ -42,12 +42,6 @@ use GazLang\Runtime\Values;
 class Interpreter extends AbstractNodeVisitor
 {
     /**
-     * Deepest allowed function call nesting, so runaway recursion is a GazLang error
-     * instead of PHP running out of memory (a fatal error nothing can catch)
-     */
-    private const MAX_CALL_DEPTH = 10000;
-
-    /**
      * The binary operator each compound assignment applies, as [token type, symbol]
      */
     private const COMPOUND_OPERATORS = [
@@ -229,16 +223,7 @@ class Interpreter extends AbstractNodeVisitor
     }
 
     /**
-     * Write to a variable or an element of one, given its evaluated keys
-     *
-     * Plain assignment ($op null) may create the variable and the last key. A compound
-     * assignment (a binary operator token, + for +=) or ++/-- (an INCREMENT or DECREMENT
-     * token) combines with the current value, so the variable and every key must exist.
-     * Missing keys along the way are never created, and nothing is written if computing
-     * the new value fails.
-     *
-     * Arrays are values: writing in place through a PHP reference only changes this
-     * variable's copy.
+     * Write to a variable or an element of one, given its evaluated keys (see Values::store())
      *
      * @param  VariableAST|IndexAST  $target  The target
      * @param  array  $keys  Its evaluated keys, from evaluateKeys()
@@ -252,47 +237,10 @@ class Interpreter extends AbstractNodeVisitor
     {
         $variable = $target instanceof VariableAST ? $target : $target->rootVariable();
         if ($variable->isGlobal()) {
-            $container = &$this->globals;
-        } else {
-            $container = &$this->locals;
+            return Values::store($this->globals, $variable->value, $variable->value, $keys, $op, $value);
         }
 
-        $key = $variable->value;
-        if (($keys !== [] || $op !== null) && ! array_key_exists($key, $container)) {
-            throw new Exception("Undefined variable: {$key}");
-        }
-
-        foreach ($keys as $i => $next_key) {
-            if ($i > 0 && ! array_key_exists($key, $container)) {
-                throw new Exception("Undefined key: {$key}");
-            }
-            $container = &$container[$key];
-            if (! is_array($container)) {
-                throw new Exception('Cannot use [] on '.get_debug_type($container));
-            }
-            if ($next_key === null) {
-                $container[] = $value;
-
-                return [null, $value];
-            }
-            $key = $next_key;
-        }
-
-        // Combining needs something to combine with: a missing key is an error, even for
-        // strings, where null + "x" would quietly give "nullx"
-        if ($op !== null && ! array_key_exists($key, $container)) {
-            throw new Exception("Undefined key: {$key}");
-        }
-
-        $old = $container[$key] ?? null;
-        $new = match (true) {
-            $op === null => $value,
-            $op->type === Token::INCREMENT || $op->type === Token::DECREMENT => Values::step($old, $op),
-            default => Values::binary($op, $old, $value),
-        };
-        $container[$key] = $new;
-
-        return [$old, $new];
+        return Values::store($this->locals, $variable->value, $variable->value, $keys, $op, $value);
     }
 
     /**
@@ -619,8 +567,8 @@ class Interpreter extends AbstractNodeVisitor
 
         $function = $this->functions[$node->name];
 
-        if ($this->call_depth === self::MAX_CALL_DEPTH) {
-            throw new Exception('Maximum call depth of '.self::MAX_CALL_DEPTH." exceeded calling {$node->name}");
+        if ($this->call_depth === Values::MAX_CALL_DEPTH) {
+            throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$node->name}");
         }
 
         $caller_locals = $this->locals;

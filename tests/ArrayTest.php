@@ -84,6 +84,29 @@ class ArrayTest extends GazLangTestCase
         ));
     }
 
+    /**
+     * @dataProvider badKeysBeforeValues
+     */
+    public function test_a_bad_key_fails_before_later_keys_and_the_value_run(string $code)
+    {
+        // executeCode also runs this on the VM, which must check keys just as early
+        $this->assertEquals("Array keys must be int or string\n", $this->executeCode(
+            'function side() { echo "side effect"; return 1; } $a = []; '
+            .'try { '.$code.' } catch ($e) { echo slice($e["message"], 0, 32); }'
+        ));
+    }
+
+    public static function badKeysBeforeValues(): array
+    {
+        return [
+            'assignment' => ['$a[true] = side();'],
+            'assignment, first of two keys' => ['$a[null][side()] = 1;'],
+            'array literal' => ['$x = [true => side()];'],
+            'compound assignment' => ['$a[1.5] += side();'],
+            'increment, first of two keys' => ['$a[true][side()]++;'],
+        ];
+    }
+
     public function test_len()
     {
         $this->assertEquals("0\n3\n5\n", $this->executeCode('echo len([]); echo len([1, [2, 3], 4]); echo len("hello");'));
@@ -151,17 +174,37 @@ class ArrayTest extends GazLangTestCase
     public function test_code_gen_for_literals_and_indexing()
     {
         $this->assertEquals(
-            "NEW_ARRAY\nPUSH 1\nARRAY_PUSH\nPUSH_STR \"k\"\nPUSH true\nARRAY_SET\nPUSH 0\nINDEX_GET\nPRINT",
-            $this->generateCode('echo [1, "k" => true][0];')
+            "PUSH 1\nSTORE 0\nLOAD 0\nPOP\n"
+            ."NEW_ARRAY\nLOAD 0\nARRAY_PUSH\nPUSH_STR \"k\"\nKEY_CHECK\nPUSH true\nARRAY_SET\nPUSH 0\nINDEX_GET\nPRINT",
+            $this->generateCode('$x = 1; echo [$x, "k" => true][0];')
         );
+    }
+
+    public function test_code_gen_builds_constant_literals_once()
+    {
+        $this->assertEquals(
+            "PUSH [\" \", [\"k\" => null, 1 => 2.5]]\nPRINT",
+            $this->generateCode('echo [" ", ["k" => null, "1" => 2.5]];')
+        );
+        // Anything that isn't a constant with a valid key is built at runtime, so it fails (or
+        // runs) exactly when the interpreter's does
+        $this->assertStringStartsWith('NEW_ARRAY', $this->generateCode('echo [true => 1];'));
+        $this->assertStringStartsWith('NEW_ARRAY', $this->generateCode('echo [[1, -1]];'));
+    }
+
+    public function test_constant_literals_are_not_shared_between_evaluations()
+    {
+        $this->assertEquals("[[1, 2], [1]]\n", $this->executeCode(
+            'function fresh() { return [1]; } $a = fresh(); $a[] = 2; echo [$a, fresh()];'
+        ));
     }
 
     public function test_code_gen_for_index_assignment_and_append()
     {
         $this->assertEquals(
             "NEW_ARRAY\nSTORE 0\nLOAD 0\nPOP\n"
-            ."PUSH_STR \"k\"\nPUSH 0\nPUSH 5\nLOAD 0\nSET_PATH 2\nSTORE 0\nPOP\n"
-            ."LOAD 0\nLOAD_GLOBAL 0\nAPPEND_PATH 0\nSTORE_GLOBAL 0\nPOP\n"
+            ."PUSH_STR \"k\"\nKEY_CHECK\nPUSH 0\nKEY_CHECK\nPUSH 5\nSET_PATH 2 0\nPOP\n"
+            ."LOAD 0\nAPPEND_PATH_GLOBAL 0 0\nPOP\n"
             ."LOAD 0\nCALL_BUILTIN len 1\nPRINT",
             $this->generateCode('$a = []; $a["k"][0] = 5; @all[] = $a; echo len($a);')
         );

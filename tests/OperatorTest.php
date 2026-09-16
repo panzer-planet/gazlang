@@ -115,22 +115,29 @@ class OperatorTest extends GazLangTestCase
     {
         $this->assertEquals(
             "NEW_ARRAY\nSTORE 0\nLOAD 0\nPOP\n"
-            // $#key0 = 1; $#value = 2; $a[$#key0] = $a[$#key0] * $#value
-            ."PUSH 1\nSTORE 1\nLOAD 1\nPOP\nPUSH 2\nSTORE 2\nLOAD 2\nPOP\n"
-            ."LOAD 1\nLOAD 0\nLOAD 1\nINDEX_GET_EXISTING\nLOAD 2\nMUL\nLOAD 0\nSET_PATH 1\nSTORE 0\nPOP",
+            // $#key0 = 1 (checked once); $a[$#key0] = $a[$#key0] * 2 (a constant needs no hidden variable)
+            ."PUSH 1\nKEY_CHECK\nSTORE 1\n"
+            ."LOAD 1\nLOAD 0\nLOAD 1\nINDEX_GET_EXISTING\nPUSH 2\nMUL\nSET_PATH 1 0\nPOP",
             $this->generateCode('$a = []; $a[1] *= 2;')
+        );
+        // A right side that isn't a constant is evaluated first, into a hidden variable
+        $this->assertStringContainsString(
+            "LOAD 1\nSTORE 2\nLOAD 2\nPOP\nLOAD 0\nLOAD 2\nADD_OR_CONCAT\nSTORE 0",
+            $this->generateCode('$x = 1; $y = 2; $x += $y;')
         );
     }
 
     public function test_code_gen_for_postfix_and_prefix_increment()
     {
-        // $x++: $#old = $x; $x = INC $#old; leaves $#old
+        // echo $x++: read $x (the result), then $x = INC $x as a statement
         $this->assertEquals(
-            "PUSH 1\nSTORE 0\nLOAD 0\nPOP\nLOAD 0\nSTORE 1\nLOAD 1\nPOP\nLOAD 1\nINC\nSTORE 0\nLOAD 0\nPOP\nLOAD 1\nPRINT",
+            "PUSH 1\nSTORE 0\nLOAD 0\nPOP\nLOAD 0\nLOAD 0\nINC\nSTORE 0\nLOAD 0\nPOP\nPRINT",
             $this->generateCode('$x = 1; echo $x++;')
         );
         // --$x leaves the new value
-        $this->assertStringEndsWith("LOAD 1\nDEC\nSTORE 0\nLOAD 0\nPRINT", $this->generateCode('$x = 1; echo --$x;'));
+        $this->assertStringEndsWith("LOAD 0\nDEC\nSTORE 0\nLOAD 0\nPRINT", $this->generateCode('$x = 1; echo --$x;'));
+        // $x++ as a statement is emitted as prefix: LOAD, INC, STORE once the VM drops STORE; LOAD; POP
+        $this->assertSame("PUSH 1\nSTORE 0\nLOAD 0\nPOP\nLOAD 0\nINC\nSTORE 0\nLOAD 0\nPOP", $this->generateCode('$x = 1; $x++;'));
     }
 
     public function test_modulo()

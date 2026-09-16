@@ -32,6 +32,7 @@ class JsonTest extends GazLangTestCase
         $text = file_get_contents(self::ROOT."/{$file}");
         $valid = str_starts_with(basename($file), 'y_');
         [$output, $exit_code] = $this->decodeAndEncode($file);
+        $this->assertSame([$output, $exit_code], $this->runProgram('tests/fixtures/json_roundtrip.gaz', [$file], true), "{$file} on the VM");
 
         if (! $valid) {
             $this->assertNull($this->phpDecode($text), "PHP accepts {$file}, so it should not be an n_ file");
@@ -79,8 +80,8 @@ class JsonTest extends GazLangTestCase
     }
 
     /**
-     * Decode then encode a file with lib/json.gaz; the deepest documents go through the
-     * CLI, since deep recursion can segfault in-process while pcov is loaded
+     * Decode then encode a file with lib/json.gaz on the interpreter; the deepest documents
+     * go through the CLI, since deep interpreter recursion can segfault in-process while pcov is loaded
      *
      * @return array{0: string, 1: int}
      */
@@ -90,7 +91,7 @@ class JsonTest extends GazLangTestCase
             return $this->runProgram('tests/fixtures/json_roundtrip.gaz', [$file]);
         }
 
-        exec(sprintf('cd %s && %s bin/gazlang -f tests/fixtures/json_roundtrip.gaz -- %s', escapeshellarg(self::ROOT), escapeshellarg(PHP_BINARY), escapeshellarg($file)), $lines, $exit_code);
+        exec(sprintf('cd %s && %s bin/gazlang --interpreter -f tests/fixtures/json_roundtrip.gaz -- %s', escapeshellarg(self::ROOT), escapeshellarg(PHP_BINARY), escapeshellarg($file)), $lines, $exit_code);
 
         return [implode("\n", $lines)."\n", $exit_code];
     }

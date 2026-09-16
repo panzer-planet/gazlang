@@ -3,9 +3,11 @@
 namespace GazLang\Tests;
 
 use GazLang\CodeGenerator\CodeGenerator;
+use GazLang\GazLangError;
 use GazLang\Interpreter\Interpreter;
 use GazLang\Lexer\Lexer;
 use GazLang\Parser\Parser;
+use GazLang\VM\VM;
 use PHPUnit\Framework\TestCase;
 use Throwable;
 
@@ -27,7 +29,7 @@ abstract class GazLangTestCase extends TestCase
      * @param  string[]  $args  Arguments returned by args()
      * @return array{0: string, 1: int} The output and exit code
      */
-    protected function runProgram(string $file, array $args = []): array
+    protected function runProgram(string $file, array $args = [], bool $vm = false): array
     {
         $cwd = getcwd();
         chdir(self::ROOT);
@@ -35,7 +37,11 @@ abstract class GazLangTestCase extends TestCase
 
         try {
             $parser = new Parser(new Lexer(file_get_contents($file)), $file);
-            (new Interpreter($parser, $args))->interpret();
+            if ($vm) {
+                (new VM((new CodeGenerator($parser->parse()))->compile(), $args))->run();
+            } else {
+                (new Interpreter($parser, $args))->interpret();
+            }
             $exit_code = 0;
         } catch (Throwable $e) {
             echo "Error: {$e->getMessage()}\n";
@@ -90,16 +96,44 @@ abstract class GazLangTestCase extends TestCase
      */
     protected function executeCode(string $input): string
     {
-        $interpreter = $this->createInterpreter($input);
+        [$output, $error] = $this->capture(fn () => $this->createInterpreter($input)->interpret());
 
+        // Every snippet also runs on the VM, which must print the same and fail the same way
+        [$vm_output, $vm_error] = $this->capture(
+            fn () => (new VM((new CodeGenerator($this->createParser($input)->parse()))->compile()))->run()
+        );
+        $this->assertSame($output, $vm_output, "The VM printed something else for:\n{$input}");
+        $describe = fn (?Throwable $e) => $e === null ? null : [
+            get_class($e), $e->getMessage(), $e instanceof GazLangError ? [$e->path, $e->line_number] : null,
+        ];
+        // Class and location too: error() messages carry no location, but catch sees it
+        $this->assertSame($describe($error), $describe($vm_error), "The VM failed differently for:\n{$input}");
+
+        if ($error !== null) {
+            throw $error;
+        }
+
+        return $output;
+    }
+
+    /**
+     * Run a callable, capturing what it prints and what it throws
+     *
+     * @return array{0: string, 1: Throwable|null}
+     */
+    private function capture(callable $run): array
+    {
         ob_start();
         try {
-            $interpreter->interpret();
+            $run();
+            $error = null;
+        } catch (Throwable $e) {
+            $error = $e;
         } finally {
             $output = ob_get_clean();
         }
 
-        return $output;
+        return [$output, $error];
     }
 
     /**

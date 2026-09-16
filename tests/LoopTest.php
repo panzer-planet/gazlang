@@ -171,11 +171,15 @@ class LoopTest extends GazLangTestCase
     {
         $code = $this->generateCode('foreach ([7] as $k => $v) { continue; }');
 
+        // Slots: $#array 0, $#keys 1, $#count 2, $#i 3, $k 4, $v 5
         $this->assertStringContainsString("CALL_BUILTIN keys 1\nSTORE 1", $code);
-        $this->assertStringContainsString("LABEL WHILE_0\nLOAD 2\nLOAD 1\nCALL_BUILTIN len 1\nLT\nJZ ENDWHILE_0", $code);
+        // The count is taken once, before the loop, not on every iteration
+        $this->assertStringContainsString("LOAD 1\nCALL_BUILTIN len 1\nSTORE 2", $code);
+        $this->assertSame(1, substr_count($code, 'CALL_BUILTIN len'));
+        $this->assertStringContainsString("LABEL WHILE_0\nLOAD 3\nLOAD 2\nLT\nJZ ENDWHILE_0", $code);
         // $k = $#keys[$#i]; $v = $#array[$#keys[$#i]]; continue jumps to the step
-        $this->assertStringContainsString("LOAD 1\nLOAD 2\nINDEX_GET\nSTORE 3\nLOAD 3\nPOP\nLOAD 0\nLOAD 1\nLOAD 2\nINDEX_GET\nINDEX_GET\nSTORE 4", $code);
-        $this->assertStringContainsString("JMP CONTINUE_0\nLABEL CONTINUE_0\nLOAD 2\nPUSH 1\nADD_OR_CONCAT\nSTORE 2", $code);
+        $this->assertStringContainsString("LOAD 1\nLOAD 3\nINDEX_GET\nSTORE 4\nLOAD 4\nPOP\nLOAD 0\nLOAD 1\nLOAD 3\nINDEX_GET\nINDEX_GET\nSTORE 5", $code);
+        $this->assertStringContainsString("JMP CONTINUE_0\nLABEL CONTINUE_0\nLOAD 3\nPUSH 1\nADD_OR_CONCAT\nSTORE 3", $code);
     }
 
     public function test_code_gen_gives_nested_foreach_loops_their_own_hidden_variables()

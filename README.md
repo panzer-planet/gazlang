@@ -132,6 +132,13 @@ Print the tokens the lexer produces (one `LINE TYPE VALUE` per line):
 php bin/gazlang --tokens -f examples/echo_example.gaz
 ```
 
+Programs are compiled to stack VM code and run on the VM. To run on the tree-walking
+interpreter instead (same results, slower):
+
+```bash
+php bin/gazlang --interpreter -f examples/functions_example.gaz
+```
+
 Generate code instead of interpreting:
 
 ```bash
@@ -149,7 +156,8 @@ php bin/gazlang -f examples/echo_example.gaz -c
     - Various AST node classes for different language constructs
   - `Interpreter/` - Executes the AST
   - `Runtime/` - Value semantics (operators, truthiness, printing) and builtin functions, shared by backends
-  - `CodeGenerator/` - Generates stack-based VM code
+  - `CodeGenerator/` - Compiles the AST to stack-based VM code
+  - `VM/` - Runs the compiled code
 - `lib/` - Libraries written in GazLang: `chars.gaz` (character classes), `json.gaz` (`json_decode`, `json_encode`)
 - `bin/` - Executable scripts
 - `tests/` - Unit tests; `tests/gaz/` holds GazLang test programs with their expected output
