@@ -48,7 +48,8 @@ each step depends on the ones before it.
  
 1. ~~**Fix the precedence tower.**~~ Done. `Parser` is now `expr` (assignment,
    right associative) → `ternary` (`?:`, right associative) → `coalesce` (`??`, right associative) → `logical_or` → `logical_and` → `equality` → `relational`
-   → `concat` (`..`) → `additive` → `multiplicative` → `unary` → `postfix` (`[index]`, `(args)`) → `primary`. Binary levels share
+   → `bit_or` (`|`) → `bit_xor` (`^`) → `bit_and` (`&`) → `concat` (`..`) → `shift` (`<<`, `>>`)
+   → `additive` → `multiplicative` → `unary` → `postfix` (`[index]`, `(args)`) → `primary`. Binary levels share
    `left_associative()`; add a new level by adding a one-line method there.
 2. ~~**Add comparison and logical operators.**~~ Done. `<`, `>`, `<=`, `>=`,
    `!=`, `==`, `<=>` (-1, 0 or 1 by the ordering rules below, at the equality level, for
@@ -75,6 +76,20 @@ each step depends on the ones before it.
      by value (`1 == 1.0`); a bool equals only itself. There is no `===`: `===` lexes as `==`
      followed by `=`, a syntax error.
    - Numbers never silently overflow, see "Numbers" below.
+   - `& | ^ << >> ~` and `&= |= ^= <<= >>=` are ints only, as `%` is: a float, bool, string
+     or anything else on either side is `Cannot use & on float` (`Values::bitwise()` and
+     `Values::bitwiseNot()`). A shift count must be 0 to 63, else `Shift count must be
+     between 0 and 63, got 64`, where PHP quietly gives 0 above that. `>>` keeps the sign
+     and `~` is two's complement (`~$x` is `-$x - 1`, which never overflows). Bits shifted
+     off the top of a `<<` are gone and the result wraps (`1 << 63` is the smallest int,
+     `-1 << 1` is `-2`), as in C, Java and Rust: a shift moves a bit pattern rather than
+     scaling a quantity, so there is nothing to report as overflow, and every rule for what
+     counts as "lost" treats `1 << 63` and `-1 << 63` differently though both give the same
+     bits. No `>>>`, and no `&`/`|` on bools. Precedence is Rust's and Python's, not C's, so
+     `$flags & MASK == 0` is `($flags & MASK) == 0`; see the tower in step 1, where `..` binds
+     tighter than `&` (so `1 & 2 .. ""` is `1 & "2"`, an error) and `<<` tighter than `..`.
+     Code generation emits `BIT_AND`, `BIT_OR`, `BIT_XOR`, `SHL`, `SHR` and `BIT_NOT`, with
+     no VM fast path: nothing measured uses them yet.
    - `$a ?? $b` is `$a` unless it is null or missing, like PHP: on its left an
      undefined variable, a missing key, or indexing something missing is null instead
      of an error (other errors, like a bad key type or indexing an int, still happen).
@@ -398,18 +413,12 @@ compiler needs, and the first two also decide how the C VM is built, so they com
 3. ~~**Writing to standard error, and printing without a newline.**~~ Done: `print($value)`
    and `print_error($value)`, see step 6.
 4. ~~**`values($m)`.**~~ Done, see step 6.
-5. **Bitwise operators** (`& | ^ << >> ~`), decided 2026-09-17, not built. The self-hosted
-   lexer has to write `\u{H}` escapes as UTF-8, which is shifts and masks. Decided:
-   - **Precedence as in Rust and Python, not C**: shifts, then `&`, then `^`, then `|`, all
-     *above* the comparisons, so `$flags & MASK == 0` means `($flags & MASK) == 0` rather than
-     C's `$flags & (MASK == 0)`. The tower becomes `relational → bit_or → bit_xor → bit_and →
-     concat → shift → additive`, so `"n = " .. $x << 2` concatenates the shifted value and
-     `$x << 2 + 1` shifts by 3.
-   - **Ints only**, as `%` is: a float on either side is an error. `>>` keeps the sign, `~` is
-     two's complement, and a shift count below 0 or above 63 is an error rather than quietly
-     giving 0, as PHP does. No `>>>`.
-   - The compound forms `&= |= ^= <<= >>=` come with them, since compound assignment is
-     generic in the tower.
+5. ~~**Bitwise operators** (`& | ^ << >> ~`).~~ Done, see step 2: the self-hosted lexer has to
+   write `\u{H}` escapes as UTF-8, which is shifts and masks, and
+   `tests/gaz/operators/bitwise_test.gaz` writes that encoder to prove they are enough.
+   `&` and `|` joined the lexer's operator character table, which already read a character,
+   that character with `=`, and the character doubled, so the hand-written `&&` and `||`
+   branches went; `<` and `>` stayed by hand, since `<=>` overlaps `<<` and `>=` overlaps `>>`.
 6. **`match`**, decided 2026-09-17, not built. A lexer and parser in GazLang are long
    `if`/`else if` chains over characters and token types. Looking at the code it is for
    settled the shape: of the 49 `if`s in `lib/json.gaz`, nearly all run *statements* per
@@ -818,7 +827,7 @@ Ints and floats (64-bit, always finite: GazLang has no INF or NAN).
 - Arithmetic (`Runtime\Values::binary()`): int with int gives an int, a float on
   either side gives a float, a bool on either side is an error. `/` always gives a float (`6 / 2`
   is `3.0`), as in Python 3 and Lua 5.3; `intdiv()` divides ints, truncating. `%` is
-  ints only (`Cannot use % on float`).
+  ints only (`Cannot use % on float`), and so are `& | ^ << >> ~` (see step 2).
 - Nothing overflows silently: an int literal or int result that doesn't fit is
   an error (`Integer overflow`, where PHP would switch to a float), a float
   literal that is infinite is a lexer error, and a float result that is infinite
