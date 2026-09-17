@@ -91,6 +91,7 @@ class Lexer
         'function' => 'FUNCTION',
         'return' => 'RETURN',
         'null' => 'NULL',
+        'delete' => 'DELETE',
         'include' => 'INCLUDE',
         'try' => 'TRY',
         'catch' => 'CATCH',

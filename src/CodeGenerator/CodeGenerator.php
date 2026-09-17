@@ -12,6 +12,7 @@ use GazLang\AST\BooleanAST;
 use GazLang\AST\CallValueAST;
 use GazLang\AST\ClassDeclarationAST;
 use GazLang\AST\CompoundAST;
+use GazLang\AST\DeleteStatementAST;
 use GazLang\AST\EchoStatementAST;
 use GazLang\AST\ForeachStatementAST;
 use GazLang\AST\FunctionCallAST;
@@ -90,7 +91,10 @@ use GazLang\Runtime\MapValue;
  * for a global, SET_PATH_CAPTURED for a closure's variable, SET_PATH_THIS path for a path
  * starting at #), and pushes the value. The path spells the steps: [k] for a key from the
  * stack, .name for a field, and a final [] to append, as in [k].total or [k][]. The variable is
- * read after the keys and value run, as in the interpreter. GET_PROPERTY_QUIET reads a field
+ * read after the keys and value run, as in the interpreter. DELETE_PATH path slot removes the
+ * element its path ends at, with the keys pushed before it and nothing left behind
+ * (DELETE_PATH_GLOBAL, DELETE_PATH_CAPTURED and DELETE_PATH_THIS as for SET_PATH).
+ * GET_PROPERTY_QUIET reads a field
  * as ?? does and GET_PROPERTY_EXISTING as a compound update does (see Values).
  *
  * Operators mean what Runtime\Values says: DIV keeps an exact int division an int
@@ -541,6 +545,40 @@ class CodeGenerator extends AbstractNodeVisitor
             $this->emit('SET_PATH_THIS', $path);
         } else {
             $this->emitVariable('SET_PATH', $root, $path);
+        }
+    }
+
+    /**
+     * Visit a Delete node: the keys, then DELETE_PATH, which removes the element the path ends at
+     *
+     * The path is spelled as SET_PATH's is, and the variable is read only once the keys have
+     * run, as in the interpreter.
+     *
+     * @param  DeleteStatementAST  $node  The node to visit
+     */
+    public function visitDeleteStatement(DeleteStatementAST $node): void
+    {
+        $steps = [];
+        for ($target = $node->target; $target instanceof IndexAST || $target instanceof PropertyAST; $target = $target->target) {
+            array_unshift($steps, $target);
+        }
+
+        $path = '';
+        foreach ($steps as $step) {
+            if ($step instanceof PropertyAST) {
+                $path .= ".{$step->name}";
+            } else {
+                $path .= '[k]';
+                $this->visit($step->index);
+                $this->emit('KEY_CHECK');
+            }
+        }
+
+        $root = AST::pathRoot($node->target);
+        if ($root instanceof ThisAST) {
+            $this->emit('DELETE_PATH_THIS', $path);
+        } else {
+            $this->emitVariable('DELETE_PATH', $root, $path);
         }
     }
 

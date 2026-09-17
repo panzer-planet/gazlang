@@ -396,6 +396,33 @@ final class VM
                                 unset($table);
                                 $stack[] = $value;
                                 break;
+                            case 'DELETE_PATH':
+                                // As SET_PATH: temporaries may still hold the list or map being written
+                                unset($first, $second, $left, $right, $target, $iterable, $args, $callee);
+                                $keys = $this->pathOperands($stack, $arg0[$pc - 1], false)[0];
+                                $slot = $arg1[$pc - 1];
+                                Values::remove($locals, $slot, $local_names[$function][$slot], $keys);
+                                break;
+                            case 'DELETE_PATH_GLOBAL':
+                                unset($first, $second, $left, $right, $target, $iterable, $args, $callee);
+                                $keys = $this->pathOperands($stack, $arg0[$pc - 1], false)[0];
+                                $slot = $arg1[$pc - 1];
+                                Values::remove($globals, $slot, $global_names[$slot], $keys);
+                                break;
+                            case 'DELETE_PATH_CAPTURED':
+                                unset($first, $second, $left, $right, $target, $iterable, $args, $callee);
+                                $keys = $this->pathOperands($stack, $arg0[$pc - 1], false)[0];
+                                $slot = $arg1[$pc - 1];
+                                Values::remove($closure->captured, $slot, $lambdas[$closure->index][2][$slot], $keys);
+                                break;
+                            case 'DELETE_PATH_THIS':
+                                unset($first, $second, $left, $right, $target, $iterable, $args, $callee);
+                                $keys = $this->pathOperands($stack, $arg0[$pc - 1], false)[0];
+                                // The object is a handle, so removing through a table holding it writes the object
+                                $table = ['#' => $receiver];
+                                Values::remove($table, '#', '#', $keys);
+                                unset($table);
+                                break;
                             case 'GET_PROPERTY_QUIET':
                                 $target = array_pop($stack);
                                 $stack[] = $target === null ? null : Values::property($target, $arg0[$pc - 1], true);
@@ -789,7 +816,7 @@ final class VM
                 } elseif ($ops[$pc] === 'CALL') {
                     $arg2[$pc] = $arg0[$pc];
                     $arg0[$pc] = $entries[$arg0[$pc]];
-                } elseif (str_starts_with($ops[$pc], 'SET_PATH')) {
+                } elseif (str_starts_with($ops[$pc], 'SET_PATH') || str_starts_with($ops[$pc], 'DELETE_PATH')) {
                     $arg0[$pc] = self::parsePath($arg0[$pc]);
                 }
             }
@@ -865,16 +892,17 @@ final class VM
     }
 
     /**
-     * Pop the operands of SET_PATH: the value, and the keys pushed before it, as the steps Values::store() takes
+     * Pop the operands of SET_PATH or DELETE_PATH: the value, if there is one, and the keys pushed before it
      *
      * @param  array  $stack  The value stack, by reference
      * @param  array{0: int, 1: list<PropertyStep|string|null>|null}  $path  The parsed path
+     * @param  bool  $with_value  Whether a value was pushed after the keys, as an assignment does
      * @return array{0: array, 1: mixed} The steps, outermost first, and the value
      */
-    private function pathOperands(array &$stack, array $path): array
+    private function pathOperands(array &$stack, array $path, bool $with_value = true): array
     {
         [$count, $steps] = $path;
-        $value = array_pop($stack);
+        $value = $with_value ? array_pop($stack) : null;
         // Already checked by KEY_CHECK when they were pushed
         $keys = $this->popMany($stack, $count);
         if ($steps === null) {

@@ -213,6 +213,9 @@ depth limit is reached.
 | `SET_PATH path slot` | `… v -- v` | Writes through the local in that slot, taking the path's `[k]` keys from the stack below the value, and leaves the value. Fails on a missing variable or key, or a bad step. |
 | `SET_PATH_GLOBAL path slot`, `SET_PATH_CAPTURED path slot` | | The same for a global or a captured variable. |
 | `SET_PATH_THIS path` | `… v -- v` | The same, starting at the object the method runs on. |
+| `DELETE_PATH path slot` | `… --` | Removes the element its path ends at, through the local in that slot, taking the path's `[k]` keys from the stack and leaving nothing. A list's later elements move down; a map keeps the order of the rest. Fails on a missing variable, step or element. The path ends in `[k]`: a field can't be removed. |
+| `DELETE_PATH_GLOBAL path slot`, `DELETE_PATH_CAPTURED path slot` | | The same for a global or a captured variable. |
+| `DELETE_PATH_THIS path` | `… --` | The same, starting at the object the method runs on. |
 
 ### Objects and classes
 

@@ -645,6 +645,77 @@ final class Values
     }
 
     /**
+     * Remove an element of a list or map, through a variable and the keys leading to it
+     *
+     * The walk is store()'s, with every step required to exist, including the last: removing
+     * what isn't there is an error, as reading it is. A list's later elements move down to
+     * fill the gap, since a list's indexes are 0 to len - 1; a map keeps the order of the rest.
+     * Maps on the way are cloned before the write, exactly as store() does, so nothing else
+     * holding them sees the change.
+     *
+     * @param  array  $table  The variables the path starts in, by reference
+     * @param  int|string  $slot  The variable's slot or name
+     * @param  string  $name  The variable's name, for errors
+     * @param  array  $keys  The steps to the element, from the variable, the last being the one to remove
+     *
+     * @throws Exception If the variable, a step or the element is missing, or a step is not a list or map
+     */
+    public static function remove(array &$table, int|string $slot, string $name, array $keys): void
+    {
+        if (! array_key_exists($slot, $table)) {
+            throw new Exception("Undefined variable: {$name}");
+        }
+
+        $container = &$table;
+        $key = $slot;
+        // Whether the element being removed is a list's, whose later elements move down
+        $in_list = false;
+        foreach ($keys as $next_key) {
+            $container = &$container[$key];
+            if ($next_key instanceof PropertyStep) {
+                if (! $container instanceof ObjectValue) {
+                    throw new Exception('Cannot use . on '.self::typeOf($container));
+                }
+                $object = $container;
+                self::checkField($object, $next_key->name);
+                if (! array_key_exists($next_key->name, $object->fields)) {
+                    throw self::propertyNotSet($object, $next_key->name);
+                }
+                // A handle: the object's fields are written in place, nothing is copied
+                $container = &$object->fields;
+                [$key, $in_list] = [$next_key->name, false];
+
+                continue;
+            }
+            if (is_array($container)) {
+                if (! is_int($next_key)) {
+                    throw new Exception('List indexes must be int, got '.self::typeOf($next_key));
+                }
+                if (! array_key_exists($next_key, $container)) {
+                    throw new Exception("Index out of range: {$next_key}");
+                }
+                [$key, $in_list] = [$next_key, true];
+            } elseif ($container instanceof MapValue) {
+                $container = clone $container;
+                $container = &$container->items;
+                $key = MapValue::key($next_key);
+                if (! array_key_exists($key, $container)) {
+                    throw self::undefinedKey($next_key);
+                }
+                $in_list = false;
+            } else {
+                throw new Exception('Cannot use [] on '.self::typeOf($container));
+            }
+        }
+
+        if ($in_list) {
+            array_splice($container, $key, 1);
+        } else {
+            unset($container[$key]);
+        }
+    }
+
+    /**
      * Read an element that must exist, as a compound update (+=, ++) reads the value it combines with
      *
      * Stricter than index(): the target must be a list or map, not a string.

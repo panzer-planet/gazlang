@@ -12,6 +12,7 @@ use GazLang\AST\BooleanAST;
 use GazLang\AST\CallValueAST;
 use GazLang\AST\ClassDeclarationAST;
 use GazLang\AST\CompoundAST;
+use GazLang\AST\DeleteStatementAST;
 use GazLang\AST\EchoStatementAST;
 use GazLang\AST\ForeachStatementAST;
 use GazLang\AST\FunctionCallAST;
@@ -342,6 +343,35 @@ class Interpreter extends AbstractNodeVisitor
         }
 
         return Values::store($this->locals, $variable->value, $variable->value, $keys, $op, $value);
+    }
+
+    /**
+     * Visit a Delete node: remove an element of a list or map, through its variable
+     *
+     * The keys are evaluated left to right, then the variable is read and written, as an
+     * assignment does it.
+     *
+     * @param  DeleteStatementAST  $node  The node to visit
+     * @return null A statement has no value
+     */
+    public function visitDeleteStatement(DeleteStatementAST $node): null
+    {
+        $keys = $this->evaluateKeys($node->target);
+        $variable = AST::pathRoot($node->target);
+
+        if ($variable instanceof ThisAST) {
+            // The object is a handle, so removing through a table holding it writes the object
+            $table = ['#' => $this->receiver];
+            Values::remove($table, '#', '#', $keys);
+        } elseif ($variable->isGlobal()) {
+            Values::remove($this->globals, $variable->value, $variable->value, $keys);
+        } elseif (isset($this->captures[$variable->value])) {
+            Values::remove($this->closure->captured, $variable->value, $variable->value, $keys);
+        } else {
+            Values::remove($this->locals, $variable->value, $variable->value, $keys);
+        }
+
+        return null;
     }
 
     /**

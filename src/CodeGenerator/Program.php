@@ -40,7 +40,8 @@ final class Program
      * function of the program, a callable that may also be a builtin, a builtin, a class, or
      * a member, which is only checked when it runs), a label in the same block, a write path,
      * or a value written as a GazLang literal, which is the rest of the line. A count in
-     * "pops" means that argument's value, and "path" the keys the path takes from the stack.
+     * "pops" means that argument's value, "path" the keys the path takes from the stack plus
+     * the value written, and "keys" only the keys.
      * docs/bytecode.md describes each instruction; the test keeps the three in step.
      *
      * @var array<string, array{0: list<string>, 1: array{0: int|string, 1: int}}>
@@ -93,6 +94,10 @@ final class Program
         'SET_PATH_GLOBAL' => [['path', 'global'], ['path', 1]],
         'SET_PATH_CAPTURED' => [['path', 'capture'], ['path', 1]],
         'SET_PATH_THIS' => [['path'], ['path', 1]],
+        'DELETE_PATH' => [['element_path', 'slot'], ['keys', 0]],
+        'DELETE_PATH_GLOBAL' => [['element_path', 'global'], ['keys', 0]],
+        'DELETE_PATH_CAPTURED' => [['element_path', 'capture'], ['keys', 0]],
+        'DELETE_PATH_THIS' => [['element_path'], ['keys', 0]],
         'CALL' => [['function', 'count'], ['count', 1]],
         'CALL_BUILTIN' => [['builtin', 'count'], ['count', 1]],
         'CALL_VALUE' => [['count'], ['count+1', 1]],

@@ -185,7 +185,19 @@ each step depends on the ones before it.
      indexed assignment pushes keys and value, then `SET_PATH [k][k] slot` (`[]` at the
      end appends; `_GLOBAL` for globals) updates the variable in place
      through `Values::store()` (stack effects are documented on `CodeGenerator`).
-   - Not yet: removing elements (build a new list or map instead).
+   - `delete $a[k];` removes an element (`DeleteStatementAST`, decided and built 2026-09-17).
+     The target is written like an assignment's, a variable or `#` followed by steps
+     (`delete $rows[0]["total"];`, `delete #items[$i];`), and must end at an index: a field is
+     "Cannot delete a field", `delete $a[];` and `delete f()[0];` are parse errors, and so is
+     deleting a variable. A list's later elements move down, since its indexes are 0 to
+     len - 1; a map keeps the order of the rest. Removing what isn't there is an error, as
+     reading it is (`Undefined key: "k"`, `Index out of range: 5`), and so is a string or
+     anything else that isn't a list or map. Keys are evaluated left to right, then the
+     variable is read, as in an assignment. `Values::remove()` is the one definition, walking
+     the path as `store()` does and cloning maps on the way; the code generator emits the keys
+     then `DELETE_PATH path slot` (`_GLOBAL`, `_CAPTURED`, `_THIS`). `delete` is a keyword,
+     though a method may still be called `delete`. There is no `pop`: take the last element,
+     then delete it.
    - A builtin's arity is an int, or `[fewest, most]` when it has optional
      parameters (`index_of`, `slice`); the parser checks calls against the range,
      the same way as for user functions with defaults.
@@ -369,14 +381,11 @@ Found on 2026-09-17 by asking what a program written in GazLang still can't do, 
 bytecode format is settled. None of these is decided yet; the order is what the self-hosted
 compiler needs, and the first two also decide how the C VM is built, so they come before it.
 
-1. **Removing an element from a list or map.** The one hole CLAUDE.md already admits ("Not yet:
-   removing elements"): every workaround is linear, rebuilding the map or `slice($a, 0, -1)` to
-   drop the last element. A compiler is symbol tables (parser scopes, the included set, capture
-   bookkeeping) and they all delete. Lists and maps are values, so the shape that fits is a
-   builtin giving a new one, `$m = remove($m, "k")`, written in place when nothing else holds
-   it; a `pop` that gives back the element is the other half. **Decide before the C VM**: an
-   insertion-ordered hash that can delete needs tombstones or an order-preserving compaction,
-   which is not something to bolt on afterwards.
+1. ~~**Removing an element from a list or map.**~~ Done: `delete $a[k];`, see step 5. It is a
+   statement rather than a builtin giving a new list or map, because the point was symbol
+   tables that delete in a loop, and copying the container each time is quadratic. The C VM's
+   ordered hash therefore has to support deletion: tombstones or an order-preserving
+   compaction, decided when it is written.
 2. **A stack trace on an error.** `Error` carries `#message`, `#file` and `#line`, which is the
    innermost frame and nothing else; debugging a self-hosted compiler through that is grim.
    Both backends already have the frames and the names a `#trace` would list. **Decide before

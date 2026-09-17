@@ -11,6 +11,7 @@ use GazLang\AST\BooleanAST;
 use GazLang\AST\CallValueAST;
 use GazLang\AST\ClassDeclarationAST;
 use GazLang\AST\CompoundAST;
+use GazLang\AST\DeleteStatementAST;
 use GazLang\AST\EchoStatementAST;
 use GazLang\AST\ForeachStatementAST;
 use GazLang\AST\FunctionCallAST;
@@ -1438,6 +1439,8 @@ class Parser
             return $this->loop_control();
         } elseif ($this->current_token->type === Token::RETURN) {
             return $this->return_statement();
+        } elseif ($this->current_token->type === Token::DELETE) {
+            return $this->delete_statement();
         } elseif ($this->current_token->type === Token::FN) {
             $this->fail('Functions can only be declared at the top level');
         } elseif ($this->current_token->type === Token::CLASS_KEYWORD || $this->current_token->type === Token::ABSTRACT) {
@@ -1480,6 +1483,35 @@ class Parser
         $this->eat(Token::SEMICOLON);
 
         return $this->at(new ReturnStatementAST($expr), $start);
+    }
+
+    /**
+     * Parse a delete statement (DELETE postfix SEMICOLON), which removes an element of a list or map
+     *
+     * The target is written like an assignment's, a variable or # followed by steps, and
+     * must end in an index: a list's element, which the later ones move down to fill, or a
+     * map's key. Fields are declared, so a field is a parse error, and so is an append.
+     *
+     * @return DeleteStatementAST
+     *
+     * @throws GazLangError If the target is not an element of a list or map
+     */
+    public function delete_statement()
+    {
+        $start = $this->current_token;
+        $this->eat(Token::DELETE);
+        $target = $this->postfix();
+        $this->eat(Token::SEMICOLON);
+
+        if ($target instanceof PropertyAST) {
+            $this->fail('Cannot delete a field: every object of a class has the fields it declares');
+        }
+        $root = $target instanceof IndexAST ? AST::pathRoot($target) : null;
+        if (! $target instanceof IndexAST || $target->index === null || ! ($root instanceof VariableAST || $root instanceof ThisAST)) {
+            $this->fail('delete needs an element of a list or map, like delete $a[0]');
+        }
+
+        return $this->at(new DeleteStatementAST($target), $start);
     }
 
     /**

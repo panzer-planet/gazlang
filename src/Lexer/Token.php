@@ -98,6 +98,8 @@ class Token
 
     public const NULL = 'NULL';  // Null literal
 
+    public const DELETE = 'DELETE';  // Delete keyword, removing an element of a list or map
+
     public const INCLUDE = 'INCLUDE';  // Include keyword
 
     public const TRY = 'TRY';  // Try keyword

@@ -269,7 +269,8 @@ final class BytecodeReader
             $arguments[] = match ($kind) {
                 'slot', 'count', 'lambda' => $this->count($word),
                 'value' => $this->value(substr($text, strpos($text, ' ') + 1)),
-                'path' => $this->path($word),
+                'path' => $this->path($word, false),
+                'element_path' => $this->path($word, true),
                 default => $word,
             };
         }
@@ -284,10 +285,11 @@ final class BytecodeReader
      * Read a write path, like [k].total[]
      *
      * @param  string  $path  The path
+     * @param  bool  $element  Whether it must end at an element of a list or map, as a removal does
      */
-    private function path(string $path): string
+    private function path(string $path, bool $element): string
     {
-        if (! preg_match('/^(\[k\]|\[\]|\.\w+)+$/', $path)) {
+        if (! preg_match($element ? '/^(\[k\]|\.\w+)*\[k\]$/' : '/^(\[k\]|\[\]|\.\w+)+$/', $path)) {
             $this->fail("Bad path '{$path}'");
         }
 
@@ -465,9 +467,11 @@ final class BytecodeReader
 
                 if (! is_int($pops)) {
                     // The keys a path takes from the stack, or an argument count and what is called with it
-                    $pops = $pops === 'path'
-                        ? substr_count($args[0], '[k]') + 1
-                        : $args[array_search('count', Program::INSTRUCTIONS[$opcode][0], true)] + (int) substr($pops, 6);
+                    $pops = match ($pops) {
+                        'path' => substr_count($args[0], '[k]') + 1,
+                        'keys' => substr_count($args[0], '[k]'),
+                        default => $args[array_search('count', Program::INSTRUCTIONS[$opcode][0], true)] + (int) substr($pops, 6),
+                    };
                 }
                 if ($height < $pops) {
                     $fail("{$opcode} needs {$pops} value".($pops === 1 ? '' : 's')." but the stack is {$height} deep at instruction {$position}");
