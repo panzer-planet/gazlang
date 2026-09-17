@@ -37,6 +37,12 @@ final class VM
         'MUL' => [Token::MULTIPLY, '*'],
         'DIV' => [Token::DIVIDE, '/'],
         'MOD' => [Token::MODULO, '%'],
+        // No fast path: nothing measured uses them yet, so they go through Values like any other operator
+        'BIT_AND' => [Token::BIT_AND, '&'],
+        'BIT_OR' => [Token::BIT_OR, '|'],
+        'BIT_XOR' => [Token::BIT_XOR, '^'],
+        'SHL' => [Token::SHIFT_LEFT, '<<'],
+        'SHR' => [Token::SHIFT_RIGHT, '>>'],
         'EQUALS' => [Token::EQUALS, '=='],
         'NOT_EQUALS' => [Token::NOT_EQUALS, '!='],
         'LT' => [Token::LESS_THAN, '<'],
@@ -324,6 +330,9 @@ final class VM
                                 break;
                             case 'NEG':
                                 $stack[] = Values::negate(array_pop($stack));
+                                break;
+                            case 'BIT_NOT':
+                                $stack[] = Values::bitwiseNot(array_pop($stack));
                                 break;
                             case 'INC':
                                 $value = array_pop($stack);

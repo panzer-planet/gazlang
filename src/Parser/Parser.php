@@ -53,6 +53,7 @@ class Parser
     private const ASSIGNMENTS = [
         Token::ASSIGN, Token::PLUS_ASSIGN, Token::MINUS_ASSIGN, Token::MULTIPLY_ASSIGN, Token::DIVIDE_ASSIGN, Token::MODULO_ASSIGN,
         Token::CONCAT_ASSIGN, Token::COALESCE_ASSIGN,
+        Token::BIT_AND_ASSIGN, Token::BIT_OR_ASSIGN, Token::BIT_XOR_ASSIGN, Token::SHIFT_LEFT_ASSIGN, Token::SHIFT_RIGHT_ASSIGN,
     ];
 
     /**
@@ -878,7 +879,7 @@ class Parser
     }
 
     /**
-     * Parse a unary expression ((MINUS | NOT) unary | (INCREMENT | DECREMENT) postfix | postfix)
+     * Parse a unary expression ((MINUS | NOT | BIT_NOT) unary | (INCREMENT | DECREMENT) postfix | postfix)
      *
      * @return AST
      *
@@ -888,7 +889,7 @@ class Parser
     {
         $token = $this->current_token;
 
-        if (in_array($token->type, [Token::MINUS, Token::NOT], true)) {
+        if (in_array($token->type, [Token::MINUS, Token::NOT, Token::BIT_NOT], true)) {
             $this->eat($token->type);
 
             return $this->at(new UnaryOpAST($token, $this->unary()), $token);
@@ -928,7 +929,22 @@ class Parser
     }
 
     /**
-     * Parse a concatenation (additive (CONCAT additive)*)
+     * Parse a shift (additive ((<< | >>) additive)*)
+     *
+     * Above .. and below + and -, so "n = " .. $x << 2 concatenates the shifted value and
+     * $x << 2 + 1 shifts by 3.
+     *
+     * @return AST
+     *
+     * @throws Exception
+     */
+    public function shift()
+    {
+        return $this->left_associative('additive', [Token::SHIFT_LEFT, Token::SHIFT_RIGHT]);
+    }
+
+    /**
+     * Parse a concatenation (shift (CONCAT shift)*)
      *
      * Below + and - so "n = " .. $a + $b concatenates the sum, as in Lua and PHP 8.
      *
@@ -938,11 +954,50 @@ class Parser
      */
     public function concat()
     {
-        return $this->left_associative('additive', [Token::CONCAT]);
+        return $this->left_associative('shift', [Token::CONCAT]);
     }
 
     /**
-     * Parse a relational expression (concat ((< | <= | > | >=) concat)*)
+     * Parse a bitwise and (concat (& concat)*)
+     *
+     * &, ^ and | sit above the comparisons, as in Rust and Python and unlike C, so
+     * $flags & MASK == 0 is ($flags & MASK) == 0.
+     *
+     * @return AST
+     *
+     * @throws Exception
+     */
+    public function bit_and()
+    {
+        return $this->left_associative('concat', [Token::BIT_AND]);
+    }
+
+    /**
+     * Parse a bitwise exclusive or (bit_and (^ bit_and)*)
+     *
+     * @return AST
+     *
+     * @throws Exception
+     */
+    public function bit_xor()
+    {
+        return $this->left_associative('bit_and', [Token::BIT_XOR]);
+    }
+
+    /**
+     * Parse a bitwise or (bit_xor (| bit_xor)*)
+     *
+     * @return AST
+     *
+     * @throws Exception
+     */
+    public function bit_or()
+    {
+        return $this->left_associative('bit_xor', [Token::BIT_OR]);
+    }
+
+    /**
+     * Parse a relational expression (bit_or ((< | <= | > | >=) bit_or)*)
      *
      * @return AST
      *
@@ -950,7 +1005,7 @@ class Parser
      */
     public function relational()
     {
-        return $this->left_associative('concat', [
+        return $this->left_associative('bit_or', [
             Token::LESS_THAN, Token::LESS_EQUALS, Token::GREATER_THAN, Token::GREATER_EQUALS,
         ]);
     }

@@ -1,0 +1,43 @@
+ok &
+ok |
+ok ^
+ok ~ is -x - 1
+ok ~0
+ok ~ of the smallest int
+ok <<
+ok >>
+ok >> keeps the sign
+ok >> of -1 stays -1
+ok << to the sign bit
+ok << dropping a bit
+ok << of a negative
+ok shifting by 0
+ok & binds tighter than ==
+ok | binds looser than ^
+ok ^ binds looser than &
+ok & binds looser than ..
+ok .. binds looser than <<
+ok + binds tighter than <<
+ok ~ is a unary, so it binds tightest
+ok ~ then &
+ok shifts are left associative
+ok &=
+ok |=
+ok ^=
+ok <<=
+ok >>=
+ok <<= on an element
+ok utf8 of one byte
+ok utf8 of two bytes
+ok utf8 of three bytes
+ok utf8 of four bytes
+ok a float on the left
+ok a float on the right
+ok a bool
+ok a string
+ok a list
+ok ~ of a float
+ok ~ of null
+ok a shift count of 64
+ok a negative shift count
+ok a float shift count

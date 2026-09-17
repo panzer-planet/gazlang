@@ -496,6 +496,8 @@ class Interpreter extends AbstractNodeVisitor
             return ! Values::isTruthy($value);
         } elseif ($node->op->type === Token::MINUS) {
             return Values::negate($value);
+        } elseif ($node->op->type === Token::BIT_NOT) {
+            return Values::bitwiseNot($value);
         }
 
         throw new Exception("Unknown operator: {$node->op->type}");

@@ -112,6 +112,11 @@ class CodeGenerator extends AbstractNodeVisitor
         Token::MULTIPLY => 'MUL',
         Token::DIVIDE => 'DIV',
         Token::MODULO => 'MOD',
+        Token::BIT_AND => 'BIT_AND',
+        Token::BIT_OR => 'BIT_OR',
+        Token::BIT_XOR => 'BIT_XOR',
+        Token::SHIFT_LEFT => 'SHL',
+        Token::SHIFT_RIGHT => 'SHR',
         Token::EQUALS => 'EQUALS',
         Token::NOT_EQUALS => 'NOT_EQUALS',
         Token::LESS_THAN => 'LT',
@@ -684,6 +689,8 @@ class CodeGenerator extends AbstractNodeVisitor
             $this->emit('NOT');
         } elseif ($node->op->type === Token::MINUS) {
             $this->emit('NEG');
+        } elseif ($node->op->type === Token::BIT_NOT) {
+            $this->emit('BIT_NOT');
         } elseif ($node->op->type === Token::INCREMENT || $node->op->type === Token::DECREMENT) {
             // Only produced by update(), for ++ and --
             $this->emit($node->op->type === Token::INCREMENT ? 'INC' : 'DEC');

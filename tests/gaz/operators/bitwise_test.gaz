@@ -1,0 +1,92 @@
+include "../check.gaz";
+
+// & | ^ ~ << >> are ints only and see the int as 64 bits, not as a quantity
+check("&", 12 & 10, 8);
+check("|", 12 | 10, 14);
+check("^", 12 ^ 10, 6);
+check("~ is -x - 1", ~5, -6);
+check("~0", ~0, -1);
+check("~ of the smallest int", ~(-9223372036854775807 - 1), 9223372036854775807);
+check("<<", 1 << 10, 1024);
+check(">>", 1024 >> 10, 1);
+check(">> keeps the sign", -16 >> 2, -4);
+check(">> of -1 stays -1", -1 >> 63, -1);
+
+// Bits shifted off the top of a << are gone: a shift moves a pattern, so it wraps
+check("<< to the sign bit", 1 << 63, -9223372036854775807 - 1);
+check("<< dropping a bit", 3 << 62, -4611686018427387904);
+check("<< of a negative", -1 << 1, -2);
+check("shifting by 0", 5 << 0, 5);
+
+// Rust and Python precedence, not C: | is below ^ is below & is below .. is below <<,
+// and all of them are above the comparisons
+check("& binds tighter than ==", 6 & 3 == 2, true);
+check("| binds looser than ^", 1 | 2 ^ 3, 1);
+check("^ binds looser than &", 1 ^ 3 & 2, 3);
+// .. binds tighter than &, so 1 & 2 .. "" is 1 & "2", which has no meaning
+check("& binds looser than ..", fails(() -> 1 & 2 .. ""), "Cannot use & on string");
+check(".. binds looser than <<", "n = " .. 1 << 4, "n = 16");
+check("+ binds tighter than <<", 1 << 2 + 1, 8);
+check("~ is a unary, so it binds tightest", ~2 + 1, -2);
+check("~ then &", ~12 & 10, 2);
+check("shifts are left associative", 256 >> 2 >> 2, 16);
+
+// The compound forms, which the tower gives for free
+$flags = 12;
+$flags &= 10;
+check("&=", $flags, 8);
+$flags |= 1;
+check("|=", $flags, 9);
+$flags ^= 3;
+check("^=", $flags, 10);
+$flags <<= 4;
+check("<<=", $flags, 160);
+$flags >>= 2;
+check(">>=", $flags, 40);
+
+$bits = [1, 2];
+$bits[0] <<= 3;
+check("<<= on an element", $bits[0], 8);
+
+// What the self-hosted lexer needs them for: \u{H} as UTF-8
+fn utf8($code_point) {
+    if ($code_point < 128) {
+        return chr($code_point);
+    }
+    if ($code_point < 2048) {
+        return chr(192 | $code_point >> 6) .. chr(128 | $code_point & 63);
+    }
+    if ($code_point < 65536) {
+        return chr(224 | $code_point >> 12) .. chr(128 | $code_point >> 6 & 63) .. chr(128 | $code_point & 63);
+    }
+
+    return chr(240 | $code_point >> 18) .. chr(128 | $code_point >> 12 & 63)
+        .. chr(128 | $code_point >> 6 & 63) .. chr(128 | $code_point & 63);
+}
+
+check("utf8 of one byte", utf8(65), "A");
+check("utf8 of two bytes", utf8(233), "\u{e9}");
+check("utf8 of three bytes", utf8(8364), "\u{20ac}");
+check("utf8 of four bytes", utf8(128169), "\u{1f4a9}");
+
+// Errors: ints only, and a shift count of 0 to 63
+fn fails($f) {
+    try {
+        $f();
+    } catch (Error $e) {
+        return $e.message;
+    }
+
+    return "no error";
+}
+
+check("a float on the left", fails(() -> 1.5 & 1), "Cannot use & on float");
+check("a float on the right", fails(() -> 1 & 1.5), "Cannot use & on float");
+check("a bool", fails(() -> true | 1), "Cannot use | on bool");
+check("a string", fails(() -> "a" ^ 1), "Cannot use ^ on string");
+check("a list", fails(() -> [1] << 1), "Cannot use << on list");
+check("~ of a float", fails(() -> ~1.5), "Cannot use ~ on float");
+check("~ of null", fails(() -> ~null), "Cannot use ~ on null");
+check("a shift count of 64", fails(() -> 1 << 64), "Shift count must be between 0 and 63, got 64");
+check("a negative shift count", fails(() -> 1 >> -1), "Shift count must be between 0 and 63, got -1");
+check("a float shift count", fails(() -> 1 << 2.0), "Cannot use << on float");

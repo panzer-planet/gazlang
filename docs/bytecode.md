@@ -163,6 +163,9 @@ Every one means what `Runtime\Values` says, including the error messages.
 | `ADD`, `SUB`, `MUL` | `a b -- c` | Arithmetic. Ints give an int, a float on either side gives a float. Fails on a non-number, or on "Integer overflow" or "Float overflow". |
 | `DIV` | `a b -- c` | Always gives a float. Fails on "Division by zero". |
 | `MOD` | `a b -- c` | Ints only. Fails on a float or on "Division by zero". |
+| `BIT_AND`, `BIT_OR`, `BIT_XOR` | `a b -- c` | Ints only; fails on anything else. |
+| `SHL`, `SHR` | `a b -- c` | Ints only. The count must be 0 to 63. `SHL` drops the bits shifted off the top, `SHR` keeps the sign. |
+| `BIT_NOT` | `a -- b` | Flips every bit of an int, two's complement. Fails on anything else. |
 | `CONCAT` | `a b -- c` | Joins two values as text, as `..` does. |
 | `EQUALS`, `NOT_EQUALS` | `a b -- c` | Never converts between types; a bool equals only itself. |
 | `LT`, `LE`, `GT`, `GE` | `a b -- c` | Ordering. Two numbers, or two strings byte by byte. Fails on anything else. |

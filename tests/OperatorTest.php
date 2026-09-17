@@ -44,6 +44,69 @@ class OperatorTest extends GazLangTestCase
     }
 
     /**
+     * @dataProvider bitwisePrecedence
+     */
+    public function test_bitwise_precedence(string $code, string $expected)
+    {
+        $this->assertEquals($expected, $this->executeCode($code));
+    }
+
+    public static function bitwisePrecedence(): array
+    {
+        // relational -> bit_or -> bit_xor -> bit_and -> concat -> shift -> additive, as in
+        // Rust and Python: the bitwise operators are above the comparisons, unlike C
+        return [
+            '& is above ==' => ['echo 6 & 3 == 2;', "true\n"],
+            '| is below ^' => ['echo 1 | 2 ^ 3;', "1\n"],
+            '^ is below &' => ['echo 1 ^ 3 & 2;', "3\n"],
+            '& is below ..' => ['echo (1 & 2) .. "!";', "0!\n"],
+            '.. is below <<' => ['echo "n = " .. 1 << 4;', "n = 16\n"],
+            '<< is below +' => ['echo 1 << 2 + 1;', "8\n"],
+            '~ is a unary' => ['echo ~2 + 1;', "-2\n"],
+            'shifts are left associative' => ['echo 256 >> 2 >> 2;', "16\n"],
+            '& is left associative' => ['echo 7 & 6 & 4;', "4\n"],
+        ];
+    }
+
+    /**
+     * @dataProvider bitwiseErrors
+     */
+    public function test_bitwise_errors(string $code, string $message)
+    {
+        $this->expectExceptionMessage($message);
+        $this->executeCode($code);
+    }
+
+    public static function bitwiseErrors(): array
+    {
+        return [
+            'a float on the left' => ['echo 1.5 & 1;', 'Cannot use & on float on line 1'],
+            'a float on the right' => ['echo 1 & 1.5;', 'Cannot use & on float on line 1'],
+            'a bool' => ['echo true | 1;', 'Cannot use | on bool on line 1'],
+            'a string' => ['echo "a" ^ 1;', 'Cannot use ^ on string on line 1'],
+            'a list' => ['echo [1] << 1;', 'Cannot use << on list on line 1'],
+            'null' => ['echo null >> 1;', 'Cannot use >> on null on line 1'],
+            '~ of a float' => ['echo ~1.5;', 'Cannot use ~ on float on line 1'],
+            '~ of a bool' => ['echo ~true;', 'Cannot use ~ on bool on line 1'],
+            'a shift count of 64' => ['echo 1 << 64;', 'Shift count must be between 0 and 63, got 64 on line 1'],
+            'a negative shift count' => ['echo 1 >> -1;', 'Shift count must be between 0 and 63, got -1 on line 1'],
+            'a float shift count' => ['echo 1 << 2.0;', 'Cannot use << on float on line 1'],
+            '<<= a bad count' => ['$a = 1; $a <<= 64;', 'Shift count must be between 0 and 63, got 64 on line 1'],
+        ];
+    }
+
+    public function test_code_gen_for_bitwise_operators()
+    {
+        // The compound form lowers to the operator, as every other one does
+        $this->assertEquals("PUSH 12\nPUSH 10\nBIT_AND\nPRINT", $this->generateCode('echo 12 & 10;'));
+        $this->assertEquals("PUSH 5\nBIT_NOT\nPRINT", $this->generateCode('echo ~5;'));
+        $this->assertEquals(
+            "PUSH 1\nSTORE 0\nLOAD 0\nPOP\nLOAD 0\nPUSH 4\nSHL\nSTORE 0\nLOAD 0\nPOP",
+            $this->generateCode('$a = 1; $a <<= 4;')
+        );
+    }
+
+    /**
      * @dataProvider floatErrors
      */
     public function test_float_errors(string $code, string $message)

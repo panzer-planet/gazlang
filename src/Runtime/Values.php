@@ -225,6 +225,10 @@ final class Values
             return self::arithmetic($op, $left, $right);
         }
 
+        if (in_array($type, [Token::BIT_AND, Token::BIT_OR, Token::BIT_XOR, Token::SHIFT_LEFT, Token::SHIFT_RIGHT], true)) {
+            return self::bitwise($op, $left, $right);
+        }
+
         // A string never orders against a number: there is no conversion
         if (is_string($left) !== is_string($right)) {
             throw new Exception("Cannot use {$op->value} on string and ".self::typeOf(is_string($left) ? $right : $left));
@@ -333,6 +337,57 @@ final class Values
         }
 
         return $sign * ($int <=> (int) $float);
+    }
+
+    /**
+     * Apply & | ^ << >> to two ints
+     *
+     * Ints only, as % is: a float on either side is an error rather than a conversion. A shift
+     * count must be 0 to 63, where PHP quietly gives 0 for anything larger and throws for a
+     * negative one. Bits shifted off the top of a << are gone and the result wraps, as in C and
+     * Rust: a shift moves a bit pattern, so there is no overflow to report (~ is two's
+     * complement for the same reason, and -1 << 1 is -2 on any rule worth having). >> keeps the sign.
+     *
+     * @param  Token  $op  The operator token
+     * @param  mixed  $left  The left operand
+     * @param  mixed  $right  The right operand
+     *
+     * @throws Exception On anything but two ints, or a shift count outside 0 to 63
+     */
+    private static function bitwise(Token $op, $left, $right): int
+    {
+        if (! is_int($left) || ! is_int($right)) {
+            throw new Exception("Cannot use {$op->value} on ".self::typeOf(is_int($left) ? $right : $left));
+        }
+        if (($op->type === Token::SHIFT_LEFT || $op->type === Token::SHIFT_RIGHT) && ($right < 0 || $right > 63)) {
+            throw new Exception("Shift count must be between 0 and 63, got {$right}");
+        }
+
+        return match ($op->type) {
+            Token::BIT_AND => $left & $right,
+            Token::BIT_OR => $left | $right,
+            Token::BIT_XOR => $left ^ $right,
+            Token::SHIFT_LEFT => $left << $right,
+            default => $left >> $right,
+        };
+    }
+
+    /**
+     * Flip every bit of an int (unary ~), two's complement: ~$x is -$x - 1
+     *
+     * Ints only, and never overflows, since ~PHP_INT_MIN is PHP_INT_MAX.
+     *
+     * @param  mixed  $value  The operand
+     *
+     * @throws Exception If the value isn't an int
+     */
+    public static function bitwiseNot($value): int
+    {
+        if (! is_int($value)) {
+            throw new Exception('Cannot use ~ on '.self::typeOf($value));
+        }
+
+        return ~$value;
     }
 
     /**
