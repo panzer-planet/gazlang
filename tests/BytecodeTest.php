@@ -129,6 +129,12 @@ class BytecodeTest extends GazLangTestCase
 
         $this->assertSame(['Error: tests/fixtures/bytecode/example.gzb is bytecode, which only the VM runs'], $output);
         $this->assertSame(1, $exit_code);
+
+        // Piped in, there is no file to name
+        exec("cd {$this->root()} && {$gazlang} --interpreter < tests/fixtures/bytecode/example.gzb 2>&1", $piped, $piped_exit);
+
+        $this->assertSame(['Error: standard input is bytecode, which only the VM runs'], $piped);
+        $this->assertSame(1, $piped_exit);
     }
 
     /**
