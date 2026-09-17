@@ -20,6 +20,7 @@ use GazLang\AST\IfStatementAST;
 use GazLang\AST\IncrementAST;
 use GazLang\AST\IndexAST;
 use GazLang\AST\LambdaAST;
+use GazLang\AST\ListPatternAST;
 use GazLang\AST\LoopControlAST;
 use GazLang\AST\MethodCallAST;
 use GazLang\AST\NullAST;
@@ -644,7 +645,9 @@ class Parser
             return;
         }
         $targets = match (true) {
+            $node instanceof AssignAST && $node->left instanceof ListPatternAST => $node->left->targets,
             $node instanceof AssignAST && $node->token->type === Token::ASSIGN => [$node->left],
+            $node instanceof ForeachStatementAST && $node->value instanceof ListPatternAST => [$node->key, ...$node->value->targets],
             $node instanceof ForeachStatementAST => [$node->key, $node->value],
             $node instanceof TryStatementAST => array_column($node->catches, 1),
             default => [],
@@ -1063,6 +1066,15 @@ class Parser
         $node = $this->ternary();
 
         $token = $this->current_token;
+        if (in_array($token->type, self::ASSIGNMENTS, true) && $node instanceof ArrayLiteralAST && ! $node->map) {
+            if ($token->type !== Token::ASSIGN) {
+                $this->fail("Cannot use {$token->value} to take a list apart: only = can");
+            }
+            $pattern = $this->list_pattern($node, fn (AST $target) => $this->assignable($target, $token));
+            $this->eat(Token::ASSIGN);
+
+            return $this->at(new AssignAST($pattern, $token, $this->expr()), $token);
+        }
         if (in_array($token->type, self::ASSIGNMENTS, true)) {
             $node = $this->assignable($node, $token);
             // Appending ($a[] = ...) is a plain assignment: there is no current element to combine with
@@ -1081,6 +1093,25 @@ class Parser
         }
 
         return $node;
+    }
+
+    /**
+     * Turn a list literal written where a pattern goes ([$a, $b] = ..., foreach (... as [$a, $b])) into a pattern
+     *
+     * @param  ArrayLiteralAST  $literal  The list literal
+     * @param  callable(AST): (VariableAST|IndexAST|PropertyAST)  $target  Checks each element can be a target, failing if not
+     *
+     * @throws GazLangError If the pattern is empty or an element can't be a target
+     */
+    private function list_pattern(ArrayLiteralAST $literal, callable $target): ListPatternAST
+    {
+        if ($literal->entries === []) {
+            throw new GazLangError('Nothing to take apart: write at least one target in [...]', $this->file, $literal->line);
+        }
+        $pattern = new ListPatternAST(array_map(fn ($entry) => $target($entry[1]), $literal->entries));
+        [$pattern->line, $pattern->file] = [$literal->line, $literal->file];
+
+        return $pattern;
     }
 
     /**
@@ -1251,14 +1282,41 @@ class Parser
         $this->eat(Token::AS);
 
         $key = null;
-        $value = $this->variable();
+        $value = $this->foreach_target();
         if ($this->current_token->type === Token::DOUBLE_ARROW) {
+            if (! $value instanceof VariableAST) {
+                $this->fail('A foreach key is a variable, not a pattern');
+            }
             $this->eat(Token::DOUBLE_ARROW);
-            [$key, $value] = [$value, $this->variable()];
+            [$key, $value] = [$value, $this->foreach_target()];
         }
         $this->eat(Token::RIGHT_PAREN);
 
         return $this->at(new ForeachStatementAST($iterable, $key, $value, $this->loop_body()), $start);
+    }
+
+    /**
+     * Parse what foreach assigns each value to (variable | LBRACKET variable (COMMA variable)* [COMMA] RBRACKET)
+     *
+     * A pattern's targets are variables only, like foreach's own.
+     *
+     * @return VariableAST|ListPatternAST
+     *
+     * @throws GazLangError
+     */
+    private function foreach_target()
+    {
+        if ($this->current_token->type !== Token::LEFT_BRACKET) {
+            return $this->variable();
+        }
+
+        return $this->list_pattern($this->list_literal(), function (AST $target) {
+            if (! $target instanceof VariableAST) {
+                throw new GazLangError('A foreach pattern takes variables only', $target->file, $target->line);
+            }
+
+            return $target;
+        });
     }
 
     /**
@@ -1660,8 +1718,12 @@ class Parser
      */
     private function check_new_member(ClassDeclarationAST $class, string $name): void
     {
-        if (array_key_exists($name, $class->fields) || isset($class->methods[$name])) {
-            $this->fail("{$class->name} already has a member {$name}");
+        $field = $this->current_token->type === Token::HASH_IDENTIFIER;
+        if (array_key_exists($name, $class->fields)) {
+            $this->fail($field ? "{$class->name} already has a field #{$name}" : "{$class->name} already has a field #{$name}, and a method can't have a field's name: call the method something else");
+        }
+        if (isset($class->methods[$name])) {
+            $this->fail($field ? "{$class->name} already has a method {$name}, and a field can't have a method's name: call the field something else, like #{$name}_value" : "{$class->name} already has a method {$name}");
         }
     }
 
@@ -1793,13 +1855,13 @@ class Parser
             }
             $owner = $class->members[$name] ?? $class->abstract_methods[$name] ?? null;
             if ($owner !== null) {
-                throw new GazLangError("Field #{$name} of {$class->name} has the name of a method of {$owner}", $class->file, $line);
+                throw new GazLangError("Field #{$name} of {$class->name} has the name of a method of {$owner}: fields and methods share names, so call the field something else", $class->file, $line);
             }
             $class->layout[$name] = $class->name;
         }
         foreach ($class->methods as $name => $method) {
             if (isset($class->layout[$name])) {
-                throw new GazLangError("Method {$class->name}.{$name} has the name of a field of {$class->layout[$name]}", $method->file, $method->line);
+                throw new GazLangError("Method {$class->name}.{$name} has the name of a field of {$class->layout[$name]}: fields and methods share names, so call the method something else", $method->file, $method->line);
             }
             $owner = $class->members[$name] ?? $class->abstract_methods[$name] ?? null;
             if ($owner !== null && $method->abstract && isset($class->members[$name])) {

@@ -21,6 +21,7 @@ use GazLang\AST\IfStatementAST;
 use GazLang\AST\IncrementAST;
 use GazLang\AST\IndexAST;
 use GazLang\AST\LambdaAST;
+use GazLang\AST\ListPatternAST;
 use GazLang\AST\LoopControlAST;
 use GazLang\AST\MethodCallAST;
 use GazLang\AST\NullAST;
@@ -284,6 +285,12 @@ class CodeGenerator extends AbstractNodeVisitor
      */
     public function visitAssign(AssignAST $node): void
     {
+        if ($node->left instanceof ListPatternAST) {
+            $this->visit($node->right);
+            $this->destructure($node->left);
+
+            return;
+        }
         if ($node->token->type !== Token::ASSIGN) {
             $this->update($node->left, $node->token, $node->right, true);
 
@@ -309,6 +316,28 @@ class CodeGenerator extends AbstractNodeVisitor
         // Store the computed value, then leave it on the stack for larger expressions
         $this->emitVariable('STORE', $node->left);
         $this->emitVariable('LOAD', $node->left);
+    }
+
+    /**
+     * Emit taking apart the list on top of the stack into a pattern's targets, leaving the list there
+     *
+     *   [$a, $b[k]] = v  becomes  v; DESTRUCTURE 2; $#list = it; $a = $#list[0]; $b[k] = $#list[1]; $#list
+     *
+     * DESTRUCTURE n fails unless the value on top of the stack is a list of n elements, as
+     * Values::destructure() does, so nothing is written when the shape is wrong.
+     *
+     * @param  ListPatternAST  $pattern  The pattern
+     */
+    private function destructure(ListPatternAST $pattern): void
+    {
+        $this->emit('DESTRUCTURE', count($pattern->targets));
+        $list = new VariableAST(new Token(Token::VAR_IDENTIFIER, '$#destructure_'.$this->hidden_counter++));
+        $this->emitVariable('STORE', $list);
+        foreach ($pattern->targets as $i => $target) {
+            $element = new IndexAST($list, new NumAST(new Token(Token::INTEGER, $i)));
+            $this->visit(new StatementAST(new AssignAST($target, new Token(Token::ASSIGN, '='), $element)));
+        }
+        $this->emitVariable('LOAD', $list);
     }
 
     /**
@@ -785,7 +814,7 @@ class CodeGenerator extends AbstractNodeVisitor
     {
         $n = $this->hidden_counter++;
         $hidden = fn (string $name) => new VariableAST(new Token(Token::VAR_IDENTIFIER, "\$#foreach_{$name}_{$n}"));
-        $assign = fn (VariableAST $variable, AST $value) => new StatementAST(new AssignAST($variable, new Token(Token::ASSIGN, '='), $value));
+        $assign = fn (VariableAST|ListPatternAST $variable, AST $value) => new StatementAST(new AssignAST($variable, new Token(Token::ASSIGN, '='), $value));
         $array = $hidden('array');
         $keys = $hidden('keys');
         $count = $hidden('count');

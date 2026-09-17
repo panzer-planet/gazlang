@@ -21,6 +21,7 @@ use GazLang\AST\IfStatementAST;
 use GazLang\AST\IncrementAST;
 use GazLang\AST\IndexAST;
 use GazLang\AST\LambdaAST;
+use GazLang\AST\ListPatternAST;
 use GazLang\AST\LoopControlAST;
 use GazLang\AST\MethodCallAST;
 use GazLang\AST\NullAST;
@@ -211,6 +212,12 @@ class Interpreter extends AbstractNodeVisitor
 
             return $value;
         }
+        if ($node->left instanceof ListPatternAST) {
+            $value = $this->visit($node->right);
+            $this->destructure($node->left, $value);
+
+            return $value;
+        }
         if ($node->left instanceof PropertyAST && $node->left->target instanceof ThisAST && $node->token->type === Token::ASSIGN) {
             // #name = value, a field the parser has checked the class declares
             $value = $this->visit($node->right);
@@ -261,6 +268,20 @@ class Interpreter extends AbstractNodeVisitor
         [$old, $new] = $this->store($node->target, $this->evaluateKeys($node->target), $node->op, null);
 
         return $node->prefix ? $new : $old;
+    }
+
+    /**
+     * Take a list apart into a pattern's targets: the value is checked first, then each target's keys are evaluated and it is written, left to right
+     *
+     * @param  ListPatternAST  $pattern  The pattern
+     * @param  mixed  $value  The value, which must be a list of as many elements as there are targets
+     */
+    private function destructure(ListPatternAST $pattern, $value): void
+    {
+        Values::destructure($value, count($pattern->targets));
+        foreach ($pattern->targets as $i => $target) {
+            $this->store($target, $this->evaluateKeys($target), null, $value[$i]);
+        }
     }
 
     /**
@@ -557,7 +578,11 @@ class Interpreter extends AbstractNodeVisitor
             if ($node->key !== null) {
                 $this->assignVariable($node->key, $map ? MapValue::unkey($key) : $key);
             }
-            $this->assignVariable($node->value, $value);
+            if ($node->value instanceof ListPatternAST) {
+                $this->destructure($node->value, $value);
+            } else {
+                $this->assignVariable($node->value, $value);
+            }
 
             try {
                 $this->visit($node->body);

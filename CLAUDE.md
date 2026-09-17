@@ -102,7 +102,8 @@ each step depends on the ones before it.
    the list or map is evaluated once and iterated as it was then (they are
    values, so changing the variable in the body doesn't change the iteration), the
    loop variables can be `$` or `@` and keep their last values (a list's keys are its
-   indexes), and anything else is "foreach expects a list or map". The interpreter runs it directly; the code
+   indexes), the value can be a list pattern of variables (`foreach ($rows as $i => [$name,
+   $age])`, see "Assignment"), and anything else is "foreach expects a list or map". The interpreter runs it directly; the code
    generator lowers it to a while loop over `keys()` with hidden `$#foreach_*_n`
    variables (no program can name them), using the step for `continue`.
 4. ~~**Add functions and scoping.**~~ Done. Decided semantics:
@@ -394,7 +395,9 @@ $area = $c.area;                              // a bound method
   runs is decided at parse time from the class it is written in (`ParentMethodAST::$definer`).
   Only methods, and not abstract ones; `##` alone is a parse error, kept free.
 - **Members:** fields and methods share one namespace across the hierarchy (a child can't
-  redeclare a field, or give a field a method's name). A method may override a parent's,
+  redeclare a field, or give a field a method's name). The errors say so and suggest renaming
+  (a cached value can't be `#summary` beside `summary()`: "call the field something else,
+  like #summary_value"). A method may override a parent's,
   but must accept every argument count the parent's accepts; constructors are exempt, and
   an abstract method can't replace a concrete one. `to_string` must accept no arguments.
 - **Objects are handles:** `$b = $a; $b.x = 1` changes `$a`; lists and maps inside objects
@@ -551,6 +554,19 @@ new value (`AssignAST`, whose token says which). Compound assignment applies the
 binary operator, so `..=` concatenates and `+=` on a string is an error. `++`/`--` (`IncrementAST`) work on
 numbers only; prefix gives the new value, postfix the old. Targets are a variable
 or an element of one (`$a["k"][0]++`), but appending (`$a[] = v`) is plain `=` only.
+
+**List patterns** take a list apart: `[$a, $b] = $pair;` (`AssignAST` with a `ListPatternAST`
+on the left, made from the list literal the parser read when `=` follows it). The list must
+have exactly as many elements as there are targets (`Values::destructure()`: "Cannot
+destructure a list of 3 elements into 2", "Cannot destructure map: only a list can be"),
+checked before anything is written. The right side is evaluated first, then each target's
+keys are evaluated and it is written, left to right, so `[$a, $b] = [$b, $a]` swaps. Targets
+are anything `=` can assign (`[#x, $l[0], @g, $o.y] = ...`); the value of the expression is
+the list. Not supported, each a syntax error: nesting (`[[$a, $b], $c]`), map patterns,
+compound operators (`+=`), appending targets. `foreach ($x as [$a, $b])` takes each value
+apart the same way, with variables only. For closures, pattern targets count as assigned by a
+plain `=`. The code generator emits the value, `DESTRUCTURE n` (the check, leaving the list),
+stores it in a hidden `$#destructure_n`, and lowers each target to `target = $#destructure_n[i]`.
 
 The interpreter's `store()` evaluates index keys once, left to right, then the right
 side, then reads and writes the target, so `$k += $k *= 2` sees the updated `$k`

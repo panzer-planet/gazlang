@@ -423,6 +423,24 @@ final class Values
     }
 
     /**
+     * Check a value can be taken apart by a list pattern of $count targets: a list of exactly that many elements
+     *
+     * @param  mixed  $value  The value
+     * @param  int  $count  How many targets the pattern has
+     *
+     * @throws Exception If the value isn't a list, or has another number of elements
+     */
+    public static function destructure($value, int $count): void
+    {
+        if (! is_array($value)) {
+            throw new Exception('Cannot destructure '.self::typeOf($value).': only a list can be');
+        }
+        if (count($value) !== $count) {
+            throw new Exception('Cannot destructure a list of '.count($value)." elements into {$count}");
+        }
+    }
+
+    /**
      * Read a member of an object: a field's value, or a method bound to the object
      *
      * A declared field that was never set is an error, unless $quiet (the left side of ??),

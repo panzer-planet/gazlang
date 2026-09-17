@@ -46,10 +46,10 @@ class Random {
             $total = reduce($pairs, ($sum, $pair) -> $sum + $pair[1], 0);
         }
         $target = #fraction() * $total;
-        foreach ($pairs as $pair) {
-            $target -= $pair[1];
+        foreach ($pairs as [$item, $weight]) {
+            $target -= $weight;
             if ($target < 0) {
-                return $pair[0];
+                return $item;
             }
         }
         return $pairs[len($pairs) - 1][0];
@@ -559,12 +559,12 @@ class League {
     fn play_season($kick_off, $after_matchday) {
         foreach (#fixtures() as $index => $matchday) {
             $matches = [];
-            foreach ($matchday as $pair) {
-                $match = Match($pair[0], $pair[1], #random);
+            foreach ($matchday as [$home, $away]) {
+                $match = Match($home, $away, #random);
                 $kick_off($match);
                 $match.play();
-                #standings[$pair[0].name].record($match.home_goals, $match.away_goals);
-                #standings[$pair[1].name].record($match.away_goals, $match.home_goals);
+                #standings[$home.name].record($match.home_goals, $match.away_goals);
+                #standings[$away.name].record($match.away_goals, $match.home_goals);
                 $matches[] = $match;
             }
             $after_matchday($index + 1, $matches);
@@ -668,7 +668,10 @@ try {
 }
 
 $scout = Scout(1);
-$teams = map(slice($clubs, 0, $count), $club -> $scout.team($club[0], $club[1], $club[2]));
+$teams = [];
+foreach (slice($clubs, 0, $count) as [$name, $level, $formation]) {
+    $teams[] = $scout.team($name, $level, $formation);
+}
 echo "Season {$seed}: {$count} clubs, " .. $count * ($count - 1) .. " matches";
 
 $league = League($teams, Random($seed));

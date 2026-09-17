@@ -406,6 +406,12 @@ final class VM
                                 $target = array_pop($stack);
                                 $stack[] = Values::propertyExisting($target, $arg0[$pc - 1]);
                                 break;
+                            case 'DESTRUCTURE':
+                                $value = $stack[array_key_last($stack)];
+                                if (! is_array($value) || count($value) !== $arg0[$pc - 1]) {
+                                    Values::destructure($value, $arg0[$pc - 1]);
+                                }
+                                break;
                             case 'KEY_CHECK':
                                 $key = $stack[array_key_last($stack)];
                                 if (! is_int($key) && ! is_string($key)) {
