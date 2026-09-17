@@ -89,9 +89,10 @@ is a rewrite of `lib/`. Let objects take the record role so arrays trend toward 
 Objects should be always true, no `__bool__` protocol. Note the inconsistency with
 empty arrays and move on.
 
-### 12. Missing expressions — open, small
-No ternary (`?:`, or Python's `x if c else y`), no `exit()`. Wanted before the
-self-hosted parser.
+### 12. Missing expressions — decided: both wanted
+A C-style ternary `$c ? $a : $b` (right associative, between `??` and assignment, as in
+PHP and JS) and an `exit($code = 0)` builtin that stops the program with that exit code,
+not catchable by try/catch. Build after function values phase 1.
 
 ## Fine as is, keep
 
@@ -110,7 +111,6 @@ class (PHP `self::`); no inheritance in the first cut; `is_a($x, Point)` and
 
 ## Still open
 
-Item 12: a ternary (`?:` or Python's `if`/`else` expression) and an `exit()` builtin.
 Whether `true == 1` should stay true under strict `==` (Ruby and Lua say no).
 Decided while building: an int and a float compare exactly (`9007199254740993 !=
 9007199254740992.0`), unlike PHP; `/` still converts and loses precision above 2^53.

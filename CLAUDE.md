@@ -262,6 +262,14 @@ before function values:
   Booleans stay as they are (`true == 1`) unless that proves a problem.
 - **`/` always gives a float** (Python 3, Lua 5.3); `intdiv` is integer division.
 
+Also decided on 2026-09-17, small, to build next:
+- **A ternary**, `$c ? $a : $b`: right associative, between `??` and assignment (PHP, JS),
+  only the taken branch is evaluated. `?` is free since only `??` uses it.
+- **`exit($code = 0)`**: a builtin that stops the program with that exit code (0 to 255)
+  and prints nothing. Like `return` and `break` it is not an error, so `try/catch` does
+  not catch it; both backends unwind with an `ExitSignal` that `bin/gazlang` and the
+  tests' `runProgram()` turn into the exit code.
+
 Design agreed on 2026-09-17, to build in phases (each committed and reviewed):
 1. ~~**Named functions as values.**~~ Done, see "Function values" below.
 2. Anonymous functions with `->`: `$x -> $x * 2`, `($a, $b = 1) -> $a + $b`,
