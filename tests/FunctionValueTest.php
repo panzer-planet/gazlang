@@ -21,7 +21,7 @@ class FunctionValueTest extends GazLangTestCase
     public function test_calls_on_elements_and_on_call_results()
     {
         $this->assertEquals("7\n3\n3\n", $this->executeCode(
-            self::ADD.'function pick() { return add; } $h = ["add" => add, "len" => len];'
+            self::ADD.'function pick() { return add; } $h = {"add" => add, "len" => len};'
             .' echo $h["add"](3, 4); echo $h["len"]("abc"); echo pick()(1, 2);'
         ));
     }
@@ -107,11 +107,11 @@ class FunctionValueTest extends GazLangTestCase
             'arithmetic' => ['echo add + 1;', 'Cannot use + on function on line 2'],
             'ordering' => ['echo add < len;', 'Cannot use < on function on line 2'],
             'negation' => ['echo -add;', 'Cannot use - on function on line 2'],
-            'as an array key' => ['echo [add => 1];', 'Array keys must be int or string, got function on line 2'],
-            'as an index' => ['$a = [1]; echo $a[add];', 'Array keys must be int or string, got function on line 2'],
+            'as a map key' => ['echo {add => 1};', 'Keys must be int or string, got function on line 2'],
+            'as an index' => ['$a = [1]; echo $a[add];', 'Keys must be int or string, got function on line 2'],
             'indexing it' => ['echo add[0];', 'Cannot use [] on function on line 2'],
-            'foreach over it' => ['foreach (add as $x) {}', 'foreach expects an array, got function on line 2'],
-            'builtin argument type' => ['echo len(add);', 'len() expects array or string, got function on line 2'],
+            'foreach over it' => ['foreach (add as $x) {}', 'foreach expects a list or map, got function on line 2'],
+            'builtin argument type' => ['echo len(add);', 'len() expects list or map or string, got function on line 2'],
             'callee is evaluated before the arguments are checked' => ['$five = 5; $five(error("first"));', 'first on line 2'],
         ];
     }

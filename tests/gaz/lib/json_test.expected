@@ -10,7 +10,7 @@ ok true, false, null
 ok string
 ok object
 ok empty object and array
-ok numeric object keys become ints
+ok numeric object keys stay strings
 ok leading zero key stays a string
 ok empty key
 ok duplicate keys: last wins
@@ -24,8 +24,8 @@ ok raw UTF-8 passes through
 ok encode scalars
 ok encode exact floats
 ok encode object
-ok list keys must be 0, 1, 2 in order
-ok empty array is a list
+ok a map is an object, int keys as strings
+ok empty list and map
 ok encode string escapes
 ok encode other control bytes
 ok encode UTF-8 as is

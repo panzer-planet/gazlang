@@ -1,48 +1,59 @@
 // Higher-order functions for GazLang: map, filter, reduce and sort, taking function values.
 //
-// - map($array, $f): $f($value) for each element, keeping keys.
-// - filter($array, $keep): the elements for which $keep($value) is true. A list (keys 0, 1,
-//   2, ... in order) gives a list again; any other array keeps its keys.
-// - reduce($array, $f, $initial): folds left, $f($carry, $value) from $initial.
-// - sort($array, $compare): a new list, keys dropped, ordered by $compare($a, $b), which
+// Each takes a list or a map:
+// - map($x, $f): $f($value) for each element; a list gives a list, a map a map with the same keys.
+// - filter($x, $keep): the elements for which $keep($value) is true; a list gives a list,
+//   a map a map with the kept keys.
+// - reduce($x, $f, $initial): folds left, $f($carry, $value) from $initial.
+// - sort($x, $compare): a new list of the values, ordered by $compare($a, $b), which
 //   returns a negative number, zero or a positive number (write $a <=> $b). A stable merge
 //   sort, so equal items keep their order.
-// - is_list($array): whether the keys are 0, 1, 2, ... in order.
 
-function map($array, $f) {
-    $result = [];
-    foreach ($array as $key => $value) {
-        $result[$key] = $f($value);
+function map($x, $f) {
+    if (type_of($x) == "list") {
+        $list = [];
+        foreach ($x as $value) {
+            $list[] = $f($value);
+        }
+        return $list;
     }
-    return $result;
+    $map = {};
+    foreach ($x as $key => $value) {
+        $map[$key] = $f($value);
+    }
+    return $map;
 }
 
-function filter($array, $keep) {
-    $result = [];
-    $list = is_list($array);
-    foreach ($array as $key => $value) {
-        if ($keep($value)) {
-            if ($list) {
-                $result[] = $value;
-            } else {
-                $result[$key] = $value;
+function filter($x, $keep) {
+    if (type_of($x) == "list") {
+        $list = [];
+        foreach ($x as $value) {
+            if ($keep($value)) {
+                $list[] = $value;
             }
         }
+        return $list;
     }
-    return $result;
+    $map = {};
+    foreach ($x as $key => $value) {
+        if ($keep($value)) {
+            $map[$key] = $value;
+        }
+    }
+    return $map;
 }
 
-function reduce($array, $f, $initial) {
+function reduce($x, $f, $initial) {
     $carry = $initial;
-    foreach ($array as $value) {
+    foreach ($x as $value) {
         $carry = $f($carry, $value);
     }
     return $carry;
 }
 
-function sort($array, $compare) {
+function sort($x, $compare) {
     $list = [];
-    foreach ($array as $value) {
+    foreach ($x as $value) {
         $list[] = $value;
     }
     if (len($list) < 2) {
@@ -71,15 +82,4 @@ function sort($array, $compare) {
         $merged[] = $right[$r++];
     }
     return $merged;
-}
-
-function is_list($array) {
-    $expected = 0;
-    foreach ($array as $key => $value) {
-        if ($key != $expected) {
-            return false;
-        }
-        $expected++;
-    }
-    return true;
 }

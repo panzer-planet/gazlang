@@ -29,11 +29,11 @@ function new_id() {
     return @next_id;
 }
 function make_item($name, $id = new_id()) {
-    return ["id" => $id, "name" => $name];
+    return {"id" => $id, "name" => $name};
 }
-check("default calls a function", make_item("a"), ["id" => 1, "name" => "a"]);
-check("given explicitly, the default isn't evaluated", make_item("b", 99), ["id" => 99, "name" => "b"]);
-check("evaluated again on the next call", make_item("c"), ["id" => 2, "name" => "c"]);
+check("default calls a function", make_item("a"), {"id" => 1, "name" => "a"});
+check("given explicitly, the default isn't evaluated", make_item("b", 99), {"id" => 99, "name" => "b"});
+check("evaluated again on the next call", make_item("c"), {"id" => 2, "name" => "c"});
 
 // Defaults run inside the function: its locals, not the caller's
 $outside = "caller's";

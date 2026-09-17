@@ -1,7 +1,7 @@
 // JSON (RFC 8259) for GazLang: json_decode($text) and json_encode($value).
 //
-// Decoding follows PHP's json_decode($text, true):
-// - objects and arrays both become arrays (an object key like "0" becomes the int 0);
+// Decoding follows PHP's json_decode($text), with maps for objects:
+// - objects become maps with string keys (a key like "0" stays the string "0"), arrays lists;
 // - numbers with a fraction or exponent become floats, others ints, and an integer
 //   too large for an int becomes a float;
 // - true, false, null and strings map directly, with escapes decoded and surrogate
@@ -12,13 +12,11 @@
 // Differences from PHP: a number too large for a float is an error rather than INF
 // (GazLang has no INF), and strings are not checked for valid UTF-8.
 //
-// Encoding writes compact JSON. An array whose keys are 0, 1, 2, ... in order is a JSON
-// array and any other array is an object, so an empty array is [] (GazLang can't tell
-// {} from []). Strings are written as UTF-8, escaping only what JSON requires, and
+// Encoding writes compact JSON: a list is a JSON array and a map an object, with int keys
+// written as strings. Strings are written as UTF-8, escaping only what JSON requires, and
 // floats keep their exact digits (1.0, 0.30000000000000004, 1.0E+25).
 
 include "chars.gaz";
-include "functional.gaz";
 
 // Parser state: the text being decoded, the byte position, and how many arrays and
 // objects are open. Globals, because every parse function moves the same position.
@@ -49,13 +47,13 @@ function json_encode($value) {
     if ($type == "function") {
         error("Cannot encode a function as JSON");
     }
-    if ($type != "array") {
+    if ($type != "list" && $type != "map") {
         // null, true, false, ints and floats are already written the way JSON writes them
         return to_string($value);
     }
 
     $parts = [];
-    if (is_list($value)) {
+    if ($type == "list") {
         foreach ($value as $item) {
             $parts[] = json_encode($item);
         }
@@ -162,7 +160,7 @@ function json_parse_array() {
 
 function json_parse_object() {
     json_enter();
-    $object = [];
+    $object = {};
     if (char_at(@json_text, @json_pos) == "}") {
         @json_pos++;
         @json_depth--;
@@ -236,7 +234,7 @@ function json_parse_string() {
 // Called at a backslash in a string: returns what the escape stands for and moves past it
 function json_parse_escape() {
     $c = char_at(@json_text, @json_pos + 1);
-    $simple = ["\"" => "\"", "\\" => "\\", "/" => "/", "b" => chr(8), "f" => "\f", "n" => "\n", "r" => "\r", "t" => "\t"];
+    $simple = {"\"" => "\"", "\\" => "\\", "/" => "/", "b" => chr(8), "f" => "\f", "n" => "\n", "r" => "\r", "t" => "\t"};
     if (has_key($simple, $c)) {
         @json_pos += 2;
         return $simple[$c];
@@ -374,7 +372,7 @@ function json_int_fits($integer, $negative) {
 
 // A string as a JSON string: quote, backslash and control characters escaped
 function json_encode_string($string) {
-    $escapes = ["\"" => "\\\"", "\\" => "\\\\", "\n" => "\\n", "\r" => "\\r", "\t" => "\\t", "\f" => "\\f", chr(8) => "\\b"];
+    $escapes = {"\"" => "\\\"", "\\" => "\\\\", "\n" => "\\n", "\r" => "\\r", "\t" => "\\t", "\f" => "\\f", chr(8) => "\\b"};
     $hex = "0123456789abcdef";
     $result = "";
     $run_start = 0;

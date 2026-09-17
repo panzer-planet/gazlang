@@ -10,6 +10,7 @@ use GazLang\Lexer\Token;
 use GazLang\Runtime\Builtins;
 use GazLang\Runtime\ExitSignal;
 use GazLang\Runtime\FunctionValue;
+use GazLang\Runtime\MapValue;
 use GazLang\Runtime\Values;
 
 /**
@@ -216,7 +217,7 @@ final class VM
                         case 'INDEX_GET_QUIET':
                             $index = array_pop($stack);
                             $target = array_pop($stack);
-                            $stack[] = $target === null ? null : Values::index($target, $index);
+                            $stack[] = $target === null ? null : Values::index($target, $index, true);
                             break;
                         case 'JNN':
                             if ($stack[array_key_last($stack)] !== null) {
@@ -261,17 +262,25 @@ final class VM
                             $value = array_pop($stack);
                             $stack[array_key_last($stack)][] = $value;
                             break;
-                        case 'ARRAY_SET':
+                        case 'NEW_MAP':
+                            $stack[] = new MapValue;
+                            break;
+                        case 'MAP_SET':
                             $value = array_pop($stack);
-                            $key = Values::arrayKey(array_pop($stack));
-                            $stack[array_key_last($stack)][$key] = $value;
+                            $key = MapValue::key(Values::arrayKey(array_pop($stack)));
+                            $stack[array_key_last($stack)]->items[$key] = $value;
                             break;
                         case 'INDEX_GET':
                             $index = array_pop($stack);
                             $target = array_pop($stack);
-                            $stack[] = is_array($target) && (is_int($index) || is_string($index))
-                                ? $target[$index] ?? null
-                                : Values::index($target, $index);
+                            // A list element or a map key that PHP stores as is, when it isn't null
+                            if (is_array($target) && is_int($index) && isset($target[$index])) {
+                                $stack[] = $target[$index];
+                            } elseif ($target instanceof MapValue && (is_int($index) || (is_string($index) && $index !== '' && $index[0] > '9')) && isset($target->items[$index])) {
+                                $stack[] = $target->items[$index];
+                            } else {
+                                $stack[] = Values::index($target, $index);
+                            }
                             break;
                         case 'INDEX_GET_EXISTING':
                             $index = array_pop($stack);
@@ -303,8 +312,8 @@ final class VM
                             break;
                         case 'FOREACH_CHECK':
                             $iterable = $stack[array_key_last($stack)];
-                            if (! is_array($iterable)) {
-                                throw new Exception('foreach expects an array, got '.Values::typeOf($iterable));
+                            if (! is_array($iterable) && ! $iterable instanceof MapValue) {
+                                throw new Exception('foreach expects a list or map, got '.Values::typeOf($iterable));
                             }
                             break;
                         case 'CALL':
@@ -440,7 +449,7 @@ final class VM
                     [$locals, , $function, $argc] = array_pop($frames);
                 }
                 array_splice($stack, $stack_size);
-                $stack[] = ['message' => $error->reason, 'file' => $error->path, 'line' => $error->line_number];
+                $stack[] = $error->toMap();
                 $pc = $catch_pc;
             }
         }

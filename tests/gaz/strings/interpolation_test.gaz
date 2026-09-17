@@ -4,8 +4,8 @@ $name = "Gaz";
 $name_2 = "two";
 $items = ["first", "second"];
 $i = 1;
-$keys = ["01" => "string 01", "-0" => "string -0", 1 => "int 1"];
-$user = ["name" => "Werner", "tags" => ["admin"]];
+$keys = {"01" => "string 01", "-0" => "string -0", 1 => "int 1", -1 => "int -1"};
+$user = {"name" => "Werner", "tags" => ["admin"]};
 @count = 41;
 
 // Shorthand: $name, greedy over letters, digits and underscores
@@ -15,7 +15,7 @@ check("bare variable is greedy", "$name_2", "two");
 
 // Shorthand takes one PHP-style index: [int], [-int], [unquoted key] or [$variable]
 check("shorthand int index", "got $items[1]!", "got second!");
-check("shorthand negative index", "$items[-1]", "null");
+check("shorthand negative index", "$keys[-1]", "int -1");
 check("shorthand unquoted key", "$user[name]", "Werner");
 check("shorthand variable index", "$items[$i]", "second");
 check("shorthand reads only one index", "$items[0][1]", "first[1]");
@@ -30,11 +30,11 @@ check("global", "{@count} calls", "41 calls");
 check("expression", "{@count + 1}", "42");
 check("function call after the sigil", "{$items[len($items) - 1]}", "second");
 check("several in a row", "$name{$name}$name", "GazGazGaz");
-check("interpolated string inside interpolation", "{$user["na{$name}"]}", "null");
+check("interpolated string inside interpolation", "{$user["na{$name}"] ?? "none"}", "none");
 
 // Values convert like echo and +
 check("ints convert", "n={@count}", "n=41");
-check("null and arrays", "{$user["missing"]} " .. "{$user["tags"]}", "null [\"admin\"]");
+check("null, lists and maps", "{$user["missing"] ?? null} {$user["tags"]} {$keys}", "null [\"admin\"] {\"01\" => \"string 01\", \"-0\" => \"string -0\", 1 => \"int 1\", -1 => \"int -1\"}");
 
 // Not interpolation
 check("dollar before a digit", "costs $5", "costs " .. "$" .. "5");

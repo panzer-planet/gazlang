@@ -66,6 +66,7 @@ class Parser
         Token::STRING => 'a string',
         Token::COLON => "':'",
         Token::ARROW => "'->'",
+        Token::DOUBLE_ARROW => "'=>'",
     ];
 
     /**
@@ -293,7 +294,7 @@ class Parser
 
     /**
      * Parse a primary (INTEGER | FLOAT | STRING | interpolated_string | TRUE | FALSE | NULL | LPAREN expr RPAREN
-     *                  | variable | function_call | IDENTIFIER | array_literal)
+     *                  | variable | function_call | IDENTIFIER | list_literal | map_literal)
      *
      * A bare IDENTIFIER not followed by ( is a function used as a value; that it names a
      * function is checked once the whole program is read, like calls.
@@ -332,7 +333,9 @@ class Parser
 
             return $this->uses[] = $this->at(new FunctionRefAST($token->value), $token);
         } elseif ($token->type === Token::LEFT_BRACKET) {
-            return $this->array_literal();
+            return $this->list_literal();
+        } elseif ($token->type === Token::LEFT_BRACE) {
+            return $this->map_literal();
         } elseif ($token->type === Token::LEFT_PAREN) {
             return $this->parenthesised();
         } elseif ($token->type === Token::VAR_IDENTIFIER || $token->type === Token::GLOBAL_VAR_IDENTIFIER) {
@@ -575,26 +578,23 @@ class Parser
     }
 
     /**
-     * Parse an array literal (LBRACKET [entry (COMMA entry)* [COMMA]] RBRACKET), entry: [expr DOUBLE_ARROW] expr
+     * Parse a list literal (LBRACKET [expr (COMMA expr)* [COMMA]] RBRACKET)
      *
      * @return ArrayLiteralAST
      *
      * @throws Exception
      */
-    public function array_literal()
+    public function list_literal()
     {
         $start = $this->current_token;
         $this->eat(Token::LEFT_BRACKET);
 
         $entries = [];
         while ($this->current_token->type !== Token::RIGHT_BRACKET) {
-            $value = $this->expr();
-            $key = null;
+            $entries[] = [null, $this->expr()];
             if ($this->current_token->type === Token::DOUBLE_ARROW) {
-                $this->eat(Token::DOUBLE_ARROW);
-                [$key, $value] = [$value, $this->expr()];
+                $this->fail('A list has no keys: write a map as {key => value}');
             }
-            $entries[] = [$key, $value];
 
             // A trailing comma is allowed, so multi-line literals diff cleanly
             if ($this->current_token->type !== Token::RIGHT_BRACKET) {
@@ -604,6 +604,36 @@ class Parser
         $this->eat(Token::RIGHT_BRACKET);
 
         return $this->at(new ArrayLiteralAST($entries), $start);
+    }
+
+    /**
+     * Parse a map literal (LBRACE [entry (COMMA entry)* [COMMA]] RBRACE), entry: expr DOUBLE_ARROW expr
+     *
+     * Only where an expression is expected: a { that starts a statement is a block, and one
+     * right after -> is a lambda's block body, so a lambda returning a map writes ({...}).
+     *
+     * @return ArrayLiteralAST
+     *
+     * @throws Exception
+     */
+    public function map_literal()
+    {
+        $start = $this->current_token;
+        $this->eat(Token::LEFT_BRACE);
+
+        $entries = [];
+        while ($this->current_token->type !== Token::RIGHT_BRACE) {
+            $key = $this->expr();
+            $this->eat(Token::DOUBLE_ARROW);
+            $entries[] = [$key, $this->expr()];
+
+            if ($this->current_token->type !== Token::RIGHT_BRACE) {
+                $this->eat(Token::COMMA);
+            }
+        }
+        $this->eat(Token::RIGHT_BRACE);
+
+        return $this->at(new ArrayLiteralAST($entries, true), $start);
     }
 
     /**

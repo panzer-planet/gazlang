@@ -37,6 +37,7 @@ use GazLang\Parser\Parser;
 use GazLang\Runtime\Builtins;
 use GazLang\Runtime\ExitSignal;
 use GazLang\Runtime\FunctionValue;
+use GazLang\Runtime\MapValue;
 use GazLang\Runtime\Values;
 
 /**
@@ -183,7 +184,7 @@ class Interpreter extends AbstractNodeVisitor
             $variable = $node->left instanceof VariableAST ? $node->left : $node->left->rootVariable();
             $current = ($variable->isGlobal() ? $this->globals : $this->locals)[$variable->value] ?? null;
             foreach ($keys as $key) {
-                $current = $current === null ? null : Values::index($current, $key);
+                $current = $current === null ? null : Values::index($current, $key, true);
             }
             if ($current !== null) {
                 return $current;
@@ -295,7 +296,7 @@ class Interpreter extends AbstractNodeVisitor
             $target = $this->quietly($node->target);
             $index = $this->visit($node->index);
 
-            return $target === null ? null : Values::index($target, $index);
+            return $target === null ? null : Values::index($target, $index, true);
         }
 
         return $this->visit($node);
@@ -456,24 +457,25 @@ class Interpreter extends AbstractNodeVisitor
     /**
      * Visit a ForeachStatement node
      *
-     * The array is evaluated once and iterated as it was then: arrays are values, so
+     * The list or map is evaluated once and iterated as it was then: they are values, so
      * changing the variable inside the loop doesn't change what is iterated.
      *
      * @param  ForeachStatementAST  $node  The node to visit
      * @return null Loops produce no result
      *
-     * @throws Exception If the expression is not an array
+     * @throws Exception If the expression is not a list or map
      */
     public function visitForeachStatement(ForeachStatementAST $node): null
     {
-        $array = $this->visit($node->iterable);
-        if (! is_array($array)) {
-            throw new Exception('foreach expects an array, got '.Values::typeOf($array));
+        $iterable = $this->visit($node->iterable);
+        if (! is_array($iterable) && ! $iterable instanceof MapValue) {
+            throw new Exception('foreach expects a list or map, got '.Values::typeOf($iterable));
         }
 
-        foreach ($array as $key => $value) {
+        $map = $iterable instanceof MapValue;
+        foreach ($map ? $iterable->items : $iterable as $key => $value) {
             if ($node->key !== null) {
-                $this->assignVariable($node->key, $key);
+                $this->assignVariable($node->key, $map ? MapValue::unkey($key) : $key);
             }
             $this->assignVariable($node->value, $value);
 
@@ -520,11 +522,7 @@ class Interpreter extends AbstractNodeVisitor
         try {
             $this->visit($node->body);
         } catch (GazLangError $error) {
-            $this->assignVariable($node->variable, [
-                'message' => $error->reason,
-                'file' => $error->path,
-                'line' => $error->line_number,
-            ]);
+            $this->assignVariable($node->variable, $error->toMap());
             $this->visit($node->catch_body);
         }
 
@@ -547,20 +545,26 @@ class Interpreter extends AbstractNodeVisitor
      * Visit an ArrayLiteral node
      *
      * @param  ArrayLiteralAST  $node  The node to visit
+     * @return array|MapValue A list, or a map
      */
-    public function visitArrayLiteral(ArrayLiteralAST $node): array
+    public function visitArrayLiteral(ArrayLiteralAST $node): array|MapValue
     {
-        $array = [];
-        foreach ($node->entries as [$key, $value]) {
-            if ($key === null) {
-                $array[] = $this->visit($value);
-            } else {
-                // Duplicate keys: the last one wins
-                $array[Values::arrayKey($this->visit($key))] = $this->visit($value);
+        if (! $node->map) {
+            $list = [];
+            foreach ($node->entries as [, $value]) {
+                $list[] = $this->visit($value);
             }
+
+            return $list;
         }
 
-        return $array;
+        $map = new MapValue;
+        foreach ($node->entries as [$key, $value]) {
+            // Duplicate keys: the last one wins
+            $map->items[MapValue::key(Values::arrayKey($this->visit($key)))] = $this->visit($value);
+        }
+
+        return $map;
     }
 
     /**

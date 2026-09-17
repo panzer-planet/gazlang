@@ -7,13 +7,13 @@ check("strings compare byte by byte", sort_values(["b", "B", "a", "10", "9"]), [
 check("floats and ints together", sort_values([2.5, 1, -0.5, 2]), [-0.5, 1, 2, 2.5]);
 check("empty", sort_values([]), []);
 check("one item", sort_values(["x"]), ["x"]);
-check("keys are dropped", sort_values(["z" => 2, "y" => 1]), [1, 2]);
+check("keys are dropped", sort_values({"z" => 2, "y" => 1}), [1, 2]);
 
 $people = [
-    ["name" => "Ada", "team" => "b"],
-    ["name" => "Bob", "team" => "a"],
-    ["name" => "Cy", "team" => "b"],
-    ["name" => "Di", "team" => "a"],
+    {"name" => "Ada", "team" => "b"},
+    {"name" => "Bob", "team" => "a"},
+    {"name" => "Cy", "team" => "b"},
+    {"name" => "Di", "team" => "a"},
 ];
 $by_team = [];
 foreach (sort_by($people, "team") as $person) {

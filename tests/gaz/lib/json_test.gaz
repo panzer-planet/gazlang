@@ -17,12 +17,12 @@ check("true, false, null", json_decode("[true, false, null]"), [true, false, nul
 check("string", json_decode("\"text\""), "text");
 
 // Decoding: structures
-check("object", json_decode("{\"a\": 1, \"b\": [2]}"), ["a" => 1, "b" => [2]]);
-check("empty object and array", json_decode("[{}, []]"), [[], []]);
-check("numeric object keys become ints", json_decode("{\"0\": \"a\", \"1\": \"b\"}"), ["a", "b"]);
+check("object", json_decode("{\"a\": 1, \"b\": [2]}"), {"a" => 1, "b" => [2]});
+check("empty object and array", json_decode("[{}, []]"), [{}, []]);
+check("numeric object keys stay strings", json_decode("{\"0\": \"a\", \"1\": \"b\"}"), {"0" => "a", "1" => "b"});
 check("leading zero key stays a string", has_key(json_decode("{\"01\": 1}"), "01"), true);
-check("empty key", json_decode("{\"\": 1}"), ["" => 1]);
-check("duplicate keys: last wins", json_decode("{\"a\": 1, \"a\": 2}"), ["a" => 2]);
+check("empty key", json_decode("{\"\": 1}"), {"" => 1});
+check("duplicate keys: last wins", json_decode("{\"a\": 1, \"a\": 2}"), {"a" => 2});
 check("whitespace", json_decode(" \t\n\r[ 1 , 2 ]\r\n "), [1, 2]);
 
 // Decoding: strings
@@ -36,16 +36,16 @@ check("raw UTF-8 passes through", json_decode("\"caf" .. chr(195) .. chr(169) ..
 // Encoding
 check("encode scalars", json_encode([1, -2, 1.5, 1.0, true, false, null]), "[1,-2,1.5,1.0,true,false,null]");
 check("encode exact floats", json_encode([0.1 + 0.2, 1e25]), "[0.30000000000000004,1.0E+25]");
-check("encode object", json_encode(["a" => 1, "b" => ["c" => null]]), "{\"a\":1,\"b\":{\"c\":null}}");
-check("list keys must be 0, 1, 2 in order", json_encode([1 => "a", 0 => "b"]), "{\"1\":\"a\",\"0\":\"b\"}");
-check("empty array is a list", json_encode([]), "[]");
+check("encode object", json_encode({"a" => 1, "b" => {"c" => null}}), "{\"a\":1,\"b\":{\"c\":null}}");
+check("a map is an object, int keys as strings", json_encode({1 => "a", 0 => "b"}), "{\"1\":\"a\",\"0\":\"b\"}");
+check("empty list and map", json_encode([[], {}]), "[[],{}]");
 check("encode string escapes", json_encode("\"\\/\n\r\t\f" .. chr(8)), "\"\\\"\\\\/\\n\\r\\t\\f\\b\"");
 check("encode other control bytes", json_encode(chr(1) .. chr(31)), "\"" .. $u .. "0001" .. $u .. "001f\"");
 check("encode UTF-8 as is", json_encode("caf" .. chr(195) .. chr(169)), "\"caf" .. chr(195) .. chr(169) .. "\"");
 check("encode $ and { literally", json_encode('{$x} $y'), '"{$x} $y"');
 
 // Round trips
-$document = ["name" => "Gaz", "tags" => ["a", "b"], "n" => -12, "f" => 0.1, "nested" => [[], ["k" => false]]];
+$document = {"name" => "Gaz", "tags" => ["a", "b"], "n" => -12, "f" => 0.1, "nested" => [[], {"k" => false}]};
 check("decode undoes encode", json_decode(json_encode($document)), $document);
 $text = "{\"a\":[1,2.5,\"x\"],\"b\":{\"c\":null}}";
 check("encode undoes decode for compact JSON", json_encode(json_decode($text)), $text);

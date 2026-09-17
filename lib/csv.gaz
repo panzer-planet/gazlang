@@ -104,7 +104,7 @@ function csv_parse($text) {
     return $rows;
 }
 
-// Rows after the first as maps from the first row's names: [["name" => ..., ...], ...]
+// Rows after the first as maps from the first row's names: [{"name" => ..., ...}, ...]
 function csv_records($rows) {
     if (len($rows) == 0) {
         return [];
@@ -119,7 +119,7 @@ function csv_records($rows) {
             }
             error("CSV error in row " .. ($i + 1) .. ": " .. len($rows[$i]) .. " $fields, but the header has " .. len($header));
         }
-        $record = [];
+        $record = {};
         foreach ($header as $column => $name) {
             $record[$name] = $rows[$i][$column];
         }

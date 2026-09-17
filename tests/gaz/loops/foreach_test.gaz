@@ -10,7 +10,7 @@ function pairs($array) {
 }
 
 check("list keys and values", pairs(["a", "b"]), ["0=a", "1=b"]);
-check("map keys in insertion order", pairs(["y" => 1, "x" => 2, 7 => 3]), ["y=1", "x=2", "7=3"]);
+check("map keys in insertion order", pairs({"y" => 1, "x" => 2, 7 => 3}), ["y=1", "x=2", "7=3"]);
 check("nested values", pairs([[1, 2]]), ["0=[1, 2]"]);
 check("empty array", pairs([]), []);
 
@@ -43,11 +43,11 @@ foreach ($grow as $item) {
 check("appending during the loop doesn't extend it", $count, 2);
 check("but the variable did change", $grow, [1, 2, 1, 2]);
 
-$totals = ["a" => 1, "b" => 2];
+$totals = {"a" => 1, "b" => 2};
 foreach ($totals as $name => $total) {
     $totals[$name] = $total * 10;
 }
-check("writing back by key", $totals, ["a" => 10, "b" => 20]);
+check("writing back by key", $totals, {"a" => 10, "b" => 20});
 
 $cells = [];
 foreach ([[1, 2], [3]] as $row => $columns) {
@@ -58,7 +58,7 @@ foreach ([[1, 2], [3]] as $row => $columns) {
 check("nested loops", $cells, ["0.0=1", "0.1=2", "1.0=3"]);
 
 // Globals work as loop variables
-foreach (["k" => "v"] as @last_key => @last_value) { }
+foreach ({"k" => "v"} as @last_key => @last_value) { }
 check("global loop variables", "{@last_key}{@last_value}", "kv");
 
 function first_even($numbers) {

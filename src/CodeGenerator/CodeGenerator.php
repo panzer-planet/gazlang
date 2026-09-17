@@ -33,6 +33,7 @@ use GazLang\AST\VariableAST;
 use GazLang\AST\WhileStatementAST;
 use GazLang\Lexer\Token;
 use GazLang\Runtime\Builtins;
+use GazLang\Runtime\MapValue;
 
 /**
  * CodeGenerator class transforms the AST into stack-based VM code
@@ -55,12 +56,12 @@ use GazLang\Runtime\Builtins;
  * interpreter does); CALL_VALUE on a closure starts a frame from the captured values
  * plus the arguments and jumps to the lambda's entry.
  *
- * Arrays are values. NEW_ARRAY pushes an empty array; ARRAY_PUSH pops a value
- * and appends it to the array below, ARRAY_SET pops a value and a key and sets
- * it. KEY_CHECK fails unless the value on top of the stack can be an array key, and is
- * emitted right after each key expression, so a bad key fails before later keys and the
- * value run, as in the interpreter. INDEX_GET pops an index and an array or string and pushes the element (or
- * null). For an indexed assignment the keys, then the value are pushed, and
+ * Lists and maps are values. NEW_ARRAY pushes an empty list and ARRAY_PUSH pops a value
+ * and appends it to the list below; NEW_MAP pushes an empty map and MAP_SET pops a value
+ * and a key and sets it in the map below. KEY_CHECK fails unless the value on top of the
+ * stack can be a key (an int or string), and is emitted right after each key expression,
+ * so a bad key fails before later keys and the value run, as in the interpreter.
+ * INDEX_GET pops an index and a list, map or string and pushes the element. For an indexed assignment the keys, then the value are pushed, and
  * SET_PATH n slot pops the value and n keys, sets the element of the variable in
  * that local slot in place (SET_PATH_GLOBAL for a global), and pushes the value;
  * APPEND_PATH n slot appends after following the n keys. The variable is read
@@ -360,14 +361,15 @@ class CodeGenerator extends AbstractNodeVisitor
     }
 
     /**
-     * The value of an array literal made only of constants with valid keys, or null if it isn't one
+     * The value of a list or map literal made only of constants with valid keys, or null if it isn't one
      *
      * Built exactly as the interpreter's visitArrayLiteral() would build it, so it can be
-     * pushed as one finished value. Arrays are values, so sharing it is safe.
+     * pushed as one finished value. Lists and maps are values (Values::store() clones a map
+     * before changing it), so sharing it is safe.
      *
      * @param  ArrayLiteralAST  $node  The literal
      */
-    private static function constantArray(ArrayLiteralAST $node): ?array
+    private static function constantArray(ArrayLiteralAST $node): array|MapValue|null
     {
         $array = [];
         foreach ($node->entries as [$key, $value]) {
@@ -388,11 +390,11 @@ class CodeGenerator extends AbstractNodeVisitor
             if ($key === null) {
                 $array[] = $value;
             } else {
-                $array[$key->value] = $value;
+                $array[MapValue::key($key->value)] = $value;
             }
         }
 
-        return $array;
+        return $node->map ? new MapValue($array) : $array;
     }
 
     /**
@@ -578,14 +580,14 @@ class CodeGenerator extends AbstractNodeVisitor
             return;
         }
 
-        $this->emit('NEW_ARRAY');
+        $this->emit($node->map ? 'NEW_MAP' : 'NEW_ARRAY');
         foreach ($node->entries as [$key, $value]) {
             if ($key !== null) {
                 $this->visit($key);
                 $this->emit('KEY_CHECK');
             }
             $this->visit($value);
-            $this->emit($key === null ? 'ARRAY_PUSH' : 'ARRAY_SET');
+            $this->emit($key === null ? 'ARRAY_PUSH' : 'MAP_SET');
         }
     }
 

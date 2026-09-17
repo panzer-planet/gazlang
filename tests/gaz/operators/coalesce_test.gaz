@@ -1,6 +1,6 @@
 include "../check.gaz";
 
-$values = ["null" => null, "zero" => 0, "false" => false, "empty" => "", "list" => [10, 20]];
+$values = {"null" => null, "zero" => 0, "false" => false, "empty" => "", "list" => [10, 20]};
 
 // Only null or missing falls through to the right side
 check("null", $values["null"] ?? "default", "default");
@@ -36,11 +36,11 @@ check("assignment last", $assigned, 7);
 check("in interpolation", "{$values["missing"] ?? "fallback"}", "fallback");
 
 // Counting with ?? instead of checking has_key first
-$counts = [];
+$counts = {};
 foreach (["a", "b", "a", "a"] as $word) {
     $counts[$word] = ($counts[$word] ?? 0) + 1;
 }
-check("counting", $counts, ["a" => 3, "b" => 1]);
+check("counting", $counts, {"a" => 3, "b" => 1});
 
 // Other errors on the left still happen
 try {
@@ -52,15 +52,15 @@ try {
 try {
     echo $values[true] ?? "default";
 } catch ($e) {
-    check("a bad key type is still an error", $e["message"], "Array keys must be int or string, got bool");
+    check("a bad key type is still an error", $e["message"], "Keys must be int or string, got bool");
 }
 
 // ??= assigns only when the target is null or missing, and gives the resulting value
-$settings = ["port" => 0, "host" => null];
+$settings = {"port" => 0, "host" => null};
 check("??= sets a missing key", $settings["name"] ??= "app", "app");
 check("??= sets a null key", $settings["host"] ??= "localhost", "localhost");
 check("??= keeps a set key, even 0", $settings["port"] ??= 8080, 0);
-check("??= result", $settings, ["port" => 0, "host" => "localhost", "name" => "app"]);
+check("??= result", $settings, {"port" => 0, "host" => "localhost", "name" => "app"});
 check("??= creates a variable", $created ??= [], []);
 @shared ??= "first";
 @shared ??= "second";
@@ -72,21 +72,21 @@ function next_key() {
     @keys++;
     return "k";
 }
-$lazy = ["k" => "set"];
+$lazy = {"k" => "set"};
 check("right side not run when set", $lazy[next_key()] ??= called(), "set");
 check("key evaluated once, right side skipped", [@keys, @calls], [1, 1]);
 
-$groups = [];
-foreach (["x" => "a", "y" => "b", "z" => "a"] as $item => $group) {
+$groups = {};
+foreach ({"x" => "a", "y" => "b", "z" => "a"} as $item => $group) {
     $groups[$group] ??= [];
     $groups[$group][] = $item;
 }
-check("grouping with ??=", $groups, ["a" => ["x", "z"], "b" => ["y"]]);
+check("grouping with ??=", $groups, {"a" => ["x", "z"], "b" => ["y"]});
 
 // Like =, it doesn't create missing keys along the way
 try {
-    $empty = [];
+    $empty = {};
     $empty["outer"]["inner"] ??= 1;
 } catch ($e) {
-    check("missing outer key is an error", $e["message"], "Undefined key: outer");
+    check("missing outer key is an error", $e["message"], "Undefined key: \"outer\"");
 }

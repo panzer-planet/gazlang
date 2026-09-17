@@ -17,7 +17,7 @@ ok function call after the sigil
 ok several in a row
 ok interpolated string inside interpolation
 ok ints convert
-ok null and arrays
+ok null, lists and maps
 ok dollar before a digit
 ok lone dollar
 ok email address

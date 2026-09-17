@@ -112,14 +112,18 @@ final class Builtins
     public function call(string $name, array $args)
     {
         return match ($name) {
-            'len' => is_array($this->argument($name, $args[0], 'array', 'string')) ? count($args[0]) : strlen($args[0]),
+            'len' => match (true) {
+                is_array($this->argument($name, $args[0], 'list', 'map', 'string')) => count($args[0]),
+                is_string($args[0]) => strlen($args[0]),
+                default => count($args[0]->items),
+            },
             'slice' => $this->slice($args[0], $this->argument($name, $args[1], 'int'), $this->argument($name, $args[2] ?? null, 'int', 'null')),
             'lower' => strtolower($this->argument($name, $args[0], 'string')),
             'upper' => strtoupper($this->argument($name, $args[0], 'string')),
             // The same whitespace the lexer skips: space, tab, newline, carriage return
             'trim' => trim($this->argument($name, $args[0], 'string'), " \t\n\r"),
             'split' => $this->split($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string')),
-            'join' => implode($this->argument($name, $args[1], 'string'), array_map(Values::toString(...), $this->argument($name, $args[0], 'array'))),
+            'join' => implode($this->argument($name, $args[1], 'string'), array_map(Values::toString(...), $this->argument($name, $args[0], 'list'))),
             'replace' => $this->replace($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string'), $this->argument($name, $args[2], 'string')),
             'contains' => str_contains($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string')),
             'starts_with' => str_starts_with($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string')),
@@ -140,9 +144,10 @@ final class Builtins
             'abs' => $this->abs($this->argument($name, $args[0], 'int', 'float')),
             'intdiv' => $this->intdiv($this->argument($name, $args[0], 'int'), $this->argument($name, $args[1], 'int')),
             'to_string' => Values::toString($args[0]),
-            'in_array' => $this->inArray($args[0], $this->argument($name, $args[1], 'array')),
-            'has_key' => array_key_exists(Values::arrayKey($args[1]), $this->argument($name, $args[0], 'array')),
-            'keys' => array_keys($this->argument($name, $args[0], 'array')),
+            'in_array' => $this->inArray($args[0], $this->argument($name, $args[1], 'list')),
+            'has_key' => $this->hasKey($this->argument($name, $args[0], 'list', 'map'), Values::arrayKey($args[1])),
+            // A list's keys are its indexes, which foreach over a list uses
+            'keys' => is_array($this->argument($name, $args[0], 'list', 'map')) ? array_keys($args[0]) : $args[0]->keys(),
             'type_of' => Values::typeOf($args[0]),
             // The program's own message, printed as is: it describes a location in the program's input,
             // not here. The interpreter still records where error() was called, for catch.
@@ -176,19 +181,18 @@ final class Builtins
     }
 
     /**
-     * slice($x, $start, $length = to the end): part of a string or array, with PHP's substr/array_slice rules
+     * slice($x, $start, $length = to the end): part of a string or list, with PHP's substr/array_slice rules
      *
      * A negative start counts from the end, a negative length stops that many from the end.
-     * Array string keys are kept, integer keys are renumbered from 0.
      *
-     * @param  mixed  $value  A string or array
+     * @param  mixed  $value  A string or list
      * @param  int  $start  The first position
      * @param  int|null  $length  How many characters or elements to take, or null for the rest
      * @return string|array The slice
      */
     private function slice($value, int $start, ?int $length): string|array
     {
-        return is_array($this->argument('slice', $value, 'string', 'array'))
+        return is_array($this->argument('slice', $value, 'string', 'list'))
             ? array_slice($value, $start, $length)
             : substr($value, $start, $length);
     }
@@ -408,26 +412,49 @@ final class Builtins
     }
 
     /**
-     * in_array($value, $array): whether the array has an element equal (==) to the value
+     * has_key($x, $key): whether a map has the key, or a list the index
+     *
+     * @param  array|MapValue  $target  The list or map
+     * @param  int|string  $key  The key or index
+     *
+     * @throws Exception If a list is given a string index
+     */
+    private function hasKey(array|MapValue $target, int|string $key): bool
+    {
+        if ($target instanceof MapValue) {
+            return array_key_exists(MapValue::key($key), $target->items);
+        }
+        if (! is_int($key)) {
+            throw new Exception('List indexes must be int, got string');
+        }
+
+        return array_key_exists($key, $target);
+    }
+
+    /**
+     * in_array($value, $list): whether the list has an element equal (==) to the value
      *
      * @param  mixed  $value  The value
-     * @param  array  $array  The array
+     * @param  array  $list  The list
      */
-    private function inArray($value, array $array): bool
+    private function inArray($value, array $list): bool
     {
-        // An identical element is always equal, and only a number or an array can be equal to
-        // an element of another type (1 == 1.0, [1] == [1.0]), so after the strict scan only
-        // elements of those other types need comparing
-        if (in_array($value, $array, true)) {
+        // An identical element is always equal, and only a number, list or map can be equal to
+        // an element that isn't identical (1 == 1.0, [1] == [1.0], two maps with the same
+        // entries), so after the strict scan only those need comparing
+        if (in_array($value, $list, true)) {
             return true;
         }
-        if (! is_int($value) && ! is_float($value) && ! is_array($value)) {
+        if (! is_int($value) && ! is_float($value) && ! is_array($value) && ! $value instanceof MapValue) {
             return false;
         }
-        $type = gettype($value);
-        foreach ($array as $item) {
-            $comparable = is_array($value) ? is_array($item) : (is_int($item) || is_float($item));
-            if ($comparable && gettype($item) !== $type && Values::equals($value, $item)) {
+        foreach ($list as $item) {
+            $comparable = match (true) {
+                is_array($value) => is_array($item),
+                $value instanceof MapValue => $item instanceof MapValue,
+                default => (is_int($item) || is_float($item)) && gettype($item) !== gettype($value),
+            };
+            if ($comparable && Values::equals($value, $item)) {
                 return true;
             }
         }

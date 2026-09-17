@@ -143,7 +143,7 @@ class LoopTest extends GazLangTestCase
 
     public function test_foreach_over_a_non_array_is_an_error()
     {
-        $this->expectExceptionMessage('foreach expects an array, got string on line 2');
+        $this->expectExceptionMessage('foreach expects a list or map, got string on line 2');
         $this->executeCode("\$s = \"abc\";\nforeach (\$s as \$c) { }");
     }
 

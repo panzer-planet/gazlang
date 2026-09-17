@@ -41,8 +41,8 @@ foreach ([$group_column, $amount_column] as $column) {
 }
 
 // Total and count the amounts in each group
-$totals = [];
-$counts = [];
+$totals = {};
+$counts = {};
 foreach ($records as $i => $record) {
     $text = trim($record[$amount_column]);
     try {
@@ -56,17 +56,16 @@ foreach ($records as $i => $record) {
     $counts[$group] = ($counts[$group] ?? 0) + 1;
 }
 
-// Largest total first (a stable sort keeps ties in first-seen order); to_string keeps
-// numeric group names like "2026" as text
+// Largest total first (a stable sort keeps ties in first-seen order)
 $summary = [];
 $grand_total = 0.0;
 foreach ($totals as $group => $total) {
-    $summary[] = [
-        "group" => to_string($group),
+    $summary[] = {
+        "group" => $group,
         "count" => to_string($counts[$group]),
         "total" => $total,
         "average" => $total / $counts[$group],
-    ];
+    };
     $grand_total += $total;
 }
 $summary = sort($summary, ($a, $b) -> $b["total"] <=> $a["total"]);

@@ -8,9 +8,9 @@ class StdlibTest extends GazLangTestCase
 {
     public function test_slice_strings_and_arrays()
     {
-        $this->assertEquals("ell\nlo\n\n[2, 3]\n[\"b\" => 2]\n", $this->executeCode(
+        $this->assertEquals("ell\nlo\n\n[2, 3]\n[3]\n", $this->executeCode(
             'echo slice("hello", 1, 3); echo slice("hello", -2, 5); echo slice("hi", 5, 1);'
-            .' echo slice([1, 2, 3], 1, 2); echo slice(["a" => 1, "b" => 2], 1, 1);'
+            .' echo slice([1, 2, 3], 1, 2); echo slice([1, 2, 3], -1);'
         ));
     }
 
@@ -62,10 +62,10 @@ class StdlibTest extends GazLangTestCase
             'upper on an int' => ['upper(1);', 'upper() expects string, got int'],
             'trim on null' => ['trim(null);', 'trim() expects string, got null'],
             'split separator' => ['split("a", 1);', 'split() expects string, got int'],
-            'join non-array' => ['join("abc", ",");', 'join() expects array, got string'],
+            'join non-array' => ['join("abc", ",");', 'join() expects list, got string'],
             'join separator' => ['join([], null);', 'join() expects string, got null'],
             'replace empty search' => ['replace("abc", "", "x");', 'replace() cannot search for an empty string'],
-            'contains on an array' => ['contains(["a"], "a");', 'contains() expects string, got array'],
+            'contains on an array' => ['contains(["a"], "a");', 'contains() expects string, got list'],
             'index_of needle' => ['index_of("abc", 1);', 'index_of() expects string, got int'],
             'repeat negative' => ['repeat("a", -1);', 'repeat() count must not be negative, got -1'],
             'repeat count' => ['repeat("a", "2");', 'repeat() expects int, got string'],
@@ -151,15 +151,16 @@ class StdlibTest extends GazLangTestCase
 
     public function test_has_key_and_keys()
     {
-        $this->assertEquals("true\nfalse\n[\"a\", 5]\n", $this->executeCode(
-            '$m = ["a" => null, 5 => 1]; echo has_key($m, "a"); echo has_key($m, "b"); echo keys($m);'
+        $this->assertEquals("true\nfalse\nfalse\n[\"a\", 5]\ntrue\nfalse\nfalse\n[0, 1]\n", $this->executeCode(
+            '$m = {"a" => null, 5 => 1}; echo has_key($m, "a"); echo has_key($m, "b"); echo has_key($m, "5"); echo keys($m);'
+            .' $l = [1, 2]; echo has_key($l, 1); echo has_key($l, 2); echo has_key($l, -1); echo keys($l);'
         ));
     }
 
     public function test_type_of()
     {
-        $this->assertEquals("int string bool null array\n", $this->executeCode(
-            'echo type_of(1) .. " " .. type_of("") .. " " .. type_of(false) .. " " .. type_of(null) .. " " .. type_of([]);'
+        $this->assertEquals("int string bool null list map\n", $this->executeCode(
+            'echo type_of(1) .. " " .. type_of("") .. " " .. type_of(false) .. " " .. type_of(null) .. " " .. type_of([]) .. " " .. type_of({});'
         ));
     }
 
@@ -201,7 +202,7 @@ class StdlibTest extends GazLangTestCase
 
     public function test_write_file_only_writes_strings()
     {
-        $this->expectExceptionMessage('write_file() expects string, got array');
+        $this->expectExceptionMessage('write_file() expects string, got list');
         $this->executeCode('write_file("out.txt", [1]);');
     }
 
@@ -274,16 +275,16 @@ class StdlibTest extends GazLangTestCase
     public static function wrongArgumentTypes(): array
     {
         return [
-            'slice target' => ['slice(5, 0, 1);', 'slice() expects string or array, got int'],
+            'slice target' => ['slice(5, 0, 1);', 'slice() expects string or list, got int'],
             'slice start' => ['slice("abc", "0", 1);', 'slice() expects int, got string'],
             'lower' => ['lower(1);', 'lower() expects string, got int'],
             'round precision' => ['round(1.5, 1.0);', 'round() expects int, got float'],
             'round null precision' => ['round(1.5, null);', 'round() expects int, got null'],
             'index_of null offset' => ['index_of("abc", "c", null);', 'index_of() expects int, got null'],
-            'in_array haystack' => ['in_array(1, "1");', 'in_array() expects array, got string'],
-            'has_key array' => ['has_key("a", 1);', 'has_key() expects array, got string'],
-            'has_key key' => ['has_key([], null);', 'Array keys must be int or string, got null'],
-            'keys' => ['keys(null);', 'keys() expects array, got null'],
+            'in_array haystack' => ['in_array(1, "1");', 'in_array() expects list, got string'],
+            'has_key array' => ['has_key("a", 1);', 'has_key() expects list or map, got string'],
+            'has_key key' => ['has_key([], null);', 'Keys must be int or string, got null'],
+            'keys' => ['keys(null);', 'keys() expects list or map, got null'],
             'read_file' => ['read_file(1);', 'read_file() expects string, got int'],
         ];
     }

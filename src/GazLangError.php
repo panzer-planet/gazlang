@@ -3,6 +3,7 @@
 namespace GazLang;
 
 use Exception;
+use GazLang\Runtime\MapValue;
 
 /**
  * An error in a GazLang program, with the file and line it happened at when known
@@ -59,5 +60,13 @@ class GazLangError extends Exception
     public static function location(?string $path, int $line_number): string
     {
         return $path === null ? "on line {$line_number}" : "at {$path}:{$line_number}";
+    }
+
+    /**
+     * The error as catch sees it: {"message" => ..., "file" => ..., "line" => ...}, the message without the location
+     */
+    public function toMap(): MapValue
+    {
+        return new MapValue(['message' => $this->reason, 'file' => $this->path, 'line' => $this->line_number]);
     }
 }

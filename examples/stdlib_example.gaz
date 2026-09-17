@@ -35,7 +35,7 @@ $tokens = tokenize($source);
 echo $tokens;
 
 // Count tokens per type with a map
-$counts = [];
+$counts = {};
 for ($t = 0; $t < len($tokens); $t = $t + 1) {
     $type = $tokens[$t][0];
     if (!has_key($counts, $type)) {

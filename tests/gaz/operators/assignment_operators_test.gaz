@@ -42,12 +42,12 @@ $f++;
 check("++ on a float", $f, 2.5);
 
 // Array elements, nested elements and globals
-$totals = ["apples" => 1, "counts" => [10, 20]];
+$totals = {"apples" => 1, "counts" => [10, 20]};
 $totals["apples"] += 4;
 $totals["counts"][1]++;
 ++$totals["counts"][0];
 $totals["counts"][0] *= 2;
-check("elements", $totals, ["apples" => 5, "counts" => [22, 21]]);
+check("elements", $totals, {"apples" => 5, "counts" => [22, 21]});
 
 @calls = 0;
 function count_call() {

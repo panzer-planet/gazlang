@@ -9,8 +9,8 @@ use GazLang\Lexer\Token;
 /**
  * GazLang's value semantics: truthiness, printing, array keys, operators and indexing
  *
- * Values are plain PHP values: int, float (always finite), string, bool, null and array, plus
- * FunctionValue for a function. Everything here is a
+ * Values are plain PHP values: int, float (always finite), string, bool, null and array (a
+ * GazLang list, always a PHP list), plus MapValue for a map and FunctionValue for a function. Everything here is a
  * pure function of values, so any backend that runs GazLang (the interpreter now, a VM
  * later) gets identical behaviour. Errors are plain Exceptions; the interpreter adds
  * the source location.
@@ -27,17 +27,22 @@ final class Values
      * The name of a value's type, as type_of() reports it and errors describe it
      *
      * @param  mixed  $value  The value
-     * @return string int, float, string, bool, null, array or function
+     * @return string int, float, string, bool, null, list, map or function
      */
     public static function typeOf($value): string
     {
-        return $value instanceof FunctionValue ? 'function' : get_debug_type($value);
+        return match (true) {
+            is_array($value) => 'list',
+            $value instanceof MapValue => 'map',
+            $value instanceof FunctionValue => 'function',
+            default => get_debug_type($value),
+        };
     }
 
     /**
      * Decide whether a value counts as true in conditions and logical operators
      *
-     * Strings and arrays are true unless empty, null is false, functions are true; everything
+     * Strings, lists and maps are true unless empty, null is false, functions are true; everything
      * else is C-like, true unless 0.
      *
      * @param  mixed  $value  The value to test
@@ -47,6 +52,7 @@ final class Values
         return match (true) {
             is_string($value) => $value !== '',
             is_array($value) => $value !== [],
+            $value instanceof MapValue => $value->items !== [],
             is_object($value) => true,
             default => $value !== null && $value != 0,
         };
@@ -75,24 +81,35 @@ final class Values
         } elseif ($value instanceof FunctionValue) {
             return 'function '.$value->describe();
         } elseif (is_array($value)) {
-            // Printed as a literal: [1, "a"] for lists, ["key" => 1, 5 => 2] otherwise
-            $is_list = array_is_list($value);
+            // Printed as a literal: [1, "a"]
+            return '['.implode(', ', array_map(self::literal(...), $value)).']';
+        } elseif ($value instanceof MapValue) {
+            // {"key" => 1, 5 => 2}
             $parts = [];
-            foreach ($value as $key => $item) {
-                $item = is_string($item) ? Lexer::quote($item) : self::toString($item);
-                $parts[] = $is_list ? $item : (is_string($key) ? Lexer::quote($key) : $key).' => '.$item;
+            foreach ($value->items as $key => $item) {
+                $parts[] = self::literal(MapValue::unkey($key)).' => '.self::literal($item);
             }
 
-            return '['.implode(', ', $parts).']';
+            return '{'.implode(', ', $parts).'}';
         }
 
         throw new Exception('Cannot convert '.self::typeOf($value).' to string');
     }
 
     /**
-     * Check a value can be used as an array key
+     * A value as it appears inside a printed list or map: strings quoted, everything else as echo prints it
      *
-     * PHP stores numeric string keys like "1" as the integer 1, so they name the same element.
+     * @param  mixed  $value  The element or key
+     */
+    private static function literal($value): string
+    {
+        return is_string($value) ? Lexer::quote($value) : self::toString($value);
+    }
+
+    /**
+     * Check a value can be used as a key or index: an int or string
+     *
+     * A list then needs an int; a map keeps "1" and 1 apart.
      *
      * @param  mixed  $key  The key value
      * @return int|string The key
@@ -102,7 +119,7 @@ final class Values
     public static function arrayKey($key): int|string
     {
         if (! is_int($key) && ! is_string($key)) {
-            throw new Exception('Array keys must be int or string, got '.self::typeOf($key));
+            throw new Exception('Keys must be int or string, got '.self::typeOf($key));
         }
 
         return $key;
@@ -133,7 +150,7 @@ final class Values
             return ! self::equals($left, $right);
         }
 
-        // null, arrays and functions only compare for equality (ints, floats, strings and bools are scalar)
+        // null, lists, maps and functions only compare for equality (ints, floats, strings and bools are scalar)
         if (! is_scalar($left) || ! is_scalar($right)) {
             throw new Exception("Cannot use {$op->value} on ".self::typeOf(is_scalar($left) ? $right : $left));
         }
@@ -171,8 +188,9 @@ final class Values
      *
      * null only equals null, true only true. Numbers compare by value (1 == 1.0, exactly:
      * see compare()). Strings compare byte by byte, so "1" != "01", and a string never
-     * equals a number or a bool. Arrays are equal when they have the same keys in the same
-     * order and their elements are equal by this rule. A function is equal only to itself.
+     * equals a number or a bool. Lists are equal when their elements are equal in order by
+     * this rule, maps when they have the same keys (in any order) with equal values. A list
+     * never equals a map, even when both are empty. A function is equal only to itself.
      *
      * @param  mixed  $left  One value
      * @param  mixed  $right  The other
@@ -185,11 +203,24 @@ final class Values
         }
 
         if (is_array($left) && is_array($right)) {
-            if (count($left) !== count($right) || array_keys($left) !== array_keys($right)) {
+            if (count($left) !== count($right)) {
                 return false;
             }
-            foreach ($left as $key => $item) {
-                if (! self::equals($item, $right[$key])) {
+            foreach ($left as $i => $item) {
+                if (! self::equals($item, $right[$i])) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        if ($left instanceof MapValue && $right instanceof MapValue) {
+            if (count($left->items) !== count($right->items)) {
+                return false;
+            }
+            foreach ($left->items as $key => $item) {
+                if (! array_key_exists($key, $right->items) || ! self::equals($item, $right->items[$key])) {
                     return false;
                 }
             }
@@ -278,18 +309,37 @@ final class Values
     }
 
     /**
-     * Read an element of an array, or a character of a string
+     * Read an element of a list or map, or a character of a string
      *
-     * @param  mixed  $target  The array or string
-     * @param  mixed  $index  The key or position
-     * @return mixed The element, a one character string, or null if the key or position does not exist
+     * A list index must be in range and a map key must exist, unless $quiet (the left side of
+     * ??), which reads them as null. A string position out of range is always null.
      *
-     * @throws Exception If the target can't be indexed, or the index has the wrong type
+     * @param  mixed  $target  The list, map or string
+     * @param  mixed  $index  The index, key or position
+     * @param  bool  $quiet  Whether a missing index or key reads as null instead of an error
+     * @return mixed The element, a one character string, or null
+     *
+     * @throws Exception If the target can't be indexed, the index has the wrong type, or it is missing
      */
-    public static function index($target, $index)
+    public static function index($target, $index, bool $quiet = false)
     {
         if (is_array($target)) {
-            return $target[self::arrayKey($index)] ?? null;
+            if (! is_int($index)) {
+                // A float or null is the same error as for a map; only a string is list-specific
+                throw new Exception('List indexes must be int, got '.self::typeOf(self::arrayKey($index)));
+            }
+            if (array_key_exists($index, $target)) {
+                return $target[$index];
+            }
+
+            return $quiet ? null : throw new Exception("Index out of range: {$index}");
+        } elseif ($target instanceof MapValue) {
+            $key = MapValue::key(self::arrayKey($index));
+            if (array_key_exists($key, $target->items)) {
+                return $target->items[$key];
+            }
+
+            return $quiet ? null : throw self::undefinedKey($index);
         } elseif (is_string($target)) {
             if (! is_int($index)) {
                 throw new Exception('String positions must be int, got '.self::typeOf($index));
@@ -306,14 +356,15 @@ final class Values
      *
      * Shared by the interpreter (variables by name) and the VM (by slot), so both create,
      * check and fail in exactly the same way. Plain assignment ($op null) may create the
-     * variable and the last key. A compound assignment (a binary operator token, + for +=)
-     * or ++/-- (an INCREMENT or DECREMENT token) combines with the current value, so the
-     * variable and every key must exist: reading a missing key as null would make
-     * $a["n"] += "x" quietly give "nullx". Missing keys along the way are never created,
-     * and nothing is written if computing the new value fails.
+     * variable and a map's last key; a list index must already exist, and $l[] = v appends.
+     * A compound assignment (a binary operator token, + for +=) or ++/-- (an INCREMENT or
+     * DECREMENT token) combines with the current value, so the variable and every key must
+     * exist. Missing keys along the way are never created, and nothing is written if
+     * computing the new value fails.
      *
-     * Arrays are values: writing in place through a PHP reference only changes this
-     * variable's copy, and appending stays linear.
+     * Lists and maps are values: a list is written in place through a PHP reference, which
+     * only changes this variable's copy, and each map on the path is cloned first (cheap,
+     * see MapValue), so appending and setting stay linear.
      *
      * @param  array  $table  The variables, by reference: locals or globals
      * @param  int|string  $slot  The variable's key in $table
@@ -333,24 +384,45 @@ final class Values
 
         $container = &$table;
         $key = $slot;
-        foreach ($keys as $i => $next_key) {
-            if ($i > 0 && ! array_key_exists($key, $container)) {
-                throw new Exception("Undefined key: {$key}");
+        // Whether $key is in $container; a missing one is only an error once something needs it
+        $exists = true;
+        $missing = null;
+        foreach ($keys as $next_key) {
+            if (! $exists) {
+                throw $missing;
             }
             $container = &$container[$key];
-            if (! is_array($container)) {
+            if (is_array($container)) {
+                if ($next_key === null) {
+                    $container[] = $value;
+
+                    return [null, $value];
+                }
+                if (! is_int($next_key)) {
+                    throw new Exception('List indexes must be int, got '.self::typeOf($next_key));
+                }
+                if (! array_key_exists($next_key, $container)) {
+                    throw new Exception("Index out of range: {$next_key}");
+                }
+                $key = $next_key;
+            } elseif ($container instanceof MapValue) {
+                if ($next_key === null) {
+                    throw new Exception('Cannot append to a map');
+                }
+                $container = clone $container;
+                $container = &$container->items;
+                $key = MapValue::key($next_key);
+                if (! array_key_exists($key, $container)) {
+                    $exists = false;
+                    $missing = self::undefinedKey($next_key);
+                }
+            } else {
                 throw new Exception('Cannot use [] on '.self::typeOf($container));
             }
-            if ($next_key === null) {
-                $container[] = $value;
-
-                return [null, $value];
-            }
-            $key = $next_key;
         }
 
-        if ($op !== null && ! array_key_exists($key, $container)) {
-            throw new Exception("Undefined key: {$key}");
+        if (! $exists && $op !== null) {
+            throw $missing;
         }
 
         $old = $container[$key] ?? null;
@@ -367,26 +439,31 @@ final class Values
     /**
      * Read an element that must exist, as a compound update (+=, ++) reads the value it combines with
      *
-     * Stricter than index(): the target must be an array and the key must be there, with the
-     * same messages as the interpreter's own updates.
+     * Stricter than index(): the target must be a list or map, not a string.
      *
-     * @param  mixed  $target  The array
-     * @param  mixed  $index  The key
+     * @param  mixed  $target  The list or map
+     * @param  mixed  $index  The index or key
      * @return mixed The element
      *
-     * @throws Exception If the target is not an array or the key is missing
+     * @throws Exception If the target is not a list or map, or the index or key is missing
      */
     public static function indexExisting($target, $index)
     {
-        if (! is_array($target)) {
+        if (! is_array($target) && ! $target instanceof MapValue) {
             throw new Exception('Cannot use [] on '.self::typeOf($target));
         }
-        $key = self::arrayKey($index);
-        if (! array_key_exists($key, $target)) {
-            throw new Exception("Undefined key: {$key}");
-        }
 
-        return $target[$key];
+        return self::index($target, $index);
+    }
+
+    /**
+     * The error for a map key that isn't there
+     *
+     * @param  int|string  $key  The key, shown quoted when it is a string so "1" and 1 differ
+     */
+    public static function undefinedKey(int|string $key): Exception
+    {
+        return new Exception('Undefined key: '.(is_string($key) ? Lexer::quote($key) : $key));
     }
 
     /**

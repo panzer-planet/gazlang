@@ -14,7 +14,6 @@ ok split empty string into characters
 ok join
 ok join converts like echo
 ok join empty array
-ok join ignores keys
 ok join undoes split
 ok replace every occurrence
 ok replace with empty

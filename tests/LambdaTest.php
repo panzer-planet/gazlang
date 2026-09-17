@@ -65,7 +65,7 @@ class LambdaTest extends GazLangTestCase
             echo $add5(1);
             function with_default($cb = $x -> $x * 2) { return $cb(3); }
             echo with_default();
-            $ops = ["double" => $x -> $x * 2];
+            $ops = {"double" => $x -> $x * 2};
             $out = [];
             foreach ([1, 2] as $n) { $out[] = $ops["double"]($n); }
             echo $out;
@@ -101,8 +101,8 @@ class LambdaTest extends GazLangTestCase
 
     public function test_a_function_named_like_a_lambda_frame_keeps_its_own_variable_names()
     {
-        $this->assertEquals("Undefined variable: \$b\nUndefined key: k\n", $this->executeCode(
-            'function lambda_0($a) { return $b; } function f() { $z = []; $z["k"]["m"] = 1; } $l = () -> 1;'
+        $this->assertEquals("Undefined variable: \$b\nUndefined key: \"k\"\n", $this->executeCode(
+            'function lambda_0($a) { return $b; } function f() { $z = {}; $z["k"]["m"] = 1; } $l = () -> 1;'
             .' try { lambda_0(1); } catch ($e) { echo $e["message"]; } try { f(); } catch ($e) { echo $e["message"]; }'
         ));
     }

@@ -27,7 +27,7 @@ function caught_message($code) {
     try {
         if ($code == "undefined") { return $missing; }
         if ($code == "type") { return "a" * 2; }
-        if ($code == "key") { $a = []; $a["x"]["y"] = 1; }
+        if ($code == "key") { $a = {}; $a["x"]["y"] = 1; }
         if ($code == "builtin") { return lower(5); }
         if ($code == "file") { return read_file("tests/gaz/errors/no_such_file"); }
         if ($code == "json") { return json_decode("[1,"); }
@@ -38,7 +38,7 @@ function caught_message($code) {
 }
 check("undefined variable", caught_message("undefined"), "Undefined variable: \$missing");
 check("type error", caught_message("type"), "Cannot use * on string");
-check("missing key", caught_message("key"), "Undefined key: x");
+check("missing key", caught_message("key"), "Undefined key: \"x\"");
 check("builtin argument", caught_message("builtin"), "lower() expects string, got int");
 check("file error", caught_message("file"), "Cannot read file: tests/gaz/errors/no_such_file");
 check("invalid JSON", caught_message("json"), "Invalid JSON: unexpected end of input at position 3");
@@ -57,12 +57,12 @@ $steps[] = "continued";
 check("control flow", $steps, ["before", "caught", "continued"]);
 
 // A failed update changes nothing
-$item = ["count" => "not a number"];
+$item = {"count" => "not a number"};
 try {
     $item["count"]++;
 } catch ($e) {
 }
-check("failed ++ leaves the value", $item, ["count" => "not a number"]);
+check("failed ++ leaves the value", $item, {"count" => "not a number"});
 $totals = [];
 try {
     $totals["missing"] += 1;
@@ -133,10 +133,10 @@ check("global catch variable", @last_error["message"], "global");
 // Handling bad input without stopping: the reason json_decode needed try/catch
 function parse_config($text) {
     try {
-        return ["ok" => true, "config" => json_decode($text)];
+        return {"ok" => true, "config" => json_decode($text)};
     } catch ($e) {
-        return ["ok" => false, "reason" => $e["message"]];
+        return {"ok" => false, "reason" => $e["message"]};
     }
 }
-check("valid config", parse_config("{\"debug\": true}"), ["ok" => true, "config" => ["debug" => true]]);
+check("valid config", parse_config("{\"debug\": true}"), {"ok" => true, "config" => {"debug" => true}});
 check("invalid config", parse_config("{debug}")["ok"], false);

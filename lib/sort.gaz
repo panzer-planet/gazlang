@@ -1,7 +1,7 @@
 // Sorting by key for GazLang, on top of sort() from functional.gaz: sort_values() sorts
-// plain values and sort_by() sorts rows (arrays) by one of their keys. Both are stable and
+// plain values and sort_by() sorts rows (maps) by one of their keys. Both are stable and
 // return a new list; keys are not kept. Values are ordered with <=>, so mixing types that
-// can't be ordered (a number and a non-number string, arrays, null) is an error.
+// can't be ordered (a number and a string, lists, maps, null) is an error.
 
 include "functional.gaz";
 

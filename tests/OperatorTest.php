@@ -42,7 +42,7 @@ class OperatorTest extends GazLangTestCase
             'float overflow by division' => ['echo 1e308 / 1e-10;', 'Float overflow on line 1'],
             'modulo with a float' => ['echo 5.5 % 2;', 'Cannot use % on float on line 1'],
             'division by float zero' => ['echo 1 / 0.0;', 'Division by zero on line 1'],
-            'float array key' => ['echo [1.5 => 1];', 'Array keys must be int or string, got float on line 1'],
+            'float map key' => ['echo {1.5 => 1};', 'Keys must be int or string, got float on line 1'],
             'float string position' => ['echo "abc"[1.0];', 'String positions must be int, got float on line 1'],
             'ordering a non-number string' => ['echo "abc" < 1.5;', 'Cannot use < on string and float on line 1'],
             'arithmetic on a string' => ['echo "1.5" + 1.5 * "2";', 'Cannot use * on string on line 1'],
@@ -78,11 +78,12 @@ class OperatorTest extends GazLangTestCase
             'undefined variable ++' => ['$x++;', 'Undefined variable: $x on line 1'],
             '++ on a string' => ['$s = "a"; $s++;', 'Cannot use ++ on string on line 1'],
             '-- on null' => ['$n = null; $n--;', 'Cannot use -- on null on line 1'],
-            'missing key' => ['$a = []; $a["x"] += 1;', 'Undefined key: x on line 1'],
-            'missing key ++' => ['$a = []; $a["x"]++;', 'Undefined key: x on line 1'],
-            'missing key with a string, not "nullx"' => ['$a = []; $a["n"] += "x";', 'Undefined key: n on line 1'],
+            'missing key' => ['$a = {}; $a["x"] += 1;', 'Undefined key: "x" on line 1'],
+            'missing key ++' => ['$a = {}; $a["x"]++;', 'Undefined key: "x" on line 1'],
+            'missing key with a string, not "nullx"' => ['$a = {}; $a["n"] += "x";', 'Undefined key: "n" on line 1'],
+            'missing index' => ['$a = []; $a[0] += 1;', 'Index out of range: 0 on line 1'],
             'element of a string' => ['$s = "ab"; $s[0]++;', 'Cannot use [] on string on line 1'],
-            'missing key on the way' => ['$a = []; $a["x"]["y"] += 1;', 'Undefined key: x on line 1'],
+            'missing key on the way' => ['$a = {}; $a["x"]["y"] += 1;', 'Undefined key: "x" on line 1'],
             'overflow' => ['$m = 9223372036854775807; $m++;', 'Integer overflow on line 1'],
             'modulo a float' => ['$f = 1.5; $f %= 2;', 'Cannot use % on float on line 1'],
         ];
@@ -206,7 +207,7 @@ class OperatorTest extends GazLangTestCase
     public function test_arrays_compare_element_by_element()
     {
         $this->assertEquals("true\ntrue\nfalse\nfalse\nfalse\ntrue\n", $this->executeCode(
-            'echo [1, [2]] == [1, [2.0]]; echo [] == []; echo [1] == ["1"]; echo [1, 2] == [2, 1]; echo ["a" => 1] == [1]; echo [1] != [1, 1];'
+            'echo [1, [2]] == [1, [2.0]]; echo [] == []; echo [1] == ["1"]; echo [1, 2] == [2, 1]; echo {0 => 1} == [1]; echo [1] != [1, 1];'
         ));
     }
 
@@ -284,7 +285,7 @@ class OperatorTest extends GazLangTestCase
             'string and number' => ['echo "1" <=> 1;', 'Cannot use <=> on string and int on line 1'],
             'bool' => ['echo true <=> false;', 'Cannot use <=> on bool on line 1'],
             'null' => ['echo null <=> 1;', 'Cannot use <=> on null on line 1'],
-            'array' => ['echo [1] <=> [2];', 'Cannot use <=> on array on line 1'],
+            'array' => ['echo [1] <=> [2];', 'Cannot use <=> on list on line 1'],
         ];
     }
 

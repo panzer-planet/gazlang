@@ -19,7 +19,6 @@ check("split empty string into characters", split("", ""), []);
 check("join", join(["a", "b", "c"], ", "), "a, b, c");
 check("join converts like echo", join([1, true, false, null, [2]], "|"), "1|true|false|null|[2]");
 check("join empty array", join([], ","), "");
-check("join ignores keys", join(["x" => "a", "y" => "b"], "-"), "a-b");
 check("join undoes split", join(split("a b c", " "), " "), "a b c");
 
 check("replace every occurrence", replace("a.b.c", ".", "::"), "a::b::c");

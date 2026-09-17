@@ -9,7 +9,7 @@ use JsonException;
  * Checks lib/json.gaz against PHP's json_decode on every file in tests/json
  *
  * y_*.json must decode, and PHP must decode GazLang's re-encoding of it to exactly
- * the value PHP decodes from the original, int and float types included. n_*.json
+ * the value PHP decodes from the original, int and float types and {} versus [] included. n_*.json
  * must stop with an "Invalid JSON" error. PHP must agree with each file's prefix.
  */
 class JsonTest extends GazLangTestCase
@@ -48,6 +48,8 @@ class JsonTest extends GazLangTestCase
         $actual = $this->phpDecode(rtrim($output, "\n"));
         $this->assertNotNull($actual, "GazLang output is not valid JSON: {$output}");
         $this->assertSame($expected[0], $actual[0]);
+        // Objects as stdClass, so an empty object stays distinct from an empty array
+        $this->assertSame(json_encode(json_decode($text), JSON_PRESERVE_ZERO_FRACTION), json_encode(json_decode($output), JSON_PRESERVE_ZERO_FRACTION));
     }
 
     /**

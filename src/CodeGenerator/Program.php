@@ -4,6 +4,7 @@ namespace GazLang\CodeGenerator;
 
 use GazLang\AST\LambdaAST;
 use GazLang\Lexer\Lexer;
+use GazLang\Runtime\MapValue;
 use GazLang\Runtime\Values;
 
 /**
@@ -59,7 +60,7 @@ final class Program
     /**
      * The instructions as text, one per line, as `gazlang -c` prints them
      *
-     * PUSH writes its value (a scalar, or an array built at compile time) as a GazLang literal and PUSH_STR quotes its string; every
+     * PUSH writes its value (a scalar, or a list or map built at compile time) as a GazLang literal and PUSH_STR quotes its string; every
      * other argument is a label, name or number written as is.
      */
     public function __toString(): string
@@ -71,7 +72,7 @@ final class Program
                     is_bool($args[0]) => $args[0] ? 'true' : 'false',
                     $args[0] === null => 'null',
                     is_float($args[0]) => Lexer::format_float($args[0]),
-                    is_array($args[0]) => Values::toString($args[0]),
+                    is_array($args[0]) || $args[0] instanceof MapValue => Values::toString($args[0]),
                     default => (string) $args[0],
                 }],
                 'PUSH_STR' => [Lexer::quote($args[0])],
