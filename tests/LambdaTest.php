@@ -99,6 +99,14 @@ class LambdaTest extends GazLangTestCase
             CODE));
     }
 
+    public function test_a_function_named_like_a_lambda_frame_keeps_its_own_variable_names()
+    {
+        $this->assertEquals("Undefined variable: \$b\nUndefined key: k\n", $this->executeCode(
+            'function lambda_0($a) { return $b; } function f() { $z = []; $z["k"]["m"] = 1; } $l = () -> 1;'
+            .' try { lambda_0(1); } catch ($e) { echo $e["message"]; } try { f(); } catch ($e) { echo $e["message"]; }'
+        ));
+    }
+
     public function test_globals_are_read_live_and_are_the_shared_state()
     {
         $this->assertEquals("2\n", $this->executeCode('@count = 0; $inc = () -> { @count++; }; $inc(); $inc(); echo @count;'));
@@ -182,7 +190,18 @@ class LambdaTest extends GazLangTestCase
             'no body' => ['$x -> ;', "Unexpected ';' on line 1"],
             'return in an expression body' => ['$x -> return 1;', "Unexpected 'return' on line 1"],
             'break in a block body outside a loop' => ['while (true) { $f = () -> { break; }; }', 'Cannot use break outside of a loop on line 1'],
-            'empty parentheses without an arrow' => ['();', "Expected '->' but found ';' on line 1"],
+            'empty parentheses without an arrow' => ['();', "Unexpected ')' on line 1"],
+            'empty parentheses in an operand' => ['echo () + 1;', "Unexpected ')' on line 1"],
+            'parenthesised head is at the expression level too' => ['echo 1 + ($x) -> 2;', "Expected ';' but found '->' on line 1"],
+            'parenthesised head after ??' => ['$f = null; echo $f ?? () -> 7;', "Unexpected ')' on line 1"],
+            'parenthesised head after !' => ['echo !() -> 1;', "Unexpected ')' on line 1"],
+            'doubly parenthesised parameter' => ['(($a)) -> 1;', 'Lambda parameters must be $variables on line 1'],
+            'parenthesised parameter in a list' => ['($a, ($b)) -> 1;', 'Lambda parameters must be $variables on line 1'],
+            'indexed parameter' => ['($a[0] = 1) -> 1;', 'Lambda parameters must be $variables on line 1'],
+            'duplicate parameter reports its own line' => ['($a,
+ $a
+) -> 1;', 'Duplicate parameter $a in lambda on line 2'],
+            'comma in grouping that is not a head fails at once' => ['echo 1 + (1, 2 ~);', "Unexpected ',' on line 1"],
             'a comma in grouping' => ["(1,\n 2);", "Expected ')' but found ',' on line 1"],
             'duplicate parameter' => ['($a, $a) -> 1;', 'Duplicate parameter $a in lambda on line 1'],
             'required after default' => ['($a = 1, $b) -> 1;', "Required parameter \$b can't follow a parameter with a default on line 1"],

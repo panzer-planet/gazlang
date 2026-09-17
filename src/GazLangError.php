@@ -41,16 +41,23 @@ class GazLangError extends Exception
      */
     public function __construct(string $reason, ?string $path = null, ?int $line_number = null, bool $show_location = true)
     {
-        $location = match (true) {
-            $line_number === null || ! $show_location => '',
-            $path === null => " on line {$line_number}",
-            default => " at {$path}:{$line_number}",
-        };
+        $location = $line_number === null || ! $show_location ? '' : ' '.self::location($path, $line_number);
         parent::__construct($reason.$location);
 
         $this->reason = $reason;
         $this->path = $path;
         $this->line_number = $line_number;
         $this->show_location = $show_location;
+    }
+
+    /**
+     * A place in the program as messages spell it: "at path:12", or "on line 12" for piped or inline source
+     *
+     * @param  string|null  $path  The file, as shown to the user
+     * @param  int  $line_number  The line number
+     */
+    public static function location(?string $path, int $line_number): string
+    {
+        return $path === null ? "on line {$line_number}" : "at {$path}:{$line_number}";
     }
 }

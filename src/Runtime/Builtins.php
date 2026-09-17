@@ -80,13 +80,24 @@ final class Builtins
      */
     public static function arityError(string $name, int|array $arity, int $argc): ?string
     {
-        [$fewest, $most] = is_int($arity) ? [$arity, $arity] : $arity;
-        if ($argc >= $fewest && $argc <= $most) {
+        if (self::fitsArity($arity, $argc)) {
             return null;
         }
+        [$fewest, $most] = is_int($arity) ? [$arity, $arity] : $arity;
         $expected = $fewest === $most ? $fewest : "{$fewest} to {$most}";
 
         return "Function {$name} expects {$expected} arguments, {$argc} given";
+    }
+
+    /**
+     * Whether an argument count fits an arity, cheaply: the hot path of a call on a value
+     *
+     * @param  int|array{0: int, 1: int}  $arity  A count, or [fewest, most]
+     * @param  int  $argc  How many arguments were passed
+     */
+    public static function fitsArity(int|array $arity, int $argc): bool
+    {
+        return is_int($arity) ? $argc === $arity : ($argc >= $arity[0] && $argc <= $arity[1]);
     }
 
     /**

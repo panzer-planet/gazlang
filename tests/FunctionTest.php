@@ -183,6 +183,7 @@ class FunctionTest extends GazLangTestCase
     public function test_duplicate_parameter_is_a_parse_error()
     {
         $this->expectExceptionMessage('Duplicate parameter $a in function f');
+        // Reported before the default is read, so a bad default doesn't hide it
         $this->createParser('function f($a, $a) { }')->parse();
     }
 

@@ -107,8 +107,8 @@ each step depends on the ones before it.
    - `function name($a, $b) { ... }` is only allowed at the top level. Calls may
      come before the declaration (mutual recursion works). The parser checks
      every call's name and argument count once the whole program is read, so
-     both backends trust calls. Functions are values, see "Function values"
-     below; nested functions and closures are next.
+     both backends trust calls. Functions are values and there are anonymous
+     functions, see "Function values" below.
    - Parameters can have defaults, `function f($a, $b = $a * 2)`, after all the
      required ones. A default is any expression, evaluated inside the function on
      each call that leaves the argument out (so it can use earlier parameters and
@@ -323,9 +323,8 @@ which the parser records and checks names a function once the whole program is r
 like calls ("Undefined function: missing"). A bare name is unambiguous because variables
 always have a sigil; a typo like `retrun 1;` is now "Expected ';'" rather than
 "Expected '('". `Runtime\FunctionValue` holds the name; `FunctionValue::named()` interns
-one instance per name, so `add == add` and `in_array` work by identity. Anonymous
-functions (next) will be fresh per creation and compare by identity of creation, so
-nothing should depend on `named()`.
+one instance per name, so `add == add` and `in_array` work by identity. Closures are
+fresh per creation and compare by identity of creation; nothing depends on `named()`.
 
 Any postfix expression can be called: `$f(1)`, `$h["save"]($doc)`, `pick()(1, 2)`,
 `(add)(1)` are `CallValueAST` (callee, args), parsed by the same `postfix()` loop as
@@ -357,9 +356,11 @@ is returned and extends as far right as it can (`$x -> $x * 2 == 4` is
 level: `1 + $x -> 2` is a syntax error, `$c ? $x -> 1 : $y -> 2` and `$f ?? ($x -> $x)`
 parse. A block body returns only through `return` (falling off the end gives null), may
 use `return` even at top level, and `break`/`continue` inside it can't reach a loop
-around the lambda. No lookahead: `(` parses a comma list either way, and the elements
-are checked to be `$param` or `$param = default` only when `->` follows
-(`Parser::parenthesised()`); `$x ->` is recognised in `ternary()` after the fact. A
+around the lambda. No lookahead: `ternary()` marks a `(` it starts at as a possible
+head, `Parser::parenthesised()` parses a comma list either way, and only if that `(` was
+a head and `->` follows are the elements checked to have been written as `$param` or
+`$param = default` (so `(($a)) -> 1` is an error, like `function f(($a))`); `$x ->` is
+recognised in `ternary()` after the fact. Errors about a parameter point at it. A
 block body can't be written inside `"{...}"` interpolation, since the first `}` ends
 the interpolation.
 
@@ -374,16 +375,20 @@ itself through the variable it is assigned to (`$fact = $n -> ... $fact(...)`: `
 doesn't exist yet, or holds its old value); use a named function or an `@global`.
 
 `FunctionValue::closure()` holds the `LambdaAST` and the captured values (by name in
-the interpreter, by local slot in the VM); every evaluation makes a fresh value, so
-`==` is identity of creation. `FunctionValue::describe()` names a function in output
-and messages: `add`, or `-> at file.gaz:12` / `-> on line 12` for a closure, so
-`echo $f` prints `function -> at file.gaz:12` and errors read `Function -> at
-file.gaz:12 expects 2 arguments, 1 given`. The interpreter runs named functions and
+the interpreter, by local slot in the VM, which also keeps its lambda index on the
+value); every evaluation makes a fresh value, so `==` is identity of creation.
+`FunctionValue::describe()` names a function in output and messages: `add`, or `-> at
+file.gaz:12` / `-> on line 12` for a closure (`GazLangError::location()`, the one
+spelling), so `echo $f` prints `function -> at file.gaz:12` and errors read `Function
+-> at file.gaz:12 expects 2 arguments, 1 given at file.gaz:20`: where it was made,
+then where it was called. Messages are only built when thrown (`Builtins::fitsArity()`
+is the hot-path check). The interpreter runs named functions and
 closures through one `invoke()`; the code generator emits `MAKE_CLOSURE n` and compiles
 each body after the functions under `LABEL LAMBDA_n` from a worklist (a body can
 contain more lambdas), with a frame of parameters, then captured variables, then other
-locals; `Program::$lambdas` carries each lambda's capture map (enclosing slot to its
-own slot), which the VM applies at `MAKE_CLOSURE`, copying only slots that exist.
+locals, keyed `->n` in `local_names` so no function name can collide; `Program::$lambdas`
+carries each lambda's capture map (enclosing slot to its own slot), which the VM
+applies at `MAKE_CLOSURE`, copying only slots that exist.
 `CALL_VALUE` on a closure starts a frame from the captured values plus the arguments.
 
 ## Assignment

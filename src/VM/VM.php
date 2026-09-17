@@ -76,7 +76,7 @@ final class VM
      */
     public function run(): void
     {
-        [$ops, $arg0, $arg1, $arg2, $locations, $functions, $lambdas, $lambda_ids] = $this->link();
+        [$ops, $arg0, $arg1, $arg2, $locations, $functions, $lambdas] = $this->link();
         $end = count($ops);
         $tokens = [];
         foreach (self::BINARY as $opcode => [$type, $symbol]) {
@@ -316,7 +316,8 @@ final class VM
                             $stack[] = FunctionValue::named($arg0[$pc - 1]);
                             break;
                         case 'MAKE_CLOSURE':
-                            [, $lambda, $map] = $lambdas[$arg0[$pc - 1]];
+                            $index = $arg0[$pc - 1];
+                            [, $lambda, $map] = $lambdas[$index];
                             // Only the enclosing frame's variables that exist are captured, as in the interpreter
                             $captured = [];
                             foreach ($map as $outer => $inner) {
@@ -324,8 +325,7 @@ final class VM
                                     $captured[$inner] = $locals[$outer];
                                 }
                             }
-                            [$file, $line] = $locations[$pc - 1];
-                            $stack[] = FunctionValue::closure($lambda, $captured, $file, $line);
+                            $stack[] = FunctionValue::closure($lambda, $captured, $index);
                             break;
                         case 'CALL_VALUE':
                             $args = $this->popMany($stack, $arg0[$pc - 1]);
@@ -335,15 +335,9 @@ final class VM
                             }
                             $name = $callee->name;
                             $builtin = $name !== null && isset(Builtins::ARITIES[$name]);
-                            if ($name === null) {
-                                $index = $lambda_ids[spl_object_id($callee->lambda)];
-                                $arity = $callee->lambda->arity;
-                            } else {
-                                $arity = $builtin ? Builtins::ARITIES[$name] : $functions[$name][1];
-                            }
-                            $error = Builtins::arityError($callee->describe(), $arity, count($args));
-                            if ($error !== null) {
-                                throw new Exception($error);
+                            $arity = $name === null ? $callee->lambda->arity : ($builtin ? Builtins::ARITIES[$name] : $functions[$name][1]);
+                            if (! Builtins::fitsArity($arity, count($args))) {
+                                throw new Exception(Builtins::arityError($callee->describe(), $arity, count($args)));
                             }
                             if ($builtin) {
                                 $stack[] = $this->builtins->call($name, $args);
@@ -358,8 +352,9 @@ final class VM
                             $argc = count($args);
                             if ($name === null) {
                                 $locals = $args + $callee->captured;
-                                $function = "lambda_{$index}";
-                                $pc = $lambdas[$index][0];
+                                // Keyed so no function name can collide: names can't contain ->
+                                $function = "->{$callee->index}";
+                                $pc = $lambdas[$callee->index][0];
                             } else {
                                 $locals = $args;
                                 $function = $name;
@@ -457,10 +452,9 @@ final class VM
      *   the loop reads what it needs without unpacking an instruction each time, and its
      *   [file, line] into $locations, only read when there is an error.
      * - Each user function's entry position and arity go into $functions, for CALL_VALUE, and
-     *   each lambda's entry position, node and capture map into $lambdas, with $lambda_ids
-     *   finding a closure's lambda index from its node.
+     *   each lambda's entry position, node and capture map into $lambdas.
      *
-     * @return array{0: list<string>, 1: list<mixed>, 2: list<mixed>, 3: list<mixed>, 4: list<array{0: string|null, 1: int|null}>, 5: array<string, array{0: int, 1: int|array{0: int, 1: int}}>, 6: list<array{0: int, 1: LambdaAST, 2: array<int, int>}>, 7: array<int, int>}
+     * @return array{0: list<string>, 1: list<mixed>, 2: list<mixed>, 3: list<mixed>, 4: list<array{0: string|null, 1: int|null}>, 5: array<string, array{0: int, 1: int|array{0: int, 1: int}}>, 6: list<array{0: int, 1: LambdaAST, 2: array<int, int>}>}
      */
     private function link(): array
     {
@@ -505,13 +499,11 @@ final class VM
             $functions[$name] = [$positions["FN_{$name}"], $arity];
         }
         $lambdas = [];
-        $lambda_ids = [];
         foreach ($this->program->lambdas as $index => [$lambda, $map]) {
             $lambdas[$index] = [$positions["LAMBDA_{$index}"], $lambda, $map];
-            $lambda_ids[spl_object_id($lambda)] = $index;
         }
 
-        return [$ops, $arg0, $arg1, $arg2, $locations, $functions, $lambdas, $lambda_ids];
+        return [$ops, $arg0, $arg1, $arg2, $locations, $functions, $lambdas];
     }
 
     /**

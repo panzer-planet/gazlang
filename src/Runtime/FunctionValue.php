@@ -3,6 +3,7 @@
 namespace GazLang\Runtime;
 
 use GazLang\AST\LambdaAST;
+use GazLang\GazLangError;
 
 /**
  * A function as a value: a bare function name ($f = add;) or an anonymous function ($x -> $x * 2)
@@ -37,14 +38,9 @@ final class FunctionValue
     public $captured;
 
     /**
-     * @var string|null The file a closure was created in, as shown in errors
+     * @var int|null The VM's index for the closure's lambda (its entry and capture map), unused by the interpreter
      */
-    public $file;
-
-    /**
-     * @var int|null The line a closure was created on
-     */
-    public $line;
+    public $index;
 
     /**
      * Constructor
@@ -52,16 +48,14 @@ final class FunctionValue
      * @param  string|null  $name  The function's name, or null for a closure
      * @param  LambdaAST|null  $lambda  The lambda a closure was made from
      * @param  array  $captured  A closure's captured variables
-     * @param  string|null  $file  Where a closure was created
-     * @param  int|null  $line  Where a closure was created
+     * @param  int|null  $index  The VM's lambda index
      */
-    private function __construct(?string $name, ?LambdaAST $lambda = null, array $captured = [], ?string $file = null, ?int $line = null)
+    private function __construct(?string $name, ?LambdaAST $lambda = null, array $captured = [], ?int $index = null)
     {
         $this->name = $name;
         $this->lambda = $lambda;
         $this->captured = $captured;
-        $this->file = $file;
-        $this->line = $line;
+        $this->index = $index;
     }
 
     /**
@@ -79,12 +73,11 @@ final class FunctionValue
      *
      * @param  LambdaAST  $lambda  The lambda
      * @param  array  $captured  The captured variables, keyed as the backend needs
-     * @param  string|null  $file  Where it is created
-     * @param  int|null  $line  Where it is created
+     * @param  int|null  $index  The VM's index for the lambda
      */
-    public static function closure(LambdaAST $lambda, array $captured, ?string $file, ?int $line): self
+    public static function closure(LambdaAST $lambda, array $captured, ?int $index = null): self
     {
-        return new self(null, $lambda, $captured, $file, $line);
+        return new self(null, $lambda, $captured, $index);
     }
 
     /**
@@ -92,10 +85,6 @@ final class FunctionValue
      */
     public function describe(): string
     {
-        if ($this->name !== null) {
-            return $this->name;
-        }
-
-        return $this->file === null ? "-> on line {$this->line}" : "-> at {$this->file}:{$this->line}";
+        return $this->name ?? '-> '.GazLangError::location($this->lambda->file, $this->lambda->line);
     }
 }

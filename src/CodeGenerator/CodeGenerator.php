@@ -145,14 +145,10 @@ class CodeGenerator extends AbstractNodeVisitor
     private $try_depth = 0;
 
     /**
-     * @var LambdaAST[] Every lambda seen, in creation order, its body still to be compiled
+     * @var list<array{0: LambdaAST, 1: array<int, int>}> Every lambda seen, in creation order, with its capture
+     *                                                    map (enclosing frame slot => its own slot); bodies compile later
      */
     private $lambdas = [];
-
-    /**
-     * @var array<int, array<int, int>> Each lambda's capture map: enclosing frame slot => its own slot
-     */
-    private $captures = [];
 
     /**
      * Constructor
@@ -906,16 +902,13 @@ class CodeGenerator extends AbstractNodeVisitor
      */
     public function visitLambda(LambdaAST $node): void
     {
-        $index = count($this->lambdas);
-        $this->lambdas[] = $node;
-
         $map = [];
         foreach ($node->free as $i => $name) {
             $map[$this->var_addresses[$name] ??= count($this->var_addresses)] = count($node->params) + $i;
         }
-        $this->captures[$index] = $map;
+        $this->lambdas[] = [$node, $map];
 
-        $this->emit('MAKE_CLOSURE', $index);
+        $this->emit('MAKE_CLOSURE', count($this->lambdas) - 1);
     }
 
     /**
@@ -992,45 +985,43 @@ class CodeGenerator extends AbstractNodeVisitor
 
         foreach ($this->functions as $function) {
             $arities[$function->name] = $function->arity;
-            // Each function has its own frame, with the arguments in the first slots
-            $this->var_addresses = array_flip($function->params);
-            [$this->file, $this->line] = [$function->file, $function->line];
-
-            $this->emit('LABEL', "FN_{$function->name}");
-            $this->defaultArguments($function);
-            $this->visit($function->body);
-            // Falling off the end returns null
-            $this->emit('PUSH', null);
-            $this->emit('RET');
-
-            $local_names[$function->name] = array_keys($this->var_addresses);
+            $local_names[$function->name] = $this->compileBody("FN_{$function->name}", $function, $function->params);
         }
 
-        // A worklist: compiling a body can find more lambdas inside it
-        $lambdas = [];
+        // A worklist: compiling a body can find more lambdas inside it. A lambda's frame is
+        // keyed "->n", which no function name can be, and starts with its captured variables
+        // after the parameters, in the order its capture map uses
         for ($i = 0; $i < count($this->lambdas); $i++) {
-            $lambda = $this->lambdas[$i];
-            // Parameters first, then the captured variables in the order the capture map uses
-            $this->var_addresses = array_flip($lambda->params);
-            foreach ($lambda->free as $name) {
-                $this->var_addresses[$name] = count($this->var_addresses);
-            }
-            [$this->file, $this->line] = [$lambda->file, $lambda->line];
-
-            $this->emit('LABEL', "LAMBDA_{$i}");
-            $this->defaultArguments($lambda);
-            $this->visit($lambda->body);
-            if ($lambda->isBlock()) {
-                // Falling off the end returns null; an expression body leaves its value
-                $this->emit('PUSH', null);
-            }
-            $this->emit('RET');
-
-            $local_names["lambda_{$i}"] = array_keys($this->var_addresses);
-            $lambdas[$i] = [$lambda, $this->captures[$i]];
+            [$lambda] = $this->lambdas[$i];
+            $local_names["->{$i}"] = $this->compileBody("LAMBDA_{$i}", $lambda, [...$lambda->params, ...$lambda->free]);
         }
 
-        return new Program($this->instructions, $local_names, array_keys($this->global_addresses), $arities, $lambdas);
+        return new Program($this->instructions, $local_names, array_keys($this->global_addresses), $arities, $this->lambdas);
+    }
+
+    /**
+     * Emit a function or lambda body in its own frame
+     *
+     * @param  string  $label  The entry label
+     * @param  FunctionDeclarationAST|LambdaAST  $node  The function or lambda
+     * @param  string[]  $slots  The names of the first local slots: the parameters, then a lambda's captured variables
+     * @return list<string> The variable name in each slot of the frame
+     */
+    private function compileBody(string $label, FunctionDeclarationAST|LambdaAST $node, array $slots): array
+    {
+        $this->var_addresses = array_flip($slots);
+        [$this->file, $this->line] = [$node->file, $node->line];
+
+        $this->emit('LABEL', $label);
+        $this->defaultArguments($node);
+        $this->visit($node->body);
+        // Falling off the end returns null; a lambda's expression body leaves its value
+        if (! $node instanceof LambdaAST || $node->isBlock()) {
+            $this->emit('PUSH', null);
+        }
+        $this->emit('RET');
+
+        return array_keys($this->var_addresses);
     }
 
     /**

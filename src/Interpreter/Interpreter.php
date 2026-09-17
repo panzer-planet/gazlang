@@ -615,7 +615,7 @@ class Interpreter extends AbstractNodeVisitor
             }
         }
 
-        return FunctionValue::closure($node, $captured, $node->file, $node->line);
+        return FunctionValue::closure($node, $captured);
     }
 
     /**
@@ -667,9 +667,8 @@ class Interpreter extends AbstractNodeVisitor
         } else {
             $arity = Builtins::ARITIES[$callee->name] ?? $this->functions[$callee->name]->arity;
         }
-        $error = Builtins::arityError($callee->describe(), $arity, count($args));
-        if ($error !== null) {
-            throw new Exception($error);
+        if (! Builtins::fitsArity($arity, count($args))) {
+            throw new Exception(Builtins::arityError($callee->describe(), $arity, count($args)));
         }
 
         if ($callee->lambda !== null) {

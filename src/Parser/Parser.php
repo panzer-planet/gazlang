@@ -101,6 +101,12 @@ class Parser
     private $uses = [];
 
     /**
+     * @var array<int, true> The ( tokens (by object id) that start an expression at the ternary's level, the only
+     *                       place a parenthesised parameter list can start a lambda
+     */
+    private $lambda_heads = [];
+
+    /**
      * @var string Directory that include paths in the file being parsed are relative to
      */
     private $base_dir;
@@ -341,8 +347,10 @@ class Parser
      *
      * (LPAREN [expr (COMMA expr)*] RPAREN [ARROW lambda_body]): a comma list is parsed
      * either way, so no lookahead is needed to tell ($a, $b = 1) -> ... from ($a + 1).
-     * If -> follows, each element must be a $parameter or $parameter = default; if not,
-     * more than one element is the usual syntax error at the comma.
+     * Only a ( that starts an expression at the ternary's level (see ternary()) can head a
+     * lambda, so 1 + ($x) -> 2 is a syntax error like 1 + $x -> 2, and anywhere else a
+     * comma is the usual error at once. When -> follows, each element must have been
+     * written as $parameter or $parameter = default, not (($a)) or $a[0] = 1.
      *
      * @return AST
      *
@@ -351,47 +359,55 @@ class Parser
     public function parenthesised()
     {
         $paren = $this->current_token;
+        $head = isset($this->lambda_heads[spl_object_id($paren)]);
         $this->eat(Token::LEFT_PAREN);
 
+        // Each item with the token it starts at, for checking it as a parameter
         $items = [];
         $comma = null;
         if ($this->current_token->type !== Token::RIGHT_PAREN) {
-            $items[] = $this->expr();
+            $items[] = [$this->current_token, $this->expr()];
             while ($this->current_token->type === Token::COMMA) {
+                if (! $head) {
+                    $this->error();
+                }
                 $comma ??= $this->current_token;
                 $this->eat(Token::COMMA);
-                $items[] = $this->expr();
+                $items[] = [$this->current_token, $this->expr()];
             }
         }
+        $close = $this->current_token;
         $this->eat(Token::RIGHT_PAREN);
 
-        if ($this->current_token->type !== Token::ARROW) {
+        if (! $head || $this->current_token->type !== Token::ARROW) {
             if ($comma !== null) {
                 throw new GazLangError("Expected ')' but found ','", $this->file, $comma->line);
             }
             if ($items === []) {
-                $this->fail("Expected '->' but found ".$this->describe($this->current_token));
+                throw new GazLangError("Unexpected ')'", $this->file, $close->line);
             }
 
-            return $items[0];
+            return $items[0][1];
         }
 
         $params = [];
         $defaults = [];
-        foreach ($items as $item) {
+        $lines = [];
+        foreach ($items as [$first, $item]) {
             $default = null;
             if ($item instanceof AssignAST && $item->token->type === Token::ASSIGN) {
                 $default = $item->right;
                 $item = $item->left;
             }
-            if (! $item instanceof VariableAST || $item->isGlobal()) {
-                $this->fail('Lambda parameters must be $variables');
+            if ($first->type !== Token::VAR_IDENTIFIER || ! $item instanceof VariableAST || $item->value !== $first->value) {
+                throw new GazLangError('Lambda parameters must be $variables', $this->file, $first->line);
             }
             $params[] = $item->value;
             $defaults[] = $default;
+            $lines[] = $first->line;
         }
 
-        return $this->lambda($paren, $params, $defaults);
+        return $this->lambda($paren, $params, $defaults, $lines);
     }
 
     /**
@@ -404,13 +420,14 @@ class Parser
      * @param  Token  $start  The token the lambda starts at
      * @param  string[]  $params  The parameter names
      * @param  array<int, AST|null>  $defaults  Each parameter's default, or null
+     * @param  int[]  $lines  The line each parameter is on, for errors about it
      * @return LambdaAST
      *
      * @throws Exception
      */
-    private function lambda(Token $start, array $params, array $defaults)
+    private function lambda(Token $start, array $params, array $defaults, array $lines)
     {
-        $arity = $this->check_parameters($params, $defaults, 'lambda');
+        $arity = $this->check_parameters($params, $defaults, $lines);
         $this->eat(Token::ARROW);
 
         if ($this->current_token->type === Token::LEFT_BRACE) {
@@ -476,29 +493,45 @@ class Parser
     }
 
     /**
-     * Check a parameter list and work out its arity
+     * Check a lambda's parameter list, with the same rules as a function's, and work out its arity
      *
      * @param  string[]  $params  The parameter names
      * @param  array<int, AST|null>  $defaults  Each parameter's default, or null if required
-     * @param  string  $where  What the parameters belong to, for messages: "function f" or "lambda"
+     * @param  int[]  $lines  The line each parameter is on
      * @return int|array{0: int, 1: int} A count, or [fewest, most] when there are defaults
      *
      * @throws GazLangError On a duplicate name or a required parameter after one with a default
      */
-    private function check_parameters(array $params, array $defaults, string $where): int|array
+    private function check_parameters(array $params, array $defaults, array $lines): int|array
     {
+        $seen = [];
         $required = 0;
         foreach ($params as $i => $param) {
-            if (in_array($param, array_slice($params, 0, $i), true)) {
-                $this->fail("Duplicate parameter {$param} in {$where}");
+            if (isset($seen[$param])) {
+                throw new GazLangError("Duplicate parameter {$param} in lambda", $this->file, $lines[$i]);
             }
+            $seen[$param] = true;
             if ($defaults[$i] === null) {
                 if ($required < $i) {
-                    $this->fail("Required parameter {$param} can't follow a parameter with a default");
+                    throw new GazLangError("Required parameter {$param} can't follow a parameter with a default", $this->file, $lines[$i]);
                 }
                 $required++;
             }
         }
+
+        return self::arity($params, $defaults);
+    }
+
+    /**
+     * A parameter list's arity: a count, or [fewest, most] when there are defaults
+     *
+     * @param  string[]  $params  The parameter names
+     * @param  array<int, AST|null>  $defaults  Each parameter's default, or null if required
+     * @return int|array{0: int, 1: int}
+     */
+    private static function arity(array $params, array $defaults): int|array
+    {
+        $required = count(array_filter($defaults, fn ($default) => $default === null));
 
         return $required === count($params) ? $required : [$required, count($params)];
     }
@@ -775,11 +808,14 @@ class Parser
     public function ternary()
     {
         $start = $this->current_token;
+        if ($start->type === Token::LEFT_PAREN) {
+            $this->lambda_heads[spl_object_id($start)] = true;
+        }
         $node = $this->coalesce();
 
         $token = $this->current_token;
         if ($token->type === Token::ARROW && $node instanceof VariableAST && ! $node->isGlobal() && $start->type === Token::VAR_IDENTIFIER) {
-            return $this->lambda($start, [$node->value], [null]);
+            return $this->lambda($start, [$node->value], [null], [$start->line]);
         }
         if ($token->type === Token::QUESTION) {
             $this->eat(Token::QUESTION);
@@ -1136,22 +1172,25 @@ class Parser
                 $this->eat(Token::COMMA);
             }
             $param = $this->current_token->value;
+            if (in_array($param, $params, true)) {
+                $this->fail("Duplicate parameter {$param} in function {$name}");
+            }
             $this->eat(Token::VAR_IDENTIFIER);
 
             $default = null;
             if ($this->current_token->type === Token::ASSIGN) {
                 $this->eat(Token::ASSIGN);
                 $default = $this->expr();
+            } elseif (array_filter($defaults) !== []) {
+                $this->fail("Required parameter {$param} can't follow a parameter with a default");
             }
             $params[] = $param;
             $defaults[] = $default;
-            // Checked as each is read, so the error points at the parameter
-            $this->check_parameters($params, $defaults, "function {$name}");
         }
         $this->eat(Token::RIGHT_PAREN);
 
         // Declared before the body is parsed, so the function can call itself
-        $arity = $this->check_parameters($params, $defaults, "function {$name}");
+        $arity = self::arity($params, $defaults);
         $this->functions[$name] = $arity;
 
         $this->in_function = true;
