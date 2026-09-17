@@ -296,7 +296,9 @@ each step depends on the ones before it.
         stack machine's is much simpler, and JVM, CPython and .NET are all fast enough on one;
         a loader can merge common sequences into superinstructions without touching the format.
         Changing this after the bootstrap would mean a new format and a rewritten compiler.
-   2. **Write a standalone VM in C** (a separate program, not called from PHP through
+   2. **Write a standalone VM in C** (see "Holes to fill next" first: removing elements
+      decides whether its ordered hash supports deletion, and stack traces decide what a
+      frame records; both are much worse to retrofit). A separate program, not called from PHP through
       FFI: every FFI call converts its values, which costs more than the work of one
       instruction). It needs its own values, an ordered hash for maps, byte strings,
       the operator rules of `Runtime\Values` exactly (including shortest float printing,
@@ -360,6 +362,40 @@ each step depends on the ones before it.
    long strings with `index_of` rather than character by character in GazLang: that
    halved CSV parsing time; the lexer's character classes are ASCII and explicit
    (`Lexer::is_space` is only space, tab, newline and carriage return).
+
+## Holes to fill next
+
+Found on 2026-09-17 by asking what a program written in GazLang still can't do, now that the
+bytecode format is settled. None of these is decided yet; the order is what the self-hosted
+compiler needs, and the first two also decide how the C VM is built, so they come before it.
+
+1. **Removing an element from a list or map.** The one hole CLAUDE.md already admits ("Not yet:
+   removing elements"): every workaround is linear, rebuilding the map or `slice($a, 0, -1)` to
+   drop the last element. A compiler is symbol tables (parser scopes, the included set, capture
+   bookkeeping) and they all delete. Lists and maps are values, so the shape that fits is a
+   builtin giving a new one, `$m = remove($m, "k")`, written in place when nothing else holds
+   it; a `pop` that gives back the element is the other half. **Decide before the C VM**: an
+   insertion-ordered hash that can delete needs tombstones or an order-preserving compaction,
+   which is not something to bolt on afterwards.
+2. **A stack trace on an error.** `Error` carries `#message`, `#file` and `#line`, which is the
+   innermost frame and nothing else; debugging a self-hosted compiler through that is grim.
+   Both backends already have the frames and the names a `#trace` would list. **Decide before
+   the C VM**, which has to record the same thing as it calls.
+3. **Writing to standard error, and printing without a newline.** `echo` always adds one and
+   everything goes to standard output, so a GazLang tool can't write its result to stdout and
+   its diagnostics to stderr. `write_file` only covers files.
+4. **`values($m)`.** `keys()` exists and this doesn't, so getting a map's values takes a
+   `foreach`. Cheap, and it finishes the pair.
+5. **Bitwise operators** (`& | ^ << >> ~`). The self-hosted lexer has to write `\u{H}` escapes
+   as UTF-8, which is shifts and masks; `intdiv` and `%` can do it, clumsily. Trivial in C. Add
+   them when the lexer port asks, not before.
+6. **`match` or `switch`.** Sugar, but a lexer and parser in GazLang are long `if`/`else if`
+   chains over characters and token types, which is exactly the code being written next.
+
+Deliberately not planned until real code asks for them: `**` and `sqrt`/`pow`/`log`, variadic
+parameters and spread (pass a list), block comments (`//` works), `time()` (time it from
+outside), `foreach` over a string (`split($s, "")`), and regular expressions (the lexer's
+character classes are explicit on purpose).
 
 ## Decided, not built yet
 
