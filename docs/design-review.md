@@ -112,6 +112,8 @@ class (PHP `self::`); no inheritance in the first cut; `is_a($x, Point)` and
 
 Item 12: a ternary (`?:` or Python's `if`/`else` expression) and an `exit()` builtin.
 Whether `true == 1` should stay true under strict `==` (Ruby and Lua say no).
+Decided while building: an int and a float compare exactly (`9007199254740993 !=
+9007199254740992.0`), unlike PHP; `/` still converts and loses precision above 2^53.
 The field declaration syntax and whether `##` earns its keep.
 
 ## Suggested order
