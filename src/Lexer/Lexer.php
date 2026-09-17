@@ -96,6 +96,16 @@ class Lexer
         'catch' => 'CATCH',
         'true' => 'TRUE',
         'false' => 'FALSE',
+        'class' => 'CLASS',
+        'extends' => 'EXTENDS',
+        'abstract' => 'ABSTRACT',
+        // Reserved for later, so adding them never breaks a program
+        'interface' => 'INTERFACE',
+        'implements' => 'IMPLEMENTS',
+        'final' => 'FINAL',
+        'public' => 'PUBLIC',
+        'private' => 'PRIVATE',
+        'protected' => 'PROTECTED',
     ];
 
     /**
@@ -211,6 +221,11 @@ class Lexer
             $is_float = true;
         }
 
+        // Numbers have no members either: 1.x is a mistake, not a property of 1
+        if ($this->current_char === '.' && $this->peek() !== null && (self::is_alpha($this->peek()) || $this->peek() === '_')) {
+            $this->advance();
+            $text .= '.';
+        }
         if ($this->current_char !== null && (self::is_alpha($this->current_char) || $this->current_char === '_')) {
             throw new GazLangError('Invalid number literal: '.$text.$this->read_word(), null, $this->line);
         }
@@ -376,7 +391,7 @@ class Lexer
      * code and --tokens. Backslash, quote and the named control characters use their
      * escapes, other control bytes (and NUL, so a following digit can't make it look
      * octal) use \xHH, and everything else, including UTF-8, is written as is. $ and {
-     * are escaped only where they would start an interpolation ($name, {$, {@).
+     * are escaped only where they would start an interpolation ($name, {$, {@, {#).
      *
      * @param  string  $value  The string
      */
@@ -385,7 +400,7 @@ class Lexer
         $named = array_flip(array_diff_key(self::ESCAPES, ['0' => true]));
 
         return '"'.preg_replace_callback(
-            '/[\x00-\x1F\x7F"\\\\]|\$(?=[A-Za-z_])|\{(?=[$@])/',
+            '/[\x00-\x1F\x7F"\\\\]|\$(?=[A-Za-z_])|\{(?=[$@#])/',
             fn ($match) => isset($named[$match[0]]) ? '\\'.$named[$match[0]] : sprintf('\\x%02X', ord($match[0])),
             $value
         ).'"';
@@ -397,8 +412,8 @@ class Lexer
      * A string without interpolation is one STRING token. With interpolation it is
      * STRING_START (the text before the first one), the tokens of each interpolated
      * expression, STRING_MIDDLE for the text between them and STRING_END for the text
-     * after the last. "$name" interpolates a variable, "{$...}" and "{@...}" an
-     * expression; the braces themselves produce no tokens.
+     * after the last. "$name" interpolates a variable, "{$...}", "{@...}" and "{#...}" an
+     * expression (a bare "#name" stays text); the braces themselves produce no tokens.
      *
      * Escapes: \n \t \r \v \f \e \0 \\ \" \$ \{, \xHH for a byte, and \u{H} (1 to 6
      * hex digits) for a Unicode code point written as UTF-8. Anything else after a
@@ -431,7 +446,7 @@ class Lexer
                 $this->interpolations[] = ['bare', $start_line, 0];
 
                 return new Token($first ? Token::STRING_START : Token::STRING_MIDDLE, $text);
-            } elseif ($this->current_char === '{' && ($this->peek() === '$' || $this->peek() === '@')) {
+            } elseif ($this->current_char === '{' && ($this->peek() === '$' || $this->peek() === '@' || $this->peek() === '#')) {
                 $this->advance();
                 $this->interpolations[] = ['braces', $start_line, 0];
 
@@ -648,6 +663,26 @@ class Lexer
     }
 
     /**
+     * Read # (the object), #name (its member), ## or ##name (the parent's version of a method)
+     *
+     * Any word can follow, keywords included: the sigil already tells a member from a keyword.
+     */
+    private function hash(): Token
+    {
+        $this->advance();
+        $parent = $this->current_char === '#';
+        if ($parent) {
+            $this->advance();
+        }
+        $sigil = $parent ? '##' : '#';
+        if ($this->current_char !== null && (self::is_alpha($this->current_char) || $this->current_char === '_')) {
+            return new Token($parent ? Token::PARENT_IDENTIFIER : Token::HASH_IDENTIFIER, $sigil.$this->read_word());
+        }
+
+        return new Token($parent ? Token::PARENT : Token::HASH, $sigil);
+    }
+
+    /**
      * Lexical analyzer (tokenizer): skip whitespace and comments, then read one token
      *
      * @throws GazLangError If the source has an invalid character, name or string
@@ -718,6 +753,10 @@ class Lexer
                 return $this->identifier();
             }
 
+            if ($this->current_char === '#') {
+                return $this->hash();
+            }
+
             if ($this->current_char === '-' && $this->peek() === '>') {
                 $this->advance();
                 $this->advance();
@@ -735,6 +774,14 @@ class Lexer
                 }
 
                 return new Token(Token::CONCAT, '..');
+            }
+
+            // .name is one token, so the name is glued to the dot; whitespace before it is
+            // allowed, so a chain of calls can continue on the next line
+            if ($this->current_char === '.' && $this->peek() !== null && (self::is_alpha($this->peek()) || $this->peek() === '_')) {
+                $this->advance();
+
+                return new Token(Token::PROPERTY, '.'.$this->read_word());
             }
 
             if (isset(self::ARITHMETIC[$this->current_char])) {

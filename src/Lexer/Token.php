@@ -142,6 +142,34 @@ class Token
 
     public const NOT = 'NOT';  // Logical not operator (!)
 
+    public const HASH = 'HASH';  // # alone, the object a method runs on
+
+    public const HASH_IDENTIFIER = 'HASH_IDENTIFIER';  // #name, a member of the object a method runs on
+
+    public const PARENT = 'PARENT';  // ## alone, not allowed yet
+
+    public const PARENT_IDENTIFIER = 'PARENT_IDENTIFIER';  // ##name, the parent class's version of a method
+
+    public const PROPERTY = 'PROPERTY';  // .name, a member of an object: $user.name
+
+    public const CLASS_KEYWORD = 'CLASS';  // class keyword (a constant can't be named CLASS)
+
+    public const EXTENDS = 'EXTENDS';  // extends keyword
+
+    public const ABSTRACT = 'ABSTRACT';  // abstract keyword
+
+    public const INTERFACE = 'INTERFACE';  // Reserved
+
+    public const IMPLEMENTS = 'IMPLEMENTS';  // Reserved
+
+    public const FINAL = 'FINAL';  // Reserved
+
+    public const PUBLIC = 'PUBLIC';  // Reserved
+
+    public const PRIVATE = 'PRIVATE';  // Reserved
+
+    public const PROTECTED = 'PROTECTED';  // Reserved
+
     /**
      * @var string The token type
      */

@@ -1,0 +1,25 @@
+// Classes, members and the object sigils
+abstract class Shape {
+    #name;
+    #history = [];
+    fn _($name) { #name = $name; }
+    abstract fn area();
+    fn to_string() { return "{#name} with area {#area()}"; }
+}
+
+class Circle extends Shape {
+    #radius;
+    fn _($radius) { ##_("circle"); #radius = $radius; }
+    fn area() { return 3.14159 * #radius * #radius; }
+    fn to_string() { return ##to_string() .. " (r = {#radius})"; }
+    fn self() { return #; }
+}
+
+$c = Circle(2);
+echo $c.radius .. $c.area() .. "{$c.radius} #fff $c.txt";
+$rows[0].total = 5;
+$query
+    .where("x")
+    .order("y");
+echo #class #final ## # .x ##..y;
+interface implements final public private protected Class EXTENDS

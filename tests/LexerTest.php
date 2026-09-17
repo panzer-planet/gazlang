@@ -225,6 +225,42 @@ class LexerTest extends TestCase
         );
     }
 
+    public function test_object_sigils_and_properties()
+    {
+        $this->assertSame(
+            [
+                [Token::HASH, '#'], [Token::HASH_IDENTIFIER, '#name'], [Token::PARENT, '##'], [Token::PARENT_IDENTIFIER, '##_'],
+                [Token::HASH, '#'], [Token::PROPERTY, '.x'], [Token::VAR_IDENTIFIER, '$a'], [Token::PROPERTY, '.b_1'], [Token::PROPERTY, '.c'],
+                [Token::HASH_IDENTIFIER, '#class'], [Token::PROPERTY, '.final'], [Token::HASH, '#'], [Token::INTEGER, 1],
+                [Token::VAR_IDENTIFIER, '$a'], [Token::CONCAT, '..'], [Token::IDENTIFIER, 'b'],
+            ],
+            $this->lex("# #name ## ##_ #.x \$a.b_1\n  .c #class .final #1 \$a..b")
+        );
+    }
+
+    public function test_class_keywords_and_reserved_words()
+    {
+        $this->assertSame(
+            [Token::CLASS_KEYWORD, Token::EXTENDS, Token::ABSTRACT, Token::INTERFACE, Token::IMPLEMENTS, Token::FINAL, Token::PUBLIC, Token::PRIVATE, Token::PROTECTED],
+            array_column($this->lex('class Extends abstract interface implements final public private protected'), 0)
+        );
+    }
+
+    public function test_hash_interpolates_only_inside_braces()
+    {
+        $this->assertSame(
+            [
+                [Token::STRING_START, ''], [Token::HASH_IDENTIFIER, '#name'], [Token::STRING_MIDDLE, ' #fff #1 '],
+                [Token::PARENT_IDENTIFIER, '##to_string'], [Token::LEFT_PAREN, '('], [Token::RIGHT_PAREN, ')'], [Token::STRING_MIDDLE, ' '],
+                [Token::VAR_IDENTIFIER, '$file'], [Token::STRING_END, '.txt {} { #x}'],
+            ],
+            $this->lex('"{#name} #fff #1 {##to_string()} $file.txt {} { #x}"')
+        );
+        $value = '{#name} #x';
+        $this->assertSame('"\\{#name} #x"', Lexer::quote($value));
+        $this->assertSame([[Token::STRING, $value]], $this->lex(Lexer::quote($value)));
+    }
+
     public function test_comments_and_whitespace_are_skipped_and_lines_counted()
     {
         $lexer = new Lexer("// first\n\n  echo // trailing\n\t1 / 2;");
@@ -326,6 +362,8 @@ class LexerTest extends TestCase
             'letters after a float' => ['1.5x', 'Invalid number literal: 1.5x on line 1'],
             'too large' => ['1e999', 'Float literal too large: 1e999 on line 1'],
             'second dot' => ['1.5.3', "Unexpected character '.' on line 1"],
+            'member of a number' => ['1.x', 'Invalid number literal: 1.x on line 1'],
+            'member of a float' => ['1.5._y', 'Invalid number literal: 1.5._y on line 1'],
         ];
     }
 

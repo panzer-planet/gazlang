@@ -21,7 +21,7 @@ class ErrorTest extends GazLangTestCase
     public static function syntaxErrors(): array
     {
         return [
-            'bad character' => ["echo 1;\n\necho 2 # 3;", "Unexpected character '#' on line 3"],
+            'bad character' => ["echo 1;\n\necho 2 ~ 3;", "Unexpected character '~' on line 3"],
             'unterminated string, at its start' => ["echo 1;\necho \"abc\n\ndef;", 'Unterminated string on line 2'],
             'missing token' => ["echo 1;\necho (2;", "Expected ')' but found ';' on line 2"],
             'unexpected token' => ['echo ;', "Unexpected ';' on line 1"],

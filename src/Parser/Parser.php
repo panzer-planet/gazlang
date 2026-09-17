@@ -49,6 +49,15 @@ class Parser
     ];
 
     /**
+     * Keywords reserved for features that don't exist yet, so adding them never breaks a program
+     */
+    private const RESERVED = [
+        Token::CLASS_KEYWORD => true, Token::EXTENDS => true, Token::ABSTRACT => true,
+        Token::INTERFACE => true, Token::IMPLEMENTS => true, Token::FINAL => true,
+        Token::PUBLIC => true, Token::PRIVATE => true, Token::PROTECTED => true,
+    ];
+
+    /**
      * How expected tokens are described in syntax errors; other types are keywords, shown quoted and lowercase
      */
     private const EXPECTED = [
@@ -340,6 +349,16 @@ class Parser
             return $this->parenthesised();
         } elseif ($token->type === Token::VAR_IDENTIFIER || $token->type === Token::GLOBAL_VAR_IDENTIFIER) {
             return $this->variable();
+        } elseif ($token->type === Token::HASH) {
+            $this->eat(Token::HASH);
+            if ($this->current_token->type === Token::PROPERTY) {
+                $this->fail('Write #'.substr($this->current_token->value, 1).', not #'.$this->current_token->value);
+            }
+            $this->current_token = $token;
+        } elseif ($token->type === Token::PARENT) {
+            $this->fail("## alone is not allowed: write ##name for the parent's version of a method");
+        } elseif (isset(self::RESERVED[$token->type])) {
+            $this->fail("{$token->value} is reserved");
         }
 
         $this->error();
