@@ -1,177 +1,94 @@
 # GazLang
 
-A small, PHP-flavoured programming language with an interpreter and a stack-VM code generator, written in PHP on the way to being self-hosting. It has integers, strings, booleans, null and arrays, functions with local and global variables, loops, includes and a small standard library.
+A small scripting language with a PHP-flavoured syntax and its own opinions: values are
+what they are (no conversion between strings and numbers, no `===`), arrays are values,
+functions are values, and errors are loud. Written in PHP, with a tree-walking interpreter
+and a stack VM that must agree on everything, on the way to being self-hosting.
 
-## Features
+```
+include "lib/csv.gaz";
+include "lib/functional.gaz";
 
-- Statements terminated by semicolons (`;`)
-- Dynamic typing with support for integers (`42`, `0xFF`), floats (`1.5`, `2e-3`), strings, booleans, `null` and arrays
-- Arrays that work as lists and maps (`[1, 2]`, `["key" => 1]`), copied on assignment like PHP, with `$a[i]` indexing, `$a[] = v` appending and `len()`
-- Boolean literals `true` and `false`; comparisons and logical operators return booleans
-- String literals with double quotes (`"Hello, World!"`, with escapes) or single quotes (`'C:\raw\path'`, raw: only `\'` and `\\` are escapes)
-- String escape sequences: `\n` `\t` `\r` `\v` `\f` `\e` `\0` `\\` `\"`, `\xHH` for a byte and `\u{1F600}` for a Unicode code point (as UTF-8); anything else, including octal like `\012`, is an error
-- String concatenation with the `..` operator (`"n = " .. 1 + 2` is `"n = 3"`; `+` on a string is an error)
-- String interpolation in double-quoted strings: `"Hi $name!"`, `"First: $items[0]"`, `"{$user["name"]} has {@count} items"`
-- Mathematical operators: `+`, `-`, `*`, `/` (always a float: `6 / 2` is `3.0`; `intdiv` for ints), `%`, unary `-`
-- Comparison operators: `==`, `!=` (no conversion between strings and numbers: `"5" == 5` is false), `<`, `<=`, `>`, `>=`, and `<=>` giving -1, 0 or 1
-- Logical operators: `&&`, `||` (short-circuiting), `!`
-- Null coalescing: `$config["port"] ?? 8080` (missing variables and keys give the default), and `$counts[$word] ??= 0`
-- Ternary: `$n == 1 ? "one" : "many"`, right associative, only the taken branch runs
-- Parentheses for grouping expressions
-- Echo statements for output (`echo <expr>;`)
-- Assignment `=` and `+=`, `-=`, `*=`, `/=`, `%=`, `??=`, `++`, `--` (prefix and postfix)
-- Local variables with `$` prefix (`$var = expression;`) and global variables with `@` prefix (`@count = 0;`)
-- Control flow with if/else and else if statements
-- Error handling: `try { ... } catch ($e) { echo $e["message"]; }`, and `error("...")` to raise one; `exit($code)` stops the program
-- Loops: `while (cond) { ... }`, `for (init; cond; step) { ... }` and `foreach ($array as $key => $value) { ... }`, with `break` and `continue`
-- Functions: `function add($a, $b = 1) { return $a + $b; }` with default parameter values, callable before they are declared, with recursion
-- Functions as values: `$f = add; $f(1, 2)`, `$handlers["save"]($doc)`, `apply(len, "abc")`, builtins included; `echo add` prints `function add`
-- Anonymous functions: `$x -> $x * 2`, `($a, $b = 1) -> $a + $b`, `() -> { return 42; }`, capturing outer variables by value when created; `$x -> $y -> $x + $y` curries
-- Standard library: `to_float`, `floor`, `ceil`, `round` (with an optional precision), `abs`, `intdiv`, `len`, `slice`, `lower`, `upper`, `trim`, `split`, `join`, `replace`, `contains`, `starts_with`, `ends_with`, `index_of`, `repeat`, `chr`, `ord`, `to_int`, `to_string`, `in_array`, `has_key`, `keys`, `type_of`, `error`, `read_file`, `write_file`, `read_stdin`, `args`
-- Error messages with file and line (`Error: Expected ')' but found ';' at lib/parser.gaz:12`)
-- `include "lib/helpers.gaz";` to split programs across files (each file is included once)
-- Single-line comments (`// comment`)
-- Ability to interpret expressions
-- Code generation for a stack-based virtual machine
+function report($sales, $column) {
+    $totals = reduce($sales, ($t, $row) -> {
+        $t[$row["region"]] = ($t[$row["region"]] ?? 0.0) + to_float($row[$column]);
+        return $t;
+    }, []);
+    $regions = sort(keys($totals), ($a, $b) -> $totals[$b] <=> $totals[$a]);
+    foreach ($regions as $region) {
+        echo "{$region}: {round($totals[$region], 2)}";
+    }
+}
 
-## Installation
+try {
+    report(csv_records(csv_parse(read_file(args()[0] ?? "sales.csv"))), "amount");
+} catch ($e) {
+    echo "Error: {$e["message"]}";
+    exit(1);
+}
+```
+
+## Install and run
 
 Requires PHP 8.5 or later.
 
 ```bash
 git clone https://github.com/panzer-planet/gazlang.git
-cd gazlang
-composer install
+cd gazlang && composer install
+
+php bin/gazlang -f program.gaz                 # compile to VM code and run it
+php bin/gazlang -f program.gaz -- arg1 arg2    # arguments for args()
+cat program.gaz | php bin/gazlang              # piped input runs as one program
+php bin/gazlang --interpreter -f program.gaz   # the tree-walking interpreter instead
+php bin/gazlang -c -f program.gaz              # print the VM code
+php bin/gazlang --tokens -f program.gaz        # print the tokens
 ```
 
-## Usage
+Try `php bin/gazlang -f examples/csv_report.gaz -- examples/data/sales.csv region amount`.
 
-Run a program from a file (the usual way):
+## The language
 
-```bash
-php bin/gazlang -f program.gaz
-```
+- **Values**: ints (`42`, `0xFF`, never silently overflowing), floats (`1.5`, `2e-3`, always
+  finite), byte strings, `true`/`false`, `null`, arrays and functions.
+- **Variables**: `$x` is local to the function (or the top level), `@x` is global, everywhere.
+- **Arrays** are lists and maps in one (`[1, 2]`, `["key" => 1]`), copied on assignment:
+  `$a[i]`, `$a["k"]["j"] = v`, `$a[] = v`, `foreach ($a as $k => $v)`, `len`, `keys`, `slice`.
+- **Strings**: `"..."` with escapes (`\n`, `\xHH`, `\u{1F600}`) and interpolation (`"Hi $name"`,
+  `"{$user["name"]} has {@count}"`); `'...'` raw. `..` concatenates, converting like `echo`.
+- **Operators**: `+ - * / %` on numbers only (`/` always gives a float; `intdiv` for ints);
+  `== !=` with no conversion between types (`"5" == 5` is false, `1 == 1.0` is true, arrays
+  compare element by element); `< <= > >=` and `<=>` on numbers or on strings; `&& || !`;
+  `??` and `??=` for missing values; `$c ? $a : $b`; `+= -= *= /= %= ..= ++ --`.
+- **Control flow**: `if`/`else if`/`else`, `while`, `for`, `foreach`, `break`, `continue`.
+- **Functions**: `function add($a, $b = 1) { return $a + $b; }` at the top level, callable
+  before they are declared. A bare name is a value (`$f = add; $f(1)`, builtins too), and
+  `$x -> $x * 2`, `($a, $b = 1) -> $a + $b`, `() -> { return 42; }` are anonymous functions
+  that capture the outer variables they use by value when created (`@globals` are shared).
+- **Errors**: `error("message")` raises one, `try { } catch ($e) { }` catches any runtime
+  error as `["message" => ..., "file" => ..., "line" => ...]`, and uncaught errors print
+  `Error: ... at file.gaz:12`. `exit($code)` stops the program.
+- **Builtins**: `len`, `slice`, `lower`, `upper`, `trim`, `split`, `join`, `replace`, `contains`,
+  `starts_with`, `ends_with`, `index_of`, `repeat`, `chr`, `ord`, `to_int`, `to_float`,
+  `to_string`, `floor`, `ceil`, `round`, `abs`, `intdiv`, `in_array`, `has_key`, `keys`,
+  `type_of`, `error`, `exit`, `read_file`, `write_file`, `read_stdin`, `args`.
+- **Libraries in GazLang** (`lib/`): `functional.gaz` (`map`, `filter`, `reduce`, `sort`),
+  `json.gaz`, `csv.gaz`, `chars.gaz`, `format.gaz`, `sort.gaz`; `include "lib/json.gaz";`
+  includes a file once, relative to the including file.
+- **Comments**: `// to the end of the line`.
 
-`php bin/gazlang` on its own starts an interactive prompt, but each line runs as a
-separate program, so variables and functions don't carry over between lines.
-Piped input runs as one program: `cat program.gaz | php bin/gazlang`.
+The design decisions and their reasons are in `CLAUDE.md`; `docs/design-review.md` lists the
+ones still open.
 
-Example program:
+## Layout
 
-```
-5 + 3;           // Evaluates but no output
-echo 10 * 2 - 5;  // Outputs: 15
-echo 2 * (3 + 4); // Outputs: 14 (parentheses for grouping)
-echo (5 + 3) * 2; // Outputs: 16 (changes operator precedence)
-$x = 5;           // Assign value to variable
-echo $x + 3;      // Outputs: 8 (using variables in expressions)
-$y = $x * 2;      // Variables in assignment expressions
-echo $y;          // Outputs: 10
-echo $x + $y;     // Outputs: 15
-
-// String examples
-echo "Hello, World!";     // Outputs: Hello, World!
-$greeting = "Hello";      // String assignment
-$name = "GazLang";        // Another string assignment
-echo $greeting .. ", " .. $name .. "!";  // Outputs: Hello, GazLang!
-
-// String concatenation with numbers
-echo "The answer is " .. 42;  // Outputs: The answer is 42
-echo 2025 .. " is the year";  // Outputs: 2025 is the year
-
-// String escape sequences
-echo "Line 1\nLine 2";            // Outputs two lines
-echo "Tab\tcharacter";            // Outputs with tab
-echo "Double \"quotes\" inside";  // Outputs quotes within string
-
-// If/else statements
-if (1) {
-    echo 42;     // Outputs: 42 (condition is true)
-} else {
-    echo 0;
-}
-
-// Else if statements
-if (0) {
-    echo 10;
-} else if (1) {
-    echo 20;     // Outputs: 20 (first condition false, second true)
-} else {
-    echo 30;
-}
-
-// With variables in conditions
-$z = 0;
-if ($z) {
-    echo 100;
-} else {
-    echo 200;    // Outputs: 200 (variable value is 0, so condition is false)
-}
-
-// Nested if statements
-if (1) {
-    if (0) {
-        echo 300;
-    } else {
-        echo 400; // Outputs: 400
-    }
-}
-```
-
-Run with a file:
-
-```bash
-php bin/gazlang -f examples/echo_example.gaz
-```
-
-A real example, a CSV report (groups rows by one column and totals another):
-
-```bash
-php bin/gazlang -f examples/csv_report.gaz -- examples/data/sales.csv region amount
-```
-
-Pass arguments to the program (read them with `args()`):
-
-```bash
-php bin/gazlang -f examples/stdlib_example.gaz -- some_file.txt
-```
-
-Print the tokens the lexer produces (one `LINE TYPE VALUE` per line):
-
-```bash
-php bin/gazlang --tokens -f examples/echo_example.gaz
-```
-
-Programs are compiled to stack VM code and run on the VM. To run on the tree-walking
-interpreter instead (same results, slower):
-
-```bash
-php bin/gazlang --interpreter -f examples/functions_example.gaz
-```
-
-Generate code instead of interpreting:
-
-```bash
-php bin/gazlang -f examples/echo_example.gaz -c
-```
-
-## Project Structure
-
-- `src/` - Source code
-  - `Lexer/` - Tokenizes the input code
-  - `Parser/` - Parses tokens into an AST
-  - `AST/` - Abstract Syntax Tree nodes and visitor pattern implementation
-    - `NodeVisitorInterface.php` - Interface for AST node visitors
-    - `AbstractNodeVisitor.php` - Base visitor implementation
-    - Various AST node classes for different language constructs
-  - `Interpreter/` - Executes the AST
-  - `Runtime/` - Value semantics (operators, truthiness, printing) and builtin functions, shared by backends
-  - `CodeGenerator/` - Compiles the AST to stack-based VM code
-  - `VM/` - Runs the compiled code
-- `lib/` - Libraries written in GazLang: `chars.gaz` (character classes), `json.gaz` (`json_decode`, `json_encode`), `csv.gaz` (`csv_parse`, `csv_records`), `functional.gaz` (`map`, `filter`, `reduce`, `sort`, `is_list`), `sort.gaz` (`sort_values`, `sort_by`), `format.gaz` (`format_number`, `pad_left`, `pad_right`)
-- `bin/` - Executable scripts
-- `tests/` - Unit tests; `tests/gaz/` holds GazLang test programs with their expected output
+- `src/Lexer`, `src/Parser`, `src/AST`: source text to a tree.
+- `src/Runtime`: what values mean (`Values`) and the builtins, shared by both backends.
+- `src/Interpreter`: runs the tree. `src/CodeGenerator` and `src/VM`: compile it to
+  stack VM code and run that, the default.
+- `lib/`: libraries written in GazLang. `examples/`: sample programs.
+- `tests/`: PHPUnit; every snippet runs on both backends and must match. `tests/gaz/`
+  holds GazLang test programs with their expected output.
 
 ## License
 
-MIT 
+MIT
