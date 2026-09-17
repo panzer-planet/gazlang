@@ -144,9 +144,8 @@ each step depends on the ones before it.
      (phpunit) still runs with pcov, so tests of deep recursion on the interpreter
      go through the CLI. The VM doesn't recurse in PHP and is unaffected. Xdebug
      has the same problem and is not handled.
-   - Reserved for later: `.` for object properties, and possibly `#` as the sigil for
-     the current object (`#title` meaning this object's title), alongside `$` and `@`.
-     See "Decided, not built yet" below.
+   - Objects use `.` for properties, `#` for this object and `##` for its parent: see
+     "Objects" under "Decided, not built yet" below.
 5. ~~**Add lists and maps.**~~ Done (one PHP-style array at first, split into two types
    on 2026-09-17, see `docs/design-review.md` #10). Decided semantics:
    - A list `[1, 2]` holds values at indexes 0, 1, 2...; a map `{"k" => 1, 5 => 2}` holds
@@ -296,39 +295,25 @@ each step depends on the ones before it.
    `JsonTest` on every `tests/json/y_*.json` and `n_*.json`, where the prefix says
    whether it must parse) and `json_encode` writes compact JSON. `lib/csv.gaz`
    (RFC 4180, checked against PHP's `fgetcsv` by `CsvTest` on `tests/csv/y_*.csv` and
-   `n_*.csv`), `lib/functional.gaz` and `lib/format.gaz` back `examples/csv_report.gaz`. Scan
+   `n_*.csv`), `lib/functional.gaz` and `lib/format.gaz` back `examples/csv_report.gaz`.
+   `lib/functional.gaz` has `map($x, $f)` and `filter($x, $keep)` (a list gives a list, a
+   map a map with its keys), `reduce($x, $f, $initial)` and `sort($x, $compare)` (a stable
+   merge sort giving a list of the values; `$compare` returns negative, zero or positive,
+   so write `$a <=> $b`), in GazLang because builtins calling back into GazLang would need
+   a re-entrant VM; `lib/sort.gaz`'s `sort_values` and `sort_by` wrap `sort`. Tested by
+   `tests/gaz/lib/functional_test.gaz`. Scan
    long strings with `index_of` rather than character by character in GazLang: that
    halved CSV parsing time; the lexer's character classes are ASCII and explicit
    (`Lexer::is_space` is only space, tab, newline and carriage return).
 
 ## Decided, not built yet
 
-`docs/design-review.md` (2026-09-17) lists the design questions to settle before objects,
-ranked, with a status on each; update it as they are decided.
-
-Operator changes decided on 2026-09-17 from that review, each built as its own commit
-before function values:
-- **Concatenation gets its own operator, `..`** (Lua), which converts non-strings the
-  way `echo` does. Interpolation desugars to it. `+` is numeric only: a string on
-  either side is an error, so two CSV fields can't quietly join instead of adding.
-- **`==` and `!=` stop coercing.** A string never equals a number (`"5" == 5` is
-  false; compare with `to_float`); int and float still compare by value (`1 == 1.0`);
-  lists and maps structural, functions and objects by identity. `===` and `!==` are removed.
-  Bools are not numbers either (`true == 1` is false, `true + 1` is an error; decided
-  2026-09-18).
-- **`/` always gives a float** (Python 3, Lua 5.3); `intdiv` is integer division.
-
-Design agreed on 2026-09-17, to build in phases (each committed and reviewed):
-1. ~~**Named functions as values.**~~ Done, see "Function values" below.
-2. ~~**Anonymous functions with `->`.**~~ Done, see "Function values" below.
-3. ~~**Capture by value at creation.**~~ Done, likewise.
-4. ~~**`lib/functional.gaz`.**~~ Done: `map($x, $f)` and `filter($x, $keep)` (a list
-   gives a list, a map a map with its keys), `reduce($x, $f, $initial)` and
-   `sort($x, $compare)` (stable merge sort, a list of the values, `$compare`
-   returns negative, zero or positive: write `$a <=> $b`), written
-   in GazLang (builtins calling back into GazLang would need a re-entrant VM).
-   `lib/sort.gaz`'s `sort_values` and `sort_by` are wrappers over `sort`, and `examples/csv_report.gaz` sorts with a comparator and folds its
-   column widths with `reduce`. Tested by `tests/gaz/lib/functional_test.gaz`.
+`docs/design-review.md` (2026-09-17) lists the design questions settled before objects,
+with the options considered and a status on each; update it as more are decided. What
+it led to and is already built is described in its own section: `..` and strict `==`
+(roadmap step 2), `/` always a float ("Numbers"), lists and maps (step 5), function values,
+lambdas and closure state ("Function values"), `lib/functional.gaz` (step 7's GazLang
+libraries) and `fn` (step 4). Objects are next:
 
 ### Objects (decided 2026-09-17; the class design settled the same day, after closures)
 
