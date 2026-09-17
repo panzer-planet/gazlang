@@ -80,6 +80,41 @@ class BytecodeTest extends GazLangTestCase
         }
     }
 
+    public function test_compiling_is_deterministic()
+    {
+        // The same source always gives the same file, whatever it is compiled with
+        $file = 'tests/fixtures/bytecode/example.gaz';
+
+        $this->assertSame($this->compile($file)->write($file), $this->compile($file)->write($file));
+    }
+
+    public function test_the_cli_compiles_to_a_file_and_runs_it()
+    {
+        $gazlang = escapeshellarg(PHP_BINARY).' '.escapeshellarg(self::ROOT.'/bin/gazlang');
+        $bytecode = escapeshellarg(sys_get_temp_dir().'/gazlang_example.gzb');
+        exec("cd {$this->root()} && {$gazlang} -c -f tests/fixtures/bytecode/example.gaz > {$bytecode} && {$gazlang} -f {$bytecode}", $output, $exit_code);
+
+        $this->assertSame(['11', 'caught: Division by zero', '{"a" => [1, 2.5]}'], $output);
+        $this->assertSame(0, $exit_code);
+    }
+
+    public function test_the_interpreter_does_not_run_bytecode()
+    {
+        $gazlang = escapeshellarg(PHP_BINARY).' '.escapeshellarg(self::ROOT.'/bin/gazlang');
+        exec("cd {$this->root()} && {$gazlang} --interpreter -f tests/fixtures/bytecode/example.gzb 2>&1", $output, $exit_code);
+
+        $this->assertSame(['Error: tests/fixtures/bytecode/example.gzb is bytecode, which only the VM runs'], $output);
+        $this->assertSame(1, $exit_code);
+    }
+
+    /**
+     * The project root, quoted for a shell
+     */
+    private function root(): string
+    {
+        return escapeshellarg((string) realpath(self::ROOT));
+    }
+
     public function test_a_file_of_another_version_is_refused()
     {
         $this->expectExceptionMessage('Bytecode version 2, but this is GazLang bytecode 1');

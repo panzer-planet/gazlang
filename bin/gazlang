@@ -37,6 +37,7 @@ use GazLang\Lexer\Token;
 use GazLang\Parser\Parser;
 use GazLang\Interpreter\Interpreter;
 use GazLang\CodeGenerator\CodeGenerator;
+use GazLang\CodeGenerator\Program;
 use GazLang\VM\VM;
 use GazLang\Runtime\ExitSignal;
 
@@ -49,7 +50,7 @@ function showHelp() {
     echo "Options:\n";
     echo "  -h, --help     Show this help message\n";
     echo "  -v, --version  Show version information\n";
-    echo "  -c, --code         Print the compiled VM code instead of running it\n";
+    echo "  -c, --code         Print the compiled bytecode instead of running it (gazlang -c -f x.gaz > x.gzb)\n";
     echo "      --interpreter  Run on the tree-walking interpreter instead of the VM\n";
     echo "  -t, --tokens   Print the lexer's tokens, one LINE TYPE VALUE per line, instead of interpreting\n";
     echo "  -f, --file     Read input from a file instead of stdin\n";
@@ -146,13 +147,30 @@ while (true) {
  * Process input text
  * 
  * @param string $text         The input text to process
- * @param string $mode         vm (compile and run on the VM), interpret (run on the interpreter), code (print the VM code) or tokens (print the tokens)
+ * @param string $mode         vm (compile and run on the VM), interpret (run on the interpreter), code (print the bytecode) or tokens (print the tokens)
  * @param string|null $path    The file the text came from, so includes resolve relative to it
  * @param array  $args         Command line arguments for the program
  * @return bool Whether the input ran without errors
  */
 function processInput(string $text, string $mode = 'vm', ?string $path = null, array $args = []): bool {
     try {
+        // Bytecode is run as it is: it says so on its first line, which no GazLang program can
+        if (str_starts_with($text, Program::MAGIC)) {
+            if ($mode === 'code') {
+                echo $text;
+
+                return true;
+            }
+            if ($mode === 'tokens' || $mode === 'interpret') {
+                echo "Error: {$path} is bytecode, which only the VM runs\n";
+
+                return false;
+            }
+            (new VM(Program::read($text, $path), $args))->run();
+
+            return true;
+        }
+
         $lexer = new Lexer($text);
 
         if ($mode === 'tokens') {
