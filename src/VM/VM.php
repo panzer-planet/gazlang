@@ -13,6 +13,7 @@ use GazLang\Runtime\ExitSignal;
 use GazLang\Runtime\FunctionValue;
 use GazLang\Runtime\MapValue;
 use GazLang\Runtime\ObjectValue;
+use GazLang\Runtime\PropertyStep;
 use GazLang\Runtime\Values;
 
 /**
@@ -317,30 +318,44 @@ final class VM
                             $stack[] = Values::indexExisting(array_pop($stack), $index);
                             break;
                         case 'SET_PATH':
-                        case 'APPEND_PATH':
                             // Temporaries from earlier instructions may still hold the list or map being
                             // written; PHP would then copy all of it on every write
                             unset($first, $second, $left, $right, $target, $iterable, $args, $callee);
-                            [$keys, $value] = $this->pathOperands($stack, $arg0[$pc - 1], $ops[$pc - 1] === 'APPEND_PATH');
+                            [$keys, $value] = $this->pathOperands($stack, $arg0[$pc - 1]);
                             $slot = $arg1[$pc - 1];
                             Values::store($locals, $slot, $local_names[$function][$slot], $keys, null, $value);
                             $stack[] = $value;
                             break;
                         case 'SET_PATH_CAPTURED':
-                        case 'APPEND_PATH_CAPTURED':
                             unset($first, $second, $left, $right, $target, $iterable, $args, $callee);
-                            [$keys, $value] = $this->pathOperands($stack, $arg0[$pc - 1], $ops[$pc - 1] === 'APPEND_PATH_CAPTURED');
+                            [$keys, $value] = $this->pathOperands($stack, $arg0[$pc - 1]);
                             $slot = $arg1[$pc - 1];
                             Values::store($closure->captured, $slot, $closure->lambda->captures[$slot], $keys, null, $value);
                             $stack[] = $value;
                             break;
                         case 'SET_PATH_GLOBAL':
-                        case 'APPEND_PATH_GLOBAL':
                             unset($first, $second, $left, $right, $target, $iterable, $args, $callee);
-                            [$keys, $value] = $this->pathOperands($stack, $arg0[$pc - 1], $ops[$pc - 1] === 'APPEND_PATH_GLOBAL');
+                            [$keys, $value] = $this->pathOperands($stack, $arg0[$pc - 1]);
                             $slot = $arg1[$pc - 1];
                             Values::store($globals, $slot, $global_names[$slot], $keys, null, $value);
                             $stack[] = $value;
+                            break;
+                        case 'SET_PATH_THIS':
+                            unset($first, $second, $left, $right, $target, $iterable, $args, $callee);
+                            [$keys, $value] = $this->pathOperands($stack, $arg0[$pc - 1]);
+                            // The object is a handle, so writing through a table holding it writes the object
+                            $table = ['#' => $receiver];
+                            Values::store($table, '#', '#', $keys, null, $value);
+                            unset($table);
+                            $stack[] = $value;
+                            break;
+                        case 'GET_PROPERTY_QUIET':
+                            $target = array_pop($stack);
+                            $stack[] = $target === null ? null : Values::property($target, $arg0[$pc - 1], true);
+                            break;
+                        case 'GET_PROPERTY_EXISTING':
+                            $target = array_pop($stack);
+                            $stack[] = Values::propertyExisting($target, $arg0[$pc - 1]);
                             break;
                         case 'KEY_CHECK':
                             $key = $stack[array_key_last($stack)];
@@ -636,6 +651,8 @@ final class VM
                 $args[0] = $positions[$args[0]];
             } elseif ($opcode === 'CALL') {
                 $args = [$positions[$args[0]], $args[1], substr($args[0], 3)];
+            } elseif (str_starts_with($opcode, 'SET_PATH')) {
+                $args[0] = self::parsePath($args[0]);
             }
             $ops[] = $opcode;
             $arg0[] = $args[0] ?? null;
@@ -668,23 +685,50 @@ final class VM
     }
 
     /**
-     * Pop the operands of SET_PATH/APPEND_PATH: the value, and the keys pushed before it
+     * Read a SET_PATH path ([k] a key from the stack, .name a field, [] an append) into what pathOperands() needs
+     *
+     * @param  string  $path  The path, like [k].total[]
+     * @return array{0: int, 1: list<PropertyStep|string|null>|null} How many keys to pop, and the steps with "k" where
+     *                                                               each key goes, or null when the path is only keys
+     */
+    private static function parsePath(string $path): array
+    {
+        preg_match_all('/\[k\]|\[\]|\.\w+/', $path, $matches);
+        $steps = array_map(fn ($step) => match ($step) {
+            '[k]' => 'k',
+            '[]' => null,
+            default => new PropertyStep(substr($step, 1)),
+        }, $matches[0]);
+        $count = count(array_keys($steps, 'k', true));
+
+        return [$count, $count === count($steps) ? null : $steps];
+    }
+
+    /**
+     * Pop the operands of SET_PATH: the value, and the keys pushed before it, as the steps Values::store() takes
      *
      * @param  array  $stack  The value stack, by reference
-     * @param  int  $count  How many keys were pushed
-     * @param  bool  $append  Whether to add the null key that means append
-     * @return array{0: array, 1: mixed} The keys, outermost first, and the value
+     * @param  array{0: int, 1: list<PropertyStep|string|null>|null}  $path  The parsed path
+     * @return array{0: array, 1: mixed} The steps, outermost first, and the value
      */
-    private function pathOperands(array &$stack, int $count, bool $append): array
+    private function pathOperands(array &$stack, array $path): array
     {
+        [$count, $steps] = $path;
         $value = array_pop($stack);
         // Already checked by KEY_CHECK when they were pushed
         $keys = $this->popMany($stack, $count);
-        if ($append) {
-            $keys[] = null;
+        if ($steps === null) {
+            return [$keys, $value];
         }
 
-        return [$keys, $value];
+        $i = 0;
+        foreach ($steps as $n => $step) {
+            if ($step === 'k') {
+                $steps[$n] = $keys[$i++];
+            }
+        }
+
+        return [$steps, $value];
     }
 
     /**

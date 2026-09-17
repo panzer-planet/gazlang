@@ -286,7 +286,7 @@ Undefined variable: $n
             'duplicate parameter' => ['($a, $a) -> 1;', 'Duplicate parameter $a in lambda on line 1'],
             'required after default' => ['($a = 1, $b) -> 1;', "Required parameter \$b can't follow a parameter with a default on line 1"],
             'syntax errors come before later lexer errors' => ['(1 +, $b ~);', "Unexpected ',' on line 1"],
-            'ternary else still cannot assign' => ['$a = true; $a ? 1 : $b = 2;', 'Can only use = on a variable or an element of one on line 1'],
+            'ternary else still cannot assign' => ['$a = true; $a ? 1 : $b = 2;', 'Can only use = on a variable, or an element or field of one on line 1'],
         ];
     }
 

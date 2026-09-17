@@ -101,12 +101,12 @@ class OperatorTest extends GazLangTestCase
     public static function assignmentOperatorParseErrors(): array
     {
         return [
-            'literal ++' => ['5++;', 'Can only use ++ on a variable or an element of one'],
-            'prefix -- on a call' => ['fn f() { return 1; } --f();', 'Can only use -- on a variable or an element of one'],
-            '+= on an expression' => ['($a + 1) += 2;', 'Can only use += on a variable or an element of one'],
+            'literal ++' => ['5++;', 'Can only use ++ on a variable, or an element or field of one'],
+            'prefix -- on a call' => ['fn f() { return 1; } --f();', 'Can only use -- on a variable, or an element or field of one'],
+            '+= on an expression' => ['($a + 1) += 2;', 'Can only use += on a variable, or an element or field of one'],
             'append with +=' => ['$a = []; $a[] += 1;', 'Cannot use += to append'],
             'append with ??=' => ['$a = []; $a[] ??= 1;', 'Cannot use ??= to append'],
-            '??= on an expression' => ['1 ??= 2;', 'Can only use ??= on a variable or an element of one'],
+            '??= on an expression' => ['1 ??= 2;', 'Can only use ??= on a variable, or an element or field of one'],
             'append with ++' => ['$a = []; $a[]++;', '[] can only be used to append in an assignment'],
             'double postfix' => ['$a = 1; $a++++;', "Expected ';' but found '++'"],
         ];
@@ -118,7 +118,7 @@ class OperatorTest extends GazLangTestCase
             "NEW_ARRAY\nSTORE 0\nLOAD 0\nPOP\n"
             // $#key0 = 1 (checked once); $a[$#key0] = $a[$#key0] * 2 (a constant needs no hidden variable)
             ."PUSH 1\nKEY_CHECK\nSTORE 1\n"
-            ."LOAD 1\nLOAD 0\nLOAD 1\nINDEX_GET_EXISTING\nPUSH 2\nMUL\nSET_PATH 1 0\nPOP",
+            ."LOAD 1\nLOAD 0\nLOAD 1\nINDEX_GET_EXISTING\nPUSH 2\nMUL\nSET_PATH [k] 0\nPOP",
             $this->generateCode('$a = []; $a[1] *= 2;')
         );
         // A right side that isn't a constant is evaluated first, into a hidden variable
@@ -154,7 +154,7 @@ class OperatorTest extends GazLangTestCase
     {
         // $#key0 = "k"; $a[$#key0] ?? ($a[$#key0] = 1)
         $this->assertStringEndsWith(
-            "PUSH_STR \"k\"\nKEY_CHECK\nSTORE 1\nLOAD_QUIET 0\nLOAD 1\nINDEX_GET_QUIET\nJNN COALESCE_END_0\nLOAD 1\nPUSH 1\nSET_PATH 1 0\nLABEL COALESCE_END_0\nPOP",
+            "PUSH_STR \"k\"\nKEY_CHECK\nSTORE 1\nLOAD_QUIET 0\nLOAD 1\nINDEX_GET_QUIET\nJNN COALESCE_END_0\nLOAD 1\nPUSH 1\nSET_PATH [k] 0\nLABEL COALESCE_END_0\nPOP",
             $this->generateCode('$a = []; $a["k"] ??= 1;')
         );
     }

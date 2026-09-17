@@ -1004,7 +1004,10 @@ class Parser
     }
 
     /**
-     * Check a node can be assigned to: a variable, an element of one, or a field (#name)
+     * Check a node can be assigned to: a variable, or a path of elements and fields starting at a variable or #
+     *
+     * $a, $a[0], $rows[0].total, #count, #items[] and $user.tags[0] can be; # itself, and a
+     * path starting anywhere else (make().x), can't.
      *
      * @param  AST  $node  The node
      * @param  Token  $operator  The assignment or ++/-- token, for the error message
@@ -1014,19 +1017,15 @@ class Parser
      */
     private function assignable(AST $node, Token $operator): VariableAST|IndexAST|PropertyAST
     {
-        if ($node instanceof PropertyAST && $node->target instanceof ThisAST) {
-            if ($operator->type !== Token::ASSIGN) {
-                $this->fail("Cannot use {$operator->value} on a field yet");
+        if ($node instanceof VariableAST || (($node instanceof IndexAST || $node instanceof PropertyAST) && AST::pathRoot($node) !== null)) {
+            if (isset($this->member_uses[spl_object_id($node)])) {
+                $this->member_uses[spl_object_id($node)][3] = true;
             }
-            $this->member_uses[spl_object_id($node)][3] = true;
 
             return $node;
         }
-        if (! $node instanceof VariableAST && ! ($node instanceof IndexAST && $node->rootVariable() !== null)) {
-            $this->fail("Can only use {$operator->value} on a variable or an element of one");
-        }
 
-        return $node;
+        $this->fail("Can only use {$operator->value} on a variable, or an element or field of one");
     }
 
     /**

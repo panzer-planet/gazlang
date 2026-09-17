@@ -34,17 +34,4 @@ class IndexAST extends AST
         $this->target = $target;
         $this->index = $index;
     }
-
-    /**
-     * Get the variable an assignment through this index ultimately writes to, if any
-     */
-    public function rootVariable(): ?VariableAST
-    {
-        $node = $this->target;
-        while ($node instanceof IndexAST) {
-            $node = $node->target;
-        }
-
-        return $node instanceof VariableAST ? $node : null;
-    }
 }

@@ -210,7 +210,7 @@ class ArrayTest extends GazLangTestCase
     {
         return [
             'reading []' => ['$a = []; echo $a[];', '[] can only be used to append in an assignment'],
-            'assigning into a call' => ['fn f() { return []; } f()[0] = 1;', 'Can only use = on a variable or an element of one'],
+            'assigning into a call' => ['fn f() { return []; } f()[0] = 1;', 'Can only use = on a variable, or an element or field of one'],
             'len arity' => ['echo len([], []);', 'Function len expects 1 arguments, 2 given'],
             'redeclaring len' => ['fn len($x) { }', 'len is a builtin function'],
             'unterminated literal' => ['echo [1, 2;', "Expected ',' but found ';'"],
@@ -254,8 +254,8 @@ class ArrayTest extends GazLangTestCase
     {
         $this->assertEquals(
             "NEW_ARRAY\nSTORE 0\nLOAD 0\nPOP\n"
-            ."PUSH_STR \"k\"\nKEY_CHECK\nPUSH 0\nKEY_CHECK\nPUSH 5\nSET_PATH 2 0\nPOP\n"
-            ."LOAD 0\nAPPEND_PATH_GLOBAL 0 0\nPOP\n"
+            ."PUSH_STR \"k\"\nKEY_CHECK\nPUSH 0\nKEY_CHECK\nPUSH 5\nSET_PATH [k][k] 0\nPOP\n"
+            ."LOAD 0\nSET_PATH_GLOBAL [] 0\nPOP\n"
             ."LOAD 0\nCALL_BUILTIN len 1\nPRINT",
             $this->generateCode('$a = []; $a["k"][0] = 5; @all[] = $a; echo len($a);')
         );

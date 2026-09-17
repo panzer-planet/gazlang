@@ -185,6 +185,118 @@ class ClassTest extends GazLangTestCase
             CODE));
     }
 
+    public function test_writing_fields_through_hash()
+    {
+        $this->assertEquals("[1, 2] {\"a\" => 2} 2 5 4\n7 [] 7 {\"k\" => [1]}\n", $this->executeCode(<<<'CODE'
+            class Stats {
+                #items = [];
+                #counts = {"a" => 0};
+                #n = 0;
+                #lazy;
+                #cache = {};
+                fn run() {
+                    #items[] = 1;
+                    #items[] = 2;
+                    #counts["a"] += 2;
+                    #n++;
+                    ++#n;
+                    $old = #n++;
+                    $five = #n += 2;
+                    #n--;
+                    return "{#items} {#counts} {$old} {$five} {#n}";
+                }
+                fn lazily() {
+                    $first = #lazy ??= 7;
+                    $second = #lazy ??= error("not run");
+                    #cache["k"] ??= [];
+                    $empty = #cache["k"];
+                    #cache["k"][] = 1;
+                    return "{$first} {$empty} {$second} {#cache}";
+                }
+            }
+            $s = Stats();
+            echo $s.run();
+            echo $s.lazily();
+            CODE));
+    }
+
+    public function test_writing_fields_through_a_dot()
+    {
+        $this->assertEquals("P {#x => 3, #tags => [\"a\", \"b\"], #next => P {#x => 9, #tags => []}}\n[P {#x => 5, #tags => []}]\n2 3 8 [6]\n1\n4\n", $this->executeCode(<<<'CODE'
+            class P {
+                #x;
+                #tags = [];
+                #next;
+            }
+            $p = P();
+            $p.x = 1;
+            $p.x += 2;
+            $p.tags[] = "a";
+            $p.tags[] = "b";
+            $p.next = P();
+            $p.next.x = 9;
+            echo $p;
+            $rows = [P()];
+            $copy = $rows;
+            $copy[0].x = 5;
+            echo $rows;
+            $q = P();
+            $q.x = 2;
+            $old = $q.x++;
+            $q.tags = [2];
+            $q.tags[0] *= 3;
+            echo "{$old} {$q.x} {$q.x += 5} {$q.tags}";
+            @g = P();
+            @g.x = 1;
+            echo @g.x;
+            $set = $v -> $p.x = $v;
+            $set(4);
+            echo $p.x;
+            CODE));
+    }
+
+    public function test_lists_in_fields_stay_values()
+    {
+        $this->assertEquals("[1] [1, 2]\n", $this->executeCode(<<<'CODE'
+            class Bag { #items = []; }
+            $b = Bag();
+            $b.items[] = 1;
+            $copy = $b.items;
+            $b.items[] = 2;
+            echo "{$copy} {$b.items}";
+            CODE));
+    }
+
+    public function test_coalesce_reads_unset_fields_as_null()
+    {
+        $this->assertEquals("default null-target missing-key 1\n", $this->executeCode(<<<'CODE'
+            class P { #x; #y = 1; }
+            $p = P();
+            $none = null;
+            $m = {};
+            echo ($p.x ?? "default") .. " " .. ($none.x ?? "null-target") .. " " .. ($m["k"].x ?? "missing-key") .. " " .. ($p.y ?? 2);
+            CODE));
+    }
+
+    public function test_appending_to_a_field_is_linear()
+    {
+        $this->assertEquals("20000\n", $this->executeCode(<<<'CODE'
+            class Bag {
+                #items = [];
+                fn fill($n) { for ($i = 0; $i < $n; $i++) { #items[] = $i; } return len(#items); }
+            }
+            echo Bag().fill(20000);
+            CODE));
+    }
+
+    public function test_code_for_paths_through_fields()
+    {
+        $this->assertStringEndsWith(
+            "POP\nPUSH 0\nKEY_CHECK\nPUSH 5\nSET_PATH [k].total 0\nPOP\nHALT\nLABEL NEW_P\nLOAD_THIS\nRET\nLABEL METHOD_P.f\nPUSH 1\nSET_PATH_THIS .items[]\nPOP\nPUSH null\nRET",
+            $this->generateCode("class P { #items; #total; fn f() { #items[] = 1; } }\n\$rows = [P()];\n\$rows[0].total = 5;")
+        );
+    }
+
     /**
      * @dataProvider runtimeErrors
      */
@@ -215,6 +327,18 @@ class ClassTest extends GazLangTestCase
             'index' => ['echo Account("W")[0];', 'Cannot use [] on object on line 14'],
             'foreach' => ['foreach (Account("W") as $x) {}', 'foreach expects a list or map, got object on line 14'],
             'error in a field default, located there' => ["class P {\n #x = 1 / 0;\n}\nP();", 'Division by zero on line 15'],
+            'compound update of an unset field' => ['class P { #x; } $p = P(); $p.x += 1;', 'Property x of P is not set on line 14'],
+            'increment of an unset field with #' => ['class P { #x; fn f() { #x++; } } P().f();', 'Property x of P is not set on line 14'],
+            'through an unset field' => ['class P { #x; } $p = P(); $p.x[0] = 1;', 'Property x of P is not set on line 14'],
+            'assigning to a method' => ['$a = Account("W"); $a.deposit = 1;', 'Cannot assign to method Account.deposit on line 14'],
+            'updating a method' => ['$a = Account("W"); $a.deposit += 1;', 'Cannot assign to method Account.deposit on line 14'],
+            'assigning to an undeclared member' => ['$a = Account("W"); $a.nope = 1;', 'Account has no member nope on line 14'],
+            'assigning to the constructor' => ['$a = Account("W"); $a._ = 1;', 'Cannot use the constructor of Account as a member on line 14'],
+            'a dot on a list in a path' => ['$l = [1]; $l.x = 1;', 'Cannot use . on list on line 14'],
+            'a dot on an element in a path' => ['$l = [1]; $l[0].x = 1;', 'Cannot use . on int on line 14'],
+            'undefined variable' => ['$nope.x = 1;', 'Undefined variable: $nope on line 14'],
+            'undeclared member under ??' => ['echo Account("W").nope ?? 1;', 'Account has no member nope on line 14'],
+            'keys and value run before the path fails' => ['fn k() { echo "k"; return 0; } $a = Account("W"); $a.nope[k()] = error("value");', 'value'],
             'error in the constructor' => ["class P {\n fn _() { error(\"no\"); }\n}\n\$p = P();", 'no'],
         ];
     }
@@ -261,6 +385,9 @@ class ClassTest extends GazLangTestCase
             'constructing with the wrong argument count' => ["class P { fn _(\$a) {} }\n\nP();", 'Class P expects 1 arguments, 0 given on line 3'],
             'constructing without a constructor' => ['class P {} P(1);', 'Class P expects 0 arguments, 1 given on line 1'],
             'method call arity' => ['class P { fn f($a) { return #f(); } }', 'Method P.f expects 1 arguments, 0 given on line 1'],
+            'assigning to a call' => ['class P { #x; } fn make() { return P(); } make().x = 1;', 'Can only use = on a variable, or an element or field of one on line 1'],
+            'assigning to #' => ['class P { fn f() { # = 1; } }', 'Can only use = on a variable, or an element or field of one on line 1'],
+            'incrementing a method' => ['class P { fn f() { #f++; } }', 'Cannot assign to method #f on line 1'],
             'something else in a class body' => ['class P { echo 1; }', "Expected a field (#name) or a method (fn) but found 'echo' on line 1"],
             'duplicate method parameter' => ['class P { fn f($a, $a) {} }', 'Duplicate parameter $a in method P.f on line 1'],
         ];

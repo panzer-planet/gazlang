@@ -20,6 +20,12 @@ class PropertyAST extends AST
     public $name;
 
     /**
+     * @var bool Whether reading requires a field that is set (Values::propertyExisting); set by the code
+     *           generator for the reads of a lowered compound update, never by the parser
+     */
+    public $existing = false;
+
+    /**
      * Constructor
      *
      * @param  AST  $target  The object

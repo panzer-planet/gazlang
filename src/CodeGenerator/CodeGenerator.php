@@ -56,7 +56,7 @@ use GazLang\Runtime\MapValue;
  * Lambda bodies are emitted after the functions, each under LABEL LAMBDA_n with its own
  * frame: parameters in slots 0.., then its other locals. Its captured variables live in
  * the closure and are addressed by index with LOAD_CAPTURED, STORE_CAPTURED,
- * LOAD_QUIET_CAPTURED and SET_PATH_CAPTURED/APPEND_PATH_CAPTURED. MAKE_CLOSURE n pushes a
+ * LOAD_QUIET_CAPTURED and SET_PATH_CAPTURED. MAKE_CLOSURE n pushes a
  * closure, copying into it what the Program's lambda table maps from the enclosing frame
  * or the enclosing closure (only what exists, as the interpreter does), then storing the
  * closure in its own $self variable; CALL_VALUE on a closure starts a frame from the
@@ -80,11 +80,14 @@ use GazLang\Runtime\MapValue;
  * and a key and sets it in the map below. KEY_CHECK fails unless the value on top of the
  * stack can be a key (an int or string), and is emitted right after each key expression,
  * so a bad key fails before later keys and the value run, as in the interpreter.
- * INDEX_GET pops an index and a list, map or string and pushes the element. For an indexed assignment the keys, then the value are pushed, and
- * SET_PATH n slot pops the value and n keys, sets the element of the variable in
- * that local slot in place (SET_PATH_GLOBAL for a global), and pushes the value;
- * APPEND_PATH n slot appends after following the n keys. The variable is read
- * after the keys and value run, as in the interpreter.
+ * INDEX_GET pops an index and a list, map or string and pushes the element. For an assignment
+ * through a path the index keys, then the value are pushed, and SET_PATH path slot pops the
+ * value and the keys, writes through the variable in that local slot in place (SET_PATH_GLOBAL
+ * for a global, SET_PATH_CAPTURED for a closure's variable, SET_PATH_THIS path for a path
+ * starting at #), and pushes the value. The path spells the steps: [k] for a key from the
+ * stack, .name for a field, and a final [] to append, as in [k].total or [k][]. The variable is
+ * read after the keys and value run, as in the interpreter. GET_PROPERTY_QUIET reads a field
+ * as ?? does and GET_PROPERTY_EXISTING as a compound update does (see Values).
  *
  * Operators mean what Runtime\Values says: DIV keeps an exact int division an int
  * and gives a float otherwise, MOD is ints only, and PUSH writes floats exactly.
@@ -236,9 +239,9 @@ class CodeGenerator extends AbstractNodeVisitor
     /**
      * Emit a variable instruction, allocating the variable's slot the first time it is seen
      *
-     * @param  string  $op  LOAD, STORE, SET_PATH or APPEND_PATH; globals get the _GLOBAL form
+     * @param  string  $op  LOAD, STORE, LOAD_QUIET or SET_PATH; globals get the _GLOBAL form
      * @param  VariableAST  $variable  The variable
-     * @param  mixed  ...$args  Arguments before the slot (the key count for the path instructions)
+     * @param  mixed  ...$args  Arguments before the slot (the path for SET_PATH)
      */
     private function emitVariable(string $op, VariableAST $variable, ...$args): void
     {
@@ -282,14 +285,15 @@ class CodeGenerator extends AbstractNodeVisitor
             return;
         }
 
-        if ($node->left instanceof IndexAST) {
-            $this->indexAssign($node);
+        if ($node->left instanceof PropertyAST && $node->left->target instanceof ThisAST) {
+            // #name = value: a field the parser has checked the class declares
+            $this->visit($node->right);
+            $this->emit('SET_FIELD', $node->left->name);
 
             return;
         }
-        if ($node->left instanceof PropertyAST) {
-            $this->visit($node->right);
-            $this->emit('SET_FIELD', $node->left->name);
+        if ($node->left instanceof IndexAST || $node->left instanceof PropertyAST) {
+            $this->pathAssign($node);
 
             return;
         }
@@ -324,6 +328,7 @@ class CodeGenerator extends AbstractNodeVisitor
      *   ++$a[k]     becomes  $#k0 = k; $a[$#k0] = INC $a[$#k0]
      *   $a[k]++     becomes  $#k0 = k; $a[$#k0]; $a[$#k0] = INC $a[$#k0];   (the first read is the result)
      *   $a[k] ??= v becomes  $#k0 = k; $a[$#k0] ?? ($a[$#k0] = v)
+     *   $o.n += 1   becomes  $o.n = $o.n + 1       (fields need no hidden variable)
      *
      * Reading the target twice for postfix is safe: the keys are already evaluated and
      * nothing runs in between. A postfix ++ used as a statement is emitted as prefix (see
@@ -331,30 +336,34 @@ class CodeGenerator extends AbstractNodeVisitor
      *
      * INC and DEC add or subtract one and fail on anything but a number, like Values::step().
      * The current value is read with INDEX_GET_EXISTING (Values::indexExisting()): the target
-     * must be an array and the key must exist.
+     * must be an array and the key must exist; a field with GET_PROPERTY_EXISTING.
      *
-     * @param  VariableAST|IndexAST  $target  The variable or element being updated
+     * @param  VariableAST|IndexAST|PropertyAST  $target  The variable, element or field being updated
      * @param  Token  $op  The compound assignment, INCREMENT or DECREMENT token
      * @param  AST|null  $value  The right side of a compound assignment, null for ++ and --
      * @param  bool  $prefix  For ++ and --, whether to leave the new value rather than the old one
      */
-    private function update(VariableAST|IndexAST $target, Token $op, ?AST $value, bool $prefix): void
+    private function update(VariableAST|IndexAST|PropertyAST $target, Token $op, ?AST $value, bool $prefix): void
     {
         $n = $this->hidden_counter++;
         $hidden = fn (string $name) => new VariableAST(new Token(Token::VAR_IDENTIFIER, "\$#update_{$name}_{$n}"));
-        $assign = fn (VariableAST|IndexAST $to, AST $from) => new AssignAST($to, new Token(Token::ASSIGN, '='), $from);
+        $assign = fn (VariableAST|IndexAST|PropertyAST $to, AST $from) => new AssignAST($to, new Token(Token::ASSIGN, '='), $from);
 
-        $indexes = [];
-        for ($node = $target; $node instanceof IndexAST; $node = $node->target) {
-            array_unshift($indexes, $node->index);
+        $steps = [];
+        for ($node = $target; $node instanceof IndexAST || $node instanceof PropertyAST; $node = $node->target) {
+            array_unshift($steps, $node);
         }
-        $place = $target instanceof IndexAST ? $target->rootVariable() : $target;
-        foreach ($indexes as $i => $index) {
-            $key = $hidden("key{$i}");
-            $this->visit($index);
-            $this->emit('KEY_CHECK');
-            $this->emitVariable('STORE', $key);
-            $place = new IndexAST($place, $key);
+        $place = AST::pathRoot($target);
+        foreach ($steps as $i => $step) {
+            if ($step instanceof PropertyAST) {
+                $place = new PropertyAST($place, $step->name);
+            } else {
+                $key = $hidden("key{$i}");
+                $this->visit($step->index);
+                $this->emit('KEY_CHECK');
+                $this->emitVariable('STORE', $key);
+                $place = new IndexAST($place, $key);
+            }
             // The update reads the current value strictly, like the interpreter's store(),
             // except ??=, which reads it like ?? does
             $place->existing = $op->type !== Token::COALESCE_ASSIGN;
@@ -442,34 +451,42 @@ class CodeGenerator extends AbstractNodeVisitor
     }
 
     /**
-     * Emit an assignment through indexes, like $a["k"][0] = value or $a[] = value
+     * Emit an assignment through a path, like $a["k"][0] = value, $a[] = value or $rows[0].total = value
      *
-     * @param  AssignAST  $node  An assignment whose left side is an IndexAST rooted at a variable
+     * @param  AssignAST  $node  An assignment whose left side is an IndexAST or PropertyAST path rooted at a variable or #
      */
-    private function indexAssign(AssignAST $node): void
+    private function pathAssign(AssignAST $node): void
     {
-        $indexes = [];
-        for ($target = $node->left; $target instanceof IndexAST; $target = $target->target) {
-            array_unshift($indexes, $target->index);
-        }
-        $variable = $node->left->rootVariable();
-        $append = $node->left->index === null;
-        if ($append) {
-            array_pop($indexes);
+        $steps = [];
+        for ($target = $node->left; $target instanceof IndexAST || $target instanceof PropertyAST; $target = $target->target) {
+            array_unshift($steps, $target);
         }
 
-        foreach ($indexes as $index) {
-            $this->visit($index);
-            // A hidden $# variable holds a key update() already checked
-            if (! ($index instanceof VariableAST && str_starts_with($index->value, '$#'))) {
-                $this->emit('KEY_CHECK');
+        $path = '';
+        foreach ($steps as $step) {
+            if ($step instanceof PropertyAST) {
+                $path .= ".{$step->name}";
+            } elseif ($step->index === null) {
+                $path .= '[]';
+            } else {
+                $path .= '[k]';
+                $this->visit($step->index);
+                // A hidden $# variable holds a key update() already checked
+                if (! ($step->index instanceof VariableAST && str_starts_with($step->index->value, '$#'))) {
+                    $this->emit('KEY_CHECK');
+                }
             }
         }
         $this->visit($node->right);
 
         // The variable is only read now, like the interpreter, so side effects of the keys and
         // value aren't overwritten; and it is updated in place, so appending stays linear
-        $this->emitVariable($append ? 'APPEND_PATH' : 'SET_PATH', $variable, count($indexes));
+        $root = AST::pathRoot($node->left);
+        if ($root instanceof ThisAST) {
+            $this->emit('SET_PATH_THIS', $path);
+        } else {
+            $this->emitVariable('SET_PATH', $root, $path);
+        }
     }
 
     /**
@@ -523,6 +540,9 @@ class CodeGenerator extends AbstractNodeVisitor
             $this->quietly($node->target);
             $this->visit($node->index);
             $this->emit('INDEX_GET_QUIET');
+        } elseif ($node instanceof PropertyAST) {
+            $this->quietly($node->target);
+            $this->emit('GET_PROPERTY_QUIET', $node->name);
         } else {
             $this->visit($node);
         }
@@ -925,7 +945,7 @@ class CodeGenerator extends AbstractNodeVisitor
     public function visitProperty(PropertyAST $node): void
     {
         $this->visit($node->target);
-        $this->emit('GET_PROPERTY', $node->name);
+        $this->emit($node->existing ? 'GET_PROPERTY_EXISTING' : 'GET_PROPERTY', $node->name);
     }
 
     /**

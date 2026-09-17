@@ -44,6 +44,7 @@ use GazLang\Runtime\ExitSignal;
 use GazLang\Runtime\FunctionValue;
 use GazLang\Runtime\MapValue;
 use GazLang\Runtime\ObjectValue;
+use GazLang\Runtime\PropertyStep;
 use GazLang\Runtime\Values;
 
 /**
@@ -208,7 +209,7 @@ class Interpreter extends AbstractNodeVisitor
 
             return $value;
         }
-        if ($node->left instanceof PropertyAST) {
+        if ($node->left instanceof PropertyAST && $node->left->target instanceof ThisAST && $node->token->type === Token::ASSIGN) {
             // #name = value, a field the parser has checked the class declares
             $value = $this->visit($node->right);
             $this->receiver->fields[$node->left->name] = $value;
@@ -222,10 +223,14 @@ class Interpreter extends AbstractNodeVisitor
 
         // $a ??= $b is $a ?? ($a = $b): the right side only runs when the target is null or missing
         if ($node->token->type === Token::COALESCE_ASSIGN) {
-            $variable = $node->left instanceof VariableAST ? $node->left : $node->left->rootVariable();
-            $current = $this->variables($variable)[$variable->value] ?? null;
+            $root = AST::pathRoot($node->left);
+            $current = $root instanceof ThisAST ? $this->receiver : $this->variables($root)[$root->value] ?? null;
             foreach ($keys as $key) {
-                $current = $current === null ? null : Values::index($current, $key, true);
+                $current = match (true) {
+                    $current === null => null,
+                    $key instanceof PropertyStep => Values::property($current, $key->name, true),
+                    default => Values::index($current, $key, true),
+                };
             }
             if ($current !== null) {
                 return $current;
@@ -257,21 +262,25 @@ class Interpreter extends AbstractNodeVisitor
     }
 
     /**
-     * Evaluate the index keys of an assignment target, left to right
+     * Evaluate the steps of an assignment target's path, left to right
      *
-     * @param  VariableAST|IndexAST  $target  The target
-     * @return array The keys, outermost first; null for an append ([])
+     * @param  VariableAST|IndexAST|PropertyAST  $target  The target
+     * @return array The steps, outermost first: each index's key, null for an append ([]), or a PropertyStep
      */
-    private function evaluateKeys(VariableAST|IndexAST $target): array
+    private function evaluateKeys(VariableAST|IndexAST|PropertyAST $target): array
     {
-        $indexes = [];
-        for (; $target instanceof IndexAST; $target = $target->target) {
-            array_unshift($indexes, $target->index);
+        $steps = [];
+        for (; $target instanceof IndexAST || $target instanceof PropertyAST; $target = $target->target) {
+            array_unshift($steps, $target);
         }
 
         $keys = [];
-        foreach ($indexes as $index) {
-            $keys[] = $index === null ? null : Values::arrayKey($this->visit($index));
+        foreach ($steps as $step) {
+            $keys[] = match (true) {
+                $step instanceof PropertyAST => new PropertyStep($step->name),
+                $step->index === null => null,
+                default => Values::arrayKey($this->visit($step->index)),
+            };
         }
 
         return $keys;
@@ -280,17 +289,23 @@ class Interpreter extends AbstractNodeVisitor
     /**
      * Write to a variable or an element of one, given its evaluated keys (see Values::store())
      *
-     * @param  VariableAST|IndexAST  $target  The target
-     * @param  array  $keys  Its evaluated keys, from evaluateKeys()
+     * @param  VariableAST|IndexAST|PropertyAST  $target  The target
+     * @param  array  $keys  Its evaluated steps, from evaluateKeys()
      * @param  Token|null  $op  How to combine with the current value, or null to replace it
      * @param  mixed  $value  The right hand side (unused for ++ and --)
      * @return array{0: mixed, 1: mixed} The old value (null if there was none) and the new value
      *
      * @throws Exception If a variable or key along the way is missing, or the operation fails
      */
-    private function store(VariableAST|IndexAST $target, array $keys, ?Token $op, $value): array
+    private function store(VariableAST|IndexAST|PropertyAST $target, array $keys, ?Token $op, $value): array
     {
-        $variable = $target instanceof VariableAST ? $target : $target->rootVariable();
+        $variable = AST::pathRoot($target);
+        if ($variable instanceof ThisAST) {
+            // The object is a handle, so writing through a table holding it writes the object
+            $table = ['#' => $this->receiver];
+
+            return Values::store($table, '#', '#', $keys, $op, $value);
+        }
         if ($variable->isGlobal()) {
             return Values::store($this->globals, $variable->value, $variable->value, $keys, $op, $value);
         }
@@ -355,6 +370,11 @@ class Interpreter extends AbstractNodeVisitor
             $index = $this->visit($node->index);
 
             return $target === null ? null : Values::index($target, $index, true);
+        }
+        if ($node instanceof PropertyAST) {
+            $target = $this->quietly($node->target);
+
+            return $target === null ? null : Values::property($target, $node->name, true);
         }
 
         return $this->visit($node);
@@ -680,7 +700,9 @@ class Interpreter extends AbstractNodeVisitor
      */
     public function visitProperty(PropertyAST $node)
     {
-        return Values::property($this->visit($node->target), $node->name);
+        $target = $this->visit($node->target);
+
+        return $node->existing ? Values::propertyExisting($target, $node->name) : Values::property($target, $node->name);
     }
 
     /**

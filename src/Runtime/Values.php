@@ -435,6 +435,50 @@ final class Values
     }
 
     /**
+     * Read a field that must be set, as a compound update ($obj.n += 1) reads the value it combines with
+     *
+     * Stricter than property(): a method is an error, as assigning to it would be.
+     *
+     * @param  mixed  $target  The object
+     * @param  string  $name  The field name
+     *
+     * @throws Exception If the target isn't an object, or the name isn't a field that is set
+     */
+    public static function propertyExisting($target, string $name)
+    {
+        if (! $target instanceof ObjectValue) {
+            throw new Exception('Cannot use . on '.self::typeOf($target));
+        }
+        if (array_key_exists($name, $target->fields)) {
+            return $target->fields[$name];
+        }
+        self::checkField($target, $name);
+
+        throw self::propertyNotSet($target, $name);
+    }
+
+    /**
+     * Check an object's class declares a field of that name, which a write path can go through
+     *
+     * @param  ObjectValue  $object  The object
+     * @param  string  $name  The member name
+     *
+     * @throws Exception If it is a method, the constructor, or not declared
+     */
+    private static function checkField(ObjectValue $object, string $name): void
+    {
+        $class = $object->class;
+        if (isset($class->fields[$name])) {
+            return;
+        }
+        if ($name !== '_' && isset($class->methods[$name])) {
+            throw new Exception("Cannot assign to method {$class->methods[$name]->name}.{$name}");
+        }
+
+        throw self::undefinedMember($class, $name);
+    }
+
+    /**
      * The error for reading a declared field that was never set
      *
      * @param  ObjectValue  $object  The object
@@ -459,11 +503,12 @@ final class Values
     }
 
     /**
-     * Write to a variable or an element of one: =, a compound assignment, or ++/--
+     * Write to a variable or an element or field of one: =, a compound assignment, or ++/--
      *
      * Shared by the interpreter (variables by name) and the VM (by slot), so both create,
-     * check and fail in exactly the same way. Plain assignment ($op null) may create the
-     * variable and a map's last key; a list index must already exist, and $l[] = v appends.
+     * check and fail in exactly the same way. The path is a list of steps: a key for an index
+     * (null to append), or a PropertyStep for a field. Plain assignment ($op null) may create
+     * the variable, a map's last key and a declared field; a list index must already exist, and $l[] = v appends.
      * A compound assignment (a binary operator token, + for +=) or ++/-- (an INCREMENT or
      * DECREMENT token) combines with the current value, so the variable and every key must
      * exist. Missing keys along the way are never created, and nothing is written if
@@ -471,12 +516,13 @@ final class Values
      *
      * Lists and maps are values: a list is written in place through a PHP reference, which
      * only changes this variable's copy, and each map on the path is cloned first (cheap,
-     * see MapValue), so appending and setting stay linear.
+     * see MapValue), so appending and setting stay linear. Objects are handles, written in
+     * place: to write through #, pass a table holding the object.
      *
      * @param  array  $table  The variables, by reference: locals or globals
      * @param  int|string  $slot  The variable's key in $table
      * @param  string  $name  The variable's name, for error messages
-     * @param  array  $keys  The evaluated index keys, outermost first; null for an append ([])
+     * @param  array  $keys  The steps, outermost first: evaluated index keys, null for an append ([]), or PropertyStep
      * @param  Token|null  $op  How to combine with the current value, or null to replace it
      * @param  mixed  $value  The right hand side (unused for ++ and --)
      * @return array{0: mixed, 1: mixed} The old value (null if there was none) and the new value
@@ -495,11 +541,28 @@ final class Values
         // (building the exception up front would cost a stack trace on every new key)
         $exists = true;
         $missing_key = '';
+        // The object whose field $missing_key isn't set, or null when it is a map key
+        $missing_object = null;
         foreach ($keys as $next_key) {
             if (! $exists) {
-                throw self::undefinedKey($missing_key);
+                throw $missing_object === null ? self::undefinedKey($missing_key) : self::propertyNotSet($missing_object, $missing_key);
             }
             $container = &$container[$key];
+            if ($next_key instanceof PropertyStep) {
+                if (! $container instanceof ObjectValue) {
+                    throw new Exception('Cannot use . on '.self::typeOf($container));
+                }
+                $object = $container;
+                self::checkField($object, $next_key->name);
+                // A handle: the object's fields are written in place, nothing is copied
+                $container = &$object->fields;
+                $key = $next_key->name;
+                if (! array_key_exists($key, $container)) {
+                    [$exists, $missing_key, $missing_object] = [false, $key, $object];
+                }
+
+                continue;
+            }
             if (is_array($container)) {
                 if ($next_key === null) {
                     $container[] = $value;
@@ -521,8 +584,7 @@ final class Values
                 $container = &$container->items;
                 $key = is_int($next_key) || ($next_key !== '' && $next_key[0] > '9') ? $next_key : MapValue::key($next_key);
                 if (! array_key_exists($key, $container)) {
-                    $exists = false;
-                    $missing_key = $next_key;
+                    [$exists, $missing_key, $missing_object] = [false, $next_key, null];
                 }
             } else {
                 throw new Exception('Cannot use [] on '.self::typeOf($container));
@@ -530,7 +592,7 @@ final class Values
         }
 
         if (! $exists && $op !== null) {
-            throw self::undefinedKey($missing_key);
+            throw $missing_object === null ? self::undefinedKey($missing_key) : self::propertyNotSet($missing_object, $missing_key);
         }
 
         $old = $container[$key] ?? null;
