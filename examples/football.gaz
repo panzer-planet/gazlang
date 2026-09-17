@@ -1,0 +1,473 @@
+// A football league simulator: players, teams, matches with commentary, and a season table.
+//
+//   php bin/gazlang -f examples/football.gaz -- [SEED]
+//
+// Everything random comes from a seeded generator, so the same seed plays the same season.
+include "../lib/functional.gaz";
+include "../lib/format.gaz";
+
+// A linear congruential generator: the same seed always gives the same numbers
+class Random {
+    #state;
+
+    fn _($seed) { #state = $seed % 2147483648; }
+
+    fn next() {
+        #state = (#state * 1103515245 + 12345) % 2147483648;
+        return #state;
+    }
+
+    // A float from 0.0 up to but not including 1.0
+    fn fraction() { return #next() / 2147483648.0; }
+
+    fn chance($probability) { return #fraction() < $probability; }
+
+    // An item picked with probability in proportion to $weight($item)
+    fn weighted($items, $weight) {
+        $target = #fraction() * reduce($items, ($sum, $item) -> $sum + $weight($item), 0);
+        foreach ($items as $item) {
+            $target -= $weight($item);
+            if ($target < 0) {
+                return $item;
+            }
+        }
+        return $items[len($items) - 1];
+    }
+}
+
+// Players: every position rates its own attacking and defending
+
+abstract class Player {
+    #name;
+    #skill;
+    #energy = 100;
+    #goals = 0;
+    #yellow_cards = 0;
+    #sent_off = false;
+
+    fn _($name, $skill) {
+        #name = $name;
+        #skill = $skill;
+    }
+
+    abstract fn position();
+    abstract fn attacking();
+    abstract fn defending();
+
+    // How well the player is playing right now: skill, worn down by tiredness
+    fn form() { return #skill * (60 + #energy * 0.4) / 100; }
+
+    fn tire() {
+        if (#energy > 40) {
+            #energy -= 1;
+        }
+    }
+
+    fn rest() {
+        #energy = 100;
+        #yellow_cards = 0;
+        #sent_off = false;
+    }
+
+    // A booking; the second yellow card is a red one
+    fn book() {
+        #yellow_cards++;
+        #sent_off = #yellow_cards == 2;
+        return #sent_off;
+    }
+
+    fn to_string() { return #name; }
+}
+
+class Goalkeeper extends Player {
+    fn position() { return "GK"; }
+    fn attacking() { return 0; }
+    fn defending() { return #form(); }
+}
+
+class Defender extends Player {
+    fn position() { return "DF"; }
+    fn attacking() { return #form() * 0.2; }
+    fn defending() { return #form(); }
+}
+
+class Midfielder extends Player {
+    fn position() { return "MF"; }
+    fn attacking() { return #form() * 0.6; }
+    fn defending() { return #form() * 0.5; }
+}
+
+class Forward extends Player {
+    fn position() { return "FW"; }
+    fn attacking() { return #form(); }
+    fn defending() { return #form() * 0.1; }
+
+    // Strikers are at their sharpest while they are fresh
+    fn form() { return ##form() * (#energy > 70 ? 1.1 : 0.9); }
+}
+
+// Teams
+
+class InvalidLineup extends Error {
+    #team;
+    fn _($team, $problem) {
+        ##_("{$team} can't play: {$problem}");
+        #team = $team;
+    }
+}
+
+class Team {
+    #name;
+    #players;
+
+    // $squad is a list of [position, name, skill], position being GK, DF, MF or FW
+    fn _($name, $squad) {
+        #name = $name;
+        // Classes are values: the position code picks the class to construct
+        $positions = {"GK" => Goalkeeper, "DF" => Defender, "MF" => Midfielder, "FW" => Forward};
+        #players = map($squad, $row -> $positions[$row[0]]($row[1], $row[2]));
+
+        if (len(#players) != 11) {
+            error(InvalidLineup($name, len(#players) .. " players instead of 11"));
+        }
+        $keepers = len(filter(#players, $player -> is_a($player, Goalkeeper)));
+        if ($keepers != 1) {
+            error(InvalidLineup($name, "{$keepers} goalkeepers"));
+        }
+    }
+
+    fn on_pitch() { return filter(#players, $player -> ! $player.sent_off); }
+    // With the goalkeeper sent off, the best defender left on the pitch goes in goal
+    fn goalkeeper() {
+        $keepers = filter(#on_pitch(), $player -> is_a($player, Goalkeeper));
+        if (len($keepers) > 0) {
+            return $keepers[0];
+        }
+        return sort(#on_pitch(), ($a, $b) -> $b.defending() <=> $a.defending())[0];
+    }
+    fn attack() { return reduce(#on_pitch(), ($sum, $player) -> $sum + $player.attacking(), 0); }
+    fn defence() { return reduce(#on_pitch(), ($sum, $player) -> $sum + $player.defending(), 0); }
+
+    // Who takes a shot: the more attacking a player, the likelier
+    fn shooter($random) {
+        return $random.weighted(filter(#on_pitch(), $player -> $player.attacking() > 0), $player -> $player.attacking());
+    }
+
+    fn tire() { foreach (#on_pitch() as $player) { $player.tire(); } }
+    fn rest() { foreach (#players as $player) { $player.rest(); } }
+
+    fn to_string() { return #name; }
+}
+
+// What happens in a match
+
+abstract class Event {
+    #minute;
+    #team;
+    fn _($minute, $team) {
+        #minute = $minute;
+        #team = $team;
+    }
+    abstract fn describe();
+    fn to_string() { return pad_left("{#minute}'", 4) .. "  " .. #describe(); }
+}
+
+class Goal extends Event {
+    #scorer;
+    #score;
+    fn _($minute, $team, $scorer, $score) {
+        ##_($minute, $team);
+        #scorer = $scorer;
+        #score = $score;
+    }
+    fn describe() { return "GOAL! {#scorer} scores for {#team}. {#score}"; }
+}
+
+class Shot extends Event {
+    #shooter;
+    #keeper;
+    fn _($minute, $team, $shooter, $keeper) {
+        ##_($minute, $team);
+        #shooter = $shooter;
+        #keeper = $keeper;
+    }
+    // Without a keeper, the shot missed the target
+    fn describe() {
+        return #keeper == null ? "{#shooter} ({#team}) shoots wide" : "{#shooter} ({#team}) is denied by {#keeper}";
+    }
+}
+
+class Booking extends Event {
+    #player;
+    #red;
+    fn _($minute, $team, $player, $red) {
+        ##_($minute, $team);
+        #player = $player;
+        #red = $red;
+    }
+    fn describe() {
+        return #red ? "RED CARD: {#player} ({#team}) is sent off" : "Yellow card for {#player} ({#team})";
+    }
+}
+
+class Whistle extends Event {
+    #text;
+    fn _($minute, $text) {
+        ##_($minute, null);
+        #text = $text;
+    }
+    fn describe() { return #text; }
+}
+
+class Match {
+    #home;
+    #away;
+    #random;
+    #home_goals = 0;
+    #away_goals = 0;
+    #listeners = [];
+
+    fn _($home, $away, $random) {
+        #home = $home;
+        #away = $away;
+        #random = $random;
+    }
+
+    // $listener($event) is called for everything that happens
+    fn on_event($listener) {
+        #listeners[] = $listener;
+        return #;
+    }
+
+    fn play() {
+        #home.rest();
+        #away.rest();
+        for ($minute = 1; $minute <= 90; $minute++) {
+            #minute($minute);
+            if ($minute == 45) {
+                #emit(Whistle(45, "Half time: {#}"));
+            }
+        }
+        #emit(Whistle(90, "Full time: {#}"));
+        return #;
+    }
+
+    fn minute($minute) {
+        #home.tire();
+        #away.tire();
+
+        // Something worth reporting happens in about one minute in six
+        if (#random.chance(0.17)) {
+            // The home side gets a little more of the ball
+            $home_attack = #home.attack() * 1.1;
+            if (#random.chance($home_attack / ($home_attack + #away.attack()))) {
+                #attempt($minute, #home, #away);
+            } else {
+                #attempt($minute, #away, #home);
+            }
+        }
+        if (#random.chance(0.03)) {
+            #foul($minute, #random.chance(0.5) ? #home : #away);
+        }
+    }
+
+    fn attempt($minute, $attackers, $defenders) {
+        $shooter = $attackers.shooter(#random);
+        $keeper = $defenders.goalkeeper();
+
+        // A shot on target gets past the keeper more often the better the shooter
+        $on_target = $shooter.attacking() / ($shooter.attacking() + $defenders.defence() / 12);
+        if (! #random.chance($on_target * 0.8)) {
+            #emit(Shot($minute, $attackers, $shooter, null));
+            return;
+        }
+        if (#random.chance($keeper.defending() / ($keeper.defending() + $shooter.attacking() * 1.1))) {
+            #emit(Shot($minute, $attackers, $shooter, $keeper));
+            return;
+        }
+
+        $shooter.goals++;
+        if ($attackers == #home) {
+            #home_goals++;
+        } else {
+            #away_goals++;
+        }
+        #emit(Goal($minute, $attackers, $shooter, to_string(#)));
+    }
+
+    fn foul($minute, $team) {
+        $player = #random.weighted($team.on_pitch(), $player -> $player.defending() + 1);
+        #emit(Booking($minute, $team, $player, $player.book()));
+    }
+
+    fn emit($event) {
+        foreach (#listeners as $listener) {
+            $listener($event);
+        }
+    }
+
+    fn to_string() { return "{#home} {#home_goals} - {#away_goals} {#away}"; }
+}
+
+// A league: everyone plays everyone home and away
+
+class Standing {
+    #team;
+    #played = 0;
+    #won = 0;
+    #drawn = 0;
+    #lost = 0;
+    #scored = 0;
+    #conceded = 0;
+
+    fn _($team) { #team = $team; }
+
+    fn record($scored, $conceded) {
+        #played++;
+        #scored += $scored;
+        #conceded += $conceded;
+        if ($scored > $conceded) {
+            #won++;
+        } else if ($scored == $conceded) {
+            #drawn++;
+        } else {
+            #lost++;
+        }
+    }
+
+    fn points() { return #won * 3 + #drawn; }
+    fn difference() { return #scored - #conceded; }
+
+    fn to_string() {
+        $difference = #difference() > 0 ? "+" .. #difference() : to_string(#difference());
+        return pad_right(to_string(#team), 18)
+            .. join(map([#played, #won, #drawn, #lost, #scored, #conceded], $n -> pad_left(to_string($n), 4)), "")
+            .. pad_left($difference, 5) .. pad_left(to_string(#points()), 5);
+    }
+}
+
+class League {
+    #teams;
+    #random;
+    #standings = {};
+    #matches = [];
+
+    fn _($teams, $random) {
+        #teams = $teams;
+        #random = $random;
+        foreach ($teams as $team) {
+            #standings[$team.name] = Standing($team);
+        }
+    }
+
+    // Plays every fixture, calling $before($match) as each kicks off
+    fn play_season($before) {
+        foreach (#teams as $home) {
+            foreach (#teams as $away) {
+                if ($home != $away) {
+                    $match = Match($home, $away, #random);
+                    $before($match);
+                    $match.play();
+                    #matches[] = $match;
+                    #standings[$home.name].record($match.home_goals, $match.away_goals);
+                    #standings[$away.name].record($match.away_goals, $match.home_goals);
+                }
+            }
+        }
+    }
+
+    // Points, then goal difference, then goals scored
+    fn table() {
+        return sort(#standings, ($a, $b) -> {
+            if ($a.points() != $b.points()) {
+                return $b.points() <=> $a.points();
+            }
+            if ($a.difference() != $b.difference()) {
+                return $b.difference() <=> $a.difference();
+            }
+            return $b.scored <=> $a.scored;
+        });
+    }
+
+    fn top_scorers($count) {
+        $scorers = [];
+        foreach (#teams as $team) {
+            foreach (filter($team.players, $player -> $player.goals > 0) as $player) {
+                $scorers[] = {"player" => $player, "team" => $team};
+            }
+        }
+        return slice(sort($scorers, ($a, $b) -> $b["player"].goals <=> $a["player"].goals), 0, $count);
+    }
+}
+
+// The clubs
+
+$teams = [
+    Team("Harbour City", [
+        ["GK", "Okafor", 78], ["DF", "Lindqvist", 74], ["DF", "Moreau", 71], ["DF", "Adeyemi", 73], ["DF", "Castillo", 69],
+        ["MF", "Novak", 80], ["MF", "Brennan", 76], ["MF", "Sato", 75], ["FW", "Ferreira", 84], ["FW", "Kowalski", 77], ["FW", "Dube", 72],
+    ]),
+    Team("Riverside Athletic", [
+        ["GK", "Haddad", 74], ["DF", "Olsen", 77], ["DF", "Mbeki", 76], ["DF", "Rossi", 72], ["DF", "Petrov", 70],
+        ["MF", "Nakamura", 73], ["MF", "Quinn", 71], ["MF", "Diallo", 78], ["FW", "Vargas", 79], ["FW", "Hale", 70],
+        ["FW", "Ivanova", 74],
+    ]),
+    Team("Northgate Rovers", [
+        ["GK", "Brandt", 81], ["DF", "Achebe", 79], ["DF", "Duarte", 78], ["DF", "Kerr", 75], ["DF", "Yilmaz", 74],
+        ["MF", "Park", 72], ["MF", "Lopez", 70], ["MF", "Mensah", 71], ["FW", "Fischer", 73], ["FW", "Ortega", 68], ["FW", "Walsh", 66],
+    ]),
+    Team("Valley United", [
+        ["GK", "Svensson", 70], ["DF", "Nwosu", 68], ["DF", "Keane", 66], ["DF", "Bauer", 69], ["DF", "Silva", 67],
+        ["MF", "Tanaka", 74], ["MF", "Ruiz", 72], ["MF", "Wright", 70], ["FW", "Costa", 76], ["FW", "Jansen", 71], ["FW", "Abara", 69],
+    ]),
+];
+
+// Commentary on the first few matches of the season
+class Commentator {
+    #remaining;
+    fn _($matches) { #remaining = $matches; }
+
+    fn kick_off($match) {
+        if (#remaining == 0) {
+            return;
+        }
+        #remaining--;
+        echo "";
+        echo "{$match.home} v {$match.away}";
+        // A bound method as the listener: it remembers which commentator it belongs to
+        $match.on_event(#report);
+    }
+
+    fn report($event) { echo $event; }
+}
+
+// A squad has to be a proper eleven
+try {
+    Team("Sunday Strollers", [["GK", "Bloggs", 50], ["GK", "Doe", 50]]);
+} catch (InvalidLineup $e) {
+    echo "Refused: {$e.message}";
+}
+
+$seed = len(args()) > 0 ? to_int(args()[0]) : 2025;
+echo "Season {$seed}";
+
+$league = League($teams, Random($seed));
+$league.play_season(Commentator(1).kick_off);
+
+echo "";
+echo "Results";
+foreach ($league.matches as $match) {
+    echo pad_right(to_string($match.home), 19) .. $match.home_goals .. " - " .. $match.away_goals .. "  " .. $match.away;
+}
+
+echo "";
+echo pad_right("", 18) .. join(map(["P", "W", "D", "L", "F", "A"], $label -> pad_left($label, 4)), "") .. "   GD  Pts";
+foreach ($league.table() as $standing) {
+    echo $standing;
+}
+
+echo "";
+echo "Top scorers";
+foreach ($league.top_scorers(5) as $row) {
+    echo pad_left(to_string($row["player"].goals), 3) .. "  {$row["player"]} ({$row["team"]}, {$row["player"].position()})";
+}
