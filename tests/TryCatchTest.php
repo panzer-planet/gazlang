@@ -139,6 +139,31 @@ class TryCatchTest extends GazLangTestCase
         $this->assertEquals("Not found: x\nclass Error\n", $this->executeCode(self::ERRORS.'echo NotFound("x"); echo Error;'));
     }
 
+    public function test_throwing_an_object_does_not_run_its_to_string_unless_nothing_catches_it()
+    {
+        // This NotFound never sets #message, so its inherited to_string() would fail
+        $this->assertEquals("caught a.txt\ncaught b.txt\n", $this->executeCode(<<<'CODE'
+            class NotFound extends Error {
+                #path;
+                fn _($path) { #path = $path; }
+            }
+            class Loud { fn to_string() { echo "to_string ran"; return "loud"; } }
+            try { error(NotFound("a.txt")); } catch (NotFound $e) { echo "caught {$e.path}"; }
+            try { error(Loud()); } catch ($e) { echo "caught b.txt"; }
+            CODE));
+    }
+
+    public function test_an_uncaught_object_runs_its_to_string_as_the_program_ends()
+    {
+        $this->expectOutputString('');
+        try {
+            $this->executeCode('class Loud { fn to_string() { echo "to_string ran"; return "loud"; } } error(Loud());');
+            $this->fail('Expected an error');
+        } catch (GazLangError $e) {
+            $this->assertSame('loud', $e->getMessage());
+        }
+    }
+
     /**
      * @dataProvider uncaughtValues
      */

@@ -434,6 +434,69 @@ class ClassTest extends GazLangTestCase
             CODE));
     }
 
+    public function test_updates_in_field_defaults_leave_the_constructor_arguments_alone()
+    {
+        // The VM lowers these into hidden variables in the initialiser's frame, which holds the arguments
+        $this->assertEquals("User {#id => 1, #tags => {\"x\" => 5}, #n => 5, #total => 3, #name => \"Werner\", #role => \"admin\"}\nno local\n", $this->executeCode(<<<'CODE'
+            @ids = {"user" => 0};
+            fn three() { return 3; }
+            class User {
+                #id = ++@ids["user"];
+                #tags = {};
+                #n = #tags["x"] ??= 5;
+                #total;
+                #name;
+                #role;
+                fn _($name, $role = "admin") {
+                    #total = 0;
+                    #total += three();
+                    #name = $name;
+                    #role = $role;
+                }
+                fn check() { return $local ?? "no local"; }
+            }
+            echo User("Werner");
+            echo User("Bob").check();
+            CODE));
+    }
+
+    public function test_constructor_locals_start_undefined()
+    {
+        $this->assertEquals("undefined\n", $this->executeCode(<<<'CODE'
+            @ids = {"a" => 0};
+            class P {
+                #id = ++@ids["a"];
+                fn _() { echo $x ?? "undefined"; $x = 1; }
+            }
+            P();
+            CODE));
+    }
+
+    /**
+     * @dataProvider constructorRecursion
+     */
+    public function test_runaway_construction_is_located_where_the_object_is_made(string $code, string $message)
+    {
+        // Through the CLI, which restarts itself without pcov (see FunctionTest)
+        foreach (['', '--interpreter'] as $backend) {
+            $command = sprintf('printf %%s %s | %s %s %s', escapeshellarg($code), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang'), $backend);
+            exec($command, $output, $exit_code);
+
+            $this->assertSame([$message], $output, "with {$backend}");
+            $this->assertSame(1, $exit_code);
+            $output = [];
+        }
+    }
+
+    public static function constructorRecursion(): array
+    {
+        // Constructing takes two levels (the object's initialiser, then _), so the limit lands on either
+        return [
+            'on the constructor' => ["class A {\n fn _(\$n) {\n  A(\$n + 1);\n }\n}\nfn h() {\n return A(1);\n}\nh();", 'Error: Maximum call depth of 10000 exceeded calling A._ on line 3'],
+            'on the initialiser' => ["class A {\n fn _(\$n) {\n  A(\$n + 1);\n }\n}\nA(1);", 'Error: Maximum call depth of 10000 exceeded calling A on line 3'],
+        ];
+    }
+
     public function test_runaway_to_string_is_a_gazlang_error()
     {
         // Through the CLI, which restarts itself without pcov (see FunctionTest)

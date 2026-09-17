@@ -5,6 +5,7 @@ namespace GazLang;
 use Exception;
 use GazLang\Runtime\ClassValue;
 use GazLang\Runtime\ObjectValue;
+use GazLang\Runtime\Values;
 
 /**
  * An error in a GazLang program, with the file and line it happened at when known
@@ -81,13 +82,33 @@ class GazLangError extends Exception
     /**
      * An error for a value thrown with error(), which catch gets as it is
      *
+     * Its message is only a placeholder: turning the value into text can run its
+     * to_string(), which must not happen unless nothing catches it (see uncaught()).
+     *
      * @param  mixed  $value  The value
-     * @param  string  $message  The value as text, shown if nothing catches it
      */
-    public static function thrown($value, string $message): self
+    public static function thrown($value): self
     {
-        $error = new self($message, null, null, false);
+        $error = new self('thrown '.Values::typeOf($value), null, null, false);
         [$error->has_value, $error->value] = [true, $value];
+
+        return $error;
+    }
+
+    /**
+     * The error as it is reported when nothing caught it: a thrown value's message is the value as echo prints it
+     *
+     * Called by each backend as the program ends, while to_string() can still run.
+     *
+     * @throws GazLangError If the value can't be turned into text
+     */
+    public function uncaught(): self
+    {
+        if (! $this->has_value) {
+            return $this;
+        }
+        $error = new self(Values::toString($this->value), $this->path, $this->line_number, false);
+        [$error->has_value, $error->value] = [true, $this->value];
 
         return $error;
     }

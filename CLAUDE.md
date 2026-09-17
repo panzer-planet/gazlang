@@ -439,8 +439,10 @@ sets while a program runs: the interpreter calls the method, and the VM runs it 
 in a nested `execute()` (see "VM").
 
 Code generation: `PUSH_CLASS name`; `NEW Class argc` pushes a frame at `LABEL NEW_Class`
-with the arguments as locals and the new object as receiver, which sets each default
-(`SET_FIELD name`), runs `CALL_CONSTRUCTOR Class` and returns the object (`CALL_VALUE` on a
+with the arguments as locals (their slots are reserved, since a lowered update in a default
+uses hidden variables) and the new object as receiver, which sets each default
+(`SET_FIELD name`), runs `CALL_CONSTRUCTOR Class` (a frame with only the arguments, whose
+call depth error is located at the construction, as in the interpreter) and returns the object (`CALL_VALUE` on a
 class does the same after its checks). Methods are at `LABEL METHOD_Class.name` with frames
 keyed `Class.name` (`new Class` for initialisers), so no function or lambda name collides.
 `LOAD_THIS`, `GET_PROPERTY name` (`_QUIET`, `_EXISTING`), `GET_METHOD name` then the
@@ -590,7 +592,9 @@ try {
   else is caught as it is (`error(5)` catches `5`). An `Error` or subclass gets `#file` and
   `#line` where it is first thrown, so `error($e)` rethrows it keeping them. Uncaught,
   `bin/gazlang` prints `Error: ` and the value as echo would (through `to_string()`),
-  with no location; runtime errors keep theirs.
+  with no location; runtime errors keep theirs. The text is only made once nothing has
+  caught the value (`GazLangError::uncaught()`, at the end of `interpret()` and
+  `VM::run()`), so throwing never runs `to_string()`.
 - **Catch clauses** are tried in order; `catch (NotFound $e)` matches an object of that
   class or a subclass, `catch ($e)` (or `@e`) anything and must be the last, and a
   catch's class must be a class (parse time). An error no clause matches carries on

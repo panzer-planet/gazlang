@@ -1093,6 +1093,9 @@ class Interpreter extends AbstractNodeVisitor
         Values::$call_method = fn (ObjectValue $object, ClassValue $definer, string $name) => $this->invokeMethod($definer, $name, $object, []);
         try {
             $this->visit($tree);
+        } catch (GazLangError $error) {
+            // Nothing caught it: a thrown value is only now turned into text, which can run its to_string()
+            throw $error->uncaught();
         } finally {
             Values::$call_method = $outer;
         }

@@ -2,6 +2,7 @@
 
 namespace GazLang\VM;
 
+use Closure;
 use Exception;
 use GazLang\AST\LambdaAST;
 use GazLang\CodeGenerator\Program;
@@ -98,7 +99,22 @@ final class VM
         $this->linked = [...$this->link(), $tokens, new Token(Token::INCREMENT, '++'), new Token(Token::DECREMENT, '--')];
         $this->globals = [];
 
-        $this->execute(0, [], null, '', 0);
+        try {
+            $this->execute(0, [], null, '', 0);
+        } catch (GazLangError $error) {
+            // Nothing caught it: a thrown value is only now turned into text, which can run its to_string()
+            if (! $error->has_value) {
+                throw $error;
+            }
+            $frames = [];
+            $outer = Values::$call_method;
+            Values::$call_method = $this->methodCaller($frames, 0);
+            try {
+                throw $error->uncaught();
+            } finally {
+                Values::$call_method = $outer;
+            }
+        }
     }
 
     /**
@@ -138,14 +154,7 @@ final class VM
         $handlers = [];
 
         $outer = Values::$call_method;
-        Values::$call_method = function (ObjectValue $object, ClassValue $definer, string $name) use (&$frames, $depth, $methods) {
-            $name = "{$definer->name}.{$name}";
-            if ($depth + count($frames) === Values::MAX_CALL_DEPTH) {
-                throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$name}");
-            }
-
-            return $this->execute($methods[$name][0], [], $object, $name, $depth + count($frames) + 1);
-        };
+        Values::$call_method = $this->methodCaller($frames, $depth);
 
         try {
             while (true) {
@@ -492,11 +501,17 @@ final class VM
                                 $callee = $classes[$arg0[$pc - 1]];
                                 goto construct;
                             case 'CALL_CONSTRUCTOR':
-                                // The constructor runs with the arguments the object's initialiser was given
+                                // The constructor runs with the arguments the object's initialiser was given, and
+                                // nothing else it holds; a failure here is where the object is being made, as in
+                                // the interpreter, not in the initialiser
                                 if ($depth + count($frames) === Values::MAX_CALL_DEPTH) {
-                                    throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$arg0[$pc - 1]}._");
+                                    throw $this->locate(
+                                        new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$arg0[$pc - 1]}._"),
+                                        $locations[$frames[array_key_last($frames)][1] - 1]
+                                    );
                                 }
                                 $frames[] = [$locals, $pc, $function, $argc, $closure, $receiver];
+                                $locals = array_slice($locals, 0, $argc);
                                 $function = "{$arg0[$pc - 1]}._";
                                 $pc = $methods[$function][0];
                                 break;
@@ -675,6 +690,26 @@ final class VM
         } finally {
             Values::$call_method = $outer;
         }
+    }
+
+    /**
+     * How Values::$call_method runs a method while a loop runs: to completion, in a nested execute()
+     *
+     * @param  array  $frames  The running loop's frames, by reference, so the call depth counts them as they are then
+     * @param  int  $depth  How many calls are running outside that loop
+     */
+    private function methodCaller(array &$frames, int $depth): Closure
+    {
+        $methods = $this->linked[9];
+
+        return function (ObjectValue $object, ClassValue $definer, string $name) use (&$frames, $depth, $methods) {
+            $name = "{$definer->name}.{$name}";
+            if ($depth + count($frames) === Values::MAX_CALL_DEPTH) {
+                throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$name}");
+            }
+
+            return $this->execute($methods[$name][0], [], $object, $name, $depth + count($frames) + 1);
+        };
     }
 
     /**

@@ -1244,15 +1244,19 @@ class CodeGenerator extends AbstractNodeVisitor
      *
      * Its frame holds the constructor's arguments and its receiver is the new object: it sets
      * the field defaults, the parent's first, runs the constructor with the same arguments,
-     * and returns the object. Field defaults use no local variables (the parser checks), so
-     * the arguments are all the frame holds.
+     * and returns the object. Field defaults use no local variables (the parser checks), but
+     * a lowered update in one uses hidden ones, so the arguments' slots are kept free of them.
      *
      * @param  ClassDeclarationAST  $class  The resolved class
-     * @return list<string> The variable name in each slot of the frame: none
+     * @return list<string> The variable name in each slot of the frame
      */
     private function compileInitialiser(ClassDeclarationAST $class): array
     {
+        $arity = isset($class->members['_']) ? $this->classes[$class->members['_']]->methods['_']->arity : 0;
         $this->var_addresses = [];
+        for ($i = 0; $i < (is_int($arity) ? $arity : $arity[1]); $i++) {
+            $this->var_addresses["\$#argument_{$i}"] = $i;
+        }
         $this->captures = [];
         [$this->file, $this->line] = [$class->file, $class->line];
 
