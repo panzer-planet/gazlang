@@ -664,16 +664,15 @@ class Parser
             }
         }
 
-        foreach (get_object_vars($node) as $child) {
-            foreach (is_array($child) ? $child : [$child] as $item) {
-                // Array literal entries are [key, value] pairs
-                foreach (is_array($item) ? $item : [$item] as $leaf) {
-                    if ($leaf instanceof AST) {
-                        self::collect_variables($leaf, $found, $assigned);
-                    }
-                }
+        // Children sit at any depth of plain arrays: an array literal's [key, value] entries,
+        // a match's arms, whose values are a list inside each arm. Recursing reaches them all,
+        // where unrolling a fixed number of levels silently drops whatever is deeper.
+        $children = get_object_vars($node);
+        array_walk_recursive($children, function ($leaf) use (&$found, &$assigned): void {
+            if ($leaf instanceof AST) {
+                self::collect_variables($leaf, $found, $assigned);
             }
-        }
+        });
     }
 
     /**

@@ -793,14 +793,21 @@ final class Values
     /**
      * The error for a match whose subject equals no arm's value, and that has no default arm
      *
-     * The subject is shown as it appears in a printed list, so a string is quoted and "1" and
-     * 1 differ, as they do to ==.
+     * A string is quoted, so "1" and 1 differ as they do to ==, and anything that isn't a
+     * scalar or null is named by its type, the convention to_int() and to_float() follow.
+     * Describing a list, map or object in full would run an object's to_string(), which
+     * raising an error must never do: it can throw, replacing the error being raised, and it
+     * can have side effects the program never asked for.
      *
      * @param  mixed  $subject  The value that matched nothing
      */
     public static function noMatch($subject): Exception
     {
-        return new Exception('No arm matches '.self::literal($subject));
+        return new Exception('No arm matches '.match (true) {
+            is_string($subject) => Lexer::quote($subject),
+            is_scalar($subject) || $subject === null => self::toString($subject),
+            default => self::typeOf($subject),
+        });
     }
 
     /**

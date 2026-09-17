@@ -103,6 +103,34 @@ class MatchTest extends GazLangTestCase
         );
     }
 
+    public function test_a_lambda_captures_variables_an_arm_value_uses()
+    {
+        // A match's arms are the first children two arrays deep, so a walker that unrolled a
+        // fixed number of levels found an arm's body but silently dropped its values
+        $this->assertEquals(
+            "hit\n",
+            $this->executeCode('fn make($t) { return $x -> match ($x) { $t => "hit", default => "miss" }; } echo make(7)(7);')
+        );
+    }
+
+    public function test_a_lambda_inside_an_arm_value_contributes_its_captures()
+    {
+        $this->assertEquals(
+            "hit\n",
+            $this->executeCode('fn make($t) { return $x -> match ($x) { (() -> $t)() => "hit", default => "miss" }; } echo make(7)(7);')
+        );
+    }
+
+    public function test_a_plain_assignment_in_an_arm_value_is_local_to_the_call()
+    {
+        // $n is assigned in an arm value, so it is local to each call rather than captured
+        $this->assertEquals(
+            "Undefined variable: \$n\n",
+            $this->executeCode('$n = 1; $f = $x -> match ($x) { ($n = $n + 1) => "a", default => "b" };'
+                .'try { $f(1); } catch (Error $e) { echo $e.message; }')
+        );
+    }
+
     public function test_nested_matches_do_not_share_hidden_variables_or_labels()
     {
         $code = $this->generateCode('echo match (1) { 1 => match (2) { 2 => "in" }, default => "out" };');

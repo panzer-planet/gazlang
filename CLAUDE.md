@@ -695,8 +695,11 @@ match ($c) {                                  // a statement: an arm may be a bl
 - **No fallthrough**: the matching arm's body is the value of the whole `match`, and `break`,
   `continue` and `return` in an arm belong to the loop or function around the `match`.
 - **Nothing matching and no `default` is an error**, `No arm matches "x"`
-  (`Values::noMatch()`, which shows the subject as a printed list does, so strings are
-  quoted and `"1"` and `1` differ). Write `default => {}` to ignore the rest.
+  (`Values::noMatch()`: a string is quoted, so `"1"` and `1` differ as they do to `==`, and
+  anything that isn't a scalar or null is named by its type, `No arm matches list`, the
+  convention `to_int()` and `to_float()` follow. Printing a list, map or object in full would
+  run an object's `to_string()`, which raising an error must never do: it can throw, replacing
+  the error being raised). Write `default => {}` to ignore the rest.
 - **Arms separate with a comma**, optional after the last one and after a block arm, which
   ends in a `}` of its own, as in Rust. `default` must be last, since anything after it is
   dead, the way an untyped `catch` must be last, and a second `default` is the same error.

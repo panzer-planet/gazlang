@@ -86,6 +86,11 @@ check("return in an arm", describe(0), "zero");
 check("past the match", describe(1), "not zero");
 
 // Nothing matching and no default is an error naming the subject, strings quoted
+@printed = 0;
+class Loud {
+    fn to_string() { @printed++; return "loud"; }
+}
+
 fn fails($f) {
     try {
         $f();
@@ -98,14 +103,31 @@ fn fails($f) {
 
 check("no arm matches a string", fails(() -> match ("x") { "a" => 1 }), "No arm matches \"x\"");
 check("no arm matches a number", fails(() -> match (5) { 1 => 1 }), "No arm matches 5");
-check("no arm matches a list", fails(() -> match ([1]) { [2] => 1 }), "No arm matches [1]");
+check("no arm matches a bool", fails(() -> match (true) { 1 => 1 }), "No arm matches true");
 check("no arm matches null", fails(() -> match (null) { 1 => 1 }), "No arm matches null");
+// Anything that isn't a scalar is named by its type: describing it could run a to_string(),
+// which raising an error must never do
+check("no arm matches a list", fails(() -> match ([1]) { [2] => 1 }), "No arm matches list");
+check("no arm matches a map", fails(() -> match ({"a" => 1}) { 1 => 1 }), "No arm matches map");
+check("an object's to_string never runs while the error is raised",
+    fails(() -> match (Loud()) { 1 => 1 }), "No arm matches object");
+check("and it really never ran", @printed, 0);
 
 // An arm's body can raise, and a match is an expression anywhere one goes
 check("an arm that raises", fails(() -> match (1) { 1 => error("from an arm") }), "from an arm");
 check("a match as a call argument", to_string(match (1) { 1 => 7 }), "7");
 $f = $x -> match ($x) { 1 => "one", default => "other" };
 check("a match in a lambda", $f(1), "one");
+
+// A lambda captures the variables an arm's values use, not only its bodies
+fn matcher($target, $label) {
+    return $x -> match ($x) { $target => $label, default => "miss" };
+}
+$hit = matcher(7, "seven");
+check("a captured arm value", $hit(7), "seven");
+check("a captured arm body", $hit(8), "miss");
+$pair = matcher([1, 2], "the pair");
+check("a captured list arm value", $pair([1, 2]), "the pair");
 
 // In an expression a { after => is a map literal, since only a statement's arms are blocks
 $m = match (1) { 1 => {"k" => 2} };

@@ -25,9 +25,16 @@ ok return in an arm
 ok past the match
 ok no arm matches a string
 ok no arm matches a number
-ok no arm matches a list
+ok no arm matches a bool
 ok no arm matches null
+ok no arm matches a list
+ok no arm matches a map
+ok an object's to_string never runs while the error is raised
+ok and it really never ran
 ok an arm that raises
 ok a match as a call argument
 ok a match in a lambda
+ok a captured arm value
+ok a captured arm body
+ok a captured list arm value
 ok a map literal arm
