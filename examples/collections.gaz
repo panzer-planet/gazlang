@@ -1,0 +1,72 @@
+// Lists and maps.
+//
+//   php bin/gazlang -f examples/collections.gaz
+
+// A list holds values in order, indexed from 0
+$primes = [2, 3, 5];
+$primes[] = 7;                                  // append
+echo $primes;                                   // [2, 3, 5, 7]
+echo len($primes) .. " " .. $primes[3];         // 4 7
+echo slice($primes, 1, 2);                      // [3, 5]
+echo in_array(5, $primes);                      // true
+
+// A map holds values by key, in insertion order; keys are ints or strings,
+// and "1" and 1 are different keys
+$config = {
+    "name" => "gaz",
+    "tags" => ["lang"],
+    1 => "int one",
+    "1" => "string one",
+};
+$config["tags"][] = "vm";                       // write through nested keys
+$config["version"] = 2;                         // a map may gain keys
+echo $config["tags"];                           // ["lang", "vm"]
+echo $config[1] .. ", " .. $config["1"];        // int one, string one
+echo keys($config);                             // ["name", "tags", 1, "1", "version"]
+
+// Reading an index or key that isn't there is an error, unless you ask with ??
+echo $config["port"] ?? 8080;                   // 8080
+try {
+    echo $primes[10];
+} catch ($e) {
+    echo $e["message"];                         // Index out of range: 10
+}
+try {
+    echo $config["port"];
+} catch ($e) {
+    echo $e["message"];                         // Undefined key: "port"
+}
+
+// ??= fills in a missing key, which makes grouping short
+$words = ["apple", "avocado", "banana", "blueberry", "cherry"];
+$by_letter = {};
+foreach ($words as $word) {
+    $by_letter[$word[0]] ??= [];
+    $by_letter[$word[0]][] = $word;
+}
+echo $by_letter;                                // {"a" => ["apple", "avocado"], "b" => ["banana", "blueberry"], "c" => ["cherry"]}
+
+// Counting
+$counts = {};
+foreach (split("the cat and the hat and the bat", " ") as $word) {
+    $counts[$word] = ($counts[$word] ?? 0) + 1;
+}
+foreach ($counts as $word => $n) {
+    if ($n > 1) {
+        echo "$word: $n";                       // the: 3, then and: 2
+    }
+}
+
+// Lists and maps are values: assigning or passing one makes a copy
+function with_extra($list) {
+    $list[] = "extra";
+    return $list;
+}
+$copy = with_extra($primes);
+echo len($primes) .. " vs " .. len($copy);      // 4 vs 5
+
+// == compares contents: lists in order, maps in any order; a list is never a map
+echo [1, 2] == [1, 2.0];                        // true
+echo {"a" => 1, "b" => 2} == {"b" => 2, "a" => 1};   // true
+echo [] == {};                                  // false
+echo type_of([]) .. " " .. type_of({});         // list map

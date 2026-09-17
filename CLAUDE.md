@@ -15,13 +15,13 @@ vendor/bin/phpunit tests/SpecificTest.php
 vendor/bin/phpunit --filter=testMethodName tests/SpecificTest.php
  
 # Run a file (compiled and run on the VM)
-php bin/gazlang -f examples/functions_example.gaz
+php bin/gazlang -f examples/functions.gaz
 
 # Run a file on the tree-walking interpreter instead
-php bin/gazlang --interpreter -f examples/functions_example.gaz
+php bin/gazlang --interpreter -f examples/functions.gaz
 
 # Print the compiled VM code instead of running it
-php bin/gazlang -f examples/functions_example.gaz -c
+php bin/gazlang -f examples/functions.gaz -c
 ```
  
 ## Code Style Guidelines

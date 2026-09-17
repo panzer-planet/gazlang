@@ -1,0 +1,89 @@
+// A tokenizer for a small C-like language, and a count of what it found.
+//
+//   php bin/gazlang -f examples/tokenizer.gaz [-- FILE]
+//
+// With no file it tokenizes the snippet below.
+include "../lib/chars.gaz";
+
+$keywords = ["if", "else", "while", "return", "function"];
+$operators = ["==", "!=", "<=", ">=", "->", "..", "&&", "||", "+", "-", "*", "/", "%", "=", "<", ">", "!", "(", ")", "{", "}", "[", "]", ",", ";"];
+
+function token($type, $text, $line) {
+    return {"type" => $type, "text" => $text, "line" => $line};
+}
+
+// A list of token maps; errors name the line
+function tokenize($source, $keywords, $operators) {
+    $tokens = [];
+    $line = 1;
+    $i = 0;
+    $length = len($source);
+
+    while ($i < $length) {
+        $c = $source[$i];
+        $start = $i;
+        if ($c == "\n") {
+            $line++;
+            $i++;
+        } else if (is_space($c)) {
+            $i++;
+        } else if (slice($source, $i, 2) == "//") {
+            $i = index_of($source, "\n", $i) ?? $length;
+        } else if (is_digit($c)) {
+            while (is_digit(char_at($source, $i)) || char_at($source, $i) == ".") { $i++; }
+            $tokens[] = token("number", slice($source, $start, $i - $start), $line);
+        } else if (is_alpha($c) || $c == "_") {
+            while (is_alnum(char_at($source, $i)) || char_at($source, $i) == "_") { $i++; }
+            $word = slice($source, $start, $i - $start);
+            $tokens[] = token(in_array($word, $keywords) ? "keyword" : "name", $word, $line);
+        } else if ($c == "\"") {
+            $end = index_of($source, "\"", $i + 1);
+            if ($end == null) {
+                error("line $line: unterminated string");
+            }
+            $i = $end + 1;
+            $tokens[] = token("string", slice($source, $start, $i - $start), $line);
+        } else {
+            // Longest operator first: two characters, then one
+            $two = slice($source, $i, 2);
+            $op = in_array($two, $operators) ? $two : $c;
+            if (!in_array($op, $operators)) {
+                error("line $line: unexpected character \"$c\"");
+            }
+            $i += len($op);
+            $tokens[] = token("operator", $op, $line);
+        }
+    }
+    return $tokens;
+}
+
+$source = 'function greet(name) {
+    // Say hello
+    if (name != "") {
+        return "Hello, " .. name;
+    }
+    return "Hello?";
+}
+';
+$arguments = args();
+if (len($arguments) > 0) {
+    $source = read_file($arguments[0]);
+}
+
+try {
+    $tokens = tokenize($source, $keywords, $operators);
+} catch ($e) {
+    echo "Error: {$e["message"]}";
+    exit(1);
+}
+
+foreach (slice($tokens, 0, 6) as $t) {
+    echo "{$t["line"]}: {$t["type"]} {$t["text"]}";
+}
+echo "...";
+
+$counts = {};
+foreach ($tokens as $t) {
+    $counts[$t["type"]] = ($counts[$t["type"]] ?? 0) + 1;
+}
+echo len($tokens) .. " tokens: $counts";
