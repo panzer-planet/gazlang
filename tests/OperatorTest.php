@@ -20,10 +20,27 @@ class OperatorTest extends GazLangTestCase
         }
     }
 
-    public function test_single_ampersand_is_invalid()
+    public function test_lexes_bitwise_operators()
+    {
+        // Longest match: && before &=, and &= before &; <<= before << before <= before <
+        $lexer = $this->createLexer('& && &= | || |= ^ ^= ~ << <<= >> >>= <=> <=');
+        $expected = [
+            Token::BIT_AND, Token::AND, Token::BIT_AND_ASSIGN,
+            Token::BIT_OR, Token::OR, Token::BIT_OR_ASSIGN,
+            Token::BIT_XOR, Token::BIT_XOR_ASSIGN, Token::BIT_NOT,
+            Token::SHIFT_LEFT, Token::SHIFT_LEFT_ASSIGN, Token::SHIFT_RIGHT, Token::SHIFT_RIGHT_ASSIGN,
+            Token::SPACESHIP, Token::LESS_EQUALS, Token::EOF,
+        ];
+
+        foreach ($expected as $type) {
+            $this->assertEquals($type, $lexer->get_next_token()->type);
+        }
+    }
+
+    public function test_a_backtick_is_invalid()
     {
         $this->expectException(Exception::class);
-        $this->createLexer('&')->get_next_token();
+        $this->createLexer('`')->get_next_token();
     }
 
     /**

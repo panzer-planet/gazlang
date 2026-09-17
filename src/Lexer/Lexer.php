@@ -63,14 +63,20 @@ class Lexer
     ];
 
     /**
-     * Arithmetic operator characters: [operator, compound assignment, doubled] token types
+     * Operator characters that are one token on their own, one with a following = and, for some,
+     * one doubled: [operator, compound assignment, doubled] token types. Longest match wins, and
+     * = is tried before doubling, so && is && but &= is &=. < and > are read by hand, since <=>
+     * and << overlap.
      */
-    private const ARITHMETIC = [
+    private const OPERATORS = [
         '+' => [Token::PLUS, Token::PLUS_ASSIGN, Token::INCREMENT],
         '-' => [Token::MINUS, Token::MINUS_ASSIGN, Token::DECREMENT],
         '*' => [Token::MULTIPLY, Token::MULTIPLY_ASSIGN, null],
         '/' => [Token::DIVIDE, Token::DIVIDE_ASSIGN, null],
         '%' => [Token::MODULO, Token::MODULO_ASSIGN, null],
+        '&' => [Token::BIT_AND, Token::BIT_AND_ASSIGN, Token::AND],
+        '|' => [Token::BIT_OR, Token::BIT_OR_ASSIGN, Token::OR],
+        '^' => [Token::BIT_XOR, Token::BIT_XOR_ASSIGN, null],
     ];
 
     /**
@@ -786,10 +792,10 @@ class Lexer
                 return new Token(Token::PROPERTY, '.'.$this->read_word());
             }
 
-            if (isset(self::ARITHMETIC[$this->current_char])) {
+            if (isset(self::OPERATORS[$this->current_char])) {
                 // Longest match: += before +, and ++ before +
                 $char = $this->current_char;
-                [$type, $assign_type, $double_type] = self::ARITHMETIC[$char];
+                [$type, $assign_type, $double_type] = self::OPERATORS[$char];
                 $this->advance();
                 if ($this->current_char === '=') {
                     $this->advance();
@@ -835,6 +841,17 @@ class Lexer
 
             if ($this->current_char === '<') {
                 $this->advance();
+                if ($this->current_char === '<') {
+                    $this->advance();
+                    if ($this->current_char === '=') {
+                        $this->advance();
+
+                        return new Token(Token::SHIFT_LEFT_ASSIGN, '<<=');
+                    }
+
+                    return new Token(Token::SHIFT_LEFT, '<<');
+                }
+
                 if ($this->current_char === '=') {
                     $this->advance();
                     if ($this->current_char === '>') {
@@ -851,6 +868,17 @@ class Lexer
 
             if ($this->current_char === '>') {
                 $this->advance();
+                if ($this->current_char === '>') {
+                    $this->advance();
+                    if ($this->current_char === '=') {
+                        $this->advance();
+
+                        return new Token(Token::SHIFT_RIGHT_ASSIGN, '>>=');
+                    }
+
+                    return new Token(Token::SHIFT_RIGHT, '>>');
+                }
+
                 if ($this->current_char === '=') {
                     $this->advance();
 
@@ -860,18 +888,10 @@ class Lexer
                 return new Token(Token::GREATER_THAN, '>');
             }
 
-            if ($this->current_char === '&' && $this->peek() === '&') {
-                $this->advance();
-                $this->advance();
-
-                return new Token(Token::AND, '&&');
-            }
-
-            if ($this->current_char === '|' && $this->peek() === '|') {
-                $this->advance();
+            if ($this->current_char === '~') {
                 $this->advance();
 
-                return new Token(Token::OR, '||');
+                return new Token(Token::BIT_NOT, '~');
             }
 
             if ($this->current_char === '?' && $this->peek() === '?') {

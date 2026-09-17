@@ -30,6 +30,18 @@ class Token
 
     public const MODULO = 'MODULO';  // Remainder operator (%)
 
+    public const BIT_AND = 'BIT_AND';  // Bitwise and (&)
+
+    public const BIT_OR = 'BIT_OR';  // Bitwise or (|)
+
+    public const BIT_XOR = 'BIT_XOR';  // Bitwise exclusive or (^)
+
+    public const SHIFT_LEFT = 'SHIFT_LEFT';  // Left shift (<<)
+
+    public const SHIFT_RIGHT = 'SHIFT_RIGHT';  // Right shift (>>), keeping the sign
+
+    public const BIT_NOT = 'BIT_NOT';  // Bitwise not (~), two's complement
+
     public const SEMICOLON = 'SEMICOLON';
 
     public const ECHO = 'ECHO';  // Echo keyword
@@ -63,6 +75,16 @@ class Token
     public const DIVIDE_ASSIGN = 'DIVIDE_ASSIGN';  // /=
 
     public const MODULO_ASSIGN = 'MODULO_ASSIGN';  // %=
+
+    public const BIT_AND_ASSIGN = 'BIT_AND_ASSIGN';  // &=
+
+    public const BIT_OR_ASSIGN = 'BIT_OR_ASSIGN';  // |=
+
+    public const BIT_XOR_ASSIGN = 'BIT_XOR_ASSIGN';  // ^=
+
+    public const SHIFT_LEFT_ASSIGN = 'SHIFT_LEFT_ASSIGN';  // <<=
+
+    public const SHIFT_RIGHT_ASSIGN = 'SHIFT_RIGHT_ASSIGN';  // >>=
 
     public const CONCAT = 'CONCAT';  // String concatenation (..)
 
