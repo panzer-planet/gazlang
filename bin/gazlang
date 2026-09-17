@@ -1,10 +1,21 @@
 #!/usr/bin/env php
 <?php
 
-// With pcov enabled every PHP call uses the C stack, so deep GazLang recursion
-// segfaults long before the interpreter's call depth limit. Run again without it.
+// Settings that only take effect when PHP starts, so run again with them if they're missing:
+// - With pcov enabled every PHP call uses the C stack, so deep GazLang recursion segfaults
+//   long before the interpreter's call depth limit.
+// - PHP's JIT compiling hot functions (opcache.jit=1235) makes the VM about 25% faster. The
+//   default tracing mode makes it twice as slow, and compiling everything on load (1205)
+//   adds 0.2s to every run. Not with Xdebug, which disables the JIT with a warning in the output.
+$restart = [];
 if (extension_loaded('pcov') && ini_get('pcov.enabled')) {
-    passthru(implode(' ', array_map('escapeshellarg', [PHP_BINARY, '-d', 'pcov.enabled=0', ...$argv])), $exitCode);
+    array_push($restart, '-d', 'pcov.enabled=0');
+}
+if (extension_loaded('Zend OPcache') && ! extension_loaded('xdebug') && ! (ini_get('opcache.enable_cli') && ini_get('opcache.jit') === '1235')) {
+    array_push($restart, '-d', 'opcache.enable_cli=1', '-d', 'opcache.jit_buffer_size=16M', '-d', 'opcache.jit=1235');
+}
+if ($restart !== []) {
+    passthru(implode(' ', array_map('escapeshellarg', [PHP_BINARY, ...$restart, ...$argv])), $exitCode);
     exit($exitCode);
 }
 
