@@ -85,11 +85,41 @@ final class BytecodeReader
         }
 
         $program = new Program($blocks, $globals);
+        foreach ($program->classes as $name => $class) {
+            $this->records($name, $class, $program);
+        }
         foreach ($blocks as $block) {
             $this->check($block, $program);
         }
 
         return $program;
+    }
+
+    /**
+     * Check a class's record: its parent, the class each field is declared by, and the block each method runs
+     *
+     * @param  string  $name  The class's name
+     * @param  array{parent: string|null, abstract: bool, fields: array<string, string>, methods: array<string, string>}  $class  Its record
+     * @param  Program  $program  The program, for what it can name
+     */
+    private function records(string $name, array $class, Program $program): void
+    {
+        $fail = fn (string $message) => $this->fail("{$message} in class {$name}", false);
+        if ($class['parent'] !== null && ! isset($program->classes[$class['parent']])) {
+            $fail("Undefined class '{$class['parent']}'");
+        }
+        foreach ($class['fields'] as $field => $declarer) {
+            if (! isset($program->classes[$declarer])) {
+                $fail("Field {$field} is declared by undefined class '{$declarer}'");
+            }
+        }
+        foreach ($class['methods'] as $method => $definer) {
+            if (! isset($program->classes[$definer])) {
+                $fail("Method {$method} runs undefined class '{$definer}'");
+            } elseif (! isset($program->functions["{$definer}.{$method}"])) {
+                $fail("Method {$method} has no block {$definer}.{$method}");
+            }
+        }
     }
 
     /**
@@ -440,7 +470,7 @@ final class BytecodeReader
                         : $args[array_search('count', Program::INSTRUCTIONS[$opcode][0], true)] + (int) substr($pops, 6);
                 }
                 if ($height < $pops) {
-                    $fail("{$opcode} needs {$pops} values but the stack is {$height} deep at instruction {$position}");
+                    $fail("{$opcode} needs {$pops} value".($pops === 1 ? '' : 's')." but the stack is {$height} deep at instruction {$position}");
                 }
                 $height += $pushes - $pops;
 
@@ -455,11 +485,18 @@ final class BytecodeReader
                 }
                 $position++;
             }
+
+            // Only the top level may end by running out of instructions, which ends the program
+            if ($position >= count($block['code']) && $block['kind'] !== 'top') {
+                $fail('The code runs off the end of the block, which must end in RET');
+            }
         }
     }
 
     /**
-     * Check one argument that names something: a label, function, builtin, class, lambda or slot
+     * Check one argument that names something: a label, a function, a class, a lambda or a slot
+     *
+     * A member name is not checked: which members an object has is only known when it runs.
      *
      * @param  string  $kind  The argument kind
      * @param  mixed  $argument  The argument
@@ -472,11 +509,14 @@ final class BytecodeReader
     {
         match ($kind) {
             'label' => isset($labels[$argument]) || $fail("Undefined label '{$argument}'"),
-            'function' => isset($program->functions[$argument]) || isset(Builtins::ARITIES[$argument]) || isset($program->classes[$argument]) || $fail("Undefined function '{$argument}'"),
+            'function' => isset($program->functions[$argument]) || $fail("Undefined function '{$argument}'"),
+            'callable' => isset($program->functions[$argument]) || isset(Builtins::ARITIES[$argument]) || $fail("Undefined function '{$argument}'"),
             'builtin' => isset(Builtins::ARITIES[$argument]) || $fail("Undefined builtin '{$argument}'"),
             'class' => isset($program->classes[$argument]) || $fail("Undefined class '{$argument}'"),
             'lambda' => isset($program->lambdas[$argument]) || $fail("Undefined lambda {$argument}"),
-            'slot' => $argument >= 0 || $fail("Bad slot {$argument}"),
+            'slot' => $argument < count($block['locals']) || $fail("Slot {$argument} is not one of the block's ".count($block['locals']).' locals'),
+            'global' => $argument < count($program->global_names) || $fail("Global slot {$argument} is not one of the program's ".count($program->global_names).' globals'),
+            'capture' => $argument < count($block['captures']) || $fail("Capture {$argument} is not one of the block's ".count($block['captures']).' captured variables'),
             default => null,
         };
     }

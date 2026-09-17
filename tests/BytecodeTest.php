@@ -56,6 +56,30 @@ class BytecodeTest extends GazLangTestCase
         $this->assertSame(array_values(array_diff($instructions, self::NOT_RUN)), $handled, 'The VM and Program::INSTRUCTIONS disagree');
     }
 
+    public function test_the_documented_stack_effects_match_the_table()
+    {
+        $checked = 0;
+        foreach (explode("\n", (string) file_get_contents(self::ROOT.'/docs/bytecode.md')) as $line) {
+            if (! str_starts_with($line, '| `')) {
+                continue;
+            }
+            [, $instruction, $stack] = explode('|', $line);
+            // Rows for a whole group of instructions, and the ones whose effect depends on an
+            // argument or on which way they go, say so in words rather than as a b -- c
+            if (! preg_match('/^((?:[a-z]+ )*)-- ?((?:[a-z]+ ?)*)$/', trim(str_replace('`', '', $stack)).' ', $matches)) {
+                continue;
+            }
+            preg_match_all('/`([A-Z_]+)[^`]*`/', $instruction, $names);
+            foreach ($names[1] as $name) {
+                $effect = [count(array_filter(explode(' ', trim($matches[1])))), count(array_filter(explode(' ', trim($matches[2]))))];
+                $this->assertSame($effect, Program::INSTRUCTIONS[$name][1], "{$name}'s stack effect");
+                $checked++;
+            }
+        }
+
+        $this->assertGreaterThan(30, $checked, 'Too few stack effects were read from docs/bytecode.md');
+    }
+
     public function test_every_instruction_the_compiler_emits_is_in_the_table()
     {
         $emitted = [];
@@ -144,6 +168,38 @@ class BytecodeTest extends GazLangTestCase
         // Labels are scoped to their block
         $this->expectExceptionMessage("Undefined label 'HERE' in the top level");
         Program::read("GAZLANG BYTECODE 1\nglobals\n\ntop\nlocals\nJMP HERE\n\nfn f 0 0\nlocals\nLABEL HERE\nPUSH null\nRET\n");
+    }
+
+    public function test_calling_a_builtin_with_call_is_a_load_error()
+    {
+        // CALL is for the program's own functions; a builtin is CALL_BUILTIN
+        $this->expectExceptionMessage("Undefined function 'len' in the top level");
+        Program::read("GAZLANG BYTECODE 1\nglobals\n\ntop\nlocals\nPUSH \"x\"\nCALL len 1\nPOP\n");
+    }
+
+    public function test_a_class_record_naming_what_is_not_there_is_a_load_error()
+    {
+        $this->expectExceptionMessage("Undefined class 'Missing' in class C");
+        Program::read("GAZLANG BYTECODE 1\nglobals\n\ntop\nlocals\n\nclass C extends Missing\nlocals\nLOAD_THIS\nRET\n");
+    }
+
+    public function test_a_method_without_a_block_is_a_load_error()
+    {
+        $this->expectExceptionMessage('Method _ has no block C._ in class C');
+        Program::read("GAZLANG BYTECODE 1\nglobals\n\ntop\nlocals\n\nclass C\nmethod _ C\nlocals\nLOAD_THIS\nRET\n");
+    }
+
+    public function test_a_block_that_runs_off_its_end_is_a_load_error()
+    {
+        // Without this, a call to f would carry on into the block after it
+        $this->expectExceptionMessage("The code runs off the end of the block, which must end in RET in 'f'");
+        Program::read("GAZLANG BYTECODE 1\nglobals\n\ntop\nlocals\nCALL f 0\nPOP\n\nfn f 0 0\nlocals\nPUSH 1\nPOP\n");
+    }
+
+    public function test_a_slot_the_block_does_not_have_is_a_load_error()
+    {
+        $this->expectExceptionMessage("Slot 7 is not one of the block's 0 locals in the top level");
+        Program::read("GAZLANG BYTECODE 1\nglobals\n\ntop\nlocals\nLOAD 7\nPOP\n");
     }
 
     public function test_calling_a_function_that_is_not_there_is_a_load_error()

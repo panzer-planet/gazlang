@@ -35,8 +35,10 @@ final class Program
     /**
      * Every instruction: its arguments, and what it does to the stack as [pops, pushes]
      *
-     * The argument kinds say how to read each one: an int (slot, count, lambda), a name to
-     * resolve (function, builtin, class, member), a label in the same block, a write path,
+     * The argument kinds say how to read and check each one: an int (count, lambda, or a
+     * slot of this frame, the globals or the running closure), a name that must be there (a
+     * function of the program, a callable that may also be a builtin, a builtin, a class, or
+     * a member, which is only checked when it runs), a label in the same block, a write path,
      * or a value written as a GazLang literal, which is the rest of the line. A count in
      * "pops" means that argument's value, and "path" the keys the path takes from the stack.
      * docs/bytecode.md describes each instruction; the test keeps the three in step.
@@ -51,12 +53,12 @@ final class Program
         'LOAD' => [['slot'], [0, 1]],
         'LOAD_QUIET' => [['slot'], [0, 1]],
         'STORE' => [['slot'], [1, 0]],
-        'LOAD_GLOBAL' => [['slot'], [0, 1]],
-        'LOAD_QUIET_GLOBAL' => [['slot'], [0, 1]],
-        'STORE_GLOBAL' => [['slot'], [1, 0]],
-        'LOAD_CAPTURED' => [['slot'], [0, 1]],
-        'LOAD_QUIET_CAPTURED' => [['slot'], [0, 1]],
-        'STORE_CAPTURED' => [['slot'], [1, 0]],
+        'LOAD_GLOBAL' => [['global'], [0, 1]],
+        'LOAD_QUIET_GLOBAL' => [['global'], [0, 1]],
+        'STORE_GLOBAL' => [['global'], [1, 0]],
+        'LOAD_CAPTURED' => [['capture'], [0, 1]],
+        'LOAD_QUIET_CAPTURED' => [['capture'], [0, 1]],
+        'STORE_CAPTURED' => [['capture'], [1, 0]],
         'ADD' => [[], [2, 1]],
         'SUB' => [[], [2, 1]],
         'MUL' => [[], [2, 1]],
@@ -78,25 +80,25 @@ final class Program
         'JZ' => [['label'], [1, 0]],
         'JNN' => [['label'], [1, 0]],
         'NEW_ARRAY' => [[], [0, 1]],
-        'ARRAY_PUSH' => [[], [1, 0]],
+        'ARRAY_PUSH' => [[], [2, 1]],
         'NEW_MAP' => [[], [0, 1]],
-        'MAP_SET' => [[], [2, 0]],
-        'KEY_CHECK' => [[], [0, 0]],
-        'FOREACH_CHECK' => [[], [0, 0]],
-        'DESTRUCTURE' => [['count'], [0, 0]],
+        'MAP_SET' => [[], [3, 1]],
+        'KEY_CHECK' => [[], [1, 1]],
+        'FOREACH_CHECK' => [[], [1, 1]],
+        'DESTRUCTURE' => [['count'], [1, 1]],
         'INDEX_GET' => [[], [2, 1]],
         'INDEX_GET_QUIET' => [[], [2, 1]],
         'INDEX_GET_EXISTING' => [[], [2, 1]],
         'SET_PATH' => [['path', 'slot'], ['path', 1]],
-        'SET_PATH_GLOBAL' => [['path', 'slot'], ['path', 1]],
-        'SET_PATH_CAPTURED' => [['path', 'slot'], ['path', 1]],
+        'SET_PATH_GLOBAL' => [['path', 'global'], ['path', 1]],
+        'SET_PATH_CAPTURED' => [['path', 'capture'], ['path', 1]],
         'SET_PATH_THIS' => [['path'], ['path', 1]],
         'CALL' => [['function', 'count'], ['count', 1]],
         'CALL_BUILTIN' => [['builtin', 'count'], ['count', 1]],
         'CALL_VALUE' => [['count'], ['count+1', 1]],
         'ARGC' => [[], [0, 1]],
         'RET' => [[], [1, 0]],
-        'PUSH_FN' => [['function'], [0, 1]],
+        'PUSH_FN' => [['callable'], [0, 1]],
         'MAKE_CLOSURE' => [['lambda'], [0, 1]],
         'PUSH_CLASS' => [['class'], [0, 1]],
         'NEW' => [['class', 'count'], ['count', 1]],
@@ -105,7 +107,7 @@ final class Program
         'BIND_PARENT' => [['class', 'member'], [0, 1]],
         'LOAD_THIS' => [[], [0, 1]],
         'LOAD_FIELD' => [['member'], [0, 1]],
-        'SET_FIELD' => [['member'], [0, 0]],
+        'SET_FIELD' => [['member'], [1, 1]],
         'GET_PROPERTY' => [['member'], [1, 1]],
         'GET_PROPERTY_QUIET' => [['member'], [1, 1]],
         'GET_PROPERTY_EXISTING' => [['member'], [1, 1]],
@@ -334,8 +336,8 @@ final class Program
             return $file;
         }
 
-        $from = explode('/', $base);
-        $to = explode('/', self::absolute($file));
+        $from = self::segments($base);
+        $to = self::segments(self::absolute($file));
         while ($from !== [] && $to !== [] && $from[0] === $to[0]) {
             array_shift($from);
             array_shift($to);
@@ -352,14 +354,26 @@ final class Program
     public static function absolute(string $path): string
     {
         $parts = [];
-        foreach (explode('/', str_starts_with($path, '/') ? $path : getcwd().'/'.$path) as $part) {
-            if ($part === '..' && $parts !== [] && end($parts) !== '..') {
+        foreach (self::segments(str_starts_with($path, '/') ? $path : getcwd().'/'.$path) as $part) {
+            // Nothing is above the root, so a .. there is dropped
+            if ($part === '..') {
                 array_pop($parts);
-            } elseif ($part !== '.' && $part !== '') {
+            } elseif ($part !== '.') {
                 $parts[] = $part;
             }
         }
 
         return '/'.implode('/', $parts);
+    }
+
+    /**
+     * A path's parts, without the empty ones a leading, trailing or doubled slash gives
+     *
+     * @param  string  $path  The path
+     * @return list<string> The parts
+     */
+    private static function segments(string $path): array
+    {
+        return array_values(array_filter(explode('/', $path), fn (string $part) => $part !== ''));
     }
 }

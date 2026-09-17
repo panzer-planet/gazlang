@@ -162,7 +162,7 @@ function processInput(string $text, string $mode = 'vm', ?string $path = null, a
                 return true;
             }
             if ($mode === 'tokens' || $mode === 'interpret') {
-                echo "Error: {$path} is bytecode, which only the VM runs\n";
+                echo 'Error: '.($path ?? 'standard input')." is bytecode, which only the VM runs\n";
 
                 return false;
             }
