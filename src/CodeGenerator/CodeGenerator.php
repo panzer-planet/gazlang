@@ -25,6 +25,7 @@ use GazLang\AST\LoopControlAST;
 use GazLang\AST\MethodCallAST;
 use GazLang\AST\NullAST;
 use GazLang\AST\NumAST;
+use GazLang\AST\ParentMethodAST;
 use GazLang\AST\PropertyAST;
 use GazLang\AST\ReturnStatementAST;
 use GazLang\AST\StatementAST;
@@ -73,7 +74,9 @@ use GazLang\Runtime\MapValue;
  * the arguments, CALL_METHOD argc name: GET_METHOD pops the object and pushes it with the class
  * whose method runs, or, when the member isn't a method, the member's value with null, and
  * CALL_METHOD then starts the method's frame with the object as receiver, or calls the value
- * as CALL_VALUE does. MAKE_CLOSURE keeps the running receiver in the closure.
+ * as CALL_VALUE does. CALL_PARENT Class name argc runs that class's version of a method on the
+ * receiver, and BIND_PARENT Class name pushes it bound to the receiver (##name). MAKE_CLOSURE
+ * keeps the running receiver in the closure.
  *
  * Lists and maps are values. NEW_ARRAY pushes an empty list and ARRAY_PUSH pops a value
  * and appends it to the list below; NEW_MAP pushes an empty map and MAP_SET pops a value
@@ -961,6 +964,24 @@ class CodeGenerator extends AbstractNodeVisitor
             $this->visit($arg);
         }
         $this->emit('CALL_METHOD', count($node->args), $node->property->name);
+    }
+
+    /**
+     * Visit a ParentMethod node (##name)
+     *
+     * @param  ParentMethodAST  $node  The node to visit
+     */
+    public function visitParentMethod(ParentMethodAST $node): void
+    {
+        if ($node->args === null) {
+            $this->emit('BIND_PARENT', $node->definer, $node->name);
+
+            return;
+        }
+        foreach ($node->args as $arg) {
+            $this->visit($arg);
+        }
+        $this->emit('CALL_PARENT', $node->definer, $node->name, count($node->args));
     }
 
     /**

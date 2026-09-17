@@ -297,6 +297,77 @@ class ClassTest extends GazLangTestCase
         );
     }
 
+    private const SHAPES = <<<'CODE'
+        abstract class Shape {
+            #name;
+            #history = [];
+            fn _($name) { #name = $name; }
+            abstract fn area();
+            fn describe() { return "{#name} with area {#area()}"; }
+            fn scaled($by = 1) { return #area() * $by; }
+        }
+        class Circle extends Shape {
+            #radius;
+            fn _($radius) {
+                ##_("circle");
+                #radius = $radius;
+            }
+            fn area() { return 3 * #radius * #radius; }
+            fn describe() { return ##describe() .. " (r = {#radius})"; }
+            fn plain() { return ##describe; }
+        }
+        class Unit extends Circle {}
+        class Square extends Shape {
+            #side = 2;
+            fn _() { #history[] = "made"; }
+            fn area() { return #side * #side; }
+            fn scaled($by = 1, $extra = 0) { return ##scaled($by) + $extra; }
+        }
+
+        CODE;
+
+    public function test_inheritance_overrides_and_parent_methods()
+    {
+        $this->assertEquals(
+            "circle with area 12 (r = 2)\ncircle with area 3 (r = 1)\nfunction Shape.describe\ncircle with area 12\n"
+            ."Circle {#name => \"circle\", #history => [], #radius => 2}\nSquare {#history => [\"made\"], #side => 2}\n9\n",
+            $this->executeCode(self::SHAPES.<<<'CODE'
+                $c = Circle(2);
+                echo $c.describe();
+                echo Unit(1).describe();
+                $plain = $c.plain();
+                echo $plain;
+                echo $plain();
+                echo $c;
+                $s = Square();
+                echo $s;
+                echo $s.scaled(2, 1);
+                CODE)
+        );
+    }
+
+    public function test_is_a_follows_the_hierarchy()
+    {
+        $this->assertEquals("[true, true, true, false, false, false, false]\n", $this->executeCode(self::SHAPES.<<<'CODE'
+            $u = Unit(1);
+            echo [is_a($u, Shape), is_a($u, Circle), is_a($u, Unit), is_a(Circle(1), Unit), is_a(Square(), Circle), is_a(1, Shape), is_a(Circle, Circle)];
+            CODE));
+    }
+
+    public function test_a_class_without_a_constructor_inherits_its_parents()
+    {
+        $this->assertEquals("Unit {#name => \"circle\", #history => [], #radius => 3}\n", $this->executeCode(self::SHAPES.'echo Unit(3);'));
+    }
+
+    public function test_a_child_constructor_that_does_not_call_the_parents_still_gets_its_defaults()
+    {
+        $this->assertEquals("P {#a => 1, #b => 2}\n", $this->executeCode(<<<'CODE'
+            class Base { #a = 1; fn _() { #a = 100; } }
+            class P extends Base { #b = 2; fn _() {} }
+            echo P();
+            CODE));
+    }
+
     /**
      * @dataProvider runtimeErrors
      */
@@ -339,6 +410,8 @@ class ClassTest extends GazLangTestCase
             'undefined variable' => ['$nope.x = 1;', 'Undefined variable: $nope on line 14'],
             'undeclared member under ??' => ['echo Account("W").nope ?? 1;', 'Account has no member nope on line 14'],
             'keys and value run before the path fails' => ['fn k() { echo "k"; return 0; } $a = Account("W"); $a.nope[k()] = error("value");', 'value'],
+            'constructing an abstract class through a value' => ['abstract class S {} $s = S; $s();', 'Cannot construct abstract class S on line 14'],
+            'is_a needs a class' => ['echo is_a(1, "Account");', 'is_a() expects class, got string on line 14'],
             'error in the constructor' => ["class P {\n fn _() { error(\"no\"); }\n}\n\$p = P();", 'no'],
         ];
     }
@@ -388,6 +461,33 @@ class ClassTest extends GazLangTestCase
             'assigning to a call' => ['class P { #x; } fn make() { return P(); } make().x = 1;', 'Can only use = on a variable, or an element or field of one on line 1'],
             'assigning to #' => ['class P { fn f() { # = 1; } }', 'Can only use = on a variable, or an element or field of one on line 1'],
             'incrementing a method' => ['class P { fn f() { #f++; } }', 'Cannot assign to method #f on line 1'],
+            'unknown parent' => ["\nclass P extends Nope {}", 'Undefined class: Nope on line 2'],
+            'function as a parent' => ['fn f() {} class P extends f {}', 'f is a function, not a class on line 1'],
+            'circular inheritance' => ["class A extends B {}\nclass B extends C {}\nclass C extends B {}", 'Circular inheritance: B extends C extends B on line 3'],
+            'a class extending itself' => ['class A extends A {}', 'Circular inheritance: A extends A on line 1'],
+            'redeclared field' => ["class A { #x; }\nclass B extends A {\n #x = 1;\n}", 'Field #x of B is already declared in A on line 3'],
+            'field named like a parent method' => ['class A { fn x() {} } class B extends A { #x; }', 'Field #x of B has the name of a method of A on line 1'],
+            'method named like a parent field' => ['class A { #x; } class B extends A { fn x() {} }', 'Method B.x has the name of a field of A on line 1'],
+            'override with fewer arguments' => ["class A { fn f(\$a, \$b = 1) {} }\nclass B extends A {\n fn f(\$a) {}\n}", 'Method B.f must accept every argument count A.f does (1 to 2) on line 3'],
+            'override requiring more arguments' => ['class A { fn f() {} } class B extends A { fn f($a) {} }', 'Method B.f must accept every argument count A.f does (0) on line 1'],
+            'constructors may differ' => ['class A { fn _($a) {} } class B extends A { fn _($a, $b) { ##_($a); } } B(1);', 'Class B expects 2 arguments, 1 given on line 1'],
+            'abstract method in a concrete class' => ["class A {\n abstract fn f();\n}", 'Class A has abstract method f, so it must be abstract too on line 2'],
+            'abstract method with a body' => ['abstract class A { abstract fn f() {} }', 'An abstract method has no body: end it with ; on line 1'],
+            'abstract constructor' => ['abstract class A { abstract fn _(); }', "A constructor can't be abstract on line 1"],
+            'abstract method not defined' => ["abstract class A { abstract fn f(); }\nclass B extends A {}", 'Class B must define abstract method f of A, or be abstract on line 2'],
+            'abstract method replacing a method' => ['class A { fn f() {} } abstract class B extends A { abstract fn f(); }', "Abstract method B.f can't replace A.f on line 1"],
+            'constructing an abstract class' => ["abstract class A {}\n\nA();", 'Cannot construct abstract class A on line 3'],
+            'abstract class inside a block' => ['if (true) { abstract class A {} }', 'Classes can only be declared at the top level on line 1'],
+            '## outside a class' => ['fn f() { return ##g(); }', 'Cannot use ##g outside a method on line 1'],
+            '## without a parent' => ['class A { fn f() { return ##f(); } }', 'Cannot use ##f: A has no parent class on line 1'],
+            '## on a field' => ['class A { #x; } class B extends A { fn f() { return ##x; } }', '##x can only reach a method, and x is a field of A on line 1'],
+            '## on an abstract method' => ['abstract class A { abstract fn f(); } class B extends A { fn f() { return ##f(); } }', 'Cannot use ##f: f is abstract in A on line 1'],
+            '## on a missing method' => ['class A {} class B extends A { fn f() { return ##f(); } }', 'A has no method f on line 1'],
+            '## arity' => ['class A { fn f($a) {} } class B extends A { fn f($a) { return ##f(); } }', 'Method A.f expects 1 arguments, 0 given on line 1'],
+            '##_ outside a constructor' => ['class A { fn _() {} } class B extends A { fn f() { ##_(); } }', "##_ can only be used in a constructor, to run the parent's on line 1"],
+            '##_ in a lambda in a constructor' => ['class A { fn _() {} } class B extends A { fn _() { $f = () -> ##_(); } }', "##_ can only be used in a constructor, to run the parent's on line 1"],
+            '##_ without a call' => ['class A { fn _() {} } class B extends A { fn _() { $f = ##_; } }', "Call the parent's constructor as ##_(...) on line 1"],
+            '##_ without a parent constructor' => ['class A {} class B extends A { fn _() { ##_(); } }', 'A has no constructor to call with ##_ on line 1'],
             'something else in a class body' => ['class P { echo 1; }', "Expected a field (#name) or a method (fn) but found 'echo' on line 1"],
             'duplicate method parameter' => ['class P { fn f($a, $a) {} }', 'Duplicate parameter $a in method P.f on line 1'],
         ];

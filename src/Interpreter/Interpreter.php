@@ -25,6 +25,7 @@ use GazLang\AST\LoopControlAST;
 use GazLang\AST\MethodCallAST;
 use GazLang\AST\NullAST;
 use GazLang\AST\NumAST;
+use GazLang\AST\ParentMethodAST;
 use GazLang\AST\PropertyAST;
 use GazLang\AST\ReturnStatementAST;
 use GazLang\AST\StatementAST;
@@ -732,6 +733,22 @@ class Interpreter extends AbstractNodeVisitor
         }
 
         return $this->invokeMethod($definer, $name, $target, $args);
+    }
+
+    /**
+     * Visit a ParentMethod node: ##name(args) runs the parent's version on this object, ##name binds it
+     *
+     * @param  ParentMethodAST  $node  The node to visit
+     * @return mixed The returned value, or the bound method
+     */
+    public function visitParentMethod(ParentMethodAST $node)
+    {
+        $definer = $this->classes[$node->definer];
+        if ($node->args === null) {
+            return FunctionValue::bound($this->receiver, $definer, $node->name);
+        }
+
+        return $this->invokeMethod($definer, $node->name, $this->receiver, array_map(fn ($arg) => $this->visit($arg), $node->args));
     }
 
     /**

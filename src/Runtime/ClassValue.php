@@ -20,6 +20,11 @@ final class ClassValue
     public $name;
 
     /**
+     * @var self|null The parent class
+     */
+    public $parent = null;
+
+    /**
      * @var ClassDeclarationAST The declaration
      */
     public $declaration;
@@ -69,6 +74,7 @@ final class ClassValue
             $classes[$declaration->name] = new self($declaration);
         }
         foreach ($classes as $class) {
+            $class->parent = $class->declaration->parent === null ? null : $classes[$class->declaration->parent];
             foreach ($class->declaration->members as $method => $definer) {
                 $class->methods[$method] = $classes[$definer];
             }
@@ -92,6 +98,22 @@ final class ClassValue
     public function method(string $name): FunctionDeclarationAST
     {
         return $this->declaration->methods[$name];
+    }
+
+    /**
+     * Whether this class is the given class or extends it, directly or not
+     *
+     * @param  self  $class  The class
+     */
+    public function isA(self $class): bool
+    {
+        for ($ancestor = $this; $ancestor !== null; $ancestor = $ancestor->parent) {
+            if ($ancestor === $class) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

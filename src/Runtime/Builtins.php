@@ -46,6 +46,7 @@ final class Builtins
         'has_key' => 2,
         'keys' => 1,
         'type_of' => 1,
+        'is_a' => 2,
         'error' => 1,
         'exit' => [0, 1],
         'read_file' => 1,
@@ -149,6 +150,7 @@ final class Builtins
             // A list's keys are its indexes, which foreach over a list uses
             'keys' => is_array($this->argument($name, $args[0], 'list', 'map')) ? array_keys($args[0]) : $args[0]->keys(),
             'type_of' => Values::typeOf($args[0]),
+            'is_a' => $this->isA($args[0], $this->argument($name, $args[1], 'class')),
             // The program's own message, printed as is: it describes a location in the program's input,
             // not here. The interpreter still records where error() was called, for catch.
             'error' => throw new GazLangError(Values::toString($args[0]), null, null, false),
@@ -178,6 +180,17 @@ final class Builtins
         }
 
         return $value;
+    }
+
+    /**
+     * is_a($value, $class): whether the value is an object whose class is the class or extends it
+     *
+     * @param  mixed  $value  Any value; only objects are ever one
+     * @param  ClassValue  $class  The class
+     */
+    private function isA($value, ClassValue $class): bool
+    {
+        return $value instanceof ObjectValue && $value->class->isA($class);
     }
 
     /**

@@ -460,6 +460,18 @@ final class VM
                             $function = "{$arg0[$pc - 1]}._";
                             $pc = $methods[$function][0];
                             break;
+                        case 'CALL_PARENT':
+                            $args = $this->popMany($stack, $arg2[$pc - 1]);
+                            $name = "{$arg0[$pc - 1]}.{$arg1[$pc - 1]}";
+                            if (count($frames) === Values::MAX_CALL_DEPTH) {
+                                throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$name}");
+                            }
+                            $frames[] = [$locals, $pc, $function, $argc, $closure, $receiver];
+                            [$locals, $argc, $function, $closure, $pc] = [$args, count($args), $name, null, $methods[$name][0]];
+                            break;
+                        case 'BIND_PARENT':
+                            $stack[] = FunctionValue::bound($receiver, $classes[$arg0[$pc - 1]], $arg1[$pc - 1]);
+                            break;
                         case 'PUSH_CLASS':
                             $stack[] = $classes[$arg0[$pc - 1]];
                             break;

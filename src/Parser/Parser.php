@@ -24,6 +24,7 @@ use GazLang\AST\LoopControlAST;
 use GazLang\AST\MethodCallAST;
 use GazLang\AST\NullAST;
 use GazLang\AST\NumAST;
+use GazLang\AST\ParentMethodAST;
 use GazLang\AST\PropertyAST;
 use GazLang\AST\ReturnStatementAST;
 use GazLang\AST\StatementAST;
@@ -56,7 +57,6 @@ class Parser
      * Keywords reserved for features that don't exist yet, so adding them never breaks a program
      */
     private const RESERVED = [
-        Token::EXTENDS => true, Token::ABSTRACT => true,
         Token::INTERFACE => true, Token::IMPLEMENTS => true, Token::FINAL => true,
         Token::PUBLIC => true, Token::PRIVATE => true, Token::PROTECTED => true,
     ];
@@ -123,6 +123,12 @@ class Parser
      *                                                                                      whether it is assigned to, checked once the classes are resolved
      */
     private $member_uses = [];
+
+    /**
+     * @var list<array{0: ParentMethodAST, 1: ClassDeclarationAST}> Every ##name with the class it is written in,
+     *                                                              checked once the classes are resolved
+     */
+    private $parent_uses = [];
 
     /**
      * @var array<string, int|array{0: int, 1: int}> Declared function names mapped to their parameter
@@ -377,6 +383,8 @@ class Parser
             return $this->variable();
         } elseif ($token->type === Token::HASH || $token->type === Token::HASH_IDENTIFIER) {
             return $this->this_member();
+        } elseif ($token->type === Token::PARENT_IDENTIFIER) {
+            return $this->parent_method();
         } elseif ($token->type === Token::PARENT) {
             $this->fail("## alone is not allowed: write ##name for the parent's version of a method");
         } elseif (isset(self::RESERVED[$token->type])) {
@@ -418,6 +426,38 @@ class Parser
         }
         $node = $this->at(new PropertyAST($this_node, $name), $token);
         $this->member_uses[spl_object_id($node)] = [$node, $this->class, null, false];
+
+        return $node;
+    }
+
+    /**
+     * Parse ##name (a bound method) or ##name(args) (a call), the parent class's version of a method
+     *
+     * Only inside a class, and ##_(...) only in a constructor. That the parent has the method
+     * is checked once the whole program is read.
+     *
+     * @return ParentMethodAST
+     *
+     * @throws GazLangError
+     */
+    private function parent_method()
+    {
+        $token = $this->current_token;
+        if ($this->class === null) {
+            $this->fail("Cannot use {$token->value} outside a method");
+        }
+        $name = substr($token->value, 2);
+        if ($name === '_' && ! $this->in_constructor) {
+            $this->fail("##_ can only be used in a constructor, to run the parent's");
+        }
+        $this->eat(Token::PARENT_IDENTIFIER);
+
+        $args = $this->current_token->type === Token::LEFT_PAREN ? $this->arguments() : null;
+        if ($name === '_' && $args === null) {
+            $this->fail("Call the parent's constructor as ##_(...)");
+        }
+        $node = $this->at(new ParentMethodAST($name, $args), $token);
+        $this->parent_uses[] = [$node, $this->class];
 
         return $node;
     }
@@ -510,16 +550,22 @@ class Parser
         $arity = $this->check_parameters($params, $defaults, $lines);
         $this->eat(Token::ARROW);
 
-        if ($this->current_token->type === Token::LEFT_BRACE) {
-            [$in_function, $loop_depth, $in_constructor] = [$this->in_function, $this->loop_depth, $this->in_constructor];
-            [$this->in_function, $this->loop_depth, $this->in_constructor] = [true, 0, false];
-            try {
-                $body = $this->block();
-            } finally {
-                [$this->in_function, $this->loop_depth, $this->in_constructor] = [$in_function, $loop_depth, $in_constructor];
+        // A lambda in a constructor isn't the constructor: it can return values, and can't run ##_
+        [$in_constructor, $this->in_constructor] = [$this->in_constructor, false];
+        try {
+            if ($this->current_token->type === Token::LEFT_BRACE) {
+                [$in_function, $loop_depth] = [$this->in_function, $this->loop_depth];
+                [$this->in_function, $this->loop_depth] = [true, 0];
+                try {
+                    $body = $this->block();
+                } finally {
+                    [$this->in_function, $this->loop_depth] = [$in_function, $loop_depth];
+                }
+            } else {
+                $body = $this->expr();
             }
-        } else {
-            $body = $this->expr();
+        } finally {
+            $this->in_constructor = $in_constructor;
         }
 
         // The outer variables it uses, except those a plain = (or foreach or catch) makes local to each call
@@ -1265,7 +1311,7 @@ class Parser
             return $this->return_statement();
         } elseif ($this->current_token->type === Token::FN) {
             $this->fail('Functions can only be declared at the top level');
-        } elseif ($this->current_token->type === Token::CLASS_KEYWORD) {
+        } elseif ($this->current_token->type === Token::CLASS_KEYWORD || $this->current_token->type === Token::ABSTRACT) {
             $this->fail('Classes can only be declared at the top level');
         } elseif ($this->current_token->type === Token::FUNCTION) {
             $this->fail('Declare functions with fn, not function');
@@ -1392,10 +1438,11 @@ class Parser
     }
 
     /**
-     * Parse a class declaration (CLASS IDENTIFIER LBRACE (field | method)* RBRACE),
-     * field: HASH_IDENTIFIER [ASSIGN expr] SEMICOLON, method: FN name parameters block
+     * Parse a class declaration ([ABSTRACT] CLASS IDENTIFIER [EXTENDS IDENTIFIER] LBRACE (field | method)* RBRACE),
+     * field: HASH_IDENTIFIER [ASSIGN expr] SEMICOLON, method: [ABSTRACT] FN name parameters (block | SEMICOLON)
      *
-     * Only at the top level. A field's default is evaluated for each new object, with #
+     * Only at the top level. The parent can be declared later; it is checked once the whole
+     * program is read. A field's default is evaluated for each new object, with #
      * being that object and no local variables. Methods may be named with any word,
      * keywords included, since they are always reached through # or a dot.
      *
@@ -1406,12 +1453,22 @@ class Parser
     public function class_declaration()
     {
         $start = $this->current_token;
+        $abstract = $start->type === Token::ABSTRACT;
+        if ($abstract) {
+            $this->eat(Token::ABSTRACT);
+        }
         $this->eat(Token::CLASS_KEYWORD);
         $name = $this->current_token->value;
         $this->check_new_name($name);
         $this->eat(Token::IDENTIFIER);
+        $parent = null;
+        if ($this->current_token->type === Token::EXTENDS) {
+            $this->eat(Token::EXTENDS);
+            $parent = $this->current_token->value;
+            $this->eat(Token::IDENTIFIER);
+        }
 
-        $class = $this->at(new ClassDeclarationAST($name, null, false), $start);
+        $class = $this->at(new ClassDeclarationAST($name, $parent, $abstract), $start);
         $this->classes[$name] = $class;
         $this->eat(Token::LEFT_BRACE);
         $this->class = $class;
@@ -1419,7 +1476,7 @@ class Parser
             while ($this->current_token->type !== Token::RIGHT_BRACE) {
                 if ($this->current_token->type === Token::HASH_IDENTIFIER) {
                     $this->field_declaration($class);
-                } elseif ($this->current_token->type === Token::FN) {
+                } elseif ($this->current_token->type === Token::FN || $this->current_token->type === Token::ABSTRACT) {
                     $this->method_declaration($class);
                 } else {
                     $this->fail('Expected a field (#name) or a method (fn) but found '.$this->describe($this->current_token));
@@ -1465,7 +1522,9 @@ class Parser
     }
 
     /**
-     * Parse a method declaration (FN name parameters block) into its class
+     * Parse a method declaration ([ABSTRACT] FN name parameters (block | SEMICOLON)) into its class
+     *
+     * An abstract method has no body, and only an abstract class can declare one.
      *
      * @param  ClassDeclarationAST  $class  The class being declared
      *
@@ -1474,6 +1533,10 @@ class Parser
     private function method_declaration(ClassDeclarationAST $class): void
     {
         $start = $this->current_token;
+        $abstract = $start->type === Token::ABSTRACT;
+        if ($abstract) {
+            $this->eat(Token::ABSTRACT);
+        }
         $this->eat(Token::FN);
         $token = $this->current_token;
         if ($token->type !== Token::IDENTIFIER && ! in_array($token->type, Lexer::KEYWORDS, true)) {
@@ -1484,15 +1547,30 @@ class Parser
         $this->eat($token->type);
 
         [$params, $defaults] = $this->parameters("method {$class->name}.{$name}");
-        [$this->in_function, $this->in_constructor] = [true, $name === '_'];
-        try {
-            $body = $this->block();
-        } finally {
-            [$this->in_function, $this->in_constructor] = [false, false];
+        if ($abstract) {
+            if (! $class->abstract) {
+                throw new GazLangError("Class {$class->name} has abstract method {$name}, so it must be abstract too", $this->file, $start->line);
+            }
+            if ($name === '_') {
+                throw new GazLangError("A constructor can't be abstract", $this->file, $start->line);
+            }
+            if ($this->current_token->type === Token::LEFT_BRACE) {
+                $this->fail('An abstract method has no body: end it with ;');
+            }
+            $this->eat(Token::SEMICOLON);
+            $body = new CompoundAST;
+        } else {
+            [$this->in_function, $this->in_constructor] = [true, $name === '_'];
+            try {
+                $body = $this->block();
+            } finally {
+                [$this->in_function, $this->in_constructor] = [false, false];
+            }
         }
 
         $method = $this->at(new FunctionDeclarationAST($name, $params, $defaults, $body, self::arity($params, $defaults)), $start);
         $method->class = $class->name;
+        $method->abstract = $abstract;
         $class->methods[$name] = $method;
     }
 
@@ -1545,17 +1623,23 @@ class Parser
         $root->statements = $this->top_level();
 
         foreach ($this->classes as $class) {
-            $this->resolve_class($class);
+            $this->resolve_class($class, []);
         }
 
         // In source order, so the first mistake in the program is the one reported
         foreach ($this->member_uses as [$node, $class, $argc, $assigned]) {
             $this->check_member_use($node, $class, $argc, $assigned);
         }
+        foreach ($this->parent_uses as [$node, $class]) {
+            $this->check_parent_use($node, $class);
+        }
         foreach ($this->uses as $use) {
             if (isset($this->classes[$use->name])) {
                 $class = $this->classes[$use->name];
                 if ($use instanceof FunctionCallAST) {
+                    if ($class->abstract) {
+                        throw new GazLangError("Cannot construct abstract class {$use->name}", $use->file, $use->line);
+                    }
                     $error = Builtins::arityError("Class {$use->name}", self::constructor_arity($class), count($use->args));
                     if ($error !== null) {
                         throw new GazLangError($error, $use->file, $use->line);
@@ -1586,26 +1670,123 @@ class Parser
      * (except the constructor, which each class defines for itself).
      *
      * @param  ClassDeclarationAST  $class  The class
+     * @param  string[]  $chain  The classes being resolved that extend it, to find circular inheritance
      *
      * @throws GazLangError If the class doesn't fit its parent
      */
-    private function resolve_class(ClassDeclarationAST $class): void
+    private function resolve_class(ClassDeclarationAST $class, array $chain): void
     {
         if ($class->resolved) {
             return;
         }
 
+        $parent = null;
+        if ($class->parent !== null) {
+            $parent = $this->classes[$class->parent] ?? null;
+            if ($parent === null) {
+                $message = isset($this->functions[$class->parent]) ? "{$class->parent} is a function, not a class" : "Undefined class: {$class->parent}";
+
+                throw new GazLangError($message, $class->file, $class->line);
+            }
+            $chain[] = $class->name;
+            if (in_array($parent->name, $chain, true)) {
+                $cycle = implode(' extends ', [...array_slice($chain, array_search($parent->name, $chain, true)), $parent->name]);
+
+                throw new GazLangError("Circular inheritance: {$cycle}", $class->file, $class->line);
+            }
+            $this->resolve_class($parent, $chain);
+            [$class->layout, $class->members, $class->abstract_methods] = [$parent->layout, $parent->members, $parent->abstract_methods];
+        }
+
         foreach ($class->fields as $name => $_) {
+            $line = $class->field_lines[$name];
+            if (isset($class->layout[$name])) {
+                throw new GazLangError("Field #{$name} of {$class->name} is already declared in {$class->layout[$name]}", $class->file, $line);
+            }
+            $owner = $class->members[$name] ?? $class->abstract_methods[$name] ?? null;
+            if ($owner !== null) {
+                throw new GazLangError("Field #{$name} of {$class->name} has the name of a method of {$owner}", $class->file, $line);
+            }
             $class->layout[$name] = $class->name;
         }
         foreach ($class->methods as $name => $method) {
+            if (isset($class->layout[$name])) {
+                throw new GazLangError("Method {$class->name}.{$name} has the name of a field of {$class->layout[$name]}", $method->file, $method->line);
+            }
+            $owner = $class->members[$name] ?? $class->abstract_methods[$name] ?? null;
+            if ($owner !== null && $method->abstract && isset($class->members[$name])) {
+                throw new GazLangError("Abstract method {$class->name}.{$name} can't replace {$owner}.{$name}", $method->file, $method->line);
+            }
+            // The constructor is each class's own: a child's can take different arguments
+            if ($owner !== null && $name !== '_') {
+                [$fewest, $most] = self::bounds($method->arity);
+                [$parent_fewest, $parent_most] = self::bounds($this->classes[$owner]->methods[$name]->arity);
+                if ($fewest > $parent_fewest || $most < $parent_most) {
+                    $expected = $parent_fewest === $parent_most ? $parent_fewest : "{$parent_fewest} to {$parent_most}";
+
+                    throw new GazLangError("Method {$class->name}.{$name} must accept every argument count {$owner}.{$name} does ({$expected})", $method->file, $method->line);
+                }
+            }
             if ($method->abstract) {
                 $class->abstract_methods[$name] = $class->name;
             } else {
                 $class->members[$name] = $class->name;
+                unset($class->abstract_methods[$name]);
             }
         }
+
+        if (! $class->abstract && $class->abstract_methods !== []) {
+            $name = array_key_first($class->abstract_methods);
+
+            throw new GazLangError("Class {$class->name} must define abstract method {$name} of {$class->abstract_methods[$name]}, or be abstract", $class->file, $class->line);
+        }
         $class->resolved = true;
+    }
+
+    /**
+     * An arity as [fewest, most]
+     *
+     * @param  int|array{0: int, 1: int}  $arity  A count, or [fewest, most]
+     * @return array{0: int, 1: int}
+     */
+    private static function bounds(int|array $arity): array
+    {
+        return is_int($arity) ? [$arity, $arity] : $arity;
+    }
+
+    /**
+     * Check a ##name against the parent of the class it is written in, and record whose version runs
+     *
+     * @param  ParentMethodAST  $node  The ##name
+     * @param  ClassDeclarationAST  $class  The class it is written in
+     *
+     * @throws GazLangError If there is no parent, or the parent has no such method to run
+     */
+    private function check_parent_use(ParentMethodAST $node, ClassDeclarationAST $class): void
+    {
+        $fail = fn (string $message) => throw new GazLangError($message, $node->file, $node->line);
+        if ($class->parent === null) {
+            $fail("Cannot use ##{$node->name}: {$class->name} has no parent class");
+        }
+        $parent = $this->classes[$class->parent];
+        $name = $node->name;
+        if (isset($parent->layout[$name])) {
+            $fail("##{$name} can only reach a method, and {$name} is a field of {$parent->layout[$name]}");
+        }
+        if (isset($parent->abstract_methods[$name])) {
+            $fail("Cannot use ##{$name}: {$name} is abstract in {$parent->abstract_methods[$name]}");
+        }
+        if (! isset($parent->members[$name])) {
+            $fail($name === '_' ? "{$parent->name} has no constructor to call with ##_" : "{$parent->name} has no method {$name}");
+        }
+
+        $node->definer = $parent->members[$name];
+        if ($node->args !== null) {
+            $error = Builtins::arityError("Method {$node->definer}.{$name}", $this->classes[$node->definer]->methods[$name]->arity, count($node->args));
+            if ($error !== null) {
+                $fail($error);
+            }
+        }
     }
 
     /**
@@ -1665,7 +1846,7 @@ class Parser
         while ($this->current_token->type !== Token::EOF) {
             if ($this->current_token->type === Token::FN) {
                 $statements[] = $this->function_declaration();
-            } elseif ($this->current_token->type === Token::CLASS_KEYWORD) {
+            } elseif ($this->current_token->type === Token::CLASS_KEYWORD || $this->current_token->type === Token::ABSTRACT) {
                 $statements[] = $this->class_declaration();
             } elseif ($this->current_token->type === Token::INCLUDE) {
                 array_push($statements, ...$this->include_statement());
