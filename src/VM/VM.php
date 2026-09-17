@@ -459,6 +459,15 @@ final class VM
                             case 'LOAD_THIS':
                                 $stack[] = $receiver;
                                 break;
+                            case 'LOAD_FIELD':
+                                $name = $arg0[$pc - 1];
+                                if (isset($receiver->fields[$name]) || array_key_exists($name, $receiver->fields)) {
+                                    $stack[] = $receiver->fields[$name];
+                                } else {
+                                    // Not set: Values gives the error
+                                    $stack[] = Values::property($receiver, $name);
+                                }
+                                break;
                             case 'GET_PROPERTY':
                                 $target = array_pop($stack);
                                 $stack[] = Values::property($target, $arg0[$pc - 1]);
@@ -469,32 +478,37 @@ final class VM
                             case 'GET_METHOD':
                                 $target = array_pop($stack);
                                 $name = $arg0[$pc - 1];
-                                if ($target instanceof ObjectValue && isset($target->class->methods[$name]) && $name !== '_') {
+                                if ($target instanceof ObjectValue && isset($target->class->entries[$name])) {
                                     $stack[] = $target;
-                                    $stack[] = $target->class->methods[$name];
+                                    $stack[] = $target->class->entries[$name];
                                 } else {
                                     $stack[] = Values::property($target, $name);
                                     $stack[] = null;
                                 }
                                 break;
                             case 'CALL_METHOD':
-                                $args = $this->popMany($stack, $arg0[$pc - 1]);
-                                $definer = array_pop($stack);
+                                // Most methods take no argument or one: pop those directly
+                                $count = $arg0[$pc - 1];
+                                $args = match ($count) {
+                                    0 => [],
+                                    1 => [array_pop($stack)],
+                                    default => $this->popMany($stack, $count),
+                                };
+                                $method = array_pop($stack);
                                 $callee = array_pop($stack);
-                                if ($definer === null) {
+                                if ($method === null) {
                                     // A field holding a function, or whatever else the member was
                                     goto call_value;
                                 }
-                                $name = $arg1[$pc - 1];
-                                [$entry, $arity] = $methods["{$definer->name}.{$name}"];
-                                if (! Builtins::fitsArity($arity, count($args))) {
-                                    throw new Exception(Builtins::arityError("Method {$definer->name}.{$name}", $arity, count($args)));
+                                // [entry, arity, "Class.name"], from GET_METHOD
+                                if ($method[1] !== $count && ! Builtins::fitsArity($method[1], $count)) {
+                                    throw new Exception(Builtins::arityError("Method {$method[2]}", $method[1], $count));
                                 }
                                 if ($depth + count($frames) === Values::MAX_CALL_DEPTH) {
-                                    throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$definer->name}.{$name}");
+                                    throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$method[2]}");
                                 }
                                 $frames[] = [$locals, $pc, $function, $argc, $closure, $receiver];
-                                [$locals, $argc, $function, $closure, $receiver, $pc] = [$args, count($args), "{$definer->name}.{$name}", null, $callee, $entry];
+                                [$locals, $argc, $function, $closure, $receiver, $pc] = [$args, $count, $method[2], null, $callee, $method[0]];
                                 break;
                             case 'NEW':
                                 $args = $this->popMany($stack, $arg1[$pc - 1]);
@@ -788,6 +802,14 @@ final class VM
             foreach ($class->methods as $method) {
                 if (! $method->abstract) {
                     $methods["{$name}.{$method->name}"] = [$positions["METHOD_{$name}.{$method->name}"], $method->arity];
+                }
+            }
+        }
+        foreach ($classes as $class) {
+            foreach ($class->methods as $method => $definer) {
+                if ($method !== '_') {
+                    $key = "{$definer->name}.{$method}";
+                    $class->entries[$method] = [$methods[$key][0], $methods[$key][1], $key];
                 }
             }
         }

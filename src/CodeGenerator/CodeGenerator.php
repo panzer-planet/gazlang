@@ -1030,6 +1030,12 @@ class CodeGenerator extends AbstractNodeVisitor
      */
     public function visitProperty(PropertyAST $node): void
     {
+        // #name for a field: fields are never removed and a subclass can't turn one into a method
+        if ($node->field && ! $node->existing) {
+            $this->emit('LOAD_FIELD', $node->name);
+
+            return;
+        }
         $this->visit($node->target);
         $this->emit($node->existing ? 'GET_PROPERTY_EXISTING' : 'GET_PROPERTY', $node->name);
     }

@@ -40,6 +40,13 @@ final class ClassValue
     public $methods = [];
 
     /**
+     * @var array<string, array{0: int, 1: int|array{0: int, 1: int}, 2: string}> For the VM: each method an object of this class
+     *                                                                            can call, the constructor aside, as [entry position, arity,
+     *                                                                            "Class.name" of the version that runs], resolved when it links
+     */
+    public $entries = [];
+
+    /**
      * @var list<array{0: string, 1: AST}> The field defaults a new object gets, the parent's first, as [field, default]
      */
     public $defaults = [];

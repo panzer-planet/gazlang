@@ -26,6 +26,12 @@ class PropertyAST extends AST
     public $existing = false;
 
     /**
+     * @var bool Whether this is #name and the parser found name is a field of the class, so reading
+     *           it needs no member lookup (only the code generator uses it)
+     */
+    public $field = false;
+
+    /**
      * Constructor
      *
      * @param  AST  $target  The object

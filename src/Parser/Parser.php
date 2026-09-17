@@ -1928,6 +1928,8 @@ class Parser
     private function check_member_use(PropertyAST $node, ClassDeclarationAST $class, ?int $argc, bool $assigned): void
     {
         if (isset($class->layout[$node->name])) {
+            $node->field = true;
+
             return;
         }
         $definer = $class->members[$node->name] ?? $class->abstract_methods[$node->name] ?? null;

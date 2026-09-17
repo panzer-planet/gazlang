@@ -511,6 +511,16 @@ class ClassTest extends GazLangTestCase
         }
     }
 
+    public function test_code_for_reading_fields()
+    {
+        // A field read through # needs no member lookup; ??, compound updates and methods keep theirs
+        $this->assertStringContainsString(
+            "LABEL METHOD_P.f\nLOAD_FIELD x\nLOAD_THIS\nGET_PROPERTY_QUIET y\nJNN COALESCE_END_0\nPUSH 0\nLABEL COALESCE_END_0\nADD\n"
+            ."LOAD_THIS\nGET_PROPERTY_EXISTING x\nPUSH 1\nADD\nSET_FIELD x\nADD\nPUSH 0\nNEW_ARRAY\nLOAD_THIS\nGET_PROPERTY g\nARRAY_PUSH\n",
+            $this->generateCode('class P { #x = 1; #y; fn f() { return #x + (#y ?? 0) + (#x += 1) + 0 * len([#g]); } fn g() {} }')
+        );
+    }
+
     /**
      * @dataProvider runtimeErrors
      */

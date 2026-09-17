@@ -448,8 +448,11 @@ uses hidden variables) and the new object as receiver, which sets each default
 call depth error is located at the construction, as in the interpreter) and returns the object (`CALL_VALUE` on a
 class does the same after its checks). Methods are at `LABEL METHOD_Class.name` with frames
 keyed `Class.name` (`new Class` for initialisers), so no function or lambda name collides.
-`LOAD_THIS`, `GET_PROPERTY name` (`_QUIET`, `_EXISTING`), `GET_METHOD name` then the
-arguments then `CALL_METHOD argc name` (a method call without a bound method in between),
+`LOAD_THIS`, `LOAD_FIELD name` (a plain read of `#name` the parser found is a field:
+`PropertyAST::$field`), `GET_PROPERTY name` (`_QUIET`, `_EXISTING`), `GET_METHOD name` then the
+arguments then `CALL_METHOD argc name` (a method call without a bound method in between:
+`GET_METHOD` pushes the entry `VM::link()` resolved for the object's class,
+`ClassValue::$entries`, so a call builds no strings),
 `CALL_PARENT Class name argc`, `BIND_PARENT Class name`. `SET_PATH path slot` spells the path:
 `[k]` a key from the stack, `.name` a field, `[]` an append (`SET_PATH [k].total 0`);
 `SET_PATH_THIS path` starts at `#`. Every VM frame holds its receiver.
@@ -759,7 +762,7 @@ reimplementing them. The only exceptions are fast paths in the loop for the comm
 cases whose result is obvious (arithmetic and comparisons on two ints that don't
 overflow, `==` on two ints or two strings, `JZ`/`NOT` on bools, `INDEX_GET` and `INDEX_GET_QUIET` on a list or on a map with an int or plain name key, `INC`/`DEC` on an int,
 and the builtins `len`, `ord`, `chr` and `in_array` when their arguments are plainly
-valid);
+valid, and `LOAD_FIELD` on a field that is set);
 anything else, errors included, falls through to `Values`. Keep fast paths that way. Calls are frames in an array, not PHP recursion, so deep
 recursion doesn't depend on PHP's C stack. Errors get the location of the instruction
 that raised it (the innermost node the code generator was compiling, which is the node
