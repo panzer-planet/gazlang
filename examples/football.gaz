@@ -13,7 +13,8 @@ include "../lib/format.gaz";
 class Random {
     #state;
 
-    fn _($seed) { #state = $seed % 2147483648; }
+    // Any int is a seed: % keeps the sign of the left side, so a negative one is moved into range
+    fn _($seed) { #state = ($seed % 2147483648 + 2147483648) % 2147483648; }
 
     fn next() { return #state = (#state * 1103515245 + 12345) % 2147483648; }
 
