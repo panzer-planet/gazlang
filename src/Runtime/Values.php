@@ -334,7 +334,8 @@ final class Values
 
             return $quiet ? null : throw new Exception("Index out of range: {$index}");
         } elseif ($target instanceof MapValue) {
-            $key = MapValue::key(self::arrayKey($index));
+            // Ints and names are stored as they are; MapValue::key() encodes the rest
+            $key = is_int($index) || (is_string($index) && $index !== '' && $index[0] > '9') ? $index : MapValue::key(self::arrayKey($index));
             if (array_key_exists($key, $target->items)) {
                 return $target->items[$key];
             }
@@ -389,11 +390,12 @@ final class Values
         $container = &$table;
         $key = $slot;
         // Whether $key is in $container; a missing one is only an error once something needs it
+        // (building the exception up front would cost a stack trace on every new key)
         $exists = true;
-        $missing = null;
+        $missing_key = '';
         foreach ($keys as $next_key) {
             if (! $exists) {
-                throw $missing;
+                throw self::undefinedKey($missing_key);
             }
             $container = &$container[$key];
             if (is_array($container)) {
@@ -415,10 +417,10 @@ final class Values
                 }
                 $container = clone $container;
                 $container = &$container->items;
-                $key = MapValue::key($next_key);
+                $key = is_int($next_key) || ($next_key !== '' && $next_key[0] > '9') ? $next_key : MapValue::key($next_key);
                 if (! array_key_exists($key, $container)) {
                     $exists = false;
-                    $missing = self::undefinedKey($next_key);
+                    $missing_key = $next_key;
                 }
             } else {
                 throw new Exception('Cannot use [] on '.self::typeOf($container));
@@ -426,7 +428,7 @@ final class Values
         }
 
         if (! $exists && $op !== null) {
-            throw $missing;
+            throw self::undefinedKey($missing_key);
         }
 
         $old = $container[$key] ?? null;

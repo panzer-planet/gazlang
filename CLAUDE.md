@@ -546,7 +546,7 @@ builtin goes through `Runtime\Values` / `Runtime\Builtins`, and assignment throu
 `Values::store()`, so the VM and the interpreter share their semantics rather than
 reimplementing them. The only exceptions are fast paths in the loop for the commonest
 cases whose result is obvious (arithmetic and comparisons on two ints that don't
-overflow, `==` on two ints or two strings, `JZ`/`NOT` on bools, `INDEX_GET` on a list or on a map with an int or plain name key, `INC`/`DEC` on an int,
+overflow, `==` on two ints or two strings, `JZ`/`NOT` on bools, `INDEX_GET` and `INDEX_GET_QUIET` on a list or on a map with an int or plain name key, `INC`/`DEC` on an int,
 and the builtins `len`, `ord`, `chr` and `in_array` when their arguments are plainly
 valid);
 anything else, errors included, falls through to `Values`. Keep fast paths that way. Calls are frames in an array, not PHP recursion, so deep

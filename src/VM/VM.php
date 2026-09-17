@@ -217,7 +217,14 @@ final class VM
                         case 'INDEX_GET_QUIET':
                             $index = array_pop($stack);
                             $target = array_pop($stack);
-                            $stack[] = $target === null ? null : Values::index($target, $index, true);
+                            // A map key that PHP stores as is (see INDEX_GET), or a list index: missing reads null
+                            if ($target instanceof MapValue && (is_int($index) || (is_string($index) && $index !== '' && $index[0] > '9'))) {
+                                $stack[] = $target->items[$index] ?? null;
+                            } elseif (is_array($target) && is_int($index)) {
+                                $stack[] = $target[$index] ?? null;
+                            } else {
+                                $stack[] = $target === null ? null : Values::index($target, $index, true);
+                            }
                             break;
                         case 'JNN':
                             if ($stack[array_key_last($stack)] !== null) {
