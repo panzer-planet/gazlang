@@ -34,8 +34,9 @@ final class Program
     public $functions;
 
     /**
-     * @var list<array{0: LambdaAST, 1: array<int, int>}> Each lambda (its body is at LABEL LAMBDA_n) with its
-     *                                                    capture map, enclosing frame slot => the lambda's own slot
+     * @var list<array{0: LambdaAST, 1: list<array{0: bool, 1: int, 2: int}>}> Each lambda (its body is at LABEL LAMBDA_n) with its
+     *                                                                         capture map: [from the enclosing closure rather than the frame,
+     *                                                                         slot or index there, index in the new closure]
      */
     public $lambdas;
 
@@ -46,7 +47,7 @@ final class Program
      * @param  array<string, list<string>>  $local_names  Local slot names by frame
      * @param  list<string>  $global_names  Global slot names
      * @param  array<string, int|array{0: int, 1: int}>  $functions  Each user function's arity
-     * @param  list<array{0: LambdaAST, 1: array<int, int>}>  $lambdas  Each lambda with its capture map
+     * @param  list<array{0: LambdaAST, 1: list<array{0: bool, 1: int, 2: int}>}>  $lambdas  Each lambda with its capture map
      */
     public function __construct(array $instructions, array $local_names, array $global_names, array $functions = [], array $lambdas = [])
     {

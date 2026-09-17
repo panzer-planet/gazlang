@@ -88,7 +88,7 @@ dictionaries with runtime keys, not records. Decided: a list `[1, 2]` and a map
 `{"k" => 1}` are separate types; map keys are int or string with `"1"` and `1` distinct;
 a missing index or key is an error unless read through `??`; a list index must exist to
 be written (append with `[]`); maps compare regardless of order and never equal a list.
-Built on the `list-map` branch (lists stay PHP lists, maps are a `MapValue` wrapper).
+Built on the `list-map` branch (lists stay PHP lists, maps are a `MapValue` wrapper) and merged.
 
 ### 11. Truthiness of objects — decided: always true
 `[]` is false (PHP, Python); Ruby and Lua say everything but nil/false is true.
@@ -99,6 +99,21 @@ empty arrays and move on.
 A C-style ternary `$c ? $a : $b` (right associative, between `??` and assignment, as in
 PHP and JS) and an `exit($code = 0)` builtin that stops the program with that exit code,
 not catchable by try/catch. Build after function values phase 1.
+
+### 13. Closure state — decided 2026-09-17: closures own their captured variables
+Capture by value at creation left two gaps: a lambda couldn't call itself through the
+variable it was assigned to, and a closure couldn't keep state (`counter()`), so both
+went through `@globals`. Considered: an explicit `use ($x)` list (PHP; clear but noisy),
+implicit sharing with the enclosing scope (JS, Python; late binding in loops and a
+silent change of meaning without block scope), and block scope with declarations (the
+right home for shared closures, but `let` everywhere; not now). Decided: a captured
+variable is still copied at creation but belongs to the closure, kept between calls and
+shared by recursive ones. Which variables are captured is decided by the parser: a plain
+`=`, `foreach` or `catch` anywhere in the body makes that name local to each call, so a
+temporary that shares a name with an outer variable can't leak between recursive calls,
+and `$n = $n + 1` on an outer `$n` is a loud "Undefined variable". `$f = <lambda>` binds
+the closure's `$f` to itself. The enclosing scope never sees changes; objects will be
+where shared mutable state goes.
 
 ## Fine as is, keep
 

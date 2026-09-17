@@ -11,7 +11,8 @@ use GazLang\GazLangError;
  * A named function holds only its name; each backend resolves it when the value is called.
  * Named values are interned, one instance per name, so add == add and in_array find them
  * by identity. A closure holds its LambdaAST and the outer variables it captured, copied
- * by value when it was created (the interpreter keys them by name, the VM by local slot);
+ * when it was created and then its own, kept between calls (the interpreter keys them by
+ * name, the VM by index in LambdaAST::$captures);
  * every evaluation of a lambda makes a fresh value, so two closures are == only when they
  * are the same one, like PHP closures.
  */
@@ -33,7 +34,7 @@ final class FunctionValue
     public $lambda;
 
     /**
-     * @var array The captured outer variables of a closure, by name (interpreter) or local slot (VM)
+     * @var array The captured variables of a closure, by name (interpreter) or capture index (VM), changed by its calls
      */
     public $captured;
 

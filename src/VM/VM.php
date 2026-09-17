@@ -96,7 +96,9 @@ final class VM
         // The running function ('' for the top level) and how many arguments it was passed
         $function = '';
         $argc = 0;
-        // Callers' state, innermost last: [locals, return pc, function, argc]
+        // The closure whose call is running, or null
+        $closure = null;
+        // Callers' state, innermost last: [locals, return pc, function, argc, closure]
         $frames = [];
         // Installed try handlers, innermost last: [frame count, stack size, catch pc]
         $handlers = [];
@@ -115,6 +117,23 @@ final class VM
                             break;
                         case 'STORE':
                             $locals[$arg0[$pc - 1]] = array_pop($stack);
+                            break;
+                            // A closure's captured variables live in the closure, not the frame, so every
+                            // call of it shares them; read them in place, never through a copy of the
+                            // array, which would make writes copy what they hold
+                        case 'LOAD_CAPTURED':
+                            $slot = $arg0[$pc - 1];
+                            if (isset($closure->captured[$slot]) || array_key_exists($slot, $closure->captured)) {
+                                $stack[] = $closure->captured[$slot];
+                            } else {
+                                throw new Exception("Undefined variable: {$closure->lambda->captures[$slot]}");
+                            }
+                            break;
+                        case 'STORE_CAPTURED':
+                            $closure->captured[$arg0[$pc - 1]] = array_pop($stack);
+                            break;
+                        case 'LOAD_QUIET_CAPTURED':
+                            $stack[] = $closure->captured[$arg0[$pc - 1]] ?? null;
                             break;
                         case 'PUSH':
                         case 'PUSH_STR':
@@ -303,6 +322,14 @@ final class VM
                             Values::store($locals, $slot, $local_names[$function][$slot], $keys, null, $value);
                             $stack[] = $value;
                             break;
+                        case 'SET_PATH_CAPTURED':
+                        case 'APPEND_PATH_CAPTURED':
+                            unset($first, $second, $left, $right, $target, $iterable, $args, $callee);
+                            [$keys, $value] = $this->pathOperands($stack, $arg0[$pc - 1], $ops[$pc - 1] === 'APPEND_PATH_CAPTURED');
+                            $slot = $arg1[$pc - 1];
+                            Values::store($closure->captured, $slot, $closure->lambda->captures[$slot], $keys, null, $value);
+                            $stack[] = $value;
+                            break;
                         case 'SET_PATH_GLOBAL':
                         case 'APPEND_PATH_GLOBAL':
                             unset($first, $second, $left, $right, $target, $iterable, $args, $callee);
@@ -327,9 +354,10 @@ final class VM
                             if (count($frames) === Values::MAX_CALL_DEPTH) {
                                 throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$arg2[$pc - 1]}");
                             }
-                            $frames[] = [$locals, $pc, $function, $argc];
+                            $frames[] = [$locals, $pc, $function, $argc, $closure];
                             $argc = $arg1[$pc - 1];
                             $locals = $this->popMany($stack, $argc);
+                            $closure = null;
                             $function = $arg2[$pc - 1];
                             $pc = $arg0[$pc - 1];
                             break;
@@ -339,14 +367,25 @@ final class VM
                         case 'MAKE_CLOSURE':
                             $index = $arg0[$pc - 1];
                             [, $lambda, $map] = $lambdas[$index];
-                            // Only the enclosing frame's variables that exist are captured, as in the interpreter
+                            // Copies of the enclosing variables that exist, from the frame or from the running
+                            // closure's own, as in the interpreter
                             $captured = [];
-                            foreach ($map as $outer => $inner) {
-                                if (isset($locals[$outer]) || array_key_exists($outer, $locals)) {
+                            foreach ($map as [$from_closure, $outer, $inner]) {
+                                if ($from_closure) {
+                                    if (isset($closure->captured[$outer]) || array_key_exists($outer, $closure->captured)) {
+                                        $captured[$inner] = $closure->captured[$outer];
+                                    }
+                                } elseif (isset($locals[$outer]) || array_key_exists($outer, $locals)) {
                                     $captured[$inner] = $locals[$outer];
                                 }
                             }
-                            $stack[] = FunctionValue::closure($lambda, $captured, $index);
+                            $made = FunctionValue::closure($lambda, $captured, $index);
+                            // $f = <lambda>: the closure's $f is the closure
+                            if ($lambda->self !== null) {
+                                $made->captured[$lambda->capture_names[$lambda->self]] = $made;
+                            }
+                            $stack[] = $made;
+                            unset($made, $captured);
                             break;
                         case 'CALL_VALUE':
                             $args = $this->popMany($stack, $arg0[$pc - 1]);
@@ -365,14 +404,15 @@ final class VM
                                 break;
                             }
                             // The same frame push as CALL, with the arguments already popped; a closure's
-                            // frame starts from its captured variables, in slots after the parameters
+                            // body reads its captured variables from the closure
                             if (count($frames) === Values::MAX_CALL_DEPTH) {
                                 throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH.' exceeded calling '.$callee->describe());
                             }
-                            $frames[] = [$locals, $pc, $function, $argc];
+                            $frames[] = [$locals, $pc, $function, $argc, $closure];
                             $argc = count($args);
+                            $closure = $name === null ? $callee : null;
                             if ($name === null) {
-                                $locals = $args + $callee->captured;
+                                $locals = $args;
                                 // Keyed so no function name can collide: names can't contain ->
                                 $function = "->{$callee->index}";
                                 $pc = $lambdas[$callee->index][0];
@@ -390,7 +430,7 @@ final class VM
                             while ($handlers !== [] && $handlers[array_key_last($handlers)][0] === count($frames)) {
                                 array_pop($handlers);
                             }
-                            [$locals, $pc, $function, $argc] = array_pop($frames);
+                            [$locals, $pc, $function, $argc, $closure] = array_pop($frames);
                             break;
                         case 'CALL_BUILTIN':
                             $name = $arg0[$pc - 1];
@@ -453,7 +493,7 @@ final class VM
                 // the failed expression left on the stack, then run its catch block
                 [$frame_count, $stack_size, $catch_pc] = array_pop($handlers);
                 while (count($frames) > $frame_count) {
-                    [$locals, , $function, $argc] = array_pop($frames);
+                    [$locals, , $function, $argc, $closure] = array_pop($frames);
                 }
                 array_splice($stack, $stack_size);
                 $stack[] = $error->toMap();
@@ -475,7 +515,7 @@ final class VM
      * - Each user function's entry position and arity go into $functions, for CALL_VALUE, and
      *   each lambda's entry position, node and capture map into $lambdas.
      *
-     * @return array{0: list<string>, 1: list<mixed>, 2: list<mixed>, 3: list<mixed>, 4: list<array{0: string|null, 1: int|null}>, 5: array<string, array{0: int, 1: int|array{0: int, 1: int}}>, 6: list<array{0: int, 1: LambdaAST, 2: array<int, int>}>}
+     * @return array{0: list<string>, 1: list<mixed>, 2: list<mixed>, 3: list<mixed>, 4: list<array{0: string|null, 1: int|null}>, 5: array<string, array{0: int, 1: int|array{0: int, 1: int}}>, 6: list<array{0: int, 1: LambdaAST, 2: list<array{0: bool, 1: int, 2: int}>}>}
      */
     private function link(): array
     {

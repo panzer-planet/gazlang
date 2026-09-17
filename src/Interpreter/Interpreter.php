@@ -65,6 +65,17 @@ class Interpreter extends AbstractNodeVisitor
     private $locals = [];
 
     /**
+     * @var FunctionValue|null The closure whose call is running, whose captured variables its body
+     *                         reads and writes in place of locals; null outside a closure
+     */
+    private $closure = null;
+
+    /**
+     * @var array<string, int> The running closure's captured variable names, as keys
+     */
+    private $captures = [];
+
+    /**
      * @var array<string, FunctionDeclarationAST> Declared functions by name
      */
     private $functions = [];
@@ -151,7 +162,14 @@ class Interpreter extends AbstractNodeVisitor
     public function visitVariable(VariableAST $node)
     {
         $var_name = $node->value;
-        $table = $node->isGlobal() ? $this->globals : $this->locals;
+        // variables(), inlined: this is the interpreter's hottest path
+        if ($node->isGlobal()) {
+            $table = $this->globals;
+        } elseif (isset($this->captures[$var_name])) {
+            $table = $this->closure->captured;
+        } else {
+            $table = $this->locals;
+        }
         // Not isset: a variable holding null is still defined
         if (! array_key_exists($var_name, $table)) {
             throw new Exception("Undefined variable: {$var_name}");
@@ -182,7 +200,7 @@ class Interpreter extends AbstractNodeVisitor
         // $a ??= $b is $a ?? ($a = $b): the right side only runs when the target is null or missing
         if ($node->token->type === Token::COALESCE_ASSIGN) {
             $variable = $node->left instanceof VariableAST ? $node->left : $node->left->rootVariable();
-            $current = ($variable->isGlobal() ? $this->globals : $this->locals)[$variable->value] ?? null;
+            $current = $this->variables($variable)[$variable->value] ?? null;
             foreach ($keys as $key) {
                 $current = $current === null ? null : Values::index($current, $key, true);
             }
@@ -253,8 +271,25 @@ class Interpreter extends AbstractNodeVisitor
         if ($variable->isGlobal()) {
             return Values::store($this->globals, $variable->value, $variable->value, $keys, $op, $value);
         }
+        if (isset($this->captures[$variable->value])) {
+            return Values::store($this->closure->captured, $variable->value, $variable->value, $keys, $op, $value);
+        }
 
         return Values::store($this->locals, $variable->value, $variable->value, $keys, $op, $value);
+    }
+
+    /**
+     * The variables a variable node reads from: globals, the running closure's captured variables, or locals
+     *
+     * @param  VariableAST  $variable  The variable
+     */
+    private function variables(VariableAST $variable): array
+    {
+        return match (true) {
+            $variable->isGlobal() => $this->globals,
+            isset($this->captures[$variable->value]) => $this->closure->captured,
+            default => $this->locals,
+        };
     }
 
     /**
@@ -290,7 +325,7 @@ class Interpreter extends AbstractNodeVisitor
     private function quietly(AST $node)
     {
         if ($node instanceof VariableAST) {
-            return ($node->isGlobal() ? $this->globals : $this->locals)[$node->value] ?? null;
+            return $this->variables($node)[$node->value] ?? null;
         }
         if ($node instanceof IndexAST && $node->index !== null) {
             $target = $this->quietly($node->target);
@@ -604,22 +639,28 @@ class Interpreter extends AbstractNodeVisitor
     }
 
     /**
-     * Visit a Lambda node, making a closure that captures the outer variables it uses, by value, now
+     * Visit a Lambda node, making a closure with copies of the outer variables it captures, now
      *
-     * Only variables that exist are captured: one that doesn't is simply undefined inside.
+     * Only variables that exist are copied: one that doesn't is undefined inside until the
+     * closure sets it (with ??=). With $f = <lambda>, the closure's $f is the closure itself.
      *
      * @param  LambdaAST  $node  The node to visit
      */
     public function visitLambda(LambdaAST $node): FunctionValue
     {
         $captured = [];
-        foreach ($node->free as $name) {
-            if (array_key_exists($name, $this->locals)) {
-                $captured[$name] = $this->locals[$name];
+        foreach ($node->captures as $name) {
+            $outer = isset($this->captures[$name]) ? $this->closure->captured : $this->locals;
+            if (array_key_exists($name, $outer)) {
+                $captured[$name] = $outer[$name];
             }
         }
+        $closure = FunctionValue::closure($node, $captured);
+        if ($node->self !== null) {
+            $closure->captured[$node->self] = $closure;
+        }
 
-        return FunctionValue::closure($node, $captured);
+        return $closure;
     }
 
     /**
@@ -678,7 +719,7 @@ class Interpreter extends AbstractNodeVisitor
         if ($callee->lambda !== null) {
             $lambda = $callee->lambda;
 
-            return $this->invoke($callee->describe(), $lambda->params, $lambda->defaults, $lambda->body, $callee->captured, $args);
+            return $this->invoke($callee->describe(), $lambda->params, $lambda->defaults, $lambda->body, $callee, $args);
         }
 
         return $this->call($callee->name, $args);
@@ -699,7 +740,7 @@ class Interpreter extends AbstractNodeVisitor
 
         $function = $this->functions[$name];
 
-        return $this->invoke($name, $function->params, $function->defaults, $function->body, [], $args);
+        return $this->invoke($name, $function->params, $function->defaults, $function->body, null, $args);
     }
 
     /**
@@ -709,21 +750,22 @@ class Interpreter extends AbstractNodeVisitor
      * @param  string[]  $params  The parameter names
      * @param  array<int, AST|null>  $defaults  Each parameter's default, or null
      * @param  AST  $body  A block (returning through return, else null) or a lambda's expression body
-     * @param  array  $captured  Locals to start with: a closure's captured variables
+     * @param  FunctionValue|null  $closure  The closure being called, whose captured variables the body uses, or null
      * @param  array  $args  The evaluated arguments, no more than there are parameters
      * @return mixed The returned value
      *
      * @throws Exception If the call depth limit is reached
      */
-    private function invoke(string $display, array $params, array $defaults, AST $body, array $captured, array $args)
+    private function invoke(string $display, array $params, array $defaults, AST $body, ?FunctionValue $closure, array $args)
     {
         if ($this->call_depth === Values::MAX_CALL_DEPTH) {
             throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$display}");
         }
 
-        $caller_locals = $this->locals;
-        // Parameters shadow captured variables of the same name (a parameter is never free, so none do)
-        $this->locals = array_combine(array_slice($params, 0, count($args)), $args) + $captured;
+        [$caller_locals, $caller_closure, $caller_captures] = [$this->locals, $this->closure, $this->captures];
+        $this->locals = array_combine(array_slice($params, 0, count($args)), $args);
+        // Captured variables live in the closure, so every call of it, recursive ones too, shares them
+        [$this->closure, $this->captures] = [$closure, $closure === null ? [] : $closure->lambda->capture_names];
         $this->call_depth++;
 
         try {
@@ -747,7 +789,7 @@ class Interpreter extends AbstractNodeVisitor
 
             return $value;
         } finally {
-            $this->locals = $caller_locals;
+            [$this->locals, $this->closure, $this->captures] = [$caller_locals, $caller_closure, $caller_captures];
             $this->call_depth--;
         }
     }

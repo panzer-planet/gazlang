@@ -445,27 +445,31 @@ class Parser
             $body = $this->expr();
         }
 
-        $free = [];
+        // The outer variables it uses, except those a plain = (or foreach or catch) makes local to each call
+        $used = [];
+        $assigned = [];
         foreach ([...$defaults, $body] as $node) {
             if ($node !== null) {
-                self::collect_variables($node, $free);
+                self::collect_variables($node, $used, $assigned);
             }
         }
-        $free = array_values(array_diff(array_keys($free), $params));
+        $captures = array_values(array_diff(array_keys($used), $params, array_keys($assigned)));
 
-        return $this->at(new LambdaAST($params, $defaults, $arity, $body, $free), $start);
+        return $this->at(new LambdaAST($params, $defaults, $arity, $body, $captures), $start);
     }
 
     /**
-     * Collect the $ variables a node uses, in source order, as keys of $found
+     * Collect the $ variables a node uses, in source order, and those it assigns with a plain =
      *
-     * A nested lambda contributes the variables it captures (its free variables), since
-     * those must be present when it is created.
+     * A foreach or catch variable counts as assigned. A nested lambda contributes the
+     * variables it captures, since those must be read when it is created, and nothing it
+     * assigns, which is local to its own calls.
      *
      * @param  AST  $node  The node
-     * @param  array<string, true>  $found  The names found so far, by reference
+     * @param  array<string, true>  $found  The names used so far, by reference
+     * @param  array<string, true>  $assigned  The names assigned so far, by reference
      */
-    private static function collect_variables(AST $node, array &$found): void
+    private static function collect_variables(AST $node, array &$found, array &$assigned): void
     {
         if ($node instanceof VariableAST) {
             if (! $node->isGlobal()) {
@@ -476,11 +480,22 @@ class Parser
             return;
         }
         if ($node instanceof LambdaAST) {
-            foreach ($node->free as $name) {
+            foreach ($node->captures as $name) {
                 $found[$name] = true;
             }
 
             return;
+        }
+        $targets = match (true) {
+            $node instanceof AssignAST && $node->token->type === Token::ASSIGN => [$node->left],
+            $node instanceof ForeachStatementAST => [$node->key, $node->value],
+            $node instanceof TryStatementAST => [$node->variable],
+            default => [],
+        };
+        foreach ($targets as $target) {
+            if ($target instanceof VariableAST && ! $target->isGlobal()) {
+                $assigned[(string) $target->value] = true;
+            }
         }
 
         foreach (get_object_vars($node) as $child) {
@@ -488,7 +503,7 @@ class Parser
                 // Array literal entries are [key, value] pairs
                 foreach (is_array($item) ? $item : [$item] as $leaf) {
                     if ($leaf instanceof AST) {
-                        self::collect_variables($leaf, $found);
+                        self::collect_variables($leaf, $found, $assigned);
                     }
                 }
             }
@@ -879,8 +894,14 @@ class Parser
                 $this->fail("Cannot use {$token->value} to append");
             }
             $this->eat($token->type);
+            $right = $this->expr();
+            // $f = <lambda>: inside the lambda, $f is the lambda itself, so it can call itself
+            if ($token->type === Token::ASSIGN && $node instanceof VariableAST && ! $node->isGlobal()
+                && $right instanceof LambdaAST && in_array($node->value, $right->captures, true)) {
+                $right->self = $node->value;
+            }
 
-            return $this->at(new AssignAST($node, $token, $this->expr()), $token);
+            return $this->at(new AssignAST($node, $token, $right), $token);
         }
 
         return $node;

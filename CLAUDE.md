@@ -376,32 +376,46 @@ a head and `->` follows are the elements checked to have been written as `$param
 `$param = default` (so `(($a)) -> 1` is an error, like `function f(($a))`); `$x ->` is
 recognised in `ternary()` after the fact. Errors about a parameter point at it.
 
-Capture is by value at creation: `LambdaAST::$free` lists every `$` variable the body
-and the defaults use that isn't a parameter (including assignment targets, `foreach`
-and `catch` variables, and what nested lambdas capture), and evaluating the lambda
-copies the ones that exist in the enclosing scope. One that doesn't exist is simply
-undefined inside ("Undefined variable: $x"), and changes to the outer variable after
-creation, or to the copy inside, are invisible on the other side. `@globals` are never
-captured and are read live, which is where shared state goes. So a closure can't call
-itself through the variable it is assigned to (`$fact = $n -> ... $fact(...)`: `$fact`
-doesn't exist yet, or holds its old value); use a named function or an `@global`.
+Closures own their captured variables (decided 2026-09-17, `docs/design-review.md` #13).
+`LambdaAST::$captures` lists every `$` variable the body and the defaults use that isn't
+a parameter and that no plain `=`, `foreach` or `catch` in them assigns (a nested lambda
+contributes what it captures, not what it assigns); the parser decides it. Evaluating
+the lambda copies the ones that exist in the enclosing scope into the closure, where
+they stay: the closure's calls read and write them there, so they persist between calls
+and recursive calls share them, while the enclosing scope never sees the changes.
+```
+function counter() { $n = 0; return () -> ++$n; }        // each counter() counts on its own
+$fib = $n -> $memo[$n] ??= ($n < 2 ? $n : $fib($n - 1) + $fib($n - 2));
+```
+A captured variable that didn't exist is undefined inside ("Undefined variable: $x")
+until the closure sets it (only `??=` can). A variable a plain `=` assigns is local to
+each call, so a temporary sharing an outer name can't leak between recursive calls, and
+`$n = $n + 1` on an outer `$n` is "Undefined variable". `$f = <lambda>` (plain `=` to a
+local, when the body uses `$f`) sets the closure's `$f` to the closure itself
+(`LambdaAST::$self`), so lambdas recurse; the outer `$f` can change afterwards. A closure
+is one value: `$g = $f` shares its variables. `@globals` are never captured and are read
+live.
 
-`FunctionValue::closure()` holds the `LambdaAST` and the captured values (by name in
-the interpreter, by local slot in the VM, which also keeps its lambda index on the
-value); every evaluation makes a fresh value, so `==` is identity of creation.
+`FunctionValue::closure()` holds the `LambdaAST` and the captured variables (by name in
+the interpreter, by index in `LambdaAST::$captures` in the VM, which also keeps its
+lambda index on the value); every evaluation makes a fresh value, so `==` is identity of
+creation.
 `FunctionValue::describe()` names a function in output and messages: `add`, or `-> at
 file.gaz:12` / `-> on line 12` for a closure (`GazLangError::location()`, the one
 spelling), so `echo $f` prints `function -> at file.gaz:12` and errors read `Function
 -> at file.gaz:12 expects 2 arguments, 1 given at file.gaz:20`: where it was made,
 then where it was called. Messages are only built when thrown (`Builtins::fitsArity()`
 is the hot-path check). The interpreter runs named functions and
-closures through one `invoke()`; the code generator emits `MAKE_CLOSURE n` and compiles
-each body after the functions under `LABEL LAMBDA_n` from a worklist (a body can
-contain more lambdas), with a frame of parameters, then captured variables, then other
-locals, keyed `->n` in `local_names` so no function name can collide; `Program::$lambdas`
-carries each lambda's capture map (enclosing slot to its own slot), which the VM
-applies at `MAKE_CLOSURE`, copying only slots that exist.
-`CALL_VALUE` on a closure starts a frame from the captured values plus the arguments.
+closures through one `invoke()`, which also sets the running closure, whose captured
+names read and write `$closure->captured` instead of the locals. The code generator
+emits `MAKE_CLOSURE n` and compiles each body after the functions under `LABEL LAMBDA_n`
+from a worklist (a body can contain more lambdas), with a frame of parameters then
+other locals, keyed `->n` in `local_names` so no function name can collide; captured
+variables compile to `LOAD_CAPTURED`, `STORE_CAPTURED`, `LOAD_QUIET_CAPTURED` and
+`SET_PATH_CAPTURED`/`APPEND_PATH_CAPTURED` on the running closure (kept in each VM frame).
+`Program::$lambdas` carries each lambda's capture map (from an enclosing frame slot or
+the enclosing closure's variable, to its own index), which the VM applies at
+`MAKE_CLOSURE`, copying only what exists, then setting `$self`.
 
 ## Assignment
 

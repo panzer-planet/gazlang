@@ -126,15 +126,95 @@ class LambdaTest extends GazLangTestCase
         ));
     }
 
-    public function test_a_closure_cannot_see_the_variable_it_is_assigned_to()
+    public function test_a_closure_keeps_its_captured_variables_between_calls()
     {
-        // Capture happens before the assignment: $fact doesn't exist yet, or holds its old value
-        $this->assertEquals("Undefined variable: \$fact\nCannot call int\n", $this->executeCode(<<<'CODE'
+        $this->assertEquals('3 1
+5
+0
+[1, 2] []
+11 12 21
+3
+', $this->executeCode(<<<'CODE'
+            function counter() { $n = 0; return () -> ++$n; }
+            $c = counter(); $d = counter(); $c(); $c();
+            echo $c() .. " " .. $d();
+            // A closure is one value: another variable holding it shares its variables
+            $e = $c; $e();
+            echo $c();
+            $n = 0;
+            $bump = () -> { $n += 1; };
+            $bump();
+            echo $n;
+            $list = [];
+            $add = $x -> { $list[] = $x; return $list; };
+            $add(1);
+            echo $add(2) .. " " .. $list;
+            // Each closure made in a loop has its own copy
+            $fs = [];
+            foreach ([1, 2] as $v) { $k = $v * 10; $fs[] = () -> ++$k; }
+            echo $fs[0]() .. " " .. $fs[0]() .. " " .. $fs[1]();
+            $outer = () -> { $m = 1; return () -> ++$m; };
+            $inner = $outer(); $inner();
+            echo $inner();
+            CODE));
+    }
+
+    public function test_recursive_calls_share_the_closures_variables()
+    {
+        $this->assertEquals('23416728348467685
+data 1
+', $this->executeCode(<<<'CODE'
+            $memo = {};
+            $fib = $n -> $memo[$n] ??= ($n < 2 ? $n : $fib($n - 1) + $fib($n - 2));
+            echo $fib(80);
+            @loads = 0;
+            function load() { @loads++; return "data"; }
+            $get = () -> { $cache ??= load(); return $cache; };
+            $get(); $get();
+            echo $get() .. " " .. @loads;
+            CODE));
+    }
+
+    public function test_a_plain_assignment_makes_a_variable_local_to_each_call()
+    {
+        $this->assertEquals('10 0
+Undefined variable: $n
+[3, 2, 1] 0
+', $this->executeCode(<<<'CODE'
+            // $result shares its name with an outer variable, but each recursive call has its own
+            $result = 0;
+            $sum = $n -> { if ($n == 0) { return 0; } $result = $n; $rest = $sum($n - 1); return $result + $rest; };
+            echo $sum(4) .. " " .. $result;
+            $n = 5;
+            $bad = () -> { $n = $n + 1; return $n; };
+            try { $bad(); } catch ($err) { echo $err["message"]; }
+            $i = 0;
+            $down = $n -> { $out = []; for ($i = $n; $i > 0; $i--) { $out[] = $i; } return $out; };
+            echo $down(3) .. " " .. $i;
+            CODE));
+    }
+
+    public function test_a_closure_assigned_to_a_variable_can_call_itself()
+    {
+        $this->assertEquals("6\n6\n5\n", $this->executeCode(<<<'CODE'
             $fact = $n -> $n < 2 ? 1 : $n * $fact($n - 1);
-            try { echo $fact(3); } catch ($e) { echo $e["message"]; }
-            $f = 5;
-            $f = $n -> $f($n);
-            try { echo $f(3); } catch ($e) { echo $e["message"]; }
+            echo $fact(3);
+            // Its own $fact stays the closure when the outer variable changes
+            $keep = $fact;
+            $fact = 5;
+            echo $keep(3);
+            echo $fact;
+            CODE));
+    }
+
+    public function test_only_a_plain_assignment_of_the_lambda_itself_binds_its_name()
+    {
+        $this->assertEquals("Undefined variable: \$g\nCannot call int\n", $this->executeCode(<<<'CODE'
+            $h = [$n -> $g($n)];
+            try { $h[0](1); } catch ($e) { echo $e["message"]; }
+            $g = 5;
+            $k = true ? $n -> $g($n) : null;
+            try { $k(1); } catch ($e) { echo $e["message"]; }
             CODE));
     }
 
@@ -238,10 +318,15 @@ class LambdaTest extends GazLangTestCase
     public function test_code_gen()
     {
         // A program with only a lambda still ends its top level in HALT. The captured $n takes
-        // slot 0 of the top level (allocated by the capture map) and slot 1 of the lambda, after $x
+        // slot 0 of the top level (allocated by the capture map) and is the closure's variable 0
         $this->assertEquals(
-            "MAKE_CLOSURE 0\nSTORE 1\nLOAD 1\nPOP\nLOAD 1\nPUSH 1\nCALL_VALUE 1\nPRINT\nHALT\nLABEL LAMBDA_0\nLOAD 0\nLOAD 1\nADD\nRET",
+            "MAKE_CLOSURE 0\nSTORE 1\nLOAD 1\nPOP\nLOAD 1\nPUSH 1\nCALL_VALUE 1\nPRINT\nHALT\nLABEL LAMBDA_0\nLOAD 0\nLOAD_CAPTURED 0\nADD\nRET",
             $this->generateCode('$f = $x -> $x + $n; echo $f(1);')
+        );
+        // Updating a captured variable writes the closure's; a plain = makes a frame local
+        $this->assertStringEndsWith(
+            "LABEL LAMBDA_0\nLOAD_CAPTURED 0\nINC\nSTORE_CAPTURED 0\nLOAD_CAPTURED 0\nPOP\nPUSH 1\nSTORE 0\nLOAD 0\nPOP\nPUSH null\nRET",
+            $this->generateCode('$n = 0; $m = 0; $f = () -> { ++$n; $m = 1; };')
         );
         // A block body returns null when it falls off the end
         $this->assertStringEndsWith("LABEL LAMBDA_0\nPUSH 1\nPOP\nPUSH null\nRET", $this->generateCode('$f = () -> { 1; };'));

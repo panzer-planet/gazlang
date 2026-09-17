@@ -65,7 +65,9 @@ Try `php bin/gazlang -f examples/csv_report.gaz -- examples/data/sales.csv regio
 - **Functions**: `function add($a, $b = 1) { return $a + $b; }` at the top level, callable
   before they are declared. A bare name is a value (`$f = add; $f(1)`, builtins too), and
   `$x -> $x * 2`, `($a, $b = 1) -> $a + $b`, `() -> { return 42; }` are anonymous functions
-  that capture the outer variables they use by value when created (`@globals` are shared).
+  that copy the outer variables they use when created and keep them between calls
+  (`() -> ++$n` counts; a plain `=` inside makes a variable local to the call). A lambda
+  assigned with `$f = ...` can call `$f` inside.
 - **Errors**: `error("message")` raises one, `try { } catch ($e) { }` catches any runtime
   error as `{"message" => ..., "file" => ..., "line" => ...}`, and uncaught errors print
   `Error: ... at file.gaz:12`. `exit($code)` stops the program.

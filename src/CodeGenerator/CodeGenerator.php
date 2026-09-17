@@ -50,11 +50,13 @@ use GazLang\Runtime\MapValue;
  * function's arity).
  *
  * Lambda bodies are emitted after the functions, each under LABEL LAMBDA_n with its own
- * frame: parameters in slots 0.., then the captured variables, then its other locals.
- * MAKE_CLOSURE n pushes a closure, copying into it the enclosing frame's slots that the
- * Program's lambda table maps to the captured slots (only the ones that exist, as the
- * interpreter does); CALL_VALUE on a closure starts a frame from the captured values
- * plus the arguments and jumps to the lambda's entry.
+ * frame: parameters in slots 0.., then its other locals. Its captured variables live in
+ * the closure and are addressed by index with LOAD_CAPTURED, STORE_CAPTURED,
+ * LOAD_QUIET_CAPTURED and SET_PATH_CAPTURED/APPEND_PATH_CAPTURED. MAKE_CLOSURE n pushes a
+ * closure, copying into it what the Program's lambda table maps from the enclosing frame
+ * or the enclosing closure (only what exists, as the interpreter does), then storing the
+ * closure in its own $self variable; CALL_VALUE on a closure starts a frame from the
+ * arguments, with that closure running, and jumps to the lambda's entry.
  *
  * Lists and maps are values. NEW_ARRAY pushes an empty list and ARRAY_PUSH pops a value
  * and appends it to the list below; NEW_MAP pushes an empty map and MAP_SET pops a value
@@ -117,6 +119,12 @@ class CodeGenerator extends AbstractNodeVisitor
     private $var_addresses = [];
 
     /**
+     * @var array<string, int> When compiling a lambda body, its captured variable names mapped to their
+     *                         index in the closure, which *_CAPTURED instructions address instead of a slot
+     */
+    private $captures = [];
+
+    /**
      * @var array<string, int> Global variable names mapped to global slots
      */
     private $global_addresses = [];
@@ -147,8 +155,10 @@ class CodeGenerator extends AbstractNodeVisitor
     private $try_depth = 0;
 
     /**
-     * @var list<array{0: LambdaAST, 1: array<int, int>}> Every lambda seen, in creation order, with its capture
-     *                                                    map (enclosing frame slot => its own slot); bodies compile later
+     * @var list<array{0: LambdaAST, 1: list<array{0: bool, 1: int, 2: int}>}> Every lambda seen, in creation order,
+     *                                                                         with its capture map: [whether the source is a captured
+     *                                                                         variable of the enclosing closure, its slot or index there,
+     *                                                                         the index in the new closure]; bodies compile later
      */
     private $lambdas = [];
 
@@ -212,6 +222,12 @@ class CodeGenerator extends AbstractNodeVisitor
     {
         if ($variable->isGlobal()) {
             $this->emit("{$op}_GLOBAL", ...$args, ...[$this->global_addresses[$variable->value] ??= count($this->global_addresses)]);
+
+            return;
+        }
+
+        if (isset($this->captures[$variable->value])) {
+            $this->emit("{$op}_CAPTURED", ...$args, ...[$this->captures[$variable->value]]);
 
             return;
         }
@@ -897,7 +913,7 @@ class CodeGenerator extends AbstractNodeVisitor
     /**
      * Visit a Lambda node: MAKE_CLOSURE, with the body compiled later by compile()
      *
-     * The capture map is recorded now, while the enclosing frame's slots are known. A free
+     * The capture map is recorded now, while the enclosing frame's slots are known. A captured
      * variable the enclosing frame hasn't used yet still gets a slot, so a loop that assigns
      * it after the lambda captures it on the next iteration, as in the interpreter.
      *
@@ -906,8 +922,10 @@ class CodeGenerator extends AbstractNodeVisitor
     public function visitLambda(LambdaAST $node): void
     {
         $map = [];
-        foreach ($node->free as $i => $name) {
-            $map[$this->var_addresses[$name] ??= count($this->var_addresses)] = count($node->params) + $i;
+        foreach ($node->captures as $i => $name) {
+            $map[] = isset($this->captures[$name])
+                ? [true, $this->captures[$name], $i]
+                : [false, $this->var_addresses[$name] ??= count($this->var_addresses), $i];
         }
         $this->lambdas[] = [$node, $map];
 
@@ -992,11 +1010,11 @@ class CodeGenerator extends AbstractNodeVisitor
         }
 
         // A worklist: compiling a body can find more lambdas inside it. A lambda's frame is
-        // keyed "->n", which no function name can be, and starts with its captured variables
-        // after the parameters, in the order its capture map uses
+        // keyed "->n", which no function name can be; its captured variables aren't in the
+        // frame but in the closure, addressed by their index in LambdaAST::$captures
         for ($i = 0; $i < count($this->lambdas); $i++) {
             [$lambda] = $this->lambdas[$i];
-            $local_names["->{$i}"] = $this->compileBody("LAMBDA_{$i}", $lambda, [...$lambda->params, ...$lambda->free]);
+            $local_names["->{$i}"] = $this->compileBody("LAMBDA_{$i}", $lambda, $lambda->params);
         }
 
         return new Program($this->instructions, $local_names, array_keys($this->global_addresses), $arities, $this->lambdas);
@@ -1007,12 +1025,13 @@ class CodeGenerator extends AbstractNodeVisitor
      *
      * @param  string  $label  The entry label
      * @param  FunctionDeclarationAST|LambdaAST  $node  The function or lambda
-     * @param  string[]  $slots  The names of the first local slots: the parameters, then a lambda's captured variables
+     * @param  string[]  $slots  The names of the first local slots: the parameters
      * @return list<string> The variable name in each slot of the frame
      */
     private function compileBody(string $label, FunctionDeclarationAST|LambdaAST $node, array $slots): array
     {
         $this->var_addresses = array_flip($slots);
+        $this->captures = $node instanceof LambdaAST ? $node->capture_names : [];
         [$this->file, $this->line] = [$node->file, $node->line];
 
         $this->emit('LABEL', $label);
