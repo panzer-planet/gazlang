@@ -138,19 +138,18 @@ final class Values
             throw new Exception("Cannot use {$op->value} on ".self::typeOf(is_scalar($left) ? $right : $left));
         }
 
-        // A string never orders against a number or bool: there is no conversion
-        if (is_string($left) !== is_string($right)) {
-            if (! in_array($type, [Token::PLUS, Token::MINUS, Token::MULTIPLY, Token::DIVIDE, Token::MODULO], true)) {
-                throw new Exception("Cannot use {$op->value} on string and ".self::typeOf(is_string($left) ? $right : $left));
-            }
+        // A bool is not a number: to_int(true) is the explicit way to get 1
+        if (is_bool($left) || is_bool($right)) {
+            throw new Exception("Cannot use {$op->value} on bool");
         }
-
-        // Everywhere else booleans act as 1/0, so true + 1 is 2 and true < 2
-        $left = is_bool($left) ? (int) $left : $left;
-        $right = is_bool($right) ? (int) $right : $right;
 
         if (in_array($type, [Token::PLUS, Token::MINUS, Token::MULTIPLY, Token::DIVIDE, Token::MODULO], true)) {
             return self::arithmetic($op, $left, $right);
+        }
+
+        // A string never orders against a number: there is no conversion
+        if (is_string($left) !== is_string($right)) {
+            throw new Exception("Cannot use {$op->value} on string and ".self::typeOf(is_string($left) ? $right : $left));
         }
 
         // Two strings compare byte by byte, so "10" < "9"; numbers by value
@@ -168,9 +167,9 @@ final class Values
     /**
      * Decide whether two values are equal (==), with no conversion between strings and numbers
      *
-     * null only equals null. Numbers compare by value (1 == 1.0, exactly: see compare())
-     * with booleans as 1/0. Strings compare byte by byte, so "1" != "01", and a string
-     * never equals a number. Arrays are equal when they have the same keys in the same
+     * null only equals null, true only true. Numbers compare by value (1 == 1.0, exactly:
+     * see compare()). Strings compare byte by byte, so "1" != "01", and a string never
+     * equals a number or a bool. Arrays are equal when they have the same keys in the same
      * order and their elements are equal by this rule. A function is equal only to itself.
      *
      * @param  mixed  $left  One value
@@ -196,8 +195,6 @@ final class Values
             return true;
         }
 
-        $left = is_bool($left) ? (int) $left : $left;
-        $right = is_bool($right) ? (int) $right : $right;
         if ((is_int($left) || is_float($left)) && (is_int($right) || is_float($right))) {
             return self::compare($left, $right) === 0;
         }
@@ -251,14 +248,14 @@ final class Values
         if (is_float($value)) {
             return -$value;
         }
-        if (! is_int($value) && ! is_bool($value)) {
+        if (! is_int($value)) {
             throw new Exception('Cannot use - on '.self::typeOf($value));
         }
         if ($value === PHP_INT_MIN) {
             throw new Exception('Integer overflow');
         }
 
-        return -(int) $value;
+        return -$value;
     }
 
     /**
@@ -391,7 +388,7 @@ final class Values
     }
 
     /**
-     * Apply + - * / % to two numbers (booleans already converted)
+     * Apply + - * / % to two numbers
      *
      * Two ints give an int, and a float on either side gives a float, except that / always
      * gives a float (6 / 2 is 3.0; an int beyond 2^53 loses precision on the way, as in

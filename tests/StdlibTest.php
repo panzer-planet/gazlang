@@ -95,7 +95,7 @@ class StdlibTest extends GazLangTestCase
             'empty' => ['""', 'to_int() cannot convert ""'],
             'spaces' => ['" 1"', 'to_int() cannot convert " 1"'],
             'overflow' => ['"99999999999999999999"', 'to_int() cannot convert "99999999999999999999"'],
-            'bool' => ['true', 'to_int() cannot convert bool'],
+            'null' => ['null', 'to_int() cannot convert null'],
         ];
     }
 
@@ -144,7 +144,7 @@ class StdlibTest extends GazLangTestCase
 
     public function test_in_array_compares_with_equals()
     {
-        $this->assertEquals("true\nfalse\ntrue\ntrue\ntrue\nfalse\n", $this->executeCode(
+        $this->assertEquals("true\nfalse\nfalse\ntrue\ntrue\nfalse\n", $this->executeCode(
             'echo in_array(1, [1, 2]); echo in_array("1", [1, 2]); echo in_array(true, [1]); echo in_array([1], [[1]]); echo in_array(1, [1.0]); echo in_array(null, [0]);'
         ));
     }

@@ -111,7 +111,7 @@ class (PHP `self::`); no inheritance in the first cut; `is_a($x, Point)` and
 
 ## Still open
 
-Whether `true == 1` should stay true under strict `==` (Ruby and Lua say no).
+`true == 1`: decided false (Ruby, Lua); bools are not numbers, `to_int(true)` is explicit.
 Decided while building: an int and a float compare exactly (`9007199254740993 !=
 9007199254740992.0`), unlike PHP; `/` still converts and loses precision above 2^53.
 The field declaration syntax and whether `##` earns its keep.

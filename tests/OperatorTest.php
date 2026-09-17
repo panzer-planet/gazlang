@@ -48,7 +48,7 @@ class OperatorTest extends GazLangTestCase
             'arithmetic on a string' => ['echo "1.5" + 1.5 * "2";', 'Cannot use * on string on line 1'],
             'to_int out of range' => ['to_int(1e19);', 'to_int() cannot convert 1.0E+19 on line 1'],
             'to_float of a non-number' => ['to_float("1.5x");', 'to_float() cannot convert "1.5x" on line 1'],
-            'to_float of a bool' => ['to_float(true);', 'to_float() cannot convert bool on line 1'],
+            'to_float of null' => ['to_float(null);', 'to_float() cannot convert null on line 1'],
             'intdiv by zero' => ['intdiv(7, 0);', 'Division by zero on line 1'],
             'intdiv with a float' => ['intdiv(7, 2.0);', 'intdiv() expects int, got float on line 1'],
             'intdiv overflow' => ['intdiv(-9223372036854775807 - 1, -1);', 'Integer overflow on line 1'],
@@ -198,7 +198,7 @@ class OperatorTest extends GazLangTestCase
 
     public function test_equality_never_converts_between_strings_and_numbers()
     {
-        $this->assertEquals("false\ntrue\nfalse\nfalse\ntrue\ntrue\nfalse\n", $this->executeCode(
+        $this->assertEquals("false\ntrue\nfalse\nfalse\ntrue\nfalse\nfalse\n", $this->executeCode(
             'echo "5" == 5; echo "5" != 5; echo "1" == "01"; echo true == "1"; echo 1 == 1.0; echo true == 1; echo null == 0;'
         ));
     }
@@ -225,12 +225,6 @@ class OperatorTest extends GazLangTestCase
             .' echo 9223372036854775807 == 9223372036854775808.0; echo 9223372036854775807 < 9223372036854775808.0;'
             .' echo -9223372036854775807 - 1 == -9223372036854775808.0; echo in_array(9007199254740993, [9007199254740992.0]);'
         ));
-    }
-
-    public function test_ordering_a_bool_against_a_string_names_the_bool()
-    {
-        $this->expectExceptionMessage('Cannot use < on string and bool on line 1');
-        $this->executeCode('echo true < "a";');
     }
 
     public function test_ternary_evaluates_only_the_taken_branch()
@@ -277,13 +271,13 @@ class OperatorTest extends GazLangTestCase
     public function test_chained_equality_is_left_associative()
     {
         // (1 == 2) == 0 is true; the old parser read it as 1 == (2 == 0), which is false
-        $this->assertEquals("true\n", $this->executeCode('echo 1 == 2 == 0;'));
+        $this->assertEquals("true\n", $this->executeCode('echo 1 == 2 == false;'));
     }
 
     public function test_relational_binds_tighter_than_equality()
     {
         // (2 < 1) == 0, not 2 < (1 == 0)
-        $this->assertEquals("true\n", $this->executeCode('echo 2 < 1 == 0;'));
+        $this->assertEquals("true\n", $this->executeCode('echo 2 < 1 == false;'));
     }
 
     public function test_arithmetic_binds_tighter_than_relational()
@@ -359,7 +353,7 @@ class OperatorTest extends GazLangTestCase
     public function test_not_binds_tighter_than_equality()
     {
         // (!1) == 0
-        $this->assertEquals("true\n", $this->executeCode('echo !1 == 0;'));
+        $this->assertEquals("true\n", $this->executeCode('echo !1 == false;'));
     }
 
     public function test_assignment_is_right_associative_and_lowest()

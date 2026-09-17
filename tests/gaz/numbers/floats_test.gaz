@@ -16,7 +16,7 @@ check("int + int", 2 + 3, 5);
 check("int + float", 2 + 0.5, 2.5);
 check("float * int", 1.5 * 2, 3.0);
 check("float - float", 0.5 - 0.25, 0.25);
-check("bool acts as 1", true + 0.5, 1.5);
+check("to_float of a bool", to_float(true) + 0.5, 1.5);
 check("negate", -1.5 + 0, -1.5);
 
 // Division follows PHP: exact int division stays an int

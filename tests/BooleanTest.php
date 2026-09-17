@@ -21,11 +21,33 @@ class BooleanTest extends GazLangTestCase
         ));
     }
 
-    public function test_booleans_act_as_one_and_zero_in_arithmetic_and_comparisons()
+    public function test_booleans_are_not_numbers()
     {
-        $this->assertEquals("2\n0\n-1\ntrue\ntrue\nfalse\n", $this->executeCode(
-            'echo true + 1; echo false * 5; echo -true; echo true == 1; echo false == 0; echo true == 2;'
+        $this->assertEquals("false\nfalse\ntrue\nfalse\n1\n0.0\n", $this->executeCode(
+            'echo true == 1; echo false == 0; echo true == true; echo true == "1"; echo to_int(true); echo to_float(false);'
         ));
+    }
+
+    /**
+     * @dataProvider boolOperatorErrors
+     */
+    public function test_arithmetic_and_ordering_on_a_bool_throw(string $code, string $message)
+    {
+        $this->expectExceptionMessage($message);
+        $this->executeCode($code);
+    }
+
+    public static function boolOperatorErrors(): array
+    {
+        return [
+            'add' => ['echo true + 1;', 'Cannot use + on bool on line 1'],
+            'multiply' => ['echo 5 * false;', 'Cannot use * on bool on line 1'],
+            'negate' => ['echo -true;', 'Cannot use - on bool on line 1'],
+            'order against a number' => ['echo true < 2;', 'Cannot use < on bool on line 1'],
+            'order against a bool' => ['echo true > false;', 'Cannot use > on bool on line 1'],
+            'order against a string' => ['echo true < "a";', 'Cannot use < on bool on line 1'],
+            'increment' => ['$b = true; $b++;', 'Cannot use ++ on bool on line 1'],
+        ];
     }
 
     public function test_concatenation_uses_echo_spelling()

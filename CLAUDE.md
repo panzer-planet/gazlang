@@ -59,8 +59,9 @@ each step depends on the ones before it.
    - Truthiness lives in `Runtime\Values::isTruthy()`, shared by both backends'
      `if`, `while`, `!`, `&&`, `||` (the VM's `JZ`/`NOT`). Numbers and booleans are C-like (`if (5)` is true,
      `if (0)` is false); strings are true unless empty, so `"0"` is true.
-   - Booleans act as 1/0 in arithmetic and comparisons: `true + 1` is `2`,
-     `true == 1` is true.
+   - A bool is not a number: `true == 1` is false, and `true + 1`, `true < 2` and `-true`
+     are `Cannot use + on bool`; `to_int(true)` is `1` and `to_float(false)` is `0.0`.
+     Truthiness in conditions is the one place a non-bool is read as a bool.
    - `..` concatenates, converting either side the way `echo` does: `"x" .. true` is
      `"xtrue"`, `1 .. 2` is `"12"`. It sits below `+`/`-` and above comparison (Lua,
      PHP 8), so `"n = " .. $a + $b` concatenates the sum. `..=` is its compound
@@ -69,7 +70,7 @@ each step depends on the ones before it.
      `in_array`): two strings compare byte by byte (`"1" != "01"`, `"10" < "9"`), a
      string never equals a number or bool (`"5" != 5`, `true != "1"`; use `to_float`),
      and ordering a string against a number (`"5" < 6`) is an error. Numbers compare
-     by value (`1 == 1.0`) with bools as 1/0. There is no `===`: `===` lexes as `==`
+     by value (`1 == 1.0`); a bool equals only itself. There is no `===`: `===` lexes as `==`
      followed by `=`, a syntax error.
    - Numbers never silently overflow, see "Numbers" below.
    - `$a ?? $b` is `$a` unless it is null or missing, like PHP: on its left an
@@ -192,7 +193,7 @@ each step depends on the ones before it.
      outside the string is an error),
      `repeat($s, $count)`, `chr($byte)` (0 to 255) and `ord($char)` (exactly one byte),
      the number builtins listed under "Numbers",
-     `to_int($x)` (ints, or strings of decimal digits with an optional `-`;
+     `to_int($x)` (ints, bools as 1/0, or strings of decimal digits with an optional `-`;
      anything else or overflow is an error), `to_string($x)` (same text as echo).
    - Arrays: `len`, `slice`, `in_array($value, $array)` (compares with `==`),
      `has_key($array, $key)`, `keys($array)`.
@@ -267,7 +268,8 @@ before function values:
 - **`==` and `!=` stop coercing.** A string never equals a number (`"5" == 5` is
   false; compare with `to_float`); int and float still compare by value (`1 == 1.0`);
   arrays structural, functions and objects by identity. `===` and `!==` are removed.
-  Booleans stay as they are (`true == 1`) unless that proves a problem.
+  Bools are not numbers either (`true == 1` is false, `true + 1` is an error; decided
+  2026-09-18).
 - **`/` always gives a float** (Python 3, Lua 5.3); `intdiv` is integer division.
 
 Design agreed on 2026-09-17, to build in phases (each committed and reviewed):
@@ -404,7 +406,7 @@ Ints and floats (64-bit, always finite: GazLang has no INF or NAN).
   `1.0E+25`, `-0.0`). echo, `to_string`, interpolation, `--tokens` and generated
   code all use it.
 - Arithmetic (`Runtime\Values::binary()`): int with int gives an int, a float on
-  either side gives a float, bools act as 1/0. `/` always gives a float (`6 / 2`
+  either side gives a float, a bool on either side is an error. `/` always gives a float (`6 / 2`
   is `3.0`), as in Python 3 and Lua 5.3; `intdiv()` divides ints, truncating. `%` is
   ints only (`Cannot use % on float`).
 - Nothing overflows silently: an int literal or int result that doesn't fit is
@@ -415,7 +417,7 @@ Ints and floats (64-bit, always finite: GazLang has no INF or NAN).
   converting the int to a float as PHP does: `9007199254740993 != 9007199254740992.0`. `/`
   does convert, so `9007199254740993 / 1` is `9007199254740992.0`. `0.0` and `-0.0` are false in
   conditions. Floats can't be array keys or string positions.
-- Builtins: `to_float($x)`, `to_int($x)` (truncates a float toward zero; an error
+- Builtins: `to_float($x)` (a bool gives 1.0 or 0.0), `to_int($x)` (truncates a float toward zero; an error
   outside the int range), `floor`, `ceil`, `round($x, $precision = 0)` (PHP's round:
   halves away from zero, correcting for halves stored as slightly less, so
   `round(1.005, 2)` is `1.01`; a negative precision rounds to tens, hundreds...; all
