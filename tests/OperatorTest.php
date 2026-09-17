@@ -216,6 +216,23 @@ class OperatorTest extends GazLangTestCase
         $this->executeCode('echo "5" < 6;');
     }
 
+    public function test_ints_and_floats_compare_exactly()
+    {
+        // PHP converts the int to a float first, which would make 2^53 + 1 equal 2^53
+        $this->assertEquals("false\ntrue\ntrue\ntrue\ntrue\nfalse\ntrue\ntrue\nfalse\n", $this->executeCode(
+            'echo 9007199254740993 == 9007199254740992.0; echo 9007199254740993 > 9007199254740992.0;'
+            .' echo 9007199254740992 == 9007199254740992.0; echo 1 < 1.5; echo -1 > -1.5;'
+            .' echo 9223372036854775807 == 9223372036854775808.0; echo 9223372036854775807 < 9223372036854775808.0;'
+            .' echo -9223372036854775807 - 1 == -9223372036854775808.0; echo in_array(9007199254740993, [9007199254740992.0]);'
+        ));
+    }
+
+    public function test_ordering_a_bool_against_a_string_names_the_bool()
+    {
+        $this->expectExceptionMessage('Cannot use < on string and bool on line 1');
+        $this->executeCode('echo true < "a";');
+    }
+
     public function test_strict_equality_operator_is_gone()
     {
         $this->expectExceptionMessage("Unexpected '=' on line 1");

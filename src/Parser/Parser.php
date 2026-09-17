@@ -91,14 +91,10 @@ class Parser
     private $functions = Builtins::ARITIES;
 
     /**
-     * @var FunctionCallAST[] Every call by name parsed, checked against the declared functions once the whole program is read
+     * @var list<FunctionCallAST|FunctionRefAST> Every call by name and bare name used as a value, in source order,
+     *                                           checked against the declared functions once the whole program is read
      */
-    private $calls = [];
-
-    /**
-     * @var FunctionRefAST[] Every bare name used as a value, checked to name a function once the whole program is read
-     */
-    private $references = [];
+    private $uses = [];
 
     /**
      * @var string Directory that include paths in the file being parsed are relative to
@@ -258,7 +254,7 @@ class Parser
      */
     public function function_call(Token $name)
     {
-        return $this->calls[] = $this->at(new FunctionCallAST($name->value, $this->arguments()), $name);
+        return $this->uses[] = $this->at(new FunctionCallAST($name->value, $this->arguments()), $name);
     }
 
     /**
@@ -324,7 +320,7 @@ class Parser
                 return $this->function_call($token);
             }
 
-            return $this->references[] = $this->at(new FunctionRefAST($token->value), $token);
+            return $this->uses[] = $this->at(new FunctionRefAST($token->value), $token);
         } elseif ($token->type === Token::LEFT_BRACKET) {
             return $this->array_literal();
         } elseif ($token->type === Token::LEFT_PAREN) {
@@ -411,7 +407,7 @@ class Parser
     }
 
     /**
-     * Parse a postfix expression (primary (LBRACKET [expr] RBRACKET)* [INCREMENT | DECREMENT])
+     * Parse a postfix expression (primary (LBRACKET [expr] RBRACKET | arguments)* [INCREMENT | DECREMENT])
      *
      * Empty brackets ($a[] = ...) append, so they are only allowed directly before an assignment.
      *
@@ -1000,15 +996,16 @@ class Parser
         $root = new CompoundAST;
         $root->statements = $this->top_level();
 
-        foreach ([...$this->references, ...$this->calls] as $use) {
+        // In source order, so the first mistake in the program is the one reported
+        foreach ($this->uses as $use) {
             if (! isset($this->functions[$use->name])) {
                 throw new GazLangError("Undefined function: {$use->name}", $use->file, $use->line);
             }
-        }
-        foreach ($this->calls as $call) {
-            $error = Builtins::arityError($call->name, $this->functions[$call->name], count($call->args));
-            if ($error !== null) {
-                throw new GazLangError($error, $call->file, $call->line);
+            if ($use instanceof FunctionCallAST) {
+                $error = Builtins::arityError($use->name, $this->functions[$use->name], count($use->args));
+                if ($error !== null) {
+                    throw new GazLangError($error, $use->file, $use->line);
+                }
             }
         }
 

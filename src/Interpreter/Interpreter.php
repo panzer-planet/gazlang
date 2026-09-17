@@ -46,18 +46,6 @@ use GazLang\Runtime\Values;
 class Interpreter extends AbstractNodeVisitor
 {
     /**
-     * The binary operator each compound assignment applies, as [token type, symbol]
-     */
-    private const COMPOUND_OPERATORS = [
-        Token::PLUS_ASSIGN => [Token::PLUS, '+'],
-        Token::MINUS_ASSIGN => [Token::MINUS, '-'],
-        Token::MULTIPLY_ASSIGN => [Token::MULTIPLY, '*'],
-        Token::DIVIDE_ASSIGN => [Token::DIVIDE, '/'],
-        Token::MODULO_ASSIGN => [Token::MODULO, '%'],
-        Token::CONCAT_ASSIGN => [Token::CONCAT, '..'],
-    ];
-
-    /**
      * @var Parser The parser that provides the AST
      */
     private $parser;
@@ -200,8 +188,12 @@ class Interpreter extends AbstractNodeVisitor
         }
 
         $value = $this->visit($node->right);
-        $operator = self::COMPOUND_OPERATORS[$node->token->type] ?? null;
-        [, $new] = $this->store($node->left, $keys, $operator === null ? null : new Token(...$operator), $value);
+        // A compound assignment applies the operator its token is named after (PLUS_ASSIGN, +=), as the code generator does
+        $token = $node->token;
+        $operator = $token->type === Token::ASSIGN || $token->type === Token::COALESCE_ASSIGN
+            ? null
+            : new Token(str_replace('_ASSIGN', '', $token->type), substr($token->value, 0, -1));
+        [, $new] = $this->store($node->left, $keys, $operator, $value);
 
         return $new;
     }

@@ -133,14 +133,19 @@ final class Values
             return ! self::equals($left, $right);
         }
 
-        // null, arrays and functions only compare for equality
-        foreach ([$left, $right] as $operand) {
-            if ($operand === null || is_array($operand) || is_object($operand)) {
-                throw new Exception("Cannot use {$op->value} on ".self::typeOf($operand));
+        // null, arrays and functions only compare for equality (ints, floats, strings and bools are scalar)
+        if (! is_scalar($left) || ! is_scalar($right)) {
+            throw new Exception("Cannot use {$op->value} on ".self::typeOf(is_scalar($left) ? $right : $left));
+        }
+
+        // A string never orders against a number or bool: there is no conversion
+        if (is_string($left) !== is_string($right)) {
+            if (! in_array($type, [Token::PLUS, Token::MINUS, Token::MULTIPLY, Token::DIVIDE, Token::MODULO], true)) {
+                throw new Exception("Cannot use {$op->value} on string and ".self::typeOf(is_string($left) ? $right : $left));
             }
         }
 
-        // Everywhere else booleans act as 1/0, so true + 1 is 2 and true == 1
+        // Everywhere else booleans act as 1/0, so true + 1 is 2 and true < 2
         $left = is_bool($left) ? (int) $left : $left;
         $right = is_bool($right) ? (int) $right : $right;
 
@@ -148,15 +153,8 @@ final class Values
             return self::arithmetic($op, $left, $right);
         }
 
-        // A string never orders against a number: there is no conversion
-        if (is_string($left) !== is_string($right)) {
-            $other = self::typeOf(is_string($left) ? $right : $left);
-
-            throw new Exception("Cannot use {$op->value} on string and {$other}");
-        }
-
-        // Two strings compare byte by byte, so "10" < "9"; numbers numerically
-        $cmp = is_string($left) ? strcmp($left, $right) : $left <=> $right;
+        // Two strings compare byte by byte, so "10" < "9"; numbers by value
+        $cmp = is_string($left) ? strcmp($left, $right) : self::compare($left, $right);
 
         return match ($type) {
             Token::LESS_THAN => $cmp < 0,
@@ -170,18 +168,23 @@ final class Values
     /**
      * Decide whether two values are equal (==), with no conversion between strings and numbers
      *
-     * null only equals null. Numbers compare by value (1 == 1.0) with booleans as 1/0.
-     * Strings compare byte by byte, so "1" != "01", and a string never equals a number.
-     * Arrays are equal when they have the same keys in the same order and their
-     * elements are equal by this rule. A function is equal only to itself.
+     * null only equals null. Numbers compare by value (1 == 1.0, exactly: see compare())
+     * with booleans as 1/0. Strings compare byte by byte, so "1" != "01", and a string
+     * never equals a number. Arrays are equal when they have the same keys in the same
+     * order and their elements are equal by this rule. A function is equal only to itself.
      *
      * @param  mixed  $left  One value
      * @param  mixed  $right  The other
      */
     public static function equals($left, $right): bool
     {
+        // Identical values are always equal (there is no NAN, and named functions are interned)
+        if ($left === $right) {
+            return true;
+        }
+
         if (is_array($left) && is_array($right)) {
-            if (array_keys($left) !== array_keys($right)) {
+            if (count($left) !== count($right) || array_keys($left) !== array_keys($right)) {
                 return false;
             }
             foreach ($left as $key => $item) {
@@ -196,10 +199,44 @@ final class Values
         $left = is_bool($left) ? (int) $left : $left;
         $right = is_bool($right) ? (int) $right : $right;
         if ((is_int($left) || is_float($left)) && (is_int($right) || is_float($right))) {
-            return $left == $right;
+            return self::compare($left, $right) === 0;
         }
 
-        return $left === $right;
+        return false;
+    }
+
+    /**
+     * Order two numbers by value, exactly, like <=>
+     *
+     * PHP converts an int to a float to compare them, so 9007199254740993 == 9007199254740992.0
+     * there; here an int and a float compare as the numbers they are, as in Python, Ruby and
+     * Lua. A float with a fraction is below 2^52 in magnitude, where converting the int to a
+     * float keeps their order; an integral float in int range compares as an int; one beyond
+     * int range is beyond every int.
+     *
+     * @param  int|float  $left  One number
+     * @param  int|float  $right  The other
+     * @return int -1, 0 or 1
+     */
+    public static function compare(int|float $left, int|float $right): int
+    {
+        if (is_int($left) === is_int($right)) {
+            return $left <=> $right;
+        }
+
+        [$int, $float, $sign] = is_int($left) ? [$left, $right, 1] : [$right, $left, -1];
+        if (floor($float) !== $float) {
+            return $sign * ((float) $int <=> $float);
+        }
+        // 2^63 as a float, the first value past PHP_INT_MAX; -2^63 is PHP_INT_MIN exactly
+        if ($float >= 9223372036854775808.0) {
+            return -$sign;
+        }
+        if ($float < -9223372036854775808.0) {
+            return $sign;
+        }
+
+        return $sign * ($int <=> (int) $float);
     }
 
     /**
@@ -356,10 +393,10 @@ final class Values
     /**
      * Apply + - * / % to two numbers (booleans already converted)
      *
-     * Two ints give an int, and a float on either side gives a float. / follows PHP: an
-     * exact int division stays an int (6 / 2 is 3), any other gives a float (7 / 2 is
-     * 3.5). % is for ints only. Nothing silently overflows: an int result that doesn't
-     * fit and a float result that is infinite are both errors.
+     * Two ints give an int, and a float on either side gives a float, except that / always
+     * gives a float (6 / 2 is 3.0; an int beyond 2^53 loses precision on the way, as in
+     * Python). % is for ints only. Nothing else silently overflows: an int result that
+     * doesn't fit and a float result that is infinite are both errors.
      *
      * @param  Token  $op  The operator token
      * @param  mixed  $left  The left operand

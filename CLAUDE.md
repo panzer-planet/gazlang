@@ -47,7 +47,7 @@ each step depends on the ones before it.
  
 1. ~~**Fix the precedence tower.**~~ Done. `Parser` is now `expr` (assignment,
    right associative) → `coalesce` (`??`, right associative) → `logical_or` → `logical_and` → `equality` → `relational`
-   → `additive` → `multiplicative` → `unary` → `postfix` (`[index]`) → `primary`. Binary levels share
+   → `concat` (`..`) → `additive` → `multiplicative` → `unary` → `postfix` (`[index]`, `(args)`) → `primary`. Binary levels share
    `left_associative()`; add a new level by adding a one-line method there.
 2. ~~**Add comparison and logical operators.**~~ Done. `<`, `>`, `<=`, `>=`,
    `!=`, `==`, `&&`, `||` (short-circuiting in both backends), `!`, `%`
@@ -191,7 +191,7 @@ each step depends on the ones before it.
      anything else or overflow is an error), `to_string($x)` (same text as echo).
    - Arrays: `len`, `slice`, `in_array($value, $array)` (compares with `==`),
      `has_key($array, $key)`, `keys($array)`.
-   - Other: `type_of($x)` (`int`, `string`, `bool`, `null`, `array`),
+   - Other: `type_of($x)` (`int`, `float`, `string`, `bool`, `null`, `array`, `function`),
      `error($message)` (raises an error that try/catch can catch; uncaught it stops
      with `Error: message`, exit 1, printed exactly as given with no location), `read_file($path)` and `write_file($path, $string)`
      (relative to the working directory; write creates or overwrites and returns
@@ -345,7 +345,7 @@ frame as `CALL` does (`VM::link()` resolves each function's entry from its label
 
 ## Assignment
 
-`=`, `+=`, `-=`, `*=`, `/=`, `%=`, `??=` are right associative expressions whose value is the
+`=`, `+=`, `-=`, `*=`, `/=`, `%=`, `..=`, `??=` are right associative expressions whose value is the
 new value (`AssignAST`, whose token says which). Compound assignment applies the
 binary operator, so `..=` concatenates and `+=` on a string is an error. `++`/`--` (`IncrementAST`) work on
 numbers only; prefix gives the new value, postfix the old. Targets are a variable
@@ -403,7 +403,9 @@ Ints and floats (64-bit, always finite: GazLang has no INF or NAN).
   an error (`Integer overflow`, where PHP would switch to a float), a float
   literal that is infinite is a lexer error, and a float result that is infinite
   is `Float overflow`. Division by zero (`0` or `0.0`) is an error.
-- `1 == 1.0` is true. `0.0` and `-0.0` are false in
+- `1 == 1.0` is true. An int and a float compare exactly (`Values::compare()`), not by
+  converting the int to a float as PHP does: `9007199254740993 != 9007199254740992.0`. `/`
+  does convert, so `9007199254740993 / 1` is `9007199254740992.0`. `0.0` and `-0.0` are false in
   conditions. Floats can't be array keys or string positions.
 - Builtins: `to_float($x)`, `to_int($x)` (truncates a float toward zero; an error
   outside the int range), `floor`, `ceil`, `round($x, $precision = 0)` (PHP's round:

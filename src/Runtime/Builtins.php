@@ -383,8 +383,19 @@ final class Builtins
      */
     private function inArray($value, array $array): bool
     {
+        // An identical element is always equal, and only a number, bool or array can be equal
+        // to an element of another type (1 == 1.0, true == 1, [1] == [1.0]), so after the
+        // strict scan only elements of those other types need comparing
+        if (in_array($value, $array, true)) {
+            return true;
+        }
+        if (is_string($value) || $value === null || is_object($value)) {
+            return false;
+        }
+        $type = gettype($value);
         foreach ($array as $item) {
-            if (Values::equals($value, $item)) {
+            $comparable = is_array($value) ? is_array($item) : (is_int($item) || is_float($item) || is_bool($item));
+            if ($comparable && gettype($item) !== $type && Values::equals($value, $item)) {
                 return true;
             }
         }

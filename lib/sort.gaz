@@ -1,5 +1,5 @@
-// Sorting for GazLang. There are no function values yet, so there is no sort($array,
-// $compare): instead, sort_values() sorts plain values and sort_by() sorts rows (arrays)
+// Sorting for GazLang. Until closures exist there is no sort($array, $compare):
+// instead, sort_values() sorts plain values and sort_by() sorts rows (arrays)
 // by one of their keys.
 //
 // Both are stable merge sorts (equal items keep their order) and return a new list;

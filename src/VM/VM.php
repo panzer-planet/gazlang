@@ -372,10 +372,7 @@ final class VM
                                 case 2:
                                     $second = array_pop($stack);
                                     $first = array_pop($stack);
-                                    // An identical element is always equal; otherwise Builtins compares with ==
-                                    $stack[] = $name === 'in_array' && is_array($second) && in_array($first, $second, true)
-                                        ? true
-                                        : $this->builtins->call($name, [$first, $second]);
+                                    $stack[] = $this->builtins->call($name, [$first, $second]);
                                     break;
                                 default:
                                     $stack[] = $this->builtins->call($name, $this->popMany($stack, $arg1[$pc - 1]));

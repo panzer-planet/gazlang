@@ -71,11 +71,11 @@ echo $x + $y;     // Outputs: 15
 echo "Hello, World!";     // Outputs: Hello, World!
 $greeting = "Hello";      // String assignment
 $name = "GazLang";        // Another string assignment
-echo $greeting + ", " + $name + "!";  // Outputs: Hello, GazLang!
+echo $greeting .. ", " .. $name .. "!";  // Outputs: Hello, GazLang!
 
 // String concatenation with numbers
-echo "The answer is " + 42;  // Outputs: The answer is 42
-echo 2025 + " is the year";  // Outputs: 2025 is the year
+echo "The answer is " .. 42;  // Outputs: The answer is 42
+echo 2025 .. " is the year";  // Outputs: 2025 is the year
 
 // String escape sequences
 echo "Line 1\nLine 2";            // Outputs two lines

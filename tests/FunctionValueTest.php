@@ -79,6 +79,8 @@ class FunctionValueTest extends GazLangTestCase
             'assigning to a call' => ['$f = len; $f(1) = 2;', 'Can only use = on a variable or an element of one on line 1'],
             'incrementing a call' => ['$f = len; $f(1)++;', 'Can only use ++ on a variable or an element of one on line 1'],
             'call by name still checked' => ['$f = len; len(1, 2);', 'Function len expects 1 arguments, 2 given on line 1'],
+            'the first mistake in source order is reported' => ["len(1, 2);\nnope();", 'Function len expects 1 arguments, 2 given on line 1'],
+            'even when a reference comes later' => ["zap();\n\$f = nope;", 'Undefined function: zap on line 1'],
         ];
     }
 
