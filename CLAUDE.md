@@ -246,7 +246,42 @@ each step depends on the ones before it.
       instructions with file and line, the function table with arities, the lambda
       table with capture maps, local and global names) is the design; `-c` already
       prints it as text. Make it a versioned, serialisable format that any compiler can
-      write and any VM can load, and have the PHP VM run programs from it.
+      write and any VM can load, and have the PHP VM run programs from it. Decided
+      2026-09-17, not started:
+      - **Text, one instruction per line**, not binary or JSON: the self-hosted compiler
+        writes it with `..` and `join` (GazLang can't pack bytes), a C loader needs only a
+        line reader, a tokenizer and a literal parser, and step 3's "same bytecode as the
+        PHP compiler" gets readable diffs. JSON can't hold byte strings (UTF-8 only) and
+        blurs `1`/`1.0` and list/map. A binary cache can come later if loading ever
+        measures slow.
+      - **Instructions by name** (`LOAD 0`), never numbers: dispatch speed doesn't depend
+        on the file, since each loader converts names once (the C VM to an enum); names
+        keep files readable, let instructions be added or removed without renumbering, and
+        make a mismatch a load error ("Unknown instruction") instead of a wrong instruction.
+      - **A block of code per function** ("code objects", as in Lua and Python): name,
+        arity, parameters, local names, captures and `$self` for a lambda, then its code.
+        Classes are records: fields in layout order with the declaring class, the method
+        table with the class whose version runs (field defaults are already code, in the
+        `new Class` block). The loader concatenates the blocks.
+      - **Labels, scoped to their block**, resolved by the loader, not offsets: one extra
+        instruction then doesn't change every later jump in a diff. Peephole rewrites
+        (`STORE; LOAD; POP`) belong to each VM's loader, not the format.
+      - **Locations as `@ file line` lines** that apply to the instructions after them.
+        Paths are relative to the main source file, so shipped bytecode (the bootstrap
+        compiler) reports sensible paths wherever it was compiled.
+      - **A version in the header**, and a loader that refuses any other; no compatibility
+        promise until the bootstrap. Output is deterministic: the same source gives
+        byte-identical bytecode.
+      - **`docs/bytecode.md` specifies every instruction** (arguments, stack effect,
+        errors); the C VM is built from it, and a test checks that every instruction the
+        code generator emits is in it and handled by the PHP VM.
+      - **Plan, in commits:** (a) replace the AST in `Program` with plain records
+        (`LambdaAST` and `ClassDeclarationAST` become lambda and class records the VM runs
+        from; `ClassValue` gets built from records for the VM and from declarations for the
+        interpreter), no visible change; (b) `Program` writes and reads the format, `-c`
+        prints it, and `docs/bytecode.md`; (c) CLI: compile to a file (`-o`) and run a
+        bytecode file; (d) tests: the VM side of `executeCode()`, `GazProgramTest` and the
+        example tests run through write-then-read, plus a determinism test.
    2. **Write a standalone VM in C** (a separate program, not called from PHP through
       FFI: every FFI call converts its values, which costs more than the work of one
       instruction). It needs its own values, an ordered hash for maps, byte strings,
