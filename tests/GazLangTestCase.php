@@ -3,6 +3,7 @@
 namespace GazLang\Tests;
 
 use GazLang\CodeGenerator\CodeGenerator;
+use GazLang\CodeGenerator\Program;
 use GazLang\GazLangError;
 use GazLang\Interpreter\Interpreter;
 use GazLang\Lexer\Lexer;
@@ -39,7 +40,7 @@ abstract class GazLangTestCase extends TestCase
         try {
             $parser = new Parser(new Lexer(file_get_contents($file)), $file);
             if ($vm) {
-                (new VM((new CodeGenerator($parser->parse()))->compile(), $args))->run();
+                $this->machine($parser, $file, $args)->run();
             } else {
                 (new Interpreter($parser, $args))->interpret();
             }
@@ -103,7 +104,7 @@ abstract class GazLangTestCase extends TestCase
 
         // Every snippet also runs on the VM, which must print the same and fail the same way
         [$vm_output, $vm_error] = $this->capture(
-            fn () => (new VM((new CodeGenerator($this->createParser($input)->parse()))->compile()))->run()
+            fn () => $this->machine($this->createParser($input))->run()
         );
         $this->assertSame($output, $vm_output, "The VM printed something else for:\n{$input}");
         $describe = fn (?Throwable $e) => $e === null ? null : [
@@ -117,6 +118,24 @@ abstract class GazLangTestCase extends TestCase
         }
 
         return $output;
+    }
+
+    /**
+     * The VM for a program, which runs it as a bytecode file would
+     *
+     * Compiling, writing and reading it back is what `gazlang -c -f x.gaz > x.gzb` and
+     * `gazlang -f x.gzb` do, so every test that runs on the VM also tests the format and
+     * everything the reader checks. BytecodeTest covers the file itself.
+     *
+     * @param  Parser  $parser  The parser for the program
+     * @param  string|null  $file  The file it came from, so its paths are written and read back
+     * @param  string[]  $args  Arguments returned by args()
+     */
+    private function machine(Parser $parser, ?string $file = null, array $args = []): VM
+    {
+        $text = (new CodeGenerator($parser->parse()))->compile()->write($file);
+
+        return new VM(Program::read($text, $file), $args);
     }
 
     /**
