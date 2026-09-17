@@ -242,46 +242,57 @@ each step depends on the ones before it.
    GazLang, the VM and runtime native. Objects come first, since they change the value
    model the other stages depend on; both phases are built ("Objects", "Errors and try/catch").
 
-   1. **Pin down the bytecode as a file format.** Today's `Program` (stack
-      instructions with file and line, the function table with arities, the lambda
-      table with capture maps, local and global names) is the design; `-c` already
-      prints it as text. Make it a versioned, serialisable format that any compiler can
-      write and any VM can load, and have the PHP VM run programs from it. Decided
-      2026-09-17, not started:
+   1. ~~**Pin down the bytecode as a file format.**~~ Done 2026-09-17, see
+      `docs/bytecode.md`, which specifies the file and every instruction (arguments, stack
+      effect, errors) and is what the C VM will be built from. `gazlang -c -f x.gaz > x.gzb`
+      writes a file and `gazlang -f x.gzb` runs it (recognised by its first line, so there is
+      no flag); a normal run still compiles in memory and never goes through the text, while
+      every test's VM side goes through write-then-read, so the suite tests the format too.
       - **Text, one instruction per line**, not binary or JSON: the self-hosted compiler
         writes it with `..` and `join` (GazLang can't pack bytes), a C loader needs only a
         line reader, a tokenizer and a literal parser, and step 3's "same bytecode as the
-        PHP compiler" gets readable diffs. JSON can't hold byte strings (UTF-8 only) and
-        blurs `1`/`1.0` and list/map. A binary cache can come later if loading ever
-        measures slow.
-      - **Instructions by name** (`LOAD 0`), never numbers: dispatch speed doesn't depend
-        on the file, since each loader converts names once (the C VM to an enum); names
-        keep files readable, let instructions be added or removed without renumbering, and
-        make a mismatch a load error ("Unknown instruction") instead of a wrong instruction.
-      - **A block of code per function** ("code objects", as in Lua and Python): name,
-        arity, parameters, local names, captures and `$self` for a lambda, then its code.
-        Classes are records: fields in layout order with the declaring class, the method
-        table with the class whose version runs (field defaults are already code, in the
-        `new Class` block). The loader concatenates the blocks.
-      - **Labels, scoped to their block**, resolved by the loader, not offsets: one extra
-        instruction then doesn't change every later jump in a diff. Peephole rewrites
-        (`STORE; LOAD; POP`) belong to each VM's loader, not the format.
-      - **Locations as `@ file line` lines** that apply to the instructions after them.
-        Paths are relative to the main source file, so shipped bytecode (the bootstrap
-        compiler) reports sensible paths wherever it was compiled.
+        PHP compiler" gets readable diffs. A binary cache can come later if loading measures slow.
+      - **Instructions by name** (`LOAD 0`), never numbers: each loader converts names once,
+        so dispatch speed doesn't depend on the file, and a mismatch is a load error.
+        `Program::INSTRUCTIONS` is the one table of every instruction's arguments and stack
+        effect; `BytecodeTest` keeps it, `docs/bytecode.md` and the VM's cases in step, and
+        checks every instruction the compiler emits for the repository's programs is in it.
+      - **A block of code per function** ("code objects", as in Lua and Python): `top`, `fn
+        name fewest most` (a method is a function named `Class.name`, which no function name
+        can be), `class Name extends Parent` with its `field` and `method` records followed by
+        the code that makes an object, and `lambda n fewest most` with a `capture` line per
+        captured variable and a `self` line. Each block ends with a `locals` line naming its
+        slots, the parameters first. The loader concatenates them, the top level first, which
+        ends in a HALT it adds; `CALL` names the function.
+      - **Labels, scoped to their block**, resolved by the loader, not offsets, and labels and
+        hidden variables are numbered within a block, so an instruction added in one block
+        doesn't renumber the others. Peephole rewrites (`STORE; LOAD; POP`) belong to each
+        VM's loader, not the format.
+      - **Locations as `@ "file" line` lines** (`@ line` for piped or inline source) that apply
+        to the instructions after them, and start afresh in each block. Paths are written
+        relative to the main source file's directory and resolved against the bytecode file's,
+        so bytecode saved next to its source reports exactly the paths running the source does;
+        a name in angle brackets, like `<builtin>`, is not a path and is never rewritten.
+      - **`PUSH` takes a GazLang literal** as the rest of the line (`PUSH {"a" => [1, 2.5]}`),
+        which is why a value argument always comes last; `PUSH_STR` is gone. The stack also
+        holds two values a program can't write, which the format names: the method entry
+        `GET_METHOD` pushes, and a raised error.
       - **A version in the header**, and a loader that refuses any other; no compatibility
         promise until the bootstrap. Output is deterministic: the same source gives
         byte-identical bytecode.
-      - **`docs/bytecode.md` specifies every instruction** (arguments, stack effect,
-        errors); the C VM is built from it, and a test checks that every instruction the
-        code generator emits is in it and handled by the PHP VM.
-      - **Plan, in commits:** (a) replace the AST in `Program` with plain records
-        (`LambdaAST` and `ClassDeclarationAST` become lambda and class records the VM runs
-        from; `ClassValue` gets built from records for the VM and from declarations for the
-        interpreter), no visible change; (b) `Program` writes and reads the format, `-c`
-        prints it, and `docs/bytecode.md`; (c) CLI: compile to a file (`-o`) and run a
-        bytecode file; (d) tests: the VM side of `executeCode()`, `GazProgramTest` and the
-        example tests run through write-then-read, plus a determinism test.
+      - **The loader checks everything**, so a file that loads is one the VM can run: unknown
+        instructions, wrong argument counts, undefined labels (in that block), undefined
+        functions, builtins, classes and lambdas, and each block's stack, walked from the top
+        following every jump: the same depth on every path into an instruction, nothing popped
+        from an empty stack, a handler one deeper holding the error. That walk also gives the
+        greatest depth a block reaches, which a C VM needs to size a frame. Lua and CPython
+        both crash on malformed bytecode; this doesn't.
+      - **The VM stays a stack machine** (decided 2026-09-17 while reviewing the format
+        against Lua, CPython, the JVM, .NET and WebAssembly). Lua 5.0 moved to registers and
+        got fewer instructions, but the compiler is the part being written in GazLang next, a
+        stack machine's is much simpler, and JVM, CPython and .NET are all fast enough on one;
+        a loader can merge common sequences into superinstructions without touching the format.
+        Changing this after the bootstrap would mean a new format and a rewritten compiler.
    2. **Write a standalone VM in C** (a separate program, not called from PHP through
       FFI: every FFI call converts its values, which costs more than the work of one
       instruction). It needs its own values, an ordered hash for maps, byte strings,
@@ -791,8 +802,10 @@ to the working directory; the main file shows as given on the command line.
   operators, truthiness, printing, keys and indexing as static pure
   functions; `Builtins` holds the builtin functions and their arities. Both backends
   call these rather than reimplementing them.
-- `src/CodeGenerator`: compiles the AST to a `Program` of stack VM instructions, each
-  with the file and line it came from, plus the variable name in each slot.
+- `src/CodeGenerator`: compiles the AST to a `Program`: one block of code per function,
+  each instruction with the file and line it came from, plus the variable name in each
+  slot and the class and lambda records. `Program` also writes and reads the bytecode
+  file (`BytecodeReader`), which `docs/bytecode.md` specifies.
 - `src/VM`: runs a `Program`. It is the default backend for `php bin/gazlang`;
   `--interpreter` runs the tree-walking interpreter instead. See "VM" below.
 
