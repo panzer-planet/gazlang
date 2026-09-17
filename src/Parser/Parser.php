@@ -730,7 +730,7 @@ class Parser
     }
 
     /**
-     * Parse an equality expression (relational ((== | !=) relational)*)
+     * Parse an equality expression (relational ((== | != | <=>) relational)*)
      *
      * @return AST
      *
@@ -739,7 +739,7 @@ class Parser
     public function equality()
     {
         return $this->left_associative('relational', [
-            Token::EQUALS, Token::NOT_EQUALS,
+            Token::EQUALS, Token::NOT_EQUALS, Token::SPACESHIP,
         ]);
     }
 

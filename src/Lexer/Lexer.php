@@ -785,6 +785,11 @@ class Lexer
                 $this->advance();
                 if ($this->current_char === '=') {
                     $this->advance();
+                    if ($this->current_char === '>') {
+                        $this->advance();
+
+                        return new Token(Token::SPACESHIP, '<=>');
+                    }
 
                     return new Token(Token::LESS_EQUALS, '<=');
                 }

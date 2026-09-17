@@ -118,6 +118,8 @@ class Token
 
     public const LESS_EQUALS = 'LESS_EQUALS';  // Less than or equal operator (<=)
 
+    public const SPACESHIP = 'SPACESHIP';  // Three-way comparison (<=>), -1, 0 or 1
+
     public const GREATER_THAN = 'GREATER_THAN';  // Greater than operator (>)
 
     public const GREATER_EQUALS = 'GREATER_EQUALS';  // Greater than or equal operator (>=)

@@ -13,7 +13,7 @@ A small, PHP-flavoured programming language with an interpreter and a stack-VM c
 - String concatenation with the `..` operator (`"n = " .. 1 + 2` is `"n = 3"`; `+` on a string is an error)
 - String interpolation in double-quoted strings: `"Hi $name!"`, `"First: $items[0]"`, `"{$user["name"]} has {@count} items"`
 - Mathematical operators: `+`, `-`, `*`, `/` (always a float: `6 / 2` is `3.0`; `intdiv` for ints), `%`, unary `-`
-- Comparison operators: `==`, `!=` (no conversion between strings and numbers: `"5" == 5` is false), `<`, `<=`, `>`, `>=`
+- Comparison operators: `==`, `!=` (no conversion between strings and numbers: `"5" == 5` is false), `<`, `<=`, `>`, `>=`, and `<=>` giving -1, 0 or 1
 - Logical operators: `&&`, `||` (short-circuiting), `!`
 - Null coalescing: `$config["port"] ?? 8080` (missing variables and keys give the default), and `$counts[$word] ??= 0`
 - Ternary: `$n == 1 ? "one" : "many"`, right associative, only the taken branch runs

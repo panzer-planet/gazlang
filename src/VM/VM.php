@@ -37,6 +37,7 @@ final class VM
         'NOT_EQUALS' => [Token::NOT_EQUALS, '!='],
         'LT' => [Token::LESS_THAN, '<'],
         'LE' => [Token::LESS_EQUALS, '<='],
+        'CMP' => [Token::SPACESHIP, '<=>'],
         'GT' => [Token::GREATER_THAN, '>'],
         'GE' => [Token::GREATER_EQUALS, '>='],
     ];

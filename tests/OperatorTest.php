@@ -262,6 +262,32 @@ class OperatorTest extends GazLangTestCase
         );
     }
 
+    public function test_spaceship_gives_minus_one_zero_or_one_at_the_equality_level()
+    {
+        $this->assertEquals("-1\n0\n1\n-1\n1\n0\n-1\ntrue\n", $this->executeCode(
+            'echo 1 <=> 2; echo 2 <=> 2; echo 3 <=> 2; echo "abc" <=> "abd"; echo "b" <=> "a"; echo 1 <=> 1.0; echo 1 <=> 1.5; echo 1 + 1 <=> 2 == 0;'
+        ));
+    }
+
+    /**
+     * @dataProvider spaceshipErrors
+     */
+    public function test_spaceship_follows_the_ordering_rules(string $code, string $message)
+    {
+        $this->expectExceptionMessage($message);
+        $this->executeCode($code);
+    }
+
+    public static function spaceshipErrors(): array
+    {
+        return [
+            'string and number' => ['echo "1" <=> 1;', 'Cannot use <=> on string and int on line 1'],
+            'bool' => ['echo true <=> false;', 'Cannot use <=> on bool on line 1'],
+            'null' => ['echo null <=> 1;', 'Cannot use <=> on null on line 1'],
+            'array' => ['echo [1] <=> [2];', 'Cannot use <=> on array on line 1'],
+        ];
+    }
+
     public function test_strict_equality_operator_is_gone()
     {
         $this->expectExceptionMessage("Unexpected '=' on line 1");

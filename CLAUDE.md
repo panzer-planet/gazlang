@@ -50,7 +50,8 @@ each step depends on the ones before it.
    → `concat` (`..`) → `additive` → `multiplicative` → `unary` → `postfix` (`[index]`, `(args)`) → `primary`. Binary levels share
    `left_associative()`; add a new level by adding a one-line method there.
 2. ~~**Add comparison and logical operators.**~~ Done. `<`, `>`, `<=`, `>=`,
-   `!=`, `==`, `&&`, `||` (short-circuiting in both backends), `!`, `%`
+   `!=`, `==`, `<=>` (-1, 0 or 1 by the ordering rules below, at the equality level, for
+   comparison functions), `&&`, `||` (short-circuiting in both backends), `!`, `%`
    (sign follows the left operand, at the `*` `/` level), `??` (see below), `+= -= *= /= %=` and
    prefix/postfix `++`/`--` (see "Assignment" below), and unary
    `-` via `UnaryOpAST`. `==` and `!=` sit at the equality level, C-style. There is a

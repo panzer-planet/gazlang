@@ -114,7 +114,7 @@ final class Values
      * @param  Token  $op  The operator token (its value is used in error messages)
      * @param  mixed  $left  The left operand
      * @param  mixed  $right  The right operand
-     * @return int|float|string|bool The result
+     * @return int|float|string|bool The result (<=> gives -1, 0 or 1)
      *
      * @throws Exception If the operator can't be applied to these values
      */
@@ -160,6 +160,8 @@ final class Values
             Token::LESS_EQUALS => $cmp <= 0,
             Token::GREATER_THAN => $cmp > 0,
             Token::GREATER_EQUALS => $cmp >= 0,
+            // -1, 0 or 1 (strcmp may give any magnitude), for comparison functions
+            Token::SPACESHIP => $cmp <=> 0,
             default => throw new Exception("Unknown operator: {$type}"),
         };
     }

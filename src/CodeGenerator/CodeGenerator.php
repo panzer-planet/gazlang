@@ -85,6 +85,7 @@ class CodeGenerator extends AbstractNodeVisitor
         Token::NOT_EQUALS => 'NOT_EQUALS',
         Token::LESS_THAN => 'LT',
         Token::LESS_EQUALS => 'LE',
+        Token::SPACESHIP => 'CMP',
         Token::GREATER_THAN => 'GT',
         Token::GREATER_EQUALS => 'GE',
     ];
