@@ -1,0 +1,29 @@
+ok field set by the constructor
+ok default parameter
+ok methods can construct
+ok defaults are per object
+ok and not shared
+ok a class value constructs
+ok type_of an object
+ok type_of a class
+ok a class prints its name
+ok an object prints its fields
+ok objects are shared, not copied
+ok == is identity
+ok equal fields don't make equal objects
+ok a list copy still holds the same object
+ok an unset field reads as null under ??
+ok ??= sets it
+ok and keeps it
+ok reading an unset field is an error
+ok a child calls the parent's method
+ok with its own argument
+ok a grandchild inherits the constructor
+ok to_string is used by ..
+ok and by interpolation
+ok is_a follows parents
+ok a bound method remembers its object
+ok bound methods compare by object and method
+ok and differ for another object
+ok bound methods print their class
+ok a closure made in a method keeps its object

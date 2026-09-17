@@ -26,7 +26,7 @@ Recommendation: `==` strict everywhere (identity for functions and objects, stru
 for arrays), drop `===` or keep it as a synonym for a while. Number-to-string
 comparison becomes an explicit `to_float`.
 
-### 3. Object model and the write path — decided: handles, identity `==`, tagged path steps
+### 3. Object model and the write path — built: handles, identity `==`, tagged path steps
 Arrays are values (fine, PHP-like). Objects should be handles (PHP 5+, Python, Ruby,
 Lua all agree): `$b = $a; $b.x = 1` changes `$a`; arrays inside objects stay values.
 This also gives closures the shared state that capture-by-value withholds.
@@ -149,6 +149,28 @@ Settled later the same day, after closures:
   print as `class Point` with `type_of` `"class"`; objects without `to_string` print their
   fields, `Account {...}` when already being printed.
 
+Decided while planning and building phase 1 (2026-09-17):
+- The override arity rule exempts constructors: a child's `_` can take other arguments.
+- Field defaults run parent first, before `_`, even when a child's `_` never calls `##_`;
+  they can use `#` but no `$` variables.
+- `_` is only a constructor: `return value;` in it, `##_` outside one, `#_` and `$obj._` are
+  errors.
+- `??` reads an unset declared field, or a field of null, as null; an undeclared member is
+  still an error, like a bad key type.
+- A write path starts at a variable or `#`, never at a call (`make().x = 1`); assigning to a
+  method is an error.
+- `.name` is one token; whitespace before the dot is allowed, so chains can continue on the
+  next line, and a number followed by `.name` is an invalid literal.
+- Bound methods are `==` when object, class and method match (Python), so `in_array` finds them.
+- Default printing shows only the fields that are set, parent's first.
+- `to_string` must accept no arguments (parse time) and return a string (runtime).
+- Keywords can be member names (`#class`, `$o.echo`, `fn if()`): the sigil or dot tells them apart.
+- `to_string()` needs the runtime to call GazLang from inside printing, so the VM became
+  re-entrant (a nested dispatch loop per call, as Lua and Python do); builtins could now call
+  back into GazLang too, but none do yet.
+- Found while building: `"{#"` in a string starts an interpolation anywhere, so a literal
+  one outside a method is an error; write `\{#` or use single quotes.
+
 ## Still open
 
 `true == 1`: decided false (Ruby, Lua); bools are not numbers, `to_int(true)` is explicit.
@@ -159,6 +181,6 @@ Nothing open on objects; details found while building phase 1 get recorded here.
 ## Suggested order
 
 Done: items 1, 2, 8, 10, 12 and 13, function values, anonymous functions and
-lib/functional.gaz, and the `fn` rename. Next: objects phase 1 (classes, inheritance, `#`
-and `##`, `.` with item 3's tagged path steps, items 5 to 7), then phase 2 (item 4's
-errors). The long-term plan after the language settles is roadmap step 7 in CLAUDE.md.
+lib/functional.gaz, the `fn` rename, and objects phase 1 (classes, inheritance, `#` and
+`##`, `.` with item 3's tagged path steps, items 5 to 7). Next: phase 2 (item 4's errors).
+The long-term plan after the language settles is roadmap step 7 in CLAUDE.md.

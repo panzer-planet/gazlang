@@ -145,7 +145,7 @@ each step depends on the ones before it.
      go through the CLI. The VM doesn't recurse in PHP and is unaffected. Xdebug
      has the same problem and is not handled.
    - Objects use `.` for properties, `#` for this object and `##` for its parent: see
-     "Objects" under "Decided, not built yet" below.
+     "Objects" below.
 5. ~~**Add lists and maps.**~~ Done (one PHP-style array at first, split into two types
    on 2026-09-17, see `docs/design-review.md` #10). Decided semantics:
    - A list `[1, 2]` holds values at indexes 0, 1, 2...; a map `{"k" => 1, 5 => 2}` holds
@@ -181,8 +181,8 @@ each step depends on the ones before it.
      functions, and can't be redeclared; the code generator emits
      `CALL_BUILTIN name argc`.
    - Code generator: `NEW_ARRAY`, `ARRAY_PUSH`, `NEW_MAP`, `MAP_SET`, `INDEX_GET`; an
-     indexed assignment pushes keys and value, then `SET_PATH n slot` /
-     `APPEND_PATH n slot` (`_GLOBAL` for globals) updates the variable in place
+     indexed assignment pushes keys and value, then `SET_PATH [k][k] slot` (`[]` at the
+     end appends; `_GLOBAL` for globals) updates the variable in place
      through `Values::store()` (stack effects are documented on `CodeGenerator`).
    - Not yet: removing elements (build a new list or map instead).
    - A builtin's arity is an int, or `[fewest, most]` when it has optional
@@ -208,7 +208,8 @@ each step depends on the ones before it.
      anything else or overflow is an error), `to_string($x)` (same text as echo).
    - Lists and maps: `len`, `slice` (lists), `in_array($value, $list)` (compares with `==`),
      `has_key($x, $key)` (a map's key, or a list's index), `keys($x)` (a list's indexes).
-   - Other: `type_of($x)` (`int`, `float`, `string`, `bool`, `null`, `list`, `map`, `function`),
+   - Other: `type_of($x)` (`int`, `float`, `string`, `bool`, `null`, `list`, `map`, `function`,
+     `class`, `object`), `is_a($x, Class)` (see "Objects"),
      `error($message)` (raises an error that try/catch can catch; uncaught it stops
      with `Error: message`, exit 1, printed exactly as given with no location), `exit($code = 0)`
      (stops the program with that exit code, 0 to 255, printing nothing; not an error, so
@@ -236,8 +237,8 @@ each step depends on the ones before it.
    A self-hosted toolchain has to run on something faster, and transpiling to PHP was
    ruled out as the main path because it ties GazLang to PHP for good (it stays a
    fallback). The plan is the Lua/Python shape instead: everything above the VM in
-   GazLang, the VM and runtime native. Objects (see "Decided, not built yet") come
-   first, since they change the value model the other stages depend on.
+   GazLang, the VM and runtime native. Objects come first, since they change the value
+   model the other stages depend on; phase 1 is built ("Objects"), phase 2 (errors) is next.
 
    1. **Pin down the bytecode as a file format.** Today's `Program` (stack
       instructions with file and line, the function table with arities, the lambda
@@ -313,22 +314,32 @@ with the options considered and a status on each; update it as more are decided.
 it led to and is already built is described in its own section: `..` and strict `==`
 (roadmap step 2), `/` always a float ("Numbers"), lists and maps (step 5), function values,
 lambdas and closure state ("Function values"), `lib/functional.gaz` (step 7's GazLang
-libraries) and `fn` (step 4). Objects are next:
+libraries), `fn` (step 4) and objects phase 1 ("Objects"). Next:
 
-### Objects (decided 2026-09-17; the class design settled the same day, after closures)
+- **Objects phase 2, errors: `error()` takes any value,** so `error(ParseError("bad", 3))`
+  works and `catch (ParseError $e)` filters by class and its subclasses; a string error
+  keeps today's map shape. `finally` arrives with them.
+- **Later, when real code needs them:** `interface` / `implements` (a parse-time check
+  that the methods exist, plus `is_a`), `final`, and visibility with public implicit:
+  `private` and `protected` on fields and methods. `#` and `##` are checked at parse
+  time, `$obj.name` when it runs against the running method's class; a parent's private
+  field is invisible to children, so a child may then declare its own field of that
+  name. Not planned: traits, late static binding, static members, constants, operator
+  overloading. The keywords are reserved already ("interface is reserved").
 
-Built in two phases, each committed and reviewed: **phase 1** is classes, fields,
-methods, `#` and `##`, `.` access with tagged write paths, bound methods, inheritance,
-`to_string` and `is_a`; **phase 2** is errors (`error()` with any value, `catch (Type $e)`,
-`finally`). Judged by the C VM plan too (roadmap step 7): declared fields and single
-inheritance give every class a fixed layout, so fields are slots and methods a table.
+## Objects
+
+Phase 1 of the design decided 2026-09-17 (`docs/design-review.md`, "Object syntax"). Judged
+by the C VM plan too (roadmap step 7): declared fields and single inheritance give every
+class a fixed layout, so fields can be slots and methods a table. `examples/objects.gaz`
+and `tests/gaz/objects/` show it working.
 
 ```
 abstract class Shape {
     #name;
     fn _($name) { #name = $name; }
     abstract fn area();
-    fn to_string() { return "{#name} with area {#area()}"; }
+    fn to_string() { return "{#name} with area " .. #area(); }
 }
 
 class Circle extends Shape {
@@ -349,68 +360,94 @@ $area = $c.area;                              // a bound method
 ```
 
 - **Classes:** `class Name { ... }`, `class B extends A` (single inheritance), `abstract class`
-  (can't be constructed) and `abstract fn name(...);` (a subclass must define it, or be
-  abstract too). Classes are top level only, can be used before they are declared, and
-  share the function namespace (a class and a function can't have the same name).
-  Unknown or circular parents are parse errors.
+  (can't be constructed: a parse error by name, a runtime error through a value) and
+  `abstract fn name(...);` (only in an abstract class; a subclass must define it, or be
+  abstract too). Classes are top level only, can be used before they are declared (parents
+  too), and share the namespace of functions and builtins. The class body holds only
+  fields and methods. Keywords reserved for later: `interface`, `implements`, `final`,
+  `public`, `private`, `protected`.
 - **Classes are values and constructing is a call:** `Point(1, 2)`, `$make = Point;
-  $make(1, 2)`. `type_of(Point)` is `"class"` and `echo Point` prints `class Point`. The
-  parser's bare-name check becomes "names a function or class".
-- **The constructor is the method named `_`,** so `init` stays free for programs. A
-  class without `_` inherits its parent's, or takes no arguments. A child's `_` calls
-  the parent's explicitly with `##_(...)`; nothing runs it automatically.
-- **Fields are declared:** `#x;` or `#x = default;` in the class body. Defaults are
-  evaluated for each new object, like parameter defaults, so a `[]` default is never
-  shared. A child can't redeclare a parent's field. Reading a field that was never set is
-  an error ("Property owner of Account is not set"); `??` reads it as null.
-- **`#` is the object sigil:** `#` alone is the object (`return #;`), `#name` is its field
-  or method (`#save()`), checked against the class and its parents at parse time.
-  `#name` outside a method is a parse error, checked the way `return` is. `#.name` is a
-  parse error that says to write `#name`: one spelling.
-- **`##name` is the parent's version of a method:** `##_(...)` for the constructor,
-  `##to_string()` to extend an override, `##area` alone for a bound method that runs the
-  parent's version. Only methods (fields aren't overridden, so `#field` reaches inherited
-  ones); valid only in a class with a parent that defines the method, checked at parse
-  time. `##` alone is a parse error for now, kept free (the parent class as a value is
-  the candidate meaning).
-- **Members:** fields and methods share one namespace per class. A method may override a
-  parent's method, but must accept every argument count the parent's accepts (PHP's
-  signature compatibility, reduced to arity; checked at parse time). There are no static
-  members, constants or `##`-style class state in the first cut: top-level functions and
-  `@globals` serve.
-- **Objects are handles** (PHP, Python, Ruby, Lua): `$b = $a; $b.x = 1` changes `$a`;
-  lists and maps inside objects stay values. `==` on objects is identity. Objects are
-  always true in conditions. `type_of` gives `"object"`; `is_a($x, Point)` tests the class
-  and its parents.
-- **Properties are `.`** (`$user.name`, `$rows[0].total`), never spaced around the dot.
-  `$obj.name` reads and writes any declared member from anywhere (public is the default);
-  an undeclared name is an error when it runs, since the object's class isn't known
-  before. `$obj.name(args)` calls a method, or a field holding a function. A write path is
-  a list of steps of two kinds, index and property, so `Values::store()` and `SET_PATH`
-  need a tagged step. `$obj.method` is a bound method value (Python), so
-  `{"save" => $doc.save}` works.
+  $make(1, 2)`. `type_of(Point)` is `"class"`, `echo Point` prints `class Point`, and `==` is
+  identity. A call by name is checked like a function call ("Class Point expects 2
+  arguments, 1 given").
+- **Constructing** makes the object, sets the field defaults (the parent's first, in
+  declaration order), then runs the constructor `_` with the arguments; it gives the object.
+  A class without `_` inherits its parent's, or takes no arguments. A child's `_` calls the
+  parent's with `##_(...)`, which is only allowed in a constructor (not in a lambda in one);
+  nothing runs it automatically, but the parent's field defaults are always set. `return
+  value;` in `_` is a parse error, and `_` can't be used as a member (`#_`, `$obj._`).
+- **Fields are declared:** `#x;` or `#x = default;`. A default is evaluated for each new
+  object, so a `[]` default is never shared; it can use `#` (so `#b = #a * 2` reads an
+  earlier field) but no `$` variables, a parse error. Reading a field that was never set
+  is an error ("Property owner of Account is not set"); `??` reads it, or a field of null,
+  as null, and `??=` sets it. Objects print only the fields that are set.
+- **`#` is the object sigil:** `#` alone is the object (`return #;`), `#name` its field or
+  method, checked against the class and its parents at parse time (undeclared, assigning
+  to a method, a call's argument count), in methods, field defaults and lambdas in them;
+  anywhere else it is "Cannot use #name outside a method". `#.name` says to write `#name`.
+  Member names can be any word, keywords included (`#class`, `$o.echo`, `fn if()`).
+- **`##name` is the parent's version of a method:** `##to_string()` extends an override,
+  `##area` alone is a bound method running the parent's version. Which class's version
+  runs is decided at parse time from the class it is written in (`ParentMethodAST::$definer`).
+  Only methods, and not abstract ones; `##` alone is a parse error, kept free.
+- **Members:** fields and methods share one namespace across the hierarchy (a child can't
+  redeclare a field, or give a field a method's name). A method may override a parent's,
+  but must accept every argument count the parent's accepts; constructors are exempt, and
+  an abstract method can't replace a concrete one. `to_string` must accept no arguments.
+- **Objects are handles:** `$b = $a; $b.x = 1` changes `$a`; lists and maps inside objects
+  stay values. `==` on objects is identity; objects are always true; operators, keys,
+  indexes and `foreach` on them are errors naming `object`. `type_of` gives `"object"`;
+  `is_a($x, Point)` tests the class and its parents (the second argument must be a class).
+  `json_encode` refuses classes and objects.
+- **Properties are `.`:** `$user.name` reads and writes any declared member, checked when
+  it runs ("Account has no member foo", "Cannot use . on map", "Cannot assign to method
+  Account.deposit"). `.name` is one token, so the name is glued to the dot, but whitespace
+  before it is allowed so chains can continue on the next line; `1.x` is an invalid number.
+  `$obj.name(args)` calls a method, or a field holding a function: the object, then the
+  member lookup (its errors come first), then the arguments, then the call.
+  `$obj.method` is a bound method (`FunctionValue::bound()`: `function Account.deposit`
+  when printed, named after the class whose version runs); two are `==` when object,
+  class and method match.
+- **Write paths:** a target is a variable or `#` followed by any steps of two kinds, index
+  and property: `#items[] = $x`, `$rows[0].total = 5`, `$o.n += 1`, `#count++`. A path can't
+  start at a call (`make().x = 1`). `Values::store()` takes the steps as index keys (null
+  appends) or `Runtime\PropertyStep`, writes objects in place, and checks each field is
+  declared; a path through `#` passes a table holding the object.
 - **In strings, `#`, `##` and property paths interpolate only inside braces:** `"{#name}"`,
-  `"{$user.name}"`, `"{##to_string()}"`. Bare `"#fff"` and `"#1"` stay literal (Ruby); the
-  shorthand `"$name"` stays a variable (plus one `[index]`), so `"Saved $file.txt"` and
-  `"Hi $name."` keep meaning what they say.
-- **A closure created inside a method binds the receiver automatically** (PHP closures,
-  JS arrows), so `() -> #save()` works; its locals follow the closure rules above, which
-  makes objects the place for state shared with the enclosing scope.
-- **`to_string()` is the one protocol method:** `echo`, `..` and interpolation use it.
-  No operator overloading. Without one an object prints as its class and fields,
-  `Account {#owner => "Werner", #balance => 75}`; one already being printed (handles can
-  form cycles) prints as `Account {...}`.
-- **Errors (phase 2): `error()` takes any value,** so `error(ParseError("bad", 3))` works
-  and `catch (ParseError $e)` filters by class and its subclasses; a string error keeps
-  today's map shape. `finally` arrives with them.
-- **Later, when real code needs them:** `interface` / `implements` (a parse-time check
-  that the methods exist, plus `is_a`), `final`, and visibility with public implicit:
-  `private` and `protected` on fields and methods. `#` and `##` are checked at parse
-  time, `$obj.name` when it runs against the running method's class; a parent's private
-  field is invisible to children, so a child may then declare its own field of that
-  name. Not planned: traits, late static binding. Phase 1 reserves `class`, `extends`,
-  `abstract`, `interface`, `implements`, `final`, `public`, `private` and `protected`, so
-  adding them never breaks a program.
+  `"{$user.name}"`, `"{##to_string()}"`. Bare `"#fff"` stays literal; `"$file.txt"` is
+  `$file` then `.txt`. So `"{#"` in a string outside a method is an error: write `\{#`, or
+  use single quotes.
+- **A closure created inside a method keeps its object** (`FunctionValue::$receiver`), so
+  `() -> #save()` works after the method returns.
+- **`to_string()` is the one protocol method:** `echo`, `..`, interpolation, `join` and
+  `to_string()` use it, also for objects inside lists and maps; it must return a string.
+  Without one an object prints as `Account {#owner => "Werner", #balance => 75}`, and one
+  already being printed (handles can form cycles) as `Account {...}`.
+
+Implementation: `ClassDeclarationAST` holds the fields and methods (`FunctionDeclarationAST`
+with `$class` and `$abstract`); once the whole program is read the parser resolves each
+class (`$layout`: every field and its declaring class, parent's first; `$members`: every
+concrete method and the class whose version runs; `$abstract_methods`) and checks `#name`,
+`##name` and calls by name against it. `ThisAST`, `PropertyAST` (`#name` is a property of a
+`ThisAST`), `MethodCallAST` and `ParentMethodAST` are the expressions. At runtime
+`Runtime\ClassValue::build()` makes one value per class per run, with the method table
+(name to the class whose version runs), the field defaults and the constructor's arity;
+`Runtime\ObjectValue` holds the class and the fields that are set, by name.
+`Values::property()`, `propertyExisting()` and `store()` are the one definition of member
+access. `echo` reaching `to_string()` goes through `Values::$call_method`, which each backend
+sets while a program runs: the interpreter calls the method, and the VM runs it to completion
+in a nested `execute()` (see "VM").
+
+Code generation: `PUSH_CLASS name`; `NEW Class argc` pushes a frame at `LABEL NEW_Class`
+with the arguments as locals and the new object as receiver, which sets each default
+(`SET_FIELD name`), runs `CALL_CONSTRUCTOR Class` and returns the object (`CALL_VALUE` on a
+class does the same after its checks). Methods are at `LABEL METHOD_Class.name` with frames
+keyed `Class.name` (`new Class` for initialisers), so no function or lambda name collides.
+`LOAD_THIS`, `GET_PROPERTY name` (`_QUIET`, `_EXISTING`), `GET_METHOD name` then the
+arguments then `CALL_METHOD argc name` (a method call without a bound method in between),
+`CALL_PARENT Class name argc`, `BIND_PARENT Class name`. `SET_PATH path slot` spells the path:
+`[k]` a key from the stack, `.name` a field, `[]` an append (`SET_PATH [k].total 0`);
+`SET_PATH_THIS path` starts at `#`. Every VM frame holds its receiver.
 
 ## Function values
 
@@ -494,7 +531,7 @@ emits `MAKE_CLOSURE n` and compiles each body after the functions under `LABEL L
 from a worklist (a body can contain more lambdas), with a frame of parameters then
 other locals, keyed `->n` in `local_names` so no function name can collide; captured
 variables compile to `LOAD_CAPTURED`, `STORE_CAPTURED`, `LOAD_QUIET_CAPTURED` and
-`SET_PATH_CAPTURED`/`APPEND_PATH_CAPTURED` on the running closure (kept in each VM frame).
+`SET_PATH_CAPTURED` on the running closure (kept in each VM frame).
 `Program::$lambdas` carries each lambda's capture map (from an enclosing frame slot or
 the enclosing closure's variable, to its own index), which the VM applies at
 `MAKE_CLOSURE`, copying only what exists, then setting `$self`.
@@ -633,9 +670,13 @@ to the working directory; the main file shows as given on the command line.
 
 `VM::link()` collapses `STORE x; LOAD x; POP` into `STORE x`, resolves labels to
 instruction positions and splits the instructions into parallel opcode and argument
-arrays. `VM::run()` then runs one
-dispatch loop over a value stack, globals, the current frame's locals and argument
-count, a stack of callers' frames, and a stack of try handlers. Every operator and
+arrays. `VM::run()` then runs `execute()`, one
+dispatch loop over a value stack, globals, the current frame's locals, argument count,
+closure and receiver, a stack of callers' frames, and a stack of try handlers. The loop is
+re-entrant: while it runs, `Values::$call_method` runs a method (`to_string()`) in a nested
+`execute()` that starts in the method's frame, shares the globals and the call depth, and
+returns when that frame returns; an error it doesn't catch leaves it as an exception, into
+the instruction that called the method, where the outer loop's handlers see it. Every operator and
 builtin goes through `Runtime\Values` / `Runtime\Builtins`, and assignment through
 `Values::store()`, so the VM and the interpreter share their semantics rather than
 reimplementing them. The only exceptions are fast paths in the loop for the commonest
