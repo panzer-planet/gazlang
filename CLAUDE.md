@@ -41,8 +41,9 @@ php bin/gazlang -f examples/functions.gaz -c
 - **Class Structure**: Properties at top, constructor follows, public methods first
 ## Roadmap: Path to Self-Hosting
  
-The long-term goal is for GazLang to be self-hosting — the lexer/parser/interpreter
-eventually rewritten *in GazLang itself*. Work toward that goal in this order;
+The long-term goal is for GazLang to be self-hosting: the lexer, parser and compiler
+written *in GazLang itself*, running on a small native VM, with no PHP left in the
+toolchain (decided 2026-09-17, see step 7). Work toward that goal in this order;
 each step depends on the ones before it.
  
 1. ~~**Fix the precedence tower.**~~ Done. `Parser` is now `expr` (assignment,
@@ -229,13 +230,47 @@ each step depends on the ones before it.
      spliced in where it is included and share the parser's function table, so
      the backends never see it. Each file is included once (the main file
      counts), which also breaks cycles.
-7. **Begin porting the lexer/parser to GazLang itself. Deferred** (decided
-   2026-09-16): while the syntax is still changing, a second lexer doubles the
-   work of every lexer change, and a GazLang toolchain on the tree-walking PHP
-   interpreter would be too slow to use. Port once the lexical syntax has been
-   stable for a while and something faster exists (the VM, or compiling to PHP).
-   Until then, grow the language by writing real GazLang (`lib/`, tools) and
-   fixing what hurts. The harness below is ready for when the port starts.
+7. **Finish the language first, then leave PHP behind in four stages.** Decided
+   2026-09-17. Measured then, with PHP's JIT on for both: the VM is 25 to 130 times
+   slower than the same program in PHP (typically 60 to 90), the interpreter 35 to 430.
+   A self-hosted toolchain has to run on something faster, and transpiling to PHP was
+   ruled out as the main path because it ties GazLang to PHP for good (it stays a
+   fallback). The plan is the Lua/Python shape instead: everything above the VM in
+   GazLang, the VM and runtime native. Objects (see "Decided, not built yet") come
+   first, since they change the value model the other stages depend on.
+
+   1. **Pin down the bytecode as a file format.** Today's `Program` (stack
+      instructions with file and line, the function table with arities, the lambda
+      table with capture maps, local and global names) is the design; `-c` already
+      prints it as text. Make it a versioned, serialisable format that any compiler can
+      write and any VM can load, and have the PHP VM run programs from it.
+   2. **Write a standalone VM in C** (a separate program, not called from PHP through
+      FFI: every FFI call converts its values, which costs more than the work of one
+      instruction). It needs its own values, an ordered hash for maps, byte strings,
+      the operator rules of `Runtime\Values` exactly (including shortest float printing,
+      PHP's `round`, overflow errors), the builtins, and memory management: reference
+      counting suits lists and maps as values, but closures (and later objects) can
+      form cycles, so it also needs a cycle collector or a tracing GC. Test it the way
+      everything here is tested: the PHP compiler writes bytecode, and the C VM must
+      match the PHP VM on every test, `tests/gaz` program and example, output, errors,
+      locations and exit codes. The PHP implementation stays the reference. C is the
+      default choice of language; Zig or Rust can still be decided when this starts.
+      Expected speed: about that of Lua or PHP, 1 to 5 times PHP rather than 60 to 90.
+   3. **Write the compiler in GazLang** (lexer, parser with the parse-time checks,
+      code generator), running on the C VM, which is what makes it fast enough to use.
+      It must produce the same bytecode as the PHP compiler for every file the tests
+      cover, starting with the lexer harness below.
+   4. **Bootstrap.** The GazLang compiler compiles itself, the resulting bytecode is
+      checked in, and `gazlang` becomes the C VM plus that compiler; PHP is no longer
+      needed to run or build GazLang. Whether the PHP implementation stays as a
+      reference is decided then.
+
+   Until then: **judge new features by what they cost in C, not only in PHP.** Values
+   semantics suit reference counting; anything that leans on PHP behaviour (hashing,
+   string conversion, float formatting) must be a rule GazLang defines and both runtimes
+   implement. Keep growing the language by writing real GazLang (`lib/`, tools) and
+   fixing what hurts; the lexer port waits for the lexical syntax to settle, since a
+   second lexer doubles the work of every lexer change.
 
    **Port the lexer to `selfhost/lexer.gaz` against the PHP lexer, which is the
    spec.** `tests/SelfHostedLexerTest.php` runs
@@ -579,6 +614,10 @@ compile time, pushed as one value, and `foreach` takes `len()` of its keys once.
 much as results: the VM's `KEY_CHECK` exists so a bad key fails before later
 keys and the value run, exactly when the interpreter's does. After tuning, the
 VM runs fib, arithmetic loops and JSON 2 to 5 times as fast as the interpreter.
+`bin/gazlang` runs PHP with `opcache.jit=1235` (JIT for hot functions), restarting itself
+with it as it does to turn off pcov: about 25% faster on the VM. PHP's default tracing JIT
+made the VM twice as slow, and compiling everything on load (1205) cost 0.2s per run; the
+JIT is skipped under Xdebug, which disables it with a warning in the output.
 
 **Note:** any new AST node type (e.g. new BinOp/UnaryOp variants)
 needs visitor support in *both* `Interpreter/Interpreter.php` and
