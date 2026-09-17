@@ -146,7 +146,7 @@ class FunctionValueTest extends GazLangTestCase
     public function test_code_gen()
     {
         $this->assertEquals(
-            "PUSH_FN len\nSTORE 0\nLOAD 0\nPOP\nLOAD 0\nPUSH_STR \"abc\"\nCALL_VALUE 1\nPRINT\nPUSH_FN add\nPUSH 1\nPUSH 2\nCALL_VALUE 2\nPOP\nHALT\nLABEL FN_add\nLOAD 0\nLOAD 1\nADD\nRET\nPUSH null\nRET",
+            "PUSH_FN len\nSTORE 0\nLOAD 0\nPOP\nLOAD 0\nPUSH \"abc\"\nCALL_VALUE 1\nPRINT\nPUSH_FN add\nPUSH 1\nPUSH 2\nCALL_VALUE 2\nPOP\nfn add 2 2\nLOAD 0\nLOAD 1\nADD\nRET\nPUSH null\nRET",
             $this->generateCode(self::ADD.'$f = len; echo $f("abc"); (add)(1, 2);')
         );
     }

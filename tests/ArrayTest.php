@@ -225,7 +225,7 @@ class ArrayTest extends GazLangTestCase
         $this->assertEquals(
             "PUSH 1\nSTORE 0\nLOAD 0\nPOP\n"
             ."NEW_ARRAY\nLOAD 0\nARRAY_PUSH\nPUSH 0\nINDEX_GET\nPRINT\n"
-            ."NEW_MAP\nPUSH_STR \"k\"\nKEY_CHECK\nLOAD 0\nMAP_SET\nPUSH_STR \"k\"\nINDEX_GET\nPRINT",
+            ."NEW_MAP\nPUSH \"k\"\nKEY_CHECK\nLOAD 0\nMAP_SET\nPUSH \"k\"\nINDEX_GET\nPRINT",
             $this->generateCode('$x = 1; echo [$x][0]; echo {"k" => $x}["k"];')
         );
     }
@@ -254,7 +254,7 @@ class ArrayTest extends GazLangTestCase
     {
         $this->assertEquals(
             "NEW_ARRAY\nSTORE 0\nLOAD 0\nPOP\n"
-            ."PUSH_STR \"k\"\nKEY_CHECK\nPUSH 0\nKEY_CHECK\nPUSH 5\nSET_PATH [k][k] 0\nPOP\n"
+            ."PUSH \"k\"\nKEY_CHECK\nPUSH 0\nKEY_CHECK\nPUSH 5\nSET_PATH [k][k] 0\nPOP\n"
             ."LOAD 0\nSET_PATH_GLOBAL [] 0\nPOP\n"
             ."LOAD 0\nCALL_BUILTIN len 1\nPRINT",
             $this->generateCode('$a = []; $a["k"][0] = 5; @all[] = $a; echo len($a);')

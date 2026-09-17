@@ -49,14 +49,14 @@ use GazLang\Runtime\MapValue;
  * hold the arguments, and RET pops the return value, drops the frame and pushes
  * the value onto the caller's stack. LOAD/STORE address the current frame's
  * locals; LOAD_GLOBAL/STORE_GLOBAL address the globals shared by every frame.
- * Function bodies are emitted after the top level code, which ends in HALT.
+ * Each function is its own block, and the top level block ends in HALT.
  * PUSH_FN name pushes a function as a value, and CALL_VALUE argc pops argc
  * arguments and the value under them and calls it, checking at runtime that it is a
  * function taking that many arguments (the Program's function table gives each
  * function's arity).
  *
- * Lambda bodies are emitted after the functions, each under LABEL LAMBDA_n with its own
- * frame: parameters in slots 0.., then its other locals. Its captured variables live in
+ * Each lambda is its own block, numbered from 0, with its own frame: parameters in
+ * slots 0.., then its other locals. Its captured variables live in
  * the closure and are addressed by index with LOAD_CAPTURED, STORE_CAPTURED,
  * LOAD_QUIET_CAPTURED and SET_PATH_CAPTURED. MAKE_CLOSURE n pushes a
  * closure, copying into it what the Program's lambda table maps from the enclosing frame
@@ -65,12 +65,12 @@ use GazLang\Runtime\MapValue;
  * arguments, with that closure running, and jumps to the lambda's entry.
  *
  * Classes: PUSH_CLASS name pushes a class as a value. NEW Class argc pops the arguments and
- * starts a frame for a new object at LABEL NEW_Class, with the arguments as its locals and the
+ * starts a frame for a new object at the class's block, with the arguments as its locals and the
  * object as its receiver: it sets each field default (SET_FIELD name pops a value, sets that
  * field of the receiver and pushes the value), then CALL_CONSTRUCTOR Class runs that class's
  * _ with the same arguments, and it returns the object. CALL_VALUE on a class does the same
  * after checking it can be constructed with that many arguments. Methods are at
- * LABEL METHOD_Class.name. LOAD_THIS pushes the receiver; GET_PROPERTY name pops an object and
+ * the block of the function named "Class.name". LOAD_THIS pushes the receiver; GET_PROPERTY name pops an object and
  * pushes a field's value or a bound method. A call on a member is the object, GET_METHOD name,
  * the arguments, CALL_METHOD argc name: GET_METHOD pops the object and pushes it with the class
  * whose method runs, or, when the member isn't a method, the member's value with null, and
@@ -123,9 +123,14 @@ class CodeGenerator extends AbstractNodeVisitor
     private $tree;
 
     /**
-     * @var list<array{0: string, 1: array, 2: string|null, 3: int|null}> The generated instructions, see Program
+     * @var list<array{0: string, 1: array, 2: string|null, 3: int|null}> The instructions of the block being compiled, see Program
      */
     private $instructions;
+
+    /**
+     * @var list<array<string, mixed>> The blocks compiled so far, the top level first
+     */
+    private $blocks = [];
 
     /**
      * @var string|null The file of the innermost node being compiled, recorded on each instruction
@@ -203,6 +208,22 @@ class CodeGenerator extends AbstractNodeVisitor
         $this->tree = $tree;
         $this->instructions = [];
         $this->label_counter = 0;
+    }
+
+    /**
+     * Close the block just compiled, keeping its instructions and the names of its local slots
+     *
+     * Labels and hidden variables are numbered within a block, so an instruction added in one
+     * block doesn't renumber the others.
+     *
+     * @param  array<string, mixed>  $header  What the block is: its kind and what that kind carries
+     */
+    private function block(array $header): void
+    {
+        $this->blocks[] = [...$header, 'locals' => array_keys($this->var_addresses), 'code' => $this->instructions];
+        $this->instructions = [];
+        $this->label_counter = 0;
+        $this->hidden_counter = 0;
     }
 
     /**
@@ -708,7 +729,7 @@ class CodeGenerator extends AbstractNodeVisitor
      */
     public function visitString(StringAST $node): void
     {
-        $this->emit('PUSH_STR', $node->value);
+        $this->emit('PUSH', $node->value);
     }
 
     /**
@@ -1128,7 +1149,7 @@ class CodeGenerator extends AbstractNodeVisitor
         } elseif (isset($this->classes[$node->name])) {
             $this->emit('NEW', $node->name, count($node->args));
         } else {
-            $this->emit('CALL', "FN_{$node->name}", count($node->args));
+            $this->emit('CALL', $node->name, count($node->args));
         }
     }
 
@@ -1242,52 +1263,35 @@ class CodeGenerator extends AbstractNodeVisitor
             }
         }
         $this->visit($this->tree);
-        $local_names = ['' => array_keys($this->var_addresses)];
-        $arities = [];
-
-        if ($this->functions !== [] || $this->lambdas !== [] || $this->classes !== []) {
-            $this->emit('HALT');
-        }
+        $this->block(['kind' => 'top']);
 
         foreach ($this->functions as $function) {
-            $arities[$function->name] = $function->arity;
-            $local_names[$function->name] = $this->compileBody("FN_{$function->name}", $function, $function->params);
+            $this->compileBody($function, $function->params);
+            $this->block(['kind' => 'fn', 'name' => $function->name, 'arity' => $function->arity]);
         }
 
+        // A class block holds its record and the code that makes one of its objects; its methods
+        // are functions named "Class.name", which no function name can be
         foreach ($this->classes as $class) {
-            $local_names["new {$class->name}"] = $this->compileInitialiser($class);
+            $this->compileInitialiser($class);
+            $this->block(['kind' => 'class', 'name' => $class->name, ...$class->record()]);
             foreach ($class->methods as $method) {
                 if (! $method->abstract) {
-                    // A method's arity is keyed "Class.name", which no function name can be
-                    $arities["{$class->name}.{$method->name}"] = $method->arity;
-                    $local_names["{$class->name}.{$method->name}"] = $this->compileBody("METHOD_{$class->name}.{$method->name}", $method, $method->params);
+                    $this->compileBody($method, $method->params);
+                    $this->block(['kind' => 'fn', 'name' => "{$class->name}.{$method->name}", 'arity' => $method->arity]);
                 }
             }
         }
 
-        // A worklist: compiling a body can find more lambdas inside it. A lambda's frame is
-        // keyed "->n", which no function name can be; its captured variables aren't in the
-        // frame but in the closure, addressed by their index in LambdaAST::$captures
+        // A worklist: compiling a body can find more lambdas inside it. A lambda's captured
+        // variables aren't in its frame but in the closure, addressed by their index
         for ($i = 0; $i < count($this->lambdas); $i++) {
-            [$lambda] = $this->lambdas[$i];
-            $local_names["->{$i}"] = $this->compileBody("LAMBDA_{$i}", $lambda, $lambda->params);
+            [$lambda, $map] = $this->lambdas[$i];
+            $this->compileBody($lambda, $lambda->params);
+            $this->block(['kind' => 'lambda', 'index' => $i, ...$lambda->record(), 'map' => $map]);
         }
 
-        // The backends run from records, not from the AST: a lambda's captures and a class's
-        // layout and methods, with every body already compiled above
-        $lambdas = [];
-        foreach ($this->lambdas as [$lambda, $map]) {
-            $lambdas[] = [...$lambda->record(), 'map' => $map];
-        }
-
-        return new Program(
-            $this->instructions,
-            $local_names,
-            array_keys($this->global_addresses),
-            $arities,
-            $lambdas,
-            array_map(fn (ClassDeclarationAST $class) => $class->record(), $this->classes),
-        );
+        return new Program($this->blocks, array_keys($this->global_addresses));
     }
 
     /**
@@ -1299,9 +1303,8 @@ class CodeGenerator extends AbstractNodeVisitor
      * a lowered update in one uses hidden ones, so the arguments' slots are kept free of them.
      *
      * @param  ClassDeclarationAST  $class  The resolved class
-     * @return list<string> The variable name in each slot of the frame
      */
-    private function compileInitialiser(ClassDeclarationAST $class): array
+    private function compileInitialiser(ClassDeclarationAST $class): void
     {
         $arity = isset($class->members['_']) ? $this->classes[$class->members['_']]->methods['_']->arity : 0;
         $this->var_addresses = [];
@@ -1311,7 +1314,6 @@ class CodeGenerator extends AbstractNodeVisitor
         $this->captures = [];
         [$this->file, $this->line] = [$class->file, $class->line];
 
-        $this->emit('LABEL', "NEW_{$class->name}");
         foreach ($class->layout as $field => $declarer) {
             $default = $this->classes[$declarer]->fields[$field];
             if ($default !== null) {
@@ -1326,25 +1328,20 @@ class CodeGenerator extends AbstractNodeVisitor
         }
         $this->emit('LOAD_THIS');
         $this->emit('RET');
-
-        return [];
     }
 
     /**
      * Emit a function or lambda body in its own frame
      *
-     * @param  string  $label  The entry label
      * @param  FunctionDeclarationAST|LambdaAST  $node  The function or lambda
      * @param  string[]  $slots  The names of the first local slots: the parameters
-     * @return list<string> The variable name in each slot of the frame
      */
-    private function compileBody(string $label, FunctionDeclarationAST|LambdaAST $node, array $slots): array
+    private function compileBody(FunctionDeclarationAST|LambdaAST $node, array $slots): void
     {
         $this->var_addresses = array_flip($slots);
         $this->captures = $node instanceof LambdaAST ? $node->capture_names : [];
         [$this->file, $this->line] = [$node->file, $node->line];
 
-        $this->emit('LABEL', $label);
         $this->defaultArguments($node);
         $this->visit($node->body);
         // Falling off the end returns null; a lambda's expression body leaves its value
@@ -1352,14 +1349,12 @@ class CodeGenerator extends AbstractNodeVisitor
             $this->emit('PUSH', null);
         }
         $this->emit('RET');
-
-        return array_keys($this->var_addresses);
     }
 
     /**
-     * Generate code from the AST, as text
+     * Generate code from the AST, as a bytecode file
      *
-     * @return string The generated code, one instruction per line
+     * @return string The file, see docs/bytecode.md
      */
     public function generate(): string
     {

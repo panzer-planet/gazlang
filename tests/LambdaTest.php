@@ -320,16 +320,16 @@ Undefined variable: $n
         // A program with only a lambda still ends its top level in HALT. The captured $n takes
         // slot 0 of the top level (allocated by the capture map) and is the closure's variable 0
         $this->assertEquals(
-            "MAKE_CLOSURE 0\nSTORE 1\nLOAD 1\nPOP\nLOAD 1\nPUSH 1\nCALL_VALUE 1\nPRINT\nHALT\nLABEL LAMBDA_0\nLOAD 0\nLOAD_CAPTURED 0\nADD\nRET",
+            "MAKE_CLOSURE 0\nSTORE 1\nLOAD 1\nPOP\nLOAD 1\nPUSH 1\nCALL_VALUE 1\nPRINT\nlambda 0 1 1\nLOAD 0\nLOAD_CAPTURED 0\nADD\nRET",
             $this->generateCode('$f = $x -> $x + $n; echo $f(1);')
         );
         // Updating a captured variable writes the closure's; a plain = makes a frame local
         $this->assertStringEndsWith(
-            "LABEL LAMBDA_0\nLOAD_CAPTURED 0\nINC\nSTORE_CAPTURED 0\nLOAD_CAPTURED 0\nPOP\nPUSH 1\nSTORE 0\nLOAD 0\nPOP\nPUSH null\nRET",
+            "lambda 0 0 0\nLOAD_CAPTURED 0\nINC\nSTORE_CAPTURED 0\nLOAD_CAPTURED 0\nPOP\nPUSH 1\nSTORE 0\nLOAD 0\nPOP\nPUSH null\nRET",
             $this->generateCode('$n = 0; $m = 0; $f = () -> { ++$n; $m = 1; };')
         );
         // A block body returns null when it falls off the end
-        $this->assertStringEndsWith("LABEL LAMBDA_0\nPUSH 1\nPOP\nPUSH null\nRET", $this->generateCode('$f = () -> { 1; };'));
+        $this->assertStringEndsWith("lambda 0 0 0\nPUSH 1\nPOP\nPUSH null\nRET", $this->generateCode('$f = () -> { 1; };'));
     }
 
     public function test_show_location_of_a_closure_names_the_file()

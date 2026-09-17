@@ -168,10 +168,8 @@ function processInput(string $text, string $mode = 'vm', ?string $path = null, a
         $parser = new Parser($lexer, $path);
 
         if ($mode === 'code') {
-            // Generate code
-            $codeGenerator = new CodeGenerator($parser->parse());
-            $code = $codeGenerator->generate();
-            echo "Generated code:\n$code\n";
+            // The compiled program as a bytecode file, which gazlang can run: gazlang -c -f x.gaz > x.gzb
+            echo (new CodeGenerator($parser->parse()))->compile()->write($path);
         } elseif ($mode === 'interpret') {
             (new Interpreter($parser, $args))->interpret();
         } else {

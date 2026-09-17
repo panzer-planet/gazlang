@@ -306,7 +306,7 @@ class StdlibTest extends GazLangTestCase
     public function test_code_gen_for_builtins()
     {
         $this->assertEquals(
-            "PUSH_STR \"abc\"\nPUSH 0\nPUSH 1\nCALL_BUILTIN slice 3\nPRINT\nCALL_BUILTIN args 0\nPOP",
+            "PUSH \"abc\"\nPUSH 0\nPUSH 1\nCALL_BUILTIN slice 3\nPRINT\nCALL_BUILTIN args 0\nPOP",
             $this->generateCode('echo slice("abc", 0, 1); args();')
         );
     }

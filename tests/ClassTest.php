@@ -292,7 +292,7 @@ class ClassTest extends GazLangTestCase
     public function test_code_for_paths_through_fields()
     {
         $this->assertStringEndsWith(
-            "POP\nPUSH 0\nKEY_CHECK\nPUSH 5\nSET_PATH [k].total 0\nPOP\nHALT\nLABEL NEW_P\nLOAD_THIS\nRET\nLABEL METHOD_P.f\nPUSH 1\nSET_PATH_THIS .items[]\nPOP\nPUSH null\nRET",
+            "POP\nPUSH 0\nKEY_CHECK\nPUSH 5\nSET_PATH [k].total 0\nPOP\nclass P\nLOAD_THIS\nRET\nfn P.f 0 0\nPUSH 1\nSET_PATH_THIS .items[]\nPOP\nPUSH null\nRET",
             $this->generateCode("class P { #items; #total; fn f() { #items[] = 1; } }\n\$rows = [P()];\n\$rows[0].total = 5;")
         );
     }
@@ -515,7 +515,7 @@ class ClassTest extends GazLangTestCase
     {
         // A field read through # needs no member lookup; ??, compound updates and methods keep theirs
         $this->assertStringContainsString(
-            "LABEL METHOD_P.f\nLOAD_FIELD x\nLOAD_THIS\nGET_PROPERTY_QUIET y\nJNN COALESCE_END_0\nPUSH 0\nLABEL COALESCE_END_0\nADD\n"
+            "fn P.f 0 0\nLOAD_FIELD x\nLOAD_THIS\nGET_PROPERTY_QUIET y\nJNN COALESCE_END_0\nPUSH 0\nLABEL COALESCE_END_0\nADD\n"
             ."LOAD_THIS\nGET_PROPERTY_EXISTING x\nPUSH 1\nADD\nSET_FIELD x\nADD\nPUSH 0\nNEW_ARRAY\nLOAD_THIS\nGET_PROPERTY g\nARRAY_PUSH\n",
             $this->generateCode('class P { #x = 1; #y; fn f() { return #x + (#y ?? 0) + (#x += 1) + 0 * len([#g]); } fn g() {} }')
         );

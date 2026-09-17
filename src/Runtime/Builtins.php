@@ -104,6 +104,17 @@ final class Builtins
     }
 
     /**
+     * An arity as [fewest, most]
+     *
+     * @param  int|array{0: int, 1: int}  $arity  A count, or [fewest, most] with optional parameters
+     * @return array{0: int, 1: int} The bounds
+     */
+    public static function bounds(int|array $arity): array
+    {
+        return is_int($arity) ? [$arity, $arity] : $arity;
+    }
+
+    /**
      * Run a builtin function
      *
      * @param  string  $name  The builtin name, a key of ARITIES

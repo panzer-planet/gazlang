@@ -89,6 +89,8 @@ class IncludeTest extends GazLangTestCase
     {
         $code = (new CodeGenerator($this->parserFor('main.gaz')->parse()))->generate();
 
-        $this->assertStringContainsString("CALL FN_square 1\nPRINT\nHALT\nLABEL FN_square", $code);
+        // The included function is a block of its own, like any other
+        $this->assertStringContainsString("CALL square 1\nPRINT\n", $code);
+        $this->assertStringContainsString("\nfn square 1 1\n", $code);
     }
 }

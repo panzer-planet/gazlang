@@ -144,7 +144,7 @@ class OperatorTest extends GazLangTestCase
     public function test_code_gen_for_coalesce()
     {
         $this->assertEquals(
-            "LOAD_QUIET 0\nPUSH_STR \"k\"\nINDEX_GET_QUIET\nJNN COALESCE_END_0\nPUSH 1\nLABEL COALESCE_END_0\nPRINT",
+            "LOAD_QUIET 0\nPUSH \"k\"\nINDEX_GET_QUIET\nJNN COALESCE_END_0\nPUSH 1\nLABEL COALESCE_END_0\nPRINT",
             $this->generateCode('echo $a["k"] ?? 1;')
         );
         $this->assertStringStartsWith("LOAD_QUIET_GLOBAL 0\nJNN", $this->generateCode('echo @g ?? 1;'));
@@ -154,7 +154,7 @@ class OperatorTest extends GazLangTestCase
     {
         // $#key0 = "k"; $a[$#key0] ?? ($a[$#key0] = 1)
         $this->assertStringEndsWith(
-            "PUSH_STR \"k\"\nKEY_CHECK\nSTORE 1\nLOAD_QUIET 0\nLOAD 1\nINDEX_GET_QUIET\nJNN COALESCE_END_0\nLOAD 1\nPUSH 1\nSET_PATH [k] 0\nLABEL COALESCE_END_0\nPOP",
+            "PUSH \"k\"\nKEY_CHECK\nSTORE 1\nLOAD_QUIET 0\nLOAD 1\nINDEX_GET_QUIET\nJNN COALESCE_END_0\nLOAD 1\nPUSH 1\nSET_PATH [k] 0\nLABEL COALESCE_END_0\nPOP",
             $this->generateCode('$a = []; $a["k"] ??= 1;')
         );
     }
@@ -360,8 +360,8 @@ class OperatorTest extends GazLangTestCase
 
     public function test_code_gen_for_concatenation()
     {
-        $this->assertEquals("PUSH_STR \"a\"\nPUSH 1\nCONCAT\nPRINT", $this->generateCode('echo "a" .. 1;'));
-        $this->assertEquals("LOAD 0\nPUSH_STR \"b\"\nCONCAT\nSTORE 0\nLOAD 0\nPOP", $this->generateCode('$s ..= "b";'));
+        $this->assertEquals("PUSH \"a\"\nPUSH 1\nCONCAT\nPRINT", $this->generateCode('echo "a" .. 1;'));
+        $this->assertEquals("LOAD 0\nPUSH \"b\"\nCONCAT\nSTORE 0\nLOAD 0\nPOP", $this->generateCode('$s ..= "b";'));
     }
 
     public function test_arithmetic_on_strings_throws()

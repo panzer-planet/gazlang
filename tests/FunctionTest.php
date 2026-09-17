@@ -147,7 +147,7 @@ class FunctionTest extends GazLangTestCase
     public function test_code_gen_evaluates_defaults_only_for_missing_arguments()
     {
         $this->assertStringContainsString(
-            "LABEL FN_f\nARGC\nPUSH 1\nGT\nNOT\nJZ PASSED_0\nLOAD 0\nSTORE 1\nLABEL PASSED_0\nLOAD 1\nRET",
+            "fn f 1 2\nARGC\nPUSH 1\nGT\nNOT\nJZ PASSED_0\nLOAD 0\nSTORE 1\nLABEL PASSED_0\nLOAD 1\nRET",
             $this->generateCode('echo f(2); fn f($a, $b = $a) { return $b; }')
         );
     }
@@ -155,7 +155,7 @@ class FunctionTest extends GazLangTestCase
     public function test_code_gen_checks_each_default_against_its_position()
     {
         $this->assertStringContainsString(
-            "LABEL FN_f\n"
+            "fn f 1 3\n"
             ."ARGC\nPUSH 1\nGT\nNOT\nJZ PASSED_0\nPUSH 2\nSTORE 1\nLABEL PASSED_0\n"
             ."ARGC\nPUSH 2\nGT\nNOT\nJZ PASSED_1\nLOAD 1\nSTORE 2\nLABEL PASSED_1",
             $this->generateCode('f(1); fn f($a, $b = 2, $c = $b) { }')
@@ -220,8 +220,8 @@ class FunctionTest extends GazLangTestCase
     public function test_code_gen_for_functions_and_globals()
     {
         $this->assertEquals(
-            "PUSH 1\nPUSH 2\nCALL FN_add 2\nPRINT\nHALT\n"
-            ."LABEL FN_add\nLOAD_GLOBAL 0\nPUSH 1\nADD\nSTORE_GLOBAL 0\nLOAD_GLOBAL 0\nPOP\n"
+            "PUSH 1\nPUSH 2\nCALL add 2\nPRINT\n"
+            ."fn add 2 2\nLOAD_GLOBAL 0\nPUSH 1\nADD\nSTORE_GLOBAL 0\nLOAD_GLOBAL 0\nPOP\n"
             ."LOAD 0\nLOAD 1\nADD\nRET\nPUSH null\nRET",
             $this->generateCode('echo add(1, 2); fn add($a, $b) { @calls = @calls + 1; return $a + $b; }')
         );
@@ -230,8 +230,8 @@ class FunctionTest extends GazLangTestCase
     public function test_code_gen_gives_each_function_its_own_frame()
     {
         $this->assertEquals(
-            "PUSH 1\nSTORE 0\nLOAD 0\nPOP\nCALL FN_f 0\nPOP\nHALT\n"
-            ."LABEL FN_f\nPUSH 2\nSTORE 0\nLOAD 0\nPOP\nPUSH null\nRET\nPUSH null\nRET",
+            "PUSH 1\nSTORE 0\nLOAD 0\nPOP\nCALL f 0\nPOP\n"
+            ."fn f 0 0\nPUSH 2\nSTORE 0\nLOAD 0\nPOP\nPUSH null\nRET\nPUSH null\nRET",
             $this->generateCode('$x = 1; f(); fn f() { $y = 2; return; }')
         );
     }

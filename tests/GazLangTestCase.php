@@ -140,18 +140,21 @@ abstract class GazLangTestCase extends TestCase
     }
 
     /**
-     * Generate VM code for the given input
+     * Generate VM code for the given input, as the instructions of each block
+     *
+     * The bytecode file's header, locations and slot names are left out, so a test can say
+     * what it is about; each block after the top level is introduced by its header line, as
+     * the file writes it ("fn f 0 0"). BytecodeTest covers the file itself.
      *
      * @param  string  $input  The GazLang code
-     * @return string The generated VM code
+     * @return string The generated code, one instruction per line
      */
     protected function generateCode(string $input): string
     {
-        $parser = $this->createParser($input);
-        $tree = $parser->parse();
+        $lines = explode("\n", trim((new CodeGenerator($this->createParser($input)->parse()))->generate()));
+        $code = array_filter($lines, fn (string $line) => $line !== '' && $line !== 'top'
+            && ! preg_match('/^(GAZLANG|globals|locals|@ |field |method |capture |self )/', $line));
 
-        $generator = new CodeGenerator($tree);
-
-        return $generator->generate();
+        return implode("\n", $code);
     }
 }

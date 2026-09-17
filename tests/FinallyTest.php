@@ -162,7 +162,7 @@ class FinallyTest extends GazLangTestCase
     {
         $this->assertStringStartsWith(
             "TRY FINALLY_0\nTRY CATCH_0\nPUSH 1\nPRINT\nEND_TRY\nJMP ENDTRY_0\nLABEL CATCH_0\nCATCH_VALUE\nSTORE 0\nLABEL ENDTRY_0\n"
-            ."END_TRY\nPUSH 2\nPRINT\nJMP ENDFINALLY_0\nLABEL FINALLY_0\nSTORE 1\nPUSH 2\nPRINT\nLOAD 1\nRETHROW\nLABEL ENDFINALLY_0\nHALT\n",
+            ."END_TRY\nPUSH 2\nPRINT\nJMP ENDFINALLY_0\nLABEL FINALLY_0\nSTORE 1\nPUSH 2\nPRINT\nLOAD 1\nRETHROW\nLABEL ENDFINALLY_0\n",
             $this->generateCode('try { echo 1; } catch ($e) {} finally { echo 2; }')
         );
     }
@@ -170,7 +170,7 @@ class FinallyTest extends GazLangTestCase
     public function test_code_gen_for_return_through_finally()
     {
         $this->assertStringContainsString(
-            "LABEL FN_f\nTRY FINALLY_0\nPUSH 1\nSTORE 0\nEND_TRY\nPUSH 2\nPRINT\nLOAD 0\nRET\nEND_TRY\nPUSH 2\nPRINT\n",
+            "fn f 0 0\nTRY FINALLY_0\nPUSH 1\nSTORE 0\nEND_TRY\nPUSH 2\nPRINT\nLOAD 0\nRET\nEND_TRY\nPUSH 2\nPRINT\n",
             $this->generateCode('fn f() { try { return 1; } finally { echo 2; } } f();')
         );
     }

@@ -189,7 +189,6 @@ final class VM
                                 $stack[] = $closure->captured[$arg0[$pc - 1]] ?? null;
                                 break;
                             case 'PUSH':
-                            case 'PUSH_STR':
                                 $stack[] = $arg0[$pc - 1];
                                 break;
                             case 'POP':
@@ -733,12 +732,13 @@ final class VM
     }
 
     /**
-     * Prepare the program to run: simplify, resolve labels, and split into parallel arrays
+     * Prepare the program to run: concatenate the blocks, simplify, resolve labels, and split into parallel arrays
      *
+     * - The top level block comes first and ends in HALT, so it never falls into a function.
      * - STORE x; LOAD x; POP (an assignment used as a statement) becomes STORE x.
-     * - LABEL instructions are dropped; JMP, JZ and TRY get the position to jump to, and
-     *   CALL gets the position, the argument count and the function name (for the call
-     *   depth error).
+     * - LABEL instructions are dropped; JMP, JZ, JNN, TRY and CATCH_MATCH get the position to
+     *   jump to, resolved in their own block, and CALL the called function's entry position,
+     *   its argument count and its name (for the call depth error).
      * - Each instruction's opcode and first three arguments go into their own arrays, so
      *   the loop reads what it needs without unpacking an instruction each time, and its
      *   [file, line] into $locations, only read when there is an error.
@@ -752,59 +752,62 @@ final class VM
      */
     private function link(): array
     {
-        $code = [];
-        foreach ($this->program->instructions as $instruction) {
-            $code[] = $instruction;
-            $n = count($code);
-            if ($n >= 3 && $instruction[0] === 'POP'
-                && in_array($code[$n - 3][0], ['STORE', 'STORE_GLOBAL'], true)
-                && $code[$n - 2][0] === ($code[$n - 3][0] === 'STORE' ? 'LOAD' : 'LOAD_GLOBAL')
-                && $code[$n - 2][1] === $code[$n - 3][1]) {
-                array_splice($code, -2);
-            }
-        }
-
-        $positions = [];
-        $linked = [];
-        foreach ($code as $instruction) {
-            if ($instruction[0] === 'LABEL') {
-                $positions[$instruction[1][0]] = count($linked);
-            } else {
-                $linked[] = $instruction;
-            }
-        }
-
         $ops = $arg0 = $arg1 = $arg2 = $locations = [];
-        foreach ($linked as [$opcode, $args, $file, $line]) {
-            if (in_array($opcode, ['JMP', 'JZ', 'JNN', 'TRY'], true)) {
-                $args[0] = $positions[$args[0]];
-            } elseif ($opcode === 'CATCH_MATCH') {
-                $args[1] = $positions[$args[1]];
-            } elseif ($opcode === 'CALL') {
-                $args = [$positions[$args[0]], $args[1], substr($args[0], 3)];
-            } elseif (str_starts_with($opcode, 'SET_PATH')) {
-                $args[0] = self::parsePath($args[0]);
+        $entries = [];
+        $blocks = [];
+        foreach ($this->program->blocks as $block) {
+            $key = Program::key($block);
+            $entries[$key] = count($ops);
+            $labels = [];
+            $start = count($ops);
+            foreach (self::simplify($block['code']) as [$opcode, $args, $file, $line]) {
+                if ($opcode === 'LABEL') {
+                    $labels[$args[0]] = count($ops);
+
+                    continue;
+                }
+                $ops[] = $opcode;
+                $arg0[] = $args[0] ?? null;
+                $arg1[] = $args[1] ?? null;
+                $arg2[] = $args[2] ?? null;
+                $locations[] = [$file, $line];
             }
-            $ops[] = $opcode;
-            $arg0[] = $args[0] ?? null;
-            $arg1[] = $args[1] ?? null;
-            $arg2[] = $args[2] ?? null;
-            $locations[] = [$file, $line];
+            if ($key === '') {
+                $ops[] = 'HALT';
+                $arg0[] = $arg1[] = $arg2[] = null;
+                $locations[] = [null, null];
+            }
+            $blocks[] = [$start, count($ops), $labels];
+        }
+
+        foreach ($blocks as [$start, $end, $labels]) {
+            for ($pc = $start; $pc < $end; $pc++) {
+                if (in_array($ops[$pc], ['JMP', 'JZ', 'JNN', 'TRY'], true)) {
+                    $arg0[$pc] = $labels[$arg0[$pc]];
+                } elseif ($ops[$pc] === 'CATCH_MATCH') {
+                    $arg1[$pc] = $labels[$arg1[$pc]];
+                } elseif ($ops[$pc] === 'CALL') {
+                    $arg2[$pc] = $arg0[$pc];
+                    $arg0[$pc] = $entries[$arg0[$pc]];
+                } elseif (str_starts_with($ops[$pc], 'SET_PATH')) {
+                    $arg0[$pc] = self::parsePath($arg0[$pc]);
+                }
+            }
         }
 
         // Functions and methods share one table: a method is keyed "Class.name", which no function name can be
         $functions = [];
         foreach ($this->program->functions as $name => $arity) {
-            $functions[$name] = [$positions[str_contains($name, '.') ? "METHOD_{$name}" : "FN_{$name}"], $arity];
+            $functions[$name] = [$entries[$name], $arity];
         }
         $lambdas = [];
         foreach ($this->program->lambdas as $index => $lambda) {
-            $lambdas[$index] = [$positions["LAMBDA_{$index}"], $lambda['arity'], $lambda['captures'], $lambda['self'], $lambda['map']];
+            $lambdas[$index] = [$entries["->{$index}"], $lambda['arity'], $lambda['captures'], $lambda['self'], $lambda['map']];
         }
         $classes = ClassValue::build($this->program->classes, $this->program->functions);
         $initialisers = [];
         foreach ($this->program->classes as $name => $class) {
-            $initialisers[$name] = $positions["NEW_{$name}"];
+            $initialisers[$name] = $entries["new {$name}"];
         }
         foreach ($classes as $class) {
             foreach ($class->methods as $method => $definer) {
@@ -816,6 +819,29 @@ final class VM
         }
 
         return [$ops, $arg0, $arg1, $arg2, $locations, $functions, $lambdas, $classes, $initialisers];
+    }
+
+    /**
+     * Collapse STORE x; LOAD x; POP, an assignment used as a statement, into STORE x
+     *
+     * @param  list<array{0: string, 1: array, 2: string|null, 3: int|null}>  $code  A block's instructions
+     * @return list<array{0: string, 1: array, 2: string|null, 3: int|null}> The instructions to run
+     */
+    private static function simplify(array $code): array
+    {
+        $simplified = [];
+        foreach ($code as $instruction) {
+            $simplified[] = $instruction;
+            $n = count($simplified);
+            if ($n >= 3 && $instruction[0] === 'POP'
+                && in_array($simplified[$n - 3][0], ['STORE', 'STORE_GLOBAL'], true)
+                && $simplified[$n - 2][0] === ($simplified[$n - 3][0] === 'STORE' ? 'LOAD' : 'LOAD_GLOBAL')
+                && $simplified[$n - 2][1] === $simplified[$n - 3][1]) {
+                array_splice($simplified, -2);
+            }
+        }
+
+        return $simplified;
     }
 
     /**

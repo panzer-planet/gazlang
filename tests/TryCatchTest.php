@@ -187,8 +187,8 @@ class TryCatchTest extends GazLangTestCase
     public function test_code_gen_for_try_catch()
     {
         $this->assertStringStartsWith(
-            "TRY CATCH_0\nPUSH_STR \"x\"\nCALL_BUILTIN error 1\nPOP\nEND_TRY\nJMP ENDTRY_0\n"
-            ."LABEL CATCH_0\nCATCH_VALUE\nSTORE 0\nLOAD 0\nGET_PROPERTY message\nPRINT\nLABEL ENDTRY_0\nHALT\nLABEL NEW_Error\n",
+            "TRY CATCH_0\nPUSH \"x\"\nCALL_BUILTIN error 1\nPOP\nEND_TRY\nJMP ENDTRY_0\n"
+            ."LABEL CATCH_0\nCATCH_VALUE\nSTORE 0\nLOAD 0\nGET_PROPERTY message\nPRINT\nLABEL ENDTRY_0\nclass Error\n",
             $this->generateCode('try { error("x"); } catch ($e) { echo $e.message; }')
         );
     }
@@ -198,7 +198,7 @@ class TryCatchTest extends GazLangTestCase
         $this->assertStringStartsWith(
             "TRY CATCH_0\nEND_TRY\nJMP ENDTRY_0\nLABEL CATCH_0\n"
             ."CATCH_MATCH P NEXTCATCH_0_0\nSTORE 0\nJMP ENDTRY_0\nLABEL NEXTCATCH_0_0\n"
-            ."CATCH_MATCH Error NEXTCATCH_0_1\nSTORE 0\nJMP ENDTRY_0\nLABEL NEXTCATCH_0_1\nRETHROW\nLABEL ENDTRY_0\nHALT\n",
+            ."CATCH_MATCH Error NEXTCATCH_0_1\nSTORE 0\nJMP ENDTRY_0\nLABEL NEXTCATCH_0_1\nRETHROW\nLABEL ENDTRY_0\n",
             $this->generateCode('class P {} try { } catch (P $e) { } catch (Error $e) { }')
         );
     }
@@ -207,7 +207,7 @@ class TryCatchTest extends GazLangTestCase
     {
         // RET drops the returning frame's handlers, so no END_TRY is emitted before it
         $this->assertStringContainsString(
-            "LABEL FN_f\nTRY CATCH_0\nPUSH 1\nRET\nEND_TRY\nJMP ENDTRY_0\nLABEL CATCH_0\nCATCH_VALUE\nSTORE 0\nLABEL ENDTRY_0",
+            "fn f 0 0\nTRY CATCH_0\nPUSH 1\nRET\nEND_TRY\nJMP ENDTRY_0\nLABEL CATCH_0\nCATCH_VALUE\nSTORE 0\nLABEL ENDTRY_0",
             $this->generateCode('f(); fn f() { try { return 1; } catch ($e) { } }')
         );
     }

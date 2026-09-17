@@ -1869,15 +1869,15 @@ class Parser
             }
             // The constructor is each class's own: a child's can take different arguments
             if ($owner !== null && $name !== '_') {
-                [$fewest, $most] = self::bounds($method->arity);
-                [$parent_fewest, $parent_most] = self::bounds($this->classes[$owner]->methods[$name]->arity);
+                [$fewest, $most] = Builtins::bounds($method->arity);
+                [$parent_fewest, $parent_most] = Builtins::bounds($this->classes[$owner]->methods[$name]->arity);
                 if ($fewest > $parent_fewest || $most < $parent_most) {
                     $expected = $parent_fewest === $parent_most ? $parent_fewest : "{$parent_fewest} to {$parent_most}";
 
                     throw new GazLangError("Method {$class->name}.{$name} must accept every argument count {$owner}.{$name} does ({$expected})", $method->file, $method->line);
                 }
             }
-            if ($name === 'to_string' && self::bounds($method->arity)[0] !== 0) {
+            if ($name === 'to_string' && Builtins::bounds($method->arity)[0] !== 0) {
                 throw new GazLangError("Method {$class->name}.to_string must accept 0 arguments: printing calls it with none", $method->file, $method->line);
             }
             if ($method->abstract) {
@@ -1894,17 +1894,6 @@ class Parser
             throw new GazLangError("Class {$class->name} must define abstract method {$name} of {$class->abstract_methods[$name]}, or be abstract", $class->file, $class->line);
         }
         $class->resolved = true;
-    }
-
-    /**
-     * An arity as [fewest, most]
-     *
-     * @param  int|array{0: int, 1: int}  $arity  A count, or [fewest, most]
-     * @return array{0: int, 1: int}
-     */
-    private static function bounds(int|array $arity): array
-    {
-        return is_int($arity) ? [$arity, $arity] : $arity;
     }
 
     /**
