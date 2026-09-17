@@ -8,7 +8,7 @@ include "../lib/functional.gaz";
 include "../lib/format.gaz";
 
 // Print the usage and the problem, and stop with exit code 1
-function fail($message) {
+fn fail($message) {
     echo "Usage: php bin/gazlang -f examples/csv_report.gaz -- FILE GROUP_COLUMN AMOUNT_COLUMN";
     echo "Error: $message";
     exit(1);

@@ -1160,8 +1160,10 @@ class Parser
             return $this->loop_control();
         } elseif ($this->current_token->type === Token::RETURN) {
             return $this->return_statement();
-        } elseif ($this->current_token->type === Token::FUNCTION) {
+        } elseif ($this->current_token->type === Token::FN) {
             $this->fail('Functions can only be declared at the top level');
+        } elseif ($this->current_token->type === Token::FUNCTION) {
+            $this->fail('Declare functions with fn, not function');
         } elseif ($this->current_token->type === Token::INCLUDE) {
             $this->fail('include can only be used at the top level');
         }
@@ -1195,7 +1197,7 @@ class Parser
     }
 
     /**
-     * Parse a function declaration (FUNCTION IDENTIFIER LPAREN [param (COMMA param)*] RPAREN block),
+     * Parse a function declaration (FN IDENTIFIER LPAREN [param (COMMA param)*] RPAREN block),
      * param: VAR_IDENTIFIER [ASSIGN expr]
      *
      * Only allowed at the top level, which is also why break and continue can
@@ -1208,7 +1210,7 @@ class Parser
     public function function_declaration()
     {
         $start = $this->current_token;
-        $this->eat(Token::FUNCTION);
+        $this->eat(Token::FN);
         $name = $this->current_token->value;
         if (isset($this->functions[$name])) {
             $this->fail(isset(Builtins::ARITIES[$name]) ? "{$name} is a builtin function" : "Function {$name} is already declared");
@@ -1311,7 +1313,7 @@ class Parser
     {
         $statements = [];
         while ($this->current_token->type !== Token::EOF) {
-            if ($this->current_token->type === Token::FUNCTION) {
+            if ($this->current_token->type === Token::FN) {
                 $statements[] = $this->function_declaration();
             } elseif ($this->current_token->type === Token::INCLUDE) {
                 array_push($statements, ...$this->include_statement());

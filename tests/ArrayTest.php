@@ -69,7 +69,7 @@ class ArrayTest extends GazLangTestCase
     public function test_functions_and_closures_get_a_copy_of_a_map()
     {
         $this->assertEquals("{\"n\" => 1}\n{\"n\" => 2}\n{\"n\" => 1}\n", $this->executeCode(
-            'function bump($m) { $m["n"]++; return $m; } $a = {"n" => 1}; echo $a; echo bump($a);'
+            'fn bump($m) { $m["n"]++; return $m; } $a = {"n" => 1}; echo $a; echo bump($a);'
             .' $f = () -> { $a["n"] = 5; return $a; }; $f(); echo $a;'
         ));
     }
@@ -86,14 +86,14 @@ class ArrayTest extends GazLangTestCase
     public function test_functions_get_a_copy()
     {
         $this->assertEquals("[1, 2]\n[1, 2, 3]\n", $this->executeCode(
-            'function add($list) { $list[] = 3; return $list; } $a = [1, 2]; $b = add($a); echo $a; echo $b;'
+            'fn add($list) { $list[] = 3; return $list; } $a = [1, 2]; $b = add($a); echo $a; echo $b;'
         ));
     }
 
     public function test_global_arrays_are_shared()
     {
         $this->assertEquals("[\"a\", \"b\"]\n", $this->executeCode(
-            '@stack = []; function push($v) { @stack[] = $v; } push("a"); push("b"); echo @stack;'
+            '@stack = []; fn push($v) { @stack[] = $v; } push("a"); push("b"); echo @stack;'
         ));
     }
 
@@ -105,7 +105,7 @@ class ArrayTest extends GazLangTestCase
     public function test_keys_are_evaluated_left_to_right()
     {
         $this->assertEquals("key 0\nkey 1\n[[0, 5], [0, 0]]\n", $this->executeCode(
-            'function k($n) { echo "key " .. $n; return $n; } $a = [[0, 0], [0, 0]]; $a[k(0)][k(1)] = 5; echo $a;'
+            'fn k($n) { echo "key " .. $n; return $n; } $a = [[0, 0], [0, 0]]; $a[k(0)][k(1)] = 5; echo $a;'
         ));
     }
 
@@ -113,7 +113,7 @@ class ArrayTest extends GazLangTestCase
     {
         $this->assertEquals("[1, 1]\n[5, 6, 0]\n", $this->executeCode(
             '$e = []; $e[] = $e[] = 1; echo $e;'
-            .' @g = [1]; function reset_g() { @g = [5, 6, 7]; return 0; } @g[2] = reset_g(); echo @g;'
+            .' @g = [1]; fn reset_g() { @g = [5, 6, 7]; return 0; } @g[2] = reset_g(); echo @g;'
         ));
     }
 
@@ -124,7 +124,7 @@ class ArrayTest extends GazLangTestCase
     {
         // executeCode also runs this on the VM, which must check keys just as early
         $this->assertEquals("Keys must be int or string\n", $this->executeCode(
-            'function side() { echo "side effect"; return 1; } $a = {}; '
+            'fn side() { echo "side effect"; return 1; } $a = {}; '
             .'try { '.$code.' } catch ($e) { echo slice($e["message"], 0, 26); }'
         ));
     }
@@ -210,9 +210,9 @@ class ArrayTest extends GazLangTestCase
     {
         return [
             'reading []' => ['$a = []; echo $a[];', '[] can only be used to append in an assignment'],
-            'assigning into a call' => ['function f() { return []; } f()[0] = 1;', 'Can only use = on a variable or an element of one'],
+            'assigning into a call' => ['fn f() { return []; } f()[0] = 1;', 'Can only use = on a variable or an element of one'],
             'len arity' => ['echo len([], []);', 'Function len expects 1 arguments, 2 given'],
-            'redeclaring len' => ['function len($x) { }', 'len is a builtin function'],
+            'redeclaring len' => ['fn len($x) { }', 'len is a builtin function'],
             'unterminated literal' => ['echo [1, 2;', "Expected ',' but found ';'"],
             'keys in a list' => ['echo ["a" => 1];', 'A list has no keys: write a map as {key => value}'],
             'no key in a map' => ['echo {1};', "Expected '=>' but found '}'"],
@@ -245,8 +245,8 @@ class ArrayTest extends GazLangTestCase
     public function test_constant_literals_are_not_shared_between_evaluations()
     {
         $this->assertEquals("[[1, 2], [1]]\n[{\"k\" => [1, 2], \"j\" => 1}, {\"k\" => [1]}]\n", $this->executeCode(
-            'function fresh() { return [1]; } $a = fresh(); $a[] = 2; echo [$a, fresh()];'
-            .' function map() { return {"k" => [1]}; } $m = map(); $m["k"][] = 2; $m["j"] = 1; echo [$m, map()];'
+            'fn fresh() { return [1]; } $a = fresh(); $a[] = 2; echo [$a, fresh()];'
+            .' fn map() { return {"k" => [1]}; } $m = map(); $m["k"][] = 2; $m["j"] = 1; echo [$m, map()];'
         ));
     }
 

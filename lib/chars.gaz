@@ -5,7 +5,7 @@
 // number) is false rather than an error, so reading past the end of a string is safe.
 
 // The character at position $i of $s, or "" outside it (indexing past the end is an error)
-function char_at($s, $i) {
+fn char_at($s, $i) {
     if ($i >= 0 && $i < len($s)) {
         return $s[$i];
     }
@@ -13,30 +13,30 @@ function char_at($s, $i) {
 }
 
 // Whether $c is a one character string
-function is_char($c) {
+fn is_char($c) {
     return type_of($c) == "string" && len($c) == 1;
 }
 
 // 0 to 9
-function is_digit($c) {
+fn is_digit($c) {
     return is_char($c) && $c >= "0" && $c <= "9";
 }
 
 // 0 to 9, a to f or A to F
-function is_hex_digit($c) {
+fn is_hex_digit($c) {
     return is_digit($c) || is_char($c) && ($c >= "a" && $c <= "f" || $c >= "A" && $c <= "F");
 }
 
 // a to z or A to Z; strings compare byte by byte
-function is_alpha($c) {
+fn is_alpha($c) {
     return is_char($c) && ($c >= "a" && $c <= "z" || $c >= "A" && $c <= "Z");
 }
 
-function is_alnum($c) {
+fn is_alnum($c) {
     return is_alpha($c) || is_digit($c);
 }
 
 // Space, tab, newline or carriage return
-function is_space($c) {
+fn is_space($c) {
     return in_array($c, [" ", "\t", "\n", "\r"]);
 }

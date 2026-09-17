@@ -9,7 +9,7 @@ and a stack VM that must agree on everything, on the way to being self-hosting.
 include "lib/csv.gaz";
 include "lib/functional.gaz";
 
-function report($sales, $column) {
+fn report($sales, $column) {
     $totals = reduce($sales, ($t, $row) -> {
         $t[$row["region"]] = ($t[$row["region"]] ?? 0.0) + to_float($row[$column]);
         return $t;
@@ -62,7 +62,7 @@ Try `php bin/gazlang -f examples/csv_report.gaz -- examples/data/sales.csv regio
   maps compare element by element); `< <= > >=` and `<=>` on numbers or on strings; `&& || !`;
   `??` and `??=` for missing values; `$c ? $a : $b`; `+= -= *= /= %= ..= ++ --`.
 - **Control flow**: `if`/`else if`/`else`, `while`, `for`, `foreach`, `break`, `continue`.
-- **Functions**: `function add($a, $b = 1) { return $a + $b; }` at the top level, callable
+- **Functions**: `fn add($a, $b = 1) { return $a + $b; }` at the top level, callable
   before they are declared. A bare name is a value (`$f = add; $f(1)`, builtins too), and
   `$x -> $x * 2`, `($a, $b = 1) -> $a + $b`, `() -> { return 42; }` are anonymous functions
   that copy the outer variables they use when created and keep them between calls

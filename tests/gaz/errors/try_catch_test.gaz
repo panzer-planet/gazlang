@@ -10,7 +10,7 @@ try {
     check("line", $e["line"], 6);
 }
 
-function fail_with($message) {
+fn fail_with($message) {
     error($message);
 }
 
@@ -23,7 +23,7 @@ try {
 
 // Every kind of runtime error can be caught (running out of call depth too, tested in TryCatchTest,
 // since recursing that deep in-process can segfault while pcov is loaded)
-function caught_message($code) {
+fn caught_message($code) {
     try {
         if ($code == "undefined") { return $missing; }
         if ($code == "type") { return "a" * 2; }
@@ -82,7 +82,7 @@ try {
 }
 
 // return, break and continue are not errors: they pass through try
-function first_positive($numbers) {
+fn first_positive($numbers) {
     foreach ($numbers as $n) {
         try {
             if ($n > 0) {
@@ -112,9 +112,9 @@ foreach ([1, 2, 3, 4] as $n) {
 check("continue and break inside try", $seen, [1, 3]);
 
 // Errors keep unwinding through functions until a try catches them
-function level_three() { error("from level three"); }
-function level_two() { level_three(); return "unreachable"; }
-function level_one() {
+fn level_three() { error("from level three"); }
+fn level_two() { level_three(); return "unreachable"; }
+fn level_one() {
     try {
         return level_two();
     } catch ($e) {
@@ -131,7 +131,7 @@ try {
 check("global catch variable", @last_error["message"], "global");
 
 // Handling bad input without stopping: the reason json_decode needed try/catch
-function parse_config($text) {
+fn parse_config($text) {
     try {
         return {"ok" => true, "config" => json_decode($text)};
     } catch ($e) {

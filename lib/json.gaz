@@ -24,7 +24,7 @@ include "chars.gaz";
 @json_pos = 0;
 @json_depth = 0;
 
-function json_decode($text) {
+fn json_decode($text) {
     @json_text = $text;
     @json_pos = 0;
     @json_depth = 0;
@@ -39,7 +39,7 @@ function json_decode($text) {
     return $value;
 }
 
-function json_encode($value) {
+fn json_encode($value) {
     $type = type_of($value);
     if ($type == "string") {
         return json_encode_string($value);
@@ -67,12 +67,12 @@ function json_encode($value) {
 
 // --- Decoding ---
 
-function json_fail($message) {
+fn json_fail($message) {
     error("Invalid JSON: $message at position " .. @json_pos);
 }
 
 // The character at the current position, quoted, or "end of input"
-function json_describe_char() {
+fn json_describe_char() {
     $c = char_at(@json_text, @json_pos);
     if ($c == "") {
         return "end of input";
@@ -80,13 +80,13 @@ function json_describe_char() {
     return json_encode_string($c);
 }
 
-function json_skip_whitespace() {
+fn json_skip_whitespace() {
     while (is_space(char_at(@json_text, @json_pos))) {
         @json_pos++;
     }
 }
 
-function json_parse_value() {
+fn json_parse_value() {
     $c = char_at(@json_text, @json_pos);
     if ($c == "{") {
         return json_parse_object();
@@ -113,7 +113,7 @@ function json_parse_value() {
 }
 
 // If the text continues with $word, move past it and return true
-function json_match($word) {
+fn json_match($word) {
     if (slice(@json_text, @json_pos, len($word)) == $word) {
         @json_pos += len($word);
         return true;
@@ -122,7 +122,7 @@ function json_match($word) {
 }
 
 // Called at the [ or { that opens an array or object
-function json_enter() {
+fn json_enter() {
     @json_depth++;
     if (@json_depth > 511) {
         json_fail("nesting deeper than 511 levels");
@@ -131,7 +131,7 @@ function json_enter() {
     json_skip_whitespace();
 }
 
-function json_parse_array() {
+fn json_parse_array() {
     json_enter();
     $array = [];
     if (char_at(@json_text, @json_pos) == "]") {
@@ -158,7 +158,7 @@ function json_parse_array() {
     }
 }
 
-function json_parse_object() {
+fn json_parse_object() {
     json_enter();
     $object = {};
     if (char_at(@json_text, @json_pos) == "}") {
@@ -200,7 +200,7 @@ function json_parse_object() {
 // Called at the opening quote. Runs of plain characters are copied with slice(),
 // rather than one character at a time. This is the hot loop for most documents, so it
 // indexes the text directly instead of calling char_at().
-function json_parse_string() {
+fn json_parse_string() {
     $text = @json_text;
     $length = len($text);
     $pos = @json_pos + 1;
@@ -232,7 +232,7 @@ function json_parse_string() {
 }
 
 // Called at a backslash in a string: returns what the escape stands for and moves past it
-function json_parse_escape() {
+fn json_parse_escape() {
     $c = char_at(@json_text, @json_pos + 1);
     $simple = {"\"" => "\"", "\\" => "\\", "/" => "/", "b" => chr(8), "f" => "\f", "n" => "\n", "r" => "\r", "t" => "\t"};
     if (has_key($simple, $c)) {
@@ -266,7 +266,7 @@ function json_parse_escape() {
 }
 
 // The four hex digits starting at $at, as an int
-function json_parse_hex4($at) {
+fn json_parse_hex4($at) {
     $value = 0;
     for ($i = 0; $i < 4; $i++) {
         $c = char_at(@json_text, $at + $i);
@@ -281,7 +281,7 @@ function json_parse_hex4($at) {
 
 // A code point written as UTF-8 bytes
 // (no bitwise operators: dividing by 0x40 shifts right 6 bits, % 0x40 keeps the low 6)
-function json_utf8($code_point) {
+fn json_utf8($code_point) {
     if ($code_point < 0x80) {
         return chr($code_point);
     }
@@ -297,7 +297,7 @@ function json_utf8($code_point) {
 }
 
 // JSON's number grammar: -?(0|[1-9][0-9]*)(.[0-9]+)?([eE][+-]?[0-9]+)?
-function json_parse_number() {
+fn json_parse_number() {
     $text = @json_text;
     $start = @json_pos;
     $pos = $start;
@@ -349,7 +349,7 @@ function json_parse_number() {
     return to_int($number);
 }
 
-function json_skip_digits($text, $pos) {
+fn json_skip_digits($text, $pos) {
     while (is_digit(char_at($text, $pos))) {
         $pos++;
     }
@@ -358,7 +358,7 @@ function json_skip_digits($text, $pos) {
 
 // Whether an integer (with its minus, if any, and no leading zeros) fits in an int.
 // Equal-length digit strings compare byte by byte, which is numeric order.
-function json_int_fits($integer, $negative) {
+fn json_int_fits($integer, $negative) {
     $digits = $integer;
     $limit = "9223372036854775807";
     if ($negative) {
@@ -371,7 +371,7 @@ function json_int_fits($integer, $negative) {
 // --- Encoding ---
 
 // A string as a JSON string: quote, backslash and control characters escaped
-function json_encode_string($string) {
+fn json_encode_string($string) {
     $escapes = {"\"" => "\\\"", "\\" => "\\\\", "\n" => "\\n", "\r" => "\\r", "\t" => "\\t", "\f" => "\\f", chr(8) => "\\b"};
     $hex = "0123456789abcdef";
     $result = "";

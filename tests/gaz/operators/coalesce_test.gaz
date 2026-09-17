@@ -20,7 +20,7 @@ check("string position out of range", "abc"[10] ?? "default", "default");
 // Right associative, and the right side only runs when needed
 check("chain", null ?? $never_assigned ?? "last", "last");
 @calls = 0;
-function called() {
+fn called() {
     @calls++;
     return "called";
 }
@@ -68,7 +68,7 @@ check("??= on a global", @shared, "first");
 
 // The key runs once; the right side only when needed
 @keys = 0;
-function next_key() {
+fn next_key() {
     @keys++;
     return "k";
 }

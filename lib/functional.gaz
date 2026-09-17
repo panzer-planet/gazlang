@@ -9,7 +9,7 @@
 //   returns a negative number, zero or a positive number (write $a <=> $b). A stable merge
 //   sort, so equal items keep their order.
 
-function map($x, $f) {
+fn map($x, $f) {
     if (type_of($x) == "list") {
         $list = [];
         foreach ($x as $value) {
@@ -24,7 +24,7 @@ function map($x, $f) {
     return $map;
 }
 
-function filter($x, $keep) {
+fn filter($x, $keep) {
     if (type_of($x) == "list") {
         $list = [];
         foreach ($x as $value) {
@@ -43,7 +43,7 @@ function filter($x, $keep) {
     return $map;
 }
 
-function reduce($x, $f, $initial) {
+fn reduce($x, $f, $initial) {
     $carry = $initial;
     foreach ($x as $value) {
         $carry = $f($carry, $value);
@@ -51,7 +51,7 @@ function reduce($x, $f, $initial) {
     return $carry;
 }
 
-function sort($x, $compare) {
+fn sort($x, $compare) {
     $list = [];
     foreach ($x as $value) {
         $list[] = $value;

@@ -50,7 +50,7 @@ $totals["counts"][0] *= 2;
 check("elements", $totals, {"apples" => 5, "counts" => [22, 21]});
 
 @calls = 0;
-function count_call() {
+fn count_call() {
     @calls++;
     return @calls;
 }
@@ -60,7 +60,7 @@ check("global ++ inside a function", @calls, 2);
 
 // Index keys are evaluated once
 @key_calls = 0;
-function next_key() {
+fn next_key() {
     @key_calls += 1;
     return "apples";
 }

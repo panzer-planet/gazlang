@@ -1,4 +1,4 @@
-function twice($x) { return $x * 2; }
+fn twice($x) { return $x * 2; }
 include "apply.gaz";
 echo apply(twice, 4);
 echo $t(5);

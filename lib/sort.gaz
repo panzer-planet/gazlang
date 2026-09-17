@@ -6,11 +6,11 @@
 include "functional.gaz";
 
 // $values sorted, smallest first, or largest first if $descending
-function sort_values($values, $descending = false) {
+fn sort_values($values, $descending = false) {
     return sort($values, $descending ? ($a, $b) -> $b <=> $a : ($a, $b) -> $a <=> $b);
 }
 
 // $rows sorted by $row[$key], smallest first, or largest first if $descending
-function sort_by($rows, $key, $descending = false) {
+fn sort_by($rows, $key, $descending = false) {
     return sort($rows, $descending ? ($a, $b) -> $b[$key] <=> $a[$key] : ($a, $b) -> $a[$key] <=> $b[$key]);
 }

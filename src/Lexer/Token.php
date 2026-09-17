@@ -90,7 +90,9 @@ class Token
 
     public const CONTINUE = 'CONTINUE';  // Continue keyword
 
-    public const FUNCTION = 'FUNCTION';  // Function keyword
+    public const FN = 'FN';  // fn keyword, declaring a function
+
+    public const FUNCTION = 'FUNCTION';  // function, reserved: functions are declared with fn
 
     public const RETURN = 'RETURN';  // Return keyword
 

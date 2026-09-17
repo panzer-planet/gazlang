@@ -12,7 +12,7 @@ class TryCatchTest extends GazLangTestCase
         // recursion this deep can segfault (VMTest covers the VM in-process)
         exec(sprintf(
             'echo %s | %s %s --interpreter',
-            escapeshellarg('function recurse() { return recurse(); } try { recurse(); } catch ($e) { echo $e["message"]; } echo "still running";'),
+            escapeshellarg('fn recurse() { return recurse(); } try { recurse(); } catch ($e) { echo $e["message"]; } echo "still running";'),
             escapeshellarg(PHP_BINARY),
             escapeshellarg(self::ROOT.'/bin/gazlang')
         ), $output, $exit_code);
@@ -73,7 +73,7 @@ class TryCatchTest extends GazLangTestCase
         // RET drops the returning frame's handlers, so no END_TRY is emitted before it
         $this->assertStringContainsString(
             "LABEL FN_f\nTRY CATCH_0\nPUSH 1\nRET\nEND_TRY\nJMP ENDTRY_0\nLABEL CATCH_0\nSTORE 0\nLABEL ENDTRY_0",
-            $this->generateCode('f(); function f() { try { return 1; } catch ($e) { } }')
+            $this->generateCode('f(); fn f() { try { return 1; } catch ($e) { } }')
         );
     }
 

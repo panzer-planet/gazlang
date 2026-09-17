@@ -56,7 +56,7 @@ class IncludeTest extends GazLangTestCase
         $dir = sys_get_temp_dir().'/gazlang_include_'.getmypid();
         mkdir($dir);
         file_put_contents("{$dir}/main.gaz", 'include "secret.gaz";');
-        file_put_contents("{$dir}/secret.gaz", 'function f() { return 1; }');
+        file_put_contents("{$dir}/secret.gaz", 'fn f() { return 1; }');
         chmod("{$dir}/secret.gaz", 0);
 
         try {

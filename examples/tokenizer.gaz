@@ -8,12 +8,12 @@ include "../lib/chars.gaz";
 $keywords = ["if", "else", "while", "return", "function"];
 $operators = ["==", "!=", "<=", ">=", "->", "..", "&&", "||", "+", "-", "*", "/", "%", "=", "<", ">", "!", "(", ")", "{", "}", "[", "]", ",", ";"];
 
-function token($type, $text, $line) {
+fn token($type, $text, $line) {
     return {"type" => $type, "text" => $text, "line" => $line};
 }
 
 // A list of token maps; errors name the line
-function tokenize($source, $keywords, $operators) {
+fn tokenize($source, $keywords, $operators) {
     $tokens = [];
     $line = 1;
     $i = 0;
@@ -57,7 +57,7 @@ function tokenize($source, $keywords, $operators) {
     return $tokens;
 }
 
-$source = 'function greet(name) {
+$source = 'fn greet(name) {
     // Say hello
     if (name != "") {
         return "Hello, " .. name;

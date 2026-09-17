@@ -58,7 +58,7 @@ foreach ($counts as $word => $n) {
 }
 
 // Lists and maps are values: assigning or passing one makes a copy
-function with_extra($list) {
+fn with_extra($list) {
     $list[] = "extra";
     return $list;
 }

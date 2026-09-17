@@ -8,12 +8,12 @@ include "../lib/functional.gaz";
 // $ variables are local to the call; @ variables are global.
 echo fib(20);                                   // 6765
 
-function fib($n) {
+fn fib($n) {
     return $n < 2 ? $n : fib($n - 1) + fib($n - 2);
 }
 
 // Defaults can use earlier parameters, and are evaluated on each call
-function greet($name, $greeting = "Hello", $line = "$greeting, $name!") {
+fn greet($name, $greeting = "Hello", $line = "$greeting, $name!") {
     return $line;
 }
 echo greet("Gaz");                              // Hello, Gaz!
@@ -41,7 +41,7 @@ $rate = 0;
 echo $with_tax(200);                            // 230.0
 
 // ...and keep them between calls, so a closure can hold state
-function counter($start = 0) {
+fn counter($start = 0) {
     $n = $start;
     return () -> ++$n;
 }

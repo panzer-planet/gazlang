@@ -1,5 +1,5 @@
 // exit() stops the program with its code, from anywhere, and try/catch doesn't see it
-function stop($code) {
+fn stop($code) {
     try {
         echo "stopping";
         exit($code);

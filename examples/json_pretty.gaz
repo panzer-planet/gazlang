@@ -5,7 +5,7 @@
 // With no file it formats the sample below; invalid JSON stops with an error and exit code 1.
 include "../lib/json.gaz";
 
-function pretty($value, $indent = "") {
+fn pretty($value, $indent = "") {
     $type = type_of($value);
     if (($type != "list" && $type != "map") || len($value) == 0) {
         // Scalars, [] and {} are already as short as they get

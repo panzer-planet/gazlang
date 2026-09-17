@@ -58,12 +58,12 @@ class LambdaTest extends GazLangTestCase
     public function test_lambdas_are_values_passed_stored_and_returned()
     {
         $this->assertEquals("15\n6\n6\n[2, 4]\n7\n", $this->executeCode(<<<'CODE'
-            function apply($f, $v) { return $f($v); }
+            fn apply($f, $v) { return $f($v); }
             echo apply($x -> $x * 3, 5);
-            function adder($k) { return $x -> $x + $k; }
+            fn adder($k) { return $x -> $x + $k; }
             $add5 = adder(5);
             echo $add5(1);
-            function with_default($cb = $x -> $x * 2) { return $cb(3); }
+            fn with_default($cb = $x -> $x * 2) { return $cb(3); }
             echo with_default();
             $ops = {"double" => $x -> $x * 2};
             $out = [];
@@ -102,7 +102,7 @@ class LambdaTest extends GazLangTestCase
     public function test_a_function_named_like_a_lambda_frame_keeps_its_own_variable_names()
     {
         $this->assertEquals("Undefined variable: \$b\nUndefined key: \"k\"\n", $this->executeCode(
-            'function lambda_0($a) { return $b; } function f() { $z = {}; $z["k"]["m"] = 1; } $l = () -> 1;'
+            'fn lambda_0($a) { return $b; } fn f() { $z = {}; $z["k"]["m"] = 1; } $l = () -> 1;'
             .' try { lambda_0(1); } catch ($e) { echo $e["message"]; } try { f(); } catch ($e) { echo $e["message"]; }'
         ));
     }
@@ -135,7 +135,7 @@ class LambdaTest extends GazLangTestCase
 11 12 21
 3
 ', $this->executeCode(<<<'CODE'
-            function counter() { $n = 0; return () -> ++$n; }
+            fn counter() { $n = 0; return () -> ++$n; }
             $c = counter(); $d = counter(); $c(); $c();
             echo $c() .. " " .. $d();
             // A closure is one value: another variable holding it shares its variables
@@ -168,7 +168,7 @@ data 1
             $fib = $n -> $memo[$n] ??= ($n < 2 ? $n : $fib($n - 1) + $fib($n - 2));
             echo $fib(80);
             @loads = 0;
-            function load() { @loads++; return "data"; }
+            fn load() { @loads++; return "data"; }
             $get = () -> { $cache ??= load(); return $cache; };
             $get(); $get();
             echo $get() .. " " .. @loads;
@@ -293,7 +293,7 @@ Undefined variable: $n
     public function test_return_is_allowed_in_a_block_body_at_top_level_and_the_enclosing_function_keeps_its_own()
     {
         $this->assertEquals("1\n2\n", $this->executeCode(
-            'echo (() -> { return 1; })(); function f() { $g = () -> { return 2; }; return $g(); } echo f();'
+            'echo (() -> { return 1; })(); fn f() { $g = () -> { return 2; }; return $g(); } echo f();'
         ));
     }
 

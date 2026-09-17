@@ -1,6 +1,6 @@
 include "../check.gaz";
 
-function greet($name, $greeting = "Hello", $end = "!") {
+fn greet($name, $greeting = "Hello", $end = "!") {
     return "$greeting, $name$end";
 }
 check("both defaults", greet("Gaz"), "Hello, Gaz!");
@@ -9,7 +9,7 @@ check("no defaults", greet("Gaz", "Hi", "?"), "Hi, Gaz?");
 check("passing null doesn't use the default", greet("Gaz", null), "null, Gaz!");
 
 // Defaults are evaluated on every call that needs them, so they are never shared
-function add_to($item, $list = []) {
+fn add_to($item, $list = []) {
     $list[] = $item;
     return $list;
 }
@@ -17,18 +17,18 @@ check("fresh default array", add_to(1), [1]);
 check("still fresh on the next call", add_to(2), [2]);
 
 // A default can use earlier parameters and globals, and call functions
-function area($width, $height = $width) {
+fn area($width, $height = $width) {
     return $width * $height;
 }
 check("default from an earlier parameter", area(3), 9);
 check("given explicitly", area(3, 4), 12);
 
 @next_id = 0;
-function new_id() {
+fn new_id() {
     @next_id++;
     return @next_id;
 }
-function make_item($name, $id = new_id()) {
+fn make_item($name, $id = new_id()) {
     return {"id" => $id, "name" => $name};
 }
 check("default calls a function", make_item("a"), {"id" => 1, "name" => "a"});
@@ -37,7 +37,7 @@ check("evaluated again on the next call", make_item("c"), {"id" => 2, "name" => 
 
 // Defaults run inside the function: its locals, not the caller's
 $outside = "caller's";
-function scoped($value = $outside) {
+fn scoped($value = $outside) {
     return $value;
 }
 try {
@@ -48,7 +48,7 @@ try {
 check("given explicitly, the default isn't evaluated either", scoped("fine"), "fine");
 
 // A failing default is a normal, catchable error
-function strict($n = 1 / 0) {
+fn strict($n = 1 / 0) {
     return $n;
 }
 try {
@@ -59,7 +59,7 @@ try {
 check("not evaluated when the argument is given", strict(5), 5);
 
 // Recursion with a default accumulator
-function sum_to($n, $total = 0) {
+fn sum_to($n, $total = 0) {
     if ($n == 0) {
         return $total;
     }

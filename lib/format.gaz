@@ -4,7 +4,7 @@
 // format_number(1234.5) is "1,234.50", format_number(-0.004) is "0.00".
 // Rounds like round($number, $decimals), so format_number(1.005) is "1.01", as with PHP's
 // number_format. The number must fit in an int once scaled by 10^$decimals.
-function format_number($number, $decimals = 2, $thousands = ",") {
+fn format_number($number, $decimals = 2, $thousands = ",") {
     $scale = 1;
     for ($i = 0; $i < $decimals; $i++) {
         $scale *= 10;
@@ -31,7 +31,7 @@ function format_number($number, $decimals = 2, $thousands = ",") {
 }
 
 // $text padded with $pad on the left to at least $width characters (bytes)
-function pad_left($text, $width, $pad = " ") {
+fn pad_left($text, $width, $pad = " ") {
     $missing = $width - len($text);
     if ($missing <= 0) {
         return $text;
@@ -40,7 +40,7 @@ function pad_left($text, $width, $pad = " ") {
 }
 
 // $text padded with $pad on the right to at least $width characters (bytes)
-function pad_right($text, $width, $pad = " ") {
+fn pad_right($text, $width, $pad = " ") {
     $missing = $width - len($text);
     if ($missing <= 0) {
         return $text;

@@ -1,7 +1,7 @@
 include "../check.gaz";
 
 // Collects what a foreach saw, as "key=value" strings
-function pairs($array) {
+fn pairs($array) {
     $seen = [];
     foreach ($array as $key => $value) {
         $seen[] = "$key=" .. to_string($value);
@@ -61,7 +61,7 @@ check("nested loops", $cells, ["0.0=1", "0.1=2", "1.0=3"]);
 foreach ({"k" => "v"} as @last_key => @last_value) { }
 check("global loop variables", "{@last_key}{@last_value}", "kv");
 
-function first_even($numbers) {
+fn first_even($numbers) {
     foreach ($numbers as $n) {
         if ($n % 2 == 0) {
             return $n;
@@ -74,7 +74,7 @@ check("return after a foreach", first_even([1, 3]), null);
 
 // The array expression is evaluated once
 @calls = 0;
-function numbers() {
+fn numbers() {
     @calls = @calls + 1;
     return [1, 2, 3];
 }

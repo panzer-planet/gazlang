@@ -27,13 +27,13 @@ class ErrorTest extends GazLangTestCase
             'unexpected token' => ['echo ;', "Unexpected ';' on line 1"],
             'end of file' => ["echo (1\n", "Expected ')' but found end of file on line 2"],
             'string token' => ['echo 1 "x\ty";', 'Expected \';\' but found string "x\ty" on line 1'],
-            'keyword expected' => ['function f() { } function g() { } echo 1 if', "Expected ';' but found 'if' on line 1"],
+            'keyword expected' => ['fn f() { } fn g() { } echo 1 if', "Expected ';' but found 'if' on line 1"],
             'comments count as lines' => ["// one\n// two\necho $;", 'Invalid variable name: $ on line 3'],
-            'undefined function, at the call' => ["function f() {}\n\nmissing();", 'Undefined function: missing on line 3'],
+            'undefined function, at the call' => ["fn f() {}\n\nmissing();", 'Undefined function: missing on line 3'],
             'interpolation not closed by }' => ['echo "a {$x $y} b";', "Expected '}' but found '\$y' on line 1"],
             'empty interpolation' => ['echo "a {$}";', 'Invalid variable name: $ on line 1'],
             'include with interpolation' => ["\$f = 1;\ninclude \"lib/{\$f}.gaz\";", 'include paths cannot use interpolation on line 2'],
-            'duplicate parameter' => ["function f(\$a,\n \$a) {}", 'Duplicate parameter $a in function f on line 2'],
+            'duplicate parameter' => ["fn f(\$a,\n \$a) {}", 'Duplicate parameter $a in function f on line 2'],
         ];
     }
 
@@ -49,7 +49,7 @@ class ErrorTest extends GazLangTestCase
     public static function runtimeErrors(): array
     {
         return [
-            'operator on a later line' => ["function f(\$x) {\n    return \$x +\n        null;\n}\necho f(1);", 'Cannot use + on null on line 2'],
+            'operator on a later line' => ["fn f(\$x) {\n    return \$x +\n        null;\n}\necho f(1);", 'Cannot use + on null on line 2'],
             'undefined variable' => ["\$a = 1;\necho \$a + \$b;", 'Undefined variable: $b on line 2'],
             'division by zero' => ["\$zero = 0;\necho 1 / \$zero;", 'Division by zero on line 2'],
             'builtin argument' => ["echo\n  lower(1);", 'lower() expects string, got int on line 2'],

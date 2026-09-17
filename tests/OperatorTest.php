@@ -102,7 +102,7 @@ class OperatorTest extends GazLangTestCase
     {
         return [
             'literal ++' => ['5++;', 'Can only use ++ on a variable or an element of one'],
-            'prefix -- on a call' => ['function f() { return 1; } --f();', 'Can only use -- on a variable or an element of one'],
+            'prefix -- on a call' => ['fn f() { return 1; } --f();', 'Can only use -- on a variable or an element of one'],
             '+= on an expression' => ['($a + 1) += 2;', 'Can only use += on a variable or an element of one'],
             'append with +=' => ['$a = []; $a[] += 1;', 'Cannot use += to append'],
             'append with ??=' => ['$a = []; $a[] ??= 1;', 'Cannot use ??= to append'],

@@ -34,7 +34,7 @@ class VMTest extends GazLangTestCase
         // The interpreter recurses on the PHP stack, which can segfault this deep while pcov
         // is loaded; the VM's calls are frames in an array
         $program = (new CodeGenerator($this->createParser(
-            'function down($n) { if ($n == 0) { return "bottom"; } return down($n - 1); } echo down(9000);'
+            'fn down($n) { if ($n == 0) { return "bottom"; } return down($n - 1); } echo down(9000);'
         )->parse()))->compile();
 
         ob_start();
@@ -45,7 +45,7 @@ class VMTest extends GazLangTestCase
     public function test_call_depth_limit_on_the_vm_can_be_caught()
     {
         $program = (new CodeGenerator($this->createParser(
-            'function forever() { return forever(); } try { forever(); } catch ($e) { echo $e["message"]; }'
+            'fn forever() { return forever(); } try { forever(); } catch ($e) { echo $e["message"]; }'
         )->parse()))->compile();
 
         ob_start();

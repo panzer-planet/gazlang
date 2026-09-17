@@ -86,6 +86,8 @@ class Lexer
         'as' => 'AS',
         'break' => 'BREAK',
         'continue' => 'CONTINUE',
+        'fn' => 'FN',
+        // No longer declares functions; reserved so using it gets a helpful error
         'function' => 'FUNCTION',
         'return' => 'RETURN',
         'null' => 'NULL',

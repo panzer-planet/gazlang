@@ -6,7 +6,7 @@ use GazLang\GazLangError;
 
 class FunctionValueTest extends GazLangTestCase
 {
-    private const ADD = 'function add($a, $b) { return $a + $b; } ';
+    private const ADD = 'fn add($a, $b) { return $a + $b; } ';
 
     public function test_a_bare_name_is_a_function_value_that_can_be_called()
     {
@@ -21,7 +21,7 @@ class FunctionValueTest extends GazLangTestCase
     public function test_calls_on_elements_and_on_call_results()
     {
         $this->assertEquals("7\n3\n3\n", $this->executeCode(
-            self::ADD.'function pick() { return add; } $h = {"add" => add, "len" => len};'
+            self::ADD.'fn pick() { return add; } $h = {"add" => add, "len" => len};'
             .' echo $h["add"](3, 4); echo $h["len"]("abc"); echo pick()(1, 2);'
         ));
     }
@@ -29,11 +29,11 @@ class FunctionValueTest extends GazLangTestCase
     public function test_functions_can_be_passed_stored_globally_defaulted_and_iterated()
     {
         $this->assertEquals("6\n9\n3\n6\n3\nabc\n", $this->executeCode(<<<'CODE'
-            function apply($f, $x) { return $f($x); }
-            function triple($x) { return $x * 3; }
-            function with_default($x, $f = triple) { return $f($x); }
+            fn apply($f, $x) { return $f($x); }
+            fn triple($x) { return $x * 3; }
+            fn with_default($x, $f = triple) { return $f($x); }
             @op = triple;
-            function use_global($x) { return @op($x); }
+            fn use_global($x) { return @op($x); }
             echo apply(triple, 2);
             echo use_global(3);
             echo with_default([1, 2, 3], len);
@@ -132,7 +132,7 @@ class FunctionValueTest extends GazLangTestCase
     public function test_runaway_recursion_through_a_value_is_a_gazlang_error()
     {
         // Through the CLI, which restarts itself without pcov (see FunctionTest)
-        $code = 'function inf() { $f = inf; return $f(); } echo inf();';
+        $code = 'fn inf() { $f = inf; return $f(); } echo inf();';
         foreach (['', '--interpreter'] as $backend) {
             $command = sprintf('echo %s | %s %s %s', escapeshellarg($code), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang'), $backend);
             exec($command, $output, $exit_code);

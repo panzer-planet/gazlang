@@ -106,12 +106,13 @@ each step depends on the ones before it.
    generator lowers it to a while loop over `keys()` with hidden `$#foreach_*_n`
    variables (no program can name them), using the step for `continue`.
 4. ~~**Add functions and scoping.**~~ Done. Decided semantics:
-   - `function name($a, $b) { ... }` is only allowed at the top level. Calls may
+   - `fn name($a, $b) { ... }` (renamed from `function` on 2026-09-17; `function` stays
+     reserved and says to use `fn`) is only allowed at the top level. Calls may
      come before the declaration (mutual recursion works). The parser checks
      every call's name and argument count once the whole program is read, so
      both backends trust calls. Functions are values and there are anonymous
      functions, see "Function values" below.
-   - Parameters can have defaults, `function f($a, $b = $a * 2)`, after all the
+   - Parameters can have defaults, `fn f($a, $b = $a * 2)`, after all the
      required ones. A default is any expression, evaluated inside the function on
      each call that leaves the argument out (so it can use earlier parameters and
      globals, and a default `[]` is never shared between calls). The function's
@@ -337,7 +338,7 @@ Design agreed on 2026-09-17, to build in phases (each committed and reviewed):
 - **Fields are declared up front** in the class body (a property must be declared to
   be read or written; the parser can check `#x` against the declarations). The
   declaration syntax is still to be chosen; `#x;` is the candidate.
-- **The constructor is the method named `_`:** `function _($x, $y) { #x = $x; #y = $y; }`.
+- **The constructor is the method named `_`:** `fn _($x, $y) { #x = $x; #y = $y; }`.
 - **`#` is the object sigil:** `#name` is exactly `this.name` (same lookup, no
   visibility, no accessor path); `#save()` calls this object's method; `#` alone is
   the object itself (PHP `$this`); `#x` outside a method is a parse error, checked the
@@ -399,7 +400,7 @@ frame as `CALL` does (`VM::link()` resolves each function's entry from its label
 
 `$x -> $x * 2`, `($a, $b = 1) -> $a + $b`, `() -> 42`, and a block body
 `($a) -> { ...; return ...; }` (`LambdaAST`). Parameters are `$` only with the same
-rules as `function` (`Parser::check_parameters()`, shared). An expression body's value
+rules as `fn` (`Parser::check_parameters()`, shared). An expression body's value
 is returned and extends as far right as it can (`$x -> $x * 2 == 4` is
 `$x -> ($x * 2 == 4)`; `$x -> $y -> $x + $y` nests), so a lambda sits at the ternary's
 level: `1 + $x -> 2` is a syntax error, `$c ? $x -> 1 : $y -> 2` and `$f ?? ($x -> $x)`
@@ -408,7 +409,7 @@ use `return` even at top level, and `break`/`continue` inside it can't reach a l
 around the lambda. No lookahead: `ternary()` marks a `(` it starts at as a possible
 head, `Parser::parenthesised()` parses a comma list either way, and only if that `(` was
 a head and `->` follows are the elements checked to have been written as `$param` or
-`$param = default` (so `(($a)) -> 1` is an error, like `function f(($a))`); `$x ->` is
+`$param = default` (so `(($a)) -> 1` is an error, like `fn f(($a))`); `$x ->` is
 recognised in `ternary()` after the fact. Errors about a parameter point at it.
 
 Closures own their captured variables (decided 2026-09-17, `docs/design-review.md` #13).
@@ -419,7 +420,7 @@ the lambda copies the ones that exist in the enclosing scope into the closure, w
 they stay: the closure's calls read and write them there, so they persist between calls
 and recursive calls share them, while the enclosing scope never sees the changes.
 ```
-function counter() { $n = 0; return () -> ++$n; }        // each counter() counts on its own
+fn counter() { $n = 0; return () -> ++$n; }        // each counter() counts on its own
 $fib = $n -> $memo[$n] ??= ($n < 2 ? $n : $fib($n - 1) + $fib($n - 2));
 ```
 A captured variable that didn't exist is undefined inside ("Undefined variable: $x")
