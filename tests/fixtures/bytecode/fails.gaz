@@ -1,0 +1,4 @@
+fn f($n) {
+    return 1 / $n;
+}
+echo f(0);

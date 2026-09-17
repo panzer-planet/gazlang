@@ -1,0 +1,19 @@
+class Counter {
+    #count = 0;
+    fn _($start) { #count = $start; }
+    fn step($by = 1) { #count += $by; return #count; }
+}
+
+fn safe_div($a, $b) {
+    try {
+        return $a / $b;
+    } catch (Error $e) {
+        echo "caught: {$e.message}";
+        return null;
+    }
+}
+
+$c = Counter(10);
+$next = () -> $c.step();
+echo $next();
+echo safe_div(1, 0) ?? {"a" => [1, 2.5]};

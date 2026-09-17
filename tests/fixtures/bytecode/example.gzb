@@ -1,0 +1,152 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals $c $next
+@ "example.gaz" 16
+PUSH 10
+NEW Counter 1
+STORE 0
+LOAD 0
+POP
+@ "example.gaz" 17
+MAKE_CLOSURE 0
+STORE 1
+LOAD 1
+POP
+@ "example.gaz" 18
+LOAD 1
+CALL_VALUE 0
+PRINT
+@ "example.gaz" 19
+PUSH 1
+PUSH 0
+CALL safe_div 2
+JNN COALESCE_END_0
+PUSH {"a" => [1, 2.5]}
+LABEL COALESCE_END_0
+PRINT
+
+fn safe_div 2 2
+locals $a $b $e
+@ "example.gaz" 8
+TRY CATCH_0
+@ "example.gaz" 9
+LOAD 0
+LOAD 1
+DIV
+RET
+@ "example.gaz" 8
+END_TRY
+JMP ENDTRY_0
+LABEL CATCH_0
+CATCH_MATCH Error NEXTCATCH_0_0
+STORE 2
+@ "example.gaz" 11
+PUSH "caught: "
+LOAD 2
+GET_PROPERTY message
+CONCAT
+PRINT
+@ "example.gaz" 12
+PUSH null
+RET
+@ "example.gaz" 8
+JMP ENDTRY_0
+LABEL NEXTCATCH_0_0
+RETHROW
+LABEL ENDTRY_0
+@ "example.gaz" 7
+PUSH null
+RET
+
+class Error
+field message Error
+field file Error
+field line Error
+method _ Error
+method to_string Error
+locals $#argument_0
+@ "<builtin>" 1
+CALL_CONSTRUCTOR Error
+POP
+LOAD_THIS
+RET
+
+fn Error._ 1 1
+locals $message
+@ "<builtin>" 5
+LOAD 0
+SET_FIELD message
+POP
+PUSH null
+RET
+
+fn Error.to_string 0 0
+locals
+@ "<builtin>" 6
+PUSH ""
+LOAD_FIELD message
+CONCAT
+RET
+PUSH null
+RET
+
+class Counter
+field count Counter
+method _ Counter
+method step Counter
+locals $#argument_0
+@ "example.gaz" 2
+PUSH 0
+@ "example.gaz" 1
+SET_FIELD count
+POP
+CALL_CONSTRUCTOR Counter
+POP
+LOAD_THIS
+RET
+
+fn Counter._ 1 1
+locals $start
+@ "example.gaz" 3
+LOAD 0
+SET_FIELD count
+POP
+PUSH null
+RET
+
+fn Counter.step 0 1
+locals $by $#update_value_0
+@ "example.gaz" 4
+ARGC
+PUSH 0
+GT
+NOT
+JZ PASSED_0
+PUSH 1
+STORE 0
+LABEL PASSED_0
+LOAD 0
+STORE 1
+LOAD 1
+POP
+LOAD_THIS
+GET_PROPERTY_EXISTING count
+LOAD 1
+ADD
+SET_FIELD count
+POP
+LOAD_FIELD count
+RET
+PUSH null
+RET
+
+lambda 0 0 0
+capture $c local 0
+locals
+@ "example.gaz" 17
+LOAD_CAPTURED 0
+GET_METHOD step
+CALL_METHOD 0 step
+RET

@@ -420,7 +420,8 @@ final class BytecodeReader
             while ($position < count($block['code'])) {
                 if (isset($heights[$position])) {
                     if ($heights[$position] !== $height) {
-                        $fail("The stack is {$height} deep at instruction {$position}, but {$heights[$position]} on another path");
+                        $what = implode(' ', [$block['code'][$position][0], ...$block['code'][$position][1]]);
+                        $fail("The stack is {$height} deep at {$what} (instruction {$position}), but {$heights[$position]} on another path");
                     }
                     break;
                 }
