@@ -251,7 +251,7 @@ each step depends on the ones before it.
    `JsonTest` on every `tests/json/y_*.json` and `n_*.json`, where the prefix says
    whether it must parse) and `json_encode` writes compact JSON. `lib/csv.gaz`
    (RFC 4180, checked against PHP's `fgetcsv` by `CsvTest` on `tests/csv/y_*.csv` and
-   `n_*.csv`), `lib/sort.gaz` and `lib/format.gaz` back `examples/csv_report.gaz`. Scan
+   `n_*.csv`), `lib/functional.gaz` and `lib/format.gaz` back `examples/csv_report.gaz`. Scan
    long strings with `index_of` rather than character by character in GazLang: that
    halved CSV parsing time; the lexer's character classes are ASCII and explicit
    (`Lexer::is_space` is only space, tab, newline and carriage return).
@@ -277,9 +277,14 @@ Design agreed on 2026-09-17, to build in phases (each committed and reviewed):
 1. ~~**Named functions as values.**~~ Done, see "Function values" below.
 2. ~~**Anonymous functions with `->`.**~~ Done, see "Function values" below.
 3. ~~**Capture by value at creation.**~~ Done, likewise.
-4. `lib/functional.gaz`: `map`, `filter`, `reduce`, `sort($array, $compare)`, written
-   in GazLang (builtins calling back into GazLang would need a re-entrant VM). The
-   CSV report's sorting is the real-world test.
+4. ~~**`lib/functional.gaz`.**~~ Done: `map($array, $f)` (keeps keys), `filter($array,
+   $keep)` (a list gives a list, another array keeps its keys), `reduce($array, $f,
+   $initial)`, `sort($array, $compare)` (stable merge sort, keys dropped, `$compare`
+   returns negative, zero or positive: write `$a <=> $b`) and `is_list($array)`, written
+   in GazLang (builtins calling back into GazLang would need a re-entrant VM).
+   `lib/sort.gaz`'s `sort_values` and `sort_by` are wrappers over `sort`, `lib/json.gaz`
+   uses `is_list`, and `examples/csv_report.gaz` sorts with a comparator and folds its
+   column widths with `reduce`. Tested by `tests/gaz/lib/functional_test.gaz`.
 
 ### Objects (decided 2026-09-17, after function values)
 

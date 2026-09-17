@@ -4,7 +4,7 @@
 //
 // With no arguments it reports examples/data/sales.csv by region and amount.
 include "../lib/csv.gaz";
-include "../lib/sort.gaz";
+include "../lib/functional.gaz";
 include "../lib/format.gaz";
 
 // Print the usage and the problem, and stop with exit code 1
@@ -56,7 +56,8 @@ foreach ($records as $i => $record) {
     $counts[$group] = ($counts[$group] ?? 0) + 1;
 }
 
-// Largest total first; to_string keeps numeric group names like "2026" as text
+// Largest total first (a stable sort keeps ties in first-seen order); to_string keeps
+// numeric group names like "2026" as text
 $summary = [];
 $grand_total = 0.0;
 foreach ($totals as $group => $total) {
@@ -68,7 +69,7 @@ foreach ($totals as $group => $total) {
     ];
     $grand_total += $total;
 }
-$summary = sort_by($summary, "total", true);
+$summary = sort($summary, ($a, $b) -> $b["total"] <=> $a["total"]);
 
 // The table, with every column as wide as its widest cell
 $table = [[upper($group_column), "ROWS", "TOTAL", "AVERAGE"]];
@@ -79,14 +80,15 @@ foreach ($summary as $line) {
 }
 $table[] = ["All", to_string(len($records)), format_number($grand_total), format_number($grand_total / len($records))];
 
-$widths = [0, 0, 0, 0];
-foreach ($table as $cells) {
+$widest = ($widths, $cells) -> {
     foreach ($cells as $column => $cell) {
         if (len($cell) > $widths[$column]) {
             $widths[$column] = len($cell);
         }
     }
-}
+    return $widths;
+};
+$widths = reduce($table, $widest, [0, 0, 0, 0]);
 
 foreach ($table as $row_number => $cells) {
     // Text left aligned, numbers right aligned

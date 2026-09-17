@@ -1,0 +1,22 @@
+ok map a list
+ok map keeps keys
+ok map with a builtin
+ok map an empty array
+ok filter a list gives a list
+ok filter a map keeps keys
+ok filter everything out
+ok filter uses truthiness
+ok reduce sums
+ok reduce from the initial value
+ok reduce builds a string
+ok reduce with a named function
+ok sort numbers
+ok sort descending
+ok sort strings byte by byte
+ok sort drops keys
+ok sort empty and one
+ok sort is stable
+ok sort by length then text
+ok a comparator error comes out
+ok map then filter then reduce
+ok is_list

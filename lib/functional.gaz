@@ -1,0 +1,85 @@
+// Higher-order functions for GazLang: map, filter, reduce and sort, taking function values.
+//
+// - map($array, $f): $f($value) for each element, keeping keys.
+// - filter($array, $keep): the elements for which $keep($value) is true. A list (keys 0, 1,
+//   2, ... in order) gives a list again; any other array keeps its keys.
+// - reduce($array, $f, $initial): folds left, $f($carry, $value) from $initial.
+// - sort($array, $compare): a new list, keys dropped, ordered by $compare($a, $b), which
+//   returns a negative number, zero or a positive number (write $a <=> $b). A stable merge
+//   sort, so equal items keep their order.
+// - is_list($array): whether the keys are 0, 1, 2, ... in order.
+
+function map($array, $f) {
+    $result = [];
+    foreach ($array as $key => $value) {
+        $result[$key] = $f($value);
+    }
+    return $result;
+}
+
+function filter($array, $keep) {
+    $result = [];
+    $list = is_list($array);
+    foreach ($array as $key => $value) {
+        if ($keep($value)) {
+            if ($list) {
+                $result[] = $value;
+            } else {
+                $result[$key] = $value;
+            }
+        }
+    }
+    return $result;
+}
+
+function reduce($array, $f, $initial) {
+    $carry = $initial;
+    foreach ($array as $value) {
+        $carry = $f($carry, $value);
+    }
+    return $carry;
+}
+
+function sort($array, $compare) {
+    $list = [];
+    foreach ($array as $value) {
+        $list[] = $value;
+    }
+    if (len($list) < 2) {
+        return $list;
+    }
+
+    $middle = intdiv(len($list), 2);
+    $left = sort(slice($list, 0, $middle), $compare);
+    $right = sort(slice($list, $middle), $compare);
+
+    $merged = [];
+    $l = 0;
+    $r = 0;
+    while ($l < len($left) && $r < len($right)) {
+        // Take from the right only when it must come first, so equal items stay in order
+        if ($compare($right[$r], $left[$l]) < 0) {
+            $merged[] = $right[$r++];
+        } else {
+            $merged[] = $left[$l++];
+        }
+    }
+    while ($l < len($left)) {
+        $merged[] = $left[$l++];
+    }
+    while ($r < len($right)) {
+        $merged[] = $right[$r++];
+    }
+    return $merged;
+}
+
+function is_list($array) {
+    $expected = 0;
+    foreach ($array as $key => $value) {
+        if ($key != $expected) {
+            return false;
+        }
+        $expected++;
+    }
+    return true;
+}

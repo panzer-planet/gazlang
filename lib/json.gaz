@@ -18,6 +18,7 @@
 // floats keep their exact digits (1.0, 0.30000000000000004, 1.0E+25).
 
 include "chars.gaz";
+include "functional.gaz";
 
 // Parser state: the text being decoded, the byte position, and how many arrays and
 // objects are open. Globals, because every parse function moves the same position.
@@ -54,7 +55,7 @@ function json_encode($value) {
     }
 
     $parts = [];
-    if (json_is_list($value)) {
+    if (is_list($value)) {
         foreach ($value as $item) {
             $parts[] = json_encode($item);
         }
@@ -370,17 +371,6 @@ function json_int_fits($integer, $negative) {
 }
 
 // --- Encoding ---
-
-function json_is_list($array) {
-    $expected = 0;
-    foreach ($array as $key => $item) {
-        if ($key != $expected) {
-            return false;
-        }
-        $expected++;
-    }
-    return true;
-}
 
 // A string as a JSON string: quote, backslash and control characters escaped
 function json_encode_string($string) {

@@ -168,7 +168,7 @@ php bin/gazlang -f examples/echo_example.gaz -c
   - `Runtime/` - Value semantics (operators, truthiness, printing) and builtin functions, shared by backends
   - `CodeGenerator/` - Compiles the AST to stack-based VM code
   - `VM/` - Runs the compiled code
-- `lib/` - Libraries written in GazLang: `chars.gaz` (character classes), `json.gaz` (`json_decode`, `json_encode`), `csv.gaz` (`csv_parse`, `csv_records`), `sort.gaz` (`sort_values`, `sort_by`), `format.gaz` (`format_number`, `pad_left`, `pad_right`)
+- `lib/` - Libraries written in GazLang: `chars.gaz` (character classes), `json.gaz` (`json_decode`, `json_encode`), `csv.gaz` (`csv_parse`, `csv_records`), `functional.gaz` (`map`, `filter`, `reduce`, `sort`, `is_list`), `sort.gaz` (`sort_values`, `sort_by`), `format.gaz` (`format_number`, `pad_left`, `pad_right`)
 - `bin/` - Executable scripts
 - `tests/` - Unit tests; `tests/gaz/` holds GazLang test programs with their expected output
 

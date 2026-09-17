@@ -1,0 +1,43 @@
+include "../check.gaz";
+include "../../../lib/functional.gaz";
+
+// map
+check("map a list", map([1, 2, 3], $x -> $x * 2), [2, 4, 6]);
+check("map keeps keys", map(["a" => 1, "b" => 2], $x -> $x + 1), ["a" => 2, "b" => 3]);
+check("map with a builtin", map(["a", "b"], upper), ["A", "B"]);
+check("map an empty array", map([], $x -> $x), []);
+
+// filter
+check("filter a list gives a list", filter([1, 2, 3, 4], $x -> $x % 2 == 0), [2, 4]);
+check("filter a map keeps keys", filter(["a" => 1, "b" => 2, "c" => 3], $x -> $x != 2), ["a" => 1, "c" => 3]);
+check("filter everything out", filter([1, 2], $x -> false), []);
+check("filter uses truthiness", filter([0, 1, "", "x", [], [0]], $x -> $x), [1, "x", [0]]);
+
+// reduce
+check("reduce sums", reduce([1, 2, 3], ($sum, $x) -> $sum + $x, 0), 6);
+check("reduce from the initial value", reduce([], ($sum, $x) -> $sum + $x, 10), 10);
+check("reduce builds a string", reduce(["a", "b"], ($s, $x) -> $s .. $x, ">"), ">ab");
+check("reduce with a named function", reduce([[1], [2, 3]], ($n, $a) -> $n + len($a), 0), 3);
+
+// sort
+check("sort numbers", sort([5, 3, 9, 1, 3], ($a, $b) -> $a <=> $b), [1, 3, 3, 5, 9]);
+check("sort descending", sort([5, 3, 9, 1], ($a, $b) -> $b <=> $a), [9, 5, 3, 1]);
+check("sort strings byte by byte", sort(["b", "B", "a", "10", "9"], ($a, $b) -> $a <=> $b), ["10", "9", "B", "a", "b"]);
+check("sort drops keys", sort(["z" => 2, "y" => 1], ($a, $b) -> $a <=> $b), [1, 2]);
+check("sort empty and one", [sort([], ($a, $b) -> 0), sort(["x"], ($a, $b) -> 0)], [[], ["x"]]);
+$people = [["n" => "Ada", "t" => 2], ["n" => "Bob", "t" => 1], ["n" => "Cy", "t" => 2], ["n" => "Di", "t" => 1]];
+check("sort is stable", map(sort($people, ($a, $b) -> $a["t"] <=> $b["t"]), $p -> $p["n"]), ["Bob", "Di", "Ada", "Cy"]);
+$by_length_then_text = ($a, $b) -> {
+    $by_length = len($a) <=> len($b);
+    return $by_length != 0 ? $by_length : $a <=> $b;
+};
+check("sort by length then text", sort(["bb", "a", "ccc", "aa"], $by_length_then_text), ["a", "aa", "bb", "ccc"]);
+try {
+    sort([1, "one"], ($a, $b) -> $a <=> $b);
+} catch ($e) {
+    check("a comparator error comes out", $e["message"], "Cannot use <=> on string and int");
+}
+
+// composing
+check("map then filter then reduce", reduce(filter(map([1, 2, 3, 4], $x -> $x * $x), $x -> $x > 4), ($s, $x) -> $s + $x, 0), 25);
+check("is_list", [is_list([1, 2]), is_list([1 => 1]), is_list(["a" => 1]), is_list([])], [true, false, false, true]);
