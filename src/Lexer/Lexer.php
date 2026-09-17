@@ -30,11 +30,12 @@ class Lexer
     private $line = 1;
 
     /**
-     * @var array<array{0: string, 1: int}> Double-quoted strings with an interpolation in progress,
-     *                                      innermost last, as [state, line the string starts on].
-     *                                      "braces": inside {$...}, where } resumes the string.
-     *                                      "bare": the next token is the $name of "Hi $name".
-     *                                      "after_bare": that $name was read, so the string resumes.
+     * @var array<array{0: string, 1: int, 2: int}> Double-quoted strings with an interpolation in progress,
+     *                                              innermost last, as [state, line the string starts on, open { inside it].
+     *                                              "braces": inside {$...}, where the } matching it resumes the string
+     *                                              (a map literal or block body inside has its own braces).
+     *                                              "bare": the next token is the $name of "Hi $name".
+     *                                              "after_bare": that $name was read, so the string resumes.
      */
     private $interpolations = [];
 
@@ -425,12 +426,12 @@ class Lexer
                 }
                 $text .= $this->escape();
             } elseif ($this->current_char === '$' && $this->peek() !== null && (self::is_alpha($this->peek()) || $this->peek() === '_')) {
-                $this->interpolations[] = ['bare', $start_line];
+                $this->interpolations[] = ['bare', $start_line, 0];
 
                 return new Token($first ? Token::STRING_START : Token::STRING_MIDDLE, $text);
             } elseif ($this->current_char === '{' && ($this->peek() === '$' || $this->peek() === '@')) {
                 $this->advance();
-                $this->interpolations[] = ['braces', $start_line];
+                $this->interpolations[] = ['braces', $start_line, 0];
 
                 return new Token($first ? Token::STRING_START : Token::STRING_MIDDLE, $text);
             } else {
@@ -884,6 +885,9 @@ class Lexer
 
             if ($this->current_char === '{') {
                 $this->advance();
+                if ($this->interpolations !== []) {
+                    $this->interpolations[array_key_last($this->interpolations)][2]++;
+                }
 
                 return new Token(Token::LEFT_BRACE, '{');
             }
@@ -891,9 +895,15 @@ class Lexer
             if ($this->current_char === '}') {
                 $this->advance();
 
-                // The } closing "{$...}" resumes the string it interpolates into
-                if ($this->interpolations !== [] && $this->interpolations[array_key_last($this->interpolations)][0] === 'braces') {
-                    return $this->string_part(false);
+                // The } closing "{$...}" resumes the string it interpolates into; one closing a
+                // brace opened inside it is an ordinary }
+                if ($this->interpolations !== []) {
+                    $last = array_key_last($this->interpolations);
+                    if ($this->interpolations[$last][2] > 0) {
+                        $this->interpolations[$last][2]--;
+                    } elseif ($this->interpolations[$last][0] === 'braces') {
+                        return $this->string_part(false);
+                    }
                 }
 
                 return new Token(Token::RIGHT_BRACE, '}');

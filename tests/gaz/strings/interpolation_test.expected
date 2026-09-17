@@ -15,6 +15,8 @@ ok global
 ok expression
 ok function call after the sigil
 ok several in a row
+ok map literal inside interpolation
+ok nested braces inside interpolation
 ok interpolated string inside interpolation
 ok ints convert
 ok null, lists and maps

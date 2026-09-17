@@ -30,6 +30,8 @@ check("global", "{@count} calls", "41 calls");
 check("expression", "{@count + 1}", "42");
 check("function call after the sigil", "{$items[len($items) - 1]}", "second");
 check("several in a row", "$name{$name}$name", "GazGazGaz");
+check("map literal inside interpolation", "{$user["missing"] ?? {}}", "{}");
+check("nested braces inside interpolation", "{$keys[1] ?? {1 => {}}} {@count ?? (() -> { return 0; })()}", "int 1 41");
 check("interpolated string inside interpolation", "{$user["na{$name}"] ?? "none"}", "none");
 
 // Values convert like echo and +

@@ -207,7 +207,6 @@ class LambdaTest extends GazLangTestCase
             'required after default' => ['($a = 1, $b) -> 1;', "Required parameter \$b can't follow a parameter with a default on line 1"],
             'syntax errors come before later lexer errors' => ['(1 +, $b ~);', "Unexpected ',' on line 1"],
             'ternary else still cannot assign' => ['$a = true; $a ? 1 : $b = 2;', 'Can only use = on a variable or an element of one on line 1'],
-            'block body inside interpolation (the first } ends the interpolation)' => ['$f = 1; echo "{$f -> { return 1; }}";', 'Unexpected string "}" on line 1'],
         ];
     }
 

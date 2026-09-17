@@ -374,9 +374,7 @@ around the lambda. No lookahead: `ternary()` marks a `(` it starts at as a possi
 head, `Parser::parenthesised()` parses a comma list either way, and only if that `(` was
 a head and `->` follows are the elements checked to have been written as `$param` or
 `$param = default` (so `(($a)) -> 1` is an error, like `function f(($a))`); `$x ->` is
-recognised in `ternary()` after the fact. Errors about a parameter point at it. A
-block body can't be written inside `"{...}"` interpolation, since the first `}` ends
-the interpolation.
+recognised in `ternary()` after the fact. Errors about a parameter point at it.
 
 Capture is by value at creation: `LambdaAST::$free` lists every `$` variable the body
 and the defaults use that isn't a parameter (including assignment targets, `foreach`
@@ -492,7 +490,7 @@ letter or `_`, then the greedy name, optionally followed by one PHP-style index:
 `[0]`, `[-1]`, `[key]` as the string `"key"`, or `[$i]`; digits that aren't a
 canonical int, like `01`, are a string key, and any other bracket contents are an
 error) and `"{$expr}"` / `"{@expr}"` (any expression starting with that sigil, up
-to the `}`). Anything else stays literal: `$5`, a lone
+to its matching `}`, so map literals and block bodies can be written inside). Anything else stays literal: `$5`, a lone
 `$`, `me@example.com`, `{ $x}`'s brace, `{}`. The lexer emits `STRING_START`, the
 expression's tokens, `STRING_MIDDLE` between interpolations and `STRING_END`
 (a string without interpolation is one `STRING`), tracking open strings on a
