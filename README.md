@@ -1,7 +1,7 @@
 # GazLang
 
 A small scripting language with a PHP-flavoured syntax and its own opinions: values are
-what they are (no conversion between strings and numbers, no `===`), arrays are values,
+what they are (no conversion between strings and numbers, no `===`), lists and maps are values,
 functions are values, and errors are loud. Written in PHP, with a tree-walking interpreter
 and a stack VM that must agree on everything, on the way to being self-hosting.
 
@@ -13,7 +13,7 @@ function report($sales, $column) {
     $totals = reduce($sales, ($t, $row) -> {
         $t[$row["region"]] = ($t[$row["region"]] ?? 0.0) + to_float($row[$column]);
         return $t;
-    }, []);
+    }, {});
     $regions = sort(keys($totals), ($a, $b) -> $totals[$b] <=> $totals[$a]);
     foreach ($regions as $region) {
         echo "{$region}: {round($totals[$region], 2)}";
@@ -49,15 +49,17 @@ Try `php bin/gazlang -f examples/csv_report.gaz -- examples/data/sales.csv regio
 ## The language
 
 - **Values**: ints (`42`, `0xFF`, never silently overflowing), floats (`1.5`, `2e-3`, always
-  finite), byte strings, `true`/`false`, `null`, arrays and functions.
+  finite), byte strings, `true`/`false`, `null`, lists, maps and functions.
 - **Variables**: `$x` is local to the function (or the top level), `@x` is global, everywhere.
-- **Arrays** are lists and maps in one (`[1, 2]`, `["key" => 1]`), copied on assignment:
-  `$a[i]`, `$a["k"]["j"] = v`, `$a[] = v`, `foreach ($a as $k => $v)`, `len`, `keys`, `slice`.
+- **Lists** `[1, 2]` and **maps** `{"key" => 1}` (int or string keys, `"1"` and `1` distinct,
+  insertion order) are separate types, copied on assignment: `$l[0]`, `$m["k"]["j"] = v`,
+  `$l[] = v`, `foreach ($m as $k => $v)`, `len`, `keys`, `slice`. A missing index or key is an
+  error unless read with `??`.
 - **Strings**: `"..."` with escapes (`\n`, `\xHH`, `\u{1F600}`) and interpolation (`"Hi $name"`,
   `"{$user["name"]} has {@count}"`); `'...'` raw. `..` concatenates, converting like `echo`.
 - **Operators**: `+ - * / %` on numbers only (`/` always gives a float; `intdiv` for ints);
-  `== !=` with no conversion between types (`"5" == 5` is false, `1 == 1.0` is true, arrays
-  compare element by element); `< <= > >=` and `<=>` on numbers or on strings; `&& || !`;
+  `== !=` with no conversion between types (`"5" == 5` is false, `1 == 1.0` is true, lists and
+  maps compare element by element); `< <= > >=` and `<=>` on numbers or on strings; `&& || !`;
   `??` and `??=` for missing values; `$c ? $a : $b`; `+= -= *= /= %= ..= ++ --`.
 - **Control flow**: `if`/`else if`/`else`, `while`, `for`, `foreach`, `break`, `continue`.
 - **Functions**: `function add($a, $b = 1) { return $a + $b; }` at the top level, callable
@@ -65,7 +67,7 @@ Try `php bin/gazlang -f examples/csv_report.gaz -- examples/data/sales.csv regio
   `$x -> $x * 2`, `($a, $b = 1) -> $a + $b`, `() -> { return 42; }` are anonymous functions
   that capture the outer variables they use by value when created (`@globals` are shared).
 - **Errors**: `error("message")` raises one, `try { } catch ($e) { }` catches any runtime
-  error as `["message" => ..., "file" => ..., "line" => ...]`, and uncaught errors print
+  error as `{"message" => ..., "file" => ..., "line" => ...}`, and uncaught errors print
   `Error: ... at file.gaz:12`. `exit($code)` stops the program.
 - **Builtins**: `len`, `slice`, `lower`, `upper`, `trim`, `split`, `join`, `replace`, `contains`,
   `starts_with`, `ends_with`, `index_of`, `repeat`, `chr`, `ord`, `to_int`, `to_float`,

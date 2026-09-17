@@ -97,11 +97,11 @@ each step depends on the ones before it.
    a parse error outside one. The interpreter unwinds with `LoopSignal`; the
    code generator jumps to the loop's `CONTINUE_n`/`WHILE_n` or `ENDWHILE_n`
    label.
-   `foreach ($array as [$key =>] $value) { }` (`ForeachStatementAST`) follows PHP:
-   the array expression is evaluated once and iterated as it was then (arrays are
+   `foreach ($x as [$key =>] $value) { }` (`ForeachStatementAST`) follows PHP:
+   the list or map is evaluated once and iterated as it was then (they are
    values, so changing the variable in the body doesn't change the iteration), the
-   loop variables can be `$` or `@` and keep their last values, and a non-array is
-   "foreach expects an array". The interpreter runs it directly; the code
+   loop variables can be `$` or `@` and keep their last values (a list's keys are its
+   indexes), and anything else is "foreach expects a list or map". The interpreter runs it directly; the code
    generator lowers it to a while loop over `keys()` with hidden `$#foreach_*_n`
    variables (no program can name them), using the step for `continue`.
 4. ~~**Add functions and scoping.**~~ Done. Decided semantics:
@@ -145,36 +145,45 @@ each step depends on the ones before it.
    - Reserved for later: `.` for object properties, and possibly `#` as the sigil for
      the current object (`#title` meaning this object's title), alongside `$` and `@`.
      See "Decided, not built yet" below.
-5. ~~**Add arrays (and maybe maps).**~~ Done. One PHP-style ordered array type
-   serves as both list and map. Decided semantics:
-   - Literals `[1, 2]` and `["k" => 1, 5 => 2]` (trailing comma allowed,
-     duplicate keys keep the last value). Keys are int or string; as in PHP a
-     numeric string key like `"1"` is the same key as `1`.
-   - Arrays are values, like PHP: assigning or passing one copies it. The
-     interpreter writes in place through PHP references for speed (appending is
-     linear); PHP drops a reference once nothing else holds it, so later copies
-     don't share.
-   - `$a[i]` reads (also chained, and on any expression). A missing key, or a
-     string position out of range, reads `null`. Strings index by int position
-     to a one character string, read only.
+5. ~~**Add lists and maps.**~~ Done (one PHP-style array at first, split into two types
+   on 2026-09-17, see `docs/design-review.md` #10). Decided semantics:
+   - A list `[1, 2]` holds values at indexes 0, 1, 2...; a map `{"k" => 1, 5 => 2}` holds
+     values by key in insertion order (trailing comma allowed, duplicate keys keep the
+     last value). `[k => v]` is a parse error pointing at `{}`. A `{` that starts a
+     statement is a block and one right after `->` is a lambda body, so a lambda
+     returning a map writes `$x -> ({"v" => $x})`. Map keys are int or string and
+     `"1"` and `1` are different keys (`Runtime\MapValue::key()` encodes the strings
+     PHP would convert). `type_of` gives `list` or `map`.
+   - Lists and maps are values: assigning or passing one copies it. A list is a plain
+     PHP list and the interpreter writes it in place through PHP references (appending is
+     linear; PHP drops a reference once nothing else holds it, so later copies don't
+     share). A map is a `MapValue` object, so `Values::store()` clones each map on the
+     path before writing (cheap: the items array is shared until written) and nothing
+     else may change one in place.
+   - `$a[i]` reads (also chained, and on any expression). A list index must be an int
+     in range (`Index out of range: 5`, no negative indexes) and a map key must exist
+     (`Undefined key: "k"`, strings quoted so `"1"` and `1` differ), unless read on the
+     left of `??`, which gives null. A string position out of range still reads `null`.
+     Strings index by int position to a one character string, read only.
    - `$a[k] = v`, `$a[k1][k2] = v` and `$a[] = v` (append, only valid as an
      assignment target) write through a variable (`$` or `@`). Keys are
      evaluated left to right, then the value, and only then is the variable's
-     array read, so side effects of the keys and value are kept. The variable must exist and only the last key
-     may be new; missing keys along the way are an error, not auto-created.
-   - `echo` and `..` print arrays as literals (`[1, "a"]`,
-     `["k" => 1]`). Empty arrays are false in conditions. `==` on arrays needs the
-     same keys in the same order with elements equal by `==` (`[1] == [1.0]`);
-     arithmetic, ordering and unary `-` on arrays throw.
-   - `len($x)` (array count or string length) is the first builtin. Builtins
+     value read, so side effects of the keys and value are kept. The variable must
+     exist; a list index must already exist (append with `[]`), a map may gain its last
+     key, missing keys along the way are an error, and appending to a map is an error.
+   - `echo` and `..` print lists and maps as literals (`[1, "a"]`, `{"k" => 1}`). Empty
+     ones are false in conditions. `==` on lists compares elements in order, on maps the
+     same keys with equal values in any order (`[1] == [1.0]`); a list never equals a
+     map, even `[] == {}`. Arithmetic, ordering and unary `-` on them throw.
+   - `len($x)` (list or map count, or string length) is the first builtin. Builtins
      live in `Runtime\Builtins::ARITIES` (name → arity), share the call checks with user
      functions, and can't be redeclared; the code generator emits
      `CALL_BUILTIN name argc`.
-   - Code generator: `NEW_ARRAY`, `ARRAY_PUSH`, `ARRAY_SET`, `INDEX_GET`; an
+   - Code generator: `NEW_ARRAY`, `ARRAY_PUSH`, `NEW_MAP`, `MAP_SET`, `INDEX_GET`; an
      indexed assignment pushes keys and value, then `SET_PATH n slot` /
      `APPEND_PATH n slot` (`_GLOBAL` for globals) updates the variable in place
      through `Values::store()` (stack effects are documented on `CodeGenerator`).
-   - Not yet: removing elements (build a new array instead).
+   - Not yet: removing elements (build a new list or map instead).
    - A builtin's arity is an int, or `[fewest, most]` when it has optional
      parameters (`index_of`, `slice`); the parser checks calls against the range,
      the same way as for user functions with defaults.
@@ -183,10 +192,10 @@ each step depends on the ones before it.
    parameters), are implemented in `Runtime\Builtins::call()`, can't be
    redeclared, and compile to `CALL_BUILTIN name argc`. Argument types are
    checked with the `type_of()` names.
-   - Strings: `len($s)`, `slice($x, $start, $length = to the end)` (strings and arrays, PHP
+   - Strings: `len($s)`, `slice($x, $start, $length = to the end)` (strings and lists, PHP
      `substr`/`array_slice` rules including negatives), `lower($s)`,
      `upper($s)`, `trim($s)` (only the lexer's whitespace), `split($s, $sep)` (an
-     empty separator splits into characters), `join($array, $sep)` (elements
+     empty separator splits into characters), `join($list, $sep)` (elements
      converted like echo), `replace($s, $search, $replacement)` (every
      occurrence; empty search is an error), `contains`, `starts_with`,
      `ends_with`, `index_of($s, $needle, $offset = 0)` (null when not found; a
@@ -196,9 +205,9 @@ each step depends on the ones before it.
      the number builtins listed under "Numbers",
      `to_int($x)` (ints, bools as 1/0, or strings of decimal digits with an optional `-`;
      anything else or overflow is an error), `to_string($x)` (same text as echo).
-   - Arrays: `len`, `slice`, `in_array($value, $array)` (compares with `==`),
-     `has_key($array, $key)`, `keys($array)`.
-   - Other: `type_of($x)` (`int`, `float`, `string`, `bool`, `null`, `array`, `function`),
+   - Lists and maps: `len`, `slice` (lists), `in_array($value, $list)` (compares with `==`),
+     `has_key($x, $key)` (a map's key, or a list's index), `keys($x)` (a list's indexes).
+   - Other: `type_of($x)` (`int`, `float`, `string`, `bool`, `null`, `list`, `map`, `function`),
      `error($message)` (raises an error that try/catch can catch; uncaught it stops
      with `Error: message`, exit 1, printed exactly as given with no location), `exit($code = 0)`
      (stops the program with that exit code, 0 to 255, printing nothing; not an error, so
@@ -247,7 +256,7 @@ each step depends on the ones before it.
    files there are helpers, like `check.gaz`'s `check($label, $actual, $expected)`,
    which prints `ok <label>` or a FAIL line with both values. Reusable GazLang
    code lives in `lib/`. `lib/json.gaz` is the first real GazLang tool:
-   `json_decode` follows PHP's `json_decode($text, true)` (checked against it by
+   `json_decode` follows PHP's `json_decode($text)`, objects as maps (checked against it by
    `JsonTest` on every `tests/json/y_*.json` and `n_*.json`, where the prefix says
    whether it must parse) and `json_encode` writes compact JSON. `lib/csv.gaz`
    (RFC 4180, checked against PHP's `fgetcsv` by `CsvTest` on `tests/csv/y_*.csv` and
@@ -268,7 +277,7 @@ before function values:
   either side is an error, so two CSV fields can't quietly join instead of adding.
 - **`==` and `!=` stop coercing.** A string never equals a number (`"5" == 5` is
   false; compare with `to_float`); int and float still compare by value (`1 == 1.0`);
-  arrays structural, functions and objects by identity. `===` and `!==` are removed.
+  lists and maps structural, functions and objects by identity. `===` and `!==` are removed.
   Bools are not numbers either (`true == 1` is false, `true + 1` is an error; decided
   2026-09-18).
 - **`/` always gives a float** (Python 3, Lua 5.3); `intdiv` is integer division.
@@ -277,13 +286,12 @@ Design agreed on 2026-09-17, to build in phases (each committed and reviewed):
 1. ~~**Named functions as values.**~~ Done, see "Function values" below.
 2. ~~**Anonymous functions with `->`.**~~ Done, see "Function values" below.
 3. ~~**Capture by value at creation.**~~ Done, likewise.
-4. ~~**`lib/functional.gaz`.**~~ Done: `map($array, $f)` (keeps keys), `filter($array,
-   $keep)` (a list gives a list, another array keeps its keys), `reduce($array, $f,
-   $initial)`, `sort($array, $compare)` (stable merge sort, keys dropped, `$compare`
-   returns negative, zero or positive: write `$a <=> $b`) and `is_list($array)`, written
+4. ~~**`lib/functional.gaz`.**~~ Done: `map($x, $f)` and `filter($x, $keep)` (a list
+   gives a list, a map a map with its keys), `reduce($x, $f, $initial)` and
+   `sort($x, $compare)` (stable merge sort, a list of the values, `$compare`
+   returns negative, zero or positive: write `$a <=> $b`), written
    in GazLang (builtins calling back into GazLang would need a re-entrant VM).
-   `lib/sort.gaz`'s `sort_values` and `sort_by` are wrappers over `sort`, `lib/json.gaz`
-   uses `is_list`, and `examples/csv_report.gaz` sorts with a comparator and folds its
+   `lib/sort.gaz`'s `sort_values` and `sort_by` are wrappers over `sort`, and `examples/csv_report.gaz` sorts with a comparator and folds its
    column widths with `reduce`. Tested by `tests/gaz/lib/functional_test.gaz`.
 
 ### Objects (decided 2026-09-17, after function values)
@@ -302,7 +310,7 @@ Design agreed on 2026-09-17, to build in phases (each committed and reviewed):
   for class-level state like `##created`, which is otherwise `Point.created` through
   the class value. No fourth sigil.
 - **Objects are handles** (PHP, Python, Ruby, Lua): `$b = $a; $b.x = 1` changes `$a`;
-  arrays inside objects stay values. `==` on objects is identity. Objects are always
+  lists and maps inside objects stay values. `==` on objects is identity. Objects are always
   true in conditions.
 - **Properties are `.`** (`$user.name`, `$rows[0].total`), never spaced around the dot.
   A write path is a list of steps of two kinds, index and property, so `Values::store()`
@@ -317,7 +325,7 @@ Design agreed on 2026-09-17, to build in phases (each committed and reviewed):
 - **`to_string()` is the one protocol method:** `echo`, `..` and interpolation use it.
   No operator overloading.
 - **`error()` takes any value,** so `error(ParseError("bad", 3))` works and `catch
-  (ParseError $e)` filters by class; a string error keeps today's array shape.
+  (ParseError $e)` filters by class; a string error keeps today's map shape.
   `finally` arrives with objects.
 - **No inheritance in the first cut:** composition and duck typing first; see whether
   the self-hosted parser needs more. A `<=>` operator would suit comparison functions.
@@ -343,8 +351,8 @@ given"), then the call. Both are catchable. `FunctionDeclarationAST::$arity` (a 
 `[fewest, most]`) is set by the parser; the interpreter reads it and `compile()` copies
 it into `Program::$functions` for the VM.
 
-`type_of` gives `"function"`, `echo add` prints `function add` (`[function add]` in an
-array), functions are true in conditions, `==` is identity, and every other operator,
+`type_of` gives `"function"`, `echo add` prints `function add` (`[function add]` in a
+list), functions are true in conditions, `==` is identity, and every other operator,
 key or index use is an error naming the type (`Cannot use + on function`). `Values::typeOf()`
 replaces `get_debug_type` everywhere, so every existing error message follows.
 `json_encode` refuses a function. Code generation: `PUSH_FN add`; a call on a value is
@@ -424,7 +432,7 @@ failed operator or builtin, an undefined variable or key, division by zero, runn
 out of call depth, or `error($message)`, which is also how programs throw (and
 rethrow: `error($e["message"])`). Syntax and include errors happen before the
 program runs and can't be caught. `$e` (or `@e`) is
-`["message" => ..., "file" => ..., "line" => ...]`, the message without the location;
+`{"message" => ..., "file" => ..., "line" => ...}`, the message without the location;
 `file` is null for piped input. `return`, `break`, `continue` and `exit()` are not errors and
 pass through. There is no `finally` yet.
 
@@ -433,7 +441,7 @@ Every runtime error is a `GazLangError` by the time it leaves a node with a loca
 PHP bugs (`TypeError` and the like) are not swallowed. `error()` messages have
 `show_location` false: uncaught they print exactly as given, but the location is
 still recorded for catch. The code generator emits `TRY CATCH_n` ... `END_TRY`, with
-the error array pushed at `LABEL CATCH_n`; break and continue emit `END_TRY` for each
+the error map pushed at `LABEL CATCH_n`; break and continue emit `END_TRY` for each
 try they leave, and `RET` drops the returning frame's handlers.
 
 ## Numbers
@@ -460,7 +468,7 @@ Ints and floats (64-bit, always finite: GazLang has no INF or NAN).
 - `1 == 1.0` is true. An int and a float compare exactly (`Values::compare()`), not by
   converting the int to a float as PHP does: `9007199254740993 != 9007199254740992.0`. `/`
   does convert, so `9007199254740993 / 1` is `9007199254740992.0`. `0.0` and `-0.0` are false in
-  conditions. Floats can't be array keys or string positions.
+  conditions. Floats can't be keys, indexes or string positions.
 - Builtins: `to_float($x)` (a bool gives 1.0 or 0.0), `to_int($x)` (truncates a float toward zero; an error
   outside the int range), `floor`, `ceil`, `round($x, $precision = 0)` (PHP's round:
   halves away from zero, correcting for halves stored as slightly less, so
@@ -517,9 +525,9 @@ to the working directory; the main file shows as given on the command line.
 - `src/Lexer`, `src/Parser`, `src/AST`: source text to a tree. `Lexer::quote()` and
   `Lexer::parse_integer()` are the one definition of string and integer literals.
 - `src/Interpreter`: runs the tree (scopes, calls, control flow signals, writes
-  through array paths). It does not decide what values mean.
+  through list and map paths). It does not decide what values mean.
 - `src/Runtime`: what values mean, shared by every backend. `Values` holds the
-  operators, truthiness, printing, array keys and indexing as static pure
+  operators, truthiness, printing, keys and indexing as static pure
   functions; `Builtins` holds the builtin functions and their arities. Both backends
   call these rather than reimplementing them.
 - `src/CodeGenerator`: compiles the AST to a `Program` of stack VM instructions, each
@@ -538,23 +546,25 @@ builtin goes through `Runtime\Values` / `Runtime\Builtins`, and assignment throu
 `Values::store()`, so the VM and the interpreter share their semantics rather than
 reimplementing them. The only exceptions are fast paths in the loop for the commonest
 cases whose result is obvious (arithmetic and comparisons on two ints that don't
-overflow, `==` on two ints or two strings, `JZ`/`NOT` on bools, `INDEX_GET` on an array, `INC`/`DEC` on an int,
+overflow, `==` on two ints or two strings, `JZ`/`NOT` on bools, `INDEX_GET` on a list or on a map with an int or plain name key, `INC`/`DEC` on an int,
 and the builtins `len`, `ord`, `chr` and `in_array` when their arguments are plainly
 valid);
 anything else, errors included, falls through to `Values`. Keep fast paths that way. Calls are frames in an array, not PHP recursion, so deep
 recursion doesn't depend on PHP's C stack. Errors get the location of the instruction
 that raised it (the innermost node the code generator was compiling, which is the node
 the interpreter reports), then unwind to the innermost handler: frames made inside the
-try are dropped, the stack is cut back, and the error array is pushed for the catch.
+try are dropped, the stack is cut back, and the error map is pushed for the catch.
+`SET_PATH` first unsets the loop's temporaries (`$first`, `$target`...): one still holding
+the list or map being written made PHP copy all of it on every write, quadratically.
 
 **The two backends must agree.** `GazLangTestCase::executeCode()` runs every snippet on
 the interpreter and on the VM and fails if the output differs, or the error's class,
 message, file or line (what catch sees) differs, and
 `GazProgramTest`, `JsonTest` and `VMTest` (examples) do the same for whole programs. So
 any new language feature needs both backends, or those tests fail. The code generator
-also builds array literals made only of constants (with int or string keys) once at
+also builds list and map literals made only of constants (with int or string keys) once at
 compile time, pushed as one value, and `foreach` takes `len()` of its keys once. Order matters as
-much as results: the VM's `KEY_CHECK` exists so a bad array key fails before later
+much as results: the VM's `KEY_CHECK` exists so a bad key fails before later
 keys and the value run, exactly when the interpreter's does. After tuning, the
 VM runs fib, arithmetic loops and JSON 2 to 5 times as fast as the interpreter.
 

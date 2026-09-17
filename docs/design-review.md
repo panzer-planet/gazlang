@@ -39,10 +39,10 @@ Needed now:
   object `==` is a trap once objects hold objects.
 
 ### 4. Errors — decided: `error()` takes any value, `catch (Type $e)`, `finally` with objects
-`error()` takes a string and catch gives an array. PHP, Python and Ruby have
+`error()` takes a string and catch gives a map. PHP, Python and Ruby have
 class-based exceptions with typed catch; Lua's `error(any_value)` + `pcall` is the
 minimal version. Programs will want `error(NotFound("x"))` and catch by type.
-Recommendation: let `error()` take any value (Lua), keep the array shape for string
+Recommendation: let `error()` take any value (Lua), keep the map shape for string
 errors, reserve `catch (Type $e)` syntax. Otherwise `$e["message"]` in `lib/` becomes
 unchangeable. There is also no `finally`; every language above has one.
 
@@ -80,9 +80,15 @@ All functions and `@globals` share one namespace; `lib/json.gaz` prefixes everyt
 Classes fix most of it (`Json` with methods and instance state). Don't design
 `include` further until classes exist.
 
-### 10. One array type for list and map — accepted
-PHP's biggest wart, already hit: `json_encode` can't tell `{}` from `[]`. Changing it
-is a rewrite of `lib/`. Let objects take the record role so arrays trend toward lists.
+### 10. One array type for list and map — decided 2026-09-17: split
+PHP's biggest wart, already hit: `json_encode` can't tell `{}` from `[]`, `filter` had to
+guess with `is_list`, and `"1"` was the same key as `1` while `==` refuses that
+conversion. Objects don't fix it: JSON objects, CSV rows and group-by totals are
+dictionaries with runtime keys, not records. Decided: a list `[1, 2]` and a map
+`{"k" => 1}` are separate types; map keys are int or string with `"1"` and `1` distinct;
+a missing index or key is an error unless read through `??`; a list index must exist to
+be written (append with `[]`); maps compare regardless of order and never equal a list.
+Built on the `list-map` branch (lists stay PHP lists, maps are a `MapValue` wrapper).
 
 ### 11. Truthiness of objects — decided: always true
 `[]` is false (PHP, Python); Ruby and Lua say everything but nil/false is true.
