@@ -33,3 +33,5 @@ ok encode $ and { literally
 ok decode undoes encode
 ok encode undoes decode for compact JSON
 ok encoding a function is an error
+ok encoding a class is an error
+ok encoding an object is an error

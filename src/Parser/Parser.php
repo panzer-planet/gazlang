@@ -1727,6 +1727,9 @@ class Parser
                     throw new GazLangError("Method {$class->name}.{$name} must accept every argument count {$owner}.{$name} does ({$expected})", $method->file, $method->line);
                 }
             }
+            if ($name === 'to_string' && self::bounds($method->arity)[0] !== 0) {
+                throw new GazLangError("Method {$class->name}.to_string must accept 0 arguments: printing calls it with none", $method->file, $method->line);
+            }
             if ($method->abstract) {
                 $class->abstract_methods[$name] = $class->name;
             } else {

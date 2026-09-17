@@ -44,8 +44,11 @@ fn json_encode($value) {
     if ($type == "string") {
         return json_encode_string($value);
     }
-    if ($type == "function") {
-        error("Cannot encode a function as JSON");
+    if ($type == "function" || $type == "class") {
+        error("Cannot encode a {$type} as JSON");
+    }
+    if ($type == "object") {
+        error("Cannot encode an object as JSON");
     }
     if ($type != "list" && $type != "map") {
         // null, true, false, ints and floats are already written the way JSON writes them

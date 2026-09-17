@@ -57,6 +57,16 @@ final class VM
     private $builtins;
 
     /**
+     * @var array The linked program (see link()), then the operator tokens, set by run()
+     */
+    private $linked;
+
+    /**
+     * @var array The global variables by slot, shared by every execute()
+     */
+    private $globals = [];
+
+    /**
      * Constructor
      *
      * @param  Program  $program  The program to run
@@ -81,537 +91,574 @@ final class VM
      */
     public function run(): void
     {
-        [$ops, $arg0, $arg1, $arg2, $locations, $functions, $lambdas, $classes, $initialisers, $methods] = $this->link();
-        $end = count($ops);
         $tokens = [];
         foreach (self::BINARY as $opcode => [$type, $symbol]) {
             $tokens[$opcode] = new Token($type, $symbol);
         }
-        $increment = new Token(Token::INCREMENT, '++');
-        $decrement = new Token(Token::DECREMENT, '--');
+        $this->linked = [...$this->link(), $tokens, new Token(Token::INCREMENT, '++'), new Token(Token::DECREMENT, '--')];
+        $this->globals = [];
+
+        $this->execute(0, [], null, '', 0);
+    }
+
+    /**
+     * Run from an instruction until HALT, the end of the program, or the return of the frame it starts in
+     *
+     * The top level runs in one execute(). While it runs, Values::$call_method runs a method
+     * to completion in a nested execute(), which is how echo and .. call to_string(): the
+     * method's frame is the nested loop's first, and its RET returns the value. Errors the
+     * nested loop doesn't catch leave it as exceptions, back into the instruction that called
+     * the method, where the outer loop's handlers see them.
+     *
+     * @param  int  $pc  The instruction to start at
+     * @param  array  $locals  The starting frame's locals (the arguments)
+     * @param  ObjectValue|null  $receiver  The starting frame's object
+     * @param  string  $function  The starting frame's key in the local names
+     * @param  int  $depth  How many calls are running outside this loop, for the call depth limit
+     * @return mixed The value the starting frame returns, or null at the end of the program
+     *
+     * @throws GazLangError If an error isn't caught by a try
+     */
+    private function execute(int $pc, array $locals, ?ObjectValue $receiver, string $function, int $depth)
+    {
+        [$ops, $arg0, $arg1, $arg2, $locations, $functions, $lambdas, $classes, $initialisers, $methods, $tokens, $increment, $decrement] = $this->linked;
+        $end = count($ops);
         $local_names = $this->program->local_names;
         $global_names = $this->program->global_names;
+        $globals = &$this->globals;
 
-        $pc = 0;
         $stack = [];
-        $globals = [];
-        $locals = [];
-        // The running function ('' for the top level) and how many arguments it was passed
-        $function = '';
-        $argc = 0;
-        // The closure whose call is running, or null
+        // How many arguments the running function was passed
+        $argc = count($locals);
+        // The closure whose call is running, or null; $receiver is the object # is, or null
         $closure = null;
-        // The object # is, in a method or a closure made in one, or null
-        $receiver = null;
         // Callers' state, innermost last: [locals, return pc, function, argc, closure, receiver]
         $frames = [];
         // Installed try handlers, innermost last: [frame count, stack size, catch pc]
         $handlers = [];
 
-        while (true) {
-            try {
-                while ($pc < $end) {
-                    switch ($ops[$pc++]) {
-                        case 'LOAD':
-                            $slot = $arg0[$pc - 1];
-                            if (isset($locals[$slot]) || array_key_exists($slot, $locals)) {
-                                $stack[] = $locals[$slot];
-                            } else {
-                                throw new Exception("Undefined variable: {$local_names[$function][$slot]}");
-                            }
-                            break;
-                        case 'STORE':
-                            $locals[$arg0[$pc - 1]] = array_pop($stack);
-                            break;
-                            // A closure's captured variables live in the closure, not the frame, so every
-                            // call of it shares them; read them in place, never through a copy of the
-                            // array, which would make writes copy what they hold
-                        case 'LOAD_CAPTURED':
-                            $slot = $arg0[$pc - 1];
-                            if (isset($closure->captured[$slot]) || array_key_exists($slot, $closure->captured)) {
-                                $stack[] = $closure->captured[$slot];
-                            } else {
-                                throw new Exception("Undefined variable: {$closure->lambda->captures[$slot]}");
-                            }
-                            break;
-                        case 'STORE_CAPTURED':
-                            $closure->captured[$arg0[$pc - 1]] = array_pop($stack);
-                            break;
-                        case 'LOAD_QUIET_CAPTURED':
-                            $stack[] = $closure->captured[$arg0[$pc - 1]] ?? null;
-                            break;
-                        case 'PUSH':
-                        case 'PUSH_STR':
-                            $stack[] = $arg0[$pc - 1];
-                            break;
-                        case 'POP':
-                            array_pop($stack);
-                            break;
-                        case 'JMP':
-                            $pc = $arg0[$pc - 1];
-                            break;
-                        case 'JZ':
-                            $value = array_pop($stack);
-                            if ($value === false || ($value !== true && ! Values::isTruthy($value))) {
-                                $pc = $arg0[$pc - 1];
-                            }
-                            break;
-                        case 'ADD':
-                            $right = array_pop($stack);
-                            $left = array_pop($stack);
-                            // An int result that overflows is a float in PHP, which Values reports as an error
-                            // @phpstan-ignore booleanAnd.rightAlwaysTrue
-                            if (is_int($left) && is_int($right) && is_int($result = $left + $right)) {
-                                $stack[] = $result;
-                            } else {
-                                $stack[] = Values::binary($tokens['ADD'], $left, $right);
-                            }
-                            break;
-                        case 'CONCAT':
-                            $right = array_pop($stack);
-                            $left = array_pop($stack);
-                            $stack[] = is_string($left) && is_string($right)
-                                ? $left.$right
-                                : Values::binary($tokens['CONCAT'], $left, $right);
-                            break;
-                        case 'SUB':
-                            $right = array_pop($stack);
-                            $left = array_pop($stack);
-                            // An int result that overflows is a float in PHP, which Values reports as an error
-                            // @phpstan-ignore booleanAnd.rightAlwaysTrue
-                            if (is_int($left) && is_int($right) && is_int($result = $left - $right)) {
-                                $stack[] = $result;
-                            } else {
-                                $stack[] = Values::binary($tokens['SUB'], $left, $right);
-                            }
-                            break;
-                        case 'MUL':
-                            $right = array_pop($stack);
-                            $left = array_pop($stack);
-                            // An int result that overflows is a float in PHP, which Values reports as an error
-                            // @phpstan-ignore booleanAnd.rightAlwaysTrue
-                            if (is_int($left) && is_int($right) && is_int($result = $left * $right)) {
-                                $stack[] = $result;
-                            } else {
-                                $stack[] = Values::binary($tokens['MUL'], $left, $right);
-                            }
-                            break;
-                        case 'MOD':
-                            $right = array_pop($stack);
-                            $left = array_pop($stack);
-                            // PHP_INT_MIN % -1 is 0 in PHP, as in Values
-                            $stack[] = is_int($left) && is_int($right) && $right !== 0
-                                ? $left % $right
-                                : Values::binary($tokens['MOD'], $left, $right);
-                            break;
-                        case 'LT':
-                        case 'LE':
-                        case 'GT':
-                        case 'GE':
-                            $opcode = $ops[$pc - 1];
-                            $right = array_pop($stack);
-                            $left = array_pop($stack);
-                            if (is_int($left) && is_int($right)) {
-                                $stack[] = match ($opcode) {
-                                    'LT' => $left < $right,
-                                    'LE' => $left <= $right,
-                                    'GT' => $left > $right,
-                                    default => $left >= $right,
-                                };
-                            } else {
-                                $stack[] = Values::binary($tokens[$opcode], $left, $right);
-                            }
-                            break;
-                        case 'EQUALS':
-                        case 'NOT_EQUALS':
-                            $right = array_pop($stack);
-                            $left = array_pop($stack);
-                            // Two ints or two strings are equal exactly when identical; Values::equals() decides the rest
-                            $equal = (is_int($left) && is_int($right)) || (is_string($left) && is_string($right))
-                                ? $left === $right
-                                : Values::equals($left, $right);
-                            $stack[] = $ops[$pc - 1] === 'EQUALS' ? $equal : ! $equal;
-                            break;
-                        case 'LOAD_QUIET':
-                            $stack[] = $locals[$arg0[$pc - 1]] ?? null;
-                            break;
-                        case 'LOAD_QUIET_GLOBAL':
-                            $stack[] = $globals[$arg0[$pc - 1]] ?? null;
-                            break;
-                        case 'INDEX_GET_QUIET':
-                            $index = array_pop($stack);
-                            $target = array_pop($stack);
-                            // A map key that PHP stores as is (see INDEX_GET), or a list index: missing reads null
-                            if ($target instanceof MapValue && (is_int($index) || (is_string($index) && $index !== '' && $index[0] > '9'))) {
-                                $stack[] = $target->items[$index] ?? null;
-                            } elseif (is_array($target) && is_int($index)) {
-                                $stack[] = $target[$index] ?? null;
-                            } else {
-                                $stack[] = $target === null ? null : Values::index($target, $index, true);
-                            }
-                            break;
-                        case 'JNN':
-                            if ($stack[array_key_last($stack)] !== null) {
-                                $pc = $arg0[$pc - 1];
-                            } else {
+        $outer = Values::$call_method;
+        Values::$call_method = function (ObjectValue $object, ClassValue $definer, string $name) use (&$frames, $depth, $methods) {
+            $name = "{$definer->name}.{$name}";
+            if ($depth + count($frames) === Values::MAX_CALL_DEPTH) {
+                throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$name}");
+            }
+
+            return $this->execute($methods[$name][0], [], $object, $name, $depth + count($frames) + 1);
+        };
+
+        try {
+            while (true) {
+                try {
+                    while ($pc < $end) {
+                        switch ($ops[$pc++]) {
+                            case 'LOAD':
+                                $slot = $arg0[$pc - 1];
+                                if (isset($locals[$slot]) || array_key_exists($slot, $locals)) {
+                                    $stack[] = $locals[$slot];
+                                } else {
+                                    throw new Exception("Undefined variable: {$local_names[$function][$slot]}");
+                                }
+                                break;
+                            case 'STORE':
+                                $locals[$arg0[$pc - 1]] = array_pop($stack);
+                                break;
+                                // A closure's captured variables live in the closure, not the frame, so every
+                                // call of it shares them; read them in place, never through a copy of the
+                                // array, which would make writes copy what they hold
+                            case 'LOAD_CAPTURED':
+                                $slot = $arg0[$pc - 1];
+                                if (isset($closure->captured[$slot]) || array_key_exists($slot, $closure->captured)) {
+                                    $stack[] = $closure->captured[$slot];
+                                } else {
+                                    throw new Exception("Undefined variable: {$closure->lambda->captures[$slot]}");
+                                }
+                                break;
+                            case 'STORE_CAPTURED':
+                                $closure->captured[$arg0[$pc - 1]] = array_pop($stack);
+                                break;
+                            case 'LOAD_QUIET_CAPTURED':
+                                $stack[] = $closure->captured[$arg0[$pc - 1]] ?? null;
+                                break;
+                            case 'PUSH':
+                            case 'PUSH_STR':
+                                $stack[] = $arg0[$pc - 1];
+                                break;
+                            case 'POP':
                                 array_pop($stack);
-                            }
-                            break;
-                        case 'LOAD_GLOBAL':
-                            $slot = $arg0[$pc - 1];
-                            if (isset($globals[$slot]) || array_key_exists($slot, $globals)) {
-                                $stack[] = $globals[$slot];
-                            } else {
-                                throw new Exception("Undefined variable: {$global_names[$slot]}");
-                            }
-                            break;
-                        case 'STORE_GLOBAL':
-                            $globals[$arg0[$pc - 1]] = array_pop($stack);
-                            break;
-                        case 'PRINT':
-                            echo Values::toString(array_pop($stack)).PHP_EOL;
-                            break;
-                        case 'NOT':
-                            $value = array_pop($stack);
-                            $stack[] = $value === false || ($value !== true && ! Values::isTruthy($value));
-                            break;
-                        case 'NEG':
-                            $stack[] = Values::negate(array_pop($stack));
-                            break;
-                        case 'INC':
-                            $value = array_pop($stack);
-                            $stack[] = is_int($value) && $value !== PHP_INT_MAX ? $value + 1 : Values::step($value, $increment);
-                            break;
-                        case 'DEC':
-                            $value = array_pop($stack);
-                            $stack[] = is_int($value) && $value !== PHP_INT_MIN ? $value - 1 : Values::step($value, $decrement);
-                            break;
-                        case 'NEW_ARRAY':
-                            $stack[] = [];
-                            break;
-                        case 'ARRAY_PUSH':
-                            $value = array_pop($stack);
-                            $stack[array_key_last($stack)][] = $value;
-                            break;
-                        case 'NEW_MAP':
-                            $stack[] = new MapValue;
-                            break;
-                        case 'MAP_SET':
-                            $value = array_pop($stack);
-                            $key = MapValue::key(Values::arrayKey(array_pop($stack)));
-                            $stack[array_key_last($stack)]->items[$key] = $value;
-                            break;
-                        case 'INDEX_GET':
-                            $index = array_pop($stack);
-                            $target = array_pop($stack);
-                            // A list element or a map key that PHP stores as is, when it isn't null
-                            if (is_array($target) && is_int($index) && isset($target[$index])) {
-                                $stack[] = $target[$index];
-                            } elseif ($target instanceof MapValue && (is_int($index) || (is_string($index) && $index !== '' && $index[0] > '9')) && isset($target->items[$index])) {
-                                $stack[] = $target->items[$index];
-                            } else {
-                                $stack[] = Values::index($target, $index);
-                            }
-                            break;
-                        case 'INDEX_GET_EXISTING':
-                            $index = array_pop($stack);
-                            $stack[] = Values::indexExisting(array_pop($stack), $index);
-                            break;
-                        case 'SET_PATH':
-                            // Temporaries from earlier instructions may still hold the list or map being
-                            // written; PHP would then copy all of it on every write
-                            unset($first, $second, $left, $right, $target, $iterable, $args, $callee);
-                            [$keys, $value] = $this->pathOperands($stack, $arg0[$pc - 1]);
-                            $slot = $arg1[$pc - 1];
-                            Values::store($locals, $slot, $local_names[$function][$slot], $keys, null, $value);
-                            $stack[] = $value;
-                            break;
-                        case 'SET_PATH_CAPTURED':
-                            unset($first, $second, $left, $right, $target, $iterable, $args, $callee);
-                            [$keys, $value] = $this->pathOperands($stack, $arg0[$pc - 1]);
-                            $slot = $arg1[$pc - 1];
-                            Values::store($closure->captured, $slot, $closure->lambda->captures[$slot], $keys, null, $value);
-                            $stack[] = $value;
-                            break;
-                        case 'SET_PATH_GLOBAL':
-                            unset($first, $second, $left, $right, $target, $iterable, $args, $callee);
-                            [$keys, $value] = $this->pathOperands($stack, $arg0[$pc - 1]);
-                            $slot = $arg1[$pc - 1];
-                            Values::store($globals, $slot, $global_names[$slot], $keys, null, $value);
-                            $stack[] = $value;
-                            break;
-                        case 'SET_PATH_THIS':
-                            unset($first, $second, $left, $right, $target, $iterable, $args, $callee);
-                            [$keys, $value] = $this->pathOperands($stack, $arg0[$pc - 1]);
-                            // The object is a handle, so writing through a table holding it writes the object
-                            $table = ['#' => $receiver];
-                            Values::store($table, '#', '#', $keys, null, $value);
-                            unset($table);
-                            $stack[] = $value;
-                            break;
-                        case 'GET_PROPERTY_QUIET':
-                            $target = array_pop($stack);
-                            $stack[] = $target === null ? null : Values::property($target, $arg0[$pc - 1], true);
-                            break;
-                        case 'GET_PROPERTY_EXISTING':
-                            $target = array_pop($stack);
-                            $stack[] = Values::propertyExisting($target, $arg0[$pc - 1]);
-                            break;
-                        case 'KEY_CHECK':
-                            $key = $stack[array_key_last($stack)];
-                            if (! is_int($key) && ! is_string($key)) {
-                                Values::arrayKey($key);
-                            }
-                            break;
-                        case 'FOREACH_CHECK':
-                            $iterable = $stack[array_key_last($stack)];
-                            if (! is_array($iterable) && ! $iterable instanceof MapValue) {
-                                throw new Exception('foreach expects a list or map, got '.Values::typeOf($iterable));
-                            }
-                            break;
-                        case 'CALL':
-                            if (count($frames) === Values::MAX_CALL_DEPTH) {
-                                throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$arg2[$pc - 1]}");
-                            }
-                            $frames[] = [$locals, $pc, $function, $argc, $closure, $receiver];
-                            $argc = $arg1[$pc - 1];
-                            $locals = $this->popMany($stack, $argc);
-                            $closure = null;
-                            $receiver = null;
-                            $function = $arg2[$pc - 1];
-                            $pc = $arg0[$pc - 1];
-                            break;
-                        case 'PUSH_FN':
-                            $stack[] = FunctionValue::named($arg0[$pc - 1]);
-                            break;
-                        case 'MAKE_CLOSURE':
-                            $index = $arg0[$pc - 1];
-                            [, $lambda, $map] = $lambdas[$index];
-                            // Copies of the enclosing variables that exist, from the frame or from the running
-                            // closure's own, as in the interpreter
-                            $captured = [];
-                            foreach ($map as [$from_closure, $outer, $inner]) {
-                                if ($from_closure) {
-                                    if (isset($closure->captured[$outer]) || array_key_exists($outer, $closure->captured)) {
-                                        $captured[$inner] = $closure->captured[$outer];
-                                    }
-                                } elseif (isset($locals[$outer]) || array_key_exists($outer, $locals)) {
-                                    $captured[$inner] = $locals[$outer];
+                                break;
+                            case 'JMP':
+                                $pc = $arg0[$pc - 1];
+                                break;
+                            case 'JZ':
+                                $value = array_pop($stack);
+                                if ($value === false || ($value !== true && ! Values::isTruthy($value))) {
+                                    $pc = $arg0[$pc - 1];
                                 }
-                            }
-                            $made = FunctionValue::closure($lambda, $captured, $index, $receiver);
-                            // $f = <lambda>: the closure's $f is the closure
-                            if ($lambda->self !== null) {
-                                $made->captured[$lambda->capture_names[$lambda->self]] = $made;
-                            }
-                            $stack[] = $made;
-                            unset($made, $captured);
-                            break;
-                        case 'LOAD_THIS':
-                            $stack[] = $receiver;
-                            break;
-                        case 'GET_PROPERTY':
-                            $target = array_pop($stack);
-                            $stack[] = Values::property($target, $arg0[$pc - 1]);
-                            break;
-                        case 'SET_FIELD':
-                            $receiver->fields[$arg0[$pc - 1]] = $stack[array_key_last($stack)];
-                            break;
-                        case 'GET_METHOD':
-                            $target = array_pop($stack);
-                            $name = $arg0[$pc - 1];
-                            if ($target instanceof ObjectValue && isset($target->class->methods[$name]) && $name !== '_') {
-                                $stack[] = $target;
-                                $stack[] = $target->class->methods[$name];
-                            } else {
-                                $stack[] = Values::property($target, $name);
-                                $stack[] = null;
-                            }
-                            break;
-                        case 'CALL_METHOD':
-                            $args = $this->popMany($stack, $arg0[$pc - 1]);
-                            $definer = array_pop($stack);
-                            $callee = array_pop($stack);
-                            if ($definer === null) {
-                                // A field holding a function, or whatever else the member was
-                                goto call_value;
-                            }
-                            $name = $arg1[$pc - 1];
-                            [$entry, $arity] = $methods["{$definer->name}.{$name}"];
-                            if (! Builtins::fitsArity($arity, count($args))) {
-                                throw new Exception(Builtins::arityError("Method {$definer->name}.{$name}", $arity, count($args)));
-                            }
-                            if (count($frames) === Values::MAX_CALL_DEPTH) {
-                                throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$definer->name}.{$name}");
-                            }
-                            $frames[] = [$locals, $pc, $function, $argc, $closure, $receiver];
-                            [$locals, $argc, $function, $closure, $receiver, $pc] = [$args, count($args), "{$definer->name}.{$name}", null, $callee, $entry];
-                            break;
-                        case 'NEW':
-                            $args = $this->popMany($stack, $arg1[$pc - 1]);
-                            $callee = $classes[$arg0[$pc - 1]];
-                            goto construct;
-                        case 'CALL_CONSTRUCTOR':
-                            // The constructor runs with the arguments the object's initialiser was given
-                            if (count($frames) === Values::MAX_CALL_DEPTH) {
-                                throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$arg0[$pc - 1]}._");
-                            }
-                            $frames[] = [$locals, $pc, $function, $argc, $closure, $receiver];
-                            $function = "{$arg0[$pc - 1]}._";
-                            $pc = $methods[$function][0];
-                            break;
-                        case 'CALL_PARENT':
-                            $args = $this->popMany($stack, $arg2[$pc - 1]);
-                            $name = "{$arg0[$pc - 1]}.{$arg1[$pc - 1]}";
-                            if (count($frames) === Values::MAX_CALL_DEPTH) {
-                                throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$name}");
-                            }
-                            $frames[] = [$locals, $pc, $function, $argc, $closure, $receiver];
-                            [$locals, $argc, $function, $closure, $pc] = [$args, count($args), $name, null, $methods[$name][0]];
-                            break;
-                        case 'BIND_PARENT':
-                            $stack[] = FunctionValue::bound($receiver, $classes[$arg0[$pc - 1]], $arg1[$pc - 1]);
-                            break;
-                        case 'PUSH_CLASS':
-                            $stack[] = $classes[$arg0[$pc - 1]];
-                            break;
-                        case 'CALL_VALUE':
-                            $args = $this->popMany($stack, $arg0[$pc - 1]);
-                            $callee = array_pop($stack);
-                            call_value:
-                            if ($callee instanceof ClassValue) {
-                                if ($callee->isAbstract()) {
-                                    throw new Exception("Cannot construct abstract class {$callee->name}");
+                                break;
+                            case 'ADD':
+                                $right = array_pop($stack);
+                                $left = array_pop($stack);
+                                // An int result that overflows is a float in PHP, which Values reports as an error
+                                // @phpstan-ignore booleanAnd.rightAlwaysTrue
+                                if (is_int($left) && is_int($right) && is_int($result = $left + $right)) {
+                                    $stack[] = $result;
+                                } else {
+                                    $stack[] = Values::binary($tokens['ADD'], $left, $right);
                                 }
-                                if (! Builtins::fitsArity($callee->arity, count($args))) {
-                                    throw new Exception(Builtins::arityError("Class {$callee->name}", $callee->arity, count($args)));
+                                break;
+                            case 'CONCAT':
+                                $right = array_pop($stack);
+                                $left = array_pop($stack);
+                                $stack[] = is_string($left) && is_string($right)
+                                    ? $left.$right
+                                    : Values::binary($tokens['CONCAT'], $left, $right);
+                                break;
+                            case 'SUB':
+                                $right = array_pop($stack);
+                                $left = array_pop($stack);
+                                // An int result that overflows is a float in PHP, which Values reports as an error
+                                // @phpstan-ignore booleanAnd.rightAlwaysTrue
+                                if (is_int($left) && is_int($right) && is_int($result = $left - $right)) {
+                                    $stack[] = $result;
+                                } else {
+                                    $stack[] = Values::binary($tokens['SUB'], $left, $right);
                                 }
-                                construct:
-                                // One frame sets the field defaults and runs the constructor, with the object as receiver
-                                if (count($frames) === Values::MAX_CALL_DEPTH) {
-                                    throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$callee->name}");
+                                break;
+                            case 'MUL':
+                                $right = array_pop($stack);
+                                $left = array_pop($stack);
+                                // An int result that overflows is a float in PHP, which Values reports as an error
+                                // @phpstan-ignore booleanAnd.rightAlwaysTrue
+                                if (is_int($left) && is_int($right) && is_int($result = $left * $right)) {
+                                    $stack[] = $result;
+                                } else {
+                                    $stack[] = Values::binary($tokens['MUL'], $left, $right);
+                                }
+                                break;
+                            case 'MOD':
+                                $right = array_pop($stack);
+                                $left = array_pop($stack);
+                                // PHP_INT_MIN % -1 is 0 in PHP, as in Values
+                                $stack[] = is_int($left) && is_int($right) && $right !== 0
+                                    ? $left % $right
+                                    : Values::binary($tokens['MOD'], $left, $right);
+                                break;
+                            case 'LT':
+                            case 'LE':
+                            case 'GT':
+                            case 'GE':
+                                $opcode = $ops[$pc - 1];
+                                $right = array_pop($stack);
+                                $left = array_pop($stack);
+                                if (is_int($left) && is_int($right)) {
+                                    $stack[] = match ($opcode) {
+                                        'LT' => $left < $right,
+                                        'LE' => $left <= $right,
+                                        'GT' => $left > $right,
+                                        default => $left >= $right,
+                                    };
+                                } else {
+                                    $stack[] = Values::binary($tokens[$opcode], $left, $right);
+                                }
+                                break;
+                            case 'EQUALS':
+                            case 'NOT_EQUALS':
+                                $right = array_pop($stack);
+                                $left = array_pop($stack);
+                                // Two ints or two strings are equal exactly when identical; Values::equals() decides the rest
+                                $equal = (is_int($left) && is_int($right)) || (is_string($left) && is_string($right))
+                                    ? $left === $right
+                                    : Values::equals($left, $right);
+                                $stack[] = $ops[$pc - 1] === 'EQUALS' ? $equal : ! $equal;
+                                break;
+                            case 'LOAD_QUIET':
+                                $stack[] = $locals[$arg0[$pc - 1]] ?? null;
+                                break;
+                            case 'LOAD_QUIET_GLOBAL':
+                                $stack[] = $globals[$arg0[$pc - 1]] ?? null;
+                                break;
+                            case 'INDEX_GET_QUIET':
+                                $index = array_pop($stack);
+                                $target = array_pop($stack);
+                                // A map key that PHP stores as is (see INDEX_GET), or a list index: missing reads null
+                                if ($target instanceof MapValue && (is_int($index) || (is_string($index) && $index !== '' && $index[0] > '9'))) {
+                                    $stack[] = $target->items[$index] ?? null;
+                                } elseif (is_array($target) && is_int($index)) {
+                                    $stack[] = $target[$index] ?? null;
+                                } else {
+                                    $stack[] = $target === null ? null : Values::index($target, $index, true);
+                                }
+                                break;
+                            case 'JNN':
+                                if ($stack[array_key_last($stack)] !== null) {
+                                    $pc = $arg0[$pc - 1];
+                                } else {
+                                    array_pop($stack);
+                                }
+                                break;
+                            case 'LOAD_GLOBAL':
+                                $slot = $arg0[$pc - 1];
+                                if (isset($globals[$slot]) || array_key_exists($slot, $globals)) {
+                                    $stack[] = $globals[$slot];
+                                } else {
+                                    throw new Exception("Undefined variable: {$global_names[$slot]}");
+                                }
+                                break;
+                            case 'STORE_GLOBAL':
+                                $globals[$arg0[$pc - 1]] = array_pop($stack);
+                                break;
+                            case 'PRINT':
+                                echo Values::toString(array_pop($stack)).PHP_EOL;
+                                break;
+                            case 'NOT':
+                                $value = array_pop($stack);
+                                $stack[] = $value === false || ($value !== true && ! Values::isTruthy($value));
+                                break;
+                            case 'NEG':
+                                $stack[] = Values::negate(array_pop($stack));
+                                break;
+                            case 'INC':
+                                $value = array_pop($stack);
+                                $stack[] = is_int($value) && $value !== PHP_INT_MAX ? $value + 1 : Values::step($value, $increment);
+                                break;
+                            case 'DEC':
+                                $value = array_pop($stack);
+                                $stack[] = is_int($value) && $value !== PHP_INT_MIN ? $value - 1 : Values::step($value, $decrement);
+                                break;
+                            case 'NEW_ARRAY':
+                                $stack[] = [];
+                                break;
+                            case 'ARRAY_PUSH':
+                                $value = array_pop($stack);
+                                $stack[array_key_last($stack)][] = $value;
+                                break;
+                            case 'NEW_MAP':
+                                $stack[] = new MapValue;
+                                break;
+                            case 'MAP_SET':
+                                $value = array_pop($stack);
+                                $key = MapValue::key(Values::arrayKey(array_pop($stack)));
+                                $stack[array_key_last($stack)]->items[$key] = $value;
+                                break;
+                            case 'INDEX_GET':
+                                $index = array_pop($stack);
+                                $target = array_pop($stack);
+                                // A list element or a map key that PHP stores as is, when it isn't null
+                                if (is_array($target) && is_int($index) && isset($target[$index])) {
+                                    $stack[] = $target[$index];
+                                } elseif ($target instanceof MapValue && (is_int($index) || (is_string($index) && $index !== '' && $index[0] > '9')) && isset($target->items[$index])) {
+                                    $stack[] = $target->items[$index];
+                                } else {
+                                    $stack[] = Values::index($target, $index);
+                                }
+                                break;
+                            case 'INDEX_GET_EXISTING':
+                                $index = array_pop($stack);
+                                $stack[] = Values::indexExisting(array_pop($stack), $index);
+                                break;
+                            case 'SET_PATH':
+                                // Temporaries from earlier instructions may still hold the list or map being
+                                // written; PHP would then copy all of it on every write
+                                unset($first, $second, $left, $right, $target, $iterable, $args, $callee);
+                                [$keys, $value] = $this->pathOperands($stack, $arg0[$pc - 1]);
+                                $slot = $arg1[$pc - 1];
+                                Values::store($locals, $slot, $local_names[$function][$slot], $keys, null, $value);
+                                $stack[] = $value;
+                                break;
+                            case 'SET_PATH_CAPTURED':
+                                unset($first, $second, $left, $right, $target, $iterable, $args, $callee);
+                                [$keys, $value] = $this->pathOperands($stack, $arg0[$pc - 1]);
+                                $slot = $arg1[$pc - 1];
+                                Values::store($closure->captured, $slot, $closure->lambda->captures[$slot], $keys, null, $value);
+                                $stack[] = $value;
+                                break;
+                            case 'SET_PATH_GLOBAL':
+                                unset($first, $second, $left, $right, $target, $iterable, $args, $callee);
+                                [$keys, $value] = $this->pathOperands($stack, $arg0[$pc - 1]);
+                                $slot = $arg1[$pc - 1];
+                                Values::store($globals, $slot, $global_names[$slot], $keys, null, $value);
+                                $stack[] = $value;
+                                break;
+                            case 'SET_PATH_THIS':
+                                unset($first, $second, $left, $right, $target, $iterable, $args, $callee);
+                                [$keys, $value] = $this->pathOperands($stack, $arg0[$pc - 1]);
+                                // The object is a handle, so writing through a table holding it writes the object
+                                $table = ['#' => $receiver];
+                                Values::store($table, '#', '#', $keys, null, $value);
+                                unset($table);
+                                $stack[] = $value;
+                                break;
+                            case 'GET_PROPERTY_QUIET':
+                                $target = array_pop($stack);
+                                $stack[] = $target === null ? null : Values::property($target, $arg0[$pc - 1], true);
+                                break;
+                            case 'GET_PROPERTY_EXISTING':
+                                $target = array_pop($stack);
+                                $stack[] = Values::propertyExisting($target, $arg0[$pc - 1]);
+                                break;
+                            case 'KEY_CHECK':
+                                $key = $stack[array_key_last($stack)];
+                                if (! is_int($key) && ! is_string($key)) {
+                                    Values::arrayKey($key);
+                                }
+                                break;
+                            case 'FOREACH_CHECK':
+                                $iterable = $stack[array_key_last($stack)];
+                                if (! is_array($iterable) && ! $iterable instanceof MapValue) {
+                                    throw new Exception('foreach expects a list or map, got '.Values::typeOf($iterable));
+                                }
+                                break;
+                            case 'CALL':
+                                if ($depth + count($frames) === Values::MAX_CALL_DEPTH) {
+                                    throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$arg2[$pc - 1]}");
                                 }
                                 $frames[] = [$locals, $pc, $function, $argc, $closure, $receiver];
-                                [$locals, $argc, $function, $closure, $receiver, $pc] = [$args, count($args), "new {$callee->name}", null, new ObjectValue($callee), $initialisers[$callee->name]];
+                                $argc = $arg1[$pc - 1];
+                                $locals = $this->popMany($stack, $argc);
+                                $closure = null;
+                                $receiver = null;
+                                $function = $arg2[$pc - 1];
+                                $pc = $arg0[$pc - 1];
                                 break;
-                            }
-                            if (! $callee instanceof FunctionValue) {
-                                throw new Exception('Cannot call '.Values::typeOf($callee));
-                            }
-                            $name = $callee->name;
-                            $builtin = $name !== null && $callee->class === null && isset(Builtins::ARITIES[$name]);
-                            $arity = match (true) {
-                                $name === null => $callee->lambda->arity,
-                                $callee->class !== null => $methods["{$callee->class->name}.{$name}"][1],
-                                $builtin => Builtins::ARITIES[$name],
-                                default => $functions[$name][1],
-                            };
-                            if (! Builtins::fitsArity($arity, count($args))) {
-                                throw new Exception(Builtins::arityError($callee->title(), $arity, count($args)));
-                            }
-                            if ($builtin) {
-                                $stack[] = $this->builtins->call($name, $args);
+                            case 'PUSH_FN':
+                                $stack[] = FunctionValue::named($arg0[$pc - 1]);
                                 break;
-                            }
-                            // The same frame push as CALL, with the arguments already popped; a closure's
-                            // body reads its captured variables from the closure
-                            if (count($frames) === Values::MAX_CALL_DEPTH) {
-                                throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH.' exceeded calling '.$callee->describe());
-                            }
-                            $frames[] = [$locals, $pc, $function, $argc, $closure, $receiver];
-                            $argc = count($args);
-                            $locals = $args;
-                            $closure = $name === null ? $callee : null;
-                            $receiver = $callee->receiver;
-                            if ($name === null) {
-                                // Keyed so no function name can collide: names can't contain ->
-                                $function = "->{$callee->index}";
-                                $pc = $lambdas[$callee->index][0];
-                            } elseif ($callee->class !== null) {
-                                $function = "{$callee->class->name}.{$name}";
-                                $pc = $methods[$function][0];
-                            } else {
-                                $function = $name;
-                                $pc = $functions[$name][0];
-                            }
-                            break;
-                        case 'ARGC':
-                            $stack[] = $argc;
-                            break;
-                        case 'RET':
-                            // Handlers installed by this call are gone with its frame
-                            while ($handlers !== [] && $handlers[array_key_last($handlers)][0] === count($frames)) {
-                                array_pop($handlers);
-                            }
-                            [$locals, $pc, $function, $argc, $closure, $receiver] = array_pop($frames);
-                            break;
-                        case 'CALL_BUILTIN':
-                            $name = $arg0[$pc - 1];
-                            // Most builtins take one or two arguments, so pop those directly
-                            switch ($arg1[$pc - 1]) {
-                                case 1:
-                                    $first = array_pop($stack);
-                                    // Fast paths for the hottest builtins when the result is obvious;
-                                    // anything else, errors included, goes through Builtins::call()
-                                    if ($name === 'len' && is_string($first)) {
-                                        $stack[] = strlen($first);
-                                    } elseif ($name === 'ord' && is_string($first) && strlen($first) === 1) {
-                                        $stack[] = ord($first);
-                                    } elseif ($name === 'len' && is_array($first)) {
-                                        $stack[] = count($first);
-                                    } elseif ($name === 'chr' && is_int($first) && $first >= 0 && $first <= 255) {
-                                        $stack[] = chr($first);
-                                    } else {
-                                        $stack[] = $this->builtins->call($name, [$first]);
+                            case 'MAKE_CLOSURE':
+                                $index = $arg0[$pc - 1];
+                                [, $lambda, $map] = $lambdas[$index];
+                                // Copies of the enclosing variables that exist, from the frame or from the running
+                                // closure's own, as in the interpreter
+                                $captured = [];
+                                foreach ($map as [$from_closure, $outer, $inner]) {
+                                    if ($from_closure) {
+                                        if (isset($closure->captured[$outer]) || array_key_exists($outer, $closure->captured)) {
+                                            $captured[$inner] = $closure->captured[$outer];
+                                        }
+                                    } elseif (isset($locals[$outer]) || array_key_exists($outer, $locals)) {
+                                        $captured[$inner] = $locals[$outer];
                                     }
+                                }
+                                $made = FunctionValue::closure($lambda, $captured, $index, $receiver);
+                                // $f = <lambda>: the closure's $f is the closure
+                                if ($lambda->self !== null) {
+                                    $made->captured[$lambda->capture_names[$lambda->self]] = $made;
+                                }
+                                $stack[] = $made;
+                                unset($made, $captured);
+                                break;
+                            case 'LOAD_THIS':
+                                $stack[] = $receiver;
+                                break;
+                            case 'GET_PROPERTY':
+                                $target = array_pop($stack);
+                                $stack[] = Values::property($target, $arg0[$pc - 1]);
+                                break;
+                            case 'SET_FIELD':
+                                $receiver->fields[$arg0[$pc - 1]] = $stack[array_key_last($stack)];
+                                break;
+                            case 'GET_METHOD':
+                                $target = array_pop($stack);
+                                $name = $arg0[$pc - 1];
+                                if ($target instanceof ObjectValue && isset($target->class->methods[$name]) && $name !== '_') {
+                                    $stack[] = $target;
+                                    $stack[] = $target->class->methods[$name];
+                                } else {
+                                    $stack[] = Values::property($target, $name);
+                                    $stack[] = null;
+                                }
+                                break;
+                            case 'CALL_METHOD':
+                                $args = $this->popMany($stack, $arg0[$pc - 1]);
+                                $definer = array_pop($stack);
+                                $callee = array_pop($stack);
+                                if ($definer === null) {
+                                    // A field holding a function, or whatever else the member was
+                                    goto call_value;
+                                }
+                                $name = $arg1[$pc - 1];
+                                [$entry, $arity] = $methods["{$definer->name}.{$name}"];
+                                if (! Builtins::fitsArity($arity, count($args))) {
+                                    throw new Exception(Builtins::arityError("Method {$definer->name}.{$name}", $arity, count($args)));
+                                }
+                                if ($depth + count($frames) === Values::MAX_CALL_DEPTH) {
+                                    throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$definer->name}.{$name}");
+                                }
+                                $frames[] = [$locals, $pc, $function, $argc, $closure, $receiver];
+                                [$locals, $argc, $function, $closure, $receiver, $pc] = [$args, count($args), "{$definer->name}.{$name}", null, $callee, $entry];
+                                break;
+                            case 'NEW':
+                                $args = $this->popMany($stack, $arg1[$pc - 1]);
+                                $callee = $classes[$arg0[$pc - 1]];
+                                goto construct;
+                            case 'CALL_CONSTRUCTOR':
+                                // The constructor runs with the arguments the object's initialiser was given
+                                if ($depth + count($frames) === Values::MAX_CALL_DEPTH) {
+                                    throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$arg0[$pc - 1]}._");
+                                }
+                                $frames[] = [$locals, $pc, $function, $argc, $closure, $receiver];
+                                $function = "{$arg0[$pc - 1]}._";
+                                $pc = $methods[$function][0];
+                                break;
+                            case 'CALL_PARENT':
+                                $args = $this->popMany($stack, $arg2[$pc - 1]);
+                                $name = "{$arg0[$pc - 1]}.{$arg1[$pc - 1]}";
+                                if ($depth + count($frames) === Values::MAX_CALL_DEPTH) {
+                                    throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$name}");
+                                }
+                                $frames[] = [$locals, $pc, $function, $argc, $closure, $receiver];
+                                [$locals, $argc, $function, $closure, $pc] = [$args, count($args), $name, null, $methods[$name][0]];
+                                break;
+                            case 'BIND_PARENT':
+                                $stack[] = FunctionValue::bound($receiver, $classes[$arg0[$pc - 1]], $arg1[$pc - 1]);
+                                break;
+                            case 'PUSH_CLASS':
+                                $stack[] = $classes[$arg0[$pc - 1]];
+                                break;
+                            case 'CALL_VALUE':
+                                $args = $this->popMany($stack, $arg0[$pc - 1]);
+                                $callee = array_pop($stack);
+                                call_value:
+                                if ($callee instanceof ClassValue) {
+                                    if ($callee->isAbstract()) {
+                                        throw new Exception("Cannot construct abstract class {$callee->name}");
+                                    }
+                                    if (! Builtins::fitsArity($callee->arity, count($args))) {
+                                        throw new Exception(Builtins::arityError("Class {$callee->name}", $callee->arity, count($args)));
+                                    }
+                                    construct:
+                                    // One frame sets the field defaults and runs the constructor, with the object as receiver
+                                    if ($depth + count($frames) === Values::MAX_CALL_DEPTH) {
+                                        throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$callee->name}");
+                                    }
+                                    $frames[] = [$locals, $pc, $function, $argc, $closure, $receiver];
+                                    [$locals, $argc, $function, $closure, $receiver, $pc] = [$args, count($args), "new {$callee->name}", null, new ObjectValue($callee), $initialisers[$callee->name]];
                                     break;
-                                case 2:
-                                    $second = array_pop($stack);
-                                    $first = array_pop($stack);
-                                    $stack[] = $this->builtins->call($name, [$first, $second]);
+                                }
+                                if (! $callee instanceof FunctionValue) {
+                                    throw new Exception('Cannot call '.Values::typeOf($callee));
+                                }
+                                $name = $callee->name;
+                                $builtin = $name !== null && $callee->class === null && isset(Builtins::ARITIES[$name]);
+                                $arity = match (true) {
+                                    $name === null => $callee->lambda->arity,
+                                    $callee->class !== null => $methods["{$callee->class->name}.{$name}"][1],
+                                    $builtin => Builtins::ARITIES[$name],
+                                    default => $functions[$name][1],
+                                };
+                                if (! Builtins::fitsArity($arity, count($args))) {
+                                    throw new Exception(Builtins::arityError($callee->title(), $arity, count($args)));
+                                }
+                                if ($builtin) {
+                                    $stack[] = $this->builtins->call($name, $args);
                                     break;
-                                default:
-                                    $stack[] = $this->builtins->call($name, $this->popMany($stack, $arg1[$pc - 1]));
-                            }
-                            break;
-                        case 'TRY':
-                            $handlers[] = [count($frames), count($stack), $arg0[$pc - 1]];
-                            break;
-                        case 'END_TRY':
-                            array_pop($handlers);
-                            break;
-                        case 'HALT':
-                            return;
-                        default:
-                            $opcode = $ops[$pc - 1];
-                            if (! isset($tokens[$opcode])) {
-                                throw new Exception("Unknown instruction: {$opcode}");
-                            }
-                            $right = array_pop($stack);
-                            $stack[] = Values::binary($tokens[$opcode], array_pop($stack), $right);
+                                }
+                                // The same frame push as CALL, with the arguments already popped; a closure's
+                                // body reads its captured variables from the closure
+                                if ($depth + count($frames) === Values::MAX_CALL_DEPTH) {
+                                    throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH.' exceeded calling '.$callee->describe());
+                                }
+                                $frames[] = [$locals, $pc, $function, $argc, $closure, $receiver];
+                                $argc = count($args);
+                                $locals = $args;
+                                $closure = $name === null ? $callee : null;
+                                $receiver = $callee->receiver;
+                                if ($name === null) {
+                                    // Keyed so no function name can collide: names can't contain ->
+                                    $function = "->{$callee->index}";
+                                    $pc = $lambdas[$callee->index][0];
+                                } elseif ($callee->class !== null) {
+                                    $function = "{$callee->class->name}.{$name}";
+                                    $pc = $methods[$function][0];
+                                } else {
+                                    $function = $name;
+                                    $pc = $functions[$name][0];
+                                }
+                                break;
+                            case 'ARGC':
+                                $stack[] = $argc;
+                                break;
+                            case 'RET':
+                                // Handlers installed by this call are gone with its frame
+                                while ($handlers !== [] && $handlers[array_key_last($handlers)][0] === count($frames)) {
+                                    array_pop($handlers);
+                                }
+                                // The frame this loop started in returns its value to whoever called execute()
+                                if ($frames === []) {
+                                    return array_pop($stack);
+                                }
+                                [$locals, $pc, $function, $argc, $closure, $receiver] = array_pop($frames);
+                                break;
+                            case 'CALL_BUILTIN':
+                                $name = $arg0[$pc - 1];
+                                // Most builtins take one or two arguments, so pop those directly
+                                switch ($arg1[$pc - 1]) {
+                                    case 1:
+                                        $first = array_pop($stack);
+                                        // Fast paths for the hottest builtins when the result is obvious;
+                                        // anything else, errors included, goes through Builtins::call()
+                                        if ($name === 'len' && is_string($first)) {
+                                            $stack[] = strlen($first);
+                                        } elseif ($name === 'ord' && is_string($first) && strlen($first) === 1) {
+                                            $stack[] = ord($first);
+                                        } elseif ($name === 'len' && is_array($first)) {
+                                            $stack[] = count($first);
+                                        } elseif ($name === 'chr' && is_int($first) && $first >= 0 && $first <= 255) {
+                                            $stack[] = chr($first);
+                                        } else {
+                                            $stack[] = $this->builtins->call($name, [$first]);
+                                        }
+                                        break;
+                                    case 2:
+                                        $second = array_pop($stack);
+                                        $first = array_pop($stack);
+                                        $stack[] = $this->builtins->call($name, [$first, $second]);
+                                        break;
+                                    default:
+                                        $stack[] = $this->builtins->call($name, $this->popMany($stack, $arg1[$pc - 1]));
+                                }
+                                break;
+                            case 'TRY':
+                                $handlers[] = [count($frames), count($stack), $arg0[$pc - 1]];
+                                break;
+                            case 'END_TRY':
+                                array_pop($handlers);
+                                break;
+                            case 'HALT':
+                                return null;
+                            default:
+                                $opcode = $ops[$pc - 1];
+                                if (! isset($tokens[$opcode])) {
+                                    throw new Exception("Unknown instruction: {$opcode}");
+                                }
+                                $right = array_pop($stack);
+                                $stack[] = Values::binary($tokens[$opcode], array_pop($stack), $right);
+                        }
                     }
-                }
 
-                return;
-            } catch (ExitSignal $e) {
-                // exit() is not an error: no handler sees it
-                throw $e;
-            } catch (Exception $e) {
-                $error = $this->locate($e, $locations[$pc - 1]);
-                if (! $error instanceof GazLangError || $handlers === []) {
-                    throw $error;
-                }
+                    return null;
+                } catch (ExitSignal $e) {
+                    // exit() is not an error: no handler sees it
+                    throw $e;
+                } catch (Exception $e) {
+                    $error = $this->locate($e, $locations[$pc - 1]);
+                    if (! $error instanceof GazLangError || $handlers === []) {
+                        throw $error;
+                    }
 
-                // Unwind to the innermost try: drop the calls made inside it and whatever
-                // the failed expression left on the stack, then run its catch block
-                [$frame_count, $stack_size, $catch_pc] = array_pop($handlers);
-                while (count($frames) > $frame_count) {
-                    [$locals, , $function, $argc, $closure, $receiver] = array_pop($frames);
+                    // Unwind to the innermost try: drop the calls made inside it and whatever
+                    // the failed expression left on the stack, then run its catch block
+                    [$frame_count, $stack_size, $catch_pc] = array_pop($handlers);
+                    while (count($frames) > $frame_count) {
+                        [$locals, , $function, $argc, $closure, $receiver] = array_pop($frames);
+                    }
+                    array_splice($stack, $stack_size);
+                    $stack[] = $error->toMap();
+                    $pc = $catch_pc;
                 }
-                array_splice($stack, $stack_size);
-                $stack[] = $error->toMap();
-                $pc = $catch_pc;
             }
+        } finally {
+            Values::$call_method = $outer;
         }
     }
 

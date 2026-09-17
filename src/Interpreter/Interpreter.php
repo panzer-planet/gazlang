@@ -1036,6 +1036,13 @@ class Interpreter extends AbstractNodeVisitor
         }
         $this->classes = ClassValue::build(array_filter($tree->statements, fn ($statement) => $statement instanceof ClassDeclarationAST));
 
-        $this->visit($tree);
+        // echo and .. call to_string() through Values, which comes back here to run it
+        $outer = Values::$call_method;
+        Values::$call_method = fn (ObjectValue $object, ClassValue $definer, string $name) => $this->invokeMethod($definer, $name, $object, []);
+        try {
+            $this->visit($tree);
+        } finally {
+            Values::$call_method = $outer;
+        }
     }
 }

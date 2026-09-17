@@ -25,6 +25,13 @@ final class Values
     public const MAX_CALL_DEPTH = 10000;
 
     /**
+     * @var (\Closure(ObjectValue, ClassValue, string): mixed)|null How the running backend calls a method, given the
+     *                                                              object, the class whose version runs and the name:
+     *                                                              toString() calls to_string() with it; set while a program runs
+     */
+    public static $call_method = null;
+
+    /**
      * @var array<int, true> The objects being printed by toString(), by object id, so one that holds itself prints as Name {...}
      */
     private static $printing = [];
@@ -69,6 +76,9 @@ final class Values
     /**
      * Convert a value to the text echo prints and .. concatenates
      *
+     * An object with a to_string() method prints what it returns, which must be a string;
+     * one without prints its class and fields.
+     *
      * @param  mixed  $value  The value to convert
      * @return string The string representation
      *
@@ -100,7 +110,17 @@ final class Values
 
             return '{'.implode(', ', $parts).'}';
         } elseif ($value instanceof ObjectValue) {
-            return self::describeObject($value);
+            $definer = $value->class->methods['to_string'] ?? null;
+            if ($definer === null) {
+                return self::describeObject($value);
+            }
+            $call = self::$call_method ?? throw new Exception('Cannot call to_string: no program is running');
+            $text = $call($value, $definer, 'to_string');
+            if (! is_string($text)) {
+                throw new Exception("{$definer->name}.to_string must return a string, got ".self::typeOf($text));
+            }
+
+            return $text;
         } elseif ($value instanceof ClassValue) {
             return "class {$value->name}";
         }

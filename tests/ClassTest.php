@@ -368,6 +368,86 @@ class ClassTest extends GazLangTestCase
             CODE));
     }
 
+    public function test_to_string_is_used_wherever_values_become_text()
+    {
+        $this->assertEquals(
+            "circle (r = 2)\ngot circle (r = 2), circle (r = 2)!\n[circle (r = 2), {\"k\" => circle (r = 2)}]\ncircle (r = 2); square\ntrue\nHolder {#item => circle (r = 2)}\nW has 10: W\n",
+            $this->executeCode(<<<'CODE'
+                class Shape {
+                    #name;
+                    fn _($name) { #name = $name; }
+                    fn to_string() { return #name; }
+                }
+                class Circle extends Shape {
+                    #r;
+                    fn _($r) { ##_("circle"); #r = $r; }
+                    fn to_string() { return "{##to_string()} (r = {#r})"; }
+                }
+                class Holder { #item; fn _($item) { #item = $item; } }
+                class Account {
+                    #owner;
+                    #balance = 10;
+                    fn _($owner) { #owner = $owner; }
+                    fn to_string() { return "{#owner} has {#balance}: {$nickname ?? #owner}"; }
+                }
+                $c = Circle(2);
+                echo $c;
+                echo "got {$c}, " .. $c .. "!";
+                echo [$c, {"k" => $c}];
+                echo join([$c, Shape("square")], "; ");
+                echo to_string($c) == "circle (r = 2)";
+                echo Holder($c);
+                $a = Account("W");
+                echo "{$a}";
+                CODE)
+        );
+    }
+
+    public function test_property_paths_interpolate_inside_braces()
+    {
+        $this->assertEquals("Hi W, you have 10 #fff \$a.owner.txt\n", $this->executeCode(<<<'CODE'
+            class Account { #owner = "W"; #balance = 10; }
+            $a = Account();
+            echo "Hi {$a.owner}, you have {$a.balance} #fff \$a.owner.txt";
+            CODE));
+    }
+
+    public function test_errors_and_exit_in_to_string_leave_it()
+    {
+        $this->assertEquals("caught boom at 3\nkept going\n", $this->executeCode(<<<'CODE'
+            class Boom {
+                fn to_string() {
+                    return error("boom");
+                }
+            }
+            try { echo "x" .. Boom(); } catch ($e) { echo "caught {$e["message"]} at {$e["line"]}"; }
+            echo "kept going";
+            CODE));
+    }
+
+    public function test_to_string_reads_and_writes_globals()
+    {
+        $this->assertEquals("g2 g3 3\n", $this->executeCode(<<<'CODE'
+            @g = 1;
+            class G { fn to_string() { @g += 1; return "g{@g}"; } }
+            echo G() .. " " .. G() .. " " .. @g;
+            CODE));
+    }
+
+    public function test_runaway_to_string_is_a_gazlang_error()
+    {
+        // Through the CLI, which restarts itself without pcov (see FunctionTest)
+        $code = 'class Loop { fn to_string() { return "{#}"; } } echo Loop();';
+        foreach (['', '--interpreter'] as $backend) {
+            $command = sprintf('echo %s | %s %s %s', escapeshellarg($code), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang'), $backend);
+            exec($command, $output, $exit_code);
+
+            $this->assertSame(['Error: Maximum call depth of 10000 exceeded calling Loop.to_string on line 1'], $output, "with {$backend}");
+            $this->assertSame(1, $exit_code);
+            $output = [];
+        }
+    }
+
     /**
      * @dataProvider runtimeErrors
      */
@@ -412,6 +492,8 @@ class ClassTest extends GazLangTestCase
             'keys and value run before the path fails' => ['fn k() { echo "k"; return 0; } $a = Account("W"); $a.nope[k()] = error("value");', 'value'],
             'constructing an abstract class through a value' => ['abstract class S {} $s = S; $s();', 'Cannot construct abstract class S on line 14'],
             'is_a needs a class' => ['echo is_a(1, "Account");', 'is_a() expects class, got string on line 14'],
+            'to_string returning something else' => ['class P { fn to_string() { return [1]; } } echo P();', 'P.to_string must return a string, got list on line 14'],
+            'to_string returning something else, through ..' => ['class P { fn to_string() { return null; } } $s = "a" .. P();', 'P.to_string must return a string, got null on line 14'],
             'error in the constructor' => ["class P {\n fn _() { error(\"no\"); }\n}\n\$p = P();", 'no'],
         ];
     }
@@ -488,6 +570,9 @@ class ClassTest extends GazLangTestCase
             '##_ in a lambda in a constructor' => ['class A { fn _() {} } class B extends A { fn _() { $f = () -> ##_(); } }', "##_ can only be used in a constructor, to run the parent's on line 1"],
             '##_ without a call' => ['class A { fn _() {} } class B extends A { fn _() { $f = ##_; } }', "Call the parent's constructor as ##_(...) on line 1"],
             '##_ without a parent constructor' => ['class A {} class B extends A { fn _() { ##_(); } }', 'A has no constructor to call with ##_ on line 1'],
+            'to_string with a required argument' => ["class P {\n fn to_string(\$a) {}\n}", 'Method P.to_string must accept 0 arguments: printing calls it with none on line 2'],
+            'to_string with only optional arguments is fine' => ['class P { fn to_string($a = 1) { return ""; } } echo ;', "Unexpected ';' on line 1"],
+            '{#name} outside a method' => ['echo "{#name}";', 'Cannot use #name outside a method on line 1'],
             'something else in a class body' => ['class P { echo 1; }', "Expected a field (#name) or a method (fn) but found 'echo' on line 1"],
             'duplicate method parameter' => ['class P { fn f($a, $a) {} }', 'Duplicate parameter $a in method P.f on line 1'],
         ];
