@@ -20,3 +20,14 @@ ok unwinds through calls
 ok global catch variable
 ok valid config
 ok invalid config
+ok a subclass matches its own clause first
+ok a class matches its clause
+ok a string error is an Error
+ok an Error made directly
+ok any other value
+ok an error object's message
+ok its own fields
+ok where it was thrown
+ok it prints as its message
+ok a thrown list is caught as it is
+ok unmatched errors carry on through finally

@@ -210,8 +210,9 @@ each step depends on the ones before it.
      `has_key($x, $key)` (a map's key, or a list's index), `keys($x)` (a list's indexes).
    - Other: `type_of($x)` (`int`, `float`, `string`, `bool`, `null`, `list`, `map`, `function`,
      `class`, `object`), `is_a($x, Class)` (see "Objects"),
-     `error($message)` (raises an error that try/catch can catch; uncaught it stops
-     with `Error: message`, exit 1, printed exactly as given with no location), `exit($code = 0)`
+     `error($value)` (raises an error that try/catch can catch, see "Errors and try/catch";
+     uncaught it stops with `Error: ` and the value as echo prints it, exit 1, with no
+     location), `exit($code = 0)`
      (stops the program with that exit code, 0 to 255, printing nothing; not an error, so
      `try/catch` doesn't see it: both backends unwind with `Runtime\ExitSignal`, which
      `bin/gazlang` and the tests' `runProgram()` turn into the exit code), `read_file($path)` and `write_file($path, $string)`
@@ -238,7 +239,7 @@ each step depends on the ones before it.
    ruled out as the main path because it ties GazLang to PHP for good (it stays a
    fallback). The plan is the Lua/Python shape instead: everything above the VM in
    GazLang, the VM and runtime native. Objects come first, since they change the value
-   model the other stages depend on; phase 1 is built ("Objects"), phase 2 (errors) is next.
+   model the other stages depend on; both phases are built ("Objects", "Errors and try/catch").
 
    1. **Pin down the bytecode as a file format.** Today's `Program` (stack
       instructions with file and line, the function table with arities, the lambda
@@ -314,11 +315,9 @@ with the options considered and a status on each; update it as more are decided.
 it led to and is already built is described in its own section: `..` and strict `==`
 (roadmap step 2), `/` always a float ("Numbers"), lists and maps (step 5), function values,
 lambdas and closure state ("Function values"), `lib/functional.gaz` (step 7's GazLang
-libraries), `fn` (step 4) and objects phase 1 ("Objects"). Next:
+libraries), `fn` (step 4), objects ("Objects") and error objects, typed catch and
+`finally` ("Errors and try/catch"). Not built:
 
-- **Objects phase 2, errors: `error()` takes any value,** so `error(ParseError("bad", 3))`
-  works and `catch (ParseError $e)` filters by class and its subclasses; a string error
-  keeps today's map shape. `finally` arrives with them.
 - **Later, when real code needs them:** `interface` / `implements` (a parse-time check
   that the methods exist, plus `is_a`), `final`, and visibility with public implicit:
   `private` and `protected` on fields and methods. `#` and `##` are checked at parse
@@ -329,7 +328,8 @@ libraries), `fn` (step 4) and objects phase 1 ("Objects"). Next:
 
 ## Objects
 
-Phase 1 of the design decided 2026-09-17 (`docs/design-review.md`, "Object syntax"). Judged
+The design decided 2026-09-17 (`docs/design-review.md`, "Object syntax"); phase 2, errors
+as objects, is under "Errors and try/catch". Judged
 by the C VM plan too (roadmap step 7): declared fields and single inheritance give every
 class a fixed layout, so fields can be slots and methods a table. `examples/objects.gaz`
 and `tests/gaz/objects/` show it working.
@@ -558,22 +558,89 @@ compiles as prefix, so `$i++` in a loop is `LOAD`, `INC`, `STORE`.
 
 ## Errors and try/catch
 
-`try { ... } catch ($e) { ... }` (`TryStatementAST`) catches any runtime error: a
-failed operator or builtin, an undefined variable or key, division by zero, running
-out of call depth, or `error($message)`, which is also how programs throw (and
-rethrow: `error($e["message"])`). Syntax and include errors happen before the
-program runs and can't be caught. `$e` (or `@e`) is
-`{"message" => ..., "file" => ..., "line" => ...}`, the message without the location;
-`file` is null for piped input. `return`, `break`, `continue` and `exit()` are not errors and
-pass through. There is no `finally` yet.
+```
+class NotFound extends Error {
+    #key;
+    fn _($key) { ##_("Not found: {$key}"); #key = $key; }
+}
+
+try {
+    error(NotFound("id"));                    // or any runtime error, or error("text")
+} catch (NotFound $e) {
+    echo "{$e.message} ({$e.key}) at line {$e.line}";
+} catch (Error $e) {
+    echo $e.message;                          // division by zero, a missing key...
+} catch ($e) {
+    echo "something else was thrown: {$e}";   // error(5), error([1, 2])
+} finally {
+    echo "always";
+}
+```
+
+- **What can be caught:** any runtime error (a failed operator or builtin, an undefined
+  variable or key, division by zero, running out of call depth) and anything thrown with
+  `error()`. Syntax and include errors happen before the program runs and can't be;
+  `return`, `break`, `continue` and `exit()` are not errors and pass through.
+- **`Error` is a builtin class** (`Parser::BUILTIN_CLASSES`, GazLang source parsed before
+  every program, shown as `<builtin>` in locations): `#message`, `#file` (null for piped
+  input), `#line`, `_($message)`, and `to_string()` giving the message. It can't be
+  declared again, and programs extend it. Runtime errors and `error("text")` are caught
+  as `Error` objects. It is only compiled into programs that catch, name or extend it.
+- **`error($value)` throws any value.** A string is the message of an `Error`; anything
+  else is caught as it is (`error(5)` catches `5`). An `Error` or subclass gets `#file` and
+  `#line` where it is first thrown, so `error($e)` rethrows it keeping them. Uncaught,
+  `bin/gazlang` prints `Error: ` and the value as echo would (through `to_string()`),
+  with no location; runtime errors keep theirs.
+- **Catch clauses** are tried in order; `catch (NotFound $e)` matches an object of that
+  class or a subclass, `catch ($e)` (or `@e`) anything and must be the last, and a
+  catch's class must be a class (parse time). An error no clause matches carries on
+  unchanged.
+- **`finally`** runs however the try and catch blocks are left: at their end, when an error
+  passes (caught or not; it then carries on), and on `return`, `break` or `continue`, whose
+  return value is worked out first. An error in it replaces what was in flight. `return`,
+  `break` and `continue` can't leave it (parse error; loops and lambdas inside use them for
+  themselves). `exit()` doesn't run it. A `try` has at least one catch or a finally.
 
 Every runtime error is a `GazLangError` by the time it leaves a node with a location
 (see "Errors" below), and `Interpreter::visitTryStatement()` catches exactly those, so
 PHP bugs (`TypeError` and the like) are not swallowed. `error()` messages have
 `show_location` false: uncaught they print exactly as given, but the location is
-still recorded for catch. The code generator emits `TRY CATCH_n` ... `END_TRY`, with
-the error map pushed at `LABEL CATCH_n`; break and continue emit `END_TRY` for each
-try they leave, and `RET` drops the returning frame's handlers.
+still recorded for catch. A thrown value rides in `GazLangError::$value`, `located()` keeps
+it, and `caught()` works out once what catch sees (an `Error` object, or the value). The
+interpreter's finally uses PHP's exception handling (catching the reused `ReturnSignal`
+keeps its value); the code generator emits handlers:
+
+```
+TRY FINALLY_n                   (with a finally)
+TRY CATCH_n
+body
+END_TRY
+JMP ENDTRY_n
+LABEL CATCH_n                   the handler pushed the GazLangError
+CATCH_MATCH NotFound NEXTCATCH_n_0   a match replaces it with the caught value, else jumps
+STORE $e
+catch body
+JMP ENDTRY_n
+LABEL NEXTCATCH_n_0
+CATCH_VALUE                     an untyped catch; after typed ones only, RETHROW instead
+STORE $e
+catch body
+LABEL ENDTRY_n
+END_TRY
+finally body
+JMP ENDFINALLY_n
+LABEL FINALLY_n
+STORE $#finally_error_n
+finally body
+LOAD $#finally_error_n
+RETHROW
+LABEL ENDFINALLY_n
+```
+
+break, continue and return leave the handlers themselves (`CodeGenerator::leaveTries()`):
+`END_TRY` for each, and each finally block's code after its own, compiled as if outside its
+try; a return first stores its value in a hidden variable. `RET` drops whatever handlers
+its frame still has.
 
 ## Numbers
 

@@ -38,7 +38,7 @@ Needed now:
 - `==` on objects is identity (the Python, Ruby and Lua default). PHP's structural
   object `==` is a trap once objects hold objects.
 
-### 4. Errors — decided: `error()` takes any value, `catch (Type $e)`, `finally` with objects
+### 4. Errors — built: `error()` takes any value, `Error` objects, `catch (Type $e)`, `finally`
 `error()` takes a string and catch gives a map. PHP, Python and Ruby have
 class-based exceptions with typed catch; Lua's `error(any_value)` + `pcall` is the
 minimal version. Programs will want `error(NotFound("x"))` and catch by type.
@@ -171,6 +171,17 @@ Decided while planning and building phase 1 (2026-09-17):
 - Found while building: `"{#"` in a string starts an interpolation anywhere, so a literal
   one outside a method is an error; write `\{#` or use single quotes.
 
+Decided for phase 2 (2026-09-17):
+- Runtime errors and `error("text")` are caught as objects of a builtin `Error` class
+  (`$e.message`, `$e.file`, `$e.line`) rather than keeping the map: a thrown map would
+  otherwise look like a runtime error, runtime errors couldn't be caught by type, and
+  rethrowing couldn't keep the location. Any other value is caught as it is.
+- An `Error` gets `#file` and `#line` where it is first thrown; `error($e)` keeps them.
+- Several catch clauses, first match wins; an untyped catch must be the last.
+- `finally` runs on every way out of the try and catch blocks except `exit()`; return,
+  break and continue can't leave it; a return value is worked out before it runs (Java).
+- An uncaught non-string value prints as echo would, with no location.
+
 ## Still open
 
 `true == 1`: decided false (Ruby, Lua); bools are not numbers, `to_int(true)` is explicit.
@@ -182,5 +193,5 @@ Nothing open on objects; details found while building phase 1 get recorded here.
 
 Done: items 1, 2, 8, 10, 12 and 13, function values, anonymous functions and
 lib/functional.gaz, the `fn` rename, and objects phase 1 (classes, inheritance, `#` and
-`##`, `.` with item 3's tagged path steps, items 5 to 7). Next: phase 2 (item 4's errors).
+`##`, `.` with item 3's tagged path steps, items 5 to 7), and phase 2 (item 4's errors).
 The long-term plan after the language settles is roadmap step 7 in CLAUDE.md.

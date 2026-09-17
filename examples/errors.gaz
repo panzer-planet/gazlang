@@ -1,0 +1,79 @@
+// Errors: Error objects, typed catch clauses, throwing any value, and finally.
+//
+//   php bin/gazlang -f examples/errors.gaz
+
+class NotFound extends Error {
+    #key;
+    fn _($key) {
+        ##_("No setting named {$key}");
+        #key = $key;
+    }
+}
+
+class Settings {
+    #values;
+    fn _($values) { #values = $values; }
+    fn get($key) {
+        return #values[$key] ?? error(NotFound($key));
+    }
+}
+
+$settings = Settings({"port" => 8080, "host" => "localhost"});
+
+fn describe($settings, $key) {
+    try {
+        return "{$key} = " .. $settings.get($key);
+    } catch (NotFound $e) {
+        return "{$e} (line {$e.line})";
+    } finally {
+        echo "looked up {$key}";
+    }
+}
+echo describe($settings, "port");               // looked up port, then: port = 8080
+echo describe($settings, "user");               // looked up user, then: No setting named user (line 17)
+
+// Runtime errors are Error objects too
+try {
+    echo 10 / 0;
+} catch (NotFound $e) {
+    echo "not this one";
+} catch (Error $e) {
+    echo "{$e.message} on line {$e.line}";      // Division by zero on line 37
+}
+
+// Any value can be thrown, and is caught as it is
+fn parse_age($text) {
+    if (trim($text) == "") {
+        error({"field" => "age", "got" => $text});
+    }
+    return to_int($text);
+}
+try {
+    parse_age("");
+} catch ($problem) {
+    echo "invalid {$problem["field"]}: \"{$problem["got"]}\"";   // invalid age: ""
+}
+
+// finally runs on the way out of a loop too, and a rethrown error keeps its line
+$attempts = [];
+foreach (["a", "b", "c"] as $name) {
+    try {
+        if ($name == "b") {
+            break;
+        }
+        $attempts[] = $name;
+    } finally {
+        $attempts[] = "done {$name}";
+    }
+}
+echo $attempts;                                 // ["a", "done a", "done b"]
+
+try {
+    try {
+        $settings.get("missing");
+    } catch ($e) {
+        error($e);
+    }
+} catch (NotFound $e) {
+    echo "rethrown from line {$e.line}: {$e.key}";   // rethrown from line 17: missing
+}

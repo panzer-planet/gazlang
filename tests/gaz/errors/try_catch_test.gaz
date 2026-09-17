@@ -140,3 +140,60 @@ fn parse_config($text) {
 }
 check("valid config", parse_config("{\"debug\": true}"), {"ok" => true, "config" => {"debug" => true}});
 check("invalid config", parse_config("{debug}")["ok"], false);
+
+// Error objects and typed catch clauses
+class NotFound extends Error {
+    #key;
+    fn _($key) { ##_("Not found: {$key}"); #key = $key; }
+}
+class MissingFile extends NotFound {}
+
+fn caught_by($value) {
+    try {
+        error($value);
+    } catch (MissingFile $e) {
+        return "MissingFile";
+    } catch (NotFound $e) {
+        return "NotFound";
+    } catch (Error $e) {
+        return "Error";
+    } catch ($e) {
+        return "anything";
+    }
+}
+check("a subclass matches its own clause first", caught_by(MissingFile("f")), "MissingFile");
+check("a class matches its clause", caught_by(NotFound("k")), "NotFound");
+check("a string error is an Error", caught_by("text"), "Error");
+check("an Error made directly", caught_by(Error("plain")), "Error");
+check("any other value", caught_by(42), "anything");
+
+try {
+    error(NotFound("k"));
+} catch (NotFound $e) {
+    check("an error object's message", $e.message, "Not found: k");
+    check("its own fields", $e.key, "k");
+    check("where it was thrown", $e.line, 171);
+    check("it prints as its message", "{$e}", "Not found: k");
+}
+
+try {
+    error([1, 2]);
+} catch ($e) {
+    check("a thrown list is caught as it is", $e, [1, 2]);
+}
+
+// An error no clause matches carries on, running finally on the way
+$log = [];
+try {
+    try {
+        $log[] = "try";
+        error("plain");
+    } catch (NotFound $e) {
+        $log[] = "not run";
+    } finally {
+        $log[] = "finally";
+    }
+} catch (Error $e) {
+    $log[] = "outer caught {$e.message}";
+}
+check("unmatched errors carry on through finally", $log, ["try", "finally", "outer caught plain"]);
