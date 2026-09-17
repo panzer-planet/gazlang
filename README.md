@@ -73,8 +73,9 @@ Try `php bin/gazlang -f examples/csv_report.gaz -- examples/data/sales.csv regio
   `Error: ... at file.gaz:12`. `exit($code)` stops the program.
 - **Builtins**: `len`, `slice`, `lower`, `upper`, `trim`, `split`, `join`, `replace`, `contains`,
   `starts_with`, `ends_with`, `index_of`, `repeat`, `chr`, `ord`, `to_int`, `to_float`,
-  `to_string`, `floor`, `ceil`, `round`, `abs`, `intdiv`, `in_array`, `has_key`, `keys`,
-  `type_of`, `error`, `exit`, `read_file`, `write_file`, `read_stdin`, `args`.
+  `to_string`, `floor`, `ceil`, `round`, `abs`, `intdiv`, `min`, `max`, `in_array`, `has_key`,
+  `keys`, `values`, `type_of`, `is_a`, `print`, `print_error`, `error`, `exit`, `read_file`,
+  `write_file`, `read_stdin`, `args`.
 - **Libraries in GazLang** (`lib/`): `functional.gaz` (`map`, `filter`, `reduce`, `sort`),
   `json.gaz`, `csv.gaz`, `chars.gaz`, `format.gaz`, `sort.gaz`; `include "lib/json.gaz";`
   includes a file once, relative to the including file.

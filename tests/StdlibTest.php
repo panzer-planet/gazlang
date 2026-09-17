@@ -37,6 +37,53 @@ class StdlibTest extends GazLangTestCase
         );
     }
 
+    public function test_print_and_print_error_come_out_in_the_order_they_were_written()
+    {
+        // The CLI runs itself again to set pcov and the JIT, which must hand the program this
+        // process's own streams: relaying its output would let standard error overtake it
+        $program = 'print("1-out "); print_error("2-err "); print("3-out "); print_error("4-err ");';
+        exec(sprintf(
+            'echo %s | %s %s 2>&1',
+            escapeshellarg($program),
+            escapeshellarg(PHP_BINARY),
+            escapeshellarg(self::ROOT.'/bin/gazlang')
+        ), $output);
+
+        $this->assertSame(['1-out 2-err 3-out 4-err'], $output);
+    }
+
+    public function test_the_cli_runs_itself_again_at_most_once()
+    {
+        // A -d on the command line isn't in $argv, so a run that satisfied one of the settings
+        // and not the other used to lose the flags it was given and restart forever
+        $command = sprintf(
+            '%s -d display_errors=stderr -d opcache.enable_cli=1 -d opcache.jit=1235 %s -f %s 2>/dev/null',
+            escapeshellarg(PHP_BINARY),
+            escapeshellarg(self::ROOT.'/bin/gazlang'),
+            escapeshellarg(self::ROOT.'/tests/fixtures/hello.gaz')
+        );
+        $process = proc_open($command, [1 => ['pipe', 'w']], $pipes);
+        $this->assertIsResource($process);
+
+        $output = '';
+        $deadline = microtime(true) + 10;
+        stream_set_blocking($pipes[1], false);
+        while (microtime(true) < $deadline && proc_get_status($process)['running']) {
+            $output .= (string) stream_get_contents($pipes[1]);
+            usleep(20000);
+        }
+        $running = proc_get_status($process)['running'];
+        $output .= (string) stream_get_contents($pipes[1]);
+        if ($running) {
+            proc_terminate($process, 9);
+        }
+        fclose($pipes[1]);
+        proc_close($process);
+
+        $this->assertFalse($running, 'gazlang kept restarting itself instead of running the program');
+        $this->assertSame("hello\n", $output);
+    }
+
     public function test_print_error_writes_to_standard_error()
     {
         // Through the CLI, the only place the two streams are really separate
@@ -299,7 +346,8 @@ class StdlibTest extends GazLangTestCase
 
     public function test_cli_rejects_a_file_it_cannot_read()
     {
-        exec(sprintf('%s %s -f %s', escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang'), escapeshellarg(__DIR__)), $output, $exit_code);
+        // What it says about the file goes to standard error, like every other diagnostic
+        exec(sprintf('%s %s -f %s 2>&1', escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang'), escapeshellarg(__DIR__)), $output, $exit_code);
 
         $this->assertSame(['Error: Cannot read file: '.__DIR__], $output);
         $this->assertSame(1, $exit_code);

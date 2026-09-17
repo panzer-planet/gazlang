@@ -61,6 +61,13 @@ final class Builtins
     ];
 
     /**
+     * @var resource|null Where print_error() writes, standard error unless a test swaps it: a
+     *                    write to the stream behind standard output isn't caught by output
+     *                    buffering, which is how the tests read what a program printed
+     */
+    public static $error_stream = null;
+
+    /**
      * @var string[] Command line arguments passed to the program, returned by args()
      */
     private $args;
@@ -179,8 +186,8 @@ final class Builtins
             'read_file' => $this->readFile($this->argument($name, $args[0], 'string')),
             'write_file' => $this->writeFile($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string')),
             // Printing, as echo does it but without the newline: any value, converted the same way
-            'print' => $this->write(STDOUT, $args[0]),
-            'print_error' => $this->write(STDERR, $args[0]),
+            'print' => $this->write(false, $args[0]),
+            'print_error' => $this->write(true, $args[0]),
             'read_stdin' => stream_get_contents(STDIN),
             'args' => $this->args,
             default => throw new Exception("Unknown builtin: {$name}"),
@@ -190,19 +197,19 @@ final class Builtins
     /**
      * print($value) and print_error($value): write the value as echo would, without a newline
      *
-     * @param  resource  $stream  Standard output or standard error
+     * @param  bool  $error  Whether to write to standard error rather than standard output
      * @param  mixed  $value  The value, converted as echo converts it
      * @return null Nothing, as write_file() gives nothing
      */
-    private function write($stream, $value): null
+    private function write(bool $error, $value): null
     {
         $text = Values::toString($value);
-        // Output buffering catches echo but not a write to the stream behind it, which the
-        // tests rely on to read what a program printed
-        if ($stream === STDOUT) {
-            echo $text;
+        // Printing never fails, as echo never does: a program that has lost its output stream
+        // has nowhere to report that anyway. write_file() is the one that says so.
+        if ($error) {
+            fwrite(self::$error_stream ?? STDERR, $text);
         } else {
-            fwrite($stream, $text);
+            echo $text;
         }
 
         return null;

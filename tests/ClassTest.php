@@ -479,7 +479,7 @@ class ClassTest extends GazLangTestCase
     {
         // Through the CLI, which restarts itself without pcov (see FunctionTest)
         foreach (['', '--interpreter'] as $backend) {
-            $command = sprintf('printf %%s %s | %s %s %s', escapeshellarg($code), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang'), $backend);
+            $command = sprintf('printf %%s %s | %s %s %s 2>&1', escapeshellarg($code), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang'), $backend);
             exec($command, $output, $exit_code);
 
             // The message, then the capped trace: 10 innermost calls, what was left out, 10 outermost
@@ -505,7 +505,7 @@ class ClassTest extends GazLangTestCase
         // Through the CLI, which restarts itself without pcov (see FunctionTest)
         $code = 'class Loop { fn to_string() { return "{#}"; } } echo Loop();';
         foreach (['', '--interpreter'] as $backend) {
-            $command = sprintf('echo %s | %s %s %s', escapeshellarg($code), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang'), $backend);
+            $command = sprintf('echo %s | %s %s %s 2>&1', escapeshellarg($code), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang'), $backend);
             exec($command, $output, $exit_code);
 
             $this->assertSame('Error: Maximum call depth of 10000 exceeded calling Loop.to_string on line 1', $output[0], "with {$backend}");

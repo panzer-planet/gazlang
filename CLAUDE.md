@@ -141,7 +141,10 @@ each step depends on the ones before it.
      exception per return records a stack trace and made deep recursion quadratic.
    - With the pcov extension enabled every PHP call uses the C stack and deep
      recursion in the interpreter segfaults (exit 139) before the limit, so
-     `bin/gazlang` restarts itself with `-d pcov.enabled=0`. In-process code
+     `bin/gazlang` restarts itself with `-d pcov.enabled=0`. It restarts at most once
+     (`GAZLANG_RESTARTED`), since a `-d` on the command line isn't in `$argv`, and through
+     `proc_open` with its own streams, so a program's standard output and standard error stay
+     in the order it wrote them; diagnostics go to standard error. In-process code
      (phpunit) still runs with pcov, so tests of deep recursion on the interpreter
      go through the CLI. The VM doesn't recurse in PHP and is unaffected. Xdebug
      has the same problem and is not handled.
@@ -395,11 +398,33 @@ compiler needs, and the first two also decide how the C VM is built, so they com
 3. ~~**Writing to standard error, and printing without a newline.**~~ Done: `print($value)`
    and `print_error($value)`, see step 6.
 4. ~~**`values($m)`.**~~ Done, see step 6.
-5. **Bitwise operators** (`& | ^ << >> ~`). The self-hosted lexer has to write `\u{H}` escapes
-   as UTF-8, which is shifts and masks; `intdiv` and `%` can do it, clumsily. Trivial in C. Add
-   them when the lexer port asks, not before.
-6. **`match` or `switch`.** Sugar, but a lexer and parser in GazLang are long `if`/`else if`
-   chains over characters and token types, which is exactly the code being written next.
+5. **Bitwise operators** (`& | ^ << >> ~`), decided 2026-09-17, not built. The self-hosted
+   lexer has to write `\u{H}` escapes as UTF-8, which is shifts and masks. Decided:
+   - **Precedence as in Rust and Python, not C**: shifts, then `&`, then `^`, then `|`, all
+     *above* the comparisons, so `$flags & MASK == 0` means `($flags & MASK) == 0` rather than
+     C's `$flags & (MASK == 0)`. The tower becomes `relational → bit_or → bit_xor → bit_and →
+     concat → shift → additive`, so `"n = " .. $x << 2` concatenates the shifted value and
+     `$x << 2 + 1` shifts by 3.
+   - **Ints only**, as `%` is: a float on either side is an error. `>>` keeps the sign, `~` is
+     two's complement, and a shift count below 0 or above 63 is an error rather than quietly
+     giving 0, as PHP does. No `>>>`.
+   - The compound forms `&= |= ^= <<= >>=` come with them, since compound assignment is
+     generic in the tower.
+6. **`match`**, decided 2026-09-17, not built. A lexer and parser in GazLang are long
+   `if`/`else if` chains over characters and token types. Looking at the code it is for
+   settled the shape: of the 49 `if`s in `lib/json.gaz`, nearly all run *statements* per
+   branch (moving `@json_pos`, calling `json_fail()`, returning), and the branches that
+   produce a value already use a map, so an expression-only `match` (PHP 8) would miss most
+   of it. Decided:
+   - **One `match`, an expression whose arms are expressions, and when it is written as a
+     statement an arm may be a block instead** — the same contextual rule the language already
+     has for `{` (a block at statement level, a lambda body after `->`).
+   - Arm values are full expressions, compared with `==` and tried in order, several to an arm
+     separated by commas: `"\"", "\\" => ...`.
+   - **No fallthrough**, so `break` in an arm belongs to the enclosing loop.
+   - Nothing matching and no `default` is an error (`No arm matches "x"`), not silence; write
+     `default => {}` to ignore the rest.
+   - A jump table for arms that are all literals is a later optimisation this leaves open.
 
 Deliberately not planned until real code asks for them: `**` and `sqrt`/`pow`/`log`, variadic
 parameters and spread (pass a list), block comments (`//` works), `time()` (time it from

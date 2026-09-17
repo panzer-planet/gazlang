@@ -90,7 +90,7 @@ class ErrorTest extends GazLangTestCase
     public function test_cli_shows_the_file_and_line()
     {
         exec(sprintf(
-            'cd %s && %s bin/gazlang -f tests/fixtures/include/runtime.gaz',
+            'cd %s && %s bin/gazlang -f tests/fixtures/include/runtime.gaz 2>&1',
             escapeshellarg(__DIR__.'/..'),
             escapeshellarg(PHP_BINARY)
         ), $output, $exit_code);

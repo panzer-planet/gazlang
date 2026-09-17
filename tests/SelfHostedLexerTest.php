@@ -85,7 +85,7 @@ class SelfHostedLexerTest extends GazLangTestCase
     public function test_in_process_expectation_matches_the_cli()
     {
         foreach (['tests/lexer_corpus/strings.gaz', 'tests/lexer_corpus/error_bad_character.gaz'] as $file) {
-            exec(sprintf('cd %s && %s bin/gazlang --tokens -f %s', escapeshellarg(self::ROOT), escapeshellarg(PHP_BINARY), escapeshellarg($file)), $output, $exit_code);
+            exec(sprintf('cd %s && %s bin/gazlang --tokens -f %s 2>&1', escapeshellarg(self::ROOT), escapeshellarg(PHP_BINARY), escapeshellarg($file)), $output, $exit_code);
 
             $this->assertSame(self::phpTokens($file), [implode("\n", $output), $exit_code], $file);
             $output = [];

@@ -59,7 +59,7 @@ class VMTest extends GazLangTestCase
     public function test_cli_runs_programs_on_either_backend(string $flag)
     {
         exec(sprintf(
-            'echo %s | %s %s '.$flag.' -- a b',
+            'echo %s | %s %s '.$flag.' -- a b 2>&1',
             escapeshellarg('echo args(); echo 7 / 2; error("done");'),
             escapeshellarg(PHP_BINARY),
             escapeshellarg(self::ROOT.'/bin/gazlang')

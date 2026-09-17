@@ -8,6 +8,7 @@ use GazLang\GazLangError;
 use GazLang\Interpreter\Interpreter;
 use GazLang\Lexer\Lexer;
 use GazLang\Parser\Parser;
+use GazLang\Runtime\Builtins;
 use GazLang\Runtime\ExitSignal;
 use GazLang\VM\VM;
 use PHPUnit\Framework\TestCase;
@@ -149,6 +150,10 @@ abstract class GazLangTestCase extends TestCase
      */
     private function capture(callable $run): array
     {
+        // print_error() writes to standard error, which output buffering doesn't catch, so it
+        // goes to a stream of its own and counts as output the two backends must agree on
+        $stderr = fopen('php://memory', 'w+');
+        Builtins::$error_stream = $stderr;
         ob_start();
         try {
             $run();
@@ -157,9 +162,13 @@ abstract class GazLangTestCase extends TestCase
             $error = $e;
         } finally {
             $output = ob_get_clean();
+            Builtins::$error_stream = null;
+            rewind($stderr);
+            $printed = (string) stream_get_contents($stderr);
+            fclose($stderr);
         }
 
-        return [$output, $error];
+        return [$output.$printed, $error];
     }
 
     /**

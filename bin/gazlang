@@ -7,16 +7,21 @@
 // - PHP's JIT compiling hot functions (opcache.jit=1235) makes the VM about 25% faster. The
 //   default tracing mode makes it twice as slow, and compiling everything on load (1205)
 //   adds 0.2s to every run. Not with Xdebug, which disables the JIT with a warning in the output.
-$restart = [];
-if (extension_loaded('pcov') && ini_get('pcov.enabled')) {
-    array_push($restart, '-d', 'pcov.enabled=0');
-}
-if (extension_loaded('Zend OPcache') && ! extension_loaded('xdebug') && ! (ini_get('opcache.enable_cli') && ini_get('opcache.jit') === '1235')) {
-    array_push($restart, '-d', 'opcache.enable_cli=1', '-d', 'opcache.jit_buffer_size=16M', '-d', 'opcache.jit=1235');
-}
-if ($restart !== []) {
-    passthru(implode(' ', array_map('escapeshellarg', [PHP_BINARY, ...$restart, ...$argv])), $exitCode);
-    exit($exitCode);
+// The run again happens at most once, which GAZLANG_RESTARTED says: a -d on the command line
+// isn't in $argv, so a run that satisfied one of these and not the other used to lose the
+// flags it was given and restart forever. It keeps this process's own input and output, so a
+// program's stdout and stderr stay in the order it wrote them.
+$needsRestart = (extension_loaded('pcov') && ini_get('pcov.enabled'))
+    || (extension_loaded('Zend OPcache') && ! extension_loaded('xdebug') && ! (ini_get('opcache.enable_cli') && ini_get('opcache.jit') === '1235'));
+
+if ($needsRestart && getenv('GAZLANG_RESTARTED') === false) {
+    $settings = ['-d', 'pcov.enabled=0'];
+    if (! extension_loaded('xdebug')) {
+        array_push($settings, '-d', 'opcache.enable_cli=1', '-d', 'opcache.jit_buffer_size=16M', '-d', 'opcache.jit=1235');
+    }
+    $streams = [['file', 'php://stdin', 'r'], ['file', 'php://stdout', 'w'], ['file', 'php://stderr', 'w']];
+    $process = proc_open([PHP_BINARY, ...$settings, ...$argv], $streams, $pipes, null, ['GAZLANG_RESTARTED' => '1'] + getenv());
+    exit($process === false ? 1 : proc_close($process));
 }
 
 // Autoload classes
@@ -75,7 +80,7 @@ for ($i = 1; $i < $rest_index; $i++) {
     if (preg_match('/^(-[hvct]*f|--file)$/', $argv[$i])) {
         $i++; // the file name that follows
     } elseif (! preg_match('/^(-[hvct]+|-[hvct]*f.+|--(help|version|code|tokens|interpreter|file=.+)|--)$/', $argv[$i])) {
-        echo "Error: Unknown option {$argv[$i]} (put program arguments after --)\n";
+        fwrite(STDERR, "Error: Unknown option {$argv[$i]} (put program arguments after --)\n");
         exit(1);
     }
 }
@@ -101,7 +106,7 @@ $inputFile = $options['f'] ?? ($options['file'] ?? null);
 if ($inputFile) {
     // Read from file
     if (!is_file($inputFile) || !is_readable($inputFile)) {
-        echo "Error: Cannot read file: $inputFile\n";
+        fwrite(STDERR, "Error: Cannot read file: $inputFile\n");
         exit(1);
     }
     
@@ -197,12 +202,13 @@ function processInput(string $text, string $mode = 'vm', ?string $path = null, a
     } catch (ExitSignal $e) {
         exit($e->code);
     } catch (GazLangError $e) {
-        // The calls that were running are printed under the message, indented
-        echo $e->report(), "\n";
+        // Errors go to standard error, so a program's own output can be redirected on its own;
+        // the calls that were running are printed under the message, indented
+        fwrite(STDERR, $e->report()."\n");
 
         return false;
     } catch (Throwable $e) {
-        echo "Error: " . $e->getMessage() . "\n";
+        fwrite(STDERR, 'Error: '.$e->getMessage()."\n");
 
         return false;
     }

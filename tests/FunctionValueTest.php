@@ -134,7 +134,7 @@ class FunctionValueTest extends GazLangTestCase
         // Through the CLI, which restarts itself without pcov (see FunctionTest)
         $code = 'fn inf() { $f = inf; return $f(); } echo inf();';
         foreach (['', '--interpreter'] as $backend) {
-            $command = sprintf('echo %s | %s %s %s', escapeshellarg($code), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang'), $backend);
+            $command = sprintf('echo %s | %s %s %s 2>&1', escapeshellarg($code), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang'), $backend);
             exec($command, $output, $exit_code);
 
             $this->assertSame('Error: Maximum call depth of 10000 exceeded calling inf on line 1', $output[0], "with {$backend}");
