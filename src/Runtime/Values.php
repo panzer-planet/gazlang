@@ -791,6 +791,19 @@ final class Values
     }
 
     /**
+     * The error for a match whose subject equals no arm's value, and that has no default arm
+     *
+     * The subject is shown as it appears in a printed list, so a string is quoted and "1" and
+     * 1 differ, as they do to ==.
+     *
+     * @param  mixed  $subject  The value that matched nothing
+     */
+    public static function noMatch($subject): Exception
+    {
+        return new Exception('No arm matches '.self::literal($subject));
+    }
+
+    /**
      * The error for a map key that isn't there
      *
      * @param  int|string  $key  The key, shown quoted when it is a string so "1" and 1 differ

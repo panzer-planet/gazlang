@@ -23,6 +23,7 @@ use GazLang\AST\IndexAST;
 use GazLang\AST\LambdaAST;
 use GazLang\AST\ListPatternAST;
 use GazLang\AST\LoopControlAST;
+use GazLang\AST\MatchAST;
 use GazLang\AST\MethodCallAST;
 use GazLang\AST\NullAST;
 use GazLang\AST\NumAST;
@@ -410,6 +411,8 @@ class Parser
             }
 
             return $this->uses[] = $this->at(new FunctionRefAST($token->value), $token);
+        } elseif ($token->type === Token::MATCH) {
+            return $this->match_expression(false);
         } elseif ($token->type === Token::LEFT_BRACKET) {
             return $this->list_literal();
         } elseif ($token->type === Token::LEFT_BRACE) {
@@ -1258,6 +1261,70 @@ class Parser
     }
 
     /**
+     * Parse a match (MATCH LPAREN expr RPAREN LBRACE arm (COMMA arm)* [COMMA] RBRACE)
+     *
+     * An arm is one or more comma separated expressions, or DEFAULT, then => then its body.
+     * A comma separates arms; it is optional after the last one and after a block arm, which
+     * ends in a } of its own, as in Rust.
+     *
+     * Only a match written as a statement may have block arms, so in one a { after => is a
+     * block and a map is written ({...}), the same rule as a lambda body; in an expression a
+     * { after => is a map literal. The default arm must be last, since anything after it is
+     * dead, the way an untyped catch must be last.
+     *
+     * @param  bool  $statement  Whether this match is a statement, so its arms may be blocks
+     *
+     * @throws Exception
+     */
+    private function match_expression(bool $statement): MatchAST
+    {
+        $start = $this->current_token;
+        $this->eat(Token::MATCH);
+        $this->eat(Token::LEFT_PAREN);
+        $subject = $this->expr();
+        $this->eat(Token::RIGHT_PAREN);
+        $this->eat(Token::LEFT_BRACE);
+
+        $arms = [];
+        $default = false;
+        while ($this->current_token->type !== Token::RIGHT_BRACE) {
+            if ($default) {
+                $this->fail('default must be the last arm of a match');
+            }
+
+            $values = null;
+            if ($this->current_token->type === Token::DEFAULT) {
+                $this->eat(Token::DEFAULT);
+                $default = true;
+            } else {
+                $values = [$this->expr()];
+                while ($this->current_token->type === Token::COMMA) {
+                    $this->eat(Token::COMMA);
+                    $values[] = $this->expr();
+                }
+            }
+            $this->eat(Token::DOUBLE_ARROW);
+
+            $block = $statement && $this->current_token->type === Token::LEFT_BRACE;
+            $arms[] = [$values, $block ? $this->block() : $this->expr(), $block];
+
+            if ($this->current_token->type === Token::COMMA) {
+                $this->eat(Token::COMMA);
+            } elseif (! $block && $this->current_token->type !== Token::RIGHT_BRACE) {
+                // Not the last arm and not brace terminated, so a comma is missing
+                $this->eat(Token::COMMA);
+            }
+        }
+        $this->eat(Token::RIGHT_BRACE);
+
+        if ($arms === []) {
+            throw new GazLangError('A match needs at least one arm', $this->file, $start->line);
+        }
+
+        return $this->at(new MatchAST($subject, $arms), $start);
+    }
+
+    /**
      * Parse a block (LBRACE statement* RBRACE)
      *
      * @return CompoundAST
@@ -1500,6 +1567,12 @@ class Parser
             return $this->return_statement();
         } elseif ($this->current_token->type === Token::DELETE) {
             return $this->delete_statement();
+        } elseif ($this->current_token->type === Token::MATCH) {
+            // A match written as a statement ends at its }, like if and while, and its arms
+            // may be blocks; its value is discarded
+            $start = $this->current_token;
+
+            return $this->at(new StatementAST($this->match_expression(true)), $start);
         } elseif ($this->current_token->type === Token::FN) {
             $this->fail('Functions can only be declared at the top level');
         } elseif ($this->current_token->type === Token::CLASS_KEYWORD || $this->current_token->type === Token::ABSTRACT) {

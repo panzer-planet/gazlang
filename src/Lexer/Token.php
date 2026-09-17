@@ -178,6 +178,10 @@ class Token
 
     public const PROPERTY = 'PROPERTY';  // .name, a member of an object: $user.name
 
+    public const MATCH = 'MATCH';  // match keyword, an expression choosing an arm by ==
+
+    public const DEFAULT = 'DEFAULT';  // default keyword, a match's catch-all arm
+
     public const CLASS_KEYWORD = 'CLASS';  // class keyword (a constant can't be named CLASS)
 
     public const EXTENDS = 'EXTENDS';  // extends keyword

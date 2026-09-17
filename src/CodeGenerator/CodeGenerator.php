@@ -24,6 +24,7 @@ use GazLang\AST\IndexAST;
 use GazLang\AST\LambdaAST;
 use GazLang\AST\ListPatternAST;
 use GazLang\AST\LoopControlAST;
+use GazLang\AST\MatchAST;
 use GazLang\AST\MethodCallAST;
 use GazLang\AST\NullAST;
 use GazLang\AST\NumAST;
@@ -1079,6 +1080,60 @@ class CodeGenerator extends AbstractNodeVisitor
         // Jumping out of a try block leaves it, so its handler must be removed first
         $this->leaveTries($loop_try_depth);
         $this->emit('JMP', $label);
+    }
+
+    /**
+     * Visit a Match node: the subject in a hidden variable, then a test per arm value jumping to its body
+     *
+     * The tests come first and the bodies after them, so an arm's test knows the label of its
+     * body before the body is compiled. EQUALS then NOT then JZ jumps when the two are equal
+     * (JZ jumps on false, as in logicalOp). Falling past every test is the error, unless there
+     * is a default arm, whose JMP is then the last test. Every arm leaves one value, so a
+     * block arm, which leaves none, pushes null.
+     *
+     * @param  MatchAST  $node  The node to visit
+     */
+    public function visitMatch(MatchAST $node): void
+    {
+        $n = $this->label_counter++;
+        $end_label = "MATCH_END_{$n}";
+        $subject = new VariableAST(new Token(Token::VAR_IDENTIFIER, '$#match_'.$this->hidden_counter++));
+
+        $this->visit($node->subject);
+        $this->emitVariable('STORE', $subject);
+
+        $default = false;
+        foreach ($node->arms as $i => [$values]) {
+            $label = "MATCH_ARM_{$n}_{$i}";
+            if ($values === null) {
+                // The default arm is last, so nothing after this jump is reachable
+                $this->emit('JMP', $label);
+                $default = true;
+
+                break;
+            }
+            foreach ($values as $value) {
+                $this->emitVariable('LOAD', $subject);
+                $this->visit($value);
+                $this->emit('EQUALS');
+                $this->emit('NOT');
+                $this->emit('JZ', $label);
+            }
+        }
+        if (! $default) {
+            $this->emitVariable('LOAD', $subject);
+            $this->emit('NO_MATCH');
+        }
+
+        foreach ($node->arms as $i => [, $body, $block]) {
+            $this->emit('LABEL', "MATCH_ARM_{$n}_{$i}");
+            $this->visit($body);
+            if ($block) {
+                $this->emit('PUSH', null);
+            }
+            $this->emit('JMP', $end_label);
+        }
+        $this->emit('LABEL', $end_label);
     }
 
     /**

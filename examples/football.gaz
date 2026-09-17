@@ -371,7 +371,7 @@ class Whistle extends Event {
     fn describe() { return #text; }
 }
 
-class Match {
+class Fixture {
     #home;
     #away;
     #random;
@@ -560,7 +560,7 @@ class League {
         foreach (#fixtures() as $index => $matchday) {
             $matches = [];
             foreach ($matchday as [$home, $away]) {
-                $match = Match($home, $away, #random);
+                $match = Fixture($home, $away, #random);
                 $kick_off($match);
                 $match.play();
                 #standings[$home.name].record($match.home_goals, $match.away_goals);

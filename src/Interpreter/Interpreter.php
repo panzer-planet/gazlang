@@ -24,6 +24,7 @@ use GazLang\AST\IndexAST;
 use GazLang\AST\LambdaAST;
 use GazLang\AST\ListPatternAST;
 use GazLang\AST\LoopControlAST;
+use GazLang\AST\MatchAST;
 use GazLang\AST\MethodCallAST;
 use GazLang\AST\NullAST;
 use GazLang\AST\NumAST;
@@ -816,6 +817,32 @@ class Interpreter extends AbstractNodeVisitor
         $index = $this->visit($node->index);
 
         return $node->existing ? Values::indexExisting($target, $index) : Values::index($target, $index);
+    }
+
+    /**
+     * Visit a Match node: the subject once, then each arm's values in order until one is equal
+     *
+     * @param  MatchAST  $node  The node to visit
+     * @return mixed The matching arm's value; null for a block arm
+     *
+     * @throws Exception If no arm matches and there is no default
+     */
+    public function visitMatch(MatchAST $node)
+    {
+        $subject = $this->visit($node->subject);
+
+        foreach ($node->arms as [$values, $body]) {
+            if ($values === null) {
+                return $this->visit($body);
+            }
+            foreach ($values as $value) {
+                if (Values::equals($subject, $this->visit($value))) {
+                    return $this->visit($body);
+                }
+            }
+        }
+
+        throw Values::noMatch($subject);
     }
 
     /**

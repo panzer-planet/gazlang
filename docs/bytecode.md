@@ -171,6 +171,7 @@ Every one means what `Runtime\Values` says, including the error messages.
 | `LT`, `LE`, `GT`, `GE` | `a b -- c` | Ordering. Two numbers, or two strings byte by byte. Fails on anything else. |
 | `CMP` | `a b -- c` | `<=>`: -1, 0 or 1 by the ordering rules. |
 | `NOT` | `a -- b` | Truthiness, negated; always a bool. |
+| `NO_MATCH` | `a --` | Always fails, on "No arm matches 5": a `match` fell past every arm and had no `default`. |
 | `NEG` | `a -- b` | Negates a number. Fails on anything else. |
 | `INC`, `DEC` | `a -- b` | Adds or subtracts one. Numbers only; fails on overflow. |
 

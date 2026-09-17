@@ -331,6 +331,8 @@ final class VM
                             case 'NEG':
                                 $stack[] = Values::negate(array_pop($stack));
                                 break;
+                            case 'NO_MATCH':
+                                throw Values::noMatch(array_pop($stack));
                             case 'BIT_NOT':
                                 $stack[] = Values::bitwiseNot(array_pop($stack));
                                 break;

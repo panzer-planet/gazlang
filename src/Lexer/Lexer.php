@@ -98,6 +98,8 @@ class Lexer
         'return' => 'RETURN',
         'null' => 'NULL',
         'delete' => 'DELETE',
+        'match' => 'MATCH',
+        'default' => 'DEFAULT',
         'include' => 'INCLUDE',
         'try' => 'TRY',
         'catch' => 'CATCH',
