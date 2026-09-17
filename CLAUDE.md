@@ -424,21 +424,8 @@ compiler needs, and the first two also decide how the C VM is built, so they com
    `&` and `|` joined the lexer's operator character table, which already read a character,
    that character with `=`, and the character doubled, so the hand-written `&&` and `||`
    branches went; `<` and `>` stayed by hand, since `<=>` overlaps `<<` and `>=` overlaps `>>`.
-6. **`match`**, decided 2026-09-17, not built. A lexer and parser in GazLang are long
-   `if`/`else if` chains over characters and token types. Looking at the code it is for
-   settled the shape: of the 49 `if`s in `lib/json.gaz`, nearly all run *statements* per
-   branch (moving `@json_pos`, calling `json_fail()`, returning), and the branches that
-   produce a value already use a map, so an expression-only `match` (PHP 8) would miss most
-   of it. Decided:
-   - **One `match`, an expression whose arms are expressions, and when it is written as a
-     statement an arm may be a block instead** — the same contextual rule the language already
-     has for `{` (a block at statement level, a lambda body after `->`).
-   - Arm values are full expressions, compared with `==` and tried in order, several to an arm
-     separated by commas: `"\"", "\\" => ...`.
-   - **No fallthrough**, so `break` in an arm belongs to the enclosing loop.
-   - Nothing matching and no `default` is an error (`No arm matches "x"`), not silence; write
-     `default => {}` to ignore the rest.
-   - A jump table for arms that are all literals is a later optimisation this leaves open.
+6. ~~**`match`**.~~ Done, see "match" below. A jump table for arms that are all literals is
+   still open, and so is the rewrite of `lib/json.gaz`'s 49 `if`s that motivated it.
 
 Deliberately not planned until real code asks for them: `**` and `sqrt`/`pow`/`log`, variadic
 parameters and spread (pass a list), block comments (`//` works), `time()` (time it from
@@ -679,6 +666,61 @@ variables compile to `LOAD_CAPTURED`, `STORE_CAPTURED`, `LOAD_QUIET_CAPTURED` an
 `Program::$lambdas` carries each lambda's capture map (from an enclosing frame slot or
 the enclosing closure's variable, to its own index), which the VM applies at
 `MAKE_CLOSURE`, copying only what exists, then setting `$self`.
+
+## match
+
+Built 2026-09-17. A lexer and parser in GazLang are long `if`/`else if` chains over characters
+and token types, and of the 49 `if`s in `lib/json.gaz` nearly all run *statements* per branch,
+so an expression-only `match` (PHP 8) would have missed most of it.
+
+```
+$kind = match ($type) {                       // an expression: every arm is an expression
+    "int", "float" => "number",               // several values to an arm
+    "list" => "a list",
+    default => "other",                       // a trailing comma is allowed
+};
+
+match ($c) {                                  // a statement: an arm may be a block instead
+    "\"" => { read_string(); }                // no comma needed after a block arm
+    "\\" => { @pos += 2; }
+    default => fail("bad character")          // and no ; after the closing }
+}
+```
+
+- **The subject is evaluated once**, then each arm's values are evaluated in order and
+  compared with `==` (`Values::equals()`, so `1` matches `1.0` but `"1"` never matches `1`,
+  and lists and maps compare by their contents). Only the values before the matching one run,
+  so an arm value can have side effects and the ones after it never happen. Arm values are
+  full expressions, not just literals.
+- **No fallthrough**: the matching arm's body is the value of the whole `match`, and `break`,
+  `continue` and `return` in an arm belong to the loop or function around the `match`.
+- **Nothing matching and no `default` is an error**, `No arm matches "x"`
+  (`Values::noMatch()`, which shows the subject as a printed list does, so strings are
+  quoted and `"1"` and `1` differ). Write `default => {}` to ignore the rest.
+- **Arms separate with a comma**, optional after the last one and after a block arm, which
+  ends in a `}` of its own, as in Rust. `default` must be last, since anything after it is
+  dead, the way an untyped `catch` must be last, and a second `default` is the same error.
+  A `match` with no arms is a parse error.
+- **Only a `match` written as a statement may have block arms**, and it ends at its `}` like
+  `if` and `while`, so a `;` after it is a parse error (as `if (1) {};` is). In a statement a
+  `{` after `=>` is a block and a map is written `({...})`; in an expression a `{` after `=>`
+  is a map literal. That is the rule the language already has for a lambda body.
+- `match` and `default` are keywords, so, like every keyword, any capitalisation of them is
+  one: `examples/football.gaz`'s `class Match` became `Fixture`. Variables (`$default`) and
+  members (`fn match()`) are unaffected, since sigils and member names keep their own
+  namespaces, and a word merely containing one (`json_match`) is an ordinary name.
+
+Implementation: `MatchAST` holds the subject and the arms, each `[values, body, is_block]`
+with `values` null for the `default` arm. `Parser::match_expression($statement)` is called
+from `primary()` (an expression, blocks refused) and from `statement()` (blocks allowed, no
+`;` eaten). The interpreter's `visitMatch()` is the obvious loop. Code generation puts the
+tests first and the bodies after, so each test knows its body's label: `LOAD`, the value,
+`EQUALS`, `NOT`, `JZ MATCH_ARM_n_k` jumps when the two are equal (`JZ` jumps on false, as in
+`logicalOp`). Past every test is `LOAD` then `NO_MATCH`, unless a `default` arm's `JMP` got
+there first, so no instruction is unreachable and the loader's stack walk stays happy. Every
+arm leaves exactly one value, a block arm pushing `null`, so the depth into `MATCH_END_n` is
+the same on every path and the statement's `POP` always has something to pop. The subject
+lives in a hidden `$#match_n`.
 
 ## Assignment
 
