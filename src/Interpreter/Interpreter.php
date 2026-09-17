@@ -96,6 +96,11 @@ class Interpreter extends AbstractNodeVisitor
     private $functions = [];
 
     /**
+     * @var array<string, ClassDeclarationAST> The declaration of each class, which holds the field defaults and method bodies
+     */
+    private $declarations = [];
+
+    /**
      * @var array<string, ClassValue> Declared classes by name
      */
     private $classes = [];
@@ -804,7 +809,7 @@ class Interpreter extends AbstractNodeVisitor
 
         $definer = $target->class->methods[$name];
         $args = array_map(fn ($arg) => $this->visit($arg), $node->args);
-        $arity = $definer->method($name)->arity;
+        $arity = $this->functions["{$definer->name}.{$name}"]->arity;
         if (! Builtins::fitsArity($arity, count($args))) {
             throw new Exception(Builtins::arityError("Method {$definer->name}.{$name}", $arity, count($args)));
         }
@@ -856,7 +861,7 @@ class Interpreter extends AbstractNodeVisitor
                 $captured[$name] = $outer[$name];
             }
         }
-        $closure = FunctionValue::closure($node, $captured, null, $this->receiver);
+        $closure = FunctionValue::closure($node, $captured, null, $this->receiver, $node->file, $node->line);
         if ($node->self !== null) {
             $closure->captured[$node->self] = $closure;
         }
@@ -924,7 +929,7 @@ class Interpreter extends AbstractNodeVisitor
     private function callValue($callee, array $args)
     {
         if ($callee instanceof ClassValue) {
-            if ($callee->isAbstract()) {
+            if ($callee->abstract) {
                 throw new Exception("Cannot construct abstract class {$callee->name}");
             }
             if (! Builtins::fitsArity($callee->arity, count($args))) {
@@ -938,7 +943,7 @@ class Interpreter extends AbstractNodeVisitor
         }
         $arity = match (true) {
             $callee->lambda !== null => $callee->lambda->arity,
-            $callee->class !== null => $callee->class->method($callee->name)->arity,
+            $callee->class !== null => $this->functions["{$callee->class->name}.{$callee->name}"]->arity,
             default => Builtins::ARITIES[$callee->name] ?? $this->functions[$callee->name]->arity,
         };
         if (! Builtins::fitsArity($arity, count($args))) {
@@ -968,7 +973,7 @@ class Interpreter extends AbstractNodeVisitor
      */
     private function invokeMethod(ClassValue $definer, string $name, ObjectValue $receiver, array $args)
     {
-        $method = $definer->method($name);
+        $method = $this->functions["{$definer->name}.{$name}"];
 
         return $this->invoke("{$definer->name}.{$name}", $method->params, $method->defaults, $method->body, null, $args, $receiver);
     }
@@ -997,8 +1002,11 @@ class Interpreter extends AbstractNodeVisitor
         [$this->locals, $this->closure, $this->captures, $this->receiver] = [[], null, [], $object];
         $this->call_depth++;
         try {
-            foreach ($class->defaults as [$field, $default]) {
-                $object->fields[$field] = $this->visit($default);
+            foreach ($class->fields as $field => $declarer) {
+                $default = $this->declarations[$declarer]->fields[$field];
+                if ($default !== null) {
+                    $object->fields[$field] = $this->visit($default);
+                }
             }
             if (isset($class->methods['_'])) {
                 $this->invokeMethod($class->methods['_'], '_', $object, $args);
@@ -1105,13 +1113,23 @@ class Interpreter extends AbstractNodeVisitor
     {
         $tree = $this->parser->parse();
 
-        // Register every function and class first, so they can be used before they are declared
+        // Register every function and class first, so they can be used before they are declared.
+        // Methods are functions keyed "Class.name", which no function name can be, as in the Program
+        $records = [];
         foreach ($tree->statements as $statement) {
             if ($statement instanceof FunctionDeclarationAST) {
                 $this->functions[$statement->name] = $statement;
+            } elseif ($statement instanceof ClassDeclarationAST) {
+                $records[$statement->name] = $statement->record();
+                $this->declarations[$statement->name] = $statement;
+                foreach ($statement->methods as $method) {
+                    if (! $method->abstract) {
+                        $this->functions["{$statement->name}.{$method->name}"] = $method;
+                    }
+                }
             }
         }
-        $this->classes = ClassValue::build(array_filter($tree->statements, fn ($statement) => $statement instanceof ClassDeclarationAST));
+        $this->classes = ClassValue::build($records, array_map(fn (FunctionDeclarationAST $function) => $function->arity, $this->functions));
 
         // echo and .. call to_string() through Values, which comes back here to run it
         $outer = Values::$call_method;

@@ -2,8 +2,6 @@
 
 namespace GazLang\CodeGenerator;
 
-use GazLang\AST\ClassDeclarationAST;
-use GazLang\AST\LambdaAST;
 use GazLang\Lexer\Lexer;
 use GazLang\Runtime\MapValue;
 use GazLang\Runtime\Values;
@@ -31,20 +29,23 @@ final class Program
     public $global_names;
 
     /**
-     * @var array<string, int|array{0: int, 1: int}> Each user function's arity, for calls on function values
+     * @var array<string, int|array{0: int, 1: int}> Each user function's arity, for calls on function values; a method's is
+     *                                               keyed "Class.name", which no function name can be
      */
     public $functions;
 
     /**
-     * @var list<array{0: LambdaAST, 1: list<array{0: bool, 1: int, 2: int}>}> Each lambda (its body is at LABEL LAMBDA_n) with its
-     *                                                                         capture map: [from the enclosing closure rather than the frame,
-     *                                                                         slot or index there, index in the new closure]
+     * @var list<array{arity: int|array{0: int, 1: int}, captures: list<string>, self: int|null, map: list<array{0: bool, 1: int, 2: int}>}>
+     *                                                                                                                                       Each lambda as a record (its body is at LABEL LAMBDA_n), with its capture map: [from the enclosing closure rather
+     *                                                                                                                                       than the frame, slot or index there, index in the new closure]
      */
     public $lambdas;
 
     /**
-     * @var array<string, ClassDeclarationAST> Each class, resolved by the parser: methods are at LABEL METHOD_Class.name and
-     *                                         the code that makes an object at LABEL NEW_Class
+     * @var array<string, array{parent: string|null, abstract: bool, fields: array<string, string>, methods: array<string, string>}>
+     *                                                                                                                               Each class as a record: its parent, whether it is abstract, every field with the class that declares it and every
+     *                                                                                                                               method with the class whose version runs. Methods are at LABEL METHOD_Class.name and the code that makes an object
+     *                                                                                                                               at LABEL NEW_Class; the field defaults are part of that code
      */
     public $classes;
 
@@ -54,9 +55,9 @@ final class Program
      * @param  list<array{0: string, 1: array, 2: string|null, 3: int|null}>  $instructions  The instructions
      * @param  array<string, list<string>>  $local_names  Local slot names by frame
      * @param  list<string>  $global_names  Global slot names
-     * @param  array<string, int|array{0: int, 1: int}>  $functions  Each user function's arity
-     * @param  list<array{0: LambdaAST, 1: list<array{0: bool, 1: int, 2: int}>}>  $lambdas  Each lambda with its capture map
-     * @param  array<string, ClassDeclarationAST>  $classes  Each class
+     * @param  array<string, int|array{0: int, 1: int}>  $functions  Each function's and method's arity
+     * @param  list<array{arity: int|array{0: int, 1: int}, captures: list<string>, self: int|null, map: list<array{0: bool, 1: int, 2: int}>}>  $lambdas  Each lambda record
+     * @param  array<string, array{parent: string|null, abstract: bool, fields: array<string, string>, methods: array<string, string>}>  $classes  Each class record
      */
     public function __construct(array $instructions, array $local_names, array $global_names, array $functions = [], array $lambdas = [], array $classes = [])
     {

@@ -2,15 +2,14 @@
 
 namespace GazLang\Runtime;
 
-use GazLang\AST\AST;
-use GazLang\AST\ClassDeclarationAST;
-use GazLang\AST\FunctionDeclarationAST;
-
 /**
  * A class as a value: Point in $make = Point, and what an object's fields and methods are
  *
- * Built by each backend from the parser's resolved declarations, one value per class per
- * run, so == on classes is identity.
+ * Built by each backend from the class records the parser's resolved declarations give,
+ * one value per class per run, so == on classes is identity. A record holds no AST: the
+ * field defaults are code (the interpreter runs the declarations, the VM the initialiser),
+ * so a class is its name, its parent, whether it is abstract, its fields in layout order
+ * and its method table.
  */
 final class ClassValue
 {
@@ -25,12 +24,12 @@ final class ClassValue
     public $parent = null;
 
     /**
-     * @var ClassDeclarationAST The declaration
+     * @var bool Whether the class can't be constructed
      */
-    public $declaration;
+    public $abstract;
 
     /**
-     * @var array<string, true> Every field an object of this class has, the parent's first
+     * @var array<string, string> Every field an object of this class has, the parent's first, mapped to the class that declares it
      */
     public $fields;
 
@@ -47,11 +46,6 @@ final class ClassValue
     public $entries = [];
 
     /**
-     * @var list<array{0: string, 1: AST}> The field defaults a new object gets, the parent's first, as [field, default]
-     */
-    public $defaults = [];
-
-    /**
      * @var int|array{0: int, 1: int} How many arguments constructing takes: the constructor's arity, or 0 without one
      */
     public $arity;
@@ -59,52 +53,39 @@ final class ClassValue
     /**
      * Constructor
      *
-     * @param  ClassDeclarationAST  $declaration  The resolved declaration
+     * @param  string  $name  The class name
+     * @param  array{parent: string|null, abstract: bool, fields: array<string, string>, methods: array<string, string>}  $record  The class record
      */
-    private function __construct(ClassDeclarationAST $declaration)
+    private function __construct(string $name, array $record)
     {
-        $this->name = $declaration->name;
-        $this->declaration = $declaration;
-        $this->fields = array_fill_keys(array_keys($declaration->layout), true);
+        $this->name = $name;
+        $this->abstract = $record['abstract'];
+        $this->fields = $record['fields'];
     }
 
     /**
      * Make the values for a program's classes
      *
-     * @param  iterable<ClassDeclarationAST>  $declarations  Every class, resolved by the parser
+     * @param  array<string, array{parent: string|null, abstract: bool, fields: array<string, string>, methods: array<string, string>}>  $records  Every class, by name
+     * @param  array<string, int|array{0: int, 1: int}>  $arities  Each method's arity, keyed "Class.name"
      * @return array<string, self> The classes by name
      */
-    public static function build(iterable $declarations): array
+    public static function build(array $records, array $arities): array
     {
         $classes = [];
-        foreach ($declarations as $declaration) {
-            $classes[$declaration->name] = new self($declaration);
+        foreach ($records as $name => $record) {
+            $classes[$name] = new self($name, $record);
         }
-        foreach ($classes as $class) {
-            $class->parent = $class->declaration->parent === null ? null : $classes[$class->declaration->parent];
-            foreach ($class->declaration->members as $method => $definer) {
+        foreach ($records as $name => $record) {
+            $class = $classes[$name];
+            $class->parent = $record['parent'] === null ? null : $classes[$record['parent']];
+            foreach ($record['methods'] as $method => $definer) {
                 $class->methods[$method] = $classes[$definer];
             }
-            foreach ($class->declaration->layout as $field => $declarer) {
-                $default = $classes[$declarer]->declaration->fields[$field];
-                if ($default !== null) {
-                    $class->defaults[] = [$field, $default];
-                }
-            }
-            $class->arity = isset($class->methods['_']) ? $class->methods['_']->method('_')->arity : 0;
+            $class->arity = isset($record['methods']['_']) ? $arities["{$record['methods']['_']}._"] : 0;
         }
 
         return $classes;
-    }
-
-    /**
-     * The declaration of a method this class declares itself
-     *
-     * @param  string  $name  The method name
-     */
-    public function method(string $name): FunctionDeclarationAST
-    {
-        return $this->declaration->methods[$name];
     }
 
     /**
@@ -121,13 +102,5 @@ final class ClassValue
         }
 
         return false;
-    }
-
-    /**
-     * Whether the class can't be constructed
-     */
-    public function isAbstract(): bool
-    {
-        return $this->declaration->abstract;
     }
 }

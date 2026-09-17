@@ -68,6 +68,20 @@ class LambdaAST extends AST
     }
 
     /**
+     * This lambda as a record the VM runs from: no AST, since its body is code
+     *
+     * @return array{arity: int|array{0: int, 1: int}, captures: list<string>, self: int|null}
+     */
+    public function record(): array
+    {
+        return [
+            'arity' => $this->arity,
+            'captures' => $this->captures,
+            'self' => $this->self === null ? null : $this->capture_names[$this->self],
+        ];
+    }
+
+    /**
      * Whether the body is a block, which returns explicitly, rather than an expression whose value is returned
      */
     public function isBlock(): bool

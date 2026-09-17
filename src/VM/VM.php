@@ -4,7 +4,6 @@ namespace GazLang\VM;
 
 use Closure;
 use Exception;
-use GazLang\AST\LambdaAST;
 use GazLang\CodeGenerator\Program;
 use GazLang\GazLangError;
 use GazLang\Lexer\Token;
@@ -137,7 +136,7 @@ final class VM
      */
     private function execute(int $pc, array $locals, ?ObjectValue $receiver, string $function, int $depth)
     {
-        [$ops, $arg0, $arg1, $arg2, $locations, $functions, $lambdas, $classes, $initialisers, $methods, $tokens, $increment, $decrement] = $this->linked;
+        [$ops, $arg0, $arg1, $arg2, $locations, $functions, $lambdas, $classes, $initialisers, $tokens, $increment, $decrement] = $this->linked;
         $end = count($ops);
         $local_names = $this->program->local_names;
         $global_names = $this->program->global_names;
@@ -180,7 +179,7 @@ final class VM
                                 if (isset($closure->captured[$slot]) || array_key_exists($slot, $closure->captured)) {
                                     $stack[] = $closure->captured[$slot];
                                 } else {
-                                    throw new Exception("Undefined variable: {$closure->lambda->captures[$slot]}");
+                                    throw new Exception("Undefined variable: {$lambdas[$closure->index][2][$slot]}");
                                 }
                                 break;
                             case 'STORE_CAPTURED':
@@ -379,7 +378,7 @@ final class VM
                                 unset($first, $second, $left, $right, $target, $iterable, $args, $callee);
                                 [$keys, $value] = $this->pathOperands($stack, $arg0[$pc - 1]);
                                 $slot = $arg1[$pc - 1];
-                                Values::store($closure->captured, $slot, $closure->lambda->captures[$slot], $keys, null, $value);
+                                Values::store($closure->captured, $slot, $lambdas[$closure->index][2][$slot], $keys, null, $value);
                                 $stack[] = $value;
                                 break;
                             case 'SET_PATH_GLOBAL':
@@ -441,7 +440,7 @@ final class VM
                                 break;
                             case 'MAKE_CLOSURE':
                                 $index = $arg0[$pc - 1];
-                                [, $lambda, $map] = $lambdas[$index];
+                                [, , , $self, $map] = $lambdas[$index];
                                 // Copies of the enclosing variables that exist, from the frame or from the running
                                 // closure's own, as in the interpreter
                                 $captured = [];
@@ -454,10 +453,11 @@ final class VM
                                         $captured[$inner] = $locals[$outer];
                                     }
                                 }
-                                $made = FunctionValue::closure($lambda, $captured, $index, $receiver);
+                                // The closure is made where the lambda is written, which is this instruction's location
+                                $made = FunctionValue::closure(null, $captured, $index, $receiver, ...$locations[$pc - 1]);
                                 // $f = <lambda>: the closure's $f is the closure
-                                if ($lambda->self !== null) {
-                                    $made->captured[$lambda->capture_names[$lambda->self]] = $made;
+                                if ($self !== null) {
+                                    $made->captured[$self] = $made;
                                 }
                                 $stack[] = $made;
                                 unset($made, $captured);
@@ -533,7 +533,7 @@ final class VM
                                 $frames[] = [$locals, $pc, $function, $argc, $closure, $receiver];
                                 $locals = array_slice($locals, 0, $argc);
                                 $function = "{$arg0[$pc - 1]}._";
-                                $pc = $methods[$function][0];
+                                $pc = $functions[$function][0];
                                 break;
                             case 'CALL_PARENT':
                                 $args = $this->popMany($stack, $arg2[$pc - 1]);
@@ -542,7 +542,7 @@ final class VM
                                     throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$name}");
                                 }
                                 $frames[] = [$locals, $pc, $function, $argc, $closure, $receiver];
-                                [$locals, $argc, $function, $closure, $pc] = [$args, count($args), $name, null, $methods[$name][0]];
+                                [$locals, $argc, $function, $closure, $pc] = [$args, count($args), $name, null, $functions[$name][0]];
                                 break;
                             case 'BIND_PARENT':
                                 $stack[] = FunctionValue::bound($receiver, $classes[$arg0[$pc - 1]], $arg1[$pc - 1]);
@@ -555,7 +555,7 @@ final class VM
                                 $callee = array_pop($stack);
                                 call_value:
                                 if ($callee instanceof ClassValue) {
-                                    if ($callee->isAbstract()) {
+                                    if ($callee->abstract) {
                                         throw new Exception("Cannot construct abstract class {$callee->name}");
                                     }
                                     if (! Builtins::fitsArity($callee->arity, count($args))) {
@@ -576,8 +576,8 @@ final class VM
                                 $name = $callee->name;
                                 $builtin = $name !== null && $callee->class === null && isset(Builtins::ARITIES[$name]);
                                 $arity = match (true) {
-                                    $name === null => $callee->lambda->arity,
-                                    $callee->class !== null => $methods["{$callee->class->name}.{$name}"][1],
+                                    $name === null => $lambdas[$callee->index][1],
+                                    $callee->class !== null => $functions["{$callee->class->name}.{$name}"][1],
                                     $builtin => Builtins::ARITIES[$name],
                                     default => $functions[$name][1],
                                 };
@@ -604,7 +604,7 @@ final class VM
                                     $pc = $lambdas[$callee->index][0];
                                 } elseif ($callee->class !== null) {
                                     $function = "{$callee->class->name}.{$name}";
-                                    $pc = $methods[$function][0];
+                                    $pc = $functions[$function][0];
                                 } else {
                                     $function = $name;
                                     $pc = $functions[$name][0];
@@ -720,15 +720,15 @@ final class VM
      */
     private function methodCaller(array &$frames, int $depth): Closure
     {
-        $methods = $this->linked[9];
+        $functions = $this->linked[5];
 
-        return function (ObjectValue $object, ClassValue $definer, string $name) use (&$frames, $depth, $methods) {
+        return function (ObjectValue $object, ClassValue $definer, string $name) use (&$frames, $depth, $functions) {
             $name = "{$definer->name}.{$name}";
             if ($depth + count($frames) === Values::MAX_CALL_DEPTH) {
                 throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$name}");
             }
 
-            return $this->execute($methods[$name][0], [], $object, $name, $depth + count($frames) + 1);
+            return $this->execute($functions[$name][0], [], $object, $name, $depth + count($frames) + 1);
         };
     }
 
@@ -742,13 +742,13 @@ final class VM
      * - Each instruction's opcode and first three arguments go into their own arrays, so
      *   the loop reads what it needs without unpacking an instruction each time, and its
      *   [file, line] into $locations, only read when there is an error.
-     * - Each user function's entry position and arity go into $functions, for CALL_VALUE, and
-     *   each lambda's entry position, node and capture map into $lambdas.
+     * - Each function's and method's entry position and arity go into $functions, for CALL_VALUE,
+     *   methods keyed "Class.name"; each lambda's entry position, arity, captured names, self
+     *   and capture map into $lambdas.
      * - The classes are built as values into $classes, with the entry of the code that makes
-     *   each one's objects in $initialisers and each method's entry and arity in $methods,
-     *   keyed "Class.name".
+     *   each one's objects in $initialisers.
      *
-     * @return array{0: list<string>, 1: list<mixed>, 2: list<mixed>, 3: list<mixed>, 4: list<array{0: string|null, 1: int|null}>, 5: array<string, array{0: int, 1: int|array{0: int, 1: int}}>, 6: list<array{0: int, 1: LambdaAST, 2: list<array{0: bool, 1: int, 2: int}>}>, 7: array<string, ClassValue>, 8: array<string, int>, 9: array<string, array{0: int, 1: int|array{0: int, 1: int}}>}
+     * @return array{0: list<string>, 1: list<mixed>, 2: list<mixed>, 3: list<mixed>, 4: list<array{0: string|null, 1: int|null}>, 5: array<string, array{0: int, 1: int|array{0: int, 1: int}}>, 6: list<array{0: int, 1: int|array{0: int, 1: int}, 2: list<string>, 3: int|null, 4: list<array{0: bool, 1: int, 2: int}>}>, 7: array<string, ClassValue>, 8: array<string, int>}
      */
     private function link(): array
     {
@@ -792,35 +792,30 @@ final class VM
             $locations[] = [$file, $line];
         }
 
+        // Functions and methods share one table: a method is keyed "Class.name", which no function name can be
         $functions = [];
         foreach ($this->program->functions as $name => $arity) {
-            $functions[$name] = [$positions["FN_{$name}"], $arity];
+            $functions[$name] = [$positions[str_contains($name, '.') ? "METHOD_{$name}" : "FN_{$name}"], $arity];
         }
         $lambdas = [];
-        foreach ($this->program->lambdas as $index => [$lambda, $map]) {
-            $lambdas[$index] = [$positions["LAMBDA_{$index}"], $lambda, $map];
+        foreach ($this->program->lambdas as $index => $lambda) {
+            $lambdas[$index] = [$positions["LAMBDA_{$index}"], $lambda['arity'], $lambda['captures'], $lambda['self'], $lambda['map']];
         }
-        $classes = ClassValue::build($this->program->classes);
+        $classes = ClassValue::build($this->program->classes, $this->program->functions);
         $initialisers = [];
-        $methods = [];
         foreach ($this->program->classes as $name => $class) {
             $initialisers[$name] = $positions["NEW_{$name}"];
-            foreach ($class->methods as $method) {
-                if (! $method->abstract) {
-                    $methods["{$name}.{$method->name}"] = [$positions["METHOD_{$name}.{$method->name}"], $method->arity];
-                }
-            }
         }
         foreach ($classes as $class) {
             foreach ($class->methods as $method => $definer) {
                 if ($method !== '_') {
                     $key = "{$definer->name}.{$method}";
-                    $class->entries[$method] = [$methods[$key][0], $methods[$key][1], $key];
+                    $class->entries[$method] = [$functions[$key][0], $functions[$key][1], $key];
                 }
             }
         }
 
-        return [$ops, $arg0, $arg1, $arg2, $locations, $functions, $lambdas, $classes, $initialisers, $methods];
+        return [$ops, $arg0, $arg1, $arg2, $locations, $functions, $lambdas, $classes, $initialisers];
     }
 
     /**

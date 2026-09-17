@@ -1258,6 +1258,8 @@ class CodeGenerator extends AbstractNodeVisitor
             $local_names["new {$class->name}"] = $this->compileInitialiser($class);
             foreach ($class->methods as $method) {
                 if (! $method->abstract) {
+                    // A method's arity is keyed "Class.name", which no function name can be
+                    $arities["{$class->name}.{$method->name}"] = $method->arity;
                     $local_names["{$class->name}.{$method->name}"] = $this->compileBody("METHOD_{$class->name}.{$method->name}", $method, $method->params);
                 }
             }
@@ -1271,7 +1273,21 @@ class CodeGenerator extends AbstractNodeVisitor
             $local_names["->{$i}"] = $this->compileBody("LAMBDA_{$i}", $lambda, $lambda->params);
         }
 
-        return new Program($this->instructions, $local_names, array_keys($this->global_addresses), $arities, $this->lambdas, $this->classes);
+        // The backends run from records, not from the AST: a lambda's captures and a class's
+        // layout and methods, with every body already compiled above
+        $lambdas = [];
+        foreach ($this->lambdas as [$lambda, $map]) {
+            $lambdas[] = [...$lambda->record(), 'map' => $map];
+        }
+
+        return new Program(
+            $this->instructions,
+            $local_names,
+            array_keys($this->global_addresses),
+            $arities,
+            $lambdas,
+            array_map(fn (ClassDeclarationAST $class) => $class->record(), $this->classes),
+        );
     }
 
     /**

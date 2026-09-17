@@ -72,4 +72,14 @@ class ClassDeclarationAST extends AST
         $this->parent = $parent;
         $this->abstract = $abstract;
     }
+
+    /**
+     * This class as a record the backends run from: no AST, since the field defaults are code
+     *
+     * @return array{parent: string|null, abstract: bool, fields: array<string, string>, methods: array<string, string>}
+     */
+    public function record(): array
+    {
+        return ['parent' => $this->parent, 'abstract' => $this->abstract, 'fields' => $this->layout, 'methods' => $this->members];
+    }
 }

@@ -42,9 +42,20 @@ final class FunctionValue
     public $receiver;
 
     /**
-     * @var LambdaAST|null The lambda a closure was made from
+     * @var LambdaAST|null The lambda a closure was made from, for the interpreter; the VM runs from the
+     *                     Program's lambda records instead, which $index addresses
      */
     public $lambda;
+
+    /**
+     * @var string|null The file a closure was made in, null for piped or inline source
+     */
+    public $file;
+
+    /**
+     * @var int|null The line a closure was made on
+     */
+    public $line;
 
     /**
      * @var array The captured variables of a closure, by name (interpreter) or capture index (VM), changed by its calls
@@ -65,9 +76,13 @@ final class FunctionValue
      * @param  int|null  $index  The VM's lambda index
      * @param  ObjectValue|null  $receiver  The object # is in the body
      * @param  ClassValue|null  $class  A bound method's class
+     * @param  string|null  $file  The file a closure was made in
+     * @param  int|null  $line  The line a closure was made on
      */
-    private function __construct(?string $name, ?LambdaAST $lambda = null, array $captured = [], ?int $index = null, ?ObjectValue $receiver = null, ?ClassValue $class = null)
+    private function __construct(?string $name, ?LambdaAST $lambda = null, array $captured = [], ?int $index = null, ?ObjectValue $receiver = null, ?ClassValue $class = null, ?string $file = null, ?int $line = null)
     {
+        $this->file = $file;
+        $this->line = $line;
         $this->name = $name;
         $this->lambda = $lambda;
         $this->captured = $captured;
@@ -89,14 +104,19 @@ final class FunctionValue
     /**
      * A new closure over a lambda
      *
-     * @param  LambdaAST  $lambda  The lambda
+     * The location is where it was made, which is where the lambda is written: the interpreter
+     * takes it from the node, the VM from the MAKE_CLOSURE instruction, which came from it.
+     *
+     * @param  LambdaAST|null  $lambda  The lambda, for the interpreter
      * @param  array  $captured  The captured variables, keyed as the backend needs
      * @param  int|null  $index  The VM's index for the lambda
      * @param  ObjectValue|null  $receiver  The object of the method the closure is made in, if any
+     * @param  string|null  $file  The file the lambda is written in
+     * @param  int|null  $line  The line it is written on
      */
-    public static function closure(LambdaAST $lambda, array $captured, ?int $index = null, ?ObjectValue $receiver = null): self
+    public static function closure(?LambdaAST $lambda, array $captured, ?int $index, ?ObjectValue $receiver, ?string $file, ?int $line): self
     {
-        return new self(null, $lambda, $captured, $index, $receiver);
+        return new self(null, $lambda, $captured, $index, $receiver, null, $file, $line);
     }
 
     /**
@@ -121,7 +141,7 @@ final class FunctionValue
             return "{$this->class->name}.{$this->name}";
         }
 
-        return $this->name ?? '-> '.GazLangError::location($this->lambda->file, $this->lambda->line);
+        return $this->name ?? '-> '.GazLangError::location($this->file, $this->line);
     }
 
     /**
