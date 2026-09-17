@@ -38,7 +38,7 @@ class LambdaAST extends AST
     public $captures;
 
     /**
-     * @var array<string, int> The captured names as keys, each with its position in
+     * @var array<string, int> The captured names as keys, each with its position in the captures list
      */
     public $capture_names;
 
