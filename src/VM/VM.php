@@ -279,6 +279,9 @@ final class VM
                             break;
                         case 'SET_PATH':
                         case 'APPEND_PATH':
+                            // Temporaries from earlier instructions may still hold the list or map being
+                            // written; PHP would then copy all of it on every write
+                            unset($first, $second, $left, $right, $target, $iterable, $args, $callee);
                             [$keys, $value] = $this->pathOperands($stack, $arg0[$pc - 1], $ops[$pc - 1] === 'APPEND_PATH');
                             $slot = $arg1[$pc - 1];
                             Values::store($locals, $slot, $local_names[$function][$slot], $keys, null, $value);
@@ -286,6 +289,7 @@ final class VM
                             break;
                         case 'SET_PATH_GLOBAL':
                         case 'APPEND_PATH_GLOBAL':
+                            unset($first, $second, $left, $right, $target, $iterable, $args, $callee);
                             [$keys, $value] = $this->pathOperands($stack, $arg0[$pc - 1], $ops[$pc - 1] === 'APPEND_PATH_GLOBAL');
                             $slot = $arg1[$pc - 1];
                             Values::store($globals, $slot, $global_names[$slot], $keys, null, $value);
