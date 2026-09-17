@@ -1,0 +1,33 @@
+ok the first arm
+ok a later arm
+ok several values to an arm
+ok the default arm
+ok a trailing comma
+ok one arm and no default
+ok an expression arm value
+ok the subject is an expression
+ok a match in a match
+ok an int matches an equal float
+ok a string never matches a number
+ok a bool matches only itself
+ok null matches null
+ok lists compare element by element
+ok stops at the first match
+ok later arm values never ran
+ok a subject that misses every arm but the last
+ok the subject ran once
+ok a block arm ran
+ok default => {} ignores the rest
+ok an expression arm beside a block one
+ok continue in an arm skips the rest of the loop body
+ok break in an arm leaves the loop
+ok return in an arm
+ok past the match
+ok no arm matches a string
+ok no arm matches a number
+ok no arm matches a list
+ok no arm matches null
+ok an arm that raises
+ok a match as a call argument
+ok a match in a lambda
+ok a map literal arm

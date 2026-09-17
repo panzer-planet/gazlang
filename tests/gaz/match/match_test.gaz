@@ -1,0 +1,112 @@
+include "../check.gaz";
+
+// An expression: arms are tried in order and compared with ==, several to an arm
+check("the first arm", match (1) { 1 => "one", 2 => "two", default => "many" }, "one");
+check("a later arm", match (2) { 1 => "one", 2 => "two", default => "many" }, "two");
+check("several values to an arm", match (3) { 1, 2, 3 => "few", default => "many" }, "few");
+check("the default arm", match (9) { 1 => "one", default => "many" }, "many");
+check("a trailing comma", match (1) { 1 => "one", }, "one");
+check("one arm and no default", match (1) { 1 => "one" }, "one");
+
+// Arm values are full expressions, not just literals
+$n = 4;
+fn double($x) { return $x * 2; }
+check("an expression arm value", match (8) { $n => "n", double($n) => "double n", default => "no" }, "double n");
+check("the subject is an expression", match (2 + 2) { 4 => "four", default => "no" }, "four");
+check("a match in a match", match (1) { 1 => match (2) { 2 => "inner" }, default => "no" }, "inner");
+
+// == decides, so no conversion between strings and numbers, and 1 == 1.0
+check("an int matches an equal float", match (1.0) { 1 => "yes", default => "no" }, "yes");
+check("a string never matches a number", match ("1") { 1 => "yes", default => "no" }, "no");
+check("a bool matches only itself", match (true) { 1 => "one", true => "true", default => "no" }, "true");
+check("null matches null", match (null) { 0 => "zero", null => "null", default => "no" }, "null");
+check("lists compare element by element", match ([1, 2]) { [1, 2] => "yes", default => "no" }, "yes");
+
+// Only the values before the match are evaluated
+@tested = [];
+fn loud($v) { @tested[] = $v; return $v; }
+check("stops at the first match", match (2) { loud(1) => "a", loud(2) => "b", loud(3) => "c" }, "b");
+check("later arm values never ran", @tested, [1, 2]);
+
+// The subject is evaluated once, however many arms are tried
+@subjects = 0;
+fn subject() { @subjects++; return 3; }
+check("a subject that misses every arm but the last", match (subject()) { 1 => "a", 2 => "b", 3 => "c" }, "c");
+check("the subject ran once", @subjects, 1);
+
+// As a statement: arms may be blocks, no trailing semicolon, and the value is discarded
+$log = [];
+match ("b") {
+    "a" => { $log[] = "was a"; }
+    "b" => { $log[] = "was b"; $log[] = "twice"; }
+    default => { $log[] = "was neither"; }
+}
+check("a block arm ran", $log, ["was b", "twice"]);
+
+// A statement match may mix block and expression arms, and default => {} ignores the rest
+match (9) {
+    1 => { $log[] = "one"; }
+    2 => $log[] = "two",
+    default => {}
+}
+check("default => {} ignores the rest", $log, ["was b", "twice"]);
+
+match (2) {
+    1 => { $log[] = "one"; }
+    2 => $log[] = "two",
+    default => {}
+}
+check("an expression arm beside a block one", $log, ["was b", "twice", "two"]);
+
+// No fallthrough, so break and continue in an arm belong to the loop around the match
+$seen = [];
+$i = 0;
+while ($i < 6) {
+    $i++;
+    match ($i) {
+        2 => { continue; }
+        5 => { break; }
+        default => {}
+    }
+    $seen[] = $i;
+}
+check("continue in an arm skips the rest of the loop body", $seen, [1, 3, 4]);
+check("break in an arm leaves the loop", $i, 5);
+
+// return in an arm returns from the function
+fn describe($x) {
+    match ($x) {
+        0 => { return "zero"; }
+        default => {}
+    }
+
+    return "not zero";
+}
+check("return in an arm", describe(0), "zero");
+check("past the match", describe(1), "not zero");
+
+// Nothing matching and no default is an error naming the subject, strings quoted
+fn fails($f) {
+    try {
+        $f();
+    } catch (Error $e) {
+        return $e.message;
+    }
+
+    return "no error";
+}
+
+check("no arm matches a string", fails(() -> match ("x") { "a" => 1 }), "No arm matches \"x\"");
+check("no arm matches a number", fails(() -> match (5) { 1 => 1 }), "No arm matches 5");
+check("no arm matches a list", fails(() -> match ([1]) { [2] => 1 }), "No arm matches [1]");
+check("no arm matches null", fails(() -> match (null) { 1 => 1 }), "No arm matches null");
+
+// An arm's body can raise, and a match is an expression anywhere one goes
+check("an arm that raises", fails(() -> match (1) { 1 => error("from an arm") }), "from an arm");
+check("a match as a call argument", to_string(match (1) { 1 => 7 }), "7");
+$f = $x -> match ($x) { 1 => "one", default => "other" };
+check("a match in a lambda", $f(1), "one");
+
+// In an expression a { after => is a map literal, since only a statement's arms are blocks
+$m = match (1) { 1 => {"k" => 2} };
+check("a map literal arm", $m, {"k" => 2});
