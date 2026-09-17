@@ -182,7 +182,7 @@ Decided for phase 2 (2026-09-17):
   break and continue can't leave it; a return value is worked out before it runs (Java).
 - An uncaught non-string value prints as echo would, with no location.
 
-Decided 2026-09-18, after writing examples/football.gaz:
+Decided 2026-09-17, after writing examples/football.gaz:
 - List destructuring: `[$a, $b] = $list;` and `foreach ($x as [$a, $b])`, any assignable
   target in `=` and variables in foreach, exactly as many elements as targets (an error
   otherwise, not PHP's nulls). Nesting and map patterns wait until real code wants them.

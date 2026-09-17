@@ -436,7 +436,7 @@ final class Values
             throw new Exception('Cannot destructure '.self::typeOf($value).': only a list can be');
         }
         if (count($value) !== $count) {
-            throw new Exception('Cannot destructure a list of '.count($value)." elements into {$count}");
+            throw new Exception('Cannot destructure a list of '.count($value).(count($value) === 1 ? ' element' : ' elements')." into {$count}");
         }
     }
 

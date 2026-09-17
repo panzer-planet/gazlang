@@ -86,7 +86,7 @@ class DestructureTest extends GazLangTestCase
             'too few elements' => ['[$a, $b, $c] = [1, 2];', 'Cannot destructure a list of 2 elements into 3 on line 1'],
             'a map' => ['[$a, $b] = {"a" => 1, "b" => 2};', 'Cannot destructure map: only a list can be on line 1'],
             'a string' => ['[$a, $b] = "ab";', 'Cannot destructure string: only a list can be on line 1'],
-            'in foreach' => ['foreach ([[1, 2], [3]] as [$a, $b]) { echo $a; }', 'Cannot destructure a list of 1 elements into 2 on line 1'],
+            'in foreach' => ['foreach ([[1, 2], [3]] as [$a, $b]) { echo $a; }', 'Cannot destructure a list of 1 element into 2 on line 1'],
             'a bad target fails where it is written' => ['$l = []; [$a, $l[5]] = [1, 2];', 'Index out of range: 5 on line 1'],
         ];
     }
