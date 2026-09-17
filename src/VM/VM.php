@@ -624,6 +624,11 @@ final class VM
                             case 'END_TRY':
                                 array_pop($handlers);
                                 break;
+                            case 'CATCH_VALUE':
+                                $stack[] = array_pop($stack)->toMap();
+                                break;
+                            case 'RETHROW':
+                                throw array_pop($stack);
                             case 'HALT':
                                 return null;
                             default:
@@ -653,7 +658,8 @@ final class VM
                         [$locals, , $function, $argc, $closure, $receiver] = array_pop($frames);
                     }
                     array_splice($stack, $stack_size);
-                    $stack[] = $error->toMap();
+                    // The error itself: CATCH_VALUE turns it into what catch sees, and a finally handler rethrows it
+                    $stack[] = $error;
                     $pc = $catch_pc;
                 }
             }

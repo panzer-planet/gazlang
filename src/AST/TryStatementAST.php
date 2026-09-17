@@ -3,7 +3,9 @@
 namespace GazLang\AST;
 
 /**
- * TryStatement represents try { ... } catch ($error) { ... } in the AST
+ * TryStatement represents try { ... } catch ($error) { ... } finally { ... } in the AST
+ *
+ * There is at least one catch or a finally.
  */
 class TryStatementAST extends AST
 {
@@ -13,26 +15,26 @@ class TryStatementAST extends AST
     public $body;
 
     /**
-     * @var VariableAST The variable the caught error is assigned to
+     * @var list<array{0: VariableAST, 1: CompoundAST}> Each catch clause: the variable the caught error is assigned to, and its statements
      */
-    public $variable;
+    public $catches;
 
     /**
-     * @var CompoundAST The statements run when an error is caught
+     * @var CompoundAST|null The statements run however the try and catch blocks are left, or null
      */
-    public $catch_body;
+    public $finally;
 
     /**
      * Constructor
      *
      * @param  CompoundAST  $body  The statements whose errors are caught
-     * @param  VariableAST  $variable  The variable the caught error is assigned to
-     * @param  CompoundAST  $catch_body  The statements run when an error is caught
+     * @param  list<array{0: VariableAST, 1: CompoundAST}>  $catches  The catch clauses
+     * @param  CompoundAST|null  $finally  The finally block, or null
      */
-    public function __construct(CompoundAST $body, VariableAST $variable, CompoundAST $catch_body)
+    public function __construct(CompoundAST $body, array $catches, ?CompoundAST $finally)
     {
         $this->body = $body;
-        $this->variable = $variable;
-        $this->catch_body = $catch_body;
+        $this->catches = $catches;
+        $this->finally = $finally;
     }
 }

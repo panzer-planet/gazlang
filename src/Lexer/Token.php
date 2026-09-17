@@ -104,6 +104,8 @@ class Token
 
     public const CATCH = 'CATCH';  // Catch keyword
 
+    public const FINALLY = 'FINALLY';  // Finally keyword
+
     public const TRUE = 'TRUE';  // Boolean literal true
 
     public const FALSE = 'FALSE';  // Boolean literal false

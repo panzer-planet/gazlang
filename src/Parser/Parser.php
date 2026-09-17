@@ -103,6 +103,11 @@ class Parser
     private $in_function = false;
 
     /**
+     * @var bool Whether a finally block is being parsed, which return, break and continue can't leave
+     */
+    private $in_finally = false;
+
+    /**
      * @var bool Whether a constructor's body is being parsed, where return can't give a value
      */
     private $in_constructor = false;
@@ -550,8 +555,9 @@ class Parser
         $arity = $this->check_parameters($params, $defaults, $lines);
         $this->eat(Token::ARROW);
 
-        // A lambda in a constructor isn't the constructor: it can return values, and can't run ##_
-        [$in_constructor, $this->in_constructor] = [$this->in_constructor, false];
+        // A lambda in a constructor isn't the constructor: it can return values, and can't run ##_;
+        // one in a finally block can return too
+        [$in_constructor, $in_finally, $this->in_constructor, $this->in_finally] = [$this->in_constructor, $this->in_finally, false, false];
         try {
             if ($this->current_token->type === Token::LEFT_BRACE) {
                 [$in_function, $loop_depth] = [$this->in_function, $this->loop_depth];
@@ -565,7 +571,7 @@ class Parser
                 $body = $this->expr();
             }
         } finally {
-            $this->in_constructor = $in_constructor;
+            [$this->in_constructor, $this->in_finally] = [$in_constructor, $in_finally];
         }
 
         // The outer variables it uses, except those a plain = (or foreach or catch) makes local to each call
@@ -612,7 +618,7 @@ class Parser
         $targets = match (true) {
             $node instanceof AssignAST && $node->token->type === Token::ASSIGN => [$node->left],
             $node instanceof ForeachStatementAST => [$node->key, $node->value],
-            $node instanceof TryStatementAST => [$node->variable],
+            $node instanceof TryStatementAST => array_column($node->catches, 0),
             default => [],
         };
         foreach ($targets as $target) {
@@ -1228,7 +1234,10 @@ class Parser
     }
 
     /**
-     * Parse a try statement (TRY block CATCH LPAREN variable RPAREN block)
+     * Parse a try statement (TRY block [CATCH LPAREN variable RPAREN block] [FINALLY block]), with a catch or a finally or both
+     *
+     * return, break and continue can't leave a finally block, so it never replaces a return
+     * or swallows an error; a loop or lambda inside it can use them for itself.
      *
      * @return TryStatementAST
      *
@@ -1239,12 +1248,32 @@ class Parser
         $start = $this->current_token;
         $this->eat(Token::TRY);
         $body = $this->block();
-        $this->eat(Token::CATCH);
-        $this->eat(Token::LEFT_PAREN);
-        $variable = $this->variable();
-        $this->eat(Token::RIGHT_PAREN);
 
-        return $this->at(new TryStatementAST($body, $variable, $this->block()), $start);
+        $catches = [];
+        if ($this->current_token->type === Token::CATCH) {
+            $this->eat(Token::CATCH);
+            $this->eat(Token::LEFT_PAREN);
+            $variable = $this->variable();
+            $this->eat(Token::RIGHT_PAREN);
+            $catches[] = [$variable, $this->block()];
+        }
+
+        $finally = null;
+        if ($catches === [] && $this->current_token->type !== Token::FINALLY) {
+            $this->fail("Expected 'catch' or 'finally' but found ".$this->describe($this->current_token));
+        }
+        if ($this->current_token->type === Token::FINALLY) {
+            $this->eat(Token::FINALLY);
+            [$in_finally, $loop_depth] = [$this->in_finally, $this->loop_depth];
+            [$this->in_finally, $this->loop_depth] = [true, 0];
+            try {
+                $finally = $this->block();
+            } finally {
+                [$this->in_finally, $this->loop_depth] = [$in_finally, $loop_depth];
+            }
+        }
+
+        return $this->at(new TryStatementAST($body, $catches, $finally), $start);
     }
 
     /**
@@ -1274,7 +1303,7 @@ class Parser
     {
         $token = $this->current_token;
         if ($this->loop_depth === 0) {
-            $this->fail("Cannot use {$token->value} outside of a loop");
+            $this->fail($this->in_finally ? "Cannot use {$token->value} in finally" : "Cannot use {$token->value} outside of a loop");
         }
 
         $this->eat($token->type);
@@ -1335,6 +1364,9 @@ class Parser
      */
     public function return_statement()
     {
+        if ($this->in_finally) {
+            $this->fail('Cannot use return in finally');
+        }
         if (! $this->in_function) {
             $this->fail('Cannot use return outside of a function');
         }

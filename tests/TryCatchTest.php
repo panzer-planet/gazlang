@@ -51,7 +51,7 @@ class TryCatchTest extends GazLangTestCase
     public static function parseErrors(): array
     {
         return [
-            'try without catch' => ['try { } echo 1;', "Expected 'catch' but found 'echo'"],
+            'try without catch' => ['try { } echo 1;', "Expected 'catch' or 'finally' but found 'echo'"],
             'catch without a variable' => ['try { } catch { }', "Expected '(' but found '{'"],
             'catch with a non-variable' => ['try { } catch (1) { }', "Expected a \$variable but found '1'"],
             'catch without try' => ['catch ($e) { }', "Unexpected 'catch'"],
@@ -63,7 +63,7 @@ class TryCatchTest extends GazLangTestCase
     {
         $this->assertEquals(
             "TRY CATCH_0\nPUSH_STR \"x\"\nCALL_BUILTIN error 1\nPOP\nEND_TRY\nJMP ENDTRY_0\n"
-            ."LABEL CATCH_0\nSTORE 0\nLOAD 0\nPUSH_STR \"message\"\nINDEX_GET\nPRINT\nLABEL ENDTRY_0",
+            ."LABEL CATCH_0\nCATCH_VALUE\nSTORE 0\nLOAD 0\nPUSH_STR \"message\"\nINDEX_GET\nPRINT\nLABEL ENDTRY_0",
             $this->generateCode('try { error("x"); } catch ($e) { echo $e["message"]; }')
         );
     }
@@ -72,7 +72,7 @@ class TryCatchTest extends GazLangTestCase
     {
         // RET drops the returning frame's handlers, so no END_TRY is emitted before it
         $this->assertStringContainsString(
-            "LABEL FN_f\nTRY CATCH_0\nPUSH 1\nRET\nEND_TRY\nJMP ENDTRY_0\nLABEL CATCH_0\nSTORE 0\nLABEL ENDTRY_0",
+            "LABEL FN_f\nTRY CATCH_0\nPUSH 1\nRET\nEND_TRY\nJMP ENDTRY_0\nLABEL CATCH_0\nCATCH_VALUE\nSTORE 0\nLABEL ENDTRY_0",
             $this->generateCode('f(); fn f() { try { return 1; } catch ($e) { } }')
         );
     }

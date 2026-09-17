@@ -94,6 +94,7 @@ class Lexer
         'include' => 'INCLUDE',
         'try' => 'TRY',
         'catch' => 'CATCH',
+        'finally' => 'FINALLY',
         'true' => 'TRUE',
         'false' => 'FALSE',
         'class' => 'CLASS',

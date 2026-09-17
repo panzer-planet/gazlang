@@ -178,9 +178,11 @@ class CodeGenerator extends AbstractNodeVisitor
     private $loop_labels = [];
 
     /**
-     * @var int How many try blocks enclose the current node, so break and continue can leave them
+     * @var list<CompoundAST|null> The handlers installed around the current node, outermost first: a try's
+     *                             finally block for the handler that runs it, null for one that runs catch
+     *                             clauses; break, continue and return leave them, running the finally blocks
      */
-    private $try_depth = 0;
+    private $try_stack = [];
 
     /**
      * @var list<array{0: LambdaAST, 1: list<array{0: bool, 1: int, 2: int}>}> Every lambda seen, in creation order,
@@ -833,7 +835,7 @@ class CodeGenerator extends AbstractNodeVisitor
         $this->visit($node->condition);
         $this->emit('JZ', $end_label);
 
-        $this->loop_labels[] = [$continue_label, $end_label, $this->try_depth];
+        $this->loop_labels[] = [$continue_label, $end_label, count($this->try_stack)];
         $this->visit($node->body);
         array_pop($this->loop_labels);
 
@@ -853,33 +855,97 @@ class CodeGenerator extends AbstractNodeVisitor
      *   body
      *   END_TRY            removes it
      *   JMP ENDTRY_n
-     *   LABEL CATCH_n      an error unwinds to the frame and stack depth of the TRY,
-     *   STORE error_var    pushes ["message" => ..., "file" => ..., "line" => ...] and jumps here
+     *   LABEL CATCH_n      an error unwinds to the frame and stack depth of the TRY, pushes the error and jumps here
+     *   CATCH_VALUE        replaces the error with what catch sees: ["message" => ..., "file" => ..., "line" => ...]
+     *   STORE error_var
      *   catch body
      *   LABEL ENDTRY_n
      *
-     * break and continue emit END_TRY for each try they leave; RET removes the handlers
-     * installed by the returning function's frame.
+     * With a finally block, a second handler covers the try and catch blocks, the finally
+     * code follows them, and the handler's own code runs it and rethrows the error:
+     *
+     *   TRY FINALLY_n
+     *   (the try and catch blocks, as above, ending at LABEL ENDTRY_n)
+     *   END_TRY
+     *   finally body
+     *   JMP ENDFINALLY_n
+     *   LABEL FINALLY_n
+     *   STORE $#finally_error_n
+     *   finally body
+     *   LOAD $#finally_error_n
+     *   RETHROW
+     *   LABEL ENDFINALLY_n
+     *
+     * break, continue and return leave the handlers themselves (see leaveTries()), running
+     * the finally code on the way; RET removes the handlers still installed by its frame.
      *
      * @param  TryStatementAST  $node  The node to visit
      */
     public function visitTryStatement(TryStatementAST $node): void
     {
-        $catch_label = 'CATCH_'.$this->label_counter;
-        $end_label = 'ENDTRY_'.$this->label_counter;
-        $this->label_counter++;
+        $n = $this->label_counter++;
 
-        $this->emit('TRY', $catch_label);
-        $this->try_depth++;
-        $this->visit($node->body);
-        $this->try_depth--;
-        $this->emit('END_TRY');
-        $this->emit('JMP', $end_label);
+        if ($node->finally !== null) {
+            $this->emit('TRY', "FINALLY_{$n}");
+            $this->try_stack[] = $node->finally;
+        }
 
-        $this->emit('LABEL', $catch_label);
-        $this->emitVariable('STORE', $node->variable);
-        $this->visit($node->catch_body);
-        $this->emit('LABEL', $end_label);
+        if ($node->catches === []) {
+            $this->visit($node->body);
+        } else {
+            $this->emit('TRY', "CATCH_{$n}");
+            $this->try_stack[] = null;
+            $this->visit($node->body);
+            array_pop($this->try_stack);
+            $this->emit('END_TRY');
+            $this->emit('JMP', "ENDTRY_{$n}");
+
+            $this->emit('LABEL', "CATCH_{$n}");
+            [$variable, $body] = $node->catches[0];
+            $this->emit('CATCH_VALUE');
+            $this->emitVariable('STORE', $variable);
+            $this->visit($body);
+            $this->emit('LABEL', "ENDTRY_{$n}");
+        }
+
+        if ($node->finally !== null) {
+            array_pop($this->try_stack);
+            $this->emit('END_TRY');
+            $this->visit($node->finally);
+            $this->emit('JMP', "ENDFINALLY_{$n}");
+
+            $this->emit('LABEL', "FINALLY_{$n}");
+            $error = new VariableAST(new Token(Token::VAR_IDENTIFIER, "\$#finally_error_{$n}"));
+            $this->emitVariable('STORE', $error);
+            $this->visit($node->finally);
+            $this->emitVariable('LOAD', $error);
+            $this->emit('RETHROW');
+            $this->emit('LABEL', "ENDFINALLY_{$n}");
+        }
+    }
+
+    /**
+     * Emit what leaving the innermost handlers takes, down to a depth: END_TRY for each, and a finally block's code after its own
+     *
+     * Each finally block is compiled as if it were outside its try, so a try inside it
+     * installs its handler at the right depth.
+     *
+     * @param  int  $depth  How many handlers stay installed
+     */
+    private function leaveTries(int $depth): void
+    {
+        $stack = $this->try_stack;
+        try {
+            while (count($this->try_stack) > $depth) {
+                $this->emit('END_TRY');
+                $finally = array_pop($this->try_stack);
+                if ($finally !== null) {
+                    $this->visit($finally);
+                }
+            }
+        } finally {
+            $this->try_stack = $stack;
+        }
     }
 
     /**
@@ -897,9 +963,7 @@ class CodeGenerator extends AbstractNodeVisitor
         $label = $node->token->type === Token::BREAK ? $end_label : $continue_label;
 
         // Jumping out of a try block leaves it, so its handler must be removed first
-        for ($depth = $this->try_depth; $depth > $loop_try_depth; $depth--) {
-            $this->emit('END_TRY');
-        }
+        $this->leaveTries($loop_try_depth);
         $this->emit('JMP', $label);
     }
 
@@ -1074,6 +1138,14 @@ class CodeGenerator extends AbstractNodeVisitor
             $this->visit($node->expr);
         }
 
+        // RET removes the frame's handlers, but finally blocks around the return run first,
+        // with the value already worked out and held in a hidden variable
+        if (array_filter($this->try_stack) !== []) {
+            $value = new VariableAST(new Token(Token::VAR_IDENTIFIER, '$#return_'.$this->hidden_counter++));
+            $this->emitVariable('STORE', $value);
+            $this->leaveTries(0);
+            $this->emitVariable('LOAD', $value);
+        }
         $this->emit('RET');
     }
 

@@ -47,6 +47,7 @@ use GazLang\Runtime\MapValue;
 use GazLang\Runtime\ObjectValue;
 use GazLang\Runtime\PropertyStep;
 use GazLang\Runtime\Values;
+use Throwable;
 
 /**
  * Interpreter class evaluates the AST
@@ -593,19 +594,59 @@ class Interpreter extends AbstractNodeVisitor
      * ["message" => ..., "file" => ..., "line" => ...]. return, break and continue are
      * not errors and pass straight through.
      *
+     * The finally block runs however the try and catch blocks are left: at their end, by an
+     * error (caught or not), or by return, break or continue, which then carry on. A value
+     * being returned is kept while it runs. exit() stops the program without running it.
+     *
      * @param  TryStatementAST  $node  The node to visit
      * @return null Statements produce no result
      */
     public function visitTryStatement(TryStatementAST $node): null
     {
+        if ($node->finally === null) {
+            $this->tryCatch($node);
+
+            return null;
+        }
+
+        try {
+            $this->tryCatch($node);
+        } catch (ExitSignal $exit) {
+            throw $exit;
+        } catch (ReturnSignal $signal) {
+            // The signal is reused, so a return inside the finally block would overwrite the value
+            $value = $signal->value;
+            $this->visit($node->finally);
+            $signal->value = $value;
+
+            throw $signal;
+        } catch (Throwable $e) {
+            $this->visit($node->finally);
+
+            throw $e;
+        }
+        $this->visit($node->finally);
+
+        return null;
+    }
+
+    /**
+     * Run a try block and its catch clause, if any
+     *
+     * @param  TryStatementAST  $node  The try statement
+     */
+    private function tryCatch(TryStatementAST $node): void
+    {
         try {
             $this->visit($node->body);
         } catch (GazLangError $error) {
-            $this->assignVariable($node->variable, $error->toMap());
-            $this->visit($node->catch_body);
+            if ($node->catches === []) {
+                throw $error;
+            }
+            [$variable, $body] = $node->catches[0];
+            $this->assignVariable($variable, $error->toMap());
+            $this->visit($body);
         }
-
-        return null;
     }
 
     /**
