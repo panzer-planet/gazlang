@@ -64,6 +64,7 @@ class Error
 field message Error
 field file Error
 field line Error
+field trace Error
 method _ Error
 method to_string Error
 locals $#argument_0
@@ -75,7 +76,7 @@ RET
 
 fn Error._ 1 1
 locals $message
-@ "<builtin>" 5
+@ "<builtin>" 6
 LOAD 0
 SET_FIELD message
 POP
@@ -84,7 +85,7 @@ RET
 
 fn Error.to_string 0 0
 locals
-@ "<builtin>" 6
+@ "<builtin>" 7
 PUSH ""
 LOAD_FIELD message
 CONCAT

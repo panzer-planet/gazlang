@@ -137,7 +137,7 @@ class FunctionValueTest extends GazLangTestCase
             $command = sprintf('echo %s | %s %s %s', escapeshellarg($code), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang'), $backend);
             exec($command, $output, $exit_code);
 
-            $this->assertSame(['Error: Maximum call depth of 10000 exceeded calling inf on line 1'], $output, "with {$backend}");
+            $this->assertSame('Error: Maximum call depth of 10000 exceeded calling inf on line 1', $output[0], "with {$backend}");
             $this->assertSame(1, $exit_code);
             $output = [];
         }

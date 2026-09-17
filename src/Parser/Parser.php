@@ -63,6 +63,7 @@ class Parser
             #message;
             #file;
             #line;
+            #trace;
             fn _($message) { #message = $message; }
             fn to_string() { return "{#message}"; }
         }

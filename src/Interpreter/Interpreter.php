@@ -117,6 +117,20 @@ class Interpreter extends AbstractNodeVisitor
     private $call_depth = 0;
 
     /**
+     * @var list<array{0: string, 1: string|null, 2: int|null}> The calls running, outermost first, each as
+     *                                                          [what it is, and the file and line it was called from].
+     *                                                          A call with no location is a to_string() run by printing,
+     *                                                          which starts a trace of its own, as it does in the VM
+     */
+    private $calls = [];
+
+    /**
+     * @var array{0: string|null, 1: int|null}|null The location of the call being made, which the frame it
+     *                                              starts records; null for a method run by printing
+     */
+    private $call_site = null;
+
+    /**
      * @var ReturnSignal Reused for every return: creating an exception records a stack trace
      *                   (quadratic memory in deep recursion), rethrowing one does not
      */
@@ -166,15 +180,45 @@ class Interpreter extends AbstractNodeVisitor
             if ($e->line_number !== null || $node->line === null) {
                 throw $e;
             }
+            $e->trace ??= $this->trace($node->file, $node->line);
 
             throw $e->located($node->file, $node->line);
         } catch (Exception $e) {
             if ($node->line === null) {
                 throw $e;
             }
+            $error = new GazLangError($e->getMessage(), $node->file, $node->line);
+            $error->trace = $this->trace($node->file, $node->line);
 
-            throw new GazLangError($e->getMessage(), $node->file, $node->line);
+            throw $error;
         }
+    }
+
+    /**
+     * The calls running, innermost first, for an error raised at a location
+     *
+     * Each call is shown where it was running: the innermost where the error happened, the
+     * ones around it where they made the call below. A method run by printing an object
+     * starts a trace of its own, since the VM runs it in a loop of its own.
+     *
+     * @param  string|null  $file  The file the error happened in
+     * @param  int  $line  The line it happened on
+     * @return list<string> The trace
+     */
+    private function trace(?string $file, int $line): array
+    {
+        $frames = [];
+        $at = [$file, $line];
+        foreach (array_reverse($this->calls) as [$what, $call_file, $call_line]) {
+            $frames[] = [$what, ...$at];
+            if ($call_line === null) {
+                return GazLangError::trace($frames);
+            }
+            $at = [$call_file, $call_line];
+        }
+        $frames[] = ['top level', ...$at];
+
+        return GazLangError::trace($frames);
     }
 
     /**
@@ -833,12 +877,15 @@ class Interpreter extends AbstractNodeVisitor
         $name = $node->property->name;
         if (! $target instanceof ObjectValue || ! isset($target->class->methods[$name]) || $name === '_') {
             $callee = Values::property($target, $name);
+            $args = array_map(fn ($arg) => $this->visit($arg), $node->args);
+            $this->call_site = [$node->file, $node->line];
 
-            return $this->callValue($callee, array_map(fn ($arg) => $this->visit($arg), $node->args));
+            return $this->callValue($callee, $args);
         }
 
         $definer = $target->class->methods[$name];
         $args = array_map(fn ($arg) => $this->visit($arg), $node->args);
+        $this->call_site = [$node->file, $node->line];
         $arity = $this->functions["{$definer->name}.{$name}"]->arity;
         if (! Builtins::fitsArity($arity, count($args))) {
             throw new Exception(Builtins::arityError("Method {$definer->name}.{$name}", $arity, count($args)));
@@ -859,8 +906,10 @@ class Interpreter extends AbstractNodeVisitor
         if ($node->args === null) {
             return FunctionValue::bound($this->receiver, $definer, $node->name);
         }
+        $args = array_map(fn ($arg) => $this->visit($arg), $node->args);
+        $this->call_site = [$node->file, $node->line];
 
-        return $this->invokeMethod($definer, $node->name, $this->receiver, array_map(fn ($arg) => $this->visit($arg), $node->args));
+        return $this->invokeMethod($definer, $node->name, $this->receiver, $args);
     }
 
     /**
@@ -922,6 +971,7 @@ class Interpreter extends AbstractNodeVisitor
     {
         // Arguments are evaluated in the caller's scope, before switching locals
         $args = array_map(fn ($arg) => $this->visit($arg), $node->args);
+        $this->call_site = [$node->file, $node->line];
         if (isset($this->classes[$node->name])) {
             return $this->construct($this->classes[$node->name], $args);
         }
@@ -943,8 +993,10 @@ class Interpreter extends AbstractNodeVisitor
     public function visitCallValue(CallValueAST $node)
     {
         $callee = $this->visit($node->callee);
+        $args = array_map(fn ($arg) => $this->visit($arg), $node->args);
+        $this->call_site = [$node->file, $node->line];
 
-        return $this->callValue($callee, array_map(fn ($arg) => $this->visit($arg), $node->args));
+        return $this->callValue($callee, $args);
     }
 
     /**
@@ -1028,6 +1080,7 @@ class Interpreter extends AbstractNodeVisitor
         }
 
         $object = new ObjectValue($class);
+        $this->calls[] = ["new {$class->name}", ...($this->call_site ?? [null, null])];
         $caller = [$this->locals, $this->closure, $this->captures, $this->receiver];
         [$this->locals, $this->closure, $this->captures, $this->receiver] = [[], null, [], $object];
         $this->call_depth++;
@@ -1039,9 +1092,13 @@ class Interpreter extends AbstractNodeVisitor
                 }
             }
             if (isset($class->methods['_'])) {
+                // The constructor is called by the class, as the VM's initialiser calls it
+                $declaration = $this->declarations[$class->name];
+                $this->call_site = [$declaration->file, $declaration->line];
                 $this->invokeMethod($class->methods['_'], '_', $object, $args);
             }
         } finally {
+            array_pop($this->calls);
             [$this->locals, $this->closure, $this->captures, $this->receiver] = $caller;
             $this->call_depth--;
         }
@@ -1087,6 +1144,8 @@ class Interpreter extends AbstractNodeVisitor
             throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$display}");
         }
 
+        // A lambda is "->": the trace says where it was running, not where it was written
+        $this->calls[] = [$closure === null ? $display : '->', ...($this->call_site ?? [null, null])];
         [$caller_locals, $caller_closure, $caller_captures, $caller_receiver] = [$this->locals, $this->closure, $this->captures, $this->receiver];
         $this->locals = array_combine(array_slice($params, 0, count($args)), $args);
         $this->receiver = $receiver;
@@ -1115,6 +1174,7 @@ class Interpreter extends AbstractNodeVisitor
 
             return $value;
         } finally {
+            array_pop($this->calls);
             [$this->locals, $this->closure, $this->captures, $this->receiver] = [$caller_locals, $caller_closure, $caller_captures, $caller_receiver];
             $this->call_depth--;
         }
@@ -1163,7 +1223,13 @@ class Interpreter extends AbstractNodeVisitor
 
         // echo and .. call to_string() through Values, which comes back here to run it
         $outer = Values::$call_method;
-        Values::$call_method = fn (ObjectValue $object, ClassValue $definer, string $name) => $this->invokeMethod($definer, $name, $object, []);
+        Values::$call_method = function (ObjectValue $object, ClassValue $definer, string $name) {
+            // Printing runs to_string() outside the program's own calls, as the VM runs it in
+            // a loop of its own, so the trace of an error inside it starts there
+            $this->call_site = null;
+
+            return $this->invokeMethod($definer, $name, $object, []);
+        };
         try {
             $this->visit($tree);
         } catch (GazLangError $error) {

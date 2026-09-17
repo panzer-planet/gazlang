@@ -180,7 +180,7 @@ class TryCatchTest extends GazLangTestCase
             'an int' => ['error(5);', '5'],
             'a list' => ['error([1, "a"]);', '[1, "a"]'],
             'an object without to_string' => ['class P {} error(P());', 'P {}'],
-            'an Error whose message was never set' => ['class Oops extends Error { fn _() {} } error(Oops());', 'Property message of Oops is not set at <builtin>:6'],
+            'an Error whose message was never set' => ['class Oops extends Error { fn _() {} } error(Oops());', 'Property message of Oops is not set at <builtin>:7'],
         ];
     }
 

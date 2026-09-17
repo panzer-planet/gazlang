@@ -47,6 +47,10 @@ abstract class GazLangTestCase extends TestCase
             $exit_code = 0;
         } catch (ExitSignal $e) {
             $exit_code = $e->code;
+        } catch (GazLangError $e) {
+            // As the CLI prints it: the message, then the calls that were running
+            echo $e->report(), "\n";
+            $exit_code = 1;
         } catch (Throwable $e) {
             echo "Error: {$e->getMessage()}\n";
             $exit_code = 1;

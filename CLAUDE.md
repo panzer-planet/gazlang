@@ -386,10 +386,9 @@ compiler needs, and the first two also decide how the C VM is built, so they com
    tables that delete in a loop, and copying the container each time is quadratic. The C VM's
    ordered hash therefore has to support deletion: tombstones or an order-preserving
    compaction, decided when it is written.
-2. **A stack trace on an error.** `Error` carries `#message`, `#file` and `#line`, which is the
-   innermost frame and nothing else; debugging a self-hosted compiler through that is grim.
-   Both backends already have the frames and the names a `#trace` would list. **Decide before
-   the C VM**, which has to record the same thing as it calls.
+2. ~~**A stack trace on an error.**~~ Done: `#trace`, see "Errors and try/catch". The C VM has
+   to be able to do the same: name the function of every frame and the location of the call it
+   made, which its frames hold anyway, and build the trace only when an error is raised.
 3. **Writing to standard error, and printing without a newline.** `echo` always adds one and
    everything goes to standard output, so a GazLang tool can't write its result to stdout and
    its diagnostics to stderr. `write_file` only covers files.
@@ -701,7 +700,7 @@ try {
   `return`, `break`, `continue` and `exit()` are not errors and pass through.
 - **`Error` is a builtin class** (`Parser::BUILTIN_CLASSES`, GazLang source parsed before
   every program, shown as `<builtin>` in locations): `#message`, `#file` (null for piped
-  input), `#line`, `_($message)`, and `to_string()` giving the message. It can't be
+  input), `#line`, `#trace`, `_($message)`, and `to_string()` giving the message. It can't be
   declared again, and programs extend it. Runtime errors and `error("text")` are caught
   as `Error` objects. It is only compiled into programs that catch, name or extend it.
 - **`error($value)` throws any value.** A string is the message of an `Error`; anything
@@ -711,6 +710,21 @@ try {
   with no location; runtime errors keep theirs. The text is only made once nothing has
   caught the value (`GazLangError::uncaught()`, at the end of `interpret()` and
   `VM::run()`), so throwing never runs `to_string()`.
+- **`#trace` is the calls that were running** when the error was raised, innermost first, as
+  a list of strings: `["inner at fib.gaz:3", "outer at fib.gaz:4", "top level at fib.gaz:7"]`.
+  Each call is shown where it was running, so the innermost is where the error happened and
+  the ones around it are at the call they made. A function is its name, a method
+  `Class.name`, a constructor `Class._` inside a `new Class` frame, a lambda `->`, and the
+  outermost is `top level`. Recursion can be 10000 deep, so a trace keeps the innermost 10
+  and the outermost 10 with `... 9981 more` between them (`GazLangError::trace()`). It is
+  recorded where the error is first raised and travels with it, like `#file` and `#line`, so
+  a rethrow keeps it. Printing runs `to_string()` outside the program's own calls (the VM
+  runs it in a loop of its own), so an error inside one starts a trace there. `error(5)`
+  carries no trace: a bare value has nowhere to put one. An uncaught error prints its trace
+  under the message, indented, unless it is a single call, which the message already names
+  (`GazLangError::report()`, used by `bin/gazlang` and the tests' `runProgram()`).
+  The interpreter records each call as it makes it (about 3% on a program that does nothing
+  but call); the VM reads its frames when an error happens, which costs nothing until then.
 - **Catch clauses** are tried in order; `catch (NotFound $e)` matches an object of that
   class or a subclass, `catch ($e)` (or `@e`) anything and must be the last, and a
   catch's class must be a class (parse time). An error no clause matches carries on

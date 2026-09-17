@@ -119,7 +119,11 @@ class FunctionTest extends GazLangTestCase
         );
         exec($command, $output, $exit_code);
 
-        $this->assertSame(['Error: Maximum call depth of 10000 exceeded calling inf on line 1'], $output);
+        $this->assertSame('Error: Maximum call depth of 10000 exceeded calling inf on line 1', $output[0]);
+        // The trace under it is capped: 10 innermost calls, a line saying what was left out, 10 outermost
+        $this->assertSame(22, count($output));
+        $this->assertSame('  inf on line 1', $output[1]);
+        $this->assertSame('  ... 9981 more', $output[11]);
         $this->assertSame(1, $exit_code);
     }
 

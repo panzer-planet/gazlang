@@ -45,9 +45,22 @@ class GazLangError extends Exception
     public $value = null;
 
     /**
+     * @var list<string>|null The calls that were running when the error was raised, innermost first,
+     *                        as "add at file.gaz:12"; null until a backend records them
+     */
+    public $trace = null;
+
+    /**
      * @var mixed What catch sees, once worked out by caught()
      */
     private $caught = null;
+
+    /**
+     * How many of the innermost and outermost calls a trace keeps, with a line saying how many it left out
+     */
+    private const TRACE_INNERMOST = 10;
+
+    private const TRACE_OUTERMOST = 10;
 
     /**
      * Constructor
@@ -80,6 +93,43 @@ class GazLangError extends Exception
     }
 
     /**
+     * A trace of the calls that were running, as the error carries it
+     *
+     * Runaway recursion can be 10000 calls deep, so only the innermost and outermost are
+     * kept, with a line between them saying how many were left out.
+     *
+     * @param  list<array{0: string, 1: string|null, 2: int}>  $frames  Each call as [what it is, file, line], innermost first
+     * @return list<string> The trace
+     */
+    public static function trace(array $frames): array
+    {
+        $line = fn (array $frame) => $frame[0].' '.self::location($frame[1], $frame[2]);
+        if (count($frames) <= self::TRACE_INNERMOST + self::TRACE_OUTERMOST) {
+            return array_map($line, $frames);
+        }
+
+        $left_out = count($frames) - self::TRACE_INNERMOST - self::TRACE_OUTERMOST;
+
+        return [
+            ...array_map($line, array_slice($frames, 0, self::TRACE_INNERMOST)),
+            "... {$left_out} more",
+            ...array_map($line, array_slice($frames, -self::TRACE_OUTERMOST)),
+        ];
+    }
+
+    /**
+     * The error and its trace as the CLI reports it: the message, then each call indented under it
+     *
+     * A trace of one call is left out: the message already says where that was.
+     */
+    public function report(): string
+    {
+        $trace = count($this->trace ?? []) > 1 ? $this->trace : [];
+
+        return implode("\n", ['Error: '.$this->getMessage(), ...array_map(fn (string $frame) => "  {$frame}", $trace)]);
+    }
+
+    /**
      * An error for a value thrown with error(), which catch gets as it is
      *
      * Its message is only a placeholder: turning the value into text can run its
@@ -108,7 +158,7 @@ class GazLangError extends Exception
             return $this;
         }
         $error = new self(Values::toString($this->value), $this->path, $this->line_number, false);
-        [$error->has_value, $error->value] = [true, $this->value];
+        [$error->has_value, $error->value, $error->trace] = [true, $this->value, $this->trace];
 
         return $error;
     }
@@ -122,7 +172,7 @@ class GazLangError extends Exception
     public function located(?string $path, int $line_number): self
     {
         $error = new self($this->reason, $path, $line_number, $this->show_location);
-        [$error->has_value, $error->value] = [$this->has_value, $this->value];
+        [$error->has_value, $error->value, $error->trace] = [$this->has_value, $this->value, $this->trace];
 
         return $error;
     }
@@ -143,7 +193,7 @@ class GazLangError extends Exception
         }
         if (! $this->has_value) {
             $error = new ObjectValue($error_class);
-            $error->fields = ['message' => $this->reason, 'file' => $this->path, 'line' => $this->line_number];
+            $error->fields = ['message' => $this->reason, 'file' => $this->path, 'line' => $this->line_number, 'trace' => $this->trace ?? []];
 
             return $this->caught = $error;
         }
@@ -152,6 +202,7 @@ class GazLangError extends Exception
         if ($value instanceof ObjectValue && $value->class->isA($error_class) && ! array_key_exists('line', $value->fields)) {
             $value->fields['file'] = $this->path;
             $value->fields['line'] = $this->line_number;
+            $value->fields['trace'] = $this->trace ?? [];
         }
         // A thrown null is caught as null each time; nothing about it needs remembering
         $this->caught = $value;

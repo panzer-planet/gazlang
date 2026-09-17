@@ -553,7 +553,11 @@ final class VM
                                 if ($depth + count($frames) === Values::MAX_CALL_DEPTH) {
                                     throw $this->locate(
                                         new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$arg0[$pc - 1]}._"),
-                                        $locations[$frames[array_key_last($frames)][1] - 1]
+                                        $locations[$frames[array_key_last($frames)][1] - 1],
+                                        $frames,
+                                        $function,
+                                        $closure,
+                                        $locations
                                     );
                                 }
                                 $frames[] = [$locals, $pc, $function, $argc, $closure, $receiver];
@@ -716,7 +720,7 @@ final class VM
                     // exit() is not an error: no handler sees it
                     throw $e;
                 } catch (Exception $e) {
-                    $error = $this->locate($e, $locations[$pc - 1]);
+                    $error = $this->locate($e, $locations[$pc - 1], $frames, $function, $closure, $locations);
                     if (! $error instanceof GazLangError || $handlers === []) {
                         throw $error;
                     }
@@ -943,18 +947,65 @@ final class VM
     }
 
     /**
-     * Give an error the location of the instruction that raised it, as the interpreter's visit() does
+     * Give an error the location of the instruction that raised it and the calls that were running,
+     * as the interpreter's visit() does
      *
      * @param  Exception  $error  The error
      * @param  array{0: string|null, 1: int|null}  $location  The [file, line] of the instruction that raised it
+     * @param  list<array>  $frames  The callers of the running frame, outermost first
+     * @param  string  $function  The running frame's key in the local names
+     * @param  FunctionValue|null  $closure  The closure the running frame is a call of, if any
+     * @param  list<array{0: string|null, 1: int|null}>  $locations  Every instruction's location
      */
-    private function locate(Exception $error, array $location): Exception
+    private function locate(Exception $error, array $location, array $frames, string $function, ?FunctionValue $closure, array $locations): Exception
     {
         [$file, $line] = $location;
         if ($line === null || ($error instanceof GazLangError && $error->line_number !== null)) {
             return $error;
         }
 
-        return $error instanceof GazLangError ? $error->located($file, $line) : new GazLangError($error->getMessage(), $file, $line);
+        $trace = $this->trace($file, $line, $frames, $function, $closure, $locations);
+        if ($error instanceof GazLangError) {
+            $error->trace ??= $trace;
+
+            return $error->located($file, $line);
+        }
+        $located = new GazLangError($error->getMessage(), $file, $line);
+        $located->trace = $trace;
+
+        return $located;
+    }
+
+    /**
+     * The calls running, innermost first, for an error raised at a location
+     *
+     * Each call is shown where it was running: the innermost where the error happened, the ones
+     * around it at the call they made, which is the instruction before the one they return to.
+     * A method run by printing an object runs in a loop of its own, so its trace starts there,
+     * as it does in the interpreter.
+     *
+     * @param  string|null  $file  The file the error happened in
+     * @param  int  $line  The line it happened on
+     * @param  list<array>  $frames  The callers of the running frame, outermost first
+     * @param  string  $function  The running frame's key in the local names
+     * @param  FunctionValue|null  $closure  The closure the running frame is a call of, if any
+     * @param  list<array{0: string|null, 1: int|null}>  $locations  Every instruction's location
+     * @return list<string> The trace
+     */
+    private function trace(?string $file, int $line, array $frames, string $function, ?FunctionValue $closure, array $locations): array
+    {
+        $trace = [];
+        $at = [$file, $line];
+        $i = count($frames);
+        while (true) {
+            // A lambda is "->": the trace says where it was running, not where it was written
+            $trace[] = [$closure !== null ? '->' : ($function === '' ? 'top level' : $function), ...$at];
+            if ($i === 0) {
+                return GazLangError::trace($trace);
+            }
+            // The caller was at the call it made, the instruction before the one it returns to
+            [, $return_pc, $function, , $closure] = $frames[--$i];
+            $at = $locations[$return_pc - 1];
+        }
     }
 }

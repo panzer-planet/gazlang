@@ -39,6 +39,7 @@ use GazLang\Interpreter\Interpreter;
 use GazLang\CodeGenerator\CodeGenerator;
 use GazLang\CodeGenerator\Program;
 use GazLang\VM\VM;
+use GazLang\GazLangError;
 use GazLang\Runtime\ExitSignal;
 
 /**
@@ -195,6 +196,11 @@ function processInput(string $text, string $mode = 'vm', ?string $path = null, a
         }
     } catch (ExitSignal $e) {
         exit($e->code);
+    } catch (GazLangError $e) {
+        // The calls that were running are printed under the message, indented
+        echo $e->report(), "\n";
+
+        return false;
     } catch (Throwable $e) {
         echo "Error: " . $e->getMessage() . "\n";
 

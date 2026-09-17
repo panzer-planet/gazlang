@@ -1,0 +1,69 @@
+include "../check.gaz";
+
+fn inner($n) { return 1 / $n; }
+fn outer($n) { return inner($n); }
+
+try {
+    outer(0);
+} catch (Error $e) {
+    check("the innermost call first", $e.trace[0], "inner at tests/gaz/errors/trace_test.gaz:3");
+    check("its caller next", $e.trace[1], "outer at tests/gaz/errors/trace_test.gaz:4");
+    check("the top level last", $e.trace[2], "top level at tests/gaz/errors/trace_test.gaz:7");
+    check("nothing else", len($e.trace), 3);
+}
+
+// error() is traced where it was thrown, and a rethrow keeps that trace
+fn fails() { error("no good"); }
+try {
+    try {
+        fails();
+    } catch (Error $first) {
+        error($first);
+    }
+} catch (Error $again) {
+    check("error() is traced", $again.trace[0], "fails at tests/gaz/errors/trace_test.gaz:16");
+    check("a rethrow keeps where it was first thrown", $again.trace[1], "top level at tests/gaz/errors/trace_test.gaz:19");
+}
+
+class Account {
+    #balance;
+    fn _($balance) { #balance = $balance; }
+    fn share($people) { return #balance / $people; }
+}
+
+try {
+    Account(100).share(0);
+} catch (Error $e) {
+    check("a method", $e.trace[0], "Account.share at tests/gaz/errors/trace_test.gaz:31");
+    check("its caller", $e.trace[1], "top level at tests/gaz/errors/trace_test.gaz:35");
+}
+
+try {
+    Account("x");
+} catch (Error $e) {
+    check("a constructor", $e.trace[0], "Account._ at tests/gaz/errors/trace_test.gaz:30");
+    check("the object being made", $e.trace[1], "new Account at tests/gaz/errors/trace_test.gaz:28");
+}
+
+$divide = $n -> 1 / $n;
+try {
+    $divide(0);
+} catch (Error $e) {
+    check("a lambda is ->", $e.trace[0], "-> at tests/gaz/errors/trace_test.gaz:48");
+}
+
+// Printing runs to_string() outside the program's calls, so its trace starts there
+class Broken {
+    #n = 0;
+    fn to_string() { return "n is " .. (1 / #n); }
+}
+fn show($thing) { echo $thing; }
+try {
+    show(Broken());
+} catch (Error $e) {
+    check("printing starts a trace", $e.trace[0], "Broken.to_string at tests/gaz/errors/trace_test.gaz:58");
+    check("and ends it", len($e.trace), 1);
+}
+
+// The cap on a deep trace is tested through the CLI (FunctionTest): 10000 calls in process
+// would segfault PHP under pcov, long before GazLang's own call depth limit

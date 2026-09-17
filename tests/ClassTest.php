@@ -482,7 +482,10 @@ class ClassTest extends GazLangTestCase
             $command = sprintf('printf %%s %s | %s %s %s', escapeshellarg($code), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang'), $backend);
             exec($command, $output, $exit_code);
 
-            $this->assertSame([$message], $output, "with {$backend}");
+            // The message, then the capped trace: 10 innermost calls, what was left out, 10 outermost
+            $this->assertSame($message, $output[0], "with {$backend}");
+            $this->assertSame(22, count($output), "with {$backend}");
+            $this->assertStringContainsString(' more', $output[11], "with {$backend}");
             $this->assertSame(1, $exit_code);
             $output = [];
         }
@@ -505,7 +508,7 @@ class ClassTest extends GazLangTestCase
             $command = sprintf('echo %s | %s %s %s', escapeshellarg($code), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang'), $backend);
             exec($command, $output, $exit_code);
 
-            $this->assertSame(['Error: Maximum call depth of 10000 exceeded calling Loop.to_string on line 1'], $output, "with {$backend}");
+            $this->assertSame('Error: Maximum call depth of 10000 exceeded calling Loop.to_string on line 1', $output[0], "with {$backend}");
             $this->assertSame(1, $exit_code);
             $output = [];
         }

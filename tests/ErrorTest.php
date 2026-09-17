@@ -95,7 +95,12 @@ class ErrorTest extends GazLangTestCase
             escapeshellarg(PHP_BINARY)
         ), $output, $exit_code);
 
-        $this->assertSame(['Error: Cannot use + on null at tests/fixtures/include/lib/fails.gaz:2'], $output);
+        // The trace names the call in the included file and where it was called from
+        $this->assertSame([
+            'Error: Cannot use + on null at tests/fixtures/include/lib/fails.gaz:2',
+            '  fails at tests/fixtures/include/lib/fails.gaz:2',
+            '  top level at tests/fixtures/include/runtime.gaz:2',
+        ], $output);
         $this->assertSame(1, $exit_code);
     }
 }
