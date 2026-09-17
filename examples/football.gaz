@@ -1,8 +1,9 @@
-// A football league simulator: twenty clubs, rated players, a double round-robin season
-// with commentary on the opening match, the final table and the top scorers.
+// A football league simulator: rated players, a double round-robin season with commentary
+// on the opening match, the final table and the top scorers.
 //
-//   php bin/gazlang -f examples/football.gaz -- [SEED]
+//   php bin/gazlang -f examples/football.gaz -- [CLUBS] [SEED]
 //
+// CLUBS is how many clubs play, from 2 to 20 (4 by default), taken from the strongest down.
 // Everything random comes from seeded generators: the squads are always the same, and the
 // same season seed always plays the same season.
 include "../lib/functional.gaz";
@@ -517,15 +518,23 @@ class League {
     }
 
     // The matchdays of a double round-robin (the circle method) in an order drawn for the
-    // season: every team plays once a matchday, and everyone plays everyone at home and away
+    // season: everyone plays everyone at home and away, and every team plays once a matchday,
+    // except that with an odd number of teams one of them rests each matchday
     fn fixtures() {
         $teams = #random.shuffled(#teams);
+        if (len($teams) % 2 == 1) {
+            // Whoever is drawn against null rests
+            $teams[] = null;
+        }
         $count = len($teams);
         $first_half = [];
         for ($round = 0; $round < $count - 1; $round++) {
             $matchday = [];
             for ($i = 0; $i < intdiv($count, 2); $i++) {
                 $pair = [$teams[$i], $teams[$count - 1 - $i]];
+                if (in_array(null, $pair)) {
+                    continue;
+                }
                 $matchday[] = ($round + $i) % 2 == 0 ? $pair : [$pair[1], $pair[0]];
             }
             $first_half[] = $matchday;
@@ -610,10 +619,8 @@ class Commentator {
     fn report($event) { echo $event; }
 }
 
-// The clubs: name, level (the squad's typical rating) and formation
-
-$scout = Scout(1);
-$teams = map([
+// The clubs, strongest first: name, level (the squad's typical rating) and formation
+$clubs = [
     ["Harbour City", 82, "4-3-3"], ["Northgate Rovers", 81, "4-4-2"], ["Riverside Athletic", 79, "4-3-3"],
     ["Kingsbridge Wanderers", 78, "3-5-2"], ["Valley United", 77, "4-4-2"], ["Port Albion", 76, "4-3-3"],
     ["Eastfield Town", 75, "4-5-1"], ["Castleton Forest", 74, "4-4-2"], ["Marsh Lane", 73, "3-4-3"],
@@ -621,7 +628,36 @@ $teams = map([
     ["Hollins Park", 70, "4-4-2"], ["Stonebridge County", 69, "4-3-3"], ["Ashby Villa", 68, "4-5-1"],
     ["Fairhaven Borough", 67, "4-4-2"], ["Millbrook Dynamo", 66, "3-5-2"], ["Bramley Orient", 65, "4-4-2"],
     ["Greywater Celtic", 64, "5-4-1"], ["Dunmore United", 62, "4-4-2"],
-], $club -> $scout.team($club[0], $club[1], $club[2]));
+];
+
+// Print the usage and the problem, and stop with exit code 1
+fn fail($message) {
+    echo "Usage: php bin/gazlang -f examples/football.gaz -- [CLUBS] [SEED]";
+    echo "Error: {$message}";
+    exit(1);
+}
+
+// A whole number from the command line, or $default when it wasn't given
+fn number_argument($index, $name, $default) {
+    $arguments = args();
+    if (len($arguments) <= $index) {
+        return $default;
+    }
+    try {
+        return to_int($arguments[$index]);
+    } catch (Error $e) {
+        fail("{$name} must be a whole number, got \"{$arguments[$index]}\"");
+    }
+}
+
+$count = number_argument(0, "CLUBS", 4);
+$seed = number_argument(1, "SEED", 2026);
+if ($count < 2 || $count > len($clubs)) {
+    fail("CLUBS must be from 2 to " .. len($clubs) .. ", got {$count}");
+}
+if (len(args()) > 2) {
+    fail("expected at most 2 arguments, got " .. len(args()));
+}
 
 // A squad has to be a proper eleven
 try {
@@ -630,8 +666,9 @@ try {
     echo "Refused: {$e.message}";
 }
 
-$seed = len(args()) > 0 ? to_int(args()[0]) : 2026;
-echo "Season {$seed}: " .. len($teams) .. " clubs, " .. len($teams) * (len($teams) - 1) .. " matches";
+$scout = Scout(1);
+$teams = map(slice($clubs, 0, $count), $club -> $scout.team($club[0], $club[1], $club[2]));
+echo "Season {$seed}: {$count} clubs, " .. $count * ($count - 1) .. " matches";
 
 $league = League($teams, Random($seed));
 $league.play_season(Commentator(1).kick_off, ($number, $matches) -> {
