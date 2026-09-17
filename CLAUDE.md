@@ -282,11 +282,14 @@ each step depends on the ones before it.
         byte-identical bytecode.
       - **The loader checks everything**, so a file that loads is one the VM can run: unknown
         instructions, wrong argument counts, undefined labels (in that block), undefined
-        functions, builtins, classes and lambdas, and each block's stack, walked from the top
-        following every jump: the same depth on every path into an instruction, nothing popped
-        from an empty stack, a handler one deeper holding the error. That walk also gives the
-        greatest depth a block reaches, which a C VM needs to size a frame. Lua and CPython
-        both crash on malformed bytecode; this doesn't.
+        functions, builtins, classes and lambdas, a class record naming a parent, field
+        declarer or method block that isn't there, a slot the block, the globals or the closure
+        doesn't have, a block other than the top level that runs off its end into the next
+        one's code, and each block's stack, walked from the top following every jump: the same
+        depth on every path into an instruction, nothing popped from an empty stack, a handler
+        one deeper holding the error. That walk also gives the greatest depth a block reaches,
+        which a C VM needs to size a frame. Lua and CPython both crash on malformed bytecode;
+        this doesn't.
       - **The VM stays a stack machine** (decided 2026-09-17 while reviewing the format
         against Lua, CPython, the JVM, .NET and WebAssembly). Lua 5.0 moved to registers and
         got fewer instructions, but the compiler is the part being written in GazLang next, a
