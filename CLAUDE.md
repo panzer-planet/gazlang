@@ -220,10 +220,13 @@ each step depends on the ones before it.
      `to_int($x)` (ints, bools as 1/0, or strings of decimal digits with an optional `-`;
      anything else or overflow is an error), `to_string($x)` (same text as echo).
    - Lists and maps: `len`, `slice` (lists), `in_array($value, $list)` (compares with `==`),
-     `has_key($x, $key)` (a map's key, or a list's index), `keys($x)` (a list's indexes).
+     `has_key($x, $key)` (a map's key, or a list's index), `keys($x)` (a list's indexes),
+     `values($x)` (a map's values in insertion order; a list is already its values).
    - Other: `type_of($x)` (`int`, `float`, `string`, `bool`, `null`, `list`, `map`, `function`,
      `class`, `object`), `is_a($x, Class)` (see "Objects"),
-     `error($value)` (raises an error that try/catch can catch, see "Errors and try/catch";
+     `print($value)` and `print_error($value)` (write the value to standard output or standard
+     error as `echo` does, without the newline, and give null: a tool writes its result to one
+     and its diagnostics to the other), `error($value)` (raises an error that try/catch can catch, see "Errors and try/catch";
      uncaught it stops with `Error: ` and the value as echo prints it, exit 1, with no
      location), `exit($code = 0)`
      (stops the program with that exit code, 0 to 255, printing nothing; not an error, so
@@ -389,11 +392,9 @@ compiler needs, and the first two also decide how the C VM is built, so they com
 2. ~~**A stack trace on an error.**~~ Done: `#trace`, see "Errors and try/catch". The C VM has
    to be able to do the same: name the function of every frame and the location of the call it
    made, which its frames hold anyway, and build the trace only when an error is raised.
-3. **Writing to standard error, and printing without a newline.** `echo` always adds one and
-   everything goes to standard output, so a GazLang tool can't write its result to stdout and
-   its diagnostics to stderr. `write_file` only covers files.
-4. **`values($m)`.** `keys()` exists and this doesn't, so getting a map's values takes a
-   `foreach`. Cheap, and it finishes the pair.
+3. ~~**Writing to standard error, and printing without a newline.**~~ Done: `print($value)`
+   and `print_error($value)`, see step 6.
+4. ~~**`values($m)`.**~~ Done, see step 6.
 5. **Bitwise operators** (`& | ^ << >> ~`). The self-hosted lexer has to write `\u{H}` escapes
    as UTF-8, which is shifts and masks; `intdiv` and `%` can do it, clumsily. Trivial in C. Add
    them when the lexer port asks, not before.

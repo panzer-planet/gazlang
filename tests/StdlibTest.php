@@ -6,6 +6,50 @@ use GazLang\Interpreter\Interpreter;
 
 class StdlibTest extends GazLangTestCase
 {
+    public function test_values_gives_a_map_s_values_in_order_and_a_list_as_it_is()
+    {
+        $this->assertSame(
+            "[1, 2]\n[3, 4]\n[]\n",
+            $this->executeCode('echo values({"b" => 1, "a" => 2}); echo values([3, 4]); echo values({});')
+        );
+    }
+
+    public function test_values_needs_a_list_or_map()
+    {
+        $this->expectExceptionMessage('values() expects list or map, got int');
+        $this->executeCode('values(5);');
+    }
+
+    public function test_print_writes_without_a_newline_and_converts_as_echo_does()
+    {
+        $this->assertSame(
+            'ab[1, 2]truenull1.5',
+            $this->executeCode('print("a"); print("b"); print([1, 2]); print(true); print(null); print(1.5);')
+        );
+    }
+
+    public function test_print_uses_to_string_and_gives_null()
+    {
+        $this->assertSame(
+            // print writes the object's to_string() with no newline, then echo prints what it gave
+            "a pennynull\n",
+            $this->executeCode('class Coin { fn to_string() { return "a penny"; } } echo print(Coin());')
+        );
+    }
+
+    public function test_print_error_writes_to_standard_error()
+    {
+        // Through the CLI, the only place the two streams are really separate
+        $program = 'print("out"); print_error("problem"); print("put");';
+        $gazlang = sprintf('echo %s | %s %s', escapeshellarg($program), escapeshellarg(PHP_BINARY), escapeshellarg(self::ROOT.'/bin/gazlang'));
+
+        exec("{$gazlang} 2>/dev/null", $out);
+        exec("{$gazlang} 2>&1 >/dev/null", $err);
+
+        $this->assertSame(['output'], $out);
+        $this->assertSame(['problem'], $err);
+    }
+
     public function test_slice_strings_and_arrays()
     {
         $this->assertEquals("ell\nlo\n\n[2, 3]\n[3]\n", $this->executeCode(

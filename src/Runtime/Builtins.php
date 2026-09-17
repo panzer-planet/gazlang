@@ -47,12 +47,15 @@ final class Builtins
         'in_array' => 2,
         'has_key' => 2,
         'keys' => 1,
+        'values' => 1,
         'type_of' => 1,
         'is_a' => 2,
         'error' => 1,
         'exit' => [0, 1],
         'read_file' => 1,
         'write_file' => 2,
+        'print' => 1,
+        'print_error' => 1,
         'read_stdin' => 0,
         'args' => 0,
     ];
@@ -164,6 +167,8 @@ final class Builtins
             'has_key' => $this->hasKey($this->argument($name, $args[0], 'list', 'map'), Values::arrayKey($args[1])),
             // A list's keys are its indexes, which foreach over a list uses
             'keys' => is_array($this->argument($name, $args[0], 'list', 'map')) ? array_keys($args[0]) : $args[0]->keys(),
+            // A list's values are the list itself, in order; a map's are its values in insertion order
+            'values' => is_array($this->argument($name, $args[0], 'list', 'map')) ? $args[0] : array_values($args[0]->items),
             'type_of' => Values::typeOf($args[0]),
             'is_a' => $this->isA($args[0], $this->argument($name, $args[1], 'class')),
             // The program's own message, printed as is: it describes a location in the program's input,
@@ -173,10 +178,34 @@ final class Builtins
             'exit' => throw new ExitSignal($this->exitCode($this->argument($name, $args[0] ?? 0, 'int'))),
             'read_file' => $this->readFile($this->argument($name, $args[0], 'string')),
             'write_file' => $this->writeFile($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string')),
+            // Printing, as echo does it but without the newline: any value, converted the same way
+            'print' => $this->write(STDOUT, $args[0]),
+            'print_error' => $this->write(STDERR, $args[0]),
             'read_stdin' => stream_get_contents(STDIN),
             'args' => $this->args,
             default => throw new Exception("Unknown builtin: {$name}"),
         };
+    }
+
+    /**
+     * print($value) and print_error($value): write the value as echo would, without a newline
+     *
+     * @param  resource  $stream  Standard output or standard error
+     * @param  mixed  $value  The value, converted as echo converts it
+     * @return null Nothing, as write_file() gives nothing
+     */
+    private function write($stream, $value): null
+    {
+        $text = Values::toString($value);
+        // Output buffering catches echo but not a write to the stream behind it, which the
+        // tests rely on to read what a program printed
+        if ($stream === STDOUT) {
+            echo $text;
+        } else {
+            fwrite($stream, $text);
+        }
+
+        return null;
     }
 
     /**
