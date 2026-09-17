@@ -14,3 +14,6 @@ ok pad_left
 ok pad_left with zeros
 ok pad_right
 ok already wide enough
+ok numbers are padded as echo prints them
+ok so are other values
+ok objects through to_string()

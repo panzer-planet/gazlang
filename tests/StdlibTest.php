@@ -99,6 +99,17 @@ class StdlibTest extends GazLangTestCase
         ];
     }
 
+    public function test_min_and_max()
+    {
+        $this->assertEquals("[1, 3, -2.5, 4]\n[\"apple\", \"pear\", \"B\"]\n[1, 1.0, \"int\", \"float\"]\n[9007199254740993, 9]\n", $this->executeCode(<<<'CODE'
+            echo [min(1, 3), max(1, 3), min(-2.5, 4), max(-2.5, 4)];
+            echo [min("pear", "apple"), max("pear", "apple"), min("a", "B")];
+            echo [min(1, 1.0), max(1.0, 1), type_of(max(1, 1.0)), type_of(min(1.0, 1))];
+            echo [max(9007199254740993, 9007199254740992.0), reduce([3, 9, 2], max, 0)];
+            fn reduce($xs, $f, $carry) { foreach ($xs as $x) { $carry = $f($carry, $x); } return $carry; }
+            CODE));
+    }
+
     public function test_to_string_matches_echo()
     {
         $this->assertEquals("42|true|null|[1, \"a\"]\n", $this->executeCode(
@@ -286,6 +297,9 @@ class StdlibTest extends GazLangTestCase
             'has_key key' => ['has_key([], null);', 'Keys must be int or string, got null'],
             'keys' => ['keys(null);', 'keys() expects list or map, got null'],
             'read_file' => ['read_file(1);', 'read_file() expects string, got int'],
+            'min of a number and a string' => ['min(1, "2");', 'min() expects two numbers or two strings, got int and string'],
+            'max of bools' => ['max(true, false);', 'max() expects two numbers or two strings, got bool and bool'],
+            'max of lists' => ['max([1], [2]);', 'max() expects two numbers or two strings, got list and list'],
         ];
     }
 

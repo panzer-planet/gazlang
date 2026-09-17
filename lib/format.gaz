@@ -21,7 +21,7 @@ fn format_number($number, $decimals = 2, $thousands = ",") {
     $text = $whole .. $grouped;
 
     if ($decimals > 0) {
-        $text ..= "." .. pad_left(to_string($scaled % $scale), $decimals, "0");
+        $text ..= "." .. pad_left($scaled % $scale, $decimals, "0");
     }
     // Only negative if something non-zero is shown
     if ($number < 0 && $scaled > 0) {
@@ -30,8 +30,10 @@ fn format_number($number, $decimals = 2, $thousands = ",") {
     return $text;
 }
 
-// $text padded with $pad on the left to at least $width characters (bytes)
-fn pad_left($text, $width, $pad = " ") {
+// $value as echo prints it, padded with $pad on the left to at least $width characters (bytes),
+// so numbers and objects line up without converting them first
+fn pad_left($value, $width, $pad = " ") {
+    $text = to_string($value);
     $missing = $width - len($text);
     if ($missing <= 0) {
         return $text;
@@ -39,8 +41,9 @@ fn pad_left($text, $width, $pad = " ") {
     return repeat($pad, $missing) .. $text;
 }
 
-// $text padded with $pad on the right to at least $width characters (bytes)
-fn pad_right($text, $width, $pad = " ") {
+// $value as echo prints it, padded with $pad on the right to at least $width characters (bytes)
+fn pad_right($value, $width, $pad = " ") {
+    $text = to_string($value);
     $missing = $width - len($text);
     if ($missing <= 0) {
         return $text;

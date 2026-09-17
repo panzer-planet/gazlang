@@ -41,6 +41,8 @@ final class Builtins
         'round' => [1, 2],
         'abs' => 1,
         'intdiv' => 2,
+        'min' => 2,
+        'max' => 2,
         'to_string' => 1,
         'in_array' => 2,
         'has_key' => 2,
@@ -144,6 +146,8 @@ final class Builtins
             'round' => round($this->argument($name, $args[0], 'int', 'float'), $this->argument($name, array_key_exists(1, $args) ? $args[1] : 0, 'int')),
             'abs' => $this->abs($this->argument($name, $args[0], 'int', 'float')),
             'intdiv' => $this->intdiv($this->argument($name, $args[0], 'int'), $this->argument($name, $args[1], 'int')),
+            'min' => $this->extreme($name, $args[0], $args[1]) <= 0 ? $args[0] : $args[1],
+            'max' => $this->extreme($name, $args[0], $args[1]) >= 0 ? $args[0] : $args[1],
             'to_string' => Values::toString($args[0]),
             'in_array' => $this->inArray($args[0], $this->argument($name, $args[1], 'list')),
             'has_key' => $this->hasKey($this->argument($name, $args[0], 'list', 'map'), Values::arrayKey($args[1])),
@@ -387,6 +391,31 @@ final class Builtins
         }
 
         return abs($value);
+    }
+
+    /**
+     * Order the arguments of min() or max() as < does: two numbers by value, or two strings byte by byte
+     *
+     * Anything else, a number with a string included, is an error rather than a guess. On a tie
+     * both return the first argument, so min(1, 1.0) is 1.
+     *
+     * @param  string  $name  min or max, for the error
+     * @param  mixed  $a  The first argument
+     * @param  mixed  $b  The second argument
+     * @return int -1, 0 or 1
+     *
+     * @throws Exception If they aren't two numbers or two strings
+     */
+    private function extreme(string $name, $a, $b): int
+    {
+        if ((is_int($a) || is_float($a)) && (is_int($b) || is_float($b))) {
+            return Values::compare($a, $b);
+        }
+        if (is_string($a) && is_string($b)) {
+            return strcmp($a, $b) <=> 0;
+        }
+
+        throw new Exception("{$name}() expects two numbers or two strings, got ".Values::typeOf($a).' and '.Values::typeOf($b));
     }
 
     /**

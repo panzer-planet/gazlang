@@ -298,6 +298,9 @@ each step depends on the ones before it.
    whether it must parse) and `json_encode` writes compact JSON. `lib/csv.gaz`
    (RFC 4180, checked against PHP's `fgetcsv` by `CsvTest` on `tests/csv/y_*.csv` and
    `n_*.csv`), `lib/functional.gaz` and `lib/format.gaz` back `examples/csv_report.gaz`.
+   `lib/format.gaz`'s `pad_left($value, $width, $pad = " ")` and `pad_right` convert the value
+   as echo does first (like `join`): display helpers take any value, while string functions
+   like `upper` and `trim` stay strict.
    `lib/functional.gaz` has `map($x, $f)` and `filter($x, $keep)` (a list gives a list, a
    map a map with its keys), `reduce($x, $f, $initial)` and `sort($x, $compare)` (a stable
    merge sort giving a list of the values; `$compare` returns negative, zero or positive,
@@ -675,7 +678,9 @@ Ints and floats (64-bit, always finite: GazLang has no INF or NAN).
   outside the int range), `floor`, `ceil`, `round($x, $precision = 0)` (PHP's round:
   halves away from zero, correcting for halves stored as slightly less, so
   `round(1.005, 2)` is `1.01`; a negative precision rounds to tens, hundreds...; all
-  three return floats, as in PHP), `abs` (keeps the type), `intdiv($a, $b)`.
+  three return floats, as in PHP), `abs` (keeps the type), `intdiv($a, $b)`, `min($a, $b)` and
+  `max($a, $b)` (two numbers, or two strings compared as `<` does; anything else is an error;
+  a tie gives the first, so `min(1, 1.0)` is `1`; for a list, `reduce($xs, max, $xs[0])`).
 
 ## Strings
 

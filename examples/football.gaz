@@ -57,11 +57,7 @@ abstract class Player {
     // How well the player is playing right now: skill, worn down by tiredness
     fn form() { return #skill * (60 + #energy * 0.4) / 100; }
 
-    fn tire() {
-        if (#energy > 40) {
-            #energy -= 1;
-        }
-    }
+    fn tire() { #energy = max(#energy - 1, 40); }
 
     fn rest() {
         #energy = 100;
@@ -339,10 +335,10 @@ class Standing {
     fn difference() { return #scored - #conceded; }
 
     fn to_string() {
-        $difference = #difference() > 0 ? "+" .. #difference() : to_string(#difference());
-        return pad_right(to_string(#team), 18)
-            .. join(map([#played, #won, #drawn, #lost, #scored, #conceded], $n -> pad_left(to_string($n), 4)), "")
-            .. pad_left($difference, 5) .. pad_left(to_string(#points()), 5);
+        $difference = #difference() > 0 ? "+" .. #difference() : #difference();
+        return pad_right(#team, 18)
+            .. join(map([#played, #won, #drawn, #lost, #scored, #conceded], $n -> pad_left($n, 4)), "")
+            .. pad_left($difference, 5) .. pad_left(#points(), 5);
     }
 }
 
@@ -457,7 +453,7 @@ $league.play_season(Commentator(1).kick_off);
 echo "";
 echo "Results";
 foreach ($league.matches as $match) {
-    echo pad_right(to_string($match.home), 19) .. $match.home_goals .. " - " .. $match.away_goals .. "  " .. $match.away;
+    echo pad_right($match.home, 19) .. $match.home_goals .. " - " .. $match.away_goals .. "  " .. $match.away;
 }
 
 echo "";
@@ -469,5 +465,5 @@ foreach ($league.table() as $standing) {
 echo "";
 echo "Top scorers";
 foreach ($league.top_scorers(5) as $row) {
-    echo pad_left(to_string($row["player"].goals), 3) .. "  {$row["player"]} ({$row["team"]}, {$row["player"].position()})";
+    echo pad_left($row["player"].goals, 3) .. "  {$row["player"]} ({$row["team"]}, {$row["player"].position()})";
 }
