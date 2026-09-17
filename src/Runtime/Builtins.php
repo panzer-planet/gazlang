@@ -153,7 +153,8 @@ final class Builtins
             'is_a' => $this->isA($args[0], $this->argument($name, $args[1], 'class')),
             // The program's own message, printed as is: it describes a location in the program's input,
             // not here. The interpreter still records where error() was called, for catch.
-            'error' => throw new GazLangError(Values::toString($args[0]), null, null, false),
+            // A string is the message of an Error; any other value is thrown as it is
+            'error' => throw is_string($args[0]) ? new GazLangError($args[0], null, null, false) : GazLangError::thrown($args[0], Values::toString($args[0])),
             'exit' => throw new ExitSignal($this->exitCode($this->argument($name, $args[0] ?? 0, 'int'))),
             'read_file' => $this->readFile($this->argument($name, $args[0], 'string')),
             'write_file' => $this->writeFile($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string')),

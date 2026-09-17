@@ -3,7 +3,8 @@
 namespace GazLang;
 
 use Exception;
-use GazLang\Runtime\MapValue;
+use GazLang\Runtime\ClassValue;
+use GazLang\Runtime\ObjectValue;
 
 /**
  * An error in a GazLang program, with the file and line it happened at when known
@@ -31,6 +32,21 @@ class GazLangError extends Exception
      *           describe a place in the program's input rather than in the program
      */
     public $show_location;
+
+    /**
+     * @var bool Whether the program threw a value with error() (other than a string), which catch gets as it is
+     */
+    public $has_value = false;
+
+    /**
+     * @var mixed The value the program threw, when
+     */
+    public $value = null;
+
+    /**
+     * @var mixed What catch sees, once worked out by caught()
+     */
+    private $caught = null;
 
     /**
      * Constructor
@@ -63,10 +79,62 @@ class GazLangError extends Exception
     }
 
     /**
-     * The error as catch sees it: {"message" => ..., "file" => ..., "line" => ...}, the message without the location
+     * An error for a value thrown with error(), which catch gets as it is
+     *
+     * @param  mixed  $value  The value
+     * @param  string  $message  The value as text, shown if nothing catches it
      */
-    public function toMap(): MapValue
+    public static function thrown($value, string $message): self
     {
-        return new MapValue(['message' => $this->reason, 'file' => $this->path, 'line' => $this->line_number]);
+        $error = new self($message, null, null, false);
+        [$error->has_value, $error->value] = [true, $value];
+
+        return $error;
+    }
+
+    /**
+     * The same error at a location, keeping a thrown value
+     *
+     * @param  string|null  $path  The file, as shown to the user
+     * @param  int  $line_number  The line number
+     */
+    public function located(?string $path, int $line_number): self
+    {
+        $error = new self($this->reason, $path, $line_number, $this->show_location);
+        [$error->has_value, $error->value] = [$this->has_value, $this->value];
+
+        return $error;
+    }
+
+    /**
+     * The error as catch sees it: the thrown value, or an Error object with the message (without the location), file and line
+     *
+     * A thrown Error (or subclass) that has no line yet gets this error's file and line, so it
+     * says where error() threw it; one thrown again keeps where it was first thrown. Worked
+     * out once, so every catch clause that looks sees the same object.
+     *
+     * @param  ClassValue  $error_class  The running program's Error class
+     */
+    public function caught(ClassValue $error_class)
+    {
+        if ($this->caught !== null) {
+            return $this->caught;
+        }
+        if (! $this->has_value) {
+            $error = new ObjectValue($error_class);
+            $error->fields = ['message' => $this->reason, 'file' => $this->path, 'line' => $this->line_number];
+
+            return $this->caught = $error;
+        }
+
+        $value = $this->value;
+        if ($value instanceof ObjectValue && $value->class->isA($error_class) && ! array_key_exists('line', $value->fields)) {
+            $value->fields['file'] = $this->path;
+            $value->fields['line'] = $this->line_number;
+        }
+        // A thrown null is caught as null each time; nothing about it needs remembering
+        $this->caught = $value;
+
+        return $value;
     }
 }

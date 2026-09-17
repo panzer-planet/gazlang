@@ -125,7 +125,7 @@ class ArrayTest extends GazLangTestCase
         // executeCode also runs this on the VM, which must check keys just as early
         $this->assertEquals("Keys must be int or string\n", $this->executeCode(
             'fn side() { echo "side effect"; return 1; } $a = {}; '
-            .'try { '.$code.' } catch ($e) { echo slice($e["message"], 0, 26); }'
+            .'try { '.$code.' } catch ($e) { echo slice($e.message, 0, 26); }'
         ));
     }
 

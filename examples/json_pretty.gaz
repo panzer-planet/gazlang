@@ -31,6 +31,6 @@ if (len($arguments) > 0) {
 try {
     echo pretty(json_decode($text));
 } catch ($e) {
-    echo "Error: {$e["message"]}";
+    echo "Error: {$e.message}";
     exit(1);
 }

@@ -35,7 +35,7 @@ check("sort by length then text", sort(["bb", "a", "ccc", "aa"], $by_length_then
 try {
     sort([1, "one"], ($a, $b) -> $a <=> $b);
 } catch ($e) {
-    check("a comparator error comes out", $e["message"], "Cannot use <=> on string and int");
+    check("a comparator error comes out", $e.message, "Cannot use <=> on string and int");
 }
 
 // composing

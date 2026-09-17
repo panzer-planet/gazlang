@@ -4,7 +4,7 @@ fn stop($code) {
         echo "stopping";
         exit($code);
     } catch ($e) {
-        echo "caught " .. $e["message"];
+        echo "caught " .. $e.message;
     }
     echo "not reached";
 }

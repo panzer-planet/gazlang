@@ -30,5 +30,5 @@ check("sort_by an int key", sort_by([[3, "c"], [1, "a"], [2, "b"]], 0), [[1, "a"
 try {
     sort_values([1, "one"]);
 } catch ($e) {
-    check("values that can't be ordered", $e["message"], "Cannot use <=> on string and int");
+    check("values that can't be ordered", $e.message, "Cannot use <=> on string and int");
 }

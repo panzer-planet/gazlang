@@ -160,7 +160,7 @@ class Interpreter extends AbstractNodeVisitor
                 throw $e;
             }
 
-            throw new GazLangError($e->reason, $node->file, $node->line, $e->show_location);
+            throw $e->located($node->file, $node->line);
         } catch (Exception $e) {
             if ($node->line === null) {
                 throw $e;
@@ -590,9 +590,9 @@ class Interpreter extends AbstractNodeVisitor
      * Visit a TryStatement node
      *
      * Any runtime error in the body (a GazLangError, which every error becomes once it
-     * passes a node with a location) is caught and assigned to the catch variable as
-     * ["message" => ..., "file" => ..., "line" => ...]. return, break and continue are
-     * not errors and pass straight through.
+     * passes a node with a location) can be caught: a runtime error or error("text") as an
+     * Error object with its message, file and line, any other value thrown with error() as
+     * it is. return, break and continue are not errors and pass straight through.
      *
      * The finally block runs however the try and catch blocks are left: at their end, by an
      * error (caught or not), or by return, break or continue, which then carry on. A value
@@ -631,7 +631,10 @@ class Interpreter extends AbstractNodeVisitor
     }
 
     /**
-     * Run a try block and its catch clause, if any
+     * Run a try block and the first catch clause that matches an error, if any
+     *
+     * A clause with a class matches an object of that class or a subclass; one without
+     * matches anything. An error no clause matches carries on as it was.
      *
      * @param  TryStatementAST  $node  The try statement
      */
@@ -643,9 +646,17 @@ class Interpreter extends AbstractNodeVisitor
             if ($node->catches === []) {
                 throw $error;
             }
-            [$variable, $body] = $node->catches[0];
-            $this->assignVariable($variable, $error->toMap());
-            $this->visit($body);
+            $value = $error->caught($this->classes['Error']);
+            foreach ($node->catches as [$class, $variable, $body]) {
+                if ($class === null || ($value instanceof ObjectValue && $value->class->isA($this->classes[$class]))) {
+                    $this->assignVariable($variable, $value);
+                    $this->visit($body);
+
+                    return;
+                }
+            }
+
+            throw $error;
         }
     }
 

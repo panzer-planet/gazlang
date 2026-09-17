@@ -70,7 +70,7 @@ echo $account;                                  // Account {#owner => "Werner", 
 try {
     $account.withdraw(500);
 } catch ($e) {
-    echo "refused: {$e["message"]}";            // refused: Werner can't withdraw 500 from 70
+    echo "refused: {$e.message}";            // refused: Werner can't withdraw 500 from 70
 }
 
 // A bound method remembers its object; a closure made in a method keeps #

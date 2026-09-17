@@ -55,7 +55,7 @@ try {
     json_encode([len]);
     echo "FAIL encoding a function";
 } catch ($e) {
-    check("encoding a function is an error", $e["message"], "Cannot encode a function as JSON");
+    check("encoding a function is an error", $e.message, "Cannot encode a function as JSON");
 }
 
 // Nor do classes and objects
@@ -64,11 +64,11 @@ try {
     json_encode({"p" => Point});
     echo "FAIL encoding a class";
 } catch ($e) {
-    check("encoding a class is an error", $e["message"], "Cannot encode a class as JSON");
+    check("encoding a class is an error", $e.message, "Cannot encode a class as JSON");
 }
 try {
     json_encode([Point()]);
     echo "FAIL encoding an object";
 } catch ($e) {
-    check("encoding an object is an error", $e["message"], "Cannot encode an object as JSON");
+    check("encoding an object is an error", $e.message, "Cannot encode an object as JSON");
 }

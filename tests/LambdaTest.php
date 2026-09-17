@@ -103,7 +103,7 @@ class LambdaTest extends GazLangTestCase
     {
         $this->assertEquals("Undefined variable: \$b\nUndefined key: \"k\"\n", $this->executeCode(
             'fn lambda_0($a) { return $b; } fn f() { $z = {}; $z["k"]["m"] = 1; } $l = () -> 1;'
-            .' try { lambda_0(1); } catch ($e) { echo $e["message"]; } try { f(); } catch ($e) { echo $e["message"]; }'
+            .' try { lambda_0(1); } catch ($e) { echo $e.message; } try { f(); } catch ($e) { echo $e.message; }'
         ));
     }
 
@@ -122,7 +122,7 @@ class LambdaTest extends GazLangTestCase
     public function test_an_uncaptured_variable_is_undefined_inside()
     {
         $this->assertEquals("Undefined variable: \$missing on line 2\n", $this->executeCode(
-            "\$h = () -> {\n return \$missing; };\ntry { \$h(); } catch (\$e) { echo \$e[\"message\"] .. \" on line \" .. \$e[\"line\"]; }"
+            "\$h = () -> {\n return \$missing; };\ntry { \$h(); } catch (\$e) { echo \$e.message .. \" on line \" .. \$e.line; }"
         ));
     }
 
@@ -187,7 +187,7 @@ Undefined variable: $n
             echo $sum(4) .. " " .. $result;
             $n = 5;
             $bad = () -> { $n = $n + 1; return $n; };
-            try { $bad(); } catch ($err) { echo $err["message"]; }
+            try { $bad(); } catch ($err) { echo $err.message; }
             $i = 0;
             $down = $n -> { $out = []; for ($i = $n; $i > 0; $i--) { $out[] = $i; } return $out; };
             echo $down(3) .. " " .. $i;
@@ -211,10 +211,10 @@ Undefined variable: $n
     {
         $this->assertEquals("Undefined variable: \$g\nCannot call int\n", $this->executeCode(<<<'CODE'
             $h = [$n -> $g($n)];
-            try { $h[0](1); } catch ($e) { echo $e["message"]; }
+            try { $h[0](1); } catch ($e) { echo $e.message; }
             $g = 5;
             $k = true ? $n -> $g($n) : null;
-            try { $k(1); } catch ($e) { echo $e["message"]; }
+            try { $k(1); } catch ($e) { echo $e.message; }
             CODE));
     }
 
@@ -229,7 +229,7 @@ Undefined variable: $n
     public function test_errors_inside_a_body_unwind_to_the_callers_try_with_their_line()
     {
         $this->assertEquals("Cannot use + on string on line 2\nafter\nok\n", $this->executeCode(
-            "\$f = () ->\n \"a\" + 1;\ntry { \$f(); } catch (\$e) { echo \$e[\"message\"] .. \" on line \" .. \$e[\"line\"]; }\necho \"after\";\n"
+            "\$f = () ->\n \"a\" + 1;\ntry { \$f(); } catch (\$e) { echo \$e.message .. \" on line \" .. \$e.line; }\necho \"after\";\n"
             .'$g = () -> { try { return "ok"; } catch ($e) { return "caught"; } }; echo $g();'
         ));
     }
@@ -239,7 +239,7 @@ Undefined variable: $n
      */
     public function test_runtime_errors(string $code, string $message)
     {
-        $this->assertEquals("{$message}\n", $this->executeCode("try { {$code} } catch (\$e) { echo \$e[\"message\"]; }"));
+        $this->assertEquals("{$message}\n", $this->executeCode("try { {$code} } catch (\$e) { echo \$e.message; }"));
     }
 
     public static function runtimeErrors(): array

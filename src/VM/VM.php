@@ -625,7 +625,16 @@ final class VM
                                 array_pop($handlers);
                                 break;
                             case 'CATCH_VALUE':
-                                $stack[] = array_pop($stack)->toMap();
+                                $stack[] = array_pop($stack)->caught($classes['Error']);
+                                break;
+                            case 'CATCH_MATCH':
+                                // The error stays for the next clause, or becomes what this one catches
+                                $value = $stack[array_key_last($stack)]->caught($classes['Error']);
+                                if ($value instanceof ObjectValue && $value->class->isA($classes[$arg0[$pc - 1]])) {
+                                    $stack[array_key_last($stack)] = $value;
+                                } else {
+                                    $pc = $arg1[$pc - 1];
+                                }
                                 break;
                             case 'RETHROW':
                                 throw array_pop($stack);
@@ -714,6 +723,8 @@ final class VM
         foreach ($linked as [$opcode, $args, $file, $line]) {
             if (in_array($opcode, ['JMP', 'JZ', 'JNN', 'TRY'], true)) {
                 $args[0] = $positions[$args[0]];
+            } elseif ($opcode === 'CATCH_MATCH') {
+                $args[1] = $positions[$args[1]];
             } elseif ($opcode === 'CALL') {
                 $args = [$positions[$args[0]], $args[1], substr($args[0], 3)];
             } elseif (str_starts_with($opcode, 'SET_PATH')) {
@@ -832,8 +843,6 @@ final class VM
             return $error;
         }
 
-        return $error instanceof GazLangError
-            ? new GazLangError($error->reason, $file, $line, $error->show_location)
-            : new GazLangError($error->getMessage(), $file, $line);
+        return $error instanceof GazLangError ? $error->located($file, $line) : new GazLangError($error->getMessage(), $file, $line);
     }
 }

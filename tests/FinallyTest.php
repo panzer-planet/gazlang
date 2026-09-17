@@ -8,7 +8,7 @@ class FinallyTest extends GazLangTestCase
     {
         $this->assertEquals("body\nfinally 1\nbody\ncaught boom\nfinally 2\nafter\n", $this->executeCode(<<<'CODE'
             try { echo "body"; } catch ($e) { echo "not run"; } finally { echo "finally 1"; }
-            try { echo "body"; error("boom"); } catch ($e) { echo "caught " .. $e["message"]; } finally { echo "finally 2"; }
+            try { echo "body"; error("boom"); } catch ($e) { echo "caught " .. $e.message; } finally { echo "finally 2"; }
             echo "after";
             CODE));
     }
@@ -20,7 +20,7 @@ class FinallyTest extends GazLangTestCase
                 try { echo "inner"; error("first"); } finally { echo "finally"; }
                 echo "not run";
             } catch ($e) {
-                echo "caught {$e["message"]} on line {$e["line"]}";
+                echo "caught {$e.message} on line {$e.line}";
             }
             CODE));
     }
@@ -53,7 +53,7 @@ class FinallyTest extends GazLangTestCase
             try {
                 try { error("first"); } catch ($e) { error("second"); } finally { echo "finally"; }
             } catch ($e) {
-                echo $e["message"];
+                echo $e.message;
             }
             CODE));
     }
@@ -115,11 +115,11 @@ class FinallyTest extends GazLangTestCase
         $this->assertEquals("from finally\nfrom finally too\n", $this->executeCode(<<<'CODE'
             try {
                 try { error("lost"); } finally { error("from finally"); }
-            } catch ($e) { echo $e["message"]; }
+            } catch ($e) { echo $e.message; }
             fn f() {
                 try { return 1; } finally { error("from finally too"); }
             }
-            try { f(); } catch ($e) { echo $e["message"]; }
+            try { f(); } catch ($e) { echo $e.message; }
             CODE));
     }
 
@@ -160,9 +160,9 @@ class FinallyTest extends GazLangTestCase
 
     public function test_code_gen_for_try_catch_finally()
     {
-        $this->assertEquals(
+        $this->assertStringStartsWith(
             "TRY FINALLY_0\nTRY CATCH_0\nPUSH 1\nPRINT\nEND_TRY\nJMP ENDTRY_0\nLABEL CATCH_0\nCATCH_VALUE\nSTORE 0\nLABEL ENDTRY_0\n"
-            ."END_TRY\nPUSH 2\nPRINT\nJMP ENDFINALLY_0\nLABEL FINALLY_0\nSTORE 1\nPUSH 2\nPRINT\nLOAD 1\nRETHROW\nLABEL ENDFINALLY_0",
+            ."END_TRY\nPUSH 2\nPRINT\nJMP ENDFINALLY_0\nLABEL FINALLY_0\nSTORE 1\nPUSH 2\nPRINT\nLOAD 1\nRETHROW\nLABEL ENDFINALLY_0\nHALT\n",
             $this->generateCode('try { echo 1; } catch ($e) {} finally { echo 2; }')
         );
     }

@@ -29,12 +29,12 @@ echo $config["port"] ?? 8080;                   // 8080
 try {
     echo $primes[10];
 } catch ($e) {
-    echo $e["message"];                         // Index out of range: 10
+    echo $e.message;                         // Index out of range: 10
 }
 try {
     echo $config["port"];
 } catch ($e) {
-    echo $e["message"];                         // Undefined key: "port"
+    echo $e.message;                         // Undefined key: "port"
 }
 
 // ??= fills in a missing key, which makes grouping short

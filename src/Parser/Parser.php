@@ -54,6 +54,24 @@ class Parser
     ];
 
     /**
+     * Source of the builtin classes, parsed into every program: Error is what runtime errors and error("message") throw
+     */
+    private const BUILTIN_CLASSES = <<<'GAZ'
+        class Error {
+            #message;
+            #file;
+            #line;
+            fn _($message) { #message = $message; }
+            fn to_string() { return "{#message}"; }
+        }
+        GAZ;
+
+    /**
+     * How errors name the builtin classes' source
+     */
+    private const BUILTIN_FILE = '<builtin>';
+
+    /**
      * Keywords reserved for features that don't exist yet, so adding them never breaks a program
      */
     private const RESERVED = [
@@ -128,6 +146,16 @@ class Parser
      *                                                                                      whether it is assigned to, checked once the classes are resolved
      */
     private $member_uses = [];
+
+    /**
+     * @var list<array{0: string, 1: int, 2: string|null}> Every class a catch clause names, with its line and file
+     */
+    private $catch_types = [];
+
+    /**
+     * @var bool Whether any catch clause was parsed, so the program needs the Error class
+     */
+    private $catches = false;
 
     /**
      * @var list<array{0: ParentMethodAST, 1: ClassDeclarationAST}> Every ##name with the class it is written in,
@@ -618,7 +646,7 @@ class Parser
         $targets = match (true) {
             $node instanceof AssignAST && $node->token->type === Token::ASSIGN => [$node->left],
             $node instanceof ForeachStatementAST => [$node->key, $node->value],
-            $node instanceof TryStatementAST => array_column($node->catches, 0),
+            $node instanceof TryStatementAST => array_column($node->catches, 1),
             default => [],
         };
         foreach ($targets as $target) {
@@ -1234,7 +1262,11 @@ class Parser
     }
 
     /**
-     * Parse a try statement (TRY block [CATCH LPAREN variable RPAREN block] [FINALLY block]), with a catch or a finally or both
+     * Parse a try statement (TRY block (CATCH LPAREN [IDENTIFIER] variable RPAREN block)* [FINALLY block]), with a catch or a finally or both
+     *
+     * A catch naming a class catches objects of that class or its subclasses; one without a
+     * class catches anything, so it must be the last. That the names are classes is checked
+     * once the whole program is read.
      *
      * return, break and continue can't leave a finally block, so it never replaces a return
      * or swallows an error; a loop or lambda inside it can use them for itself.
@@ -1250,12 +1282,22 @@ class Parser
         $body = $this->block();
 
         $catches = [];
-        if ($this->current_token->type === Token::CATCH) {
+        while ($this->current_token->type === Token::CATCH) {
+            if ($catches !== [] && end($catches)[0] === null) {
+                $this->fail('A catch without a class catches every error, so it must be the last');
+            }
+            $this->catches = true;
             $this->eat(Token::CATCH);
             $this->eat(Token::LEFT_PAREN);
+            $class = null;
+            if ($this->current_token->type === Token::IDENTIFIER) {
+                $class = $this->current_token->value;
+                $this->catch_types[] = [$class, $this->current_token->line, $this->file];
+                $this->eat(Token::IDENTIFIER);
+            }
             $variable = $this->variable();
             $this->eat(Token::RIGHT_PAREN);
-            $catches[] = [$variable, $this->block()];
+            $catches[] = [$class, $variable, $this->block()];
         }
 
         $finally = null;
@@ -1424,6 +1466,8 @@ class Parser
     {
         if (isset(Builtins::ARITIES[$name])) {
             $this->fail("{$name} is a builtin function");
+        } elseif (isset($this->classes[$name]) && $this->classes[$name]->file === self::BUILTIN_FILE) {
+            $this->fail("{$name} is a builtin class");
         } elseif (isset($this->functions[$name])) {
             $this->fail("Function {$name} is already declared");
         } elseif (isset($this->classes[$name])) {
@@ -1651,8 +1695,20 @@ class Parser
      */
     public function program()
     {
+        $error_class = $this->builtin_classes();
         $root = new CompoundAST;
         $root->statements = $this->top_level();
+        // Error is only compiled into programs that can catch, name or extend it
+        $uses_error = $this->catches || array_filter($this->uses, fn ($use) => $use->name === 'Error') !== []
+            || array_filter($this->classes, fn ($class) => $class->parent === 'Error') !== [];
+        if ($uses_error) {
+            array_unshift($root->statements, $error_class);
+        }
+        foreach ($this->catch_types as [$name, $line, $file]) {
+            if (! isset($this->classes[$name])) {
+                throw new GazLangError(isset($this->functions[$name]) ? "{$name} is a function, not a class" : "Undefined class: {$name}", $file, $line);
+            }
+        }
 
         foreach ($this->classes as $class) {
             $this->resolve_class($class, []);
@@ -1821,6 +1877,27 @@ class Parser
             if ($error !== null) {
                 $fail($error);
             }
+        }
+    }
+
+    /**
+     * Parse the builtin classes (Error), before the program, so its classes can use them
+     *
+     * @return ClassDeclarationAST The Error class
+     *
+     * @throws Exception
+     */
+    private function builtin_classes(): ClassDeclarationAST
+    {
+        $outer = [$this->lexer, $this->current_token, $this->file];
+        $this->lexer = new Lexer(self::BUILTIN_CLASSES);
+        $this->file = self::BUILTIN_FILE;
+        try {
+            $this->current_token = $this->next_token();
+
+            return $this->class_declaration();
+        } finally {
+            [$this->lexer, $this->current_token, $this->file] = $outer;
         }
     }
 

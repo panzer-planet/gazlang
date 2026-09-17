@@ -47,12 +47,12 @@ try {
     $n = 5;
     echo $n["key"] ?? "default";
 } catch ($e) {
-    check("indexing an int is still an error", $e["message"], "Cannot use [] on int");
+    check("indexing an int is still an error", $e.message, "Cannot use [] on int");
 }
 try {
     echo $values[true] ?? "default";
 } catch ($e) {
-    check("a bad key type is still an error", $e["message"], "Keys must be int or string, got bool");
+    check("a bad key type is still an error", $e.message, "Keys must be int or string, got bool");
 }
 
 // ??= assigns only when the target is null or missing, and gives the resulting value
@@ -88,5 +88,5 @@ try {
     $empty = {};
     $empty["outer"]["inner"] ??= 1;
 } catch ($e) {
-    check("missing outer key is an error", $e["message"], "Undefined key: \"outer\"");
+    check("missing outer key is an error", $e.message, "Undefined key: \"outer\"");
 }

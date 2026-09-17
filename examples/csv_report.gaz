@@ -29,7 +29,7 @@ try {
     $rows = csv_parse(read_file($file));
     $records = csv_records($rows);
 } catch ($e) {
-    fail($e["message"]);
+    fail($e.message);
 }
 if (len($rows) == 0) {
     fail("$file is empty");

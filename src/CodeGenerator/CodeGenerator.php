@@ -856,10 +856,16 @@ class CodeGenerator extends AbstractNodeVisitor
      *   END_TRY            removes it
      *   JMP ENDTRY_n
      *   LABEL CATCH_n      an error unwinds to the frame and stack depth of the TRY, pushes the error and jumps here
-     *   CATCH_VALUE        replaces the error with what catch sees: ["message" => ..., "file" => ..., "line" => ...]
+     *   CATCH_MATCH NotFound NEXTCATCH_n_0
+     *                      a typed clause: replaces the error with what catch sees if that is a NotFound, else jumps
      *   STORE error_var
      *   catch body
-     *   LABEL ENDTRY_n
+     *   JMP ENDTRY_n
+     *   LABEL NEXTCATCH_n_0
+     *   CATCH_VALUE        an untyped clause (always the last): replaces the error with what catch sees
+     *   STORE error_var
+     *   catch body
+     *   LABEL ENDTRY_n     (after typed clauses only, RETHROW first: nothing matched)
      *
      * With a finally block, a second handler covers the try and catch blocks, the finally
      * code follows them, and the handler's own code runs it and rethrows the error:
@@ -901,10 +907,23 @@ class CodeGenerator extends AbstractNodeVisitor
             $this->emit('JMP', "ENDTRY_{$n}");
 
             $this->emit('LABEL', "CATCH_{$n}");
-            [$variable, $body] = $node->catches[0];
-            $this->emit('CATCH_VALUE');
-            $this->emitVariable('STORE', $variable);
-            $this->visit($body);
+            foreach ($node->catches as $i => [$class, $variable, $body]) {
+                if ($class === null) {
+                    $this->emit('CATCH_VALUE');
+                } else {
+                    $this->emit('CATCH_MATCH', $class, "NEXTCATCH_{$n}_{$i}");
+                }
+                $this->emitVariable('STORE', $variable);
+                $this->visit($body);
+                if ($class !== null) {
+                    $this->emit('JMP', "ENDTRY_{$n}");
+                    $this->emit('LABEL', "NEXTCATCH_{$n}_{$i}");
+                }
+            }
+            // No clause matched: the error carries on
+            if ($class !== null) {
+                $this->emit('RETHROW');
+            }
             $this->emit('LABEL', "ENDTRY_{$n}");
         }
 

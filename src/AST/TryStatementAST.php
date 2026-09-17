@@ -3,9 +3,9 @@
 namespace GazLang\AST;
 
 /**
- * TryStatement represents try { ... } catch ($error) { ... } finally { ... } in the AST
+ * TryStatement represents try { ... } catch (Type $error) { ... } catch ($error) { ... } finally { ... } in the AST
  *
- * There is at least one catch or a finally.
+ * There is at least one catch or a finally, and a catch without a class is the last.
  */
 class TryStatementAST extends AST
 {
@@ -15,7 +15,8 @@ class TryStatementAST extends AST
     public $body;
 
     /**
-     * @var list<array{0: VariableAST, 1: CompoundAST}> Each catch clause: the variable the caught error is assigned to, and its statements
+     * @var list<array{0: string|null, 1: VariableAST, 2: CompoundAST}> Each catch clause: the class it catches (null for
+     *                                                                  anything), the variable the error is assigned to, and its statements
      */
     public $catches;
 
@@ -28,7 +29,7 @@ class TryStatementAST extends AST
      * Constructor
      *
      * @param  CompoundAST  $body  The statements whose errors are caught
-     * @param  list<array{0: VariableAST, 1: CompoundAST}>  $catches  The catch clauses
+     * @param  list<array{0: string|null, 1: VariableAST, 2: CompoundAST}>  $catches  The catch clauses
      * @param  CompoundAST|null  $finally  The finally block, or null
      */
     public function __construct(CompoundAST $body, array $catches, ?CompoundAST $finally)

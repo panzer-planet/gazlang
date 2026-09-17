@@ -90,7 +90,7 @@ class FunctionValueTest extends GazLangTestCase
     public function test_runtime_errors_are_catchable_with_their_line(string $code, string $message)
     {
         $this->assertEquals("{$message}\n", $this->executeCode(
-            self::ADD."try {\n{$code}\n} catch (\$e) { echo \$e[\"message\"] .. \" on line \" .. \$e[\"line\"]; }"
+            self::ADD."try {\n{$code}\n} catch (\$e) { echo \$e.message .. \" on line \" .. \$e.line; }"
         ));
     }
 

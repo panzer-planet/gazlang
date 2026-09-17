@@ -420,7 +420,7 @@ class ClassTest extends GazLangTestCase
                     return error("boom");
                 }
             }
-            try { echo "x" .. Boom(); } catch ($e) { echo "caught {$e["message"]} at {$e["line"]}"; }
+            try { echo "x" .. Boom(); } catch ($e) { echo "caught {$e.message} at {$e.line}"; }
             echo "kept going";
             CODE));
     }
@@ -502,7 +502,7 @@ class ClassTest extends GazLangTestCase
     {
         $this->assertEquals("Property x of P is not set 1\n", $this->executeCode(<<<'CODE'
             class P { #x; fn get() { return #x; } }
-            try { P().get(); } catch ($e) { echo $e["message"] .. " " .. $e["line"]; }
+            try { P().get(); } catch ($e) { echo $e.message .. " " .. $e.line; }
             CODE));
     }
 

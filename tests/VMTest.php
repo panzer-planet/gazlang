@@ -45,7 +45,7 @@ class VMTest extends GazLangTestCase
     public function test_call_depth_limit_on_the_vm_can_be_caught()
     {
         $program = (new CodeGenerator($this->createParser(
-            'fn forever() { return forever(); } try { forever(); } catch ($e) { echo $e["message"]; }'
+            'fn forever() { return forever(); } try { forever(); } catch ($e) { echo $e.message; }'
         )->parse()))->compile();
 
         ob_start();

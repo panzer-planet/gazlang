@@ -1,13 +1,13 @@
 include "../check.gaz";
 include "../../../lib/json.gaz";
 
-// The caught error is ["message" => ..., "file" => ..., "line" => ...]
+// The caught error is an Error object with #message, #file and #line
 try {
     $x = 1 / 0;
 } catch ($e) {
-    check("message", $e["message"], "Division by zero");
-    check("file", $e["file"], "tests/gaz/errors/try_catch_test.gaz");
-    check("line", $e["line"], 6);
+    check("message", $e.message, "Division by zero");
+    check("file", $e.file, "tests/gaz/errors/try_catch_test.gaz");
+    check("line", $e.line, 6);
 }
 
 fn fail_with($message) {
@@ -17,8 +17,8 @@ fn fail_with($message) {
 try {
     fail_with("custom problem");
 } catch ($e) {
-    check("error() message is exact", $e["message"], "custom problem");
-    check("error() line is where it was called", $e["line"], 14);
+    check("error() message is exact", $e.message, "custom problem");
+    check("error() line is where it was called", $e.line, 14);
 }
 
 // Every kind of runtime error can be caught (running out of call depth too, tested in TryCatchTest,
@@ -32,7 +32,7 @@ fn caught_message($code) {
         if ($code == "file") { return read_file("tests/gaz/errors/no_such_file"); }
         if ($code == "json") { return json_decode("[1,"); }
     } catch ($e) {
-        return $e["message"];
+        return $e.message;
     }
     return "nothing thrown";
 }
@@ -75,10 +75,10 @@ try {
     try {
         error("inner");
     } catch ($e) {
-        error("rethrown: " .. $e["message"]);
+        error("rethrown: " .. $e.message);
     }
 } catch ($outer) {
-    check("rethrow reaches the outer catch", $outer["message"], "rethrown: inner");
+    check("rethrow reaches the outer catch", $outer.message, "rethrown: inner");
 }
 
 // return, break and continue are not errors: they pass through try
@@ -118,7 +118,7 @@ fn level_one() {
     try {
         return level_two();
     } catch ($e) {
-        return "level one caught: " .. $e["message"];
+        return "level one caught: " .. $e.message;
     }
 }
 check("unwinds through calls", level_one(), "level one caught: from level three");
@@ -128,14 +128,14 @@ try {
     error("global");
 } catch (@last_error) {
 }
-check("global catch variable", @last_error["message"], "global");
+check("global catch variable", @last_error.message, "global");
 
 // Handling bad input without stopping: the reason json_decode needed try/catch
 fn parse_config($text) {
     try {
         return {"ok" => true, "config" => json_decode($text)};
     } catch ($e) {
-        return {"ok" => false, "reason" => $e["message"]};
+        return {"ok" => false, "reason" => $e.message};
     }
 }
 check("valid config", parse_config("{\"debug\": true}"), {"ok" => true, "config" => {"debug" => true}});

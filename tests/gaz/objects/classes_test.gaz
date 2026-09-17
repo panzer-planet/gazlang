@@ -44,7 +44,7 @@ check("and keeps it", $lazy.value, "computed");
 try {
     echo Lazy().value;
 } catch ($e) {
-    check("reading an unset field is an error", $e["message"], "Property value of Lazy is not set");
+    check("reading an unset field is an error", $e.message, "Property value of Lazy is not set");
 }
 
 // Inheritance

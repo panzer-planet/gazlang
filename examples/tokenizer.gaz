@@ -73,7 +73,7 @@ if (len($arguments) > 0) {
 try {
     $tokens = tokenize($source, $keywords, $operators);
 } catch ($e) {
-    echo "Error: {$e["message"]}";
+    echo "Error: {$e.message}";
     exit(1);
 }
 

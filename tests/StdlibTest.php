@@ -130,7 +130,7 @@ class StdlibTest extends GazLangTestCase
     public function test_exit_argument_errors(string $code, string $message)
     {
         // A bad argument is an ordinary, catchable error
-        $this->assertEquals("{$message}\n", $this->executeCode("try { {$code} } catch (\$e) { echo \$e[\"message\"]; }"));
+        $this->assertEquals("{$message}\n", $this->executeCode("try { {$code} } catch (\$e) { echo \$e.message; }"));
     }
 
     public static function exitErrors(): array

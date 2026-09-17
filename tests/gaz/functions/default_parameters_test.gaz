@@ -43,7 +43,7 @@ fn scoped($value = $outside) {
 try {
     scoped();
 } catch ($e) {
-    check("default doesn't see the caller's variables", $e["message"], "Undefined variable: \$outside");
+    check("default doesn't see the caller's variables", $e.message, "Undefined variable: \$outside");
 }
 check("given explicitly, the default isn't evaluated either", scoped("fine"), "fine");
 
@@ -54,7 +54,7 @@ fn strict($n = 1 / 0) {
 try {
     strict();
 } catch ($e) {
-    check("error in a default", $e["message"], "Division by zero");
+    check("error in a default", $e.message, "Division by zero");
 }
 check("not evaluated when the argument is given", strict(5), 5);
 
