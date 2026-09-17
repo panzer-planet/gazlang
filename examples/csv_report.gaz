@@ -7,10 +7,11 @@ include "../lib/csv.gaz";
 include "../lib/sort.gaz";
 include "../lib/format.gaz";
 
-// Print the usage and stop with an error (there is no exit(), so error() sets the exit code)
+// Print the usage and the problem, and stop with exit code 1
 function fail($message) {
     echo "Usage: php bin/gazlang -f examples/csv_report.gaz -- FILE GROUP_COLUMN AMOUNT_COLUMN";
-    error($message);
+    echo "Error: $message";
+    exit(1);
 }
 
 $arguments = args();

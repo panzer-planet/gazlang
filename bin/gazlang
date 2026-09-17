@@ -27,6 +27,7 @@ use GazLang\Parser\Parser;
 use GazLang\Interpreter\Interpreter;
 use GazLang\CodeGenerator\CodeGenerator;
 use GazLang\VM\VM;
+use GazLang\Runtime\ExitSignal;
 
 /**
  * Display help message
@@ -165,6 +166,8 @@ function processInput(string $text, string $mode = 'vm', ?string $path = null, a
         } else {
             (new VM((new CodeGenerator($parser->parse()))->compile(), $args))->run();
         }
+    } catch (ExitSignal $e) {
+        exit($e->code);
     } catch (Throwable $e) {
         echo "Error: " . $e->getMessage() . "\n";
 

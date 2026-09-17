@@ -7,6 +7,7 @@ use GazLang\GazLangError;
 use GazLang\Interpreter\Interpreter;
 use GazLang\Lexer\Lexer;
 use GazLang\Parser\Parser;
+use GazLang\Runtime\ExitSignal;
 use GazLang\VM\VM;
 use PHPUnit\Framework\TestCase;
 use Throwable;
@@ -43,6 +44,8 @@ abstract class GazLangTestCase extends TestCase
                 (new Interpreter($parser, $args))->interpret();
             }
             $exit_code = 0;
+        } catch (ExitSignal $e) {
+            $exit_code = $e->code;
         } catch (Throwable $e) {
             echo "Error: {$e->getMessage()}\n";
             $exit_code = 1;

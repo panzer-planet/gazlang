@@ -7,6 +7,7 @@ use GazLang\CodeGenerator\Program;
 use GazLang\GazLangError;
 use GazLang\Lexer\Token;
 use GazLang\Runtime\Builtins;
+use GazLang\Runtime\ExitSignal;
 use GazLang\Runtime\FunctionValue;
 use GazLang\Runtime\Values;
 
@@ -397,6 +398,9 @@ final class VM
                 }
 
                 return;
+            } catch (ExitSignal $e) {
+                // exit() is not an error: no handler sees it
+                throw $e;
             } catch (Exception $e) {
                 $error = $this->locate($e, $locations[$pc - 1]);
                 if (! $error instanceof GazLangError || $handlers === []) {

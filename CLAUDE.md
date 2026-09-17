@@ -198,7 +198,10 @@ each step depends on the ones before it.
      `has_key($array, $key)`, `keys($array)`.
    - Other: `type_of($x)` (`int`, `float`, `string`, `bool`, `null`, `array`, `function`),
      `error($message)` (raises an error that try/catch can catch; uncaught it stops
-     with `Error: message`, exit 1, printed exactly as given with no location), `read_file($path)` and `write_file($path, $string)`
+     with `Error: message`, exit 1, printed exactly as given with no location), `exit($code = 0)`
+     (stops the program with that exit code, 0 to 255, printing nothing; not an error, so
+     `try/catch` doesn't see it: both backends unwind with `Runtime\ExitSignal`, which
+     `bin/gazlang` and the tests' `runProgram()` turn into the exit code), `read_file($path)` and `write_file($path, $string)`
      (relative to the working directory; write creates or overwrites and returns
      null), `read_stdin()` (all remaining standard input; empty when the program
      itself was piped in), `args()` (the command line arguments
@@ -266,13 +269,6 @@ before function values:
   arrays structural, functions and objects by identity. `===` and `!==` are removed.
   Booleans stay as they are (`true == 1`) unless that proves a problem.
 - **`/` always gives a float** (Python 3, Lua 5.3); `intdiv` is integer division.
-
-Also decided on 2026-09-17, small:
-- ~~**A ternary**~~ Done, see the operators list above.
-- **`exit($code = 0)`**: a builtin that stops the program with that exit code (0 to 255)
-  and prints nothing. Like `return` and `break` it is not an error, so `try/catch` does
-  not catch it; both backends unwind with an `ExitSignal` that `bin/gazlang` and the
-  tests' `runProgram()` turn into the exit code.
 
 Design agreed on 2026-09-17, to build in phases (each committed and reviewed):
 1. ~~**Named functions as values.**~~ Done, see "Function values" below.
@@ -383,7 +379,7 @@ out of call depth, or `error($message)`, which is also how programs throw (and
 rethrow: `error($e["message"])`). Syntax and include errors happen before the
 program runs and can't be caught. `$e` (or `@e`) is
 `["message" => ..., "file" => ..., "line" => ...]`, the message without the location;
-`file` is null for piped input. `return`, `break` and `continue` are not errors and
+`file` is null for piped input. `return`, `break`, `continue` and `exit()` are not errors and
 pass through. There is no `finally` yet.
 
 Every runtime error is a `GazLangError` by the time it leaves a node with a location

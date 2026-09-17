@@ -47,6 +47,7 @@ final class Builtins
         'keys' => 1,
         'type_of' => 1,
         'error' => 1,
+        'exit' => [0, 1],
         'read_file' => 1,
         'write_file' => 2,
         'read_stdin' => 0,
@@ -135,6 +136,7 @@ final class Builtins
             // The program's own message, printed as is: it describes a location in the program's input,
             // not here. The interpreter still records where error() was called, for catch.
             'error' => throw new GazLangError(Values::toString($args[0]), null, null, false),
+            'exit' => throw new ExitSignal($this->exitCode($this->argument($name, $args[0] ?? 0, 'int'))),
             'read_file' => $this->readFile($this->argument($name, $args[0], 'string')),
             'write_file' => $this->writeFile($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string')),
             'read_stdin' => stream_get_contents(STDIN),
@@ -373,6 +375,22 @@ final class Builtins
         }
 
         return intdiv($left, $right);
+    }
+
+    /**
+     * Check an exit code is one the operating system can carry
+     *
+     * @param  int  $code  The code
+     *
+     * @throws Exception If it is outside 0 to 255
+     */
+    private function exitCode(int $code): int
+    {
+        if ($code < 0 || $code > 255) {
+            throw new Exception("exit() expects a code from 0 to 255, got {$code}");
+        }
+
+        return $code;
     }
 
     /**

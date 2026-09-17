@@ -22,7 +22,7 @@ A small, PHP-flavoured programming language with an interpreter and a stack-VM c
 - Assignment `=` and `+=`, `-=`, `*=`, `/=`, `%=`, `??=`, `++`, `--` (prefix and postfix)
 - Local variables with `$` prefix (`$var = expression;`) and global variables with `@` prefix (`@count = 0;`)
 - Control flow with if/else and else if statements
-- Error handling: `try { ... } catch ($e) { echo $e["message"]; }`, and `error("...")` to raise one
+- Error handling: `try { ... } catch ($e) { echo $e["message"]; }`, and `error("...")` to raise one; `exit($code)` stops the program
 - Loops: `while (cond) { ... }`, `for (init; cond; step) { ... }` and `foreach ($array as $key => $value) { ... }`, with `break` and `continue`
 - Functions: `function add($a, $b = 1) { return $a + $b; }` with default parameter values, callable before they are declared, with recursion
 - Functions as values: `$f = add; $f(1, 2)`, `$handlers["save"]($doc)`, `apply(len, "abc")`, builtins included; `echo add` prints `function add`

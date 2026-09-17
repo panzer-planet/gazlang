@@ -106,6 +106,42 @@ class StdlibTest extends GazLangTestCase
         ));
     }
 
+    public function test_exit_stops_the_program_with_its_code_on_both_backends()
+    {
+        foreach ([false, true] as $vm) {
+            $this->assertSame(['', 0], $this->runProgram('tests/fixtures/exit.gaz', [], $vm));
+            $this->assertSame(["stopping\n", 3], $this->runProgram('tests/fixtures/exit.gaz', ['3'], $vm));
+            $this->assertSame(["stopping\n", 0], $this->runProgram('tests/fixtures/exit.gaz', ['0'], $vm));
+        }
+    }
+
+    public function test_exit_code_is_the_process_exit_code()
+    {
+        $command = sprintf('echo %s | %s %s', escapeshellarg('echo "bye"; exit(7);'), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang'));
+        exec($command, $output, $exit_code);
+
+        $this->assertSame(['bye'], $output);
+        $this->assertSame(7, $exit_code);
+    }
+
+    /**
+     * @dataProvider exitErrors
+     */
+    public function test_exit_argument_errors(string $code, string $message)
+    {
+        // A bad argument is an ordinary, catchable error
+        $this->assertEquals("{$message}\n", $this->executeCode("try { {$code} } catch (\$e) { echo \$e[\"message\"]; }"));
+    }
+
+    public static function exitErrors(): array
+    {
+        return [
+            'too large' => ['exit(256);', 'exit() expects a code from 0 to 255, got 256'],
+            'negative' => ['exit(-1);', 'exit() expects a code from 0 to 255, got -1'],
+            'not an int' => ['exit("1");', 'exit() expects int, got string'],
+        ];
+    }
+
     public function test_in_array_compares_with_equals()
     {
         $this->assertEquals("true\nfalse\ntrue\ntrue\ntrue\nfalse\n", $this->executeCode(

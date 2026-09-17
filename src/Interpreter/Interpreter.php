@@ -34,6 +34,7 @@ use GazLang\GazLangError;
 use GazLang\Lexer\Token;
 use GazLang\Parser\Parser;
 use GazLang\Runtime\Builtins;
+use GazLang\Runtime\ExitSignal;
 use GazLang\Runtime\FunctionValue;
 use GazLang\Runtime\Values;
 
@@ -118,7 +119,7 @@ class Interpreter extends AbstractNodeVisitor
     {
         try {
             return parent::visit($node);
-        } catch (LoopSignal|ReturnSignal $e) {
+        } catch (LoopSignal|ReturnSignal|ExitSignal $e) {
             // Control flow rather than an error
             throw $e;
         } catch (GazLangError $e) {

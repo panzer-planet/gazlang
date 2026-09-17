@@ -1,0 +1,16 @@
+// exit() stops the program with its code, from anywhere, and try/catch doesn't see it
+function stop($code) {
+    try {
+        echo "stopping";
+        exit($code);
+    } catch ($e) {
+        echo "caught " .. $e["message"];
+    }
+    echo "not reached";
+}
+$code = args()[0] ?? null;
+if ($code == null) {
+    exit();
+}
+stop(to_int($code));
+echo "not reached either";

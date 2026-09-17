@@ -89,7 +89,7 @@ is a rewrite of `lib/`. Let objects take the record role so arrays trend toward 
 Objects should be always true, no `__bool__` protocol. Note the inconsistency with
 empty arrays and move on.
 
-### 12. Missing expressions — decided: both wanted
+### 12. Missing expressions — done: ternary and exit()
 A C-style ternary `$c ? $a : $b` (right associative, between `??` and assignment, as in
 PHP and JS) and an `exit($code = 0)` builtin that stops the program with that exit code,
 not catchable by try/catch. Build after function values phase 1.
