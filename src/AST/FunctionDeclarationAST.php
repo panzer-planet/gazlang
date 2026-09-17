@@ -3,7 +3,7 @@
 namespace GazLang\AST;
 
 /**
- * FunctionDeclaration represents a top level named function in the AST
+ * FunctionDeclaration represents a top level named function, or a method of a class, in the AST
  */
 class FunctionDeclarationAST extends AST
 {
@@ -31,6 +31,16 @@ class FunctionDeclarationAST extends AST
      * @var int|array{0: int, 1: int} How many arguments a call takes: a count, or [fewest, most] with defaults
      */
     public $arity;
+
+    /**
+     * @var string|null The class a method belongs to, or null for a function
+     */
+    public $class = null;
+
+    /**
+     * @var bool Whether this is an abstract method, whose body is empty and never runs
+     */
+    public $abstract = false;
 
     /**
      * Constructor

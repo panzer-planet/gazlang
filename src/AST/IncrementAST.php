@@ -10,7 +10,7 @@ use GazLang\Lexer\Token;
 class IncrementAST extends AST
 {
     /**
-     * @var VariableAST|IndexAST What is incremented or decremented
+     * @var VariableAST|IndexAST|PropertyAST What is incremented or decremented
      */
     public $target;
 
@@ -27,11 +27,11 @@ class IncrementAST extends AST
     /**
      * Constructor
      *
-     * @param  VariableAST|IndexAST  $target  What is incremented or decremented
+     * @param  VariableAST|IndexAST|PropertyAST  $target  What is incremented or decremented
      * @param  Token  $op  The INCREMENT or DECREMENT token
      * @param  bool  $prefix  Whether the operator comes first
      */
-    public function __construct(VariableAST|IndexAST $target, Token $op, bool $prefix)
+    public function __construct(VariableAST|IndexAST|PropertyAST $target, Token $op, bool $prefix)
     {
         $this->target = $target;
         $this->op = $op;

@@ -2,6 +2,7 @@
 
 namespace GazLang\CodeGenerator;
 
+use GazLang\AST\ClassDeclarationAST;
 use GazLang\AST\LambdaAST;
 use GazLang\Lexer\Lexer;
 use GazLang\Runtime\MapValue;
@@ -19,7 +20,8 @@ final class Program
     public $instructions;
 
     /**
-     * @var array<string, list<string>> The variable name in each local slot, for the top level ('') and each function (by name)
+     * @var array<string, list<string>> The variable name in each local slot, for the top level (''), each function (by name),
+     *                                  lambda ("->n"), method ("Class.name") and object initialiser ("new Class")
      */
     public $local_names;
 
@@ -41,6 +43,12 @@ final class Program
     public $lambdas;
 
     /**
+     * @var array<string, ClassDeclarationAST> Each class, resolved by the parser: methods are at LABEL METHOD_Class.name and
+     *                                         the code that makes an object at LABEL NEW_Class
+     */
+    public $classes;
+
+    /**
      * Constructor
      *
      * @param  list<array{0: string, 1: array, 2: string|null, 3: int|null}>  $instructions  The instructions
@@ -48,9 +56,11 @@ final class Program
      * @param  list<string>  $global_names  Global slot names
      * @param  array<string, int|array{0: int, 1: int}>  $functions  Each user function's arity
      * @param  list<array{0: LambdaAST, 1: list<array{0: bool, 1: int, 2: int}>}>  $lambdas  Each lambda with its capture map
+     * @param  array<string, ClassDeclarationAST>  $classes  Each class
      */
-    public function __construct(array $instructions, array $local_names, array $global_names, array $functions = [], array $lambdas = [])
+    public function __construct(array $instructions, array $local_names, array $global_names, array $functions = [], array $lambdas = [], array $classes = [])
     {
+        $this->classes = $classes;
         $this->instructions = $instructions;
         $this->local_names = $local_names;
         $this->global_names = $global_names;

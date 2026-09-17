@@ -10,6 +10,7 @@ use GazLang\AST\AST;
 use GazLang\AST\BinOpAST;
 use GazLang\AST\BooleanAST;
 use GazLang\AST\CallValueAST;
+use GazLang\AST\ClassDeclarationAST;
 use GazLang\AST\CompoundAST;
 use GazLang\AST\EchoStatementAST;
 use GazLang\AST\ForeachStatementAST;
@@ -21,12 +22,15 @@ use GazLang\AST\IncrementAST;
 use GazLang\AST\IndexAST;
 use GazLang\AST\LambdaAST;
 use GazLang\AST\LoopControlAST;
+use GazLang\AST\MethodCallAST;
 use GazLang\AST\NullAST;
 use GazLang\AST\NumAST;
+use GazLang\AST\PropertyAST;
 use GazLang\AST\ReturnStatementAST;
 use GazLang\AST\StatementAST;
 use GazLang\AST\StringAST;
 use GazLang\AST\TernaryAST;
+use GazLang\AST\ThisAST;
 use GazLang\AST\TryStatementAST;
 use GazLang\AST\UnaryOpAST;
 use GazLang\AST\VariableAST;
@@ -35,9 +39,11 @@ use GazLang\GazLangError;
 use GazLang\Lexer\Token;
 use GazLang\Parser\Parser;
 use GazLang\Runtime\Builtins;
+use GazLang\Runtime\ClassValue;
 use GazLang\Runtime\ExitSignal;
 use GazLang\Runtime\FunctionValue;
 use GazLang\Runtime\MapValue;
+use GazLang\Runtime\ObjectValue;
 use GazLang\Runtime\Values;
 
 /**
@@ -76,9 +82,19 @@ class Interpreter extends AbstractNodeVisitor
     private $captures = [];
 
     /**
+     * @var ObjectValue|null The object # is in the running method (or the closure made in one); null elsewhere
+     */
+    private $receiver = null;
+
+    /**
      * @var array<string, FunctionDeclarationAST> Declared functions by name
      */
     private $functions = [];
+
+    /**
+     * @var array<string, ClassValue> Declared classes by name
+     */
+    private $classes = [];
 
     /**
      * @var Builtins The builtin functions, which hold the program's command line arguments
@@ -189,6 +205,13 @@ class Interpreter extends AbstractNodeVisitor
         if ($node->left instanceof VariableAST && $node->token->type === Token::ASSIGN) {
             $value = $this->visit($node->right);
             $this->assignVariable($node->left, $value);
+
+            return $value;
+        }
+        if ($node->left instanceof PropertyAST) {
+            // #name = value, a field the parser has checked the class declares
+            $value = $this->visit($node->right);
+            $this->receiver->fields[$node->left->name] = $value;
 
             return $value;
         }
@@ -628,6 +651,68 @@ class Interpreter extends AbstractNodeVisitor
     }
 
     /**
+     * Visit a ClassDeclaration node; classes are built up front by interpret()
+     *
+     * @param  ClassDeclarationAST  $node  The node to visit
+     * @return null Declarations produce no result
+     */
+    public function visitClassDeclaration(ClassDeclarationAST $node): null
+    {
+        return null;
+    }
+
+    /**
+     * Visit a This node (#)
+     *
+     * @param  ThisAST  $node  The node to visit
+     * @return ObjectValue The object the running method was called on
+     */
+    public function visitThis(ThisAST $node): ObjectValue
+    {
+        return $this->receiver;
+    }
+
+    /**
+     * Visit a Property node: a field's value, or a method bound to the object
+     *
+     * @param  PropertyAST  $node  The node to visit
+     * @return mixed The member's value
+     */
+    public function visitProperty(PropertyAST $node)
+    {
+        return Values::property($this->visit($node->target), $node->name);
+    }
+
+    /**
+     * Visit a MethodCall node: the object, then the member, then the arguments, then the call
+     *
+     * The same order and errors as reading the member and calling what it gives, but a
+     * method runs directly, without making a bound method first.
+     *
+     * @param  MethodCallAST  $node  The node to visit
+     * @return mixed The returned value
+     */
+    public function visitMethodCall(MethodCallAST $node)
+    {
+        $target = $this->visit($node->property->target);
+        $name = $node->property->name;
+        if (! $target instanceof ObjectValue || ! isset($target->class->methods[$name]) || $name === '_') {
+            $callee = Values::property($target, $name);
+
+            return $this->callValue($callee, array_map(fn ($arg) => $this->visit($arg), $node->args));
+        }
+
+        $definer = $target->class->methods[$name];
+        $args = array_map(fn ($arg) => $this->visit($arg), $node->args);
+        $arity = $definer->method($name)->arity;
+        if (! Builtins::fitsArity($arity, count($args))) {
+            throw new Exception(Builtins::arityError("Method {$definer->name}.{$name}", $arity, count($args)));
+        }
+
+        return $this->invokeMethod($definer, $name, $target, $args);
+    }
+
+    /**
      * Visit a FunctionDeclaration node; declarations are registered up front by interpret()
      *
      * @param  FunctionDeclarationAST  $node  The node to visit
@@ -655,7 +740,7 @@ class Interpreter extends AbstractNodeVisitor
                 $captured[$name] = $outer[$name];
             }
         }
-        $closure = FunctionValue::closure($node, $captured);
+        $closure = FunctionValue::closure($node, $captured, null, $this->receiver);
         if ($node->self !== null) {
             $closure->captured[$node->self] = $closure;
         }
@@ -669,9 +754,9 @@ class Interpreter extends AbstractNodeVisitor
      * @param  FunctionRefAST  $node  The node to visit
      * @return FunctionValue The function as a value
      */
-    public function visitFunctionRef(FunctionRefAST $node): FunctionValue
+    public function visitFunctionRef(FunctionRefAST $node): FunctionValue|ClassValue
     {
-        return FunctionValue::named($node->name);
+        return $this->classes[$node->name] ?? FunctionValue::named($node->name);
     }
 
     /**
@@ -685,7 +770,12 @@ class Interpreter extends AbstractNodeVisitor
     public function visitFunctionCall(FunctionCallAST $node)
     {
         // Arguments are evaluated in the caller's scope, before switching locals
-        return $this->call($node->name, array_map(fn ($arg) => $this->visit($arg), $node->args));
+        $args = array_map(fn ($arg) => $this->visit($arg), $node->args);
+        if (isset($this->classes[$node->name])) {
+            return $this->construct($this->classes[$node->name], $args);
+        }
+
+        return $this->call($node->name, $args);
     }
 
     /**
@@ -702,27 +792,107 @@ class Interpreter extends AbstractNodeVisitor
     public function visitCallValue(CallValueAST $node)
     {
         $callee = $this->visit($node->callee);
-        $args = array_map(fn ($arg) => $this->visit($arg), $node->args);
 
+        return $this->callValue($callee, array_map(fn ($arg) => $this->visit($arg), $node->args));
+    }
+
+    /**
+     * Call a value with evaluated arguments, checking it can be called with that many
+     *
+     * @param  mixed  $callee  The value: a function, closure, bound method or class
+     * @param  array  $args  The evaluated arguments
+     * @return mixed The returned value, or the new object
+     *
+     * @throws Exception If the callee can't be called, or not with that many arguments
+     */
+    private function callValue($callee, array $args)
+    {
+        if ($callee instanceof ClassValue) {
+            if ($callee->isAbstract()) {
+                throw new Exception("Cannot construct abstract class {$callee->name}");
+            }
+            if (! Builtins::fitsArity($callee->arity, count($args))) {
+                throw new Exception(Builtins::arityError("Class {$callee->name}", $callee->arity, count($args)));
+            }
+
+            return $this->construct($callee, $args);
+        }
         if (! $callee instanceof FunctionValue) {
             throw new Exception('Cannot call '.Values::typeOf($callee));
         }
-        if ($callee->lambda !== null) {
-            $arity = $callee->lambda->arity;
-        } else {
-            $arity = Builtins::ARITIES[$callee->name] ?? $this->functions[$callee->name]->arity;
-        }
+        $arity = match (true) {
+            $callee->lambda !== null => $callee->lambda->arity,
+            $callee->class !== null => $callee->class->method($callee->name)->arity,
+            default => Builtins::ARITIES[$callee->name] ?? $this->functions[$callee->name]->arity,
+        };
         if (! Builtins::fitsArity($arity, count($args))) {
-            throw new Exception(Builtins::arityError($callee->describe(), $arity, count($args)));
+            throw new Exception(Builtins::arityError($callee->title(), $arity, count($args)));
         }
 
         if ($callee->lambda !== null) {
             $lambda = $callee->lambda;
 
-            return $this->invoke($callee->describe(), $lambda->params, $lambda->defaults, $lambda->body, $callee, $args);
+            return $this->invoke($callee->describe(), $lambda->params, $lambda->defaults, $lambda->body, $callee, $args, $callee->receiver);
+        }
+        if ($callee->class !== null) {
+            return $this->invokeMethod($callee->class, $callee->name, $callee->receiver, $args);
         }
 
         return $this->call($callee->name, $args);
+    }
+
+    /**
+     * Run a class's version of a method on an object
+     *
+     * @param  ClassValue  $definer  The class whose version runs
+     * @param  string  $name  The method name
+     * @param  ObjectValue  $receiver  The object # is
+     * @param  array  $args  The evaluated arguments, already checked against the arity
+     * @return mixed The returned value
+     */
+    private function invokeMethod(ClassValue $definer, string $name, ObjectValue $receiver, array $args)
+    {
+        $method = $definer->method($name);
+
+        return $this->invoke("{$definer->name}.{$name}", $method->params, $method->defaults, $method->body, null, $args, $receiver);
+    }
+
+    /**
+     * Make a new object: set its field defaults, parent's first, then run the constructor
+     *
+     * Both run as one call, which is one level of call depth, with the constructor a call
+     * inside it, as in the VM. The class is already checked to be constructible with this
+     * many arguments.
+     *
+     * @param  ClassValue  $class  The class
+     * @param  array  $args  The evaluated arguments for the constructor
+     * @return ObjectValue The new object
+     *
+     * @throws Exception If the call depth limit is reached, or a default or the constructor fails
+     */
+    private function construct(ClassValue $class, array $args): ObjectValue
+    {
+        if ($this->call_depth === Values::MAX_CALL_DEPTH) {
+            throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$class->name}");
+        }
+
+        $object = new ObjectValue($class);
+        $caller = [$this->locals, $this->closure, $this->captures, $this->receiver];
+        [$this->locals, $this->closure, $this->captures, $this->receiver] = [[], null, [], $object];
+        $this->call_depth++;
+        try {
+            foreach ($class->defaults as [$field, $default]) {
+                $object->fields[$field] = $this->visit($default);
+            }
+            if (isset($class->methods['_'])) {
+                $this->invokeMethod($class->methods['_'], '_', $object, $args);
+            }
+        } finally {
+            [$this->locals, $this->closure, $this->captures, $this->receiver] = $caller;
+            $this->call_depth--;
+        }
+
+        return $object;
     }
 
     /**
@@ -752,18 +922,20 @@ class Interpreter extends AbstractNodeVisitor
      * @param  AST  $body  A block (returning through return, else null) or a lambda's expression body
      * @param  FunctionValue|null  $closure  The closure being called, whose captured variables the body uses, or null
      * @param  array  $args  The evaluated arguments, no more than there are parameters
+     * @param  ObjectValue|null  $receiver  The object # is in the body, or null outside a class
      * @return mixed The returned value
      *
      * @throws Exception If the call depth limit is reached
      */
-    private function invoke(string $display, array $params, array $defaults, AST $body, ?FunctionValue $closure, array $args)
+    private function invoke(string $display, array $params, array $defaults, AST $body, ?FunctionValue $closure, array $args, ?ObjectValue $receiver = null)
     {
         if ($this->call_depth === Values::MAX_CALL_DEPTH) {
             throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$display}");
         }
 
-        [$caller_locals, $caller_closure, $caller_captures] = [$this->locals, $this->closure, $this->captures];
+        [$caller_locals, $caller_closure, $caller_captures, $caller_receiver] = [$this->locals, $this->closure, $this->captures, $this->receiver];
         $this->locals = array_combine(array_slice($params, 0, count($args)), $args);
+        $this->receiver = $receiver;
         // Captured variables live in the closure, so every call of it, recursive ones too, shares them
         [$this->closure, $this->captures] = [$closure, $closure === null ? [] : $closure->lambda->capture_names];
         $this->call_depth++;
@@ -789,7 +961,7 @@ class Interpreter extends AbstractNodeVisitor
 
             return $value;
         } finally {
-            [$this->locals, $this->closure, $this->captures] = [$caller_locals, $caller_closure, $caller_captures];
+            [$this->locals, $this->closure, $this->captures, $this->receiver] = [$caller_locals, $caller_closure, $caller_captures, $caller_receiver];
             $this->call_depth--;
         }
     }
@@ -817,12 +989,13 @@ class Interpreter extends AbstractNodeVisitor
     {
         $tree = $this->parser->parse();
 
-        // Register every function first, so calls can come before declarations
+        // Register every function and class first, so they can be used before they are declared
         foreach ($tree->statements as $statement) {
             if ($statement instanceof FunctionDeclarationAST) {
                 $this->functions[$statement->name] = $statement;
             }
         }
+        $this->classes = ClassValue::build(array_filter($tree->statements, fn ($statement) => $statement instanceof ClassDeclarationAST));
 
         $this->visit($tree);
     }

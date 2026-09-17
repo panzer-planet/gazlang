@@ -10,6 +10,7 @@ use GazLang\AST\AST;
 use GazLang\AST\BinOpAST;
 use GazLang\AST\BooleanAST;
 use GazLang\AST\CallValueAST;
+use GazLang\AST\ClassDeclarationAST;
 use GazLang\AST\CompoundAST;
 use GazLang\AST\EchoStatementAST;
 use GazLang\AST\ForeachStatementAST;
@@ -21,12 +22,15 @@ use GazLang\AST\IncrementAST;
 use GazLang\AST\IndexAST;
 use GazLang\AST\LambdaAST;
 use GazLang\AST\LoopControlAST;
+use GazLang\AST\MethodCallAST;
 use GazLang\AST\NullAST;
 use GazLang\AST\NumAST;
+use GazLang\AST\PropertyAST;
 use GazLang\AST\ReturnStatementAST;
 use GazLang\AST\StatementAST;
 use GazLang\AST\StringAST;
 use GazLang\AST\TernaryAST;
+use GazLang\AST\ThisAST;
 use GazLang\AST\TryStatementAST;
 use GazLang\AST\UnaryOpAST;
 use GazLang\AST\VariableAST;
@@ -57,6 +61,19 @@ use GazLang\Runtime\MapValue;
  * or the enclosing closure (only what exists, as the interpreter does), then storing the
  * closure in its own $self variable; CALL_VALUE on a closure starts a frame from the
  * arguments, with that closure running, and jumps to the lambda's entry.
+ *
+ * Classes: PUSH_CLASS name pushes a class as a value. NEW Class argc pops the arguments and
+ * starts a frame for a new object at LABEL NEW_Class, with the arguments as its locals and the
+ * object as its receiver: it sets each field default (SET_FIELD name pops a value, sets that
+ * field of the receiver and pushes the value), then CALL_CONSTRUCTOR Class runs that class's
+ * _ with the same arguments, and it returns the object. CALL_VALUE on a class does the same
+ * after checking it can be constructed with that many arguments. Methods are at
+ * LABEL METHOD_Class.name. LOAD_THIS pushes the receiver; GET_PROPERTY name pops an object and
+ * pushes a field's value or a bound method. A call on a member is the object, GET_METHOD name,
+ * the arguments, CALL_METHOD argc name: GET_METHOD pops the object and pushes it with the class
+ * whose method runs, or, when the member isn't a method, the member's value with null, and
+ * CALL_METHOD then starts the method's frame with the object as receiver, or calls the value
+ * as CALL_VALUE does. MAKE_CLOSURE keeps the running receiver in the closure.
  *
  * Lists and maps are values. NEW_ARRAY pushes an empty list and ARRAY_PUSH pops a value
  * and appends it to the list below; NEW_MAP pushes an empty map and MAP_SET pops a value
@@ -138,6 +155,11 @@ class CodeGenerator extends AbstractNodeVisitor
      * @var FunctionDeclarationAST[] Functions to emit after the top level code
      */
     private $functions = [];
+
+    /**
+     * @var array<string, ClassDeclarationAST> Every class, by name, to emit after the functions
+     */
+    private $classes = [];
 
     /**
      * @var int Counter for generating unique labels
@@ -262,6 +284,12 @@ class CodeGenerator extends AbstractNodeVisitor
 
         if ($node->left instanceof IndexAST) {
             $this->indexAssign($node);
+
+            return;
+        }
+        if ($node->left instanceof PropertyAST) {
+            $this->visit($node->right);
+            $this->emit('SET_FIELD', $node->left->name);
 
             return;
         }
@@ -873,6 +901,49 @@ class CodeGenerator extends AbstractNodeVisitor
     }
 
     /**
+     * Visit a ClassDeclaration node: nothing here, its code is emitted after the functions
+     *
+     * @param  ClassDeclarationAST  $node  The node to visit
+     */
+    public function visitClassDeclaration(ClassDeclarationAST $node): void {}
+
+    /**
+     * Visit a This node (#)
+     *
+     * @param  ThisAST  $node  The node to visit
+     */
+    public function visitThis(ThisAST $node): void
+    {
+        $this->emit('LOAD_THIS');
+    }
+
+    /**
+     * Visit a Property node
+     *
+     * @param  PropertyAST  $node  The node to visit
+     */
+    public function visitProperty(PropertyAST $node): void
+    {
+        $this->visit($node->target);
+        $this->emit('GET_PROPERTY', $node->name);
+    }
+
+    /**
+     * Visit a MethodCall node: the object, GET_METHOD, the arguments, CALL_METHOD (the interpreter's order)
+     *
+     * @param  MethodCallAST  $node  The node to visit
+     */
+    public function visitMethodCall(MethodCallAST $node): void
+    {
+        $this->visit($node->property->target);
+        $this->emit('GET_METHOD', $node->property->name);
+        foreach ($node->args as $arg) {
+            $this->visit($arg);
+        }
+        $this->emit('CALL_METHOD', count($node->args), $node->property->name);
+    }
+
+    /**
      * Visit a FunctionDeclaration node, deferring its body until after the top level code
      *
      * @param  FunctionDeclarationAST  $node  The node to visit
@@ -895,6 +966,8 @@ class CodeGenerator extends AbstractNodeVisitor
 
         if (isset(Builtins::ARITIES[$node->name])) {
             $this->emit('CALL_BUILTIN', $node->name, count($node->args));
+        } elseif (isset($this->classes[$node->name])) {
+            $this->emit('NEW', $node->name, count($node->args));
         } else {
             $this->emit('CALL', "FN_{$node->name}", count($node->args));
         }
@@ -907,7 +980,7 @@ class CodeGenerator extends AbstractNodeVisitor
      */
     public function visitFunctionRef(FunctionRefAST $node): void
     {
-        $this->emit('PUSH_FN', $node->name);
+        $this->emit(isset($this->classes[$node->name]) ? 'PUSH_CLASS' : 'PUSH_FN', $node->name);
     }
 
     /**
@@ -996,17 +1069,31 @@ class CodeGenerator extends AbstractNodeVisitor
      */
     public function compile(): Program
     {
+        foreach ($this->tree instanceof CompoundAST ? $this->tree->statements : [] as $statement) {
+            if ($statement instanceof ClassDeclarationAST) {
+                $this->classes[$statement->name] = $statement;
+            }
+        }
         $this->visit($this->tree);
         $local_names = ['' => array_keys($this->var_addresses)];
         $arities = [];
 
-        if ($this->functions !== [] || $this->lambdas !== []) {
+        if ($this->functions !== [] || $this->lambdas !== [] || $this->classes !== []) {
             $this->emit('HALT');
         }
 
         foreach ($this->functions as $function) {
             $arities[$function->name] = $function->arity;
             $local_names[$function->name] = $this->compileBody("FN_{$function->name}", $function, $function->params);
+        }
+
+        foreach ($this->classes as $class) {
+            $local_names["new {$class->name}"] = $this->compileInitialiser($class);
+            foreach ($class->methods as $method) {
+                if (! $method->abstract) {
+                    $local_names["{$class->name}.{$method->name}"] = $this->compileBody("METHOD_{$class->name}.{$method->name}", $method, $method->params);
+                }
+            }
         }
 
         // A worklist: compiling a body can find more lambdas inside it. A lambda's frame is
@@ -1017,7 +1104,43 @@ class CodeGenerator extends AbstractNodeVisitor
             $local_names["->{$i}"] = $this->compileBody("LAMBDA_{$i}", $lambda, $lambda->params);
         }
 
-        return new Program($this->instructions, $local_names, array_keys($this->global_addresses), $arities, $this->lambdas);
+        return new Program($this->instructions, $local_names, array_keys($this->global_addresses), $arities, $this->lambdas, $this->classes);
+    }
+
+    /**
+     * Emit the code that makes a new object of a class, under LABEL NEW_Class
+     *
+     * Its frame holds the constructor's arguments and its receiver is the new object: it sets
+     * the field defaults, the parent's first, runs the constructor with the same arguments,
+     * and returns the object. Field defaults use no local variables (the parser checks), so
+     * the arguments are all the frame holds.
+     *
+     * @param  ClassDeclarationAST  $class  The resolved class
+     * @return list<string> The variable name in each slot of the frame: none
+     */
+    private function compileInitialiser(ClassDeclarationAST $class): array
+    {
+        $this->var_addresses = [];
+        $this->captures = [];
+        [$this->file, $this->line] = [$class->file, $class->line];
+
+        $this->emit('LABEL', "NEW_{$class->name}");
+        foreach ($class->layout as $field => $declarer) {
+            $default = $this->classes[$declarer]->fields[$field];
+            if ($default !== null) {
+                $this->visit($default);
+                $this->emit('SET_FIELD', $field);
+                $this->emit('POP');
+            }
+        }
+        if (isset($class->members['_'])) {
+            $this->emit('CALL_CONSTRUCTOR', $class->members['_']);
+            $this->emit('POP');
+        }
+        $this->emit('LOAD_THIS');
+        $this->emit('RET');
+
+        return [];
     }
 
     /**

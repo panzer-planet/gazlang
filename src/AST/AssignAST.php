@@ -10,7 +10,7 @@ use GazLang\Lexer\Token;
 class AssignAST extends AST
 {
     /**
-     * @var VariableAST|IndexAST The variable, or indexed element of a variable, being assigned to
+     * @var VariableAST|IndexAST|PropertyAST The variable, element or field being assigned to
      */
     public $left;
 
@@ -27,11 +27,11 @@ class AssignAST extends AST
     /**
      * Constructor
      *
-     * @param  VariableAST|IndexAST  $left  The variable, or indexed element of a variable, being assigned to
+     * @param  VariableAST|IndexAST|PropertyAST  $left  The variable, element or field being assigned to
      * @param  Token  $token  The assignment token
      * @param  object  $right  The expression being assigned
      */
-    public function __construct(VariableAST|IndexAST $left, Token $token, $right)
+    public function __construct(VariableAST|IndexAST|PropertyAST $left, Token $token, $right)
     {
         $this->left = $left;
         $this->token = $token;

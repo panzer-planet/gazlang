@@ -10,7 +10,8 @@ use GazLang\Lexer\Token;
  * GazLang's value semantics: truthiness, printing, array keys, operators and indexing
  *
  * Values are plain PHP values: int, float (always finite), string, bool, null and array (a
- * GazLang list, always a PHP list), plus MapValue for a map and FunctionValue for a function. Everything here is a
+ * GazLang list, always a PHP list), plus MapValue for a map, FunctionValue for a function,
+ * ClassValue for a class and ObjectValue for an object. Everything here is a
  * pure function of values, so any backend that runs GazLang (the interpreter now, a VM
  * later) gets identical behaviour. Errors are plain Exceptions; the interpreter adds
  * the source location.
@@ -24,10 +25,15 @@ final class Values
     public const MAX_CALL_DEPTH = 10000;
 
     /**
+     * @var array<int, true> The objects being printed by toString(), by object id, so one that holds itself prints as Name {...}
+     */
+    private static $printing = [];
+
+    /**
      * The name of a value's type, as type_of() reports it and errors describe it
      *
      * @param  mixed  $value  The value
-     * @return string int, float, string, bool, null, list, map or function
+     * @return string int, float, string, bool, null, list, map, function, class or object
      */
     public static function typeOf($value): string
     {
@@ -35,6 +41,8 @@ final class Values
             is_array($value) => 'list',
             $value instanceof MapValue => 'map',
             $value instanceof FunctionValue => 'function',
+            $value instanceof ObjectValue => 'object',
+            $value instanceof ClassValue => 'class',
             default => get_debug_type($value),
         };
     }
@@ -42,7 +50,7 @@ final class Values
     /**
      * Decide whether a value counts as true in conditions and logical operators
      *
-     * Strings, lists and maps are true unless empty, null is false, functions are true; everything
+     * Strings, lists and maps are true unless empty, null is false, functions, classes and objects are true; everything
      * else is C-like, true unless 0.
      *
      * @param  mixed  $value  The value to test
@@ -91,9 +99,42 @@ final class Values
             }
 
             return '{'.implode(', ', $parts).'}';
+        } elseif ($value instanceof ObjectValue) {
+            return self::describeObject($value);
+        } elseif ($value instanceof ClassValue) {
+            return "class {$value->name}";
         }
 
         throw new Exception('Cannot convert '.self::typeOf($value).' to string');
+    }
+
+    /**
+     * An object printed as its class and the fields that are set: Account {#owner => "Werner", #balance => 75}
+     *
+     * Objects are handles, so one can hold itself; while it is being printed it prints as Account {...}.
+     *
+     * @param  ObjectValue  $object  The object
+     */
+    private static function describeObject(ObjectValue $object): string
+    {
+        $id = spl_object_id($object);
+        if (isset(self::$printing[$id])) {
+            return "{$object->class->name} {...}";
+        }
+
+        self::$printing[$id] = true;
+        try {
+            $parts = [];
+            foreach ($object->class->fields as $field => $_) {
+                if (array_key_exists($field, $object->fields)) {
+                    $parts[] = "#{$field} => ".self::literal($object->fields[$field]);
+                }
+            }
+        } finally {
+            unset(self::$printing[$id]);
+        }
+
+        return "{$object->class->name} {".implode(', ', $parts).'}';
     }
 
     /**
@@ -190,7 +231,8 @@ final class Values
      * see compare()). Strings compare byte by byte, so "1" != "01", and a string never
      * equals a number or a bool. Lists are equal when their elements are equal in order by
      * this rule, maps when they have the same keys (in any order) with equal values. A list
-     * never equals a map, even when both are empty. A function is equal only to itself.
+     * never equals a map, even when both are empty. A function, class or object is equal only to
+     * itself, except that two bound methods are equal when they bind the same method to the same object.
      *
      * @param  mixed  $left  One value
      * @param  mixed  $right  The other
@@ -230,6 +272,10 @@ final class Values
 
         if ((is_int($left) || is_float($left)) && (is_int($right) || is_float($right))) {
             return self::compare($left, $right) === 0;
+        }
+
+        if ($left instanceof FunctionValue && $right instanceof FunctionValue && $left->class !== null) {
+            return $left->receiver === $right->receiver && $left->class === $right->class && $left->name === $right->name;
         }
 
         return false;
@@ -354,6 +400,62 @@ final class Values
         }
 
         throw new Exception('Cannot use [] on '.self::typeOf($target));
+    }
+
+    /**
+     * Read a member of an object: a field's value, or a method bound to the object
+     *
+     * A declared field that was never set is an error, unless $quiet (the left side of ??),
+     * which reads it as null. A name the class doesn't declare is always an error, and so is
+     * the constructor _, which only runs by constructing (or as ##_ in a child's constructor).
+     *
+     * @param  mixed  $target  The object
+     * @param  string  $name  The member name
+     * @param  bool  $quiet  Whether a field that isn't set reads as null instead of an error
+     *
+     * @throws Exception If the target isn't an object, or the member isn't there
+     */
+    public static function property($target, string $name, bool $quiet = false)
+    {
+        if (! $target instanceof ObjectValue) {
+            throw new Exception('Cannot use . on '.self::typeOf($target));
+        }
+        if (array_key_exists($name, $target->fields)) {
+            return $target->fields[$name];
+        }
+        $class = $target->class;
+        if (isset($class->fields[$name])) {
+            return $quiet ? null : throw self::propertyNotSet($target, $name);
+        }
+        if (isset($class->methods[$name]) && $name !== '_') {
+            return FunctionValue::bound($target, $class->methods[$name], $name);
+        }
+
+        throw self::undefinedMember($class, $name);
+    }
+
+    /**
+     * The error for reading a declared field that was never set
+     *
+     * @param  ObjectValue  $object  The object
+     * @param  string  $name  The field name
+     */
+    public static function propertyNotSet(ObjectValue $object, string $name): Exception
+    {
+        return new Exception("Property {$name} of {$object->class->name} is not set");
+    }
+
+    /**
+     * The error for a member a class doesn't have, or the constructor used as a member
+     *
+     * @param  ClassValue  $class  The class
+     * @param  string  $name  The member name
+     */
+    public static function undefinedMember(ClassValue $class, string $name): Exception
+    {
+        return new Exception($name === '_' && isset($class->methods['_'])
+            ? "Cannot use the constructor of {$class->name} as a member"
+            : "{$class->name} has no member {$name}");
     }
 
     /**

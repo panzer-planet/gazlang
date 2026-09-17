@@ -74,11 +74,11 @@ final class Builtins
      *
      * The parser uses this for calls by name and both backends for calls on function values.
      *
-     * @param  string  $name  The function name
+     * @param  string  $what  What is called, as the message starts: "Function add", "Method Point.area", "Class Point"
      * @param  int|array{0: int, 1: int}  $arity  A count, or [fewest, most]
      * @param  int  $argc  How many arguments were passed
      */
-    public static function arityError(string $name, int|array $arity, int $argc): ?string
+    public static function arityError(string $what, int|array $arity, int $argc): ?string
     {
         if (self::fitsArity($arity, $argc)) {
             return null;
@@ -86,7 +86,7 @@ final class Builtins
         [$fewest, $most] = is_int($arity) ? [$arity, $arity] : $arity;
         $expected = $fewest === $most ? $fewest : "{$fewest} to {$most}";
 
-        return "Function {$name} expects {$expected} arguments, {$argc} given";
+        return "{$what} expects {$expected} arguments, {$argc} given";
     }
 
     /**

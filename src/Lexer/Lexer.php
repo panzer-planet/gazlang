@@ -74,9 +74,9 @@ class Lexer
     ];
 
     /**
-     * @var array Keywords in the language
+     * Keywords, lowercase, mapped to their token types; any capitalisation of one is the keyword
      */
-    private $reserved_keywords = [
+    public const KEYWORDS = [
         'echo' => 'ECHO',
         'if' => 'IF',
         'else' => 'ELSE',
@@ -641,7 +641,7 @@ class Lexer
     {
         $result = $this->read_word();
 
-        return new Token($this->reserved_keywords[strtolower($result)] ?? Token::IDENTIFIER, $result);
+        return new Token(self::KEYWORDS[strtolower($result)] ?? Token::IDENTIFIER, $result);
     }
 
     /**

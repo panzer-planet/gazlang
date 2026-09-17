@@ -8,9 +8,11 @@ use GazLang\CodeGenerator\Program;
 use GazLang\GazLangError;
 use GazLang\Lexer\Token;
 use GazLang\Runtime\Builtins;
+use GazLang\Runtime\ClassValue;
 use GazLang\Runtime\ExitSignal;
 use GazLang\Runtime\FunctionValue;
 use GazLang\Runtime\MapValue;
+use GazLang\Runtime\ObjectValue;
 use GazLang\Runtime\Values;
 
 /**
@@ -78,7 +80,7 @@ final class VM
      */
     public function run(): void
     {
-        [$ops, $arg0, $arg1, $arg2, $locations, $functions, $lambdas] = $this->link();
+        [$ops, $arg0, $arg1, $arg2, $locations, $functions, $lambdas, $classes, $initialisers, $methods] = $this->link();
         $end = count($ops);
         $tokens = [];
         foreach (self::BINARY as $opcode => [$type, $symbol]) {
@@ -98,7 +100,9 @@ final class VM
         $argc = 0;
         // The closure whose call is running, or null
         $closure = null;
-        // Callers' state, innermost last: [locals, return pc, function, argc, closure]
+        // The object # is, in a method or a closure made in one, or null
+        $receiver = null;
+        // Callers' state, innermost last: [locals, return pc, function, argc, closure, receiver]
         $frames = [];
         // Installed try handlers, innermost last: [frame count, stack size, catch pc]
         $handlers = [];
@@ -354,10 +358,11 @@ final class VM
                             if (count($frames) === Values::MAX_CALL_DEPTH) {
                                 throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$arg2[$pc - 1]}");
                             }
-                            $frames[] = [$locals, $pc, $function, $argc, $closure];
+                            $frames[] = [$locals, $pc, $function, $argc, $closure, $receiver];
                             $argc = $arg1[$pc - 1];
                             $locals = $this->popMany($stack, $argc);
                             $closure = null;
+                            $receiver = null;
                             $function = $arg2[$pc - 1];
                             $pc = $arg0[$pc - 1];
                             break;
@@ -379,7 +384,7 @@ final class VM
                                     $captured[$inner] = $locals[$outer];
                                 }
                             }
-                            $made = FunctionValue::closure($lambda, $captured, $index);
+                            $made = FunctionValue::closure($lambda, $captured, $index, $receiver);
                             // $f = <lambda>: the closure's $f is the closure
                             if ($lambda->self !== null) {
                                 $made->captured[$lambda->capture_names[$lambda->self]] = $made;
@@ -387,17 +392,95 @@ final class VM
                             $stack[] = $made;
                             unset($made, $captured);
                             break;
+                        case 'LOAD_THIS':
+                            $stack[] = $receiver;
+                            break;
+                        case 'GET_PROPERTY':
+                            $target = array_pop($stack);
+                            $stack[] = Values::property($target, $arg0[$pc - 1]);
+                            break;
+                        case 'SET_FIELD':
+                            $receiver->fields[$arg0[$pc - 1]] = $stack[array_key_last($stack)];
+                            break;
+                        case 'GET_METHOD':
+                            $target = array_pop($stack);
+                            $name = $arg0[$pc - 1];
+                            if ($target instanceof ObjectValue && isset($target->class->methods[$name]) && $name !== '_') {
+                                $stack[] = $target;
+                                $stack[] = $target->class->methods[$name];
+                            } else {
+                                $stack[] = Values::property($target, $name);
+                                $stack[] = null;
+                            }
+                            break;
+                        case 'CALL_METHOD':
+                            $args = $this->popMany($stack, $arg0[$pc - 1]);
+                            $definer = array_pop($stack);
+                            $callee = array_pop($stack);
+                            if ($definer === null) {
+                                // A field holding a function, or whatever else the member was
+                                goto call_value;
+                            }
+                            $name = $arg1[$pc - 1];
+                            [$entry, $arity] = $methods["{$definer->name}.{$name}"];
+                            if (! Builtins::fitsArity($arity, count($args))) {
+                                throw new Exception(Builtins::arityError("Method {$definer->name}.{$name}", $arity, count($args)));
+                            }
+                            if (count($frames) === Values::MAX_CALL_DEPTH) {
+                                throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$definer->name}.{$name}");
+                            }
+                            $frames[] = [$locals, $pc, $function, $argc, $closure, $receiver];
+                            [$locals, $argc, $function, $closure, $receiver, $pc] = [$args, count($args), "{$definer->name}.{$name}", null, $callee, $entry];
+                            break;
+                        case 'NEW':
+                            $args = $this->popMany($stack, $arg1[$pc - 1]);
+                            $callee = $classes[$arg0[$pc - 1]];
+                            goto construct;
+                        case 'CALL_CONSTRUCTOR':
+                            // The constructor runs with the arguments the object's initialiser was given
+                            if (count($frames) === Values::MAX_CALL_DEPTH) {
+                                throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$arg0[$pc - 1]}._");
+                            }
+                            $frames[] = [$locals, $pc, $function, $argc, $closure, $receiver];
+                            $function = "{$arg0[$pc - 1]}._";
+                            $pc = $methods[$function][0];
+                            break;
+                        case 'PUSH_CLASS':
+                            $stack[] = $classes[$arg0[$pc - 1]];
+                            break;
                         case 'CALL_VALUE':
                             $args = $this->popMany($stack, $arg0[$pc - 1]);
                             $callee = array_pop($stack);
+                            call_value:
+                            if ($callee instanceof ClassValue) {
+                                if ($callee->isAbstract()) {
+                                    throw new Exception("Cannot construct abstract class {$callee->name}");
+                                }
+                                if (! Builtins::fitsArity($callee->arity, count($args))) {
+                                    throw new Exception(Builtins::arityError("Class {$callee->name}", $callee->arity, count($args)));
+                                }
+                                construct:
+                                // One frame sets the field defaults and runs the constructor, with the object as receiver
+                                if (count($frames) === Values::MAX_CALL_DEPTH) {
+                                    throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$callee->name}");
+                                }
+                                $frames[] = [$locals, $pc, $function, $argc, $closure, $receiver];
+                                [$locals, $argc, $function, $closure, $receiver, $pc] = [$args, count($args), "new {$callee->name}", null, new ObjectValue($callee), $initialisers[$callee->name]];
+                                break;
+                            }
                             if (! $callee instanceof FunctionValue) {
                                 throw new Exception('Cannot call '.Values::typeOf($callee));
                             }
                             $name = $callee->name;
-                            $builtin = $name !== null && isset(Builtins::ARITIES[$name]);
-                            $arity = $name === null ? $callee->lambda->arity : ($builtin ? Builtins::ARITIES[$name] : $functions[$name][1]);
+                            $builtin = $name !== null && $callee->class === null && isset(Builtins::ARITIES[$name]);
+                            $arity = match (true) {
+                                $name === null => $callee->lambda->arity,
+                                $callee->class !== null => $methods["{$callee->class->name}.{$name}"][1],
+                                $builtin => Builtins::ARITIES[$name],
+                                default => $functions[$name][1],
+                            };
                             if (! Builtins::fitsArity($arity, count($args))) {
-                                throw new Exception(Builtins::arityError($callee->describe(), $arity, count($args)));
+                                throw new Exception(Builtins::arityError($callee->title(), $arity, count($args)));
                             }
                             if ($builtin) {
                                 $stack[] = $this->builtins->call($name, $args);
@@ -408,16 +491,19 @@ final class VM
                             if (count($frames) === Values::MAX_CALL_DEPTH) {
                                 throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH.' exceeded calling '.$callee->describe());
                             }
-                            $frames[] = [$locals, $pc, $function, $argc, $closure];
+                            $frames[] = [$locals, $pc, $function, $argc, $closure, $receiver];
                             $argc = count($args);
+                            $locals = $args;
                             $closure = $name === null ? $callee : null;
+                            $receiver = $callee->receiver;
                             if ($name === null) {
-                                $locals = $args;
                                 // Keyed so no function name can collide: names can't contain ->
                                 $function = "->{$callee->index}";
                                 $pc = $lambdas[$callee->index][0];
+                            } elseif ($callee->class !== null) {
+                                $function = "{$callee->class->name}.{$name}";
+                                $pc = $methods[$function][0];
                             } else {
-                                $locals = $args;
                                 $function = $name;
                                 $pc = $functions[$name][0];
                             }
@@ -430,7 +516,7 @@ final class VM
                             while ($handlers !== [] && $handlers[array_key_last($handlers)][0] === count($frames)) {
                                 array_pop($handlers);
                             }
-                            [$locals, $pc, $function, $argc, $closure] = array_pop($frames);
+                            [$locals, $pc, $function, $argc, $closure, $receiver] = array_pop($frames);
                             break;
                         case 'CALL_BUILTIN':
                             $name = $arg0[$pc - 1];
@@ -493,7 +579,7 @@ final class VM
                 // the failed expression left on the stack, then run its catch block
                 [$frame_count, $stack_size, $catch_pc] = array_pop($handlers);
                 while (count($frames) > $frame_count) {
-                    [$locals, , $function, $argc, $closure] = array_pop($frames);
+                    [$locals, , $function, $argc, $closure, $receiver] = array_pop($frames);
                 }
                 array_splice($stack, $stack_size);
                 $stack[] = $error->toMap();
@@ -514,8 +600,11 @@ final class VM
      *   [file, line] into $locations, only read when there is an error.
      * - Each user function's entry position and arity go into $functions, for CALL_VALUE, and
      *   each lambda's entry position, node and capture map into $lambdas.
+     * - The classes are built as values into $classes, with the entry of the code that makes
+     *   each one's objects in $initialisers and each method's entry and arity in $methods,
+     *   keyed "Class.name".
      *
-     * @return array{0: list<string>, 1: list<mixed>, 2: list<mixed>, 3: list<mixed>, 4: list<array{0: string|null, 1: int|null}>, 5: array<string, array{0: int, 1: int|array{0: int, 1: int}}>, 6: list<array{0: int, 1: LambdaAST, 2: list<array{0: bool, 1: int, 2: int}>}>}
+     * @return array{0: list<string>, 1: list<mixed>, 2: list<mixed>, 3: list<mixed>, 4: list<array{0: string|null, 1: int|null}>, 5: array<string, array{0: int, 1: int|array{0: int, 1: int}}>, 6: list<array{0: int, 1: LambdaAST, 2: list<array{0: bool, 1: int, 2: int}>}>, 7: array<string, ClassValue>, 8: array<string, int>, 9: array<string, array{0: int, 1: int|array{0: int, 1: int}}>}
      */
     private function link(): array
     {
@@ -563,8 +652,19 @@ final class VM
         foreach ($this->program->lambdas as $index => [$lambda, $map]) {
             $lambdas[$index] = [$positions["LAMBDA_{$index}"], $lambda, $map];
         }
+        $classes = ClassValue::build($this->program->classes);
+        $initialisers = [];
+        $methods = [];
+        foreach ($this->program->classes as $name => $class) {
+            $initialisers[$name] = $positions["NEW_{$name}"];
+            foreach ($class->methods as $method) {
+                if (! $method->abstract) {
+                    $methods["{$name}.{$method->name}"] = [$positions["METHOD_{$name}.{$method->name}"], $method->arity];
+                }
+            }
+        }
 
-        return [$ops, $arg0, $arg1, $arg2, $locations, $functions, $lambdas];
+        return [$ops, $arg0, $arg1, $arg2, $locations, $functions, $lambdas, $classes, $initialisers, $methods];
     }
 
     /**

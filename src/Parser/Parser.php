@@ -9,6 +9,7 @@ use GazLang\AST\AST;
 use GazLang\AST\BinOpAST;
 use GazLang\AST\BooleanAST;
 use GazLang\AST\CallValueAST;
+use GazLang\AST\ClassDeclarationAST;
 use GazLang\AST\CompoundAST;
 use GazLang\AST\EchoStatementAST;
 use GazLang\AST\ForeachStatementAST;
@@ -20,12 +21,15 @@ use GazLang\AST\IncrementAST;
 use GazLang\AST\IndexAST;
 use GazLang\AST\LambdaAST;
 use GazLang\AST\LoopControlAST;
+use GazLang\AST\MethodCallAST;
 use GazLang\AST\NullAST;
 use GazLang\AST\NumAST;
+use GazLang\AST\PropertyAST;
 use GazLang\AST\ReturnStatementAST;
 use GazLang\AST\StatementAST;
 use GazLang\AST\StringAST;
 use GazLang\AST\TernaryAST;
+use GazLang\AST\ThisAST;
 use GazLang\AST\TryStatementAST;
 use GazLang\AST\UnaryOpAST;
 use GazLang\AST\VariableAST;
@@ -52,7 +56,7 @@ class Parser
      * Keywords reserved for features that don't exist yet, so adding them never breaks a program
      */
     private const RESERVED = [
-        Token::CLASS_KEYWORD => true, Token::EXTENDS => true, Token::ABSTRACT => true,
+        Token::EXTENDS => true, Token::ABSTRACT => true,
         Token::INTERFACE => true, Token::IMPLEMENTS => true, Token::FINAL => true,
         Token::PUBLIC => true, Token::PRIVATE => true, Token::PROTECTED => true,
     ];
@@ -97,6 +101,28 @@ class Parser
      * @var bool Whether a function body is being parsed, so return can be checked
      */
     private $in_function = false;
+
+    /**
+     * @var bool Whether a constructor's body is being parsed, where return can't give a value
+     */
+    private $in_constructor = false;
+
+    /**
+     * @var ClassDeclarationAST|null The class whose body is being parsed, where # can be used
+     */
+    private $class = null;
+
+    /**
+     * @var array<string, ClassDeclarationAST> Declared classes by name, resolved once the whole program is read
+     */
+    private $classes = [];
+
+    /**
+     * @var array<int, array{0: PropertyAST, 1: ClassDeclarationAST, 2: int|null, 3: bool}> Every #name, by node id, with
+     *                                                                                      its class, the argument count if it is called and
+     *                                                                                      whether it is assigned to, checked once the classes are resolved
+     */
+    private $member_uses = [];
 
     /**
      * @var array<string, int|array{0: int, 1: int}> Declared function names mapped to their parameter
@@ -349,12 +375,8 @@ class Parser
             return $this->parenthesised();
         } elseif ($token->type === Token::VAR_IDENTIFIER || $token->type === Token::GLOBAL_VAR_IDENTIFIER) {
             return $this->variable();
-        } elseif ($token->type === Token::HASH) {
-            $this->eat(Token::HASH);
-            if ($this->current_token->type === Token::PROPERTY) {
-                $this->fail('Write #'.substr($this->current_token->value, 1).', not #'.$this->current_token->value);
-            }
-            $this->current_token = $token;
+        } elseif ($token->type === Token::HASH || $token->type === Token::HASH_IDENTIFIER) {
+            return $this->this_member();
         } elseif ($token->type === Token::PARENT) {
             $this->fail("## alone is not allowed: write ##name for the parent's version of a method");
         } elseif (isset(self::RESERVED[$token->type])) {
@@ -362,6 +384,42 @@ class Parser
         }
 
         $this->error();
+    }
+
+    /**
+     * Parse # (the object a method runs on) or #name (its member)
+     *
+     * Only inside a class: in a method, a field default, or a lambda in either. Whether the
+     * class has the member is checked once the whole program is read.
+     *
+     * @return ThisAST|PropertyAST
+     *
+     * @throws GazLangError
+     */
+    private function this_member()
+    {
+        $token = $this->current_token;
+        if ($this->class === null) {
+            $this->fail("Cannot use {$token->value} outside a method");
+        }
+        $this->eat($token->type);
+        if ($token->type === Token::HASH && $this->current_token->type === Token::PROPERTY) {
+            $this->fail('Write #'.substr($this->current_token->value, 1).', not #'.$this->current_token->value);
+        }
+
+        $this_node = $this->at(new ThisAST, $token);
+        if ($token->type === Token::HASH) {
+            return $this_node;
+        }
+
+        $name = substr($token->value, 1);
+        if ($name === '_') {
+            $this->fail('Cannot use the constructor _ as a member: construct with '.$this->class->name."(...), or call ##_(...) in a child's constructor");
+        }
+        $node = $this->at(new PropertyAST($this_node, $name), $token);
+        $this->member_uses[spl_object_id($node)] = [$node, $this->class, null, false];
+
+        return $node;
     }
 
     /**
@@ -453,12 +511,12 @@ class Parser
         $this->eat(Token::ARROW);
 
         if ($this->current_token->type === Token::LEFT_BRACE) {
-            [$in_function, $loop_depth] = [$this->in_function, $this->loop_depth];
-            [$this->in_function, $this->loop_depth] = [true, 0];
+            [$in_function, $loop_depth, $in_constructor] = [$this->in_function, $this->loop_depth, $this->in_constructor];
+            [$this->in_function, $this->loop_depth, $this->in_constructor] = [true, 0, false];
             try {
                 $body = $this->block();
             } finally {
-                [$this->in_function, $this->loop_depth] = [$in_function, $loop_depth];
+                [$this->in_function, $this->loop_depth, $this->in_constructor] = [$in_function, $loop_depth, $in_constructor];
             }
         } else {
             $body = $this->expr();
@@ -671,7 +729,7 @@ class Parser
     }
 
     /**
-     * Parse a postfix expression (primary (LBRACKET [expr] RBRACKET | arguments)* [INCREMENT | DECREMENT])
+     * Parse a postfix expression (primary (LBRACKET [expr] RBRACKET | arguments | PROPERTY)* [INCREMENT | DECREMENT])
      *
      * Empty brackets ($a[] = ...) append, so they are only allowed directly before an assignment.
      *
@@ -683,8 +741,27 @@ class Parser
     {
         $node = $this->primary();
 
-        while ($this->current_token->type === Token::LEFT_BRACKET || $this->current_token->type === Token::LEFT_PAREN) {
+        while (in_array($this->current_token->type, [Token::LEFT_BRACKET, Token::LEFT_PAREN, Token::PROPERTY], true)) {
+            if ($this->current_token->type === Token::PROPERTY) {
+                // $user.name: which members the object has is only known when it runs
+                $token = $this->current_token;
+                $this->eat(Token::PROPERTY);
+                $node = $this->at(new PropertyAST($node, substr($token->value, 1)), $token);
+
+                continue;
+            }
             if ($this->current_token->type === Token::LEFT_PAREN) {
+                if ($node instanceof PropertyAST) {
+                    // #save($x): calling a member, located at its name like reading it
+                    $call = new MethodCallAST($node, $this->arguments());
+                    [$call->line, $call->file] = [$node->line, $node->file];
+                    if (isset($this->member_uses[spl_object_id($node)])) {
+                        $this->member_uses[spl_object_id($node)][2] = count($call->args);
+                    }
+                    $node = $call;
+
+                    continue;
+                }
                 // A call on a value: $f(1), $h["save"]($doc), pick()(2), (add)(1), located at its (
                 $paren = $this->current_token;
                 $node = $this->at(new CallValueAST($node, $this->arguments()), $paren);
@@ -927,16 +1004,24 @@ class Parser
     }
 
     /**
-     * Check a node can be assigned to: a variable, or an element of one
+     * Check a node can be assigned to: a variable, an element of one, or a field (#name)
      *
      * @param  AST  $node  The node
      * @param  Token  $operator  The assignment or ++/-- token, for the error message
-     * @return VariableAST|IndexAST The node
+     * @return VariableAST|IndexAST|PropertyAST The node
      *
      * @throws GazLangError If it can't be assigned to
      */
-    private function assignable(AST $node, Token $operator): VariableAST|IndexAST
+    private function assignable(AST $node, Token $operator): VariableAST|IndexAST|PropertyAST
     {
+        if ($node instanceof PropertyAST && $node->target instanceof ThisAST) {
+            if ($operator->type !== Token::ASSIGN) {
+                $this->fail("Cannot use {$operator->value} on a field yet");
+            }
+            $this->member_uses[spl_object_id($node)][3] = true;
+
+            return $node;
+        }
         if (! $node instanceof VariableAST && ! ($node instanceof IndexAST && $node->rootVariable() !== null)) {
             $this->fail("Can only use {$operator->value} on a variable or an element of one");
         }
@@ -1181,6 +1266,8 @@ class Parser
             return $this->return_statement();
         } elseif ($this->current_token->type === Token::FN) {
             $this->fail('Functions can only be declared at the top level');
+        } elseif ($this->current_token->type === Token::CLASS_KEYWORD) {
+            $this->fail('Classes can only be declared at the top level');
         } elseif ($this->current_token->type === Token::FUNCTION) {
             $this->fail('Declare functions with fn, not function');
         } elseif ($this->current_token->type === Token::INCLUDE) {
@@ -1209,6 +1296,9 @@ class Parser
 
         $start = $this->current_token;
         $this->eat(Token::RETURN);
+        if ($this->in_constructor && $this->current_token->type !== Token::SEMICOLON) {
+            $this->fail("A constructor can't return a value: constructing gives the object");
+        }
         $expr = $this->current_token->type === Token::SEMICOLON ? null : $this->expr();
         $this->eat(Token::SEMICOLON);
 
@@ -1231,11 +1321,49 @@ class Parser
         $start = $this->current_token;
         $this->eat(Token::FN);
         $name = $this->current_token->value;
-        if (isset($this->functions[$name])) {
-            $this->fail(isset(Builtins::ARITIES[$name]) ? "{$name} is a builtin function" : "Function {$name} is already declared");
-        }
+        $this->check_new_name($name);
         $this->eat(Token::IDENTIFIER);
 
+        [$params, $defaults] = $this->parameters("function {$name}");
+        // Declared before the body is parsed, so the function can call itself
+        $arity = self::arity($params, $defaults);
+        $this->functions[$name] = $arity;
+
+        $this->in_function = true;
+        $body = $this->block();
+        $this->in_function = false;
+
+        return $this->at(new FunctionDeclarationAST($name, $params, $defaults, $body, $arity), $start);
+    }
+
+    /**
+     * Check a function or class name isn't taken: functions, classes and builtins share one namespace
+     *
+     * @param  string  $name  The name being declared
+     *
+     * @throws GazLangError If it is taken
+     */
+    private function check_new_name(string $name): void
+    {
+        if (isset(Builtins::ARITIES[$name])) {
+            $this->fail("{$name} is a builtin function");
+        } elseif (isset($this->functions[$name])) {
+            $this->fail("Function {$name} is already declared");
+        } elseif (isset($this->classes[$name])) {
+            $this->fail("Class {$name} is already declared");
+        }
+    }
+
+    /**
+     * Parse a function or method's parameter list (LPAREN [param (COMMA param)*] RPAREN), param: VAR_IDENTIFIER [ASSIGN expr]
+     *
+     * @param  string  $owner  What the parameters belong to, for errors: "function f", "method Point.move"
+     * @return array{0: string[], 1: array<int, AST|null>} The names, and each one's default or null
+     *
+     * @throws GazLangError On a duplicate name or a required parameter after one with a default
+     */
+    private function parameters(string $owner): array
+    {
         $this->eat(Token::LEFT_PAREN);
         $params = [];
         $defaults = [];
@@ -1245,7 +1373,7 @@ class Parser
             }
             $param = $this->current_token->value;
             if (in_array($param, $params, true)) {
-                $this->fail("Duplicate parameter {$param} in function {$name}");
+                $this->fail("Duplicate parameter {$param} in {$owner}");
             }
             $this->eat(Token::VAR_IDENTIFIER);
 
@@ -1261,15 +1389,127 @@ class Parser
         }
         $this->eat(Token::RIGHT_PAREN);
 
-        // Declared before the body is parsed, so the function can call itself
-        $arity = self::arity($params, $defaults);
-        $this->functions[$name] = $arity;
+        return [$params, $defaults];
+    }
 
-        $this->in_function = true;
-        $body = $this->block();
-        $this->in_function = false;
+    /**
+     * Parse a class declaration (CLASS IDENTIFIER LBRACE (field | method)* RBRACE),
+     * field: HASH_IDENTIFIER [ASSIGN expr] SEMICOLON, method: FN name parameters block
+     *
+     * Only at the top level. A field's default is evaluated for each new object, with #
+     * being that object and no local variables. Methods may be named with any word,
+     * keywords included, since they are always reached through # or a dot.
+     *
+     * @return ClassDeclarationAST
+     *
+     * @throws Exception
+     */
+    public function class_declaration()
+    {
+        $start = $this->current_token;
+        $this->eat(Token::CLASS_KEYWORD);
+        $name = $this->current_token->value;
+        $this->check_new_name($name);
+        $this->eat(Token::IDENTIFIER);
 
-        return $this->at(new FunctionDeclarationAST($name, $params, $defaults, $body, $arity), $start);
+        $class = $this->at(new ClassDeclarationAST($name, null, false), $start);
+        $this->classes[$name] = $class;
+        $this->eat(Token::LEFT_BRACE);
+        $this->class = $class;
+        try {
+            while ($this->current_token->type !== Token::RIGHT_BRACE) {
+                if ($this->current_token->type === Token::HASH_IDENTIFIER) {
+                    $this->field_declaration($class);
+                } elseif ($this->current_token->type === Token::FN) {
+                    $this->method_declaration($class);
+                } else {
+                    $this->fail('Expected a field (#name) or a method (fn) but found '.$this->describe($this->current_token));
+                }
+            }
+        } finally {
+            $this->class = null;
+        }
+        $this->eat(Token::RIGHT_BRACE);
+
+        return $class;
+    }
+
+    /**
+     * Parse a field declaration (HASH_IDENTIFIER [ASSIGN expr] SEMICOLON) into its class
+     *
+     * @param  ClassDeclarationAST  $class  The class being declared
+     *
+     * @throws Exception
+     */
+    private function field_declaration(ClassDeclarationAST $class): void
+    {
+        $token = $this->current_token;
+        $name = substr($token->value, 1);
+        $this->check_new_member($class, $name);
+        $this->eat(Token::HASH_IDENTIFIER);
+
+        $default = null;
+        if ($this->current_token->type === Token::ASSIGN) {
+            $this->eat(Token::ASSIGN);
+            $default = $this->expr();
+            $used = [];
+            $assigned = [];
+            self::collect_variables($default, $used, $assigned);
+            if ($used !== []) {
+                throw new GazLangError("The default of #{$name} can't use ".array_key_first($used).': fields have no local variables', $this->file, $token->line);
+            }
+        }
+        $this->eat(Token::SEMICOLON);
+
+        $class->fields[$name] = $default;
+        $class->field_lines[$name] = $token->line;
+    }
+
+    /**
+     * Parse a method declaration (FN name parameters block) into its class
+     *
+     * @param  ClassDeclarationAST  $class  The class being declared
+     *
+     * @throws Exception
+     */
+    private function method_declaration(ClassDeclarationAST $class): void
+    {
+        $start = $this->current_token;
+        $this->eat(Token::FN);
+        $token = $this->current_token;
+        if ($token->type !== Token::IDENTIFIER && ! in_array($token->type, Lexer::KEYWORDS, true)) {
+            $this->fail('Expected a name but found '.$this->describe($token));
+        }
+        $name = $token->value;
+        $this->check_new_member($class, $name);
+        $this->eat($token->type);
+
+        [$params, $defaults] = $this->parameters("method {$class->name}.{$name}");
+        [$this->in_function, $this->in_constructor] = [true, $name === '_'];
+        try {
+            $body = $this->block();
+        } finally {
+            [$this->in_function, $this->in_constructor] = [false, false];
+        }
+
+        $method = $this->at(new FunctionDeclarationAST($name, $params, $defaults, $body, self::arity($params, $defaults)), $start);
+        $method->class = $class->name;
+        $class->methods[$name] = $method;
+    }
+
+    /**
+     * Check a class doesn't already declare a member: fields and methods share one namespace
+     *
+     * @param  ClassDeclarationAST  $class  The class being declared
+     * @param  string  $name  The member name
+     *
+     * @throws GazLangError If it does
+     */
+    private function check_new_member(ClassDeclarationAST $class, string $name): void
+    {
+        if (array_key_exists($name, $class->fields) || isset($class->methods[$name])) {
+            $this->fail("{$class->name} already has a member {$name}");
+        }
     }
 
     /**
@@ -1305,13 +1545,31 @@ class Parser
         $root = new CompoundAST;
         $root->statements = $this->top_level();
 
+        foreach ($this->classes as $class) {
+            $this->resolve_class($class);
+        }
+
         // In source order, so the first mistake in the program is the one reported
+        foreach ($this->member_uses as [$node, $class, $argc, $assigned]) {
+            $this->check_member_use($node, $class, $argc, $assigned);
+        }
         foreach ($this->uses as $use) {
+            if (isset($this->classes[$use->name])) {
+                $class = $this->classes[$use->name];
+                if ($use instanceof FunctionCallAST) {
+                    $error = Builtins::arityError("Class {$use->name}", self::constructor_arity($class), count($use->args));
+                    if ($error !== null) {
+                        throw new GazLangError($error, $use->file, $use->line);
+                    }
+                }
+
+                continue;
+            }
             if (! isset($this->functions[$use->name])) {
                 throw new GazLangError("Undefined function: {$use->name}", $use->file, $use->line);
             }
             if ($use instanceof FunctionCallAST) {
-                $error = Builtins::arityError($use->name, $this->functions[$use->name], count($use->args));
+                $error = Builtins::arityError("Function {$use->name}", $this->functions[$use->name], count($use->args));
                 if ($error !== null) {
                     throw new GazLangError($error, $use->file, $use->line);
                 }
@@ -1319,6 +1577,80 @@ class Parser
         }
 
         return $root;
+    }
+
+    /**
+     * Work out a class's fields and methods from its own and its parent's, checking they fit together
+     *
+     * Fields and methods share one namespace, a field can't be declared again, and a method
+     * may replace a parent's method but must accept every argument count the parent's accepts
+     * (except the constructor, which each class defines for itself).
+     *
+     * @param  ClassDeclarationAST  $class  The class
+     *
+     * @throws GazLangError If the class doesn't fit its parent
+     */
+    private function resolve_class(ClassDeclarationAST $class): void
+    {
+        if ($class->resolved) {
+            return;
+        }
+
+        foreach ($class->fields as $name => $_) {
+            $class->layout[$name] = $class->name;
+        }
+        foreach ($class->methods as $name => $method) {
+            if ($method->abstract) {
+                $class->abstract_methods[$name] = $class->name;
+            } else {
+                $class->members[$name] = $class->name;
+            }
+        }
+        $class->resolved = true;
+    }
+
+    /**
+     * The number of arguments constructing a resolved class takes: its constructor's, or none
+     *
+     * @param  ClassDeclarationAST  $class  The class
+     * @return int|array{0: int, 1: int}
+     */
+    private function constructor_arity(ClassDeclarationAST $class): int|array
+    {
+        return isset($class->members['_']) ? $this->classes[$class->members['_']]->methods['_']->arity : 0;
+    }
+
+    /**
+     * Check a #name against its class: the member must exist, a method can't be assigned to, and a call must fit its arity
+     *
+     * Called methods are checked against the class the method is written in: a child's
+     * version accepts every argument count this one does.
+     *
+     * @param  PropertyAST  $node  The #name
+     * @param  ClassDeclarationAST  $class  The class it is written in
+     * @param  int|null  $argc  How many arguments it is called with, or null if it isn't called
+     * @param  bool  $assigned  Whether it is assigned to
+     *
+     * @throws GazLangError If the use doesn't fit
+     */
+    private function check_member_use(PropertyAST $node, ClassDeclarationAST $class, ?int $argc, bool $assigned): void
+    {
+        if (isset($class->layout[$node->name])) {
+            return;
+        }
+        $definer = $class->members[$node->name] ?? $class->abstract_methods[$node->name] ?? null;
+        if ($definer === null) {
+            throw new GazLangError("{$class->name} has no member #{$node->name}", $node->file, $node->line);
+        }
+        if ($assigned) {
+            throw new GazLangError("Cannot assign to method #{$node->name}", $node->file, $node->line);
+        }
+        if ($argc !== null) {
+            $error = Builtins::arityError("Method {$definer}.{$node->name}", $this->classes[$definer]->methods[$node->name]->arity, $argc);
+            if ($error !== null) {
+                throw new GazLangError($error, $node->file, $node->line);
+            }
+        }
     }
 
     /**
@@ -1334,6 +1666,8 @@ class Parser
         while ($this->current_token->type !== Token::EOF) {
             if ($this->current_token->type === Token::FN) {
                 $statements[] = $this->function_declaration();
+            } elseif ($this->current_token->type === Token::CLASS_KEYWORD) {
+                $statements[] = $this->class_declaration();
             } elseif ($this->current_token->type === Token::INCLUDE) {
                 array_push($statements, ...$this->include_statement());
             } else {
