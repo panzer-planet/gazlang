@@ -311,8 +311,8 @@ final class Values
     /**
      * Read an element of a list or map, or a character of a string
      *
-     * A list index must be in range and a map key must exist, unless $quiet (the left side of
-     * ??), which reads them as null. A string position out of range is always null.
+     * A list index or string position must be in range and a map key must exist, unless
+     * $quiet (the left side of ??), which reads them as null.
      *
      * @param  mixed  $target  The list, map or string
      * @param  mixed  $index  The index, key or position
@@ -345,7 +345,11 @@ final class Values
                 throw new Exception('String positions must be int, got '.self::typeOf($index));
             }
 
-            return $index >= 0 && $index < strlen($target) ? $target[$index] : null;
+            if ($index >= 0 && $index < strlen($target)) {
+                return $target[$index];
+            }
+
+            return $quiet ? null : throw new Exception("Index out of range: {$index}");
         }
 
         throw new Exception('Cannot use [] on '.self::typeOf($target));

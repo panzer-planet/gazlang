@@ -37,15 +37,15 @@ class ArrayTest extends GazLangTestCase
 
     public function test_indexing_lists_maps_and_strings()
     {
-        $this->assertEquals("2\ny\nb\nnull\n", $this->executeCode(
-            '$a = [1, 2, {"x" => "y"}]; echo $a[1]; echo $a[2]["x"]; echo "abc"[1]; echo "abc"[3];'
+        $this->assertEquals("2\ny\nb\n", $this->executeCode(
+            '$a = [1, 2, {"x" => "y"}]; echo $a[1]; echo $a[2]["x"]; echo "abc"[1];'
         ));
     }
 
     public function test_missing_indexes_and_keys_are_null_only_with_coalesce()
     {
-        $this->assertEquals("list\nmap\nnull\n", $this->executeCode(
-            '$a = [1, {"x" => 1}]; echo $a[9] ?? "list"; echo $a[1]["nope"] ?? "map"; echo [null][0];'
+        $this->assertEquals("list\nmap\nstring\nnull\n", $this->executeCode(
+            '$a = [1, {"x" => 1}]; echo $a[9] ?? "list"; echo $a[1]["nope"] ?? "map"; echo "abc"[-1] ?? "string"; echo [null][0];'
         ));
     }
 
@@ -189,6 +189,8 @@ class ArrayTest extends GazLangTestCase
             'missing int key' => ['$a = {"1" => 1}; echo $a[1];', 'Undefined key: 1'],
             'appending to a map' => ['$a = {}; $a[] = 1;', 'Cannot append to a map'],
             'string position' => ['echo "abc"["1"];', 'String positions must be int, got string'],
+            'string position past the end' => ['echo "abc"[3];', 'Index out of range: 3'],
+            'negative string position' => ['echo "abc"[-1];', 'Index out of range: -1'],
             'undefined variable' => ['$a[0] = 1;', 'Undefined variable: $a'],
             'missing intermediate key' => ['$a = {}; $a["x"]["y"] = 1;', 'Undefined key: "x"'],
             'missing intermediate index' => ['$a = []; $a[0]["y"] = 1;', 'Index out of range: 0'],

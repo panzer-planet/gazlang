@@ -163,8 +163,8 @@ each step depends on the ones before it.
    - `$a[i]` reads (also chained, and on any expression). A list index must be an int
      in range (`Index out of range: 5`, no negative indexes) and a map key must exist
      (`Undefined key: "k"`, strings quoted so `"1"` and `1` differ), unless read on the
-     left of `??`, which gives null. A string position out of range still reads `null`.
-     Strings index by int position to a one character string, read only.
+     left of `??`, which gives null. Strings index the same way, by an int position in
+     range, to a one character string, read only.
    - `$a[k] = v`, `$a[k1][k2] = v` and `$a[] = v` (append, only valid as an
      assignment target) write through a variable (`$` or `@`). Keys are
      evaluated left to right, then the value, and only then is the variable's

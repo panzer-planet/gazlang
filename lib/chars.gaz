@@ -4,7 +4,7 @@
 // Each is_* takes one character. Anything else (an empty or longer string, null, a
 // number) is false rather than an error, so reading past the end of a string is safe.
 
-// The character at position $i of $s, or "" outside it (indexing past the end gives null)
+// The character at position $i of $s, or "" outside it (indexing past the end is an error)
 function char_at($s, $i) {
     if ($i >= 0 && $i < len($s)) {
         return $s[$i];
