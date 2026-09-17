@@ -330,41 +330,102 @@ Design agreed on 2026-09-17, to build in phases (each committed and reviewed):
    `lib/sort.gaz`'s `sort_values` and `sort_by` are wrappers over `sort`, and `examples/csv_report.gaz` sorts with a comparator and folds its
    column widths with `reduce`. Tested by `tests/gaz/lib/functional_test.gaz`.
 
-### Objects (decided 2026-09-17, after function values)
+### Objects (decided 2026-09-17; the class design settled the same day, after closures)
 
-- **Classes are values and constructing is a call:** `class Point { ... }` then
-  `Point(1, 2)`; no `new`. The parser's bare-name check becomes "names a function or
-  class". `type_of` gives `"object"`; `is_a($x, Point)` tests the class.
-- **Fields are declared up front** in the class body (a property must be declared to
-  be read or written; the parser can check `#x` against the declarations). The
-  declaration syntax is still to be chosen; `#x;` is the candidate.
-- **The constructor is the method named `_`:** `fn _($x, $y) { #x = $x; #y = $y; }`.
-- **`#` is the object sigil:** `#name` is exactly `this.name` (same lookup, no
-  visibility, no accessor path); `#save()` calls this object's method; `#` alone is
-  the object itself (PHP `$this`); `#x` outside a method is a parse error, checked the
-  way `return` is. Tentative: `##` for the class of the current object (PHP `self::`),
-  for class-level state like `##created`, which is otherwise `Point.created` through
-  the class value. No fourth sigil.
+Built in two phases, each committed and reviewed: **phase 1** is classes, fields,
+methods, `#` and `##`, `.` access with tagged write paths, bound methods, inheritance,
+`to_string` and `is_a`; **phase 2** is errors (`error()` with any value, `catch (Type $e)`,
+`finally`). Judged by the C VM plan too (roadmap step 7): declared fields and single
+inheritance give every class a fixed layout, so fields are slots and methods a table.
+
+```
+abstract class Shape {
+    #name;
+    fn _($name) { #name = $name; }
+    abstract fn area();
+    fn to_string() { return "{#name} with area {#area()}"; }
+}
+
+class Circle extends Shape {
+    #radius;
+    #history = [];                            // evaluated for each new object
+    fn _($radius) {
+        ##_("circle");                        // the parent's constructor
+        #radius = $radius;
+    }
+    fn area() { return 3.14159 * #radius * #radius; }
+    fn to_string() { return ##to_string() .. " (r = {#radius})"; }
+}
+
+$c = Circle(2);                               // constructing is a call; no new
+echo $c;                                      // circle with area 12.56636 (r = 2)
+echo is_a($c, Shape) .. " " .. $c.radius;     // true 2
+$area = $c.area;                              // a bound method
+```
+
+- **Classes:** `class Name { ... }`, `class B extends A` (single inheritance), `abstract class`
+  (can't be constructed) and `abstract fn name(...);` (a subclass must define it, or be
+  abstract too). Classes are top level only, can be used before they are declared, and
+  share the function namespace (a class and a function can't have the same name).
+  Unknown or circular parents are parse errors.
+- **Classes are values and constructing is a call:** `Point(1, 2)`, `$make = Point;
+  $make(1, 2)`. `type_of(Point)` is `"class"` and `echo Point` prints `class Point`. The
+  parser's bare-name check becomes "names a function or class".
+- **The constructor is the method named `_`,** so `init` stays free for programs. A
+  class without `_` inherits its parent's, or takes no arguments. A child's `_` calls
+  the parent's explicitly with `##_(...)`; nothing runs it automatically.
+- **Fields are declared:** `#x;` or `#x = default;` in the class body. Defaults are
+  evaluated for each new object, like parameter defaults, so a `[]` default is never
+  shared. A child can't redeclare a parent's field. Reading a field that was never set is
+  an error ("Property owner of Account is not set"); `??` reads it as null.
+- **`#` is the object sigil:** `#` alone is the object (`return #;`), `#name` is its field
+  or method (`#save()`), checked against the class and its parents at parse time.
+  `#name` outside a method is a parse error, checked the way `return` is. `#.name` is a
+  parse error that says to write `#name`: one spelling.
+- **`##name` is the parent's version of a method:** `##_(...)` for the constructor,
+  `##to_string()` to extend an override, `##area` alone for a bound method that runs the
+  parent's version. Only methods (fields aren't overridden, so `#field` reaches inherited
+  ones); valid only in a class with a parent that defines the method, checked at parse
+  time. `##` alone is a parse error for now, kept free (the parent class as a value is
+  the candidate meaning).
+- **Members:** fields and methods share one namespace per class. A method may override a
+  parent's method, but must accept every argument count the parent's accepts (PHP's
+  signature compatibility, reduced to arity; checked at parse time). There are no static
+  members, constants or `##`-style class state in the first cut: top-level functions and
+  `@globals` serve.
 - **Objects are handles** (PHP, Python, Ruby, Lua): `$b = $a; $b.x = 1` changes `$a`;
-  lists and maps inside objects stay values. `==` on objects is identity. Objects are always
-  true in conditions.
+  lists and maps inside objects stay values. `==` on objects is identity. Objects are
+  always true in conditions. `type_of` gives `"object"`; `is_a($x, Point)` tests the class
+  and its parents.
 - **Properties are `.`** (`$user.name`, `$rows[0].total`), never spaced around the dot.
-  A write path is a list of steps of two kinds, index and property, so `Values::store()`
-  and `SET_PATH` need a tagged step. `$obj.method` is a bound method value (Python), so
-  `["save" => $doc.save]` works.
-- **In strings, `#name` and property paths interpolate only inside braces:**
-  `"{#name}"`, `"{$user.name}"`. Bare `"#fff"` and `"#1"` stay literal (Ruby); the
+  `$obj.name` reads and writes any declared member from anywhere (public is the default);
+  an undeclared name is an error when it runs, since the object's class isn't known
+  before. `$obj.name(args)` calls a method, or a field holding a function. A write path is
+  a list of steps of two kinds, index and property, so `Values::store()` and `SET_PATH`
+  need a tagged step. `$obj.method` is a bound method value (Python), so
+  `{"save" => $doc.save}` works.
+- **In strings, `#`, `##` and property paths interpolate only inside braces:** `"{#name}"`,
+  `"{$user.name}"`, `"{##to_string()}"`. Bare `"#fff"` and `"#1"` stay literal (Ruby); the
   shorthand `"$name"` stays a variable (plus one `[index]`), so `"Saved $file.txt"` and
   `"Hi $name."` keep meaning what they say.
-- **A closure created inside a method binds the receiver automatically** (PHP
-  closures, JS arrows), so `() -> #save()` works; locals are still captured by value.
+- **A closure created inside a method binds the receiver automatically** (PHP closures,
+  JS arrows), so `() -> #save()` works; its locals follow the closure rules above, which
+  makes objects the place for state shared with the enclosing scope.
 - **`to_string()` is the one protocol method:** `echo`, `..` and interpolation use it.
-  No operator overloading.
-- **`error()` takes any value,** so `error(ParseError("bad", 3))` works and `catch
-  (ParseError $e)` filters by class; a string error keeps today's map shape.
-  `finally` arrives with objects.
-- **No inheritance in the first cut:** composition and duck typing first; see whether
-  the self-hosted parser needs more. A `<=>` operator would suit comparison functions.
+  No operator overloading. Without one an object prints as its class and fields,
+  `Account {#owner => "Werner", #balance => 75}`; one already being printed (handles can
+  form cycles) prints as `Account {...}`.
+- **Errors (phase 2): `error()` takes any value,** so `error(ParseError("bad", 3))` works
+  and `catch (ParseError $e)` filters by class and its subclasses; a string error keeps
+  today's map shape. `finally` arrives with them.
+- **Later, when real code needs them:** `interface` / `implements` (a parse-time check
+  that the methods exist, plus `is_a`), `final`, and visibility with public implicit:
+  `private` and `protected` on fields and methods. `#` and `##` are checked at parse
+  time, `$obj.name` when it runs against the running method's class; a parent's private
+  field is invisible to children, so a child may then declare its own field of that
+  name. Not planned: traits, late static binding. Phase 1 reserves `class`, `extends`,
+  `abstract`, `interface`, `implements`, `final`, `public`, `private` and `protected`, so
+  adding them never breaks a program.
 
 ## Function values
 

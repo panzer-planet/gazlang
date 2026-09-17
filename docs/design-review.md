@@ -125,20 +125,40 @@ as the one definition of meaning for both backends.
 
 ## Object syntax (decided 2026-09-17, recorded in CLAUDE.md under "Objects")
 
-Fields declared up front (syntax open, `#x;` the candidate); constructor is `_`;
-`to_string()` the only protocol method; `#` alone is the object, `##` tentatively the
-class (PHP `self::`); no inheritance in the first cut; `is_a($x, Point)` and
-`type_of` gives `"object"`.
+Decided first: fields declared up front; `to_string()` the only protocol method; `#`
+alone is the object; `type_of` gives `"object"` and `is_a($x, Point)` tests the class.
+
+Settled later the same day, after closures:
+- `fn` replaces `function` (which stays reserved). `class` stays: with inheritance it no
+  longer suggests something missing, and Kotlin, Swift, TypeScript and Dart kept it.
+  `type`, `struct`, `record`, `object` and `kind` were considered; `struct` and `record`
+  imply value semantics or immutability, `object` a single instance.
+- Inheritance after all, PHP's model taken in pieces: single `extends`, `abstract`, and
+  loud parse-time checks (no redeclared fields, overrides accept the parent's arity)
+  now; `interface`/`implements`, `final`, and `private`/`protected` with public implicit
+  later; traits, late static binding and statics not planned. The keywords are reserved
+  in phase 1.
+- `##name` calls the parent's version of a method, `##_(...)` the parent constructor.
+  `super.` was the alternative; `##` won on consistency with `#` (this object, and its
+  parent's view), at a small readability cost for a rarely written construct, and is
+  cheap to revisit once the self-hosted compiler is written with classes. The
+  constructor stays `_`, leaving `init` free. `#.name` and bare `##` are parse errors;
+  `##` alone is kept free (the parent class as a value is the candidate).
+- Fields `#x;` / `#x = default;` (defaults per object); reading an unset field is an
+  error, quiet under `??`; members are public and one namespace per class; class values
+  print as `class Point` with `type_of` `"class"`; objects without `to_string` print their
+  fields, `Account {...}` when already being printed.
 
 ## Still open
 
 `true == 1`: decided false (Ruby, Lua); bools are not numbers, `to_int(true)` is explicit.
 Decided while building: an int and a float compare exactly (`9007199254740993 !=
 9007199254740992.0`), unlike PHP; `/` still converts and loses precision above 2^53.
-The field declaration syntax and whether `##` earns its keep.
+Nothing open on objects; details found while building phase 1 get recorded here.
 
 ## Suggested order
 
-Done on branch function-values: items 1, 2 and 8, then function values phase 1.
-Item 3's tagged path step comes with objects. Items 4 to 7 are decisions to
-record in CLAUDE.md before the objects phase; they need no code yet.
+Done: items 1, 2, 8, 10, 12 and 13, function values, anonymous functions and
+lib/functional.gaz, and the `fn` rename. Next: objects phase 1 (classes, inheritance, `#`
+and `##`, `.` with item 3's tagged path steps, items 5 to 7), then phase 2 (item 4's
+errors). The long-term plan after the language settles is roadmap step 7 in CLAUDE.md.
