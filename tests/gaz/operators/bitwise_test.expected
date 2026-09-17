@@ -15,8 +15,10 @@ ok shifting by 0
 ok & binds tighter than ==
 ok | binds looser than ^
 ok ^ binds looser than &
-ok & binds looser than ..
+ok & binds tighter than ..
+ok .. binds looser than & on the left too
 ok .. binds looser than <<
+ok .. still binds tighter than ==
 ok + binds tighter than <<
 ok ~ is a unary, so it binds tightest
 ok ~ then &

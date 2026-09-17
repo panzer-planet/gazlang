@@ -944,21 +944,7 @@ class Parser
     }
 
     /**
-     * Parse a concatenation (shift (CONCAT shift)*)
-     *
-     * Below + and - so "n = " .. $a + $b concatenates the sum, as in Lua and PHP 8.
-     *
-     * @return AST
-     *
-     * @throws Exception
-     */
-    public function concat()
-    {
-        return $this->left_associative('shift', [Token::CONCAT]);
-    }
-
-    /**
-     * Parse a bitwise and (concat (& concat)*)
+     * Parse a bitwise and (shift (& shift)*)
      *
      * &, ^ and | sit above the comparisons, as in Rust and Python and unlike C, so
      * $flags & MASK == 0 is ($flags & MASK) == 0.
@@ -969,7 +955,7 @@ class Parser
      */
     public function bit_and()
     {
-        return $this->left_associative('concat', [Token::BIT_AND]);
+        return $this->left_associative('shift', [Token::BIT_AND]);
     }
 
     /**
@@ -997,7 +983,24 @@ class Parser
     }
 
     /**
-     * Parse a relational expression (bit_or ((< | <= | > | >=) bit_or)*)
+     * Parse a concatenation (bit_or (CONCAT bit_or)*)
+     *
+     * Below + and - so "n = " .. $a + $b concatenates the sum, as in Lua and PHP 8, and
+     * below the bitwise operators too, so "x = " .. $f & MASK concatenates the masked value.
+     * Putting .. between them instead would make every unparenthesised mix of the two an
+     * error, since either grouping hands a string to & or an int pair to nothing.
+     *
+     * @return AST
+     *
+     * @throws Exception
+     */
+    public function concat()
+    {
+        return $this->left_associative('bit_or', [Token::CONCAT]);
+    }
+
+    /**
+     * Parse a relational expression (concat ((< | <= | > | >=) concat)*)
      *
      * @return AST
      *
@@ -1005,7 +1008,7 @@ class Parser
      */
     public function relational()
     {
-        return $this->left_associative('bit_or', [
+        return $this->left_associative('concat', [
             Token::LESS_THAN, Token::LESS_EQUALS, Token::GREATER_THAN, Token::GREATER_EQUALS,
         ]);
     }

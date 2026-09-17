@@ -48,7 +48,7 @@ each step depends on the ones before it.
  
 1. ~~**Fix the precedence tower.**~~ Done. `Parser` is now `expr` (assignment,
    right associative) → `ternary` (`?:`, right associative) → `coalesce` (`??`, right associative) → `logical_or` → `logical_and` → `equality` → `relational`
-   → `bit_or` (`|`) → `bit_xor` (`^`) → `bit_and` (`&`) → `concat` (`..`) → `shift` (`<<`, `>>`)
+   → `concat` (`..`) → `bit_or` (`|`) → `bit_xor` (`^`) → `bit_and` (`&`) → `shift` (`<<`, `>>`)
    → `additive` → `multiplicative` → `unary` → `postfix` (`[index]`, `(args)`) → `primary`. Binary levels share
    `left_associative()`; add a new level by adding a one-line method there.
 2. ~~**Add comparison and logical operators.**~~ Done. `<`, `>`, `<=`, `>=`,
@@ -86,9 +86,14 @@ each step depends on the ones before it.
      scaling a quantity, so there is nothing to report as overflow, and every rule for what
      counts as "lost" treats `1 << 63` and `-1 << 63` differently though both give the same
      bits. No `>>>`, and no `&`/`|` on bools. Precedence is Rust's and Python's, not C's, so
-     `$flags & MASK == 0` is `($flags & MASK) == 0`; see the tower in step 1, where `..` binds
-     tighter than `&` (so `1 & 2 .. ""` is `1 & "2"`, an error) and `<<` tighter than `..`.
-     Code generation emits `BIT_AND`, `BIT_OR`, `BIT_XOR`, `SHL`, `SHR` and `BIT_NOT`, with
+     `$flags & MASK == 0` is `($flags & MASK) == 0`; see the tower in step 1. `..` is looser
+     than `&`, `^` and `|` and tighter than the comparisons, so `"x = " .. $f & MASK`
+     concatenates the masked value and `$f & MASK .. "!"` appends to it. Putting `..` between
+     the bitwise levels instead (where the tower in the original decision had it) makes every
+     unparenthesised mix of the two an error, in both directions, since one grouping hands a
+     string to `&` and the other hands `..` nothing to do. `<<` and `>>` stay tighter than
+     `..`, so `"n = " .. $x << 2` concatenates the shifted value; Lua puts `..` tighter than
+     the shifts instead, which would break that. Code generation emits `BIT_AND`, `BIT_OR`, `BIT_XOR`, `SHL`, `SHR` and `BIT_NOT`, with
      no VM fast path: nothing measured uses them yet.
    - `$a ?? $b` is `$a` unless it is null or missing, like PHP: on its left an
      undefined variable, a missing key, or indexing something missing is null instead
