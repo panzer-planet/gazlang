@@ -715,6 +715,13 @@ class Lexer
                 return $this->identifier();
             }
 
+            if ($this->current_char === '-' && $this->peek() === '>') {
+                $this->advance();
+                $this->advance();
+
+                return new Token(Token::ARROW, '->');
+            }
+
             if ($this->current_char === '.' && $this->peek() === '.') {
                 $this->advance();
                 $this->advance();

@@ -18,6 +18,7 @@ use GazLang\AST\FunctionRefAST;
 use GazLang\AST\IfStatementAST;
 use GazLang\AST\IncrementAST;
 use GazLang\AST\IndexAST;
+use GazLang\AST\LambdaAST;
 use GazLang\AST\LoopControlAST;
 use GazLang\AST\NullAST;
 use GazLang\AST\NumAST;
@@ -64,6 +65,7 @@ class Parser
         Token::GLOBAL_VAR_IDENTIFIER => 'an @variable',
         Token::STRING => 'a string',
         Token::COLON => "':'",
+        Token::ARROW => "'->'",
     ];
 
     /**
@@ -326,16 +328,179 @@ class Parser
         } elseif ($token->type === Token::LEFT_BRACKET) {
             return $this->array_literal();
         } elseif ($token->type === Token::LEFT_PAREN) {
-            $this->eat(Token::LEFT_PAREN);
-            $node = $this->expr();
-            $this->eat(Token::RIGHT_PAREN);
-
-            return $node;
+            return $this->parenthesised();
         } elseif ($token->type === Token::VAR_IDENTIFIER || $token->type === Token::GLOBAL_VAR_IDENTIFIER) {
             return $this->variable();
         }
 
         $this->error();
+    }
+
+    /**
+     * Parse a parenthesised expression, or a lambda whose parameters are in parentheses
+     *
+     * (LPAREN [expr (COMMA expr)*] RPAREN [ARROW lambda_body]): a comma list is parsed
+     * either way, so no lookahead is needed to tell ($a, $b = 1) -> ... from ($a + 1).
+     * If -> follows, each element must be a $parameter or $parameter = default; if not,
+     * more than one element is the usual syntax error at the comma.
+     *
+     * @return AST
+     *
+     * @throws Exception
+     */
+    public function parenthesised()
+    {
+        $paren = $this->current_token;
+        $this->eat(Token::LEFT_PAREN);
+
+        $items = [];
+        $comma = null;
+        if ($this->current_token->type !== Token::RIGHT_PAREN) {
+            $items[] = $this->expr();
+            while ($this->current_token->type === Token::COMMA) {
+                $comma ??= $this->current_token;
+                $this->eat(Token::COMMA);
+                $items[] = $this->expr();
+            }
+        }
+        $this->eat(Token::RIGHT_PAREN);
+
+        if ($this->current_token->type !== Token::ARROW) {
+            if ($comma !== null) {
+                throw new GazLangError("Expected ')' but found ','", $this->file, $comma->line);
+            }
+            if ($items === []) {
+                $this->fail("Expected '->' but found ".$this->describe($this->current_token));
+            }
+
+            return $items[0];
+        }
+
+        $params = [];
+        $defaults = [];
+        foreach ($items as $item) {
+            $default = null;
+            if ($item instanceof AssignAST && $item->token->type === Token::ASSIGN) {
+                $default = $item->right;
+                $item = $item->left;
+            }
+            if (! $item instanceof VariableAST || $item->isGlobal()) {
+                $this->fail('Lambda parameters must be $variables');
+            }
+            $params[] = $item->value;
+            $defaults[] = $default;
+        }
+
+        return $this->lambda($paren, $params, $defaults);
+    }
+
+    /**
+     * Parse a lambda's body after its parameters (ARROW (block | expr)) and build the node
+     *
+     * An expression body's value is returned; a block body returns only through return.
+     * A block body is a function body: return is allowed, and break and continue can't
+     * reach a loop around the lambda.
+     *
+     * @param  Token  $start  The token the lambda starts at
+     * @param  string[]  $params  The parameter names
+     * @param  array<int, AST|null>  $defaults  Each parameter's default, or null
+     * @return LambdaAST
+     *
+     * @throws Exception
+     */
+    private function lambda(Token $start, array $params, array $defaults)
+    {
+        $arity = $this->check_parameters($params, $defaults, 'lambda');
+        $this->eat(Token::ARROW);
+
+        if ($this->current_token->type === Token::LEFT_BRACE) {
+            [$in_function, $loop_depth] = [$this->in_function, $this->loop_depth];
+            [$this->in_function, $this->loop_depth] = [true, 0];
+            try {
+                $body = $this->block();
+            } finally {
+                [$this->in_function, $this->loop_depth] = [$in_function, $loop_depth];
+            }
+        } else {
+            $body = $this->expr();
+        }
+
+        $free = [];
+        foreach ([...$defaults, $body] as $node) {
+            if ($node !== null) {
+                self::collect_variables($node, $free);
+            }
+        }
+        $free = array_values(array_diff(array_keys($free), $params));
+
+        return $this->at(new LambdaAST($params, $defaults, $arity, $body, $free), $start);
+    }
+
+    /**
+     * Collect the $ variables a node uses, in source order, as keys of $found
+     *
+     * A nested lambda contributes the variables it captures (its free variables), since
+     * those must be present when it is created.
+     *
+     * @param  AST  $node  The node
+     * @param  array<string, true>  $found  The names found so far, by reference
+     */
+    private static function collect_variables(AST $node, array &$found): void
+    {
+        if ($node instanceof VariableAST) {
+            if (! $node->isGlobal()) {
+                // The token's text, "$name"
+                $found[(string) $node->value] = true;
+            }
+
+            return;
+        }
+        if ($node instanceof LambdaAST) {
+            foreach ($node->free as $name) {
+                $found[$name] = true;
+            }
+
+            return;
+        }
+
+        foreach (get_object_vars($node) as $child) {
+            foreach (is_array($child) ? $child : [$child] as $item) {
+                // Array literal entries are [key, value] pairs
+                foreach (is_array($item) ? $item : [$item] as $leaf) {
+                    if ($leaf instanceof AST) {
+                        self::collect_variables($leaf, $found);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Check a parameter list and work out its arity
+     *
+     * @param  string[]  $params  The parameter names
+     * @param  array<int, AST|null>  $defaults  Each parameter's default, or null if required
+     * @param  string  $where  What the parameters belong to, for messages: "function f" or "lambda"
+     * @return int|array{0: int, 1: int} A count, or [fewest, most] when there are defaults
+     *
+     * @throws GazLangError On a duplicate name or a required parameter after one with a default
+     */
+    private function check_parameters(array $params, array $defaults, string $where): int|array
+    {
+        $required = 0;
+        foreach ($params as $i => $param) {
+            if (in_array($param, array_slice($params, 0, $i), true)) {
+                $this->fail("Duplicate parameter {$param} in {$where}");
+            }
+            if ($defaults[$i] === null) {
+                if ($required < $i) {
+                    $this->fail("Required parameter {$param} can't follow a parameter with a default");
+                }
+                $required++;
+            }
+        }
+
+        return $required === count($params) ? $required : [$required, count($params)];
     }
 
     /**
@@ -593,10 +758,15 @@ class Parser
     }
 
     /**
-     * Parse a ternary (coalesce [? expr : ternary])
+     * Parse a ternary (coalesce [? expr : ternary]), or a lambda with one bare parameter (VAR_IDENTIFIER ARROW lambda_body)
      *
      * Right associative, as in C and JS: $a ? 1 : $b ? 2 : 3 is $a ? 1 : ($b ? 2 : 3). The
      * middle is a full expression, so it can hold an assignment or another ternary.
+     *
+     * A lambda's body is an expression, so it extends as far right as it can: $x -> $x * 2
+     * == 4 is $x -> ($x * 2 == 4), and $x -> $y -> $x + $y nests. Recognising $x -> here
+     * (and the parenthesised form in parenthesised()) puts lambdas at the same level as the
+     * ternary, so 1 + $x -> 2 is a syntax error.
      *
      * @return AST
      *
@@ -604,9 +774,13 @@ class Parser
      */
     public function ternary()
     {
+        $start = $this->current_token;
         $node = $this->coalesce();
 
         $token = $this->current_token;
+        if ($token->type === Token::ARROW && $node instanceof VariableAST && ! $node->isGlobal() && $start->type === Token::VAR_IDENTIFIER) {
+            return $this->lambda($start, [$node->value], [null]);
+        }
         if ($token->type === Token::QUESTION) {
             $this->eat(Token::QUESTION);
             $then = $this->expr();
@@ -962,26 +1136,22 @@ class Parser
                 $this->eat(Token::COMMA);
             }
             $param = $this->current_token->value;
-            if (in_array($param, $params, true)) {
-                $this->fail("Duplicate parameter {$param} in function {$name}");
-            }
             $this->eat(Token::VAR_IDENTIFIER);
 
             $default = null;
             if ($this->current_token->type === Token::ASSIGN) {
                 $this->eat(Token::ASSIGN);
                 $default = $this->expr();
-            } elseif (array_filter($defaults) !== []) {
-                $this->fail("Required parameter {$param} can't follow a parameter with a default");
             }
             $params[] = $param;
             $defaults[] = $default;
+            // Checked as each is read, so the error points at the parameter
+            $this->check_parameters($params, $defaults, "function {$name}");
         }
         $this->eat(Token::RIGHT_PAREN);
 
         // Declared before the body is parsed, so the function can call itself
-        $required = count(array_filter($defaults, fn ($default) => $default === null));
-        $arity = $required === count($params) ? $required : [$required, count($params)];
+        $arity = $this->check_parameters($params, $defaults, "function {$name}");
         $this->functions[$name] = $arity;
 
         $this->in_function = true;

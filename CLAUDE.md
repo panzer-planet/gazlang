@@ -274,14 +274,8 @@ before function values:
 
 Design agreed on 2026-09-17, to build in phases (each committed and reviewed):
 1. ~~**Named functions as values.**~~ Done, see "Function values" below.
-2. Anonymous functions with `->`: `$x -> $x * 2`, `($a, $b = 1) -> $a + $b`,
-   `() -> 42`, and a block body `($a) -> { ...; return ...; }` (no implicit return).
-   `->` is right associative (`$x -> $y -> $x + $y`). Parsing `(` needs lookahead to
-   tell a parameter list from grouping.
-3. Capture is automatic and **by value at creation**: a function gets a copy of the
-   outer variables it uses, consistent with arrays being values. So a closure can't
-   keep a running counter in an outer variable; shared state goes in `@globals` (and
-   objects, later). No `use` clause, no references.
+2. ~~**Anonymous functions with `->`.**~~ Done, see "Function values" below.
+3. ~~**Capture by value at creation.**~~ Done, likewise.
 4. `lib/functional.gaz`: `map`, `filter`, `reduce`, `sort($array, $compare)`, written
    in GazLang (builtins calling back into GazLang would need a re-entrant VM). The
    CSV report's sorting is the real-world test.
@@ -352,6 +346,45 @@ replaces `get_debug_type` everywhere, so every existing error message follows.
 callee, args, `CALL_VALUE argc`, which pops them and either calls the builtin or pushes a
 frame as `CALL` does (`VM::link()` resolves each function's entry from its label).
 `isConstant()` doesn't know about refs, so `[add, len]` is built at runtime.
+
+### Anonymous functions
+
+`$x -> $x * 2`, `($a, $b = 1) -> $a + $b`, `() -> 42`, and a block body
+`($a) -> { ...; return ...; }` (`LambdaAST`). Parameters are `$` only with the same
+rules as `function` (`Parser::check_parameters()`, shared). An expression body's value
+is returned and extends as far right as it can (`$x -> $x * 2 == 4` is
+`$x -> ($x * 2 == 4)`; `$x -> $y -> $x + $y` nests), so a lambda sits at the ternary's
+level: `1 + $x -> 2` is a syntax error, `$c ? $x -> 1 : $y -> 2` and `$f ?? ($x -> $x)`
+parse. A block body returns only through `return` (falling off the end gives null), may
+use `return` even at top level, and `break`/`continue` inside it can't reach a loop
+around the lambda. No lookahead: `(` parses a comma list either way, and the elements
+are checked to be `$param` or `$param = default` only when `->` follows
+(`Parser::parenthesised()`); `$x ->` is recognised in `ternary()` after the fact. A
+block body can't be written inside `"{...}"` interpolation, since the first `}` ends
+the interpolation.
+
+Capture is by value at creation: `LambdaAST::$free` lists every `$` variable the body
+and the defaults use that isn't a parameter (including assignment targets, `foreach`
+and `catch` variables, and what nested lambdas capture), and evaluating the lambda
+copies the ones that exist in the enclosing scope. One that doesn't exist is simply
+undefined inside ("Undefined variable: $x"), and changes to the outer variable after
+creation, or to the copy inside, are invisible on the other side. `@globals` are never
+captured and are read live, which is where shared state goes. So a closure can't call
+itself through the variable it is assigned to (`$fact = $n -> ... $fact(...)`: `$fact`
+doesn't exist yet, or holds its old value); use a named function or an `@global`.
+
+`FunctionValue::closure()` holds the `LambdaAST` and the captured values (by name in
+the interpreter, by local slot in the VM); every evaluation makes a fresh value, so
+`==` is identity of creation. `FunctionValue::describe()` names a function in output
+and messages: `add`, or `-> at file.gaz:12` / `-> on line 12` for a closure, so
+`echo $f` prints `function -> at file.gaz:12` and errors read `Function -> at
+file.gaz:12 expects 2 arguments, 1 given`. The interpreter runs named functions and
+closures through one `invoke()`; the code generator emits `MAKE_CLOSURE n` and compiles
+each body after the functions under `LABEL LAMBDA_n` from a worklist (a body can
+contain more lambdas), with a frame of parameters, then captured variables, then other
+locals; `Program::$lambdas` carries each lambda's capture map (enclosing slot to its
+own slot), which the VM applies at `MAKE_CLOSURE`, copying only slots that exist.
+`CALL_VALUE` on a closure starts a frame from the captured values plus the arguments.
 
 ## Assignment
 

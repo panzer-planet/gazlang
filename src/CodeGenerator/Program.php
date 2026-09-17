@@ -2,6 +2,7 @@
 
 namespace GazLang\CodeGenerator;
 
+use GazLang\AST\LambdaAST;
 use GazLang\Lexer\Lexer;
 use GazLang\Runtime\Values;
 
@@ -32,19 +33,27 @@ final class Program
     public $functions;
 
     /**
+     * @var list<array{0: LambdaAST, 1: array<int, int>}> Each lambda (its body is at LABEL LAMBDA_n) with its
+     *                                                    capture map, enclosing frame slot => the lambda's own slot
+     */
+    public $lambdas;
+
+    /**
      * Constructor
      *
      * @param  list<array{0: string, 1: array, 2: string|null, 3: int|null}>  $instructions  The instructions
      * @param  array<string, list<string>>  $local_names  Local slot names by frame
      * @param  list<string>  $global_names  Global slot names
      * @param  array<string, int|array{0: int, 1: int}>  $functions  Each user function's arity
+     * @param  list<array{0: LambdaAST, 1: array<int, int>}>  $lambdas  Each lambda with its capture map
      */
-    public function __construct(array $instructions, array $local_names, array $global_names, array $functions = [])
+    public function __construct(array $instructions, array $local_names, array $global_names, array $functions = [], array $lambdas = [])
     {
         $this->instructions = $instructions;
         $this->local_names = $local_names;
         $this->global_names = $global_names;
         $this->functions = $functions;
+        $this->lambdas = $lambdas;
     }
 
     /**

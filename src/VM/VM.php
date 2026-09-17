@@ -3,6 +3,7 @@
 namespace GazLang\VM;
 
 use Exception;
+use GazLang\AST\LambdaAST;
 use GazLang\CodeGenerator\Program;
 use GazLang\GazLangError;
 use GazLang\Lexer\Token;
@@ -75,7 +76,7 @@ final class VM
      */
     public function run(): void
     {
-        [$ops, $arg0, $arg1, $arg2, $locations, $functions] = $this->link();
+        [$ops, $arg0, $arg1, $arg2, $locations, $functions, $lambdas, $lambda_ids] = $this->link();
         $end = count($ops);
         $tokens = [];
         foreach (self::BINARY as $opcode => [$type, $symbol]) {
@@ -314,6 +315,18 @@ final class VM
                         case 'PUSH_FN':
                             $stack[] = FunctionValue::named($arg0[$pc - 1]);
                             break;
+                        case 'MAKE_CLOSURE':
+                            [, $lambda, $map] = $lambdas[$arg0[$pc - 1]];
+                            // Only the enclosing frame's variables that exist are captured, as in the interpreter
+                            $captured = [];
+                            foreach ($map as $outer => $inner) {
+                                if (isset($locals[$outer]) || array_key_exists($outer, $locals)) {
+                                    $captured[$inner] = $locals[$outer];
+                                }
+                            }
+                            [$file, $line] = $locations[$pc - 1];
+                            $stack[] = FunctionValue::closure($lambda, $captured, $file, $line);
+                            break;
                         case 'CALL_VALUE':
                             $args = $this->popMany($stack, $arg0[$pc - 1]);
                             $callee = array_pop($stack);
@@ -321,8 +334,14 @@ final class VM
                                 throw new Exception('Cannot call '.Values::typeOf($callee));
                             }
                             $name = $callee->name;
-                            $builtin = isset(Builtins::ARITIES[$name]);
-                            $error = Builtins::arityError($name, $builtin ? Builtins::ARITIES[$name] : $functions[$name][1], count($args));
+                            $builtin = $name !== null && isset(Builtins::ARITIES[$name]);
+                            if ($name === null) {
+                                $index = $lambda_ids[spl_object_id($callee->lambda)];
+                                $arity = $callee->lambda->arity;
+                            } else {
+                                $arity = $builtin ? Builtins::ARITIES[$name] : $functions[$name][1];
+                            }
+                            $error = Builtins::arityError($callee->describe(), $arity, count($args));
                             if ($error !== null) {
                                 throw new Exception($error);
                             }
@@ -330,15 +349,22 @@ final class VM
                                 $stack[] = $this->builtins->call($name, $args);
                                 break;
                             }
-                            // The same frame push as CALL, with the arguments already popped
+                            // The same frame push as CALL, with the arguments already popped; a closure's
+                            // frame starts from its captured variables, in slots after the parameters
                             if (count($frames) === Values::MAX_CALL_DEPTH) {
-                                throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$name}");
+                                throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH.' exceeded calling '.$callee->describe());
                             }
                             $frames[] = [$locals, $pc, $function, $argc];
                             $argc = count($args);
-                            $locals = $args;
-                            $function = $name;
-                            $pc = $functions[$name][0];
+                            if ($name === null) {
+                                $locals = $args + $callee->captured;
+                                $function = "lambda_{$index}";
+                                $pc = $lambdas[$index][0];
+                            } else {
+                                $locals = $args;
+                                $function = $name;
+                                $pc = $functions[$name][0];
+                            }
                             break;
                         case 'ARGC':
                             $stack[] = $argc;
@@ -430,9 +456,11 @@ final class VM
      * - Each instruction's opcode and first three arguments go into their own arrays, so
      *   the loop reads what it needs without unpacking an instruction each time, and its
      *   [file, line] into $locations, only read when there is an error.
-     * - Each user function's entry position and arity go into $functions, for CALL_VALUE.
+     * - Each user function's entry position and arity go into $functions, for CALL_VALUE, and
+     *   each lambda's entry position, node and capture map into $lambdas, with $lambda_ids
+     *   finding a closure's lambda index from its node.
      *
-     * @return array{0: list<string>, 1: list<mixed>, 2: list<mixed>, 3: list<mixed>, 4: list<array{0: string|null, 1: int|null}>, 5: array<string, array{0: int, 1: int|array{0: int, 1: int}}>}
+     * @return array{0: list<string>, 1: list<mixed>, 2: list<mixed>, 3: list<mixed>, 4: list<array{0: string|null, 1: int|null}>, 5: array<string, array{0: int, 1: int|array{0: int, 1: int}}>, 6: list<array{0: int, 1: LambdaAST, 2: array<int, int>}>, 7: array<int, int>}
      */
     private function link(): array
     {
@@ -476,8 +504,14 @@ final class VM
         foreach ($this->program->functions as $name => $arity) {
             $functions[$name] = [$positions["FN_{$name}"], $arity];
         }
+        $lambdas = [];
+        $lambda_ids = [];
+        foreach ($this->program->lambdas as $index => [$lambda, $map]) {
+            $lambdas[$index] = [$positions["LAMBDA_{$index}"], $lambda, $map];
+            $lambda_ids[spl_object_id($lambda)] = $index;
+        }
 
-        return [$ops, $arg0, $arg1, $arg2, $locations, $functions];
+        return [$ops, $arg0, $arg1, $arg2, $locations, $functions, $lambdas, $lambda_ids];
     }
 
     /**

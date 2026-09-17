@@ -73,7 +73,7 @@ final class Values
         } elseif ($value === null) {
             return 'null';
         } elseif ($value instanceof FunctionValue) {
-            return "function {$value->name}";
+            return 'function '.$value->describe();
         } elseif (is_array($value)) {
             // Printed as a literal: [1, "a"] for lists, ["key" => 1, 5 => 2] otherwise
             $is_list = array_is_list($value);

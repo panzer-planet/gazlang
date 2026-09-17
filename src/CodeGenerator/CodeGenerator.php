@@ -19,6 +19,7 @@ use GazLang\AST\FunctionRefAST;
 use GazLang\AST\IfStatementAST;
 use GazLang\AST\IncrementAST;
 use GazLang\AST\IndexAST;
+use GazLang\AST\LambdaAST;
 use GazLang\AST\LoopControlAST;
 use GazLang\AST\NullAST;
 use GazLang\AST\NumAST;
@@ -46,6 +47,13 @@ use GazLang\Runtime\Builtins;
  * arguments and the value under them and calls it, checking at runtime that it is a
  * function taking that many arguments (the Program's function table gives each
  * function's arity).
+ *
+ * Lambda bodies are emitted after the functions, each under LABEL LAMBDA_n with its own
+ * frame: parameters in slots 0.., then the captured variables, then its other locals.
+ * MAKE_CLOSURE n pushes a closure, copying into it the enclosing frame's slots that the
+ * Program's lambda table maps to the captured slots (only the ones that exist, as the
+ * interpreter does); CALL_VALUE on a closure starts a frame from the captured values
+ * plus the arguments and jumps to the lambda's entry.
  *
  * Arrays are values. NEW_ARRAY pushes an empty array; ARRAY_PUSH pops a value
  * and appends it to the array below, ARRAY_SET pops a value and a key and sets
@@ -135,6 +143,16 @@ class CodeGenerator extends AbstractNodeVisitor
      * @var int How many try blocks enclose the current node, so break and continue can leave them
      */
     private $try_depth = 0;
+
+    /**
+     * @var LambdaAST[] Every lambda seen, in creation order, its body still to be compiled
+     */
+    private $lambdas = [];
+
+    /**
+     * @var array<int, array<int, int>> Each lambda's capture map: enclosing frame slot => its own slot
+     */
+    private $captures = [];
 
     /**
      * Constructor
@@ -878,6 +896,29 @@ class CodeGenerator extends AbstractNodeVisitor
     }
 
     /**
+     * Visit a Lambda node: MAKE_CLOSURE, with the body compiled later by compile()
+     *
+     * The capture map is recorded now, while the enclosing frame's slots are known. A free
+     * variable the enclosing frame hasn't used yet still gets a slot, so a loop that assigns
+     * it after the lambda captures it on the next iteration, as in the interpreter.
+     *
+     * @param  LambdaAST  $node  The node to visit
+     */
+    public function visitLambda(LambdaAST $node): void
+    {
+        $index = count($this->lambdas);
+        $this->lambdas[] = $node;
+
+        $map = [];
+        foreach ($node->free as $i => $name) {
+            $map[$this->var_addresses[$name] ??= count($this->var_addresses)] = count($node->params) + $i;
+        }
+        $this->captures[$index] = $map;
+
+        $this->emit('MAKE_CLOSURE', $index);
+    }
+
+    /**
      * Visit a CallValue node: the callee, then the arguments, then CALL_VALUE (the interpreter's order)
      *
      * @param  CallValueAST  $node  The node to visit
@@ -915,9 +956,9 @@ class CodeGenerator extends AbstractNodeVisitor
      * if fewer than its position + 1 were passed, the default is evaluated and stored in the
      * parameter's slot, so later defaults can use it.
      *
-     * @param  FunctionDeclarationAST  $function  The function
+     * @param  FunctionDeclarationAST|LambdaAST  $function  The function or lambda
      */
-    private function defaultArguments(FunctionDeclarationAST $function): void
+    private function defaultArguments(FunctionDeclarationAST|LambdaAST $function): void
     {
         foreach ($function->defaults as $i => $default) {
             if ($default === null) {
@@ -945,7 +986,7 @@ class CodeGenerator extends AbstractNodeVisitor
         $local_names = ['' => array_keys($this->var_addresses)];
         $arities = [];
 
-        if ($this->functions !== []) {
+        if ($this->functions !== [] || $this->lambdas !== []) {
             $this->emit('HALT');
         }
 
@@ -965,7 +1006,31 @@ class CodeGenerator extends AbstractNodeVisitor
             $local_names[$function->name] = array_keys($this->var_addresses);
         }
 
-        return new Program($this->instructions, $local_names, array_keys($this->global_addresses), $arities);
+        // A worklist: compiling a body can find more lambdas inside it
+        $lambdas = [];
+        for ($i = 0; $i < count($this->lambdas); $i++) {
+            $lambda = $this->lambdas[$i];
+            // Parameters first, then the captured variables in the order the capture map uses
+            $this->var_addresses = array_flip($lambda->params);
+            foreach ($lambda->free as $name) {
+                $this->var_addresses[$name] = count($this->var_addresses);
+            }
+            [$this->file, $this->line] = [$lambda->file, $lambda->line];
+
+            $this->emit('LABEL', "LAMBDA_{$i}");
+            $this->defaultArguments($lambda);
+            $this->visit($lambda->body);
+            if ($lambda->isBlock()) {
+                // Falling off the end returns null; an expression body leaves its value
+                $this->emit('PUSH', null);
+            }
+            $this->emit('RET');
+
+            $local_names["lambda_{$i}"] = array_keys($this->var_addresses);
+            $lambdas[$i] = [$lambda, $this->captures[$i]];
+        }
+
+        return new Program($this->instructions, $local_names, array_keys($this->global_addresses), $arities, $lambdas);
     }
 
     /**

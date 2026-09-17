@@ -134,6 +134,8 @@ class Token
 
     public const COLON = 'COLON';  // The : of a ternary
 
+    public const ARROW = 'ARROW';  // The -> of an anonymous function
+
     public const NOT = 'NOT';  // Logical not operator (!)
 
     /**

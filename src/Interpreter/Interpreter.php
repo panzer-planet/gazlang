@@ -19,6 +19,7 @@ use GazLang\AST\FunctionRefAST;
 use GazLang\AST\IfStatementAST;
 use GazLang\AST\IncrementAST;
 use GazLang\AST\IndexAST;
+use GazLang\AST\LambdaAST;
 use GazLang\AST\LoopControlAST;
 use GazLang\AST\NullAST;
 use GazLang\AST\NumAST;
@@ -599,6 +600,25 @@ class Interpreter extends AbstractNodeVisitor
     }
 
     /**
+     * Visit a Lambda node, making a closure that captures the outer variables it uses, by value, now
+     *
+     * Only variables that exist are captured: one that doesn't is simply undefined inside.
+     *
+     * @param  LambdaAST  $node  The node to visit
+     */
+    public function visitLambda(LambdaAST $node): FunctionValue
+    {
+        $captured = [];
+        foreach ($node->free as $name) {
+            if (array_key_exists($name, $this->locals)) {
+                $captured[$name] = $this->locals[$name];
+            }
+        }
+
+        return FunctionValue::closure($node, $captured, $node->file, $node->line);
+    }
+
+    /**
      * Visit a FunctionRef node
      *
      * @param  FunctionRefAST  $node  The node to visit
@@ -642,17 +662,27 @@ class Interpreter extends AbstractNodeVisitor
         if (! $callee instanceof FunctionValue) {
             throw new Exception('Cannot call '.Values::typeOf($callee));
         }
-        $arity = Builtins::ARITIES[$callee->name] ?? $this->functions[$callee->name]->arity;
-        $error = Builtins::arityError($callee->name, $arity, count($args));
+        if ($callee->lambda !== null) {
+            $arity = $callee->lambda->arity;
+        } else {
+            $arity = Builtins::ARITIES[$callee->name] ?? $this->functions[$callee->name]->arity;
+        }
+        $error = Builtins::arityError($callee->describe(), $arity, count($args));
         if ($error !== null) {
             throw new Exception($error);
+        }
+
+        if ($callee->lambda !== null) {
+            $lambda = $callee->lambda;
+
+            return $this->invoke($callee->describe(), $lambda->params, $lambda->defaults, $lambda->body, $callee->captured, $args);
         }
 
         return $this->call($callee->name, $args);
     }
 
     /**
-     * Call a builtin or user function with evaluated arguments, running a user function's body with its own locals
+     * Call a builtin or user function by name with evaluated arguments
      *
      * @param  string  $name  The function name, already checked to exist and to take this many arguments
      * @param  array  $args  The evaluated arguments
@@ -666,22 +696,44 @@ class Interpreter extends AbstractNodeVisitor
 
         $function = $this->functions[$name];
 
+        return $this->invoke($name, $function->params, $function->defaults, $function->body, [], $args);
+    }
+
+    /**
+     * Run a function or lambda body with its own locals
+     *
+     * @param  string  $display  How the function is named in the depth error
+     * @param  string[]  $params  The parameter names
+     * @param  array<int, AST|null>  $defaults  Each parameter's default, or null
+     * @param  AST  $body  A block (returning through return, else null) or a lambda's expression body
+     * @param  array  $captured  Locals to start with: a closure's captured variables
+     * @param  array  $args  The evaluated arguments, no more than there are parameters
+     * @return mixed The returned value
+     *
+     * @throws Exception If the call depth limit is reached
+     */
+    private function invoke(string $display, array $params, array $defaults, AST $body, array $captured, array $args)
+    {
         if ($this->call_depth === Values::MAX_CALL_DEPTH) {
-            throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$name}");
+            throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$display}");
         }
 
         $caller_locals = $this->locals;
-        $this->locals = array_combine(array_slice($function->params, 0, count($args)), $args);
+        // Parameters shadow captured variables of the same name (a parameter is never free, so none do)
+        $this->locals = array_combine(array_slice($params, 0, count($args)), $args) + $captured;
         $this->call_depth++;
 
         try {
             // Defaults are evaluated on every call that leaves them out, inside the function, so
             // they can use earlier parameters and never share a value between calls
-            for ($i = count($args); $i < count($function->params); $i++) {
-                $this->locals[$function->params[$i]] = $this->visit($function->defaults[$i]);
+            for ($i = count($args); $i < count($params); $i++) {
+                $this->locals[$params[$i]] = $this->visit($defaults[$i]);
             }
 
-            $this->visit($function->body);
+            if (! $body instanceof CompoundAST) {
+                return $this->visit($body);
+            }
+            $this->visit($body);
 
             return null;
         } catch (ReturnSignal $signal) {
