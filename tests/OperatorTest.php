@@ -160,8 +160,8 @@ class OperatorTest extends GazLangTestCase
 
     public function test_coalesce_parse_errors()
     {
-        $this->expectExceptionMessage("Unexpected character '?' on line 1");
-        $this->createParser('echo $a ? 1;')->parse();
+        $this->expectExceptionMessage("Unexpected ';' on line 1");
+        $this->createParser('echo $a ??;')->parse();
     }
 
     public function test_modulo()
@@ -231,6 +231,41 @@ class OperatorTest extends GazLangTestCase
     {
         $this->expectExceptionMessage('Cannot use < on string and bool on line 1');
         $this->executeCode('echo true < "a";');
+    }
+
+    public function test_ternary_evaluates_only_the_taken_branch()
+    {
+        $this->assertEquals("yes\nno\n1\n2\n", $this->executeCode(
+            'echo true ? "yes" : error("not taken"); echo 0 ? error("not taken") : "no";'
+            .' echo [] ? 1 : "" ? 2 : 1; $x = 1 ? 2 : 3; echo $x;'
+        ));
+    }
+
+    public function test_ternary_is_right_associative_and_sits_between_coalesce_and_assignment()
+    {
+        $this->assertEquals("b\nc\n3\n7\n2\n2\n", $this->executeCode(
+            '$n = 2; echo $n == 1 ? "a" : $n == 2 ? "b" : "c"; echo $n == 3 ? "a" : $n == 4 ? "b" : "c";'
+            .' echo $missing ?? 3 ? 3 : 4; echo 1 ? 3 + 4 : 5; echo false ? 1 : ($y = 2); echo $y;'
+        ));
+    }
+
+    public function test_ternary_middle_can_be_any_expression()
+    {
+        $this->assertEquals("5\n5\n", $this->executeCode('echo true ? $z = 5 : 0; echo $z;'));
+    }
+
+    public function test_ternary_parse_errors()
+    {
+        $this->expectExceptionMessage("Expected ':' but found ';' on line 1");
+        $this->createParser('echo 1 ? 2;')->parse();
+    }
+
+    public function test_code_gen_for_ternary()
+    {
+        $this->assertEquals(
+            "PUSH true\nJZ TERNARY_ELSE_0\nPUSH 1\nJMP TERNARY_END_0\nLABEL TERNARY_ELSE_0\nPUSH 2\nLABEL TERNARY_END_0\nPRINT",
+            $this->generateCode('echo true ? 1 : 2;')
+        );
     }
 
     public function test_strict_equality_operator_is_gone()

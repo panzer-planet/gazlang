@@ -25,6 +25,7 @@ use GazLang\AST\NumAST;
 use GazLang\AST\ReturnStatementAST;
 use GazLang\AST\StatementAST;
 use GazLang\AST\StringAST;
+use GazLang\AST\TernaryAST;
 use GazLang\AST\TryStatementAST;
 use GazLang\AST\UnaryOpAST;
 use GazLang\AST\VariableAST;
@@ -572,6 +573,17 @@ class Interpreter extends AbstractNodeVisitor
         $index = $this->visit($node->index);
 
         return $node->existing ? Values::indexExisting($target, $index) : Values::index($target, $index);
+    }
+
+    /**
+     * Visit a Ternary node, evaluating only the taken branch
+     *
+     * @param  TernaryAST  $node  The node to visit
+     * @return mixed The value of the taken branch
+     */
+    public function visitTernary(TernaryAST $node)
+    {
+        return Values::isTruthy($this->visit($node->condition)) ? $this->visit($node->then) : $this->visit($node->else);
     }
 
     /**

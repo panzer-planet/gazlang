@@ -130,6 +130,10 @@ class Token
 
     public const COALESCE_ASSIGN = 'COALESCE_ASSIGN';  // Null coalescing assignment (??=)
 
+    public const QUESTION = 'QUESTION';  // The ? of a ternary
+
+    public const COLON = 'COLON';  // The : of a ternary
+
     public const NOT = 'NOT';  // Logical not operator (!)
 
     /**

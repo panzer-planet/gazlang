@@ -822,6 +822,18 @@ class Lexer
                 return new Token(Token::COALESCE, '??');
             }
 
+            if ($this->current_char === '?') {
+                $this->advance();
+
+                return new Token(Token::QUESTION, '?');
+            }
+
+            if ($this->current_char === ':') {
+                $this->advance();
+
+                return new Token(Token::COLON, ':');
+            }
+
             if ($this->current_char === '[') {
                 $this->advance();
 

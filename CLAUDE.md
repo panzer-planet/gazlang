@@ -46,7 +46,7 @@ eventually rewritten *in GazLang itself*. Work toward that goal in this order;
 each step depends on the ones before it.
  
 1. ~~**Fix the precedence tower.**~~ Done. `Parser` is now `expr` (assignment,
-   right associative) → `coalesce` (`??`, right associative) → `logical_or` → `logical_and` → `equality` → `relational`
+   right associative) → `ternary` (`?:`, right associative) → `coalesce` (`??`, right associative) → `logical_or` → `logical_and` → `equality` → `relational`
    → `concat` (`..`) → `additive` → `multiplicative` → `unary` → `postfix` (`[index]`, `(args)`) → `primary`. Binary levels share
    `left_associative()`; add a new level by adding a one-line method there.
 2. ~~**Add comparison and logical operators.**~~ Done. `<`, `>`, `<=`, `>=`,
@@ -81,6 +81,11 @@ each step depends on the ones before it.
      with keys evaluated once, so the right side only runs when needed; like `=`, it
      creates a missing variable or last key but not missing keys along the way
      (PHP would create nested arrays).
+   - `$c ? $a : $b` (`TernaryAST`) evaluates only the taken branch. It is right
+     associative, as in C and JS (`$a ? 1 : $b ? 2 : 3` is `$a ? 1 : ($b ? 2 : 3)`), and
+     sits between `??` and assignment, so `$x ?? $y ? 1 : 2` tests the coalesced value and
+     `$v = $c ? 1 : 2` assigns the result. The middle is a full expression. The code
+     generator emits `JZ TERNARY_ELSE_n` / `JMP TERNARY_END_n`, like `if`.
    - Code generation pushes `PUSH true` / `PUSH false`.
 3. ~~**Add loops.**~~ Done. `while` has its own `WhileStatementAST`; `for` is
    desugared in the parser into `{ init; while (cond) { body } }` with the step
@@ -262,9 +267,8 @@ before function values:
   Booleans stay as they are (`true == 1`) unless that proves a problem.
 - **`/` always gives a float** (Python 3, Lua 5.3); `intdiv` is integer division.
 
-Also decided on 2026-09-17, small, to build next:
-- **A ternary**, `$c ? $a : $b`: right associative, between `??` and assignment (PHP, JS),
-  only the taken branch is evaluated. `?` is free since only `??` uses it.
+Also decided on 2026-09-17, small:
+- ~~**A ternary**~~ Done, see the operators list above.
 - **`exit($code = 0)`**: a builtin that stops the program with that exit code (0 to 255)
   and prints nothing. Like `return` and `break` it is not an error, so `try/catch` does
   not catch it; both backends unwind with an `ExitSignal` that `bin/gazlang` and the

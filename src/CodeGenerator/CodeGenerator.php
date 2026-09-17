@@ -25,6 +25,7 @@ use GazLang\AST\NumAST;
 use GazLang\AST\ReturnStatementAST;
 use GazLang\AST\StatementAST;
 use GazLang\AST\StringAST;
+use GazLang\AST\TernaryAST;
 use GazLang\AST\TryStatementAST;
 use GazLang\AST\UnaryOpAST;
 use GazLang\AST\VariableAST;
@@ -816,6 +817,26 @@ class CodeGenerator extends AbstractNodeVisitor
             $this->emit('END_TRY');
         }
         $this->emit('JMP', $label);
+    }
+
+    /**
+     * Visit a Ternary node: the condition, JZ to the else branch, each branch leaving its value on the stack
+     *
+     * @param  TernaryAST  $node  The node to visit
+     */
+    public function visitTernary(TernaryAST $node): void
+    {
+        $else_label = 'TERNARY_ELSE_'.$this->label_counter;
+        $end_label = 'TERNARY_END_'.$this->label_counter;
+        $this->label_counter++;
+
+        $this->visit($node->condition);
+        $this->emit('JZ', $else_label);
+        $this->visit($node->then);
+        $this->emit('JMP', $end_label);
+        $this->emit('LABEL', $else_label);
+        $this->visit($node->else);
+        $this->emit('LABEL', $end_label);
     }
 
     /**

@@ -16,6 +16,7 @@ A small, PHP-flavoured programming language with an interpreter and a stack-VM c
 - Comparison operators: `==`, `!=` (no conversion between strings and numbers: `"5" == 5` is false), `<`, `<=`, `>`, `>=`
 - Logical operators: `&&`, `||` (short-circuiting), `!`
 - Null coalescing: `$config["port"] ?? 8080` (missing variables and keys give the default), and `$counts[$word] ??= 0`
+- Ternary: `$n == 1 ? "one" : "many"`, right associative, only the taken branch runs
 - Parentheses for grouping expressions
 - Echo statements for output (`echo <expr>;`)
 - Assignment `=` and `+=`, `-=`, `*=`, `/=`, `%=`, `??=`, `++`, `--` (prefix and postfix)

@@ -24,6 +24,7 @@ use GazLang\AST\NumAST;
 use GazLang\AST\ReturnStatementAST;
 use GazLang\AST\StatementAST;
 use GazLang\AST\StringAST;
+use GazLang\AST\TernaryAST;
 use GazLang\AST\TryStatementAST;
 use GazLang\AST\UnaryOpAST;
 use GazLang\AST\VariableAST;
@@ -62,6 +63,7 @@ class Parser
         Token::VAR_IDENTIFIER => 'a $variable',
         Token::GLOBAL_VAR_IDENTIFIER => 'an @variable',
         Token::STRING => 'a string',
+        Token::COLON => "':'",
     ];
 
     /**
@@ -591,7 +593,33 @@ class Parser
     }
 
     /**
-     * Parse an expression, the lowest precedence level ((variable | index) (= | += | -= | *= | /= | %= | ??=) expr | coalesce)
+     * Parse a ternary (coalesce [? expr : ternary])
+     *
+     * Right associative, as in C and JS: $a ? 1 : $b ? 2 : 3 is $a ? 1 : ($b ? 2 : 3). The
+     * middle is a full expression, so it can hold an assignment or another ternary.
+     *
+     * @return AST
+     *
+     * @throws Exception
+     */
+    public function ternary()
+    {
+        $node = $this->coalesce();
+
+        $token = $this->current_token;
+        if ($token->type === Token::QUESTION) {
+            $this->eat(Token::QUESTION);
+            $then = $this->expr();
+            $this->eat(Token::COLON);
+
+            return $this->at(new TernaryAST($node, $then, $this->ternary()), $token);
+        }
+
+        return $node;
+    }
+
+    /**
+     * Parse an expression, the lowest precedence level ((variable | index) (= | += | -= | *= | /= | %= | ..= | ??=) expr | ternary)
      *
      * Assignment is right associative, so $a = $b = 1 assigns 1 to both.
      *
@@ -601,7 +629,7 @@ class Parser
      */
     public function expr()
     {
-        $node = $this->coalesce();
+        $node = $this->ternary();
 
         $token = $this->current_token;
         if (in_array($token->type, self::ASSIGNMENTS, true)) {

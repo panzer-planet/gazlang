@@ -1,0 +1,2 @@
+// A lone ? and : are the ternary's, so $a ? $b : $c lexes
+echo $a ? 1 : 2;

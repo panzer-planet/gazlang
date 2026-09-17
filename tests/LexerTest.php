@@ -218,8 +218,9 @@ class LexerTest extends TestCase
                 Token::PLUS_ASSIGN, Token::INCREMENT, Token::PLUS, Token::MINUS_ASSIGN, Token::DECREMENT, Token::MINUS, Token::MULTIPLY_ASSIGN, Token::DIVIDE_ASSIGN, Token::MODULO_ASSIGN,
                 Token::INCREMENT, Token::PLUS, Token::DECREMENT, Token::MINUS, Token::COALESCE, Token::COALESCE_ASSIGN, Token::COALESCE, Token::ASSIGN,
                 Token::CONCAT, Token::CONCAT_ASSIGN, Token::CONCAT, Token::ASSIGN, Token::INTEGER, Token::CONCAT, Token::INTEGER, Token::FLOAT, Token::CONCAT, Token::INTEGER,
+                Token::QUESTION, Token::COLON, Token::COALESCE, Token::QUESTION, Token::QUESTION, Token::COLON,
             ],
-            array_column($this->lex('=== == = => !== != ! <= >= += ++ + -= -- - *= /= %= +++ --- ?? ??= ?? = .. ..= .. = 1..2 1.5..2'), 0)
+            array_column($this->lex('=== == = => !== != ! <= >= += ++ + -= -- - *= /= %= +++ --- ?? ??= ?? = .. ..= .. = 1..2 1.5..2 ? : ??? ?:'), 0)
         );
     }
 

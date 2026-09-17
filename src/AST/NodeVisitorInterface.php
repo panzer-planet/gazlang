@@ -164,6 +164,14 @@ interface NodeVisitorInterface
     public function visitIndex(IndexAST $node);
 
     /**
+     * Visit a Ternary node
+     *
+     * @param  TernaryAST  $node  The node to visit
+     * @return mixed The result of visiting the node
+     */
+    public function visitTernary(TernaryAST $node);
+
+    /**
      * Visit a FunctionDeclaration node
      *
      * @param  FunctionDeclarationAST  $node  The node to visit
