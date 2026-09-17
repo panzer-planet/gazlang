@@ -18,7 +18,7 @@ check("<< dropping a bit", 3 << 62, -4611686018427387904);
 check("<< of a negative", -1 << 1, -2);
 check("shifting by 0", 5 << 0, 5);
 
-// Rust and Python precedence, not C: | is below ^ is below & is below .. is below <<,
+// Rust and Python precedence, not C: .. is below | is below ^ is below & is below <<,
 // and all of them are above the comparisons
 check("& binds tighter than ==", 6 & 3 == 2, true);
 check("| binds looser than ^", 1 | 2 ^ 3, 1);

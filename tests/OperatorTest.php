@@ -53,7 +53,7 @@ class OperatorTest extends GazLangTestCase
 
     public static function bitwisePrecedence(): array
     {
-        // relational -> bit_or -> bit_xor -> bit_and -> concat -> shift -> additive, as in
+        // relational -> concat -> bit_or -> bit_xor -> bit_and -> shift -> additive, as in
         // Rust and Python: the bitwise operators are above the comparisons, unlike C
         return [
             '& is above ==' => ['echo 6 & 3 == 2;', "true\n"],

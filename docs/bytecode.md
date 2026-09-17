@@ -164,7 +164,7 @@ Every one means what `Runtime\Values` says, including the error messages.
 | `DIV` | `a b -- c` | Always gives a float. Fails on "Division by zero". |
 | `MOD` | `a b -- c` | Ints only. Fails on a float or on "Division by zero". |
 | `BIT_AND`, `BIT_OR`, `BIT_XOR` | `a b -- c` | Ints only; fails on anything else. |
-| `SHL`, `SHR` | `a b -- c` | Ints only. The count must be 0 to 63. `SHL` drops the bits shifted off the top, `SHR` keeps the sign. |
+| `SHL`, `SHR` | `a b -- c` | Ints only. A count outside 0 to 63 fails on "Shift count must be between 0 and 63, got 64". `SHL` drops the bits shifted off the top, so the result wraps; `SHR` keeps the sign. |
 | `BIT_NOT` | `a -- b` | Flips every bit of an int, two's complement. Fails on anything else. |
 | `CONCAT` | `a b -- c` | Joins two values as text, as `..` does. |
 | `EQUALS`, `NOT_EQUALS` | `a b -- c` | Never converts between types; a bool equals only itself. |

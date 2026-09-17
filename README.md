@@ -60,7 +60,9 @@ Try `php bin/gazlang -f examples/csv_report.gaz -- examples/data/sales.csv regio
 - **Operators**: `+ - * / %` on numbers only (`/` always gives a float; `intdiv` for ints);
   `== !=` with no conversion between types (`"5" == 5` is false, `1 == 1.0` is true, lists and
   maps compare element by element); `< <= > >=` and `<=>` on numbers or on strings; `&& || !`;
-  `??` and `??=` for missing values; `$c ? $a : $b`; `+= -= *= /= %= ..= ++ --`.
+  `& | ^ << >> ~` on ints only, above the comparisons as in Rust and Python, so
+  `$flags & MASK == 0` is `($flags & MASK) == 0`; `??` and `??=` for missing values;
+  `$c ? $a : $b`; `+= -= *= /= %= ..= &= |= ^= <<= >>= ++ --`.
 - **Control flow**: `if`/`else if`/`else`, `while`, `for`, `foreach`, `break`, `continue`.
 - **Functions**: `fn add($a, $b = 1) { return $a + $b; }` at the top level, callable
   before they are declared. A bare name is a value (`$f = add; $f(1)`, builtins too), and
