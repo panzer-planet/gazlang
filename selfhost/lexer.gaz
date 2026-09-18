@@ -80,6 +80,12 @@ class Lexer {
         "public" => "PUBLIC", "private" => "PRIVATE", "protected" => "PROTECTED",
     };
 
+    // Single character escapes in double-quoted strings, and what each stands for
+    #escapes = {
+        "n" => "\n", "t" => "\t", "r" => "\r", "v" => "\v", "f" => "\f", "e" => "\e", "0" => "\0",
+        "\\" => "\\", "\"" => "\"", "$" => "$", "{" => "{",
+    };
+
     fn _($text) {
         #text = $text;
         #length = len($text);
@@ -245,6 +251,97 @@ class Lexer {
         return slice(#text, $start, #pos - $start);
     }
 
+    // The text of a double-quoted string, up to its closing quote. $first is true at the
+    // opening quote
+    fn string_part($first) {
+        // An unterminated string is reported where it starts
+        $start_line = #line;
+        #skip(1);
+
+        $text = "";
+        while (#char != "" && #char != "\"") {
+            if (#char == "\\") {
+                #skip(1);
+                if (#char == "") {
+                    break;
+                }
+                $text ..= #escape();
+            } else {
+                $text ..= #char;
+                #advance();
+            }
+        }
+
+        if (#char == "") {
+            #fail("Unterminated string", $start_line);
+        }
+        #skip(1);
+
+        return Token("STRING", $text);
+    }
+
+    // What the escape after a backslash stands for
+    fn escape() {
+        $c = #char;
+        #advance();
+
+        if ($c == "x") {
+            $hex = #read_hex(2);
+            if (len($hex) != 2) {
+                #fail("Invalid escape \\x{$hex}: expected two hex digits");
+            }
+
+            return chr(#hex_value($hex));
+        }
+
+        if ($c == "u") {
+            $hex = #char == "{" ? #read_braced_hex() : null;
+            if ($hex == null) {
+                #fail('Invalid escape \u: expected \u{...} with 1 to 6 hex digits');
+            }
+            $code_point = #hex_value($hex);
+            if ($code_point > 0x10FFFF || $code_point >= 0xD800 && $code_point <= 0xDFFF) {
+                #fail('Invalid escape \u{' .. $hex .. '}: not a Unicode code point');
+            }
+
+            return #utf8($code_point);
+        }
+
+        if ($c == "0" && is_digit(#char)) {
+            #fail("Octal escapes are not supported: \\0{#char} (use \\x)");
+        }
+
+        return #escapes[$c] ?? #fail("Unknown escape sequence \\" .. $c .. " in string");
+    }
+
+    // {H} with 1 to 6 hex digits, starting at the {, or null if it is malformed
+    fn read_braced_hex() {
+        #skip(1);
+        $hex = #read_hex(7);
+        if (#char != "}" || $hex == "" || len($hex) > 6) {
+            return null;
+        }
+        #skip(1);
+
+        return $hex;
+    }
+
+    // A Unicode code point as UTF-8
+    fn utf8($code_point) {
+        if ($code_point < 0x80) {
+            return chr($code_point);
+        }
+        if ($code_point < 0x800) {
+            return chr(0xC0 | $code_point >> 6) .. chr(0x80 | $code_point & 0x3F);
+        }
+        if ($code_point < 0x10000) {
+            return chr(0xE0 | $code_point >> 12) .. chr(0x80 | $code_point >> 6 & 0x3F) .. chr(0x80 | $code_point & 0x3F);
+        }
+
+        return chr(0xF0 | $code_point >> 18) .. chr(0x80 | $code_point >> 12 & 0x3F)
+            .. chr(0x80 | $code_point >> 6 & 0x3F) .. chr(0x80 | $code_point & 0x3F);
+    }
+
     // Raw, with PHP's rules: only \' and \\ are escapes, any other backslash is kept
     fn single_quoted_string() {
         $start_line = #line;
@@ -331,6 +428,7 @@ class Lexer {
         match {
             $c == "" => { return Token("EOF", null); }
             is_digit($c) => { return #number(); }
+            $c == "\"" => { return #string_part(true); }
             $c == "'" => { return Token("STRING", #single_quoted_string()); }
             $c == "$" || $c == "@" => { return #var_identifier(); }
             #is_name_start($c) => { return #identifier(); }
