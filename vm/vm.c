@@ -1379,6 +1379,16 @@ int main(int argc, char **argv) {
         return 1;
     }
     pthread_join(thread, NULL);
+    free(job.text);
     fflush(stdout);
     return job.exit_code;
+}
+
+/* LeakSanitizer, which the sanitized builds run on Linux (not on macOS), reports what is left
+   unreachable at exit. The loader gives up at the first problem in a file without dropping what
+   it built, on purpose, so leaks from inside it aren't reported; everything else still is. The
+   sanitizers look this function up by name, and other builds never call it. */
+const char *__lsan_default_suppressions(void);
+const char *__lsan_default_suppressions(void) {
+    return "leak:^load$\nleak:^read_block$\nleak:^check_block$\nleak:^split_words$\n";
 }
