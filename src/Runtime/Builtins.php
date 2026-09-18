@@ -55,6 +55,9 @@ final class Builtins
         'exit' => [0, 1],
         'read_file' => 1,
         'write_file' => 2,
+        'file_exists' => 1,
+        'real_path' => 1,
+        'cwd' => 0,
         'print' => 1,
         'print_error' => 1,
         'read_stdin' => 0,
@@ -189,6 +192,10 @@ final class Builtins
             'exit' => throw new ExitSignal($this->exitCode($this->argument($name, $args[0] ?? 0, 'int'))),
             'read_file' => $this->readFile($this->argument($name, $args[0], 'string')),
             'write_file' => $this->writeFile($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string')),
+            'file_exists' => self::resolve($this->argument($name, $args[0], 'string')) !== false,
+            'real_path' => self::resolve($this->argument($name, $args[0], 'string'))
+                ?: throw new Exception("No such file or directory: {$args[0]}"),
+            'cwd' => getcwd() ?: throw new Exception('Cannot get the working directory'),
             // Printing, as echo does it but without the newline: any value, converted the same way
             'print' => $this->write(false, $args[0]),
             'print_error' => $this->write(true, $args[0]),
@@ -571,6 +578,20 @@ final class Builtins
         }
 
         return $contents;
+    }
+
+    /**
+     * real_path($path): the absolute path with every symlink, "." and ".." resolved, as realpath(3)
+     * gives it, relative paths resolved from the working directory; file_exists($path) is whether there is one
+     *
+     * @param  string  $path  The path
+     * @return string|false The real path, or false when nothing is there. "" is false, where PHP's
+     *                      realpath() gives the working directory, and so is a NUL byte, which no
+     *                      name can hold and a C string would cut short
+     */
+    private static function resolve(string $path): string|false
+    {
+        return $path === '' || str_contains($path, "\0") ? false : realpath($path);
     }
 
     /**

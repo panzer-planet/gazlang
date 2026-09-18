@@ -283,6 +283,64 @@ class StdlibTest extends GazLangTestCase
         $this->executeCode('read_file("nope.txt");');
     }
 
+    public function test_real_path_resolves_dots_and_symlinks()
+    {
+        $dir = sys_get_temp_dir().'/gazlang_real_'.getmypid();
+        mkdir("{$dir}/sub", 0777, true);
+        touch("{$dir}/sub/a.gaz");
+        symlink("{$dir}/sub/a.gaz", "{$dir}/link.gaz");
+        $real = realpath($dir);
+
+        try {
+            $this->assertEquals(
+                "{$real}/sub/a.gaz\n{$real}/sub/a.gaz\n{$real}/sub\ntrue\ntrue\nfalse\n",
+                $this->executeCode(
+                    "echo real_path(\"{$dir}/sub/./../sub//a.gaz\"); echo real_path(\"{$dir}/link.gaz\");"
+                    ." echo real_path(\"{$dir}/sub/\"); echo file_exists(\"{$dir}/sub\"); echo file_exists(\"{$dir}/link.gaz\");"
+                    // The system resolves ".." after the step before it, so a missing directory is missing
+                    ." echo file_exists(\"{$dir}/nodir/../sub/a.gaz\");"
+                )
+            );
+        } finally {
+            unlink("{$dir}/link.gaz");
+            unlink("{$dir}/sub/a.gaz");
+            rmdir("{$dir}/sub");
+            rmdir($dir);
+        }
+    }
+
+    public function test_relative_paths_are_from_the_working_directory()
+    {
+        $this->assertEquals(
+            getcwd()."\n".realpath('composer.json')."\ntrue\n",
+            $this->executeCode('echo cwd(); echo real_path("composer.json"); echo file_exists(".");')
+        );
+    }
+
+    /**
+     * Nothing is there, however it is spelt: "" is not the working directory, as it is to PHP's
+     * realpath(), and a NUL byte, which no name can hold, is not cut short, as a C string would be
+     */
+    public function test_file_exists_is_whether_real_path_succeeds()
+    {
+        $this->assertEquals(
+            "false\nfalse\nfalse\nfalse\n",
+            $this->executeCode('echo file_exists("nope.txt"); echo file_exists(""); echo file_exists("composer.json/"); echo file_exists("composer.json\\0");')
+        );
+    }
+
+    public function test_real_path_of_nothing_is_an_error()
+    {
+        foreach (['nope.txt', '', 'composer.json/', 'composer.json\\0x'] as $path) {
+            try {
+                $this->executeCode("real_path(\"{$path}\");");
+                $this->fail("real_path(\"{$path}\") should fail");
+            } catch (\GazLang\GazLangError $e) {
+                $this->assertStringStartsWith('No such file or directory: ', $e->getMessage());
+            }
+        }
+    }
+
     public function test_write_file_creates_and_overwrites()
     {
         $path = sys_get_temp_dir().'/gazlang_write_'.getmypid().'.txt';
@@ -389,6 +447,8 @@ class StdlibTest extends GazLangTestCase
             'has_key key' => ['has_key([], null);', 'Keys must be int or string, got null'],
             'keys' => ['keys(null);', 'keys() expects list or map, got null'],
             'read_file' => ['read_file(1);', 'read_file() expects string, got int'],
+            'real_path' => ['real_path(null);', 'real_path() expects string, got null'],
+            'file_exists' => ['file_exists([]);', 'file_exists() expects string, got list'],
             'min of a number and a string' => ['min(1, "2");', 'min() expects two numbers or two strings, got int and string'],
             'max of bools' => ['max(true, false);', 'max() expects two numbers or two strings, got bool and bool'],
             'max of lists' => ['max([1], [2]);', 'max() expects two numbers or two strings, got list and list'],

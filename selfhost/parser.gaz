@@ -213,8 +213,9 @@ class Parser {
         "repeat" => 2, "chr" => 1, "ord" => 1, "to_int" => 1, "to_float" => 1, "floor" => 1, "ceil" => 1,
         "round" => [1, 2], "abs" => 1, "intdiv" => 2, "min" => 2, "max" => 2, "to_string" => 1,
         "in_array" => 2, "has_key" => 2, "keys" => 1, "values" => 1, "type_of" => 1, "is_a" => 2,
-        "class_of" => 1, "error" => 1, "exit" => [0, 1], "read_file" => 1, "write_file" => 2, "print" => 1,
-        "print_error" => 1, "read_stdin" => 0, "args" => 0,
+        "class_of" => 1, "error" => 1, "exit" => [0, 1], "read_file" => 1, "write_file" => 2,
+        "file_exists" => 1, "real_path" => 1, "cwd" => 0, "print" => 1, "print_error" => 1, "read_stdin" => 0,
+        "args" => 0,
     };
     // Those and the declared functions, which share their namespace
     #functions = #BUILTINS;
