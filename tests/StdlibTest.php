@@ -4,6 +4,9 @@ namespace GazLang\Tests;
 
 use GazLang\GazLangError;
 use GazLang\Interpreter\Interpreter;
+use GazLang\Runtime\Builtins;
+use GazLang\Runtime\MapValue;
+use GazLang\Runtime\Values;
 
 class StdlibTest extends GazLangTestCase
 {
@@ -271,6 +274,15 @@ class StdlibTest extends GazLangTestCase
     {
         $this->expectExceptionMessage('Undefined variable: $x in 3');
         $this->executeCode('error("Undefined variable: \$x in " .. 3); echo "unreachable";');
+    }
+
+    public function test_builtins_is_the_runtimes_table()
+    {
+        $this->assertEquals(
+            "true\n[1, [2, 3], 0]\nfalse\n",
+            $this->executeCode('$b = builtins(); echo $b == builtins(); echo [$b["len"], $b["slice"], $b["builtins"]]; echo has_key($b, "print_r");')
+        );
+        $this->assertEquals(Values::toString(new MapValue(Builtins::ARITIES))."\n", $this->executeCode('echo builtins();'));
     }
 
     public function test_read_file()

@@ -63,6 +63,7 @@ final class Builtins
         'print_error' => 1,
         'read_stdin' => 0,
         'args' => 0,
+        'builtins' => 0,
     ];
 
     /**
@@ -203,6 +204,9 @@ final class Builtins
             'print_error' => $this->write(true, $args[0]),
             'read_stdin' => stream_get_contents(STDIN),
             'args' => $this->args,
+            // This table, as a map: what the running runtime has, which is what a compiler
+            // running on it checks calls against
+            'builtins' => new MapValue(self::ARITIES),
             default => throw new Exception("Unknown builtin: {$name}"),
         };
     }

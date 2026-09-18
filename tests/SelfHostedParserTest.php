@@ -7,9 +7,6 @@ use GazLang\CodeGenerator\Program;
 use GazLang\GazLangError;
 use GazLang\Lexer\Lexer;
 use GazLang\Parser\Parser;
-use GazLang\Runtime\Builtins;
-use GazLang\Runtime\MapValue;
-use GazLang\Runtime\Values;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 
@@ -81,16 +78,6 @@ class SelfHostedParserTest extends GazLangTestCase
             $this->assertSame(self::phpAst($file), [implode("\n", $output)."\n", $exit_code], $file);
             $output = [];
         }
-    }
-
-    /**
-     * GazLang can't ask which builtins exist, so the parser carries a copy of the table to check calls against
-     */
-    public function test_the_parsers_builtin_table_is_the_runtimes()
-    {
-        $output = $this->executeCode('include "selfhost/parser.gaz"; echo Parser.BUILTINS;');
-
-        $this->assertSame(Values::toString(new MapValue(Builtins::ARITIES)), rtrim($output));
     }
 
     /**
