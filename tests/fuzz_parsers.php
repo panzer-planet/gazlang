@@ -1,7 +1,10 @@
 <?php
 
 /**
- * Differential fuzzing of the two parsers: php tests/fuzz_parsers.php [RUNS = 2000] [SEED = 1]
+ * Differential fuzzing of the two parsers: php tests/fuzz_parsers.php [RUNS = 2000] [SEED = 1] [ast|code]
+ *
+ * With `code` it compares the two compilers instead, selfhost/compile.gaz against `gazlang -c`,
+ * on the same inputs: whatever parses is compiled by both, and must give the same bytecode.
  *
  * SelfHostedParserTest says selfhost/parser.gaz is right on the corpus; this looks for inputs
  * nobody thought to put in it. Each run makes an input one of two ways, parses it with the PHP
@@ -15,6 +18,7 @@
  */
 
 use GazLang\AST\Dumper;
+use GazLang\CodeGenerator\CodeGenerator;
 use GazLang\GazLangError;
 use GazLang\Lexer\Lexer;
 use GazLang\Parser\Parser;
@@ -42,7 +46,9 @@ const ATOMS = [
 function php_ast(string $source, string $path): string
 {
     try {
-        return Dumper::dump((new Parser(new Lexer($source), $path))->parse());
+        $tree = (new Parser(new Lexer($source), $path))->parse();
+
+        return MODE === 'code' ? (new CodeGenerator($tree))->compile()->write($path) : Dumper::dump($tree);
     } catch (GazLangError $e) {
         return "Error: {$e->getMessage()}\n";
     } catch (Throwable $e) {
@@ -145,14 +151,15 @@ function first_difference(string $expected, string $actual): string
 
 $runs = (int) ($argv[1] ?? 2000);
 mt_srand((int) ($argv[2] ?? 1));
+define('MODE', $argv[3] ?? 'ast');
 
-$program = compile_driver('selfhost/ast.gaz');
+$program = compile_driver(MODE === 'code' ? 'selfhost/compile.gaz' : 'selfhost/ast.gaz');
 
 // Small programs, so a run is tens of milliseconds: the parser's own cases, which between them
 // use all of the grammar, and a few real ones
 $failing = [...glob('tests/parser_corpus/error_*.gaz'), ...glob('tests/parser_corpus/include/error_*.gaz')];
 $valid = array_values(array_filter(
-    [...glob('tests/parser_corpus/*.gaz'), ...glob('tests/parser_corpus/include/*.gaz'), 'examples/objects.gaz', 'examples/errors.gaz', 'lib/format.gaz', 'lib/sort.gaz'],
+    [...glob('tests/parser_corpus/*.gaz'), ...glob('tests/parser_corpus/include/*.gaz'), ...glob('tests/codegen_corpus/*.gaz'), 'examples/objects.gaz', 'examples/errors.gaz', 'lib/format.gaz', 'lib/sort.gaz'],
     fn (string $file) => filesize($file) < 8000 && ! in_array($file, $failing, true),
 ));
 // Beside the include cases, so their includes are found; not a .gaz, so a run that dies doesn't leave the suite a corpus file
