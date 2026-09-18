@@ -403,29 +403,85 @@ each step depends on the ones before it.
 
 ## Holes to fill next
 
-Found on 2026-09-17 by asking what a program written in GazLang still can't do, now that the
-bytecode format is settled. None of these is decided yet; the order is what the self-hosted
-compiler needs, and the first two also decide how the C VM is built, so they come before it.
+Found 2026-09-18 by three audits, after the previous round (`delete`, `#trace`, `print`/
+`print_error`, `values`, bitwise operators, `match`) was finished and described in its own
+sections above: every PHP facility `src/Lexer`, `src/Parser`, `src/CodeGenerator` and
+`src/Runtime` use, checked one by one against what GazLang can express; an 800 line compiler
+for a small language written in GazLang, logging every workaround; and the GazLang already in
+`lib/`, `examples/` and `tests/gaz`, read for shapes that recur because something is missing.
 
-1. ~~**Removing an element from a list or map.**~~ Done: `delete $a[k];`, see step 5. It is a
-   statement rather than a builtin giving a new list or map, because the point was symbol
-   tables that delete in a loop, and copying the container each time is quadratic. The C VM's
-   ordered hash therefore has to support deletion: tombstones or an order-preserving
-   compaction, decided when it is written.
-2. ~~**A stack trace on an error.**~~ Done: `#trace`, see "Errors and try/catch". The C VM has
-   to be able to do the same: name the function of every frame and the location of the call it
-   made, which its frames hold anyway, and build the trace only when an error is raised.
-3. ~~**Writing to standard error, and printing without a newline.**~~ Done: `print($value)`
-   and `print_error($value)`, see step 6.
-4. ~~**`values($m)`.**~~ Done, see step 6.
-5. ~~**Bitwise operators** (`& | ^ << >> ~`).~~ Done, see step 2: the self-hosted lexer has to
-   write `\u{H}` escapes as UTF-8, which is shifts and masks, and
-   `tests/gaz/operators/bitwise_test.gaz` writes that encoder to prove they are enough.
-   `&` and `|` joined the lexer's operator character table, which already read a character,
-   that character with `=`, and the character doubled, so the hand-written `&&` and `||`
-   branches went; `<` and `>` stayed by hand, since `<=>` overlaps `<<` and `>=` overlaps `>>`.
-6. ~~**`match`**.~~ Done, see "match" below. A jump table for arms that are all literals is
-   still open, and so is the rewrite of `lib/json.gaz`'s 49 `if`s that motivated it.
+None of these is decided. They are grouped by cause, since one fix closes several, and ordered
+by how much each deforms a self-hosted compiler. Every claim below was reproduced.
+
+1. **Threading mutable state through calls.** There is no way to hand a function something it
+   can add to. Appending to a list parameter silently does nothing, because lists are values:
+   `fn add_to($l) { $l[] = 1; } $xs = []; add_to($xs); len($xs)` is `0`, with no error. The
+   two libraries here deformed in opposite directions around it: `lib/json.gaz` says so in a
+   comment ("Globals, because every parse function moves the same position") and uses
+   `@json_pos` 43 times across 11 functions, which also makes `json_decode` non-reentrant,
+   while `lib/csv.gaz` refused globals and inlined everything into one 94 line `csv_parse`.
+   A compiler accumulates constantly: diagnostics, instructions, interned strings. The
+   options, cheapest first: make `$param[] = v` an error, so the loss is loud rather than
+   silent; `return $a, $b;` feeding the list patterns that already exist; by-reference
+   parameters. Wrapping state in an object works today, since objects are the only handles,
+   and neither library did it.
+2. **Dispatching on an object's type.** `type_of($x)` is `"object"` for every object and
+   `is_a($x, C)` asks one class at a time, so a pass over an AST is an `is_a` chain per node;
+   the GazLang compiler written for this audit added an `abstract fn kind()` to all nine of
+   its node classes purely to get a string to `match` on. `class_of($x)` returning the class
+   value would fix it, since `==` on classes is identity and `match` would then dispatch
+   directly. Related and separate: `$obj.$name` (dynamic member access, which `lib/sort.gaz`
+   needs to sort objects rather than only maps, forcing `examples/football.gaz:594` to wrap
+   objects back into maps to sort them), `foreach` over an object's fields (`json_encode`
+   refuses objects for want of it), and a class's name for messages.
+3. **`match` arms that are not `==`.** Of the 49 `if` conditions in `lib/json.gaz`, 15 are a
+   plain `==`; the rest are ranges (`$unit >= 0xDC00 && $unit <= 0xDFFF`), predicate calls
+   (`is_digit($c)`, `json_match("true")`), `!=` and map lookups, and all six `lib/chars.gaz`
+   classifiers are range tests. `match` was argued for on the grounds that its arms must run
+   statements, which is right and is what block arms give; that its *values* are compared with
+   `==` was never costed against the code, and on this evidence `match` will barely appear in
+   the lexer port. Guard arms (`match ($c) { is_digit($c) => ... }`) and range arms
+   (`"a".."z" => ...`) are what the code wants. Decide this before porting the lexer, not after.
+4. **Scanning bytes.** `$s[$i]` allocates a one byte string and `ord($s[$i])` is two builtin
+   calls plus that allocation; there is no `byte_at($s, $i)` and no "index of the first byte in
+   this set". A lexer must classify every byte, so it cannot escape into `index_of` the way
+   CSV parsing did. Measured on this language: scanning 140KB idiomatically (a method reading
+   `#pos`) took 1.04s against 0.34s hand-inlined, and a full lex and parse of 155KB took 3.5s.
+   Building a string with `..=` is quadratic, since `$s ..= $x` is `$s = $s .. $x` and copies
+   every time, where PHP's own `.=` appends in place: 160k appends took 6.34s against 0.57s
+   for `$parts[] = ...` then `join`. Some of this is the C VM's to fix and should be measured
+   again once it exists; `..=` appending in place is a change to `Values::store()` that is
+   worth making either way.
+5. **Names and namespaces.** Keywords are matched case-insensitively, so `class If`, `While`,
+   `Return`, `Match` and `True` are all syntax errors, which is what a self-hosted AST wants to
+   call things and is why `examples/football.gaz`'s `class Match` became `Fixture` when `match`
+   landed; a suffix works around it, as the PHP AST's `IfStatementAST` already does, so the
+   real question is whether case-insensitive keywords earn their cost. Included files share one
+   namespace, so two files defining `helper()` is a hard error and every module prefixes its
+   own privates (`json_*` is that scar), and including a file runs its top level code.
+   `Error`'s members are reserved across the whole hierarchy, so a domain error cannot declare
+   its own `#line` or `#message`.
+6. **Smaller things, each with real uses behind it.** No list concatenation, prepend or
+   reverse, so `array_unshift` becomes an append-then-reverse loop (4 uses in the PHP code, and
+   4 hand-rolled copy loops already in `lib/` and `examples/`, including both merge sort drains
+   in `lib/functional.gaz:78`). No constants: `examples/football.gaz:302` fakes them with
+   UPPERCASE zero-argument functions that re-`split()` a 50 name string on every call inside a
+   retry loop, and token types are bare strings where a typo is silent. Counting into a map
+   needs the key twice (`$m[$k] = ($m[$k] ?? 0) + 1`, 5 places), which `+=` creating a missing
+   key from zero would remove. No identity key for an object (PHP's `spl_object_id`, 7 uses in
+   `Parser.php` for side tables keyed by AST node), no `cwd()` (4 uses, and bytecode `@ "file"
+   line` records are relative-path rewrites the self-hosted compiler must reproduce byte for
+   byte), no file-existence test, no `to_int`/`to_float` that returns null instead of throwing
+   (every parse of untrusted text needs try/catch), no copy-with-change for objects, no
+   `catch (A | B $e)` and no bare rethrow.
+
+Two things the audits ruled *out*, both previously assumed: **bitwise operators were not
+load-bearing** for the self-hosted lexer, since `lib/json.gaz:286` already encodes UTF-8 with
+`intdiv` and `%`, `json_parse_hex4` covers `hexdec` and `json_encode_string`'s nibble table
+covers `sprintf('\x%02X')`; they are still clearer and will be faster in C, but the
+justification recorded for them was wrong. **Regular expressions are not load-bearing** either:
+every use in the PHP lexer is a simple validator that a character loop replaces, and the
+`preg_*` calls in `BytecodeReader` belong to the loader, which is C's job.
 
 Deliberately not planned until real code asks for them: `**` and `sqrt`/`pow`/`log`, variadic
 parameters and spread (pass a list), block comments (`//` works), `time()` (time it from
