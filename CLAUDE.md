@@ -486,9 +486,9 @@ every use in the PHP lexer is a simple validator that a character loop replaces,
 `preg_*` calls in `BytecodeReader` belong to the loader, which is C's job.
 
 Deliberately not planned until real code asks for them: `**` and `sqrt`/`pow`/`log`, variadic
-parameters and spread (pass a list), block comments (`//` works), `time()` (time it from
-outside), `foreach` over a string (`split($s, "")`), and regular expressions (the lexer's
-character classes are explicit on purpose).
+parameters and spread (pass a list), `time()` (time it from outside), `foreach` over a string
+(`split($s, "")`), and regular expressions (the lexer's character classes are explicit on
+purpose). Block comments left this list on 2026-09-18, see "Decided, not built yet".
 
 ## Decided, not built yet
 
@@ -500,6 +500,17 @@ lambdas and closure state ("Function values"), `lib/functional.gaz` (step 7's Ga
 libraries), `fn` (step 4), objects ("Objects") and error objects, typed catch and
 `finally` ("Errors and try/catch"). Not built:
 
+- **Block comments** (wanted 2026-09-18, was previously "not planned"). `/* ... */`, skipped
+  by the lexer exactly as `//` is, so no token reaches the parser and `--tokens` is unchanged.
+  One thing to decide first: **do they nest?** C and PHP say no, so the first `*/` ends the
+  comment and commenting out a block that already contains one breaks; Rust and Swift say yes,
+  which costs a depth counter in the lexer and is what you want when commenting out a region
+  of a self-hosted compiler. Nesting is the better answer for this language and is nearly free
+  here, but it must be settled before anything is written, since changing it later silently
+  changes what existing source means. An unterminated one is a lexer error reported at the
+  line it opened on, as an unterminated string is. No doc-comment convention. Note
+  `editors/gaz.tmLanguage` had a `/* */` rule that was removed on 2026-09-18 because the
+  language did not have them; it goes back when this lands.
 - **Later, when real code needs them:** `interface` / `implements` (a parse-time check
   that the methods exist, plus `is_a`), `final`, and visibility with public implicit:
   `private` and `protected` on fields and methods. `#` and `##` are checked at parse
