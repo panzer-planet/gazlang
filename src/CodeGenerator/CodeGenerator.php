@@ -31,6 +31,7 @@ use GazLang\AST\NumAST;
 use GazLang\AST\ParentMethodAST;
 use GazLang\AST\PropertyAST;
 use GazLang\AST\ReturnStatementAST;
+use GazLang\AST\SpreadAST;
 use GazLang\AST\StatementAST;
 use GazLang\AST\StringAST;
 use GazLang\AST\TernaryAST;
@@ -86,6 +87,7 @@ use GazLang\Runtime\MapValue;
  * and a key and sets it in the map below. KEY_CHECK fails unless the value on top of the
  * stack can be a key (an int or string), and is emitted right after each key expression,
  * so a bad key fails before later keys and the value run, as in the interpreter.
+ * ARRAY_EXTEND pops a list and appends its elements to the list below (...$a in a list literal).
  * INDEX_GET pops an index and a list, map or string and pushes the element. For an assignment
  * through a path the index keys, then the value are pushed, and SET_PATH path slot pops the
  * value and the keys, writes through the variable in that local slot in place (SET_PATH_GLOBAL
@@ -765,8 +767,23 @@ class CodeGenerator extends AbstractNodeVisitor
                 $this->emit('KEY_CHECK');
             }
             $this->visit($value);
-            $this->emit($key === null ? 'ARRAY_PUSH' : 'MAP_SET');
+            // A spread appends its own elements
+            if (! $value instanceof SpreadAST) {
+                $this->emit($key === null ? 'ARRAY_PUSH' : 'MAP_SET');
+            }
         }
+    }
+
+    /**
+     * Visit a Spread node, an element of a list literal: ARRAY_EXTEND appends a list's elements
+     * to the list below, failing unless it is a list
+     *
+     * @param  SpreadAST  $node  The node to visit
+     */
+    public function visitSpread(SpreadAST $node): void
+    {
+        $this->visit($node->expr);
+        $this->emit('ARRAY_EXTEND');
     }
 
     /**

@@ -31,6 +31,7 @@ use GazLang\AST\NumAST;
 use GazLang\AST\ParentMethodAST;
 use GazLang\AST\PropertyAST;
 use GazLang\AST\ReturnStatementAST;
+use GazLang\AST\SpreadAST;
 use GazLang\AST\StatementAST;
 use GazLang\AST\StringAST;
 use GazLang\AST\TernaryAST;
@@ -790,7 +791,11 @@ class Interpreter extends AbstractNodeVisitor
         if (! $node->map) {
             $list = [];
             foreach ($node->entries as [, $value]) {
-                $list[] = $this->visit($value);
+                if ($value instanceof SpreadAST) {
+                    array_push($list, ...$this->visit($value));
+                } else {
+                    $list[] = $this->visit($value);
+                }
             }
 
             return $list;
@@ -803,6 +808,18 @@ class Interpreter extends AbstractNodeVisitor
         }
 
         return $map;
+    }
+
+    /**
+     * Visit a Spread node, an element of a list literal: the list, checked here so a bad one
+     * is reported at the ..., as the VM reports it
+     *
+     * @param  SpreadAST  $node  The node to visit
+     * @return list<mixed> The elements to put in the literal
+     */
+    public function visitSpread(SpreadAST $node): array
+    {
+        return Values::spread($this->visit($node->expr));
     }
 
     /**

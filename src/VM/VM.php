@@ -377,6 +377,10 @@ final class VM
                                 $value = array_pop($stack);
                                 $stack[array_key_last($stack)][] = $value;
                                 break;
+                            case 'ARRAY_EXTEND':
+                                $value = Values::spread(array_pop($stack));
+                                array_push($stack[array_key_last($stack)], ...$value);
+                                break;
                             case 'NEW_MAP':
                                 $stack[] = new MapValue;
                                 break;

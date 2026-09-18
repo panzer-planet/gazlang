@@ -210,6 +210,7 @@ depth limit is reached.
 | --- | --- | --- |
 | `NEW_ARRAY` | `-- l` | Pushes an empty list. |
 | `ARRAY_PUSH` | `l v -- l` | Appends to the list below. |
+| `ARRAY_EXTEND` | `l v -- l` | Appends the elements of a list to the list below (`...$v` in a list literal). Fails with "Cannot spread map: only a list can be" unless it is a list. |
 | `NEW_MAP` | `-- m` | Pushes an empty map. |
 | `MAP_SET` | `m k v -- m` | Sets a key of the map below. |
 | `KEY_CHECK` | `k -- k` | Fails unless the value can be a key, so a bad key fails before later keys and the value run. |

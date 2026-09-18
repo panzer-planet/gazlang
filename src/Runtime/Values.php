@@ -478,6 +478,23 @@ final class Values
     }
 
     /**
+     * What ...$value puts in a list literal: its elements, so the value must be a list
+     *
+     * @param  mixed  $value  The value
+     * @return list<mixed> The list
+     *
+     * @throws Exception If the value isn't a list
+     */
+    public static function spread($value): array
+    {
+        if (! is_array($value)) {
+            throw new Exception('Cannot spread '.self::typeOf($value).': only a list can be');
+        }
+
+        return $value;
+    }
+
+    /**
      * Check a value can be taken apart by a list pattern of $count targets: a list of exactly that many elements
      *
      * @param  mixed  $value  The value

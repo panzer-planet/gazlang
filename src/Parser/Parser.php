@@ -30,6 +30,7 @@ use GazLang\AST\NumAST;
 use GazLang\AST\ParentMethodAST;
 use GazLang\AST\PropertyAST;
 use GazLang\AST\ReturnStatementAST;
+use GazLang\AST\SpreadAST;
 use GazLang\AST\StatementAST;
 use GazLang\AST\StringAST;
 use GazLang\AST\TernaryAST;
@@ -489,6 +490,8 @@ class Parser
             return $this->parent_method();
         } elseif ($token->type === Token::PARENT) {
             $this->fail("## alone is not allowed: write ##name for the parent's version of a method");
+        } elseif ($token->type === Token::SPREAD) {
+            $this->fail('... only spreads a list into a list literal, as in [...$a, 1]');
         } elseif (isset(self::RESERVED[$token->type])) {
             $this->fail("{$token->value} is reserved");
         }
@@ -820,7 +823,7 @@ class Parser
     }
 
     /**
-     * Parse a list literal (LBRACKET [expr (COMMA expr)* [COMMA]] RBRACKET)
+     * Parse a list literal (LBRACKET [element (COMMA element)* [COMMA]] RBRACKET), element: [SPREAD] expr
      *
      * @return ArrayLiteralAST
      *
@@ -833,7 +836,14 @@ class Parser
 
         $entries = [];
         while ($this->current_token->type !== Token::RIGHT_BRACKET) {
-            $entries[] = [null, $this->expr()];
+            if ($this->current_token->type === Token::SPREAD) {
+                // ...$a puts the elements of the list $a here
+                $spread = $this->current_token;
+                $this->eat(Token::SPREAD);
+                $entries[] = [null, $this->at(new SpreadAST($this->expr()), $spread)];
+            } else {
+                $entries[] = [null, $this->expr()];
+            }
             if ($this->current_token->type === Token::DOUBLE_ARROW) {
                 $this->fail('A list has no keys: write a map as {key => value}');
             }
@@ -1239,6 +1249,11 @@ class Parser
     {
         if ($literal->entries === []) {
             throw new GazLangError('Nothing to take apart: write at least one target in [...]', $this->file, $literal->line);
+        }
+        foreach ($literal->entries as [, $element]) {
+            if ($element instanceof SpreadAST) {
+                throw new GazLangError("A pattern can't take the rest with ...: take the list apart with slice()", $element->file, $element->line);
+            }
         }
         $pattern = new ListPatternAST(array_map(fn ($entry) => $target($entry[1]), $literal->entries));
         [$pattern->line, $pattern->file] = [$literal->line, $literal->file];
@@ -2063,6 +2078,7 @@ class Parser
             $node instanceof BinOpAST => [$node->left, $node->right],
             $node instanceof TernaryAST => [$node->condition, $node->then, $node->else],
             $node instanceof ArrayLiteralAST => array_filter(array_merge(...$node->entries)),
+            $node instanceof SpreadAST => [$node->expr],
             default => $fail("A constant's value can only use literals, operators and other constants"),
         };
         foreach ($parts as $part) {
@@ -2110,7 +2126,18 @@ class Parser
             } elseif ($node instanceof TernaryAST) {
                 return $this->fold(Values::isTruthy($this->fold($node->condition, $class)) ? $node->then : $node->else, $class);
             } elseif ($node instanceof ArrayLiteralAST && ! $node->map) {
-                return array_map(fn (array $entry) => $this->fold($entry[1], $class), $node->entries);
+                $list = [];
+                foreach ($node->entries as [, $element]) {
+                    if ($element instanceof SpreadAST) {
+                        array_push($list, ...$this->fold($element, $class));
+                    } else {
+                        $list[] = $this->fold($element, $class);
+                    }
+                }
+
+                return $list;
+            } elseif ($node instanceof SpreadAST) {
+                return Values::spread($this->fold($node->expr, $class));
             } elseif ($node instanceof ArrayLiteralAST) {
                 $map = new MapValue;
                 foreach ($node->entries as [$key, $value]) {

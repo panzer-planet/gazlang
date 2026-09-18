@@ -90,6 +90,8 @@ class Token
 
     public const CONCAT_ASSIGN = 'CONCAT_ASSIGN';  // ..=
 
+    public const SPREAD = 'SPREAD';  // ... in a list literal: [...$a, 1]
+
     public const INCREMENT = 'INCREMENT';  // ++
 
     public const DECREMENT = 'DECREMENT';  // --

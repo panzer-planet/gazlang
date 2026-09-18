@@ -93,6 +93,7 @@ final class Program
         'JNN' => [['label'], [1, 0]],
         'NEW_ARRAY' => [[], [0, 1]],
         'ARRAY_PUSH' => [[], [2, 1]],
+        'ARRAY_EXTEND' => [[], [2, 1]],
         'NEW_MAP' => [[], [0, 1]],
         'MAP_SET' => [[], [3, 1]],
         'KEY_CHECK' => [[], [1, 1]],
