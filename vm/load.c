@@ -1241,7 +1241,7 @@ Program *load(const char *text, size_t len, const char *path) {
             f->hi = b->hi;
             f->block = b;
             f->value = xcalloc(1, sizeof(Func));
-            f->value->rc = INT64_MAX / 2;
+            f->value->gc.rc = INT64_MAX / 2;
             f->value->kind = F_NAMED;
             f->value->name = b->name;
             f->value->function = f;

@@ -255,7 +255,7 @@ bool class_is_a(Class *c, Class *ancestor) {
 
 Func *bound_method(Object *o, Class *cls, Str *name) {
     Func *f = xcalloc(1, sizeof(Func));
-    f->rc = 1;
+    gc_track(&f->gc, T_FUNCTION);
     f->kind = F_BOUND;
     f->name = name;
     f->cls = cls;

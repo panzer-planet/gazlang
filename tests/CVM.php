@@ -33,6 +33,14 @@ final class CVM
     public const BINARY = 'vm/build/gazvm-test';
 
     /**
+     * The binary to run: GAZVM names another, like a build that collects cycles at every chance
+     */
+    private static function binary(): string
+    {
+        return getenv('GAZVM') ?: self::BINARY;
+    }
+
+    /**
      * How long the C VM may run one program, in seconds; the sanitizers make it slower
      */
     private const TIME_LIMIT = 60;
@@ -127,7 +135,7 @@ final class CVM
         }
         if ($isolated) {
             $php = self::processes(array_map(fn ($job) => [PHP_BINARY, '-d', 'pcov.enabled=0', 'bin/gazlang', '-f', $job[0], '--', ...$job[1]], $jobs), ['GAZLANG_RESTARTED' => '1']);
-            $c = self::processes(array_map(fn ($job) => [self::BINARY, $job[0], ...$job[1]], $jobs));
+            $c = self::processes(array_map(fn ($job) => [self::binary(), $job[0], ...$job[1]], $jobs));
             foreach ($jobs as $entry => $_) {
                 $results[$entry] = [$php[$entry], $c[$entry]];
             }
@@ -138,7 +146,7 @@ final class CVM
         // The PHP side runs in this process while the C side's processes run
         $php = [];
         $pending = $jobs;
-        $c = self::processes(array_map(fn ($job) => [self::BINARY, $job[0], ...$job[1]], $jobs), [], function () use (&$pending, &$php) {
+        $c = self::processes(array_map(fn ($job) => [self::binary(), $job[0], ...$job[1]], $jobs), [], function () use (&$pending, &$php) {
             if ($pending === []) {
                 return false;
             }
@@ -157,6 +165,23 @@ final class CVM
         }
 
         return $results;
+    }
+
+    /**
+     * How many lists, maps, objects and functions a program leaves alive on the C VM once it ends
+     * and its cycles are collected, and the most that were alive at once (GAZVM_STATS)
+     *
+     * @return array{0: int, 1: int}
+     */
+    public static function alive(string $file): array
+    {
+        $gzb = self::compile($file);
+        [, $err] = self::process([self::binary(), $gzb], ['GAZVM_STATS' => '1']);
+        if (! preg_match('/gazvm: (\d+) lists, maps, objects and functions alive at the end, at most (\d+) at once/', $err, $match)) {
+            throw new \RuntimeException("No statistics from the C VM:\n{$err}");
+        }
+
+        return [(int) $match[1], (int) $match[2]];
     }
 
     /**

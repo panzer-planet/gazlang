@@ -55,7 +55,7 @@ Func *builtin_value(int index) {
     static Func *values[64];
     if (!values[index]) {
         Func *f = xcalloc(1, sizeof(Func));
-        f->rc = INT64_MAX / 2;
+        f->gc.rc = INT64_MAX / 2;
         f->kind = F_BUILTIN;
         f->builtin = index;
         f->name = str_intern(builtin_info[index].name, strlen(builtin_info[index].name));

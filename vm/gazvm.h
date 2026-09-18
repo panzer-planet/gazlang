@@ -11,6 +11,7 @@
  *   load.c      reading and checking a bytecode file (CodeGenerator\BytecodeReader)
  *   vm.c        the dispatch loop, calls, errors and traces (VM\VM), and main()
  *   builtins.c  the builtin functions (Runtime\Builtins)
+ *   gc.c        the cycle collector, for what reference counting can't free
  *
  * Errors: a function that can fail returns bool, false meaning an error was raised. The
  * error itself is in `vm_error` (see raise()), and the caller passes the false up until the
@@ -84,10 +85,20 @@ struct Str {
     char data[];        /* a "flexible array member": the bytes follow the struct */
 };
 
+/* The start of every value that can be part of a cycle: a list, map, object or function. The
+   count comes first, where incref() finds every heap value's. Tracked ones are linked into the
+   cycle collector's list (see gc.c). */
+typedef struct Gc {
+    int64_t rc;
+    struct Gc *prev, *next;     /* the collector's list; both NULL when not tracked */
+    int64_t refs;               /* the collector's scratch count */
+    Type type;
+} Gc;
+
 /* A list: a growable array of values. Copy on write: a list held by two variables is shared
    until one of them writes, which copies it first (see list_unique()). */
 struct List {
-    int64_t rc;
+    Gc gc;
     size_t len, cap;
     Value *items;
 };
@@ -103,7 +114,7 @@ typedef struct {
    index[] holds entry positions, -1 for an empty bucket; it is open addressing with linear
    probing, and a removed entry's bucket stays taken, so probing never stops early. */
 struct Map {
-    int64_t rc;
+    Gc gc;
     size_t count;       /* live entries */
     size_t used;        /* entries[] slots used, removed ones included */
     size_t cap;         /* entries[] slots allocated */
@@ -121,7 +132,7 @@ typedef enum { F_NAMED, F_BUILTIN, F_CLOSURE, F_BOUND } FuncKind;
 /* A function as a value: a named function or builtin (one shared value per name, so == is
    identity), a closure, or a method bound to an object */
 struct Func {
-    int64_t rc;
+    Gc gc;
     FuncKind kind;
     Str *name;          /* named, builtin, bound: the name */
     Function *function; /* named: what to run */
@@ -137,7 +148,7 @@ struct Func {
 /* An object: a handle, so == is identity. fields[] holds one value per field of its class,
    in layout order; a field never set is T_UNSET. */
 struct Object {
-    int64_t rc;
+    Gc gc;
     Class *cls;
     bool printing;      /* while echo prints it, so one that holds itself prints Name {...} */
     Value fields[];
@@ -358,6 +369,14 @@ bool values_equal(Value a, Value b);
 int compare_numbers(Value a, Value b);       /* -1, 0 or 1 */
 bool parse_integer(const char *s, size_t len, int64_t *out);
 bool parse_number(const char *s, size_t len, Value *out);
+
+/* ---- gc.c ------------------------------------------------------------------------------ */
+
+void gc_track(Gc *g, Type type);    /* sets the count to 1 and links it in */
+void gc_untrack(Gc *g);
+extern bool gc_wanted;              /* enough has been made since the last collection */
+extern int64_t live, peak;          /* how many lists, maps, objects and functions are alive, and the most there were */
+void gc_collect(void);
 
 /* ---- ops.c ----------------------------------------------------------------------------- */
 

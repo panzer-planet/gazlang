@@ -664,6 +664,7 @@ tests/parser_corpus/try.gaz
 tests/parser_corpus/uses_error_by_extending.gaz
 tests/parser_corpus/uses_error_by_name.gaz
 tests/parser_corpus/uses_error_by_untyped_catch.gaz
+tests/vm_corpus/cycles.gaz
 tests/vm_corpus/deep_uncaught.gaz
 tests/vm_corpus/depth.gaz
 tests/vm_corpus/depth_uncaught.gaz

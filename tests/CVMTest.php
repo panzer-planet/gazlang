@@ -76,4 +76,14 @@ class CVMTest extends TestCase
             $this->assertSame(str_starts_with(basename($entry), 'error_'), $php[2] !== 0, "{$entry}: only files named error_* are refused");
         }
     }
+
+    public function test_the_c_vm_collects_cycles()
+    {
+        // 100000 iterations each make five cycles of different kinds and keep none of them: only
+        // the last iteration's, which the top level still holds, are left, and never more than a
+        // collection's worth were alive at once (the tested build collects every 64 new ones)
+        [$end, $most] = CVM::alive('tests/vm_corpus/cycles.gaz');
+        $this->assertLessThan(20, $end);
+        $this->assertLessThan(1000, $most);
+    }
 }

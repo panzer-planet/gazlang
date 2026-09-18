@@ -183,7 +183,7 @@ static Value caught(Error *e) {
     if (e->trace.type != T_UNSET) incref(calls);
     if (!e->has_value) {
         Object *o = xcalloc(1, sizeof(Object) + (size_t)error_class->nfields * sizeof(Value));
-        o->rc = 1;
+        gc_track(&o->gc, T_OBJECT);
         o->cls = error_class;
         incref(v_str(e->reason));
         o->fields[class_field(error_class, message)] = v_str(e->reason);
@@ -246,7 +246,7 @@ static bool push_frame(Block *block, Value **sp, int argc, Instr *ret, Func *clo
 
 static Object *object_new(Class *c) {
     Object *o = xcalloc(1, sizeof(Object) + (size_t)c->nfields * sizeof(Value));
-    o->rc = 1;
+    gc_track(&o->gc, T_OBJECT);
     o->cls = c;
     return o;
 }
@@ -495,6 +495,9 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             goto error;
 
         case OP_JMP:
+            /* A loop's jump back and every call are where the cycle collector may run: between
+               instructions, with everything the program holds on the stack or in a frame */
+            if (gc_wanted) gc_collect();
             pc = code + in->a;
             break;
         case OP_JZ:
@@ -632,6 +635,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         }
 
         case OP_CALL: {
+            if (gc_wanted) gc_collect();
             Function *f = in->p;
             if (fp - frames == MAX_CALL_DEPTH) {
                 raise_depth(f->name->data);
@@ -677,7 +681,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             Lambda *lambda = in->p;
             Block *lb = lambda->block;
             Func *f = xcalloc(1, sizeof(Func));
-            f->rc = 1;
+            gc_track(&f->gc, T_FUNCTION);
             f->kind = F_CLOSURE;
             f->lambda = lambda;
             f->captured = xcalloc((size_t)lb->ncaptures + 1, sizeof(Value));
@@ -695,7 +699,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             f->line = in->line;
             /* $f = <lambda>: the closure's $f is the closure (a cycle, left to the collector) */
             if (lb->self >= 0) {
-                f->rc++;
+                f->gc.rc++;
                 set_slot(&f->captured[lb->self], v_func(f));
             }
             PUSH(v_func(f));
@@ -765,6 +769,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             break;
         }
         case OP_CALL_METHOD: {
+            if (gc_wanted) gc_collect();
             argc = in->a;
             Value method = sp[-argc - 1];
             Value *callee_slot = sp - argc - 2;
@@ -796,6 +801,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             break;
         }
         case OP_NEW: {
+            if (gc_wanted) gc_collect();
             Class *c = in->p;
             if (fp - frames == MAX_CALL_DEPTH) {
                 raise_depth(c->name->data);
@@ -847,6 +853,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             PUSH(v_func(bound_method(fp->receiver, in->p, in->v.s)));
             break;
         case OP_CALL_VALUE: {
+            if (gc_wanted) gc_collect();
             argc = in->a;
         call_value:;
             Value *callee_slot = sp - argc - 1;
@@ -1065,6 +1072,13 @@ static void *run(void *arg) {
         return NULL;
     }
     flush_output();
+    /* GAZVM_STATS: how much is still alive once the program is done and cycles are collected,
+       which is how the tests see the collector free what reference counting can't */
+    if (getenv("GAZVM_STATS")) {
+        gc_collect();
+        fprintf(stderr, "gazvm: %lld lists, maps, objects and functions alive at the end, at most %lld at once\n",
+                (long long)live, (long long)peak);
+    }
     *exit_code = 0;
     return NULL;
 }

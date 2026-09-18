@@ -40,6 +40,7 @@ void *xrealloc(void *p, size_t size) {
 
 /* Free a heap value whose reference count reached 0, dropping what it holds */
 void value_free(Value v) {
+    if (v.type >= T_LIST && v.type <= T_OBJECT) gc_untrack((Gc *)v.rc);
     switch (v.type) {
     case T_STRING:
         free(v.s);
@@ -232,7 +233,7 @@ Str *buf_to_str(Buf *b) {
 
 List *list_new(size_t cap) {
     List *l = xmalloc(sizeof(List));
-    l->rc = 1;
+    gc_track(&l->gc, T_LIST);
     l->len = 0;
     l->cap = cap;
     l->items = cap ? xmalloc(cap * sizeof(Value)) : NULL;
@@ -250,7 +251,7 @@ void list_push(List *l, Value v) {
 /* Copy on write: make the list in a slot the slot's own before writing to it */
 List *list_unique(Value *slot) {
     List *l = slot->l;
-    if (l->rc == 1) return l;
+    if (l->gc.rc == 1) return l;
     List *copy = list_new(l->len);
     for (size_t i = 0; i < l->len; i++) {
         incref(l->items[i]);
@@ -282,7 +283,7 @@ static bool key_eq(Value a, Value b) {
 
 Map *map_new(void) {
     Map *m = xcalloc(1, sizeof(Map));
-    m->rc = 1;
+    gc_track(&m->gc, T_MAP);
     return m;
 }
 
@@ -362,7 +363,7 @@ bool map_remove(Map *m, Value key) {
 
 Map *map_unique(Value *slot) {
     Map *m = slot->m;
-    if (m->rc == 1) return m;
+    if (m->gc.rc == 1) return m;
     Map *copy = map_new();
     for (size_t i = 0; map_next(m, &i); i++) {
         incref(m->entries[i].value);
