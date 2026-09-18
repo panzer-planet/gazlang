@@ -72,7 +72,17 @@ foreach ($map as $key => $value) { }
 ```
 
 A list index must be an int in range (no negative indexes); a map key must exist. Read through
-`??` to get `null` instead of an error. `$a[] = v` appends and is only valid as an assignment
+`??` to get `null` instead of an error. A compound assignment (`+=`, `..=`) needs the key to
+exist already, so start it with `??=`, which creates a missing last key and evaluates the key
+once:
+
+```gaz
+foreach ($words as $word) {
+    $counts[$word] ??= 0;
+    $counts[$word]++;
+}
+```
+ `$a[] = v` appends and is only valid as an assignment
 target; there is no `pop` — take the last element, then `delete` it.
 
 Strings index the same way, by an int position, to a one character string, read only.

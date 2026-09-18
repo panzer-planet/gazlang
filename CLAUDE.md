@@ -513,9 +513,21 @@ when it was written, not from now.
    4 hand-rolled copy loops already in `lib/` and `examples/`, including both merge sort drains
    in `lib/functional.gaz:78`). No constants: `examples/football.gaz:302` fakes them with
    UPPERCASE zero-argument functions that re-`split()` a 50 name string on every call inside a
-   retry loop, and token types are bare strings where a typo is silent. Counting into a map
-   needs the key twice (`$m[$k] = ($m[$k] ?? 0) + 1`, 5 places), which `+=` creating a missing
-   key from zero would remove. No identity key for an object (PHP's `spl_object_id`, 7 uses in
+   retry loop, and token types are bare strings where a typo is silent. ~~Counting into a map
+   needs the key twice, which `+=` creating a missing key from zero would remove.~~ Withdrawn
+   2026-09-18: the idiom is already there. `$m[$k] ??= 0; $m[$k]++;` works, because `??=`
+   creates a missing last key and evaluates the key once, where the recorded pattern
+   (`$m[$k] = ($m[$k] ?? 0) + 1`, 5 places) names the key twice and so evaluates a key with
+   side effects twice, which is the real defect in it. Rewrite those 5 places rather than
+   changing the language. `+=` creating the key from zero also does not generalise: the
+   starting value is 0 for `+=` but 1 for `*=` and `""` for `..=`, and nothing sensible for
+   `/=`, so it would either single out `+=` (leaving `$m[$k] *= 2` an error beside it), or give
+   every operator an identity nobody can read at a glance, or treat a missing key as null and
+   let the operator decide, which is what this language already refused because `$a["n"] ..= "x"`
+   would then quietly give `"nullx"`. PHP allows it and warns (`Undefined array key`), Python
+   raises `KeyError` as GazLang does and answered the ergonomics with a library
+   (`Counter`, `defaultdict`) rather than a language change, and JavaScript gives `NaN`.
+   No identity key for an object (PHP's `spl_object_id`, 7 uses in
    `Parser.php` for side tables keyed by AST node), no `cwd()` (4 uses, and bytecode `@ "file"
    line` records are relative-path rewrites the self-hosted compiler must reproduce byte for
    byte), no file-existence test, no `to_int`/`to_float` that returns null instead of throwing
