@@ -290,7 +290,7 @@ class Scout {
     // Every name in the league is different
     fn new_name() {
         while (true) {
-            $name = #random.pick(FIRST_INITIALS()) .. ". " .. #random.pick(SURNAMES());
+            $name = #random.pick(FIRST_INITIALS) .. ". " .. #random.pick(SURNAMES);
             if (! has_key(#taken, $name)) {
                 #taken[$name] = true;
                 return $name;
@@ -299,17 +299,19 @@ class Scout {
     }
 }
 
-fn FIRST_INITIALS() { return split("A B C D E F G H I J K L M N O P R S T V W Y Z", " "); }
+const FIRST_INITIALS = [
+    "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "R", "S", "T", "V", "W",
+    "Y", "Z",
+];
 
-fn SURNAMES() {
-    return split(
-        "Abara Achebe Adeyemi Alvarez Andersen Bauer Becker Brandt Brennan Castillo Costa Dalton Diallo Dube Duarte "
-        .. "Eriksen Ferreira Fischer Garcia Haddad Hale Hansen Ivanova Jansen Kamara Keane Kerr Kowalski Lindqvist "
-        .. "Lopez Mbeki Mensah Moreau Morales Nakamura Novak Nwosu Okafor Olsen Ortega Park Petrov Quinn Rossi Ruiz "
-        .. "Sato Silva Svensson Tanaka Vargas Walsh Wright Yilmaz Zielinski",
-        " "
-    );
-}
+const SURNAMES = [
+    "Abara", "Achebe", "Adeyemi", "Alvarez", "Andersen", "Bauer", "Becker", "Brandt", "Brennan", "Castillo",
+    "Costa", "Dalton", "Diallo", "Dube", "Duarte", "Eriksen", "Ferreira", "Fischer", "Garcia", "Haddad",
+    "Hale", "Hansen", "Ivanova", "Jansen", "Kamara", "Keane", "Kerr", "Kowalski", "Lindqvist", "Lopez",
+    "Mbeki", "Mensah", "Moreau", "Morales", "Nakamura", "Novak", "Nwosu", "Okafor", "Olsen", "Ortega",
+    "Park", "Petrov", "Quinn", "Rossi", "Ruiz", "Sato", "Silva", "Svensson", "Tanaka", "Vargas", "Walsh",
+    "Wright", "Yilmaz", "Zielinski",
+];
 
 // What happens in a match
 

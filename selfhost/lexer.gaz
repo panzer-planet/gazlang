@@ -64,13 +64,13 @@ class Lexer {
     #queued_tokens = [];
 
     // Marks that are a token on their own and start no longer one
-    #punctuation = {
+    const PUNCTUATION = {
         "(" => "LEFT_PAREN", ")" => "RIGHT_PAREN", "[" => "LEFT_BRACKET", "]" => "RIGHT_BRACKET",
         "," => "COMMA", ";" => "SEMICOLON", ":" => "COLON", "~" => "BIT_NOT",
     };
 
     // Operators: the longest one that matches wins, so <=> before <= before <
-    #operators = {
+    const OPERATORS = {
         "+" => "PLUS", "+=" => "PLUS_ASSIGN", "++" => "INCREMENT",
         "-" => "MINUS", "-=" => "MINUS_ASSIGN", "--" => "DECREMENT", "->" => "ARROW",
         "*" => "MULTIPLY", "*=" => "MULTIPLY_ASSIGN",
@@ -90,7 +90,7 @@ class Lexer {
     };
 
     // Lowercase and matched exactly: a capitalisation of one is an ordinary name
-    #keywords = {
+    const KEYWORDS = {
         "echo" => "ECHO", "if" => "IF", "else" => "ELSE", "while" => "WHILE", "for" => "FOR",
         "foreach" => "FOREACH", "as" => "AS", "break" => "BREAK", "continue" => "CONTINUE",
         "fn" => "FN", "function" => "FUNCTION", "return" => "RETURN", "null" => "NULL",
@@ -102,7 +102,7 @@ class Lexer {
     };
 
     // Single character escapes in double-quoted strings, and what each stands for
-    #escapes = {
+    const ESCAPES = {
         "n" => "\n", "t" => "\t", "r" => "\r", "v" => "\v", "f" => "\f", "e" => "\e", "0" => "\0",
         "\\" => "\\", "\"" => "\"", "$" => "$", "{" => "{",
     };
@@ -431,7 +431,7 @@ class Lexer {
             #fail("Octal escapes are not supported: \\0{#char} (use \\x)");
         }
 
-        return #escapes[$c] ?? #fail("Unknown escape sequence \\" .. $c .. " in string");
+        return #ESCAPES[$c] ?? #fail("Unknown escape sequence \\" .. $c .. " in string");
     }
 
     // {H} with 1 to 6 hex digits, starting at the {, or null if it is malformed
@@ -497,7 +497,7 @@ class Lexer {
     fn identifier() {
         $word = #read_word();
 
-        return Token(#keywords[$word] ?? "IDENTIFIER", $word);
+        return Token(#KEYWORDS[$word] ?? "IDENTIFIER", $word);
     }
 
     // A local ($name) or global (@name) variable; the sigil is part of the name
@@ -583,7 +583,7 @@ class Lexer {
     fn scan_token() {
         $c = #char;
 
-        $type = #punctuation[$c] ?? null;
+        $type = #PUNCTUATION[$c] ?? null;
         if ($type != null) {
             #skip(1);
             return Token($type, $c);
@@ -638,7 +638,7 @@ class Lexer {
 
         foreach ([3, 2, 1] as $length) {
             $operator = slice(#text, #pos, $length);
-            $type = #operators[$operator] ?? null;
+            $type = #OPERATORS[$operator] ?? null;
             if ($type != null) {
                 #skip($length);
                 return Token($type, $operator);

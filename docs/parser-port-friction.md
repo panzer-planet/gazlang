@@ -15,7 +15,7 @@ generator port, which is next and larger:
 
 | # | Friction | Workaround | Recommended |
 | --- | --- | --- | --- |
-| 8 | No constants | fields; token types are bare strings | `const`, checked at parse time |
+| 8 | ~~No constants~~ | **built**: `const`, at the top level and in a class | done, see CLAUDE.md "Constants" |
 | 9 | No working directory, real path or existence test | textual paths, **wrong in four cases** | `cwd()`, `real_path()` |
 | 10 | A parser in GazLang has a nesting limit | none; a list as a stack for walking trees | the VM's call depth, later |
 | 1 | An object's fields can't be listed | a `parts()` method on every node class | `fields($object)` |
@@ -134,6 +134,10 @@ had. Each was fixed in `Parser.php` and the port mirrors the fix.
   token of the right type, which keeps every other error where it was.
 
 ## 8. No constants (hole 6), and what stands in for them shares a namespace with methods
+
+**Decided and built 2026-09-18**, the first option below and class constants with it: see
+"Constants" in CLAUDE.md. The lexer's and parser's tables are constants now. Token types are
+still bare strings; converting them is what will say whether an enum is wanted.
 
 **Met:** `Parser.php` has five class constants: `ASSIGNMENTS`, `BUILTIN_CLASSES`, `BUILTIN_FILE`,
 `RESERVED`, `EXPECTED`, and reads `Lexer::KEYWORDS` and `Builtins::ARITIES` from other classes.

@@ -74,8 +74,8 @@ class FunctionValueTest extends GazLangTestCase
     public static function parseErrors(): array
     {
         return [
-            'undeclared bare name' => ['$f = missing;', 'Undefined function: missing on line 1'],
-            'undeclared name in an array' => ["\$h = [\n  len,\n  nope,\n];", 'Undefined function: nope on line 3'],
+            'undeclared bare name' => ['$f = missing;', 'Undefined function or constant: missing on line 1'],
+            'undeclared name in an array' => ["\$h = [\n  len,\n  nope,\n];", 'Undefined function or constant: nope on line 3'],
             'assigning to a call' => ['$f = len; $f(1) = 2;', 'Can only use = on a variable, or an element or field of one on line 1'],
             'incrementing a call' => ['$f = len; $f(1)++;', 'Can only use ++ on a variable, or an element or field of one on line 1'],
             'call by name still checked' => ['$f = len; len(1, 2);', 'Function len expects 1 arguments, 2 given on line 1'],

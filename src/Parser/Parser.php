@@ -2252,7 +2252,10 @@ class Parser
                 $hint = isset(Lexer::KEYWORDS[strtolower($use->name)])
                     ? " (keywords are lowercase: write '".strtolower($use->name)."', not '{$use->name}')"
                     : '';
-                throw new GazLangError("Undefined function: {$use->name}{$hint}", $use->file, $use->line);
+                // A bare name that isn't called is as likely a mistyped constant
+                $what = $use instanceof FunctionCallAST ? 'Undefined function' : 'Undefined function or constant';
+
+                throw new GazLangError("{$what}: {$use->name}{$hint}", $use->file, $use->line);
             }
             if ($use instanceof FunctionCallAST) {
                 $error = Builtins::arityError("Function {$use->name}", $this->functions[$use->name], count($use->args));

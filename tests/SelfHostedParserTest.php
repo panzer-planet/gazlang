@@ -88,7 +88,7 @@ class SelfHostedParserTest extends GazLangTestCase
      */
     public function test_the_parsers_builtin_table_is_the_runtimes()
     {
-        $output = $this->executeCode('include "selfhost/parser.gaz"; echo Parser(Lexer("")).builtins;');
+        $output = $this->executeCode('include "selfhost/parser.gaz"; echo Parser.BUILTINS;');
 
         $this->assertSame(Values::toString(new MapValue(Builtins::ARITIES)), rtrim($output));
     }

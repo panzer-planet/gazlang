@@ -27,6 +27,40 @@ opinionated.
 variable everywhere. A function cannot see the top level's `$x`. Nothing is declared; reading
 one that was never set is an `Undefined variable: $x` error.
 
+## Constants
+
+```gaz
+const WIDTH = 3;
+const AREA = WIDTH * HEIGHT;          // in terms of others, in any order
+const HEIGHT = WIDTH + 1;
+const KINDS = ["int", "float", {"nested" => AREA}];
+
+class Token {
+    const EOF = "EOF";
+    const ENDS = [#EOF, Token.EOF .. "!"];
+    fn is_eof($type) { return $type == #EOF; }     // #NAME inside the class
+}
+echo AREA .. " " .. Token.EOF;                       // Class.NAME outside it
+```
+```
+12 EOF
+```
+
+`const NAME = value;` at the top level or in a class. The value is whatever needs nothing but
+the source: literals, every operator, `?:`, lists and maps, and other constants. No variables, no
+calls, no indexing. It is worked out before the program runs, so `const X = 1 / 0;` is an error
+at that line whether or not `X` is ever used, and so is a constant that depends on itself.
+
+A constant can be used before it is declared, like a function. A mistyped one is an error before
+the program runs (`Undefined function or constant: WDITH`), which is the reason to give a string a name.
+Nothing can change one: `X = 2` and `X[0] = 2` are syntax errors, and since lists and maps are
+values, `$copy = KINDS; $copy[] = 1;` changes the copy.
+
+A top level constant shares the namespace of functions and classes. A class's constant shares
+the one its fields and methods are in, is inherited, and can't be declared again by a child. It
+is reached by name, `Token.EOF` or `#EOF`, not through a value: `$class.EOF` and `$token.EOF`
+are not constants.
+
 ## Strings
 
 Double quotes interpolate; single quotes are raw (only `\'` and `\\` are escapes, every other
@@ -271,8 +305,8 @@ Keywords are lowercase and matched exactly, so `class If`, `fn Return()` and `$w
 ordinary names. Writing a keyword in the wrong case says so. Sigils and member names have their
 own namespaces, so `$default`, `@match` and `fn match()` were always fine.
 
-Functions, classes and builtins share one namespace, and so do all of a class's fields and
-methods across its hierarchy.
+Functions, classes, builtins and top level constants share one namespace, and so do all of a
+class's fields, methods and constants across its hierarchy.
 
 ## Builtins
 

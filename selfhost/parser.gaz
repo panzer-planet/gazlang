@@ -157,7 +157,7 @@ class Parser {
 
     // Source of the builtin classes, parsed into every program: Error is what runtime errors
     // and error("message") throw. Single quoted, so nothing in it is interpolated.
-    #builtin_source = 'class Error {
+    const BUILTIN_SOURCE = 'class Error {
     #message;
     #file;
     #line;
@@ -167,7 +167,7 @@ class Parser {
 }';
 
     // How errors name the builtin classes' source
-    #builtin_file = "<builtin>";
+    const BUILTIN_FILE = "<builtin>";
 
     // Every call by name and bare name used as a value, in source order, checked against the
     // declared functions once the whole program is read
@@ -180,7 +180,7 @@ class Parser {
     #lambda_head = null;
 
     // Assignment operator token types: = and the compound assignments
-    #assignments = [
+    const ASSIGNMENTS = [
         "ASSIGN", "PLUS_ASSIGN", "MINUS_ASSIGN", "MULTIPLY_ASSIGN", "DIVIDE_ASSIGN", "MODULO_ASSIGN",
         "CONCAT_ASSIGN", "COALESCE_ASSIGN",
         "BIT_AND_ASSIGN", "BIT_OR_ASSIGN", "BIT_XOR_ASSIGN", "SHIFT_LEFT_ASSIGN", "SHIFT_RIGHT_ASSIGN",
@@ -188,7 +188,7 @@ class Parser {
 
     // The binary operators' levels, loosest first, each left associative: the tower in
     // CLAUDE.md from logical_or down to multiplicative. A new level is a new number here.
-    #binary_levels = {
+    const BINARY_LEVELS = {
         "OR" => 1,
         "AND" => 2,
         "EQUALS" => 3, "NOT_EQUALS" => 3, "SPACESHIP" => 3,
@@ -203,11 +203,11 @@ class Parser {
     };
 
     // Keywords reserved for features that don't exist yet, so adding them never breaks a program
-    #reserved = ["INTERFACE", "IMPLEMENTS", "FINAL", "PUBLIC", "PRIVATE", "PROTECTED"];
+    const RESERVED = ["INTERFACE", "IMPLEMENTS", "FINAL", "PUBLIC", "PRIVATE", "PROTECTED"];
 
     // Builtins::ARITIES: every builtin function mapped to its parameter count, [fewest, most]
     // when some are optional. SelfHostedParserTest keeps this in step with the runtime's.
-    #builtins = {
+    const BUILTINS = {
         "len" => 1, "slice" => [2, 3], "lower" => 1, "upper" => 1, "trim" => 1, "split" => 2, "join" => 2,
         "replace" => 3, "contains" => 2, "starts_with" => 2, "ends_with" => 2, "index_of" => [2, 3],
         "repeat" => 2, "chr" => 1, "ord" => 1, "to_int" => 1, "to_float" => 1, "floor" => 1, "ceil" => 1,
@@ -217,10 +217,10 @@ class Parser {
         "print_error" => 1, "read_stdin" => 0, "args" => 0,
     };
     // Those and the declared functions, which share their namespace
-    #functions = #builtins;
+    #functions = #BUILTINS;
 
     // How expected tokens are described in syntax errors; other types are keywords, shown quoted and lowercase
-    #expected = {
+    const EXPECTED = {
         "LEFT_PAREN" => "'('", "RIGHT_PAREN" => "')'", "LEFT_BRACE" => "'{'", "RIGHT_BRACE" => "'}'",
         "LEFT_BRACKET" => "'['", "RIGHT_BRACKET" => "']'", "SEMICOLON" => "';'", "COMMA" => "','",
         "IDENTIFIER" => "a name", "VAR_IDENTIFIER" => "a \$variable", "GLOBAL_VAR_IDENTIFIER" => "an @variable",
@@ -261,7 +261,7 @@ class Parser {
     // that is already declared is left alone: naming things If and Match is the point of the rule.
     fn keyword_hint() {
         foreach ([#current_token, #previous_token] as $token) {
-            if ($token != null && $token.type == "IDENTIFIER" && has_key(#lexer.keywords, lower($token.value))
+            if ($token != null && $token.type == "IDENTIFIER" && has_key(Lexer.KEYWORDS, lower($token.value))
                 && !has_key(#functions, $token.value) && !has_key(#classes, $token.value)) {
                 return " (keywords are lowercase: write '" .. lower($token.value) .. "', not '{$token.value}')";
             }
@@ -353,7 +353,7 @@ class Parser {
     // If the current token has this type, eat it and get the next one; if not, fail
     fn eat($token_type) {
         if (#current_token.type != $token_type) {
-            $expected = #expected[$token_type] ?? "'" .. lower($token_type) .. "'";
+            $expected = #EXPECTED[$token_type] ?? "'" .. lower($token_type) .. "'";
             #fail("Expected {$expected} but found " .. #describe(#current_token));
         }
 
@@ -446,7 +446,7 @@ class Parser {
             return #parent_method();
         } else if ($type == "PARENT") {
             #fail("## alone is not allowed: write ##name for the parent's version of a method");
-        } else if (in_array($type, #reserved)) {
+        } else if (in_array($type, #RESERVED)) {
             #fail("{$token.value} is reserved");
         }
 
@@ -769,7 +769,7 @@ class Parser {
             #eat("LEFT_BRACKET");
             if (#current_token.type == "RIGHT_BRACKET") {
                 #eat("RIGHT_BRACKET");
-                if (!in_array(#current_token.type, #assignments)) {
+                if (!in_array(#current_token.type, #ASSIGNMENTS)) {
                     #fail("[] can only be used to append in an assignment");
                 }
 
@@ -816,13 +816,13 @@ class Parser {
     // operator. This climbs instead: read an operand, and while the next token is an operator
     // of this level or tighter, its right side is whatever binds tighter than it. The tree is
     // the same. Measured on the PHP VM, parsing alone (not lexing) is 28% faster: football.gaz
-    // 0.196s to 0.140s. #binary_levels is the tower.
+    // 0.196s to 0.140s. #BINARY_LEVELS is the tower.
     fn binary($level) {
         $node = #unary();
 
         while (true) {
             $token = #current_token;
-            $found = #binary_levels[$token.type] ?? 0;
+            $found = #BINARY_LEVELS[$token.type] ?? 0;
             if ($found < $level) {
                 return $node;
             }
@@ -888,7 +888,7 @@ class Parser {
         $node = #ternary();
 
         $token = #current_token;
-        if (!in_array($token.type, #assignments)) {
+        if (!in_array($token.type, #ASSIGNMENTS)) {
             return $node;
         }
         if (is_a($node, ArrayLiteralAST) && !$node.map) {
@@ -1285,9 +1285,9 @@ class Parser {
             return;
         }
         $name = #current_token.value;
-        if (has_key(#builtins, $name)) {
+        if (has_key(#BUILTINS, $name)) {
             #fail("{$name} is a builtin function");
-        } else if (has_key(#classes, $name) && #classes[$name].file == #builtin_file) {
+        } else if (has_key(#classes, $name) && #classes[$name].file == #BUILTIN_FILE) {
             #fail("{$name} is a builtin class");
         } else if (has_key(#functions, $name)) {
             #fail("Function {$name} is already declared");
@@ -1612,7 +1612,7 @@ class Parser {
         }
         #eat("FN");
         $token = #current_token;
-        if ($token.type != "IDENTIFIER" && !in_array($token.type, values(#lexer.keywords))) {
+        if ($token.type != "IDENTIFIER" && !in_array($token.type, values(Lexer.KEYWORDS))) {
             #fail("Expected a name but found " .. #describe($token));
         }
         $name = $token.value;
@@ -1793,10 +1793,12 @@ class Parser {
                 continue;
             }
             if (!has_key(#functions, $use.name)) {
-                $hint = has_key(#lexer.keywords, lower($use.name))
+                $hint = has_key(Lexer.KEYWORDS, lower($use.name))
                     ? " (keywords are lowercase: write '" .. lower($use.name) .. "', not '{$use.name}')"
                     : "";
-                #fail_at("Undefined function: {$use.name}{$hint}", $use.file, $use.line);
+                // A bare name that isn't called is as likely a mistyped constant
+                $what = is_a($use, FunctionCallAST) ? "Undefined function" : "Undefined function or constant";
+                #fail_at("{$what}: {$use.name}{$hint}", $use.file, $use.line);
             }
             if (is_a($use, FunctionCallAST)) {
                 $error = #arity_error("Function {$use.name}", #functions[$use.name], len($use.args));
@@ -1939,8 +1941,8 @@ class Parser {
     // Parse the builtin classes (Error), before the program, so its classes can use them
     fn builtin_classes() {
         [$lexer, $current_token, $file] = [#lexer, #current_token, #file];
-        #lexer = Lexer(#builtin_source);
-        #file = #builtin_file;
+        #lexer = Lexer(#BUILTIN_SOURCE);
+        #file = #BUILTIN_FILE;
         #current_token = #next_token();
         $class = #class_declaration();
         [#lexer, #current_token, #file] = [$lexer, $current_token, $file];

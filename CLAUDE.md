@@ -366,8 +366,8 @@ each step depends on the ones before it.
    differential fuzzer, mutants) found a bug in the spec and needed nothing faster than what
    there is. So, in this order:
    1. **Decide the friction the parser port logged** (`docs/parser-port-friction.md`) before
-      writing more GazLang: constants, `cwd()` and `real_path()`, `fields($object)`,
-      `builtins()`. The code generator port meets all four harder than the parser did, the
+      writing more GazLang: ~~constants~~ (built, see "Constants"), `cwd()` and `real_path()`,
+      `fields($object)`, `builtins()`. The code generator port meets all four harder than the parser did, the
       paths most of all, since a bytecode file's `@ "file"` records are relative-path rewrites
       it must reproduce byte for byte, and the parser's textual stand-in is knowingly wrong in
       three cases. Working around them a second time and then removing the workarounds twice
@@ -704,9 +704,8 @@ when it was written, not from now.
 6. **Smaller things, each with real uses behind it.** No list concatenation, prepend or
    reverse, so `array_unshift` becomes an append-then-reverse loop (4 uses in the PHP code, and
    4 hand-rolled copy loops already in `lib/` and `examples/`, including both merge sort drains
-   in `lib/functional.gaz:78`). No constants: `examples/football.gaz:302` fakes them with
-   UPPERCASE zero-argument functions that re-`split()` a 50 name string on every call inside a
-   retry loop, and token types are bare strings where a typo is silent. ~~Counting into a map
+   in `lib/functional.gaz:78`). ~~No constants.~~ Built 2026-09-18, see "Constants"; `examples/football.gaz`'s UPPERCASE
+   zero-argument functions, which re-`split()` a 50 name string on every call, were the evidence. ~~Counting into a map
    needs the key twice, which `+=` creating a missing key from zero would remove.~~ Withdrawn
    2026-09-18: the idiom is already there. `$m[$k] ??= 0; $m[$k]++;` works, because `??=`
    creates a missing last key and evaluates the key once, where the recorded pattern
@@ -755,7 +754,7 @@ libraries), `fn` (step 4), objects ("Objects") and error objects, typed catch an
   `private` and `protected` on fields and methods. `#` and `##` are checked at parse
   time, `$obj.name` when it runs against the running method's class; a parent's private
   field is invisible to children, so a child may then declare its own field of that
-  name. Not planned: traits, late static binding, static members, constants, operator
+  name. Not planned: traits, late static binding, static members, operator
   overloading. The keywords are reserved already ("interface is reserved").
 
 ## Objects
@@ -899,7 +898,8 @@ arguments then `CALL_METHOD argc name` (a method call without a bound method in 
 
 A bare function name is a value (`$f = add;`, builtins too: `$l = len;`): `FunctionRefAST`,
 which the parser records and checks names a function once the whole program is read,
-like calls ("Undefined function: missing"). A bare name is unambiguous because variables
+like calls ("Undefined function or constant: missing", since a bare name that isn't called may
+as well be a mistyped constant). A bare name is unambiguous because variables
 always have a sigil; a typo like `retrun 1;` is now "Expected ';'" rather than
 "Expected '('". `Runtime\FunctionValue` holds the name; `FunctionValue::named()` interns
 one instance per name, so `add == add` and `in_array` work by identity. Closures are
@@ -1063,6 +1063,83 @@ the same on every path and the statement's `POP` always has something to pop. Th
 lives in a hidden `$#match_n`. Without a subject there is no hidden variable and no `LOAD` or
 `EQUALS`: the condition alone, then the same `NOT` and `JZ`, and past every test
 `NO_CONDITION`, which pops nothing.
+
+## Constants
+
+Decided and built 2026-09-18, the first of the four things the parser port asked for
+(`docs/parser-port-friction.md` #8): `Parser.php` has five class constants and reads two more
+from other classes, and in GazLang they were fields, which can be written to, share a
+namespace with methods (`#builtin_classes` beside `builtin_classes()` was an error), and need
+an instance to reach from outside.
+
+```
+const WIDTH = 3;
+const AREA = WIDTH * HEIGHT;                  // in terms of others, in any order
+const HEIGHT = WIDTH + 1;
+
+class Token {
+    const EOF = "EOF";
+    const ENDS = [#EOF, Token.EOF .. "!"];
+    fn is_eof($type) { return $type == #EOF; }
+}
+echo AREA .. " " .. Token.EOF;                // 12 EOF
+```
+
+- **The value is a constant expression, and the parser works it out**: literals, every
+  operator, `?:`, lists and maps, other constants. No variables, no calls, no indexing.
+  `Parser::fold()` evaluates it with `Runtime\Values`, the functions the interpreter runs on, so
+  `1 / 0` and an overflow are the errors they are when a program runs, located at the
+  operator, and the right side of `&&`, `||`, `??` and the untaken branch of `?:` are not
+  worked out. Every constant is folded once the program is read, used or not, in the order
+  declared; one that depends on itself is `Constant A depends on itself: A uses B uses A`.
+- **Literals only was too little and any expression too much.** Literals only covers every
+  table the ports have but not `const MAX = LIMIT * 2`. Any expression evaluated once
+  (`const ORIGIN = Point(0, 0)`) brings an order of initialisation that include order would
+  then change, a constant that can be changed through its handle, and a value that can't be
+  inlined, so a slot and an instruction in both VMs. `football.gaz`'s `SURNAMES()` wanted it,
+  for a `split`, and is a list literal now.
+- **A use is its value, so nothing below the parser knows constants exist.** Once the
+  program is read the parser stamps `constant` and `value` on each use: a `FunctionRefAST` for
+  `NAME`, a `PropertyAST` for `#NAME` and `Class.NAME`. The interpreter returns the value and
+  the code generator emits `PUSH value`; there is no new AST node, no new instruction, nothing
+  in the bytecode format, and nothing for the C VM to build. A declaration is not in the tree
+  at all (a class keeps its constants' expressions, which `--ast` shows).
+- **A bare name was free syntax, and a typo in one was already a parse error.** Variables
+  always have a sigil, so a bare word could only be a function or a class, checked once the
+  program is read. A constant is a third kind, so a mistyped one fails before the program
+  runs, which is the point of naming a string: token types were bare strings, where a typo
+  is a branch that silently never runs. A top level constant therefore shares the namespace
+  of functions, classes and builtins, and can be used before it is declared, as they can.
+- **Immutable without a rule for it**: a write path must start at a variable or `#`, so
+  `X = 2`, `X[0] = 2` and `X++` were already syntax errors, and lists and maps are values, so
+  `$copy = KINDS; $copy[] = 1;` changes the copy. The one path that does start right is
+  `#NAME[0] = 1`, so the parser notes what is written *under* each `#name`
+  (`Parser::written()`, for assignments, `++`, patterns and `delete`) and refuses it for a
+  constant: "Cannot change constant #NAME". For a field that is allowed, and for a method it is
+  left to run, as before.
+- **Class constants reverse "constants: not planned"**, which was decided with objects,
+  before there was GazLang code to ask. `Class.NAME` was free too: it was a runtime "Cannot
+  use . on class". A class's constant shares the namespace of its fields and methods, is
+  inherited, and **can't be declared again by a child**: `#NAME` is worked out from the class
+  it is written in, like `##name`'s definer, so there is no late binding for an override to
+  mean anything by. **It is reached by name, not through a value**: `$class.NAME` and
+  `$object.NAME` are not constants ("Cannot use . on class", "Token has no member EOF"), since
+  working one out from a value needs a lookup when the program runs, which is a table in each
+  class's record and an instruction. Both rules are the restrictive choice on purpose:
+  loosening either later breaks no program, tightening would.
+- **No enum yet.** Ninety lines of `const LEFT_PAREN = "LEFT_PAREN";` is boilerplate, but the
+  token types are strings on purpose (they are the `--tokens` format), and whether it hurts
+  is only known once a port's token types are constants. Wanted, later.
+- **What it bought on the PHP VM is safety, not speed**: the lexer's four tables and the
+  parser's seven are constants now, and `football.gaz` parses in 0.530s against 0.534s, which
+  is noise. `Lexer.KEYWORDS` no longer needs a lexer to ask. The ports' token types are still
+  bare strings; converting them is the evidence the enum question is waiting for.
+- **The first language change since the ports**, so the first to be made three times: PHP,
+  `selfhost/`, corpus. The harnesses did what they were built for: with the PHP side done, 57
+  corpus files failed until `nodes.gaz` had the new fields. The port folds with GazLang's own
+  operators, which are `Runtime\Values`, so it needs no evaluator, only `apply()`, a `match`
+  with an arm per operator, since an operator is not a value. 56 corpus files, 54 of them
+  generated from `ConstTest`'s table of errors, and 6,000 fuzzed inputs agree.
 
 ## Assignment
 

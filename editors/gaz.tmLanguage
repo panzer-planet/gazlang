@@ -159,7 +159,7 @@
 					<key>name</key>
 					<string>storage.type.gaz</string>
 					<key>match</key>
-					<string>\b(fn|class|interface)\b</string>
+					<string>\b(fn|class|interface|const)\b</string>
 				</dict>
 				<dict>
 					<key>name</key>

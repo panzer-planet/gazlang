@@ -710,14 +710,14 @@ class ClassTest extends GazLangTestCase
             'a statement keyword' => ['Return 1;', "Expected ';' but found '1' (keywords are lowercase: write 'return', not 'Return')"],
             'shouting' => ['ECHO "x";', "Expected ';' but found string \"x\" (keywords are lowercase: write 'echo', not 'ECHO')"],
             // A bare name reaches the deferred check instead
-            'a literal' => ['echo True;', "Undefined function: True (keywords are lowercase: write 'true', not 'True')"],
+            'a literal' => ['echo True;', "Undefined function or constant: True (keywords are lowercase: write 'true', not 'True')"],
             'a call' => ['echo IF(1);', "Undefined function: IF (keywords are lowercase: write 'if', not 'IF')"],
         ];
     }
 
     public function test_an_ordinary_undefined_name_gets_no_keyword_hint()
     {
-        $this->expectExceptionMessage('Undefined function: missing');
+        $this->expectExceptionMessage('Undefined function or constant: missing');
         $this->createParser('echo missing;')->parse();
     }
 
