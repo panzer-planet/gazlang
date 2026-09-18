@@ -8,9 +8,8 @@ composer install
 # Run all tests
 vendor/bin/phpunit
  
-# Run the self-hosted ports on every .gaz file in the repository, which the default run
-# leaves out (see "The way out" under roadmap step 7); do it before merging port changes.
-# Without pcov it takes half the time
+# Run the self-hosted drivers on big inputs on both VMs, which the default run leaves out
+# (see "The way out" under roadmap step 7); do it before merging port or VM changes
 php -d pcov.enabled=0 vendor/bin/phpunit --group whole-repository
 
 # Compile a file with the self-hosted compiler, which must print what -c prints
@@ -430,6 +429,14 @@ each step depends on the ones before it.
    (`php -d pcov.enabled=0 vendor/bin/phpunit --group whole-repository`, the way to run it).
    Run it before merging anything that touches a port, the lexer, the parser, the tree or the
    code generator.
+   **The C VM made it unnecessary** (2026-09-18): the harnesses run their drivers on
+   `vm/gazvm`, the optimised build, 24 processes at once (`CVM::driver()`), so every `.gaz` file
+   is back in the default suite. It grew from 2679 tests to 3380 and from 65s to 73s under
+   pcov, and the group, now only CVMTest's drivers on big inputs, went from 85s to 24s. The
+   harnesses check the ports, not the VM, which is why they use the optimised build: CVMTest
+   holds it to the PHP VM under the sanitizers, drivers included. A harness failure reports the
+   first line that differs (`GazLangTestCase::assertSameText()`), since phpunit's own diff is
+   quadratic and ran for minutes on a broken port's tree dumps.
 
    Throughout: **judge new features by what they cost in C, not only in PHP.** Values
    semantics suit reference counting; anything that leans on PHP behaviour (hashing,
@@ -496,10 +503,9 @@ each step depends on the ones before it.
      about 0.3s, roughly ten times the PHP lexer rather than the usual 60 to 90. `lib/chars.gaz`
      is still used off the hot path. None of this should survive the C VM unexamined: measure
      again there before keeping the spelled-out comparisons.
-   - **The harness compiles the driver once and runs it on the VM**
-     (`GazLangTestCase::compileProgram()` and `runCompiled()`): parsing and compiling the lexer
-     again for each of 97 files on the interpreter cost more than lexing them, and the whole
-     harness is about 5s of a 30s suite instead of 16s. Eight corpus files that between them
+   - **The harness compiles the driver once and runs it on the VM**, since parsing and
+     compiling the lexer again for each of 97 files on the interpreter cost more than lexing
+     them. It now runs on the C VM (`CVM::driver()`, see "The way out"), 1.4s for every file. Eight corpus files that between them
      reach every part of the lexer also go through the interpreter. A CLI run would cost ~0.5s
      each. `tests/gaz/selfhost/lexer_test.gaz` tests it as the library the parser will include:
      a token made by hand, a caught `LexError`, two lexers at once.
@@ -523,7 +529,7 @@ each step depends on the ones before it.
    ~~**Port the parser to `selfhost/parser.gaz` against the PHP parser, which is the spec.**~~
    Done 2026-09-18. `selfhost/nodes.gaz` is the tree (a class per `src/AST` node, same names and
    fields), `selfhost/parser.gaz` holds `ParseError`, `VariableCollector` and `Parser`, whose methods keep the PHP parser's names, and `selfhost/ast.gaz` is the driver.
-   `tests/SelfHostedParserTest.php` compiles the driver once, runs it on the VM on every `.gaz`
+   `tests/SelfHostedParserTest.php` compiles the driver once, runs it on the C VM on every `.gaz`
    file under `examples/`, `lib/`, `selfhost/` and `tests/`, and requires output and exit code
    identical to `php bin/gazlang --ast -f FILE`: the tree, or `Error: <message> at FILE:N` and
    exit code 1. On an error there is no partial tree, because the checks made once a program is
@@ -628,8 +634,8 @@ each step depends on the ones before it.
    of `CodeGenerator.php` (1499) with the PHP method names, and `Program`, the writing half of
    `Program.php`; `selfhost/compile.gaz` is the driver. `tests/SelfHostedCompilerTest.php`
    requires output and exit code identical to `php bin/gazlang -c -f FILE`, byte for byte, on
-   `tests/codegen_corpus/` (always, also from other working directories and for four files on
-   the interpreter) and on every other `.gaz` file (`--group whole-repository`). The loader,
+   every `.gaz` file (on the C VM; from other working directories on the PHP VM, and four files
+   on the interpreter too). The loader,
    `BytecodeReader`, is not ported: loading is the VM's job, so the C VM writes its own.
    - **It matched on every file in the repository at the first run**, which says the four
      friction builtins and the parser port's shape were right, and also that the repository

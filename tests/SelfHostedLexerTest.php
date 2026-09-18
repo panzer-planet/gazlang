@@ -2,7 +2,6 @@
 
 namespace GazLang\Tests;
 
-use GazLang\CodeGenerator\Program;
 use GazLang\GazLangError;
 use GazLang\Lexer\Lexer;
 use GazLang\Lexer\Token;
@@ -14,7 +13,7 @@ use RecursiveIteratorIterator;
  *
  * For every corpus file the PHP lexer's `gazlang --tokens` output is the expected
  * output. The self-hosted lexer is run as `gazlang -f selfhost/tokens.gaz -- FILE`
- * (in-process on the VM, see runCompiled()) and must print exactly the same lines and exit with the same code: each token as
+ * (on the C VM, see CVM::driver()) and must print exactly the same lines and exit with the same code: each token as
  * Token::__toString() formats it, then on a lexer error the error message, printed
  * by error() as "Error: <message> on line N", with exit code 1.
  */
@@ -23,10 +22,11 @@ class SelfHostedLexerTest extends GazLangTestCase
     private const LEXER = 'selfhost/tokens.gaz';
 
     /**
-     * The driver, compiled once: parsing and compiling the lexer again for every corpus file
-     * cost more than lexing the files did
+     * The driver's output and exit code by file, run on the C VM for the whole corpus at once
+     *
+     * @var array<string, array{0: string, 1: int}>
      */
-    private static ?Program $program = null;
+    private static array $results = [];
 
     /**
      * Every .gaz file the lexers are compared on, keyed by path relative to the project root
@@ -48,22 +48,6 @@ class SelfHostedLexerTest extends GazLangTestCase
         ksort($files);
 
         return $files;
-    }
-
-    /**
-     * The lexer's own cases, which always run
-     */
-    public static function lexerCorpus(): array
-    {
-        return array_filter(self::corpus(), fn (string $file) => str_starts_with($file, 'tests/lexer_corpus/'), ARRAY_FILTER_USE_KEY);
-    }
-
-    /**
-     * Every other .gaz file in the repository, which only runs with --group whole-repository
-     */
-    public static function repositoryCorpus(): array
-    {
-        return array_diff_key(self::corpus(), self::lexerCorpus());
     }
 
     /**
@@ -110,7 +94,7 @@ class SelfHostedLexerTest extends GazLangTestCase
     }
 
     /**
-     * The corpus runs on the VM only, which is what keeps it fast, so the files that between
+     * The corpus runs on the C VM only, which is what keeps it fast, so the files that between
      * them reach every part of the lexer go through the interpreter as well
      */
     public function test_self_hosted_lexer_gives_the_same_tokens_on_the_interpreter()
@@ -125,30 +109,15 @@ class SelfHostedLexerTest extends GazLangTestCase
     }
 
     /**
-     * @dataProvider lexerCorpus
+     * @dataProvider corpus
      */
     public function test_self_hosted_lexer_matches_the_php_lexer(string $file)
     {
-        $this->assertSameTokens($file);
-    }
-
-    /**
-     * @dataProvider repositoryCorpus
-     *
-     * @group whole-repository
-     */
-    public function test_self_hosted_lexer_matches_the_php_lexer_on_the_rest_of_the_repository(string $file)
-    {
-        $this->assertSameTokens($file);
-    }
-
-    private function assertSameTokens(string $file): void
-    {
-        self::$program ??= self::compileProgram(self::LEXER);
-        [$output, $exit_code] = $this->runCompiled(self::$program, [$file]);
+        self::$results = self::$results ?: CVM::driver(self::LEXER, array_keys(self::corpus()));
+        [$output, $exit_code] = self::$results[$file];
 
         [$expected, $expected_exit_code] = self::phpTokens($file);
-        $this->assertSame($expected, rtrim($output, "\n"), "Tokens differ for {$file}");
+        $this->assertSameText($expected, rtrim($output, "\n"), "Tokens differ for {$file}");
         $this->assertSame($expected_exit_code, $exit_code, "Exit code differs for {$file}");
     }
 }

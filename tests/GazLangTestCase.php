@@ -58,6 +58,23 @@ abstract class GazLangTestCase extends TestCase
     }
 
     /**
+     * assertSame() for long text, failing with the first line that differs: phpunit's own diff
+     * is quadratic, and on a port's multi-megabyte tree dumps it runs for minutes
+     */
+    protected function assertSameText(string $expected, string $actual, string $message): void
+    {
+        if ($expected === $actual) {
+            $this->addToAssertionCount(1);
+
+            return;
+        }
+        $a = explode("\n", $expected);
+        $b = explode("\n", $actual);
+        for ($line = 0; ($a[$line] ?? null) === ($b[$line] ?? null); $line++);
+        $this->fail("{$message}, first at line ".($line + 1).":\n  expected: ".($a[$line] ?? '(nothing)')."\n  actual:   ".($b[$line] ?? '(nothing)'));
+    }
+
+    /**
      * Run a compiled program on the VM as runProgram() would
      *
      * @param  string[]  $args  Arguments returned by args()

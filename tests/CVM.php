@@ -46,11 +46,11 @@ final class CVM
     private const TIME_LIMIT = 60;
 
     /**
-     * Build the tested C VM, failing loudly if it doesn't compile
+     * Build the C VM, the tested build and the optimised one, failing loudly if it doesn't compile
      */
     public static function build(): void
     {
-        exec('make -s -C '.escapeshellarg(self::ROOT.'/vm').' test 2>&1', $output, $code);
+        exec('make -s -C '.escapeshellarg(self::ROOT.'/vm').' gazvm test 2>&1', $output, $code);
         if ($code !== 0) {
             throw new \RuntimeException("Building the C VM failed:\n".implode("\n", $output));
         }
@@ -165,6 +165,23 @@ final class CVM
         }
 
         return $results;
+    }
+
+    /**
+     * Run a self-hosted driver (selfhost/tokens.gaz, ast.gaz, compile.gaz) on each file, from the
+     * project root, on the optimised C VM, many at once: the ports' harnesses, which check the
+     * ports rather than the VM (CVMTest checks the VM, and runs the drivers under the sanitizers)
+     *
+     * @param  list<string>  $files
+     * @return array<string, array{0: string, 1: int}> By file: what it printed, standard output then standard error, and its exit code
+     */
+    public static function driver(string $driver, array $files): array
+    {
+        self::build();
+        $gzb = self::compile($driver) ?? throw new \RuntimeException("{$driver} doesn't compile");
+        $results = self::processes(array_combine($files, array_map(fn ($file) => ['vm/gazvm', $gzb, $file], $files)));
+
+        return array_map(fn ($result) => [$result[0].$result[1], $result[2]], $results);
     }
 
     /**

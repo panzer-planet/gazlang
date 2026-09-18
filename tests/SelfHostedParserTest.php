@@ -16,7 +16,7 @@ use RecursiveIteratorIterator;
  * For every corpus file the PHP parser's `gazlang --ast` output is the expected output: the
  * tree as AST\Dumper prints it, or for a file that doesn't parse "Error: <message> at FILE:N"
  * and exit code 1. The self-hosted parser is run as `gazlang -f selfhost/ast.gaz -- FILE`
- * (in-process on the VM, see runCompiled()) and must print exactly the same and exit with the same code.
+ * (on the C VM, see CVM::driver()) and must print exactly the same and exit with the same code.
  */
 class SelfHostedParserTest extends GazLangTestCase
 {
@@ -32,6 +32,13 @@ class SelfHostedParserTest extends GazLangTestCase
      * would cost more than parsing the files does
      */
     private static ?Program $program = null;
+
+    /**
+     * The driver's output and exit code by file, run on the C VM for the whole corpus at once
+     *
+     * @var array<string, array{0: string, 1: int}>
+     */
+    private static array $results = [];
 
     /**
      * Every .gaz file the parsers are compared on, keyed by path relative to the project root
@@ -61,14 +68,6 @@ class SelfHostedParserTest extends GazLangTestCase
     }
 
     /**
-     * Every other .gaz file in the repository, which only runs with --group whole-repository
-     */
-    public static function repositoryCorpus(): array
-    {
-        return array_diff_key(self::corpus(), self::parserCorpus());
-    }
-
-    /**
      * @dataProvider parserCorpus
      */
     public function test_corpus_files_named_error_are_exactly_the_ones_that_fail(string $file)
@@ -89,7 +88,7 @@ class SelfHostedParserTest extends GazLangTestCase
     }
 
     /**
-     * The corpus runs on the VM only, which is what keeps it fast, so a few files go through the interpreter as well
+     * The corpus runs on the C VM only, which is what keeps it fast, so a few files go through the interpreter as well
      */
     public function test_self_hosted_parser_gives_the_same_tree_on_the_interpreter()
     {
@@ -101,30 +100,20 @@ class SelfHostedParserTest extends GazLangTestCase
     }
 
     /**
-     * @dataProvider parserCorpus
+     * @dataProvider corpus
      */
     public function test_self_hosted_parser_matches_the_php_parser(string $file)
     {
         $this->assertSameTree($file);
     }
 
-    /**
-     * @dataProvider repositoryCorpus
-     *
-     * @group whole-repository
-     */
-    public function test_self_hosted_parser_matches_the_php_parser_on_the_rest_of_the_repository(string $file)
-    {
-        $this->assertSameTree($file);
-    }
-
     private function assertSameTree(string $file): void
     {
-        self::$program ??= self::compileProgram(self::PARSER);
-        [$output, $exit_code] = $this->runCompiled(self::$program, [$file]);
+        self::$results = self::$results ?: CVM::driver(self::PARSER, array_keys(self::corpus()));
+        [$output, $exit_code] = self::$results[$file];
 
         [$expected, $expected_exit_code] = self::phpAst($file);
-        $this->assertSame($expected, $output, "Tree differs for {$file}");
+        $this->assertSameText($expected, $output, "Tree differs for {$file}");
         $this->assertSame($expected_exit_code, $exit_code, "Exit code differs for {$file}");
     }
 
