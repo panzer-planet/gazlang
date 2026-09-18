@@ -1,0 +1,4 @@
+// A string left open after an interpolation is still reported where it starts, not where
+// it resumed
+echo "start {$x +
+    1} more text

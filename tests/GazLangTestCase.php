@@ -34,17 +34,53 @@ abstract class GazLangTestCase extends TestCase
      */
     protected function runProgram(string $file, array $args = [], bool $vm = false): array
     {
-        $cwd = getcwd();
-        chdir(self::ROOT);
-        ob_start();
-
-        try {
+        return $this->exitCodeOf(function () use ($file, $args, $vm) {
             $parser = new Parser(new Lexer(file_get_contents($file)), $file);
             if ($vm) {
                 $this->machine($parser, $file, $args)->run();
             } else {
                 (new Interpreter($parser, $args))->interpret();
             }
+        });
+    }
+
+    /**
+     * Compile a GazLang file once, for runCompiled() to run many times
+     *
+     * @param  string  $file  Path relative to the project root
+     */
+    protected static function compileProgram(string $file): Program
+    {
+        $path = self::ROOT.'/'.$file;
+        $parser = new Parser(new Lexer(file_get_contents($path)), $path);
+
+        return Program::read((new CodeGenerator($parser->parse()))->compile()->write($path), $path);
+    }
+
+    /**
+     * Run a compiled program on the VM as runProgram() would
+     *
+     * @param  string[]  $args  Arguments returned by args()
+     * @return array{0: string, 1: int} The output and exit code
+     */
+    protected function runCompiled(Program $program, array $args = []): array
+    {
+        return $this->exitCodeOf(fn () => (new VM($program, $args))->run());
+    }
+
+    /**
+     * Run a program from the project root, giving its output and exit code as the CLI would
+     *
+     * @return array{0: string, 1: int}
+     */
+    private function exitCodeOf(callable $run): array
+    {
+        $cwd = getcwd();
+        chdir(self::ROOT);
+        ob_start();
+
+        try {
+            $run();
             $exit_code = 0;
         } catch (ExitSignal $e) {
             $exit_code = $e->code;

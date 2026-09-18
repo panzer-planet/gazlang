@@ -14,6 +14,7 @@ design is in [CLAUDE.md](../CLAUDE.md); what the language *is* is in
 | `src/CodeGenerator` | compiles the tree to a `Program`: one block of code per function, each instruction tagged with its file and line |
 | `src/VM` | runs a `Program`. This is the default backend |
 | `lib/` | the standard library, written in GazLang |
+| `selfhost/` | the toolchain rewritten in GazLang: so far `lexer.gaz`, a port of `src/Lexer`, and `tokens.gaz`, which prints its tokens as `--tokens` does |
 | `examples/` | sample programs |
 | `tests/` | PHPUnit, plus `tests/gaz/` GazLang programs and `tests/lexer_corpus/` |
 
@@ -66,8 +67,9 @@ php bin/gazlang --tokens -f examples/functions.gaz        # print the tokens
   `check($label, $actual, $expected)`, which prints `ok <label>` or a FAIL line with both
   values. This is how GazLang code gets tested.
 - **`tests/lexer_corpus/`** are lexing cases, including deliberately tricky ones. A file named
-  `error_*` must be exactly one that fails to lex. They are also the corpus that the
-  self-hosted lexer will be checked against.
+  `error_*` must be exactly one that fails to lex. `SelfHostedLexerTest` requires
+  `selfhost/lexer.gaz` to give the same tokens and errors as the PHP lexer on these and on every
+  other `.gaz` file in the repository, so a change to `src/Lexer` needs the same change there.
 - `lib/json.gaz` is checked against PHP's own `json_decode` on every `tests/json/y_*.json` and
   `n_*.json`; `lib/csv.gaz` against `fgetcsv`.
 

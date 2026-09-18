@@ -1,0 +1,2 @@
+// 1e+ is not an exponent: the number is 1, running into the letter e
+echo 1e+;

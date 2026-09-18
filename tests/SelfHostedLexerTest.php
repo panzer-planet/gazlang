@@ -2,6 +2,7 @@
 
 namespace GazLang\Tests;
 
+use GazLang\CodeGenerator\Program;
 use GazLang\GazLangError;
 use GazLang\Lexer\Lexer;
 use GazLang\Lexer\Token;
@@ -13,13 +14,19 @@ use RecursiveIteratorIterator;
  *
  * For every corpus file the PHP lexer's `gazlang --tokens` output is the expected
  * output. The self-hosted lexer is run as `gazlang -f selfhost/tokens.gaz -- FILE`
- * (in-process, see runProgram()) and must print exactly the same lines and exit with the same code: each token as
+ * (in-process on the VM, see runCompiled()) and must print exactly the same lines and exit with the same code: each token as
  * Token::__toString() formats it, then on a lexer error the error message, printed
  * by error() as "Error: <message> on line N", with exit code 1.
  */
 class SelfHostedLexerTest extends GazLangTestCase
 {
     private const LEXER = 'selfhost/tokens.gaz';
+
+    /**
+     * The driver, compiled once: parsing and compiling the lexer again for every corpus file
+     * cost more than lexing the files did
+     */
+    private static ?Program $program = null;
 
     /**
      * Every .gaz file the lexers are compared on, keyed by path relative to the project root
@@ -93,6 +100,19 @@ class SelfHostedLexerTest extends GazLangTestCase
     }
 
     /**
+     * The corpus runs on the VM only, which is what keeps it fast, so one file of each kind
+     * goes through the interpreter as well
+     */
+    public function test_self_hosted_lexer_gives_the_same_tokens_on_the_interpreter()
+    {
+        foreach (['tests/lexer_corpus/interpolation.gaz', 'tests/lexer_corpus/error_interpolated_index.gaz'] as $file) {
+            [$output, $exit_code] = $this->runProgram(self::LEXER, [$file]);
+
+            $this->assertSame(self::phpTokens($file), [rtrim($output, "\n"), $exit_code], $file);
+        }
+    }
+
+    /**
      * @dataProvider selfHostedCorpus
      */
     public function test_self_hosted_lexer_matches_the_php_lexer(?string $file)
@@ -101,7 +121,8 @@ class SelfHostedLexerTest extends GazLangTestCase
             $this->markTestSkipped(self::LEXER.' has not been written yet');
         }
 
-        [$output, $exit_code] = $this->runProgram(self::LEXER, [$file]);
+        self::$program ??= self::compileProgram(self::LEXER);
+        [$output, $exit_code] = $this->runCompiled(self::$program, [$file]);
 
         [$expected, $expected_exit_code] = self::phpTokens($file);
         $this->assertSame($expected, rtrim($output, "\n"), "Tokens differ for {$file}");

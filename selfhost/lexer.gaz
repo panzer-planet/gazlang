@@ -53,7 +53,13 @@ class Lexer {
     // Tokens already read that get_next_token() gives before reading more: the [key] of "$a[0]"
     #queued_tokens = [];
 
-    // Every operator and punctuation mark but { and }; the longest one that matches wins
+    // Marks that are a token on their own and start no longer one
+    #punctuation = {
+        "(" => "LEFT_PAREN", ")" => "RIGHT_PAREN", "[" => "LEFT_BRACKET", "]" => "RIGHT_BRACKET",
+        "," => "COMMA", ";" => "SEMICOLON", ":" => "COLON", "~" => "BIT_NOT",
+    };
+
+    // Operators: the longest one that matches wins, so <=> before <= before <
     #operators = {
         "+" => "PLUS", "+=" => "PLUS_ASSIGN", "++" => "INCREMENT",
         "-" => "MINUS", "-=" => "MINUS_ASSIGN", "--" => "DECREMENT", "->" => "ARROW",
@@ -63,7 +69,6 @@ class Lexer {
         "&" => "BIT_AND", "&=" => "BIT_AND_ASSIGN", "&&" => "AND",
         "|" => "BIT_OR", "|=" => "BIT_OR_ASSIGN", "||" => "OR",
         "^" => "BIT_XOR", "^=" => "BIT_XOR_ASSIGN",
-        "~" => "BIT_NOT",
         "<" => "LESS_THAN", "<=" => "LESS_EQUALS", "<=>" => "SPACESHIP",
         "<<" => "SHIFT_LEFT", "<<=" => "SHIFT_LEFT_ASSIGN",
         ">" => "GREATER_THAN", ">=" => "GREATER_EQUALS",
@@ -72,9 +77,6 @@ class Lexer {
         "!" => "NOT", "!=" => "NOT_EQUALS",
         ".." => "CONCAT", "..=" => "CONCAT_ASSIGN",
         "?" => "QUESTION", "??" => "COALESCE", "??=" => "COALESCE_ASSIGN",
-        ":" => "COLON", "," => "COMMA", ";" => "SEMICOLON",
-        "[" => "LEFT_BRACKET", "]" => "RIGHT_BRACKET",
-        "(" => "LEFT_PAREN", ")" => "RIGHT_PAREN",
     };
 
     // Lowercase and matched exactly: a capitalisation of one is an ordinary name
@@ -113,31 +115,53 @@ class Lexer {
     }
 
     // Move past characters that are known not to be newlines
+    //
+    // The loops that read most of a file's characters (names, whitespace, comments, the text of
+    // strings) walk a local index and come here once: on the PHP VM a call costs as much as
+    // twenty comparisons, so a call per character is what makes a lexer slow
     fn skip($count) {
         #pos += $count;
-        #char = char_at(#text, #pos);
+        #char = #pos < #length ? #text[#pos] : "";
+    }
+
+    // Read characters for as long as they are in $class, a string of the ones allowed
+    fn read_while($class) {
+        $start = #pos;
+        $i = $start;
+        while ($i < #length && contains($class, #text[$i])) {
+            $i++;
+        }
+        #skip($i - $start);
+
+        return slice(#text, $start, $i - $start);
     }
 
     fn peek($offset = 1) {
         return char_at(#text, #pos + $offset);
     }
 
-    // Whether a character can start a name: a letter or _
+    // Whether a character, or "" at the end of the input, can start a name: a letter or _
     fn is_name_start($c) {
-        return is_alpha($c) || $c == "_";
+        return $c >= "a" && $c <= "z" || $c >= "A" && $c <= "Z" || $c == "_";
     }
 
     fn skip_whitespace() {
-        while (is_space(#char)) {
-            #advance();
+        $i = #pos;
+        while ($i < #length) {
+            $c = #text[$i];
+            if ($c == "\n") {
+                #line++;
+            } else if ($c != " " && $c != "\t" && $c != "\r") {
+                break;
+            }
+            $i++;
         }
+        #skip($i - #pos);
     }
 
     // From // to the end of the line
     fn skip_comment() {
-        while (#char != "" && #char != "\n") {
-            #skip(1);
-        }
+        #skip((index_of(#text, "\n", #pos) ?? #length) - #pos);
         #advance();
     }
 
@@ -232,12 +256,7 @@ class Lexer {
     }
 
     fn read_digits() {
-        $start = #pos;
-        while (is_digit(#char)) {
-            #skip(1);
-        }
-
-        return slice(#text, $start, #pos - $start);
+        return #read_while("0123456789");
     }
 
     // Up to $max hex digits
@@ -252,12 +271,7 @@ class Lexer {
 
     // Letters, digits and underscores from the current character on
     fn read_word() {
-        $start = #pos;
-        while (is_alnum(#char) || #char == "_") {
-            #skip(1);
-        }
-
-        return slice(#text, $start, #pos - $start);
+        return #read_while("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_");
     }
 
     // The text of a double-quoted string, up to its closing quote or next interpolation
@@ -279,7 +293,24 @@ class Lexer {
         }
 
         $text = "";
-        while (#char != "" && #char != "\"") {
+        while (true) {
+            // Plain text, up to the next character that could mean something
+            $i = #pos;
+            while ($i < #length) {
+                $c = #text[$i];
+                if ($c == "\n") {
+                    #line++;
+                } else if ($c == "\"" || $c == "\\" || $c == "$" || $c == "{") {
+                    break;
+                }
+                $i++;
+            }
+            $text ..= slice(#text, #pos, $i - #pos);
+            #skip($i - #pos);
+
+            if (#char == "" || #char == "\"") {
+                break;
+            }
             if (#char == "\\") {
                 #skip(1);
                 if (#char == "") {
@@ -296,8 +327,9 @@ class Lexer {
 
                 return Token($first ? "STRING_START" : "STRING_MIDDLE", $text);
             } else {
+                // A $ or { that is only text
                 $text ..= #char;
-                #advance();
+                #skip(1);
             }
         }
 
@@ -504,12 +536,15 @@ class Lexer {
 
     // Whitespace and comments
     fn skip_ignored() {
-        while (#char != "") {
-            if (is_space(#char)) {
+        while (true) {
+            $c = #char;
+            if ($c == " " || $c == "\n" || $c == "\t" || $c == "\r") {
                 #skip_whitespace();
-            } else if (#char == "/" && #peek() == "/") {
+            } else if ($c != "/") {
+                return;
+            } else if (#peek() == "/") {
                 #skip_comment();
-            } else if (#char == "/" && #peek() == "*") {
+            } else if (#peek() == "*") {
                 #skip_block_comment();
             } else {
                 return;
@@ -521,7 +556,20 @@ class Lexer {
     fn scan_token() {
         $c = #char;
 
+        $type = #punctuation[$c] ?? null;
+        if ($type != null) {
+            #skip(1);
+            return Token($type, $c);
+        }
+
+        // The tests are spelled out rather than calls to is_digit() and the like: this runs for
+        // every token. No two arms can start with the same character, so their order is only
+        // how often each is taken
         match {
+            $c == "$" || $c == "@" => { return #var_identifier(); }
+            $c >= "a" && $c <= "z" || $c >= "A" && $c <= "Z" || $c == "_" => { return #identifier(); }
+            $c == "\"" => { return #string_part(true); }
+            $c >= "0" && $c <= "9" => { return #number(); }
             $c == "" => {
                 // The file ended inside "{$...": report the string where it starts
                 if (len(#interpolations) > 0) {
@@ -529,11 +577,7 @@ class Lexer {
                 }
                 return Token("EOF", null);
             }
-            is_digit($c) => { return #number(); }
-            $c == "\"" => { return #string_part(true); }
             $c == "'" => { return Token("STRING", #single_quoted_string()); }
-            $c == "$" || $c == "@" => { return #var_identifier(); }
-            #is_name_start($c) => { return #identifier(); }
             $c == "#" => { return #hash(); }
             // .name is one token, so the name is glued to the dot
             $c == "." && #is_name_start(#peek()) => {
@@ -567,9 +611,10 @@ class Lexer {
 
         foreach ([3, 2, 1] as $length) {
             $operator = slice(#text, #pos, $length);
-            if (has_key(#operators, $operator)) {
+            $type = #operators[$operator] ?? null;
+            if ($type != null) {
                 #skip($length);
-                return Token(#operators[$operator], $operator);
+                return Token($type, $operator);
             }
         }
 

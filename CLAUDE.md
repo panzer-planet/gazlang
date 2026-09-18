@@ -368,19 +368,70 @@ each step depends on the ones before it.
    last changes the port was waiting on. Nothing known is left that would touch the lexer
    again: port it.
 
-   **Port the lexer to `selfhost/lexer.gaz` against the PHP lexer, which is the
-   spec.** `tests/SelfHostedLexerTest.php` runs
-   `php bin/gazlang -f selfhost/lexer.gaz -- FILE` on every `.gaz` file under
-   `examples/`, `lib/`, `selfhost/` and `tests/` (including `tests/lexer_corpus/`,
-   the deliberately tricky cases, and `tests/gaz/`), and requires output
+   ~~**Port the lexer to `selfhost/lexer.gaz` against the PHP lexer, which is the
+   spec.**~~ Done 2026-09-18, without touching `Lexer.php`. `selfhost/lexer.gaz` (about 620
+   lines for the PHP lexer's 1050) holds `Token`, `LexError` and `Lexer`, whose methods keep
+   the PHP lexer's names so the two read side by side; `selfhost/tokens.gaz` is the driver.
+   `tests/SelfHostedLexerTest.php` runs `php bin/gazlang -f selfhost/tokens.gaz -- FILE` on
+   every `.gaz` file under `examples/`, `lib/`, `selfhost/` and `tests/` (including
+   `tests/lexer_corpus/`, the deliberately tricky cases, and `tests/gaz/`), and requires output
    and exit code identical to `php bin/gazlang --tokens -f FILE`: one line per
    token, `LINE TYPE VALUE` as `Token::__toString()` formats it (strings quoted
    with `Lexer::quote()`, integers as digits, other values as source text, EOF
-   with no value), then on a lexer error `error("<message> on line N")`, which
-   prints `Error: ...` and exits 1. The test skips once until the file exists. Add
+   with no value), then on a lexer error `Error: <message> on line N` and exit code 1. Add
    a corpus file whenever the port reveals an untested case; files named `error_*`
-   must be exactly the ones that fail to lex. The comparison runs in-process
-   (`GazLangTestCase::runProgram()`), since a CLI run costs ~0.5s.
+   must be exactly the ones that fail to lex.
+   - **The scanner is an object, because `include` needs two lexers alive at once**:
+     the parser's include sets the outer lexer aside and makes a new one mid-parse, and the
+     parser port will have to as well. With globals that is a hand-written save and restore of
+     every one of them, which is a worse price than the 10% hole 1 measured. It also leaves
+     three names in the shared namespace instead of thirty `lex_*` functions.
+   - **Two files, because including a file runs its top level code**: a lexer ending in
+     `read_file(args()[0])` and a print loop could never be included by the parser. So
+     `lexer.gaz` has no top level code at all (its tables are field defaults, which a constant
+     map literal makes cheap) and the driver is separate. The lexer itself is not split
+     further; nothing would be gained.
+   - **What it leans on instead of porting**: `to_string([$s])` minus its brackets is
+     `Lexer::quote()`, since a list prints its strings as literals, and `..` on a float is
+     `format_float()`; `to_int()` and `to_float()` in a `try` are the overflow checks; hex is
+     `$value * 16 + digit`, whose `Integer overflow` is the too-large check. Operators are one
+     table matched longest first (3, 2, then 1 characters) in place of the PHP lexer's 150
+     lines of hand-written branches, which is the same rule: every operator's prefixes are
+     operators too, except `..`'s, and a lone `.` is not in the table.
+   - **The driver catches `LexError` and raises its message again from the top level**
+     (`error($e.message)`), because an uncaught error prints the calls that were running under
+     it, and `--tokens` prints only the message. A bug in the lexer is not a `LexError`, so it
+     still arrives with its location and trace.
+   - **Speed is hole 4, measured** (PHP VM, pcov on and no JIT as under phpunit, 100k
+     iterations each, net of the loop): a comparison is about 0.7µs, a method call 3.5µs, a
+     builtin call (`contains`, `slice`) 7µs, constructing a `Token` 10µs, and `lib/chars.gaz`'s
+     `is_alpha()` 13µs, being three calls deep. So a call costs what ten to twenty comparisons
+     do, and the first version, which advanced through a method and asked `is_alnum()` about
+     every character, spent 16s on the corpus. What fixed it, in order of effect: the loops
+     that read most characters (names, whitespace, comments, string text) walk a local index
+     and move the scanner once; `//` comments jump with `index_of`; the per-token dispatch
+     spells its comparisons out and looks punctuation up with `??`, which is an instruction
+     rather than a call. With the JIT it lexes `examples/football.gaz` (22KB, 3800 tokens) in
+     about 0.3s, roughly ten times the PHP lexer rather than the usual 60 to 90. `lib/chars.gaz`
+     is still used off the hot path. None of this should survive the C VM unexamined: measure
+     again there before keeping the spelled-out comparisons.
+   - **The harness compiles the driver once and runs it on the VM**
+     (`GazLangTestCase::compileProgram()` and `runCompiled()`): parsing and compiling the lexer
+     again for each of 97 files on the interpreter cost more than lexing them, and the whole
+     harness is about 5s of a 33s suite instead of 16s. One passing and one failing file also
+     go through the interpreter. A CLI run would cost ~0.5s each.
+   - **The corpus passing says the port is right on the corpus**, so two more checks were run
+     by hand, and are worth running again after any change to either lexer. Differential
+     fuzzing (random windows of corpus files with characters from a tricky alphabet spliced in,
+     both lexers, compared): 15,000 inputs reaching every error message, no difference.
+     Mutation testing (break one subtle rule in `lexer.gaz`, expect the harness to fail):
+     five of fifteen mutants survived, four of them holes in the corpus rather than the port,
+     now closed by `error_escaped_newline`, `error_unterminated_after_interpolation`,
+     `error_exponent_sign_without_digits` and `error_unicode_surrogate`; `function` was the one
+     token type no corpus file produced. The fifth survivor is equivalent: `read_braced_hex()`
+     reads up to 7 digits to notice a seventh, but reading 6 finds a digit where the `}` should
+     be and fails the same way. Give mutants a timeout: one that makes `skip_whitespace()` and
+     its caller disagree about tabs loops forever.
 
    **The README's examples are tests.** `ReadmeTest` pulls every ```` ```gaz ```` block that is
    followed by an output block out of `README.md` and requires it to print exactly that, on
@@ -478,6 +529,8 @@ when it was written, not from now.
    calls plus that allocation; there is no `byte_at($s, $i)` and no "index of the first byte in
    this set". A lexer must classify every byte, so it cannot escape into `index_of` the way
    CSV parsing did. Some of this is the C VM's to fix and should be measured again once it exists.
+   The lexer port met this head on and has the measurements: see "Speed is hole 4, measured"
+   under roadmap step 7. A call per character, not the allocation, is what costs on the PHP VM.
 
    **The `..=` half is fixed (2026-09-18) and was the bigger of the two.** `$s ..= $x` used to
    lower to `$s = $s .. $x`, which loads the string onto the stack, so PHP holds two references
