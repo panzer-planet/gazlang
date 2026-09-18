@@ -80,7 +80,11 @@ class Lexer
     ];
 
     /**
-     * Keywords, lowercase, mapped to their token types; any capitalisation of one is the keyword
+     * Keywords mapped to their token types. They are lowercase and matched exactly, as in
+     * every language since C: a capitalisation of one is an ordinary name, so class If,
+     * fn match() and $Return are all fine. PHP matches them case-insensitively, but it does
+     * the same for function and class names, where GazLang does not, so following it here
+     * would reserve every capitalisation of every keyword and still not be PHP's rule.
      */
     public const KEYWORDS = [
         'echo' => 'ECHO',
@@ -178,6 +182,45 @@ class Lexer
         if ($this->current_char === "\n") {
             $this->advance();
         }
+    }
+
+    /**
+     * Skip a block comment, from an opening slash-star to the matching star-slash, nesting
+     *
+     * Comments nest, as in Rust and Swift rather than C and PHP, so commenting out a region
+     * that already contains a comment works: an inner opener starts another one, and the first
+     * closer only closes that. The whole thing is skipped like //, so no token reaches the parser.
+     *
+     * @throws GazLangError If the input ends while a comment is still open
+     */
+    public function skip_block_comment(): void
+    {
+        // Where the outermost one opened: at the end of the input every comment still open
+        // is open because that one never closed, so that is the line to send the reader to
+        $start_line = $this->line;
+        $depth = 0;
+
+        while ($this->current_char !== null) {
+            if ($this->current_char === '/' && $this->peek() === '*') {
+                $this->advance();
+                $this->advance();
+                $depth++;
+
+                continue;
+            }
+            if ($this->current_char === '*' && $this->peek() === '/') {
+                $this->advance();
+                $this->advance();
+                if (--$depth === 0) {
+                    return;
+                }
+
+                continue;
+            }
+            $this->advance();
+        }
+
+        throw new GazLangError('Unterminated block comment', null, $start_line);
     }
 
     /**
@@ -651,7 +694,7 @@ class Lexer
     {
         $result = $this->read_word();
 
-        return new Token(self::KEYWORDS[strtolower($result)] ?? Token::IDENTIFIER, $result);
+        return new Token(self::KEYWORDS[$result] ?? Token::IDENTIFIER, $result);
     }
 
     /**
@@ -721,6 +764,8 @@ class Lexer
                     $this->skip_whitespace();
                 } elseif ($this->current_char === '/' && $this->peek() === '/') {
                     $this->skip_comment();
+                } elseif ($this->current_char === '/' && $this->peek() === '*') {
+                    $this->skip_block_comment();
                 } else {
                     break;
                 }

@@ -150,8 +150,9 @@ is a GazLang error a `try` can catch, and gets the location of the instruction t
 | `LOAD slot` | `-- v` | Pushes a local. Fails with "Undefined variable: $x" if it is not set. |
 | `LOAD_QUIET slot` | `-- v` | Pushes a local, or null if it is not set (the left of `??`). |
 | `STORE slot` | `v --` | Sets a local. |
-| `LOAD_GLOBAL slot`, `LOAD_QUIET_GLOBAL slot`, `STORE_GLOBAL slot` | | The same for a global. |
-| `LOAD_CAPTURED slot`, `LOAD_QUIET_CAPTURED slot`, `STORE_CAPTURED slot` | | The same for a captured variable of the running closure, addressed by capture index. |
+| `CONCAT_ASSIGN slot` | `v -- w` | `$s ..= v`: appends to a local and pushes the new value. Fails if it is not set. The string is never loaded onto the stack, so the append is in place and a loop of them is linear; `..` otherwise, converting both sides as `echo` does. |
+| `LOAD_GLOBAL slot`, `LOAD_QUIET_GLOBAL slot`, `STORE_GLOBAL slot`, `CONCAT_ASSIGN_GLOBAL slot` | | The same for a global. |
+| `LOAD_CAPTURED slot`, `LOAD_QUIET_CAPTURED slot`, `STORE_CAPTURED slot`, `CONCAT_ASSIGN_CAPTURED slot` | | The same for a captured variable of the running closure, addressed by capture index. |
 | `ARGC` | `-- n` | Pushes how many arguments the running call was passed, for default parameters. |
 
 ### Operators
@@ -172,6 +173,7 @@ Every one means what `Runtime\Values` says, including the error messages.
 | `CMP` | `a b -- c` | `<=>`: -1, 0 or 1 by the ordering rules. |
 | `NOT` | `a -- b` | Truthiness, negated; always a bool. |
 | `NO_MATCH` | `a --` | Always fails, on "No arm matches 5": a `match` fell past every arm and had no `default`. |
+| `NO_CONDITION` | `--` | Always fails, on "No arm matched": a subject-less `match` found every condition false and had no `default`. |
 | `NEG` | `a -- b` | Negates a number. Fails on anything else. |
 | `INC`, `DEC` | `a -- b` | Adds or subtracts one. Numbers only; fails on overflow. |
 

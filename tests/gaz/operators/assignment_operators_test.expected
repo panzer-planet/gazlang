@@ -5,6 +5,20 @@ ok /= gives a float
 ok /= again
 ok %=
 ok ..= concatenates, converting like ..
+ok the value of ..= is the new string
+ok ..= on a non-string converts
+ok ..= converts the right side like echo
+ok ..= appends any value to a string
+ok ..= runs to_string on an object
+ok nothing is appended when converting fails
+ok ..= needs the variable
+ok ..= on a global
+ok ..= through a map key
+ok ..= through a list index
+ok ..= on a captured variable persists between calls
+ok a second closure has its own
+ok ..= on a field
+ok a copy taken first is unchanged
 ok value of a compound assignment
 ok right associative
 ok the target is read after the right side runs

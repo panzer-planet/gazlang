@@ -21,6 +21,68 @@ $s ..= ", ";
 $s ..= "world " .. 1;
 check("..= concatenates, converting like ..", $s, "Hello, world 1");
 
+// ..= appends in place on a plain variable, so every other way of reaching a string must
+// still behave identically: its value is the new string, a non-string converts like .. does,
+// and an undefined variable is an error rather than an empty string
+check("the value of ..= is the new string", $s ..= "!", "Hello, world 1!");
+$t = 1;
+$t ..= 2;
+check("..= on a non-string converts", $t, "12");
+$u = "n";
+$u ..= [1, 2];
+check("..= converts the right side like echo", $u, "n[1, 2]");
+// Whatever is appended, a string target appends in place: .. is toString on both sides, so
+// converting the right one and appending that is the same operation, and stays linear
+$v = "";
+$v ..= 1;
+$v ..= 2.5;
+$v ..= true;
+$v ..= null;
+$v ..= {"k" => 1};
+check("..= appends any value to a string", $v, "12.5truenull{\"k\" => 1}");
+class Loud { fn to_string() { return "L"; } }
+$w = "x";
+$w ..= Loud();
+check("..= runs to_string on an object", $w, "xL");
+class Angry { fn to_string() { error("nope"); } }
+$z = "keep";
+try {
+    $z ..= Angry();
+    check("unreachable", 1, 2);
+} catch (Error $e) {
+    check("nothing is appended when converting fails", $z, "keep");
+}
+try {
+    $missing ..= "x";
+    check("unreachable", 1, 2);
+} catch (Error $e) {
+    check("..= needs the variable", $e.message, 'Undefined variable: $missing');
+}
+@global_buffer = "g";
+@global_buffer ..= "h";
+check("..= on a global", @global_buffer, "gh");
+$row = {"k" => "a"};
+$row["k"] ..= "b";
+check("..= through a map key", $row, {"k" => "ab"});
+$list = ["a"];
+$list[0] ..= "b";
+check("..= through a list index", $list, ["ab"]);
+fn make_appender() { $buffer = ""; return $c -> { $buffer ..= $c; return $buffer; }; }
+$append = make_appender();
+$append("1");
+check("..= on a captured variable persists between calls", $append("2"), "12");
+check("a second closure has its own", make_appender()("9"), "9");
+class Buffer { #text = ""; fn add($c) { #text ..= $c; return #text; } }
+$buffer = Buffer();
+$buffer.add("a");
+check("..= on a field", $buffer.add("b"), "ab");
+// A copy taken before the append must not see it: strings are values, appending in place
+// is only safe while nothing else holds the string
+$before = "one";
+$copy = $before;
+$before ..= " two";
+check("a copy taken first is unchanged", $copy, "one");
+
 // The assignment is an expression with the new value, and is right associative
 $a = 2;
 $b = 3;

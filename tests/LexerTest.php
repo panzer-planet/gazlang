@@ -242,7 +242,7 @@ class LexerTest extends TestCase
     {
         $this->assertSame(
             [Token::CLASS_KEYWORD, Token::EXTENDS, Token::ABSTRACT, Token::INTERFACE, Token::IMPLEMENTS, Token::FINAL, Token::PUBLIC, Token::PRIVATE, Token::PROTECTED],
-            array_column($this->lex('class Extends abstract interface implements final public private protected'), 0)
+            array_column($this->lex('class extends abstract interface implements final public private protected'), 0)
         );
     }
 
@@ -272,11 +272,51 @@ class LexerTest extends TestCase
         $this->assertSame([[Token::ECHO, 3], [Token::INTEGER, 4], [Token::DIVIDE, 4], [Token::INTEGER, 4], [Token::SEMICOLON, 4]], $lines);
     }
 
-    public function test_keywords_are_case_insensitive_and_names_are_not()
+    public function test_block_comments_are_skipped_and_lines_counted()
     {
+        $lexer = new Lexer('/* one
+   two */ echo /* here */ 1;');
+        $lines = [];
+        while (($token = $lexer->get_next_token())->type !== Token::EOF) {
+            $lines[] = [$token->type, $token->line];
+        }
+
+        $this->assertSame([[Token::ECHO, 2], [Token::INTEGER, 2], [Token::SEMICOLON, 2]], $lines);
+    }
+
+    public function test_block_comments_nest()
+    {
+        // The first */ closes only the inner one, so commenting out a commented region works
+        $this->assertSame([[Token::INTEGER, 1]], $this->lex('/* a /* b */ c */ 1'));
+        $this->assertSame([[Token::INTEGER, 1]], $this->lex('/* /* /* */ */ */ 1'));
+        $this->assertSame([[Token::INTEGER, 1]], $this->lex('/**/ 1'));
+    }
+
+    public function test_a_slash_is_only_an_opener_before_a_star()
+    {
+        $this->assertSame([[Token::INTEGER, 8], [Token::DIVIDE, '/'], [Token::INTEGER, 2]], $this->lex('8 / 2'));
+        $this->assertSame([[Token::DIVIDE_ASSIGN, '/='], [Token::INTEGER, 2]], $this->lex('/= 2'));
+        // A line comment holding an opener is still just a line comment
+        $this->assertSame([[Token::INTEGER, 1]], $this->lex('// /* never opened
+1'));
+    }
+
+    public function test_an_unterminated_block_comment_reports_the_line_it_opened_on()
+    {
+        $this->expectExceptionMessage('Unterminated block comment on line 2');
+        $this->lex('echo 1;
+/* opened here
+/* and here */
+');
+    }
+
+    public function test_keywords_are_lowercase_and_matched_exactly()
+    {
+        // Any other capitalisation is an ordinary name, so class If and fn match() are fine
         $this->assertSame(
-            [[Token::ECHO, 'ECHO'], [Token::TRUE, 'True'], [Token::IDENTIFIER, '_Helper2'], [Token::VAR_IDENTIFIER, '$If'], [Token::GLOBAL_VAR_IDENTIFIER, '@x_1']],
-            $this->lex('ECHO True _Helper2 $If @x_1')
+            [[Token::ECHO, 'echo'], [Token::IDENTIFIER, 'ECHO'], [Token::TRUE, 'true'], [Token::IDENTIFIER, 'True'],
+                [Token::IDENTIFIER, '_Helper2'], [Token::VAR_IDENTIFIER, '$If'], [Token::GLOBAL_VAR_IDENTIFIER, '@x_1']],
+            $this->lex('echo ECHO true True _Helper2 $If @x_1')
         );
     }
 

@@ -22,4 +22,5 @@ $query
     .where("x")
     .order("y");
 echo #class #final ## # .x ##..y;
-interface implements final public private protected Class EXTENDS
+interface implements final public private protected
+class extends Class EXTENDS Interface Final Public

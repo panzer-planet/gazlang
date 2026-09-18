@@ -618,7 +618,8 @@ final class Values
      * @param  array  $keys  The steps, outermost first: evaluated index keys, null for an append ([]), or PropertyStep
      * @param  Token|null  $op  How to combine with the current value, or null to replace it
      * @param  mixed  $value  The right hand side (unused for ++ and --)
-     * @return array{0: mixed, 1: mixed} The old value (null if there was none) and the new value
+     * @return array{0: mixed, 1: mixed} The old value (null if there was none, and always null
+     *                                   for ..=, which appends in place rather than reading it: see concatAssign) and the new value
      *
      * @throws Exception If the variable or a key along the way is missing, or the operation fails
      */
@@ -688,6 +689,15 @@ final class Values
             throw $missing_object === null ? self::undefinedKey($missing_key) : self::propertyNotSet($missing_object, $missing_key);
         }
 
+        if ($op !== null && $op->type === Token::CONCAT && is_string($container[$key] ?? null)) {
+            // ..= appends in place. Reading the current value into a variable first, as the
+            // general path below does, leaves PHP two references to the string, so . has to
+            // copy all of it on every append and building a string is quadratic. The old
+            // value is not returned for the same reason: holding it is another reference,
+            // and only ++ and -- have a caller that wants it.
+            return [null, self::concatAssign($container[$key], $value)];
+        }
+
         $old = $container[$key] ?? null;
         $new = match (true) {
             $op === null => $value,
@@ -697,6 +707,38 @@ final class Values
         $container[$key] = $new;
 
         return [$old, $new];
+    }
+
+    /**
+     * Append to a string in place, the one definition of what ..= does
+     *
+     * A string target is appended to with PHP's own .=, which grows it rather than building a
+     * new string, so a loop of appends is linear where $s = $s .. $x is quadratic. What is
+     * appended can be anything: .. is toString(left) . toString(right), so converting the
+     * right side and appending that is the same operation. Converting it first also keeps the
+     * ordering the rest of store() has, that nothing is written if working out the new value
+     * fails. Only a target that is not a string falls back to the ordinary .. .
+     *
+     * The target is taken by reference and must be the only thing holding the string: a copy
+     * anywhere else (a value read onto a stack, an old value kept to return) makes PHP copy
+     * the whole string again and the append quadratic once more.
+     *
+     * @param  mixed  $target  The variable, element or field to append to, by reference
+     * @param  mixed  $value  What to append
+     * @return mixed The new value
+     *
+     * @throws Exception If .. cannot combine the two
+     */
+    public static function concatAssign(&$target, $value)
+    {
+        if (is_string($target)) {
+            $text = is_string($value) ? $value : self::toString($value);
+            $target .= $text;
+
+            return $target;
+        }
+
+        return $target = self::binary(new Token(Token::CONCAT, '..'), $target, $value);
     }
 
     /**
@@ -812,6 +854,16 @@ final class Values
             $subject instanceof ClassValue, $subject instanceof FunctionValue => self::toString($subject),
             default => self::typeOf($subject),
         });
+    }
+
+    /**
+     * The error for a subject-less match whose every condition was false
+     *
+     * There is no value to name, since nothing was compared: every arm simply was not true.
+     */
+    public static function noCondition(): Exception
+    {
+        return new Exception('No arm matched');
     }
 
     /**

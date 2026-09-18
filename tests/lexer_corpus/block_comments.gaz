@@ -1,0 +1,18 @@
+/* a whole line */
+echo 1;
+echo /* between tokens */ 2;
+/* nesting: /* an inner one */ the outer is still open */ echo 3;
+/* deeper: /* /* three */ two */ one */
+echo 4;
+/*
+   over
+   several lines
+*/
+echo "a /* is literal inside a string */ b";
+echo 'and /* inside a raw one */ too';
+echo 8 / 2; /* division is not an opener */
+$x = 8; $x /= 2; /* nor is /= */
+echo /**/ 5;
+echo /* */ 6;
+// a line comment may hold /* an unclosed opener
+echo 7;

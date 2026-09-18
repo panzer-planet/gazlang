@@ -362,10 +362,11 @@ each step depends on the ones before it.
    string conversion, float formatting) must be a rule GazLang defines and both runtimes
    implement. Keep growing the language by writing real GazLang (`lib/`, tools) and
    fixing what hurts; the lexer port waits for the lexical syntax to settle, since a
-   second lexer doubles the work of every lexer change. It has not settled: 2026-09-18
-   added `& | ^ ~ << >>` with their compound forms and the `match` and `default` keywords,
-   and block comments are wanted and not built (see "Decided, not built yet"), which is a
-   third change to the same file. Port the lexer after block comments land, not before.
+   second lexer doubles the work of every lexer change. 2026-09-18 added `& | ^ ~ << >>`
+   with their compound forms, the `match` and `default` keywords, and block comments
+   (see "Comments and names") and made keywords lowercase and exact, which together were the
+   last changes the port was waiting on. Nothing known is left that would touch the lexer
+   again: port it.
 
    **Port the lexer to `selfhost/lexer.gaz` against the PHP lexer, which is the
    spec.** `tests/SelfHostedLexerTest.php` runs
@@ -449,58 +450,53 @@ when it was written, not from now.
    pass over a tree whose children can be absent needs `type_of($n) == "object"` before
    dispatching, which is per-node boilerplate of the kind `class_of` was meant to remove. If
    that shows up for real, it is the evidence for making it lenient.
-3. **`match` arms that are not `==`.** Of the 49 `if` conditions in `lib/json.gaz`, 15 are a
-   plain `==`; the rest are ranges (`$unit >= 0xDC00 && $unit <= 0xDFFF`), predicate calls
-   (`is_digit($c)`, `json_match("true")`), `!=` and map lookups, and all six `lib/chars.gaz`
-   classifiers are range tests. `match` was argued for on the grounds that its arms must run
-   statements, which is right and is what block arms give; that its *values* are compared with
-   `==` was never costed against the code, and on this evidence `match` will barely appear in
-   the lexer port. Guard arms (`match ($c) { is_digit($c) => ... }`) and range arms
-   (`"a".."z" => ...`) are what the code wants. Decide this before porting the lexer, not after,
-   since it changes how every dispatch in it is written.
+3. ~~**`match` arms that are not `==`.**~~ Decided and built 2026-09-18: `match` takes an
+   optional subject, and without one its arms are conditions, tested for truth as `if` does.
+   See "match". The evidence was that of the 49 `if` conditions in `lib/json.gaz` only 15 are a
+   plain `==`, that `examples/tokenizer.gaz`'s dispatch (the shape the lexer port will have) is
+   an eight branch `if`/`else if` chain of which two branches are `==`, and that `match` appears
+   in no file under `lib/` or `examples/` at all. What the check found already there was more
+   than the hole admitted: `match (true)` gave a condition per arm with no language change. What
+   it also found was the reason to build anyway, which the hole had not noticed: `==` is strict,
+   so `match (true)` silently misses a condition returning a truthy non-bool, and nothing says
+   why. The three questions were answered: **one feature, not two** (no range arms, because
+   `"a".."z"` is concatenation today and a range arm would silently change what existing source
+   means); **a bare truthy expression**, not Rust's `$c if cond`, since the subject does no work
+   in a guard; and **subject-less rather than guards inside a subject-ful match**, which keeps
+   `match ($x)` all-`==` so a jump table over it stays reachable, and needs no lexer change, the
+   parens being the only tell. Still open, and not asked for by real code yet: nothing here
+   gives a jump table, and `match ($x)` is still a linear chain of `EQUALS`.
 
-   **First check how much is already there**, the way hole 1 turned out to need nothing:
-   `match (true)` gives guards today with no language change, because arms compare with `==`
-   and a condition is a bool, and it is checked by `tests/gaz/match/match_test.gaz`:
-   ```
-   echo match (true) {
-       $c >= "0" && $c <= "9" => "digit",
-       $c >= "a" && $c <= "z" => "lower",
-       default => "other"
-   };
-   ```
-   So what is actually missing is narrower than "guards": that `match (true)` reads as an idiom
-   rather than as intent, that a range still has to be spelled twice with the subject named in
-   both halves, and that a jump table cannot see through either. Weigh a language change against
-   those three, not against the `if` chains. Three questions to settle first, none decided:
-   - **One feature or two?** A guard arm subsumes ranges, since `$c >= "a" && $c <= "z"` is
-     just a guard; a range arm is sugar that reads better at the character classes a lexer is
-     made of, and keeps the jump-table optimisation (still open, see "match") reachable for
-     arms that are all literals and ranges, where a guard arm closes it off.
-   - **What shape is a guard?** A bare truthy expression (`is_digit($c) => ...`) is simpler and
-     is what the existing `if` chains already look like, so the port is a transcription;
-     Rust's pattern-plus-condition (`$c if is_digit($c) => ...`) keeps the subject visible in
-     the arm and composes if type patterns ever arrive, at the cost of a second concept.
-   - **A guard ignores the subject**, so `match ($c) { is_digit($c) => ... }` names `$c` twice
-     and the subject does no work. That either is fine, or argues for a subject-less
-     `match { cond => ... }` whose arms are conditions, which is `if`/`else if` with better
-     shape and no `==` at all. Note `match (true) { ... }` already gives this today, and
-     whether that is good enough is part of the question.
 4. **Scanning bytes.** `$s[$i]` allocates a one byte string and `ord($s[$i])` is two builtin
    calls plus that allocation; there is no `byte_at($s, $i)` and no "index of the first byte in
    this set". A lexer must classify every byte, so it cannot escape into `index_of` the way
-   CSV parsing did. Measured on this language: scanning 140KB idiomatically (a method reading
-   `#pos`) took 1.04s against 0.34s hand-inlined, and a full lex and parse of 155KB took 3.5s.
-   Building a string with `..=` is quadratic, since `$s ..= $x` is `$s = $s .. $x` and copies
-   every time, where PHP's own `.=` appends in place: 160k appends took 6.34s against 0.57s
-   for `$parts[] = ...` then `join`. Some of this is the C VM's to fix and should be measured
-   again once it exists; `..=` appending in place is a change to `Values::store()` that is
-   worth making either way.
-5. **Names and namespaces.** Keywords are matched case-insensitively, so `class If`, `While`,
-   `Return`, `Match` and `True` are all syntax errors, which is what a self-hosted AST wants to
-   call things and is why `examples/football.gaz`'s `class Match` became `Fixture` when `match`
-   landed; a suffix works around it, as the PHP AST's `IfStatementAST` already does, so the
-   real question is whether case-insensitive keywords earn their cost. Included files share one
+   CSV parsing did. Some of this is the C VM's to fix and should be measured again once it exists.
+
+   **The `..=` half is fixed (2026-09-18) and was the bigger of the two.** `$s ..= $x` used to
+   lower to `$s = $s .. $x`, which loads the string onto the stack, so PHP holds two references
+   and `.` copies all of it on every append. It now appends in place: `Values::concatAssign()`
+   is the one definition, the code generator emits `CONCAT_ASSIGN slot` (`_GLOBAL`,
+   `_CAPTURED`) for a plain variable instead of lowering, and `Values::store()` uses it for
+   every interpreter path, fields and elements included. Measured, 160k appends on the VM:
+   0.58s to 0.27s, and 640k: 6.80s to 0.52s, so it is linear rather than quadratic. Building a
+   string with `..=` now beats the `$parts[] = ...` then `join` workaround (0.31s at 160k), so
+   that workaround is no longer the advice. What is appended does not have to be a string:
+   `..` is `toString` on both sides, so a string target converts the right side and appends
+   that, which is the same operation. Only a target that is not yet a string falls back to
+   the ordinary `..`, and `$out ..= $line_number` (a compiler emitting text) stays linear:
+   2.46s to 0.29s at 160k when that was missed. The ceiling left: a field or an element
+   (`#buf ..= $c`, `$a[0] ..= $c`) still lowers on the VM, since the path has to be walked to
+   reach the string; only the interpreter appends those in place. Lift it if real code needs it.
+
+   **Re-measure before trusting a number here.** Two figures recorded in this section were
+   found wrong on 2026-09-18 when they were reproduced: `..=` at 160k was recorded as 6.34s and
+   measured 0.58s (the shape was right, 160k was just too small to show the quadratic), and the
+   object scanner was recorded as 1.04s against 0.34s hand-inlined and measured 0.51s against
+   0.32s net of the 0.15s process startup, a 1.6x gap rather than 3x. The priority order in
+   this list was derived from those numbers.
+5. **Names and namespaces.** The keyword half is done: keywords are lowercase and matched
+   exactly as of 2026-09-18 (see "Comments and names"), so `class If`, `fn Return()` and
+   `class Match` all work and the self-hosted AST can call its nodes what they are. Included files share one
    namespace, so two files defining `helper()` is a hard error and every module prefixes its
    own privates (`json_*` is that scar), and including a file runs its top level code.
    `Error`'s members are reserved across the whole hierarchy, so a domain error cannot declare
@@ -530,7 +526,7 @@ every use in the PHP lexer is a simple validator that a character loop replaces,
 Deliberately not planned until real code asks for them: `**` and `sqrt`/`pow`/`log`, variadic
 parameters and spread (pass a list), `time()` (time it from outside), `foreach` over a string
 (`split($s, "")`), and regular expressions (the lexer's character classes are explicit on
-purpose). Block comments left this list on 2026-09-18, see "Decided, not built yet".
+purpose). Block comments left this list on 2026-09-18 and were built the same day, see "Comments".
 
 ## Decided, not built yet
 
@@ -540,19 +536,8 @@ it led to and is already built is described in its own section: `..` and strict 
 (roadmap step 2), `/` always a float ("Numbers"), lists and maps (step 5), function values,
 lambdas and closure state ("Function values"), `lib/functional.gaz` (step 7's GazLang
 libraries), `fn` (step 4), objects ("Objects") and error objects, typed catch and
-`finally` ("Errors and try/catch"). Not built:
+`finally` ("Errors and try/catch"), and block comments (see "Comments"). Not built:
 
-- **Block comments** (wanted 2026-09-18, was previously "not planned"). `/* ... */`, skipped
-  by the lexer exactly as `//` is, so no token reaches the parser and `--tokens` is unchanged.
-  One thing to decide first: **do they nest?** C and PHP say no, so the first `*/` ends the
-  comment and commenting out a block that already contains one breaks; Rust and Swift say yes,
-  which costs a depth counter in the lexer and is what you want when commenting out a region
-  of a self-hosted compiler. Nesting is the better answer for this language and is nearly free
-  here, but it must be settled before anything is written, since changing it later silently
-  changes what existing source means. An unterminated one is a lexer error reported at the
-  line it opened on, as an unterminated string is. No doc-comment convention. Note
-  `editors/gaz.tmLanguage` had a `/* */` rule that was removed on 2026-09-18 because the
-  language did not have them; it goes back when this lands.
 - **Later, when real code needs them:** `interface` / `implements` (a parse-time check
   that the methods exist, plus `is_a`), `final`, and visibility with public implicit:
   `private` and `protected` on fields and methods. `#` and `##` are checked at parse
@@ -787,9 +772,10 @@ the enclosing closure's variable, to its own index), which the VM applies at
 
 ## match
 
-Built 2026-09-17. A lexer and parser in GazLang are long `if`/`else if` chains over characters
-and token types, and of the 49 `if`s in `lib/json.gaz` nearly all run *statements* per branch,
-so an expression-only `match` (PHP 8) would have missed most of it.
+Built 2026-09-17; the subject made optional 2026-09-18 (hole 3). A lexer and parser in GazLang
+are long `if`/`else if` chains over characters and token types, and of the 49 `if`s in
+`lib/json.gaz` nearly all run *statements* per branch, so an expression-only `match` (PHP 8)
+would have missed most of it.
 
 ```
 $kind = match ($type) {                       // an expression: every arm is an expression
@@ -803,8 +789,28 @@ match ($c) {                                  // a statement: an arm may be a bl
     "\\" => { @pos += 2; }
     default => fail("bad character")          // and no ; after the closing }
 }
+
+match {                                       // no subject: the arms are conditions
+    is_digit($c) => { number(); }
+    is_alpha($c) || $c == "_" => { identifier(); }
+    default => operator()
+}
 ```
 
+- **Without a subject the arms are conditions**, tested for truth as `if` does rather than
+  compared, so `match { $c >= "a" && $c <= "z" => ..., is_digit($c) => ... }` is an
+  `if`/`else if` tower with the shape of a `match`, and several values to an arm read as "or".
+  The parens are the whole tell: one keyword, two comparison rules. Nothing true and no
+  `default` is `No arm matched`, which names no value because nothing was compared. Everything
+  else below is the same, including block arms, the order values run in and `default` last.
+  `match (true) { ... }` still works and is the trap this replaced: `==` is strict, so a
+  condition returning a truthy non-bool (`index_of`, `len`, a map lookup) never matched and
+  fell silently to `default`. Write `match { ... }` instead.
+- **Ranges are deliberately not arms.** `"a".."z"` is concatenation today, so a range arm
+  would silently change what existing source means; any range syntax would have to invent a
+  token for it, and `lib/chars.gaz` already wraps the character ranges in named predicates that
+  a condition arm calls. Guards being their own construct also leaves the subject-ful form
+  all-`==`, so a jump table over it stays reachable.
 - **The subject is evaluated once**, then each arm's values are evaluated in order and
   compared with `==` (`Values::equals()`, so `1` matches `1.0` but `"1"` never matches `1`,
   and lists and maps compare by their contents). Only the values before the matching one run,
@@ -826,13 +832,14 @@ match ($c) {                                  // a statement: an arm may be a bl
   `if` and `while`, so a `;` after it is a parse error (as `if (1) {};` is). In a statement a
   `{` after `=>` is a block and a map is written `({...})`; in an expression a `{` after `=>`
   is a map literal. That is the rule the language already has for a lambda body.
-- `match` and `default` are keywords, so, like every keyword, any capitalisation of them is
-  one: `examples/football.gaz`'s `class Match` became `Fixture`. Variables (`$default`) and
-  members (`fn match()`) are unaffected, since sigils and member names keep their own
+- `match` and `default` are keywords in lowercase only, so `class Match` and `fn Default()`
+  are ordinary names (`examples/football.gaz`'s `class Match` became `Fixture` while keywords
+  were still case-insensitive, and could go back). Variables (`$default`) and members
+  (`fn match()`) were never affected, since sigils and member names keep their own
   namespaces, and a word merely containing one (`json_match`) is an ordinary name.
 
-Implementation: `MatchAST` holds the subject and the arms, each `[values, body, is_block]`
-with `values` null for the `default` arm. `Parser::match_expression($statement)` is called
+Implementation: `MatchAST` holds the subject (null when there is none) and the arms, each
+`[values, body, is_block]` with `values` null for the `default` arm. `Parser::match_expression($statement)` is called
 from `primary()` (an expression, blocks refused) and from `statement()` (blocks allowed, no
 `;` eaten). The interpreter's `visitMatch()` is the obvious loop. Code generation puts the
 tests first and the bodies after, so each test knows its body's label: `LOAD`, the value,
@@ -841,7 +848,9 @@ tests first and the bodies after, so each test knows its body's label: `LOAD`, t
 there first, so no instruction is unreachable and the loader's stack walk stays happy. Every
 arm leaves exactly one value, a block arm pushing `null`, so the depth into `MATCH_END_n` is
 the same on every path and the statement's `POP` always has something to pop. The subject
-lives in a hidden `$#match_n`.
+lives in a hidden `$#match_n`. Without a subject there is no hidden variable and no `LOAD` or
+`EQUALS`: the condition alone, then the same `NOT` and `JZ`, and past every test
+`NO_CONDITION`, which pops nothing.
 
 ## Assignment
 
@@ -875,6 +884,16 @@ the same order, holding index keys and a non-constant right side in hidden
 current value with `INDEX_GET_EXISTING` (`Values::indexExisting()`, the same checks
 and messages) and stepping with `INC`/`DEC`. A postfix `++`/`--` used as a statement
 compiles as prefix, so `$i++` in a loop is `LOAD`, `INC`, `STORE`.
+
+`..=` is the exception: on a plain variable it appends in place rather than lowering, so
+`$s ..= "b"` is the value then `CONCAT_ASSIGN slot` (`_GLOBAL`, `_CAPTURED`), which pushes
+the new value. `Values::concatAssign()` is the one definition, used by that instruction and
+by `Values::store()`, and it grows a string target with PHP's own `.=`, converting whatever
+is appended the way `..` already defines it (`toString` on both sides), so appending a number
+is as linear as appending a string. Loading the string onto the stack first is what made building one
+quadratic: PHP then holds two references and copies all of it on every append, the same
+trap `SET_PATH` unsets its temporaries for (see "VM"). A field or an element still lowers on
+the VM, since the path has to be walked to reach the string.
 
 ## Errors and try/catch
 
@@ -978,6 +997,49 @@ break, continue and return leave the handlers themselves (`CodeGenerator::leaveT
 `END_TRY` for each, and each finally block's code after its own, compiled as if outside its
 try; a return first stores its value in a hidden variable. `RET` drops whatever handlers
 its frame still has.
+
+## Comments and names
+
+`// to the end of the line` and `/* ... */`, both skipped by the lexer, so no token reaches
+the parser and `--tokens` never shows one. Built 2026-09-18.
+
+- **Block comments nest**, as in Rust and Swift rather than C and PHP: an inner `/*` opens
+  another one and the first `*/` only closes that, so commenting out a region that already
+  contains a comment works, which is what a self-hosted compiler wants. It costs a depth
+  counter in `Lexer::skip_block_comment()`. This had to be settled before anything was
+  written, since changing it later would silently change what existing source means.
+- **An unterminated one is a lexer error** at the line the outermost `/*` opened on
+  ("Unterminated block comment"), as an unterminated string is: at the end of the input every
+  comment still open is open because that one never closed.
+- **A `/` is only an opener before a `*`**, so `8 / 2` and `/=` are untouched, and `/*` inside
+  a string literal or after a `//` is just text. There is no doc-comment convention.
+- `editors/gaz.tmLanguage` highlights them, nesting included: the `block-comment` repository
+  rule includes itself, so an inner `/*` starts another begin/end pair and the first `*/`
+  closes only that one, which is how Rust's own grammar does it. A plain begin/end rule ends
+  at the first `*/` and highlights the rest of the comment as code.
+
+**Keywords are lowercase and matched exactly** (decided and built 2026-09-18), as in every
+language designed since C. They used to be case-insensitive, copied from PHP, which reserved
+every capitalisation of all thirty of them: `class If`, `While`, `Return`, `Match` and `True`
+were syntax errors, which is exactly what a self-hosted AST wants to call its nodes, and is
+why `examples/football.gaz`'s `class Match` became `Fixture` when `match` landed.
+
+- **PHP was the wrong model to half-copy.** PHP matches keywords *and* function, class and
+  method names case-insensitively, consistently; GazLang matched only keywords that way, so
+  `IF (1)` worked while `GREET()` did not find `fn greet()`. That is PHP's wart without PHP's
+  rule, and a reader could not derive either.
+- **Nothing real depended on it**: the only non-lowercase keywords anywhere in the repo's
+  `.gaz` files were in `tests/lexer_corpus/names.gaz` and `objects.gaz`, which existed to test
+  the old rule and now test this one.
+- **A miscapitalised keyword says so**, the way `function` does ("Declare functions with fn,
+  not function"): `Return 1;` is "Expected ';' but found '1' (keywords are lowercase: write
+  'return', not 'Return')". `Parser::keyword_hint()` looks at the token the error is at and
+  the one before it, which covers a keyword used as a statement (`Return 1;`, `ECHO "x";`),
+  and the deferred name check covers a bare one or a call (`True`, `IF(1)`). It does not cover
+  `IF (1) { }`, where the failure lands at the `{`, two tokens past the name. The check only
+  runs while an error is being built, never on the parsing path.
+- Sigils and member names keep their own namespaces, as before, so `$If`, `@while_1` and
+  `fn match()` were always fine.
 
 ## Numbers
 

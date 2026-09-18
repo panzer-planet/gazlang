@@ -443,7 +443,13 @@ class OperatorTest extends GazLangTestCase
     public function test_code_gen_for_concatenation()
     {
         $this->assertEquals("PUSH \"a\"\nPUSH 1\nCONCAT\nPRINT", $this->generateCode('echo "a" .. 1;'));
-        $this->assertEquals("LOAD 0\nPUSH \"b\"\nCONCAT\nSTORE 0\nLOAD 0\nPOP", $this->generateCode('$s ..= "b";'));
+        // ..= on a plain variable appends in place instead of lowering to $s = $s .. "b",
+        // which would load the string onto the stack and copy all of it on every append
+        $this->assertEquals("PUSH \"b\"\nCONCAT_ASSIGN 0\nPOP", $this->generateCode('$s ..= "b";'));
+        $this->assertEquals("PUSH \"b\"\nCONCAT_ASSIGN_GLOBAL 0\nPOP", $this->generateCode('@s ..= "b";'));
+        // An element still lowers: the path has to be walked to reach the string
+        $this->assertStringContainsString('CONCAT', $this->generateCode('$a[0] ..= "b";'));
+        $this->assertStringNotContainsString('CONCAT_ASSIGN', $this->generateCode('$a[0] ..= "b";'));
     }
 
     public function test_arithmetic_on_strings_throws()

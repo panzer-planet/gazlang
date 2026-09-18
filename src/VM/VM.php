@@ -177,6 +177,16 @@ final class VM
                             case 'STORE':
                                 $locals[$arg0[$pc - 1]] = array_pop($stack);
                                 break;
+                                // ..= appends to the variable in place. The string is never loaded
+                                // onto the stack, so PHP holds one reference to it and grows it
+                                // rather than copying all of it on every append (Values::concatAssign)
+                            case 'CONCAT_ASSIGN':
+                                $slot = $arg0[$pc - 1];
+                                if (! isset($locals[$slot]) && ! array_key_exists($slot, $locals)) {
+                                    throw new Exception("Undefined variable: {$local_names[$function][$slot]}");
+                                }
+                                $stack[] = Values::concatAssign($locals[$slot], array_pop($stack));
+                                break;
                                 // A closure's captured variables live in the closure, not the frame, so every
                                 // call of it shares them; read them in place, never through a copy of the
                                 // array, which would make writes copy what they hold
@@ -190,6 +200,13 @@ final class VM
                                 break;
                             case 'STORE_CAPTURED':
                                 $closure->captured[$arg0[$pc - 1]] = array_pop($stack);
+                                break;
+                            case 'CONCAT_ASSIGN_CAPTURED':
+                                $slot = $arg0[$pc - 1];
+                                if (! isset($closure->captured[$slot]) && ! array_key_exists($slot, $closure->captured)) {
+                                    throw new Exception("Undefined variable: {$lambdas[$closure->index][2][$slot]}");
+                                }
+                                $stack[] = Values::concatAssign($closure->captured[$slot], array_pop($stack));
                                 break;
                             case 'LOAD_QUIET_CAPTURED':
                                 $stack[] = $closure->captured[$arg0[$pc - 1]] ?? null;
@@ -321,6 +338,13 @@ final class VM
                             case 'STORE_GLOBAL':
                                 $globals[$arg0[$pc - 1]] = array_pop($stack);
                                 break;
+                            case 'CONCAT_ASSIGN_GLOBAL':
+                                $slot = $arg0[$pc - 1];
+                                if (! isset($globals[$slot]) && ! array_key_exists($slot, $globals)) {
+                                    throw new Exception("Undefined variable: {$global_names[$slot]}");
+                                }
+                                $stack[] = Values::concatAssign($globals[$slot], array_pop($stack));
+                                break;
                             case 'PRINT':
                                 echo Values::toString(array_pop($stack)).PHP_EOL;
                                 break;
@@ -333,6 +357,8 @@ final class VM
                                 break;
                             case 'NO_MATCH':
                                 throw Values::noMatch(array_pop($stack));
+                            case 'NO_CONDITION':
+                                throw Values::noCondition();
                             case 'BIT_NOT':
                                 $stack[] = Values::bitwiseNot(array_pop($stack));
                                 break;

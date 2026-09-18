@@ -116,6 +116,12 @@ class Parser
     private $current_token;
 
     /**
+     * @var Token|null The token before it, so a syntax error can point at a miscapitalised
+     *                 keyword that was read as a name (see keyword_hint())
+     */
+    private $previous_token;
+
+    /**
      * @var int How many loops enclose the statement being parsed, so break and continue can be checked
      */
     private $loop_depth = 0;
@@ -240,7 +246,33 @@ class Parser
      */
     private function fail(string $message): never
     {
-        throw new GazLangError($message, $this->file, $this->current_token->line);
+        throw new GazLangError($message.$this->keyword_hint(), $this->file, $this->current_token->line);
+    }
+
+    /**
+     * A hint when the error is at, or just after, a keyword written in the wrong case
+     *
+     * Keywords are lowercase and matched exactly, so Return is an ordinary name and
+     * "Return 1;" fails at the 1 rather than at the Return. PHP would have accepted it, so
+     * the message says what the rule is instead of leaving the reader to find it. The check
+     * only runs while an error is being built, never on the parsing path.
+     *
+     * A name that is already declared is left alone: naming things If, Match and Return is
+     * the point of the rule, so telling someone to write "return" where they meant their own
+     * Return would be worse than saying nothing. A use that comes before its declaration is
+     * not known yet and still gets the hint; a hint is advice, not a diagnosis.
+     */
+    private function keyword_hint(): string
+    {
+        foreach ([$this->current_token, $this->previous_token] as $token) {
+            if ($token !== null && $token->type === Token::IDENTIFIER && is_string($token->value)
+                && isset(Lexer::KEYWORDS[strtolower($token->value)])
+                && ! isset($this->functions[$token->value]) && ! isset($this->classes[$token->value])) {
+                return " (keywords are lowercase: write '".strtolower($token->value)."', not '{$token->value}')";
+            }
+        }
+
+        return '';
     }
 
     /**
@@ -316,6 +348,7 @@ class Parser
             $this->fail("Expected {$expected} but found ".$this->describe($this->current_token));
         }
 
+        $this->previous_token = $this->current_token;
         $this->current_token = $this->next_token();
     }
 
@@ -1260,11 +1293,14 @@ class Parser
     }
 
     /**
-     * Parse a match (MATCH LPAREN expr RPAREN LBRACE arm (COMMA arm)* [COMMA] RBRACE)
+     * Parse a match (MATCH [LPAREN expr RPAREN] LBRACE arm (COMMA arm)* [COMMA] RBRACE)
      *
      * An arm is one or more comma separated expressions, or DEFAULT, then => then its body.
      * A comma separates arms; it is optional after the last one and after a block arm, which
      * ends in a } of its own, as in Rust.
+     *
+     * The subject is optional: with one, an arm's values are compared to it with ==; without,
+     * they are conditions, tested for truth as if does, so several to an arm read as "or".
      *
      * Only a match written as a statement may have block arms, so in one a { after => is a
      * block and a map is written ({...}), the same rule as a lambda body; in an expression a
@@ -1279,9 +1315,12 @@ class Parser
     {
         $start = $this->current_token;
         $this->eat(Token::MATCH);
-        $this->eat(Token::LEFT_PAREN);
-        $subject = $this->expr();
-        $this->eat(Token::RIGHT_PAREN);
+        $subject = null;
+        if ($this->current_token->type === Token::LEFT_PAREN) {
+            $this->eat(Token::LEFT_PAREN);
+            $subject = $this->expr();
+            $this->eat(Token::RIGHT_PAREN);
+        }
         $this->eat(Token::LEFT_BRACE);
 
         $arms = [];
@@ -1962,7 +2001,10 @@ class Parser
                 continue;
             }
             if (! isset($this->functions[$use->name])) {
-                throw new GazLangError("Undefined function: {$use->name}", $use->file, $use->line);
+                $hint = isset(Lexer::KEYWORDS[strtolower($use->name)])
+                    ? " (keywords are lowercase: write '".strtolower($use->name)."', not '{$use->name}')"
+                    : '';
+                throw new GazLangError("Undefined function: {$use->name}{$hint}", $use->file, $use->line);
             }
             if ($use instanceof FunctionCallAST) {
                 $error = Builtins::arityError("Function {$use->name}", $this->functions[$use->name], count($use->args));

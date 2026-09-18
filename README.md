@@ -55,6 +55,10 @@ Try `php bin/gazlang -f examples/csv_report.gaz -- examples/data/sales.csv regio
   insertion order) are separate types, copied on assignment: `$l[0]`, `$m["k"]["j"] = v`,
   `$l[] = v`, `foreach ($m as $k => $v)`, `len`, `keys`, `slice`. A missing index or key is an
   error unless read with `??`.
+- **Comments**: `// to the end of the line` and `/* ... */`, which nest, so commenting out a
+  region that already holds a comment works.
+- **Names**: keywords are lowercase and matched exactly, so `class If`, `fn Return()` and
+  `$while` are all ordinary names. Writing one in the wrong case says so.
 - **Strings**: `"..."` with escapes (`\n`, `\xHH`, `\u{1F600}`) and interpolation (`"Hi $name"`,
   `"{$user["name"]} has {@count}"`); `'...'` raw. `..` concatenates, converting like `echo`.
 - **Operators**: `+ - * / %` on numbers only (`/` always gives a float; `intdiv` for ints);
@@ -65,7 +69,9 @@ Try `php bin/gazlang -f examples/csv_report.gaz -- examples/data/sales.csv regio
   `$c ? $a : $b`; `+= -= *= /= %= ..= &= |= ^= <<= >>= ++ --`.
 - **Control flow**: `if`/`else if`/`else`, `while`, `for`, `foreach`, `break`, `continue`, and
   `match ($x) { 1, 2 => "few", default => "many" }`, an expression whose arms are compared with
-  `==` and tried in order; written as a statement, an arm may be a block.
+  `==` and tried in order; written as a statement, an arm may be a block. Drop the subject and
+  the arms are conditions instead, tested for truth as `if` does:
+  `match { is_digit($c) => "digit", $c == "_" => "underscore", default => "other" }`.
 - **Functions**: `fn add($a, $b = 1) { return $a + $b; }` at the top level, callable
   before they are declared. A bare name is a value (`$f = add; $f(1)`, builtins too), and
   `$x -> $x * 2`, `($a, $b = 1) -> $a + $b`, `() -> { return 42; }` are anonymous functions
