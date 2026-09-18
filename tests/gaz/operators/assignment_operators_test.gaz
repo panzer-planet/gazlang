@@ -31,6 +31,27 @@ check("..= on a non-string converts", $t, "12");
 $u = "n";
 $u ..= [1, 2];
 check("..= converts the right side like echo", $u, "n[1, 2]");
+// Whatever is appended, a string target appends in place: .. is toString on both sides, so
+// converting the right one and appending that is the same operation, and stays linear
+$v = "";
+$v ..= 1;
+$v ..= 2.5;
+$v ..= true;
+$v ..= null;
+$v ..= {"k" => 1};
+check("..= appends any value to a string", $v, "12.5truenull{\"k\" => 1}");
+class Loud { fn to_string() { return "L"; } }
+$w = "x";
+$w ..= Loud();
+check("..= runs to_string on an object", $w, "xL");
+class Angry { fn to_string() { error("nope"); } }
+$z = "keep";
+try {
+    $z ..= Angry();
+    check("unreachable", 1, 2);
+} catch (Error $e) {
+    check("nothing is appended when converting fails", $z, "keep");
+}
 try {
     $missing ..= "x";
     check("unreachable", 1, 2);

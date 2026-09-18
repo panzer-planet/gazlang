@@ -8,6 +8,9 @@ ok ..= concatenates, converting like ..
 ok the value of ..= is the new string
 ok ..= on a non-string converts
 ok ..= converts the right side like echo
+ok ..= appends any value to a string
+ok ..= runs to_string on an object
+ok nothing is appended when converting fails
 ok ..= needs the variable
 ok ..= on a global
 ok ..= through a map key

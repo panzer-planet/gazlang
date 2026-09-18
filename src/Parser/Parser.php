@@ -256,12 +256,18 @@ class Parser
      * "Return 1;" fails at the 1 rather than at the Return. PHP would have accepted it, so
      * the message says what the rule is instead of leaving the reader to find it. The check
      * only runs while an error is being built, never on the parsing path.
+     *
+     * A name that is already declared is left alone: naming things If, Match and Return is
+     * the point of the rule, so telling someone to write "return" where they meant their own
+     * Return would be worse than saying nothing. A use that comes before its declaration is
+     * not known yet and still gets the hint; a hint is advice, not a diagnosis.
      */
     private function keyword_hint(): string
     {
         foreach ([$this->current_token, $this->previous_token] as $token) {
             if ($token !== null && $token->type === Token::IDENTIFIER && is_string($token->value)
-                && isset(Lexer::KEYWORDS[strtolower($token->value)])) {
+                && isset(Lexer::KEYWORDS[strtolower($token->value)])
+                && ! isset($this->functions[$token->value]) && ! isset($this->classes[$token->value])) {
                 return " (keywords are lowercase: write '".strtolower($token->value)."', not '{$token->value}')";
             }
         }

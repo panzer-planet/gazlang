@@ -480,7 +480,11 @@ when it was written, not from now.
    every interpreter path, fields and elements included. Measured, 160k appends on the VM:
    0.58s to 0.27s, and 640k: 6.80s to 0.52s, so it is linear rather than quadratic. Building a
    string with `..=` now beats the `$parts[] = ...` then `join` workaround (0.31s at 160k), so
-   that workaround is no longer the advice. The ceiling left: a field or an element
+   that workaround is no longer the advice. What is appended does not have to be a string:
+   `..` is `toString` on both sides, so a string target converts the right side and appends
+   that, which is the same operation. Only a target that is not yet a string falls back to
+   the ordinary `..`, and `$out ..= $line_number` (a compiler emitting text) stays linear:
+   2.46s to 0.29s at 160k when that was missed. The ceiling left: a field or an element
    (`#buf ..= $c`, `$a[0] ..= $c`) still lowers on the VM, since the path has to be walked to
    reach the string; only the interpreter appends those in place. Lift it if real code needs it.
 
@@ -884,8 +888,9 @@ compiles as prefix, so `$i++` in a loop is `LOAD`, `INC`, `STORE`.
 `..=` is the exception: on a plain variable it appends in place rather than lowering, so
 `$s ..= "b"` is the value then `CONCAT_ASSIGN slot` (`_GLOBAL`, `_CAPTURED`), which pushes
 the new value. `Values::concatAssign()` is the one definition, used by that instruction and
-by `Values::store()`, and it grows the string with PHP's own `.=` when both sides are
-strings, `..` otherwise. Loading the string onto the stack first is what made building one
+by `Values::store()`, and it grows a string target with PHP's own `.=`, converting whatever
+is appended the way `..` already defines it (`toString` on both sides), so appending a number
+is as linear as appending a string. Loading the string onto the stack first is what made building one
 quadratic: PHP then holds two references and copies all of it on every append, the same
 trap `SET_PATH` unsets its temporaries for (see "VM"). A field or an element still lowers on
 the VM, since the path has to be walked to reach the string.

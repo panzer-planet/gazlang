@@ -2,6 +2,8 @@
 
 namespace GazLang\Tests;
 
+use GazLang\GazLangError;
+
 class ClassTest extends GazLangTestCase
 {
     private const ACCOUNT = <<<'CODE'
@@ -717,5 +719,29 @@ class ClassTest extends GazLangTestCase
     {
         $this->expectExceptionMessage('Undefined function: missing');
         $this->createParser('echo missing;')->parse();
+    }
+
+    /**
+     * @dataProvider declaredKeywordNames
+     */
+    public function test_a_declared_name_gets_no_keyword_hint(string $code)
+    {
+        // Naming things Return and If is the point of the rule, so an error next to one must
+        // not tell the reader to write the keyword they did not mean
+        try {
+            $this->createParser($code)->parse();
+            $this->fail('expected a parse error');
+        } catch (GazLangError $e) {
+            $this->assertStringNotContainsString('keywords are lowercase', $e->getMessage());
+        }
+    }
+
+    public static function declaredKeywordNames(): array
+    {
+        return [
+            'a declared function' => ['fn Return($x) { return $x; } $y = Return'],
+            'a declared class' => ['class If { #x; fn _($x) { #x = $x; } } $y = If'],
+            'a builtin' => ['$y = len'],
+        ];
     }
 }
