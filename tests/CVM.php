@@ -112,8 +112,8 @@ final class CVM
      * @param  list<string>  $entries
      * @param  bool  $isolated  Whether to run the PHP side in processes too, with the time limit, for programs that may never end
      * @return array<string, array{0: array{0: string, 1: string, 2: int}, 1: array{0: string, 1: string, 2: int}}|null>
-     *                                                                                                                  By entry: [PHP, C], each [stdout, stderr, exit code];
-     *                                                                                                                  null when the PHP compiler refuses the program
+     *                                                                                                                   By entry: [PHP, C], each [stdout, stderr, exit code];
+     *                                                                                                                   null when the PHP compiler refuses the program
      */
     public static function runAll(array $entries, bool $isolated = false): array
     {

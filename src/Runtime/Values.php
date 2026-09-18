@@ -748,19 +748,17 @@ final class Values
      */
     public static function concatAssign(&$target, $value)
     {
-        if (is_string($target)) {
-            $text = is_string($value) ? $value : self::toString($value);
-            // toString() can run a to_string() that changed the target, so look again
-            if (is_string($target)) {
-                $target .= $text;
+        $text = is_string($target) ? (is_string($value) ? $value : self::toString($value)) : null;
+        // toString() can run a to_string() that changed the target, so it is looked at again;
+        // phpstan can't know that a call changes what a reference holds
+        // @phpstan-ignore function.alreadyNarrowedType
+        if ($text !== null && is_string($target)) {
+            $target .= $text;
 
-                return $target;
-            }
-
-            return $target = self::binary(new Token(Token::CONCAT, '..'), $target, $text);
+            return $target;
         }
 
-        return $target = self::binary(new Token(Token::CONCAT, '..'), $target, $value);
+        return $target = self::binary(new Token(Token::CONCAT, '..'), $target, $text ?? $value);
     }
 
     /**
