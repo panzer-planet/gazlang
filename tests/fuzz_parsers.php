@@ -155,12 +155,14 @@ define('MODE', $argv[3] ?? 'ast');
 
 $program = compile_driver(MODE === 'code' ? 'selfhost/compile.gaz' : 'selfhost/ast.gaz');
 
-// Small programs, so a run is tens of milliseconds: the parser's own cases, which between them
-// use all of the grammar, and a few real ones
-$failing = [...glob('tests/parser_corpus/error_*.gaz'), ...glob('tests/parser_corpus/include/error_*.gaz')];
+// Small programs, so a run is tens of milliseconds: the parser's and code generator's own
+// cases, which between them use all of the grammar, and a few real ones. Not the code
+// generator's includes.gaz: its paths are relative to its own directory, not to where the
+// input is written, so it never parses here.
+$failing = [...glob('tests/parser_corpus/error_*.gaz'), ...glob('tests/parser_corpus/include/error_*.gaz'), ...glob('tests/codegen_corpus/error_*.gaz')];
 $valid = array_values(array_filter(
     [...glob('tests/parser_corpus/*.gaz'), ...glob('tests/parser_corpus/include/*.gaz'), ...glob('tests/codegen_corpus/*.gaz'), 'examples/objects.gaz', 'examples/errors.gaz', 'lib/format.gaz', 'lib/sort.gaz'],
-    fn (string $file) => filesize($file) < 8000 && ! in_array($file, $failing, true),
+    fn (string $file) => filesize($file) < 8000 && ! in_array($file, $failing, true) && $file !== 'tests/codegen_corpus/includes.gaz',
 ));
 // Beside the include cases, so their includes are found; not a .gaz, so a run that dies doesn't leave the suite a corpus file
 $path = 'tests/parser_corpus/include/fuzz_input_'.getmypid().'.tmp';
