@@ -77,7 +77,7 @@ function input(array $files): string
 $runs = (int) ($argv[1] ?? 4000);
 mt_srand((int) ($argv[2] ?? 1));
 
-$program = compile_driver('selfhost/tokens.gaz');
+$program = compile_driver();
 
 $files = [...glob('tests/lexer_corpus/*.gaz'), 'selfhost/lexer.gaz', 'examples/objects.gaz', 'lib/json.gaz'];
 $path = tempnam(sys_get_temp_dir(), 'gazfuzz');
@@ -88,7 +88,7 @@ for ($run = 0; $run < $runs; $run++) {
     $source = input($files);
     file_put_contents($path, $source);
     $expected = php_tokens($source);
-    $actual = rtrim(run_driver($program, $path), "\n");
+    $actual = rtrim(run_driver($program, 'tokens', $path), "\n");
 
     if (preg_match('/^Error: ([A-Za-z ]+)/m', $expected, $match)) {
         $errors[trim($match[1])] = ($errors[trim($match[1])] ?? 0) + 1;

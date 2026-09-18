@@ -15,7 +15,7 @@ design is in [CLAUDE.md](../CLAUDE.md); what the language *is* is in
 | `src/VM` | runs a `Program`. This is the default backend |
 | `vm/` | the VM in C, `vm/gazvm`: runs the bytecode `gazlang -c` writes, and must behave exactly as `src/VM` does (see below) |
 | `lib/` | the standard library, written in GazLang |
-| `selfhost/` | everything above the VM, rewritten in GazLang: `lexer.gaz`, a port of `src/Lexer`, with `tokens.gaz`, which prints its tokens as `--tokens` does, `parser.gaz` and `nodes.gaz`, a port of `src/Parser` and `src/AST`, with `ast.gaz`, which prints its tree as `--ast` does, and `codegen.gaz`, a port of `src/CodeGenerator`, with `compile.gaz`, which prints bytecode as `-c` does |
+| `selfhost/` | everything above the VM, rewritten in GazLang: `lexer.gaz`, a port of `src/Lexer`, `parser.gaz` and `nodes.gaz`, a port of `src/Parser` and `src/AST`, `codegen.gaz`, a port of `src/CodeGenerator`, and `gazlang.gaz`, the driver, which prints what `-c`, `--tokens` or `--ast` would (`gazlang.gaz -- code\|tokens\|ast [FILE]`, reading piped source without a FILE) |
 | `examples/` | sample programs |
 | `tests/` | PHPUnit, plus `tests/gaz/` GazLang programs, and the corpora: `lexer_corpus/`, `parser_corpus/`, `codegen_corpus/`, `vm_corpus/` and `bytecode_corpus/` |
 
@@ -128,10 +128,10 @@ php bin/gazlang --ast -f examples/functions.gaz           # print the parser's t
   self-hosted drivers on big inputs, which take seconds each on the PHP VM, are the one group
   left out: `php -d pcov.enabled=0 vendor/bin/phpunit --group whole-repository`, before
   merging anything that touches a port or either VM.
-- **`selfhost/compile.gzb`** is the self-hosted compiler's bytecode, checked in and built into
+- **`selfhost/gazlang.gzb`** is the self-hosted compiler's bytecode, checked in and built into
   the C VM, which is how `vm/gazvm x.gaz` runs source. A test fails until it is what the PHP
-  compiler writes for `selfhost/compile.gaz`, so after changing anything under `selfhost/`, run
-  `php bin/gazlang -c -f selfhost/compile.gaz > selfhost/compile.gzb`.
+  compiler writes for `selfhost/gazlang.gaz`, so after changing anything under `selfhost/`, run
+  `php bin/gazlang -c -f selfhost/gazlang.gaz > selfhost/gazlang.gzb`.
 - **`tests/vm_corpus/`** are programs for the C VM that the rest of the repository doesn't
   reach, found with `php vm/coverage.php`: running out of call depth by every kind of call,
   traces cut short, failing `to_string()`s, floats of every shape, cycles. **`tests/bytecode_corpus/`**

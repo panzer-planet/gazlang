@@ -15,7 +15,7 @@ gazvm: $(SOURCES) $(HEADERS) $(COMPILER)
 
 # The bytes as a C array, written out by od: no escaping to get wrong (and no trigraphs, which
 # -std=c11 turns on, and which the ??= in the compiler's bytecode would be)
-$(COMPILER): ../selfhost/compile.gzb Makefile
+$(COMPILER): ../selfhost/gazlang.gzb Makefile
 	@mkdir -p build
 	{ echo 'const unsigned char compiler_gzb[] = {'; od -An -v -tu1 $< | awk '{ for (i = 1; i <= NF; i++) printf "%s,", $$i; print "" }'; echo '0};'; \
 	  echo 'const unsigned long compiler_gzb_size = sizeof compiler_gzb - 1;'; } > $@

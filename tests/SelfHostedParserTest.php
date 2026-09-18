@@ -11,17 +11,16 @@ use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 
 /**
- * Checks the GazLang parser (selfhost/parser.gaz, run by selfhost/ast.gaz) against the PHP parser, which is the spec
+ * Checks the GazLang parser (selfhost/parser.gaz, run by selfhost/gazlang.gaz) against the PHP parser, which is the spec
  *
  * For every corpus file the PHP parser's `gazlang --ast` output is the expected output: the
  * tree as AST\Dumper prints it, or for a file that doesn't parse "Error: <message> at FILE:N"
- * and exit code 1. The self-hosted parser is run as `gazlang -f selfhost/ast.gaz -- FILE`
- * (on the C VM, see CVM::driver()) and must print exactly the same and exit with the same code.
+ * and exit code 1. The self-hosted parser is run as `gazlang -f selfhost/gazlang.gaz -- ast FILE`
+ * (on the C VM, see CVM::driver()) and must print exactly the same and exit with the same code,
+ * and so must `... -- ast < FILE` against `gazlang --ast < FILE`, which has no file to show.
  */
 class SelfHostedParserTest extends GazLangTestCase
 {
-    private const PARSER = 'selfhost/ast.gaz';
-
     /**
      * Where the corpus is: selfhost/ too, so the ported parser is also checked on its own source
      */
@@ -39,6 +38,13 @@ class SelfHostedParserTest extends GazLangTestCase
      * @var array<string, array{0: string, 1: int}>
      */
     private static array $results = [];
+
+    /**
+     * The same for the parser's own corpus, piped
+     *
+     * @var array<string, array{0: string, 1: int}>
+     */
+    private static array $piped = [];
 
     /**
      * Every .gaz file the parsers are compared on, keyed by path relative to the project root
@@ -95,7 +101,7 @@ class SelfHostedParserTest extends GazLangTestCase
         foreach (['precedence', 'literals', 'captures', 'interpolation', 'match', 'error_missing_operand', 'error_lexer_error_has_the_file', 'error_lambda_duplicate_parameter'] as $name) {
             $file = "tests/parser_corpus/{$name}.gaz";
 
-            $this->assertSame(self::phpAst($file), $this->runProgram(self::PARSER, [$file]), $file);
+            $this->assertSame(self::phpAst($file), $this->runProgram(CVM::DRIVER, ['ast', $file]), $file);
         }
     }
 
@@ -107,12 +113,24 @@ class SelfHostedParserTest extends GazLangTestCase
         $this->assertSameTree($file);
     }
 
-    private function assertSameTree(string $file): void
+    /**
+     * Piped source has no file: its locations are line numbers only, and its includes are
+     * relative to the working directory, so an include that works from a file fails piped
+     *
+     * @dataProvider parserCorpus
+     */
+    public function test_self_hosted_parser_matches_the_php_parser_on_piped_input(string $file)
     {
-        self::$results = self::$results ?: CVM::driver(self::PARSER, array_keys(self::corpus()));
-        [$output, $exit_code] = self::$results[$file];
+        self::$piped = self::$piped ?: CVM::driver('ast', array_keys(self::parserCorpus()), piped: true);
+        $this->assertSameTree($file, self::$piped[$file], piped: true);
+    }
 
-        [$expected, $expected_exit_code] = self::phpAst($file);
+    private function assertSameTree(string $file, ?array $result = null, bool $piped = false): void
+    {
+        self::$results = self::$results ?: CVM::driver('ast', array_keys(self::corpus()));
+        [$output, $exit_code] = $result ?? self::$results[$file];
+
+        [$expected, $expected_exit_code] = self::phpAst($file, piped: $piped);
         $this->assertSameText($expected, $output, "Tree differs for {$file}");
         $this->assertSame($expected_exit_code, $exit_code, "Exit code differs for {$file}");
     }
@@ -139,9 +157,19 @@ class SelfHostedParserTest extends GazLangTestCase
      */
     public function test_self_hosted_parser_matches_the_php_parser_from_anywhere(string $cwd, string $file)
     {
-        self::$program ??= self::compileProgram(self::PARSER);
+        self::$program ??= self::compileProgram(CVM::DRIVER);
 
-        $this->assertSame(self::phpAst($file, $cwd), $this->runCompiled(self::$program, [$file], $cwd));
+        $this->assertSame(self::phpAst($file, $cwd), $this->runCompiled(self::$program, ['ast', $file], $cwd));
+    }
+
+    /**
+     * Piped, only the working directory matters, which includes are relative to
+     *
+     * @dataProvider placesToParseFrom
+     */
+    public function test_self_hosted_parser_matches_the_php_parser_on_piped_input_from_anywhere(string $cwd, string $file)
+    {
+        $this->assertSame(self::phpAst($file, $cwd, piped: true), CVM::driver('ast', [$file], true, $cwd)[$file]);
     }
 
     /**
@@ -154,12 +182,12 @@ class SelfHostedParserTest extends GazLangTestCase
         mkdir("{$dir}/lib", 0777, true);
         file_put_contents("{$dir}/lib/helper.gaz", "fn helper() { return 1; }\n");
         file_put_contents("{$dir}/main.gaz", "include \"lib/helper.gaz\";\ninclude \"{$dir}/lib/helper.gaz\";\necho helper();\n");
-        self::$program ??= self::compileProgram(self::PARSER);
+        self::$program ??= self::compileProgram(CVM::DRIVER);
 
         try {
             [$expected, $exit_code] = self::phpAst('main.gaz', $dir);
             $this->assertSame(0, $exit_code, $expected);
-            $this->assertSame([$expected, 0], $this->runCompiled(self::$program, ['main.gaz'], $dir));
+            $this->assertSame([$expected, 0], $this->runCompiled(self::$program, ['ast', 'main.gaz'], $dir));
         } finally {
             unlink("{$dir}/lib/helper.gaz");
             unlink("{$dir}/main.gaz");
@@ -172,15 +200,16 @@ class SelfHostedParserTest extends GazLangTestCase
      * The expected --ast output and exit code for a file, from the PHP parser in-process
      *
      * @param  string  $in  The working directory, which include paths are shown relative to
+     * @param  bool  $piped  Whether the file is read as piped source, with no path
      * @return array{0: string, 1: int}
      */
-    private static function phpAst(string $file, string $in = self::ROOT): array
+    private static function phpAst(string $file, string $in = self::ROOT, bool $piped = false): array
     {
         $cwd = getcwd();
         // Include paths are shown relative to the working directory
         chdir($in);
         try {
-            return [Dumper::dump((new Parser(new Lexer(file_get_contents($file)), $file))->parse()), 0];
+            return [Dumper::dump((new Parser(new Lexer(file_get_contents($file)), $piped ? null : $file))->parse()), 0];
         } catch (GazLangError $e) {
             return ["Error: {$e->getMessage()}\n", 1];
         } finally {

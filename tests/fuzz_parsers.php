@@ -3,7 +3,7 @@
 /**
  * Differential fuzzing of the two parsers: php tests/fuzz_parsers.php [RUNS = 2000] [SEED = 1] [ast|code]
  *
- * With `code` it compares the two compilers instead, selfhost/compile.gaz against `gazlang -c`,
+ * With `code` it compares the two compilers instead, selfhost/gazlang.gaz's code mode against `gazlang -c`,
  * on the same inputs: whatever parses is compiled by both, and must give the same bytecode.
  *
  * SelfHostedParserTest says selfhost/parser.gaz is right on the corpus; this looks for inputs
@@ -153,7 +153,7 @@ $runs = (int) ($argv[1] ?? 2000);
 mt_srand((int) ($argv[2] ?? 1));
 define('MODE', $argv[3] ?? 'ast');
 
-$program = compile_driver(MODE === 'code' ? 'selfhost/compile.gaz' : 'selfhost/ast.gaz');
+$program = compile_driver();
 
 // Small programs, so a run is tens of milliseconds: the parser's and code generator's own
 // cases, which between them use all of the grammar, and a few real ones. Not the code
@@ -176,7 +176,7 @@ for ($run = 0; $run < $runs; $run++) {
     $expected = php_ast($source, $path);
     // A port that loops forever on some input stops here, with that input still in the file
     set_time_limit(20);
-    $actual = run_driver($program, $path);
+    $actual = run_driver($program, MODE, $path);
 
     if (preg_match('/^(?:Error|PHP \w+): ([A-Za-z# ]+)/', $expected, $match)) {
         // Without the names in it, so the tally is of kinds of error

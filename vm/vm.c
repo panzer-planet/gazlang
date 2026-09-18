@@ -1153,7 +1153,7 @@ static int run_program(bool check) {
     return exit_code;
 }
 
-/* The self-hosted compiler's bytecode, selfhost/compile.gzb, built into the VM (build/compiler.c) */
+/* The self-hosted compiler's bytecode, selfhost/gazlang.gzb, built into the VM (build/compiler.c) */
 extern const unsigned char compiler_gzb[];
 extern const unsigned long compiler_gzb_size;
 
@@ -1166,19 +1166,19 @@ typedef struct {
     int exit_code;
 } Job;
 
-/* Compile source with the built-in compiler, as `gazlang -c -f path` would, into a bytecode
+/* Compile source with the built-in compiler, as `gazlang -c -f path` would (selfhost/gazlang.gaz in its code mode), into a bytecode
    text: the compiler runs as a program of its own, with its standard output going to memory.
    NULL when it refused the source, having said why on standard error, with the exit code set. */
 static char *compile_source(Job *job, size_t *len) {
-    program = load((const char *)compiler_gzb, compiler_gzb_size, "selfhost/compile.gzb");
+    program = load((const char *)compiler_gzb, compiler_gzb_size, "selfhost/gazlang.gzb");
     if (!program) {
         report(vm_error);
         job->exit_code = 1;
         return NULL;
     }
-    char *path = (char *)job->path;
-    program_argc = 1;
-    program_argv = &path;
+    char *args[] = {"code", (char *)job->path};
+    program_argc = 2;
+    program_argv = args;
     char *text = NULL;
     output = open_memstream(&text, len);
     int exit_code = run_program(false);

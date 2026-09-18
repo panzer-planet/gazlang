@@ -11,17 +11,16 @@ use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 
 /**
- * Checks the GazLang code generator (selfhost/codegen.gaz, run by selfhost/compile.gaz) against the PHP one, which is the spec
+ * Checks the GazLang code generator (selfhost/codegen.gaz, run by selfhost/gazlang.gaz) against the PHP one, which is the spec
  *
  * For every corpus file the PHP compiler's `gazlang -c` output is the expected output: the
  * bytecode file, or for a file that doesn't parse "Error: <message> at FILE:N" and exit code 1.
- * The self-hosted compiler is run as `gazlang -f selfhost/compile.gaz -- FILE` (on the C VM,
- * see CVM::driver()) and must print exactly the same and exit with the same code.
+ * The self-hosted compiler is run as `gazlang -f selfhost/gazlang.gaz -- code FILE` (on the C
+ * VM, see CVM::driver()) and must print exactly the same and exit with the same code, and so
+ * must `... -- code < FILE` against `gazlang -c < FILE`, which has no file to show.
  */
 class SelfHostedCompilerTest extends GazLangTestCase
 {
-    private const COMPILER = 'selfhost/compile.gaz';
-
     /**
      * The driver, compiled once
      */
@@ -33,6 +32,13 @@ class SelfHostedCompilerTest extends GazLangTestCase
      * @var array<string, array{0: string, 1: int}>
      */
     private static array $results = [];
+
+    /**
+     * The same for the code generator's own corpus, piped
+     *
+     * @var array<string, array{0: string, 1: int}>
+     */
+    private static array $piped = [];
 
     /**
      * Every .gaz file the compilers are compared on, keyed by path relative to the project root
@@ -89,7 +95,7 @@ class SelfHostedCompilerTest extends GazLangTestCase
         foreach (['expressions', 'statements', 'functions', 'classes'] as $name) {
             $file = "tests/codegen_corpus/{$name}.gaz";
 
-            $this->assertSame(self::phpCode($file), $this->runProgram(self::COMPILER, [$file]), $file);
+            $this->assertSame(self::phpCode($file), $this->runProgram(CVM::DRIVER, ['code', $file]), $file);
         }
     }
 
@@ -122,17 +128,39 @@ class SelfHostedCompilerTest extends GazLangTestCase
      */
     public function test_self_hosted_compiler_matches_the_php_compiler_from_anywhere(string $cwd, string $file)
     {
-        self::$program ??= self::compileProgram(self::COMPILER);
+        self::$program ??= self::compileProgram(CVM::DRIVER);
 
-        $this->assertSame(self::phpCode($file, $cwd), $this->runCompiled(self::$program, [$file], $cwd));
+        $this->assertSame(self::phpCode($file, $cwd), $this->runCompiled(self::$program, ['code', $file], $cwd));
     }
 
-    private function assertSameCode(string $file): void
+    /**
+     * Piped, only the working directory matters, which includes are relative to
+     *
+     * @dataProvider placesToCompileFrom
+     */
+    public function test_self_hosted_compiler_matches_the_php_compiler_on_piped_input_from_anywhere(string $cwd, string $file)
     {
-        self::$results = self::$results ?: CVM::driver(self::COMPILER, array_keys(self::corpus()));
-        [$output, $exit_code] = self::$results[$file];
+        $this->assertSame(self::phpCode($file, $cwd, piped: true), CVM::driver('code', [$file], true, $cwd)[$file]);
+    }
 
-        [$expected, $expected_exit_code] = self::phpCode($file);
+    /**
+     * Piped source has no file: its locations are `@ line` records, and its includes are
+     * relative to the working directory
+     *
+     * @dataProvider compilerCorpus
+     */
+    public function test_self_hosted_compiler_matches_the_php_compiler_on_piped_input(string $file)
+    {
+        self::$piped = self::$piped ?: CVM::driver('code', array_keys(self::compilerCorpus()), piped: true);
+        $this->assertSameCode($file, self::$piped[$file], piped: true);
+    }
+
+    private function assertSameCode(string $file, ?array $result = null, bool $piped = false): void
+    {
+        self::$results = self::$results ?: CVM::driver('code', array_keys(self::corpus()));
+        [$output, $exit_code] = $result ?? self::$results[$file];
+
+        [$expected, $expected_exit_code] = self::phpCode($file, piped: $piped);
         $this->assertSameText($expected, $output, "Bytecode differs for {$file}");
         $this->assertSame($expected_exit_code, $exit_code, "Exit code differs for {$file}");
     }
@@ -141,16 +169,18 @@ class SelfHostedCompilerTest extends GazLangTestCase
      * The expected -c output and exit code for a file, from the PHP compiler in-process
      *
      * @param  string  $in  The working directory, which paths are resolved from
+     * @param  bool  $piped  Whether the file is read as piped source, with no path
      * @return array{0: string, 1: int}
      */
-    private static function phpCode(string $file, string $in = self::ROOT): array
+    private static function phpCode(string $file, string $in = self::ROOT, bool $piped = false): array
     {
         $cwd = getcwd();
         chdir($in);
         try {
-            $parser = new Parser(new Lexer(file_get_contents($file)), $file);
+            $path = $piped ? null : $file;
+            $parser = new Parser(new Lexer(file_get_contents($file)), $path);
 
-            return [(new CodeGenerator($parser->parse()))->compile()->write($file), 0];
+            return [(new CodeGenerator($parser->parse()))->compile()->write($path), 0];
         } catch (GazLangError $e) {
             return ["Error: {$e->getMessage()}\n", 1];
         } finally {

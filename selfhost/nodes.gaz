@@ -2,7 +2,7 @@
 // classes' names and fields, so the two parsers can be read side by side.
 //
 // Fields are declared in the PHP class's order, since fields() gives them in that order:
-// selfhost/ast.gaz prints a tree from them, and the parser walks one to find the variables a
+// selfhost/gazlang.gaz prints a tree from them, and the parser walks one to find the variables a
 // lambda uses. A field the PHP parser leaves null is set to null, since fields() leaves out one
 // that was never set.
 //

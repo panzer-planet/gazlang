@@ -2,71 +2,221 @@ GAZLANG BYTECODE 1
 globals
 
 top
-locals $path $root $e
-@ "compile.gaz" 5
+locals $args $#destructure_0 $mode $path $text $lexer $type $token $e $root
+@ "gazlang.gaz" 86
 CALL_BUILTIN args 0
-CALL_BUILTIN len 1
-PUSH 1
-NOT_EQUALS
-JZ ELSE_0
-@ "compile.gaz" 6
-PUSH "Usage: gazlang -f selfhost/compile.gaz -- FILE\n"
-CALL_BUILTIN print_error 1
-POP
-@ "compile.gaz" 7
-PUSH 2
-CALL_BUILTIN exit 1
-POP
-@ "compile.gaz" 5
-JMP ENDIF_0
-LABEL ELSE_0
-LABEL ENDIF_0
-@ "compile.gaz" 10
-CALL_BUILTIN args 0
-PUSH 0
-INDEX_GET
 STORE 0
 LOAD 0
 POP
-@ "compile.gaz" 11
-TRY CATCH_1
-@ "compile.gaz" 12
+@ "gazlang.gaz" 87
 LOAD 0
-CALL_BUILTIN read_file 1
-NEW Lexer 1
+CALL_BUILTIN len 1
+PUSH 1
+LT
+NOT
+JZ OR_TRUE_2
 LOAD 0
-NEW Parser 2
-GET_METHOD parse
-CALL_METHOD 0 parse
+CALL_BUILTIN len 1
+PUSH 2
+GT
+NOT
+JZ OR_TRUE_2
+PUSH false
+JMP OR_END_2
+LABEL OR_TRUE_2
+PUSH true
+LABEL OR_END_2
+NOT
+JZ OR_TRUE_1
+LOAD 0
+PUSH 0
+INDEX_GET
+PUSH ["code", "tokens", "ast"]
+CALL_BUILTIN in_array 2
+NOT
+NOT
+JZ OR_TRUE_1
+PUSH false
+JMP OR_END_1
+LABEL OR_TRUE_1
+PUSH true
+LABEL OR_END_1
+JZ ELSE_0
+@ "gazlang.gaz" 88
+PUSH "Usage: gazlang -f selfhost/gazlang.gaz -- code|tokens|ast [FILE]\n"
+CALL_BUILTIN print_error 1
+POP
+@ "gazlang.gaz" 89
+PUSH 2
+CALL_BUILTIN exit 1
+POP
+@ "gazlang.gaz" 87
+JMP ENDIF_0
+LABEL ELSE_0
+LABEL ENDIF_0
+@ "gazlang.gaz" 91
+LOAD 0
+CALL_BUILTIN len 1
+PUSH 2
+EQUALS
+JZ TERNARY_ELSE_3
+LOAD 0
+JMP TERNARY_END_3
+LABEL TERNARY_ELSE_3
+NEW_ARRAY
+LOAD 0
+PUSH 0
+INDEX_GET
+ARRAY_PUSH
+PUSH null
+ARRAY_PUSH
+LABEL TERNARY_END_3
+DESTRUCTURE 2
 STORE 1
 LOAD 1
-POP
-@ "compile.gaz" 11
-END_TRY
-JMP ENDTRY_1
-LABEL CATCH_1
-CATCH_MATCH ParseError NEXTCATCH_1_0
+PUSH 0
+INDEX_GET
 STORE 2
-@ "compile.gaz" 15
 LOAD 2
+POP
+LOAD 1
+PUSH 1
+INDEX_GET
+STORE 3
+LOAD 3
+POP
+LOAD 1
+POP
+@ "gazlang.gaz" 92
+LOAD 3
+PUSH null
+EQUALS
+JZ TERNARY_ELSE_4
+CALL_BUILTIN read_stdin 0
+JMP TERNARY_END_4
+LABEL TERNARY_ELSE_4
+LOAD 3
+CALL_BUILTIN read_file 1
+LABEL TERNARY_END_4
+STORE 4
+LOAD 4
+POP
+@ "gazlang.gaz" 94
+LOAD 2
+PUSH "tokens"
+EQUALS
+JZ ELSE_5
+@ "gazlang.gaz" 96
+LOAD 4
+NEW Lexer 1
+STORE 5
+LOAD 5
+POP
+@ "gazlang.gaz" 97
+TRY CATCH_6
+@ "gazlang.gaz" 98
+PUSH null
+STORE 6
+LOAD 6
+POP
+LABEL WHILE_7
+@ "gazlang.gaz" 99
+LOAD 6
+PUSH "EOF"
+NOT_EQUALS
+JZ ENDWHILE_7
+@ "gazlang.gaz" 100
+LOAD 5
+GET_METHOD get_next_token
+CALL_METHOD 0 get_next_token
+STORE 7
+LOAD 7
+POP
+@ "gazlang.gaz" 101
+LOAD 7
+PRINT
+@ "gazlang.gaz" 102
+LOAD 7
+GET_PROPERTY type
+STORE 6
+LOAD 6
+POP
+@ "gazlang.gaz" 99
+JMP WHILE_7
+LABEL ENDWHILE_7
+@ "gazlang.gaz" 97
+END_TRY
+JMP ENDTRY_6
+LABEL CATCH_6
+CATCH_MATCH LexError NEXTCATCH_6_0
+STORE 8
+@ "gazlang.gaz" 106
+LOAD 8
 GET_PROPERTY message
 CALL_BUILTIN error 1
 POP
-@ "compile.gaz" 11
-JMP ENDTRY_1
-LABEL NEXTCATCH_1_0
+@ "gazlang.gaz" 97
+JMP ENDTRY_6
+LABEL NEXTCATCH_6_0
 RETHROW
-LABEL ENDTRY_1
-@ "compile.gaz" 17
-LOAD 1
+LABEL ENDTRY_6
+@ "gazlang.gaz" 94
+JMP ENDIF_5
+LABEL ELSE_5
+@ "gazlang.gaz" 109
+TRY CATCH_8
+@ "gazlang.gaz" 110
+LOAD 4
+NEW Lexer 1
+LOAD 3
+NEW Parser 2
+GET_METHOD parse
+CALL_METHOD 0 parse
+STORE 9
+LOAD 9
+POP
+@ "gazlang.gaz" 109
+END_TRY
+JMP ENDTRY_8
+LABEL CATCH_8
+CATCH_MATCH ParseError NEXTCATCH_8_0
+STORE 8
+@ "gazlang.gaz" 113
+LOAD 8
+GET_PROPERTY message
+CALL_BUILTIN error 1
+POP
+@ "gazlang.gaz" 109
+JMP ENDTRY_8
+LABEL NEXTCATCH_8_0
+RETHROW
+LABEL ENDTRY_8
+@ "gazlang.gaz" 115
+LOAD 2
+PUSH "ast"
+EQUALS
+JZ ELSE_9
+@ "gazlang.gaz" 116
+NEW Dumper 0
+GET_METHOD dump
+LOAD 9
+CALL_METHOD 1 dump
+POP
+@ "gazlang.gaz" 115
+JMP ENDIF_9
+LABEL ELSE_9
+@ "gazlang.gaz" 118
+LOAD 9
 NEW CodeGenerator 1
 GET_METHOD compile
 CALL_METHOD 0 compile
 GET_METHOD write
-LOAD 0
+LOAD 3
 CALL_METHOD 1 write
 CALL_BUILTIN print 1
 POP
+LABEL ENDIF_9
+LABEL ENDIF_5
 
 fn char_at 2 2
 locals $s $i
@@ -24933,6 +25083,504 @@ LABEL ENDWHILE_0
 LOAD 1
 RET
 @ "codegen.gaz" 1056
+PUSH null
+RET
+
+class Dumper
+field file Dumper
+method dump Dumper
+method literal Dumper
+method is_plain Dumper
+locals
+@ "gazlang.gaz" 17
+PUSH false
+@ "gazlang.gaz" 9
+SET_FIELD file
+POP
+LOAD_THIS
+RET
+
+fn Dumper.dump 1 1
+locals $root $stack $last $#destructure_0 $label $value $indent $type $children $name $#foreach_array_1 $#foreach_keys_1 $#foreach_count_1 $#foreach_i_1 $labels $i
+@ "gazlang.gaz" 23
+NEW_ARRAY
+NEW_ARRAY
+PUSH ""
+ARRAY_PUSH
+LOAD 0
+ARRAY_PUSH
+PUSH ""
+ARRAY_PUSH
+ARRAY_PUSH
+STORE 1
+LOAD 1
+POP
+LABEL WHILE_0
+@ "gazlang.gaz" 24
+LOAD 1
+CALL_BUILTIN len 1
+PUSH 0
+GT
+JZ ENDWHILE_0
+@ "gazlang.gaz" 25
+LOAD 1
+CALL_BUILTIN len 1
+PUSH 1
+SUB
+STORE 2
+LOAD 2
+POP
+@ "gazlang.gaz" 26
+LOAD 1
+LOAD 2
+INDEX_GET
+DESTRUCTURE 3
+STORE 3
+LOAD 3
+PUSH 0
+INDEX_GET
+STORE 4
+LOAD 4
+POP
+LOAD 3
+PUSH 1
+INDEX_GET
+STORE 5
+LOAD 5
+POP
+LOAD 3
+PUSH 2
+INDEX_GET
+STORE 6
+LOAD 6
+POP
+LOAD 3
+POP
+@ "gazlang.gaz" 27
+LOAD 2
+KEY_CHECK
+DELETE_PATH [k] 1
+@ "gazlang.gaz" 29
+LOAD 5
+CALL_BUILTIN type_of 1
+STORE 7
+LOAD 7
+POP
+@ "gazlang.gaz" 30
+PUSH null
+STORE 8
+LOAD 8
+POP
+@ "gazlang.gaz" 31
+LOAD 7
+PUSH "object"
+EQUALS
+JZ AND_FALSE_2
+LOAD 5
+PUSH_CLASS AST
+CALL_BUILTIN is_a 2
+JZ AND_FALSE_2
+PUSH true
+JMP AND_END_2
+LABEL AND_FALSE_2
+PUSH false
+LABEL AND_END_2
+JZ ELSE_1
+@ "gazlang.gaz" 33
+LOAD 5
+GET_PROPERTY line
+PUSH null
+NOT_EQUALS
+JZ AND_FALSE_4
+LOAD 5
+GET_PROPERTY file
+LOAD_FIELD file
+NOT_EQUALS
+JZ AND_FALSE_4
+PUSH true
+JMP AND_END_4
+LABEL AND_FALSE_4
+PUSH false
+LABEL AND_END_4
+JZ ELSE_3
+@ "gazlang.gaz" 34
+LOAD 5
+GET_PROPERTY file
+SET_FIELD file
+POP
+@ "gazlang.gaz" 35
+PUSH "@ "
+LOAD_THIS
+GET_METHOD literal
+LOAD 5
+GET_PROPERTY file
+CALL_METHOD 1 literal
+CONCAT
+PRINT
+@ "gazlang.gaz" 33
+JMP ENDIF_3
+LABEL ELSE_3
+LABEL ENDIF_3
+@ "gazlang.gaz" 38
+LOAD 5
+CALL_BUILTIN class_of 1
+CALL_BUILTIN to_string 1
+PUSH 6
+PUSH 3
+NEG
+CALL_BUILTIN slice 3
+STORE 9
+LOAD 9
+POP
+@ "gazlang.gaz" 39
+LOAD 6
+LOAD 4
+CONCAT
+LOAD 9
+CONCAT
+LOAD 5
+GET_PROPERTY line
+PUSH null
+EQUALS
+JZ TERNARY_ELSE_5
+PUSH ""
+JMP TERNARY_END_5
+LABEL TERNARY_ELSE_5
+PUSH " "
+LOAD 5
+GET_PROPERTY line
+CONCAT
+LABEL TERNARY_END_5
+CONCAT
+PRINT
+@ "gazlang.gaz" 40
+LOAD 5
+CALL_BUILTIN fields 1
+STORE 8
+LOAD 8
+POP
+@ "gazlang.gaz" 41
+PUSH ["line", "file", "existing", "resolved", "use", "class_use"]
+FOREACH_CHECK
+STORE 10
+LOAD 10
+CALL_BUILTIN keys 1
+STORE 11
+LOAD 11
+POP
+LOAD 11
+CALL_BUILTIN len 1
+STORE 12
+LOAD 12
+POP
+PUSH 0
+STORE 13
+LOAD 13
+POP
+LABEL WHILE_6
+LOAD 13
+LOAD 12
+LT
+JZ ENDWHILE_6
+LOAD 10
+LOAD 11
+LOAD 13
+INDEX_GET
+INDEX_GET
+STORE 9
+LOAD 9
+POP
+@ "gazlang.gaz" 42
+LOAD 8
+LOAD 9
+CALL_BUILTIN has_key 2
+JZ ELSE_7
+@ "gazlang.gaz" 43
+LOAD 9
+KEY_CHECK
+DELETE_PATH [k] 8
+@ "gazlang.gaz" 42
+JMP ENDIF_7
+LABEL ELSE_7
+LABEL ENDIF_7
+LABEL CONTINUE_6
+@ "gazlang.gaz" 41
+LOAD 13
+PUSH 1
+ADD
+STORE 13
+LOAD 13
+POP
+JMP WHILE_6
+LABEL ENDWHILE_6
+@ "gazlang.gaz" 31
+JMP ENDIF_1
+LABEL ELSE_1
+@ "gazlang.gaz" 46
+LOAD 7
+PUSH "object"
+EQUALS
+JZ ELSE_8
+@ "gazlang.gaz" 48
+LOAD 6
+LOAD 4
+CONCAT
+LOAD 5
+CONCAT
+PRINT
+@ "gazlang.gaz" 46
+JMP ENDIF_8
+LABEL ELSE_8
+@ "gazlang.gaz" 49
+LOAD 7
+PUSH "list"
+EQUALS
+NOT
+JZ OR_TRUE_11
+LOAD 7
+PUSH "map"
+EQUALS
+NOT
+JZ OR_TRUE_11
+PUSH false
+JMP OR_END_11
+LABEL OR_TRUE_11
+PUSH true
+LABEL OR_END_11
+JZ AND_FALSE_10
+LOAD_THIS
+GET_METHOD is_plain
+LOAD 5
+CALL_METHOD 1 is_plain
+NOT
+JZ AND_FALSE_10
+PUSH true
+JMP AND_END_10
+LABEL AND_FALSE_10
+PUSH false
+LABEL AND_END_10
+JZ ELSE_9
+@ "gazlang.gaz" 50
+LOAD 6
+LOAD 4
+PUSH 0
+PUSH 1
+NEG
+CALL_BUILTIN slice 3
+CONCAT
+PRINT
+@ "gazlang.gaz" 51
+LOAD 5
+STORE 8
+LOAD 8
+POP
+@ "gazlang.gaz" 49
+JMP ENDIF_9
+LABEL ELSE_9
+@ "gazlang.gaz" 53
+LOAD 6
+LOAD 4
+CONCAT
+LOAD_THIS
+GET_METHOD literal
+LOAD 5
+CALL_METHOD 1 literal
+CONCAT
+PRINT
+LABEL ENDIF_9
+LABEL ENDIF_8
+LABEL ENDIF_1
+@ "gazlang.gaz" 58
+LOAD 8
+PUSH null
+NOT_EQUALS
+JZ ELSE_12
+@ "gazlang.gaz" 59
+LOAD 8
+CALL_BUILTIN keys 1
+STORE 14
+LOAD 14
+POP
+@ "gazlang.gaz" 60
+LOAD 14
+CALL_BUILTIN len 1
+PUSH 1
+SUB
+STORE 15
+LOAD 15
+POP
+LABEL WHILE_13
+LOAD 15
+PUSH 0
+GE
+JZ ENDWHILE_13
+@ "gazlang.gaz" 61
+NEW_ARRAY
+PUSH ""
+LOAD 14
+LOAD 15
+INDEX_GET
+CONCAT
+PUSH ": "
+CONCAT
+ARRAY_PUSH
+LOAD 8
+LOAD 14
+LOAD 15
+INDEX_GET
+INDEX_GET
+ARRAY_PUSH
+LOAD 6
+PUSH "  "
+CONCAT
+ARRAY_PUSH
+SET_PATH [] 1
+POP
+LABEL CONTINUE_13
+@ "gazlang.gaz" 60
+LOAD 15
+DEC
+STORE 15
+LOAD 15
+POP
+JMP WHILE_13
+LABEL ENDWHILE_13
+@ "gazlang.gaz" 58
+JMP ENDIF_12
+LABEL ELSE_12
+LABEL ENDIF_12
+@ "gazlang.gaz" 24
+JMP WHILE_0
+LABEL ENDWHILE_0
+@ "gazlang.gaz" 22
+PUSH null
+RET
+
+fn Dumper.literal 1 1
+locals $value
+@ "gazlang.gaz" 70
+LOAD 0
+NEW_MAP
+EQUALS
+JZ TERNARY_ELSE_0
+PUSH "[]"
+JMP TERNARY_END_0
+LABEL TERNARY_ELSE_0
+NEW_ARRAY
+LOAD 0
+ARRAY_PUSH
+CALL_BUILTIN to_string 1
+PUSH 1
+PUSH 1
+NEG
+CALL_BUILTIN slice 3
+LABEL TERNARY_END_0
+RET
+@ "gazlang.gaz" 69
+PUSH null
+RET
+
+fn Dumper.is_plain 1 1
+locals $values $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $value $type
+@ "gazlang.gaz" 75
+LOAD 0
+FOREACH_CHECK
+STORE 1
+LOAD 1
+CALL_BUILTIN keys 1
+STORE 2
+LOAD 2
+POP
+LOAD 2
+CALL_BUILTIN len 1
+STORE 3
+LOAD 3
+POP
+PUSH 0
+STORE 4
+LOAD 4
+POP
+LABEL WHILE_0
+LOAD 4
+LOAD 3
+LT
+JZ ENDWHILE_0
+LOAD 1
+LOAD 2
+LOAD 4
+INDEX_GET
+INDEX_GET
+STORE 5
+LOAD 5
+POP
+@ "gazlang.gaz" 76
+LOAD 5
+CALL_BUILTIN type_of 1
+STORE 6
+LOAD 6
+POP
+@ "gazlang.gaz" 77
+LOAD 6
+PUSH "object"
+EQUALS
+NOT
+JZ OR_TRUE_2
+LOAD 6
+PUSH "list"
+EQUALS
+NOT
+JZ OR_TRUE_4
+LOAD 6
+PUSH "map"
+EQUALS
+NOT
+JZ OR_TRUE_4
+PUSH false
+JMP OR_END_4
+LABEL OR_TRUE_4
+PUSH true
+LABEL OR_END_4
+JZ AND_FALSE_3
+LOAD_THIS
+GET_METHOD is_plain
+LOAD 5
+CALL_METHOD 1 is_plain
+NOT
+JZ AND_FALSE_3
+PUSH true
+JMP AND_END_3
+LABEL AND_FALSE_3
+PUSH false
+LABEL AND_END_3
+NOT
+JZ OR_TRUE_2
+PUSH false
+JMP OR_END_2
+LABEL OR_TRUE_2
+PUSH true
+LABEL OR_END_2
+JZ ELSE_1
+@ "gazlang.gaz" 78
+PUSH false
+RET
+@ "gazlang.gaz" 77
+JMP ENDIF_1
+LABEL ELSE_1
+LABEL ENDIF_1
+LABEL CONTINUE_0
+@ "gazlang.gaz" 75
+LOAD 4
+PUSH 1
+ADD
+STORE 4
+LOAD 4
+POP
+JMP WHILE_0
+LABEL ENDWHILE_0
+@ "gazlang.gaz" 82
+PUSH true
+RET
+@ "gazlang.gaz" 74
 PUSH null
 RET
 

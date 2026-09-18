@@ -9,18 +9,17 @@ use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 
 /**
- * Checks the GazLang lexer (selfhost/lexer.gaz, run by selfhost/tokens.gaz) against the PHP lexer, which is the spec
+ * Checks the GazLang lexer (selfhost/lexer.gaz, run by selfhost/gazlang.gaz) against the PHP lexer, which is the spec
  *
  * For every corpus file the PHP lexer's `gazlang --tokens` output is the expected
- * output. The self-hosted lexer is run as `gazlang -f selfhost/tokens.gaz -- FILE`
+ * output. The self-hosted lexer is run as `gazlang -f selfhost/gazlang.gaz -- tokens FILE`, and with
+ * the file on standard input as `... -- tokens < FILE`,
  * (on the C VM, see CVM::driver()) and must print exactly the same lines and exit with the same code: each token as
  * Token::__toString() formats it, then on a lexer error the error message, printed
  * by error() as "Error: <message> on line N", with exit code 1.
  */
 class SelfHostedLexerTest extends GazLangTestCase
 {
-    private const LEXER = 'selfhost/tokens.gaz';
-
     /**
      * The driver's output and exit code by file, run on the C VM for the whole corpus at once
      *
@@ -102,7 +101,7 @@ class SelfHostedLexerTest extends GazLangTestCase
         $files = ['interpolation', 'numbers', 'strings', 'block_comments', 'operators', 'error_interpolated_index', 'error_integer_too_large', 'error_unicode_surrogate'];
         foreach ($files as $name) {
             $file = "tests/lexer_corpus/{$name}.gaz";
-            [$output, $exit_code] = $this->runProgram(self::LEXER, [$file]);
+            [$output, $exit_code] = $this->runProgram(CVM::DRIVER, ['tokens', $file]);
 
             $this->assertSame(self::phpTokens($file), [rtrim($output, "\n"), $exit_code], $file);
         }
@@ -113,11 +112,28 @@ class SelfHostedLexerTest extends GazLangTestCase
      */
     public function test_self_hosted_lexer_matches_the_php_lexer(string $file)
     {
-        self::$results = self::$results ?: CVM::driver(self::LEXER, array_keys(self::corpus()));
-        [$output, $exit_code] = self::$results[$file];
+        self::$results = self::$results ?: CVM::driver('tokens', array_keys(self::corpus()));
+        $this->assertSameTokens($file, self::$results[$file]);
+    }
 
+    /**
+     * Piped source is the same text, so what is tested is the driver reading standard input
+     */
+    public function test_self_hosted_lexer_matches_the_php_lexer_on_piped_input()
+    {
+        $files = ['tests/lexer_corpus/strings.gaz', 'tests/lexer_corpus/error_bad_character.gaz'];
+        foreach (CVM::driver('tokens', $files, piped: true) as $file => $result) {
+            $this->assertSameTokens($file, $result);
+        }
+    }
+
+    /**
+     * @param  array{0: string, 1: int}  $result  What the driver printed, and its exit code
+     */
+    private function assertSameTokens(string $file, array $result): void
+    {
         [$expected, $expected_exit_code] = self::phpTokens($file);
-        $this->assertSameText($expected, rtrim($output, "\n"), "Tokens differ for {$file}");
-        $this->assertSame($expected_exit_code, $exit_code, "Exit code differs for {$file}");
+        $this->assertSameText($expected, rtrim($result[0], "\n"), "Tokens differ for {$file}");
+        $this->assertSame($expected_exit_code, $result[1], "Exit code differs for {$file}");
     }
 }

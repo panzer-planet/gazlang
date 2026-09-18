@@ -38,7 +38,7 @@ foreach (glob('vm/bench/*.gaz') as $file) {
         $cases[$name]['php'] = [...$php, "vm/bench/{$name}.php"];
     }
 }
-foreach (['selfhost/compile.gaz examples/football.gaz', 'selfhost/ast.gaz selfhost/codegen.gaz', 'selfhost/tokens.gaz selfhost/codegen.gaz', 'examples/football.gaz'] as $workload) {
+foreach (['selfhost/gazlang.gaz code examples/football.gaz', 'selfhost/gazlang.gaz ast selfhost/codegen.gaz', 'selfhost/gazlang.gaz tokens selfhost/codegen.gaz', 'examples/football.gaz'] as $workload) {
     $args = explode(' ', $workload);
     $file = array_shift($args);
     $gzb = 'vm/build/bench/'.basename($file, '.gaz').'.gzb';

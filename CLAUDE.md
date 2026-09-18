@@ -12,8 +12,10 @@ vendor/bin/phpunit
 # (see "The way out" under roadmap step 7); do it before merging port or VM changes
 php -d pcov.enabled=0 vendor/bin/phpunit --group whole-repository
 
-# Compile a file with the self-hosted compiler, which must print what -c prints
-php bin/gazlang -f selfhost/compile.gaz -- examples/functions.gaz
+# The self-hosted front end, which must print what -c, --tokens and --ast print; without a
+# file it reads piped source, as gazlang does
+php bin/gazlang -f selfhost/gazlang.gaz -- code examples/functions.gaz
+php bin/gazlang -f selfhost/gazlang.gaz -- ast < examples/functions.gaz
 
 # Run a specific test file
 vendor/bin/phpunit tests/SpecificTest.php
@@ -37,7 +39,7 @@ vm/gazvm examples/functions.gaz
 php bin/gazlang -c -f examples/functions.gaz > /tmp/f.gzb && vm/gazvm /tmp/f.gzb
 
 # After changing selfhost/, rebuild the compiler the C VM has built in (a test fails until then)
-php bin/gazlang -c -f selfhost/compile.gaz > selfhost/compile.gzb
+php bin/gazlang -c -f selfhost/gazlang.gaz > selfhost/gazlang.gzb
 
 # Which programs the C VM matches the PHP VM on (CVMTest checks the ones in vm/passing.txt);
 # --update adds the new ones. After changing either VM, also fuzz them against each other
@@ -458,8 +460,8 @@ each step depends on the ones before it.
    ~~**Port the lexer to `selfhost/lexer.gaz` against the PHP lexer, which is the
    spec.**~~ Done 2026-09-18, without touching `Lexer.php`. `selfhost/lexer.gaz` (about 620
    lines for the PHP lexer's 1050) holds `Token`, `LexError` and `Lexer`, whose methods keep
-   the PHP lexer's names so the two read side by side; `selfhost/tokens.gaz` is the driver.
-   `tests/SelfHostedLexerTest.php` runs `php bin/gazlang -f selfhost/tokens.gaz -- FILE` on
+   the PHP lexer's names so the two read side by side; `selfhost/gazlang.gaz` is the driver.
+   `tests/SelfHostedLexerTest.php` runs `php bin/gazlang -f selfhost/gazlang.gaz -- tokens FILE` on
    every `.gaz` file under `examples/`, `lib/`, `selfhost/` and `tests/` (including
    `tests/lexer_corpus/`, the deliberately tricky cases, and `tests/gaz/`, but not
    `tests/parser_corpus/`, which adds nothing for a lexer), and requires output
@@ -534,7 +536,7 @@ each step depends on the ones before it.
 
    ~~**Port the parser to `selfhost/parser.gaz` against the PHP parser, which is the spec.**~~
    Done 2026-09-18. `selfhost/nodes.gaz` is the tree (a class per `src/AST` node, same names and
-   fields), `selfhost/parser.gaz` holds `ParseError`, `VariableCollector` and `Parser`, whose methods keep the PHP parser's names, and `selfhost/ast.gaz` is the driver.
+   fields), `selfhost/parser.gaz` holds `ParseError`, `VariableCollector` and `Parser`, whose methods keep the PHP parser's names, and `selfhost/gazlang.gaz` is the driver (it was `ast.gaz` until the bootstrap's step 1).
    `tests/SelfHostedParserTest.php` compiles the driver once, runs it on the C VM on every `.gaz`
    file under `examples/`, `lib/`, `selfhost/` and `tests/`, and requires output and exit code
    identical to `php bin/gazlang --ast -f FILE`: the tree, or `Error: <message> at FILE:N` and
@@ -583,7 +585,7 @@ each step depends on the ones before it.
      file can't spell this machine's paths. A directory or an unreadable file is still told
      apart by reading it.
    - **Trees are walked with a stack, not recursion** (`VariableCollector.collect()`,
-     `ast.gaz`'s `Dumper.dump()`), since a chain of operators is as deep on its left as it is
+     `gazlang.gaz`'s `Dumper.dump()`), since a chain of operators is as deep on its left as it is
      long and two calls a level ran out of call depth at 5000 terms, which generated code can
      reach with `..`; `parser_test.gaz` walks a tree 6000 deep that it builds by hand, since
      parsing one cost the test 8s on the interpreter and printing one is a hundred megabytes,
@@ -638,7 +640,7 @@ each step depends on the ones before it.
    ~~**Port the code generator to `selfhost/codegen.gaz` against `gazlang -c`, which is the
    spec.**~~ Done 2026-09-18. `selfhost/codegen.gaz` (1077 lines) holds `CodeGenerator`, a port
    of `CodeGenerator.php` (1499) with the PHP method names, and `Program`, the writing half of
-   `Program.php`; `selfhost/compile.gaz` is the driver. `tests/SelfHostedCompilerTest.php`
+   `Program.php`; `selfhost/gazlang.gaz` is the driver, in its `code` mode. `tests/SelfHostedCompilerTest.php`
    requires output and exit code identical to `php bin/gazlang -c -f FILE`, byte for byte, on
    every `.gaz` file (on the C VM; from other working directories on the PHP VM, and four files
    on the interpreter too). The loader,
@@ -673,7 +675,7 @@ each step depends on the ones before it.
    With the lexer, parser and code generator ported, everything above the VM exists in GazLang
    and matches the PHP on every file there is, and the VM exists in C and matches the PHP VM on
    every program, snippet and corpus file there is. **What is left is the bootstrap** (stage 4).
-   Its first half already holds: the PHP compiler's bytecode for `selfhost/compile.gaz`, run on
+   Its first half already holds: the PHP compiler's bytecode for `selfhost/gazlang.gaz`, run on
    the C VM, compiles the compiler to the same bytecode byte for byte, and that compiles it again
    to the same (`test_the_self_hosted_compiler_compiles_itself_on_the_c_vm`, 2s). The C VM
    runs source with that compiler built in (see "The C VM"). What is left is the rest of the
@@ -699,12 +701,25 @@ each step depends on the ones before it.
      and no file, the C CLI prints its usage. A real REPL would be its own project.
 
    The work, in order, each step committed on its own:
-   1. **One driver, `selfhost/gazlang.gaz`**, with the three modes, and source read from
-      standard input when no file is given: `@ line` records rather than `@ "file" line`,
-      includes resolved from the working directory, and the driver calling `read_stdin()`
-      itself, which keeps the rule that a program that was itself piped in gets nothing from
-      `read_stdin()`. It is what `selfhost/compile.gzb` is built from (the name of the checked-in
-      file changes with it), and the three port harnesses and the fixed-point test move to it.
+   1. ~~**One driver, `selfhost/gazlang.gaz`**~~, done 2026-09-18: `gazlang.gaz -- MODE [FILE]`,
+      MODE being `code`, `tokens` or `ast`, reading standard input when there is no FILE (the
+      driver calls `read_stdin()` itself, and gives the ports a null path, which they already
+      treated as piped source: `@ line` records, includes from the working directory). A bad
+      mode or argument count is a usage message and exit 2. `selfhost/gazlang.gzb` is its
+      bytecode, the C VM passes it `code FILE`, and the three port harnesses, the fixed-point
+      test, `vm/passing.txt`, the fuzzers and `vm/bench.php` use it. The harnesses now also pipe
+      each file in (`CVM::driver($mode, $files, piped: true, cwd: ...)`): the lexer's on two
+      files, since piped text lexes the same, the parser's and code generator's on their whole
+      own corpora and from the four other working directories, against the PHP side run with no
+      path. Of twelve mutants of the driver (piped source losing a byte or gaining a name, `write()`
+      or the parser losing or gaining the path, errors printed rather than raised or left
+      uncaught, the EOF token dropped, a file read in place of standard input) ten die and two
+      are equivalent: piped `write("x.gaz")`, whose directory is the working directory as `.`'s
+      is (`write("sub/x.gaz")` dies, only to the piped runs from other directories), and
+      `error($e)` for `error($e.message)`, since an error raised again from the top level prints
+      no trace either way (a trace of one call is never printed; `$e.trace` keeps the original). `CVM::driver()` compiles the
+      driver once per run rather than once per call, which took the three harnesses from 18s to
+      15s under pcov with the piped runs added.
    2. **The C CLI**, parsing options exactly as `bin/gazlang` does: `-h`, `-v`, `-c`, `-t`,
       `--ast`, `-f FILE`, `--file=FILE`, flags combined (`-cf x.gaz`), `--` before the program's
       arguments, an unknown option refused with the same message, `.gzb` input run as it is
@@ -845,11 +860,11 @@ which file does what; the files follow the PHP classes (`value.c` and `ops.c` ar
 - **It runs source** (built 2026-09-18): `gazvm FILE [args]` compiles a file that isn't
   bytecode with the self-hosted compiler, which is built into it, and runs the result, with the
   same output, errors, paths and exit codes as `php bin/gazlang -f FILE`. The compiler is
-  `selfhost/compile.gzb`, checked in next to its source so its `@ "file"` records are exact,
+  `selfhost/gazlang.gzb`, checked in next to its source so its `@ "file"` records are exact,
   turned into a C array by `od` when the VM is built (`vm/build/compiler.c`: numbers only, so
   nothing to escape, and no trigraphs, which `-std=c11` turns on and the `??=` in it would be),
-  and kept equal to what the PHP compiler writes for `selfhost/compile.gaz` by the fixed-point
-  test. **The compiler's output is captured, not piped** (decided 2026-09-18, over two processes
+  and kept equal to what the PHP compiler writes for `selfhost/gazlang.gaz` by the fixed-point
+  test; the VM runs it with the arguments `code FILE`. **The compiler's output is captured, not piped** (decided 2026-09-18, over two processes
   and a `load()` builtin): it runs as a program of its own with `output`, where `echo` and
   `print` write, pointed at an `open_memstream()` buffer, and the buffer is then loaded as if it
   were bytecode saved next to the source. Its errors go to standard error as they would anyway.

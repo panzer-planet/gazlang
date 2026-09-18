@@ -84,9 +84,9 @@ class CVMTest extends TestCase
         // The bootstrap: the PHP compiler's bytecode for the self-hosted compiler (stage 0), run
         // on the C VM, compiles the compiler (stage 1), which compiles it again (stage 2). All
         // three must be the same bytecode, byte for byte, or the compiler can't replace PHP
-        $stages = [CVM::compile('selfhost/compile.gaz')];
+        $stages = [CVM::compile(CVM::DRIVER)];
         foreach ([1, 2] as $stage) {
-            [$out, $err, $code] = CVM::process([CVM::BINARY, $stages[$stage - 1], 'selfhost/compile.gaz']);
+            [$out, $err, $code] = CVM::process([CVM::BINARY, $stages[$stage - 1], 'code', CVM::DRIVER]);
             $this->assertSame([0, ''], [$code, $err], "stage {$stage} failed");
             $stages[$stage] = "vm/build/gzb/stage{$stage}.gzb";
             file_put_contents(CVM::ROOT.'/'.$stages[$stage], $out);
@@ -95,7 +95,7 @@ class CVMTest extends TestCase
         $this->assertSame($bytecode[0], $bytecode[1], 'stage 1 differs from the PHP compiler\'s');
         $this->assertSame($bytecode[1], $bytecode[2], 'stage 2 differs from stage 1');
         // The compiler built into the C VM, which must be this same bytecode
-        $this->assertSame($bytecode[0], file_get_contents(CVM::ROOT.'/selfhost/compile.gzb'), 'selfhost/compile.gzb is stale: php bin/gazlang -c -f selfhost/compile.gaz > selfhost/compile.gzb');
+        $this->assertSame($bytecode[0], file_get_contents(CVM::ROOT.'/selfhost/gazlang.gzb'), 'selfhost/gazlang.gzb is stale: php bin/gazlang -c -f selfhost/gazlang.gaz > selfhost/gazlang.gzb');
     }
 
     public function test_the_c_vm_collects_cycles()

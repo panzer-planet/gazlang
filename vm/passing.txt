@@ -13,22 +13,20 @@ lib/format.gaz
 lib/functional.gaz
 lib/json.gaz
 lib/sort.gaz
-selfhost/ast.gaz
-selfhost/ast.gaz examples/football.gaz
-selfhost/ast.gaz examples/functions.gaz
-selfhost/ast.gaz selfhost/codegen.gaz
 selfhost/codegen.gaz
-selfhost/compile.gaz
-selfhost/compile.gaz examples/football.gaz
-selfhost/compile.gaz examples/functions.gaz
-selfhost/compile.gaz selfhost/codegen.gaz
+selfhost/gazlang.gaz
+selfhost/gazlang.gaz ast examples/football.gaz
+selfhost/gazlang.gaz ast examples/functions.gaz
+selfhost/gazlang.gaz ast selfhost/codegen.gaz
+selfhost/gazlang.gaz code examples/football.gaz
+selfhost/gazlang.gaz code examples/functions.gaz
+selfhost/gazlang.gaz code selfhost/codegen.gaz
+selfhost/gazlang.gaz tokens examples/football.gaz
+selfhost/gazlang.gaz tokens examples/functions.gaz
+selfhost/gazlang.gaz tokens selfhost/codegen.gaz
 selfhost/lexer.gaz
 selfhost/nodes.gaz
 selfhost/parser.gaz
-selfhost/tokens.gaz
-selfhost/tokens.gaz examples/football.gaz
-selfhost/tokens.gaz examples/functions.gaz
-selfhost/tokens.gaz selfhost/codegen.gaz
 snippet:00969dd8d0a4
 snippet:00bccbc15316
 snippet:00ccd4d4650a

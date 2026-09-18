@@ -16,7 +16,7 @@ use Throwable;
  * Runs a program on the PHP VM and on the C VM (vm/gazvm) and gives what each printed
  *
  * An entry is a path relative to the project root, optionally followed by the program's
- * arguments: "selfhost/compile.gaz examples/functions.gaz"; "snippet:<id>", a snippet the PHP
+ * arguments: "selfhost/gazlang.gaz code examples/functions.gaz"; "snippet:<id>", a snippet the PHP
  * tests run (see snippets()); or a .gzb file under tests/bytecode_corpus, run as it is, which
  * tests the loaders on files no compiler writes (the ones named error_* must be refused). A
  * source file runs from its source on both, as `gazlang -f FILE` runs it: the C VM compiles it
@@ -95,9 +95,9 @@ final class CVM
             foreach (array_keys(self::snippets()) as $id) {
                 $files[] = "snippet:{$id}";
             }
-            foreach (['selfhost/tokens.gaz', 'selfhost/ast.gaz', 'selfhost/compile.gaz'] as $driver) {
+            foreach (['tokens', 'ast', 'code'] as $mode) {
                 foreach (['examples/functions.gaz', 'examples/football.gaz', 'selfhost/codegen.gaz'] as $input) {
-                    $files[] = "{$driver} {$input}";
+                    $files[] = self::DRIVER." {$mode} {$input}";
                 }
             }
         } finally {
@@ -172,21 +172,34 @@ final class CVM
     }
 
     /**
-     * Run a self-hosted driver (selfhost/tokens.gaz, ast.gaz, compile.gaz) on each file, from the
+     * Run the self-hosted front end (selfhost/gazlang.gaz) in a mode on each file, from the
      * project root, on the optimised C VM, many at once: the ports' harnesses, which check the
-     * ports rather than the VM (CVMTest checks the VM, and runs the drivers under the sanitizers)
+     * ports rather than the VM (CVMTest checks the VM, and runs the driver under the sanitizers)
      *
+     * @param  string  $mode  code, tokens or ast
      * @param  list<string>  $files
+     * @param  bool  $piped  Whether to give it each file on standard input rather than by name
+     * @param  string  $cwd  The working directory, which the files are relative to
      * @return array<string, array{0: string, 1: int}> By file: what it printed, standard output then standard error, and its exit code
      */
-    public static function driver(string $driver, array $files): array
+    public static function driver(string $mode, array $files, bool $piped = false, string $cwd = self::ROOT): array
     {
-        self::build();
-        $gzb = self::compile($driver) ?? throw new \RuntimeException("{$driver} doesn't compile");
-        $results = self::processes(array_combine($files, array_map(fn ($file) => ['vm/gazvm', $gzb, $file], $files)));
+        // Built and compiled once per run, since the harnesses call this many times
+        static $gzb = null;
+        if ($gzb === null) {
+            self::build();
+            $gzb = self::ROOT.'/'.(self::compile(self::DRIVER) ?? throw new \RuntimeException(self::DRIVER." doesn't compile"));
+        }
+        $commands = array_combine($files, array_map(fn ($file) => [self::ROOT.'/vm/gazvm', $gzb, $mode, ...($piped ? [] : [$file])], $files));
+        $results = self::processes($commands, [], null, $piped ? array_combine($files, $files) : [], $cwd);
 
         return array_map(fn ($result) => [$result[0].$result[1], $result[2]], $results);
     }
+
+    /**
+     * The self-hosted front end: gazlang -f selfhost/gazlang.gaz -- code|tokens|ast [FILE]
+     */
+    public const DRIVER = 'selfhost/gazlang.gaz';
 
     /**
      * Take the line GAZVM_STATS adds out of the C VM's standard error, and add what it said as a
@@ -373,15 +386,17 @@ final class CVM
     }
 
     /**
-     * Run commands from the project root, several at once, each with no standard input and
-     * within the time limit
+     * Run commands, several at once, each within the time limit and with
+     * no standard input unless $stdin gives it a file
      *
      * @param  array<array-key, list<string>>  $commands  The commands, keyed as the results are
      * @param  array<string, string>  $env  Extra environment variables
      * @param  callable|null  $between  Other work to do while they run, a piece at a time: false when there is none left
+     * @param  array<array-key, string>  $stdin  The file each command reads as standard input, keyed as the commands, relative to $cwd
+     * @param  string  $cwd  The working directory
      * @return array<array-key, array{0: string, 1: string, 2: int}> Each one's stdout, stderr and exit code (-1 when killed)
      */
-    private static function processes(array $commands, array $env = [], ?callable $between = null): array
+    private static function processes(array $commands, array $env = [], ?callable $between = null, array $stdin = [], string $cwd = self::ROOT): array
     {
         $results = [];
         $running = [];
@@ -391,8 +406,8 @@ final class CVM
                 $key = array_key_first($queue);
                 $command = $queue[$key];
                 unset($queue[$key]);
-                $spec = [['file', '/dev/null', 'r'], ['pipe', 'w'], ['pipe', 'w']];
-                $process = proc_open($command, $spec, $pipes, self::ROOT, $env + getenv());
+                $in = isset($stdin[$key]) ? (str_starts_with($stdin[$key], '/') ? $stdin[$key] : "{$cwd}/{$stdin[$key]}") : '/dev/null';
+                $process = proc_open($command, [['file', $in, 'r'], ['pipe', 'w'], ['pipe', 'w']], $pipes, $cwd, $env + getenv());
                 if ($process === false) {
                     throw new \RuntimeException('Cannot run '.implode(' ', $command));
                 }
