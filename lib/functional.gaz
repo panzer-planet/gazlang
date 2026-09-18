@@ -52,10 +52,7 @@ fn reduce($x, $f, $initial) {
 }
 
 fn sort($x, $compare) {
-    $list = [];
-    foreach ($x as $value) {
-        $list[] = $value;
-    }
+    $list = values($x);
     if (len($list) < 2) {
         return $list;
     }
@@ -75,11 +72,6 @@ fn sort($x, $compare) {
             $merged[] = $left[$l++];
         }
     }
-    while ($l < len($left)) {
-        $merged[] = $left[$l++];
-    }
-    while ($r < len($right)) {
-        $merged[] = $right[$r++];
-    }
-    return $merged;
+    // One side is used up: the rest of the other follows as it is
+    return [...$merged, ...slice($left, $l), ...slice($right, $r)];
 }

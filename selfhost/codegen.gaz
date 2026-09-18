@@ -508,9 +508,7 @@ class CodeGenerator {
             $body.statements[] = StatementAST(#assign($node.key, $key));
         }
         $body.statements[] = StatementAST(#assign($node.value, IndexAST($array, $key)));
-        foreach ($node.body.statements as $statement) {
-            $body.statements[] = $statement;
-        }
+        $body.statements = [...$body.statements, ...$node.body.statements];
 
         #visit($node.iterable);
         #emit("FOREACH_CHECK");

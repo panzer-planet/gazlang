@@ -2044,9 +2044,7 @@ class Parser {
             } else if (#current_token.type == "CONST") {
                 #constant_declaration(null);
             } else if (#current_token.type == "INCLUDE") {
-                foreach (#include_statement() as $statement) {
-                    $statements[] = $statement;
-                }
+                $statements = [...$statements, ...#include_statement()];
             } else {
                 $statements[] = #statement();
             }
