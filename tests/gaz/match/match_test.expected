@@ -39,7 +39,15 @@ ok a match in a lambda
 ok a captured arm value
 ok a captured arm body
 ok a captured list arm value
-ok match (true) picks the true arm
-ok match (true), a later arm
-ok match (true), no arm true
+ok a condition arm
+ok a later condition arm
+ok no condition true
+ok a truthy int is a true condition
+ok match (true) compares, so it misses
+ok several conditions to an arm read as or
+ok a falsy value is not a condition
+ok stops at the first true condition
+ok later conditions never ran
+ok no condition true and no default
+ok a subject-less statement match
 ok a map literal arm

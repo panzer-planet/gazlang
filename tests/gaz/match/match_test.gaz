@@ -133,18 +133,48 @@ check("a captured arm body", $hit(8), "miss");
 $pair = matcher([1, 2], "the pair");
 check("a captured list arm value", $pair([1, 2]), "the pair");
 
-// match (true) is how a condition-per-arm chain is written without guards: arms compare
-// with ==, and a condition is a bool. See "Holes to fill next" item 3.
+// Without a subject the arms are conditions, tested for truth as if does, so a chain of
+// them is one match rather than an if/else if tower
 fn classify($c) {
-    return match (true) {
+    return match {
         $c >= "0" && $c <= "9" => "digit",
         $c >= "a" && $c <= "z" => "lower",
         default => "other"
     };
 }
-check("match (true) picks the true arm", classify("7"), "digit");
-check("match (true), a later arm", classify("q"), "lower");
-check("match (true), no arm true", classify("!"), "other");
+check("a condition arm", classify("7"), "digit");
+check("a later condition arm", classify("q"), "lower");
+check("no condition true", classify("!"), "other");
+
+// Truth, not ==, so a truthy non-bool matches where match (true) would silently miss it
+check("a truthy int is a true condition", match { 1 => "yes", default => "no" }, "yes");
+check("match (true) compares, so it misses", match (true) { 1 => "yes", default => "no" }, "no");
+check("several conditions to an arm read as or", match { "", 0, "x" => "one was true", default => "no" }, "one was true");
+check("a falsy value is not a condition", match { 0 => "yes", default => "no" }, "no");
+
+// Only the conditions before the true one are evaluated, as arm values are
+@asked = [];
+fn ask($v, $answer) { @asked[] = $v; return $answer; }
+check("stops at the first true condition", match { ask(1, false) => "a", ask(2, true) => "b", ask(3, true) => "c" }, "b");
+check("later conditions never ran", @asked, [1, 2]);
+
+// Nothing true and no default names no value: there was nothing to compare
+try {
+    echo match { false => "never" };
+    check("unreachable", 1, 2);
+} catch (Error $e) {
+    check("no condition true and no default", $e.message, "No arm matched");
+}
+
+// As a statement, with block arms, which is the shape a dispatch loop wants
+$c = "q";
+$seen = "";
+match {
+    $c >= "0" && $c <= "9" => { $seen = "digit"; }
+    $c >= "a" && $c <= "z" => { $seen = "lower"; $seen ..= "case"; }
+    default => {}
+}
+check("a subject-less statement match", $seen, "lowercase");
 
 // In an expression a { after => is a map literal, since only a statement's arms are blocks
 $m = match (1) { 1 => {"k" => 2} };

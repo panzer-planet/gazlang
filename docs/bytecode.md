@@ -172,6 +172,7 @@ Every one means what `Runtime\Values` says, including the error messages.
 | `CMP` | `a b -- c` | `<=>`: -1, 0 or 1 by the ordering rules. |
 | `NOT` | `a -- b` | Truthiness, negated; always a bool. |
 | `NO_MATCH` | `a --` | Always fails, on "No arm matches 5": a `match` fell past every arm and had no `default`. |
+| `NO_CONDITION` | `--` | Always fails, on "No arm matched": a subject-less `match` found every condition false and had no `default`. |
 | `NEG` | `a -- b` | Negates a number. Fails on anything else. |
 | `INC`, `DEC` | `a -- b` | Adds or subtracts one. Numbers only; fails on overflow. |
 

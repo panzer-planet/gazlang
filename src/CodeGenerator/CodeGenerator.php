@@ -1087,9 +1087,10 @@ class CodeGenerator extends AbstractNodeVisitor
      *
      * The tests come first and the bodies after them, so an arm's test knows the label of its
      * body before the body is compiled. EQUALS then NOT then JZ jumps when the two are equal
-     * (JZ jumps on false, as in logicalOp). Falling past every test is the error, unless there
-     * is a default arm, whose JMP is then the last test. Every arm leaves one value, so a
-     * block arm, which leaves none, pushes null.
+     * (JZ jumps on false, as in logicalOp). Without a subject the value is a condition, so the
+     * same NOT then JZ jumps when it is true and no hidden variable is needed. Falling past
+     * every test is the error, unless there is a default arm, whose JMP is then the last test.
+     * Every arm leaves one value, so a block arm, which leaves none, pushes null.
      *
      * @param  MatchAST  $node  The node to visit
      */
@@ -1097,10 +1098,13 @@ class CodeGenerator extends AbstractNodeVisitor
     {
         $n = $this->label_counter++;
         $end_label = "MATCH_END_{$n}";
-        $subject = new VariableAST(new Token(Token::VAR_IDENTIFIER, '$#match_'.$this->hidden_counter++));
+        $subject = null;
 
-        $this->visit($node->subject);
-        $this->emitVariable('STORE', $subject);
+        if ($node->subject !== null) {
+            $subject = new VariableAST(new Token(Token::VAR_IDENTIFIER, '$#match_'.$this->hidden_counter++));
+            $this->visit($node->subject);
+            $this->emitVariable('STORE', $subject);
+        }
 
         $default = false;
         foreach ($node->arms as $i => [$values]) {
@@ -1113,16 +1117,24 @@ class CodeGenerator extends AbstractNodeVisitor
                 break;
             }
             foreach ($values as $value) {
-                $this->emitVariable('LOAD', $subject);
+                if ($subject !== null) {
+                    $this->emitVariable('LOAD', $subject);
+                }
                 $this->visit($value);
-                $this->emit('EQUALS');
+                if ($subject !== null) {
+                    $this->emit('EQUALS');
+                }
                 $this->emit('NOT');
                 $this->emit('JZ', $label);
             }
         }
         if (! $default) {
-            $this->emitVariable('LOAD', $subject);
-            $this->emit('NO_MATCH');
+            if ($subject === null) {
+                $this->emit('NO_CONDITION');
+            } else {
+                $this->emitVariable('LOAD', $subject);
+                $this->emit('NO_MATCH');
+            }
         }
 
         foreach ($node->arms as $i => [, $body, $block]) {

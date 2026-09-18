@@ -49,7 +49,9 @@ class MatchTest extends GazLangTestCase
             'two defaults' => ['echo match (1) { default => 1, default => 2 };', 'default must be the last arm of a match'],
             'a missing comma' => ['echo match (1) { 1 => 2 3 => 4 };', "Expected ',' but found '3'"],
             'a missing arrow' => ['echo match (1) { 1 2 };', "Expected '=>' but found '2'"],
-            'no subject parens' => ['echo match 1 { 1 => 2 };', "Expected '(' but found '1'"],
+            // Without parens there is no subject, so what follows match must be the body
+            'a subject without parens' => ['echo match 1 { 1 => 2 };', "Expected '{' but found '1'"],
+            'no arms and no subject' => ['echo match { };', 'A match needs at least one arm'],
             'no body' => ['echo match (1);', "Expected '{' but found ';'"],
             // A statement match ends at its }, so a ; after it starts an empty statement, as if (1) {}; does
             'a semicolon after a statement match' => ['match (1) { 1 => 2 };', "Unexpected ';'"],
@@ -88,6 +90,21 @@ class MatchTest extends GazLangTestCase
             ."LOAD 0\nNO_MATCH\n"
             ."LABEL MATCH_ARM_0_0\nPUSH \"a\"\nJMP MATCH_END_0\nLABEL MATCH_END_0\nPRINT",
             $this->generateCode('echo match (2) { 1 => "a" };')
+        );
+    }
+
+    public function test_code_gen_of_a_subject_less_match_tests_each_condition_directly()
+    {
+        // No subject means no hidden variable and no EQUALS: the same NOT then JZ jumps when
+        // the condition is true, and falling past every test is NO_CONDITION, which pops nothing
+        $this->assertEquals(
+            "PUSH false\nNOT\nJZ MATCH_ARM_0_0\n"
+            ."PUSH true\nNOT\nJZ MATCH_ARM_0_1\n"
+            ."NO_CONDITION\n"
+            ."LABEL MATCH_ARM_0_0\nPUSH \"a\"\nJMP MATCH_END_0\n"
+            ."LABEL MATCH_ARM_0_1\nPUSH \"b\"\nJMP MATCH_END_0\n"
+            ."LABEL MATCH_END_0\nPRINT",
+            $this->generateCode('echo match { false => "a", true => "b" };')
         );
     }
 
@@ -138,5 +155,33 @@ class MatchTest extends GazLangTestCase
         $this->assertStringContainsString('STORE 1', $code);
         $this->assertStringContainsString('MATCH_END_0', $code);
         $this->assertStringContainsString('MATCH_END_1', $code);
+    }
+
+    public function test_a_subject_less_match_tests_conditions_for_truth_not_equality()
+    {
+        // == is strict, so match (true) never matches a truthy non-bool; a condition does
+        $this->assertEquals("truthy\n", $this->executeCode('echo match { 1 => "truthy", default => "no" };'));
+        $this->assertEquals("no\n", $this->executeCode('echo match (true) { 1 => "truthy", default => "no" };'));
+        $this->assertEquals("empty\n", $this->executeCode('echo match { "", 0, "x" => "empty", default => "no" };'));
+    }
+
+    public function test_a_subject_less_match_that_matches_nothing_names_no_value()
+    {
+        // There is nothing to name: every arm simply was not true
+        $this->assertEquals("No arm matched\n", $this->executeCode('try { echo match { false => 1 }; } catch (Error $e) { echo $e.message; }'));
+    }
+
+    public function test_a_subject_less_match_may_be_a_statement_with_block_arms()
+    {
+        $this->assertEquals("b\n", $this->executeCode('$c = 2; match { $c == 1 => { echo "a"; } $c == 2 => { echo "b"; } default => {} }'));
+    }
+
+    public function test_a_subject_less_match_evaluates_conditions_in_order_and_stops()
+    {
+        $this->assertEquals(
+            "b [1, 2]\n",
+            $this->executeCode('@ran = []; fn loud($v, $r) { @ran[] = $v; return $r; }'
+                .'echo match { loud(1, false) => "a", loud(2, true) => "b", loud(3, true) => "c" } .. " " .. @ran;')
+        );
     }
 }

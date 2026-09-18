@@ -815,6 +815,16 @@ final class Values
     }
 
     /**
+     * The error for a subject-less match whose every condition was false
+     *
+     * There is no value to name, since nothing was compared: every arm simply was not true.
+     */
+    public static function noCondition(): Exception
+    {
+        return new Exception('No arm matched');
+    }
+
+    /**
      * The error for a map key that isn't there
      *
      * @param  int|string  $key  The key, shown quoted when it is a string so "1" and 1 differ

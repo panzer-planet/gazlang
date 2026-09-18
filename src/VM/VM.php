@@ -333,6 +333,8 @@ final class VM
                                 break;
                             case 'NO_MATCH':
                                 throw Values::noMatch(array_pop($stack));
+                            case 'NO_CONDITION':
+                                throw Values::noCondition();
                             case 'BIT_NOT':
                                 $stack[] = Values::bitwiseNot(array_pop($stack));
                                 break;

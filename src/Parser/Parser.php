@@ -1260,11 +1260,14 @@ class Parser
     }
 
     /**
-     * Parse a match (MATCH LPAREN expr RPAREN LBRACE arm (COMMA arm)* [COMMA] RBRACE)
+     * Parse a match (MATCH [LPAREN expr RPAREN] LBRACE arm (COMMA arm)* [COMMA] RBRACE)
      *
      * An arm is one or more comma separated expressions, or DEFAULT, then => then its body.
      * A comma separates arms; it is optional after the last one and after a block arm, which
      * ends in a } of its own, as in Rust.
+     *
+     * The subject is optional: with one, an arm's values are compared to it with ==; without,
+     * they are conditions, tested for truth as if does, so several to an arm read as "or".
      *
      * Only a match written as a statement may have block arms, so in one a { after => is a
      * block and a map is written ({...}), the same rule as a lambda body; in an expression a
@@ -1279,9 +1282,12 @@ class Parser
     {
         $start = $this->current_token;
         $this->eat(Token::MATCH);
-        $this->eat(Token::LEFT_PAREN);
-        $subject = $this->expr();
-        $this->eat(Token::RIGHT_PAREN);
+        $subject = null;
+        if ($this->current_token->type === Token::LEFT_PAREN) {
+            $this->eat(Token::LEFT_PAREN);
+            $subject = $this->expr();
+            $this->eat(Token::RIGHT_PAREN);
+        }
         $this->eat(Token::LEFT_BRACE);
 
         $arms = [];

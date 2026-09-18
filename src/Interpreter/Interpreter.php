@@ -822,6 +822,8 @@ class Interpreter extends AbstractNodeVisitor
     /**
      * Visit a Match node: the subject once, then each arm's values in order until one is equal
      *
+     * Without a subject the values are conditions, tested for truth instead of compared.
+     *
      * @param  MatchAST  $node  The node to visit
      * @return mixed The matching arm's value; null for a block arm
      *
@@ -829,20 +831,23 @@ class Interpreter extends AbstractNodeVisitor
      */
     public function visitMatch(MatchAST $node)
     {
-        $subject = $this->visit($node->subject);
+        $subject = $node->subject === null ? null : $this->visit($node->subject);
 
         foreach ($node->arms as [$values, $body]) {
             if ($values === null) {
                 return $this->visit($body);
             }
             foreach ($values as $value) {
-                if (Values::equals($subject, $this->visit($value))) {
+                $matched = $node->subject === null
+                    ? Values::isTruthy($this->visit($value))
+                    : Values::equals($subject, $this->visit($value));
+                if ($matched) {
                     return $this->visit($body);
                 }
             }
         }
 
-        throw Values::noMatch($subject);
+        throw $node->subject === null ? Values::noCondition() : Values::noMatch($subject);
     }
 
     /**
