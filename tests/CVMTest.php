@@ -95,7 +95,56 @@ class CVMTest extends TestCase
         $this->assertSame($bytecode[0], $bytecode[1], 'stage 1 differs from the PHP compiler\'s');
         $this->assertSame($bytecode[1], $bytecode[2], 'stage 2 differs from stage 1');
         // The compiler built into the C VM, which must be this same bytecode
-        $this->assertSame($bytecode[0], file_get_contents(CVM::ROOT.'/selfhost/gazlang.gzb'), 'selfhost/gazlang.gzb is stale: php bin/gazlang -c -f selfhost/gazlang.gaz > selfhost/gazlang.gzb');
+        $this->assertSame($bytecode[0], file_get_contents(CVM::ROOT.'/selfhost/gazlang.gzb'), 'selfhost/gazlang.gzb is stale: make -C vm compiler');
+    }
+
+    public function test_make_compiler_rebuilds_the_compiler_without_php()
+    {
+        // On a copy of what the target reads, the VM included, with its times kept so that make
+        // doesn't build it again first
+        $dir = sys_get_temp_dir().'/gazlang_bootstrap_'.getmypid();
+        $files = ['selfhost/*.gaz', 'selfhost/gazlang.gzb', 'lib/chars.gaz', 'vm/Makefile', 'vm/*.[ch]', 'vm/gazvm', 'vm/build/compiler.c'];
+        exec('mkdir -p '.escapeshellarg($dir).' && cd '.escapeshellarg(CVM::ROOT).' && tar cf - '.implode(' ', $files).' | tar xf - -C '.escapeshellarg($dir).' 2>&1', $output, $code);
+        try {
+            $this->assertSame(0, $code, implode("\n", $output));
+            $make = fn () => CVM::process(['make', '-s', '-C', "{$dir}/vm", 'compiler']);
+            $compiler = "{$dir}/selfhost/gazlang.gzb";
+            $before = [file_get_contents($compiler), filemtime("{$dir}/vm/gazvm")];
+
+            // An edit that breaks the compiler is refused, and changes nothing
+            file_put_contents("{$dir}/selfhost/parser.gaz", "fn (\n", FILE_APPEND);
+            [, $err, $code] = $make();
+            $this->assertNotSame(0, $code);
+            $this->assertStringContainsString("Expected a name but found '('", $err);
+            $this->assertSame($before, [file_get_contents($compiler), filemtime("{$dir}/vm/gazvm")]);
+            copy(CVM::ROOT.'/selfhost/parser.gaz', "{$dir}/selfhost/parser.gaz");
+
+            // So is a code generator that miscompiles the string "LOAD": the old compiler compiles
+            // it correctly (stage 1), so it compiles itself wrongly (stage 2), which then writes
+            // LOAD instructions wrongly (stage 3)
+            $codegen = file_get_contents(CVM::ROOT.'/selfhost/codegen.gaz');
+            $push = 'StringAST => #emit("PUSH", [$node.value]),';
+            $this->assertStringContainsString($push, $codegen);
+            file_put_contents("{$dir}/selfhost/codegen.gaz", str_replace($push, 'StringAST => #emit("PUSH", [$node.value == "LOAD" ? "LOAD " : $node.value]),', $codegen));
+            [, $err, $code] = $make();
+            $this->assertNotSame(0, $code);
+            $this->assertStringContainsString('stage 2 differs from stage 3', $err);
+            $this->assertSame($before, [file_get_contents($compiler), filemtime("{$dir}/vm/gazvm")]);
+            copy(CVM::ROOT.'/selfhost/codegen.gaz', "{$dir}/selfhost/codegen.gaz");
+
+            // One that moves every location after it is taken: the compiler is what the PHP
+            // compiler writes, and the VM is rebuilt with it
+            file_put_contents("{$dir}/selfhost/lexer.gaz", "// a line\n".file_get_contents(CVM::ROOT.'/selfhost/lexer.gaz'));
+            // (with the PHP compiler compiling the same, from the same directory, meanwhile)
+            [$made, $php] = CVM::processes([['make', '-s', 'compiler'], ['php', CVM::ROOT.'/bin/gazlang', '-c', '-f', '../selfhost/gazlang.gaz']], cwd: "{$dir}/vm");
+            $this->assertSame([0, ''], [$made[2], $made[1]]);
+            $this->assertNotSame($before[0], file_get_contents($compiler));
+            $this->assertSame($php[0], file_get_contents($compiler));
+            // The VM holds the compiler's bytes as they are, in a C array
+            $this->assertStringContainsString($php[0], file_get_contents("{$dir}/vm/gazvm"), 'gazvm was not rebuilt');
+        } finally {
+            exec('rm -rf '.escapeshellarg($dir));
+        }
     }
 
     public function test_the_c_vm_collects_cycles()

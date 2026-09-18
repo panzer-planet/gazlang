@@ -136,7 +136,11 @@ php bin/gazlang --ast -f examples/functions.gaz           # print the parser's t
 - **`selfhost/gazlang.gzb`** is the self-hosted compiler's bytecode, checked in and built into
   the C VM, which is how `vm/gazvm -f x.gaz` runs source. A test fails until it is what the PHP
   compiler writes for `selfhost/gazlang.gaz`, so after changing anything under `selfhost/`, run
-  `php bin/gazlang -c -f selfhost/gazlang.gaz > selfhost/gazlang.gzb`.
+  `make -C vm compiler`. It compiles the compiler three times with the C VM (the old compiler
+  compiles the new one, which compiles itself twice), requires the last two to be the same, and
+  only then replaces `gazlang.gzb` and rebuilds the VM, so a broken edit leaves a VM that can
+  compile its fix. The compiler's own source can't use a new feature until it has been built
+  with it once.
 - **`tests/vm_corpus/`** are programs for the C VM that the rest of the repository doesn't
   reach, found with `php vm/coverage.php`: running out of call depth by every kind of call,
   traces cut short, failing `to_string()`s, floats of every shape, cycles. **`tests/bytecode_corpus/`**

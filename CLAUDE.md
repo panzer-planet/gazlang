@@ -39,8 +39,9 @@ make -C vm
 vm/gazvm -f examples/functions.gaz
 php bin/gazlang -c -f examples/functions.gaz > /tmp/f.gzb && vm/gazvm -f /tmp/f.gzb
 
-# After changing selfhost/, rebuild the compiler the C VM has built in (a test fails until then)
-php bin/gazlang -c -f selfhost/gazlang.gaz > selfhost/gazlang.gzb
+# After changing selfhost/, rebuild the compiler the C VM has built in, with the C VM alone
+# (three stages, see step 4 of the bootstrap plan; a test fails until then)
+make -C vm compiler
 
 # Which programs the C VM matches the PHP VM on (CVMTest checks the ones in vm/passing.txt);
 # --update adds the new ones. After changing either VM, also fuzz them against each other
@@ -761,7 +762,7 @@ each step depends on the ones before it.
       `-fFILE`, `--file=`, precedence of help, version and modes, a directory read, `-c` on
       bytecode, piped input not reaching the front end, piped bytecode named) all die. Not
       covered: a terminal on standard input, since the runner has none to give.
-   4. **Rebuilding without PHP**: `make -C vm compiler` regenerates `selfhost/gazlang.gzb` with
+   4. ~~**Rebuilding without PHP**~~, done 2026-09-18: `make -C vm compiler` regenerates `selfhost/gazlang.gzb` with
       the C binary alone, as a three-stage bootstrap (GCC's shape, settled 2026-09-18):
       stage 1 is the current `vm/gazvm` compiling `selfhost/gazlang.gaz` (the new compiler,
       compiled by the old one), stage 2 is stage 1 compiling it again (the new compiler compiled
@@ -790,6 +791,32 @@ each step depends on the ones before it.
         still requires `gazlang.gzb` to equal what `php bin/gazlang -c` writes, so
         `make compiler` and the PHP one-liner agree, which this step proves by testing the target
         on a scratch copy. After the swap (step 5) changing the language needs no PHP at all.
+      - **As built**: stage 1 is `vm/gazvm -c`, the built-in compiler, and the stages go to
+        `vm/build/bootstrap/`. When stage 2 is already `gazlang.gzb` the target says it is up to
+        date and rebuilds nothing, so running it on an unchanged tree is free (0.6s). Stage 2
+        differing from stage 3 says so and exits 1. A stage's own runtime errors name
+        `build/bootstrap/codegen.gaz` and the like, since bytecode paths resolve against the
+        bytecode file; the lines are right, and it is marked `ponytail:` in the Makefile.
+        `test_make_compiler_rebuilds_the_compiler_without_php` (CVMTest, about 4s, half of it
+        rebuilding the VM) runs the target on a copy of `selfhost/`, `lib/chars.gaz` and `vm/`
+        taken with their times, and requires three things: a syntax error in `selfhost/` is
+        refused, a code generator miscompiling the string `"LOAD"` is refused as stage 2
+        differing from stage 3 (the old compiler compiles it correctly, so it compiles itself
+        wrongly, which then writes `LOAD` wrongly), both leaving `gazlang.gzb` and `gazvm`
+        untouched, and an edit that moves every location is taken, `gazlang.gzb` becoming what
+        `php bin/gazlang -c` writes from the same directory and `gazvm` holding those bytes. By
+        hand, a code generator failing at run time was also refused at stage 2 (a first try made
+        it fail on `HALT`, which the loader adds, so it never fired: a mutant that doesn't fire
+        proves nothing). Of four mutants of the target (no stage check, copying stage 1 before
+        the stages run, no rebuild, copying stage 1 rather than 2), the first three die. The last survives and is not
+        equivalent: it only shows when an edit changes what the code generator emits, and then
+        checks in a compiler written by the old one. Killing it needs a second accepted edit and
+        a second rebuild of the VM, about 2s of suite time, so it is left to review.
+        Found on the way, not fixed: a main file named by an absolute path through a symlinked
+        directory (macOS's `/var` is `/private/var`) gives include records that climb to the
+        root and down through `/private`, since the include is real-pathed and the main path
+        isn't. Both compilers do it alike, so it is the rule rather than a port bug, and it only
+        makes locations ugly.
    5. **The swap** (decision 1): rename, build `bin/gazlang` from `make -C vm`, point the tests,
       README, `docs/` and this file at `gazlang`, with PHP described as the reference.
    6. **Portability**: the VM has only ever been built on macOS, and "a bootstrap that needs
