@@ -19,7 +19,7 @@ generator port, which is next and larger:
 | 9 | ~~No working directory, real path or existence test~~ | **built**: `cwd()`, `real_path()`, `file_exists()` | done, see below |
 | 10 | A parser in GazLang has a nesting limit | none; a list as a stack for walking trees | the VM's call depth, later |
 | 1 | ~~An object's fields can't be listed~~ | **built**: `fields($object)` | done, see below |
-| 3 | Builtins can't be asked about | a hand-copied table and a test | `builtins()` |
+| 3 | ~~Builtins can't be asked about~~ | **built**: `builtins()` | done, see below |
 | 2 | A class's bare name | `slice(to_string(class_of($x)), 6)` | `class_name($class)` |
 | 7 | Lists can't be joined | a loop | a builtin, at the third use |
 | 5 | Two results out of one walk | an object | nothing: hole 1 already says so |
@@ -86,6 +86,21 @@ has to survive in some form either way.
 - `builtins()`, giving the map name => arity. The runtime already has it. **Recommended**: one
   table, no drift check.
 - Leave it, and keep the test. It is one test and the table changes rarely.
+
+**Decided and built 2026-09-18: `builtins()`**, the map name => arity (an int, or
+`[fewest, most]`), which is `Builtins::ARITIES` and the shape a function's arity already has,
+in no promised order. The port's table, which had grown from 40 to 44 entries in a day, and
+the test that kept it in step, are gone. "The table changes rarely" was wrong: it changed
+three times that day.
+
+What replaces the drift check is an assumption, written down so it stays true: `builtins()`
+describes the runtime the *compiler* runs on, not the one its output will run on. Those are
+the same PHP runtime now, and will be the same C VM after the bootstrap; a loader already
+refuses bytecode naming a builtin it doesn't have. A cross-compiler would break it.
+
+**Met while building it:** the table is a field (`#builtins = builtins();`), not a constant,
+since a constant's value is worked out by the parser and a call is not a constant expression.
+It costs one map per `Parser`, which is one per program, and nothing writes to it.
 
 ## 4. Calling a method by name: not friction
 

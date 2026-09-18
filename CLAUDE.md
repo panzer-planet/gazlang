@@ -265,7 +265,11 @@ each step depends on the ones before it.
      itself was piped in), `args()` (the command line arguments
      after the gazlang options, or after `--`). `bin/gazlang` rejects options it
      doesn't know, since `getopt` would silently drop them, so a program's own
-     flags must come after `--`.
+     flags must come after `--`. `builtins()` (built 2026-09-18) is `Builtins::ARITIES` as a map,
+     name to arity, in no promised order: the builtins of the runtime running the program,
+     which is what the self-hosted parser checks calls against. That is only right while the
+     compiler runs on the runtime that will run its output, which the bootstrap keeps true (the
+     C VM plus the compiler's bytecode), and a loader refuses bytecode naming a builtin it lacks.
    - Deliberately left to GazLang code: character classes (`lib/chars.gaz`:
      `char_at`, `is_char`, `is_digit`, `is_hex_digit`, `is_alpha`, `is_alnum`, `is_space`, which
      `LibCharsTest` checks against `Lexer::is_*` for all 256 bytes) and push/pop
@@ -372,8 +376,8 @@ each step depends on the ones before it.
    1. **Decide the friction the parser port logged** (`docs/parser-port-friction.md`) before
       writing more GazLang: ~~constants~~ (built, see "Constants"), ~~`cwd()` and `real_path()`~~
       (built with `file_exists()`, see step 6's builtins), ~~`fields($object)`~~ (built, see
-      "Objects"), `builtins()`. The
-      code generator port meets all four harder than the parser did, the paths most of all,
+      "Objects"), ~~`builtins()`~~ (built, see step 6's builtins): all four done. The
+      code generator port would have met all four harder than the parser did, the paths most of all,
       since a bytecode file's `@ "file"` records are relative-path rewrites it must reproduce
       byte for byte. Working around them a second time and then removing the workarounds twice
       is the expensive order.
@@ -574,7 +578,8 @@ each step depends on the ones before it.
      types are bare strings, where a typo is a branch that silently never runs), `cwd()` and
      `real_path()` (the only workaround that was wrong; both now built), `fields($object)` (a
      `parts()` method on every node class, a fifth of `nodes.gaz`; built, and the 29 methods
-     are gone), `builtins()` (a hand-copied table of 44 arities, kept honest by a test). Three holes the audits listed turned out not to bite:
+     are gone), `builtins()` (a hand-copied table of 44 arities, kept honest by a test; built,
+     and the table and test are gone). Three holes the audits listed turned out not to bite:
      calling a method by name, identity keys for objects, and by-reference parameters.
 
    **The README's examples are tests.** `ReadmeTest` pulls every ```` ```gaz ```` block that is

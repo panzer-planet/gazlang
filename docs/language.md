@@ -324,7 +324,8 @@ class's fields, methods and constants across its hierarchy.
 are set, as a map by name, the parent's first; a never-set field is left out).
 
 **Input and output** — `print`, `print_error`, `read_file($path)`,
-`write_file($path, $string)`, `read_stdin()`, `args()`.
+`write_file($path, $string)`, `read_stdin()`, `args()`, `builtins()` (every builtin's name
+mapped to its parameter count, or `[fewest, most]` when some are optional).
 
 **Paths** — `cwd()` is the working directory, which relative paths are resolved from.
 `real_path($path)` is the absolute path with every symlink, `.` and `..` resolved (a directory
