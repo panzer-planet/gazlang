@@ -48,13 +48,13 @@ abstract class GazLangTestCase extends TestCase
      * Compile a GazLang file once, for runCompiled() to run many times
      *
      * @param  string  $file  Path relative to the project root
+     * @return Program The program, read back from its bytecode as every test's VM side is
      */
     protected static function compileProgram(string $file): Program
     {
         $path = self::ROOT.'/'.$file;
-        $parser = new Parser(new Lexer(file_get_contents($path)), $path);
 
-        return Program::read((new CodeGenerator($parser->parse()))->compile()->write($path), $path);
+        return self::roundTrip(new Parser(new Lexer(file_get_contents($path)), $path), $path);
     }
 
     /**
@@ -71,7 +71,8 @@ abstract class GazLangTestCase extends TestCase
     /**
      * Run a program from the project root, giving its output and exit code as the CLI would
      *
-     * @return array{0: string, 1: int}
+     * @param  callable  $run  Runs the program, printing its output
+     * @return array{0: string, 1: int} The output and exit code
      */
     private function exitCodeOf(callable $run): array
     {
@@ -174,9 +175,15 @@ abstract class GazLangTestCase extends TestCase
      */
     private function machine(Parser $parser, ?string $file = null, array $args = []): VM
     {
-        $text = (new CodeGenerator($parser->parse()))->compile()->write($file);
+        return new VM(self::roundTrip($parser, $file), $args);
+    }
 
-        return new VM(Program::read($text, $file), $args);
+    /**
+     * Compile a program, write it as bytecode and read that back, so the suite tests the format too
+     */
+    private static function roundTrip(Parser $parser, ?string $file): Program
+    {
+        return Program::read((new CodeGenerator($parser->parse()))->compile()->write($file), $file);
     }
 
     /**

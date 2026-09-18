@@ -401,14 +401,20 @@ each step depends on the ones before it.
    - **The driver catches `LexError` and raises its message again from the top level**
      (`error($e.message)`), because an uncaught error prints the calls that were running under
      it, and `--tokens` prints only the message. A bug in the lexer is not a `LexError`, so it
-     still arrives with its location and trace.
+     still arrives with its location and trace. `LexError` carries `#reason` and
+     `#source_line` beside the message, for the parser to add the file to: `#line` is `Error`'s
+     own (hole 5) and says where in `lexer.gaz` the error was raised, which is never what a
+     caller wants. For the same reason a `try` in the lexer holds only the `to_int()` or
+     `to_float()` it is about: `catch (Error $e)` also catches running out of call depth, which
+     the parser's recursive descent can do, and that must not come out as "Integer literal too
+     large".
    - **Speed is hole 4, measured** (PHP VM, pcov on and no JIT as under phpunit, 100k
      iterations each, net of the loop): a comparison is about 0.7µs, a method call 3.5µs, a
      builtin call (`contains`, `slice`) 7µs, constructing a `Token` 10µs, and `lib/chars.gaz`'s
      `is_alpha()` 13µs, being three calls deep. So a call costs what ten to twenty comparisons
      do, and the first version, which advanced through a method and asked `is_alnum()` about
      every character, spent 16s on the corpus. What fixed it, in order of effect: the loops
-     that read most characters (names, whitespace, comments, string text) walk a local index
+     that read most characters (names, whitespace, both kinds of comment and string) walk a local index
      and move the scanner once; `//` comments jump with `index_of`; the per-token dispatch
      spells its comparisons out and looks punctuation up with `??`, which is an instruction
      rather than a call. With the JIT it lexes `examples/football.gaz` (22KB, 3800 tokens) in
@@ -418,8 +424,10 @@ each step depends on the ones before it.
    - **The harness compiles the driver once and runs it on the VM**
      (`GazLangTestCase::compileProgram()` and `runCompiled()`): parsing and compiling the lexer
      again for each of 97 files on the interpreter cost more than lexing them, and the whole
-     harness is about 5s of a 33s suite instead of 16s. One passing and one failing file also
-     go through the interpreter. A CLI run would cost ~0.5s each.
+     harness is about 5s of a 30s suite instead of 16s. Eight corpus files that between them
+     reach every part of the lexer also go through the interpreter. A CLI run would cost ~0.5s
+     each. `tests/gaz/selfhost/lexer_test.gaz` tests it as the library the parser will include:
+     a token made by hand, a caught `LexError`, two lexers at once.
    - **The corpus passing says the port is right on the corpus**, so two more checks were run
      by hand, and are worth running again after any change to either lexer. Differential
      fuzzing (random windows of corpus files with characters from a tricky alphabet spliced in,

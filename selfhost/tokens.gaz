@@ -2,6 +2,11 @@
 // php bin/gazlang -f selfhost/tokens.gaz -- FILE
 include "lexer.gaz";
 
+if (len(args()) != 1) {
+    print_error("Usage: gazlang -f selfhost/tokens.gaz -- FILE\n");
+    exit(2);
+}
+
 $lexer = Lexer(read_file(args()[0]));
 try {
     $type = null;

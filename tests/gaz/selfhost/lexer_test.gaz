@@ -1,0 +1,26 @@
+// selfhost/lexer.gaz as the parser will use it, as a library. That it gives the right tokens
+// is SelfHostedLexerTest's job, against the PHP lexer on every .gaz file in the repository.
+include "../../../selfhost/lexer.gaz";
+include "../check.gaz";
+
+// The parser makes tokens of its own (the .. of an interpolated string), which have no line
+check("a token made by hand prints", to_string(Token("CONCAT", "..")), " CONCAT ..");
+
+$lexer = Lexer("1\n  `");
+check("a token from the lexer has its line", to_string($lexer.get_next_token()), "1 INTEGER 1");
+try {
+    $lexer.get_next_token();
+    echo "FAIL no error for a bad character";
+} catch (LexError $e) {
+    check("the reason, for the parser to add the file to", $e.reason, "Unexpected character '`'");
+    // Not $e.line, which is Error's own and says where in lexer.gaz the error was raised
+    check("the line in the source being read", $e.source_line, 2);
+    check("the message, as --tokens prints it", $e.message, "Unexpected character '`' on line 2");
+}
+
+// Two lexers at once, which is what include needs of the parser
+$outer = Lexer("a b");
+$outer.get_next_token();
+$inner = Lexer('"x {$y} z"');
+check("the inner lexer starts afresh", $inner.get_next_token().type, "STRING_START");
+check("the outer one carries on", $outer.get_next_token().value, "b");

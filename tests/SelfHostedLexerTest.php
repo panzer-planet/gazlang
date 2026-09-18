@@ -34,8 +34,8 @@ class SelfHostedLexerTest extends GazLangTestCase
     public static function corpus(): array
     {
         $files = [];
-        // selfhost/ once it exists, so the ported lexer is also checked on its own source
-        foreach (array_filter(['examples', 'lib', 'selfhost', 'tests'], fn ($dir) => is_dir(self::ROOT."/{$dir}")) as $dir) {
+        // selfhost/ too, so the ported lexer is also checked on its own source
+        foreach (['examples', 'lib', 'selfhost', 'tests'] as $dir) {
             foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(self::ROOT."/{$dir}")) as $path) {
                 if (str_ends_with($path, '.gaz')) {
                     $file = substr($path, strlen(self::ROOT) + 1);
@@ -46,14 +46,6 @@ class SelfHostedLexerTest extends GazLangTestCase
         ksort($files);
 
         return $files;
-    }
-
-    /**
-     * The corpus, or one placeholder case while the self-hosted lexer doesn't exist, so it skips once
-     */
-    public static function selfHostedCorpus(): array
-    {
-        return is_file(self::ROOT.'/'.self::LEXER) ? self::corpus() : [self::LEXER.' not written yet' => [null]];
     }
 
     /**
@@ -100,12 +92,14 @@ class SelfHostedLexerTest extends GazLangTestCase
     }
 
     /**
-     * The corpus runs on the VM only, which is what keeps it fast, so one file of each kind
-     * goes through the interpreter as well
+     * The corpus runs on the VM only, which is what keeps it fast, so the files that between
+     * them reach every part of the lexer go through the interpreter as well
      */
     public function test_self_hosted_lexer_gives_the_same_tokens_on_the_interpreter()
     {
-        foreach (['tests/lexer_corpus/interpolation.gaz', 'tests/lexer_corpus/error_interpolated_index.gaz'] as $file) {
+        $files = ['interpolation', 'numbers', 'strings', 'block_comments', 'operators', 'error_interpolated_index', 'error_integer_too_large', 'error_unicode_surrogate'];
+        foreach ($files as $name) {
+            $file = "tests/lexer_corpus/{$name}.gaz";
             [$output, $exit_code] = $this->runProgram(self::LEXER, [$file]);
 
             $this->assertSame(self::phpTokens($file), [rtrim($output, "\n"), $exit_code], $file);
@@ -113,14 +107,10 @@ class SelfHostedLexerTest extends GazLangTestCase
     }
 
     /**
-     * @dataProvider selfHostedCorpus
+     * @dataProvider corpus
      */
-    public function test_self_hosted_lexer_matches_the_php_lexer(?string $file)
+    public function test_self_hosted_lexer_matches_the_php_lexer(string $file)
     {
-        if ($file === null) {
-            $this->markTestSkipped(self::LEXER.' has not been written yet');
-        }
-
         self::$program ??= self::compileProgram(self::LEXER);
         [$output, $exit_code] = $this->runCompiled(self::$program, [$file]);
 
