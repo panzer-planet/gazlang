@@ -133,6 +133,19 @@ check("a captured arm body", $hit(8), "miss");
 $pair = matcher([1, 2], "the pair");
 check("a captured list arm value", $pair([1, 2]), "the pair");
 
+// match (true) is how a condition-per-arm chain is written without guards: arms compare
+// with ==, and a condition is a bool. See "Holes to fill next" item 3.
+fn classify($c) {
+    return match (true) {
+        $c >= "0" && $c <= "9" => "digit",
+        $c >= "a" && $c <= "z" => "lower",
+        default => "other"
+    };
+}
+check("match (true) picks the true arm", classify("7"), "digit");
+check("match (true), a later arm", classify("q"), "lower");
+check("match (true), no arm true", classify("!"), "other");
+
 // In an expression a { after => is a map literal, since only a statement's arms are blocks
 $m = match (1) { 1 => {"k" => 2} };
 check("a map literal arm", $m, {"k" => 2});

@@ -456,7 +456,36 @@ when it was written, not from now.
    statements, which is right and is what block arms give; that its *values* are compared with
    `==` was never costed against the code, and on this evidence `match` will barely appear in
    the lexer port. Guard arms (`match ($c) { is_digit($c) => ... }`) and range arms
-   (`"a".."z" => ...`) are what the code wants. Decide this before porting the lexer, not after.
+   (`"a".."z" => ...`) are what the code wants. Decide this before porting the lexer, not after,
+   since it changes how every dispatch in it is written.
+
+   **First check how much is already there**, the way hole 1 turned out to need nothing:
+   `match (true)` gives guards today with no language change, because arms compare with `==`
+   and a condition is a bool, and it is checked by `tests/gaz/match/match_test.gaz`:
+   ```
+   echo match (true) {
+       $c >= "0" && $c <= "9" => "digit",
+       $c >= "a" && $c <= "z" => "lower",
+       default => "other"
+   };
+   ```
+   So what is actually missing is narrower than "guards": that `match (true)` reads as an idiom
+   rather than as intent, that a range still has to be spelled twice with the subject named in
+   both halves, and that a jump table cannot see through either. Weigh a language change against
+   those three, not against the `if` chains. Three questions to settle first, none decided:
+   - **One feature or two?** A guard arm subsumes ranges, since `$c >= "a" && $c <= "z"` is
+     just a guard; a range arm is sugar that reads better at the character classes a lexer is
+     made of, and keeps the jump-table optimisation (still open, see "match") reachable for
+     arms that are all literals and ranges, where a guard arm closes it off.
+   - **What shape is a guard?** A bare truthy expression (`is_digit($c) => ...`) is simpler and
+     is what the existing `if` chains already look like, so the port is a transcription;
+     Rust's pattern-plus-condition (`$c if is_digit($c) => ...`) keeps the subject visible in
+     the arm and composes if type patterns ever arrive, at the cost of a second concept.
+   - **A guard ignores the subject**, so `match ($c) { is_digit($c) => ... }` names `$c` twice
+     and the subject does no work. That either is fine, or argues for a subject-less
+     `match { cond => ... }` whose arms are conditions, which is `if`/`else if` with better
+     shape and no `==` at all. Note `match (true) { ... }` already gives this today, and
+     whether that is good enough is part of the question.
 4. **Scanning bytes.** `$s[$i]` allocates a one byte string and `ord($s[$i])` is two builtin
    calls plus that allocation; there is no `byte_at($s, $i)` and no "index of the first byte in
    this set". A lexer must classify every byte, so it cannot escape into `index_of` the way
