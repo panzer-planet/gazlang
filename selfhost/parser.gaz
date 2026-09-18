@@ -109,7 +109,7 @@ class Parser {
     #file;
     // Directory that include paths in the file being parsed are relative to
     #base_dir;
-    // The path of every file parsed so far, so each is only included once
+    // The real path of every file parsed so far, so each is only included once, however it is spelt
     #included = {};
 
     // How many loops enclose the statement being parsed, so break and continue can be checked
@@ -229,14 +229,14 @@ class Parser {
     };
 
     // $path is the file the source came from, if any; includes resolve relative to it. A path
-    // that is no file, like a name given to inline source, has no directory to be relative
+    // with nothing there, like a name given to inline source, has no directory to be relative
     // to: as without a path, includes are then relative to the working directory.
     fn _($lexer, $path = null) {
-        $is_file = $path != null && #read($path) != null;
-        if ($is_file) {
-            #included[#normalise($path)] = true;
+        $real_path = $path != null && file_exists($path) ? real_path($path) : null;
+        if ($real_path != null) {
+            #included[$real_path] = true;
         }
-        #base_dir = $is_file ? #dirname($path) : ".";
+        #base_dir = $real_path != null ? #dirname($real_path) : cwd();
         // The main file is shown as the user gave it; included files relative to the working directory
         #file = $path;
         #lexer = $lexer;
@@ -291,39 +291,16 @@ class Parser {
         }
     }
 
-    // A path without its "." and ".." steps and doubled slashes: "a/./b/../c" is "a/c"
-    //
-    // ponytail: this stands in for PHP's realpath() and getcwd(), which GazLang has no way to
-    // ask for. A path given relative to the working directory stays relative to it, which is
-    // how the PHP parser shows an included file, so the two agree until a symlink or one
-    // file included by both a relative and an absolute path (the same file is then included
-    // twice, and what it declares is "already declared"), a main file given by its absolute
-    // path, or an include that climbs out of the working directory (both shown differently).
-    // Builtins for the working directory and a real path would remove all four.
-    fn normalise($path) {
-        $steps = [];
-        foreach (split($path, "/") as $step) {
-            if ($step == "" || $step == ".") {
-                continue;
-            }
-            $last = len($steps) - 1;
-            if ($step == ".." && $last >= 0 && $steps[$last] != "..") {
-                delete $steps[$last];
-            } else if ($step != ".." || !starts_with($path, "/")) {
-                $steps[] = $step;
-            }
-        }
-        $joined = join($steps, "/");
-        if (starts_with($path, "/")) {
-            return "/" .. $joined;
-        }
+    // A real path relative to the working directory when it is inside it
+    fn display_path($real_path) {
+        $cwd = cwd() .. "/";
 
-        return $joined == "" ? "." : $joined;
+        return starts_with($real_path, $cwd) ? slice($real_path, len($cwd)) : $real_path;
     }
 
-    // A file's text, or null if it can't be read, which is the only way to ask whether it is
-    // there. Only the read is in the try: a catch of Error around more would also catch a
-    // bug in it, or running out of call depth.
+    // A file's text, or null if it can't be read, which is how a directory or an unreadable
+    // file is told apart from one to include. Only the read is in the try: a catch of Error
+    // around more would also catch a bug in it, or running out of call depth.
     fn read($path) {
         try {
             return read_file($path);
@@ -332,7 +309,8 @@ class Parser {
         }
     }
 
-    // The directory a path is in, as PHP's dirname()
+    // The directory a real path is in, as PHP's dirname(): a real path has no "." or ".." steps,
+    // doubled slashes or trailing slash to get wrong
     fn dirname($path) {
         $steps = split($path, "/");
         if (len($steps) == 1) {
@@ -2089,14 +2067,13 @@ class Parser {
 
         $relative = $path_token.value;
         $written = starts_with($relative, "/") ? $relative : #base_dir .. "/" .. $relative;
-        // Read by the path as it is written, and before asking whether it was included already,
-        // as the PHP parser's realpath() comes first: the system then refuses "nodir/../a.gaz"
-        // and "a.gaz/", which normalise() would quietly turn into a file that is there
-        $text = #read($written);
+        $path = file_exists($written) ? real_path($written) : null;
+        // Read before asking whether it was included already, as the PHP parser checks it is a
+        // readable file first
+        $text = $path == null ? null : #read($path);
         if ($text == null) {
             #fail_at("Cannot include file: {$relative}", #file, $path_token.line);
         }
-        $path = #normalise($written);
         if (has_key(#included, $path)) {
             return [];
         }
@@ -2105,7 +2082,7 @@ class Parser {
         [$lexer, $current_token, $base_dir, $file] = [#lexer, #current_token, #base_dir, #file];
         #lexer = Lexer($text);
         #base_dir = #dirname($path);
-        #file = $path;
+        #file = #display_path($path);
         #current_token = #next_token();
         $statements = #top_level();
         [#lexer, #current_token, #base_dir, #file] = [$lexer, $current_token, $base_dir, $file];

@@ -2,6 +2,7 @@
 
 namespace GazLang\Tests;
 
+use GazLang\GazLangError;
 use GazLang\Interpreter\Interpreter;
 
 class StdlibTest extends GazLangTestCase
@@ -335,7 +336,7 @@ class StdlibTest extends GazLangTestCase
             try {
                 $this->executeCode("real_path(\"{$path}\");");
                 $this->fail("real_path(\"{$path}\") should fail");
-            } catch (\GazLang\GazLangError $e) {
+            } catch (GazLangError $e) {
                 $this->assertStringStartsWith('No such file or directory: ', $e->getMessage());
             }
         }

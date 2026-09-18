@@ -119,15 +119,67 @@ class SelfHostedParserTest extends GazLangTestCase
     }
 
     /**
+     * Where a file is, and where it is parsed from, changes how its includes are shown and not
+     * what they are: run from elsewhere, or given by a path the corpus can't spell, which the
+     * port could only get right once it could ask for real paths and the working directory
+     */
+    public static function placesToParseFrom(): array
+    {
+        $include = self::ROOT.'/tests/parser_corpus/include';
+
+        return [
+            'main file given by its absolute path' => [self::ROOT, "{$include}/main.gaz"],
+            'includes that climb out of the working directory' => ["{$include}/lib/deep", 'uses_parent_dir.gaz'],
+            'working directory below the main file' => ["{$include}/lib", '../main.gaz'],
+            'working directory elsewhere' => [sys_get_temp_dir(), "{$include}/symlink_is_the_file_it_points_to.gaz"],
+        ];
+    }
+
+    /**
+     * @dataProvider placesToParseFrom
+     */
+    public function test_self_hosted_parser_matches_the_php_parser_from_anywhere(string $cwd, string $file)
+    {
+        self::$program ??= self::compileProgram(self::PARSER);
+
+        $this->assertSame(self::phpAst($file, $cwd), $this->runCompiled(self::$program, [$file], $cwd));
+    }
+
+    /**
+     * One file included by a relative and by an absolute path is included once. The absolute
+     * path is this machine's, so the program is written where it runs.
+     */
+    public function test_a_file_included_by_a_relative_and_an_absolute_path_is_included_once()
+    {
+        $dir = sys_get_temp_dir().'/gazlang_include_'.getmypid();
+        mkdir("{$dir}/lib", 0777, true);
+        file_put_contents("{$dir}/lib/helper.gaz", "fn helper() { return 1; }\n");
+        file_put_contents("{$dir}/main.gaz", "include \"lib/helper.gaz\";\ninclude \"{$dir}/lib/helper.gaz\";\necho helper();\n");
+        self::$program ??= self::compileProgram(self::PARSER);
+
+        try {
+            [$expected, $exit_code] = self::phpAst('main.gaz', $dir);
+            $this->assertSame(0, $exit_code, $expected);
+            $this->assertSame([$expected, 0], $this->runCompiled(self::$program, ['main.gaz'], $dir));
+        } finally {
+            unlink("{$dir}/lib/helper.gaz");
+            unlink("{$dir}/main.gaz");
+            rmdir("{$dir}/lib");
+            rmdir($dir);
+        }
+    }
+
+    /**
      * The expected --ast output and exit code for a file, from the PHP parser in-process
      *
+     * @param  string  $in  The working directory, which include paths are shown relative to
      * @return array{0: string, 1: int}
      */
-    private static function phpAst(string $file): array
+    private static function phpAst(string $file, string $in = self::ROOT): array
     {
         $cwd = getcwd();
         // Include paths are shown relative to the working directory
-        chdir(self::ROOT);
+        chdir($in);
         try {
             return [Dumper::dump((new Parser(new Lexer(file_get_contents($file)), $file))->parse()), 0];
         } catch (GazLangError $e) {

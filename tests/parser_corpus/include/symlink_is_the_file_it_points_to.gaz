@@ -1,0 +1,5 @@
+// lib/link.gaz is a symlink to lib/deep/helper.gaz: one file, so it is included once, and shown
+// by where it really is
+include "lib/link.gaz";
+include "lib/deep/helper.gaz";
+echo helper();

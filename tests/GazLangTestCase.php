@@ -61,23 +61,25 @@ abstract class GazLangTestCase extends TestCase
      * Run a compiled program on the VM as runProgram() would
      *
      * @param  string[]  $args  Arguments returned by args()
+     * @param  string  $cwd  The working directory to run it in
      * @return array{0: string, 1: int} The output and exit code
      */
-    protected function runCompiled(Program $program, array $args = []): array
+    protected function runCompiled(Program $program, array $args = [], string $cwd = self::ROOT): array
     {
-        return $this->exitCodeOf(fn () => (new VM($program, $args))->run());
+        return $this->exitCodeOf(fn () => (new VM($program, $args))->run(), $cwd);
     }
 
     /**
      * Run a program from the project root, giving its output and exit code as the CLI would
      *
      * @param  callable  $run  Runs the program, printing its output
+     * @param  string  $in  The working directory to run it in
      * @return array{0: string, 1: int} The output and exit code
      */
-    private function exitCodeOf(callable $run): array
+    private function exitCodeOf(callable $run, string $in = self::ROOT): array
     {
         $cwd = getcwd();
-        chdir(self::ROOT);
+        chdir($in);
         ob_start();
 
         try {
