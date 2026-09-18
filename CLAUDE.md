@@ -761,16 +761,44 @@ each step depends on the ones before it.
       `-fFILE`, `--file=`, precedence of help, version and modes, a directory read, `-c` on
       bytecode, piped input not reaching the front end, piped bytecode named) all die. Not
       covered: a terminal on standard input, since the runner has none to give.
-   4. **Rebuilding without PHP**: `make -C vm compiler` compiles `selfhost/gazlang.gaz` with the
-      current binary, compiles it again with the result, requires the two to be the same, writes
-      the checked-in bytecode and rebuilds the VM. From then on changing the language needs no
-      PHP; until then regenerating does.
+   4. **Rebuilding without PHP**: `make -C vm compiler` regenerates `selfhost/gazlang.gzb` with
+      the C binary alone, as a three-stage bootstrap (GCC's shape, settled 2026-09-18):
+      stage 1 is the current `vm/gazvm` compiling `selfhost/gazlang.gaz` (the new compiler,
+      compiled by the old one), stage 2 is stage 1 compiling it again (the new compiler compiled
+      by itself), stage 3 is stage 2 compiling it again, and **stage 2 must equal stage 3** byte
+      for byte. Not stage 1 against stage 2, as this step first said: when a change alters what
+      the code generator emits, stage 1 was written by the old code generator and stage 2 by the
+      new one, so they differ by design, and the check would fail exactly when it is needed.
+      Stage 2 differing from stage 3 means the compiler's output depends on how it was itself
+      compiled, which is a real bug. Each stage runs as a program on the existing binary
+      (`vm/gazvm -f stageN.gzb -- code selfhost/gazlang.gaz`), so no rebuild is needed between
+      them.
+      - **The working compiler is never replaced by a broken one**: the stages are written to
+        `vm/build/`, and only once the check passes is stage 2 copied over `selfhost/gazlang.gzb`
+        and the VM rebuilt. A compiler broken by an edit fails at stage 1 or 2 and leaves the
+        current binary able to compile its fix.
+      - **An explicit target, not a dependency**: `gazlang.gzb` must not depend on
+        `selfhost/*.gaz` in the Makefile. A fresh clone's timestamps are arbitrary, and plain
+        `make` would then try to regenerate the compiler with a binary that needs that compiler to
+        be built. `make` always builds from the checked-in bytecode; `make compiler` is run after
+        editing `selfhost/`.
+      - **A language feature lands in two steps**: the compiler's own source can't use a feature
+        until a compiler that understands it has been built. Add it to `selfhost/`, run
+        `make compiler`, and only then use it there. A new instruction goes into the C VM (plain
+        `make`) before any bytecode using it runs.
+      - **While PHP is the reference, both ways must give the same file**: the fixed-point test
+        still requires `gazlang.gzb` to equal what `php bin/gazlang -c` writes, so
+        `make compiler` and the PHP one-liner agree, which this step proves by testing the target
+        on a scratch copy. After the swap (step 5) changing the language needs no PHP at all.
    5. **The swap** (decision 1): rename, build `bin/gazlang` from `make -C vm`, point the tests,
       README, `docs/` and this file at `gazlang`, with PHP described as the reference.
    6. **Portability**: the VM has only ever been built on macOS, and "a bootstrap that needs
       nothing but a C compiler" is untested. `open_memstream()` and `realpath()` want
       `_POSIX_C_SOURCE` on Linux. At least one Linux build and suite run (Docker, or CI, whose
-      setup is Werner's call since nothing is pushed yet) before the bootstrap counts as done.
+      setup is Werner's call) before the bootstrap counts as done. The repository is on GitHub
+      as of 2026-09-18 (github.com:panzer-planet/gazlang), so a GitHub Actions job on Ubuntu
+      running `make -C vm` and the suite is now the easy way to get that build: not set up yet,
+      waiting for Werner to say when.
    Not blocking, left for later: `tests/fuzz_vms.php`'s programs mode reports a mismatch when a
    program exhausts memory (PHP's child process dies at its 2GB limit, the C VM is killed at the
    time limit; also on master before the source work), and the holes list below.
