@@ -1,108 +1,318 @@
 # GazLang
 
-A small scripting language with a PHP-flavoured syntax and its own opinions: values are
-what they are (no conversion between strings and numbers, no `===`), lists and maps are values,
-functions are values, and errors are loud. Written in PHP, with a tree-walking interpreter
-and a stack VM that must agree on everything, on the way to being self-hosting.
+A small scripting language that would rather stop than guess.
 
-```
-include "lib/csv.gaz";
-include "lib/functional.gaz";
+If you have written PHP, JavaScript or Python you can read GazLang already. The difference is
+in what it refuses to do: it never quietly turns a string into a number, never overflows an
+integer into a float, and never hands you a zero because a key was missing. When something is
+wrong it says so, with a line number and a stack trace.
 
-fn report($sales, $column) {
-    $totals = reduce($sales, ($t, $row) -> {
-        $t[$row["region"]] = ($t[$row["region"]] ?? 0.0) + to_float($row[$column]);
-        return $t;
-    }, {});
-    $regions = sort(keys($totals), ($a, $b) -> $totals[$b] <=> $totals[$a]);
-    foreach ($regions as $region) {
-        echo "{$region}: {round($totals[$region], 2)}";
-    }
+```gaz
+fn greet($name) {
+    return "Hello, {$name}!";
 }
 
-try {
-    report(csv_records(csv_parse(read_file(args()[0] ?? "sales.csv"))), "amount");
-} catch ($e) {
-    echo "Error: {$e["message"]}";
-    exit(1);
-}
+echo greet("world");
 ```
 
-## Install and run
+```
+Hello, world!
+```
 
-Requires PHP 8.5 or later.
+It is a hobby language, written in PHP, with a tree-walking interpreter and a stack VM that
+must agree on every single test. The long-term plan is to leave PHP behind: a VM in C, and the
+compiler rewritten in GazLang itself. It is not production software, and it would like company.
+
+## Get it running
+
+You need PHP 8.5 or later.
 
 ```bash
 git clone https://github.com/panzer-planet/gazlang.git
 cd gazlang && composer install
 
-php bin/gazlang -f program.gaz                 # compile to VM code and run it
-php bin/gazlang -f program.gaz -- arg1 arg2    # arguments for args()
+echo 'echo "hello";' > hello.gaz
+php bin/gazlang -f hello.gaz
+```
+
+Then try one of the sample programs:
+
+```bash
+php bin/gazlang -f examples/csv_report.gaz -- examples/data/sales.csv region amount
+```
+
+Other ways to run it:
+
+```bash
+php bin/gazlang -f program.gaz -- arg1 arg2    # arguments, read with args()
 cat program.gaz | php bin/gazlang              # piped input runs as one program
-php bin/gazlang --interpreter -f program.gaz   # the tree-walking interpreter instead
-php bin/gazlang -c -f program.gaz              # print the VM code
+php bin/gazlang --interpreter -f program.gaz   # the tree-walking interpreter instead of the VM
+php bin/gazlang -c -f program.gaz              # print the compiled VM code
 php bin/gazlang --tokens -f program.gaz        # print the tokens
 ```
 
-Try `php bin/gazlang -f examples/csv_report.gaz -- examples/data/sales.csv region amount`.
+## A ten minute tour
 
-## The language
+### Variables and text
 
-- **Values**: ints (`42`, `0xFF`, never silently overflowing), floats (`1.5`, `2e-3`, always
-  finite), byte strings, `true`/`false`, `null`, lists, maps and functions.
-- **Variables**: `$x` is local to the function (or the top level), `@x` is global, everywhere.
-- **Lists** `[1, 2]` and **maps** `{"key" => 1}` (int or string keys, `"1"` and `1` distinct,
-  insertion order) are separate types, copied on assignment: `$l[0]`, `$m["k"]["j"] = v`,
-  `$l[] = v`, `foreach ($m as $k => $v)`, `len`, `keys`, `slice`. A missing index or key is an
-  error unless read with `??`.
-- **Comments**: `// to the end of the line` and `/* ... */`, which nest, so commenting out a
-  region that already holds a comment works.
-- **Names**: keywords are lowercase and matched exactly, so `class If`, `fn Return()` and
-  `$while` are all ordinary names. Writing one in the wrong case says so.
-- **Strings**: `"..."` with escapes (`\n`, `\xHH`, `\u{1F600}`) and interpolation (`"Hi $name"`,
-  `"{$user["name"]} has {@count}"`); `'...'` raw. `..` concatenates, converting like `echo`.
-- **Operators**: `+ - * / %` on numbers only (`/` always gives a float; `intdiv` for ints);
-  `== !=` with no conversion between types (`"5" == 5` is false, `1 == 1.0` is true, lists and
-  maps compare element by element); `< <= > >=` and `<=>` on numbers or on strings; `&& || !`;
-  `& | ^ << >> ~` on ints only, above the comparisons as in Rust and Python, so
-  `$flags & MASK == 0` is `($flags & MASK) == 0`; `??` and `??=` for missing values;
-  `$c ? $a : $b`; `+= -= *= /= %= ..= &= |= ^= <<= >>= ++ --`.
-- **Control flow**: `if`/`else if`/`else`, `while`, `for`, `foreach`, `break`, `continue`, and
-  `match ($x) { 1, 2 => "few", default => "many" }`, an expression whose arms are compared with
-  `==` and tried in order; written as a statement, an arm may be a block. Drop the subject and
-  the arms are conditions instead, tested for truth as `if` does:
-  `match { is_digit($c) => "digit", $c == "_" => "underscore", default => "other" }`.
-- **Functions**: `fn add($a, $b = 1) { return $a + $b; }` at the top level, callable
-  before they are declared. A bare name is a value (`$f = add; $f(1)`, builtins too), and
-  `$x -> $x * 2`, `($a, $b = 1) -> $a + $b`, `() -> { return 42; }` are anonymous functions
-  that copy the outer variables they use when created and keep them between calls
-  (`() -> ++$n` counts; a plain `=` inside makes a variable local to the call). A lambda
-  assigned with `$f = ...` can call `$f` inside.
-- **Errors**: `error("message")` raises one, `try { } catch ($e) { }` catches any runtime
-  error as `{"message" => ..., "file" => ..., "line" => ...}`, and uncaught errors print
-  `Error: ... at file.gaz:12`. `exit($code)` stops the program.
-- **Builtins**: `len`, `slice`, `lower`, `upper`, `trim`, `split`, `join`, `replace`, `contains`,
-  `starts_with`, `ends_with`, `index_of`, `repeat`, `chr`, `ord`, `to_int`, `to_float`,
-  `to_string`, `floor`, `ceil`, `round`, `abs`, `intdiv`, `min`, `max`, `in_array`, `has_key`,
-  `keys`, `values`, `type_of`, `is_a`, `class_of`, `print`, `print_error`, `error`, `exit`, `read_file`,
-  `write_file`, `read_stdin`, `args`.
-- **Libraries in GazLang** (`lib/`): `functional.gaz` (`map`, `filter`, `reduce`, `sort`),
-  `json.gaz`, `csv.gaz`, `chars.gaz`, `format.gaz`, `sort.gaz`; `include "lib/json.gaz";`
-  includes a file once, relative to the including file.
-- **Comments**: `// to the end of the line`.
+A `$` variable is local — to the function it is in, or to the top level. An `@` variable is
+global, the same variable everywhere. The sigil tells you the scope, so there is nothing to
+declare and nothing to look up.
 
-The design decisions and their reasons are in `CLAUDE.md`; `docs/design-review.md` lists the
-ones still open.
+```gaz
+$name = "Ada";
+@count = 3;
 
-## Layout
+echo "Hi $name, you have {@count} messages";
+echo "Next year: {@count + 1}";
+```
 
-- `src/Lexer`, `src/Parser`, `src/AST`: source text to a tree.
-- `src/Runtime`: what values mean (`Values`) and the builtins, shared by both backends.
-- `src/Interpreter`: runs the tree. `src/CodeGenerator` and `src/VM`: compile it to
-  stack VM code and run that, the default.
-- `lib/`: libraries written in GazLang. `examples/`: sample programs.
-- `tests/`: PHPUnit; every snippet runs on both backends and must match. `tests/gaz/`
-  holds GazLang test programs with their expected output.
+```
+Hi Ada, you have 3 messages
+Next year: 4
+```
+
+Inside `"..."`, a bare `$name` interpolates, and braces take any expression that *starts with a
+sigil* — `{$x}`, `{@count + 1}`, `{$user.name}`. Anything else is literal, so `{round($n, 2)}`
+prints as it is written; put it in a variable first. Use `'...'` for a raw string, and `..` to
+join values.
+
+### Numbers that do not lie
+
+```gaz
+echo 7 / 2;             // always a float
+echo intdiv(7, 2);      // ask for int division explicitly
+echo 1 == 1.0;          // true: numbers compare by value
+echo "5" == 5;          // false: a string is never a number
+try {
+    echo "5" + 5;
+} catch (Error $e) {
+    echo $e.message;
+}
+```
+
+```
+3.5
+3
+true
+false
+Cannot use + on string
+```
+
+`+ - * /` are for numbers only. Integers never silently become floats: a result that will not
+fit is an `Integer overflow` error, not a quiet loss of precision. There is no `===`, because
+`==` never converted anything in the first place.
+
+### Lists and maps
+
+```gaz
+$sizes = [3, 1, 2];                       // a list: values at 0, 1, 2...
+$price = {"apple" => 1.5, "pear" => 2};   // a map: values by key, in order
+
+$sizes[] = 4;                             // append
+$price["fig"] = 3.0;                      // add a key
+
+foreach ($price as $fruit => $cost) {
+    echo "{$fruit} costs {$cost}";
+}
+```
+
+```
+apple costs 1.5
+pear costs 2
+fig costs 3.0
+```
+
+They are two different types, and both are **values**, so assigning one copies it:
+
+```gaz
+$copy = $original = [1, 2];
+$copy[] = 3;
+echo $original;
+echo $copy;
+```
+
+```
+[1, 2]
+[1, 2, 3]
+```
+
+Reading a key that is not there is an error, not `null`. Write `$m["k"] ?? "default"` when
+missing is a normal thing to happen.
+
+### Control flow
+
+The usual `if` / `else if` / `else`, `while`, `for`, `foreach`, `break` and `continue`. Plus
+`match`, which comes in two shapes. With a subject it compares arms with `==`; without one, the
+arms are conditions:
+
+```gaz
+fn classify($n) {
+    return match {
+        $n < 0  => "negative",
+        $n == 0 => "zero",
+        $n < 10 => "small",
+        default => "big"
+    };
+}
+
+foreach ([-4, 0, 7, 99] as $n) {
+    $kind = classify($n);
+    echo "{$n} is {$kind}";
+}
+```
+
+```
+-4 is negative
+0 is zero
+7 is small
+99 is big
+```
+
+### Functions
+
+Declared with `fn`, at the top level, and callable before they are declared. Parameters can
+have defaults. A bare name is a value, so functions can be passed around.
+
+```gaz
+$double = $x -> $x * 2;                   // an anonymous function
+echo $double(21);
+
+fn counter() {                            // it keeps the variables it captured
+    $n = 0;
+    return () -> ++$n;
+}
+$next = counter();
+$next();
+echo $next();
+```
+
+```
+42
+2
+```
+
+### Objects
+
+Fields are declared, single inheritance, and constructing is just a call — no `new`. `#` is
+this object, `#name` one of its fields or methods.
+
+```gaz
+class Account {
+    #owner;
+    #balance = 0;
+
+    fn _($owner) { #owner = $owner; }     // the constructor
+
+    fn deposit($amount) {
+        #balance += $amount;
+        return #;                         // # is this object
+    }
+
+    fn to_string() { return "{#owner}: {#balance}"; }
+}
+
+$a = Account("Ada");
+$a.deposit(50).deposit(25);
+echo $a;
+```
+
+```
+Ada: 75
+```
+
+### Errors
+
+Any runtime failure is catchable, and `Error` is a real class you can extend.
+
+```gaz
+class NotFound extends Error {
+    #key;
+    fn _($key) { ##_("No such fruit: {$key}"); #key = $key; }
+}
+
+fn price($prices, $fruit) {
+    return $prices[$fruit] ?? error(NotFound($fruit));
+}
+
+try {
+    echo price({"apple" => 1.5}, "apple");
+    echo price({"apple" => 1.5}, "durian");
+} catch (NotFound $e) {
+    echo "{$e.message} (line {$e.line})";
+}
+```
+
+```
+1.5
+No such fruit: durian (line 7)
+```
+
+Let one escape and you get the line it happened on and the calls that led there:
+
+```gaz
+fn inner() { return [1][5]; }
+fn outer() { return inner(); }
+echo outer();
+```
+
+```
+Error: Index out of range: 5 at trace.gaz:1
+  inner at trace.gaz:1
+  outer at trace.gaz:2
+  top level at trace.gaz:3
+```
+
+## Something real
+
+`lib/` holds libraries written in GazLang itself — CSV, JSON, sorting, `map`/`filter`/`reduce`,
+string formatting. Here is a sales report in twenty lines:
+
+```gaz
+include "lib/csv.gaz";
+include "lib/functional.gaz";
+include "lib/format.gaz";
+
+fn totals_by($rows, $group, $column) {
+    return reduce($rows, ($totals, $row) -> {
+        $key = $row[$group];
+        $totals[$key] = ($totals[$key] ?? 0.0) + to_float($row[$column]);
+        return $totals;
+    }, {});
+}
+
+try {
+    $rows = csv_records(csv_parse(read_file(args()[0] ?? "sales.csv")));
+    $totals = totals_by($rows, "region", "amount");
+
+    foreach (sort(keys($totals), ($a, $b) -> $totals[$b] <=> $totals[$a]) as $region) {
+        echo pad_right($region, 8) .. round($totals[$region], 2);
+    }
+} catch (Error $e) {
+    print_error("{$e.message}\n");
+    exit(1);
+}
+```
+
+```
+South   4560.49
+East    3436.09
+North   1524.0
+West    899.95
+```
+
+## Where to go next
+
+- **[docs/language.md](docs/language.md)** — the whole language, in reference form.
+- **`examples/`** — runnable programs, from [`strings.gaz`](examples/strings.gaz) up to a
+  699 line [football league simulator](examples/football.gaz) and a
+  [tokenizer](examples/tokenizer.gaz).
+- **`lib/`** — the standard library, all of it written in GazLang.
+- **[docs/internals.md](docs/internals.md)** — how the interpreter, compiler and VM fit
+  together, and how to work on them.
+- **[CLAUDE.md](CLAUDE.md)** — every design decision and why it went that way. Long, and the
+  most interesting file here if you like language design.
+- **[docs/design-review.md](docs/design-review.md)** — the questions that are still open.
 
 ## License
 

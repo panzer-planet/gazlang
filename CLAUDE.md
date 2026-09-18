@@ -382,6 +382,13 @@ each step depends on the ones before it.
    must be exactly the ones that fail to lex. The comparison runs in-process
    (`GazLangTestCase::runProgram()`), since a CLI run costs ~0.5s.
 
+   **The README's examples are tests.** `ReadmeTest` pulls every ```` ```gaz ```` block that is
+   followed by an output block out of `README.md` and requires it to print exactly that, on
+   both backends. They had gone stale without anything noticing: the flagship program
+   interpolated `{round($n, 2)}`, which is literal text, and caught an error as a map long
+   after errors became objects. `README.md` is the invitation, `docs/language.md` the reference
+   and `docs/internals.md` the contributor guide; this file stays the reasoning behind both.
+
    **Test GazLang code with GazLang programs.** Every `tests/gaz/**/*_test.gaz`
    must print exactly its `*_test.expected` (`GazProgramTest`); other `.gaz`
    files there are helpers, like `check.gaz`'s `check($label, $actual, $expected)`,
