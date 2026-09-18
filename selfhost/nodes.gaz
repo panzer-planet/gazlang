@@ -116,6 +116,9 @@ class ArrayLiteralAST extends AST {
 class IndexAST extends AST {
     #target;
     #index;
+    // Set by the code generator on the nodes it builds for a compound update, which reads the
+    // current value strictly; not part of the tree
+    #existing = false;
 
     fn _($target, $index) {
         #target = $target;
@@ -137,6 +140,8 @@ class PropertyAST extends AST {
     #use = null;
     // Where a Name.member's record is in Parser.class_constant_uses, or null; not part of the tree
     #class_use = null;
+    // As IndexAST's
+    #existing = false;
 
     fn _($target, $name) {
         #target = $target;

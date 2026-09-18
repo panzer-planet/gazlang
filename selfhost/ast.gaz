@@ -4,9 +4,10 @@ include "parser.gaz";
 
 class Dumper {
     // What AST\Dumper leaves out: where a node is, which the "@" lines and each node's line
-    // show, and bookkeeping derived from what is shown (resolved), or standing in for PHP's
-    // side tables keyed by object (use and class_use, which PHP's nodes don't have)
-    const SKIPPED = ["line", "file", "resolved", "use", "class_use"];
+    // show, the code generator's (existing), bookkeeping derived from what is shown (resolved),
+    // or standing in for PHP's side tables keyed by object (use and class_use, which PHP's nodes
+    // don't have)
+    const SKIPPED = ["line", "file", "existing", "resolved", "use", "class_use"];
 
     // The file of the last node that had a line, false before the first
     #file = false;

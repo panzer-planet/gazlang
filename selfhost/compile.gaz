@@ -1,0 +1,17 @@
+// Prints a file's bytecode as `gazlang -c -f FILE` does (see docs/bytecode.md):
+// php bin/gazlang -f selfhost/compile.gaz -- FILE
+include "codegen.gaz";
+
+if (len(args()) != 1) {
+    print_error("Usage: gazlang -f selfhost/compile.gaz -- FILE\n");
+    exit(2);
+}
+
+$path = args()[0];
+try {
+    $root = Parser(Lexer(read_file($path)), $path).parse();
+} catch (ParseError $e) {
+    // Raised again from the top level, so no trace of the parser's calls is printed under it
+    error($e.message);
+}
+print(CodeGenerator($root).compile().write($path));

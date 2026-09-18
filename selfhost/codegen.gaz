@@ -1,0 +1,1077 @@
+// A port of src/CodeGenerator/CodeGenerator.php and the writing half of Program.php: a tree
+// from selfhost/parser.gaz to a bytecode file, byte for byte what `gazlang -c` writes (see
+// docs/bytecode.md). Methods keep the PHP names, so the two can be read side by side; the
+// PHP class's comments explain the instructions each visitor emits.
+//
+// This file has no top level code, so it can be included.
+include "parser.gaz";
+
+class CodeGenerator {
+    // Opcode emitted for each binary operator token (&& and || are jumps, see logical_op)
+    const BINARY_OPCODES = {
+        "PLUS" => "ADD", "CONCAT" => "CONCAT", "MINUS" => "SUB", "MULTIPLY" => "MUL", "DIVIDE" => "DIV",
+        "MODULO" => "MOD", "BIT_AND" => "BIT_AND", "BIT_OR" => "BIT_OR", "BIT_XOR" => "BIT_XOR",
+        "SHIFT_LEFT" => "SHL", "SHIFT_RIGHT" => "SHR", "EQUALS" => "EQUALS", "NOT_EQUALS" => "NOT_EQUALS",
+        "LESS_THAN" => "LT", "LESS_EQUALS" => "LE", "SPACESHIP" => "CMP", "GREATER_THAN" => "GT",
+        "GREATER_EQUALS" => "GE",
+    };
+
+    #tree;
+    // The instructions of the block being compiled, each [opcode, arguments, file, line]
+    #instructions = [];
+    // The blocks compiled so far, the top level first, each a map as Program.write() reads it
+    #blocks = [];
+    // The location of the innermost node being compiled, recorded on each instruction
+    #file = null;
+    #line = null;
+    // Local variable names mapped to slots in the current frame
+    #var_addresses = {};
+    // When compiling a lambda body, its captured variable names mapped to their index in the closure
+    #captures = {};
+    // Global variable names mapped to global slots
+    #global_addresses = {};
+    // Numbers the hidden variables of each lowered construct, so nested ones don't share them
+    #hidden_counter = 0;
+    // Functions to emit after the top level code
+    #functions = [];
+    // Every class, by name, to emit after the functions
+    #classes = {};
+    #label_counter = 0;
+    // [continue label, end label, try depth] for the loops enclosing the current node
+    #loop_labels = [];
+    // The handlers around the current node, outermost first: a try's finally block, or null
+    // for one that runs catch clauses
+    #try_stack = [];
+    // Every lambda seen, in creation order, as [lambda, capture map]; bodies compile later
+    #lambdas = [];
+    // What calls by name check against, as the parser does
+    #builtins = builtins();
+
+    fn _($tree) {
+        #tree = $tree;
+    }
+
+    // Close the block just compiled, keeping its instructions and the names of its local slots.
+    // Labels and hidden variables are numbered within a block.
+    fn block($header) {
+        $header["locals"] = keys(#var_addresses);
+        $header["code"] = #instructions;
+        #blocks[] = $header;
+        #instructions = [];
+        #label_counter = 0;
+        #hidden_counter = 0;
+    }
+
+    // Visit a node, recording its location on the instructions emitted for it: the innermost
+    // node that has one. Nodes built here, for lowered constructs, have none.
+    fn visit($node) {
+        if ($node.line == null) {
+            #dispatch($node);
+            return;
+        }
+        [$file, $line] = [#file, #line];
+        [#file, #line] = [$node.file, $node.line];
+        #dispatch($node);
+        [#file, #line] = [$file, $line];
+    }
+
+    // AbstractNodeVisitor builds the method's name from the node's class; GazLang can't call a
+    // method by a name it builds, so each class is spelt out
+    fn dispatch($node) {
+        match (class_of($node)) {
+            VariableAST => #visit_variable($node),
+            AssignAST => #visit_assign($node),
+            IncrementAST => #visit_increment($node),
+            DeleteStatementAST => #visit_delete_statement($node),
+            BinOpAST => #visit_bin_op($node),
+            UnaryOpAST => #visit_unary_op($node),
+            NumAST => #emit("PUSH", [$node.value]),
+            BooleanAST => #emit("PUSH", [$node.value]),
+            NullAST => #emit("PUSH", [null]),
+            StringAST => #emit("PUSH", [$node.value]),
+            ArrayLiteralAST => #visit_array_literal($node),
+            IndexAST => #visit_index($node),
+            StatementAST => #visit_statement($node),
+            EchoStatementAST => #visit_echo_statement($node),
+            CompoundAST => #visit_compound($node),
+            IfStatementAST => #visit_if_statement($node),
+            ForeachStatementAST => #visit_foreach_statement($node),
+            WhileStatementAST => #visit_while_statement($node),
+            TryStatementAST => #visit_try_statement($node),
+            LoopControlAST => #visit_loop_control($node),
+            MatchAST => #visit_match($node),
+            TernaryAST => #visit_ternary($node),
+            // Its code is emitted after the functions
+            ClassDeclarationAST => {}
+            ThisAST => #emit("LOAD_THIS"),
+            PropertyAST => #visit_property($node),
+            MethodCallAST => #visit_method_call($node),
+            ParentMethodAST => #visit_parent_method($node),
+            // Its body is emitted after the top level code
+            FunctionDeclarationAST => { #functions[] = $node; }
+            FunctionCallAST => #visit_function_call($node),
+            FunctionRefAST => #visit_function_ref($node),
+            LambdaAST => #visit_lambda($node),
+            CallValueAST => #visit_call_value($node),
+            ReturnStatementAST => #visit_return_statement($node),
+        }
+    }
+
+    // Append an instruction at the current location. GazLang has no variadic parameters, so
+    // the arguments are a list.
+    fn emit($opcode, $args = []) {
+        #instructions[] = [$opcode, $args, #file, #line];
+    }
+
+    // Emit a variable instruction, allocating the variable's slot the first time it is seen:
+    // LOAD, STORE, LOAD_QUIET, SET_PATH..., with the _GLOBAL or _CAPTURED form where it applies.
+    // $args come before the slot (the path for SET_PATH).
+    fn emit_variable($op, $variable, $args = []) {
+        $name = $variable.value;
+        if ($variable.is_global()) {
+            $args[] = #global_addresses[$name] ??= len(#global_addresses);
+            #emit($op .. "_GLOBAL", $args);
+        } else if (has_key(#captures, $name)) {
+            $args[] = #captures[$name];
+            #emit($op .. "_CAPTURED", $args);
+        } else {
+            $args[] = #var_addresses[$name] ??= len(#var_addresses);
+            #emit($op, $args);
+        }
+    }
+
+    // A variable no program can name, for a lowered construct
+    fn hidden($name) {
+        return VariableAST(Token("VAR_IDENTIFIER", $name));
+    }
+
+    fn assign($to, $from) {
+        return AssignAST($to, Token("ASSIGN", "="), $from);
+    }
+
+    // The steps of a path of elements and fields, from its root outwards
+    fn steps($target) {
+        $steps = [];
+        for ($node = $target; is_a($node, IndexAST) || is_a($node, PropertyAST); $node = $node.target) {
+            $steps[] = $node;
+        }
+        // Met from the end, and lists can't be prepended to, so turned around
+        $forwards = [];
+        for ($i = len($steps) - 1; $i >= 0; $i--) {
+            $forwards[] = $steps[$i];
+        }
+
+        return $forwards;
+    }
+
+    fn visit_variable($node) {
+        // Undefined variables are a runtime error: a loop can read a variable that is only
+        // assigned further down the source
+        #emit_variable("LOAD", $node);
+    }
+
+    fn visit_assign($node) {
+        if (is_a($node.left, ListPatternAST)) {
+            #visit($node.right);
+            #destructure($node.left);
+            return;
+        }
+        if ($node.token.type != "ASSIGN") {
+            #update($node.left, $node.token, $node.right, true);
+            return;
+        }
+        if (is_a($node.left, PropertyAST) && is_a($node.left.target, ThisAST)) {
+            // #name = value: a field the parser has checked the class declares
+            #visit($node.right);
+            #emit("SET_FIELD", [$node.left.name]);
+            return;
+        }
+        if (is_a($node.left, IndexAST) || is_a($node.left, PropertyAST)) {
+            #path_assign($node);
+            return;
+        }
+
+        #visit($node.right);
+        // Store the value, then leave it on the stack for larger expressions
+        #emit_variable("STORE", $node.left);
+        #emit_variable("LOAD", $node.left);
+    }
+
+    // Take apart the list on top of the stack into a pattern's targets, leaving the list there
+    fn destructure($pattern) {
+        #emit("DESTRUCTURE", [len($pattern.targets)]);
+        $list = #hidden("\$#destructure_" .. #hidden_counter++);
+        #emit_variable("STORE", $list);
+        foreach ($pattern.targets as $i => $target) {
+            $element = IndexAST($list, NumAST(Token("INTEGER", $i)));
+            #visit(StatementAST(#assign($target, $element)));
+        }
+        #emit_variable("LOAD", $list);
+    }
+
+    fn visit_increment($node) {
+        #update($node.target, $node.op, null, $node.prefix);
+    }
+
+    // A compound assignment or ++/--, lowered to plain assignments, with index keys and a
+    // non-constant right side held in hidden variables (see CodeGenerator::update())
+    fn update($target, $op, $value, $prefix) {
+        $n = #hidden_counter++;
+
+        $place = path_root($target);
+        foreach (#steps($target) as $i => $step) {
+            if (is_a($step, PropertyAST)) {
+                $place = PropertyAST($place, $step.name);
+            } else {
+                $key = #hidden("\$#update_key{$i}_{$n}");
+                #visit($step.index);
+                #emit("KEY_CHECK");
+                #emit_variable("STORE", $key);
+                $place = IndexAST($place, $key);
+            }
+            // The update reads the current value strictly, except ??=, which reads it like ?? does
+            $place.existing = $op.type != "COALESCE_ASSIGN";
+        }
+
+        if ($op.type == "COALESCE_ASSIGN") {
+            // $a ??= $b is $a ?? ($a = $b), with the keys already in hidden variables
+            $end_label = "COALESCE_END_" .. #label_counter++;
+            #quietly($place);
+            #emit("JNN", [$end_label]);
+            #visit(#assign($place, $value));
+            #emit("LABEL", [$end_label]);
+            return;
+        }
+
+        if ($op.type == "CONCAT_ASSIGN" && is_a($place, VariableAST)) {
+            // $s ..= $x appends in place; a field or an element still lowers
+            #visit($value);
+            #emit_variable("CONCAT_ASSIGN", $place);
+            return;
+        }
+
+        if ($value != null) {
+            $right = $value;
+            if (!#is_constant($value)) {
+                $right = #hidden("\$#update_value_{$n}");
+                #visit(StatementAST(#assign($right, $value)));
+            }
+            $operator = Token(replace($op.type, "_ASSIGN", ""), slice($op.value, 0, -1));
+            #visit(#assign($place, BinOpAST($place, $operator, $right)));
+            return;
+        }
+
+        $step = #assign($place, UnaryOpAST($op, $place));
+        if ($prefix) {
+            #visit($step);
+        } else {
+            #visit($place);
+            #visit(StatementAST($step));
+        }
+    }
+
+    // Whether a node is a literal whose evaluation can't fail or have side effects
+    fn is_constant($node) {
+        return is_a($node, NumAST) || is_a($node, StringAST) || is_a($node, BooleanAST) || is_a($node, NullAST)
+            // A use of a constant is its value, which the parser worked out
+            || ((is_a($node, FunctionRefAST) || is_a($node, PropertyAST)) && $node.constant);
+    }
+
+    // The value of a list or map literal made only of constants with valid keys, or null if it isn't one
+    fn constant_array($node) {
+        $array = $node.map ? {} : [];
+        foreach ($node.entries as [$key, $value]) {
+            if ($key != null && !((is_a($key, NumAST) && type_of($key.value) == "int") || is_a($key, StringAST))) {
+                return null;
+            }
+            if (is_a($value, ArrayLiteralAST)) {
+                $value = #constant_array($value);
+                if ($value == null) {
+                    return null;
+                }
+            } else if (#is_constant($value)) {
+                $value = $value.value;
+            } else {
+                return null;
+            }
+
+            if ($key == null) {
+                $array[] = $value;
+            } else {
+                $array[$key.value] = $value;
+            }
+        }
+
+        return $array;
+    }
+
+    // An assignment through a path, like $a["k"][0] = value, $a[] = value or $rows[0].total = value
+    fn path_assign($node) {
+        $path = "";
+        foreach (#steps($node.left) as $step) {
+            if (is_a($step, PropertyAST)) {
+                $path ..= ".{$step.name}";
+            } else if ($step.index == null) {
+                $path ..= "[]";
+            } else {
+                $path ..= "[k]";
+                #visit($step.index);
+                // A hidden $# variable holds a key update() already checked
+                if (!(is_a($step.index, VariableAST) && starts_with($step.index.value, "\$#"))) {
+                    #emit("KEY_CHECK");
+                }
+            }
+        }
+        #visit($node.right);
+
+        // The variable is only read now, like the interpreter, and updated in place
+        $root = path_root($node.left);
+        if (is_a($root, ThisAST)) {
+            #emit("SET_PATH_THIS", [$path]);
+        } else {
+            #emit_variable("SET_PATH", $root, [$path]);
+        }
+    }
+
+    fn visit_delete_statement($node) {
+        $path = "";
+        foreach (#steps($node.target) as $step) {
+            if (is_a($step, PropertyAST)) {
+                $path ..= ".{$step.name}";
+            } else {
+                $path ..= "[k]";
+                #visit($step.index);
+                #emit("KEY_CHECK");
+            }
+        }
+
+        $root = path_root($node.target);
+        if (is_a($root, ThisAST)) {
+            #emit("DELETE_PATH_THIS", [$path]);
+        } else {
+            #emit_variable("DELETE_PATH", $root, [$path]);
+        }
+    }
+
+    fn visit_bin_op($node) {
+        $type = $node.op.type;
+        if ($type == "AND" || $type == "OR") {
+            #logical_op($node);
+            return;
+        }
+        if ($type == "COALESCE") {
+            // JNN keeps the left value and jumps past the right side unless it is null
+            $end_label = "COALESCE_END_" .. #label_counter++;
+            #quietly($node.left);
+            #emit("JNN", [$end_label]);
+            #visit($node.right);
+            #emit("LABEL", [$end_label]);
+            return;
+        }
+
+        #visit($node.left);
+        #visit($node.right);
+        #emit(#BINARY_OPCODES[$type]);
+    }
+
+    // The left side of ??, where a missing variable or key is null
+    fn quietly($node) {
+        if (is_a($node, VariableAST)) {
+            #emit_variable("LOAD_QUIET", $node);
+        } else if (is_a($node, IndexAST) && $node.index != null) {
+            #quietly($node.target);
+            #visit($node.index);
+            #emit("INDEX_GET_QUIET");
+        } else if (is_a($node, PropertyAST) && !$node.constant) {
+            #quietly($node.target);
+            #emit("GET_PROPERTY_QUIET", [$node.name]);
+        } else {
+            #visit($node);
+        }
+    }
+
+    // Short-circuit && and ||, leaving true or false on the stack
+    fn logical_op($node) {
+        $is_and = $node.op.type == "AND";
+        $short_label = ($is_and ? "AND_FALSE_" : "OR_TRUE_") .. #label_counter;
+        $end_label = ($is_and ? "AND_END_" : "OR_END_") .. #label_counter;
+        #label_counter++;
+
+        foreach ([$node.left, $node.right] as $operand) {
+            #visit($operand);
+            if (!$is_and) {
+                #emit("NOT");
+            }
+            #emit("JZ", [$short_label]);
+        }
+
+        #emit("PUSH", [$is_and]);
+        #emit("JMP", [$end_label]);
+        #emit("LABEL", [$short_label]);
+        #emit("PUSH", [!$is_and]);
+        #emit("LABEL", [$end_label]);
+    }
+
+    fn visit_unary_op($node) {
+        #visit($node.expr);
+        #emit(match ($node.op.type) {
+            "NOT" => "NOT",
+            "MINUS" => "NEG",
+            "BIT_NOT" => "BIT_NOT",
+            // Only built by update(), for ++ and --
+            "INCREMENT" => "INC",
+            "DECREMENT" => "DEC",
+        });
+    }
+
+    fn visit_array_literal($node) {
+        // A literal of constants is built once, at compile time (an empty one is already one instruction)
+        $constant = len($node.entries) == 0 ? null : #constant_array($node);
+        if ($constant != null) {
+            #emit("PUSH", [$constant]);
+            return;
+        }
+
+        #emit($node.map ? "NEW_MAP" : "NEW_ARRAY");
+        foreach ($node.entries as [$key, $value]) {
+            if ($key != null) {
+                #visit($key);
+                #emit("KEY_CHECK");
+            }
+            #visit($value);
+            #emit($key == null ? "ARRAY_PUSH" : "MAP_SET");
+        }
+    }
+
+    fn visit_index($node) {
+        #visit($node.target);
+        #visit($node.index);
+        #emit($node.existing ? "INDEX_GET_EXISTING" : "INDEX_GET");
+    }
+
+    fn visit_statement($node) {
+        // The result is discarded, so a postfix ++/-- can be the cheaper prefix form
+        if (is_a($node.expr, IncrementAST) && !$node.expr.prefix) {
+            // PHP clones the node; this builds it again, location included
+            $prefix = IncrementAST($node.expr.target, $node.expr.op, true);
+            [$prefix.line, $prefix.file] = [$node.expr.line, $node.expr.file];
+            #visit($prefix);
+            #emit("POP");
+            return;
+        }
+
+        #visit($node.expr);
+        #emit("POP");
+    }
+
+    fn visit_echo_statement($node) {
+        #visit($node.expr);
+        #emit("PRINT");
+    }
+
+    fn visit_compound($node) {
+        foreach ($node.statements as $statement) {
+            #visit($statement);
+        }
+    }
+
+    fn visit_if_statement($node) {
+        $else_label = "ELSE_" .. #label_counter;
+        $end_label = "ENDIF_" .. #label_counter;
+        #label_counter++;
+
+        #visit($node.condition);
+        #emit("JZ", [$else_label]);
+        #visit($node.if_body);
+        #emit("JMP", [$end_label]);
+        #emit("LABEL", [$else_label]);
+        if ($node.else_if != null) {
+            #visit($node.else_if);
+        } else if ($node.else_body != null) {
+            #visit($node.else_body);
+        }
+        #emit("LABEL", [$end_label]);
+    }
+
+    // foreach as the equivalent while loop over keys() (see CodeGenerator::visitForeachStatement())
+    fn visit_foreach_statement($node) {
+        $n = #hidden_counter++;
+        $array = #hidden("\$#foreach_array_{$n}");
+        $keys = #hidden("\$#foreach_keys_{$n}");
+        $count = #hidden("\$#foreach_count_{$n}");
+        $i = #hidden("\$#foreach_i_{$n}");
+        $key = IndexAST($keys, $i);
+
+        $body = CompoundAST();
+        if ($node.key != null) {
+            $body.statements[] = StatementAST(#assign($node.key, $key));
+        }
+        $body.statements[] = StatementAST(#assign($node.value, IndexAST($array, $key)));
+        foreach ($node.body.statements as $statement) {
+            $body.statements[] = $statement;
+        }
+
+        #visit($node.iterable);
+        #emit("FOREACH_CHECK");
+        #emit_variable("STORE", $array);
+
+        $loop = CompoundAST();
+        $loop.statements = [
+            StatementAST(#assign($keys, FunctionCallAST("keys", [$array]))),
+            StatementAST(#assign($count, FunctionCallAST("len", [$keys]))),
+            StatementAST(#assign($i, NumAST(Token("INTEGER", 0)))),
+            WhileStatementAST(
+                BinOpAST($i, Token("LESS_THAN", "<"), $count),
+                $body,
+                StatementAST(#assign($i, BinOpAST($i, Token("PLUS", "+"), NumAST(Token("INTEGER", 1)))))
+            ),
+        ];
+
+        #visit($loop);
+    }
+
+    fn visit_while_statement($node) {
+        $start_label = "WHILE_" .. #label_counter;
+        $end_label = "ENDWHILE_" .. #label_counter;
+        // continue has to run the step, so a loop with one jumps to just before it
+        $continue_label = $node.step != null ? "CONTINUE_" .. #label_counter : $start_label;
+        #label_counter++;
+
+        #emit("LABEL", [$start_label]);
+        #visit($node.condition);
+        #emit("JZ", [$end_label]);
+
+        #loop_labels[] = [$continue_label, $end_label, len(#try_stack)];
+        #visit($node.body);
+        delete #loop_labels[len(#loop_labels) - 1];
+
+        if ($node.step != null) {
+            #emit("LABEL", [$continue_label]);
+            #visit($node.step);
+        }
+
+        #emit("JMP", [$start_label]);
+        #emit("LABEL", [$end_label]);
+    }
+
+    // try, catch and finally as handlers (see CodeGenerator::visitTryStatement())
+    fn visit_try_statement($node) {
+        $n = #label_counter++;
+
+        if ($node.finally != null) {
+            #emit("TRY", ["FINALLY_{$n}"]);
+            #try_stack[] = $node.finally;
+        }
+
+        if (len($node.catches) == 0) {
+            #visit($node.body);
+        } else {
+            #emit("TRY", ["CATCH_{$n}"]);
+            #try_stack[] = null;
+            #visit($node.body);
+            delete #try_stack[len(#try_stack) - 1];
+            #emit("END_TRY");
+            #emit("JMP", ["ENDTRY_{$n}"]);
+
+            #emit("LABEL", ["CATCH_{$n}"]);
+            foreach ($node.catches as $i => [$class, $variable, $body]) {
+                if ($class == null) {
+                    #emit("CATCH_VALUE");
+                } else {
+                    #emit("CATCH_MATCH", [$class, "NEXTCATCH_{$n}_{$i}"]);
+                }
+                #emit_variable("STORE", $variable);
+                #visit($body);
+                if ($class != null) {
+                    #emit("JMP", ["ENDTRY_{$n}"]);
+                    #emit("LABEL", ["NEXTCATCH_{$n}_{$i}"]);
+                }
+            }
+            // No clause matched: the error carries on
+            if ($class != null) {
+                #emit("RETHROW");
+            }
+            #emit("LABEL", ["ENDTRY_{$n}"]);
+        }
+
+        if ($node.finally != null) {
+            delete #try_stack[len(#try_stack) - 1];
+            #emit("END_TRY");
+            #visit($node.finally);
+            #emit("JMP", ["ENDFINALLY_{$n}"]);
+
+            #emit("LABEL", ["FINALLY_{$n}"]);
+            $error = #hidden("\$#finally_error_{$n}");
+            #emit_variable("STORE", $error);
+            #visit($node.finally);
+            #emit_variable("LOAD", $error);
+            #emit("RETHROW");
+            #emit("LABEL", ["ENDFINALLY_{$n}"]);
+        }
+    }
+
+    // What leaving the innermost handlers takes, down to a depth: END_TRY for each, and a
+    // finally block's code after its own, compiled as if it were outside its try
+    fn leave_tries($depth) {
+        $stack = #try_stack;
+        while (len(#try_stack) > $depth) {
+            #emit("END_TRY");
+            $last = len(#try_stack) - 1;
+            $finally = #try_stack[$last];
+            delete #try_stack[$last];
+            if ($finally != null) {
+                #visit($finally);
+            }
+        }
+        #try_stack = $stack;
+    }
+
+    fn visit_loop_control($node) {
+        [$continue_label, $end_label, $loop_try_depth] = #loop_labels[len(#loop_labels) - 1];
+        // Jumping out of a try block leaves it, so its handler must be removed first
+        #leave_tries($loop_try_depth);
+        #emit("JMP", [$node.token.type == "BREAK" ? $end_label : $continue_label]);
+    }
+
+    // A test per arm value jumping to its body, then the bodies (see CodeGenerator::visitMatch())
+    fn visit_match($node) {
+        $n = #label_counter++;
+        $end_label = "MATCH_END_{$n}";
+        $subject = null;
+
+        if ($node.subject != null) {
+            $subject = #hidden("\$#match_" .. #hidden_counter++);
+            #visit($node.subject);
+            #emit_variable("STORE", $subject);
+        }
+
+        $default = false;
+        foreach ($node.arms as $i => $arm) {
+            $label = "MATCH_ARM_{$n}_{$i}";
+            if ($arm[0] == null) {
+                // The default arm is last, so nothing after this jump is reachable
+                #emit("JMP", [$label]);
+                $default = true;
+                break;
+            }
+            foreach ($arm[0] as $value) {
+                if ($subject != null) {
+                    #emit_variable("LOAD", $subject);
+                }
+                #visit($value);
+                if ($subject != null) {
+                    #emit("EQUALS");
+                }
+                #emit("NOT");
+                #emit("JZ", [$label]);
+            }
+        }
+        if (!$default) {
+            if ($subject == null) {
+                #emit("NO_CONDITION");
+            } else {
+                #emit_variable("LOAD", $subject);
+                #emit("NO_MATCH");
+            }
+        }
+
+        foreach ($node.arms as $i => [$values, $body, $block]) {
+            #emit("LABEL", ["MATCH_ARM_{$n}_{$i}"]);
+            #visit($body);
+            if ($block) {
+                #emit("PUSH", [null]);
+            }
+            #emit("JMP", [$end_label]);
+        }
+        #emit("LABEL", [$end_label]);
+    }
+
+    fn visit_ternary($node) {
+        $else_label = "TERNARY_ELSE_" .. #label_counter;
+        $end_label = "TERNARY_END_" .. #label_counter;
+        #label_counter++;
+
+        #visit($node.condition);
+        #emit("JZ", [$else_label]);
+        #visit($node.then);
+        #emit("JMP", [$end_label]);
+        #emit("LABEL", [$else_label]);
+        #visit($node.else);
+        #emit("LABEL", [$end_label]);
+    }
+
+    fn visit_property($node) {
+        if ($node.constant) {
+            #emit("PUSH", [$node.value]);
+            return;
+        }
+        // #name for a field: fields are never removed and a subclass can't turn one into a method
+        if ($node.field && !$node.existing) {
+            #emit("LOAD_FIELD", [$node.name]);
+            return;
+        }
+        #visit($node.target);
+        #emit($node.existing ? "GET_PROPERTY_EXISTING" : "GET_PROPERTY", [$node.name]);
+    }
+
+    fn visit_method_call($node) {
+        #visit($node.property.target);
+        #emit("GET_METHOD", [$node.property.name]);
+        foreach ($node.args as $arg) {
+            #visit($arg);
+        }
+        #emit("CALL_METHOD", [len($node.args), $node.property.name]);
+    }
+
+    fn visit_parent_method($node) {
+        if ($node.args == null) {
+            #emit("BIND_PARENT", [$node.definer, $node.name]);
+            return;
+        }
+        foreach ($node.args as $arg) {
+            #visit($arg);
+        }
+        #emit("CALL_PARENT", [$node.definer, $node.name, len($node.args)]);
+    }
+
+    fn visit_function_call($node) {
+        foreach ($node.args as $arg) {
+            #visit($arg);
+        }
+        $opcode = match {
+            has_key(#builtins, $node.name) => "CALL_BUILTIN",
+            has_key(#classes, $node.name) => "NEW",
+            default => "CALL",
+        };
+        #emit($opcode, [$node.name, len($node.args)]);
+    }
+
+    fn visit_function_ref($node) {
+        if ($node.constant) {
+            // A use of a constant is its value, which the parser worked out
+            #emit("PUSH", [$node.value]);
+            return;
+        }
+        #emit(has_key(#classes, $node.name) ? "PUSH_CLASS" : "PUSH_FN", [$node.name]);
+    }
+
+    // MAKE_CLOSURE, with the body compiled later by compile(). The capture map is recorded now,
+    // while the enclosing frame's slots are known.
+    fn visit_lambda($node) {
+        $map = [];
+        foreach ($node.captures as $i => $name) {
+            $map[] = has_key(#captures, $name)
+                ? [true, #captures[$name], $i]
+                : [false, #var_addresses[$name] ??= len(#var_addresses), $i];
+        }
+        #lambdas[] = [$node, $map];
+        #emit("MAKE_CLOSURE", [len(#lambdas) - 1]);
+    }
+
+    fn visit_call_value($node) {
+        #visit($node.callee);
+        foreach ($node.args as $arg) {
+            #visit($arg);
+        }
+        #emit("CALL_VALUE", [len($node.args)]);
+    }
+
+    fn visit_return_statement($node) {
+        if ($node.expr == null) {
+            #emit("PUSH", [null]);
+        } else {
+            #visit($node.expr);
+        }
+
+        // Finally blocks around the return run first, with the value held in a hidden variable
+        $finally = false;
+        foreach (#try_stack as $handler) {
+            $finally = $finally || $handler != null;
+        }
+        if ($finally) {
+            $value = #hidden("\$#return_" .. #hidden_counter++);
+            #emit_variable("STORE", $value);
+            #leave_tries(0);
+            #emit_variable("LOAD", $value);
+        }
+        #emit("RET");
+    }
+
+    // A function's prologue for its default parameter values
+    fn default_arguments($function) {
+        foreach ($function.defaults as $i => $default) {
+            if ($default == null) {
+                continue;
+            }
+            $skip_label = "PASSED_" .. #label_counter++;
+
+            #emit("ARGC");
+            #emit("PUSH", [$i]);
+            #emit("GT");
+            #emit("NOT");
+            #emit("JZ", [$skip_label]);
+            #visit($default);
+            #emit("STORE", [$i]);
+            #emit("LABEL", [$skip_label]);
+        }
+    }
+
+    // Compile the tree into a program
+    fn compile() {
+        foreach (is_a(#tree, CompoundAST) ? #tree.statements : [] as $statement) {
+            if (is_a($statement, ClassDeclarationAST)) {
+                #classes[$statement.name] = $statement;
+            }
+        }
+        #visit(#tree);
+        #block({"kind" => "top"});
+
+        foreach (#functions as $function) {
+            #compile_body($function, $function.params);
+            #block({"kind" => "fn", "name" => $function.name, "arity" => $function.arity});
+        }
+
+        // A class block holds its record and the code that makes one of its objects; its methods
+        // are functions named "Class.name", which no function name can be
+        foreach (#classes as $class) {
+            #compile_initialiser($class);
+            #block({
+                "kind" => "class", "name" => $class.name, "parent" => $class.parent,
+                "abstract" => $class.abstract, "fields" => $class.layout, "methods" => $class.members,
+            });
+            foreach ($class.methods as $method) {
+                if (!$method.abstract) {
+                    #compile_body($method, $method.params);
+                    #block({"kind" => "fn", "name" => "{$class.name}.{$method.name}", "arity" => $method.arity});
+                }
+            }
+        }
+
+        // A worklist: compiling a body can find more lambdas inside it
+        for ($i = 0; $i < len(#lambdas); $i++) {
+            [$lambda, $map] = #lambdas[$i];
+            #compile_body($lambda, $lambda.params);
+            #block({
+                "kind" => "lambda", "index" => $i, "arity" => $lambda.arity, "captures" => $lambda.captures,
+                "self" => $lambda.self == null ? null : index_in($lambda.captures, $lambda.self), "map" => $map,
+            });
+        }
+
+        return Program(#blocks, keys(#global_addresses));
+    }
+
+    // The code that makes a new object of a class: the field defaults, the parent's first, then
+    // the constructor with the same arguments, whose slots are kept free of hidden variables
+    fn compile_initialiser($class) {
+        $arity = has_key($class.members, "_") ? #classes[$class.members["_"]].methods["_"].arity : 0;
+        #var_addresses = {};
+        for ($i = 0; $i < (type_of($arity) == "int" ? $arity : $arity[1]); $i++) {
+            #var_addresses["\$#argument_{$i}"] = $i;
+        }
+        #captures = {};
+        [#file, #line] = [$class.file, $class.line];
+
+        foreach ($class.layout as $field => $declarer) {
+            $default = #classes[$declarer].fields[$field];
+            if ($default != null) {
+                #visit($default);
+                #emit("SET_FIELD", [$field]);
+                #emit("POP");
+            }
+        }
+        if (has_key($class.members, "_")) {
+            #emit("CALL_CONSTRUCTOR", [$class.members["_"]]);
+            #emit("POP");
+        }
+        #emit("LOAD_THIS");
+        #emit("RET");
+    }
+
+    // A function or lambda body in its own frame, its parameters in the first slots
+    fn compile_body($node, $slots) {
+        #var_addresses = {};
+        foreach ($slots as $slot => $name) {
+            #var_addresses[$name] = $slot;
+        }
+        #captures = {};
+        if (is_a($node, LambdaAST)) {
+            foreach ($node.captures as $index => $name) {
+                #captures[$name] = $index;
+            }
+        }
+        [#file, #line] = [$node.file, $node.line];
+
+        #default_arguments($node);
+        #visit($node.body);
+        // Falling off the end returns null; a lambda's expression body leaves its value
+        if (!is_a($node, LambdaAST) || is_a($node.body, CompoundAST)) {
+            #emit("PUSH", [null]);
+        }
+        #emit("RET");
+    }
+}
+
+// Where a value first is in a list
+fn index_in($list, $value) {
+    foreach ($list as $i => $element) {
+        if ($element == $value) {
+            return $i;
+        }
+    }
+
+    return null;
+}
+
+// The writing half of Program.php: a compiled program as a bytecode file
+class Program {
+    const MAGIC = "GAZLANG BYTECODE";
+    const VERSION = 1;
+
+    #blocks;
+    #global_names;
+
+    fn _($blocks, $global_names) {
+        #blocks = $blocks;
+        #global_names = $global_names;
+    }
+
+    // The file, ending in a newline. Paths are written relative to the directory of the main
+    // source file ($main as the user named it, or null for piped or inline source), so bytecode
+    // saved next to its source reports the same paths as running the source does.
+    fn write($main = null) {
+        // As absolute(dirname($main)): a textual ".." drops the file name the same way
+        $base = #absolute($main == null ? "." : $main .. "/..");
+        $out = #MAGIC .. " " .. #VERSION .. "\n" .. join(#with("globals", #global_names), " ") .. "\n";
+
+        foreach (#blocks as $block) {
+            $out ..= "\n";
+            foreach (#header($block) as $line) {
+                $out ..= $line .. "\n";
+            }
+            $out ..= join(#with("locals", $block["locals"]), " ") .. "\n";
+
+            [$file, $line] = [null, null];
+            foreach ($block["code"] as [$opcode, $args, $at_file, $at_line]) {
+                // A label is a position, not an instruction, so it has no location of its own
+                if ($opcode != "LABEL" && $at_line != null && ($at_file != $file || $at_line != $line)) {
+                    [$file, $line] = [$at_file, $at_line];
+                    $out ..= $file == null ? "@ {$line}\n" : "@ " .. #literal(#relative($file, $base)) .. " {$line}\n";
+                }
+                $out ..= $opcode;
+                foreach ($args as $argument) {
+                    // PUSH's value is the only argument written as a literal
+                    $out ..= " " .. ($opcode == "PUSH" ? #literal($argument) : $argument);
+                }
+                $out ..= "\n";
+            }
+        }
+
+        return $out;
+    }
+
+    // A list with a word in front, since there is no spread
+    fn with($first, $rest) {
+        $list = [$first];
+        foreach ($rest as $element) {
+            $list[] = $element;
+        }
+
+        return $list;
+    }
+
+    // A value as a GazLang literal, which reads back as the same value: a list prints its
+    // elements as literals, which is Lexer::quote() for a string and format_float() for a float
+    fn literal($value) {
+        return slice(to_string([$value]), 1, -1);
+    }
+
+    // The header lines of a block
+    fn header($block) {
+        $bounds = $arity -> type_of($arity) == "int" ? "{$arity} {$arity}" : "{$arity[0]} {$arity[1]}";
+        return match ($block["kind"]) {
+            "fn" => ["fn {$block["name"]} " .. $bounds($block["arity"])],
+            "class" => #class_header($block),
+            "lambda" => #lambda_header($block, $bounds($block["arity"])),
+            default => ["top"],
+        };
+    }
+
+    fn class_header($block) {
+        $lines = [($block["abstract"] ? "abstract class " : "class ") .. $block["name"]
+            .. ($block["parent"] == null ? "" : " extends {$block["parent"]}")];
+        foreach ($block["fields"] as $field => $declarer) {
+            $lines[] = "field {$field} {$declarer}";
+        }
+        foreach ($block["methods"] as $method => $definer) {
+            $lines[] = "method {$method} {$definer}";
+        }
+
+        return $lines;
+    }
+
+    fn lambda_header($block, $bounds) {
+        $lines = ["lambda {$block["index"]} {$bounds}"];
+        foreach ($block["map"] as [$from_closure, $outer, $inner]) {
+            $lines[] = "capture " .. $block["captures"][$inner] .. ($from_closure ? " captured " : " local ") .. $outer;
+        }
+        if ($block["self"] != null) {
+            $lines[] = "self " .. $block["captures"][$block["self"]];
+        }
+
+        return $lines;
+    }
+
+    // A path as it is written in a bytecode file: relative to the main source file's directory,
+    // which is absolute and normalised. A name in angle brackets, like <builtin>, is not a path.
+    fn relative($file, $base) {
+        if (starts_with($file, "<")) {
+            return $file;
+        }
+
+        $from = #segments($base);
+        $to = #segments(#absolute($file));
+        $same = 0;
+        while ($same < len($from) && $same < len($to) && $from[$same] == $to[$same]) {
+            $same++;
+        }
+        $steps = [];
+        for ($i = $same; $i < len($from); $i++) {
+            $steps[] = "..";
+        }
+        for ($i = $same; $i < len($to); $i++) {
+            $steps[] = $to[$i];
+        }
+
+        return join($steps, "/");
+    }
+
+    // A path made absolute and normalised without asking the file system, since it need not
+    // exist: textual on purpose, unlike the parser's includes
+    fn absolute($path) {
+        $parts = [];
+        foreach (#segments(starts_with($path, "/") ? $path : cwd() .. "/" .. $path) as $part) {
+            // Nothing is above the root, so a .. there is dropped
+            if ($part == "..") {
+                if (len($parts) > 0) {
+                    delete $parts[len($parts) - 1];
+                }
+            } else if ($part != ".") {
+                $parts[] = $part;
+            }
+        }
+
+        return "/" .. join($parts, "/");
+    }
+
+    // A path's parts, without the empty ones a leading, trailing or doubled slash gives
+    fn segments($path) {
+        $parts = [];
+        foreach (split($path, "/") as $part) {
+            if ($part != "") {
+                $parts[] = $part;
+            }
+        }
+
+        return $parts;
+    }
+}
