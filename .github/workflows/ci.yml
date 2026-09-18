@@ -8,7 +8,7 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # The bootstrap needs nothing but a C compiler: build gazlang, run a program, and rebuild
       # the compiler with gazlang alone, which must give the checked-in bytecode

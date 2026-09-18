@@ -187,8 +187,8 @@ its frames.
 The lexer, parser and code generator are written in GazLang and checked against the PHP ones;
 the VM is written in C and checked against the PHP one; `bin/gazlang` is that VM with the
 compiler built in, and rebuilds its own compiler (`make -C vm compiler`). The PHP
-implementation stays as the reference, `bin/gazlang-php`. What is left, and what is open in the
-language, is in [CLAUDE.md](../CLAUDE.md) under "Status and what is next".
+implementation stays as the reference, `bin/gazlang-php`. CI builds and tests it on Linux on every push. What is open in the language
+is in [CLAUDE.md](../CLAUDE.md) under "Status and what is next".
 
 New features are judged by what they cost **in C**, not only in PHP: anything that leans on
 PHP's own behaviour (hashing, string conversion, float formatting) has to become a rule GazLang

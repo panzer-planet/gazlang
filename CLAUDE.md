@@ -77,7 +77,9 @@ vendor/bin/pint                     # formatting
 - **Documentation**: PHPDoc for classes and methods with parameter/return types.
 - **Error Handling**: throw exceptions with descriptive messages.
 - **Class Structure**: properties at top, constructor next, public methods first.
-- **C** (`vm/`): plain C11, libc, libm and pthreads only, commented where the C isn't obvious (a
+- **C** (`vm/`): plain C11 plus POSIX (`-D_DEFAULT_SOURCE`, which glibc needs for
+  `open_memstream`, `realpath` and `memmem`), libc, libm and pthreads only, built warning-free by
+  clang and gcc, commented where the C isn't obvious (a
   flexible array member, a `goto` into shared code), for readers who know a little C.
 - `ponytail:` comments mark known ceilings, with what would lift them.
 
@@ -141,7 +143,10 @@ versions of a fuzzer or corpus passed everything and caught nothing.
   doesn't run on macOS. With `GAZVM_STATS` set, the end of a run drops the globals and the top
   frame, collects cycles and prints `gazvm: N values leaked`, N being what is left beyond the
   constants loaded with the code; the harness, `progress.php` and `fuzz_vms.php` fail an entry
-  that leaks or prints no line. `exit()` and a refused file say `leaks not checked`.
+  that leaks or prints no line. `exit()` and a refused file say `leaks not checked`. On Linux
+  LeakSanitizer also runs in the sanitized builds and catches plain allocations the count
+  can't see; `__lsan_default_suppressions()` in `vm.c` exempts only the loader, which gives up
+  on a broken file without freeing what it built.
 - **The two CLIs match** (`CliParityTest`): a table of invocations of `tests/cli/` programs
   (arguments, what is piped in, working directory) through both, which must give the same
   stdout, stderr and exit code. A change to either CLI's options or how they read input needs
@@ -193,9 +198,10 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
 
 ## Status and what is next
 
-- **A Linux build.** The VM has only been built on macOS; `open_memstream()` and `realpath()`
-  want `_POSIX_C_SOURCE` on Linux. A GitHub Actions job on Ubuntu running `make -C vm` and the
-  suite (github.com:panzer-planet/gazlang) is the easy way: waiting for Werner to say when.
+- **CI** (`.github/workflows/ci.yml`) runs on Ubuntu for every push: it builds gazlang and
+  rebuilds its compiler before PHP is even installed (the bootstrap needs only a C compiler),
+  then the suite, the whole-repository group, phpstan and pint. There is no macOS job; macOS is
+  where it is developed.
 - **Known limits**, none worth fixing yet:
   - The self-hosted parser runs out of call depth on source nested past about 1100 levels
     (recursive descent is about nine calls a level), as an internal error. Its tree walks use
