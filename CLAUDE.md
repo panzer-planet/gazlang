@@ -1008,8 +1008,10 @@ the parser and `--tokens` never shows one. Built 2026-09-18.
   comment still open is open because that one never closed.
 - **A `/` is only an opener before a `*`**, so `8 / 2` and `/=` are untouched, and `/*` inside
   a string literal or after a `//` is just text. There is no doc-comment convention.
-- `editors/gaz.tmLanguage` highlights them, with the caveat that a TextMate grammar cannot
-  count depth, so a nested comment stops highlighting at the first `*/`.
+- `editors/gaz.tmLanguage` highlights them, nesting included: the `block-comment` repository
+  rule includes itself, so an inner `/*` starts another begin/end pair and the first `*/`
+  closes only that one, which is how Rust's own grammar does it. A plain begin/end rule ends
+  at the first `*/` and highlights the rest of the comment as code.
 
 **Keywords are lowercase and matched exactly** (decided and built 2026-09-18), as in every
 language designed since C. They used to be case-insensitive, copied from PHP, which reserved

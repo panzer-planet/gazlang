@@ -71,15 +71,27 @@
 					<key>match</key>
 					<string>//.*$</string>
 				</dict>
-				<!-- Block comments nest in GazLang; TextMate grammars cannot count depth,
-				     so this highlights to the first */ and a nested one ends early. -->
 				<dict>
-					<key>name</key>
-					<string>comment.block.gaz</string>
-					<key>begin</key>
-					<string>/\*</string>
-					<key>end</key>
-					<string>\*/</string>
+					<key>include</key>
+					<string>#block-comment</string>
+				</dict>
+			</array>
+		</dict>
+		<!-- Block comments nest. The rule includes itself, so an inner /* starts another
+		     begin/end pair and the first */ closes only that one, matching the lexer. -->
+		<key>block-comment</key>
+		<dict>
+			<key>name</key>
+			<string>comment.block.gaz</string>
+			<key>begin</key>
+			<string>/\*</string>
+			<key>end</key>
+			<string>\*/</string>
+			<key>patterns</key>
+			<array>
+				<dict>
+					<key>include</key>
+					<string>#block-comment</string>
 				</dict>
 			</array>
 		</dict>
