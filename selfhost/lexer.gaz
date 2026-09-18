@@ -44,6 +44,15 @@ class Lexer {
     #char;
     #line = 1;
 
+    // Double-quoted strings with an interpolation in progress, innermost last, each
+    // [state, the line the string starts on, how many { are open inside it]:
+    // "braces" is inside {$...}, where the } matching it resumes the string (a map literal or
+    // block body inside has its own braces); "bare" means the next token is the $name of
+    // "Hi $name"; "after_bare" means that $name was read, so the string resumes
+    #interpolations = [];
+    // Tokens already read that get_next_token() gives before reading more: the [key] of "$a[0]"
+    #queued_tokens = [];
+
     // Every operator and punctuation mark but { and }; the longest one that matches wins
     #operators = {
         "+" => "PLUS", "+=" => "PLUS_ASSIGN", "++" => "INCREMENT",
@@ -251,12 +260,23 @@ class Lexer {
         return slice(#text, $start, #pos - $start);
     }
 
-    // The text of a double-quoted string, up to its closing quote. $first is true at the
-    // opening quote
+    // The text of a double-quoted string, up to its closing quote or next interpolation
+    //
+    // Without interpolation a string is one STRING. With it, it is STRING_START (the text
+    // before the first one), each interpolated expression's tokens, STRING_MIDDLE between them
+    // and STRING_END after the last. "$name" interpolates a variable and "{$...}", "{@...}" and
+    // "{#...}" an expression; the braces themselves give no tokens. $first is true at the
+    // opening quote, false when resuming after an interpolation.
     fn string_part($first) {
-        // An unterminated string is reported where it starts
-        $start_line = #line;
-        #skip(1);
+        if ($first) {
+            // An unterminated string is reported where it starts
+            $start_line = #line;
+            #skip(1);
+        } else {
+            $last = len(#interpolations) - 1;
+            $start_line = #interpolations[$last][1];
+            delete #interpolations[$last];
+        }
 
         $text = "";
         while (#char != "" && #char != "\"") {
@@ -266,6 +286,15 @@ class Lexer {
                     break;
                 }
                 $text ..= #escape();
+            } else if (#char == "$" && #is_name_start(#peek())) {
+                #interpolations[] = ["bare", $start_line, 0];
+
+                return Token($first ? "STRING_START" : "STRING_MIDDLE", $text);
+            } else if (#char == "{" && in_array(#peek(), ["$", "@", "#"])) {
+                #skip(1);
+                #interpolations[] = ["braces", $start_line, 0];
+
+                return Token($first ? "STRING_START" : "STRING_MIDDLE", $text);
             } else {
                 $text ..= #char;
                 #advance();
@@ -277,7 +306,48 @@ class Lexer {
         }
         #skip(1);
 
-        return Token("STRING", $text);
+        return Token($first ? "STRING" : "STRING_END", $text);
+    }
+
+    // The one [key] PHP allows after a bare interpolated variable, at the [: the [, key and ]
+    //
+    // "$a[0]" and "$a[-1]" index by int, "$a[key]" by the string "key" and "$a[$i]" by a
+    // variable. Digits that aren't a canonical int, like 01 or -0, are a string key, as in
+    // PHP. Only one index is read: "$a[0][1]" is $a[0] followed by the text [1].
+    fn interpolated_index() {
+        $line = #line;
+        #skip(1);
+
+        $key = null;
+        if (#char == "$") {
+            $key = #var_identifier();
+        } else if (is_digit(#char) || #char == "-") {
+            $digits = #char;
+            #skip(1);
+            $digits ..= #read_digits();
+            $key = Token("STRING", $digits);
+            try {
+                if (to_string(to_int($digits)) == $digits) {
+                    $key = Token("INTEGER", to_int($digits));
+                }
+            } catch (Error $e) {
+                // A lone - or digits too large for an int: not a canonical int either
+            }
+        } else if (#is_name_start(#char)) {
+            $key = Token("STRING", #read_word());
+        }
+
+        if ($key == null || $key.value == "-" || #char != "]") {
+            #fail('Invalid array index in interpolated string: use "{$name[...]}" for anything but [0], [-1], [key] or [$i]', $line);
+        }
+        #skip(1);
+
+        $tokens = [Token("LEFT_BRACKET", "["), $key, Token("RIGHT_BRACKET", "]")];
+        foreach ($tokens as $token) {
+            $token.line = $line;
+        }
+
+        return $tokens;
     }
 
     // What the escape after a backslash stands for
@@ -402,6 +472,38 @@ class Lexer {
 
     // Skip whitespace and comments, then read one token
     fn get_next_token() {
+        if (len(#queued_tokens) > 0) {
+            $token = #queued_tokens[0];
+            delete #queued_tokens[0];
+
+            return $token;
+        }
+
+        $line = #line;
+        $last = len(#interpolations) - 1;
+        $state = $last < 0 ? null : #interpolations[$last][0];
+
+        if ($state == "bare") {
+            // "Hi $name": the variable, then the rest of the string
+            #interpolations[$last][0] = "after_bare";
+            $token = #var_identifier();
+            if (#char == "[") {
+                #queued_tokens = #interpolated_index();
+            }
+        } else if ($state == "after_bare") {
+            $token = #string_part(false);
+        } else {
+            #skip_ignored();
+            $line = #line;
+            $token = #scan_token();
+        }
+        $token.line = $line;
+
+        return $token;
+    }
+
+    // Whitespace and comments
+    fn skip_ignored() {
         while (#char != "") {
             if (is_space(#char)) {
                 #skip_whitespace();
@@ -410,15 +512,9 @@ class Lexer {
             } else if (#char == "/" && #peek() == "*") {
                 #skip_block_comment();
             } else {
-                break;
+                return;
             }
         }
-
-        $line = #line;
-        $token = #scan_token();
-        $token.line = $line;
-
-        return $token;
     }
 
     // The token starting at the current character, which is not whitespace or a comment
@@ -426,7 +522,13 @@ class Lexer {
         $c = #char;
 
         match {
-            $c == "" => { return Token("EOF", null); }
+            $c == "" => {
+                // The file ended inside "{$...": report the string where it starts
+                if (len(#interpolations) > 0) {
+                    #fail("Unterminated string", #interpolations[len(#interpolations) - 1][1]);
+                }
+                return Token("EOF", null);
+            }
             is_digit($c) => { return #number(); }
             $c == "\"" => { return #string_part(true); }
             $c == "'" => { return Token("STRING", #single_quoted_string()); }
@@ -440,10 +542,24 @@ class Lexer {
             }
             $c == "{" => {
                 #skip(1);
+                $last = len(#interpolations) - 1;
+                if ($last >= 0) {
+                    #interpolations[$last][2]++;
+                }
                 return Token("LEFT_BRACE", "{");
             }
             $c == "}" => {
                 #skip(1);
+                // The } closing "{$...}" resumes the string it interpolates into; one closing
+                // a brace opened inside it is an ordinary }
+                $last = len(#interpolations) - 1;
+                if ($last >= 0) {
+                    if (#interpolations[$last][2] > 0) {
+                        #interpolations[$last][2]--;
+                    } else if (#interpolations[$last][0] == "braces") {
+                        return #string_part(false);
+                    }
+                }
                 return Token("RIGHT_BRACE", "}");
             }
             default => {}
