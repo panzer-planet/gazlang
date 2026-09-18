@@ -91,6 +91,8 @@ class CodeGenerator {
             StringAST => #emit("PUSH", [$node.value]),
             ArrayLiteralAST => #visit_array_literal($node),
             IndexAST => #visit_index($node),
+            // An element of a list literal: its elements appended to the list below
+            SpreadAST => { #visit($node.expr); #emit("ARRAY_EXTEND"); }
             StatementAST => #visit_statement($node),
             EchoStatementAST => #visit_echo_statement($node),
             CompoundAST => #visit_compound($node),
@@ -153,15 +155,11 @@ class CodeGenerator {
     fn steps($target) {
         $steps = [];
         for ($node = $target; is_a($node, IndexAST) || is_a($node, PropertyAST); $node = $node.target) {
-            $steps[] = $node;
-        }
-        // Met from the end, and lists can't be prepended to, so turned around
-        $forwards = [];
-        for ($i = len($steps) - 1; $i >= 0; $i--) {
-            $forwards[] = $steps[$i];
+            // Met from the end, so each goes in front
+            $steps = [$node, ...$steps];
         }
 
-        return $forwards;
+        return $steps;
     }
 
     fn visit_variable($node) {
@@ -439,7 +437,10 @@ class CodeGenerator {
                 #emit("KEY_CHECK");
             }
             #visit($value);
-            #emit($key == null ? "ARRAY_PUSH" : "MAP_SET");
+            // A spread appends its own elements
+            if (!is_a($value, SpreadAST)) {
+                #emit($key == null ? "ARRAY_PUSH" : "MAP_SET");
+            }
         }
     }
 
@@ -941,14 +942,14 @@ class Program {
     fn write($main = null) {
         // As absolute(dirname($main)): a textual ".." drops the file name the same way
         $base = #absolute($main == null ? "." : $main .. "/..");
-        $out = #MAGIC .. " " .. #VERSION .. "\n" .. join(#with("globals", #global_names), " ") .. "\n";
+        $out = #MAGIC .. " " .. #VERSION .. "\n" .. join(["globals", ...#global_names], " ") .. "\n";
 
         foreach (#blocks as $block) {
             $out ..= "\n";
             foreach (#header($block) as $line) {
                 $out ..= $line .. "\n";
             }
-            $out ..= join(#with("locals", $block["locals"]), " ") .. "\n";
+            $out ..= join(["locals", ...$block["locals"]], " ") .. "\n";
 
             [$file, $line] = [null, null];
             foreach ($block["code"] as [$opcode, $args, $at_file, $at_line]) {
@@ -967,16 +968,6 @@ class Program {
         }
 
         return $out;
-    }
-
-    // A list with a word in front, since there is no spread
-    fn with($first, $rest) {
-        $list = [$first];
-        foreach ($rest as $element) {
-            $list[] = $element;
-        }
-
-        return $list;
     }
 
     // A value as a GazLang literal, which reads back as the same value: a list prints its

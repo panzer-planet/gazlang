@@ -29,7 +29,7 @@ require __DIR__.'/fuzz_common.php';
 const ATOMS = [
     '$a', '$b', '$a', '@g', '#x', '#f', '#', '##f', '##_', '##', '.x', 'f', 'len', 'A', 'B', 'Error', 'If', 'Return', '_',
     '1', '1.5', '"s"', '"a {$b} c"', "'\$a'", 'true', 'null', '[', ']', '[]', '(', ')', '()', '{', '}', '{}', ';', ',', '=>', '->', '?', ':',
-    '=', '+=', '..=', '??=', '++', '--', '+', '-', '*', '..', '==', '<', '&&', '||', '??', '!', '~', '&', '<<',
+    '=', '+=', '..=', '??=', '++', '--', '+', '-', '*', '..', '...', '[...$a]', '==', '<', '&&', '||', '??', '!', '~', '&', '<<',
     'echo', 'if', 'else', 'while', 'for', 'foreach', 'as', 'break;', 'continue;', 'return', 'return;', 'delete', 'match', 'default',
     'fn', 'function', 'class', 'extends', 'abstract', 'try', 'catch', 'finally', 'include', 'interface', 'private',
     'fn f($a) {', 'fn g($a, $b = 1) {', 'fn _() {', 'fn _($x) {', 'fn to_string() {', 'abstract fn f();', 'class A {', 'class B extends A {',

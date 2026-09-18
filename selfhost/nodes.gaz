@@ -112,6 +112,15 @@ class ArrayLiteralAST extends AST {
     }
 }
 
+// An element of a list literal written ...$expr: the elements of the list #expr gives
+class SpreadAST extends AST {
+    #expr;
+
+    fn _($expr) {
+        #expr = $expr;
+    }
+}
+
 // $target[$index], or $target[] when #index is null
 class IndexAST extends AST {
     #target;

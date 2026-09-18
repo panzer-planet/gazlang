@@ -1,0 +1,2 @@
+// Four dots: ... then a lone ., which is no token
+[....$a];

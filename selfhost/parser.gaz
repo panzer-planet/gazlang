@@ -77,13 +77,10 @@ class VariableCollector {
         $targets = match {
             is_a($node, AssignAST) && is_a($node.left, ListPatternAST) => $node.left.targets,
             is_a($node, AssignAST) && $node.token.type == "ASSIGN" => [$node.left],
-            is_a($node, ForeachStatementAST) && is_a($node.value, ListPatternAST) => $node.value.targets,
-            is_a($node, ForeachStatementAST) => [$node.value],
+            is_a($node, ForeachStatementAST) && is_a($node.value, ListPatternAST) => [$node.key, ...$node.value.targets],
+            is_a($node, ForeachStatementAST) => [$node.key, $node.value],
             default => [],
         };
-        if (is_a($node, ForeachStatementAST)) {
-            $targets[] = $node.key;
-        }
         if (is_a($node, TryStatementAST)) {
             foreach ($node.catches as $catch) {
                 $targets[] = $catch[1];
@@ -417,6 +414,8 @@ class Parser {
             return #parent_method();
         } else if ($type == "PARENT") {
             #fail("## alone is not allowed: write ##name for the parent's version of a method");
+        } else if ($type == "SPREAD") {
+            #fail("... only spreads a list into a list literal, as in [...\$a, 1]");
         } else if (in_array($type, #RESERVED)) {
             #fail("{$token.value} is reserved");
         }
@@ -656,7 +655,14 @@ class Parser {
 
         $entries = [];
         while (#current_token.type != "RIGHT_BRACKET") {
-            $entries[] = [null, #expr()];
+            if (#current_token.type == "SPREAD") {
+                // ...$a puts the elements of the list $a here
+                $spread = #current_token;
+                #eat("SPREAD");
+                $entries[] = [null, #at(SpreadAST(#expr()), $spread)];
+            } else {
+                $entries[] = [null, #expr()];
+            }
             if (#current_token.type == "DOUBLE_ARROW") {
                 #fail("A list has no keys: write a map as \{key => value}");
             }
@@ -894,6 +900,11 @@ class Parser {
     fn list_pattern($literal, $target) {
         if ($literal.entries == []) {
             #fail_at("Nothing to take apart: write at least one target in [...]", #file, $literal.line);
+        }
+        foreach ($literal.entries as $entry) {
+            if (is_a($entry[1], SpreadAST)) {
+                #fail_at("A pattern can't take the rest with ...: take the list apart with slice()", $entry[1].file, $entry[1].line);
+            }
         }
         $targets = [];
         foreach ($literal.entries as $entry) {
@@ -1478,6 +1489,7 @@ class Parser {
             is_a($node, BinOpAST) => [$node.left, $node.right],
             is_a($node, TernaryAST) => [$node.condition, $node.then, $node.else],
             is_a($node, ArrayLiteralAST) => $node.entries,
+            is_a($node, SpreadAST) => [$node.expr],
             default => #fail_at("A constant's value can only use literals, operators and other constants", $node.file, $node.line),
         };
         foreach ($parts as $part) {
@@ -1528,7 +1540,13 @@ class Parser {
         } else if (is_a($node, ArrayLiteralAST) && !$node.map) {
             $list = [];
             foreach ($node.entries as $entry) {
-                $list[] = #fold($entry[1], $class);
+                if (is_a($entry[1], SpreadAST)) {
+                    // GazLang's own spread, which is Values::spread(), located at the ...
+                    $value = #fold($entry[1].expr, $class);
+                    $list = #located($entry[1], () -> [...$list, ...$value]);
+                } else {
+                    $list[] = #fold($entry[1], $class);
+                }
             }
 
             return $list;
@@ -1748,11 +1766,7 @@ class Parser {
             $uses_error = $uses_error || $class.parent == "Error";
         }
         if ($uses_error) {
-            $statements = [$error_class];
-            foreach ($root.statements as $statement) {
-                $statements[] = $statement;
-            }
-            $root.statements = $statements;
+            $root.statements = [$error_class, ...$root.statements];
         }
         foreach (#catch_types as [$name, $line, $file]) {
             if (!has_key(#classes, $name)) {

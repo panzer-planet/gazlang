@@ -123,7 +123,32 @@ class ConstTest extends GazLangTestCase
             '[1, [2.5, "s"], {"k" => [true, null]}]', '{"a" => 1, 1 => "one", "1" => "string one", "a" => 2}',
             '9223372036854775807', '-9223372036854775807 - 1', '9007199254740993 == 9007199254740992.0', '0.1 + 0.2',
             '1 + 2 * 3 - 4 / 5', '"n = " .. 1 + 2', '"x" .. 6 & 3', '1 << 2 + 1', '6 & 3 == 2',
+            '[...[1, 2], 3, ...[]]', '[...[[1]], ...["a" .. 1], ...[] ? [1] : [2]]',
         ];
+    }
+
+    /**
+     * What tests/parser_corpus/constant_values.gaz holds: a constant per expression, then all of them
+     */
+    public static function constantValuesSource(): string
+    {
+        $lines = [
+            '// Made from ConstTest::expressions(): every operator and kind of value a constant can have. The values are',
+            '// in the tree, on each use, so the two parsers are compared on what they work out.',
+        ];
+        $names = [];
+        foreach (self::expressions() as $i => $expression) {
+            $lines[] = "const C{$i} = {$expression};";
+            $names[] = "C{$i}";
+        }
+        $lines[] = 'echo ['.implode(', ', $names).'];';
+
+        return implode("\n", $lines)."\n";
+    }
+
+    public function test_the_ports_corpus_file_is_made_from_the_table()
+    {
+        $this->assertSame(self::constantValuesSource(), file_get_contents(self::ROOT.'/tests/parser_corpus/constant_values.gaz'));
     }
 
     public static function errors(): array
@@ -185,6 +210,7 @@ class ConstTest extends GazLangTestCase
             'a variable in the branch not taken' => ['const A = true ? 1 : $x;', "A constant's value can only use literals, operators and other constants on line 1"],
             'a call on the side not needed' => ["fn launch() {}\nconst A = true ||\n launch();", "A constant's value can only use literals, operators and other constants on line 3"],
             'an undefined name on the side not needed' => ['const A = false && MISSING;', 'Undefined constant: MISSING on line 1'],
+            'a spread of a string' => ["const A = [\n...\"s\"];", 'Cannot spread string: only a list can be on line 2'],
             'a bad key before a bad value' => ['const M = {1.5 => 1 / 0};', 'Keys must be int or string, got float on line 1'],
             'a constant where a parent goes' => ["const K = 1;\nclass A extends K {}", 'K is a constant, not a class on line 2'],
             'a constant where a catch type goes' => ['const K = 1; try { echo 1; } catch (K $e) { }', 'K is a constant, not a class on line 1'],

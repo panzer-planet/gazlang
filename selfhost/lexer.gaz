@@ -85,7 +85,7 @@ class Lexer {
         ">>" => "SHIFT_RIGHT", ">>=" => "SHIFT_RIGHT_ASSIGN",
         "=" => "ASSIGN", "==" => "EQUALS", "=>" => "DOUBLE_ARROW",
         "!" => "NOT", "!=" => "NOT_EQUALS",
-        ".." => "CONCAT", "..=" => "CONCAT_ASSIGN",
+        ".." => "CONCAT", "..=" => "CONCAT_ASSIGN", "..." => "SPREAD",
         "?" => "QUESTION", "??" => "COALESCE", "??=" => "COALESCE_ASSIGN",
     };
 
