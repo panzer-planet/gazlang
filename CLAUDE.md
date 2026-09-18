@@ -781,7 +781,8 @@ when it was written, not from now.
    its own `#line` or `#message`.
 6. **Smaller things, each with real uses behind it.** ~~No list concatenation or prepend.~~
    Built 2026-09-18 as spread in list literals (`[$x, ...$rest]`, see step 5), which replaced
-   the merge sort drains in `lib/functional.gaz` and seven workarounds in the ports. No reverse. ~~No constants.~~ Built 2026-09-18, see "Constants"; `examples/football.gaz`'s UPPERCASE
+   the merge sort drains in `lib/functional.gaz`, the seven workarounds the ports logged and two
+   copy loops they had not. No reverse. ~~No constants.~~ Built 2026-09-18, see "Constants"; `examples/football.gaz`'s UPPERCASE
    zero-argument functions, which re-`split()` a 50 name string on every call, were the evidence. ~~Counting into a map
    needs the key twice, which `+=` creating a missing key from zero would remove.~~ Withdrawn
    2026-09-18: the idiom is already there. `$m[$k] ??= 0; $m[$k]++;` works, because `??=`
