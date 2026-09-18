@@ -1699,8 +1699,8 @@ class Parser
     {
         $start = $this->current_token;
         $this->eat(Token::FN);
+        $this->check_new_name();
         $name = $this->current_token->value;
-        $this->check_new_name($name);
         $this->eat(Token::IDENTIFIER);
 
         [$params, $defaults] = $this->parameters("function {$name}");
@@ -1716,14 +1716,20 @@ class Parser
     }
 
     /**
-     * Check a function or class name isn't taken: functions, classes and builtins share one namespace
+     * Check the name being declared isn't taken: functions, classes and builtins share one namespace
      *
-     * @param  string  $name  The name being declared
+     * Asked before the name is eaten, so the error is at the name. Anything that isn't a
+     * name is left for eat() to refuse: fn "len"() is not a builtin's name, it is a string,
+     * and a bare fn at the end of the file has no value to look up at all.
      *
      * @throws GazLangError If it is taken
      */
-    private function check_new_name(string $name): void
+    private function check_new_name(): void
     {
+        if ($this->current_token->type !== Token::IDENTIFIER) {
+            return;
+        }
+        $name = $this->current_token->value;
         if (isset(Builtins::ARITIES[$name])) {
             $this->fail("{$name} is a builtin function");
         } elseif (isset($this->classes[$name]) && $this->classes[$name]->file === self::BUILTIN_FILE) {
@@ -1753,7 +1759,8 @@ class Parser
                 $this->eat(Token::COMMA);
             }
             $param = $this->current_token->value;
-            if (in_array($param, $params, true)) {
+            // Only a $variable can be a duplicate: '$a' is a string, which eat() refuses
+            if ($this->current_token->type === Token::VAR_IDENTIFIER && in_array($param, $params, true)) {
                 $this->fail("Duplicate parameter {$param} in {$owner}");
             }
             $this->eat(Token::VAR_IDENTIFIER);
@@ -1794,8 +1801,8 @@ class Parser
             $this->eat(Token::ABSTRACT);
         }
         $this->eat(Token::CLASS_KEYWORD);
+        $this->check_new_name();
         $name = $this->current_token->value;
-        $this->check_new_name($name);
         $this->eat(Token::IDENTIFIER);
         $parent = null;
         if ($this->current_token->type === Token::EXTENDS) {

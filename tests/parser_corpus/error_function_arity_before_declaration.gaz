@@ -1,0 +1,2 @@
+echo add();
+fn add($a) { }

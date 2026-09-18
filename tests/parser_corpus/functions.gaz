@@ -1,0 +1,36 @@
+// A call can come before the declaration, and a function can call itself
+echo add(1, 2) + twice(3);
+fn add($a, $b) { return $a + $b; }
+fn twice($n) { return add($n, $n); }
+fn nothing() {}
+fn bare() { return; }
+fn defaults($a, $b = 1, $c = $a + $b, $d = [], $e = len($d)) { return $c; }
+echo defaults(1) + defaults(1, 2) + defaults(1, 2, 3, [], 5);
+fn fib($n) {
+    if ($n < 2) {
+        return $n;
+    }
+
+    return fib($n - 1) + fib($n - 2);
+}
+fn loops($xs) {
+    foreach ($xs as $x) {
+        while ($x) { return $x; }
+    }
+    for ($i = 0; $i < 1; $i++) { return null; }
+}
+// A function is a value, and so is a call on one
+$f = add;
+echo $f(1, 2);
+echo [add, twice][0](1, 2);
+// Names that are keywords in another case are ordinary names, and get no hint once declared
+fn If($x) { return $x; }
+fn Return() { return 1; }
+echo If(1) + Return();
+// A lambda's block body is a function body of its own
+$g = ($x) -> { if ($x) { return 1; } return 2; };
+$h = () -> { while (true) { break; } return; };
+fn make() { return $n -> { return $n; }; }
+fn outer() { $f = () -> { foreach ($xs as $k => [$a, $b]) { $t = $a + $outer; } return $t + $k; }; return $f; }
+// return at the top level is allowed in a lambda's block
+$r = () -> { return () -> { return 1; }; };

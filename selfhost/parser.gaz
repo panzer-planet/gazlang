@@ -51,8 +51,13 @@ class VariableCollector {
         $targets = match {
             is_a($node, AssignAST) && is_a($node.left, ListPatternAST) => $node.left.targets,
             is_a($node, AssignAST) && $node.token.type == "ASSIGN" => [$node.left],
+            is_a($node, ForeachStatementAST) && is_a($node.value, ListPatternAST) => $node.value.targets,
+            is_a($node, ForeachStatementAST) => [$node.value],
             default => [],
         };
+        if (is_a($node, ForeachStatementAST)) {
+            $targets[] = $node.key;
+        }
         foreach ($targets as $target) {
             if (is_a($target, VariableAST) && !$target.is_global()) {
                 #assigned[$target.value] = true;
@@ -116,9 +121,9 @@ class Parser {
     // Keywords reserved for features that don't exist yet, so adding them never breaks a program
     #reserved = ["INTERFACE", "IMPLEMENTS", "FINAL", "PUBLIC", "PRIVATE", "PROTECTED"];
 
-    // Declared function names mapped to their parameter counts, [fewest, most] when some are
-    // optional. It starts as Builtins::ARITIES, which SelfHostedParserTest keeps this in step with.
-    #functions = {
+    // Builtins::ARITIES: every builtin function mapped to its parameter count, [fewest, most]
+    // when some are optional. SelfHostedParserTest keeps this in step with the runtime's.
+    #builtins = {
         "len" => 1, "slice" => [2, 3], "lower" => 1, "upper" => 1, "trim" => 1, "split" => 2, "join" => 2,
         "replace" => 3, "contains" => 2, "starts_with" => 2, "ends_with" => 2, "index_of" => [2, 3],
         "repeat" => 2, "chr" => 1, "ord" => 1, "to_int" => 1, "to_float" => 1, "floor" => 1, "ceil" => 1,
@@ -127,6 +132,8 @@ class Parser {
         "class_of" => 1, "error" => 1, "exit" => [0, 1], "read_file" => 1, "write_file" => 2, "print" => 1,
         "print_error" => 1, "read_stdin" => 0, "args" => 0,
     };
+    // Those and the declared functions, which share their namespace
+    #functions = #builtins;
 
     // How expected tokens are described in syntax errors; other types are keywords, shown quoted and lowercase
     #expected = {
@@ -755,6 +762,30 @@ class Parser {
         return $node;
     }
 
+    // Parse an if statement (IF LPAREN expr RPAREN block [ELSE IF ...]* [ELSE block])
+    fn if_statement() {
+        $start = #current_token;
+        #eat("IF");
+        #eat("LEFT_PAREN");
+        $condition = #expr();
+        #eat("RIGHT_PAREN");
+        $if_body = #block();
+
+        $else_if = null;
+        $else_body = null;
+        if (#current_token.type == "ELSE") {
+            #eat("ELSE");
+            if (#current_token.type == "IF") {
+                // An else if is a nested if statement
+                $else_if = #if_statement();
+            } else {
+                $else_body = #block();
+            }
+        }
+
+        return #at(IfStatementAST($condition, $if_body, $else_if, $else_body), $start);
+    }
+
     // Parse a match (MATCH [LPAREN expr RPAREN] LBRACE arm (COMMA arm)* [COMMA] RBRACE)
     //
     // An arm is one or more comma separated expressions, or DEFAULT, then => then its body.
@@ -831,11 +862,248 @@ class Parser {
         return $block;
     }
 
-    // Parse a statement (expr SEMICOLON | echo_statement | match)
+    // Parse a while statement (WHILE LPAREN expr RPAREN block)
+    fn while_statement() {
+        $start = #current_token;
+        #eat("WHILE");
+        #eat("LEFT_PAREN");
+        $condition = #expr();
+        #eat("RIGHT_PAREN");
+
+        return #at(WhileStatementAST($condition, #loop_body()), $start);
+    }
+
+    // Parse a for statement (FOR LPAREN expr SEMICOLON expr SEMICOLON expr RPAREN block)
+    //
+    // Desugared into { init; while (condition) { body } } with step set on the
+    // while node, so the backends only need to know about while loops.
+    fn for_statement() {
+        $start = #current_token;
+        #eat("FOR");
+        #eat("LEFT_PAREN");
+        $init = #expr();
+        #eat("SEMICOLON");
+        $condition = #expr();
+        #eat("SEMICOLON");
+        $step = #expr();
+        #eat("RIGHT_PAREN");
+
+        $loop = #at(CompoundAST(), $start);
+        $loop.statements = [
+            #at(StatementAST($init), $start),
+            #at(WhileStatementAST($condition, #loop_body(), #at(StatementAST($step), $start)), $start),
+        ];
+
+        return $loop;
+    }
+
+    // Parse a foreach statement (FOREACH LPAREN expr AS variable [DOUBLE_ARROW variable] RPAREN block)
+    fn foreach_statement() {
+        $start = #current_token;
+        #eat("FOREACH");
+        #eat("LEFT_PAREN");
+        $iterable = #expr();
+        #eat("AS");
+
+        $key = null;
+        $value = #foreach_target();
+        if (#current_token.type == "DOUBLE_ARROW") {
+            if (!is_a($value, VariableAST)) {
+                #fail("A foreach key is a variable, not a pattern");
+            }
+            #eat("DOUBLE_ARROW");
+            $key = $value;
+            $value = #foreach_target();
+        }
+        #eat("RIGHT_PAREN");
+
+        return #at(ForeachStatementAST($iterable, $key, $value, #loop_body()), $start);
+    }
+
+    // Parse what foreach assigns each value to (variable | LBRACKET variable (COMMA variable)* [COMMA] RBRACKET)
+    //
+    // A pattern's targets are variables only, like foreach's own.
+    fn foreach_target() {
+        if (#current_token.type != "LEFT_BRACKET") {
+            return #variable();
+        }
+
+        return #list_pattern(#list_literal(), $target -> {
+            if (!is_a($target, VariableAST)) {
+                #fail_at("A foreach pattern takes variables only", $target.file, $target.line);
+            }
+
+            return $target;
+        });
+    }
+
+    // Parse a loop body, a block in which break and continue are allowed
+    fn loop_body() {
+        #loop_depth++;
+        $body = #block();
+        #loop_depth--;
+
+        return $body;
+    }
+
+    // Parse a break or continue statement ((BREAK | CONTINUE) SEMICOLON)
+    fn loop_control() {
+        $token = #current_token;
+        if (#loop_depth == 0) {
+            #fail(#in_finally ? "Cannot use {$token.value} in finally" : "Cannot use {$token.value} outside of a loop");
+        }
+
+        #eat($token.type);
+        #eat("SEMICOLON");
+
+        return #at(LoopControlAST($token), $token);
+    }
+
+    // Parse a return statement (RETURN [expr] SEMICOLON)
+    fn return_statement() {
+        if (#in_finally) {
+            #fail("Cannot use return in finally");
+        }
+        if (!#in_function) {
+            #fail("Cannot use return outside of a function");
+        }
+
+        $start = #current_token;
+        #eat("RETURN");
+        if (#in_constructor && #current_token.type != "SEMICOLON") {
+            #fail("A constructor can't return a value: constructing gives the object");
+        }
+        $expr = #current_token.type == "SEMICOLON" ? null : #expr();
+        #eat("SEMICOLON");
+
+        return #at(ReturnStatementAST($expr), $start);
+    }
+
+    // Parse a delete statement (DELETE postfix SEMICOLON), which removes an element of a list or map
+    //
+    // The target is written like an assignment's, a variable or # followed by steps, and
+    // must end in an index: a list's element, which the later ones move down to fill, or a
+    // map's key. Fields are declared, so a field is a parse error, and so is an append.
+    fn delete_statement() {
+        $start = #current_token;
+        #eat("DELETE");
+        $target = #postfix();
+        #eat("SEMICOLON");
+
+        if (is_a($target, PropertyAST)) {
+            #fail("Cannot delete a field: every object of a class has the fields it declares");
+        }
+        if (!is_a($target, IndexAST) || $target.index == null || path_root($target) == null) {
+            #fail("delete needs an element of a list or map, like delete \$a[0]");
+        }
+
+        return #at(DeleteStatementAST($target), $start);
+    }
+
+    // Parse a function declaration (FN IDENTIFIER LPAREN [param (COMMA param)*] RPAREN block),
+    // param: VAR_IDENTIFIER [ASSIGN expr]
+    //
+    // Only allowed at the top level, which is also why break and continue can
+    // never reach a caller's loop: a declaration is never inside a loop.
+    fn function_declaration() {
+        $start = #current_token;
+        #eat("FN");
+        #check_new_name();
+        $name = #current_token.value;
+        #eat("IDENTIFIER");
+
+        [$params, $defaults] = #parameters("function {$name}");
+        // Declared before the body is parsed, so the function can call itself
+        $arity = #arity($params, $defaults);
+        #functions[$name] = $arity;
+
+        #in_function = true;
+        $body = #block();
+        #in_function = false;
+
+        return #at(FunctionDeclarationAST($name, $params, $defaults, $body, $arity), $start);
+    }
+
+    // Check the name being declared isn't taken: functions, classes and builtins share one namespace
+    //
+    // Asked before the name is eaten, so the error is at the name. Anything that isn't a
+    // name is left for eat() to refuse.
+    fn check_new_name() {
+        if (#current_token.type != "IDENTIFIER") {
+            return;
+        }
+        $name = #current_token.value;
+        if (has_key(#builtins, $name)) {
+            #fail("{$name} is a builtin function");
+        } else if (has_key(#functions, $name)) {
+            #fail("Function {$name} is already declared");
+        }
+    }
+
+    // Parse a function or method's parameter list (LPAREN [param (COMMA param)*] RPAREN), param: VAR_IDENTIFIER [ASSIGN expr]
+    //
+    // $owner is what the parameters belong to, for errors: "function f", "method Point.move".
+    // It gives the names, and each one's default or null.
+    fn parameters($owner) {
+        #eat("LEFT_PAREN");
+        $params = [];
+        $defaults = [];
+        $has_default = false;
+        while (#current_token.type != "RIGHT_PAREN") {
+            if ($params != []) {
+                #eat("COMMA");
+            }
+            $param = #current_token.value;
+            // Only a $variable can be a duplicate: '$a' is a string, which eat() refuses
+            if (#current_token.type == "VAR_IDENTIFIER" && in_array($param, $params)) {
+                #fail("Duplicate parameter {$param} in {$owner}");
+            }
+            #eat("VAR_IDENTIFIER");
+
+            $default = null;
+            if (#current_token.type == "ASSIGN") {
+                #eat("ASSIGN");
+                $default = #expr();
+                $has_default = true;
+            } else if ($has_default) {
+                #fail("Required parameter {$param} can't follow a parameter with a default");
+            }
+            $params[] = $param;
+            $defaults[] = $default;
+        }
+        #eat("RIGHT_PAREN");
+
+        return [$params, $defaults];
+    }
+
+    // Parse a statement (expr SEMICOLON | echo_statement | if_statement | while_statement | for_statement | foreach_statement
+    //                    | loop_control | return_statement | delete_statement | match)
     fn statement() {
         $type = #current_token.type;
         if ($type == "ECHO") {
             return #echo_statement();
+        } else if ($type == "IF") {
+            return #if_statement();
+        } else if ($type == "WHILE") {
+            return #while_statement();
+        } else if ($type == "FOR") {
+            return #for_statement();
+        } else if ($type == "FOREACH") {
+            return #foreach_statement();
+        } else if ($type == "BREAK" || $type == "CONTINUE") {
+            return #loop_control();
+        } else if ($type == "RETURN") {
+            return #return_statement();
+        } else if ($type == "DELETE") {
+            return #delete_statement();
+        } else if ($type == "FN") {
+            #fail("Functions can only be declared at the top level");
+        } else if ($type == "CLASS" || $type == "ABSTRACT") {
+            #fail("Classes can only be declared at the top level");
+        } else if ($type == "FUNCTION") {
+            #fail("Declare functions with fn, not function");
+        } else if ($type == "INCLUDE") {
+            #fail("include can only be used at the top level");
         } else if ($type == "MATCH") {
             // A match written as a statement ends at its }, like if and while, and its arms
             // may be blocks; its value is discarded
@@ -908,7 +1176,11 @@ class Parser {
     fn top_level() {
         $statements = [];
         while (#current_token.type != "EOF") {
-            $statements[] = #statement();
+            if (#current_token.type == "FN") {
+                $statements[] = #function_declaration();
+            } else {
+                $statements[] = #statement();
+            }
         }
 
         return $statements;

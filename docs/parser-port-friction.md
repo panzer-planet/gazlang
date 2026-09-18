@@ -83,3 +83,28 @@ the thing to find it if it is real.
 
 **Options:** none wanted yet. Two of the seven `spl_object_id` uses the audit counted dissolve
 when looked at; the other five get the same look in stage 4.
+
+## 7. Lists can't be joined (hole 6, already listed; two real uses now)
+
+**Met:** `[$node->key, ...$node->value->targets]` in capture analysis, and
+`array_unshift($root->statements, $error_class)` in `program()`.
+
+**Workaround:** for the first, append the key afterwards, since the order of that list doesn't
+matter. For the second, a new list and a loop. Both are three lines for what is one expression.
+
+**Options:** a `concat($a, $b)` builtin, or `..` on two lists. `..` reads best and is what the
+operator is for, but it converts both sides to strings today (`[1] .. [2]` is `"[1][2]"`), so it
+would change what existing source means; a builtin is safe. **Recommended: the builtin**, when a
+third use turns up. Two uses in 1500 lines is not much.
+
+## Found in the PHP parser along the way
+
+Not friction, but the port is a second reader of `Parser.php` and the corpus is a test it never
+had. Each was fixed in `Parser.php` and the port mirrors the fix.
+
+- **A name was checked before anything confirmed it was a name.** `check_new_name()` and the
+  duplicate-parameter check ran on the current token's value, whatever the token was: a bare `fn`
+  at the end of a file was a PHP `TypeError` (null is not a string) rather than a GazLang error,
+  `fn "len"() {}` was "len is a builtin function" and `fn f($a, '$a') {}` was "Duplicate
+  parameter $a", where both are strings that `eat()` should refuse. Both now look only at a
+  token of the right type, which keeps every other error where it was.

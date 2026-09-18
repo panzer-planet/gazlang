@@ -1,0 +1,2 @@
+fn add($a, $b = 1, $c = 2) { return $a; }
+echo add(1, 2, 3, 4);

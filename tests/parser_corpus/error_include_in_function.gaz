@@ -1,0 +1,1 @@
+fn f() { include "x.gaz"; }

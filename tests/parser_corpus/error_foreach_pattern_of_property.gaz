@@ -1,0 +1,1 @@
+foreach ($xs as $k => [$o.x]) { }

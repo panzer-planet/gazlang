@@ -1,0 +1,1 @@
+foreach ($xs as $a => $b => $c) { }

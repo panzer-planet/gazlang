@@ -1,0 +1,2 @@
+foreach ($xs as [$a,
+    $b[0]]) { }

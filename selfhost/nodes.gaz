@@ -331,3 +331,121 @@ class ThisAST extends AST {
         return {};
     }
 }
+
+// #else_if is the IfStatementAST of an else if, #else_body the block of an else; at most one is set
+class IfStatementAST extends AST {
+    #condition;
+    #if_body;
+    #else_if;
+    #else_body;
+
+    fn _($condition, $if_body, $else_if = null, $else_body = null) {
+        #condition = $condition;
+        #if_body = $if_body;
+        #else_if = $else_if;
+        #else_body = $else_body;
+    }
+
+    fn parts() {
+        return {"condition" => #condition, "if_body" => #if_body, "else_if" => #else_if, "else_body" => #else_body};
+    }
+}
+
+// #step is a for loop's third clause, which runs after the body and on continue
+class WhileStatementAST extends AST {
+    #condition;
+    #body;
+    #step;
+
+    fn _($condition, $body, $step = null) {
+        #condition = $condition;
+        #body = $body;
+        #step = $step;
+    }
+
+    fn parts() {
+        return {"condition" => #condition, "body" => #body, "step" => #step};
+    }
+}
+
+// #key is null without one; #value is a variable or a list pattern of them
+class ForeachStatementAST extends AST {
+    #iterable;
+    #key;
+    #value;
+    #body;
+
+    fn _($iterable, $key, $value, $body) {
+        #iterable = $iterable;
+        #key = $key;
+        #value = $value;
+        #body = $body;
+    }
+
+    fn parts() {
+        return {"iterable" => #iterable, "key" => #key, "value" => #value, "body" => #body};
+    }
+}
+
+// break or continue; #token says which
+class LoopControlAST extends AST {
+    #token;
+
+    fn _($token) {
+        #token = $token;
+    }
+
+    fn parts() {
+        return {"token" => #token};
+    }
+}
+
+class ReturnStatementAST extends AST {
+    #expr;
+
+    fn _($expr) {
+        #expr = $expr;
+    }
+
+    fn parts() {
+        return {"expr" => #expr};
+    }
+}
+
+class DeleteStatementAST extends AST {
+    #target;
+
+    fn _($target) {
+        #target = $target;
+    }
+
+    fn parts() {
+        return {"target" => #target};
+    }
+}
+
+// A function, or a method when #class names its class; an abstract method's body is empty
+class FunctionDeclarationAST extends AST {
+    #name;
+    #params;
+    #defaults;
+    #body;
+    #arity;
+    #class = null;
+    #abstract = false;
+
+    fn _($name, $params, $defaults, $body, $arity) {
+        #name = $name;
+        #params = $params;
+        #defaults = $defaults;
+        #body = $body;
+        #arity = $arity;
+    }
+
+    fn parts() {
+        return {
+            "name" => #name, "params" => #params, "defaults" => #defaults, "body" => #body,
+            "arity" => #arity, "class" => #class, "abstract" => #abstract,
+        };
+    }
+}
