@@ -449,43 +449,23 @@ when it was written, not from now.
    pass over a tree whose children can be absent needs `type_of($n) == "object"` before
    dispatching, which is per-node boilerplate of the kind `class_of` was meant to remove. If
    that shows up for real, it is the evidence for making it lenient.
-3. **`match` arms that are not `==`.** Of the 49 `if` conditions in `lib/json.gaz`, 15 are a
-   plain `==`; the rest are ranges (`$unit >= 0xDC00 && $unit <= 0xDFFF`), predicate calls
-   (`is_digit($c)`, `json_match("true")`), `!=` and map lookups, and all six `lib/chars.gaz`
-   classifiers are range tests. `match` was argued for on the grounds that its arms must run
-   statements, which is right and is what block arms give; that its *values* are compared with
-   `==` was never costed against the code, and on this evidence `match` will barely appear in
-   the lexer port. Guard arms (`match ($c) { is_digit($c) => ... }`) and range arms
-   (`"a".."z" => ...`) are what the code wants. Decide this before porting the lexer, not after,
-   since it changes how every dispatch in it is written.
+3. ~~**`match` arms that are not `==`.**~~ Decided and built 2026-09-18: `match` takes an
+   optional subject, and without one its arms are conditions, tested for truth as `if` does.
+   See "match". The evidence was that of the 49 `if` conditions in `lib/json.gaz` only 15 are a
+   plain `==`, that `examples/tokenizer.gaz`'s dispatch (the shape the lexer port will have) is
+   an eight branch `if`/`else if` chain of which two branches are `==`, and that `match` appears
+   in no file under `lib/` or `examples/` at all. What the check found already there was more
+   than the hole admitted: `match (true)` gave a condition per arm with no language change. What
+   it also found was the reason to build anyway, which the hole had not noticed: `==` is strict,
+   so `match (true)` silently misses a condition returning a truthy non-bool, and nothing says
+   why. The three questions were answered: **one feature, not two** (no range arms, because
+   `"a".."z"` is concatenation today and a range arm would silently change what existing source
+   means); **a bare truthy expression**, not Rust's `$c if cond`, since the subject does no work
+   in a guard; and **subject-less rather than guards inside a subject-ful match**, which keeps
+   `match ($x)` all-`==` so a jump table over it stays reachable, and needs no lexer change, the
+   parens being the only tell. Still open, and not asked for by real code yet: nothing here
+   gives a jump table, and `match ($x)` is still a linear chain of `EQUALS`.
 
-   **First check how much is already there**, the way hole 1 turned out to need nothing:
-   `match (true)` gives guards today with no language change, because arms compare with `==`
-   and a condition is a bool, and it is checked by `tests/gaz/match/match_test.gaz`:
-   ```
-   echo match (true) {
-       $c >= "0" && $c <= "9" => "digit",
-       $c >= "a" && $c <= "z" => "lower",
-       default => "other"
-   };
-   ```
-   So what is actually missing is narrower than "guards": that `match (true)` reads as an idiom
-   rather than as intent, that a range still has to be spelled twice with the subject named in
-   both halves, and that a jump table cannot see through either. Weigh a language change against
-   those three, not against the `if` chains. Three questions to settle first, none decided:
-   - **One feature or two?** A guard arm subsumes ranges, since `$c >= "a" && $c <= "z"` is
-     just a guard; a range arm is sugar that reads better at the character classes a lexer is
-     made of, and keeps the jump-table optimisation (still open, see "match") reachable for
-     arms that are all literals and ranges, where a guard arm closes it off.
-   - **What shape is a guard?** A bare truthy expression (`is_digit($c) => ...`) is simpler and
-     is what the existing `if` chains already look like, so the port is a transcription;
-     Rust's pattern-plus-condition (`$c if is_digit($c) => ...`) keeps the subject visible in
-     the arm and composes if type patterns ever arrive, at the cost of a second concept.
-   - **A guard ignores the subject**, so `match ($c) { is_digit($c) => ... }` names `$c` twice
-     and the subject does no work. That either is fine, or argues for a subject-less
-     `match { cond => ... }` whose arms are conditions, which is `if`/`else if` with better
-     shape and no `==` at all. Note `match (true) { ... }` already gives this today, and
-     whether that is good enough is part of the question.
 4. **Scanning bytes.** `$s[$i]` allocates a one byte string and `ord($s[$i])` is two builtin
    calls plus that allocation; there is no `byte_at($s, $i)` and no "index of the first byte in
    this set". A lexer must classify every byte, so it cannot escape into `index_of` the way
@@ -787,9 +767,10 @@ the enclosing closure's variable, to its own index), which the VM applies at
 
 ## match
 
-Built 2026-09-17. A lexer and parser in GazLang are long `if`/`else if` chains over characters
-and token types, and of the 49 `if`s in `lib/json.gaz` nearly all run *statements* per branch,
-so an expression-only `match` (PHP 8) would have missed most of it.
+Built 2026-09-17; the subject made optional 2026-09-18 (hole 3). A lexer and parser in GazLang
+are long `if`/`else if` chains over characters and token types, and of the 49 `if`s in
+`lib/json.gaz` nearly all run *statements* per branch, so an expression-only `match` (PHP 8)
+would have missed most of it.
 
 ```
 $kind = match ($type) {                       // an expression: every arm is an expression
@@ -803,8 +784,28 @@ match ($c) {                                  // a statement: an arm may be a bl
     "\\" => { @pos += 2; }
     default => fail("bad character")          // and no ; after the closing }
 }
+
+match {                                       // no subject: the arms are conditions
+    is_digit($c) => { number(); }
+    is_alpha($c) || $c == "_" => { identifier(); }
+    default => operator()
+}
 ```
 
+- **Without a subject the arms are conditions**, tested for truth as `if` does rather than
+  compared, so `match { $c >= "a" && $c <= "z" => ..., is_digit($c) => ... }` is an
+  `if`/`else if` tower with the shape of a `match`, and several values to an arm read as "or".
+  The parens are the whole tell: one keyword, two comparison rules. Nothing true and no
+  `default` is `No arm matched`, which names no value because nothing was compared. Everything
+  else below is the same, including block arms, the order values run in and `default` last.
+  `match (true) { ... }` still works and is the trap this replaced: `==` is strict, so a
+  condition returning a truthy non-bool (`index_of`, `len`, a map lookup) never matched and
+  fell silently to `default`. Write `match { ... }` instead.
+- **Ranges are deliberately not arms.** `"a".."z"` is concatenation today, so a range arm
+  would silently change what existing source means; any range syntax would have to invent a
+  token for it, and `lib/chars.gaz` already wraps the character ranges in named predicates that
+  a condition arm calls. Guards being their own construct also leaves the subject-ful form
+  all-`==`, so a jump table over it stays reachable.
 - **The subject is evaluated once**, then each arm's values are evaluated in order and
   compared with `==` (`Values::equals()`, so `1` matches `1.0` but `"1"` never matches `1`,
   and lists and maps compare by their contents). Only the values before the matching one run,
@@ -831,8 +832,8 @@ match ($c) {                                  // a statement: an arm may be a bl
   members (`fn match()`) are unaffected, since sigils and member names keep their own
   namespaces, and a word merely containing one (`json_match`) is an ordinary name.
 
-Implementation: `MatchAST` holds the subject and the arms, each `[values, body, is_block]`
-with `values` null for the `default` arm. `Parser::match_expression($statement)` is called
+Implementation: `MatchAST` holds the subject (null when there is none) and the arms, each
+`[values, body, is_block]` with `values` null for the `default` arm. `Parser::match_expression($statement)` is called
 from `primary()` (an expression, blocks refused) and from `statement()` (blocks allowed, no
 `;` eaten). The interpreter's `visitMatch()` is the obvious loop. Code generation puts the
 tests first and the bodies after, so each test knows its body's label: `LOAD`, the value,
@@ -841,7 +842,9 @@ tests first and the bodies after, so each test knows its body's label: `LOAD`, t
 there first, so no instruction is unreachable and the loader's stack walk stays happy. Every
 arm leaves exactly one value, a block arm pushing `null`, so the depth into `MATCH_END_n` is
 the same on every path and the statement's `POP` always has something to pop. The subject
-lives in a hidden `$#match_n`.
+lives in a hidden `$#match_n`. Without a subject there is no hidden variable and no `LOAD` or
+`EQUALS`: the condition alone, then the same `NOT` and `JZ`, and past every test
+`NO_CONDITION`, which pops nothing.
 
 ## Assignment
 
