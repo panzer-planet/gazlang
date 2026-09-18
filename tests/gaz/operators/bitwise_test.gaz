@@ -49,7 +49,8 @@ $bits = [1, 2];
 $bits[0] <<= 3;
 check("<<= on an element", $bits[0], 8);
 
-// What the self-hosted lexer needs them for: \u{H} as UTF-8
+// A worked example: \u{H} as UTF-8. lib/json.gaz encoded this with intdiv and % before
+// these existed, so they are a clearer and faster way to write it, not the only way
 fn utf8($code_point) {
     if ($code_point < 128) {
         return chr($code_point);

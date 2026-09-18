@@ -282,21 +282,21 @@ fn json_parse_hex4($at) {
     return $value;
 }
 
-// A code point written as UTF-8 bytes
-// (no bitwise operators: dividing by 0x40 shifts right 6 bits, % 0x40 keeps the low 6)
+// A code point written as UTF-8 bytes: each continuation byte carries the low 6 bits of
+// what is left, so the tail is shifted away 6 bits at a time
 fn json_utf8($code_point) {
     if ($code_point < 0x80) {
         return chr($code_point);
     }
-    $continuation = chr(0x80 + $code_point % 0x40);
+    $continuation = chr(0x80 | $code_point & 0x3F);
     if ($code_point < 0x800) {
-        return chr(0xC0 + intdiv($code_point, 0x40)) .. $continuation;
+        return chr(0xC0 | $code_point >> 6) .. $continuation;
     }
     if ($code_point < 0x10000) {
-        return chr(0xE0 + intdiv($code_point, 0x1000)) .. chr(0x80 + intdiv($code_point, 0x40) % 0x40) .. $continuation;
+        return chr(0xE0 | $code_point >> 12) .. chr(0x80 | $code_point >> 6 & 0x3F) .. $continuation;
     }
-    return chr(0xF0 + intdiv($code_point, 0x40000)) .. chr(0x80 + intdiv($code_point, 0x1000) % 0x40)
-        .. chr(0x80 + intdiv($code_point, 0x40) % 0x40) .. $continuation;
+    return chr(0xF0 | $code_point >> 18) .. chr(0x80 | $code_point >> 12 & 0x3F)
+        .. chr(0x80 | $code_point >> 6 & 0x3F) .. $continuation;
 }
 
 // JSON's number grammar: -?(0|[1-9][0-9]*)(.[0-9]+)?([eE][+-]?[0-9]+)?
