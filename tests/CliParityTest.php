@@ -7,10 +7,9 @@ use GazLang\Lexer\Lexer;
 use GazLang\Parser\Parser;
 
 /**
- * The C CLI (bin/gazlang) against the PHP one (bin/gazlang-php), which is the spec: every invocation in
- * the table runs through both, which must print the same standard output and standard error and
- * exit with the same code. This is what makes replacing one with the other safe (the bootstrap
- * plan's step 3, see CLAUDE.md).
+ * The C CLI (bin/gazlang) against the PHP one (bin/gazlang-php), which is the spec: every
+ * invocation in the table runs through both, which must print the same standard output and
+ * standard error and exit with the same code.
  *
  * The C side is the sanitized build. The one difference on purpose is --interpreter, which only
  * PHP has: the C CLI refuses it, and its help says so on that line, which is the only change

@@ -316,9 +316,8 @@ West    899.95
 - **`lib/`** — the standard library, all of it written in GazLang.
 - **[docs/internals.md](docs/internals.md)** — how the interpreter, compiler and VM fit
   together, and how to work on them.
-- **[CLAUDE.md](CLAUDE.md)** — every design decision and why it went that way. Long, and the
-  most interesting file here if you like language design.
-- **[docs/design-review.md](docs/design-review.md)** — the questions that are still open.
+- **[CLAUDE.md](CLAUDE.md)** — the rules, the reasons behind each design decision, and what
+  is still open. The most interesting file here if you like language design.
 
 ## License
 

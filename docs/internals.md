@@ -43,7 +43,7 @@ way.
 
 ## The C VM must agree with the PHP VM
 
-`vm/` is the same VM in C (roadmap step 7, stage 2), and the PHP VM is its specification: the
+`vm/` is the same VM in C, built as `bin/gazlang`, and the PHP VM is its specification: the
 same output, the same errors word for word, the same locations, traces and exit codes.
 `tests/CVMTest.php` holds it to that. Each entry of `vm/passing.txt` runs on both VMs (the C
 one built with AddressSanitizer and UndefinedBehaviorSanitizer), which must give the same
@@ -182,20 +182,17 @@ walk through every jump — so a file that loads is one the VM can run. `vm/load
 checks with the same messages, and takes each block's greatest stack depth from the walk to size
 its frames.
 
-## Where this is going
+## Where things stand
 
-The roadmap is in [CLAUDE.md](../CLAUDE.md) under "Path to Self-Hosting". The short version:
-the bytecode format is pinned; the lexer, parser and code generator are rewritten in GazLang
-and checked against the PHP ones; the VM is rewritten in C and checked against the PHP one.
-The compiler compiles itself to the same bytecode on the C VM, and `bin/gazlang` is that VM
-with the compiler built in, so PHP is no longer needed to run GazLang or to rebuild its
-compiler (`make -C vm compiler`). The PHP implementation stays as the reference,
-`bin/gazlang-php`, that the harnesses check against. What is left is a Linux build; the steps
-are in CLAUDE.md under "The bootstrap plan".
+The lexer, parser and code generator are written in GazLang and checked against the PHP ones;
+the VM is written in C and checked against the PHP one; `bin/gazlang` is that VM with the
+compiler built in, and rebuilds its own compiler (`make -C vm compiler`). The PHP
+implementation stays as the reference, `bin/gazlang-php`. What is left, and what is open in the
+language, is in [CLAUDE.md](../CLAUDE.md) under "Status and what is next".
 
-That is why new features get judged by what they cost **in C**, not only in PHP: anything that
-leans on PHP's own behaviour (hashing, string conversion, float formatting) has to become a
-rule GazLang defines and both runtimes implement.
+New features are judged by what they cost **in C**, not only in PHP: anything that leans on
+PHP's own behaviour (hashing, string conversion, float formatting) has to become a rule GazLang
+defines and both runtimes implement.
 
 ## Style
 

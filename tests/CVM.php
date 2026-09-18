@@ -326,8 +326,8 @@ final class CVM
     /**
      * Programs whose PHP side must run in a process of its own: to_string() printing itself
      * nests execute() on PHP's C stack as deep as the call depth limit, which with pcov on
-     * segfaults the test runner (see roadmap step 4). Add a program here if the suite dies with
-     * exit code 139 and no test named.
+     * segfaults the test runner (see "Under pcov" in CLAUDE.md). Add a program here if the
+     * suite dies with exit code 139 and no test named.
      */
     private const DEEP = ['vm/build/gzb/tests/vm_corpus/depth.gaz.gzb'];
 

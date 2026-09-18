@@ -1,7 +1,7 @@
 # The GazLang language
 
 A reference. [The README](../README.md) is the tour; this is the whole thing, briefly. Why any
-of it is the way it is lives in [CLAUDE.md](../CLAUDE.md), which is much longer and much more
+of it is the way it is lives in [CLAUDE.md](../CLAUDE.md), which is longer and more
 opinionated.
 
 ## Values
