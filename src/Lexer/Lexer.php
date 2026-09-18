@@ -181,6 +181,45 @@ class Lexer
     }
 
     /**
+     * Skip a block comment, from an opening slash-star to the matching star-slash, nesting
+     *
+     * Comments nest, as in Rust and Swift rather than C and PHP, so commenting out a region
+     * that already contains a comment works: an inner opener starts another one, and the first
+     * closer only closes that. The whole thing is skipped like //, so no token reaches the parser.
+     *
+     * @throws GazLangError If the input ends while a comment is still open
+     */
+    public function skip_block_comment(): void
+    {
+        // Where the outermost one opened: at the end of the input every comment still open
+        // is open because that one never closed, so that is the line to send the reader to
+        $start_line = $this->line;
+        $depth = 0;
+
+        while ($this->current_char !== null) {
+            if ($this->current_char === '/' && $this->peek() === '*') {
+                $this->advance();
+                $this->advance();
+                $depth++;
+
+                continue;
+            }
+            if ($this->current_char === '*' && $this->peek() === '/') {
+                $this->advance();
+                $this->advance();
+                if (--$depth === 0) {
+                    return;
+                }
+
+                continue;
+            }
+            $this->advance();
+        }
+
+        throw new GazLangError('Unterminated block comment', null, $start_line);
+    }
+
+    /**
      * Read a number literal: an INTEGER (42, 0xFF) or a FLOAT (1.5, 1e10, 2.5E-3)
      *
      * A float has digits on both sides of the dot and/or an exponent with an optional
@@ -721,6 +760,8 @@ class Lexer
                     $this->skip_whitespace();
                 } elseif ($this->current_char === '/' && $this->peek() === '/') {
                     $this->skip_comment();
+                } elseif ($this->current_char === '/' && $this->peek() === '*') {
+                    $this->skip_block_comment();
                 } else {
                     break;
                 }

@@ -362,10 +362,11 @@ each step depends on the ones before it.
    string conversion, float formatting) must be a rule GazLang defines and both runtimes
    implement. Keep growing the language by writing real GazLang (`lib/`, tools) and
    fixing what hurts; the lexer port waits for the lexical syntax to settle, since a
-   second lexer doubles the work of every lexer change. It has not settled: 2026-09-18
-   added `& | ^ ~ << >>` with their compound forms and the `match` and `default` keywords,
-   and block comments are wanted and not built (see "Decided, not built yet"), which is a
-   third change to the same file. Port the lexer after block comments land, not before.
+   second lexer doubles the work of every lexer change. 2026-09-18 added `& | ^ ~ << >>`
+   with their compound forms, the `match` and `default` keywords, and block comments
+   (see "Comments"), which was the last change the port was waiting on. What is left that
+   would touch the lexer again is hole 5's question of whether keywords stay
+   case-insensitive; settle that before porting, not after.
 
    **Port the lexer to `selfhost/lexer.gaz` against the PHP lexer, which is the
    spec.** `tests/SelfHostedLexerTest.php` runs
@@ -523,7 +524,7 @@ every use in the PHP lexer is a simple validator that a character loop replaces,
 Deliberately not planned until real code asks for them: `**` and `sqrt`/`pow`/`log`, variadic
 parameters and spread (pass a list), `time()` (time it from outside), `foreach` over a string
 (`split($s, "")`), and regular expressions (the lexer's character classes are explicit on
-purpose). Block comments left this list on 2026-09-18, see "Decided, not built yet".
+purpose). Block comments left this list on 2026-09-18 and were built the same day, see "Comments".
 
 ## Decided, not built yet
 
@@ -533,19 +534,8 @@ it led to and is already built is described in its own section: `..` and strict 
 (roadmap step 2), `/` always a float ("Numbers"), lists and maps (step 5), function values,
 lambdas and closure state ("Function values"), `lib/functional.gaz` (step 7's GazLang
 libraries), `fn` (step 4), objects ("Objects") and error objects, typed catch and
-`finally` ("Errors and try/catch"). Not built:
+`finally` ("Errors and try/catch"), and block comments (see "Comments"). Not built:
 
-- **Block comments** (wanted 2026-09-18, was previously "not planned"). `/* ... */`, skipped
-  by the lexer exactly as `//` is, so no token reaches the parser and `--tokens` is unchanged.
-  One thing to decide first: **do they nest?** C and PHP say no, so the first `*/` ends the
-  comment and commenting out a block that already contains one breaks; Rust and Swift say yes,
-  which costs a depth counter in the lexer and is what you want when commenting out a region
-  of a self-hosted compiler. Nesting is the better answer for this language and is nearly free
-  here, but it must be settled before anything is written, since changing it later silently
-  changes what existing source means. An unterminated one is a lexer error reported at the
-  line it opened on, as an unterminated string is. No doc-comment convention. Note
-  `editors/gaz.tmLanguage` had a `/* */` rule that was removed on 2026-09-18 because the
-  language did not have them; it goes back when this lands.
 - **Later, when real code needs them:** `interface` / `implements` (a parse-time check
   that the methods exist, plus `is_a`), `final`, and visibility with public implicit:
   `private` and `protected` on fields and methods. `#` and `##` are checked at parse
@@ -1003,6 +993,24 @@ break, continue and return leave the handlers themselves (`CodeGenerator::leaveT
 `END_TRY` for each, and each finally block's code after its own, compiled as if outside its
 try; a return first stores its value in a hidden variable. `RET` drops whatever handlers
 its frame still has.
+
+## Comments
+
+`// to the end of the line` and `/* ... */`, both skipped by the lexer, so no token reaches
+the parser and `--tokens` never shows one. Built 2026-09-18.
+
+- **Block comments nest**, as in Rust and Swift rather than C and PHP: an inner `/*` opens
+  another one and the first `*/` only closes that, so commenting out a region that already
+  contains a comment works, which is what a self-hosted compiler wants. It costs a depth
+  counter in `Lexer::skip_block_comment()`. This had to be settled before anything was
+  written, since changing it later would silently change what existing source means.
+- **An unterminated one is a lexer error** at the line the outermost `/*` opened on
+  ("Unterminated block comment"), as an unterminated string is: at the end of the input every
+  comment still open is open because that one never closed.
+- **A `/` is only an opener before a `*`**, so `8 / 2` and `/=` are untouched, and `/*` inside
+  a string literal or after a `//` is just text. There is no doc-comment convention.
+- `editors/gaz.tmLanguage` highlights them, with the caveat that a TextMate grammar cannot
+  count depth, so a nested comment stops highlighting at the first `*/`.
 
 ## Numbers
 

@@ -1,0 +1,4 @@
+echo 1;
+/* opened on line 2
+   /* and again here, but the outer one is what never closes */
+echo 2;

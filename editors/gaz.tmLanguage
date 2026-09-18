@@ -71,6 +71,16 @@
 					<key>match</key>
 					<string>//.*$</string>
 				</dict>
+				<!-- Block comments nest in GazLang; TextMate grammars cannot count depth,
+				     so this highlights to the first */ and a nested one ends early. -->
+				<dict>
+					<key>name</key>
+					<string>comment.block.gaz</string>
+					<key>begin</key>
+					<string>/\*</string>
+					<key>end</key>
+					<string>\*/</string>
+				</dict>
 			</array>
 		</dict>
 		<key>declarations</key>

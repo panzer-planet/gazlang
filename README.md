@@ -55,6 +55,8 @@ Try `php bin/gazlang -f examples/csv_report.gaz -- examples/data/sales.csv regio
   insertion order) are separate types, copied on assignment: `$l[0]`, `$m["k"]["j"] = v`,
   `$l[] = v`, `foreach ($m as $k => $v)`, `len`, `keys`, `slice`. A missing index or key is an
   error unless read with `??`.
+- **Comments**: `// to the end of the line` and `/* ... */`, which nest, so commenting out a
+  region that already holds a comment works.
 - **Strings**: `"..."` with escapes (`\n`, `\xHH`, `\u{1F600}`) and interpolation (`"Hi $name"`,
   `"{$user["name"]} has {@count}"`); `'...'` raw. `..` concatenates, converting like `echo`.
 - **Operators**: `+ - * / %` on numbers only (`/` always gives a float; `intdiv` for ints);
