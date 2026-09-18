@@ -11,7 +11,7 @@ check("and its parents", is_a($echo, AbstractStatementAST) && is_a($echo, AST), 
 check("* binds tighter than +", [$echo.expr.op.value, $echo.expr.right.op.value], ["+", "*"]);
 check("a leaf holds its value", [$echo.expr.left.value, $echo.expr.right.right.value], [1, "\$x"]);
 check("inline source has a line and no file", [$echo.line, $echo.file], [1, null]);
-check("a node lists its fields in order", keys($echo.expr.parts()), ["left", "token", "op", "right"]);
+check("a node's fields are in the PHP class's order", keys(fields($echo.expr)), ["line", "file", "left", "token", "op", "right"]);
 
 // What a pass needs from a lambda and a class is worked out by the time parse() returns
 $root = Parser(Lexer("\$f = (\$a, \$b = 1) -> \$a + \$n + \$f;"), "inline.gaz").parse();

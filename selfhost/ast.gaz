@@ -3,6 +3,11 @@
 include "parser.gaz";
 
 class Dumper {
+    // What AST\Dumper leaves out: where a node is, which the "@" lines and each node's line
+    // show, and bookkeeping derived from what is shown (resolved), or standing in for PHP's
+    // side tables keyed by object (use and class_use, which PHP's nodes don't have)
+    const SKIPPED = ["line", "file", "resolved", "use", "class_use"];
+
     // The file of the last node that had a line, false before the first
     #file = false;
 
@@ -27,7 +32,12 @@ class Dumper {
                 // "class NumAST" without the "class " and the "AST"
                 $name = slice(to_string(class_of($value)), 6, -3);
                 echo $indent .. $label .. $name .. ($value.line == null ? "" : " {$value.line}");
-                $children = $value.parts();
+                $children = fields($value);
+                foreach (#SKIPPED as $name) {
+                    if (has_key($children, $name)) {
+                        delete $children[$name];
+                    }
+                }
             } else if ($type == "object") {
                 // A token, which prints as --tokens shows it
                 echo $indent .. $label .. $value;

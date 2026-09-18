@@ -95,7 +95,7 @@ class VariableCollector {
             }
         }
 
-        return $node.parts();
+        return fields($node);
     }
 }
 

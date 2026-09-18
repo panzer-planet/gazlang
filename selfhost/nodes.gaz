@@ -1,17 +1,16 @@
 // The tree selfhost/parser.gaz builds: a port of src/AST, one class per node, with the PHP
 // classes' names and fields, so the two parsers can be read side by side.
 //
-// parts() is every field the PHP parser writes, by name, in the order the PHP class declares
-// them. GazLang can't list an object's fields, so each node lists its own: selfhost/ast.gaz
-// prints a tree from it, and the parser walks one to find the variables a lambda uses.
+// Fields are declared in the PHP class's order, since fields() gives them in that order:
+// selfhost/ast.gaz prints a tree from them, and the parser walks one to find the variables a
+// lambda uses. A field the PHP parser leaves null is set to null, since fields() leaves out one
+// that was never set.
 //
 // This file has no top level code, so it can be included.
 
 abstract class AST {
     #line = null;
     #file = null;
-
-    abstract fn parts();
 }
 
 // A node that is one token: a literal or a variable
@@ -22,10 +21,6 @@ abstract class TokenValueNodeAST extends AST {
     fn _($token) {
         #token = $token;
         #value = $token.value;
-    }
-
-    fn parts() {
-        return {"token" => #token, "value" => #value};
     }
 }
 
@@ -62,10 +57,6 @@ class UnaryOpAST extends AST {
         #op = $op;
         #expr = $expr;
     }
-
-    fn parts() {
-        return {"op" => #op, "expr" => #expr};
-    }
 }
 
 class BinOpAST extends AST {
@@ -80,10 +71,6 @@ class BinOpAST extends AST {
         #op = $op;
         #right = $right;
     }
-
-    fn parts() {
-        return {"left" => #left, "token" => #token, "op" => #op, "right" => #right};
-    }
 }
 
 class TernaryAST extends AST {
@@ -96,10 +83,6 @@ class TernaryAST extends AST {
         #then = $then;
         #else = $else;
     }
-
-    fn parts() {
-        return {"condition" => #condition, "then" => #then, "else" => #else};
-    }
 }
 
 abstract class AbstractStatementAST extends AST {
@@ -107,10 +90,6 @@ abstract class AbstractStatementAST extends AST {
 
     fn _($expr) {
         #expr = $expr;
-    }
-
-    fn parts() {
-        return {"expr" => #expr};
     }
 }
 
@@ -120,10 +99,6 @@ class EchoStatementAST extends AbstractStatementAST {}
 
 class CompoundAST extends AST {
     #statements = [];
-
-    fn parts() {
-        return {"statements" => #statements};
-    }
 }
 
 // A list [1, 2] or, with #map, a map {"k" => 1}; each entry is [key, value], the key null in a list
@@ -135,10 +110,6 @@ class ArrayLiteralAST extends AST {
         #entries = $entries;
         #map = $map;
     }
-
-    fn parts() {
-        return {"entries" => #entries, "map" => #map};
-    }
 }
 
 // $target[$index], or $target[] when #index is null
@@ -149,10 +120,6 @@ class IndexAST extends AST {
     fn _($target, $index) {
         #target = $target;
         #index = $index;
-    }
-
-    fn parts() {
-        return {"target" => #target, "index" => #index};
     }
 }
 
@@ -175,10 +142,6 @@ class PropertyAST extends AST {
         #target = $target;
         #name = $name;
     }
-
-    fn parts() {
-        return {"target" => #target, "name" => #name, "field" => #field, "constant" => #constant, "value" => #value};
-    }
 }
 
 // A call on a value: $f(1), pick()(2)
@@ -189,10 +152,6 @@ class CallValueAST extends AST {
     fn _($callee, $args) {
         #callee = $callee;
         #args = $args;
-    }
-
-    fn parts() {
-        return {"callee" => #callee, "args" => #args};
     }
 }
 
@@ -205,10 +164,6 @@ class MethodCallAST extends AST {
         #property = $property;
         #args = $args;
     }
-
-    fn parts() {
-        return {"property" => #property, "args" => #args};
-    }
 }
 
 // A call by name: add(1, 2)
@@ -219,10 +174,6 @@ class FunctionCallAST extends AST {
     fn _($name, $args) {
         #name = $name;
         #args = $args;
-    }
-
-    fn parts() {
-        return {"name" => #name, "args" => #args};
     }
 }
 
@@ -237,10 +188,6 @@ class FunctionRefAST extends AST {
     fn _($name) {
         #name = $name;
     }
-
-    fn parts() {
-        return {"name" => #name, "constant" => #constant, "value" => #value};
-    }
 }
 
 // = and the compound assignments; #token says which
@@ -254,10 +201,6 @@ class AssignAST extends AST {
         #token = $token;
         #right = $right;
     }
-
-    fn parts() {
-        return {"left" => #left, "token" => #token, "right" => #right};
-    }
 }
 
 class IncrementAST extends AST {
@@ -270,10 +213,6 @@ class IncrementAST extends AST {
         #op = $op;
         #prefix = $prefix;
     }
-
-    fn parts() {
-        return {"target" => #target, "op" => #op, "prefix" => #prefix};
-    }
 }
 
 // [$a, $b] on the left of = or in a foreach
@@ -282,10 +221,6 @@ class ListPatternAST extends AST {
 
     fn _($targets) {
         #targets = $targets;
-    }
-
-    fn parts() {
-        return {"targets" => #targets};
     }
 }
 
@@ -306,10 +241,6 @@ class LambdaAST extends AST {
         #body = $body;
         #captures = $captures;
     }
-
-    fn parts() {
-        return {"params" => #params, "defaults" => #defaults, "arity" => #arity, "body" => #body, "captures" => #captures, "self" => #self};
-    }
 }
 
 // #subject is null when the arms are conditions; each arm is [values, body, is_block],
@@ -321,10 +252,6 @@ class MatchAST extends AST {
     fn _($subject, $arms) {
         #subject = $subject;
         #arms = $arms;
-    }
-
-    fn parts() {
-        return {"subject" => #subject, "arms" => #arms};
     }
 }
 
@@ -338,11 +265,7 @@ fn path_root($node) {
 }
 
 // # alone, the object a method runs on
-class ThisAST extends AST {
-    fn parts() {
-        return {};
-    }
-}
+class ThisAST extends AST {}
 
 // #else_if is the IfStatementAST of an else if, #else_body the block of an else; at most one is set
 class IfStatementAST extends AST {
@@ -357,10 +280,6 @@ class IfStatementAST extends AST {
         #else_if = $else_if;
         #else_body = $else_body;
     }
-
-    fn parts() {
-        return {"condition" => #condition, "if_body" => #if_body, "else_if" => #else_if, "else_body" => #else_body};
-    }
 }
 
 // #step is a for loop's third clause, which runs after the body and on continue
@@ -373,10 +292,6 @@ class WhileStatementAST extends AST {
         #condition = $condition;
         #body = $body;
         #step = $step;
-    }
-
-    fn parts() {
-        return {"condition" => #condition, "body" => #body, "step" => #step};
     }
 }
 
@@ -393,10 +308,6 @@ class ForeachStatementAST extends AST {
         #value = $value;
         #body = $body;
     }
-
-    fn parts() {
-        return {"iterable" => #iterable, "key" => #key, "value" => #value, "body" => #body};
-    }
 }
 
 // break or continue; #token says which
@@ -406,10 +317,6 @@ class LoopControlAST extends AST {
     fn _($token) {
         #token = $token;
     }
-
-    fn parts() {
-        return {"token" => #token};
-    }
 }
 
 class ReturnStatementAST extends AST {
@@ -418,10 +325,6 @@ class ReturnStatementAST extends AST {
     fn _($expr) {
         #expr = $expr;
     }
-
-    fn parts() {
-        return {"expr" => #expr};
-    }
 }
 
 class DeleteStatementAST extends AST {
@@ -429,10 +332,6 @@ class DeleteStatementAST extends AST {
 
     fn _($target) {
         #target = $target;
-    }
-
-    fn parts() {
-        return {"target" => #target};
     }
 }
 
@@ -453,13 +352,6 @@ class FunctionDeclarationAST extends AST {
         #body = $body;
         #arity = $arity;
     }
-
-    fn parts() {
-        return {
-            "name" => #name, "params" => #params, "defaults" => #defaults, "body" => #body,
-            "arity" => #arity, "class" => #class, "abstract" => #abstract,
-        };
-    }
 }
 
 // ##name, the parent class's version of a method: a bound method, or a call when #args is a list
@@ -473,10 +365,6 @@ class ParentMethodAST extends AST {
         #name = $name;
         #args = $args;
     }
-
-    fn parts() {
-        return {"name" => #name, "args" => #args, "definer" => #definer};
-    }
 }
 
 // Each catch is [class name or null, variable, block]
@@ -489,10 +377,6 @@ class TryStatementAST extends AST {
         #body = $body;
         #catches = $catches;
         #finally = $finally;
-    }
-
-    fn parts() {
-        return {"body" => #body, "catches" => #catches, "finally" => #finally};
     }
 }
 
@@ -525,14 +409,5 @@ class ClassDeclarationAST extends AST {
         #name = $name;
         #parent = $parent;
         #abstract = $abstract;
-    }
-
-    fn parts() {
-        return {
-            "name" => #name, "parent" => #parent, "abstract" => #abstract, "fields" => #fields,
-            "field_lines" => #field_lines, "methods" => #methods, "constants" => #constants,
-            "constant_lines" => #constant_lines, "constant_owners" => #constant_owners, "layout" => #layout,
-            "members" => #members, "abstract_methods" => #abstract_methods,
-        };
     }
 }

@@ -4,7 +4,7 @@ ok and its parents
 ok * binds tighter than +
 ok a leaf holds its value
 ok inline source has a line and no file
-ok a node lists its fields in order
+ok a node's fields are in the PHP class's order
 ok a lambda's captures, arity and self
 ok a node from a file has the file
 ok a class's layout and members, its parent's included
