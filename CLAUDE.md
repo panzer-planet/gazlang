@@ -413,18 +413,22 @@ for a small language written in GazLang, logging every workaround; and the GazLa
 None of these is decided. They are grouped by cause, since one fix closes several, and ordered
 by how much each deforms a self-hosted compiler. Every claim below was reproduced.
 
-1. **Threading mutable state through calls.** There is no way to hand a function something it
-   can add to. Appending to a list parameter silently does nothing, because lists are values:
-   `fn add_to($l) { $l[] = 1; } $xs = []; add_to($xs); len($xs)` is `0`, with no error. The
-   two libraries here deformed in opposite directions around it: `lib/json.gaz` says so in a
-   comment ("Globals, because every parse function moves the same position") and uses
-   `@json_pos` 43 times across 11 functions, which also makes `json_decode` non-reentrant,
-   while `lib/csv.gaz` refused globals and inlined everything into one 94 line `csv_parse`.
-   A compiler accumulates constantly: diagnostics, instructions, interned strings. The
-   options, cheapest first: make `$param[] = v` an error, so the loss is loud rather than
-   silent; `return $a, $b;` feeding the list patterns that already exist; by-reference
-   parameters. Wrapping state in an object works today, since objects are the only handles,
-   and neither library did it.
+1. **Threading mutable state through calls.** Mostly a mirage, corrected 2026-09-18 after
+   checking the dates. Multiple return values already work, since `return [$a, $b];` feeds the
+   list patterns `[$x, $y] = f();`, and mutable state already crosses calls, since objects are
+   handles: a `Scanner` with `#pos` is moved by any function it is passed to. `lib/json.gaz`
+   and `lib/csv.gaz`, the evidence that the language was missing something, were both written
+   2026-09-16 and classes landed 2026-09-17, so neither could have used the object they wanted;
+   json.gaz now does (`JsonReader`), which cost 43 globals and gained about 10% of its running
+   time. What is genuinely left is the footgun: appending to a list parameter silently does
+   nothing (`fn add_to($l) { $l[] = 1; }`), and there is no sound way to make that loud, since
+   the parser cannot tell it from `fn sorted($l) { $l[] = 1; return $l; }` without dataflow
+   analysis. By-reference parameters would fix it and are not worth their cost against the C
+   VM's refcounting; the answer for now is that mutable state belongs in an object, and the
+   footgun stays documented. What this *did* surface belongs to item 4: holding state in an
+   object costs about 10% against globals on the PHP VM, spread across method calls and field
+   access rather than concentrated anywhere a local can fix. Measure it again once fields are
+   slots in C, since the self-hosted lexer will be written in exactly this shape.
 2. **Dispatching on an object's type.** `type_of($x)` is `"object"` for every object and
    `is_a($x, C)` asks one class at a time, so a pass over an AST is an `is_a` chain per node;
    the GazLang compiler written for this audit added an `abstract fn kind()` to all nine of
