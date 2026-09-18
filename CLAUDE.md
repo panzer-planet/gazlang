@@ -374,7 +374,8 @@ each step depends on the ones before it.
    the PHP lexer's names so the two read side by side; `selfhost/tokens.gaz` is the driver.
    `tests/SelfHostedLexerTest.php` runs `php bin/gazlang -f selfhost/tokens.gaz -- FILE` on
    every `.gaz` file under `examples/`, `lib/`, `selfhost/` and `tests/` (including
-   `tests/lexer_corpus/`, the deliberately tricky cases, and `tests/gaz/`), and requires output
+   `tests/lexer_corpus/`, the deliberately tricky cases, and `tests/gaz/`, but not
+   `tests/parser_corpus/`, which adds nothing for a lexer), and requires output
    and exit code identical to `php bin/gazlang --tokens -f FILE`: one line per
    token, `LINE TYPE VALUE` as `Token::__toString()` formats it (strings quoted
    with `Lexer::quote()`, integers as digits, other values as source text, EOF
@@ -444,6 +445,89 @@ each step depends on the ones before it.
      reads up to 7 digits to notice a seventh, but reading 6 finds a digit where the `}` should
      be and fails the same way. Give mutants a timeout: one that makes `skip_whitespace()` and
      its caller disagree about tabs loops forever.
+
+   ~~**Port the parser to `selfhost/parser.gaz` against the PHP parser, which is the spec.**~~
+   Done 2026-09-18. `selfhost/nodes.gaz` is the tree (a class per `src/AST` node, same names and
+   fields), `selfhost/parser.gaz` holds `ParseError`, `VariableCollector`, `MemberUse` and
+   `Parser`, whose methods keep the PHP parser's names, and `selfhost/ast.gaz` is the driver.
+   `tests/SelfHostedParserTest.php` compiles the driver once, runs it on the VM on every `.gaz`
+   file under `examples/`, `lib/`, `selfhost/` and `tests/`, and requires output and exit code
+   identical to `php bin/gazlang --ast -f FILE`: the tree, or `Error: <message> at FILE:N` and
+   exit code 1. On an error there is no partial tree, because the checks made once a program is
+   read write into nodes parsed long before (`field`, `definer`, a class's layout), so "the tree
+   so far" is not a thing that exists.
+   - **The dump is what `AST\Dumper` reads off the nodes, not what it knows about them**:
+     `get_object_vars()`, 118 lines, no node types. A node is `label: Type line` with its fields
+     indented under it in declaration order, a token prints as `--tokens` does, a scalar as a
+     GazLang literal, an all-scalar array as a list or map literal on one line, any other array
+     a line per element, and `@ "file"` comes before a node from another file. A dumper written
+     by hand on both sides shares its author's blind spots: forget `step` on a while loop in
+     both and a port that loses it passes. This way a field added to a node fails the harness
+     until the port has it, which is the "a second lexer doubles the work of every lexer change"
+     rule, enforced. It skips three fields: `existing` (the code generator's), `resolved` and
+     `capture_names` (derived). It costs length (10 lines of source is 300 of dump, the corpus
+     3.5MB) and ugly tuples (`arms: 0: 0: 0:`), since they are positional in PHP too. JSON was
+     the alternative and lost: `json_encode` refuses objects in GazLang, and float and string
+     escaping would have been a second format to agree on.
+   - **The existing corpus barely tested a parser**: of 98 files 58 parsed, 31 failed in the
+     lexer, and 4 were genuine parser errors, against about 80 messages in `Parser.php`. So
+     `tests/parser_corpus/` was built alongside each stage: 289 files, 261 of them `error_*`,
+     which must be exactly the ones that fail, one for each message and each order two checks
+     could run in. `locations.gaz` puts each node's tokens on different lines, since a location
+     tested on a one-line program is not tested. The lexer harness skips this directory.
+   - **Where the port is not the PHP, and why.** The eleven binary levels are one table and a
+     loop (`binary($level)`, precedence climbing) instead of a method each: the tower cost 24
+     calls to reach a primary, and the same tree comes out 28% faster with 40 lines fewer.
+     `lambda_heads`, a set of `(` tokens by `spl_object_id`, is one field, `#lambda_head`:
+     nothing is read between `ternary()` marking a `(` and `parenthesised()` asking, and
+     object ids are reused once freed, so the set was the riskier of the two. `member_uses`,
+     keyed by node id, is a `MemberUse` hanging off the node. `collect_variables()` filling two
+     arrays by reference is a `VariableCollector` object. Every `try`/`finally` that restores
+     parser state is gone: nothing catches a `ParseError` and carries on. `left_associative`
+     calling `$this->$operand()` by name needed nothing, a bound method (`#unary`) is a value.
+   - **Paths are resolved textually**, because GazLang cannot ask for the working directory or
+     a real path: `normalise()` and `dirname()`. It agrees with PHP on everything in the
+     repository and is knowingly wrong in three cases (a symlink, a main file given by absolute
+     path, an include climbing out of the working directory), marked `ponytail:` in the source.
+     This is the one workaround that is wrong rather than long; see the friction log.
+   - **The port found a bug in the spec.** A name being declared was looked up before anything
+     confirmed the token was a name: a bare `fn` at the end of a file was a PHP `TypeError`, not
+     a GazLang error, `fn "len"() {}` was "len is a builtin function" and `fn f($a, '$a') {}`
+     was "Duplicate parameter $a". `check_new_name()` and the duplicate check now look only at
+     a token of the right type, which keeps every other error where it was.
+   - **The first fuzzer was useless and said so only when tested**
+     (`php tests/fuzz_parsers.php [RUNS] [SEED]`, not part of the suite). It changes programs a
+     token at a time, since noise a character at a time dies in the lexer. The first version
+     drew its programs from the whole corpus, which is nine tenths error files, so 3% of its
+     inputs parsed, it reached 75 kinds of error, reported no difference, and then also reported
+     no difference for two deliberately broken ports (`..` a level too tight, captures keeping
+     assigned names), because only a tree shows those. Now most inputs start from a program
+     that parses and usually swap a piece for another of its kind; a third still parse, and it
+     catches both, and `??` made left associative, within 400 runs. 16,000 inputs over four
+     seeds, about 95 kinds of error per seed, 5,148 parsed, no difference. **Break the port on
+     purpose before believing a fuzzer that finds nothing.**
+   - **Mutation testing**: 159 mutants, each one rule broken, each run against the corpus in a
+     child process with a time limit (`proc_open` and a clock, since macOS has no `timeout`;
+     none needed it). 23 survived and 3 more died only to a file outside the parser's corpus.
+     16 were holes, now closed, most of them locations. 7 are equivalent, each because the PHP
+     check it breaks is redundant: `self` for a global and a global counted as assigned (a
+     global is never captured, so is in neither list), a class name checked before a function
+     name (no name is both), a lambda parameter "written as itself" (an expression that starts
+     at `$a` and is a variable is `$a`), the collector skipping maps (no node a lambda can reach
+     holds a map of nodes), and two checks of `$a[]` that sit behind an earlier error for it.
+   - **Speed, measured** (PHP VM, no JIT): `football.gaz` is 0.19s to lex, 0.14s to parse and
+     0.15s to dump. The driver costs 8ms a file before it reads anything, 3ms of it linking.
+     The harness is 19s without pcov and 36s with it, which took the suite from about 30s to
+     71s (46s with `php -d pcov.enabled=0 vendor/bin/phpunit`). Includes are spliced, so
+     `lexer.gaz` is parsed and dumped for each of the six files that include it; the six files
+     that include `selfhost/` are a third of the time.
+   - **What the language forced is in `docs/parser-port-friction.md`**, nine entries with
+     options. Ranked by what they would remove from a self-hosted compiler: constants (token
+     types are bare strings, where a typo is a branch that silently never runs), `cwd()` and
+     `real_path()` (the only workaround that is wrong), `fields($object)` (a `parts()` method on
+     every node class, a quarter of `nodes.gaz`), `builtins()` (a hand-copied table of 40
+     arities, kept honest by a test). Three holes the audits listed turned out not to bite:
+     calling a method by name, identity keys for objects, and by-reference parameters.
 
    **The README's examples are tests.** `ReadmeTest` pulls every ```` ```gaz ```` block that is
    followed by an output block out of `README.md` and requires it to print exactly that, on

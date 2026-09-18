@@ -6,6 +6,28 @@ assumed (three confident friction claims dissolved on inspection during the lexe
 
 Hole numbers refer to "Holes to fill next" in CLAUDE.md.
 
+## Summary
+
+1551 lines of GazLang for 2290 of PHP, and nothing the language lacks stopped the port: every
+entry below is a workaround that worked. Ranked by what removing it would do for the code
+generator port, which is next and larger:
+
+| # | Friction | Workaround | Recommended |
+| --- | --- | --- | --- |
+| 8 | No constants | fields; token types are bare strings | `const`, checked at parse time |
+| 9 | No working directory, real path or existence test | textual paths, **wrong in three cases** | `cwd()`, `real_path()` |
+| 1 | An object's fields can't be listed | a `parts()` method on every node class | `fields($object)` |
+| 3 | Builtins can't be asked about | a hand-copied table and a test | `builtins()` |
+| 2 | A class's bare name | `slice(to_string(class_of($x)), 6)` | `class_name($class)` |
+| 7 | Lists can't be joined | a loop | a builtin, at the third use |
+| 5 | Two results out of one walk | an object | nothing: hole 1 already says so |
+| 4, 6 | Calling a method by name; identity keys | not needed | nothing: both dissolved |
+
+Entries 4 to 6 matter as much as the rest: three things the audits listed as holes were met
+head on by real code and did not bite. `$obj.$name` was not needed because a bound method is a
+value; `spl_object_id` was not needed because the state it kept in a side table belongs on the
+node, or in one field; by-reference parameters were not needed because the walk is an object.
+
 ## 1. An object's fields can't be listed (hole 2, now with real code asking)
 
 **Met:** before the first line of parser. The PHP side of the harness, `AST\Dumper`, is 118 lines

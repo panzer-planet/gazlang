@@ -14,9 +14,9 @@ design is in [CLAUDE.md](../CLAUDE.md); what the language *is* is in
 | `src/CodeGenerator` | compiles the tree to a `Program`: one block of code per function, each instruction tagged with its file and line |
 | `src/VM` | runs a `Program`. This is the default backend |
 | `lib/` | the standard library, written in GazLang |
-| `selfhost/` | the toolchain rewritten in GazLang: so far `lexer.gaz`, a port of `src/Lexer`, and `tokens.gaz`, which prints its tokens as `--tokens` does |
+| `selfhost/` | the toolchain rewritten in GazLang: so far `lexer.gaz`, a port of `src/Lexer`, with `tokens.gaz`, which prints its tokens as `--tokens` does, and `parser.gaz` and `nodes.gaz`, a port of `src/Parser` and `src/AST`, with `ast.gaz`, which prints its tree as `--ast` does |
 | `examples/` | sample programs |
-| `tests/` | PHPUnit, plus `tests/gaz/` GazLang programs and `tests/lexer_corpus/` |
+| `tests/` | PHPUnit, plus `tests/gaz/` GazLang programs, `tests/lexer_corpus/` and `tests/parser_corpus/` |
 
 ## The two backends must agree
 
@@ -57,6 +57,7 @@ php bin/gazlang -f examples/functions.gaz                 # compile and run on t
 php bin/gazlang --interpreter -f examples/functions.gaz   # the tree-walking interpreter
 php bin/gazlang -c -f examples/functions.gaz              # print the compiled bytecode
 php bin/gazlang --tokens -f examples/functions.gaz        # print the tokens
+php bin/gazlang --ast -f examples/functions.gaz           # print the parser's tree
 ```
 
 ## Tests
@@ -72,6 +73,16 @@ php bin/gazlang --tokens -f examples/functions.gaz        # print the tokens
   other `.gaz` file in the repository, so a change to `src/Lexer` needs the same change there.
   After changing either, also run `php tests/fuzz_lexers.php`, which compares the two on a few
   thousand generated inputs in about five seconds.
+- **`tests/parser_corpus/`** are parsing cases: a file per construct, and an `error_*` file for
+  every message the parser can raise, which must be exactly the ones that fail to parse.
+  `SelfHostedParserTest` requires `selfhost/parser.gaz` to give the same tree and errors as the
+  PHP parser on these and on every other `.gaz` file in the repository, so a change to
+  `src/Parser` or to a node in `src/AST` needs the same change in `selfhost/parser.gaz` or
+  `selfhost/nodes.gaz`. The expected tree is `php bin/gazlang --ast`, which `AST\Dumper` prints
+  by reading each node's fields, so a new field shows up in it without being asked. After
+  changing either parser, also run `php tests/fuzz_parsers.php`, which compares the two on a few
+  thousand changed programs in under a minute. When a location matters, put the node's tokens
+  on different lines: a one-line case cannot tell one token's line from another's.
 - `lib/json.gaz` is checked against PHP's own `json_decode` on every `tests/json/y_*.json` and
   `n_*.json`; `lib/csv.gaz` against `fgetcsv`.
 
