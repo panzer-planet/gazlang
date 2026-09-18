@@ -9,4 +9,11 @@
             <directory>tests</directory>
         </testsuite>
     </testsuites>
+    <groups>
+        <!-- The self-hosted ports checked on every .gaz file, not just their own corpora.
+             Run them before merging by naming the group: phpunit group whole-repository -->
+        <exclude>
+            <group>whole-repository</group>
+        </exclude>
+    </groups>
 </phpunit> 

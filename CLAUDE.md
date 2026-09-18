@@ -8,6 +8,10 @@ composer install
 # Run all tests
 vendor/bin/phpunit
  
+# Run the self-hosted ports on every .gaz file in the repository, which the default run
+# leaves out (see "The way out" under roadmap step 7); do it before merging port changes
+vendor/bin/phpunit --group whole-repository
+
 # Run a specific test file
 vendor/bin/phpunit tests/SpecificTest.php
  
@@ -389,6 +393,12 @@ each step depends on the ones before it.
    generator is done, the C VM goes first after all, since it is what makes these harnesses
    cheap. Short of that, run the suite with `php -d pcov.enabled=0` (46s), or move the
    whole-repository corpora into a phpunit group, keeping the ports' own corpora always on.
+   **The group is done** (2026-09-18, a temporary fix until the C VM): each port's check on
+   every `.gaz` file outside its own corpus is `@group whole-repository`, which `phpunit.xml`
+   excludes. The default suite went from 81s to 43s under pcov; the group is 38s on its own
+   (`vendor/bin/phpunit --group whole-repository`). Run it before merging anything that
+   touches a port, the lexer, the parser or the tree. The code generator port's harness joins
+   the same group.
 
    Throughout: **judge new features by what they cost in C, not only in PHP.** Values
    semantics suit reference counting; anything that leans on PHP behaviour (hashing,

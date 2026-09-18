@@ -51,6 +51,22 @@ class SelfHostedLexerTest extends GazLangTestCase
     }
 
     /**
+     * The lexer's own cases, which always run
+     */
+    public static function lexerCorpus(): array
+    {
+        return array_filter(self::corpus(), fn (string $file) => str_starts_with($file, 'tests/lexer_corpus/'), ARRAY_FILTER_USE_KEY);
+    }
+
+    /**
+     * Every other .gaz file in the repository, which only runs with --group whole-repository
+     */
+    public static function repositoryCorpus(): array
+    {
+        return array_diff_key(self::corpus(), self::lexerCorpus());
+    }
+
+    /**
      * The expected --tokens output and exit code for a file, from the PHP lexer in-process
      *
      * @return array{0: string, 1: int}
@@ -109,9 +125,24 @@ class SelfHostedLexerTest extends GazLangTestCase
     }
 
     /**
-     * @dataProvider corpus
+     * @dataProvider lexerCorpus
      */
     public function test_self_hosted_lexer_matches_the_php_lexer(string $file)
+    {
+        $this->assertSameTokens($file);
+    }
+
+    /**
+     * @dataProvider repositoryCorpus
+     *
+     * @group whole-repository
+     */
+    public function test_self_hosted_lexer_matches_the_php_lexer_on_the_rest_of_the_repository(string $file)
+    {
+        $this->assertSameTokens($file);
+    }
+
+    private function assertSameTokens(string $file): void
     {
         self::$program ??= self::compileProgram(self::LEXER);
         [$output, $exit_code] = $this->runCompiled(self::$program, [$file]);

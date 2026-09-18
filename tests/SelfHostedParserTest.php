@@ -61,6 +61,14 @@ class SelfHostedParserTest extends GazLangTestCase
     }
 
     /**
+     * Every other .gaz file in the repository, which only runs with --group whole-repository
+     */
+    public static function repositoryCorpus(): array
+    {
+        return array_diff_key(self::corpus(), self::parserCorpus());
+    }
+
+    /**
      * @dataProvider parserCorpus
      */
     public function test_corpus_files_named_error_are_exactly_the_ones_that_fail(string $file)
@@ -93,9 +101,24 @@ class SelfHostedParserTest extends GazLangTestCase
     }
 
     /**
-     * @dataProvider corpus
+     * @dataProvider parserCorpus
      */
     public function test_self_hosted_parser_matches_the_php_parser(string $file)
+    {
+        $this->assertSameTree($file);
+    }
+
+    /**
+     * @dataProvider repositoryCorpus
+     *
+     * @group whole-repository
+     */
+    public function test_self_hosted_parser_matches_the_php_parser_on_the_rest_of_the_repository(string $file)
+    {
+        $this->assertSameTree($file);
+    }
+
+    private function assertSameTree(string $file): void
     {
         self::$program ??= self::compileProgram(self::PARSER);
         [$output, $exit_code] = $this->runCompiled(self::$program, [$file]);
