@@ -20,6 +20,10 @@
 		</dict>
 		<dict>
 			<key>include</key>
+			<string>#declarations</string>
+		</dict>
+		<dict>
+			<key>include</key>
 			<string>#keywords</string>
 		</dict>
 		<dict>
@@ -32,7 +36,19 @@
 		</dict>
 		<dict>
 			<key>include</key>
+			<string>#members</string>
+		</dict>
+		<dict>
+			<key>include</key>
 			<string>#variables</string>
+		</dict>
+		<dict>
+			<key>include</key>
+			<string>#builtins</string>
+		</dict>
+		<dict>
+			<key>include</key>
+			<string>#classes</string>
 		</dict>
 		<dict>
 			<key>include</key>
@@ -55,13 +71,55 @@
 					<key>match</key>
 					<string>//.*$</string>
 				</dict>
+			</array>
+		</dict>
+		<key>declarations</key>
+		<dict>
+			<key>patterns</key>
+			<array>
 				<dict>
-					<key>name</key>
-					<string>comment.block.gaz</string>
-					<key>begin</key>
-					<string>/\*</string>
-					<key>end</key>
-					<string>\*/</string>
+					<key>match</key>
+					<string>\b(fn)\s+([a-zA-Z_][a-zA-Z0-9_]*)</string>
+					<key>captures</key>
+					<dict>
+						<key>1</key>
+						<dict>
+							<key>name</key>
+							<string>storage.type.function.gaz</string>
+						</dict>
+						<key>2</key>
+						<dict>
+							<key>name</key>
+							<string>entity.name.function.gaz</string>
+						</dict>
+					</dict>
+				</dict>
+				<dict>
+					<key>match</key>
+					<string>\b(class)\s+([a-zA-Z_][a-zA-Z0-9_]*)(?:\s+(extends)\s+([a-zA-Z_][a-zA-Z0-9_]*))?</string>
+					<key>captures</key>
+					<dict>
+						<key>1</key>
+						<dict>
+							<key>name</key>
+							<string>storage.type.class.gaz</string>
+						</dict>
+						<key>2</key>
+						<dict>
+							<key>name</key>
+							<string>entity.name.type.class.gaz</string>
+						</dict>
+						<key>3</key>
+						<dict>
+							<key>name</key>
+							<string>storage.modifier.gaz</string>
+						</dict>
+						<key>4</key>
+						<dict>
+							<key>name</key>
+							<string>entity.other.inherited-class.gaz</string>
+						</dict>
+					</dict>
 				</dict>
 			</array>
 		</dict>
@@ -73,13 +131,25 @@
 					<key>name</key>
 					<string>keyword.control.gaz</string>
 					<key>match</key>
-					<string>\b(if|else|while|for|foreach|as|break|continue|return|try|catch|include)\b</string>
+					<string>\b(echo|if|else|while|for|foreach|as|break|continue|return|match|default|delete|try|catch|finally|include)\b</string>
 				</dict>
 				<dict>
 					<key>name</key>
-					<string>storage.type.function.gaz</string>
+					<string>storage.type.gaz</string>
 					<key>match</key>
-					<string>\b(function|class)\b</string>
+					<string>\b(fn|class|interface)\b</string>
+				</dict>
+				<dict>
+					<key>name</key>
+					<string>storage.modifier.gaz</string>
+					<key>match</key>
+					<string>\b(abstract|extends|implements|final|public|private|protected)\b</string>
+				</dict>
+				<dict>
+					<key>name</key>
+					<string>invalid.deprecated.reserved.gaz</string>
+					<key>match</key>
+					<string>\b(function)\b</string>
 				</dict>
 			</array>
 		</dict>
@@ -104,7 +174,37 @@
 					<key>name</key>
 					<string>constant.numeric.float.gaz</string>
 					<key>match</key>
-					<string>\b\d+(\.\d+)?([eE][+-]?\d+)?\b</string>
+					<string>\b\d+(\.\d+([eE][+-]?\d+)?|[eE][+-]?\d+)\b</string>
+				</dict>
+				<dict>
+					<key>name</key>
+					<string>constant.numeric.integer.gaz</string>
+					<key>match</key>
+					<string>\b\d+\b</string>
+				</dict>
+			</array>
+		</dict>
+		<key>members</key>
+		<dict>
+			<key>patterns</key>
+			<array>
+				<dict>
+					<key>name</key>
+					<string>variable.other.parent-member.gaz</string>
+					<key>match</key>
+					<string>##[a-zA-Z_][a-zA-Z0-9_]*</string>
+				</dict>
+				<dict>
+					<key>name</key>
+					<string>variable.other.member.gaz</string>
+					<key>match</key>
+					<string>#[a-zA-Z_][a-zA-Z0-9_]*</string>
+				</dict>
+				<dict>
+					<key>name</key>
+					<string>variable.other.property.gaz</string>
+					<key>match</key>
+					<string>(?&lt;!\.)\.[a-zA-Z_][a-zA-Z0-9_]*</string>
 				</dict>
 			</array>
 		</dict>
@@ -131,6 +231,20 @@
 					<string>\$[a-zA-Z_][a-zA-Z0-9_]*</string>
 				</dict>
 			</array>
+		</dict>
+		<key>builtins</key>
+		<dict>
+			<key>name</key>
+			<string>support.function.gaz</string>
+			<key>match</key>
+			<string>(?&lt;![\w.$@#])\b(len|slice|lower|upper|trim|split|join|replace|contains|starts_with|ends_with|index_of|repeat|chr|ord|to_int|to_float|to_string|floor|ceil|round|abs|intdiv|min|max|in_array|has_key|keys|values|type_of|is_a|class_of|error|exit|read_file|write_file|print_error|print|read_stdin|args)\b</string>
+		</dict>
+		<key>classes</key>
+		<dict>
+			<key>name</key>
+			<string>entity.name.type.class.gaz</string>
+			<key>match</key>
+			<string>(?&lt;![\w.$@#])\b[A-Z][a-zA-Z0-9_]*\b</string>
 		</dict>
 		<key>strings</key>
 		<dict>
@@ -172,7 +286,7 @@
 							<key>name</key>
 							<string>meta.embedded.line.gaz</string>
 							<key>begin</key>
-							<string>\{</string>
+							<string>\{(?=[$@#])</string>
 							<key>end</key>
 							<string>\}</string>
 							<key>patterns</key>
@@ -189,12 +303,6 @@
 							<key>match</key>
 							<string>\$[a-zA-Z_][a-zA-Z0-9_]*(\[[^\]]*\])?</string>
 						</dict>
-						<dict>
-							<key>name</key>
-							<string>variable.other.global.gaz</string>
-							<key>match</key>
-							<string>@[a-zA-Z_][a-zA-Z0-9_]*(\[[^\]]*\])?</string>
-						</dict>
 					</array>
 				</dict>
 			</array>
@@ -204,7 +312,7 @@
 			<key>name</key>
 			<string>keyword.operator.gaz</string>
 			<key>match</key>
-			<string>\?\?=?|&lt;=&gt;|\.\.=?|-&gt;|&lt;&lt;|&gt;&gt;|[+\-*/%]=?|&amp;&amp;|\|\||[&lt;&gt;]=?|[!=]=|=|!|\?|:</string>
+			<string>\?\?=?|&lt;=&gt;|&lt;&lt;=?|&gt;&gt;=?|\.\.=?|-&gt;|=&gt;|\+\+|--|&amp;&amp;|\|\||[+\-*/%&amp;|^]=?|[&lt;&gt;]=?|[!=]=|=|[!?:~]</string>
 		</dict>
 	</dict>
 </dict>
