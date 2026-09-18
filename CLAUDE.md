@@ -230,6 +230,19 @@ each step depends on the ones before it.
      though a method may still be called `delete`. There is no `pop`: take the last element,
      then delete it, which is how a list is a stack (`Values::remove()` takes the last element
      with `array_pop()`; `array_splice()` rebuilt the list on every pop, quadratically).
+   - `...$x` in a list literal puts the elements of the list `$x` there: `[$first, ...$rest]`
+     prepends, `[...$a, ...$b]` joins (`SpreadAST`, decided and built 2026-09-18, after the
+     parser and code generator ports met it seven times between them). Elements are worked
+     out left to right, and anything but a list is an error at the `...`, "Cannot spread
+     map: only a list can be" (`Values::spread()`, the one definition), before the elements
+     after it run. The result is a new list, as every list is a value. **Only in list
+     literals**: `{...$m}`, `f(...$args)` and a bare `...$a` are parse errors that say so,
+     and a pattern can't take the rest (`[$a, ...$b] = $l` says to use `slice()`); each can be
+     added later without breaking anything. A constant can spread constants, since a constant
+     is any operator on constants. `...` is one token, and the lexer takes the longest match,
+     so `.....` is `...` then `..`; no valid program had three dots in a row before. Code
+     generation: `ARRAY_EXTEND` appends a list to the list below, and a literal with a spread
+     in it is never folded into one `PUSH`.
    - A builtin's arity is an int, or `[fewest, most]` when it has optional
      parameters (`index_of`, `slice`); the parser checks calls against the range,
      the same way as for user functions with defaults.
@@ -766,10 +779,9 @@ when it was written, not from now.
    own privates (`json_*` is that scar), and including a file runs its top level code.
    `Error`'s members are reserved across the whole hierarchy, so a domain error cannot declare
    its own `#line` or `#message`.
-6. **Smaller things, each with real uses behind it.** No list concatenation, prepend or
-   reverse, so `array_unshift` becomes an append-then-reverse loop (4 uses in the PHP code, and
-   4 hand-rolled copy loops already in `lib/` and `examples/`, including both merge sort drains
-   in `lib/functional.gaz:78`). ~~No constants.~~ Built 2026-09-18, see "Constants"; `examples/football.gaz`'s UPPERCASE
+6. **Smaller things, each with real uses behind it.** ~~No list concatenation or prepend.~~
+   Built 2026-09-18 as spread in list literals (`[$x, ...$rest]`, see step 5), which replaced
+   the merge sort drains in `lib/functional.gaz` and seven workarounds in the ports. No reverse. ~~No constants.~~ Built 2026-09-18, see "Constants"; `examples/football.gaz`'s UPPERCASE
    zero-argument functions, which re-`split()` a 50 name string on every call, were the evidence. ~~Counting into a map
    needs the key twice, which `+=` creating a missing key from zero would remove.~~ Withdrawn
    2026-09-18: the idiom is already there. `$m[$k] ??= 0; $m[$k]++;` works, because `??=`

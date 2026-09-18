@@ -14,7 +14,7 @@ the first run of the harness. Nothing the language lacks got in the way; what it
 
 | # | Friction | Workaround | Recommended |
 | --- | --- | --- | --- |
-| 1 | Lists can't be joined, prepended or spread | loops, and a `with()` helper | decide it now: this is past the third use |
+| 1 | ~~Lists can't be joined, prepended or spread~~ | **built**: spread, `[$x, ...$rest]` | done, see below |
 | 2 | A list pattern can't skip an element | index the list, or name what isn't used | nothing yet |
 | 3 | Copying a node loses nothing in PHP; rebuilding it can | set the location by hand | nothing: one use, and a mutant guards it |
 | - | Variadics, dispatch by class | a list; one `match` | nothing, see below |
@@ -68,6 +68,10 @@ the port has a `with($first, $rest)` helper. `[1, ...$x]` is a parse error. Opti
   `...` token the lexer doesn't have. **Recommended**, since every use met so far is a literal.
 - A builtin, `concat($a, $b)`: no syntax, but prepending is `concat([$x], $list)`.
 - Leave it: each workaround is a loop of three lines.
+
+**Decided and built 2026-09-18: spread in list literals**, only there, only of lists, and not in
+patterns (see CLAUDE.md, roadmap step 5). `steps()` now prepends (`[$node, ...$steps]`), `with()`
+is gone, and so are two more copy loops the first pass had missed.
 
 ### 2. A list pattern can't skip an element
 

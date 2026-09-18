@@ -105,6 +105,16 @@ delete $list[1];    delete $map["key"];
 foreach ($map as $key => $value) { }
 ```
 
+`...` spreads a list into a list literal, which is how lists are joined and prepended to:
+
+```gaz
+$all = [...$first, ...$rest];            // join
+$list = [0, ...$list];                   // prepend
+```
+
+Only a list can be spread (anything else is an error at the `...`), and only into a list
+literal: not into a map, a call's arguments or a pattern.
+
 A list index must be an int in range (no negative indexes); a map key must exist. Read through
 `??` to get `null` instead of an error. A compound assignment (`+=`, `..=`) needs the key to
 exist already, so start it with `??=`, which creates a missing last key and evaluates the key

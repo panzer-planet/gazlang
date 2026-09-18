@@ -21,7 +21,7 @@ generator port, which is next and larger:
 | 1 | ~~An object's fields can't be listed~~ | **built**: `fields($object)` | done, see below |
 | 3 | ~~Builtins can't be asked about~~ | **built**: `builtins()` | done, see below |
 | 2 | A class's bare name | `slice(to_string(class_of($x)), 6)` | `class_name($class)` |
-| 7 | Lists can't be joined | a loop | a builtin, at the third use |
+| 7 | ~~Lists can't be joined~~ | **built**: spread, `[$x, ...$rest]` | done, see below |
 | 5 | Two results out of one walk | an object | nothing: hole 1 already says so |
 | 4, 6 | Calling a method by name; identity keys | not needed | nothing: both dissolved |
 
@@ -148,6 +148,11 @@ matter. For the second, a new list and a loop. Both are three lines for what is 
 operator is for, but it converts both sides to strings today (`[1] .. [2]` is `"[1][2]"`), so it
 would change what existing source means; a builtin is safe. **Recommended: the builtin**, when a
 third use turns up. Two uses in 1500 lines is not much.
+
+**Decided and built 2026-09-18, as spread in list literals rather than a builtin**, once the code
+generator port brought five more uses: every one was a literal (`[$node->key, ...$targets]`,
+`['locals', ...$names]`), which spread writes as the PHP does and a builtin would not. Both uses
+here now read as they do in `Parser.php`. See CLAUDE.md, roadmap step 5.
 
 ## Found in the PHP parser along the way
 
