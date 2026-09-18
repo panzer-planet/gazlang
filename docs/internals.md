@@ -116,9 +116,10 @@ walk through every jump — so a file that loads is one the VM can run.
 ## Where this is going
 
 The roadmap is in [CLAUDE.md](../CLAUDE.md) under "Path to Self-Hosting". The short version:
-the bytecode format is pinned, and next is a standalone VM in C, then the lexer, parser and
-compiler rewritten in GazLang, then a bootstrap that drops PHP entirely. The PHP implementation
-stays the reference throughout.
+the bytecode format is pinned, and the lexer and parser are rewritten in GazLang and checked
+against the PHP ones. Next is settling what that port found missing in the language, then the
+code generator the same way, then a standalone VM in C, then a bootstrap that drops PHP
+entirely. The PHP implementation stays the reference throughout.
 
 That is why new features get judged by what they cost **in C**, not only in PHP: anything that
 leans on PHP's own behaviour (hashing, string conversion, float formatting) has to become a

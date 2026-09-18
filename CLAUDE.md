@@ -334,9 +334,9 @@ each step depends on the ones before it.
         stack machine's is much simpler, and JVM, CPython and .NET are all fast enough on one;
         a loader can merge common sequences into superinstructions without touching the format.
         Changing this after the bootstrap would mean a new format and a rewritten compiler.
-   2. **Write a standalone VM in C** (see "Holes to fill next" first: removing elements
-      decides whether its ordered hash supports deletion, and stack traces decide what a
-      frame records; both are much worse to retrofit). A separate program, not called from PHP through
+   2. **Write a standalone VM in C.** The two things that had to be settled first are
+      built: `delete` (so its ordered hash supports deletion) and `#trace` (so a frame records
+      what a trace needs). A separate program, not called from PHP through
       FFI: every FFI call converts its values, which costs more than the work of one
       instruction). It needs its own values, an ordered hash for maps, byte strings,
       the operator rules of `Runtime\Values` exactly (including shortest float printing,
@@ -349,15 +349,38 @@ each step depends on the ones before it.
       default choice of language; Zig or Rust can still be decided when this starts.
       Expected speed: about that of Lua or PHP, 1 to 5 times PHP rather than 60 to 90.
    3. **Write the compiler in GazLang** (lexer, parser with the parse-time checks,
-      code generator), running on the C VM, which is what makes it fast enough to use.
-      It must produce the same bytecode as the PHP compiler for every file the tests
-      cover, starting with the lexer harness below.
+      code generator). It must produce the same bytecode as the PHP compiler for every file
+      the tests cover. The C VM is what makes it fast enough to *use*; it turned out not to be
+      needed to *write* it, see the order below.
    4. **Bootstrap.** The GazLang compiler compiles itself, the resulting bytecode is
       checked in, and `gazlang` becomes the C VM plus that compiler; PHP is no longer
       needed to run or build GazLang. Whether the PHP implementation stays as a
       reference is decided then.
 
-   Until then: **judge new features by what they cost in C, not only in PHP.** Values
+   **The order actually being followed** (decided 2026-09-18, once the lexer and parser were
+   ported): stage 3 is running ahead of stage 2, on the PHP VM. The plan put the C VM first
+   because a compiler in GazLang on the PHP VM is too slow to use, which is true and beside
+   the point: a port is not used, it is checked against the PHP original on a corpus, and
+   that loop (a dump from the PHP side, a driver printing the same, every `.gaz` file, a
+   differential fuzzer, mutants) found a bug in the spec and needed nothing faster than what
+   there is. So, in this order:
+   1. **Decide the friction the parser port logged** (`docs/parser-port-friction.md`) before
+      writing more GazLang: constants, `cwd()` and `real_path()`, `fields($object)`,
+      `builtins()`. The code generator port meets all four harder than the parser did, the
+      paths most of all, since a bytecode file's `@ "file"` records are relative-path rewrites
+      it must reproduce byte for byte, and the parser's textual stand-in is knowingly wrong in
+      three cases. Working around them a second time and then removing the workarounds twice
+      is the expensive order.
+   2. **Port the code generator to `selfhost/`**, the same way, against `gazlang -c`: the same
+      bytecode, byte for byte, for every file, which the format was made deterministic for.
+   3. **The C VM**, stage 2 above, by which time everything above it exists and is tested.
+   The way out: each port's harness costs the suite about 35s under pcov (30s to 71s for the
+   parser), and a third would be more again. If that becomes unbearable before the code
+   generator is done, the C VM goes first after all, since it is what makes these harnesses
+   cheap. Short of that, run the suite with `php -d pcov.enabled=0` (46s), or move the
+   whole-repository corpora into a phpunit group, keeping the ports' own corpora always on.
+
+   Throughout: **judge new features by what they cost in C, not only in PHP.** Values
    semantics suit reference counting; anything that leans on PHP behaviour (hashing,
    string conversion, float formatting) must be a rule GazLang defines and both runtimes
    implement. Keep growing the language by writing real GazLang (`lib/`, tools) and
