@@ -14,7 +14,7 @@ design is in [CLAUDE.md](../CLAUDE.md); what the language *is* is in
 | `src/CodeGenerator` | compiles the tree to a `Program`: one block of code per function, each instruction tagged with its file and line |
 | `src/VM` | runs a `Program`. This is the default backend |
 | `lib/` | the standard library, written in GazLang |
-| `selfhost/` | the toolchain rewritten in GazLang: so far `lexer.gaz`, a port of `src/Lexer`, with `tokens.gaz`, which prints its tokens as `--tokens` does, and `parser.gaz` and `nodes.gaz`, a port of `src/Parser` and `src/AST`, with `ast.gaz`, which prints its tree as `--ast` does |
+| `selfhost/` | everything above the VM, rewritten in GazLang: `lexer.gaz`, a port of `src/Lexer`, with `tokens.gaz`, which prints its tokens as `--tokens` does, `parser.gaz` and `nodes.gaz`, a port of `src/Parser` and `src/AST`, with `ast.gaz`, which prints its tree as `--ast` does, and `codegen.gaz`, a port of `src/CodeGenerator`, with `compile.gaz`, which prints bytecode as `-c` does |
 | `examples/` | sample programs |
 | `tests/` | PHPUnit, plus `tests/gaz/` GazLang programs, `tests/lexer_corpus/` and `tests/parser_corpus/` |
 
@@ -83,6 +83,14 @@ php bin/gazlang --ast -f examples/functions.gaz           # print the parser's t
   changing either parser, also run `php tests/fuzz_parsers.php`, which compares the two on a few
   thousand changed programs in under a minute. When a location matters, put the node's tokens
   on different lines: a one-line case cannot tell one token's line from another's.
+- **`tests/codegen_corpus/`** are code generation cases, built to reach every branch of the
+  code generator between them. `SelfHostedCompilerTest` requires `selfhost/codegen.gaz` to give
+  byte for byte the bytecode `php bin/gazlang -c` writes, on these and on every other `.gaz`
+  file in the repository, so a change to `src/CodeGenerator` or to how `Program` writes needs
+  the same change there. After changing either, also run `php tests/fuzz_parsers.php 3000 1 code`.
+- The three ports are checked on the rest of the repository only when asked, since that is
+  most of the suite's time: `php -d pcov.enabled=0 vendor/bin/phpunit --group whole-repository`,
+  before merging anything that touches them.
 - `lib/json.gaz` is checked against PHP's own `json_decode` on every `tests/json/y_*.json` and
   `n_*.json`; `lib/csv.gaz` against `fgetcsv`.
 

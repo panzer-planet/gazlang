@@ -9,8 +9,12 @@ composer install
 vendor/bin/phpunit
  
 # Run the self-hosted ports on every .gaz file in the repository, which the default run
-# leaves out (see "The way out" under roadmap step 7); do it before merging port changes
-vendor/bin/phpunit --group whole-repository
+# leaves out (see "The way out" under roadmap step 7); do it before merging port changes.
+# Without pcov it takes half the time
+php -d pcov.enabled=0 vendor/bin/phpunit --group whole-repository
+
+# Compile a file with the self-hosted compiler, which must print what -c prints
+php bin/gazlang -f selfhost/compile.gaz -- examples/functions.gaz
 
 # Run a specific test file
 vendor/bin/phpunit tests/SpecificTest.php
@@ -385,8 +389,9 @@ each step depends on the ones before it.
       since a bytecode file's `@ "file"` records are relative-path rewrites it must reproduce
       byte for byte. Working around them a second time and then removing the workarounds twice
       is the expensive order.
-   2. **Port the code generator to `selfhost/`**, the same way, against `gazlang -c`: the same
-      bytecode, byte for byte, for every file, which the format was made deterministic for.
+   2. ~~**Port the code generator to `selfhost/`**, the same way, against `gazlang -c`: the same
+      bytecode, byte for byte, for every file, which the format was made deterministic for.~~
+      Done 2026-09-18, see "Port the code generator" below.
    3. **The C VM**, stage 2 above, by which time everything above it exists and is tested.
    The way out: each port's harness costs the suite about 35s under pcov (30s to 71s for the
    parser), and a third would be more again. If that becomes unbearable before the code
@@ -395,10 +400,11 @@ each step depends on the ones before it.
    whole-repository corpora into a phpunit group, keeping the ports' own corpora always on.
    **The group is done** (2026-09-18, a temporary fix until the C VM): each port's check on
    every `.gaz` file outside its own corpus is `@group whole-repository`, which `phpunit.xml`
-   excludes. The default suite went from 81s to 43s under pcov; the group is 38s on its own
-   (`vendor/bin/phpunit --group whole-repository`). Run it before merging anything that
-   touches a port, the lexer, the parser or the tree. The code generator port's harness joins
-   the same group.
+   excludes. The default suite went from 81s to 43s under pcov (47s with the code generator
+   port's own corpus). The group is 110s under pcov with all three ports in it, 56s without
+   (`php -d pcov.enabled=0 vendor/bin/phpunit --group whole-repository`, the way to run it).
+   Run it before merging anything that touches a port, the lexer, the parser, the tree or the
+   code generator.
 
    Throughout: **judge new features by what they cost in C, not only in PHP.** Values
    semantics suit reference counting; anything that leans on PHP behaviour (hashing,
@@ -591,6 +597,45 @@ each step depends on the ones before it.
      are gone), `builtins()` (a hand-copied table of 44 arities, kept honest by a test; built,
      and the table and test are gone). Three holes the audits listed turned out not to bite:
      calling a method by name, identity keys for objects, and by-reference parameters.
+
+   ~~**Port the code generator to `selfhost/codegen.gaz` against `gazlang -c`, which is the
+   spec.**~~ Done 2026-09-18. `selfhost/codegen.gaz` (1077 lines) holds `CodeGenerator`, a port
+   of `CodeGenerator.php` (1499) with the PHP method names, and `Program`, the writing half of
+   `Program.php`; `selfhost/compile.gaz` is the driver. `tests/SelfHostedCompilerTest.php`
+   requires output and exit code identical to `php bin/gazlang -c -f FILE`, byte for byte, on
+   `tests/codegen_corpus/` (always, also from other working directories and for four files on
+   the interpreter) and on every other `.gaz` file (`--group whole-repository`). The loader,
+   `BytecodeReader`, is not ported: loading is the VM's job, so the C VM writes its own.
+   - **It matched on every file in the repository at the first run**, which says the four
+     friction builtins and the parser port's shape were right, and also that the repository
+     can't be trusted to say more. So the corpus was built to reach every branch on its own and
+     checked with 49 mutants: 47 die, and the two survivors are equivalent because the PHP
+     checks they break are redundant (`existing` on the nodes `??=` builds, which `quietly()`
+     never reads; `LOAD_FIELD` testing `existing`, which is only set on nodes whose `field` is
+     false). The three holes the mutants found were a constant literal holding `null`, a method
+     call with arguments, and a postfix `++` on a different line from its statement.
+   - **Where the port is not the PHP**: `dispatch()` is one `match (class_of($node))` with an arm
+     per node class, since GazLang can't build a method name and call it; `emit()` takes its
+     arguments as a list, having no variadics; the three path walks share a `steps()` that turns
+     the path round, lists having no prepend; the postfix `++` PHP clones is built again, with its
+     location copied by hand, which a mutant showed is easy to forget. The writer's paths stay
+     textual on purpose (`absolute()` over `cwd()`), since a path written into bytecode need not
+     exist, and `PUSH`'s literal is `slice(to_string([$v]), 1, -1)`, which is `Program::value()`
+     for every value a constant can be.
+   - **`php tests/fuzz_parsers.php RUNS SEED code`** compares the two compilers on the parser
+     fuzzer's inputs: 9,000 over three seeds, 2,768 compiled, no difference, and it finds a port
+     broken on purpose (17 and 10 mismatches in 400 runs).
+   - **Speed** (`football.gaz`, CLI with the JIT, best of three): 0.83s against `gazlang -c`'s
+     0.29s. Loading the 4251 lines of the port is 0.37s of it, lexing and parsing 0.29s,
+     generating code 0.07s and writing the text 0.10s.
+   - **The friction is in `docs/codegen-port-friction.md`**. One entry wants deciding: lists
+     can't be joined, prepended or spread, which the parser log said to fix "at the third use",
+     and this port brought five more; spread in list literals is recommended. Every other entry
+     is small.
+
+   With the lexer, parser and code generator ported, everything above the VM exists in GazLang
+   and matches the PHP on every file there is. **What is left is the C VM** (stage 2), then the
+   bootstrap.
 
    **The README's examples are tests.** `ReadmeTest` pulls every ```` ```gaz ```` block that is
    followed by an output block out of `README.md` and requires it to print exactly that, on
