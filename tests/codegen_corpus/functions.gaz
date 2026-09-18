@@ -1,0 +1,29 @@
+// Functions, defaults, closures and what a return does inside handlers
+fn add($a, $b = $a * 2, $c = []) { return $a + $b; }
+fn nothing() {}
+fn early($x) { if ($x) { return; } return $x; }
+fn fin($x) { try { return $x; } finally { echo "finally"; } }
+fn nested($x) { try { try { return $x; } catch ($e) { return 0; } } finally { echo "f"; } }
+fn looped() { while (true) { try { return 1; } catch ($e) { break; } } }
+fn pick() { return $v -> $v; }
+echo add(1) + add(1, 2);
+$f = add;
+echo $f(1, 2);
+$l = len;
+echo $l("ab");
+echo (add)(1);
+echo pick()(1);
+$n = 0;
+$counter = () -> ++$n;
+$fib = $n -> $n < 2 ? $n : $fib($n - 1) + $fib($n - 2);
+$make = $x -> $y -> $x + $y;
+$outer = 1;
+$deep = () -> () -> $outer;
+$block = ($a, $b = 1) -> { $t = $a + $b; return $t; };
+$empty = () -> {};
+$uses_global = () -> @g;
+$memo = $k -> $cache[$k] ??= $k * 2;
+echo [$counter(), $fib(10), $make(1)(2), $deep()(), $block(1), $empty(), $memo(2)];
+$later = () -> $assigned_later;
+$assigned_later = 1;
+fn with_lambda($x) { return () -> $x; }

@@ -1,0 +1,48 @@
+// Control flow: every label a statement makes, and every way out of a handler
+$x = 3;
+if ($x > 2) { echo "a"; } else if ($x > 1) { echo "b"; } else { echo "c"; }
+if ($x) { echo "no else"; }
+while ($x > 0) {
+    $x--;
+    if ($x == 1) { continue; }
+    echo $x;
+}
+for ($i = 0; $i < 5; $i++) {
+    if ($i == 3) { break; }
+    if ($i == 1) { continue; }
+    echo $i;
+}
+foreach ([1, 2] as $v) { echo $v; }
+foreach ({"a" => 1} as $k => $v) { echo $k .. $v; }
+foreach ([[1, 2]] as $i => [$p, $q]) { echo $p + $q; }
+foreach ([1] as @g) { echo @g; }
+foreach ([[1]] as $outer) { foreach ($outer as $inner) { echo $inner; } }
+$kind = match ($x) { 1, 2 => "small", 3 => "three", default => "other" };
+$none = match ($x) { 1 => "one" };
+$cond = match { $x > 1 => "big", $x > 0, $x < -5 => "small" };
+match ($x) {
+    0 => { echo "zero"; }
+    1 => echo_it("one"),
+    default => {}
+}
+match { $x > 1 => { echo "big"; } }
+fn echo_it($s) { echo $s; }
+$rows = [[1, 2], {"k" => [3]}];
+delete $rows[0][1];
+delete $rows[1]["k"][0];
+@list = [1];
+delete @list[0];
+try { error("x"); } catch (Error $e) { echo $e.message; } catch ($e) { echo "other"; }
+try { echo 1; } catch (Error $e) { echo 2; }
+try { echo 1; } finally { echo "f"; }
+try { error(1); } catch ($e) { echo $e; } finally { echo "f"; }
+while (true) {
+    try {
+        try { break; } finally { echo "inner"; }
+    } finally {
+        echo "outer";
+    }
+}
+for ($i = 0; $i < 2; $i++) {
+    try { continue; } catch ($e) {} finally { try { echo "c"; } catch ($e) {} }
+}

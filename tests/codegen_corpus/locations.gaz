@@ -1,0 +1,25 @@
+// Each node's tokens on its own line, so every instruction's location is tested
+$a =
+    1
+    +
+    f(
+        2,
+        [3,
+         $a]
+    );
+fn f(
+    $x,
+    $l
+) {
+    return
+        $x
+        ..
+        $l[
+            0
+        ];
+}
+echo
+    $a;
+// A postfix ++ as a statement is compiled as prefix, and keeps its own location
+$a
+    ++;

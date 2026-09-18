@@ -38,9 +38,9 @@ class SelfHostedLexerTest extends GazLangTestCase
         foreach (['examples', 'lib', 'selfhost', 'tests'] as $dir) {
             foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(self::ROOT."/{$dir}")) as $path) {
                 $file = substr($path, strlen(self::ROOT) + 1);
-                // The parser's cases are small programs that add nothing for a lexer, and
-                // SelfHostedParserTest runs this lexer over every one of them anyway
-                if (str_ends_with($path, '.gaz') && ! str_starts_with($file, 'tests/parser_corpus/')) {
+                // The parser's and code generator's cases are small programs that add nothing
+                // for a lexer, and their harnesses run this lexer over every one of them anyway
+                if (str_ends_with($path, '.gaz') && ! str_starts_with($file, 'tests/parser_corpus/') && ! str_starts_with($file, 'tests/codegen_corpus/')) {
                     $files[$file] = [$file];
                 }
             }

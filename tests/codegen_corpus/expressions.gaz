@@ -1,0 +1,25 @@
+// Every operator, and what is folded at compile time: a literal of constants is one PUSH
+const LIMIT = 10;
+class K { const NAMES = ["a", "b"]; }
+$a = 7;
+$b = 2;
+echo [$a + $b, $a - $b, $a * $b, $a / $b, $a % $b, $a .. $b];
+echo [$a & $b, $a | $b, $a ^ $b, $a << $b, $a >> $b, ~$a, -$a, !$a];
+echo [$a == $b, $a != $b, $a < $b, $a <= $b, $a > $b, $a >= $b, $a <=> $b];
+echo $a > 1 && $b > 1 || $a < 0;
+echo $missing ?? $list[0] ?? $object.field ?? K.NAMES ?? "default";
+echo $a > $b ? "big" : $a == $b ? "same" : "small";
+echo [1, 2.5, -0.0, 1e25, 0.1, "a\$b{\x00\n", true, false, null, [1, [2]], {"1" => 1, 1 => 2, "k" => {"n" => []}}];
+// Not constant: a variable, a negative number, a float key, a call inside
+echo [$a, 1];
+echo {-1 => "a"};
+echo {1.5 => 1};
+echo [[1], [len("x")]];
+// Constants are their values, alone and inside a literal
+echo [LIMIT, K.NAMES, LIMIT * 2];
+echo {LIMIT => K.NAMES};
+echo {};
+echo [];
+echo "interpolated {$a} and $list[0] and {$object.field}";
+// A literal of nothing but constants, null among them, is one PUSH
+echo [null, true, "s", 1.5, {"k" => null}];

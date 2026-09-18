@@ -1,0 +1,4 @@
+// Paths are written relative to the main file's directory, climbing out of it here
+include "../parser_corpus/include/lib/shapes.gaz";
+include "../parser_corpus/include/lib/deep/helper.gaz";
+echo helper();
