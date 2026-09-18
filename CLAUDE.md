@@ -362,7 +362,10 @@ each step depends on the ones before it.
    string conversion, float formatting) must be a rule GazLang defines and both runtimes
    implement. Keep growing the language by writing real GazLang (`lib/`, tools) and
    fixing what hurts; the lexer port waits for the lexical syntax to settle, since a
-   second lexer doubles the work of every lexer change.
+   second lexer doubles the work of every lexer change. It has not settled: 2026-09-18
+   added `& | ^ ~ << >>` with their compound forms and the `match` and `default` keywords,
+   and block comments are wanted and not built (see "Decided, not built yet"), which is a
+   third change to the same file. Port the lexer after block comments land, not before.
 
    **Port the lexer to `selfhost/lexer.gaz` against the PHP lexer, which is the
    spec.** `tests/SelfHostedLexerTest.php` runs
@@ -414,6 +417,12 @@ They are grouped by cause, since one fix closes several, and ordered by how much
 a self-hosted compiler. Every claim below was reproduced; a struck-through entry has since been
 decided and built, and the rest are still open.
 
+When a workaround in this repo's own GazLang is the evidence for a hole, check with `git log`
+when that file was written before believing it: hole 1 below was mostly a mirage because
+`lib/json.gaz` and `lib/csv.gaz` deformed around an object they could not have used, having
+been written the day before classes landed. A comment apologising for a workaround dates from
+when it was written, not from now.
+
 1. **Threading mutable state through calls.** Mostly a mirage, corrected 2026-09-18 after
    checking the dates. Multiple return values already work, since `return [$a, $b];` feeds the
    list patterns `[$x, $y] = f();`, and mutable state already crosses calls, since objects are
@@ -436,7 +445,10 @@ decided and built, and the rest are still open.
    `examples/football.gaz:594` to wrap objects back into maps to sort them), `foreach` over an
    object's fields (`json_encode` refuses objects for want of it), and a class's bare name for
    messages, where `to_string(class_of($n))` gives `class Point` and only the prefix is in the
-   way.
+   way. One thing to watch when the self-hosted compiler is written: `class_of` is strict, so a
+   pass over a tree whose children can be absent needs `type_of($n) == "object"` before
+   dispatching, which is per-node boilerplate of the kind `class_of` was meant to remove. If
+   that shows up for real, it is the evidence for making it lenient.
 3. **`match` arms that are not `==`.** Of the 49 `if` conditions in `lib/json.gaz`, 15 are a
    plain `==`; the rest are ranges (`$unit >= 0xDC00 && $unit <= 0xDFFF`), predicate calls
    (`is_digit($c)`, `json_match("true")`), `!=` and map lookups, and all six `lib/chars.gaz`
