@@ -793,11 +793,14 @@ final class Values
     /**
      * The error for a match whose subject equals no arm's value, and that has no default arm
      *
-     * A string is quoted, so "1" and 1 differ as they do to ==, and anything that isn't a
-     * scalar or null is named by its type, the convention to_int() and to_float() follow.
-     * Describing a list, map or object in full would run an object's to_string(), which
-     * raising an error must never do: it can throw, replacing the error being raised, and it
-     * can have side effects the program never asked for.
+     * A string is quoted, so "1" and 1 differ as they do to ==. A class and a function name
+     * themselves, since dispatching on one is what match is for: a visitor written as
+     * match (class_of($n)) that meets a node it does not handle has to say which class that
+     * was. A list, map or object is named by its type instead, the convention to_int() and
+     * to_float() follow, because describing one in full would run an object's to_string(),
+     * which raising an error must never do: it can throw, replacing the error being raised,
+     * and it can have side effects the program never asked for. Naming a class or a function
+     * runs none of the program's code.
      *
      * @param  mixed  $subject  The value that matched nothing
      */
@@ -806,6 +809,7 @@ final class Values
         return new Exception('No arm matches '.match (true) {
             is_string($subject) => Lexer::quote($subject),
             is_scalar($subject) || $subject === null => self::toString($subject),
+            $subject instanceof ClassValue, $subject instanceof FunctionValue => self::toString($subject),
             default => self::typeOf($subject),
         });
     }

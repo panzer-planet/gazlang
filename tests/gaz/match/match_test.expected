@@ -29,6 +29,8 @@ ok no arm matches a bool
 ok no arm matches null
 ok no arm matches a list
 ok no arm matches a map
+ok no arm matches a class
+ok no arm matches a function
 ok an object's to_string never runs while the error is raised
 ok and it really never ran
 ok an arm that raises

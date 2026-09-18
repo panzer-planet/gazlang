@@ -410,8 +410,9 @@ sections above: every PHP facility `src/Lexer`, `src/Parser`, `src/CodeGenerator
 for a small language written in GazLang, logging every workaround; and the GazLang already in
 `lib/`, `examples/` and `tests/gaz`, read for shapes that recur because something is missing.
 
-None of these is decided. They are grouped by cause, since one fix closes several, and ordered
-by how much each deforms a self-hosted compiler. Every claim below was reproduced.
+They are grouped by cause, since one fix closes several, and ordered by how much each deforms
+a self-hosted compiler. Every claim below was reproduced; a struck-through entry has since been
+decided and built, and the rest are still open.
 
 1. **Threading mutable state through calls.** Mostly a mirage, corrected 2026-09-18 after
    checking the dates. Multiple return values already work, since `return [$a, $b];` feeds the

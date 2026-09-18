@@ -59,7 +59,9 @@ Phase 1 makes a bare name a function value. Python's `Point(1, 2)` is the natura
 extension: a class name is a value, calling it constructs. No `new` (PHP) or `.new`
 (Ruby); one postfix call rule; the parse-time check becomes "names a function or
 class". `type_of` should return `"object"` (PHP `gettype`), with `is_a($x, Point)` or
-`class_of` arriving with classes.
+`class_of` arriving with classes. Built: `is_a` with objects (2026-09-17) and `class_of`
+(2026-09-18), the latter once a pass over an AST turned out to need a dispatch key that
+`is_a` chains could not give.
 
 ### 7. Methods as function values — decided: bound methods
 `$obj.save` should be a bound method (Python), since `$handlers["save"]` is the phase 1
