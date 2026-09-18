@@ -1,0 +1,12 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals
+
+lambda 0 0 0
+capture $a local 0
+self $f
+locals
+PUSH null
+RET

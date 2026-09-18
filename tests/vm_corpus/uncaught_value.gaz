@@ -1,0 +1,3 @@
+echo "before";
+print_error("to stderr\n");
+error([1, "two", {"three" => 3.0}]);

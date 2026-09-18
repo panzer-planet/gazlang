@@ -1,0 +1,16 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals
+
+class C
+method m C
+locals
+LOAD_THIS
+RET
+
+fn C.m 0 0
+locals
+LOAD 2
+RET

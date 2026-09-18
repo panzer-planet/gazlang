@@ -1,0 +1,9 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals
+PUSH 1
+PUSH 2
+CALL_METHOD 1 m
+POP

@@ -1,0 +1,12 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals
+JMP HERE
+
+fn f 0 0
+locals
+LABEL HERE
+PUSH null
+RET

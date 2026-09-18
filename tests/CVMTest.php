@@ -72,5 +72,8 @@ class CVMTest extends TestCase
         $this->assertSame($php[1], $c[1], "{$entry}: standard error");
         $this->assertSame($php[0], $c[0], "{$entry}: standard output");
         $this->assertSame($php[2], $c[2], "{$entry}: exit code");
+        if (str_starts_with($entry, 'tests/bytecode_corpus/')) {
+            $this->assertSame(str_starts_with(basename($entry), 'error_'), $php[2] !== 0, "{$entry}: only files named error_* are refused");
+        }
     }
 }

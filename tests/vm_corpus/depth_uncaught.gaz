@@ -1,0 +1,2 @@
+class Loop { fn _() { Loop(); } }
+Loop();

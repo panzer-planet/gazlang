@@ -1,0 +1,40 @@
+// What the rest of the corpus doesn't reach
+fn attempt($f) {
+    try {
+        return $f();
+    } catch (Error $e) {
+        return $e.message;
+    }
+}
+
+// Messages longer than any fixed buffer
+$long = repeat("x", 600);
+echo len(attempt(() -> read_file($long)));
+echo len(attempt(() -> ({$long => 1})[$long .. "y"]));
+
+// Every operator's symbol in its errors
+foreach ([() -> true - 1, () -> true / 1, () -> null * 2, () -> [] % 2, () -> "a" <= 1, () -> "a" >= 1,
+          () -> 1 < "a", () -> 1 > "a", () -> ({}) <=> 1, () -> 1.5 & 1, () -> 1 | "x", () -> 1 ^ null,
+          () -> 1 << -1, () -> 1 >> 64, () -> true .. [] == 1, () -> -"x", () -> ~1.5] as $f) {
+    echo attempt($f);
+}
+
+// A duplicate key in a map built while running: the last one wins, in the first one's place
+$k = "a";
+echo {$k => 1, "b" => 2, "a" => 3};
+
+// to_float of a float, slice with a bad length
+echo [to_float(1.5), attempt(() -> slice("abc", 0, "x")), attempt(() -> slice("abc", "x"))];
+
+// Running out of depth at ##name(), from both parities
+class Base { fn go($n) { return #go($n + 1); } }
+class Child extends Base { fn go($n) { return ##go($n); } }
+echo attempt(() -> Child().go(0));
+fn one_deeper() { return Child().go(0); }
+echo attempt(() -> one_deeper());
+
+// ...and at a class called as a value, from both parities
+class Again { fn _($class) { $class($class); } }
+echo attempt(() -> Again(Again));
+fn again_deeper() { Again(Again); }
+echo attempt(() -> again_deeper());

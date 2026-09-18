@@ -1,0 +1,9 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals
+TRY CATCH
+END_TRY
+LABEL CATCH
+POP

@@ -852,15 +852,17 @@ final class VM
             $blocks[] = [$start, count($ops), $labels];
         }
 
+        // The reader only checks the code it can reach, so an unreachable jump or call may name
+        // what isn't there; it never runs, so it resolves to nothing rather than a warning
         foreach ($blocks as [$start, $end, $labels]) {
             for ($pc = $start; $pc < $end; $pc++) {
                 if (in_array($ops[$pc], ['JMP', 'JZ', 'JNN', 'TRY'], true)) {
-                    $arg0[$pc] = $labels[$arg0[$pc]];
+                    $arg0[$pc] = $labels[$arg0[$pc]] ?? null;
                 } elseif ($ops[$pc] === 'CATCH_MATCH') {
-                    $arg1[$pc] = $labels[$arg1[$pc]];
+                    $arg1[$pc] = $labels[$arg1[$pc]] ?? null;
                 } elseif ($ops[$pc] === 'CALL') {
                     $arg2[$pc] = $arg0[$pc];
-                    $arg0[$pc] = $entries[$arg0[$pc]];
+                    $arg0[$pc] = $entries[$arg0[$pc]] ?? null;
                 } elseif (str_starts_with($ops[$pc], 'SET_PATH') || str_starts_with($ops[$pc], 'DELETE_PATH')) {
                     $arg0[$pc] = self::parsePath($arg0[$pc]);
                 }

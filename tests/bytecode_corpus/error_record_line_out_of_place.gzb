@@ -1,0 +1,11 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals
+
+fn f 0 0
+field x C
+locals
+PUSH null
+RET

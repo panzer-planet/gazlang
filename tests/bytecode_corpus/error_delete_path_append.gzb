@@ -1,0 +1,7 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals $a
+PUSH 1
+DELETE_PATH [k][] 0

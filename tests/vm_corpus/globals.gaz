@@ -1,0 +1,10 @@
+// Globals: undefined, set in a function, ..= on them, ?? on them
+fn setup() { @count = 1; @log = "a"; }
+echo @missing ?? "missing is null";
+setup();
+@log ..= "b";
+@log ..= 3;
+echo @log .. @count;
+fn bump() { @count += 1; return @count; }
+echo bump() .. bump();
+echo @never;

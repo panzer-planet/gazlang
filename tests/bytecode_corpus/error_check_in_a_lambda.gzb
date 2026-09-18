@@ -1,0 +1,10 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals
+
+lambda 0 0 0
+locals
+LOAD_CAPTURED 1
+RET

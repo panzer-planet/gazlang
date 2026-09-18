@@ -10,6 +10,7 @@
  */
 #include "gazvm.h"
 
+#include <pthread.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1025,31 +1026,9 @@ static char *read_all(const char *path, size_t *len) {
     return b.data;
 }
 
-int main(int argc, char **argv) {
-    if (argc < 2) {
-        fputs("Usage: gazvm program.gzb [arguments...]\n", stderr);
-        return 1;
-    }
-    size_t len;
-    char *text = read_all(argv[1], &len);
-    if (!text) {
-        fprintf(stderr, "Error: Cannot read file: %s\n", argv[1]);
-        return 1;
-    }
-    program_argc = argc - 2;
-    program_argv = argv + 2;
-
-    program = load(text, len, argv[1]);
-    free(text);
-    if (!program) {
-        report(vm_error);
-        return 1;
-    }
-
-    /* Output is buffered in big blocks; anything written to standard error flushes it first,
-       so the two stay in the order the program wrote them */
-    setvbuf(stdout, NULL, _IOFBF, 1 << 16);
-
+/* The program, from its first instruction to its exit code: the thread main() starts */
+static void *run(void *arg) {
+    int *exit_code = arg;
     size_t capacity = (size_t)(MAX_CALL_DEPTH + 4) * (size_t)(program->max_frame + 8) + 1024;
     stack = xcalloc(capacity, sizeof(Value));
     stack_end = stack + capacity;
@@ -1082,8 +1061,53 @@ int main(int argc, char **argv) {
             }
         }
         report(e);
-        return 1;
+        *exit_code = 1;
+        return NULL;
     }
     flush_output();
-    return 0;
+    *exit_code = 0;
+    return NULL;
+}
+
+int main(int argc, char **argv) {
+    if (argc < 2) {
+        fputs("Usage: gazvm program.gzb [arguments...]\n", stderr);
+        return 1;
+    }
+    size_t len;
+    char *text = read_all(argv[1], &len);
+    if (!text) {
+        fprintf(stderr, "Error: Cannot read file: %s\n", argv[1]);
+        return 1;
+    }
+    program_argc = argc - 2;
+    program_argv = argv + 2;
+
+    program = load(text, len, argv[1]);
+    free(text);
+    if (!program) {
+        report(vm_error);
+        return 1;
+    }
+
+    /* Output is buffered in big blocks; anything written to standard error flushes it first,
+       so the two stay in the order the program wrote them */
+    setvbuf(stdout, NULL, _IOFBF, 1 << 16);
+
+    /* Calls between GazLang functions don't use the C stack, but a method run from inside an
+       instruction (echo calling to_string()) does, a nested execute() each, and a program can
+       nest those as deep as the call depth limit. So the program runs on a thread whose stack
+       is big enough for that: 1GB of address space, which the system only backs with memory
+       as it is used. */
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setstacksize(&attr, (size_t)1 << 30);
+    pthread_t thread;
+    int exit_code = 1;
+    if (pthread_create(&thread, &attr, run, &exit_code) != 0) {
+        fputs("Error: cannot start the VM's thread\n", stderr);
+        return 1;
+    }
+    pthread_join(thread, NULL);
+    return exit_code;
 }

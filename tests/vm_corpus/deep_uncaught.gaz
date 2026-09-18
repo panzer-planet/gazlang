@@ -1,0 +1,9 @@
+// An uncaught error deep in a recursion prints the innermost and outermost ten calls
+fn countdown($n) {
+    if ($n == 0) {
+        return 1 / 0;
+    }
+    return countdown($n - 1);
+}
+fn start() { return countdown(40); }
+start();

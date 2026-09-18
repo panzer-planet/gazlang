@@ -1,0 +1,10 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals
+PUSH 1
+JZ END
+PUSH 2
+LABEL END
+POP

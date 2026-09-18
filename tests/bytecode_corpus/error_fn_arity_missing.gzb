@@ -1,0 +1,10 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals
+
+fn f 1
+locals $a
+PUSH null
+RET

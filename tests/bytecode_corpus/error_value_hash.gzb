@@ -1,0 +1,7 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals
+PUSH #x
+POP

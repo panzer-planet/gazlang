@@ -210,23 +210,38 @@ static int count(const char *word) {
 
 static Str *intern(const char *s) { return str_intern(s, strlen(s)); }
 
-/* ---- Literals -------------------------------------------------------------------------- */
+/* ---- Literals ------------------------------------------------------------------------- */
+
+/*
+ * A PUSH value or an @ line's file is a GazLang literal, read with the part of GazLang's lexer
+ * that literals use. Every problem inside one is reported as the PHP reader reports it: "Bad
+ * value '<the literal>': <reason>", the reason being the lexer's message, or the reader's own
+ * ("Bad value: expected '=>'"), wrapped a second time because the PHP catches its own too.
+ */
 
 typedef enum { L_EOF, L_MINUS, L_LBRACKET, L_RBRACKET, L_LBRACE, L_RBRACE, L_COMMA, L_ARROW,
                L_INT, L_FLOAT, L_STRING, L_TRUE, L_FALSE, L_NULL, L_OTHER } LitKind;
-static const char *LIT_NAMES[] = {"EOF", "MINUS", "LEFT_BRACKET", "RIGHT_BRACKET", "LEFT_BRACE",
-    "RIGHT_BRACE", "COMMA", "DOUBLE_ARROW", "INTEGER", "FLOAT", "STRING", "TRUE", "FALSE", "NULL", "IDENTIFIER"};
 
 typedef struct {
     const char *text;   /* the whole literal, for messages */
     const char *p;
 } LitLexer;
 
-typedef struct { LitKind kind; Value value; bool too_large; } Lit;
+typedef struct {
+    LitKind kind;
+    Value value;
+    bool too_large;         /* the digits of the smallest int, which only fit after a minus */
+    const char *type;       /* L_OTHER: the token type the PHP lexer would give it */
+} Lit;
 
-static _Noreturn void bad_value(LitLexer *lx, const char *reason) {
-    if (reason) fail("Bad value '%s': %s", lx->text, reason);
-    fail("Bad value '%s'", lx->text);
+static _Noreturn void bad_value(LitLexer *lx, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
+static _Noreturn void bad_value(LitLexer *lx, const char *fmt, ...) {
+    char reason[512];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(reason, sizeof reason, fmt, args);
+    va_end(args);
+    fail("Bad value '%s': %s", lx->text, reason);
 }
 
 static int hex_digit(char c) {
@@ -235,6 +250,9 @@ static int hex_digit(char c) {
     if (c >= 'A' && c <= 'F') return c - 'A' + 10;
     return -1;
 }
+
+static bool is_alpha(char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); }
+static bool is_digit(char c) { return c >= '0' && c <= '9'; }
 
 static void add_utf8(Buf *b, uint32_t cp) {
     if (cp < 0x80) {
@@ -254,10 +272,45 @@ static void add_utf8(Buf *b, uint32_t cp) {
     }
 }
 
-/* One token of a literal: the part of GazLang's lexer that literals use */
+/* Token types for what a literal can't hold, longest match first, as the PHP lexer names them */
+static const char *OPERATORS[][2] = {
+    {"<=>", "SPACESHIP"}, {"<<=", "SHIFT_LEFT_ASSIGN"}, {">>=", "SHIFT_RIGHT_ASSIGN"}, {"..=", "CONCAT_ASSIGN"},
+    {"...", "SPREAD"}, {"?\?=", "COALESCE_ASSIGN"},
+    {"+=", "PLUS_ASSIGN"}, {"++", "INCREMENT"}, {"-=", "MINUS_ASSIGN"}, {"--", "DECREMENT"}, {"->", "ARROW"},
+    {"*=", "MULTIPLY_ASSIGN"}, {"/=", "DIVIDE_ASSIGN"}, {"%=", "MODULO_ASSIGN"}, {"&=", "BIT_AND_ASSIGN"},
+    {"&&", "AND"}, {"|=", "BIT_OR_ASSIGN"}, {"||", "OR"}, {"^=", "BIT_XOR_ASSIGN"}, {"<=", "LESS_EQUALS"},
+    {"<<", "SHIFT_LEFT"}, {">=", "GREATER_EQUALS"}, {">>", "SHIFT_RIGHT"}, {"==", "EQUALS"}, {"!=", "NOT_EQUALS"},
+    {"..", "CONCAT"}, {"??", "COALESCE"},
+    {"+", "PLUS"}, {"*", "MULTIPLY"}, {"/", "DIVIDE"}, {"%", "MODULO"}, {"&", "BIT_AND"}, {"|", "BIT_OR"},
+    {"^", "BIT_XOR"}, {"<", "LESS_THAN"}, {">", "GREATER_THAN"}, {"=", "ASSIGN"}, {"!", "NOT"}, {"?", "QUESTION"},
+    {"(", "LEFT_PAREN"}, {")", "RIGHT_PAREN"}, {";", "SEMICOLON"}, {":", "COLON"}, {"~", "BIT_NOT"},
+};
+static const char *KEYWORDS[][2] = {
+    {"echo", "ECHO"}, {"if", "IF"}, {"else", "ELSE"}, {"while", "WHILE"}, {"for", "FOR"}, {"foreach", "FOREACH"},
+    {"as", "AS"}, {"break", "BREAK"}, {"continue", "CONTINUE"}, {"fn", "FN"}, {"function", "FUNCTION"},
+    {"return", "RETURN"}, {"delete", "DELETE"}, {"match", "MATCH"}, {"default", "DEFAULT"}, {"const", "CONST"},
+    {"include", "INCLUDE"}, {"try", "TRY"}, {"catch", "CATCH"}, {"finally", "FINALLY"}, {"class", "CLASS"},
+    {"extends", "EXTENDS"}, {"abstract", "ABSTRACT"}, {"interface", "INTERFACE"}, {"implements", "IMPLEMENTS"},
+    {"final", "FINAL"}, {"public", "PUBLIC"}, {"private", "PRIVATE"}, {"protected", "PROTECTED"},
+};
+
+static bool is_word(char c) { return is_alpha(c) || is_digit(c) || c == '_'; }
+
+/* One token of a literal */
 static Lit lit_next(LitLexer *lx) {
-    Lit t = {L_EOF, {0}, false};
-    while (*lx->p == ' ' || *lx->p == '\t' || *lx->p == '\n' || *lx->p == '\r') lx->p++;
+    Lit t = {L_EOF, {0}, false, NULL};
+    for (;;) {
+        while (*lx->p == ' ' || *lx->p == '\t' || *lx->p == '\n' || *lx->p == '\r') lx->p++;
+        if (lx->p[0] == '/' && lx->p[1] == '/') {
+            while (*lx->p) lx->p++;
+        } else if (lx->p[0] == '/' && lx->p[1] == '*') {
+            const char *end = strstr(lx->p + 2, "*/");
+            if (!end) bad_value(lx, "Unterminated block comment");
+            lx->p = end + 2;
+        } else {
+            break;
+        }
+    }
     char c = *lx->p;
     if (!c) return t;
     if (c == '[') { lx->p++; t.kind = L_LBRACKET; return t; }
@@ -265,76 +318,90 @@ static Lit lit_next(LitLexer *lx) {
     if (c == '{') { lx->p++; t.kind = L_LBRACE; return t; }
     if (c == '}') { lx->p++; t.kind = L_RBRACE; return t; }
     if (c == ',') { lx->p++; t.kind = L_COMMA; return t; }
-    if (c == '-') { lx->p++; t.kind = L_MINUS; return t; }
     if (c == '=' && lx->p[1] == '>') { lx->p += 2; t.kind = L_ARROW; return t; }
-    if (c >= '0' && c <= '9') {
+    if (c == '-' && lx->p[1] != '=' && lx->p[1] != '-' && lx->p[1] != '>') { lx->p++; t.kind = L_MINUS; return t; }
+
+    if (is_digit(c)) {
         const char *start = lx->p;
         if (c == '0' && (lx->p[1] == 'x' || lx->p[1] == 'X')) {
             lx->p += 2;
             int64_t n = 0;
-            bool any = false;
+            bool any = false, overflow = false;
             for (int d; (d = hex_digit(*lx->p)) >= 0; lx->p++) {
                 any = true;
-                if (__builtin_mul_overflow(n, 16, &n) || __builtin_add_overflow(n, d, &n)) bad_value(lx, "Integer literal too large");
+                if (__builtin_mul_overflow(n, 16, &n) || __builtin_add_overflow(n, d, &n)) overflow = true;
             }
-            if (!any) bad_value(lx, "Invalid hex literal");
+            if (!any) bad_value(lx, "Invalid number literal: %.*s", (int)(lx->p - start), start);
+            if (overflow) bad_value(lx, "Integer literal too large: %.*s", (int)(lx->p - start), start);
             t.kind = L_INT;
             t.value = v_int(n);
             return t;
         }
-        while (*lx->p >= '0' && *lx->p <= '9') lx->p++;
+        while (is_digit(*lx->p)) lx->p++;
         bool is_float = false;
-        if (*lx->p == '.' && lx->p[1] >= '0' && lx->p[1] <= '9') {
+        if (*lx->p == '.' && is_digit(lx->p[1])) {
             is_float = true;
             lx->p++;
-            while (*lx->p >= '0' && *lx->p <= '9') lx->p++;
+            while (is_digit(*lx->p)) lx->p++;
         }
         if (*lx->p == 'e' || *lx->p == 'E') {
             const char *q = lx->p + 1;
             if (*q == '+' || *q == '-') q++;
-            if (*q >= '0' && *q <= '9') {
+            if (is_digit(*q)) {
                 is_float = true;
                 lx->p = q;
-                while (*lx->p >= '0' && *lx->p <= '9') lx->p++;
+                while (is_digit(*lx->p)) lx->p++;
             }
         }
+        int n = (int)(lx->p - start);
         Value v;
-        if (!parse_number(start, (size_t)(lx->p - start), &v)) {
-            if (is_float) bad_value(lx, "Float literal too large");
+        if (!parse_number(start, (size_t)n, &v)) {
+            if (is_float) bad_value(lx, "Float literal too large: %.*s", n, start);
             /* The smallest int's digits alone don't fit an int: the caller reads - and them as one */
-            if ((size_t)(lx->p - start) == 19 && strncmp(start, "9223372036854775808", 19) == 0) {
+            if (n == 19 && strncmp(start, "9223372036854775808", 19) == 0) {
                 t.too_large = true;
                 t.kind = L_INT;
                 return t;
             }
-            bad_value(lx, "Integer literal too large");
+            bad_value(lx, "Integer literal too large: %.*s", n, start);
         }
         t.kind = v.type == T_INT ? L_INT : L_FLOAT;
         t.value = v;
         return t;
     }
-    if (c == '"' || c == '\'') {
+
+    if (c == '\'') {
+        /* Single-quoted: raw, with only \' and \\ as escapes */
         lx->p++;
         Buf b = {0};
-        while (*lx->p != c) {
+        while (*lx->p != '\'') {
             if (!*lx->p) bad_value(lx, "Unterminated string");
+            if (*lx->p == '\\' && (lx->p[1] == '\'' || lx->p[1] == '\\')) lx->p++;
+            buf_addc(&b, *lx->p++);
+        }
+        lx->p++;
+        t.kind = L_STRING;
+        t.value = v_str(buf_to_str(&b));
+        return t;
+    }
+    if (c == '"') {
+        lx->p++;
+        Buf b = {0};
+        while (*lx->p != '"') {
+            if (!*lx->p) bad_value(lx, "Unterminated string");
+            if ((*lx->p == '$' && (is_alpha(lx->p[1]) || lx->p[1] == '_'))
+                || (*lx->p == '{' && (lx->p[1] == '$' || lx->p[1] == '@' || lx->p[1] == '#'))) {
+                /* An interpolation: a string start, which is no value */
+                free(b.data);
+                bad_value(lx, "Bad value: unexpected STRING_START");
+            }
             if (*lx->p != '\\') {
-                if (c == '"' && ((*lx->p == '$' && (lx->p[1] == '_' || ((lx->p[1] | 32) >= 'a' && (lx->p[1] | 32) <= 'z')))
-                                 || (*lx->p == '{' && (lx->p[1] == '$' || lx->p[1] == '@' || lx->p[1] == '#')))) {
-                    bad_value(lx, "a literal can't interpolate");
-                }
                 buf_addc(&b, *lx->p++);
                 continue;
             }
             char e = *++lx->p;
             if (!e) bad_value(lx, "Unterminated string");
             lx->p++;
-            if (c == '\'') {
-                /* Single-quoted: only \' and \\ are escapes, any other backslash is kept */
-                if (e != '\'' && e != '\\') buf_addc(&b, '\\');
-                buf_addc(&b, e);
-                continue;
-            }
             switch (e) {
             case 'n': buf_addc(&b, '\n'); break;
             case 't': buf_addc(&b, '\t'); break;
@@ -344,29 +411,37 @@ static Lit lit_next(LitLexer *lx) {
             case 'e': buf_addc(&b, 0x1b); break;
             case '\\': case '"': case '$': case '{': buf_addc(&b, e); break;
             case '0':
-                if (*lx->p >= '0' && *lx->p <= '9') bad_value(lx, "Octal escapes are not supported");
+                if (is_digit(*lx->p)) bad_value(lx, "Octal escapes are not supported: \\0%c (use \\x)", *lx->p);
                 buf_addc(&b, '\0');
                 break;
             case 'x': {
-                int h1 = hex_digit(lx->p[0]), h2 = h1 < 0 ? -1 : hex_digit(lx->p[1]);
-                if (h2 < 0) bad_value(lx, "Invalid escape \\x: expected two hex digits");
-                buf_addc(&b, (char)(h1 * 16 + h2));
+                int n = 0;
+                while (n < 2 && hex_digit(lx->p[n]) >= 0) n++;
+                if (n != 2) bad_value(lx, "Invalid escape \\x%.*s: expected two hex digits", n, lx->p);
+                buf_addc(&b, (char)(hex_digit(lx->p[0]) * 16 + hex_digit(lx->p[1])));
                 lx->p += 2;
                 break;
             }
             case 'u': {
-                if (*lx->p != '{') bad_value(lx, "Invalid escape \\u");
-                lx->p++;
-                uint32_t cp = 0;
+                const char *digits = lx->p + 1;
                 int n = 0;
-                for (int d; (d = hex_digit(*lx->p)) >= 0 && n < 7; lx->p++, n++) cp = cp * 16 + (uint32_t)d;
-                if (*lx->p != '}' || n == 0 || n > 6 || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) bad_value(lx, "Invalid escape \\u");
-                lx->p++;
+                if (*lx->p == '{') {
+                    while (n < 7 && hex_digit(digits[n]) >= 0) n++;
+                }
+                if (*lx->p != '{' || digits[n] != '}' || n == 0 || n > 6) {
+                    bad_value(lx, "Invalid escape \\u: expected \\u{...} with 1 to 6 hex digits");
+                }
+                uint32_t cp = 0;
+                for (int i = 0; i < n; i++) cp = cp * 16 + (uint32_t)hex_digit(digits[i]);
+                if (cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) {
+                    bad_value(lx, "Invalid escape \\u{%.*s}: not a Unicode code point", n, digits);
+                }
+                lx->p = digits + n + 1;
                 add_utf8(&b, cp);
                 break;
             }
             default:
-                bad_value(lx, "Unknown escape sequence in string");
+                bad_value(lx, "Unknown escape sequence \\%c in string", e);
             }
         }
         lx->p++;
@@ -374,19 +449,62 @@ static Lit lit_next(LitLexer *lx) {
         t.value = v_str(buf_to_str(&b));
         return t;
     }
-    if ((c | 32) >= 'a' && (c | 32) <= 'z') {
+
+    /* Anything else is a token no literal holds: name it as the PHP lexer would */
+    t.kind = L_OTHER;
+    if (is_alpha(c) || c == '_') {
         const char *start = lx->p;
-        while (((*lx->p | 32) >= 'a' && (*lx->p | 32) <= 'z') || (*lx->p >= '0' && *lx->p <= '9') || *lx->p == '_') lx->p++;
+        while (is_word(*lx->p)) lx->p++;
         size_t n = (size_t)(lx->p - start);
         if (n == 4 && !strncmp(start, "true", 4)) t.kind = L_TRUE;
         else if (n == 5 && !strncmp(start, "false", 5)) t.kind = L_FALSE;
         else if (n == 4 && !strncmp(start, "null", 4)) t.kind = L_NULL;
-        else t.kind = L_OTHER;
+        t.type = "IDENTIFIER";
+        for (size_t i = 0; i < sizeof KEYWORDS / sizeof KEYWORDS[0]; i++) {
+            if (strlen(KEYWORDS[i][0]) == n && !strncmp(KEYWORDS[i][0], start, n)) t.type = KEYWORDS[i][1];
+        }
         return t;
     }
-    lx->p++;
-    t.kind = L_OTHER;
-    return t;
+    if (c == '$' || c == '@') {
+        if (!is_alpha(lx->p[1]) && lx->p[1] != '_') bad_value(lx, "Invalid variable name: %c", c);
+        lx->p++;
+        while (is_word(*lx->p)) lx->p++;
+        t.type = c == '$' ? "VAR_IDENTIFIER" : "GLOBAL_VAR_IDENTIFIER";
+        return t;
+    }
+    if (c == '#') {
+        lx->p++;
+        if (*lx->p == '#') {
+            lx->p++;
+            t.type = "PARENT";
+        } else if (is_alpha(*lx->p) || *lx->p == '_') {
+            while (is_word(*lx->p)) lx->p++;
+            t.type = "HASH_IDENTIFIER";
+        } else {
+            t.type = "HASH";
+        }
+        return t;
+    }
+    if (c == '.' && (is_alpha(lx->p[1]) || lx->p[1] == '_')) {
+        lx->p++;
+        while (is_word(*lx->p)) lx->p++;
+        t.type = "PROPERTY";
+        return t;
+    }
+    for (size_t i = 0; i < sizeof OPERATORS / sizeof OPERATORS[0]; i++) {
+        size_t n = strlen(OPERATORS[i][0]);
+        if (!strncmp(lx->p, OPERATORS[i][0], n)) {
+            lx->p += n;
+            t.type = OPERATORS[i][1];
+            return t;
+        }
+    }
+    if (c == '-') {
+        lx->p += 2;
+        t.type = lx->p[-1] == '=' ? "MINUS_ASSIGN" : lx->p[-1] == '-' ? "DECREMENT" : "ARROW";
+        return t;
+    }
+    bad_value(lx, "Unexpected character '%c'", c);
 }
 
 static Value literal(LitLexer *lx, Lit t);
@@ -399,8 +517,8 @@ static Value items(LitLexer *lx, bool is_map) {
     for (Lit t = lit_next(lx); t.kind != end; t = lit_next(lx)) {
         Value v = literal(lx, t);
         if (is_map) {
-            if (lit_next(lx).kind != L_ARROW) fail("Bad value: expected '=>'");
-            if (v.type != T_INT && v.type != T_STRING) fail("Bad value: a key must be an int or a string");
+            if (lit_next(lx).kind != L_ARROW) bad_value(lx, "Bad value: expected '=>'");
+            if (v.type != T_INT && v.type != T_STRING) bad_value(lx, "Bad value: a key must be an int or a string");
             map_set(m, v, literal(lx, lit_next(lx)));
             decref(v);
         } else {
@@ -408,10 +526,13 @@ static Value items(LitLexer *lx, bool is_map) {
         }
         t = lit_next(lx);
         if (t.kind == end) break;
-        if (t.kind != L_COMMA) fail("Bad value: expected ',' or the end of the literal");
+        if (t.kind != L_COMMA) bad_value(lx, "Bad value: expected ',' or the end of the literal");
     }
     return is_map ? v_map(m) : v_list(l);
 }
+
+static const char *LIT_TYPES[] = {"EOF", "MINUS", "LEFT_BRACKET", "RIGHT_BRACKET", "LEFT_BRACE",
+    "RIGHT_BRACE", "COMMA", "DOUBLE_ARROW", "INTEGER", "FLOAT", "STRING", "TRUE", "FALSE", "NULL"};
 
 static Value literal(LitLexer *lx, Lit t) {
     if (t.kind == L_MINUS) {
@@ -420,7 +541,7 @@ static Value literal(LitLexer *lx, Lit t) {
         Value v = literal(lx, number);
         if (v.type == T_INT) return v_int(-v.i);   /* never the smallest int: its digits don't fit */
         if (v.type == T_FLOAT) return v_float(-v.f);
-        fail("Bad value: - takes a number");
+        bad_value(lx, "Bad value: - takes a number");
     }
     if (t.too_large) bad_value(lx, "Integer literal too large: 9223372036854775808");
     switch (t.kind) {
@@ -432,7 +553,8 @@ static Value literal(LitLexer *lx, Lit t) {
     case L_TRUE: return v_bool(true);
     case L_FALSE: return v_bool(false);
     case L_NULL: return v_null();
-    default: fail("Bad value: unexpected %s", LIT_NAMES[t.kind]);
+    case L_OTHER: bad_value(lx, "Bad value: unexpected %s", t.type);
+    default: bad_value(lx, "Bad value: unexpected %s", LIT_TYPES[t.kind]);
     }
 }
 
@@ -440,7 +562,7 @@ static Value literal(LitLexer *lx, Lit t) {
 static Value read_value(const char *text) {
     LitLexer lx = {text, text};
     Value v = literal(&lx, lit_next(&lx));
-    if (lit_next(&lx).kind != L_EOF) bad_value(&lx, NULL);
+    if (lit_next(&lx).kind != L_EOF) bad_value(&lx, "Bad value '%s'", text);
     return v;
 }
 

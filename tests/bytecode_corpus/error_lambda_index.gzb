@@ -1,0 +1,10 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals
+
+lambda x 0 0
+locals
+PUSH null
+RET

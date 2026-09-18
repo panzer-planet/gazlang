@@ -1,0 +1,6 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals $a
+DELETE_PATH .x 0

@@ -1,0 +1,5 @@
+// A thrown object nothing catches is printed through its to_string()
+class Oops { #what; fn _($what) { #what = $what; } fn to_string() { return "oops: " .. #what; } }
+fn deeper() { error(Oops("deep")); }
+fn deep() { deeper(); }
+deep();

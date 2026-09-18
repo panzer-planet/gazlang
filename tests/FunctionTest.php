@@ -102,7 +102,9 @@ class FunctionTest extends GazLangTestCase
 
     public function test_deep_recursion_does_not_grow_memory_quadratically()
     {
-        // Every return used to create an exception with a full stack trace: depth 400 took ~300MB
+        // Every return used to create an exception with a full stack trace: depth 400 took ~300MB.
+        // The peak is the process's, so start it afresh: other tests run deep programs in-process
+        memory_reset_peak_usage();
         $this->executeCode('fn down($n) { if ($n == 0) { return 0; } return down($n - 1); } down(400);');
         $this->assertLessThan(64 * 1024 * 1024, memory_get_peak_usage());
     }

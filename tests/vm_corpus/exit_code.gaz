@@ -1,0 +1,2 @@
+echo "leaving";
+try { exit(3); } finally { echo "finally never runs"; }

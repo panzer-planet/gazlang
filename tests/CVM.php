@@ -16,7 +16,9 @@ use Throwable;
  * Runs a program on the PHP VM and on the C VM (vm/gazvm) and gives what each printed
  *
  * An entry is a path relative to the project root, optionally followed by the program's
- * arguments: "selfhost/compile.gaz examples/functions.gaz". The PHP compiler writes the
+ * arguments: "selfhost/compile.gaz examples/functions.gaz"; "snippet:<id>", a snippet the PHP
+ * tests run (see snippets()); or a .gzb file under tests/bytecode_corpus, run as it is, which
+ * tests the loaders on files no compiler writes (the ones named error_* must be refused). The PHP compiler writes the
  * bytecode to vm/build/gzb/<path>.gzb, and both VMs run that same file from the project root,
  * so both resolve its source paths the same way. vm/passing.txt lists the entries the C VM must
  * already match (CVMTest), and vm/progress.php finds the ones it has started to.
@@ -70,7 +72,7 @@ final class CVM
         chdir(self::ROOT);
         try {
             $files = [];
-            foreach (['examples', 'lib', 'selfhost', 'tests/gaz', 'tests/fixtures', 'tests/codegen_corpus', 'tests/parser_corpus', 'tests/lexer_corpus'] as $dir) {
+            foreach (['examples', 'lib', 'selfhost', 'tests/gaz', 'tests/fixtures', 'tests/codegen_corpus', 'tests/parser_corpus', 'tests/lexer_corpus', 'tests/vm_corpus'] as $dir) {
                 $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS));
                 foreach ($it as $path) {
                     if (str_ends_with((string) $path, '.gaz')) {
@@ -78,6 +80,7 @@ final class CVM
                     }
                 }
             }
+            $files = [...$files, ...glob('tests/bytecode_corpus/*.gzb')];
             sort($files);
             foreach (array_keys(self::snippets()) as $id) {
                 $files[] = "snippet:{$id}";
@@ -110,7 +113,12 @@ final class CVM
         foreach ($entries as $entry) {
             $args = preg_split('/\s+/', trim($entry));
             $file = array_shift($args);
-            $gzb = str_starts_with($file, 'snippet:') ? self::compileSnippet(substr($file, 8)) : self::compile($file);
+            $gzb = match (true) {
+                str_starts_with($file, 'snippet:') => self::compileSnippet(substr($file, 8)),
+                // Bytecode written by hand, mostly broken on purpose, for the loaders
+                str_ends_with($file, '.gzb') => $file,
+                default => self::compile($file),
+            };
             $results[$entry] = null;
             if ($gzb !== null) {
                 $jobs[$entry] = [$gzb, $args];

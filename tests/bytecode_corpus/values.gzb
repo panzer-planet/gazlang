@@ -1,0 +1,11 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals
+PUSH "\u{41}\u{E9}\u{20AC}\u{1F600}\x41\0\e\t" /* a comment */
+PRINT
+PUSH [1, /* inside */ 2] // after
+PRINT
+PUSH {"a" => {"b" => []}, -1 => -1.5E-7, "\$x" => '$x', "\{$" => 0XFF}
+PRINT

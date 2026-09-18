@@ -1,0 +1,7 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals
+CALL_BUILTIN nope 0
+POP

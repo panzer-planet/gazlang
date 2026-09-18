@@ -1,0 +1,16 @@
+  GAZLANG   BYTECODE 1  
+
+
+globals   @a	@b
+
+  top
+locals
+  PUSH "a b"   
+@   "x.gaz"   3
+PRINT
+PUSH -9223372036854775808
+PRINT
+PUSH { "k" => [ 1 ,2.5, 'raw\n' , 0x1F ] , 2 => null }
+PRINT
+PUSH 1 // comment
+PRINT

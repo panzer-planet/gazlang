@@ -1,0 +1,10 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals
+PUSH "reached"
+PRINT
+HALT
+CALL missing 0
+JMP NOWHERE

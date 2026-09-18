@@ -1,0 +1,39 @@
+// Deleting from maps and growing them again keeps order and finds every key
+$m = {};
+for ($i = 0; $i < 200; $i++) {
+    $m["k{$i}"] = $i;
+    $m[$i] = "v{$i}";
+}
+for ($i = 0; $i < 200; $i += 3) {
+    delete $m["k{$i}"];
+    delete $m[$i];
+}
+for ($i = 200; $i < 260; $i++) {
+    $m["k{$i}"] = $i;
+}
+echo len($m);
+echo slice(keys($m), 0, 8);
+echo slice(keys($m), -4);
+$sum = 0;
+foreach ($m as $k => $v) {
+    if (type_of($v) == "int") { $sum += $v; }
+}
+echo $sum;
+echo [has_key($m, "k3"), has_key($m, "k4"), has_key($m, 3), has_key($m, 4)];
+$m["k3"] = "back";
+echo slice(keys($m), -1);
+// A copy is not changed by deleting from the original
+$copy = $m;
+delete $m["k4"];
+echo len($copy) - len($m);
+// Keys 1 and "1" are different
+$n = {1 => "int", "1" => "string"};
+delete $n[1];
+echo $n;
+// A stack of pushes and pops on one key set
+$s = {};
+for ($i = 0; $i < 1000; $i++) {
+    $s["x"] = $i;
+    delete $s["x"];
+}
+echo $s .. len($s);

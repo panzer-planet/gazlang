@@ -1,0 +1,10 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals
+
+class C extends Missing
+locals
+LOAD_THIS
+RET
