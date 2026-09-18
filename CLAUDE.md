@@ -246,7 +246,7 @@ each step depends on the ones before it.
      `has_key($x, $key)` (a map's key, or a list's index), `keys($x)` (a list's indexes),
      `values($x)` (a map's values in insertion order; a list is already its values).
    - Other: `type_of($x)` (`int`, `float`, `string`, `bool`, `null`, `list`, `map`, `function`,
-     `class`, `object`), `is_a($x, Class)` (see "Objects"),
+     `class`, `object`), `is_a($x, Class)` and `class_of($x)` (see "Objects"),
      `print($value)` and `print_error($value)` (write the value to standard output or standard
      error as `echo` does, without the newline, and give null: a tool writes its result to one
      and its diagnostics to the other), `error($value)` (raises an error that try/catch can catch, see "Errors and try/catch";
@@ -429,15 +429,13 @@ by how much each deforms a self-hosted compiler. Every claim below was reproduce
    object costs about 10% against globals on the PHP VM, spread across method calls and field
    access rather than concentrated anywhere a local can fix. Measure it again once fields are
    slots in C, since the self-hosted lexer will be written in exactly this shape.
-2. **Dispatching on an object's type.** `type_of($x)` is `"object"` for every object and
-   `is_a($x, C)` asks one class at a time, so a pass over an AST is an `is_a` chain per node;
-   the GazLang compiler written for this audit added an `abstract fn kind()` to all nine of
-   its node classes purely to get a string to `match` on. `class_of($x)` returning the class
-   value would fix it, since `==` on classes is identity and `match` would then dispatch
-   directly. Related and separate: `$obj.$name` (dynamic member access, which `lib/sort.gaz`
-   needs to sort objects rather than only maps, forcing `examples/football.gaz:594` to wrap
-   objects back into maps to sort them), `foreach` over an object's fields (`json_encode`
-   refuses objects for want of it), and a class's name for messages.
+2. ~~**Dispatching on an object's type.**~~ The main part is done: `class_of($x)`, see
+   "Objects". Still open, and each wants real code asking for it first: `$obj.$name` (dynamic
+   member access, which `lib/sort.gaz` needs to sort objects rather than only maps, forcing
+   `examples/football.gaz:594` to wrap objects back into maps to sort them), `foreach` over an
+   object's fields (`json_encode` refuses objects for want of it), and a class's bare name for
+   messages, where `to_string(class_of($n))` gives `class Point` and only the prefix is in the
+   way.
 3. **`match` arms that are not `==`.** Of the 49 `if` conditions in `lib/json.gaz`, 15 are a
    plain `==`; the rest are ranges (`$unit >= 0xDC00 && $unit <= 0xDFFF`), predicate calls
    (`is_digit($c)`, `json_match("true")`), `!=` and map lookups, and all six `lib/chars.gaz`
@@ -583,7 +581,14 @@ $area = $c.area;                              // a bound method
 - **Objects are handles:** `$b = $a; $b.x = 1` changes `$a`; lists and maps inside objects
   stay values. `==` on objects is identity; objects are always true; operators, keys,
   indexes and `foreach` on them are errors naming `object`. `type_of` gives `"object"`;
-  `is_a($x, Point)` tests the class and its parents (the second argument must be a class).
+  `is_a($x, Point)` tests the class and its parents (the second argument must be a class),
+  and `class_of($x)` gives the object's own class, which is a value like any other: it
+  constructs (`class_of($p)(1, 2)`), prints as `class Point` and compares by identity, so
+  `match (class_of($n)) { NumAST => ..., AddAST => ... }` dispatches a pass written outside
+  the node classes, which is what a compiler with more than one backend needs. The two answer
+  different questions: `class_of($circle) == Shape` is false where `is_a($circle, Shape)` is
+  true. `class_of` is an accessor rather than a predicate, so it is strict where `is_a`'s
+  first argument is lenient: anything but an object is an error.
   `json_encode` refuses classes and objects.
 - **Properties are `.`:** `$user.name` reads and writes any declared member, checked when
   it runs ("Account has no member foo", "Cannot use . on map", "Cannot assign to method
