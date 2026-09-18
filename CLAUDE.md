@@ -778,6 +778,11 @@ which file does what; the files follow the PHP classes (`value.c` and `ops.c` ar
   up linearly, which is 20ms on the 25,000-line `compile.gaz.gzb`: not worth a hash yet. What is
   left in a profile of the self-hosted parser is the dispatch loop itself (two thirds), malloc and
   free, and the collector (6%).
+- **Not yet checked: leaks.** The harness compares output, and a forgotten `decref` changes
+  none, while ASan's leak detector doesn't run on macOS and only sees paths that run. The plan
+  (next): make `GAZVM_STATS` count every reference-counted value (strings and errors too, not
+  only the collector's containers), and require every harness entry to end with only what its
+  top level still holds, so a leak on any path, error unwinding most likely, names its entry.
 - **Its style**: plain C, commented where the C isn't obvious (a flexible array member, a
   `goto` into shared code), for readers who know a little C. `ponytail:` comments mark known
   ceilings: float printing tries up to 34 `printf`/`strtod` pairs per float, fine until printing
