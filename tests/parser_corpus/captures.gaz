@@ -35,3 +35,7 @@ $other = $n -> $fact;
 @g = $n -> @g;
 $a[0] = $n -> $a;
 $self += $n -> $self;
+// foreach makes its variables local, with or without a key; catch makes its variable local
+$f = () -> { foreach ($xs as $x) { echo $x + $outer; } };
+$f = () -> { foreach ($xs as $k => $v) { echo $k + $v + $outer; } };
+$f = () -> { foreach ($xs as @k => @v) { echo $free; } };

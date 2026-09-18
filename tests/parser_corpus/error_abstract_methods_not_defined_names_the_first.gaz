@@ -1,0 +1,2 @@
+abstract class A { abstract fn one(); abstract fn two(); abstract fn three(); }
+class B extends A { fn two() { } }

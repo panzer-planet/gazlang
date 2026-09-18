@@ -1,0 +1,33 @@
+// A node is located at one particular token, which only shows when its tokens are on different lines
+[$a,
+    $b]
+    = $pair;
+echo $f
+    (1);
+echo $user
+    .save
+    (1, 2);
+echo $a
+    [0];
+echo $c
+    ? 1
+    : 2;
+echo $a
+    ?? $b;
+$x
+    = 1;
+$i
+    ++;
+echo -
+    $i;
+echo "a {$b}
+c {$d}
+e";
+echo len
+    (1);
+$f = ($p,
+    $q)
+    -> $p;
+echo match
+    ($a)
+    { 1 => 2 };

@@ -69,3 +69,6 @@ class Calls {
 class If { fn _($x) {} }
 class Match extends If { fn _() { ##_(1); } }
 echo If(1) .. Match();
+
+// to_string must accept no arguments, which one with only optional parameters does
+class Printable { fn to_string($indent = 0) { return "p"; } }

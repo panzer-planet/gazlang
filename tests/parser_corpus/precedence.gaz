@@ -30,3 +30,5 @@ echo (1 + 2) * (3 - (4 - 5));
 echo 1 +
     2
     * 3;
+// The middle of a ternary is a full expression, so it can hold an assignment
+echo $c ? $x = 1 : 2;

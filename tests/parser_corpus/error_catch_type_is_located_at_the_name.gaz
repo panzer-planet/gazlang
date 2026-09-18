@@ -1,0 +1,6 @@
+try {
+    echo 1;
+} catch (Error $e) {
+} catch (
+    Missing $e) {
+}

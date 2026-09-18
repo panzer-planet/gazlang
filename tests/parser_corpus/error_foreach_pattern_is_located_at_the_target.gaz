@@ -1,0 +1,4 @@
+foreach ($xs as [$a,
+    $b[0],
+    $c
+]) { }

@@ -1,0 +1,3 @@
+fn Return() {
+    Return 1;
+}
