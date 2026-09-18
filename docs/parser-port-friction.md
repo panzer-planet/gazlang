@@ -108,3 +108,30 @@ had. Each was fixed in `Parser.php` and the port mirrors the fix.
   `fn "len"() {}` was "len is a builtin function" and `fn f($a, '$a') {}` was "Duplicate
   parameter $a", where both are strings that `eat()` should refuse. Both now look only at a
   token of the right type, which keeps every other error where it was.
+
+## 8. No constants (hole 6), and what stands in for them shares a namespace with methods
+
+**Met:** `Parser.php` has five class constants: `ASSIGNMENTS`, `BUILTIN_CLASSES`, `BUILTIN_FILE`,
+`RESERVED`, `EXPECTED`, and reads `Lexer::KEYWORDS` and `Builtins::ARITIES` from other classes.
+
+**Workaround:** fields with defaults (`#assignments = [...]`). It costs little: a constant list or
+map literal is built once at compile time, so the default is one `PUSH` per new `Parser`. Three
+things are worse than a constant, though:
+- **They share the member namespace**, so the constant `BUILTIN_CLASSES` beside the method
+  `builtin_classes()` was "Parser already has a field #builtin_classes, and a method can't have a
+  field's name". PHP keeps constants, properties and methods apart. The field is `#builtin_source`.
+- **Nothing stops a write.** `#reserved[] = "x"` anywhere in the class changes the "constant".
+- **Another class's table needs an instance.** `Lexer::KEYWORDS` is `#lexer.keywords`, which only
+  works because the parser happens to hold a lexer; token types are bare strings everywhere
+  (`"LEFT_PAREN"`), so a typo in one is a branch that silently never runs. The harness caught
+  none of those because I made none, not because anything would have.
+
+**Options:**
+- `const NAME = literal;` at the top level and in a class (`Parser.ASSIGNMENTS`, `#ASSIGNMENTS`
+  inside it), constant expressions only, checked at parse time like function names: an
+  undefined one is a parse error, which is what makes token types safe. **Recommended**; it is
+  the one item in hole 6 that every file of a self-hosted compiler wants. In C it is a value in
+  the constant pool, cheaper than a field.
+- Top level only (`const LEFT_PAREN = "LEFT_PAREN";`). Simpler, but included files share one
+  namespace (hole 5), so every module prefixes its constants as it does its functions.
+- Leave it. Fields work; typos in token types stay silent.

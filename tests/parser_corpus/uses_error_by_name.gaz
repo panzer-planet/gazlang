@@ -1,0 +1,2 @@
+// Naming, extending or catching Error puts the builtin class in the tree
+$e = Error;

@@ -162,6 +162,8 @@ class PropertyAST extends AST {
     #name;
     // Whether a #name is a field rather than a method, which the parser knows once the classes are resolved
     #field = false;
+    // A #name's MemberUse, which the parser checks once the classes are resolved; not part of the tree
+    #use = null;
 
     fn _($target, $name) {
         #target = $target;
@@ -446,6 +448,74 @@ class FunctionDeclarationAST extends AST {
         return {
             "name" => #name, "params" => #params, "defaults" => #defaults, "body" => #body,
             "arity" => #arity, "class" => #class, "abstract" => #abstract,
+        };
+    }
+}
+
+// ##name, the parent class's version of a method: a bound method, or a call when #args is a list
+class ParentMethodAST extends AST {
+    #name;
+    #args;
+    // The class whose version runs, which the parser knows once the classes are resolved
+    #definer = "";
+
+    fn _($name, $args) {
+        #name = $name;
+        #args = $args;
+    }
+
+    fn parts() {
+        return {"name" => #name, "args" => #args, "definer" => #definer};
+    }
+}
+
+// Each catch is [class name or null, variable, block]
+class TryStatementAST extends AST {
+    #body;
+    #catches;
+    #finally;
+
+    fn _($body, $catches, $finally) {
+        #body = $body;
+        #catches = $catches;
+        #finally = $finally;
+    }
+
+    fn parts() {
+        return {"body" => #body, "catches" => #catches, "finally" => #finally};
+    }
+}
+
+class ClassDeclarationAST extends AST {
+    #name;
+    #parent;
+    #abstract;
+    // Each declared field's default, or null, by name
+    #fields = {};
+    // The line each field is declared on, for errors about it
+    #field_lines = {};
+    // Each declared method's FunctionDeclarationAST, by name
+    #methods = {};
+    // Worked out once the whole program is read: every field, the parent's first, with the
+    // class that declares it; every concrete method with the class whose version runs; and
+    // every abstract method still to be defined, with the class that declares it
+    #layout = {};
+    #members = {};
+    #abstract_methods = {};
+    // Whether those three have been worked out
+    #resolved = false;
+
+    fn _($name, $parent, $abstract) {
+        #name = $name;
+        #parent = $parent;
+        #abstract = $abstract;
+    }
+
+    fn parts() {
+        return {
+            "name" => #name, "parent" => #parent, "abstract" => #abstract, "fields" => #fields,
+            "field_lines" => #field_lines, "methods" => #methods, "layout" => #layout,
+            "members" => #members, "abstract_methods" => #abstract_methods,
         };
     }
 }

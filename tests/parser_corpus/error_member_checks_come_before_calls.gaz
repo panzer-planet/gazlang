@@ -1,0 +1,2 @@
+echo missing();
+class A { fn f() { return #nope; } }

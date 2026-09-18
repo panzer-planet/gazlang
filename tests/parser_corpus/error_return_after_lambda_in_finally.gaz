@@ -1,0 +1,1 @@
+fn f() { try { echo 1; } finally { $g = () -> { return 1; }; return 2; } }

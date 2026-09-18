@@ -1,0 +1,2 @@
+class A { fn size() {} }
+class B extends A { #size; }

@@ -1,0 +1,1 @@
+class A { fn _() {} fn f() { return #_(); } }

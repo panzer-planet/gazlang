@@ -1,0 +1,2 @@
+class Point { fn _($x, $y) {} }
+echo Point(1);

@@ -1,0 +1,2 @@
+fn helper() {}
+try { echo 1; } catch (helper $e) { }

@@ -1,0 +1,2 @@
+class A { fn f() {} }
+abstract class B extends A { abstract fn f(); }

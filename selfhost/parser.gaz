@@ -55,6 +55,11 @@ class VariableCollector {
             is_a($node, ForeachStatementAST) => [$node.value],
             default => [],
         };
+        if (is_a($node, TryStatementAST)) {
+            foreach ($node.catches as $catch) {
+                $targets[] = $catch[1];
+            }
+        }
         if (is_a($node, ForeachStatementAST)) {
             $targets[] = $node.key;
         }
@@ -80,6 +85,22 @@ class VariableCollector {
     }
 }
 
+// A #name with the class it is written in, checked once the classes are resolved. The node
+// holds it, so that what is learnt about the #name later (it is called, it is assigned to)
+// finds it again, where the PHP parser keeps a table by object id.
+class MemberUse {
+    #node;
+    #class;
+    // How many arguments it is called with, or null if it isn't called
+    #argc = null;
+    #assigned = false;
+
+    fn _($node, $class) {
+        #node = $node;
+        #class = $class;
+    }
+}
+
 class Parser {
     #lexer;
     #current_token;
@@ -98,8 +119,37 @@ class Parser {
     // Whether a constructor's body is being parsed, where return can't give a value
     #in_constructor = false;
 
+    // The class whose body is being parsed, where # can be used
+    #class = null;
+
     // Declared classes by name, resolved once the whole program is read
     #classes = {};
+
+    // Every #name's MemberUse, in source order
+    #member_uses = [];
+
+    // Every class a catch clause names, as [name, line, file]
+    #catch_types = [];
+
+    // Whether any catch clause was parsed, so the program needs the Error class
+    #catches = false;
+
+    // Every ##name as [node, the class it is written in], checked once the classes are resolved
+    #parent_uses = [];
+
+    // Source of the builtin classes, parsed into every program: Error is what runtime errors
+    // and error("message") throw. Single quoted, so nothing in it is interpolated.
+    #builtin_source = 'class Error {
+    #message;
+    #file;
+    #line;
+    #trace;
+    fn _($message) { #message = $message; }
+    fn to_string() { return "{#message}"; }
+}';
+
+    // How errors name the builtin classes' source
+    #builtin_file = "<builtin>";
 
     // Every call by name and bare name used as a value, in source order, checked against the
     // declared functions once the whole program is read
@@ -296,6 +346,10 @@ class Parser {
             return #parenthesised();
         } else if ($type == "VAR_IDENTIFIER" || $type == "GLOBAL_VAR_IDENTIFIER") {
             return #variable();
+        } else if ($type == "HASH" || $type == "HASH_IDENTIFIER") {
+            return #this_member();
+        } else if ($type == "PARENT_IDENTIFIER") {
+            return #parent_method();
         } else if ($type == "PARENT") {
             #fail("## alone is not allowed: write ##name for the parent's version of a method");
         } else if (in_array($type, #reserved)) {
@@ -303,6 +357,61 @@ class Parser {
         }
 
         #unexpected();
+    }
+
+    // Parse # (the object a method runs on) or #name (its member)
+    //
+    // Only inside a class: in a method, a field default, or a lambda in either. Whether the
+    // class has the member is checked once the whole program is read.
+    fn this_member() {
+        $token = #current_token;
+        if (#class == null) {
+            #fail("Cannot use {$token.value} outside a method");
+        }
+        #eat($token.type);
+        if ($token.type == "HASH" && #current_token.type == "PROPERTY") {
+            #fail("Write #" .. slice(#current_token.value, 1) .. ", not #" .. #current_token.value);
+        }
+
+        $this_node = #at(ThisAST(), $token);
+        if ($token.type == "HASH") {
+            return $this_node;
+        }
+
+        $name = slice($token.value, 1);
+        if ($name == "_") {
+            #fail("Cannot use the constructor _ as a member: construct with {#class.name}(...), or call ##_(...) in a child's constructor");
+        }
+        $node = #at(PropertyAST($this_node, $name), $token);
+        $node.use = MemberUse($node, #class);
+        #member_uses[] = $node.use;
+
+        return $node;
+    }
+
+    // Parse ##name (a bound method) or ##name(args) (a call), the parent class's version of a method
+    //
+    // Only inside a class, and ##_(...) only in a constructor. That the parent has the method
+    // is checked once the whole program is read.
+    fn parent_method() {
+        $token = #current_token;
+        if (#class == null) {
+            #fail("Cannot use {$token.value} outside a method");
+        }
+        $name = slice($token.value, 2);
+        if ($name == "_" && !#in_constructor) {
+            #fail("##_ can only be used in a constructor, to run the parent's");
+        }
+        #eat("PARENT_IDENTIFIER");
+
+        $args = #current_token.type == "LEFT_PAREN" ? #arguments() : null;
+        if ($name == "_" && $args == null) {
+            #fail("Call the parent's constructor as ##_(...)");
+        }
+        $node = #at(ParentMethodAST($name, $args), $token);
+        #parent_uses[] = [$node, #class];
+
+        return $node;
     }
 
     // Parse a parenthesised expression, or a lambda whose parameters are in parentheses
@@ -540,6 +649,9 @@ class Parser {
                     // #save($x): calling a member, located at its name like reading it
                     $call = MethodCallAST($node, #arguments());
                     [$call.line, $call.file] = [$node.line, $node.file];
+                    if ($node.use != null) {
+                        $node.use.argc = len($call.args);
+                    }
                     $node = $call;
 
                     continue;
@@ -743,6 +855,10 @@ class Parser {
     // path starting anywhere else (make().x), can't. $operator is the assignment or ++/-- token.
     fn assignable($node, $operator) {
         if (is_a($node, VariableAST) || ((is_a($node, IndexAST) || is_a($node, PropertyAST)) && path_root($node) != null)) {
+            if (is_a($node, PropertyAST) && $node.use != null) {
+                $node.use.assigned = true;
+            }
+
             return $node;
         }
 
@@ -937,6 +1053,53 @@ class Parser {
         });
     }
 
+    // Parse a try statement (TRY block (CATCH LPAREN [IDENTIFIER] variable RPAREN block)* [FINALLY block]), with a catch or a finally or both
+    //
+    // A catch naming a class catches objects of that class or its subclasses; one without a
+    // class catches anything, so it must be the last. That the names are classes is checked
+    // once the whole program is read.
+    //
+    // return, break and continue can't leave a finally block, so it never replaces a return
+    // or swallows an error; a loop or lambda inside it can use them for itself.
+    fn try_statement() {
+        $start = #current_token;
+        #eat("TRY");
+        $body = #block();
+
+        $catches = [];
+        while (#current_token.type == "CATCH") {
+            if ($catches != [] && $catches[len($catches) - 1][0] == null) {
+                #fail("A catch without a class catches every error, so it must be the last");
+            }
+            #catches = true;
+            #eat("CATCH");
+            #eat("LEFT_PAREN");
+            $class = null;
+            if (#current_token.type == "IDENTIFIER") {
+                $class = #current_token.value;
+                #catch_types[] = [$class, #current_token.line, #file];
+                #eat("IDENTIFIER");
+            }
+            $variable = #variable();
+            #eat("RIGHT_PAREN");
+            $catches[] = [$class, $variable, #block()];
+        }
+
+        $finally = null;
+        if ($catches == [] && #current_token.type != "FINALLY") {
+            #fail("Expected 'catch' or 'finally' but found " .. #describe(#current_token));
+        }
+        if (#current_token.type == "FINALLY") {
+            #eat("FINALLY");
+            [$in_finally, $loop_depth] = [#in_finally, #loop_depth];
+            [#in_finally, #loop_depth] = [true, 0];
+            $finally = #block();
+            [#in_finally, #loop_depth] = [$in_finally, $loop_depth];
+        }
+
+        return #at(TryStatementAST($body, $catches, $finally), $start);
+    }
+
     // Parse a loop body, a block in which break and continue are allowed
     fn loop_body() {
         #loop_depth++;
@@ -1035,8 +1198,12 @@ class Parser {
         $name = #current_token.value;
         if (has_key(#builtins, $name)) {
             #fail("{$name} is a builtin function");
+        } else if (has_key(#classes, $name) && #classes[$name].file == #builtin_file) {
+            #fail("{$name} is a builtin class");
         } else if (has_key(#functions, $name)) {
             #fail("Function {$name} is already declared");
+        } else if (has_key(#classes, $name)) {
+            #fail("Class {$name} is already declared");
         }
     }
 
@@ -1076,6 +1243,131 @@ class Parser {
         return [$params, $defaults];
     }
 
+    // Parse a class declaration ([ABSTRACT] CLASS IDENTIFIER [EXTENDS IDENTIFIER] LBRACE (field | method)* RBRACE),
+    // field: HASH_IDENTIFIER [ASSIGN expr] SEMICOLON, method: [ABSTRACT] FN name parameters (block | SEMICOLON)
+    //
+    // Only at the top level. The parent can be declared later; it is checked once the whole
+    // program is read. A field's default is evaluated for each new object, with #
+    // being that object and no local variables. Methods may be named with any word,
+    // keywords included, since they are always reached through # or a dot.
+    fn class_declaration() {
+        $start = #current_token;
+        $abstract = $start.type == "ABSTRACT";
+        if ($abstract) {
+            #eat("ABSTRACT");
+        }
+        #eat("CLASS");
+        #check_new_name();
+        $name = #current_token.value;
+        #eat("IDENTIFIER");
+        $parent = null;
+        if (#current_token.type == "EXTENDS") {
+            #eat("EXTENDS");
+            $parent = #current_token.value;
+            #eat("IDENTIFIER");
+        }
+
+        $class = #at(ClassDeclarationAST($name, $parent, $abstract), $start);
+        #classes[$name] = $class;
+        #eat("LEFT_BRACE");
+        #class = $class;
+        while (#current_token.type != "RIGHT_BRACE") {
+            if (#current_token.type == "HASH_IDENTIFIER") {
+                #field_declaration($class);
+            } else if (#current_token.type == "FN" || #current_token.type == "ABSTRACT") {
+                #method_declaration($class);
+            } else {
+                #fail("Expected a field (#name) or a method (fn) but found " .. #describe(#current_token));
+            }
+        }
+        #class = null;
+        #eat("RIGHT_BRACE");
+
+        return $class;
+    }
+
+    // Parse a field declaration (HASH_IDENTIFIER [ASSIGN expr] SEMICOLON) into its class
+    fn field_declaration($class) {
+        $token = #current_token;
+        $name = slice($token.value, 1);
+        #check_new_member($class, $name);
+        #eat("HASH_IDENTIFIER");
+
+        $default = null;
+        if (#current_token.type == "ASSIGN") {
+            #eat("ASSIGN");
+            $default = #expr();
+            $variables = VariableCollector();
+            $variables.collect($default);
+            if ($variables.found != {}) {
+                $used = keys($variables.found)[0];
+                #fail_at("The default of #{$name} can't use {$used}: fields have no local variables", #file, $token.line);
+            }
+        }
+        #eat("SEMICOLON");
+
+        $class.fields[$name] = $default;
+        $class.field_lines[$name] = $token.line;
+    }
+
+    // Parse a method declaration ([ABSTRACT] FN name parameters (block | SEMICOLON)) into its class
+    //
+    // An abstract method has no body, and only an abstract class can declare one.
+    fn method_declaration($class) {
+        $start = #current_token;
+        $abstract = $start.type == "ABSTRACT";
+        if ($abstract) {
+            #eat("ABSTRACT");
+        }
+        #eat("FN");
+        $token = #current_token;
+        if ($token.type != "IDENTIFIER" && !in_array($token.type, values(#lexer.keywords))) {
+            #fail("Expected a name but found " .. #describe($token));
+        }
+        $name = $token.value;
+        #check_new_member($class, $name);
+        #eat($token.type);
+
+        [$params, $defaults] = #parameters("method {$class.name}.{$name}");
+        if ($abstract) {
+            if (!$class.abstract) {
+                #fail_at("Class {$class.name} has abstract method {$name}, so it must be abstract too", #file, $start.line);
+            }
+            if ($name == "_") {
+                #fail_at("A constructor can't be abstract", #file, $start.line);
+            }
+            if (#current_token.type == "LEFT_BRACE") {
+                #fail("An abstract method has no body: end it with ;");
+            }
+            #eat("SEMICOLON");
+            $body = CompoundAST();
+        } else {
+            [#in_function, #in_constructor] = [true, $name == "_"];
+            $body = #block();
+            [#in_function, #in_constructor] = [false, false];
+        }
+
+        $method = #at(FunctionDeclarationAST($name, $params, $defaults, $body, #arity($params, $defaults)), $start);
+        $method.class = $class.name;
+        $method.abstract = $abstract;
+        $class.methods[$name] = $method;
+    }
+
+    // Check a class doesn't already declare a member: fields and methods share one namespace
+    fn check_new_member($class, $name) {
+        $field = #current_token.type == "HASH_IDENTIFIER";
+        if (has_key($class.fields, $name)) {
+            #fail($field
+                ? "{$class.name} already has a field #{$name}"
+                : "{$class.name} already has a field #{$name}, and a method can't have a field's name: call the method something else");
+        }
+        if (has_key($class.methods, $name)) {
+            #fail($field
+                ? "{$class.name} already has a method {$name}, and a field can't have a method's name: call the field something else, like #{$name}_value"
+                : "{$class.name} already has a method {$name}");
+        }
+    }
+
     // Parse a statement (expr SEMICOLON | echo_statement | if_statement | while_statement | for_statement | foreach_statement
     //                    | loop_control | return_statement | delete_statement | match)
     fn statement() {
@@ -1090,6 +1382,8 @@ class Parser {
             return #for_statement();
         } else if ($type == "FOREACH") {
             return #foreach_statement();
+        } else if ($type == "TRY") {
+            return #try_statement();
         } else if ($type == "BREAK" || $type == "CONTINUE") {
             return #loop_control();
         } else if ($type == "RETURN") {
@@ -1135,10 +1429,56 @@ class Parser {
     // can be used before it is declared and both backends can trust every call by name.
     // Calls on values ($f(1)) are checked when they run.
     fn program() {
+        $error_class = #builtin_classes();
         $root = CompoundAST();
         $root.statements = #top_level();
-
+        // Error is only compiled into programs that can catch, name or extend it
+        $uses_error = #catches;
         foreach (#uses as $use) {
+            $uses_error = $uses_error || $use.name == "Error";
+        }
+        foreach (#classes as $class) {
+            $uses_error = $uses_error || $class.parent == "Error";
+        }
+        if ($uses_error) {
+            $statements = [$error_class];
+            foreach ($root.statements as $statement) {
+                $statements[] = $statement;
+            }
+            $root.statements = $statements;
+        }
+        foreach (#catch_types as [$name, $line, $file]) {
+            if (!has_key(#classes, $name)) {
+                #fail_at(has_key(#functions, $name) ? "{$name} is a function, not a class" : "Undefined class: {$name}", $file, $line);
+            }
+        }
+
+        foreach (#classes as $class) {
+            #resolve_class($class, []);
+        }
+
+        // In source order, so the first mistake in the program is the one reported
+        foreach (#member_uses as $use) {
+            #check_member_use($use.node, $use.class, $use.argc, $use.assigned);
+        }
+        foreach (#parent_uses as [$node, $class]) {
+            #check_parent_use($node, $class);
+        }
+        foreach (#uses as $use) {
+            if (has_key(#classes, $use.name)) {
+                $class = #classes[$use.name];
+                if (is_a($use, FunctionCallAST)) {
+                    if ($class.abstract) {
+                        #fail_at("Cannot construct abstract class {$use.name}", $use.file, $use.line);
+                    }
+                    $error = #arity_error("Class {$use.name}", #constructor_arity($class), len($use.args));
+                    if ($error != null) {
+                        #fail_at($error, $use.file, $use.line);
+                    }
+                }
+
+                continue;
+            }
             if (!has_key(#functions, $use.name)) {
                 $hint = has_key(#lexer.keywords, lower($use.name))
                     ? " (keywords are lowercase: write '" .. lower($use.name) .. "', not '{$use.name}')"
@@ -1154,6 +1494,154 @@ class Parser {
         }
 
         return $root;
+    }
+
+    // Work out a class's fields and methods from its own and its parent's, checking they fit together
+    //
+    // Fields and methods share one namespace, a field can't be declared again, and a method
+    // may replace a parent's method but must accept every argument count the parent's accepts
+    // (except the constructor, which each class defines for itself). $chain is the classes
+    // being resolved that extend this one, to find circular inheritance.
+    fn resolve_class($class, $chain) {
+        if ($class.resolved) {
+            return;
+        }
+
+        if ($class.parent != null) {
+            $parent = #classes[$class.parent] ?? null;
+            if ($parent == null) {
+                $message = has_key(#functions, $class.parent) ? "{$class.parent} is a function, not a class" : "Undefined class: {$class.parent}";
+                #fail_at($message, $class.file, $class.line);
+            }
+            $chain[] = $class.name;
+            if (in_array($parent.name, $chain)) {
+                // From the parent's first appearance in the chain, round to it again
+                $from = 0;
+                while ($chain[$from] != $parent.name) {
+                    $from++;
+                }
+                $cycle = slice($chain, $from);
+                $cycle[] = $parent.name;
+                #fail_at("Circular inheritance: " .. join($cycle, " extends "), $class.file, $class.line);
+            }
+            #resolve_class($parent, $chain);
+            [$class.layout, $class.members, $class.abstract_methods] = [$parent.layout, $parent.members, $parent.abstract_methods];
+        }
+
+        foreach ($class.fields as $name => $_) {
+            $line = $class.field_lines[$name];
+            if (has_key($class.layout, $name)) {
+                #fail_at("Field #{$name} of {$class.name} is already declared in {$class.layout[$name]}", $class.file, $line);
+            }
+            $owner = $class.members[$name] ?? $class.abstract_methods[$name] ?? null;
+            if ($owner != null) {
+                #fail_at("Field #{$name} of {$class.name} has the name of a method of {$owner}: fields and methods share names, so call the field something else", $class.file, $line);
+            }
+            $class.layout[$name] = $class.name;
+        }
+        foreach ($class.methods as $name => $method) {
+            if (has_key($class.layout, $name)) {
+                #fail_at("Method {$class.name}.{$name} has the name of a field of {$class.layout[$name]}: fields and methods share names, so call the method something else", $method.file, $method.line);
+            }
+            $owner = $class.members[$name] ?? $class.abstract_methods[$name] ?? null;
+            if ($owner != null && $method.abstract && has_key($class.members, $name)) {
+                #fail_at("Abstract method {$class.name}.{$name} can't replace {$owner}.{$name}", $method.file, $method.line);
+            }
+            // The constructor is each class's own: a child's can take different arguments
+            if ($owner != null && $name != "_") {
+                [$fewest, $most] = #bounds($method.arity);
+                [$parent_fewest, $parent_most] = #bounds(#classes[$owner].methods[$name].arity);
+                if ($fewest > $parent_fewest || $most < $parent_most) {
+                    $expected = $parent_fewest == $parent_most ? $parent_fewest : "{$parent_fewest} to {$parent_most}";
+                    #fail_at("Method {$class.name}.{$name} must accept every argument count {$owner}.{$name} does ({$expected})", $method.file, $method.line);
+                }
+            }
+            if ($name == "to_string" && #bounds($method.arity)[0] != 0) {
+                #fail_at("Method {$class.name}.to_string must accept 0 arguments: printing calls it with none", $method.file, $method.line);
+            }
+            if ($method.abstract) {
+                $class.abstract_methods[$name] = $class.name;
+            } else {
+                $class.members[$name] = $class.name;
+                if (has_key($class.abstract_methods, $name)) {
+                    delete $class.abstract_methods[$name];
+                }
+            }
+        }
+
+        if (!$class.abstract && $class.abstract_methods != {}) {
+            $name = keys($class.abstract_methods)[0];
+            #fail_at("Class {$class.name} must define abstract method {$name} of {$class.abstract_methods[$name]}, or be abstract", $class.file, $class.line);
+        }
+        $class.resolved = true;
+    }
+
+    // Check a ##name against the parent of the class it is written in, and record whose version runs
+    fn check_parent_use($node, $class) {
+        if ($class.parent == null) {
+            #fail_at("Cannot use ##{$node.name}: {$class.name} has no parent class", $node.file, $node.line);
+        }
+        $parent = #classes[$class.parent];
+        $name = $node.name;
+        if (has_key($parent.layout, $name)) {
+            #fail_at("##{$name} can only reach a method, and {$name} is a field of {$parent.layout[$name]}", $node.file, $node.line);
+        }
+        if (has_key($parent.abstract_methods, $name)) {
+            #fail_at("Cannot use ##{$name}: {$name} is abstract in {$parent.abstract_methods[$name]}", $node.file, $node.line);
+        }
+        if (!has_key($parent.members, $name)) {
+            #fail_at($name == "_" ? "{$parent.name} has no constructor to call with ##_" : "{$parent.name} has no method {$name}", $node.file, $node.line);
+        }
+
+        $node.definer = $parent.members[$name];
+        if ($node.args != null) {
+            $error = #arity_error("Method {$node.definer}.{$name}", #classes[$node.definer].methods[$name].arity, len($node.args));
+            if ($error != null) {
+                #fail_at($error, $node.file, $node.line);
+            }
+        }
+    }
+
+    // Parse the builtin classes (Error), before the program, so its classes can use them
+    fn builtin_classes() {
+        [$lexer, $current_token, $file] = [#lexer, #current_token, #file];
+        #lexer = Lexer(#builtin_source);
+        #file = #builtin_file;
+        #current_token = #next_token();
+        $class = #class_declaration();
+        [#lexer, #current_token, #file] = [$lexer, $current_token, $file];
+
+        return $class;
+    }
+
+    // The number of arguments constructing a resolved class takes: its constructor's, or none
+    fn constructor_arity($class) {
+        return has_key($class.members, "_") ? #classes[$class.members["_"]].methods["_"].arity : 0;
+    }
+
+    // Check a #name against its class: the member must exist, a method can't be assigned to, and a call must fit its arity
+    //
+    // Called methods are checked against the class the method is written in: a child's
+    // version accepts every argument count this one does.
+    fn check_member_use($node, $class, $argc, $assigned) {
+        if (has_key($class.layout, $node.name)) {
+            $node.field = true;
+
+            return;
+        }
+        $definer = $class.members[$node.name] ?? $class.abstract_methods[$node.name] ?? null;
+        if ($definer == null) {
+            #fail_at("{$class.name} has no member #{$node.name}", $node.file, $node.line);
+        }
+        if ($assigned) {
+            #fail_at("Cannot assign to method #{$node.name}", $node.file, $node.line);
+        }
+        if ($argc != null) {
+            $error = #arity_error("Method {$definer}.{$node.name}", #classes[$definer].methods[$node.name].arity, $argc);
+            if ($error != null) {
+                #fail_at($error, $node.file, $node.line);
+            }
+        }
     }
 
     // As Builtins::bounds(): the fewest and most arguments an arity allows
@@ -1178,6 +1666,8 @@ class Parser {
         while (#current_token.type != "EOF") {
             if (#current_token.type == "FN") {
                 $statements[] = #function_declaration();
+            } else if (#current_token.type == "CLASS" || #current_token.type == "ABSTRACT") {
+                $statements[] = #class_declaration();
             } else {
                 $statements[] = #statement();
             }

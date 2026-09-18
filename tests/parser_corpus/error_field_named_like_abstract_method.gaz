@@ -1,0 +1,2 @@
+abstract class A { abstract fn size(); }
+abstract class B extends A { #size; }

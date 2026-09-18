@@ -1,0 +1,1 @@
+while (1) { try { echo 1; } finally { break; } }

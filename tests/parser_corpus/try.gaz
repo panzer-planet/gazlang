@@ -1,0 +1,29 @@
+try { echo 1; } catch ($e) { echo $e; }
+try { echo 1; } catch (@e) { echo @e; }
+try { echo 1; } catch (Error $e) { echo $e.message; }
+try { echo 1; } finally { echo 2; }
+try {
+    error(NotFound("id"));
+} catch (NotFound $e) {
+    echo "{$e.message} ({$e.key}) at line {$e.line}";
+} catch (Error $e) {
+    echo $e.message;
+} catch ($e) {
+    echo "something else: {$e}";
+} finally {
+    echo "always";
+}
+class NotFound extends Error {
+    #key;
+    fn _($key) { ##_("Not found: {$key}"); #key = $key; }
+}
+// return, break and continue can leave a try or a catch, and a loop or lambda in a finally has its own
+fn f($xs) {
+    foreach ($xs as $x) {
+        try { if ($x) { break; } return 1; } catch ($e) { continue; } finally { while (true) { break; } $g = () -> { return 1; }; }
+    }
+    try { return 2; } finally { foreach ($xs as $x) { continue; } }
+}
+// A catch variable is local to a lambda that catches
+$h = () -> { try { echo $outer; } catch ($e) { echo $e; } };
+try { try { echo 1; } finally { echo 2; } } catch ($e) { try { echo 3; } catch ($e2) { echo 4; } }

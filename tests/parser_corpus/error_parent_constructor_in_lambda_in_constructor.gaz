@@ -1,0 +1,2 @@
+class A { fn _() {} }
+class B extends A { fn _() { $f = () -> ##_(); } }

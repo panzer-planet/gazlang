@@ -1,0 +1,2 @@
+class A { #x; }
+class B extends A { fn f() { return ##x; } }

@@ -1,0 +1,2 @@
+echo 1;
+class B extends Missing {}

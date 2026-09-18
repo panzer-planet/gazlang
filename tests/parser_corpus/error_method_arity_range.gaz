@@ -1,0 +1,1 @@
+class A { fn f($a, $b = 1) {} fn g() { return #f(1, 2, 3); } }

@@ -1,0 +1,3 @@
+class A { fn _($x) {} }
+class B extends A {}
+echo B();
