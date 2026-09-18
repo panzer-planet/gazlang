@@ -325,6 +325,11 @@ class's fields, methods and constants across its hierarchy.
 **Input and output** — `print`, `print_error`, `read_file($path)`,
 `write_file($path, $string)`, `read_stdin()`, `args()`.
 
+**Paths** — `cwd()` is the working directory, which relative paths are resolved from.
+`real_path($path)` is the absolute path with every symlink, `.` and `..` resolved (a directory
+too), and an error when there is nothing there; `file_exists($path)` is whether there is, so
+`file_exists("a/../b")` is false when `a` is missing, as the system sees it.
+
 **Control** — `error($value)`, `exit($code = 0)`.
 
 ## Libraries

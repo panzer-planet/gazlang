@@ -16,7 +16,7 @@ generator port, which is next and larger:
 | # | Friction | Workaround | Recommended |
 | --- | --- | --- | --- |
 | 8 | ~~No constants~~ | **built**: `const`, at the top level and in a class | done, see CLAUDE.md "Constants" |
-| 9 | No working directory, real path or existence test | textual paths, **wrong in four cases** | `cwd()`, `real_path()` |
+| 9 | ~~No working directory, real path or existence test~~ | **built**: `cwd()`, `real_path()`, `file_exists()` | done, see below |
 | 10 | A parser in GazLang has a nesting limit | none; a list as a stack for walking trees | the VM's call depth, later |
 | 1 | An object's fields can't be listed | a `parts()` method on every node class | `fields($object)` |
 | 3 | Builtins can't be asked about | a hand-copied table and a test | `builtins()` |
@@ -195,6 +195,32 @@ file is now read by the path as written, which lets the system refuse it as `rea
   relative-path rewrites the self-hosted compiler must reproduce byte for byte (hole 6 says so),
   so the code generator port will hit this again harder.
 - `file_exists($path)` alone: fixes the try/catch, not the three divergences.
+
+**Decided and built 2026-09-18: `cwd()`, `real_path($path)` and `file_exists($path)`.**
+`real_path()` is an error when nothing is there, rather than null, and `file_exists()` is
+whether it would succeed (one definition, `Builtins::resolve()`, so the two can't disagree).
+Each is one libc call in C: `getcwd`, `realpath`, and `realpath` again. Where PHP's
+`realpath()` isn't `realpath(3)` the builtin follows C: `""` is nothing (PHP gives the working
+directory) and so is a path holding a NUL byte (PHP throws, and a C string would be cut short
+at it). A directory has a real path too; whether a path is a file to include is still asked by
+reading it, which is the one question left in a `try`. No `dirname()` builtin: every path the
+port takes one of is now real, so it has no `.`, `..`, doubled or trailing slash for the
+8-line GazLang version to get wrong. `display_path()` is ported as it is, including showing
+everything absolute when the working directory is `/`.
+
+`normalise()` is gone and the port is 22 lines shorter. All four divergences are tested: a
+symlinked file (`tests/parser_corpus/include/symlink_is_the_file_it_points_to.gaz`, through
+`lib/link.gaz`), and, since a corpus file can't spell this machine's absolute paths or choose
+its working directory, `SelfHostedParserTest` writes a program including one file both ways
+into a temporary directory, and parses corpus files by absolute path and from other working
+directories. Put back the textual version and all six fail.
+
+**Met while building it:** the choice of an error over null costs every caller that doesn't
+know the path is there two calls, `file_exists($p) ? real_path($p) : null`, which is two
+`realpath` calls in C, and the path can vanish between them, which is then an internal error
+rather than "Cannot include file". A `try` around `real_path()` alone would be one call, but is
+the shape this log already warns about. Two calls in the parser, once per include; not worth
+revisiting unless the code generator port does it in a loop.
 
 ## 10. Call depth: a parser in GazLang has a nesting limit, and a list was not a stack
 

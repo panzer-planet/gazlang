@@ -257,7 +257,11 @@ each step depends on the ones before it.
      `try/catch` doesn't see it: both backends unwind with `Runtime\ExitSignal`, which
      `bin/gazlang` and the tests' `runProgram()` turn into the exit code), `read_file($path)` and `write_file($path, $string)`
      (relative to the working directory; write creates or overwrites and returns
-     null), `read_stdin()` (all remaining standard input; empty when the program
+     null), `cwd()`, `real_path($path)` (absolute, with symlinks, `.` and `..` resolved, as
+     `realpath(3)`; an error when nothing is there, and `""` and a NUL byte are nothing, where
+     PHP's `realpath()` differs) and `file_exists($path)` (whether `real_path` would succeed;
+     built 2026-09-18 for the parser port's includes, see the friction log #9),
+     `read_stdin()` (all remaining standard input; empty when the program
      itself was piped in), `args()` (the command line arguments
      after the gazlang options, or after `--`). `bin/gazlang` rejects options it
      doesn't know, since `getopt` would silently drop them, so a program's own
@@ -366,11 +370,11 @@ each step depends on the ones before it.
    differential fuzzer, mutants) found a bug in the spec and needed nothing faster than what
    there is. So, in this order:
    1. **Decide the friction the parser port logged** (`docs/parser-port-friction.md`) before
-      writing more GazLang: ~~constants~~ (built, see "Constants"), `cwd()` and `real_path()`,
-      `fields($object)`, `builtins()`. The code generator port meets all four harder than the parser did, the
-      paths most of all, since a bytecode file's `@ "file"` records are relative-path rewrites
-      it must reproduce byte for byte, and the parser's textual stand-in is knowingly wrong in
-      three cases. Working around them a second time and then removing the workarounds twice
+      writing more GazLang: ~~constants~~ (built, see "Constants"), ~~`cwd()` and `real_path()`~~
+      (built with `file_exists()`, see step 6's builtins), `fields($object)`, `builtins()`. The
+      code generator port meets all four harder than the parser did, the paths most of all,
+      since a bytecode file's `@ "file"` records are relative-path rewrites it must reproduce
+      byte for byte. Working around them a second time and then removing the workarounds twice
       is the expensive order.
    2. **Port the code generator to `selfhost/`**, the same way, against `gazlang -c`: the same
       bytecode, byte for byte, for every file, which the format was made deterministic for.
@@ -510,17 +514,16 @@ each step depends on the ones before it.
      arrays by reference is a `VariableCollector` object. Every `try`/`finally` that restores
      parser state is gone: nothing catches a `ParseError` and carries on. `left_associative`
      calling `$this->$operand()` by name needed nothing, a bound method (`#unary`) is a value.
-   - **Paths are resolved textually**, because GazLang cannot ask for the working directory or
-     a real path: `normalise()` and `dirname()`. It agrees with PHP on everything in the
-     repository and is knowingly wrong in four cases, marked `ponytail:` in the source: a
-     symlink, or one file included by both a relative and an absolute path, is included twice,
-     so what it declares is "already declared" and a valid program is refused; a main file
-     given by absolute path, and an include climbing out of the working directory, are shown
-     differently. Whether a file is there is asked of the system by reading it, by the path as
-     written and before the included-already check, as `realpath()` comes first in PHP: the
-     code review found `normalise()` turning `nodir/../a.gaz` and `a.gaz/` into a file that
-     exists, so a mistyped include passed. This is the one workaround that is wrong rather
-     than long; see the friction log.
+   - **Paths were resolved textually** at first, because GazLang could not ask for the working
+     directory or a real path, and that was knowingly wrong in four cases: a symlink, or one
+     file included by both a relative and an absolute path, was included twice ("already
+     declared", a valid program refused), and a main file given by absolute path, or an include
+     climbing out of the working directory, was shown differently. `cwd()`, `real_path()` and
+     `file_exists()` replaced it the same day, so the port resolves includes as `Parser.php`
+     does, and all four cases are tested: `SelfHostedParserTest` also parses from other working
+     directories and writes a program with an absolute include where it runs, since a corpus
+     file can't spell this machine's paths. A directory or an unreadable file is still told
+     apart by reading it.
    - **Trees are walked with a stack, not recursion** (`VariableCollector.collect()`,
      `ast.gaz`'s `Dumper.dump()`), since a chain of operators is as deep on its left as it is
      long and two calls a level ran out of call depth at 5000 terms, which generated code can
@@ -568,9 +571,9 @@ each step depends on the ones before it.
    - **What the language forced is in `docs/parser-port-friction.md`**, nine entries with
      options. Ranked by what they would remove from a self-hosted compiler: constants (token
      types are bare strings, where a typo is a branch that silently never runs), `cwd()` and
-     `real_path()` (the only workaround that is wrong), `fields($object)` (a `parts()` method on
-     every node class, a fifth of `nodes.gaz`), `builtins()` (a hand-copied table of 40
-     arities, kept honest by a test). Three holes the audits listed turned out not to bite:
+     `real_path()` (the only workaround that was wrong; both now built), `fields($object)` (a
+     `parts()` method on every node class, a fifth of `nodes.gaz`), `builtins()` (a hand-copied
+     table of 43 arities, kept honest by a test). Three holes the audits listed turned out not to bite:
      calling a method by name, identity keys for objects, and by-reference parameters.
 
    **The README's examples are tests.** `ReadmeTest` pulls every ```` ```gaz ```` block that is
@@ -720,9 +723,8 @@ when it was written, not from now.
    raises `KeyError` as GazLang does and answered the ergonomics with a library
    (`Counter`, `defaultdict`) rather than a language change, and JavaScript gives `NaN`.
    No identity key for an object (PHP's `spl_object_id`, 7 uses in
-   `Parser.php` for side tables keyed by AST node), no `cwd()` (4 uses, and bytecode `@ "file"
-   line` records are relative-path rewrites the self-hosted compiler must reproduce byte for
-   byte), no file-existence test, no `to_int`/`to_float` that returns null instead of throwing
+   `Parser.php` for side tables keyed by AST node), ~~no `cwd()`~~ and ~~no file-existence
+   test~~ (built 2026-09-18: `cwd()`, `real_path()`, `file_exists()`), no `to_int`/`to_float` that returns null instead of throwing
    (every parse of untrusted text needs try/catch), no copy-with-change for objects, no
    `catch (A | B $e)` and no bare rethrow.
 
