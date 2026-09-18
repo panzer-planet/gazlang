@@ -13,10 +13,11 @@ design is in [CLAUDE.md](../CLAUDE.md); what the language *is* is in
 | `src/Interpreter` | walks the tree. It does not decide what values mean |
 | `src/CodeGenerator` | compiles the tree to a `Program`: one block of code per function, each instruction tagged with its file and line |
 | `src/VM` | runs a `Program`. This is the default backend |
+| `vm/` | the VM in C, `vm/gazvm`: runs the bytecode `gazlang -c` writes, and must behave exactly as `src/VM` does (see below) |
 | `lib/` | the standard library, written in GazLang |
 | `selfhost/` | everything above the VM, rewritten in GazLang: `lexer.gaz`, a port of `src/Lexer`, with `tokens.gaz`, which prints its tokens as `--tokens` does, `parser.gaz` and `nodes.gaz`, a port of `src/Parser` and `src/AST`, with `ast.gaz`, which prints its tree as `--ast` does, and `codegen.gaz`, a port of `src/CodeGenerator`, with `compile.gaz`, which prints bytecode as `-c` does |
 | `examples/` | sample programs |
-| `tests/` | PHPUnit, plus `tests/gaz/` GazLang programs, `tests/lexer_corpus/` and `tests/parser_corpus/` |
+| `tests/` | PHPUnit, plus `tests/gaz/` GazLang programs, and the corpora: `lexer_corpus/`, `parser_corpus/`, `codegen_corpus/`, `vm_corpus/` and `bytecode_corpus/` |
 
 ## The two backends must agree
 
@@ -39,6 +40,29 @@ The VM has fast paths in its dispatch loop for the commonest cases whose result 
 bools, and so on); everything else, errors included, falls through to `Values`. Keep them that
 way.
 
+## The C VM must agree with the PHP VM
+
+`vm/` is the same VM in C (roadmap step 7, stage 2), and the PHP VM is its specification: the
+same output, the same errors word for word, the same locations, traces and exit codes.
+`tests/CVMTest.php` holds it to that. Each entry of `vm/passing.txt` is compiled with the PHP
+compiler, and the bytecode is run on both VMs (the C one built with AddressSanitizer and
+UndefinedBehaviorSanitizer), which must give the same standard output, standard error and exit
+code. An entry is a program in the repository (with its arguments after it, for the self-hosted
+drivers), `snippet:<id>`, one of the `executeCode()` snippets the PHP tests run
+(`tests/vm_snippets.txt`, collected by `php vm/snippets.php`), or a hand-written `.gzb` under
+`tests/bytecode_corpus/`, for the loaders; there the files named `error_*` must be the ones
+refused. `php vm/progress.php` tries every candidate and `--update` adds the ones that pass.
+
+So a change to what a value means, to a builtin or to an error message is made in `src/Runtime`
+and in `vm/` together, and the harness fails until both say the same thing. When they disagree
+because PHP itself changed (`round()` did within 8.5), the rule is GazLang's to define: write it
+out in `Runtime` step by step, as `Builtins::round()` is, rather than calling PHP's.
+
+The C is plain C11, libc, libm and pthreads only. A function that can fail returns `bool`, with
+the error in `vm_error`; values are reference counted (`incref`, `decref`), lists and maps are
+copied on write, and the cycle collector (`vm/gc.c`) frees what counting can't. `vm/gazvm.h`
+says which file does what.
+
 ## Commands
 
 ```bash
@@ -50,6 +74,14 @@ vendor/bin/phpunit --filter=testName tests/X.php    # one test
 
 vendor/bin/phpstan analyse                          # must be clean
 vendor/bin/pint                                     # formatting; --test to check only
+```
+
+```bash
+make -C vm                                          # vm/gazvm, optimised
+vm/gazvm x.gzb [arguments...]                       # run bytecode on the C VM
+php vm/progress.php [FILTER] [--update]             # which programs the C VM matches the PHP VM on
+php vm/coverage.php [file.c]                        # which lines of the C VM the harness never runs
+php vm/bench.php                                    # the C VM against the PHP VM and against PHP
 ```
 
 ```bash
@@ -91,6 +123,14 @@ php bin/gazlang --ast -f examples/functions.gaz           # print the parser's t
 - The three ports are checked on the rest of the repository only when asked, since that is
   most of the suite's time: `php -d pcov.enabled=0 vendor/bin/phpunit --group whole-repository`,
   before merging anything that touches them.
+- **`tests/vm_corpus/`** are programs for the C VM that the rest of the repository doesn't
+  reach, found with `php vm/coverage.php`: running out of call depth by every kind of call,
+  traces cut short, failing `to_string()`s, floats of every shape, cycles. **`tests/bytecode_corpus/`**
+  are bytecode files written by hand, one broken way per loader message. After changing either
+  VM, also run `php tests/fuzz_vms.php` (programs that throw every kind of value at every
+  operator and builtin; `programs` as a third argument mutates the repository's programs
+  instead), and for the collector `make -C vm stress` then
+  `GAZVM=vm/build/gazvm-stress php vm/progress.php`, which collects cycles at every chance.
 - `lib/json.gaz` is checked against PHP's own `json_decode` on every `tests/json/y_*.json` and
   `n_*.json`; `lib/csv.gaz` against `fgetcsv`.
 
@@ -106,7 +146,7 @@ Two environment notes:
 ## Bytecode
 
 The compiler emits a text format, one instruction per line, specified in
-[docs/bytecode.md](bytecode.md) — which is what a C VM will be built from.
+[docs/bytecode.md](bytecode.md), which is what the C VM was built from.
 
 ```bash
 php bin/gazlang -c -f x.gaz > x.gzb     # write it
@@ -119,15 +159,18 @@ table of every instruction's arguments and stack effect; `BytecodeTest` keeps it
 `docs/bytecode.md` and the VM's cases in step.
 
 The loader checks everything — unknown instructions, undefined labels, bad slots, and a stack
-walk through every jump — so a file that loads is one the VM can run.
+walk through every jump — so a file that loads is one the VM can run. `vm/load.c` makes the same
+checks with the same messages, and takes each block's greatest stack depth from the walk to size
+its frames.
 
 ## Where this is going
 
 The roadmap is in [CLAUDE.md](../CLAUDE.md) under "Path to Self-Hosting". The short version:
-the bytecode format is pinned, and the lexer and parser are rewritten in GazLang and checked
-against the PHP ones. Next is settling what that port found missing in the language, then the
-code generator the same way, then a standalone VM in C, then a bootstrap that drops PHP
-entirely. The PHP implementation stays the reference throughout.
+the bytecode format is pinned; the lexer, parser and code generator are rewritten in GazLang
+and checked against the PHP ones; the VM is rewritten in C and checked against the PHP one.
+What is left is the bootstrap: the GazLang compiler, compiled by itself and run on the C VM,
+becomes `gazlang`, and PHP is no longer needed. The PHP implementation stays the reference
+until then.
 
 That is why new features get judged by what they cost **in C**, not only in PHP: anything that
 leans on PHP's own behaviour (hashing, string conversion, float formatting) has to become a

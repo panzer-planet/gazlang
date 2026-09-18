@@ -30,6 +30,19 @@ php bin/gazlang --interpreter -f examples/functions.gaz
 
 # Print the compiled VM code instead of running it
 php bin/gazlang -f examples/functions.gaz -c
+
+# The VM in C (roadmap step 7, stage 2): build it, and run bytecode on it
+make -C vm
+php bin/gazlang -c -f examples/functions.gaz > /tmp/f.gzb && vm/gazvm /tmp/f.gzb
+
+# Which programs the C VM matches the PHP VM on (CVMTest checks the ones in vm/passing.txt);
+# --update adds the new ones. After changing either VM, also fuzz them against each other
+php -d pcov.enabled=0 vm/progress.php [FILTER] [--update]
+php -d pcov.enabled=0 tests/fuzz_vms.php [RUNS] [SEED] [values|programs]
+
+# The C VM's coverage by the harness, and its speed against the PHP VM and against PHP
+php vm/coverage.php [file.c]
+php vm/bench.php
 ```
  
 ## Code Style Guidelines
@@ -364,18 +377,9 @@ each step depends on the ones before it.
         stack machine's is much simpler, and JVM, CPython and .NET are all fast enough on one;
         a loader can merge common sequences into superinstructions without touching the format.
         Changing this after the bootstrap would mean a new format and a rewritten compiler.
-   2. **Write a standalone VM in C.** The two things that had to be settled first are
-      built: `delete` (so its ordered hash supports deletion) and `#trace` (so a frame records
-      what a trace needs). A separate program, not called from PHP through
-      FFI: every FFI call converts its values, which costs more than the work of one
-      instruction). It needs its own values, an ordered hash for maps, byte strings,
-      the operator rules of `Runtime\Values` exactly (including shortest float printing,
-      PHP's `round`, overflow errors), the builtins, and memory management: reference
-      counting suits lists and maps as values, but closures (and later objects) can
-      form cycles, so it also needs a cycle collector or a tracing GC. Test it the way
-      everything here is tested: the PHP compiler writes bytecode, and the C VM must
-      match the PHP VM on every test, `tests/gaz` program and example, output, errors,
-      locations and exit codes. The PHP implementation stays the reference. **C, decided
+   2. ~~**Write a standalone VM in C.**~~ Done 2026-09-18, see "The C VM" below. A separate
+      program, not called from PHP through FFI: every FFI call converts its values, which costs
+      more than the work of one instruction. The PHP implementation stays the reference. **C, decided
       2026-09-18** over Rust, Zig and Go: the heap (reference counting for copy-on-write
       values, plus a cycle collector for objects and closures) is unsafe code in every one of
       them, Rust VMs included; Go has no reference counts, so values would need persistent data
@@ -383,7 +387,8 @@ each step depends on the ones before it.
       toolchain. C gives computed-goto dispatch, a bootstrap that needs nothing but a C compiler,
       and Lua and CPython to crib from, and this project's differential tests and fuzzers, run
       under ASan and UBSan, are the safety net C code usually lacks.
-      Expected speed: about that of Lua or PHP, 1 to 5 times PHP rather than 60 to 90.
+      Expected speed: about that of Lua or PHP, 1 to 5 times PHP rather than 60 to 90;
+      measured, 0.9 to 2.0 times (computed goto turned out not to pay, see "The C VM").
    3. **Write the compiler in GazLang** (lexer, parser with the parse-time checks,
       code generator). It must produce the same bytecode as the PHP compiler for every file
       the tests cover. The C VM is what makes it fast enough to *use*; it turned out not to be
@@ -411,7 +416,8 @@ each step depends on the ones before it.
    2. ~~**Port the code generator to `selfhost/`**, the same way, against `gazlang -c`: the same
       bytecode, byte for byte, for every file, which the format was made deterministic for.~~
       Done 2026-09-18, see "Port the code generator" below.
-   3. **The C VM**, stage 2 above, by which time everything above it exists and is tested.
+   3. ~~**The C VM**, stage 2 above, by which time everything above it exists and is tested.~~
+      Done 2026-09-18, see "The C VM".
    The way out: each port's harness costs the suite about 35s under pcov (30s to 71s for the
    parser), and a third would be more again. If that becomes unbearable before the code
    generator is done, the C VM goes first after all, since it is what makes these harnesses
@@ -653,8 +659,8 @@ each step depends on the ones before it.
      is small.
 
    With the lexer, parser and code generator ported, everything above the VM exists in GazLang
-   and matches the PHP on every file there is. **What is left is the C VM** (stage 2), then the
-   bootstrap.
+   and matches the PHP on every file there is, and the VM exists in C and matches the PHP VM on
+   every program, snippet and corpus file there is. **What is left is the bootstrap** (stage 4).
 
    **The README's examples are tests.** `ReadmeTest` pulls every ```` ```gaz ```` block that is
    followed by an output block out of `README.md` and requires it to print exactly that, on
@@ -685,6 +691,97 @@ each step depends on the ones before it.
    long strings with `index_of` rather than character by character in GazLang: that
    halved CSV parsing time; the lexer's character classes are ASCII and explicit
    (`Lexer::is_space` is only space, tab, newline and carriage return).
+
+## The C VM
+
+Built 2026-09-18 (roadmap step 7, stage 2): `vm/`, plain C11 with only libc, libm and pthreads,
+about 5000 lines with their comments. `vm/gazvm program.gzb [args]` runs the bytecode `gazlang -c` writes, and must
+behave exactly as the PHP VM does: the same output, the same errors word for word, the same
+locations, traces and exit codes. `bin/gazlang` stays PHP until the bootstrap. `vm/gazvm.h` says
+which file does what; the files follow the PHP classes (`value.c` and `ops.c` are
+`Runtime\Values`, `builtins.c` is `Runtime\Builtins`, `load.c` is `BytecodeReader`, `vm.c` is
+`VM\VM`).
+
+- **How it is held to the PHP VM** (`tests/CVMTest.php`, `tests/CVM.php`): each entry of
+  `vm/passing.txt` is compiled by the PHP compiler, and the bytecode runs on both VMs, the C one
+  built with ASan and UBSan, which must give the same stdout, stderr and exit code. The entries
+  are every program in the repository and the corpora, the 531 `executeCode()` snippets
+  (`tests/vm_snippets.txt`, one GazLang string literal per line, recollected by
+  `php vm/snippets.php` after tests are added), `tests/bytecode_corpus/` (a hand-written broken
+  file per loader message, since no compiler writes one, and the files named `error_*` must be
+  exactly the ones refused), and the self-hosted drivers on big inputs, which cost seconds each on
+  the PHP VM and so are `@group whole-repository`. The list only grows: `php vm/progress.php`
+  finds what newly passes, `--update` adds it. It is 680 entries, all of what compiles, and adds
+  about 10s to the suite, most of it macOS starting 670 sanitized processes (70ms each, which 24
+  run at once hide). The C side's processes run while the PHP side runs in-process.
+- **It passed nearly everything at the first run, so that proved little**, as with the code
+  generator port. What found the bugs, in order of yield: `php vm/coverage.php` (clang's
+  source-based coverage over the harness, which showed the whole call-depth family unreached, and
+  `tests/vm_corpus/` was written against what it listed: 97% of lines now, the rest out-of-memory
+  paths and states no compiler writes); `tests/fuzz_vms.php`, which writes programs throwing
+  every kind of value at every operator, builtin, index, member and write path (mostly well typed,
+  since random operands die at the first type check and test nothing behind it), or mutates the
+  repository's programs; a million random floats printed by both; and 30 mutants of the C VM,
+  of which the corpus kills 27 and the other 3 are equivalent for anything a compiler writes.
+  **Break it on purpose before believing a run that finds nothing**, as with the ports.
+- **What those found in the C VM**: `split_words` cut a `locals` line at 64 names; `slice()`
+  negated the smallest int (UBSan); `round()` truncated a huge precision where PHP clamps it to
+  a C int; `realpath(3)` on macOS accepts `file/` and `file/..`, PHP doesn't; and float printing
+  missed next to powers of two, where the correctly rounded candidate of a length can fail to
+  read back and the neighbour on the wide side is the shortest (4776 of a million floats, now
+  none: `format_float()` tries both brackets at each length).
+- **What they found in the PHP VM, fixed there**: `round()` called PHP's own, which changed
+  within 8.5 (see "Numbers"); `..=` on a string whose `to_string()` turned the variable into a
+  function hit PHP's `.=` on an object, a PHP `Error` escaping as an internal error (it now joins
+  as `..` does, as the C VM did); `VM::link()` printed PHP warnings into a program's output for an
+  unreachable jump or call to a name that isn't there, which the reader rightly doesn't check.
+- **Errors are return values**: a function that can fail returns `bool`, the error in
+  `vm_error`, and the caller passes the `false` up to the dispatch loop, which locates it and
+  unwinds to a handler or leaves. No `setjmp`/`longjmp`, so every reference count stays right on
+  the way out (the loader is the exception: it gives up at the first problem, and nothing it
+  built matters then).
+- **Values** are a 16-byte tag and payload. Strings, lists, maps, functions, objects and raised
+  errors are reference counted; lists and maps are copied on write, which is PHP's value
+  semantics exactly (a write through a variable copies a list or map only when something else
+  holds it). A map is PHP's design: entries in insertion order with a removed one left as a hole,
+  and an open-addressed index of positions, rebuilt (and the holes squeezed out) as it grows.
+  Names are interned, so member lookups compare pointers. One-byte strings are 256 shared values,
+  since `$s[$i]` made one per character a lexer reads.
+- **Frames live on one value stack**: a call's arguments, already pushed, become the callee's
+  first locals, and its stack grows above them, sized by the loader's walk. Calls between
+  GazLang functions don't use the C stack; the one exception is a method run from inside an
+  instruction (echo calling `to_string()`), a nested `execute()` as in the PHP VM, which can nest
+  as deep as the call depth limit, so the program runs on a thread with a 1GB stack (reserved
+  address space, backed only as used).
+- **The cycle collector** (`vm/gc.c`): lists, maps, objects and functions are linked into one
+  list while they live, and collecting is CPython's trial deletion, which needs no list of roots:
+  take each reference one of them holds to another off the other's count, and what still has a
+  count is held from outside and survives with everything it reaches. It runs only at a backward
+  jump or a call, once as many containers have been made as were alive after the last
+  collection. GazLang has no destructors, so freeing garbage runs no program code. A loop making
+  300,000 self-referencing objects and closures peaks at 6MB rather than 206MB. The tested build
+  collects every 64 new containers, so the harness exercises it under ASan; `make -C vm stress`
+  builds one that collects at every chance (the corpus and the fuzzer pass on it), and
+  `GAZVM_STATS` makes the VM report what is alive at the end and the most at once, which
+  `test_the_c_vm_collects_cycles` checks.
+- **Speed** (`php vm/bench.php`: whole processes, CPU time, interleaved, best of several runs,
+  PHP with the JIT settings `bin/gazlang` uses): 0.9 to 2.0 times the time of the same program
+  written in PHP, and 6 to 26 times faster than the PHP VM, so the roadmap's expectation
+  ("about that of Lua or PHP") is met. The self-hosted compiler compiles `football.gaz` in 0.09s
+  against the PHP VM's 0.70s, and the self-hosted parser on `codegen.gaz` takes 0.23s against
+  2.4s. What paid, each measured alone: an int fast path for `%` (the arithmetic loop -19%), the
+  PHP loader's `STORE x; LOAD x; POP` peephole (-19%), sharing one-byte strings and not interning
+  two names on every run of two instructions (the self-hosted parser -12%, objects -18%), and
+  inline caches on the member instructions (-2.5%). What didn't, and was dropped: threaded
+  dispatch (computed goto; the CPU predicts the switch's one jump well), syncing the stack pointer
+  for nested calls only where needed, and a fast path for `==`. The loader looks labels and names
+  up linearly, which is 20ms on the 25,000-line `compile.gaz.gzb`: not worth a hash yet. What is
+  left in a profile of the self-hosted parser is the dispatch loop itself (two thirds), malloc and
+  free, and the collector (6%).
+- **Its style**: plain C, commented where the C isn't obvious (a flexible array member, a
+  `goto` into shared code), for readers who know a little C. `ponytail:` comments mark known
+  ceilings: float printing tries up to 34 `printf`/`strtod` pairs per float, fine until printing
+  floats measures slow.
 
 ## Holes to fill next
 
@@ -1468,7 +1565,9 @@ Ints and floats (64-bit, always finite: GazLang has no INF or NAN).
   outside the int range), `floor`, `ceil`, `round($x, $precision = 0)` (PHP's round:
   halves away from zero, correcting for halves stored as slightly less, so
   `round(1.005, 2)` is `1.01`; a negative precision rounds to tens, hundreds...; all
-  three return floats, as in PHP), `abs` (keeps the type), `intdiv($a, $b)`, `min($a, $b)` and
+  three return floats, as in PHP; `Builtins::round()` does php-src's steps itself rather than
+  calling PHP's, since 8.5.7 gives `round(7e15)` as `7000000000000001.0` and later releases don't,
+  and GazLang must not depend on the PHP release running it), `abs` (keeps the type), `intdiv($a, $b)`, `min($a, $b)` and
   `max($a, $b)` (two numbers, or two strings compared as `<` does; anything else is an error;
   a tie gives the first, so `min(1, 1.0)` is `1`; for a list, `reduce($xs, max, $xs[0])`).
 
