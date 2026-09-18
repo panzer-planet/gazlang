@@ -18,7 +18,7 @@ generator port, which is next and larger:
 | 8 | ~~No constants~~ | **built**: `const`, at the top level and in a class | done, see CLAUDE.md "Constants" |
 | 9 | ~~No working directory, real path or existence test~~ | **built**: `cwd()`, `real_path()`, `file_exists()` | done, see below |
 | 10 | A parser in GazLang has a nesting limit | none; a list as a stack for walking trees | the VM's call depth, later |
-| 1 | An object's fields can't be listed | a `parts()` method on every node class | `fields($object)` |
+| 1 | ~~An object's fields can't be listed~~ | **built**: `fields($object)` | done, see below |
 | 3 | Builtins can't be asked about | a hand-copied table and a test | `builtins()` |
 | 2 | A class's bare name | `slice(to_string(class_of($x)), 6)` | `class_name($class)` |
 | 7 | Lists can't be joined | a loop | a builtin, at the third use |
@@ -50,6 +50,19 @@ dump has the field), nothing but a test catches the second.
 - `foreach` over an object. Same information, but a language change where a builtin will do, and
   it makes objects look like maps, which `==` and indexing deliberately say they are not.
 - Leave it. `parts()` is boilerplate, but it is boilerplate a compiler only writes once per node.
+
+**Decided and built 2026-09-18: `fields($object)`**, a map of the set fields by name (no `#`),
+in layout order, which is `echo`'s order and `get_object_vars()`'s. A field never set is left
+out rather than given as null, since reading one is an error; anything but an object is an
+error, as it is for `class_of`. `json_encode` still refuses objects: that is its own decision.
+
+All 29 `parts()` methods are gone and `nodes.gaz` went from 538 to 413 lines. Nodes already
+declared their fields in the PHP order, so the harness passed at the first run with only two
+changes to the walkers: the collector calls `fields()`, and the dumper leaves out what
+`AST\Dumper::SKIPPED` does plus the port's own `use` and `class_use` (standing in for #6's side
+table). The silent failure is gone by construction, since there is nothing to forget, and the
+loud one is tested: a field declared out of order, or one the PHP node doesn't have, fails the
+harness (both tried).
 
 ## 2. A class's bare name (hole 2, already listed)
 

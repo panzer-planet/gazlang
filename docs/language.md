@@ -320,7 +320,8 @@ class's fields, methods and constants across its hierarchy.
 **Lists and maps** — `len`, `slice`, `in_array($value, $list)`, `has_key($x, $key)`, `keys`,
 `values`.
 
-**Types** — `type_of`, `is_a($x, Class)`, `class_of($x)`.
+**Types** — `type_of`, `is_a($x, Class)`, `class_of($x)`, `fields($object)` (the fields that
+are set, as a map by name, the parent's first; a never-set field is left out).
 
 **Input and output** — `print`, `print_error`, `read_file($path)`,
 `write_file($path, $string)`, `read_stdin()`, `args()`.

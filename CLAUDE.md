@@ -247,7 +247,7 @@ each step depends on the ones before it.
      `has_key($x, $key)` (a map's key, or a list's index), `keys($x)` (a list's indexes),
      `values($x)` (a map's values in insertion order; a list is already its values).
    - Other: `type_of($x)` (`int`, `float`, `string`, `bool`, `null`, `list`, `map`, `function`,
-     `class`, `object`), `is_a($x, Class)` and `class_of($x)` (see "Objects"),
+     `class`, `object`), `is_a($x, Class)`, `class_of($x)` and `fields($object)` (see "Objects"),
      `print($value)` and `print_error($value)` (write the value to standard output or standard
      error as `echo` does, without the newline, and give null: a tool writes its result to one
      and its diagnostics to the other), `error($value)` (raises an error that try/catch can catch, see "Errors and try/catch";
@@ -371,7 +371,8 @@ each step depends on the ones before it.
    there is. So, in this order:
    1. **Decide the friction the parser port logged** (`docs/parser-port-friction.md`) before
       writing more GazLang: ~~constants~~ (built, see "Constants"), ~~`cwd()` and `real_path()`~~
-      (built with `file_exists()`, see step 6's builtins), `fields($object)`, `builtins()`. The
+      (built with `file_exists()`, see step 6's builtins), ~~`fields($object)`~~ (built, see
+      "Objects"), `builtins()`. The
       code generator port meets all four harder than the parser did, the paths most of all,
       since a bytecode file's `@ "file"` records are relative-path rewrites it must reproduce
       byte for byte. Working around them a second time and then removing the workarounds twice
@@ -572,8 +573,8 @@ each step depends on the ones before it.
      options. Ranked by what they would remove from a self-hosted compiler: constants (token
      types are bare strings, where a typo is a branch that silently never runs), `cwd()` and
      `real_path()` (the only workaround that was wrong; both now built), `fields($object)` (a
-     `parts()` method on every node class, a fifth of `nodes.gaz`), `builtins()` (a hand-copied
-     table of 43 arities, kept honest by a test). Three holes the audits listed turned out not to bite:
+     `parts()` method on every node class, a fifth of `nodes.gaz`; built, and the 29 methods
+     are gone), `builtins()` (a hand-copied table of 44 arities, kept honest by a test). Three holes the audits listed turned out not to bite:
      calling a method by name, identity keys for objects, and by-reference parameters.
 
    **The README's examples are tests.** `ReadmeTest` pulls every ```` ```gaz ```` block that is
@@ -644,8 +645,9 @@ when it was written, not from now.
 2. ~~**Dispatching on an object's type.**~~ The main part is done: `class_of($x)`, see
    "Objects". Still open, and each wants real code asking for it first: `$obj.$name` (dynamic
    member access, which `lib/sort.gaz` needs to sort objects rather than only maps, forcing
-   `examples/football.gaz:594` to wrap objects back into maps to sort them), `foreach` over an
-   object's fields (`json_encode` refuses objects for want of it), and a class's bare name for
+   `examples/football.gaz:594` to wrap objects back into maps to sort them), `json_encode` of an
+   object (`fields($object)` now lists what it would write, built 2026-09-18; whether to is its
+   own decision, with `to_string()` and cycles to settle), and a class's bare name for
    messages, where `to_string(class_of($n))` gives `class Point` and only the prefix is in the
    way. One thing to watch when the self-hosted compiler is written: `class_of` is strict, so a
    pass over a tree whose children can be absent needs `type_of($n) == "object"` before
@@ -840,7 +842,12 @@ $area = $c.area;                              // a bound method
   different questions: `class_of($circle) == Shape` is false where `is_a($circle, Shape)` is
   true. `class_of` is an accessor rather than a predicate, so it is strict where `is_a`'s
   first argument is lenient: anything but an object is an error.
-  `json_encode` refuses classes and objects.
+  `fields($object)` (built 2026-09-18, for the parser port) is a map of the fields that are
+  set, by name without the `#`, in the order `echo` prints them (the parent's first, each
+  class's in declaration order), so a pass can walk a tree without knowing its node classes.
+  A field never set is left out rather than null, since reading one is an error; methods and
+  constants are not fields. It is strict like `class_of`, and a copy, since a map is a value.
+  In C it walks the class's slot table. `json_encode` refuses classes and objects.
 - **Properties are `.`:** `$user.name` reads and writes any declared member, checked when
   it runs ("Account has no member foo", "Cannot use . on map", "Cannot assign to method
   Account.deposit"). `.name` is one token, so the name is glued to the dot, but whitespace
