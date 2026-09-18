@@ -243,7 +243,8 @@ class Parser
      */
     public function __construct(Lexer $lexer, ?string $path = null)
     {
-        $real_path = $path === null ? false : realpath($path);
+        // Not realpath(""), which is the working directory: there is no file at an empty path
+        $real_path = $path === null || $path === '' ? false : realpath($path);
         if ($real_path !== false) {
             $this->included[$real_path] = true;
         }

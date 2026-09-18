@@ -194,7 +194,7 @@ final class Builtins
             'write_file' => $this->writeFile($this->argument($name, $args[0], 'string'), $this->argument($name, $args[1], 'string')),
             'file_exists' => self::resolve($this->argument($name, $args[0], 'string')) !== false,
             'real_path' => self::resolve($this->argument($name, $args[0], 'string'))
-                ?: throw new Exception("No such file or directory: {$args[0]}"),
+                ?: throw new Exception('No such file or directory: '.Lexer::quote($args[0])),
             'cwd' => getcwd() ?: throw new Exception('Cannot get the working directory'),
             // Printing, as echo does it but without the newline: any value, converted the same way
             'print' => $this->write(false, $args[0]),

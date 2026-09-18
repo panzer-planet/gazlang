@@ -340,6 +340,9 @@ class StdlibTest extends GazLangTestCase
                 $this->assertStringStartsWith('No such file or directory: ', $e->getMessage());
             }
         }
+        // Quoted, so a NUL byte doesn't reach the message
+        $this->expectExceptionMessage('No such file or directory: "a\\x00b"');
+        $this->executeCode('real_path("a\\0b");');
     }
 
     public function test_write_file_creates_and_overwrites()
