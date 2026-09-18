@@ -37,8 +37,10 @@ class SelfHostedLexerTest extends GazLangTestCase
         // selfhost/ too, so the ported lexer is also checked on its own source
         foreach (['examples', 'lib', 'selfhost', 'tests'] as $dir) {
             foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(self::ROOT."/{$dir}")) as $path) {
-                if (str_ends_with($path, '.gaz')) {
-                    $file = substr($path, strlen(self::ROOT) + 1);
+                $file = substr($path, strlen(self::ROOT) + 1);
+                // The parser's cases are small programs that add nothing for a lexer, and
+                // SelfHostedParserTest runs this lexer over every one of them anyway
+                if (str_ends_with($path, '.gaz') && ! str_starts_with($file, 'tests/parser_corpus/')) {
                     $files[$file] = [$file];
                 }
             }
@@ -76,12 +78,6 @@ class SelfHostedLexerTest extends GazLangTestCase
      */
     public function test_corpus_files_named_error_are_exactly_the_ones_that_fail(string $file)
     {
-        // tests/parser_corpus has error_ files too, which lex and then fail to parse
-        if (! str_starts_with($file, 'tests/lexer_corpus/')) {
-            $this->assertTrue(true);
-
-            return;
-        }
         [, $exit_code] = self::phpTokens($file);
 
         $this->assertSame(str_starts_with(basename($file), 'error_') ? 1 : 0, $exit_code);

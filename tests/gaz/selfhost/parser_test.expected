@@ -1,0 +1,20 @@
+ok one statement
+ok a node's class says what it is
+ok and its parents
+ok * binds tighter than +
+ok a leaf holds its value
+ok inline source has a line and no file
+ok a node lists its fields in order
+ok a lambda's captures, arity and self
+ok a node from a file has the file
+ok a class's layout and members, its parent's included
+ok a #name knows whether it is a field
+ok a ##name knows whose version runs
+ok a syntax error's message
+ok and its parts
+ok inline source has only a line
+ok a lexer error becomes a ParseError with the file
+ok a check made once the program is read
+ok is_a Error, so an untyped handler sees it too
+ok the first knows its function
+ok the second does not

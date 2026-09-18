@@ -1,0 +1,53 @@
+// The self-hosted parser as the library the code generator will include: a tree to walk, a
+// ParseError to catch. That it builds the right tree is tests/SelfHostedParserTest.php's job.
+include "../check.gaz";
+include "../../../selfhost/parser.gaz";
+
+$root = Parser(Lexer("echo 1 + 2 * \$x;")).parse();
+$echo = $root.statements[0];
+check("one statement", len($root.statements), 1);
+check("a node's class says what it is", class_of($echo) == EchoStatementAST, true);
+check("and its parents", is_a($echo, AbstractStatementAST) && is_a($echo, AST), true);
+check("* binds tighter than +", [$echo.expr.op.value, $echo.expr.right.op.value], ["+", "*"]);
+check("a leaf holds its value", [$echo.expr.left.value, $echo.expr.right.right.value], [1, "\$x"]);
+check("inline source has a line and no file", [$echo.line, $echo.file], [1, null]);
+check("a node lists its fields in order", keys($echo.expr.parts()), ["left", "token", "op", "right"]);
+
+// What a pass needs from a lambda and a class is worked out by the time parse() returns
+$root = Parser(Lexer("\$f = (\$a, \$b = 1) -> \$a + \$n + \$f;"), "inline.gaz").parse();
+$lambda = $root.statements[0].expr.right;
+check("a lambda's captures, arity and self", [$lambda.captures, $lambda.arity, $lambda.self], [["\$n", "\$f"], [1, 2], "\$f"]);
+check("a node from a file has the file", $lambda.file, "inline.gaz");
+
+$root = Parser(Lexer("class A \{ #x; fn f() \{ return #x + #g(); } fn g() \{ return 1; } } class B extends A \{ fn g() \{ return ##g(); } }")).parse();
+[$a, $b] = $root.statements;
+check("a class's layout and members, its parent's included", [$b.layout, $b.members], [{"x" => "A"}, {"f" => "A", "g" => "B"}]);
+$sum = $a.methods["f"].body.statements[0].expr;
+check("a #name knows whether it is a field", [$sum.left.field, $sum.right.property.field], [true, false]);
+check("a ##name knows whose version runs", $b.methods["g"].body.statements[0].expr.definer, "A");
+
+// Errors are ParseErrors, with the place in the source apart from the message
+fn parse_error($source, $path = null) {
+    try {
+        Parser(Lexer($source), $path).parse();
+    } catch (ParseError $e) {
+        return $e;
+    }
+
+    return null;
+}
+$e = parse_error("echo 1;\necho (2;", "x.gaz");
+check("a syntax error's message", $e.message, "Expected ')' but found ';' at x.gaz:2");
+check("and its parts", [$e.reason, $e.source_file, $e.source_line], ["Expected ')' but found ';'", "x.gaz", 2]);
+check("inline source has only a line", parse_error("echo 1 +;").message, "Unexpected ';' on line 1");
+check("a lexer error becomes a ParseError with the file", parse_error("\n\"open", "x.gaz").message, "Unterminated string at x.gaz:2");
+check("a check made once the program is read", parse_error("echo 1;\necho nowhere();").message, "Undefined function: nowhere on line 2");
+check("is_a Error, so an untyped handler sees it too", is_a($e, Error), true);
+
+// Two parsers at once share nothing: one's functions and classes are not the other's
+$first = Parser(Lexer("fn only_here() \{ } echo only_here();"));
+$second = Parser(Lexer("echo only_here();"));
+check("the first knows its function", len($first.parse().statements), 2);
+$error = null;
+try { $second.parse(); } catch (ParseError $e) { $error = $e.reason; }
+check("the second does not", $error, "Undefined function: only_here");
