@@ -1,0 +1,2 @@
+const K = 1;
+class A extends K { }

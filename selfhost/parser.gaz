@@ -262,7 +262,7 @@ class Parser {
     fn keyword_hint() {
         foreach ([#current_token, #previous_token] as $token) {
             if ($token != null && $token.type == "IDENTIFIER" && has_key(Lexer.KEYWORDS, lower($token.value))
-                && !has_key(#functions, $token.value) && !has_key(#classes, $token.value)) {
+                && !has_key(#functions, $token.value) && !has_key(#classes, $token.value) && !has_key(#constants, $token.value)) {
                 return " (keywords are lowercase: write '" .. lower($token.value) .. "', not '{$token.value}')";
             }
         }
@@ -1438,6 +1438,15 @@ class Parser {
         }
     }
 
+    // What is wrong with a name written where a class's goes
+    fn not_a_class($name) {
+        return match {
+            has_key(#functions, $name) => "{$name} is a function, not a class",
+            has_key(#constants, $name) => "{$name} is a constant, not a class",
+            default => "Undefined class: {$name}",
+        };
+    }
+
     // Work out a constant's value, the first time it is asked for. $at is the node asking,
     // for the error if the constant depends on itself.
     fn constant_value($key, $at) {
@@ -1454,6 +1463,7 @@ class Parser {
                 #fail_at("Constant {$name} depends on itself: " .. join($cycle, " uses "), $at.file, $at.line);
             }
             #folding[] = $name;
+            #check_constant_expression($expr, $class);
             #constant_values[$key] = #fold($expr, $class);
             delete #folding[len(#folding) - 1];
         }
@@ -1464,6 +1474,49 @@ class Parser {
     // The key in #constants of a resolved class's constant, its parent's included, or null if it has none of that name
     fn class_constant($class, $name) {
         return has_key($class.constant_owners, $name) ? "{$class.constant_owners[$name]}.{$name}" : null;
+    }
+
+    // Check all of a constant's expression is something fold() can work out, the parts it won't get to included
+    //
+    // fold() leaves out the side of && || ?? and ?: that isn't needed, as a program does, so on
+    // its own it would accept `true ? 1 : $x` and refuse it the day the condition changed.
+    // What a constant may be made of is a rule about the source, so it is checked on the source.
+    fn check_constant_expression($node, $class) {
+        if (is_a($node, FunctionRefAST)) {
+            if (!has_key(#constants, $node.name)) {
+                #fail_at(match {
+                    has_key(#classes, $node.name) => "{$node.name} is a class, not a constant",
+                    has_key(#functions, $node.name) => "{$node.name} is a function, not a constant",
+                    default => "Undefined constant: {$node.name}",
+                }, $node.file, $node.line);
+            }
+
+            return;
+        }
+        if (is_a($node, PropertyAST)) {
+            $named = is_a($node.target, FunctionRefAST) ? #classes[$node.target.name] ?? null : null;
+            $owner = is_a($node.target, ThisAST) ? $class : $named;
+            if ($owner != null && #class_constant($owner, $node.name) != null) {
+                return;
+            }
+            #fail_at($named == null ? "A constant's value can only use literals, operators and other constants" : "Class {$named.name} has no constant {$node.name}", $node.file, $node.line);
+        }
+        $parts = match {
+            is_a($node, NumAST) || is_a($node, StringAST) || is_a($node, BooleanAST) || is_a($node, NullAST) => [],
+            is_a($node, UnaryOpAST) => [$node.expr],
+            is_a($node, BinOpAST) => [$node.left, $node.right],
+            is_a($node, TernaryAST) => [$node.condition, $node.then, $node.else],
+            is_a($node, ArrayLiteralAST) => $node.entries,
+            default => #fail_at("A constant's value can only use literals, operators and other constants", $node.file, $node.line),
+        };
+        foreach ($parts as $part) {
+            // A list or map literal's entries are [key, value], the key null in a list
+            foreach (type_of($part) == "list" ? $part : [$part] as $expression) {
+                if ($expression != null) {
+                    #check_constant_expression($expression, $class);
+                }
+            }
+        }
     }
 
     // Work out the value of a constant's expression, as a program would: $class is the class
@@ -1512,33 +1565,20 @@ class Parser {
             $map = {};
             foreach ($node.entries as [$key_node, $value_node]) {
                 $key = #fold($key_node, $class);
-                $value = #fold($value_node, $class);
-                // Duplicate keys: the last one wins. A key that can't be one is an error at the map.
-                $map = #located($node, () -> {
-                    $map[$key] = $value;
-
-                    return $map;
-                });
+                // A key that can't be one is an error at the map, before its value is worked out
+                #located($node, () -> ({$key => null}));
+                // Duplicate keys: the last one wins
+                $map[$key] = #fold($value_node, $class);
             }
 
             return $map;
-        } else if (is_a($node, FunctionRefAST)) {
-            if (has_key(#constants, $node.name)) {
-                return #constant_value($node.name, $node);
-            }
-            #fail_at(match {
-                has_key(#classes, $node.name) => "{$node.name} is a class, not a constant",
-                has_key(#functions, $node.name) => "{$node.name} is a function, not a constant",
-                default => "Undefined constant: {$node.name}",
-            }, $node.file, $node.line);
+        } else if (is_a($node, FunctionRefAST) && has_key(#constants, $node.name)) {
+            return #constant_value($node.name, $node);
         } else if (is_a($node, PropertyAST) && (is_a($node.target, ThisAST) || is_a($node.target, FunctionRefAST))) {
             $owner = is_a($node.target, ThisAST) ? $class : #classes[$node.target.name] ?? null;
             $key = $owner == null ? null : #class_constant($owner, $node.name);
             if ($key != null) {
                 return #constant_value($key, $node);
-            }
-            if (is_a($node.target, FunctionRefAST) && $owner != null) {
-                #fail_at("Class {$owner.name} has no constant {$node.name}", $node.file, $node.line);
             }
         }
 
@@ -1745,7 +1785,7 @@ class Parser {
         }
         foreach (#catch_types as [$name, $line, $file]) {
             if (!has_key(#classes, $name)) {
-                #fail_at(has_key(#functions, $name) ? "{$name} is a function, not a class" : "Undefined class: {$name}", $file, $line);
+                #fail_at(#not_a_class($name), $file, $line);
             }
         }
 
@@ -1825,8 +1865,7 @@ class Parser {
         if ($class.parent != null) {
             $parent = #classes[$class.parent] ?? null;
             if ($parent == null) {
-                $message = has_key(#functions, $class.parent) ? "{$class.parent} is a function, not a class" : "Undefined class: {$class.parent}";
-                #fail_at($message, $class.file, $class.line);
+                #fail_at(#not_a_class($class.parent), $class.file, $class.line);
             }
             $chain[] = $class.name;
             if (in_array($parent.name, $chain)) {

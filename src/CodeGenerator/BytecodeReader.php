@@ -363,7 +363,18 @@ final class BytecodeReader
     private function literal(Lexer $lexer, Token $token)
     {
         if ($token->type === Token::MINUS) {
-            $value = $this->literal($lexer, $lexer->get_next_token());
+            try {
+                $number = $lexer->get_next_token();
+            } catch (GazLangError $error) {
+                // The smallest int is written like any other, and its digits alone are one too
+                // many for an int: a loader has to read the sign and the digits as one number
+                if ($error->reason === 'Integer literal too large: 9223372036854775808') {
+                    return PHP_INT_MIN;
+                }
+
+                throw $error;
+            }
+            $value = $this->literal($lexer, $number);
             if (! is_int($value) && ! is_float($value)) {
                 $this->fail('Bad value: - takes a number');
             }

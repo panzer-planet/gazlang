@@ -104,6 +104,28 @@ class ConstTest extends GazLangTestCase
         $this->assertSame("1 x\n", $this->executeCode('const A = 1; class C { const N = null; fn f() { return #N ?? "x"; } } echo (A ?? 2) .. " " .. C().f();'));
     }
 
+    /**
+     * An expression for every operator and kind of value a constant can have; tests/parser_corpus/constant_values.gaz
+     * is made from it, so the self-hosted parser, which works values out with GazLang's own operators, is checked on it too
+     *
+     * @return string[]
+     */
+    public static function expressions(): array
+    {
+        return [
+            '1 + 2', '7 - 9', '3 * 4', '7 / 2', '6 / 2', '-7 % 3', '7 % -3', '1.5 + 1', '2 * 0.25', '"a" .. 1 .. 2.0 .. true .. null .. [1] .. {"k" => 1}',
+            '1 == 1.0', '"1" == 1', '[1] == [1.0]', '{"a" => 1, "b" => 2} == {"b" => 2, "a" => 1}', '[] == {}', '1 != 2', 'null == false',
+            '1 <=> 2', '"b" <=> "a"', '2.0 <=> 2', '1 < 2', '"10" < "9"', '2 <= 2', '3 > 2.5', '2 >= 3',
+            '6 & 3', '6 | 3', '6 ^ 3', '1 << 62', '1 << 63', '-1 << 1', '-8 >> 1', '~0', '~-1',
+            '-5', '-2.5', '-0.0', '- -3', '!0', '!""', '!"0"', '![]', '!{}', '![0]', '!null', '!!1.5',
+            '1 && 2', '0 && 2', '"" || "x"', '0 || null', 'null ?? 1', '0 ?? 1', 'false ?? 1', 'null ?? null ?? 3',
+            '1 ? "a" : "b"', '0.0 ? "a" : "b"', '[] ? "a" : "b"', '1 ? 2 ? "x" : "y" : "z"',
+            '[1, [2.5, "s"], {"k" => [true, null]}]', '{"a" => 1, 1 => "one", "1" => "string one", "a" => 2}',
+            '9223372036854775807', '-9223372036854775807 - 1', '9007199254740993 == 9007199254740992.0', '0.1 + 0.2',
+            '1 + 2 * 3 - 4 / 5', '"n = " .. 1 + 2', '"x" .. 6 & 3', '1 << 2 + 1', '6 & 3 == 2',
+        ];
+    }
+
     public static function errors(): array
     {
         return [
@@ -160,6 +182,12 @@ class ConstTest extends GazLangTestCase
             'Name.NAME assigned to' => ['class K { const A = 1; } K.A = 2;', 'Can only use = on a variable, or an element or field of one on line 1'],
             '#NAME of another class in a value' => ['const A = #B;', 'Cannot use #B outside a method on line 1'],
             'a constant of a class that has none in a value' => ['class K {} const A = K.B;', 'Class K has no constant B on line 1'],
+            'a variable in the branch not taken' => ['const A = true ? 1 : $x;', "A constant's value can only use literals, operators and other constants on line 1"],
+            'a call on the side not needed' => ["fn launch() {}\nconst A = true ||\n launch();", "A constant's value can only use literals, operators and other constants on line 3"],
+            'an undefined name on the side not needed' => ['const A = false && MISSING;', 'Undefined constant: MISSING on line 1'],
+            'a bad key before a bad value' => ['const M = {1.5 => 1 / 0};', 'Keys must be int or string, got float on line 1'],
+            'a constant where a parent goes' => ["const K = 1;\nclass A extends K {}", 'K is a constant, not a class on line 2'],
+            'a constant where a catch type goes' => ['const K = 1; try { echo 1; } catch (K $e) { }', 'K is a constant, not a class on line 1'],
             'a keyword in the wrong case' => ['Const A = 1;', "Expected ';' but found 'A' (keywords are lowercase: write 'const', not 'Const') on line 1"],
         ];
     }
@@ -181,6 +209,47 @@ class ConstTest extends GazLangTestCase
     {
         // Noting what is written under a #name must not change what a field or a method allows
         $this->assertSame("[1, 2]\n", $this->executeCode('class K { #l = [1]; fn f() { #l[] = 2; return #l; } } echo K().f();'));
+    }
+
+    public function test_a_declared_constant_named_like_a_keyword_gets_no_hint()
+    {
+        try {
+            $this->executeCode('const If = 1; echo If 2;');
+            $this->fail('Expected an error');
+        } catch (GazLangError $e) {
+            $this->assertSame("Expected ';' but found '2' on line 1", $e->getMessage());
+        }
+    }
+
+    /**
+     * The parser works a value out with the functions a program runs on, but chooses between them
+     * itself (Parser::fold()), as the interpreter and the code generator each do: so every
+     * operator is checked to give a constant what it gives a running program
+     */
+    public function test_a_constant_is_what_its_expression_gives_when_a_program_runs()
+    {
+        $expressions = self::expressions();
+        $expected = $this->executeCode(implode("\n", array_map(fn (string $e) => "echo {$e};", $expressions)));
+        $constants = implode("\n", array_map(fn (string $e, int $i) => "const C{$i} = {$e}; echo C{$i};", $expressions, array_keys($expressions)));
+
+        $this->assertSame($expected, $this->executeCode($constants));
+    }
+
+    public function test_the_smallest_int_survives_being_written_to_bytecode()
+    {
+        // It has no literal of its own, so nothing but a constant puts it in a PUSH; the tests' VM side reads bytecode back
+        $this->assertSame(
+            "-9223372036854775808 [-9223372036854775808, {-9223372036854775808 => -9223372036854775808}]\n",
+            $this->executeCode('const MIN = -9223372036854775807 - 1; const L = [MIN, {MIN => MIN}]; echo MIN .. " " .. L;')
+        );
+    }
+
+    public function test_a_literal_made_of_constants_is_built_once()
+    {
+        $code = $this->generateCode('const A = 1; class T { const B = "b"; } fn f() { return [A, T.B, {"k" => [A]}]; }');
+
+        $this->assertStringContainsString('PUSH [1, "b", {"k" => [1]}]', $code);
+        $this->assertStringNotContainsString('ARRAY_PUSH', $code);
     }
 
     public function test_included_files_share_constants()

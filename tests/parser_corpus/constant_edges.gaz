@@ -1,0 +1,7 @@
+// The smallest int has no literal of its own; a constant can be it
+const MIN = -9223372036854775807 - 1;
+const MINS = [MIN, {MIN => MIN}];
+echo MIN;
+// A literal made of constants is a constant
+echo [MIN, WIDTH, {WIDTH => [MIN]}];
+const WIDTH = 3;

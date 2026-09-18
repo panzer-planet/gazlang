@@ -413,8 +413,8 @@ each step depends on the ones before it.
      three names in the shared namespace instead of thirty `lex_*` functions.
    - **Two files, because including a file runs its top level code**: a lexer ending in
      `read_file(args()[0])` and a print loop could never be included by the parser. So
-     `lexer.gaz` has no top level code at all (its tables are field defaults, which a constant
-     map literal makes cheap) and the driver is separate. The lexer itself is not split
+     `lexer.gaz` has no top level code at all (its tables were field defaults, and are class
+     constants since there are constants) and the driver is separate. The lexer itself is not split
      further; nothing would be gained.
    - **What it leans on instead of porting**: `to_string([$s])` minus its brackets is
      `Lexer::quote()`, since a list prints its strings as literals, and `..` on a float is
@@ -794,8 +794,8 @@ $area = $c.area;                              // a bound method
   (can't be constructed: a parse error by name, a runtime error through a value) and
   `abstract fn name(...);` (only in an abstract class; a subclass must define it, or be
   abstract too). Classes are top level only, can be used before they are declared (parents
-  too), and share the namespace of functions and builtins. The class body holds only
-  fields and methods. Keywords reserved for later: `interface`, `implements`, `final`,
+  too), and share the namespace of functions, builtins and top level constants. The class
+  body holds only fields, methods and constants (see "Constants"). Keywords reserved for later: `interface`, `implements`, `final`,
   `public`, `private`, `protected`.
 - **Classes are values and constructing is a call:** `Point(1, 2)`, `$make = Point;
   $make(1, 2)`. `type_of(Point)` is `"class"`, `echo Point` prints `class Point`, and `==` is
@@ -821,8 +821,8 @@ $area = $c.area;                              // a bound method
   `##area` alone is a bound method running the parent's version. Which class's version
   runs is decided at parse time from the class it is written in (`ParentMethodAST::$definer`).
   Only methods, and not abstract ones; `##` alone is a parse error, kept free.
-- **Members:** fields and methods share one namespace across the hierarchy (a child can't
-  redeclare a field, or give a field a method's name). The errors say so and suggest renaming
+- **Members:** fields, methods and constants share one namespace across the hierarchy (a
+  child can't redeclare a field or a constant, or give a field a method's name). The errors say so and suggest renaming
   (a cached value can't be `#summary` beside `summary()`: "call the field something else,
   like #summary_value"). A method may override a parent's,
   but must accept every argument count the parent's accepts; constructors are exempt, and
@@ -1134,12 +1134,33 @@ echo AREA .. " " .. Token.EOF;                // 12 EOF
   parser's seven are constants now, and `football.gaz` parses in 0.530s against 0.534s, which
   is noise. `Lexer.KEYWORDS` no longer needs a lexer to ask. The ports' token types are still
   bare strings; converting them is the evidence the enum question is waiting for.
+- **What may be in a value is checked on the source, then the value is worked out**
+  (`check_constant_expression()`, then `fold()`). Folding leaves out the side of `&&`, `||`,
+  `??` and `?:` that isn't needed, so on its own it accepted `const A = true ? 1 : $x;` and
+  would have refused it the day the condition changed. The code review found that, and four
+  smaller things: a constant named `If` got the keyword hint that declared names are spared,
+  a constant where a class goes was "Undefined class", a literal made of constants was built
+  each time it ran (`isConstant()` now knows a stamped use, so `[Token.PLUS, Token.MINUS]` is
+  one `PUSH`), and the port worked out a map entry's value before checking its key.
+- **`fold()` is a third place that chooses between `Values` functions**, after the
+  interpreter's visitors and the code generator, and the review said so. Running a constant
+  through the interpreter instead would make the parser depend on a backend, and there will
+  be no interpreter after the bootstrap; `Runtime\Values` is the sharing point and fold's
+  share is 25 lines of dispatch. What was missing was a check, so `ConstTest::expressions()`
+  is an expression for every operator and kind of value, each required to give a constant
+  what it gives a running program on both backends, and `constant_values.gaz`, made from the
+  same table, requires the port, which folds with GazLang's own operators, to agree.
+- **Constants made the smallest int reachable in bytecode**: it has no literal
+  (`-9223372036854775807 - 1`), so only a folded value puts it in a `PUSH`, written
+  `-9223372036854775808`, and the loader read the sign and the digits separately, where the
+  digits alone don't fit. `docs/bytecode.md` now says a loader must read them as one number,
+  which `strtoll` does and a lexer doesn't.
 - **The first language change since the ports**, so the first to be made three times: PHP,
   `selfhost/`, corpus. The harnesses did what they were built for: with the PHP side done, 57
   corpus files failed until `nodes.gaz` had the new fields. The port folds with GazLang's own
   operators, which are `Runtime\Values`, so it needs no evaluator, only `apply()`, a `match`
-  with an arm per operator, since an operator is not a value. 56 corpus files, 54 of them
-  generated from `ConstTest`'s table of errors, and 6,000 fuzzed inputs agree.
+  with an arm per operator, since an operator is not a value. 69 corpus files, most of them
+  generated from `ConstTest`'s tables, and 9,000 fuzzed inputs agree.
 
 ## Assignment
 

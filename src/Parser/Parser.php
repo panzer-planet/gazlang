@@ -295,7 +295,7 @@ class Parser
         foreach ([$this->current_token, $this->previous_token] as $token) {
             if ($token !== null && $token->type === Token::IDENTIFIER && is_string($token->value)
                 && isset(Lexer::KEYWORDS[strtolower($token->value)])
-                && ! isset($this->functions[$token->value]) && ! isset($this->classes[$token->value])) {
+                && ! isset($this->functions[$token->value]) && ! isset($this->classes[$token->value]) && ! isset($this->constants[$token->value])) {
                 return " (keywords are lowercase: write '".strtolower($token->value)."', not '{$token->value}')";
             }
         }
@@ -1971,6 +1971,20 @@ class Parser
     }
 
     /**
+     * What is wrong with a name written where a class's goes
+     *
+     * @param  string  $name  The name, which is not a class's
+     */
+    private function not_a_class(string $name): string
+    {
+        return match (true) {
+            isset($this->functions[$name]) => "{$name} is a function, not a class",
+            isset($this->constants[$name]) => "{$name} is a constant, not a class",
+            default => "Undefined class: {$name}",
+        };
+    }
+
+    /**
      * Work out a constant's value, the first time it is asked for
      *
      * @param  string  $key  The constant's key in $constants
@@ -1989,6 +2003,7 @@ class Parser
                 throw new GazLangError("Constant {$name} depends on itself: {$cycle}", $at->file, $at->line);
             }
             $this->folding[] = $name;
+            $this->check_constant_expression($expr, $class);
             $this->constant_values[$key] = $this->fold($expr, $class);
             array_pop($this->folding);
         }
@@ -2005,6 +2020,53 @@ class Parser
     private static function class_constant(ClassDeclarationAST $class, string $name): ?string
     {
         return isset($class->constant_owners[$name]) ? "{$class->constant_owners[$name]}.{$name}" : null;
+    }
+
+    /**
+     * Check all of a constant's expression is something fold() can work out, the parts it won't get to included
+     *
+     * fold() leaves out the side of && || ?? and ?: that isn't needed, as a program does, so on
+     * its own it would accept `true ? 1 : \$x` and refuse it the day the condition changed.
+     * What a constant may be made of is a rule about the source, so it is checked on the source.
+     *
+     * @param  AST  $node  The expression
+     * @param  ClassDeclarationAST|null  $class  The class the constant is declared in
+     *
+     * @throws GazLangError If any part of it is not a literal, an operator or another constant
+     */
+    private function check_constant_expression(AST $node, ?ClassDeclarationAST $class): void
+    {
+        $fail = fn (string $message) => throw new GazLangError($message, $node->file, $node->line);
+        if ($node instanceof FunctionRefAST) {
+            if (! isset($this->constants[$node->name])) {
+                $fail(match (true) {
+                    isset($this->classes[$node->name]) => "{$node->name} is a class, not a constant",
+                    isset($this->functions[$node->name]) => "{$node->name} is a function, not a constant",
+                    default => "Undefined constant: {$node->name}",
+                });
+            }
+
+            return;
+        }
+        if ($node instanceof PropertyAST) {
+            $named = $node->target instanceof FunctionRefAST ? ($this->classes[$node->target->name] ?? null) : null;
+            $owner = $node->target instanceof ThisAST ? $class : $named;
+            if ($owner !== null && self::class_constant($owner, $node->name) !== null) {
+                return;
+            }
+            $fail($named === null ? "A constant's value can only use literals, operators and other constants" : "Class {$named->name} has no constant {$node->name}");
+        }
+        $parts = match (true) {
+            $node instanceof NumAST, $node instanceof StringAST, $node instanceof BooleanAST, $node instanceof NullAST => [],
+            $node instanceof UnaryOpAST => [$node->expr],
+            $node instanceof BinOpAST => [$node->left, $node->right],
+            $node instanceof TernaryAST => [$node->condition, $node->then, $node->else],
+            $node instanceof ArrayLiteralAST => array_filter(array_merge(...$node->entries)),
+            default => $fail("A constant's value can only use literals, operators and other constants"),
+        };
+        foreach ($parts as $part) {
+            $this->check_constant_expression($part, $class);
+        }
     }
 
     /**
@@ -2056,25 +2118,13 @@ class Parser
                 }
 
                 return $map;
-            } elseif ($node instanceof FunctionRefAST) {
-                if (isset($this->constants[$node->name])) {
-                    return $this->constant_value($node->name, $node);
-                }
-                $what = match (true) {
-                    isset($this->classes[$node->name]) => "{$node->name} is a class, not a constant",
-                    isset($this->functions[$node->name]) => "{$node->name} is a function, not a constant",
-                    default => "Undefined constant: {$node->name}",
-                };
-
-                throw new GazLangError($what, $node->file, $node->line);
+            } elseif ($node instanceof FunctionRefAST && isset($this->constants[$node->name])) {
+                return $this->constant_value($node->name, $node);
             } elseif ($node instanceof PropertyAST && ($node->target instanceof ThisAST || $node->target instanceof FunctionRefAST)) {
                 $owner = $node->target instanceof ThisAST ? $class : ($this->classes[$node->target->name] ?? null);
                 $key = $owner === null ? null : self::class_constant($owner, $node->name);
                 if ($key !== null) {
                     return $this->constant_value($key, $node);
-                }
-                if ($node->target instanceof FunctionRefAST && $owner !== null) {
-                    throw new GazLangError("Class {$owner->name} has no constant {$node->name}", $node->file, $node->line);
                 }
             }
         } catch (GazLangError $e) {
@@ -2202,7 +2252,7 @@ class Parser
         }
         foreach ($this->catch_types as [$name, $line, $file]) {
             if (! isset($this->classes[$name])) {
-                throw new GazLangError(isset($this->functions[$name]) ? "{$name} is a function, not a class" : "Undefined class: {$name}", $file, $line);
+                throw new GazLangError($this->not_a_class($name), $file, $line);
             }
         }
 
@@ -2290,9 +2340,7 @@ class Parser
         if ($class->parent !== null) {
             $parent = $this->classes[$class->parent] ?? null;
             if ($parent === null) {
-                $message = isset($this->functions[$class->parent]) ? "{$class->parent} is a function, not a class" : "Undefined class: {$class->parent}";
-
-                throw new GazLangError($message, $class->file, $class->line);
+                throw new GazLangError($this->not_a_class($class->parent), $class->file, $class->line);
             }
             $chain[] = $class->name;
             if (in_array($parent->name, $chain, true)) {

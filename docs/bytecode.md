@@ -106,7 +106,9 @@ A `LABEL` is a position rather than an instruction, so it carries no location.
 ## Values
 
 `PUSH` takes the rest of the line as a GazLang literal: an int, a float, a string, `true`,
-`false`, `null`, or a list or map of literals. Numbers may be written with a leading `-`.
+`false`, `null`, or a list or map of literals. Numbers may be written with a leading `-`, and a
+loader must read the sign and the digits as one number: the smallest int is written
+`-9223372036854775808`, whose digits alone don't fit an int (a folded constant can be it).
 Floats are written as GazLang prints them, with the shortest digits that read back as the same
 float. Strings are quoted as `Lexer::quote()` quotes them, so a literal never spans lines.
 Because a literal can hold spaces, an instruction that takes a value takes it as its last

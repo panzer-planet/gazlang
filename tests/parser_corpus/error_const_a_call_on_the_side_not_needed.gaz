@@ -1,0 +1,3 @@
+fn launch($y) { }
+const B = true ||
+    launch(1);

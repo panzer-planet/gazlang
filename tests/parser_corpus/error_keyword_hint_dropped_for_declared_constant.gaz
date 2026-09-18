@@ -1,0 +1,2 @@
+const If = 1;
+echo If 2;

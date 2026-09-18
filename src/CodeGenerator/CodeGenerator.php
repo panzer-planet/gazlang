@@ -486,7 +486,9 @@ class CodeGenerator extends AbstractNodeVisitor
      */
     private static function isConstant(AST $node): bool
     {
-        return $node instanceof NumAST || $node instanceof StringAST || $node instanceof BooleanAST || $node instanceof NullAST;
+        return $node instanceof NumAST || $node instanceof StringAST || $node instanceof BooleanAST || $node instanceof NullAST
+            // A use of a constant is its value, which the parser worked out
+            || (($node instanceof FunctionRefAST || $node instanceof PropertyAST) && $node->constant);
     }
 
     /**
