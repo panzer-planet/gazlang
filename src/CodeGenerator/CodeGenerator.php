@@ -1083,7 +1083,7 @@ class CodeGenerator extends AbstractNodeVisitor
     }
 
     /**
-     * Visit a Match node: the subject in a hidden variable, then a test per arm value jumping to its body
+     * Visit a Match node: a test per arm value jumping to its body, against a subject in a hidden variable or, without one, for truth
      *
      * The tests come first and the bodies after them, so an arm's test knows the label of its
      * body before the body is compiled. EQUALS then NOT then JZ jumps when the two are equal

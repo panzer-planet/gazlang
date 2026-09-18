@@ -65,7 +65,9 @@ Try `php bin/gazlang -f examples/csv_report.gaz -- examples/data/sales.csv regio
   `$c ? $a : $b`; `+= -= *= /= %= ..= &= |= ^= <<= >>= ++ --`.
 - **Control flow**: `if`/`else if`/`else`, `while`, `for`, `foreach`, `break`, `continue`, and
   `match ($x) { 1, 2 => "few", default => "many" }`, an expression whose arms are compared with
-  `==` and tried in order; written as a statement, an arm may be a block.
+  `==` and tried in order; written as a statement, an arm may be a block. Drop the subject and
+  the arms are conditions instead, tested for truth as `if` does:
+  `match { is_digit($c) => "digit", $c == "_" => "underscore", default => "other" }`.
 - **Functions**: `fn add($a, $b = 1) { return $a + $b; }` at the top level, callable
   before they are declared. A bare name is a value (`$f = add; $f(1)`, builtins too), and
   `$x -> $x * 2`, `($a, $b = 1) -> $a + $b`, `() -> { return 42; }` are anonymous functions
