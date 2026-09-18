@@ -430,8 +430,12 @@ each step depends on the ones before it.
      a token made by hand, a caught `LexError`, two lexers at once.
    - **The corpus passing says the port is right on the corpus**, so two more checks were run
      by hand, and are worth running again after any change to either lexer. Differential
-     fuzzing (random windows of corpus files with characters from a tricky alphabet spliced in,
-     both lexers, compared): 15,000 inputs reaching every error message, no difference.
+     fuzzing (`php tests/fuzz_lexers.php [RUNS] [SEED]`, not part of the suite: edge-case
+     pieces strung together, or windows of corpus files with those pieces spliced in, through
+     both lexers and compared; it ends with how often each error was reached, since a fuzzer
+     stuck at "Unexpected character" finds nothing, and exits 1 on a difference): 23,000
+     inputs reaching every error message, no difference, and a deliberately broken lexer is
+     caught. The parser port wants the same script for the two parsers.
      Mutation testing (break one subtle rule in `lexer.gaz`, expect the harness to fail):
      five of fifteen mutants survived, four of them holes in the corpus rather than the port,
      now closed by `error_escaped_newline`, `error_unterminated_after_interpolation`,

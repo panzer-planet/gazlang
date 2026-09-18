@@ -70,6 +70,8 @@ php bin/gazlang --tokens -f examples/functions.gaz        # print the tokens
   `error_*` must be exactly one that fails to lex. `SelfHostedLexerTest` requires
   `selfhost/lexer.gaz` to give the same tokens and errors as the PHP lexer on these and on every
   other `.gaz` file in the repository, so a change to `src/Lexer` needs the same change there.
+  After changing either, also run `php tests/fuzz_lexers.php`, which compares the two on a few
+  thousand generated inputs in about five seconds.
 - `lib/json.gaz` is checked against PHP's own `json_decode` on every `tests/json/y_*.json` and
   `n_*.json`; `lib/csv.gaz` against `fgetcsv`.
 
