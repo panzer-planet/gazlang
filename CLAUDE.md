@@ -364,9 +364,9 @@ each step depends on the ones before it.
    fixing what hurts; the lexer port waits for the lexical syntax to settle, since a
    second lexer doubles the work of every lexer change. 2026-09-18 added `& | ^ ~ << >>`
    with their compound forms, the `match` and `default` keywords, and block comments
-   (see "Comments"), which was the last change the port was waiting on. What is left that
-   would touch the lexer again is hole 5's question of whether keywords stay
-   case-insensitive; settle that before porting, not after.
+   (see "Comments and names") and made keywords lowercase and exact, which together were the
+   last changes the port was waiting on. Nothing known is left that would touch the lexer
+   again: port it.
 
    **Port the lexer to `selfhost/lexer.gaz` against the PHP lexer, which is the
    spec.** `tests/SelfHostedLexerTest.php` runs
@@ -490,11 +490,9 @@ when it was written, not from now.
    object scanner was recorded as 1.04s against 0.34s hand-inlined and measured 0.51s against
    0.32s net of the 0.15s process startup, a 1.6x gap rather than 3x. The priority order in
    this list was derived from those numbers.
-5. **Names and namespaces.** Keywords are matched case-insensitively, so `class If`, `While`,
-   `Return`, `Match` and `True` are all syntax errors, which is what a self-hosted AST wants to
-   call things and is why `examples/football.gaz`'s `class Match` became `Fixture` when `match`
-   landed; a suffix works around it, as the PHP AST's `IfStatementAST` already does, so the
-   real question is whether case-insensitive keywords earn their cost. Included files share one
+5. **Names and namespaces.** The keyword half is done: keywords are lowercase and matched
+   exactly as of 2026-09-18 (see "Comments and names"), so `class If`, `fn Return()` and
+   `class Match` all work and the self-hosted AST can call its nodes what they are. Included files share one
    namespace, so two files defining `helper()` is a hard error and every module prefixes its
    own privates (`json_*` is that scar), and including a file runs its top level code.
    `Error`'s members are reserved across the whole hierarchy, so a domain error cannot declare
@@ -830,9 +828,10 @@ match {                                       // no subject: the arms are condit
   `if` and `while`, so a `;` after it is a parse error (as `if (1) {};` is). In a statement a
   `{` after `=>` is a block and a map is written `({...})`; in an expression a `{` after `=>`
   is a map literal. That is the rule the language already has for a lambda body.
-- `match` and `default` are keywords, so, like every keyword, any capitalisation of them is
-  one: `examples/football.gaz`'s `class Match` became `Fixture`. Variables (`$default`) and
-  members (`fn match()`) are unaffected, since sigils and member names keep their own
+- `match` and `default` are keywords in lowercase only, so `class Match` and `fn Default()`
+  are ordinary names (`examples/football.gaz`'s `class Match` became `Fixture` while keywords
+  were still case-insensitive, and could go back). Variables (`$default`) and members
+  (`fn match()`) were never affected, since sigils and member names keep their own
   namespaces, and a word merely containing one (`json_match`) is an ordinary name.
 
 Implementation: `MatchAST` holds the subject (null when there is none) and the arms, each
@@ -994,7 +993,7 @@ break, continue and return leave the handlers themselves (`CodeGenerator::leaveT
 try; a return first stores its value in a hidden variable. `RET` drops whatever handlers
 its frame still has.
 
-## Comments
+## Comments and names
 
 `// to the end of the line` and `/* ... */`, both skipped by the lexer, so no token reaches
 the parser and `--tokens` never shows one. Built 2026-09-18.
@@ -1011,6 +1010,29 @@ the parser and `--tokens` never shows one. Built 2026-09-18.
   a string literal or after a `//` is just text. There is no doc-comment convention.
 - `editors/gaz.tmLanguage` highlights them, with the caveat that a TextMate grammar cannot
   count depth, so a nested comment stops highlighting at the first `*/`.
+
+**Keywords are lowercase and matched exactly** (decided and built 2026-09-18), as in every
+language designed since C. They used to be case-insensitive, copied from PHP, which reserved
+every capitalisation of all thirty of them: `class If`, `While`, `Return`, `Match` and `True`
+were syntax errors, which is exactly what a self-hosted AST wants to call its nodes, and is
+why `examples/football.gaz`'s `class Match` became `Fixture` when `match` landed.
+
+- **PHP was the wrong model to half-copy.** PHP matches keywords *and* function, class and
+  method names case-insensitively, consistently; GazLang matched only keywords that way, so
+  `IF (1)` worked while `GREET()` did not find `fn greet()`. That is PHP's wart without PHP's
+  rule, and a reader could not derive either.
+- **Nothing real depended on it**: the only non-lowercase keywords anywhere in the repo's
+  `.gaz` files were in `tests/lexer_corpus/names.gaz` and `objects.gaz`, which existed to test
+  the old rule and now test this one.
+- **A miscapitalised keyword says so**, the way `function` does ("Declare functions with fn,
+  not function"): `Return 1;` is "Expected ';' but found '1' (keywords are lowercase: write
+  'return', not 'Return')". `Parser::keyword_hint()` looks at the token the error is at and
+  the one before it, which covers a keyword used as a statement (`Return 1;`, `ECHO "x";`),
+  and the deferred name check covers a bare one or a call (`True`, `IF(1)`). It does not cover
+  `IF (1) { }`, where the failure lands at the `{`, two tokens past the name. The check only
+  runs while an error is being built, never on the parsing path.
+- Sigils and member names keep their own namespaces, as before, so `$If`, `@while_1` and
+  `fn match()` were always fine.
 
 ## Numbers
 

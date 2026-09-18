@@ -80,7 +80,11 @@ class Lexer
     ];
 
     /**
-     * Keywords, lowercase, mapped to their token types; any capitalisation of one is the keyword
+     * Keywords mapped to their token types. They are lowercase and matched exactly, as in
+     * every language since C: a capitalisation of one is an ordinary name, so class If,
+     * fn match() and $Return are all fine. PHP matches them case-insensitively, but it does
+     * the same for function and class names, where GazLang does not, so following it here
+     * would reserve every capitalisation of every keyword and still not be PHP's rule.
      */
     public const KEYWORDS = [
         'echo' => 'ECHO',
@@ -690,7 +694,7 @@ class Lexer
     {
         $result = $this->read_word();
 
-        return new Token(self::KEYWORDS[strtolower($result)] ?? Token::IDENTIFIER, $result);
+        return new Token(self::KEYWORDS[$result] ?? Token::IDENTIFIER, $result);
     }
 
     /**

@@ -242,7 +242,7 @@ class LexerTest extends TestCase
     {
         $this->assertSame(
             [Token::CLASS_KEYWORD, Token::EXTENDS, Token::ABSTRACT, Token::INTERFACE, Token::IMPLEMENTS, Token::FINAL, Token::PUBLIC, Token::PRIVATE, Token::PROTECTED],
-            array_column($this->lex('class Extends abstract interface implements final public private protected'), 0)
+            array_column($this->lex('class extends abstract interface implements final public private protected'), 0)
         );
     }
 
@@ -310,11 +310,13 @@ class LexerTest extends TestCase
 ');
     }
 
-    public function test_keywords_are_case_insensitive_and_names_are_not()
+    public function test_keywords_are_lowercase_and_matched_exactly()
     {
+        // Any other capitalisation is an ordinary name, so class If and fn match() are fine
         $this->assertSame(
-            [[Token::ECHO, 'ECHO'], [Token::TRUE, 'True'], [Token::IDENTIFIER, '_Helper2'], [Token::VAR_IDENTIFIER, '$If'], [Token::GLOBAL_VAR_IDENTIFIER, '@x_1']],
-            $this->lex('ECHO True _Helper2 $If @x_1')
+            [[Token::ECHO, 'echo'], [Token::IDENTIFIER, 'ECHO'], [Token::TRUE, 'true'], [Token::IDENTIFIER, 'True'],
+                [Token::IDENTIFIER, '_Helper2'], [Token::VAR_IDENTIFIER, '$If'], [Token::GLOBAL_VAR_IDENTIFIER, '@x_1']],
+            $this->lex('echo ECHO true True _Helper2 $If @x_1')
         );
     }
 

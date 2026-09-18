@@ -11,10 +11,10 @@ use GazLang\Lexer\Token;
  */
 class MatchTest extends GazLangTestCase
 {
-    public function test_match_and_default_are_keywords_in_any_capitalisation()
+    public function test_match_and_default_are_keywords_only_in_lowercase()
     {
         $lexer = $this->createLexer('match default MATCH Default');
-        foreach ([Token::MATCH, Token::DEFAULT, Token::MATCH, Token::DEFAULT, Token::EOF] as $type) {
+        foreach ([Token::MATCH, Token::DEFAULT, Token::IDENTIFIER, Token::IDENTIFIER, Token::EOF] as $type) {
             $this->assertEquals($type, $lexer->get_next_token()->type);
         }
     }

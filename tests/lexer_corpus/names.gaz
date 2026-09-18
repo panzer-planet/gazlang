@@ -1,4 +1,5 @@
-ECHO Echo echo TRUE false Null
-fn _helper2($If, @while_1) { RETURN; }
-break Continue include FOR WhIlE else foreach AS Foreach as_is asx try Catch TRY catcher
-$_ $a1 @b_2 someName x9
+echo true false null
+ECHO Echo TRUE False Null RETURN Continue FOR WhIlE Foreach AS Catch TRY
+fn _helper2($If, @while_1) { return; }
+break continue include for while else foreach as try catch as_is asx catcher
+$_ $a1 @b_2 someName x9 If While Return Match Default Class Extends

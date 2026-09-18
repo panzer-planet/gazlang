@@ -681,4 +681,41 @@ class ClassTest extends GazLangTestCase
             'duplicate method parameter' => ['class P { fn f($a, $a) {} }', 'Duplicate parameter $a in method P.f on line 1'],
         ];
     }
+
+    public function test_a_capitalised_keyword_can_name_a_class_or_a_function()
+    {
+        // Keywords are lowercase and matched exactly, so the names a self-hosted AST wants
+        // (If, While, Return, Match) are free rather than reserved by every capitalisation
+        $this->assertEquals("1\n", $this->executeCode('class If { #x; fn _($x) { #x = $x; } } echo If(1).x;'));
+        $this->assertEquals("2\n", $this->executeCode('fn Return($x) { return $x; } echo Return(2);'));
+        $this->assertEquals("3\n", $this->executeCode('class Match { fn While() { return 3; } } echo Match().While();'));
+    }
+
+    /**
+     * @dataProvider miscapitalisedKeywords
+     */
+    public function test_a_keyword_in_the_wrong_case_says_so(string $code, string $message)
+    {
+        // Nothing here is a keyword any more, so the errors would otherwise be about names
+        $this->expectExceptionMessage($message);
+        $this->createParser($code)->parse();
+    }
+
+    public static function miscapitalisedKeywords(): array
+    {
+        return [
+            // The failure is at the token after the name, so the hint looks back one
+            'a statement keyword' => ['Return 1;', "Expected ';' but found '1' (keywords are lowercase: write 'return', not 'Return')"],
+            'shouting' => ['ECHO "x";', "Expected ';' but found string \"x\" (keywords are lowercase: write 'echo', not 'ECHO')"],
+            // A bare name reaches the deferred check instead
+            'a literal' => ['echo True;', "Undefined function: True (keywords are lowercase: write 'true', not 'True')"],
+            'a call' => ['echo IF(1);', "Undefined function: IF (keywords are lowercase: write 'if', not 'IF')"],
+        ];
+    }
+
+    public function test_an_ordinary_undefined_name_gets_no_keyword_hint()
+    {
+        $this->expectExceptionMessage('Undefined function: missing');
+        $this->createParser('echo missing;')->parse();
+    }
 }
