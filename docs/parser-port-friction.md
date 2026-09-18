@@ -8,7 +8,8 @@ Hole numbers refer to "Holes to fill next" in CLAUDE.md.
 
 ## Summary
 
-1551 lines of GazLang for 2290 of PHP, and nothing the language lacks stopped the port: every
+`parser.gaz` is 1763 lines for `Parser.php`'s 2290, and `nodes.gaz` 521 for `src/AST`'s 1278
+(most of the difference is PHPDoc). Nothing the language lacks stopped the port: every
 entry below is a workaround that worked. Ranked by what removing it would do for the code
 generator port, which is next and larger:
 
@@ -37,7 +38,7 @@ to find what a lambda captures.
 
 **Workaround:** every node class in `selfhost/nodes.gaz` has a `parts()` method returning its own
 fields as a map, by hand, in the PHP class's declaration order: one method per class, about 30 of
-them, which is a quarter of that file. A field added to a node and forgotten in `parts()` is
+them, which is a fifth of that file (106 of 521 lines). A field added to a node and forgotten in `parts()` is
 invisible to the dump *and* to capture analysis, silently. The harness catches the first (the PHP
 dump has the field), nothing but a test catches the second.
 

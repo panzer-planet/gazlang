@@ -471,7 +471,7 @@ each step depends on the ones before it.
      escaping would have been a second format to agree on.
    - **The existing corpus barely tested a parser**: of 98 files 58 parsed, 31 failed in the
      lexer, and 4 were genuine parser errors, against about 80 messages in `Parser.php`. So
-     `tests/parser_corpus/` was built alongside each stage: 289 files, 261 of them `error_*`,
+     `tests/parser_corpus/` was built alongside each stage: 288 files, 265 of them `error_*`,
      which must be exactly the ones that fail, one for each message and each order two checks
      could run in. `locations.gaz` puts each node's tokens on different lines, since a location
      tested on a one-line program is not tested. The lexer harness skips this directory.
@@ -525,7 +525,7 @@ each step depends on the ones before it.
      options. Ranked by what they would remove from a self-hosted compiler: constants (token
      types are bare strings, where a typo is a branch that silently never runs), `cwd()` and
      `real_path()` (the only workaround that is wrong), `fields($object)` (a `parts()` method on
-     every node class, a quarter of `nodes.gaz`), `builtins()` (a hand-copied table of 40
+     every node class, a fifth of `nodes.gaz`), `builtins()` (a hand-copied table of 40
      arities, kept honest by a test). Three holes the audits listed turned out not to bite:
      calling a method by name, identity keys for objects, and by-reference parameters.
 
