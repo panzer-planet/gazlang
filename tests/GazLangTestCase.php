@@ -163,7 +163,8 @@ abstract class GazLangTestCase extends TestCase
     {
         // vm/snippets.php collects every snippet for the C VM's harness
         if (($record = getenv('GAZLANG_RECORD_SNIPPETS')) !== false) {
-            file_put_contents($record, Lexer::quote($input)."\n", FILE_APPEND);
+            // with this checkout's paths relative to it, since the harness runs them from its root
+            file_put_contents($record, Lexer::quote(str_replace(dirname(__DIR__).'/', '', $input))."\n", FILE_APPEND);
         }
 
         [$output, $error] = $this->capture(fn () => $this->createInterpreter($input)->interpret());

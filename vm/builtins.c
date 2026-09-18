@@ -484,7 +484,7 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         return true;
     case B_MIN:
     case B_MAX: {
-        int cmp;
+        int cmp = 0;   /* extreme() sets it; gcc can't tell */
         if (!extreme(index, a, b, &cmp)) return false;
         *out = (index == B_MIN ? cmp <= 0 : cmp >= 0) ? a : b;
         incref(*out);
