@@ -89,9 +89,9 @@ has to survive in some form either way.
 
 **Decided and built 2026-09-18: `builtins()`**, the map name => arity (an int, or
 `[fewest, most]`), which is `Builtins::ARITIES` and the shape a function's arity already has,
-in no promised order. The port's table, which had grown from 40 to 44 entries in a day, and
-the test that kept it in step, are gone. "The table changes rarely" was wrong: it changed
-three times that day.
+in no promised order. The port's table and the test that kept it in step are gone. "The table
+changes rarely" was wrong: it went from 40 entries to 45 in three changes on the day this was
+built (`cwd()`, `real_path()` and `file_exists()`, then `fields()`, then `builtins()` itself).
 
 What replaces the drift check is an assumption, written down so it stays true: `builtins()`
 describes the runtime the *compiler* runs on, not the one its output will run on. Those are
