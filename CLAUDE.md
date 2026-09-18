@@ -469,13 +469,26 @@ when it was written, not from now.
 4. **Scanning bytes.** `$s[$i]` allocates a one byte string and `ord($s[$i])` is two builtin
    calls plus that allocation; there is no `byte_at($s, $i)` and no "index of the first byte in
    this set". A lexer must classify every byte, so it cannot escape into `index_of` the way
-   CSV parsing did. Measured on this language: scanning 140KB idiomatically (a method reading
-   `#pos`) took 1.04s against 0.34s hand-inlined, and a full lex and parse of 155KB took 3.5s.
-   Building a string with `..=` is quadratic, since `$s ..= $x` is `$s = $s .. $x` and copies
-   every time, where PHP's own `.=` appends in place: 160k appends took 6.34s against 0.57s
-   for `$parts[] = ...` then `join`. Some of this is the C VM's to fix and should be measured
-   again once it exists; `..=` appending in place is a change to `Values::store()` that is
-   worth making either way.
+   CSV parsing did. Some of this is the C VM's to fix and should be measured again once it exists.
+
+   **The `..=` half is fixed (2026-09-18) and was the bigger of the two.** `$s ..= $x` used to
+   lower to `$s = $s .. $x`, which loads the string onto the stack, so PHP holds two references
+   and `.` copies all of it on every append. It now appends in place: `Values::concatAssign()`
+   is the one definition, the code generator emits `CONCAT_ASSIGN slot` (`_GLOBAL`,
+   `_CAPTURED`) for a plain variable instead of lowering, and `Values::store()` uses it for
+   every interpreter path, fields and elements included. Measured, 160k appends on the VM:
+   0.58s to 0.27s, and 640k: 6.80s to 0.52s, so it is linear rather than quadratic. Building a
+   string with `..=` now beats the `$parts[] = ...` then `join` workaround (0.31s at 160k), so
+   that workaround is no longer the advice. The ceiling left: a field or an element
+   (`#buf ..= $c`, `$a[0] ..= $c`) still lowers on the VM, since the path has to be walked to
+   reach the string; only the interpreter appends those in place. Lift it if real code needs it.
+
+   **Re-measure before trusting a number here.** Two figures recorded in this section were
+   found wrong on 2026-09-18 when they were reproduced: `..=` at 160k was recorded as 6.34s and
+   measured 0.58s (the shape was right, 160k was just too small to show the quadratic), and the
+   object scanner was recorded as 1.04s against 0.34s hand-inlined and measured 0.51s against
+   0.32s net of the 0.15s process startup, a 1.6x gap rather than 3x. The priority order in
+   this list was derived from those numbers.
 5. **Names and namespaces.** Keywords are matched case-insensitively, so `class If`, `While`,
    `Return`, `Match` and `True` are all syntax errors, which is what a self-hosted AST wants to
    call things and is why `examples/football.gaz`'s `class Match` became `Fixture` when `match`
@@ -878,6 +891,15 @@ the same order, holding index keys and a non-constant right side in hidden
 current value with `INDEX_GET_EXISTING` (`Values::indexExisting()`, the same checks
 and messages) and stepping with `INC`/`DEC`. A postfix `++`/`--` used as a statement
 compiles as prefix, so `$i++` in a loop is `LOAD`, `INC`, `STORE`.
+
+`..=` is the exception: on a plain variable it appends in place rather than lowering, so
+`$s ..= "b"` is the value then `CONCAT_ASSIGN slot` (`_GLOBAL`, `_CAPTURED`), which pushes
+the new value. `Values::concatAssign()` is the one definition, used by that instruction and
+by `Values::store()`, and it grows the string with PHP's own `.=` when both sides are
+strings, `..` otherwise. Loading the string onto the stack first is what made building one
+quadratic: PHP then holds two references and copies all of it on every append, the same
+trap `SET_PATH` unsets its temporaries for (see "VM"). A field or an element still lowers on
+the VM, since the path has to be walked to reach the string.
 
 ## Errors and try/catch
 

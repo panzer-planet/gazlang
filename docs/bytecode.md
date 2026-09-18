@@ -150,8 +150,9 @@ is a GazLang error a `try` can catch, and gets the location of the instruction t
 | `LOAD slot` | `-- v` | Pushes a local. Fails with "Undefined variable: $x" if it is not set. |
 | `LOAD_QUIET slot` | `-- v` | Pushes a local, or null if it is not set (the left of `??`). |
 | `STORE slot` | `v --` | Sets a local. |
-| `LOAD_GLOBAL slot`, `LOAD_QUIET_GLOBAL slot`, `STORE_GLOBAL slot` | | The same for a global. |
-| `LOAD_CAPTURED slot`, `LOAD_QUIET_CAPTURED slot`, `STORE_CAPTURED slot` | | The same for a captured variable of the running closure, addressed by capture index. |
+| `CONCAT_ASSIGN slot` | `v -- w` | `$s ..= v`: appends to a local and pushes the new value. Fails if it is not set. The string is never loaded onto the stack, so the append is in place and a loop of them is linear; `..` otherwise, converting both sides as `echo` does. |
+| `LOAD_GLOBAL slot`, `LOAD_QUIET_GLOBAL slot`, `STORE_GLOBAL slot`, `CONCAT_ASSIGN_GLOBAL slot` | | The same for a global. |
+| `LOAD_CAPTURED slot`, `LOAD_QUIET_CAPTURED slot`, `STORE_CAPTURED slot`, `CONCAT_ASSIGN_CAPTURED slot` | | The same for a captured variable of the running closure, addressed by capture index. |
 | `ARGC` | `-- n` | Pushes how many arguments the running call was passed, for default parameters. |
 
 ### Operators

@@ -688,6 +688,15 @@ final class Values
             throw $missing_object === null ? self::undefinedKey($missing_key) : self::propertyNotSet($missing_object, $missing_key);
         }
 
+        if ($op !== null && $op->type === Token::CONCAT && is_string($value) && is_string($container[$key] ?? null)) {
+            // ..= appends in place. Reading the current value into a variable first, as the
+            // general path below does, leaves PHP two references to the string, so . has to
+            // copy all of it on every append and building a string is quadratic. The old
+            // value is not returned for the same reason: holding it is another reference,
+            // and only ++ and -- have a caller that wants it.
+            return [null, self::concatAssign($container[$key], $value)];
+        }
+
         $old = $container[$key] ?? null;
         $new = match (true) {
             $op === null => $value,
@@ -697,6 +706,34 @@ final class Values
         $container[$key] = $new;
 
         return [$old, $new];
+    }
+
+    /**
+     * Append to a string in place, the one definition of what ..= does
+     *
+     * Two strings are appended with PHP's own .=, which grows the left one rather than
+     * building a new string, so a loop of appends is linear where $s = $s .. $x is quadratic.
+     * Anything else is the ordinary .. , which converts both sides the way echo does.
+     *
+     * The target is taken by reference and must be the only thing holding the string: a copy
+     * anywhere else (a value read onto a stack, an old value kept to return) makes PHP copy
+     * the whole string again and the append quadratic once more.
+     *
+     * @param  mixed  $target  The variable, element or field to append to, by reference
+     * @param  mixed  $value  What to append
+     * @return mixed The new value
+     *
+     * @throws Exception If .. cannot combine the two
+     */
+    public static function concatAssign(&$target, $value)
+    {
+        if (is_string($target) && is_string($value)) {
+            $target .= $value;
+
+            return $target;
+        }
+
+        return $target = self::binary(new Token(Token::CONCAT, '..'), $target, $value);
     }
 
     /**

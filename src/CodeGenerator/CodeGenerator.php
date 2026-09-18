@@ -445,6 +445,17 @@ class CodeGenerator extends AbstractNodeVisitor
             return;
         }
 
+        if ($op->type === Token::CONCAT_ASSIGN && $place instanceof VariableAST) {
+            // $s ..= $x appends in place, where lowering it to $s = $s .. $x would load the
+            // string onto the stack and make PHP copy all of it on every append (see
+            // Values::concatAssign). Only a plain variable: a field or an element still
+            // lowers, since the path has to be walked to reach the string.
+            $this->visit($value);
+            $this->emitVariable('CONCAT_ASSIGN', $place);
+
+            return;
+        }
+
         if ($value !== null) {
             $right = $value;
             if (! self::isConstant($value)) {
