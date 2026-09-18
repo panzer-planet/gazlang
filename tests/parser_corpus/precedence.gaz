@@ -1,0 +1,32 @@
+// One of each binary level against its neighbours, so a level in the wrong place moves a node
+echo 1 + 2 * 3 - 4 / 5 % 6;
+echo 1 << 2 + 3 >> 4;
+echo 1 & 2 << 3;
+echo 1 ^ 2 & 3;
+echo 1 | 2 ^ 3;
+echo "n = " .. 1 | 2 .. "!";
+echo 1 .. 2 < 3 .. 4;
+echo 1 < 2 == 3 >= 4;
+echo 1 <= 2 != 3 > 4;
+echo 1 <=> 2 == 0;
+echo 1 == 2 && 3 != 4;
+echo $a && $b || $c && $d;
+echo $a || $b ?? $c || $d;
+echo $a ?? $b ?? $c;
+echo $a ? 1 : $b ? 2 : 3;
+echo $a ? $b ? 1 : 2 : 3;
+echo $a ?? $b ? $c ?? 1 : 2;
+// Left associative
+echo 1 - 2 - 3;
+echo 8 / 4 / 2;
+echo "a" .. "b" .. "c";
+// Unary binds tighter than any binary, and nests
+echo -1 * -2;
+echo !$a && !!$b;
+echo ~1 & -~2;
+echo - - 1;
+echo -(1 + 2) * 3;
+echo (1 + 2) * (3 - (4 - 5));
+echo 1 +
+    2
+    * 3;

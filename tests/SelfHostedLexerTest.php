@@ -76,6 +76,12 @@ class SelfHostedLexerTest extends GazLangTestCase
      */
     public function test_corpus_files_named_error_are_exactly_the_ones_that_fail(string $file)
     {
+        // tests/parser_corpus has error_ files too, which lex and then fail to parse
+        if (! str_starts_with($file, 'tests/lexer_corpus/')) {
+            $this->assertTrue(true);
+
+            return;
+        }
         [, $exit_code] = self::phpTokens($file);
 
         $this->assertSame(str_starts_with(basename($file), 'error_') ? 1 : 0, $exit_code);

@@ -1,0 +1,16 @@
+// Every literal, and the two kinds of variable
+42;
+0xFF;
+1.5;
+1e10;
+-0.0;
+"a string";
+'raw $x {#y}';
+"escapes \n \$x \{y} \x41 \u{e9}";
+true;
+false;
+null;
+$local;
+@global;
+echo $local;
+echo (((1)));

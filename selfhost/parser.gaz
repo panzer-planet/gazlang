@@ -1,0 +1,339 @@
+// The GazLang parser in GazLang: a port of src/Parser/Parser.php, which is the spec.
+// tests/SelfHostedParserTest.php requires the two to give the same tree and errors.
+// Methods keep the PHP parser's names, so the two can be read side by side.
+//
+// This file has no top level code, so it can be included:
+// $root = Parser(Lexer($text), $path).parse(). Errors are ParseErrors.
+include "lexer.gaz";
+include "nodes.gaz";
+
+// #line and #file are Error's own, and say where in this file the error was raised, so the
+// place in the source being parsed has names of its own, as in LexError
+class ParseError extends Error {
+    #reason;
+    #source_file;
+    #source_line;
+
+    // As GazLangError::location(): a file is null for piped or inline source
+    fn _($reason, $source_file, $source_line) {
+        ##_($reason .. " " .. ($source_file == null ? "on line {$source_line}" : "at {$source_file}:{$source_line}"));
+        #reason = $reason;
+        #source_file = $source_file;
+        #source_line = $source_line;
+    }
+}
+
+class Parser {
+    #lexer;
+    #current_token;
+    // The token before it, so a syntax error can point at a miscapitalised keyword that was
+    // read as a name (see keyword_hint())
+    #previous_token = null;
+    // The file being parsed, as shown in errors
+    #file;
+
+    // Declared classes by name, resolved once the whole program is read
+    #classes = {};
+
+    // Declared function names mapped to their parameter counts, [fewest, most] when some are
+    // optional. It starts as Builtins::ARITIES, which SelfHostedParserTest keeps this in step with.
+    #functions = {
+        "len" => 1, "slice" => [2, 3], "lower" => 1, "upper" => 1, "trim" => 1, "split" => 2, "join" => 2,
+        "replace" => 3, "contains" => 2, "starts_with" => 2, "ends_with" => 2, "index_of" => [2, 3],
+        "repeat" => 2, "chr" => 1, "ord" => 1, "to_int" => 1, "to_float" => 1, "floor" => 1, "ceil" => 1,
+        "round" => [1, 2], "abs" => 1, "intdiv" => 2, "min" => 2, "max" => 2, "to_string" => 1,
+        "in_array" => 2, "has_key" => 2, "keys" => 1, "values" => 1, "type_of" => 1, "is_a" => 2,
+        "class_of" => 1, "error" => 1, "exit" => [0, 1], "read_file" => 1, "write_file" => 2, "print" => 1,
+        "print_error" => 1, "read_stdin" => 0, "args" => 0,
+    };
+
+    // How expected tokens are described in syntax errors; other types are keywords, shown quoted and lowercase
+    #expected = {
+        "LEFT_PAREN" => "'('", "RIGHT_PAREN" => "')'", "LEFT_BRACE" => "'{'", "RIGHT_BRACE" => "'}'",
+        "LEFT_BRACKET" => "'['", "RIGHT_BRACKET" => "']'", "SEMICOLON" => "';'", "COMMA" => "','",
+        "IDENTIFIER" => "a name", "VAR_IDENTIFIER" => "a \$variable", "GLOBAL_VAR_IDENTIFIER" => "an @variable",
+        "STRING" => "a string", "COLON" => "':'", "ARROW" => "'->'", "DOUBLE_ARROW" => "'=>'",
+    };
+
+    // $path is the file the source came from, if any
+    fn _($lexer, $path = null) {
+        #file = $path;
+        #lexer = $lexer;
+        #current_token = #next_token();
+    }
+
+    // Raise an error for an unexpected token
+    fn unexpected() {
+        #fail("Unexpected " .. #describe(#current_token));
+    }
+
+    // Raise an error at the current token's line
+    fn fail($message) {
+        error(ParseError($message .. #keyword_hint(), #file, #current_token.line));
+    }
+
+    // Raise an error somewhere else, without the hint
+    fn fail_at($message, $file, $line) {
+        error(ParseError($message, $file, $line));
+    }
+
+    // A hint when the error is at, or just after, a keyword written in the wrong case. A name
+    // that is already declared is left alone: naming things If and Match is the point of the rule.
+    fn keyword_hint() {
+        foreach ([#current_token, #previous_token] as $token) {
+            if ($token != null && $token.type == "IDENTIFIER" && has_key(#lexer.keywords, lower($token.value))
+                && !has_key(#functions, $token.value) && !has_key(#classes, $token.value)) {
+                return " (keywords are lowercase: write '" .. lower($token.value) .. "', not '{$token.value}')";
+            }
+        }
+
+        return "";
+    }
+
+    // Describe a token the way it appears in the source, for error messages
+    fn describe($token) {
+        return match {
+            $token.type == "EOF" => "end of file",
+            // A list prints its strings as literals, which is Lexer::quote()
+            in_array($token.type, ["STRING", "STRING_START", "STRING_MIDDLE", "STRING_END"]) => "string " .. slice(to_string([$token.value]), 1, -1),
+            // A float prints as the shortest literal that reads back, which is Lexer::format_float()
+            default => "'{$token.value}'",
+        };
+    }
+
+    // Get the next token, adding this file's name to lexer errors
+    fn next_token() {
+        try {
+            return #lexer.get_next_token();
+        } catch (LexError $e) {
+            error(ParseError($e.reason, #file, $e.source_line));
+        }
+    }
+
+    // Record where a node came from, so errors about it can point at the source
+    fn at($node, $token) {
+        $node.line = $token.line;
+        $node.file = #file;
+
+        return $node;
+    }
+
+    // If the current token has this type, eat it and get the next one; if not, fail
+    fn eat($token_type) {
+        if (#current_token.type != $token_type) {
+            $expected = #expected[$token_type] ?? "'" .. lower($token_type) .. "'";
+            #fail("Expected {$expected} but found " .. #describe(#current_token));
+        }
+
+        #previous_token = #current_token;
+        #current_token = #next_token();
+    }
+
+    // Parse a local ($name) or global (@name) variable
+    fn variable() {
+        $node = #at(VariableAST(#current_token), #current_token);
+        #eat(#current_token.type == "GLOBAL_VAR_IDENTIFIER" ? "GLOBAL_VAR_IDENTIFIER" : "VAR_IDENTIFIER");
+
+        return $node;
+    }
+
+    // Parse a primary (INTEGER | FLOAT | STRING | TRUE | FALSE | NULL | LPAREN expr RPAREN | variable)
+    fn primary() {
+        $token = #current_token;
+        $type = $token.type;
+
+        if ($type == "INTEGER" || $type == "FLOAT") {
+            #eat($type);
+
+            return #at(NumAST($token), $token);
+        } else if ($type == "STRING") {
+            #eat("STRING");
+
+            return #at(StringAST($token), $token);
+        } else if ($type == "TRUE" || $type == "FALSE") {
+            #eat($type);
+
+            return #at(BooleanAST($token), $token);
+        } else if ($type == "NULL") {
+            #eat("NULL");
+
+            return #at(NullAST($token), $token);
+        } else if ($type == "LEFT_PAREN") {
+            return #parenthesised();
+        } else if ($type == "VAR_IDENTIFIER" || $type == "GLOBAL_VAR_IDENTIFIER") {
+            return #variable();
+        }
+
+        #unexpected();
+    }
+
+    // Parse a parenthesised expression (LPAREN expr RPAREN)
+    fn parenthesised() {
+        #eat("LEFT_PAREN");
+        if (#current_token.type == "RIGHT_PAREN") {
+            #unexpected();
+        }
+        $node = #expr();
+        #eat("RIGHT_PAREN");
+
+        return $node;
+    }
+
+    // Parse a postfix expression (primary)
+    fn postfix() {
+        return #primary();
+    }
+
+    // Parse a unary expression ((MINUS | NOT | BIT_NOT) unary | postfix)
+    fn unary() {
+        $token = #current_token;
+
+        if (in_array($token.type, ["MINUS", "NOT", "BIT_NOT"])) {
+            #eat($token.type);
+
+            return #at(UnaryOpAST($token, #unary()), $token);
+        }
+
+        return #postfix();
+    }
+
+    // The binary levels, loosest last; see the tower in CLAUDE.md. A level is given the
+    // next tighter one as a bound method, where the PHP parser names it in a string.
+    fn multiplicative() {
+        return #left_associative(#unary, ["MULTIPLY", "DIVIDE", "MODULO"]);
+    }
+
+    fn additive() {
+        return #left_associative(#multiplicative, ["PLUS", "MINUS"]);
+    }
+
+    fn shift() {
+        return #left_associative(#additive, ["SHIFT_LEFT", "SHIFT_RIGHT"]);
+    }
+
+    fn bit_and() {
+        return #left_associative(#shift, ["BIT_AND"]);
+    }
+
+    fn bit_xor() {
+        return #left_associative(#bit_and, ["BIT_XOR"]);
+    }
+
+    fn bit_or() {
+        return #left_associative(#bit_xor, ["BIT_OR"]);
+    }
+
+    fn concat() {
+        return #left_associative(#bit_or, ["CONCAT"]);
+    }
+
+    fn relational() {
+        return #left_associative(#concat, ["LESS_THAN", "LESS_EQUALS", "GREATER_THAN", "GREATER_EQUALS"]);
+    }
+
+    fn equality() {
+        return #left_associative(#relational, ["EQUALS", "NOT_EQUALS", "SPACESHIP"]);
+    }
+
+    fn logical_and() {
+        return #left_associative(#equality, ["AND"]);
+    }
+
+    fn logical_or() {
+        return #left_associative(#logical_and, ["OR"]);
+    }
+
+    // Parse a null coalescing expression (logical_or [?? coalesce]), right associative
+    fn coalesce() {
+        $node = #logical_or();
+
+        $token = #current_token;
+        if ($token.type == "COALESCE") {
+            #eat("COALESCE");
+
+            return #at(BinOpAST($node, $token, #coalesce()), $token);
+        }
+
+        return $node;
+    }
+
+    // Parse a ternary (coalesce [? expr : ternary]), right associative
+    fn ternary() {
+        $node = #coalesce();
+
+        $token = #current_token;
+        if ($token.type == "QUESTION") {
+            #eat("QUESTION");
+            $then = #expr();
+            #eat("COLON");
+
+            return #at(TernaryAST($node, $then, #ternary()), $token);
+        }
+
+        return $node;
+    }
+
+    // Parse an expression, the lowest precedence level (ternary)
+    fn expr() {
+        return #ternary();
+    }
+
+    // Parse a left associative binary level (operand (OP operand)*)
+    fn left_associative($operand, $types) {
+        $node = $operand();
+
+        while (in_array(#current_token.type, $types)) {
+            $token = #current_token;
+            #eat($token.type);
+            $node = #at(BinOpAST($node, $token, $operand()), $token);
+        }
+
+        return $node;
+    }
+
+    // Parse a statement (expr SEMICOLON | echo_statement)
+    fn statement() {
+        if (#current_token.type == "ECHO") {
+            return #echo_statement();
+        }
+
+        $start = #current_token;
+        $expr = #expr();
+        #eat("SEMICOLON");
+
+        return #at(StatementAST($expr), $start);
+    }
+
+    // Parse an echo statement (ECHO expr SEMICOLON)
+    fn echo_statement() {
+        $start = #current_token;
+        #eat("ECHO");
+        $expr = #expr();
+        #eat("SEMICOLON");
+
+        return #at(EchoStatementAST($expr), $start);
+    }
+
+    // Parse a program (top_level)
+    fn program() {
+        $root = CompoundAST();
+        $root.statements = #top_level();
+
+        return $root;
+    }
+
+    // Parse top level items until the end of the current file (statement*)
+    fn top_level() {
+        $statements = [];
+        while (#current_token.type != "EOF") {
+            $statements[] = #statement();
+        }
+
+        return $statements;
+    }
+
+    // Parse the input and return the tree
+    fn parse() {
+        return #program();
+    }
+}

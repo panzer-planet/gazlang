@@ -1,0 +1,127 @@
+// The tree selfhost/parser.gaz builds: a port of src/AST, one class per node, with the PHP
+// classes' names and fields, so the two parsers can be read side by side.
+//
+// parts() is every field the PHP parser writes, by name, in the order the PHP class declares
+// them. GazLang can't list an object's fields, so each node lists its own: selfhost/ast.gaz
+// prints a tree from it, and the parser walks one to find the variables a lambda uses.
+//
+// This file has no top level code, so it can be included.
+
+abstract class AST {
+    #line = null;
+    #file = null;
+
+    abstract fn parts();
+}
+
+// A node that is one token: a literal or a variable
+abstract class TokenValueNodeAST extends AST {
+    #token;
+    #value;
+
+    fn _($token) {
+        #token = $token;
+        #value = $token.value;
+    }
+
+    fn parts() {
+        return {"token" => #token, "value" => #value};
+    }
+}
+
+class NumAST extends TokenValueNodeAST {}
+
+class StringAST extends TokenValueNodeAST {}
+
+class NullAST extends TokenValueNodeAST {
+    fn _($token) {
+        ##_($token);
+        #value = null;
+    }
+}
+
+class BooleanAST extends TokenValueNodeAST {
+    fn _($token) {
+        ##_($token);
+        #value = $token.type == "TRUE";
+    }
+}
+
+// #value is the token's text, "$name" or "@name"
+class VariableAST extends TokenValueNodeAST {
+    fn is_global() {
+        return #value[0] == "@";
+    }
+}
+
+class UnaryOpAST extends AST {
+    #op;
+    #expr;
+
+    fn _($op, $expr) {
+        #op = $op;
+        #expr = $expr;
+    }
+
+    fn parts() {
+        return {"op" => #op, "expr" => #expr};
+    }
+}
+
+class BinOpAST extends AST {
+    #left;
+    #token;
+    #op;
+    #right;
+
+    fn _($left, $op, $right) {
+        #left = $left;
+        #token = $op;
+        #op = $op;
+        #right = $right;
+    }
+
+    fn parts() {
+        return {"left" => #left, "token" => #token, "op" => #op, "right" => #right};
+    }
+}
+
+class TernaryAST extends AST {
+    #condition;
+    #then;
+    #else;
+
+    fn _($condition, $then, $else) {
+        #condition = $condition;
+        #then = $then;
+        #else = $else;
+    }
+
+    fn parts() {
+        return {"condition" => #condition, "then" => #then, "else" => #else};
+    }
+}
+
+abstract class AbstractStatementAST extends AST {
+    #expr;
+
+    fn _($expr) {
+        #expr = $expr;
+    }
+
+    fn parts() {
+        return {"expr" => #expr};
+    }
+}
+
+class StatementAST extends AbstractStatementAST {}
+
+class EchoStatementAST extends AbstractStatementAST {}
+
+class CompoundAST extends AST {
+    #statements = [];
+
+    fn parts() {
+        return {"statements" => #statements};
+    }
+}

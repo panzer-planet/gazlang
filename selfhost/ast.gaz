@@ -1,0 +1,72 @@
+// Prints a file's tree as `gazlang --ast -f FILE` does (see src/AST/Dumper.php for the format):
+// php bin/gazlang -f selfhost/ast.gaz -- FILE
+include "parser.gaz";
+
+class Dumper {
+    // The file of the last node that had a line, false before the first
+    #file = false;
+
+    // Print one value: a node, a token, a list or map, or a scalar. $label is what it is to
+    // its parent with the ": " after it, or nothing for the root.
+    fn value($label, $value, $indent) {
+        $type = type_of($value);
+        if ($type == "object" && is_a($value, AST)) {
+            // A node nothing was read for, like a block, has no line and belongs to no file
+            if ($value.line != null && $value.file != #file) {
+                #file = $value.file;
+                echo "@ " .. #literal($value.file);
+            }
+            // "class NumAST" without the "class " and the "AST"
+            $name = slice(to_string(class_of($value)), 6, -3);
+            echo $indent .. $label .. $name .. ($value.line == null ? "" : " {$value.line}");
+            #children($value.parts(), $indent);
+        } else if ($type == "object") {
+            // A token, which prints as --tokens shows it
+            echo $indent .. $label .. $value;
+        } else if (($type == "list" || $type == "map") && !#is_plain($value)) {
+            echo $indent .. slice($label, 0, -1);
+            #children($value, $indent);
+        } else {
+            echo $indent .. $label .. #literal($value);
+        }
+    }
+
+    // Print a node's fields or a list or map's elements, each labelled with its name or key
+    fn children($children, $indent) {
+        foreach ($children as $key => $child) {
+            #value("{$key}: ", $child, $indent .. "  ");
+        }
+    }
+
+    // A plain value as a literal: a list prints its elements as literals, so a string is
+    // quoted as the lexer read it. PHP can't tell an empty map from an empty list, so both are [].
+    fn literal($value) {
+        return $value == {} ? "[]" : slice(to_string([$value]), 1, -1);
+    }
+
+    // Whether a list or map holds only scalars, at any depth, so it can be written as a literal
+    fn is_plain($values) {
+        foreach ($values as $value) {
+            $type = type_of($value);
+            if ($type == "object" || (($type == "list" || $type == "map") && !#is_plain($value))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+}
+
+if (len(args()) != 1) {
+    print_error("Usage: gazlang -f selfhost/ast.gaz -- FILE\n");
+    exit(2);
+}
+
+$path = args()[0];
+try {
+    $root = Parser(Lexer(read_file($path)), $path).parse();
+} catch (ParseError $e) {
+    // Raised again from the top level, so no trace of the parser's calls is printed under it
+    error($e.message);
+}
+Dumper().value("", $root, "");
