@@ -111,9 +111,9 @@ final class CVM
      *
      * @param  list<string>  $entries
      * @param  bool  $isolated  Whether to run the PHP side in processes too, with the time limit, for programs that may never end
-     * @return array<string, array{0: array{0: string, 1: string, 2: int}, 1: array{0: string, 1: string, 2: int}}|null>
-     *                                                                                                                   By entry: [PHP, C], each [stdout, stderr, exit code];
-     *                                                                                                                   null when the PHP compiler refuses the program
+     * @return array<string, array{0: array{0: string, 1: string, 2: int}, 1: array{0: string, 1: string, 2: int, 3: string|null}}|null>
+     *                                                                                                                                   By entry: [PHP, C], each [stdout, stderr, exit code], and C's GAZVM_STATS line (see leaks());
+     *                                                                                                                                   null when the PHP compiler refuses the program
      */
     public static function runAll(array $entries, bool $isolated = false): array
     {
@@ -135,9 +135,9 @@ final class CVM
         }
         if ($isolated) {
             $php = self::processes(array_map(fn ($job) => [PHP_BINARY, '-d', 'pcov.enabled=0', 'bin/gazlang', '-f', $job[0], '--', ...$job[1]], $jobs), ['GAZLANG_RESTARTED' => '1']);
-            $c = self::processes(array_map(fn ($job) => [self::binary(), $job[0], ...$job[1]], $jobs));
+            $c = self::processes(array_map(fn ($job) => [self::binary(), $job[0], ...$job[1]], $jobs), ['GAZVM_STATS' => '1']);
             foreach ($jobs as $entry => $_) {
-                $results[$entry] = [$php[$entry], $c[$entry]];
+                $results[$entry] = [$php[$entry], self::leaks($c[$entry])];
             }
 
             return $results;
@@ -146,7 +146,7 @@ final class CVM
         // The PHP side runs in this process while the C side's processes run
         $php = [];
         $pending = $jobs;
-        $c = self::processes(array_map(fn ($job) => [self::binary(), $job[0], ...$job[1]], $jobs), [], function () use (&$pending, &$php) {
+        $c = self::processes(array_map(fn ($job) => [self::binary(), $job[0], ...$job[1]], $jobs), ['GAZVM_STATS' => '1'], function () use (&$pending, &$php) {
             if ($pending === []) {
                 return false;
             }
@@ -161,15 +161,50 @@ final class CVM
             $php[$entry] = self::runPhp($gzb, $args);
         }
         foreach ($jobs as $entry => $_) {
-            $results[$entry] = [$php[$entry], $c[$entry]];
+            $results[$entry] = [$php[$entry], self::leaks($c[$entry])];
         }
 
         return $results;
     }
 
     /**
-     * How many lists, maps, objects and functions a program leaves alive on the C VM once it ends
-     * and its cycles are collected, and the most that were alive at once (GAZVM_STATS)
+     * Take the line GAZVM_STATS adds out of the C VM's standard error, and add what it said as a
+     * fourth element: "0 values leaked, at most ..." or "leaks not checked: ...", or null when
+     * the line is missing (the VM crashed or was killed)
+     *
+     * @param  array{0: string, 1: string, 2: int}  $result
+     * @return array{0: string, 1: string, 2: int, 3: string|null}
+     */
+    private static function leaks(array $result): array
+    {
+        $stats = null;
+        if (preg_match('/^gazvm: (.*)\n\z/m', $result[1], $match, PREG_OFFSET_CAPTURE)) {
+            $stats = $match[1][0];
+            $result[1] = substr($result[1], 0, $match[0][1]);
+        }
+
+        return [...$result, $stats];
+    }
+
+    /**
+     * What is wrong with a C result's GAZVM_STATS line, or null when nothing leaked (or the run
+     * ended where leaks can't be checked: the loader refused it, it called exit(), or it was killed)
+     *
+     * @param  array{0: string, 1: string, 2: int, 3: string|null}  $c
+     */
+    public static function leak(array $c): ?string
+    {
+        return match (true) {
+            $c[2] === -1 => null,   // killed for time: the output comparison says so
+            $c[3] === null => 'the C VM printed no GAZVM_STATS line',
+            str_starts_with($c[3], '0 values leaked'), str_starts_with($c[3], 'leaks not checked') => null,
+            default => $c[3],
+        };
+    }
+
+    /**
+     * How many reference-counted values a program leaks on the C VM, and the most lists, maps,
+     * objects and functions that were alive at once (GAZVM_STATS)
      *
      * @return array{0: int, 1: int}
      */
@@ -177,7 +212,7 @@ final class CVM
     {
         $gzb = self::compile($file);
         [, $err] = self::process([self::binary(), $gzb], ['GAZVM_STATS' => '1']);
-        if (! preg_match('/gazvm: (\d+) lists, maps, objects and functions alive at the end, at most (\d+) at once/', $err, $match)) {
+        if (! preg_match('/gazvm: (-?\d+) values leaked, at most (\d+) lists, maps, objects and functions alive at once/', $err, $match)) {
             throw new \RuntimeException("No statistics from the C VM:\n{$err}");
         }
 
@@ -254,15 +289,23 @@ final class CVM
     }
 
     /**
+     * Programs whose PHP side must run in a process of its own: to_string() printing itself
+     * nests execute() on PHP's C stack as deep as the call depth limit, which with pcov on
+     * segfaults the test runner (see roadmap step 4). Add a program here if the suite dies with
+     * exit code 139 and no test named.
+     */
+    private const DEEP = ['vm/build/gzb/tests/vm_corpus/depth.gaz.gzb'];
+
+    /**
      * Run bytecode on the PHP VM as `gazlang -f` would: in-process, unless it reads standard
-     * input, which in-process would be the test runner's
+     * input, which in-process would be the test runner's, or is one of the DEEP ones
      *
      * @return array{0: string, 1: string, 2: int}
      */
     private static function runPhp(string $gzb, array $args): array
     {
         $text = (string) file_get_contents(self::ROOT."/{$gzb}");
-        if (str_contains($text, 'CALL_BUILTIN read_stdin') || str_contains($text, 'PUSH_FN read_stdin')) {
+        if (in_array($gzb, self::DEEP, true) || str_contains($text, 'CALL_BUILTIN read_stdin') || str_contains($text, 'PUSH_FN read_stdin')) {
             return self::process([PHP_BINARY, '-d', 'pcov.enabled=0', 'bin/gazlang', '-f', $gzb, '--', ...$args], ['GAZLANG_RESTARTED' => '1']);
         }
 

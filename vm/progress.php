@@ -23,17 +23,21 @@ foreach (CVM::runAll($entries) as $entry => $result) {
         continue;
     }
     [$php, $c] = $result;
-    if ($php === $c) {
+    $leak = CVM::leak($c);
+    if ($php === array_slice($c, 0, 3) && $leak === null) {
         $pass[] = $entry;
     } else {
         $fail[] = $entry;
         $known = in_array($entry, $passing, true) ? ' (REGRESSION: in passing.txt)' : '';
-        echo "FAIL {$entry}{$known}\n";
+        echo "FAIL {$entry}{$known}".($leak === null ? '' : ": {$leak}")."\n";
         if ($filter !== null) {
             foreach (['stdout', 'stderr', 'exit code'] as $i => $what) {
                 if ($php[$i] !== $c[$i]) {
                     echo "  {$what}:\n    php: ".json_encode($php[$i])."\n    c:   ".json_encode($c[$i])."\n";
                 }
+            }
+            if ($leak !== null) {
+                echo "  leak: {$leak}\n";
             }
         }
     }

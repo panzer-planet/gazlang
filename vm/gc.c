@@ -37,6 +37,7 @@ static int64_t threshold = GC_MINIMUM;
 bool gc_wanted;
 
 void gc_track(Gc *g, Type type) {
+    counted++;
     g->rc = 1;
     g->type = type;
     g->prev = tracked.prev;

@@ -44,6 +44,7 @@ static int nhandlers, handlers_cap;
 
 Error *error_new(Str *reason, Str *path, int64_t line, bool show_location) {
     Error *e = xcalloc(1, sizeof(Error));
+    counted++;
     e->rc = 1;
     e->reason = reason;
     e->path = path;
@@ -600,7 +601,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             } else if (!index_value(a, b, false, &r)) {
                 goto error;
             }
-            sp--;
+            decref(POP());
             set_slot(&TOP(), r);
             break;
         case OP_INDEX_GET_QUIET:
@@ -1079,6 +1080,24 @@ static char *read_all(const char *path, size_t *len) {
     return b.data;
 }
 
+/* What was alive once the program was loaded: the constants in its code, which it holds for
+   the whole run */
+static int64_t loaded;
+
+/* GAZVM_STATS: whether the run freed everything it made. Drop what a finished program may still
+   hold (its globals, and everything from the top frame's locals up), collect cycles, and what is
+   left beyond the constants in the code leaked: a missing decref somewhere. The tests run every
+   program this way, since a leak changes no output. */
+static void report_leaks(Value *top) {
+    if (!getenv("GAZVM_STATS")) return;
+    flush_output();
+    for (int i = 0; i < program->nglobals; i++) set_slot(&globals[i], v_unset());
+    while (top > stack) set_slot(--top, v_unset());
+    gc_collect();
+    fprintf(stderr, "gazvm: %lld values leaked, at most %lld lists, maps, objects and functions alive at once\n",
+            (long long)(counted - loaded), (long long)peak);
+}
+
 /* The program, from its first instruction to its exit code: the thread main() starts */
 static void *run(void *arg) {
     int *exit_code = arg;
@@ -1096,7 +1115,7 @@ static void *run(void *arg) {
 
     Value ignored;
     if (!execute(program->code, frames, &ignored)) {
-        Error *e = vm_error;
+        Error *thrown = vm_error, *e = thrown;
         if (e->has_value) {
             /* Nothing caught it: only now is a thrown value turned into text, which can run
                its to_string() (and fail, which is then the error reported) */
@@ -1114,17 +1133,15 @@ static void *run(void *arg) {
             }
         }
         report(e);
+        if (e != thrown) decref((Value){.type = T_ERROR, .e = e});
+        decref((Value){.type = T_ERROR, .e = thrown});
+        vm_error = NULL;
+        report_leaks(stack);   /* an uncaught error has dropped the stack already */
         *exit_code = 1;
         return NULL;
     }
     flush_output();
-    /* GAZVM_STATS: how much is still alive once the program is done and cycles are collected,
-       which is how the tests see the collector free what reference counting can't */
-    if (getenv("GAZVM_STATS")) {
-        gc_collect();
-        fprintf(stderr, "gazvm: %lld lists, maps, objects and functions alive at the end, at most %lld at once\n",
-                (long long)live, (long long)peak);
-    }
+    report_leaks(vm_sp);
     *exit_code = 0;
     return NULL;
 }
@@ -1147,8 +1164,11 @@ int main(int argc, char **argv) {
     free(text);
     if (!program) {
         report(vm_error);
+        /* The loader gives up at the first problem and drops nothing it built */
+        if (getenv("GAZVM_STATS")) fputs("gazvm: leaks not checked: the program did not load\n", stderr);
         return 1;
     }
+    loaded = counted;
 
     /* Output is buffered in big blocks; anything written to standard error flushes it first,
        so the two stay in the order the program wrote them */

@@ -38,8 +38,14 @@ void *xrealloc(void *p, size_t size) {
     return p;
 }
 
+/* Every reference-counted value alive: strings, errors, and what gc.c tracks. Values kept for
+   the whole run on purpose (interned and one-byte strings, named functions) are not counted.
+   GAZVM_STATS reports what is left at the end, which is how the tests find a missing decref. */
+int64_t counted;
+
 /* Free a heap value whose reference count reached 0, dropping what it holds */
 void value_free(Value v) {
+    counted--;
     if (v.type >= T_LIST && v.type <= T_OBJECT) gc_untrack((Gc *)v.rc);
     switch (v.type) {
     case T_STRING:
@@ -92,6 +98,7 @@ void value_free(Value v) {
 
 Str *str_empty(size_t cap) {
     Str *s = xmalloc(sizeof(Str) + cap + 1);
+    counted++;
     s->rc = 1;
     s->len = 0;
     s->cap = cap + 1;
@@ -118,6 +125,7 @@ Str *str_byte(unsigned char byte) {
         char c = (char)byte;
         bytes[byte] = str_new(&c, 1);
         bytes[byte]->rc = INT64_MAX / 2;
+        counted--;
     }
     return bytes[byte];
 }
@@ -186,12 +194,14 @@ Str *str_intern(const char *data, size_t len) {
     while (interned[i]) {
         if (interned[i]->hash == h && str_eq(interned[i], probe)) {
             free(probe);
+            counted--;
             return interned[i];
         }
         i = (i + 1) & (interned_cap - 1);
     }
     /* Interned strings live for the whole run: a count this large never reaches 0 */
     probe->rc = INT64_MAX / 2;
+    counted--;
     interned[i] = probe;
     interned_count++;
     return probe;

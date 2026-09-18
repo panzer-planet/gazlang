@@ -303,6 +303,7 @@ void *xcalloc(size_t count, size_t size);
 void *xrealloc(void *p, size_t size);
 
 void value_free(Value v);   /* frees a heap value whose count has reached 0 */
+extern int64_t counted;     /* how many reference-counted values are alive (see value.c) */
 
 /* Reference counting: incref when storing a value somewhere new, decref when dropping one */
 static inline void incref(Value v) {

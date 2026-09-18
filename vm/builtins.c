@@ -562,6 +562,8 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         if (code.i < 0 || code.i > 255) return raise("exit() expects a code from 0 to 255, got %lld", (long long)code.i);
         /* Not an error, so no try sees it and no finally runs: the program simply ends */
         flush_output();
+        /* It ends the program mid-instruction, holding whatever it holds: nothing to check */
+        if (getenv("GAZVM_STATS")) fputs("gazvm: leaks not checked: exit()\n", stderr);
         exit((int)code.i);
     }
     case B_READ_FILE: {

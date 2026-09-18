@@ -307,9 +307,13 @@ foreach (array_chunk($entries, 50) as $chunk) {
         }
         $ran++;
         [$php, $c] = $result;
-        if ($php !== $c) {
+        $leak = CVM::leak($c);
+        if ($php !== array_slice($c, 0, 3) || $leak !== null) {
             $mismatches++;
             echo "=== MISMATCH {$entry} ===\n";
+            if ($leak !== null) {
+                echo "leak: {$leak}\n";
+            }
             foreach (['stdout', 'stderr', 'exit code'] as $i => $what) {
                 if ($php[$i] !== $c[$i]) {
                     $a = explode("\n", (string) $php[$i]);

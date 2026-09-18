@@ -762,8 +762,8 @@ which file does what; the files follow the PHP classes (`value.c` and `ops.c` ar
   300,000 self-referencing objects and closures peaks at 6MB rather than 206MB. The tested build
   collects every 64 new containers, so the harness exercises it under ASan; `make -C vm stress`
   builds one that collects at every chance (the corpus and the fuzzer pass on it), and
-  `GAZVM_STATS` makes the VM report what is alive at the end and the most at once, which
-  `test_the_c_vm_collects_cycles` checks.
+  `GAZVM_STATS` reports the most containers alive at once, which `test_the_c_vm_collects_cycles`
+  checks (and leaks, below).
 - **Speed** (`php vm/bench.php`: whole processes, CPU time, interleaved, best of several runs,
   PHP with the JIT settings `bin/gazlang` uses): 0.9 to 2.0 times the time of the same program
   written in PHP, and 6 to 26 times faster than the PHP VM, so the roadmap's expectation
@@ -778,11 +778,36 @@ which file does what; the files follow the PHP classes (`value.c` and `ops.c` ar
   up linearly, which is 20ms on the 25,000-line `compile.gaz.gzb`: not worth a hash yet. What is
   left in a profile of the self-hosted parser is the dispatch loop itself (two thirds), malloc and
   free, and the collector (6%).
-- **Not yet checked: leaks.** The harness compares output, and a forgotten `decref` changes
-  none, while ASan's leak detector doesn't run on macOS and only sees paths that run. The plan
-  (next): make `GAZVM_STATS` count every reference-counted value (strings and errors too, not
-  only the collector's containers), and require every harness entry to end with only what its
-  top level still holds, so a leak on any path, error unwinding most likely, names its entry.
+- **Leaks are checked on every entry** (built 2026-09-18). The harness compares output, and a
+  forgotten `decref` changes none, while ASan's leak detector doesn't run on macOS. So `counted`
+  (`vm/value.c`) is every reference-counted value alive: strings, errors, lists, maps, objects and
+  functions, but not what lives for the whole run on purpose (interned and one-byte strings, named
+  functions and builtins, which are never counted). With `GAZVM_STATS` set, the end of a run drops
+  the globals and everything from the top frame's locals up, collects cycles, and prints
+  `gazvm: N values leaked`, N being what is left beyond the count right after loading (the
+  constants in the code, which the program holds throughout). **Clearing rather than subtracting**
+  what a finished program holds: dropping its variables is exact whatever they share (copies on
+  write, a string in two globals, cycles), and runs the same free paths the program does, where
+  subtracting would need a walk of everything reachable that counts each value once, a second
+  collector that could be wrong in its own way. The constants are the exception, since they are
+  fixed at load time and never freed, so the count after loading is exactly them. An uncaught
+  error is checked too (the unwinding has dropped the stack; the error is dropped after it is
+  reported); `exit()` and a file the loader refuses say `leaks not checked`, since the first ends
+  mid-instruction holding whatever it holds and the second gives up without cleaning up.
+  `CVM::runAll()` sets it on every C run and takes the line out of standard error, and
+  `CVMTest`, `vm/progress.php` and `tests/fuzz_vms.php` fail an entry that leaks or prints no
+  line, naming it; it costs the suite nothing measurable. The first run found one bug, in 13
+  entries: `INDEX_GET` dropped its key with `sp--`, so every read with a string key made at run
+  time leaked the key. Error paths were clean. Of five mutants on error paths, three were caught
+  (unwinding to a handler without dropping the stack: 32 entries; an error freed without its
+  trace: 326; an uncaught error keeping its frames' closures: 1), and two are equivalent
+  (`raise_str()` dropping an earlier error, which is never there when one is raised: checked by
+  aborting if it is, over the harness and the fuzzer; `RETHROW` leaving its error on the stack,
+  which the unwinding right after drops).
+- **Under pcov, `tests/vm_corpus/depth.gaz` runs its PHP side in its own process**
+  (`CVM::DEEP`): its `to_string()` printing itself nests the PHP VM's `execute()` 10000 deep on
+  the C stack, which segfaulted the whole suite (exit 139, no test named) from the day it was
+  added until 2026-09-18, unnoticed because the suite was being run with pcov off.
 - **Its style**: plain C, commented where the C isn't obvious (a flexible array member, a
   `goto` into shared code), for readers who know a little C. `ponytail:` comments mark known
   ceilings: float printing tries up to 34 `printf`/`strtod` pairs per float, fine until printing
