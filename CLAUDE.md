@@ -375,8 +375,14 @@ each step depends on the ones before it.
       form cycles, so it also needs a cycle collector or a tracing GC. Test it the way
       everything here is tested: the PHP compiler writes bytecode, and the C VM must
       match the PHP VM on every test, `tests/gaz` program and example, output, errors,
-      locations and exit codes. The PHP implementation stays the reference. C is the
-      default choice of language; Zig or Rust can still be decided when this starts.
+      locations and exit codes. The PHP implementation stays the reference. **C, decided
+      2026-09-18** over Rust, Zig and Go: the heap (reference counting for copy-on-write
+      values, plus a cycle collector for objects and closures) is unsafe code in every one of
+      them, Rust VMs included; Go has no reference counts, so values would need persistent data
+      structures and appends would stop being cheap; Zig is pre-1.0 and changes under a pinned
+      toolchain. C gives computed-goto dispatch, a bootstrap that needs nothing but a C compiler,
+      and Lua and CPython to crib from, and this project's differential tests and fuzzers, run
+      under ASan and UBSan, are the safety net C code usually lacks.
       Expected speed: about that of Lua or PHP, 1 to 5 times PHP rather than 60 to 90.
    3. **Write the compiler in GazLang** (lexer, parser with the parse-time checks,
       code generator). It must produce the same bytecode as the PHP compiler for every file
