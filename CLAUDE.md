@@ -745,9 +745,22 @@ each step depends on the ones before it.
       the built-in one to the source. Also fixed: `CVM::leaks()` missed the `GAZVM_STATS` line
       after a program's standard error that didn't end in a newline (a false leak report in
       `fuzz_vms.php`'s programs mode).
-   3. **A CLI parity test**: a table of invocations (every flag, file and piped input, errors,
-      arguments, bytecode input, unknown options) run through both CLIs, which must give the
-      same standard output, standard error and exit code. This is what makes the swap safe.
+   3. ~~**A CLI parity test**~~, done 2026-09-18: `tests/CliParityTest.php`, 77 invocations
+      (each its arguments, the file piped in or `/dev/null`, and the working directory) of the
+      programs in `tests/cli/`, run through `php bin/gazlang` and the sanitized `vm/gazvm` at
+      once through `CVM::processes()`, which must give the same standard output, standard error
+      and exit code. They cover every option and how options end, bad and repeated ones, files
+      that aren't there or are directories, piped and file source with arguments, `read_stdin()`
+      on both sides of that, runtime, syntax and lexer errors with their locations and traces,
+      `exit()`, includes piped and not, from two working directories, the three front end modes
+      each on a file, piped and on an error, and bytecode: saved elsewhere so its paths climb
+      back with `../../../`, piped, broken, broken without the `.gzb` name, a `.gzb` that is
+      source, and the front end modes refusing it. The help is compared with its one line
+      about `--interpreter` changed, and a test of its own says what `--interpreter` prints in
+      C. About 2.5s. Fourteen mutants of the C CLI (how options end, unknown and repeated ones,
+      `-fFILE`, `--file=`, precedence of help, version and modes, a directory read, `-c` on
+      bytecode, piped input not reaching the front end, piped bytecode named) all die. Not
+      covered: a terminal on standard input, since the runner has none to give.
    4. **Rebuilding without PHP**: `make -C vm compiler` compiles `selfhost/gazlang.gaz` with the
       current binary, compiles it again with the result, requires the two to be the same, writes
       the checked-in bytecode and rebuilds the VM. From then on changing the language needs no

@@ -1,0 +1,2 @@
+// Included from elsewhere, its error shows its path
+include "syntax_error.gaz";

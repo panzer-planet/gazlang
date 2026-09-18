@@ -1,0 +1,5 @@
+fn inner($x) { return $x / 0; }
+fn outer() { return inner(1); }
+echo "before";
+print_error("to stderr\n");
+echo outer();

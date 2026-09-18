@@ -397,7 +397,7 @@ final class CVM
      * @param  string  $cwd  The working directory
      * @return array<array-key, array{0: string, 1: string, 2: int}> Each one's stdout, stderr and exit code (-1 when killed)
      */
-    private static function processes(array $commands, array $env = [], ?callable $between = null, array $stdin = [], string $cwd = self::ROOT): array
+    public static function processes(array $commands, array $env = [], ?callable $between = null, array $stdin = [], string $cwd = self::ROOT): array
     {
         $results = [];
         $running = [];

@@ -124,6 +124,11 @@ php bin/gazlang --ast -f examples/functions.gaz           # print the parser's t
   byte for byte the bytecode `php bin/gazlang -c` writes, on these and on every other `.gaz`
   file in the repository, so a change to `src/CodeGenerator` or to how `Program` writes needs
   the same change there. After changing either, also run `php tests/fuzz_parsers.php 3000 1 code`.
+- **`tests/cli/`** holds the programs `CliParityTest` runs through both command lines,
+  `php bin/gazlang` and `vm/gazvm`, which must print the same standard output and standard
+  error and exit with the same code: a table of invocations, each its arguments, what is piped
+  in and the working directory. A change to either CLI's options, or to how they read files and
+  standard input, needs a row there.
 - The three ports run on the C VM, so they are checked on every `.gaz` file in every run. The
   self-hosted drivers on big inputs, which take seconds each on the PHP VM, are the one group
   left out: `php -d pcov.enabled=0 vendor/bin/phpunit --group whole-repository`, before
