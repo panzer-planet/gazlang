@@ -1,0 +1,14 @@
+class Vec {
+    #x; #y;
+    fn _($x, $y) { #x = $x; #y = $y; }
+    fn add($o) { return Vec(#x + $o.x, #y + $o.y); }
+    fn dot($o) { return #x * $o.x + #y * $o.y; }
+}
+$acc = Vec(0, 0);
+$d = 0;
+for ($i = 0; $i < 500000; $i++) {
+    $v = Vec($i, $i % 13);
+    $acc = $acc.add($v);
+    $d += $v.dot($acc) % 1000;
+}
+echo $acc.x .. " " .. $acc.y .. " " .. $d;

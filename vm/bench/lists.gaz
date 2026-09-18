@@ -1,0 +1,10 @@
+$l = [];
+for ($i = 0; $i < 1000000; $i++) {
+    $l[] = ($i * 7919) % 1000003;
+}
+$sum = 0;
+foreach ($l as $v) { $sum += $v; }
+for ($i = 0; $i < len($l); $i += 2) { $l[$i] = $l[$i] + 1; }
+$max = 0;
+for ($i = 0; $i < len($l); $i++) { if ($l[$i] > $max) { $max = $l[$i]; } }
+echo $sum .. " " .. $max .. " " .. len(slice($l, 10, 1000));

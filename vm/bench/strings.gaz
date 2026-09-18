@@ -1,0 +1,10 @@
+$s = "";
+for ($i = 0; $i < 300000; $i++) {
+    $s ..= "item" .. $i .. ",";
+}
+$parts = split($s, ",");
+$count = 0;
+foreach ($parts as $p) {
+    if (starts_with($p, "item1")) { $count++; }
+}
+echo len($s) .. " " .. $count .. " " .. index_of($s, "item299999") .. " " .. len(join($parts, ";"));

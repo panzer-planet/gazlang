@@ -1082,16 +1082,28 @@ static void link_program(void) {
         if (b->kind == B_CLASS || b->kind == B_TOP) frame += 0;
         if (frame > prog->max_frame) prog->max_frame = frame;
 
-        /* Where each raw instruction lands, labels being positions rather than instructions */
+        /* STORE x; LOAD x; POP, an assignment used as a statement, is STORE x (as the PHP VM's
+           loader does): the LOAD and POP are marked dropped. A LABEL between them would be a
+           jump into the middle, so it stops the match. */
+        bool *dropped = xcalloc((size_t)b->nraw + 1, sizeof(bool));
+        for (int j = 0; j + 2 < b->nraw; j++) {
+            RawInstr *r = b->raw;
+            if ((r[j].op == OP_STORE || r[j].op == OP_STORE_GLOBAL) && r[j + 1].op == (r[j].op == OP_STORE ? OP_LOAD : OP_LOAD_GLOBAL)
+                && r[j + 1].ints[0] == r[j].ints[0] && r[j + 2].op == OP_POP) {
+                dropped[j + 1] = dropped[j + 2] = true;
+            }
+        }
+
+        /* Where each raw instruction lands, labels and dropped ones being no instruction */
         positions = xrealloc(positions, (size_t)(b->nraw + 1) * sizeof(int));
         int at = prog->ncode;
         for (int j = 0; j < b->nraw; j++) {
             positions[j] = at;
-            if (b->raw[j].op != OP_LABEL) at++;
+            if (b->raw[j].op != OP_LABEL && !dropped[j]) at++;
         }
         for (int j = 0; j < b->nraw; j++) {
             RawInstr *r = &b->raw[j];
-            if (r->op == OP_LABEL) continue;
+            if (r->op == OP_LABEL || dropped[j]) continue;
             Instr *in = &prog->code[prog->ncode++];
             in->op = (uint8_t)r->op;
             in->file = r->file;
@@ -1162,6 +1174,7 @@ static void link_program(void) {
         if (b->kind == B_TOP) {
             prog->code[prog->ncode++].op = OP_HALT;
         }
+        free(dropped);
         free(b->raw);
         b->raw = NULL;
     }

@@ -153,7 +153,7 @@ static const char *find(const char *hay, size_t hay_len, const char *needle, siz
 static Value split(Str *s, Str *sep) {
     List *l = list_new(0);
     if (sep->len == 0) {
-        for (size_t i = 0; i < s->len; i++) list_push(l, v_string(s->data + i, 1));
+        for (size_t i = 0; i < s->len; i++) list_push(l, v_str(str_byte((unsigned char)s->data[i])));
         return v_list(l);
     }
     const char *p = s->data, *end = s->data + s->len;
@@ -433,8 +433,7 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     case B_CHR: {
         if (!want(index, a, INT)) return false;
         if (a.i < 0 || a.i > 255) return raise("chr() expects a byte value from 0 to 255, got %lld", (long long)a.i);
-        char ch = (char)a.i;
-        *out = v_string(&ch, 1);
+        *out = v_str(str_byte((unsigned char)a.i));
         return true;
     }
     case B_ORD:

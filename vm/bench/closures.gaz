@@ -1,0 +1,8 @@
+include "../../lib/functional.gaz";
+$l = [];
+for ($i = 0; $i < 200000; $i++) { $l[] = $i; }
+$sq = map($l, $x -> $x * $x);
+$even = filter($sq, $x -> $x % 2 == 0);
+$sum = reduce($even, ($a, $b) -> $a + $b, 0);
+$sorted = sort(slice($l, 0, 20000), ($a, $b) -> $b <=> $a);
+echo $sum .. " " .. $sorted[0];

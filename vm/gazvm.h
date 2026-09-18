@@ -253,6 +253,10 @@ typedef struct Instr {
     Value v;            /* PUSH's value; PUSH_FN's function */
     Str *file;          /* where it came from; file NULL and line 0 when unknown */
     int32_t line;
+    /* A member instruction's inline cache: the class it last found the member in, and where
+       (a field's slot or a method's position), so the next object of that class needs no search */
+    int32_t cached_at;
+    Class *cached_class;
 } Instr;
 
 typedef struct Program {
@@ -328,6 +332,7 @@ static inline Value v_class(Class *c) { Value v = {.type = T_CLASS, .c = c}; ret
 
 Str *str_new(const char *data, size_t len);
 Str *str_cstr(const char *s);
+Str *str_byte(unsigned char byte);           /* a shared one-byte string, not counted */
 Str *str_empty(size_t cap);
 Str *str_intern(const char *data, size_t len);  /* one shared Str per name, never freed */
 Str *str_append(Str *s, const char *data, size_t len);  /* s must be unshared; may move it */

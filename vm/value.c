@@ -110,6 +110,18 @@ Str *str_new(const char *data, size_t len) {
 
 Str *str_cstr(const char *text) { return str_new(text, strlen(text)); }
 
+/* A one-byte string, shared and never freed: $s[$i] and chr() make one for every character a
+   lexer reads, and allocating each was most of what such a loop spent on memory */
+Str *str_byte(unsigned char byte) {
+    static Str *bytes[256];
+    if (!bytes[byte]) {
+        char c = (char)byte;
+        bytes[byte] = str_new(&c, 1);
+        bytes[byte]->rc = INT64_MAX / 2;
+    }
+    return bytes[byte];
+}
+
 /* Append to a string nobody else holds, growing it by doubling so a loop of appends is linear.
    realloc may move it, so the caller must use the pointer this returns. */
 Str *str_append(Str *s, const char *data, size_t len) {

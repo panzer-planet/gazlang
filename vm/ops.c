@@ -211,7 +211,7 @@ bool index_value(Value target, Value index, bool quiet, Value *out) {
     if (target.type == T_STRING) {
         if (index.type != T_INT) return raise("String positions must be int, got %s", type_name(index));
         if (index.i >= 0 && (uint64_t)index.i < target.s->len) {
-            *out = v_str(str_new(target.s->data + index.i, 1));
+            *out = v_str(str_byte((unsigned char)target.s->data[index.i]));
             return true;
         }
         if (quiet) {

@@ -1,0 +1,10 @@
+// The self-hosted parser on its biggest input, many times in one process
+include "../../selfhost/parser.gaz";
+$path = "selfhost/codegen.gaz";
+$text = read_file($path);
+$count = 0;
+for ($i = 0; $i < 20; $i++) {
+    $root = Parser(Lexer($text), $path).parse();
+    $count += len($root.statements);
+}
+echo $count;

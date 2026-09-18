@@ -267,6 +267,16 @@ static Function *method_function(Class *definer, Str *name) {
 
 static bool execute(Instr *pc, Frame *first, Value *result);
 
+/* Names the loop needs, interned once */
+static Str *this_name(void) {
+    static Str *name;
+    return name ? name : (name = str_intern("#", 1));
+}
+static Str *constructor_name(void) {
+    static Str *name;
+    return name ? name : (name = str_intern("_", 1));
+}
+
 /* Run a method on an object to its end, from inside an instruction (Values::$call_method) */
 bool call_method(Object *o, Class *definer, Str *name, Value *out) {
     Function *f = method_function(definer, name);
@@ -286,6 +296,17 @@ bool call_method(Object *o, Class *definer, Str *name, Value *out) {
 }
 
 /* ---- The loop -------------------------------------------------------------------------- */
+
+/* The slot of the field a member instruction names in an object, or -1: through the
+   instruction's cache when the object's class is the one it saw last */
+static inline int field_slot(Instr *in, Object *o) {
+    if (!o) return -1;
+    if (o->cls != in->cached_class) {
+        in->cached_class = o->cls;
+        in->cached_at = class_field(o->cls, in->p);
+    }
+    return in->cached_at;
+}
 
 #define PUSH(v) (*sp++ = (v))
 #define POP() (*--sp)
@@ -443,8 +464,16 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             sp[-1] = v_bool(equal == (in->op == OP_EQUALS));
             break;
         }
-        case OP_DIV:
         case OP_MOD:
+            a = sp[-2], b = sp[-1];
+            /* % of the smallest int by -1 is 0 in PHP and a crash in C: that goes the long way */
+            if (a.type == T_INT && b.type == T_INT && b.i != 0 && b.i != -1) {
+                sp--;
+                sp[-1] = v_int(a.i % b.i);
+                break;
+            }
+            goto binary;
+        case OP_DIV:
         case OP_BIT_AND:
         case OP_BIT_OR:
         case OP_BIT_XOR:
@@ -603,7 +632,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             } else {
                 /* The object is a handle, so writing through a copy of it writes the object */
                 Value self = fp->receiver ? v_object(fp->receiver) : v_null();
-                ok = store_path(&self, str_intern("#", 1), path, keys, TOP());
+                ok = store_path(&self, this_name(), path, keys, TOP());
             }
             if (!ok) goto error;
             for (int i = 0; i < path->nkeys; i++) decref(keys[i]);
@@ -626,7 +655,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
                 ok = remove_path(&fp->closure->captured[in->a], fp->closure->lambda->block->captures[in->a], path, keys);
             } else {
                 Value self = fp->receiver ? v_object(fp->receiver) : v_null();
-                ok = remove_path(&self, str_intern("#", 1), path, keys);
+                ok = remove_path(&self, this_name(), path, keys);
             }
             if (!ok) goto error;
             for (int i = 0; i < path->nkeys; i++) decref(keys[i]);
@@ -719,7 +748,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             break;
         case OP_LOAD_FIELD: {
             Object *o = fp->receiver;
-            int f = o ? class_field(o->cls, in->p) : -1;
+            int f = field_slot(in, o);
             if (f >= 0 && o->fields[f].type != T_UNSET) {
                 r = o->fields[f];
                 incref(r);
@@ -731,7 +760,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         }
         case OP_SET_FIELD: {
             Object *o = fp->receiver;
-            int f = o ? class_field(o->cls, in->p) : -1;
+            int f = field_slot(in, o);
             if (f < 0) {
                 raise("Cannot set %s here", ((Str *)in->p)->data);
                 goto error;
@@ -741,6 +770,16 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             break;
         }
         case OP_GET_PROPERTY:
+            /* A field that is set, found through the cache; anything else the long way */
+            if (TOP().type == T_OBJECT) {
+                int f = field_slot(in, TOP().o);
+                if (f >= 0 && TOP().o->fields[f].type != T_UNSET) {
+                    r = TOP().o->fields[f];
+                    incref(r);
+                    set_slot(&TOP(), r);
+                    break;
+                }
+            }
             if (!property(TOP(), in->p, false, &r)) goto error;
             set_slot(&TOP(), r);
             break;
@@ -757,7 +796,14 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             a = TOP();
             Str *name = in->p;
             if (a.type == T_OBJECT && !(name->len == 1 && name->data[0] == '_')) {
-                int m = class_method(a.o->cls, name);
+                int m;
+                if (a.o->cls == in->cached_class) {
+                    m = in->cached_at;
+                } else {
+                    m = class_method(a.o->cls, name);
+                    in->cached_class = a.o->cls;
+                    in->cached_at = m;
+                }
                 if (m >= 0) {
                     PUSH(((Value){.type = T_ENTRY, .entry = &a.o->cls->entries[m]}));
                     break;
@@ -813,7 +859,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         }
         case OP_CALL_CONSTRUCTOR: {
             Class *c = in->p;
-            Function *f = method_function(c, str_intern("_", 1));
+            Function *f = method_function(c, constructor_name());
             if (fp - frames == MAX_CALL_DEPTH) {
                 /* Where the object is being made, as in the interpreter, not in the initialiser */
                 Buf what = {0};
