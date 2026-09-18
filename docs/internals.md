@@ -44,10 +44,13 @@ way.
 
 `vm/` is the same VM in C (roadmap step 7, stage 2), and the PHP VM is its specification: the
 same output, the same errors word for word, the same locations, traces and exit codes.
-`tests/CVMTest.php` holds it to that. Each entry of `vm/passing.txt` is compiled with the PHP
-compiler, and the bytecode is run on both VMs (the C one built with AddressSanitizer and
-UndefinedBehaviorSanitizer), which must give the same standard output, standard error and exit
-code. An entry is a program in the repository (with its arguments after it, for the self-hosted
+`tests/CVMTest.php` holds it to that. Each entry of `vm/passing.txt` runs on both VMs (the C
+one built with AddressSanitizer and UndefinedBehaviorSanitizer), which must give the same
+standard output, standard error and exit code, and the C one must not leak: `GAZVM_STATS` makes
+it count every reference-counted value, drop what the finished program still holds, and report
+what is left over, which the harness requires to be nothing. A program runs from its source on
+both, the C VM compiling it with the self-hosted compiler it has built in; a snippet or a `.gzb`
+runs as bytecode. An entry is a program in the repository (with its arguments after it, for the self-hosted
 drivers), `snippet:<id>`, one of the `executeCode()` snippets the PHP tests run
 (`tests/vm_snippets.txt`, collected by `php vm/snippets.php`), or a hand-written `.gzb` under
 `tests/bytecode_corpus/`, for the loaders; there the files named `error_*` must be the ones
@@ -78,6 +81,7 @@ vendor/bin/pint                                     # formatting; --test to chec
 
 ```bash
 make -C vm                                          # vm/gazvm, optimised
+vm/gazvm x.gaz [arguments...]                       # run source on the C VM, with its built-in compiler
 vm/gazvm x.gzb [arguments...]                       # run bytecode on the C VM
 php vm/progress.php [FILTER] [--update]             # which programs the C VM matches the PHP VM on
 php vm/coverage.php [file.c]                        # which lines of the C VM the harness never runs
@@ -120,9 +124,14 @@ php bin/gazlang --ast -f examples/functions.gaz           # print the parser's t
   byte for byte the bytecode `php bin/gazlang -c` writes, on these and on every other `.gaz`
   file in the repository, so a change to `src/CodeGenerator` or to how `Program` writes needs
   the same change there. After changing either, also run `php tests/fuzz_parsers.php 3000 1 code`.
-- The three ports are checked on the rest of the repository only when asked, since that is
-  most of the suite's time: `php -d pcov.enabled=0 vendor/bin/phpunit --group whole-repository`,
-  before merging anything that touches them.
+- The three ports run on the C VM, so they are checked on every `.gaz` file in every run. The
+  self-hosted drivers on big inputs, which take seconds each on the PHP VM, are the one group
+  left out: `php -d pcov.enabled=0 vendor/bin/phpunit --group whole-repository`, before
+  merging anything that touches a port or either VM.
+- **`selfhost/compile.gzb`** is the self-hosted compiler's bytecode, checked in and built into
+  the C VM, which is how `vm/gazvm x.gaz` runs source. A test fails until it is what the PHP
+  compiler writes for `selfhost/compile.gaz`, so after changing anything under `selfhost/`, run
+  `php bin/gazlang -c -f selfhost/compile.gaz > selfhost/compile.gzb`.
 - **`tests/vm_corpus/`** are programs for the C VM that the rest of the repository doesn't
   reach, found with `php vm/coverage.php`: running out of call depth by every kind of call,
   traces cut short, failing `to_string()`s, floats of every shape, cycles. **`tests/bytecode_corpus/`**
@@ -168,9 +177,11 @@ its frames.
 The roadmap is in [CLAUDE.md](../CLAUDE.md) under "Path to Self-Hosting". The short version:
 the bytecode format is pinned; the lexer, parser and code generator are rewritten in GazLang
 and checked against the PHP ones; the VM is rewritten in C and checked against the PHP one.
-What is left is the bootstrap: the GazLang compiler, compiled by itself and run on the C VM,
-becomes `gazlang`, and PHP is no longer needed. The PHP implementation stays the reference
-until then.
+The compiler already compiles itself to the same bytecode on the C VM, and the C VM runs source
+with it built in. What is left is the bootstrap: the C VM gets the whole command line and
+becomes `bin/gazlang`, and PHP is no longer needed to run or build GazLang. The PHP
+implementation stays as the reference, `bin/gazlang-php`, that the harnesses check against;
+the steps are in CLAUDE.md under "The bootstrap plan".
 
 That is why new features get judged by what they cost **in C**, not only in PHP: anything that
 leans on PHP's own behaviour (hashing, string conversion, float formatting) has to become a

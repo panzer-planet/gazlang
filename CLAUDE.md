@@ -400,8 +400,8 @@ each step depends on the ones before it.
       needed to *write* it, see the order below.
    4. **Bootstrap.** The GazLang compiler compiles itself, the resulting bytecode is
       checked in, and `gazlang` becomes the C VM plus that compiler; PHP is no longer
-      needed to run or build GazLang. Whether the PHP implementation stays as a
-      reference is decided then.
+      needed to run or build GazLang. The PHP implementation stays as the reference
+      (decided 2026-09-18), see "The bootstrap plan" below.
 
    **The order actually being followed** (decided 2026-09-18, once the lexer and parser were
    ported): stage 3 is running ahead of stage 2, on the PHP VM. The plan put the C VM first
@@ -678,6 +678,54 @@ each step depends on the ones before it.
    to the same (`test_the_self_hosted_compiler_compiles_itself_on_the_c_vm`, 2s). The C VM
    runs source with that compiler built in (see "The C VM"). What is left is the rest of the
    CLI (`-f`, `--`, `-c`, `--tokens`, `--ast`, piped input) and making it `gazlang`.
+
+   **The bootstrap plan** (decided 2026-09-18). Four decisions:
+   - **The C binary becomes `bin/gazlang`; the PHP script becomes `bin/gazlang-php`** and stays
+     as the reference every harness compares against. `bin/gazlang` is then built, not checked
+     in (gitignored), and the tests that are about PHP's own behaviour (the interpreter, the
+     restart with pcov off, the JIT settings) call `bin/gazlang-php`. Deleting the PHP
+     implementation was ruled out for now: the harnesses need a spec, and the spec is the PHP
+     code, not files of expected output. Keeping `bin/gazlang` as PHP with the C one beside it
+     was ruled out too: the default would stay the slow one.
+   - **`--tokens` and `--ast` stay, with one driver.** `selfhost/gazlang.gaz` takes a mode
+     (`code`, `tokens`, `ast`) and replaces `compile.gaz`, `tokens.gaz` and `ast.gaz`, so the
+     binary holds the lexer and parser once rather than three times. The port harnesses then run
+     `gazlang --tokens` and the rest directly, which makes the C CLI itself the tested thing.
+   - **`--interpreter` is PHP only.** There is no tree-walking interpreter in C; the C CLI says
+     so and exits 1, and `bin/gazlang-php --interpreter` keeps working. Porting it to GazLang
+     waits for a reason.
+   - **No interactive mode in the C CLI.** The PHP one runs each typed line as a program of its
+     own, with no state between lines, and no test covers it: not a REPL. With nothing piped
+     and no file, the C CLI prints its usage. A real REPL would be its own project.
+
+   The work, in order, each step committed on its own:
+   1. **One driver, `selfhost/gazlang.gaz`**, with the three modes, and source read from
+      standard input when no file is given: `@ line` records rather than `@ "file" line`,
+      includes resolved from the working directory, and the driver calling `read_stdin()`
+      itself, which keeps the rule that a program that was itself piped in gets nothing from
+      `read_stdin()`. It is what `selfhost/compile.gzb` is built from (the name of the checked-in
+      file changes with it), and the three port harnesses and the fixed-point test move to it.
+   2. **The C CLI**, parsing options exactly as `bin/gazlang` does: `-h`, `-v`, `-c`, `-t`,
+      `--ast`, `-f FILE`, `--file=FILE`, flags combined (`-cf x.gaz`), `--` before the program's
+      arguments, an unknown option refused with the same message, `.gzb` input run as it is
+      (and "is bytecode, which only the VM runs" for `--tokens`, `--ast`), `-c` on bytecode
+      printing it unchanged, and the usage when standard input is a terminal.
+   3. **A CLI parity test**: a table of invocations (every flag, file and piped input, errors,
+      arguments, bytecode input, unknown options) run through both CLIs, which must give the
+      same standard output, standard error and exit code. This is what makes the swap safe.
+   4. **Rebuilding without PHP**: `make -C vm compiler` compiles `selfhost/gazlang.gaz` with the
+      current binary, compiles it again with the result, requires the two to be the same, writes
+      the checked-in bytecode and rebuilds the VM. From then on changing the language needs no
+      PHP; until then regenerating does.
+   5. **The swap** (decision 1): rename, build `bin/gazlang` from `make -C vm`, point the tests,
+      README, `docs/` and this file at `gazlang`, with PHP described as the reference.
+   6. **Portability**: the VM has only ever been built on macOS, and "a bootstrap that needs
+      nothing but a C compiler" is untested. `open_memstream()` and `realpath()` want
+      `_POSIX_C_SOURCE` on Linux. At least one Linux build and suite run (Docker, or CI, whose
+      setup is Werner's call since nothing is pushed yet) before the bootstrap counts as done.
+   Not blocking, left for later: `tests/fuzz_vms.php`'s programs mode reports a mismatch when a
+   program exhausts memory (PHP's child process dies at its 2GB limit, the C VM is killed at the
+   time limit; also on master before the source work), and the holes list below.
 
    **The README's examples are tests.** `ReadmeTest` pulls every ```` ```gaz ```` block that is
    followed by an output block out of `README.md` and requires it to print exactly that, on
