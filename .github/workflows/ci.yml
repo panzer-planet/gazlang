@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The bootstrap needs nothing but a C compiler: build gazlang, run a program, and rebuild
+      # the compiler with gazlang alone, which must give the checked-in bytecode
+      - name: Build gazlang
+        run: make -C vm
+      - name: Run a program
+        run: bin/gazlang -f examples/functions.gaz
+      - name: Rebuild the compiler with gazlang
+        run: make -C vm compiler && git diff --exit-code selfhost/gazlang.gzb
+
+      # The PHP reference, and everything that compares against it
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: none
+      - name: Install the PHP dependencies
+        run: composer install --no-interaction --no-progress
+      - name: Tests
+        run: vendor/bin/phpunit
+      - name: The self-hosted drivers on big inputs
+        run: vendor/bin/phpunit --group whole-repository
+      - name: phpstan
+        run: vendor/bin/phpstan analyse --memory-limit=1G
+      - name: pint
+        run: vendor/bin/pint --test
