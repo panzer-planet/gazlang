@@ -661,6 +661,10 @@ each step depends on the ones before it.
    With the lexer, parser and code generator ported, everything above the VM exists in GazLang
    and matches the PHP on every file there is, and the VM exists in C and matches the PHP VM on
    every program, snippet and corpus file there is. **What is left is the bootstrap** (stage 4).
+   Its first half already holds: the PHP compiler's bytecode for `selfhost/compile.gaz`, run on
+   the C VM, compiles the compiler to the same bytecode byte for byte, and that compiles it again
+   to the same (`test_the_self_hosted_compiler_compiles_itself_on_the_c_vm`, 2s). What is left is
+   making `gazlang` a C program that uses it.
 
    **The README's examples are tests.** `ReadmeTest` pulls every ```` ```gaz ```` block that is
    followed by an output block out of `README.md` and requires it to print exactly that, on

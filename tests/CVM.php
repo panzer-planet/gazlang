@@ -270,7 +270,7 @@ final class CVM
      *
      * @return string|null The bytecode file, relative to the project root; null if it doesn't compile
      */
-    private static function compile(string $file): ?string
+    public static function compile(string $file): ?string
     {
         $cwd = getcwd();
         chdir(self::ROOT);
@@ -344,7 +344,7 @@ final class CVM
      * @param  array<string, string>  $env  Extra environment variables
      * @return array{0: string, 1: string, 2: int} stdout, stderr and the exit code (-1 when killed)
      */
-    private static function process(array $command, array $env = []): array
+    public static function process(array $command, array $env = []): array
     {
         return self::processes([$command], $env)[0];
     }
