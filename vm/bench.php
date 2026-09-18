@@ -32,7 +32,7 @@ foreach (glob('vm/bench/*.gaz') as $file) {
     $name = basename($file, '.gaz');
     $gzb = "vm/build/bench/{$name}.gzb";
     $compile($file, $gzb);
-    $cases[$name] = ['c' => ['vm/gazvm', $gzb], 'vm' => [...$php, 'bin/gazlang', '-f', $gzb]];
+    $cases[$name] = ['c' => ['vm/gazvm', '-f', $gzb], 'vm' => [...$php, 'bin/gazlang', '-f', $gzb]];
     // The same program in PHP, for the ones that have one
     if (is_file("vm/bench/{$name}.php")) {
         $cases[$name]['php'] = [...$php, "vm/bench/{$name}.php"];
@@ -43,7 +43,7 @@ foreach (['selfhost/gazlang.gaz code examples/football.gaz', 'selfhost/gazlang.g
     $file = array_shift($args);
     $gzb = 'vm/build/bench/'.basename($file, '.gaz').'.gzb';
     $compile($file, $gzb);
-    $cases[$workload] = ['c' => ['vm/gazvm', $gzb, ...$args], 'vm' => [...$php, 'bin/gazlang', '-f', $gzb, '--', ...$args]];
+    $cases[$workload] = ['c' => ['vm/gazvm', '-f', $gzb, '--', ...$args], 'vm' => [...$php, 'bin/gazlang', '-f', $gzb, '--', ...$args]];
 }
 if ($filter !== null) {
     $cases = array_filter($cases, fn ($name) => str_contains($name, $filter), ARRAY_FILTER_USE_KEY);

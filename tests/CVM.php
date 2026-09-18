@@ -139,7 +139,7 @@ final class CVM
         }
         if ($isolated) {
             $php = self::processes(array_map(fn ($job) => [PHP_BINARY, '-d', 'pcov.enabled=0', 'bin/gazlang', '-f', $job[2] ?? $job[0], '--', ...$job[1]], $jobs), ['GAZLANG_RESTARTED' => '1']);
-            $c = self::processes(array_map(fn ($job) => [self::binary(), $job[2] ?? $job[0], ...$job[1]], $jobs), ['GAZVM_STATS' => '1']);
+            $c = self::processes(array_map(fn ($job) => [self::binary(), '-f', $job[2] ?? $job[0], '--', ...$job[1]], $jobs), ['GAZVM_STATS' => '1']);
             foreach ($jobs as $entry => $_) {
                 $results[$entry] = [$php[$entry], self::leaks($c[$entry])];
             }
@@ -150,7 +150,7 @@ final class CVM
         // The PHP side runs in this process while the C side's processes run
         $php = [];
         $pending = $jobs;
-        $c = self::processes(array_map(fn ($job) => [self::binary(), $job[2] ?? $job[0], ...$job[1]], $jobs), ['GAZVM_STATS' => '1'], function () use (&$pending, &$php) {
+        $c = self::processes(array_map(fn ($job) => [self::binary(), '-f', $job[2] ?? $job[0], '--', ...$job[1]], $jobs), ['GAZVM_STATS' => '1'], function () use (&$pending, &$php) {
             if ($pending === []) {
                 return false;
             }
@@ -190,7 +190,7 @@ final class CVM
             self::build();
             $gzb = self::ROOT.'/'.(self::compile(self::DRIVER) ?? throw new \RuntimeException(self::DRIVER." doesn't compile"));
         }
-        $commands = array_combine($files, array_map(fn ($file) => [self::ROOT.'/vm/gazvm', $gzb, $mode, ...($piped ? [] : [$file])], $files));
+        $commands = array_combine($files, array_map(fn ($file) => [self::ROOT.'/vm/gazvm', '-f', $gzb, '--', $mode, ...($piped ? [] : [$file])], $files));
         $results = self::processes($commands, [], null, $piped ? array_combine($files, $files) : [], $cwd);
 
         return array_map(fn ($result) => [$result[0].$result[1], $result[2]], $results);
@@ -212,7 +212,8 @@ final class CVM
     private static function leaks(array $result): array
     {
         $stats = null;
-        if (preg_match('/^gazvm: (.*)\n\z/m', $result[1], $match, PREG_OFFSET_CAPTURE)) {
+        // The last line, though not always at the start of one: a program's standard error needn't end in a newline
+        if (preg_match('/gazvm: ([^\n]*)\n\z/', $result[1], $match, PREG_OFFSET_CAPTURE)) {
             $stats = $match[1][0];
             $result[1] = substr($result[1], 0, $match[0][1]);
         }
@@ -245,7 +246,7 @@ final class CVM
     public static function alive(string $file): array
     {
         $gzb = self::compile($file);
-        [, $err] = self::process([self::binary(), $gzb], ['GAZVM_STATS' => '1']);
+        [, $err] = self::process([self::binary(), '-f', $gzb], ['GAZVM_STATS' => '1']);
         if (! preg_match('/gazvm: (-?\d+) values leaked, at most (\d+) lists, maps, objects and functions alive at once/', $err, $match)) {
             throw new \RuntimeException("No statistics from the C VM:\n{$err}");
         }

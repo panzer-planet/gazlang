@@ -86,7 +86,7 @@ class CVMTest extends TestCase
         // three must be the same bytecode, byte for byte, or the compiler can't replace PHP
         $stages = [CVM::compile(CVM::DRIVER)];
         foreach ([1, 2] as $stage) {
-            [$out, $err, $code] = CVM::process([CVM::BINARY, $stages[$stage - 1], 'code', CVM::DRIVER]);
+            [$out, $err, $code] = CVM::process([CVM::BINARY, '-f', $stages[$stage - 1], '--', 'code', CVM::DRIVER]);
             $this->assertSame([0, ''], [$code, $err], "stage {$stage} failed");
             $stages[$stage] = "vm/build/gzb/stage{$stage}.gzb";
             file_put_contents(CVM::ROOT.'/'.$stages[$stage], $out);

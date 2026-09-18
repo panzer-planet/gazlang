@@ -25,7 +25,7 @@ foreach (CVM::passing() as $i => $entry) {
         str_ends_with($file, '.gzb') => $file,
         default => "vm/build/gzb/{$file}.gzb",
     };
-    $command = sprintf('cd %s && LLVM_PROFILE_FILE=%s vm/build/gazvm-cov %s %s < /dev/null > /dev/null 2>&1',
+    $command = sprintf('cd %s && LLVM_PROFILE_FILE=%s vm/build/gazvm-cov -f %s -- %s < /dev/null > /dev/null 2>&1',
         escapeshellarg($root), escapeshellarg("{$dir}/{$i}.profraw"), escapeshellarg($gzb), implode(' ', array_map('escapeshellarg', $args)));
     exec($command);
 }

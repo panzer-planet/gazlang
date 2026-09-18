@@ -35,8 +35,9 @@ php bin/gazlang -f examples/functions.gaz -c
 # The VM in C (roadmap step 7, stage 2): build it, and run source (with the self-hosted
 # compiler built into it) or bytecode on it
 make -C vm
-vm/gazvm examples/functions.gaz
-php bin/gazlang -c -f examples/functions.gaz > /tmp/f.gzb && vm/gazvm /tmp/f.gzb
+# vm/gazvm takes bin/gazlang's options: -f FILE, -c, -t, --ast, piped source, -- ARGS
+vm/gazvm -f examples/functions.gaz
+php bin/gazlang -c -f examples/functions.gaz > /tmp/f.gzb && vm/gazvm -f /tmp/f.gzb
 
 # After changing selfhost/, rebuild the compiler the C VM has built in (a test fails until then)
 php bin/gazlang -c -f selfhost/gazlang.gaz > selfhost/gazlang.gzb
@@ -720,11 +721,30 @@ each step depends on the ones before it.
       no trace either way (a trace of one call is never printed; `$e.trace` keeps the original). `CVM::driver()` compiles the
       driver once per run rather than once per call, which took the three harnesses from 18s to
       15s under pcov with the piped runs added.
-   2. **The C CLI**, parsing options exactly as `bin/gazlang` does: `-h`, `-v`, `-c`, `-t`,
-      `--ast`, `-f FILE`, `--file=FILE`, flags combined (`-cf x.gaz`), `--` before the program's
-      arguments, an unknown option refused with the same message, `.gzb` input run as it is
-      (and "is bytecode, which only the VM runs" for `--tokens`, `--ast`), `-c` on bytecode
-      printing it unchanged, and the usage when standard input is a terminal.
+   2. ~~**The C CLI**~~, done 2026-09-18: `vm/gazvm` parses options as `bin/gazlang` does (PHP's
+      `getopt` and the check after it for options it doesn't know, in `main()` in `vm/vm.c`), so
+      `vm/gazvm FILE` is gone: it is `vm/gazvm -f FILE -- ARGS`, and every caller moved. Options
+      end at `--`, at `-`, or at the first argument that isn't one; `-f` takes the next argument
+      whatever it is. `-c`, `-t` and `--ast` run the built-in front end in that mode straight to
+      standard output; running source runs it in `code` mode into memory first, as before. Piped
+      input is read by `main()`, to see whether it is bytecode, and `read_stdin()` hands it to the
+      front end (`piped_input`), so the program itself then reads nothing, as in PHP. `load()`
+      takes a NULL path for piped bytecode ("on line N"). `--interpreter` says to use
+      `bin/gazlang-php --interpreter` and exits 1, after the bytecode check as in PHP, and the
+      help says so on that line, the one place the two CLIs' output differs on purpose. With no
+      file and a terminal on standard input it prints the help on standard error and exits 1.
+      A table of 54 invocations matched `bin/gazlang` byte for byte (stdout, stderr, exit code)
+      on the optimised and the sanitized build, which is step 3's starting point. It found one
+      bug in the C (`-f` as the last argument ran past the end of `argv`) and two in
+      `bin/gazlang`, fixed there: a repeated `-f`/`--file` was a PHP `TypeError` (getopt gives
+      a list), now "Give one file, with -f or --file"; and `-f 0` read standard input, `"0"` being
+      falsy, so a given file is now always checked. The port harnesses still run the driver PHP
+      compiles from source (`-f gazlang.gaz.gzb -- MODE FILE`) rather than `gazvm --tokens`:
+      the built-in one is the checked-in bytecode, which after an edit to `selfhost/` is stale
+      until regenerated, and the harness should test the edit. The fixed-point test is what holds
+      the built-in one to the source. Also fixed: `CVM::leaks()` missed the `GAZVM_STATS` line
+      after a program's standard error that didn't end in a newline (a false leak report in
+      `fuzz_vms.php`'s programs mode).
    3. **A CLI parity test**: a table of invocations (every flag, file and piped input, errors,
       arguments, bytecode input, unknown options) run through both CLIs, which must give the
       same standard output, standard error and exit code. This is what makes the swap safe.
@@ -775,7 +795,7 @@ each step depends on the ones before it.
 ## The C VM
 
 Built 2026-09-18 (roadmap step 7, stage 2): `vm/`, plain C11 with only libc, libm and pthreads,
-about 5000 lines with their comments. `vm/gazvm program.gzb [args]` runs the bytecode `gazlang -c` writes, and must
+about 5000 lines with their comments. `vm/gazvm -f program.gzb -- [args]` runs the bytecode `gazlang -c` writes, and must
 behave exactly as the PHP VM does: the same output, the same errors word for word, the same
 locations, traces and exit codes. `bin/gazlang` stays PHP until the bootstrap. `vm/gazvm.h` says
 which file does what; the files follow the PHP classes (`value.c` and `ops.c` are
@@ -857,7 +877,7 @@ which file does what; the files follow the PHP classes (`value.c` and `ops.c` ar
   for nested calls only where needed, and a fast path for `==`. What is
   left in a profile of the self-hosted parser is the dispatch loop itself (two thirds), malloc and
   free, and the collector (6%).
-- **It runs source** (built 2026-09-18): `gazvm FILE [args]` compiles a file that isn't
+- **It runs source** (built 2026-09-18): `gazvm -f FILE -- [args]` compiles a file that isn't
   bytecode with the self-hosted compiler, which is built into it, and runs the result, with the
   same output, errors, paths and exit codes as `php bin/gazlang -f FILE`. The compiler is
   `selfhost/gazlang.gzb`, checked in next to its source so its `@ "file"` records are exact,

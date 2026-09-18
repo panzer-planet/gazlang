@@ -81,8 +81,8 @@ vendor/bin/pint                                     # formatting; --test to chec
 
 ```bash
 make -C vm                                          # vm/gazvm, optimised
-vm/gazvm x.gaz [arguments...]                       # run source on the C VM, with its built-in compiler
-vm/gazvm x.gzb [arguments...]                       # run bytecode on the C VM
+vm/gazvm -f x.gaz -- [arguments...]                 # run source on the C VM, with its built-in compiler
+vm/gazvm -f x.gzb -- [arguments...]                 # run bytecode on the C VM (bin/gazlang's options)
 php vm/progress.php [FILTER] [--update]             # which programs the C VM matches the PHP VM on
 php vm/coverage.php [file.c]                        # which lines of the C VM the harness never runs
 php vm/bench.php                                    # the C VM against the PHP VM and against PHP
@@ -129,7 +129,7 @@ php bin/gazlang --ast -f examples/functions.gaz           # print the parser's t
   left out: `php -d pcov.enabled=0 vendor/bin/phpunit --group whole-repository`, before
   merging anything that touches a port or either VM.
 - **`selfhost/gazlang.gzb`** is the self-hosted compiler's bytecode, checked in and built into
-  the C VM, which is how `vm/gazvm x.gaz` runs source. A test fails until it is what the PHP
+  the C VM, which is how `vm/gazvm -f x.gaz` runs source. A test fails until it is what the PHP
   compiler writes for `selfhost/gazlang.gaz`, so after changing anything under `selfhost/`, run
   `php bin/gazlang -c -f selfhost/gazlang.gaz > selfhost/gazlang.gzb`.
 - **`tests/vm_corpus/`** are programs for the C VM that the rest of the repository doesn't

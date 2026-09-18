@@ -11,6 +11,8 @@
 #include "gazvm.h"
 
 #include <pthread.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1153,61 +1155,105 @@ static int run_program(bool check) {
     return exit_code;
 }
 
-/* The self-hosted compiler's bytecode, selfhost/gazlang.gzb, built into the VM (build/compiler.c) */
+/* The self-hosted front end's bytecode, selfhost/gazlang.gzb, built into the VM (build/compiler.c) */
 extern const unsigned char compiler_gzb[];
 extern const unsigned long compiler_gzb_size;
 
+/* What the CLI was asked to do, from its options */
+typedef enum { M_RUN, M_CODE, M_TOKENS, M_AST, M_INTERPRETER } Mode;
+
 /* What the VM's thread is given */
 typedef struct {
-    const char *path;   /* the file main() was given */
-    bool source;        /* GazLang source, to compile first, rather than bytecode main() loaded */
+    Mode mode;
+    const char *path;   /* the file, or NULL for piped input */
+    char *text;         /* its contents */
+    size_t len;
     int argc;           /* the program's arguments */
     char **argv;
     int exit_code;
 } Job;
 
-/* Compile source with the built-in compiler, as `gazlang -c -f path` would (selfhost/gazlang.gaz in its code mode), into a bytecode
-   text: the compiler runs as a program of its own, with its standard output going to memory.
-   NULL when it refused the source, having said why on standard error, with the exit code set. */
-static char *compile_source(Job *job, size_t *len) {
+/* Run the front end, selfhost/gazlang.gaz, in a mode on the job's file, or on its text as
+   piped input: onto standard output, or with *text set into memory. Its exit code; it reports its
+   own errors on standard error. */
+static int run_front_end(Job *job, const char *mode, char **text, size_t *len) {
     program = load((const char *)compiler_gzb, compiler_gzb_size, "selfhost/gazlang.gzb");
     if (!program) {
         report(vm_error);
+        return 1;
+    }
+    char *args[] = {(char *)mode, (char *)job->path};
+    program_argc = job->path ? 2 : 1;
+    program_argv = args;
+    if (!job->path) {
+        /* The driver reads piped source with read_stdin(), which gives it what main() read */
+        piped_input = job->text;
+        piped_input_len = job->len;
+        job->text = NULL;
+    }
+    if (text) output = open_memstream(text, len);
+    loaded = counted;
+    int exit_code = run_program(!text);
+    if (text) {
+        fclose(output);   /* which also sets text and len */
+        output = stdout;
+    }
+    return exit_code;
+}
+
+/* The job, from its first instruction to its exit code: the thread main() starts */
+static void *run(void *arg) {
+    Job *job = arg;
+    /* Bytecode is recognised by its first line or its name, as bin/gazlang does, so a broken .gzb
+       file gets the loader's error; anything else is source */
+    const char *magic = "GAZLANG BYTECODE";
+    size_t n = job->path ? strlen(job->path) : 0;
+    bool bytecode = (n >= 4 && strcmp(job->path + n - 4, ".gzb") == 0)
+        || (job->len >= strlen(magic) && memcmp(job->text, magic, strlen(magic)) == 0);
+
+    if (bytecode && job->mode == M_CODE) {
+        fwrite(job->text, 1, job->len, stdout);
+        job->exit_code = 0;
+        return NULL;
+    }
+    if (bytecode && job->mode != M_RUN) {
+        /* On standard output, as bin/gazlang prints it */
+        printf("Error: %s is bytecode, which only the VM runs\n", job->path ? job->path : "standard input");
         job->exit_code = 1;
         return NULL;
     }
-    char *args[] = {"code", (char *)job->path};
-    program_argc = 2;
-    program_argv = args;
-    char *text = NULL;
-    output = open_memstream(&text, len);
-    int exit_code = run_program(false);
-    fclose(output);   /* which also sets text and len */
-    output = stdout;
-    if (exit_code != 0) {
-        free(text);
-        job->exit_code = exit_code;
+    if (job->mode == M_INTERPRETER) {
+        fputs("Error: There is no interpreter here, only the VM: run bin/gazlang-php --interpreter\n", stderr);
+        job->exit_code = 1;
         return NULL;
     }
-    return text;
-}
+    if (job->mode != M_RUN) {
+        job->exit_code = run_front_end(job, job->mode == M_CODE ? "code" : job->mode == M_TOKENS ? "tokens" : "ast", NULL, NULL);
+        return NULL;
+    }
 
-/* The program, from its first instruction to its exit code: the thread main() starts */
-static void *run(void *arg) {
-    Job *job = arg;
-    if (job->source) {
-        size_t len;
-        char *text = compile_source(job, &len);
-        if (!text) return NULL;
-        /* Loaded as if it were bytecode saved next to its source, which reports exactly the
-           paths running the source does */
-        program = load(text, len, job->path);
-        free(text);
-        if (!program) {
-            report(vm_error);
-            job->exit_code = 1;
+    if (!bytecode) {
+        /* Compiled into memory, then loaded as if it were bytecode saved next to its source,
+           which reports exactly the paths running the source does */
+        char *compiled = NULL;
+        size_t len = 0;
+        int exit_code = run_front_end(job, "code", &compiled, &len);
+        if (exit_code != 0) {
+            free(compiled);
+            job->exit_code = exit_code;
             return NULL;
         }
+        free(job->text);
+        job->text = compiled;
+        job->len = len;
+    }
+    program = load(job->text, job->len, job->path);
+    if (!program) {
+        report(vm_error);
+        /* The loader gives up at the first problem and drops nothing it built */
+        if (getenv("GAZVM_STATS")) fputs("gazvm: leaks not checked: the program did not load\n", stderr);
+        job->exit_code = 1;
+        return NULL;
     }
     loaded = counted;
     program_argc = job->argc;
@@ -1216,36 +1262,104 @@ static void *run(void *arg) {
     return NULL;
 }
 
-int main(int argc, char **argv) {
-    if (argc < 2) {
-        fputs("Usage: gazvm FILE [arguments...], FILE being GazLang source or bytecode\n", stderr);
-        return 1;
-    }
-    size_t len;
-    char *text = read_all(argv[1], &len);
-    if (!text) {
-        fprintf(stderr, "Error: Cannot read file: %s\n", argv[1]);
-        return 1;
-    }
-    output = stdout;
-    Job job = {.path = argv[1], .argc = argc - 2, .argv = argv + 2, .exit_code = 1};
+static const char *HELP =
+    "GazLang - A simple programming language compiler\n"
+    "Usage: gazlang [options] [--] [program arguments...]\n"
+    "Options:\n"
+    "  -h, --help     Show this help message\n"
+    "  -v, --version  Show version information\n"
+    "  -c, --code         Print the compiled bytecode instead of running it (gazlang -c -f x.gaz > x.gzb)\n"
+    "      --interpreter  Run on the tree-walking interpreter instead of the VM (bin/gazlang-php only)\n"
+    "  -t, --tokens   Print the lexer's tokens, one LINE TYPE VALUE per line, instead of interpreting\n"
+    "      --ast      Print the parser's tree instead of running it\n"
+    "  -f, --file     Read input from a file instead of stdin\n";
 
-    /* Bytecode is recognised by its first line or its name, as `gazlang -f` does, so a broken
-       .gzb file gets the loader's error; anything else is source */
-    const char *magic = "GAZLANG BYTECODE";
-    size_t n = strlen(argv[1]);
-    bool named = n >= 4 && strcmp(argv[1] + n - 4, ".gzb") == 0;
-    job.source = !named && (len < strlen(magic) || memcmp(text, magic, strlen(magic)) != 0);
-    if (!job.source) {
-        program = load(text, len, argv[1]);
-        if (!program) {
-            report(vm_error);
-            /* The loader gives up at the first problem and drops nothing it built */
-            if (getenv("GAZVM_STATS")) fputs("gazvm: leaks not checked: the program did not load\n", stderr);
-            return 1;
+static int unknown_option(const char *arg) {
+    fprintf(stderr, "Error: Unknown option %s (put program arguments after --)\n", arg);
+    return 1;
+}
+
+/* The CLI, whose options are bin/gazlang's: PHP's getopt("hvf:ct", [help, version, file:, code,
+   tokens, ast, interpreter]) and its check for options getopt doesn't know. Options end at the
+   first argument that isn't one ("-" alone included) or after "--"; the rest are the program's. */
+int main(int argc, char **argv) {
+    bool help = false, version = false, code = false, tokens = false, ast = false, interpreter = false;
+    const char *file = NULL;
+    int files = 0;
+    int i = 1;
+    for (; i < argc; i++) {
+        char *arg = argv[i];
+        if (strcmp(arg, "--") == 0) {
+            i++;
+            break;
+        }
+        if (arg[0] != '-' || arg[1] == '\0') break;
+        if (arg[1] == '-') {
+            char *name = arg + 2;
+            if (strcmp(name, "help") == 0) help = true;
+            else if (strcmp(name, "version") == 0) version = true;
+            else if (strcmp(name, "code") == 0) code = true;
+            else if (strcmp(name, "tokens") == 0) tokens = true;
+            else if (strcmp(name, "ast") == 0) ast = true;
+            else if (strcmp(name, "interpreter") == 0) interpreter = true;
+            else if (strncmp(name, "file=", 5) == 0 && name[5]) file = name + 5, files++;
+            else if (strcmp(name, "file") == 0) {
+                /* The next argument, whatever it is; none is no file, as getopt has it */
+                if (i + 1 < argc) file = argv[++i], files++;
+            } else return unknown_option(arg);
+            continue;
+        }
+        /* Short options, which can be combined: -ct, or -cf x.gaz, or -cfx.gaz */
+        for (char *c = arg + 1; *c; c++) {
+            if (*c == 'h') help = true;
+            else if (*c == 'v') version = true;
+            else if (*c == 'c') code = true;
+            else if (*c == 't') tokens = true;
+            else if (*c == 'f') {
+                if (c[1]) file = c + 1, files++;
+                else if (i + 1 < argc) file = argv[++i], files++;
+                break;
+            } else return unknown_option(arg);
         }
     }
-    free(text);
+
+    if (help) {
+        fputs(HELP, stdout);
+        return 0;
+    }
+    if (version) {
+        puts("GazLang version 0.1.0");
+        return 0;
+    }
+    if (files > 1) {
+        fputs("Error: Give one file, with -f or --file\n", stderr);
+        return 1;
+    }
+    Job job = {
+        .mode = tokens ? M_TOKENS : ast ? M_AST : code ? M_CODE : interpreter ? M_INTERPRETER : M_RUN,
+        .path = file, .argc = argc - i, .argv = argv + i, .exit_code = 1,
+    };
+
+    if (file) {
+        struct stat st;
+        if (stat(file, &st) != 0 || !S_ISREG(st.st_mode) || access(file, R_OK) != 0 || !(job.text = read_all(file, &job.len))) {
+            fprintf(stderr, "Error: Cannot read file: %s\n", file);
+            return 1;
+        }
+    } else if (isatty(STDIN_FILENO)) {
+        /* No file and nothing piped: there is no interactive mode */
+        fputs(HELP, stderr);
+        return 1;
+    } else {
+        Buf b = {0};
+        char chunk[65536];
+        size_t n;
+        while ((n = fread(chunk, 1, sizeof chunk, stdin)) > 0) buf_add(&b, chunk, n);
+        if (!b.data) buf_add(&b, "", 0);
+        job.text = b.data;
+        job.len = b.len;
+    }
+    output = stdout;
 
     /* Output is buffered in big blocks; anything written to standard error flushes it first,
        so the two stay in the order the program wrote them */
@@ -1265,5 +1379,6 @@ int main(int argc, char **argv) {
         return 1;
     }
     pthread_join(thread, NULL);
+    fflush(stdout);
     return job.exit_code;
 }

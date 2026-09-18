@@ -17,6 +17,8 @@
 #include <unistd.h>
 
 int program_argc;
+char *piped_input;
+size_t piped_input_len;
 char **program_argv;
 
 /* In the order of Builtins::ARITIES, which builtins() gives */
@@ -625,6 +627,12 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         return true;
     case B_READ_STDIN: {
         Buf text = {0};
+        /* Standard input main() read already, to see whether it was bytecode */
+        if (piped_input) {
+            buf_add(&text, piped_input, piped_input_len);
+            free(piped_input);
+            piped_input = NULL;
+        }
         char chunk[65536];
         size_t n;
         while ((n = fread(chunk, 1, sizeof chunk, stdin)) > 0) buf_add(&text, chunk, n);

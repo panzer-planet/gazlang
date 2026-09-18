@@ -1237,9 +1237,11 @@ static void link_program(void) {
 Program *load(const char *text, size_t len, const char *path) {
     have_cwd = getcwd(cwd, sizeof cwd) != NULL;
     last_file = NULL;
-    file_path = str_intern(path, strlen(path));
+    /* Piped bytecode has no path: its errors say "on line N", and its paths are relative to the
+       working directory */
+    file_path = path ? str_intern(path, strlen(path)) : NULL;
     {
-        char *dir = strdup(path);
+        char *dir = strdup(path ? path : ".");
         char *slash = strrchr(dir, '/');
         if (!slash) strcpy(dir, ".");
         else if (slash == dir) dir[1] = '\0';

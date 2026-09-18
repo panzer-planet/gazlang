@@ -104,9 +104,15 @@ $mode = match (true) {
     isset($options['interpreter']) => 'interpret',
     default => 'vm',
 };
-$inputFile = $options['f'] ?? ($options['file'] ?? null);
+// getopt gives an option given twice as a list of its values
+$files = [...(array) ($options['f'] ?? []), ...(array) ($options['file'] ?? [])];
+if (count($files) > 1) {
+    fwrite(STDERR, "Error: Give one file, with -f or --file\n");
+    exit(1);
+}
+$inputFile = $files[0] ?? null;
 
-if ($inputFile) {
+if ($inputFile !== null) {
     // Read from file
     if (!is_file($inputFile) || !is_readable($inputFile)) {
         fwrite(STDERR, "Error: Cannot read file: $inputFile\n");

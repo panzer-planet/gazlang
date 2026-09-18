@@ -435,6 +435,8 @@ typedef struct { const char *name; int lo, hi; } BuiltinInfo;
 extern const BuiltinInfo builtin_info[];
 extern const int nbuiltins;
 extern int program_argc;
+extern char *piped_input;       /* standard input main() read, which read_stdin() gives first, or NULL */
+extern size_t piped_input_len;
 extern char **program_argv;
 int builtin_find(const char *name, size_t len);
 bool call_builtin(int index, Value *args, int argc, Value *out);
