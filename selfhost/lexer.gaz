@@ -1,0 +1,364 @@
+// The GazLang lexer in GazLang: a port of src/Lexer/Lexer.php, which is the spec.
+// tests/SelfHostedLexerTest.php requires the two to give the same tokens and errors.
+// Methods keep the PHP lexer's names, so the two can be read side by side.
+//
+// This file has no top level code, so the parser can include it: $lexer = Lexer($text),
+// then $lexer.get_next_token() until a token's type is "EOF". Errors are LexErrors.
+include "../lib/chars.gaz";
+
+class Token {
+    #type;
+    #value;
+    #line;
+
+    fn _($type, $value) {
+        #type = $type;
+        #value = $value;
+    }
+
+    // As Token::__toString(): "3 INTEGER 42", strings as literals, EOF with no value
+    fn to_string() {
+        $value = match {
+            #type == "EOF" => "",
+            // A list prints its strings as literals (Lexer::quote()), and a float already
+            // prints as the shortest literal that reads back (Lexer::format_float())
+            in_array(#type, ["STRING", "STRING_START", "STRING_MIDDLE", "STRING_END"]) => " " .. slice(to_string([#value]), 1, -1),
+            default => " " .. #value,
+        };
+
+        return "{#line} {#type}{$value}";
+    }
+}
+
+class LexError extends Error {
+    fn _($reason, $line) {
+        ##_("{$reason} on line {$line}");
+    }
+}
+
+class Lexer {
+    #text;
+    #length;
+    #pos = 0;
+    // The current character, or "" at the end of the input (null in the PHP lexer)
+    #char;
+    #line = 1;
+
+    // Every operator and punctuation mark but { and }; the longest one that matches wins
+    #operators = {
+        "+" => "PLUS", "+=" => "PLUS_ASSIGN", "++" => "INCREMENT",
+        "-" => "MINUS", "-=" => "MINUS_ASSIGN", "--" => "DECREMENT", "->" => "ARROW",
+        "*" => "MULTIPLY", "*=" => "MULTIPLY_ASSIGN",
+        "/" => "DIVIDE", "/=" => "DIVIDE_ASSIGN",
+        "%" => "MODULO", "%=" => "MODULO_ASSIGN",
+        "&" => "BIT_AND", "&=" => "BIT_AND_ASSIGN", "&&" => "AND",
+        "|" => "BIT_OR", "|=" => "BIT_OR_ASSIGN", "||" => "OR",
+        "^" => "BIT_XOR", "^=" => "BIT_XOR_ASSIGN",
+        "~" => "BIT_NOT",
+        "<" => "LESS_THAN", "<=" => "LESS_EQUALS", "<=>" => "SPACESHIP",
+        "<<" => "SHIFT_LEFT", "<<=" => "SHIFT_LEFT_ASSIGN",
+        ">" => "GREATER_THAN", ">=" => "GREATER_EQUALS",
+        ">>" => "SHIFT_RIGHT", ">>=" => "SHIFT_RIGHT_ASSIGN",
+        "=" => "ASSIGN", "==" => "EQUALS", "=>" => "DOUBLE_ARROW",
+        "!" => "NOT", "!=" => "NOT_EQUALS",
+        ".." => "CONCAT", "..=" => "CONCAT_ASSIGN",
+        "?" => "QUESTION", "??" => "COALESCE", "??=" => "COALESCE_ASSIGN",
+        ":" => "COLON", "," => "COMMA", ";" => "SEMICOLON",
+        "[" => "LEFT_BRACKET", "]" => "RIGHT_BRACKET",
+        "(" => "LEFT_PAREN", ")" => "RIGHT_PAREN",
+    };
+
+    // Lowercase and matched exactly: a capitalisation of one is an ordinary name
+    #keywords = {
+        "echo" => "ECHO", "if" => "IF", "else" => "ELSE", "while" => "WHILE", "for" => "FOR",
+        "foreach" => "FOREACH", "as" => "AS", "break" => "BREAK", "continue" => "CONTINUE",
+        "fn" => "FN", "function" => "FUNCTION", "return" => "RETURN", "null" => "NULL",
+        "delete" => "DELETE", "match" => "MATCH", "default" => "DEFAULT", "include" => "INCLUDE",
+        "try" => "TRY", "catch" => "CATCH", "finally" => "FINALLY", "true" => "TRUE",
+        "false" => "FALSE", "class" => "CLASS", "extends" => "EXTENDS", "abstract" => "ABSTRACT",
+        "interface" => "INTERFACE", "implements" => "IMPLEMENTS", "final" => "FINAL",
+        "public" => "PUBLIC", "private" => "PRIVATE", "protected" => "PROTECTED",
+    };
+
+    fn _($text) {
+        #text = $text;
+        #length = len($text);
+        #char = char_at($text, 0);
+    }
+
+    fn fail($reason, $line = null) {
+        error(LexError($reason, $line ?? #line));
+    }
+
+    fn advance() {
+        if (#char == "\n") {
+            #line++;
+        }
+        #skip(1);
+    }
+
+    // Move past characters that are known not to be newlines
+    fn skip($count) {
+        #pos += $count;
+        #char = char_at(#text, #pos);
+    }
+
+    fn peek($offset = 1) {
+        return char_at(#text, #pos + $offset);
+    }
+
+    // Whether a character can start a name: a letter or _
+    fn is_name_start($c) {
+        return is_alpha($c) || $c == "_";
+    }
+
+    fn skip_whitespace() {
+        while (is_space(#char)) {
+            #advance();
+        }
+    }
+
+    // From // to the end of the line
+    fn skip_comment() {
+        while (#char != "" && #char != "\n") {
+            #skip(1);
+        }
+        #advance();
+    }
+
+    // From /* to the matching */, nesting. One left open is reported where the outermost opened
+    fn skip_block_comment() {
+        $start_line = #line;
+        $depth = 0;
+
+        while (#char != "") {
+            if (#char == "/" && #peek() == "*") {
+                #skip(2);
+                $depth++;
+            } else if (#char == "*" && #peek() == "/") {
+                #skip(2);
+                $depth--;
+                if ($depth == 0) {
+                    return;
+                }
+            } else {
+                #advance();
+            }
+        }
+
+        #fail("Unterminated block comment", $start_line);
+    }
+
+    // An INTEGER (42, 0xFF) or a FLOAT (1.5, 1e10, 2.5E-3)
+    fn number() {
+        $text = #read_digits();
+        $is_float = false;
+
+        if ($text == "0" && (#char == "x" || #char == "X") && is_hex_digit(#peek())) {
+            $text ..= #char;
+            #skip(1);
+            $hex = #read_hex(#length);
+            $text ..= $hex;
+            if (#is_name_start(#char)) {
+                #fail("Invalid number literal: " .. $text .. #read_word());
+            }
+
+            return Token("INTEGER", #hex_value($hex) ?? #fail("Integer literal too large: {$text}"));
+        }
+
+        if (#char == "." && is_digit(#peek())) {
+            #skip(1);
+            $text ..= "." .. #read_digits();
+            $is_float = true;
+        }
+
+        $sign = #peek();
+        if ((#char == "e" || #char == "E")
+            && (is_digit($sign) || ($sign == "+" || $sign == "-") && is_digit(#peek(2)))) {
+            $text ..= #char;
+            #skip(1);
+            if (#char == "+" || #char == "-") {
+                $text ..= #char;
+                #skip(1);
+            }
+            $text ..= #read_digits();
+            $is_float = true;
+        }
+
+        // Numbers have no members either: 1.x is a mistake, not a property of 1
+        if (#char == "." && #is_name_start(#peek())) {
+            #skip(1);
+            $text ..= ".";
+        }
+        if (#is_name_start(#char)) {
+            #fail("Invalid number literal: " .. $text .. #read_word());
+        }
+
+        // The digits are valid, so the only way these fail is by not fitting
+        try {
+            return Token($is_float ? "FLOAT" : "INTEGER", $is_float ? to_float($text) : to_int($text));
+        } catch (Error $e) {
+            #fail(($is_float ? "Float" : "Integer") .. " literal too large: {$text}");
+        }
+    }
+
+    // The int written by some hex digits, or null if it doesn't fit
+    fn hex_value($hex) {
+        $value = 0;
+        try {
+            foreach (split(lower($hex), "") as $digit) {
+                $value = $value * 16 + index_of("0123456789abcdef", $digit);
+            }
+        } catch (Error $e) {
+            return null;
+        }
+
+        return $value;
+    }
+
+    fn read_digits() {
+        $start = #pos;
+        while (is_digit(#char)) {
+            #skip(1);
+        }
+
+        return slice(#text, $start, #pos - $start);
+    }
+
+    // Up to $max hex digits
+    fn read_hex($max) {
+        $start = #pos;
+        while (#pos - $start < $max && is_hex_digit(#char)) {
+            #skip(1);
+        }
+
+        return slice(#text, $start, #pos - $start);
+    }
+
+    // Letters, digits and underscores from the current character on
+    fn read_word() {
+        $start = #pos;
+        while (is_alnum(#char) || #char == "_") {
+            #skip(1);
+        }
+
+        return slice(#text, $start, #pos - $start);
+    }
+
+    // Raw, with PHP's rules: only \' and \\ are escapes, any other backslash is kept
+    fn single_quoted_string() {
+        $start_line = #line;
+        #skip(1);
+
+        $result = "";
+        while (#char != "" && #char != "'") {
+            if (#char == "\\" && (#peek() == "'" || #peek() == "\\")) {
+                #skip(1);
+            }
+            $result ..= #char;
+            #advance();
+        }
+
+        if (#char == "") {
+            #fail("Unterminated string", $start_line);
+        }
+        #skip(1);
+
+        return $result;
+    }
+
+    // A keyword, or an IDENTIFIER for any other bare name
+    fn identifier() {
+        $word = #read_word();
+
+        return Token(#keywords[$word] ?? "IDENTIFIER", $word);
+    }
+
+    // A local ($name) or global (@name) variable; the sigil is part of the name
+    fn var_identifier() {
+        $type = #char == "@" ? "GLOBAL_VAR_IDENTIFIER" : "VAR_IDENTIFIER";
+        $sigil = #char;
+        #skip(1);
+
+        // The whole bad name is shown, so $1abc reads as one mistake rather than a lone $
+        if (!#is_name_start(#char)) {
+            #fail("Invalid variable name: " .. $sigil .. #read_word());
+        }
+
+        return Token($type, $sigil .. #read_word());
+    }
+
+    // # (the object), #name (its member), ## or ##name (the parent's version of a method)
+    fn hash() {
+        #skip(1);
+        $parent = #char == "#";
+        if ($parent) {
+            #skip(1);
+        }
+        $sigil = $parent ? "##" : "#";
+        if (#is_name_start(#char)) {
+            return Token($parent ? "PARENT_IDENTIFIER" : "HASH_IDENTIFIER", $sigil .. #read_word());
+        }
+
+        return Token($parent ? "PARENT" : "HASH", $sigil);
+    }
+
+    // Skip whitespace and comments, then read one token
+    fn get_next_token() {
+        while (#char != "") {
+            if (is_space(#char)) {
+                #skip_whitespace();
+            } else if (#char == "/" && #peek() == "/") {
+                #skip_comment();
+            } else if (#char == "/" && #peek() == "*") {
+                #skip_block_comment();
+            } else {
+                break;
+            }
+        }
+
+        $line = #line;
+        $token = #scan_token();
+        $token.line = $line;
+
+        return $token;
+    }
+
+    // The token starting at the current character, which is not whitespace or a comment
+    fn scan_token() {
+        $c = #char;
+
+        match {
+            $c == "" => { return Token("EOF", null); }
+            is_digit($c) => { return #number(); }
+            $c == "'" => { return Token("STRING", #single_quoted_string()); }
+            $c == "$" || $c == "@" => { return #var_identifier(); }
+            #is_name_start($c) => { return #identifier(); }
+            $c == "#" => { return #hash(); }
+            // .name is one token, so the name is glued to the dot
+            $c == "." && #is_name_start(#peek()) => {
+                #skip(1);
+                return Token("PROPERTY", "." .. #read_word());
+            }
+            $c == "{" => {
+                #skip(1);
+                return Token("LEFT_BRACE", "{");
+            }
+            $c == "}" => {
+                #skip(1);
+                return Token("RIGHT_BRACE", "}");
+            }
+            default => {}
+        }
+
+        foreach ([3, 2, 1] as $length) {
+            $operator = slice(#text, #pos, $length);
+            if (has_key(#operators, $operator)) {
+                #skip($length);
+                return Token(#operators[$operator], $operator);
+            }
+        }
+
+        #fail("Unexpected character '{$c}'");
+    }
+}

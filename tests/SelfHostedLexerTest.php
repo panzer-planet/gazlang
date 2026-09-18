@@ -9,17 +9,17 @@ use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 
 /**
- * Checks the GazLang lexer (selfhost/lexer.gaz) against the PHP lexer, which is the spec
+ * Checks the GazLang lexer (selfhost/lexer.gaz, run by selfhost/tokens.gaz) against the PHP lexer, which is the spec
  *
  * For every corpus file the PHP lexer's `gazlang --tokens` output is the expected
- * output. The self-hosted lexer is run as `gazlang -f selfhost/lexer.gaz -- FILE`
+ * output. The self-hosted lexer is run as `gazlang -f selfhost/tokens.gaz -- FILE`
  * (in-process, see runProgram()) and must print exactly the same lines and exit with the same code: each token as
  * Token::__toString() formats it, then on a lexer error the error message, printed
  * by error() as "Error: <message> on line N", with exit code 1.
  */
 class SelfHostedLexerTest extends GazLangTestCase
 {
-    private const LEXER = 'selfhost/lexer.gaz';
+    private const LEXER = 'selfhost/tokens.gaz';
 
     /**
      * Every .gaz file the lexers are compared on, keyed by path relative to the project root
