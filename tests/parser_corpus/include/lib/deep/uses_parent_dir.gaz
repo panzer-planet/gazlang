@@ -1,0 +1,5 @@
+// Paths are relative to the file they are written in, and a cycle ends at the file already read
+include "../shapes.gaz";
+include "../../main.gaz";
+include "helper.gaz";
+echo "deep";

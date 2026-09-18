@@ -1,0 +1,2 @@
+include "lib/error_member.gaz";
+echo 1;

@@ -1,0 +1,9 @@
+// Statements are spliced in where the file is included, and each file is included once
+echo "before";
+include "lib/shapes.gaz";
+echo area(Square(2));
+include "lib/shapes.gaz";
+include "./lib/../lib/shapes.gaz";
+include "lib/deep/uses_parent_dir.gaz";
+include "main.gaz";
+echo helper() .. "after";

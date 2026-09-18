@@ -26,9 +26,9 @@ class SelfHostedParserTest extends GazLangTestCase
     private const PARSER = 'selfhost/ast.gaz';
 
     /**
-     * Where the corpus is: the parser's own cases until the port covers the language
+     * Where the corpus is: selfhost/ too, so the ported parser is also checked on its own source
      */
-    private const CORPUS = ['tests/parser_corpus'];
+    private const CORPUS = ['examples', 'lib', 'selfhost', 'tests'];
 
     /**
      * The driver, compiled once: parsing and compiling the parser again for every corpus file
@@ -75,13 +75,18 @@ class SelfHostedParserTest extends GazLangTestCase
     }
 
     /**
-     * @dataProvider corpus
+     * The parser's own cases, which are named after what they do
+     */
+    public static function parserCorpus(): array
+    {
+        return array_filter(self::corpus(), fn (string $file) => str_starts_with($file, 'tests/parser_corpus/'), ARRAY_FILTER_USE_KEY);
+    }
+
+    /**
+     * @dataProvider parserCorpus
      */
     public function test_corpus_files_named_error_are_exactly_the_ones_that_fail(string $file)
     {
-        if (! str_starts_with($file, 'tests/parser_corpus/')) {
-            $this->markTestSkipped('Only the parser corpus names its files after what they do');
-        }
         [, $exit_code] = self::phpAst($file);
 
         $this->assertSame(str_starts_with(basename($file), 'error_') ? 1 : 0, $exit_code);

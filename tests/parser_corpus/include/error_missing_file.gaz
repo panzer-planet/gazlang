@@ -1,0 +1,3 @@
+include "lib/deep/helper.gaz";
+echo 1;
+include "missing.gaz";

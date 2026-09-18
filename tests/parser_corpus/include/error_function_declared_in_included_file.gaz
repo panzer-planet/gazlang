@@ -1,0 +1,2 @@
+include "lib/deep/helper.gaz";
+fn helper() { }

@@ -135,3 +135,28 @@ things are worse than a constant, though:
 - Top level only (`const LEFT_PAREN = "LEFT_PAREN";`). Simpler, but included files share one
   namespace (hole 5), so every module prefixes its constants as it does its functions.
 - Leave it. Fields work; typos in token types stay silent.
+
+## 9. The file system can only be read from (hole 6: no `cwd()`, no file-existence test)
+
+**Met:** `include`. The PHP parser uses `realpath()` (to include each file once, however it is
+spelt), `getcwd()` (to show an included file relative to the working directory), `dirname()`,
+and `is_file()`/`is_readable()` (to say "Cannot include file" rather than read nothing).
+
+**Workaround:**
+- `normalise()` resolves `.` and `..` textually and `dirname()` is a `split` and a `join`, 35
+  lines together. A path given relative to the working directory stays relative to it, which is
+  how PHP displays it, so the two agree on everything in the repository.
+- Existence is `try { read_file($path); } catch (Error $e)`, with only the read in the `try`.
+
+**Where it is wrong, knowingly** (marked `ponytail:` in `parser.gaz`): a symlinked file can be
+included twice; a main file given by absolute path shows its includes as absolute where PHP shows
+them relative; an include that climbs out of the working directory shows as `../x.gaz` where PHP
+shows the absolute path. None can be fixed in GazLang: all three need to know where the process is.
+
+**Options:**
+- `cwd()` and `real_path($path)` (null when there is nothing there, which is also the existence
+  test). Two builtins, each one libc call in C. **Recommended**: they are the only entries in this
+  log where the workaround is *wrong* rather than long, and the bytecode's `@ "file"` records are
+  relative-path rewrites the self-hosted compiler must reproduce byte for byte (hole 6 says so),
+  so the code generator port will hit this again harder.
+- `file_exists($path)` alone: fixes the try/catch, not the three divergences.

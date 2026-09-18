@@ -109,6 +109,10 @@ class Parser {
     #previous_token = null;
     // The file being parsed, as shown in errors
     #file;
+    // Directory that include paths in the file being parsed are relative to
+    #base_dir;
+    // The path of every file parsed so far, so each is only included once
+    #included = {};
 
     // How many loops enclose the statement being parsed, so break and continue can be checked
     #loop_depth = 0;
@@ -193,8 +197,13 @@ class Parser {
         "STRING" => "a string", "COLON" => "':'", "ARROW" => "'->'", "DOUBLE_ARROW" => "'=>'",
     };
 
-    // $path is the file the source came from, if any
+    // $path is the file the source came from, if any; includes resolve relative to it
     fn _($lexer, $path = null) {
+        if ($path != null) {
+            #included[#normalise($path)] = true;
+        }
+        #base_dir = $path == null ? "." : #dirname($path);
+        // The main file is shown as the user gave it; included files relative to the working directory
         #file = $path;
         #lexer = $lexer;
         #current_token = #next_token();
@@ -246,6 +255,46 @@ class Parser {
         } catch (LexError $e) {
             error(ParseError($e.reason, #file, $e.source_line));
         }
+    }
+
+    // A path without its "." and ".." steps and doubled slashes: "a/./b/../c" is "a/c"
+    //
+    // ponytail: this stands in for PHP's realpath() and getcwd(), which GazLang has no way to
+    // ask for. A path given relative to the working directory stays relative to it, which is
+    // how the PHP parser shows an included file, so the two agree until a symlink (the same
+    // file could be included twice), a main file given by its absolute path, or an include
+    // that climbs out of the working directory (both shown differently). Builtins for the
+    // working directory and a real path would remove all three.
+    fn normalise($path) {
+        $steps = [];
+        foreach (split($path, "/") as $step) {
+            if ($step == "" || $step == ".") {
+                continue;
+            }
+            $last = len($steps) - 1;
+            if ($step == ".." && $last >= 0 && $steps[$last] != "..") {
+                delete $steps[$last];
+            } else if ($step != ".." || !starts_with($path, "/")) {
+                $steps[] = $step;
+            }
+        }
+        $joined = join($steps, "/");
+        if (starts_with($path, "/")) {
+            return "/" .. $joined;
+        }
+
+        return $joined == "" ? "." : $joined;
+    }
+
+    // The directory a path is in, as PHP's dirname()
+    fn dirname($path) {
+        $steps = split($path, "/");
+        if (len($steps) == 1) {
+            return ".";
+        }
+        $directory = join(slice($steps, 0, -1), "/");
+
+        return $directory == "" ? "/" : $directory;
     }
 
     // Record where a node came from, so errors about it can point at the source
@@ -1660,7 +1709,7 @@ class Parser {
         return "{$what} expects {$expected} arguments, {$argc} given";
     }
 
-    // Parse top level items until the end of the current file (statement*)
+    // Parse top level items until the end of the current file ((function_declaration | class_declaration | include | statement)*)
     fn top_level() {
         $statements = [];
         while (#current_token.type != "EOF") {
@@ -1668,10 +1717,56 @@ class Parser {
                 $statements[] = #function_declaration();
             } else if (#current_token.type == "CLASS" || #current_token.type == "ABSTRACT") {
                 $statements[] = #class_declaration();
+            } else if (#current_token.type == "INCLUDE") {
+                foreach (#include_statement() as $statement) {
+                    $statements[] = $statement;
+                }
             } else {
                 $statements[] = #statement();
             }
         }
+
+        return $statements;
+    }
+
+    // Parse an include (INCLUDE STRING SEMICOLON) and the top level of the included file
+    //
+    // The path is relative to the including file. The included file shares this
+    // parser's functions, so everything is checked and hoisted as one program, and
+    // a file already parsed (including the main file) is skipped, which also stops
+    // include cycles. It gives the included file's statements, or none if it was already included.
+    fn include_statement() {
+        #eat("INCLUDE");
+        $path_token = #current_token;
+        if ($path_token.type == "STRING_START") {
+            // Includes are resolved while parsing, before any variable has a value
+            #fail("include paths cannot use interpolation");
+        }
+        #eat("STRING");
+        #eat("SEMICOLON");
+
+        $relative = $path_token.value;
+        $path = #normalise(starts_with($relative, "/") ? $relative : #base_dir .. "/" .. $relative);
+        if (has_key(#included, $path)) {
+            return [];
+        }
+        // Reading it is the only way to ask whether it is there. Only that is in the try: a
+        // catch of Error around the parsing would also catch a bug in it.
+        $text = null;
+        try {
+            $text = read_file($path);
+        } catch (Error $e) {
+            #fail_at("Cannot include file: {$relative}", #file, $path_token.line);
+        }
+        #included[$path] = true;
+
+        [$lexer, $current_token, $base_dir, $file] = [#lexer, #current_token, #base_dir, #file];
+        #lexer = Lexer($text);
+        #base_dir = #dirname($path);
+        #file = $path;
+        #current_token = #next_token();
+        $statements = #top_level();
+        [#lexer, #current_token, #base_dir, #file] = [$lexer, $current_token, $base_dir, $file];
 
         return $statements;
     }

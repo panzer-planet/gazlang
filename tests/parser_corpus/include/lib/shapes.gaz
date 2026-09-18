@@ -1,0 +1,8 @@
+// Declares a class and a function for whoever includes it, and includes its own neighbour
+include "deep/helper.gaz";
+class Square {
+    #side;
+    fn _($side) { #side = $side; }
+}
+fn area($square) { return $square.side * $square.side + helper(); }
+echo "shapes loaded";
