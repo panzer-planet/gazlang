@@ -144,6 +144,11 @@ abstract class GazLangTestCase extends TestCase
      */
     protected function executeCode(string $input): string
     {
+        // vm/snippets.php collects every snippet for the C VM's harness
+        if (($record = getenv('GAZLANG_RECORD_SNIPPETS')) !== false) {
+            file_put_contents($record, Lexer::quote($input)."\n", FILE_APPEND);
+        }
+
         [$output, $error] = $this->capture(fn () => $this->createInterpreter($input)->interpret());
 
         // Every snippet also runs on the VM, which must print the same and fail the same way
