@@ -1392,3 +1392,7 @@ const char *__lsan_default_suppressions(void);
 const char *__lsan_default_suppressions(void) {
     return "leak:^load$\nleak:^read_block$\nleak:^check_block$\nleak:^split_words$\n";
 }
+const char *__lsan_default_options(void);
+const char *__lsan_default_options(void) {
+    return "print_suppressions=0";   /* or it lists them on standard error, which the tests compare */
+}
