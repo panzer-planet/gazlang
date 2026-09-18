@@ -1,5 +1,6 @@
 /*
- * gazvm: the GazLang VM in C. Runs the bytecode `gazlang -c` writes (docs/bytecode.md).
+ * gazvm: the GazLang VM in C. Runs the bytecode `gazlang -c` writes (docs/bytecode.md), or
+ * source, which it first compiles with the self-hosted compiler built into it (see run() in vm.c).
  *
  * The PHP implementation (src/VM, src/Runtime) is the reference: every operator, builtin,
  * error message and location here must match it, and tests/CVMTest.php checks that they do.
@@ -219,6 +220,9 @@ struct Block {
     /* while loading */
     struct RawInstr *raw;
     int nraw;
+    int label_cap;      /* the labels by name (see find_label()), 0 until looked up */
+    Str **label_names;
+    int *label_at;
 };
 
 struct Function {
@@ -418,12 +422,12 @@ void location_text(Str *path, int64_t line, Buf *out);
 
 extern Program *program;
 bool call_method(Object *o, Class *definer, Str *name, Value *out);   /* runs a method to its end */
+extern FILE *output;        /* where echo and print write: standard output, or memory while compiling */
 void flush_output(void);
 
 /* ---- load.c ---------------------------------------------------------------------------- */
 
 Program *load(const char *text, size_t len, const char *path);   /* NULL with vm_error set */
-Str *absolute_path(const char *path);
 
 /* ---- builtins.c ------------------------------------------------------------------------ */
 

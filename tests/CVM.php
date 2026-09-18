@@ -18,9 +18,11 @@ use Throwable;
  * An entry is a path relative to the project root, optionally followed by the program's
  * arguments: "selfhost/compile.gaz examples/functions.gaz"; "snippet:<id>", a snippet the PHP
  * tests run (see snippets()); or a .gzb file under tests/bytecode_corpus, run as it is, which
- * tests the loaders on files no compiler writes (the ones named error_* must be refused). The PHP compiler writes the
- * bytecode to vm/build/gzb/<path>.gzb, and both VMs run that same file from the project root,
- * so both resolve its source paths the same way. vm/passing.txt lists the entries the C VM must
+ * tests the loaders on files no compiler writes (the ones named error_* must be refused). A
+ * source file runs from its source on both, as `gazlang -f FILE` runs it: the C VM compiles it
+ * with the self-hosted compiler built into it, and the PHP VM runs what the PHP compiler writes
+ * to vm/build/gzb/<path>.gzb, loaded as if it were next to its source. A snippet runs from that
+ * file on both, from the project root, so both resolve its paths the same way. vm/passing.txt lists the entries the C VM must
  * already match (CVMTest), and vm/progress.php finds the ones it has started to.
  */
 final class CVM
@@ -130,12 +132,14 @@ final class CVM
             };
             $results[$entry] = null;
             if ($gzb !== null) {
-                $jobs[$entry] = [$gzb, $args];
+                // A source file runs from its source on both: the C VM compiles it with the
+                // compiler built into it, and the PHP VM runs it as `gazlang -f` does
+                $jobs[$entry] = [$gzb, $args, str_ends_with($file, '.gaz') ? $file : null];
             }
         }
         if ($isolated) {
-            $php = self::processes(array_map(fn ($job) => [PHP_BINARY, '-d', 'pcov.enabled=0', 'bin/gazlang', '-f', $job[0], '--', ...$job[1]], $jobs), ['GAZLANG_RESTARTED' => '1']);
-            $c = self::processes(array_map(fn ($job) => [self::binary(), $job[0], ...$job[1]], $jobs), ['GAZVM_STATS' => '1']);
+            $php = self::processes(array_map(fn ($job) => [PHP_BINARY, '-d', 'pcov.enabled=0', 'bin/gazlang', '-f', $job[2] ?? $job[0], '--', ...$job[1]], $jobs), ['GAZLANG_RESTARTED' => '1']);
+            $c = self::processes(array_map(fn ($job) => [self::binary(), $job[2] ?? $job[0], ...$job[1]], $jobs), ['GAZVM_STATS' => '1']);
             foreach ($jobs as $entry => $_) {
                 $results[$entry] = [$php[$entry], self::leaks($c[$entry])];
             }
@@ -146,19 +150,19 @@ final class CVM
         // The PHP side runs in this process while the C side's processes run
         $php = [];
         $pending = $jobs;
-        $c = self::processes(array_map(fn ($job) => [self::binary(), $job[0], ...$job[1]], $jobs), ['GAZVM_STATS' => '1'], function () use (&$pending, &$php) {
+        $c = self::processes(array_map(fn ($job) => [self::binary(), $job[2] ?? $job[0], ...$job[1]], $jobs), ['GAZVM_STATS' => '1'], function () use (&$pending, &$php) {
             if ($pending === []) {
                 return false;
             }
             $entry = array_key_first($pending);
-            [$gzb, $args] = $pending[$entry];
+            [$gzb, $args, $source] = $pending[$entry];
             unset($pending[$entry]);
-            $php[$entry] = self::runPhp($gzb, $args);
+            $php[$entry] = self::runPhp($gzb, $args, $source);
 
             return true;
         });
-        foreach ($pending as $entry => [$gzb, $args]) {
-            $php[$entry] = self::runPhp($gzb, $args);
+        foreach ($pending as $entry => [$gzb, $args, $source]) {
+            $php[$entry] = self::runPhp($gzb, $args, $source);
         }
         foreach ($jobs as $entry => $_) {
             $results[$entry] = [$php[$entry], self::leaks($c[$entry])];
@@ -315,15 +319,17 @@ final class CVM
 
     /**
      * Run bytecode on the PHP VM as `gazlang -f` would: in-process, unless it reads standard
-     * input, which in-process would be the test runner's, or is one of the DEEP ones
+     * input, which in-process would be the test runner's, or is one of the DEEP ones. Given
+     * $source, the file the bytecode was compiled from, it runs as `gazlang -f` runs the source,
+     * whose paths it then shows
      *
      * @return array{0: string, 1: string, 2: int}
      */
-    private static function runPhp(string $gzb, array $args): array
+    private static function runPhp(string $gzb, array $args, ?string $source = null): array
     {
         $text = (string) file_get_contents(self::ROOT."/{$gzb}");
         if (in_array($gzb, self::DEEP, true) || str_contains($text, 'CALL_BUILTIN read_stdin') || str_contains($text, 'PUSH_FN read_stdin')) {
-            return self::process([PHP_BINARY, '-d', 'pcov.enabled=0', 'bin/gazlang', '-f', $gzb, '--', ...$args], ['GAZLANG_RESTARTED' => '1']);
+            return self::process([PHP_BINARY, '-d', 'pcov.enabled=0', 'bin/gazlang', '-f', $source ?? $gzb, '--', ...$args], ['GAZLANG_RESTARTED' => '1']);
         }
 
         $cwd = getcwd();
@@ -333,7 +339,7 @@ final class CVM
         ob_start();
         $code = 0;
         try {
-            (new VM(Program::read($text, $gzb), $args))->run();
+            (new VM(Program::read($text, $source ?? $gzb), $args))->run();
         } catch (ExitSignal $e) {
             $code = $e->code;
         } catch (GazLangError $e) {

@@ -122,6 +122,15 @@ class BytecodeTest extends GazLangTestCase
         $this->assertSame(0, $exit_code);
     }
 
+    public function test_a_gzb_file_is_bytecode_even_when_it_is_broken()
+    {
+        $gazlang = escapeshellarg(PHP_BINARY).' '.escapeshellarg(self::ROOT.'/bin/gazlang');
+        exec("cd {$this->root()} && {$gazlang} -f tests/bytecode_corpus/error_not_bytecode.gzb 2>&1", $output, $exit_code);
+
+        $this->assertSame(['Error: Not a bytecode file at tests/bytecode_corpus/error_not_bytecode.gzb:1'], $output);
+        $this->assertSame(1, $exit_code);
+    }
+
     public function test_the_interpreter_does_not_run_bytecode()
     {
         $gazlang = escapeshellarg(PHP_BINARY).' '.escapeshellarg(self::ROOT.'/bin/gazlang');

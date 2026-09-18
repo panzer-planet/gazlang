@@ -620,7 +620,7 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     }
     case B_PRINT:
     case B_PRINT_ERROR:
-        if (!write_text(index == B_PRINT ? stdout : stderr, a)) return false;
+        if (!write_text(index == B_PRINT ? output : stderr, a)) return false;
         *out = v_null();
         return true;
     case B_READ_STDIN: {

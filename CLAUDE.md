@@ -30,9 +30,14 @@ php bin/gazlang --interpreter -f examples/functions.gaz
 # Print the compiled VM code instead of running it
 php bin/gazlang -f examples/functions.gaz -c
 
-# The VM in C (roadmap step 7, stage 2): build it, and run bytecode on it
+# The VM in C (roadmap step 7, stage 2): build it, and run source (with the self-hosted
+# compiler built into it) or bytecode on it
 make -C vm
+vm/gazvm examples/functions.gaz
 php bin/gazlang -c -f examples/functions.gaz > /tmp/f.gzb && vm/gazvm /tmp/f.gzb
+
+# After changing selfhost/, rebuild the compiler the C VM has built in (a test fails until then)
+php bin/gazlang -c -f selfhost/compile.gaz > selfhost/compile.gzb
 
 # Which programs the C VM matches the PHP VM on (CVMTest checks the ones in vm/passing.txt);
 # --update adds the new ones. After changing either VM, also fuzz them against each other
@@ -325,8 +330,9 @@ each step depends on the ones before it.
    1. ~~**Pin down the bytecode as a file format.**~~ Done 2026-09-17, see
       `docs/bytecode.md`, which specifies the file and every instruction (arguments, stack
       effect, errors) and is what the C VM will be built from. `gazlang -c -f x.gaz > x.gzb`
-      writes a file and `gazlang -f x.gzb` runs it (recognised by its first line, so there is
-      no flag); a normal run still compiles in memory and never goes through the text, while
+      writes a file and `gazlang -f x.gzb` runs it (recognised by its first line or a name
+      ending in `.gzb`, so there is no flag, and a broken `.gzb` gets the loader's error rather
+      than a syntax error); a normal run still compiles in memory and never goes through the text, while
       every test's VM side goes through write-then-read, so the suite tests the format too.
       - **Text, one instruction per line**, not binary or JSON: the self-hosted compiler
         writes it with `..` and `join` (GazLang can't pack bytes), a C loader needs only a
@@ -669,8 +675,9 @@ each step depends on the ones before it.
    every program, snippet and corpus file there is. **What is left is the bootstrap** (stage 4).
    Its first half already holds: the PHP compiler's bytecode for `selfhost/compile.gaz`, run on
    the C VM, compiles the compiler to the same bytecode byte for byte, and that compiles it again
-   to the same (`test_the_self_hosted_compiler_compiles_itself_on_the_c_vm`, 2s). What is left is
-   making `gazlang` a C program that uses it.
+   to the same (`test_the_self_hosted_compiler_compiles_itself_on_the_c_vm`, 2s). The C VM
+   runs source with that compiler built in (see "The C VM"). What is left is the rest of the
+   CLI (`-f`, `--`, `-c`, `--tokens`, `--ast`, piped input) and making it `gazlang`.
 
    **The README's examples are tests.** `ReadmeTest` pulls every ```` ```gaz ```` block that is
    followed by an output block out of `README.md` and requires it to print exactly that, on
@@ -784,10 +791,29 @@ which file does what; the files follow the PHP classes (`value.c` and `ops.c` ar
   two names on every run of two instructions (the self-hosted parser -12%, objects -18%), and
   inline caches on the member instructions (-2.5%). What didn't, and was dropped: threaded
   dispatch (computed goto; the CPU predicts the switch's one jump well), syncing the stack pointer
-  for nested calls only where needed, and a fast path for `==`. The loader looks labels and names
-  up linearly, which is 20ms on the 25,000-line `compile.gaz.gzb`: not worth a hash yet. What is
+  for nested calls only where needed, and a fast path for `==`. What is
   left in a profile of the self-hosted parser is the dispatch loop itself (two thirds), malloc and
   free, and the collector (6%).
+- **It runs source** (built 2026-09-18): `gazvm FILE [args]` compiles a file that isn't
+  bytecode with the self-hosted compiler, which is built into it, and runs the result, with the
+  same output, errors, paths and exit codes as `php bin/gazlang -f FILE`. The compiler is
+  `selfhost/compile.gzb`, checked in next to its source so its `@ "file"` records are exact,
+  turned into a C array by `od` when the VM is built (`vm/build/compiler.c`: numbers only, so
+  nothing to escape, and no trigraphs, which `-std=c11` turns on and the `??=` in it would be),
+  and kept equal to what the PHP compiler writes for `selfhost/compile.gaz` by the fixed-point
+  test. **The compiler's output is captured, not piped** (decided 2026-09-18, over two processes
+  and a `load()` builtin): it runs as a program of its own with `output`, where `echo` and
+  `print` write, pointed at an `open_memstream()` buffer, and the buffer is then loaded as if it
+  were bytecode saved next to the source. Its errors go to standard error as they would anyway.
+  Each run starts with fresh stacks, frames and globals, and what the compile left is dropped
+  before the program starts, so the leak check still sees only the program. A source run
+  costs about 10ms before the program's first instruction, 8ms of it loading the compiler.
+  That was 52ms at first: `getcwd()`, which walks the file system on macOS, ran twice for every
+  `@` line, and labels, instruction names and interned strings were found by searching or by
+  allocating a probe. Now the working directory is read once per load, a block's labels are a
+  table, instruction names a binary search, `str_intern()` allocates only for a new name, and the
+  last `@` file's path is kept. CVMTest runs every source entry from its source on both VMs, so
+  under the sanitizers the built-in compiler compiles each one; that costs the suite 3 to 4s.
 - **Leaks are checked on every entry** (built 2026-09-18). The harness compares output, and a
   forgotten `decref` changes none, while ASan's leak detector doesn't run on macOS. So `counted`
   (`vm/value.c`) is every reference-counted value alive: strings, errors, lists, maps, objects and

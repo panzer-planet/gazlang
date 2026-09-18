@@ -163,8 +163,9 @@ while (true) {
  */
 function processInput(string $text, string $mode = 'vm', ?string $path = null, array $args = []): bool {
     try {
-        // Bytecode is run as it is: it says so on its first line, which no GazLang program can
-        if (str_starts_with($text, Program::MAGIC)) {
+        // Bytecode is run as it is: it says so on its first line, which no GazLang program can,
+        // or its name does, so a broken .gzb file gets the loader's error rather than a syntax error
+        if (str_starts_with($text, Program::MAGIC) || str_ends_with($path ?? '', '.gzb')) {
             if ($mode === 'code') {
                 echo $text;
 

@@ -213,7 +213,8 @@ static Value caught(Error *e) {
 
 /* ---- Output ---------------------------------------------------------------------------- */
 
-void flush_output(void) { fflush(stdout); }
+FILE *output;
+void flush_output(void) { fflush(output); }
 
 /* ---- Calls ----------------------------------------------------------------------------- */
 
@@ -343,7 +344,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
                 goto error;
             }
             buf_addc(&out, '\n');
-            fwrite(out.data, 1, out.len, stdout);
+            fwrite(out.data, 1, out.len, output);
             free(out.data);
             decref(POP());
             break;
@@ -1081,26 +1082,26 @@ static char *read_all(const char *path, size_t *len) {
 }
 
 /* What was alive once the program was loaded: the constants in its code, which it holds for
-   the whole run */
+   the whole run (and, for source, what the compiler's run left, which is nothing but its own
+   constants) */
 static int64_t loaded;
 
-/* GAZVM_STATS: whether the run freed everything it made. Drop what a finished program may still
-   hold (its globals, and everything from the top frame's locals up), collect cycles, and what is
-   left beyond the constants in the code leaked: a missing decref somewhere. The tests run every
-   program this way, since a leak changes no output. */
-static void report_leaks(Value *top) {
-    if (!getenv("GAZVM_STATS")) return;
-    flush_output();
+/* Drop what a finished program still holds: its globals, and everything from the top frame's
+   locals up. Then collect cycles, and free the run's stack, frames and globals. */
+static void finish(Value *top) {
     for (int i = 0; i < program->nglobals; i++) set_slot(&globals[i], v_unset());
     while (top > stack) set_slot(--top, v_unset());
     gc_collect();
-    fprintf(stderr, "gazvm: %lld values leaked, at most %lld lists, maps, objects and functions alive at once\n",
-            (long long)(counted - loaded), (long long)peak);
+    free(stack);
+    free(frames);
+    free(globals);
 }
 
-/* The program, from its first instruction to its exit code: the thread main() starts */
-static void *run(void *arg) {
-    int *exit_code = arg;
+/* Run the loaded program from its first instruction, reporting an uncaught error: its exit code.
+   With check, GAZVM_STATS then says whether the run freed everything it made: whatever is left
+   once finish() has dropped what the program held, beyond the constants in its code, leaked, a
+   missing decref somewhere. The tests run every program this way, since a leak changes no output. */
+static int run_program(bool check) {
     size_t capacity = (size_t)(MAX_CALL_DEPTH + 4) * (size_t)(program->max_frame + 8) + 1024;
     stack = xcalloc(capacity, sizeof(Value));
     stack_end = stack + capacity;
@@ -1114,7 +1115,11 @@ static void *run(void *arg) {
     for (int i = 0; i < top->nlocals; i++) stack[i] = v_unset();
 
     Value ignored;
-    if (!execute(program->code, frames, &ignored)) {
+    int exit_code = 0;
+    Value *held = NULL;
+    if (execute(program->code, frames, &ignored)) {
+        held = vm_sp;
+    } else {
         Error *thrown = vm_error, *e = thrown;
         if (e->has_value) {
             /* Nothing caught it: only now is a thrown value turned into text, which can run
@@ -1136,19 +1141,84 @@ static void *run(void *arg) {
         if (e != thrown) decref((Value){.type = T_ERROR, .e = e});
         decref((Value){.type = T_ERROR, .e = thrown});
         vm_error = NULL;
-        report_leaks(stack);   /* an uncaught error has dropped the stack already */
-        *exit_code = 1;
-        return NULL;
+        held = stack;   /* an uncaught error has dropped the stack already */
+        exit_code = 1;
     }
     flush_output();
-    report_leaks(vm_sp);
-    *exit_code = 0;
+    finish(held);
+    if (check && getenv("GAZVM_STATS")) {
+        fprintf(stderr, "gazvm: %lld values leaked, at most %lld lists, maps, objects and functions alive at once\n",
+                (long long)(counted - loaded), (long long)peak);
+    }
+    return exit_code;
+}
+
+/* The self-hosted compiler's bytecode, selfhost/compile.gzb, built into the VM (build/compiler.c) */
+extern const unsigned char compiler_gzb[];
+extern const unsigned long compiler_gzb_size;
+
+/* What the VM's thread is given */
+typedef struct {
+    const char *path;   /* the file main() was given */
+    bool source;        /* GazLang source, to compile first, rather than bytecode main() loaded */
+    int argc;           /* the program's arguments */
+    char **argv;
+    int exit_code;
+} Job;
+
+/* Compile source with the built-in compiler, as `gazlang -c -f path` would, into a bytecode
+   text: the compiler runs as a program of its own, with its standard output going to memory.
+   NULL when it refused the source, having said why on standard error, with the exit code set. */
+static char *compile_source(Job *job, size_t *len) {
+    program = load((const char *)compiler_gzb, compiler_gzb_size, "selfhost/compile.gzb");
+    if (!program) {
+        report(vm_error);
+        job->exit_code = 1;
+        return NULL;
+    }
+    char *path = (char *)job->path;
+    program_argc = 1;
+    program_argv = &path;
+    char *text = NULL;
+    output = open_memstream(&text, len);
+    int exit_code = run_program(false);
+    fclose(output);   /* which also sets text and len */
+    output = stdout;
+    if (exit_code != 0) {
+        free(text);
+        job->exit_code = exit_code;
+        return NULL;
+    }
+    return text;
+}
+
+/* The program, from its first instruction to its exit code: the thread main() starts */
+static void *run(void *arg) {
+    Job *job = arg;
+    if (job->source) {
+        size_t len;
+        char *text = compile_source(job, &len);
+        if (!text) return NULL;
+        /* Loaded as if it were bytecode saved next to its source, which reports exactly the
+           paths running the source does */
+        program = load(text, len, job->path);
+        free(text);
+        if (!program) {
+            report(vm_error);
+            job->exit_code = 1;
+            return NULL;
+        }
+    }
+    loaded = counted;
+    program_argc = job->argc;
+    program_argv = job->argv;
+    job->exit_code = run_program(true);
     return NULL;
 }
 
 int main(int argc, char **argv) {
     if (argc < 2) {
-        fputs("Usage: gazvm program.gzb [arguments...]\n", stderr);
+        fputs("Usage: gazvm FILE [arguments...], FILE being GazLang source or bytecode\n", stderr);
         return 1;
     }
     size_t len;
@@ -1157,18 +1227,25 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Error: Cannot read file: %s\n", argv[1]);
         return 1;
     }
-    program_argc = argc - 2;
-    program_argv = argv + 2;
+    output = stdout;
+    Job job = {.path = argv[1], .argc = argc - 2, .argv = argv + 2, .exit_code = 1};
 
-    program = load(text, len, argv[1]);
-    free(text);
-    if (!program) {
-        report(vm_error);
-        /* The loader gives up at the first problem and drops nothing it built */
-        if (getenv("GAZVM_STATS")) fputs("gazvm: leaks not checked: the program did not load\n", stderr);
-        return 1;
+    /* Bytecode is recognised by its first line or its name, as `gazlang -f` does, so a broken
+       .gzb file gets the loader's error; anything else is source */
+    const char *magic = "GAZLANG BYTECODE";
+    size_t n = strlen(argv[1]);
+    bool named = n >= 4 && strcmp(argv[1] + n - 4, ".gzb") == 0;
+    job.source = !named && (len < strlen(magic) || memcmp(text, magic, strlen(magic)) != 0);
+    if (!job.source) {
+        program = load(text, len, argv[1]);
+        if (!program) {
+            report(vm_error);
+            /* The loader gives up at the first problem and drops nothing it built */
+            if (getenv("GAZVM_STATS")) fputs("gazvm: leaks not checked: the program did not load\n", stderr);
+            return 1;
+        }
     }
-    loaded = counted;
+    free(text);
 
     /* Output is buffered in big blocks; anything written to standard error flushes it first,
        so the two stay in the order the program wrote them */
@@ -1183,11 +1260,10 @@ int main(int argc, char **argv) {
     pthread_attr_init(&attr);
     pthread_attr_setstacksize(&attr, (size_t)1 << 30);
     pthread_t thread;
-    int exit_code = 1;
-    if (pthread_create(&thread, &attr, run, &exit_code) != 0) {
+    if (pthread_create(&thread, &attr, run, &job) != 0) {
         fputs("Error: cannot start the VM's thread\n", stderr);
         return 1;
     }
     pthread_join(thread, NULL);
-    return exit_code;
+    return job.exit_code;
 }

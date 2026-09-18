@@ -159,14 +159,17 @@ int str_cmp(const Str *a, const Str *b) {
 }
 
 /* FNV-1a, 64 bits; never 0, which means "not worked out yet" */
-uint64_t str_hash(Str *s) {
-    if (s->hash) return s->hash;
+static uint64_t hash_bytes(const char *data, size_t len) {
     uint64_t h = 14695981039346656037ULL;
-    for (size_t i = 0; i < s->len; i++) {
-        h ^= (unsigned char)s->data[i];
+    for (size_t i = 0; i < len; i++) {
+        h ^= (unsigned char)data[i];
         h *= 1099511628211ULL;
     }
-    s->hash = h ? h : 1;
+    return h ? h : 1;
+}
+
+uint64_t str_hash(Str *s) {
+    if (!s->hash) s->hash = hash_bytes(s->data, s->len);
     return s->hash;
 }
 
@@ -175,8 +178,7 @@ static Str **interned;
 static size_t interned_cap, interned_count;
 
 Str *str_intern(const char *data, size_t len) {
-    Str *probe = str_new(data, len);
-    uint64_t h = str_hash(probe);
+    uint64_t h = hash_bytes(data, len);
     if (interned_count * 2 >= interned_cap) {
         size_t cap = interned_cap ? interned_cap * 2 : 256;
         Str **table = xcalloc(cap, sizeof(Str *));
@@ -192,19 +194,18 @@ Str *str_intern(const char *data, size_t len) {
     }
     size_t i = h & (interned_cap - 1);
     while (interned[i]) {
-        if (interned[i]->hash == h && str_eq(interned[i], probe)) {
-            free(probe);
-            counted--;
-            return interned[i];
-        }
+        Str *s = interned[i];
+        if (s->hash == h && s->len == len && memcmp(s->data, data, len) == 0) return s;
         i = (i + 1) & (interned_cap - 1);
     }
     /* Interned strings live for the whole run: a count this large never reaches 0 */
-    probe->rc = INT64_MAX / 2;
+    Str *s = str_new(data, len);
+    s->hash = h;
+    s->rc = INT64_MAX / 2;
     counted--;
-    interned[i] = probe;
+    interned[i] = s;
     interned_count++;
-    return probe;
+    return s;
 }
 
 /* ---- Buffers --------------------------------------------------------------------------- */

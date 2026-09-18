@@ -94,6 +94,8 @@ class CVMTest extends TestCase
         $bytecode = array_map(fn ($gzb) => file_get_contents(CVM::ROOT.'/'.$gzb), $stages);
         $this->assertSame($bytecode[0], $bytecode[1], 'stage 1 differs from the PHP compiler\'s');
         $this->assertSame($bytecode[1], $bytecode[2], 'stage 2 differs from stage 1');
+        // The compiler built into the C VM, which must be this same bytecode
+        $this->assertSame($bytecode[0], file_get_contents(CVM::ROOT.'/selfhost/compile.gzb'), 'selfhost/compile.gzb is stale: php bin/gazlang -c -f selfhost/compile.gaz > selfhost/compile.gzb');
     }
 
     public function test_the_c_vm_collects_cycles()

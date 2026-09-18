@@ -574,12 +574,16 @@ static Value read_value(const char *text) {
 
 /* ---- Paths ----------------------------------------------------------------------------- */
 
-Str *absolute_path(const char *path) {
+/* The working directory, read once per load: getcwd() walks the file system each time, and
+   doing it for every @ line was nearly all of the time loading the compiler took */
+static char cwd[PATH_MAX];
+static bool have_cwd;
+
+static Str *absolute_path(const char *path) {
     /* Made absolute and normalised as text: the file may not exist (Program::absolute) */
     Buf full = {0};
     if (path[0] != '/') {
-        char cwd[PATH_MAX];
-        if (getcwd(cwd, sizeof cwd)) buf_adds(&full, cwd);
+        if (have_cwd) buf_adds(&full, cwd);
         buf_addc(&full, '/');
     }
     buf_adds(&full, path);
@@ -603,8 +607,20 @@ Str *absolute_path(const char *path) {
     return buf_to_str(&out);
 }
 
-/* A source path as the parser shows it: relative to the working directory when it is under it */
+/* A source path as the parser shows it: relative to the working directory when it is under it.
+   Consecutive @ lines nearly always name the same file, so the last answer is kept. */
+static Str *last_file, *last_shown;
+static Str *display_path_of(Str *file);
+
 static Str *display_path(Str *file) {
+    if (last_file && last_file->len == file->len && memcmp(last_file->data, file->data, file->len) == 0) return last_shown;
+    Str *shown = display_path_of(file);
+    last_file = str_intern(file->data, file->len);
+    last_shown = shown;
+    return shown;
+}
+
+static Str *display_path_of(Str *file) {
     Buf joined = {0};
     if (file->data[0] != '/') {
         buf_add_str(&joined, base_dir);
@@ -613,9 +629,8 @@ static Str *display_path(Str *file) {
     buf_add_str(&joined, file);
     Str *path = absolute_path(joined.data);
     free(joined.data);
-    char cwd[PATH_MAX];
     Str *shown = path;
-    if (getcwd(cwd, sizeof cwd)) {
+    if (have_cwd) {
         size_t n = strlen(cwd);
         if (path->len > n + 1 && !strncmp(path->data, cwd, n) && path->data[n] == '/') {
             shown = str_intern(path->data + n + 1, path->len - n - 1);
@@ -659,11 +674,26 @@ static Path *read_path(const char *text, bool element) {
 
 /* ---- Blocks ---------------------------------------------------------------------------- */
 
+/* An instruction by name, or -1: a binary search of the names in order, sorted the first time */
+static int by_name[OP_COUNT];
+
+static int compare_ops(const void *a, const void *b) {
+    return strcmp(INFO[*(const int *)a].name, INFO[*(const int *)b].name);
+}
+
+static int compare_name(const void *name, const void *op) {
+    return strcmp(name, INFO[*(const int *)op].name);
+}
+
 static int op_find(const char *name) {
-    for (int op = 0; op < OP_COUNT; op++) {
-        if (!strcmp(INFO[op].name, name)) return op;
+    static bool sorted;
+    if (!sorted) {
+        for (int op = 0; op < OP_COUNT; op++) by_name[op] = op;
+        qsort(by_name, OP_COUNT, sizeof(int), compare_ops);
+        sorted = true;
     }
-    return -1;
+    const int *found = bsearch(name, by_name, OP_COUNT, sizeof(int), compare_name);
+    return found ? *found : -1;
 }
 
 /* An @ line: the file as it is shown, and the line */
@@ -908,12 +938,31 @@ static void check_record(Block *b) {
 
 typedef struct { int position, height; } Work;
 
+/* A label's position in a block's raw instructions, its last definition if it has several, or
+   -1. Names are interned, so the table is keyed by the pointer. Built on the first lookup: a
+   search of the whole block per jump was most of what loading the compiler took. */
 static int find_label(Block *b, Str *name) {
-    int found = -1;
-    for (int i = 0; i < b->nraw; i++) {
-        if (b->raw[i].op == OP_LABEL && b->raw[i].names[0] == name) found = i;
+    if (!b->label_cap) {
+        int n = 0;
+        for (int i = 0; i < b->nraw; i++) n += b->raw[i].op == OP_LABEL;
+        b->label_cap = 8;
+        while (b->label_cap < n * 2) b->label_cap *= 2;
+        b->label_names = xcalloc((size_t)b->label_cap, sizeof(Str *));
+        b->label_at = xmalloc((size_t)b->label_cap * sizeof(int));
+        for (int i = 0; i < b->nraw; i++) {
+            if (b->raw[i].op != OP_LABEL) continue;
+            Str *label = b->raw[i].names[0];
+            size_t j = ((uintptr_t)label >> 4) & (size_t)(b->label_cap - 1);
+            while (b->label_names[j] && b->label_names[j] != label) j = (j + 1) & (size_t)(b->label_cap - 1);
+            b->label_names[j] = label;
+            b->label_at[j] = i;
+        }
     }
-    return found;
+    size_t j = ((uintptr_t)name >> 4) & (size_t)(b->label_cap - 1);
+    for (; b->label_names[j]; j = (j + 1) & (size_t)(b->label_cap - 1)) {
+        if (b->label_names[j] == name) return b->label_at[j];
+    }
+    return -1;
 }
 
 /*
@@ -1176,6 +1225,8 @@ static void link_program(void) {
         }
         free(dropped);
         free(b->raw);
+        free(b->label_names);
+        free(b->label_at);
         b->raw = NULL;
     }
     free(positions);
@@ -1184,6 +1235,8 @@ static void link_program(void) {
 /* ---- The file -------------------------------------------------------------------------- */
 
 Program *load(const char *text, size_t len, const char *path) {
+    have_cwd = getcwd(cwd, sizeof cwd) != NULL;
+    last_file = NULL;
     file_path = str_intern(path, strlen(path));
     {
         char *dir = strdup(path);
