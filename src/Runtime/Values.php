@@ -805,7 +805,11 @@ final class Values
             }
         }
 
-        if ($in_list) {
+        if ($in_list && $key === count($container) - 1) {
+            // The last element leaves nothing to move down, and array_splice() rebuilds the whole
+            // list whatever it removes: taking the last and deleting it is how a list is a stack
+            array_pop($container);
+        } elseif ($in_list) {
             array_splice($container, $key, 1);
         } else {
             unset($container[$key]);

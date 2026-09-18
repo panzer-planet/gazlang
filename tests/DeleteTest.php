@@ -18,6 +18,16 @@ class DeleteTest extends GazLangTestCase
         );
     }
 
+    public function test_a_list_is_a_stack_by_deleting_its_last_element()
+    {
+        // The last element takes another path (array_pop, where array_splice rebuilds the list
+        // and made every pop cost the whole stack), so the list it leaves is checked to still be one
+        $this->assertSame(
+            "3 2 [1]\n[1, 4]\n[4]\n[]\n",
+            $this->executeCode('$s = [1, 2, 3]; $out = ""; while (len($s) > 1) { $last = len($s) - 1; $out ..= $s[$last] .. " "; delete $s[$last]; } echo $out .. $s; $s[] = 4; echo $s; delete $s[0]; echo $s; delete $s[0]; echo $s;')
+        );
+    }
+
     public function test_keys_are_evaluated_before_the_variable_is_read()
     {
         // As an assignment does it: the key's side effects are kept

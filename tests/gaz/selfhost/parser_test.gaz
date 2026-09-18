@@ -44,6 +44,26 @@ check("a lexer error becomes a ParseError with the file", parse_error("\n\"open"
 check("a check made once the program is read", parse_error("echo 1;\necho nowhere();").message, "Undefined function: nowhere on line 2");
 check("is_a Error, so an untyped handler sees it too", is_a($e, Error), true);
 
+// A chain of operators is as deep on its left as it is long, so a walk of the tree by recursion
+// runs out of call depth at about 5000 of them. The tree is made by hand: what is tested is
+// the walk, and lexing 12000 tokens to get there took this test from 1s to 9s. It is not in the
+// corpus either, where it would be printed: each level indents, so a tree 6000 deep is a
+// hundred megabytes of dump.
+$concat = Token("CONCAT", "..");
+$chain = VariableAST(Token("VAR_IDENTIFIER", "\$a"));
+for ($i = 0; $i < 6000; $i++) {
+    $chain = BinOpAST($chain, $concat, VariableAST(Token("VAR_IDENTIFIER", $i % 2 == 0 ? "\$b" : "\$c")));
+}
+$variables = VariableCollector();
+$variables.collect($chain);
+check("the variables of a tree 6000 operators deep, in source order", keys($variables.found), ["\$a", "\$b", "\$c"]);
+
+// A path that is no file is only a name for the source, so its includes are relative to the
+// working directory, as they are without a path
+$root = Parser(Lexer("include \"lib/chars.gaz\"; echo is_digit(\"1\");"), "no/such/file.gaz").parse();
+check("includes of source named by a path that is no file", class_of($root.statements[len($root.statements) - 1]) == EchoStatementAST, true);
+check("and its nodes have the name", $root.statements[len($root.statements) - 1].file, "no/such/file.gaz");
+
 // Two parsers at once share nothing: one's functions and classes are not the other's
 $first = Parser(Lexer("fn only_here() \{ } echo only_here();"));
 $second = Parser(Lexer("echo only_here();"));

@@ -16,7 +16,8 @@ generator port, which is next and larger:
 | # | Friction | Workaround | Recommended |
 | --- | --- | --- | --- |
 | 8 | No constants | fields; token types are bare strings | `const`, checked at parse time |
-| 9 | No working directory, real path or existence test | textual paths, **wrong in three cases** | `cwd()`, `real_path()` |
+| 9 | No working directory, real path or existence test | textual paths, **wrong in four cases** | `cwd()`, `real_path()` |
+| 10 | A parser in GazLang has a nesting limit | none; a list as a stack for walking trees | the VM's call depth, later |
 | 1 | An object's fields can't be listed | a `parts()` method on every node class | `fields($object)` |
 | 3 | Builtins can't be asked about | a hand-copied table and a test | `builtins()` |
 | 2 | A class's bare name | `slice(to_string(class_of($x)), 6)` | `class_name($class)` |
@@ -171,10 +172,17 @@ and `is_file()`/`is_readable()` (to say "Cannot include file" rather than read n
   how PHP displays it, so the two agree on everything in the repository.
 - Existence is `try { read_file($path); } catch (Error $e)`, with only the read in the `try`.
 
-**Where it is wrong, knowingly** (marked `ponytail:` in `parser.gaz`): a symlinked file can be
-included twice; a main file given by absolute path shows its includes as absolute where PHP shows
-them relative; an include that climbs out of the working directory shows as `../x.gaz` where PHP
-shows the absolute path. None can be fixed in GazLang: all three need to know where the process is.
+**Where it is wrong, knowingly** (marked `ponytail:` in `parser.gaz`): a symlinked file, or one
+file included by both a relative and an absolute path, is included twice, so its functions are
+"already declared" and a valid program is refused (the code review found the second; it is the
+worst of the four, a rejection rather than a different display); a main file given by absolute
+path shows its includes as absolute where PHP shows them relative; an include that climbs out of
+the working directory shows as `../x.gaz` where PHP shows the absolute path. None can be fixed in
+GazLang: all four need to know where the process is.
+
+The review also found the textual version too forgiving, which *was* fixable: `normalise()`
+cancels `nodir/..` whether or not `nodir` exists, so a mistyped include quietly resolved. The
+file is now read by the path as written, which lets the system refuse it as `realpath()` does.
 
 **Options:**
 - `cwd()` and `real_path($path)` (null when there is nothing there, which is also the existence
@@ -183,3 +191,28 @@ shows the absolute path. None can be fixed in GazLang: all three need to know wh
   relative-path rewrites the self-hosted compiler must reproduce byte for byte (hole 6 says so),
   so the code generator port will hit this again harder.
 - `file_exists($path)` alone: fixes the try/catch, not the three divergences.
+
+## 10. Call depth: a parser in GazLang has a nesting limit, and a list was not a stack
+
+**Met:** in the code review, not the port. Recursive descent is about nine GazLang calls for
+each level of nesting, and walking a tree by recursion two. `Values::MAX_CALL_DEPTH` is 10000, so
+source nested past about 1100 levels, or a chain of 5000 operators (as deep on its left as it is
+long, and generated code reaches that with `..`), ran out of call depth where the PHP parser,
+which has no such limit, parses it. It arrives as an internal error with a trace, not a
+`ParseError`.
+
+**Workaround:** the two tree walks (`VariableCollector.collect()`, the driver's `Dumper.dump()`)
+use an explicit stack, 8% slower than recursion. The stack is a list: push with `$s[] = $x`, pop
+by reading the last element and `delete`ing it, which is what CLAUDE.md says to do in place of a
+`pop`. **That was quadratic**: `array_splice()` rebuilds a list whatever it removes, so every pop
+copied the stack, 22s for 80,000. Fixed in `Values::remove()` (`array_pop()` for the last
+element, 0.44s), so the idiom is now what it was documented to be. The nesting limit of parsing
+itself is not worked around.
+
+**Options:**
+- Leave the nesting limit. 1100 levels is far from any real program, and the honest fix is the
+  C VM's call depth (frames in an array it can grow), not a parser bent around a PHP constant.
+  **Recommended.**
+- `pop($list)` cannot exist: lists are values, so a function cannot change its argument. Read
+  the last and `delete` it is the idiom, and with the fix it is cheap. Worth a line in
+  `docs/language.md`.

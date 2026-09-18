@@ -33,20 +33,46 @@ class VariableCollector {
     #found = {};
     #assigned = {};
 
+    // A stack rather than recursion: a chain of operators is as deep on its left as it is
+    // long, and two calls a level would run out of call depth at about 5000 of them
     fn collect($node) {
+        $stack = [$node];
+        while (len($stack) > 0) {
+            $last = len($stack) - 1;
+            $value = $stack[$last];
+            delete $stack[$last];
+
+            $children = is_a($value, AST) ? #visit($value) : $value;
+            if (type_of($children) == "map") {
+                $children = values($children);
+            }
+            // Children sit at any depth of lists and maps: a list literal's [key, value]
+            // entries, a match's arms, whose values are a list inside each arm. The last goes
+            // on first, so the first comes off next and names are found in source order.
+            for ($i = len($children) - 1; $i >= 0; $i--) {
+                $child = $children[$i];
+                if (is_a($child, AST) || type_of($child) == "list" || type_of($child) == "map") {
+                    $stack[] = $child;
+                }
+            }
+        }
+    }
+
+    // Note what one node uses and assigns, and give what is to be searched under it
+    fn visit($node) {
         if (is_a($node, VariableAST)) {
             if (!$node.is_global()) {
                 #found[$node.value] = true;
             }
 
-            return;
+            return [];
         }
         if (is_a($node, LambdaAST)) {
             foreach ($node.captures as $name) {
                 #found[$name] = true;
             }
 
-            return;
+            return [];
         }
         $targets = match {
             is_a($node, AssignAST) && is_a($node.left, ListPatternAST) => $node.left.targets,
@@ -55,13 +81,13 @@ class VariableCollector {
             is_a($node, ForeachStatementAST) => [$node.value],
             default => [],
         };
+        if (is_a($node, ForeachStatementAST)) {
+            $targets[] = $node.key;
+        }
         if (is_a($node, TryStatementAST)) {
             foreach ($node.catches as $catch) {
                 $targets[] = $catch[1];
             }
-        }
-        if (is_a($node, ForeachStatementAST)) {
-            $targets[] = $node.key;
         }
         foreach ($targets as $target) {
             if (is_a($target, VariableAST) && !$target.is_global()) {
@@ -69,35 +95,7 @@ class VariableCollector {
             }
         }
 
-        #children($node.parts());
-    }
-
-    // Children sit at any depth of lists and maps: a list literal's [key, value] entries, a
-    // match's arms, whose values are a list inside each arm
-    fn children($values) {
-        foreach ($values as $value) {
-            if (is_a($value, AST)) {
-                #collect($value);
-            } else if (type_of($value) == "list" || type_of($value) == "map") {
-                #children($value);
-            }
-        }
-    }
-}
-
-// A #name with the class it is written in, checked once the classes are resolved. The node
-// holds it, so that what is learnt about the #name later (it is called, it is assigned to)
-// finds it again, where the PHP parser keeps a table by object id.
-class MemberUse {
-    #node;
-    #class;
-    // How many arguments it is called with, or null if it isn't called
-    #argc = null;
-    #assigned = false;
-
-    fn _($node, $class) {
-        #node = $node;
-        #class = $class;
+        return $node.parts();
     }
 }
 
@@ -129,7 +127,12 @@ class Parser {
     // Declared classes by name, resolved once the whole program is read
     #classes = {};
 
-    // Every #name's MemberUse, in source order
+    // Every #name, in source order, as [node, the class it is written in, the argument count
+    // if it is called or null, whether it is assigned to], checked once the classes are
+    // resolved. A node holds its index here (PropertyAST.use), so what is learnt about it
+    // later finds the record again, where the PHP parser keys a table by object id. An index
+    // rather than the record itself, which would make every class's tree a cycle: the node,
+    // its record, the class, its methods, the node.
     #member_uses = [];
 
     // Every class a catch clause names, as [name, line, file]
@@ -213,12 +216,15 @@ class Parser {
         "STRING" => "a string", "COLON" => "':'", "ARROW" => "'->'", "DOUBLE_ARROW" => "'=>'",
     };
 
-    // $path is the file the source came from, if any; includes resolve relative to it
+    // $path is the file the source came from, if any; includes resolve relative to it. A path
+    // that is no file, like a name given to inline source, has no directory to be relative
+    // to: as without a path, includes are then relative to the working directory.
     fn _($lexer, $path = null) {
-        if ($path != null) {
+        $is_file = $path != null && #read($path) != null;
+        if ($is_file) {
             #included[#normalise($path)] = true;
         }
-        #base_dir = $path == null ? "." : #dirname($path);
+        #base_dir = $is_file ? #dirname($path) : ".";
         // The main file is shown as the user gave it; included files relative to the working directory
         #file = $path;
         #lexer = $lexer;
@@ -277,10 +283,11 @@ class Parser {
     //
     // ponytail: this stands in for PHP's realpath() and getcwd(), which GazLang has no way to
     // ask for. A path given relative to the working directory stays relative to it, which is
-    // how the PHP parser shows an included file, so the two agree until a symlink (the same
-    // file could be included twice), a main file given by its absolute path, or an include
-    // that climbs out of the working directory (both shown differently). Builtins for the
-    // working directory and a real path would remove all three.
+    // how the PHP parser shows an included file, so the two agree until a symlink or one
+    // file included by both a relative and an absolute path (the same file is then included
+    // twice, and what it declares is "already declared"), a main file given by its absolute
+    // path, or an include that climbs out of the working directory (both shown differently).
+    // Builtins for the working directory and a real path would remove all four.
     fn normalise($path) {
         $steps = [];
         foreach (split($path, "/") as $step) {
@@ -300,6 +307,17 @@ class Parser {
         }
 
         return $joined == "" ? "." : $joined;
+    }
+
+    // A file's text, or null if it can't be read, which is the only way to ask whether it is
+    // there. Only the read is in the try: a catch of Error around more would also catch a
+    // bug in it, or running out of call depth.
+    fn read($path) {
+        try {
+            return read_file($path);
+        } catch (Error $e) {
+            return null;
+        }
     }
 
     // The directory a path is in, as PHP's dirname()
@@ -448,8 +466,8 @@ class Parser {
             #fail("Cannot use the constructor _ as a member: construct with {#class.name}(...), or call ##_(...) in a child's constructor");
         }
         $node = #at(PropertyAST($this_node, $name), $token);
-        $node.use = MemberUse($node, #class);
-        #member_uses[] = $node.use;
+        $node.use = len(#member_uses);
+        #member_uses[] = [$node, #class, null, false];
 
         return $node;
     }
@@ -715,7 +733,7 @@ class Parser {
                     $call = MethodCallAST($node, #arguments());
                     [$call.line, $call.file] = [$node.line, $node.file];
                     if ($node.use != null) {
-                        $node.use.argc = len($call.args);
+                        #member_uses[$node.use][2] = len($call.args);
                     }
                     $node = $call;
 
@@ -903,7 +921,7 @@ class Parser {
     fn assignable($node, $operator) {
         if (is_a($node, VariableAST) || ((is_a($node, IndexAST) || is_a($node, PropertyAST)) && path_root($node) != null)) {
             if (is_a($node, PropertyAST) && $node.use != null) {
-                $node.use.assigned = true;
+                #member_uses[$node.use][3] = true;
             }
 
             return $node;
@@ -1492,8 +1510,8 @@ class Parser {
         }
 
         // In source order, so the first mistake in the program is the one reported
-        foreach (#member_uses as $use) {
-            #check_member_use($use.node, $use.class, $use.argc, $use.assigned);
+        foreach (#member_uses as [$node, $class, $argc, $assigned]) {
+            #check_member_use($node, $class, $argc, $assigned);
         }
         foreach (#parent_uses as [$node, $class]) {
             #check_parent_use($node, $class);
@@ -1731,17 +1749,17 @@ class Parser {
         #eat("SEMICOLON");
 
         $relative = $path_token.value;
-        $path = #normalise(starts_with($relative, "/") ? $relative : #base_dir .. "/" .. $relative);
+        $written = starts_with($relative, "/") ? $relative : #base_dir .. "/" .. $relative;
+        // Read by the path as it is written, and before asking whether it was included already,
+        // as the PHP parser's realpath() comes first: the system then refuses "nodir/../a.gaz"
+        // and "a.gaz/", which normalise() would quietly turn into a file that is there
+        $text = #read($written);
+        if ($text == null) {
+            #fail_at("Cannot include file: {$relative}", #file, $path_token.line);
+        }
+        $path = #normalise($written);
         if (has_key(#included, $path)) {
             return [];
-        }
-        // Reading it is the only way to ask whether it is there. Only that is in the try: a
-        // catch of Error around the parsing would also catch a bug in it.
-        $text = null;
-        try {
-            $text = read_file($path);
-        } catch (Error $e) {
-            #fail_at("Cannot include file: {$relative}", #file, $path_token.line);
         }
         #included[$path] = true;
 

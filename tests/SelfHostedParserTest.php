@@ -56,25 +56,6 @@ class SelfHostedParserTest extends GazLangTestCase
     }
 
     /**
-     * The expected --ast output and exit code for a file, from the PHP parser in-process
-     *
-     * @return array{0: string, 1: int}
-     */
-    private static function phpAst(string $file): array
-    {
-        $cwd = getcwd();
-        // Include paths are shown relative to the working directory
-        chdir(self::ROOT);
-        try {
-            return [Dumper::dump((new Parser(new Lexer(file_get_contents($file)), $file))->parse()), 0];
-        } catch (GazLangError $e) {
-            return ["Error: {$e->getMessage()}\n", 1];
-        } finally {
-            chdir($cwd);
-        }
-    }
-
-    /**
      * The parser's own cases, which are named after what they do
      */
     public static function parserCorpus(): array
@@ -135,5 +116,24 @@ class SelfHostedParserTest extends GazLangTestCase
         [$expected, $expected_exit_code] = self::phpAst($file);
         $this->assertSame($expected, $output, "Tree differs for {$file}");
         $this->assertSame($expected_exit_code, $exit_code, "Exit code differs for {$file}");
+    }
+
+    /**
+     * The expected --ast output and exit code for a file, from the PHP parser in-process
+     *
+     * @return array{0: string, 1: int}
+     */
+    private static function phpAst(string $file): array
+    {
+        $cwd = getcwd();
+        // Include paths are shown relative to the working directory
+        chdir(self::ROOT);
+        try {
+            return [Dumper::dump((new Parser(new Lexer(file_get_contents($file)), $file))->parse()), 0];
+        } catch (GazLangError $e) {
+            return ["Error: {$e->getMessage()}\n", 1];
+        } finally {
+            chdir($cwd);
+        }
     }
 }

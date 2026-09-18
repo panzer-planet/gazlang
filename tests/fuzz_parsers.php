@@ -15,15 +15,11 @@
  */
 
 use GazLang\AST\Dumper;
-use GazLang\CodeGenerator\CodeGenerator;
-use GazLang\CodeGenerator\Program;
 use GazLang\GazLangError;
 use GazLang\Lexer\Lexer;
 use GazLang\Parser\Parser;
-use GazLang\VM\VM;
 
-require __DIR__.'/../vendor/autoload.php';
-chdir(__DIR__.'/..');
+require __DIR__.'/fuzz_common.php';
 
 /** The pieces inputs are made of or have spliced into them: tokens, and the starts and ends of statements */
 const ATOMS = [
@@ -52,23 +48,6 @@ function php_ast(string $source, string $path): string
         // A bug in the PHP parser, which is a finding too
         return 'PHP '.get_class($e).": {$e->getMessage()}\n";
     }
-}
-
-/**
- * What selfhost/ast.gaz prints for a file
- */
-function gaz_ast(Program $program, string $path): string
-{
-    ob_start();
-    try {
-        (new VM($program, [$path]))->run();
-    } catch (GazLangError $e) {
-        echo $e->report(), "\n";
-    } catch (Throwable $e) {
-        echo 'PHP '.get_class($e).": {$e->getMessage()}\n";
-    }
-
-    return ob_get_clean();
 }
 
 /**
@@ -166,9 +145,7 @@ function first_difference(string $expected, string $actual): string
 $runs = (int) ($argv[1] ?? 2000);
 mt_srand((int) ($argv[2] ?? 1));
 
-$driver = getcwd().'/selfhost/ast.gaz';
-$parser = new Parser(new Lexer(file_get_contents($driver)), $driver);
-$program = Program::read((new CodeGenerator($parser->parse()))->compile()->write($driver), $driver);
+$program = compile_driver('selfhost/ast.gaz');
 
 // Small programs, so a run is tens of milliseconds: the parser's own cases, which between them
 // use all of the grammar, and a few real ones
@@ -189,7 +166,7 @@ for ($run = 0; $run < $runs; $run++) {
     $expected = php_ast($source, $path);
     // A port that loops forever on some input stops here, with that input still in the file
     set_time_limit(20);
-    $actual = gaz_ast($program, $path);
+    $actual = run_driver($program, $path);
 
     if (preg_match('/^(?:Error|PHP \w+): ([A-Za-z# ]+)/', $expected, $match)) {
         // Without the names in it, so the tally is of kinds of error

@@ -220,7 +220,8 @@ each step depends on the ones before it.
      the path as `store()` does and cloning maps on the way; the code generator emits the keys
      then `DELETE_PATH path slot` (`_GLOBAL`, `_CAPTURED`, `_THIS`). `delete` is a keyword,
      though a method may still be called `delete`. There is no `pop`: take the last element,
-     then delete it.
+     then delete it, which is how a list is a stack (`Values::remove()` takes the last element
+     with `array_pop()`; `array_splice()` rebuilt the list on every pop, quadratically).
    - A builtin's arity is an int, or `[fewest, most]` when it has optional
      parameters (`index_of`, `slice`); the parser checks calls against the range,
      the same way as for user functions with defaults.
@@ -471,8 +472,7 @@ each step depends on the ones before it.
 
    ~~**Port the parser to `selfhost/parser.gaz` against the PHP parser, which is the spec.**~~
    Done 2026-09-18. `selfhost/nodes.gaz` is the tree (a class per `src/AST` node, same names and
-   fields), `selfhost/parser.gaz` holds `ParseError`, `VariableCollector`, `MemberUse` and
-   `Parser`, whose methods keep the PHP parser's names, and `selfhost/ast.gaz` is the driver.
+   fields), `selfhost/parser.gaz` holds `ParseError`, `VariableCollector` and `Parser`, whose methods keep the PHP parser's names, and `selfhost/ast.gaz` is the driver.
    `tests/SelfHostedParserTest.php` compiles the driver once, runs it on the VM on every `.gaz`
    file under `examples/`, `lib/`, `selfhost/` and `tests/`, and requires output and exit code
    identical to `php bin/gazlang --ast -f FILE`: the tree, or `Error: <message> at FILE:N` and
@@ -504,15 +504,36 @@ each step depends on the ones before it.
      `lambda_heads`, a set of `(` tokens by `spl_object_id`, is one field, `#lambda_head`:
      nothing is read between `ternary()` marking a `(` and `parenthesised()` asking, and
      object ids are reused once freed, so the set was the riskier of the two. `member_uses`,
-     keyed by node id, is a `MemberUse` hanging off the node. `collect_variables()` filling two
+     keyed by node id, is a list whose index the node holds (not the record itself, which
+     would make every class's tree a cycle for the C VM's collector to find: node, record,
+     class, methods, node). `collect_variables()` filling two
      arrays by reference is a `VariableCollector` object. Every `try`/`finally` that restores
      parser state is gone: nothing catches a `ParseError` and carries on. `left_associative`
      calling `$this->$operand()` by name needed nothing, a bound method (`#unary`) is a value.
    - **Paths are resolved textually**, because GazLang cannot ask for the working directory or
      a real path: `normalise()` and `dirname()`. It agrees with PHP on everything in the
-     repository and is knowingly wrong in three cases (a symlink, a main file given by absolute
-     path, an include climbing out of the working directory), marked `ponytail:` in the source.
-     This is the one workaround that is wrong rather than long; see the friction log.
+     repository and is knowingly wrong in four cases, marked `ponytail:` in the source: a
+     symlink, or one file included by both a relative and an absolute path, is included twice,
+     so what it declares is "already declared" and a valid program is refused; a main file
+     given by absolute path, and an include climbing out of the working directory, are shown
+     differently. Whether a file is there is asked of the system by reading it, by the path as
+     written and before the included-already check, as `realpath()` comes first in PHP: the
+     code review found `normalise()` turning `nodir/../a.gaz` and `a.gaz/` into a file that
+     exists, so a mistyped include passed. This is the one workaround that is wrong rather
+     than long; see the friction log.
+   - **Trees are walked with a stack, not recursion** (`VariableCollector.collect()`,
+     `ast.gaz`'s `Dumper.dump()`), since a chain of operators is as deep on its left as it is
+     long and two calls a level ran out of call depth at 5000 terms, which generated code can
+     reach with `..`; `parser_test.gaz` walks a tree 6000 deep that it builds by hand, since
+     parsing one cost the test 8s on the interpreter and printing one is a hundred megabytes,
+     each level indenting. It costs the harness 8%. It needed a VM fix:
+     taking a list's last element and deleting it, which is the stack there is, copied the
+     list on every pop, because `array_splice()` rebuilds a list whatever it removes. 80,000
+     pops took 22s; `Values::remove()` now uses `array_pop()` for the last element, 0.44s.
+     What is left is parsing itself: recursive descent is about nine calls a nesting level, so
+     source nested past about 1100 levels (`((((...))))`) runs out of call depth where the PHP
+     parser doesn't, as an internal error rather than a `ParseError`. Not fixed: no real
+     program is near it, and the fix is the VM's limit, not the parser.
    - **The port found a bug in the spec.** A name being declared was looked up before anything
      confirmed the token was a name: a bare `fn` at the end of a file was a PHP `TypeError`, not
      a GazLang error, `fn "len"() {}` was "len is a builtin function" and `fn f($a, '$a') {}`

@@ -162,7 +162,7 @@ class PropertyAST extends AST {
     #name;
     // Whether a #name is a field rather than a method, which the parser knows once the classes are resolved
     #field = false;
-    // A #name's MemberUse, which the parser checks once the classes are resolved; not part of the tree
+    // Where a #name's record is in Parser.member_uses, or null; not part of the tree
     #use = null;
 
     fn _($target, $name) {

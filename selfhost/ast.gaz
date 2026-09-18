@@ -6,35 +6,46 @@ class Dumper {
     // The file of the last node that had a line, false before the first
     #file = false;
 
-    // Print one value: a node, a token, a list or map, or a scalar. $label is what it is to
-    // its parent with the ": " after it, or nothing for the root.
-    fn value($label, $value, $indent) {
-        $type = type_of($value);
-        if ($type == "object" && is_a($value, AST)) {
-            // A node nothing was read for, like a block, has no line and belongs to no file
-            if ($value.line != null && $value.file != #file) {
-                #file = $value.file;
-                echo "@ " .. #literal($value.file);
-            }
-            // "class NumAST" without the "class " and the "AST"
-            $name = slice(to_string(class_of($value)), 6, -3);
-            echo $indent .. $label .. $name .. ($value.line == null ? "" : " {$value.line}");
-            #children($value.parts(), $indent);
-        } else if ($type == "object") {
-            // A token, which prints as --tokens shows it
-            echo $indent .. $label .. $value;
-        } else if (($type == "list" || $type == "map") && !#is_plain($value)) {
-            echo $indent .. slice($label, 0, -1);
-            #children($value, $indent);
-        } else {
-            echo $indent .. $label .. #literal($value);
-        }
-    }
+    // Print a tree. Each thing still to print is [label, value, indentation], the label being
+    // what it is to its parent with the ": " after it, or nothing for the root. A stack
+    // rather than recursion: a chain of operators is as deep on its left as it is long.
+    fn dump($root) {
+        $stack = [["", $root, ""]];
+        while (len($stack) > 0) {
+            $last = len($stack) - 1;
+            [$label, $value, $indent] = $stack[$last];
+            delete $stack[$last];
 
-    // Print a node's fields or a list or map's elements, each labelled with its name or key
-    fn children($children, $indent) {
-        foreach ($children as $key => $child) {
-            #value("{$key}: ", $child, $indent .. "  ");
+            $type = type_of($value);
+            $children = null;
+            if ($type == "object" && is_a($value, AST)) {
+                // A node nothing was read for, like a block, has no line and belongs to no file
+                if ($value.line != null && $value.file != #file) {
+                    #file = $value.file;
+                    echo "@ " .. #literal($value.file);
+                }
+                // "class NumAST" without the "class " and the "AST"
+                $name = slice(to_string(class_of($value)), 6, -3);
+                echo $indent .. $label .. $name .. ($value.line == null ? "" : " {$value.line}");
+                $children = $value.parts();
+            } else if ($type == "object") {
+                // A token, which prints as --tokens shows it
+                echo $indent .. $label .. $value;
+            } else if (($type == "list" || $type == "map") && !#is_plain($value)) {
+                echo $indent .. slice($label, 0, -1);
+                $children = $value;
+            } else {
+                echo $indent .. $label .. #literal($value);
+            }
+
+            // A node's fields or a list or map's elements, each labelled with its name or key.
+            // The last goes on first, so the first comes off, and is printed, next.
+            if ($children != null) {
+                $labels = keys($children);
+                for ($i = len($labels) - 1; $i >= 0; $i--) {
+                    $stack[] = ["{$labels[$i]}: ", $children[$labels[$i]], $indent .. "  "];
+                }
+            }
         }
     }
 
@@ -69,4 +80,4 @@ try {
     // Raised again from the top level, so no trace of the parser's calls is printed under it
     error($e.message);
 }
-Dumper().value("", $root, "");
+Dumper().dump($root);

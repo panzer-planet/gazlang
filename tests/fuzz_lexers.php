@@ -11,16 +11,11 @@
  * after changing either lexer, and put whatever it finds in tests/lexer_corpus/.
  */
 
-use GazLang\CodeGenerator\CodeGenerator;
-use GazLang\CodeGenerator\Program;
 use GazLang\GazLangError;
 use GazLang\Lexer\Lexer;
 use GazLang\Lexer\Token;
-use GazLang\Parser\Parser;
-use GazLang\VM\VM;
 
-require __DIR__.'/../vendor/autoload.php';
-chdir(__DIR__.'/..');
+require __DIR__.'/fuzz_common.php';
 
 /** The pieces inputs are made of: whatever starts, ends or changes the meaning of a token */
 const ATOMS = [
@@ -48,23 +43,6 @@ function php_tokens(string $source): string
     }
 
     return implode("\n", $lines);
-}
-
-/**
- * What selfhost/tokens.gaz prints for a file
- */
-function gaz_tokens(Program $program, string $path): string
-{
-    ob_start();
-    try {
-        (new VM($program, [$path]))->run();
-    } catch (GazLangError $e) {
-        echo $e->report(), "\n";
-    } catch (Throwable $e) {
-        echo 'PHP '.get_class($e).": {$e->getMessage()}\n";
-    }
-
-    return rtrim(ob_get_clean(), "\n");
 }
 
 /**
@@ -99,9 +77,7 @@ function input(array $files): string
 $runs = (int) ($argv[1] ?? 4000);
 mt_srand((int) ($argv[2] ?? 1));
 
-$driver = getcwd().'/selfhost/tokens.gaz';
-$parser = new Parser(new Lexer(file_get_contents($driver)), $driver);
-$program = Program::read((new CodeGenerator($parser->parse()))->compile()->write($driver), $driver);
+$program = compile_driver('selfhost/tokens.gaz');
 
 $files = [...glob('tests/lexer_corpus/*.gaz'), 'selfhost/lexer.gaz', 'examples/objects.gaz', 'lib/json.gaz'];
 $path = tempnam(sys_get_temp_dir(), 'gazfuzz');
@@ -112,7 +88,7 @@ for ($run = 0; $run < $runs; $run++) {
     $source = input($files);
     file_put_contents($path, $source);
     $expected = php_tokens($source);
-    $actual = gaz_tokens($program, $path);
+    $actual = rtrim(run_driver($program, $path), "\n");
 
     if (preg_match('/^Error: ([A-Za-z ]+)/m', $expected, $match)) {
         $errors[trim($match[1])] = ($errors[trim($match[1])] ?? 0) + 1;
