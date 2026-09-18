@@ -6,21 +6,21 @@
 // self-hosted compiler, football.gaz) run on the two VMs only. Every run is a whole process,
 // timed in CPU seconds (user + system), and the runs are interleaved, so a machine that gets
 // busier halfway slows all of them alike; the best of the rounds is reported. PHP runs with the
-// JIT settings bin/gazlang gives itself.
+// JIT settings bin/gazlang-php gives itself.
 
 chdir(dirname(__DIR__));
 require 'vendor/autoload.php';
 
 $rounds = (int) ($argv[1] ?? 5);
 $filter = $argv[2] ?? null;
-passthru('make -s -C vm gazvm', $code);
+passthru('make -s -C vm', $code);
 if ($code !== 0) {
     exit(1);
 }
 
 $php = [PHP_BINARY, '-d', 'pcov.enabled=0', '-d', 'opcache.enable_cli=1', '-d', 'opcache.jit_buffer_size=16M', '-d', 'opcache.jit=1235'];
 $compile = function (string $file, string $gzb): void {
-    exec(implode(' ', array_map('escapeshellarg', [PHP_BINARY, 'bin/gazlang', '-c', '-f', $file])).' > '.escapeshellarg($gzb), $out, $code);
+    exec(implode(' ', array_map('escapeshellarg', [PHP_BINARY, 'bin/gazlang-php', '-c', '-f', $file])).' > '.escapeshellarg($gzb), $out, $code);
     if ($code !== 0) {
         throw new RuntimeException("{$file} does not compile");
     }
@@ -32,7 +32,7 @@ foreach (glob('vm/bench/*.gaz') as $file) {
     $name = basename($file, '.gaz');
     $gzb = "vm/build/bench/{$name}.gzb";
     $compile($file, $gzb);
-    $cases[$name] = ['c' => ['vm/gazvm', '-f', $gzb], 'vm' => [...$php, 'bin/gazlang', '-f', $gzb]];
+    $cases[$name] = ['c' => ['bin/gazlang', '-f', $gzb], 'vm' => [...$php, 'bin/gazlang-php', '-f', $gzb]];
     // The same program in PHP, for the ones that have one
     if (is_file("vm/bench/{$name}.php")) {
         $cases[$name]['php'] = [...$php, "vm/bench/{$name}.php"];
@@ -43,7 +43,7 @@ foreach (['selfhost/gazlang.gaz code examples/football.gaz', 'selfhost/gazlang.g
     $file = array_shift($args);
     $gzb = 'vm/build/bench/'.basename($file, '.gaz').'.gzb';
     $compile($file, $gzb);
-    $cases[$workload] = ['c' => ['vm/gazvm', '-f', $gzb, '--', ...$args], 'vm' => [...$php, 'bin/gazlang', '-f', $gzb, '--', ...$args]];
+    $cases[$workload] = ['c' => ['bin/gazlang', '-f', $gzb, '--', ...$args], 'vm' => [...$php, 'bin/gazlang-php', '-f', $gzb, '--', ...$args]];
 }
 if ($filter !== null) {
     $cases = array_filter($cases, fn ($name) => str_contains($name, $filter), ARRAY_FILTER_USE_KEY);

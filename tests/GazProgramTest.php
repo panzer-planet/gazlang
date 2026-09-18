@@ -49,7 +49,7 @@ class GazProgramTest extends GazLangTestCase
     public function test_in_process_run_matches_the_cli()
     {
         $file = 'tests/fixtures/include/runtime.gaz';
-        exec(sprintf('cd %s && %s bin/gazlang -f %s 2>&1', escapeshellarg(self::ROOT), escapeshellarg(PHP_BINARY), escapeshellarg($file)), $output, $exit_code);
+        exec(sprintf('cd %s && %s bin/gazlang-php -f %s 2>&1', escapeshellarg(self::ROOT), escapeshellarg(PHP_BINARY), escapeshellarg($file)), $output, $exit_code);
 
         $this->assertSame([implode("\n", $output)."\n", $exit_code], $this->runProgram($file));
     }

@@ -80,7 +80,7 @@ class SelfHostedCompilerTest extends GazLangTestCase
     public function test_in_process_expectation_matches_the_cli()
     {
         foreach (['tests/codegen_corpus/expressions.gaz', 'examples/functions.gaz'] as $file) {
-            exec(sprintf('cd %s && %s bin/gazlang -c -f %s 2>&1', escapeshellarg(self::ROOT), escapeshellarg(PHP_BINARY), escapeshellarg($file)), $output, $exit_code);
+            exec(sprintf('cd %s && %s bin/gazlang-php -c -f %s 2>&1', escapeshellarg(self::ROOT), escapeshellarg(PHP_BINARY), escapeshellarg($file)), $output, $exit_code);
 
             $this->assertSame(self::phpCode($file), [implode("\n", $output)."\n", $exit_code], $file);
             $output = [];

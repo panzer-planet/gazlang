@@ -1,9 +1,9 @@
 # GazLang bytecode
 
 The format a GazLang compiler writes and a GazLang VM runs. `gazlang -c -f x.gaz` prints it
-and `gazlang -f x.gzb` runs it. `src/CodeGenerator/Program.php` writes it,
-`src/CodeGenerator/BytecodeReader.php` reads it, and `src/VM/VM.php` runs it; a C VM is built
-from this document. `Program::INSTRUCTIONS` holds every instruction with its arguments and
+and `gazlang -f x.gzb` runs it. `selfhost/codegen.gaz` writes it and `vm/load.c` and
+`vm/vm.c` read and run it in `bin/gazlang`; in the PHP reference, `src/CodeGenerator/Program.php`
+writes it, `src/CodeGenerator/BytecodeReader.php` reads it, and `src/VM/VM.php` runs it. `Program::INSTRUCTIONS` holds every instruction with its arguments and
 stack effect, and `BytecodeTest` keeps that table, this document and the VM in step.
 
 The version is `1`. A loader refuses any other version; there is no compatibility promise

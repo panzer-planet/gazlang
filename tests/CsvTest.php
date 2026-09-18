@@ -93,7 +93,7 @@ class CsvTest extends GazLangTestCase
      */
     public function test_report_errors(array $args, string $message)
     {
-        $usage = "Usage: php bin/gazlang -f examples/csv_report.gaz -- FILE GROUP_COLUMN AMOUNT_COLUMN\n";
+        $usage = "Usage: bin/gazlang -f examples/csv_report.gaz -- FILE GROUP_COLUMN AMOUNT_COLUMN\n";
 
         $this->assertSame([$usage."Error: {$message}\n", 1], $this->runProgram('examples/csv_report.gaz', $args, true));
         $this->assertSame([$usage."Error: {$message}\n", 1], $this->runProgram('examples/csv_report.gaz', $args));

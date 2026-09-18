@@ -22,7 +22,7 @@ abstract class GazLangTestCase extends TestCase
     protected const ROOT = __DIR__.'/..';
 
     /**
-     * Run a GazLang file as `php bin/gazlang -f FILE -- ARGS` would, but in-process (a CLI run costs ~0.5s)
+     * Run a GazLang file as `php bin/gazlang-php -f FILE -- ARGS` would, but in-process (a CLI run costs ~0.5s)
      *
      * Runs from the project root, so FILE is relative to it and errors name files the
      * same way; errors are printed as "Error: <message>" and give exit code 1. Deep

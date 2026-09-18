@@ -1,6 +1,6 @@
 // A tokenizer for a small C-like language, and a count of what it found.
 //
-//   php bin/gazlang -f examples/tokenizer.gaz [-- FILE]
+//   bin/gazlang -f examples/tokenizer.gaz [-- FILE]
 //
 // With no file it tokenizes the snippet below.
 include "../lib/chars.gaz";

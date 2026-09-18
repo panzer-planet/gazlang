@@ -19,37 +19,43 @@ echo greet("world");
 Hello, world!
 ```
 
-It is a hobby language, written in PHP, with a tree-walking interpreter and a stack VM that
-must agree on every single test. The long-term plan is to leave PHP behind: a VM in C, and the
-compiler rewritten in GazLang itself. It is not production software, and it would like company.
+It is a hobby language that compiles itself: the lexer, parser and compiler are written in
+GazLang, and run on a small VM in C. The first implementation, in PHP, with a tree-walking
+interpreter and a stack VM that must agree on every single test, stays as the reference the C
+side is checked against. It is not production software, and it would like company.
 
 ## Get it running
 
-You need PHP 8.5 or later.
+You need a C compiler and make.
 
 ```bash
 git clone https://github.com/panzer-planet/gazlang.git
-cd gazlang && composer install
+cd gazlang && make -C vm
 
 echo 'echo "hello";' > hello.gaz
-php bin/gazlang -f hello.gaz
+bin/gazlang -f hello.gaz
 ```
 
 Then try one of the sample programs:
 
 ```bash
-php bin/gazlang -f examples/csv_report.gaz -- examples/data/sales.csv region amount
+bin/gazlang -f examples/csv_report.gaz -- examples/data/sales.csv region amount
 ```
 
 Other ways to run it:
 
 ```bash
-php bin/gazlang -f program.gaz -- arg1 arg2    # arguments, read with args()
-cat program.gaz | php bin/gazlang              # piped input runs as one program
-php bin/gazlang --interpreter -f program.gaz   # the tree-walking interpreter instead of the VM
-php bin/gazlang -c -f program.gaz              # print the compiled VM code
-php bin/gazlang --tokens -f program.gaz        # print the tokens
+bin/gazlang -f program.gaz -- arg1 arg2    # arguments, read with args()
+cat program.gaz | bin/gazlang              # piped input runs as one program
+bin/gazlang -c -f program.gaz > x.gzb      # print the compiled VM code, which runs as it is
+bin/gazlang -f x.gzb
+bin/gazlang --tokens -f program.gaz        # print the tokens
+bin/gazlang --ast -f program.gaz           # print the tree
 ```
+
+The PHP implementation, `bin/gazlang-php`, takes the same options (it needs PHP 8.5 or later and
+`composer install`), and one more: `--interpreter`, the tree-walking interpreter instead of the VM.
+The tests compare the two, so they need both.
 
 ## A ten minute tour
 

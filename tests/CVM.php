@@ -13,7 +13,7 @@ use GazLang\VM\VM;
 use Throwable;
 
 /**
- * Runs a program on the PHP VM and on the C VM (vm/gazvm) and gives what each printed
+ * Runs a program on the PHP VM and on the C VM (bin/gazlang) and gives what each printed
  *
  * An entry is a path relative to the project root, optionally followed by the program's
  * arguments: "selfhost/gazlang.gaz code examples/functions.gaz"; "snippet:<id>", a snippet the PHP
@@ -52,7 +52,7 @@ final class CVM
      */
     public static function build(): void
     {
-        exec('make -s -C '.escapeshellarg(self::ROOT.'/vm').' gazvm test 2>&1', $output, $code);
+        exec('make -s -C '.escapeshellarg(self::ROOT.'/vm').' all test 2>&1', $output, $code);
         if ($code !== 0) {
             throw new \RuntimeException("Building the C VM failed:\n".implode("\n", $output));
         }
@@ -138,7 +138,7 @@ final class CVM
             }
         }
         if ($isolated) {
-            $php = self::processes(array_map(fn ($job) => [PHP_BINARY, '-d', 'pcov.enabled=0', 'bin/gazlang', '-f', $job[2] ?? $job[0], '--', ...$job[1]], $jobs), ['GAZLANG_RESTARTED' => '1']);
+            $php = self::processes(array_map(fn ($job) => [PHP_BINARY, '-d', 'pcov.enabled=0', 'bin/gazlang-php', '-f', $job[2] ?? $job[0], '--', ...$job[1]], $jobs), ['GAZLANG_RESTARTED' => '1']);
             $c = self::processes(array_map(fn ($job) => [self::binary(), '-f', $job[2] ?? $job[0], '--', ...$job[1]], $jobs), ['GAZVM_STATS' => '1']);
             foreach ($jobs as $entry => $_) {
                 $results[$entry] = [$php[$entry], self::leaks($c[$entry])];
@@ -190,7 +190,7 @@ final class CVM
             self::build();
             $gzb = self::ROOT.'/'.(self::compile(self::DRIVER) ?? throw new \RuntimeException(self::DRIVER." doesn't compile"));
         }
-        $commands = array_combine($files, array_map(fn ($file) => [self::ROOT.'/vm/gazvm', '-f', $gzb, '--', $mode, ...($piped ? [] : [$file])], $files));
+        $commands = array_combine($files, array_map(fn ($file) => [self::ROOT.'/bin/gazlang', '-f', $gzb, '--', $mode, ...($piped ? [] : [$file])], $files));
         $results = self::processes($commands, [], null, $piped ? array_combine($files, $files) : [], $cwd);
 
         return array_map(fn ($result) => [$result[0].$result[1], $result[2]], $results);
@@ -343,7 +343,7 @@ final class CVM
     {
         $text = (string) file_get_contents(self::ROOT."/{$gzb}");
         if (in_array($gzb, self::DEEP, true) || str_contains($text, 'CALL_BUILTIN read_stdin') || str_contains($text, 'PUSH_FN read_stdin')) {
-            return self::process([PHP_BINARY, '-d', 'pcov.enabled=0', 'bin/gazlang', '-f', $source ?? $gzb, '--', ...$args], ['GAZLANG_RESTARTED' => '1']);
+            return self::process([PHP_BINARY, '-d', 'pcov.enabled=0', 'bin/gazlang-php', '-f', $source ?? $gzb, '--', ...$args], ['GAZLANG_RESTARTED' => '1']);
         }
 
         $cwd = getcwd();

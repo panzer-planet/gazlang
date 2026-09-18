@@ -7,7 +7,7 @@ use GazLang\Lexer\Lexer;
 use GazLang\Parser\Parser;
 
 /**
- * The C CLI (vm/gazvm) against the PHP one (bin/gazlang), which is the spec: every invocation in
+ * The C CLI (bin/gazlang) against the PHP one (bin/gazlang-php), which is the spec: every invocation in
  * the table runs through both, which must print the same standard output and standard error and
  * exit with the same code. This is what makes replacing one with the other safe (the bootstrap
  * plan's step 3, see CLAUDE.md).
@@ -195,7 +195,7 @@ class CliParityTest extends GazLangTestCase
         foreach ($by_dir as $dir => $batch) {
             $commands = $stdin = [];
             foreach ($batch as $i => [$args]) {
-                $commands["php{$i}"] = [PHP_BINARY, '-d', 'pcov.enabled=0', self::ROOT.'/bin/gazlang', ...$args];
+                $commands["php{$i}"] = [PHP_BINARY, '-d', 'pcov.enabled=0', self::ROOT.'/bin/gazlang-php', ...$args];
                 $commands["c{$i}"] = [self::ROOT.'/'.CVM::BINARY, ...$args];
                 $stdin["php{$i}"] = $stdin["c{$i}"] = $batch[$i][1] ?? '/dev/null';
             }

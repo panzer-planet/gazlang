@@ -1,7 +1,7 @@
 // A football league simulator: rated players, a double round-robin season with commentary
 // on the opening match, the final table and the top scorers.
 //
-//   php bin/gazlang -f examples/football.gaz -- [CLUBS] [SEED]
+//   bin/gazlang -f examples/football.gaz -- [CLUBS] [SEED]
 //
 // CLUBS is how many clubs play, from 2 to 20 (4 by default), taken from the strongest down.
 // Everything random comes from seeded generators: the squads are always the same, and the
@@ -635,7 +635,7 @@ $clubs = [
 
 // Print the usage and the problem, and stop with exit code 1
 fn fail($message) {
-    echo "Usage: php bin/gazlang -f examples/football.gaz -- [CLUBS] [SEED]";
+    echo "Usage: bin/gazlang -f examples/football.gaz -- [CLUBS] [SEED]";
     echo "Error: {$message}";
     exit(1);
 }

@@ -62,7 +62,7 @@ class VMTest extends GazLangTestCase
             'echo %s | %s %s '.$flag.' -- a b 2>&1',
             escapeshellarg('echo args(); echo 7 / 2; error("done");'),
             escapeshellarg(PHP_BINARY),
-            escapeshellarg(self::ROOT.'/bin/gazlang')
+            escapeshellarg(self::ROOT.'/bin/gazlang-php')
         ), $output, $exit_code);
 
         $this->assertSame(['["a", "b"]', '3.5', 'Error: done'], $output);

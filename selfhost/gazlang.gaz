@@ -3,7 +3,7 @@
 // tree, as --ast; see src/AST/Dumper.php for the format). Without a FILE the source is read from
 // standard input, as gazlang reads piped source: no file in its locations, and includes
 // relative to the working directory.
-// php bin/gazlang -f selfhost/gazlang.gaz -- MODE [FILE]
+// bin/gazlang -f selfhost/gazlang.gaz -- MODE [FILE]
 include "codegen.gaz";
 
 class Dumper {

@@ -14,7 +14,7 @@ class TryCatchTest extends GazLangTestCase
             'echo %s | %s %s --interpreter',
             escapeshellarg('fn recurse() { return recurse(); } try { recurse(); } catch ($e) { echo $e.message; } echo "still running";'),
             escapeshellarg(PHP_BINARY),
-            escapeshellarg(self::ROOT.'/bin/gazlang')
+            escapeshellarg(self::ROOT.'/bin/gazlang-php')
         ), $output, $exit_code);
 
         $this->assertSame(['Maximum call depth of 10000 exceeded calling recurse', 'still running'], $output);

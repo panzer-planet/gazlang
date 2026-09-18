@@ -1,6 +1,6 @@
 // Errors: Error objects, typed catch clauses, throwing any value, and finally.
 //
-//   php bin/gazlang -f examples/errors.gaz
+//   bin/gazlang -f examples/errors.gaz
 
 class NotFound extends Error {
     #key;

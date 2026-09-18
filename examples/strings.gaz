@@ -1,6 +1,6 @@
 // Strings: interpolation, escapes and the string builtins.
 //
-//   php bin/gazlang -f examples/strings.gaz
+//   bin/gazlang -f examples/strings.gaz
 
 include "../lib/functional.gaz";
 

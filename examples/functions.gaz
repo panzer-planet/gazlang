@@ -1,6 +1,6 @@
 // Functions, function values and closures.
 //
-//   php bin/gazlang -f examples/functions.gaz
+//   bin/gazlang -f examples/functions.gaz
 
 include "../lib/functional.gaz";
 

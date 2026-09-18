@@ -86,7 +86,7 @@ class SelfHostedParserTest extends GazLangTestCase
     public function test_in_process_expectation_matches_the_cli()
     {
         foreach (['tests/parser_corpus/precedence.gaz', 'tests/parser_corpus/error_missing_operand.gaz'] as $file) {
-            exec(sprintf('cd %s && %s bin/gazlang --ast -f %s 2>&1', escapeshellarg(self::ROOT), escapeshellarg(PHP_BINARY), escapeshellarg($file)), $output, $exit_code);
+            exec(sprintf('cd %s && %s bin/gazlang-php --ast -f %s 2>&1', escapeshellarg(self::ROOT), escapeshellarg(PHP_BINARY), escapeshellarg($file)), $output, $exit_code);
 
             $this->assertSame(self::phpAst($file), [implode("\n", $output)."\n", $exit_code], $file);
             $output = [];

@@ -93,7 +93,7 @@ class JsonTest extends GazLangTestCase
             return $this->runProgram('tests/fixtures/json_roundtrip.gaz', [$file]);
         }
 
-        exec(sprintf('cd %s && %s bin/gazlang --interpreter -f tests/fixtures/json_roundtrip.gaz -- %s 2>&1', escapeshellarg(self::ROOT), escapeshellarg(PHP_BINARY), escapeshellarg($file)), $lines, $exit_code);
+        exec(sprintf('cd %s && %s bin/gazlang-php --interpreter -f tests/fixtures/json_roundtrip.gaz -- %s 2>&1', escapeshellarg(self::ROOT), escapeshellarg(PHP_BINARY), escapeshellarg($file)), $lines, $exit_code);
 
         return [implode("\n", $lines)."\n", $exit_code];
     }

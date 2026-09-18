@@ -50,7 +50,7 @@ class StdlibTest extends GazLangTestCase
             'echo %s | %s %s 2>&1',
             escapeshellarg($program),
             escapeshellarg(PHP_BINARY),
-            escapeshellarg(self::ROOT.'/bin/gazlang')
+            escapeshellarg(self::ROOT.'/bin/gazlang-php')
         ), $output);
 
         $this->assertSame(['1-out 2-err 3-out 4-err'], $output);
@@ -63,7 +63,7 @@ class StdlibTest extends GazLangTestCase
         $command = sprintf(
             '%s -d display_errors=stderr -d opcache.enable_cli=1 -d opcache.jit=1235 %s -f %s 2>/dev/null',
             escapeshellarg(PHP_BINARY),
-            escapeshellarg(self::ROOT.'/bin/gazlang'),
+            escapeshellarg(self::ROOT.'/bin/gazlang-php'),
             escapeshellarg(self::ROOT.'/tests/fixtures/hello.gaz')
         );
         $process = proc_open($command, [1 => ['pipe', 'w']], $pipes);
@@ -92,7 +92,7 @@ class StdlibTest extends GazLangTestCase
     {
         // Through the CLI, the only place the two streams are really separate
         $program = 'print("out"); print_error("problem"); print("put");';
-        $gazlang = sprintf('echo %s | %s %s', escapeshellarg($program), escapeshellarg(PHP_BINARY), escapeshellarg(self::ROOT.'/bin/gazlang'));
+        $gazlang = sprintf('echo %s | %s %s', escapeshellarg($program), escapeshellarg(PHP_BINARY), escapeshellarg(self::ROOT.'/bin/gazlang-php'));
 
         exec("{$gazlang} 2>/dev/null", $out);
         exec("{$gazlang} 2>&1 >/dev/null", $err);
@@ -223,7 +223,7 @@ class StdlibTest extends GazLangTestCase
 
     public function test_exit_code_is_the_process_exit_code()
     {
-        $command = sprintf('echo %s | %s %s', escapeshellarg('echo "bye"; exit(7);'), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang'));
+        $command = sprintf('echo %s | %s %s', escapeshellarg('echo "bye"; exit(7);'), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang-php'));
         exec($command, $output, $exit_code);
 
         $this->assertSame(['bye'], $output);
@@ -388,7 +388,7 @@ class StdlibTest extends GazLangTestCase
             'printf %s | %s %s -f %s',
             escapeshellarg("two\nlines"),
             escapeshellarg(PHP_BINARY),
-            escapeshellarg(__DIR__.'/../bin/gazlang'),
+            escapeshellarg(__DIR__.'/../bin/gazlang-php'),
             escapeshellarg(__DIR__.'/fixtures/read_stdin.gaz')
         ), $output, $exit_code);
 
@@ -411,7 +411,7 @@ class StdlibTest extends GazLangTestCase
             'echo %s | %s %s -- -x two',
             escapeshellarg('echo args();'),
             escapeshellarg(PHP_BINARY),
-            escapeshellarg(__DIR__.'/../bin/gazlang')
+            escapeshellarg(__DIR__.'/../bin/gazlang-php')
         ), $output, $exit_code);
 
         $this->assertSame(['["-x", "two"]'], $output);
@@ -421,7 +421,7 @@ class StdlibTest extends GazLangTestCase
     public function test_cli_rejects_a_file_it_cannot_read()
     {
         // What it says about the file goes to standard error, like every other diagnostic
-        exec(sprintf('%s %s -f %s 2>&1', escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang'), escapeshellarg(__DIR__)), $output, $exit_code);
+        exec(sprintf('%s %s -f %s 2>&1', escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang-php'), escapeshellarg(__DIR__)), $output, $exit_code);
 
         $this->assertSame(['Error: Cannot read file: '.__DIR__], $output);
         $this->assertSame(1, $exit_code);
@@ -433,7 +433,7 @@ class StdlibTest extends GazLangTestCase
             'echo %s | %s %s -n 5 2>&1',
             escapeshellarg('echo args();'),
             escapeshellarg(PHP_BINARY),
-            escapeshellarg(__DIR__.'/../bin/gazlang')
+            escapeshellarg(__DIR__.'/../bin/gazlang-php')
         ), $output, $exit_code);
 
         $this->assertSame(['Error: Unknown option -n (put program arguments after --)'], $output);

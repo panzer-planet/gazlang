@@ -1204,7 +1204,7 @@ static int run_front_end(Job *job, const char *mode, char **text, size_t *len) {
 /* The job, from its first instruction to its exit code: the thread main() starts */
 static void *run(void *arg) {
     Job *job = arg;
-    /* Bytecode is recognised by its first line or its name, as bin/gazlang does, so a broken .gzb
+    /* Bytecode is recognised by its first line or its name, as bin/gazlang-php does, so a broken .gzb
        file gets the loader's error; anything else is source */
     const char *magic = "GAZLANG BYTECODE";
     size_t n = job->path ? strlen(job->path) : 0;
@@ -1217,7 +1217,7 @@ static void *run(void *arg) {
         return NULL;
     }
     if (bytecode && job->mode != M_RUN) {
-        /* On standard output, as bin/gazlang prints it */
+        /* On standard output, as bin/gazlang-php prints it */
         printf("Error: %s is bytecode, which only the VM runs\n", job->path ? job->path : "standard input");
         job->exit_code = 1;
         return NULL;
@@ -1279,7 +1279,7 @@ static int unknown_option(const char *arg) {
     return 1;
 }
 
-/* The CLI, whose options are bin/gazlang's: PHP's getopt("hvf:ct", [help, version, file:, code,
+/* The CLI, whose options are bin/gazlang-php's: PHP's getopt("hvf:ct", [help, version, file:, code,
    tokens, ast, interpreter]) and its check for options getopt doesn't know. Options end at the
    first argument that isn't one ("-" alone included) or after "--"; the rest are the program's. */
 int main(int argc, char **argv) {

@@ -5,6 +5,25 @@
 # Install dependencies
 composer install
  
+# Build gazlang: the VM in C with the self-hosted compiler built in, as bin/gazlang
+# (not checked in; the tests build it themselves)
+make -C vm
+
+# Run a file, print its bytecode, run bytecode, or print its tokens or tree
+bin/gazlang -f examples/functions.gaz
+bin/gazlang -c -f examples/functions.gaz > /tmp/f.gzb && bin/gazlang -f /tmp/f.gzb
+bin/gazlang --tokens -f examples/functions.gaz
+bin/gazlang --ast -f examples/functions.gaz
+
+# The PHP implementation, the reference every harness compares against, with the same options;
+# only it has the tree-walking interpreter
+bin/gazlang-php -f examples/functions.gaz
+bin/gazlang-php --interpreter -f examples/functions.gaz
+
+# After changing selfhost/, rebuild the compiler gazlang has built in, with gazlang alone
+# (three stages, see step 4 of the bootstrap plan; a test fails until then)
+make -C vm compiler
+
 # Run all tests
 vendor/bin/phpunit
  
@@ -12,36 +31,16 @@ vendor/bin/phpunit
 # (see "The way out" under roadmap step 7); do it before merging port or VM changes
 php -d pcov.enabled=0 vendor/bin/phpunit --group whole-repository
 
-# The self-hosted front end, which must print what -c, --tokens and --ast print; without a
-# file it reads piped source, as gazlang does
-php bin/gazlang -f selfhost/gazlang.gaz -- code examples/functions.gaz
-php bin/gazlang -f selfhost/gazlang.gaz -- ast < examples/functions.gaz
+# The self-hosted front end from its source, which must print what -c, --tokens and --ast print;
+# without a file it reads piped source, as gazlang does
+bin/gazlang -f selfhost/gazlang.gaz -- code examples/functions.gaz
+bin/gazlang -f selfhost/gazlang.gaz -- ast < examples/errors.gaz
 
 # Run a specific test file
 vendor/bin/phpunit tests/SpecificTest.php
  
 # Run a specific test method
 vendor/bin/phpunit --filter=testMethodName tests/SpecificTest.php
- 
-# Run a file (compiled and run on the VM)
-php bin/gazlang -f examples/functions.gaz
-
-# Run a file on the tree-walking interpreter instead
-php bin/gazlang --interpreter -f examples/functions.gaz
-
-# Print the compiled VM code instead of running it
-php bin/gazlang -f examples/functions.gaz -c
-
-# The VM in C (roadmap step 7, stage 2): build it, and run source (with the self-hosted
-# compiler built into it) or bytecode on it
-make -C vm
-# vm/gazvm takes bin/gazlang's options: -f FILE, -c, -t, --ast, piped source, -- ARGS
-vm/gazvm -f examples/functions.gaz
-php bin/gazlang -c -f examples/functions.gaz > /tmp/f.gzb && vm/gazvm -f /tmp/f.gzb
-
-# After changing selfhost/, rebuild the compiler the C VM has built in, with the C VM alone
-# (three stages, see step 4 of the bootstrap plan; a test fails until then)
-make -C vm compiler
 
 # Which programs the C VM matches the PHP VM on (CVMTest checks the ones in vm/passing.txt);
 # --update adds the new ones. After changing either VM, also fuzz them against each other
@@ -190,7 +189,7 @@ each step depends on the ones before it.
      exception per return records a stack trace and made deep recursion quadratic.
    - With the pcov extension enabled every PHP call uses the C stack and deep
      recursion in the interpreter segfaults (exit 139) before the limit, so
-     `bin/gazlang` restarts itself with `-d pcov.enabled=0`. It restarts at most once
+     `bin/gazlang-php` restarts itself with `-d pcov.enabled=0`. It restarts at most once
      (`GAZLANG_RESTARTED`), since a `-d` on the command line isn't in `$argv`, and through
      `proc_open` with its own streams, so a program's standard output and standard error stay
      in the order it wrote them; diagnostics go to standard error. In-process code
@@ -297,7 +296,7 @@ each step depends on the ones before it.
      location), `exit($code = 0)`
      (stops the program with that exit code, 0 to 255, printing nothing; not an error, so
      `try/catch` doesn't see it: both backends unwind with `Runtime\ExitSignal`, which
-     `bin/gazlang` and the tests' `runProgram()` turn into the exit code), `read_file($path)` and `write_file($path, $string)`
+     `bin/gazlang-php` and the tests' `runProgram()` turn into the exit code), `read_file($path)` and `write_file($path, $string)`
      (relative to the working directory; write creates or overwrites and returns
      null), `cwd()`, `real_path($path)` (absolute, with symlinks, `.` and `..` resolved, as
      `realpath(3)`; an error when nothing is there, and `""` and a NUL byte are nothing, where
@@ -305,7 +304,7 @@ each step depends on the ones before it.
      built 2026-09-18 for the parser port's includes, see the friction log #9),
      `read_stdin()` (all remaining standard input; empty when the program
      itself was piped in), `args()` (the command line arguments
-     after the gazlang options, or after `--`). `bin/gazlang` rejects options it
+     after the gazlang options, or after `--`). Both CLIs reject options they
      doesn't know, since `getopt` would silently drop them, so a program's own
      flags must come after `--`. `builtins()` (built 2026-09-18) is `Builtins::ARITIES` as a map,
      name to arity, in no promised order: the builtins of the runtime running the program,
@@ -440,7 +439,7 @@ each step depends on the ones before it.
    Run it before merging anything that touches a port, the lexer, the parser, the tree or the
    code generator.
    **The C VM made it unnecessary** (2026-09-18): the harnesses run their drivers on
-   `vm/gazvm`, the optimised build, 24 processes at once (`CVM::driver()`), so every `.gaz` file
+   `vm/gazvm` (now `bin/gazlang`), the optimised build, 24 processes at once (`CVM::driver()`), so every `.gaz` file
    is back in the default suite. It grew from 2679 tests to 3380 and from 65s to 73s under
    pcov, and the group, now only CVMTest's drivers on big inputs, went from 85s to 24s. The
    harnesses check the ports, not the VM, which is why they use the optimised build: CVMTest
@@ -463,11 +462,11 @@ each step depends on the ones before it.
    spec.**~~ Done 2026-09-18, without touching `Lexer.php`. `selfhost/lexer.gaz` (about 620
    lines for the PHP lexer's 1050) holds `Token`, `LexError` and `Lexer`, whose methods keep
    the PHP lexer's names so the two read side by side; `selfhost/gazlang.gaz` is the driver.
-   `tests/SelfHostedLexerTest.php` runs `php bin/gazlang -f selfhost/gazlang.gaz -- tokens FILE` on
+   `tests/SelfHostedLexerTest.php` runs `bin/gazlang -f selfhost/gazlang.gaz -- tokens FILE` on
    every `.gaz` file under `examples/`, `lib/`, `selfhost/` and `tests/` (including
    `tests/lexer_corpus/`, the deliberately tricky cases, and `tests/gaz/`, but not
    `tests/parser_corpus/`, which adds nothing for a lexer), and requires output
-   and exit code identical to `php bin/gazlang --tokens -f FILE`: one line per
+   and exit code identical to `bin/gazlang-php --tokens -f FILE`: one line per
    token, `LINE TYPE VALUE` as `Token::__toString()` formats it (strings quoted
    with `Lexer::quote()`, integers as digits, other values as source text, EOF
    with no value), then on a lexer error `Error: <message> on line N` and exit code 1. Add
@@ -541,7 +540,7 @@ each step depends on the ones before it.
    fields), `selfhost/parser.gaz` holds `ParseError`, `VariableCollector` and `Parser`, whose methods keep the PHP parser's names, and `selfhost/gazlang.gaz` is the driver (it was `ast.gaz` until the bootstrap's step 1).
    `tests/SelfHostedParserTest.php` compiles the driver once, runs it on the C VM on every `.gaz`
    file under `examples/`, `lib/`, `selfhost/` and `tests/`, and requires output and exit code
-   identical to `php bin/gazlang --ast -f FILE`: the tree, or `Error: <message> at FILE:N` and
+   identical to `bin/gazlang-php --ast -f FILE`: the tree, or `Error: <message> at FILE:N` and
    exit code 1. On an error there is no partial tree, because the checks made once a program is
    read write into nodes parsed long before (`field`, `definer`, a class's layout), so "the tree
    so far" is not a thing that exists.
@@ -643,7 +642,7 @@ each step depends on the ones before it.
    spec.**~~ Done 2026-09-18. `selfhost/codegen.gaz` (1077 lines) holds `CodeGenerator`, a port
    of `CodeGenerator.php` (1499) with the PHP method names, and `Program`, the writing half of
    `Program.php`; `selfhost/gazlang.gaz` is the driver, in its `code` mode. `tests/SelfHostedCompilerTest.php`
-   requires output and exit code identical to `php bin/gazlang -c -f FILE`, byte for byte, on
+   requires output and exit code identical to `bin/gazlang-php -c -f FILE`, byte for byte, on
    every `.gaz` file (on the C VM; from other working directories on the PHP VM, and four files
    on the interpreter too). The loader,
    `BytecodeReader`, is not ported: loading is the VM's job, so the C VM writes its own.
@@ -680,8 +679,9 @@ each step depends on the ones before it.
    Its first half already holds: the PHP compiler's bytecode for `selfhost/gazlang.gaz`, run on
    the C VM, compiles the compiler to the same bytecode byte for byte, and that compiles it again
    to the same (`test_the_self_hosted_compiler_compiles_itself_on_the_c_vm`, 2s). The C VM
-   runs source with that compiler built in (see "The C VM"). What is left is the rest of the
-   CLI (`-f`, `--`, `-c`, `--tokens`, `--ast`, piped input) and making it `gazlang`.
+   runs source with that compiler built in (see "The C VM"). Since step 5 below it is
+   `bin/gazlang`, with the whole CLI, and rebuilds its own compiler; what is left is step 6, a
+   Linux build.
 
    **The bootstrap plan** (decided 2026-09-18). Four decisions:
    - **The C binary becomes `bin/gazlang`; the PHP script becomes `bin/gazlang-php`** and stays
@@ -817,8 +817,23 @@ each step depends on the ones before it.
         root and down through `/private`, since the include is real-pathed and the main path
         isn't. Both compilers do it alike, so it is the rule rather than a port bug, and it only
         makes locations ugly.
-   5. **The swap** (decision 1): rename, build `bin/gazlang` from `make -C vm`, point the tests,
-      README, `docs/` and this file at `gazlang`, with PHP described as the reference.
+   5. ~~**The swap**~~ (decision 1), done 2026-09-18: `bin/gazlang` is the C VM, which
+      `make -C vm` builds (the Makefile's optimised target, which was `vm/gazvm`; gitignored,
+      and every harness builds it through `CVM::build()`, so a fresh clone's suite needs no
+      step first), and the PHP script is `bin/gazlang-php`, unchanged but for its name. Every
+      test and script that ran `php bin/gazlang` runs `bin/gazlang-php`: they are all either a
+      reference side or about PHP's own behaviour (the interpreter, the backends agreeing, the
+      restart, the in-process `runProgram()`), and the C side is held to them by CVMTest and
+      CliParityTest. What ran `vm/gazvm` runs `bin/gazlang`. The sanitized builds keep their
+      names (`vm/build/gazvm-test`, `-stress`, `-cov`), as do `vm/gazvm.h`, `GAZVM_STATS` and
+      the `gazvm:` leak line, which are internal. The examples' usage comments and messages say
+      `bin/gazlang`; the README now starts from `make -C vm` and a C compiler, with PHP needed
+      only for the tests. The steps above say `vm/gazvm` and `php bin/gazlang` as they were
+      written; read them as `bin/gazlang` and `bin/gazlang-php`.
+      - **Found on the way**: the build commands here piped `examples/functions.gaz` into the
+        front end, which fails on both CLIs, since piped source includes from the working
+        directory and that file includes `../lib/`. Now `examples/errors.gaz`, which includes
+        nothing.
    6. **Portability**: the VM has only ever been built on macOS, and "a bootstrap that needs
       nothing but a C compiler" is untested. `open_memstream()` and `realpath()` want
       `_POSIX_C_SOURCE` on Linux. At least one Linux build and suite run (Docker, or CI, whose
@@ -863,9 +878,10 @@ each step depends on the ones before it.
 ## The C VM
 
 Built 2026-09-18 (roadmap step 7, stage 2): `vm/`, plain C11 with only libc, libm and pthreads,
-about 5000 lines with their comments. `vm/gazvm -f program.gzb -- [args]` runs the bytecode `gazlang -c` writes, and must
+about 5000 lines with their comments, built as `bin/gazlang` (it was `vm/gazvm` until the
+bootstrap's step 5). `bin/gazlang -f program.gzb -- [args]` runs the bytecode `gazlang -c` writes, and must
 behave exactly as the PHP VM does: the same output, the same errors word for word, the same
-locations, traces and exit codes. `bin/gazlang` stays PHP until the bootstrap. `vm/gazvm.h` says
+locations, traces and exit codes. The PHP CLI is `bin/gazlang-php`, the reference. `vm/gazvm.h` says
 which file does what; the files follow the PHP classes (`value.c` and `ops.c` are
 `Runtime\Values`, `builtins.c` is `Runtime\Builtins`, `load.c` is `BytecodeReader`, `vm.c` is
 `VM\VM`).
@@ -933,7 +949,7 @@ which file does what; the files follow the PHP classes (`value.c` and `ops.c` ar
   `GAZVM_STATS` reports the most containers alive at once, which `test_the_c_vm_collects_cycles`
   checks (and leaks, below).
 - **Speed** (`php vm/bench.php`: whole processes, CPU time, interleaved, best of several runs,
-  PHP with the JIT settings `bin/gazlang` uses): 0.9 to 2.0 times the time of the same program
+  PHP with the JIT settings `bin/gazlang-php` uses): 0.9 to 2.0 times the time of the same program
   written in PHP, and 6 to 26 times faster than the PHP VM, so the roadmap's expectation
   ("about that of Lua or PHP") is met. The self-hosted compiler compiles `football.gaz` in 0.09s
   against the PHP VM's 0.70s, and the self-hosted parser on `codegen.gaz` takes 0.23s against
@@ -945,9 +961,9 @@ which file does what; the files follow the PHP classes (`value.c` and `ops.c` ar
   for nested calls only where needed, and a fast path for `==`. What is
   left in a profile of the self-hosted parser is the dispatch loop itself (two thirds), malloc and
   free, and the collector (6%).
-- **It runs source** (built 2026-09-18): `gazvm -f FILE -- [args]` compiles a file that isn't
+- **It runs source** (built 2026-09-18): `gazlang -f FILE -- [args]` compiles a file that isn't
   bytecode with the self-hosted compiler, which is built into it, and runs the result, with the
-  same output, errors, paths and exit codes as `php bin/gazlang -f FILE`. The compiler is
+  same output, errors, paths and exit codes as `bin/gazlang-php -f FILE`. The compiler is
   `selfhost/gazlang.gzb`, checked in next to its source so its `@ "file"` records are exact,
   turned into a C array by `od` when the VM is built (`vm/build/compiler.c`: numbers only, so
   nothing to escape, and no trigraphs, which `-std=c11` turns on and the `??=` in it would be),
@@ -1640,7 +1656,7 @@ try {
 - **`error($value)` throws any value.** A string is the message of an `Error`; anything
   else is caught as it is (`error(5)` catches `5`). An `Error` or subclass gets `#file` and
   `#line` where it is first thrown, so `error($e)` rethrows it keeping them. Uncaught,
-  `bin/gazlang` prints `Error: ` and the value as echo would (through `to_string()`),
+  `gazlang` prints `Error: ` and the value as echo would (through `to_string()`),
   with no location; runtime errors keep theirs. The text is only made once nothing has
   caught the value (`GazLangError::uncaught()`, at the end of `interpret()` and
   `VM::run()`), so throwing never runs `to_string()`.
@@ -1656,7 +1672,7 @@ try {
   runs it in a loop of its own), so an error inside one starts a trace there. `error(5)`
   carries no trace: a bare value has nowhere to put one. An uncaught error prints its trace
   under the message, indented, unless it is a single call, which the message already names
-  (`GazLangError::report()`, used by `bin/gazlang` and the tests' `runProgram()`).
+  (`GazLangError::report()`, used by `bin/gazlang-php` and the tests' `runProgram()`).
   The interpreter records each call as it makes it (about 3% on a program that does nothing
   but call); the VM reads its frames when an error happens, which costs nothing until then.
 - **Catch clauses** are tried in order; `catch (NotFound $e)` matches an object of that
@@ -1847,7 +1863,7 @@ to the working directory; the main file shows as given on the command line.
   each instruction with the file and line it came from, plus the variable name in each
   slot and the class and lambda records. `Program` also writes and reads the bytecode
   file (`BytecodeReader`), which `docs/bytecode.md` specifies.
-- `src/VM`: runs a `Program`. It is the default backend for `php bin/gazlang`;
+- `src/VM`: runs a `Program`. It is the default backend for `bin/gazlang-php`;
   `--interpreter` runs the tree-walking interpreter instead. See "VM" below.
 
 ## VM
@@ -1886,7 +1902,7 @@ compile time, pushed as one value, and `foreach` takes `len()` of its keys once.
 much as results: the VM's `KEY_CHECK` exists so a bad key fails before later
 keys and the value run, exactly when the interpreter's does. After tuning, the
 VM runs fib, arithmetic loops and JSON 2 to 5 times as fast as the interpreter.
-`bin/gazlang` runs PHP with `opcache.jit=1235` (JIT for hot functions), restarting itself
+`bin/gazlang-php` runs PHP with `opcache.jit=1235` (JIT for hot functions), restarting itself
 with it as it does to turn off pcov: about 25% faster on the VM. PHP's default tracing JIT
 made the VM twice as slow, and compiling everything on load (1205) cost 0.2s per run; the
 JIT is skipped under Xdebug, which disables it with a warning in the output.

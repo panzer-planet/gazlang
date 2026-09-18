@@ -114,7 +114,7 @@ class BytecodeTest extends GazLangTestCase
 
     public function test_the_cli_compiles_to_a_file_and_runs_it()
     {
-        $gazlang = escapeshellarg(PHP_BINARY).' '.escapeshellarg(self::ROOT.'/bin/gazlang');
+        $gazlang = escapeshellarg(PHP_BINARY).' '.escapeshellarg(self::ROOT.'/bin/gazlang-php');
         $bytecode = escapeshellarg(sys_get_temp_dir().'/gazlang_example.gzb');
         exec("cd {$this->root()} && {$gazlang} -c -f tests/fixtures/bytecode/example.gaz > {$bytecode} && {$gazlang} -f {$bytecode}", $output, $exit_code);
 
@@ -124,7 +124,7 @@ class BytecodeTest extends GazLangTestCase
 
     public function test_a_gzb_file_is_bytecode_even_when_it_is_broken()
     {
-        $gazlang = escapeshellarg(PHP_BINARY).' '.escapeshellarg(self::ROOT.'/bin/gazlang');
+        $gazlang = escapeshellarg(PHP_BINARY).' '.escapeshellarg(self::ROOT.'/bin/gazlang-php');
         exec("cd {$this->root()} && {$gazlang} -f tests/bytecode_corpus/error_not_bytecode.gzb 2>&1", $output, $exit_code);
 
         $this->assertSame(['Error: Not a bytecode file at tests/bytecode_corpus/error_not_bytecode.gzb:1'], $output);
@@ -133,7 +133,7 @@ class BytecodeTest extends GazLangTestCase
 
     public function test_the_interpreter_does_not_run_bytecode()
     {
-        $gazlang = escapeshellarg(PHP_BINARY).' '.escapeshellarg(self::ROOT.'/bin/gazlang');
+        $gazlang = escapeshellarg(PHP_BINARY).' '.escapeshellarg(self::ROOT.'/bin/gazlang-php');
         exec("cd {$this->root()} && {$gazlang} --interpreter -f tests/fixtures/bytecode/example.gzb 2>&1", $output, $exit_code);
 
         $this->assertSame(['Error: tests/fixtures/bytecode/example.gzb is bytecode, which only the VM runs'], $output);

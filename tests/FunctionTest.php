@@ -117,7 +117,7 @@ class FunctionTest extends GazLangTestCase
             'echo %s | %s %s --interpreter 2>&1',
             escapeshellarg('fn inf() { return inf(); } echo inf();'),
             escapeshellarg(PHP_BINARY),
-            escapeshellarg(__DIR__.'/../bin/gazlang')
+            escapeshellarg(__DIR__.'/../bin/gazlang-php')
         );
         exec($command, $output, $exit_code);
 
