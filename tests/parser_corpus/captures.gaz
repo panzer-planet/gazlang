@@ -1,0 +1,37 @@
+// What a lambda captures: the $ variables it uses, in the order it first uses them, except
+// its parameters and those a plain = makes local
+$f = () -> $a + $b + $a;
+$f = () -> $b + $a;
+$f = $x -> $x + $n;
+$f = ($x, $y = $d) -> $x + $y;
+$f = () -> @global + $local;
+// A plain = makes a variable local, wherever it is; a compound assignment doesn't
+$f = () -> [$t = 1, $t + $u];
+$f = () -> [$t + $u, $t = 1];
+$f = () -> $n += 1;
+$f = () -> $n++;
+$f = () -> $memo[$k] ??= 1;
+$f = () -> $a[0] = 1;
+$f = () -> $o.x = $v;
+$f = () -> [$p, $q] = [$q, $r];
+$f = () -> [$l[0], $o.y] = $pair;
+// A nested lambda gives what it captures and nothing it assigns
+$f = () -> $x -> $x + $outer;
+$f = () -> () -> $inner = $outer;
+$f = $x -> ($y = $x) -> $y + $z;
+// Children at any depth: entries, arms, interpolation, arguments
+$f = () -> [[$e1], {"k" => [$e2]}];
+$f = () -> match ($s) { $v1, $v2 => $b1, default => $b2 };
+$f = () -> match { $c1 => $b1 };
+$f = () -> "a {$i1} b $i2[$i3]";
+$f = () -> len($arg)[$idx].prop($marg);
+$f = () -> $c ? $t : $e;
+$f = () -> -$neg ?? !$not;
+$f = () -> { echo $in_block; };
+// $f = <lambda using $f> is the lambda itself
+$fact = $n -> $n * $fact;
+$fib = $n -> $memo[$n] ??= $fib;
+$other = $n -> $fact;
+@g = $n -> @g;
+$a[0] = $n -> $a;
+$self += $n -> $self;

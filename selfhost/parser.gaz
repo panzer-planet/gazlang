@@ -23,6 +23,58 @@ class ParseError extends Error {
     }
 }
 
+// Collects the $ variables a node uses, in source order, and those it assigns with a plain =
+//
+// A nested lambda contributes the variables it captures, since those must be read when it is
+// created, and nothing it assigns, which is local to its own calls. An object rather than the
+// PHP parser's two arrays by reference: a map passed to a function is a copy.
+class VariableCollector {
+    // The names, as the keys of a map, which keeps them in the order they were first met
+    #found = {};
+    #assigned = {};
+
+    fn collect($node) {
+        if (is_a($node, VariableAST)) {
+            if (!$node.is_global()) {
+                #found[$node.value] = true;
+            }
+
+            return;
+        }
+        if (is_a($node, LambdaAST)) {
+            foreach ($node.captures as $name) {
+                #found[$name] = true;
+            }
+
+            return;
+        }
+        $targets = match {
+            is_a($node, AssignAST) && is_a($node.left, ListPatternAST) => $node.left.targets,
+            is_a($node, AssignAST) && $node.token.type == "ASSIGN" => [$node.left],
+            default => [],
+        };
+        foreach ($targets as $target) {
+            if (is_a($target, VariableAST) && !$target.is_global()) {
+                #assigned[$target.value] = true;
+            }
+        }
+
+        #children($node.parts());
+    }
+
+    // Children sit at any depth of lists and maps: a list literal's [key, value] entries, a
+    // match's arms, whose values are a list inside each arm
+    fn children($values) {
+        foreach ($values as $value) {
+            if (is_a($value, AST)) {
+                #collect($value);
+            } else if (type_of($value) == "list" || type_of($value) == "map") {
+                #children($value);
+            }
+        }
+    }
+}
+
 class Parser {
     #lexer;
     #current_token;
@@ -32,8 +84,37 @@ class Parser {
     // The file being parsed, as shown in errors
     #file;
 
+    // How many loops enclose the statement being parsed, so break and continue can be checked
+    #loop_depth = 0;
+    // Whether a function body is being parsed, so return can be checked
+    #in_function = false;
+    // Whether a finally block is being parsed, which return, break and continue can't leave
+    #in_finally = false;
+    // Whether a constructor's body is being parsed, where return can't give a value
+    #in_constructor = false;
+
     // Declared classes by name, resolved once the whole program is read
     #classes = {};
+
+    // Every call by name and bare name used as a value, in source order, checked against the
+    // declared functions once the whole program is read
+    #uses = [];
+
+    // The ( that starts the expression being parsed at the ternary's level, the only place a
+    // parenthesised parameter list can start a lambda. The PHP parser keeps a set of them by
+    // object id; one is enough, since nothing is read between ternary() marking a ( and
+    // parenthesised() asking about it.
+    #lambda_head = null;
+
+    // Assignment operator token types: = and the compound assignments
+    #assignments = [
+        "ASSIGN", "PLUS_ASSIGN", "MINUS_ASSIGN", "MULTIPLY_ASSIGN", "DIVIDE_ASSIGN", "MODULO_ASSIGN",
+        "CONCAT_ASSIGN", "COALESCE_ASSIGN",
+        "BIT_AND_ASSIGN", "BIT_OR_ASSIGN", "BIT_XOR_ASSIGN", "SHIFT_LEFT_ASSIGN", "SHIFT_RIGHT_ASSIGN",
+    ];
+
+    // Keywords reserved for features that don't exist yet, so adding them never breaks a program
+    #reserved = ["INTERFACE", "IMPLEMENTS", "FINAL", "PUBLIC", "PRIVATE", "PROTECTED"];
 
     // Declared function names mapped to their parameter counts, [fewest, most] when some are
     // optional. It starts as Builtins::ARITIES, which SelfHostedParserTest keeps this in step with.
@@ -137,7 +218,36 @@ class Parser {
         return $node;
     }
 
-    // Parse a primary (INTEGER | FLOAT | STRING | TRUE | FALSE | NULL | LPAREN expr RPAREN | variable)
+    // Parse a call by name (IDENTIFIER arguments), the name having been eaten
+    fn function_call($name) {
+        $node = #at(FunctionCallAST($name.value, #arguments()), $name);
+        #uses[] = $node;
+
+        return $node;
+    }
+
+    // Parse a call's arguments (LPAREN [expr (COMMA expr)*] RPAREN)
+    fn arguments() {
+        #eat("LEFT_PAREN");
+
+        $args = [];
+        if (#current_token.type != "RIGHT_PAREN") {
+            $args[] = #expr();
+            while (#current_token.type == "COMMA") {
+                #eat("COMMA");
+                $args[] = #expr();
+            }
+        }
+        #eat("RIGHT_PAREN");
+
+        return $args;
+    }
+
+    // Parse a primary (INTEGER | FLOAT | STRING | interpolated_string | TRUE | FALSE | NULL | LPAREN expr RPAREN
+    //                  | variable | function_call | IDENTIFIER | list_literal | map_literal | match)
+    //
+    // A bare IDENTIFIER not followed by ( is a function used as a value; that it names a
+    // function is checked once the whole program is read, like calls.
     fn primary() {
         $token = #current_token;
         $type = $token.type;
@@ -150,6 +260,8 @@ class Parser {
             #eat("STRING");
 
             return #at(StringAST($token), $token);
+        } else if ($type == "STRING_START") {
+            return #interpolated_string();
         } else if ($type == "TRUE" || $type == "FALSE") {
             #eat($type);
 
@@ -158,33 +270,304 @@ class Parser {
             #eat("NULL");
 
             return #at(NullAST($token), $token);
+        } else if ($type == "IDENTIFIER") {
+            #eat("IDENTIFIER");
+            if (#current_token.type == "LEFT_PAREN") {
+                return #function_call($token);
+            }
+            $node = #at(FunctionRefAST($token.value), $token);
+            #uses[] = $node;
+
+            return $node;
+        } else if ($type == "MATCH") {
+            return #match_expression(false);
+        } else if ($type == "LEFT_BRACKET") {
+            return #list_literal();
+        } else if ($type == "LEFT_BRACE") {
+            return #map_literal();
         } else if ($type == "LEFT_PAREN") {
             return #parenthesised();
         } else if ($type == "VAR_IDENTIFIER" || $type == "GLOBAL_VAR_IDENTIFIER") {
             return #variable();
+        } else if ($type == "PARENT") {
+            #fail("## alone is not allowed: write ##name for the parent's version of a method");
+        } else if (in_array($type, #reserved)) {
+            #fail("{$token.value} is reserved");
         }
 
         #unexpected();
     }
 
-    // Parse a parenthesised expression (LPAREN expr RPAREN)
+    // Parse a parenthesised expression, or a lambda whose parameters are in parentheses
+    //
+    // (LPAREN [expr (COMMA expr)*] RPAREN [ARROW lambda_body]): a comma list is parsed
+    // either way, so no lookahead is needed to tell ($a, $b = 1) -> ... from ($a + 1).
+    // Only a ( that starts an expression at the ternary's level (see ternary()) can head a
+    // lambda, so 1 + ($x) -> 2 is a syntax error like 1 + $x -> 2, and anywhere else a
+    // comma is the usual error at once. When -> follows, each element must have been
+    // written as $parameter or $parameter = default, not (($a)) or $a[0] = 1.
     fn parenthesised() {
+        $paren = #current_token;
+        $head = #lambda_head == $paren;
         #eat("LEFT_PAREN");
-        if (#current_token.type == "RIGHT_PAREN") {
-            #unexpected();
+
+        // Each item with the token it starts at, for checking it as a parameter
+        $items = [];
+        $comma = null;
+        if (#current_token.type != "RIGHT_PAREN") {
+            $first = #current_token;
+            $items[] = [$first, #expr()];
+            while (#current_token.type == "COMMA") {
+                if (!$head) {
+                    #unexpected();
+                }
+                $comma ??= #current_token;
+                #eat("COMMA");
+                $first = #current_token;
+                $items[] = [$first, #expr()];
+            }
         }
-        $node = #expr();
+        $close = #current_token;
         #eat("RIGHT_PAREN");
+
+        if (!$head || #current_token.type != "ARROW") {
+            if ($comma != null) {
+                #fail_at("Expected ')' but found ','", #file, $comma.line);
+            }
+            if ($items == []) {
+                #fail_at("Unexpected ')'", #file, $close.line);
+            }
+
+            return $items[0][1];
+        }
+
+        $params = [];
+        $defaults = [];
+        $lines = [];
+        foreach ($items as [$first, $item]) {
+            $default = null;
+            if (is_a($item, AssignAST) && $item.token.type == "ASSIGN") {
+                $default = $item.right;
+                $item = $item.left;
+            }
+            if ($first.type != "VAR_IDENTIFIER" || !is_a($item, VariableAST) || $item.value != $first.value) {
+                #fail_at("Lambda parameters must be \$variables", #file, $first.line);
+            }
+            $params[] = $item.value;
+            $defaults[] = $default;
+            $lines[] = $first.line;
+        }
+
+        return #lambda($paren, $params, $defaults, $lines);
+    }
+
+    // Parse a lambda's body after its parameters (ARROW (block | expr)) and build the node
+    //
+    // An expression body's value is returned; a block body returns only through return.
+    // A block body is a function body: return is allowed, and break and continue can't
+    // reach a loop around the lambda.
+    //
+    // The PHP parser restores what it set aside in a finally. Nothing catches a ParseError
+    // and carries on parsing, so here what follows the body is enough.
+    fn lambda($start, $params, $defaults, $lines) {
+        $arity = #check_parameters($params, $defaults, $lines);
+        #eat("ARROW");
+
+        // A lambda in a constructor isn't the constructor: it can return values, and can't run ##_;
+        // one in a finally block can return too
+        [$in_constructor, $in_finally] = [#in_constructor, #in_finally];
+        [#in_constructor, #in_finally] = [false, false];
+        if (#current_token.type == "LEFT_BRACE") {
+            [$in_function, $loop_depth] = [#in_function, #loop_depth];
+            [#in_function, #loop_depth] = [true, 0];
+            $body = #block();
+            [#in_function, #loop_depth] = [$in_function, $loop_depth];
+        } else {
+            $body = #expr();
+        }
+        [#in_constructor, #in_finally] = [$in_constructor, $in_finally];
+
+        // The outer variables it uses, except those a plain = (or foreach or catch) makes local to each call
+        $variables = VariableCollector();
+        foreach ($defaults as $default) {
+            if ($default != null) {
+                $variables.collect($default);
+            }
+        }
+        $variables.collect($body);
+        $captures = [];
+        foreach ($variables.found as $name => $_) {
+            if (!in_array($name, $params) && !has_key($variables.assigned, $name)) {
+                $captures[] = $name;
+            }
+        }
+
+        return #at(LambdaAST($params, $defaults, $arity, $body, $captures), $start);
+    }
+
+    // Check a lambda's parameter list, with the same rules as a function's, and work out its arity
+    fn check_parameters($params, $defaults, $lines) {
+        $seen = {};
+        $required = 0;
+        foreach ($params as $i => $param) {
+            if (has_key($seen, $param)) {
+                #fail_at("Duplicate parameter {$param} in lambda", #file, $lines[$i]);
+            }
+            $seen[$param] = true;
+            if ($defaults[$i] == null) {
+                if ($required < $i) {
+                    #fail_at("Required parameter {$param} can't follow a parameter with a default", #file, $lines[$i]);
+                }
+                $required++;
+            }
+        }
+
+        return #arity($params, $defaults);
+    }
+
+    // A parameter list's arity: a count, or [fewest, most] when there are defaults
+    fn arity($params, $defaults) {
+        $required = 0;
+        foreach ($defaults as $default) {
+            if ($default == null) {
+                $required++;
+            }
+        }
+
+        return $required == len($params) ? $required : [$required, len($params)];
+    }
+
+    // Parse an interpolated string (STRING_START expr (STRING_MIDDLE expr)* STRING_END)
+    //
+    // Desugared into concatenation: "Hi {$name}!" is "Hi " .. $name .. "!", which
+    // converts values the way echo does; the backends need nothing new.
+    fn interpolated_string() {
+        $start = #current_token;
+        #eat("STRING_START");
+        $node = #at(StringAST($start), $start);
+
+        while (true) {
+            $value = #expr();
+
+            $part = #current_token;
+            if ($part.type != "STRING_MIDDLE" && $part.type != "STRING_END") {
+                #fail("Expected '}' but found " .. #describe($part));
+            }
+            #eat($part.type);
+
+            $concat = Token("CONCAT", "..");
+            $concat.line = $part.line;
+            $node = #at(BinOpAST($node, $concat, $value), $concat);
+            if ($part.value != "") {
+                $node = #at(BinOpAST($node, $concat, #at(StringAST($part), $part)), $concat);
+            }
+
+            if ($part.type == "STRING_END") {
+                return $node;
+            }
+        }
+    }
+
+    // Parse a list literal (LBRACKET [expr (COMMA expr)* [COMMA]] RBRACKET)
+    fn list_literal() {
+        $start = #current_token;
+        #eat("LEFT_BRACKET");
+
+        $entries = [];
+        while (#current_token.type != "RIGHT_BRACKET") {
+            $entries[] = [null, #expr()];
+            if (#current_token.type == "DOUBLE_ARROW") {
+                #fail("A list has no keys: write a map as \{key => value}");
+            }
+
+            // A trailing comma is allowed, so multi-line literals diff cleanly
+            if (#current_token.type != "RIGHT_BRACKET") {
+                #eat("COMMA");
+            }
+        }
+        #eat("RIGHT_BRACKET");
+
+        return #at(ArrayLiteralAST($entries), $start);
+    }
+
+    // Parse a map literal (LBRACE [entry (COMMA entry)* [COMMA]] RBRACE), entry: expr DOUBLE_ARROW expr
+    //
+    // Only where an expression is expected: a { that starts a statement is a block, and one
+    // right after -> is a lambda's block body, so a lambda returning a map writes ({...}).
+    fn map_literal() {
+        $start = #current_token;
+        #eat("LEFT_BRACE");
+
+        $entries = [];
+        while (#current_token.type != "RIGHT_BRACE") {
+            $key = #expr();
+            #eat("DOUBLE_ARROW");
+            $entries[] = [$key, #expr()];
+
+            if (#current_token.type != "RIGHT_BRACE") {
+                #eat("COMMA");
+            }
+        }
+        #eat("RIGHT_BRACE");
+
+        return #at(ArrayLiteralAST($entries, true), $start);
+    }
+
+    // Parse a postfix expression (primary (LBRACKET [expr] RBRACKET | arguments | PROPERTY)* [INCREMENT | DECREMENT])
+    //
+    // Empty brackets ($a[] = ...) append, so they are only allowed directly before an assignment.
+    fn postfix() {
+        $node = #primary();
+
+        while (in_array(#current_token.type, ["LEFT_BRACKET", "LEFT_PAREN", "PROPERTY"])) {
+            if (#current_token.type == "PROPERTY") {
+                // $user.name: which members the object has is only known when it runs
+                $token = #current_token;
+                #eat("PROPERTY");
+                $node = #at(PropertyAST($node, slice($token.value, 1)), $token);
+
+                continue;
+            }
+            if (#current_token.type == "LEFT_PAREN") {
+                if (is_a($node, PropertyAST)) {
+                    // #save($x): calling a member, located at its name like reading it
+                    $call = MethodCallAST($node, #arguments());
+                    [$call.line, $call.file] = [$node.line, $node.file];
+                    $node = $call;
+
+                    continue;
+                }
+                // A call on a value: $f(1), $h["save"]($doc), pick()(2), (add)(1), located at its (
+                $paren = #current_token;
+                $node = #at(CallValueAST($node, #arguments()), $paren);
+
+                continue;
+            }
+            $bracket = #current_token;
+            #eat("LEFT_BRACKET");
+            if (#current_token.type == "RIGHT_BRACKET") {
+                #eat("RIGHT_BRACKET");
+                if (!in_array(#current_token.type, #assignments)) {
+                    #fail("[] can only be used to append in an assignment");
+                }
+
+                return #at(IndexAST($node, null), $bracket);
+            }
+            $node = #at(IndexAST($node, #expr()), $bracket);
+            #eat("RIGHT_BRACKET");
+        }
+
+        $token = #current_token;
+        if ($token.type == "INCREMENT" || $token.type == "DECREMENT") {
+            #eat($token.type);
+
+            return #at(IncrementAST(#assignable($node, $token), $token, false), $token);
+        }
 
         return $node;
     }
 
-    // Parse a postfix expression (primary)
-    fn postfix() {
-        return #primary();
-    }
-
-    // Parse a unary expression ((MINUS | NOT | BIT_NOT) unary | postfix)
+    // Parse a unary expression ((MINUS | NOT | BIT_NOT) unary | (INCREMENT | DECREMENT) postfix | postfix)
     fn unary() {
         $token = #current_token;
 
@@ -192,6 +575,12 @@ class Parser {
             #eat($token.type);
 
             return #at(UnaryOpAST($token, #unary()), $token);
+        }
+
+        if ($token.type == "INCREMENT" || $token.type == "DECREMENT") {
+            #eat($token.type);
+
+            return #at(IncrementAST(#assignable(#postfix(), $token), $token, true), $token);
         }
 
         return #postfix();
@@ -257,11 +646,26 @@ class Parser {
         return $node;
     }
 
-    // Parse a ternary (coalesce [? expr : ternary]), right associative
+    // Parse a ternary (coalesce [? expr : ternary]), or a lambda with one bare parameter (VAR_IDENTIFIER ARROW lambda_body)
+    //
+    // Right associative, as in C and JS: $a ? 1 : $b ? 2 : 3 is $a ? 1 : ($b ? 2 : 3). The
+    // middle is a full expression, so it can hold an assignment or another ternary.
+    //
+    // A lambda's body is an expression, so it extends as far right as it can: $x -> $x * 2
+    // == 4 is $x -> ($x * 2 == 4), and $x -> $y -> $x + $y nests. Recognising $x -> here
+    // (and the parenthesised form in parenthesised()) puts lambdas at the same level as the
+    // ternary, so 1 + $x -> 2 is a syntax error.
     fn ternary() {
+        $start = #current_token;
+        if ($start.type == "LEFT_PAREN") {
+            #lambda_head = $start;
+        }
         $node = #coalesce();
 
         $token = #current_token;
+        if ($token.type == "ARROW" && is_a($node, VariableAST) && !$node.is_global() && $start.type == "VAR_IDENTIFIER") {
+            return #lambda($start, [$node.value], [null], [$start.line]);
+        }
         if ($token.type == "QUESTION") {
             #eat("QUESTION");
             $then = #expr();
@@ -273,9 +677,69 @@ class Parser {
         return $node;
     }
 
-    // Parse an expression, the lowest precedence level (ternary)
+    // Parse an expression, the lowest precedence level ((variable | index) (= | += | -= | *= | /= | %= | ..= | ??=) expr | ternary)
+    //
+    // Assignment is right associative, so $a = $b = 1 assigns 1 to both.
     fn expr() {
-        return #ternary();
+        $node = #ternary();
+
+        $token = #current_token;
+        if (!in_array($token.type, #assignments)) {
+            return $node;
+        }
+        if (is_a($node, ArrayLiteralAST) && !$node.map) {
+            if ($token.type != "ASSIGN") {
+                #fail("Cannot use {$token.value} to take a list apart: only = can");
+            }
+            $pattern = #list_pattern($node, $target -> #assignable($target, $token));
+            #eat("ASSIGN");
+
+            return #at(AssignAST($pattern, $token, #expr()), $token);
+        }
+
+        $node = #assignable($node, $token);
+        // Appending ($a[] = ...) is a plain assignment: there is no current element to combine with
+        if ($token.type != "ASSIGN" && is_a($node, IndexAST) && $node.index == null) {
+            #fail("Cannot use {$token.value} to append");
+        }
+        #eat($token.type);
+        $right = #expr();
+        // $f = <lambda>: inside the lambda, $f is the lambda itself, so it can call itself
+        if ($token.type == "ASSIGN" && is_a($node, VariableAST) && !$node.is_global()
+            && is_a($right, LambdaAST) && in_array($node.value, $right.captures)) {
+            $right.self = $node.value;
+        }
+
+        return #at(AssignAST($node, $token, $right), $token);
+    }
+
+    // Turn a list literal written where a pattern goes ([$a, $b] = ..., foreach (... as [$a, $b])) into a pattern
+    //
+    // $target checks each element can be a target, failing if not
+    fn list_pattern($literal, $target) {
+        if ($literal.entries == []) {
+            #fail_at("Nothing to take apart: write at least one target in [...]", #file, $literal.line);
+        }
+        $targets = [];
+        foreach ($literal.entries as $entry) {
+            $targets[] = $target($entry[1]);
+        }
+        $pattern = ListPatternAST($targets);
+        [$pattern.line, $pattern.file] = [$literal.line, $literal.file];
+
+        return $pattern;
+    }
+
+    // Check a node can be assigned to: a variable, or a path of elements and fields starting at a variable or #
+    //
+    // $a, $a[0], $rows[0].total, #count, #items[] and $user.tags[0] can be; # itself, and a
+    // path starting anywhere else (make().x), can't. $operator is the assignment or ++/-- token.
+    fn assignable($node, $operator) {
+        if (is_a($node, VariableAST) || ((is_a($node, IndexAST) || is_a($node, PropertyAST)) && path_root($node) != null)) {
+            return $node;
+        }
+
+        #fail("Can only use {$operator.value} on a variable, or an element or field of one");
     }
 
     // Parse a left associative binary level (operand (OP operand)*)
@@ -291,10 +755,93 @@ class Parser {
         return $node;
     }
 
-    // Parse a statement (expr SEMICOLON | echo_statement)
+    // Parse a match (MATCH [LPAREN expr RPAREN] LBRACE arm (COMMA arm)* [COMMA] RBRACE)
+    //
+    // An arm is one or more comma separated expressions, or DEFAULT, then => then its body.
+    // A comma separates arms; it is optional after the last one and after a block arm, which
+    // ends in a } of its own, as in Rust.
+    //
+    // The subject is optional: with one, an arm's values are compared to it with ==; without,
+    // they are conditions, tested for truth as if does, so several to an arm read as "or".
+    //
+    // Only a match written as a statement may have block arms, so in one a { after => is a
+    // block and a map is written ({...}), the same rule as a lambda body; in an expression a
+    // { after => is a map literal. The default arm must be last, since anything after it is
+    // dead, the way an untyped catch must be last.
+    fn match_expression($statement) {
+        $start = #current_token;
+        #eat("MATCH");
+        $subject = null;
+        if (#current_token.type == "LEFT_PAREN") {
+            #eat("LEFT_PAREN");
+            $subject = #expr();
+            #eat("RIGHT_PAREN");
+        }
+        #eat("LEFT_BRACE");
+
+        $arms = [];
+        $default = false;
+        while (#current_token.type != "RIGHT_BRACE") {
+            if ($default) {
+                #fail("default must be the last arm of a match");
+            }
+
+            $values = null;
+            if (#current_token.type == "DEFAULT") {
+                #eat("DEFAULT");
+                $default = true;
+            } else {
+                $values = [#expr()];
+                while (#current_token.type == "COMMA") {
+                    #eat("COMMA");
+                    $values[] = #expr();
+                }
+            }
+            #eat("DOUBLE_ARROW");
+
+            $block = $statement && #current_token.type == "LEFT_BRACE";
+            $arms[] = [$values, $block ? #block() : #expr(), $block];
+
+            if (#current_token.type == "COMMA") {
+                #eat("COMMA");
+            } else if (!$block && #current_token.type != "RIGHT_BRACE") {
+                // Not the last arm and not brace terminated, so a comma is missing
+                #eat("COMMA");
+            }
+        }
+        #eat("RIGHT_BRACE");
+
+        if ($arms == []) {
+            #fail_at("A match needs at least one arm", #file, $start.line);
+        }
+
+        return #at(MatchAST($subject, $arms), $start);
+    }
+
+    // Parse a block (LBRACE statement* RBRACE)
+    fn block() {
+        #eat("LEFT_BRACE");
+
+        $block = CompoundAST();
+        while (#current_token.type != "RIGHT_BRACE") {
+            $block.statements[] = #statement();
+        }
+        #eat("RIGHT_BRACE");
+
+        return $block;
+    }
+
+    // Parse a statement (expr SEMICOLON | echo_statement | match)
     fn statement() {
-        if (#current_token.type == "ECHO") {
+        $type = #current_token.type;
+        if ($type == "ECHO") {
             return #echo_statement();
+        } else if ($type == "MATCH") {
+            // A match written as a statement ends at its }, like if and while, and its arms
+            // may be blocks; its value is discarded
+            $start = #current_token;
+
+            return #at(StatementAST(#match_expression(true)), $start);
         }
 
         $start = #current_token;
@@ -315,11 +862,46 @@ class Parser {
     }
 
     // Parse a program (top_level)
+    //
+    // Calls by name and bare names are checked once everything is parsed, so a function
+    // can be used before it is declared and both backends can trust every call by name.
+    // Calls on values ($f(1)) are checked when they run.
     fn program() {
         $root = CompoundAST();
         $root.statements = #top_level();
 
+        foreach (#uses as $use) {
+            if (!has_key(#functions, $use.name)) {
+                $hint = has_key(#lexer.keywords, lower($use.name))
+                    ? " (keywords are lowercase: write '" .. lower($use.name) .. "', not '{$use.name}')"
+                    : "";
+                #fail_at("Undefined function: {$use.name}{$hint}", $use.file, $use.line);
+            }
+            if (is_a($use, FunctionCallAST)) {
+                $error = #arity_error("Function {$use.name}", #functions[$use.name], len($use.args));
+                if ($error != null) {
+                    #fail_at($error, $use.file, $use.line);
+                }
+            }
+        }
+
         return $root;
+    }
+
+    // As Builtins::bounds(): the fewest and most arguments an arity allows
+    fn bounds($arity) {
+        return type_of($arity) == "int" ? [$arity, $arity] : $arity;
+    }
+
+    // As Builtins::arityError(): what is wrong with a call's argument count, or null if it fits
+    fn arity_error($what, $arity, $argc) {
+        [$fewest, $most] = #bounds($arity);
+        if ($argc >= $fewest && $argc <= $most) {
+            return null;
+        }
+        $expected = $fewest == $most ? $fewest : "{$fewest} to {$most}";
+
+        return "{$what} expects {$expected} arguments, {$argc} given";
     }
 
     // Parse top level items until the end of the current file (statement*)

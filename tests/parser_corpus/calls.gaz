@@ -1,0 +1,16 @@
+// Builtins by name: checked against their arity once the program is read
+echo len("abc");
+echo slice("abc", 1);
+echo slice("abc", 1, 2);
+echo index_of("abc", "b");
+echo round(1.5);
+echo round(1.555, 2);
+exit();
+exit(1);
+echo read_stdin();
+echo len(len(len([])));
+// A bare name is the function as a value
+$l = len;
+echo [len, upper][0];
+echo (upper)("x");
+echo join([1, 2], ", ") .. to_string(1);

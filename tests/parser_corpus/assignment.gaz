@@ -1,0 +1,36 @@
+// Every assignment operator, right associative, with every kind of target
+$a = 1;
+@g = 2;
+$a = $b = $c = 3;
+$a += 1;
+$a -= 1;
+$a *= 2;
+$a /= 2;
+$a %= 2;
+$a ..= "x";
+$a ??= 1;
+$a &= 1;
+$a |= 1;
+$a ^= 1;
+$a <<= 1;
+$a >>= 1;
+$a += $b *= 2;
+$a[0] = 1;
+$a["k"][1] = 2;
+$a[] = 3;
+$a[0][] = 4;
+$o.x = 5;
+$o.list[] = 6;
+$rows[0].total += 7;
+$o.name ..= "!";
+$m["k"] ??= [];
+echo $a = 1;
+$x = $c ? 1 : 2;
+$x = $y ?? 3;
+// List patterns: any target = can assign, and the value of the expression is the list
+[$a, $b] = [1, 2];
+[$a, $b] = [$b, $a];
+[$a] = values($m);
+[$l[0], @g, $o.y, $m["k"]] = $four;
+[$a, $b,] = $pair;
+$p = [$a, $b] = $pair;

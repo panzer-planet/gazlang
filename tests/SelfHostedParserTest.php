@@ -112,7 +112,7 @@ class SelfHostedParserTest extends GazLangTestCase
      */
     public function test_self_hosted_parser_gives_the_same_tree_on_the_interpreter()
     {
-        foreach (['precedence', 'literals', 'error_missing_operand', 'error_lexer_error_has_the_file'] as $name) {
+        foreach (['precedence', 'literals', 'captures', 'interpolation', 'match', 'error_missing_operand', 'error_lexer_error_has_the_file', 'error_lambda_duplicate_parameter'] as $name) {
             $file = "tests/parser_corpus/{$name}.gaz";
 
             $this->assertSame(self::phpAst($file), $this->runProgram(self::PARSER, [$file]), $file);

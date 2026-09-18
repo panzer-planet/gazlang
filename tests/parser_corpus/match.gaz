@@ -1,0 +1,30 @@
+$kind = match ($type) {
+    "int", "float" => "number",
+    "list" => "a list",
+    default => "other",
+};
+$kind = match ($x) { 1 => "one" };
+$kind = match ($x) { 1 => "one", };
+$kind = match ($x) { default => 0 };
+$kind = match ($x) { $a + 1, len($b) => [1], {"k" => 1}["k"] => {"map" => true} };
+$kind = match {
+    $c >= "a" && $c <= "z" => 1,
+    $c == "_", $c == "-" => 2,
+    default => 3,
+};
+echo match ($a) { 1 => match ($b) { 2 => 3, default => 4 }, default => 5 };
+echo match (match ($a) { 1 => 2 }) { 2 => 3 } + 1;
+// A statement: an arm may be a block, which needs no comma after it
+match ($c) {
+    "a" => { echo 1; }
+    "b" => { echo 2; },
+    "c" => $x = 3,
+    default => { }
+}
+match {
+    $a => { echo "a"; }
+    default => $n++
+}
+match ($c) { 1 => ({"map" => 1}), 2 => { echo "block"; } }
+match ($c) { 1 => { match ($d) { 2 => { echo 3; } } } }
+echo 1;

@@ -1,0 +1,2 @@
+echo len(1, 2) + second() + first();
+echo first();

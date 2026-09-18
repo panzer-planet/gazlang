@@ -1,0 +1,18 @@
+// Every head, and how far a body reaches
+$f = $x -> $x * 2;
+$f = $x -> $x * 2 == 4;
+$f = () -> 42;
+$f = ($a) -> $a;
+$f = ($a, $b) -> $a + $b;
+$f = ($a, $b = 1, $c = $a * $b) -> $a + $b + $c;
+$f = $x -> $y -> $x + $y;
+$f = ($x) -> ($y) -> $x + $y;
+$f = $c ? $x -> 1 : $y -> 2;
+$f = $g ?? ($x -> $x);
+$f = $x -> ({"v" => $x});
+$f = $x -> [$x];
+$f = ($x) -> { echo $x; };
+$f = () -> {};
+echo (($a) -> $a)(1);
+echo join([1], $x -> $x + 1);
+echo slice(($a, $b) -> $a, 1);

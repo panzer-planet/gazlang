@@ -1,0 +1,18 @@
+echo "Hi $name";
+echo "Hi $name!";
+echo "$a$b";
+echo "$a and $b and $c.";
+echo "{$a}";
+echo "x{$a}y{$b}z";
+echo "{$user.name} has {len($user.tags)} tags";
+echo "{$a + 1} {$f(1)[0]} {@g}";
+echo "$list[0] $map[key] $map[$i] $list[-1]";
+echo "nested {$m["k" .. "{$i}"]} done";
+echo "map {$pick({"a" => 1})} lambda {$apply($x -> "in {$x}")}";
+echo "line one
+line two {$x}
+line three";
+echo "{$a}" .. "{$b}";
+$s = "total: {$n * 2}" .. 1;
+echo "{$c ? "yes" : "no"}";
+echo '$raw {$raw}';

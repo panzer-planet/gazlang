@@ -1,0 +1,36 @@
+// Indexes, calls and properties chain in any order, each located at its own token
+echo $a[0];
+echo $a[0][1]["k"];
+echo $a[$i + 1][len($a) - 1];
+echo $user.name;
+echo $user.address.city;
+echo $rows[0].total;
+echo $user.tags[0];
+echo $user
+    .name
+    .first;
+echo $f(1);
+echo $f(1)(2)(3);
+echo $h["save"]($doc, 2);
+echo (len)([1]);
+echo len([1])[0];
+echo $user.save(1, 2);
+echo $user.save;
+echo $user.list()[0].name();
+echo $o.echo.if.class;
+echo "abc"[0];
+echo [1, 2][0];
+echo {"k" => 1}["k"];
+echo -$a[0];
+echo !$f();
+echo $a[0] ?? $b.c ?? null;
+$i++;
+$i--;
+++$i;
+--$i;
+$a[0]++;
+--$a["k"][1];
+$o.n++;
+++$rows[0].total;
+echo -$i++;
+echo $i++ + ++$i;

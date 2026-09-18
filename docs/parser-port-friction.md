@@ -56,3 +56,30 @@ has to survive in some form either way.
 but it was not needed: `#left_associative(#unary, [...])` passes the bound method, which is
 better than the PHP, where the name is a string no tool checks. Recorded because the hole's
 "each wants real code asking for it first" should not count this as a request.
+
+## 5. Two results out of one walk (hole 1: a mirage here too, with one sharp edge)
+
+**Met:** `collect_variables(AST $node, array &$found, array &$assigned)` fills two arrays by
+reference while it recurses.
+
+**Workaround:** `VariableCollector`, an object with `#found` and `#assigned`, whose `collect()`
+recurses. This is what hole 1 already concluded (mutable state belongs in an object) and it reads
+better than the PHP. The sharp edge is the one hole 1 documents: the first draft passed `$found`
+to a helper and appended to it there, which silently did nothing. Nothing new to decide.
+
+## 6. A side table keyed by an object (hole 6: no identity key)
+
+**Met:** `$this->lambda_heads[spl_object_id($paren)] = true` marks the `(` tokens that may head a
+lambda, and `$this->member_uses[spl_object_id($node)]` finds a `#name`'s record again when it
+turns out to be called or assigned to.
+
+**Workaround:** neither needed a table. `#lambda_head` is one field holding the last `(` marked,
+compared with `==` (identity): nothing is read between `ternary()` marking a `(` and
+`parenthesised()` asking about it, so a set of every one ever marked was more than the PHP needed.
+A `#name`'s record will hang off the node itself (stage 4). Both are better than the original:
+`spl_object_id()` values are reused once an object is freed, so a set of ids of tokens long gone
+can in principle claim a later token. That could not be provoked by hand; the parser fuzzer is
+the thing to find it if it is real.
+
+**Options:** none wanted yet. Two of the seven `spl_object_id` uses the audit counted dissolve
+when looked at; the other five get the same look in stage 4.
