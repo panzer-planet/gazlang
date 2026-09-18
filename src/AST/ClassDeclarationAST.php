@@ -38,6 +38,22 @@ class ClassDeclarationAST extends AST
     public $methods = [];
 
     /**
+     * @var array<string, AST> The expression of each constant the class declares, by name
+     */
+    public $constants = [];
+
+    /**
+     * @var array<string, int> The line each constant is declared on, for errors about it
+     */
+    public $constant_lines = [];
+
+    /**
+     * @var array<string, string> Every constant, the parent's first, with the class that declares it;
+     *                            worked out once the whole program is read
+     */
+    public $constant_owners = [];
+
+    /**
      * @var array<string, string> Set by the parser once the whole program is read: every field an object of this
      *                            class has (the parent's first), mapped to the class that declares it
      */

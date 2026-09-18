@@ -42,6 +42,8 @@ use GazLang\GazLangError;
 use GazLang\Lexer\Lexer;
 use GazLang\Lexer\Token;
 use GazLang\Runtime\Builtins;
+use GazLang\Runtime\MapValue;
+use GazLang\Runtime\Values;
 
 /**
  * Parser class builds an AST from tokens
@@ -103,6 +105,7 @@ class Parser
         Token::COLON => "':'",
         Token::ARROW => "'->'",
         Token::DOUBLE_ARROW => "'=>'",
+        Token::ASSIGN => "'='",
     ];
 
     /**
@@ -152,9 +155,10 @@ class Parser
     private $classes = [];
 
     /**
-     * @var array<int, array{0: PropertyAST, 1: ClassDeclarationAST, 2: int|null, 3: bool}> Every #name, by node id, with
-     *                                                                                      its class, the argument count if it is called and
-     *                                                                                      whether it is assigned to, checked once the classes are resolved
+     * @var array<int, array{0: PropertyAST, 1: ClassDeclarationAST, 2: int|null, 3: bool, 4: bool}> Every #name, by node id, with
+     *                                                                                               its class, the argument count if it is called, whether
+     *                                                                                               it is assigned to and whether anything under it is
+     *                                                                                               written, checked once the classes are resolved
      */
     private $member_uses = [];
 
@@ -162,6 +166,30 @@ class Parser
      * @var list<array{0: string, 1: int, 2: string|null}> Every class a catch clause names, with its line and file
      */
     private $catch_types = [];
+
+    /**
+     * @var array<string, array{0: AST, 1: ClassDeclarationAST|null, 2: string}> Every constant's expression, the class
+     *                                                                           that declares it if one does, and its name as
+     *                                                                           errors show it, in the order declared. A class's
+     *                                                                           constant X is keyed "Class.X".
+     */
+    private $constants = [];
+
+    /**
+     * @var array<string, mixed> The constants worked out so far, by the same keys
+     */
+    private $constant_values = [];
+
+    /**
+     * @var list<string> The constants being worked out, outermost first, to find one that depends on itself
+     */
+    private $folding = [];
+
+    /**
+     * @var array<int, array{0: PropertyAST, 1: bool}> Every Name.member, by node id, with whether it is called:
+     *                                                 a class's constant if Name is a class, checked once the classes are resolved
+     */
+    private $class_constant_uses = [];
 
     /**
      * @var bool Whether any catch clause was parsed, so the program needs the Error class
@@ -498,7 +526,7 @@ class Parser
             $this->fail('Cannot use the constructor _ as a member: construct with '.$this->class->name."(...), or call ##_(...) in a child's constructor");
         }
         $node = $this->at(new PropertyAST($this_node, $name), $token);
-        $this->member_uses[spl_object_id($node)] = [$node, $this->class, null, false];
+        $this->member_uses[spl_object_id($node)] = [$node, $this->class, null, false, false];
 
         return $node;
     }
@@ -867,7 +895,12 @@ class Parser
                 // $user.name: which members the object has is only known when it runs
                 $token = $this->current_token;
                 $this->eat(Token::PROPERTY);
+                $named = $node instanceof FunctionRefAST;
                 $node = $this->at(new PropertyAST($node, substr($token->value, 1)), $token);
+                if ($named) {
+                    // Token.EOF: a class's constant, if Token turns out to be a class
+                    $this->class_constant_uses[spl_object_id($node)] = [$node, false];
+                }
 
                 continue;
             }
@@ -878,6 +911,9 @@ class Parser
                     [$call->line, $call->file] = [$node->line, $node->file];
                     if (isset($this->member_uses[spl_object_id($node)])) {
                         $this->member_uses[spl_object_id($node)][2] = count($call->args);
+                    }
+                    if (isset($this->class_constant_uses[spl_object_id($node)])) {
+                        $this->class_constant_uses[spl_object_id($node)][1] = true;
                     }
                     $node = $call;
 
@@ -1227,11 +1263,31 @@ class Parser
             if (isset($this->member_uses[spl_object_id($node)])) {
                 $this->member_uses[spl_object_id($node)][3] = true;
             }
+            $this->written($node);
 
             return $node;
         }
 
         $this->fail("Can only use {$operator->value} on a variable, or an element or field of one");
+    }
+
+    /**
+     * Note that a path is written to, on the #name it starts at, if it starts at one: #TABLE[0] = 1 writes under #TABLE
+     *
+     * A constant can't be written under, which is checked once the classes are resolved. A
+     * field can, and so can a method as far as the parser knows: what it holds when it runs
+     * decides that.
+     *
+     * @param  AST  $target  The path being assigned to, stepped or deleted from
+     */
+    private function written(AST $target): void
+    {
+        while (($target instanceof IndexAST || $target instanceof PropertyAST) && ! $target->target instanceof ThisAST) {
+            $target = $target->target;
+        }
+        if (isset($this->member_uses[spl_object_id($target)])) {
+            $this->member_uses[spl_object_id($target)][4] = true;
+        }
     }
 
     /**
@@ -1615,6 +1671,8 @@ class Parser
             $this->fail('Functions can only be declared at the top level');
         } elseif ($this->current_token->type === Token::CLASS_KEYWORD || $this->current_token->type === Token::ABSTRACT) {
             $this->fail('Classes can only be declared at the top level');
+        } elseif ($this->current_token->type === Token::CONST) {
+            $this->fail('Constants can only be declared at the top level or in a class');
         } elseif ($this->current_token->type === Token::FUNCTION) {
             $this->fail('Declare functions with fn, not function');
         } elseif ($this->current_token->type === Token::INCLUDE) {
@@ -1681,6 +1739,8 @@ class Parser
             $this->fail('delete needs an element of a list or map, like delete $a[0]');
         }
 
+        $this->written($target);
+
         return $this->at(new DeleteStatementAST($target), $start);
     }
 
@@ -1738,6 +1798,8 @@ class Parser
             $this->fail("Function {$name} is already declared");
         } elseif (isset($this->classes[$name])) {
             $this->fail("Class {$name} is already declared");
+        } elseif (isset($this->constants[$name])) {
+            $this->fail("Constant {$name} is already declared");
         }
     }
 
@@ -1819,10 +1881,12 @@ class Parser
             while ($this->current_token->type !== Token::RIGHT_BRACE) {
                 if ($this->current_token->type === Token::HASH_IDENTIFIER) {
                     $this->field_declaration($class);
+                } elseif ($this->current_token->type === Token::CONST) {
+                    $this->constant_declaration($class);
                 } elseif ($this->current_token->type === Token::FN || $this->current_token->type === Token::ABSTRACT) {
                     $this->method_declaration($class);
                 } else {
-                    $this->fail('Expected a field (#name) or a method (fn) but found '.$this->describe($this->current_token));
+                    $this->fail('Expected a field (#name), a method (fn) or a constant (const) but found '.$this->describe($this->current_token));
                 }
             }
         } finally {
@@ -1862,6 +1926,164 @@ class Parser
 
         $class->fields[$name] = $default;
         $class->field_lines[$name] = $token->line;
+    }
+
+    /**
+     * Parse a constant declaration (CONST IDENTIFIER ASSIGN expr SEMICOLON), at the top level or in a class
+     *
+     * The value is any expression the parser can work out itself: literals, operators, lists
+     * and maps, and other constants, which may be declared later. It is worked out once the
+     * whole program is read (see fold()), and a use of the constant is then that value, so
+     * neither backend knows constants exist. A top level constant shares the namespace of
+     * functions and classes; a class's shares the one its fields and methods are in.
+     *
+     * @param  ClassDeclarationAST|null  $class  The class being declared, or null at the top level
+     *
+     * @throws Exception
+     */
+    private function constant_declaration(?ClassDeclarationAST $class): void
+    {
+        $this->eat(Token::CONST);
+        $token = $this->current_token;
+        $name = $token->value;
+        if ($class === null) {
+            $this->check_new_name();
+        } elseif ($token->type === Token::IDENTIFIER && (isset($class->constants[$name]) || array_key_exists($name, $class->fields) || isset($class->methods[$name]))) {
+            $kind = match (true) {
+                isset($class->constants[$name]) => "constant {$name}",
+                isset($class->methods[$name]) => "method {$name}",
+                default => "field #{$name}",
+            };
+            $this->fail("{$class->name} already has a {$kind}: constants, fields and methods share names");
+        }
+        $this->eat(Token::IDENTIFIER);
+        $this->eat(Token::ASSIGN);
+        $expr = $this->expr();
+        $this->eat(Token::SEMICOLON);
+
+        if ($class === null) {
+            $this->constants[$name] = [$expr, null, $name];
+        } else {
+            $class->constants[$name] = $expr;
+            $class->constant_lines[$name] = $token->line;
+            $this->constants["{$class->name}.{$name}"] = [$expr, $class, "{$class->name}.{$name}"];
+        }
+    }
+
+    /**
+     * Work out a constant's value, the first time it is asked for
+     *
+     * @param  string  $key  The constant's key in $constants
+     * @param  AST  $at  The node asking, for the error if the constant depends on itself
+     * @return mixed The value
+     *
+     * @throws GazLangError If it depends on itself, or its expression can't be worked out
+     */
+    private function constant_value(string $key, AST $at)
+    {
+        if (! array_key_exists($key, $this->constant_values)) {
+            [$expr, $class, $name] = $this->constants[$key];
+            if (in_array($name, $this->folding, true)) {
+                $cycle = implode(' uses ', [...array_slice($this->folding, array_search($name, $this->folding, true)), $name]);
+
+                throw new GazLangError("Constant {$name} depends on itself: {$cycle}", $at->file, $at->line);
+            }
+            $this->folding[] = $name;
+            $this->constant_values[$key] = $this->fold($expr, $class);
+            array_pop($this->folding);
+        }
+
+        return $this->constant_values[$key];
+    }
+
+    /**
+     * The key in $constants of a class's constant, its parent's included, or null if it has none of that name
+     *
+     * @param  ClassDeclarationAST  $class  The resolved class
+     * @param  string  $name  The constant's name
+     */
+    private static function class_constant(ClassDeclarationAST $class, string $name): ?string
+    {
+        return isset($class->constant_owners[$name]) ? "{$class->constant_owners[$name]}.{$name}" : null;
+    }
+
+    /**
+     * Work out the value of a constant's expression, as the interpreter would, with Runtime\Values
+     *
+     * So 1 / 0 and an overflow are errors here as they are when a program runs, located at
+     * the operator. Only what needs nothing but the source is allowed: no variables, no
+     * calls (a function can do anything, and an object it made could be changed through the
+     * constant), no indexing.
+     *
+     * @param  AST  $node  The expression
+     * @param  ClassDeclarationAST|null  $class  The class the constant is declared in, which #NAME is a constant of
+     * @return mixed The value
+     *
+     * @throws GazLangError If it can't be worked out
+     */
+    private function fold(AST $node, ?ClassDeclarationAST $class)
+    {
+        try {
+            if ($node instanceof NumAST || $node instanceof StringAST || $node instanceof BooleanAST || $node instanceof NullAST) {
+                return $node->value;
+            } elseif ($node instanceof UnaryOpAST) {
+                $value = $this->fold($node->expr, $class);
+
+                return match ($node->op->type) {
+                    Token::NOT => ! Values::isTruthy($value),
+                    Token::MINUS => Values::negate($value),
+                    default => Values::bitwiseNot($value),
+                };
+            } elseif ($node instanceof BinOpAST) {
+                $left = $this->fold($node->left, $class);
+
+                // As when a program runs, the right side of && || and ?? only counts when it is needed
+                return match (true) {
+                    $node->op->type === Token::AND => Values::isTruthy($left) && Values::isTruthy($this->fold($node->right, $class)),
+                    $node->op->type === Token::OR => Values::isTruthy($left) || Values::isTruthy($this->fold($node->right, $class)),
+                    $node->op->type === Token::COALESCE => $left ?? $this->fold($node->right, $class),
+                    default => Values::binary($node->op, $left, $this->fold($node->right, $class)),
+                };
+            } elseif ($node instanceof TernaryAST) {
+                return $this->fold(Values::isTruthy($this->fold($node->condition, $class)) ? $node->then : $node->else, $class);
+            } elseif ($node instanceof ArrayLiteralAST && ! $node->map) {
+                return array_map(fn (array $entry) => $this->fold($entry[1], $class), $node->entries);
+            } elseif ($node instanceof ArrayLiteralAST) {
+                $map = new MapValue;
+                foreach ($node->entries as [$key, $value]) {
+                    // Duplicate keys: the last one wins
+                    $map->items[MapValue::key(Values::arrayKey($this->fold($key, $class)))] = $this->fold($value, $class);
+                }
+
+                return $map;
+            } elseif ($node instanceof FunctionRefAST) {
+                if (isset($this->constants[$node->name])) {
+                    return $this->constant_value($node->name, $node);
+                }
+                $what = match (true) {
+                    isset($this->classes[$node->name]) => "{$node->name} is a class, not a constant",
+                    isset($this->functions[$node->name]) => "{$node->name} is a function, not a constant",
+                    default => "Undefined constant: {$node->name}",
+                };
+
+                throw new GazLangError($what, $node->file, $node->line);
+            } elseif ($node instanceof PropertyAST && ($node->target instanceof ThisAST || $node->target instanceof FunctionRefAST)) {
+                $owner = $node->target instanceof ThisAST ? $class : ($this->classes[$node->target->name] ?? null);
+                $key = $owner === null ? null : self::class_constant($owner, $node->name);
+                if ($key !== null) {
+                    return $this->constant_value($key, $node);
+                }
+                if ($node->target instanceof FunctionRefAST && $owner !== null) {
+                    throw new GazLangError("Class {$owner->name} has no constant {$node->name}", $node->file, $node->line);
+                }
+            }
+        } catch (GazLangError $e) {
+            throw $e;
+        } catch (Exception $e) {
+            throw new GazLangError($e->getMessage(), $node->file, $node->line);
+        }
+
+        throw new GazLangError("A constant's value can only use literals, operators and other constants", $node->file, $node->line);
     }
 
     /**
@@ -1928,6 +2150,9 @@ class Parser
     private function check_new_member(ClassDeclarationAST $class, string $name): void
     {
         $field = $this->current_token->type === Token::HASH_IDENTIFIER;
+        if (isset($class->constants[$name])) {
+            $this->fail("{$class->name} already has a constant {$name}: constants, fields and methods share names");
+        }
         if (array_key_exists($name, $class->fields)) {
             $this->fail($field ? "{$class->name} already has a field #{$name}" : "{$class->name} already has a field #{$name}, and a method can't have a field's name: call the method something else");
         }
@@ -1985,14 +2210,30 @@ class Parser
             $this->resolve_class($class, []);
         }
 
+        // In the order declared, so the first mistake in the program is the one reported
+        foreach ($this->constants as $key => [$expr]) {
+            $this->constant_value($key, $expr);
+        }
+
         // In source order, so the first mistake in the program is the one reported
-        foreach ($this->member_uses as [$node, $class, $argc, $assigned]) {
-            $this->check_member_use($node, $class, $argc, $assigned);
+        foreach ($this->member_uses as [$node, $class, $argc, $assigned, $written]) {
+            $this->check_member_use($node, $class, $argc, $assigned, $written);
+        }
+        foreach ($this->class_constant_uses as [$node, $called]) {
+            $this->check_class_constant_use($node, $called);
         }
         foreach ($this->parent_uses as [$node, $class]) {
             $this->check_parent_use($node, $class);
         }
         foreach ($this->uses as $use) {
+            if (isset($this->constants[$use->name])) {
+                if ($use instanceof FunctionCallAST) {
+                    throw new GazLangError("{$use->name} is a constant, not a function", $use->file, $use->line);
+                }
+                [$use->constant, $use->value] = [true, $this->constant_value($use->name, $use)];
+
+                continue;
+            }
             if (isset($this->classes[$use->name])) {
                 $class = $this->classes[$use->name];
                 if ($use instanceof FunctionCallAST) {
@@ -2058,10 +2299,29 @@ class Parser
             }
             $this->resolve_class($parent, $chain);
             [$class->layout, $class->members, $class->abstract_methods] = [$parent->layout, $parent->members, $parent->abstract_methods];
+            $class->constant_owners = $parent->constant_owners;
+        }
+
+        foreach ($class->constants as $name => $_) {
+            $line = $class->constant_lines[$name];
+            // A child can't declare it again: #NAME is worked out from the class it is written in, so there is nothing to override
+            if (isset($class->constant_owners[$name])) {
+                throw new GazLangError("Constant {$name} of {$class->name} is already declared in {$class->constant_owners[$name]}", $class->file, $line);
+            }
+            $owner = $class->layout[$name] ?? $class->members[$name] ?? $class->abstract_methods[$name] ?? null;
+            if ($owner !== null) {
+                $kind = isset($class->layout[$name]) ? 'field' : 'method';
+
+                throw new GazLangError("Constant {$name} of {$class->name} has the name of a {$kind} of {$owner}: constants, fields and methods share names", $class->file, $line);
+            }
+            $class->constant_owners[$name] = $class->name;
         }
 
         foreach ($class->fields as $name => $_) {
             $line = $class->field_lines[$name];
+            if (isset($class->constant_owners[$name]) && $class->constant_owners[$name] !== $class->name) {
+                throw new GazLangError("Field #{$name} of {$class->name} has the name of a constant of {$class->constant_owners[$name]}: constants, fields and methods share names", $class->file, $line);
+            }
             if (isset($class->layout[$name])) {
                 throw new GazLangError("Field #{$name} of {$class->name} is already declared in {$class->layout[$name]}", $class->file, $line);
             }
@@ -2072,6 +2332,9 @@ class Parser
             $class->layout[$name] = $class->name;
         }
         foreach ($class->methods as $name => $method) {
+            if (isset($class->constant_owners[$name])) {
+                throw new GazLangError("Method {$class->name}.{$name} has the name of a constant of {$class->constant_owners[$name]}: constants, fields and methods share names", $method->file, $method->line);
+            }
             if (isset($class->layout[$name])) {
                 throw new GazLangError("Method {$class->name}.{$name} has the name of a field of {$class->layout[$name]}: fields and methods share names, so call the method something else", $method->file, $method->line);
             }
@@ -2185,11 +2448,24 @@ class Parser
      * @param  ClassDeclarationAST  $class  The class it is written in
      * @param  int|null  $argc  How many arguments it is called with, or null if it isn't called
      * @param  bool  $assigned  Whether it is assigned to
+     * @param  bool  $written  Whether it, or anything under it, is written
      *
      * @throws GazLangError If the use doesn't fit
      */
-    private function check_member_use(PropertyAST $node, ClassDeclarationAST $class, ?int $argc, bool $assigned): void
+    private function check_member_use(PropertyAST $node, ClassDeclarationAST $class, ?int $argc, bool $assigned, bool $written): void
     {
+        $constant = self::class_constant($class, $node->name);
+        if ($constant !== null) {
+            if ($written) {
+                throw new GazLangError("Cannot change constant #{$node->name}", $node->file, $node->line);
+            }
+            if ($argc !== null) {
+                throw new GazLangError("#{$node->name} is a constant, not a method", $node->file, $node->line);
+            }
+            [$node->constant, $node->value] = [true, $this->constant_value($constant, $node)];
+
+            return;
+        }
         if (isset($class->layout[$node->name])) {
             $node->field = true;
 
@@ -2211,6 +2487,34 @@ class Parser
     }
 
     /**
+     * Check a Name.member where Name is a class: the class must have the constant, and a constant can't be called
+     *
+     * Anything else is left to run: Name may be a constant holding a map, or a function,
+     * and what . does to those is an error for when it happens.
+     *
+     * @param  PropertyAST  $node  The Name.member
+     * @param  bool  $called  Whether it is called
+     *
+     * @throws GazLangError If the class has no such constant, or it is called
+     */
+    private function check_class_constant_use(PropertyAST $node, bool $called): void
+    {
+        // Recorded because its target is a bare name; only a class's name makes it a constant
+        $class = $node->target instanceof FunctionRefAST ? ($this->classes[$node->target->name] ?? null) : null;
+        if ($class === null) {
+            return;
+        }
+        $constant = self::class_constant($class, $node->name);
+        if ($constant === null) {
+            throw new GazLangError("Class {$class->name} has no constant {$node->name}", $node->file, $node->line);
+        }
+        if ($called) {
+            throw new GazLangError("{$class->name}.{$node->name} is a constant, not a method", $node->file, $node->line);
+        }
+        [$node->constant, $node->value] = [true, $this->constant_value($constant, $node)];
+    }
+
+    /**
      * Parse top level items until the end of the current file ((function_declaration | include | statement)*)
      *
      * @return AST[] The statements, with included files spliced in where they are included
@@ -2225,6 +2529,8 @@ class Parser
                 $statements[] = $this->function_declaration();
             } elseif ($this->current_token->type === Token::CLASS_KEYWORD || $this->current_token->type === Token::ABSTRACT) {
                 $statements[] = $this->class_declaration();
+            } elseif ($this->current_token->type === Token::CONST) {
+                $this->constant_declaration(null);
             } elseif ($this->current_token->type === Token::INCLUDE) {
                 array_push($statements, ...$this->include_statement());
             } else {

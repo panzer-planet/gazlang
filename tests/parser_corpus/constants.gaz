@@ -1,0 +1,34 @@
+// A use of a constant is its value, which the parser works out: used before it is declared,
+// in terms of others declared later, and with every operator
+echo AREA;
+fn area($scale = WIDTH) { return AREA * $scale; }
+const AREA = WIDTH * HEIGHT;
+const HEIGHT = WIDTH + 1;
+const WIDTH = 3;
+const F = 3 / 2;
+const S = "a" .. "b" .. WIDTH;
+const B = WIDTH < HEIGHT && S == "ab3" || false;
+const NOTHING = null;
+const NEGATIVE = -WIDTH;
+const INVERTED = ~WIDTH;
+const NOT = !B;
+const BITS = 5 % 3 | 2 & 6 ^ 4 << 1 >> 1;
+const ORDER = [1 <=> 2, 1 != 2, 1 <= 2, 1 > 2, 1 >= 2, 7 - 2];
+const PICK = WIDTH > 2 ? "wide" : "narrow";
+const OR_ELSE = NOTHING ?? WIDTH;
+// The side that is not needed is not worked out
+const SHORT = [false && 1 / 0, true || 1 / 0, 1 ?? 1 / 0, true ? 1 : 1 / 0];
+const EMPTY_LIST = [];
+const EMPTY_MAP = {};
+const NESTED = [1, [2, "x"], {"k" => [HEIGHT], 4 => {}}, []];
+const KEYS = {"k" => 1, WIDTH => 2, "k" => 3, S => true};
+const lower_case = 1;
+echo [WIDTH, F, S, B, NOTHING, NEGATIVE, INVERTED, NOT, BITS, ORDER, PICK, OR_ELSE, SHORT, EMPTY_LIST, EMPTY_MAP, NESTED, KEYS, lower_case];
+echo match (WIDTH) { WIDTH => NESTED[1][0], default => KEYS["k"] };
+echo WIDTH ?? 1;
+$f = () -> WIDTH + $captured;
+$copy = NESTED;
+$copy[] = WIDTH;
+// A constant holding a map is a value like any other: what . does to it is for when it runs
+echo KEYS.k;
+echo area.x;

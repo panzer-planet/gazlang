@@ -69,6 +69,9 @@ class Dumper
             $this->children(array_diff_key(get_object_vars($value), self::SKIPPED), $indent);
         } elseif ($value instanceof Token) {
             $this->lines[] = "{$indent}{$label}{$value}";
+        } elseif ($value instanceof MapValue && $value->items === []) {
+            // A constant's value. Empty maps and lists print alike, since PHP can't tell its own apart
+            $this->lines[] = "{$indent}{$label}[]";
         } elseif (is_array($value) && ! self::isPlain($value)) {
             $this->lines[] = $indent.rtrim($label);
             $this->children($value, $indent);
@@ -108,6 +111,9 @@ class Dumper
     private static function isPlain(array $array): bool
     {
         foreach ($array as $element) {
+            if ($element instanceof MapValue) {
+                $element = $element->items;
+            }
             if (is_object($element) || (is_array($element) && ! self::isPlain($element))) {
                 return false;
             }

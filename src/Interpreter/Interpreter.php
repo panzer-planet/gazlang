@@ -474,7 +474,7 @@ class Interpreter extends AbstractNodeVisitor
 
             return $target === null ? null : Values::index($target, $index, true);
         }
-        if ($node instanceof PropertyAST) {
+        if ($node instanceof PropertyAST && ! $node->constant) {
             $target = $this->quietly($node->target);
 
             return $target === null ? null : Values::property($target, $node->name, true);
@@ -891,6 +891,9 @@ class Interpreter extends AbstractNodeVisitor
      */
     public function visitProperty(PropertyAST $node)
     {
+        if ($node->constant) {
+            return $node->value;
+        }
         $target = $this->visit($node->target);
 
         return $node->existing ? Values::propertyExisting($target, $node->name) : Values::property($target, $node->name);
@@ -986,10 +989,14 @@ class Interpreter extends AbstractNodeVisitor
      * Visit a FunctionRef node
      *
      * @param  FunctionRefAST  $node  The node to visit
-     * @return FunctionValue The function as a value
+     * @return mixed The function or class as a value, or a constant's value
      */
-    public function visitFunctionRef(FunctionRefAST $node): FunctionValue|ClassValue
+    public function visitFunctionRef(FunctionRefAST $node)
     {
+        if ($node->constant) {
+            return $node->value;
+        }
+
         return $this->classes[$node->name] ?? FunctionValue::named($node->name);
     }
 

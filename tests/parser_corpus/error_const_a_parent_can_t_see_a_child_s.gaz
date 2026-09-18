@@ -1,0 +1,2 @@
+class K { fn f() { return #B; } }
+class L extends K { const B = 1; }

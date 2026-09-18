@@ -13,6 +13,16 @@ class FunctionRefAST extends AST
     public $name;
 
     /**
+     * @var bool Whether the name is a constant's, which the parser knows once the whole program is read
+     */
+    public $constant = false;
+
+    /**
+     * @var mixed The constant's value, worked out by the parser: a use of a constant is its value
+     */
+    public $value = null;
+
+    /**
      * Constructor
      *
      * @param  string  $name  The function name

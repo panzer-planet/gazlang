@@ -1,0 +1,3 @@
+// Uses a constant the file that includes it declares, after the include
+const DOUBLE = MAIN * 2;
+class Lib { const NAME = "lib"; }

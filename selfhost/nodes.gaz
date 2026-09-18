@@ -162,8 +162,14 @@ class PropertyAST extends AST {
     #name;
     // Whether a #name is a field rather than a method, which the parser knows once the classes are resolved
     #field = false;
+    // Whether this is a class's constant (#NAME or Class.NAME), and if so its value, which the
+    // parser works out once the classes are resolved: a use of a constant is its value
+    #constant = false;
+    #value = null;
     // Where a #name's record is in Parser.member_uses, or null; not part of the tree
     #use = null;
+    // Where a Name.member's record is in Parser.class_constant_uses, or null; not part of the tree
+    #class_use = null;
 
     fn _($target, $name) {
         #target = $target;
@@ -171,7 +177,7 @@ class PropertyAST extends AST {
     }
 
     fn parts() {
-        return {"target" => #target, "name" => #name, "field" => #field};
+        return {"target" => #target, "name" => #name, "field" => #field, "constant" => #constant, "value" => #value};
     }
 }
 
@@ -220,16 +226,20 @@ class FunctionCallAST extends AST {
     }
 }
 
-// A bare function or class name used as a value
+// A bare function, class or constant name used as a value
 class FunctionRefAST extends AST {
     #name;
+    // Whether the name is a constant's, and if so its value, which the parser works out once
+    // the whole program is read: a use of a constant is its value
+    #constant = false;
+    #value = null;
 
     fn _($name) {
         #name = $name;
     }
 
     fn parts() {
-        return {"name" => #name};
+        return {"name" => #name, "constant" => #constant, "value" => #value};
     }
 }
 
@@ -496,6 +506,12 @@ class ClassDeclarationAST extends AST {
     #field_lines = {};
     // Each declared method's FunctionDeclarationAST, by name
     #methods = {};
+    // Each declared constant's expression, and the line it is declared on, by name
+    #constants = {};
+    #constant_lines = {};
+    // Worked out once the whole program is read: every constant, the parent's first, with the
+    // class that declares it
+    #constant_owners = {};
     // Worked out once the whole program is read: every field, the parent's first, with the
     // class that declares it; every concrete method with the class whose version runs; and
     // every abstract method still to be defined, with the class that declares it
@@ -514,7 +530,8 @@ class ClassDeclarationAST extends AST {
     fn parts() {
         return {
             "name" => #name, "parent" => #parent, "abstract" => #abstract, "fields" => #fields,
-            "field_lines" => #field_lines, "methods" => #methods, "layout" => #layout,
+            "field_lines" => #field_lines, "methods" => #methods, "constants" => #constants,
+            "constant_lines" => #constant_lines, "constant_owners" => #constant_owners, "layout" => #layout,
             "members" => #members, "abstract_methods" => #abstract_methods,
         };
     }

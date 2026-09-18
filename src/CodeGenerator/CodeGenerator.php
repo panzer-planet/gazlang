@@ -650,7 +650,7 @@ class CodeGenerator extends AbstractNodeVisitor
             $this->quietly($node->target);
             $this->visit($node->index);
             $this->emit('INDEX_GET_QUIET');
-        } elseif ($node instanceof PropertyAST) {
+        } elseif ($node instanceof PropertyAST && ! $node->constant) {
             $this->quietly($node->target);
             $this->emit('GET_PROPERTY_QUIET', $node->name);
         } else {
@@ -1203,6 +1203,11 @@ class CodeGenerator extends AbstractNodeVisitor
      */
     public function visitProperty(PropertyAST $node): void
     {
+        if ($node->constant) {
+            $this->emit('PUSH', $node->value);
+
+            return;
+        }
         // #name for a field: fields are never removed and a subclass can't turn one into a method
         if ($node->field && ! $node->existing) {
             $this->emit('LOAD_FIELD', $node->name);
@@ -1283,6 +1288,12 @@ class CodeGenerator extends AbstractNodeVisitor
      */
     public function visitFunctionRef(FunctionRefAST $node): void
     {
+        if ($node->constant) {
+            // A use of a constant is its value, which the parser worked out
+            $this->emit('PUSH', $node->value);
+
+            return;
+        }
         $this->emit(isset($this->classes[$node->name]) ? 'PUSH_CLASS' : 'PUSH_FN', $node->name);
     }
 

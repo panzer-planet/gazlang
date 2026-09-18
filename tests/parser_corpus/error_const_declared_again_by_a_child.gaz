@@ -1,0 +1,3 @@
+class K { const A = 1; }
+class L extends K {
+ const A = 2; }

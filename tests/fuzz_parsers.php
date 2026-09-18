@@ -32,6 +32,7 @@ const ATOMS = [
     'abstract class A {', '#x;', '#x = 1;', 'try {', '} catch ($e) {', '} catch (Error $e) {', '} catch (A $e) {', '} finally {',
     'while ($a) {', 'foreach ($a as $b) {', 'foreach ($a as $k => [$b, $c]) {', 'for ($i = 0; $i < 1; $i++) {', 'if ($a) {', '} else {',
     'match ($a) {', 'match {', '1 =>', 'default =>', '$x ->', '($a, $b) ->', '() -> {', 'f(1)', 'g(1, 2)', 'A()', 'A(1)', '##f()', '#f()', '#f(1)',
+    'const', 'const X = 1;', 'const Y = X + 1;', 'const X = Y;', 'const L = [X, {"k" => Y}];', 'X', 'Y', 'A.X', '#X', '#X = 1;', 'X()', 'A.X()',
     'include "lib/shapes.gaz";', 'include "lib/deep/helper.gaz";', 'include "nowhere.gaz";',
 ];
 

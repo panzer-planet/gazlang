@@ -135,6 +135,17 @@ class Parser {
     // its record, the class, its methods, the node.
     #member_uses = [];
 
+    // Every constant, in the order declared, as [expression, the class that declares it or
+    // null, its name as errors show it]. A class's constant X is keyed "Class.X".
+    #constants = {};
+    // The constants worked out so far, by the same keys
+    #constant_values = {};
+    // The constants being worked out, outermost first, to find one that depends on itself
+    #folding = [];
+    // Every Name.member as [node, whether it is called]: a class's constant if Name is a class,
+    // checked once the classes are resolved. The node holds its index here (PropertyAST.class_use).
+    #class_constant_uses = [];
+
     // Every class a catch clause names, as [name, line, file]
     #catch_types = [];
 
@@ -213,7 +224,7 @@ class Parser {
         "LEFT_PAREN" => "'('", "RIGHT_PAREN" => "')'", "LEFT_BRACE" => "'{'", "RIGHT_BRACE" => "'}'",
         "LEFT_BRACKET" => "'['", "RIGHT_BRACKET" => "']'", "SEMICOLON" => "';'", "COMMA" => "','",
         "IDENTIFIER" => "a name", "VAR_IDENTIFIER" => "a \$variable", "GLOBAL_VAR_IDENTIFIER" => "an @variable",
-        "STRING" => "a string", "COLON" => "':'", "ARROW" => "'->'", "DOUBLE_ARROW" => "'=>'",
+        "STRING" => "a string", "COLON" => "':'", "ARROW" => "'->'", "DOUBLE_ARROW" => "'=>'", "ASSIGN" => "'='",
     };
 
     // $path is the file the source came from, if any; includes resolve relative to it. A path
@@ -467,7 +478,7 @@ class Parser {
         }
         $node = #at(PropertyAST($this_node, $name), $token);
         $node.use = len(#member_uses);
-        #member_uses[] = [$node, #class, null, false];
+        #member_uses[] = [$node, #class, null, false, false];
 
         return $node;
     }
@@ -723,7 +734,13 @@ class Parser {
                 // $user.name: which members the object has is only known when it runs
                 $token = #current_token;
                 #eat("PROPERTY");
+                $named = is_a($node, FunctionRefAST);
                 $node = #at(PropertyAST($node, slice($token.value, 1)), $token);
+                if ($named) {
+                    // Token.EOF: a class's constant, if Token turns out to be a class
+                    $node.class_use = len(#class_constant_uses);
+                    #class_constant_uses[] = [$node, false];
+                }
 
                 continue;
             }
@@ -734,6 +751,9 @@ class Parser {
                     [$call.line, $call.file] = [$node.line, $node.file];
                     if ($node.use != null) {
                         #member_uses[$node.use][2] = len($call.args);
+                    }
+                    if ($node.class_use != null) {
+                        #class_constant_uses[$node.class_use][1] = true;
                     }
                     $node = $call;
 
@@ -923,11 +943,26 @@ class Parser {
             if (is_a($node, PropertyAST) && $node.use != null) {
                 #member_uses[$node.use][3] = true;
             }
+            #written($node);
 
             return $node;
         }
 
         #fail("Can only use {$operator.value} on a variable, or an element or field of one");
+    }
+
+    // Note that a path is written to, on the #name it starts at, if it starts at one: #TABLE[0] = 1 writes under #TABLE
+    //
+    // A constant can't be written under, which is checked once the classes are resolved. A
+    // field can, and so can a method as far as the parser knows: what it holds when it runs
+    // decides that.
+    fn written($target) {
+        while ((is_a($target, IndexAST) || is_a($target, PropertyAST)) && !is_a($target.target, ThisAST)) {
+            $target = $target.target;
+        }
+        if (is_a($target, PropertyAST) && $target.use != null) {
+            #member_uses[$target.use][4] = true;
+        }
     }
 
     // Parse an if statement (IF LPAREN expr RPAREN block [ELSE IF ...]* [ELSE block])
@@ -1212,6 +1247,8 @@ class Parser {
             #fail("delete needs an element of a list or map, like delete \$a[0]");
         }
 
+        #written($target);
+
         return #at(DeleteStatementAST($target), $start);
     }
 
@@ -1256,6 +1293,8 @@ class Parser {
             #fail("Function {$name} is already declared");
         } else if (has_key(#classes, $name)) {
             #fail("Class {$name} is already declared");
+        } else if (has_key(#constants, $name)) {
+            #fail("Constant {$name} is already declared");
         }
     }
 
@@ -1326,10 +1365,12 @@ class Parser {
         while (#current_token.type != "RIGHT_BRACE") {
             if (#current_token.type == "HASH_IDENTIFIER") {
                 #field_declaration($class);
+            } else if (#current_token.type == "CONST") {
+                #constant_declaration($class);
             } else if (#current_token.type == "FN" || #current_token.type == "ABSTRACT") {
                 #method_declaration($class);
             } else {
-                #fail("Expected a field (#name) or a method (fn) but found " .. #describe(#current_token));
+                #fail("Expected a field (#name), a method (fn) or a constant (const) but found " .. #describe(#current_token));
             }
         }
         #class = null;
@@ -1360,6 +1401,204 @@ class Parser {
 
         $class.fields[$name] = $default;
         $class.field_lines[$name] = $token.line;
+    }
+
+    // Parse a constant declaration (CONST IDENTIFIER ASSIGN expr SEMICOLON), at the top level or in a class ($class)
+    //
+    // The value is any expression the parser can work out itself: literals, operators, lists
+    // and maps, and other constants, which may be declared later. It is worked out once the
+    // whole program is read (see fold()), and a use of the constant is then that value, so
+    // neither backend knows constants exist. A top level constant shares the namespace of
+    // functions and classes; a class's shares the one its fields and methods are in.
+    fn constant_declaration($class) {
+        #eat("CONST");
+        $token = #current_token;
+        $name = $token.value;
+        if ($class == null) {
+            #check_new_name();
+        } else if ($token.type == "IDENTIFIER" && (has_key($class.constants, $name) || has_key($class.fields, $name) || has_key($class.methods, $name))) {
+            $kind = match {
+                has_key($class.constants, $name) => "constant {$name}",
+                has_key($class.methods, $name) => "method {$name}",
+                default => "field #{$name}",
+            };
+            #fail("{$class.name} already has a {$kind}: constants, fields and methods share names");
+        }
+        #eat("IDENTIFIER");
+        #eat("ASSIGN");
+        $expr = #expr();
+        #eat("SEMICOLON");
+
+        if ($class == null) {
+            #constants[$name] = [$expr, null, $name];
+        } else {
+            $class.constants[$name] = $expr;
+            $class.constant_lines[$name] = $token.line;
+            #constants["{$class.name}.{$name}"] = [$expr, $class, "{$class.name}.{$name}"];
+        }
+    }
+
+    // Work out a constant's value, the first time it is asked for. $at is the node asking,
+    // for the error if the constant depends on itself.
+    fn constant_value($key, $at) {
+        if (!has_key(#constant_values, $key)) {
+            [$expr, $class, $name] = #constants[$key];
+            if (in_array($name, #folding)) {
+                // From its first appearance among those being worked out, round to it again
+                $from = 0;
+                while (#folding[$from] != $name) {
+                    $from++;
+                }
+                $cycle = slice(#folding, $from);
+                $cycle[] = $name;
+                #fail_at("Constant {$name} depends on itself: " .. join($cycle, " uses "), $at.file, $at.line);
+            }
+            #folding[] = $name;
+            #constant_values[$key] = #fold($expr, $class);
+            delete #folding[len(#folding) - 1];
+        }
+
+        return #constant_values[$key];
+    }
+
+    // The key in #constants of a resolved class's constant, its parent's included, or null if it has none of that name
+    fn class_constant($class, $name) {
+        return has_key($class.constant_owners, $name) ? "{$class.constant_owners[$name]}.{$name}" : null;
+    }
+
+    // Work out the value of a constant's expression, as a program would: $class is the class
+    // the constant is declared in, which #NAME is a constant of
+    //
+    // The PHP parser does this with Runtime\Values, the functions its interpreter runs on. Here
+    // the operators are GazLang's own, which are those same functions, so 1 / 0 and an overflow
+    // are the errors they are when a program runs, located at the operator. Only what needs
+    // nothing but the source is allowed: no variables, no calls (a function can do anything,
+    // and an object it made could be changed through the constant), no indexing.
+    fn fold($node, $class) {
+        if (is_a($node, NumAST) || is_a($node, StringAST) || is_a($node, BooleanAST) || is_a($node, NullAST)) {
+            return $node.value;
+        } else if (is_a($node, UnaryOpAST)) {
+            $value = #fold($node.expr, $class);
+
+            return #located($node, () -> match ($node.op.type) {
+                "NOT" => !$value,
+                "MINUS" => -$value,
+                default => ~$value,
+            });
+        } else if (is_a($node, BinOpAST)) {
+            $left = #fold($node.left, $class);
+            $type = $node.op.type;
+            // As when a program runs, the right side of && || and ?? only counts when it is needed
+            if ($type == "AND") {
+                return $left && #fold($node.right, $class);
+            } else if ($type == "OR") {
+                return $left || #fold($node.right, $class);
+            } else if ($type == "COALESCE") {
+                return $left ?? #fold($node.right, $class);
+            }
+            $right = #fold($node.right, $class);
+
+            return #located($node, () -> #apply($type, $left, $right));
+        } else if (is_a($node, TernaryAST)) {
+            return #fold(#fold($node.condition, $class) ? $node.then : $node.else, $class);
+        } else if (is_a($node, ArrayLiteralAST) && !$node.map) {
+            $list = [];
+            foreach ($node.entries as $entry) {
+                $list[] = #fold($entry[1], $class);
+            }
+
+            return $list;
+        } else if (is_a($node, ArrayLiteralAST)) {
+            $map = {};
+            foreach ($node.entries as [$key_node, $value_node]) {
+                $key = #fold($key_node, $class);
+                $value = #fold($value_node, $class);
+                // Duplicate keys: the last one wins. A key that can't be one is an error at the map.
+                $map = #located($node, () -> {
+                    $map[$key] = $value;
+
+                    return $map;
+                });
+            }
+
+            return $map;
+        } else if (is_a($node, FunctionRefAST)) {
+            if (has_key(#constants, $node.name)) {
+                return #constant_value($node.name, $node);
+            }
+            #fail_at(match {
+                has_key(#classes, $node.name) => "{$node.name} is a class, not a constant",
+                has_key(#functions, $node.name) => "{$node.name} is a function, not a constant",
+                default => "Undefined constant: {$node.name}",
+            }, $node.file, $node.line);
+        } else if (is_a($node, PropertyAST) && (is_a($node.target, ThisAST) || is_a($node.target, FunctionRefAST))) {
+            $owner = is_a($node.target, ThisAST) ? $class : #classes[$node.target.name] ?? null;
+            $key = $owner == null ? null : #class_constant($owner, $node.name);
+            if ($key != null) {
+                return #constant_value($key, $node);
+            }
+            if (is_a($node.target, FunctionRefAST) && $owner != null) {
+                #fail_at("Class {$owner.name} has no constant {$node.name}", $node.file, $node.line);
+            }
+        }
+
+        #fail_at("A constant's value can only use literals, operators and other constants", $node.file, $node.line);
+    }
+
+    // What $compute gives, with an error in it raised again as a ParseError at the node. Only the
+    // operator itself is in the try, which is handed the values it works on: a catch of Error
+    // around the working out of those would also catch a ParseError in them, and relocate it.
+    fn located($node, $compute) {
+        try {
+            return $compute();
+        } catch (Error $e) {
+            #fail_at($e.message, $node.file, $node.line);
+        }
+    }
+
+    // Apply a binary operator by its token type. The PHP parser hands the token to
+    // Values::binary(); an operator is not a value in GazLang, so each is written out.
+    fn apply($type, $left, $right) {
+        return match ($type) {
+            "PLUS" => $left + $right,
+            "MINUS" => $left - $right,
+            "MULTIPLY" => $left * $right,
+            "DIVIDE" => $left / $right,
+            "MODULO" => $left % $right,
+            "CONCAT" => $left .. $right,
+            "EQUALS" => $left == $right,
+            "NOT_EQUALS" => $left != $right,
+            "SPACESHIP" => $left <=> $right,
+            "LESS_THAN" => $left < $right,
+            "LESS_EQUALS" => $left <= $right,
+            "GREATER_THAN" => $left > $right,
+            "GREATER_EQUALS" => $left >= $right,
+            "BIT_AND" => $left & $right,
+            "BIT_OR" => $left | $right,
+            "BIT_XOR" => $left ^ $right,
+            "SHIFT_LEFT" => $left << $right,
+            "SHIFT_RIGHT" => $left >> $right,
+        };
+    }
+
+    // Check a Name.member where Name is a class: the class must have the constant, and a constant can't be called
+    //
+    // Anything else is left to run: Name may be a constant holding a map, or a function,
+    // and what . does to those is an error for when it happens.
+    fn check_class_constant_use($node, $called) {
+        $class = #classes[$node.target.name] ?? null;
+        if ($class == null) {
+            return;
+        }
+        $constant = #class_constant($class, $node.name);
+        if ($constant == null) {
+            #fail_at("Class {$class.name} has no constant {$node.name}", $node.file, $node.line);
+        }
+        if ($called) {
+            #fail_at("{$class.name}.{$node.name} is a constant, not a method", $node.file, $node.line);
+        }
+        $node.constant = true;
+        $node.value = #constant_value($constant, $node);
     }
 
     // Parse a method declaration ([ABSTRACT] FN name parameters (block | SEMICOLON)) into its class
@@ -1408,6 +1647,9 @@ class Parser {
     // Check a class doesn't already declare a member: fields and methods share one namespace
     fn check_new_member($class, $name) {
         $field = #current_token.type == "HASH_IDENTIFIER";
+        if (has_key($class.constants, $name)) {
+            #fail("{$class.name} already has a constant {$name}: constants, fields and methods share names");
+        }
         if (has_key($class.fields, $name)) {
             #fail($field
                 ? "{$class.name} already has a field #{$name}"
@@ -1446,6 +1688,8 @@ class Parser {
             #fail("Functions can only be declared at the top level");
         } else if ($type == "CLASS" || $type == "ABSTRACT") {
             #fail("Classes can only be declared at the top level");
+        } else if ($type == "CONST") {
+            #fail("Constants can only be declared at the top level or in a class");
         } else if ($type == "FUNCTION") {
             #fail("Declare functions with fn, not function");
         } else if ($type == "INCLUDE") {
@@ -1509,14 +1753,31 @@ class Parser {
             #resolve_class($class, []);
         }
 
+        // In the order declared, so the first mistake in the program is the one reported
+        foreach (#constants as $key => $constant) {
+            #constant_value($key, $constant[0]);
+        }
+
         // In source order, so the first mistake in the program is the one reported
-        foreach (#member_uses as [$node, $class, $argc, $assigned]) {
-            #check_member_use($node, $class, $argc, $assigned);
+        foreach (#member_uses as [$node, $class, $argc, $assigned, $written]) {
+            #check_member_use($node, $class, $argc, $assigned, $written);
+        }
+        foreach (#class_constant_uses as [$node, $called]) {
+            #check_class_constant_use($node, $called);
         }
         foreach (#parent_uses as [$node, $class]) {
             #check_parent_use($node, $class);
         }
         foreach (#uses as $use) {
+            if (has_key(#constants, $use.name)) {
+                if (is_a($use, FunctionCallAST)) {
+                    #fail_at("{$use.name} is a constant, not a function", $use.file, $use.line);
+                }
+                $use.constant = true;
+                $use.value = #constant_value($use.name, $use);
+
+                continue;
+            }
             if (has_key(#classes, $use.name)) {
                 $class = #classes[$use.name];
                 if (is_a($use, FunctionCallAST)) {
@@ -1578,10 +1839,28 @@ class Parser {
             }
             #resolve_class($parent, $chain);
             [$class.layout, $class.members, $class.abstract_methods] = [$parent.layout, $parent.members, $parent.abstract_methods];
+            $class.constant_owners = $parent.constant_owners;
+        }
+
+        foreach ($class.constants as $name => $_) {
+            $line = $class.constant_lines[$name];
+            // A child can't declare it again: #NAME is worked out from the class it is written in, so there is nothing to override
+            if (has_key($class.constant_owners, $name)) {
+                #fail_at("Constant {$name} of {$class.name} is already declared in {$class.constant_owners[$name]}", $class.file, $line);
+            }
+            $owner = $class.layout[$name] ?? $class.members[$name] ?? $class.abstract_methods[$name] ?? null;
+            if ($owner != null) {
+                $kind = has_key($class.layout, $name) ? "field" : "method";
+                #fail_at("Constant {$name} of {$class.name} has the name of a {$kind} of {$owner}: constants, fields and methods share names", $class.file, $line);
+            }
+            $class.constant_owners[$name] = $class.name;
         }
 
         foreach ($class.fields as $name => $_) {
             $line = $class.field_lines[$name];
+            if (has_key($class.constant_owners, $name) && $class.constant_owners[$name] != $class.name) {
+                #fail_at("Field #{$name} of {$class.name} has the name of a constant of {$class.constant_owners[$name]}: constants, fields and methods share names", $class.file, $line);
+            }
             if (has_key($class.layout, $name)) {
                 #fail_at("Field #{$name} of {$class.name} is already declared in {$class.layout[$name]}", $class.file, $line);
             }
@@ -1592,6 +1871,9 @@ class Parser {
             $class.layout[$name] = $class.name;
         }
         foreach ($class.methods as $name => $method) {
+            if (has_key($class.constant_owners, $name)) {
+                #fail_at("Method {$class.name}.{$name} has the name of a constant of {$class.constant_owners[$name]}: constants, fields and methods share names", $method.file, $method.line);
+            }
             if (has_key($class.layout, $name)) {
                 #fail_at("Method {$class.name}.{$name} has the name of a field of {$class.layout[$name]}: fields and methods share names, so call the method something else", $method.file, $method.line);
             }
@@ -1675,7 +1957,20 @@ class Parser {
     //
     // Called methods are checked against the class the method is written in: a child's
     // version accepts every argument count this one does.
-    fn check_member_use($node, $class, $argc, $assigned) {
+    fn check_member_use($node, $class, $argc, $assigned, $written) {
+        $constant = #class_constant($class, $node.name);
+        if ($constant != null) {
+            if ($written) {
+                #fail_at("Cannot change constant #{$node.name}", $node.file, $node.line);
+            }
+            if ($argc != null) {
+                #fail_at("#{$node.name} is a constant, not a method", $node.file, $node.line);
+            }
+            $node.constant = true;
+            $node.value = #constant_value($constant, $node);
+
+            return;
+        }
         if (has_key($class.layout, $node.name)) {
             $node.field = true;
 
@@ -1720,6 +2015,8 @@ class Parser {
                 $statements[] = #function_declaration();
             } else if (#current_token.type == "CLASS" || #current_token.type == "ABSTRACT") {
                 $statements[] = #class_declaration();
+            } else if (#current_token.type == "CONST") {
+                #constant_declaration(null);
             } else if (#current_token.type == "INCLUDE") {
                 foreach (#include_statement() as $statement) {
                     $statements[] = $statement;

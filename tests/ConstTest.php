@@ -1,0 +1,192 @@
+<?php
+
+namespace GazLang\Tests;
+
+use GazLang\GazLangError;
+
+/**
+ * const NAME = value; at the top level and in a class: the parser works the value out, and a use is that value
+ */
+class ConstTest extends GazLangTestCase
+{
+    public function test_a_constant_is_its_value_wherever_it_is_used()
+    {
+        $this->assertSame(
+            "3 3.5 text true null\n6\n[3, 4]\nhit\n",
+            $this->executeCode('const N = 3; const F = 3.5; const S = "text"; const B = true; const NOTHING = null;
+                echo N .. " " .. F .. " " .. S .. " " .. B .. " " .. NOTHING;
+                fn twice($x = N) { return $x * 2; } echo twice();
+                echo [N, N + 1];
+                echo match (3) { N => "hit", default => "miss" };')
+        );
+    }
+
+    public function test_a_value_is_worked_out_with_the_operators_a_program_has()
+    {
+        $this->assertSame(
+            "7 1.5 ab1 true -3 -4 false 6 [1, [2, \"x\"]] {\"k\" => 3, 4 => true} big 5 9\n",
+            $this->executeCode('const A = 1 + 2 * 3; const B = 3 / 2; const C = "a" .. "b" .. 1; const D = 1 < 2 && "x" == "x";
+                const E = -3; const G = ~3; const H = !true; const I = 5 % 3 | 2 & 6 ^ 4 << 1 >> 1;
+                const L = [1, [2, "x"]]; const M = {"k" => 1 + 2, 2 * 2 => true}; const T = 10 > 9 ? "big" : "small";
+                const Q = null ?? 5; const P = 1 <=> 0 == 1 ? 9 : 8;
+                echo A .. " " .. B .. " " .. C .. " " .. D .. " " .. E .. " " .. G .. " " .. H .. " " .. I .. " " .. L .. " " .. M .. " " .. T .. " " .. Q .. " " .. P;')
+        );
+    }
+
+    public function test_constants_can_use_each_other_in_any_order_and_be_used_before_they_are_declared()
+    {
+        $this->assertSame(
+            "12\n12\n",
+            $this->executeCode('echo AREA; fn area() { return AREA; } echo area(); const AREA = WIDTH * HEIGHT; const HEIGHT = WIDTH + 1; const WIDTH = 3;')
+        );
+    }
+
+    public function test_the_side_of_an_operator_that_is_not_needed_is_not_worked_out()
+    {
+        $this->assertSame("false true 1 no\n", $this->executeCode('const A = false && 1 / 0; const B = true || 1 / 0; const C = 1 ?? 1 / 0; const D = false ? 1 / 0 : "no"; echo A .. " " .. B .. " " .. C .. " " .. D;'));
+    }
+
+    public function test_a_constant_holding_a_list_or_map_cannot_be_changed_through_a_copy()
+    {
+        $this->assertSame(
+            "[1, 2, 3] [1, 2]\n{\"a\" => 1, \"b\" => 2} {\"a\" => 1}\n2 1\n",
+            $this->executeCode('const L = [1, 2]; const M = {"a" => 1};
+                $l = L; $l[] = 3; echo $l .. " " .. L;
+                $m = M; $m["b"] = 2; echo $m .. " " .. M;
+                echo L[1] .. " " .. M["a"];')
+        );
+    }
+
+    public function test_a_class_has_constants_reached_by_its_name_or_by_hash_inside_it()
+    {
+        $this->assertSame(
+            "EOF\n[\"EOF\", \"EOF!\", 2]\ntrue EOF EOF\n[\"EOF\", \"EOF!\", 2] EOF 4\n",
+            $this->executeCode('const TWO = 2;
+                echo Token.EOF; echo Token.KINDS;
+                class Token {
+                    const EOF = "EOF";
+                    const KINDS = [#EOF, Token.EOF .. "!", TWO];
+                    #type = #EOF;
+                    fn is_eof() { return #type == #EOF; }
+                    fn later() { return () -> #EOF; }
+                    fn describe($type = #EOF) { return $type; }
+                }
+                $t = Token(); echo $t.is_eof() .. " " .. $t.later()() .. " " .. $t.describe();
+                class Special extends Token { const FOUR = TWO * 2; fn kinds() { return #KINDS; } }
+                echo Special().kinds() .. " " .. Special.EOF .. " " .. Special.FOUR;')
+        );
+    }
+
+    public function test_a_constant_is_reached_by_name_and_not_through_a_value()
+    {
+        // Working it out from a value would need a lookup when the program runs; a use is a PUSH
+        foreach (['$c = Token; echo $c.EOF;' => 'Cannot use . on class', '$t = Token(); echo $t.EOF;' => 'Token has no member EOF'] as $code => $message) {
+            try {
+                $this->executeCode('class Token { const EOF = "EOF"; } '.$code);
+                $this->fail("Expected an error for {$code}");
+            } catch (GazLangError $e) {
+                $this->assertStringContainsString($message, $e->getMessage());
+            }
+        }
+    }
+
+    public function test_a_use_compiles_to_the_value()
+    {
+        $code = $this->generateCode('const LIMIT = 10 * 2; class A { const NAMES = ["a", "b"]; fn f() { return #NAMES; } } echo LIMIT; echo A.NAMES;');
+
+        $this->assertStringContainsString("PUSH 20\n", $code);
+        $this->assertSame(2, substr_count($code, 'PUSH ["a", "b"]'));
+        $this->assertStringNotContainsString('LIMIT', $code);
+    }
+
+    public function test_the_left_of_a_coalesce_can_be_a_constant()
+    {
+        $this->assertSame("1 x\n", $this->executeCode('const A = 1; class C { const N = null; fn f() { return #N ?? "x"; } } echo (A ?? 2) .. " " .. C().f();'));
+    }
+
+    public static function errors(): array
+    {
+        return [
+            'a variable' => ['const A = $x;', "A constant's value can only use literals, operators and other constants on line 1"],
+            'a call' => ["const A = 1;\nconst B = 2 + len([A]);", "A constant's value can only use literals, operators and other constants on line 2"],
+            'an index' => ['const L = [1]; const A = L[0];', "A constant's value can only use literals, operators and other constants on line 1"],
+            'a function' => ['const A = len;', 'len is a function, not a constant on line 1'],
+            'a class' => ['class K {} const A = K;', 'K is a class, not a constant on line 1'],
+            'a field' => ['class K { #f = 1; const A = #f; }', "A constant's value can only use literals, operators and other constants on line 1"],
+            'a lambda' => ['const A = $x -> 1;', "A constant's value can only use literals, operators and other constants on line 1"],
+            'an undefined name' => ['const A = MISSING;', 'Undefined constant: MISSING on line 1'],
+            'division by zero' => ["const A = 1;\nconst B = A /\n 0;", 'Division by zero on line 2'],
+            'an overflow' => ['const A = 9223372036854775807 + 1;', 'Integer overflow on line 1'],
+            'a bad operand' => ['const A = "a" + 1;', 'Cannot use + on string on line 1'],
+            'a float as a key' => ['const M = {1.5 => 1};', 'on line 1'],
+            'itself' => ['const A = A + 1;', 'Constant A depends on itself: A uses A on line 1'],
+            'a cycle' => ["const A = B;\nconst B = C * 2;\nconst C = A;", 'Constant A depends on itself: A uses B uses C uses A on line 3'],
+            'a cycle through a class' => ['class K { const A = K.B; const B = #A; }', 'Constant K.A depends on itself: K.A uses K.B uses K.A on line 1'],
+            'declared twice' => ["const A = 1;\nconst A = 2;", 'Constant A is already declared on line 2'],
+            'a function of that name' => ["const A = 1;\nfn A() {}", 'Constant A is already declared on line 2'],
+            'a constant named like a function' => ["fn a() {}\nconst a = 1;", 'Function a is already declared on line 2'],
+            'a constant named like a class' => ['class A {} const A = 1;', 'Class A is already declared on line 1'],
+            'a constant named like a builtin' => ['const len = 1;', 'len is a builtin function on line 1'],
+            'no name' => ['const = 1;', "Expected a name but found '=' on line 1"],
+            'a variable for a name' => ['const $a = 1;', "Expected a name but found '\$a' on line 1"],
+            'no value' => ['const A;', "Expected '=' but found ';' on line 1"],
+            'in a function' => ['fn f() { const A = 1; }', 'Constants can only be declared at the top level or in a class on line 1'],
+            'in a block' => ['if (1) { const A = 1; }', 'Constants can only be declared at the top level or in a class on line 1'],
+            'assigned to' => ['const A = 1; A = 2;', 'Can only use = on a variable, or an element or field of one on line 1'],
+            'an element assigned to' => ['const A = [1]; A[0] = 2;', 'Can only use = on a variable, or an element or field of one on line 1'],
+            'incremented' => ['const A = 1; A++;', 'Can only use ++ on a variable, or an element or field of one on line 1'],
+            'called' => ["const A = 1;\necho A();", 'A is a constant, not a function on line 2'],
+            'twice in a class' => ['class K { const A = 1; const A = 2; }', 'K already has a constant A: constants, fields and methods share names on line 1'],
+            'a field then a constant' => ['class K { #A; const A = 2; }', 'K already has a field #A: constants, fields and methods share names on line 1'],
+            'a method then a constant' => ['class K { fn A() {} const A = 2; }', 'K already has a method A: constants, fields and methods share names on line 1'],
+            'a constant then a field' => ['class K { const A = 2; #A; }', 'K already has a constant A: constants, fields and methods share names on line 1'],
+            'a constant then a method' => ['class K { const A = 2; fn A() {} }', 'K already has a constant A: constants, fields and methods share names on line 1'],
+            'declared again by a child' => ["class K { const A = 1; }\nclass L extends K {\n const A = 2; }", 'Constant A of L is already declared in K on line 3'],
+            "a child's field" => ["class K { const A = 1; }\nclass L extends K { #A; }", 'Field #A of L has the name of a constant of K: constants, fields and methods share names on line 2'],
+            "a child's method" => ["class K { const A = 1; }\nclass L extends K { fn A() {} }", 'Method L.A has the name of a constant of K: constants, fields and methods share names on line 2'],
+            "a parent's field" => ["class K { #A; }\nclass L extends K { const A = 1; }", 'Constant A of L has the name of a field of K: constants, fields and methods share names on line 2'],
+            "a parent's method" => ["class K { fn A() {} }\nclass L extends K { const A = 1; }", 'Constant A of L has the name of a method of K: constants, fields and methods share names on line 2'],
+            'no such constant' => ["class K { const A = 1; }\necho K.B;", 'Class K has no constant B on line 2'],
+            "a parent can't see a child's" => ["class K { fn f() { return #B; } }\nclass L extends K { const B = 1; }", 'K has no member #B on line 1'],
+            '#NAME assigned to' => ['class K { const A = 1; fn f() { #A = 2; } }', 'Cannot change constant #A on line 1'],
+            '#NAME element assigned to' => ['class K { const A = [1]; fn f() { #A[0] = 2; } }', 'Cannot change constant #A on line 1'],
+            '#NAME appended to' => ['class K { const A = [1]; fn f() { #A[] = 2; } }', 'Cannot change constant #A on line 1'],
+            '#NAME incremented' => ['class K { const A = 1; fn f() { #A++; } }', 'Cannot change constant #A on line 1'],
+            '#NAME compound assigned' => ['class K { const A = "a"; fn f() { #A ..= "b"; } }', 'Cannot change constant #A on line 1'],
+            '#NAME element deleted' => ['class K { const A = [1]; fn f() { delete #A[0]; } }', 'Cannot change constant #A on line 1'],
+            '#NAME in a pattern' => ['class K { const A = 1; fn f() { [#A] = [2]; } }', 'Cannot change constant #A on line 1'],
+            '#NAME called' => ['class K { const A = 1; fn f() { return #A(); } }', '#A is a constant, not a method on line 1'],
+            'Name.NAME called' => ["class K { const A = 1; }\necho K.A();", 'K.A is a constant, not a method on line 2'],
+            'Name.NAME assigned to' => ['class K { const A = 1; } K.A = 2;', 'Can only use = on a variable, or an element or field of one on line 1'],
+            '#NAME of another class in a value' => ['const A = #B;', 'Cannot use #B outside a method on line 1'],
+            'a constant of a class that has none in a value' => ['class K {} const A = K.B;', 'Class K has no constant B on line 1'],
+            'a keyword in the wrong case' => ['Const A = 1;', "Expected ';' but found 'A' (keywords are lowercase: write 'const', not 'Const') on line 1"],
+        ];
+    }
+
+    /**
+     * @dataProvider errors
+     */
+    public function test_errors(string $code, string $message)
+    {
+        try {
+            $this->executeCode($code);
+            $this->fail('Expected an error');
+        } catch (GazLangError $e) {
+            $this->assertStringContainsString($message, $e->getMessage());
+        }
+    }
+
+    public function test_a_written_field_is_still_a_field_and_a_method_element_is_still_for_when_it_runs()
+    {
+        // Noting what is written under a #name must not change what a field or a method allows
+        $this->assertSame("[1, 2]\n", $this->executeCode('class K { #l = [1]; fn f() { #l[] = 2; return #l; } } echo K().f();'));
+    }
+
+    public function test_included_files_share_constants()
+    {
+        [$output] = $this->runProgram('tests/fixtures/const/main.gaz');
+
+        $this->assertSame("10 20 lib\n", $output);
+    }
+}

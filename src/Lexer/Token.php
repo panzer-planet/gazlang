@@ -180,6 +180,8 @@ class Token
 
     public const MATCH = 'MATCH';  // match keyword, an expression choosing an arm by ==
 
+    public const CONST = 'CONST';  // const keyword, declaring a constant
+
     public const DEFAULT = 'DEFAULT';  // default keyword, a match's catch-all arm
 
     public const CLASS_KEYWORD = 'CLASS';  // class keyword (a constant can't be named CLASS)

@@ -679,7 +679,7 @@ class ClassTest extends GazLangTestCase
             'to_string with a required argument' => ["class P {\n fn to_string(\$a) {}\n}", 'Method P.to_string must accept 0 arguments: printing calls it with none on line 2'],
             'to_string with only optional arguments is fine' => ['class P { fn to_string($a = 1) { return ""; } } echo ;', "Unexpected ';' on line 1"],
             '{#name} outside a method' => ['echo "{#name}";', 'Cannot use #name outside a method on line 1'],
-            'something else in a class body' => ['class P { echo 1; }', "Expected a field (#name) or a method (fn) but found 'echo' on line 1"],
+            'something else in a class body' => ['class P { echo 1; }', "Expected a field (#name), a method (fn) or a constant (const) but found 'echo' on line 1"],
             'duplicate method parameter' => ['class P { fn f($a, $a) {} }', 'Duplicate parameter $a in method P.f on line 1'],
         ];
     }

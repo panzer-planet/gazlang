@@ -1,0 +1,1 @@
+class K { #A; const A = 2; }

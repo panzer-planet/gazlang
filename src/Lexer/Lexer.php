@@ -104,6 +104,7 @@ class Lexer
         'delete' => 'DELETE',
         'match' => 'MATCH',
         'default' => 'DEFAULT',
+        'const' => 'CONST',
         'include' => 'INCLUDE',
         'try' => 'TRY',
         'catch' => 'CATCH',

@@ -32,6 +32,16 @@ class PropertyAST extends AST
     public $field = false;
 
     /**
+     * @var bool Whether this is a class's constant (#NAME or Class.NAME), which the parser knows once the classes are resolved
+     */
+    public $constant = false;
+
+    /**
+     * @var mixed The constant's value, worked out by the parser: a use of a constant is its value
+     */
+    public $value = null;
+
+    /**
      * Constructor
      *
      * @param  AST  $target  The object

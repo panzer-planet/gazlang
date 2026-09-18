@@ -1,0 +1,2 @@
+class K { fn A() {} }
+class L extends K { const A = 1; }

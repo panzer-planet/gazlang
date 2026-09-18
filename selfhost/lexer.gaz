@@ -94,7 +94,7 @@ class Lexer {
         "echo" => "ECHO", "if" => "IF", "else" => "ELSE", "while" => "WHILE", "for" => "FOR",
         "foreach" => "FOREACH", "as" => "AS", "break" => "BREAK", "continue" => "CONTINUE",
         "fn" => "FN", "function" => "FUNCTION", "return" => "RETURN", "null" => "NULL",
-        "delete" => "DELETE", "match" => "MATCH", "default" => "DEFAULT", "include" => "INCLUDE",
+        "delete" => "DELETE", "match" => "MATCH", "default" => "DEFAULT", "const" => "CONST", "include" => "INCLUDE",
         "try" => "TRY", "catch" => "CATCH", "finally" => "FINALLY", "true" => "TRUE",
         "false" => "FALSE", "class" => "CLASS", "extends" => "EXTENDS", "abstract" => "ABSTRACT",
         "interface" => "INTERFACE", "implements" => "IMPLEMENTS", "final" => "FINAL",
