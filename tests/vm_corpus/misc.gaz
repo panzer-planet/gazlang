@@ -38,3 +38,10 @@ class Again { fn _($class) { $class($class); } }
 echo attempt(() -> Again(Again));
 fn again_deeper() { Again(Again); }
 echo attempt(() -> again_deeper());
+
+// Boundaries mutation testing found unreached: an offset of exactly minus the length, the
+// smallest int as a float, a negative index into a list
+echo [index_of("abcabc", "a", -6), index_of("abc", "c", -3), attempt(() -> index_of("abc", "c", -4)), index_of("abc", "c", 3) ?? "none"];
+echo [to_int(-9223372036854775807.0 - 1024.0), attempt(() -> to_int(9223372036854775807.0)), to_int(-0.5), to_int(1e18)];
+echo [has_key([1, 2], -1), has_key([1, 2], 2), has_key([1, 2], 1), has_key([], 0)];
+echo [attempt(() -> to_float("+5")), attempt(() -> to_float("+1.5")), to_float("-5"), to_float("99999999999999999999"), attempt(() -> to_float("--5"))];

@@ -107,12 +107,13 @@ static Value v_string(const char *data, size_t len) { return v_str(str_new(data,
 /* The part of a length-n string or list that slice() takes, with PHP's substr rules */
 static bool slice_bounds(int64_t n, int64_t start, bool has_length, int64_t length, int64_t *from, int64_t *count) {
     if (start > n) return false;
-    if (start < 0) start = -start > n ? 0 : n + start;
+    /* Compared as start < -n rather than -start > n: negating the smallest int overflows */
+    if (start < 0) start = start < -n ? 0 : n + start;
     int64_t rest = n - start;
     if (!has_length) {
         length = rest;
     } else if (length < 0) {
-        if (-length > rest) return false;
+        if (length < -rest) return false;
         length = rest + length;
     } else if (length > rest) {
         length = rest;
@@ -275,6 +276,10 @@ static double php_round(double value, int places) {
     if (abs(places) < 23) {
         tmp = places > 0 ? tmp / exponent : tmp * exponent;
     } else {
+        /* PHP reads the text back with zend_strtod, which gives a zero without its sign
+           ("-0.000000e30" is 0.0); the C library's strtod keeps the sign, except when the
+           exponent is too far out, where it drops it too */
+        if (tmp == 0.0) return 0.0;
         char buf[40];
         snprintf(buf, 39, "%15fe%d", tmp, -places);
         buf[39] = '\0';
@@ -455,9 +460,9 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     case B_ROUND: {
         Value places = argc > 1 ? b : v_int(0);
         if (!want(index, a, INT | M(T_FLOAT)) || !want(index, places, INT)) return false;
-        /* A zend_long becomes an int on the way into _php_math_round, as a C cast does */
-        int p = (int)places.i;
-        if (a.type == T_INT && places.i >= 0) *out = v_float((double)a.i);
+        /* PHP clamps the precision to what a C int holds on the way into _php_math_round */
+        int p = places.i > INT_MAX ? INT_MAX : places.i < INT_MIN ? INT_MIN : (int)places.i;
+        if (a.type == T_INT && p >= 0) *out = v_float((double)a.i);
         else *out = v_float(php_round(a.type == T_INT ? (double)a.i : a.f, p));
         return true;
     }

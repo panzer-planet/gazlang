@@ -175,21 +175,27 @@ static char *next_line(void) {
     return NULL;
 }
 
-/* A line's words, split on runs of whitespace; words[] points into a copy owned by the caller */
-typedef struct { char *copy; char *w[64]; int n; } Words;
+/* A line's words, split on runs of whitespace; w[] points into a copy, both freed by free_words() */
+typedef struct { char *copy; char **w; int n; } Words;
 
 static void split_words(const char *line, Words *out) {
     out->copy = strdup(line);
+    out->w = xmalloc((strlen(line) / 2 + 2) * sizeof(char *));   /* never more words than that */
     out->n = 0;
     char *p = out->copy;
     while (*p) {
         while (*p && is_space(*p)) p++;
         if (!*p) break;
-        if (out->n < 64) out->w[out->n++] = p;
+        out->w[out->n++] = p;
         while (*p && !is_space(*p)) p++;
         if (*p) *p++ = '\0';
     }
     if (out->n == 0) out->w[out->n++] = p;
+}
+
+static void free_words(Words *w) {
+    free(w->copy);
+    free(w->w);
 }
 
 static const char *word(Words *w, int i) {
@@ -687,7 +693,7 @@ static void read_code(Block *b) {
         split_words(text, &w);
         if (!strcmp(w.w[0], "@")) {
             read_location(&w, &file, &line);
-            free(w.copy);
+            free_words(&w);
             continue;
         }
         int op = op_find(w.w[0]);
@@ -695,7 +701,7 @@ static void read_code(Block *b) {
             /* A lowercase word starts the next block; anything else is meant to be an instruction */
             if (w.w[0][0] >= 'a' && w.w[0][0] <= 'z') {
                 at_line--;
-                free(w.copy);
+                free_words(&w);
                 return;
             }
             fail("Unknown instruction '%s'", w.w[0]);
@@ -731,7 +737,7 @@ static void read_code(Block *b) {
         }
         for (int i = 0; i < w.n && i < 4; i++) r.words[i] = intern(w.w[i]);
         r.nwords = w.n < 4 ? w.n : 4;
-        free(w.copy);
+        free_words(&w);
         if (b->nraw == cap) b->raw = xrealloc(b->raw, (cap *= 2) * sizeof(RawInstr));
         b->raw[b->nraw++] = r;
     }
@@ -796,7 +802,7 @@ static Block *read_block(const char *header) {
     } else {
         fail("Unknown block '%s'", kind);
     }
-    free(w.copy);
+    free_words(&w);
 
     /* The record lines a class or lambda block carries, then its locals */
     for (;;) {
@@ -835,12 +841,12 @@ static Block *read_block(const char *header) {
             if (b->self < 0) fail("%s is not captured", name->data);
         } else if (!strcmp(first, "locals")) {
             for (int i = 1; i < w.n; i++) b->locals = push_name(b->locals, &b->nlocals, intern(w.w[i]));
-            free(w.copy);
+            free_words(&w);
             break;
         } else {
             fail("Expected 'locals'");
         }
-        free(w.copy);
+        free_words(&w);
     }
 
     read_code(b);
@@ -1199,14 +1205,14 @@ Program *load(const char *text, size_t len, const char *path) {
     split_words(line ? line : "", &w);
     if (w.n != 3 || strcmp(w.w[0], "GAZLANG") || strcmp(w.w[1], "BYTECODE")) fail("Not a bytecode file");
     if (strcmp(w.w[2], "1")) fail("Bytecode version %s, but this is GazLang bytecode 1", w.w[2]);
-    free(w.copy);
+    free_words(&w);
 
     prog = xcalloc(1, sizeof(Program));
     line = next_line();
     split_words(line ? line : "", &w);
     if (strcmp(w.w[0], "globals")) fail("Expected 'globals'");
     for (int i = 1; i < w.n; i++) prog->globals = push_name(prog->globals, &prog->nglobals, intern(w.w[i]));
-    free(w.copy);
+    free_words(&w);
 
     int cap = 8;
     prog->blocks = xmalloc((size_t)cap * sizeof(Block *));

@@ -169,8 +169,9 @@ final class Builtins
             'ceil' => ceil($this->argument($name, $args[0], 'int', 'float')),
             // PHP's round: halves away from zero (round(2.5) is 3.0), to a number of decimal places
             // (round(1.005, 2) is 1.01, correcting for 1.005 being stored as 1.00499...), or to tens,
-            // hundreds... with a negative precision (round(1234, -2) is 1200.0)
-            'round' => round($this->argument($name, $args[0], 'int', 'float'), $this->argument($name, array_key_exists(1, $args) ? $args[1] : 0, 'int')),
+            // hundreds... with a negative precision (round(1234, -2) is 1200.0). Worked out here
+            // rather than by calling PHP's, which changed within 8.5 (see round() below)
+            'round' => self::round($this->argument($name, $args[0], 'int', 'float'), $this->argument($name, array_key_exists(1, $args) ? $args[1] : 0, 'int')),
             'abs' => $this->abs($this->argument($name, $args[0], 'int', 'float')),
             'intdiv' => $this->intdiv($this->argument($name, $args[0], 'int'), $this->argument($name, $args[1], 'int')),
             'min' => $this->extreme($name, $args[0], $args[1]) <= 0 ? $args[0] : $args[1],
@@ -439,6 +440,65 @@ final class Builtins
         }
 
         throw new Exception('to_float() cannot convert '.(is_string($value) ? Lexer::quote($value) : Values::typeOf($value)));
+    }
+
+    /**
+     * round($x, $precision): PHP's round() with PHP_ROUND_HALF_UP, step for step as php-src's
+     * ext/standard/math.c has it since 2026-06-23 (_php_math_round)
+     *
+     * Worked out here because calling PHP's round() makes GazLang depend on the PHP release
+     * running it: 8.5.7 gives round(7e15) as 7000000000000001.0, which later releases fixed. The
+     * C VM (vm/builtins.c) does exactly these steps, so both runtimes agree whatever PHP runs.
+     *
+     * @param  int|float  $value  The number
+     * @param  int  $precision  Decimal places; negative rounds to tens, hundreds...
+     */
+    private static function round(int|float $value, int $precision): float
+    {
+        // PHP clamps the precision to a C int on the way in
+        $places = max(-2147483648, min(2147483647, $precision));
+        if (is_int($value) && $places >= 0) {
+            return (float) $value;
+        }
+        $value = (float) $value;
+        if ($value == 0.0) {
+            return $value;
+        }
+        if ($places === 0 && fmod($value, 1.0) == 0.0) {
+            // An integral value is already rounded; the steps below would take a large one past itself
+            return $value;
+        }
+        $places = max($places, -2147483647);
+        $exponent = abs($places) <= 22 ? (float) (10 ** abs($places)) : 10.0 ** abs($places);
+        // The integral part, corrected when the float arithmetic lands one short of it
+        if ($value >= 0.0) {
+            $tmp = floor($places > 0 ? $value * $exponent : $value / $exponent);
+            $tmp2 = $tmp + 1.0;
+        } else {
+            $tmp = ceil($places > 0 ? $value * $exponent : $value / $exponent);
+            $tmp2 = $tmp - 1.0;
+        }
+        if (($places > 0 ? $tmp2 / $exponent : $tmp2 * $exponent) == $value) {
+            $tmp = $tmp2;
+        }
+        // Beyond what a float holds exactly, rounding is pointless
+        if (abs($tmp) >= 1e16) {
+            return $value;
+        }
+        // Half up: away from zero at or past the halfway point (copysign: $tmp's sign, -0.0's included)
+        $negative = $tmp < 0.0 || ($tmp == 0.0 && fdiv(1.0, $tmp) < 0.0);
+        $half = $negative ? -0.5 : 0.5;
+        $edge = abs($places > 0 ? ($tmp + $half) / $exponent : ($tmp + $half) * $exponent);
+        if (abs($value) >= $edge) {
+            $tmp += $negative ? -1.0 : 1.0;
+        }
+        if (abs($places) < 23) {
+            return $places > 0 ? $tmp / $exponent : $tmp * $exponent;
+        }
+        // Too far for a division to be exact: through text and back, as PHP does
+        $result = (float) sprintf('%15fe%d', $tmp, -$places);
+
+        return is_finite($result) ? $result : $value;
     }
 
     /**

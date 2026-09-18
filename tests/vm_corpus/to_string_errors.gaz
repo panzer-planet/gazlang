@@ -18,3 +18,8 @@ try { $s ..= Bad(); } catch (Error $e) { echo $e.message .. " " .. $s; }
 class Sneaky { fn to_string() { @target = 5; return "!"; } }
 @target ..= Sneaky();
 echo @target;
+// ...and one that makes it something .. has to convert (found by tests/fuzz_vms.php)
+class Sly { fn to_string() { @target = print; return "?"; } }
+@target = "start";
+@target ..= Sly();
+echo @target;

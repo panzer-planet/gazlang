@@ -102,11 +102,12 @@ final class CVM
      * sanitized process to start (about 70ms on macOS, mostly idle), and the PHP VM in-process
      *
      * @param  list<string>  $entries
+     * @param  bool  $isolated  Whether to run the PHP side in processes too, with the time limit, for programs that may never end
      * @return array<string, array{0: array{0: string, 1: string, 2: int}, 1: array{0: string, 1: string, 2: int}}|null>
      *                                                                                                                  By entry: [PHP, C], each [stdout, stderr, exit code];
      *                                                                                                                  null when the PHP compiler refuses the program
      */
-    public static function runAll(array $entries): array
+    public static function runAll(array $entries, bool $isolated = false): array
     {
         $jobs = [];
         $results = [];
@@ -124,6 +125,16 @@ final class CVM
                 $jobs[$entry] = [$gzb, $args];
             }
         }
+        if ($isolated) {
+            $php = self::processes(array_map(fn ($job) => [PHP_BINARY, '-d', 'pcov.enabled=0', 'bin/gazlang', '-f', $job[0], '--', ...$job[1]], $jobs), ['GAZLANG_RESTARTED' => '1']);
+            $c = self::processes(array_map(fn ($job) => [self::BINARY, $job[0], ...$job[1]], $jobs));
+            foreach ($jobs as $entry => $_) {
+                $results[$entry] = [$php[$entry], $c[$entry]];
+            }
+
+            return $results;
+        }
+
         // The PHP side runs in this process while the C side's processes run
         $php = [];
         $pending = $jobs;

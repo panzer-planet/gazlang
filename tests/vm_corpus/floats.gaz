@@ -6,3 +6,10 @@ foreach ($values as $v) {
     echo $v .. " " .. -$v .. " " .. to_string([$v]);
 }
 try { echo to_float("1e308") * 10.0; } catch (Error $e) { echo $e.message; }
+// Next to a power of two the floats around a value are not evenly spaced, and the shortest digits
+// that read back can be the ones rounded the other way (4776 of a million random floats were)
+foreach ([5.684341886080802E-14, 6.156563468186638E+113, 8.209073602596753E-289, 5.986310706507379E+51,
+          5.896816288783659E+166, 6.243497100631985E+144, 5.966672584960166E-154, 6.617444900424222E-24,
+          5.225680706521042E-200, 7.174648137343064E-43, 5.940911144672375E-213] as $v) {
+    echo $v;
+}

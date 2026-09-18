@@ -419,23 +419,39 @@ void format_float(double f, Buf *out) {
         strcpy(digits, "0");
         decpt = 1;
     } else {
-        /* The shortest %e precision that reads back exactly: printf rounds correctly, so the
-           first that round-trips is the closest shortest decimal, which is what dtoa gives.
-           ponytail: tries up to 17 printf calls per float; a Ryu-style algorithm if printing
+        /* The shortest digits that read back as the same float: for each length, the correctly
+           rounded digits printf gives, or failing those the neighbour on the value's other side,
+           since next to a power of two the floats around it are not evenly spaced and only that
+           one may read back. The two are the only candidates of that length, and the first that
+           reads back is the shortest, and the closer of two, which is what dtoa gives.
+           ponytail: up to 34 printf/strtod pairs per float; a Ryu-style algorithm if printing
            floats ever measures slow. */
-        for (int precision = 0; precision < 17; precision++) {
-            snprintf(buf, sizeof buf, "%.*e", precision, fabs(f));
-            if (strtod(buf, NULL) == fabs(f)) break;
+        double a = fabs(f);
+        uint64_t mantissa = 0;
+        int exponent = 0, precision;
+        for (precision = 0; precision < 17; precision++) {
+            snprintf(buf, sizeof buf, "%.*e", precision, a);
+            char *e = strchr(buf, 'e');
+            exponent = atoi(e + 1);
+            mantissa = 0;
+            for (char *p = buf; p < e; p++) {
+                if (*p != '.') mantissa = mantissa * 10 + (uint64_t)(*p - '0');
+            }
+            double rounded = strtod(buf, NULL);
+            if (rounded == a) break;
+            uint64_t other = rounded < a ? mantissa + 1 : mantissa - 1;
+            if (other == 0) continue;
+            snprintf(buf, sizeof buf, "%llue%d", (unsigned long long)other, exponent - precision);
+            if (strtod(buf, NULL) == a) {
+                mantissa = other;
+                break;
+            }
         }
-        /* buf is d.ddde±x: collect the digits and the exponent */
-        int n = 0;
-        char *p = buf;
-        for (; *p != 'e'; p++) {
-            if (*p != '.') digits[n++] = *p;
-        }
+        /* mantissa * 10^(exponent - precision) is the value; its digits without trailing zeros */
+        int n = snprintf(digits, sizeof digits, "%llu", (unsigned long long)mantissa);
+        decpt = n + exponent - precision;
         while (n > 1 && digits[n - 1] == '0') n--;
         digits[n] = '\0';
-        decpt = atoi(p + 1) + 1;
     }
 
     if (signbit(f)) buf_addc(out, '-');

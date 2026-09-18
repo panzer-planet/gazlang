@@ -750,9 +750,14 @@ final class Values
     {
         if (is_string($target)) {
             $text = is_string($value) ? $value : self::toString($value);
-            $target .= $text;
+            // toString() can run a to_string() that changed the target, so look again
+            if (is_string($target)) {
+                $target .= $text;
 
-            return $target;
+                return $target;
+            }
+
+            return $target = self::binary(new Token(Token::CONCAT, '..'), $target, $text);
         }
 
         return $target = self::binary(new Token(Token::CONCAT, '..'), $target, $value);
