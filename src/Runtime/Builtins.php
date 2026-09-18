@@ -51,6 +51,7 @@ final class Builtins
         'type_of' => 1,
         'is_a' => 2,
         'class_of' => 1,
+        'fields' => 1,
         'error' => 1,
         'exit' => [0, 1],
         'read_file' => 1,
@@ -185,6 +186,7 @@ final class Builtins
             // The class itself, so it can be compared (== is identity, so match dispatches on it),
             // passed to is_a, called to construct another, or printed
             'class_of' => $this->argument($name, $args[0], 'object')->class,
+            'fields' => $this->fields($this->argument($name, $args[0], 'object')),
             // The program's own message, printed as is: it describes a location in the program's input,
             // not here. The interpreter still records where error() was called, for catch.
             // A string is the message of an Error; any other value is thrown as it is
@@ -578,6 +580,25 @@ final class Builtins
         }
 
         return $contents;
+    }
+
+    /**
+     * fields($object): the fields that are set, by name without the #, in layout order (the
+     * parent's first, each class's in declaration order), as echo prints them. A map is a value,
+     * so writing to it doesn't change the object.
+     *
+     * @param  ObjectValue  $object  The object
+     */
+    private function fields(ObjectValue $object): MapValue
+    {
+        $fields = [];
+        foreach ($object->class->fields as $field => $_) {
+            if (array_key_exists($field, $object->fields)) {
+                $fields[$field] = $object->fields[$field];
+            }
+        }
+
+        return new MapValue($fields);
     }
 
     /**

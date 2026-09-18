@@ -380,6 +380,48 @@ class ClassTest extends GazLangTestCase
             CODE));
     }
 
+    /**
+     * Only the fields that are set, in the order echo prints them: the parent's first, each
+     * class's in declaration order, whatever order they were set in
+     */
+    public function test_fields_gives_the_set_fields_by_name_in_layout_order()
+    {
+        $this->assertEquals("{\"a\" => 3, \"c\" => [1], \"b\" => 2}\n{}\n", $this->executeCode(<<<'CODE'
+            class Base { #a; #unset; }
+            class P extends Base { #c = [1]; #b; fn _() { #b = 2; #a = 3; } }
+            echo fields(P());
+            class Empty {}
+            echo fields(Empty());
+            CODE));
+    }
+
+    public function test_fields_is_a_copy()
+    {
+        $this->assertEquals("P {#a => 1}\n{\"a\" => 2}\n", $this->executeCode(<<<'CODE'
+            class P { #a = 1; }
+            $p = P();
+            $f = fields($p);
+            $f["a"] = 2;
+            echo $p;
+            echo $f;
+            CODE));
+    }
+
+    public function test_fields_walks_a_tree_without_knowing_its_classes()
+    {
+        $this->assertEquals("6\n", $this->executeCode(<<<'CODE'
+            class Num { #value; fn _($v) { #value = $v; } }
+            class Add { #left; #right; fn _($l, $r) { #left = $l; #right = $r; } }
+            fn sum($node) {
+                if (is_a($node, Num)) { return $node.value; }
+                $total = 0;
+                foreach (fields($node) as $child) { $total += sum($child); }
+                return $total;
+            }
+            echo sum(Add(Num(1), Add(Num(2), Num(3))));
+            CODE));
+    }
+
     public function test_a_class_without_a_constructor_inherits_its_parents()
     {
         $this->assertEquals("Unit {#name => \"circle\", #history => [], #radius => 3}\n", $this->executeCode(self::SHAPES.'echo Unit(3);'));
@@ -596,6 +638,7 @@ class ClassTest extends GazLangTestCase
             'is_a needs a class' => ['echo is_a(1, "Account");', 'is_a() expects class, got string on line 14'],
             'class_of needs an object' => ['echo class_of(1);', 'class_of() expects object, got int on line 14'],
             'class_of of a class' => ['echo class_of(Account);', 'class_of() expects object, got class on line 14'],
+            'fields needs an object' => ['echo fields({"a" => 1});', 'fields() expects object, got map on line 14'],
             'to_string returning something else' => ['class P { fn to_string() { return [1]; } } echo P();', 'P.to_string must return a string, got list on line 14'],
             'to_string returning something else, through ..' => ['class P { fn to_string() { return null; } } $s = "a" .. P();', 'P.to_string must return a string, got null on line 14'],
             'error in the constructor' => ["class P {\n fn _() { error(\"no\"); }\n}\n\$p = P();", 'no'],
