@@ -354,6 +354,30 @@ class ClassTest extends GazLangTestCase
             CODE));
     }
 
+    public function test_class_of_gives_the_class_itself()
+    {
+        // Exactly the class, not its parents: that is what makes it a dispatch key, where
+        // is_a() is the subtype test
+        $this->assertEquals("[true, false, true, true]\n", $this->executeCode(self::SHAPES.<<<'CODE'
+            $u = Unit(1);
+            echo [class_of($u) == Unit, class_of($u) == Shape, is_a($u, Shape), class_of($u)(2).radius == 2];
+            CODE));
+    }
+
+    public function test_class_of_dispatches_a_visitor_written_outside_the_classes()
+    {
+        $this->assertEquals("circle 3\n", $this->executeCode(self::SHAPES.<<<'CODE'
+            fn describe($s) {
+                return match (class_of($s)) {
+                    Unit => "circle " .. $s.radius,
+                    Square => "square",
+                    default => "?",
+                };
+            }
+            echo describe(Unit(3));
+            CODE));
+    }
+
     public function test_a_class_without_a_constructor_inherits_its_parents()
     {
         $this->assertEquals("Unit {#name => \"circle\", #history => [], #radius => 3}\n", $this->executeCode(self::SHAPES.'echo Unit(3);'));
@@ -568,6 +592,8 @@ class ClassTest extends GazLangTestCase
             'keys and value run before the path fails' => ['fn k() { echo "k"; return 0; } $a = Account("W"); $a.nope[k()] = error("value");', 'value'],
             'constructing an abstract class through a value' => ['abstract class S {} $s = S; $s();', 'Cannot construct abstract class S on line 14'],
             'is_a needs a class' => ['echo is_a(1, "Account");', 'is_a() expects class, got string on line 14'],
+            'class_of needs an object' => ['echo class_of(1);', 'class_of() expects object, got int on line 14'],
+            'class_of of a class' => ['echo class_of(Account);', 'class_of() expects object, got class on line 14'],
             'to_string returning something else' => ['class P { fn to_string() { return [1]; } } echo P();', 'P.to_string must return a string, got list on line 14'],
             'to_string returning something else, through ..' => ['class P { fn to_string() { return null; } } $s = "a" .. P();', 'P.to_string must return a string, got null on line 14'],
             'error in the constructor' => ["class P {\n fn _() { error(\"no\"); }\n}\n\$p = P();", 'no'],

@@ -1,0 +1,16 @@
+ok the object's own class
+ok not a parent
+ok is_a still follows the hierarchy
+ok classes are values, so == is identity
+ok type_of of a class
+ok printed as a class
+ok it is the class, so it constructs
+ok and is_a accepts it
+ok a second pass over the same tree
+ok evaluating it
+ok an unhandled node
+ok classes in a list
+ok a class that isn't there
+ok class_of of an int
+ok class_of of null
+ok class_of of a class

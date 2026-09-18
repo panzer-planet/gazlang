@@ -50,6 +50,7 @@ final class Builtins
         'values' => 1,
         'type_of' => 1,
         'is_a' => 2,
+        'class_of' => 1,
         'error' => 1,
         'exit' => [0, 1],
         'read_file' => 1,
@@ -178,6 +179,9 @@ final class Builtins
             'values' => is_array($this->argument($name, $args[0], 'list', 'map')) ? $args[0] : array_values($args[0]->items),
             'type_of' => Values::typeOf($args[0]),
             'is_a' => $this->isA($args[0], $this->argument($name, $args[1], 'class')),
+            // The class itself, so it can be compared (== is identity, so match dispatches on it),
+            // passed to is_a, called to construct another, or printed
+            'class_of' => $this->argument($name, $args[0], 'object')->class,
             // The program's own message, printed as is: it describes a location in the program's input,
             // not here. The interpreter still records where error() was called, for catch.
             // A string is the message of an Error; any other value is thrown as it is

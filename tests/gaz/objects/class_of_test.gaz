@@ -1,0 +1,71 @@
+include "../check.gaz";
+
+class Shape { #name = "shape"; }
+class Circle extends Shape { #r; fn _($r) { #name = "circle"; #r = $r; } }
+class Square extends Shape { #s; fn _($s) { #name = "square"; #s = $s; } }
+
+$c = Circle(2);
+
+// class_of gives exactly the class, where is_a tests the hierarchy: the two answer
+// different questions, and a visitor wants the exact one
+check("the object's own class", class_of($c) == Circle, true);
+check("not a parent", class_of($c) == Shape, false);
+check("is_a still follows the hierarchy", is_a($c, Shape), true);
+check("classes are values, so == is identity", class_of($c) == class_of(Circle(9)), true);
+check("type_of of a class", type_of(class_of($c)), "class");
+check("printed as a class", to_string(class_of($c)), "class Circle");
+check("it is the class, so it constructs", class_of($c)(5).r, 5);
+check("and is_a accepts it", is_a($c, class_of($c)), true);
+
+// What it is for: dispatching a pass written outside the node classes, which is how a
+// compiler with more than one backend has to be written
+class Num { #v; fn _($v) { #v = $v; } }
+class Add { #l; #r; fn _($l, $r) { #l = $l; #r = $r; } }
+class Mul { #l; #r; fn _($l, $r) { #l = $l; #r = $r; } }
+class Neg { #e; fn _($e) { #e = $e; } }
+
+fn eval($n) {
+    return match (class_of($n)) {
+        Num => $n.v,
+        Add => eval($n.l) + eval($n.r),
+        Mul => eval($n.l) * eval($n.r),
+        Neg => -eval($n.e),
+        default => error("cannot evaluate " .. to_string(class_of($n))),
+    };
+}
+
+fn show($n) {
+    return match (class_of($n)) {
+        Num => to_string($n.v),
+        Add => "(" .. show($n.l) .. " + " .. show($n.r) .. ")",
+        Mul => "(" .. show($n.l) .. " * " .. show($n.r) .. ")",
+        Neg => "-" .. show($n.e),
+        default => "?",
+    };
+}
+
+$tree = Add(Num(2), Mul(Num(3), Neg(Num(4))));
+check("a second pass over the same tree", show($tree), "(2 + (3 * -4))");
+check("evaluating it", eval($tree), -10);
+
+// A node the pass doesn't know reaches the default arm, naming itself
+class Unknown {}
+fn fails($f) {
+    try {
+        $f();
+    } catch (Error $e) {
+        return $e.message;
+    }
+
+    return "no error";
+}
+check("an unhandled node", fails(() -> eval(Unknown())), "cannot evaluate class Unknown");
+
+// A class is a value like any other, so it keys nothing but compares by identity
+check("classes in a list", in_array(Circle, [Square, Circle]), true);
+check("a class that isn't there", in_array(Num, [Square, Circle]), false);
+
+// class_of is an accessor, so it is strict: there is no class for an int
+check("class_of of an int", fails(() -> class_of(1)), "class_of() expects object, got int");
+check("class_of of null", fails(() -> class_of(null)), "class_of() expects object, got null");
+check("class_of of a class", fails(() -> class_of(Circle)), "class_of() expects object, got class");
