@@ -39,8 +39,13 @@ echo "{$user.name} owes {@total + 1}";
 ```
 
 Braces interpolate any expression that **starts with a sigil** — `{$…}`, `{@…}`, `{#…}`.
-Anything else is literal, so `{round($n, 2)}` prints as written; assign it to a variable first.
+Anything else is literal, so `{round($n, 2)}` prints as written; assign it to a variable first,
+or start the expression with a sigil and call from there (`{$o.shout() .. to_string($n)}`).
 A lone `$`, `$5` and `me@example.com` are all literal too.
+
+This is PHP's rule, and for PHP's reason: `{` has to stay literal so a string holding JSON, CSS
+or braces needs no escaping. GazLang is the more permissive of the two, since `{$n + 1}` is a
+parse error in PHP and works here.
 
 Escapes in `"..."`: `\n \t \r \v \f \e \0 \\ \" \$ \{`, `\xHH` (exactly two hex digits) and
 `\u{H…}` (1 to 6 hex digits, written out as UTF-8). Any other escape is an error.
