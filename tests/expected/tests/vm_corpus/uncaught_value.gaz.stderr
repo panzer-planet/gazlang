@@ -1,0 +1,2 @@
+to stderr
+Error: [1, "two", {"three" => 3.0}]

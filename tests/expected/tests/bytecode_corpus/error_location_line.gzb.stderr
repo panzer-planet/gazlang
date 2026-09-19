@@ -1,0 +1,1 @@
+Error: Expected a number but found 'x' at tests/bytecode_corpus/error_location_line.gzb:6

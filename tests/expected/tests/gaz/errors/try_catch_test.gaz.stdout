@@ -1,0 +1,33 @@
+ok message
+ok file
+ok line
+ok error() message is exact
+ok error() line is where it was called
+ok undefined variable
+ok type error
+ok missing key
+ok builtin argument
+ok file error
+ok invalid JSON
+ok no error
+ok control flow
+ok failed ++ leaves the value
+ok failed += creates no key
+ok rethrow reaches the outer catch
+ok return from inside try
+ok continue and break inside try
+ok unwinds through calls
+ok global catch variable
+ok valid config
+ok invalid config
+ok a subclass matches its own clause first
+ok a class matches its clause
+ok a string error is an Error
+ok an Error made directly
+ok any other value
+ok an error object's message
+ok its own fields
+ok where it was thrown
+ok it prints as its message
+ok a thrown list is caught as it is
+ok unmatched errors carry on through finally

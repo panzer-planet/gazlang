@@ -1,0 +1,4 @@
+12
+[3, 1.5, "ab3", true, null, -3, -4, false, 6, [-1, true, true, false, false, 5], "wide", 3, [false, true, 1, 1], [], {}, [1, [2, "x"], {"k" => [4], 4 => {}}, []], {"k" => 3, 3 => 2, "ab3" => true}, 1]
+2
+3

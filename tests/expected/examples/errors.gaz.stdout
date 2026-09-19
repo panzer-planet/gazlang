@@ -1,0 +1,8 @@
+looked up port
+port = 8080
+looked up user
+No setting named user (line 17)
+Division by zero on line 37
+invalid age: ""
+["a", "done a", "done b"]
+rethrown from line 17: missing

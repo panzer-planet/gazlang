@@ -1,0 +1,1 @@
+Error: Bad value '"\07"': Octal escapes are not supported: \07 (use \x) at tests/bytecode_corpus/error_value_octal.gzb:6

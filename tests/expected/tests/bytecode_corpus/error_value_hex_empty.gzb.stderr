@@ -1,0 +1,1 @@
+Error: Bad value '0x': Invalid number literal: 0x at tests/bytecode_corpus/error_value_hex_empty.gzb:6

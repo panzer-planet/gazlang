@@ -1,0 +1,18 @@
+Maximum call depth of 10000 exceeded calling down
+21
+... 9981 more
+Maximum call depth of 10000 exceeded calling Walker.walk
+Maximum call depth of 10000 exceeded calling -> at tests/vm_corpus/depth.gaz:12
+Maximum call depth of 10000 exceeded calling Walker.walk
+Maximum call depth of 10000 exceeded calling Nest 22
+Maximum call depth of 10000 exceeded calling Nest._ 22
+Maximum call depth of 10000 exceeded calling Nest
+Maximum call depth of 10000 exceeded calling Child.go
+Maximum call depth of 10000 exceeded calling Walker.to_string
+Maximum call depth of 10000 exceeded calling deep
+21
+... 9981 more
+Maximum call depth of 10000 exceeded calling -> at tests/vm_corpus/depth.gaz:41
+21
+... 9981 more
+done

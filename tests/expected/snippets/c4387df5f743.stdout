@@ -1,0 +1,2 @@
+Account {#owner => "Werner", #balance => 10, #history => []}
+Account {#owner => "Bob", #balance => 5, #history => []}

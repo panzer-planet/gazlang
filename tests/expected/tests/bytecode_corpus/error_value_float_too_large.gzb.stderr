@@ -1,0 +1,1 @@
+Error: Bad value '1e999': Float literal too large: 1e999 at tests/bytecode_corpus/error_value_float_too_large.gzb:6

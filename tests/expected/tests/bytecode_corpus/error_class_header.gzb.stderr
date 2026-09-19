@@ -1,0 +1,1 @@
+Error: Expected 'class Name' or 'class Name extends Parent' at tests/bytecode_corpus/error_class_header.gzb:7

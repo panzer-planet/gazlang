@@ -1,0 +1,10 @@
+1
+2
+3
+4
+a /* is literal inside a string */ b
+and /* inside a raw one */ too
+4.0
+5
+6
+7

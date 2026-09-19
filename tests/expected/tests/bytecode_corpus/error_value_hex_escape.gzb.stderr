@@ -1,0 +1,1 @@
+Error: Bad value '"\x4"': Invalid escape \x4: expected two hex digits at tests/bytecode_corpus/error_value_hex_escape.gzb:6

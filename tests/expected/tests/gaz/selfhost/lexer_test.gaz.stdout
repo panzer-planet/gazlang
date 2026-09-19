@@ -1,0 +1,7 @@
+ok a token made by hand prints
+ok a token from the lexer has its line
+ok the reason, for the parser to add the file to
+ok the line in the source being read
+ok the message, as --tokens prints it
+ok the inner lexer starts afresh
+ok the outer one carries on

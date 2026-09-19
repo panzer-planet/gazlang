@@ -1,0 +1,53 @@
+ok the first arm
+ok a later arm
+ok several values to an arm
+ok the default arm
+ok a trailing comma
+ok one arm and no default
+ok an expression arm value
+ok the subject is an expression
+ok a match in a match
+ok an int matches an equal float
+ok a string never matches a number
+ok a bool matches only itself
+ok null matches null
+ok lists compare element by element
+ok stops at the first match
+ok later arm values never ran
+ok a subject that misses every arm but the last
+ok the subject ran once
+ok a block arm ran
+ok default => {} ignores the rest
+ok an expression arm beside a block one
+ok continue in an arm skips the rest of the loop body
+ok break in an arm leaves the loop
+ok return in an arm
+ok past the match
+ok no arm matches a string
+ok no arm matches a number
+ok no arm matches a bool
+ok no arm matches null
+ok no arm matches a list
+ok no arm matches a map
+ok no arm matches a class
+ok no arm matches a function
+ok an object's to_string never runs while the error is raised
+ok and it really never ran
+ok an arm that raises
+ok a match as a call argument
+ok a match in a lambda
+ok a captured arm value
+ok a captured arm body
+ok a captured list arm value
+ok a condition arm
+ok a later condition arm
+ok no condition true
+ok a truthy int is a true condition
+ok match (true) compares, so it misses
+ok several conditions to an arm read as or
+ok a falsy value is not a condition
+ok stops at the first true condition
+ok later conditions never ran
+ok no condition true and no default
+ok a subject-less statement match
+ok a map literal arm

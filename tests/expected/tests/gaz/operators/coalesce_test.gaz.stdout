@@ -1,0 +1,32 @@
+ok null
+ok zero is kept
+ok false is kept
+ok empty string is kept
+ok a value
+ok undefined variable
+ok undefined global
+ok missing key
+ok missing key of a missing key
+ok missing index
+ok string position out of range
+ok chain
+ok not evaluated when the left is set
+ok evaluated when the left is null
+ok so called once
+ok || first
+ok comparison first
+ok assignment last
+ok in interpolation
+ok counting
+ok indexing an int is still an error
+ok a bad key type is still an error
+ok ??= sets a missing key
+ok ??= sets a null key
+ok ??= keeps a set key, even 0
+ok ??= result
+ok ??= creates a variable
+ok ??= on a global
+ok right side not run when set
+ok key evaluated once, right side skipped
+ok grouping with ??=
+ok missing outer key is an error

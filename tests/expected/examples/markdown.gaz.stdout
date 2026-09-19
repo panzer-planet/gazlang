@@ -1,0 +1,17 @@
+<h1>GazLang notes</h1>
+<p>A <em>small</em> language with <strong>values, not references</strong>, and a VM in C. Lines next to each other make one paragraph.</p>
+<h2>What to try</h2>
+<ul>
+  <li>Run <code>bin/gazlang -f examples/markdown.gaz</code></li>
+  <li>Read <a href="docs/language.md">the reference</a> and the <strong>bold</strong> parts</li>
+  <li>Escape &lt;html&gt; &amp; friends</li>
+</ul>
+<ol>
+  <li>Write a program</li>
+  <li>Find what <em>hurts</em></li>
+  <li>Fix it</li>
+</ol>
+<blockquote><p>Grow the language by writing real GazLang and fixing what hurts.</p></blockquote>
+<pre><code>fn greet($name) {
+    return "Hello, {$name} &lt;3";
+}</code></pre>

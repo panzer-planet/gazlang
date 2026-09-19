@@ -1,0 +1,1 @@
+Error: Bad value '99999999999999999999': Integer literal too large: 99999999999999999999 at tests/bytecode_corpus/error_value_int_too_large.gzb:6

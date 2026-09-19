@@ -1,0 +1,37 @@
+ok int
+ok negative zero int
+ok float
+ok exponent makes a float
+ok negative zero float
+ok largest int stays an int
+ok smallest int stays an int
+ok too large for an int becomes a float
+ok true, false, null
+ok string
+ok object
+ok empty object and array
+ok numeric object keys stay strings
+ok leading zero key stays a string
+ok empty key
+ok duplicate keys: last wins
+ok whitespace
+ok simple escapes
+ok unicode escape
+ok three byte UTF-8
+ok surrogate pair
+ok escaped NUL
+ok raw UTF-8 passes through
+ok encode scalars
+ok encode exact floats
+ok encode object
+ok a map is an object, int keys as strings
+ok empty list and map
+ok encode string escapes
+ok encode other control bytes
+ok encode UTF-8 as is
+ok encode $ and { literally
+ok decode undoes encode
+ok encode undoes decode for compact JSON
+ok encoding a function is an error
+ok encoding a class is an error
+ok encoding an object is an error

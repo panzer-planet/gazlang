@@ -1,0 +1,68 @@
+int + 1: 42
+float + 1: 2.5
+string + 1: Cannot use + on string (line 17)
+max + 1: Integer overflow (line 17)
+min - 1: Integer overflow (line 18)
+max * 2: Integer overflow (line 19)
+% 0: Modulo by zero (line 20)
+min % -1: 0
+7 % -1: 0
+list == a: false
+a == a: true
+float < 10: true
+string < 10: Cannot use < on string and int (line 23)
+over lines: Integer overflow (line 26)
+unset + 1: Undefined variable: $x (line 31)
+unset == a: Undefined variable: $x (line 49)
+1 + 2: 3
+max + 1: Integer overflow (line 55)
+a + b: Cannot use + on string (line 55)
+1.5 + 2: 3.5
+5 % 0: Modulo by zero (line 56)
+min % -1: 0
+[1] == [1]: true
+1 == 1.0: true
+first unset: Undefined variable: $x (line 61)
+second unset: Undefined variable: $y (line 66)
+first unset ==: Undefined variable: $x (line 79)
+second unset ==: Undefined variable: $y (line 84)
+small 3: small
+small 30: large
+small 3.5: small
+small a: Cannot use < on string and int (line 93)
+is b: b
+is b null: not b
+small unset: Undefined variable: $x (line 107)
+is b unset: Undefined variable: $x (line 102)
+up 1: 2
+up max: Integer overflow (line 120)
+down min: Integer overflow (line 121)
+up 1.5: 2.5
+down 0.5: -0.5
+up a: Cannot use ++ on string (line 120)
+up null: Cannot use ++ on null (line 120)
+up unset: Undefined variable: $i (line 124)
+[1, 2][1]: 2
+[1, 2][2]: Index out of range: 2 (line 137)
+[1, 2][-1]: Index out of range: -1 (line 137)
+[1, 2][a]: List indexes must be int, got string (line 137)
+[1, 2][1.0]: Keys must be int or string, got float (line 137)
+map: v
+map missing: Undefined key: 0 (line 137)
+string: c
+int: Cannot use [] on int (line 137)
+unset list: Undefined variable: $l (line 141)
+unset index: Undefined variable: $i (line 146)
+falsy bool: truthy
+falsy bool: falsy
+falsy int: falsy
+falsy int: truthy
+falsy float: falsy
+falsy string: falsy
+falsy string: truthy
+falsy list: falsy
+falsy list: truthy
+falsy map: falsy
+falsy null: falsy
+set: [1, 2]
+set again: x

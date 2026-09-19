@@ -1,0 +1,22 @@
+Error: Maximum call depth of 10000 exceeded calling Loop at tests/vm_corpus/depth_uncaught.gaz:1
+  Loop._ at tests/vm_corpus/depth_uncaught.gaz:1
+  new Loop at tests/vm_corpus/depth_uncaught.gaz:1
+  Loop._ at tests/vm_corpus/depth_uncaught.gaz:1
+  new Loop at tests/vm_corpus/depth_uncaught.gaz:1
+  Loop._ at tests/vm_corpus/depth_uncaught.gaz:1
+  new Loop at tests/vm_corpus/depth_uncaught.gaz:1
+  Loop._ at tests/vm_corpus/depth_uncaught.gaz:1
+  new Loop at tests/vm_corpus/depth_uncaught.gaz:1
+  Loop._ at tests/vm_corpus/depth_uncaught.gaz:1
+  new Loop at tests/vm_corpus/depth_uncaught.gaz:1
+  ... 9981 more
+  new Loop at tests/vm_corpus/depth_uncaught.gaz:1
+  Loop._ at tests/vm_corpus/depth_uncaught.gaz:1
+  new Loop at tests/vm_corpus/depth_uncaught.gaz:1
+  Loop._ at tests/vm_corpus/depth_uncaught.gaz:1
+  new Loop at tests/vm_corpus/depth_uncaught.gaz:1
+  Loop._ at tests/vm_corpus/depth_uncaught.gaz:1
+  new Loop at tests/vm_corpus/depth_uncaught.gaz:1
+  Loop._ at tests/vm_corpus/depth_uncaught.gaz:1
+  new Loop at tests/vm_corpus/depth_uncaught.gaz:1
+  top level at tests/vm_corpus/depth_uncaught.gaz:2

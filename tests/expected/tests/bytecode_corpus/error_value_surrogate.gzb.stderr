@@ -1,0 +1,1 @@
+Error: Bad value '"\u{D800}"': Invalid escape \u{D800}: not a Unicode code point at tests/bytecode_corpus/error_value_surrogate.gzb:6

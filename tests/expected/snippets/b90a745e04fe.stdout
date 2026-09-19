@@ -1,0 +1,4 @@
+EOF
+["EOF", "EOF!", 2]
+true EOF EOF
+["EOF", "EOF!", 2] EOF 4

@@ -1,0 +1,7 @@
+circle with area 12 (r = 2)
+circle with area 3 (r = 1)
+function Shape.describe
+circle with area 12
+Circle {#name => "circle", #history => [], #radius => 2}
+Square {#history => ["made"], #side => 2}
+9

@@ -1,0 +1,41 @@
+ok upper
+ok lower
+ok trim both ends
+ok trim keeps inner whitespace
+ok trim only whitespace
+ok trim leaves other control bytes
+ok split
+ok split keeps empty pieces
+ok split multi-character separator
+ok split without the separator
+ok split empty string
+ok split into characters
+ok split empty string into characters
+ok join
+ok join converts like echo
+ok join empty array
+ok join undoes split
+ok replace every occurrence
+ok replace with empty
+ok replace not found
+ok contains
+ok contains not
+ok contains empty needle
+ok starts_with
+ok starts_with not
+ok ends_with
+ok ends_with not
+ok index_of first match
+ok index_of at start
+ok index_of not found is null
+ok index_of from an offset
+ok index_of offset at the match
+ok index_of negative offset counts from the end
+ok index_of offset at the end
+ok index_of empty needle is an error
+ok index_of offset past the end is an error
+ok repeat
+ok repeat zero times
+ok single quotes are raw
+ok single quote escapes
+ok single and double quotes concatenate

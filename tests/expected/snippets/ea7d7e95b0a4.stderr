@@ -1,0 +1,5 @@
+Error: Invalid JSON: unexpected "1" after the value at position 1
+  JsonReader.fail at lib/json.gaz:81
+  JsonReader.parse at lib/json.gaz:74
+  json_decode at lib/json.gaz:22
+  top level on line 1

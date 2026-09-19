@@ -1,0 +1,1 @@
+Error: rand_seed() expects int or null, got float on line 1

@@ -1,0 +1,6 @@
+body
+finally 1
+body
+caught boom
+finally 2
+after

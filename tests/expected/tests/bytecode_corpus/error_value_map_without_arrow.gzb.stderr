@@ -1,0 +1,1 @@
+Error: Bad value '{1, 2}': Bad value: expected '=>' at tests/bytecode_corpus/error_value_map_without_arrow.gzb:6

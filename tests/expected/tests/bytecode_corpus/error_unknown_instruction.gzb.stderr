@@ -1,0 +1,1 @@
+Error: Unknown instruction 'PUSH_STR' at tests/bytecode_corpus/error_unknown_instruction.gzb:6

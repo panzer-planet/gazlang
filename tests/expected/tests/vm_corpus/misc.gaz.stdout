@@ -1,0 +1,29 @@
+618
+618
+Cannot use - on bool
+Cannot use / on bool
+Cannot use * on null
+Cannot use % on list
+Cannot use <= on string and int
+Cannot use >= on string and int
+Cannot use < on string and int
+Cannot use > on string and int
+Cannot use <=> on map
+Cannot use & on float
+Cannot use | on string
+Cannot use ^ on null
+Shift count must be between 0 and 63, got -1
+Shift count must be between 0 and 63, got 64
+false
+Cannot use - on string
+Cannot use ~ on float
+{"a" => 3, "b" => 2}
+[1.5, "slice() expects int or null, got string", "slice() expects int, got string"]
+Maximum call depth of 10000 exceeded calling Child.go
+Maximum call depth of 10000 exceeded calling Base.go
+Maximum call depth of 10000 exceeded calling Again
+Maximum call depth of 10000 exceeded calling Again._
+[0, 2, "index_of() offset -4 is outside the string", "none"]
+[-9223372036854775808, "to_int() cannot convert 9.223372036854776E+18", 0, 1000000000000000000]
+[false, false, true, false]
+["to_float() cannot convert \"+5\"", "to_float() cannot convert \"+1.5\"", -5.0, 1.0E+20, "to_float() cannot convert \"--5\""]

@@ -1,0 +1,22 @@
+Error: Division by zero at tests/vm_corpus/deep_uncaught.gaz:4
+  countdown at tests/vm_corpus/deep_uncaught.gaz:4
+  countdown at tests/vm_corpus/deep_uncaught.gaz:6
+  countdown at tests/vm_corpus/deep_uncaught.gaz:6
+  countdown at tests/vm_corpus/deep_uncaught.gaz:6
+  countdown at tests/vm_corpus/deep_uncaught.gaz:6
+  countdown at tests/vm_corpus/deep_uncaught.gaz:6
+  countdown at tests/vm_corpus/deep_uncaught.gaz:6
+  countdown at tests/vm_corpus/deep_uncaught.gaz:6
+  countdown at tests/vm_corpus/deep_uncaught.gaz:6
+  countdown at tests/vm_corpus/deep_uncaught.gaz:6
+  ... 23 more
+  countdown at tests/vm_corpus/deep_uncaught.gaz:6
+  countdown at tests/vm_corpus/deep_uncaught.gaz:6
+  countdown at tests/vm_corpus/deep_uncaught.gaz:6
+  countdown at tests/vm_corpus/deep_uncaught.gaz:6
+  countdown at tests/vm_corpus/deep_uncaught.gaz:6
+  countdown at tests/vm_corpus/deep_uncaught.gaz:6
+  countdown at tests/vm_corpus/deep_uncaught.gaz:6
+  countdown at tests/vm_corpus/deep_uncaught.gaz:6
+  start at tests/vm_corpus/deep_uncaught.gaz:8
+  top level at tests/vm_corpus/deep_uncaught.gaz:9

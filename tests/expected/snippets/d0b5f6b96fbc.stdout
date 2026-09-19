@@ -1,0 +1,2 @@
+Node {#name => "a", #next => Node {...}}
+Node {#name => "b", #next => [Node {#name => "a", #next => Node {...}}]}

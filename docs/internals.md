@@ -45,17 +45,20 @@ way.
 
 `vm/` is the same VM in C, built as `bin/gazlang`, and the PHP VM is its specification: the
 same output, the same errors word for word, the same locations, traces and exit codes.
-`tests/CVMTest.php` holds it to that. Each entry of `vm/passing.txt` runs on both VMs (the C
-one built with AddressSanitizer and UndefinedBehaviorSanitizer), which must give the same
-standard output, standard error and exit code, and the C one must not leak: `GAZVM_STATS` makes
-it count every reference-counted value, drop what the finished program still holds, and report
-what is left over, which the harness requires to be nothing. A program runs from its source on
-both, the C VM compiling it with the self-hosted compiler it has built in; a snippet or a `.gzb`
-runs as bytecode. An entry is a program in the repository (with its arguments after it, for the self-hosted
-drivers), `snippet:<id>`, one of the `executeCode()` snippets the PHP tests run
-(`tests/vm_snippets.txt`, collected by `php vm/snippets.php`), or a hand-written `.gzb` under
-`tests/bytecode_corpus/`, for the loaders; there the files named `error_*` must be the ones
-refused. `php vm/progress.php` tries every candidate and `--update` adds the ones that pass.
+`tests/CVMTest.php` holds it to that. Each entry of `vm/passing.txt` runs on the C VM, built with
+AddressSanitizer and UndefinedBehaviorSanitizer, and must give the standard output, standard
+error and exit code recorded for it in `tests/expected/`, which is what the PHP VM printed; and
+it must not leak: `GAZVM_STATS` makes it count every reference-counted value, drop what the
+finished program still holds, and report what is left over, which the harness requires to be
+nothing. A program runs from its source, the C VM compiling it with the self-hosted compiler it
+has built in; a snippet is piped in from the project root, and a `.gzb` runs as it is. An entry
+is a program in the repository (with its arguments after it, for the self-hosted drivers, which
+are still run on both VMs each time), `snippet:<id>`, one of the `executeCode()` snippets the
+PHP tests run (`tests/vm_snippets.txt`, collected by `php vm/snippets.php`), or a hand-written
+`.gzb` under `tests/bytecode_corpus/`, for the loaders; there the files named `error_*` must be
+the ones refused. `php vm/progress.php` runs every candidate on both VMs; `--update` adds the ones
+that match to `vm/passing.txt` and records what they print in `tests/expected/`, so a change
+that alters a program's output shows up there as a diff.
 
 So a change to what a value means, to a builtin or to an error message is made in `src/Runtime`
 and in `vm/` together, and the harness fails until both say the same thing. When they disagree
@@ -83,7 +86,7 @@ vendor/bin/pint                                     # formatting; --test to chec
 ```bash
 make -C vm                                          # bin/gazlang, optimised
 make -C vm compiler                                 # after changing selfhost/, see below
-php vm/progress.php [FILTER] [--update]             # which programs the C VM matches the PHP VM on
+php vm/progress.php [FILTER] [--update]             # which programs the C VM matches the PHP VM on; records tests/expected
 php vm/coverage.php [file.c]                        # which lines of the C VM the harness never runs
 php vm/bench.php                                    # the C VM against the PHP VM, PHP and Python
 ```

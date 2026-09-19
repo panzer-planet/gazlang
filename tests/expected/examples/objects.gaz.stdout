@@ -1,0 +1,9 @@
+circle with area 3.14 (r = 1)
+rectangle with area 6.0
+square with area 4.0
+smallest: circle with area 3.14 (r = 1)
+circles: 1
+Account {#owner => "Werner", #balance => 70, #history => ["+100", "-30"]}
+refused: Werner can't withdraw 500 from 70
+balance after payments: 85
+Counter {"apples" => 2, "pears" => 1}

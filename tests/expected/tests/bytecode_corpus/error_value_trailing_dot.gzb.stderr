@@ -1,0 +1,1 @@
+Error: Bad value '1.': Unexpected character '.' at tests/bytecode_corpus/error_value_trailing_dot.gzb:6

@@ -1,0 +1,1 @@
+Error: Bad value '@': Invalid variable name: @ at tests/bytecode_corpus/error_value_sigil.gzb:6

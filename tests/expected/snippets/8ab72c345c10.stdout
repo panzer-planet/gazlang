@@ -1,0 +1,7 @@
+circle (r = 2)
+got circle (r = 2), circle (r = 2)!
+[circle (r = 2), {"k" => circle (r = 2)}]
+circle (r = 2); square
+true
+Holder {#item => circle (r = 2)}
+W has 10: W

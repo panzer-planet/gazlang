@@ -1,0 +1,1 @@
+Error: Bad value 'foo': Bad value: unexpected IDENTIFIER at tests/bytecode_corpus/error_value_identifier.gzb:6

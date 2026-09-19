@@ -144,9 +144,9 @@ final class CVM
         }
         if ($isolated) {
             $php = self::processes(array_map(fn ($job) => [PHP_BINARY, '-d', 'pcov.enabled=0', 'bin/gazlang-php', '-f', $job[2] ?? $job[0], '--', ...$job[1]], $jobs), ['GAZLANG_RESTARTED' => '1']);
-            $c = self::processes(array_map(fn ($job) => [self::binary(), '-f', $job[2] ?? $job[0], '--', ...$job[1]], $jobs), ['GAZVM_STATS' => '1']);
+            $c = self::runC(array_keys($jobs));
             foreach ($jobs as $entry => $_) {
-                $results[$entry] = [$php[$entry], self::leaks($c[$entry])];
+                $results[$entry] = [$php[$entry], $c[$entry]];
             }
 
             return $results;
@@ -155,7 +155,7 @@ final class CVM
         // The PHP side runs in this process while the C side's processes run
         $php = [];
         $pending = $jobs;
-        $c = self::processes(array_map(fn ($job) => [self::binary(), '-f', $job[2] ?? $job[0], '--', ...$job[1]], $jobs), ['GAZVM_STATS' => '1'], function () use (&$pending, &$php) {
+        $c = self::runC(array_keys($jobs), function () use (&$pending, &$php) {
             if ($pending === []) {
                 return false;
             }
@@ -170,10 +170,95 @@ final class CVM
             $php[$entry] = self::runPhp($gzb, $args, $source);
         }
         foreach ($jobs as $entry => $_) {
-            $results[$entry] = [$php[$entry], self::leaks($c[$entry])];
+            $results[$entry] = [$php[$entry], $c[$entry]];
         }
 
         return $results;
+    }
+
+    /**
+     * Run entries on the C VM alone, many at a time, as `gazlang` would run them: a source file
+     * from its source, a .gzb file as it is, and a snippet, which has no file, piped in from the
+     * project root, as executeCode() runs it with no file
+     *
+     * @param  list<string>  $entries
+     * @param  callable|null  $between  Other work to do while they run (see processes())
+     * @return array<string, array{0: string, 1: string, 2: int, 3: string|null}> By entry: stdout, stderr, exit code and the GAZVM_STATS line (see leaks())
+     */
+    public static function runC(array $entries, ?callable $between = null): array
+    {
+        $commands = [];
+        $stdin = [];
+        foreach ($entries as $entry) {
+            $args = preg_split('/\s+/', trim($entry));
+            $file = array_shift($args);
+            if (str_starts_with($file, 'snippet:')) {
+                $id = substr($file, 8);
+                $stdin[$entry] = "vm/build/snippets/{$id}.gaz";
+                @mkdir(self::ROOT.'/vm/build/snippets', 0777, true);
+                file_put_contents(self::ROOT.'/'.$stdin[$entry], self::snippets()[$id] ?? throw new \RuntimeException("{$entry}: not in tests/vm_snippets.txt"));
+                $commands[$entry] = [self::binary()];
+            } else {
+                $commands[$entry] = [self::binary(), '-f', $file, '--', ...$args];
+            }
+        }
+
+        return array_map(self::leaks(...), self::processes($commands, ['GAZVM_STATS' => '1'], $between, $stdin));
+    }
+
+    /**
+     * What an entry must print, as recorded in tests/expected by vm/progress.php --update, or
+     * null when nothing is recorded
+     *
+     * @return array{0: string, 1: string, 2: int}|null stdout, stderr and the exit code
+     */
+    public static function expected(string $entry): ?array
+    {
+        $base = self::expectedPath($entry);
+        if (! is_file("{$base}.stdout")) {
+            return null;
+        }
+        $read = fn ($suffix) => is_file("{$base}.{$suffix}") ? (string) file_get_contents("{$base}.{$suffix}") : '';
+
+        return [$read('stdout'), $read('stderr'), (int) ($read('exit') ?: 0)];
+    }
+
+    /**
+     * Record what an entry printed as what it must print: stdout always, stderr and the exit
+     * code only when there is one, so most entries are one file
+     *
+     * @param  array{0: string, 1: string, 2: int}  $result
+     */
+    public static function record(string $entry, array $result): void
+    {
+        $base = self::expectedPath($entry);
+        @mkdir(dirname($base), 0777, true);
+        file_put_contents("{$base}.stdout", self::portable($result[0]));
+        foreach (['stderr' => self::portable($result[1]), 'exit' => $result[2] === 0 ? '' : "{$result[2]}\n"] as $suffix => $text) {
+            if ($text === '') {
+                @unlink("{$base}.{$suffix}");
+            } else {
+                file_put_contents("{$base}.{$suffix}", $text);
+            }
+        }
+    }
+
+    /**
+     * Where an entry's expected output is kept, without the suffix: tests/expected/ then the
+     * entry's path, or snippets/<id>
+     */
+    public static function expectedPath(string $entry): string
+    {
+        return self::ROOT.'/tests/expected/'.(str_starts_with($entry, 'snippet:') ? 'snippets/'.substr($entry, 8) : $entry);
+    }
+
+    /**
+     * Output with the project's own path replaced by <root>, since cwd() and real_path() print
+     * it and it differs from one checkout to another
+     */
+    public static function portable(string $text): string
+    {
+        return str_replace((string) realpath(self::ROOT), '<root>', $text);
     }
 
     /**
@@ -358,7 +443,10 @@ final class CVM
         ob_start();
         $code = 0;
         try {
-            (new VM(Program::read($text, $source ?? $gzb), $args))->run();
+            // A snippet has no file: its bytecode is read as if it were in the project root, the
+            // working directory executeCode() resolves its paths against, so they show as there
+            $at = $source ?? (str_starts_with($gzb, 'vm/build/gzb/snippets/') ? basename($gzb) : $gzb);
+            (new VM(Program::read($text, $at), $args))->run();
         } catch (ExitSignal $e) {
             $code = $e->code;
         } catch (GazLangError $e) {

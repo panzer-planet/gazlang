@@ -1,0 +1,3 @@
+Error: Division by zero at tests/fixtures/bytecode/fails.gaz:2
+  f at tests/fixtures/bytecode/fails.gaz:2
+  top level at tests/fixtures/bytecode/fails.gaz:4

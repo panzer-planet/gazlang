@@ -46,8 +46,8 @@ vendor/bin/phpunit --filter=testMethodName tests/SpecificTest.php
 bin/gazlang -f selfhost/gazlang.gaz -- code examples/functions.gaz
 bin/gazlang -f selfhost/gazlang.gaz -- ast < examples/errors.gaz
 
-# Which programs the C VM matches the PHP VM on (CVMTest checks the ones in vm/passing.txt);
-# --update adds the new ones
+# Which programs the C VM matches the PHP VM on; --update adds the new ones to vm/passing.txt
+# and records what every matching one prints in tests/expected, which CVMTest checks C against
 php -d pcov.enabled=0 vm/progress.php [FILTER] [--update]
 
 # Differential fuzzers, not part of the suite: run the one for whatever you changed
@@ -131,12 +131,18 @@ versions of a fuzzer or corpus passed everything and caught nothing.
   and bytecode corpora the files named `error_*` must be exactly the ones that fail. Put a
   node's tokens on different lines when its location matters: a one-line case can't tell one
   token's line from another's.
-- **The C VM matches the PHP VM** (`CVMTest`, `tests/CVM.php`): each entry of `vm/passing.txt`
-  (every program and corpus file, the `executeCode()` snippets in `tests/vm_snippets.txt`,
-  recollected by `php vm/snippets.php`, and the hand-written broken `.gzb` files) runs on both,
-  the C one built with ASan and UBSan, and must give the same stdout, stderr and exit code. A
-  source entry runs from source on both, so the built-in compiler compiles each one under the
-  sanitizers. The list only grows. So a change to what a value means, a builtin or an error
+- **The C VM prints what the PHP VM printed** (`CVMTest`, `tests/CVM.php`): each entry of
+  `vm/passing.txt` (every program and corpus file, the `executeCode()` snippets in
+  `tests/vm_snippets.txt`, recollected by `php vm/snippets.php`, and the hand-written broken
+  `.gzb` files) runs on the C VM, built with ASan and UBSan, and must give the stdout, stderr and
+  exit code recorded in `tests/expected/` (`.stdout` always, `.stderr` and `.exit` when there is
+  one; the checkout's path as `<root>`). `progress.php --update` records them from the PHP VM,
+  only for entries where C already matches it, and removes what no entry records; review its
+  diff like code, since it is what the C VM will be held to once PHP is gone. The self-hosted
+  drivers on big inputs (the whole-repository group) are still compared live, since their
+  megabytes change with every edit to `selfhost/`. A source entry runs from source, so the
+  built-in compiler compiles each one under the sanitizers; a snippet is piped in from the
+  project root, as it has no file. The list only grows. So a change to what a value means, a builtin or an error
   message is made in `src/Runtime` and `vm/` together. When PHP itself changes behaviour, the
   rule is GazLang's to define: write it out in `Runtime`, as `Builtins::round()` does, rather
   than calling PHP's.

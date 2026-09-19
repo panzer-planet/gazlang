@@ -1,0 +1,14 @@
+{
+  "name": "gazlang",
+  "version": 2,
+  "backends": [
+    "interpreter",
+    "vm"
+  ],
+  "features": {
+    "closures": true,
+    "objects": null
+  },
+  "tags": [],
+  "meta": {}
+}

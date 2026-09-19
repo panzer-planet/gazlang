@@ -1,0 +1,9 @@
+Error: Invalid JSON: expected four hex digits after \u at position 5
+  JsonReader.fail at lib/json.gaz:81
+  JsonReader.parse_hex4 at lib/json.gaz:284
+  JsonReader.parse_escape at lib/json.gaz:255
+  JsonReader.parse_string at lib/json.gaz:229
+  JsonReader.parse_value at lib/json.gaz:108
+  JsonReader.parse at lib/json.gaz:71
+  json_decode at lib/json.gaz:22
+  top level on line 1

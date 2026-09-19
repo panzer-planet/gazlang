@@ -1,0 +1,20 @@
+ok unseeded shuffle keeps the elements
+ok unseeded pick is an element
+ok unseeded key is a key
+ok unseeded chance is a bool
+[4, 7, 5, 2, 6, 1, 8, 3]
+fecgbhda
+40
+3
+3
+b
+[true, false, false, true, false, true, true, false, true, false]
+["rare", "common", "common", "common", "common", "common", "common", "common", "common", "common"]
+["y", "x", "y", "x", "y"]
+ok shuffle nothing
+ok chance 0 and 1
+ok weighted skips a zero weight
+rand_key() expects a non-empty list or map
+rand_key() expects a non-empty list or map
+rand_weighted() expects weights that add up to more than 0
+rand_shuffle() expects list or string, got map

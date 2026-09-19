@@ -5,22 +5,25 @@ namespace GazLang\Tests;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The C VM against the PHP VM: every entry in vm/passing.txt must print the same standard
- * output and standard error, and exit with the same code, on both (see CVM)
+ * The C VM against what each entry in vm/passing.txt must print: the standard output, standard
+ * error and exit code recorded in tests/expected (see CVM), which the PHP VM printed when
+ * vm/progress.php --update recorded it
  *
- * The list only grows: vm/progress.php finds the entries that newly pass and adds them.
+ * The list only grows: vm/progress.php finds the entries that newly pass, adds them and records
+ * what they print. The self-hosted drivers on big inputs are still run on the PHP VM each time,
+ * since what they print (megabytes) changes with every edit to selfhost/.
  */
 class CVMTest extends TestCase
 {
     /**
-     * @var array<string, mixed> Each entry's results, run all at once so the C VM runs in parallel
+     * @var array<string, mixed> Each entry's C result, run all at once so they run in parallel
      */
     private static $results = [];
 
     public static function setUpBeforeClass(): void
     {
         CVM::build();
-        self::$results = CVM::runAll(array_keys(self::entries()));
+        self::$results = CVM::runC(array_keys(self::entries()));
     }
 
     /**
@@ -56,27 +59,46 @@ class CVMTest extends TestCase
      */
     public function test_the_c_vm_matches_the_php_vm_on_the_drivers(string $entry)
     {
-        $this->test_the_c_vm_matches_the_php_vm($entry);
+        $result = CVM::runAll([$entry])[$entry];
+        $this->assertNotNull($result, "{$entry} no longer compiles");
+        [$php, $c] = $result;
+        $this->assertSame($php[1], $c[1], "{$entry}: standard error");
+        $this->assertSame($php[0], $c[0], "{$entry}: standard output");
+        $this->assertSame($php[2], $c[2], "{$entry}: exit code");
+        $this->assertNull(CVM::leak($c), "{$entry}: the C VM leaked");
     }
 
     /**
      * @dataProvider entries
      */
-    public function test_the_c_vm_matches_the_php_vm(string $entry)
+    public function test_the_c_vm_prints_what_is_expected(string $entry)
     {
-        self::$results[$entry] ??= CVM::runAll([$entry])[$entry];
-        $result = self::$results[$entry] ?? null;
-        $this->assertNotNull($result, "{$entry} no longer compiles");
-        [$php, $c] = $result;
+        $expected = CVM::expected($entry);
+        $this->assertNotNull($expected, "{$entry}: nothing recorded in tests/expected; php vm/progress.php --update");
+        $c = self::$results[$entry] ??= CVM::runC([$entry])[$entry];
 
-        $this->assertSame($php[1], $c[1], "{$entry}: standard error");
-        $this->assertSame($php[0], $c[0], "{$entry}: standard output");
-        $this->assertSame($php[2], $c[2], "{$entry}: exit code");
+        $this->assertSame($expected[1], CVM::portable($c[1]), "{$entry}: standard error");
+        $this->assertSame($expected[0], CVM::portable($c[0]), "{$entry}: standard output");
+        $this->assertSame($expected[2], $c[2], "{$entry}: exit code");
         // A missing decref changes no output, so the C VM counts what it leaves alive
         $this->assertNull(CVM::leak($c), "{$entry}: the C VM leaked");
         if (str_starts_with($entry, 'tests/bytecode_corpus/')) {
-            $this->assertSame(str_starts_with(basename($entry), 'error_'), $php[2] !== 0, "{$entry}: only files named error_* are refused");
+            $this->assertSame(str_starts_with(basename($entry), 'error_'), $expected[2] !== 0, "{$entry}: only files named error_* are refused");
         }
+    }
+
+    public function test_everything_in_tests_expected_belongs_to_an_entry()
+    {
+        $wanted = array_map(fn ($entry) => CVM::expectedPath($entry), array_keys(self::entries()));
+        $stale = [];
+        $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(CVM::ROOT.'/tests/expected', \FilesystemIterator::SKIP_DOTS));
+        foreach ($it as $path) {
+            $base = preg_replace('/\.(stdout|stderr|exit)$/', '', (string) $path);
+            if (! in_array($base, $wanted, true)) {
+                $stale[] = substr((string) $path, strlen(CVM::ROOT) + 1);
+            }
+        }
+        $this->assertSame([], $stale, 'no entry in vm/passing.txt records these: php vm/progress.php --update removes them');
     }
 
     public function test_the_self_hosted_compiler_compiles_itself_on_the_c_vm()

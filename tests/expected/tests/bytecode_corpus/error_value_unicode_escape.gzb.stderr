@@ -1,0 +1,1 @@
+Error: Bad value '"\u{12"': Invalid escape \u: expected \u{...} with 1 to 6 hex digits at tests/bytecode_corpus/error_value_unicode_escape.gzb:6

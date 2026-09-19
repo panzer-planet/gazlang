@@ -1,0 +1,1 @@
+Error: Bad value '{1.5 => 2}': Bad value: a key must be an int or a string at tests/bytecode_corpus/error_value_map_float_key.gzb:6
