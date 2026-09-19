@@ -2,7 +2,6 @@
 
 namespace GazLang\Tests;
 
-use GazLang\Lexer\Lexer;
 use JsonException;
 
 /**
@@ -57,7 +56,7 @@ class JsonTest extends GazLangTestCase
     public function test_error_messages_say_what_and_where(string $json, string $message)
     {
         $this->expectExceptionMessage($message);
-        $this->executeCode('include "'.self::ROOT.'/lib/json.gaz"; json_decode('.Lexer::quote($json).');');
+        $this->executeCode('include "'.self::ROOT.'/lib/json.gaz"; json_decode('.self::quote($json).');');
     }
 
     public static function errorMessages(): array

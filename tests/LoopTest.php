@@ -3,9 +3,6 @@
 namespace GazLang\Tests;
 
 use Exception;
-use GazLang\AST\LoopControlAST;
-use GazLang\CodeGenerator\CodeGenerator;
-use GazLang\Lexer\Token;
 
 class LoopTest extends GazLangTestCase
 {
@@ -47,7 +44,7 @@ class LoopTest extends GazLangTestCase
     public function test_for_requires_all_three_clauses()
     {
         $this->expectException(Exception::class);
-        $this->createParser('for ($i = 0; $i < 3) { echo $i; }')->parse();
+        $this->parse('for ($i = 0; $i < 3) { echo $i; }');
     }
 
     public function test_code_gen_for_for()
@@ -107,13 +104,13 @@ class LoopTest extends GazLangTestCase
     public function test_break_outside_a_loop_is_a_parse_error()
     {
         $this->expectExceptionMessage('Cannot use break outside of a loop');
-        $this->createParser('if (1) { break; }')->parse();
+        $this->parse('if (1) { break; }');
     }
 
     public function test_continue_after_a_loop_is_a_parse_error()
     {
         $this->expectExceptionMessage('Cannot use continue outside of a loop');
-        $this->createParser('while (0) { } continue;')->parse();
+        $this->parse('while (0) { } continue;');
     }
 
     public function test_code_gen_for_break_and_continue()
@@ -134,13 +131,6 @@ class LoopTest extends GazLangTestCase
         );
     }
 
-    public function test_code_gen_rejects_loop_control_outside_a_loop()
-    {
-        // The parser already refuses this; the generator must not emit a JMP with no target if one slips through
-        $this->expectExceptionMessage('Cannot use break outside of a loop');
-        (new CodeGenerator(new LoopControlAST(new Token(Token::BREAK, 'break'))))->generate();
-    }
-
     public function test_foreach_over_a_non_array_is_an_error()
     {
         $this->expectExceptionMessage('foreach expects a list or map, got string on line 2');
@@ -153,7 +143,7 @@ class LoopTest extends GazLangTestCase
     public function test_foreach_parse_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
-        $this->createParser($code)->parse();
+        $this->parse($code);
     }
 
     public static function invalidForeach(): array

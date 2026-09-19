@@ -2,42 +2,51 @@
 
 namespace GazLang\Tests;
 
-use GazLang\Lexer\Lexer;
-use GazLang\Lexer\Token;
-use PHPUnit\Framework\TestCase;
-
-class LexerTest extends TestCase
+/**
+ * The lexer, through `gazlang --tokens`
+ */
+class LexerTest extends GazLangTestCase
 {
     /**
      * Lex a whole source string into [type, value] pairs, without the EOF token
      */
-    private function lex(string $source): array
+    private function pairs(string $source): array
     {
-        $lexer = new Lexer($source);
-        $tokens = [];
-        while (($token = $lexer->get_next_token())->type !== Token::EOF) {
-            $tokens[] = [$token->type, $token->value];
-        }
+        return array_map(fn ($token) => [$token[0], $token[1]], $this->lex($source));
+    }
 
-        return $tokens;
+    /**
+     * Lex a whole source string into [type, line] pairs, without the EOF token
+     */
+    private function lines(string $source): array
+    {
+        return array_map(fn ($token) => [$token[0], $token[2]], $this->lex($source));
+    }
+
+    /**
+     * How --tokens prints a string's value, which is quote()
+     */
+    private function printedString(string $value): string
+    {
+        return substr(explode("\n", self::succeed(['--tokens'], self::quote($value)))[0], strlen('1 STRING '));
     }
 
     public function test_string_escapes()
     {
-        $this->assertSame([[Token::STRING, "a\nb\tc\rd\"e\\f"]], $this->lex('"a\nb\tc\rd\"e\\\\f"'));
+        $this->assertSame([['STRING', "a\nb\tc\rd\"e\\f"]], $this->pairs('"a\nb\tc\rd\"e\\\\f"'));
     }
 
     public function test_quote_is_the_inverse_of_string_literals()
     {
         $value = "tab\t cr\r nl\n quote\" backslash\\ plain";
-        $this->assertSame([[Token::STRING, $value]], $this->lex(Lexer::quote($value)));
+        $this->assertSame([['STRING', $value]], $this->pairs(self::quote($value)));
     }
 
     public function test_all_escape_sequences()
     {
         $this->assertSame(
-            [[Token::STRING, "\n\t\r\v\f\e\0\\\"AzAz\u{e9}\u{E9}\u{1F600}\u{0}"]],
-            $this->lex('"\n\t\r\v\f\e\0\\\\\"\x41\x7a\x41\x7A\u{e9}\u{E9}\u{1F600}\u{0}"')
+            [['STRING', "\n\t\r\v\f\e\0\\\"AzAz\u{e9}\u{E9}\u{1F600}\u{0}"]],
+            $this->pairs('"\n\t\r\v\f\e\0\\\\\"\x41\x7a\x41\x7A\u{e9}\u{E9}\u{1F600}\u{0}"')
         );
     }
 
@@ -47,7 +56,7 @@ class LexerTest extends TestCase
     public function test_invalid_escapes(string $source, string $message)
     {
         $this->expectExceptionMessage($message);
-        $this->lex($source);
+        $this->pairs($source);
     }
 
     public static function invalidEscapes(): array
@@ -72,13 +81,13 @@ class LexerTest extends TestCase
     {
         $all_bytes = implode('', array_map('chr', range(0, 255)));
 
-        $this->assertSame([[Token::STRING, $all_bytes]], $this->lex(Lexer::quote($all_bytes)));
+        $this->assertSame([['STRING', $all_bytes]], $this->pairs(self::quote($all_bytes)));
     }
 
     public function test_quote_writes_readable_escapes()
     {
         // NUL is \x00 so a following digit can't turn it into an octal-looking \01
-        $this->assertSame('"\n\t\r\v\f\e\\\\\"\x0012 \x01\x7F é"', Lexer::quote("\n\t\r\v\f\e\\\"\x0012 \x01\x7F é"));
+        $this->assertSame('"\n\t\r\v\f\e\\\\\"\x0012 \x01\x7F é"', $this->printedString("\n\t\r\v\f\e\\\"\x0012 \x01\x7F é"));
     }
 
     /**
@@ -86,7 +95,7 @@ class LexerTest extends TestCase
      */
     public function test_single_quoted_strings_are_raw(string $source, string $value)
     {
-        $this->assertSame([[Token::STRING, $value]], $this->lex($source));
+        $this->assertSame([['STRING', $value]], $this->pairs($source));
     }
 
     public static function singleQuotedStrings(): array
@@ -106,40 +115,34 @@ class LexerTest extends TestCase
     public function test_unterminated_single_quoted_string_reports_where_it_starts()
     {
         $this->expectExceptionMessage('Unterminated string on line 2');
-        $this->lex("1;\n'open\n\nnever");
+        $this->pairs("1;\n'open\n\nnever");
     }
 
     public function test_interpolated_strings_are_split_into_parts_and_expression_tokens()
     {
         $this->assertSame(
             [
-                [Token::STRING_START, 'Hi '], [Token::VAR_IDENTIFIER, '$name'],
-                [Token::STRING_MIDDLE, ', '], [Token::GLOBAL_VAR_IDENTIFIER, '@n'], [Token::PLUS, '+'], [Token::INTEGER, 1],
-                [Token::STRING_MIDDLE, ' '], [Token::VAR_IDENTIFIER, '$m'], [Token::LEFT_BRACKET, '['],
-                [Token::STRING_START, 'k'], [Token::VAR_IDENTIFIER, '$x'], [Token::STRING_END, ''],
-                [Token::RIGHT_BRACKET, ']'], [Token::STRING_END, '!'],
+                ['STRING_START', 'Hi '], ['VAR_IDENTIFIER', '$name'],
+                ['STRING_MIDDLE', ', '], ['GLOBAL_VAR_IDENTIFIER', '@n'], ['PLUS', '+'], ['INTEGER', 1],
+                ['STRING_MIDDLE', ' '], ['VAR_IDENTIFIER', '$m'], ['LEFT_BRACKET', '['],
+                ['STRING_START', 'k'], ['VAR_IDENTIFIER', '$x'], ['STRING_END', ''],
+                ['RIGHT_BRACKET', ']'], ['STRING_END', '!'],
             ],
-            $this->lex('"Hi $name, {@n + 1} {$m["k$x"]}!"')
+            $this->pairs('"Hi $name, {@n + 1} {$m["k$x"]}!"')
         );
     }
 
     public function test_strings_without_interpolation_stay_one_token()
     {
         $this->assertSame(
-            [[Token::STRING, 'costs $5, me@x.com { $y} {} $ $a {$b']],
-            $this->lex('"costs $5, me@x.com { \\$y} {} $ \\$a \\{\\$b"')
+            [['STRING', 'costs $5, me@x.com { $y} {} $ $a {$b']],
+            $this->pairs('"costs $5, me@x.com { \\$y} {} $ \\$a \\{\\$b"')
         );
     }
 
     public function test_interpolation_tokens_keep_their_lines()
     {
-        $lexer = new Lexer("\"a\n{\$x\n}b\n\$y\"");
-        $lines = [];
-        while (($token = $lexer->get_next_token())->type !== Token::EOF) {
-            $lines[] = [$token->type, $token->line];
-        }
-
-        $this->assertSame([[Token::STRING_START, 1], [Token::VAR_IDENTIFIER, 2], [Token::STRING_MIDDLE, 3], [Token::VAR_IDENTIFIER, 4], [Token::STRING_END, 4]], $lines);
+        $this->assertSame([['STRING_START', 1], ['VAR_IDENTIFIER', 2], ['STRING_MIDDLE', 3], ['VAR_IDENTIFIER', 4], ['STRING_END', 4]], $this->lines("\"a\n{\$x\n}b\n\$y\""));
     }
 
     /**
@@ -148,7 +151,7 @@ class LexerTest extends TestCase
     public function test_unterminated_interpolation_reports_where_the_string_starts(string $source)
     {
         $this->expectExceptionMessage('Unterminated string on line 2');
-        $this->lex($source);
+        $this->pairs($source);
     }
 
     public static function unterminatedInterpolations(): array
@@ -163,22 +166,22 @@ class LexerTest extends TestCase
     public function test_quote_escapes_only_what_would_interpolate()
     {
         $value = '$a {$b {@c $5 { $d} $ {';
-        $this->assertSame('"\\$a \\{\\$b \\{@c $5 { \\$d} $ {"', Lexer::quote($value));
-        $this->assertSame([[Token::STRING, $value]], $this->lex(Lexer::quote($value)));
+        $this->assertSame('"\\$a \\{\\$b \\{@c $5 { \\$d} $ {"', $this->printedString($value));
+        $this->assertSame([['STRING', $value]], $this->pairs(self::quote($value)));
     }
 
     public function test_shorthand_interpolation_reads_one_php_style_index()
     {
         $this->assertSame(
             [
-                [Token::STRING_START, ''], [Token::VAR_IDENTIFIER, '$a'], [Token::LEFT_BRACKET, '['], [Token::INTEGER, -1], [Token::RIGHT_BRACKET, ']'],
-                [Token::STRING_MIDDLE, ' '], [Token::VAR_IDENTIFIER, '$a'], [Token::LEFT_BRACKET, '['], [Token::STRING, 'k_1'], [Token::RIGHT_BRACKET, ']'],
-                [Token::STRING_MIDDLE, ' '], [Token::VAR_IDENTIFIER, '$a'], [Token::LEFT_BRACKET, '['], [Token::VAR_IDENTIFIER, '$i'], [Token::RIGHT_BRACKET, ']'],
-                [Token::STRING_MIDDLE, ' '], [Token::VAR_IDENTIFIER, '$a'], [Token::LEFT_BRACKET, '['], [Token::STRING, '01'], [Token::RIGHT_BRACKET, ']'],
-                [Token::STRING_MIDDLE, ' '], [Token::VAR_IDENTIFIER, '$a'], [Token::LEFT_BRACKET, '['], [Token::INTEGER, 0], [Token::RIGHT_BRACKET, ']'],
-                [Token::STRING_END, '[1]'],
+                ['STRING_START', ''], ['VAR_IDENTIFIER', '$a'], ['LEFT_BRACKET', '['], ['INTEGER', -1], ['RIGHT_BRACKET', ']'],
+                ['STRING_MIDDLE', ' '], ['VAR_IDENTIFIER', '$a'], ['LEFT_BRACKET', '['], ['STRING', 'k_1'], ['RIGHT_BRACKET', ']'],
+                ['STRING_MIDDLE', ' '], ['VAR_IDENTIFIER', '$a'], ['LEFT_BRACKET', '['], ['VAR_IDENTIFIER', '$i'], ['RIGHT_BRACKET', ']'],
+                ['STRING_MIDDLE', ' '], ['VAR_IDENTIFIER', '$a'], ['LEFT_BRACKET', '['], ['STRING', '01'], ['RIGHT_BRACKET', ']'],
+                ['STRING_MIDDLE', ' '], ['VAR_IDENTIFIER', '$a'], ['LEFT_BRACKET', '['], ['INTEGER', 0], ['RIGHT_BRACKET', ']'],
+                ['STRING_END', '[1]'],
             ],
-            $this->lex('"$a[-1] $a[k_1] $a[$i] $a[01] $a[0][1]"')
+            $this->pairs('"$a[-1] $a[k_1] $a[$i] $a[01] $a[0][1]"')
         );
     }
 
@@ -188,7 +191,7 @@ class LexerTest extends TestCase
     public function test_invalid_shorthand_index_is_an_error(string $index)
     {
         $this->expectExceptionMessage('Invalid array index in interpolated string');
-        $this->lex('"$a'.$index.'"');
+        $this->pairs('"$a'.$index.'"');
     }
 
     public static function invalidInterpolatedIndexes(): array
@@ -207,21 +210,21 @@ class LexerTest extends TestCase
     public function test_unknown_escape_is_an_error()
     {
         $this->expectExceptionMessage('Unknown escape sequence \q in string on line 2');
-        $this->lex("\n\"a\\qb\"");
+        $this->pairs("\n\"a\\qb\"");
     }
 
     public function test_multi_character_operators_take_the_longest_match()
     {
         $this->assertSame(
             [
-                Token::EQUALS, Token::ASSIGN, Token::EQUALS, Token::ASSIGN, Token::DOUBLE_ARROW, Token::NOT_EQUALS, Token::ASSIGN, Token::NOT_EQUALS, Token::NOT, Token::LESS_EQUALS, Token::GREATER_EQUALS,
-                Token::PLUS_ASSIGN, Token::INCREMENT, Token::PLUS, Token::MINUS_ASSIGN, Token::DECREMENT, Token::MINUS, Token::MULTIPLY_ASSIGN, Token::DIVIDE_ASSIGN, Token::MODULO_ASSIGN,
-                Token::INCREMENT, Token::PLUS, Token::DECREMENT, Token::MINUS, Token::COALESCE, Token::COALESCE_ASSIGN, Token::COALESCE, Token::ASSIGN,
-                Token::CONCAT, Token::CONCAT_ASSIGN, Token::CONCAT, Token::ASSIGN, Token::INTEGER, Token::CONCAT, Token::INTEGER, Token::FLOAT, Token::CONCAT, Token::INTEGER,
-                Token::QUESTION, Token::COLON, Token::COALESCE, Token::QUESTION, Token::QUESTION, Token::COLON,
-                Token::SPACESHIP, Token::LESS_EQUALS, Token::GREATER_THAN, Token::SPACESHIP, Token::ASSIGN,
+                'EQUALS', 'ASSIGN', 'EQUALS', 'ASSIGN', 'DOUBLE_ARROW', 'NOT_EQUALS', 'ASSIGN', 'NOT_EQUALS', 'NOT', 'LESS_EQUALS', 'GREATER_EQUALS',
+                'PLUS_ASSIGN', 'INCREMENT', 'PLUS', 'MINUS_ASSIGN', 'DECREMENT', 'MINUS', 'MULTIPLY_ASSIGN', 'DIVIDE_ASSIGN', 'MODULO_ASSIGN',
+                'INCREMENT', 'PLUS', 'DECREMENT', 'MINUS', 'COALESCE', 'COALESCE_ASSIGN', 'COALESCE', 'ASSIGN',
+                'CONCAT', 'CONCAT_ASSIGN', 'CONCAT', 'ASSIGN', 'INTEGER', 'CONCAT', 'INTEGER', 'FLOAT', 'CONCAT', 'INTEGER',
+                'QUESTION', 'COLON', 'COALESCE', 'QUESTION', 'QUESTION', 'COLON',
+                'SPACESHIP', 'LESS_EQUALS', 'GREATER_THAN', 'SPACESHIP', 'ASSIGN',
             ],
-            array_column($this->lex('=== == = => !== != ! <= >= += ++ + -= -- - *= /= %= +++ --- ?? ??= ?? = .. ..= .. = 1..2 1.5..2 ? : ??? ?: <=> <= > <=>='), 0)
+            array_column($this->pairs('=== == = => !== != ! <= >= += ++ + -= -- - *= /= %= +++ --- ?? ??= ?? = .. ..= .. = 1..2 1.5..2 ? : ??? ?: <=> <= > <=>='), 0)
         );
     }
 
@@ -229,20 +232,20 @@ class LexerTest extends TestCase
     {
         $this->assertSame(
             [
-                [Token::HASH, '#'], [Token::HASH_IDENTIFIER, '#name'], [Token::PARENT, '##'], [Token::PARENT_IDENTIFIER, '##_'],
-                [Token::HASH, '#'], [Token::PROPERTY, '.x'], [Token::VAR_IDENTIFIER, '$a'], [Token::PROPERTY, '.b_1'], [Token::PROPERTY, '.c'],
-                [Token::HASH_IDENTIFIER, '#class'], [Token::PROPERTY, '.final'], [Token::HASH, '#'], [Token::INTEGER, 1],
-                [Token::VAR_IDENTIFIER, '$a'], [Token::CONCAT, '..'], [Token::IDENTIFIER, 'b'],
+                ['HASH', '#'], ['HASH_IDENTIFIER', '#name'], ['PARENT', '##'], ['PARENT_IDENTIFIER', '##_'],
+                ['HASH', '#'], ['PROPERTY', '.x'], ['VAR_IDENTIFIER', '$a'], ['PROPERTY', '.b_1'], ['PROPERTY', '.c'],
+                ['HASH_IDENTIFIER', '#class'], ['PROPERTY', '.final'], ['HASH', '#'], ['INTEGER', 1],
+                ['VAR_IDENTIFIER', '$a'], ['CONCAT', '..'], ['IDENTIFIER', 'b'],
             ],
-            $this->lex("# #name ## ##_ #.x \$a.b_1\n  .c #class .final #1 \$a..b")
+            $this->pairs("# #name ## ##_ #.x \$a.b_1\n  .c #class .final #1 \$a..b")
         );
     }
 
     public function test_class_keywords_and_reserved_words()
     {
         $this->assertSame(
-            [Token::CLASS_KEYWORD, Token::EXTENDS, Token::ABSTRACT, Token::INTERFACE, Token::IMPLEMENTS, Token::FINAL, Token::PUBLIC, Token::PRIVATE, Token::PROTECTED],
-            array_column($this->lex('class extends abstract interface implements final public private protected'), 0)
+            ['CLASS', 'EXTENDS', 'ABSTRACT', 'INTERFACE', 'IMPLEMENTS', 'FINAL', 'PUBLIC', 'PRIVATE', 'PROTECTED'],
+            array_column($this->pairs('class extends abstract interface implements final public private protected'), 0)
         );
     }
 
@@ -250,61 +253,49 @@ class LexerTest extends TestCase
     {
         $this->assertSame(
             [
-                [Token::STRING_START, ''], [Token::HASH_IDENTIFIER, '#name'], [Token::STRING_MIDDLE, ' #fff #1 '],
-                [Token::PARENT_IDENTIFIER, '##to_string'], [Token::LEFT_PAREN, '('], [Token::RIGHT_PAREN, ')'], [Token::STRING_MIDDLE, ' '],
-                [Token::VAR_IDENTIFIER, '$file'], [Token::STRING_END, '.txt {} { #x}'],
+                ['STRING_START', ''], ['HASH_IDENTIFIER', '#name'], ['STRING_MIDDLE', ' #fff #1 '],
+                ['PARENT_IDENTIFIER', '##to_string'], ['LEFT_PAREN', '('], ['RIGHT_PAREN', ')'], ['STRING_MIDDLE', ' '],
+                ['VAR_IDENTIFIER', '$file'], ['STRING_END', '.txt {} { #x}'],
             ],
-            $this->lex('"{#name} #fff #1 {##to_string()} $file.txt {} { #x}"')
+            $this->pairs('"{#name} #fff #1 {##to_string()} $file.txt {} { #x}"')
         );
         $value = '{#name} #x';
-        $this->assertSame('"\\{#name} #x"', Lexer::quote($value));
-        $this->assertSame([[Token::STRING, $value]], $this->lex(Lexer::quote($value)));
+        $this->assertSame('"\\{#name} #x"', $this->printedString($value));
+        $this->assertSame([['STRING', $value]], $this->pairs(self::quote($value)));
     }
 
     public function test_comments_and_whitespace_are_skipped_and_lines_counted()
     {
-        $lexer = new Lexer("// first\n\n  echo // trailing\n\t1 / 2;");
-        $lines = [];
-        while (($token = $lexer->get_next_token())->type !== Token::EOF) {
-            $lines[] = [$token->type, $token->line];
-        }
-
-        $this->assertSame([[Token::ECHO, 3], [Token::INTEGER, 4], [Token::DIVIDE, 4], [Token::INTEGER, 4], [Token::SEMICOLON, 4]], $lines);
+        $this->assertSame([['ECHO', 3], ['INTEGER', 4], ['DIVIDE', 4], ['INTEGER', 4], ['SEMICOLON', 4]], $this->lines("// first\n\n  echo // trailing\n\t1 / 2;"));
     }
 
     public function test_block_comments_are_skipped_and_lines_counted()
     {
-        $lexer = new Lexer('/* one
-   two */ echo /* here */ 1;');
-        $lines = [];
-        while (($token = $lexer->get_next_token())->type !== Token::EOF) {
-            $lines[] = [$token->type, $token->line];
-        }
-
-        $this->assertSame([[Token::ECHO, 2], [Token::INTEGER, 2], [Token::SEMICOLON, 2]], $lines);
+        $this->assertSame([['ECHO', 2], ['INTEGER', 2], ['SEMICOLON', 2]], $this->lines('/* one
+   two */ echo /* here */ 1;'));
     }
 
     public function test_block_comments_nest()
     {
         // The first */ closes only the inner one, so commenting out a commented region works
-        $this->assertSame([[Token::INTEGER, 1]], $this->lex('/* a /* b */ c */ 1'));
-        $this->assertSame([[Token::INTEGER, 1]], $this->lex('/* /* /* */ */ */ 1'));
-        $this->assertSame([[Token::INTEGER, 1]], $this->lex('/**/ 1'));
+        $this->assertSame([['INTEGER', 1]], $this->pairs('/* a /* b */ c */ 1'));
+        $this->assertSame([['INTEGER', 1]], $this->pairs('/* /* /* */ */ */ 1'));
+        $this->assertSame([['INTEGER', 1]], $this->pairs('/**/ 1'));
     }
 
     public function test_a_slash_is_only_an_opener_before_a_star()
     {
-        $this->assertSame([[Token::INTEGER, 8], [Token::DIVIDE, '/'], [Token::INTEGER, 2]], $this->lex('8 / 2'));
-        $this->assertSame([[Token::DIVIDE_ASSIGN, '/='], [Token::INTEGER, 2]], $this->lex('/= 2'));
+        $this->assertSame([['INTEGER', 8], ['DIVIDE', '/'], ['INTEGER', 2]], $this->pairs('8 / 2'));
+        $this->assertSame([['DIVIDE_ASSIGN', '/='], ['INTEGER', 2]], $this->pairs('/= 2'));
         // A line comment holding an opener is still just a line comment
-        $this->assertSame([[Token::INTEGER, 1]], $this->lex('// /* never opened
+        $this->assertSame([['INTEGER', 1]], $this->pairs('// /* never opened
 1'));
     }
 
     public function test_an_unterminated_block_comment_reports_the_line_it_opened_on()
     {
         $this->expectExceptionMessage('Unterminated block comment on line 2');
-        $this->lex('echo 1;
+        $this->pairs('echo 1;
 /* opened here
 /* and here */
 ');
@@ -314,9 +305,9 @@ class LexerTest extends TestCase
     {
         // Any other capitalisation is an ordinary name, so class If and fn match() are fine
         $this->assertSame(
-            [[Token::ECHO, 'echo'], [Token::IDENTIFIER, 'ECHO'], [Token::TRUE, 'true'], [Token::IDENTIFIER, 'True'],
-                [Token::IDENTIFIER, '_Helper2'], [Token::VAR_IDENTIFIER, '$If'], [Token::GLOBAL_VAR_IDENTIFIER, '@x_1']],
-            $this->lex('echo ECHO true True _Helper2 $If @x_1')
+            [['ECHO', 'echo'], ['IDENTIFIER', 'ECHO'], ['TRUE', 'true'], ['IDENTIFIER', 'True'],
+                ['IDENTIFIER', '_Helper2'], ['VAR_IDENTIFIER', '$If'], ['GLOBAL_VAR_IDENTIFIER', '@x_1']],
+            $this->pairs('echo ECHO true True _Helper2 $If @x_1')
         );
     }
 
@@ -326,7 +317,7 @@ class LexerTest extends TestCase
     public function test_invalid_numbers_and_variable_names_show_the_whole_word(string $source, string $message)
     {
         $this->expectExceptionMessage($message);
-        $this->lex($source);
+        $this->pairs($source);
     }
 
     public static function invalidWords(): array
@@ -343,16 +334,16 @@ class LexerTest extends TestCase
     public function test_numbers_may_touch_operators_and_sigils()
     {
         $this->assertSame(
-            [[Token::INTEGER, 1], [Token::PLUS, '+'], [Token::INTEGER, 2], [Token::INTEGER, 3], [Token::VAR_IDENTIFIER, '$x']],
-            $this->lex('1+2 3$x')
+            [['INTEGER', 1], ['PLUS', '+'], ['INTEGER', 2], ['INTEGER', 3], ['VAR_IDENTIFIER', '$x']],
+            $this->pairs('1+2 3$x')
         );
     }
 
     public function test_hex_literals()
     {
         $this->assertSame(
-            [[Token::INTEGER, 255], [Token::INTEGER, 57005], [Token::INTEGER, PHP_INT_MAX], [Token::INTEGER, 485], [Token::INTEGER, 1], [Token::INTEGER, 0]],
-            $this->lex('0xff 0XdEaD 0x7FFFFFFFFFFFFFFF 0x1e5 0x0000000000000000001 0x0')
+            [['INTEGER', 255], ['INTEGER', 57005], ['INTEGER', PHP_INT_MAX], ['INTEGER', 485], ['INTEGER', 1], ['INTEGER', 0]],
+            $this->pairs('0xff 0XdEaD 0x7FFFFFFFFFFFFFFF 0x1e5 0x0000000000000000001 0x0')
         );
     }
 
@@ -362,7 +353,7 @@ class LexerTest extends TestCase
     public function test_invalid_hex_literals(string $source, string $message)
     {
         $this->expectExceptionMessage($message);
-        $this->lex($source);
+        $this->pairs($source);
     }
 
     public static function invalidHex(): array
@@ -378,8 +369,8 @@ class LexerTest extends TestCase
     public function test_float_literals()
     {
         $this->assertSame(
-            [[Token::FLOAT, 1.5], [Token::FLOAT, 0.25], [Token::FLOAT, 1e10], [Token::FLOAT, 2.5E-3], [Token::FLOAT, 3e+2], [Token::FLOAT, 1e-999], [Token::INTEGER, 7]],
-            $this->lex('1.5 0.25 1e10 2.5E-3 3e+2 1e-999 7')
+            [['FLOAT', 1.5], ['FLOAT', 0.25], ['FLOAT', 1e10], ['FLOAT', 2.5E-3], ['FLOAT', 3e+2], ['FLOAT', 1e-999], ['INTEGER', 7]],
+            $this->pairs('1.5 0.25 1e10 2.5E-3 3e+2 1e-999 7')
         );
     }
 
@@ -389,7 +380,7 @@ class LexerTest extends TestCase
     public function test_invalid_float_literals(string $source, string $message)
     {
         $this->expectExceptionMessage($message);
-        $this->lex($source);
+        $this->pairs($source);
     }
 
     public static function invalidFloats(): array
@@ -409,99 +400,37 @@ class LexerTest extends TestCase
 
     public function test_format_float_round_trips()
     {
-        foreach ([0.1, 0.1 + 0.2, 1.0, -0.0, 1e25, 1.5e-7, 123456789.125, PHP_FLOAT_MAX, PHP_FLOAT_MIN, -2.5] as $float) {
-            $text = Lexer::format_float($float);
-            $this->assertMatchesRegularExpression('/[.E]/', $text, "{$text} must not look like an int");
-            $this->assertSame($float, (float) Lexer::parse_number(ltrim($text, '-')) * ($text[0] === '-' ? -1 : 1), $text);
+        // Printed with the shortest digits that read back as the same float, never as an int
+        $floats = [0.1, 0.1 + 0.2, 1.0, -0.0, 1e25, 1.5e-7, 123456789.125, PHP_FLOAT_MAX, PHP_FLOAT_MIN, -2.5];
+        $printed = explode("\n", rtrim($this->executeCode(implode(' ', array_map(fn ($float) => 'echo '.var_export($float, true).';', $floats))), "\n"));
+        foreach ($floats as $i => $float) {
+            $this->assertMatchesRegularExpression('/[.E]/', $printed[$i], "{$printed[$i]} must not look like an int");
+            $this->assertSame($float, (float) $printed[$i], $printed[$i]);
+            $this->assertSame(str_starts_with(var_export($float, true), '-'), str_starts_with($printed[$i], '-'), $printed[$i]);
         }
     }
 
     public function test_integer_literals_must_fit()
     {
-        $this->assertSame([[Token::INTEGER, PHP_INT_MAX], [Token::INTEGER, 7]], $this->lex('9223372036854775807 007'));
+        $this->assertSame([['INTEGER', PHP_INT_MAX], ['INTEGER', 7]], $this->pairs('9223372036854775807 007'));
 
         $this->expectExceptionMessage('Integer literal too large: 9223372036854775808 on line 1');
-        $this->lex('9223372036854775808');
+        $this->pairs('9223372036854775808');
     }
 
     public function test_tokenization()
     {
-        $lexer = new Lexer('3 + 4 * 2 - 1 / 5;');
-
-        $token = $lexer->get_next_token();
-        $this->assertEquals(Token::INTEGER, $token->type);
-        $this->assertEquals(3, $token->value);
-
-        $token = $lexer->get_next_token();
-        $this->assertEquals(Token::PLUS, $token->type);
-
-        $token = $lexer->get_next_token();
-        $this->assertEquals(Token::INTEGER, $token->type);
-        $this->assertEquals(4, $token->value);
-
-        $token = $lexer->get_next_token();
-        $this->assertEquals(Token::MULTIPLY, $token->type);
-
-        $token = $lexer->get_next_token();
-        $this->assertEquals(Token::INTEGER, $token->type);
-        $this->assertEquals(2, $token->value);
-
-        $token = $lexer->get_next_token();
-        $this->assertEquals(Token::MINUS, $token->type);
-
-        $token = $lexer->get_next_token();
-        $this->assertEquals(Token::INTEGER, $token->type);
-        $this->assertEquals(1, $token->value);
-
-        $token = $lexer->get_next_token();
-        $this->assertEquals(Token::DIVIDE, $token->type);
-
-        $token = $lexer->get_next_token();
-        $this->assertEquals(Token::INTEGER, $token->type);
-        $this->assertEquals(5, $token->value);
-
-        $token = $lexer->get_next_token();
-        $this->assertEquals(Token::SEMICOLON, $token->type);
-
-        $token = $lexer->get_next_token();
-        $this->assertEquals(Token::EOF, $token->type);
+        $this->assertSame(
+            [['INTEGER', 3], ['PLUS', '+'], ['INTEGER', 4], ['MULTIPLY', '*'], ['INTEGER', 2], ['MINUS', '-'], ['INTEGER', 1], ['DIVIDE', '/'], ['INTEGER', 5], ['SEMICOLON', ';']],
+            $this->pairs('3 + 4 * 2 - 1 / 5;')
+        );
     }
 
     public function test_multiple_statements()
     {
-        $lexer = new Lexer('5 + 3; 10 * 2;');
-
-        // First statement
-        $token = $lexer->get_next_token();
-        $this->assertEquals(Token::INTEGER, $token->type);
-        $this->assertEquals(5, $token->value);
-
-        $token = $lexer->get_next_token();
-        $this->assertEquals(Token::PLUS, $token->type);
-
-        $token = $lexer->get_next_token();
-        $this->assertEquals(Token::INTEGER, $token->type);
-        $this->assertEquals(3, $token->value);
-
-        $token = $lexer->get_next_token();
-        $this->assertEquals(Token::SEMICOLON, $token->type);
-
-        // Second statement
-        $token = $lexer->get_next_token();
-        $this->assertEquals(Token::INTEGER, $token->type);
-        $this->assertEquals(10, $token->value);
-
-        $token = $lexer->get_next_token();
-        $this->assertEquals(Token::MULTIPLY, $token->type);
-
-        $token = $lexer->get_next_token();
-        $this->assertEquals(Token::INTEGER, $token->type);
-        $this->assertEquals(2, $token->value);
-
-        $token = $lexer->get_next_token();
-        $this->assertEquals(Token::SEMICOLON, $token->type);
-
-        $token = $lexer->get_next_token();
-        $this->assertEquals(Token::EOF, $token->type);
+        $this->assertSame(
+            [['INTEGER', 5], ['PLUS', '+'], ['INTEGER', 3], ['SEMICOLON', ';'], ['INTEGER', 10], ['MULTIPLY', '*'], ['INTEGER', 2], ['SEMICOLON', ';']],
+            $this->pairs('5 + 3; 10 * 2;')
+        );
     }
 }

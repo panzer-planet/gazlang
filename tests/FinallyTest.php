@@ -135,7 +135,7 @@ class FinallyTest extends GazLangTestCase
     public function test_parse_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
-        $this->createParser($code)->parse();
+        $this->parse($code);
     }
 
     public static function parseErrors(): array

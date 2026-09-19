@@ -2,8 +2,6 @@
 
 namespace GazLang\Tests;
 
-use GazLang\GazLangError;
-
 /**
  * delete removes an element of a list or map; tests/gaz/lists/delete_test.gaz covers
  * the semantics on both backends, so these are the parse errors and the code
@@ -40,35 +38,35 @@ class DeleteTest extends GazLangTestCase
     public function test_deleting_a_variable_is_a_parse_error()
     {
         $this->expectExceptionMessage('delete needs an element of a list or map, like delete $a[0]');
-        $this->createParser('$m = {"a" => 1}; delete $m;')->parse();
+        $this->parse('$m = {"a" => 1}; delete $m;');
     }
 
     public function test_deleting_what_a_call_returns_is_a_parse_error()
     {
         // A path starts at a variable or #, as an assignment's does: there is nothing to write back to
         $this->expectExceptionMessage('delete needs an element of a list or map, like delete $a[0]');
-        $this->createParser('fn f() { return [1]; } delete f()[0];')->parse();
+        $this->parse('fn f() { return [1]; } delete f()[0];');
     }
 
     public function test_deleting_a_field_is_a_parse_error()
     {
         $this->expectExceptionMessage('Cannot delete a field: every object of a class has the fields it declares');
-        $this->createParser('class C { #x = 1; fn f() { delete #x; } }')->parse();
+        $this->parse('class C { #x = 1; fn f() { delete #x; } }');
     }
 
     public function test_deleting_a_property_of_an_object_is_a_parse_error()
     {
         $this->expectExceptionMessage('Cannot delete a field: every object of a class has the fields it declares');
-        $this->createParser('class C { #x = 1; } $c = C(); delete $c.x;')->parse();
+        $this->parse('class C { #x = 1; } $c = C(); delete $c.x;');
     }
 
     public function test_delete_is_a_keyword_but_still_a_member_name()
     {
         $this->assertSame("gone\n", $this->executeCode('class C { fn delete() { return "gone"; } } echo C().delete();'));
 
-        $this->expectException(GazLangError::class);
+        $this->expectException(ProgramError::class);
         $this->expectExceptionMessage("Expected a name but found 'delete'");
-        $this->createParser('fn delete() { return 1; }')->parse();
+        $this->parse('fn delete() { return 1; }');
     }
 
     public function test_code_gen_pushes_the_keys_then_deletes_through_the_path()

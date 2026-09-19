@@ -2,28 +2,14 @@
 
 namespace GazLang\Tests;
 
-use GazLang\GazLangError;
-use GazLang\Lexer\Token;
-
 class LambdaTest extends GazLangTestCase
 {
     public function test_lexes_the_arrow()
     {
         $this->assertSame(
-            [Token::VAR_IDENTIFIER, Token::ARROW, Token::VAR_IDENTIFIER, Token::DECREMENT, Token::GREATER_THAN, Token::ARROW, Token::MINUS, Token::MINUS, Token::GREATER_THAN, Token::EOF],
-            array_map(fn ($token) => $token->type, $this->tokens('$x -> $x --> ->- - >'))
+            ['VAR_IDENTIFIER', 'ARROW', 'VAR_IDENTIFIER', 'DECREMENT', 'GREATER_THAN', 'ARROW', 'MINUS', 'MINUS', 'GREATER_THAN'],
+            array_column($this->lex('$x -> $x --> ->- - >'), 0)
         );
-    }
-
-    private function tokens(string $code): array
-    {
-        $lexer = $this->createLexer($code);
-        $tokens = [];
-        do {
-            $tokens[] = $token = $lexer->get_next_token();
-        } while ($token->type !== Token::EOF);
-
-        return $tokens;
     }
 
     public function test_every_head_form_and_both_body_kinds()
@@ -257,7 +243,7 @@ Undefined variable: $n
     public function test_parse_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
-        $this->createParser($code)->parse();
+        $this->parse($code);
     }
 
     public static function parseErrors(): array
@@ -305,8 +291,7 @@ Undefined variable: $n
     public function test_runaway_recursion_through_a_global_closure_is_a_gazlang_error()
     {
         $code = '@f = () -> @f(); @f();';
-        $command = sprintf('echo %s | %s %s 2>&1', escapeshellarg($code), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang-php'));
-        exec($command, $output, $exit_code);
+        [$output, $exit_code] = self::cli([], $code);
 
         $this->assertSame('Error: Maximum call depth of 10000 exceeded calling -> on line 1 on line 1', $output[0]);
         $this->assertSame(1, $exit_code);
@@ -337,7 +322,7 @@ Undefined variable: $n
 
     public function test_error_class_is_gazlang_error_for_a_bad_lambda_head()
     {
-        $this->expectException(GazLangError::class);
-        $this->createParser('(1) -> 2;')->parse();
+        $this->expectException(ProgramError::class);
+        $this->parse('(1) -> 2;');
     }
 }

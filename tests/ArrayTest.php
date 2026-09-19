@@ -2,16 +2,11 @@
 
 namespace GazLang\Tests;
 
-use GazLang\Lexer\Token;
-
 class ArrayTest extends GazLangTestCase
 {
     public function test_lexes_array_syntax()
     {
-        $lexer = $this->createLexer('[ ] => = ==');
-        foreach ([Token::LEFT_BRACKET, Token::RIGHT_BRACKET, Token::DOUBLE_ARROW, Token::ASSIGN, Token::EQUALS] as $type) {
-            $this->assertEquals($type, $lexer->get_next_token()->type);
-        }
+        $this->assertSame(['LEFT_BRACKET', 'RIGHT_BRACKET', 'DOUBLE_ARROW', 'ASSIGN', 'EQUALS'], array_column($this->lex('[ ] => = =='), 0));
     }
 
     public function test_literals_print_as_literals()
@@ -203,7 +198,7 @@ class ArrayTest extends GazLangTestCase
     public function test_parse_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
-        $this->createParser($code)->parse();
+        $this->parse($code);
     }
 
     public static function parseErrors(): array

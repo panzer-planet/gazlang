@@ -2,30 +2,33 @@
 
 namespace GazLang\Tests;
 
-use GazLang\Lexer\Lexer;
-
 /**
- * lib/chars.gaz must classify every byte exactly as the PHP lexer does
+ * lib/chars.gaz must classify every byte exactly as the lexer does: whitespace is space, tab,
+ * newline and carriage return; letters and digits are ASCII
  */
 class LibCharsTest extends GazLangTestCase
 {
-    public function test_every_byte_is_classified_like_the_php_lexer()
+    public function test_every_byte_is_classified_like_the_lexer()
     {
+        $classes = [
+            'space' => "/^[ \t\n\r]$/", 'digit' => '/^[0-9]$/', 'hex_digit' => '/^[0-9a-fA-F]$/',
+            'alpha' => '/^[a-zA-Z]$/', 'alnum' => '/^[a-zA-Z0-9]$/',
+        ];
         $all_bytes = '';
         $expected = '';
         for ($byte = 0; $byte < 256; $byte++) {
             $char = chr($byte);
             $all_bytes .= $char;
             $flags = [];
-            foreach (['space', 'digit', 'hex_digit', 'alpha', 'alnum'] as $class) {
-                $flags[] = Lexer::{"is_{$class}"}($char) ? $class : '-';
+            foreach ($classes as $class => $pattern) {
+                $flags[] = preg_match($pattern, $char) ? $class : '-';
             }
             $expected .= "{$byte} ".implode(' ', $flags)."\n";
         }
 
         // Every byte goes into a string literal as is, except the few quote() escapes
         $code = 'include "'.self::ROOT.'/lib/chars.gaz";'
-            .' $bytes = '.Lexer::quote($all_bytes).';'
+            .' $bytes = '.self::quote($all_bytes).';'
             .' for ($i = 0; $i < 256; $i = $i + 1) {'
             .'   $c = $bytes[$i]; $flags = [];'
             .'   if (is_space($c)) { $flags[] = "space"; } else { $flags[] = "-"; }'

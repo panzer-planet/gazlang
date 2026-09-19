@@ -83,7 +83,7 @@ class SpreadTest extends GazLangTestCase
     public function test_syntax_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
-        $this->createParser($code)->parse();
+        $this->parse($code);
     }
 
     public static function syntaxErrors(): array

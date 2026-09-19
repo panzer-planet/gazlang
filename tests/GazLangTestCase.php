@@ -2,50 +2,205 @@
 
 namespace GazLang\Tests;
 
-use GazLang\CodeGenerator\CodeGenerator;
-use GazLang\CodeGenerator\Program;
-use GazLang\GazLangError;
-use GazLang\Lexer\Lexer;
-use GazLang\Parser\Parser;
-use GazLang\Runtime\Builtins;
-use GazLang\Runtime\ExitSignal;
-use GazLang\VM\VM;
 use PHPUnit\Framework\TestCase;
-use Throwable;
 
 /**
- * Base test case for GazLang tests with helper methods
+ * Base test case for GazLang tests: every helper runs bin/gazlang, the C VM with the self-hosted
+ * compiler built in, from the project root
  */
 abstract class GazLangTestCase extends TestCase
 {
     protected const ROOT = __DIR__.'/..';
 
     /**
-     * Run a GazLang file as `php bin/gazlang-php -f FILE -- ARGS` would, but in-process (a CLI run costs ~0.5s)
-     *
-     * Runs from the project root, so FILE is relative to it and errors name files the
-     * same way; errors are printed as "Error: <message>" and give exit code 1.
-     *
-     * @param  string  $file  Path relative to the project root
-     * @param  string[]  $args  Arguments returned by args()
-     * @return array{0: string, 1: int} The output and exit code
+     * The binary the helpers run: the optimised build, since they start it thousands of times
+     * (CVMTest runs every snippet and program under the sanitizers)
      */
-    protected function runProgram(string $file, array $args = []): array
+    private const GAZLANG = self::ROOT.'/bin/gazlang';
+
+    /**
+     * The path of gazlang, built first if it isn't yet, for a test that runs it through a shell
+     */
+    protected static function binary(): string
     {
-        return $this->exitCodeOf(fn () => $this->machine(new Parser(new Lexer(file_get_contents($file)), $file), $file, $args)->run());
+        static $built = false;
+        if (! $built) {
+            CVM::build();
+            $built = true;
+        }
+
+        return self::GAZLANG;
     }
 
     /**
-     * Compile a GazLang file once, for runCompiled() to run many times
+     * Run gazlang with options and what it reads on standard input, from the project root
+     *
+     * @param  list<string>  $args  The command line after the binary
+     * @param  string  $stdin  What it reads on standard input
+     * @return array{0: string, 1: string, 2: int} Standard output, standard error and the exit code
+     */
+    protected static function gazlang(array $args, string $stdin = ''): array
+    {
+        self::binary();
+        // Files rather than pipes, so a program that fills one stream can't block on it
+        $files = [tempnam(sys_get_temp_dir(), 'gazin'), tempnam(sys_get_temp_dir(), 'gazout'), tempnam(sys_get_temp_dir(), 'gazerr')];
+        file_put_contents($files[0], $stdin);
+        try {
+            $process = proc_open([self::GAZLANG, ...$args], [['file', $files[0], 'r'], ['file', $files[1], 'w'], ['file', $files[2], 'w']], $pipes, self::ROOT);
+            if ($process === false) {
+                throw new \RuntimeException('Cannot run '.self::GAZLANG);
+            }
+            $code = proc_close($process);
+
+            return [(string) file_get_contents($files[1]), (string) file_get_contents($files[2]), $code];
+        } finally {
+            array_map('unlink', $files);
+        }
+    }
+
+    /**
+     * Run gazlang as a shell's exec() would with 2>&1: its output as lines, without their newlines
+     *
+     * @param  list<string>  $args  The command line after the binary
+     * @param  string  $stdin  What it reads on standard input
+     * @return array{0: list<string>, 1: int} Standard output then standard error, by line, and the exit code
+     */
+    protected static function cli(array $args, string $stdin = ''): array
+    {
+        [$out, $err, $code] = self::gazlang($args, $stdin);
+        $text = rtrim($out.$err, "\n");
+
+        return [$text === '' ? [] : explode("\n", $text), $code];
+    }
+
+    /**
+     * Run a GazLang file as `bin/gazlang -f FILE -- ARGS` does, from the project root, so FILE
+     * is relative to it and errors name files the same way
      *
      * @param  string  $file  Path relative to the project root
-     * @return Program The program, read back from its bytecode as every test's VM side is
+     * @param  string[]  $args  Arguments returned by args()
+     * @return array{0: string, 1: int} Standard output then standard error, and the exit code
      */
-    protected static function compileProgram(string $file): Program
+    protected function runProgram(string $file, array $args = []): array
     {
-        $path = self::ROOT.'/'.$file;
+        [$out, $err, $code] = self::gazlang(['-f', $file, '--', ...$args]);
 
-        return self::roundTrip(new Parser(new Lexer(file_get_contents($path)), $path), $path);
+        return [$out.$err, $code];
+    }
+
+    /**
+     * Run GazLang code piped in, and give what it printed, standard error after standard output
+     *
+     * @param  string  $input  The GazLang code to run
+     *
+     * @throws ProgramError If it fails: to lex, parse or run
+     */
+    protected function executeCode(string $input): string
+    {
+        // vm/snippets.php collects every snippet for the C VM's harness
+        if (($record = getenv('GAZLANG_RECORD_SNIPPETS')) !== false) {
+            // with this checkout's paths relative to it, since the harness runs them from its root
+            file_put_contents($record, json_encode(str_replace(dirname(__DIR__).'/', '', $input), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)."\n", FILE_APPEND);
+        }
+
+        return self::succeed([], $input);
+    }
+
+    /**
+     * The tree `gazlang --ast` prints for code piped in
+     *
+     * @throws ProgramError If it doesn't parse
+     */
+    protected function parse(string $input): string
+    {
+        return self::succeed(['--ast'], $input);
+    }
+
+    /**
+     * The tokens `gazlang --tokens` prints for code piped in, without the EOF token, each as
+     * [type, value, line]: a string's value decoded, a number's the number, anything else as printed
+     *
+     * @return list<array{0: string, 1: mixed, 2: int}>
+     *
+     * @throws ProgramError If it doesn't lex, after the tokens before the error
+     */
+    protected function lex(string $input): array
+    {
+        $tokens = [];
+        foreach (explode("\n", rtrim(self::succeed(['--tokens'], $input), "\n")) as $line) {
+            [$number, $type, $value] = explode(' ', $line, 3) + [2 => ''];
+            if ($type === 'EOF') {
+                break;
+            }
+            $tokens[] = [$type, match ($type) {
+                'STRING', 'STRING_START', 'STRING_MIDDLE', 'STRING_END' => self::unquote($value),
+                'INTEGER' => (int) $value,
+                'FLOAT' => (float) $value,
+                default => $value,
+            }, (int) $number];
+        }
+
+        return $tokens;
+    }
+
+    /**
+     * A GazLang string literal for any bytes, as --tokens prints one: control bytes and quotes
+     * escaped, and $ and { where they would start an interpolation
+     */
+    protected static function quote(string $value): string
+    {
+        $named = ["\n" => 'n', "\t" => 't', "\r" => 'r', "\v" => 'v', "\f" => 'f', "\e" => 'e', '\\' => '\\', '"' => '"', '$' => '$', '{' => '{'];
+
+        return '"'.preg_replace_callback(
+            '/[\x00-\x1F\x7F"\\\\]|\$(?=[A-Za-z_])|\{(?=[$@#])/',
+            fn ($match) => isset($named[$match[0]]) ? '\\'.$named[$match[0]] : sprintf('\\x%02X', ord($match[0])),
+            $value
+        ).'"';
+    }
+
+    /**
+     * A string literal as --tokens prints it (quote()), back to its bytes
+     */
+    private static function unquote(string $literal): string
+    {
+        $named = ['n' => "\n", 't' => "\t", 'r' => "\r", 'v' => "\v", 'f' => "\f", 'e' => "\e", '0' => "\0"];
+
+        return preg_replace_callback('/\\\\(x[0-9A-Fa-f]{2}|.)/s', fn ($m) => $m[1][0] === 'x' && strlen($m[1]) === 3 ? chr(hexdec(substr($m[1], 1))) : ($named[$m[1]] ?? $m[1]), substr($literal, 1, -1));
+    }
+
+    /**
+     * The bytecode `gazlang -c` writes for code piped in, as instructions only: without the
+     * header, locations and the block records around them
+     *
+     * @throws ProgramError If it doesn't compile
+     */
+    protected function generateCode(string $input): string
+    {
+        $lines = explode("\n", trim(self::succeed(['-c'], $input)));
+        $code = array_filter($lines, fn (string $line) => $line !== '' && $line !== 'top'
+            && ! preg_match('/^(GAZLANG|globals|locals|@ |field |method |capture |self )/', $line));
+
+        return implode("\n", $code);
+    }
+
+    /**
+     * What gazlang printed with these options for code piped in (if any), standard error after
+     * standard output, or its error as a ProgramError when it exits with a code other than 0
+     *
+     * @param  list<string>  $args  The options
+     *
+     * @throws ProgramError If it fails
+     */
+    protected static function succeed(array $args, string $input = ''): string
+    {
+        [$out, $err, $code] = self::gazlang($args, $input);
+        if ($code === 0) {
+            return $out.$err;
+        }
+        // The message is what follows the last "Error: " to start a line, which leaves out
+        // what print_error() wrote before it; exit() prints nothing
+        $at = preg_match_all('/^Error: /m', $err, $matches, PREG_OFFSET_CAPTURE) ? end($matches[0])[1] : null;
+        throw new ProgramError($at === null ? "exit({$code})" : rtrim(substr($err, $at + 7), "\n"), $code, $out.substr($err, 0, $at ?? strlen($err)));
     }
 
     /**
@@ -113,175 +268,5 @@ abstract class GazLangTestCase extends TestCase
         }
 
         return $stray;
-    }
-
-    /**
-     * Run a compiled program on the VM as runProgram() would
-     *
-     * @param  string[]  $args  Arguments returned by args()
-     * @param  string  $cwd  The working directory to run it in
-     * @return array{0: string, 1: int} The output and exit code
-     */
-    protected function runCompiled(Program $program, array $args = [], string $cwd = self::ROOT): array
-    {
-        return $this->exitCodeOf(fn () => (new VM($program, $args))->run(), $cwd);
-    }
-
-    /**
-     * Run a program from the project root, giving its output and exit code as the CLI would
-     *
-     * @param  callable  $run  Runs the program, printing its output
-     * @param  string  $in  The working directory to run it in
-     * @return array{0: string, 1: int} The output and exit code
-     */
-    private function exitCodeOf(callable $run, string $in = self::ROOT): array
-    {
-        $cwd = getcwd();
-        chdir($in);
-        ob_start();
-
-        try {
-            $run();
-            $exit_code = 0;
-        } catch (ExitSignal $e) {
-            $exit_code = $e->code;
-        } catch (GazLangError $e) {
-            // As the CLI prints it: the message, then the calls that were running
-            echo $e->report(), "\n";
-            $exit_code = 1;
-        } catch (Throwable $e) {
-            echo "Error: {$e->getMessage()}\n";
-            $exit_code = 1;
-        } finally {
-            $output = ob_get_clean();
-            chdir($cwd);
-        }
-
-        return [$output, $exit_code];
-    }
-
-    /**
-     * Create a lexer for the given input
-     *
-     * @param  string  $input  The GazLang code to parse
-     */
-    protected function createLexer(string $input): Lexer
-    {
-        return new Lexer($input);
-    }
-
-    /**
-     * Create a parser for the given input
-     *
-     * @param  string  $input  The GazLang code to parse
-     */
-    protected function createParser(string $input): Parser
-    {
-        $lexer = $this->createLexer($input);
-
-        return new Parser($lexer);
-    }
-
-    /**
-     * Create the VM for the given input, compiled as executeCode() compiles it
-     *
-     * @param  string  $input  The GazLang code to run
-     */
-    protected function createVM(string $input): VM
-    {
-        return $this->machine($this->createParser($input));
-    }
-
-    /**
-     * Execute GazLang code and return the output
-     *
-     * @param  string  $input  The GazLang code to execute
-     * @return string The output from echo statements
-     */
-    protected function executeCode(string $input): string
-    {
-        // vm/snippets.php collects every snippet for the C VM's harness
-        if (($record = getenv('GAZLANG_RECORD_SNIPPETS')) !== false) {
-            // with this checkout's paths relative to it, since the harness runs them from its root
-            file_put_contents($record, Lexer::quote(str_replace(dirname(__DIR__).'/', '', $input))."\n", FILE_APPEND);
-        }
-
-        [$output, $error] = $this->capture(fn () => $this->createVM($input)->run());
-        if ($error !== null) {
-            throw $error;
-        }
-
-        return $output;
-    }
-
-    /**
-     * The VM for a program, which runs it as a bytecode file would
-     *
-     * Compiling, writing and reading it back is what `gazlang -c -f x.gaz > x.gzb` and
-     * `gazlang -f x.gzb` do, so every test that runs on the VM also tests the format and
-     * everything the reader checks. BytecodeTest covers the file itself.
-     *
-     * @param  Parser  $parser  The parser for the program
-     * @param  string|null  $file  The file it came from, so its paths are written and read back
-     * @param  string[]  $args  Arguments returned by args()
-     */
-    private function machine(Parser $parser, ?string $file = null, array $args = []): VM
-    {
-        return new VM(self::roundTrip($parser, $file), $args);
-    }
-
-    /**
-     * Compile a program, write it as bytecode and read that back, so the suite tests the format too
-     */
-    private static function roundTrip(Parser $parser, ?string $file): Program
-    {
-        return Program::read((new CodeGenerator($parser->parse()))->compile()->write($file), $file);
-    }
-
-    /**
-     * Run a callable, capturing what it prints and what it throws
-     *
-     * @return array{0: string, 1: Throwable|null}
-     */
-    private function capture(callable $run): array
-    {
-        // print_error() writes to standard error, which output buffering doesn't catch, so it
-        // goes to a stream of its own and counts as output
-        $stderr = fopen('php://memory', 'w+');
-        Builtins::$error_stream = $stderr;
-        ob_start();
-        try {
-            $run();
-            $error = null;
-        } catch (Throwable $e) {
-            $error = $e;
-        } finally {
-            $output = ob_get_clean();
-            Builtins::$error_stream = null;
-            rewind($stderr);
-            $printed = (string) stream_get_contents($stderr);
-            fclose($stderr);
-        }
-
-        return [$output.$printed, $error];
-    }
-
-    /**
-     * Generate VM code for the given input, as the instructions of each block
-     *
-     * The bytecode file's header, locations and slot names are left out, so a test can say
-     * what it is about; each block after the top level is introduced by its header line, as
-     * the file writes it ("fn f 0 0"). BytecodeTest covers the file itself.
-     *
-     * @param  string  $input  The GazLang code
-     * @return string The generated code, one instruction per line
-     */
-    protected function generateCode(string $input): string
-    {
-        $lines = explode("\n", trim((new CodeGenerator($this->createParser($input)->parse()))->generate()));
-        $code = array_filter($lines, fn (string $line) => $line !== '' && $line !== 'top'
-            && ! preg_match('/^(GAZLANG|globals|locals|@ |field |method |capture |self )/', $line));
-
-        return implode("\n", $code);
     }
 }

@@ -2,8 +2,6 @@
 
 namespace GazLang\Tests;
 
-use GazLang\GazLangError;
-
 class FunctionValueTest extends GazLangTestCase
 {
     private const ADD = 'fn add($a, $b) { return $a + $b; } ';
@@ -67,7 +65,7 @@ class FunctionValueTest extends GazLangTestCase
     public function test_parse_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
-        $this->createParser($code)->parse();
+        $this->parse($code);
     }
 
     public static function parseErrors(): array
@@ -117,23 +115,20 @@ class FunctionValueTest extends GazLangTestCase
 
     public function test_error_as_a_value_keeps_its_message_uncaught()
     {
-        $this->expectExceptionMessage('boom');
+        // Printed as it is, without a location, which catch still sees
         try {
             $this->executeCode('$e = error; $e("boom");');
-        } catch (GazLangError $e) {
-            $this->assertFalse($e->show_location);
-            $this->assertSame(1, $e->line_number);
-
-            throw $e;
+            $this->fail('Expected an error');
+        } catch (ProgramError $e) {
+            $this->assertSame('boom', $e->getMessage());
         }
+        $this->assertSame("boom\n1\n", $this->executeCode('try { $e = error; $e("boom"); } catch (Error $e) { echo $e.message; echo $e.line; }'));
     }
 
     public function test_runaway_recursion_through_a_value_is_a_gazlang_error()
     {
-        // Through the CLI, which restarts itself without pcov (see FunctionTest)
         $code = 'fn inf() { $f = inf; return $f(); } echo inf();';
-        $command = sprintf('echo %s | %s %s 2>&1', escapeshellarg($code), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang-php'));
-        exec($command, $output, $exit_code);
+        [$output, $exit_code] = self::cli([], $code);
 
         $this->assertSame('Error: Maximum call depth of 10000 exceeded calling inf on line 1', $output[0]);
         $this->assertSame(1, $exit_code);

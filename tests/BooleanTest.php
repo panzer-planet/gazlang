@@ -2,16 +2,11 @@
 
 namespace GazLang\Tests;
 
-use GazLang\Lexer\Token;
-
 class BooleanTest extends GazLangTestCase
 {
     public function test_lexes_true_and_false_keywords()
     {
-        $lexer = $this->createLexer('true false $true');
-        $this->assertEquals(Token::TRUE, $lexer->get_next_token()->type);
-        $this->assertEquals(Token::FALSE, $lexer->get_next_token()->type);
-        $this->assertEquals(Token::VAR_IDENTIFIER, $lexer->get_next_token()->type);
+        $this->assertSame(['TRUE', 'FALSE', 'VAR_IDENTIFIER'], array_column($this->lex('true false $true'), 0));
     }
 
     public function test_echo_prints_true_and_false()

@@ -2,12 +2,6 @@
 
 namespace GazLang\Tests;
 
-use GazLang\CodeGenerator\CodeGenerator;
-use GazLang\GazLangError;
-use GazLang\Lexer\Lexer;
-use GazLang\Parser\Parser;
-use GazLang\VM\VM;
-
 class ErrorTest extends GazLangTestCase
 {
     /**
@@ -16,7 +10,7 @@ class ErrorTest extends GazLangTestCase
     public function test_syntax_errors_say_what_and_where(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
-        $this->createParser($code)->parse();
+        $this->parse($code);
     }
 
     public static function syntaxErrors(): array
@@ -63,11 +57,14 @@ class ErrorTest extends GazLangTestCase
         try {
             $this->executeCode("\$x = 1;\n\$x[0] = 2;");
             $this->fail('Expected an error');
-        } catch (GazLangError $e) {
+        } catch (ProgramError $e) {
             $this->assertSame('Cannot use [] on int on line 2', $e->getMessage());
-            $this->assertSame('Cannot use [] on int', $e->reason);
-            $this->assertSame(2, $e->line_number);
         }
+        // Caught, the message is without the location, which is the line
+        $this->assertSame(
+            "Cannot use [] on int\n2\n",
+            $this->executeCode("try {\n\$x = 1; \$x[0] = 2; } catch (Error \$e) { echo \$e.message; echo \$e.line; }")
+        );
     }
 
     public function test_error_builtin_message_is_printed_as_is()
@@ -75,26 +72,14 @@ class ErrorTest extends GazLangTestCase
         try {
             $this->executeCode("\n\nerror(\"Syntax error in input on line 7\");");
             $this->fail('Expected an error');
-        } catch (GazLangError $e) {
+        } catch (ProgramError $e) {
             $this->assertSame('Syntax error in input on line 7', $e->getMessage());
         }
     }
 
-    public function test_errors_in_included_files_name_the_file()
-    {
-        $path = __DIR__.'/fixtures/include/runtime.gaz';
-        $this->expectExceptionMessage('Cannot use + on null at tests/fixtures/include/lib/fails.gaz:2');
-
-        (new VM((new CodeGenerator((new Parser(new Lexer(file_get_contents($path)), $path))->parse()))->compile()))->run();
-    }
-
     public function test_cli_shows_the_file_and_line()
     {
-        exec(sprintf(
-            'cd %s && %s bin/gazlang-php -f tests/fixtures/include/runtime.gaz 2>&1',
-            escapeshellarg(__DIR__.'/..'),
-            escapeshellarg(PHP_BINARY)
-        ), $output, $exit_code);
+        [$output, $exit_code] = self::cli(['-f', 'tests/fixtures/include/runtime.gaz']);
 
         // The trace names the call in the included file and where it was called from
         $this->assertSame([

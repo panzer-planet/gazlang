@@ -2,27 +2,22 @@
 
 namespace GazLang\Tests;
 
-use GazLang\Lexer\Token;
-
 class FunctionTest extends GazLangTestCase
 {
     public function test_lexes_function_syntax_and_global_variables()
     {
-        $lexer = $this->createLexer('fn add($a, @b) return null');
         $expected = [
-            Token::FN, Token::IDENTIFIER, Token::LEFT_PAREN, Token::VAR_IDENTIFIER, Token::COMMA,
-            Token::GLOBAL_VAR_IDENTIFIER, Token::RIGHT_PAREN, Token::RETURN, Token::NULL, Token::EOF,
+            'FN', 'IDENTIFIER', 'LEFT_PAREN', 'VAR_IDENTIFIER', 'COMMA',
+            'GLOBAL_VAR_IDENTIFIER', 'RIGHT_PAREN', 'RETURN', 'NULL',
         ];
 
-        foreach ($expected as $type) {
-            $this->assertEquals($type, $lexer->get_next_token()->type);
-        }
+        $this->assertSame($expected, array_column($this->lex('fn add($a, @b) return null'), 0));
     }
 
     public function test_invalid_global_variable_name()
     {
         $this->expectExceptionMessage('Invalid variable name: @1 on line 1');
-        $this->createLexer('@1')->get_next_token();
+        $this->lex('@1');
     }
 
     public function test_call_with_arguments_and_return_value()
@@ -112,13 +107,7 @@ class FunctionTest extends GazLangTestCase
     public function test_runaway_recursion_is_a_gazlang_error()
     {
         // Through the CLI, which prints the capped trace under the message
-        $command = sprintf(
-            'echo %s | %s %s 2>&1',
-            escapeshellarg('fn inf() { return inf(); } echo inf();'),
-            escapeshellarg(PHP_BINARY),
-            escapeshellarg(__DIR__.'/../bin/gazlang-php')
-        );
-        exec($command, $output, $exit_code);
+        [$output, $exit_code] = self::cli([], 'fn inf() { return inf(); } echo inf();');
 
         $this->assertSame('Error: Maximum call depth of 10000 exceeded calling inf on line 1', $output[0]);
         // The trace under it is capped: 10 innermost calls, a line saying what was left out, 10 outermost
@@ -128,23 +117,23 @@ class FunctionTest extends GazLangTestCase
         $this->assertSame(1, $exit_code);
     }
 
-    public function test_running_out_of_depth_through_a_callback_is_the_same_on_every_runtime()
+    public function test_running_out_of_depth_through_a_callback()
     {
-        // A callback runs in a loop of its own on the VMs, called from the builtin's instruction;
-        // starting one call deeper moves the limit from deep() to the callback. Through the CLI,
-        // since this is too deep for PHP's own stack under pcov
-        foreach (['deep(0);' => 'deep', 'start();' => '-> on line 1'] as $start => $callee) {
+        // A callback runs in a loop of its own, called from the builtin's instruction; starting
+        // one call deeper moves the limit from deep() to the callback
+        $expected = [
+            'deep(0);' => ['deep', '-> on line 1', 'deep on line 1'],
+            'start();' => ['-> on line 1', 'deep on line 1', '-> on line 1'],
+        ];
+        foreach ($expected as $start => [$callee, $innermost, $next]) {
             $program = 'fn deep($n) { return map([$n], $x -> deep($x + 1)); } fn start() { deep(0); }'
                 .' try { '.$start.' } catch (Error $e) {'
                 .' echo $e.message; echo len($e.trace); echo $e.trace[0]; echo $e.trace[1]; echo $e.trace[20]; }';
-            $outputs = [];
-            foreach (['bin/gazlang-php', 'bin/gazlang'] as $runtime) {
-                exec(sprintf('echo %s | %s/../%s 2>&1', escapeshellarg($program), __DIR__, $runtime), $output);
-                $outputs[$runtime] = $output;
-                $output = [];
-            }
-            $this->assertSame("Maximum call depth of 10000 exceeded calling {$callee}", $outputs['bin/gazlang'][0]);
-            $this->assertSame($outputs['bin/gazlang'], $outputs['bin/gazlang-php'], $start);
+            $this->assertSame(
+                "Maximum call depth of 10000 exceeded calling {$callee}\n21\n{$innermost}\n{$next}\ntop level on line 1\n",
+                $this->executeCode($program),
+                $start
+            );
         }
     }
 
@@ -154,7 +143,7 @@ class FunctionTest extends GazLangTestCase
     public function test_default_parameter_parse_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
-        $this->createParser($code)->parse();
+        $this->parse($code);
     }
 
     public static function defaultParameterErrors(): array
@@ -190,56 +179,56 @@ class FunctionTest extends GazLangTestCase
     public function test_undefined_function_is_a_parse_error_even_if_never_called()
     {
         $this->expectExceptionMessage('Undefined function: missing');
-        $this->createParser('if (false) { missing(); }')->parse();
+        $this->parse('if (false) { missing(); }');
     }
 
     public function test_wrong_argument_count_is_a_parse_error()
     {
         $this->expectExceptionMessage('Function add expects 2 arguments, 1 given');
-        $this->createParser('echo add(1); fn add($a, $b) { return $a + $b; }')->parse();
+        $this->parse('echo add(1); fn add($a, $b) { return $a + $b; }');
     }
 
     public function test_duplicate_function_is_a_parse_error()
     {
         $this->expectExceptionMessage('Function f is already declared');
-        $this->createParser('fn f() { } fn f() { }')->parse();
+        $this->parse('fn f() { } fn f() { }');
     }
 
     public function test_duplicate_parameter_is_a_parse_error()
     {
         $this->expectExceptionMessage('Duplicate parameter $a in function f');
         // Reported before the default is read, so a bad default doesn't hide it
-        $this->createParser('fn f($a, $a) { }')->parse();
+        $this->parse('fn f($a, $a) { }');
     }
 
     public function test_global_parameter_is_a_parse_error()
     {
         $this->expectExceptionMessage("Expected a \$variable but found '@a'");
-        $this->createParser('fn f(@a) { }')->parse();
+        $this->parse('fn f(@a) { }');
     }
 
     public function test_nested_function_is_a_parse_error()
     {
         $this->expectExceptionMessage('Functions can only be declared at the top level');
-        $this->createParser('fn outer() { fn inner() { } }')->parse();
+        $this->parse('fn outer() { fn inner() { } }');
     }
 
     public function test_the_old_function_keyword_says_to_use_fn()
     {
         $this->expectExceptionMessage('Declare functions with fn, not function on line 1');
-        $this->createParser('function add($a, $b) { return $a + $b; }')->parse();
+        $this->parse('function add($a, $b) { return $a + $b; }');
     }
 
     public function test_return_outside_a_function_is_a_parse_error()
     {
         $this->expectExceptionMessage('Cannot use return outside of a function');
-        $this->createParser('while (true) { return 1; }')->parse();
+        $this->parse('while (true) { return 1; }');
     }
 
     public function test_break_in_a_function_cannot_reach_the_callers_loop()
     {
         $this->expectExceptionMessage('Cannot use break outside of a loop');
-        $this->createParser('fn stop() { break; } while (true) { stop(); }')->parse();
+        $this->parse('fn stop() { break; } while (true) { stop(); }');
     }
 
     public function test_code_gen_for_functions_and_globals()

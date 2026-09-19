@@ -1,0 +1,5 @@
+Maximum call depth of 10000 exceeded calling deep
+21
+-> on line 1
+deep on line 1
+top level on line 1

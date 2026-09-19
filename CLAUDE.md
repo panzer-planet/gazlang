@@ -109,10 +109,12 @@ Everything is checked differentially: one side is the spec, the other must match
 byte. **Break a checker on purpose before believing a run that finds nothing**: several first
 versions of a fuzzer or corpus passed everything and caught nothing.
 
-- **The PHP tests run on the PHP VM.** `GazLangTestCase::executeCode()` compiles every snippet,
-  writes it as bytecode and reads it back (so the suite tests the format too), and runs it;
-  `vm/snippets.php` collects the snippets for the C VM. Order matters as much as results: the
-  VM's `KEY_CHECK` exists so a bad key fails before later keys and the value run.
+- **The PHP tests run `bin/gazlang`**: every `GazLangTestCase` helper (`executeCode()`,
+  `parse()`, `lex()`, `generateCode()`, `runProgram()`, `cli()`) runs the optimised C build as
+  a process from the project root, a snippet piped in, and a failure is a `ProgramError`
+  holding what it printed after `Error: `. `vm/snippets.php` collects the snippets, as JSON,
+  for `CVMTest`, which runs them again under the sanitizers. Order matters as much as results:
+  the VM's `KEY_CHECK` exists so a bad key fails before later keys and the value run.
 - **The ports print what their corpora record**: each `X.gaz` in `tests/lexer_corpus`,
   `tests/parser_corpus` and `tests/codegen_corpus` has what `--tokens`, `--ast` or `-c` must
   print next to it (`X.tokens`, `X.ast` and `X.piped.ast`, `X.code` and `X.piped.code`; the
@@ -169,12 +171,9 @@ versions of a fuzzer or corpus passed everything and caught nothing.
   against `fgetcsv` on `tests/csv/`, `lib/chars.gaz` against `Lexer::is_*` for all 256 bytes.
 - **The README's examples are tests**: `ReadmeTest` runs every ```` ```gaz ```` block followed
   by an output block and requires exactly that output.
-- **Under pcov**, deep PHP recursion segfaults (exit 139, no test named) before the call depth
-  limit. The PHP VM's calls are frames in an array, but a method run from inside an
-  instruction (`to_string()` printing itself) nests `execute()` on PHP's stack, so tests of
-  that go through the CLI, and `tests/vm_corpus/depth.gaz` runs its PHP side in its own process
-  (`CVM::DEEP`). Run the suite
-  with pcov on at least sometimes: a segfault it causes stays invisible without it.
+- **Under pcov**, deep PHP recursion segfaults (exit 139) before the call depth limit. The
+  tests run no GazLang in PHP any more; only `progress.php` does, and there
+  `tests/vm_corpus/depth.gaz` runs its PHP side in its own process (`CVM::DEEP`).
 
 Judge new features by what they cost **in C**, not only in PHP: value semantics suit
 reference counting, and anything that leans on PHP behaviour (hashing, string conversion, float

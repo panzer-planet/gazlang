@@ -3,44 +3,37 @@
 namespace GazLang\Tests;
 
 use Exception;
-use GazLang\Lexer\Token;
 
 class OperatorTest extends GazLangTestCase
 {
     public function test_lexes_new_operators()
     {
-        $lexer = $this->createLexer('< <= > >= != ! && || == =');
         $expected = [
-            Token::LESS_THAN, Token::LESS_EQUALS, Token::GREATER_THAN, Token::GREATER_EQUALS,
-            Token::NOT_EQUALS, Token::NOT, Token::AND, Token::OR, Token::EQUALS, Token::ASSIGN, Token::EOF,
+            'LESS_THAN', 'LESS_EQUALS', 'GREATER_THAN', 'GREATER_EQUALS',
+            'NOT_EQUALS', 'NOT', 'AND', 'OR', 'EQUALS', 'ASSIGN',
         ];
 
-        foreach ($expected as $type) {
-            $this->assertEquals($type, $lexer->get_next_token()->type);
-        }
+        $this->assertSame($expected, array_column($this->lex('< <= > >= != ! && || == ='), 0));
     }
 
     public function test_lexes_bitwise_operators()
     {
         // Longest match: && before &=, and &= before &; <<= before << before <= before <
-        $lexer = $this->createLexer('& && &= | || |= ^ ^= ~ << <<= >> >>= <=> <=');
         $expected = [
-            Token::BIT_AND, Token::AND, Token::BIT_AND_ASSIGN,
-            Token::BIT_OR, Token::OR, Token::BIT_OR_ASSIGN,
-            Token::BIT_XOR, Token::BIT_XOR_ASSIGN, Token::BIT_NOT,
-            Token::SHIFT_LEFT, Token::SHIFT_LEFT_ASSIGN, Token::SHIFT_RIGHT, Token::SHIFT_RIGHT_ASSIGN,
-            Token::SPACESHIP, Token::LESS_EQUALS, Token::EOF,
+            'BIT_AND', 'AND', 'BIT_AND_ASSIGN',
+            'BIT_OR', 'OR', 'BIT_OR_ASSIGN',
+            'BIT_XOR', 'BIT_XOR_ASSIGN', 'BIT_NOT',
+            'SHIFT_LEFT', 'SHIFT_LEFT_ASSIGN', 'SHIFT_RIGHT', 'SHIFT_RIGHT_ASSIGN',
+            'SPACESHIP', 'LESS_EQUALS',
         ];
 
-        foreach ($expected as $type) {
-            $this->assertEquals($type, $lexer->get_next_token()->type);
-        }
+        $this->assertSame($expected, array_column($this->lex('& && &= | || |= ^ ^= ~ << <<= >> >>= <=> <='), 0));
     }
 
     public function test_a_backtick_is_invalid()
     {
-        $this->expectException(Exception::class);
-        $this->createLexer('`')->get_next_token();
+        $this->expectException(ProgramError::class);
+        $this->lex('`');
     }
 
     /**
@@ -177,7 +170,7 @@ class OperatorTest extends GazLangTestCase
     public function test_assignment_operator_parse_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
-        $this->createParser($code)->parse();
+        $this->parse($code);
     }
 
     public static function assignmentOperatorParseErrors(): array
@@ -244,7 +237,7 @@ class OperatorTest extends GazLangTestCase
     public function test_coalesce_parse_errors()
     {
         $this->expectExceptionMessage("Unexpected ';' on line 1");
-        $this->createParser('echo $a ??;')->parse();
+        $this->parse('echo $a ??;');
     }
 
     public function test_modulo()
@@ -334,7 +327,7 @@ class OperatorTest extends GazLangTestCase
     public function test_ternary_parse_errors()
     {
         $this->expectExceptionMessage("Expected ':' but found ';' on line 1");
-        $this->createParser('echo 1 ? 2;')->parse();
+        $this->parse('echo 1 ? 2;');
     }
 
     public function test_code_gen_for_ternary()
@@ -374,7 +367,7 @@ class OperatorTest extends GazLangTestCase
     public function test_strict_equality_operator_is_gone()
     {
         $this->expectExceptionMessage("Unexpected '=' on line 1");
-        $this->createParser('echo 1 === 1;')->parse();
+        $this->parse('echo 1 === 1;');
     }
 
     public function test_chained_equality_is_left_associative()
@@ -481,7 +474,7 @@ class OperatorTest extends GazLangTestCase
     public function test_assignment_to_non_variable_throws()
     {
         $this->expectException(Exception::class);
-        $this->createParser('1 + $x = 3;')->parse();
+        $this->parse('1 + $x = 3;');
     }
 
     public function test_comparison_in_if_condition()

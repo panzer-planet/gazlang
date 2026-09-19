@@ -353,7 +353,7 @@ final class CVM
         if ($snippets === null) {
             $snippets = [];
             foreach (file(self::ROOT.'/tests/vm_snippets.txt', FILE_IGNORE_NEW_LINES) ?: [] as $line) {
-                $text = (new Lexer($line))->get_next_token()->value;
+                $text = json_decode($line, flags: JSON_THROW_ON_ERROR);
                 $snippets[substr(sha1($text), 0, 12)] = $text;
             }
         }

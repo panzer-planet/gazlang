@@ -2,8 +2,6 @@
 
 namespace GazLang\Tests;
 
-use GazLang\Lexer\Lexer;
-
 /**
  * lib/csv.gaz against PHP's fgetcsv, and examples/csv_report.gaz end to end
  *
@@ -53,7 +51,7 @@ class CsvTest extends GazLangTestCase
         }
 
         $code = 'include "'.self::ROOT.'/lib/format.gaz"; foreach ('
-            .'['.implode(', ', array_map(fn ($n) => is_float($n) ? Lexer::format_float($n) : (string) $n, $numbers)).']'
+            .'['.implode(', ', array_map(fn ($n) => var_export($n, true), $numbers)).']'
             .' as $n) { echo format_number($n) .. " " .. format_number($n, 1) .. " " .. format_number($n, 0); }';
         $expected = implode('', array_map(fn ($n) => number_format($n, 2).' '.number_format($n, 1).' '.number_format($n, 0)."\n", $numbers));
 

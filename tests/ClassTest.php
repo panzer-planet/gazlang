@@ -2,8 +2,6 @@
 
 namespace GazLang\Tests;
 
-use GazLang\GazLangError;
-
 class ClassTest extends GazLangTestCase
 {
     private const ACCOUNT = <<<'CODE'
@@ -544,9 +542,7 @@ class ClassTest extends GazLangTestCase
      */
     public function test_runaway_construction_is_located_where_the_object_is_made(string $code, string $message)
     {
-        // Through the CLI, which restarts itself without pcov (see FunctionTest)
-        $command = sprintf('printf %%s %s | %s %s 2>&1', escapeshellarg($code), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang-php'));
-        exec($command, $output, $exit_code);
+        [$output, $exit_code] = self::cli([], $code);
 
         // The message, then the capped trace: 10 innermost calls, what was left out, 10 outermost
         $this->assertSame($message, $output[0]);
@@ -566,10 +562,8 @@ class ClassTest extends GazLangTestCase
 
     public function test_runaway_to_string_is_a_gazlang_error()
     {
-        // Through the CLI, which restarts itself without pcov (see FunctionTest)
         $code = 'class Loop { fn to_string() { return "{#}"; } } echo Loop();';
-        $command = sprintf('echo %s | %s %s 2>&1', escapeshellarg($code), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang-php'));
-        exec($command, $output, $exit_code);
+        [$output, $exit_code] = self::cli([], $code);
 
         $this->assertSame('Error: Maximum call depth of 10000 exceeded calling Loop.to_string on line 1', $output[0]);
         $this->assertSame(1, $exit_code);
@@ -652,7 +646,7 @@ class ClassTest extends GazLangTestCase
     public function test_syntax_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
-        $this->createParser($code)->parse();
+        $this->parse($code);
     }
 
     public static function syntaxErrors(): array
@@ -736,7 +730,7 @@ class ClassTest extends GazLangTestCase
     {
         // Nothing here is a keyword any more, so the errors would otherwise be about names
         $this->expectExceptionMessage($message);
-        $this->createParser($code)->parse();
+        $this->parse($code);
     }
 
     public static function miscapitalisedKeywords(): array
@@ -754,7 +748,7 @@ class ClassTest extends GazLangTestCase
     public function test_an_ordinary_undefined_name_gets_no_keyword_hint()
     {
         $this->expectExceptionMessage('Undefined function or constant: missing');
-        $this->createParser('echo missing;')->parse();
+        $this->parse('echo missing;');
     }
 
     /**
@@ -765,9 +759,9 @@ class ClassTest extends GazLangTestCase
         // Naming things Return and If is the point of the rule, so an error next to one must
         // not tell the reader to write the keyword they did not mean
         try {
-            $this->createParser($code)->parse();
+            $this->parse($code);
             $this->fail('expected a parse error');
-        } catch (GazLangError $e) {
+        } catch (ProgramError $e) {
             $this->assertStringNotContainsString('keywords are lowercase', $e->getMessage());
         }
     }

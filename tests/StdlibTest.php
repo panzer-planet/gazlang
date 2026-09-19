@@ -2,13 +2,6 @@
 
 namespace GazLang\Tests;
 
-use GazLang\CodeGenerator\CodeGenerator;
-use GazLang\GazLangError;
-use GazLang\Runtime\Builtins;
-use GazLang\Runtime\MapValue;
-use GazLang\Runtime\Values;
-use GazLang\VM\VM;
-
 class StdlibTest extends GazLangTestCase
 {
     public function test_values_gives_a_map_s_values_in_order_and_a_list_as_it_is()
@@ -92,15 +85,10 @@ class StdlibTest extends GazLangTestCase
 
     public function test_print_and_print_error_come_out_in_the_order_they_were_written()
     {
-        // The CLI runs itself again to set pcov and the JIT, which must hand the program this
-        // process's own streams: relaying its output would let standard error overtake it
+        // Through a shell, where both streams are one pipe: standard output must be flushed
+        // before anything goes to standard error
         $program = 'print("1-out "); print_error("2-err "); print("3-out "); print_error("4-err ");';
-        exec(sprintf(
-            'echo %s | %s %s 2>&1',
-            escapeshellarg($program),
-            escapeshellarg(PHP_BINARY),
-            escapeshellarg(self::ROOT.'/bin/gazlang-php')
-        ), $output);
+        exec(sprintf('echo %s | %s 2>&1', escapeshellarg($program), escapeshellarg(self::binary())), $output);
 
         $this->assertSame(['1-out 2-err 3-out 4-err'], $output);
     }
@@ -139,15 +127,9 @@ class StdlibTest extends GazLangTestCase
 
     public function test_print_error_writes_to_standard_error()
     {
-        // Through the CLI, the only place the two streams are really separate
-        $program = 'print("out"); print_error("problem"); print("put");';
-        $gazlang = sprintf('echo %s | %s %s', escapeshellarg($program), escapeshellarg(PHP_BINARY), escapeshellarg(self::ROOT.'/bin/gazlang-php'));
+        [$out, $err] = self::gazlang([], 'print("out"); print_error("problem"); print("put");');
 
-        exec("{$gazlang} 2>/dev/null", $out);
-        exec("{$gazlang} 2>&1 >/dev/null", $err);
-
-        $this->assertSame(['output'], $out);
-        $this->assertSame(['problem'], $err);
+        $this->assertSame(['output', 'problem'], [$out, $err]);
     }
 
     public function test_slice_strings_and_arrays()
@@ -269,11 +251,7 @@ class StdlibTest extends GazLangTestCase
 
     public function test_exit_code_is_the_process_exit_code()
     {
-        $command = sprintf('echo %s | %s %s', escapeshellarg('echo "bye"; exit(7);'), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang-php'));
-        exec($command, $output, $exit_code);
-
-        $this->assertSame(['bye'], $output);
-        $this->assertSame(7, $exit_code);
+        $this->assertSame(["bye\n", '', 7], self::gazlang([], 'echo "bye"; exit(7);'));
     }
 
     /**
@@ -328,7 +306,6 @@ class StdlibTest extends GazLangTestCase
             "true\n[1, [2, 3], 0]\nfalse\n",
             $this->executeCode('$b = builtins(); echo $b == builtins(); echo [$b["len"], $b["slice"], $b["builtins"]]; echo has_key($b, "print_r");')
         );
-        $this->assertEquals(Values::toString(new MapValue(Builtins::ARITIES))."\n", $this->executeCode('echo builtins();'));
     }
 
     public function test_read_file()
@@ -395,7 +372,7 @@ class StdlibTest extends GazLangTestCase
             try {
                 $this->executeCode("real_path(\"{$path}\");");
                 $this->fail("real_path(\"{$path}\") should fail");
-            } catch (GazLangError $e) {
+            } catch (ProgramError $e) {
                 $this->assertStringStartsWith('No such file or directory: ', $e->getMessage());
             }
         }
@@ -433,60 +410,28 @@ class StdlibTest extends GazLangTestCase
 
     public function test_read_stdin()
     {
-        exec(sprintf(
-            'printf %s | %s %s -f %s',
-            escapeshellarg("two\nlines"),
-            escapeshellarg(PHP_BINARY),
-            escapeshellarg(__DIR__.'/../bin/gazlang-php'),
-            escapeshellarg(__DIR__.'/fixtures/read_stdin.gaz')
-        ), $output, $exit_code);
-
-        $this->assertSame(['[two', 'lines]', '0'], $output);
-        $this->assertSame(0, $exit_code);
+        $this->assertSame([['[two', 'lines]', '0'], 0], self::cli(['-f', 'tests/fixtures/read_stdin.gaz'], "two\nlines"));
     }
 
     public function test_args()
     {
-        $vm = new VM((new CodeGenerator($this->createParser('echo args(); echo len(args());')->parse()))->compile(), ['a', '-b']);
-
-        ob_start();
-        $vm->run();
-        $this->assertEquals("[\"a\", \"-b\"]\n2\n", ob_get_clean());
+        $this->assertSame(["[\"a\", \"-b\"]\n2\n", '', 0], self::gazlang(['--', 'a', '-b'], 'echo args(); echo len(args());'));
     }
 
     public function test_cli_passes_remaining_arguments_to_the_program()
     {
-        exec(sprintf(
-            'echo %s | %s %s -- -x two',
-            escapeshellarg('echo args();'),
-            escapeshellarg(PHP_BINARY),
-            escapeshellarg(__DIR__.'/../bin/gazlang-php')
-        ), $output, $exit_code);
-
-        $this->assertSame(['["-x", "two"]'], $output);
-        $this->assertSame(0, $exit_code);
+        $this->assertSame([['["-x", "two"]'], 0], self::cli(['--', '-x', 'two'], 'echo args();'));
     }
 
     public function test_cli_rejects_a_file_it_cannot_read()
     {
         // What it says about the file goes to standard error, like every other diagnostic
-        exec(sprintf('%s %s -f %s 2>&1', escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang-php'), escapeshellarg(__DIR__)), $output, $exit_code);
-
-        $this->assertSame(['Error: Cannot read file: '.__DIR__], $output);
-        $this->assertSame(1, $exit_code);
+        $this->assertSame([['Error: Cannot read file: '.__DIR__], 1], self::cli(['-f', __DIR__]));
     }
 
     public function test_cli_rejects_unknown_options_instead_of_dropping_them()
     {
-        exec(sprintf(
-            'echo %s | %s %s -n 5 2>&1',
-            escapeshellarg('echo args();'),
-            escapeshellarg(PHP_BINARY),
-            escapeshellarg(__DIR__.'/../bin/gazlang-php')
-        ), $output, $exit_code);
-
-        $this->assertSame(['Error: Unknown option -n (put program arguments after --)'], $output);
-        $this->assertSame(1, $exit_code);
+        $this->assertSame([['Error: Unknown option -n (put program arguments after --)'], 1], self::cli(['-n', '5'], 'echo args();'));
     }
 
     /**
@@ -580,7 +525,7 @@ class StdlibTest extends GazLangTestCase
         $file = tempnam(sys_get_temp_dir(), 'gaz');
         file_put_contents($file, 'echo rand_int(-9223372036854775807 - 1, 9223372036854775807);');
         try {
-            foreach ([[CVM::BINARY], ['bin/gazlang-php']] as $gazlang) {
+            foreach ([[CVM::BINARY], ['bin/gazlang']] as $gazlang) {
                 [[$first], [$second]] = CVM::processes([[...$gazlang, '-f', $file], [...$gazlang, '-f', $file]]);
                 $this->assertMatchesRegularExpression('/^-?\d+\n$/', $first);
                 $this->assertNotSame($first, $second, implode(' ', $gazlang));
@@ -602,7 +547,7 @@ class StdlibTest extends GazLangTestCase
             try {
                 $this->executeCode("{$call};");
                 $this->fail("{$call} ran");
-            } catch (GazLangError $e) {
+            } catch (ProgramError $e) {
                 $this->assertStringStartsWith($message, $e->getMessage());
             }
         }

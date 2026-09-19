@@ -2,8 +2,6 @@
 
 namespace GazLang\Tests;
 
-use GazLang\GazLangError;
-
 class TryCatchTest extends GazLangTestCase
 {
     public function test_running_out_of_call_depth_can_be_caught()
@@ -25,11 +23,11 @@ class TryCatchTest extends GazLangTestCase
         try {
             $this->executeCode("\n\nerror(\"Syntax error in input on line 7\");");
             $this->fail('Expected an error');
-        } catch (GazLangError $e) {
+        } catch (ProgramError $e) {
             $this->assertSame('Syntax error in input on line 7', $e->getMessage());
-            // The location is still recorded, for catch
-            $this->assertSame(3, $e->line_number);
         }
+        // The location is still recorded, for catch
+        $this->assertSame("3\n", $this->executeCode("\n\ntry { error(\"Syntax error in input on line 7\"); } catch (Error \$e) { echo \$e.line; }"));
     }
 
     /**
@@ -38,7 +36,7 @@ class TryCatchTest extends GazLangTestCase
     public function test_parse_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
-        $this->createParser($code)->parse();
+        $this->parse($code);
     }
 
     public static function parseErrors(): array
@@ -152,7 +150,7 @@ class TryCatchTest extends GazLangTestCase
         try {
             $this->executeCode('class Loud { fn to_string() { echo "to_string ran"; return "loud"; } } error(Loud());');
             $this->fail('Expected an error');
-        } catch (GazLangError $e) {
+        } catch (ProgramError $e) {
             $this->assertSame('loud', $e->getMessage());
         }
     }

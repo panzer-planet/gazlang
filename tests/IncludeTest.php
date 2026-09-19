@@ -2,30 +2,13 @@
 
 namespace GazLang\Tests;
 
-use GazLang\CodeGenerator\CodeGenerator;
-use GazLang\Lexer\Lexer;
-use GazLang\Parser\Parser;
-use GazLang\VM\VM;
-
 class IncludeTest extends GazLangTestCase
 {
-    private const FIXTURES = __DIR__.'/fixtures/include/';
-
-    private function parserFor(string $file): Parser
-    {
-        return new Parser(new Lexer(file_get_contents(self::FIXTURES.$file)), self::FIXTURES.$file);
-    }
+    private const FIXTURES = 'tests/fixtures/include/';
 
     private function runFile(string $file): string
     {
-        ob_start();
-        try {
-            (new VM((new CodeGenerator($this->parserFor($file)->parse()))->compile()))->run();
-        } finally {
-            $output = ob_get_clean();
-        }
-
-        return $output;
+        return self::succeed(['-f', self::FIXTURES.$file]);
     }
 
     public function test_included_files_run_in_place_once_relative_to_the_including_file()
@@ -48,7 +31,7 @@ class IncludeTest extends GazLangTestCase
     public function test_missing_file()
     {
         $this->expectExceptionMessage('Cannot include file: nope.gaz');
-        $this->createParser('include "nope.gaz";')->parse();
+        $this->parse('include "nope.gaz";');
     }
 
     public function test_unreadable_file_is_an_error_not_an_empty_file()
@@ -64,7 +47,7 @@ class IncludeTest extends GazLangTestCase
                 $this->markTestSkipped('Running as a user that can read any file');
             }
             $this->expectExceptionMessage('Cannot include file: secret.gaz');
-            (new Parser(new Lexer('include "secret.gaz";'), "{$dir}/main.gaz"))->parse();
+            self::succeed(['--ast', '-f', "{$dir}/main.gaz"]);
         } finally {
             chmod("{$dir}/secret.gaz", 0644);
             unlink("{$dir}/secret.gaz");
@@ -82,12 +65,12 @@ class IncludeTest extends GazLangTestCase
     public function test_include_path_must_be_a_string_literal()
     {
         $this->expectExceptionMessage("Expected a string but found '\$file'");
-        $this->createParser('include $file;')->parse();
+        $this->parse('include $file;');
     }
 
     public function test_functions_from_included_files_are_code_generated()
     {
-        $code = (new CodeGenerator($this->parserFor('main.gaz')->parse()))->generate();
+        $code = self::succeed(['-c', '-f', self::FIXTURES.'main.gaz']);
 
         // The included function is a block of its own, like any other
         $this->assertStringContainsString("CALL square 1\nPRINT\n", $code);

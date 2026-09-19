@@ -21,9 +21,10 @@ design is in [CLAUDE.md](../CLAUDE.md); what the language *is* is in
 
 ## The PHP VM
 
-`GazLangTestCase::executeCode()` compiles every snippet, writes it as bytecode and reads it
-back, so every test also exercises the format, and runs it on the PHP VM. `vm/snippets.php`
-collects the snippets, and the C VM must print what the PHP VM did for each (below).
+The PHPUnit tests run `bin/gazlang`: `GazLangTestCase::executeCode()` pipes a snippet into it
+from the project root, and `parse()`, `lex()` and `generateCode()` do the same with `--ast`,
+`--tokens` and `-c`. `vm/snippets.php` collects the snippets, and the C VM under the
+sanitizers must print for each what the PHP VM did (below).
 
 Order matters as much as results. The VM's `KEY_CHECK` exists so that a bad key fails before
 later keys and the value are evaluated.
@@ -94,7 +95,7 @@ bin/gazlang-php -f examples/functions.gaz                 # the same on the PHP 
 
 ## Tests
 
-- **PHPUnit** for the implementation. Snippets run on the PHP VM, and later on the C VM.
+- **PHPUnit** for the implementation. Snippets run on `bin/gazlang`, and again under the sanitizers in `CVMTest`.
 - **`tests/gaz/**/*_test.gaz`** are GazLang programs that must print exactly their
   `*_test.expected` file (`GazProgramTest`), on the PHP VM, and on the C VM through `CVMTest`.
   `tests/gaz/check.gaz` gives `check($label, $actual, $expected)`, which prints `ok <label>` or
@@ -148,11 +149,8 @@ bin/gazlang-php -f examples/functions.gaz                 # the same on the PHP 
 - `lib/json.gaz` is checked against PHP's own `json_decode` on every `tests/json/y_*.json` and
   `n_*.json`; `lib/csv.gaz` against `fgetcsv`.
 
-Two environment notes:
+One environment note:
 
-- The suite runs **in-process under pcov**, where deep PHP recursion segfaults before the
-  call-depth limit is reached. The VM's calls don't recurse in PHP, but a `to_string()` run
-  from inside an instruction does, so a test of that nesting deeply goes through the CLI.
 - `bin/gazlang-php` **restarts itself once** (`GAZLANG_RESTARTED`) to set `pcov.enabled=0` and
   `opcache.jit=1235`, through `proc_open` with its own streams so a program's stdout and stderr
   stay in the order it wrote them.

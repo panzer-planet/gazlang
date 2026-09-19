@@ -2,8 +2,6 @@
 
 namespace GazLang\Tests;
 
-use GazLang\GazLangError;
-
 /**
  * const NAME = value; at the top level and in a class: the parser works the value out, and a use is that value
  */
@@ -84,7 +82,7 @@ class ConstTest extends GazLangTestCase
             try {
                 $this->executeCode('class Token { const EOF = "EOF"; } '.$code);
                 $this->fail("Expected an error for {$code}");
-            } catch (GazLangError $e) {
+            } catch (ProgramError $e) {
                 $this->assertStringContainsString($message, $e->getMessage());
             }
         }
@@ -226,7 +224,7 @@ class ConstTest extends GazLangTestCase
         try {
             $this->executeCode($code);
             $this->fail('Expected an error');
-        } catch (GazLangError $e) {
+        } catch (ProgramError $e) {
             $this->assertStringContainsString($message, $e->getMessage());
         }
     }
@@ -242,7 +240,7 @@ class ConstTest extends GazLangTestCase
         try {
             $this->executeCode('const If = 1; echo If 2;');
             $this->fail('Expected an error');
-        } catch (GazLangError $e) {
+        } catch (ProgramError $e) {
             $this->assertSame("Expected ';' but found '2' on line 1", $e->getMessage());
         }
     }

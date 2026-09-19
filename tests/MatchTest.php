@@ -2,8 +2,6 @@
 
 namespace GazLang\Tests;
 
-use GazLang\Lexer\Token;
-
 /**
  * match: how it parses, what it refuses, and the code it compiles to
  *
@@ -13,10 +11,7 @@ class MatchTest extends GazLangTestCase
 {
     public function test_match_and_default_are_keywords_only_in_lowercase()
     {
-        $lexer = $this->createLexer('match default MATCH Default');
-        foreach ([Token::MATCH, Token::DEFAULT, Token::IDENTIFIER, Token::IDENTIFIER, Token::EOF] as $type) {
-            $this->assertEquals($type, $lexer->get_next_token()->type);
-        }
+        $this->assertSame(['MATCH', 'DEFAULT', 'IDENTIFIER', 'IDENTIFIER'], array_column($this->lex('match default MATCH Default'), 0));
     }
 
     public function test_a_variable_may_still_be_called_default()
@@ -38,7 +33,7 @@ class MatchTest extends GazLangTestCase
     public function test_parse_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
-        $this->createParser($code)->parse();
+        $this->parse($code);
     }
 
     public static function parseErrors(): array
