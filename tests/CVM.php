@@ -64,6 +64,17 @@ final class CVM
     }
 
     /**
+     * The entries of vm/passing.txt whose file or snippet is no more, since a test changed or
+     * went: vm/progress.php --update removes them
+     *
+     * @return list<string>
+     */
+    public static function gone(): array
+    {
+        return array_values(array_diff(self::passing(), self::candidates()));
+    }
+
+    /**
      * Every entry worth trying: every .gaz file under the directories that hold programs, the
      * snippets and the hand-written bytecode
      *

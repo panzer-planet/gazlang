@@ -102,7 +102,8 @@ nothing**: several first versions of a harness or corpus passed everything and c
   is one; the checkout's path as `<root>`). A source entry runs from source, so the built-in
   compiler compiles each one under the sanitizers; a snippet is piped in from the project root,
   as it has no file. `progress.php` adds a candidate the compiler accepts and that doesn't leak;
-  the list only grows, except when a snippet or fixture itself goes.
+  the list only grows, except when a snippet or fixture itself goes, which `--update` drops
+  (`CVM::gone()`; `CVMTest` fails naming them until then).
 - **The front end prints what its corpora record**: each `X.gaz` in `tests/lexer_corpus`,
   `tests/parser_corpus` and `tests/codegen_corpus` has what `--tokens`, `--ast` or `-c` must
   print next to it (`X.tokens`, `X.ast` and `X.piped.ast`, `X.code` and `X.piped.code`; the

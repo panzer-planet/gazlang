@@ -3,9 +3,10 @@
 // Runs every entry of vm/passing.txt and every candidate on the C VM (the sanitized build, or
 // the one GAZVM names) and says which print something other than tests/expected records.
 //   php vm/progress.php            report
-//   php vm/progress.php --update   also add the new candidates to vm/passing.txt, record what every
-//                                  entry prints in tests/expected, and remove what nothing
-//                                  records: review that diff, since it is what the VM is held to
+//   php vm/progress.php --update   also add the new candidates to vm/passing.txt, drop the entries
+//                                  whose file or snippet is gone, record what every entry prints
+//                                  in tests/expected, and remove what nothing records: review
+//                                  that diff, since it is what the VM is held to
 //   php vm/progress.php FILTER     only the entries containing FILTER, showing the differences
 // A candidate is new when the compiler built in accepts it (a file it refuses tests the
 // compiler, whose corpora cover that) and it runs without leaking.
@@ -20,7 +21,12 @@ $filter = array_values(array_filter($args, fn ($a) => $a !== '--update'))[0] ?? 
 $wanted = fn (string $entry) => $filter === null || str_contains($entry, $filter);
 
 CVM::build();
-$passing = array_values(array_filter(CVM::passing(), $wanted));
+// Entries whose test changed or went, so there is nothing left to run
+$gone = CVM::gone();
+foreach (array_filter($gone, $wanted) as $entry) {
+    echo "GONE {$entry}".($update ? ': removed' : ': --update removes it')."\n";
+}
+$passing = array_values(array_filter(array_diff(CVM::passing(), $gone), $wanted));
 $candidates = array_values(array_filter(array_diff(CVM::candidates(), CVM::passing()), $wanted));
 // Which candidates compile; a .gzb one is bytecode already
 $compile = [];
@@ -68,7 +74,7 @@ foreach (CVM::runC([...$passing, ...$candidates]) as $entry => $c) {
 
 printf("%d of %d entries print what is recorded; %d new\n", count($same), count($same) + count($differ), count($new));
 if ($update) {
-    $all = array_values(array_unique([...CVM::passing(), ...array_keys($new)]));
+    $all = array_values(array_unique([...array_diff(CVM::passing(), $gone), ...array_keys($new)]));
     sort($all);
     file_put_contents(__DIR__.'/passing.txt', implode("\n", $all)."\n");
     printf("vm/passing.txt: %d entries\n", count($all));

@@ -26,7 +26,7 @@ class CVMTest extends TestCase
     public static function entries(): array
     {
         $entries = [];
-        foreach (CVM::passing() as $entry) {
+        foreach (array_diff(CVM::passing(), CVM::gone()) as $entry) {
             $entries[$entry] = [$entry];
         }
 
@@ -50,6 +50,11 @@ class CVMTest extends TestCase
         if (str_starts_with($entry, 'tests/bytecode_corpus/')) {
             $this->assertSame(str_starts_with(basename($entry), 'error_'), $expected[2] !== 0, "{$entry}: only files named error_* are refused");
         }
+    }
+
+    public function test_every_entry_still_has_its_file_or_snippet()
+    {
+        $this->assertSame([], CVM::gone(), 'in vm/passing.txt, but gone: php vm/progress.php --update removes them');
     }
 
     public function test_everything_in_tests_expected_belongs_to_an_entry()
