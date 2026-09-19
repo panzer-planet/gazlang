@@ -199,10 +199,10 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
 
 ## Status and what is next
 
-- **CI** (`.github/workflows/ci.yml`) runs on Ubuntu for every push: it builds gazlang and
-  rebuilds its compiler before PHP is even installed (the bootstrap needs only a C compiler),
-  then the suite, the whole-repository group, phpstan and pint. There is no macOS job; macOS is
-  where it is developed.
+- **CI** (`.github/workflows/ci.yml`) runs on Ubuntu and on macOS, Apple silicon and Intel,
+  for every push: it builds gazlang and rebuilds its compiler before PHP is even installed (the
+  bootstrap needs only a C compiler), then the suite and the whole-repository group; phpstan and
+  pint run on Ubuntu only. Development is on an Intel Mac.
 - **Speed**: the same program takes gazlang 0.4 to 1.6 times what it takes PHP (JIT or not),
   and Python 3.9 1.4 to 4 times what it takes gazlang, except where Python's builtins do the
   work in C (compiling from source included on all sides; gazlang's compile is about 10ms). If

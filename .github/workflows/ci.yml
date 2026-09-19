@@ -5,8 +5,15 @@ on:
   pull_request:
 
 jobs:
-  linux:
-    runs-on: ubuntu-latest
+  test:
+    strategy:
+      # One platform failing shouldn't hide whether the others pass
+      fail-fast: false
+      matrix:
+        # Linux (gcc, and LeakSanitizer in the sanitized builds), and macOS on Apple silicon
+        # and on Intel (where it is developed)
+        os: [ubuntu-latest, macos-latest, macos-15-intel]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
 
@@ -30,7 +37,10 @@ jobs:
         run: vendor/bin/phpunit
       - name: The self-hosted drivers on big inputs
         run: vendor/bin/phpunit --group whole-repository
+      # The same on every platform, so once is enough
       - name: phpstan
+        if: runner.os == 'Linux'
         run: vendor/bin/phpstan analyse --memory-limit=1G
       - name: pint
+        if: runner.os == 'Linux'
         run: vendor/bin/pint --test
