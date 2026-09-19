@@ -37,16 +37,17 @@ abstract class GazLangTestCase extends TestCase
      *
      * @param  list<string>  $args  The command line after the binary
      * @param  string  $stdin  What it reads on standard input
+     * @param  array<string, string>  $env  Environment variables to add
      * @return array{0: string, 1: string, 2: int} Standard output, standard error and the exit code
      */
-    protected static function gazlang(array $args, string $stdin = ''): array
+    protected static function gazlang(array $args, string $stdin = '', array $env = []): array
     {
         self::binary();
         // Files rather than pipes, so a program that fills one stream can't block on it
         $files = [tempnam(sys_get_temp_dir(), 'gazin'), tempnam(sys_get_temp_dir(), 'gazout'), tempnam(sys_get_temp_dir(), 'gazerr')];
         file_put_contents($files[0], $stdin);
         try {
-            $process = proc_open([self::GAZLANG, ...$args], [['file', $files[0], 'r'], ['file', $files[1], 'w'], ['file', $files[2], 'w']], $pipes, self::ROOT);
+            $process = proc_open([self::GAZLANG, ...$args], [['file', $files[0], 'r'], ['file', $files[1], 'w'], ['file', $files[2], 'w']], $pipes, self::ROOT, $env === [] ? null : $env + getenv());
             if ($process === false) {
                 throw new \RuntimeException('Cannot run '.self::GAZLANG);
             }
@@ -188,12 +189,13 @@ abstract class GazLangTestCase extends TestCase
      * standard output, or its error as a ProgramError when it exits with a code other than 0
      *
      * @param  list<string>  $args  The options
+     * @param  array<string, string>  $env  Environment variables to add
      *
      * @throws ProgramError If it fails
      */
-    protected static function succeed(array $args, string $input = ''): string
+    protected static function succeed(array $args, string $input = '', array $env = []): string
     {
-        [$out, $err, $code] = self::gazlang($args, $input);
+        [$out, $err, $code] = self::gazlang($args, $input, $env);
         if ($code === 0) {
             return $out.$err;
         }

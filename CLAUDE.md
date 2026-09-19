@@ -60,7 +60,8 @@ vendor/bin/pint                     # formatting
   PascalCase, constants UPPERCASE. The lexer's and parser's methods are named after the grammar
   rule or step they read (`get_next_token()`, `function_call()`, `left_associative()`).
 - **C** (`vm/`): plain C11 plus POSIX (`-D_DEFAULT_SOURCE`, which glibc needs for
-  `open_memstream`, `realpath` and `memmem`), libc, libm and pthreads only, built warning-free by
+  `open_memstream`, `realpath` and `memmem`), libc, libm and pthreads, and OpenSSL in `net.c`
+  only (on by default, `make TLS=0` without, `GAZ_TLS` saying which), built warning-free by
   clang and gcc, commented where the C isn't obvious (a
   flexible array member, a `goto` into shared code), for readers who know a little C.
 - **PHP** (the tests and `vm/*.php`): 8.5 or later, PSR-4 under `GazLang\Tests`, methods
@@ -76,7 +77,7 @@ vendor/bin/pint                     # formatting
 - `vm/`: the VM in C. `gazvm.h` says which file does what: `value.c` and `ops.c` are what values
   mean (operators, truthiness, printing, keys, indexing, write paths), `builtins.c` the builtins
   and their arities (`builtin_info[]`), `load.c` reading and checking bytecode, `vm.c` running it
-  and the CLI, `gc.c` the cycle collector.
+  and the CLI, `gc.c` the cycle collector, `net.c` sockets and TLS.
 - `lib/`: the standard library in GazLang. `examples/`: sample programs.
 - `tests/`: PHPUnit, `tests/gaz/` (GazLang programs), `tests/expected/` (what every program
   prints), and the corpora: `lexer_corpus/`, `parser_corpus/`, `codegen_corpus/`, `vm_corpus/`,
@@ -171,8 +172,9 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
 ## Status and what is next
 
 - **CI** (`.github/workflows/ci.yml`) runs on Ubuntu and on macOS, Apple silicon and Intel,
-  for every push: it builds gazlang and rebuilds its compiler before PHP is even installed (the
-  bootstrap needs only a C compiler), then the suite; phpstan and pint run on Ubuntu only.
+  for every push: it builds gazlang without TLS (the bootstrap needs only a C compiler), then
+  with it, and rebuilds its compiler before PHP is even installed, then the suite; phpstan and
+  pint run on Ubuntu only.
   Development is on an Intel Mac.
 - **Speed**: the same program takes gazlang 0.4 to 1.6 times what it takes PHP (JIT or not),
   and Python 3.12 1.0 to 2.7 times what it takes gazlang (`php vm/bench.php`, which finds a
@@ -220,12 +222,12 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     `catch (A | B $e)`, no bare rethrow, no `_` to skip an element in a list pattern.
   - `match ($x)` is a linear chain of `EQUALS`; no jump table.
   - No enum: token types are strings on purpose (they are the `--tokens` format).
-- **HTTP is `lib/http.gaz` on `curl`, through `run()`**, which brings HTTPS and redirects
-  without TLS in the VM, keeping it libc-only. Sockets in the VM (plain HTTP
-  in-process, a connection value to close by hand) wait until a program suffers from a process
-  per request; TLS in the VM would end the C-compiler-only build. The body reaches curl on
-  its standard input (`--data-binary @-`); headers are arguments, visible in `ps`, until a
-  private temporary file can hold a curl config for them.
+- **HTTP is HTTP/1.1 in GazLang (`lib/http.gaz`) on socket builtins, TLS through OpenSSL**,
+  linked by default and optional (`make TLS=0`), so the bootstrap still needs only a C compiler.
+  Not curl through `run()`: a process per request, the headers visible in `ps`, and curl as a
+  runtime dependency; not TLS of our own, which would be thousands of lines of crypto whose bugs
+  no output shows. One connection per request; keep-alive, proxies, compression and HTTP/2 wait
+  for a program that needs them.
 - **Decided, not built**: `interface`/`implements` (a parse-time check that the methods exist,
   plus `is_a`), `final`, and `private`/`protected` with public implicit (`#` and `##` checked at
   parse time, `$obj.name` when it runs, against the running method's class; a parent's private
@@ -392,7 +394,7 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   written in the program is. `sort` is a defined merge sort, since a comparator can see which
   comparisons are made: split in the middle, merge asking `$compare(right, left)` (`merge_sort()`
   in `builtins.c`). Types are checked before anything is called.
-- Types: `type_of` (`int float string bool null list map function class object`), `is_a`,
+- Types: `type_of` (`int float string bool null list map function class object socket`), `is_a`,
   `class_of`, `fields` (see "Objects").
 - I/O: `print`/`print_error` (echo without the newline, to stdout or stderr), `read_file`,
   `write_file`, `read_stdin` (empty when the program itself was piped in), `args()` (after the
@@ -409,6 +411,15 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   can't be started is a catchable error naming it and `strerror()`'s reason, the same words on
   Linux and macOS for the ones tested. A new builtin takes its name from every program:
   `examples/brainfuck.gaz` had a `run()`.
+- Sockets (`net.c`): `socket_open($host, $port, $tls = false, $timeout = 30)` gives a `socket`,
+  a reference-counted handle closed when the last reference goes (so a forgotten close leaks no
+  descriptor), `socket_read()` up to 64KB or `""` at the end, `socket_write()` all of it,
+  `socket_close()` twice is fine. TLS verifies the chain against the system's store
+  (`SSL_CERT_FILE` overrides, which is how `HttpTest` trusts `tests/fixtures/tls/`) and the host
+  name, or the address for an IP (no SNI then). SIGPIPE is ignored around each call and put back
+  after, as curl does: per socket only macOS can turn it off, and ignoring it for good would
+  change what a program writing to a closed pipe does. OpenSSL reports a socket timeout as
+  wanting to read; `net.c` says `timed out`.
 - Random numbers, not cryptographically secure (the docs say so): `rand_int($min, $max)` (both
   included), `rand_float()` (0.0 up to 1.0, the top 53 bits), `rand_seed($seed = null)`
   (without a seed, from OS entropy; every program starts that way). xoshiro256** seeded
@@ -427,10 +438,11 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
 - In GazLang instead: `lib/chars.gaz` (character classes), `lib/sort.gaz` (by key, on `sort`),
   `lib/format.gaz` (`pad_left`/`pad_right`
   convert like echo: display helpers take any value, string functions stay strict),
-  `lib/json.gaz`, `lib/csv.gaz` (RFC 4180), `lib/http.gaz` (curl with `--disable` so no
-  `~/.curlrc` applies, `--globoff`, the body on standard input, method
-  and header names checked as HTTP tokens; `HttpTest` runs it against `php -S` on a free port,
-  so what it prints is checked by shape, not recorded), `lib/random.gaz` (`rand_shuffle`, `rand_pick`,
+  `lib/json.gaz`, `lib/csv.gaz` (RFC 4180), `lib/http.gaz` (method and header names checked
+  as HTTP tokens and URLs for spaces and control characters, so nothing can end a line of the
+  request; credentials dropped on a redirect to another origin; `HttpTest` runs it against
+  `tests/fixtures/http_server.php`, over TCP and TLS, which writes framing out by hand so it can
+  get it wrong on purpose; ports vary, so what it prints is checked by shape, not recorded), `lib/random.gaz` (`rand_shuffle`, `rand_pick`,
   `rand_key`, `rand_chance`, `rand_weighted`; `rand_` since there are no namespaces yet). Scan long strings with `index_of`, not a character
   at a time.
 
@@ -809,7 +821,7 @@ vm/bench.php`: CPU time, interleaved, best of several).
   left in a profile is the dispatch loop, malloc/free and the collector.
 - **Why C**: over Rust, Zig and Go, since the heap (refcounts plus a cycle collector) is unsafe
   code in every one of them, Go has no refcounts for cheap copy-on-write, and Zig moves under a
-  pinned toolchain; C bootstraps with nothing but a C compiler, and the differential harness
+  pinned toolchain; C bootstraps with nothing but a C compiler (`TLS=0`), and the differential harness
   under ASan and UBSan is the safety net C usually lacks. A separate program rather than PHP
   FFI, since converting values per call costs more than an instruction.
 - `ponytail:` in the C: float printing tries up to 34 `printf`/`strtod` pairs per float.

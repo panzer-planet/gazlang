@@ -1,6 +1,8 @@
-# gazlang, the GazLang VM in C with the self-hosted compiler built in. Only libc and libm, plus od
-# and awk to build in the compiler.
+# gazlang, the GazLang VM in C with the self-hosted compiler built in. libc, libm and OpenSSL
+# (for TLS; make TLS=0 leaves it out, so a C compiler is all it takes), plus od and awk to build
+# in the compiler.
 #   make           bin/gazlang, optimised
+#   make TLS=0     the same without OpenSSL: https and socket_open(..., true) are errors
 #   make compiler  rebuild compiler/gazlang.gzb from compiler/ with bin/gazlang alone (see below)
 #   make test      vm/build/gazvm-test, with AddressSanitizer and UndefinedBehaviorSanitizer,
 #                  which tests/CVMTest.php runs (it calls this itself)
@@ -9,7 +11,34 @@ CC ?= cc
 # _DEFAULT_SOURCE: glibc hides POSIX and BSD functions (open_memstream, realpath, memmem) under
 # -std=c11 without it; macOS ignores it
 FLAGS = -std=c11 -D_DEFAULT_SOURCE -Wall -Wextra -Wno-unused-parameter
-SOURCES = value.c ops.c load.c vm.c builtins.c gc.c
+SOURCES = value.c ops.c load.c vm.c builtins.c gc.c net.c
+LIBS = -lm -lpthread
+
+# OpenSSL: from pkg-config, else Homebrew's (keg-only, so not on the default paths), else the
+# system's headers
+TLS ?= 1
+ifeq ($(TLS),1)
+  SSL_FLAGS := $(shell pkg-config --cflags openssl 2>/dev/null)
+  SSL_LIBS := $(shell pkg-config --libs openssl 2>/dev/null)
+  ifeq ($(SSL_LIBS),)
+    BREW_SSL := $(shell brew --prefix openssl@3 2>/dev/null)
+    ifneq ($(wildcard $(BREW_SSL)/include/openssl/ssl.h),)
+      SSL_FLAGS := -I$(BREW_SSL)/include
+      SSL_LIBS := -L$(BREW_SSL)/lib -lssl -lcrypto
+    else ifneq ($(wildcard /usr/include/openssl/ssl.h),)
+      SSL_LIBS := -lssl -lcrypto
+    else
+      $(error OpenSSL not found: install it (apt install libssl-dev, brew install openssl@3), or build without TLS: make TLS=0)
+    endif
+  endif
+  FLAGS += -DGAZ_TLS $(SSL_FLAGS)
+  LIBS += $(SSL_LIBS)
+endif
+
+# The flags as a file, rewritten only when they change, so every binary depends on them and
+# switching TLS rebuilds
+CONFIG = build/config
+$(shell mkdir -p build; echo '$(FLAGS) $(LIBS)' | cmp -s - $(CONFIG) || echo '$(FLAGS) $(LIBS)' > $(CONFIG))
 HEADERS = gazvm.h
 # The self-hosted compiler's bytecode, checked in, built into the VM so it can run source
 COMPILER = build/compiler.c
@@ -17,9 +46,9 @@ GAZLANG = ../bin/gazlang
 
 all: $(GAZLANG)
 
-$(GAZLANG): $(SOURCES) $(HEADERS) $(COMPILER)
+$(GAZLANG): $(SOURCES) $(HEADERS) $(COMPILER) $(CONFIG)
 	@mkdir -p ../bin
-	$(CC) $(FLAGS) -O2 -o $@ $(SOURCES) $(COMPILER) -lm -lpthread
+	$(CC) $(FLAGS) -O2 -o $@ $(SOURCES) $(COMPILER) $(LIBS)
 
 # The bytes as a C array, written out by od: no escaping to get wrong (and no trigraphs, which
 # -std=c11 turns on, and which the ??= in the compiler's bytecode would be)
@@ -52,16 +81,16 @@ compiler: $(GAZLANG)
 
 test: build/gazvm-test
 
-build/gazvm-test: $(SOURCES) $(HEADERS) $(COMPILER)
+build/gazvm-test: $(SOURCES) $(HEADERS) $(COMPILER) $(CONFIG)
 	@mkdir -p build
-	$(CC) $(FLAGS) -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=all -DGC_MINIMUM=64 -o $@ $(SOURCES) $(COMPILER) -lm -lpthread
+	$(CC) $(FLAGS) -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=all -DGC_MINIMUM=64 -o $@ $(SOURCES) $(COMPILER) $(LIBS)
 
 # Collects cycles at every chance, for testing the collector (slow): GAZVM=vm/build/gazvm-stress php vm/progress.php
 stress: build/gazvm-stress
 
-build/gazvm-stress: $(SOURCES) $(HEADERS) $(COMPILER)
+build/gazvm-stress: $(SOURCES) $(HEADERS) $(COMPILER) $(CONFIG)
 	@mkdir -p build
-	$(CC) $(FLAGS) -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=all -DGC_MINIMUM=1 -DGC_STRESS -o $@ $(SOURCES) $(COMPILER) -lm -lpthread
+	$(CC) $(FLAGS) -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=all -DGC_MINIMUM=1 -DGC_STRESS -o $@ $(SOURCES) $(COMPILER) $(LIBS)
 
 clean:
 	rm -rf build $(GAZLANG)
@@ -69,6 +98,6 @@ clean:
 .PHONY: all compiler test stress clean
 
 # Coverage, for vm/coverage.php
-build/gazvm-cov: $(SOURCES) $(HEADERS) $(COMPILER)
+build/gazvm-cov: $(SOURCES) $(HEADERS) $(COMPILER) $(CONFIG)
 	@mkdir -p build
-	$(CC) $(FLAGS) -O0 -g -fprofile-instr-generate -fcoverage-mapping -o $@ $(SOURCES) $(COMPILER) -lm -lpthread
+	$(CC) $(FLAGS) -O0 -g -fprofile-instr-generate -fcoverage-mapping -o $@ $(SOURCES) $(COMPILER) $(LIBS)

@@ -42,7 +42,8 @@ const BuiltinInfo builtin_info[] = {
     {"read_file", 1, 1}, {"write_file", 2, 2}, {"file_exists", 1, 1}, {"real_path", 1, 1},
     {"cwd", 0, 0}, {"print", 1, 1}, {"print_error", 1, 1}, {"read_stdin", 0, 0}, {"args", 0, 0},
     {"builtins", 0, 0}, {"rand_int", 2, 2}, {"rand_float", 0, 0}, {"rand_seed", 0, 1},
-    {"run", 1, 2},
+    {"run", 1, 2}, {"socket_open", 2, 4}, {"socket_read", 1, 1}, {"socket_write", 2, 2},
+    {"socket_close", 1, 1},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -53,6 +54,7 @@ enum {
     B_VALUES, B_LAST, B_REVERSE, B_MAP, B_FILTER, B_REDUCE, B_SORT, B_TYPE_OF, B_IS_A, B_CLASS_OF, B_FIELDS, B_ERROR, B_EXIT, B_READ_FILE,
     B_WRITE_FILE, B_FILE_EXISTS, B_REAL_PATH, B_CWD, B_PRINT, B_PRINT_ERROR, B_READ_STDIN,
     B_ARGS, B_BUILTINS, B_RAND_INT, B_RAND_FLOAT, B_RAND_SEED, B_RUN,
+    B_SOCKET_OPEN, B_SOCKET_READ, B_SOCKET_WRITE, B_SOCKET_CLOSE,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -139,7 +141,7 @@ static int64_t random_between(int64_t min, int64_t max) {
 /* Check an argument's type: "len() expects list or map or string, got int" */
 static bool want(int builtin, Value v, unsigned mask) {
     if (mask & M(v.type)) return true;
-    static const Type order[] = {T_INT, T_FLOAT, T_STRING, T_LIST, T_MAP, T_NULL, T_CLASS, T_OBJECT};
+    static const Type order[] = {T_INT, T_FLOAT, T_STRING, T_LIST, T_MAP, T_BOOL, T_NULL, T_CLASS, T_OBJECT, T_SOCKET};
     Buf b = {0};
     /* Each builtin names its types in its own order; these are those orders */
     const char *names = NULL;
@@ -1011,6 +1013,26 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     case B_RUN:
         if (!want(index, a, M(T_LIST)) || (argc > 1 && !want(index, b, STRING))) return false;
         return run_process(a.l, argc > 1 ? b.s : NULL, out);
+    case B_SOCKET_OPEN: {
+        /* socket_open($host, $port, $tls = false, $timeout = 30) */
+        Value tls = argc > 2 ? c : v_bool(false), timeout = argc > 3 ? args[3] : v_int(30);
+        if (!want(index, a, STRING) || !want(index, b, INT) || !want(index, tls, M(T_BOOL))
+            || !want(index, timeout, INT | M(T_FLOAT))) return false;
+        return net_open(a.s, b.i, tls.b, timeout.type == T_INT ? (double)timeout.i : timeout.f, out);
+    }
+    case B_SOCKET_READ:
+        if (!want(index, a, M(T_SOCKET))) return false;
+        return net_read(a.sock, out);
+    case B_SOCKET_WRITE:
+        if (!want(index, a, M(T_SOCKET)) || !want(index, b, STRING)) return false;
+        if (!net_write(a.sock, b.s)) return false;
+        *out = v_null();
+        return true;
+    case B_SOCKET_CLOSE:
+        if (!want(index, a, M(T_SOCKET))) return false;
+        net_close(a.sock);
+        *out = v_null();
+        return true;
     case B_BUILTINS: {
         Map *m = map_new();
         for (int i = 0; i < nbuiltins; i++) {

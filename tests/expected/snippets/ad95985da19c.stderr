@@ -1,4 +1,4 @@
-Error: HTTP error: header X has a line break in its value
-  http_request at lib/http.gaz:42
-  http_get at lib/http.gaz:19
+Error: HTTP error: header X has a line break or NUL byte in its value
+  http_request at lib/http.gaz:43
+  http_get at lib/http.gaz:25
   top level on line 1

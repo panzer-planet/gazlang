@@ -17,8 +17,17 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # The bootstrap needs nothing but a C compiler: build gazlang, run a program, and rebuild
-      # the compiler with gazlang alone, which must give the checked-in bytecode
+      # The bootstrap needs nothing but a C compiler: build gazlang without TLS and run a program.
+      # Then with OpenSSL, as make does by default, and rebuild the compiler with gazlang alone,
+      # which must give the checked-in bytecode
+      - name: Build gazlang without TLS
+        run: |
+          make -C vm TLS=0
+          bin/gazlang -f examples/functions.gaz
+          echo 'socket_open("localhost", 1, true);' | bin/gazlang 2>&1 | grep -q 'TLS is not built in'
+      - name: Install OpenSSL
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y libssl-dev
       - name: Build gazlang
         run: make -C vm
       - name: Run a program

@@ -13,6 +13,7 @@
  *   vm.c        the dispatch loop, calls, errors and traces, and main() with the CLI
  *   builtins.c  the builtin functions and their arities
  *   gc.c        the cycle collector, for what reference counting can't free
+ *   net.c       sockets, and TLS through OpenSSL (the one file that includes it)
  *
  * Errors: a function that can fail returns bool, false meaning an error was raised. The
  * error itself is in `vm_error` (see raisef()), and the caller passes the false up until the
@@ -42,6 +43,7 @@ typedef enum {
     T_MAP,
     T_FUNCTION,
     T_OBJECT,
+    T_SOCKET,   /* a connection, closed when the last reference goes */
     T_ERROR,    /* a raised error, as the stack holds it in a catch or finally block */
     T_CLASS,    /* lives as long as the program: not counted */
     T_ENTRY,    /* the method entry GET_METHOD pushes: points into a class, not counted */
@@ -57,6 +59,7 @@ typedef struct Object Object;
 typedef struct Error Error;
 typedef struct Class Class;
 typedef struct Entry Entry;
+typedef struct Socket Socket;
 
 /* One value: a type tag and a payload. 16 bytes, passed around by value. */
 typedef struct Value {
@@ -74,6 +77,7 @@ typedef struct Value {
         Error *e;
         Class *c;
         Entry *entry;
+        Socket *sock;
     };
 } Value;
 
@@ -153,6 +157,14 @@ struct Object {
     Class *cls;
     bool printing;      /* while echo prints it, so one that holds itself prints Name {...} */
     Value fields[];
+};
+
+/* A connection made by socket_open(): a handle, so copies share it */
+struct Socket {
+    int64_t rc;
+    int fd;             /* -1 once closed */
+    void *tls;          /* OpenSSL's SSL *, or NULL for plain TCP: void, so only net.c needs OpenSSL */
+    int timeout_ms;     /* for each read and write */
 };
 
 /* An error on its way up. */
@@ -344,6 +356,7 @@ static inline Value v_list(List *l) { Value v = {.type = T_LIST, .l = l}; return
 static inline Value v_map(Map *m) { Value v = {.type = T_MAP, .m = m}; return v; }
 static inline Value v_func(Func *f) { Value v = {.type = T_FUNCTION, .fn = f}; return v; }
 static inline Value v_object(Object *o) { Value v = {.type = T_OBJECT, .o = o}; return v; }
+static inline Value v_socket(Socket *s) { Value v = {.type = T_SOCKET, .sock = s}; return v; }
 static inline Value v_class(Class *c) { Value v = {.type = T_CLASS, .c = c}; return v; }
 
 Str *str_new(const char *data, size_t len);
@@ -456,5 +469,12 @@ static inline bool arity_fits(int lo, int hi, int argc) { return argc >= lo && a
 bool raise_arity(const char *what, int lo, int hi, int argc);
 Func *builtin_value(int index);
 void random_seed_unpredictable(void);
+
+/* ---- net.c ----------------------------------------------------------------------------- */
+
+bool net_open(Str *host, int64_t port, bool tls, double timeout, Value *out);
+bool net_read(Socket *s, Value *out);
+bool net_write(Socket *s, Str *data);
+void net_close(Socket *s);
 
 #endif

@@ -1,0 +1,5 @@
+Error: HTTP error: bad port in URL: "http://localhost:99999/"
+  http_parse_url at lib/http.gaz:171
+  http_request at lib/http.gaz:50
+  http_get at lib/http.gaz:25
+  top level on line 1

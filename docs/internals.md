@@ -42,7 +42,8 @@ and the value are evaluated. Anything that leans on a platform's behaviour (hash
 conversion, float formatting, rounding) is a rule GazLang defines and writes out step by step,
 as `round()` is in `vm/builtins.c`.
 
-The C is plain C11, libc, libm and pthreads only. A function that can fail returns `bool`, with
+The C is plain C11, libc, libm and pthreads, plus OpenSSL in `net.c` only (for TLS, left out
+by `make TLS=0`, `GAZ_TLS` saying which). A function that can fail returns `bool`, with
 the error in `vm_error`; values are reference counted (`incref`, `decref`), lists and maps are
 copied on write, and the cycle collector (`vm/gc.c`) frees what counting can't.
 

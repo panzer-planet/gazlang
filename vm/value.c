@@ -79,6 +79,10 @@ void value_free(Value v) {
         for (int i = 0; i < v.o->cls->nfields; i++) decref(v.o->fields[i]);
         free(v.o);
         break;
+    case T_SOCKET:
+        net_close(v.sock);
+        free(v.sock);
+        break;
     case T_ERROR: {
         Error *e = v.e;
         decref(v_str(e->reason));
@@ -410,6 +414,7 @@ const char *type_name(Value v) {
     case T_FUNCTION: return "function";
     case T_OBJECT: return "object";
     case T_CLASS: return "class";
+    case T_SOCKET: return "socket";
     case T_ERROR: return "raised error";
     case T_ENTRY: return "method entry";
     default: return "unset";
@@ -651,6 +656,9 @@ bool append_string(Value v, Buf *out) {
         buf_adds(out, "class ");
         buf_add_str(out, v.c->name);
         return true;
+    case T_SOCKET:
+        buf_adds(out, v.sock->fd < 0 ? "socket (closed)" : "socket");
+        return true;
     default:
         return raisef("Cannot convert %s to string", type_name(v));
     }
@@ -736,6 +744,8 @@ bool values_equal(Value a, Value b) {
             && a.fn->cls == b.fn->cls && a.fn->name == b.fn->name;
     case T_OBJECT:
         return b.type == T_OBJECT && a.o == b.o;
+    case T_SOCKET:
+        return b.type == T_SOCKET && a.sock == b.sock;
     case T_CLASS:
         return b.type == T_CLASS && a.c == b.c;
     default:

@@ -19,7 +19,7 @@ opinionated.
 - **Lists, maps, functions, classes and objects**, below.
 
 `type_of($x)` gives `int`, `float`, `string`, `bool`, `null`, `list`, `map`, `function`,
-`class` or `object`.
+`class`, `object` or `socket`.
 
 ## Variables
 
@@ -372,6 +372,23 @@ $r = run(["git", "log", "-1", "--format=%s"]);
 if ($r["status"] != 0) { error($r["stderr"]); }
 ```
 
+**Sockets** — a connection over TCP, or TLS for `$tls = true`:
+
+- `socket_open($host, $port, $tls = false, $timeout = 30)` — connects, trying each address the
+  name has, and gives a `socket`. With TLS the server's certificate must be one the system
+  trusts (or that the file `SSL_CERT_FILE` names) and must name `$host`; TLS 1.2 or later.
+  `$timeout` (seconds, an int or a float) bounds connecting and each read and write.
+- `socket_read($socket)` — what has arrived, up to 64KB, waiting for something to; `""` once
+  the other end has closed.
+- `socket_write($socket, $string)` — sends all of it.
+- `socket_close($socket)` — closes it; closing again does nothing. A socket no variable holds
+  any more is closed too.
+
+A socket is a handle: copies share the connection, `==` is identity, and it prints as `socket`
+(`socket (closed)`). Failing to find the host or connect, a certificate that doesn't check out,
+a timeout, and reading or writing a closed socket are errors. A gazlang built with `make TLS=0`
+has no TLS, and `$tls = true` is an error.
+
 **Control** — `error($value)`, `exit($code = 0)`.
 
 **Random numbers** — not cryptographically secure: for games, simulations and sampling, never
@@ -403,18 +420,28 @@ file is included once, which also breaks cycles. Everything in `lib/` is written
 | `csv.gaz` | `csv_parse`, `csv_records` (RFC 4180) |
 | `chars.gaz` | `char_at`, `is_digit`, `is_alpha`, `is_alnum`, `is_space`, `is_hex_digit` |
 | `format.gaz` | `pad_left`, `pad_right` |
-| `http.gaz` | `http_get($url, $headers = {})`, `http_post($url, $body, $headers = {})`, `http_request($method, $url, $headers = {}, $body = null)`, on `curl` through `run()`; see below |
+| `http.gaz` | `http_get($url, $headers = {})`, `http_post($url, $body, $headers = {})`, `http_request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins; see below |
 | `random.gaz` | `rand_shuffle` (a shuffled copy of a list or string), `rand_pick` (an element of a list or value of a map), `rand_key`, `rand_chance($p)`, `rand_weighted` (from `[item, weight]` pairs) |
 
-`http.gaz` needs `curl` installed. Each function returns
+`http.gaz` returns
 `{"status" => 200, "headers" => {"content-type" => "text/html", ...}, "body" => "..."}`, with
-header names lowercased and a repeated header's values joined with `", "`. Every status is a
-response, 404 and 500 included; a request that gets none (no such host, refused, a bad URL) is
-an error, `HTTP error: ` and curl's reason. Redirects are followed; only `http` and `https` are
-spoken. A method or header name that isn't an HTTP token, or a header value with a line break,
-is an error before anything is sent. The body can be any size and any bytes. Headers reach
-curl as arguments, so other users on the machine can see them in `ps`: don't send an
-`Authorization` header from a shared machine.
+header names lowercased and a repeated header's values joined with `", "`.
+
+- Every status is a response, 404 and 500 included. A request that gets none (no such host,
+  refused, a certificate that doesn't check out, a response that isn't HTTP or is cut short)
+  is an error.
+- `https` checks the certificate as `socket_open()` does. Only `http` and `https` URLs work,
+  without credentials in them (send an `Authorization` header).
+- Redirects are followed, up to 20. A 303 becomes a GET (a HEAD stays a HEAD), and so does a
+  POST after a 301 or 302, as browsers do; 307 and 308 keep the method and body.
+  `Authorization` and `Cookie` are dropped when a redirect goes to another scheme, host or port.
+- It writes `Host`, `Content-Length` and `Connection` itself, and giving one of those (or
+  `Transfer-Encoding`) is an error; `User-Agent: gazlang` and `Accept: */*` unless given. No
+  `Content-Type` unless given. The body can be any size and any bytes.
+- A method or header name that isn't an HTTP token, a header value with a line break, or a URL
+  with a space or control character is an error before anything is sent.
+- Each request has its own connection, waiting 30 seconds at most to connect and for each
+  read.
 
 ```
 include "lib/http.gaz";

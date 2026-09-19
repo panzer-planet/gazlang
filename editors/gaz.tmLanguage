@@ -259,7 +259,7 @@
 			<key>name</key>
 			<string>support.function.gaz</string>
 			<key>match</key>
-			<string>(?&lt;![\w.$@#])\b(len|slice|lower|upper|trim|split|join|replace|contains|starts_with|ends_with|index_of|repeat|chr|ord|to_int|to_float|to_string|floor|ceil|round|abs|intdiv|min|max|in_array|has_key|keys|values|last|reverse|map|filter|reduce|sort|type_of|is_a|class_of|fields|error|exit|read_file|write_file|file_exists|real_path|cwd|print_error|print|read_stdin|args|builtins|rand_int|rand_float|rand_seed|run)\b</string>
+			<string>(?&lt;![\w.$@#])\b(len|slice|lower|upper|trim|split|join|replace|contains|starts_with|ends_with|index_of|repeat|chr|ord|to_int|to_float|to_string|floor|ceil|round|abs|intdiv|min|max|in_array|has_key|keys|values|last|reverse|map|filter|reduce|sort|type_of|is_a|class_of|fields|error|exit|read_file|write_file|file_exists|real_path|cwd|print_error|print|read_stdin|args|builtins|rand_int|rand_float|rand_seed|run|socket_open|socket_read|socket_write|socket_close)\b</string>
 		</dict>
 		<key>classes</key>
 		<dict>

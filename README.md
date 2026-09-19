@@ -33,8 +33,8 @@ no dogs here
 - **Values that behave like values.** Lists and maps are copied when you assign them, like
   numbers are, so nothing changes behind your back. Objects are handles, shared on purpose.
 - **It compiles itself.** The lexer, parser and compiler are about 4,400 lines of GazLang,
-  running on a VM of about 5,400 lines of plain C with no dependencies. All you need to build
-  it is a C compiler.
+  running on a VM of about 5,700 lines of plain C, whose one dependency, OpenSSL for HTTPS,
+  is optional: `make -C vm TLS=0` needs nothing but a C compiler.
 - **It is quick.** It keeps up with Python 3.12 or beats it by up to 2.7 times, and stays
   within 1.6 times of PHP 8.5 with its JIT, beating it on calls and closures
   ([numbers below](#how-fast-is-it)).
@@ -47,7 +47,8 @@ It is a hobby language, not production software, and it would like company.
 
 ## Get it running
 
-You need a C compiler and make.
+You need a C compiler, make and OpenSSL (`apt install libssl-dev` or `brew install
+openssl@3`; or build with `make -C vm TLS=0` for no HTTPS).
 
 ```bash
 git clone https://github.com/panzer-planet/gazlang.git

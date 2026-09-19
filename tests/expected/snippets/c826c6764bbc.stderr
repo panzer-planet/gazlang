@@ -1,0 +1,1 @@
+Error: socket_open() expects a port from 1 to 65535, got 0 on line 1
