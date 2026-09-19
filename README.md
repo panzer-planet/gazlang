@@ -1,28 +1,49 @@
 # GazLang
 
-A scripting language that would rather stop than guess.
+[![CI](https://github.com/panzer-planet/gazlang/actions/workflows/ci.yml/badge.svg)](https://github.com/panzer-planet/gazlang/actions/workflows/ci.yml)
+[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
 
-If you have written PHP, JavaScript or Python you can read GazLang already. The difference is
-in what it refuses to do: it never quietly turns a string into a number, never overflows an
-integer into a float, and never hands you a zero because a key was missing. When something is
-wrong it says so, with a line number and a stack trace.
+**A small scripting language that would rather stop than guess.**
+
+If you have written PHP, JavaScript or Python, you can read GazLang already. What makes it
+different is what it refuses to do: it never quietly turns a string into a number, never
+overflows an integer into a float, and never hands you a zero because a key was missing. When
+something is wrong, it says so, with the line it happened on and how it got there.
 
 ```gaz
-fn greet($name) {
-    return "Hello, {$name}!";
+$counts = {};
+foreach (split("the cat sat on the mat", " ") as $word) {
+    $counts[$word] ??= 0;
+    $counts[$word]++;
 }
-
-echo greet("world");
+echo $counts;
+echo $counts["dog"] ?? "no dogs here";
 ```
 
 ```
-Hello, world!
+{"the" => 2, "cat" => 1, "sat" => 1, "on" => 1, "mat" => 1}
+no dogs here
 ```
 
-It is a hobby language that compiles itself: the lexer, parser and compiler are written in
-GazLang, and run on a small VM in C. The first implementation, in PHP, with a tree-walking
-interpreter and a stack VM that must agree on every single test, stays as the reference the C
-side is checked against. It is not production software, and it would like company.
+## Why you might like it
+
+- **Loud, precise errors.** `"5" + 5` is an error, not `10` or `"55"`. A missing key is an
+  error unless you ask for a default with `??`. A runtime error names its file and line, with
+  a stack trace.
+- **Values that behave like values.** Lists and maps are copied when you assign them, like
+  numbers are, so nothing changes behind your back. Objects are handles, shared on purpose.
+- **It compiles itself.** The lexer, parser and compiler are about 4,400 lines of GazLang,
+  running on a VM of about 5,400 lines of plain C with no dependencies. All you need to build
+  it is a C compiler.
+- **It is quick.** It keeps up with Python 3.12 or beats it by up to 2.7 times, and stays
+  within 1.6 times of PHP 8.5 with its JIT, beating it on calls and closures
+  ([numbers below](#how-fast-is-it)).
+- **It is checked to the byte.** There are two implementations, a reference in PHP and the
+  VM in C, and they must agree on every program, output and error message. Thousands of tests
+  hold them to it, with the C side under AddressSanitizer and a leak check, on Linux and on
+  both kinds of Mac, and fuzzers go looking for what the tests missed.
+
+It is a hobby language, not production software, and it would like company.
 
 ## Get it running
 
@@ -36,9 +57,11 @@ echo 'echo "hello";' > hello.gaz
 bin/gazlang -f hello.gaz
 ```
 
-Then try one of the sample programs:
+Then try a sample program or two:
 
 ```bash
+bin/gazlang -f examples/pathfinding.gaz      # the fewest steps and the least effort across a map
+bin/gazlang -f examples/brainfuck.gaz        # a Brainfuck interpreter
 bin/gazlang -f examples/csv_report.gaz -- examples/data/sales.csv region amount
 ```
 
@@ -306,12 +329,37 @@ North   1524.0
 West    899.95
 ```
 
+## How fast is it?
+
+Each program below does the same work in GazLang, PHP and Python (they are in
+[`vm/bench/`](vm/bench)). The time is the whole process's CPU time, best of 7 runs,
+interleaved, on an Intel i7-8700 running macOS.
+
+| Program | GazLang | PHP 8.5 (JIT) | Python 3.12 |
+| --- | ---: | ---: | ---: |
+| `fib` — recursive calls, `fib(30)` | **0.072s** | 0.102s | 0.146s |
+| `closures` — `map`, `filter`, `reduce` and `sort` with lambdas | **0.042s** | 0.112s | 0.087s |
+| `loop` — ten million rounds of integer arithmetic | 0.374s | **0.237s** | 0.998s |
+| `objects` — half a million small objects and method calls | 0.192s | **0.165s** | 0.358s |
+| `lists` — a million elements, built, read and written | 0.181s | **0.130s** | 0.238s |
+| `maps` — counting half a million words | 0.161s | **0.123s** | 0.187s |
+| `strings` — building, splitting and joining 3MB of text | 0.164s | **0.122s** | 0.167s |
+
+The times include starting up, which is roughly 0.06s for PHP with its JIT, 0.02s for Python
+and under 0.01s for GazLang, so the shortest programs flatter GazLang against PHP. GazLang ran
+compiled bytecode here; compiling from source adds about 10ms to a small program.
+
+Run `php vm/bench.php` to measure on your own machine. It also times the self-hosted compiler
+on real work: it compiles itself, all 4,400 lines, in about 0.2 seconds.
+
 ## Where to go next
 
 - **[docs/language.md](docs/language.md)** — the whole language, in reference form.
-- **`examples/`** — runnable programs, from [`strings.gaz`](examples/strings.gaz) up to a
-  699 line [football league simulator](examples/football.gaz) and a
-  [tokenizer](examples/tokenizer.gaz).
+- **`examples/`** — runnable programs, from [`strings.gaz`](examples/strings.gaz) to
+  [pathfinding](examples/pathfinding.gaz) with Dijkstra's algorithm, a
+  [Brainfuck interpreter](examples/brainfuck.gaz), a
+  [Markdown converter](examples/markdown.gaz) and a 700 line
+  [football league simulator](examples/football.gaz).
 - **`lib/`** — the standard library, all of it written in GazLang.
 - **[docs/internals.md](docs/internals.md)** — how the interpreter, compiler and VM fit
   together, and how to work on them.

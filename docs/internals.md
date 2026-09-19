@@ -85,7 +85,7 @@ make -C vm                                          # bin/gazlang, optimised
 make -C vm compiler                                 # after changing selfhost/, see below
 php vm/progress.php [FILTER] [--update]             # which programs the C VM matches the PHP VM on
 php vm/coverage.php [file.c]                        # which lines of the C VM the harness never runs
-php vm/bench.php                                    # the C VM against the PHP VM and against PHP
+php vm/bench.php                                    # the C VM against the PHP VM, PHP and Python
 ```
 
 ```bash

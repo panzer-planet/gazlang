@@ -204,10 +204,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   bootstrap needs only a C compiler), then the suite and the whole-repository group; phpstan and
   pint run on Ubuntu only. Development is on an Intel Mac.
 - **Speed**: the same program takes gazlang 0.4 to 1.6 times what it takes PHP (JIT or not),
-  and Python 3.9 1.4 to 4 times what it takes gazlang, except where Python's builtins do the
-  work in C (compiling from source included on all sides; gazlang's compile is about 10ms). If
-  speed is next, measure with `php vm/bench.php`; a Python column there (ports of
-  `vm/bench/*.php`, with a Python 3.11 or later) would make the Python figures checkable. The
+  and Python 3.12 1.0 to 2.7 times what it takes gazlang (`php vm/bench.php`, which finds a
+  Python 3.11 or later for the `vm/bench/*.py` ports; the README's table is its output). The
   arithmetic loop (1.6x) is still about a dozen dispatches an iteration against PHP's JIT, which
   only a register bytecode or a JIT would close; lists, maps, strings and objects (1.2 to 1.4x)
   spend theirs in malloc/free and the collector, so profile those before trying an allocator.

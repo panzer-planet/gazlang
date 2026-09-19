@@ -1,9 +1,11 @@
 <?php
 
-// Times the C VM against the PHP VM and against the same program written in PHP:
+// Times the C VM against the PHP VM and against the same program written in PHP and Python:
 //   php vm/bench.php [ROUNDS = 5] [FILTER]
-// Most vm/bench/NAME.gaz have a NAME.php doing the same work; the real workloads (the
-// self-hosted compiler, football.gaz) run on the two VMs only. Every run is a whole process,
+// Most vm/bench/NAME.gaz have a NAME.php and a NAME.py doing the same work; the real workloads
+// (the self-hosted compiler, football.gaz) run on the two VMs only. Python is the newest
+// python3.11 or later on the path, or PYTHON: 3.11 made CPython much faster, so an older one
+// would flatter gazlang, and without one the column is left out. Every run is a whole process,
 // timed in CPU seconds (user + system), and the runs are interleaved, so a machine that gets
 // busier halfway slows all of them alike; the best of the rounds is reported. PHP runs with the
 // JIT settings bin/gazlang-php gives itself.
@@ -26,6 +28,14 @@ $compile = function (string $file, string $gzb): void {
     }
 };
 
+$python = getenv('PYTHON') ?: null;
+foreach (['python3.13', 'python3.12', 'python3.11', 'python3'] as $candidate) {
+    $found = trim((string) shell_exec('command -v '.$candidate.' 2>/dev/null'));
+    if ($python === null && $found !== '' && trim((string) shell_exec(escapeshellarg($found)." -c 'import sys; print(sys.version_info >= (3, 11))'")) === 'True') {
+        $python = $found;
+    }
+}
+
 @mkdir('vm/build/bench', 0777, true);
 $cases = [];
 foreach (glob('vm/bench/*.gaz') as $file) {
@@ -36,6 +46,9 @@ foreach (glob('vm/bench/*.gaz') as $file) {
     // The same program in PHP, for the ones that have one
     if (is_file("vm/bench/{$name}.php")) {
         $cases[$name]['php'] = [...$php, "vm/bench/{$name}.php"];
+    }
+    if ($python !== null && is_file("vm/bench/{$name}.py")) {
+        $cases[$name]['py'] = [$python, "vm/bench/{$name}.py"];
     }
 }
 foreach (['selfhost/gazlang.gaz code examples/football.gaz', 'selfhost/gazlang.gaz ast selfhost/codegen.gaz', 'selfhost/gazlang.gaz tokens selfhost/codegen.gaz', 'examples/football.gaz'] as $workload) {
@@ -70,8 +83,13 @@ for ($round = 0; $round < $rounds; $round++) {
     }
 }
 
-printf("%-42s %9s %9s %9s %11s %11s\n", '', 'C VM', 'PHP VM', 'PHP', 'PHP VM / C', 'C / PHP');
+if ($python !== null) {
+    echo 'Python: '.trim((string) shell_exec(escapeshellarg($python).' --version'))."\n";
+}
+$seconds = fn (?float $t) => $t === null ? '' : sprintf('%.3fs', $t);
+$ratio = fn (float $a, ?float $b) => $b === null ? '' : sprintf('%.1fx', $a / $b);
+printf("%-48s %9s %9s %9s %9s %11s %9s %9s\n", '', 'C VM', 'PHP VM', 'PHP', 'Python', 'PHP VM / C', 'C / PHP', 'Py / C');
 foreach ($best as $name => $t) {
-    printf("%-42s %8.3fs %8.3fs %9s %10.1fx %11s\n", $name, $t['c'], $t['vm'], isset($t['php']) ? sprintf('%.3fs', $t['php']) : '', $t['vm'] / $t['c'],
-        isset($t['php']) ? sprintf('%.1fx', $t['c'] / $t['php']) : '');
+    printf("%-48s %9s %9s %9s %9s %11s %9s %9s\n", $name, $seconds($t['c']), $seconds($t['vm']), $seconds($t['php'] ?? null), $seconds($t['py'] ?? null),
+        $ratio($t['vm'], $t['c']), $ratio($t['c'], $t['php'] ?? null), isset($t['py']) ? $ratio($t['py'], $t['c']) : '');
 }
