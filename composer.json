@@ -2,6 +2,7 @@
     "name": "werner/gazlang",
     "description": "A simple programming language compiler",
     "type": "project",
+    "license": "MIT",
     "require": {
         "php": ">=8.5"
     },

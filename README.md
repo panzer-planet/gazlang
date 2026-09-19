@@ -320,4 +320,4 @@ West    899.95
 
 ## License
 
-MIT
+MIT, see [LICENSE.md](LICENSE.md).
