@@ -220,6 +220,12 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     `catch (A | B $e)`, no bare rethrow, no `_` to skip an element in a list pattern.
   - `match ($x)` is a linear chain of `EQUALS`; no jump table.
   - No enum: token types are strings on purpose (they are the `--tokens` format).
+- **Decided, not built: HTTP through a process builtin.** `run($argv)` starts a program from a
+  list of arguments (no shell, so nothing to inject; `posix_spawn`) and returns its status,
+  stdout and stderr; `lib/http.gaz` builds requests on `curl` with it, which brings HTTPS,
+  redirects and timeouts without TLS in the VM, keeping it libc-only. Sockets in the VM (plain
+  HTTP in-process, a connection value to close by hand) wait until a program suffers from a
+  process per request; TLS in the VM would end the C-compiler-only build.
 - **Decided, not built**: `interface`/`implements` (a parse-time check that the methods exist,
   plus `is_a`), `final`, and `private`/`protected` with public implicit (`#` and `##` checked at
   parse time, `$obj.name` when it runs, against the running method's class; a parent's private
