@@ -358,6 +358,20 @@ mapped to its parameter count, or `[fewest, most]` when some are optional).
 too), and an error when there is nothing there; `file_exists($path)` is whether there is, so
 `file_exists("a/../b")` is false when `a` is missing, as the system sees it.
 
+**Programs** — `run($argv)` starts a program and waits for it: `$argv` is a list of strings,
+the program (found on `PATH` unless it has a `/`) and then its arguments, passed as they are,
+with no shell to read `;`, `$` or `*` in them. It inherits the environment and the working
+directory, reads nothing (its standard input is `/dev/null`), and gives
+`{"status" => 0, "stdout" => "...", "stderr" => "..."}`, both outputs whole. The status is its
+exit code, or minus the signal's number when a signal killed it (`-9`). A program that can't be
+started is an error (`Cannot run "nope": No such file or directory`), as are an empty list and
+an argument that isn't a string or holds a NUL byte.
+
+```
+$r = run(["git", "log", "-1", "--format=%s"]);
+if ($r["status"] != 0) { error($r["stderr"]); }
+```
+
 **Control** — `error($value)`, `exit($code = 0)`.
 
 **Random numbers** — not cryptographically secure: for games, simulations and sampling, never
@@ -389,4 +403,22 @@ file is included once, which also breaks cycles. Everything in `lib/` is written
 | `csv.gaz` | `csv_parse`, `csv_records` (RFC 4180) |
 | `chars.gaz` | `char_at`, `is_digit`, `is_alpha`, `is_alnum`, `is_space`, `is_hex_digit` |
 | `format.gaz` | `pad_left`, `pad_right` |
+| `http.gaz` | `http_get($url, $headers = {})`, `http_post($url, $body, $headers = {})`, `http_request($method, $url, $headers = {}, $body = null)`, on `curl` through `run()`; see below |
 | `random.gaz` | `rand_shuffle` (a shuffled copy of a list or string), `rand_pick` (an element of a list or value of a map), `rand_key`, `rand_chance($p)`, `rand_weighted` (from `[item, weight]` pairs) |
+
+`http.gaz` needs `curl` installed. Each function returns
+`{"status" => 200, "headers" => {"content-type" => "text/html", ...}, "body" => "..."}`, with
+header names lowercased and a repeated header's values joined with `", "`. Every status is a
+response, 404 and 500 included; a request that gets none (no such host, refused, a bad URL) is
+an error, `HTTP error: ` and curl's reason. Redirects are followed; only `http` and `https` are
+spoken. A method or header name that isn't an HTTP token, or a header value with a line break,
+is an error before anything is sent. The body and headers reach curl as arguments, so they
+can't hold a NUL byte, a body over 128KB fails on Linux, and other users on the machine can see
+them in `ps`: don't send secrets from a shared machine.
+
+```
+include "lib/http.gaz";
+
+$r = http_post("https://example.com/api", "{\"n\": 1}", {"Content-Type" => "application/json"});
+echo $r["status"] .. " " .. $r["headers"]["content-type"];
+```

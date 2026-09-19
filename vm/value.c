@@ -410,8 +410,8 @@ const char *type_name(Value v) {
     case T_FUNCTION: return "function";
     case T_OBJECT: return "object";
     case T_CLASS: return "class";
-    case T_ERROR: return "GazLang\\GazLangError";
-    case T_ENTRY: return "array";
+    case T_ERROR: return "raised error";
+    case T_ENTRY: return "method entry";
     default: return "unset";
     }
 }

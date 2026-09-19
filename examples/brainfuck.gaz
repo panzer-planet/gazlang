@@ -118,17 +118,17 @@ fn compile($source) {
     return $code;
 }
 
-fn run($source, $input = "") {
+fn brainfuck($source, $input = "") {
     return Machine($input).run(compile($source));
 }
 
 $arguments = args();
 if (len($arguments) == 0) {
-    print(run(HELLO));
-    echo "Reversed by a program: " .. run(">,[>,]<[.<]", "stressed");
+    print(brainfuck(HELLO));
+    echo "Reversed by a program: " .. brainfuck(">,[>,]<[.<]", "stressed");
 } else if ($arguments[0] == "squares") {
-    $squares = split(trim(run(SQUARES)), "\n");
+    $squares = split(trim(brainfuck(SQUARES)), "\n");
     echo "The squares up to 10000: " .. len($squares) .. " of them, the last " .. last($squares);
 } else {
-    print(run(read_file($arguments[0]), read_stdin()));
+    print(brainfuck(read_file($arguments[0]), read_stdin()));
 }

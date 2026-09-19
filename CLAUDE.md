@@ -220,12 +220,12 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     `catch (A | B $e)`, no bare rethrow, no `_` to skip an element in a list pattern.
   - `match ($x)` is a linear chain of `EQUALS`; no jump table.
   - No enum: token types are strings on purpose (they are the `--tokens` format).
-- **Decided, not built: HTTP through a process builtin.** `run($argv)` starts a program from a
-  list of arguments (no shell, so nothing to inject; `posix_spawn`) and returns its status,
-  stdout and stderr; `lib/http.gaz` builds requests on `curl` with it, which brings HTTPS,
-  redirects and timeouts without TLS in the VM, keeping it libc-only. Sockets in the VM (plain
-  HTTP in-process, a connection value to close by hand) wait until a program suffers from a
-  process per request; TLS in the VM would end the C-compiler-only build.
+- **HTTP is `lib/http.gaz` on `curl`, through `run()`**, which brings HTTPS and redirects
+  without TLS in the VM, keeping it libc-only. Sockets in the VM (plain HTTP
+  in-process, a connection value to close by hand) wait until a program suffers from a process
+  per request; TLS in the VM would end the C-compiler-only build. The body and headers reach
+  curl as arguments (no NUL, 128KB on Linux, visible in `ps`); an optional stdin argument to
+  `run()` would lift that, at the cost of writing a pipe while reading two and SIGPIPE.
 - **Decided, not built**: `interface`/`implements` (a parse-time check that the methods exist,
   plus `is_a`), `final`, and `private`/`protected` with public implicit (`#` and `##` checked at
   parse time, `$obj.name` when it runs, against the running method's class; a parent's private
@@ -399,6 +399,14 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   gazlang options or `--`; the CLI rejects options it doesn't know, since `getopt` would drop
   them silently), `cwd()`, `real_path()` (as `realpath(3)`; `""`, a NUL byte, `file/` and
   `file/..` are nothing, where platforms disagree), `file_exists()`.
+- `run($argv)`: `posix_spawnp` of a list of strings, so no shell reads them; the environment and
+  working directory inherited, standard input `/dev/null` (a piped program's own input stays
+  its own), both outputs read together with `poll()` so neither pipe fills and blocks the child.
+  Gives `{"status", "stdout", "stderr"}`, the status minus the signal's number when one killed
+  it (Python's rule: no exit code is negative, where a shell's 128 + N is ambiguous). What
+  can't be started is a catchable error naming it and `strerror()`'s reason, the same words on
+  Linux and macOS for the ones tested. A new builtin takes its name from every program:
+  `examples/brainfuck.gaz` had a `run()`.
 - Random numbers, not cryptographically secure (the docs say so): `rand_int($min, $max)` (both
   included), `rand_float()` (0.0 up to 1.0, the top 53 bits), `rand_seed($seed = null)`
   (without a seed, from OS entropy; every program starts that way). xoshiro256** seeded
@@ -417,7 +425,10 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
 - In GazLang instead: `lib/chars.gaz` (character classes), `lib/sort.gaz` (by key, on `sort`),
   `lib/format.gaz` (`pad_left`/`pad_right`
   convert like echo: display helpers take any value, string functions stay strict),
-  `lib/json.gaz`, `lib/csv.gaz` (RFC 4180), `lib/random.gaz` (`rand_shuffle`, `rand_pick`,
+  `lib/json.gaz`, `lib/csv.gaz` (RFC 4180), `lib/http.gaz` (curl with `--disable` so no
+  `~/.curlrc` applies, `--globoff`, `--data-raw` since `--data-binary @x` reads a file, method
+  and header names checked as HTTP tokens; `HttpTest` runs it against `php -S` on a free port,
+  so what it prints is checked by shape, not recorded), `lib/random.gaz` (`rand_shuffle`, `rand_pick`,
   `rand_key`, `rand_chance`, `rand_weighted`; `rand_` since there are no namespaces yet). Scan long strings with `index_of`, not a character
   at a time.
 

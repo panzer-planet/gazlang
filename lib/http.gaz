@@ -1,0 +1,105 @@
+// HTTP for GazLang, through curl: http_get($url, $headers = {}), http_post($url, $body,
+// $headers = {}) and http_request($method, $url, $headers = {}, $body = null). Each returns
+// {"status" => 200, "headers" => {"content-type" => "text/plain", ...}, "body" => "..."}.
+//
+// - Any status is a response, 404 and 500 included. A request that gets no response (no such
+//   host, refused, a bad URL) is an error: "HTTP error: <curl's reason>", catchable.
+// - Redirects are followed, and only http and https are spoken, redirected to or not.
+// - Response header names are lowercased; a repeated header's values are joined with ", ".
+// - A body is sent as it is; curl labels it application/x-www-form-urlencoded unless a
+//   Content-Type header says otherwise.
+// - ponytail: the body and headers reach curl as arguments, so they can't hold a NUL byte, a
+//   body over 128KB fails on Linux (MAX_ARG_STRLEN), and both show in ps. run() writing the
+//   program's standard input would lift all three.
+
+include "chars.gaz";
+
+fn http_get($url, $headers = {}) {
+    return http_request("GET", $url, $headers);
+}
+
+fn http_post($url, $body, $headers = {}) {
+    return http_request("POST", $url, $headers, $body);
+}
+
+fn http_request($method, $url, $headers = {}, $body = null) {
+    // --disable first, or ~/.curlrc applies; --globoff so [] and {} in a URL are literal
+    $argv = ["curl", "--disable", "--silent", "--show-error", "--include", "--location",
+        "--globoff", "--suppress-connect-headers", "--proto", "=http,https", "--proto-redir", "=http,https"];
+    http_check_token("method", $method);
+    // curl works out GET and POST itself, and then turns a POST into a GET after a 303 as a
+    // browser does; naming them would keep the method across every redirect
+    if ($method == "HEAD") {
+        $argv[] = "--head";
+    } else if (!($method == "GET" || $method == "POST" && $body != null)) {
+        $argv = [...$argv, "--request", $method];
+    }
+    foreach ($headers as $name => $value) {
+        http_check_token("header name", $name);
+        $value = to_string($value);
+        if (contains($value, "\r") || contains($value, "\n")) {
+            error("HTTP error: header $name has a line break in its value");
+        }
+        // "Name:" would tell curl to leave the header out; "Name;" sends it empty
+        $argv = [...$argv, "--header", $value == "" ? "$name;" : "$name: $value"];
+    }
+    if ($body != null) {
+        if (type_of($body) != "string") {
+            error("HTTP error: the body must be a string, got " .. type_of($body));
+        }
+        // --data-raw, since --data-binary reads a file when the body starts with @
+        $argv = [...$argv, "--data-raw", $body];
+    }
+    $result = run([...$argv, "--url", $url]);
+    if ($result["status"] != 0) {
+        $reason = trim($result["stderr"]);
+        // "curl: (6) Could not resolve host: x" gives "Could not resolve host: x"
+        if (starts_with($reason, "curl: (")) {
+            $reason = slice($reason, index_of($reason, ") ") + 2);
+        }
+        error("HTTP error: $reason");
+    }
+    return http_parse_response($result["stdout"]);
+}
+
+// What curl --include --location prints: a header block for each response it read (interim
+// 1xx ones and the redirects it followed included), then the last response's body
+fn http_parse_response($text) {
+    while (true) {
+        $end = index_of($text, "\r\n\r\n");
+        if ($end == null) {
+            error("HTTP error: no header block in curl's output");
+        }
+        $lines = split(slice($text, 0, $end), "\r\n");
+        $text = slice($text, $end + 4);
+        $status = to_int(split($lines[0], " ")[1]);
+        $headers = {};
+        foreach (slice($lines, 1) as $line) {
+            $colon = index_of($line, ":");
+            if ($colon == null) {
+                continue;
+            }
+            $name = lower(trim(slice($line, 0, $colon)));
+            $value = trim(slice($line, $colon + 1));
+            $headers[$name] = has_key($headers, $name) ? $headers[$name] .. ", " .. $value : $value;
+        }
+        // curl follows exactly these redirects, and only when they say where to
+        $followed = in_array($status, [301, 302, 303, 307, 308]) && has_key($headers, "location");
+        if ($status >= 200 && !$followed) {
+            return {"status" => $status, "headers" => $headers, "body" => $text};
+        }
+    }
+}
+
+// A method or header name must be an HTTP token, which also keeps curl from reading anything
+// in it as more than a name
+fn http_check_token($what, $name) {
+    if (type_of($name) != "string" || $name == "") {
+        error("HTTP error: bad $what: " .. slice(to_string([$name]), 1, -1));
+    }
+    foreach (split($name, "") as $c) {
+        if (!is_alnum($c) && !contains('!#$%&\'*+-.^_`|~', $c)) {
+            error("HTTP error: bad $what: " .. slice(to_string([$name]), 1, -1));
+        }
+    }
+}

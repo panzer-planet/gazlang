@@ -8,14 +8,20 @@
 #include "gazvm.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <math.h>
+#include <poll.h>
+#include <spawn.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/random.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
+
+extern char **environ;
 
 int program_argc;
 char *piped_input;
@@ -36,6 +42,7 @@ const BuiltinInfo builtin_info[] = {
     {"read_file", 1, 1}, {"write_file", 2, 2}, {"file_exists", 1, 1}, {"real_path", 1, 1},
     {"cwd", 0, 0}, {"print", 1, 1}, {"print_error", 1, 1}, {"read_stdin", 0, 0}, {"args", 0, 0},
     {"builtins", 0, 0}, {"rand_int", 2, 2}, {"rand_float", 0, 0}, {"rand_seed", 0, 1},
+    {"run", 1, 1},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -45,7 +52,7 @@ enum {
     B_CEIL, B_ROUND, B_ABS, B_INTDIV, B_MIN, B_MAX, B_TO_STRING, B_IN_ARRAY, B_HAS_KEY, B_KEYS,
     B_VALUES, B_LAST, B_REVERSE, B_MAP, B_FILTER, B_REDUCE, B_SORT, B_TYPE_OF, B_IS_A, B_CLASS_OF, B_FIELDS, B_ERROR, B_EXIT, B_READ_FILE,
     B_WRITE_FILE, B_FILE_EXISTS, B_REAL_PATH, B_CWD, B_PRINT, B_PRINT_ERROR, B_READ_STDIN,
-    B_ARGS, B_BUILTINS, B_RAND_INT, B_RAND_FLOAT, B_RAND_SEED,
+    B_ARGS, B_BUILTINS, B_RAND_INT, B_RAND_FLOAT, B_RAND_SEED, B_RUN,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -474,6 +481,89 @@ static char *resolve(Str *path) {
     return realpath(path->data, NULL);
 }
 
+/*
+ * run($argv): start argv[0], found on PATH, with the rest as its arguments and no shell between,
+ * so nothing in them is ever interpreted. It inherits the environment and working directory and
+ * reads /dev/null. Both outputs are read as they come (poll), since a program that fills one pipe
+ * while we wait on the other would never finish.
+ */
+static bool run_process(List *args, Value *out) {
+    if (args->len == 0) return raise("run() expects a program to run, got an empty list");
+    for (size_t i = 0; i < args->len; i++) {
+        Value v = args->items[i];
+        if (v.type != T_STRING) return raise("run() expects a list of strings, got %s", type_name(v));
+        if (memchr(v.s->data, '\0', v.s->len)) return raise("run() arguments can't contain a NUL byte");
+    }
+    /* stdout's and stderr's pipes, each [read end, write end] */
+    int pipes[2][2];
+    if (pipe(pipes[0]) != 0) return raise("Cannot run a program: %s", strerror(errno));
+    if (pipe(pipes[1]) != 0) {
+        int err = errno;
+        close(pipes[0][0]);
+        close(pipes[0][1]);
+        return raise("Cannot run a program: %s", strerror(err));
+    }
+    /* Closed in the child when it starts, so it keeps only the copies made below as 1 and 2 */
+    for (int i = 0; i < 4; i++) fcntl(pipes[i / 2][i % 2], F_SETFD, FD_CLOEXEC);
+    posix_spawn_file_actions_t actions;
+    posix_spawn_file_actions_init(&actions);
+    posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0);
+    posix_spawn_file_actions_adddup2(&actions, pipes[0][1], 1);
+    posix_spawn_file_actions_adddup2(&actions, pipes[1][1], 2);
+    char **argv = xmalloc((args->len + 1) * sizeof *argv);
+    for (size_t i = 0; i < args->len; i++) argv[i] = args->items[i].s->data;
+    argv[args->len] = NULL;
+    pid_t pid;
+    int err = posix_spawnp(&pid, argv[0], &actions, NULL, argv, environ);
+    posix_spawn_file_actions_destroy(&actions);
+    free(argv);
+    close(pipes[0][1]);
+    close(pipes[1][1]);
+    if (err != 0) {
+        close(pipes[0][0]);
+        close(pipes[1][0]);
+        Buf m = {0};
+        buf_adds(&m, "Cannot run ");
+        quote(args->items[0].s, &m);
+        buf_adds(&m, ": ");
+        buf_adds(&m, strerror(err));
+        return raise_str(buf_to_str(&m));
+    }
+    Buf text[2] = {{0}, {0}};
+    struct pollfd fds[2] = {{.fd = pipes[0][0], .events = POLLIN}, {.fd = pipes[1][0], .events = POLLIN}};
+    char chunk[65536];
+    /* poll() skips a negative fd, which is how a stream that has ended drops out */
+    while (fds[0].fd >= 0 || fds[1].fd >= 0) {
+        if (poll(fds, 2, -1) < 0 && errno != EINTR) break;
+        for (int i = 0; i < 2; i++) {
+            if (fds[i].fd < 0 || !fds[i].revents) continue;
+            ssize_t n = read(fds[i].fd, chunk, sizeof chunk);
+            if (n > 0) {
+                buf_add(&text[i], chunk, (size_t)n);
+            } else if (n == 0 || errno != EINTR) {
+                close(fds[i].fd);
+                fds[i].fd = -1;
+            }
+        }
+    }
+    /* Only if poll() failed; the program then gets SIGPIPE rather than blocking on a full pipe */
+    for (int i = 0; i < 2; i++) if (fds[i].fd >= 0) close(fds[i].fd);
+    int status;
+    while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
+    /* Killed by a signal: minus its number, which no exit code can be */
+    int64_t code = WIFEXITED(status) ? WEXITSTATUS(status) : WIFSIGNALED(status) ? -WTERMSIG(status) : -1;
+    Map *m = map_new();
+    const char *names[] = {"status", "stdout", "stderr"};
+    Value values[] = {v_int(code), v_str(buf_to_str(&text[0])), v_str(buf_to_str(&text[1]))};
+    for (int i = 0; i < 3; i++) {
+        Value name = v_str(str_cstr(names[i]));
+        map_set(m, name, values[i]);
+        decref(name);
+    }
+    *out = v_map(m);
+    return true;
+}
+
 static Value keys_of(Value v) {
     if (v.type == T_LIST) {
         List *l = list_new(v.l->len);
@@ -866,6 +956,9 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         else random_seed_unpredictable();
         *out = v_null();
         return true;
+    case B_RUN:
+        if (!want(index, a, M(T_LIST))) return false;
+        return run_process(a.l, out);
     case B_BUILTINS: {
         Map *m = map_new();
         for (int i = 0; i < nbuiltins; i++) {

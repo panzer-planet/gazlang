@@ -1,0 +1,5 @@
+Error: HTTP error: bad header name: "Bad Name"
+  http_check_token at lib/http.gaz:102
+  http_request at lib/http.gaz:38
+  http_get at lib/http.gaz:18
+  top level on line 1

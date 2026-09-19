@@ -287,6 +287,67 @@ class StdlibTest extends GazLangTestCase
         $this->executeCode('read_file("nope.txt");');
     }
 
+    public function test_run_gives_the_status_and_both_outputs_and_passes_arguments_untouched()
+    {
+        $this->assertSame(
+            "{\"status\" => 0, \"stdout\" => \"a; rm -rf / \\\$HOME *\\n\", \"stderr\" => \"\"}\n"
+            ."{\"status\" => 1, \"stdout\" => \"\", \"stderr\" => \"\"}\n"
+            ."{\"status\" => 3, \"stdout\" => \"out\", \"stderr\" => \"err\"}\n",
+            $this->executeCode('echo run(["echo", "a; rm -rf / \\$HOME *"]); echo run(["false"]);'
+                .' echo run(["sh", "-c", "printf out; printf err >&2; exit 3"]);')
+        );
+    }
+
+    public function test_run_of_a_program_killed_by_a_signal_gives_minus_the_signal()
+    {
+        $this->assertSame("-9\n", $this->executeCode('echo run(["sh", "-c", "kill -9 \$\$"])["status"];'));
+    }
+
+    public function test_run_reads_both_outputs_as_they_come()
+    {
+        // Megabytes to standard error first: reading standard output to the end first would
+        // leave the program blocked on a full pipe for ever
+        $this->assertSame(
+            "2000000 3000000\n",
+            $this->executeCode('$r = run(["sh", "-c", "head -c 3000000 /dev/zero | tr \'\\\\0\' e >&2;'
+                .' head -c 2000000 /dev/zero | tr \'\\\\0\' o"]); echo len($r["stdout"]) .. " " .. len($r["stderr"]);')
+        );
+    }
+
+    public function test_run_reads_nothing_on_standard_input_and_inherits_the_environment_and_directory()
+    {
+        $this->assertSame(
+            "true\ntrue\n0\n",
+            $this->executeCode('echo run(["cat"])["stdout"] == "";'
+                .' echo run(["pwd", "-P"])["stdout"] == cwd() .. "\n";'
+                .' echo run(["sh", "-c", "test -n \"\$PATH\""])["status"];')
+        );
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function unrunnable(): array
+    {
+        return [
+            'missing' => ['run(["no-such-program-anywhere", "x"]);', 'Cannot run "no-such-program-anywhere": No such file or directory on line 1'],
+            'not executable' => ['run(["tests/fixtures/read_me.txt"]);', 'Cannot run "tests/fixtures/read_me.txt": Permission denied on line 1'],
+            'empty' => ['run([]);', 'run() expects a program to run, got an empty list on line 1'],
+            'not a string' => ['run(["echo", 1]);', 'run() expects a list of strings, got int on line 1'],
+            'NUL byte' => ['run(["echo", "a\\0b"]);', "run() arguments can't contain a NUL byte on line 1"],
+        ];
+    }
+
+    /**
+     * @dataProvider unrunnable
+     */
+    public function test_run_raises_a_catchable_error_for_what_it_cannot_start(string $code, string $message)
+    {
+        $this->assertSame("caught\n", $this->executeCode("try { {$code} } catch (Error \$e) { echo \"caught\"; }"));
+        $this->expectExceptionMessage($message);
+        $this->executeCode($code);
+    }
+
     public function test_real_path_resolves_dots_and_symlinks()
     {
         // Under the checkout, which the snippet recorder strips, so the recorded snippet is the same every run
@@ -427,6 +488,7 @@ class StdlibTest extends GazLangTestCase
             'read_file' => ['read_file(1);', 'read_file() expects string, got int'],
             'real_path' => ['real_path(null);', 'real_path() expects string, got null'],
             'file_exists' => ['file_exists([]);', 'file_exists() expects string, got list'],
+            'run' => ['run("echo");', 'run() expects list, got string'],
             'min of a number and a string' => ['min(1, "2");', 'min() expects two numbers or two strings, got int and string'],
             'max of bools' => ['max(true, false);', 'max() expects two numbers or two strings, got bool and bool'],
             'max of lists' => ['max([1], [2]);', 'max() expects two numbers or two strings, got list and list'],
