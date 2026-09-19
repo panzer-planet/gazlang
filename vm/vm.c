@@ -299,11 +299,130 @@ bool call_method(Object *o, Class *definer, Str *name, Value *out) {
         free(b.data);
         return r;
     }
+    Instr *here = vm_here;
     Value *sp = vm_sp;
     incref(v_object(o));
     /* Once the program has ended (printing an uncaught error) there is no caller */
-    if (!push_frame(f->block, &sp, 0, vm_here ? vm_here + 1 : NULL, NULL, o)) return false;
-    return execute(program->code + f->block->entry, fp, out);
+    if (!push_frame(f->block, &sp, 0, here ? here + 1 : NULL, NULL, o)) return false;
+    bool ok = execute(program->code + f->block->entry, fp, out);
+    /* The method ran instructions of its own; the one running it may run another (join()) */
+    vm_here = here;
+    return ok;
+}
+
+/*
+ * Start a call of the value below argc arguments on the stack for call_value(), checked as
+ * CALL_VALUE checks it (which does the same inline: sharing this cost lambda calls 8%): a builtin
+ * runs here, leaving its result where the callee was (*entered NULL); anything else gets a frame
+ * that returns to ret, and *entered is the block to run. False with vm_error set if it can't be
+ * called, leaving the stack for the caller to unwind.
+ */
+static bool enter_value(Value **spp, int argc, Instr *ret, Block **entered) {
+    Value *sp = *spp;
+    Value *callee_slot = sp - argc - 1;
+    Value callee = *callee_slot;
+    Value r;
+    *entered = NULL;
+    if (callee.type == T_CLASS) {
+        Class *c = callee.c;
+        if (c->abstract) return raise("Cannot construct abstract class %s", c->name->data);
+        if (!arity_fits(c->lo, c->hi, argc)) {
+            Buf what = {0};
+            buf_adds(&what, "Class ");
+            buf_add_str(&what, c->name);
+            raise_arity(what.data, c->lo, c->hi, argc);
+            free(what.data);
+            return false;
+        }
+        if (fp - frames == MAX_CALL_DEPTH) return raise_depth(c->name->data);
+        memmove(callee_slot, sp - argc, (size_t)argc * sizeof(Value));
+        sp--;
+        if (!push_frame(c->block, &sp, argc, ret, NULL, object_new(c))) {
+            *spp = sp;
+            return false;
+        }
+        *spp = sp;
+        *entered = c->block;
+        return true;
+    }
+    if (callee.type != T_FUNCTION) return raise("Cannot call %s", type_name(callee));
+    Func *fn = callee.fn;
+    int lo, hi;
+    Block *block = NULL;
+    if (fn->kind == F_CLOSURE) {
+        block = fn->lambda->block;
+        lo = block->lo, hi = block->hi;
+    } else if (fn->kind == F_BOUND) {
+        Function *f = method_function(fn->cls, fn->name);
+        block = f->block;
+        lo = f->lo, hi = f->hi;
+    } else if (fn->kind == F_BUILTIN) {
+        lo = builtin_info[fn->builtin].lo, hi = builtin_info[fn->builtin].hi;
+    } else {
+        block = fn->function->block;
+        lo = fn->function->lo, hi = fn->function->hi;
+    }
+    if (!arity_fits(lo, hi, argc)) {
+        Buf what = {0};
+        buf_adds(&what, fn->kind == F_BOUND ? "Method " : "Function ");
+        describe(callee, &what);
+        raise_arity(what.data, lo, hi, argc);
+        free(what.data);
+        return false;
+    }
+    if (fn->kind == F_BUILTIN) {
+        if (!call_builtin(fn->builtin, sp - argc, argc, &r)) return false;
+        for (int i = 0; i < argc; i++) decref(*--sp);
+        decref(*--sp);
+        *sp++ = r;
+        *spp = sp;
+        return true;
+    }
+    if (fp - frames == MAX_CALL_DEPTH) {
+        Buf what = {0};
+        describe(callee, &what);
+        raise_depth(what.data);
+        free(what.data);
+        return false;
+    }
+    /* The callee's reference moves into the frame for a closure, and is dropped otherwise */
+    Func *closure = fn->kind == F_CLOSURE ? fn : NULL;
+    Object *receiver = fn->receiver;
+    if (receiver) incref(v_object(receiver));
+    memmove(callee_slot, sp - argc, (size_t)argc * sizeof(Value));
+    sp--;
+    if (!closure) decref(callee);
+    bool pushed = push_frame(block, &sp, argc, ret, closure, receiver);
+    *spp = sp;
+    *entered = pushed ? block : NULL;
+    return pushed;
+}
+
+/* Call a value to its end from inside an instruction, as map() calls its callback: checked as a
+   call in the program is, and called from where the instruction is running. Takes no reference. */
+bool call_value(Value callee, Value *args, int argc, Value *out) {
+    Instr *here = vm_here;
+    Value *bottom = vm_sp, *sp = vm_sp;
+    incref(callee);
+    *sp++ = callee;
+    for (int i = 0; i < argc; i++) {
+        incref(args[i]);
+        *sp++ = args[i];
+    }
+    Block *entered;
+    /* A builtin runs from an instruction, which set vm_here */
+    bool ok = enter_value(&sp, argc, here + 1, &entered);
+    if (!ok) {
+        while (sp > bottom) decref(*--sp);
+    } else if (entered) {
+        ok = execute(program->code + entered->entry, fp, out);
+    } else {
+        *out = *--sp;
+    }
+    /* The call ran instructions of its own; the one making it may call again */
+    vm_here = here;
+    vm_sp = bottom;
+    return ok;
 }
 
 /* ---- The loop -------------------------------------------------------------------------- */

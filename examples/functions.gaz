@@ -2,8 +2,6 @@
 //
 //   bin/gazlang -f examples/functions.gaz
 
-include "../lib/functional.gaz";
-
 // Named functions live at the top level and can be called before they are declared.
 // $ variables are local to the call; @ variables are global.
 echo fib(20);                                   // 6765

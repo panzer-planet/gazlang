@@ -1,7 +1,6 @@
 // Classes: fields, methods, inheritance, bound methods and to_string().
 //
 //   bin/gazlang -f examples/objects.gaz
-include "../lib/functional.gaz";
 
 abstract class Shape {
     #name;

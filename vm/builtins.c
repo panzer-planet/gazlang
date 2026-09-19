@@ -28,7 +28,8 @@ const BuiltinInfo builtin_info[] = {
     {"ends_with", 2, 2}, {"index_of", 2, 3}, {"repeat", 2, 2}, {"chr", 1, 1}, {"ord", 1, 1},
     {"to_int", 1, 1}, {"to_float", 1, 1}, {"floor", 1, 1}, {"ceil", 1, 1}, {"round", 1, 2},
     {"abs", 1, 1}, {"intdiv", 2, 2}, {"min", 2, 2}, {"max", 2, 2}, {"to_string", 1, 1},
-    {"in_array", 2, 2}, {"has_key", 2, 2}, {"keys", 1, 1}, {"values", 1, 1}, {"type_of", 1, 1},
+    {"in_array", 2, 2}, {"has_key", 2, 2}, {"keys", 1, 1}, {"values", 1, 1}, {"map", 2, 2},
+    {"filter", 2, 2}, {"reduce", 3, 3}, {"sort", 2, 2}, {"type_of", 1, 1},
     {"is_a", 2, 2}, {"class_of", 1, 1}, {"fields", 1, 1}, {"error", 1, 1}, {"exit", 0, 1},
     {"read_file", 1, 1}, {"write_file", 2, 2}, {"file_exists", 1, 1}, {"real_path", 1, 1},
     {"cwd", 0, 0}, {"print", 1, 1}, {"print_error", 1, 1}, {"read_stdin", 0, 0}, {"args", 0, 0},
@@ -40,7 +41,7 @@ enum {
     B_LEN, B_SLICE, B_LOWER, B_UPPER, B_TRIM, B_SPLIT, B_JOIN, B_REPLACE, B_CONTAINS,
     B_STARTS_WITH, B_ENDS_WITH, B_INDEX_OF, B_REPEAT, B_CHR, B_ORD, B_TO_INT, B_TO_FLOAT, B_FLOOR,
     B_CEIL, B_ROUND, B_ABS, B_INTDIV, B_MIN, B_MAX, B_TO_STRING, B_IN_ARRAY, B_HAS_KEY, B_KEYS,
-    B_VALUES, B_TYPE_OF, B_IS_A, B_CLASS_OF, B_FIELDS, B_ERROR, B_EXIT, B_READ_FILE,
+    B_VALUES, B_MAP, B_FILTER, B_REDUCE, B_SORT, B_TYPE_OF, B_IS_A, B_CLASS_OF, B_FIELDS, B_ERROR, B_EXIT, B_READ_FILE,
     B_WRITE_FILE, B_FILE_EXISTS, B_REAL_PATH, B_CWD, B_PRINT, B_PRINT_ERROR, B_READ_STDIN,
     B_ARGS, B_BUILTINS,
 };
@@ -66,7 +67,6 @@ Func *builtin_value(int index) {
     return values[index];
 }
 
-bool arity_fits(int lo, int hi, int argc) { return argc >= lo && argc <= hi; }
 
 /* "Function add expects 2 arguments, 1 given" (Builtins::arityError) */
 bool raise_arity(const char *what, int lo, int hi, int argc) {
@@ -90,6 +90,7 @@ static bool want(int builtin, Value v, unsigned mask) {
     case M(T_STRING) | M(T_LIST): names = "string or list"; break;
     case M(T_INT) | M(T_FLOAT): names = "int or float"; break;
     case M(T_LIST) | M(T_MAP): names = "list or map"; break;
+    case M(T_FUNCTION) | M(T_CLASS): names = "function or class"; break;
     }
     if (!names) {
         for (size_t i = 0; i < sizeof order / sizeof order[0]; i++) {
@@ -105,6 +106,102 @@ static bool want(int builtin, Value v, unsigned mask) {
 }
 
 static Value v_string(const char *data, size_t len) { return v_str(str_new(data, len)); }
+
+/*
+ * map($x, $f) and filter($x, $keep): call back for each element in order; a list gives a list, a
+ * map a map with the same keys. The list or map is an argument on the stack, so nothing the
+ * callback does can change or free it.
+ */
+static bool map_or_filter(bool map, Value x, Value f, Value *out) {
+    bool is_list = x.type == T_LIST;
+    List *list = is_list ? list_new(x.l->len) : NULL;
+    Map *m = is_list ? NULL : map_new();
+    size_t n = is_list ? x.l->len : x.m->used;
+    for (size_t i = 0; i < n; i++) {
+        if (!is_list && !map_next(x.m, &i)) break;
+        Value value = is_list ? x.l->items[i] : x.m->entries[i].value, r;
+        if (!call_value(f, &value, 1, &r)) {
+            decref(is_list ? v_list(list) : v_map(m));
+            return false;
+        }
+        if (!map) {
+            bool keep = is_truthy(r);
+            decref(r);
+            if (!keep) continue;
+            incref(value);
+            r = value;
+        }
+        if (is_list) list_push(list, r);
+        else map_set(m, x.m->entries[i].key, r);
+    }
+    *out = is_list ? v_list(list) : v_map(m);
+    return true;
+}
+
+/* reduce($x, $f, $initial): folds the values left, $carry = $f($carry, $value) */
+static bool reduce(Value x, Value f, Value initial, Value *out) {
+    Value carry = initial;
+    incref(carry);
+    size_t n = x.type == T_LIST ? x.l->len : x.m->used;
+    for (size_t i = 0; i < n; i++) {
+        if (x.type == T_MAP && !map_next(x.m, &i)) break;
+        Value args[2] = {carry, x.type == T_LIST ? x.l->items[i] : x.m->entries[i].value}, next;
+        bool ok = call_value(f, args, 2, &next);
+        decref(carry);
+        if (!ok) return false;
+        carry = next;
+    }
+    *out = carry;
+    return true;
+}
+
+/*
+ * sort($x, $compare): Builtins::sort(), exactly, since a program sees which comparisons are made
+ * and in what order: split in the middle, sort each half, merge asking $compare(right, left) and
+ * taking from the right only when it is below zero. A new list, or NULL with the error raised.
+ */
+static List *merge_sort(Value *items, size_t n, Value compare) {
+    if (n < 2) {
+        List *l = list_new(n);
+        for (size_t i = 0; i < n; i++) {
+            incref(items[i]);
+            list_push(l, items[i]);
+        }
+        return l;
+    }
+    size_t middle = n / 2;
+    List *left = merge_sort(items, middle, compare);
+    if (!left) return NULL;
+    List *right = merge_sort(items + middle, n - middle, compare);
+    if (!right) {
+        decref(v_list(left));
+        return NULL;
+    }
+    List *merged = list_new(n);
+    size_t l = 0, r = 0;
+    while (l < left->len && r < right->len) {
+        Value args[2] = {right->items[r], left->items[l]}, order;
+        if (!call_value(compare, args, 2, &order)) goto fail;
+        if (order.type != T_INT) {
+            raise("sort's comparator must return an int, got %s", type_name(order));
+            decref(order);
+            goto fail;
+        }
+        Value take = order.i < 0 ? right->items[r++] : left->items[l++];
+        incref(take);
+        list_push(merged, take);
+    }
+    for (; l < left->len; l++) incref(left->items[l]), list_push(merged, left->items[l]);
+    for (; r < right->len; r++) incref(right->items[r]), list_push(merged, right->items[r]);
+    decref(v_list(left));
+    decref(v_list(right));
+    return merged;
+fail:
+    decref(v_list(merged));
+    decref(v_list(left));
+    decref(v_list(right));
+    return NULL;
+}
 
 /* The part of a length-n string or list that slice() takes, with PHP's substr rules */
 static bool slice_bounds(int64_t n, int64_t start, bool has_length, int64_t length, int64_t *from, int64_t *count) {
@@ -532,6 +629,29 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
             list_push(l, a.m->entries[i].value);
         }
         *out = v_list(l);
+        return true;
+    }
+    case B_MAP:
+    case B_FILTER:
+        if (!want(index, a, M(T_LIST) | M(T_MAP)) || !want(index, args[1], M(T_FUNCTION) | M(T_CLASS))) return false;
+        return map_or_filter(index == B_MAP, a, args[1], out);
+    case B_REDUCE:
+        if (!want(index, a, M(T_LIST) | M(T_MAP)) || !want(index, args[1], M(T_FUNCTION) | M(T_CLASS))) return false;
+        return reduce(a, args[1], args[2], out);
+    case B_SORT: {
+        if (!want(index, a, M(T_LIST) | M(T_MAP)) || !want(index, args[1], M(T_FUNCTION) | M(T_CLASS))) return false;
+        List *sorted;
+        if (a.type == T_LIST) {
+            sorted = merge_sort(a.l->items, a.l->len, args[1]);
+        } else {
+            /* The map's values, in order, as values() gives them (which can't fail on a map) */
+            Value values;
+            call_builtin(B_VALUES, args, 1, &values);
+            sorted = merge_sort(values.l->items, values.l->len, args[1]);
+            decref(values);
+        }
+        if (!sorted) return false;
+        *out = v_list(sorted);
         return true;
     }
     case B_TYPE_OF:

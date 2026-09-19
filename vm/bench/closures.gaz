@@ -1,4 +1,3 @@
-include "../../lib/functional.gaz";
 $l = [];
 for ($i = 0; $i < 200000; $i++) { $l[] = $i; }
 $sq = map($l, $x -> $x * $x);

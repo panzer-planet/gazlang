@@ -1293,13 +1293,18 @@ class Interpreter extends AbstractNodeVisitor
         }
         $this->classes = ClassValue::build($records, array_map(fn (FunctionDeclarationAST $function) => $function->arity, $this->functions));
 
-        // echo and .. call to_string() through Values, which comes back here to run it
-        $outer = Values::$call_method;
+        // echo and .. call to_string() through Values, and map() and the others their callbacks,
+        // which come back here to run them, called from wherever the program is running
+        [$outer_method, $outer_value] = [Values::$call_method, Values::$call_value];
         Values::$call_method = function (ObjectValue $object, ClassValue $definer, string $name) {
-            // Called from wherever the program is running
             $this->call_site = $this->running === null ? null : [$this->running->file, $this->running->line];
 
             return $this->invokeMethod($definer, $name, $object, []);
+        };
+        Values::$call_value = function ($callee, array $args) {
+            $this->call_site = $this->running === null ? null : [$this->running->file, $this->running->line];
+
+            return $this->callValue($callee, $args);
         };
         try {
             $this->visit($tree);
@@ -1307,7 +1312,7 @@ class Interpreter extends AbstractNodeVisitor
             // Nothing caught it: a thrown value is only now turned into text, which can run its to_string()
             throw $error->uncaught();
         } finally {
-            Values::$call_method = $outer;
+            [Values::$call_method, Values::$call_value] = [$outer_method, $outer_value];
         }
     }
 }

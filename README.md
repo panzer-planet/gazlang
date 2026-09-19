@@ -271,12 +271,11 @@ Error: Index out of range: 5 at trace.gaz:1
 
 ## Something real
 
-`lib/` holds libraries written in GazLang itself — CSV, JSON, sorting, `map`/`filter`/`reduce`,
-string formatting. Here is a sales report in twenty lines:
+`lib/` holds libraries written in GazLang itself — CSV, JSON, sorting by key, string
+formatting. Here is a sales report in twenty lines:
 
 ```gaz
 include "lib/csv.gaz";
-include "lib/functional.gaz";
 include "lib/format.gaz";
 
 fn totals_by($rows, $group, $column) {

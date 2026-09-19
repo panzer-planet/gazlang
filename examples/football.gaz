@@ -6,7 +6,6 @@
 // CLUBS is how many clubs play, from 2 to 20 (4 by default), taken from the strongest down.
 // Everything random comes from seeded generators: the squads are always the same, and the
 // same season seed always plays the same season.
-include "../lib/functional.gaz";
 include "../lib/format.gaz";
 
 // A linear congruential generator: the same seed always gives the same numbers

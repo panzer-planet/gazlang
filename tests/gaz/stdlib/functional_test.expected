@@ -1,0 +1,56 @@
+ok map a list
+ok map keeps keys
+ok map with a builtin
+ok map an empty list and map
+ok filter a list gives a list
+ok filter a map keeps keys
+ok filter everything out
+ok filter uses truthiness
+ok reduce sums
+ok reduce from the initial value
+ok reduce builds a string
+ok reduce with a named function
+ok sort numbers
+ok sort descending
+ok sort strings byte by byte
+ok sort drops keys
+ok sort empty and one
+ok sort is stable
+ok sort by length then text
+ok a comparator error comes out
+ok map then filter then reduce
+ok map needs a list or map
+ok map needs something to call
+ok filter checks too
+ok reduce checks too
+ok sort checks too
+ok a class constructs
+ok a bound method
+ok a builtin
+ok an abstract class can't
+ok a builtin with the wrong count
+ok a lambda with the wrong count
+ok a bound method with the wrong count
+ok map keeps int and string keys apart
+ok filter too
+ok reduce folds a map's values
+ok a float is not an int
+ok nor a bool
+ok one value isn't compared
+ok sort's comparisons
+ok map stops
+ok an error value comes out as it is
+ok a thrown value
+ok sort stops mid-merge
+ok a closure counts
+ok nested
+ok changing the list inside doesn't change what is mapped
+ok map skips what was deleted
+ok filter too
+ok reduce too
+ok sort too
+ok mapping a map stops
+ok filtering a map stops
+ok sort stops in the left half
+ok reduce needs a list or map
+ok sort needs a list or map

@@ -129,6 +129,27 @@ class FunctionTest extends GazLangTestCase
         $this->assertSame(1, $exit_code);
     }
 
+    public function test_running_out_of_depth_through_a_callback_is_the_same_on_every_runtime()
+    {
+        // A callback runs in a loop of its own on the VMs, called from the builtin's instruction;
+        // starting one call deeper moves the limit from deep() to the callback. Through the CLI,
+        // since this is too deep for PHP's own stack under pcov
+        foreach (['deep(0);' => 'deep', 'start();' => '-> on line 1'] as $start => $callee) {
+            $program = 'fn deep($n) { return map([$n], $x -> deep($x + 1)); } fn start() { deep(0); }'
+                .' try { '.$start.' } catch (Error $e) {'
+                .' echo $e.message; echo len($e.trace); echo $e.trace[0]; echo $e.trace[1]; echo $e.trace[20]; }';
+            $outputs = [];
+            foreach (['bin/gazlang-php --interpreter', 'bin/gazlang-php', 'bin/gazlang'] as $runtime) {
+                exec(sprintf('echo %s | %s/../%s 2>&1', escapeshellarg($program), __DIR__, $runtime), $output);
+                $outputs[$runtime] = $output;
+                $output = [];
+            }
+            $this->assertSame("Maximum call depth of 10000 exceeded calling {$callee}", $outputs['bin/gazlang'][0]);
+            $this->assertSame($outputs['bin/gazlang'], $outputs['bin/gazlang-php --interpreter'], $start);
+            $this->assertSame($outputs['bin/gazlang'], $outputs['bin/gazlang-php'], $start);
+        }
+    }
+
     /**
      * @dataProvider defaultParameterErrors
      */

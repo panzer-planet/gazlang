@@ -4,7 +4,6 @@
 //
 // With no arguments it reports examples/data/sales.csv by region and amount.
 include "../lib/csv.gaz";
-include "../lib/functional.gaz";
 include "../lib/format.gaz";
 
 // Print the usage and the problem, and stop with exit code 1

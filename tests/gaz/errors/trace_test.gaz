@@ -116,5 +116,39 @@ foreach ($sites as [$site, $f]) {
     check("{$site} calls to_string", called_from($f), "-> at tests/gaz/errors/trace_test.gaz:" .. {"echo" => 104, ".." => 105, "interpolation" => 106, "..= on a local" => 107, "..= on a global" => 108, "..= on a captured variable" => 109, "to_string()" => 110, "join()" => 111, "print()" => 112, "a builtin as a value" => 113}[$site]);
 }
 
+// A second call from the same instruction is still called from it, though the first ran
+// instructions of its own
+class Shouts {
+    fn to_string() { return upper("a"); }
+}
+$after_another = [
+    ["join()", () -> join([Shouts(), Fails()], ",")],
+    ["map()", () -> map([1, 0],
+        $x -> upper("a") .. 1 / $x)],
+];
+foreach ($after_another as [$site, $f]) {
+    check("{$site} calls again from the same place", called_from($f), "-> at tests/gaz/errors/trace_test.gaz:" .. {"join()" => 125, "map()" => 126}[$site]);
+}
+
+// A builtin's callback is called from where the builtin runs, which isn't itself in the trace
+try {
+    map([0], $x -> 1 / $x);
+} catch (Error $e) {
+    check("a callback's trace", $e.trace, [
+        "-> at tests/gaz/errors/trace_test.gaz:135",
+        "top level at tests/gaz/errors/trace_test.gaz:135",
+    ]);
+}
+$callers = [
+    ["map()", () -> map([0], $x -> 1 / $x)],
+    ["filter()", () -> filter([0], $x -> 1 / $x)],
+    ["reduce()", () -> reduce([0], ($c, $x) -> 1 / $x, 0)],
+    ["sort()", () -> sort([0, 1], ($a, $b) -> 1 / 0)],
+    ["map() as a value", () -> { $apply = map; return $apply([0], $x -> 1 / $x); }],
+];
+foreach ($callers as [$builtin, $f]) {
+    check("{$builtin} calls back", called_from($f), "-> at tests/gaz/errors/trace_test.gaz:" .. {"map()" => 143, "filter()" => 144, "reduce()" => 145, "sort()" => 146, "map() as a value" => 147}[$builtin]);
+}
+
 // The cap on a deep trace is tested through the CLI (FunctionTest): 10000 calls in process
 // would segfault PHP under pcov, long before GazLang's own call depth limit

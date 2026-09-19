@@ -328,7 +328,21 @@ class's fields, methods and constants across its hierarchy.
 `abs`, `intdiv`, `min($a, $b)`, `max($a, $b)`.
 
 **Lists and maps** — `len`, `slice`, `in_array($value, $list)`, `has_key($x, $key)`, `keys`,
-`values`.
+`values`, and four that call a function, lambda, bound method, builtin or class for each
+element, in order:
+
+- `map($x, $f)` — `$f($value)` for each; a list gives a list, a map a map with the same keys.
+- `filter($x, $keep)` — the elements for which `$keep($value)` is true, as `if` reads it; a
+  list gives a list, a map a map with the kept keys.
+- `reduce($x, $f, $initial)` — folds the values left: `$carry = $f($carry, $value)`.
+- `sort($x, $compare)` — the values in a new list, ordered by `$compare($a, $b)`, which returns
+  an int below zero when `$a` comes first, as `$a <=> $b` does; anything but an int is an
+  error. Stable: a merge sort that splits in the middle and asks `$compare(right, left)`,
+  taking from the right only when that is below zero, so a comparator that prints shows the
+  same calls on every runtime.
+
+An error in the function comes out of the builtin, and its trace goes from the function
+straight to where the builtin was called.
 
 **Types** — `type_of`, `is_a($x, Class)`, `class_of($x)`, `fields($object)` (the fields that
 are set, as a map by name, the parent's first; a never-set field is left out).
@@ -351,7 +365,6 @@ file is included once, which also breaks cycles. Everything in `lib/` is written
 
 | File | What is in it |
 | --- | --- |
-| `functional.gaz` | `map`, `filter`, `reduce`, `sort` (stable merge sort, takes a comparator) |
 | `sort.gaz` | `sort_values`, `sort_by` |
 | `json.gaz` | `json_decode`, `json_encode` |
 | `csv.gaz` | `csv_parse`, `csv_records` (RFC 4180) |

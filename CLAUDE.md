@@ -205,11 +205,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
 - **Speed**: the same program takes gazlang 0.7 to 1.5 times what it takes PHP (JIT or not),
   and Python 3.9 1.4 to 4 times what it takes gazlang, except where Python's builtins do the
   work in C (compiling from source included on all sides; gazlang's compile is about 10ms). If
-  speed is next, in this order, measuring each alone with `php vm/bench.php`:
-  1. **`map`, `filter`, `reduce`, `sort` as builtins**, calling back into GazLang the way both
-     VMs already do for `to_string()`; `lib/functional.gaz` in GazLang is why closures are the
-     one benchmark Python wins.
-  2. A Python column in `vm/bench.php` (ports of `vm/bench/*.php`), with a Python 3.11 or later.
+  speed is next, measure with `php vm/bench.php`; a Python column there (ports of
+  `vm/bench/*.php`, with a Python 3.11 or later) would make the Python figures checkable.
 - **Decisions waiting for Werner**: whether bytecode version 1 now carries a compatibility
   promise (`docs/bytecode.md` says none "until the compiler is self-hosted", which it is).
 - **Small cleanups**: rewrite the five `($m[$k] ?? 0) + 1` counters (listed under language gaps).
@@ -412,7 +409,13 @@ compile to `CALL_BUILTIN name argc`, and check argument types by their `type_of(
   (null when absent; negative offset from the end; an empty needle or an offset outside the
   string is an error), `repeat`, `chr` (0 to 255), `ord` (one
   byte), `to_int` (ints, bools, decimal strings with an optional `-`), `to_float`, `to_string`.
-- Lists and maps: `in_array` (`==`), `has_key`, `keys`, `values`.
+- Lists and maps: `in_array` (`==`), `has_key`, `keys`, `values`, and `map`, `filter` (truthiness,
+  as `if`), `reduce($x, $f, $initial)` and `sort` (stable; the comparator must return an int),
+  which call back into GazLang through `Values::$call_value` (the interpreter's `callValue()`,
+  the PHP VM's `valueCaller()`, the C VM's `call_value()`), checked as a call written in the
+  program is. `sort` is a defined merge sort, since a comparator can see which comparisons are
+  made: split in the middle, merge asking `$compare(right, left)`; `Builtins::sort()` and C's
+  `merge_sort()` must stay the same algorithm. Types are checked before anything is called.
 - Types: `type_of` (`int float string bool null list map function class object`), `is_a`,
   `class_of`, `fields` (see "Objects").
 - I/O: `print`/`print_error` (echo without the newline, to stdout or stderr), `read_file`,
@@ -425,9 +428,8 @@ compile to `CALL_BUILTIN name argc`, and check argument types by their `type_of(
 - `builtins()` is `ARITIES` as a map, in no promised order: the builtins of the runtime running the program, which the
   self-hosted parser checks calls against. That is right because the compiler always runs on
   the runtime that will run its output, and a loader refuses bytecode naming a builtin it lacks.
-- In GazLang instead: `lib/chars.gaz` (character classes), `lib/functional.gaz` (`map`, `filter`,
-  `reduce`, `sort` (stable, `$compare` returning `<=>`-style)), since nothing needs a builtin to
-  call back into GazLang yet (both VMs could, as they do for `to_string()`); `lib/sort.gaz`, `lib/format.gaz` (`pad_left`/`pad_right`
+- In GazLang instead: `lib/chars.gaz` (character classes), `lib/sort.gaz` (by key, on `sort`),
+  `lib/format.gaz` (`pad_left`/`pad_right`
   convert like echo: display helpers take any value, string functions stay strict),
   `lib/json.gaz`, `lib/csv.gaz` (RFC 4180). Scan long strings with `index_of`, not a character
   at a time.
@@ -704,7 +706,9 @@ try {
 - **The PHP VM**: `VM::link()` collapses `STORE x; LOAD x; POP`, resolves labels, and splits the
   code into opcode and argument arrays; `execute()` is one dispatch loop with frames in an array,
   so deep recursion doesn't use PHP's stack. It re-enters itself for a method called from inside
-  an instruction (echo calling `to_string()`, through `Values::$call_method`). Its fast paths
+  an instruction (echo calling `to_string()`, through `Values::$call_method`) and for a builtin's
+  callback (`Values::$call_value`, checked by `callTarget()`, which `CALL_VALUE` doesn't call:
+  that cost it 25%). Its fast paths
   cover only the commonest cases whose result is obvious (ints that don't overflow, `==` on two
   ints or strings, `JZ`/`NOT` on bools, list and map indexing, `len`/`ord`/`chr`/`in_array`,
   `LOAD_FIELD` on a set field); everything else, errors included, falls through to `Values`.
@@ -798,8 +802,10 @@ PHP VM (`php vm/bench.php`: CPU time, interleaved, best of several).
   pointers; one-byte strings are 256 shared values.
 - **Frames live on one value stack**: a call's pushed arguments become the callee's first
   locals, and its stack is sized by the loader's walk. The one use of the C stack is a method
-  run from inside an instruction, which can nest as deep as the call limit, so the program runs
-  on a thread with a 1GB stack (address space, backed only as used).
+  or a builtin's callback run from inside an instruction (`call_method()`, `call_value()`), which
+  can nest as deep as the call limit, so the program runs on a thread with a 1GB stack (address
+  space, backed only as used). `call_value()` checks its callee as `CALL_VALUE` does, with its
+  own copy of the checks (`enter_value()`): sharing them cost lambda calls 8%.
 - **The cycle collector** (`gc.c`) is CPython's trial deletion over every list, map, object and
   function, needing no roots, run at a backward jump or call once as many containers have been
   made as were alive after the last collection. There are no destructors, so freeing runs no
@@ -815,7 +821,9 @@ PHP VM (`php vm/bench.php`: CPU time, interleaved, best of several).
 - **Speed**: what paid was an int fast path for `%`, the `STORE; LOAD; POP` peephole, shared
   one-byte strings, not interning names on the hot path, inline caches on member instructions,
   and the superinstructions (fib 25% faster, the arithmetic loop and lists 15 to 20%, the
-  self-hosted compiler 2 to 7%). Computed-goto dispatch didn't (the CPU predicts the switch
+  self-hosted compiler 2 to 7%). A call into another file on the hot path costs twice: a
+  one-line `arity_fits()` in `builtins.c` made `CALL_VALUE` 6% slower once code before it moved,
+  so it is `static inline` in the header. Computed-goto dispatch didn't (the CPU predicts the switch
   well), nor did a fast path for `==`, nor fusing a comparison or `==` with `JZ` on its own once
   `LOAD; PUSH; comparison; JZ` existed (a string comparison missed the quick path and paid for
   the detour). On the development machine (an i7-8700) moving code a few bytes swings a hot

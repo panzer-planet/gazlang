@@ -122,12 +122,13 @@ final class VM
                 throw $error;
             }
             $frames = [];
-            $outer = Values::$call_method;
+            $outer = [Values::$call_method, Values::$call_value];
             Values::$call_method = $this->methodCaller($frames, 0, null, false);
+            Values::$call_value = $this->valueCaller($frames, 0, null, false);
             try {
                 throw $error->uncaught();
             } finally {
-                Values::$call_method = $outer;
+                [Values::$call_method, Values::$call_value] = $outer;
             }
         }
     }
@@ -147,11 +148,12 @@ final class VM
      * @param  string  $function  The starting frame's key in the local names
      * @param  int  $depth  How many calls are running outside this loop, for the call depth limit
      * @param  Closure|null  $caller  The calls running outside this loop, as calls() gives them, or null for none
+     * @param  FunctionValue|null  $closure  The closure the starting frame is a call of, if any
      * @return mixed The value the starting frame returns, or null at the end of the program
      *
      * @throws GazLangError If an error isn't caught by a try
      */
-    private function execute(int $pc, array $locals, ?ObjectValue $receiver, string $function, int $depth, ?Closure $caller = null)
+    private function execute(int $pc, array $locals, ?ObjectValue $receiver, string $function, int $depth, ?Closure $caller = null, ?FunctionValue $closure = null)
     {
         [$ops, $arg0, $arg1, $arg2, $locations, $functions, $lambdas, $classes, $initialisers, $tokens, $increment, $decrement] = $this->linked;
         $end = count($ops);
@@ -162,15 +164,15 @@ final class VM
         $stack = [];
         // How many arguments the running function was passed
         $argc = count($locals);
-        // The closure whose call is running, or null; $receiver is the object # is, or null
-        $closure = null;
+        // $closure is the closure whose call is running, or null; $receiver is the object # is, or null
         // Callers' state, innermost last: [locals, return pc, function, argc, closure, receiver]
         $frames = [];
         // Installed try handlers, innermost last: [frame count, stack size, catch pc]
         $handlers = [];
 
-        $outer = Values::$call_method;
+        $hooks = [Values::$call_method, Values::$call_value];
         Values::$call_method = $this->methodCaller($frames, $depth, $caller);
+        Values::$call_value = $this->valueCaller($frames, $depth, $caller);
 
         try {
             while (true) {
@@ -820,7 +822,7 @@ final class VM
                 }
             }
         } finally {
-            Values::$call_method = $outer;
+            [Values::$call_method, Values::$call_value] = $hooks;
         }
     }
 
@@ -835,24 +837,127 @@ final class VM
      */
     private function methodCaller(array &$frames, int $depth, ?Closure $caller, bool $running = true): Closure
     {
-        [, , , , $locations, $functions] = $this->linked;
+        $functions = $this->linked[5];
 
-        return function (ObjectValue $object, ClassValue $definer, string $name) use (&$frames, $depth, $caller, $running, $locations, $functions) {
+        return function (ObjectValue $object, ClassValue $definer, string $name) use (&$frames, $depth, $caller, $running, $functions) {
             $name = "{$definer->name}.{$name}";
             if ($depth + count($frames) === Values::MAX_CALL_DEPTH) {
                 throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$name}");
             }
-            // Called from the instruction running it, which said where it is (see $here); the calls
-            // there are worked out only if an error needs them
-            $here = null;
-            if ($running) {
-                [$pc, $function, $closure] = [$this->here_pc, $this->here_function, $this->here_closure];
-                $callers = $frames;
-                $here = fn () => $this->calls($locations[$pc - 1], $callers, $function, $closure, $locations, $caller);
+
+            return $this->nested($functions[$name][0], [], $object, $name, null, $frames, $depth, $caller, $running);
+        };
+    }
+
+    /**
+     * How Values::$call_value calls a value while a loop runs, as map() calls its callback: checked as
+     * CALL_VALUE checks it, then to completion in a nested execute(), or directly for a builtin
+     *
+     * @param  array  $frames  The running loop's frames, by reference, so the call depth counts them as they are then
+     * @param  int  $depth  How many calls are running outside that loop
+     * @param  Closure|null  $caller  The calls running outside that loop, or null for none
+     * @param  bool  $running  Whether that loop is running, as for methodCaller()
+     */
+    private function valueCaller(array &$frames, int $depth, ?Closure $caller, bool $running = true): Closure
+    {
+        return function ($callee, array $args) use (&$frames, $depth, $caller, $running) {
+            $target = $this->callTarget($callee, count($args));
+            if ($target === null) {
+                return $this->builtins->call($callee->name, $args);
+            }
+            [$entry, $key, $closure, $receiver, $display] = $target;
+            if ($depth + count($frames) === Values::MAX_CALL_DEPTH) {
+                throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$display}");
             }
 
-            return $this->execute($functions[$name][0], [], $object, $name, $depth + count($frames) + 1, $here);
+            return $this->nested($entry, $args, $receiver, $key, $closure, $frames, $depth, $caller, $running);
         };
+    }
+
+    /**
+     * Run a call to completion in a nested execute(), called from where the running instruction said it is
+     *
+     * The calls there are worked out only if an error needs them. Where it is is put back afterwards,
+     * since the nested loop's own instructions change it, and the instruction may call again (join()
+     * printing a second object, map() calling back for the next element).
+     *
+     * @param  int  $entry  Where the call starts
+     * @param  array  $args  The arguments
+     * @param  ObjectValue|null  $receiver  The object # is, or null
+     * @param  string  $key  The called function's key in the local names
+     * @param  FunctionValue|null  $closure  The closure called, or null
+     * @param  array  $frames  The running loop's frames, as they are now
+     * @param  int  $depth  How many calls are running outside that loop
+     * @param  Closure|null  $caller  The calls running outside that loop, or null for none
+     * @param  bool  $running  Whether that loop is running, so the call is made from where it is
+     * @return mixed What the call returns
+     */
+    private function nested(int $entry, array $args, ?ObjectValue $receiver, string $key, ?FunctionValue $closure, array $frames, int $depth, ?Closure $caller, bool $running)
+    {
+        [$pc, $function, $running_closure] = [$this->here_pc, $this->here_function, $this->here_closure];
+        $here = null;
+        if ($running) {
+            $locations = $this->linked[4];
+            $here = fn () => $this->calls($locations[$pc - 1], $frames, $function, $running_closure, $locations, $caller);
+        }
+        try {
+            return $this->execute($entry, $args, $receiver, $key, $depth + count($frames) + 1, $here, $closure);
+        } finally {
+            [$this->here_pc, $this->here_function, $this->here_closure] = [$pc, $function, $running_closure];
+        }
+    }
+
+    /**
+     * Check a value can be called with that many arguments, as CALL_VALUE does, and say where the call goes
+     *
+     * @param  mixed  $callee  The value called
+     * @param  int  $argc  How many arguments it is given
+     * @return array{0: int, 1: string, 2: FunctionValue|null, 3: ObjectValue|null, 4: string}|null The entry, the
+     *                                                                                              function's key, the closure,
+     *                                                                                              the object # is and the name
+     *                                                                                              for the call depth error; null
+     *                                                                                              for a builtin, which runs in PHP
+     *
+     * @throws Exception If the value can't be called, or not with that many arguments
+     */
+    private function callTarget($callee, int $argc): ?array
+    {
+        [, , , , , $functions, $lambdas, , $initialisers] = $this->linked;
+        if ($callee instanceof ClassValue) {
+            if ($callee->abstract) {
+                throw new Exception("Cannot construct abstract class {$callee->name}");
+            }
+            if (! Builtins::fitsArity($callee->arity, $argc)) {
+                throw new Exception(Builtins::arityError("Class {$callee->name}", $callee->arity, $argc));
+            }
+
+            // One frame sets the field defaults and runs the constructor, with the object as receiver
+            return [$initialisers[$callee->name], "new {$callee->name}", null, new ObjectValue($callee), $callee->name];
+        }
+        if (! $callee instanceof FunctionValue) {
+            throw new Exception('Cannot call '.Values::typeOf($callee));
+        }
+        $name = $callee->name;
+        $builtin = $name !== null && $callee->class === null && isset(Builtins::ARITIES[$name]);
+        $arity = match (true) {
+            $name === null => $lambdas[$callee->index][1],
+            $callee->class !== null => $functions["{$callee->class->name}.{$name}"][1],
+            $builtin => Builtins::ARITIES[$name],
+            default => $functions[$name][1],
+        };
+        if (! Builtins::fitsArity($arity, $argc)) {
+            throw new Exception(Builtins::arityError($callee->title(), $arity, $argc));
+        }
+        if ($builtin) {
+            return null;
+        }
+        if ($name === null) {
+            // Keyed so no function name can collide: names can't contain ->
+            return [$lambdas[$callee->index][0], "->{$callee->index}", $callee, $callee->receiver, $callee->describe()];
+        }
+        $key = $callee->class !== null ? "{$callee->class->name}.{$name}" : $name;
+
+        return [$functions[$key][0], $key, null, $callee->receiver, $callee->describe()];
     }
 
     /**

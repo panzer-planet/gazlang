@@ -27,3 +27,4 @@ ok bound methods compare by object and method
 ok and differ for another object
 ok bound methods print their class
 ok a closure made in a method keeps its object
+ok to_string making a closure, twice

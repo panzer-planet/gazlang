@@ -19,3 +19,11 @@ ok to_string() calls to_string
 ok join() calls to_string
 ok print() calls to_string
 ok a builtin as a value calls to_string
+ok join() calls again from the same place
+ok map() calls again from the same place
+ok a callback's trace
+ok map() calls back
+ok filter() calls back
+ok reduce() calls back
+ok sort() calls back
+ok map() as a value calls back

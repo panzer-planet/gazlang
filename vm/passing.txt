@@ -10,7 +10,6 @@ examples/tokenizer.gaz
 lib/chars.gaz
 lib/csv.gaz
 lib/format.gaz
-lib/functional.gaz
 lib/json.gaz
 lib/sort.gaz
 selfhost/codegen.gaz
@@ -225,7 +224,7 @@ snippet:2a9600280dc0
 snippet:5fea0d3094d6
 snippet:6036f5680433
 snippet:612b2d797f3b
-snippet:6152f88745b5
+snippet:d6eb691f4895
 snippet:619129fcc8d6
 snippet:624a22c7e3e1
 snippet:62572cbcdeb9
@@ -354,7 +353,6 @@ snippet:b18a69e3f4bb
 snippet:b1b465eab522
 snippet:b1bc5d2cc15d
 snippet:b2c965277b7b
-snippet:b30a805269de
 snippet:b39caeacdd46
 snippet:b410f976b0ed
 snippet:b5dd88034429
@@ -380,7 +378,6 @@ snippet:c3ee1b81c3a8
 snippet:c4376f87ee7b
 snippet:c4387df5f743
 snippet:c4463b378e5b
-snippet:c5f3ef06fa52
 snippet:c5f750910f93
 snippet:c6d9b989235b
 snippet:c7d5fbed2de9
@@ -610,7 +607,7 @@ tests/gaz/errors/try_catch_test.gaz
 tests/gaz/functions/default_parameters_test.gaz
 tests/gaz/lib/chars_test.gaz
 tests/gaz/lib/format_test.gaz
-tests/gaz/lib/functional_test.gaz
+tests/gaz/stdlib/functional_test.gaz
 tests/gaz/lib/json_test.gaz
 tests/gaz/lib/sort_test.gaz
 tests/gaz/lists/delete_test.gaz
@@ -678,3 +675,5 @@ tests/vm_corpus/to_string_errors.gaz
 tests/vm_corpus/uncaught_bad_to_string.gaz
 tests/vm_corpus/uncaught_object.gaz
 tests/vm_corpus/uncaught_value.gaz
+snippet:5443eab61e61
+snippet:b2c6266f336a

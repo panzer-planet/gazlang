@@ -432,6 +432,7 @@ void location_text(Str *path, int64_t line, Buf *out);
 
 extern Program *program;
 bool call_method(Object *o, Class *definer, Str *name, Value *out);   /* runs a method to its end */
+bool call_value(Value callee, Value *args, int argc, Value *out);  /* calls a value to its end, as map() does */
 extern FILE *output;        /* where echo and print write: standard output, or memory while compiling */
 void flush_output(void);
 
@@ -450,7 +451,7 @@ extern size_t piped_input_len;
 extern char **program_argv;
 int builtin_find(const char *name, size_t len);
 bool call_builtin(int index, Value *args, int argc, Value *out);
-bool arity_fits(int lo, int hi, int argc);
+static inline bool arity_fits(int lo, int hi, int argc) { return argc >= lo && argc <= hi; }
 bool raise_arity(const char *what, int lo, int hi, int argc);
 Func *builtin_value(int index);
 

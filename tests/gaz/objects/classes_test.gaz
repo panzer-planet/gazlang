@@ -92,3 +92,14 @@ $add = $tally.adder();
 $add(2);
 $add(3);
 check("a closure made in a method keeps its object", $tally.count, 5);
+
+// A to_string() that makes a closure, run twice: the second run still finds to_string()
+class Wrapped {
+    fn to_string() {
+        $x = "w";
+        $get = () -> $x;
+        return $get();
+    }
+}
+$wrapped = Wrapped();
+check("to_string making a closure, twice", "{$wrapped}{$wrapped}", "ww");

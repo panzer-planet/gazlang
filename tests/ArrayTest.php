@@ -246,7 +246,7 @@ class ArrayTest extends GazLangTestCase
     {
         $this->assertEquals("[[1, 2], [1]]\n[{\"k\" => [1, 2], \"j\" => 1}, {\"k\" => [1]}]\n", $this->executeCode(
             'fn fresh() { return [1]; } $a = fresh(); $a[] = 2; echo [$a, fresh()];'
-            .' fn map() { return {"k" => [1]}; } $m = map(); $m["k"][] = 2; $m["j"] = 1; echo [$m, map()];'
+            .' fn fresh_map() { return {"k" => [1]}; } $m = fresh_map(); $m["k"][] = 2; $m["j"] = 1; echo [$m, fresh_map()];'
         ));
     }
 

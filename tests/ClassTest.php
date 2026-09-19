@@ -145,7 +145,6 @@ class ClassTest extends GazLangTestCase
     public function test_hash_name_without_a_call_is_a_bound_method_and_closures_bind_the_receiver()
     {
         $this->assertEquals("[2, 4]\n3\n8\n", $this->executeCode(<<<'CODE'
-            include "lib/functional.gaz";
             class Scaler {
                 #factor;
                 #count = 0;

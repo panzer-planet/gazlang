@@ -201,7 +201,6 @@ class StdlibTest extends GazLangTestCase
             echo [min("pear", "apple"), max("pear", "apple"), min("a", "B")];
             echo [min(1, 1.0), max(1.0, 1), type_of(max(1, 1.0)), type_of(min(1.0, 1))];
             echo [max(9007199254740993, 9007199254740992.0), reduce([3, 9, 2], max, 0)];
-            fn reduce($xs, $f, $carry) { foreach ($xs as $x) { $carry = $f($carry, $x); } return $carry; }
             CODE));
     }
 

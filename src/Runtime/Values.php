@@ -32,6 +32,14 @@ final class Values
     public static $call_method = null;
 
     /**
+     * @var (\Closure(mixed, array): mixed)|null How the running backend calls a value (a function, lambda, bound method,
+     *                                           builtin or class) with arguments, checking it can be called with that many,
+     *                                           as a call written in the program would: map() and the others call their
+     *                                           callbacks with it; set while a program runs
+     */
+    public static $call_value = null;
+
+    /**
      * @var array<int, true> The objects being printed by toString(), by object id, so one that holds itself prints as Name {...}
      */
     private static $printing = [];

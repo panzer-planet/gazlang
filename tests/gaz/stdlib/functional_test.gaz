@@ -1,0 +1,133 @@
+include "../check.gaz";
+
+// map
+check("map a list", map([1, 2, 3], $x -> $x * 2), [2, 4, 6]);
+check("map keeps keys", map({"a" => 1, "b" => 2}, $x -> $x + 1), {"a" => 2, "b" => 3});
+check("map with a builtin", map(["a", "b"], upper), ["A", "B"]);
+check("map an empty list and map", [map([], $x -> $x), map({}, $x -> $x)], [[], {}]);
+
+// filter
+check("filter a list gives a list", filter([1, 2, 3, 4], $x -> $x % 2 == 0), [2, 4]);
+check("filter a map keeps keys", filter({"a" => 1, "b" => 2, "c" => 3}, $x -> $x != 2), {"a" => 1, "c" => 3});
+check("filter everything out", filter([1, 2], $x -> false), []);
+check("filter uses truthiness", filter([0, 1, "", "x", [], [0], {}], $x -> $x), [1, "x", [0]]);
+
+// reduce
+check("reduce sums", reduce([1, 2, 3], ($sum, $x) -> $sum + $x, 0), 6);
+check("reduce from the initial value", reduce([], ($sum, $x) -> $sum + $x, 10), 10);
+check("reduce builds a string", reduce(["a", "b"], ($s, $x) -> $s .. $x, ">"), ">ab");
+check("reduce with a named function", reduce([[1], [2, 3]], ($n, $a) -> $n + len($a), 0), 3);
+
+// sort
+check("sort numbers", sort([5, 3, 9, 1, 3], ($a, $b) -> $a <=> $b), [1, 3, 3, 5, 9]);
+check("sort descending", sort([5, 3, 9, 1], ($a, $b) -> $b <=> $a), [9, 5, 3, 1]);
+check("sort strings byte by byte", sort(["b", "B", "a", "10", "9"], ($a, $b) -> $a <=> $b), ["10", "9", "B", "a", "b"]);
+check("sort drops keys", sort({"z" => 2, "y" => 1}, ($a, $b) -> $a <=> $b), [1, 2]);
+check("sort empty and one", [sort([], ($a, $b) -> 0), sort(["x"], ($a, $b) -> 0)], [[], ["x"]]);
+$people = [{"n" => "Ada", "t" => 2}, {"n" => "Bob", "t" => 1}, {"n" => "Cy", "t" => 2}, {"n" => "Di", "t" => 1}];
+check("sort is stable", map(sort($people, ($a, $b) -> $a["t"] <=> $b["t"]), $p -> $p["n"]), ["Bob", "Di", "Ada", "Cy"]);
+$by_length_then_text = ($a, $b) -> {
+    $by_length = len($a) <=> len($b);
+    return $by_length != 0 ? $by_length : $a <=> $b;
+};
+check("sort by length then text", sort(["bb", "a", "ccc", "aa"], $by_length_then_text), ["a", "aa", "bb", "ccc"]);
+try {
+    sort([1, "one"], ($a, $b) -> $a <=> $b);
+} catch ($e) {
+    check("a comparator error comes out", $e.message, "Cannot use <=> on string and int");
+}
+
+// composing
+check("map then filter then reduce", reduce(filter(map([1, 2, 3, 4], $x -> $x * $x), $x -> $x > 4), ($s, $x) -> $s + $x, 0), 25);
+
+// Arguments are checked before anything is called, even with nothing to call it on
+fn message($f) {
+    try {
+        $f();
+    } catch (Error $e) {
+        return $e.message;
+    }
+}
+check("map needs a list or map", message(() -> map(5, $x -> $x)), "map() expects list or map, got int");
+check("map needs something to call", message(() -> map([], 5)), "map() expects function or class, got int");
+check("filter checks too", message(() -> filter("abc", $x -> $x)), "filter() expects list or map, got string");
+check("reduce checks too", message(() -> reduce([], null, 0)), "reduce() expects function or class, got null");
+check("sort checks too", message(() -> sort({}, "x")), "sort() expects function or class, got string");
+
+// Anything callable is called as a call in the program is
+class Pair {
+    #value;
+    fn _($value) { #value = $value; }
+    fn twice($x) { return $x * 2; }
+}
+abstract class Shape {}
+check("a class constructs", map(map([1, 2], Pair), $p -> $p.value), [1, 2]);
+check("a bound method", map([1, 2], Pair(0).twice), [2, 4]);
+check("a builtin", map([[1], [1, 2]], len), [1, 2]);
+check("an abstract class can't", message(() -> map([1], Shape)), "Cannot construct abstract class Shape");
+check("a builtin with the wrong count", message(() -> map([1], slice)), "Function slice expects 2 to 3 arguments, 1 given");
+check("a lambda with the wrong count", message(() -> map([1], ($a, $b) -> $a)), "Function -> at tests/gaz/stdlib/functional_test.gaz:69 expects 2 arguments, 1 given");
+check("a bound method with the wrong count", message(() -> reduce([1], Pair(0).twice, 0)), "Method Pair.twice expects 1 arguments, 2 given");
+
+// Keys stay what they were: 1 and "1" are different keys
+check("map keeps int and string keys apart", map({1 => "a", "1" => "b"}, upper), {1 => "A", "1" => "B"});
+check("filter too", filter({1 => "a", "1" => "", 2 => "c"}, $x -> $x), {1 => "a", 2 => "c"});
+check("reduce folds a map's values", reduce({"x" => 1, "y" => 2}, ($s, $v) -> $s + $v, 0), 3);
+
+// sort's comparator must give an int, as <=> does, and isn't asked when there is nothing to compare
+check("a float is not an int", message(() -> sort([2, 1], ($a, $b) -> 1.5)), "sort's comparator must return an int, got float");
+check("nor a bool", message(() -> sort([2, 1], ($a, $b) -> $a > $b)), "sort's comparator must return an int, got bool");
+check("one value isn't compared", sort([1], ($a, $b) -> "x"), [1]);
+
+// Which comparisons sort makes, and in what order, is part of what it does
+@compared = [];
+$sorted = sort([3, 1, 2], ($a, $b) -> {
+    @compared[] = [$a, $b];
+    return $a <=> $b;
+});
+check("sort's comparisons", [$sorted, @compared], [[1, 2, 3], [[2, 1], [1, 3], [2, 3]]]);
+
+// A failing callback stops the rest, and the error comes out of the builtin
+@called = 0;
+fn count_then_divide($x) {
+    @called++;
+    return 1 / $x;
+}
+check("map stops", [message(() -> map([1, 0, 2], count_then_divide)), @called], ["Division by zero", 2]);
+check("an error value comes out as it is", message(() -> filter([1], $x -> error("no"))), "no");
+try {
+    reduce([1], ($c, $x) -> error([$c, $x]), "c");
+} catch ($thrown) {
+    check("a thrown value", $thrown, ["c", 1]);
+}
+check("sort stops mid-merge", message(() -> sort([3, 1, 2, "a"], ($a, $b) -> $a <=> $b)), "Cannot use <=> on string and int");
+
+// A closure keeps its variables between the calls
+$n = 0;
+$number = $x -> {
+    $n++;
+    return $n;
+};
+check("a closure counts", map(["a", "b", "c"], $number), [1, 2, 3]);
+check("nested", map([[1, 2], [3]], $l -> map($l, $x -> $x * 10)), [[10, 20], [30]]);
+$list = [1, 2];
+check("changing the list inside doesn't change what is mapped", map($list, $x -> {
+    $list[] = 9;
+    return $x;
+}), [1, 2]);
+
+// A map with entries deleted, at the end and in the middle, holds only what is left
+$holes = {"a" => 1, "b" => 2, "c" => 3, "d" => 4};
+delete $holes["b"];
+delete $holes["d"];
+check("map skips what was deleted", map($holes, $x -> $x * 10), {"a" => 10, "c" => 30});
+check("filter too", filter($holes, $x -> true), {"a" => 1, "c" => 3});
+check("reduce too", reduce($holes, ($s, $x) -> $s .. $x, ""), "13");
+check("sort too", sort($holes, ($a, $b) -> $b <=> $a), [3, 1]);
+
+// More failures on the way: over a map, in sort's left half, and the first argument's type
+check("mapping a map stops", message(() -> map({"a" => 1, "b" => 0}, $x -> 1 / $x)), "Division by zero");
+check("filtering a map stops", message(() -> filter({"a" => 0}, $x -> 1 / $x)), "Division by zero");
+check("sort stops in the left half", message(() -> sort(["a", 1, 3, 2], ($a, $b) -> $a <=> $b)), "Cannot use <=> on string and int");
+check("reduce needs a list or map", message(() -> reduce(5, ($c, $x) -> $c, 0)), "reduce() expects list or map, got int");
+check("sort needs a list or map", message(() -> sort(5, ($a, $b) -> 0)), "sort() expects list or map, got int");

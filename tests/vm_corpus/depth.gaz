@@ -36,6 +36,13 @@ try { Child().go(0); } catch (Error $e) { echo $e.message; }
 // to_string() printing itself forever runs in nested loops
 try { echo Walker(); } catch (Error $e) { echo $e.message; }
 
+// Through a builtin's callback, which runs in a loop of its own, with the limit met at deep()
+// and, starting one deeper, at the callback
+fn deep($n) { return map([$n], $x -> deep($x + 1)); }
+try { deep(0); } catch (Error $e) { echo $e.message; echo len($e.trace); echo $e.trace[10]; }
+fn start_deep() { deep(0); }
+try { start_deep(); } catch (Error $e) { echo $e.message; echo len($e.trace); echo $e.trace[10]; }
+
 // The depth is given back after each: this still works
 echo down2(3);
 fn down2($n) { return $n == 0 ? "done" : down2($n - 1); }

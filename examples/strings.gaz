@@ -2,8 +2,6 @@
 //
 //   bin/gazlang -f examples/strings.gaz
 
-include "../lib/functional.gaz";
-
 $name = "Gaz";
 $user = {"name" => "Werner", "roles" => ["admin", "dev"]};
 @visits = 41;

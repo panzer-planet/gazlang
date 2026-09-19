@@ -48,6 +48,10 @@ final class Builtins
         'has_key' => 2,
         'keys' => 1,
         'values' => 1,
+        'map' => 2,
+        'filter' => 2,
+        'reduce' => 3,
+        'sort' => 2,
         'type_of' => 1,
         'is_a' => 2,
         'class_of' => 1,
@@ -183,6 +187,14 @@ final class Builtins
             'keys' => is_array($this->argument($name, $args[0], 'list', 'map')) ? array_keys($args[0]) : $args[0]->keys(),
             // A list's values are the list itself, in order; a map's are its values in insertion order
             'values' => is_array($this->argument($name, $args[0], 'list', 'map')) ? $args[0] : array_values($args[0]->items),
+            // They call back into the program for each element, through the backend running it
+            'map' => $this->map($this->argument($name, $args[0], 'list', 'map'), $this->argument($name, $args[1], 'function', 'class')),
+            'filter' => $this->filter($this->argument($name, $args[0], 'list', 'map'), $this->argument($name, $args[1], 'function', 'class')),
+            'reduce' => $this->reduce($this->argument($name, $args[0], 'list', 'map'), $this->argument($name, $args[1], 'function', 'class'), $args[2]),
+            'sort' => $this->sort(
+                is_array($this->argument($name, $args[0], 'list', 'map')) ? $args[0] : array_values($args[0]->items),
+                $this->argument($name, $args[1], 'function', 'class'),
+            ),
             'type_of' => Values::typeOf($args[0]),
             'is_a' => $this->isA($args[0], $this->argument($name, $args[1], 'class')),
             // The class itself, so it can be compared (== is identity, so match dispatches on it),
@@ -210,6 +222,98 @@ final class Builtins
             'builtins' => new MapValue(self::ARITIES),
             default => throw new Exception("Unknown builtin: {$name}"),
         };
+    }
+
+    /**
+     * map($x, $f): $f($value) for each element, in order; a list gives a list, a map a map with the same keys
+     *
+     * @param  array|MapValue  $x  The list or map
+     * @param  mixed  $f  What to call, a function or class
+     */
+    private function map(array|MapValue $x, $f): array|MapValue
+    {
+        $call = Values::$call_value;
+        $items = [];
+        foreach (is_array($x) ? $x : $x->items as $key => $value) {
+            $items[$key] = $call($f, [$value]);
+        }
+
+        return is_array($x) ? $items : new MapValue($items);
+    }
+
+    /**
+     * filter($x, $keep): the elements, in order, for which $keep($value) is true as if reads it; a list
+     * gives a list, a map a map with the kept keys
+     *
+     * @param  array|MapValue  $x  The list or map
+     * @param  mixed  $keep  What to call, a function or class
+     */
+    private function filter(array|MapValue $x, $keep): array|MapValue
+    {
+        $call = Values::$call_value;
+        $items = [];
+        foreach (is_array($x) ? $x : $x->items as $key => $value) {
+            if (Values::isTruthy($call($keep, [$value]))) {
+                $items[$key] = $value;
+            }
+        }
+
+        return is_array($x) ? array_values($items) : new MapValue($items);
+    }
+
+    /**
+     * reduce($x, $f, $initial): folds the values left, $carry = $f($carry, $value) from $initial
+     *
+     * @param  array|MapValue  $x  The list or map
+     * @param  mixed  $f  What to call, a function or class
+     * @param  mixed  $initial  The first carry, and the result when there are no values
+     */
+    private function reduce(array|MapValue $x, $f, $initial)
+    {
+        $call = Values::$call_value;
+        $carry = $initial;
+        foreach (is_array($x) ? $x : $x->items as $value) {
+            $carry = $call($f, [$carry, $value]);
+        }
+
+        return $carry;
+    }
+
+    /**
+     * sort($x, $compare): the values in a new list, stably sorted by $compare($a, $b), an int below zero
+     * when $a comes first
+     *
+     * A program can see which comparisons are made and in what order, so this is the definition:
+     * split in the middle (the left half is the smaller one), sort each half, then merge, asking
+     * $compare(right, left) and taking from the right only when that is below zero, so equal
+     * values keep their order. The C VM does exactly this.
+     *
+     * @param  array  $list  The values
+     * @param  mixed  $compare  What to call, a function or class
+     */
+    private function sort(array $list, $compare): array
+    {
+        $count = count($list);
+        if ($count < 2) {
+            return $list;
+        }
+        $middle = intdiv($count, 2);
+        $left = $this->sort(array_slice($list, 0, $middle), $compare);
+        $right = $this->sort(array_slice($list, $middle), $compare);
+
+        $call = Values::$call_value;
+        $merged = [];
+        $l = 0;
+        $r = 0;
+        while ($l < $middle && $r < $count - $middle) {
+            $order = $call($compare, [$right[$r], $left[$l]]);
+            if (! is_int($order)) {
+                throw new Exception("sort's comparator must return an int, got ".Values::typeOf($order));
+            }
+            $merged[] = $order < 0 ? $right[$r++] : $left[$l++];
+        }
+
+        return [...$merged, ...array_slice($left, $l), ...array_slice($right, $r)];
     }
 
     /**

@@ -1,9 +1,7 @@
-// Sorting by key for GazLang, on top of sort() from functional.gaz: sort_values() sorts
+// Sorting by key for GazLang, on top of the sort() builtin: sort_values() sorts
 // plain values and sort_by() sorts rows (maps) by one of their keys. Both are stable and
 // return a new list; keys are not kept. Values are ordered with <=>, so mixing types that
 // can't be ordered (a number and a string, lists, maps, null) is an error.
-
-include "functional.gaz";
 
 // $values sorted, smallest first, or largest first if $descending
 fn sort_values($values, $descending = false) {
