@@ -1,0 +1,1 @@
+Error: Expected ';' but found '->' at tests/parser_corpus/error_lambda_global_parameter.gaz:1

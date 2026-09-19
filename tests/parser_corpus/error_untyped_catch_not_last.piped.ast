@@ -1,0 +1,1 @@
+Error: A catch without a class catches every error, so it must be the last on line 1

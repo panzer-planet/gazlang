@@ -1,0 +1,1 @@
+Error: Expected ')' but found '2' at tests/parser_corpus/error_call_missing_comma.gaz:1

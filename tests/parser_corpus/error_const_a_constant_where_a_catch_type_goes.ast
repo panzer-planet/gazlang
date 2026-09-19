@@ -1,0 +1,1 @@
+Error: K is a constant, not a class at tests/parser_corpus/error_const_a_constant_where_a_catch_type_goes.gaz:2

@@ -1,0 +1,50 @@
+1 ECHO echo
+1 STRING ""
+1 SEMICOLON ;
+2 ECHO echo
+2 STRING "plain"
+2 SEMICOLON ;
+3 ECHO echo
+3 STRING "escapes \n \t \r \" \\ end"
+3 SEMICOLON ;
+4 ECHO echo
+4 STRING "// not a comment"
+4 SEMICOLON ;
+5 ECHO echo
+5 STRING "echo if function"
+5 SEMICOLON ;
+6 ECHO echo
+6 STRING "spans\ntwo lines"
+7 SEMICOLON ;
+8 ECHO echo
+8 STRING "after"
+8 PLUS +
+8 STRING "adjacent"
+8 STRING "strings"
+8 SEMICOLON ;
+9 ECHO echo
+9 STRING "more \v \f \e \x00 Az é 😀 \x00"
+9 SEMICOLON ;
+10 ECHO echo
+10 STRING "\x0012"
+10 SEMICOLON ;
+11 ECHO echo
+11 STRING "single"
+11 PLUS +
+11 STRING ""
+11 PLUS +
+11 STRING "C:\\path"
+11 PLUS +
+11 STRING "it's"
+11 PLUS +
+11 STRING "back\\"
+11 PLUS +
+11 STRING "no \"escapes\" \\n"
+11 SEMICOLON ;
+12 ECHO echo
+12 STRING "two\nlines"
+13 SEMICOLON ;
+15 ECHO echo
+15 STRING "퟿  􏿿 A"
+15 SEMICOLON ;
+16 EOF

@@ -1,0 +1,2 @@
+1 ECHO echo
+Error: Octal escapes are not supported: \01 (use \x) on line 1

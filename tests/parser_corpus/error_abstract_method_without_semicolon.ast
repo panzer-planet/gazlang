@@ -1,0 +1,1 @@
+Error: Expected ';' but found '}' at tests/parser_corpus/error_abstract_method_without_semicolon.gaz:1

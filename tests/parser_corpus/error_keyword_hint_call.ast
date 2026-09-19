@@ -1,0 +1,1 @@
+Error: Undefined function: IF (keywords are lowercase: write 'if', not 'IF') at tests/parser_corpus/error_keyword_hint_call.gaz:2

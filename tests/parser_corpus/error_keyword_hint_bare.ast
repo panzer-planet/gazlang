@@ -1,0 +1,1 @@
+Error: Undefined function or constant: True (keywords are lowercase: write 'true', not 'True') at tests/parser_corpus/error_keyword_hint_bare.gaz:1

@@ -1,0 +1,1 @@
+Error: Cannot use break outside of a loop at tests/parser_corpus/error_break_in_lambda_in_loop.gaz:1

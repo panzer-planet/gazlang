@@ -1,0 +1,1 @@
+Error: A constant can't interpolate $name into a string (write \$ for a dollar sign) at tests/parser_corpus/error_const_interpolates_a_variable.gaz:2

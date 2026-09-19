@@ -1,0 +1,1 @@
+Error: Cannot spread string: only a list can be at tests/parser_corpus/error_const_spread_a_non_list.gaz:2

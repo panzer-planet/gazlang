@@ -1,0 +1,1 @@
+Error: Field #size of B has the name of a method of A: fields and methods share names, so call the field something else on line 2

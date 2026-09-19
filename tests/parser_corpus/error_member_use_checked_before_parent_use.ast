@@ -1,0 +1,1 @@
+Error: B has no member #nope at tests/parser_corpus/error_member_use_checked_before_parent_use.gaz:4

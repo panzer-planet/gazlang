@@ -1,0 +1,1 @@
+Error: Duplicate parameter $a in lambda at tests/parser_corpus/error_lambda_duplicate_parameter.gaz:3

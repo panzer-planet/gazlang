@@ -1,0 +1,70 @@
+Compound
+  statements:
+@ "<builtin>"
+    0: ClassDeclaration 1
+      name: "Error"
+      parent: null
+      abstract: false
+      fields: {"message" => null, "file" => null, "line" => null, "trace" => null}
+      field_lines: {"message" => 2, "file" => 3, "line" => 4, "trace" => 5}
+      methods:
+        _: FunctionDeclaration 6
+          name: "_"
+          params: ["\$message"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 6
+                expr: Assign 6
+                  left: Property 6
+                    target: This 6
+                    name: "message"
+                    field: true
+                    constant: false
+                    value: null
+                  token: 6 ASSIGN =
+                  right: Variable 6
+                    token: 6 VAR_IDENTIFIER $message
+                    value: "\$message"
+          arity: 1
+          class: "Error"
+          abstract: false
+        to_string: FunctionDeclaration 7
+          name: "to_string"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 7
+                expr: BinOp 7
+                  left: String 7
+                    token: 7 STRING_START ""
+                    value: ""
+                  token: 7 CONCAT ..
+                  op: 7 CONCAT ..
+                  right: Property 7
+                    target: This 7
+                    name: "message"
+                    field: true
+                    constant: false
+                    value: null
+          arity: 0
+          class: "Error"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"message" => "Error", "file" => "Error", "line" => "Error", "trace" => "Error"}
+      members: {"_" => "Error", "to_string" => "Error"}
+      abstract_methods: []
+@ "tests/parser_corpus/uses_error_by_name.gaz"
+    1: Statement 2
+      expr: Assign 2
+        left: Variable 2
+          token: 2 VAR_IDENTIFIER $e
+          value: "\$e"
+        token: 2 ASSIGN =
+        right: FunctionRef 2
+          name: "Error"
+          constant: false
+          value: null

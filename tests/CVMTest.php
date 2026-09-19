@@ -10,8 +10,7 @@ use PHPUnit\Framework\TestCase;
  * vm/progress.php --update recorded it
  *
  * The list only grows: vm/progress.php finds the entries that newly pass, adds them and records
- * what they print. The self-hosted drivers on big inputs are still run on the PHP VM each time,
- * since what they print (megabytes) changes with every edit to selfhost/.
+ * what they print.
  */
 class CVMTest extends TestCase
 {
@@ -26,46 +25,14 @@ class CVMTest extends TestCase
         self::$results = CVM::runC(array_keys(self::entries()));
     }
 
-    /**
-     * The entries without arguments; the ones with arguments are the self-hosted drivers on big
-     * inputs, seconds each on the PHP VM, which the whole-repository group runs
-     */
     public static function entries(): array
-    {
-        return self::select(false);
-    }
-
-    public static function drivers(): array
-    {
-        return self::select(true);
-    }
-
-    private static function select(bool $with_arguments): array
     {
         $entries = [];
         foreach (CVM::passing() as $entry) {
-            if (str_contains($entry, ' ') === $with_arguments) {
-                $entries[$entry] = [$entry];
-            }
+            $entries[$entry] = [$entry];
         }
 
         return $entries;
-    }
-
-    /**
-     * @dataProvider drivers
-     *
-     * @group whole-repository
-     */
-    public function test_the_c_vm_matches_the_php_vm_on_the_drivers(string $entry)
-    {
-        $result = CVM::runAll([$entry])[$entry];
-        $this->assertNotNull($result, "{$entry} no longer compiles");
-        [$php, $c] = $result;
-        $this->assertSame($php[1], $c[1], "{$entry}: standard error");
-        $this->assertSame($php[0], $c[0], "{$entry}: standard output");
-        $this->assertSame($php[2], $c[2], "{$entry}: exit code");
-        $this->assertNull(CVM::leak($c), "{$entry}: the C VM leaked");
     }
 
     /**

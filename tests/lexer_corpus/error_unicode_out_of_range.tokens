@@ -1,0 +1,2 @@
+1 ECHO echo
+Error: Invalid escape \u{110000}: not a Unicode code point on line 1

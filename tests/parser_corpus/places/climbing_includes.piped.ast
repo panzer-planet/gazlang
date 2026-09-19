@@ -1,0 +1,126 @@
+Compound
+  statements:
+@ "helper.gaz"
+    0: FunctionDeclaration 1
+      name: "helper"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 1
+            expr: Num 1
+              token: 1 INTEGER 1
+              value: 1
+      arity: 0
+      class: null
+      abstract: false
+@ "<root>/tests/parser_corpus/include/lib/shapes.gaz"
+    1: ClassDeclaration 3
+      name: "Square"
+      parent: null
+      abstract: false
+      fields: {"side" => null}
+      field_lines: {"side" => 4}
+      methods:
+        _: FunctionDeclaration 5
+          name: "_"
+          params: ["\$side"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 5
+                expr: Assign 5
+                  left: Property 5
+                    target: This 5
+                    name: "side"
+                    field: true
+                    constant: false
+                    value: null
+                  token: 5 ASSIGN =
+                  right: Variable 5
+                    token: 5 VAR_IDENTIFIER $side
+                    value: "\$side"
+          arity: 1
+          class: "Square"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"side" => "Square"}
+      members: {"_" => "Square"}
+      abstract_methods: []
+    2: FunctionDeclaration 7
+      name: "area"
+      params: ["\$square"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: ReturnStatement 7
+            expr: BinOp 7
+              left: BinOp 7
+                left: Property 7
+                  target: Variable 7
+                    token: 7 VAR_IDENTIFIER $square
+                    value: "\$square"
+                  name: "side"
+                  field: false
+                  constant: false
+                  value: null
+                token: 7 MULTIPLY *
+                op: 7 MULTIPLY *
+                right: Property 7
+                  target: Variable 7
+                    token: 7 VAR_IDENTIFIER $square
+                    value: "\$square"
+                  name: "side"
+                  field: false
+                  constant: false
+                  value: null
+              token: 7 PLUS +
+              op: 7 PLUS +
+              right: FunctionCall 7
+                name: "helper"
+                args: []
+      arity: 1
+      class: null
+      abstract: false
+    3: EchoStatement 8
+      expr: String 8
+        token: 8 STRING "shapes loaded"
+        value: "shapes loaded"
+@ "<root>/tests/parser_corpus/include/main.gaz"
+    4: EchoStatement 2
+      expr: String 2
+        token: 2 STRING "before"
+        value: "before"
+    5: EchoStatement 4
+      expr: FunctionCall 4
+        name: "area"
+        args:
+          0: FunctionCall 4
+            name: "Square"
+            args:
+              0: Num 4
+                token: 4 INTEGER 2
+                value: 2
+@ "uses_parent_dir.gaz"
+    6: EchoStatement 5
+      expr: String 5
+        token: 5 STRING "deep"
+        value: "deep"
+@ "<root>/tests/parser_corpus/include/main.gaz"
+    7: EchoStatement 9
+      expr: BinOp 9
+        left: FunctionCall 9
+          name: "helper"
+          args: []
+        token: 9 CONCAT ..
+        op: 9 CONCAT ..
+        right: String 9
+          token: 9 STRING "after"
+          value: "after"
+@ null
+    8: EchoStatement 5
+      expr: String 5
+        token: 5 STRING "deep"
+        value: "deep"

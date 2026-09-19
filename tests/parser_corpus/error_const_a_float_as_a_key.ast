@@ -1,0 +1,1 @@
+Error: Keys must be int or string, got float at tests/parser_corpus/error_const_a_float_as_a_key.gaz:1

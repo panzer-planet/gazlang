@@ -1,0 +1,1 @@
+Error: Function add expects 2 arguments, 1 given at tests/parser_corpus/error_function_arity_too_few.gaz:2

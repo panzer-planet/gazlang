@@ -1,0 +1,1 @@
+Error: Expected a name but found '$a' at tests/parser_corpus/error_const_a_variable_for_a_name.gaz:1

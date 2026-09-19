@@ -1,0 +1,436 @@
+Compound
+  statements:
+@ "tests/parser_corpus/interpolation.gaz"
+    0: EchoStatement 1
+      expr: BinOp 1
+        left: String 1
+          token: 1 STRING_START "Hi "
+          value: "Hi "
+        token: 1 CONCAT ..
+        op: 1 CONCAT ..
+        right: Variable 1
+          token: 1 VAR_IDENTIFIER $name
+          value: "\$name"
+    1: EchoStatement 2
+      expr: BinOp 2
+        left: BinOp 2
+          left: String 2
+            token: 2 STRING_START "Hi "
+            value: "Hi "
+          token: 2 CONCAT ..
+          op: 2 CONCAT ..
+          right: Variable 2
+            token: 2 VAR_IDENTIFIER $name
+            value: "\$name"
+        token: 2 CONCAT ..
+        op: 2 CONCAT ..
+        right: String 2
+          token: 2 STRING_END "!"
+          value: "!"
+    2: EchoStatement 3
+      expr: BinOp 3
+        left: BinOp 3
+          left: String 3
+            token: 3 STRING_START ""
+            value: ""
+          token: 3 CONCAT ..
+          op: 3 CONCAT ..
+          right: Variable 3
+            token: 3 VAR_IDENTIFIER $a
+            value: "\$a"
+        token: 3 CONCAT ..
+        op: 3 CONCAT ..
+        right: Variable 3
+          token: 3 VAR_IDENTIFIER $b
+          value: "\$b"
+    3: EchoStatement 4
+      expr: BinOp 4
+        left: BinOp 4
+          left: BinOp 4
+            left: BinOp 4
+              left: BinOp 4
+                left: BinOp 4
+                  left: String 4
+                    token: 4 STRING_START ""
+                    value: ""
+                  token: 4 CONCAT ..
+                  op: 4 CONCAT ..
+                  right: Variable 4
+                    token: 4 VAR_IDENTIFIER $a
+                    value: "\$a"
+                token: 4 CONCAT ..
+                op: 4 CONCAT ..
+                right: String 4
+                  token: 4 STRING_MIDDLE " and "
+                  value: " and "
+              token: 4 CONCAT ..
+              op: 4 CONCAT ..
+              right: Variable 4
+                token: 4 VAR_IDENTIFIER $b
+                value: "\$b"
+            token: 4 CONCAT ..
+            op: 4 CONCAT ..
+            right: String 4
+              token: 4 STRING_MIDDLE " and "
+              value: " and "
+          token: 4 CONCAT ..
+          op: 4 CONCAT ..
+          right: Variable 4
+            token: 4 VAR_IDENTIFIER $c
+            value: "\$c"
+        token: 4 CONCAT ..
+        op: 4 CONCAT ..
+        right: String 4
+          token: 4 STRING_END "."
+          value: "."
+    4: EchoStatement 5
+      expr: BinOp 5
+        left: String 5
+          token: 5 STRING_START ""
+          value: ""
+        token: 5 CONCAT ..
+        op: 5 CONCAT ..
+        right: Variable 5
+          token: 5 VAR_IDENTIFIER $a
+          value: "\$a"
+    5: EchoStatement 6
+      expr: BinOp 6
+        left: BinOp 6
+          left: BinOp 6
+            left: BinOp 6
+              left: String 6
+                token: 6 STRING_START "x"
+                value: "x"
+              token: 6 CONCAT ..
+              op: 6 CONCAT ..
+              right: Variable 6
+                token: 6 VAR_IDENTIFIER $a
+                value: "\$a"
+            token: 6 CONCAT ..
+            op: 6 CONCAT ..
+            right: String 6
+              token: 6 STRING_MIDDLE "y"
+              value: "y"
+          token: 6 CONCAT ..
+          op: 6 CONCAT ..
+          right: Variable 6
+            token: 6 VAR_IDENTIFIER $b
+            value: "\$b"
+        token: 6 CONCAT ..
+        op: 6 CONCAT ..
+        right: String 6
+          token: 6 STRING_END "z"
+          value: "z"
+    6: EchoStatement 7
+      expr: BinOp 7
+        left: BinOp 7
+          left: BinOp 7
+            left: BinOp 7
+              left: String 7
+                token: 7 STRING_START ""
+                value: ""
+              token: 7 CONCAT ..
+              op: 7 CONCAT ..
+              right: Property 7
+                target: Variable 7
+                  token: 7 VAR_IDENTIFIER $user
+                  value: "\$user"
+                name: "name"
+                field: false
+                constant: false
+                value: null
+            token: 7 CONCAT ..
+            op: 7 CONCAT ..
+            right: String 7
+              token: 7 STRING_MIDDLE " has {len("
+              value: " has {len("
+          token: 7 CONCAT ..
+          op: 7 CONCAT ..
+          right: Variable 7
+            token: 7 VAR_IDENTIFIER $user
+            value: "\$user"
+        token: 7 CONCAT ..
+        op: 7 CONCAT ..
+        right: String 7
+          token: 7 STRING_END ".tags)} tags"
+          value: ".tags)} tags"
+    7: EchoStatement 8
+      expr: BinOp 8
+        left: BinOp 8
+          left: BinOp 8
+            left: BinOp 8
+              left: BinOp 8
+                left: String 8
+                  token: 8 STRING_START ""
+                  value: ""
+                token: 8 CONCAT ..
+                op: 8 CONCAT ..
+                right: BinOp 8
+                  left: Variable 8
+                    token: 8 VAR_IDENTIFIER $a
+                    value: "\$a"
+                  token: 8 PLUS +
+                  op: 8 PLUS +
+                  right: Num 8
+                    token: 8 INTEGER 1
+                    value: 1
+              token: 8 CONCAT ..
+              op: 8 CONCAT ..
+              right: String 8
+                token: 8 STRING_MIDDLE " "
+                value: " "
+            token: 8 CONCAT ..
+            op: 8 CONCAT ..
+            right: Index 8
+              target: CallValue 8
+                callee: Variable 8
+                  token: 8 VAR_IDENTIFIER $f
+                  value: "\$f"
+                args:
+                  0: Num 8
+                    token: 8 INTEGER 1
+                    value: 1
+              index: Num 8
+                token: 8 INTEGER 0
+                value: 0
+          token: 8 CONCAT ..
+          op: 8 CONCAT ..
+          right: String 8
+            token: 8 STRING_MIDDLE " "
+            value: " "
+        token: 8 CONCAT ..
+        op: 8 CONCAT ..
+        right: Variable 8
+          token: 8 GLOBAL_VAR_IDENTIFIER @g
+          value: "@g"
+    8: EchoStatement 9
+      expr: BinOp 9
+        left: BinOp 9
+          left: BinOp 9
+            left: BinOp 9
+              left: BinOp 9
+                left: BinOp 9
+                  left: BinOp 9
+                    left: String 9
+                      token: 9 STRING_START ""
+                      value: ""
+                    token: 9 CONCAT ..
+                    op: 9 CONCAT ..
+                    right: Index 9
+                      target: Variable 9
+                        token: 9 VAR_IDENTIFIER $list
+                        value: "\$list"
+                      index: Num 9
+                        token: 9 INTEGER 0
+                        value: 0
+                  token: 9 CONCAT ..
+                  op: 9 CONCAT ..
+                  right: String 9
+                    token: 9 STRING_MIDDLE " "
+                    value: " "
+                token: 9 CONCAT ..
+                op: 9 CONCAT ..
+                right: Index 9
+                  target: Variable 9
+                    token: 9 VAR_IDENTIFIER $map
+                    value: "\$map"
+                  index: String 9
+                    token: 9 STRING "key"
+                    value: "key"
+              token: 9 CONCAT ..
+              op: 9 CONCAT ..
+              right: String 9
+                token: 9 STRING_MIDDLE " "
+                value: " "
+            token: 9 CONCAT ..
+            op: 9 CONCAT ..
+            right: Index 9
+              target: Variable 9
+                token: 9 VAR_IDENTIFIER $map
+                value: "\$map"
+              index: Variable 9
+                token: 9 VAR_IDENTIFIER $i
+                value: "\$i"
+          token: 9 CONCAT ..
+          op: 9 CONCAT ..
+          right: String 9
+            token: 9 STRING_MIDDLE " "
+            value: " "
+        token: 9 CONCAT ..
+        op: 9 CONCAT ..
+        right: Index 9
+          target: Variable 9
+            token: 9 VAR_IDENTIFIER $list
+            value: "\$list"
+          index: Num 9
+            token: 9 INTEGER -1
+            value: -1
+    9: EchoStatement 10
+      expr: BinOp 10
+        left: BinOp 10
+          left: String 10
+            token: 10 STRING_START "nested "
+            value: "nested "
+          token: 10 CONCAT ..
+          op: 10 CONCAT ..
+          right: Index 10
+            target: Variable 10
+              token: 10 VAR_IDENTIFIER $m
+              value: "\$m"
+            index: BinOp 10
+              left: String 10
+                token: 10 STRING "k"
+                value: "k"
+              token: 10 CONCAT ..
+              op: 10 CONCAT ..
+              right: BinOp 10
+                left: String 10
+                  token: 10 STRING_START ""
+                  value: ""
+                token: 10 CONCAT ..
+                op: 10 CONCAT ..
+                right: Variable 10
+                  token: 10 VAR_IDENTIFIER $i
+                  value: "\$i"
+        token: 10 CONCAT ..
+        op: 10 CONCAT ..
+        right: String 10
+          token: 10 STRING_END " done"
+          value: " done"
+    10: EchoStatement 11
+      expr: BinOp 11
+        left: BinOp 11
+          left: BinOp 11
+            left: String 11
+              token: 11 STRING_START "map "
+              value: "map "
+            token: 11 CONCAT ..
+            op: 11 CONCAT ..
+            right: CallValue 11
+              callee: Variable 11
+                token: 11 VAR_IDENTIFIER $pick
+                value: "\$pick"
+              args:
+                0: ArrayLiteral 11
+                  entries:
+                    0:
+                      0: String 11
+                        token: 11 STRING "a"
+                        value: "a"
+                      1: Num 11
+                        token: 11 INTEGER 1
+                        value: 1
+                  map: true
+          token: 11 CONCAT ..
+          op: 11 CONCAT ..
+          right: String 11
+            token: 11 STRING_MIDDLE " lambda "
+            value: " lambda "
+        token: 11 CONCAT ..
+        op: 11 CONCAT ..
+        right: CallValue 11
+          callee: Variable 11
+            token: 11 VAR_IDENTIFIER $apply
+            value: "\$apply"
+          args:
+            0: Lambda 11
+              params: ["\$x"]
+              defaults: [null]
+              arity: 1
+              body: BinOp 11
+                left: String 11
+                  token: 11 STRING_START "in "
+                  value: "in "
+                token: 11 CONCAT ..
+                op: 11 CONCAT ..
+                right: Variable 11
+                  token: 11 VAR_IDENTIFIER $x
+                  value: "\$x"
+              captures: []
+              self: null
+    11: EchoStatement 12
+      expr: BinOp 13
+        left: BinOp 13
+          left: String 12
+            token: 12 STRING_START "line one\nline two "
+            value: "line one\nline two "
+          token: 13 CONCAT ..
+          op: 13 CONCAT ..
+          right: Variable 13
+            token: 13 VAR_IDENTIFIER $x
+            value: "\$x"
+        token: 13 CONCAT ..
+        op: 13 CONCAT ..
+        right: String 13
+          token: 13 STRING_END "\nline three"
+          value: "\nline three"
+    12: EchoStatement 15
+      expr: BinOp 15
+        left: BinOp 15
+          left: String 15
+            token: 15 STRING_START ""
+            value: ""
+          token: 15 CONCAT ..
+          op: 15 CONCAT ..
+          right: Variable 15
+            token: 15 VAR_IDENTIFIER $a
+            value: "\$a"
+        token: 15 CONCAT ..
+        op: 15 CONCAT ..
+        right: BinOp 15
+          left: String 15
+            token: 15 STRING_START ""
+            value: ""
+          token: 15 CONCAT ..
+          op: 15 CONCAT ..
+          right: Variable 15
+            token: 15 VAR_IDENTIFIER $b
+            value: "\$b"
+    13: Statement 16
+      expr: Assign 16
+        left: Variable 16
+          token: 16 VAR_IDENTIFIER $s
+          value: "\$s"
+        token: 16 ASSIGN =
+        right: BinOp 16
+          left: BinOp 16
+            left: String 16
+              token: 16 STRING_START "total: "
+              value: "total: "
+            token: 16 CONCAT ..
+            op: 16 CONCAT ..
+            right: BinOp 16
+              left: Variable 16
+                token: 16 VAR_IDENTIFIER $n
+                value: "\$n"
+              token: 16 MULTIPLY *
+              op: 16 MULTIPLY *
+              right: Num 16
+                token: 16 INTEGER 2
+                value: 2
+          token: 16 CONCAT ..
+          op: 16 CONCAT ..
+          right: Num 16
+            token: 16 INTEGER 1
+            value: 1
+    14: EchoStatement 17
+      expr: BinOp 17
+        left: String 17
+          token: 17 STRING_START ""
+          value: ""
+        token: 17 CONCAT ..
+        op: 17 CONCAT ..
+        right: Ternary 17
+          condition: Variable 17
+            token: 17 VAR_IDENTIFIER $c
+            value: "\$c"
+          then: String 17
+            token: 17 STRING "yes"
+            value: "yes"
+          else: String 17
+            token: 17 STRING "no"
+            value: "no"
+    15: EchoStatement 18
+      expr: String 18
+        token: 18 STRING "\$raw \{\$raw}"
+        value: "\$raw \{\$raw}"

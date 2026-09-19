@@ -52,12 +52,10 @@ if ($update) {
     file_put_contents(__DIR__.'/passing.txt', implode("\n", $all)."\n");
     printf("vm/passing.txt: %d entries\n", count($all));
 
-    // The drivers on big inputs aren't recorded: CVMTest runs them on the PHP VM each time
-    $recorded = array_filter(array_keys($pass), fn ($entry) => ! str_contains($entry, ' '));
-    foreach ($recorded as $entry) {
-        CVM::record($entry, $pass[$entry]);
+    foreach ($pass as $entry => $php) {
+        CVM::record($entry, $php);
     }
-    printf("tests/expected: %d entries recorded\n", count($recorded));
+    printf("tests/expected: %d entries recorded\n", count($pass));
     if ($filter === null) {
         $wanted = array_flip(array_map(CVM::expectedPath(...), $all));
         $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(CVM::ROOT.'/tests/expected', FilesystemIterator::SKIP_DOTS));

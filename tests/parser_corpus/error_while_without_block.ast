@@ -1,0 +1,1 @@
+Error: Expected '{' but found '$a' at tests/parser_corpus/error_while_without_block.gaz:1

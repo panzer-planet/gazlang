@@ -1,0 +1,1 @@
+Error: Expected 'class' but found 'fn' at tests/parser_corpus/error_abstract_without_class.gaz:1

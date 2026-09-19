@@ -1,0 +1,1 @@
+Error: Field #x of B is already declared in A at tests/parser_corpus/error_field_redeclared_in_child.gaz:4

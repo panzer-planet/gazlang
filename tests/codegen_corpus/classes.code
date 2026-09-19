@@ -1,0 +1,454 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals $s $m $c $e
+@ "classes.gaz" 31
+PUSH 2
+NEW Square 1
+STORE 0
+LOAD 0
+POP
+@ "classes.gaz" 32
+LOAD 0
+GET_METHOD area
+CALL_METHOD 0 area
+LOAD 0
+GET_PROPERTY side
+CONCAT
+LOAD 0
+GET_PROPERTY name
+CONCAT
+PRINT
+@ "classes.gaz" 33
+LOAD 0
+GET_PROPERTY area
+STORE 1
+LOAD 1
+POP
+@ "classes.gaz" 34
+LOAD 1
+CALL_VALUE 0
+PRINT
+@ "classes.gaz" 35
+LOAD 0
+GET_METHOD parent_version
+CALL_METHOD 0 parent_version
+CALL_VALUE 0
+PRINT
+@ "classes.gaz" 36
+PUSH 1
+NEW Unit 1
+GET_METHOD later
+CALL_METHOD 0 later
+CALL_VALUE 0
+PRINT
+@ "classes.gaz" 37
+PUSH_CLASS Square
+STORE 2
+LOAD 2
+POP
+@ "classes.gaz" 38
+LOAD 2
+PUSH 3
+CALL_VALUE 1
+GET_METHOD area
+CALL_METHOD 0 area
+PRINT
+@ "classes.gaz" 39
+LOAD 0
+CALL_BUILTIN class_of 1
+PUSH 4
+CALL_VALUE 1
+PRINT
+@ "classes.gaz" 40
+NEW Plain 0
+GET_PROPERTY_QUIET a
+JNN COALESCE_END_0
+LOAD_QUIET 0
+GET_PROPERTY_QUIET missing
+JNN COALESCE_END_1
+PUSH 0
+LABEL COALESCE_END_1
+LABEL COALESCE_END_0
+PRINT
+@ "classes.gaz" 41
+NEW Empty 0
+PRINT
+@ "classes.gaz" 42
+PUSH 5
+SET_PATH .side 0
+POP
+@ "classes.gaz" 43
+PUSH 1
+SET_PATH .history[] 0
+POP
+@ "classes.gaz" 44
+TRY CATCH_2
+PUSH "k"
+NEW NotFound 1
+CALL_BUILTIN error 1
+POP
+END_TRY
+JMP ENDTRY_2
+LABEL CATCH_2
+CATCH_MATCH NotFound NEXTCATCH_2_0
+STORE 3
+LOAD 3
+GET_PROPERTY key
+PRINT
+JMP ENDTRY_2
+LABEL NEXTCATCH_2_0
+CATCH_MATCH Error NEXTCATCH_2_1
+STORE 3
+LOAD 3
+GET_PROPERTY message
+PRINT
+JMP ENDTRY_2
+LABEL NEXTCATCH_2_1
+RETHROW
+LABEL ENDTRY_2
+@ "classes.gaz" 45
+LOAD 0
+GET_METHOD me
+CALL_METHOD 0 me
+GET_PROPERTY side
+PRINT
+@ "classes.gaz" 46
+LOAD 0
+GET_METHOD scaled
+PUSH 2
+CALL_METHOD 1 scaled
+LOAD 0
+GET_METHOD scaled
+PUSH 2
+PUSH 1
+CALL_METHOD 2 scaled
+ADD
+PRINT
+
+class Error
+field message Error
+field file Error
+field line Error
+field trace Error
+method _ Error
+method to_string Error
+locals $#argument_0
+@ "<builtin>" 1
+CALL_CONSTRUCTOR Error
+POP
+LOAD_THIS
+RET
+
+fn Error._ 1 1
+locals $message
+@ "<builtin>" 6
+LOAD 0
+SET_FIELD message
+POP
+PUSH null
+RET
+
+fn Error.to_string 0 0
+locals
+@ "<builtin>" 7
+PUSH ""
+LOAD_FIELD message
+CONCAT
+RET
+PUSH null
+RET
+
+abstract class Shape
+field name Shape
+field history Shape
+field double Shape
+method _ Shape
+method to_string Shape
+method describe Shape
+locals $#argument_0
+@ "classes.gaz" 5
+NEW_ARRAY
+@ "classes.gaz" 2
+SET_FIELD history
+POP
+@ "classes.gaz" 6
+PUSH 0
+PUSH 2
+MUL
+@ "classes.gaz" 2
+SET_FIELD double
+POP
+CALL_CONSTRUCTOR Shape
+POP
+LOAD_THIS
+RET
+
+fn Shape._ 1 1
+locals $name
+@ "classes.gaz" 7
+LOAD 0
+SET_FIELD name
+POP
+PUSH null
+RET
+
+fn Shape.to_string 0 0
+locals
+@ "classes.gaz" 9
+PUSH ""
+LOAD_FIELD name
+CONCAT
+PUSH ": "
+CONCAT
+LOAD_THIS
+GET_METHOD area
+CALL_METHOD 0 area
+CONCAT
+RET
+PUSH null
+RET
+
+fn Shape.describe 0 0
+locals
+@ "classes.gaz" 10
+LOAD_THIS
+GET_METHOD to_string
+CALL_METHOD 0 to_string
+PUSH " "
+CONCAT
+PUSH 0
+CONCAT
+RET
+PUSH null
+RET
+
+class Square extends Shape
+field name Shape
+field history Shape
+field double Shape
+field side Square
+field area_cache Square
+method _ Square
+method to_string Square
+method describe Shape
+method area Square
+method parent_version Square
+method me Square
+method later Square
+method cached Square
+method scaled Square
+locals $#argument_0 $#argument_1
+@ "classes.gaz" 5
+NEW_ARRAY
+@ "classes.gaz" 12
+SET_FIELD history
+POP
+@ "classes.gaz" 6
+PUSH 0
+PUSH 2
+MUL
+@ "classes.gaz" 12
+SET_FIELD double
+POP
+@ "classes.gaz" 14
+PUSH null
+@ "classes.gaz" 12
+SET_FIELD area_cache
+POP
+CALL_CONSTRUCTOR Square
+POP
+LOAD_THIS
+RET
+
+fn Square._ 1 2
+locals $side $label
+@ "classes.gaz" 15
+ARGC
+PUSH 1
+GT
+NOT
+JZ PASSED_0
+PUSH "square"
+STORE 1
+LABEL PASSED_0
+LOAD 1
+CALL_PARENT Shape _ 1
+POP
+LOAD 0
+SET_FIELD side
+POP
+PUSH null
+RET
+
+fn Square.area 0 0
+locals
+@ "classes.gaz" 16
+LOAD_FIELD side
+LOAD_FIELD side
+MUL
+RET
+PUSH null
+RET
+
+fn Square.to_string 0 0
+locals
+@ "classes.gaz" 17
+CALL_PARENT Shape to_string 0
+PUSH "!"
+CONCAT
+RET
+PUSH null
+RET
+
+fn Square.parent_version 0 0
+locals
+@ "classes.gaz" 18
+BIND_PARENT Shape to_string
+RET
+PUSH null
+RET
+
+fn Square.me 0 0
+locals
+@ "classes.gaz" 19
+LOAD_THIS
+RET
+PUSH null
+RET
+
+fn Square.later 0 0
+locals
+@ "classes.gaz" 20
+MAKE_CLOSURE 0
+RET
+PUSH null
+RET
+
+fn Square.cached 0 0
+locals
+@ "classes.gaz" 21
+LOAD_THIS
+GET_PROPERTY_QUIET area_cache
+JNN COALESCE_END_0
+LOAD_FIELD side
+LABEL COALESCE_END_0
+RET
+PUSH null
+RET
+
+fn Square.scaled 1 2
+locals $by $plus
+@ "classes.gaz" 22
+ARGC
+PUSH 1
+GT
+NOT
+JZ PASSED_0
+PUSH 0
+STORE 1
+LABEL PASSED_0
+LOAD_THIS
+GET_METHOD area
+CALL_METHOD 0 area
+LOAD 0
+MUL
+LOAD 1
+ADD
+RET
+PUSH null
+RET
+
+class Unit extends Square
+field name Shape
+field history Shape
+field double Shape
+field side Square
+field area_cache Square
+method _ Square
+method to_string Square
+method describe Shape
+method area Square
+method parent_version Square
+method me Square
+method later Square
+method cached Square
+method scaled Square
+locals $#argument_0 $#argument_1
+@ "classes.gaz" 5
+NEW_ARRAY
+@ "classes.gaz" 24
+SET_FIELD history
+POP
+@ "classes.gaz" 6
+PUSH 0
+PUSH 2
+MUL
+@ "classes.gaz" 24
+SET_FIELD double
+POP
+@ "classes.gaz" 14
+PUSH null
+@ "classes.gaz" 24
+SET_FIELD area_cache
+POP
+CALL_CONSTRUCTOR Square
+POP
+LOAD_THIS
+RET
+
+class Plain
+field a Plain
+locals
+@ "classes.gaz" 25
+PUSH 1
+SET_FIELD a
+POP
+LOAD_THIS
+RET
+
+class Empty
+locals
+@ "classes.gaz" 26
+LOAD_THIS
+RET
+
+class NotFound extends Error
+field message Error
+field file Error
+field line Error
+field trace Error
+field key NotFound
+method _ NotFound
+method to_string Error
+locals $#argument_0
+@ "classes.gaz" 27
+CALL_CONSTRUCTOR NotFound
+POP
+LOAD_THIS
+RET
+
+fn NotFound._ 1 1
+locals $key
+@ "classes.gaz" 29
+PUSH "Not found: "
+LOAD 0
+CONCAT
+CALL_PARENT Error _ 1
+POP
+LOAD 0
+SET_FIELD key
+POP
+PUSH null
+RET
+
+lambda 0 0 0
+locals
+@ "classes.gaz" 20
+LOAD_FIELD side
+LOAD_THIS
+GET_METHOD area
+CALL_METHOD 0 area
+ADD
+RET

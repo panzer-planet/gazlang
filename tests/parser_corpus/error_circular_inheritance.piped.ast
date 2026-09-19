@@ -1,0 +1,1 @@
+Error: Circular inheritance: A extends C extends B extends A on line 2

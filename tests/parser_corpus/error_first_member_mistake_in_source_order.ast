@@ -1,0 +1,1 @@
+Error: Method A.second expects 0 arguments, 1 given at tests/parser_corpus/error_first_member_mistake_in_source_order.gaz:2

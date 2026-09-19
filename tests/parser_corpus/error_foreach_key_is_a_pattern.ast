@@ -1,0 +1,1 @@
+Error: A foreach key is a variable, not a pattern at tests/parser_corpus/error_foreach_key_is_a_pattern.gaz:1

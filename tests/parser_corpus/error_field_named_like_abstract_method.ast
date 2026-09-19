@@ -1,0 +1,1 @@
+Error: Field #size of B has the name of a method of A: fields and methods share names, so call the field something else at tests/parser_corpus/error_field_named_like_abstract_method.gaz:2

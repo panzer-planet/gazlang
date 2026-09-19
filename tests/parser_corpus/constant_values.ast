@@ -1,0 +1,433 @@
+Compound
+  statements:
+@ "tests/parser_corpus/constant_values.gaz"
+    0: EchoStatement 74
+      expr: ArrayLiteral 74
+        entries:
+          0:
+            0: null
+            1: FunctionRef 74
+              name: "C0"
+              constant: true
+              value: 3
+          1:
+            0: null
+            1: FunctionRef 74
+              name: "C1"
+              constant: true
+              value: -2
+          2:
+            0: null
+            1: FunctionRef 74
+              name: "C2"
+              constant: true
+              value: 12
+          3:
+            0: null
+            1: FunctionRef 74
+              name: "C3"
+              constant: true
+              value: 3.5
+          4:
+            0: null
+            1: FunctionRef 74
+              name: "C4"
+              constant: true
+              value: 3.0
+          5:
+            0: null
+            1: FunctionRef 74
+              name: "C5"
+              constant: true
+              value: -1
+          6:
+            0: null
+            1: FunctionRef 74
+              name: "C6"
+              constant: true
+              value: 1
+          7:
+            0: null
+            1: FunctionRef 74
+              name: "C7"
+              constant: true
+              value: 2.5
+          8:
+            0: null
+            1: FunctionRef 74
+              name: "C8"
+              constant: true
+              value: 0.5
+          9:
+            0: null
+            1: FunctionRef 74
+              name: "C9"
+              constant: true
+              value: "a12.0truenull[1]{\"k\" => 1}"
+          10:
+            0: null
+            1: FunctionRef 74
+              name: "C10"
+              constant: true
+              value: true
+          11:
+            0: null
+            1: FunctionRef 74
+              name: "C11"
+              constant: true
+              value: false
+          12:
+            0: null
+            1: FunctionRef 74
+              name: "C12"
+              constant: true
+              value: true
+          13:
+            0: null
+            1: FunctionRef 74
+              name: "C13"
+              constant: true
+              value: true
+          14:
+            0: null
+            1: FunctionRef 74
+              name: "C14"
+              constant: true
+              value: false
+          15:
+            0: null
+            1: FunctionRef 74
+              name: "C15"
+              constant: true
+              value: true
+          16:
+            0: null
+            1: FunctionRef 74
+              name: "C16"
+              constant: true
+              value: false
+          17:
+            0: null
+            1: FunctionRef 74
+              name: "C17"
+              constant: true
+              value: -1
+          18:
+            0: null
+            1: FunctionRef 74
+              name: "C18"
+              constant: true
+              value: 1
+          19:
+            0: null
+            1: FunctionRef 74
+              name: "C19"
+              constant: true
+              value: 0
+          20:
+            0: null
+            1: FunctionRef 74
+              name: "C20"
+              constant: true
+              value: true
+          21:
+            0: null
+            1: FunctionRef 74
+              name: "C21"
+              constant: true
+              value: true
+          22:
+            0: null
+            1: FunctionRef 74
+              name: "C22"
+              constant: true
+              value: true
+          23:
+            0: null
+            1: FunctionRef 74
+              name: "C23"
+              constant: true
+              value: true
+          24:
+            0: null
+            1: FunctionRef 74
+              name: "C24"
+              constant: true
+              value: false
+          25:
+            0: null
+            1: FunctionRef 74
+              name: "C25"
+              constant: true
+              value: 2
+          26:
+            0: null
+            1: FunctionRef 74
+              name: "C26"
+              constant: true
+              value: 7
+          27:
+            0: null
+            1: FunctionRef 74
+              name: "C27"
+              constant: true
+              value: 5
+          28:
+            0: null
+            1: FunctionRef 74
+              name: "C28"
+              constant: true
+              value: 4611686018427387904
+          29:
+            0: null
+            1: FunctionRef 74
+              name: "C29"
+              constant: true
+              value: -9223372036854775808
+          30:
+            0: null
+            1: FunctionRef 74
+              name: "C30"
+              constant: true
+              value: -2
+          31:
+            0: null
+            1: FunctionRef 74
+              name: "C31"
+              constant: true
+              value: -4
+          32:
+            0: null
+            1: FunctionRef 74
+              name: "C32"
+              constant: true
+              value: -1
+          33:
+            0: null
+            1: FunctionRef 74
+              name: "C33"
+              constant: true
+              value: 0
+          34:
+            0: null
+            1: FunctionRef 74
+              name: "C34"
+              constant: true
+              value: -5
+          35:
+            0: null
+            1: FunctionRef 74
+              name: "C35"
+              constant: true
+              value: -2.5
+          36:
+            0: null
+            1: FunctionRef 74
+              name: "C36"
+              constant: true
+              value: -0.0
+          37:
+            0: null
+            1: FunctionRef 74
+              name: "C37"
+              constant: true
+              value: 3
+          38:
+            0: null
+            1: FunctionRef 74
+              name: "C38"
+              constant: true
+              value: true
+          39:
+            0: null
+            1: FunctionRef 74
+              name: "C39"
+              constant: true
+              value: true
+          40:
+            0: null
+            1: FunctionRef 74
+              name: "C40"
+              constant: true
+              value: false
+          41:
+            0: null
+            1: FunctionRef 74
+              name: "C41"
+              constant: true
+              value: true
+          42:
+            0: null
+            1: FunctionRef 74
+              name: "C42"
+              constant: true
+              value: true
+          43:
+            0: null
+            1: FunctionRef 74
+              name: "C43"
+              constant: true
+              value: false
+          44:
+            0: null
+            1: FunctionRef 74
+              name: "C44"
+              constant: true
+              value: true
+          45:
+            0: null
+            1: FunctionRef 74
+              name: "C45"
+              constant: true
+              value: true
+          46:
+            0: null
+            1: FunctionRef 74
+              name: "C46"
+              constant: true
+              value: true
+          47:
+            0: null
+            1: FunctionRef 74
+              name: "C47"
+              constant: true
+              value: false
+          48:
+            0: null
+            1: FunctionRef 74
+              name: "C48"
+              constant: true
+              value: true
+          49:
+            0: null
+            1: FunctionRef 74
+              name: "C49"
+              constant: true
+              value: false
+          50:
+            0: null
+            1: FunctionRef 74
+              name: "C50"
+              constant: true
+              value: 1
+          51:
+            0: null
+            1: FunctionRef 74
+              name: "C51"
+              constant: true
+              value: 0
+          52:
+            0: null
+            1: FunctionRef 74
+              name: "C52"
+              constant: true
+              value: false
+          53:
+            0: null
+            1: FunctionRef 74
+              name: "C53"
+              constant: true
+              value: 3
+          54:
+            0: null
+            1: FunctionRef 74
+              name: "C54"
+              constant: true
+              value: "a"
+          55:
+            0: null
+            1: FunctionRef 74
+              name: "C55"
+              constant: true
+              value: "b"
+          56:
+            0: null
+            1: FunctionRef 74
+              name: "C56"
+              constant: true
+              value: "b"
+          57:
+            0: null
+            1: FunctionRef 74
+              name: "C57"
+              constant: true
+              value: "x"
+          58:
+            0: null
+            1: FunctionRef 74
+              name: "C58"
+              constant: true
+              value: [1, [2.5, "s"], {"k" => [true, null]}]
+          59:
+            0: null
+            1: FunctionRef 74
+              name: "C59"
+              constant: true
+              value: {"a" => 2, 1 => "one", "1" => "string one"}
+          60:
+            0: null
+            1: FunctionRef 74
+              name: "C60"
+              constant: true
+              value: 9223372036854775807
+          61:
+            0: null
+            1: FunctionRef 74
+              name: "C61"
+              constant: true
+              value: -9223372036854775808
+          62:
+            0: null
+            1: FunctionRef 74
+              name: "C62"
+              constant: true
+              value: false
+          63:
+            0: null
+            1: FunctionRef 74
+              name: "C63"
+              constant: true
+              value: 0.30000000000000004
+          64:
+            0: null
+            1: FunctionRef 74
+              name: "C64"
+              constant: true
+              value: 6.2
+          65:
+            0: null
+            1: FunctionRef 74
+              name: "C65"
+              constant: true
+              value: "n = 3"
+          66:
+            0: null
+            1: FunctionRef 74
+              name: "C66"
+              constant: true
+              value: "x2"
+          67:
+            0: null
+            1: FunctionRef 74
+              name: "C67"
+              constant: true
+              value: 8
+          68:
+            0: null
+            1: FunctionRef 74
+              name: "C68"
+              constant: true
+              value: true
+          69:
+            0: null
+            1: FunctionRef 74
+              name: "C69"
+              constant: true
+              value: [1, 2, 3]
+          70:
+            0: null
+            1: FunctionRef 74
+              name: "C70"
+              constant: true
+              value: [[1], "a1", 2]
+        map: false

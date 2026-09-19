@@ -1,0 +1,1 @@
+Error: Cannot use the constructor _ as a member: construct with A(...), or call ##_(...) in a child's constructor at tests/parser_corpus/error_constructor_as_member.gaz:1

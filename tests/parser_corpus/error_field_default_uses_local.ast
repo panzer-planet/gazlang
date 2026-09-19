@@ -1,0 +1,1 @@
+Error: The default of #y can't use $n: fields have no local variables at tests/parser_corpus/error_field_default_uses_local.gaz:3

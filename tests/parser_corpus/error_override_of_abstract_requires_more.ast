@@ -1,0 +1,1 @@
+Error: Method B.f must accept every argument count A.f does (0) at tests/parser_corpus/error_override_of_abstract_requires_more.gaz:2

@@ -1,0 +1,1 @@
+Error: A constant's value can only use literals, operators and other constants at tests/parser_corpus/error_const_an_index.gaz:1

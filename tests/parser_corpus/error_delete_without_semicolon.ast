@@ -1,0 +1,1 @@
+Error: Expected ';' but found end of file at tests/parser_corpus/error_delete_without_semicolon.gaz:2

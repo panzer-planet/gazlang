@@ -30,12 +30,11 @@ bin/gazlang-php -f examples/functions.gaz
 # (a test fails until then; see "Changing the compiler")
 make -C vm compiler
 
-# Run all tests (about 75s)
+# Run all tests (about 60s)
 vendor/bin/phpunit
 
-# The self-hosted drivers on big inputs on both VMs, which the default run leaves out;
-# run it before merging anything that touches a port or either VM
-php -d pcov.enabled=0 vendor/bin/phpunit --group whole-repository
+# After a change to what a port prints, record it as expected and review the diff
+GAZLANG_RECORD_PORTS=1 vendor/bin/phpunit --filter SelfHosted
 
 # Run a specific test file, or method
 vendor/bin/phpunit tests/SpecificTest.php
@@ -114,17 +113,25 @@ versions of a fuzzer or corpus passed everything and caught nothing.
   writes it as bytecode and reads it back (so the suite tests the format too), and runs it;
   `vm/snippets.php` collects the snippets for the C VM. Order matters as much as results: the
   VM's `KEY_CHECK` exists so a bad key fails before later keys and the value run.
-- **The ports match the PHP front end** on every `.gaz` file in the repository and their own
-  corpus: `SelfHostedLexerTest` against `--tokens`, `SelfHostedParserTest` against `--ast`,
-  `SelfHostedCompilerTest` against `-c`, output and exit code. They run the driver compiled from
-  the current `selfhost/` source (not the built-in one, which is stale until `make compiler`),
-  on the C VM, 24 at once (`CVM::driver()`), also piped and from other working directories. So
-  a change to the lexer, parser, a node or the code generator is made in `src/` and `selfhost/`
-  together. The dump is read off the nodes rather than written per node type, so a field added
-  to a node fails the harness until the port has it; a harness failure reports the first line
-  that differs (`assertSameText()`), since phpunit's diff is quadratic.
-- **Corpora**: add a file whenever a port or VM reveals an untested case. In the lexer, parser
-  and bytecode corpora the files named `error_*` must be exactly the ones that fail. Put a
+- **The ports print what their corpora record**: each `X.gaz` in `tests/lexer_corpus`,
+  `tests/parser_corpus` and `tests/codegen_corpus` has what `--tokens`, `--ast` or `-c` must
+  print next to it (`X.tokens`, `X.ast` and `X.piped.ast`, `X.code` and `X.piped.code`; the
+  runs from other working directories in `tests/parser_corpus/places/`), exit code 1 when a
+  line starts with `Error: ` (`assertPortPrints()`). `SelfHostedLexerTest`,
+  `SelfHostedParserTest` and `SelfHostedCompilerTest` run the driver compiled from the current
+  `selfhost/` source (not the built-in one, which is stale until `make compiler`) on the C VM,
+  24 at once (`CVM::driver()`). `GAZLANG_RECORD_PORTS=1` records what they print instead: review
+  that diff like code. The rest of the repository is checked by the compiler compiling itself.
+  The PHP front end is no longer compared with the ports except by the fuzzers
+  (`fuzz_lexers.php`, `fuzz_parsers.php`) and the compiler's bytecode having to equal
+  `bin/gazlang-php -c`'s, so a change to the lexer, parser, a node or the code generator is
+  still made in `src/` and `selfhost/` together until `src/` goes. The dump is read off the
+  nodes rather than written per node type, so a field added to a node shows in every `.ast`; a
+  failure reports the first line that differs (`assertSameText()`), since phpunit's diff is
+  quadratic.
+- **Corpora**: add a file whenever a port or VM reveals an untested case, and record what it
+  prints. In the lexer, parser, code generator and bytecode corpora the files named `error_*`
+  must be exactly the ones that fail. Put a
   node's tokens on different lines when its location matters: a one-line case can't tell one
   token's line from another's.
 - **The C VM prints what the PHP VM printed** (`CVMTest`, `tests/CVM.php`): each entry of
@@ -134,9 +141,7 @@ versions of a fuzzer or corpus passed everything and caught nothing.
   exit code recorded in `tests/expected/` (`.stdout` always, `.stderr` and `.exit` when there is
   one; the checkout's path as `<root>`). `progress.php --update` records them from the PHP VM,
   only for entries where C already matches it, and removes what no entry records; review its
-  diff like code, since it is what the C VM will be held to once PHP is gone. The self-hosted
-  drivers on big inputs (the whole-repository group) are still compared live, since their
-  megabytes change with every edit to `selfhost/`. A source entry runs from source, so the
+  diff like code, since it is what the C VM will be held to once PHP is gone. A source entry runs from source, so the
   built-in compiler compiles each one under the sanitizers; a snippet is piped in from the
   project root, as it has no file. The list only grows. So a change to what a value means, a builtin or an error
   message is made in `src/Runtime` and `vm/` together. When PHP itself changes behaviour, the
@@ -204,8 +209,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
 
 - **CI** (`.github/workflows/ci.yml`) runs on Ubuntu and on macOS, Apple silicon and Intel,
   for every push: it builds gazlang and rebuilds its compiler before PHP is even installed (the
-  bootstrap needs only a C compiler), then the suite and the whole-repository group; phpstan and
-  pint run on Ubuntu only. Development is on an Intel Mac.
+  bootstrap needs only a C compiler), then the suite; phpstan and pint run on Ubuntu only. Development is on an Intel Mac.
 - **Speed**: the same program takes gazlang 0.4 to 1.6 times what it takes PHP (JIT or not),
   and Python 3.12 1.0 to 2.7 times what it takes gazlang (`php vm/bench.php`, which finds a
   Python 3.11 or later for the `vm/bench/*.py` ports; the README's table is its output). The

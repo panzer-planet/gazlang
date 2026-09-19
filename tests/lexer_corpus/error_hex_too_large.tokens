@@ -1,0 +1,2 @@
+1 ECHO echo
+Error: Integer literal too large: 0x8000000000000000 on line 1

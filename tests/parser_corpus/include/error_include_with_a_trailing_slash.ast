@@ -1,0 +1,1 @@
+Error: Cannot include file: lib/deep/helper.gaz/ at tests/parser_corpus/include/error_include_with_a_trailing_slash.gaz:1

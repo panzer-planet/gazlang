@@ -1,0 +1,1 @@
+Error: Constant K.A depends on itself: K.A uses K.B uses K.A on line 1

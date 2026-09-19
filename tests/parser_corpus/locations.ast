@@ -1,0 +1,159 @@
+Compound
+  statements:
+@ "tests/parser_corpus/locations.gaz"
+    0: Statement 2
+      expr: Assign 4
+        left: ListPattern 2
+          targets:
+            0: Variable 2
+              token: 2 VAR_IDENTIFIER $a
+              value: "\$a"
+            1: Variable 3
+              token: 3 VAR_IDENTIFIER $b
+              value: "\$b"
+        token: 4 ASSIGN =
+        right: Variable 4
+          token: 4 VAR_IDENTIFIER $pair
+          value: "\$pair"
+    1: EchoStatement 5
+      expr: CallValue 6
+        callee: Variable 5
+          token: 5 VAR_IDENTIFIER $f
+          value: "\$f"
+        args:
+          0: Num 6
+            token: 6 INTEGER 1
+            value: 1
+    2: EchoStatement 7
+      expr: MethodCall 8
+        property: Property 8
+          target: Variable 7
+            token: 7 VAR_IDENTIFIER $user
+            value: "\$user"
+          name: "save"
+          field: false
+          constant: false
+          value: null
+        args:
+          0: Num 9
+            token: 9 INTEGER 1
+            value: 1
+          1: Num 9
+            token: 9 INTEGER 2
+            value: 2
+    3: EchoStatement 10
+      expr: Index 11
+        target: Variable 10
+          token: 10 VAR_IDENTIFIER $a
+          value: "\$a"
+        index: Num 11
+          token: 11 INTEGER 0
+          value: 0
+    4: EchoStatement 12
+      expr: Ternary 13
+        condition: Variable 12
+          token: 12 VAR_IDENTIFIER $c
+          value: "\$c"
+        then: Num 13
+          token: 13 INTEGER 1
+          value: 1
+        else: Num 14
+          token: 14 INTEGER 2
+          value: 2
+    5: EchoStatement 15
+      expr: BinOp 16
+        left: Variable 15
+          token: 15 VAR_IDENTIFIER $a
+          value: "\$a"
+        token: 16 COALESCE ??
+        op: 16 COALESCE ??
+        right: Variable 16
+          token: 16 VAR_IDENTIFIER $b
+          value: "\$b"
+    6: Statement 17
+      expr: Assign 18
+        left: Variable 17
+          token: 17 VAR_IDENTIFIER $x
+          value: "\$x"
+        token: 18 ASSIGN =
+        right: Num 18
+          token: 18 INTEGER 1
+          value: 1
+    7: Statement 19
+      expr: Increment 20
+        target: Variable 19
+          token: 19 VAR_IDENTIFIER $i
+          value: "\$i"
+        op: 20 INCREMENT ++
+        prefix: false
+    8: EchoStatement 21
+      expr: UnaryOp 21
+        op: 21 MINUS -
+        expr: Variable 22
+          token: 22 VAR_IDENTIFIER $i
+          value: "\$i"
+    9: EchoStatement 23
+      expr: BinOp 24
+        left: BinOp 24
+          left: BinOp 23
+            left: BinOp 23
+              left: String 23
+                token: 23 STRING_START "a "
+                value: "a "
+              token: 23 CONCAT ..
+              op: 23 CONCAT ..
+              right: Variable 23
+                token: 23 VAR_IDENTIFIER $b
+                value: "\$b"
+            token: 23 CONCAT ..
+            op: 23 CONCAT ..
+            right: String 23
+              token: 23 STRING_MIDDLE "\nc "
+              value: "\nc "
+          token: 24 CONCAT ..
+          op: 24 CONCAT ..
+          right: Variable 24
+            token: 24 VAR_IDENTIFIER $d
+            value: "\$d"
+        token: 24 CONCAT ..
+        op: 24 CONCAT ..
+        right: String 24
+          token: 24 STRING_END "\ne"
+          value: "\ne"
+    10: EchoStatement 26
+      expr: FunctionCall 26
+        name: "len"
+        args:
+          0: Num 27
+            token: 27 INTEGER 1
+            value: 1
+    11: Statement 28
+      expr: Assign 28
+        left: Variable 28
+          token: 28 VAR_IDENTIFIER $f
+          value: "\$f"
+        token: 28 ASSIGN =
+        right: Lambda 28
+          params: ["\$p", "\$q"]
+          defaults: [null, null]
+          arity: 2
+          body: Variable 30
+            token: 30 VAR_IDENTIFIER $p
+            value: "\$p"
+          captures: []
+          self: null
+    12: EchoStatement 31
+      expr: Match 31
+        subject: Variable 32
+          token: 32 VAR_IDENTIFIER $a
+          value: "\$a"
+        arms:
+          0:
+            0:
+              0: Num 33
+                token: 33 INTEGER 1
+                value: 1
+            1: Num 33
+              token: 33 INTEGER 2
+              value: 2
+            2: false

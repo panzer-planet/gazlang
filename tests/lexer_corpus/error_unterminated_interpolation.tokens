@@ -1,0 +1,7 @@
+1 ECHO echo
+1 STRING "fine"
+1 SEMICOLON ;
+2 ECHO echo
+2 STRING_START "Hi "
+2 VAR_IDENTIFIER $name
+Error: Unterminated string on line 2

@@ -1,0 +1,1 @@
+Error: Cannot use continue in finally at tests/parser_corpus/error_continue_in_finally_in_if.gaz:1

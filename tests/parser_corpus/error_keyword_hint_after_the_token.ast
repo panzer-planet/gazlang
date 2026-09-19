@@ -1,0 +1,1 @@
+Error: Expected ';' but found '1' (keywords are lowercase: write 'return', not 'Return') at tests/parser_corpus/error_keyword_hint_after_the_token.gaz:2

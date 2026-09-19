@@ -1,0 +1,16 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals
+@ "symlink_is_the_file_it_points_to.gaz" 5
+CALL helper 0
+PRINT
+
+fn helper 0 0
+locals
+@ "lib/deep/helper.gaz" 1
+PUSH 1
+RET
+PUSH null
+RET

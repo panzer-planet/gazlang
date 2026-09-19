@@ -1,0 +1,1 @@
+Error: A has no member #nope at tests/parser_corpus/error_member_checks_come_before_calls.gaz:2

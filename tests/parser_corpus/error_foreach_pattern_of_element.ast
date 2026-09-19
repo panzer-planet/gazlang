@@ -1,0 +1,1 @@
+Error: A foreach pattern takes variables only at tests/parser_corpus/error_foreach_pattern_of_element.gaz:2

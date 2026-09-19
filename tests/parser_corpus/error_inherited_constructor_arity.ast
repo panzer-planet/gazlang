@@ -1,0 +1,1 @@
+Error: Class B expects 1 arguments, 0 given at tests/parser_corpus/error_inherited_constructor_arity.gaz:3

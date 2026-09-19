@@ -1,0 +1,270 @@
+Compound
+  statements:
+@ "tests/parser_corpus/lists_and_maps.gaz"
+    0: EchoStatement 1
+      expr: ArrayLiteral 1
+        entries: []
+        map: false
+    1: EchoStatement 2
+      expr: ArrayLiteral 2
+        entries:
+          0:
+            0: null
+            1: Num 2
+              token: 2 INTEGER 1
+              value: 1
+        map: false
+    2: EchoStatement 3
+      expr: ArrayLiteral 3
+        entries:
+          0:
+            0: null
+            1: Num 3
+              token: 3 INTEGER 1
+              value: 1
+          1:
+            0: null
+            1: Num 3
+              token: 3 INTEGER 2
+              value: 2
+          2:
+            0: null
+            1: Num 3
+              token: 3 INTEGER 3
+              value: 3
+        map: false
+    3: EchoStatement 4
+      expr: ArrayLiteral 4
+        entries:
+          0:
+            0: null
+            1: ArrayLiteral 4
+              entries:
+                0:
+                  0: null
+                  1: Num 4
+                    token: 4 INTEGER 1
+                    value: 1
+                1:
+                  0: null
+                  1: Num 4
+                    token: 4 INTEGER 2
+                    value: 2
+              map: false
+          1:
+            0: null
+            1: ArrayLiteral 4
+              entries:
+                0:
+                  0: null
+                  1: Num 4
+                    token: 4 INTEGER 3
+                    value: 3
+                1:
+                  0: null
+                  1: ArrayLiteral 4
+                    entries:
+                      0:
+                        0: null
+                        1: Num 4
+                          token: 4 INTEGER 4
+                          value: 4
+                    map: false
+              map: false
+        map: false
+    4: EchoStatement 5
+      expr: ArrayLiteral 5
+        entries:
+          0:
+            0: null
+            1: Num 6
+              token: 6 INTEGER 1
+              value: 1
+          1:
+            0: null
+            1: String 7
+              token: 7 STRING "two"
+              value: "two"
+          2:
+            0: null
+            1: Variable 8
+              token: 8 VAR_IDENTIFIER $three
+              value: "\$three"
+        map: false
+    5: EchoStatement 10
+      expr: ArrayLiteral 10
+        entries: []
+        map: true
+    6: EchoStatement 11
+      expr: ArrayLiteral 11
+        entries:
+          0:
+            0: String 11
+              token: 11 STRING "k"
+              value: "k"
+            1: Num 11
+              token: 11 INTEGER 1
+              value: 1
+        map: true
+    7: EchoStatement 12
+      expr: ArrayLiteral 12
+        entries:
+          0:
+            0: String 12
+              token: 12 STRING "k"
+              value: "k"
+            1: Num 12
+              token: 12 INTEGER 1
+              value: 1
+          1:
+            0: Num 12
+              token: 12 INTEGER 5
+              value: 5
+            1: ArrayLiteral 12
+              entries:
+                0:
+                  0: null
+                  1: Num 12
+                    token: 12 INTEGER 2
+                    value: 2
+              map: false
+          2:
+            0: Variable 12
+              token: 12 VAR_IDENTIFIER $key
+              value: "\$key"
+            1: ArrayLiteral 12
+              entries:
+                0:
+                  0: String 12
+                    token: 12 STRING "nested"
+                    value: "nested"
+                  1: Boolean 12
+                    token: 12 TRUE true
+                    value: true
+              map: true
+        map: true
+    8: EchoStatement 13
+      expr: ArrayLiteral 13
+        entries:
+          0:
+            0: BinOp 13
+              left: Num 13
+                token: 13 INTEGER 1
+                value: 1
+              token: 13 PLUS +
+              op: 13 PLUS +
+              right: Num 13
+                token: 13 INTEGER 1
+                value: 1
+            1: BinOp 13
+              left: Variable 13
+                token: 13 VAR_IDENTIFIER $a
+                value: "\$a"
+              token: 13 COALESCE ??
+              op: 13 COALESCE ??
+              right: Variable 13
+                token: 13 VAR_IDENTIFIER $b
+                value: "\$b"
+          1:
+            0: BinOp 13
+              left: String 13
+                token: 13 STRING "x"
+                value: "x"
+              token: 13 CONCAT ..
+              op: 13 CONCAT ..
+              right: String 13
+                token: 13 STRING "y"
+                value: "y"
+            1: Ternary 13
+              condition: Variable 13
+                token: 13 VAR_IDENTIFIER $c
+                value: "\$c"
+              then: Num 13
+                token: 13 INTEGER 1
+                value: 1
+              else: Num 13
+                token: 13 INTEGER 2
+                value: 2
+        map: true
+    9: Statement 14
+      expr: Assign 14
+        left: Variable 14
+          token: 14 VAR_IDENTIFIER $m
+          value: "\$m"
+        token: 14 ASSIGN =
+        right: ArrayLiteral 14
+          entries:
+            0:
+              0: String 14
+                token: 14 STRING "a"
+                value: "a"
+              1: Num 14
+                token: 14 INTEGER 1
+                value: 1
+          map: true
+    10: Statement 15
+      expr: Assign 15
+        left: Variable 15
+          token: 15 VAR_IDENTIFIER $n
+          value: "\$n"
+        token: 15 ASSIGN =
+        right: ArrayLiteral 15
+          entries: []
+          map: true
+    11: EchoStatement 16
+      expr: ArrayLiteral 16
+        entries:
+          0:
+            0: null
+            1: Lambda 16
+              params: ["\$x"]
+              defaults: [null]
+              arity: 1
+              body: Variable 16
+                token: 16 VAR_IDENTIFIER $x
+                value: "\$x"
+              captures: []
+              self: null
+          1:
+            0: null
+            1: ArrayLiteral 16
+              entries:
+                0:
+                  0: String 16
+                    token: 16 STRING "f"
+                    value: "f"
+                  1: Lambda 16
+                    params: []
+                    defaults: []
+                    arity: 0
+                    body: Num 16
+                      token: 16 INTEGER 1
+                      value: 1
+                    captures: []
+                    self: null
+              map: true
+        map: false
+    12: EchoStatement 17
+      expr: ArrayLiteral 17
+        entries:
+          0:
+            0: null
+            1: Assign 17
+              left: Variable 17
+                token: 17 VAR_IDENTIFIER $a
+                value: "\$a"
+              token: 17 ASSIGN =
+              right: Num 17
+                token: 17 INTEGER 1
+                value: 1
+          1:
+            0: null
+            1: Assign 17
+              left: Variable 17
+                token: 17 VAR_IDENTIFIER $b
+                value: "\$b"
+              token: 17 PLUS_ASSIGN +=
+              right: Num 17
+                token: 17 INTEGER 2
+                value: 2
+        map: false

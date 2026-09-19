@@ -1,0 +1,1 @@
+Error: Cannot use return outside of a function at tests/parser_corpus/error_return_after_function.gaz:2

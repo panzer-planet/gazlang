@@ -1,0 +1,5 @@
+1 ECHO echo
+1 FLOAT 1.5
+1 SEMICOLON ;
+2 ECHO echo
+Error: Float literal too large: 1e999 on line 2

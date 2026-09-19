@@ -1,0 +1,55 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals $a
+@ "locations.gaz" 3
+PUSH 1
+@ "locations.gaz" 6
+PUSH 2
+@ "locations.gaz" 7
+NEW_ARRAY
+PUSH 3
+ARRAY_PUSH
+@ "locations.gaz" 8
+LOAD 0
+@ "locations.gaz" 7
+ARRAY_PUSH
+@ "locations.gaz" 5
+CALL f 2
+@ "locations.gaz" 4
+ADD
+@ "locations.gaz" 2
+STORE 0
+LOAD 0
+POP
+@ "locations.gaz" 22
+LOAD 0
+@ "locations.gaz" 21
+PRINT
+@ "locations.gaz" 24
+LOAD 0
+@ "locations.gaz" 25
+INC
+STORE 0
+LOAD 0
+@ "locations.gaz" 24
+POP
+
+fn f 2 2
+locals $x $l
+@ "locations.gaz" 15
+LOAD 0
+@ "locations.gaz" 17
+LOAD 1
+@ "locations.gaz" 18
+PUSH 0
+@ "locations.gaz" 17
+INDEX_GET
+@ "locations.gaz" 16
+CONCAT
+@ "locations.gaz" 14
+RET
+@ "locations.gaz" 10
+PUSH null
+RET

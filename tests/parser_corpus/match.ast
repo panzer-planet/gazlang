@@ -1,0 +1,442 @@
+Compound
+  statements:
+@ "tests/parser_corpus/match.gaz"
+    0: Statement 1
+      expr: Assign 1
+        left: Variable 1
+          token: 1 VAR_IDENTIFIER $kind
+          value: "\$kind"
+        token: 1 ASSIGN =
+        right: Match 1
+          subject: Variable 1
+            token: 1 VAR_IDENTIFIER $type
+            value: "\$type"
+          arms:
+            0:
+              0:
+                0: String 2
+                  token: 2 STRING "int"
+                  value: "int"
+                1: String 2
+                  token: 2 STRING "float"
+                  value: "float"
+              1: String 2
+                token: 2 STRING "number"
+                value: "number"
+              2: false
+            1:
+              0:
+                0: String 3
+                  token: 3 STRING "list"
+                  value: "list"
+              1: String 3
+                token: 3 STRING "a list"
+                value: "a list"
+              2: false
+            2:
+              0: null
+              1: String 4
+                token: 4 STRING "other"
+                value: "other"
+              2: false
+    1: Statement 6
+      expr: Assign 6
+        left: Variable 6
+          token: 6 VAR_IDENTIFIER $kind
+          value: "\$kind"
+        token: 6 ASSIGN =
+        right: Match 6
+          subject: Variable 6
+            token: 6 VAR_IDENTIFIER $x
+            value: "\$x"
+          arms:
+            0:
+              0:
+                0: Num 6
+                  token: 6 INTEGER 1
+                  value: 1
+              1: String 6
+                token: 6 STRING "one"
+                value: "one"
+              2: false
+    2: Statement 7
+      expr: Assign 7
+        left: Variable 7
+          token: 7 VAR_IDENTIFIER $kind
+          value: "\$kind"
+        token: 7 ASSIGN =
+        right: Match 7
+          subject: Variable 7
+            token: 7 VAR_IDENTIFIER $x
+            value: "\$x"
+          arms:
+            0:
+              0:
+                0: Num 7
+                  token: 7 INTEGER 1
+                  value: 1
+              1: String 7
+                token: 7 STRING "one"
+                value: "one"
+              2: false
+    3: Statement 8
+      expr: Assign 8
+        left: Variable 8
+          token: 8 VAR_IDENTIFIER $kind
+          value: "\$kind"
+        token: 8 ASSIGN =
+        right: Match 8
+          subject: Variable 8
+            token: 8 VAR_IDENTIFIER $x
+            value: "\$x"
+          arms:
+            0:
+              0: null
+              1: Num 8
+                token: 8 INTEGER 0
+                value: 0
+              2: false
+    4: Statement 9
+      expr: Assign 9
+        left: Variable 9
+          token: 9 VAR_IDENTIFIER $kind
+          value: "\$kind"
+        token: 9 ASSIGN =
+        right: Match 9
+          subject: Variable 9
+            token: 9 VAR_IDENTIFIER $x
+            value: "\$x"
+          arms:
+            0:
+              0:
+                0: BinOp 9
+                  left: Variable 9
+                    token: 9 VAR_IDENTIFIER $a
+                    value: "\$a"
+                  token: 9 PLUS +
+                  op: 9 PLUS +
+                  right: Num 9
+                    token: 9 INTEGER 1
+                    value: 1
+                1: FunctionCall 9
+                  name: "len"
+                  args:
+                    0: Variable 9
+                      token: 9 VAR_IDENTIFIER $b
+                      value: "\$b"
+              1: ArrayLiteral 9
+                entries:
+                  0:
+                    0: null
+                    1: Num 9
+                      token: 9 INTEGER 1
+                      value: 1
+                map: false
+              2: false
+            1:
+              0:
+                0: Index 9
+                  target: ArrayLiteral 9
+                    entries:
+                      0:
+                        0: String 9
+                          token: 9 STRING "k"
+                          value: "k"
+                        1: Num 9
+                          token: 9 INTEGER 1
+                          value: 1
+                    map: true
+                  index: String 9
+                    token: 9 STRING "k"
+                    value: "k"
+              1: ArrayLiteral 9
+                entries:
+                  0:
+                    0: String 9
+                      token: 9 STRING "map"
+                      value: "map"
+                    1: Boolean 9
+                      token: 9 TRUE true
+                      value: true
+                map: true
+              2: false
+    5: Statement 10
+      expr: Assign 10
+        left: Variable 10
+          token: 10 VAR_IDENTIFIER $kind
+          value: "\$kind"
+        token: 10 ASSIGN =
+        right: Match 10
+          subject: null
+          arms:
+            0:
+              0:
+                0: BinOp 11
+                  left: BinOp 11
+                    left: Variable 11
+                      token: 11 VAR_IDENTIFIER $c
+                      value: "\$c"
+                    token: 11 GREATER_EQUALS >=
+                    op: 11 GREATER_EQUALS >=
+                    right: String 11
+                      token: 11 STRING "a"
+                      value: "a"
+                  token: 11 AND &&
+                  op: 11 AND &&
+                  right: BinOp 11
+                    left: Variable 11
+                      token: 11 VAR_IDENTIFIER $c
+                      value: "\$c"
+                    token: 11 LESS_EQUALS <=
+                    op: 11 LESS_EQUALS <=
+                    right: String 11
+                      token: 11 STRING "z"
+                      value: "z"
+              1: Num 11
+                token: 11 INTEGER 1
+                value: 1
+              2: false
+            1:
+              0:
+                0: BinOp 12
+                  left: Variable 12
+                    token: 12 VAR_IDENTIFIER $c
+                    value: "\$c"
+                  token: 12 EQUALS ==
+                  op: 12 EQUALS ==
+                  right: String 12
+                    token: 12 STRING "_"
+                    value: "_"
+                1: BinOp 12
+                  left: Variable 12
+                    token: 12 VAR_IDENTIFIER $c
+                    value: "\$c"
+                  token: 12 EQUALS ==
+                  op: 12 EQUALS ==
+                  right: String 12
+                    token: 12 STRING "-"
+                    value: "-"
+              1: Num 12
+                token: 12 INTEGER 2
+                value: 2
+              2: false
+            2:
+              0: null
+              1: Num 13
+                token: 13 INTEGER 3
+                value: 3
+              2: false
+    6: EchoStatement 15
+      expr: Match 15
+        subject: Variable 15
+          token: 15 VAR_IDENTIFIER $a
+          value: "\$a"
+        arms:
+          0:
+            0:
+              0: Num 15
+                token: 15 INTEGER 1
+                value: 1
+            1: Match 15
+              subject: Variable 15
+                token: 15 VAR_IDENTIFIER $b
+                value: "\$b"
+              arms:
+                0:
+                  0:
+                    0: Num 15
+                      token: 15 INTEGER 2
+                      value: 2
+                  1: Num 15
+                    token: 15 INTEGER 3
+                    value: 3
+                  2: false
+                1:
+                  0: null
+                  1: Num 15
+                    token: 15 INTEGER 4
+                    value: 4
+                  2: false
+            2: false
+          1:
+            0: null
+            1: Num 15
+              token: 15 INTEGER 5
+              value: 5
+            2: false
+    7: EchoStatement 16
+      expr: BinOp 16
+        left: Match 16
+          subject: Match 16
+            subject: Variable 16
+              token: 16 VAR_IDENTIFIER $a
+              value: "\$a"
+            arms:
+              0:
+                0:
+                  0: Num 16
+                    token: 16 INTEGER 1
+                    value: 1
+                1: Num 16
+                  token: 16 INTEGER 2
+                  value: 2
+                2: false
+          arms:
+            0:
+              0:
+                0: Num 16
+                  token: 16 INTEGER 2
+                  value: 2
+              1: Num 16
+                token: 16 INTEGER 3
+                value: 3
+              2: false
+        token: 16 PLUS +
+        op: 16 PLUS +
+        right: Num 16
+          token: 16 INTEGER 1
+          value: 1
+    8: Statement 18
+      expr: Match 18
+        subject: Variable 18
+          token: 18 VAR_IDENTIFIER $c
+          value: "\$c"
+        arms:
+          0:
+            0:
+              0: String 19
+                token: 19 STRING "a"
+                value: "a"
+            1: Compound
+              statements:
+                0: EchoStatement 19
+                  expr: Num 19
+                    token: 19 INTEGER 1
+                    value: 1
+            2: true
+          1:
+            0:
+              0: String 20
+                token: 20 STRING "b"
+                value: "b"
+            1: Compound
+              statements:
+                0: EchoStatement 20
+                  expr: Num 20
+                    token: 20 INTEGER 2
+                    value: 2
+            2: true
+          2:
+            0:
+              0: String 21
+                token: 21 STRING "c"
+                value: "c"
+            1: Assign 21
+              left: Variable 21
+                token: 21 VAR_IDENTIFIER $x
+                value: "\$x"
+              token: 21 ASSIGN =
+              right: Num 21
+                token: 21 INTEGER 3
+                value: 3
+            2: false
+          3:
+            0: null
+            1: Compound
+              statements: []
+            2: true
+    9: Statement 24
+      expr: Match 24
+        subject: null
+        arms:
+          0:
+            0:
+              0: Variable 25
+                token: 25 VAR_IDENTIFIER $a
+                value: "\$a"
+            1: Compound
+              statements:
+                0: EchoStatement 25
+                  expr: String 25
+                    token: 25 STRING "a"
+                    value: "a"
+            2: true
+          1:
+            0: null
+            1: Increment 26
+              target: Variable 26
+                token: 26 VAR_IDENTIFIER $n
+                value: "\$n"
+              op: 26 INCREMENT ++
+              prefix: false
+            2: false
+    10: Statement 28
+      expr: Match 28
+        subject: Variable 28
+          token: 28 VAR_IDENTIFIER $c
+          value: "\$c"
+        arms:
+          0:
+            0:
+              0: Num 28
+                token: 28 INTEGER 1
+                value: 1
+            1: ArrayLiteral 28
+              entries:
+                0:
+                  0: String 28
+                    token: 28 STRING "map"
+                    value: "map"
+                  1: Num 28
+                    token: 28 INTEGER 1
+                    value: 1
+              map: true
+            2: false
+          1:
+            0:
+              0: Num 28
+                token: 28 INTEGER 2
+                value: 2
+            1: Compound
+              statements:
+                0: EchoStatement 28
+                  expr: String 28
+                    token: 28 STRING "block"
+                    value: "block"
+            2: true
+    11: Statement 29
+      expr: Match 29
+        subject: Variable 29
+          token: 29 VAR_IDENTIFIER $c
+          value: "\$c"
+        arms:
+          0:
+            0:
+              0: Num 29
+                token: 29 INTEGER 1
+                value: 1
+            1: Compound
+              statements:
+                0: Statement 29
+                  expr: Match 29
+                    subject: Variable 29
+                      token: 29 VAR_IDENTIFIER $d
+                      value: "\$d"
+                    arms:
+                      0:
+                        0:
+                          0: Num 29
+                            token: 29 INTEGER 2
+                            value: 2
+                        1: Compound
+                          statements:
+                            0: EchoStatement 29
+                              expr: Num 29
+                                token: 29 INTEGER 3
+                                value: 3
+                        2: true
+            2: true
+    12: EchoStatement 30
+      expr: Num 30
+        token: 30 INTEGER 1
+        value: 1

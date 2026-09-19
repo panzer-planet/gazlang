@@ -1,0 +1,1 @@
+Error: len is a function, not a constant at tests/parser_corpus/error_const_a_function_on_the_side_not_needed.gaz:1

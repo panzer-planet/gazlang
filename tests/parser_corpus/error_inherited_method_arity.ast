@@ -1,0 +1,1 @@
+Error: Method A.f expects 1 arguments, 2 given at tests/parser_corpus/error_inherited_method_arity.gaz:2

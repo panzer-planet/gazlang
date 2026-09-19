@@ -1,0 +1,1 @@
+Error: Abstract method B.f can't replace A.f at tests/parser_corpus/error_abstract_replaces_concrete.gaz:2

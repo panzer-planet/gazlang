@@ -1,0 +1,1 @@
+Error: Expected 'as' but found ')' at tests/parser_corpus/error_foreach_missing_as.gaz:1

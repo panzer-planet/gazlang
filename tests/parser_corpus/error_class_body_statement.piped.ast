@@ -1,0 +1,1 @@
+Error: Expected a field (#name), a method (fn) or a constant (const) but found 'echo' on line 1

@@ -1,0 +1,1 @@
+Error: A pattern can't take the rest with ...: take the list apart with slice() at tests/parser_corpus/error_spread_rest_pattern.gaz:2

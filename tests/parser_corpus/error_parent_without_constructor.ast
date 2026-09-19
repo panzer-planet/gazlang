@@ -1,0 +1,1 @@
+Error: A has no constructor to call with ##_ at tests/parser_corpus/error_parent_without_constructor.gaz:2

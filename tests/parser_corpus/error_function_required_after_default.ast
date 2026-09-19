@@ -1,0 +1,1 @@
+Error: Required parameter $b can't follow a parameter with a default at tests/parser_corpus/error_function_required_after_default.gaz:1

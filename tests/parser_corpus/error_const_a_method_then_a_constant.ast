@@ -1,0 +1,1 @@
+Error: K already has a method A: constants, fields and methods share names at tests/parser_corpus/error_const_a_method_then_a_constant.gaz:1

@@ -1,0 +1,21 @@
+Compound
+  statements:
+@ "tests/parser_corpus/include/lib/deep/helper.gaz"
+    0: FunctionDeclaration 1
+      name: "helper"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 1
+            expr: Num 1
+              token: 1 INTEGER 1
+              value: 1
+      arity: 0
+      class: null
+      abstract: false
+@ "tests/parser_corpus/include/same_file_spelt_three_ways.gaz"
+    1: EchoStatement 4
+      expr: FunctionCall 4
+        name: "helper"
+        args: []

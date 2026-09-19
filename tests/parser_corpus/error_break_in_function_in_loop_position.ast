@@ -1,0 +1,1 @@
+Error: Cannot use break outside of a loop at tests/parser_corpus/error_break_in_function_in_loop_position.gaz:1

@@ -1,0 +1,170 @@
+Compound
+  statements:
+@ null
+    0: ClassDeclaration 4
+      name: "T"
+      parent: null
+      abstract: false
+      fields: []
+      field_lines: []
+      methods: []
+      constants:
+        MORE: ArrayLiteral 4
+          entries:
+            0:
+              0: null
+              1: Spread 4
+                expr: FunctionRef 4
+                  name: "ALL"
+                  constant: true
+                  value: ["a", "b", "c"]
+            1:
+              0: null
+              1: Spread 4
+                expr: FunctionRef 4
+                  name: "LETTERS"
+                  constant: true
+                  value: ["a", "b"]
+          map: false
+      constant_lines: {"MORE" => 4}
+      constant_owners: {"MORE" => "T"}
+      layout: []
+      members: []
+      abstract_methods: []
+    1: Statement 5
+      expr: Assign 5
+        left: Variable 5
+          token: 5 VAR_IDENTIFIER $a
+          value: "\$a"
+        token: 5 ASSIGN =
+        right: ArrayLiteral 5
+          entries:
+            0:
+              0: null
+              1: Num 5
+                token: 5 INTEGER 1
+                value: 1
+            1:
+              0: null
+              1: Num 5
+                token: 5 INTEGER 2
+                value: 2
+          map: false
+    2: EchoStatement 6
+      expr: ArrayLiteral 6
+        entries:
+          0:
+            0: null
+            1: Spread 6
+              expr: Variable 6
+                token: 6 VAR_IDENTIFIER $a
+                value: "\$a"
+        map: false
+    3: EchoStatement 7
+      expr: ArrayLiteral 7
+        entries:
+          0:
+            0: null
+            1: Num 7
+              token: 7 INTEGER 0
+              value: 0
+          1:
+            0: null
+            1: Spread 7
+              expr: Variable 7
+                token: 7 VAR_IDENTIFIER $a
+                value: "\$a"
+          2:
+            0: null
+            1: Num 7
+              token: 7 INTEGER 3
+              value: 3
+          3:
+            0: null
+            1: Spread 7
+              expr: Variable 7
+                token: 7 VAR_IDENTIFIER $a
+                value: "\$a"
+        map: false
+    4: EchoStatement 8
+      expr: ArrayLiteral 8
+        entries:
+          0:
+            0: null
+            1: Spread 8
+              expr: ArrayLiteral 8
+                entries:
+                  0:
+                    0: null
+                    1: Spread 8
+                      expr: Variable 8
+                        token: 8 VAR_IDENTIFIER $a
+                        value: "\$a"
+                map: false
+          1:
+            0: null
+            1: Spread 8
+              expr: FunctionCall 8
+                name: "f"
+                args: []
+        map: false
+    5: FunctionDeclaration 9
+      name: "f"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 9
+            expr: ArrayLiteral 9
+              entries:
+                0:
+                  0: null
+                  1: Num 9
+                    token: 9 INTEGER 4
+                    value: 4
+              map: false
+      arity: 0
+      class: null
+      abstract: false
+    6: Statement 10
+      expr: Assign 10
+        left: Variable 10
+          token: 10 VAR_IDENTIFIER $g
+          value: "\$g"
+        token: 10 ASSIGN =
+        right: Lambda 10
+          params: ["\$x"]
+          defaults: [null]
+          arity: 1
+          body: ArrayLiteral 10
+            entries:
+              0:
+                0: null
+                1: Spread 10
+                  expr: Variable 10
+                    token: 10 VAR_IDENTIFIER $x
+                    value: "\$x"
+              1:
+                0: null
+                1: Spread 10
+                  expr: Variable 10
+                    token: 10 VAR_IDENTIFIER $a
+                    value: "\$a"
+            map: false
+          captures: ["\$a"]
+          self: null
+    7: EchoStatement 12
+      expr: ArrayLiteral 12
+        entries:
+          0:
+            0: null
+            1: Num 13
+              token: 13 INTEGER 1
+              value: 1
+          1:
+            0: null
+            1: Spread 14
+              expr: Variable 15
+                token: 15 VAR_IDENTIFIER $a
+                value: "\$a"
+        map: false

@@ -1,0 +1,1 @@
+Error: Declare functions with fn, not function at tests/parser_corpus/error_function_keyword.gaz:1

@@ -1,0 +1,1 @@
+Error: Expected '{' but found '1' at tests/parser_corpus/error_keyword_hint_dropped_for_class_being_declared.gaz:1

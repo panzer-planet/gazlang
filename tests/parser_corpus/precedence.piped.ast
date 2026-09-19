@@ -1,0 +1,532 @@
+Compound
+  statements:
+@ null
+    0: EchoStatement 2
+      expr: BinOp 2
+        left: BinOp 2
+          left: Num 2
+            token: 2 INTEGER 1
+            value: 1
+          token: 2 PLUS +
+          op: 2 PLUS +
+          right: BinOp 2
+            left: Num 2
+              token: 2 INTEGER 2
+              value: 2
+            token: 2 MULTIPLY *
+            op: 2 MULTIPLY *
+            right: Num 2
+              token: 2 INTEGER 3
+              value: 3
+        token: 2 MINUS -
+        op: 2 MINUS -
+        right: BinOp 2
+          left: BinOp 2
+            left: Num 2
+              token: 2 INTEGER 4
+              value: 4
+            token: 2 DIVIDE /
+            op: 2 DIVIDE /
+            right: Num 2
+              token: 2 INTEGER 5
+              value: 5
+          token: 2 MODULO %
+          op: 2 MODULO %
+          right: Num 2
+            token: 2 INTEGER 6
+            value: 6
+    1: EchoStatement 3
+      expr: BinOp 3
+        left: BinOp 3
+          left: Num 3
+            token: 3 INTEGER 1
+            value: 1
+          token: 3 SHIFT_LEFT <<
+          op: 3 SHIFT_LEFT <<
+          right: BinOp 3
+            left: Num 3
+              token: 3 INTEGER 2
+              value: 2
+            token: 3 PLUS +
+            op: 3 PLUS +
+            right: Num 3
+              token: 3 INTEGER 3
+              value: 3
+        token: 3 SHIFT_RIGHT >>
+        op: 3 SHIFT_RIGHT >>
+        right: Num 3
+          token: 3 INTEGER 4
+          value: 4
+    2: EchoStatement 4
+      expr: BinOp 4
+        left: Num 4
+          token: 4 INTEGER 1
+          value: 1
+        token: 4 BIT_AND &
+        op: 4 BIT_AND &
+        right: BinOp 4
+          left: Num 4
+            token: 4 INTEGER 2
+            value: 2
+          token: 4 SHIFT_LEFT <<
+          op: 4 SHIFT_LEFT <<
+          right: Num 4
+            token: 4 INTEGER 3
+            value: 3
+    3: EchoStatement 5
+      expr: BinOp 5
+        left: Num 5
+          token: 5 INTEGER 1
+          value: 1
+        token: 5 BIT_XOR ^
+        op: 5 BIT_XOR ^
+        right: BinOp 5
+          left: Num 5
+            token: 5 INTEGER 2
+            value: 2
+          token: 5 BIT_AND &
+          op: 5 BIT_AND &
+          right: Num 5
+            token: 5 INTEGER 3
+            value: 3
+    4: EchoStatement 6
+      expr: BinOp 6
+        left: Num 6
+          token: 6 INTEGER 1
+          value: 1
+        token: 6 BIT_OR |
+        op: 6 BIT_OR |
+        right: BinOp 6
+          left: Num 6
+            token: 6 INTEGER 2
+            value: 2
+          token: 6 BIT_XOR ^
+          op: 6 BIT_XOR ^
+          right: Num 6
+            token: 6 INTEGER 3
+            value: 3
+    5: EchoStatement 7
+      expr: BinOp 7
+        left: BinOp 7
+          left: String 7
+            token: 7 STRING "n = "
+            value: "n = "
+          token: 7 CONCAT ..
+          op: 7 CONCAT ..
+          right: BinOp 7
+            left: Num 7
+              token: 7 INTEGER 1
+              value: 1
+            token: 7 BIT_OR |
+            op: 7 BIT_OR |
+            right: Num 7
+              token: 7 INTEGER 2
+              value: 2
+        token: 7 CONCAT ..
+        op: 7 CONCAT ..
+        right: String 7
+          token: 7 STRING "!"
+          value: "!"
+    6: EchoStatement 8
+      expr: BinOp 8
+        left: BinOp 8
+          left: Num 8
+            token: 8 INTEGER 1
+            value: 1
+          token: 8 CONCAT ..
+          op: 8 CONCAT ..
+          right: Num 8
+            token: 8 INTEGER 2
+            value: 2
+        token: 8 LESS_THAN <
+        op: 8 LESS_THAN <
+        right: BinOp 8
+          left: Num 8
+            token: 8 INTEGER 3
+            value: 3
+          token: 8 CONCAT ..
+          op: 8 CONCAT ..
+          right: Num 8
+            token: 8 INTEGER 4
+            value: 4
+    7: EchoStatement 9
+      expr: BinOp 9
+        left: BinOp 9
+          left: Num 9
+            token: 9 INTEGER 1
+            value: 1
+          token: 9 LESS_THAN <
+          op: 9 LESS_THAN <
+          right: Num 9
+            token: 9 INTEGER 2
+            value: 2
+        token: 9 EQUALS ==
+        op: 9 EQUALS ==
+        right: BinOp 9
+          left: Num 9
+            token: 9 INTEGER 3
+            value: 3
+          token: 9 GREATER_EQUALS >=
+          op: 9 GREATER_EQUALS >=
+          right: Num 9
+            token: 9 INTEGER 4
+            value: 4
+    8: EchoStatement 10
+      expr: BinOp 10
+        left: BinOp 10
+          left: Num 10
+            token: 10 INTEGER 1
+            value: 1
+          token: 10 LESS_EQUALS <=
+          op: 10 LESS_EQUALS <=
+          right: Num 10
+            token: 10 INTEGER 2
+            value: 2
+        token: 10 NOT_EQUALS !=
+        op: 10 NOT_EQUALS !=
+        right: BinOp 10
+          left: Num 10
+            token: 10 INTEGER 3
+            value: 3
+          token: 10 GREATER_THAN >
+          op: 10 GREATER_THAN >
+          right: Num 10
+            token: 10 INTEGER 4
+            value: 4
+    9: EchoStatement 11
+      expr: BinOp 11
+        left: BinOp 11
+          left: Num 11
+            token: 11 INTEGER 1
+            value: 1
+          token: 11 SPACESHIP <=>
+          op: 11 SPACESHIP <=>
+          right: Num 11
+            token: 11 INTEGER 2
+            value: 2
+        token: 11 EQUALS ==
+        op: 11 EQUALS ==
+        right: Num 11
+          token: 11 INTEGER 0
+          value: 0
+    10: EchoStatement 12
+      expr: BinOp 12
+        left: BinOp 12
+          left: Num 12
+            token: 12 INTEGER 1
+            value: 1
+          token: 12 EQUALS ==
+          op: 12 EQUALS ==
+          right: Num 12
+            token: 12 INTEGER 2
+            value: 2
+        token: 12 AND &&
+        op: 12 AND &&
+        right: BinOp 12
+          left: Num 12
+            token: 12 INTEGER 3
+            value: 3
+          token: 12 NOT_EQUALS !=
+          op: 12 NOT_EQUALS !=
+          right: Num 12
+            token: 12 INTEGER 4
+            value: 4
+    11: EchoStatement 13
+      expr: BinOp 13
+        left: BinOp 13
+          left: Variable 13
+            token: 13 VAR_IDENTIFIER $a
+            value: "\$a"
+          token: 13 AND &&
+          op: 13 AND &&
+          right: Variable 13
+            token: 13 VAR_IDENTIFIER $b
+            value: "\$b"
+        token: 13 OR ||
+        op: 13 OR ||
+        right: BinOp 13
+          left: Variable 13
+            token: 13 VAR_IDENTIFIER $c
+            value: "\$c"
+          token: 13 AND &&
+          op: 13 AND &&
+          right: Variable 13
+            token: 13 VAR_IDENTIFIER $d
+            value: "\$d"
+    12: EchoStatement 14
+      expr: BinOp 14
+        left: BinOp 14
+          left: Variable 14
+            token: 14 VAR_IDENTIFIER $a
+            value: "\$a"
+          token: 14 OR ||
+          op: 14 OR ||
+          right: Variable 14
+            token: 14 VAR_IDENTIFIER $b
+            value: "\$b"
+        token: 14 COALESCE ??
+        op: 14 COALESCE ??
+        right: BinOp 14
+          left: Variable 14
+            token: 14 VAR_IDENTIFIER $c
+            value: "\$c"
+          token: 14 OR ||
+          op: 14 OR ||
+          right: Variable 14
+            token: 14 VAR_IDENTIFIER $d
+            value: "\$d"
+    13: EchoStatement 15
+      expr: BinOp 15
+        left: Variable 15
+          token: 15 VAR_IDENTIFIER $a
+          value: "\$a"
+        token: 15 COALESCE ??
+        op: 15 COALESCE ??
+        right: BinOp 15
+          left: Variable 15
+            token: 15 VAR_IDENTIFIER $b
+            value: "\$b"
+          token: 15 COALESCE ??
+          op: 15 COALESCE ??
+          right: Variable 15
+            token: 15 VAR_IDENTIFIER $c
+            value: "\$c"
+    14: EchoStatement 16
+      expr: Ternary 16
+        condition: Variable 16
+          token: 16 VAR_IDENTIFIER $a
+          value: "\$a"
+        then: Num 16
+          token: 16 INTEGER 1
+          value: 1
+        else: Ternary 16
+          condition: Variable 16
+            token: 16 VAR_IDENTIFIER $b
+            value: "\$b"
+          then: Num 16
+            token: 16 INTEGER 2
+            value: 2
+          else: Num 16
+            token: 16 INTEGER 3
+            value: 3
+    15: EchoStatement 17
+      expr: Ternary 17
+        condition: Variable 17
+          token: 17 VAR_IDENTIFIER $a
+          value: "\$a"
+        then: Ternary 17
+          condition: Variable 17
+            token: 17 VAR_IDENTIFIER $b
+            value: "\$b"
+          then: Num 17
+            token: 17 INTEGER 1
+            value: 1
+          else: Num 17
+            token: 17 INTEGER 2
+            value: 2
+        else: Num 17
+          token: 17 INTEGER 3
+          value: 3
+    16: EchoStatement 18
+      expr: Ternary 18
+        condition: BinOp 18
+          left: Variable 18
+            token: 18 VAR_IDENTIFIER $a
+            value: "\$a"
+          token: 18 COALESCE ??
+          op: 18 COALESCE ??
+          right: Variable 18
+            token: 18 VAR_IDENTIFIER $b
+            value: "\$b"
+        then: BinOp 18
+          left: Variable 18
+            token: 18 VAR_IDENTIFIER $c
+            value: "\$c"
+          token: 18 COALESCE ??
+          op: 18 COALESCE ??
+          right: Num 18
+            token: 18 INTEGER 1
+            value: 1
+        else: Num 18
+          token: 18 INTEGER 2
+          value: 2
+    17: EchoStatement 20
+      expr: BinOp 20
+        left: BinOp 20
+          left: Num 20
+            token: 20 INTEGER 1
+            value: 1
+          token: 20 MINUS -
+          op: 20 MINUS -
+          right: Num 20
+            token: 20 INTEGER 2
+            value: 2
+        token: 20 MINUS -
+        op: 20 MINUS -
+        right: Num 20
+          token: 20 INTEGER 3
+          value: 3
+    18: EchoStatement 21
+      expr: BinOp 21
+        left: BinOp 21
+          left: Num 21
+            token: 21 INTEGER 8
+            value: 8
+          token: 21 DIVIDE /
+          op: 21 DIVIDE /
+          right: Num 21
+            token: 21 INTEGER 4
+            value: 4
+        token: 21 DIVIDE /
+        op: 21 DIVIDE /
+        right: Num 21
+          token: 21 INTEGER 2
+          value: 2
+    19: EchoStatement 22
+      expr: BinOp 22
+        left: BinOp 22
+          left: String 22
+            token: 22 STRING "a"
+            value: "a"
+          token: 22 CONCAT ..
+          op: 22 CONCAT ..
+          right: String 22
+            token: 22 STRING "b"
+            value: "b"
+        token: 22 CONCAT ..
+        op: 22 CONCAT ..
+        right: String 22
+          token: 22 STRING "c"
+          value: "c"
+    20: EchoStatement 24
+      expr: BinOp 24
+        left: UnaryOp 24
+          op: 24 MINUS -
+          expr: Num 24
+            token: 24 INTEGER 1
+            value: 1
+        token: 24 MULTIPLY *
+        op: 24 MULTIPLY *
+        right: UnaryOp 24
+          op: 24 MINUS -
+          expr: Num 24
+            token: 24 INTEGER 2
+            value: 2
+    21: EchoStatement 25
+      expr: BinOp 25
+        left: UnaryOp 25
+          op: 25 NOT !
+          expr: Variable 25
+            token: 25 VAR_IDENTIFIER $a
+            value: "\$a"
+        token: 25 AND &&
+        op: 25 AND &&
+        right: UnaryOp 25
+          op: 25 NOT !
+          expr: UnaryOp 25
+            op: 25 NOT !
+            expr: Variable 25
+              token: 25 VAR_IDENTIFIER $b
+              value: "\$b"
+    22: EchoStatement 26
+      expr: BinOp 26
+        left: UnaryOp 26
+          op: 26 BIT_NOT ~
+          expr: Num 26
+            token: 26 INTEGER 1
+            value: 1
+        token: 26 BIT_AND &
+        op: 26 BIT_AND &
+        right: UnaryOp 26
+          op: 26 MINUS -
+          expr: UnaryOp 26
+            op: 26 BIT_NOT ~
+            expr: Num 26
+              token: 26 INTEGER 2
+              value: 2
+    23: EchoStatement 27
+      expr: UnaryOp 27
+        op: 27 MINUS -
+        expr: UnaryOp 27
+          op: 27 MINUS -
+          expr: Num 27
+            token: 27 INTEGER 1
+            value: 1
+    24: EchoStatement 28
+      expr: BinOp 28
+        left: UnaryOp 28
+          op: 28 MINUS -
+          expr: BinOp 28
+            left: Num 28
+              token: 28 INTEGER 1
+              value: 1
+            token: 28 PLUS +
+            op: 28 PLUS +
+            right: Num 28
+              token: 28 INTEGER 2
+              value: 2
+        token: 28 MULTIPLY *
+        op: 28 MULTIPLY *
+        right: Num 28
+          token: 28 INTEGER 3
+          value: 3
+    25: EchoStatement 29
+      expr: BinOp 29
+        left: BinOp 29
+          left: Num 29
+            token: 29 INTEGER 1
+            value: 1
+          token: 29 PLUS +
+          op: 29 PLUS +
+          right: Num 29
+            token: 29 INTEGER 2
+            value: 2
+        token: 29 MULTIPLY *
+        op: 29 MULTIPLY *
+        right: BinOp 29
+          left: Num 29
+            token: 29 INTEGER 3
+            value: 3
+          token: 29 MINUS -
+          op: 29 MINUS -
+          right: BinOp 29
+            left: Num 29
+              token: 29 INTEGER 4
+              value: 4
+            token: 29 MINUS -
+            op: 29 MINUS -
+            right: Num 29
+              token: 29 INTEGER 5
+              value: 5
+    26: EchoStatement 30
+      expr: BinOp 30
+        left: Num 30
+          token: 30 INTEGER 1
+          value: 1
+        token: 30 PLUS +
+        op: 30 PLUS +
+        right: BinOp 32
+          left: Num 31
+            token: 31 INTEGER 2
+            value: 2
+          token: 32 MULTIPLY *
+          op: 32 MULTIPLY *
+          right: Num 32
+            token: 32 INTEGER 3
+            value: 3
+    27: EchoStatement 34
+      expr: Ternary 34
+        condition: Variable 34
+          token: 34 VAR_IDENTIFIER $c
+          value: "\$c"
+        then: Assign 34
+          left: Variable 34
+            token: 34 VAR_IDENTIFIER $x
+            value: "\$x"
+          token: 34 ASSIGN =
+          right: Num 34
+            token: 34 INTEGER 1
+            value: 1
+        else: Num 34
+          token: 34 INTEGER 2
+          value: 2

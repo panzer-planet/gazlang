@@ -66,6 +66,56 @@ abstract class GazLangTestCase extends TestCase
     }
 
     /**
+     * Assert a port printed what its expected file says, output and exit code
+     *
+     * The file holds the output as the driver prints it, the checkout's path as <root>; the exit
+     * code is 1 when a line starts with "Error: ", as no line of tokens, a tree or bytecode does
+     * (an error's message can itself hold a newline, so it needn't be the last line). With
+     * GAZLANG_RECORD_PORTS set, what the port printed is recorded instead, for review as a diff:
+     * GAZLANG_RECORD_PORTS=1 vendor/bin/phpunit --filter SelfHosted
+     *
+     * @param  string  $expected_file  The expected file, relative to the project root
+     * @param  array{0: string, 1: int}  $actual  What the port printed, and its exit code
+     */
+    protected function assertPortPrints(string $expected_file, array $actual, string $message): void
+    {
+        $path = self::ROOT.'/'.$expected_file;
+        $output = CVM::portable($actual[0]);
+        if (getenv('GAZLANG_RECORD_PORTS') !== false) {
+            file_put_contents($path, $output);
+        }
+        $this->assertFileExists($path, "{$message}: nothing recorded; GAZLANG_RECORD_PORTS=1 vendor/bin/phpunit --filter SelfHosted");
+        $expected = (string) file_get_contents($path);
+        $this->assertSameText($expected, $output, $message);
+        $this->assertSame(preg_match('/^Error: /m', $expected), $actual[1], "{$message}: exit code");
+    }
+
+    /**
+     * The expected files next to a corpus's .gaz files, which must each belong to one
+     *
+     * @param  string  $dir  The corpus, relative to the project root
+     * @param  list<string>  $suffixes  What follows the name in an expected file, longest first: piped.ast, ast...
+     * @return list<string> The expected files without a .gaz file of their own
+     */
+    protected static function strayExpectations(string $dir, array $suffixes): array
+    {
+        $stray = [];
+        foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(self::ROOT."/{$dir}", \FilesystemIterator::SKIP_DOTS)) as $path) {
+            // The longest suffix first: X.piped.ast ends in .ast too
+            foreach ($suffixes as $suffix) {
+                if (str_ends_with((string) $path, ".{$suffix}")) {
+                    if (! is_file(substr((string) $path, 0, -strlen($suffix)).'gaz')) {
+                        $stray[] = substr((string) $path, strlen(self::ROOT) + 1);
+                    }
+                    break;
+                }
+            }
+        }
+
+        return $stray;
+    }
+
+    /**
      * Run a compiled program on the VM as runProgram() would
      *
      * @param  string[]  $args  Arguments returned by args()

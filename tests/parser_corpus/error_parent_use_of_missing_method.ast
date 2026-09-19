@@ -1,0 +1,1 @@
+Error: A has no method f at tests/parser_corpus/error_parent_use_of_missing_method.gaz:2

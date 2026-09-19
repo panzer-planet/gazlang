@@ -1,0 +1,1 @@
+Error: Method A.to_string must accept 0 arguments: printing calls it with none on line 1

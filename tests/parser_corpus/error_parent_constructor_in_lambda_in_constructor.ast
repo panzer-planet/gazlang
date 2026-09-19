@@ -1,0 +1,1 @@
+Error: ##_ can only be used in a constructor, to run the parent's at tests/parser_corpus/error_parent_constructor_in_lambda_in_constructor.gaz:2

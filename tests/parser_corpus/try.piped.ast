@@ -1,0 +1,473 @@
+Compound
+  statements:
+@ "<builtin>"
+    0: ClassDeclaration 1
+      name: "Error"
+      parent: null
+      abstract: false
+      fields: {"message" => null, "file" => null, "line" => null, "trace" => null}
+      field_lines: {"message" => 2, "file" => 3, "line" => 4, "trace" => 5}
+      methods:
+        _: FunctionDeclaration 6
+          name: "_"
+          params: ["\$message"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 6
+                expr: Assign 6
+                  left: Property 6
+                    target: This 6
+                    name: "message"
+                    field: true
+                    constant: false
+                    value: null
+                  token: 6 ASSIGN =
+                  right: Variable 6
+                    token: 6 VAR_IDENTIFIER $message
+                    value: "\$message"
+          arity: 1
+          class: "Error"
+          abstract: false
+        to_string: FunctionDeclaration 7
+          name: "to_string"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 7
+                expr: BinOp 7
+                  left: String 7
+                    token: 7 STRING_START ""
+                    value: ""
+                  token: 7 CONCAT ..
+                  op: 7 CONCAT ..
+                  right: Property 7
+                    target: This 7
+                    name: "message"
+                    field: true
+                    constant: false
+                    value: null
+          arity: 0
+          class: "Error"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"message" => "Error", "file" => "Error", "line" => "Error", "trace" => "Error"}
+      members: {"_" => "Error", "to_string" => "Error"}
+      abstract_methods: []
+@ null
+    1: TryStatement 1
+      body: Compound
+        statements:
+          0: EchoStatement 1
+            expr: Num 1
+              token: 1 INTEGER 1
+              value: 1
+      catches:
+        0:
+          0: null
+          1: Variable 1
+            token: 1 VAR_IDENTIFIER $e
+            value: "\$e"
+          2: Compound
+            statements:
+              0: EchoStatement 1
+                expr: Variable 1
+                  token: 1 VAR_IDENTIFIER $e
+                  value: "\$e"
+      finally: null
+    2: TryStatement 2
+      body: Compound
+        statements:
+          0: EchoStatement 2
+            expr: Num 2
+              token: 2 INTEGER 1
+              value: 1
+      catches:
+        0:
+          0: null
+          1: Variable 2
+            token: 2 GLOBAL_VAR_IDENTIFIER @e
+            value: "@e"
+          2: Compound
+            statements:
+              0: EchoStatement 2
+                expr: Variable 2
+                  token: 2 GLOBAL_VAR_IDENTIFIER @e
+                  value: "@e"
+      finally: null
+    3: TryStatement 3
+      body: Compound
+        statements:
+          0: EchoStatement 3
+            expr: Num 3
+              token: 3 INTEGER 1
+              value: 1
+      catches:
+        0:
+          0: "Error"
+          1: Variable 3
+            token: 3 VAR_IDENTIFIER $e
+            value: "\$e"
+          2: Compound
+            statements:
+              0: EchoStatement 3
+                expr: Property 3
+                  target: Variable 3
+                    token: 3 VAR_IDENTIFIER $e
+                    value: "\$e"
+                  name: "message"
+                  field: false
+                  constant: false
+                  value: null
+      finally: null
+    4: TryStatement 4
+      body: Compound
+        statements:
+          0: EchoStatement 4
+            expr: Num 4
+              token: 4 INTEGER 1
+              value: 1
+      catches: []
+      finally: Compound
+        statements:
+          0: EchoStatement 4
+            expr: Num 4
+              token: 4 INTEGER 2
+              value: 2
+    5: TryStatement 5
+      body: Compound
+        statements:
+          0: Statement 6
+            expr: FunctionCall 6
+              name: "error"
+              args:
+                0: FunctionCall 6
+                  name: "NotFound"
+                  args:
+                    0: String 6
+                      token: 6 STRING "id"
+                      value: "id"
+      catches:
+        0:
+          0: "NotFound"
+          1: Variable 7
+            token: 7 VAR_IDENTIFIER $e
+            value: "\$e"
+          2: Compound
+            statements:
+              0: EchoStatement 8
+                expr: BinOp 8
+                  left: BinOp 8
+                    left: BinOp 8
+                      left: BinOp 8
+                        left: BinOp 8
+                          left: String 8
+                            token: 8 STRING_START ""
+                            value: ""
+                          token: 8 CONCAT ..
+                          op: 8 CONCAT ..
+                          right: Property 8
+                            target: Variable 8
+                              token: 8 VAR_IDENTIFIER $e
+                              value: "\$e"
+                            name: "message"
+                            field: false
+                            constant: false
+                            value: null
+                        token: 8 CONCAT ..
+                        op: 8 CONCAT ..
+                        right: String 8
+                          token: 8 STRING_MIDDLE " ("
+                          value: " ("
+                      token: 8 CONCAT ..
+                      op: 8 CONCAT ..
+                      right: Property 8
+                        target: Variable 8
+                          token: 8 VAR_IDENTIFIER $e
+                          value: "\$e"
+                        name: "key"
+                        field: false
+                        constant: false
+                        value: null
+                    token: 8 CONCAT ..
+                    op: 8 CONCAT ..
+                    right: String 8
+                      token: 8 STRING_MIDDLE ") at line "
+                      value: ") at line "
+                  token: 8 CONCAT ..
+                  op: 8 CONCAT ..
+                  right: Property 8
+                    target: Variable 8
+                      token: 8 VAR_IDENTIFIER $e
+                      value: "\$e"
+                    name: "line"
+                    field: false
+                    constant: false
+                    value: null
+        1:
+          0: "Error"
+          1: Variable 9
+            token: 9 VAR_IDENTIFIER $e
+            value: "\$e"
+          2: Compound
+            statements:
+              0: EchoStatement 10
+                expr: Property 10
+                  target: Variable 10
+                    token: 10 VAR_IDENTIFIER $e
+                    value: "\$e"
+                  name: "message"
+                  field: false
+                  constant: false
+                  value: null
+        2:
+          0: null
+          1: Variable 11
+            token: 11 VAR_IDENTIFIER $e
+            value: "\$e"
+          2: Compound
+            statements:
+              0: EchoStatement 12
+                expr: BinOp 12
+                  left: String 12
+                    token: 12 STRING_START "something else: "
+                    value: "something else: "
+                  token: 12 CONCAT ..
+                  op: 12 CONCAT ..
+                  right: Variable 12
+                    token: 12 VAR_IDENTIFIER $e
+                    value: "\$e"
+      finally: Compound
+        statements:
+          0: EchoStatement 14
+            expr: String 14
+              token: 14 STRING "always"
+              value: "always"
+    6: ClassDeclaration 16
+      name: "NotFound"
+      parent: "Error"
+      abstract: false
+      fields: {"key" => null}
+      field_lines: {"key" => 17}
+      methods:
+        _: FunctionDeclaration 18
+          name: "_"
+          params: ["\$key"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 18
+                expr: ParentMethod 18
+                  name: "_"
+                  args:
+                    0: BinOp 18
+                      left: String 18
+                        token: 18 STRING_START "Not found: "
+                        value: "Not found: "
+                      token: 18 CONCAT ..
+                      op: 18 CONCAT ..
+                      right: Variable 18
+                        token: 18 VAR_IDENTIFIER $key
+                        value: "\$key"
+                  definer: "Error"
+              1: Statement 18
+                expr: Assign 18
+                  left: Property 18
+                    target: This 18
+                    name: "key"
+                    field: true
+                    constant: false
+                    value: null
+                  token: 18 ASSIGN =
+                  right: Variable 18
+                    token: 18 VAR_IDENTIFIER $key
+                    value: "\$key"
+          arity: 1
+          class: "NotFound"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"message" => "Error", "file" => "Error", "line" => "Error", "trace" => "Error", "key" => "NotFound"}
+      members: {"_" => "NotFound", "to_string" => "Error"}
+      abstract_methods: []
+    7: FunctionDeclaration 21
+      name: "f"
+      params: ["\$xs"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: ForeachStatement 22
+            iterable: Variable 22
+              token: 22 VAR_IDENTIFIER $xs
+              value: "\$xs"
+            key: null
+            value: Variable 22
+              token: 22 VAR_IDENTIFIER $x
+              value: "\$x"
+            body: Compound
+              statements:
+                0: TryStatement 23
+                  body: Compound
+                    statements:
+                      0: IfStatement 23
+                        condition: Variable 23
+                          token: 23 VAR_IDENTIFIER $x
+                          value: "\$x"
+                        if_body: Compound
+                          statements:
+                            0: LoopControl 23
+                              token: 23 BREAK break
+                        else_if: null
+                        else_body: null
+                      1: ReturnStatement 23
+                        expr: Num 23
+                          token: 23 INTEGER 1
+                          value: 1
+                  catches:
+                    0:
+                      0: null
+                      1: Variable 23
+                        token: 23 VAR_IDENTIFIER $e
+                        value: "\$e"
+                      2: Compound
+                        statements:
+                          0: LoopControl 23
+                            token: 23 CONTINUE continue
+                  finally: Compound
+                    statements:
+                      0: WhileStatement 23
+                        condition: Boolean 23
+                          token: 23 TRUE true
+                          value: true
+                        body: Compound
+                          statements:
+                            0: LoopControl 23
+                              token: 23 BREAK break
+                        step: null
+                      1: Statement 23
+                        expr: Assign 23
+                          left: Variable 23
+                            token: 23 VAR_IDENTIFIER $g
+                            value: "\$g"
+                          token: 23 ASSIGN =
+                          right: Lambda 23
+                            params: []
+                            defaults: []
+                            arity: 0
+                            body: Compound
+                              statements:
+                                0: ReturnStatement 23
+                                  expr: Num 23
+                                    token: 23 INTEGER 1
+                                    value: 1
+                            captures: []
+                            self: null
+          1: TryStatement 25
+            body: Compound
+              statements:
+                0: ReturnStatement 25
+                  expr: Num 25
+                    token: 25 INTEGER 2
+                    value: 2
+            catches: []
+            finally: Compound
+              statements:
+                0: ForeachStatement 25
+                  iterable: Variable 25
+                    token: 25 VAR_IDENTIFIER $xs
+                    value: "\$xs"
+                  key: null
+                  value: Variable 25
+                    token: 25 VAR_IDENTIFIER $x
+                    value: "\$x"
+                  body: Compound
+                    statements:
+                      0: LoopControl 25
+                        token: 25 CONTINUE continue
+      arity: 1
+      class: null
+      abstract: false
+    8: Statement 28
+      expr: Assign 28
+        left: Variable 28
+          token: 28 VAR_IDENTIFIER $h
+          value: "\$h"
+        token: 28 ASSIGN =
+        right: Lambda 28
+          params: []
+          defaults: []
+          arity: 0
+          body: Compound
+            statements:
+              0: TryStatement 28
+                body: Compound
+                  statements:
+                    0: EchoStatement 28
+                      expr: Variable 28
+                        token: 28 VAR_IDENTIFIER $outer
+                        value: "\$outer"
+                catches:
+                  0:
+                    0: null
+                    1: Variable 28
+                      token: 28 VAR_IDENTIFIER $e
+                      value: "\$e"
+                    2: Compound
+                      statements:
+                        0: EchoStatement 28
+                          expr: Variable 28
+                            token: 28 VAR_IDENTIFIER $e
+                            value: "\$e"
+                finally: null
+          captures: ["\$outer"]
+          self: null
+    9: TryStatement 29
+      body: Compound
+        statements:
+          0: TryStatement 29
+            body: Compound
+              statements:
+                0: EchoStatement 29
+                  expr: Num 29
+                    token: 29 INTEGER 1
+                    value: 1
+            catches: []
+            finally: Compound
+              statements:
+                0: EchoStatement 29
+                  expr: Num 29
+                    token: 29 INTEGER 2
+                    value: 2
+      catches:
+        0:
+          0: null
+          1: Variable 29
+            token: 29 VAR_IDENTIFIER $e
+            value: "\$e"
+          2: Compound
+            statements:
+              0: TryStatement 29
+                body: Compound
+                  statements:
+                    0: EchoStatement 29
+                      expr: Num 29
+                        token: 29 INTEGER 3
+                        value: 3
+                catches:
+                  0:
+                    0: null
+                    1: Variable 29
+                      token: 29 VAR_IDENTIFIER $e2
+                      value: "\$e2"
+                    2: Compound
+                      statements:
+                        0: EchoStatement 29
+                          expr: Num 29
+                            token: 29 INTEGER 4
+                            value: 4
+                finally: null
+      finally: null

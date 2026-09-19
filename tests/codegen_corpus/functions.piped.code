@@ -1,0 +1,457 @@
+GAZLANG BYTECODE 1
+globals @g
+
+top
+locals $f $l $n $counter $fib $make $outer $deep $block $empty $uses_global $cache $memo $assigned_later $later
+@ 9
+PUSH 1
+CALL add 1
+PUSH 1
+PUSH 2
+CALL add 2
+ADD
+PRINT
+@ 10
+PUSH_FN add
+STORE 0
+LOAD 0
+POP
+@ 11
+LOAD 0
+PUSH 1
+PUSH 2
+CALL_VALUE 2
+PRINT
+@ 12
+PUSH_FN len
+STORE 1
+LOAD 1
+POP
+@ 13
+LOAD 1
+PUSH "ab"
+CALL_VALUE 1
+PRINT
+@ 14
+PUSH_FN add
+PUSH 1
+CALL_VALUE 1
+PRINT
+@ 15
+CALL pick 0
+PUSH 1
+CALL_VALUE 1
+PRINT
+@ 16
+PUSH 0
+STORE 2
+LOAD 2
+POP
+@ 17
+MAKE_CLOSURE 0
+STORE 3
+LOAD 3
+POP
+@ 18
+MAKE_CLOSURE 1
+STORE 4
+LOAD 4
+POP
+@ 19
+MAKE_CLOSURE 2
+STORE 5
+LOAD 5
+POP
+@ 20
+PUSH 1
+STORE 6
+LOAD 6
+POP
+@ 21
+MAKE_CLOSURE 3
+STORE 7
+LOAD 7
+POP
+@ 22
+MAKE_CLOSURE 4
+STORE 8
+LOAD 8
+POP
+@ 23
+MAKE_CLOSURE 5
+STORE 9
+LOAD 9
+POP
+@ 24
+MAKE_CLOSURE 6
+STORE 10
+LOAD 10
+POP
+@ 25
+MAKE_CLOSURE 7
+STORE 12
+LOAD 12
+POP
+@ 26
+NEW_ARRAY
+LOAD 3
+CALL_VALUE 0
+ARRAY_PUSH
+LOAD 4
+PUSH 10
+CALL_VALUE 1
+ARRAY_PUSH
+LOAD 5
+PUSH 1
+CALL_VALUE 1
+PUSH 2
+CALL_VALUE 1
+ARRAY_PUSH
+LOAD 7
+CALL_VALUE 0
+CALL_VALUE 0
+ARRAY_PUSH
+LOAD 8
+PUSH 1
+CALL_VALUE 1
+ARRAY_PUSH
+LOAD 9
+CALL_VALUE 0
+ARRAY_PUSH
+LOAD 12
+PUSH 2
+CALL_VALUE 1
+ARRAY_PUSH
+PRINT
+@ 27
+MAKE_CLOSURE 8
+STORE 14
+LOAD 14
+POP
+@ 28
+PUSH 1
+STORE 13
+LOAD 13
+POP
+
+fn add 1 3
+locals $a $b $c
+@ 2
+ARGC
+PUSH 1
+GT
+NOT
+JZ PASSED_0
+LOAD 0
+PUSH 2
+MUL
+STORE 1
+LABEL PASSED_0
+ARGC
+PUSH 2
+GT
+NOT
+JZ PASSED_1
+NEW_ARRAY
+STORE 2
+LABEL PASSED_1
+LOAD 0
+LOAD 1
+ADD
+RET
+PUSH null
+RET
+
+fn nothing 0 0
+locals
+@ 3
+PUSH null
+RET
+
+fn early 1 1
+locals $x
+@ 4
+LOAD 0
+JZ ELSE_0
+PUSH null
+RET
+JMP ENDIF_0
+LABEL ELSE_0
+LABEL ENDIF_0
+LOAD 0
+RET
+PUSH null
+RET
+
+fn fin 1 1
+locals $x $#return_0 $#finally_error_0
+@ 5
+TRY FINALLY_0
+LOAD 0
+STORE 1
+END_TRY
+PUSH "finally"
+PRINT
+LOAD 1
+RET
+END_TRY
+PUSH "finally"
+PRINT
+JMP ENDFINALLY_0
+LABEL FINALLY_0
+STORE 2
+PUSH "finally"
+PRINT
+LOAD 2
+RETHROW
+LABEL ENDFINALLY_0
+PUSH null
+RET
+
+fn nested 1 1
+locals $x $#return_0 $e $#return_1 $#finally_error_0
+@ 6
+TRY FINALLY_0
+TRY CATCH_1
+LOAD 0
+STORE 1
+END_TRY
+END_TRY
+PUSH "f"
+PRINT
+LOAD 1
+RET
+END_TRY
+JMP ENDTRY_1
+LABEL CATCH_1
+CATCH_VALUE
+STORE 2
+PUSH 0
+STORE 3
+END_TRY
+PUSH "f"
+PRINT
+LOAD 3
+RET
+LABEL ENDTRY_1
+END_TRY
+PUSH "f"
+PRINT
+JMP ENDFINALLY_0
+LABEL FINALLY_0
+STORE 4
+PUSH "f"
+PRINT
+LOAD 4
+RETHROW
+LABEL ENDFINALLY_0
+PUSH null
+RET
+
+fn looped 0 0
+locals $e
+LABEL WHILE_0
+@ 7
+PUSH true
+JZ ENDWHILE_0
+TRY CATCH_1
+PUSH 1
+RET
+END_TRY
+JMP ENDTRY_1
+LABEL CATCH_1
+CATCH_VALUE
+STORE 0
+JMP ENDWHILE_0
+LABEL ENDTRY_1
+JMP WHILE_0
+LABEL ENDWHILE_0
+PUSH null
+RET
+
+fn pick 0 0
+locals
+@ 8
+MAKE_CLOSURE 9
+RET
+PUSH null
+RET
+
+fn with_lambda 1 1
+locals $x
+@ 29
+MAKE_CLOSURE 10
+RET
+PUSH null
+RET
+
+class Error
+field message Error
+field file Error
+field line Error
+field trace Error
+method _ Error
+method to_string Error
+locals $#argument_0
+@ "<builtin>" 1
+CALL_CONSTRUCTOR Error
+POP
+LOAD_THIS
+RET
+
+fn Error._ 1 1
+locals $message
+@ "<builtin>" 6
+LOAD 0
+SET_FIELD message
+POP
+PUSH null
+RET
+
+fn Error.to_string 0 0
+locals
+@ "<builtin>" 7
+PUSH ""
+LOAD_FIELD message
+CONCAT
+RET
+PUSH null
+RET
+
+lambda 0 0 0
+capture $n local 2
+locals
+@ 17
+LOAD_CAPTURED 0
+INC
+STORE_CAPTURED 0
+LOAD_CAPTURED 0
+RET
+
+lambda 1 1 1
+capture $fib local 4
+self $fib
+locals $n
+@ 18
+LOAD 0
+PUSH 2
+LT
+JZ TERNARY_ELSE_0
+LOAD 0
+JMP TERNARY_END_0
+LABEL TERNARY_ELSE_0
+LOAD_CAPTURED 0
+LOAD 0
+PUSH 1
+SUB
+CALL_VALUE 1
+LOAD_CAPTURED 0
+LOAD 0
+PUSH 2
+SUB
+CALL_VALUE 1
+ADD
+LABEL TERNARY_END_0
+RET
+
+lambda 2 1 1
+locals $x
+@ 19
+MAKE_CLOSURE 11
+RET
+
+lambda 3 0 0
+capture $outer local 6
+locals
+@ 21
+MAKE_CLOSURE 12
+RET
+
+lambda 4 1 2
+locals $a $b $t
+@ 22
+ARGC
+PUSH 1
+GT
+NOT
+JZ PASSED_0
+PUSH 1
+STORE 1
+LABEL PASSED_0
+LOAD 0
+LOAD 1
+ADD
+STORE 2
+LOAD 2
+POP
+LOAD 2
+RET
+PUSH null
+RET
+
+lambda 5 0 0
+locals
+@ 23
+PUSH null
+RET
+
+lambda 6 0 0
+locals
+@ 24
+LOAD_GLOBAL 0
+RET
+
+lambda 7 1 1
+capture $cache local 11
+locals $k $#update_key0_0
+@ 25
+LOAD 0
+KEY_CHECK
+STORE 1
+LOAD_QUIET_CAPTURED 0
+LOAD 1
+INDEX_GET_QUIET
+JNN COALESCE_END_0
+LOAD 1
+LOAD 0
+PUSH 2
+MUL
+SET_PATH_CAPTURED [k] 0
+LABEL COALESCE_END_0
+RET
+
+lambda 8 0 0
+capture $assigned_later local 13
+locals
+@ 27
+LOAD_CAPTURED 0
+RET
+
+lambda 9 1 1
+locals $v
+@ 8
+LOAD 0
+RET
+
+lambda 10 0 0
+capture $x local 0
+locals
+@ 29
+LOAD_CAPTURED 0
+RET
+
+lambda 11 1 1
+capture $x local 0
+locals $y
+@ 19
+LOAD_CAPTURED 0
+LOAD 0
+ADD
+RET
+
+lambda 12 0 0
+capture $outer captured 0
+locals
+@ 21
+LOAD_CAPTURED 0
+RET

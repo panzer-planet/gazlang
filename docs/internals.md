@@ -100,35 +100,34 @@ bin/gazlang-php -f examples/functions.gaz                 # the same on the PHP 
   `tests/gaz/check.gaz` gives `check($label, $actual, $expected)`, which prints `ok <label>` or
   a FAIL line with both values. This is how GazLang code gets tested.
 - **`tests/lexer_corpus/`** are lexing cases, including deliberately tricky ones. A file named
-  `error_*` must be exactly one that fails to lex. `SelfHostedLexerTest` requires
-  `selfhost/lexer.gaz` to give the same tokens and errors as the PHP lexer on these and on every
-  other `.gaz` file in the repository, so a change to `src/Lexer` needs the same change there.
-  After changing either, also run `php tests/fuzz_lexers.php`, which compares the two on a few
+  `error_*` must be exactly one that fails to lex. Each `X.gaz` has the tokens
+  `--tokens` must print in `X.tokens`, and `SelfHostedLexerTest` requires `selfhost/lexer.gaz`
+  to print them. A change to the lexer needs the same change in `src/Lexer` while it exists;
+  after changing either, also run `php tests/fuzz_lexers.php`, which compares the two on a few
   thousand generated inputs in about five seconds.
 - **`tests/parser_corpus/`** are parsing cases: a file per construct, and an `error_*` file for
   every message the parser can raise, which must be exactly the ones that fail to parse.
-  `SelfHostedParserTest` requires `selfhost/parser.gaz` to give the same tree and errors as the
-  PHP parser on these and on every other `.gaz` file in the repository, so a change to
-  `src/Parser` or to a node in `src/AST` needs the same change in `selfhost/parser.gaz` or
-  `selfhost/nodes.gaz`. The expected tree is `bin/gazlang-php --ast`, which `AST\Dumper` prints
-  by reading each node's fields, so a new field shows up in it without being asked. After
-  changing either parser, also run `php tests/fuzz_parsers.php`, which compares the two on a few
+  Each `X.gaz` has the tree `--ast` must print in `X.ast`, and piped in `X.piped.ast`;
+  `places/` holds the runs from other working directories. `SelfHostedParserTest` requires
+  `selfhost/parser.gaz` to print them. The dump is read off each node's fields, so a new field
+  shows up in it without being asked. A change to the parser or a node needs the same change in
+  `src/Parser` and `src/AST` while they exist; after changing either parser, also run `php tests/fuzz_parsers.php`, which compares the two on a few
   thousand changed programs in under a minute. When a location matters, put the node's tokens
   on different lines: a one-line case cannot tell one token's line from another's.
 - **`tests/codegen_corpus/`** are code generation cases, built to reach every branch of the
-  code generator between them. `SelfHostedCompilerTest` requires `selfhost/codegen.gaz` to give
-  byte for byte the bytecode `bin/gazlang-php -c` writes, on these and on every other `.gaz`
-  file in the repository, so a change to `src/CodeGenerator` or to how `Program` writes needs
-  the same change there. After changing either, also run `php tests/fuzz_parsers.php 3000 1 code`.
+  code generator between them. Each `X.gaz` has the bytecode `-c` must print in `X.code`, and
+  piped in `X.piped.code`, and `SelfHostedCompilerTest` requires `selfhost/codegen.gaz` to print
+  it byte for byte; beyond the corpus, the compiler compiling itself checks it. A change to
+  code generation needs the same change in `src/CodeGenerator` while it exists; after changing
+  either, also run `php tests/fuzz_parsers.php 3000 1 code`.
 - **`tests/cli/`** holds the programs `CliParityTest` runs through both command lines,
   `bin/gazlang-php` and `bin/gazlang`, which must print the same standard output and standard
   error and exit with the same code: a table of invocations, each its arguments, what is piped
   in and the working directory. A change to either CLI's options, or to how they read files and
   standard input, needs a row there.
-- The three ports run on the C VM, so they are checked on every `.gaz` file in every run. The
-  self-hosted drivers on big inputs, which take seconds each on the PHP VM, are the one group
-  left out: `php -d pcov.enabled=0 vendor/bin/phpunit --group whole-repository`, before
-  merging anything that touches a port or either VM.
+- When a port's output changes on purpose, record it with
+  `GAZLANG_RECORD_PORTS=1 vendor/bin/phpunit --filter SelfHosted` and review the diff: the
+  expected files are the spec.
 - **`selfhost/gazlang.gzb`** is the self-hosted compiler's bytecode, checked in and built into
   the C VM, which is how `bin/gazlang -f x.gaz` runs source. A test fails until it is what the PHP
   compiler writes for `selfhost/gazlang.gaz`, so after changing anything under `selfhost/`, run

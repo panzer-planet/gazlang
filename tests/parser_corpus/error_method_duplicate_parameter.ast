@@ -1,0 +1,1 @@
+Error: Duplicate parameter $x in method Point.move at tests/parser_corpus/error_method_duplicate_parameter.gaz:1

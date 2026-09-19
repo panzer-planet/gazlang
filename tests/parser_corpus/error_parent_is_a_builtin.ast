@@ -1,0 +1,1 @@
+Error: len is a function, not a class at tests/parser_corpus/error_parent_is_a_builtin.gaz:1

@@ -1,0 +1,1 @@
+Error: Circular inheritance: A extends A at tests/parser_corpus/error_extends_itself.gaz:1

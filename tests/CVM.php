@@ -13,17 +13,18 @@ use GazLang\VM\VM;
 use Throwable;
 
 /**
- * Runs a program on the PHP VM and on the C VM (bin/gazlang) and gives what each printed
+ * Runs programs on the C VM (bin/gazlang), and on the PHP VM for vm/progress.php, and gives what
+ * each printed
  *
  * An entry is a path relative to the project root, optionally followed by the program's
- * arguments: "selfhost/gazlang.gaz code examples/functions.gaz"; "snippet:<id>", a snippet the PHP
- * tests run (see snippets()); or a .gzb file under tests/bytecode_corpus, run as it is, which
- * tests the loaders on files no compiler writes (the ones named error_* must be refused). A
- * source file runs from its source on both, as `gazlang -f FILE` runs it: the C VM compiles it
- * with the self-hosted compiler built into it, and the PHP VM runs what the PHP compiler writes
- * to vm/build/gzb/<path>.gzb, loaded as if it were next to its source. A snippet runs from that
- * file on both, from the project root, so both resolve its paths the same way. vm/passing.txt lists the entries the C VM must
- * already match (CVMTest), and vm/progress.php finds the ones it has started to.
+ * arguments after spaces; "snippet:<id>", a snippet the PHP tests run (see snippets()); or a .gzb
+ * file under tests/bytecode_corpus, run as it is, which tests the loaders on files no compiler
+ * writes (the ones named error_* must be refused). The C VM runs a source file from its source,
+ * as `gazlang -f FILE` does, compiling it with the self-hosted compiler built into it, and a
+ * snippet piped in from the project root; the PHP VM runs what the PHP compiler writes to
+ * vm/build/gzb/<path>.gzb, loaded as if it were next to its source (a snippet's as if it were in
+ * the project root). vm/passing.txt lists the entries the C VM must print what tests/expected
+ * records for (CVMTest), and vm/progress.php finds the ones it has started to match the PHP VM on.
  */
 final class CVM
 {
@@ -76,8 +77,8 @@ final class CVM
     }
 
     /**
-     * Every entry worth trying: every .gaz file under the directories that hold programs, and
-     * the self-hosted drivers on a few files
+     * Every entry worth trying: every .gaz file under the directories that hold programs, the
+     * snippets and the hand-written bytecode
      *
      * @return list<string>
      */
@@ -99,11 +100,6 @@ final class CVM
             sort($files);
             foreach (array_keys(self::snippets()) as $id) {
                 $files[] = "snippet:{$id}";
-            }
-            foreach (['tokens', 'ast', 'code'] as $mode) {
-                foreach (['examples/functions.gaz', 'examples/football.gaz', 'selfhost/codegen.gaz'] as $input) {
-                    $files[] = self::DRIVER." {$mode} {$input}";
-                }
             }
         } finally {
             chdir($cwd);

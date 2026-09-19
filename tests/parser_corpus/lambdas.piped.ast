@@ -1,0 +1,377 @@
+Compound
+  statements:
+@ null
+    0: Statement 2
+      expr: Assign 2
+        left: Variable 2
+          token: 2 VAR_IDENTIFIER $f
+          value: "\$f"
+        token: 2 ASSIGN =
+        right: Lambda 2
+          params: ["\$x"]
+          defaults: [null]
+          arity: 1
+          body: BinOp 2
+            left: Variable 2
+              token: 2 VAR_IDENTIFIER $x
+              value: "\$x"
+            token: 2 MULTIPLY *
+            op: 2 MULTIPLY *
+            right: Num 2
+              token: 2 INTEGER 2
+              value: 2
+          captures: []
+          self: null
+    1: Statement 3
+      expr: Assign 3
+        left: Variable 3
+          token: 3 VAR_IDENTIFIER $f
+          value: "\$f"
+        token: 3 ASSIGN =
+        right: Lambda 3
+          params: ["\$x"]
+          defaults: [null]
+          arity: 1
+          body: BinOp 3
+            left: BinOp 3
+              left: Variable 3
+                token: 3 VAR_IDENTIFIER $x
+                value: "\$x"
+              token: 3 MULTIPLY *
+              op: 3 MULTIPLY *
+              right: Num 3
+                token: 3 INTEGER 2
+                value: 2
+            token: 3 EQUALS ==
+            op: 3 EQUALS ==
+            right: Num 3
+              token: 3 INTEGER 4
+              value: 4
+          captures: []
+          self: null
+    2: Statement 4
+      expr: Assign 4
+        left: Variable 4
+          token: 4 VAR_IDENTIFIER $f
+          value: "\$f"
+        token: 4 ASSIGN =
+        right: Lambda 4
+          params: []
+          defaults: []
+          arity: 0
+          body: Num 4
+            token: 4 INTEGER 42
+            value: 42
+          captures: []
+          self: null
+    3: Statement 5
+      expr: Assign 5
+        left: Variable 5
+          token: 5 VAR_IDENTIFIER $f
+          value: "\$f"
+        token: 5 ASSIGN =
+        right: Lambda 5
+          params: ["\$a"]
+          defaults: [null]
+          arity: 1
+          body: Variable 5
+            token: 5 VAR_IDENTIFIER $a
+            value: "\$a"
+          captures: []
+          self: null
+    4: Statement 6
+      expr: Assign 6
+        left: Variable 6
+          token: 6 VAR_IDENTIFIER $f
+          value: "\$f"
+        token: 6 ASSIGN =
+        right: Lambda 6
+          params: ["\$a", "\$b"]
+          defaults: [null, null]
+          arity: 2
+          body: BinOp 6
+            left: Variable 6
+              token: 6 VAR_IDENTIFIER $a
+              value: "\$a"
+            token: 6 PLUS +
+            op: 6 PLUS +
+            right: Variable 6
+              token: 6 VAR_IDENTIFIER $b
+              value: "\$b"
+          captures: []
+          self: null
+    5: Statement 7
+      expr: Assign 7
+        left: Variable 7
+          token: 7 VAR_IDENTIFIER $f
+          value: "\$f"
+        token: 7 ASSIGN =
+        right: Lambda 7
+          params: ["\$a", "\$b", "\$c"]
+          defaults:
+            0: null
+            1: Num 7
+              token: 7 INTEGER 1
+              value: 1
+            2: BinOp 7
+              left: Variable 7
+                token: 7 VAR_IDENTIFIER $a
+                value: "\$a"
+              token: 7 MULTIPLY *
+              op: 7 MULTIPLY *
+              right: Variable 7
+                token: 7 VAR_IDENTIFIER $b
+                value: "\$b"
+          arity: [1, 3]
+          body: BinOp 7
+            left: BinOp 7
+              left: Variable 7
+                token: 7 VAR_IDENTIFIER $a
+                value: "\$a"
+              token: 7 PLUS +
+              op: 7 PLUS +
+              right: Variable 7
+                token: 7 VAR_IDENTIFIER $b
+                value: "\$b"
+            token: 7 PLUS +
+            op: 7 PLUS +
+            right: Variable 7
+              token: 7 VAR_IDENTIFIER $c
+              value: "\$c"
+          captures: []
+          self: null
+    6: Statement 8
+      expr: Assign 8
+        left: Variable 8
+          token: 8 VAR_IDENTIFIER $f
+          value: "\$f"
+        token: 8 ASSIGN =
+        right: Lambda 8
+          params: ["\$x"]
+          defaults: [null]
+          arity: 1
+          body: Lambda 8
+            params: ["\$y"]
+            defaults: [null]
+            arity: 1
+            body: BinOp 8
+              left: Variable 8
+                token: 8 VAR_IDENTIFIER $x
+                value: "\$x"
+              token: 8 PLUS +
+              op: 8 PLUS +
+              right: Variable 8
+                token: 8 VAR_IDENTIFIER $y
+                value: "\$y"
+            captures: ["\$x"]
+            self: null
+          captures: []
+          self: null
+    7: Statement 9
+      expr: Assign 9
+        left: Variable 9
+          token: 9 VAR_IDENTIFIER $f
+          value: "\$f"
+        token: 9 ASSIGN =
+        right: Lambda 9
+          params: ["\$x"]
+          defaults: [null]
+          arity: 1
+          body: Lambda 9
+            params: ["\$y"]
+            defaults: [null]
+            arity: 1
+            body: BinOp 9
+              left: Variable 9
+                token: 9 VAR_IDENTIFIER $x
+                value: "\$x"
+              token: 9 PLUS +
+              op: 9 PLUS +
+              right: Variable 9
+                token: 9 VAR_IDENTIFIER $y
+                value: "\$y"
+            captures: ["\$x"]
+            self: null
+          captures: []
+          self: null
+    8: Statement 10
+      expr: Assign 10
+        left: Variable 10
+          token: 10 VAR_IDENTIFIER $f
+          value: "\$f"
+        token: 10 ASSIGN =
+        right: Ternary 10
+          condition: Variable 10
+            token: 10 VAR_IDENTIFIER $c
+            value: "\$c"
+          then: Lambda 10
+            params: ["\$x"]
+            defaults: [null]
+            arity: 1
+            body: Num 10
+              token: 10 INTEGER 1
+              value: 1
+            captures: []
+            self: null
+          else: Lambda 10
+            params: ["\$y"]
+            defaults: [null]
+            arity: 1
+            body: Num 10
+              token: 10 INTEGER 2
+              value: 2
+            captures: []
+            self: null
+    9: Statement 11
+      expr: Assign 11
+        left: Variable 11
+          token: 11 VAR_IDENTIFIER $f
+          value: "\$f"
+        token: 11 ASSIGN =
+        right: BinOp 11
+          left: Variable 11
+            token: 11 VAR_IDENTIFIER $g
+            value: "\$g"
+          token: 11 COALESCE ??
+          op: 11 COALESCE ??
+          right: Lambda 11
+            params: ["\$x"]
+            defaults: [null]
+            arity: 1
+            body: Variable 11
+              token: 11 VAR_IDENTIFIER $x
+              value: "\$x"
+            captures: []
+            self: null
+    10: Statement 12
+      expr: Assign 12
+        left: Variable 12
+          token: 12 VAR_IDENTIFIER $f
+          value: "\$f"
+        token: 12 ASSIGN =
+        right: Lambda 12
+          params: ["\$x"]
+          defaults: [null]
+          arity: 1
+          body: ArrayLiteral 12
+            entries:
+              0:
+                0: String 12
+                  token: 12 STRING "v"
+                  value: "v"
+                1: Variable 12
+                  token: 12 VAR_IDENTIFIER $x
+                  value: "\$x"
+            map: true
+          captures: []
+          self: null
+    11: Statement 13
+      expr: Assign 13
+        left: Variable 13
+          token: 13 VAR_IDENTIFIER $f
+          value: "\$f"
+        token: 13 ASSIGN =
+        right: Lambda 13
+          params: ["\$x"]
+          defaults: [null]
+          arity: 1
+          body: ArrayLiteral 13
+            entries:
+              0:
+                0: null
+                1: Variable 13
+                  token: 13 VAR_IDENTIFIER $x
+                  value: "\$x"
+            map: false
+          captures: []
+          self: null
+    12: Statement 14
+      expr: Assign 14
+        left: Variable 14
+          token: 14 VAR_IDENTIFIER $f
+          value: "\$f"
+        token: 14 ASSIGN =
+        right: Lambda 14
+          params: ["\$x"]
+          defaults: [null]
+          arity: 1
+          body: Compound
+            statements:
+              0: EchoStatement 14
+                expr: Variable 14
+                  token: 14 VAR_IDENTIFIER $x
+                  value: "\$x"
+          captures: []
+          self: null
+    13: Statement 15
+      expr: Assign 15
+        left: Variable 15
+          token: 15 VAR_IDENTIFIER $f
+          value: "\$f"
+        token: 15 ASSIGN =
+        right: Lambda 15
+          params: []
+          defaults: []
+          arity: 0
+          body: Compound
+            statements: []
+          captures: []
+          self: null
+    14: EchoStatement 16
+      expr: CallValue 16
+        callee: Lambda 16
+          params: ["\$a"]
+          defaults: [null]
+          arity: 1
+          body: Variable 16
+            token: 16 VAR_IDENTIFIER $a
+            value: "\$a"
+          captures: []
+          self: null
+        args:
+          0: Num 16
+            token: 16 INTEGER 1
+            value: 1
+    15: EchoStatement 17
+      expr: FunctionCall 17
+        name: "join"
+        args:
+          0: ArrayLiteral 17
+            entries:
+              0:
+                0: null
+                1: Num 17
+                  token: 17 INTEGER 1
+                  value: 1
+            map: false
+          1: Lambda 17
+            params: ["\$x"]
+            defaults: [null]
+            arity: 1
+            body: BinOp 17
+              left: Variable 17
+                token: 17 VAR_IDENTIFIER $x
+                value: "\$x"
+              token: 17 PLUS +
+              op: 17 PLUS +
+              right: Num 17
+                token: 17 INTEGER 1
+                value: 1
+            captures: []
+            self: null
+    16: EchoStatement 18
+      expr: FunctionCall 18
+        name: "slice"
+        args:
+          0: Lambda 18
+            params: ["\$a", "\$b"]
+            defaults: [null, null]
+            arity: 2
+            body: Variable 18
+              token: 18 VAR_IDENTIFIER $a
+              value: "\$a"
+            captures: []
+            self: null
+          1: Num 18
+            token: 18 INTEGER 1
+            value: 1

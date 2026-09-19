@@ -1,0 +1,1 @@
+Error: Expected a $variable but found string "\$a" at tests/parser_corpus/error_function_parameter_is_a_string.gaz:1

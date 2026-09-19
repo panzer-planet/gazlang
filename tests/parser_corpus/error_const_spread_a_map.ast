@@ -1,0 +1,1 @@
+Error: Cannot spread map: only a list can be at tests/parser_corpus/error_const_spread_a_map.gaz:1

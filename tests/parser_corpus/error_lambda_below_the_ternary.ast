@@ -1,0 +1,1 @@
+Error: Expected ';' but found '->' at tests/parser_corpus/error_lambda_below_the_ternary.gaz:1

@@ -9,11 +9,4 @@
             <directory>tests</directory>
         </testsuite>
     </testsuites>
-    <groups>
-        <!-- The self-hosted drivers on big inputs on both VMs (CVMTest), seconds each on the PHP VM.
-             Run them before merging by naming the group: phpunit group whole-repository -->
-        <exclude>
-            <group>whole-repository</group>
-        </exclude>
-    </groups>
 </phpunit> 

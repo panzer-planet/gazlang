@@ -18,15 +18,6 @@ lib/random.gaz
 lib/sort.gaz
 selfhost/codegen.gaz
 selfhost/gazlang.gaz
-selfhost/gazlang.gaz ast examples/football.gaz
-selfhost/gazlang.gaz ast examples/functions.gaz
-selfhost/gazlang.gaz ast selfhost/codegen.gaz
-selfhost/gazlang.gaz code examples/football.gaz
-selfhost/gazlang.gaz code examples/functions.gaz
-selfhost/gazlang.gaz code selfhost/codegen.gaz
-selfhost/gazlang.gaz tokens examples/football.gaz
-selfhost/gazlang.gaz tokens examples/functions.gaz
-selfhost/gazlang.gaz tokens selfhost/codegen.gaz
 selfhost/lexer.gaz
 selfhost/nodes.gaz
 selfhost/parser.gaz

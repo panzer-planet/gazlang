@@ -1,0 +1,1 @@
+Error: Cannot use continue outside of a loop at tests/parser_corpus/error_continue_outside_loop.gaz:1

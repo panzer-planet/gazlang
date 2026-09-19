@@ -1,0 +1,6 @@
+3 ECHO echo
+3 STRING_START "start "
+3 VAR_IDENTIFIER $x
+3 PLUS +
+4 INTEGER 1
+Error: Unterminated string on line 3

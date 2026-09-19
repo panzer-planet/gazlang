@@ -1,0 +1,1 @@
+Error: A already has a method size, and a field can't have a method's name: call the field something else, like #size_value on line 1

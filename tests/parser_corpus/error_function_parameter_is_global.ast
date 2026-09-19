@@ -1,0 +1,1 @@
+Error: Expected a $variable but found '@a' at tests/parser_corpus/error_function_parameter_is_global.gaz:1

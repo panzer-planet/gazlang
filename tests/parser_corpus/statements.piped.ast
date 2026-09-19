@@ -1,0 +1,508 @@
+Compound
+  statements:
+@ null
+    0: IfStatement 1
+      condition: Variable 1
+        token: 1 VAR_IDENTIFIER $a
+        value: "\$a"
+      if_body: Compound
+        statements:
+          0: EchoStatement 1
+            expr: Num 1
+              token: 1 INTEGER 1
+              value: 1
+      else_if: null
+      else_body: null
+    1: IfStatement 2
+      condition: Variable 2
+        token: 2 VAR_IDENTIFIER $a
+        value: "\$a"
+      if_body: Compound
+        statements:
+          0: EchoStatement 2
+            expr: Num 2
+              token: 2 INTEGER 1
+              value: 1
+      else_if: null
+      else_body: Compound
+        statements:
+          0: EchoStatement 2
+            expr: Num 2
+              token: 2 INTEGER 2
+              value: 2
+    2: IfStatement 3
+      condition: Variable 3
+        token: 3 VAR_IDENTIFIER $a
+        value: "\$a"
+      if_body: Compound
+        statements:
+          0: EchoStatement 3
+            expr: Num 3
+              token: 3 INTEGER 1
+              value: 1
+      else_if: IfStatement 3
+        condition: Variable 3
+          token: 3 VAR_IDENTIFIER $b
+          value: "\$b"
+        if_body: Compound
+          statements:
+            0: EchoStatement 3
+              expr: Num 3
+                token: 3 INTEGER 2
+                value: 2
+        else_if: null
+        else_body: null
+      else_body: null
+    3: IfStatement 4
+      condition: Variable 4
+        token: 4 VAR_IDENTIFIER $a
+        value: "\$a"
+      if_body: Compound
+        statements:
+          0: EchoStatement 5
+            expr: Num 5
+              token: 5 INTEGER 1
+              value: 1
+      else_if: IfStatement 6
+        condition: Variable 6
+          token: 6 VAR_IDENTIFIER $b
+          value: "\$b"
+        if_body: Compound
+          statements:
+            0: EchoStatement 7
+              expr: Num 7
+                token: 7 INTEGER 2
+                value: 2
+        else_if: IfStatement 8
+          condition: Variable 8
+            token: 8 VAR_IDENTIFIER $c
+            value: "\$c"
+          if_body: Compound
+            statements:
+              0: EchoStatement 9
+                expr: Num 9
+                  token: 9 INTEGER 3
+                  value: 3
+          else_if: null
+          else_body: Compound
+            statements:
+              0: EchoStatement 11
+                expr: Num 11
+                  token: 11 INTEGER 4
+                  value: 4
+        else_body: null
+      else_body: null
+    4: IfStatement 13
+      condition: Assign 13
+        left: Variable 13
+          token: 13 VAR_IDENTIFIER $a
+          value: "\$a"
+        token: 13 ASSIGN =
+        right: FunctionCall 13
+          name: "len"
+          args:
+            0: Variable 13
+              token: 13 VAR_IDENTIFIER $b
+              value: "\$b"
+      if_body: Compound
+        statements:
+          0: IfStatement 13
+            condition: Variable 13
+              token: 13 VAR_IDENTIFIER $c
+              value: "\$c"
+            if_body: Compound
+              statements: []
+            else_if: null
+            else_body: Compound
+              statements: []
+      else_if: null
+      else_body: null
+    5: WhileStatement 14
+      condition: BinOp 14
+        left: Variable 14
+          token: 14 VAR_IDENTIFIER $i
+          value: "\$i"
+        token: 14 LESS_THAN <
+        op: 14 LESS_THAN <
+        right: Num 14
+          token: 14 INTEGER 10
+          value: 10
+      body: Compound
+        statements:
+          0: Statement 14
+            expr: Increment 14
+              target: Variable 14
+                token: 14 VAR_IDENTIFIER $i
+                value: "\$i"
+              op: 14 INCREMENT ++
+              prefix: false
+      step: null
+    6: WhileStatement 15
+      condition: Boolean 15
+        token: 15 TRUE true
+        value: true
+      body: Compound
+        statements:
+          0: LoopControl 15
+            token: 15 BREAK break
+      step: null
+    7: WhileStatement 16
+      condition: Variable 16
+        token: 16 VAR_IDENTIFIER $a
+        value: "\$a"
+      body: Compound
+        statements:
+          0: WhileStatement 16
+            condition: Variable 16
+              token: 16 VAR_IDENTIFIER $b
+              value: "\$b"
+            body: Compound
+              statements:
+                0: LoopControl 16
+                  token: 16 CONTINUE continue
+            step: null
+          1: LoopControl 16
+            token: 16 BREAK break
+      step: null
+    8: Compound 17
+      statements:
+        0: Statement 17
+          expr: Assign 17
+            left: Variable 17
+              token: 17 VAR_IDENTIFIER $i
+              value: "\$i"
+            token: 17 ASSIGN =
+            right: Num 17
+              token: 17 INTEGER 0
+              value: 0
+        1: WhileStatement 17
+          condition: BinOp 17
+            left: Variable 17
+              token: 17 VAR_IDENTIFIER $i
+              value: "\$i"
+            token: 17 LESS_THAN <
+            op: 17 LESS_THAN <
+            right: Num 17
+              token: 17 INTEGER 3
+              value: 3
+          body: Compound
+            statements:
+              0: EchoStatement 17
+                expr: Variable 17
+                  token: 17 VAR_IDENTIFIER $i
+                  value: "\$i"
+          step: Statement 17
+            expr: Increment 17
+              target: Variable 17
+                token: 17 VAR_IDENTIFIER $i
+                value: "\$i"
+              op: 17 INCREMENT ++
+              prefix: false
+    9: Compound 18
+      statements:
+        0: Statement 18
+          expr: Assign 18
+            left: Variable 18
+              token: 18 VAR_IDENTIFIER $i
+              value: "\$i"
+            token: 18 ASSIGN =
+            right: Num 18
+              token: 18 INTEGER 0
+              value: 0
+        1: WhileStatement 18
+          condition: BinOp 19
+            left: Variable 19
+              token: 19 VAR_IDENTIFIER $i
+              value: "\$i"
+            token: 19 LESS_THAN <
+            op: 19 LESS_THAN <
+            right: Num 19
+              token: 19 INTEGER 3
+              value: 3
+          body: Compound
+            statements:
+              0: Compound 21
+                statements:
+                  0: Statement 21
+                    expr: Assign 21
+                      left: Variable 21
+                        token: 21 VAR_IDENTIFIER $j
+                        value: "\$j"
+                      token: 21 ASSIGN =
+                      right: Variable 21
+                        token: 21 VAR_IDENTIFIER $i
+                        value: "\$i"
+                  1: WhileStatement 21
+                    condition: BinOp 21
+                      left: Variable 21
+                        token: 21 VAR_IDENTIFIER $j
+                        value: "\$j"
+                      token: 21 GREATER_THAN >
+                      op: 21 GREATER_THAN >
+                      right: Num 21
+                        token: 21 INTEGER 0
+                        value: 0
+                    body: Compound
+                      statements:
+                        0: IfStatement 21
+                          condition: BinOp 21
+                            left: Variable 21
+                              token: 21 VAR_IDENTIFIER $j
+                              value: "\$j"
+                            token: 21 EQUALS ==
+                            op: 21 EQUALS ==
+                            right: Num 21
+                              token: 21 INTEGER 2
+                              value: 2
+                          if_body: Compound
+                            statements:
+                              0: LoopControl 21
+                                token: 21 BREAK break
+                          else_if: null
+                          else_body: null
+                    step: Statement 21
+                      expr: Increment 21
+                        target: Variable 21
+                          token: 21 VAR_IDENTIFIER $j
+                          value: "\$j"
+                        op: 21 DECREMENT --
+                        prefix: true
+          step: Statement 18
+            expr: Increment 20
+              target: Variable 20
+                token: 20 VAR_IDENTIFIER $i
+                value: "\$i"
+              op: 20 INCREMENT ++
+              prefix: false
+    10: ForeachStatement 23
+      iterable: Variable 23
+        token: 23 VAR_IDENTIFIER $xs
+        value: "\$xs"
+      key: null
+      value: Variable 23
+        token: 23 VAR_IDENTIFIER $x
+        value: "\$x"
+      body: Compound
+        statements:
+          0: EchoStatement 23
+            expr: Variable 23
+              token: 23 VAR_IDENTIFIER $x
+              value: "\$x"
+    11: ForeachStatement 24
+      iterable: Variable 24
+        token: 24 VAR_IDENTIFIER $xs
+        value: "\$xs"
+      key: Variable 24
+        token: 24 VAR_IDENTIFIER $k
+        value: "\$k"
+      value: Variable 24
+        token: 24 VAR_IDENTIFIER $v
+        value: "\$v"
+      body: Compound
+        statements:
+          0: EchoStatement 24
+            expr: BinOp 24
+              left: Variable 24
+                token: 24 VAR_IDENTIFIER $k
+                value: "\$k"
+              token: 24 CONCAT ..
+              op: 24 CONCAT ..
+              right: Variable 24
+                token: 24 VAR_IDENTIFIER $v
+                value: "\$v"
+    12: ForeachStatement 25
+      iterable: Variable 25
+        token: 25 VAR_IDENTIFIER $xs
+        value: "\$xs"
+      key: Variable 25
+        token: 25 GLOBAL_VAR_IDENTIFIER @k
+        value: "@k"
+      value: Variable 25
+        token: 25 GLOBAL_VAR_IDENTIFIER @v
+        value: "@v"
+      body: Compound
+        statements:
+          0: LoopControl 25
+            token: 25 CONTINUE continue
+    13: ForeachStatement 26
+      iterable: ArrayLiteral 26
+        entries:
+          0:
+            0: null
+            1: Num 26
+              token: 26 INTEGER 1
+              value: 1
+          1:
+            0: null
+            1: Num 26
+              token: 26 INTEGER 2
+              value: 2
+        map: false
+      key: null
+      value: Variable 26
+        token: 26 VAR_IDENTIFIER $x
+        value: "\$x"
+      body: Compound
+        statements:
+          0: LoopControl 26
+            token: 26 BREAK break
+    14: ForeachStatement 27
+      iterable: FunctionCall 27
+        name: "keys"
+        args:
+          0: Variable 27
+            token: 27 VAR_IDENTIFIER $m
+            value: "\$m"
+      key: Variable 27
+        token: 27 VAR_IDENTIFIER $i
+        value: "\$i"
+      value: ListPattern 27
+        targets:
+          0: Variable 27
+            token: 27 VAR_IDENTIFIER $a
+            value: "\$a"
+          1: Variable 27
+            token: 27 VAR_IDENTIFIER $b
+            value: "\$b"
+      body: Compound
+        statements:
+          0: EchoStatement 27
+            expr: Variable 27
+              token: 27 VAR_IDENTIFIER $a
+              value: "\$a"
+    15: ForeachStatement 28
+      iterable: Variable 28
+        token: 28 VAR_IDENTIFIER $rows
+        value: "\$rows"
+      key: null
+      value: ListPattern 28
+        targets:
+          0: Variable 28
+            token: 28 VAR_IDENTIFIER $name
+            value: "\$name"
+          1: Variable 28
+            token: 28 VAR_IDENTIFIER $age
+            value: "\$age"
+      body: Compound
+        statements:
+          0: EchoStatement 28
+            expr: Variable 28
+              token: 28 VAR_IDENTIFIER $name
+              value: "\$name"
+    16: ForeachStatement 29
+      iterable: Variable 29
+        token: 29 VAR_IDENTIFIER $rows
+        value: "\$rows"
+      key: null
+      value: ListPattern 29
+        targets:
+          0: Variable 29
+            token: 29 VAR_IDENTIFIER $only
+            value: "\$only"
+      body: Compound
+        statements:
+          0: ForeachStatement 29
+            iterable: Variable 29
+              token: 29 VAR_IDENTIFIER $only
+              value: "\$only"
+            key: null
+            value: Variable 29
+              token: 29 VAR_IDENTIFIER $o
+              value: "\$o"
+            body: Compound
+              statements:
+                0: LoopControl 29
+                  token: 29 BREAK break
+          1: LoopControl 29
+            token: 29 CONTINUE continue
+    17: DeleteStatement 30
+      target: Index 30
+        target: Variable 30
+          token: 30 VAR_IDENTIFIER $a
+          value: "\$a"
+        index: Num 30
+          token: 30 INTEGER 0
+          value: 0
+    18: DeleteStatement 31
+      target: Index 31
+        target: Index 31
+          target: Variable 31
+            token: 31 VAR_IDENTIFIER $a
+            value: "\$a"
+          index: String 31
+            token: 31 STRING "k"
+            value: "k"
+        index: Num 31
+          token: 31 INTEGER 1
+          value: 1
+    19: DeleteStatement 32
+      target: Index 32
+        target: Index 32
+          target: Variable 32
+            token: 32 VAR_IDENTIFIER $rows
+            value: "\$rows"
+          index: Num 32
+            token: 32 INTEGER 0
+            value: 0
+        index: String 32
+          token: 32 STRING "total"
+          value: "total"
+    20: DeleteStatement 33
+      target: Index 33
+        target: Property 33
+          target: Variable 33
+            token: 33 VAR_IDENTIFIER $o
+            value: "\$o"
+          name: "items"
+          field: false
+          constant: false
+          value: null
+        index: Variable 33
+          token: 33 VAR_IDENTIFIER $i
+          value: "\$i"
+    21: DeleteStatement 34
+      target: Index 34
+        target: Variable 34
+          token: 34 GLOBAL_VAR_IDENTIFIER @g
+          value: "@g"
+        index: Num 34
+          token: 34 INTEGER 0
+          value: 0
+    22: WhileStatement 36
+      condition: Variable 36
+        token: 36 VAR_IDENTIFIER $a
+        value: "\$a"
+      body: Compound
+        statements:
+          0: IfStatement 36
+            condition: Variable 36
+              token: 36 VAR_IDENTIFIER $b
+              value: "\$b"
+            if_body: Compound
+              statements:
+                0: Statement 36
+                  expr: Match 36
+                    subject: Variable 36
+                      token: 36 VAR_IDENTIFIER $c
+                      value: "\$c"
+                    arms:
+                      0:
+                        0:
+                          0: Num 36
+                            token: 36 INTEGER 1
+                            value: 1
+                        1: Compound
+                          statements:
+                            0: LoopControl 36
+                              token: 36 BREAK break
+                        2: true
+                      1:
+                        0: null
+                        1: Compound
+                          statements:
+                            0: LoopControl 36
+                              token: 36 CONTINUE continue
+                        2: true
+            else_if: null
+            else_body: null
+      step: null

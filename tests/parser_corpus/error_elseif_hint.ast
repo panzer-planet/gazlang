@@ -1,0 +1,1 @@
+Error: Expected ';' but found '{' (write 'else if', not 'elseif') at tests/parser_corpus/error_elseif_hint.gaz:4

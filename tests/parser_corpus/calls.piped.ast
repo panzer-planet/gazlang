@@ -1,0 +1,157 @@
+Compound
+  statements:
+@ null
+    0: EchoStatement 2
+      expr: FunctionCall 2
+        name: "len"
+        args:
+          0: String 2
+            token: 2 STRING "abc"
+            value: "abc"
+    1: EchoStatement 3
+      expr: FunctionCall 3
+        name: "slice"
+        args:
+          0: String 3
+            token: 3 STRING "abc"
+            value: "abc"
+          1: Num 3
+            token: 3 INTEGER 1
+            value: 1
+    2: EchoStatement 4
+      expr: FunctionCall 4
+        name: "slice"
+        args:
+          0: String 4
+            token: 4 STRING "abc"
+            value: "abc"
+          1: Num 4
+            token: 4 INTEGER 1
+            value: 1
+          2: Num 4
+            token: 4 INTEGER 2
+            value: 2
+    3: EchoStatement 5
+      expr: FunctionCall 5
+        name: "index_of"
+        args:
+          0: String 5
+            token: 5 STRING "abc"
+            value: "abc"
+          1: String 5
+            token: 5 STRING "b"
+            value: "b"
+    4: EchoStatement 6
+      expr: FunctionCall 6
+        name: "round"
+        args:
+          0: Num 6
+            token: 6 FLOAT 1.5
+            value: 1.5
+    5: EchoStatement 7
+      expr: FunctionCall 7
+        name: "round"
+        args:
+          0: Num 7
+            token: 7 FLOAT 1.555
+            value: 1.555
+          1: Num 7
+            token: 7 INTEGER 2
+            value: 2
+    6: Statement 8
+      expr: FunctionCall 8
+        name: "exit"
+        args: []
+    7: Statement 9
+      expr: FunctionCall 9
+        name: "exit"
+        args:
+          0: Num 9
+            token: 9 INTEGER 1
+            value: 1
+    8: EchoStatement 10
+      expr: FunctionCall 10
+        name: "read_stdin"
+        args: []
+    9: EchoStatement 11
+      expr: FunctionCall 11
+        name: "len"
+        args:
+          0: FunctionCall 11
+            name: "len"
+            args:
+              0: FunctionCall 11
+                name: "len"
+                args:
+                  0: ArrayLiteral 11
+                    entries: []
+                    map: false
+    10: Statement 13
+      expr: Assign 13
+        left: Variable 13
+          token: 13 VAR_IDENTIFIER $l
+          value: "\$l"
+        token: 13 ASSIGN =
+        right: FunctionRef 13
+          name: "len"
+          constant: false
+          value: null
+    11: EchoStatement 14
+      expr: Index 14
+        target: ArrayLiteral 14
+          entries:
+            0:
+              0: null
+              1: FunctionRef 14
+                name: "len"
+                constant: false
+                value: null
+            1:
+              0: null
+              1: FunctionRef 14
+                name: "upper"
+                constant: false
+                value: null
+          map: false
+        index: Num 14
+          token: 14 INTEGER 0
+          value: 0
+    12: EchoStatement 15
+      expr: CallValue 15
+        callee: FunctionRef 15
+          name: "upper"
+          constant: false
+          value: null
+        args:
+          0: String 15
+            token: 15 STRING "x"
+            value: "x"
+    13: EchoStatement 16
+      expr: BinOp 16
+        left: FunctionCall 16
+          name: "join"
+          args:
+            0: ArrayLiteral 16
+              entries:
+                0:
+                  0: null
+                  1: Num 16
+                    token: 16 INTEGER 1
+                    value: 1
+                1:
+                  0: null
+                  1: Num 16
+                    token: 16 INTEGER 2
+                    value: 2
+              map: false
+            1: String 16
+              token: 16 STRING ", "
+              value: ", "
+        token: 16 CONCAT ..
+        op: 16 CONCAT ..
+        right: FunctionCall 16
+          name: "to_string"
+          args:
+            0: Num 16
+              token: 16 INTEGER 1
+              value: 1

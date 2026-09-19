@@ -1,0 +1,1 @@
+Error: [] can only be used to append in an assignment at tests/parser_corpus/error_delete_append.gaz:1

@@ -1,0 +1,65 @@
+Compound
+  statements:
+@ null
+    0: Statement 2
+      expr: Num 2
+        token: 2 INTEGER 42
+        value: 42
+    1: Statement 3
+      expr: Num 3
+        token: 3 INTEGER 255
+        value: 255
+    2: Statement 4
+      expr: Num 4
+        token: 4 FLOAT 1.5
+        value: 1.5
+    3: Statement 5
+      expr: Num 5
+        token: 5 FLOAT 10000000000.0
+        value: 10000000000.0
+    4: Statement 6
+      expr: UnaryOp 6
+        op: 6 MINUS -
+        expr: Num 6
+          token: 6 FLOAT 0.0
+          value: 0.0
+    5: Statement 7
+      expr: String 7
+        token: 7 STRING "a string"
+        value: "a string"
+    6: Statement 8
+      expr: String 8
+        token: 8 STRING "raw \$x \{#y}"
+        value: "raw \$x \{#y}"
+    7: Statement 9
+      expr: String 9
+        token: 9 STRING "escapes \n \$x {y} A é"
+        value: "escapes \n \$x {y} A é"
+    8: Statement 10
+      expr: Boolean 10
+        token: 10 TRUE true
+        value: true
+    9: Statement 11
+      expr: Boolean 11
+        token: 11 FALSE false
+        value: false
+    10: Statement 12
+      expr: Null 12
+        token: 12 NULL null
+        value: null
+    11: Statement 13
+      expr: Variable 13
+        token: 13 VAR_IDENTIFIER $local
+        value: "\$local"
+    12: Statement 14
+      expr: Variable 14
+        token: 14 GLOBAL_VAR_IDENTIFIER @global
+        value: "@global"
+    13: EchoStatement 15
+      expr: Variable 15
+        token: 15 VAR_IDENTIFIER $local
+        value: "\$local"
+    14: EchoStatement 16
+      expr: Num 16
+        token: 16 INTEGER 1
+        value: 1

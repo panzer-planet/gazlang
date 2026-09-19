@@ -1,0 +1,1 @@
+Error: Expected '(' but found '$a' at tests/parser_corpus/error_if_without_parens.gaz:1

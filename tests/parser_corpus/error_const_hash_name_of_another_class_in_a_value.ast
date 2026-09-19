@@ -1,0 +1,1 @@
+Error: Cannot use #B outside a method at tests/parser_corpus/error_const_hash_name_of_another_class_in_a_value.gaz:1

@@ -1,0 +1,1 @@
+Error: Constant A of L is already declared in K at tests/parser_corpus/error_const_declared_again_by_a_child.gaz:3

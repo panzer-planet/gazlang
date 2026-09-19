@@ -1,0 +1,52 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals
+@ "../parser_corpus/include/lib/shapes.gaz" 8
+PUSH "shapes loaded"
+PRINT
+@ "includes.gaz" 4
+CALL helper 0
+PRINT
+
+fn helper 0 0
+locals
+@ "../parser_corpus/include/lib/deep/helper.gaz" 1
+PUSH 1
+RET
+PUSH null
+RET
+
+fn area 1 1
+locals $square
+@ "../parser_corpus/include/lib/shapes.gaz" 7
+LOAD 0
+GET_PROPERTY side
+LOAD 0
+GET_PROPERTY side
+MUL
+CALL helper 0
+ADD
+RET
+PUSH null
+RET
+
+class Square
+field side Square
+method _ Square
+locals $#argument_0
+@ "../parser_corpus/include/lib/shapes.gaz" 3
+CALL_CONSTRUCTOR Square
+POP
+LOAD_THIS
+RET
+
+fn Square._ 1 1
+locals $side
+@ "../parser_corpus/include/lib/shapes.gaz" 5
+LOAD 0
+SET_FIELD side
+POP
+PUSH null
+RET

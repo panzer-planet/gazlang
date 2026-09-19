@@ -1,0 +1,1 @@
+Error: Constant A depends on itself: A uses B uses C uses A on line 3

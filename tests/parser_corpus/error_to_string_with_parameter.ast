@@ -1,0 +1,1 @@
+Error: Method A.to_string must accept 0 arguments: printing calls it with none at tests/parser_corpus/error_to_string_with_parameter.gaz:1

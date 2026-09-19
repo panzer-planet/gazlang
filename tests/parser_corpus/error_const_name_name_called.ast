@@ -1,0 +1,1 @@
+Error: K.A is a constant, not a method at tests/parser_corpus/error_const_name_name_called.gaz:2

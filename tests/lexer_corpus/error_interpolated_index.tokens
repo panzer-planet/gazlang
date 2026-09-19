@@ -1,0 +1,11 @@
+1 ECHO echo
+1 STRING_START "ok "
+1 VAR_IDENTIFIER $a
+1 LEFT_BRACKET [
+1 INTEGER 0
+1 RIGHT_BRACKET ]
+1 STRING_END ""
+1 SEMICOLON ;
+2 ECHO echo
+2 STRING_START "bad "
+Error: Invalid array index in interpolated string: use "{$name[...]}" for anything but [0], [-1], [key] or [$i] on line 2

@@ -1,0 +1,1 @@
+Error: include can only be used at the top level at tests/parser_corpus/error_include_in_function.gaz:1

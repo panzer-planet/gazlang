@@ -1,0 +1,1 @@
+Error: Constant A depends on itself: A uses A at tests/parser_corpus/error_const_itself.gaz:1

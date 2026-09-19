@@ -1,0 +1,1 @@
+Error: Expected ';' but found string "two\n" at tests/parser_corpus/error_describes_a_string.gaz:1

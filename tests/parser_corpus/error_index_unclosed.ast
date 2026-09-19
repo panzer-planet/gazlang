@@ -1,0 +1,1 @@
+Error: Expected ']' but found ';' at tests/parser_corpus/error_index_unclosed.gaz:1

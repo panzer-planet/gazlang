@@ -1,0 +1,1 @@
+Error: ## alone is not allowed: write ##name for the parent's version of a method at tests/parser_corpus/error_parent_alone.gaz:1

@@ -1,0 +1,1 @@
+Error: #A is a constant, not a method at tests/parser_corpus/error_const_hash_name_called.gaz:1

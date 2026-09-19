@@ -1,0 +1,1 @@
+Error: Expected a $variable but found ')' at tests/parser_corpus/error_catch_without_variable.gaz:1

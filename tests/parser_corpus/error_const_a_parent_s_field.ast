@@ -1,0 +1,1 @@
+Error: Constant A of L has the name of a field of K: constants, fields and methods share names at tests/parser_corpus/error_const_a_parent_s_field.gaz:2

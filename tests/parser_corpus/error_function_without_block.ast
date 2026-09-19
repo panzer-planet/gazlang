@@ -1,0 +1,1 @@
+Error: Expected '{' but found 'return' at tests/parser_corpus/error_function_without_block.gaz:1

@@ -1,0 +1,2 @@
+1 ECHO echo
+Error: Unknown escape sequence \q in string on line 1

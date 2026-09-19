@@ -1,0 +1,55 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals $a
+@ 3
+PUSH 1
+@ 6
+PUSH 2
+@ 7
+NEW_ARRAY
+PUSH 3
+ARRAY_PUSH
+@ 8
+LOAD 0
+@ 7
+ARRAY_PUSH
+@ 5
+CALL f 2
+@ 4
+ADD
+@ 2
+STORE 0
+LOAD 0
+POP
+@ 22
+LOAD 0
+@ 21
+PRINT
+@ 24
+LOAD 0
+@ 25
+INC
+STORE 0
+LOAD 0
+@ 24
+POP
+
+fn f 2 2
+locals $x $l
+@ 15
+LOAD 0
+@ 17
+LOAD 1
+@ 18
+PUSH 0
+@ 17
+INDEX_GET
+@ 16
+CONCAT
+@ 14
+RET
+@ 10
+PUSH null
+RET

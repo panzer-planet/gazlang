@@ -1,0 +1,68 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals
+@ "../shapes.gaz" 8
+PUSH "shapes loaded"
+PRINT
+@ "../../main.gaz" 2
+PUSH "before"
+PRINT
+@ "../../main.gaz" 4
+PUSH 2
+NEW Square 1
+CALL area 1
+PRINT
+@ "uses_parent_dir.gaz" 5
+PUSH "deep"
+PRINT
+@ "../../main.gaz" 9
+CALL helper 0
+PUSH "after"
+CONCAT
+PRINT
+@ 5
+PUSH "deep"
+PRINT
+
+fn helper 0 0
+locals
+@ "helper.gaz" 1
+PUSH 1
+RET
+PUSH null
+RET
+
+fn area 1 1
+locals $square
+@ "../shapes.gaz" 7
+LOAD 0
+GET_PROPERTY side
+LOAD 0
+GET_PROPERTY side
+MUL
+CALL helper 0
+ADD
+RET
+PUSH null
+RET
+
+class Square
+field side Square
+method _ Square
+locals $#argument_0
+@ "../shapes.gaz" 3
+CALL_CONSTRUCTOR Square
+POP
+LOAD_THIS
+RET
+
+fn Square._ 1 1
+locals $side
+@ "../shapes.gaz" 5
+LOAD 0
+SET_FIELD side
+POP
+PUSH null
+RET

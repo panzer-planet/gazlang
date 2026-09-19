@@ -1,0 +1,1 @@
+Error: Cannot delete a field: every object of a class has the fields it declares at tests/parser_corpus/error_delete_field.gaz:2

@@ -1,0 +1,256 @@
+Compound
+  statements:
+@ "tests/parser_corpus/constants.gaz"
+    0: EchoStatement 3
+      expr: FunctionRef 3
+        name: "AREA"
+        constant: true
+        value: 12
+    1: FunctionDeclaration 4
+      name: "area"
+      params: ["\$scale"]
+      defaults:
+        0: FunctionRef 4
+          name: "WIDTH"
+          constant: true
+          value: 3
+      body: Compound
+        statements:
+          0: ReturnStatement 4
+            expr: BinOp 4
+              left: FunctionRef 4
+                name: "AREA"
+                constant: true
+                value: 12
+              token: 4 MULTIPLY *
+              op: 4 MULTIPLY *
+              right: Variable 4
+                token: 4 VAR_IDENTIFIER $scale
+                value: "\$scale"
+      arity: [0, 1]
+      class: null
+      abstract: false
+    2: EchoStatement 26
+      expr: ArrayLiteral 26
+        entries:
+          0:
+            0: null
+            1: FunctionRef 26
+              name: "WIDTH"
+              constant: true
+              value: 3
+          1:
+            0: null
+            1: FunctionRef 26
+              name: "F"
+              constant: true
+              value: 1.5
+          2:
+            0: null
+            1: FunctionRef 26
+              name: "S"
+              constant: true
+              value: "ab3"
+          3:
+            0: null
+            1: FunctionRef 26
+              name: "B"
+              constant: true
+              value: true
+          4:
+            0: null
+            1: FunctionRef 26
+              name: "NOTHING"
+              constant: true
+              value: null
+          5:
+            0: null
+            1: FunctionRef 26
+              name: "NEGATIVE"
+              constant: true
+              value: -3
+          6:
+            0: null
+            1: FunctionRef 26
+              name: "INVERTED"
+              constant: true
+              value: -4
+          7:
+            0: null
+            1: FunctionRef 26
+              name: "NOT"
+              constant: true
+              value: false
+          8:
+            0: null
+            1: FunctionRef 26
+              name: "BITS"
+              constant: true
+              value: 6
+          9:
+            0: null
+            1: FunctionRef 26
+              name: "ORDER"
+              constant: true
+              value: [-1, true, true, false, false, 5]
+          10:
+            0: null
+            1: FunctionRef 26
+              name: "PICK"
+              constant: true
+              value: "wide"
+          11:
+            0: null
+            1: FunctionRef 26
+              name: "OR_ELSE"
+              constant: true
+              value: 3
+          12:
+            0: null
+            1: FunctionRef 26
+              name: "SHORT"
+              constant: true
+              value: [false, true, 1, 1]
+          13:
+            0: null
+            1: FunctionRef 26
+              name: "EMPTY_LIST"
+              constant: true
+              value: []
+          14:
+            0: null
+            1: FunctionRef 26
+              name: "EMPTY_MAP"
+              constant: true
+              value: []
+          15:
+            0: null
+            1: FunctionRef 26
+              name: "NESTED"
+              constant: true
+              value: [1, [2, "x"], {"k" => [4], 4 => {}}, []]
+          16:
+            0: null
+            1: FunctionRef 26
+              name: "KEYS"
+              constant: true
+              value: {"k" => 3, 3 => 2, "ab3" => true}
+          17:
+            0: null
+            1: FunctionRef 26
+              name: "lower_case"
+              constant: true
+              value: 1
+        map: false
+    3: EchoStatement 27
+      expr: Match 27
+        subject: FunctionRef 27
+          name: "WIDTH"
+          constant: true
+          value: 3
+        arms:
+          0:
+            0:
+              0: FunctionRef 27
+                name: "WIDTH"
+                constant: true
+                value: 3
+            1: Index 27
+              target: Index 27
+                target: FunctionRef 27
+                  name: "NESTED"
+                  constant: true
+                  value: [1, [2, "x"], {"k" => [4], 4 => {}}, []]
+                index: Num 27
+                  token: 27 INTEGER 1
+                  value: 1
+              index: Num 27
+                token: 27 INTEGER 0
+                value: 0
+            2: false
+          1:
+            0: null
+            1: Index 27
+              target: FunctionRef 27
+                name: "KEYS"
+                constant: true
+                value: {"k" => 3, 3 => 2, "ab3" => true}
+              index: String 27
+                token: 27 STRING "k"
+                value: "k"
+            2: false
+    4: EchoStatement 28
+      expr: BinOp 28
+        left: FunctionRef 28
+          name: "WIDTH"
+          constant: true
+          value: 3
+        token: 28 COALESCE ??
+        op: 28 COALESCE ??
+        right: Num 28
+          token: 28 INTEGER 1
+          value: 1
+    5: Statement 29
+      expr: Assign 29
+        left: Variable 29
+          token: 29 VAR_IDENTIFIER $f
+          value: "\$f"
+        token: 29 ASSIGN =
+        right: Lambda 29
+          params: []
+          defaults: []
+          arity: 0
+          body: BinOp 29
+            left: FunctionRef 29
+              name: "WIDTH"
+              constant: true
+              value: 3
+            token: 29 PLUS +
+            op: 29 PLUS +
+            right: Variable 29
+              token: 29 VAR_IDENTIFIER $captured
+              value: "\$captured"
+          captures: ["\$captured"]
+          self: null
+    6: Statement 30
+      expr: Assign 30
+        left: Variable 30
+          token: 30 VAR_IDENTIFIER $copy
+          value: "\$copy"
+        token: 30 ASSIGN =
+        right: FunctionRef 30
+          name: "NESTED"
+          constant: true
+          value: [1, [2, "x"], {"k" => [4], 4 => {}}, []]
+    7: Statement 31
+      expr: Assign 31
+        left: Index 31
+          target: Variable 31
+            token: 31 VAR_IDENTIFIER $copy
+            value: "\$copy"
+          index: null
+        token: 31 ASSIGN =
+        right: FunctionRef 31
+          name: "WIDTH"
+          constant: true
+          value: 3
+    8: EchoStatement 33
+      expr: Property 33
+        target: FunctionRef 33
+          name: "KEYS"
+          constant: true
+          value: {"k" => 3, 3 => 2, "ab3" => true}
+        name: "k"
+        field: false
+        constant: false
+        value: null
+    9: EchoStatement 34
+      expr: Property 34
+        target: FunctionRef 34
+          name: "area"
+          constant: false
+          value: null
+        name: "x"
+        field: false
+        constant: false
+        value: null

@@ -1,0 +1,1 @@
+Error: Expected a name but found end of file at tests/parser_corpus/error_function_without_a_name.gaz:2

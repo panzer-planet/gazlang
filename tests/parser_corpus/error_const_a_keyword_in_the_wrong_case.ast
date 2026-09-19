@@ -1,0 +1,1 @@
+Error: Expected ';' but found 'A' (keywords are lowercase: write 'const', not 'Const') at tests/parser_corpus/error_const_a_keyword_in_the_wrong_case.gaz:1

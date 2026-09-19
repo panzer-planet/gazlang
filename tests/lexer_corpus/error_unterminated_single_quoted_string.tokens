@@ -1,0 +1,5 @@
+1 ECHO echo
+1 INTEGER 1
+1 SEMICOLON ;
+2 ECHO echo
+Error: Unterminated string on line 2

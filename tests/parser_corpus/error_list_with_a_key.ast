@@ -1,0 +1,1 @@
+Error: A list has no keys: write a map as {key => value} at tests/parser_corpus/error_list_with_a_key.gaz:1

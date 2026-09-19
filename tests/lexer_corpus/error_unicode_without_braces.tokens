@@ -1,0 +1,2 @@
+1 ECHO echo
+Error: Invalid escape \u: expected \u{...} with 1 to 6 hex digits on line 1

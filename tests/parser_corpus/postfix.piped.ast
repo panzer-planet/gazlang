@@ -1,0 +1,450 @@
+Compound
+  statements:
+@ null
+    0: EchoStatement 2
+      expr: Index 2
+        target: Variable 2
+          token: 2 VAR_IDENTIFIER $a
+          value: "\$a"
+        index: Num 2
+          token: 2 INTEGER 0
+          value: 0
+    1: EchoStatement 3
+      expr: Index 3
+        target: Index 3
+          target: Index 3
+            target: Variable 3
+              token: 3 VAR_IDENTIFIER $a
+              value: "\$a"
+            index: Num 3
+              token: 3 INTEGER 0
+              value: 0
+          index: Num 3
+            token: 3 INTEGER 1
+            value: 1
+        index: String 3
+          token: 3 STRING "k"
+          value: "k"
+    2: EchoStatement 4
+      expr: Index 4
+        target: Index 4
+          target: Variable 4
+            token: 4 VAR_IDENTIFIER $a
+            value: "\$a"
+          index: BinOp 4
+            left: Variable 4
+              token: 4 VAR_IDENTIFIER $i
+              value: "\$i"
+            token: 4 PLUS +
+            op: 4 PLUS +
+            right: Num 4
+              token: 4 INTEGER 1
+              value: 1
+        index: BinOp 4
+          left: FunctionCall 4
+            name: "len"
+            args:
+              0: Variable 4
+                token: 4 VAR_IDENTIFIER $a
+                value: "\$a"
+          token: 4 MINUS -
+          op: 4 MINUS -
+          right: Num 4
+            token: 4 INTEGER 1
+            value: 1
+    3: EchoStatement 5
+      expr: Property 5
+        target: Variable 5
+          token: 5 VAR_IDENTIFIER $user
+          value: "\$user"
+        name: "name"
+        field: false
+        constant: false
+        value: null
+    4: EchoStatement 6
+      expr: Property 6
+        target: Property 6
+          target: Variable 6
+            token: 6 VAR_IDENTIFIER $user
+            value: "\$user"
+          name: "address"
+          field: false
+          constant: false
+          value: null
+        name: "city"
+        field: false
+        constant: false
+        value: null
+    5: EchoStatement 7
+      expr: Property 7
+        target: Index 7
+          target: Variable 7
+            token: 7 VAR_IDENTIFIER $rows
+            value: "\$rows"
+          index: Num 7
+            token: 7 INTEGER 0
+            value: 0
+        name: "total"
+        field: false
+        constant: false
+        value: null
+    6: EchoStatement 8
+      expr: Index 8
+        target: Property 8
+          target: Variable 8
+            token: 8 VAR_IDENTIFIER $user
+            value: "\$user"
+          name: "tags"
+          field: false
+          constant: false
+          value: null
+        index: Num 8
+          token: 8 INTEGER 0
+          value: 0
+    7: EchoStatement 9
+      expr: Property 11
+        target: Property 10
+          target: Variable 9
+            token: 9 VAR_IDENTIFIER $user
+            value: "\$user"
+          name: "name"
+          field: false
+          constant: false
+          value: null
+        name: "first"
+        field: false
+        constant: false
+        value: null
+    8: EchoStatement 12
+      expr: CallValue 12
+        callee: Variable 12
+          token: 12 VAR_IDENTIFIER $f
+          value: "\$f"
+        args:
+          0: Num 12
+            token: 12 INTEGER 1
+            value: 1
+    9: EchoStatement 13
+      expr: CallValue 13
+        callee: CallValue 13
+          callee: CallValue 13
+            callee: Variable 13
+              token: 13 VAR_IDENTIFIER $f
+              value: "\$f"
+            args:
+              0: Num 13
+                token: 13 INTEGER 1
+                value: 1
+          args:
+            0: Num 13
+              token: 13 INTEGER 2
+              value: 2
+        args:
+          0: Num 13
+            token: 13 INTEGER 3
+            value: 3
+    10: EchoStatement 14
+      expr: CallValue 14
+        callee: Index 14
+          target: Variable 14
+            token: 14 VAR_IDENTIFIER $h
+            value: "\$h"
+          index: String 14
+            token: 14 STRING "save"
+            value: "save"
+        args:
+          0: Variable 14
+            token: 14 VAR_IDENTIFIER $doc
+            value: "\$doc"
+          1: Num 14
+            token: 14 INTEGER 2
+            value: 2
+    11: EchoStatement 15
+      expr: CallValue 15
+        callee: FunctionRef 15
+          name: "len"
+          constant: false
+          value: null
+        args:
+          0: ArrayLiteral 15
+            entries:
+              0:
+                0: null
+                1: Num 15
+                  token: 15 INTEGER 1
+                  value: 1
+            map: false
+    12: EchoStatement 16
+      expr: Index 16
+        target: FunctionCall 16
+          name: "len"
+          args:
+            0: ArrayLiteral 16
+              entries:
+                0:
+                  0: null
+                  1: Num 16
+                    token: 16 INTEGER 1
+                    value: 1
+              map: false
+        index: Num 16
+          token: 16 INTEGER 0
+          value: 0
+    13: EchoStatement 17
+      expr: MethodCall 17
+        property: Property 17
+          target: Variable 17
+            token: 17 VAR_IDENTIFIER $user
+            value: "\$user"
+          name: "save"
+          field: false
+          constant: false
+          value: null
+        args:
+          0: Num 17
+            token: 17 INTEGER 1
+            value: 1
+          1: Num 17
+            token: 17 INTEGER 2
+            value: 2
+    14: EchoStatement 18
+      expr: Property 18
+        target: Variable 18
+          token: 18 VAR_IDENTIFIER $user
+          value: "\$user"
+        name: "save"
+        field: false
+        constant: false
+        value: null
+    15: EchoStatement 19
+      expr: MethodCall 19
+        property: Property 19
+          target: Index 19
+            target: MethodCall 19
+              property: Property 19
+                target: Variable 19
+                  token: 19 VAR_IDENTIFIER $user
+                  value: "\$user"
+                name: "list"
+                field: false
+                constant: false
+                value: null
+              args: []
+            index: Num 19
+              token: 19 INTEGER 0
+              value: 0
+          name: "name"
+          field: false
+          constant: false
+          value: null
+        args: []
+    16: EchoStatement 20
+      expr: Property 20
+        target: Property 20
+          target: Property 20
+            target: Variable 20
+              token: 20 VAR_IDENTIFIER $o
+              value: "\$o"
+            name: "echo"
+            field: false
+            constant: false
+            value: null
+          name: "if"
+          field: false
+          constant: false
+          value: null
+        name: "class"
+        field: false
+        constant: false
+        value: null
+    17: EchoStatement 21
+      expr: Index 21
+        target: String 21
+          token: 21 STRING "abc"
+          value: "abc"
+        index: Num 21
+          token: 21 INTEGER 0
+          value: 0
+    18: EchoStatement 22
+      expr: Index 22
+        target: ArrayLiteral 22
+          entries:
+            0:
+              0: null
+              1: Num 22
+                token: 22 INTEGER 1
+                value: 1
+            1:
+              0: null
+              1: Num 22
+                token: 22 INTEGER 2
+                value: 2
+          map: false
+        index: Num 22
+          token: 22 INTEGER 0
+          value: 0
+    19: EchoStatement 23
+      expr: Index 23
+        target: ArrayLiteral 23
+          entries:
+            0:
+              0: String 23
+                token: 23 STRING "k"
+                value: "k"
+              1: Num 23
+                token: 23 INTEGER 1
+                value: 1
+          map: true
+        index: String 23
+          token: 23 STRING "k"
+          value: "k"
+    20: EchoStatement 24
+      expr: UnaryOp 24
+        op: 24 MINUS -
+        expr: Index 24
+          target: Variable 24
+            token: 24 VAR_IDENTIFIER $a
+            value: "\$a"
+          index: Num 24
+            token: 24 INTEGER 0
+            value: 0
+    21: EchoStatement 25
+      expr: UnaryOp 25
+        op: 25 NOT !
+        expr: CallValue 25
+          callee: Variable 25
+            token: 25 VAR_IDENTIFIER $f
+            value: "\$f"
+          args: []
+    22: EchoStatement 26
+      expr: BinOp 26
+        left: Index 26
+          target: Variable 26
+            token: 26 VAR_IDENTIFIER $a
+            value: "\$a"
+          index: Num 26
+            token: 26 INTEGER 0
+            value: 0
+        token: 26 COALESCE ??
+        op: 26 COALESCE ??
+        right: BinOp 26
+          left: Property 26
+            target: Variable 26
+              token: 26 VAR_IDENTIFIER $b
+              value: "\$b"
+            name: "c"
+            field: false
+            constant: false
+            value: null
+          token: 26 COALESCE ??
+          op: 26 COALESCE ??
+          right: Null 26
+            token: 26 NULL null
+            value: null
+    23: Statement 27
+      expr: Increment 27
+        target: Variable 27
+          token: 27 VAR_IDENTIFIER $i
+          value: "\$i"
+        op: 27 INCREMENT ++
+        prefix: false
+    24: Statement 28
+      expr: Increment 28
+        target: Variable 28
+          token: 28 VAR_IDENTIFIER $i
+          value: "\$i"
+        op: 28 DECREMENT --
+        prefix: false
+    25: Statement 29
+      expr: Increment 29
+        target: Variable 29
+          token: 29 VAR_IDENTIFIER $i
+          value: "\$i"
+        op: 29 INCREMENT ++
+        prefix: true
+    26: Statement 30
+      expr: Increment 30
+        target: Variable 30
+          token: 30 VAR_IDENTIFIER $i
+          value: "\$i"
+        op: 30 DECREMENT --
+        prefix: true
+    27: Statement 31
+      expr: Increment 31
+        target: Index 31
+          target: Variable 31
+            token: 31 VAR_IDENTIFIER $a
+            value: "\$a"
+          index: Num 31
+            token: 31 INTEGER 0
+            value: 0
+        op: 31 INCREMENT ++
+        prefix: false
+    28: Statement 32
+      expr: Increment 32
+        target: Index 32
+          target: Index 32
+            target: Variable 32
+              token: 32 VAR_IDENTIFIER $a
+              value: "\$a"
+            index: String 32
+              token: 32 STRING "k"
+              value: "k"
+          index: Num 32
+            token: 32 INTEGER 1
+            value: 1
+        op: 32 DECREMENT --
+        prefix: true
+    29: Statement 33
+      expr: Increment 33
+        target: Property 33
+          target: Variable 33
+            token: 33 VAR_IDENTIFIER $o
+            value: "\$o"
+          name: "n"
+          field: false
+          constant: false
+          value: null
+        op: 33 INCREMENT ++
+        prefix: false
+    30: Statement 34
+      expr: Increment 34
+        target: Property 34
+          target: Index 34
+            target: Variable 34
+              token: 34 VAR_IDENTIFIER $rows
+              value: "\$rows"
+            index: Num 34
+              token: 34 INTEGER 0
+              value: 0
+          name: "total"
+          field: false
+          constant: false
+          value: null
+        op: 34 INCREMENT ++
+        prefix: true
+    31: EchoStatement 35
+      expr: UnaryOp 35
+        op: 35 MINUS -
+        expr: Increment 35
+          target: Variable 35
+            token: 35 VAR_IDENTIFIER $i
+            value: "\$i"
+          op: 35 INCREMENT ++
+          prefix: false
+    32: EchoStatement 36
+      expr: BinOp 36
+        left: Increment 36
+          target: Variable 36
+            token: 36 VAR_IDENTIFIER $i
+            value: "\$i"
+          op: 36 INCREMENT ++
+          prefix: false
+        token: 36 PLUS +
+        op: 36 PLUS +
+        right: Increment 36
+          target: Variable 36
+            token: 36 VAR_IDENTIFIER $i
+            value: "\$i"
+          op: 36 INCREMENT ++
+          prefix: true

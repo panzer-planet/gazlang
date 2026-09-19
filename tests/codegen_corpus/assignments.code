@@ -1,0 +1,592 @@
+GAZLANG BYTECODE 1
+globals @g @h @l
+
+top
+locals $a $#update_value_1 $b $c $d $s $m $#update_key0_12 $#update_key0_13 $#update_key1_13 $#update_key0_14 $#update_key0_15 $#update_key0_16 $#update_key0_17 $#update_key0_18 $#update_key0_19 $#update_key0_20 $k $#update_key0_21 $#update_value_21 $#update_key0_25 $#destructure_26 $p $q $#destructure_27 $#destructure_28 $r $y $x $u $v $w $#update_key0_33 $#update_key0_34 $z $o $rows $#update_key0_38
+@ "assignments.gaz" 2
+PUSH 1
+STORE 0
+LOAD 0
+POP
+@ "assignments.gaz" 3
+LOAD 0
+PUSH 2
+ADD
+STORE 0
+LOAD 0
+POP
+@ "assignments.gaz" 4
+LOAD 0
+STORE 1
+LOAD 1
+POP
+LOAD 0
+LOAD 1
+SUB
+STORE 0
+LOAD 0
+POP
+@ "assignments.gaz" 5
+PUSH 6
+STORE 2
+LOAD 2
+POP
+@ "assignments.gaz" 6
+LOAD 2
+PUSH 3
+MUL
+STORE 2
+LOAD 2
+POP
+@ "assignments.gaz" 7
+LOAD 2
+PUSH 4
+MOD
+STORE 2
+LOAD 2
+POP
+@ "assignments.gaz" 8
+PUSH 1
+STORE 3
+LOAD 3
+POP
+@ "assignments.gaz" 9
+LOAD 3
+PUSH 2
+DIV
+STORE 3
+LOAD 3
+POP
+@ "assignments.gaz" 10
+PUSH 5
+STORE 4
+LOAD 4
+POP
+@ "assignments.gaz" 11
+LOAD 4
+PUSH 3
+BIT_AND
+STORE 4
+LOAD 4
+POP
+LOAD 4
+PUSH 8
+BIT_OR
+STORE 4
+LOAD 4
+POP
+LOAD 4
+PUSH 1
+BIT_XOR
+STORE 4
+LOAD 4
+POP
+LOAD 4
+PUSH 2
+SHL
+STORE 4
+LOAD 4
+POP
+LOAD 4
+PUSH 1
+SHR
+STORE 4
+LOAD 4
+POP
+@ "assignments.gaz" 12
+PUSH "x"
+STORE 5
+LOAD 5
+POP
+@ "assignments.gaz" 13
+PUSH "y"
+CONCAT_ASSIGN 5
+POP
+@ "assignments.gaz" 14
+PUSH 1
+CONCAT_ASSIGN 5
+POP
+@ "assignments.gaz" 15
+PUSH {"n" => 1, "l" => [1, 2], "s" => ""}
+STORE 6
+LOAD 6
+POP
+@ "assignments.gaz" 16
+PUSH "n"
+KEY_CHECK
+STORE 7
+LOAD 7
+LOAD 6
+LOAD 7
+INDEX_GET_EXISTING
+PUSH 5
+ADD
+SET_PATH [k] 6
+POP
+@ "assignments.gaz" 17
+PUSH "l"
+KEY_CHECK
+STORE 8
+PUSH 0
+KEY_CHECK
+STORE 9
+LOAD 8
+LOAD 9
+LOAD 6
+LOAD 8
+INDEX_GET_EXISTING
+LOAD 9
+INDEX_GET_EXISTING
+PUSH 2
+MUL
+SET_PATH [k][k] 6
+POP
+@ "assignments.gaz" 18
+PUSH "l"
+KEY_CHECK
+PUSH 3
+SET_PATH [k][] 6
+POP
+@ "assignments.gaz" 19
+PUSH "new"
+KEY_CHECK
+PUSH 1
+SET_PATH [k] 6
+POP
+@ "assignments.gaz" 20
+PUSH "c"
+KEY_CHECK
+STORE 10
+LOAD_QUIET 6
+LOAD 10
+INDEX_GET_QUIET
+JNN COALESCE_END_0
+LOAD 10
+PUSH 0
+SET_PATH [k] 6
+LABEL COALESCE_END_0
+POP
+@ "assignments.gaz" 21
+PUSH "c"
+KEY_CHECK
+STORE 11
+LOAD 11
+LOAD 6
+LOAD 11
+INDEX_GET_EXISTING
+INC
+SET_PATH [k] 6
+POP
+@ "assignments.gaz" 22
+PUSH "c"
+KEY_CHECK
+STORE 12
+LOAD 12
+LOAD 6
+LOAD 12
+INDEX_GET_EXISTING
+INC
+SET_PATH [k] 6
+POP
+@ "assignments.gaz" 23
+PUSH "n"
+KEY_CHECK
+STORE 13
+LOAD 13
+LOAD 6
+LOAD 13
+INDEX_GET_EXISTING
+DEC
+SET_PATH [k] 6
+POP
+@ "assignments.gaz" 24
+PUSH "n"
+KEY_CHECK
+STORE 14
+LOAD 6
+LOAD 14
+INDEX_GET_EXISTING
+LOAD 14
+LOAD 6
+LOAD 14
+INDEX_GET_EXISTING
+INC
+SET_PATH [k] 6
+POP
+PUSH "n"
+KEY_CHECK
+STORE 15
+LOAD 15
+LOAD 6
+LOAD 15
+INDEX_GET_EXISTING
+DEC
+SET_PATH [k] 6
+ADD
+PRINT
+@ "assignments.gaz" 25
+PUSH "s"
+KEY_CHECK
+STORE 16
+LOAD 16
+LOAD 6
+LOAD 16
+INDEX_GET_EXISTING
+PUSH "appended"
+CONCAT
+SET_PATH [k] 6
+POP
+@ "assignments.gaz" 26
+PUSH "n"
+STORE 17
+LOAD 17
+POP
+@ "assignments.gaz" 27
+LOAD 17
+PUSH ""
+CONCAT
+KEY_CHECK
+STORE 18
+PUSH "ab"
+CALL_BUILTIN len 1
+STORE 19
+LOAD 19
+POP
+LOAD 18
+LOAD 6
+LOAD 18
+INDEX_GET_EXISTING
+LOAD 19
+ADD
+SET_PATH [k] 6
+POP
+@ "assignments.gaz" 28
+PUSH 1
+STORE_GLOBAL 0
+LOAD_GLOBAL 0
+POP
+@ "assignments.gaz" 29
+LOAD_GLOBAL 0
+PUSH 1
+ADD
+STORE_GLOBAL 0
+LOAD_GLOBAL 0
+POP
+@ "assignments.gaz" 30
+LOAD_GLOBAL 0
+INC
+STORE_GLOBAL 0
+LOAD_GLOBAL 0
+POP
+@ "assignments.gaz" 31
+LOAD_QUIET_GLOBAL 1
+JNN COALESCE_END_1
+PUSH 2
+STORE_GLOBAL 1
+LOAD_GLOBAL 1
+LABEL COALESCE_END_1
+POP
+@ "assignments.gaz" 32
+NEW_ARRAY
+STORE_GLOBAL 2
+LOAD_GLOBAL 2
+POP
+@ "assignments.gaz" 33
+PUSH 1
+SET_PATH_GLOBAL [] 2
+POP
+@ "assignments.gaz" 34
+PUSH 0
+KEY_CHECK
+STORE 20
+LOAD 20
+LOAD_GLOBAL 2
+LOAD 20
+INDEX_GET_EXISTING
+PUSH 1
+ADD
+SET_PATH_GLOBAL [k] 2
+POP
+@ "assignments.gaz" 35
+PUSH [1, 2]
+DESTRUCTURE 2
+STORE 21
+LOAD 21
+PUSH 0
+INDEX_GET
+STORE 22
+LOAD 22
+POP
+LOAD 21
+PUSH 1
+INDEX_GET
+STORE 23
+LOAD 23
+POP
+LOAD 21
+POP
+@ "assignments.gaz" 36
+NEW_ARRAY
+LOAD 23
+ARRAY_PUSH
+LOAD 22
+ARRAY_PUSH
+DESTRUCTURE 2
+STORE 24
+LOAD 24
+PUSH 0
+INDEX_GET
+STORE 22
+LOAD 22
+POP
+LOAD 24
+PUSH 1
+INDEX_GET
+STORE 23
+LOAD 23
+POP
+LOAD 24
+POP
+@ "assignments.gaz" 37
+PUSH [1, 2, 3]
+DESTRUCTURE 3
+STORE 25
+LOAD 25
+PUSH 0
+INDEX_GET
+STORE_GLOBAL 0
+LOAD_GLOBAL 0
+POP
+PUSH "n"
+KEY_CHECK
+LOAD 25
+PUSH 1
+INDEX_GET
+SET_PATH [k] 6
+POP
+LOAD 25
+PUSH 2
+INDEX_GET
+STORE 26
+LOAD 26
+POP
+LOAD 25
+POP
+@ "assignments.gaz" 38
+PUSH 5
+STORE 27
+LOAD 27
+STORE 28
+LOAD 28
+POP
+@ "assignments.gaz" 39
+LOAD_QUIET 29
+JNN COALESCE_END_2
+PUSH 3
+STORE 29
+LOAD 29
+LABEL COALESCE_END_2
+POP
+@ "assignments.gaz" 40
+LOAD_QUIET 29
+JNN COALESCE_END_3
+PUSH 4
+STORE 29
+LOAD 29
+LABEL COALESCE_END_3
+POP
+@ "assignments.gaz" 41
+LOAD 28
+INC
+STORE 28
+LOAD 28
+STORE 30
+LOAD 30
+POP
+@ "assignments.gaz" 42
+LOAD 28
+LOAD 28
+DEC
+STORE 28
+LOAD 28
+POP
+STORE 31
+LOAD 31
+POP
+@ "assignments.gaz" 43
+NEW_ARRAY
+PUSH "n"
+KEY_CHECK
+STORE 32
+LOAD_QUIET 6
+LOAD 32
+INDEX_GET_QUIET
+JNN COALESCE_END_4
+LOAD 32
+PUSH 1
+SET_PATH [k] 6
+LABEL COALESCE_END_4
+ARRAY_PUSH
+PUSH "zz"
+KEY_CHECK
+STORE 33
+LOAD_QUIET 6
+LOAD 33
+INDEX_GET_QUIET
+JNN COALESCE_END_5
+LOAD 33
+PUSH 2
+SET_PATH [k] 6
+LABEL COALESCE_END_5
+ARRAY_PUSH
+STORE 34
+LOAD 34
+POP
+@ "assignments.gaz" 58
+NEW P 0
+STORE 35
+LOAD 35
+POP
+@ "assignments.gaz" 59
+PUSH 5
+SET_PATH .n 35
+POP
+@ "assignments.gaz" 60
+LOAD 35
+GET_PROPERTY_EXISTING n
+PUSH 1
+ADD
+SET_PATH .n 35
+POP
+@ "assignments.gaz" 61
+PUSH 2
+SET_PATH .l[] 35
+POP
+@ "assignments.gaz" 62
+LOAD 35
+GET_PROPERTY_EXISTING n
+INC
+SET_PATH .n 35
+POP
+@ "assignments.gaz" 63
+LOAD 35
+GET_PROPERTY_EXISTING s
+PUSH "y"
+CONCAT
+SET_PATH .s 35
+POP
+@ "assignments.gaz" 64
+LOAD 35
+GET_METHOD bump
+CALL_METHOD 0 bump
+PRINT
+@ "assignments.gaz" 65
+NEW_ARRAY
+NEW P 0
+ARRAY_PUSH
+STORE 36
+LOAD 36
+POP
+@ "assignments.gaz" 66
+PUSH 0
+KEY_CHECK
+STORE 37
+LOAD 37
+LOAD 36
+LOAD 37
+INDEX_GET_EXISTING
+GET_PROPERTY_EXISTING n
+PUSH 1
+ADD
+SET_PATH [k].n 36
+POP
+@ "assignments.gaz" 67
+PUSH 0
+KEY_CHECK
+PUSH 1
+SET_PATH [k].l[] 36
+POP
+
+class P
+field n P
+field l P
+field s P
+method bump P
+locals
+@ "assignments.gaz" 45
+PUSH 0
+@ "assignments.gaz" 44
+SET_FIELD n
+POP
+@ "assignments.gaz" 46
+NEW_ARRAY
+@ "assignments.gaz" 44
+SET_FIELD l
+POP
+@ "assignments.gaz" 47
+PUSH ""
+@ "assignments.gaz" 44
+SET_FIELD s
+POP
+LOAD_THIS
+RET
+
+fn P.bump 0 0
+locals $#destructure_4 $t
+@ "assignments.gaz" 49
+LOAD_THIS
+GET_PROPERTY_EXISTING n
+PUSH 1
+ADD
+SET_FIELD n
+POP
+@ "assignments.gaz" 50
+LOAD_THIS
+GET_PROPERTY_EXISTING n
+INC
+SET_FIELD n
+POP
+@ "assignments.gaz" 51
+LOAD_FIELD n
+SET_PATH_THIS .l[]
+POP
+@ "assignments.gaz" 52
+LOAD_THIS
+GET_PROPERTY_EXISTING s
+PUSH "x"
+CONCAT
+SET_FIELD s
+POP
+@ "assignments.gaz" 53
+LOAD_THIS
+GET_PROPERTY_QUIET n
+JNN COALESCE_END_0
+PUSH 3
+SET_FIELD n
+LABEL COALESCE_END_0
+POP
+@ "assignments.gaz" 54
+PUSH [1, 2]
+DESTRUCTURE 2
+STORE 0
+LOAD 0
+PUSH 0
+INDEX_GET
+SET_FIELD n
+POP
+LOAD 0
+PUSH 1
+INDEX_GET
+STORE 1
+LOAD 1
+POP
+LOAD 0
+POP
+@ "assignments.gaz" 55
+LOAD_FIELD n
+LOAD 1
+ADD
+RET
+@ "assignments.gaz" 48
+PUSH null
+RET

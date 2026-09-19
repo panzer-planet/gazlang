@@ -1,0 +1,1 @@
+Error: default must be the last arm of a match at tests/parser_corpus/error_match_two_defaults.gaz:1

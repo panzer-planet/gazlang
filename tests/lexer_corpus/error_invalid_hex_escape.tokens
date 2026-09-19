@@ -1,0 +1,5 @@
+1 ECHO echo
+1 STRING "ok"
+1 SEMICOLON ;
+2 ECHO echo
+Error: Invalid escape \x4: expected two hex digits on line 2

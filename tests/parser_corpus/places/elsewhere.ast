@@ -1,0 +1,21 @@
+Compound
+  statements:
+@ "<root>/tests/parser_corpus/include/lib/deep/helper.gaz"
+    0: FunctionDeclaration 1
+      name: "helper"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 1
+            expr: Num 1
+              token: 1 INTEGER 1
+              value: 1
+      arity: 0
+      class: null
+      abstract: false
+@ "<root>/tests/../tests/parser_corpus/include/symlink_is_the_file_it_points_to.gaz"
+    1: EchoStatement 5
+      expr: FunctionCall 5
+        name: "helper"
+        args: []

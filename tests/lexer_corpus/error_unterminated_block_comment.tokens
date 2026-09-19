@@ -1,0 +1,4 @@
+1 ECHO echo
+1 INTEGER 1
+1 SEMICOLON ;
+Error: Unterminated block comment on line 2

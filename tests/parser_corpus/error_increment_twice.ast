@@ -1,0 +1,1 @@
+Error: Expected ';' but found '++' at tests/parser_corpus/error_increment_twice.gaz:1

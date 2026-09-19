@@ -1,0 +1,1 @@
+Error: Circular inheritance: A extends C extends B extends A at tests/parser_corpus/error_circular_inheritance.gaz:2

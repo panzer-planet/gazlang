@@ -1,0 +1,1 @@
+Error: A constructor can't be abstract at tests/parser_corpus/error_abstract_constructor.gaz:1

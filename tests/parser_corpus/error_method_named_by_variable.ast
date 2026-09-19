@@ -1,0 +1,1 @@
+Error: Expected a name but found '$x' at tests/parser_corpus/error_method_named_by_variable.gaz:1

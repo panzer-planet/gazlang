@@ -1,0 +1,1 @@
+Error: Expected ',' but found '$b' at tests/parser_corpus/error_function_parameter_missing_comma.gaz:1

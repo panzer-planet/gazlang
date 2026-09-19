@@ -1,0 +1,1 @@
+Error: Expected '{' but found 'echo' at tests/parser_corpus/error_else_without_block.gaz:1

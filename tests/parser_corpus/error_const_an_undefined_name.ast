@@ -1,0 +1,1 @@
+Error: Undefined constant: MISSING at tests/parser_corpus/error_const_an_undefined_name.gaz:1

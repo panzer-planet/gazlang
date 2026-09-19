@@ -1,0 +1,461 @@
+Compound
+  statements:
+@ "tests/parser_corpus/assignment.gaz"
+    0: Statement 2
+      expr: Assign 2
+        left: Variable 2
+          token: 2 VAR_IDENTIFIER $a
+          value: "\$a"
+        token: 2 ASSIGN =
+        right: Num 2
+          token: 2 INTEGER 1
+          value: 1
+    1: Statement 3
+      expr: Assign 3
+        left: Variable 3
+          token: 3 GLOBAL_VAR_IDENTIFIER @g
+          value: "@g"
+        token: 3 ASSIGN =
+        right: Num 3
+          token: 3 INTEGER 2
+          value: 2
+    2: Statement 4
+      expr: Assign 4
+        left: Variable 4
+          token: 4 VAR_IDENTIFIER $a
+          value: "\$a"
+        token: 4 ASSIGN =
+        right: Assign 4
+          left: Variable 4
+            token: 4 VAR_IDENTIFIER $b
+            value: "\$b"
+          token: 4 ASSIGN =
+          right: Assign 4
+            left: Variable 4
+              token: 4 VAR_IDENTIFIER $c
+              value: "\$c"
+            token: 4 ASSIGN =
+            right: Num 4
+              token: 4 INTEGER 3
+              value: 3
+    3: Statement 5
+      expr: Assign 5
+        left: Variable 5
+          token: 5 VAR_IDENTIFIER $a
+          value: "\$a"
+        token: 5 PLUS_ASSIGN +=
+        right: Num 5
+          token: 5 INTEGER 1
+          value: 1
+    4: Statement 6
+      expr: Assign 6
+        left: Variable 6
+          token: 6 VAR_IDENTIFIER $a
+          value: "\$a"
+        token: 6 MINUS_ASSIGN -=
+        right: Num 6
+          token: 6 INTEGER 1
+          value: 1
+    5: Statement 7
+      expr: Assign 7
+        left: Variable 7
+          token: 7 VAR_IDENTIFIER $a
+          value: "\$a"
+        token: 7 MULTIPLY_ASSIGN *=
+        right: Num 7
+          token: 7 INTEGER 2
+          value: 2
+    6: Statement 8
+      expr: Assign 8
+        left: Variable 8
+          token: 8 VAR_IDENTIFIER $a
+          value: "\$a"
+        token: 8 DIVIDE_ASSIGN /=
+        right: Num 8
+          token: 8 INTEGER 2
+          value: 2
+    7: Statement 9
+      expr: Assign 9
+        left: Variable 9
+          token: 9 VAR_IDENTIFIER $a
+          value: "\$a"
+        token: 9 MODULO_ASSIGN %=
+        right: Num 9
+          token: 9 INTEGER 2
+          value: 2
+    8: Statement 10
+      expr: Assign 10
+        left: Variable 10
+          token: 10 VAR_IDENTIFIER $a
+          value: "\$a"
+        token: 10 CONCAT_ASSIGN ..=
+        right: String 10
+          token: 10 STRING "x"
+          value: "x"
+    9: Statement 11
+      expr: Assign 11
+        left: Variable 11
+          token: 11 VAR_IDENTIFIER $a
+          value: "\$a"
+        token: 11 COALESCE_ASSIGN ??=
+        right: Num 11
+          token: 11 INTEGER 1
+          value: 1
+    10: Statement 12
+      expr: Assign 12
+        left: Variable 12
+          token: 12 VAR_IDENTIFIER $a
+          value: "\$a"
+        token: 12 BIT_AND_ASSIGN &=
+        right: Num 12
+          token: 12 INTEGER 1
+          value: 1
+    11: Statement 13
+      expr: Assign 13
+        left: Variable 13
+          token: 13 VAR_IDENTIFIER $a
+          value: "\$a"
+        token: 13 BIT_OR_ASSIGN |=
+        right: Num 13
+          token: 13 INTEGER 1
+          value: 1
+    12: Statement 14
+      expr: Assign 14
+        left: Variable 14
+          token: 14 VAR_IDENTIFIER $a
+          value: "\$a"
+        token: 14 BIT_XOR_ASSIGN ^=
+        right: Num 14
+          token: 14 INTEGER 1
+          value: 1
+    13: Statement 15
+      expr: Assign 15
+        left: Variable 15
+          token: 15 VAR_IDENTIFIER $a
+          value: "\$a"
+        token: 15 SHIFT_LEFT_ASSIGN <<=
+        right: Num 15
+          token: 15 INTEGER 1
+          value: 1
+    14: Statement 16
+      expr: Assign 16
+        left: Variable 16
+          token: 16 VAR_IDENTIFIER $a
+          value: "\$a"
+        token: 16 SHIFT_RIGHT_ASSIGN >>=
+        right: Num 16
+          token: 16 INTEGER 1
+          value: 1
+    15: Statement 17
+      expr: Assign 17
+        left: Variable 17
+          token: 17 VAR_IDENTIFIER $a
+          value: "\$a"
+        token: 17 PLUS_ASSIGN +=
+        right: Assign 17
+          left: Variable 17
+            token: 17 VAR_IDENTIFIER $b
+            value: "\$b"
+          token: 17 MULTIPLY_ASSIGN *=
+          right: Num 17
+            token: 17 INTEGER 2
+            value: 2
+    16: Statement 18
+      expr: Assign 18
+        left: Index 18
+          target: Variable 18
+            token: 18 VAR_IDENTIFIER $a
+            value: "\$a"
+          index: Num 18
+            token: 18 INTEGER 0
+            value: 0
+        token: 18 ASSIGN =
+        right: Num 18
+          token: 18 INTEGER 1
+          value: 1
+    17: Statement 19
+      expr: Assign 19
+        left: Index 19
+          target: Index 19
+            target: Variable 19
+              token: 19 VAR_IDENTIFIER $a
+              value: "\$a"
+            index: String 19
+              token: 19 STRING "k"
+              value: "k"
+          index: Num 19
+            token: 19 INTEGER 1
+            value: 1
+        token: 19 ASSIGN =
+        right: Num 19
+          token: 19 INTEGER 2
+          value: 2
+    18: Statement 20
+      expr: Assign 20
+        left: Index 20
+          target: Variable 20
+            token: 20 VAR_IDENTIFIER $a
+            value: "\$a"
+          index: null
+        token: 20 ASSIGN =
+        right: Num 20
+          token: 20 INTEGER 3
+          value: 3
+    19: Statement 21
+      expr: Assign 21
+        left: Index 21
+          target: Index 21
+            target: Variable 21
+              token: 21 VAR_IDENTIFIER $a
+              value: "\$a"
+            index: Num 21
+              token: 21 INTEGER 0
+              value: 0
+          index: null
+        token: 21 ASSIGN =
+        right: Num 21
+          token: 21 INTEGER 4
+          value: 4
+    20: Statement 22
+      expr: Assign 22
+        left: Property 22
+          target: Variable 22
+            token: 22 VAR_IDENTIFIER $o
+            value: "\$o"
+          name: "x"
+          field: false
+          constant: false
+          value: null
+        token: 22 ASSIGN =
+        right: Num 22
+          token: 22 INTEGER 5
+          value: 5
+    21: Statement 23
+      expr: Assign 23
+        left: Index 23
+          target: Property 23
+            target: Variable 23
+              token: 23 VAR_IDENTIFIER $o
+              value: "\$o"
+            name: "list"
+            field: false
+            constant: false
+            value: null
+          index: null
+        token: 23 ASSIGN =
+        right: Num 23
+          token: 23 INTEGER 6
+          value: 6
+    22: Statement 24
+      expr: Assign 24
+        left: Property 24
+          target: Index 24
+            target: Variable 24
+              token: 24 VAR_IDENTIFIER $rows
+              value: "\$rows"
+            index: Num 24
+              token: 24 INTEGER 0
+              value: 0
+          name: "total"
+          field: false
+          constant: false
+          value: null
+        token: 24 PLUS_ASSIGN +=
+        right: Num 24
+          token: 24 INTEGER 7
+          value: 7
+    23: Statement 25
+      expr: Assign 25
+        left: Property 25
+          target: Variable 25
+            token: 25 VAR_IDENTIFIER $o
+            value: "\$o"
+          name: "name"
+          field: false
+          constant: false
+          value: null
+        token: 25 CONCAT_ASSIGN ..=
+        right: String 25
+          token: 25 STRING "!"
+          value: "!"
+    24: Statement 26
+      expr: Assign 26
+        left: Index 26
+          target: Variable 26
+            token: 26 VAR_IDENTIFIER $m
+            value: "\$m"
+          index: String 26
+            token: 26 STRING "k"
+            value: "k"
+        token: 26 COALESCE_ASSIGN ??=
+        right: ArrayLiteral 26
+          entries: []
+          map: false
+    25: EchoStatement 27
+      expr: Assign 27
+        left: Variable 27
+          token: 27 VAR_IDENTIFIER $a
+          value: "\$a"
+        token: 27 ASSIGN =
+        right: Num 27
+          token: 27 INTEGER 1
+          value: 1
+    26: Statement 28
+      expr: Assign 28
+        left: Variable 28
+          token: 28 VAR_IDENTIFIER $x
+          value: "\$x"
+        token: 28 ASSIGN =
+        right: Ternary 28
+          condition: Variable 28
+            token: 28 VAR_IDENTIFIER $c
+            value: "\$c"
+          then: Num 28
+            token: 28 INTEGER 1
+            value: 1
+          else: Num 28
+            token: 28 INTEGER 2
+            value: 2
+    27: Statement 29
+      expr: Assign 29
+        left: Variable 29
+          token: 29 VAR_IDENTIFIER $x
+          value: "\$x"
+        token: 29 ASSIGN =
+        right: BinOp 29
+          left: Variable 29
+            token: 29 VAR_IDENTIFIER $y
+            value: "\$y"
+          token: 29 COALESCE ??
+          op: 29 COALESCE ??
+          right: Num 29
+            token: 29 INTEGER 3
+            value: 3
+    28: Statement 31
+      expr: Assign 31
+        left: ListPattern 31
+          targets:
+            0: Variable 31
+              token: 31 VAR_IDENTIFIER $a
+              value: "\$a"
+            1: Variable 31
+              token: 31 VAR_IDENTIFIER $b
+              value: "\$b"
+        token: 31 ASSIGN =
+        right: ArrayLiteral 31
+          entries:
+            0:
+              0: null
+              1: Num 31
+                token: 31 INTEGER 1
+                value: 1
+            1:
+              0: null
+              1: Num 31
+                token: 31 INTEGER 2
+                value: 2
+          map: false
+    29: Statement 32
+      expr: Assign 32
+        left: ListPattern 32
+          targets:
+            0: Variable 32
+              token: 32 VAR_IDENTIFIER $a
+              value: "\$a"
+            1: Variable 32
+              token: 32 VAR_IDENTIFIER $b
+              value: "\$b"
+        token: 32 ASSIGN =
+        right: ArrayLiteral 32
+          entries:
+            0:
+              0: null
+              1: Variable 32
+                token: 32 VAR_IDENTIFIER $b
+                value: "\$b"
+            1:
+              0: null
+              1: Variable 32
+                token: 32 VAR_IDENTIFIER $a
+                value: "\$a"
+          map: false
+    30: Statement 33
+      expr: Assign 33
+        left: ListPattern 33
+          targets:
+            0: Variable 33
+              token: 33 VAR_IDENTIFIER $a
+              value: "\$a"
+        token: 33 ASSIGN =
+        right: FunctionCall 33
+          name: "values"
+          args:
+            0: Variable 33
+              token: 33 VAR_IDENTIFIER $m
+              value: "\$m"
+    31: Statement 34
+      expr: Assign 34
+        left: ListPattern 34
+          targets:
+            0: Index 34
+              target: Variable 34
+                token: 34 VAR_IDENTIFIER $l
+                value: "\$l"
+              index: Num 34
+                token: 34 INTEGER 0
+                value: 0
+            1: Variable 34
+              token: 34 GLOBAL_VAR_IDENTIFIER @g
+              value: "@g"
+            2: Property 34
+              target: Variable 34
+                token: 34 VAR_IDENTIFIER $o
+                value: "\$o"
+              name: "y"
+              field: false
+              constant: false
+              value: null
+            3: Index 34
+              target: Variable 34
+                token: 34 VAR_IDENTIFIER $m
+                value: "\$m"
+              index: String 34
+                token: 34 STRING "k"
+                value: "k"
+        token: 34 ASSIGN =
+        right: Variable 34
+          token: 34 VAR_IDENTIFIER $four
+          value: "\$four"
+    32: Statement 35
+      expr: Assign 35
+        left: ListPattern 35
+          targets:
+            0: Variable 35
+              token: 35 VAR_IDENTIFIER $a
+              value: "\$a"
+            1: Variable 35
+              token: 35 VAR_IDENTIFIER $b
+              value: "\$b"
+        token: 35 ASSIGN =
+        right: Variable 35
+          token: 35 VAR_IDENTIFIER $pair
+          value: "\$pair"
+    33: Statement 36
+      expr: Assign 36
+        left: Variable 36
+          token: 36 VAR_IDENTIFIER $p
+          value: "\$p"
+        token: 36 ASSIGN =
+        right: Assign 36
+          left: ListPattern 36
+            targets:
+              0: Variable 36
+                token: 36 VAR_IDENTIFIER $a
+                value: "\$a"
+              1: Variable 36
+                token: 36 VAR_IDENTIFIER $b
+                value: "\$b"
+          token: 36 ASSIGN =
+          right: Variable 36
+            token: 36 VAR_IDENTIFIER $pair
+            value: "\$pair"

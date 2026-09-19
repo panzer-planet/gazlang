@@ -6,7 +6,7 @@
 
 $root = dirname(__DIR__);
 $record = tempnam(sys_get_temp_dir(), 'snippets');
-passthru(sprintf('cd %s && GAZLANG_RECORD_SNIPPETS=%s %s -d pcov.enabled=0 vendor/bin/phpunit --exclude-group whole-repository > /dev/null',
+passthru(sprintf('cd %s && GAZLANG_RECORD_SNIPPETS=%s %s -d pcov.enabled=0 vendor/bin/phpunit > /dev/null',
     escapeshellarg($root), escapeshellarg($record), escapeshellarg(PHP_BINARY)));
 $lines = array_values(array_unique(file($record, FILE_IGNORE_NEW_LINES)));
 unlink($record);

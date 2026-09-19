@@ -1,0 +1,1 @@
+Error: Expected ';' but found 'A' (keywords are lowercase: write 'const', not 'Const') on line 1

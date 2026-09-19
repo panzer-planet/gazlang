@@ -1,0 +1,536 @@
+Compound
+  statements:
+@ "tests/parser_corpus/functions.gaz"
+    0: EchoStatement 2
+      expr: BinOp 2
+        left: FunctionCall 2
+          name: "add"
+          args:
+            0: Num 2
+              token: 2 INTEGER 1
+              value: 1
+            1: Num 2
+              token: 2 INTEGER 2
+              value: 2
+        token: 2 PLUS +
+        op: 2 PLUS +
+        right: FunctionCall 2
+          name: "twice"
+          args:
+            0: Num 2
+              token: 2 INTEGER 3
+              value: 3
+    1: FunctionDeclaration 3
+      name: "add"
+      params: ["\$a", "\$b"]
+      defaults: [null, null]
+      body: Compound
+        statements:
+          0: ReturnStatement 3
+            expr: BinOp 3
+              left: Variable 3
+                token: 3 VAR_IDENTIFIER $a
+                value: "\$a"
+              token: 3 PLUS +
+              op: 3 PLUS +
+              right: Variable 3
+                token: 3 VAR_IDENTIFIER $b
+                value: "\$b"
+      arity: 2
+      class: null
+      abstract: false
+    2: FunctionDeclaration 4
+      name: "twice"
+      params: ["\$n"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: ReturnStatement 4
+            expr: FunctionCall 4
+              name: "add"
+              args:
+                0: Variable 4
+                  token: 4 VAR_IDENTIFIER $n
+                  value: "\$n"
+                1: Variable 4
+                  token: 4 VAR_IDENTIFIER $n
+                  value: "\$n"
+      arity: 1
+      class: null
+      abstract: false
+    3: FunctionDeclaration 5
+      name: "nothing"
+      params: []
+      defaults: []
+      body: Compound
+        statements: []
+      arity: 0
+      class: null
+      abstract: false
+    4: FunctionDeclaration 6
+      name: "bare"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 6
+            expr: null
+      arity: 0
+      class: null
+      abstract: false
+    5: FunctionDeclaration 7
+      name: "defaults"
+      params: ["\$a", "\$b", "\$c", "\$d", "\$e"]
+      defaults:
+        0: null
+        1: Num 7
+          token: 7 INTEGER 1
+          value: 1
+        2: BinOp 7
+          left: Variable 7
+            token: 7 VAR_IDENTIFIER $a
+            value: "\$a"
+          token: 7 PLUS +
+          op: 7 PLUS +
+          right: Variable 7
+            token: 7 VAR_IDENTIFIER $b
+            value: "\$b"
+        3: ArrayLiteral 7
+          entries: []
+          map: false
+        4: FunctionCall 7
+          name: "len"
+          args:
+            0: Variable 7
+              token: 7 VAR_IDENTIFIER $d
+              value: "\$d"
+      body: Compound
+        statements:
+          0: ReturnStatement 7
+            expr: Variable 7
+              token: 7 VAR_IDENTIFIER $c
+              value: "\$c"
+      arity: [1, 5]
+      class: null
+      abstract: false
+    6: EchoStatement 8
+      expr: BinOp 8
+        left: BinOp 8
+          left: FunctionCall 8
+            name: "defaults"
+            args:
+              0: Num 8
+                token: 8 INTEGER 1
+                value: 1
+          token: 8 PLUS +
+          op: 8 PLUS +
+          right: FunctionCall 8
+            name: "defaults"
+            args:
+              0: Num 8
+                token: 8 INTEGER 1
+                value: 1
+              1: Num 8
+                token: 8 INTEGER 2
+                value: 2
+        token: 8 PLUS +
+        op: 8 PLUS +
+        right: FunctionCall 8
+          name: "defaults"
+          args:
+            0: Num 8
+              token: 8 INTEGER 1
+              value: 1
+            1: Num 8
+              token: 8 INTEGER 2
+              value: 2
+            2: Num 8
+              token: 8 INTEGER 3
+              value: 3
+            3: ArrayLiteral 8
+              entries: []
+              map: false
+            4: Num 8
+              token: 8 INTEGER 5
+              value: 5
+    7: FunctionDeclaration 9
+      name: "fib"
+      params: ["\$n"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: IfStatement 10
+            condition: BinOp 10
+              left: Variable 10
+                token: 10 VAR_IDENTIFIER $n
+                value: "\$n"
+              token: 10 LESS_THAN <
+              op: 10 LESS_THAN <
+              right: Num 10
+                token: 10 INTEGER 2
+                value: 2
+            if_body: Compound
+              statements:
+                0: ReturnStatement 11
+                  expr: Variable 11
+                    token: 11 VAR_IDENTIFIER $n
+                    value: "\$n"
+            else_if: null
+            else_body: null
+          1: ReturnStatement 14
+            expr: BinOp 14
+              left: FunctionCall 14
+                name: "fib"
+                args:
+                  0: BinOp 14
+                    left: Variable 14
+                      token: 14 VAR_IDENTIFIER $n
+                      value: "\$n"
+                    token: 14 MINUS -
+                    op: 14 MINUS -
+                    right: Num 14
+                      token: 14 INTEGER 1
+                      value: 1
+              token: 14 PLUS +
+              op: 14 PLUS +
+              right: FunctionCall 14
+                name: "fib"
+                args:
+                  0: BinOp 14
+                    left: Variable 14
+                      token: 14 VAR_IDENTIFIER $n
+                      value: "\$n"
+                    token: 14 MINUS -
+                    op: 14 MINUS -
+                    right: Num 14
+                      token: 14 INTEGER 2
+                      value: 2
+      arity: 1
+      class: null
+      abstract: false
+    8: FunctionDeclaration 16
+      name: "loops"
+      params: ["\$xs"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: ForeachStatement 17
+            iterable: Variable 17
+              token: 17 VAR_IDENTIFIER $xs
+              value: "\$xs"
+            key: null
+            value: Variable 17
+              token: 17 VAR_IDENTIFIER $x
+              value: "\$x"
+            body: Compound
+              statements:
+                0: WhileStatement 18
+                  condition: Variable 18
+                    token: 18 VAR_IDENTIFIER $x
+                    value: "\$x"
+                  body: Compound
+                    statements:
+                      0: ReturnStatement 18
+                        expr: Variable 18
+                          token: 18 VAR_IDENTIFIER $x
+                          value: "\$x"
+                  step: null
+          1: Compound 20
+            statements:
+              0: Statement 20
+                expr: Assign 20
+                  left: Variable 20
+                    token: 20 VAR_IDENTIFIER $i
+                    value: "\$i"
+                  token: 20 ASSIGN =
+                  right: Num 20
+                    token: 20 INTEGER 0
+                    value: 0
+              1: WhileStatement 20
+                condition: BinOp 20
+                  left: Variable 20
+                    token: 20 VAR_IDENTIFIER $i
+                    value: "\$i"
+                  token: 20 LESS_THAN <
+                  op: 20 LESS_THAN <
+                  right: Num 20
+                    token: 20 INTEGER 1
+                    value: 1
+                body: Compound
+                  statements:
+                    0: ReturnStatement 20
+                      expr: Null 20
+                        token: 20 NULL null
+                        value: null
+                step: Statement 20
+                  expr: Increment 20
+                    target: Variable 20
+                      token: 20 VAR_IDENTIFIER $i
+                      value: "\$i"
+                    op: 20 INCREMENT ++
+                    prefix: false
+      arity: 1
+      class: null
+      abstract: false
+    9: Statement 23
+      expr: Assign 23
+        left: Variable 23
+          token: 23 VAR_IDENTIFIER $f
+          value: "\$f"
+        token: 23 ASSIGN =
+        right: FunctionRef 23
+          name: "add"
+          constant: false
+          value: null
+    10: EchoStatement 24
+      expr: CallValue 24
+        callee: Variable 24
+          token: 24 VAR_IDENTIFIER $f
+          value: "\$f"
+        args:
+          0: Num 24
+            token: 24 INTEGER 1
+            value: 1
+          1: Num 24
+            token: 24 INTEGER 2
+            value: 2
+    11: EchoStatement 25
+      expr: CallValue 25
+        callee: Index 25
+          target: ArrayLiteral 25
+            entries:
+              0:
+                0: null
+                1: FunctionRef 25
+                  name: "add"
+                  constant: false
+                  value: null
+              1:
+                0: null
+                1: FunctionRef 25
+                  name: "twice"
+                  constant: false
+                  value: null
+            map: false
+          index: Num 25
+            token: 25 INTEGER 0
+            value: 0
+        args:
+          0: Num 25
+            token: 25 INTEGER 1
+            value: 1
+          1: Num 25
+            token: 25 INTEGER 2
+            value: 2
+    12: FunctionDeclaration 27
+      name: "If"
+      params: ["\$x"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: ReturnStatement 27
+            expr: Variable 27
+              token: 27 VAR_IDENTIFIER $x
+              value: "\$x"
+      arity: 1
+      class: null
+      abstract: false
+    13: FunctionDeclaration 28
+      name: "Return"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 28
+            expr: Num 28
+              token: 28 INTEGER 1
+              value: 1
+      arity: 0
+      class: null
+      abstract: false
+    14: EchoStatement 29
+      expr: BinOp 29
+        left: FunctionCall 29
+          name: "If"
+          args:
+            0: Num 29
+              token: 29 INTEGER 1
+              value: 1
+        token: 29 PLUS +
+        op: 29 PLUS +
+        right: FunctionCall 29
+          name: "Return"
+          args: []
+    15: Statement 31
+      expr: Assign 31
+        left: Variable 31
+          token: 31 VAR_IDENTIFIER $g
+          value: "\$g"
+        token: 31 ASSIGN =
+        right: Lambda 31
+          params: ["\$x"]
+          defaults: [null]
+          arity: 1
+          body: Compound
+            statements:
+              0: IfStatement 31
+                condition: Variable 31
+                  token: 31 VAR_IDENTIFIER $x
+                  value: "\$x"
+                if_body: Compound
+                  statements:
+                    0: ReturnStatement 31
+                      expr: Num 31
+                        token: 31 INTEGER 1
+                        value: 1
+                else_if: null
+                else_body: null
+              1: ReturnStatement 31
+                expr: Num 31
+                  token: 31 INTEGER 2
+                  value: 2
+          captures: []
+          self: null
+    16: Statement 32
+      expr: Assign 32
+        left: Variable 32
+          token: 32 VAR_IDENTIFIER $h
+          value: "\$h"
+        token: 32 ASSIGN =
+        right: Lambda 32
+          params: []
+          defaults: []
+          arity: 0
+          body: Compound
+            statements:
+              0: WhileStatement 32
+                condition: Boolean 32
+                  token: 32 TRUE true
+                  value: true
+                body: Compound
+                  statements:
+                    0: LoopControl 32
+                      token: 32 BREAK break
+                step: null
+              1: ReturnStatement 32
+                expr: null
+          captures: []
+          self: null
+    17: FunctionDeclaration 33
+      name: "make"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 33
+            expr: Lambda 33
+              params: ["\$n"]
+              defaults: [null]
+              arity: 1
+              body: Compound
+                statements:
+                  0: ReturnStatement 33
+                    expr: Variable 33
+                      token: 33 VAR_IDENTIFIER $n
+                      value: "\$n"
+              captures: []
+              self: null
+      arity: 0
+      class: null
+      abstract: false
+    18: FunctionDeclaration 34
+      name: "outer"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: Statement 34
+            expr: Assign 34
+              left: Variable 34
+                token: 34 VAR_IDENTIFIER $f
+                value: "\$f"
+              token: 34 ASSIGN =
+              right: Lambda 34
+                params: []
+                defaults: []
+                arity: 0
+                body: Compound
+                  statements:
+                    0: ForeachStatement 34
+                      iterable: Variable 34
+                        token: 34 VAR_IDENTIFIER $xs
+                        value: "\$xs"
+                      key: Variable 34
+                        token: 34 VAR_IDENTIFIER $k
+                        value: "\$k"
+                      value: ListPattern 34
+                        targets:
+                          0: Variable 34
+                            token: 34 VAR_IDENTIFIER $a
+                            value: "\$a"
+                          1: Variable 34
+                            token: 34 VAR_IDENTIFIER $b
+                            value: "\$b"
+                      body: Compound
+                        statements:
+                          0: Statement 34
+                            expr: Assign 34
+                              left: Variable 34
+                                token: 34 VAR_IDENTIFIER $t
+                                value: "\$t"
+                              token: 34 ASSIGN =
+                              right: BinOp 34
+                                left: Variable 34
+                                  token: 34 VAR_IDENTIFIER $a
+                                  value: "\$a"
+                                token: 34 PLUS +
+                                op: 34 PLUS +
+                                right: Variable 34
+                                  token: 34 VAR_IDENTIFIER $outer
+                                  value: "\$outer"
+                    1: ReturnStatement 34
+                      expr: BinOp 34
+                        left: Variable 34
+                          token: 34 VAR_IDENTIFIER $t
+                          value: "\$t"
+                        token: 34 PLUS +
+                        op: 34 PLUS +
+                        right: Variable 34
+                          token: 34 VAR_IDENTIFIER $k
+                          value: "\$k"
+                captures: ["\$xs", "\$outer"]
+                self: null
+          1: ReturnStatement 34
+            expr: Variable 34
+              token: 34 VAR_IDENTIFIER $f
+              value: "\$f"
+      arity: 0
+      class: null
+      abstract: false
+    19: Statement 36
+      expr: Assign 36
+        left: Variable 36
+          token: 36 VAR_IDENTIFIER $r
+          value: "\$r"
+        token: 36 ASSIGN =
+        right: Lambda 36
+          params: []
+          defaults: []
+          arity: 0
+          body: Compound
+            statements:
+              0: ReturnStatement 36
+                expr: Lambda 36
+                  params: []
+                  defaults: []
+                  arity: 0
+                  body: Compound
+                    statements:
+                      0: ReturnStatement 36
+                        expr: Num 36
+                          token: 36 INTEGER 1
+                          value: 1
+                  captures: []
+                  self: null
+          captures: []
+          self: null

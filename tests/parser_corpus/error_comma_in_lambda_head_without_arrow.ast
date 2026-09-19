@@ -1,0 +1,1 @@
+Error: Expected ')' but found ',' at tests/parser_corpus/error_comma_in_lambda_head_without_arrow.gaz:1

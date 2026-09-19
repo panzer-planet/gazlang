@@ -1,0 +1,1 @@
+Error: Functions can only be declared at the top level at tests/parser_corpus/error_function_in_block.gaz:1

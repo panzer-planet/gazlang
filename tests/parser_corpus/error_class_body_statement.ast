@@ -1,0 +1,1 @@
+Error: Expected a field (#name), a method (fn) or a constant (const) but found 'echo' at tests/parser_corpus/error_class_body_statement.gaz:1

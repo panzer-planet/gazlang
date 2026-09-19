@@ -1,0 +1,1 @@
+Error: Function len expects 1 arguments, 2 given at tests/parser_corpus/error_undefined_is_the_first_in_source_order.gaz:1

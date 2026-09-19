@@ -1,0 +1,1 @@
+Error: Can only use = on a variable, or an element or field of one at tests/parser_corpus/error_list_pattern_of_literal.gaz:1
