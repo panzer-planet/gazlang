@@ -23,7 +23,8 @@ Error *vm_error;
 typedef struct Frame {
     Block *block;
     Value *base;        /* its local slots; its stack starts after them */
-    Instr *ret;         /* where the caller carries on; NULL for the first frame of an execute() */
+    Instr *ret;         /* where the caller carries on; for the first frame of a nested execute(), after
+                           the instruction that ran it (vm_here) */
     int argc;           /* how many arguments it was passed */
     Func *closure;      /* the closure it is a call of (counted), or NULL */
     Object *receiver;   /* the object # is (counted), or NULL */
@@ -37,6 +38,9 @@ typedef struct {
 
 static Value *stack, *stack_end;
 static Value *vm_sp;    /* the top of the stack as the running instruction found it, where a nested execute() starts */
+/* The running instruction, set only by those that can run program code from inside them (echo,
+   .., ..=, a builtin): a method they run is called from there */
+static Instr *vm_here;
 static Value *globals;
 static Frame *frames, *fp;  /* every frame; fp is the running one, and fp - frames the call depth */
 static Handler *handlers;
@@ -124,11 +128,13 @@ static const char *frame_name(Frame *f) {
 /*
  * The calls running, innermost first, for an error raised at an instruction: each call where
  * it was running, the innermost where the error happened and the ones around it at the call
- * they made. Only this execute()'s frames: a method run by printing starts a trace of its own.
+ * they made, a method run from inside an instruction (to_string() by printing) included.
  * Keeps the innermost 10 and outermost 10, with a line saying how many it left out.
  */
-static Value build_trace(Instr *at, Frame *first) {
-    int n = (int)(fp - first) + 1;
+static Value build_trace(Instr *at) {
+    /* Down to the top level, or to a call with no caller */
+    int n = 1;
+    while (fp - n >= frames && (fp - n + 1)->ret) n++;
     List *trace = list_new((size_t)(n > 21 ? 21 : n));
     for (int i = 0; i < n; i++) {
         if (n > 20 && i == 10) {
@@ -149,10 +155,10 @@ static Value build_trace(Instr *at, Frame *first) {
 }
 
 /* Give the error being raised the location of the instruction that raised it, and the trace */
-static void locate(Instr *at, Frame *first) {
+static void locate(Instr *at) {
     Error *e = vm_error;
     if (at->line == 0 || (e->gaz && e->line)) return;
-    Value trace = build_trace(at, first);
+    Value trace = build_trace(at);
     if (e->trace.type == T_UNSET) e->trace = trace;
     else decref(trace);
     if (e->path) decref(v_str(e->path));
@@ -295,7 +301,8 @@ bool call_method(Object *o, Class *definer, Str *name, Value *out) {
     }
     Value *sp = vm_sp;
     incref(v_object(o));
-    if (!push_frame(f->block, &sp, 0, NULL, NULL, o)) return false;
+    /* Once the program has ended (printing an uncaught error) there is no caller */
+    if (!push_frame(f->block, &sp, 0, vm_here ? vm_here + 1 : NULL, NULL, o)) return false;
     return execute(program->code + f->block->entry, fp, out);
 }
 
@@ -365,6 +372,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             decref(POP());
             break;
         case OP_PRINT: {
+            vm_here = in;
             Buf out = {0};
             if (!append_string(TOP(), &out)) {
                 free(out.data);
@@ -450,6 +458,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
                 raise("Undefined variable: %s", name->data);
                 goto error;
             }
+            vm_here = in;
             if (!concat_assign(slot, TOP(), &r)) goto error;
             set_slot(&TOP(), r);
             break;
@@ -508,13 +517,15 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         case OP_BIT_XOR:
         case OP_SHL:
         case OP_SHR:
-        case OP_CONCAT:
         case OP_CMP:
         binary:
             if (!binary_op(op, sp[-2], sp[-1], &r)) goto error;
             decref(POP());
             set_slot(&TOP(), r);
             break;
+        case OP_CONCAT:
+            vm_here = in;
+            goto binary;
         case OP_NOT:
             a = TOP();
             set_slot(&TOP(), v_bool(!is_truthy(a)));
@@ -769,6 +780,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             break;
         }
         case OP_CALL_BUILTIN: {
+            vm_here = in;
             argc = in->b;
             if (!call_builtin(in->a, sp - argc, argc, &r)) goto error;
             for (int i = 0; i < argc; i++) decref(POP());
@@ -965,7 +977,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
                 vm_error->gaz = true;
                 vm_error->path = at->file;
                 vm_error->line = at->line;
-                vm_error->trace = build_trace(at, first);
+                vm_error->trace = build_trace(at);
                 goto error;
             }
             argc = fp->argc;
@@ -1051,6 +1063,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
                 goto error;
             }
             if (fn->kind == F_BUILTIN) {
+                vm_here = in;
                 if (!call_builtin(fn->builtin, sp - argc, argc, &r)) goto error;
                 for (int i = 0; i < argc; i++) decref(POP());
                 decref(POP());
@@ -1111,7 +1124,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         continue;
 
     error:
-        locate(pc - 1, first);
+        locate(pc - 1);
         if (vm_error->gaz && nhandlers > handler_base) {
             /* Unwind to the innermost try: drop the calls made inside it and whatever the failed
                expression left on the stack, then run its handler with the error pushed */
@@ -1199,6 +1212,7 @@ static int run_program(bool check) {
     stack_end = stack + capacity;
     frames = xcalloc(MAX_CALL_DEPTH + 4, sizeof(Frame));
     globals = xcalloc((size_t)program->nglobals + 1, sizeof(Value));
+    vm_here = NULL;
 
     Block *top = program->blocks[0];
     fp = frames;
@@ -1219,6 +1233,7 @@ static int run_program(bool check) {
             vm_error = NULL;
             fp = frames;
             vm_sp = stack + top->nlocals;
+            vm_here = NULL;     /* the program has ended: its to_string() has no caller */
             Str *text_value;
             if (to_string(e->value, &text_value)) {
                 Error *shown = error_new(text_value, e->path, e->line, false);

@@ -7,5 +7,15 @@ ok a rethrow keeps where it was first thrown
 ok a method
 ok its caller
 ok a lambda is ->
-ok printing starts a trace
-ok and ends it
+ok printing calls to_string
+ok caught inside to_string
+ok echo calls to_string
+ok .. calls to_string
+ok interpolation calls to_string
+ok ..= on a local calls to_string
+ok ..= on a global calls to_string
+ok ..= on a captured variable calls to_string
+ok to_string() calls to_string
+ok join() calls to_string
+ok print() calls to_string
+ok a builtin as a value calls to_string

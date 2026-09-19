@@ -648,8 +648,14 @@ try {
   was running (`["inner at fib.gaz:3", "top level at fib.gaz:7"]`): a function by name, a method
   `Class.name`, a constructor `Class._`, a lambda `->`. Deep traces keep the innermost and
   outermost 10 around `... N more`. Uncaught, the trace is printed under the message unless it
-  is a single call. The interpreter records each call as it makes it; the VMs read their frames
-  when an error happens, which costs nothing until then.
+  is a single call. A method run from inside an expression (`to_string()` by echo, `..` or a
+  builtin) is called from where the expression is running, and its trace carries on through
+  the calls outside it; once the program has ended (printing an uncaught error) it has none.
+  The interpreter records each call as it makes it; the VMs read their frames when an error
+  happens, which costs nothing until then. The VMs' nested loops learn where they were called
+  from through the instructions that can run program code (`PRINT`, `CONCAT`, `CONCAT_ASSIGN*`,
+  `CALL_BUILTIN` and `CALL_VALUE` of a builtin), which say where they are; `trace_test.gaz` has
+  a case for each, so one that forgets fails there.
 - Catch clauses are tried in order; a typed one matches the class or a subclass; an untyped one
   (`catch ($e)`) must be last. An unmatched error carries on unchanged.
 - **`finally`** runs however the block is left: normally, when an error passes, and on

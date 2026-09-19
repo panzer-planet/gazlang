@@ -121,16 +121,24 @@ class Interpreter extends AbstractNodeVisitor
     /**
      * @var list<array{0: string, 1: string|null, 2: int|null}> The calls running, outermost first, each as
      *                                                          [what it is, and the file and line it was called from].
-     *                                                          A call with no location is a to_string() run by printing,
-     *                                                          which starts a trace of its own, as it does in the VM
+     *                                                          A call with no location is a to_string() run once the
+     *                                                          program has ended (printing an uncaught error), which
+     *                                                          starts a trace of its own
      */
     private $calls = [];
 
     /**
      * @var array{0: string|null, 1: int|null}|null The location of the call being made, which the frame it
-     *                                              starts records; null for a method run by printing
+     *                                              starts records
      */
     private $call_site = null;
+
+    /**
+     * @var AST|null The innermost node with a location being visited: where the program is running, which a
+     *               method run from inside it (to_string() by printing) records as where it was called from,
+     *               as the VMs record the running instruction
+     */
+    private $running = null;
 
     /**
      * @var ReturnSignal Reused for every return: creating an exception records a stack trace
@@ -172,6 +180,10 @@ class Interpreter extends AbstractNodeVisitor
      */
     public function visit(object $node)
     {
+        $outer = $this->running;
+        if ($node->line !== null) {
+            $this->running = $node;
+        }
         try {
             return parent::visit($node);
         } catch (LoopSignal|ReturnSignal|ExitSignal $e) {
@@ -193,6 +205,8 @@ class Interpreter extends AbstractNodeVisitor
             $error->trace = $this->trace($node->file, $node->line);
 
             throw $error;
+        } finally {
+            $this->running = $outer;
         }
     }
 
@@ -200,8 +214,8 @@ class Interpreter extends AbstractNodeVisitor
      * The calls running, innermost first, for an error raised at a location
      *
      * Each call is shown where it was running: the innermost where the error happened, the
-     * ones around it where they made the call below. A method run by printing an object
-     * starts a trace of its own, since the VM runs it in a loop of its own.
+     * ones around it where they made the call below, including a method run from inside an
+     * expression, as printing runs to_string().
      *
      * @param  string|null  $file  The file the error happened in
      * @param  int  $line  The line it happened on
@@ -1282,9 +1296,8 @@ class Interpreter extends AbstractNodeVisitor
         // echo and .. call to_string() through Values, which comes back here to run it
         $outer = Values::$call_method;
         Values::$call_method = function (ObjectValue $object, ClassValue $definer, string $name) {
-            // Printing runs to_string() outside the program's own calls, as the VM runs it in
-            // a loop of its own, so the trace of an error inside it starts there
-            $this->call_site = null;
+            // Called from wherever the program is running
+            $this->call_site = $this->running === null ? null : [$this->running->file, $this->running->line];
 
             return $this->invokeMethod($definer, $name, $object, []);
         };

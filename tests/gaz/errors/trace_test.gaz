@@ -52,7 +52,8 @@ try {
     check("a lambda is ->", $e.trace[0], "-> at tests/gaz/errors/trace_test.gaz:48");
 }
 
-// Printing runs to_string() outside the program's calls, so its trace starts there
+// A method run from inside an expression, as printing runs to_string(), is called from where
+// the expression is running
 class Broken {
     #n = 0;
     fn to_string() { return "n is " .. (1 / #n); }
@@ -61,8 +62,58 @@ fn show($thing) { echo $thing; }
 try {
     show(Broken());
 } catch (Error $e) {
-    check("printing starts a trace", $e.trace[0], "Broken.to_string at tests/gaz/errors/trace_test.gaz:58");
-    check("and ends it", len($e.trace), 1);
+    check("printing calls to_string", $e.trace, [
+        "Broken.to_string at tests/gaz/errors/trace_test.gaz:59",
+        "show at tests/gaz/errors/trace_test.gaz:61",
+        "top level at tests/gaz/errors/trace_test.gaz:63",
+    ]);
+}
+
+// The trace is whole when the error is raised, not as it leaves: caught inside to_string()
+class Careful {
+    fn to_string() {
+        try {
+            error("inner");
+        } catch (Error $e) {
+            return join($e.trace, "; ");
+        }
+    }
+}
+fn label($thing) {
+    return "label: "
+        .. $thing;
+}
+check("caught inside to_string", label(Careful()), "label: Careful.to_string at tests/gaz/errors/trace_test.gaz:76; "
+    .. "label at tests/gaz/errors/trace_test.gaz:84; top level at tests/gaz/errors/trace_test.gaz:86");
+
+// Every instruction that can run to_string() says where it is running
+class Fails {
+    fn to_string() { return error("fails"); }
+}
+fn called_from($f) {
+    try {
+        $f();
+    } catch (Error $e) {
+        return $e.trace[1];
+    }
+}
+$fails = Fails();
+@text = "";
+$captured = "";
+$sites = [
+    ["echo", () -> { echo Fails(); }],
+    ["..", () -> "x" .. Fails()],
+    ["interpolation", () -> "x{$fails}"],
+    ["..= on a local", () -> { $s = ""; $s ..= Fails(); }],
+    ["..= on a global", () -> { @text ..= Fails(); }],
+    ["..= on a captured variable", () -> { $captured ..= Fails(); }],
+    ["to_string()", () -> to_string(Fails())],
+    ["join()", () -> join([Fails()], ",")],
+    ["print()", () -> print(Fails())],
+    ["a builtin as a value", () -> { $convert = to_string; return $convert(Fails()); }],
+];
+foreach ($sites as [$site, $f]) {
+    check("{$site} calls to_string", called_from($f), "-> at tests/gaz/errors/trace_test.gaz:" .. {"echo" => 104, ".." => 105, "interpolation" => 106, "..= on a local" => 107, "..= on a global" => 108, "..= on a captured variable" => 109, "to_string()" => 110, "join()" => 111, "print()" => 112, "a builtin as a value" => 113}[$site]);
 }
 
 // The cap on a deep trace is tested through the CLI (FunctionTest): 10000 calls in process

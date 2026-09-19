@@ -68,6 +68,16 @@ final class VM
     private $linked;
 
     /**
+     * Where the loop is running, as its pc, function and closure, set by the instructions that can run
+     * program code from inside them (echo, .., ..=, a builtin), so a method they run is called from there
+     */
+    private int $here_pc = 0;
+
+    private string $here_function = '';
+
+    private ?FunctionValue $here_closure = null;
+
+    /**
      * @var array The global variables by slot, shared by every execute()
      */
     private $globals = [];
@@ -113,7 +123,7 @@ final class VM
             }
             $frames = [];
             $outer = Values::$call_method;
-            Values::$call_method = $this->methodCaller($frames, 0);
+            Values::$call_method = $this->methodCaller($frames, 0, null, false);
             try {
                 throw $error->uncaught();
             } finally {
@@ -136,11 +146,12 @@ final class VM
      * @param  ObjectValue|null  $receiver  The starting frame's object
      * @param  string  $function  The starting frame's key in the local names
      * @param  int  $depth  How many calls are running outside this loop, for the call depth limit
+     * @param  Closure|null  $caller  The calls running outside this loop, as calls() gives them, or null for none
      * @return mixed The value the starting frame returns, or null at the end of the program
      *
      * @throws GazLangError If an error isn't caught by a try
      */
-    private function execute(int $pc, array $locals, ?ObjectValue $receiver, string $function, int $depth)
+    private function execute(int $pc, array $locals, ?ObjectValue $receiver, string $function, int $depth, ?Closure $caller = null)
     {
         [$ops, $arg0, $arg1, $arg2, $locations, $functions, $lambdas, $classes, $initialisers, $tokens, $increment, $decrement] = $this->linked;
         $end = count($ops);
@@ -159,7 +170,7 @@ final class VM
         $handlers = [];
 
         $outer = Values::$call_method;
-        Values::$call_method = $this->methodCaller($frames, $depth);
+        Values::$call_method = $this->methodCaller($frames, $depth, $caller);
 
         try {
             while (true) {
@@ -185,6 +196,9 @@ final class VM
                                 if (! isset($locals[$slot]) && ! array_key_exists($slot, $locals)) {
                                     throw new Exception("Undefined variable: {$local_names[$function][$slot]}");
                                 }
+                                $this->here_pc = $pc;
+                                $this->here_function = $function;
+                                $this->here_closure = $closure;
                                 $stack[] = Values::concatAssign($locals[$slot], array_pop($stack));
                                 break;
                                 // A closure's captured variables live in the closure, not the frame, so every
@@ -206,6 +220,9 @@ final class VM
                                 if (! isset($closure->captured[$slot]) && ! array_key_exists($slot, $closure->captured)) {
                                     throw new Exception("Undefined variable: {$lambdas[$closure->index][2][$slot]}");
                                 }
+                                $this->here_pc = $pc;
+                                $this->here_function = $function;
+                                $this->here_closure = $closure;
                                 $stack[] = Values::concatAssign($closure->captured[$slot], array_pop($stack));
                                 break;
                             case 'LOAD_QUIET_CAPTURED':
@@ -240,9 +257,14 @@ final class VM
                             case 'CONCAT':
                                 $right = array_pop($stack);
                                 $left = array_pop($stack);
-                                $stack[] = is_string($left) && is_string($right)
-                                    ? $left.$right
-                                    : Values::binary($tokens['CONCAT'], $left, $right);
+                                if (is_string($left) && is_string($right)) {
+                                    $stack[] = $left.$right;
+                                } else {
+                                    $this->here_pc = $pc;
+                                    $this->here_function = $function;
+                                    $this->here_closure = $closure;
+                                    $stack[] = Values::binary($tokens['CONCAT'], $left, $right);
+                                }
                                 break;
                             case 'SUB':
                                 $right = array_pop($stack);
@@ -343,9 +365,15 @@ final class VM
                                 if (! isset($globals[$slot]) && ! array_key_exists($slot, $globals)) {
                                     throw new Exception("Undefined variable: {$global_names[$slot]}");
                                 }
+                                $this->here_pc = $pc;
+                                $this->here_function = $function;
+                                $this->here_closure = $closure;
                                 $stack[] = Values::concatAssign($globals[$slot], array_pop($stack));
                                 break;
                             case 'PRINT':
+                                $this->here_pc = $pc;
+                                $this->here_function = $function;
+                                $this->here_closure = $closure;
                                 echo Values::toString(array_pop($stack)).PHP_EOL;
                                 break;
                             case 'NOT':
@@ -598,7 +626,8 @@ final class VM
                                         $frames,
                                         $function,
                                         $closure,
-                                        $locations
+                                        $locations,
+                                        $caller
                                     );
                                 }
                                 $frames[] = [$locals, $pc, $function, $argc, $closure, $receiver];
@@ -656,6 +685,9 @@ final class VM
                                     throw new Exception(Builtins::arityError($callee->title(), $arity, count($args)));
                                 }
                                 if ($builtin) {
+                                    $this->here_pc = $pc;
+                                    $this->here_function = $function;
+                                    $this->here_closure = $closure;
                                     $stack[] = $this->builtins->call($name, $args);
                                     break;
                                 }
@@ -712,15 +744,24 @@ final class VM
                                         } elseif ($name === 'chr' && is_int($first) && $first >= 0 && $first <= 255) {
                                             $stack[] = chr($first);
                                         } else {
+                                            $this->here_pc = $pc;
+                                            $this->here_function = $function;
+                                            $this->here_closure = $closure;
                                             $stack[] = $this->builtins->call($name, [$first]);
                                         }
                                         break;
                                     case 2:
                                         $second = array_pop($stack);
                                         $first = array_pop($stack);
+                                        $this->here_pc = $pc;
+                                        $this->here_function = $function;
+                                        $this->here_closure = $closure;
                                         $stack[] = $this->builtins->call($name, [$first, $second]);
                                         break;
                                     default:
+                                        $this->here_pc = $pc;
+                                        $this->here_function = $function;
+                                        $this->here_closure = $closure;
                                         $stack[] = $this->builtins->call($name, $this->popMany($stack, $arg1[$pc - 1]));
                                 }
                                 break;
@@ -761,7 +802,7 @@ final class VM
                     // exit() is not an error: no handler sees it
                     throw $e;
                 } catch (Exception $e) {
-                    $error = $this->locate($e, $locations[$pc - 1], $frames, $function, $closure, $locations);
+                    $error = $this->locate($e, $locations[$pc - 1], $frames, $function, $closure, $locations, $caller);
                     if (! $error instanceof GazLangError || $handlers === []) {
                         throw $error;
                     }
@@ -788,18 +829,29 @@ final class VM
      *
      * @param  array  $frames  The running loop's frames, by reference, so the call depth counts them as they are then
      * @param  int  $depth  How many calls are running outside that loop
+     * @param  Closure|null  $caller  The calls running outside that loop, or null for none
+     * @param  bool  $running  Whether that loop is running (false once the program has ended, printing an
+     *                         uncaught error), so the method is called from where it is
      */
-    private function methodCaller(array &$frames, int $depth): Closure
+    private function methodCaller(array &$frames, int $depth, ?Closure $caller, bool $running = true): Closure
     {
-        $functions = $this->linked[5];
+        [, , , , $locations, $functions] = $this->linked;
 
-        return function (ObjectValue $object, ClassValue $definer, string $name) use (&$frames, $depth, $functions) {
+        return function (ObjectValue $object, ClassValue $definer, string $name) use (&$frames, $depth, $caller, $running, $locations, $functions) {
             $name = "{$definer->name}.{$name}";
             if ($depth + count($frames) === Values::MAX_CALL_DEPTH) {
                 throw new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$name}");
             }
+            // Called from the instruction running it, which said where it is (see $here); the calls
+            // there are worked out only if an error needs them
+            $here = null;
+            if ($running) {
+                [$pc, $function, $closure] = [$this->here_pc, $this->here_function, $this->here_closure];
+                $callers = $frames;
+                $here = fn () => $this->calls($locations[$pc - 1], $callers, $function, $closure, $locations, $caller);
+            }
 
-            return $this->execute($functions[$name][0], [], $object, $name, $depth + count($frames) + 1);
+            return $this->execute($functions[$name][0], [], $object, $name, $depth + count($frames) + 1, $here);
         };
     }
 
@@ -990,8 +1042,7 @@ final class VM
     }
 
     /**
-     * Give an error the location of the instruction that raised it and the calls that were running,
-     * as the interpreter's visit() does
+     * Give an error the location of the instruction that raised it, and the calls running then, unless it has one
      *
      * @param  Exception  $error  The error
      * @param  array{0: string|null, 1: int|null}  $location  The [file, line] of the instruction that raised it
@@ -999,15 +1050,16 @@ final class VM
      * @param  string  $function  The running frame's key in the local names
      * @param  FunctionValue|null  $closure  The closure the running frame is a call of, if any
      * @param  list<array{0: string|null, 1: int|null}>  $locations  Every instruction's location
+     * @param  Closure|null  $caller  The calls running outside this loop, or null for none
      */
-    private function locate(Exception $error, array $location, array $frames, string $function, ?FunctionValue $closure, array $locations): Exception
+    private function locate(Exception $error, array $location, array $frames, string $function, ?FunctionValue $closure, array $locations, ?Closure $caller): Exception
     {
         [$file, $line] = $location;
         if ($line === null || ($error instanceof GazLangError && $error->line_number !== null)) {
             return $error;
         }
 
-        $trace = $this->trace($file, $line, $frames, $function, $closure, $locations);
+        $trace = GazLangError::trace($this->calls($location, $frames, $function, $closure, $locations, $caller));
         if ($error instanceof GazLangError) {
             $error->trace ??= $trace;
 
@@ -1020,31 +1072,31 @@ final class VM
     }
 
     /**
-     * The calls running, innermost first, for an error raised at a location
+     * The calls running, innermost first, each as [what it is, file, line], for an error raised at a location
      *
      * Each call is shown where it was running: the innermost where the error happened, the ones
      * around it at the call they made, which is the instruction before the one they return to.
-     * A method run by printing an object runs in a loop of its own, so its trace starts there,
-     * as it does in the interpreter.
+     * A method run from inside an instruction (to_string() by printing) runs in a loop of its
+     * own, whose caller is where the loop around it is running, as in the interpreter.
      *
-     * @param  string|null  $file  The file the error happened in
-     * @param  int  $line  The line it happened on
+     * @param  array{0: string|null, 1: int|null}  $location  Where the running frame is
      * @param  list<array>  $frames  The callers of the running frame, outermost first
      * @param  string  $function  The running frame's key in the local names
      * @param  FunctionValue|null  $closure  The closure the running frame is a call of, if any
      * @param  list<array{0: string|null, 1: int|null}>  $locations  Every instruction's location
-     * @return list<string> The trace
+     * @param  Closure|null  $caller  The calls running outside this loop, or null for none
+     * @return list<array{0: string, 1: string|null, 2: int|null}>
      */
-    private function trace(?string $file, int $line, array $frames, string $function, ?FunctionValue $closure, array $locations): array
+    private function calls(array $location, array $frames, string $function, ?FunctionValue $closure, array $locations, ?Closure $caller): array
     {
-        $trace = [];
-        $at = [$file, $line];
+        $calls = [];
+        $at = $location;
         $i = count($frames);
         while (true) {
             // A lambda is "->": the trace says where it was running, not where it was written
-            $trace[] = [$closure !== null ? '->' : ($function === '' ? 'top level' : $function), ...$at];
+            $calls[] = [$closure !== null ? '->' : ($function === '' ? 'top level' : $function), ...$at];
             if ($i === 0) {
-                return GazLangError::trace($trace);
+                return $caller === null ? $calls : [...$calls, ...$caller()];
             }
             // The caller was at the call it made, the instruction before the one it returns to
             [, $return_pc, $function, , $closure] = $frames[--$i];
