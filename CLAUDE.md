@@ -202,6 +202,19 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   rebuilds its compiler before PHP is even installed (the bootstrap needs only a C compiler),
   then the suite, the whole-repository group, phpstan and pint. There is no macOS job; macOS is
   where it is developed.
+- **Speed**: the same program takes gazlang 1.0 to 2.0 times what it takes PHP (JIT or not),
+  and Python 3.9 1.4 to 4 times what it takes gazlang, except where Python's builtins do the
+  work in C (compiling from source included on all sides; gazlang's compile is about 10ms). If
+  speed is next, in this order, measuring each alone with `php vm/bench.php`:
+  1. **Superinstructions** in the C loader (`LOAD; LOAD; ADD`, compare-and-jump, `LOAD; PUSH;
+     op`): the tight arithmetic loop is 2x PHP and nearly all dispatch. No format change.
+  2. **`map`, `filter`, `reduce`, `sort` as builtins**, calling back into GazLang the way both
+     VMs already do for `to_string()`; `lib/functional.gaz` in GazLang is why closures are the
+     one benchmark Python wins.
+  3. A Python column in `vm/bench.php` (ports of `vm/bench/*.php`), with a Python 3.11 or later.
+- **Decisions waiting for Werner**: whether bytecode version 1 now carries a compatibility
+  promise (`docs/bytecode.md` says none "until the compiler is self-hosted", which it is).
+- **Small cleanups**: rewrite the five `($m[$k] ?? 0) + 1` counters (listed under language gaps).
 - **Known limits**, none worth fixing yet:
   - The self-hosted parser runs out of call depth on source nested past about 1100 levels
     (recursive descent is about nine calls a level), as an internal error. Its tree walks use
