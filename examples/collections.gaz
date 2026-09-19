@@ -49,7 +49,8 @@ echo $by_letter;                                // {"a" => ["apple", "avocado"],
 // Counting
 $counts = {};
 foreach (split("the cat and the hat and the bat", " ") as $word) {
-    $counts[$word] = ($counts[$word] ?? 0) + 1;
+    $counts[$word] ??= 0;
+    $counts[$word]++;
 }
 foreach ($counts as $word => $n) {
     if ($n > 1) {

@@ -82,7 +82,10 @@ echo "balance after payments: {$account.balance}";   // balance after payments: 
 class Counter {
     #counts = {};
     fn counter($key) {
-        return () -> #counts[$key] = (#counts[$key] ?? 0) + 1;
+        return () -> {
+            #counts[$key] ??= 0;
+            #counts[$key]++;
+        };
     }
     fn to_string() { return "Counter {#counts}"; }
 }

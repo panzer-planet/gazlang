@@ -84,6 +84,7 @@ echo "...";
 
 $counts = {};
 foreach ($tokens as $t) {
-    $counts[$t["type"]] = ($counts[$t["type"]] ?? 0) + 1;
+    $counts[$t["type"]] ??= 0;
+    $counts[$t["type"]]++;
 }
 echo len($tokens) .. " tokens: $counts";

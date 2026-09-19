@@ -52,7 +52,8 @@ foreach ($records as $i => $record) {
     }
     $group = $record[$group_column];
     $totals[$group] = ($totals[$group] ?? 0.0) + $amount;
-    $counts[$group] = ($counts[$group] ?? 0) + 1;
+    $counts[$group] ??= 0;
+    $counts[$group]++;
 }
 
 // Largest total first (a stable sort keeps ties in first-seen order)

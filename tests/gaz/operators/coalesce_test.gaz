@@ -35,10 +35,11 @@ $assigned = $never_assigned ?? 7;
 check("assignment last", $assigned, 7);
 check("in interpolation", "{$values["missing"] ?? "fallback"}", "fallback");
 
-// Counting with ?? instead of checking has_key first
+// Counting with ??= instead of checking has_key first
 $counts = {};
 foreach (["a", "b", "a", "a"] as $word) {
-    $counts[$word] = ($counts[$word] ?? 0) + 1;
+    $counts[$word] ??= 0;
+    $counts[$word]++;
 }
 check("counting", $counts, {"a" => 3, "b" => 1});
 

@@ -56,6 +56,7 @@ php tests/fuzz_parsers.php [RUNS] [SEED] [code]                # the two parsers
 php -d pcov.enabled=0 tests/fuzz_vms.php [RUNS] [SEED] [values|programs]   # the two VMs
 
 # The C VM's coverage by the harness, its speed, and a build that collects cycles at every chance
+# (over an hour: collecting is quadratic, and the entries that compile the compiler take longest)
 php vm/coverage.php [file.c]
 php vm/bench.php
 make -C vm stress && GAZVM=vm/build/gazvm-stress php vm/progress.php
@@ -212,7 +213,6 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   spend theirs in malloc/free and the collector, so profile those before trying an allocator.
 - **Decisions waiting for Werner**: whether bytecode version 1 now carries a compatibility
   promise (`docs/bytecode.md` says none "until the compiler is self-hosted", which it is).
-- **Small cleanups**: rewrite the five `($m[$k] ?? 0) + 1` counters (listed under language gaps).
 - **Known limits**, none worth fixing yet:
   - The self-hosted parser runs out of call depth on source nested past about 1100 levels
     (recursive descent is about nine calls a level), as an internal error. Its tree walks use
@@ -251,11 +251,6 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     `catch (A | B $e)`, no bare rethrow, no `_` to skip an element in a list pattern.
   - `match ($x)` is a linear chain of `EQUALS`; no jump table.
   - No enum: token types are strings on purpose (they are the `--tokens` format).
-  - Counting into a map: write `$m[$k] ??= 0; $m[$k]++;`, which names the key once. `+=` will
-    not create a missing key, since no starting value suits every operator (`*=`, `..=`, `/=`).
-    Five places still write `$m[$k] = ($m[$k] ?? 0) + 1`, which evaluates the key twice:
-    `examples/collections.gaz`, `objects.gaz`, `csv_report.gaz`, `tokenizer.gaz` and
-    `tests/gaz/operators/coalesce_test.gaz`. Rewrite them.
 - **Decided, not built**: `interface`/`implements` (a parse-time check that the methods exist,
   plus `is_a`), `final`, and `private`/`protected` with public implicit (`#` and `##` checked at
   parse time, `$obj.name` when it runs, against the running method's class; a parent's private
