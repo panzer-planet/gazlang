@@ -13,6 +13,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/random.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -34,7 +35,7 @@ const BuiltinInfo builtin_info[] = {
     {"is_a", 2, 2}, {"class_of", 1, 1}, {"fields", 1, 1}, {"error", 1, 1}, {"exit", 0, 1},
     {"read_file", 1, 1}, {"write_file", 2, 2}, {"file_exists", 1, 1}, {"real_path", 1, 1},
     {"cwd", 0, 0}, {"print", 1, 1}, {"print_error", 1, 1}, {"read_stdin", 0, 0}, {"args", 0, 0},
-    {"builtins", 0, 0},
+    {"builtins", 0, 0}, {"rand_int", 2, 2}, {"rand_float", 0, 0}, {"rand_seed", 0, 1},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -44,7 +45,7 @@ enum {
     B_CEIL, B_ROUND, B_ABS, B_INTDIV, B_MIN, B_MAX, B_TO_STRING, B_IN_ARRAY, B_HAS_KEY, B_KEYS,
     B_VALUES, B_LAST, B_REVERSE, B_MAP, B_FILTER, B_REDUCE, B_SORT, B_TYPE_OF, B_IS_A, B_CLASS_OF, B_FIELDS, B_ERROR, B_EXIT, B_READ_FILE,
     B_WRITE_FILE, B_FILE_EXISTS, B_REAL_PATH, B_CWD, B_PRINT, B_PRINT_ERROR, B_READ_STDIN,
-    B_ARGS, B_BUILTINS,
+    B_ARGS, B_BUILTINS, B_RAND_INT, B_RAND_FLOAT, B_RAND_SEED,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -77,6 +78,56 @@ bool raise_arity(const char *what, int lo, int hi, int argc) {
 
 /* Type masks for argument checks */
 #define M(t) (1u << (t))
+
+/*
+ * Random numbers: xoshiro256** seeded through SplitMix64, which is what PHP's
+ * Random\Engine\Xoshiro256StarStar does, so a seed gives the same numbers in both runtimes.
+ * Not cryptographically secure.
+ */
+static uint64_t random_state[4];
+
+static uint64_t rotl(uint64_t x, int k) { return (x << k) | (x >> (64 - k)); }
+
+/* rand_seed($seed): four SplitMix64 outputs from the seed are the state */
+static void random_seed(uint64_t seed) {
+    for (int i = 0; i < 4; i++) {
+        uint64_t z = (seed += 0x9e3779b97f4a7c15u);
+        z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9u;
+        z = (z ^ (z >> 27)) * 0x94d049bb133111ebu;
+        random_state[i] = z ^ (z >> 31);
+    }
+}
+
+/* rand_seed() without a seed, which every program starts with: one from the operating system */
+void random_seed_unpredictable(void) {
+    uint64_t seed;
+    if (getentropy(&seed, sizeof seed) != 0) {
+        perror("gazvm: getentropy");
+        exit(70);
+    }
+    random_seed(seed);
+}
+
+static uint64_t random_next(void) {
+    uint64_t *s = random_state, result = rotl(s[1] * 5, 7) * 9, t = s[1] << 17;
+    s[2] ^= s[0];
+    s[3] ^= s[1];
+    s[1] ^= s[2];
+    s[0] ^= s[3];
+    s[2] ^= t;
+    s[3] = rotl(s[3], 45);
+    return result;
+}
+
+/* rand_int($min, $max), as Builtins::randInt(): draw as many low bits as the span $max - $min
+   uses until they are at most the span, so every result is equally likely */
+static int64_t random_between(int64_t min, int64_t max) {
+    uint64_t span = (uint64_t)max - (uint64_t)min, mask = span, offset;
+    for (int shift = 1; shift < 64; shift *= 2) mask |= mask >> shift;
+    do offset = random_next() & mask; while (offset > span);
+    /* Unsigned, since the sum only fits once it is back in range; the cast back is exact */
+    return (int64_t)((uint64_t)min + offset);
+}
 
 /* Check an argument's type: "len() expects list or map or string, got int" */
 static bool want(int builtin, Value v, unsigned mask) {
@@ -800,6 +851,21 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         *out = v_list(l);
         return true;
     }
+    case B_RAND_INT:
+        if (!want(index, a, INT) || !want(index, b, INT)) return false;
+        if (b.i < a.i) return raise("rand_int() expects min <= max, got %lld and %lld", (long long)a.i, (long long)b.i);
+        *out = v_int(random_between(a.i, b.i));
+        return true;
+    case B_RAND_FLOAT:
+        /* The top 53 bits, the most a double holds exactly, as a fraction of 2^53 */
+        *out = v_float((double)(random_next() >> 11) * 0x1p-53);
+        return true;
+    case B_RAND_SEED:
+        if (!want(index, a, INT | M(T_NULL))) return false;
+        if (a.type == T_INT) random_seed((uint64_t)a.i);
+        else random_seed_unpredictable();
+        *out = v_null();
+        return true;
     case B_BUILTINS: {
         Map *m = map_new();
         for (int i = 0; i < nbuiltins; i++) {

@@ -1,0 +1,42 @@
+include "../check.gaz";
+include "../../../lib/random.gaz";
+
+// Unseeded, only the kind of result can be checked
+$shuffled = rand_shuffle([1, 2, 3, 4, 5]);
+check("unseeded shuffle keeps the elements", sort($shuffled, ($a, $b) -> $a <=> $b), [1, 2, 3, 4, 5]);
+check("unseeded pick is an element", in_array(rand_pick(["a", "b"]), ["a", "b"]), true);
+check("unseeded key is a key", in_array(rand_key({"x" => 1, "y" => 2}), ["x", "y"]), true);
+check("unseeded chance is a bool", type_of(rand_chance(0.5)), "bool");
+
+// Seeded, the same choices every run and in every runtime
+rand_seed(7);
+echo rand_shuffle([1, 2, 3, 4, 5, 6, 7, 8]);
+echo rand_shuffle("abcdefgh");
+echo rand_pick([10, 20, 30, 40]);
+echo rand_pick({"a" => 1, "b" => 2, "c" => 3});
+echo rand_key([10, 20, 30, 40]);
+echo rand_key({"a" => 1, "b" => 2, "c" => 3});
+echo map(range_of(10), $i -> rand_chance(0.3));
+echo map(range_of(10), $i -> rand_weighted([["rare", 1], ["common", 9]]));
+echo map(range_of(5), $i -> rand_weighted([["x", 0.5], ["y", 1.5]], 2.0));
+
+fn range_of($n) {
+    $list = [];
+    for ($i = 0; $i < $n; $i++) {
+        $list[] = $i;
+    }
+    return $list;
+}
+
+// The edges
+check("shuffle nothing", [rand_shuffle([]), rand_shuffle(""), rand_shuffle([1])], [[], "", [1]]);
+check("chance 0 and 1", [rand_chance(0), rand_chance(1), rand_chance(0.0), rand_chance(1.0)], [false, true, false, true]);
+check("weighted skips a zero weight", rand_weighted([["never", 0], ["always", 3]]), "always");
+foreach ([() -> rand_pick([]), () -> rand_key({}), () -> rand_weighted([]), () -> rand_shuffle({})] as $f) {
+    try {
+        $f();
+        echo "FAIL no error";
+    } catch (Error $e) {
+        echo $e.message;
+    }
+}

@@ -455,5 +455,6 @@ bool call_builtin(int index, Value *args, int argc, Value *out);
 static inline bool arity_fits(int lo, int hi, int argc) { return argc >= lo && argc <= hi; }
 bool raise_arity(const char *what, int lo, int hi, int argc);
 Func *builtin_value(int index);
+void random_seed_unpredictable(void);
 
 #endif

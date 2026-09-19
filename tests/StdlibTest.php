@@ -528,4 +528,84 @@ class StdlibTest extends GazLangTestCase
             $this->generateCode('echo slice("abc", 0, 1); args();')
         );
     }
+
+    public function test_rand_seed_pins_the_numbers_in_both_runtimes()
+    {
+        // Worked out independently, with unsigned arithmetic (Python): xoshiro256** seeded through
+        // SplitMix64, rand_int by masked rejection and rand_float from the top 53 bits
+        $draws = 'echo map([1, 2, 3, 4, 5], $i -> rand_int(1, 6)); echo rand_int(5, 5);'
+            .' echo rand_int(-9223372036854775807 - 1, 9223372036854775807);'
+            .' echo rand_int(-9223372036854775807 - 1, -9223372036854775807 - 1);'
+            .' echo rand_int(9223372036854775807, 9223372036854775807); echo rand_int(-1000, 1000);'
+            .' echo rand_int(0, 9223372036854775807); echo rand_int(-9223372036854775807 - 1, -1);'
+            .' echo rand_float(); echo rand_float();';
+        $expected = [
+            '0' => [[5, 3, 1, 5, 2], -1434944111878255464, -427, 2108416074180405844, -7983162549738583115, '0.10667465014124933', '0.6548331676545119'],
+            '-1' => [[1, 6, 3, 6, 3], 2108038217347390602, 150, 8873532491084022193, -5697842235154423713, '0.7765256754275042', '0.18508067442820086'],
+            '-9223372036854775807 - 1' => [[4, 3, 2, 5, 3], -4465951018770553547, 867, 8605345157329039497, -7438891730449967671, '0.4510790100773958', '0.7301394703154883'],
+            '123456789' => [[3, 1, 1, 3, 2], -2734074844826621121, -779, 5490371242107294122, -462937021012621692, '0.06362182264572802', '0.13207336538611603'],
+        ];
+        foreach ($expected as $seed => [$dice, $full, $small, $upper, $lower, $first, $second]) {
+            $this->assertSame(
+                '['.implode(', ', $dice)."]\n5\n{$full}\n-9223372036854775808\n9223372036854775807\n{$small}\n{$upper}\n{$lower}\n{$first}\n{$second}\n",
+                $this->executeCode("rand_seed({$seed}); {$draws}"),
+                "seed {$seed}"
+            );
+        }
+    }
+
+    public function test_rand_seed_restarts_the_sequence_and_gives_null()
+    {
+        $this->assertSame(
+            "true\nnull\n",
+            $this->executeCode('rand_seed(42); $a = [rand_int(0, 100), rand_float()]; echo [rand_int(0, 100), rand_float()] != $a && ([rand_seed(42), rand_int(0, 100), rand_float()] == [null, ...$a]); echo rand_seed();')
+        );
+    }
+
+    public function test_unseeded_numbers_are_in_range()
+    {
+        // Unseeded, the runtimes draw different numbers, so only the kind of result can be printed
+        $this->assertSame(
+            "true\ntrue\ntrue\n",
+            $this->executeCode(
+                '$ok = true; for ($i = 0; $i < 200; $i++) { $n = rand_int(-3, 3); $f = rand_float();'
+                .' $ok = $ok && $n >= -3 && $n <= 3 && type_of($f) == "float" && $f >= 0.0 && $f < 1.0; }'
+                .' echo $ok; rand_seed(); echo type_of(rand_int(0, 1)) == "int"; echo rand_int(7, 7) == 7;'
+            )
+        );
+    }
+
+    public function test_every_program_starts_unpredictable()
+    {
+        CVM::build();
+        $file = tempnam(sys_get_temp_dir(), 'gaz');
+        file_put_contents($file, 'echo rand_int(-9223372036854775807 - 1, 9223372036854775807);');
+        try {
+            foreach ([[CVM::BINARY], ['bin/gazlang-php'], ['bin/gazlang-php', '--interpreter']] as $gazlang) {
+                [[$first], [$second]] = CVM::processes([[...$gazlang, '-f', $file], [...$gazlang, '-f', $file]]);
+                $this->assertMatchesRegularExpression('/^-?\d+\n$/', $first);
+                $this->assertNotSame($first, $second, implode(' ', $gazlang));
+            }
+        } finally {
+            unlink($file);
+        }
+    }
+
+    public function test_rand_int_needs_min_at_most_max()
+    {
+        $this->expectExceptionMessage('rand_int() expects min <= max, got 3 and 2 on line 1');
+        $this->executeCode('rand_int(3, 2);');
+    }
+
+    public function test_rand_int_and_rand_seed_need_ints()
+    {
+        foreach (['rand_int(1.0, 2)' => 'rand_int() expects int, got float', 'rand_int(1, "2")' => 'rand_int() expects int, got string', 'rand_seed(1.5)' => 'rand_seed() expects int or null, got float'] as $call => $message) {
+            try {
+                $this->executeCode("{$call};");
+                $this->fail("{$call} ran");
+            } catch (GazLangError $e) {
+                $this->assertStringStartsWith($message, $e->getMessage());
+            }
+        }
+    }
 }

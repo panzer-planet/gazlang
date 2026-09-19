@@ -360,6 +360,23 @@ too), and an error when there is nothing there; `file_exists($path)` is whether 
 
 **Control** — `error($value)`, `exit($code = 0)`.
 
+**Random numbers** — not cryptographically secure: for games, simulations and sampling, never
+for passwords, tokens or keys.
+
+- `rand_int($min, $max)` — an int from `$min` to `$max`, both included; `$max < $min` is an
+  error.
+- `rand_float()` — a float from `0.0` up to but not including `1.0`.
+- `rand_seed($seed = null)` — restarts the sequence from an int seed, so a program draws the
+  same numbers on every run and on both runtimes; with no seed, from an unpredictable one taken
+  from the operating system. Every program starts as if it had called `rand_seed()`.
+
+The generator is xoshiro256\*\*, seeded from the int through SplitMix64 (as PHP's
+`Random\Engine\Xoshiro256StarStar` does). How its 64-bit outputs become numbers is GazLang's
+own rule: `rand_float()` is the top 53 bits divided by 2^53; `rand_int()` takes the span
+`$max - $min` as an unsigned 64-bit number, masks each output down to the bits the span uses,
+and draws again until the result is at most the span, then adds it to `$min`, so every int in
+the range is equally likely. `lib/random.gaz` builds shuffling and picking on these.
+
 ## Libraries
 
 `include "lib/json.gaz";` splices a file in at parse time, relative to the including file. Each
@@ -372,3 +389,4 @@ file is included once, which also breaks cycles. Everything in `lib/` is written
 | `csv.gaz` | `csv_parse`, `csv_records` (RFC 4180) |
 | `chars.gaz` | `char_at`, `is_digit`, `is_alpha`, `is_alnum`, `is_space`, `is_hex_digit` |
 | `format.gaz` | `pad_left`, `pad_right` |
+| `random.gaz` | `rand_shuffle` (a shuffled copy of a list or string), `rand_pick` (an element of a list or value of a map), `rand_key`, `rand_chance($p)`, `rand_weighted` (from `[item, weight]` pairs) |

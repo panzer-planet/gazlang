@@ -4,56 +4,10 @@
 //   bin/gazlang -f examples/football.gaz -- [CLUBS] [SEED]
 //
 // CLUBS is how many clubs play, from 2 to 20 (4 by default), taken from the strongest down.
-// Everything random comes from seeded generators: the squads are always the same, and the
-// same season seed always plays the same season.
+// Everything random is seeded: the squads are always the same, and the same season seed
+// always plays the same season.
 include "../lib/format.gaz";
-
-// A linear congruential generator: the same seed always gives the same numbers
-class Random {
-    #state;
-
-    // Any int is a seed: % keeps the sign of the left side, so a negative one is moved into range
-    fn _($seed) { #state = ($seed % 2147483648 + 2147483648) % 2147483648; }
-
-    fn next() { return #state = (#state * 1103515245 + 12345) % 2147483648; }
-
-    // A float from 0.0 up to but not including 1.0 (without calling next(): it runs every minute of every match)
-    fn fraction() { return (#state = (#state * 1103515245 + 12345) % 2147483648) / 2147483648.0; }
-
-    // An int from $low to $high, from the high bits (an LCG's low bits repeat quickly)
-    fn between($low, $high) { return $low + intdiv(#next(), 65536) % ($high - $low + 1); }
-
-    fn chance($probability) { return #fraction() < $probability; }
-
-    fn pick($items) { return $items[#between(0, len($items) - 1)]; }
-
-    // The items in a random order (Fisher-Yates)
-    fn shuffled($items) {
-        for ($i = len($items) - 1; $i > 0; $i--) {
-            $j = #between(0, $i);
-            $swap = $items[$i];
-            $items[$i] = $items[$j];
-            $items[$j] = $swap;
-        }
-        return $items;
-    }
-
-    // An item from a list of [item, weight] pairs, picked with probability in proportion to its
-    // weight; $total is the weights added up, when the caller already knows it
-    fn weighted($pairs, $total = null) {
-        if ($total == null) {
-            $total = reduce($pairs, ($sum, $pair) -> $sum + $pair[1], 0);
-        }
-        $target = #fraction() * $total;
-        foreach ($pairs as [$item, $weight]) {
-            $target -= $weight;
-            if ($target < 0) {
-                return $item;
-            }
-        }
-        return last($pairs)[0];
-    }
-}
+include "../lib/random.gaz";
 
 // Players: a rating from 40 to 95, and every position turns it into attacking and defending
 
@@ -213,7 +167,7 @@ class Team {
     fn defence() { return #summary()["defence"]; }
     fn goalkeeper() { return #summary()["keeper"]; }
     // Only players who attack at all are shooters, so their weights add up to the attack
-    fn shooter($random) { return $random.weighted(#summary()["shooters"], #summary()["shooting"]); }
+    fn shooter() { return rand_weighted(#summary()["shooters"], #summary()["shooting"]); }
     fn rating() { return round(reduce(#players, ($sum, $player) -> $sum + $player.rating, 0) / 11, 1); }
 
     // The players tired, rested or were sent off
@@ -265,10 +219,7 @@ class Formation {
 
 // Makes up squads: names from a pool, ratings spread around the club's level
 class Scout {
-    #random;
     #taken = {};
-
-    fn _($seed) { #random = Random($seed); }
 
     fn team($name, $level, $formation) {
         $formation = Formation($formation);
@@ -278,9 +229,9 @@ class Scout {
     }
 
     fn rating($level) {
-        $rating = $level + #random.between(-9, 7);
+        $rating = $level + rand_int(-9, 7);
         // Now and then a club has a star
-        if (#random.chance(0.08)) {
+        if (rand_chance(0.08)) {
             $rating += 8;
         }
         return min(max($rating, 40), 95);
@@ -289,7 +240,7 @@ class Scout {
     // Every name in the league is different
     fn new_name() {
         while (true) {
-            $name = #random.pick(FIRST_INITIALS) .. ". " .. #random.pick(SURNAMES);
+            $name = rand_pick(FIRST_INITIALS) .. ". " .. rand_pick(SURNAMES);
             if (! has_key(#taken, $name)) {
                 #taken[$name] = true;
                 return $name;
@@ -375,15 +326,13 @@ class Whistle extends Event {
 class Fixture {
     #home;
     #away;
-    #random;
     #home_goals = 0;
     #away_goals = 0;
     #listeners = [];
 
-    fn _($home, $away, $random) {
+    fn _($home, $away) {
         #home = $home;
         #away = $away;
-        #random = $random;
     }
 
     // $listener($event) is called for everything that happens
@@ -412,31 +361,31 @@ class Fixture {
 
     fn minute($minute) {
         // A chance in about one minute in six, a foul in one in thirty, and most minutes nothing
-        $roll = #random.fraction();
+        $roll = rand_float();
         if ($roll < 0.17) {
             // The home side gets a little more of the ball
             $home_attack = #home.attack() * 1.1;
-            if (#random.chance($home_attack / ($home_attack + #away.attack()))) {
+            if (rand_chance($home_attack / ($home_attack + #away.attack()))) {
                 #attempt($minute, #home, #away);
             } else {
                 #attempt($minute, #away, #home);
             }
         } else if ($roll < 0.2) {
-            #foul($minute, #random.chance(0.5) ? #home : #away);
+            #foul($minute, rand_chance(0.5) ? #home : #away);
         }
     }
 
     fn attempt($minute, $attackers, $defenders) {
-        $shooter = $attackers.shooter(#random);
+        $shooter = $attackers.shooter();
         $keeper = $defenders.goalkeeper();
 
         // A better shooter against a weaker defence hits the target more often, and beats the keeper more often
         $on_target = $shooter.attacking() / ($shooter.attacking() + $defenders.defence() / 12);
-        if (! #random.chance($on_target * 0.8)) {
+        if (! rand_chance($on_target * 0.8)) {
             #emit(Shot($minute, $attackers, $shooter, null));
             return;
         }
-        if (#random.chance($keeper.defending() / ($keeper.defending() + $shooter.attacking() * 1.1))) {
+        if (rand_chance($keeper.defending() / ($keeper.defending() + $shooter.attacking() * 1.1))) {
             #emit(Shot($minute, $attackers, $shooter, $keeper));
             return;
         }
@@ -452,7 +401,7 @@ class Fixture {
     }
 
     fn foul($minute, $team) {
-        $player = #random.weighted(map($team.on_pitch(), $player -> [$player, $player.defending() + 1]));
+        $player = rand_weighted(map($team.on_pitch(), $player -> [$player, $player.defending() + 1]));
         $red = $player.book();
         if ($red) {
             $team.changed();
@@ -508,12 +457,10 @@ class Standing {
 
 class League {
     #teams;
-    #random;
     #standings = {};
 
-    fn _($teams, $random) {
+    fn _($teams) {
         #teams = $teams;
-        #random = $random;
         foreach ($teams as $team) {
             #standings[$team.name] = Standing($team);
         }
@@ -523,7 +470,7 @@ class League {
     // season: everyone plays everyone at home and away, and every team plays once a matchday,
     // except that with an odd number of teams one of them rests each matchday
     fn fixtures() {
-        $teams = #random.shuffled(#teams);
+        $teams = rand_shuffle(#teams);
         if (len($teams) % 2 == 1) {
             // Whoever is drawn against null rests
             $teams[] = null;
@@ -561,7 +508,7 @@ class League {
         foreach (#fixtures() as $index => $matchday) {
             $matches = [];
             foreach ($matchday as [$home, $away]) {
-                $match = Fixture($home, $away, #random);
+                $match = Fixture($home, $away);
                 $kick_off($match);
                 $match.play();
                 #standings[$home.name].record($match.home_goals, $match.away_goals);
@@ -668,14 +615,17 @@ try {
     echo "Refused: {$e.message}";
 }
 
-$scout = Scout(1);
+// The same squads whatever the season
+rand_seed(1);
+$scout = Scout();
 $teams = [];
 foreach (slice($clubs, 0, $count) as [$name, $level, $formation]) {
     $teams[] = $scout.team($name, $level, $formation);
 }
 echo "Season {$seed}: {$count} clubs, " .. $count * ($count - 1) .. " matches";
 
-$league = League($teams, Random($seed));
+rand_seed($seed);
+$league = League($teams);
 $league.play_season(Commentator(1).kick_off, ($number, $matches) -> {
     if ($number != 1) {
         return;

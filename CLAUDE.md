@@ -421,6 +421,16 @@ compile to `CALL_BUILTIN name argc`, and check argument types by their `type_of(
   gazlang options or `--`; both CLIs reject options they don't know, since `getopt` would drop
   them silently), `cwd()`, `real_path()` (as `realpath(3)`; `""`, a NUL byte, `file/` and
   `file/..` are nothing, where PHP and macOS disagree), `file_exists()`.
+- Random numbers, not cryptographically secure (the docs say so): `rand_int($min, $max)` (both
+  included), `rand_float()` (0.0 up to 1.0, the top 53 bits), `rand_seed($seed = null)`
+  (without a seed, from OS entropy; every program starts that way). xoshiro256** seeded
+  through SplitMix64, PHP's `Xoshiro256StarStar`; C implements both itself. Mapping outputs
+  onto a range (mask and reject) and onto a float is GazLang's rule, written out identically in
+  `Builtins::randInt()` and `random_between()`, pinned for several seeds by `StdlibTest`. The
+  state is per program: a `Builtins` each in PHP, reseeded by `run_program()` in C, since the
+  compiler runs first. **Anything that prints random values calls `rand_seed()` first**, or the
+  runtimes draw different numbers and the harness rightly fails (snippets and corpus files
+  included); unseeded behaviour is tested by type and range only.
 - `error($value)` raises (see "Errors"); `exit($code = 0)` stops with that code, 0 to 255,
   printing nothing and running no `finally` (`Runtime\ExitSignal`).
 - `builtins()` is `ARITIES` as a map, in no promised order: the builtins of the runtime running the program, which the
@@ -429,7 +439,8 @@ compile to `CALL_BUILTIN name argc`, and check argument types by their `type_of(
 - In GazLang instead: `lib/chars.gaz` (character classes), `lib/sort.gaz` (by key, on `sort`),
   `lib/format.gaz` (`pad_left`/`pad_right`
   convert like echo: display helpers take any value, string functions stay strict),
-  `lib/json.gaz`, `lib/csv.gaz` (RFC 4180). Scan long strings with `index_of`, not a character
+  `lib/json.gaz`, `lib/csv.gaz` (RFC 4180), `lib/random.gaz` (`rand_shuffle`, `rand_pick`,
+  `rand_key`, `rand_chance`, `rand_weighted`; `rand_` since there are no namespaces yet). Scan long strings with `index_of`, not a character
   at a time.
 
 ## Function values and closures

@@ -5,6 +5,7 @@ namespace GazLang\Runtime;
 use Exception;
 use GazLang\GazLangError;
 use GazLang\Lexer\Lexer;
+use Random\Engine\Xoshiro256StarStar;
 
 /**
  * GazLang's builtin functions
@@ -70,6 +71,9 @@ final class Builtins
         'read_stdin' => 0,
         'args' => 0,
         'builtins' => 0,
+        'rand_int' => 2,
+        'rand_float' => 0,
+        'rand_seed' => [0, 1],
     ];
 
     /**
@@ -85,6 +89,12 @@ final class Builtins
     private $args;
 
     /**
+     * @var Xoshiro256StarStar The random number generator, one per program: rand_int(),
+     *                         rand_float() and rand_seed()
+     */
+    private $random;
+
+    /**
      * Constructor
      *
      * @param  string[]  $args  Command line arguments for the program, returned by args()
@@ -92,6 +102,8 @@ final class Builtins
     public function __construct(array $args = [])
     {
         $this->args = $args;
+        // Every program starts unpredictable, as if it had called rand_seed()
+        $this->random = new Xoshiro256StarStar;
     }
 
     /**
@@ -224,6 +236,10 @@ final class Builtins
             // This table, as a map: what the running runtime has, which is what a compiler
             // running on it checks calls against
             'builtins' => new MapValue(self::ARITIES),
+            'rand_int' => $this->randInt($this->argument($name, $args[0], 'int'), $this->argument($name, $args[1], 'int')),
+            // The top 53 bits, the most a float holds exactly, as a fraction of 2^53
+            'rand_float' => (($this->nextRandom() >> 11) & 0x1FFFFFFFFFFFFF) / 9007199254740992.0,
+            'rand_seed' => $this->randSeed($this->argument($name, $args[0] ?? null, 'int', 'null')),
             default => throw new Exception("Unknown builtin: {$name}"),
         };
     }
@@ -668,6 +684,61 @@ final class Builtins
         }
 
         return intdiv($left, $right);
+    }
+
+    /**
+     * The generator's next 64 bits, as PHP holds them: an int, negative when the top bit is set
+     */
+    private function nextRandom(): int
+    {
+        return unpack('P', $this->random->generate())[1];
+    }
+
+    /**
+     * rand_seed($seed = null): restart the sequence from a seed, or from an unpredictable one
+     *
+     * Xoshiro256StarStar seeds itself from an int through SplitMix64, as vm/builtins.c does.
+     *
+     * @param  int|null  $seed  The seed, or null for one from the operating system
+     */
+    private function randSeed(?int $seed): null
+    {
+        $this->random = $seed === null ? new Xoshiro256StarStar : new Xoshiro256StarStar($seed);
+
+        return null;
+    }
+
+    /**
+     * rand_int($min, $max): an int from $min to $max, both included, every one equally likely
+     *
+     * GazLang's own rule, done step for step by vm/builtins.c: the span $max - $min as an
+     * unsigned 64-bit number, a mask of the bits it uses, and draws of that many low bits until
+     * one is at most the span (fewer than two draws on average). PHP's ints are signed, so the
+     * unsigned steps are written out: xor with PHP_INT_MIN turns an unsigned comparison into a
+     * signed one, and the sums that would overflow are split at 2^63.
+     *
+     * @param  int  $min  The smallest result
+     * @param  int  $max  The largest result
+     *
+     * @throws Exception If $max is less than $min
+     */
+    private function randInt(int $min, int $max): int
+    {
+        if ($max < $min) {
+            throw new Exception("rand_int() expects min <= max, got {$min} and {$max}");
+        }
+        // The span, wrapped into 64 bits: past PHP_INT_MAX it is negative
+        $span = $min >= 0 || $max <= PHP_INT_MAX + $min ? $max - $min : ($max + PHP_INT_MIN) - ($min - PHP_INT_MIN);
+        $mask = $span;
+        foreach ([1, 2, 4, 8, 16, 32] as $shift) {
+            $mask |= $mask >> $shift;
+        }
+        do {
+            $offset = $this->nextRandom() & $mask;
+        } while (($offset ^ PHP_INT_MIN) > ($span ^ PHP_INT_MIN));
+
+        // $min + $offset, which fits, but a negative (so past 2^63) $offset needs $min negative
+        return $offset >= 0 ? $min + $offset : ($min - PHP_INT_MIN) + ($offset - PHP_INT_MIN);
     }
 
     /**

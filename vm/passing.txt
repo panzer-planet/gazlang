@@ -14,6 +14,7 @@ lib/chars.gaz
 lib/csv.gaz
 lib/format.gaz
 lib/json.gaz
+lib/random.gaz
 lib/sort.gaz
 selfhost/codegen.gaz
 selfhost/gazlang.gaz
@@ -71,6 +72,7 @@ snippet:125f3499202b
 snippet:1294625564cb
 snippet:12ff33e8aac0
 snippet:139154e1e93f
+snippet:145a5f16896b
 snippet:1483c6fdb79f
 snippet:1568da4bb5af
 snippet:159bf22cd6c4
@@ -186,6 +188,7 @@ snippet:4f8cdfda63c6
 snippet:4fadcfc35fa0
 snippet:4fc3e71dabb6
 snippet:50812af38a26
+snippet:50b2ccc73575
 snippet:510078f21718
 snippet:51aa68284575
 snippet:52c331acce63
@@ -205,6 +208,7 @@ snippet:558d4b13c48a
 snippet:558e3cf661d5
 snippet:569349dde78e
 snippet:56db506bd123
+snippet:57f0fd9f4e4f
 snippet:58158ba48077
 snippet:5825b8cadeed
 snippet:5833711ec98b
@@ -235,6 +239,7 @@ snippet:63e01554a45d
 snippet:642c13dbd738
 snippet:64864412c149
 snippet:66065d70a243
+snippet:66634118b87a
 snippet:66647dbe06ad
 snippet:66a331c29016
 snippet:675ef5980fe9
@@ -262,6 +267,7 @@ snippet:72d83ecb36c8
 snippet:7324b4ef0f75
 snippet:733764de35b3
 snippet:73f33e4d5c87
+snippet:73fcd9a28f1c
 snippet:74407963517f
 snippet:7485d1c98b66
 snippet:762078ff2c8c
@@ -284,6 +290,7 @@ snippet:82c265bb4913
 snippet:82cab58c148a
 snippet:82f3944b676a
 snippet:83289b5feb88
+snippet:836b61c5e2dc
 snippet:850b0cdd52fe
 snippet:85b5fa4fa7d1
 snippet:876870a517ab
@@ -320,6 +327,7 @@ snippet:969d453bcb1a
 snippet:96d6b7ec2f99
 snippet:979bbbc0c2c7
 snippet:97c4dfdacf48
+snippet:97dcba19905d
 snippet:982e395b9fdd
 snippet:983c09a1316a
 snippet:993eaba06f8d
@@ -343,6 +351,7 @@ snippet:a6ff831a3b34
 snippet:a75db456947d
 snippet:a8b365a7820b
 snippet:a90898555afd
+snippet:a9e521314827
 snippet:acb35b2507f9
 snippet:ad3de1a1aed1
 snippet:ad9a500d8c34
@@ -360,6 +369,7 @@ snippet:b2c965277b7b
 snippet:b39caeacdd46
 snippet:b410f976b0ed
 snippet:b5dd88034429
+snippet:b687b83453e7
 snippet:b6dca9d1160e
 snippet:b89dc9da27ae
 snippet:b8f521b29f54
@@ -438,6 +448,7 @@ snippet:de72ae3e9b0f
 snippet:ded1dd52ad9e
 snippet:ded20c754a8f
 snippet:df1cc3ac6464
+snippet:e05b07fe83b2
 snippet:e0625463267b
 snippet:e06e8ba508a3
 snippet:e07ca9beea4a
@@ -637,6 +648,7 @@ tests/gaz/operators/coalesce_test.gaz
 tests/gaz/selfhost/lexer_test.gaz
 tests/gaz/selfhost/parser_test.gaz
 tests/gaz/stdlib/functional_test.gaz
+tests/gaz/stdlib/random_test.gaz
 tests/gaz/stdlib/strings_test.gaz
 tests/gaz/strings/interpolation_test.gaz
 tests/lexer_corpus/block_comments.gaz

@@ -1334,6 +1334,8 @@ static int run_program(bool check) {
     frames = xcalloc(MAX_CALL_DEPTH + 4, sizeof(Frame));
     globals = xcalloc((size_t)program->nglobals + 1, sizeof(Value));
     vm_here = NULL;
+    /* Every program starts unpredictable, as if it had called rand_seed(), whatever ran before */
+    random_seed_unpredictable();
 
     Block *top = program->blocks[0];
     fp = frames;
