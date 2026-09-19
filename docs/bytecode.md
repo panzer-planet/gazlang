@@ -6,8 +6,9 @@ and `gazlang -f x.gzb` runs it. `compiler/codegen.gaz` writes it and `vm/load.c`
 its arguments and stack effect, and `BytecodeTest` keeps that table, this document and the VM
 in step.
 
-The version is `1`. A loader refuses any other version; there is no compatibility promise
-until the compiler is self-hosted. The same source always gives byte-identical bytecode.
+The version is `1`. A loader refuses any other version. There is no compatibility promise
+yet: the format has been stable, but it may still change, and a change that old files can't
+load under gets a new version. The same source always gives byte-identical bytecode.
 
 ## The file
 

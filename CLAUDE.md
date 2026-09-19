@@ -180,8 +180,11 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   arithmetic loop (1.6x) is still about a dozen dispatches an iteration against PHP's JIT, which
   only a register bytecode or a JIT would close; lists, maps, strings and objects (1.2 to 1.4x)
   spend theirs in malloc/free and the collector, so profile those before trying an allocator.
-- **Decisions waiting for Werner**: whether bytecode version 1 now carries a compatibility
-  promise (`docs/bytecode.md` says none "until the compiler is self-hosted", which it is).
+- **Bytecode has no compatibility promise yet**: stable so far, but free to change; a change
+  old files can't load under bumps the version.
+- **Not built yet, wanted**: a fuzzer. The old ones compared against the PHP implementation; one
+  that needs no oracle would run generated and mutated programs on the sanitized build and fail
+  on a crash, a sanitizer report, a leak or a time-out (`GAZVM_STATS`, `CVM::runC()`).
 - **Known limits**, none worth fixing yet:
   - The self-hosted parser runs out of call depth on source nested past about 1100 levels
     (recursive descent is about nine calls a level), as an internal error. Its tree walks use
