@@ -43,9 +43,14 @@ final class CVM
     }
 
     /**
-     * How long the C VM may run one program, in seconds; the sanitizers make it slower
+     * How long a program may run, in seconds: the sanitizers make the C VM slower, and a build
+     * GAZVM names can be far slower (the stress build takes over 20 minutes alone to compile the
+     * self-hosted compiler, and over an hour with the rest of a run beside it), so it gets two hours
      */
-    private const TIME_LIMIT = 60;
+    private static function timeLimit(): int
+    {
+        return getenv('GAZVM') ? 7200 : 60;
+    }
 
     /**
      * Build the C VM, the tested build and the optimised one, failing loudly if it doesn't compile
@@ -414,7 +419,7 @@ final class CVM
                 }
                 stream_set_blocking($pipes[1], false);
                 stream_set_blocking($pipes[2], false);
-                $running[$key] = ['process' => $process, 'pipes' => $pipes, 'out' => '', 'err' => '', 'deadline' => microtime(true) + self::TIME_LIMIT];
+                $running[$key] = ['process' => $process, 'pipes' => $pipes, 'out' => '', 'err' => '', 'deadline' => microtime(true) + self::timeLimit()];
             }
             $read = [];
             foreach ($running as $job) {
@@ -436,7 +441,7 @@ final class CVM
                 $killed = microtime(true) > $job['deadline'];
                 if ($killed) {
                     proc_terminate($job['process'], 9);
-                    $job['err'] .= "\n[killed after ".self::TIME_LIMIT."s]\n";
+                    $job['err'] .= "\n[killed after ".self::timeLimit()."s]\n";
                 }
                 if ($killed || (feof($job['pipes'][1]) && feof($job['pipes'][2]))) {
                     fclose($job['pipes'][1]);

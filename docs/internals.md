@@ -149,7 +149,8 @@ bin/gazlang-php --interpreter -f examples/functions.gaz   # the tree-walking int
   VM, also run `php tests/fuzz_vms.php` (programs that throw every kind of value at every
   operator and builtin; `programs` as a third argument mutates the repository's programs
   instead), and for the collector `make -C vm stress` then
-  `GAZVM=vm/build/gazvm-stress php vm/progress.php`, which collects cycles at every chance.
+  `GAZVM=vm/build/gazvm-stress php vm/progress.php`, which collects cycles at every chance
+  and takes over an hour (with `GAZVM` set, each program may run for two hours).
 - `lib/json.gaz` is checked against PHP's own `json_decode` on every `tests/json/y_*.json` and
   `n_*.json`; `lib/csv.gaz` against `fgetcsv`.
 
