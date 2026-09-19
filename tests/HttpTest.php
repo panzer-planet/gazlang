@@ -265,6 +265,23 @@ class HttpTest extends GazLangTestCase
         fclose($quiet);
     }
 
+    public function test_the_cat_facts_example_pages_through_the_api()
+    {
+        $run = fn (string ...$args) => $this->runProgram('examples/cat_facts.gaz', ['--api', self::$url, ...$args]);
+        $fact = fn (int $n) => "Fact {$n}".str_repeat('!', $n);
+
+        // Two pages of ten
+        $lines = array_map(fn ($n) => str_pad((string) $n, 2, ' ', STR_PAD_LEFT).'. '.$fact($n), range(1, 12));
+        $this->assertSame([implode("\n", $lines)."\n", 0], $run('list', '12'));
+        // All there are, and those short enough
+        $this->assertSame(25, substr_count($run('list', '30')[0], "\n"));
+        $this->assertSame(["1. Fact 1!\n2. Fact 2!!\n3. Fact 3!!!\n", 0], $run('list', '3', '9'));
+        $this->assertSame(["1. Fact 1!\n2. Fact 1!\n", 0], $run('random', '2', '8'));
+        [$output, $code] = $run('random', '1', '3');
+        $this->assertSame(1, $code);
+        $this->assertStringStartsWith('Error: No cat fact is 3 characters or shorter', $output);
+    }
+
     /**
      * @return array<string, array{string, string}>
      */

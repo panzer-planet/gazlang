@@ -51,6 +51,7 @@ function respond(string $method, string $uri, array $headers, string $body, stri
     $ok = fn (string $content, string $type = 'text/plain') => "HTTP/1.1 200 OK\r\nContent-Type: {$type}\r\nContent-Length: ".strlen($content)."\r\n\r\n".($method === 'HEAD' ? '' : $content);
     $redirect = fn (int $status, string $to) => "HTTP/1.1 {$status} Moved\r\nLocation: {$to}\r\nContent-Length: 6\r\n\r\nmoving";
     $port = substr($address, strrpos($address, ':') + 1);
+    parse_str((string) parse_url($uri, PHP_URL_QUERY), $query);
 
     return match (parse_url($uri, PHP_URL_PATH)) {
         '/body' => $ok($body, 'application/octet-stream'),
@@ -71,6 +72,56 @@ function respond(string $method, string $uri, array $headers, string $body, stri
         '/truncated' => "HTTP/1.1 200 OK\r\nContent-Length: 10\r\n\r\nshort",
         '/garbage' => "hello\r\n\r\n",
         '/silent' => '',
+        // catfact.ninja's API, for examples/cat_facts.gaz
+        '/fact' => $ok(json_encode(catFact((int) ($query['max_length'] ?? PHP_INT_MAX)) ?? (object) []), 'application/json'),
+        '/facts' => $ok(json_encode(catFacts((int) ($query['limit'] ?? 10), (int) ($query['page'] ?? 1), (int) ($query['max_length'] ?? PHP_INT_MAX), $address)), 'application/json'),
         default => $ok(json_encode(['method' => $method, 'uri' => $uri, 'headers' => $headers, 'body' => $body], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), 'application/json'),
     };
+}
+
+/**
+ * 25 made-up cat facts, "Fact N" and N exclamation marks, so each is longer than the last
+ *
+ * @return list<array{fact: string, length: int}>
+ */
+function catFactList(int $max_length): array
+{
+    $facts = [];
+    for ($n = 1; $n <= 25; $n++) {
+        $fact = "Fact {$n}".str_repeat('!', $n);
+        if (strlen($fact) <= $max_length) {
+            $facts[] = ['fact' => $fact, 'length' => strlen($fact)];
+        }
+    }
+
+    return $facts;
+}
+
+/**
+ * /fact: the first that is short enough, rather than a random one, so tests know which
+ *
+ * @return array{fact: string, length: int}|null
+ */
+function catFact(int $max_length): ?array
+{
+    return catFactList($max_length)[0] ?? null;
+}
+
+/**
+ * /facts: a page of them, with a next_page_url that forgets the limit and max_length, as the
+ * real one does
+ *
+ * @return array<string, mixed>
+ */
+function catFacts(int $limit, int $page, int $max_length, string $address): array
+{
+    $facts = catFactList($max_length);
+    $last_page = max(1, (int) ceil(count($facts) / $limit));
+
+    return [
+        'current_page' => $page,
+        'data' => array_slice($facts, ($page - 1) * $limit, $limit),
+        'last_page' => $last_page,
+        'next_page_url' => $page < $last_page ? "http://{$address}/facts?page=".($page + 1) : null,
+    ];
 }

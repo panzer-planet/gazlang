@@ -64,6 +64,7 @@ Then try a sample program or two:
 bin/gazlang -f examples/pathfinding.gaz      # the fewest steps and the least effort across a map
 bin/gazlang -f examples/brainfuck.gaz        # a Brainfuck interpreter
 bin/gazlang -f examples/csv_report.gaz -- examples/data/sales.csv region amount
+bin/gazlang -f examples/cat_facts.gaz -- list 5   # from a web API, over HTTPS
 ```
 
 Other ways to run it:

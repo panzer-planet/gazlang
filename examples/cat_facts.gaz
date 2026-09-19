@@ -1,0 +1,106 @@
+// Cat facts from https://catfact.ninja, a free API that needs no key: lib/http.gaz and
+// lib/json.gaz at work.
+//
+//   bin/gazlang -f examples/cat_facts.gaz -- random            a random fact
+//   bin/gazlang -f examples/cat_facts.gaz -- random 3 60       three, none over 60 characters
+//   bin/gazlang -f examples/cat_facts.gaz -- list 25           the first 25, fetched page by page
+//   bin/gazlang -f examples/cat_facts.gaz -- list 25 60        the first 25 of at most 60
+//
+// --api URL, before the command, asks another server with the same API (the tests run one).
+// Without a command it prints this usage and fetches nothing.
+
+include "../lib/http.gaz";
+include "../lib/json.gaz";
+include "../lib/format.gaz";
+
+const API = "https://catfact.ninja";
+const PAGE_SIZE = 10;
+
+// The JSON a URL answers with; any status but 200 is an error
+fn fetch($url) {
+    $response = http_get($url, {"Accept" => "application/json"});
+    if ($response["status"] != 200) {
+        error("$url answered {$response["status"]}");
+    }
+    return json_decode($response["body"]);
+}
+
+fn random_facts($api, $count, $max_length) {
+    $query = $max_length == null ? "" : "?max_length=$max_length";
+    $facts = [];
+    for ($i = 0; $i < $count; $i++) {
+        // {} when no fact is that short
+        $fact = fetch("$api/fact$query")["fact"] ?? null;
+        if ($fact == null) {
+            error("No cat fact is $max_length characters or shorter");
+        }
+        $facts[] = $fact;
+    }
+    return $facts;
+}
+
+// The first $count facts, a page at a time. Each page's URL is built here rather than taken
+// from its next_page_url, which forgets the limit and max_length asked for.
+fn listed_facts($api, $count, $max_length) {
+    $query = "limit=" .. PAGE_SIZE .. ($max_length == null ? "" : "&max_length=$max_length");
+    $facts = [];
+    $page = 1;
+    $last_page = 1;
+    while (len($facts) < $count && $page <= $last_page) {
+        $answer = fetch("$api/facts?$query&page=$page");
+        foreach ($answer["data"] as $item) {
+            if (len($facts) < $count) {
+                $facts[] = $item["fact"];
+            }
+        }
+        $last_page = $answer["last_page"];
+        $page++;
+    }
+    return $facts;
+}
+
+// A whole number from the command line, or $default when it isn't there
+fn number_argument($arguments, $i, $default) {
+    $text = $arguments[$i] ?? null;
+    if ($text == null) {
+        return $default;
+    }
+    try {
+        $number = to_int($text);
+    } catch (Error $e) {
+        $number = 0;
+    }
+    if ($number < 1) {
+        error("Expected a whole number above 0, got \"$text\"");
+    }
+    return $number;
+}
+
+fn usage() {
+    echo "Usage: bin/gazlang -f examples/cat_facts.gaz -- [--api URL] random [COUNT [MAX_LENGTH]]";
+    echo "       bin/gazlang -f examples/cat_facts.gaz -- [--api URL] list COUNT [MAX_LENGTH]";
+}
+
+$arguments = args();
+$api = API;
+if (len($arguments) >= 2 && $arguments[0] == "--api") {
+    $api = $arguments[1];
+    $arguments = slice($arguments, 2);
+}
+
+$facts = match ($arguments[0] ?? null) {
+    "random" => random_facts($api, number_argument($arguments, 1, 1), number_argument($arguments, 2, null)),
+    "list" => listed_facts($api, number_argument($arguments, 1, PAGE_SIZE), number_argument($arguments, 2, null)),
+    default => null,
+};
+if ($facts == null) {
+    usage();
+    if (len($arguments) > 0) {
+        exit(2);
+    }
+} else {
+    $width = len(to_string(len($facts)));
+    foreach ($facts as $i => $fact) {
+        echo pad_left($i + 1, $width) .. ". " .. $fact;
+    }
+}

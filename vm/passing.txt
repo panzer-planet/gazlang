@@ -4,6 +4,7 @@ compiler/lexer.gaz
 compiler/nodes.gaz
 compiler/parser.gaz
 examples/brainfuck.gaz
+examples/cat_facts.gaz
 examples/collections.gaz
 examples/csv_report.gaz
 examples/errors.gaz
