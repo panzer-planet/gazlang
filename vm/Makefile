@@ -18,6 +18,7 @@ GAZLANG = ../bin/gazlang
 all: $(GAZLANG)
 
 $(GAZLANG): $(SOURCES) $(HEADERS) $(COMPILER)
+	@mkdir -p ../bin
 	$(CC) $(FLAGS) -O2 -o $@ $(SOURCES) $(COMPILER) -lm -lpthread
 
 # The bytes as a C array, written out by od: no escaping to get wrong (and no trigraphs, which

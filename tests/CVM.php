@@ -105,6 +105,9 @@ final class CVM
      */
     public static function runC(array $entries): array
     {
+        // The scratch directory the tests write in (StdlibTest makes it too), which a snippet
+        // that writes a file expects, whichever test runs first
+        @mkdir(self::ROOT.'/tests/.tmp');
         $commands = [];
         $stdin = [];
         foreach ($entries as $entry) {
