@@ -667,7 +667,8 @@ try {
 
 - `//` and `/* */`, skipped by the lexer. **Block comments nest** (as in Rust and Swift), so a
   region already holding a comment can be commented out; an unterminated one is an error at
-  the line the outermost opened on. `editors/gaz.tmLanguage` nests them too.
+  the line the outermost opened on. `editors/gaz.tmLanguage` nests them too
+  (`EditorGrammarTest` fails when it misses a builtin or keyword).
 - **Keywords are lowercase and exact**, so `class If`, `fn Return()` and `class Match` are
   ordinary names, which a self-hosted AST wants. PHP matches keywords *and* names
   case-insensitively; matching only keywords that way was its wart without its rule. A

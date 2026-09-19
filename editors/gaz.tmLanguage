@@ -259,7 +259,7 @@
 			<key>name</key>
 			<string>support.function.gaz</string>
 			<key>match</key>
-			<string>(?&lt;![\w.$@#])\b(len|slice|lower|upper|trim|split|join|replace|contains|starts_with|ends_with|index_of|repeat|chr|ord|to_int|to_float|to_string|floor|ceil|round|abs|intdiv|min|max|in_array|has_key|keys|values|type_of|is_a|class_of|fields|error|exit|read_file|write_file|file_exists|real_path|cwd|print_error|print|read_stdin|args|builtins)\b</string>
+			<string>(?&lt;![\w.$@#])\b(len|slice|lower|upper|trim|split|join|replace|contains|starts_with|ends_with|index_of|repeat|chr|ord|to_int|to_float|to_string|floor|ceil|round|abs|intdiv|min|max|in_array|has_key|keys|values|last|reverse|map|filter|reduce|sort|type_of|is_a|class_of|fields|error|exit|read_file|write_file|file_exists|real_path|cwd|print_error|print|read_stdin|args|builtins)\b</string>
 		</dict>
 		<key>classes</key>
 		<dict>
@@ -315,6 +315,10 @@
 							<array>
 								<dict>
 									<key>include</key>
+									<string>#braces</string>
+								</dict>
+								<dict>
+									<key>include</key>
 									<string>$self</string>
 								</dict>
 							</array>
@@ -326,6 +330,26 @@
 							<string>\$[a-zA-Z_][a-zA-Z0-9_]*(\[[^\]]*\])?</string>
 						</dict>
 					</array>
+				</dict>
+			</array>
+		</dict>
+		<!-- A map literal inside "{$...}" has braces of its own; the interpolation ends at the }
+		     that matches its {, as in the lexer, so they nest the way block comments do -->
+		<key>braces</key>
+		<dict>
+			<key>begin</key>
+			<string>\{</string>
+			<key>end</key>
+			<string>\}</string>
+			<key>patterns</key>
+			<array>
+				<dict>
+					<key>include</key>
+					<string>#braces</string>
+				</dict>
+				<dict>
+					<key>include</key>
+					<string>$self</string>
 				</dict>
 			</array>
 		</dict>
