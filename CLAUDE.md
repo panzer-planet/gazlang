@@ -202,11 +202,14 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   rebuilds its compiler before PHP is even installed (the bootstrap needs only a C compiler),
   then the suite, the whole-repository group, phpstan and pint. There is no macOS job; macOS is
   where it is developed.
-- **Speed**: the same program takes gazlang 0.7 to 1.5 times what it takes PHP (JIT or not),
+- **Speed**: the same program takes gazlang 0.4 to 1.6 times what it takes PHP (JIT or not),
   and Python 3.9 1.4 to 4 times what it takes gazlang, except where Python's builtins do the
   work in C (compiling from source included on all sides; gazlang's compile is about 10ms). If
   speed is next, measure with `php vm/bench.php`; a Python column there (ports of
-  `vm/bench/*.php`, with a Python 3.11 or later) would make the Python figures checkable.
+  `vm/bench/*.php`, with a Python 3.11 or later) would make the Python figures checkable. The
+  arithmetic loop (1.6x) is still about a dozen dispatches an iteration against PHP's JIT, which
+  only a register bytecode or a JIT would close; lists, maps, strings and objects (1.2 to 1.4x)
+  spend theirs in malloc/free and the collector, so profile those before trying an allocator.
 - **Decisions waiting for Werner**: whether bytecode version 1 now carries a compatibility
   promise (`docs/bytecode.md` says none "until the compiler is self-hosted", which it is).
 - **Small cleanups**: rewrite the five `($m[$k] ?? 0) + 1` counters (listed under language gaps).
@@ -778,7 +781,7 @@ try {
 ## The C VM
 
 `bin/gazlang` must behave exactly as `bin/gazlang-php` does, the PHP VM being its spec. It runs
-0.7 to 1.5 times the time of the same program written in PHP, and 6 to 33 times faster than the
+0.4 to 1.6 times the time of the same program written in PHP, and 6 to 40 times faster than the
 PHP VM (`php vm/bench.php`: CPU time, interleaved, best of several).
 
 - **The CLI** parses options as PHP's `getopt` does, plus the check for unknown ones: options
