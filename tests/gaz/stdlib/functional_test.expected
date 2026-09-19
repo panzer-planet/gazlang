@@ -54,3 +54,8 @@ ok filtering a map stops
 ok sort stops in the left half
 ok reduce needs a list or map
 ok sort needs a list or map
+ok to_string runs each object's method
+ok map as reduce's callback
+ok filter with to_string
+ok map as a value, with to_string
+ok its error comes out

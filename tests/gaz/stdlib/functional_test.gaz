@@ -131,3 +131,21 @@ check("filtering a map stops", message(() -> filter({"a" => 0}, $x -> 1 / $x)), 
 check("sort stops in the left half", message(() -> sort(["a", 1, 3, 2], ($a, $b) -> $a <=> $b)), "Cannot use <=> on string and int");
 check("reduce needs a list or map", message(() -> reduce(5, ($c, $x) -> $c, 0)), "reduce() expects list or map, got int");
 check("sort needs a list or map", message(() -> sort(5, ($a, $b) -> 0)), "sort() expects list or map, got int");
+
+// A builtin as the callback that runs program code itself: to_string() calling a method, map()
+// calling a lambda
+class Named {
+    #name;
+    fn _($name) { #name = $name; }
+    fn to_string() { return "named " .. #name; }
+}
+check("to_string runs each object's method", map([Named("a"), Named("b")], to_string), ["named a", "named b"]);
+check("map as reduce's callback", reduce([$x -> "a" .. $x, $x -> $x .. "b"], map, ["p", "q"]), ["apb", "aqb"]);
+$both = [Named(""), Named("x")];
+check("filter with to_string", filter($both, to_string), $both);
+$apply = map;
+check("map as a value, with to_string", $apply({"k" => Named("c")}, to_string), {"k" => "named c"});
+class Broken {
+    fn to_string() { return 1 / 0; }
+}
+check("its error comes out", message(() -> map([Named("a"), Broken(), Named("b")], to_string)), "Division by zero");

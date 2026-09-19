@@ -409,6 +409,8 @@ bool call_value(Value callee, Value *args, int argc, Value *out) {
         incref(args[i]);
         *sp++ = args[i];
     }
+    /* A builtin callee runs on these slots, and may itself run program code above them */
+    vm_sp = sp;
     Block *entered;
     /* A builtin runs from an instruction, which set vm_here */
     bool ok = enter_value(&sp, argc, here + 1, &entered);
