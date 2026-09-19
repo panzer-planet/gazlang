@@ -10,33 +10,26 @@ design is in [CLAUDE.md](../CLAUDE.md); what the language *is* is in
 | --- | --- |
 | `src/Lexer`, `src/Parser`, `src/AST` | source text to a tree. `Lexer::quote()` and `Lexer::parse_integer()` are the one definition of string and integer literals |
 | `src/Runtime` | what values *mean*: `Values` holds the operators, truthiness, printing, keys and indexing as pure static functions; `Builtins` holds the builtin functions and their arities |
-| `src/Interpreter` | walks the tree. It does not decide what values mean |
 | `src/CodeGenerator` | compiles the tree to a `Program`: one block of code per function, each instruction tagged with its file and line |
-| `src/VM` | runs a `Program`. The PHP CLI's default backend |
-| `bin/gazlang-php` | the PHP CLI, the reference: the one to compare against, and the only one with `--interpreter` |
+| `src/VM` | runs a `Program`. The PHP CLI's only backend |
+| `bin/gazlang-php` | the PHP CLI, the reference: the one to compare against |
 | `vm/` | the VM in C, built as `bin/gazlang` with the self-hosted compiler inside it: runs the bytecode `gazlang -c` writes, and must behave exactly as `src/VM` does (see below) |
 | `lib/` | the standard library, written in GazLang |
 | `selfhost/` | everything above the VM, rewritten in GazLang: `lexer.gaz`, a port of `src/Lexer`, `parser.gaz` and `nodes.gaz`, a port of `src/Parser` and `src/AST`, `codegen.gaz`, a port of `src/CodeGenerator`, and `gazlang.gaz`, the driver, which prints what `-c`, `--tokens` or `--ast` would (`gazlang.gaz -- code\|tokens\|ast [FILE]`, reading piped source without a FILE) |
 | `examples/` | sample programs |
 | `tests/` | PHPUnit, plus `tests/gaz/` GazLang programs, and the corpora: `lexer_corpus/`, `parser_corpus/`, `codegen_corpus/`, `vm_corpus/` and `bytecode_corpus/` |
 
-## The two backends must agree
+## The PHP VM
 
-This is the rule that shapes everything else. `GazLangTestCase::executeCode()` runs every
-snippet on **both** the tree-walking interpreter and the stack VM, and fails if the output
-differs, or if the error's class, message, file or line differs. `GazProgramTest`, `JsonTest`
-and `VMTest` do the same for whole programs.
-
-So a new language feature needs both backends, or those tests fail. In particular, **any new
-AST node needs a visitor in both `Interpreter/Interpreter.php` and
-`CodeGenerator/CodeGenerator.php`** — patching one and leaving the other stale is the easiest
-mistake to make here.
+`GazLangTestCase::executeCode()` compiles every snippet, writes it as bytecode and reads it
+back, so every test also exercises the format, and runs it on the PHP VM. `vm/snippets.php`
+collects the snippets, and the C VM must print what the PHP VM did for each (below).
 
 Order matters as much as results. The VM's `KEY_CHECK` exists so that a bad key fails before
-later keys and the value are evaluated, exactly when the interpreter's does.
+later keys and the value are evaluated.
 
-Both backends call `Runtime\Values` and `Runtime\Builtins` rather than reimplementing anything.
-The VM has fast paths in its dispatch loop for the commonest cases whose result is obvious
+The VM calls `Runtime\Values` and `Runtime\Builtins` rather than reimplementing anything.
+It has fast paths in its dispatch loop for the commonest cases whose result is obvious
 (arithmetic on two ints that cannot overflow, `==` on two ints or two strings, `JZ`/`NOT` on
 bools, and so on); everything else, errors included, falls through to `Values`. Keep them that
 way.
@@ -97,16 +90,15 @@ bin/gazlang -c -f examples/functions.gaz                  # print the compiled b
 bin/gazlang --tokens -f examples/functions.gaz            # print the tokens
 bin/gazlang --ast -f examples/functions.gaz               # print the parser's tree
 bin/gazlang-php -f examples/functions.gaz                 # the same on the PHP reference
-bin/gazlang-php --interpreter -f examples/functions.gaz   # the tree-walking interpreter
 ```
 
 ## Tests
 
-- **PHPUnit** for the implementation. Snippets run on both backends automatically.
+- **PHPUnit** for the implementation. Snippets run on the PHP VM, and later on the C VM.
 - **`tests/gaz/**/*_test.gaz`** are GazLang programs that must print exactly their
-  `*_test.expected` file (`GazProgramTest`), on both backends. `tests/gaz/check.gaz` gives
-  `check($label, $actual, $expected)`, which prints `ok <label>` or a FAIL line with both
-  values. This is how GazLang code gets tested.
+  `*_test.expected` file (`GazProgramTest`), on the PHP VM, and on the C VM through `CVMTest`.
+  `tests/gaz/check.gaz` gives `check($label, $actual, $expected)`, which prints `ok <label>` or
+  a FAIL line with both values. This is how GazLang code gets tested.
 - **`tests/lexer_corpus/`** are lexing cases, including deliberately tricky ones. A file named
   `error_*` must be exactly one that fails to lex. `SelfHostedLexerTest` requires
   `selfhost/lexer.gaz` to give the same tokens and errors as the PHP lexer on these and on every
@@ -160,8 +152,8 @@ bin/gazlang-php --interpreter -f examples/functions.gaz   # the tree-walking int
 Two environment notes:
 
 - The suite runs **in-process under pcov**, where deep PHP recursion segfaults before the
-  interpreter's call-depth limit is reached. Anything that recurses deeply must be tested
-  through the CLI instead.
+  call-depth limit is reached. The VM's calls don't recurse in PHP, but a `to_string()` run
+  from inside an instruction does, so a test of that nesting deeply goes through the CLI.
 - `bin/gazlang-php` **restarts itself once** (`GAZLANG_RESTARTED`) to set `pcov.enabled=0` and
   `opcache.jit=1235`, through `proc_open` with its own streams so a program's stdout and stderr
   stay in the order it wrote them.

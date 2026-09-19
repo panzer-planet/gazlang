@@ -63,7 +63,7 @@ use GazLang\Runtime\MapValue;
  * the closure and are addressed by index with LOAD_CAPTURED, STORE_CAPTURED,
  * LOAD_QUIET_CAPTURED and SET_PATH_CAPTURED. MAKE_CLOSURE n pushes a
  * closure, copying into it what the Program's lambda table maps from the enclosing frame
- * or the enclosing closure (only what exists, as the interpreter does), then storing the
+ * or the enclosing closure (only what exists), then storing the
  * closure in its own $self variable; CALL_VALUE on a closure starts a frame from the
  * arguments, with that closure running, and jumps to the lambda's entry.
  *
@@ -86,7 +86,7 @@ use GazLang\Runtime\MapValue;
  * and appends it to the list below; NEW_MAP pushes an empty map and MAP_SET pops a value
  * and a key and sets it in the map below. KEY_CHECK fails unless the value on top of the
  * stack can be a key (an int or string), and is emitted right after each key expression,
- * so a bad key fails before later keys and the value run, as in the interpreter.
+ * so a bad key fails before later keys and the value run.
  * ARRAY_EXTEND pops a list and appends its elements to the list below (...$a in a list literal).
  * INDEX_GET pops an index and a list, map or string and pushes the element. For an assignment
  * through a path the index keys, then the value are pushed, and SET_PATH path slot pops the
@@ -94,7 +94,7 @@ use GazLang\Runtime\MapValue;
  * for a global, SET_PATH_CAPTURED for a closure's variable, SET_PATH_THIS path for a path
  * starting at #), and pushes the value. The path spells the steps: [k] for a key from the
  * stack, .name for a field, and a final [] to append, as in [k].total or [k][]. The variable is
- * read after the keys and value run, as in the interpreter. DELETE_PATH path slot removes the
+ * read after the keys and value run, so their side effects are kept. DELETE_PATH path slot removes the
  * element its path ends at, with the keys pushed before it and nothing left behind
  * (DELETE_PATH_GLOBAL, DELETE_PATH_CAPTURED and DELETE_PATH_THIS as for SET_PATH).
  * GET_PROPERTY_QUIET reads a field
@@ -241,8 +241,8 @@ class CodeGenerator extends AbstractNodeVisitor
     /**
      * Visit a node, recording its location on the instructions emitted for it
      *
-     * The location is the innermost node that has one, the same node whose location the
-     * interpreter reports for an error, so both backends' errors point at the same place.
+     * The location is the innermost node that has one, so an error points at the most
+     * specific place in the source.
      * Nodes the code generator builds itself (for lowered constructs) have none, and keep
      * the location of the node they were built for.
      *
@@ -386,7 +386,7 @@ class CodeGenerator extends AbstractNodeVisitor
     /**
      * Emit a compound assignment or ++/--, lowered to plain assignments
      *
-     * Index keys and the right side are evaluated once, in the interpreter's order (keys,
+     * Index keys and the right side are evaluated once, in the language's order (keys,
      * then the value, then read and write the target), with keys and a non-constant
      * right side held in hidden variables:
      *
@@ -431,7 +431,7 @@ class CodeGenerator extends AbstractNodeVisitor
                 $this->emitVariable('STORE', $key);
                 $place = new IndexAST($place, $key);
             }
-            // The update reads the current value strictly, like the interpreter's store(),
+            // The update reads the current value strictly, as Values::store() does,
             // except ??=, which reads it like ?? does
             $place->existing = $op->type !== Token::COALESCE_ASSIGN;
         }
@@ -496,7 +496,7 @@ class CodeGenerator extends AbstractNodeVisitor
     /**
      * The value of a list or map literal made only of constants with valid keys, or null if it isn't one
      *
-     * Built exactly as the interpreter's visitArrayLiteral() would build it, so it can be
+     * Built exactly as NEW_ARRAY and NEW_MAP would build it at run time, so it can be
      * pushed as one finished value. Lists and maps are values (Values::store() clones a map
      * before changing it), so sharing it is safe.
      *
@@ -559,7 +559,7 @@ class CodeGenerator extends AbstractNodeVisitor
         }
         $this->visit($node->right);
 
-        // The variable is only read now, like the interpreter, so side effects of the keys and
+        // The variable is only read now, so side effects of the keys and
         // value aren't overwritten; and it is updated in place, so appending stays linear
         $root = AST::pathRoot($node->left);
         if ($root instanceof ThisAST) {
@@ -573,7 +573,7 @@ class CodeGenerator extends AbstractNodeVisitor
      * Visit a Delete node: the keys, then DELETE_PATH, which removes the element the path ends at
      *
      * The path is spelled as SET_PATH's is, and the variable is read only once the keys have
-     * run, as in the interpreter.
+     * run.
      *
      * @param  DeleteStatementAST  $node  The node to visit
      */
@@ -639,7 +639,7 @@ class CodeGenerator extends AbstractNodeVisitor
     }
 
     /**
-     * Emit the left side of ??, where a missing variable or key is null (see Interpreter::quietly())
+     * Emit the left side of ??, where a missing variable or key is null
      *
      * LOAD_QUIET pushes null for an undefined variable; INDEX_GET_QUIET pushes null when
      * the target is null, and otherwise reads like INDEX_GET.
@@ -902,8 +902,8 @@ class CodeGenerator extends AbstractNodeVisitor
      *
      * The count is taken once: the loop iterates a copy, which the body can't change.
      *
-     * The step runs on continue, as for for loops. FOREACH_CHECK fails on a non-array with
-     * the interpreter's "foreach expects an array" message, leaving the value on the stack.
+     * The step runs on continue, as for for loops. FOREACH_CHECK fails on anything but a list or
+     * map with "foreach expects a list or map", leaving the value on the stack.
      *
      * @param  ForeachStatementAST  $node  The node to visit
      */
@@ -1238,7 +1238,7 @@ class CodeGenerator extends AbstractNodeVisitor
     }
 
     /**
-     * Visit a MethodCall node: the object, GET_METHOD, the arguments, CALL_METHOD (the interpreter's order)
+     * Visit a MethodCall node: the object, GET_METHOD, the arguments, CALL_METHOD (the language's order)
      *
      * @param  MethodCallAST  $node  The node to visit
      */
@@ -1321,7 +1321,7 @@ class CodeGenerator extends AbstractNodeVisitor
      *
      * The capture map is recorded now, while the enclosing frame's slots are known. A captured
      * variable the enclosing frame hasn't used yet still gets a slot, so a loop that assigns
-     * it after the lambda captures it on the next iteration, as in the interpreter.
+     * it after the lambda captures it on the next iteration.
      *
      * @param  LambdaAST  $node  The node to visit
      */
@@ -1339,7 +1339,7 @@ class CodeGenerator extends AbstractNodeVisitor
     }
 
     /**
-     * Visit a CallValue node: the callee, then the arguments, then CALL_VALUE (the interpreter's order)
+     * Visit a CallValue node: the callee, then the arguments, then CALL_VALUE (the language's order)
      *
      * @param  CallValueAST  $node  The node to visit
      */

@@ -1,11 +1,8 @@
 <?php
 
-use GazLang\Interpreter\Interpreter;
-use GazLang\Lexer\Lexer;
-use GazLang\Parser\Parser;
-use PHPUnit\Framework\TestCase;
+namespace GazLang\Tests;
 
-class StringTest extends TestCase
+class StringTest extends GazLangTestCase
 {
     public function test_simple_string()
     {
@@ -13,12 +10,7 @@ class StringTest extends TestCase
         echo "Hello, World!";
         CODE;
 
-        $lexer = new Lexer($code);
-        $parser = new Parser($lexer);
-        $interpreter = new Interpreter($parser);
-
-        $this->expectOutputString("Hello, World!\n");
-        $interpreter->interpret();
+        $this->assertSame("Hello, World!\n", $this->executeCode($code));
     }
 
     public function test_string_assignment()
@@ -28,12 +20,7 @@ class StringTest extends TestCase
         echo $message;
         CODE;
 
-        $lexer = new Lexer($code);
-        $parser = new Parser($lexer);
-        $interpreter = new Interpreter($parser);
-
-        $this->expectOutputString("Hello, GazLang!\n");
-        $interpreter->interpret();
+        $this->assertSame("Hello, GazLang!\n", $this->executeCode($code));
     }
 
     public function test_string_concatenation()
@@ -45,12 +32,7 @@ class StringTest extends TestCase
         echo $prefix .. $suffix;
         CODE;
 
-        $lexer = new Lexer($code);
-        $parser = new Parser($lexer);
-        $interpreter = new Interpreter($parser);
-
-        $this->expectOutputString("Hello, World!\nGazLang is awesome\n");
-        $interpreter->interpret();
+        $this->assertSame("Hello, World!\nGazLang is awesome\n", $this->executeCode($code));
     }
 
     public function test_mixed_type_operations()
@@ -67,11 +49,6 @@ class StringTest extends TestCase
         echo "The year is " .. $year;
         CODE;
 
-        $lexer = new Lexer($code);
-        $parser = new Parser($lexer);
-        $interpreter = new Interpreter($parser);
-
-        $this->expectOutputString("Count: 42\n2022 is the year\nThe year is 2025\n");
-        $interpreter->interpret();
+        $this->assertSame("Count: 42\n2022 is the year\nThe year is 2025\n", $this->executeCode($code));
     }
 }

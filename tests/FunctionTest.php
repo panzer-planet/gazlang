@@ -111,10 +111,9 @@ class FunctionTest extends GazLangTestCase
 
     public function test_runaway_recursion_is_a_gazlang_error()
     {
-        // The interpreter, through the CLI, which restarts itself without pcov: pcov makes every
-        // PHP call use the C stack, which segfaults long before the call depth limit is reached
+        // Through the CLI, which prints the capped trace under the message
         $command = sprintf(
-            'echo %s | %s %s --interpreter 2>&1',
+            'echo %s | %s %s 2>&1',
             escapeshellarg('fn inf() { return inf(); } echo inf();'),
             escapeshellarg(PHP_BINARY),
             escapeshellarg(__DIR__.'/../bin/gazlang-php')
@@ -139,13 +138,12 @@ class FunctionTest extends GazLangTestCase
                 .' try { '.$start.' } catch (Error $e) {'
                 .' echo $e.message; echo len($e.trace); echo $e.trace[0]; echo $e.trace[1]; echo $e.trace[20]; }';
             $outputs = [];
-            foreach (['bin/gazlang-php --interpreter', 'bin/gazlang-php', 'bin/gazlang'] as $runtime) {
+            foreach (['bin/gazlang-php', 'bin/gazlang'] as $runtime) {
                 exec(sprintf('echo %s | %s/../%s 2>&1', escapeshellarg($program), __DIR__, $runtime), $output);
                 $outputs[$runtime] = $output;
                 $output = [];
             }
             $this->assertSame("Maximum call depth of 10000 exceeded calling {$callee}", $outputs['bin/gazlang'][0]);
-            $this->assertSame($outputs['bin/gazlang'], $outputs['bin/gazlang-php --interpreter'], $start);
             $this->assertSame($outputs['bin/gazlang'], $outputs['bin/gazlang-php'], $start);
         }
     }

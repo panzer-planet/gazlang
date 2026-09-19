@@ -94,18 +94,6 @@ class SelfHostedParserTest extends GazLangTestCase
     }
 
     /**
-     * The corpus runs on the C VM only, which is what keeps it fast, so a few files go through the interpreter as well
-     */
-    public function test_self_hosted_parser_gives_the_same_tree_on_the_interpreter()
-    {
-        foreach (['precedence', 'literals', 'captures', 'interpolation', 'match', 'error_missing_operand', 'error_lexer_error_has_the_file', 'error_lambda_duplicate_parameter'] as $name) {
-            $file = "tests/parser_corpus/{$name}.gaz";
-
-            $this->assertSame(self::phpAst($file), $this->runProgram(CVM::DRIVER, ['ast', $file]), $file);
-        }
-    }
-
-    /**
      * @dataProvider corpus
      */
     public function test_self_hosted_parser_matches_the_php_parser(string $file)

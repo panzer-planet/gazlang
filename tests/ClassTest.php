@@ -545,17 +545,14 @@ class ClassTest extends GazLangTestCase
     public function test_runaway_construction_is_located_where_the_object_is_made(string $code, string $message)
     {
         // Through the CLI, which restarts itself without pcov (see FunctionTest)
-        foreach (['', '--interpreter'] as $backend) {
-            $command = sprintf('printf %%s %s | %s %s %s 2>&1', escapeshellarg($code), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang-php'), $backend);
-            exec($command, $output, $exit_code);
+        $command = sprintf('printf %%s %s | %s %s 2>&1', escapeshellarg($code), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang-php'));
+        exec($command, $output, $exit_code);
 
-            // The message, then the capped trace: 10 innermost calls, what was left out, 10 outermost
-            $this->assertSame($message, $output[0], "with {$backend}");
-            $this->assertSame(22, count($output), "with {$backend}");
-            $this->assertStringContainsString(' more', $output[11], "with {$backend}");
-            $this->assertSame(1, $exit_code);
-            $output = [];
-        }
+        // The message, then the capped trace: 10 innermost calls, what was left out, 10 outermost
+        $this->assertSame($message, $output[0]);
+        $this->assertSame(22, count($output));
+        $this->assertStringContainsString(' more', $output[11]);
+        $this->assertSame(1, $exit_code);
     }
 
     public static function constructorRecursion(): array
@@ -571,14 +568,11 @@ class ClassTest extends GazLangTestCase
     {
         // Through the CLI, which restarts itself without pcov (see FunctionTest)
         $code = 'class Loop { fn to_string() { return "{#}"; } } echo Loop();';
-        foreach (['', '--interpreter'] as $backend) {
-            $command = sprintf('echo %s | %s %s %s 2>&1', escapeshellarg($code), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang-php'), $backend);
-            exec($command, $output, $exit_code);
+        $command = sprintf('echo %s | %s %s 2>&1', escapeshellarg($code), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang-php'));
+        exec($command, $output, $exit_code);
 
-            $this->assertSame('Error: Maximum call depth of 10000 exceeded calling Loop.to_string on line 1', $output[0], "with {$backend}");
-            $this->assertSame(1, $exit_code);
-            $output = [];
-        }
+        $this->assertSame('Error: Maximum call depth of 10000 exceeded calling Loop.to_string on line 1', $output[0]);
+        $this->assertSame(1, $exit_code);
     }
 
     public function test_code_for_reading_fields()

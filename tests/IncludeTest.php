@@ -3,9 +3,9 @@
 namespace GazLang\Tests;
 
 use GazLang\CodeGenerator\CodeGenerator;
-use GazLang\Interpreter\Interpreter;
 use GazLang\Lexer\Lexer;
 use GazLang\Parser\Parser;
+use GazLang\VM\VM;
 
 class IncludeTest extends GazLangTestCase
 {
@@ -20,7 +20,7 @@ class IncludeTest extends GazLangTestCase
     {
         ob_start();
         try {
-            (new Interpreter($this->parserFor($file)))->interpret();
+            (new VM((new CodeGenerator($this->parserFor($file)->parse()))->compile()))->run();
         } finally {
             $output = ob_get_clean();
         }

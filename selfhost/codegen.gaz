@@ -322,7 +322,7 @@ class CodeGenerator {
         }
         #visit($node.right);
 
-        // The variable is only read now, like the interpreter, and updated in place
+        // The variable is only read now, after the keys and value, and updated in place
         $root = path_root($node.left);
         if (is_a($root, ThisAST)) {
             #emit("SET_PATH_THIS", [$path]);

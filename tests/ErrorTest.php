@@ -2,10 +2,11 @@
 
 namespace GazLang\Tests;
 
+use GazLang\CodeGenerator\CodeGenerator;
 use GazLang\GazLangError;
-use GazLang\Interpreter\Interpreter;
 use GazLang\Lexer\Lexer;
 use GazLang\Parser\Parser;
+use GazLang\VM\VM;
 
 class ErrorTest extends GazLangTestCase
 {
@@ -84,7 +85,7 @@ class ErrorTest extends GazLangTestCase
         $path = __DIR__.'/fixtures/include/runtime.gaz';
         $this->expectExceptionMessage('Cannot use + on null at tests/fixtures/include/lib/fails.gaz:2');
 
-        (new Interpreter(new Parser(new Lexer(file_get_contents($path)), $path)))->interpret();
+        (new VM((new CodeGenerator((new Parser(new Lexer(file_get_contents($path)), $path))->parse()))->compile()))->run();
     }
 
     public function test_cli_shows_the_file_and_line()

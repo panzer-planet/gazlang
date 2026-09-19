@@ -365,8 +365,7 @@ class Lexer
     /**
      * Parse a string of decimal digits with an optional leading minus, as GazLang writes integers
      *
-     * Shared with the interpreter (to_int, and comparing strings with ints) so every
-     * place agrees on what an integer string is.
+     * Shared with the runtime (to_int) so every place agrees on what an integer string is.
      *
      * @param  string  $digits  The text to parse
      * @return int|null The integer, or null if the text isn't one or doesn't fit in an int

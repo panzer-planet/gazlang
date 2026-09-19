@@ -59,7 +59,6 @@ class FunctionValueTest extends GazLangTestCase
     {
         $expected = ["8\n10\n", 0];
         $this->assertSame($expected, $this->runProgram('tests/fixtures/function_values/main.gaz'));
-        $this->assertSame($expected, $this->runProgram('tests/fixtures/function_values/main.gaz', [], true));
     }
 
     /**
@@ -133,14 +132,11 @@ class FunctionValueTest extends GazLangTestCase
     {
         // Through the CLI, which restarts itself without pcov (see FunctionTest)
         $code = 'fn inf() { $f = inf; return $f(); } echo inf();';
-        foreach (['', '--interpreter'] as $backend) {
-            $command = sprintf('echo %s | %s %s %s 2>&1', escapeshellarg($code), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang-php'), $backend);
-            exec($command, $output, $exit_code);
+        $command = sprintf('echo %s | %s %s 2>&1', escapeshellarg($code), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang-php'));
+        exec($command, $output, $exit_code);
 
-            $this->assertSame('Error: Maximum call depth of 10000 exceeded calling inf on line 1', $output[0], "with {$backend}");
-            $this->assertSame(1, $exit_code);
-            $output = [];
-        }
+        $this->assertSame('Error: Maximum call depth of 10000 exceeded calling inf on line 1', $output[0]);
+        $this->assertSame(1, $exit_code);
     }
 
     public function test_code_gen()

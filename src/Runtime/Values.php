@@ -12,9 +12,9 @@ use GazLang\Lexer\Token;
  * Values are plain PHP values: int, float (always finite), string, bool, null and array (a
  * GazLang list, always a PHP list), plus MapValue for a map, FunctionValue for a function,
  * ClassValue for a class and ObjectValue for an object. Everything here is a
- * pure function of values, so any backend that runs GazLang (the interpreter now, a VM
- * later) gets identical behaviour. Errors are plain Exceptions; the interpreter adds
- * the source location.
+ * pure function of values, shared by the VM and the parser's constant folding, and
+ * vm/ops.c and vm/value.c do the same in C. Errors are plain Exceptions; the VM adds the
+ * source location.
  */
 final class Values
 {
@@ -623,8 +623,7 @@ final class Values
     /**
      * Write to a variable or an element or field of one: =, a compound assignment, or ++/--
      *
-     * Shared by the interpreter (variables by name) and the VM (by slot), so both create,
-     * check and fail in exactly the same way. The path is a list of steps: a key for an index
+     * The one definition of how a write creates, checks and fails. The path is a list of steps: a key for an index
      * (null to append), or a PropertyStep for a field. Plain assignment ($op null) may create
      * the variable, a map's last key and a declared field; a list index must already exist, and $l[] = v appends.
      * A compound assignment (a binary operator token, + for +=) or ++/-- (an INCREMENT or

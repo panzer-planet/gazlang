@@ -93,21 +93,6 @@ class SelfHostedLexerTest extends GazLangTestCase
     }
 
     /**
-     * The corpus runs on the C VM only, which is what keeps it fast, so the files that between
-     * them reach every part of the lexer go through the interpreter as well
-     */
-    public function test_self_hosted_lexer_gives_the_same_tokens_on_the_interpreter()
-    {
-        $files = ['interpolation', 'numbers', 'strings', 'block_comments', 'operators', 'error_interpolated_index', 'error_integer_too_large', 'error_unicode_surrogate'];
-        foreach ($files as $name) {
-            $file = "tests/lexer_corpus/{$name}.gaz";
-            [$output, $exit_code] = $this->runProgram(CVM::DRIVER, ['tokens', $file]);
-
-            $this->assertSame(self::phpTokens($file), [rtrim($output, "\n"), $exit_code], $file);
-        }
-    }
-
-    /**
      * @dataProvider corpus
      */
     public function test_self_hosted_lexer_matches_the_php_lexer(string $file)

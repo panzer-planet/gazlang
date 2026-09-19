@@ -29,20 +29,18 @@ class CsvTest extends GazLangTestCase
      */
     public function test_document_matches_php(string $file)
     {
-        foreach ([false, true] as $vm) {
-            [$output, $exit_code] = $this->runProgram('tests/fixtures/csv_dump.gaz', [$file], $vm);
+        [$output, $exit_code] = $this->runProgram('tests/fixtures/csv_dump.gaz', [$file]);
 
-            if (str_starts_with(basename($file), 'n_')) {
-                $this->assertStringStartsWith('Error: CSV error on line ', $output);
-                $this->assertSame(1, $exit_code);
+        if (str_starts_with(basename($file), 'n_')) {
+            $this->assertStringStartsWith('Error: CSV error on line ', $output);
+            $this->assertSame(1, $exit_code);
 
-                continue;
-            }
-
-            $this->assertSame(0, $exit_code, $output);
-            $rows = array_map(fn ($line) => json_decode($line, true), array_filter(explode("\n", $output), fn ($line) => $line !== ''));
-            $this->assertSame($this->phpRows($file), $rows, $file.($vm ? ' on the VM' : ''));
+            return;
         }
+
+        $this->assertSame(0, $exit_code, $output);
+        $rows = array_map(fn ($line) => json_decode($line, true), array_filter(explode("\n", $output), fn ($line) => $line !== ''));
+        $this->assertSame($this->phpRows($file), $rows, $file);
     }
 
     public function test_format_number_matches_php_number_format()
@@ -76,12 +74,11 @@ class CsvTest extends GazLangTestCase
             TEXT;
 
         $this->assertSame([$expected, 0], $this->runProgram('examples/csv_report.gaz'));
-        $this->assertSame([$expected, 0], $this->runProgram('examples/csv_report.gaz', [], true));
     }
 
     public function test_report_groups_by_any_column_and_keeps_line_breaks_out_of_the_table()
     {
-        [$output] = $this->runProgram('examples/csv_report.gaz', ['examples/data/sales.csv', 'product', 'amount'], true);
+        [$output] = $this->runProgram('examples/csv_report.gaz', ['examples/data/sales.csv', 'product', 'amount']);
 
         $this->assertStringContainsString("\nService plan (12 months)     1     480.00    480.00\n", $output);
         // Equal totals keep the order they first appeared in
@@ -95,7 +92,6 @@ class CsvTest extends GazLangTestCase
     {
         $usage = "Usage: bin/gazlang -f examples/csv_report.gaz -- FILE GROUP_COLUMN AMOUNT_COLUMN\n";
 
-        $this->assertSame([$usage."Error: {$message}\n", 1], $this->runProgram('examples/csv_report.gaz', $args, true));
         $this->assertSame([$usage."Error: {$message}\n", 1], $this->runProgram('examples/csv_report.gaz', $args));
     }
 

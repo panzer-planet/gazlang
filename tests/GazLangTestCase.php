@@ -5,7 +5,6 @@ namespace GazLang\Tests;
 use GazLang\CodeGenerator\CodeGenerator;
 use GazLang\CodeGenerator\Program;
 use GazLang\GazLangError;
-use GazLang\Interpreter\Interpreter;
 use GazLang\Lexer\Lexer;
 use GazLang\Parser\Parser;
 use GazLang\Runtime\Builtins;
@@ -25,23 +24,15 @@ abstract class GazLangTestCase extends TestCase
      * Run a GazLang file as `php bin/gazlang-php -f FILE -- ARGS` would, but in-process (a CLI run costs ~0.5s)
      *
      * Runs from the project root, so FILE is relative to it and errors name files the
-     * same way; errors are printed as "Error: <message>" and give exit code 1. Deep
-     * recursion can segfault in-process while pcov is loaded, so test that through the CLI.
+     * same way; errors are printed as "Error: <message>" and give exit code 1.
      *
      * @param  string  $file  Path relative to the project root
      * @param  string[]  $args  Arguments returned by args()
      * @return array{0: string, 1: int} The output and exit code
      */
-    protected function runProgram(string $file, array $args = [], bool $vm = false): array
+    protected function runProgram(string $file, array $args = []): array
     {
-        return $this->exitCodeOf(function () use ($file, $args, $vm) {
-            $parser = new Parser(new Lexer(file_get_contents($file)), $file);
-            if ($vm) {
-                $this->machine($parser, $file, $args)->run();
-            } else {
-                (new Interpreter($parser, $args))->interpret();
-            }
-        });
+        return $this->exitCodeOf(fn () => $this->machine(new Parser(new Lexer(file_get_contents($file)), $file), $file, $args)->run());
     }
 
     /**
@@ -142,15 +133,13 @@ abstract class GazLangTestCase extends TestCase
     }
 
     /**
-     * Create an interpreter for the given input
+     * Create the VM for the given input, compiled as executeCode() compiles it
      *
-     * @param  string  $input  The GazLang code to interpret
+     * @param  string  $input  The GazLang code to run
      */
-    protected function createInterpreter(string $input): Interpreter
+    protected function createVM(string $input): VM
     {
-        $parser = $this->createParser($input);
-
-        return new Interpreter($parser);
+        return $this->machine($this->createParser($input));
     }
 
     /**
@@ -167,19 +156,7 @@ abstract class GazLangTestCase extends TestCase
             file_put_contents($record, Lexer::quote(str_replace(dirname(__DIR__).'/', '', $input))."\n", FILE_APPEND);
         }
 
-        [$output, $error] = $this->capture(fn () => $this->createInterpreter($input)->interpret());
-
-        // Every snippet also runs on the VM, which must print the same and fail the same way
-        [$vm_output, $vm_error] = $this->capture(
-            fn () => $this->machine($this->createParser($input))->run()
-        );
-        $this->assertSame($output, $vm_output, "The VM printed something else for:\n{$input}");
-        $describe = fn (?Throwable $e) => $e === null ? null : [
-            get_class($e), $e->getMessage(), $e instanceof GazLangError ? [$e->path, $e->line_number] : null,
-        ];
-        // Class and location too: error() messages carry no location, but catch sees it
-        $this->assertSame($describe($error), $describe($vm_error), "The VM failed differently for:\n{$input}");
-
+        [$output, $error] = $this->capture(fn () => $this->createVM($input)->run());
         if ($error !== null) {
             throw $error;
         }
@@ -219,7 +196,7 @@ abstract class GazLangTestCase extends TestCase
     private function capture(callable $run): array
     {
         // print_error() writes to standard error, which output buffering doesn't catch, so it
-        // goes to a stream of its own and counts as output the two backends must agree on
+        // goes to a stream of its own and counts as output
         $stderr = fopen('php://memory', 'w+');
         Builtins::$error_stream = $stderr;
         ob_start();

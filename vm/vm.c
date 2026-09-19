@@ -1088,7 +1088,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             Class *c = in->p;
             Function *f = method_function(c, constructor_name());
             if (fp - frames == MAX_CALL_DEPTH) {
-                /* Where the object is being made, as in the interpreter, not in the initialiser */
+                /* Located where the object is being made, not in the initialiser */
                 Buf what = {0};
                 buf_add_str(&what, c->name);
                 buf_adds(&what, "._");
@@ -1388,7 +1388,7 @@ extern const unsigned char compiler_gzb[];
 extern const unsigned long compiler_gzb_size;
 
 /* What the CLI was asked to do, from its options */
-typedef enum { M_RUN, M_CODE, M_TOKENS, M_AST, M_INTERPRETER } Mode;
+typedef enum { M_RUN, M_CODE, M_TOKENS, M_AST } Mode;
 
 /* What the VM's thread is given */
 typedef struct {
@@ -1450,11 +1450,6 @@ static void *run(void *arg) {
         job->exit_code = 1;
         return NULL;
     }
-    if (job->mode == M_INTERPRETER) {
-        fputs("Error: There is no interpreter here, only the VM: run bin/gazlang-php --interpreter\n", stderr);
-        job->exit_code = 1;
-        return NULL;
-    }
     if (job->mode != M_RUN) {
         job->exit_code = run_front_end(job, job->mode == M_CODE ? "code" : job->mode == M_TOKENS ? "tokens" : "ast", NULL, NULL);
         return NULL;
@@ -1497,7 +1492,6 @@ static const char *HELP =
     "  -h, --help     Show this help message\n"
     "  -v, --version  Show version information\n"
     "  -c, --code         Print the compiled bytecode instead of running it (gazlang -c -f x.gaz > x.gzb)\n"
-    "      --interpreter  Run on the tree-walking interpreter instead of the VM (bin/gazlang-php only)\n"
     "  -t, --tokens   Print the lexer's tokens, one LINE TYPE VALUE per line, instead of interpreting\n"
     "      --ast      Print the parser's tree instead of running it\n"
     "  -f, --file     Read input from a file instead of stdin\n";
@@ -1508,10 +1502,10 @@ static int unknown_option(const char *arg) {
 }
 
 /* The CLI, whose options are bin/gazlang-php's: PHP's getopt("hvf:ct", [help, version, file:, code,
-   tokens, ast, interpreter]) and its check for options getopt doesn't know. Options end at the
+   tokens, ast]) and its check for options getopt doesn't know. Options end at the
    first argument that isn't one ("-" alone included) or after "--"; the rest are the program's. */
 int main(int argc, char **argv) {
-    bool help = false, version = false, code = false, tokens = false, ast = false, interpreter = false;
+    bool help = false, version = false, code = false, tokens = false, ast = false;
     const char *file = NULL;
     int files = 0;
     int i = 1;
@@ -1529,7 +1523,6 @@ int main(int argc, char **argv) {
             else if (strcmp(name, "code") == 0) code = true;
             else if (strcmp(name, "tokens") == 0) tokens = true;
             else if (strcmp(name, "ast") == 0) ast = true;
-            else if (strcmp(name, "interpreter") == 0) interpreter = true;
             else if (strncmp(name, "file=", 5) == 0 && name[5]) file = name + 5, files++;
             else if (strcmp(name, "file") == 0) {
                 /* The next argument, whatever it is; none is no file, as getopt has it */
@@ -1564,7 +1557,7 @@ int main(int argc, char **argv) {
         return 1;
     }
     Job job = {
-        .mode = tokens ? M_TOKENS : ast ? M_AST : code ? M_CODE : interpreter ? M_INTERPRETER : M_RUN,
+        .mode = tokens ? M_TOKENS : ast ? M_AST : code ? M_CODE : M_RUN,
         .path = file, .argc = argc - i, .argv = argv + i, .exit_code = 1,
     };
 

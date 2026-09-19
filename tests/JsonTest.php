@@ -31,8 +31,7 @@ class JsonTest extends GazLangTestCase
     {
         $text = file_get_contents(self::ROOT."/{$file}");
         $valid = str_starts_with(basename($file), 'y_');
-        [$output, $exit_code] = $this->decodeAndEncode($file);
-        $this->assertSame([$output, $exit_code], $this->runProgram('tests/fixtures/json_roundtrip.gaz', [$file], true), "{$file} on the VM");
+        [$output, $exit_code] = $this->runProgram('tests/fixtures/json_roundtrip.gaz', [$file]);
 
         if (! $valid) {
             $this->assertNull($this->phpDecode($text), "PHP accepts {$file}, so it should not be an n_ file");
@@ -79,23 +78,6 @@ class JsonTest extends GazLangTestCase
             'fraction' => ['1.x', 'Invalid JSON: expected a digit after the decimal point at position 2'],
             'too deep' => [str_repeat('[', 512), 'Invalid JSON: nesting deeper than 511 levels at position 511'],
         ];
-    }
-
-    /**
-     * Decode then encode a file with lib/json.gaz on the interpreter; the deepest documents
-     * go through the CLI, since deep interpreter recursion can segfault in-process while pcov is loaded
-     *
-     * @return array{0: string, 1: int}
-     */
-    private function decodeAndEncode(string $file): array
-    {
-        if (! str_contains($file, 'deep')) {
-            return $this->runProgram('tests/fixtures/json_roundtrip.gaz', [$file]);
-        }
-
-        exec(sprintf('cd %s && %s bin/gazlang-php --interpreter -f tests/fixtures/json_roundtrip.gaz -- %s 2>&1', escapeshellarg(self::ROOT), escapeshellarg(PHP_BINARY), escapeshellarg($file)), $lines, $exit_code);
-
-        return [implode("\n", $lines)."\n", $exit_code];
     }
 
     /**

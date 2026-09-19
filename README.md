@@ -77,8 +77,7 @@ bin/gazlang --ast -f program.gaz           # print the tree
 ```
 
 The PHP implementation, `bin/gazlang-php`, takes the same options (it needs PHP 8.5 or later and
-`composer install`), and one more: `--interpreter`, the tree-walking interpreter instead of the VM.
-The tests compare the two, so they need both.
+`composer install`). The tests compare the two, so they need both.
 
 ## A ten minute tour
 
@@ -361,7 +360,7 @@ on real work: it compiles itself, all 4,400 lines, in about 0.2 seconds.
   [Markdown converter](examples/markdown.gaz) and a 700 line
   [football league simulator](examples/football.gaz).
 - **`lib/`** — the standard library, all of it written in GazLang.
-- **[docs/internals.md](docs/internals.md)** — how the interpreter, compiler and VM fit
+- **[docs/internals.md](docs/internals.md)** — how the compiler and VM fit
   together, and how to work on them.
 - **[CLAUDE.md](CLAUDE.md)** — the rules, the reasons behind each design decision, and what
   is still open. The most interesting file here if you like language design.

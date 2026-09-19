@@ -23,9 +23,8 @@ bin/gazlang -c -f examples/functions.gaz > /tmp/f.gzb && bin/gazlang -f /tmp/f.g
 bin/gazlang --tokens -f examples/functions.gaz
 bin/gazlang --ast -f examples/functions.gaz
 
-# The PHP reference, with the same options; only it has the tree-walking interpreter
+# The PHP reference, with the same options
 bin/gazlang-php -f examples/functions.gaz
-bin/gazlang-php --interpreter -f examples/functions.gaz
 
 # After changing selfhost/, rebuild the compiler gazlang has built in, with gazlang alone
 # (a test fails until then; see "Changing the compiler")
@@ -89,13 +88,12 @@ vendor/bin/pint                     # formatting
 - `src/Lexer`, `src/Parser`, `src/AST`: source text to a tree. `Lexer::quote()` and
   `Lexer::parse_integer()` are the one definition of string and integer literals.
   `AST\Dumper` prints a tree for `--ast` by reading each node's fields.
-- `src/Runtime`: what values mean, shared by both PHP backends. `Values` holds the operators,
+- `src/Runtime`: what values mean, shared by the PHP VM and the parser's constant folding. `Values` holds the operators,
   truthiness, printing, keys, indexing and write paths as static pure functions; `Builtins`
   holds the builtins and their arities (`Builtins::ARITIES`).
-- `src/Interpreter`: walks the tree. It does not decide what values mean.
 - `src/CodeGenerator`: compiles the tree to a `Program` (one block per function, each
   instruction with its file and line); `Program` writes the bytecode and `BytecodeReader` reads it.
-- `src/VM`: runs a `Program`; `bin/gazlang-php`'s default backend.
+- `src/VM`: runs a `Program`; `bin/gazlang-php`'s only backend.
 - `selfhost/`: `lexer.gaz`, `parser.gaz` and `nodes.gaz`, `codegen.gaz` (ports of the above) and
   `gazlang.gaz`, the driver: `gazlang.gaz -- code|tokens|ast [FILE]`, reading standard input
   without a FILE, a usage message and exit 2 otherwise. `gazlang.gzb` is its bytecode.
@@ -112,12 +110,10 @@ Everything is checked differentially: one side is the spec, the other must match
 byte. **Break a checker on purpose before believing a run that finds nothing**: several first
 versions of a fuzzer or corpus passed everything and caught nothing.
 
-- **The two PHP backends agree.** `GazLangTestCase::executeCode()` runs every snippet on the
-  interpreter and on the VM and fails if the output, or the error's class, message, file or
-  line, differs; `GazProgramTest`, `JsonTest` and `VMTest` do the same for whole programs. So a
-  new AST node needs a visitor in both `Interpreter/Interpreter.php` and
-  `CodeGenerator/CodeGenerator.php`. Order matters as much as results: the VM's `KEY_CHECK`
-  exists so a bad key fails before later keys and the value run, as in the interpreter.
+- **The PHP tests run on the PHP VM.** `GazLangTestCase::executeCode()` compiles every snippet,
+  writes it as bytecode and reads it back (so the suite tests the format too), and runs it;
+  `vm/snippets.php` collects the snippets for the C VM. Order matters as much as results: the
+  VM's `KEY_CHECK` exists so a bad key fails before later keys and the value run.
 - **The ports match the PHP front end** on every `.gaz` file in the repository and their own
   corpus: `SelfHostedLexerTest` against `--tokens`, `SelfHostedParserTest` against `--ast`,
   `SelfHostedCompilerTest` against `-c`, output and exit code. They run the driver compiled from
@@ -157,8 +153,7 @@ versions of a fuzzer or corpus passed everything and caught nothing.
 - **The two CLIs match** (`CliParityTest`): a table of invocations of `tests/cli/` programs
   (arguments, what is piped in, working directory) through both, which must give the same
   stdout, stderr and exit code. A change to either CLI's options or how they read input needs
-  a row. The one intended difference is `--interpreter`, which C refuses, naming
-  `bin/gazlang-php --interpreter`.
+  a row.
 - **The compiler compiles itself**: the PHP compiler's bytecode for `selfhost/gazlang.gaz`, run
   on the C VM, gives the same bytecode, which gives the same again, and `gazlang.gzb` must equal
   it (`test_the_self_hosted_compiler_compiles_itself_on_the_c_vm`).
@@ -170,8 +165,10 @@ versions of a fuzzer or corpus passed everything and caught nothing.
 - **The README's examples are tests**: `ReadmeTest` runs every ```` ```gaz ```` block followed
   by an output block and requires exactly that output.
 - **Under pcov**, deep PHP recursion segfaults (exit 139, no test named) before the call depth
-  limit, so tests of deep recursion on the interpreter go through the CLI, and
-  `tests/vm_corpus/depth.gaz` runs its PHP side in its own process (`CVM::DEEP`). Run the suite
+  limit. The PHP VM's calls are frames in an array, but a method run from inside an
+  instruction (`to_string()` printing itself) nests `execute()` on PHP's stack, so tests of
+  that go through the CLI, and `tests/vm_corpus/depth.gaz` runs its PHP side in its own process
+  (`CVM::DEEP`). Run the suite
   with pcov on at least sometimes: a segfault it causes stays invisible without it.
 
 Judge new features by what they cost **in C**, not only in PHP: value semantics suit
@@ -229,7 +226,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     include locations that climb to the root and back through the real path. Both compilers
     agree.
   - The keyword hint misses `IF (1) { }`, where the error lands at the `{`, past the name.
-  - Under Xdebug, deep recursion in the interpreter segfaults as under pcov; not handled.
+  - Under Xdebug, a deeply nested `to_string()` on the PHP VM segfaults as under pcov; not
+    handled.
   - `CVMTest` doesn't catch `make compiler` checking in stage 1 instead of stage 2: that only
     shows when an edit changes code generation, which would cost the suite a second rebuild.
 - **Language gaps**, each waiting for real code to ask:
@@ -262,7 +260,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
 - **Not planned** until real code asks: traits, late static binding, static members, operator
   overloading, `**` and `sqrt`/`pow`/`log`, variadic parameters and spread in calls (pass a
   list), `time()` (time it from outside), `foreach` over a string (`split($s, "")`), regular
-  expressions (character classes are explicit on purpose), a REPL, a C `--interpreter`.
+  expressions (character classes are explicit on purpose), a REPL.
 
 # The language
 
@@ -415,7 +413,7 @@ compile to `CALL_BUILTIN name argc`, and check argument types by their `type_of(
   error), `reverse` (lists, strings by byte, and maps, which keep their keys), and `map`,
   `filter` (truthiness, as `if`), `reduce($x, $f, $initial)` and `sort` (stable; the
   comparator must return an int), which call back into GazLang through `Values::$call_value`
-  (the interpreter's `callValue()`, the PHP VM's `valueCaller()`, the C VM's `call_value()`),
+  (the PHP VM's `valueCaller()`, the C VM's `call_value()`),
   checked as a call written in the program is. `sort` is a defined merge sort, since a
   comparator can see which comparisons are made: split in the middle, merge asking
   `$compare(right, left)`; `Builtins::sort()` and C's `merge_sort()` must stay the same
@@ -594,7 +592,7 @@ class Token {
   lists and maps, other constants; no variables, calls or indexing. What may appear is checked
   on the source first (`check_constant_expression()`), then `Parser::fold()` evaluates it with
   `Runtime\Values`, so errors are the runtime's, located at the operator, and short-circuited
-  sides aren't evaluated. It uses `Values` directly rather than the interpreter, so the parser
+  sides aren't evaluated. It uses `Values` directly rather than a VM, so the parser
   depends on no backend. Every constant is folded once the program is read, used or not; a
   cycle is `Constant A depends on itself: A uses B uses A`. Not any expression: one evaluated
   once at run time (`Point(0, 0)`) would bring initialisation order, mutation through a handle,
@@ -609,7 +607,7 @@ class Token {
   **reached by name only**: `$class.NAME` and `$object.NAME` are not constants. Both rules are
   the restrictive choice on purpose: loosening them later breaks nothing.
 - `ConstTest::expressions()` requires a constant to give what a running program gives, for
-  every operator and kind of value, on both backends and in the port.
+  every operator and kind of value, on the VM and in the port.
 
 ## Assignment
 
@@ -668,8 +666,7 @@ try {
   is a single call. A method run from inside an expression (`to_string()` by echo, `..` or a
   builtin) is called from where the expression is running, and its trace carries on through
   the calls outside it; once the program has ended (printing an uncaught error) it has none.
-  The interpreter records each call as it makes it; the VMs read their frames when an error
-  happens, which costs nothing until then. The VMs' nested loops learn where they were called
+  The VMs read their frames when an error happens, which costs nothing until then. The VMs' nested loops learn where they were called
   from through the instructions that can run program code (`PRINT`, `CONCAT`, `CONCAT_ASSIGN*`,
   `CALL_BUILTIN` and `CALL_VALUE` of a builtin), which say where they are; `trace_test.gaz` has
   a case for each, so one that forgets fails there.
@@ -700,15 +697,13 @@ try {
 
 - **Errors**: every error a program can hit is a `GazLangError` whose message ends in its
   location (` at path/file.gaz:12`, or ` on line 12` for piped source). Tokens carry their line
-  and the parser stamps `line` and `file` on every node (`Parser::at()`). The interpreter turns
-  a plain `Exception` thrown while running a node into a `GazLangError` there, so runtime code
-  can throw plain exceptions and the innermost located node wins; `try` catches only
+  and the parser stamps `line` and `file` on every node (`Parser::at()`). The VM turns a plain
+  `Exception` thrown while running an instruction into a `GazLangError` located at that
+  instruction's node (`VM::locate()`), so runtime code can throw plain exceptions; `try` catches only
   `GazLangError`, so PHP bugs aren't swallowed. `error()`'s messages have `show_location` false.
   Include paths show relative to the working directory, the main file as given.
-- **The interpreter** unwinds `return`, `break` and `continue` with one preallocated signal each
-  (a new exception per return recorded a trace and made recursion quadratic) and writes lists in
-  place through PHP references. A `MapValue` is shared until written: only `Values::store()` and
-  `remove()` change one, cloning each map on the path first.
+- **Maps**: a `MapValue` is shared until written: only `Values::store()` and `remove()` change
+  one, cloning each map on the path first.
 - **Code generation**: calling convention is arguments pushed left to right then `CALL name
   argc`, the callee's frame holding them in slots 0..argc-1, `RET` pushing the result. Compound
   assignment (except `..=` on a plain variable), `++`/`--`, `foreach`, list patterns and `??=`
@@ -732,8 +727,8 @@ try {
   Keep them that way. `SET_PATH` unsets its temporaries first, since one still holding the list
   made PHP copy it on every write.
 - **`bin/gazlang-php` restarts itself once** (`GAZLANG_RESTARTED`, since a `-d` isn't in `$argv`)
-  with `pcov.enabled=0`, because with pcov every PHP call uses the C stack and deep recursion in
-  the interpreter segfaults, and with `opcache.jit=1235` (about 25% faster; the default tracing
+  with `pcov.enabled=0`, because with pcov every PHP call uses the C stack and a deeply nested
+  `to_string()` segfaults, and with `opcache.jit=1235` (about 25% faster; the default tracing
   JIT made the VM twice as slow, 1205 cost 0.2s per run; skipped under Xdebug). It restarts
   through `proc_open` with its own streams, so stdout and stderr stay in order.
 

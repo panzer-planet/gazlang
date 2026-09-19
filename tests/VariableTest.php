@@ -13,8 +13,7 @@ class VariableTest extends GazLangTestCase
     public function test_basic_var_declaration()
     {
         $input = '$x = 5;';
-        $interpreter = $this->createInterpreter($input);
-        $interpreter->interpret();
+        $this->createVM($input)->run();
 
         // If we got here without exceptions, test passed
         $this->assertTrue(true);
@@ -94,8 +93,7 @@ class VariableTest extends GazLangTestCase
         $this->expectException(\Exception::class);
 
         $input = 'echo $undefinedVar;';
-        $interpreter = $this->createInterpreter($input);
-        $interpreter->interpret();
+        $this->createVM($input)->run();
     }
 
     /**

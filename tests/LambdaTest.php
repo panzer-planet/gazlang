@@ -305,14 +305,11 @@ Undefined variable: $n
     public function test_runaway_recursion_through_a_global_closure_is_a_gazlang_error()
     {
         $code = '@f = () -> @f(); @f();';
-        foreach (['', '--interpreter'] as $backend) {
-            $command = sprintf('echo %s | %s %s %s 2>&1', escapeshellarg($code), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang-php'), $backend);
-            exec($command, $output, $exit_code);
+        $command = sprintf('echo %s | %s %s 2>&1', escapeshellarg($code), escapeshellarg(PHP_BINARY), escapeshellarg(__DIR__.'/../bin/gazlang-php'));
+        exec($command, $output, $exit_code);
 
-            $this->assertSame('Error: Maximum call depth of 10000 exceeded calling -> on line 1 on line 1', $output[0], "with {$backend}");
-            $this->assertSame(1, $exit_code);
-            $output = [];
-        }
+        $this->assertSame('Error: Maximum call depth of 10000 exceeded calling -> on line 1 on line 1', $output[0]);
+        $this->assertSame(1, $exit_code);
     }
 
     public function test_code_gen()
@@ -336,8 +333,6 @@ Undefined variable: $n
     {
         [$output] = $this->runProgram('tests/fixtures/closure_name.gaz');
         $this->assertSame("function -> at tests/fixtures/closure_name.gaz:2\n", $output);
-        [$vm_output] = $this->runProgram('tests/fixtures/closure_name.gaz', [], true);
-        $this->assertSame($output, $vm_output);
     }
 
     public function test_error_class_is_gazlang_error_for_a_bad_lambda_head()

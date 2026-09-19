@@ -5,10 +5,9 @@ namespace GazLang\Runtime;
 /**
  * A class as a value: Point in $make = Point, and what an object's fields and methods are
  *
- * Built by each backend from the class records the parser's resolved declarations give,
- * one value per class per run, so == on classes is identity. A record holds no AST: the
- * field defaults are code (the interpreter runs the declarations, the VM the initialiser),
- * so a class is its name, its parent, whether it is abstract, its fields in layout order
+ * Built by the VM from the class records the parser's resolved declarations give, one value
+ * per class per run, so == on classes is identity. A record holds no AST: the field defaults
+ * are code (the class's initialiser), so a class is its name, its parent, whether it is abstract, its fields in layout order
  * and its method table.
  */
 final class ClassValue

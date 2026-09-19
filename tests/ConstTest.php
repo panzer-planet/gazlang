@@ -249,7 +249,7 @@ class ConstTest extends GazLangTestCase
 
     /**
      * The parser works a value out with the functions a program runs on, but chooses between them
-     * itself (Parser::fold()), as the interpreter and the code generator each do: so every
+     * itself (Parser::fold()), as the code generator does: so every
      * operator is checked to give a constant what it gives a running program
      */
     public function test_a_constant_is_what_its_expression_gives_when_a_program_runs()

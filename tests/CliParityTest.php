@@ -9,11 +9,7 @@ use GazLang\Parser\Parser;
 /**
  * The C CLI (bin/gazlang) against the PHP one (bin/gazlang-php), which is the spec: every
  * invocation in the table runs through both, which must print the same standard output and
- * standard error and exit with the same code.
- *
- * The C side is the sanitized build. The one difference on purpose is --interpreter, which only
- * PHP has: the C CLI refuses it, and its help says so on that line, which is the only change
- * made to what PHP prints before comparing.
+ * standard error and exit with the same code. The C side is the sanitized build.
  */
 class CliParityTest extends GazLangTestCase
 {
@@ -119,7 +115,7 @@ class CliParityTest extends GazLangTestCase
         'a .gzb file that is not bytecode' => [['-f', self::BUILD.'/source.gzb'], null, '.'],
         'tokens of bytecode' => [['-t', '-f', 'broken.gzb']],
         'ast of piped bytecode' => [['--ast'], 'broken.gzb'],
-        'the interpreter on bytecode' => [['--interpreter', '-f', 'broken.gzb']],
+        'the interpreter is gone' => [['--interpreter', '-f', 'args.gaz']],
     ];
 
     /**
@@ -142,13 +138,6 @@ class CliParityTest extends GazLangTestCase
         [$php, $c] = self::results()[$name];
 
         $this->assertSame($php, $c, $name);
-    }
-
-    public function test_the_c_cli_has_no_interpreter()
-    {
-        [, $c] = self::runBoth([[['--interpreter', '-f', 'args.gaz']]])[0];
-
-        $this->assertSame(['', "Error: There is no interpreter here, only the VM: run bin/gazlang-php --interpreter\n", 1], $c);
     }
 
     /**
@@ -200,9 +189,7 @@ class CliParityTest extends GazLangTestCase
             }
             $out = CVM::processes($commands, ['GAZLANG_RESTARTED' => '1'], null, $stdin, self::ROOT."/{$dir}");
             foreach ($batch as $i => $_) {
-                $php = $out["php{$i}"];
-                $php[0] = str_replace('the tree-walking interpreter instead of the VM', 'the tree-walking interpreter instead of the VM (bin/gazlang-php only)', $php[0]);
-                $results[$i] = [$php, $out["c{$i}"]];
+                $results[$i] = [$out["php{$i}"], $out["c{$i}"]];
             }
         }
         ksort($results);

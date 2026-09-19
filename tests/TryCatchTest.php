@@ -8,17 +8,10 @@ class TryCatchTest extends GazLangTestCase
 {
     public function test_running_out_of_call_depth_can_be_caught()
     {
-        // The interpreter, through the CLI, which runs without pcov: in-process, interpreter
-        // recursion this deep can segfault (VMTest covers the VM in-process)
-        exec(sprintf(
-            'echo %s | %s %s --interpreter',
-            escapeshellarg('fn recurse() { return recurse(); } try { recurse(); } catch ($e) { echo $e.message; } echo "still running";'),
-            escapeshellarg(PHP_BINARY),
-            escapeshellarg(self::ROOT.'/bin/gazlang-php')
-        ), $output, $exit_code);
-
-        $this->assertSame(['Maximum call depth of 10000 exceeded calling recurse', 'still running'], $output);
-        $this->assertSame(0, $exit_code);
+        $this->assertSame(
+            "Maximum call depth of 10000 exceeded calling recurse\nstill running\n",
+            $this->executeCode('fn recurse() { return recurse(); } try { recurse(); } catch ($e) { echo $e.message; } echo "still running";')
+        );
     }
 
     public function test_error_in_a_catch_block_is_not_caught_by_the_same_try()

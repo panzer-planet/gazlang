@@ -237,7 +237,7 @@ class ArrayTest extends GazLangTestCase
             $this->generateCode('echo [" ", {"k" => null, "1" => 2.5, 1 => {}}];')
         );
         // Anything that isn't a constant with a valid key is built at runtime, so it fails (or
-        // runs) exactly when the interpreter's does
+        // runs) exactly when the program reaches it
         $this->assertStringStartsWith('NEW_MAP', $this->generateCode('echo {true => 1};'));
         $this->assertStringStartsWith('NEW_ARRAY', $this->generateCode('echo [[1, -1]];'));
     }

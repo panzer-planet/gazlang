@@ -32,14 +32,11 @@ class ReadmeTest extends GazLangTestCase
         file_put_contents($file, $code);
 
         try {
-            // Both backends, as every other program test does
             [$output] = $this->runProgram("tests/.readme/{$name}.gaz", $args);
-            [$vm_output] = $this->runProgram("tests/.readme/{$name}.gaz", $args, true);
             // A location is the path as it was given, and the README shows a program run from
             // its own directory, so the directory it was written to is not part of the claim
             $seen = fn (string $text) => rtrim(str_replace('tests/.readme/', '', $text), "\n");
-            $this->assertSame($expected, $seen($output), "README block '{$name}' on the interpreter");
-            $this->assertSame($expected, $seen($vm_output), "README block '{$name}' on the VM");
+            $this->assertSame($expected, $seen($output), "README block '{$name}'");
         } finally {
             unlink($file);
         }

@@ -2,11 +2,12 @@
 
 namespace GazLang\Tests;
 
+use GazLang\CodeGenerator\CodeGenerator;
 use GazLang\GazLangError;
-use GazLang\Interpreter\Interpreter;
 use GazLang\Runtime\Builtins;
 use GazLang\Runtime\MapValue;
 use GazLang\Runtime\Values;
+use GazLang\VM\VM;
 
 class StdlibTest extends GazLangTestCase
 {
@@ -259,13 +260,11 @@ class StdlibTest extends GazLangTestCase
         ));
     }
 
-    public function test_exit_stops_the_program_with_its_code_on_both_backends()
+    public function test_exit_stops_the_program_with_its_code()
     {
-        foreach ([false, true] as $vm) {
-            $this->assertSame(['', 0], $this->runProgram('tests/fixtures/exit.gaz', [], $vm));
-            $this->assertSame(["stopping\n", 3], $this->runProgram('tests/fixtures/exit.gaz', ['3'], $vm));
-            $this->assertSame(["stopping\n", 0], $this->runProgram('tests/fixtures/exit.gaz', ['0'], $vm));
-        }
+        $this->assertSame(['', 0], $this->runProgram('tests/fixtures/exit.gaz'));
+        $this->assertSame(["stopping\n", 3], $this->runProgram('tests/fixtures/exit.gaz', ['3']));
+        $this->assertSame(["stopping\n", 0], $this->runProgram('tests/fixtures/exit.gaz', ['0']));
     }
 
     public function test_exit_code_is_the_process_exit_code()
@@ -448,10 +447,10 @@ class StdlibTest extends GazLangTestCase
 
     public function test_args()
     {
-        $interpreter = new Interpreter($this->createParser('echo args(); echo len(args());'), ['a', '-b']);
+        $vm = new VM((new CodeGenerator($this->createParser('echo args(); echo len(args());')->parse()))->compile(), ['a', '-b']);
 
         ob_start();
-        $interpreter->interpret();
+        $vm->run();
         $this->assertEquals("[\"a\", \"-b\"]\n2\n", ob_get_clean());
     }
 
@@ -581,7 +580,7 @@ class StdlibTest extends GazLangTestCase
         $file = tempnam(sys_get_temp_dir(), 'gaz');
         file_put_contents($file, 'echo rand_int(-9223372036854775807 - 1, 9223372036854775807);');
         try {
-            foreach ([[CVM::BINARY], ['bin/gazlang-php'], ['bin/gazlang-php', '--interpreter']] as $gazlang) {
+            foreach ([[CVM::BINARY], ['bin/gazlang-php']] as $gazlang) {
                 [[$first], [$second]] = CVM::processes([[...$gazlang, '-f', $file], [...$gazlang, '-f', $file]]);
                 $this->assertMatchesRegularExpression('/^-?\d+\n$/', $first);
                 $this->assertNotSame($first, $second, implode(' ', $gazlang));

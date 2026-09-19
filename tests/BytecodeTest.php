@@ -131,16 +131,16 @@ class BytecodeTest extends GazLangTestCase
         $this->assertSame(1, $exit_code);
     }
 
-    public function test_the_interpreter_does_not_run_bytecode()
+    public function test_tokens_of_bytecode_are_refused()
     {
         $gazlang = escapeshellarg(PHP_BINARY).' '.escapeshellarg(self::ROOT.'/bin/gazlang-php');
-        exec("cd {$this->root()} && {$gazlang} --interpreter -f tests/fixtures/bytecode/example.gzb 2>&1", $output, $exit_code);
+        exec("cd {$this->root()} && {$gazlang} --tokens -f tests/fixtures/bytecode/example.gzb 2>&1", $output, $exit_code);
 
         $this->assertSame(['Error: tests/fixtures/bytecode/example.gzb is bytecode, which only the VM runs'], $output);
         $this->assertSame(1, $exit_code);
 
         // Piped in, there is no file to name
-        exec("cd {$this->root()} && {$gazlang} --interpreter < tests/fixtures/bytecode/example.gzb 2>&1", $piped, $piped_exit);
+        exec("cd {$this->root()} && {$gazlang} --tokens < tests/fixtures/bytecode/example.gzb 2>&1", $piped, $piped_exit);
 
         $this->assertSame(['Error: standard input is bytecode, which only the VM runs'], $piped);
         $this->assertSame(1, $piped_exit);

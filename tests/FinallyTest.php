@@ -25,26 +25,18 @@ class FinallyTest extends GazLangTestCase
             CODE));
     }
 
-    /**
-     * @dataProvider backends
-     */
-    public function test_uncaught_errors_run_finally_and_exit_does_not(bool $vm)
+    public function test_uncaught_errors_run_finally_and_exit_does_not()
     {
         $file = tempnam(sys_get_temp_dir(), 'gaz');
         try {
             file_put_contents($file, 'try { echo "body"; $x = 1 / 0; } finally { echo "finally"; }');
-            $this->assertSame(["body\nfinally\nError: Division by zero at {$file}:1\n", 1], $this->runProgram($file, [], $vm));
+            $this->assertSame(["body\nfinally\nError: Division by zero at {$file}:1\n", 1], $this->runProgram($file));
 
             file_put_contents($file, 'try { echo "body"; exit(3); } finally { echo "not run"; }');
-            $this->assertSame(["body\n", 3], $this->runProgram($file, [], $vm));
+            $this->assertSame(["body\n", 3], $this->runProgram($file));
         } finally {
             unlink($file);
         }
-    }
-
-    public static function backends(): array
-    {
-        return ['interpreter' => [false], 'vm' => [true]];
     }
 
     public function test_an_error_in_a_catch_block_runs_finally()

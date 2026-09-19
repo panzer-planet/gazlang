@@ -2113,7 +2113,7 @@ class Parser
     }
 
     /**
-     * Work out the value of a constant's expression, as the interpreter would, with Runtime\Values
+     * Work out the value of a constant's expression, as a running program would, with Runtime\Values
      *
      * So 1 / 0 and an overflow are errors here as they are when a program runs, located at
      * the operator. Only what needs nothing but the source is allowed: no variables, no

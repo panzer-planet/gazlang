@@ -3,7 +3,7 @@
 
 // Settings that only take effect when PHP starts, so run again with them if they're missing:
 // - With pcov enabled every PHP call uses the C stack, so deep GazLang recursion segfaults
-//   long before the interpreter's call depth limit.
+//   long before the VM's call depth limit, when to_string() calls nest execute().
 // - PHP's JIT compiling hot functions (opcache.jit=1235) makes the VM about 25% faster. The
 //   default tracing mode makes it twice as slow, and compiling everything on load (1205)
 //   adds 0.2s to every run. Not with Xdebug, which disables the JIT with a warning in the output.
@@ -41,7 +41,6 @@ use GazLang\AST\Dumper;
 use GazLang\Lexer\Lexer;
 use GazLang\Lexer\Token;
 use GazLang\Parser\Parser;
-use GazLang\Interpreter\Interpreter;
 use GazLang\CodeGenerator\CodeGenerator;
 use GazLang\CodeGenerator\Program;
 use GazLang\VM\VM;
@@ -58,7 +57,6 @@ function showHelp() {
     echo "  -h, --help     Show this help message\n";
     echo "  -v, --version  Show version information\n";
     echo "  -c, --code         Print the compiled bytecode instead of running it (gazlang -c -f x.gaz > x.gzb)\n";
-    echo "      --interpreter  Run on the tree-walking interpreter instead of the VM\n";
     echo "  -t, --tokens   Print the lexer's tokens, one LINE TYPE VALUE per line, instead of interpreting\n";
     echo "      --ast      Print the parser's tree instead of running it\n";
     echo "  -f, --file     Read input from a file instead of stdin\n";
@@ -72,7 +70,7 @@ function showVersion() {
 }
 
 // Parse command-line arguments
-$options = getopt("hvf:ct", ["help", "version", "file:", "code", "tokens", "ast", "interpreter"], $rest_index);
+$options = getopt("hvf:ct", ["help", "version", "file:", "code", "tokens", "ast"], $rest_index);
 // Everything after the options (or after --) is passed to the program, see args()
 $programArgs = array_slice($argv, $rest_index);
 
@@ -81,7 +79,7 @@ $programArgs = array_slice($argv, $rest_index);
 for ($i = 1; $i < $rest_index; $i++) {
     if (preg_match('/^(-[hvct]*f|--file)$/', $argv[$i])) {
         $i++; // the file name that follows
-    } elseif (! preg_match('/^(-[hvct]+|-[hvct]*f.+|--(help|version|code|tokens|ast|interpreter|file=.+)|--)$/', $argv[$i])) {
+    } elseif (! preg_match('/^(-[hvct]+|-[hvct]*f.+|--(help|version|code|tokens|ast|file=.+)|--)$/', $argv[$i])) {
         fwrite(STDERR, "Error: Unknown option {$argv[$i]} (put program arguments after --)\n");
         exit(1);
     }
@@ -101,7 +99,6 @@ $mode = match (true) {
     isset($options['t']) || isset($options['tokens']) => 'tokens',
     isset($options['ast']) => 'ast',
     isset($options['c']) || isset($options['code']) => 'code',
-    isset($options['interpreter']) => 'interpret',
     default => 'vm',
 };
 // getopt gives an option given twice as a list of its values
@@ -162,7 +159,7 @@ while (true) {
  * Process input text
  * 
  * @param string $text         The input text to process
- * @param string $mode         vm (compile and run on the VM), interpret (run on the interpreter), code (print the bytecode), tokens (print the tokens) or ast (print the tree)
+ * @param string $mode         vm (compile and run on the VM), code (print the bytecode), tokens (print the tokens) or ast (print the tree)
  * @param string|null $path    The file the text came from, so includes resolve relative to it
  * @param array  $args         Command line arguments for the program
  * @return bool Whether the input ran without errors
@@ -177,7 +174,7 @@ function processInput(string $text, string $mode = 'vm', ?string $path = null, a
 
                 return true;
             }
-            if ($mode === 'tokens' || $mode === 'ast' || $mode === 'interpret') {
+            if ($mode === 'tokens' || $mode === 'ast') {
                 echo 'Error: '.($path ?? 'standard input')." is bytecode, which only the VM runs\n";
 
                 return false;
@@ -206,8 +203,6 @@ function processInput(string $text, string $mode = 'vm', ?string $path = null, a
         } elseif ($mode === 'code') {
             // The compiled program as a bytecode file, which gazlang can run: gazlang -c -f x.gaz > x.gzb
             echo (new CodeGenerator($parser->parse()))->compile()->write($path);
-        } elseif ($mode === 'interpret') {
-            (new Interpreter($parser, $args))->interpret();
         } else {
             (new VM((new CodeGenerator($parser->parse()))->compile(), $args))->run();
         }

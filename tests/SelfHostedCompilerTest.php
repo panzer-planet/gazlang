@@ -88,18 +88,6 @@ class SelfHostedCompilerTest extends GazLangTestCase
     }
 
     /**
-     * The corpus runs on the C VM only, which is what keeps it fast, so a few files go through the interpreter as well
-     */
-    public function test_self_hosted_compiler_gives_the_same_bytecode_on_the_interpreter()
-    {
-        foreach (['expressions', 'statements', 'functions', 'classes'] as $name) {
-            $file = "tests/codegen_corpus/{$name}.gaz";
-
-            $this->assertSame(self::phpCode($file), $this->runProgram(CVM::DRIVER, ['code', $file]), $file);
-        }
-    }
-
-    /**
      * @dataProvider corpus
      */
     public function test_self_hosted_compiler_matches_the_php_compiler(string $file)

@@ -21,8 +21,8 @@ use GazLang\Runtime\Values;
  *
  * A stack machine: instructions push and pop values on one value stack; each function
  * call gets a frame of local slots; globals are one shared set of slots. Every operator
- * and builtin goes through Runtime\Values and Runtime\Builtins, the same code the
- * interpreter uses, so the two backends mean the same thing. See CodeGenerator for what
+ * and builtin goes through Runtime\Values and Runtime\Builtins, the same code the parser
+ * folds constants with, so a constant means what it would at run time. See CodeGenerator for what
  * each instruction does.
  */
 final class VM
@@ -100,8 +100,7 @@ final class VM
      * The hot loop: instructions are pre-split into parallel arrays by link(), and the
      * commonest operations on ints and bools skip the general Values functions. Those fast
      * paths only cover cases whose result is obvious (an int result that didn't overflow,
-     * a comparison of two ints); anything else, errors included, goes through Values, and
-     * the tests compare every program's output and errors with the interpreter's.
+     * a comparison of two ints); anything else, errors included, goes through Values.
      *
      * @throws GazLangError If an error isn't caught by a try
      */
@@ -539,7 +538,7 @@ final class VM
                                 $index = $arg0[$pc - 1];
                                 [, , , $self, $map] = $lambdas[$index];
                                 // Copies of the enclosing variables that exist, from the frame or from the running
-                                // closure's own, as in the interpreter
+                                // closure's own; one that doesn't exist yet stays undefined in the closure
                                 $captured = [];
                                 foreach ($map as [$from_closure, $outer, $inner]) {
                                     if ($from_closure) {
@@ -551,7 +550,7 @@ final class VM
                                     }
                                 }
                                 // The closure is made where the lambda is written, which is this instruction's location
-                                $made = FunctionValue::closure(null, $captured, $index, $receiver, ...$locations[$pc - 1]);
+                                $made = FunctionValue::closure($captured, $index, $receiver, ...$locations[$pc - 1]);
                                 // $f = <lambda>: the closure's $f is the closure
                                 if ($self !== null) {
                                     $made->captured[$self] = $made;
@@ -624,8 +623,8 @@ final class VM
                                 goto construct;
                             case 'CALL_CONSTRUCTOR':
                                 // The constructor runs with the arguments the object's initialiser was given, and
-                                // nothing else it holds; a failure here is where the object is being made, as in
-                                // the interpreter, not in the initialiser
+                                // nothing else it holds; a failure here is located where the object is being made,
+                                // not in the initialiser
                                 if ($depth + count($frames) === Values::MAX_CALL_DEPTH) {
                                     throw $this->locate(
                                         new Exception('Maximum call depth of '.Values::MAX_CALL_DEPTH." exceeded calling {$arg0[$pc - 1]}._"),
@@ -1187,7 +1186,8 @@ final class VM
      * Each call is shown where it was running: the innermost where the error happened, the ones
      * around it at the call they made, which is the instruction before the one they return to.
      * A method run from inside an instruction (to_string() by printing) runs in a loop of its
-     * own, whose caller is where the loop around it is running, as in the interpreter.
+     * own, whose caller is where the loop around it is running, so the trace carries on
+     * through the calls outside it.
      *
      * @param  array{0: string|null, 1: int|null}  $location  Where the running frame is
      * @param  list<array>  $frames  The callers of the running frame, outermost first

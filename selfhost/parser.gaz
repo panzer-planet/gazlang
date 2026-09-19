@@ -1522,7 +1522,7 @@ class Parser {
     // Work out the value of a constant's expression, as a program would: $class is the class
     // the constant is declared in, which #NAME is a constant of
     //
-    // The PHP parser does this with Runtime\Values, the functions its interpreter runs on. Here
+    // The PHP parser does this with Runtime\Values, the functions its VM runs on. Here
     // the operators are GazLang's own, which are those same functions, so 1 / 0 and an overflow
     // are the errors they are when a program runs, located at the operator. Only what needs
     // nothing but the source is allowed: no variables, no calls (a function can do anything,
