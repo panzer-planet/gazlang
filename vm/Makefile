@@ -35,14 +35,16 @@ ifeq ($(TLS),1)
   LIBS += $(SSL_LIBS)
 endif
 
-# The flags as a file, rewritten only when they change, so every binary depends on them and
-# switching TLS rebuilds
-CONFIG = build/config
-$(shell mkdir -p build; echo '$(FLAGS) $(LIBS)' | cmp -s - $(CONFIG) || echo '$(FLAGS) $(LIBS)' > $(CONFIG))
 HEADERS = gazvm.h
 # The self-hosted compiler's bytecode, checked in, built into the VM so it can run source
 COMPILER = build/compiler.c
 GAZLANG = ../bin/gazlang
+
+# The flags as a file, rewritten only when they change, and every binary depends on it, so
+# switching TLS rebuilds. The binaries go too: make 3.81 (macOS's) compares times to the second,
+# and a build started in the second the last one finished would see nothing newer.
+CONFIG = build/config
+$(shell mkdir -p build; echo '$(FLAGS) $(LIBS)' | cmp -s - $(CONFIG) || { echo '$(FLAGS) $(LIBS)' > $(CONFIG); rm -f $(GAZLANG) build/gazvm-test build/gazvm-stress build/gazvm-cov; })
 
 all: $(GAZLANG)
 
