@@ -1,0 +1,134 @@
+// A Brainfuck interpreter: the program is compiled to a list of instructions first, folding
+// runs like +++++ into one and pairing each [ with its ], then run on a tape of bytes.
+//
+//   bin/gazlang -f examples/brainfuck.gaz [-- FILE | squares]
+//
+// Input for , comes from standard input. Without a file it runs the programs below; squares
+// runs a longer one.
+
+// Hello World!, from the Wikipedia article
+const HELLO = "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.";
+
+// The squares from 0 to 10000, by Daniel B. Cristofani
+const SQUARES = "++++[>+++++<-]>[<+++++>-]+<+[>[>+>+<<-]++>>[<<+>>-]>>>[-]++>[-]+>>>+[[-]++++++>>>]<<<[[<++++++++<++>>-]+<.<[>----<-]<]<<[>>>>>[>>>[-]+++++++++<[>-<-]+++++++++>[-[<->-]+[<<<]]<[>+<-]>]<<-]<<-]";
+
+// What the tape holds and where a program is, while it runs
+class Machine {
+    #tape = [0];
+    #at = 0;
+    #input;
+    #read = 0;
+    #output = "";
+
+    fn _($input) { #input = $input; }
+
+    fn run($code) {
+        $pc = 0;
+        while ($pc < len($code)) {
+            [$op, $n] = $code[$pc];
+            match ($op) {
+                "+" => { #tape[#at] = (#tape[#at] + $n) & 255; }
+                ">" => {
+                    #at += $n;
+                    while (#at >= len(#tape)) {
+                        #tape[] = 0;
+                    }
+                }
+                "<" => {
+                    #at -= $n;
+                    if (#at < 0) {
+                        error("The pointer moved left of the tape at instruction {$pc}");
+                    }
+                }
+                "[" => {
+                    if (#tape[#at] == 0) {
+                        $pc = $n;
+                    }
+                }
+                "]" => {
+                    if (#tape[#at] != 0) {
+                        $pc = $n;
+                    }
+                }
+                "." => { #output ..= chr(#tape[#at]); }
+                "," => {
+                    // End of input leaves the cell as it is
+                    if (#read < len(#input)) {
+                        #tape[#at] = ord(#input[#read]);
+                        #read++;
+                    }
+                }
+                "0" => { #tape[#at] = 0; }
+            }
+            $pc++;
+        }
+        return #output;
+    }
+}
+
+// The program as [op, n] pairs: + with n to add (a run of - adds what wraps round to it), > and < with how
+// far to move, [ and ] with where the other one is, and [-] as "0", which sets the cell to 0
+fn compile($source) {
+    $code = [];
+    $open = [];
+    $i = 0;
+    while ($i < len($source)) {
+        $c = $source[$i];
+        if ($c == "+" || $c == "-" || $c == ">" || $c == "<") {
+            // A run of one character
+            $run = 1;
+            while ($i + $run < len($source) && $source[$i + $run] == $c) {
+                $run++;
+            }
+            $i += $run;
+            match ($c) {
+                "+" => { $code[] = ["+", $run % 256]; }
+                "-" => { $code[] = ["+", (256 - $run % 256) % 256]; }
+                default => { $code[] = [$c, $run]; }
+            }
+            continue;
+        }
+        if (slice($source, $i, 3) == "[-]") {
+            $code[] = ["0", 0];
+            $i += 3;
+            continue;
+        }
+        match ($c) {
+            "[" => {
+                $open[] = len($code);
+                $code[] = ["[", null];
+            }
+            "]" => {
+                if (len($open) == 0) {
+                    error("Unmatched ] at character {$i}");
+                }
+                $start = $open[len($open) - 1];
+                delete $open[len($open) - 1];
+                $code[$start][1] = len($code);
+                $code[] = ["]", $start];
+            }
+            ".", "," => { $code[] = [$c, 1]; }
+            default => {}           // anything else is a comment
+        }
+        $i++;
+    }
+    if (len($open) > 0) {
+        error("Unmatched [ at instruction " .. $open[len($open) - 1]);
+    }
+    return $code;
+}
+
+fn run($source, $input = "") {
+    return Machine($input).run(compile($source));
+}
+
+$arguments = args();
+if (len($arguments) == 0) {
+    print(run(HELLO));
+    echo "Reversed by a program: " .. run(">,[>,]<[.<]", "stressed");
+} else if ($arguments[0] == "squares") {
+    $squares = split(trim(run(SQUARES)), "\n");
+    echo "The squares up to 10000: " .. len($squares) .. " of them, the last " .. $squares[len($squares) - 1];
+} else {
+    print(run(read_file($arguments[0]), read_stdin()));
+}

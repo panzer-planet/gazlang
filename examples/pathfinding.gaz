@@ -1,0 +1,224 @@
+// Find the way across a map two ways: the fewest steps (breadth first search) and the least
+// effort (Dijkstra's algorithm, with a binary heap), then draw both routes.
+//
+//   bin/gazlang -f examples/pathfinding.gaz [-- FILE]
+//
+// A map is rows of: S start, E end, # wall, . grass (costs 1), ^ hills (3), ~ water (5).
+
+const MAP = "
+##################
+#S....~~~~.......#
+#.###.~~~~.#####.#
+#...#.~~~~.#...#.#
+###.#......#.#.#.#
+#...######.#.#...#
+#.^^^^^^^#...#.###
+#.^^^^^^^#####...#
+#.........~~~~~E.#
+##################
+";
+
+const COSTS = {"S" => 1, "E" => 1, "." => 1, "^" => 3, "~" => 5};
+const STEPS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+
+// A map as a grid of cells, with where to start and finish
+class Terrain {
+    #cells = [];
+    #width;
+    #height;
+    #start;
+    #end;
+
+    fn _($text) {
+        foreach (split(trim($text), "\n") as $y => $line) {
+            $row = split(trim($line), "");
+            foreach ($row as $x => $cell) {
+                match ($cell) {
+                    "S" => { #start = [$x, $y]; }
+                    "E" => { #end = [$x, $y]; }
+                    "#", ".", "^", "~" => {}
+                    default => error("Unknown cell '{$cell}' at {$x},{$y}")
+                }
+            }
+            #cells[] = $row;
+        }
+        #height = len(#cells);
+        #width = len(#cells[0]);
+        foreach (#cells as $y => $row) {
+            if (len($row) != #width) {
+                error("Row {$y} is " .. len($row) .. " wide, not {#width}");
+            }
+        }
+        if ((#start ?? null) == null || (#end ?? null) == null) {
+            error("The map needs an S and an E");
+        }
+    }
+
+    // A cell's number, which serves as a key: y * width + x
+    fn id($point) {
+        [$x, $y] = $point;
+        return $y * #width + $x;
+    }
+
+    fn point($id) { return [$id % #width, intdiv($id, #width)]; }
+
+    // The open cells next to a point, as ids
+    fn neighbours($id) {
+        [$x, $y] = #point($id);
+        $found = [];
+        foreach (STEPS as [$dx, $dy]) {
+            [$nx, $ny] = [$x + $dx, $y + $dy];
+            if ($nx >= 0 && $ny >= 0 && $nx < #width && $ny < #height && #cells[$ny][$nx] != "#") {
+                $found[] = #id([$nx, $ny]);
+            }
+        }
+        return $found;
+    }
+
+    fn cost($id) {
+        [$x, $y] = #point($id);
+        return COSTS[#cells[$y][$x]];
+    }
+
+    // The map with a route drawn on it as $mark, keeping S and E
+    fn draw($route, $mark) {
+        $cells = #cells;
+        foreach ($route as $id) {
+            [$x, $y] = #point($id);
+            if ($cells[$y][$x] != "S" && $cells[$y][$x] != "E") {
+                $cells[$y][$x] = $mark;
+            }
+        }
+        return join(map($cells, $row -> join($row, "")), "\n");
+    }
+}
+
+// A binary min-heap of [priority, value] pairs
+class Heap {
+    #items = [];
+
+    fn is_empty() { return len(#items) == 0; }
+
+    fn push($priority, $value) {
+        #items[] = [$priority, $value];
+        $i = len(#items) - 1;
+        while ($i > 0) {
+            $parent = intdiv($i - 1, 2);
+            if (#items[$parent][0] <= #items[$i][0]) {
+                break;
+            }
+            [#items[$parent], #items[$i]] = [#items[$i], #items[$parent]];
+            $i = $parent;
+        }
+    }
+
+    // Take the pair with the smallest priority
+    fn pop() {
+        $top = #items[0];
+        $last = #items[len(#items) - 1];
+        delete #items[len(#items) - 1];
+        if (len(#items) == 0) {
+            return $top;
+        }
+        #items[0] = $last;
+        $i = 0;
+        while (true) {
+            $smallest = $i;
+            foreach ([2 * $i + 1, 2 * $i + 2] as $child) {
+                if ($child < len(#items) && #items[$child][0] < #items[$smallest][0]) {
+                    $smallest = $child;
+                }
+            }
+            if ($smallest == $i) {
+                break;
+            }
+            [#items[$smallest], #items[$i]] = [#items[$i], #items[$smallest]];
+            $i = $smallest;
+        }
+        return $top;
+    }
+}
+
+// Follow the came-from links back from the end, then turn the route round
+fn route($came_from, $end) {
+    $backwards = [$end];
+    $at = $end;
+    while (($came_from[$at] ?? null) != null) {
+        $at = $came_from[$at];
+        $backwards[] = $at;
+    }
+    $route = [];
+    for ($i = len($backwards) - 1; $i >= 0; $i--) {
+        $route[] = $backwards[$i];
+    }
+    return $route;
+}
+
+// The fewest steps from start to end, ignoring what the ground costs
+fn fewest_steps($terrain) {
+    $start = $terrain.id($terrain.start);
+    $end = $terrain.id($terrain.end);
+    $came_from = {$start => null};
+    $queue = [$start];
+    $next = 0;
+    while ($next < len($queue)) {
+        $at = $queue[$next];
+        $next++;
+        if ($at == $end) {
+            return route($came_from, $end);
+        }
+        foreach ($terrain.neighbours($at) as $n) {
+            if (!has_key($came_from, $n)) {
+                $came_from[$n] = $at;
+                $queue[] = $n;
+            }
+        }
+    }
+    return null;
+}
+
+// The least effort from start to end, entering each cell costing what its ground does
+fn least_effort($terrain) {
+    $start = $terrain.id($terrain.start);
+    $end = $terrain.id($terrain.end);
+    $came_from = {$start => null};
+    $best = {$start => 0};
+    $heap = Heap();
+    $heap.push(0, $start);
+    while (!$heap.is_empty()) {
+        [$effort, $at] = $heap.pop();
+        if ($at == $end) {
+            return route($came_from, $end);
+        }
+        if ($effort > $best[$at]) {
+            continue;       // a stale entry: a cheaper way here was found after it was pushed
+        }
+        foreach ($terrain.neighbours($at) as $n) {
+            $through = $effort + $terrain.cost($n);
+            if ($through < ($best[$n] ?? $through + 1)) {
+                $best[$n] = $through;
+                $came_from[$n] = $at;
+                $heap.push($through, $n);
+            }
+        }
+    }
+    return null;
+}
+
+fn effort($terrain, $route) {
+    return reduce(slice($route, 1), ($sum, $id) -> $sum + $terrain.cost($id), 0);
+}
+
+$arguments = args();
+$terrain = Terrain(len($arguments) > 0 ? read_file($arguments[0]) : MAP);
+
+foreach ([["Fewest steps", fewest_steps, "o"], ["Least effort", least_effort, "*"]] as [$title, $find, $mark]) {
+    $route = $find($terrain);
+    if ($route == null) {
+        echo "{$title}: no way through";
+        continue;
+    }
+    echo "{$title}: " .. len($route) - 1 .. " steps, effort " .. effort($terrain, $route);
+    echo $terrain.draw($route, $mark);
+    echo "";
+}

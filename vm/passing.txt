@@ -1,10 +1,13 @@
+examples/brainfuck.gaz
 examples/collections.gaz
 examples/csv_report.gaz
 examples/errors.gaz
 examples/football.gaz
 examples/functions.gaz
 examples/json_pretty.gaz
+examples/markdown.gaz
 examples/objects.gaz
+examples/pathfinding.gaz
 examples/strings.gaz
 examples/tokenizer.gaz
 lib/chars.gaz
