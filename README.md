@@ -3,7 +3,7 @@
 [![CI](https://github.com/panzer-planet/gazlang/actions/workflows/ci.yml/badge.svg)](https://github.com/panzer-planet/gazlang/actions/workflows/ci.yml)
 [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
 
-**A small scripting language that would rather stop than guess.**
+**A scripting language that would rather stop than guess.**
 
 If you have written PHP, JavaScript or Python, you can read GazLang already. What makes it
 different is what it refuses to do: it never quietly turns a string into a number, never
