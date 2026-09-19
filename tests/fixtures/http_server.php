@@ -58,6 +58,7 @@ function respond(string $method, string $uri, array $headers, string $body, stri
         '/missing' => "HTTP/1.1 404 Not Found\r\nContent-Length: 8\r\n\r\nnot here",
         '/redirect' => $redirect(302, '/landed?from=redirect'),
         '/relative' => $redirect(302, 'landed'),
+        '/relative-with-url' => $redirect(302, 'landed?next=http://elsewhere.test/'),
         '/see-other' => $redirect(303, '/landed'),
         '/temporary' => $redirect(307, '/landed'),
         '/elsewhere' => $redirect(302, "http://localhost:{$port}/landed"),

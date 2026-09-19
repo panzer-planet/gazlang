@@ -119,6 +119,7 @@ static bool tls_start(Socket *s, const char *host) {
         X509_VERIFY_PARAM_set_hostflags(param, X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS);
         X509_VERIFY_PARAM_set1_host(param, host, 0);
     }
+    errno = 0;   /* connect() left EINPROGRESS, which would name a handshake cut short */
     int ret = SSL_connect(ssl);
     if (ret != 1) {
         bool ok = raisef("TLS error with %s: %s", host, tls_reason(ssl, ret));
@@ -184,6 +185,8 @@ bool net_read(Socket *s, Value *out) {
 #ifdef GAZ_TLS
     if (s->tls) {
         ERR_clear_error();
+        /* An end without TLS's goodbye is SSL_ERROR_SYSCALL with errno untouched, so clear it */
+        errno = 0;
         int r = SSL_read(s->tls, chunk, sizeof chunk);
         int e = r > 0 ? SSL_ERROR_NONE : SSL_get_error(s->tls, r);
         sigpipe_restore();
@@ -213,12 +216,14 @@ bool net_write(Socket *s, Str *data) {
 #ifdef GAZ_TLS
         if (s->tls) {
             ERR_clear_error();
+            errno = 0;
             size_t left = data->len - done;
             int r = SSL_write(s->tls, data->data + done, left > INT32_MAX ? INT32_MAX : (int)left);
             n = r > 0 ? r : -1;
             int e = r > 0 ? SSL_ERROR_NONE : SSL_get_error(s->tls, r);
             if (e == SSL_ERROR_WANT_READ || e == SSL_ERROR_WANT_WRITE) errno = EAGAIN;
             else if (r <= 0 && e != SSL_ERROR_SYSCALL) errno = EPROTO;
+            else if (r <= 0 && errno == 0) errno = EPIPE;   /* the other end went away */
         } else
 #endif
         n = write(s->fd, data->data + done, data->len - done);

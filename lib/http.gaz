@@ -182,10 +182,18 @@ fn http_parse_url($url) {
 
 // Where a Location header points, from the URL that sent it
 fn http_resolve($target, $location) {
+    // Absolute when what comes before :// is a scheme, not a relative path or query holding a URL
     $scheme_end = index_of($location, "://");
-    $slash = index_of($location, "/");
-    if ($scheme_end != null && ($slash == null || $scheme_end < $slash)) {
-        return $location;
+    if ($scheme_end != null && $scheme_end > 0) {
+        $absolute = true;
+        foreach (split(slice($location, 0, $scheme_end), "") as $c) {
+            if (!is_alnum($c) && !contains("+-.", $c)) {
+                $absolute = false;
+            }
+        }
+        if ($absolute) {
+            return $location;
+        }
     }
     if (starts_with($location, "//")) {
         return $target["scheme"] .. ":" .. $location;

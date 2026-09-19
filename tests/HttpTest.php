@@ -158,6 +158,7 @@ class HttpTest extends GazLangTestCase
         $request = $landed('http_get("{$url}/redirect")');
         $this->assertSame(['GET', '/landed?from=redirect'], [$request['method'], $request['uri']]);
         $this->assertSame('/landed', $landed('http_get("{$url}/relative")')['uri'], 'relative to the redirecting path');
+        $this->assertSame('/landed?next=http://elsewhere.test/', $landed('http_get("{$url}/relative-with-url")')['uri'], 'a URL in a relative one\'s query');
 
         // A 303, and a 301 or 302 after a POST, become a GET without the body or its type
         $request = $landed('http_post("{$url}/see-other", "form", {"Content-Type" => "text/plain"})');
