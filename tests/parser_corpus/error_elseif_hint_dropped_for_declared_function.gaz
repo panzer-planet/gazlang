@@ -1,0 +1,4 @@
+fn elseif($x) { return $x; }
+if (true) {
+} elseif (2) {
+}

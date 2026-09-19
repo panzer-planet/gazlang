@@ -51,7 +51,7 @@ class Random {
                 return $item;
             }
         }
-        return $pairs[len($pairs) - 1][0];
+        return last($pairs)[0];
     }
 }
 

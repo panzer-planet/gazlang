@@ -626,7 +626,7 @@ class CodeGenerator {
     }
 
     fn visit_loop_control($node) {
-        [$continue_label, $end_label, $loop_try_depth] = #loop_labels[len(#loop_labels) - 1];
+        [$continue_label, $end_label, $loop_try_depth] = last(#loop_labels);
         // Jumping out of a try block leaves it, so its handler must be removed first
         #leave_tries($loop_try_depth);
         #emit("JMP", [$node.token.type == "BREAK" ? $end_label : $continue_label]);

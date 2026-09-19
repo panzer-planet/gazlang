@@ -102,7 +102,7 @@ fn compile($source) {
                 if (len($open) == 0) {
                     error("Unmatched ] at character {$i}");
                 }
-                $start = $open[len($open) - 1];
+                $start = last($open);
                 delete $open[len($open) - 1];
                 $code[$start][1] = len($code);
                 $code[] = ["]", $start];
@@ -113,7 +113,7 @@ fn compile($source) {
         $i++;
     }
     if (len($open) > 0) {
-        error("Unmatched [ at instruction " .. $open[len($open) - 1]);
+        error("Unmatched [ at instruction " .. last($open));
     }
     return $code;
 }
@@ -128,7 +128,7 @@ if (len($arguments) == 0) {
     echo "Reversed by a program: " .. run(">,[>,]<[.<]", "stressed");
 } else if ($arguments[0] == "squares") {
     $squares = split(trim(run(SQUARES)), "\n");
-    echo "The squares up to 10000: " .. len($squares) .. " of them, the last " .. $squares[len($squares) - 1];
+    echo "The squares up to 10000: " .. len($squares) .. " of them, the last " .. last($squares);
 } else {
     print(run(read_file($arguments[0]), read_stdin()));
 }

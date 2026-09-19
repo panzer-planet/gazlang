@@ -600,7 +600,7 @@ class Lexer {
             $c == "" => {
                 // The file ended inside "{$...": report the string where it starts
                 if (len(#interpolations) > 0) {
-                    #fail("Unterminated string", #interpolations[len(#interpolations) - 1][1]);
+                    #fail("Unterminated string", last(#interpolations)[1]);
                 }
                 return Token("EOF", null);
             }

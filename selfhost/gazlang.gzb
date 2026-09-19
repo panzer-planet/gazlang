@@ -3725,11 +3725,7 @@ LOAD_THIS
 GET_METHOD fail
 PUSH "Unterminated string"
 LOAD_FIELD interpolations
-LOAD_FIELD interpolations
-CALL_BUILTIN len 1
-PUSH 1
-SUB
-INDEX_GET
+CALL_BUILTIN last 1
 PUSH 1
 INDEX_GET
 CALL_METHOD 2 fail
@@ -6064,6 +6060,7 @@ class Parser
 field lexer Parser
 field current_token Parser
 field previous_token Parser
+field statement_token Parser
 field file Parser
 field base_dir Parser
 field included Parser
@@ -6071,6 +6068,7 @@ field loop_depth Parser
 field in_function Parser
 field in_finally Parser
 field in_constructor Parser
+field in_constant Parser
 field class Parser
 field classes Parser
 field member_uses Parser
@@ -6167,97 +6165,107 @@ PUSH null
 @ "parser.gaz" 99
 SET_FIELD previous_token
 POP
-@ "parser.gaz" 110
+@ "parser.gaz" 107
+PUSH null
+@ "parser.gaz" 99
+SET_FIELD statement_token
+POP
+@ "parser.gaz" 113
 NEW_MAP
 @ "parser.gaz" 99
 SET_FIELD included
 POP
-@ "parser.gaz" 113
+@ "parser.gaz" 116
 PUSH 0
 @ "parser.gaz" 99
 SET_FIELD loop_depth
 POP
-@ "parser.gaz" 115
+@ "parser.gaz" 118
 PUSH false
 @ "parser.gaz" 99
 SET_FIELD in_function
 POP
-@ "parser.gaz" 117
+@ "parser.gaz" 120
 PUSH false
 @ "parser.gaz" 99
 SET_FIELD in_finally
 POP
-@ "parser.gaz" 119
+@ "parser.gaz" 122
 PUSH false
 @ "parser.gaz" 99
 SET_FIELD in_constructor
 POP
-@ "parser.gaz" 122
+@ "parser.gaz" 124
+PUSH false
+@ "parser.gaz" 99
+SET_FIELD in_constant
+POP
+@ "parser.gaz" 127
 PUSH null
 @ "parser.gaz" 99
 SET_FIELD class
 POP
-@ "parser.gaz" 125
+@ "parser.gaz" 130
 NEW_MAP
 @ "parser.gaz" 99
 SET_FIELD classes
 POP
-@ "parser.gaz" 133
+@ "parser.gaz" 138
 NEW_ARRAY
 @ "parser.gaz" 99
 SET_FIELD member_uses
 POP
-@ "parser.gaz" 137
+@ "parser.gaz" 142
 NEW_MAP
 @ "parser.gaz" 99
 SET_FIELD constants
 POP
-@ "parser.gaz" 139
+@ "parser.gaz" 144
 NEW_MAP
 @ "parser.gaz" 99
 SET_FIELD constant_values
 POP
-@ "parser.gaz" 141
+@ "parser.gaz" 146
 NEW_ARRAY
 @ "parser.gaz" 99
 SET_FIELD folding
 POP
-@ "parser.gaz" 144
+@ "parser.gaz" 149
 NEW_ARRAY
 @ "parser.gaz" 99
 SET_FIELD class_constant_uses
 POP
-@ "parser.gaz" 147
+@ "parser.gaz" 152
 NEW_ARRAY
 @ "parser.gaz" 99
 SET_FIELD catch_types
 POP
-@ "parser.gaz" 150
+@ "parser.gaz" 155
 PUSH false
 @ "parser.gaz" 99
 SET_FIELD catches
 POP
-@ "parser.gaz" 153
+@ "parser.gaz" 158
 NEW_ARRAY
 @ "parser.gaz" 99
 SET_FIELD parent_uses
 POP
-@ "parser.gaz" 171
+@ "parser.gaz" 176
 NEW_ARRAY
 @ "parser.gaz" 99
 SET_FIELD uses
 POP
-@ "parser.gaz" 177
+@ "parser.gaz" 182
 PUSH null
 @ "parser.gaz" 99
 SET_FIELD lambda_head
 POP
-@ "parser.gaz" 208
+@ "parser.gaz" 213
 CALL_BUILTIN builtins 0
 @ "parser.gaz" 99
 SET_FIELD builtins
 POP
-@ "parser.gaz" 210
+@ "parser.gaz" 215
 LOAD_FIELD builtins
 @ "parser.gaz" 99
 SET_FIELD functions
@@ -6269,7 +6277,7 @@ RET
 
 fn Parser._ 1 2
 locals $lexer $path $real_path
-@ "parser.gaz" 223
+@ "parser.gaz" 228
 ARGC
 PUSH 1
 GT
@@ -6278,7 +6286,7 @@ JZ PASSED_0
 PUSH null
 STORE 1
 LABEL PASSED_0
-@ "parser.gaz" 224
+@ "parser.gaz" 229
 LOAD 1
 PUSH null
 NOT_EQUALS
@@ -6301,22 +6309,22 @@ LABEL TERNARY_END_1
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 225
+@ "parser.gaz" 230
 LOAD 2
 PUSH null
 NOT_EQUALS
 JZ ELSE_3
-@ "parser.gaz" 226
+@ "parser.gaz" 231
 LOAD 2
 KEY_CHECK
 PUSH true
 SET_PATH_THIS .included[k]
 POP
-@ "parser.gaz" 225
+@ "parser.gaz" 230
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "parser.gaz" 228
+@ "parser.gaz" 233
 LOAD 2
 PUSH null
 NOT_EQUALS
@@ -6331,27 +6339,27 @@ CALL_BUILTIN cwd 0
 LABEL TERNARY_END_4
 SET_FIELD base_dir
 POP
-@ "parser.gaz" 230
+@ "parser.gaz" 235
 LOAD 1
 SET_FIELD file
 POP
-@ "parser.gaz" 231
+@ "parser.gaz" 236
 LOAD 0
 SET_FIELD lexer
 POP
-@ "parser.gaz" 232
+@ "parser.gaz" 237
 LOAD_THIS
 GET_METHOD next_token
 CALL_METHOD 0 next_token
 SET_FIELD current_token
 POP
-@ "parser.gaz" 223
+@ "parser.gaz" 228
 PUSH null
 RET
 
 fn Parser.unexpected 0 0
 locals
-@ "parser.gaz" 237
+@ "parser.gaz" 242
 LOAD_THIS
 GET_METHOD fail
 PUSH "Unexpected "
@@ -6362,13 +6370,13 @@ CALL_METHOD 1 describe
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 236
+@ "parser.gaz" 241
 PUSH null
 RET
 
 fn Parser.fail 1 1
 locals $message
-@ "parser.gaz" 242
+@ "parser.gaz" 247
 LOAD 0
 LOAD_THIS
 GET_METHOD keyword_hint
@@ -6380,26 +6388,26 @@ GET_PROPERTY line
 NEW ParseError 3
 CALL_BUILTIN error 1
 POP
-@ "parser.gaz" 241
+@ "parser.gaz" 246
 PUSH null
 RET
 
 fn Parser.fail_at 3 3
 locals $message $file $line
-@ "parser.gaz" 247
+@ "parser.gaz" 252
 LOAD 0
 LOAD 1
 LOAD 2
 NEW ParseError 3
 CALL_BUILTIN error 1
 POP
-@ "parser.gaz" 246
+@ "parser.gaz" 251
 PUSH null
 RET
 
 fn Parser.keyword_hint 0 0
 locals $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $token
-@ "parser.gaz" 253
+@ "parser.gaz" 259
 NEW_ARRAY
 LOAD_FIELD current_token
 ARRAY_PUSH
@@ -6434,7 +6442,7 @@ INDEX_GET
 STORE 4
 LOAD 4
 POP
-@ "parser.gaz" 254
+@ "parser.gaz" 260
 LOAD 4
 PUSH null
 NOT_EQUALS
@@ -6461,7 +6469,7 @@ JMP AND_END_5
 LABEL AND_FALSE_5
 PUSH false
 LABEL AND_END_5
-@ "parser.gaz" 255
+@ "parser.gaz" 261
 JZ AND_FALSE_4
 LOAD_FIELD functions
 LOAD 4
@@ -6498,9 +6506,9 @@ JMP AND_END_2
 LABEL AND_FALSE_2
 PUSH false
 LABEL AND_END_2
-@ "parser.gaz" 254
+@ "parser.gaz" 260
 JZ ELSE_1
-@ "parser.gaz" 256
+@ "parser.gaz" 262
 PUSH " (keywords are lowercase: write '"
 LOAD 4
 GET_PROPERTY value
@@ -6514,12 +6522,12 @@ PUSH "')"
 CONCAT
 CONCAT
 RET
-@ "parser.gaz" 254
+@ "parser.gaz" 260
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
 LABEL CONTINUE_0
-@ "parser.gaz" 253
+@ "parser.gaz" 259
 LOAD 3
 PUSH 1
 ADD
@@ -6528,39 +6536,96 @@ LOAD 3
 POP
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "parser.gaz" 260
+@ "parser.gaz" 266
+LOAD_FIELD statement_token
+STORE 4
+LOAD 4
+POP
+@ "parser.gaz" 267
+LOAD 4
+PUSH null
+NOT_EQUALS
+JZ AND_FALSE_10
+LOAD 4
+GET_PROPERTY type
+PUSH "IDENTIFIER"
+EQUALS
+JZ AND_FALSE_10
+PUSH true
+JMP AND_END_10
+LABEL AND_FALSE_10
+PUSH false
+LABEL AND_END_10
+JZ AND_FALSE_9
+LOAD 4
+GET_PROPERTY value
+CALL_BUILTIN lower 1
+PUSH "elseif"
+EQUALS
+JZ AND_FALSE_9
+PUSH true
+JMP AND_END_9
+LABEL AND_FALSE_9
+PUSH false
+LABEL AND_END_9
+JZ AND_FALSE_8
+LOAD_FIELD functions
+LOAD 4
+GET_PROPERTY value
+CALL_BUILTIN has_key 2
+NOT
+JZ AND_FALSE_8
+PUSH true
+JMP AND_END_8
+LABEL AND_FALSE_8
+PUSH false
+LABEL AND_END_8
+JZ ELSE_7
+@ "parser.gaz" 268
+PUSH " (write 'else if', not '"
+LOAD 4
+GET_PROPERTY value
+CONCAT
+PUSH "')"
+CONCAT
+RET
+@ "parser.gaz" 267
+JMP ENDIF_7
+LABEL ELSE_7
+LABEL ENDIF_7
+@ "parser.gaz" 271
 PUSH ""
 RET
-@ "parser.gaz" 252
+@ "parser.gaz" 258
 PUSH null
 RET
 
 fn Parser.describe 1 1
 locals $token
-@ "parser.gaz" 266
+@ "parser.gaz" 277
 LOAD 0
 GET_PROPERTY type
 PUSH "EOF"
 EQUALS
-@ "parser.gaz" 265
+@ "parser.gaz" 276
 NOT
 JZ MATCH_ARM_0_0
-@ "parser.gaz" 268
+@ "parser.gaz" 279
 LOAD 0
 GET_PROPERTY type
 PUSH ["STRING", "STRING_START", "STRING_MIDDLE", "STRING_END"]
 CALL_BUILTIN in_array 2
-@ "parser.gaz" 265
+@ "parser.gaz" 276
 NOT
 JZ MATCH_ARM_0_1
 JMP MATCH_ARM_0_2
 LABEL MATCH_ARM_0_0
-@ "parser.gaz" 266
+@ "parser.gaz" 277
 PUSH "end of file"
-@ "parser.gaz" 265
+@ "parser.gaz" 276
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_1
-@ "parser.gaz" 268
+@ "parser.gaz" 279
 PUSH "string "
 NEW_ARRAY
 LOAD 0
@@ -6572,40 +6637,40 @@ PUSH 1
 NEG
 CALL_BUILTIN slice 3
 CONCAT
-@ "parser.gaz" 265
+@ "parser.gaz" 276
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_2
-@ "parser.gaz" 270
+@ "parser.gaz" 281
 PUSH "'"
 LOAD 0
 GET_PROPERTY value
 CONCAT
 PUSH "'"
 CONCAT
-@ "parser.gaz" 265
+@ "parser.gaz" 276
 JMP MATCH_END_0
 LABEL MATCH_END_0
 RET
-@ "parser.gaz" 264
+@ "parser.gaz" 275
 PUSH null
 RET
 
 fn Parser.next_token 0 0
 locals $e
-@ "parser.gaz" 276
+@ "parser.gaz" 287
 TRY CATCH_0
-@ "parser.gaz" 277
+@ "parser.gaz" 288
 LOAD_FIELD lexer
 GET_METHOD get_next_token
 CALL_METHOD 0 get_next_token
 RET
-@ "parser.gaz" 276
+@ "parser.gaz" 287
 END_TRY
 JMP ENDTRY_0
 LABEL CATCH_0
 CATCH_MATCH LexError NEXTCATCH_0_0
 STORE 0
-@ "parser.gaz" 279
+@ "parser.gaz" 290
 LOAD 0
 GET_PROPERTY reason
 LOAD_FIELD file
@@ -6614,25 +6679,25 @@ GET_PROPERTY source_line
 NEW ParseError 3
 CALL_BUILTIN error 1
 POP
-@ "parser.gaz" 276
+@ "parser.gaz" 287
 JMP ENDTRY_0
 LABEL NEXTCATCH_0_0
 RETHROW
 LABEL ENDTRY_0
-@ "parser.gaz" 275
+@ "parser.gaz" 286
 PUSH null
 RET
 
 fn Parser.display_path 1 1
 locals $real_path $cwd
-@ "parser.gaz" 285
+@ "parser.gaz" 296
 CALL_BUILTIN cwd 0
 PUSH "/"
 CONCAT
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 287
+@ "parser.gaz" 298
 LOAD 0
 LOAD 1
 CALL_BUILTIN starts_with 2
@@ -6646,59 +6711,59 @@ LABEL TERNARY_ELSE_0
 LOAD 0
 LABEL TERNARY_END_0
 RET
-@ "parser.gaz" 284
+@ "parser.gaz" 295
 PUSH null
 RET
 
 fn Parser.read 1 1
 locals $path $e
-@ "parser.gaz" 294
+@ "parser.gaz" 305
 TRY CATCH_0
-@ "parser.gaz" 295
+@ "parser.gaz" 306
 LOAD 0
 CALL_BUILTIN read_file 1
 RET
-@ "parser.gaz" 294
+@ "parser.gaz" 305
 END_TRY
 JMP ENDTRY_0
 LABEL CATCH_0
 CATCH_MATCH Error NEXTCATCH_0_0
 STORE 1
-@ "parser.gaz" 297
+@ "parser.gaz" 308
 PUSH null
 RET
-@ "parser.gaz" 294
+@ "parser.gaz" 305
 JMP ENDTRY_0
 LABEL NEXTCATCH_0_0
 RETHROW
 LABEL ENDTRY_0
-@ "parser.gaz" 293
+@ "parser.gaz" 304
 PUSH null
 RET
 
 fn Parser.dirname 1 1
 locals $path $steps $directory
-@ "parser.gaz" 304
+@ "parser.gaz" 315
 LOAD 0
 PUSH "/"
 CALL_BUILTIN split 2
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 305
+@ "parser.gaz" 316
 LOAD 1
 CALL_BUILTIN len 1
 PUSH 1
 EQUALS
 JZ ELSE_0
-@ "parser.gaz" 306
+@ "parser.gaz" 317
 PUSH "."
 RET
-@ "parser.gaz" 305
+@ "parser.gaz" 316
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 308
+@ "parser.gaz" 319
 LOAD 1
 PUSH 0
 PUSH 1
@@ -6709,7 +6774,7 @@ CALL_BUILTIN join 2
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 310
+@ "parser.gaz" 321
 LOAD 2
 PUSH ""
 EQUALS
@@ -6720,37 +6785,37 @@ LABEL TERNARY_ELSE_1
 LOAD 2
 LABEL TERNARY_END_1
 RET
-@ "parser.gaz" 303
+@ "parser.gaz" 314
 PUSH null
 RET
 
 fn Parser.at 2 2
 locals $node $token
-@ "parser.gaz" 315
+@ "parser.gaz" 326
 LOAD 1
 GET_PROPERTY line
 SET_PATH .line 0
 POP
-@ "parser.gaz" 316
+@ "parser.gaz" 327
 LOAD_FIELD file
 SET_PATH .file 0
 POP
-@ "parser.gaz" 318
+@ "parser.gaz" 329
 LOAD 0
 RET
-@ "parser.gaz" 314
+@ "parser.gaz" 325
 PUSH null
 RET
 
 fn Parser.eat 1 1
 locals $token_type $expected
-@ "parser.gaz" 323
+@ "parser.gaz" 334
 LOAD_FIELD current_token
 GET_PROPERTY type
 LOAD 0
 NOT_EQUALS
 JZ ELSE_0
-@ "parser.gaz" 324
+@ "parser.gaz" 335
 PUSH {"LEFT_PAREN" => "'('", "RIGHT_PAREN" => "')'", "LEFT_BRACE" => "'{'", "RIGHT_BRACE" => "'}'", "LEFT_BRACKET" => "'['", "RIGHT_BRACKET" => "']'", "SEMICOLON" => "';'", "COMMA" => "','", "IDENTIFIER" => "a name", "VAR_IDENTIFIER" => "a \$variable", "GLOBAL_VAR_IDENTIFIER" => "an @variable", "STRING" => "a string", "COLON" => "':'", "ARROW" => "'->'", "DOUBLE_ARROW" => "'=>'", "ASSIGN" => "'='"}
 LOAD 0
 INDEX_GET_QUIET
@@ -6765,7 +6830,7 @@ LABEL COALESCE_END_1
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 325
+@ "parser.gaz" 336
 LOAD_THIS
 GET_METHOD fail
 PUSH "Expected "
@@ -6780,27 +6845,27 @@ CALL_METHOD 1 describe
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 323
+@ "parser.gaz" 334
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 328
+@ "parser.gaz" 339
 LOAD_FIELD current_token
 SET_FIELD previous_token
 POP
-@ "parser.gaz" 329
+@ "parser.gaz" 340
 LOAD_THIS
 GET_METHOD next_token
 CALL_METHOD 0 next_token
 SET_FIELD current_token
 POP
-@ "parser.gaz" 322
+@ "parser.gaz" 333
 PUSH null
 RET
 
 fn Parser.variable 0 0
 locals $node
-@ "parser.gaz" 334
+@ "parser.gaz" 345
 LOAD_THIS
 GET_METHOD at
 LOAD_FIELD current_token
@@ -6810,7 +6875,7 @@ CALL_METHOD 2 at
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 335
+@ "parser.gaz" 346
 LOAD_THIS
 GET_METHOD eat
 LOAD_FIELD current_token
@@ -6825,16 +6890,16 @@ PUSH "VAR_IDENTIFIER"
 LABEL TERNARY_END_0
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 337
+@ "parser.gaz" 348
 LOAD 0
 RET
-@ "parser.gaz" 333
+@ "parser.gaz" 344
 PUSH null
 RET
 
 fn Parser.function_call 1 1
 locals $name $node
-@ "parser.gaz" 342
+@ "parser.gaz" 353
 LOAD_THIS
 GET_METHOD at
 LOAD 0
@@ -6848,95 +6913,95 @@ CALL_METHOD 2 at
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 343
+@ "parser.gaz" 354
 LOAD 1
 SET_PATH_THIS .uses[]
 POP
-@ "parser.gaz" 345
+@ "parser.gaz" 356
 LOAD 1
 RET
-@ "parser.gaz" 341
+@ "parser.gaz" 352
 PUSH null
 RET
 
 fn Parser.arguments 0 0
 locals $args
-@ "parser.gaz" 350
+@ "parser.gaz" 361
 LOAD_THIS
 GET_METHOD eat
 PUSH "LEFT_PAREN"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 352
+@ "parser.gaz" 363
 NEW_ARRAY
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 353
+@ "parser.gaz" 364
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "RIGHT_PAREN"
 NOT_EQUALS
 JZ ELSE_0
-@ "parser.gaz" 354
+@ "parser.gaz" 365
 LOAD_THIS
 GET_METHOD expr
 CALL_METHOD 0 expr
 SET_PATH [] 0
 POP
 LABEL WHILE_1
-@ "parser.gaz" 355
+@ "parser.gaz" 366
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "COMMA"
 EQUALS
 JZ ENDWHILE_1
-@ "parser.gaz" 356
+@ "parser.gaz" 367
 LOAD_THIS
 GET_METHOD eat
 PUSH "COMMA"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 357
+@ "parser.gaz" 368
 LOAD_THIS
 GET_METHOD expr
 CALL_METHOD 0 expr
 SET_PATH [] 0
 POP
-@ "parser.gaz" 355
+@ "parser.gaz" 366
 JMP WHILE_1
 LABEL ENDWHILE_1
-@ "parser.gaz" 353
+@ "parser.gaz" 364
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 360
+@ "parser.gaz" 371
 LOAD_THIS
 GET_METHOD eat
 PUSH "RIGHT_PAREN"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 362
+@ "parser.gaz" 373
 LOAD 0
 RET
-@ "parser.gaz" 349
+@ "parser.gaz" 360
 PUSH null
 RET
 
 fn Parser.primary 0 0
 locals $token $type $node
-@ "parser.gaz" 371
+@ "parser.gaz" 382
 LOAD_FIELD current_token
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 372
+@ "parser.gaz" 383
 LOAD 0
 GET_PROPERTY type
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 374
+@ "parser.gaz" 385
 LOAD 1
 PUSH "INTEGER"
 EQUALS
@@ -6953,13 +7018,13 @@ LABEL OR_TRUE_1
 PUSH true
 LABEL OR_END_1
 JZ ELSE_0
-@ "parser.gaz" 375
+@ "parser.gaz" 386
 LOAD_THIS
 GET_METHOD eat
 LOAD 1
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 377
+@ "parser.gaz" 388
 LOAD_THIS
 GET_METHOD at
 LOAD 0
@@ -6967,21 +7032,21 @@ NEW NumAST 1
 LOAD 0
 CALL_METHOD 2 at
 RET
-@ "parser.gaz" 374
+@ "parser.gaz" 385
 JMP ENDIF_0
 LABEL ELSE_0
-@ "parser.gaz" 378
+@ "parser.gaz" 389
 LOAD 1
 PUSH "STRING"
 EQUALS
 JZ ELSE_2
-@ "parser.gaz" 379
+@ "parser.gaz" 390
 LOAD_THIS
 GET_METHOD eat
 PUSH "STRING"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 381
+@ "parser.gaz" 392
 LOAD_THIS
 GET_METHOD at
 LOAD 0
@@ -6989,23 +7054,23 @@ NEW StringAST 1
 LOAD 0
 CALL_METHOD 2 at
 RET
-@ "parser.gaz" 378
+@ "parser.gaz" 389
 JMP ENDIF_2
 LABEL ELSE_2
-@ "parser.gaz" 382
+@ "parser.gaz" 393
 LOAD 1
 PUSH "STRING_START"
 EQUALS
 JZ ELSE_3
-@ "parser.gaz" 383
+@ "parser.gaz" 394
 LOAD_THIS
 GET_METHOD interpolated_string
 CALL_METHOD 0 interpolated_string
 RET
-@ "parser.gaz" 382
+@ "parser.gaz" 393
 JMP ENDIF_3
 LABEL ELSE_3
-@ "parser.gaz" 384
+@ "parser.gaz" 395
 LOAD 1
 PUSH "TRUE"
 EQUALS
@@ -7022,13 +7087,13 @@ LABEL OR_TRUE_5
 PUSH true
 LABEL OR_END_5
 JZ ELSE_4
-@ "parser.gaz" 385
+@ "parser.gaz" 396
 LOAD_THIS
 GET_METHOD eat
 LOAD 1
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 387
+@ "parser.gaz" 398
 LOAD_THIS
 GET_METHOD at
 LOAD 0
@@ -7036,21 +7101,21 @@ NEW BooleanAST 1
 LOAD 0
 CALL_METHOD 2 at
 RET
-@ "parser.gaz" 384
+@ "parser.gaz" 395
 JMP ENDIF_4
 LABEL ELSE_4
-@ "parser.gaz" 388
+@ "parser.gaz" 399
 LOAD 1
 PUSH "NULL"
 EQUALS
 JZ ELSE_6
-@ "parser.gaz" 389
+@ "parser.gaz" 400
 LOAD_THIS
 GET_METHOD eat
 PUSH "NULL"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 391
+@ "parser.gaz" 402
 LOAD_THIS
 GET_METHOD at
 LOAD 0
@@ -7058,37 +7123,37 @@ NEW NullAST 1
 LOAD 0
 CALL_METHOD 2 at
 RET
-@ "parser.gaz" 388
+@ "parser.gaz" 399
 JMP ENDIF_6
 LABEL ELSE_6
-@ "parser.gaz" 392
+@ "parser.gaz" 403
 LOAD 1
 PUSH "IDENTIFIER"
 EQUALS
 JZ ELSE_7
-@ "parser.gaz" 393
+@ "parser.gaz" 404
 LOAD_THIS
 GET_METHOD eat
 PUSH "IDENTIFIER"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 394
+@ "parser.gaz" 405
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "LEFT_PAREN"
 EQUALS
 JZ ELSE_8
-@ "parser.gaz" 395
+@ "parser.gaz" 406
 LOAD_THIS
 GET_METHOD function_call
 LOAD 0
 CALL_METHOD 1 function_call
 RET
-@ "parser.gaz" 394
+@ "parser.gaz" 405
 JMP ENDIF_8
 LABEL ELSE_8
 LABEL ENDIF_8
-@ "parser.gaz" 397
+@ "parser.gaz" 408
 LOAD_THIS
 GET_METHOD at
 LOAD 0
@@ -7099,70 +7164,70 @@ CALL_METHOD 2 at
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 398
+@ "parser.gaz" 409
 LOAD 2
 SET_PATH_THIS .uses[]
 POP
-@ "parser.gaz" 400
+@ "parser.gaz" 411
 LOAD 2
 RET
-@ "parser.gaz" 392
+@ "parser.gaz" 403
 JMP ENDIF_7
 LABEL ELSE_7
-@ "parser.gaz" 401
+@ "parser.gaz" 412
 LOAD 1
 PUSH "MATCH"
 EQUALS
 JZ ELSE_9
-@ "parser.gaz" 402
+@ "parser.gaz" 413
 LOAD_THIS
 GET_METHOD match_expression
 PUSH false
 CALL_METHOD 1 match_expression
 RET
-@ "parser.gaz" 401
+@ "parser.gaz" 412
 JMP ENDIF_9
 LABEL ELSE_9
-@ "parser.gaz" 403
+@ "parser.gaz" 414
 LOAD 1
 PUSH "LEFT_BRACKET"
 EQUALS
 JZ ELSE_10
-@ "parser.gaz" 404
+@ "parser.gaz" 415
 LOAD_THIS
 GET_METHOD list_literal
 CALL_METHOD 0 list_literal
 RET
-@ "parser.gaz" 403
+@ "parser.gaz" 414
 JMP ENDIF_10
 LABEL ELSE_10
-@ "parser.gaz" 405
+@ "parser.gaz" 416
 LOAD 1
 PUSH "LEFT_BRACE"
 EQUALS
 JZ ELSE_11
-@ "parser.gaz" 406
+@ "parser.gaz" 417
 LOAD_THIS
 GET_METHOD map_literal
 CALL_METHOD 0 map_literal
 RET
-@ "parser.gaz" 405
+@ "parser.gaz" 416
 JMP ENDIF_11
 LABEL ELSE_11
-@ "parser.gaz" 407
+@ "parser.gaz" 418
 LOAD 1
 PUSH "LEFT_PAREN"
 EQUALS
 JZ ELSE_12
-@ "parser.gaz" 408
+@ "parser.gaz" 419
 LOAD_THIS
 GET_METHOD parenthesised
 CALL_METHOD 0 parenthesised
 RET
-@ "parser.gaz" 407
+@ "parser.gaz" 418
 JMP ENDIF_12
 LABEL ELSE_12
-@ "parser.gaz" 409
+@ "parser.gaz" 420
 LOAD 1
 PUSH "VAR_IDENTIFIER"
 EQUALS
@@ -7179,15 +7244,15 @@ LABEL OR_TRUE_14
 PUSH true
 LABEL OR_END_14
 JZ ELSE_13
-@ "parser.gaz" 410
+@ "parser.gaz" 421
 LOAD_THIS
 GET_METHOD variable
 CALL_METHOD 0 variable
 RET
-@ "parser.gaz" 409
+@ "parser.gaz" 420
 JMP ENDIF_13
 LABEL ELSE_13
-@ "parser.gaz" 411
+@ "parser.gaz" 422
 LOAD 1
 PUSH "HASH"
 EQUALS
@@ -7204,61 +7269,61 @@ LABEL OR_TRUE_16
 PUSH true
 LABEL OR_END_16
 JZ ELSE_15
-@ "parser.gaz" 412
+@ "parser.gaz" 423
 LOAD_THIS
 GET_METHOD this_member
 CALL_METHOD 0 this_member
 RET
-@ "parser.gaz" 411
+@ "parser.gaz" 422
 JMP ENDIF_15
 LABEL ELSE_15
-@ "parser.gaz" 413
+@ "parser.gaz" 424
 LOAD 1
 PUSH "PARENT_IDENTIFIER"
 EQUALS
 JZ ELSE_17
-@ "parser.gaz" 414
+@ "parser.gaz" 425
 LOAD_THIS
 GET_METHOD parent_method
 CALL_METHOD 0 parent_method
 RET
-@ "parser.gaz" 413
+@ "parser.gaz" 424
 JMP ENDIF_17
 LABEL ELSE_17
-@ "parser.gaz" 415
+@ "parser.gaz" 426
 LOAD 1
 PUSH "PARENT"
 EQUALS
 JZ ELSE_18
-@ "parser.gaz" 416
+@ "parser.gaz" 427
 LOAD_THIS
 GET_METHOD fail
 PUSH "## alone is not allowed: write ##name for the parent's version of a method"
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 415
+@ "parser.gaz" 426
 JMP ENDIF_18
 LABEL ELSE_18
-@ "parser.gaz" 417
+@ "parser.gaz" 428
 LOAD 1
 PUSH "SPREAD"
 EQUALS
 JZ ELSE_19
-@ "parser.gaz" 418
+@ "parser.gaz" 429
 LOAD_THIS
 GET_METHOD fail
 PUSH "... only spreads a list into a list literal, as in [...\$a, 1]"
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 417
+@ "parser.gaz" 428
 JMP ENDIF_19
 LABEL ELSE_19
-@ "parser.gaz" 419
+@ "parser.gaz" 430
 LOAD 1
 PUSH ["INTERFACE", "IMPLEMENTS", "FINAL", "PUBLIC", "PRIVATE", "PROTECTED"]
 CALL_BUILTIN in_array 2
 JZ ELSE_20
-@ "parser.gaz" 420
+@ "parser.gaz" 431
 LOAD_THIS
 GET_METHOD fail
 PUSH ""
@@ -7269,7 +7334,7 @@ PUSH " is reserved"
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 419
+@ "parser.gaz" 430
 JMP ENDIF_20
 LABEL ELSE_20
 LABEL ENDIF_20
@@ -7288,28 +7353,28 @@ LABEL ENDIF_4
 LABEL ENDIF_3
 LABEL ENDIF_2
 LABEL ENDIF_0
-@ "parser.gaz" 423
+@ "parser.gaz" 434
 LOAD_THIS
 GET_METHOD unexpected
 CALL_METHOD 0 unexpected
 POP
-@ "parser.gaz" 370
+@ "parser.gaz" 381
 PUSH null
 RET
 
 fn Parser.this_member 0 0
 locals $token $this_node $name $node
-@ "parser.gaz" 431
+@ "parser.gaz" 442
 LOAD_FIELD current_token
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 432
+@ "parser.gaz" 443
 LOAD_FIELD class
 PUSH null
 EQUALS
 JZ ELSE_0
-@ "parser.gaz" 433
+@ "parser.gaz" 444
 LOAD_THIS
 GET_METHOD fail
 PUSH "Cannot use "
@@ -7320,18 +7385,18 @@ PUSH " outside a method"
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 432
+@ "parser.gaz" 443
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 435
+@ "parser.gaz" 446
 LOAD_THIS
 GET_METHOD eat
 LOAD 0
 GET_PROPERTY type
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 436
+@ "parser.gaz" 447
 LOAD 0
 GET_PROPERTY type
 PUSH "HASH"
@@ -7348,7 +7413,7 @@ LABEL AND_FALSE_2
 PUSH false
 LABEL AND_END_2
 JZ ELSE_1
-@ "parser.gaz" 437
+@ "parser.gaz" 448
 LOAD_THIS
 GET_METHOD fail
 PUSH "Write #"
@@ -7364,11 +7429,11 @@ GET_PROPERTY value
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 436
+@ "parser.gaz" 447
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "parser.gaz" 440
+@ "parser.gaz" 451
 LOAD_THIS
 GET_METHOD at
 NEW ThisAST 0
@@ -7377,20 +7442,20 @@ CALL_METHOD 2 at
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 441
+@ "parser.gaz" 452
 LOAD 0
 GET_PROPERTY type
 PUSH "HASH"
 EQUALS
 JZ ELSE_3
-@ "parser.gaz" 442
+@ "parser.gaz" 453
 LOAD 1
 RET
-@ "parser.gaz" 441
+@ "parser.gaz" 452
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "parser.gaz" 445
+@ "parser.gaz" 456
 LOAD 0
 GET_PROPERTY value
 PUSH 1
@@ -7398,12 +7463,12 @@ CALL_BUILTIN slice 2
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 446
+@ "parser.gaz" 457
 LOAD 2
 PUSH "_"
 EQUALS
 JZ ELSE_4
-@ "parser.gaz" 447
+@ "parser.gaz" 458
 LOAD_THIS
 GET_METHOD fail
 PUSH "Cannot use the constructor _ as a member: construct with "
@@ -7414,11 +7479,11 @@ PUSH "(...), or call ##_(...) in a child's constructor"
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 446
+@ "parser.gaz" 457
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
-@ "parser.gaz" 449
+@ "parser.gaz" 460
 LOAD_THIS
 GET_METHOD at
 LOAD 1
@@ -7429,12 +7494,12 @@ CALL_METHOD 2 at
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 450
+@ "parser.gaz" 461
 LOAD_FIELD member_uses
 CALL_BUILTIN len 1
 SET_PATH .use 3
 POP
-@ "parser.gaz" 451
+@ "parser.gaz" 462
 NEW_ARRAY
 LOAD 3
 ARRAY_PUSH
@@ -7448,26 +7513,26 @@ PUSH false
 ARRAY_PUSH
 SET_PATH_THIS .member_uses[]
 POP
-@ "parser.gaz" 453
+@ "parser.gaz" 464
 LOAD 3
 RET
-@ "parser.gaz" 430
+@ "parser.gaz" 441
 PUSH null
 RET
 
 fn Parser.parent_method 0 0
 locals $token $name $args $node
-@ "parser.gaz" 461
+@ "parser.gaz" 472
 LOAD_FIELD current_token
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 462
+@ "parser.gaz" 473
 LOAD_FIELD class
 PUSH null
 EQUALS
 JZ ELSE_0
-@ "parser.gaz" 463
+@ "parser.gaz" 474
 LOAD_THIS
 GET_METHOD fail
 PUSH "Cannot use "
@@ -7478,11 +7543,11 @@ PUSH " outside a method"
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 462
+@ "parser.gaz" 473
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 465
+@ "parser.gaz" 476
 LOAD 0
 GET_PROPERTY value
 PUSH 2
@@ -7490,7 +7555,7 @@ CALL_BUILTIN slice 2
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 466
+@ "parser.gaz" 477
 LOAD 1
 PUSH "_"
 EQUALS
@@ -7504,23 +7569,23 @@ LABEL AND_FALSE_2
 PUSH false
 LABEL AND_END_2
 JZ ELSE_1
-@ "parser.gaz" 467
+@ "parser.gaz" 478
 LOAD_THIS
 GET_METHOD fail
 PUSH "##_ can only be used in a constructor, to run the parent's"
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 466
+@ "parser.gaz" 477
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "parser.gaz" 469
+@ "parser.gaz" 480
 LOAD_THIS
 GET_METHOD eat
 PUSH "PARENT_IDENTIFIER"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 471
+@ "parser.gaz" 482
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "LEFT_PAREN"
@@ -7536,7 +7601,7 @@ LABEL TERNARY_END_3
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 472
+@ "parser.gaz" 483
 LOAD 1
 PUSH "_"
 EQUALS
@@ -7551,17 +7616,17 @@ LABEL AND_FALSE_5
 PUSH false
 LABEL AND_END_5
 JZ ELSE_4
-@ "parser.gaz" 473
+@ "parser.gaz" 484
 LOAD_THIS
 GET_METHOD fail
 PUSH "Call the parent's constructor as ##_(...)"
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 472
+@ "parser.gaz" 483
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
-@ "parser.gaz" 475
+@ "parser.gaz" 486
 LOAD_THIS
 GET_METHOD at
 LOAD 1
@@ -7572,7 +7637,7 @@ CALL_METHOD 2 at
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 476
+@ "parser.gaz" 487
 NEW_ARRAY
 LOAD 3
 ARRAY_PUSH
@@ -7580,55 +7645,55 @@ LOAD_FIELD class
 ARRAY_PUSH
 SET_PATH_THIS .parent_uses[]
 POP
-@ "parser.gaz" 478
+@ "parser.gaz" 489
 LOAD 3
 RET
-@ "parser.gaz" 460
+@ "parser.gaz" 471
 PUSH null
 RET
 
 fn Parser.parenthesised 0 0
 locals $paren $head $items $comma $first $close $params $defaults $lines $#foreach_array_1 $#foreach_keys_1 $#foreach_count_1 $#foreach_i_1 $#destructure_2 $item $default
-@ "parser.gaz" 490
+@ "parser.gaz" 501
 LOAD_FIELD current_token
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 491
+@ "parser.gaz" 502
 LOAD_FIELD lambda_head
 LOAD 0
 EQUALS
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 492
+@ "parser.gaz" 503
 LOAD_THIS
 GET_METHOD eat
 PUSH "LEFT_PAREN"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 495
+@ "parser.gaz" 506
 NEW_ARRAY
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 496
+@ "parser.gaz" 507
 PUSH null
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 497
+@ "parser.gaz" 508
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "RIGHT_PAREN"
 NOT_EQUALS
 JZ ELSE_0
-@ "parser.gaz" 498
+@ "parser.gaz" 509
 LOAD_FIELD current_token
 STORE 4
 LOAD 4
 POP
-@ "parser.gaz" 499
+@ "parser.gaz" 510
 NEW_ARRAY
 LOAD 4
 ARRAY_PUSH
@@ -7639,26 +7704,26 @@ ARRAY_PUSH
 SET_PATH [] 2
 POP
 LABEL WHILE_1
-@ "parser.gaz" 500
+@ "parser.gaz" 511
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "COMMA"
 EQUALS
 JZ ENDWHILE_1
-@ "parser.gaz" 501
+@ "parser.gaz" 512
 LOAD 1
 NOT
 JZ ELSE_2
-@ "parser.gaz" 502
+@ "parser.gaz" 513
 LOAD_THIS
 GET_METHOD unexpected
 CALL_METHOD 0 unexpected
 POP
-@ "parser.gaz" 501
+@ "parser.gaz" 512
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "parser.gaz" 504
+@ "parser.gaz" 515
 LOAD_QUIET 3
 JNN COALESCE_END_3
 LOAD_FIELD current_token
@@ -7666,18 +7731,18 @@ STORE 3
 LOAD 3
 LABEL COALESCE_END_3
 POP
-@ "parser.gaz" 505
+@ "parser.gaz" 516
 LOAD_THIS
 GET_METHOD eat
 PUSH "COMMA"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 506
+@ "parser.gaz" 517
 LOAD_FIELD current_token
 STORE 4
 LOAD 4
 POP
-@ "parser.gaz" 507
+@ "parser.gaz" 518
 NEW_ARRAY
 LOAD 4
 ARRAY_PUSH
@@ -7687,25 +7752,25 @@ CALL_METHOD 0 expr
 ARRAY_PUSH
 SET_PATH [] 2
 POP
-@ "parser.gaz" 500
+@ "parser.gaz" 511
 JMP WHILE_1
 LABEL ENDWHILE_1
-@ "parser.gaz" 497
+@ "parser.gaz" 508
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 510
+@ "parser.gaz" 521
 LOAD_FIELD current_token
 STORE 5
 LOAD 5
 POP
-@ "parser.gaz" 511
+@ "parser.gaz" 522
 LOAD_THIS
 GET_METHOD eat
 PUSH "RIGHT_PAREN"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 513
+@ "parser.gaz" 524
 LOAD 1
 NOT
 NOT
@@ -7722,12 +7787,12 @@ LABEL OR_TRUE_5
 PUSH true
 LABEL OR_END_5
 JZ ELSE_4
-@ "parser.gaz" 514
+@ "parser.gaz" 525
 LOAD 3
 PUSH null
 NOT_EQUALS
 JZ ELSE_6
-@ "parser.gaz" 515
+@ "parser.gaz" 526
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "Expected ')' but found ','"
@@ -7736,16 +7801,16 @@ LOAD 3
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 514
+@ "parser.gaz" 525
 JMP ENDIF_6
 LABEL ELSE_6
 LABEL ENDIF_6
-@ "parser.gaz" 517
+@ "parser.gaz" 528
 LOAD 2
 NEW_ARRAY
 EQUALS
 JZ ELSE_7
-@ "parser.gaz" 518
+@ "parser.gaz" 529
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "Unexpected ')'"
@@ -7754,37 +7819,37 @@ LOAD 5
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 517
+@ "parser.gaz" 528
 JMP ENDIF_7
 LABEL ELSE_7
 LABEL ENDIF_7
-@ "parser.gaz" 521
+@ "parser.gaz" 532
 LOAD 2
 PUSH 0
 INDEX_GET
 PUSH 1
 INDEX_GET
 RET
-@ "parser.gaz" 513
+@ "parser.gaz" 524
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
-@ "parser.gaz" 524
+@ "parser.gaz" 535
 NEW_ARRAY
 STORE 6
 LOAD 6
 POP
-@ "parser.gaz" 525
+@ "parser.gaz" 536
 NEW_ARRAY
 STORE 7
 LOAD 7
 POP
-@ "parser.gaz" 526
+@ "parser.gaz" 537
 NEW_ARRAY
 STORE 8
 LOAD 8
 POP
-@ "parser.gaz" 527
+@ "parser.gaz" 538
 LOAD 2
 FOREACH_CHECK
 STORE 9
@@ -7828,12 +7893,12 @@ LOAD 14
 POP
 LOAD 13
 POP
-@ "parser.gaz" 528
+@ "parser.gaz" 539
 PUSH null
 STORE 15
 LOAD 15
 POP
-@ "parser.gaz" 529
+@ "parser.gaz" 540
 LOAD 14
 PUSH_CLASS AssignAST
 CALL_BUILTIN is_a 2
@@ -7850,23 +7915,23 @@ LABEL AND_FALSE_10
 PUSH false
 LABEL AND_END_10
 JZ ELSE_9
-@ "parser.gaz" 530
+@ "parser.gaz" 541
 LOAD 14
 GET_PROPERTY right
 STORE 15
 LOAD 15
 POP
-@ "parser.gaz" 531
+@ "parser.gaz" 542
 LOAD 14
 GET_PROPERTY left
 STORE 14
 LOAD 14
 POP
-@ "parser.gaz" 529
+@ "parser.gaz" 540
 JMP ENDIF_9
 LABEL ELSE_9
 LABEL ENDIF_9
-@ "parser.gaz" 533
+@ "parser.gaz" 544
 LOAD 4
 GET_PROPERTY type
 PUSH "VAR_IDENTIFIER"
@@ -7899,7 +7964,7 @@ LABEL OR_TRUE_12
 PUSH true
 LABEL OR_END_12
 JZ ELSE_11
-@ "parser.gaz" 534
+@ "parser.gaz" 545
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "Lambda parameters must be \$variables"
@@ -7908,26 +7973,26 @@ LOAD 4
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 533
+@ "parser.gaz" 544
 JMP ENDIF_11
 LABEL ELSE_11
 LABEL ENDIF_11
-@ "parser.gaz" 536
+@ "parser.gaz" 547
 LOAD 14
 GET_PROPERTY value
 SET_PATH [] 6
 POP
-@ "parser.gaz" 537
+@ "parser.gaz" 548
 LOAD 15
 SET_PATH [] 7
 POP
-@ "parser.gaz" 538
+@ "parser.gaz" 549
 LOAD 4
 GET_PROPERTY line
 SET_PATH [] 8
 POP
 LABEL CONTINUE_8
-@ "parser.gaz" 527
+@ "parser.gaz" 538
 LOAD 12
 PUSH 1
 ADD
@@ -7936,7 +8001,7 @@ LOAD 12
 POP
 JMP WHILE_8
 LABEL ENDWHILE_8
-@ "parser.gaz" 541
+@ "parser.gaz" 552
 LOAD_THIS
 GET_METHOD lambda
 LOAD 0
@@ -7945,13 +8010,13 @@ LOAD 7
 LOAD 8
 CALL_METHOD 4 lambda
 RET
-@ "parser.gaz" 489
+@ "parser.gaz" 500
 PUSH null
 RET
 
 fn Parser.lambda 4 4
 locals $start $params $defaults $lines $arity $#destructure_0 $in_constructor $in_finally $#destructure_1 $#destructure_2 $in_function $loop_depth $#destructure_3 $body $#destructure_4 $#destructure_5 $variables $#foreach_array_6 $#foreach_keys_6 $#foreach_count_6 $#foreach_i_6 $default $captures $#foreach_array_7 $#foreach_keys_7 $#foreach_count_7 $#foreach_i_7 $name $_
-@ "parser.gaz" 553
+@ "parser.gaz" 564
 LOAD_THIS
 GET_METHOD check_parameters
 LOAD 1
@@ -7961,13 +8026,13 @@ CALL_METHOD 3 check_parameters
 STORE 4
 LOAD 4
 POP
-@ "parser.gaz" 554
+@ "parser.gaz" 565
 LOAD_THIS
 GET_METHOD eat
 PUSH "ARROW"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 558
+@ "parser.gaz" 569
 NEW_ARRAY
 LOAD_FIELD in_constructor
 ARRAY_PUSH
@@ -7989,7 +8054,7 @@ LOAD 7
 POP
 LOAD 5
 POP
-@ "parser.gaz" 559
+@ "parser.gaz" 570
 PUSH [false, false]
 DESTRUCTURE 2
 STORE 8
@@ -8005,13 +8070,13 @@ SET_FIELD in_finally
 POP
 LOAD 8
 POP
-@ "parser.gaz" 560
+@ "parser.gaz" 571
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "LEFT_BRACE"
 EQUALS
 JZ ELSE_0
-@ "parser.gaz" 561
+@ "parser.gaz" 572
 NEW_ARRAY
 LOAD_FIELD in_function
 ARRAY_PUSH
@@ -8033,7 +8098,7 @@ LOAD 11
 POP
 LOAD 9
 POP
-@ "parser.gaz" 562
+@ "parser.gaz" 573
 PUSH [true, 0]
 DESTRUCTURE 2
 STORE 12
@@ -8049,14 +8114,14 @@ SET_FIELD loop_depth
 POP
 LOAD 12
 POP
-@ "parser.gaz" 563
+@ "parser.gaz" 574
 LOAD_THIS
 GET_METHOD block
 CALL_METHOD 0 block
 STORE 13
 LOAD 13
 POP
-@ "parser.gaz" 564
+@ "parser.gaz" 575
 NEW_ARRAY
 LOAD 10
 ARRAY_PUSH
@@ -8076,10 +8141,10 @@ SET_FIELD loop_depth
 POP
 LOAD 14
 POP
-@ "parser.gaz" 560
+@ "parser.gaz" 571
 JMP ENDIF_0
 LABEL ELSE_0
-@ "parser.gaz" 566
+@ "parser.gaz" 577
 LOAD_THIS
 GET_METHOD expr
 CALL_METHOD 0 expr
@@ -8087,7 +8152,7 @@ STORE 13
 LOAD 13
 POP
 LABEL ENDIF_0
-@ "parser.gaz" 568
+@ "parser.gaz" 579
 NEW_ARRAY
 LOAD 6
 ARRAY_PUSH
@@ -8107,12 +8172,12 @@ SET_FIELD in_finally
 POP
 LOAD 15
 POP
-@ "parser.gaz" 571
+@ "parser.gaz" 582
 NEW VariableCollector 0
 STORE 16
 LOAD 16
 POP
-@ "parser.gaz" 572
+@ "parser.gaz" 583
 LOAD 2
 FOREACH_CHECK
 STORE 17
@@ -8143,23 +8208,23 @@ INDEX_GET
 STORE 21
 LOAD 21
 POP
-@ "parser.gaz" 573
+@ "parser.gaz" 584
 LOAD 21
 PUSH null
 NOT_EQUALS
 JZ ELSE_2
-@ "parser.gaz" 574
+@ "parser.gaz" 585
 LOAD 16
 GET_METHOD collect
 LOAD 21
 CALL_METHOD 1 collect
 POP
-@ "parser.gaz" 573
+@ "parser.gaz" 584
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
 LABEL CONTINUE_1
-@ "parser.gaz" 572
+@ "parser.gaz" 583
 LOAD 20
 PUSH 1
 ADD
@@ -8168,18 +8233,18 @@ LOAD 20
 POP
 JMP WHILE_1
 LABEL ENDWHILE_1
-@ "parser.gaz" 577
+@ "parser.gaz" 588
 LOAD 16
 GET_METHOD collect
 LOAD 13
 CALL_METHOD 1 collect
 POP
-@ "parser.gaz" 578
+@ "parser.gaz" 589
 NEW_ARRAY
 STORE 22
 LOAD 22
 POP
-@ "parser.gaz" 579
+@ "parser.gaz" 590
 LOAD 16
 GET_PROPERTY found
 FOREACH_CHECK
@@ -8217,7 +8282,7 @@ INDEX_GET
 STORE 28
 LOAD 28
 POP
-@ "parser.gaz" 580
+@ "parser.gaz" 591
 LOAD 27
 LOAD 1
 CALL_BUILTIN in_array 2
@@ -8235,16 +8300,16 @@ LABEL AND_FALSE_5
 PUSH false
 LABEL AND_END_5
 JZ ELSE_4
-@ "parser.gaz" 581
+@ "parser.gaz" 592
 LOAD 27
 SET_PATH [] 22
 POP
-@ "parser.gaz" 580
+@ "parser.gaz" 591
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
 LABEL CONTINUE_3
-@ "parser.gaz" 579
+@ "parser.gaz" 590
 LOAD 26
 PUSH 1
 ADD
@@ -8253,7 +8318,7 @@ LOAD 26
 POP
 JMP WHILE_3
 LABEL ENDWHILE_3
-@ "parser.gaz" 585
+@ "parser.gaz" 596
 LOAD_THIS
 GET_METHOD at
 LOAD 1
@@ -8265,23 +8330,23 @@ NEW LambdaAST 5
 LOAD 0
 CALL_METHOD 2 at
 RET
-@ "parser.gaz" 552
+@ "parser.gaz" 563
 PUSH null
 RET
 
 fn Parser.check_parameters 3 3
 locals $params $defaults $lines $seen $required $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $i $param
-@ "parser.gaz" 590
+@ "parser.gaz" 601
 NEW_MAP
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 591
+@ "parser.gaz" 602
 PUSH 0
 STORE 4
 LOAD 4
 POP
-@ "parser.gaz" 592
+@ "parser.gaz" 603
 LOAD 0
 FOREACH_CHECK
 STORE 5
@@ -8318,12 +8383,12 @@ INDEX_GET
 STORE 10
 LOAD 10
 POP
-@ "parser.gaz" 593
+@ "parser.gaz" 604
 LOAD 3
 LOAD 10
 CALL_BUILTIN has_key 2
 JZ ELSE_1
-@ "parser.gaz" 594
+@ "parser.gaz" 605
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "Duplicate parameter "
@@ -8337,29 +8402,29 @@ LOAD 9
 INDEX_GET
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 593
+@ "parser.gaz" 604
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "parser.gaz" 596
+@ "parser.gaz" 607
 LOAD 10
 KEY_CHECK
 PUSH true
 SET_PATH [k] 3
 POP
-@ "parser.gaz" 597
+@ "parser.gaz" 608
 LOAD 1
 LOAD 9
 INDEX_GET
 PUSH null
 EQUALS
 JZ ELSE_2
-@ "parser.gaz" 598
+@ "parser.gaz" 609
 LOAD 4
 LOAD 9
 LT
 JZ ELSE_3
-@ "parser.gaz" 599
+@ "parser.gaz" 610
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "Required parameter "
@@ -8373,22 +8438,22 @@ LOAD 9
 INDEX_GET
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 598
+@ "parser.gaz" 609
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "parser.gaz" 601
+@ "parser.gaz" 612
 LOAD 4
 INC
 STORE 4
 LOAD 4
 POP
-@ "parser.gaz" 597
+@ "parser.gaz" 608
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
 LABEL CONTINUE_0
-@ "parser.gaz" 592
+@ "parser.gaz" 603
 LOAD 8
 PUSH 1
 ADD
@@ -8397,25 +8462,25 @@ LOAD 8
 POP
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "parser.gaz" 605
+@ "parser.gaz" 616
 LOAD_THIS
 GET_METHOD arity
 LOAD 0
 LOAD 1
 CALL_METHOD 2 arity
 RET
-@ "parser.gaz" 589
+@ "parser.gaz" 600
 PUSH null
 RET
 
 fn Parser.arity 2 2
 locals $params $defaults $required $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $default
-@ "parser.gaz" 610
+@ "parser.gaz" 621
 PUSH 0
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 611
+@ "parser.gaz" 622
 LOAD 1
 FOREACH_CHECK
 STORE 3
@@ -8446,23 +8511,23 @@ INDEX_GET
 STORE 7
 LOAD 7
 POP
-@ "parser.gaz" 612
+@ "parser.gaz" 623
 LOAD 7
 PUSH null
 EQUALS
 JZ ELSE_1
-@ "parser.gaz" 613
+@ "parser.gaz" 624
 LOAD 2
 INC
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 612
+@ "parser.gaz" 623
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
 LABEL CONTINUE_0
-@ "parser.gaz" 611
+@ "parser.gaz" 622
 LOAD 6
 PUSH 1
 ADD
@@ -8471,7 +8536,7 @@ LOAD 6
 POP
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "parser.gaz" 617
+@ "parser.gaz" 628
 LOAD 2
 LOAD 0
 CALL_BUILTIN len 1
@@ -8488,24 +8553,24 @@ CALL_BUILTIN len 1
 ARRAY_PUSH
 LABEL TERNARY_END_2
 RET
-@ "parser.gaz" 609
+@ "parser.gaz" 620
 PUSH null
 RET
 
 fn Parser.interpolated_string 0 0
-locals $start $node $value $part $concat
-@ "parser.gaz" 625
+locals $start $node $value $escape $part $concat
+@ "parser.gaz" 636
 LOAD_FIELD current_token
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 626
+@ "parser.gaz" 637
 LOAD_THIS
 GET_METHOD eat
 PUSH "STRING_START"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 627
+@ "parser.gaz" 638
 LOAD_THIS
 GET_METHOD at
 LOAD 0
@@ -8516,31 +8581,22 @@ STORE 1
 LOAD 1
 POP
 LABEL WHILE_0
-@ "parser.gaz" 629
+@ "parser.gaz" 640
 PUSH true
 JZ ENDWHILE_0
-@ "parser.gaz" 630
+@ "parser.gaz" 641
 LOAD_THIS
 GET_METHOD expr
 CALL_METHOD 0 expr
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 632
-LOAD_FIELD current_token
-STORE 3
-LOAD 3
-POP
-@ "parser.gaz" 633
-LOAD 3
-GET_PROPERTY type
-PUSH "STRING_MIDDLE"
-NOT_EQUALS
+@ "parser.gaz" 642
+LOAD_FIELD in_constant
 JZ AND_FALSE_2
-LOAD 3
-GET_PROPERTY type
-PUSH "STRING_END"
-NOT_EQUALS
+LOAD 2
+PUSH_CLASS VariableAST
+CALL_BUILTIN is_a 2
 JZ AND_FALSE_2
 PUSH true
 JMP AND_END_2
@@ -8548,142 +8604,200 @@ LABEL AND_FALSE_2
 PUSH false
 LABEL AND_END_2
 JZ ELSE_1
-@ "parser.gaz" 634
+@ "parser.gaz" 644
+LOAD 2
+GET_METHOD is_global
+CALL_METHOD 0 is_global
+JZ TERNARY_ELSE_3
+PUSH "\\{ for a brace"
+JMP TERNARY_END_3
+LABEL TERNARY_ELSE_3
+PUSH "\\$ for a dollar sign"
+LABEL TERNARY_END_3
+STORE 3
+LOAD 3
+POP
+@ "parser.gaz" 645
+LOAD_THIS
+GET_METHOD fail_at
+PUSH "A constant can't interpolate "
+LOAD 2
+GET_PROPERTY value
+CONCAT
+PUSH " into a string (write "
+CONCAT
+LOAD 3
+CONCAT
+PUSH ")"
+CONCAT
+LOAD 2
+GET_PROPERTY file
+LOAD 2
+GET_PROPERTY line
+CALL_METHOD 3 fail_at
+POP
+@ "parser.gaz" 642
+JMP ENDIF_1
+LABEL ELSE_1
+LABEL ENDIF_1
+@ "parser.gaz" 648
+LOAD_FIELD current_token
+STORE 4
+LOAD 4
+POP
+@ "parser.gaz" 649
+LOAD 4
+GET_PROPERTY type
+PUSH "STRING_MIDDLE"
+NOT_EQUALS
+JZ AND_FALSE_5
+LOAD 4
+GET_PROPERTY type
+PUSH "STRING_END"
+NOT_EQUALS
+JZ AND_FALSE_5
+PUSH true
+JMP AND_END_5
+LABEL AND_FALSE_5
+PUSH false
+LABEL AND_END_5
+JZ ELSE_4
+@ "parser.gaz" 650
 LOAD_THIS
 GET_METHOD fail
 PUSH "Expected '}' but found "
 LOAD_THIS
 GET_METHOD describe
-LOAD 3
+LOAD 4
 CALL_METHOD 1 describe
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 633
-JMP ENDIF_1
-LABEL ELSE_1
-LABEL ENDIF_1
-@ "parser.gaz" 636
-LOAD_THIS
-GET_METHOD eat
-LOAD 3
-GET_PROPERTY type
-CALL_METHOD 1 eat
-POP
-@ "parser.gaz" 638
-PUSH "CONCAT"
-PUSH ".."
-NEW Token 2
-STORE 4
-LOAD 4
-POP
-@ "parser.gaz" 639
-LOAD 3
-GET_PROPERTY line
-SET_PATH .line 4
-POP
-@ "parser.gaz" 640
-LOAD_THIS
-GET_METHOD at
-LOAD 1
-LOAD 4
-LOAD 2
-NEW BinOpAST 3
-LOAD 4
-CALL_METHOD 2 at
-STORE 1
-LOAD 1
-POP
-@ "parser.gaz" 641
-LOAD 3
-GET_PROPERTY value
-PUSH ""
-NOT_EQUALS
-JZ ELSE_3
-@ "parser.gaz" 642
-LOAD_THIS
-GET_METHOD at
-LOAD 1
-LOAD 4
-LOAD_THIS
-GET_METHOD at
-LOAD 3
-NEW StringAST 1
-LOAD 3
-CALL_METHOD 2 at
-NEW BinOpAST 3
-LOAD 4
-CALL_METHOD 2 at
-STORE 1
-LOAD 1
-POP
-@ "parser.gaz" 641
-JMP ENDIF_3
-LABEL ELSE_3
-LABEL ENDIF_3
-@ "parser.gaz" 645
-LOAD 3
-GET_PROPERTY type
-PUSH "STRING_END"
-EQUALS
-JZ ELSE_4
-@ "parser.gaz" 646
-LOAD 1
-RET
-@ "parser.gaz" 645
+@ "parser.gaz" 649
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
-@ "parser.gaz" 629
+@ "parser.gaz" 652
+LOAD_THIS
+GET_METHOD eat
+LOAD 4
+GET_PROPERTY type
+CALL_METHOD 1 eat
+POP
+@ "parser.gaz" 654
+PUSH "CONCAT"
+PUSH ".."
+NEW Token 2
+STORE 5
+LOAD 5
+POP
+@ "parser.gaz" 655
+LOAD 4
+GET_PROPERTY line
+SET_PATH .line 5
+POP
+@ "parser.gaz" 656
+LOAD_THIS
+GET_METHOD at
+LOAD 1
+LOAD 5
+LOAD 2
+NEW BinOpAST 3
+LOAD 5
+CALL_METHOD 2 at
+STORE 1
+LOAD 1
+POP
+@ "parser.gaz" 657
+LOAD 4
+GET_PROPERTY value
+PUSH ""
+NOT_EQUALS
+JZ ELSE_6
+@ "parser.gaz" 658
+LOAD_THIS
+GET_METHOD at
+LOAD 1
+LOAD 5
+LOAD_THIS
+GET_METHOD at
+LOAD 4
+NEW StringAST 1
+LOAD 4
+CALL_METHOD 2 at
+NEW BinOpAST 3
+LOAD 5
+CALL_METHOD 2 at
+STORE 1
+LOAD 1
+POP
+@ "parser.gaz" 657
+JMP ENDIF_6
+LABEL ELSE_6
+LABEL ENDIF_6
+@ "parser.gaz" 661
+LOAD 4
+GET_PROPERTY type
+PUSH "STRING_END"
+EQUALS
+JZ ELSE_7
+@ "parser.gaz" 662
+LOAD 1
+RET
+@ "parser.gaz" 661
+JMP ENDIF_7
+LABEL ELSE_7
+LABEL ENDIF_7
+@ "parser.gaz" 640
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "parser.gaz" 624
+@ "parser.gaz" 635
 PUSH null
 RET
 
 fn Parser.list_literal 0 0
 locals $start $entries $spread
-@ "parser.gaz" 653
+@ "parser.gaz" 669
 LOAD_FIELD current_token
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 654
+@ "parser.gaz" 670
 LOAD_THIS
 GET_METHOD eat
 PUSH "LEFT_BRACKET"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 656
+@ "parser.gaz" 672
 NEW_ARRAY
 STORE 1
 LOAD 1
 POP
 LABEL WHILE_0
-@ "parser.gaz" 657
+@ "parser.gaz" 673
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "RIGHT_BRACKET"
 NOT_EQUALS
 JZ ENDWHILE_0
-@ "parser.gaz" 658
+@ "parser.gaz" 674
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "SPREAD"
 EQUALS
 JZ ELSE_1
-@ "parser.gaz" 660
+@ "parser.gaz" 676
 LOAD_FIELD current_token
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 661
+@ "parser.gaz" 677
 LOAD_THIS
 GET_METHOD eat
 PUSH "SPREAD"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 662
+@ "parser.gaz" 678
 NEW_ARRAY
 PUSH null
 ARRAY_PUSH
@@ -8698,10 +8812,10 @@ CALL_METHOD 2 at
 ARRAY_PUSH
 SET_PATH [] 1
 POP
-@ "parser.gaz" 658
+@ "parser.gaz" 674
 JMP ENDIF_1
 LABEL ELSE_1
-@ "parser.gaz" 664
+@ "parser.gaz" 680
 NEW_ARRAY
 PUSH null
 ARRAY_PUSH
@@ -8712,48 +8826,48 @@ ARRAY_PUSH
 SET_PATH [] 1
 POP
 LABEL ENDIF_1
-@ "parser.gaz" 666
+@ "parser.gaz" 682
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "DOUBLE_ARROW"
 EQUALS
 JZ ELSE_2
-@ "parser.gaz" 667
+@ "parser.gaz" 683
 LOAD_THIS
 GET_METHOD fail
 PUSH "A list has no keys: write a map as {key => value}"
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 666
+@ "parser.gaz" 682
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "parser.gaz" 671
+@ "parser.gaz" 687
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "RIGHT_BRACKET"
 NOT_EQUALS
 JZ ELSE_3
-@ "parser.gaz" 672
+@ "parser.gaz" 688
 LOAD_THIS
 GET_METHOD eat
 PUSH "COMMA"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 671
+@ "parser.gaz" 687
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "parser.gaz" 657
+@ "parser.gaz" 673
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "parser.gaz" 675
+@ "parser.gaz" 691
 LOAD_THIS
 GET_METHOD eat
 PUSH "RIGHT_BRACKET"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 677
+@ "parser.gaz" 693
 LOAD_THIS
 GET_METHOD at
 LOAD 1
@@ -8761,49 +8875,49 @@ NEW ArrayLiteralAST 1
 LOAD 0
 CALL_METHOD 2 at
 RET
-@ "parser.gaz" 652
+@ "parser.gaz" 668
 PUSH null
 RET
 
 fn Parser.map_literal 0 0
 locals $start $entries $key
-@ "parser.gaz" 685
+@ "parser.gaz" 701
 LOAD_FIELD current_token
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 686
+@ "parser.gaz" 702
 LOAD_THIS
 GET_METHOD eat
 PUSH "LEFT_BRACE"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 688
+@ "parser.gaz" 704
 NEW_ARRAY
 STORE 1
 LOAD 1
 POP
 LABEL WHILE_0
-@ "parser.gaz" 689
+@ "parser.gaz" 705
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "RIGHT_BRACE"
 NOT_EQUALS
 JZ ENDWHILE_0
-@ "parser.gaz" 690
+@ "parser.gaz" 706
 LOAD_THIS
 GET_METHOD expr
 CALL_METHOD 0 expr
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 691
+@ "parser.gaz" 707
 LOAD_THIS
 GET_METHOD eat
 PUSH "DOUBLE_ARROW"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 692
+@ "parser.gaz" 708
 NEW_ARRAY
 LOAD 2
 ARRAY_PUSH
@@ -8813,32 +8927,32 @@ CALL_METHOD 0 expr
 ARRAY_PUSH
 SET_PATH [] 1
 POP
-@ "parser.gaz" 694
+@ "parser.gaz" 710
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "RIGHT_BRACE"
 NOT_EQUALS
 JZ ELSE_1
-@ "parser.gaz" 695
+@ "parser.gaz" 711
 LOAD_THIS
 GET_METHOD eat
 PUSH "COMMA"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 694
+@ "parser.gaz" 710
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "parser.gaz" 689
+@ "parser.gaz" 705
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "parser.gaz" 698
+@ "parser.gaz" 714
 LOAD_THIS
 GET_METHOD eat
 PUSH "RIGHT_BRACE"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 700
+@ "parser.gaz" 716
 LOAD_THIS
 GET_METHOD at
 LOAD 1
@@ -8847,13 +8961,13 @@ NEW ArrayLiteralAST 2
 LOAD 0
 CALL_METHOD 2 at
 RET
-@ "parser.gaz" 684
+@ "parser.gaz" 700
 PUSH null
 RET
 
 fn Parser.postfix 0 0
 locals $node $token $named $call $#destructure_0 $paren $bracket
-@ "parser.gaz" 707
+@ "parser.gaz" 723
 LOAD_THIS
 GET_METHOD primary
 CALL_METHOD 0 primary
@@ -8861,37 +8975,37 @@ STORE 0
 LOAD 0
 POP
 LABEL WHILE_0
-@ "parser.gaz" 709
+@ "parser.gaz" 725
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH ["LEFT_BRACKET", "LEFT_PAREN", "PROPERTY"]
 CALL_BUILTIN in_array 2
 JZ ENDWHILE_0
-@ "parser.gaz" 710
+@ "parser.gaz" 726
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "PROPERTY"
 EQUALS
 JZ ELSE_1
-@ "parser.gaz" 712
+@ "parser.gaz" 728
 LOAD_FIELD current_token
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 713
+@ "parser.gaz" 729
 LOAD_THIS
 GET_METHOD eat
 PUSH "PROPERTY"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 714
+@ "parser.gaz" 730
 LOAD 0
 PUSH_CLASS FunctionRefAST
 CALL_BUILTIN is_a 2
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 715
+@ "parser.gaz" 731
 LOAD_THIS
 GET_METHOD at
 LOAD 0
@@ -8905,15 +9019,15 @@ CALL_METHOD 2 at
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 716
+@ "parser.gaz" 732
 LOAD 2
 JZ ELSE_2
-@ "parser.gaz" 718
+@ "parser.gaz" 734
 LOAD_FIELD class_constant_uses
 CALL_BUILTIN len 1
 SET_PATH .class_use 0
 POP
-@ "parser.gaz" 719
+@ "parser.gaz" 735
 NEW_ARRAY
 LOAD 0
 ARRAY_PUSH
@@ -8921,28 +9035,28 @@ PUSH false
 ARRAY_PUSH
 SET_PATH_THIS .class_constant_uses[]
 POP
-@ "parser.gaz" 716
+@ "parser.gaz" 732
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "parser.gaz" 722
+@ "parser.gaz" 738
 JMP WHILE_0
-@ "parser.gaz" 710
+@ "parser.gaz" 726
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "parser.gaz" 724
+@ "parser.gaz" 740
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "LEFT_PAREN"
 EQUALS
 JZ ELSE_3
-@ "parser.gaz" 725
+@ "parser.gaz" 741
 LOAD 0
 PUSH_CLASS PropertyAST
 CALL_BUILTIN is_a 2
 JZ ELSE_4
-@ "parser.gaz" 727
+@ "parser.gaz" 743
 LOAD 0
 LOAD_THIS
 GET_METHOD arguments
@@ -8951,7 +9065,7 @@ NEW MethodCallAST 2
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 728
+@ "parser.gaz" 744
 NEW_ARRAY
 LOAD 0
 GET_PROPERTY line
@@ -8973,13 +9087,13 @@ SET_PATH .file 3
 POP
 LOAD 4
 POP
-@ "parser.gaz" 729
+@ "parser.gaz" 745
 LOAD 0
 GET_PROPERTY use
 PUSH null
 NOT_EQUALS
 JZ ELSE_5
-@ "parser.gaz" 730
+@ "parser.gaz" 746
 LOAD 0
 GET_PROPERTY use
 KEY_CHECK
@@ -8990,17 +9104,17 @@ GET_PROPERTY args
 CALL_BUILTIN len 1
 SET_PATH_THIS .member_uses[k][k]
 POP
-@ "parser.gaz" 729
+@ "parser.gaz" 745
 JMP ENDIF_5
 LABEL ELSE_5
 LABEL ENDIF_5
-@ "parser.gaz" 732
+@ "parser.gaz" 748
 LOAD 0
 GET_PROPERTY class_use
 PUSH null
 NOT_EQUALS
 JZ ELSE_6
-@ "parser.gaz" 733
+@ "parser.gaz" 749
 LOAD 0
 GET_PROPERTY class_use
 KEY_CHECK
@@ -9009,27 +9123,27 @@ KEY_CHECK
 PUSH true
 SET_PATH_THIS .class_constant_uses[k][k]
 POP
-@ "parser.gaz" 732
+@ "parser.gaz" 748
 JMP ENDIF_6
 LABEL ELSE_6
 LABEL ENDIF_6
-@ "parser.gaz" 735
+@ "parser.gaz" 751
 LOAD 3
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 737
+@ "parser.gaz" 753
 JMP WHILE_0
-@ "parser.gaz" 725
+@ "parser.gaz" 741
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
-@ "parser.gaz" 740
+@ "parser.gaz" 756
 LOAD_FIELD current_token
 STORE 5
 LOAD 5
 POP
-@ "parser.gaz" 741
+@ "parser.gaz" 757
 LOAD_THIS
 GET_METHOD at
 LOAD 0
@@ -9042,53 +9156,53 @@ CALL_METHOD 2 at
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 743
+@ "parser.gaz" 759
 JMP WHILE_0
-@ "parser.gaz" 724
+@ "parser.gaz" 740
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "parser.gaz" 745
+@ "parser.gaz" 761
 LOAD_FIELD current_token
 STORE 6
 LOAD 6
 POP
-@ "parser.gaz" 746
+@ "parser.gaz" 762
 LOAD_THIS
 GET_METHOD eat
 PUSH "LEFT_BRACKET"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 747
+@ "parser.gaz" 763
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "RIGHT_BRACKET"
 EQUALS
 JZ ELSE_7
-@ "parser.gaz" 748
+@ "parser.gaz" 764
 LOAD_THIS
 GET_METHOD eat
 PUSH "RIGHT_BRACKET"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 749
+@ "parser.gaz" 765
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH ["ASSIGN", "PLUS_ASSIGN", "MINUS_ASSIGN", "MULTIPLY_ASSIGN", "DIVIDE_ASSIGN", "MODULO_ASSIGN", "CONCAT_ASSIGN", "COALESCE_ASSIGN", "BIT_AND_ASSIGN", "BIT_OR_ASSIGN", "BIT_XOR_ASSIGN", "SHIFT_LEFT_ASSIGN", "SHIFT_RIGHT_ASSIGN"]
 CALL_BUILTIN in_array 2
 NOT
 JZ ELSE_8
-@ "parser.gaz" 750
+@ "parser.gaz" 766
 LOAD_THIS
 GET_METHOD fail
 PUSH "[] can only be used to append in an assignment"
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 749
+@ "parser.gaz" 765
 JMP ENDIF_8
 LABEL ELSE_8
 LABEL ENDIF_8
-@ "parser.gaz" 753
+@ "parser.gaz" 769
 LOAD_THIS
 GET_METHOD at
 LOAD 0
@@ -9097,11 +9211,11 @@ NEW IndexAST 2
 LOAD 6
 CALL_METHOD 2 at
 RET
-@ "parser.gaz" 747
+@ "parser.gaz" 763
 JMP ENDIF_7
 LABEL ELSE_7
 LABEL ENDIF_7
-@ "parser.gaz" 755
+@ "parser.gaz" 771
 LOAD_THIS
 GET_METHOD at
 LOAD 0
@@ -9114,21 +9228,21 @@ CALL_METHOD 2 at
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 756
+@ "parser.gaz" 772
 LOAD_THIS
 GET_METHOD eat
 PUSH "RIGHT_BRACKET"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 709
+@ "parser.gaz" 725
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "parser.gaz" 759
+@ "parser.gaz" 775
 LOAD_FIELD current_token
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 760
+@ "parser.gaz" 776
 LOAD 1
 GET_PROPERTY type
 PUSH "INCREMENT"
@@ -9147,14 +9261,14 @@ LABEL OR_TRUE_10
 PUSH true
 LABEL OR_END_10
 JZ ELSE_9
-@ "parser.gaz" 761
+@ "parser.gaz" 777
 LOAD_THIS
 GET_METHOD eat
 LOAD 1
 GET_PROPERTY type
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 763
+@ "parser.gaz" 779
 LOAD_THIS
 GET_METHOD at
 LOAD_THIS
@@ -9168,38 +9282,38 @@ NEW IncrementAST 3
 LOAD 1
 CALL_METHOD 2 at
 RET
-@ "parser.gaz" 760
+@ "parser.gaz" 776
 JMP ENDIF_9
 LABEL ELSE_9
 LABEL ENDIF_9
-@ "parser.gaz" 766
+@ "parser.gaz" 782
 LOAD 0
 RET
-@ "parser.gaz" 706
+@ "parser.gaz" 722
 PUSH null
 RET
 
 fn Parser.unary 0 0
 locals $token
-@ "parser.gaz" 771
+@ "parser.gaz" 787
 LOAD_FIELD current_token
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 773
+@ "parser.gaz" 789
 LOAD 0
 GET_PROPERTY type
 PUSH ["MINUS", "NOT", "BIT_NOT"]
 CALL_BUILTIN in_array 2
 JZ ELSE_0
-@ "parser.gaz" 774
+@ "parser.gaz" 790
 LOAD_THIS
 GET_METHOD eat
 LOAD 0
 GET_PROPERTY type
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 776
+@ "parser.gaz" 792
 LOAD_THIS
 GET_METHOD at
 LOAD 0
@@ -9210,11 +9324,11 @@ NEW UnaryOpAST 2
 LOAD 0
 CALL_METHOD 2 at
 RET
-@ "parser.gaz" 773
+@ "parser.gaz" 789
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 779
+@ "parser.gaz" 795
 LOAD 0
 GET_PROPERTY type
 PUSH "INCREMENT"
@@ -9233,14 +9347,14 @@ LABEL OR_TRUE_2
 PUSH true
 LABEL OR_END_2
 JZ ELSE_1
-@ "parser.gaz" 780
+@ "parser.gaz" 796
 LOAD_THIS
 GET_METHOD eat
 LOAD 0
 GET_PROPERTY type
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 782
+@ "parser.gaz" 798
 LOAD_THIS
 GET_METHOD at
 LOAD_THIS
@@ -9256,22 +9370,22 @@ NEW IncrementAST 3
 LOAD 0
 CALL_METHOD 2 at
 RET
-@ "parser.gaz" 779
+@ "parser.gaz" 795
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "parser.gaz" 785
+@ "parser.gaz" 801
 LOAD_THIS
 GET_METHOD postfix
 CALL_METHOD 0 postfix
 RET
-@ "parser.gaz" 770
+@ "parser.gaz" 786
 PUSH null
 RET
 
 fn Parser.binary 1 1
 locals $level $node $token $found
-@ "parser.gaz" 798
+@ "parser.gaz" 814
 LOAD_THIS
 GET_METHOD unary
 CALL_METHOD 0 unary
@@ -9279,15 +9393,15 @@ STORE 1
 LOAD 1
 POP
 LABEL WHILE_0
-@ "parser.gaz" 800
+@ "parser.gaz" 816
 PUSH true
 JZ ENDWHILE_0
-@ "parser.gaz" 801
+@ "parser.gaz" 817
 LOAD_FIELD current_token
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 802
+@ "parser.gaz" 818
 PUSH {"OR" => 1, "AND" => 2, "EQUALS" => 3, "NOT_EQUALS" => 3, "SPACESHIP" => 3, "LESS_THAN" => 4, "LESS_EQUALS" => 4, "GREATER_THAN" => 4, "GREATER_EQUALS" => 4, "CONCAT" => 5, "BIT_OR" => 6, "BIT_XOR" => 7, "BIT_AND" => 8, "SHIFT_LEFT" => 9, "SHIFT_RIGHT" => 9, "PLUS" => 10, "MINUS" => 10, "MULTIPLY" => 11, "DIVIDE" => 11, "MODULO" => 11}
 LOAD 2
 GET_PROPERTY type
@@ -9298,26 +9412,26 @@ LABEL COALESCE_END_1
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 803
+@ "parser.gaz" 819
 LOAD 3
 LOAD 0
 LT
 JZ ELSE_2
-@ "parser.gaz" 804
+@ "parser.gaz" 820
 LOAD 1
 RET
-@ "parser.gaz" 803
+@ "parser.gaz" 819
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "parser.gaz" 806
+@ "parser.gaz" 822
 LOAD_THIS
 GET_METHOD eat
 LOAD 2
 GET_PROPERTY type
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 807
+@ "parser.gaz" 823
 LOAD_THIS
 GET_METHOD at
 LOAD 1
@@ -9334,52 +9448,52 @@ CALL_METHOD 2 at
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 800
+@ "parser.gaz" 816
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "parser.gaz" 797
+@ "parser.gaz" 813
 PUSH null
 RET
 
 fn Parser.logical_or 0 0
 locals
-@ "parser.gaz" 813
+@ "parser.gaz" 829
 LOAD_THIS
 GET_METHOD binary
 PUSH 1
 CALL_METHOD 1 binary
 RET
-@ "parser.gaz" 812
+@ "parser.gaz" 828
 PUSH null
 RET
 
 fn Parser.coalesce 0 0
 locals $node $token
-@ "parser.gaz" 818
+@ "parser.gaz" 834
 LOAD_THIS
 GET_METHOD logical_or
 CALL_METHOD 0 logical_or
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 820
+@ "parser.gaz" 836
 LOAD_FIELD current_token
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 821
+@ "parser.gaz" 837
 LOAD 1
 GET_PROPERTY type
 PUSH "COALESCE"
 EQUALS
 JZ ELSE_0
-@ "parser.gaz" 822
+@ "parser.gaz" 838
 LOAD_THIS
 GET_METHOD eat
 PUSH "COALESCE"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 824
+@ "parser.gaz" 840
 LOAD_THIS
 GET_METHOD at
 LOAD 0
@@ -9391,51 +9505,51 @@ NEW BinOpAST 3
 LOAD 1
 CALL_METHOD 2 at
 RET
-@ "parser.gaz" 821
+@ "parser.gaz" 837
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 827
+@ "parser.gaz" 843
 LOAD 0
 RET
-@ "parser.gaz" 817
+@ "parser.gaz" 833
 PUSH null
 RET
 
 fn Parser.ternary 0 0
 locals $start $node $token $then
-@ "parser.gaz" 840
+@ "parser.gaz" 856
 LOAD_FIELD current_token
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 841
+@ "parser.gaz" 857
 LOAD 0
 GET_PROPERTY type
 PUSH "LEFT_PAREN"
 EQUALS
 JZ ELSE_0
-@ "parser.gaz" 842
+@ "parser.gaz" 858
 LOAD 0
 SET_FIELD lambda_head
 POP
-@ "parser.gaz" 841
+@ "parser.gaz" 857
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 844
+@ "parser.gaz" 860
 LOAD_THIS
 GET_METHOD coalesce
 CALL_METHOD 0 coalesce
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 846
+@ "parser.gaz" 862
 LOAD_FIELD current_token
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 847
+@ "parser.gaz" 863
 LOAD 2
 GET_PROPERTY type
 PUSH "ARROW"
@@ -9473,7 +9587,7 @@ LABEL AND_FALSE_2
 PUSH false
 LABEL AND_END_2
 JZ ELSE_1
-@ "parser.gaz" 848
+@ "parser.gaz" 864
 LOAD_THIS
 GET_METHOD lambda
 LOAD 0
@@ -9488,36 +9602,36 @@ GET_PROPERTY line
 ARRAY_PUSH
 CALL_METHOD 4 lambda
 RET
-@ "parser.gaz" 847
+@ "parser.gaz" 863
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "parser.gaz" 850
+@ "parser.gaz" 866
 LOAD 2
 GET_PROPERTY type
 PUSH "QUESTION"
 EQUALS
 JZ ELSE_5
-@ "parser.gaz" 851
+@ "parser.gaz" 867
 LOAD_THIS
 GET_METHOD eat
 PUSH "QUESTION"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 852
+@ "parser.gaz" 868
 LOAD_THIS
 GET_METHOD expr
 CALL_METHOD 0 expr
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 853
+@ "parser.gaz" 869
 LOAD_THIS
 GET_METHOD eat
 PUSH "COLON"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 855
+@ "parser.gaz" 871
 LOAD_THIS
 GET_METHOD at
 LOAD 1
@@ -9529,46 +9643,46 @@ NEW TernaryAST 3
 LOAD 2
 CALL_METHOD 2 at
 RET
-@ "parser.gaz" 850
+@ "parser.gaz" 866
 JMP ENDIF_5
 LABEL ELSE_5
 LABEL ENDIF_5
-@ "parser.gaz" 858
+@ "parser.gaz" 874
 LOAD 1
 RET
-@ "parser.gaz" 839
+@ "parser.gaz" 855
 PUSH null
 RET
 
 fn Parser.expr 0 0
 locals $node $token $pattern $right
-@ "parser.gaz" 865
+@ "parser.gaz" 881
 LOAD_THIS
 GET_METHOD ternary
 CALL_METHOD 0 ternary
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 867
+@ "parser.gaz" 883
 LOAD_FIELD current_token
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 868
+@ "parser.gaz" 884
 LOAD 1
 GET_PROPERTY type
 PUSH ["ASSIGN", "PLUS_ASSIGN", "MINUS_ASSIGN", "MULTIPLY_ASSIGN", "DIVIDE_ASSIGN", "MODULO_ASSIGN", "CONCAT_ASSIGN", "COALESCE_ASSIGN", "BIT_AND_ASSIGN", "BIT_OR_ASSIGN", "BIT_XOR_ASSIGN", "SHIFT_LEFT_ASSIGN", "SHIFT_RIGHT_ASSIGN"]
 CALL_BUILTIN in_array 2
 NOT
 JZ ELSE_0
-@ "parser.gaz" 869
+@ "parser.gaz" 885
 LOAD 0
 RET
-@ "parser.gaz" 868
+@ "parser.gaz" 884
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 871
+@ "parser.gaz" 887
 LOAD 0
 PUSH_CLASS ArrayLiteralAST
 CALL_BUILTIN is_a 2
@@ -9583,13 +9697,13 @@ LABEL AND_FALSE_2
 PUSH false
 LABEL AND_END_2
 JZ ELSE_1
-@ "parser.gaz" 872
+@ "parser.gaz" 888
 LOAD 1
 GET_PROPERTY type
 PUSH "ASSIGN"
 NOT_EQUALS
 JZ ELSE_3
-@ "parser.gaz" 873
+@ "parser.gaz" 889
 LOAD_THIS
 GET_METHOD fail
 PUSH "Cannot use "
@@ -9600,11 +9714,11 @@ PUSH " to take a list apart: only = can"
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 872
+@ "parser.gaz" 888
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "parser.gaz" 875
+@ "parser.gaz" 891
 LOAD_THIS
 GET_METHOD list_pattern
 LOAD 0
@@ -9613,13 +9727,13 @@ CALL_METHOD 2 list_pattern
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 876
+@ "parser.gaz" 892
 LOAD_THIS
 GET_METHOD eat
 PUSH "ASSIGN"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 878
+@ "parser.gaz" 894
 LOAD_THIS
 GET_METHOD at
 LOAD 2
@@ -9631,11 +9745,11 @@ NEW AssignAST 3
 LOAD 1
 CALL_METHOD 2 at
 RET
-@ "parser.gaz" 871
+@ "parser.gaz" 887
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "parser.gaz" 881
+@ "parser.gaz" 897
 LOAD_THIS
 GET_METHOD assignable
 LOAD 0
@@ -9644,7 +9758,7 @@ CALL_METHOD 2 assignable
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 883
+@ "parser.gaz" 899
 LOAD 1
 GET_PROPERTY type
 PUSH "ASSIGN"
@@ -9671,7 +9785,7 @@ LABEL AND_FALSE_5
 PUSH false
 LABEL AND_END_5
 JZ ELSE_4
-@ "parser.gaz" 884
+@ "parser.gaz" 900
 LOAD_THIS
 GET_METHOD fail
 PUSH "Cannot use "
@@ -9682,25 +9796,25 @@ PUSH " to append"
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 883
+@ "parser.gaz" 899
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
-@ "parser.gaz" 886
+@ "parser.gaz" 902
 LOAD_THIS
 GET_METHOD eat
 LOAD 1
 GET_PROPERTY type
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 887
+@ "parser.gaz" 903
 LOAD_THIS
 GET_METHOD expr
 CALL_METHOD 0 expr
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 889
+@ "parser.gaz" 905
 LOAD 1
 GET_PROPERTY type
 PUSH "ASSIGN"
@@ -9726,7 +9840,7 @@ JMP AND_END_10
 LABEL AND_FALSE_10
 PUSH false
 LABEL AND_END_10
-@ "parser.gaz" 890
+@ "parser.gaz" 906
 JZ AND_FALSE_9
 LOAD 3
 PUSH_CLASS LambdaAST
@@ -9749,18 +9863,18 @@ JMP AND_END_8
 LABEL AND_FALSE_8
 PUSH false
 LABEL AND_END_8
-@ "parser.gaz" 889
+@ "parser.gaz" 905
 JZ ELSE_7
-@ "parser.gaz" 891
+@ "parser.gaz" 907
 LOAD 0
 GET_PROPERTY value
 SET_PATH .self 3
 POP
-@ "parser.gaz" 889
+@ "parser.gaz" 905
 JMP ENDIF_7
 LABEL ELSE_7
 LABEL ENDIF_7
-@ "parser.gaz" 894
+@ "parser.gaz" 910
 LOAD_THIS
 GET_METHOD at
 LOAD 0
@@ -9770,19 +9884,19 @@ NEW AssignAST 3
 LOAD 1
 CALL_METHOD 2 at
 RET
-@ "parser.gaz" 864
+@ "parser.gaz" 880
 PUSH null
 RET
 
 fn Parser.list_pattern 2 2
 locals $literal $target $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $entry $targets $#foreach_array_1 $#foreach_keys_1 $#foreach_count_1 $#foreach_i_1 $pattern $#destructure_2
-@ "parser.gaz" 901
+@ "parser.gaz" 917
 LOAD 0
 GET_PROPERTY entries
 NEW_ARRAY
 EQUALS
 JZ ELSE_0
-@ "parser.gaz" 902
+@ "parser.gaz" 918
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "Nothing to take apart: write at least one target in [...]"
@@ -9791,11 +9905,11 @@ LOAD 0
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 901
+@ "parser.gaz" 917
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 904
+@ "parser.gaz" 920
 LOAD 0
 GET_PROPERTY entries
 FOREACH_CHECK
@@ -9827,14 +9941,14 @@ INDEX_GET
 STORE 6
 LOAD 6
 POP
-@ "parser.gaz" 905
+@ "parser.gaz" 921
 LOAD 6
 PUSH 1
 INDEX_GET
 PUSH_CLASS SpreadAST
 CALL_BUILTIN is_a 2
 JZ ELSE_2
-@ "parser.gaz" 906
+@ "parser.gaz" 922
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "A pattern can't take the rest with ...: take the list apart with slice()"
@@ -9848,12 +9962,12 @@ INDEX_GET
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 905
+@ "parser.gaz" 921
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
 LABEL CONTINUE_1
-@ "parser.gaz" 904
+@ "parser.gaz" 920
 LOAD 5
 PUSH 1
 ADD
@@ -9862,12 +9976,12 @@ LOAD 5
 POP
 JMP WHILE_1
 LABEL ENDWHILE_1
-@ "parser.gaz" 909
+@ "parser.gaz" 925
 NEW_ARRAY
 STORE 7
 LOAD 7
 POP
-@ "parser.gaz" 910
+@ "parser.gaz" 926
 LOAD 0
 GET_PROPERTY entries
 FOREACH_CHECK
@@ -9899,7 +10013,7 @@ INDEX_GET
 STORE 6
 LOAD 6
 POP
-@ "parser.gaz" 911
+@ "parser.gaz" 927
 LOAD 1
 LOAD 6
 PUSH 1
@@ -9908,7 +10022,7 @@ CALL_VALUE 1
 SET_PATH [] 7
 POP
 LABEL CONTINUE_3
-@ "parser.gaz" 910
+@ "parser.gaz" 926
 LOAD 11
 PUSH 1
 ADD
@@ -9917,13 +10031,13 @@ LOAD 11
 POP
 JMP WHILE_3
 LABEL ENDWHILE_3
-@ "parser.gaz" 913
+@ "parser.gaz" 929
 LOAD 7
 NEW ListPatternAST 1
 STORE 12
 LOAD 12
 POP
-@ "parser.gaz" 914
+@ "parser.gaz" 930
 NEW_ARRAY
 LOAD 0
 GET_PROPERTY line
@@ -9945,16 +10059,16 @@ SET_PATH .file 12
 POP
 LOAD 13
 POP
-@ "parser.gaz" 916
+@ "parser.gaz" 932
 LOAD 12
 RET
-@ "parser.gaz" 900
+@ "parser.gaz" 916
 PUSH null
 RET
 
 fn Parser.assignable 2 2
 locals $node $operator
-@ "parser.gaz" 924
+@ "parser.gaz" 940
 LOAD 0
 PUSH_CLASS VariableAST
 CALL_BUILTIN is_a 2
@@ -9994,7 +10108,7 @@ LABEL OR_TRUE_1
 PUSH true
 LABEL OR_END_1
 JZ ELSE_0
-@ "parser.gaz" 925
+@ "parser.gaz" 941
 LOAD 0
 PUSH_CLASS PropertyAST
 CALL_BUILTIN is_a 2
@@ -10010,7 +10124,7 @@ LABEL AND_FALSE_5
 PUSH false
 LABEL AND_END_5
 JZ ELSE_4
-@ "parser.gaz" 926
+@ "parser.gaz" 942
 LOAD 0
 GET_PROPERTY use
 KEY_CHECK
@@ -10019,24 +10133,24 @@ KEY_CHECK
 PUSH true
 SET_PATH_THIS .member_uses[k][k]
 POP
-@ "parser.gaz" 925
+@ "parser.gaz" 941
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
-@ "parser.gaz" 928
+@ "parser.gaz" 944
 LOAD_THIS
 GET_METHOD written
 LOAD 0
 CALL_METHOD 1 written
 POP
-@ "parser.gaz" 930
+@ "parser.gaz" 946
 LOAD 0
 RET
-@ "parser.gaz" 924
+@ "parser.gaz" 940
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 933
+@ "parser.gaz" 949
 LOAD_THIS
 GET_METHOD fail
 PUSH "Can only use "
@@ -10047,14 +10161,14 @@ PUSH " on a variable, or an element or field of one"
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 923
+@ "parser.gaz" 939
 PUSH null
 RET
 
 fn Parser.written 1 1
 locals $target
 LABEL WHILE_0
-@ "parser.gaz" 942
+@ "parser.gaz" 958
 LOAD 0
 PUSH_CLASS IndexAST
 CALL_BUILTIN is_a 2
@@ -10083,16 +10197,16 @@ LABEL AND_FALSE_1
 PUSH false
 LABEL AND_END_1
 JZ ENDWHILE_0
-@ "parser.gaz" 943
+@ "parser.gaz" 959
 LOAD 0
 GET_PROPERTY target
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 942
+@ "parser.gaz" 958
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "parser.gaz" 945
+@ "parser.gaz" 961
 LOAD 0
 PUSH_CLASS PropertyAST
 CALL_BUILTIN is_a 2
@@ -10108,7 +10222,7 @@ LABEL AND_FALSE_4
 PUSH false
 LABEL AND_END_4
 JZ ELSE_3
-@ "parser.gaz" 946
+@ "parser.gaz" 962
 LOAD 0
 GET_PROPERTY use
 KEY_CHECK
@@ -10117,92 +10231,92 @@ KEY_CHECK
 PUSH true
 SET_PATH_THIS .member_uses[k][k]
 POP
-@ "parser.gaz" 945
+@ "parser.gaz" 961
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "parser.gaz" 941
+@ "parser.gaz" 957
 PUSH null
 RET
 
 fn Parser.if_statement 0 0
 locals $start $condition $if_body $else_if $else_body
-@ "parser.gaz" 952
+@ "parser.gaz" 968
 LOAD_FIELD current_token
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 953
+@ "parser.gaz" 969
 LOAD_THIS
 GET_METHOD eat
 PUSH "IF"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 954
+@ "parser.gaz" 970
 LOAD_THIS
 GET_METHOD eat
 PUSH "LEFT_PAREN"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 955
+@ "parser.gaz" 971
 LOAD_THIS
 GET_METHOD expr
 CALL_METHOD 0 expr
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 956
+@ "parser.gaz" 972
 LOAD_THIS
 GET_METHOD eat
 PUSH "RIGHT_PAREN"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 957
+@ "parser.gaz" 973
 LOAD_THIS
 GET_METHOD block
 CALL_METHOD 0 block
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 959
+@ "parser.gaz" 975
 PUSH null
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 960
+@ "parser.gaz" 976
 PUSH null
 STORE 4
 LOAD 4
 POP
-@ "parser.gaz" 961
+@ "parser.gaz" 977
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "ELSE"
 EQUALS
 JZ ELSE_0
-@ "parser.gaz" 962
+@ "parser.gaz" 978
 LOAD_THIS
 GET_METHOD eat
 PUSH "ELSE"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 963
+@ "parser.gaz" 979
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "IF"
 EQUALS
 JZ ELSE_1
-@ "parser.gaz" 965
+@ "parser.gaz" 981
 LOAD_THIS
 GET_METHOD if_statement
 CALL_METHOD 0 if_statement
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 963
+@ "parser.gaz" 979
 JMP ENDIF_1
 LABEL ELSE_1
-@ "parser.gaz" 967
+@ "parser.gaz" 983
 LOAD_THIS
 GET_METHOD block
 CALL_METHOD 0 block
@@ -10210,11 +10324,11 @@ STORE 4
 LOAD 4
 POP
 LABEL ENDIF_1
-@ "parser.gaz" 961
+@ "parser.gaz" 977
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 971
+@ "parser.gaz" 987
 LOAD_THIS
 GET_METHOD at
 LOAD 1
@@ -10225,119 +10339,119 @@ NEW IfStatementAST 4
 LOAD 0
 CALL_METHOD 2 at
 RET
-@ "parser.gaz" 951
+@ "parser.gaz" 967
 PUSH null
 RET
 
 fn Parser.match_expression 1 1
 locals $statement $start $subject $arms $default $values $block
-@ "parser.gaz" 988
+@ "parser.gaz" 1004
 LOAD_FIELD current_token
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 989
+@ "parser.gaz" 1005
 LOAD_THIS
 GET_METHOD eat
 PUSH "MATCH"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 990
+@ "parser.gaz" 1006
 PUSH null
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 991
+@ "parser.gaz" 1007
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "LEFT_PAREN"
 EQUALS
 JZ ELSE_0
-@ "parser.gaz" 992
+@ "parser.gaz" 1008
 LOAD_THIS
 GET_METHOD eat
 PUSH "LEFT_PAREN"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 993
+@ "parser.gaz" 1009
 LOAD_THIS
 GET_METHOD expr
 CALL_METHOD 0 expr
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 994
+@ "parser.gaz" 1010
 LOAD_THIS
 GET_METHOD eat
 PUSH "RIGHT_PAREN"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 991
+@ "parser.gaz" 1007
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 996
+@ "parser.gaz" 1012
 LOAD_THIS
 GET_METHOD eat
 PUSH "LEFT_BRACE"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 998
+@ "parser.gaz" 1014
 NEW_ARRAY
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 999
+@ "parser.gaz" 1015
 PUSH false
 STORE 4
 LOAD 4
 POP
 LABEL WHILE_1
-@ "parser.gaz" 1000
+@ "parser.gaz" 1016
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "RIGHT_BRACE"
 NOT_EQUALS
 JZ ENDWHILE_1
-@ "parser.gaz" 1001
+@ "parser.gaz" 1017
 LOAD 4
 JZ ELSE_2
-@ "parser.gaz" 1002
+@ "parser.gaz" 1018
 LOAD_THIS
 GET_METHOD fail
 PUSH "default must be the last arm of a match"
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1001
+@ "parser.gaz" 1017
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "parser.gaz" 1005
+@ "parser.gaz" 1021
 PUSH null
 STORE 5
 LOAD 5
 POP
-@ "parser.gaz" 1006
+@ "parser.gaz" 1022
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "DEFAULT"
 EQUALS
 JZ ELSE_3
-@ "parser.gaz" 1007
+@ "parser.gaz" 1023
 LOAD_THIS
 GET_METHOD eat
 PUSH "DEFAULT"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1008
+@ "parser.gaz" 1024
 PUSH true
 STORE 4
 LOAD 4
 POP
-@ "parser.gaz" 1006
+@ "parser.gaz" 1022
 JMP ENDIF_3
 LABEL ELSE_3
-@ "parser.gaz" 1010
+@ "parser.gaz" 1026
 NEW_ARRAY
 LOAD_THIS
 GET_METHOD expr
@@ -10347,35 +10461,35 @@ STORE 5
 LOAD 5
 POP
 LABEL WHILE_4
-@ "parser.gaz" 1011
+@ "parser.gaz" 1027
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "COMMA"
 EQUALS
 JZ ENDWHILE_4
-@ "parser.gaz" 1012
+@ "parser.gaz" 1028
 LOAD_THIS
 GET_METHOD eat
 PUSH "COMMA"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1013
+@ "parser.gaz" 1029
 LOAD_THIS
 GET_METHOD expr
 CALL_METHOD 0 expr
 SET_PATH [] 5
 POP
-@ "parser.gaz" 1011
+@ "parser.gaz" 1027
 JMP WHILE_4
 LABEL ENDWHILE_4
 LABEL ENDIF_3
-@ "parser.gaz" 1016
+@ "parser.gaz" 1032
 LOAD_THIS
 GET_METHOD eat
 PUSH "DOUBLE_ARROW"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1018
+@ "parser.gaz" 1034
 LOAD 0
 JZ AND_FALSE_5
 LOAD_FIELD current_token
@@ -10391,7 +10505,7 @@ LABEL AND_END_5
 STORE 6
 LOAD 6
 POP
-@ "parser.gaz" 1019
+@ "parser.gaz" 1035
 NEW_ARRAY
 LOAD 5
 ARRAY_PUSH
@@ -10411,22 +10525,22 @@ LOAD 6
 ARRAY_PUSH
 SET_PATH [] 3
 POP
-@ "parser.gaz" 1021
+@ "parser.gaz" 1037
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "COMMA"
 EQUALS
 JZ ELSE_7
-@ "parser.gaz" 1022
+@ "parser.gaz" 1038
 LOAD_THIS
 GET_METHOD eat
 PUSH "COMMA"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1021
+@ "parser.gaz" 1037
 JMP ENDIF_7
 LABEL ELSE_7
-@ "parser.gaz" 1023
+@ "parser.gaz" 1039
 LOAD 6
 NOT
 JZ AND_FALSE_9
@@ -10441,32 +10555,32 @@ LABEL AND_FALSE_9
 PUSH false
 LABEL AND_END_9
 JZ ELSE_8
-@ "parser.gaz" 1025
+@ "parser.gaz" 1041
 LOAD_THIS
 GET_METHOD eat
 PUSH "COMMA"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1023
+@ "parser.gaz" 1039
 JMP ENDIF_8
 LABEL ELSE_8
 LABEL ENDIF_8
 LABEL ENDIF_7
-@ "parser.gaz" 1000
+@ "parser.gaz" 1016
 JMP WHILE_1
 LABEL ENDWHILE_1
-@ "parser.gaz" 1028
+@ "parser.gaz" 1044
 LOAD_THIS
 GET_METHOD eat
 PUSH "RIGHT_BRACE"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1030
+@ "parser.gaz" 1046
 LOAD 3
 NEW_ARRAY
 EQUALS
 JZ ELSE_10
-@ "parser.gaz" 1031
+@ "parser.gaz" 1047
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "A match needs at least one arm"
@@ -10475,11 +10589,11 @@ LOAD 1
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1030
+@ "parser.gaz" 1046
 JMP ENDIF_10
 LABEL ELSE_10
 LABEL ENDIF_10
-@ "parser.gaz" 1034
+@ "parser.gaz" 1050
 LOAD_THIS
 GET_METHOD at
 LOAD 2
@@ -10488,85 +10602,85 @@ NEW MatchAST 2
 LOAD 1
 CALL_METHOD 2 at
 RET
-@ "parser.gaz" 987
+@ "parser.gaz" 1003
 PUSH null
 RET
 
 fn Parser.block 0 0
 locals $block
-@ "parser.gaz" 1039
+@ "parser.gaz" 1055
 LOAD_THIS
 GET_METHOD eat
 PUSH "LEFT_BRACE"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1041
+@ "parser.gaz" 1057
 NEW CompoundAST 0
 STORE 0
 LOAD 0
 POP
 LABEL WHILE_0
-@ "parser.gaz" 1042
+@ "parser.gaz" 1058
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "RIGHT_BRACE"
 NOT_EQUALS
 JZ ENDWHILE_0
-@ "parser.gaz" 1043
+@ "parser.gaz" 1059
 LOAD_THIS
 GET_METHOD statement
 CALL_METHOD 0 statement
 SET_PATH .statements[] 0
 POP
-@ "parser.gaz" 1042
+@ "parser.gaz" 1058
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "parser.gaz" 1045
+@ "parser.gaz" 1061
 LOAD_THIS
 GET_METHOD eat
 PUSH "RIGHT_BRACE"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1047
+@ "parser.gaz" 1063
 LOAD 0
 RET
-@ "parser.gaz" 1038
+@ "parser.gaz" 1054
 PUSH null
 RET
 
 fn Parser.while_statement 0 0
 locals $start $condition
-@ "parser.gaz" 1052
+@ "parser.gaz" 1068
 LOAD_FIELD current_token
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 1053
+@ "parser.gaz" 1069
 LOAD_THIS
 GET_METHOD eat
 PUSH "WHILE"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1054
+@ "parser.gaz" 1070
 LOAD_THIS
 GET_METHOD eat
 PUSH "LEFT_PAREN"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1055
+@ "parser.gaz" 1071
 LOAD_THIS
 GET_METHOD expr
 CALL_METHOD 0 expr
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 1056
+@ "parser.gaz" 1072
 LOAD_THIS
 GET_METHOD eat
 PUSH "RIGHT_PAREN"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1058
+@ "parser.gaz" 1074
 LOAD_THIS
 GET_METHOD at
 LOAD 1
@@ -10577,69 +10691,69 @@ NEW WhileStatementAST 2
 LOAD 0
 CALL_METHOD 2 at
 RET
-@ "parser.gaz" 1051
+@ "parser.gaz" 1067
 PUSH null
 RET
 
 fn Parser.for_statement 0 0
 locals $start $init $condition $step $loop
-@ "parser.gaz" 1066
+@ "parser.gaz" 1082
 LOAD_FIELD current_token
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 1067
+@ "parser.gaz" 1083
 LOAD_THIS
 GET_METHOD eat
 PUSH "FOR"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1068
+@ "parser.gaz" 1084
 LOAD_THIS
 GET_METHOD eat
 PUSH "LEFT_PAREN"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1069
+@ "parser.gaz" 1085
 LOAD_THIS
 GET_METHOD expr
 CALL_METHOD 0 expr
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 1070
+@ "parser.gaz" 1086
 LOAD_THIS
 GET_METHOD eat
 PUSH "SEMICOLON"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1071
+@ "parser.gaz" 1087
 LOAD_THIS
 GET_METHOD expr
 CALL_METHOD 0 expr
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 1072
+@ "parser.gaz" 1088
 LOAD_THIS
 GET_METHOD eat
 PUSH "SEMICOLON"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1073
+@ "parser.gaz" 1089
 LOAD_THIS
 GET_METHOD expr
 CALL_METHOD 0 expr
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 1074
+@ "parser.gaz" 1090
 LOAD_THIS
 GET_METHOD eat
 PUSH "RIGHT_PAREN"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1076
+@ "parser.gaz" 1092
 LOAD_THIS
 GET_METHOD at
 NEW CompoundAST 0
@@ -10648,18 +10762,18 @@ CALL_METHOD 2 at
 STORE 4
 LOAD 4
 POP
-@ "parser.gaz" 1077
+@ "parser.gaz" 1093
 NEW_ARRAY
-@ "parser.gaz" 1078
+@ "parser.gaz" 1094
 LOAD_THIS
 GET_METHOD at
 LOAD 1
 NEW StatementAST 1
 LOAD 0
 CALL_METHOD 2 at
-@ "parser.gaz" 1077
+@ "parser.gaz" 1093
 ARRAY_PUSH
-@ "parser.gaz" 1079
+@ "parser.gaz" 1095
 LOAD_THIS
 GET_METHOD at
 LOAD 2
@@ -10675,112 +10789,112 @@ CALL_METHOD 2 at
 NEW WhileStatementAST 3
 LOAD 0
 CALL_METHOD 2 at
-@ "parser.gaz" 1077
+@ "parser.gaz" 1093
 ARRAY_PUSH
 SET_PATH .statements 4
 POP
-@ "parser.gaz" 1082
+@ "parser.gaz" 1098
 LOAD 4
 RET
-@ "parser.gaz" 1065
+@ "parser.gaz" 1081
 PUSH null
 RET
 
 fn Parser.foreach_statement 0 0
 locals $start $iterable $key $value
-@ "parser.gaz" 1087
+@ "parser.gaz" 1103
 LOAD_FIELD current_token
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 1088
+@ "parser.gaz" 1104
 LOAD_THIS
 GET_METHOD eat
 PUSH "FOREACH"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1089
+@ "parser.gaz" 1105
 LOAD_THIS
 GET_METHOD eat
 PUSH "LEFT_PAREN"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1090
+@ "parser.gaz" 1106
 LOAD_THIS
 GET_METHOD expr
 CALL_METHOD 0 expr
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 1091
+@ "parser.gaz" 1107
 LOAD_THIS
 GET_METHOD eat
 PUSH "AS"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1093
+@ "parser.gaz" 1109
 PUSH null
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 1094
+@ "parser.gaz" 1110
 LOAD_THIS
 GET_METHOD foreach_target
 CALL_METHOD 0 foreach_target
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 1095
+@ "parser.gaz" 1111
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "DOUBLE_ARROW"
 EQUALS
 JZ ELSE_0
-@ "parser.gaz" 1096
+@ "parser.gaz" 1112
 LOAD 3
 PUSH_CLASS VariableAST
 CALL_BUILTIN is_a 2
 NOT
 JZ ELSE_1
-@ "parser.gaz" 1097
+@ "parser.gaz" 1113
 LOAD_THIS
 GET_METHOD fail
 PUSH "A foreach key is a variable, not a pattern"
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1096
+@ "parser.gaz" 1112
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "parser.gaz" 1099
+@ "parser.gaz" 1115
 LOAD_THIS
 GET_METHOD eat
 PUSH "DOUBLE_ARROW"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1100
+@ "parser.gaz" 1116
 LOAD 3
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 1101
+@ "parser.gaz" 1117
 LOAD_THIS
 GET_METHOD foreach_target
 CALL_METHOD 0 foreach_target
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 1095
+@ "parser.gaz" 1111
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 1103
+@ "parser.gaz" 1119
 LOAD_THIS
 GET_METHOD eat
 PUSH "RIGHT_PAREN"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1105
+@ "parser.gaz" 1121
 LOAD_THIS
 GET_METHOD at
 LOAD 1
@@ -10793,28 +10907,28 @@ NEW ForeachStatementAST 4
 LOAD 0
 CALL_METHOD 2 at
 RET
-@ "parser.gaz" 1086
+@ "parser.gaz" 1102
 PUSH null
 RET
 
 fn Parser.foreach_target 0 0
 locals
-@ "parser.gaz" 1112
+@ "parser.gaz" 1128
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "LEFT_BRACKET"
 NOT_EQUALS
 JZ ELSE_0
-@ "parser.gaz" 1113
+@ "parser.gaz" 1129
 LOAD_THIS
 GET_METHOD variable
 CALL_METHOD 0 variable
 RET
-@ "parser.gaz" 1112
+@ "parser.gaz" 1128
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 1116
+@ "parser.gaz" 1132
 LOAD_THIS
 GET_METHOD list_pattern
 LOAD_THIS
@@ -10823,53 +10937,49 @@ CALL_METHOD 0 list_literal
 MAKE_CLOSURE 1
 CALL_METHOD 2 list_pattern
 RET
-@ "parser.gaz" 1111
+@ "parser.gaz" 1127
 PUSH null
 RET
 
 fn Parser.try_statement 0 0
 locals $start $body $catches $class $variable $finally $#destructure_0 $in_finally $loop_depth $#destructure_1 $#destructure_2
-@ "parser.gaz" 1134
+@ "parser.gaz" 1150
 LOAD_FIELD current_token
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 1135
+@ "parser.gaz" 1151
 LOAD_THIS
 GET_METHOD eat
 PUSH "TRY"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1136
+@ "parser.gaz" 1152
 LOAD_THIS
 GET_METHOD block
 CALL_METHOD 0 block
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 1138
+@ "parser.gaz" 1154
 NEW_ARRAY
 STORE 2
 LOAD 2
 POP
 LABEL WHILE_0
-@ "parser.gaz" 1139
+@ "parser.gaz" 1155
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "CATCH"
 EQUALS
 JZ ENDWHILE_0
-@ "parser.gaz" 1140
+@ "parser.gaz" 1156
 LOAD 2
 NEW_ARRAY
 NOT_EQUALS
 JZ AND_FALSE_2
 LOAD 2
-LOAD 2
-CALL_BUILTIN len 1
-PUSH 1
-SUB
-INDEX_GET
+CALL_BUILTIN last 1
 PUSH 0
 INDEX_GET
 PUSH null
@@ -10881,50 +10991,50 @@ LABEL AND_FALSE_2
 PUSH false
 LABEL AND_END_2
 JZ ELSE_1
-@ "parser.gaz" 1141
+@ "parser.gaz" 1157
 LOAD_THIS
 GET_METHOD fail
 PUSH "A catch without a class catches every error, so it must be the last"
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1140
+@ "parser.gaz" 1156
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "parser.gaz" 1143
+@ "parser.gaz" 1159
 PUSH true
 SET_FIELD catches
 POP
-@ "parser.gaz" 1144
+@ "parser.gaz" 1160
 LOAD_THIS
 GET_METHOD eat
 PUSH "CATCH"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1145
+@ "parser.gaz" 1161
 LOAD_THIS
 GET_METHOD eat
 PUSH "LEFT_PAREN"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1146
+@ "parser.gaz" 1162
 PUSH null
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 1147
+@ "parser.gaz" 1163
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "IDENTIFIER"
 EQUALS
 JZ ELSE_3
-@ "parser.gaz" 1148
+@ "parser.gaz" 1164
 LOAD_FIELD current_token
 GET_PROPERTY value
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 1149
+@ "parser.gaz" 1165
 NEW_ARRAY
 LOAD 3
 ARRAY_PUSH
@@ -10935,30 +11045,30 @@ LOAD_FIELD file
 ARRAY_PUSH
 SET_PATH_THIS .catch_types[]
 POP
-@ "parser.gaz" 1150
+@ "parser.gaz" 1166
 LOAD_THIS
 GET_METHOD eat
 PUSH "IDENTIFIER"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1147
+@ "parser.gaz" 1163
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "parser.gaz" 1152
+@ "parser.gaz" 1168
 LOAD_THIS
 GET_METHOD variable
 CALL_METHOD 0 variable
 STORE 4
 LOAD 4
 POP
-@ "parser.gaz" 1153
+@ "parser.gaz" 1169
 LOAD_THIS
 GET_METHOD eat
 PUSH "RIGHT_PAREN"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1154
+@ "parser.gaz" 1170
 NEW_ARRAY
 LOAD 3
 ARRAY_PUSH
@@ -10970,15 +11080,15 @@ CALL_METHOD 0 block
 ARRAY_PUSH
 SET_PATH [] 2
 POP
-@ "parser.gaz" 1139
+@ "parser.gaz" 1155
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "parser.gaz" 1157
+@ "parser.gaz" 1173
 PUSH null
 STORE 5
 LOAD 5
 POP
-@ "parser.gaz" 1158
+@ "parser.gaz" 1174
 LOAD 2
 NEW_ARRAY
 EQUALS
@@ -10994,7 +11104,7 @@ LABEL AND_FALSE_5
 PUSH false
 LABEL AND_END_5
 JZ ELSE_4
-@ "parser.gaz" 1159
+@ "parser.gaz" 1175
 LOAD_THIS
 GET_METHOD fail
 PUSH "Expected 'catch' or 'finally' but found "
@@ -11005,23 +11115,23 @@ CALL_METHOD 1 describe
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1158
+@ "parser.gaz" 1174
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
-@ "parser.gaz" 1161
+@ "parser.gaz" 1177
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "FINALLY"
 EQUALS
 JZ ELSE_6
-@ "parser.gaz" 1162
+@ "parser.gaz" 1178
 LOAD_THIS
 GET_METHOD eat
 PUSH "FINALLY"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1163
+@ "parser.gaz" 1179
 NEW_ARRAY
 LOAD_FIELD in_finally
 ARRAY_PUSH
@@ -11043,7 +11153,7 @@ LOAD 8
 POP
 LOAD 6
 POP
-@ "parser.gaz" 1164
+@ "parser.gaz" 1180
 PUSH [true, 0]
 DESTRUCTURE 2
 STORE 9
@@ -11059,14 +11169,14 @@ SET_FIELD loop_depth
 POP
 LOAD 9
 POP
-@ "parser.gaz" 1165
+@ "parser.gaz" 1181
 LOAD_THIS
 GET_METHOD block
 CALL_METHOD 0 block
 STORE 5
 LOAD 5
 POP
-@ "parser.gaz" 1166
+@ "parser.gaz" 1182
 NEW_ARRAY
 LOAD 7
 ARRAY_PUSH
@@ -11086,11 +11196,11 @@ SET_FIELD loop_depth
 POP
 LOAD 10
 POP
-@ "parser.gaz" 1161
+@ "parser.gaz" 1177
 JMP ENDIF_6
 LABEL ELSE_6
 LABEL ENDIF_6
-@ "parser.gaz" 1169
+@ "parser.gaz" 1185
 LOAD_THIS
 GET_METHOD at
 LOAD 1
@@ -11100,51 +11210,51 @@ NEW TryStatementAST 3
 LOAD 0
 CALL_METHOD 2 at
 RET
-@ "parser.gaz" 1133
+@ "parser.gaz" 1149
 PUSH null
 RET
 
 fn Parser.loop_body 0 0
 locals $body
-@ "parser.gaz" 1174
+@ "parser.gaz" 1190
 LOAD_THIS
 GET_PROPERTY_EXISTING loop_depth
 INC
 SET_FIELD loop_depth
 POP
-@ "parser.gaz" 1175
+@ "parser.gaz" 1191
 LOAD_THIS
 GET_METHOD block
 CALL_METHOD 0 block
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 1176
+@ "parser.gaz" 1192
 LOAD_THIS
 GET_PROPERTY_EXISTING loop_depth
 DEC
 SET_FIELD loop_depth
 POP
-@ "parser.gaz" 1178
+@ "parser.gaz" 1194
 LOAD 0
 RET
-@ "parser.gaz" 1173
+@ "parser.gaz" 1189
 PUSH null
 RET
 
 fn Parser.loop_control 0 0
 locals $token
-@ "parser.gaz" 1183
+@ "parser.gaz" 1199
 LOAD_FIELD current_token
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 1184
+@ "parser.gaz" 1200
 LOAD_FIELD loop_depth
 PUSH 0
 EQUALS
 JZ ELSE_0
-@ "parser.gaz" 1185
+@ "parser.gaz" 1201
 LOAD_THIS
 GET_METHOD fail
 LOAD_FIELD in_finally
@@ -11166,24 +11276,24 @@ CONCAT
 LABEL TERNARY_END_1
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1184
+@ "parser.gaz" 1200
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 1188
+@ "parser.gaz" 1204
 LOAD_THIS
 GET_METHOD eat
 LOAD 0
 GET_PROPERTY type
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1189
+@ "parser.gaz" 1205
 LOAD_THIS
 GET_METHOD eat
 PUSH "SEMICOLON"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1191
+@ "parser.gaz" 1207
 LOAD_THIS
 GET_METHOD at
 LOAD 0
@@ -11191,51 +11301,51 @@ NEW LoopControlAST 1
 LOAD 0
 CALL_METHOD 2 at
 RET
-@ "parser.gaz" 1182
+@ "parser.gaz" 1198
 PUSH null
 RET
 
 fn Parser.return_statement 0 0
 locals $start $expr
-@ "parser.gaz" 1196
+@ "parser.gaz" 1212
 LOAD_FIELD in_finally
 JZ ELSE_0
-@ "parser.gaz" 1197
+@ "parser.gaz" 1213
 LOAD_THIS
 GET_METHOD fail
 PUSH "Cannot use return in finally"
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1196
+@ "parser.gaz" 1212
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 1199
+@ "parser.gaz" 1215
 LOAD_FIELD in_function
 NOT
 JZ ELSE_1
-@ "parser.gaz" 1200
+@ "parser.gaz" 1216
 LOAD_THIS
 GET_METHOD fail
 PUSH "Cannot use return outside of a function"
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1199
+@ "parser.gaz" 1215
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "parser.gaz" 1203
+@ "parser.gaz" 1219
 LOAD_FIELD current_token
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 1204
+@ "parser.gaz" 1220
 LOAD_THIS
 GET_METHOD eat
 PUSH "RETURN"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1205
+@ "parser.gaz" 1221
 LOAD_FIELD in_constructor
 JZ AND_FALSE_3
 LOAD_FIELD current_token
@@ -11249,17 +11359,17 @@ LABEL AND_FALSE_3
 PUSH false
 LABEL AND_END_3
 JZ ELSE_2
-@ "parser.gaz" 1206
+@ "parser.gaz" 1222
 LOAD_THIS
 GET_METHOD fail
 PUSH "A constructor can't return a value: constructing gives the object"
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1205
+@ "parser.gaz" 1221
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "parser.gaz" 1208
+@ "parser.gaz" 1224
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "SEMICOLON"
@@ -11275,13 +11385,13 @@ LABEL TERNARY_END_4
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 1209
+@ "parser.gaz" 1225
 LOAD_THIS
 GET_METHOD eat
 PUSH "SEMICOLON"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1211
+@ "parser.gaz" 1227
 LOAD_THIS
 GET_METHOD at
 LOAD 1
@@ -11289,52 +11399,52 @@ NEW ReturnStatementAST 1
 LOAD 0
 CALL_METHOD 2 at
 RET
-@ "parser.gaz" 1195
+@ "parser.gaz" 1211
 PUSH null
 RET
 
 fn Parser.delete_statement 0 0
 locals $start $target
-@ "parser.gaz" 1220
+@ "parser.gaz" 1236
 LOAD_FIELD current_token
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 1221
+@ "parser.gaz" 1237
 LOAD_THIS
 GET_METHOD eat
 PUSH "DELETE"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1222
+@ "parser.gaz" 1238
 LOAD_THIS
 GET_METHOD postfix
 CALL_METHOD 0 postfix
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 1223
+@ "parser.gaz" 1239
 LOAD_THIS
 GET_METHOD eat
 PUSH "SEMICOLON"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1225
+@ "parser.gaz" 1241
 LOAD 1
 PUSH_CLASS PropertyAST
 CALL_BUILTIN is_a 2
 JZ ELSE_0
-@ "parser.gaz" 1226
+@ "parser.gaz" 1242
 LOAD_THIS
 GET_METHOD fail
 PUSH "Cannot delete a field: every object of a class has the fields it declares"
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1225
+@ "parser.gaz" 1241
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 1228
+@ "parser.gaz" 1244
 LOAD 1
 PUSH_CLASS IndexAST
 CALL_BUILTIN is_a 2
@@ -11366,23 +11476,23 @@ LABEL OR_TRUE_2
 PUSH true
 LABEL OR_END_2
 JZ ELSE_1
-@ "parser.gaz" 1229
+@ "parser.gaz" 1245
 LOAD_THIS
 GET_METHOD fail
 PUSH "delete needs an element of a list or map, like delete \$a[0]"
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1228
+@ "parser.gaz" 1244
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "parser.gaz" 1232
+@ "parser.gaz" 1248
 LOAD_THIS
 GET_METHOD written
 LOAD 1
 CALL_METHOD 1 written
 POP
-@ "parser.gaz" 1234
+@ "parser.gaz" 1250
 LOAD_THIS
 GET_METHOD at
 LOAD 1
@@ -11390,41 +11500,41 @@ NEW DeleteStatementAST 1
 LOAD 0
 CALL_METHOD 2 at
 RET
-@ "parser.gaz" 1219
+@ "parser.gaz" 1235
 PUSH null
 RET
 
 fn Parser.function_declaration 0 0
 locals $start $name $#destructure_0 $params $defaults $arity $body
-@ "parser.gaz" 1243
+@ "parser.gaz" 1259
 LOAD_FIELD current_token
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 1244
+@ "parser.gaz" 1260
 LOAD_THIS
 GET_METHOD eat
 PUSH "FN"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1245
+@ "parser.gaz" 1261
 LOAD_THIS
 GET_METHOD check_new_name
 CALL_METHOD 0 check_new_name
 POP
-@ "parser.gaz" 1246
+@ "parser.gaz" 1262
 LOAD_FIELD current_token
 GET_PROPERTY value
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 1247
+@ "parser.gaz" 1263
 LOAD_THIS
 GET_METHOD eat
 PUSH "IDENTIFIER"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1249
+@ "parser.gaz" 1265
 LOAD_THIS
 GET_METHOD parameters
 PUSH "function "
@@ -11447,7 +11557,7 @@ LOAD 4
 POP
 LOAD 2
 POP
-@ "parser.gaz" 1251
+@ "parser.gaz" 1267
 LOAD_THIS
 GET_METHOD arity
 LOAD 3
@@ -11456,28 +11566,28 @@ CALL_METHOD 2 arity
 STORE 5
 LOAD 5
 POP
-@ "parser.gaz" 1252
+@ "parser.gaz" 1268
 LOAD 1
 KEY_CHECK
 LOAD 5
 SET_PATH_THIS .functions[k]
 POP
-@ "parser.gaz" 1254
+@ "parser.gaz" 1270
 PUSH true
 SET_FIELD in_function
 POP
-@ "parser.gaz" 1255
+@ "parser.gaz" 1271
 LOAD_THIS
 GET_METHOD block
 CALL_METHOD 0 block
 STORE 6
 LOAD 6
 POP
-@ "parser.gaz" 1256
+@ "parser.gaz" 1272
 PUSH false
 SET_FIELD in_function
 POP
-@ "parser.gaz" 1258
+@ "parser.gaz" 1274
 LOAD_THIS
 GET_METHOD at
 LOAD 1
@@ -11489,37 +11599,37 @@ NEW FunctionDeclarationAST 5
 LOAD 0
 CALL_METHOD 2 at
 RET
-@ "parser.gaz" 1242
+@ "parser.gaz" 1258
 PUSH null
 RET
 
 fn Parser.check_new_name 0 0
 locals $name
-@ "parser.gaz" 1266
+@ "parser.gaz" 1282
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "IDENTIFIER"
 NOT_EQUALS
 JZ ELSE_0
-@ "parser.gaz" 1267
+@ "parser.gaz" 1283
 PUSH null
 RET
-@ "parser.gaz" 1266
+@ "parser.gaz" 1282
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 1269
+@ "parser.gaz" 1285
 LOAD_FIELD current_token
 GET_PROPERTY value
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 1270
+@ "parser.gaz" 1286
 LOAD_FIELD builtins
 LOAD 0
 CALL_BUILTIN has_key 2
 JZ ELSE_1
-@ "parser.gaz" 1271
+@ "parser.gaz" 1287
 LOAD_THIS
 GET_METHOD fail
 PUSH ""
@@ -11529,10 +11639,10 @@ PUSH " is a builtin function"
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1270
+@ "parser.gaz" 1286
 JMP ENDIF_1
 LABEL ELSE_1
-@ "parser.gaz" 1272
+@ "parser.gaz" 1288
 LOAD_FIELD classes
 LOAD 0
 CALL_BUILTIN has_key 2
@@ -11550,7 +11660,7 @@ LABEL AND_FALSE_3
 PUSH false
 LABEL AND_END_3
 JZ ELSE_2
-@ "parser.gaz" 1273
+@ "parser.gaz" 1289
 LOAD_THIS
 GET_METHOD fail
 PUSH ""
@@ -11560,15 +11670,15 @@ PUSH " is a builtin class"
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1272
+@ "parser.gaz" 1288
 JMP ENDIF_2
 LABEL ELSE_2
-@ "parser.gaz" 1274
+@ "parser.gaz" 1290
 LOAD_FIELD functions
 LOAD 0
 CALL_BUILTIN has_key 2
 JZ ELSE_4
-@ "parser.gaz" 1275
+@ "parser.gaz" 1291
 LOAD_THIS
 GET_METHOD fail
 PUSH "Function "
@@ -11578,15 +11688,15 @@ PUSH " is already declared"
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1274
+@ "parser.gaz" 1290
 JMP ENDIF_4
 LABEL ELSE_4
-@ "parser.gaz" 1276
+@ "parser.gaz" 1292
 LOAD_FIELD classes
 LOAD 0
 CALL_BUILTIN has_key 2
 JZ ELSE_5
-@ "parser.gaz" 1277
+@ "parser.gaz" 1293
 LOAD_THIS
 GET_METHOD fail
 PUSH "Class "
@@ -11596,15 +11706,15 @@ PUSH " is already declared"
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1276
+@ "parser.gaz" 1292
 JMP ENDIF_5
 LABEL ELSE_5
-@ "parser.gaz" 1278
+@ "parser.gaz" 1294
 LOAD_FIELD constants
 LOAD 0
 CALL_BUILTIN has_key 2
 JZ ELSE_6
-@ "parser.gaz" 1279
+@ "parser.gaz" 1295
 LOAD_THIS
 GET_METHOD fail
 PUSH "Constant "
@@ -11614,7 +11724,7 @@ PUSH " is already declared"
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1278
+@ "parser.gaz" 1294
 JMP ENDIF_6
 LABEL ELSE_6
 LABEL ENDIF_6
@@ -11622,62 +11732,62 @@ LABEL ENDIF_5
 LABEL ENDIF_4
 LABEL ENDIF_2
 LABEL ENDIF_1
-@ "parser.gaz" 1265
+@ "parser.gaz" 1281
 PUSH null
 RET
 
 fn Parser.parameters 1 1
 locals $owner $params $defaults $has_default $param $default
-@ "parser.gaz" 1288
+@ "parser.gaz" 1304
 LOAD_THIS
 GET_METHOD eat
 PUSH "LEFT_PAREN"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1289
+@ "parser.gaz" 1305
 NEW_ARRAY
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 1290
+@ "parser.gaz" 1306
 NEW_ARRAY
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 1291
+@ "parser.gaz" 1307
 PUSH false
 STORE 3
 LOAD 3
 POP
 LABEL WHILE_0
-@ "parser.gaz" 1292
+@ "parser.gaz" 1308
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "RIGHT_PAREN"
 NOT_EQUALS
 JZ ENDWHILE_0
-@ "parser.gaz" 1293
+@ "parser.gaz" 1309
 LOAD 1
 NEW_ARRAY
 NOT_EQUALS
 JZ ELSE_1
-@ "parser.gaz" 1294
+@ "parser.gaz" 1310
 LOAD_THIS
 GET_METHOD eat
 PUSH "COMMA"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1293
+@ "parser.gaz" 1309
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "parser.gaz" 1296
+@ "parser.gaz" 1312
 LOAD_FIELD current_token
 GET_PROPERTY value
 STORE 4
 LOAD 4
 POP
-@ "parser.gaz" 1298
+@ "parser.gaz" 1314
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "VAR_IDENTIFIER"
@@ -11693,7 +11803,7 @@ LABEL AND_FALSE_3
 PUSH false
 LABEL AND_END_3
 JZ ELSE_2
-@ "parser.gaz" 1299
+@ "parser.gaz" 1315
 LOAD_THIS
 GET_METHOD fail
 PUSH "Duplicate parameter "
@@ -11705,52 +11815,52 @@ LOAD 0
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1298
+@ "parser.gaz" 1314
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "parser.gaz" 1301
+@ "parser.gaz" 1317
 LOAD_THIS
 GET_METHOD eat
 PUSH "VAR_IDENTIFIER"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1303
+@ "parser.gaz" 1319
 PUSH null
 STORE 5
 LOAD 5
 POP
-@ "parser.gaz" 1304
+@ "parser.gaz" 1320
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "ASSIGN"
 EQUALS
 JZ ELSE_4
-@ "parser.gaz" 1305
+@ "parser.gaz" 1321
 LOAD_THIS
 GET_METHOD eat
 PUSH "ASSIGN"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1306
+@ "parser.gaz" 1322
 LOAD_THIS
 GET_METHOD expr
 CALL_METHOD 0 expr
 STORE 5
 LOAD 5
 POP
-@ "parser.gaz" 1307
+@ "parser.gaz" 1323
 PUSH true
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 1304
+@ "parser.gaz" 1320
 JMP ENDIF_4
 LABEL ELSE_4
-@ "parser.gaz" 1308
+@ "parser.gaz" 1324
 LOAD 3
 JZ ELSE_5
-@ "parser.gaz" 1309
+@ "parser.gaz" 1325
 LOAD_THIS
 GET_METHOD fail
 PUSH "Required parameter "
@@ -11760,47 +11870,47 @@ PUSH " can't follow a parameter with a default"
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1308
+@ "parser.gaz" 1324
 JMP ENDIF_5
 LABEL ELSE_5
 LABEL ENDIF_5
 LABEL ENDIF_4
-@ "parser.gaz" 1311
+@ "parser.gaz" 1327
 LOAD 4
 SET_PATH [] 1
 POP
-@ "parser.gaz" 1312
+@ "parser.gaz" 1328
 LOAD 5
 SET_PATH [] 2
 POP
-@ "parser.gaz" 1292
+@ "parser.gaz" 1308
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "parser.gaz" 1314
+@ "parser.gaz" 1330
 LOAD_THIS
 GET_METHOD eat
 PUSH "RIGHT_PAREN"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1316
+@ "parser.gaz" 1332
 NEW_ARRAY
 LOAD 1
 ARRAY_PUSH
 LOAD 2
 ARRAY_PUSH
 RET
-@ "parser.gaz" 1287
+@ "parser.gaz" 1303
 PUSH null
 RET
 
 fn Parser.class_declaration 0 0
 locals $start $abstract $name $parent $class
-@ "parser.gaz" 1327
+@ "parser.gaz" 1343
 LOAD_FIELD current_token
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 1328
+@ "parser.gaz" 1344
 LOAD 0
 GET_PROPERTY type
 PUSH "ABSTRACT"
@@ -11808,76 +11918,76 @@ EQUALS
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 1329
+@ "parser.gaz" 1345
 LOAD 1
 JZ ELSE_0
-@ "parser.gaz" 1330
+@ "parser.gaz" 1346
 LOAD_THIS
 GET_METHOD eat
 PUSH "ABSTRACT"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1329
+@ "parser.gaz" 1345
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 1332
+@ "parser.gaz" 1348
 LOAD_THIS
 GET_METHOD eat
 PUSH "CLASS"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1333
+@ "parser.gaz" 1349
 LOAD_THIS
 GET_METHOD check_new_name
 CALL_METHOD 0 check_new_name
 POP
-@ "parser.gaz" 1334
+@ "parser.gaz" 1350
 LOAD_FIELD current_token
 GET_PROPERTY value
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 1335
+@ "parser.gaz" 1351
 LOAD_THIS
 GET_METHOD eat
 PUSH "IDENTIFIER"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1336
+@ "parser.gaz" 1352
 PUSH null
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 1337
+@ "parser.gaz" 1353
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "EXTENDS"
 EQUALS
 JZ ELSE_1
-@ "parser.gaz" 1338
+@ "parser.gaz" 1354
 LOAD_THIS
 GET_METHOD eat
 PUSH "EXTENDS"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1339
+@ "parser.gaz" 1355
 LOAD_FIELD current_token
 GET_PROPERTY value
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 1340
+@ "parser.gaz" 1356
 LOAD_THIS
 GET_METHOD eat
 PUSH "IDENTIFIER"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1337
+@ "parser.gaz" 1353
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "parser.gaz" 1343
+@ "parser.gaz" 1359
 LOAD_THIS
 GET_METHOD at
 LOAD 2
@@ -11889,60 +11999,60 @@ CALL_METHOD 2 at
 STORE 4
 LOAD 4
 POP
-@ "parser.gaz" 1344
+@ "parser.gaz" 1360
 LOAD 2
 KEY_CHECK
 LOAD 4
 SET_PATH_THIS .classes[k]
 POP
-@ "parser.gaz" 1345
+@ "parser.gaz" 1361
 LOAD_THIS
 GET_METHOD eat
 PUSH "LEFT_BRACE"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1346
+@ "parser.gaz" 1362
 LOAD 4
 SET_FIELD class
 POP
 LABEL WHILE_2
-@ "parser.gaz" 1347
+@ "parser.gaz" 1363
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "RIGHT_BRACE"
 NOT_EQUALS
 JZ ENDWHILE_2
-@ "parser.gaz" 1348
+@ "parser.gaz" 1364
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "HASH_IDENTIFIER"
 EQUALS
 JZ ELSE_3
-@ "parser.gaz" 1349
+@ "parser.gaz" 1365
 LOAD_THIS
 GET_METHOD field_declaration
 LOAD 4
 CALL_METHOD 1 field_declaration
 POP
-@ "parser.gaz" 1348
+@ "parser.gaz" 1364
 JMP ENDIF_3
 LABEL ELSE_3
-@ "parser.gaz" 1350
+@ "parser.gaz" 1366
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "CONST"
 EQUALS
 JZ ELSE_4
-@ "parser.gaz" 1351
+@ "parser.gaz" 1367
 LOAD_THIS
 GET_METHOD constant_declaration
 LOAD 4
 CALL_METHOD 1 constant_declaration
 POP
-@ "parser.gaz" 1350
+@ "parser.gaz" 1366
 JMP ENDIF_4
 LABEL ELSE_4
-@ "parser.gaz" 1352
+@ "parser.gaz" 1368
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "FN"
@@ -11961,16 +12071,16 @@ LABEL OR_TRUE_6
 PUSH true
 LABEL OR_END_6
 JZ ELSE_5
-@ "parser.gaz" 1353
+@ "parser.gaz" 1369
 LOAD_THIS
 GET_METHOD method_declaration
 LOAD 4
 CALL_METHOD 1 method_declaration
 POP
-@ "parser.gaz" 1352
+@ "parser.gaz" 1368
 JMP ENDIF_5
 LABEL ELSE_5
-@ "parser.gaz" 1355
+@ "parser.gaz" 1371
 LOAD_THIS
 GET_METHOD fail
 PUSH "Expected a field (#name), a method (fn) or a constant (const) but found "
@@ -11984,34 +12094,34 @@ POP
 LABEL ENDIF_5
 LABEL ENDIF_4
 LABEL ENDIF_3
-@ "parser.gaz" 1347
+@ "parser.gaz" 1363
 JMP WHILE_2
 LABEL ENDWHILE_2
-@ "parser.gaz" 1358
+@ "parser.gaz" 1374
 PUSH null
 SET_FIELD class
 POP
-@ "parser.gaz" 1359
+@ "parser.gaz" 1375
 LOAD_THIS
 GET_METHOD eat
 PUSH "RIGHT_BRACE"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1361
+@ "parser.gaz" 1377
 LOAD 4
 RET
-@ "parser.gaz" 1326
+@ "parser.gaz" 1342
 PUSH null
 RET
 
 fn Parser.field_declaration 1 1
 locals $class $token $name $default $variables $used
-@ "parser.gaz" 1366
+@ "parser.gaz" 1382
 LOAD_FIELD current_token
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 1367
+@ "parser.gaz" 1383
 LOAD 1
 GET_PROPERTY value
 PUSH 1
@@ -12019,61 +12129,61 @@ CALL_BUILTIN slice 2
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 1368
+@ "parser.gaz" 1384
 LOAD_THIS
 GET_METHOD check_new_member
 LOAD 0
 LOAD 2
 CALL_METHOD 2 check_new_member
 POP
-@ "parser.gaz" 1369
+@ "parser.gaz" 1385
 LOAD_THIS
 GET_METHOD eat
 PUSH "HASH_IDENTIFIER"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1371
+@ "parser.gaz" 1387
 PUSH null
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 1372
+@ "parser.gaz" 1388
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "ASSIGN"
 EQUALS
 JZ ELSE_0
-@ "parser.gaz" 1373
+@ "parser.gaz" 1389
 LOAD_THIS
 GET_METHOD eat
 PUSH "ASSIGN"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1374
+@ "parser.gaz" 1390
 LOAD_THIS
 GET_METHOD expr
 CALL_METHOD 0 expr
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 1375
+@ "parser.gaz" 1391
 NEW VariableCollector 0
 STORE 4
 LOAD 4
 POP
-@ "parser.gaz" 1376
+@ "parser.gaz" 1392
 LOAD 4
 GET_METHOD collect
 LOAD 3
 CALL_METHOD 1 collect
 POP
-@ "parser.gaz" 1377
+@ "parser.gaz" 1393
 LOAD 4
 GET_PROPERTY found
 NEW_MAP
 NOT_EQUALS
 JZ ELSE_1
-@ "parser.gaz" 1378
+@ "parser.gaz" 1394
 LOAD 4
 GET_PROPERTY found
 CALL_BUILTIN keys 1
@@ -12082,7 +12192,7 @@ INDEX_GET
 STORE 5
 LOAD 5
 POP
-@ "parser.gaz" 1379
+@ "parser.gaz" 1395
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "The default of #"
@@ -12099,70 +12209,70 @@ LOAD 1
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1377
+@ "parser.gaz" 1393
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "parser.gaz" 1372
+@ "parser.gaz" 1388
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 1382
+@ "parser.gaz" 1398
 LOAD_THIS
 GET_METHOD eat
 PUSH "SEMICOLON"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1384
+@ "parser.gaz" 1400
 LOAD 2
 KEY_CHECK
 LOAD 3
 SET_PATH .fields[k] 0
 POP
-@ "parser.gaz" 1385
+@ "parser.gaz" 1401
 LOAD 2
 KEY_CHECK
 LOAD 1
 GET_PROPERTY line
 SET_PATH .field_lines[k] 0
 POP
-@ "parser.gaz" 1365
+@ "parser.gaz" 1381
 PUSH null
 RET
 
 fn Parser.constant_declaration 1 1
 locals $class $token $name $kind $expr
-@ "parser.gaz" 1396
+@ "parser.gaz" 1412
 LOAD_THIS
 GET_METHOD eat
 PUSH "CONST"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1397
+@ "parser.gaz" 1413
 LOAD_FIELD current_token
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 1398
+@ "parser.gaz" 1414
 LOAD 1
 GET_PROPERTY value
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 1399
+@ "parser.gaz" 1415
 LOAD 0
 PUSH null
 EQUALS
 JZ ELSE_0
-@ "parser.gaz" 1400
+@ "parser.gaz" 1416
 LOAD_THIS
 GET_METHOD check_new_name
 CALL_METHOD 0 check_new_name
 POP
-@ "parser.gaz" 1399
+@ "parser.gaz" 1415
 JMP ENDIF_0
 LABEL ELSE_0
-@ "parser.gaz" 1401
+@ "parser.gaz" 1417
 LOAD 1
 GET_PROPERTY type
 PUSH "IDENTIFIER"
@@ -12205,49 +12315,49 @@ LABEL AND_FALSE_2
 PUSH false
 LABEL AND_END_2
 JZ ELSE_1
-@ "parser.gaz" 1403
+@ "parser.gaz" 1419
 LOAD 0
 GET_PROPERTY constants
 LOAD 2
 CALL_BUILTIN has_key 2
-@ "parser.gaz" 1402
+@ "parser.gaz" 1418
 NOT
 JZ MATCH_ARM_5_0
-@ "parser.gaz" 1404
+@ "parser.gaz" 1420
 LOAD 0
 GET_PROPERTY methods
 LOAD 2
 CALL_BUILTIN has_key 2
-@ "parser.gaz" 1402
+@ "parser.gaz" 1418
 NOT
 JZ MATCH_ARM_5_1
 JMP MATCH_ARM_5_2
 LABEL MATCH_ARM_5_0
-@ "parser.gaz" 1403
+@ "parser.gaz" 1419
 PUSH "constant "
 LOAD 2
 CONCAT
-@ "parser.gaz" 1402
+@ "parser.gaz" 1418
 JMP MATCH_END_5
 LABEL MATCH_ARM_5_1
-@ "parser.gaz" 1404
+@ "parser.gaz" 1420
 PUSH "method "
 LOAD 2
 CONCAT
-@ "parser.gaz" 1402
+@ "parser.gaz" 1418
 JMP MATCH_END_5
 LABEL MATCH_ARM_5_2
-@ "parser.gaz" 1405
+@ "parser.gaz" 1421
 PUSH "field #"
 LOAD 2
 CONCAT
-@ "parser.gaz" 1402
+@ "parser.gaz" 1418
 JMP MATCH_END_5
 LABEL MATCH_END_5
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 1407
+@ "parser.gaz" 1423
 LOAD_THIS
 GET_METHOD fail
 PUSH ""
@@ -12262,42 +12372,50 @@ PUSH ": constants, fields and methods share names"
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1401
+@ "parser.gaz" 1417
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
 LABEL ENDIF_0
-@ "parser.gaz" 1409
+@ "parser.gaz" 1425
 LOAD_THIS
 GET_METHOD eat
 PUSH "IDENTIFIER"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1410
+@ "parser.gaz" 1426
 LOAD_THIS
 GET_METHOD eat
 PUSH "ASSIGN"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1411
+@ "parser.gaz" 1427
+PUSH true
+SET_FIELD in_constant
+POP
+@ "parser.gaz" 1428
 LOAD_THIS
 GET_METHOD expr
 CALL_METHOD 0 expr
 STORE 4
 LOAD 4
 POP
-@ "parser.gaz" 1412
+@ "parser.gaz" 1429
+PUSH false
+SET_FIELD in_constant
+POP
+@ "parser.gaz" 1430
 LOAD_THIS
 GET_METHOD eat
 PUSH "SEMICOLON"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1414
+@ "parser.gaz" 1432
 LOAD 0
 PUSH null
 EQUALS
 JZ ELSE_6
-@ "parser.gaz" 1415
+@ "parser.gaz" 1433
 LOAD 2
 KEY_CHECK
 NEW_ARRAY
@@ -12309,23 +12427,23 @@ LOAD 2
 ARRAY_PUSH
 SET_PATH_THIS .constants[k]
 POP
-@ "parser.gaz" 1414
+@ "parser.gaz" 1432
 JMP ENDIF_6
 LABEL ELSE_6
-@ "parser.gaz" 1417
+@ "parser.gaz" 1435
 LOAD 2
 KEY_CHECK
 LOAD 4
 SET_PATH .constants[k] 0
 POP
-@ "parser.gaz" 1418
+@ "parser.gaz" 1436
 LOAD 2
 KEY_CHECK
 LOAD 1
 GET_PROPERTY line
 SET_PATH .constant_lines[k] 0
 POP
-@ "parser.gaz" 1419
+@ "parser.gaz" 1437
 PUSH ""
 LOAD 0
 GET_PROPERTY name
@@ -12352,67 +12470,67 @@ ARRAY_PUSH
 SET_PATH_THIS .constants[k]
 POP
 LABEL ENDIF_6
-@ "parser.gaz" 1395
+@ "parser.gaz" 1411
 PUSH null
 RET
 
 fn Parser.not_a_class 1 1
 locals $name
-@ "parser.gaz" 1426
+@ "parser.gaz" 1444
 LOAD_FIELD functions
 LOAD 0
 CALL_BUILTIN has_key 2
-@ "parser.gaz" 1425
+@ "parser.gaz" 1443
 NOT
 JZ MATCH_ARM_0_0
-@ "parser.gaz" 1427
+@ "parser.gaz" 1445
 LOAD_FIELD constants
 LOAD 0
 CALL_BUILTIN has_key 2
-@ "parser.gaz" 1425
+@ "parser.gaz" 1443
 NOT
 JZ MATCH_ARM_0_1
 JMP MATCH_ARM_0_2
 LABEL MATCH_ARM_0_0
-@ "parser.gaz" 1426
+@ "parser.gaz" 1444
 PUSH ""
 LOAD 0
 CONCAT
 PUSH " is a function, not a class"
 CONCAT
-@ "parser.gaz" 1425
+@ "parser.gaz" 1443
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_1
-@ "parser.gaz" 1427
+@ "parser.gaz" 1445
 PUSH ""
 LOAD 0
 CONCAT
 PUSH " is a constant, not a class"
 CONCAT
-@ "parser.gaz" 1425
+@ "parser.gaz" 1443
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_2
-@ "parser.gaz" 1428
+@ "parser.gaz" 1446
 PUSH "Undefined class: "
 LOAD 0
 CONCAT
-@ "parser.gaz" 1425
+@ "parser.gaz" 1443
 JMP MATCH_END_0
 LABEL MATCH_END_0
 RET
-@ "parser.gaz" 1424
+@ "parser.gaz" 1442
 PUSH null
 RET
 
 fn Parser.constant_value 2 2
 locals $key $at $#destructure_0 $expr $class $name $from $cycle
-@ "parser.gaz" 1435
+@ "parser.gaz" 1453
 LOAD_FIELD constant_values
 LOAD 0
 CALL_BUILTIN has_key 2
 NOT
 JZ ELSE_0
-@ "parser.gaz" 1436
+@ "parser.gaz" 1454
 LOAD_FIELD constants
 LOAD 0
 INDEX_GET
@@ -12438,45 +12556,45 @@ LOAD 5
 POP
 LOAD 2
 POP
-@ "parser.gaz" 1437
+@ "parser.gaz" 1455
 LOAD 5
 LOAD_FIELD folding
 CALL_BUILTIN in_array 2
 JZ ELSE_1
-@ "parser.gaz" 1439
+@ "parser.gaz" 1457
 PUSH 0
 STORE 6
 LOAD 6
 POP
 LABEL WHILE_2
-@ "parser.gaz" 1440
+@ "parser.gaz" 1458
 LOAD_FIELD folding
 LOAD 6
 INDEX_GET
 LOAD 5
 NOT_EQUALS
 JZ ENDWHILE_2
-@ "parser.gaz" 1441
+@ "parser.gaz" 1459
 LOAD 6
 INC
 STORE 6
 LOAD 6
 POP
-@ "parser.gaz" 1440
+@ "parser.gaz" 1458
 JMP WHILE_2
 LABEL ENDWHILE_2
-@ "parser.gaz" 1443
+@ "parser.gaz" 1461
 LOAD_FIELD folding
 LOAD 6
 CALL_BUILTIN slice 2
 STORE 7
 LOAD 7
 POP
-@ "parser.gaz" 1444
+@ "parser.gaz" 1462
 LOAD 5
 SET_PATH [] 7
 POP
-@ "parser.gaz" 1445
+@ "parser.gaz" 1463
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "Constant "
@@ -12494,22 +12612,22 @@ LOAD 1
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1437
+@ "parser.gaz" 1455
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "parser.gaz" 1447
+@ "parser.gaz" 1465
 LOAD 5
 SET_PATH_THIS .folding[]
 POP
-@ "parser.gaz" 1448
+@ "parser.gaz" 1466
 LOAD_THIS
 GET_METHOD check_constant_expression
 LOAD 3
 LOAD 4
 CALL_METHOD 2 check_constant_expression
 POP
-@ "parser.gaz" 1449
+@ "parser.gaz" 1467
 LOAD 0
 KEY_CHECK
 LOAD_THIS
@@ -12519,29 +12637,29 @@ LOAD 4
 CALL_METHOD 2 fold
 SET_PATH_THIS .constant_values[k]
 POP
-@ "parser.gaz" 1450
+@ "parser.gaz" 1468
 LOAD_FIELD folding
 CALL_BUILTIN len 1
 PUSH 1
 SUB
 KEY_CHECK
 DELETE_PATH_THIS .folding[k]
-@ "parser.gaz" 1435
+@ "parser.gaz" 1453
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 1453
+@ "parser.gaz" 1471
 LOAD_FIELD constant_values
 LOAD 0
 INDEX_GET
 RET
-@ "parser.gaz" 1434
+@ "parser.gaz" 1452
 PUSH null
 RET
 
 fn Parser.class_constant 2 2
 locals $class $name
-@ "parser.gaz" 1458
+@ "parser.gaz" 1476
 LOAD 0
 GET_PROPERTY constant_owners
 LOAD 1
@@ -12562,98 +12680,98 @@ LABEL TERNARY_ELSE_0
 PUSH null
 LABEL TERNARY_END_0
 RET
-@ "parser.gaz" 1457
+@ "parser.gaz" 1475
 PUSH null
 RET
 
 fn Parser.check_constant_expression 2 2
 locals $node $class $named $owner $parts $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $part $#foreach_array_1 $#foreach_keys_1 $#foreach_count_1 $#foreach_i_1 $expression
-@ "parser.gaz" 1467
+@ "parser.gaz" 1485
 LOAD 0
 PUSH_CLASS FunctionRefAST
 CALL_BUILTIN is_a 2
 JZ ELSE_0
-@ "parser.gaz" 1468
+@ "parser.gaz" 1486
 LOAD_FIELD constants
 LOAD 0
 GET_PROPERTY name
 CALL_BUILTIN has_key 2
 NOT
 JZ ELSE_1
-@ "parser.gaz" 1469
+@ "parser.gaz" 1487
 LOAD_THIS
 GET_METHOD fail_at
-@ "parser.gaz" 1470
+@ "parser.gaz" 1488
 LOAD_FIELD classes
 LOAD 0
 GET_PROPERTY name
 CALL_BUILTIN has_key 2
-@ "parser.gaz" 1469
+@ "parser.gaz" 1487
 NOT
 JZ MATCH_ARM_2_0
-@ "parser.gaz" 1471
+@ "parser.gaz" 1489
 LOAD_FIELD functions
 LOAD 0
 GET_PROPERTY name
 CALL_BUILTIN has_key 2
-@ "parser.gaz" 1469
+@ "parser.gaz" 1487
 NOT
 JZ MATCH_ARM_2_1
 JMP MATCH_ARM_2_2
 LABEL MATCH_ARM_2_0
-@ "parser.gaz" 1470
+@ "parser.gaz" 1488
 PUSH ""
 LOAD 0
 GET_PROPERTY name
 CONCAT
 PUSH " is a class, not a constant"
 CONCAT
-@ "parser.gaz" 1469
+@ "parser.gaz" 1487
 JMP MATCH_END_2
 LABEL MATCH_ARM_2_1
-@ "parser.gaz" 1471
+@ "parser.gaz" 1489
 PUSH ""
 LOAD 0
 GET_PROPERTY name
 CONCAT
 PUSH " is a function, not a constant"
 CONCAT
-@ "parser.gaz" 1469
+@ "parser.gaz" 1487
 JMP MATCH_END_2
 LABEL MATCH_ARM_2_2
-@ "parser.gaz" 1472
+@ "parser.gaz" 1490
 PUSH "Undefined constant: "
 LOAD 0
 GET_PROPERTY name
 CONCAT
-@ "parser.gaz" 1469
+@ "parser.gaz" 1487
 JMP MATCH_END_2
 LABEL MATCH_END_2
-@ "parser.gaz" 1473
+@ "parser.gaz" 1491
 LOAD 0
 GET_PROPERTY file
 LOAD 0
 GET_PROPERTY line
-@ "parser.gaz" 1469
+@ "parser.gaz" 1487
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1468
+@ "parser.gaz" 1486
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "parser.gaz" 1476
+@ "parser.gaz" 1494
 PUSH null
 RET
-@ "parser.gaz" 1467
+@ "parser.gaz" 1485
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 1478
+@ "parser.gaz" 1496
 LOAD 0
 PUSH_CLASS PropertyAST
 CALL_BUILTIN is_a 2
 JZ ELSE_3
-@ "parser.gaz" 1479
+@ "parser.gaz" 1497
 LOAD 0
 GET_PROPERTY target
 PUSH_CLASS FunctionRefAST
@@ -12675,7 +12793,7 @@ LABEL TERNARY_END_4
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 1480
+@ "parser.gaz" 1498
 LOAD 0
 GET_PROPERTY target
 PUSH_CLASS ThisAST
@@ -12689,7 +12807,7 @@ LABEL TERNARY_END_6
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 1481
+@ "parser.gaz" 1499
 LOAD 3
 PUSH null
 NOT_EQUALS
@@ -12709,14 +12827,14 @@ LABEL AND_FALSE_8
 PUSH false
 LABEL AND_END_8
 JZ ELSE_7
-@ "parser.gaz" 1482
+@ "parser.gaz" 1500
 PUSH null
 RET
-@ "parser.gaz" 1481
+@ "parser.gaz" 1499
 JMP ENDIF_7
 LABEL ELSE_7
 LABEL ENDIF_7
-@ "parser.gaz" 1484
+@ "parser.gaz" 1502
 LOAD_THIS
 GET_METHOD fail_at
 LOAD 2
@@ -12742,11 +12860,11 @@ LOAD 0
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1478
+@ "parser.gaz" 1496
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "parser.gaz" 1487
+@ "parser.gaz" 1505
 LOAD 0
 PUSH_CLASS NumAST
 CALL_BUILTIN is_a 2
@@ -12786,60 +12904,60 @@ JMP OR_END_11
 LABEL OR_TRUE_11
 PUSH true
 LABEL OR_END_11
-@ "parser.gaz" 1486
+@ "parser.gaz" 1504
 NOT
 JZ MATCH_ARM_10_0
-@ "parser.gaz" 1488
+@ "parser.gaz" 1506
 LOAD 0
 PUSH_CLASS UnaryOpAST
 CALL_BUILTIN is_a 2
-@ "parser.gaz" 1486
+@ "parser.gaz" 1504
 NOT
 JZ MATCH_ARM_10_1
-@ "parser.gaz" 1489
+@ "parser.gaz" 1507
 LOAD 0
 PUSH_CLASS BinOpAST
 CALL_BUILTIN is_a 2
-@ "parser.gaz" 1486
+@ "parser.gaz" 1504
 NOT
 JZ MATCH_ARM_10_2
-@ "parser.gaz" 1490
+@ "parser.gaz" 1508
 LOAD 0
 PUSH_CLASS TernaryAST
 CALL_BUILTIN is_a 2
-@ "parser.gaz" 1486
+@ "parser.gaz" 1504
 NOT
 JZ MATCH_ARM_10_3
-@ "parser.gaz" 1491
+@ "parser.gaz" 1509
 LOAD 0
 PUSH_CLASS ArrayLiteralAST
 CALL_BUILTIN is_a 2
-@ "parser.gaz" 1486
+@ "parser.gaz" 1504
 NOT
 JZ MATCH_ARM_10_4
-@ "parser.gaz" 1492
+@ "parser.gaz" 1510
 LOAD 0
 PUSH_CLASS SpreadAST
 CALL_BUILTIN is_a 2
-@ "parser.gaz" 1486
+@ "parser.gaz" 1504
 NOT
 JZ MATCH_ARM_10_5
 JMP MATCH_ARM_10_6
 LABEL MATCH_ARM_10_0
-@ "parser.gaz" 1487
+@ "parser.gaz" 1505
 NEW_ARRAY
-@ "parser.gaz" 1486
+@ "parser.gaz" 1504
 JMP MATCH_END_10
 LABEL MATCH_ARM_10_1
-@ "parser.gaz" 1488
+@ "parser.gaz" 1506
 NEW_ARRAY
 LOAD 0
 GET_PROPERTY expr
 ARRAY_PUSH
-@ "parser.gaz" 1486
+@ "parser.gaz" 1504
 JMP MATCH_END_10
 LABEL MATCH_ARM_10_2
-@ "parser.gaz" 1489
+@ "parser.gaz" 1507
 NEW_ARRAY
 LOAD 0
 GET_PROPERTY left
@@ -12847,10 +12965,10 @@ ARRAY_PUSH
 LOAD 0
 GET_PROPERTY right
 ARRAY_PUSH
-@ "parser.gaz" 1486
+@ "parser.gaz" 1504
 JMP MATCH_END_10
 LABEL MATCH_ARM_10_3
-@ "parser.gaz" 1490
+@ "parser.gaz" 1508
 NEW_ARRAY
 LOAD 0
 GET_PROPERTY condition
@@ -12861,24 +12979,24 @@ ARRAY_PUSH
 LOAD 0
 GET_PROPERTY else
 ARRAY_PUSH
-@ "parser.gaz" 1486
+@ "parser.gaz" 1504
 JMP MATCH_END_10
 LABEL MATCH_ARM_10_4
-@ "parser.gaz" 1491
+@ "parser.gaz" 1509
 LOAD 0
 GET_PROPERTY entries
-@ "parser.gaz" 1486
+@ "parser.gaz" 1504
 JMP MATCH_END_10
 LABEL MATCH_ARM_10_5
-@ "parser.gaz" 1492
+@ "parser.gaz" 1510
 NEW_ARRAY
 LOAD 0
 GET_PROPERTY expr
 ARRAY_PUSH
-@ "parser.gaz" 1486
+@ "parser.gaz" 1504
 JMP MATCH_END_10
 LABEL MATCH_ARM_10_6
-@ "parser.gaz" 1493
+@ "parser.gaz" 1511
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "A constant's value can only use literals, operators and other constants"
@@ -12887,13 +13005,13 @@ GET_PROPERTY file
 LOAD 0
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
-@ "parser.gaz" 1486
+@ "parser.gaz" 1504
 JMP MATCH_END_10
 LABEL MATCH_END_10
 STORE 4
 LOAD 4
 POP
-@ "parser.gaz" 1495
+@ "parser.gaz" 1513
 LOAD 4
 FOREACH_CHECK
 STORE 5
@@ -12924,7 +13042,7 @@ INDEX_GET
 STORE 9
 LOAD 9
 POP
-@ "parser.gaz" 1497
+@ "parser.gaz" 1515
 LOAD 9
 CALL_BUILTIN type_of 1
 PUSH "list"
@@ -12966,24 +13084,24 @@ INDEX_GET
 STORE 14
 LOAD 14
 POP
-@ "parser.gaz" 1498
+@ "parser.gaz" 1516
 LOAD 14
 PUSH null
 NOT_EQUALS
 JZ ELSE_17
-@ "parser.gaz" 1499
+@ "parser.gaz" 1517
 LOAD_THIS
 GET_METHOD check_constant_expression
 LOAD 14
 LOAD 1
 CALL_METHOD 2 check_constant_expression
 POP
-@ "parser.gaz" 1498
+@ "parser.gaz" 1516
 JMP ENDIF_17
 LABEL ELSE_17
 LABEL ENDIF_17
 LABEL CONTINUE_16
-@ "parser.gaz" 1497
+@ "parser.gaz" 1515
 LOAD 13
 PUSH 1
 ADD
@@ -12993,7 +13111,7 @@ POP
 JMP WHILE_16
 LABEL ENDWHILE_16
 LABEL CONTINUE_14
-@ "parser.gaz" 1495
+@ "parser.gaz" 1513
 LOAD 8
 PUSH 1
 ADD
@@ -13002,13 +13120,13 @@ LOAD 8
 POP
 JMP WHILE_14
 LABEL ENDWHILE_14
-@ "parser.gaz" 1466
+@ "parser.gaz" 1484
 PUSH null
 RET
 
 fn Parser.fold 2 2
 locals $node $class $value $left $type $right $list $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $entry $map $#foreach_array_1 $#foreach_keys_1 $#foreach_count_1 $#foreach_i_1 $#destructure_2 $key_node $value_node $key $owner
-@ "parser.gaz" 1514
+@ "parser.gaz" 1532
 LOAD 0
 PUSH_CLASS NumAST
 CALL_BUILTIN is_a 2
@@ -13049,19 +13167,19 @@ LABEL OR_TRUE_1
 PUSH true
 LABEL OR_END_1
 JZ ELSE_0
-@ "parser.gaz" 1515
+@ "parser.gaz" 1533
 LOAD 0
 GET_PROPERTY value
 RET
-@ "parser.gaz" 1514
+@ "parser.gaz" 1532
 JMP ENDIF_0
 LABEL ELSE_0
-@ "parser.gaz" 1516
+@ "parser.gaz" 1534
 LOAD 0
 PUSH_CLASS UnaryOpAST
 CALL_BUILTIN is_a 2
 JZ ELSE_4
-@ "parser.gaz" 1517
+@ "parser.gaz" 1535
 LOAD_THIS
 GET_METHOD fold
 LOAD 0
@@ -13071,22 +13189,22 @@ CALL_METHOD 2 fold
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 1519
+@ "parser.gaz" 1537
 LOAD_THIS
 GET_METHOD located
 LOAD 0
 MAKE_CLOSURE 2
 CALL_METHOD 2 located
 RET
-@ "parser.gaz" 1516
+@ "parser.gaz" 1534
 JMP ENDIF_4
 LABEL ELSE_4
-@ "parser.gaz" 1524
+@ "parser.gaz" 1542
 LOAD 0
 PUSH_CLASS BinOpAST
 CALL_BUILTIN is_a 2
 JZ ELSE_5
-@ "parser.gaz" 1525
+@ "parser.gaz" 1543
 LOAD_THIS
 GET_METHOD fold
 LOAD 0
@@ -13096,19 +13214,19 @@ CALL_METHOD 2 fold
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 1526
+@ "parser.gaz" 1544
 LOAD 0
 GET_PROPERTY op
 GET_PROPERTY type
 STORE 4
 LOAD 4
 POP
-@ "parser.gaz" 1528
+@ "parser.gaz" 1546
 LOAD 4
 PUSH "AND"
 EQUALS
 JZ ELSE_6
-@ "parser.gaz" 1529
+@ "parser.gaz" 1547
 LOAD 3
 JZ AND_FALSE_7
 LOAD_THIS
@@ -13124,15 +13242,15 @@ LABEL AND_FALSE_7
 PUSH false
 LABEL AND_END_7
 RET
-@ "parser.gaz" 1528
+@ "parser.gaz" 1546
 JMP ENDIF_6
 LABEL ELSE_6
-@ "parser.gaz" 1530
+@ "parser.gaz" 1548
 LOAD 4
 PUSH "OR"
 EQUALS
 JZ ELSE_8
-@ "parser.gaz" 1531
+@ "parser.gaz" 1549
 LOAD 3
 NOT
 JZ OR_TRUE_9
@@ -13150,15 +13268,15 @@ LABEL OR_TRUE_9
 PUSH true
 LABEL OR_END_9
 RET
-@ "parser.gaz" 1530
+@ "parser.gaz" 1548
 JMP ENDIF_8
 LABEL ELSE_8
-@ "parser.gaz" 1532
+@ "parser.gaz" 1550
 LOAD 4
 PUSH "COALESCE"
 EQUALS
 JZ ELSE_10
-@ "parser.gaz" 1533
+@ "parser.gaz" 1551
 LOAD_QUIET 3
 JNN COALESCE_END_11
 LOAD_THIS
@@ -13169,13 +13287,13 @@ LOAD 1
 CALL_METHOD 2 fold
 LABEL COALESCE_END_11
 RET
-@ "parser.gaz" 1532
+@ "parser.gaz" 1550
 JMP ENDIF_10
 LABEL ELSE_10
 LABEL ENDIF_10
 LABEL ENDIF_8
 LABEL ENDIF_6
-@ "parser.gaz" 1535
+@ "parser.gaz" 1553
 LOAD_THIS
 GET_METHOD fold
 LOAD 0
@@ -13185,22 +13303,22 @@ CALL_METHOD 2 fold
 STORE 5
 LOAD 5
 POP
-@ "parser.gaz" 1537
+@ "parser.gaz" 1555
 LOAD_THIS
 GET_METHOD located
 LOAD 0
 MAKE_CLOSURE 3
 CALL_METHOD 2 located
 RET
-@ "parser.gaz" 1524
+@ "parser.gaz" 1542
 JMP ENDIF_5
 LABEL ELSE_5
-@ "parser.gaz" 1538
+@ "parser.gaz" 1556
 LOAD 0
 PUSH_CLASS TernaryAST
 CALL_BUILTIN is_a 2
 JZ ELSE_12
-@ "parser.gaz" 1539
+@ "parser.gaz" 1557
 LOAD_THIS
 GET_METHOD fold
 LOAD_THIS
@@ -13220,10 +13338,10 @@ LABEL TERNARY_END_13
 LOAD 1
 CALL_METHOD 2 fold
 RET
-@ "parser.gaz" 1538
+@ "parser.gaz" 1556
 JMP ENDIF_12
 LABEL ELSE_12
-@ "parser.gaz" 1540
+@ "parser.gaz" 1558
 LOAD 0
 PUSH_CLASS ArrayLiteralAST
 CALL_BUILTIN is_a 2
@@ -13238,12 +13356,12 @@ LABEL AND_FALSE_15
 PUSH false
 LABEL AND_END_15
 JZ ELSE_14
-@ "parser.gaz" 1541
+@ "parser.gaz" 1559
 NEW_ARRAY
 STORE 6
 LOAD 6
 POP
-@ "parser.gaz" 1542
+@ "parser.gaz" 1560
 LOAD 0
 GET_PROPERTY entries
 FOREACH_CHECK
@@ -13275,14 +13393,14 @@ INDEX_GET
 STORE 11
 LOAD 11
 POP
-@ "parser.gaz" 1543
+@ "parser.gaz" 1561
 LOAD 11
 PUSH 1
 INDEX_GET
 PUSH_CLASS SpreadAST
 CALL_BUILTIN is_a 2
 JZ ELSE_17
-@ "parser.gaz" 1545
+@ "parser.gaz" 1563
 LOAD_THIS
 GET_METHOD fold
 LOAD 11
@@ -13294,7 +13412,7 @@ CALL_METHOD 2 fold
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 1546
+@ "parser.gaz" 1564
 LOAD_THIS
 GET_METHOD located
 LOAD 11
@@ -13305,10 +13423,10 @@ CALL_METHOD 2 located
 STORE 6
 LOAD 6
 POP
-@ "parser.gaz" 1543
+@ "parser.gaz" 1561
 JMP ENDIF_17
 LABEL ELSE_17
-@ "parser.gaz" 1548
+@ "parser.gaz" 1566
 LOAD_THIS
 GET_METHOD fold
 LOAD 11
@@ -13320,7 +13438,7 @@ SET_PATH [] 6
 POP
 LABEL ENDIF_17
 LABEL CONTINUE_16
-@ "parser.gaz" 1542
+@ "parser.gaz" 1560
 LOAD 10
 PUSH 1
 ADD
@@ -13329,23 +13447,23 @@ LOAD 10
 POP
 JMP WHILE_16
 LABEL ENDWHILE_16
-@ "parser.gaz" 1552
+@ "parser.gaz" 1570
 LOAD 6
 RET
-@ "parser.gaz" 1540
+@ "parser.gaz" 1558
 JMP ENDIF_14
 LABEL ELSE_14
-@ "parser.gaz" 1553
+@ "parser.gaz" 1571
 LOAD 0
 PUSH_CLASS ArrayLiteralAST
 CALL_BUILTIN is_a 2
 JZ ELSE_18
-@ "parser.gaz" 1554
+@ "parser.gaz" 1572
 NEW_MAP
 STORE 12
 LOAD 12
 POP
-@ "parser.gaz" 1555
+@ "parser.gaz" 1573
 LOAD 0
 GET_PROPERTY entries
 FOREACH_CHECK
@@ -13390,7 +13508,7 @@ LOAD 19
 POP
 LOAD 17
 POP
-@ "parser.gaz" 1556
+@ "parser.gaz" 1574
 LOAD_THIS
 GET_METHOD fold
 LOAD 18
@@ -13399,14 +13517,14 @@ CALL_METHOD 2 fold
 STORE 20
 LOAD 20
 POP
-@ "parser.gaz" 1558
+@ "parser.gaz" 1576
 LOAD_THIS
 GET_METHOD located
 LOAD 0
 MAKE_CLOSURE 5
 CALL_METHOD 2 located
 POP
-@ "parser.gaz" 1560
+@ "parser.gaz" 1578
 LOAD 20
 KEY_CHECK
 LOAD_THIS
@@ -13417,7 +13535,7 @@ CALL_METHOD 2 fold
 SET_PATH [k] 12
 POP
 LABEL CONTINUE_19
-@ "parser.gaz" 1555
+@ "parser.gaz" 1573
 LOAD 16
 PUSH 1
 ADD
@@ -13426,13 +13544,13 @@ LOAD 16
 POP
 JMP WHILE_19
 LABEL ENDWHILE_19
-@ "parser.gaz" 1563
+@ "parser.gaz" 1581
 LOAD 12
 RET
-@ "parser.gaz" 1553
+@ "parser.gaz" 1571
 JMP ENDIF_18
 LABEL ELSE_18
-@ "parser.gaz" 1564
+@ "parser.gaz" 1582
 LOAD 0
 PUSH_CLASS FunctionRefAST
 CALL_BUILTIN is_a 2
@@ -13448,7 +13566,7 @@ LABEL AND_FALSE_21
 PUSH false
 LABEL AND_END_21
 JZ ELSE_20
-@ "parser.gaz" 1565
+@ "parser.gaz" 1583
 LOAD_THIS
 GET_METHOD constant_value
 LOAD 0
@@ -13456,10 +13574,10 @@ GET_PROPERTY name
 LOAD 0
 CALL_METHOD 2 constant_value
 RET
-@ "parser.gaz" 1564
+@ "parser.gaz" 1582
 JMP ENDIF_20
 LABEL ELSE_20
-@ "parser.gaz" 1566
+@ "parser.gaz" 1584
 LOAD 0
 PUSH_CLASS PropertyAST
 CALL_BUILTIN is_a 2
@@ -13488,7 +13606,7 @@ LABEL AND_FALSE_23
 PUSH false
 LABEL AND_END_23
 JZ ELSE_22
-@ "parser.gaz" 1567
+@ "parser.gaz" 1585
 LOAD 0
 GET_PROPERTY target
 PUSH_CLASS ThisAST
@@ -13510,7 +13628,7 @@ LABEL TERNARY_END_25
 STORE 21
 LOAD 21
 POP
-@ "parser.gaz" 1568
+@ "parser.gaz" 1586
 LOAD 21
 PUSH null
 EQUALS
@@ -13528,23 +13646,23 @@ LABEL TERNARY_END_27
 STORE 20
 LOAD 20
 POP
-@ "parser.gaz" 1569
+@ "parser.gaz" 1587
 LOAD 20
 PUSH null
 NOT_EQUALS
 JZ ELSE_28
-@ "parser.gaz" 1570
+@ "parser.gaz" 1588
 LOAD_THIS
 GET_METHOD constant_value
 LOAD 20
 LOAD 0
 CALL_METHOD 2 constant_value
 RET
-@ "parser.gaz" 1569
+@ "parser.gaz" 1587
 JMP ENDIF_28
 LABEL ELSE_28
 LABEL ENDIF_28
-@ "parser.gaz" 1566
+@ "parser.gaz" 1584
 JMP ENDIF_22
 LABEL ELSE_22
 LABEL ENDIF_22
@@ -13555,7 +13673,7 @@ LABEL ENDIF_12
 LABEL ENDIF_5
 LABEL ENDIF_4
 LABEL ENDIF_0
-@ "parser.gaz" 1574
+@ "parser.gaz" 1592
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "A constant's value can only use literals, operators and other constants"
@@ -13565,25 +13683,25 @@ LOAD 0
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1513
+@ "parser.gaz" 1531
 PUSH null
 RET
 
 fn Parser.located 2 2
 locals $node $compute $e
-@ "parser.gaz" 1581
+@ "parser.gaz" 1599
 TRY CATCH_0
-@ "parser.gaz" 1582
+@ "parser.gaz" 1600
 LOAD 1
 CALL_VALUE 0
 RET
-@ "parser.gaz" 1581
+@ "parser.gaz" 1599
 END_TRY
 JMP ENDTRY_0
 LABEL CATCH_0
 CATCH_MATCH Error NEXTCATCH_0_0
 STORE 2
-@ "parser.gaz" 1584
+@ "parser.gaz" 1602
 LOAD_THIS
 GET_METHOD fail_at
 LOAD 2
@@ -13594,283 +13712,283 @@ LOAD 0
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1581
+@ "parser.gaz" 1599
 JMP ENDTRY_0
 LABEL NEXTCATCH_0_0
 RETHROW
 LABEL ENDTRY_0
-@ "parser.gaz" 1580
+@ "parser.gaz" 1598
 PUSH null
 RET
 
 fn Parser.apply 3 3
 locals $type $left $right $#match_0
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 LOAD 0
 STORE 3
 LOAD 3
-@ "parser.gaz" 1592
+@ "parser.gaz" 1610
 PUSH "PLUS"
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 EQUALS
 NOT
 JZ MATCH_ARM_0_0
 LOAD 3
-@ "parser.gaz" 1593
+@ "parser.gaz" 1611
 PUSH "MINUS"
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 EQUALS
 NOT
 JZ MATCH_ARM_0_1
 LOAD 3
-@ "parser.gaz" 1594
+@ "parser.gaz" 1612
 PUSH "MULTIPLY"
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 EQUALS
 NOT
 JZ MATCH_ARM_0_2
 LOAD 3
-@ "parser.gaz" 1595
+@ "parser.gaz" 1613
 PUSH "DIVIDE"
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 EQUALS
 NOT
 JZ MATCH_ARM_0_3
 LOAD 3
-@ "parser.gaz" 1596
+@ "parser.gaz" 1614
 PUSH "MODULO"
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 EQUALS
 NOT
 JZ MATCH_ARM_0_4
 LOAD 3
-@ "parser.gaz" 1597
+@ "parser.gaz" 1615
 PUSH "CONCAT"
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 EQUALS
 NOT
 JZ MATCH_ARM_0_5
 LOAD 3
-@ "parser.gaz" 1598
+@ "parser.gaz" 1616
 PUSH "EQUALS"
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 EQUALS
 NOT
 JZ MATCH_ARM_0_6
 LOAD 3
-@ "parser.gaz" 1599
+@ "parser.gaz" 1617
 PUSH "NOT_EQUALS"
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 EQUALS
 NOT
 JZ MATCH_ARM_0_7
 LOAD 3
-@ "parser.gaz" 1600
+@ "parser.gaz" 1618
 PUSH "SPACESHIP"
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 EQUALS
 NOT
 JZ MATCH_ARM_0_8
 LOAD 3
-@ "parser.gaz" 1601
+@ "parser.gaz" 1619
 PUSH "LESS_THAN"
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 EQUALS
 NOT
 JZ MATCH_ARM_0_9
 LOAD 3
-@ "parser.gaz" 1602
+@ "parser.gaz" 1620
 PUSH "LESS_EQUALS"
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 EQUALS
 NOT
 JZ MATCH_ARM_0_10
 LOAD 3
-@ "parser.gaz" 1603
+@ "parser.gaz" 1621
 PUSH "GREATER_THAN"
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 EQUALS
 NOT
 JZ MATCH_ARM_0_11
 LOAD 3
-@ "parser.gaz" 1604
+@ "parser.gaz" 1622
 PUSH "GREATER_EQUALS"
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 EQUALS
 NOT
 JZ MATCH_ARM_0_12
 LOAD 3
-@ "parser.gaz" 1605
+@ "parser.gaz" 1623
 PUSH "BIT_AND"
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 EQUALS
 NOT
 JZ MATCH_ARM_0_13
 LOAD 3
-@ "parser.gaz" 1606
+@ "parser.gaz" 1624
 PUSH "BIT_OR"
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 EQUALS
 NOT
 JZ MATCH_ARM_0_14
 LOAD 3
-@ "parser.gaz" 1607
+@ "parser.gaz" 1625
 PUSH "BIT_XOR"
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 EQUALS
 NOT
 JZ MATCH_ARM_0_15
 LOAD 3
-@ "parser.gaz" 1608
+@ "parser.gaz" 1626
 PUSH "SHIFT_LEFT"
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 EQUALS
 NOT
 JZ MATCH_ARM_0_16
 LOAD 3
-@ "parser.gaz" 1609
+@ "parser.gaz" 1627
 PUSH "SHIFT_RIGHT"
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 EQUALS
 NOT
 JZ MATCH_ARM_0_17
 LOAD 3
 NO_MATCH
 LABEL MATCH_ARM_0_0
-@ "parser.gaz" 1592
+@ "parser.gaz" 1610
 LOAD 1
 LOAD 2
 ADD
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_1
-@ "parser.gaz" 1593
+@ "parser.gaz" 1611
 LOAD 1
 LOAD 2
 SUB
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_2
-@ "parser.gaz" 1594
+@ "parser.gaz" 1612
 LOAD 1
 LOAD 2
 MUL
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_3
-@ "parser.gaz" 1595
+@ "parser.gaz" 1613
 LOAD 1
 LOAD 2
 DIV
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_4
-@ "parser.gaz" 1596
+@ "parser.gaz" 1614
 LOAD 1
 LOAD 2
 MOD
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_5
-@ "parser.gaz" 1597
+@ "parser.gaz" 1615
 LOAD 1
 LOAD 2
 CONCAT
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_6
-@ "parser.gaz" 1598
+@ "parser.gaz" 1616
 LOAD 1
 LOAD 2
 EQUALS
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_7
-@ "parser.gaz" 1599
+@ "parser.gaz" 1617
 LOAD 1
 LOAD 2
 NOT_EQUALS
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_8
-@ "parser.gaz" 1600
+@ "parser.gaz" 1618
 LOAD 1
 LOAD 2
 CMP
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_9
-@ "parser.gaz" 1601
+@ "parser.gaz" 1619
 LOAD 1
 LOAD 2
 LT
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_10
-@ "parser.gaz" 1602
+@ "parser.gaz" 1620
 LOAD 1
 LOAD 2
 LE
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_11
-@ "parser.gaz" 1603
+@ "parser.gaz" 1621
 LOAD 1
 LOAD 2
 GT
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_12
-@ "parser.gaz" 1604
+@ "parser.gaz" 1622
 LOAD 1
 LOAD 2
 GE
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_13
-@ "parser.gaz" 1605
+@ "parser.gaz" 1623
 LOAD 1
 LOAD 2
 BIT_AND
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_14
-@ "parser.gaz" 1606
+@ "parser.gaz" 1624
 LOAD 1
 LOAD 2
 BIT_OR
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_15
-@ "parser.gaz" 1607
+@ "parser.gaz" 1625
 LOAD 1
 LOAD 2
 BIT_XOR
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_16
-@ "parser.gaz" 1608
+@ "parser.gaz" 1626
 LOAD 1
 LOAD 2
 SHL
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_17
-@ "parser.gaz" 1609
+@ "parser.gaz" 1627
 LOAD 1
 LOAD 2
 SHR
-@ "parser.gaz" 1591
+@ "parser.gaz" 1609
 JMP MATCH_END_0
 LABEL MATCH_END_0
 RET
-@ "parser.gaz" 1590
+@ "parser.gaz" 1608
 PUSH null
 RET
 
 fn Parser.check_class_constant_use 2 2
 locals $node $called $class $constant
-@ "parser.gaz" 1618
+@ "parser.gaz" 1636
 LOAD_THIS
 GET_PROPERTY_QUIET classes
 LOAD 0
@@ -13883,19 +14001,19 @@ LABEL COALESCE_END_0
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 1619
+@ "parser.gaz" 1637
 LOAD 2
 PUSH null
 EQUALS
 JZ ELSE_1
-@ "parser.gaz" 1620
+@ "parser.gaz" 1638
 PUSH null
 RET
-@ "parser.gaz" 1619
+@ "parser.gaz" 1637
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "parser.gaz" 1622
+@ "parser.gaz" 1640
 LOAD_THIS
 GET_METHOD class_constant
 LOAD 2
@@ -13905,12 +14023,12 @@ CALL_METHOD 2 class_constant
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 1623
+@ "parser.gaz" 1641
 LOAD 3
 PUSH null
 EQUALS
 JZ ELSE_2
-@ "parser.gaz" 1624
+@ "parser.gaz" 1642
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "Class "
@@ -13928,14 +14046,14 @@ LOAD 0
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1623
+@ "parser.gaz" 1641
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "parser.gaz" 1626
+@ "parser.gaz" 1644
 LOAD 1
 JZ ELSE_3
-@ "parser.gaz" 1627
+@ "parser.gaz" 1645
 LOAD_THIS
 GET_METHOD fail_at
 PUSH ""
@@ -13955,15 +14073,15 @@ LOAD 0
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1626
+@ "parser.gaz" 1644
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "parser.gaz" 1629
+@ "parser.gaz" 1647
 PUSH true
 SET_PATH .constant 0
 POP
-@ "parser.gaz" 1630
+@ "parser.gaz" 1648
 LOAD_THIS
 GET_METHOD constant_value
 LOAD 3
@@ -13971,18 +14089,18 @@ LOAD 0
 CALL_METHOD 2 constant_value
 SET_PATH .value 0
 POP
-@ "parser.gaz" 1617
+@ "parser.gaz" 1635
 PUSH null
 RET
 
 fn Parser.method_declaration 1 1
 locals $class $start $abstract $token $name $#destructure_0 $params $defaults $body $#destructure_1 $#destructure_2 $method
-@ "parser.gaz" 1637
+@ "parser.gaz" 1655
 LOAD_FIELD current_token
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 1638
+@ "parser.gaz" 1656
 LOAD 1
 GET_PROPERTY type
 PUSH "ABSTRACT"
@@ -13990,31 +14108,31 @@ EQUALS
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 1639
+@ "parser.gaz" 1657
 LOAD 2
 JZ ELSE_0
-@ "parser.gaz" 1640
+@ "parser.gaz" 1658
 LOAD_THIS
 GET_METHOD eat
 PUSH "ABSTRACT"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1639
+@ "parser.gaz" 1657
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 1642
+@ "parser.gaz" 1660
 LOAD_THIS
 GET_METHOD eat
 PUSH "FN"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1643
+@ "parser.gaz" 1661
 LOAD_FIELD current_token
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 1644
+@ "parser.gaz" 1662
 LOAD 3
 GET_PROPERTY type
 PUSH "IDENTIFIER"
@@ -14033,7 +14151,7 @@ LABEL AND_FALSE_2
 PUSH false
 LABEL AND_END_2
 JZ ELSE_1
-@ "parser.gaz" 1645
+@ "parser.gaz" 1663
 LOAD_THIS
 GET_METHOD fail
 PUSH "Expected a name but found "
@@ -14044,31 +14162,31 @@ CALL_METHOD 1 describe
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1644
+@ "parser.gaz" 1662
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "parser.gaz" 1647
+@ "parser.gaz" 1665
 LOAD 3
 GET_PROPERTY value
 STORE 4
 LOAD 4
 POP
-@ "parser.gaz" 1648
+@ "parser.gaz" 1666
 LOAD_THIS
 GET_METHOD check_new_member
 LOAD 0
 LOAD 4
 CALL_METHOD 2 check_new_member
 POP
-@ "parser.gaz" 1649
+@ "parser.gaz" 1667
 LOAD_THIS
 GET_METHOD eat
 LOAD 3
 GET_PROPERTY type
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1651
+@ "parser.gaz" 1669
 LOAD_THIS
 GET_METHOD parameters
 PUSH "method "
@@ -14096,15 +14214,15 @@ LOAD 7
 POP
 LOAD 5
 POP
-@ "parser.gaz" 1652
+@ "parser.gaz" 1670
 LOAD 2
 JZ ELSE_3
-@ "parser.gaz" 1653
+@ "parser.gaz" 1671
 LOAD 0
 GET_PROPERTY abstract
 NOT
 JZ ELSE_4
-@ "parser.gaz" 1654
+@ "parser.gaz" 1672
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "Class "
@@ -14122,16 +14240,16 @@ LOAD 1
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1653
+@ "parser.gaz" 1671
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
-@ "parser.gaz" 1656
+@ "parser.gaz" 1674
 LOAD 4
 PUSH "_"
 EQUALS
 JZ ELSE_5
-@ "parser.gaz" 1657
+@ "parser.gaz" 1675
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "A constructor can't be abstract"
@@ -14140,41 +14258,41 @@ LOAD 1
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1656
+@ "parser.gaz" 1674
 JMP ENDIF_5
 LABEL ELSE_5
 LABEL ENDIF_5
-@ "parser.gaz" 1659
+@ "parser.gaz" 1677
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "LEFT_BRACE"
 EQUALS
 JZ ELSE_6
-@ "parser.gaz" 1660
+@ "parser.gaz" 1678
 LOAD_THIS
 GET_METHOD fail
 PUSH "An abstract method has no body: end it with ;"
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1659
+@ "parser.gaz" 1677
 JMP ENDIF_6
 LABEL ELSE_6
 LABEL ENDIF_6
-@ "parser.gaz" 1662
+@ "parser.gaz" 1680
 LOAD_THIS
 GET_METHOD eat
 PUSH "SEMICOLON"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1663
+@ "parser.gaz" 1681
 NEW CompoundAST 0
 STORE 8
 LOAD 8
 POP
-@ "parser.gaz" 1652
+@ "parser.gaz" 1670
 JMP ENDIF_3
 LABEL ELSE_3
-@ "parser.gaz" 1665
+@ "parser.gaz" 1683
 NEW_ARRAY
 PUSH true
 ARRAY_PUSH
@@ -14196,14 +14314,14 @@ SET_FIELD in_constructor
 POP
 LOAD 9
 POP
-@ "parser.gaz" 1666
+@ "parser.gaz" 1684
 LOAD_THIS
 GET_METHOD block
 CALL_METHOD 0 block
 STORE 8
 LOAD 8
 POP
-@ "parser.gaz" 1667
+@ "parser.gaz" 1685
 PUSH [false, false]
 DESTRUCTURE 2
 STORE 10
@@ -14220,7 +14338,7 @@ POP
 LOAD 10
 POP
 LABEL ENDIF_3
-@ "parser.gaz" 1670
+@ "parser.gaz" 1688
 LOAD_THIS
 GET_METHOD at
 LOAD 4
@@ -14238,28 +14356,28 @@ CALL_METHOD 2 at
 STORE 11
 LOAD 11
 POP
-@ "parser.gaz" 1671
+@ "parser.gaz" 1689
 LOAD 0
 GET_PROPERTY name
 SET_PATH .class 11
 POP
-@ "parser.gaz" 1672
+@ "parser.gaz" 1690
 LOAD 2
 SET_PATH .abstract 11
 POP
-@ "parser.gaz" 1673
+@ "parser.gaz" 1691
 LOAD 4
 KEY_CHECK
 LOAD 11
 SET_PATH .methods[k] 0
 POP
-@ "parser.gaz" 1636
+@ "parser.gaz" 1654
 PUSH null
 RET
 
 fn Parser.check_new_member 2 2
 locals $class $name $field
-@ "parser.gaz" 1678
+@ "parser.gaz" 1696
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "HASH_IDENTIFIER"
@@ -14267,13 +14385,13 @@ EQUALS
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 1679
+@ "parser.gaz" 1697
 LOAD 0
 GET_PROPERTY constants
 LOAD 1
 CALL_BUILTIN has_key 2
 JZ ELSE_0
-@ "parser.gaz" 1680
+@ "parser.gaz" 1698
 LOAD_THIS
 GET_METHOD fail
 PUSH ""
@@ -14288,21 +14406,21 @@ PUSH ": constants, fields and methods share names"
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1679
+@ "parser.gaz" 1697
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 1682
+@ "parser.gaz" 1700
 LOAD 0
 GET_PROPERTY fields
 LOAD 1
 CALL_BUILTIN has_key 2
 JZ ELSE_1
-@ "parser.gaz" 1683
+@ "parser.gaz" 1701
 LOAD_THIS
 GET_METHOD fail
 LOAD 2
-@ "parser.gaz" 1684
+@ "parser.gaz" 1702
 JZ TERNARY_ELSE_2
 PUSH ""
 LOAD 0
@@ -14314,7 +14432,7 @@ LOAD 1
 CONCAT
 JMP TERNARY_END_2
 LABEL TERNARY_ELSE_2
-@ "parser.gaz" 1685
+@ "parser.gaz" 1703
 PUSH ""
 LOAD 0
 GET_PROPERTY name
@@ -14326,24 +14444,24 @@ CONCAT
 PUSH ", and a method can't have a field's name: call the method something else"
 CONCAT
 LABEL TERNARY_END_2
-@ "parser.gaz" 1683
+@ "parser.gaz" 1701
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1682
+@ "parser.gaz" 1700
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "parser.gaz" 1687
+@ "parser.gaz" 1705
 LOAD 0
 GET_PROPERTY methods
 LOAD 1
 CALL_BUILTIN has_key 2
 JZ ELSE_3
-@ "parser.gaz" 1688
+@ "parser.gaz" 1706
 LOAD_THIS
 GET_METHOD fail
 LOAD 2
-@ "parser.gaz" 1689
+@ "parser.gaz" 1707
 JZ TERNARY_ELSE_4
 PUSH ""
 LOAD 0
@@ -14361,7 +14479,7 @@ PUSH "_value"
 CONCAT
 JMP TERNARY_END_4
 LABEL TERNARY_ELSE_4
-@ "parser.gaz" 1690
+@ "parser.gaz" 1708
 PUSH ""
 LOAD 0
 GET_PROPERTY name
@@ -14371,104 +14489,108 @@ CONCAT
 LOAD 1
 CONCAT
 LABEL TERNARY_END_4
-@ "parser.gaz" 1688
+@ "parser.gaz" 1706
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1687
+@ "parser.gaz" 1705
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "parser.gaz" 1677
+@ "parser.gaz" 1695
 PUSH null
 RET
 
 fn Parser.statement 0 0
 locals $type $start $expr
-@ "parser.gaz" 1697
+@ "parser.gaz" 1715
+LOAD_FIELD current_token
+SET_FIELD statement_token
+POP
+@ "parser.gaz" 1716
 LOAD_FIELD current_token
 GET_PROPERTY type
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 1698
+@ "parser.gaz" 1717
 LOAD 0
 PUSH "ECHO"
 EQUALS
 JZ ELSE_0
-@ "parser.gaz" 1699
+@ "parser.gaz" 1718
 LOAD_THIS
 GET_METHOD echo_statement
 CALL_METHOD 0 echo_statement
 RET
-@ "parser.gaz" 1698
+@ "parser.gaz" 1717
 JMP ENDIF_0
 LABEL ELSE_0
-@ "parser.gaz" 1700
+@ "parser.gaz" 1719
 LOAD 0
 PUSH "IF"
 EQUALS
 JZ ELSE_1
-@ "parser.gaz" 1701
+@ "parser.gaz" 1720
 LOAD_THIS
 GET_METHOD if_statement
 CALL_METHOD 0 if_statement
 RET
-@ "parser.gaz" 1700
+@ "parser.gaz" 1719
 JMP ENDIF_1
 LABEL ELSE_1
-@ "parser.gaz" 1702
+@ "parser.gaz" 1721
 LOAD 0
 PUSH "WHILE"
 EQUALS
 JZ ELSE_2
-@ "parser.gaz" 1703
+@ "parser.gaz" 1722
 LOAD_THIS
 GET_METHOD while_statement
 CALL_METHOD 0 while_statement
 RET
-@ "parser.gaz" 1702
+@ "parser.gaz" 1721
 JMP ENDIF_2
 LABEL ELSE_2
-@ "parser.gaz" 1704
+@ "parser.gaz" 1723
 LOAD 0
 PUSH "FOR"
 EQUALS
 JZ ELSE_3
-@ "parser.gaz" 1705
+@ "parser.gaz" 1724
 LOAD_THIS
 GET_METHOD for_statement
 CALL_METHOD 0 for_statement
 RET
-@ "parser.gaz" 1704
+@ "parser.gaz" 1723
 JMP ENDIF_3
 LABEL ELSE_3
-@ "parser.gaz" 1706
+@ "parser.gaz" 1725
 LOAD 0
 PUSH "FOREACH"
 EQUALS
 JZ ELSE_4
-@ "parser.gaz" 1707
+@ "parser.gaz" 1726
 LOAD_THIS
 GET_METHOD foreach_statement
 CALL_METHOD 0 foreach_statement
 RET
-@ "parser.gaz" 1706
+@ "parser.gaz" 1725
 JMP ENDIF_4
 LABEL ELSE_4
-@ "parser.gaz" 1708
+@ "parser.gaz" 1727
 LOAD 0
 PUSH "TRY"
 EQUALS
 JZ ELSE_5
-@ "parser.gaz" 1709
+@ "parser.gaz" 1728
 LOAD_THIS
 GET_METHOD try_statement
 CALL_METHOD 0 try_statement
 RET
-@ "parser.gaz" 1708
+@ "parser.gaz" 1727
 JMP ENDIF_5
 LABEL ELSE_5
-@ "parser.gaz" 1710
+@ "parser.gaz" 1729
 LOAD 0
 PUSH "BREAK"
 EQUALS
@@ -14485,55 +14607,55 @@ LABEL OR_TRUE_7
 PUSH true
 LABEL OR_END_7
 JZ ELSE_6
-@ "parser.gaz" 1711
+@ "parser.gaz" 1730
 LOAD_THIS
 GET_METHOD loop_control
 CALL_METHOD 0 loop_control
 RET
-@ "parser.gaz" 1710
+@ "parser.gaz" 1729
 JMP ENDIF_6
 LABEL ELSE_6
-@ "parser.gaz" 1712
+@ "parser.gaz" 1731
 LOAD 0
 PUSH "RETURN"
 EQUALS
 JZ ELSE_8
-@ "parser.gaz" 1713
+@ "parser.gaz" 1732
 LOAD_THIS
 GET_METHOD return_statement
 CALL_METHOD 0 return_statement
 RET
-@ "parser.gaz" 1712
+@ "parser.gaz" 1731
 JMP ENDIF_8
 LABEL ELSE_8
-@ "parser.gaz" 1714
+@ "parser.gaz" 1733
 LOAD 0
 PUSH "DELETE"
 EQUALS
 JZ ELSE_9
-@ "parser.gaz" 1715
+@ "parser.gaz" 1734
 LOAD_THIS
 GET_METHOD delete_statement
 CALL_METHOD 0 delete_statement
 RET
-@ "parser.gaz" 1714
+@ "parser.gaz" 1733
 JMP ENDIF_9
 LABEL ELSE_9
-@ "parser.gaz" 1716
+@ "parser.gaz" 1735
 LOAD 0
 PUSH "FN"
 EQUALS
 JZ ELSE_10
-@ "parser.gaz" 1717
+@ "parser.gaz" 1736
 LOAD_THIS
 GET_METHOD fail
 PUSH "Functions can only be declared at the top level"
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1716
+@ "parser.gaz" 1735
 JMP ENDIF_10
 LABEL ELSE_10
-@ "parser.gaz" 1718
+@ "parser.gaz" 1737
 LOAD 0
 PUSH "CLASS"
 EQUALS
@@ -14550,68 +14672,68 @@ LABEL OR_TRUE_12
 PUSH true
 LABEL OR_END_12
 JZ ELSE_11
-@ "parser.gaz" 1719
+@ "parser.gaz" 1738
 LOAD_THIS
 GET_METHOD fail
 PUSH "Classes can only be declared at the top level"
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1718
+@ "parser.gaz" 1737
 JMP ENDIF_11
 LABEL ELSE_11
-@ "parser.gaz" 1720
+@ "parser.gaz" 1739
 LOAD 0
 PUSH "CONST"
 EQUALS
 JZ ELSE_13
-@ "parser.gaz" 1721
+@ "parser.gaz" 1740
 LOAD_THIS
 GET_METHOD fail
 PUSH "Constants can only be declared at the top level or in a class"
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1720
+@ "parser.gaz" 1739
 JMP ENDIF_13
 LABEL ELSE_13
-@ "parser.gaz" 1722
+@ "parser.gaz" 1741
 LOAD 0
 PUSH "FUNCTION"
 EQUALS
 JZ ELSE_14
-@ "parser.gaz" 1723
+@ "parser.gaz" 1742
 LOAD_THIS
 GET_METHOD fail
 PUSH "Declare functions with fn, not function"
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1722
+@ "parser.gaz" 1741
 JMP ENDIF_14
 LABEL ELSE_14
-@ "parser.gaz" 1724
+@ "parser.gaz" 1743
 LOAD 0
 PUSH "INCLUDE"
 EQUALS
 JZ ELSE_15
-@ "parser.gaz" 1725
+@ "parser.gaz" 1744
 LOAD_THIS
 GET_METHOD fail
 PUSH "include can only be used at the top level"
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 1724
+@ "parser.gaz" 1743
 JMP ENDIF_15
 LABEL ELSE_15
-@ "parser.gaz" 1726
+@ "parser.gaz" 1745
 LOAD 0
 PUSH "MATCH"
 EQUALS
 JZ ELSE_16
-@ "parser.gaz" 1729
+@ "parser.gaz" 1748
 LOAD_FIELD current_token
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 1731
+@ "parser.gaz" 1750
 LOAD_THIS
 GET_METHOD at
 LOAD_THIS
@@ -14622,7 +14744,7 @@ NEW StatementAST 1
 LOAD 1
 CALL_METHOD 2 at
 RET
-@ "parser.gaz" 1726
+@ "parser.gaz" 1745
 JMP ENDIF_16
 LABEL ELSE_16
 LABEL ENDIF_16
@@ -14640,25 +14762,25 @@ LABEL ENDIF_3
 LABEL ENDIF_2
 LABEL ENDIF_1
 LABEL ENDIF_0
-@ "parser.gaz" 1734
+@ "parser.gaz" 1753
 LOAD_FIELD current_token
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 1735
+@ "parser.gaz" 1754
 LOAD_THIS
 GET_METHOD expr
 CALL_METHOD 0 expr
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 1736
+@ "parser.gaz" 1755
 LOAD_THIS
 GET_METHOD eat
 PUSH "SEMICOLON"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1738
+@ "parser.gaz" 1757
 LOAD_THIS
 GET_METHOD at
 LOAD 2
@@ -14666,37 +14788,37 @@ NEW StatementAST 1
 LOAD 1
 CALL_METHOD 2 at
 RET
-@ "parser.gaz" 1696
+@ "parser.gaz" 1714
 PUSH null
 RET
 
 fn Parser.echo_statement 0 0
 locals $start $expr
-@ "parser.gaz" 1743
+@ "parser.gaz" 1762
 LOAD_FIELD current_token
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 1744
+@ "parser.gaz" 1763
 LOAD_THIS
 GET_METHOD eat
 PUSH "ECHO"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1745
+@ "parser.gaz" 1764
 LOAD_THIS
 GET_METHOD expr
 CALL_METHOD 0 expr
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 1746
+@ "parser.gaz" 1765
 LOAD_THIS
 GET_METHOD eat
 PUSH "SEMICOLON"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 1748
+@ "parser.gaz" 1767
 LOAD_THIS
 GET_METHOD at
 LOAD 1
@@ -14704,36 +14826,36 @@ NEW EchoStatementAST 1
 LOAD 0
 CALL_METHOD 2 at
 RET
-@ "parser.gaz" 1742
+@ "parser.gaz" 1761
 PUSH null
 RET
 
 fn Parser.program 0 0
 locals $error_class $root $uses_error $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $use $#foreach_array_1 $#foreach_keys_1 $#foreach_count_1 $#foreach_i_1 $class $#foreach_array_2 $#foreach_keys_2 $#foreach_count_2 $#foreach_i_2 $#destructure_3 $name $line $file $#foreach_array_4 $#foreach_keys_4 $#foreach_count_4 $#foreach_i_4 $#foreach_array_5 $#foreach_keys_5 $#foreach_count_5 $#foreach_i_5 $key $constant $#foreach_array_6 $#foreach_keys_6 $#foreach_count_6 $#foreach_i_6 $#destructure_7 $node $argc $assigned $written $#foreach_array_8 $#foreach_keys_8 $#foreach_count_8 $#foreach_i_8 $#destructure_9 $called $#foreach_array_10 $#foreach_keys_10 $#foreach_count_10 $#foreach_i_10 $#destructure_11 $#foreach_array_12 $#foreach_keys_12 $#foreach_count_12 $#foreach_i_12 $error $hint $what
-@ "parser.gaz" 1757
+@ "parser.gaz" 1776
 LOAD_THIS
 GET_METHOD builtin_classes
 CALL_METHOD 0 builtin_classes
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 1758
+@ "parser.gaz" 1777
 NEW CompoundAST 0
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 1759
+@ "parser.gaz" 1778
 LOAD_THIS
 GET_METHOD top_level
 CALL_METHOD 0 top_level
 SET_PATH .statements 1
 POP
-@ "parser.gaz" 1761
+@ "parser.gaz" 1780
 LOAD_FIELD catches
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 1762
+@ "parser.gaz" 1781
 LOAD_FIELD uses
 FOREACH_CHECK
 STORE 3
@@ -14764,7 +14886,7 @@ INDEX_GET
 STORE 7
 LOAD 7
 POP
-@ "parser.gaz" 1763
+@ "parser.gaz" 1782
 LOAD 2
 NOT
 JZ OR_TRUE_1
@@ -14783,7 +14905,7 @@ STORE 2
 LOAD 2
 POP
 LABEL CONTINUE_0
-@ "parser.gaz" 1762
+@ "parser.gaz" 1781
 LOAD 6
 PUSH 1
 ADD
@@ -14792,7 +14914,7 @@ LOAD 6
 POP
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "parser.gaz" 1765
+@ "parser.gaz" 1784
 LOAD_FIELD classes
 FOREACH_CHECK
 STORE 8
@@ -14823,7 +14945,7 @@ INDEX_GET
 STORE 12
 LOAD 12
 POP
-@ "parser.gaz" 1766
+@ "parser.gaz" 1785
 LOAD 2
 NOT
 JZ OR_TRUE_3
@@ -14842,7 +14964,7 @@ STORE 2
 LOAD 2
 POP
 LABEL CONTINUE_2
-@ "parser.gaz" 1765
+@ "parser.gaz" 1784
 LOAD 11
 PUSH 1
 ADD
@@ -14851,10 +14973,10 @@ LOAD 11
 POP
 JMP WHILE_2
 LABEL ENDWHILE_2
-@ "parser.gaz" 1768
+@ "parser.gaz" 1787
 LOAD 2
 JZ ELSE_4
-@ "parser.gaz" 1769
+@ "parser.gaz" 1788
 NEW_ARRAY
 LOAD 0
 ARRAY_PUSH
@@ -14863,11 +14985,11 @@ GET_PROPERTY statements
 ARRAY_EXTEND
 SET_PATH .statements 1
 POP
-@ "parser.gaz" 1768
+@ "parser.gaz" 1787
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
-@ "parser.gaz" 1771
+@ "parser.gaz" 1790
 LOAD_FIELD catch_types
 FOREACH_CHECK
 STORE 13
@@ -14917,13 +15039,13 @@ LOAD 20
 POP
 LOAD 17
 POP
-@ "parser.gaz" 1772
+@ "parser.gaz" 1791
 LOAD_FIELD classes
 LOAD 18
 CALL_BUILTIN has_key 2
 NOT
 JZ ELSE_6
-@ "parser.gaz" 1773
+@ "parser.gaz" 1792
 LOAD_THIS
 GET_METHOD fail_at
 LOAD_THIS
@@ -14934,12 +15056,12 @@ LOAD 20
 LOAD 19
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1772
+@ "parser.gaz" 1791
 JMP ENDIF_6
 LABEL ELSE_6
 LABEL ENDIF_6
 LABEL CONTINUE_5
-@ "parser.gaz" 1771
+@ "parser.gaz" 1790
 LOAD 16
 PUSH 1
 ADD
@@ -14948,7 +15070,7 @@ LOAD 16
 POP
 JMP WHILE_5
 LABEL ENDWHILE_5
-@ "parser.gaz" 1777
+@ "parser.gaz" 1796
 LOAD_FIELD classes
 FOREACH_CHECK
 STORE 21
@@ -14979,7 +15101,7 @@ INDEX_GET
 STORE 12
 LOAD 12
 POP
-@ "parser.gaz" 1778
+@ "parser.gaz" 1797
 LOAD_THIS
 GET_METHOD resolve_class
 LOAD 12
@@ -14987,7 +15109,7 @@ NEW_ARRAY
 CALL_METHOD 2 resolve_class
 POP
 LABEL CONTINUE_7
-@ "parser.gaz" 1777
+@ "parser.gaz" 1796
 LOAD 24
 PUSH 1
 ADD
@@ -14996,7 +15118,7 @@ LOAD 24
 POP
 JMP WHILE_7
 LABEL ENDWHILE_7
-@ "parser.gaz" 1782
+@ "parser.gaz" 1801
 LOAD_FIELD constants
 FOREACH_CHECK
 STORE 25
@@ -15033,7 +15155,7 @@ INDEX_GET
 STORE 30
 LOAD 30
 POP
-@ "parser.gaz" 1783
+@ "parser.gaz" 1802
 LOAD_THIS
 GET_METHOD constant_value
 LOAD 29
@@ -15043,7 +15165,7 @@ INDEX_GET
 CALL_METHOD 2 constant_value
 POP
 LABEL CONTINUE_8
-@ "parser.gaz" 1782
+@ "parser.gaz" 1801
 LOAD 28
 PUSH 1
 ADD
@@ -15052,7 +15174,7 @@ LOAD 28
 POP
 JMP WHILE_8
 LABEL ENDWHILE_8
-@ "parser.gaz" 1787
+@ "parser.gaz" 1806
 LOAD_FIELD member_uses
 FOREACH_CHECK
 STORE 31
@@ -15114,7 +15236,7 @@ LOAD 39
 POP
 LOAD 35
 POP
-@ "parser.gaz" 1788
+@ "parser.gaz" 1807
 LOAD_THIS
 GET_METHOD check_member_use
 LOAD 36
@@ -15125,7 +15247,7 @@ LOAD 39
 CALL_METHOD 5 check_member_use
 POP
 LABEL CONTINUE_9
-@ "parser.gaz" 1787
+@ "parser.gaz" 1806
 LOAD 34
 PUSH 1
 ADD
@@ -15134,7 +15256,7 @@ LOAD 34
 POP
 JMP WHILE_9
 LABEL ENDWHILE_9
-@ "parser.gaz" 1790
+@ "parser.gaz" 1809
 LOAD_FIELD class_constant_uses
 FOREACH_CHECK
 STORE 40
@@ -15178,7 +15300,7 @@ LOAD 45
 POP
 LOAD 44
 POP
-@ "parser.gaz" 1791
+@ "parser.gaz" 1810
 LOAD_THIS
 GET_METHOD check_class_constant_use
 LOAD 36
@@ -15186,7 +15308,7 @@ LOAD 45
 CALL_METHOD 2 check_class_constant_use
 POP
 LABEL CONTINUE_10
-@ "parser.gaz" 1790
+@ "parser.gaz" 1809
 LOAD 43
 PUSH 1
 ADD
@@ -15195,7 +15317,7 @@ LOAD 43
 POP
 JMP WHILE_10
 LABEL ENDWHILE_10
-@ "parser.gaz" 1793
+@ "parser.gaz" 1812
 LOAD_FIELD parent_uses
 FOREACH_CHECK
 STORE 46
@@ -15239,7 +15361,7 @@ LOAD 12
 POP
 LOAD 50
 POP
-@ "parser.gaz" 1794
+@ "parser.gaz" 1813
 LOAD_THIS
 GET_METHOD check_parent_use
 LOAD 36
@@ -15247,7 +15369,7 @@ LOAD 12
 CALL_METHOD 2 check_parent_use
 POP
 LABEL CONTINUE_11
-@ "parser.gaz" 1793
+@ "parser.gaz" 1812
 LOAD 49
 PUSH 1
 ADD
@@ -15256,7 +15378,7 @@ LOAD 49
 POP
 JMP WHILE_11
 LABEL ENDWHILE_11
-@ "parser.gaz" 1796
+@ "parser.gaz" 1815
 LOAD_FIELD uses
 FOREACH_CHECK
 STORE 51
@@ -15287,18 +15409,18 @@ INDEX_GET
 STORE 7
 LOAD 7
 POP
-@ "parser.gaz" 1797
+@ "parser.gaz" 1816
 LOAD_FIELD constants
 LOAD 7
 GET_PROPERTY name
 CALL_BUILTIN has_key 2
 JZ ELSE_13
-@ "parser.gaz" 1798
+@ "parser.gaz" 1817
 LOAD 7
 PUSH_CLASS FunctionCallAST
 CALL_BUILTIN is_a 2
 JZ ELSE_14
-@ "parser.gaz" 1799
+@ "parser.gaz" 1818
 LOAD_THIS
 GET_METHOD fail_at
 PUSH ""
@@ -15313,15 +15435,15 @@ LOAD 7
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1798
+@ "parser.gaz" 1817
 JMP ENDIF_14
 LABEL ELSE_14
 LABEL ENDIF_14
-@ "parser.gaz" 1801
+@ "parser.gaz" 1820
 PUSH true
 SET_PATH .constant 7
 POP
-@ "parser.gaz" 1802
+@ "parser.gaz" 1821
 LOAD_THIS
 GET_METHOD constant_value
 LOAD 7
@@ -15330,19 +15452,19 @@ LOAD 7
 CALL_METHOD 2 constant_value
 SET_PATH .value 7
 POP
-@ "parser.gaz" 1804
+@ "parser.gaz" 1823
 JMP CONTINUE_12
-@ "parser.gaz" 1797
+@ "parser.gaz" 1816
 JMP ENDIF_13
 LABEL ELSE_13
 LABEL ENDIF_13
-@ "parser.gaz" 1806
+@ "parser.gaz" 1825
 LOAD_FIELD classes
 LOAD 7
 GET_PROPERTY name
 CALL_BUILTIN has_key 2
 JZ ELSE_15
-@ "parser.gaz" 1807
+@ "parser.gaz" 1826
 LOAD_FIELD classes
 LOAD 7
 GET_PROPERTY name
@@ -15350,16 +15472,16 @@ INDEX_GET
 STORE 12
 LOAD 12
 POP
-@ "parser.gaz" 1808
+@ "parser.gaz" 1827
 LOAD 7
 PUSH_CLASS FunctionCallAST
 CALL_BUILTIN is_a 2
 JZ ELSE_16
-@ "parser.gaz" 1809
+@ "parser.gaz" 1828
 LOAD 12
 GET_PROPERTY abstract
 JZ ELSE_17
-@ "parser.gaz" 1810
+@ "parser.gaz" 1829
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "Cannot construct abstract class "
@@ -15372,11 +15494,11 @@ LOAD 7
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1809
+@ "parser.gaz" 1828
 JMP ENDIF_17
 LABEL ELSE_17
 LABEL ENDIF_17
-@ "parser.gaz" 1812
+@ "parser.gaz" 1831
 LOAD_THIS
 GET_METHOD arity_error
 PUSH "Class "
@@ -15394,12 +15516,12 @@ CALL_METHOD 3 arity_error
 STORE 55
 LOAD 55
 POP
-@ "parser.gaz" 1813
+@ "parser.gaz" 1832
 LOAD 55
 PUSH null
 NOT_EQUALS
 JZ ELSE_18
-@ "parser.gaz" 1814
+@ "parser.gaz" 1833
 LOAD_THIS
 GET_METHOD fail_at
 LOAD 55
@@ -15409,34 +15531,34 @@ LOAD 7
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1813
+@ "parser.gaz" 1832
 JMP ENDIF_18
 LABEL ELSE_18
 LABEL ENDIF_18
-@ "parser.gaz" 1808
+@ "parser.gaz" 1827
 JMP ENDIF_16
 LABEL ELSE_16
 LABEL ENDIF_16
-@ "parser.gaz" 1818
+@ "parser.gaz" 1837
 JMP CONTINUE_12
-@ "parser.gaz" 1806
+@ "parser.gaz" 1825
 JMP ENDIF_15
 LABEL ELSE_15
 LABEL ENDIF_15
-@ "parser.gaz" 1820
+@ "parser.gaz" 1839
 LOAD_FIELD functions
 LOAD 7
 GET_PROPERTY name
 CALL_BUILTIN has_key 2
 NOT
 JZ ELSE_19
-@ "parser.gaz" 1821
+@ "parser.gaz" 1840
 PUSH {"echo" => "ECHO", "if" => "IF", "else" => "ELSE", "while" => "WHILE", "for" => "FOR", "foreach" => "FOREACH", "as" => "AS", "break" => "BREAK", "continue" => "CONTINUE", "fn" => "FN", "function" => "FUNCTION", "return" => "RETURN", "null" => "NULL", "delete" => "DELETE", "match" => "MATCH", "default" => "DEFAULT", "const" => "CONST", "include" => "INCLUDE", "try" => "TRY", "catch" => "CATCH", "finally" => "FINALLY", "true" => "TRUE", "false" => "FALSE", "class" => "CLASS", "extends" => "EXTENDS", "abstract" => "ABSTRACT", "interface" => "INTERFACE", "implements" => "IMPLEMENTS", "final" => "FINAL", "public" => "PUBLIC", "private" => "PRIVATE", "protected" => "PROTECTED"}
 LOAD 7
 GET_PROPERTY name
 CALL_BUILTIN lower 1
 CALL_BUILTIN has_key 2
-@ "parser.gaz" 1822
+@ "parser.gaz" 1841
 JZ TERNARY_ELSE_20
 PUSH " (keywords are lowercase: write '"
 LOAD 7
@@ -15452,14 +15574,14 @@ CONCAT
 CONCAT
 JMP TERNARY_END_20
 LABEL TERNARY_ELSE_20
-@ "parser.gaz" 1823
+@ "parser.gaz" 1842
 PUSH ""
 LABEL TERNARY_END_20
-@ "parser.gaz" 1821
+@ "parser.gaz" 1840
 STORE 56
 LOAD 56
 POP
-@ "parser.gaz" 1825
+@ "parser.gaz" 1844
 LOAD 7
 PUSH_CLASS FunctionCallAST
 CALL_BUILTIN is_a 2
@@ -15472,7 +15594,7 @@ LABEL TERNARY_END_21
 STORE 57
 LOAD 57
 POP
-@ "parser.gaz" 1826
+@ "parser.gaz" 1845
 LOAD_THIS
 GET_METHOD fail_at
 PUSH ""
@@ -15491,16 +15613,16 @@ LOAD 7
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1820
+@ "parser.gaz" 1839
 JMP ENDIF_19
 LABEL ELSE_19
 LABEL ENDIF_19
-@ "parser.gaz" 1828
+@ "parser.gaz" 1847
 LOAD 7
 PUSH_CLASS FunctionCallAST
 CALL_BUILTIN is_a 2
 JZ ELSE_22
-@ "parser.gaz" 1829
+@ "parser.gaz" 1848
 LOAD_THIS
 GET_METHOD arity_error
 PUSH "Function "
@@ -15518,12 +15640,12 @@ CALL_METHOD 3 arity_error
 STORE 55
 LOAD 55
 POP
-@ "parser.gaz" 1830
+@ "parser.gaz" 1849
 LOAD 55
 PUSH null
 NOT_EQUALS
 JZ ELSE_23
-@ "parser.gaz" 1831
+@ "parser.gaz" 1850
 LOAD_THIS
 GET_METHOD fail_at
 LOAD 55
@@ -15533,16 +15655,16 @@ LOAD 7
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1830
+@ "parser.gaz" 1849
 JMP ENDIF_23
 LABEL ELSE_23
 LABEL ENDIF_23
-@ "parser.gaz" 1828
+@ "parser.gaz" 1847
 JMP ENDIF_22
 LABEL ELSE_22
 LABEL ENDIF_22
 LABEL CONTINUE_12
-@ "parser.gaz" 1796
+@ "parser.gaz" 1815
 LOAD 54
 PUSH 1
 ADD
@@ -15551,33 +15673,33 @@ LOAD 54
 POP
 JMP WHILE_12
 LABEL ENDWHILE_12
-@ "parser.gaz" 1836
+@ "parser.gaz" 1855
 LOAD 1
 RET
-@ "parser.gaz" 1756
+@ "parser.gaz" 1775
 PUSH null
 RET
 
 fn Parser.resolve_class 2 2
 locals $class $chain $parent $from $cycle $#destructure_1 $#foreach_array_2 $#foreach_keys_2 $#foreach_count_2 $#foreach_i_2 $name $_ $line $owner $kind $#foreach_array_3 $#foreach_keys_3 $#foreach_count_3 $#foreach_i_3 $#foreach_array_4 $#foreach_keys_4 $#foreach_count_4 $#foreach_i_4 $method $#destructure_5 $fewest $most $#destructure_6 $parent_fewest $parent_most $expected
-@ "parser.gaz" 1846
+@ "parser.gaz" 1865
 LOAD 0
 GET_PROPERTY resolved
 JZ ELSE_0
-@ "parser.gaz" 1847
+@ "parser.gaz" 1866
 PUSH null
 RET
-@ "parser.gaz" 1846
+@ "parser.gaz" 1865
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 1850
+@ "parser.gaz" 1869
 LOAD 0
 GET_PROPERTY parent
 PUSH null
 NOT_EQUALS
 JZ ELSE_1
-@ "parser.gaz" 1851
+@ "parser.gaz" 1870
 LOAD_THIS
 GET_PROPERTY_QUIET classes
 LOAD 0
@@ -15589,12 +15711,12 @@ LABEL COALESCE_END_2
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 1852
+@ "parser.gaz" 1871
 LOAD 2
 PUSH null
 EQUALS
 JZ ELSE_3
-@ "parser.gaz" 1853
+@ "parser.gaz" 1872
 LOAD_THIS
 GET_METHOD fail_at
 LOAD_THIS
@@ -15608,28 +15730,28 @@ LOAD 0
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1852
+@ "parser.gaz" 1871
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "parser.gaz" 1855
+@ "parser.gaz" 1874
 LOAD 0
 GET_PROPERTY name
 SET_PATH [] 1
 POP
-@ "parser.gaz" 1856
+@ "parser.gaz" 1875
 LOAD 2
 GET_PROPERTY name
 LOAD 1
 CALL_BUILTIN in_array 2
 JZ ELSE_4
-@ "parser.gaz" 1858
+@ "parser.gaz" 1877
 PUSH 0
 STORE 3
 LOAD 3
 POP
 LABEL WHILE_5
-@ "parser.gaz" 1859
+@ "parser.gaz" 1878
 LOAD 1
 LOAD 3
 INDEX_GET
@@ -15637,28 +15759,28 @@ LOAD 2
 GET_PROPERTY name
 NOT_EQUALS
 JZ ENDWHILE_5
-@ "parser.gaz" 1860
+@ "parser.gaz" 1879
 LOAD 3
 INC
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 1859
+@ "parser.gaz" 1878
 JMP WHILE_5
 LABEL ENDWHILE_5
-@ "parser.gaz" 1862
+@ "parser.gaz" 1881
 LOAD 1
 LOAD 3
 CALL_BUILTIN slice 2
 STORE 4
 LOAD 4
 POP
-@ "parser.gaz" 1863
+@ "parser.gaz" 1882
 LOAD 2
 GET_PROPERTY name
 SET_PATH [] 4
 POP
-@ "parser.gaz" 1864
+@ "parser.gaz" 1883
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "Circular inheritance: "
@@ -15672,18 +15794,18 @@ LOAD 0
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1856
+@ "parser.gaz" 1875
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
-@ "parser.gaz" 1866
+@ "parser.gaz" 1885
 LOAD_THIS
 GET_METHOD resolve_class
 LOAD 2
 LOAD 1
 CALL_METHOD 2 resolve_class
 POP
-@ "parser.gaz" 1867
+@ "parser.gaz" 1886
 NEW_ARRAY
 LOAD 2
 GET_PROPERTY layout
@@ -15713,16 +15835,16 @@ SET_PATH .abstract_methods 0
 POP
 LOAD 5
 POP
-@ "parser.gaz" 1868
+@ "parser.gaz" 1887
 LOAD 2
 GET_PROPERTY constant_owners
 SET_PATH .constant_owners 0
 POP
-@ "parser.gaz" 1850
+@ "parser.gaz" 1869
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "parser.gaz" 1871
+@ "parser.gaz" 1890
 LOAD 0
 GET_PROPERTY constants
 FOREACH_CHECK
@@ -15760,7 +15882,7 @@ INDEX_GET
 STORE 11
 LOAD 11
 POP
-@ "parser.gaz" 1872
+@ "parser.gaz" 1891
 LOAD 0
 GET_PROPERTY constant_lines
 LOAD 10
@@ -15768,13 +15890,13 @@ INDEX_GET
 STORE 12
 LOAD 12
 POP
-@ "parser.gaz" 1874
+@ "parser.gaz" 1893
 LOAD 0
 GET_PROPERTY constant_owners
 LOAD 10
 CALL_BUILTIN has_key 2
 JZ ELSE_7
-@ "parser.gaz" 1875
+@ "parser.gaz" 1894
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "Constant "
@@ -15797,11 +15919,11 @@ GET_PROPERTY file
 LOAD 12
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1874
+@ "parser.gaz" 1893
 JMP ENDIF_7
 LABEL ELSE_7
 LABEL ENDIF_7
-@ "parser.gaz" 1877
+@ "parser.gaz" 1896
 LOAD_QUIET 0
 GET_PROPERTY_QUIET layout
 LOAD 10
@@ -15824,12 +15946,12 @@ LABEL COALESCE_END_8
 STORE 13
 LOAD 13
 POP
-@ "parser.gaz" 1878
+@ "parser.gaz" 1897
 LOAD 13
 PUSH null
 NOT_EQUALS
 JZ ELSE_11
-@ "parser.gaz" 1879
+@ "parser.gaz" 1898
 LOAD 0
 GET_PROPERTY layout
 LOAD 10
@@ -15843,7 +15965,7 @@ LABEL TERNARY_END_12
 STORE 14
 LOAD 14
 POP
-@ "parser.gaz" 1880
+@ "parser.gaz" 1899
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "Constant "
@@ -15869,11 +15991,11 @@ GET_PROPERTY file
 LOAD 12
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1878
+@ "parser.gaz" 1897
 JMP ENDIF_11
 LABEL ELSE_11
 LABEL ENDIF_11
-@ "parser.gaz" 1882
+@ "parser.gaz" 1901
 LOAD 10
 KEY_CHECK
 LOAD 0
@@ -15881,7 +16003,7 @@ GET_PROPERTY name
 SET_PATH .constant_owners[k] 0
 POP
 LABEL CONTINUE_6
-@ "parser.gaz" 1871
+@ "parser.gaz" 1890
 LOAD 9
 PUSH 1
 ADD
@@ -15890,7 +16012,7 @@ LOAD 9
 POP
 JMP WHILE_6
 LABEL ENDWHILE_6
-@ "parser.gaz" 1885
+@ "parser.gaz" 1904
 LOAD 0
 GET_PROPERTY fields
 FOREACH_CHECK
@@ -15928,7 +16050,7 @@ INDEX_GET
 STORE 11
 LOAD 11
 POP
-@ "parser.gaz" 1886
+@ "parser.gaz" 1905
 LOAD 0
 GET_PROPERTY field_lines
 LOAD 10
@@ -15936,7 +16058,7 @@ INDEX_GET
 STORE 12
 LOAD 12
 POP
-@ "parser.gaz" 1887
+@ "parser.gaz" 1906
 LOAD 0
 GET_PROPERTY constant_owners
 LOAD 10
@@ -15956,7 +16078,7 @@ LABEL AND_FALSE_15
 PUSH false
 LABEL AND_END_15
 JZ ELSE_14
-@ "parser.gaz" 1888
+@ "parser.gaz" 1907
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "Field #"
@@ -15981,17 +16103,17 @@ GET_PROPERTY file
 LOAD 12
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1887
+@ "parser.gaz" 1906
 JMP ENDIF_14
 LABEL ELSE_14
 LABEL ENDIF_14
-@ "parser.gaz" 1890
+@ "parser.gaz" 1909
 LOAD 0
 GET_PROPERTY layout
 LOAD 10
 CALL_BUILTIN has_key 2
 JZ ELSE_16
-@ "parser.gaz" 1891
+@ "parser.gaz" 1910
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "Field #"
@@ -16014,11 +16136,11 @@ GET_PROPERTY file
 LOAD 12
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1890
+@ "parser.gaz" 1909
 JMP ENDIF_16
 LABEL ELSE_16
 LABEL ENDIF_16
-@ "parser.gaz" 1893
+@ "parser.gaz" 1912
 LOAD_QUIET 0
 GET_PROPERTY_QUIET members
 LOAD 10
@@ -16035,12 +16157,12 @@ LABEL COALESCE_END_17
 STORE 13
 LOAD 13
 POP
-@ "parser.gaz" 1894
+@ "parser.gaz" 1913
 LOAD 13
 PUSH null
 NOT_EQUALS
 JZ ELSE_19
-@ "parser.gaz" 1895
+@ "parser.gaz" 1914
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "Field #"
@@ -16062,11 +16184,11 @@ GET_PROPERTY file
 LOAD 12
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1894
+@ "parser.gaz" 1913
 JMP ENDIF_19
 LABEL ELSE_19
 LABEL ENDIF_19
-@ "parser.gaz" 1897
+@ "parser.gaz" 1916
 LOAD 10
 KEY_CHECK
 LOAD 0
@@ -16074,7 +16196,7 @@ GET_PROPERTY name
 SET_PATH .layout[k] 0
 POP
 LABEL CONTINUE_13
-@ "parser.gaz" 1885
+@ "parser.gaz" 1904
 LOAD 18
 PUSH 1
 ADD
@@ -16083,7 +16205,7 @@ LOAD 18
 POP
 JMP WHILE_13
 LABEL ENDWHILE_13
-@ "parser.gaz" 1899
+@ "parser.gaz" 1918
 LOAD 0
 GET_PROPERTY methods
 FOREACH_CHECK
@@ -16121,13 +16243,13 @@ INDEX_GET
 STORE 23
 LOAD 23
 POP
-@ "parser.gaz" 1900
+@ "parser.gaz" 1919
 LOAD 0
 GET_PROPERTY constant_owners
 LOAD 10
 CALL_BUILTIN has_key 2
 JZ ELSE_21
-@ "parser.gaz" 1901
+@ "parser.gaz" 1920
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "Method "
@@ -16153,17 +16275,17 @@ LOAD 23
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1900
+@ "parser.gaz" 1919
 JMP ENDIF_21
 LABEL ELSE_21
 LABEL ENDIF_21
-@ "parser.gaz" 1903
+@ "parser.gaz" 1922
 LOAD 0
 GET_PROPERTY layout
 LOAD 10
 CALL_BUILTIN has_key 2
 JZ ELSE_22
-@ "parser.gaz" 1904
+@ "parser.gaz" 1923
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "Method "
@@ -16189,11 +16311,11 @@ LOAD 23
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1903
+@ "parser.gaz" 1922
 JMP ENDIF_22
 LABEL ELSE_22
 LABEL ENDIF_22
-@ "parser.gaz" 1906
+@ "parser.gaz" 1925
 LOAD_QUIET 0
 GET_PROPERTY_QUIET members
 LOAD 10
@@ -16210,7 +16332,7 @@ LABEL COALESCE_END_23
 STORE 13
 LOAD 13
 POP
-@ "parser.gaz" 1907
+@ "parser.gaz" 1926
 LOAD 13
 PUSH null
 NOT_EQUALS
@@ -16235,7 +16357,7 @@ LABEL AND_FALSE_26
 PUSH false
 LABEL AND_END_26
 JZ ELSE_25
-@ "parser.gaz" 1908
+@ "parser.gaz" 1927
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "Abstract method "
@@ -16260,11 +16382,11 @@ LOAD 23
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1907
+@ "parser.gaz" 1926
 JMP ENDIF_25
 LABEL ELSE_25
 LABEL ENDIF_25
-@ "parser.gaz" 1911
+@ "parser.gaz" 1930
 LOAD 13
 PUSH null
 NOT_EQUALS
@@ -16279,7 +16401,7 @@ LABEL AND_FALSE_29
 PUSH false
 LABEL AND_END_29
 JZ ELSE_28
-@ "parser.gaz" 1912
+@ "parser.gaz" 1931
 LOAD_THIS
 GET_METHOD bounds
 LOAD 23
@@ -16301,7 +16423,7 @@ LOAD 26
 POP
 LOAD 24
 POP
-@ "parser.gaz" 1913
+@ "parser.gaz" 1932
 LOAD_THIS
 GET_METHOD bounds
 LOAD_FIELD classes
@@ -16328,7 +16450,7 @@ LOAD 29
 POP
 LOAD 27
 POP
-@ "parser.gaz" 1914
+@ "parser.gaz" 1933
 LOAD 25
 LOAD 28
 GT
@@ -16345,7 +16467,7 @@ LABEL OR_TRUE_31
 PUSH true
 LABEL OR_END_31
 JZ ELSE_30
-@ "parser.gaz" 1915
+@ "parser.gaz" 1934
 LOAD 28
 LOAD 29
 EQUALS
@@ -16364,7 +16486,7 @@ LABEL TERNARY_END_32
 STORE 30
 LOAD 30
 POP
-@ "parser.gaz" 1916
+@ "parser.gaz" 1935
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "Method "
@@ -16395,15 +16517,15 @@ LOAD 23
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1914
+@ "parser.gaz" 1933
 JMP ENDIF_30
 LABEL ELSE_30
 LABEL ENDIF_30
-@ "parser.gaz" 1911
+@ "parser.gaz" 1930
 JMP ENDIF_28
 LABEL ELSE_28
 LABEL ENDIF_28
-@ "parser.gaz" 1919
+@ "parser.gaz" 1938
 LOAD 10
 PUSH "to_string"
 EQUALS
@@ -16424,7 +16546,7 @@ LABEL AND_FALSE_34
 PUSH false
 LABEL AND_END_34
 JZ ELSE_33
-@ "parser.gaz" 1920
+@ "parser.gaz" 1939
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "Method "
@@ -16439,48 +16561,48 @@ LOAD 23
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1919
+@ "parser.gaz" 1938
 JMP ENDIF_33
 LABEL ELSE_33
 LABEL ENDIF_33
-@ "parser.gaz" 1922
+@ "parser.gaz" 1941
 LOAD 23
 GET_PROPERTY abstract
 JZ ELSE_35
-@ "parser.gaz" 1923
+@ "parser.gaz" 1942
 LOAD 10
 KEY_CHECK
 LOAD 0
 GET_PROPERTY name
 SET_PATH .abstract_methods[k] 0
 POP
-@ "parser.gaz" 1922
+@ "parser.gaz" 1941
 JMP ENDIF_35
 LABEL ELSE_35
-@ "parser.gaz" 1925
+@ "parser.gaz" 1944
 LOAD 10
 KEY_CHECK
 LOAD 0
 GET_PROPERTY name
 SET_PATH .members[k] 0
 POP
-@ "parser.gaz" 1926
+@ "parser.gaz" 1945
 LOAD 0
 GET_PROPERTY abstract_methods
 LOAD 10
 CALL_BUILTIN has_key 2
 JZ ELSE_36
-@ "parser.gaz" 1927
+@ "parser.gaz" 1946
 LOAD 10
 KEY_CHECK
 DELETE_PATH .abstract_methods[k] 0
-@ "parser.gaz" 1926
+@ "parser.gaz" 1945
 JMP ENDIF_36
 LABEL ELSE_36
 LABEL ENDIF_36
 LABEL ENDIF_35
 LABEL CONTINUE_20
-@ "parser.gaz" 1899
+@ "parser.gaz" 1918
 LOAD 22
 PUSH 1
 ADD
@@ -16489,7 +16611,7 @@ LOAD 22
 POP
 JMP WHILE_20
 LABEL ENDWHILE_20
-@ "parser.gaz" 1932
+@ "parser.gaz" 1951
 LOAD 0
 GET_PROPERTY abstract
 NOT
@@ -16505,7 +16627,7 @@ LABEL AND_FALSE_38
 PUSH false
 LABEL AND_END_38
 JZ ELSE_37
-@ "parser.gaz" 1933
+@ "parser.gaz" 1952
 LOAD 0
 GET_PROPERTY abstract_methods
 CALL_BUILTIN keys 1
@@ -16514,7 +16636,7 @@ INDEX_GET
 STORE 10
 LOAD 10
 POP
-@ "parser.gaz" 1934
+@ "parser.gaz" 1953
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "Class "
@@ -16540,27 +16662,27 @@ LOAD 0
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1932
+@ "parser.gaz" 1951
 JMP ENDIF_37
 LABEL ELSE_37
 LABEL ENDIF_37
-@ "parser.gaz" 1936
+@ "parser.gaz" 1955
 PUSH true
 SET_PATH .resolved 0
 POP
-@ "parser.gaz" 1845
+@ "parser.gaz" 1864
 PUSH null
 RET
 
 fn Parser.check_parent_use 2 2
 locals $node $class $parent $name $error
-@ "parser.gaz" 1941
+@ "parser.gaz" 1960
 LOAD 1
 GET_PROPERTY parent
 PUSH null
 EQUALS
 JZ ELSE_0
-@ "parser.gaz" 1942
+@ "parser.gaz" 1961
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "Cannot use ##"
@@ -16580,11 +16702,11 @@ LOAD 0
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1941
+@ "parser.gaz" 1960
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 1944
+@ "parser.gaz" 1963
 LOAD_FIELD classes
 LOAD 1
 GET_PROPERTY parent
@@ -16592,19 +16714,19 @@ INDEX_GET
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 1945
+@ "parser.gaz" 1964
 LOAD 0
 GET_PROPERTY name
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 1946
+@ "parser.gaz" 1965
 LOAD 2
 GET_PROPERTY layout
 LOAD 3
 CALL_BUILTIN has_key 2
 JZ ELSE_1
-@ "parser.gaz" 1947
+@ "parser.gaz" 1966
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "##"
@@ -16627,17 +16749,17 @@ LOAD 0
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1946
+@ "parser.gaz" 1965
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "parser.gaz" 1949
+@ "parser.gaz" 1968
 LOAD 2
 GET_PROPERTY abstract_methods
 LOAD 3
 CALL_BUILTIN has_key 2
 JZ ELSE_2
-@ "parser.gaz" 1950
+@ "parser.gaz" 1969
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "Cannot use ##"
@@ -16660,18 +16782,18 @@ LOAD 0
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1949
+@ "parser.gaz" 1968
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "parser.gaz" 1952
+@ "parser.gaz" 1971
 LOAD 2
 GET_PROPERTY members
 LOAD 3
 CALL_BUILTIN has_key 2
 NOT
 JZ ELSE_3
-@ "parser.gaz" 1953
+@ "parser.gaz" 1972
 LOAD_THIS
 GET_METHOD fail_at
 LOAD 3
@@ -16701,24 +16823,24 @@ LOAD 0
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1952
+@ "parser.gaz" 1971
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "parser.gaz" 1956
+@ "parser.gaz" 1975
 LOAD 2
 GET_PROPERTY members
 LOAD 3
 INDEX_GET
 SET_PATH .definer 0
 POP
-@ "parser.gaz" 1957
+@ "parser.gaz" 1976
 LOAD 0
 GET_PROPERTY args
 PUSH null
 NOT_EQUALS
 JZ ELSE_5
-@ "parser.gaz" 1958
+@ "parser.gaz" 1977
 LOAD_THIS
 GET_METHOD arity_error
 PUSH "Method "
@@ -16744,12 +16866,12 @@ CALL_METHOD 3 arity_error
 STORE 4
 LOAD 4
 POP
-@ "parser.gaz" 1959
+@ "parser.gaz" 1978
 LOAD 4
 PUSH null
 NOT_EQUALS
 JZ ELSE_6
-@ "parser.gaz" 1960
+@ "parser.gaz" 1979
 LOAD_THIS
 GET_METHOD fail_at
 LOAD 4
@@ -16759,21 +16881,21 @@ LOAD 0
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1959
+@ "parser.gaz" 1978
 JMP ENDIF_6
 LABEL ELSE_6
 LABEL ENDIF_6
-@ "parser.gaz" 1957
+@ "parser.gaz" 1976
 JMP ENDIF_5
 LABEL ELSE_5
 LABEL ENDIF_5
-@ "parser.gaz" 1940
+@ "parser.gaz" 1959
 PUSH null
 RET
 
 fn Parser.builtin_classes 0 0
 locals $#destructure_0 $lexer $current_token $file $class $#destructure_1
-@ "parser.gaz" 1967
+@ "parser.gaz" 1986
 NEW_ARRAY
 LOAD_FIELD lexer
 ARRAY_PUSH
@@ -16803,29 +16925,29 @@ LOAD 3
 POP
 LOAD 0
 POP
-@ "parser.gaz" 1968
+@ "parser.gaz" 1987
 PUSH "class Error {\n    #message;\n    #file;\n    #line;\n    #trace;\n    fn _(\$message) { #message = \$message; }\n    fn to_string() { return \"\{#message}\"; }\n}"
 NEW Lexer 1
 SET_FIELD lexer
 POP
-@ "parser.gaz" 1969
+@ "parser.gaz" 1988
 PUSH "<builtin>"
 SET_FIELD file
 POP
-@ "parser.gaz" 1970
+@ "parser.gaz" 1989
 LOAD_THIS
 GET_METHOD next_token
 CALL_METHOD 0 next_token
 SET_FIELD current_token
 POP
-@ "parser.gaz" 1971
+@ "parser.gaz" 1990
 LOAD_THIS
 GET_METHOD class_declaration
 CALL_METHOD 0 class_declaration
 STORE 4
 LOAD 4
 POP
-@ "parser.gaz" 1972
+@ "parser.gaz" 1991
 NEW_ARRAY
 LOAD 1
 ARRAY_PUSH
@@ -16852,16 +16974,16 @@ SET_FIELD file
 POP
 LOAD 5
 POP
-@ "parser.gaz" 1974
+@ "parser.gaz" 1993
 LOAD 4
 RET
-@ "parser.gaz" 1966
+@ "parser.gaz" 1985
 PUSH null
 RET
 
 fn Parser.constructor_arity 1 1
 locals $class
-@ "parser.gaz" 1979
+@ "parser.gaz" 1998
 LOAD 0
 GET_PROPERTY members
 PUSH "_"
@@ -16882,13 +17004,13 @@ LABEL TERNARY_ELSE_0
 PUSH 0
 LABEL TERNARY_END_0
 RET
-@ "parser.gaz" 1978
+@ "parser.gaz" 1997
 PUSH null
 RET
 
 fn Parser.check_member_use 5 5
 locals $node $class $argc $assigned $written $constant $definer $error
-@ "parser.gaz" 1987
+@ "parser.gaz" 2006
 LOAD_THIS
 GET_METHOD class_constant
 LOAD 1
@@ -16898,15 +17020,15 @@ CALL_METHOD 2 class_constant
 STORE 5
 LOAD 5
 POP
-@ "parser.gaz" 1988
+@ "parser.gaz" 2007
 LOAD 5
 PUSH null
 NOT_EQUALS
 JZ ELSE_0
-@ "parser.gaz" 1989
+@ "parser.gaz" 2008
 LOAD 4
 JZ ELSE_1
-@ "parser.gaz" 1990
+@ "parser.gaz" 2009
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "Cannot change constant #"
@@ -16919,16 +17041,16 @@ LOAD 0
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1989
+@ "parser.gaz" 2008
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "parser.gaz" 1992
+@ "parser.gaz" 2011
 LOAD 2
 PUSH null
 NOT_EQUALS
 JZ ELSE_2
-@ "parser.gaz" 1993
+@ "parser.gaz" 2012
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "#"
@@ -16943,15 +17065,15 @@ LOAD 0
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1992
+@ "parser.gaz" 2011
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "parser.gaz" 1995
+@ "parser.gaz" 2014
 PUSH true
 SET_PATH .constant 0
 POP
-@ "parser.gaz" 1996
+@ "parser.gaz" 2015
 LOAD_THIS
 GET_METHOD constant_value
 LOAD 5
@@ -16959,32 +17081,32 @@ LOAD 0
 CALL_METHOD 2 constant_value
 SET_PATH .value 0
 POP
-@ "parser.gaz" 1998
+@ "parser.gaz" 2017
 PUSH null
 RET
-@ "parser.gaz" 1988
+@ "parser.gaz" 2007
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 2000
+@ "parser.gaz" 2019
 LOAD 1
 GET_PROPERTY layout
 LOAD 0
 GET_PROPERTY name
 CALL_BUILTIN has_key 2
 JZ ELSE_3
-@ "parser.gaz" 2001
+@ "parser.gaz" 2020
 PUSH true
 SET_PATH .field 0
 POP
-@ "parser.gaz" 2003
+@ "parser.gaz" 2022
 PUSH null
 RET
-@ "parser.gaz" 2000
+@ "parser.gaz" 2019
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "parser.gaz" 2005
+@ "parser.gaz" 2024
 LOAD_QUIET 1
 GET_PROPERTY_QUIET members
 LOAD 0
@@ -17003,12 +17125,12 @@ LABEL COALESCE_END_4
 STORE 6
 LOAD 6
 POP
-@ "parser.gaz" 2006
+@ "parser.gaz" 2025
 LOAD 6
 PUSH null
 EQUALS
 JZ ELSE_6
-@ "parser.gaz" 2007
+@ "parser.gaz" 2026
 LOAD_THIS
 GET_METHOD fail_at
 PUSH ""
@@ -17026,14 +17148,14 @@ LOAD 0
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 2006
+@ "parser.gaz" 2025
 JMP ENDIF_6
 LABEL ELSE_6
 LABEL ENDIF_6
-@ "parser.gaz" 2009
+@ "parser.gaz" 2028
 LOAD 3
 JZ ELSE_7
-@ "parser.gaz" 2010
+@ "parser.gaz" 2029
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "Cannot assign to method #"
@@ -17046,16 +17168,16 @@ LOAD 0
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 2009
+@ "parser.gaz" 2028
 JMP ENDIF_7
 LABEL ELSE_7
 LABEL ENDIF_7
-@ "parser.gaz" 2012
+@ "parser.gaz" 2031
 LOAD 2
 PUSH null
 NOT_EQUALS
 JZ ELSE_8
-@ "parser.gaz" 2013
+@ "parser.gaz" 2032
 LOAD_THIS
 GET_METHOD arity_error
 PUSH "Method "
@@ -17079,12 +17201,12 @@ CALL_METHOD 3 arity_error
 STORE 7
 LOAD 7
 POP
-@ "parser.gaz" 2014
+@ "parser.gaz" 2033
 LOAD 7
 PUSH null
 NOT_EQUALS
 JZ ELSE_9
-@ "parser.gaz" 2015
+@ "parser.gaz" 2034
 LOAD_THIS
 GET_METHOD fail_at
 LOAD 7
@@ -17094,21 +17216,21 @@ LOAD 0
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 2014
+@ "parser.gaz" 2033
 JMP ENDIF_9
 LABEL ELSE_9
 LABEL ENDIF_9
-@ "parser.gaz" 2012
+@ "parser.gaz" 2031
 JMP ENDIF_8
 LABEL ELSE_8
 LABEL ENDIF_8
-@ "parser.gaz" 1986
+@ "parser.gaz" 2005
 PUSH null
 RET
 
 fn Parser.bounds 1 1
 locals $arity
-@ "parser.gaz" 2022
+@ "parser.gaz" 2041
 LOAD 0
 CALL_BUILTIN type_of 1
 PUSH "int"
@@ -17124,13 +17246,13 @@ LABEL TERNARY_ELSE_0
 LOAD 0
 LABEL TERNARY_END_0
 RET
-@ "parser.gaz" 2021
+@ "parser.gaz" 2040
 PUSH null
 RET
 
 fn Parser.arity_error 3 3
 locals $what $arity $argc $#destructure_0 $fewest $most $expected
-@ "parser.gaz" 2027
+@ "parser.gaz" 2046
 LOAD_THIS
 GET_METHOD bounds
 LOAD 1
@@ -17151,7 +17273,7 @@ LOAD 5
 POP
 LOAD 3
 POP
-@ "parser.gaz" 2028
+@ "parser.gaz" 2047
 LOAD 2
 LOAD 4
 GE
@@ -17166,14 +17288,14 @@ LABEL AND_FALSE_1
 PUSH false
 LABEL AND_END_1
 JZ ELSE_0
-@ "parser.gaz" 2029
+@ "parser.gaz" 2048
 PUSH null
 RET
-@ "parser.gaz" 2028
+@ "parser.gaz" 2047
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 2031
+@ "parser.gaz" 2050
 LOAD 4
 LOAD 5
 EQUALS
@@ -17192,7 +17314,7 @@ LABEL TERNARY_END_2
 STORE 6
 LOAD 6
 POP
-@ "parser.gaz" 2033
+@ "parser.gaz" 2052
 PUSH ""
 LOAD 0
 CONCAT
@@ -17207,40 +17329,40 @@ CONCAT
 PUSH " given"
 CONCAT
 RET
-@ "parser.gaz" 2026
+@ "parser.gaz" 2045
 PUSH null
 RET
 
 fn Parser.top_level 0 0
 locals $statements
-@ "parser.gaz" 2038
+@ "parser.gaz" 2057
 NEW_ARRAY
 STORE 0
 LOAD 0
 POP
 LABEL WHILE_0
-@ "parser.gaz" 2039
+@ "parser.gaz" 2058
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "EOF"
 NOT_EQUALS
 JZ ENDWHILE_0
-@ "parser.gaz" 2040
+@ "parser.gaz" 2059
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "FN"
 EQUALS
 JZ ELSE_1
-@ "parser.gaz" 2041
+@ "parser.gaz" 2060
 LOAD_THIS
 GET_METHOD function_declaration
 CALL_METHOD 0 function_declaration
 SET_PATH [] 0
 POP
-@ "parser.gaz" 2040
+@ "parser.gaz" 2059
 JMP ENDIF_1
 LABEL ELSE_1
-@ "parser.gaz" 2042
+@ "parser.gaz" 2061
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "CLASS"
@@ -17259,37 +17381,37 @@ LABEL OR_TRUE_3
 PUSH true
 LABEL OR_END_3
 JZ ELSE_2
-@ "parser.gaz" 2043
+@ "parser.gaz" 2062
 LOAD_THIS
 GET_METHOD class_declaration
 CALL_METHOD 0 class_declaration
 SET_PATH [] 0
 POP
-@ "parser.gaz" 2042
+@ "parser.gaz" 2061
 JMP ENDIF_2
 LABEL ELSE_2
-@ "parser.gaz" 2044
+@ "parser.gaz" 2063
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "CONST"
 EQUALS
 JZ ELSE_4
-@ "parser.gaz" 2045
+@ "parser.gaz" 2064
 LOAD_THIS
 GET_METHOD constant_declaration
 PUSH null
 CALL_METHOD 1 constant_declaration
 POP
-@ "parser.gaz" 2044
+@ "parser.gaz" 2063
 JMP ENDIF_4
 LABEL ELSE_4
-@ "parser.gaz" 2046
+@ "parser.gaz" 2065
 LOAD_FIELD current_token
 GET_PROPERTY type
 PUSH "INCLUDE"
 EQUALS
 JZ ELSE_5
-@ "parser.gaz" 2047
+@ "parser.gaz" 2066
 NEW_ARRAY
 LOAD 0
 ARRAY_EXTEND
@@ -17300,10 +17422,10 @@ ARRAY_EXTEND
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 2046
+@ "parser.gaz" 2065
 JMP ENDIF_5
 LABEL ELSE_5
-@ "parser.gaz" 2049
+@ "parser.gaz" 2068
 LOAD_THIS
 GET_METHOD statement
 CALL_METHOD 0 statement
@@ -17313,64 +17435,64 @@ LABEL ENDIF_5
 LABEL ENDIF_4
 LABEL ENDIF_2
 LABEL ENDIF_1
-@ "parser.gaz" 2039
+@ "parser.gaz" 2058
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "parser.gaz" 2053
+@ "parser.gaz" 2072
 LOAD 0
 RET
-@ "parser.gaz" 2037
+@ "parser.gaz" 2056
 PUSH null
 RET
 
 fn Parser.include_statement 0 0
 locals $path_token $relative $written $path $text $#destructure_0 $lexer $current_token $base_dir $file $statements $#destructure_1
-@ "parser.gaz" 2063
+@ "parser.gaz" 2082
 LOAD_THIS
 GET_METHOD eat
 PUSH "INCLUDE"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 2064
+@ "parser.gaz" 2083
 LOAD_FIELD current_token
 STORE 0
 LOAD 0
 POP
-@ "parser.gaz" 2065
+@ "parser.gaz" 2084
 LOAD 0
 GET_PROPERTY type
 PUSH "STRING_START"
 EQUALS
 JZ ELSE_0
-@ "parser.gaz" 2067
+@ "parser.gaz" 2086
 LOAD_THIS
 GET_METHOD fail
 PUSH "include paths cannot use interpolation"
 CALL_METHOD 1 fail
 POP
-@ "parser.gaz" 2065
+@ "parser.gaz" 2084
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 2069
+@ "parser.gaz" 2088
 LOAD_THIS
 GET_METHOD eat
 PUSH "STRING"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 2070
+@ "parser.gaz" 2089
 LOAD_THIS
 GET_METHOD eat
 PUSH "SEMICOLON"
 CALL_METHOD 1 eat
 POP
-@ "parser.gaz" 2072
+@ "parser.gaz" 2091
 LOAD 0
 GET_PROPERTY value
 STORE 1
 LOAD 1
 POP
-@ "parser.gaz" 2073
+@ "parser.gaz" 2092
 LOAD 1
 PUSH "/"
 CALL_BUILTIN starts_with 2
@@ -17387,7 +17509,7 @@ LABEL TERNARY_END_1
 STORE 2
 LOAD 2
 POP
-@ "parser.gaz" 2074
+@ "parser.gaz" 2093
 LOAD 2
 CALL_BUILTIN file_exists 1
 JZ TERNARY_ELSE_2
@@ -17400,7 +17522,7 @@ LABEL TERNARY_END_2
 STORE 3
 LOAD 3
 POP
-@ "parser.gaz" 2077
+@ "parser.gaz" 2096
 LOAD 3
 PUSH null
 EQUALS
@@ -17416,12 +17538,12 @@ LABEL TERNARY_END_3
 STORE 4
 LOAD 4
 POP
-@ "parser.gaz" 2078
+@ "parser.gaz" 2097
 LOAD 4
 PUSH null
 EQUALS
 JZ ELSE_4
-@ "parser.gaz" 2079
+@ "parser.gaz" 2098
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "Cannot include file: "
@@ -17432,29 +17554,29 @@ LOAD 0
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 2078
+@ "parser.gaz" 2097
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
-@ "parser.gaz" 2081
+@ "parser.gaz" 2100
 LOAD_FIELD included
 LOAD 3
 CALL_BUILTIN has_key 2
 JZ ELSE_5
-@ "parser.gaz" 2082
+@ "parser.gaz" 2101
 NEW_ARRAY
 RET
-@ "parser.gaz" 2081
+@ "parser.gaz" 2100
 JMP ENDIF_5
 LABEL ELSE_5
 LABEL ENDIF_5
-@ "parser.gaz" 2084
+@ "parser.gaz" 2103
 LOAD 3
 KEY_CHECK
 PUSH true
 SET_PATH_THIS .included[k]
 POP
-@ "parser.gaz" 2086
+@ "parser.gaz" 2105
 NEW_ARRAY
 LOAD_FIELD lexer
 ARRAY_PUSH
@@ -17492,39 +17614,39 @@ LOAD 9
 POP
 LOAD 5
 POP
-@ "parser.gaz" 2087
+@ "parser.gaz" 2106
 LOAD 4
 NEW Lexer 1
 SET_FIELD lexer
 POP
-@ "parser.gaz" 2088
+@ "parser.gaz" 2107
 LOAD_THIS
 GET_METHOD dirname
 LOAD 3
 CALL_METHOD 1 dirname
 SET_FIELD base_dir
 POP
-@ "parser.gaz" 2089
+@ "parser.gaz" 2108
 LOAD_THIS
 GET_METHOD display_path
 LOAD 3
 CALL_METHOD 1 display_path
 SET_FIELD file
 POP
-@ "parser.gaz" 2090
+@ "parser.gaz" 2109
 LOAD_THIS
 GET_METHOD next_token
 CALL_METHOD 0 next_token
 SET_FIELD current_token
 POP
-@ "parser.gaz" 2091
+@ "parser.gaz" 2110
 LOAD_THIS
 GET_METHOD top_level
 CALL_METHOD 0 top_level
 STORE 10
 LOAD 10
 POP
-@ "parser.gaz" 2092
+@ "parser.gaz" 2111
 NEW_ARRAY
 LOAD 6
 ARRAY_PUSH
@@ -17558,21 +17680,21 @@ SET_FIELD file
 POP
 LOAD 11
 POP
-@ "parser.gaz" 2094
+@ "parser.gaz" 2113
 LOAD 10
 RET
-@ "parser.gaz" 2062
+@ "parser.gaz" 2081
 PUSH null
 RET
 
 fn Parser.parse 0 0
 locals
-@ "parser.gaz" 2099
+@ "parser.gaz" 2118
 LOAD_THIS
 GET_METHOD program
 CALL_METHOD 0 program
 RET
-@ "parser.gaz" 2098
+@ "parser.gaz" 2117
 PUSH null
 RET
 
@@ -21588,11 +21710,7 @@ fn CodeGenerator.visit_loop_control 1 1
 locals $node $#destructure_0 $continue_label $end_label $loop_try_depth
 @ "codegen.gaz" 629
 LOAD_FIELD loop_labels
-LOAD_FIELD loop_labels
-CALL_BUILTIN len 1
-PUSH 1
-SUB
-INDEX_GET
+CALL_BUILTIN last 1
 DESTRUCTURE 3
 STORE 1
 LOAD 1
@@ -25587,7 +25705,7 @@ RET
 lambda 0 1 1
 capture $token local 1
 locals $target
-@ "parser.gaz" 875
+@ "parser.gaz" 891
 LOAD_THIS
 GET_METHOD assignable
 LOAD 0
@@ -25597,13 +25715,13 @@ RET
 
 lambda 1 1 1
 locals $target
-@ "parser.gaz" 1117
+@ "parser.gaz" 1133
 LOAD 0
 PUSH_CLASS VariableAST
 CALL_BUILTIN is_a 2
 NOT
 JZ ELSE_0
-@ "parser.gaz" 1118
+@ "parser.gaz" 1134
 LOAD_THIS
 GET_METHOD fail_at
 PUSH "A foreach pattern takes variables only"
@@ -25613,14 +25731,14 @@ LOAD 0
 GET_PROPERTY line
 CALL_METHOD 3 fail_at
 POP
-@ "parser.gaz" 1117
+@ "parser.gaz" 1133
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "parser.gaz" 1121
+@ "parser.gaz" 1137
 LOAD 0
 RET
-@ "parser.gaz" 1116
+@ "parser.gaz" 1132
 PUSH null
 RET
 
@@ -25628,43 +25746,43 @@ lambda 2 0 0
 capture $node local 0
 capture $value local 2
 locals $#match_0
-@ "parser.gaz" 1519
+@ "parser.gaz" 1537
 LOAD_CAPTURED 0
 GET_PROPERTY op
 GET_PROPERTY type
 STORE 0
 LOAD 0
-@ "parser.gaz" 1520
+@ "parser.gaz" 1538
 PUSH "NOT"
-@ "parser.gaz" 1519
+@ "parser.gaz" 1537
 EQUALS
 NOT
 JZ MATCH_ARM_0_0
 LOAD 0
-@ "parser.gaz" 1521
+@ "parser.gaz" 1539
 PUSH "MINUS"
-@ "parser.gaz" 1519
+@ "parser.gaz" 1537
 EQUALS
 NOT
 JZ MATCH_ARM_0_1
 JMP MATCH_ARM_0_2
 LABEL MATCH_ARM_0_0
-@ "parser.gaz" 1520
+@ "parser.gaz" 1538
 LOAD_CAPTURED 1
 NOT
-@ "parser.gaz" 1519
+@ "parser.gaz" 1537
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_1
-@ "parser.gaz" 1521
+@ "parser.gaz" 1539
 LOAD_CAPTURED 1
 NEG
-@ "parser.gaz" 1519
+@ "parser.gaz" 1537
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_2
-@ "parser.gaz" 1522
+@ "parser.gaz" 1540
 LOAD_CAPTURED 1
 BIT_NOT
-@ "parser.gaz" 1519
+@ "parser.gaz" 1537
 JMP MATCH_END_0
 LABEL MATCH_END_0
 RET
@@ -25674,7 +25792,7 @@ capture $type local 4
 capture $left local 3
 capture $right local 5
 locals
-@ "parser.gaz" 1537
+@ "parser.gaz" 1555
 LOAD_THIS
 GET_METHOD apply
 LOAD_CAPTURED 0
@@ -25687,7 +25805,7 @@ lambda 4 0 0
 capture $list local 6
 capture $value local 2
 locals
-@ "parser.gaz" 1546
+@ "parser.gaz" 1564
 NEW_ARRAY
 LOAD_CAPTURED 0
 ARRAY_EXTEND
@@ -25698,7 +25816,7 @@ RET
 lambda 5 0 0
 capture $key local 20
 locals
-@ "parser.gaz" 1558
+@ "parser.gaz" 1576
 NEW_MAP
 LOAD_CAPTURED 0
 KEY_CHECK

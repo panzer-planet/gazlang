@@ -24,6 +24,26 @@ class StdlibTest extends GazLangTestCase
         $this->executeCode('values(5);');
     }
 
+    public function test_last_gives_a_list_s_last_element()
+    {
+        $this->assertSame(
+            "3\n[4]\nx\n",
+            $this->executeCode('echo last([1, 2, 3]); echo last([[4]]); $f = last; echo $f(["x"]);')
+        );
+    }
+
+    public function test_last_of_an_empty_list_is_an_error()
+    {
+        $this->expectExceptionMessage('last() expects a non-empty list on line 1');
+        $this->executeCode('last([]);');
+    }
+
+    public function test_last_needs_a_list()
+    {
+        $this->expectExceptionMessage('last() expects list, got string');
+        $this->executeCode('last("abc");');
+    }
+
     public function test_print_writes_without_a_newline_and_converts_as_echo_does()
     {
         $this->assertSame(

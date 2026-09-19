@@ -115,7 +115,7 @@ class Heap {
     // Take the pair with the smallest priority
     fn pop() {
         $top = #items[0];
-        $last = #items[len(#items) - 1];
+        $last = last(#items);
         delete #items[len(#items) - 1];
         if (len(#items) == 0) {
             return $top;

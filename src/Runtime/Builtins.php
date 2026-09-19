@@ -48,6 +48,7 @@ final class Builtins
         'has_key' => 2,
         'keys' => 1,
         'values' => 1,
+        'last' => 1,
         'map' => 2,
         'filter' => 2,
         'reduce' => 3,
@@ -187,6 +188,7 @@ final class Builtins
             'keys' => is_array($this->argument($name, $args[0], 'list', 'map')) ? array_keys($args[0]) : $args[0]->keys(),
             // A list's values are the list itself, in order; a map's are its values in insertion order
             'values' => is_array($this->argument($name, $args[0], 'list', 'map')) ? $args[0] : array_values($args[0]->items),
+            'last' => $this->last($this->argument($name, $args[0], 'list')),
             // They call back into the program for each element, through the backend running it
             'map' => $this->map($this->argument($name, $args[0], 'list', 'map'), $this->argument($name, $args[1], 'function', 'class')),
             'filter' => $this->filter($this->argument($name, $args[0], 'list', 'map'), $this->argument($name, $args[1], 'function', 'class')),
@@ -680,6 +682,22 @@ final class Builtins
         }
 
         return $code;
+    }
+
+    /**
+     * last($list): the last element, so a list used as a stack needn't write $l[len($l) - 1]
+     *
+     * @param  list<mixed>  $list  The list
+     *
+     * @throws Exception If it is empty
+     */
+    private function last(array $list): mixed
+    {
+        if ($list === []) {
+            throw new Exception('last() expects a non-empty list');
+        }
+
+        return $list[count($list) - 1];
     }
 
     /**

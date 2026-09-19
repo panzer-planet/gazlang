@@ -364,8 +364,8 @@ Names are ASCII.
 - `delete $a[k];` removes an element, with a target written like an assignment's that must end
   at an index; a list's later elements move down, a map keeps its order, removing what isn't
   there is an error. `delete` can't take a field (`Cannot delete a field`), a variable, `$a[]`, a
-  call's result or a string; a method may still be named `delete`. There is no `pop`: a function can't change its argument, so take the last
-  element and delete it, which is how a list is a stack (and cheap: `array_pop()` in PHP).
+  call's result or a string; a method may still be named `delete`. There is no `pop`: a function can't change its argument, so take `last($l)`
+  and delete it, which is how a list is a stack (and cheap: `array_pop()` in PHP).
 - `...$x` spreads a list into a **list literal only** (`[$first, ...$rest]`, `[...$a, ...$b]`);
   anything but a list is `Cannot spread map: only a list can be`, raised before the elements
   after it run. `{...$m}`, `f(...$args)`, a bare `...$a` and a rest pattern are parse errors
@@ -407,7 +407,7 @@ compile to `CALL_BUILTIN name argc`, and check argument types by their `type_of(
   (null when absent; negative offset from the end; an empty needle or an offset outside the
   string is an error), `repeat`, `chr` (0 to 255), `ord` (one
   byte), `to_int` (ints, bools, decimal strings with an optional `-`), `to_float`, `to_string`.
-- Lists and maps: `in_array` (`==`), `has_key`, `keys`, `values`, and `map`, `filter` (truthiness,
+- Lists and maps: `in_array` (`==`), `has_key`, `keys`, `values`, `last` (an empty list is an error), and `map`, `filter` (truthiness,
   as `if`), `reduce($x, $f, $initial)` and `sort` (stable; the comparator must return an int),
   which call back into GazLang through `Values::$call_value` (the interpreter's `callValue()`,
   the PHP VM's `valueCaller()`, the C VM's `call_value()`), checked as a call written in the
@@ -672,8 +672,9 @@ try {
   ordinary names, which a self-hosted AST wants. PHP matches keywords *and* names
   case-insensitively; matching only keywords that way was its wart without its rule. A
   miscapitalised keyword gets a hint (`keywords are lowercase: write 'return', not 'Return'`)
-  from `Parser::keyword_hint()`, built only while an error is. Sigils and member names have
-  their own namespaces, so `$If` and `fn match()` were always fine.
+  from `Parser::keyword_hint()`, built only while an error is, as does a statement that starts
+  with PHP's `elseif` (`write 'else if'`), unless a function of that name is declared. Sigils
+  and member names have their own namespaces, so `$If` and `fn match()` were always fine.
 
 # Implementation notes
 

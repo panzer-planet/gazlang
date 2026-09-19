@@ -1,0 +1,3 @@
+const GREETING = "Hello,
+    $name!";
+echo GREETING;

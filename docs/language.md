@@ -127,7 +127,7 @@ foreach ($words as $word) {
 }
 ```
  `$a[] = v` appends and is only valid as an assignment
-target; there is no `pop` — take the last element, then `delete` it.
+target; there is no `pop` — take `last($list)`, then `delete` it.
 
 Strings index the same way, by an int position, to a one character string, read only.
 
@@ -328,7 +328,7 @@ class's fields, methods and constants across its hierarchy.
 `abs`, `intdiv`, `min($a, $b)`, `max($a, $b)`.
 
 **Lists and maps** — `len`, `slice`, `in_array($value, $list)`, `has_key($x, $key)`, `keys`,
-`values`, and four that call a function, lambda, bound method, builtin or class for each
+`values`, `last($list)` (the last element; an empty list is an error), and four that call a function, lambda, bound method, builtin or class for each
 element, in order:
 
 - `map($x, $f)` — `$f($value)` for each; a list gives a list, a map a map with the same keys.

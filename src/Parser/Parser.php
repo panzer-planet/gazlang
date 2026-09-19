@@ -126,6 +126,12 @@ class Parser
     private $previous_token;
 
     /**
+     * @var Token|null The token the statement being parsed starts with, so a syntax error in
+     *                 "} elseif (...) {" can say to write "else if" (see keyword_hint())
+     */
+    private $statement_token = null;
+
+    /**
      * @var int How many loops enclose the statement being parsed, so break and continue can be checked
      */
     private $loop_depth = 0;
@@ -144,6 +150,11 @@ class Parser
      * @var bool Whether a constructor's body is being parsed, where return can't give a value
      */
     private $in_constructor = false;
+
+    /**
+     * @var bool Whether a constant's value is being parsed, where a string can't interpolate a variable
+     */
+    private $in_constant = false;
 
     /**
      * @var ClassDeclarationAST|null The class whose body is being parsed, where # can be used
@@ -280,7 +291,8 @@ class Parser
     }
 
     /**
-     * A hint when the error is at, or just after, a keyword written in the wrong case
+     * A hint when the error is at, or just after, a keyword written in the wrong case, or in a
+     * statement that starts with PHP's elseif
      *
      * Keywords are lowercase and matched exactly, so Return is an ordinary name and
      * "Return 1;" fails at the 1 rather than at the Return. PHP would have accepted it, so
@@ -300,6 +312,12 @@ class Parser
                 && ! isset($this->functions[$token->value]) && ! isset($this->classes[$token->value]) && ! isset($this->constants[$token->value])) {
                 return " (keywords are lowercase: write '".strtolower($token->value)."', not '{$token->value}')";
             }
+        }
+        // PHP's elseif is read as a call to a function of that name, which fails at the { after it
+        $token = $this->statement_token;
+        if ($token !== null && $token->type === Token::IDENTIFIER && is_string($token->value)
+            && strtolower($token->value) === 'elseif' && ! isset($this->functions[$token->value])) {
+            return " (write 'else if', not '{$token->value}')";
         }
 
         return '';
@@ -802,6 +820,11 @@ class Parser
 
         while (true) {
             $value = $this->expr();
+            if ($this->in_constant && $value instanceof VariableAST) {
+                // Said here, where it is known the string did it: check_constant_expression() only sees a variable
+                $escape = $value->isGlobal() ? '\\{ for a brace' : '\\$ for a dollar sign';
+                throw new GazLangError("A constant can't interpolate {$value->value} into a string (write {$escape})", $value->file, $value->line);
+            }
 
             $part = $this->current_token;
             if ($part->type !== Token::STRING_MIDDLE && $part->type !== Token::STRING_END) {
@@ -1659,6 +1682,7 @@ class Parser
      */
     public function statement()
     {
+        $this->statement_token = $this->current_token;
         if ($this->current_token->type === Token::ECHO) {
             return $this->echo_statement();
         } elseif ($this->current_token->type === Token::IF) {
@@ -1974,7 +1998,9 @@ class Parser
         }
         $this->eat(Token::IDENTIFIER);
         $this->eat(Token::ASSIGN);
+        $this->in_constant = true;
         $expr = $this->expr();
+        $this->in_constant = false;
         $this->eat(Token::SEMICOLON);
 
         if ($class === null) {
