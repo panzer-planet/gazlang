@@ -1,5 +1,5 @@
 /*
- * Values: memory, strings, lists, maps, printing and equality (Runtime\Values, part 1)
+ * Values: memory, strings, lists, maps, printing and equality
  */
 #include "gazvm.h"
 
@@ -508,7 +508,7 @@ void format_float(double f, Buf *out) {
 }
 
 /*
- * A string as a double-quoted GazLang literal that reads back as the same bytes (Lexer::quote):
+ * A string as a double-quoted GazLang literal that reads back as the same bytes:
  * named escapes, \xHH for other control bytes and NUL, and \$ and \{ only where they would
  * otherwise interpolate
  */
@@ -672,8 +672,8 @@ bool to_string(Value v, Str **out) {
 }
 
 /*
- * Order two numbers exactly, as Values::compare(): an int and a float compare as the numbers
- * they are, not by turning the int into a float (9007199254740993 != 9007199254740992.0)
+ * Order two numbers exactly: an int and a float compare as the numbers they are, not by
+ * turning the int into a float (9007199254740993 != 9007199254740992.0)
  */
 int compare_numbers(Value a, Value b) {
     if (a.type == T_INT && b.type == T_INT) return (a.i > b.i) - (a.i < b.i);
@@ -697,9 +697,9 @@ int compare_numbers(Value a, Value b) {
 }
 
 /*
- * ==, as Values::equals(): no conversion between strings and numbers, numbers by value,
- * lists element by element, maps by keys and values in any order, functions, classes and
- * objects by identity (two bound methods when they bind the same method to the same object)
+ * ==: no conversion between strings and numbers, numbers by value, lists element by element,
+ * maps by keys and values in any order, functions, classes and objects by identity (two bound
+ * methods when they bind the same method to the same object)
  */
 bool values_equal(Value a, Value b) {
     switch (a.type) {
@@ -743,7 +743,7 @@ bool values_equal(Value a, Value b) {
     }
 }
 
-/* Decimal digits with an optional minus that fit an int (Lexer::parse_integer) */
+/* Decimal digits with an optional minus that fit an int, as integer literals are read */
 bool parse_integer(const char *s, size_t len, int64_t *out) {
     size_t i = 0;
     bool negative = false;
@@ -764,7 +764,7 @@ bool parse_integer(const char *s, size_t len, int64_t *out) {
     return true;
 }
 
-/* A GazLang number literal with an optional minus (Lexer::parse_number), for to_float() */
+/* A GazLang number literal with an optional minus, for to_float() */
 bool parse_number(const char *s, size_t len, Value *out) {
     size_t i = 0;
     if (i < len && s[i] == '-') i++;

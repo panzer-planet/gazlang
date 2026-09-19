@@ -1,0 +1,11 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals
+@ "args.gaz" 1
+CALL_BUILTIN args 0
+PRINT
+@ 2
+PUSH "included"
+PRINT

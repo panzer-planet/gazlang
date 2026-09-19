@@ -1,0 +1,5 @@
+to stderr
+Error: Division by zero on line 1
+  inner on line 1
+  outer on line 2
+  top level on line 5

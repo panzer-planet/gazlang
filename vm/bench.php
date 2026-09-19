@@ -1,14 +1,14 @@
 <?php
 
-// Times the C VM against the PHP VM and against the same program written in PHP and Python:
+// Times gazlang against the same program written in PHP and Python:
 //   php vm/bench.php [ROUNDS = 5] [FILTER]
 // Most vm/bench/NAME.gaz have a NAME.php and a NAME.py doing the same work; the real workloads
-// (the self-hosted compiler, football.gaz) run on the two VMs only. Python is the newest
+// (the self-hosted compiler, football.gaz) run on gazlang only. Python is the newest
 // python3.11 or later on the path, or PYTHON: 3.11 made CPython much faster, so an older one
 // would flatter gazlang, and without one the column is left out. Every run is a whole process,
 // timed in CPU seconds (user + system), and the runs are interleaved, so a machine that gets
-// busier halfway slows all of them alike; the best of the rounds is reported. PHP runs with the
-// JIT settings bin/gazlang-php gives itself.
+// busier halfway slows all of them alike; the best of the rounds is reported. PHP runs with its
+// JIT on (opcache.jit=1235, the fastest setting for this kind of code).
 
 chdir(dirname(__DIR__));
 require 'vendor/autoload.php';
@@ -22,7 +22,7 @@ if ($code !== 0) {
 
 $php = [PHP_BINARY, '-d', 'pcov.enabled=0', '-d', 'opcache.enable_cli=1', '-d', 'opcache.jit_buffer_size=16M', '-d', 'opcache.jit=1235'];
 $compile = function (string $file, string $gzb): void {
-    exec(implode(' ', array_map('escapeshellarg', [PHP_BINARY, 'bin/gazlang-php', '-c', '-f', $file])).' > '.escapeshellarg($gzb), $out, $code);
+    exec(implode(' ', array_map('escapeshellarg', ['bin/gazlang', '-c', '-f', $file])).' > '.escapeshellarg($gzb), $out, $code);
     if ($code !== 0) {
         throw new RuntimeException("{$file} does not compile");
     }
@@ -42,7 +42,7 @@ foreach (glob('vm/bench/*.gaz') as $file) {
     $name = basename($file, '.gaz');
     $gzb = "vm/build/bench/{$name}.gzb";
     $compile($file, $gzb);
-    $cases[$name] = ['c' => ['bin/gazlang', '-f', $gzb], 'vm' => [...$php, 'bin/gazlang-php', '-f', $gzb]];
+    $cases[$name] = ['c' => ['bin/gazlang', '-f', $gzb]];
     // The same program in PHP, for the ones that have one
     if (is_file("vm/bench/{$name}.php")) {
         $cases[$name]['php'] = [...$php, "vm/bench/{$name}.php"];
@@ -56,7 +56,7 @@ foreach (['selfhost/gazlang.gaz code examples/football.gaz', 'selfhost/gazlang.g
     $file = array_shift($args);
     $gzb = 'vm/build/bench/'.basename($file, '.gaz').'.gzb';
     $compile($file, $gzb);
-    $cases[$workload] = ['c' => ['bin/gazlang', '-f', $gzb, '--', ...$args], 'vm' => [...$php, 'bin/gazlang-php', '-f', $gzb, '--', ...$args]];
+    $cases[$workload] = ['c' => ['bin/gazlang', '-f', $gzb, '--', ...$args]];
 }
 if ($filter !== null) {
     $cases = array_filter($cases, fn ($name) => str_contains($name, $filter), ARRAY_FILTER_USE_KEY);
@@ -65,7 +65,7 @@ if ($filter !== null) {
 // The CPU time a command takes, with its output thrown away
 $time = function (array $command): float {
     $before = getrusage(1);
-    $process = proc_open($command, [['file', '/dev/null', 'r'], ['file', '/dev/null', 'w'], ['file', '/dev/null', 'w']], $pipes, null, ['GAZLANG_RESTARTED' => '1'] + getenv());
+    $process = proc_open($command, [['file', '/dev/null', 'r'], ['file', '/dev/null', 'w'], ['file', '/dev/null', 'w']], $pipes);
     proc_close($process);
     $after = getrusage(1);
     $seconds = fn ($r) => $r['ru_utime.tv_sec'] + $r['ru_utime.tv_usec'] / 1e6 + $r['ru_stime.tv_sec'] + $r['ru_stime.tv_usec'] / 1e6;
@@ -88,8 +88,8 @@ if ($python !== null) {
 }
 $seconds = fn (?float $t) => $t === null ? '' : sprintf('%.3fs', $t);
 $ratio = fn (float $a, ?float $b) => $b === null ? '' : sprintf('%.1fx', $a / $b);
-printf("%-48s %9s %9s %9s %9s %11s %9s %9s\n", '', 'C VM', 'PHP VM', 'PHP', 'Python', 'PHP VM / C', 'C / PHP', 'Py / C');
+printf("%-48s %9s %9s %9s %9s %9s\n", '', 'gazlang', 'PHP', 'Python', 'gaz / PHP', 'Py / gaz');
 foreach ($best as $name => $t) {
-    printf("%-48s %9s %9s %9s %9s %11s %9s %9s\n", $name, $seconds($t['c']), $seconds($t['vm']), $seconds($t['php'] ?? null), $seconds($t['py'] ?? null),
-        $ratio($t['vm'], $t['c']), $ratio($t['c'], $t['php'] ?? null), isset($t['py']) ? $ratio($t['py'], $t['c']) : '');
+    printf("%-48s %9s %9s %9s %9s %9s\n", $name, $seconds($t['c']), $seconds($t['php'] ?? null), $seconds($t['py'] ?? null),
+        $ratio($t['c'], $t['php'] ?? null), isset($t['py']) ? $ratio($t['py'], $t['c']) : '');
 }

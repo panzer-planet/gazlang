@@ -1,0 +1,9 @@
+GazLang - A simple programming language compiler
+Usage: gazlang [options] [--] [program arguments...]
+Options:
+  -h, --help     Show this help message
+  -v, --version  Show version information
+  -c, --code         Print the compiled bytecode instead of running it (gazlang -c -f x.gaz > x.gzb)
+  -t, --tokens   Print the lexer's tokens, one LINE TYPE VALUE per line, instead of interpreting
+      --ast      Print the parser's tree instead of running it
+  -f, --file     Read input from a file instead of stdin

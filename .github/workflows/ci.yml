@@ -26,7 +26,7 @@ jobs:
       - name: Rebuild the compiler with gazlang
         run: make -C vm compiler && git diff --exit-code selfhost/gazlang.gzb
 
-      # The PHP reference, and everything that compares against it
+      # PHP runs the tests (PHPUnit); the language itself needs none
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.5'

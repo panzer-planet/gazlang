@@ -1,12 +1,11 @@
 /*
- * The dispatch loop, calls, errors and traces (VM\VM), and main()
+ * The dispatch loop, calls, errors and traces, and main()
  *
  * One value stack holds every frame: a call's arguments, already pushed by the caller, become
  * the first local slots of the callee's frame, its other locals follow, and its own stack
  * grows above those. Frames are records in an array, not C recursion, so deep GazLang
  * recursion needs no C stack. The one exception is a method run to its end from inside an
- * instruction (echo calling to_string()), which runs a nested execute() above the stack as it
- * is, as the PHP VM does.
+ * instruction (echo calling to_string()), which runs a nested execute() above the stack as it is.
  */
 #include "gazvm.h"
 
@@ -61,7 +60,7 @@ Error *error_new(Str *reason, Str *path, int64_t line, bool show_location) {
     return e;
 }
 
-/* An error with no location yet (a plain Exception in PHP); it takes its reason's reference */
+/* An error with no location yet; it takes its reason's reference */
 bool raise_str(Str *reason) {
     if (vm_error) decref((Value){.type = T_ERROR, .e = vm_error});
     vm_error = error_new(reason, NULL, 0, true);
@@ -287,7 +286,7 @@ static Str *constructor_name(void) {
     return name ? name : (name = str_intern("_", 1));
 }
 
-/* Run a method on an object to its end, from inside an instruction (Values::$call_method) */
+/* Run a method on an object to its end, from inside an instruction */
 bool call_method(Object *o, Class *definer, Str *name, Value *out) {
     Function *f = method_function(definer, name);
     if (fp - frames == MAX_CALL_DEPTH) {
@@ -1432,7 +1431,7 @@ static int run_front_end(Job *job, const char *mode, char **text, size_t *len) {
 /* The job, from its first instruction to its exit code: the thread main() starts */
 static void *run(void *arg) {
     Job *job = arg;
-    /* Bytecode is recognised by its first line or its name, as bin/gazlang-php does, so a broken .gzb
+    /* Bytecode is recognised by its first line or its name, so a broken .gzb
        file gets the loader's error; anything else is source */
     const char *magic = "GAZLANG BYTECODE";
     size_t n = job->path ? strlen(job->path) : 0;
@@ -1445,7 +1444,7 @@ static void *run(void *arg) {
         return NULL;
     }
     if (bytecode && job->mode != M_RUN) {
-        /* On standard output, as bin/gazlang-php prints it */
+        /* On standard output */
         printf("Error: %s is bytecode, which only the VM runs\n", job->path ? job->path : "standard input");
         job->exit_code = 1;
         return NULL;
@@ -1501,7 +1500,7 @@ static int unknown_option(const char *arg) {
     return 1;
 }
 
-/* The CLI, whose options are bin/gazlang-php's: PHP's getopt("hvf:ct", [help, version, file:, code,
+/* The CLI, whose options are read as PHP's getopt("hvf:ct", [help, version, file:, code,
    tokens, ast]) and its check for options getopt doesn't know. Options end at the
    first argument that isn't one ("-" alone included) or after "--"; the rest are the program's. */
 int main(int argc, char **argv) {

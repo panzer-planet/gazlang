@@ -20,7 +20,6 @@ class ComposerStaticInit61d40d2b5dbe8d1fbf68b8cee5e5a71e
         'G' =>
         array (
             'GazLang\\Tests\\' => 14,
-            'GazLang\\' => 8,
         ),
         'D' =>
         array (
@@ -43,10 +42,6 @@ class ComposerStaticInit61d40d2b5dbe8d1fbf68b8cee5e5a71e
         'GazLang\\Tests\\' =>
         array (
             0 => __DIR__ . '/../..' . '/tests',
-        ),
-        'GazLang\\' =>
-        array (
-            0 => __DIR__ . '/../..' . '/src',
         ),
         'Doctrine\\Instantiator\\' =>
         array (

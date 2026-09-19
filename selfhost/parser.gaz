@@ -1,6 +1,6 @@
-// The GazLang parser in GazLang: a port of src/Parser/Parser.php, which is the spec.
-// tests/SelfHostedParserTest.php requires the two to give the same tree and errors.
-// Methods keep the PHP parser's names, so the two can be read side by side.
+// The GazLang parser in GazLang: tokens to a tree of the nodes in nodes.gaz, as --ast shows it.
+// tests/SelfHostedParserTest.php checks its trees and errors against tests/parser_corpus.
+// Methods are named after the grammar rule they read (function_call(), ternary()).
 //
 // This file has no top level code, so it can be included:
 // $root = Parser(Lexer($text), $path).parse(). Errors are ParseErrors.
@@ -14,7 +14,7 @@ class ParseError extends Error {
     #source_file;
     #source_line;
 
-    // As GazLangError::location(): a file is null for piped or inline source
+    // Where the error is: a file is null for piped or inline source
     fn _($reason, $source_file, $source_line) {
         ##_($reason .. " " .. ($source_file == null ? "on line {$source_line}" : "at {$source_file}:{$source_line}"));
         #reason = $reason;
@@ -26,8 +26,8 @@ class ParseError extends Error {
 // Collects the $ variables a node uses, in source order, and those it assigns with a plain =
 //
 // A nested lambda contributes the variables it captures, since those must be read when it is
-// created, and nothing it assigns, which is local to its own calls. An object rather than the
-// PHP parser's two arrays by reference: a map passed to a function is a copy.
+// created, and nothing it assigns, which is local to its own calls. An object rather than
+// two maps passed along: a map passed to a function is a copy.
 class VariableCollector {
     // The names, as the keys of a map, which keeps them in the order they were first met
     #found = {};
@@ -131,7 +131,7 @@ class Parser {
     // Every #name, in source order, as [node, the class it is written in, the argument count
     // if it is called or null, whether it is assigned to], checked once the classes are
     // resolved. A node holds its index here (PropertyAST.use), so what is learnt about it
-    // later finds the record again, where the PHP parser keys a table by object id. An index
+    // later finds the record again, since an object can't be a map key. An index
     // rather than the record itself, which would make every class's tree a cycle: the node,
     // its record, the class, its methods, the node.
     #member_uses = [];
@@ -175,9 +175,9 @@ class Parser {
     #uses = [];
 
     // The ( that starts the expression being parsed at the ternary's level, the only place a
-    // parenthesised parameter list can start a lambda. The PHP parser keeps a set of them by
-    // object id; one is enough, since nothing is read between ternary() marking a ( and
-    // parenthesised() asking about it.
+    // parenthesised parameter list can start a lambda. One is enough, rather than a set of
+    // them, since nothing is read between ternary() marking a ( and parenthesised() asking
+    // about it.
     #lambda_head = null;
 
     // Assignment operator token types: = and the compound assignments
@@ -274,9 +274,9 @@ class Parser {
     fn describe($token) {
         return match {
             $token.type == "EOF" => "end of file",
-            // A list prints its strings as literals, which is Lexer::quote()
+            // A list prints its strings as literals
             in_array($token.type, ["STRING", "STRING_START", "STRING_MIDDLE", "STRING_END"]) => "string " .. slice(to_string([$token.value]), 1, -1),
-            // A float prints as the shortest literal that reads back, which is Lexer::format_float()
+            // A float prints as the shortest literal that reads back
             default => "'{$token.value}'",
         };
     }
@@ -557,8 +557,8 @@ class Parser {
     // A block body is a function body: return is allowed, and break and continue can't
     // reach a loop around the lambda.
     //
-    // The PHP parser restores what it set aside in a finally. Nothing catches a ParseError
-    // and carries on parsing, so here what follows the body is enough.
+    // What was set aside is restored after the body, not in a finally: nothing catches a
+    // ParseError and carries on parsing.
     fn lambda($start, $params, $defaults, $lines) {
         $arity = #check_parameters($params, $defaults, $lines);
         #eat("ARROW");
@@ -803,11 +803,11 @@ class Parser {
     // Parse a binary expression whose operators all bind at least as tightly as $level
     // (unary (OP binary)*), every level being left associative
     //
-    // The PHP parser has a method for each level, each calling the next tighter one through
-    // left_associative(): 24 calls to reach a primary through 11 levels that mostly find no
+    // A method for each level, each calling the next tighter one through left_associative(),
+    // would take 24 calls to reach a primary through 11 levels that mostly find no
     // operator. This climbs instead: read an operand, and while the next token is an operator
     // of this level or tighter, its right side is whatever binds tighter than it. The tree is
-    // the same. Measured on the PHP VM, parsing alone (not lexing) is 28% faster: football.gaz
+    // the same. On the old PHP VM, parsing alone (not lexing) was 28% faster: football.gaz
     // 0.196s to 0.140s. #BINARY_LEVELS is the tower.
     fn binary($level) {
         $node = #unary();
@@ -1522,9 +1522,9 @@ class Parser {
     // Work out the value of a constant's expression, as a program would: $class is the class
     // the constant is declared in, which #NAME is a constant of
     //
-    // The PHP parser does this with Runtime\Values, the functions its VM runs on. Here
-    // the operators are GazLang's own, which are those same functions, so 1 / 0 and an overflow
-    // are the errors they are when a program runs, located at the operator. Only what needs
+    // The operators are GazLang's own, run by the VM that runs the parser, which is the one
+    // that will run the program, so 1 / 0 and an overflow are the errors they are when a
+    // program runs, located at the operator. Only what needs
     // nothing but the source is allowed: no variables, no calls (a function can do anything,
     // and an object it made could be changed through the constant), no indexing.
     fn fold($node, $class) {
@@ -1558,7 +1558,7 @@ class Parser {
             $list = [];
             foreach ($node.entries as $entry) {
                 if (is_a($entry[1], SpreadAST)) {
-                    // GazLang's own spread, which is Values::spread(), located at the ...
+                    // GazLang's own spread, located at the ...
                     $value = #fold($entry[1].expr, $class);
                     $list = #located($entry[1], () -> [...$list, ...$value]);
                 } else {
@@ -1602,8 +1602,8 @@ class Parser {
         }
     }
 
-    // Apply a binary operator by its token type. The PHP parser hands the token to
-    // Values::binary(); an operator is not a value in GazLang, so each is written out.
+    // Apply a binary operator by its token type. An operator is not a value in GazLang, so
+    // each is written out.
     fn apply($type, $left, $right) {
         return match ($type) {
             "PLUS" => $left + $right,
@@ -2035,12 +2035,12 @@ class Parser {
         }
     }
 
-    // As Builtins::bounds(): the fewest and most arguments an arity allows
+    // The fewest and most arguments an arity allows
     fn bounds($arity) {
         return type_of($arity) == "int" ? [$arity, $arity] : $arity;
     }
 
-    // As Builtins::arityError(): what is wrong with a call's argument count, or null if it fits
+    // What is wrong with a call's argument count, or null if it fits, worded as the VM words it
     fn arity_error($what, $arity, $argc) {
         [$fewest, $most] = #bounds($arity);
         if ($argc >= $fewest && $argc <= $most) {
@@ -2090,8 +2090,8 @@ class Parser {
         $relative = $path_token.value;
         $written = starts_with($relative, "/") ? $relative : #base_dir .. "/" .. $relative;
         $path = file_exists($written) ? real_path($written) : null;
-        // Read before asking whether it was included already, as the PHP parser checks it is a
-        // readable file first
+        // Read before asking whether it was included already, so a file that can't be read
+        // is an error even if it was included before
         $text = $path == null ? null : #read($path);
         if ($text == null) {
             #fail_at("Cannot include file: {$relative}", #file, $path_token.line);

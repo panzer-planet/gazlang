@@ -1,7 +1,8 @@
 /*
- * Operators, indexing, members and write paths (Runtime\Values, part 2)
+ * Operators, indexing, members and write paths
  *
- * Every message here is the PHP's, word for word: the tests compare them.
+ * The tests compare every message here word for word, so a change to one is a change to the
+ * language.
  */
 #include "gazvm.h"
 
@@ -38,7 +39,7 @@ static bool is_scalar(Value v) {
     return v.type == T_INT || v.type == T_FLOAT || v.type == T_STRING || v.type == T_BOOL;
 }
 
-/* + - * / % on two numbers, neither a string (Values::arithmetic) */
+/* + - * / % on two numbers, neither a string */
 static bool arithmetic(int op, Value l, Value r, Value *out) {
     if (l.type == T_STRING || r.type == T_STRING) return raise("Cannot use %s on string", symbol(op));
     if (op == OP_MOD && (l.type == T_FLOAT || r.type == T_FLOAT)) return raise("Cannot use %% on float");
@@ -78,7 +79,7 @@ static bool arithmetic(int op, Value l, Value r, Value *out) {
     return true;
 }
 
-/* & | ^ << >> on two ints (Values::bitwise) */
+/* & | ^ << >> on two ints */
 static bool bitwise(int op, Value l, Value r, Value *out) {
     if (l.type != T_INT || r.type != T_INT) {
         return raise("Cannot use %s on %s", symbol(op), type_name(l.type == T_INT ? r : l));
@@ -99,7 +100,7 @@ static bool bitwise(int op, Value l, Value r, Value *out) {
     return true;
 }
 
-/* Any binary operator but && and ||, which short-circuit in the code (Values::binary) */
+/* Any binary operator but && and ||, which short-circuit in the code */
 bool binary_op(int op, Value l, Value r, Value *out) {
     if (op == OP_CONCAT) {
         Buf b = {0};
@@ -155,7 +156,7 @@ bool bitwise_not(Value v, Value *out) {
     return true;
 }
 
-/* ++ and -- (Values::step) */
+/* ++ and -- */
 bool step_value(Value v, bool up, Value *out) {
     if (v.type != T_INT && v.type != T_FLOAT) return raise("Cannot use %s on %s", up ? "++" : "--", type_name(v));
     return binary_op(up ? OP_ADD : OP_SUB, v, v_int(1), out);
@@ -176,7 +177,7 @@ bool raise_undefined_key(Value key) {
     return raise("Undefined key: %lld", (long long)key.i);
 }
 
-/* $target[$index] (Values::index); quiet, on the left of ??, reads what is missing as null */
+/* $target[$index]; quiet, on the left of ??, reads what is missing as null */
 bool index_value(Value target, Value index, bool quiet, Value *out) {
     if (target.type == T_LIST) {
         if (index.type != T_INT) {
@@ -223,7 +224,7 @@ bool index_value(Value target, Value index, bool quiet, Value *out) {
     return raise("Cannot use [] on %s", type_name(target));
 }
 
-/* An element a compound update reads, which must exist in a list or map (Values::indexExisting) */
+/* An element a compound update reads, which must exist in a list or map */
 bool index_existing(Value target, Value index, Value *out) {
     if (target.type != T_LIST && target.type != T_MAP) return raise("Cannot use [] on %s", type_name(target));
     return index_value(target, index, false, out);
@@ -277,7 +278,7 @@ static bool raise_not_set(Object *o, Str *name) {
 
 static bool is_constructor(Str *name) { return name->len == 1 && name->data[0] == '_'; }
 
-/* $obj.name (Values::property): a field's value or a bound method; quiet reads an unset field as null */
+/* $obj.name: a field's value or a bound method; quiet reads an unset field as null */
 bool property(Value target, Str *name, bool quiet, Value *out) {
     if (target.type != T_OBJECT) return raise("Cannot use . on %s", type_name(target));
     Object *o = target.o;
@@ -302,7 +303,7 @@ bool property(Value target, Str *name, bool quiet, Value *out) {
     return raise_undefined_member(o->cls, name);
 }
 
-/* The field a write path goes through: a declared field, not a method (Values::checkField) */
+/* The field a write path goes through: a declared field, not a method */
 static int check_field(Object *o, Str *name) {
     int f = class_field(o->cls, name);
     if (f >= 0) return f;
@@ -315,7 +316,7 @@ static int check_field(Object *o, Str *name) {
     return -1;
 }
 
-/* A field a compound update reads, which must be set (Values::propertyExisting) */
+/* A field a compound update reads, which must be set */
 bool property_existing(Value target, Str *name, Value *out) {
     if (target.type != T_OBJECT) return raise("Cannot use . on %s", type_name(target));
     int f = check_field(target.o, name);
@@ -329,7 +330,7 @@ bool property_existing(Value target, Str *name, Value *out) {
 /* ---- Write paths ----------------------------------------------------------------------- */
 
 /*
- * $a[k].x[] = value (Values::store with no operator): write through a variable along its steps.
+ * $a[k].x[] = value, without a compound operator: write through a variable along its steps.
  * The variable must exist, a list index must exist, a map may gain its last key and an object
  * its last field; anything missing along the way is an error. Lists and maps are copied first
  * when shared (copy on write), objects written in place. The value is borrowed.
@@ -400,7 +401,7 @@ bool store_path(Value *slot, Str *var_name, Path *path, Value *keys, Value value
     return true;
 }
 
-/* delete $a[k]...[k] (Values::remove): every step must exist, the last one included */
+/* delete $a[k]...[k]: every step must exist, the last one included */
 bool remove_path(Value *slot, Str *var_name, Path *path, Value *keys) {
     if (slot->type == T_UNSET) return raise("Undefined variable: %s", var_name->data);
     Value *cur = slot;
@@ -448,9 +449,8 @@ bool remove_path(Value *slot, Str *var_name, Path *path, Value *keys) {
 }
 
 /*
- * $s ..= v (Values::concatAssign): a string is appended to in place, which is what makes a loop
- * of appends linear; anything else is joined as .. joins. The slot must be set. out gets the
- * new value, counted.
+ * $s ..= v: a string is appended to in place, which is what makes a loop of appends linear;
+ * anything else is joined as .. joins. The slot must be set. out gets the new value, counted.
  */
 bool concat_assign(Value *slot, Value v, Value *out) {
     if (slot->type == T_STRING) {

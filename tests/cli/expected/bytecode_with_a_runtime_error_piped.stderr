@@ -1,0 +1,5 @@
+to stderr
+Error: Division by zero at runtime_error.gaz:1
+  inner at runtime_error.gaz:1
+  outer at runtime_error.gaz:2
+  top level at runtime_error.gaz:5

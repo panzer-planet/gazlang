@@ -8,189 +8,136 @@ design is in [CLAUDE.md](../CLAUDE.md); what the language *is* is in
 
 | Path | What it does |
 | --- | --- |
-| `src/Lexer`, `src/Parser`, `src/AST` | source text to a tree. `Lexer::quote()` and `Lexer::parse_integer()` are the one definition of string and integer literals |
-| `src/Runtime` | what values *mean*: `Values` holds the operators, truthiness, printing, keys and indexing as pure static functions; `Builtins` holds the builtin functions and their arities |
-| `src/CodeGenerator` | compiles the tree to a `Program`: one block of code per function, each instruction tagged with its file and line |
-| `src/VM` | runs a `Program`. The PHP CLI's only backend |
-| `bin/gazlang-php` | the PHP CLI, the reference: the one to compare against |
-| `vm/` | the VM in C, built as `bin/gazlang` with the self-hosted compiler inside it: runs the bytecode `gazlang -c` writes, and must behave exactly as `src/VM` does (see below) |
+| `selfhost/` | the front end, in GazLang: `lexer.gaz`, `parser.gaz` and `nodes.gaz`, `codegen.gaz`, and `gazlang.gaz`, the driver, which prints what `-c`, `--tokens` or `--ast` would (`gazlang.gaz -- code\|tokens\|ast [FILE]`, reading piped source without a FILE). `gazlang.gzb` is its bytecode, checked in |
+| `vm/` | the VM in C, built as `bin/gazlang` with `gazlang.gzb` inside it: it runs source by compiling it with that first. `vm/gazvm.h` says which file does what |
 | `lib/` | the standard library, written in GazLang |
-| `selfhost/` | everything above the VM, rewritten in GazLang: `lexer.gaz`, a port of `src/Lexer`, `parser.gaz` and `nodes.gaz`, a port of `src/Parser` and `src/AST`, `codegen.gaz`, a port of `src/CodeGenerator`, and `gazlang.gaz`, the driver, which prints what `-c`, `--tokens` or `--ast` would (`gazlang.gaz -- code\|tokens\|ast [FILE]`, reading piped source without a FILE) |
 | `examples/` | sample programs |
-| `tests/` | PHPUnit, plus `tests/gaz/` GazLang programs, and the corpora: `lexer_corpus/`, `parser_corpus/`, `codegen_corpus/`, `vm_corpus/` and `bytecode_corpus/` |
+| `tests/` | PHPUnit, which runs `bin/gazlang`; `tests/gaz/` GazLang programs; the corpora `lexer_corpus/`, `parser_corpus/`, `codegen_corpus/`, `vm_corpus/` and `bytecode_corpus/`; `cli/`; and `expected/`, what every program must print |
 
-## The PHP VM
+## What holds it together
 
-The PHPUnit tests run `bin/gazlang`: `GazLangTestCase::executeCode()` pipes a snippet into it
-from the project root, and `parse()`, `lex()` and `generateCode()` do the same with `--ast`,
-`--tokens` and `-c`. `vm/snippets.php` collects the snippets, and the C VM under the
-sanitizers must print for each what the PHP VM did (below).
+Everything the tests run is compared with what is recorded as its output, byte for byte:
 
-Order matters as much as results. The VM's `KEY_CHECK` exists so that a bad key fails before
-later keys and the value are evaluated.
+- **Programs** (`CVMTest`): each entry of `vm/passing.txt` (every program and corpus file in the
+  repository, the snippets the PHPUnit tests run, and the hand-written `.gzb` files) runs on the
+  C VM built with AddressSanitizer and UndefinedBehaviorSanitizer, and must print the standard
+  output, standard error and exit code recorded in `tests/expected/`. It must not leak either:
+  `GAZVM_STATS` makes the VM count every reference-counted value, drop what the finished program
+  still holds, and report what is left over, which must be nothing. A program runs from its
+  source, a snippet is piped in from the project root, a `.gzb` runs as it is; in
+  `tests/bytecode_corpus/` the files named `error_*` must be the ones refused.
+- **The front end** (`SelfHostedLexerTest`, `SelfHostedParserTest`, `SelfHostedCompilerTest`):
+  each corpus file has what `--tokens`, `--ast` or `-c` must print next to it.
+- **The command line** (`CliTest`): a table of invocations, each its arguments, what is piped in
+  and the working directory, with what each prints in `tests/cli/expected/`.
+- **The compiler compiles itself** to exactly `selfhost/gazlang.gzb`.
 
-The VM calls `Runtime\Values` and `Runtime\Builtins` rather than reimplementing anything.
-It has fast paths in its dispatch loop for the commonest cases whose result is obvious
-(arithmetic on two ints that cannot overflow, `==` on two ints or two strings, `JZ`/`NOT` on
-bools, and so on); everything else, errors included, falls through to `Values`. Keep them that
-way.
+When output changes on purpose, record it and review the diff, since the recordings are the
+spec: `php vm/progress.php --update` for programs (it also adds new ones to `vm/passing.txt`,
+and removes what no entry records), `GAZLANG_RECORD=1 vendor/bin/phpunit --filter SelfHosted`
+for the front end, `GAZLANG_RECORD=1 vendor/bin/phpunit --filter CliTest` for the command line.
 
-## The C VM must agree with the PHP VM
-
-`vm/` is the same VM in C, built as `bin/gazlang`, and the PHP VM is its specification: the
-same output, the same errors word for word, the same locations, traces and exit codes.
-`tests/CVMTest.php` holds it to that. Each entry of `vm/passing.txt` runs on the C VM, built with
-AddressSanitizer and UndefinedBehaviorSanitizer, and must give the standard output, standard
-error and exit code recorded for it in `tests/expected/`, which is what the PHP VM printed; and
-it must not leak: `GAZVM_STATS` makes it count every reference-counted value, drop what the
-finished program still holds, and report what is left over, which the harness requires to be
-nothing. A program runs from its source, the C VM compiling it with the self-hosted compiler it
-has built in; a snippet is piped in from the project root, and a `.gzb` runs as it is. An entry
-is a program in the repository (with its arguments after it, for the self-hosted drivers, which
-are still run on both VMs each time), `snippet:<id>`, one of the `executeCode()` snippets the
-PHP tests run (`tests/vm_snippets.txt`, collected by `php vm/snippets.php`), or a hand-written
-`.gzb` under `tests/bytecode_corpus/`, for the loaders; there the files named `error_*` must be
-the ones refused. `php vm/progress.php` runs every candidate on both VMs; `--update` adds the ones
-that match to `vm/passing.txt` and records what they print in `tests/expected/`, so a change
-that alters a program's output shows up there as a diff.
-
-So a change to what a value means, to a builtin or to an error message is made in `src/Runtime`
-and in `vm/` together, and the harness fails until both say the same thing. When they disagree
-because PHP itself changed (`round()` did within 8.5), the rule is GazLang's to define: write it
-out in `Runtime` step by step, as `Builtins::round()` is, rather than calling PHP's.
+Order matters as much as results: `KEY_CHECK` exists so that a bad key fails before later keys
+and the value are evaluated. Anything that leans on a platform's behaviour (hashing, string
+conversion, float formatting, rounding) is a rule GazLang defines and writes out step by step,
+as `round()` is in `vm/builtins.c`.
 
 The C is plain C11, libc, libm and pthreads only. A function that can fail returns `bool`, with
 the error in `vm_error`; values are reference counted (`incref`, `decref`), lists and maps are
-copied on write, and the cycle collector (`vm/gc.c`) frees what counting can't. `vm/gazvm.h`
-says which file does what.
+copied on write, and the cycle collector (`vm/gc.c`) frees what counting can't.
 
 ## Commands
 
 ```bash
-composer install
+make -C vm                                          # bin/gazlang, optimised
+make -C vm compiler                                 # after changing selfhost/, see below
+
+bin/gazlang -f examples/functions.gaz               # compile and run
+bin/gazlang -c -f examples/functions.gaz            # print the compiled bytecode
+bin/gazlang --tokens -f examples/functions.gaz      # print the tokens
+bin/gazlang --ast -f examples/functions.gaz         # print the parser's tree
+```
+
+```bash
+composer install                                    # PHPUnit, phpstan and pint
 
 vendor/bin/phpunit                                  # everything
 vendor/bin/phpunit tests/MatchTest.php              # one file
 vendor/bin/phpunit --filter=testName tests/X.php    # one test
-
 vendor/bin/phpstan analyse                          # must be clean
 vendor/bin/pint                                     # formatting; --test to check only
-```
 
-```bash
-make -C vm                                          # bin/gazlang, optimised
-make -C vm compiler                                 # after changing selfhost/, see below
-php vm/progress.php [FILTER] [--update]             # which programs the C VM matches the PHP VM on; records tests/expected
+php vm/snippets.php                                 # after adding tests: collect their snippets
+php vm/progress.php [FILTER] [--update]             # what differs from tests/expected; records it
 php vm/coverage.php [file.c]                        # which lines of the C VM the harness never runs
-php vm/bench.php                                    # the C VM against the PHP VM, PHP and Python
-```
-
-```bash
-bin/gazlang -f examples/functions.gaz                     # compile and run on the C VM
-bin/gazlang -c -f examples/functions.gaz                  # print the compiled bytecode
-bin/gazlang --tokens -f examples/functions.gaz            # print the tokens
-bin/gazlang --ast -f examples/functions.gaz               # print the parser's tree
-bin/gazlang-php -f examples/functions.gaz                 # the same on the PHP reference
+php vm/bench.php                                    # gazlang against PHP and Python
 ```
 
 ## Tests
 
-- **PHPUnit** for the implementation. Snippets run on `bin/gazlang`, and again under the sanitizers in `CVMTest`.
+- **PHPUnit**: every helper in `GazLangTestCase` runs `bin/gazlang` from the project root.
+  `executeCode()` pipes a snippet in and gives what it printed, or throws a `ProgramError` with
+  what followed `Error: `; `parse()`, `lex()` and `generateCode()` do the same with `--ast`,
+  `--tokens` and `-c`; `runProgram()` and `cli()` run files and command lines.
 - **`tests/gaz/**/*_test.gaz`** are GazLang programs that must print exactly their
-  `*_test.expected` file (`GazProgramTest`), on the PHP VM, and on the C VM through `CVMTest`.
-  `tests/gaz/check.gaz` gives `check($label, $actual, $expected)`, which prints `ok <label>` or
-  a FAIL line with both values. This is how GazLang code gets tested.
-- **`tests/lexer_corpus/`** are lexing cases, including deliberately tricky ones. A file named
-  `error_*` must be exactly one that fails to lex. Each `X.gaz` has the tokens
-  `--tokens` must print in `X.tokens`, and `SelfHostedLexerTest` requires `selfhost/lexer.gaz`
-  to print them. A change to the lexer needs the same change in `src/Lexer` while it exists;
-  after changing either, also run `php tests/fuzz_lexers.php`, which compares the two on a few
-  thousand generated inputs in about five seconds.
+  `*_test.expected` file (`GazProgramTest`). `tests/gaz/check.gaz` gives
+  `check($label, $actual, $expected)`, which prints `ok <label>` or a FAIL line with both
+  values. This is how GazLang code gets tested.
+- **`tests/lexer_corpus/`** are lexing cases, including deliberately tricky ones; a file named
+  `error_*` must be exactly one that fails to lex. Each `X.gaz` has the tokens `--tokens` must
+  print in `X.tokens`.
 - **`tests/parser_corpus/`** are parsing cases: a file per construct, and an `error_*` file for
-  every message the parser can raise, which must be exactly the ones that fail to parse.
-  Each `X.gaz` has the tree `--ast` must print in `X.ast`, and piped in `X.piped.ast`;
-  `places/` holds the runs from other working directories. `SelfHostedParserTest` requires
-  `selfhost/parser.gaz` to print them. The dump is read off each node's fields, so a new field
-  shows up in it without being asked. A change to the parser or a node needs the same change in
-  `src/Parser` and `src/AST` while they exist; after changing either parser, also run `php tests/fuzz_parsers.php`, which compares the two on a few
-  thousand changed programs in under a minute. When a location matters, put the node's tokens
+  every message the parser can raise, which must be exactly the ones that fail to parse. Each
+  `X.gaz` has the tree `--ast` must print in `X.ast`, and piped in `X.piped.ast`; `places/`
+  holds the runs from other working directories. The dump is read off each node's fields, so a
+  new field shows up in it without being asked. When a location matters, put the node's tokens
   on different lines: a one-line case cannot tell one token's line from another's.
 - **`tests/codegen_corpus/`** are code generation cases, built to reach every branch of the
   code generator between them. Each `X.gaz` has the bytecode `-c` must print in `X.code`, and
-  piped in `X.piped.code`, and `SelfHostedCompilerTest` requires `selfhost/codegen.gaz` to print
-  it byte for byte; beyond the corpus, the compiler compiling itself checks it. A change to
-  code generation needs the same change in `src/CodeGenerator` while it exists; after changing
-  either, also run `php tests/fuzz_parsers.php 3000 1 code`.
-- **`tests/cli/`** holds the programs `CliParityTest` runs through both command lines,
-  `bin/gazlang-php` and `bin/gazlang`, which must print the same standard output and standard
-  error and exit with the same code: a table of invocations, each its arguments, what is piped
-  in and the working directory. A change to either CLI's options, or to how they read files and
-  standard input, needs a row there.
-- When a port's output changes on purpose, record it with
-  `GAZLANG_RECORD_PORTS=1 vendor/bin/phpunit --filter SelfHosted` and review the diff: the
-  expected files are the spec.
-- **`selfhost/gazlang.gzb`** is the self-hosted compiler's bytecode, checked in and built into
-  the C VM, which is how `bin/gazlang -f x.gaz` runs source. A test fails until it is what the PHP
-  compiler writes for `selfhost/gazlang.gaz`, so after changing anything under `selfhost/`, run
-  `make -C vm compiler`. It compiles the compiler three times with the C VM (the old compiler
-  compiles the new one, which compiles itself twice), requires the last two to be the same, and
-  only then replaces `gazlang.gzb` and rebuilds the VM, so a broken edit leaves a VM that can
-  compile its fix. The compiler's own source can't use a new feature until it has been built
-  with it once.
+  piped in `X.piped.code`.
+- **`tests/cli/`** holds the programs `CliTest` runs through the command line. A change to its
+  options, or to how it reads files and standard input, needs a row there.
+- **`selfhost/gazlang.gzb`** is the compiler's bytecode, built into the VM. After changing
+  anything under `selfhost/`, run `make -C vm compiler`. It compiles the compiler three times
+  (the old compiler compiles the new one, which compiles itself twice), requires the last two
+  to be the same, and only then replaces `gazlang.gzb` and rebuilds the VM, so a broken edit
+  leaves a VM that can compile its fix. The compiler's own source can't use a new feature until
+  it has been built with it once.
 - **`tests/vm_corpus/`** are programs for the C VM that the rest of the repository doesn't
   reach, found with `php vm/coverage.php`: running out of call depth by every kind of call,
-  traces cut short, failing `to_string()`s, floats of every shape, cycles. **`tests/bytecode_corpus/`**
-  are bytecode files written by hand, one broken way per loader message. After changing either
-  VM, also run `php tests/fuzz_vms.php` (programs that throw every kind of value at every
-  operator and builtin; `programs` as a third argument mutates the repository's programs
-  instead), and for the collector `make -C vm stress` then
-  `GAZVM=vm/build/gazvm-stress php vm/progress.php`, which collects cycles at every chance
-  and takes over an hour (with `GAZVM` set, each program may run for two hours).
+  traces cut short, failing `to_string()`s, floats of every shape, cycles.
+  **`tests/bytecode_corpus/`** are bytecode files written by hand, one broken way per loader
+  message. For the collector, `make -C vm stress` then
+  `GAZVM=vm/build/gazvm-stress php vm/progress.php` collects cycles at every chance and takes
+  over an hour (with `GAZVM` set, each program may run for two hours).
 - `lib/json.gaz` is checked against PHP's own `json_decode` on every `tests/json/y_*.json` and
   `n_*.json`; `lib/csv.gaz` against `fgetcsv`.
-
-One environment note:
-
-- `bin/gazlang-php` **restarts itself once** (`GAZLANG_RESTARTED`) to set `pcov.enabled=0` and
-  `opcache.jit=1235`, through `proc_open` with its own streams so a program's stdout and stderr
-  stay in the order it wrote them.
 
 ## Bytecode
 
 The compiler emits a text format, one instruction per line, specified in
-[docs/bytecode.md](bytecode.md), which is what the C VM was built from.
+[docs/bytecode.md](bytecode.md).
 
 ```bash
 bin/gazlang -c -f x.gaz > x.gzb     # write it
 bin/gazlang -f x.gzb                # run it (recognised by its first line)
 ```
 
-On the PHP side a normal run compiles in memory and never goes through the text, but every
-test's VM side goes through write-then-read, so the suite tests the format too. `Program::INSTRUCTIONS` is the one
-table of every instruction's arguments and stack effect; `BytecodeTest` keeps it,
-`docs/bytecode.md` and the VM's cases in step.
-
-The loader checks everything — unknown instructions, undefined labels, bad slots, and a stack
-walk through every jump — so a file that loads is one the VM can run. `vm/load.c` makes the same
-checks with the same messages, and takes each block's greatest stack depth from the walk to size
-its frames.
+`INFO` in `vm/load.c` is the one table of every instruction's arguments and stack effect;
+`BytecodeTest` keeps it, `docs/bytecode.md` and the VM's cases in step. The loader checks
+everything (unknown instructions, undefined labels, bad slots, and a stack walk through every
+jump), so a file that loads is one the VM can run, and takes each block's greatest stack depth
+from the walk to size its frames.
 
 ## Where things stand
 
-The lexer, parser and code generator are written in GazLang and checked against the PHP ones;
-the VM is written in C and checked against the PHP one; `bin/gazlang` is that VM with the
-compiler built in, and rebuilds its own compiler (`make -C vm compiler`). The PHP
-implementation stays as the reference, `bin/gazlang-php`. CI builds and tests it on Linux on every push. What is open in the language
-is in [CLAUDE.md](../CLAUDE.md) under "Status and what is next".
-
-New features are judged by what they cost **in C**, not only in PHP: anything that leans on
-PHP's own behaviour (hashing, string conversion, float formatting) has to become a rule GazLang
-defines and both runtimes implement.
+GazLang is its own implementation: the front end in GazLang, the VM in C, and `bin/gazlang`
+the two together, which rebuilds its own compiler (`make -C vm compiler`). CI builds and tests
+it on Linux and macOS on every push. What is open in the language is in
+[CLAUDE.md](../CLAUDE.md) under "Status and what is next".
 
 ## Style
 
-PHP 8.5, PSR-4 under the `GazLang\` namespace. Classes are PascalCase, methods camelCase —
-except in `Lexer` and `Parser`, where methods are snake_case and named after the grammar rule
-they read (`get_next_token()`, `function_call()`, `left_associative()`). Properties are
-snake_case, constants UPPERCASE. PHPDoc on classes and methods. Errors are exceptions with
-descriptive messages.
+GazLang in `selfhost/` and `lib/`: functions and variables snake_case, classes PascalCase,
+constants UPPERCASE. The C in `vm/`: plain C11, commented where the C isn't obvious. The tests:
+PHP 8.5, PSR-4 under `GazLang\Tests`, methods camelCase, PHPDoc on classes and methods.

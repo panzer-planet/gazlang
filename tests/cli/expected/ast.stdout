@@ -1,0 +1,12 @@
+Compound
+  statements:
+@ "args.gaz"
+    0: EchoStatement 1
+      expr: FunctionCall 1
+        name: "args"
+        args: []
+@ "include.gaz"
+    1: EchoStatement 2
+      expr: String 2
+        token: 2 STRING "included"
+        value: "included"

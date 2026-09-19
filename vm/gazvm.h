@@ -2,16 +2,16 @@
  * gazvm: the GazLang VM in C. Runs the bytecode `gazlang -c` writes (docs/bytecode.md), or
  * source, which it first compiles with the self-hosted compiler built into it (see run() in vm.c).
  *
- * The PHP implementation (src/VM, src/Runtime) is the reference: every operator, builtin,
- * error message and location here must match it, and tests/CVMTest.php checks that they do.
+ * What every operator, builtin, error message and location does is defined here, and
+ * tests/CVMTest.php checks each program's output against the output recorded for it.
  *
  * Files:
  *   gazvm.h     this: the value model and everything the files share
- *   value.c     memory, strings, lists, maps, printing, equality (Runtime\Values, part 1)
- *   ops.c       operators, indexing, members, write paths (Runtime\Values, part 2)
- *   load.c      reading and checking a bytecode file (CodeGenerator\BytecodeReader)
- *   vm.c        the dispatch loop, calls, errors and traces (VM\VM), and main()
- *   builtins.c  the builtin functions (Runtime\Builtins)
+ *   value.c     memory, strings, lists, maps, printing, equality, truthiness
+ *   ops.c       operators, indexing, members, write paths
+ *   load.c      reading and checking a bytecode file, and the superinstructions
+ *   vm.c        the dispatch loop, calls, errors and traces, and main() with the CLI
+ *   builtins.c  the builtin functions and their arities
  *   gc.c        the cycle collector, for what reference counting can't free
  *
  * Errors: a function that can fail returns bool, false meaning an error was raised. The
@@ -155,14 +155,14 @@ struct Object {
     Value fields[];
 };
 
-/* An error on its way up (GazLangError in PHP). */
+/* An error on its way up. */
 struct Error {
     int64_t rc;
     Str *reason;        /* the message without the location */
     Str *path;          /* the file, NULL for piped source */
     int64_t line;       /* 0 when unknown */
     bool show_location; /* false for error("text") */
-    bool gaz;           /* a GazLangError: false only for an error not yet given a location,
+    bool gaz;           /* a GazLang error: false only for an error not yet given a location,
                            which a try doesn't catch if it never gets one */
     bool has_value;     /* error($v) with anything but a string: catch gets $v */
     Value value;

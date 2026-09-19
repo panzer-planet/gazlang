@@ -1,5 +1,5 @@
 /*
- * Reading a bytecode file (CodeGenerator\BytecodeReader, docs/bytecode.md)
+ * Reading a bytecode file (docs/bytecode.md)
  *
  * Nothing is trusted: every instruction, argument, label and name is checked, and each block's
  * stack is walked to prove it balances, so a file that loads is one the VM can run. The walk
@@ -18,7 +18,7 @@
 #include <string.h>
 #include <unistd.h>
 
-/* ---- The instruction table (Program::INSTRUCTIONS) -------------------------------------- */
+/* ---- The instruction table ------------------------------------------------------------ */
 
 /* Argument kinds */
 enum { K_LABEL, K_VALUE, K_SLOT, K_GLOBAL, K_CAPTURE, K_COUNT, K_LAMBDA, K_FUNCTION, K_CALLABLE,
@@ -220,9 +220,9 @@ static Str *intern(const char *s) { return str_intern(s, strlen(s)); }
 
 /*
  * A PUSH value or an @ line's file is a GazLang literal, read with the part of GazLang's lexer
- * that literals use. Every problem inside one is reported as the PHP reader reports it: "Bad
- * value '<the literal>': <reason>", the reason being the lexer's message, or the reader's own
- * ("Bad value: expected '=>'"), wrapped a second time because the PHP catches its own too.
+ * that literals use. Every problem inside one is reported as "Bad value '<the literal>':
+ * <reason>", the reason being the lexer's message, or the reader's own, which is itself
+ * worded as a bad value ("Bad value: expected '=>'"), so those say "Bad value" twice.
  */
 
 typedef enum { L_EOF, L_MINUS, L_LBRACKET, L_RBRACKET, L_LBRACE, L_RBRACE, L_COMMA, L_ARROW,
@@ -237,7 +237,7 @@ typedef struct {
     LitKind kind;
     Value value;
     bool too_large;         /* the digits of the smallest int, which only fit after a minus */
-    const char *type;       /* L_OTHER: the token type the PHP lexer would give it */
+    const char *type;       /* L_OTHER: the token type the lexer would give it */
 } Lit;
 
 static _Noreturn void bad_value(LitLexer *lx, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
@@ -278,7 +278,7 @@ static void add_utf8(Buf *b, uint32_t cp) {
     }
 }
 
-/* Token types for what a literal can't hold, longest match first, as the PHP lexer names them */
+/* Token types for what a literal can't hold, longest match first, as the lexer names them */
 static const char *OPERATORS[][2] = {
     {"<=>", "SPACESHIP"}, {"<<=", "SHIFT_LEFT_ASSIGN"}, {">>=", "SHIFT_RIGHT_ASSIGN"}, {"..=", "CONCAT_ASSIGN"},
     {"...", "SPREAD"}, {"?\?=", "COALESCE_ASSIGN"},
@@ -456,7 +456,7 @@ static Lit lit_next(LitLexer *lx) {
         return t;
     }
 
-    /* Anything else is a token no literal holds: name it as the PHP lexer would */
+    /* Anything else is a token no literal holds: name it as the lexer would */
     t.kind = L_OTHER;
     if (is_alpha(c) || c == '_') {
         const char *start = lx->p;
@@ -580,7 +580,7 @@ static char cwd[PATH_MAX];
 static bool have_cwd;
 
 static Str *absolute_path(const char *path) {
-    /* Made absolute and normalised as text: the file may not exist (Program::absolute) */
+    /* Made absolute and normalised as text: the file may not exist */
     Buf full = {0};
     if (path[0] != '/') {
         if (have_cwd) buf_adds(&full, cwd);
@@ -936,7 +936,7 @@ static void check_record(Block *b) {
     }
 }
 
-/* The last block with that key, as the PHP reader's table of blocks by key has it */
+/* The last block with that key: a later block with a key replaces an earlier one */
 static Block *block_by_key(Str *key) {
     for (int i = prog->nblocks - 1; i >= 0; i--) {
         if (prog->blocks[i]->key == key) return prog->blocks[i];
@@ -946,7 +946,7 @@ static Block *block_by_key(Str *key) {
 
 /* Mark the blocks that can run without an object: the top level, the functions, a method called
    or pushed as a function, and a lambda made in any of these. A key is marked through its last
-   block, as in the PHP reader, then every block with it. */
+   block, then every block with it. */
 static void mark_objectless(void) {
     int nmethods = 0;
     for (int i = 0; i < prog->nblocks; i++) nmethods += prog->blocks[i]->nmethods;
@@ -1018,8 +1018,8 @@ static int find_label(Block *b, Str *name) {
 
 /*
  * Check a block: every name it uses exists, every label is defined, and its stack balances.
- * The stack is walked from the top of the block, following jumps, in the order the PHP reader
- * walks it (so the same problem gives the same message).
+ * The stack is walked from the top of the block, following jumps, always in the same order
+ * (so the same problem always gives the same message).
  */
 static void check_block(Block *b) {
     char where[300];
@@ -1234,9 +1234,9 @@ static void link_program(void) {
         if (b->kind == B_CLASS || b->kind == B_TOP) frame += 0;
         if (frame > prog->max_frame) prog->max_frame = frame;
 
-        /* STORE x; LOAD x; POP, an assignment used as a statement, is STORE x (as the PHP VM's
-           loader does): the LOAD and POP are marked dropped. A LABEL between them would be a
-           jump into the middle, so it stops the match. */
+        /* STORE x; LOAD x; POP, an assignment used as a statement, is STORE x: the LOAD and
+           POP are marked dropped. A LABEL between them would be a jump into the middle, so it
+           stops the match. */
         bool *dropped = xcalloc((size_t)b->nraw + 1, sizeof(bool));
         for (int j = 0; j + 2 < b->nraw; j++) {
             RawInstr *r = b->raw;

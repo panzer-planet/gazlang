@@ -2,9 +2,9 @@
 
 The format a GazLang compiler writes and a GazLang VM runs. `gazlang -c -f x.gaz` prints it
 and `gazlang -f x.gzb` runs it. `selfhost/codegen.gaz` writes it and `vm/load.c` and
-`vm/vm.c` read and run it in `bin/gazlang`; in the PHP reference, `src/CodeGenerator/Program.php`
-writes it, `src/CodeGenerator/BytecodeReader.php` reads it, and `src/VM/VM.php` runs it. `Program::INSTRUCTIONS` holds every instruction with its arguments and
-stack effect, and `BytecodeTest` keeps that table, this document and the VM in step.
+`vm/vm.c` read and run it in `bin/gazlang`. `INFO` in `vm/load.c` holds every instruction with
+its arguments and stack effect, and `BytecodeTest` keeps that table, this document and the VM
+in step.
 
 The version is `1`. A loader refuses any other version; there is no compatibility promise
 until the compiler is self-hosted. The same source always gives byte-identical bytecode.
@@ -270,7 +270,6 @@ A file that loads is one the VM can run, so the checks are part of the format:
   and a handler's block starts one deeper, holding the error. The greatest depth reached is
   what a VM needs to size the block's stack.
 
-What a loader does after that is its own business. The PHP VM collapses `STORE x; LOAD x;
-POP` into `STORE x`, resolves labels to positions, and splits the instructions into parallel
-arrays; the C VM also turns names into indexes and merges common sequences into
-superinstructions. None of that belongs in the file.
+What a loader does after that is its own business. The C VM collapses `STORE x; LOAD x; POP`
+into `STORE x`, resolves labels to positions, turns names into indexes and merges common
+sequences into superinstructions. None of that belongs in the file.

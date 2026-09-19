@@ -38,10 +38,10 @@ no dogs here
 - **It is quick.** It keeps up with Python 3.12 or beats it by up to 2.7 times, and stays
   within 1.6 times of PHP 8.5 with its JIT, beating it on calls and closures
   ([numbers below](#how-fast-is-it)).
-- **It is checked to the byte.** There are two implementations, a reference in PHP and the
-  VM in C, and they must agree on every program, output and error message. Thousands of tests
-  hold them to it, with the C side under AddressSanitizer and a leak check, on Linux and on
-  both kinds of Mac, and fuzzers go looking for what the tests missed.
+- **It is checked to the byte.** What every test program, snippet and corpus file prints,
+  error messages included, is recorded, and thousands of tests hold gazlang to it under
+  AddressSanitizer and a leak check, on Linux and on both kinds of Mac. The compiler has to
+  compile itself to exactly itself.
 
 It is a hobby language, not production software, and it would like company.
 
@@ -76,8 +76,8 @@ bin/gazlang --tokens -f program.gaz        # print the tokens
 bin/gazlang --ast -f program.gaz           # print the tree
 ```
 
-The PHP implementation, `bin/gazlang-php`, takes the same options (it needs PHP 8.5 or later and
-`composer install`). The tests compare the two, so they need both.
+The tests are PHPUnit, so running them needs PHP 8.5 or later and `composer install`;
+GazLang itself needs neither.
 
 ## A ten minute tour
 

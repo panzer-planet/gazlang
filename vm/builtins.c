@@ -1,9 +1,9 @@
 /*
- * The builtin functions (Runtime\Builtins)
+ * The builtin functions
  *
  * The loader checks every call's builtin exists and the parser checked its argument count;
- * argument types are checked here, in the order the PHP checks them, so a call with two bad
- * arguments names the same one.
+ * argument types are checked here, always in the same order, so a call with two bad arguments
+ * always names the same one.
  */
 #include "gazvm.h"
 
@@ -22,7 +22,7 @@ char *piped_input;
 size_t piped_input_len;
 char **program_argv;
 
-/* In the order of Builtins::ARITIES, which builtins() gives */
+/* In the order builtins() gives them */
 const BuiltinInfo builtin_info[] = {
     {"len", 1, 1}, {"slice", 2, 3}, {"lower", 1, 1}, {"upper", 1, 1}, {"trim", 1, 1},
     {"split", 2, 2}, {"join", 2, 2}, {"replace", 3, 3}, {"contains", 2, 2}, {"starts_with", 2, 2},
@@ -70,7 +70,7 @@ Func *builtin_value(int index) {
 }
 
 
-/* "Function add expects 2 arguments, 1 given" (Builtins::arityError) */
+/* "Function add expects 2 arguments, 1 given" */
 bool raise_arity(const char *what, int lo, int hi, int argc) {
     if (lo == hi) return raise("%s expects %d arguments, %d given", what, lo, argc);
     return raise("%s expects %d to %d arguments, %d given", what, lo, hi, argc);
@@ -81,7 +81,7 @@ bool raise_arity(const char *what, int lo, int hi, int argc) {
 
 /*
  * Random numbers: xoshiro256** seeded through SplitMix64, which is what PHP's
- * Random\Engine\Xoshiro256StarStar does, so a seed gives the same numbers in both runtimes.
+ * Random\Engine\Xoshiro256StarStar does, so a seed always gives the same numbers.
  * Not cryptographically secure.
  */
 static uint64_t random_state[4];
@@ -119,8 +119,8 @@ static uint64_t random_next(void) {
     return result;
 }
 
-/* rand_int($min, $max), as Builtins::randInt(): draw as many low bits as the span $max - $min
-   uses until they are at most the span, so every result is equally likely */
+/* rand_int($min, $max): draw as many low bits as the span $max - $min uses until they are at
+   most the span, so every result is equally likely */
 static int64_t random_between(int64_t min, int64_t max) {
     uint64_t span = (uint64_t)max - (uint64_t)min, mask = span, offset;
     for (int shift = 1; shift < 64; shift *= 2) mask |= mask >> shift;
@@ -134,7 +134,7 @@ static bool want(int builtin, Value v, unsigned mask) {
     if (mask & M(v.type)) return true;
     static const Type order[] = {T_INT, T_FLOAT, T_STRING, T_LIST, T_MAP, T_NULL, T_CLASS, T_OBJECT};
     Buf b = {0};
-    /* The PHP lists the types in the order each builtin names them; these are those orders */
+    /* Each builtin names its types in its own order; these are those orders */
     const char *names = NULL;
     switch (mask) {
     case M(T_LIST) | M(T_MAP) | M(T_STRING): names = "list or map or string"; break;
@@ -208,7 +208,7 @@ static bool reduce(Value x, Value f, Value initial, Value *out) {
 }
 
 /*
- * sort($x, $compare): Builtins::sort(), exactly, since a program sees which comparisons are made
+ * sort($x, $compare): a defined merge sort, since a program sees which comparisons are made
  * and in what order: split in the middle, sort each half, merge asking $compare(right, left) and
  * taking from the right only when it is below zero. A new list, or NULL with the error raised.
  */

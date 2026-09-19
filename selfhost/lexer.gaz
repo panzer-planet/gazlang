@@ -1,6 +1,6 @@
-// The GazLang lexer in GazLang: a port of src/Lexer/Lexer.php, which is the spec.
-// tests/SelfHostedLexerTest.php requires the two to give the same tokens and errors.
-// Methods keep the PHP lexer's names, so the two can be read side by side.
+// The GazLang lexer in GazLang: source text to tokens, as `gazlang --tokens` prints them.
+// tests/SelfHostedLexerTest.php checks its tokens and errors against tests/lexer_corpus.
+// Methods are named after the step they read (get_next_token(), number(), identifier()).
 //
 // This file has no top level code, so the parser can include it: $lexer = Lexer($text),
 // then $lexer.get_next_token() until a token's type is "EOF". Errors are LexErrors.
@@ -17,12 +17,12 @@ class Token {
         #value = $value;
     }
 
-    // As Token::__toString(): "3 INTEGER 42", strings as literals, EOF with no value
+    // As --tokens prints it: "3 INTEGER 42", strings as literals, EOF with no value
     fn to_string() {
         $value = match {
             #type == "EOF" => "",
-            // A list prints its strings as literals (Lexer::quote()), and a float already
-            // prints as the shortest literal that reads back (Lexer::format_float())
+            // A list prints its strings as literals, and a float already prints as the
+            // shortest literal that reads back
             in_array(#type, ["STRING", "STRING_START", "STRING_MIDDLE", "STRING_END"]) => " " .. slice(to_string([#value]), 1, -1),
             default => " " .. #value,
         };
@@ -50,7 +50,7 @@ class Lexer {
     #text;
     #length;
     #pos = 0;
-    // The current character, or "" at the end of the input (null in the PHP lexer)
+    // The current character, or "" at the end of the input
     #char;
     #line = 1;
 
@@ -127,8 +127,8 @@ class Lexer {
     // Move past characters that are known not to be newlines
     //
     // The loops that read most of a file's characters (names, whitespace, comments, the text of
-    // strings) walk a local index and come here once: on the PHP VM a call costs as much as
-    // twenty comparisons, so a call per character is what makes a lexer slow
+    // strings) walk a local index and come here once: on the old PHP VM a call cost as much as
+    // twenty comparisons, so a call per character is what made the lexer slow
     fn skip($count) {
         #pos += $count;
         #char = #pos < #length ? #text[#pos] : "";

@@ -1,7 +1,7 @@
-// A port of src/CodeGenerator/CodeGenerator.php and the writing half of Program.php: a tree
-// from selfhost/parser.gaz to a bytecode file, byte for byte what `gazlang -c` writes (see
-// docs/bytecode.md). Methods keep the PHP names, so the two can be read side by side; the
-// PHP class's comments explain the instructions each visitor emits.
+// The code generator: a tree from selfhost/parser.gaz to a bytecode file, which is what
+// `gazlang -c` writes (see docs/bytecode.md). A visit_* method per kind of node emits its
+// instructions, one block per function; the writer at the end turns the blocks into the
+// file's text, deterministically, so the same source always gives the same bytes.
 //
 // This file has no top level code, so it can be included.
 include "parser.gaz";
@@ -212,7 +212,7 @@ class CodeGenerator {
     }
 
     // A compound assignment or ++/--, lowered to plain assignments, with index keys and a
-    // non-constant right side held in hidden variables (see CodeGenerator::update())
+    // non-constant right side held in hidden variables
     fn update($target, $op, $value, $prefix) {
         $n = #hidden_counter++;
 
@@ -453,7 +453,7 @@ class CodeGenerator {
     fn visit_statement($node) {
         // The result is discarded, so a postfix ++/-- can be the cheaper prefix form
         if (is_a($node.expr, IncrementAST) && !$node.expr.prefix) {
-            // PHP clones the node; this builds it again, location included
+            // A new node rather than a change to the tree; its location is copied by hand
             $prefix = IncrementAST($node.expr.target, $node.expr.op, true);
             [$prefix.line, $prefix.file] = [$node.expr.line, $node.expr.file];
             #visit($prefix);
@@ -494,7 +494,7 @@ class CodeGenerator {
         #emit("LABEL", [$end_label]);
     }
 
-    // foreach as the equivalent while loop over keys() (see CodeGenerator::visitForeachStatement())
+    // foreach as the equivalent while loop over keys()
     fn visit_foreach_statement($node) {
         $n = #hidden_counter++;
         $array = #hidden("\$#foreach_array_{$n}");
@@ -553,7 +553,7 @@ class CodeGenerator {
         #emit("LABEL", [$end_label]);
     }
 
-    // try, catch and finally as handlers (see CodeGenerator::visitTryStatement())
+    // try, catch and finally as handlers (TRY and END_TRY; see docs/bytecode.md)
     fn visit_try_statement($node) {
         $n = #label_counter++;
 
@@ -632,7 +632,7 @@ class CodeGenerator {
         #emit("JMP", [$node.token.type == "BREAK" ? $end_label : $continue_label]);
     }
 
-    // A test per arm value jumping to its body, then the bodies (see CodeGenerator::visitMatch())
+    // A test per arm value jumping to its body, then the bodies
     fn visit_match($node) {
         $n = #label_counter++;
         $end_label = "MATCH_END_{$n}";
@@ -969,7 +969,7 @@ class Program {
     }
 
     // A value as a GazLang literal, which reads back as the same value: a list prints its
-    // elements as literals, which is Lexer::quote() for a string and format_float() for a float
+    // elements as literals, strings quoted and floats as the shortest digits that read back
     fn literal($value) {
         return slice(to_string([$value]), 1, -1);
     }

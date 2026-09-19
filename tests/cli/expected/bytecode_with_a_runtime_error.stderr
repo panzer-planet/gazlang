@@ -1,0 +1,5 @@
+to stderr
+Error: Division by zero at vm/build/cli/runtime_error.gaz:1
+  inner at vm/build/cli/runtime_error.gaz:1
+  outer at vm/build/cli/runtime_error.gaz:2
+  top level at vm/build/cli/runtime_error.gaz:5

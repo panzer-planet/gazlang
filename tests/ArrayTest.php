@@ -73,7 +73,7 @@ class ArrayTest extends GazLangTestCase
     {
         $this->assertEquals("[1]\n[1, 2]\n[[1, 2]]\n[[1, 2, 3]]\n", $this->executeCode(
             '$a = [1]; $b = $a; $b[] = 2; echo $a; echo $b;'
-            // In-place writes use PHP references; a later copy must not share the nested array
+            // A write in place must not reach a later copy through the nested list
             .' $c = [[1]]; $c[0][] = 2; $d = $c; $d[0][] = 3; echo $c; echo $d;'
         ));
     }

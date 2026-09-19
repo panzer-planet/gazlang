@@ -11,11 +11,6 @@
         "phpstan/phpstan": "^2.2",
         "laravel/pint": "^1.32"
     },
-    "autoload": {
-        "psr-4": {
-            "GazLang\\": "src/"
-        }
-    },
     "autoload-dev": {
         "psr-4": {
             "GazLang\\Tests\\": "tests/"

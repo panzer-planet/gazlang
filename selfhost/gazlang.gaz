@@ -1,16 +1,16 @@
 // The self-hosted front end, as gazlang prints it: MODE is code (the bytecode, as -c prints
 // it; see docs/bytecode.md), tokens (one LINE TYPE VALUE per line, as --tokens) or ast (the
-// tree, as --ast; see src/AST/Dumper.php for the format). Without a FILE the source is read from
+// tree, as --ast; see Dumper below for the format). Without a FILE the source is read from
 // standard input, as gazlang reads piped source: no file in its locations, and includes
 // relative to the working directory.
 // bin/gazlang -f selfhost/gazlang.gaz -- MODE [FILE]
 include "codegen.gaz";
 
 class Dumper {
-    // What AST\Dumper leaves out: where a node is, which the "@" lines and each node's line
+    // What the dump leaves out: where a node is, which the "@" lines and each node's line
     // show, the code generator's (existing), bookkeeping derived from what is shown (resolved),
-    // or standing in for PHP's side tables keyed by object (use and class_use, which PHP's nodes
-    // don't have)
+    // or indexes into the parser's tables of member and class uses (use and class_use), which
+    // say nothing about the source
     const SKIPPED = ["line", "file", "existing", "resolved", "use", "class_use"];
 
     // The file of the last node that had a line, false before the first
@@ -64,7 +64,7 @@ class Dumper {
     }
 
     // A plain value as a literal: a list prints its elements as literals, so a string is
-    // quoted as the lexer read it. PHP can't tell an empty map from an empty list, so both are [].
+    // quoted as the lexer read it. An empty map prints as [], the same as an empty list.
     fn literal($value) {
         return $value == {} ? "[]" : slice(to_string([$value]), 1, -1);
     }

@@ -625,7 +625,6 @@ tests/fixtures/const/main.gaz
 tests/fixtures/csv_dump.gaz
 tests/fixtures/exit.gaz
 tests/fixtures/function_values/main.gaz
-tests/fixtures/hello.gaz
 tests/fixtures/include/cycle.gaz
 tests/fixtures/include/lib/fails.gaz
 tests/fixtures/include/lib/math.gaz

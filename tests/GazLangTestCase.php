@@ -226,8 +226,8 @@ abstract class GazLangTestCase extends TestCase
      * The file holds the output as the driver prints it, the checkout's path as <root>; the exit
      * code is 1 when a line starts with "Error: ", as no line of tokens, a tree or bytecode does
      * (an error's message can itself hold a newline, so it needn't be the last line). With
-     * GAZLANG_RECORD_PORTS set, what the port printed is recorded instead, for review as a diff:
-     * GAZLANG_RECORD_PORTS=1 vendor/bin/phpunit --filter SelfHosted
+     * GAZLANG_RECORD set, what the port printed is recorded instead, for review as a diff:
+     * GAZLANG_RECORD=1 vendor/bin/phpunit --filter SelfHosted
      *
      * @param  string  $expected_file  The expected file, relative to the project root
      * @param  array{0: string, 1: int}  $actual  What the port printed, and its exit code
@@ -236,10 +236,10 @@ abstract class GazLangTestCase extends TestCase
     {
         $path = self::ROOT.'/'.$expected_file;
         $output = CVM::portable($actual[0]);
-        if (getenv('GAZLANG_RECORD_PORTS') !== false) {
+        if (getenv('GAZLANG_RECORD') !== false) {
             file_put_contents($path, $output);
         }
-        $this->assertFileExists($path, "{$message}: nothing recorded; GAZLANG_RECORD_PORTS=1 vendor/bin/phpunit --filter SelfHosted");
+        $this->assertFileExists($path, "{$message}: nothing recorded; GAZLANG_RECORD=1 vendor/bin/phpunit --filter SelfHosted");
         $expected = (string) file_get_contents($path);
         $this->assertSameText($expected, $output, $message);
         $this->assertSame(preg_match('/^Error: /m', $expected), $actual[1], "{$message}: exit code");

@@ -1,0 +1,7 @@
+Compound
+  statements:
+@ null
+    0: EchoStatement 1
+      expr: FunctionCall 1
+        name: "args"
+        args: []

@@ -93,38 +93,6 @@ class StdlibTest extends GazLangTestCase
         $this->assertSame(['1-out 2-err 3-out 4-err'], $output);
     }
 
-    public function test_the_cli_runs_itself_again_at_most_once()
-    {
-        // A -d on the command line isn't in $argv, so a run that satisfied one of the settings
-        // and not the other used to lose the flags it was given and restart forever
-        $command = sprintf(
-            '%s -d display_errors=stderr -d opcache.enable_cli=1 -d opcache.jit=1235 %s -f %s 2>/dev/null',
-            escapeshellarg(PHP_BINARY),
-            escapeshellarg(self::ROOT.'/bin/gazlang-php'),
-            escapeshellarg(self::ROOT.'/tests/fixtures/hello.gaz')
-        );
-        $process = proc_open($command, [1 => ['pipe', 'w']], $pipes);
-        $this->assertIsResource($process);
-
-        $output = '';
-        $deadline = microtime(true) + 10;
-        stream_set_blocking($pipes[1], false);
-        while (microtime(true) < $deadline && proc_get_status($process)['running']) {
-            $output .= (string) stream_get_contents($pipes[1]);
-            usleep(20000);
-        }
-        $running = proc_get_status($process)['running'];
-        $output .= (string) stream_get_contents($pipes[1]);
-        if ($running) {
-            proc_terminate($process, 9);
-        }
-        fclose($pipes[1]);
-        proc_close($process);
-
-        $this->assertFalse($running, 'gazlang kept restarting itself instead of running the program');
-        $this->assertSame("hello\n", $output);
-    }
-
     public function test_print_error_writes_to_standard_error()
     {
         [$out, $err] = self::gazlang([], 'print("out"); print_error("problem"); print("put");');

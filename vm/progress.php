@@ -1,66 +1,90 @@
 <?php
 
-// Runs every candidate program on the PHP VM and the C VM and says which match.
+// Runs every entry of vm/passing.txt and every candidate on the C VM (the sanitized build, or
+// the one GAZVM names) and says which print something other than tests/expected records.
 //   php vm/progress.php            report
-//   php vm/progress.php --update   also add the newly passing ones to vm/passing.txt, and record
-//                                  what every matching one prints in tests/expected (CVMTest
-//                                  checks the C VM against that), removing what nothing records
+//   php vm/progress.php --update   also add the new candidates to vm/passing.txt, record what every
+//                                  entry prints in tests/expected, and remove what nothing
+//                                  records: review that diff, since it is what the VM is held to
 //   php vm/progress.php FILTER     only the entries containing FILTER, showing the differences
+// A candidate is new when the compiler built in accepts it (a file it refuses tests the
+// compiler, whose corpora cover that) and it runs without leaking.
 
 require __DIR__.'/../vendor/autoload.php';
 
 use GazLang\Tests\CVM;
 
-$update = in_array('--update', $argv, true);
-$filter = array_values(array_filter(array_slice($argv, 1), fn ($a) => $a !== '--update'))[0] ?? null;
+$args = array_slice($_SERVER['argv'], 1);
+$update = in_array('--update', $args, true);
+$filter = array_values(array_filter($args, fn ($a) => $a !== '--update'))[0] ?? null;
+$wanted = fn (string $entry) => $filter === null || str_contains($entry, $filter);
 
 CVM::build();
-$passing = CVM::passing();
-[$pass, $fail, $skipped] = [[], [], 0];
-$entries = array_values(array_filter(CVM::candidates(), fn ($entry) => $filter === null || str_contains($entry, $filter)));
-foreach (CVM::runAll($entries) as $entry => $result) {
-    if ($result === null) {
-        $skipped++;
+$passing = array_values(array_filter(CVM::passing(), $wanted));
+$candidates = array_values(array_filter(array_diff(CVM::candidates(), CVM::passing()), $wanted));
+// Which candidates compile; a .gzb one is bytecode already
+$compile = [];
+$stdin = [];
+foreach ($candidates as $entry) {
+    if (str_starts_with($entry, 'snippet:')) {
+        $stdin[$entry] = 'vm/build/snippets/'.substr($entry, 8).'.gaz';
+        @mkdir(CVM::ROOT.'/vm/build/snippets', 0777, true);
+        file_put_contents(CVM::ROOT.'/'.$stdin[$entry], CVM::snippets()[substr($entry, 8)]);
+        $compile[$entry] = [CVM::ROOT.'/bin/gazlang', '-c'];
+    } elseif (! str_ends_with($entry, '.gzb')) {
+        $compile[$entry] = [CVM::ROOT.'/bin/gazlang', '-c', '-f', $entry];
+    }
+}
+$compiled = CVM::processes($compile, [], $stdin);
+$candidates = array_values(array_filter($candidates, fn ($entry) => ($compiled[$entry][2] ?? 0) === 0));
+
+[$same, $differ, $new] = [[], [], []];
+foreach (CVM::runC([...$passing, ...$candidates]) as $entry => $c) {
+    $leak = CVM::leak($c);
+    if (! in_array($entry, $passing, true)) {
+        if ($leak === null) {
+            $new[$entry] = $c;
+        }
 
         continue;
     }
-    [$php, $c] = $result;
-    $leak = CVM::leak($c);
-    if ($php === array_slice($c, 0, 3) && $leak === null) {
-        $pass[$entry] = $php;
-    } else {
-        $fail[] = $entry;
-        $known = in_array($entry, $passing, true) ? ' (REGRESSION: in passing.txt)' : '';
-        echo "FAIL {$entry}{$known}".($leak === null ? '' : ": {$leak}")."\n";
-        if ($filter !== null) {
-            foreach (['stdout', 'stderr', 'exit code'] as $i => $what) {
-                if ($php[$i] !== $c[$i]) {
-                    echo "  {$what}:\n    php: ".json_encode($php[$i])."\n    c:   ".json_encode($c[$i])."\n";
-                }
-            }
-            if ($leak !== null) {
-                echo "  leak: {$leak}\n";
+    $expected = CVM::expected($entry);
+    if ($expected === [CVM::portable($c[0]), CVM::portable($c[1]), $c[2]] && $leak === null) {
+        $same[$entry] = $c;
+
+        continue;
+    }
+    $differ[$entry] = $c;
+    echo "DIFFERS {$entry}".($expected === null ? ': nothing recorded' : '').($leak === null ? '' : ": {$leak}")."\n";
+    if ($filter !== null && $expected !== null) {
+        foreach (['stdout', 'stderr', 'exit code'] as $i => $what) {
+            $printed = $i === 2 ? $c[2] : CVM::portable($c[$i]);
+            if ($expected[$i] !== $printed) {
+                echo "  {$what}:\n    expected: ".json_encode($expected[$i])."\n    printed:  ".json_encode($printed)."\n";
             }
         }
     }
 }
 
-printf("%d of %d match (%d refused by the compiler)\n", count($pass), count($pass) + count($fail), $skipped);
+printf("%d of %d entries print what is recorded; %d new\n", count($same), count($same) + count($differ), count($new));
 if ($update) {
-    $all = array_values(array_unique([...$passing, ...array_keys($pass)]));
+    $all = array_values(array_unique([...CVM::passing(), ...array_keys($new)]));
     sort($all);
     file_put_contents(__DIR__.'/passing.txt', implode("\n", $all)."\n");
     printf("vm/passing.txt: %d entries\n", count($all));
 
-    foreach ($pass as $entry => $php) {
-        CVM::record($entry, $php);
+    foreach ([...$same, ...$differ, ...$new] as $entry => $c) {
+        if (CVM::leak($c) === null) {
+            CVM::record($entry, $c);
+        } else {
+            echo "not recorded, since it leaked: {$entry}\n";
+        }
     }
-    printf("tests/expected: %d entries recorded\n", count($pass));
     if ($filter === null) {
-        $wanted = array_flip(array_map(CVM::expectedPath(...), $all));
+        $kept = array_flip(array_map(CVM::expectedPath(...), $all));
         $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(CVM::ROOT.'/tests/expected', FilesystemIterator::SKIP_DOTS));
         foreach ($it as $path) {
-            if (! isset($wanted[preg_replace('/\.(stdout|stderr|exit)$/', '', (string) $path)])) {
+            if (! isset($kept[preg_replace('/\.(stdout|stderr|exit)$/', '', (string) $path)])) {
                 unlink((string) $path);
                 echo 'removed '.substr((string) $path, strlen(CVM::ROOT) + 1)."\n";
             }

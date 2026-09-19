@@ -1,0 +1,7 @@
+Compound
+  statements:
+@ "args.gaz"
+    0: EchoStatement 1
+      expr: FunctionCall 1
+        name: "args"
+        args: []

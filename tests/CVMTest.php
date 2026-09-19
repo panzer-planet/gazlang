@@ -5,12 +5,10 @@ namespace GazLang\Tests;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The C VM against what each entry in vm/passing.txt must print: the standard output, standard
- * error and exit code recorded in tests/expected (see CVM), which the PHP VM printed when
- * vm/progress.php --update recorded it
+ * The C VM, under the sanitizers, against what each entry in vm/passing.txt must print: the
+ * standard output, standard error and exit code recorded in tests/expected (see CVM)
  *
- * The list only grows: vm/progress.php finds the entries that newly pass, adds them and records
- * what they print.
+ * vm/progress.php finds new entries, adds them and records what they print.
  */
 class CVMTest extends TestCase
 {
@@ -68,23 +66,14 @@ class CVMTest extends TestCase
         $this->assertSame([], $stale, 'no entry in vm/passing.txt records these: php vm/progress.php --update removes them');
     }
 
-    public function test_the_self_hosted_compiler_compiles_itself_on_the_c_vm()
+    public function test_the_self_hosted_compiler_compiles_itself_to_itself()
     {
-        // The bootstrap: the PHP compiler's bytecode for the self-hosted compiler (stage 0), run
-        // on the C VM, compiles the compiler (stage 1), which compiles it again (stage 2). All
-        // three must be the same bytecode, byte for byte, or the compiler can't replace PHP
-        $stages = [CVM::compile(CVM::DRIVER)];
-        foreach ([1, 2] as $stage) {
-            [$out, $err, $code] = CVM::process([CVM::BINARY, '-f', $stages[$stage - 1], '--', 'code', CVM::DRIVER]);
-            $this->assertSame([0, ''], [$code, $err], "stage {$stage} failed");
-            $stages[$stage] = "vm/build/gzb/stage{$stage}.gzb";
-            file_put_contents(CVM::ROOT.'/'.$stages[$stage], $out);
-        }
-        $bytecode = array_map(fn ($gzb) => file_get_contents(CVM::ROOT.'/'.$gzb), $stages);
-        $this->assertSame($bytecode[0], $bytecode[1], 'stage 1 differs from the PHP compiler\'s');
-        $this->assertSame($bytecode[1], $bytecode[2], 'stage 2 differs from stage 1');
-        // The compiler built into the C VM, which must be this same bytecode
-        $this->assertSame($bytecode[0], file_get_contents(CVM::ROOT.'/selfhost/gazlang.gzb'), 'selfhost/gazlang.gzb is stale: make -C vm compiler');
+        // The compiler built into the VM (selfhost/gazlang.gzb), under the sanitizers, compiles
+        // its own source to exactly itself: anything else means the source changed without
+        // make compiler, or a compiler whose output depends on how it was compiled
+        [$out, $err, $code] = CVM::process([CVM::BINARY, '-f', 'selfhost/gazlang.gzb', '--', 'code', CVM::DRIVER]);
+        $this->assertSame([0, ''], [$code, $err]);
+        $this->assertSame(file_get_contents(CVM::ROOT.'/selfhost/gazlang.gzb'), $out, 'selfhost/gazlang.gzb is stale: make -C vm compiler');
     }
 
     public function test_make_compiler_rebuilds_the_compiler_without_php()
@@ -121,16 +110,17 @@ class CVMTest extends TestCase
             $this->assertSame($before, [file_get_contents($compiler), filemtime("{$dir}/bin/gazlang")]);
             copy(CVM::ROOT.'/selfhost/codegen.gaz', "{$dir}/selfhost/codegen.gaz");
 
-            // One that moves every location after it is taken: the compiler is what the PHP
-            // compiler writes, and the VM is rebuilt with it
+            // One that moves every location after it is taken: the compiler is rebuilt, compiles
+            // itself to itself, and the VM is rebuilt with it
             file_put_contents("{$dir}/selfhost/lexer.gaz", "// a line\n".file_get_contents(CVM::ROOT.'/selfhost/lexer.gaz'));
-            // (with the PHP compiler compiling the same, from the same directory, meanwhile)
-            [$made, $php] = CVM::processes([['make', '-s', 'compiler'], ['php', CVM::ROOT.'/bin/gazlang-php', '-c', '-f', '../selfhost/gazlang.gaz']], cwd: "{$dir}/vm");
-            $this->assertSame([0, ''], [$made[2], $made[1]]);
-            $this->assertNotSame($before[0], file_get_contents($compiler));
-            $this->assertSame($php[0], file_get_contents($compiler));
+            [, $err, $code] = $make();
+            $this->assertSame([0, ''], [$code, $err]);
+            $rebuilt = file_get_contents($compiler);
+            $this->assertNotSame($before[0], $rebuilt);
+            // (from vm/, as the Makefile compiles it, since the paths it writes depend on that)
+            $this->assertSame([$rebuilt, '', 0], CVM::processes([["{$dir}/bin/gazlang", '-f', '../selfhost/gazlang.gzb', '--', 'code', '../selfhost/gazlang.gaz']], cwd: "{$dir}/vm")[0]);
             // The VM holds the compiler's bytes as they are, in a C array
-            $this->assertStringContainsString($php[0], file_get_contents("{$dir}/bin/gazlang"), 'bin/gazlang was not rebuilt');
+            $this->assertStringContainsString($rebuilt, file_get_contents("{$dir}/bin/gazlang"), 'bin/gazlang was not rebuilt');
         } finally {
             exec('rm -rf '.escapeshellarg($dir));
         }

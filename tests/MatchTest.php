@@ -5,7 +5,7 @@ namespace GazLang\Tests;
 /**
  * match: how it parses, what it refuses, and the code it compiles to
  *
- * What it does at runtime is tested by tests/gaz/match/match_test.gaz, on both backends.
+ * What it does at runtime is tested by tests/gaz/match/match_test.gaz.
  */
 class MatchTest extends GazLangTestCase
 {

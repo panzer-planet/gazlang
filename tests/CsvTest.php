@@ -7,7 +7,7 @@ namespace GazLang\Tests;
  *
  * tests/csv/y_*.csv must parse to the same rows as fgetcsv (with no escape character,
  * as RFC 4180 has none, and without the [null] rows fgetcsv gives blank lines);
- * n_*.csv must be rejected with a "CSV error". Everything runs on both backends.
+ * n_*.csv must be rejected with a "CSV error".
  */
 class CsvTest extends GazLangTestCase
 {

@@ -1,5 +1,5 @@
-// Character helpers, matching the PHP lexer's character classes exactly
-// (Lexer::is_space, is_digit, is_hex_digit, is_alpha, is_alnum): ASCII only.
+// Character helpers, matching the lexer's character classes exactly
+// (is_space, is_digit, is_hex_digit, is_alpha, is_alnum): ASCII only.
 //
 // Each is_* takes one character. Anything else (an empty or longer string, null, a
 // number) is false rather than an error, so reading past the end of a string is safe.

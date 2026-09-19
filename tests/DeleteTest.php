@@ -4,7 +4,7 @@ namespace GazLang\Tests;
 
 /**
  * delete removes an element of a list or map; tests/gaz/lists/delete_test.gaz covers
- * the semantics on both backends, so these are the parse errors and the code
+ * the semantics, so these are the parse errors and the code
  */
 class DeleteTest extends GazLangTestCase
 {
