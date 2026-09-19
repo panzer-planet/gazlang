@@ -24,7 +24,7 @@ jobs:
       - name: Run a program
         run: bin/gazlang -f examples/functions.gaz
       - name: Rebuild the compiler with gazlang
-        run: make -C vm compiler && git diff --exit-code selfhost/gazlang.gzb
+        run: make -C vm compiler && git diff --exit-code compiler/gazlang.gzb
 
       # PHP runs the tests (PHPUnit); the language itself needs none
       - uses: shivammathur/setup-php@v2

@@ -8,7 +8,7 @@ design is in [CLAUDE.md](../CLAUDE.md); what the language *is* is in
 
 | Path | What it does |
 | --- | --- |
-| `selfhost/` | the front end, in GazLang: `lexer.gaz`, `parser.gaz` and `nodes.gaz`, `codegen.gaz`, and `gazlang.gaz`, the driver, which prints what `-c`, `--tokens` or `--ast` would (`gazlang.gaz -- code\|tokens\|ast [FILE]`, reading piped source without a FILE). `gazlang.gzb` is its bytecode, checked in |
+| `compiler/` | the front end, in GazLang: `lexer.gaz`, `parser.gaz` and `nodes.gaz`, `codegen.gaz`, and `gazlang.gaz`, the driver, which prints what `-c`, `--tokens` or `--ast` would (`gazlang.gaz -- code\|tokens\|ast [FILE]`, reading piped source without a FILE). `gazlang.gzb` is its bytecode, checked in |
 | `vm/` | the VM in C, built as `bin/gazlang` with `gazlang.gzb` inside it: it runs source by compiling it with that first. `vm/gazvm.h` says which file does what |
 | `lib/` | the standard library, written in GazLang |
 | `examples/` | sample programs |
@@ -30,7 +30,7 @@ Everything the tests run is compared with what is recorded as its output, byte f
   each corpus file has what `--tokens`, `--ast` or `-c` must print next to it.
 - **The command line** (`CliTest`): a table of invocations, each its arguments, what is piped in
   and the working directory, with what each prints in `tests/cli/expected/`.
-- **The compiler compiles itself** to exactly `selfhost/gazlang.gzb`.
+- **The compiler compiles itself** to exactly `compiler/gazlang.gzb`.
 
 When output changes on purpose, record it and review the diff, since the recordings are the
 spec: `php vm/progress.php --update` for programs (it also adds new ones to `vm/passing.txt`,
@@ -50,7 +50,7 @@ copied on write, and the cycle collector (`vm/gc.c`) frees what counting can't.
 
 ```bash
 make -C vm                                          # bin/gazlang, optimised
-make -C vm compiler                                 # after changing selfhost/, see below
+make -C vm compiler                                 # after changing compiler/, see below
 
 bin/gazlang -f examples/functions.gaz               # compile and run
 bin/gazlang -c -f examples/functions.gaz            # print the compiled bytecode
@@ -97,8 +97,8 @@ php vm/bench.php                                    # gazlang against PHP and Py
   piped in `X.piped.code`.
 - **`tests/cli/`** holds the programs `CliTest` runs through the command line. A change to its
   options, or to how it reads files and standard input, needs a row there.
-- **`selfhost/gazlang.gzb`** is the compiler's bytecode, built into the VM. After changing
-  anything under `selfhost/`, run `make -C vm compiler`. It compiles the compiler three times
+- **`compiler/gazlang.gzb`** is the compiler's bytecode, built into the VM. After changing
+  anything under `compiler/`, run `make -C vm compiler`. It compiles the compiler three times
   (the old compiler compiles the new one, which compiles itself twice), requires the last two
   to be the same, and only then replaces `gazlang.gzb` and rebuilds the VM, so a broken edit
   leaves a VM that can compile its fix. The compiler's own source can't use a new feature until
@@ -138,6 +138,6 @@ it on Linux and macOS on every push. What is open in the language is in
 
 ## Style
 
-GazLang in `selfhost/` and `lib/`: functions and variables snake_case, classes PascalCase,
+GazLang in `compiler/` and `lib/`: functions and variables snake_case, classes PascalCase,
 constants UPPERCASE. The C in `vm/`: plain C11, commented where the C isn't obvious. The tests:
 PHP 8.5, PSR-4 under `GazLang\Tests`, methods camelCase, PHPDoc on classes and methods.

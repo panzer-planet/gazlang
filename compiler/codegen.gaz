@@ -1,4 +1,4 @@
-// The code generator: a tree from selfhost/parser.gaz to a bytecode file, which is what
+// The code generator: a tree from compiler/parser.gaz to a bytecode file, which is what
 // `gazlang -c` writes (see docs/bytecode.md). A visit_* method per kind of node emits its
 // instructions, one block per function; the writer at the end turns the blocks into the
 // file's text, deterministically, so the same source always gives the same bytes.

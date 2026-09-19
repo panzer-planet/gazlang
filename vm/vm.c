@@ -1382,7 +1382,7 @@ static int run_program(bool check) {
     return exit_code;
 }
 
-/* The self-hosted front end's bytecode, selfhost/gazlang.gzb, built into the VM (build/compiler.c) */
+/* The self-hosted front end's bytecode, compiler/gazlang.gzb, built into the VM (build/compiler.c) */
 extern const unsigned char compiler_gzb[];
 extern const unsigned long compiler_gzb_size;
 
@@ -1400,11 +1400,11 @@ typedef struct {
     int exit_code;
 } Job;
 
-/* Run the front end, selfhost/gazlang.gaz, in a mode on the job's file, or on its text as
+/* Run the front end, compiler/gazlang.gaz, in a mode on the job's file, or on its text as
    piped input: onto standard output, or with *text set into memory. Its exit code; it reports its
    own errors on standard error. */
 static int run_front_end(Job *job, const char *mode, char **text, size_t *len) {
-    program = load((const char *)compiler_gzb, compiler_gzb_size, "selfhost/gazlang.gzb");
+    program = load((const char *)compiler_gzb, compiler_gzb_size, "compiler/gazlang.gzb");
     if (!program) {
         report(vm_error);
         return 1;

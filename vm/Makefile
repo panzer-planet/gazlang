@@ -1,7 +1,7 @@
 # gazlang, the GazLang VM in C with the self-hosted compiler built in. Only libc and libm, plus od
 # and awk to build in the compiler.
 #   make           bin/gazlang, optimised
-#   make compiler  rebuild selfhost/gazlang.gzb from selfhost/ with bin/gazlang alone (see below)
+#   make compiler  rebuild compiler/gazlang.gzb from compiler/ with bin/gazlang alone (see below)
 #   make test      vm/build/gazvm-test, with AddressSanitizer and UndefinedBehaviorSanitizer,
 #                  which tests/CVMTest.php runs (it calls this itself)
 
@@ -22,12 +22,12 @@ $(GAZLANG): $(SOURCES) $(HEADERS) $(COMPILER)
 
 # The bytes as a C array, written out by od: no escaping to get wrong (and no trigraphs, which
 # -std=c11 turns on, and which the ??= in the compiler's bytecode would be)
-$(COMPILER): ../selfhost/gazlang.gzb Makefile
+$(COMPILER): ../compiler/gazlang.gzb Makefile
 	@mkdir -p build
 	{ echo 'const unsigned char compiler_gzb[] = {'; od -An -v -tu1 $< | awk '{ for (i = 1; i <= NF; i++) printf "%s,", $$i; print "" }'; echo '0};'; \
 	  echo 'const unsigned long compiler_gzb_size = sizeof compiler_gzb - 1;'; } > $@
 
-# make compiler: after editing selfhost/, rebuild selfhost/gazlang.gzb with bin/gazlang alone, in three
+# make compiler: after editing compiler/, rebuild compiler/gazlang.gzb with bin/gazlang alone, in three
 # stages: the current compiler compiles the new one (stage 1), which compiles itself (stage 2),
 # which compiles itself again (stage 3). Stage 2 must equal stage 3: stage 1 was written by the
 # old code generator, so it may differ by design, but a compiler whose output depends on how it
@@ -38,16 +38,16 @@ $(COMPILER): ../selfhost/gazlang.gzb Makefile
 # ponytail: a stage's own runtime errors name build/bootstrap/ as the directory of its source
 # files, since bytecode paths resolve against the bytecode file; the line numbers are right
 BOOT = build/bootstrap
-SELFHOST = ../selfhost/gazlang.gaz
+COMPILER_SOURCE = ../compiler/gazlang.gaz
 
 compiler: $(GAZLANG)
 	@mkdir -p $(BOOT)
-	$(GAZLANG) -c -f $(SELFHOST) > $(BOOT)/stage1.gzb
-	$(GAZLANG) -f $(BOOT)/stage1.gzb -- code $(SELFHOST) > $(BOOT)/stage2.gzb
-	$(GAZLANG) -f $(BOOT)/stage2.gzb -- code $(SELFHOST) > $(BOOT)/stage3.gzb
-	@cmp -s $(BOOT)/stage2.gzb $(BOOT)/stage3.gzb || { echo "stage 2 differs from stage 3: the compiler's output depends on how it was compiled; selfhost/gazlang.gzb is unchanged" >&2; exit 1; }
-	@if cmp -s $(BOOT)/stage2.gzb ../selfhost/gazlang.gzb; then echo "selfhost/gazlang.gzb is up to date"; \
-	 else cp $(BOOT)/stage2.gzb ../selfhost/gazlang.gzb && $(MAKE) all; fi
+	$(GAZLANG) -c -f $(COMPILER_SOURCE) > $(BOOT)/stage1.gzb
+	$(GAZLANG) -f $(BOOT)/stage1.gzb -- code $(COMPILER_SOURCE) > $(BOOT)/stage2.gzb
+	$(GAZLANG) -f $(BOOT)/stage2.gzb -- code $(COMPILER_SOURCE) > $(BOOT)/stage3.gzb
+	@cmp -s $(BOOT)/stage2.gzb $(BOOT)/stage3.gzb || { echo "stage 2 differs from stage 3: the compiler's output depends on how it was compiled; compiler/gazlang.gzb is unchanged" >&2; exit 1; }
+	@if cmp -s $(BOOT)/stage2.gzb ../compiler/gazlang.gzb; then echo "compiler/gazlang.gzb is up to date"; \
+	 else cp $(BOOT)/stage2.gzb ../compiler/gazlang.gzb && $(MAKE) all; fi
 
 test: build/gazvm-test
 

@@ -24,8 +24,8 @@ class EditorGrammarTest extends GazLangTestCase
     {
         preg_match_all('#\\\\b\(([a-z|]+)\)\\\\b#', file_get_contents(self::GRAMMAR), $matches);
         $highlighted = explode('|', implode('|', $matches[1]));
-        // The keywords are the lexer's table, KEYWORDS in selfhost/lexer.gaz
-        $lexer = (string) file_get_contents(self::ROOT.'/selfhost/lexer.gaz');
+        // The keywords are the lexer's table, KEYWORDS in compiler/lexer.gaz
+        $lexer = (string) file_get_contents(self::ROOT.'/compiler/lexer.gaz');
         $this->assertSame(1, preg_match('/const KEYWORDS = \{(.*?)\};/s', $lexer, $table));
         preg_match_all('/"([a-z]+)" =>/', $table[1], $keywords);
         $this->assertGreaterThan(20, count($keywords[1]));

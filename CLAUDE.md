@@ -1,7 +1,7 @@
 # GazLang Development Guidelines
 
 GazLang is self-hosting: the lexer, parser and code generator are written in GazLang
-(`selfhost/`), compiled to bytecode (`selfhost/gazlang.gzb`, checked in) and built into a VM in C
+(`compiler/`), compiled to bytecode (`compiler/gazlang.gzb`, checked in) and built into a VM in C
 (`vm/`); together they are `bin/gazlang`. The tests are PHP (PHPUnit), which runs `bin/gazlang`.
 `README.md` is the invitation, `docs/language.md` the language reference, `docs/internals.md`
 the contributor guide, `docs/bytecode.md` the bytecode spec. This file holds the rules and the
@@ -19,7 +19,7 @@ bin/gazlang -c -f examples/functions.gaz > /tmp/f.gzb && bin/gazlang -f /tmp/f.g
 bin/gazlang --tokens -f examples/functions.gaz
 bin/gazlang --ast -f examples/functions.gaz
 
-# After changing selfhost/, rebuild the compiler gazlang has built in, with gazlang alone
+# After changing compiler/, rebuild the compiler gazlang has built in, with gazlang alone
 # (a test fails until then; see "Changing the compiler")
 make -C vm compiler
 
@@ -42,8 +42,8 @@ php vm/progress.php [FILTER] [--update]
 GAZLANG_RECORD=1 vendor/bin/phpunit --filter 'SelfHosted|CliTest'
 
 # The self-hosted front end from its source; without a file it reads piped source
-bin/gazlang -f selfhost/gazlang.gaz -- code examples/functions.gaz
-bin/gazlang -f selfhost/gazlang.gaz -- ast < examples/errors.gaz
+bin/gazlang -f compiler/gazlang.gaz -- code examples/functions.gaz
+bin/gazlang -f compiler/gazlang.gaz -- ast < examples/errors.gaz
 
 # The C VM's coverage by the harness, its speed, and a build that collects cycles at every chance
 # (over an hour: collecting is quadratic, and the entries that compile the compiler take longest)
@@ -56,7 +56,7 @@ vendor/bin/pint                     # formatting
 ```
 
 ## Code Style Guidelines
-- **GazLang** (`selfhost/`, `lib/`): functions, variables, fields and methods snake_case, classes
+- **GazLang** (`compiler/`, `lib/`): functions, variables, fields and methods snake_case, classes
   PascalCase, constants UPPERCASE. The lexer's and parser's methods are named after the grammar
   rule or step they read (`get_next_token()`, `function_call()`, `left_associative()`).
 - **C** (`vm/`): plain C11 plus POSIX (`-D_DEFAULT_SOURCE`, which glibc needs for
@@ -70,7 +70,7 @@ vendor/bin/pint                     # formatting
 
 ## Layout
 
-- `selfhost/`: `lexer.gaz`, `parser.gaz` and `nodes.gaz`, `codegen.gaz`, and `gazlang.gaz`, the
+- `compiler/`: `lexer.gaz`, `parser.gaz` and `nodes.gaz`, `codegen.gaz`, and `gazlang.gaz`, the
   driver: `gazlang.gaz -- code|tokens|ast [FILE]`, reading standard input without a FILE, a
   usage message and exit 2 otherwise. `gazlang.gzb` is its bytecode.
 - `vm/`: the VM in C. `gazvm.h` says which file does what: `value.c` and `ops.c` are what values
@@ -107,7 +107,7 @@ nothing**: several first versions of a harness or corpus passed everything and c
   print next to it (`X.tokens`, `X.ast` and `X.piped.ast`, `X.code` and `X.piped.code`; the
   runs from other working directories in `tests/parser_corpus/places/`), exit code 1 when a line
   starts with `Error: ` (`assertPortPrints()`). `SelfHostedLexerTest`, `SelfHostedParserTest`
-  and `SelfHostedCompilerTest` run the driver compiled from the current `selfhost/` source (not
+  and `SelfHostedCompilerTest` run the driver compiled from the current `compiler/` source (not
   the built-in one, which is stale until `make compiler`), 24 at once (`CVM::driver()`). The
   dump is read off the nodes rather than written per node type, so a field added to a node
   shows in every `.ast`; a failure reports the first line that differs (`assertSameText()`),
@@ -127,8 +127,8 @@ nothing**: several first versions of a harness or corpus passed everything and c
 - **The command line prints what `tests/cli/expected/` records** (`CliTest`): a table of
   invocations of `tests/cli/` programs (arguments, what is piped in, working directory). A change
   to its options or how it reads input needs a row.
-- **The compiler compiles itself to itself**: `selfhost/gazlang.gzb`, run under the sanitizers,
-  compiles `selfhost/gazlang.gaz` to exactly `gazlang.gzb`
+- **The compiler compiles itself to itself**: `compiler/gazlang.gzb`, run under the sanitizers,
+  compiles `compiler/gazlang.gaz` to exactly `gazlang.gzb`
   (`test_the_self_hosted_compiler_compiles_itself_to_itself`). This checks the front end on the
   largest program there is.
 - **GazLang code is tested with GazLang programs**: every `tests/gaz/**/*_test.gaz` must print
@@ -149,7 +149,7 @@ can't have used it. Re-measure before trusting a recorded number.
 
 ## Changing the compiler
 
-`make -C vm compiler` rebuilds `selfhost/gazlang.gzb` with `bin/gazlang` alone, in three stages:
+`make -C vm compiler` rebuilds `compiler/gazlang.gzb` with `bin/gazlang` alone, in three stages:
 the current compiler compiles the new source (stage 1), which compiles itself (stage 2), which
 compiles itself again (stage 3). **Stage 2 must equal stage 3**: stage 1 was written by the old
 code generator, so it differs by design when code generation changes, but a compiler whose
@@ -162,8 +162,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   bytecode, since a fresh clone's timestamps are arbitrary and a dependency would have make
   regenerate the compiler with a binary that needs it to be built.
 - **A language feature lands in two steps**: the compiler's own source can't use a feature
-  until a compiler that understands it has been built. Add it to `selfhost/`, run
-  `make compiler`, and only then use it in `selfhost/`. A new instruction goes into the C VM
+  until a compiler that understands it has been built. Add it to `compiler/`, run
+  `make compiler`, and only then use it in `compiler/`. A new instruction goes into the C VM
   before any bytecode using it runs.
 - The bytecode is built in with `od` into `vm/build/compiler.c`: numbers only, so nothing to
   escape, and no trigraphs, which `-std=c11` turns on and the `??=` in it would be.

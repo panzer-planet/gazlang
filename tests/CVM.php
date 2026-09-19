@@ -75,7 +75,7 @@ final class CVM
         chdir(self::ROOT);
         try {
             $files = [];
-            foreach (['examples', 'lib', 'selfhost', 'tests/gaz', 'tests/fixtures', 'tests/codegen_corpus', 'tests/parser_corpus', 'tests/lexer_corpus', 'tests/vm_corpus'] as $dir) {
+            foreach (['examples', 'lib', 'compiler', 'tests/gaz', 'tests/fixtures', 'tests/codegen_corpus', 'tests/parser_corpus', 'tests/lexer_corpus', 'tests/vm_corpus'] as $dir) {
                 $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS));
                 foreach ($it as $path) {
                     if (str_ends_with((string) $path, '.gaz')) {
@@ -198,7 +198,7 @@ final class CVM
     }
 
     /**
-     * Run the self-hosted front end (selfhost/gazlang.gaz) in a mode on each file, from the
+     * Run the self-hosted front end (compiler/gazlang.gaz) in a mode on each file, from the
      * project root, on the optimised C VM, many at once: the ports' harnesses, which check the
      * ports rather than the VM (CVMTest checks the VM, and runs the driver under the sanitizers)
      *
@@ -229,9 +229,9 @@ final class CVM
     }
 
     /**
-     * The self-hosted front end: gazlang -f selfhost/gazlang.gaz -- code|tokens|ast [FILE]
+     * The self-hosted front end: gazlang -f compiler/gazlang.gaz -- code|tokens|ast [FILE]
      */
-    public const DRIVER = 'selfhost/gazlang.gaz';
+    public const DRIVER = 'compiler/gazlang.gaz';
 
     /**
      * Take the line GAZVM_STATS adds out of the C VM's standard error, and add what it said as a

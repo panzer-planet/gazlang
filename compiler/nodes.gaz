@@ -1,8 +1,8 @@
-// The tree selfhost/parser.gaz builds: one class per node, named after what it is (BinOpAST,
+// The tree compiler/parser.gaz builds: one class per node, named after what it is (BinOpAST,
 // IfStatementAST), its fields what the code generator reads.
 //
 // Fields are declared in the order --ast prints them, since fields() gives them in that order:
-// selfhost/gazlang.gaz prints a tree from them, and the parser walks one to find the variables a
+// compiler/gazlang.gaz prints a tree from them, and the parser walks one to find the variables a
 // lambda uses. A field the parser leaves empty is set to null, since fields() leaves out one
 // that was never set.
 //

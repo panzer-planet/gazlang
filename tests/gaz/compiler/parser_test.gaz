@@ -1,7 +1,7 @@
 // The self-hosted parser as the library the code generator will include: a tree to walk, a
 // ParseError to catch. That it builds the right tree is tests/SelfHostedParserTest.php's job.
 include "../check.gaz";
-include "../../../selfhost/parser.gaz";
+include "../../../compiler/parser.gaz";
 
 $root = Parser(Lexer("echo 1 + 2 * \$x;")).parse();
 $echo = $root.statements[0];

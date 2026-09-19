@@ -43,7 +43,7 @@ PUSH true
 LABEL OR_END_1
 JZ ELSE_0
 @ "gazlang.gaz" 87
-PUSH "Usage: gazlang -f selfhost/gazlang.gaz -- code|tokens|ast [FILE]\n"
+PUSH "Usage: gazlang -f compiler/gazlang.gaz -- code|tokens|ast [FILE]\n"
 CALL_BUILTIN print_error 1
 POP
 @ "gazlang.gaz" 88

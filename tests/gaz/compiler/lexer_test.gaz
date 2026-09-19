@@ -1,6 +1,6 @@
-// selfhost/lexer.gaz as the parser will use it, as a library. That it gives the right tokens
+// compiler/lexer.gaz as the parser will use it, as a library. That it gives the right tokens
 // is SelfHostedLexerTest's job, against the PHP lexer on every .gaz file in the repository.
-include "../../../selfhost/lexer.gaz";
+include "../../../compiler/lexer.gaz";
 include "../check.gaz";
 
 // The parser makes tokens of its own (the .. of an interpolated string), which have no line

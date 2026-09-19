@@ -1,0 +1,1 @@
+Usage: gazlang -f compiler/gazlang.gaz -- code|tokens|ast [FILE]
