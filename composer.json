@@ -1,6 +1,6 @@
 {
     "name": "werner/gazlang",
-    "description": "A simple programming language compiler",
+    "description": "A programming language",
     "type": "project",
     "license": "MIT",
     "require": {

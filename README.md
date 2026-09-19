@@ -1,6 +1,6 @@
 # GazLang
 
-A small scripting language that would rather stop than guess.
+A scripting language that would rather stop than guess.
 
 If you have written PHP, JavaScript or Python you can read GazLang already. The difference is
 in what it refuses to do: it never quietly turns a string into a number, never overflows an
