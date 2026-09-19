@@ -24,6 +24,11 @@ switch ($path) {
         echo 'repeated';
 
         return;
+    case '/body':
+        // As it came, since JSON can't hold bytes that aren't UTF-8
+        echo file_get_contents('php://input');
+
+        return;
     case '/large':
         echo str_repeat('0123456789', 200000);
 

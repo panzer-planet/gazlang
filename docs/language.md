@@ -358,10 +358,10 @@ mapped to its parameter count, or `[fewest, most]` when some are optional).
 too), and an error when there is nothing there; `file_exists($path)` is whether there is, so
 `file_exists("a/../b")` is false when `a` is missing, as the system sees it.
 
-**Programs** — `run($argv)` starts a program and waits for it: `$argv` is a list of strings,
-the program (found on `PATH` unless it has a `/`) and then its arguments, passed as they are,
-with no shell to read `;`, `$` or `*` in them. It inherits the environment and the working
-directory, reads nothing (its standard input is `/dev/null`), and gives
+**Programs** — `run($argv, $input = "")` starts a program and waits for it: `$argv` is a list
+of strings, the program (found on `PATH` unless it has a `/`) and then its arguments, passed as
+they are, with no shell to read `;`, `$` or `*` in them. It inherits the environment and the
+working directory, reads `$input` as its standard input (any bytes, any size), and gives
 `{"status" => 0, "stdout" => "...", "stderr" => "..."}`, both outputs whole. The status is its
 exit code, or minus the signal's number when a signal killed it (`-9`). A program that can't be
 started is an error (`Cannot run "nope": No such file or directory`), as are an empty list and
@@ -412,9 +412,9 @@ header names lowercased and a repeated header's values joined with `", "`. Every
 response, 404 and 500 included; a request that gets none (no such host, refused, a bad URL) is
 an error, `HTTP error: ` and curl's reason. Redirects are followed; only `http` and `https` are
 spoken. A method or header name that isn't an HTTP token, or a header value with a line break,
-is an error before anything is sent. The body and headers reach curl as arguments, so they
-can't hold a NUL byte, a body over 128KB fails on Linux, and other users on the machine can see
-them in `ps`: don't send secrets from a shared machine.
+is an error before anything is sent. The body can be any size and any bytes. Headers reach
+curl as arguments, so other users on the machine can see them in `ps`: don't send an
+`Authorization` header from a shared machine.
 
 ```
 include "lib/http.gaz";

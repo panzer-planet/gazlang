@@ -55,9 +55,9 @@ class HttpTest extends GazLangTestCase
     /**
      * What a call to lib/http.gaz returns, through JSON; the server's URL is $url
      *
-     * @return array{status: int, headers: array<string, string>, body: string}
+     * @return mixed
      */
-    private function call(string $call): array
+    private function call(string $call)
     {
         $root = self::ROOT;
         $url = self::quote(self::$url);
@@ -96,6 +96,15 @@ class HttpTest extends GazLangTestCase
 
         $request = self::request($response);
         $this->assertSame(['POST', '/submit', '@tests/fixtures/read_me.txt', 'text/plain'], [$request['method'], $request['uri'], $request['body'], $request['headers']['content-type']]);
+    }
+
+    public function test_a_body_can_be_large_and_hold_any_bytes()
+    {
+        // Past Linux's 128KB limit on one argument, which is why curl reads it on standard input
+        // Compared in GazLang, since JSON can't carry bytes that aren't UTF-8 back
+        $same = $this->call('http_post("{$url}/body", repeat("a\0\xff", 100000), {"Content-Type" => "application/octet-stream"})["body"] == repeat("a\0\xff", 100000)');
+
+        $this->assertTrue($same);
     }
 
     public function test_other_methods_and_head()

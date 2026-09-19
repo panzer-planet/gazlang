@@ -298,6 +298,16 @@ class StdlibTest extends GazLangTestCase
         );
     }
 
+    public function test_run_gives_the_program_its_input_whatever_its_size_and_bytes()
+    {
+        // Megabytes that a program which never reads must not block on; a NUL byte arrives
+        $this->assertSame(
+            "hello\ntrue\n0\n3\n",
+            $this->executeCode('echo run(["cat"], "hello\n")["stdout"] .. (run(["cat"], repeat("x", 3000000))["stdout"] == repeat("x", 3000000));'
+                .' echo run(["true"], repeat("x", 3000000))["status"]; echo trim(run(["wc", "-c"], "a\0b")["stdout"]);')
+        );
+    }
+
     public function test_run_of_a_program_killed_by_a_signal_gives_minus_the_signal()
     {
         $this->assertSame("-9\n", $this->executeCode('echo run(["sh", "-c", "kill -9 \$\$"])["status"];'));
@@ -489,6 +499,7 @@ class StdlibTest extends GazLangTestCase
             'real_path' => ['real_path(null);', 'real_path() expects string, got null'],
             'file_exists' => ['file_exists([]);', 'file_exists() expects string, got list'],
             'run' => ['run("echo");', 'run() expects list, got string'],
+            'run input' => ['run(["cat"], 5);', 'run() expects string, got int'],
             'min of a number and a string' => ['min(1, "2");', 'min() expects two numbers or two strings, got int and string'],
             'max of bools' => ['max(true, false);', 'max() expects two numbers or two strings, got bool and bool'],
             'max of lists' => ['max([1], [2]);', 'max() expects two numbers or two strings, got list and list'],

@@ -42,7 +42,7 @@ const BuiltinInfo builtin_info[] = {
     {"read_file", 1, 1}, {"write_file", 2, 2}, {"file_exists", 1, 1}, {"real_path", 1, 1},
     {"cwd", 0, 0}, {"print", 1, 1}, {"print_error", 1, 1}, {"read_stdin", 0, 0}, {"args", 0, 0},
     {"builtins", 0, 0}, {"rand_int", 2, 2}, {"rand_float", 0, 0}, {"rand_seed", 0, 1},
-    {"run", 1, 1},
+    {"run", 1, 2},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -482,32 +482,74 @@ static char *resolve(Str *path) {
 }
 
 /*
- * run($argv): start argv[0], found on PATH, with the rest as its arguments and no shell between,
- * so nothing in them is ever interpreted. It inherits the environment and working directory and
- * reads /dev/null. Both outputs are read as they come (poll), since a program that fills one pipe
- * while we wait on the other would never finish.
+ * run()'s $input as a file whose name is already gone, open at its start, so only the program
+ * reads it and nothing is left behind; -1 with errno set if it can't be made. A pipe would have
+ * to be written while the outputs are read, and would send us SIGPIPE if the program stopped
+ * reading.
  */
-static bool run_process(List *args, Value *out) {
+static int input_file(Str *input) {
+    const char *dir = getenv("TMPDIR");
+    Buf path = {0};
+    buf_adds(&path, dir && *dir ? dir : "/tmp");
+    buf_adds(&path, "/gazlang-run-XXXXXX");
+    buf_add(&path, "", 1);
+    int fd = mkstemp(path.data);
+    if (fd >= 0) unlink(path.data);
+    free(path.data);
+    if (fd < 0) return -1;
+    for (size_t done = 0; done < input->len;) {
+        ssize_t n = write(fd, input->data + done, input->len - done);
+        if (n < 0 && errno == EINTR) continue;
+        if (n < 0) {
+            int err = errno;
+            close(fd);
+            errno = err;
+            return -1;
+        }
+        done += (size_t)n;
+    }
+    lseek(fd, 0, SEEK_SET);
+    fcntl(fd, F_SETFD, FD_CLOEXEC);
+    return fd;
+}
+
+/*
+ * run($argv, $input = ""): start argv[0], found on PATH, with the rest as its arguments and no
+ * shell between, so nothing in them is ever interpreted. It inherits the environment and working
+ * directory and reads $input (/dev/null when there is none). Both outputs are read as they come
+ * (poll), since a program that fills one pipe while we wait on the other would never finish.
+ */
+static bool run_process(List *args, Str *input, Value *out) {
     if (args->len == 0) return raisef("run() expects a program to run, got an empty list");
     for (size_t i = 0; i < args->len; i++) {
         Value v = args->items[i];
         if (v.type != T_STRING) return raisef("run() expects a list of strings, got %s", type_name(v));
         if (memchr(v.s->data, '\0', v.s->len)) return raisef("run() arguments can't contain a NUL byte");
     }
+    int in = -1;
+    if (input && input->len > 0 && (in = input_file(input)) < 0) {
+        return raisef("Cannot run a program: no file for its input: %s", strerror(errno));
+    }
     /* stdout's and stderr's pipes, each [read end, write end] */
     int pipes[2][2];
-    if (pipe(pipes[0]) != 0) return raisef("Cannot run a program: %s", strerror(errno));
+    if (pipe(pipes[0]) != 0) {
+        int err = errno;
+        if (in >= 0) close(in);
+        return raisef("Cannot run a program: %s", strerror(err));
+    }
     if (pipe(pipes[1]) != 0) {
         int err = errno;
         close(pipes[0][0]);
         close(pipes[0][1]);
+        if (in >= 0) close(in);
         return raisef("Cannot run a program: %s", strerror(err));
     }
     /* Closed in the child when it starts, so it keeps only the copies made below as 1 and 2 */
     for (int i = 0; i < 4; i++) fcntl(pipes[i / 2][i % 2], F_SETFD, FD_CLOEXEC);
     posix_spawn_file_actions_t actions;
     posix_spawn_file_actions_init(&actions);
-    posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0);
+    if (in >= 0) posix_spawn_file_actions_adddup2(&actions, in, 0);
+    else posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0);
     posix_spawn_file_actions_adddup2(&actions, pipes[0][1], 1);
     posix_spawn_file_actions_adddup2(&actions, pipes[1][1], 2);
     char **argv = xmalloc((args->len + 1) * sizeof *argv);
@@ -519,6 +561,7 @@ static bool run_process(List *args, Value *out) {
     free(argv);
     close(pipes[0][1]);
     close(pipes[1][1]);
+    if (in >= 0) close(in);
     if (err != 0) {
         close(pipes[0][0]);
         close(pipes[1][0]);
@@ -966,8 +1009,8 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         *out = v_null();
         return true;
     case B_RUN:
-        if (!want(index, a, M(T_LIST))) return false;
-        return run_process(a.l, out);
+        if (!want(index, a, M(T_LIST)) || (argc > 1 && !want(index, b, STRING))) return false;
+        return run_process(a.l, argc > 1 ? b.s : NULL, out);
     case B_BUILTINS: {
         Map *m = map_new();
         for (int i = 0; i < nbuiltins; i++) {

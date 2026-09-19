@@ -8,9 +8,10 @@
 // - Response header names are lowercased; a repeated header's values are joined with ", ".
 // - A body is sent as it is; curl labels it application/x-www-form-urlencoded unless a
 //   Content-Type header says otherwise.
-// - ponytail: the body and headers reach curl as arguments, so they can't hold a NUL byte, a
-//   body over 128KB fails on Linux (MAX_ARG_STRLEN), and both show in ps. run() writing the
-//   program's standard input would lift all three.
+// - The body reaches curl on its standard input, so it can be any size and any bytes.
+// - ponytail: headers reach curl as arguments, so other users on the machine can see them in
+//   ps (an Authorization header included). Headers and body can't both come on standard input;
+//   a curl config file would carry them, once GazLang can make a private temporary file.
 
 include "chars.gaz";
 
@@ -47,10 +48,10 @@ fn http_request($method, $url, $headers = {}, $body = null) {
         if (type_of($body) != "string") {
             error("HTTP error: the body must be a string, got " .. type_of($body));
         }
-        // --data-raw, since --data-binary reads a file when the body starts with @
-        $argv = [...$argv, "--data-raw", $body];
+        // @- is standard input, read as it is
+        $argv = [...$argv, "--data-binary", "@-"];
     }
-    $result = run([...$argv, "--url", $url]);
+    $result = run([...$argv, "--url", $url], $body ?? "");
     if ($result["status"] != 0) {
         $reason = trim($result["stderr"]);
         // "curl: (6) Could not resolve host: x" gives "Could not resolve host: x"
