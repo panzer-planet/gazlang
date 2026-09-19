@@ -297,7 +297,8 @@ class StdlibTest extends GazLangTestCase
 
     public function test_real_path_resolves_dots_and_symlinks()
     {
-        $dir = sys_get_temp_dir().'/gazlang_real_'.getmypid();
+        // Under the checkout, which the snippet recorder strips, so the recorded snippet is the same every run
+        $dir = dirname(__DIR__).'/tests/.tmp/real_path';
         mkdir("{$dir}/sub", 0777, true);
         touch("{$dir}/sub/a.gaz");
         symlink("{$dir}/sub/a.gaz", "{$dir}/link.gaz");
@@ -358,7 +359,9 @@ class StdlibTest extends GazLangTestCase
 
     public function test_write_file_creates_and_overwrites()
     {
-        $path = sys_get_temp_dir().'/gazlang_write_'.getmypid().'.txt';
+        // Under the checkout, as in test_real_path_resolves_dots_and_symlinks()
+        @mkdir(dirname(__DIR__).'/tests/.tmp');
+        $path = dirname(__DIR__).'/tests/.tmp/write_file.txt';
 
         try {
             $this->assertEquals("null\nsecond\n", $this->executeCode(
