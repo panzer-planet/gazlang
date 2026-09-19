@@ -202,16 +202,14 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   rebuilds its compiler before PHP is even installed (the bootstrap needs only a C compiler),
   then the suite, the whole-repository group, phpstan and pint. There is no macOS job; macOS is
   where it is developed.
-- **Speed**: the same program takes gazlang 1.0 to 2.0 times what it takes PHP (JIT or not),
+- **Speed**: the same program takes gazlang 0.7 to 1.5 times what it takes PHP (JIT or not),
   and Python 3.9 1.4 to 4 times what it takes gazlang, except where Python's builtins do the
   work in C (compiling from source included on all sides; gazlang's compile is about 10ms). If
   speed is next, in this order, measuring each alone with `php vm/bench.php`:
-  1. **Superinstructions** in the C loader (`LOAD; LOAD; ADD`, compare-and-jump, `LOAD; PUSH;
-     op`): the tight arithmetic loop is 2x PHP and nearly all dispatch. No format change.
-  2. **`map`, `filter`, `reduce`, `sort` as builtins**, calling back into GazLang the way both
+  1. **`map`, `filter`, `reduce`, `sort` as builtins**, calling back into GazLang the way both
      VMs already do for `to_string()`; `lib/functional.gaz` in GazLang is why closures are the
      one benchmark Python wins.
-  3. A Python column in `vm/bench.php` (ports of `vm/bench/*.php`), with a Python 3.11 or later.
+  2. A Python column in `vm/bench.php` (ports of `vm/bench/*.php`), with a Python 3.11 or later.
 - **Decisions waiting for Werner**: whether bytecode version 1 now carries a compatibility
   promise (`docs/bytecode.md` says none "until the compiler is self-hosted", which it is).
 - **Small cleanups**: rewrite the five `($m[$k] ?? 0) + 1` counters (listed under language gaps).
@@ -770,7 +768,7 @@ try {
 ## The C VM
 
 `bin/gazlang` must behave exactly as `bin/gazlang-php` does, the PHP VM being its spec. It runs
-0.9 to 2.0 times the time of the same program written in PHP, and 6 to 26 times faster than the
+0.7 to 1.5 times the time of the same program written in PHP, and 6 to 33 times faster than the
 PHP VM (`php vm/bench.php`: CPU time, interleaved, best of several).
 
 - **The CLI** parses options as PHP's `getopt` does, plus the check for unknown ones: options
@@ -800,10 +798,24 @@ PHP VM (`php vm/bench.php`: CPU time, interleaved, best of several).
   function, needing no roots, run at a backward jump or call once as many containers have been
   made as were alive after the last collection. There are no destructors, so freeing runs no
   program code. The tested build collects every 64 new containers so the harness exercises it.
+- **Superinstructions** (`fuse()` in `load.c`): the loader puts one in place of the first
+  instruction of a common sequence (`LOAD; PUSH; LT; JZ`, `LOAD x; INC; STORE x`, seven in all,
+  after `OP_COUNT` so no file can name one) and leaves the sequence where it was, so a jump into
+  it still lands on real instructions. A superinstruction's quick path must be one that can't
+  fail or run program code; otherwise it runs its first instruction alone and the rest follow,
+  so errors and their lines are the sequence's own. `tests/vm_corpus/superinstructions.gaz`
+  takes every fallback; `bytecode_corpus/superinstruction_lookalikes.gzb` holds the shapes only
+  hand-written bytecode has.
 - **Speed**: what paid was an int fast path for `%`, the `STORE; LOAD; POP` peephole, shared
-  one-byte strings, not interning names on the hot path, and inline caches on member
-  instructions. Computed-goto dispatch didn't (the CPU predicts the switch well), nor did a fast
-  path for `==`. What is left in a profile is the dispatch loop, malloc/free and the collector.
+  one-byte strings, not interning names on the hot path, inline caches on member instructions,
+  and the superinstructions (fib 25% faster, the arithmetic loop and lists 15 to 20%, the
+  self-hosted compiler 2 to 7%). Computed-goto dispatch didn't (the CPU predicts the switch
+  well), nor did a fast path for `==`, nor fusing a comparison or `==` with `JZ` on its own once
+  `LOAD; PUSH; comparison; JZ` existed (a string comparison missed the quick path and paid for
+  the detour). On the development machine (an i7-8700) moving code a few bytes swings a hot
+  loop by 5%, so judge a change with the same binary both ways, or on two builds (adding
+  `-mbranches-within-32B-boundaries` moves everything), and keep what wins on both. What is
+  left in a profile is the dispatch loop, malloc/free and the collector.
 - **Why C**: over Rust, Zig and Go, since the heap (refcounts plus a cycle collector) is unsafe
   code in every one of them, Go has no refcounts for cheap copy-on-write, and Zig moves under a
   pinned toolchain; C bootstraps with nothing but a C compiler, and the differential harness

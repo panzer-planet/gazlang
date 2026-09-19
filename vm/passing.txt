@@ -579,6 +579,7 @@ tests/bytecode_corpus/error_value_unterminated.gzb
 tests/bytecode_corpus/error_value_variable.gzb
 tests/bytecode_corpus/error_version.gzb
 tests/bytecode_corpus/spacing.gzb
+tests/bytecode_corpus/superinstruction_lookalikes.gzb
 tests/bytecode_corpus/unreachable_code_is_not_checked.gzb
 tests/bytecode_corpus/values.gzb
 tests/codegen_corpus/assignments.gaz
@@ -672,6 +673,7 @@ tests/vm_corpus/globals.gaz
 tests/vm_corpus/map_churn.gaz
 tests/vm_corpus/misc.gaz
 tests/vm_corpus/rounding.gaz
+tests/vm_corpus/superinstructions.gaz
 tests/vm_corpus/to_string_errors.gaz
 tests/vm_corpus/uncaught_bad_to_string.gaz
 tests/vm_corpus/uncaught_object.gaz

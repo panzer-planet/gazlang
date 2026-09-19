@@ -1118,6 +1118,54 @@ static void build_classes(void) {
     }
 }
 
+/* The operators quick_binary() in vm.c can do; the comparisons among them give a bool */
+static bool quick_operator(int op) {
+    switch (op) {
+    case OP_ADD: case OP_SUB: case OP_MUL: case OP_MOD:
+    case OP_EQUALS: case OP_NOT_EQUALS: case OP_LT: case OP_LE: case OP_GT: case OP_GE:
+        return true;
+    }
+    return false;
+}
+static bool comparison(int op) {
+    return op == OP_EQUALS || op == OP_NOT_EQUALS || op == OP_LT || op == OP_LE || op == OP_GT || op == OP_GE;
+}
+
+/*
+ * Superinstructions: where a sequence the VM runs often starts, its first instruction becomes
+ * one that does the whole sequence in one dispatch. The sequence's instructions stay where they
+ * are, as orig says they were, and the superinstruction reads its operands from them. So a jump
+ * into the middle of a sequence runs the rest of it as before, and one sequence can start
+ * inside another. A superinstruction takes its quick path only when nothing in the sequence
+ * can fail or run program code; otherwise it runs its first instruction as that alone, and the
+ * rest follow one at a time, so errors and their locations are exactly those of the sequence.
+ */
+static void fuse(Instr *in, Instr *end) {
+    for (; in + 1 < end; in++) {
+        Instr *next = in + 1, *third = in + 2 < end ? in + 2 : NULL;
+        switch (in->orig) {
+        case OP_NOT:
+            if (next->orig == OP_JZ) in->op = OP_NOT_JZ;
+            break;
+        case OP_SET_FIELD:
+            if (next->orig == OP_POP) in->op = OP_SET_FIELD_POP;
+            break;
+        case OP_LOAD:
+            if (!third) break;
+            if (next->orig == OP_PUSH && quick_operator(third->orig)) {
+                in->op = comparison(third->orig) && in + 3 < end && in[3].orig == OP_JZ ? OP_LOAD_PUSH_OP_JZ : OP_LOAD_PUSH_OP;
+            } else if (next->orig == OP_LOAD && quick_operator(third->orig)) {
+                in->op = OP_LOAD_LOAD_OP;
+            } else if (next->orig == OP_LOAD && third->orig == OP_INDEX_GET) {
+                in->op = OP_LOAD_LOAD_INDEX;
+            } else if ((next->orig == OP_INC || next->orig == OP_DEC) && third->orig == OP_STORE && third->a == in->a) {
+                in->op = OP_STEP_LOCAL;
+            }
+            break;
+        }
+    }
+}
+
 static void link_program(void) {
     int total = 0;
     for (int i = 0; i < prog->nblocks; i++) total += prog->blocks[i]->nraw + 1;
@@ -1154,7 +1202,7 @@ static void link_program(void) {
             RawInstr *r = &b->raw[j];
             if (r->op == OP_LABEL || dropped[j]) continue;
             Instr *in = &prog->code[prog->ncode++];
-            in->op = (uint8_t)r->op;
+            in->op = in->orig = (uint8_t)r->op;
             in->file = r->file;
             in->line = r->line;
             in->a = r->ints[0];
@@ -1221,8 +1269,10 @@ static void link_program(void) {
             }
         }
         if (b->kind == B_TOP) {
-            prog->code[prog->ncode++].op = OP_HALT;
+            prog->code[prog->ncode].op = prog->code[prog->ncode].orig = OP_HALT;
+            prog->ncode++;
         }
+        fuse(prog->code + b->entry, prog->code + prog->ncode);
         free(dropped);
         free(b->raw);
         free(b->label_names);

@@ -1,0 +1,29 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals $x $y
+@ "lookalikes.gaz" 1
+PUSH 1
+STORE 0
+LOAD 0
+INC
+STORE 1
+LOAD 0
+PRINT
+LOAD 1
+PRINT
+LOAD 0
+INC
+PRINT
+PUSH 5
+CALL f 1
+PRINT
+
+fn f 1 1
+locals $n
+LOAD 0
+RET
+LOAD 0
+PUSH 1
+LT

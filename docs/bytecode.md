@@ -269,5 +269,5 @@ A file that loads is one the VM can run, so the checks are part of the format:
 
 What a loader does after that is its own business. The PHP VM collapses `STORE x; LOAD x;
 POP` into `STORE x`, resolves labels to positions, and splits the instructions into parallel
-arrays; a C VM would also turn names into indexes and could merge common sequences into
+arrays; the C VM also turns names into indexes and merges common sequences into
 superinstructions. None of that belongs in the file.

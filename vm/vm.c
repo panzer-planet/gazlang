@@ -312,6 +312,29 @@ static inline int field_slot(Instr *in, Object *o) {
     return in->cached_at;
 }
 
+/* An operator's result when it is quick and can't fail: ints that don't overflow for arithmetic,
+   % and ordering, anything for == and != (which never runs program code). The fast paths of
+   the instructions themselves, for the superinstructions that end in one. */
+static inline bool quick_binary(int op, Value a, Value b, Value *out) {
+    int64_t n;
+    if (op == OP_EQUALS || op == OP_NOT_EQUALS) {
+        *out = v_bool(values_equal(a, b) == (op == OP_EQUALS));
+        return true;
+    }
+    if (a.type != T_INT || b.type != T_INT) return false;
+    switch (op) {
+    case OP_ADD: if (__builtin_add_overflow(a.i, b.i, &n)) return false; *out = v_int(n); return true;
+    case OP_SUB: if (__builtin_sub_overflow(a.i, b.i, &n)) return false; *out = v_int(n); return true;
+    case OP_MUL: if (__builtin_mul_overflow(a.i, b.i, &n)) return false; *out = v_int(n); return true;
+    case OP_MOD: if (b.i == 0 || b.i == -1) return false; *out = v_int(a.i % b.i); return true;
+    case OP_LT: *out = v_bool(a.i < b.i); return true;
+    case OP_LE: *out = v_bool(a.i <= b.i); return true;
+    case OP_GT: *out = v_bool(a.i > b.i); return true;
+    case OP_GE: *out = v_bool(a.i >= b.i); return true;
+    }
+    return false;
+}
+
 #define PUSH(v) (*sp++ = (v))
 #define POP() (*--sp)
 #define TOP() (sp[-1])
@@ -331,7 +354,9 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
     for (;;) {
         Instr *in = pc++;
         vm_sp = sp;
-        switch (in->op) {
+        int op = in->op;
+    dispatch:
+        switch (op) {
         case OP_PUSH:
             incref(in->v);
             PUSH(in->v);
@@ -411,10 +436,10 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         case OP_CONCAT_ASSIGN_CAPTURED: {
             Value *slot;
             Str *name;
-            if (in->op == OP_CONCAT_ASSIGN) {
+            if (op == OP_CONCAT_ASSIGN) {
                 slot = &fp->base[in->a];
                 name = fp->block->locals[in->a];
-            } else if (in->op == OP_CONCAT_ASSIGN_GLOBAL) {
+            } else if (op == OP_CONCAT_ASSIGN_GLOBAL) {
                 slot = &globals[in->a];
                 name = program->globals[in->a];
             } else {
@@ -436,8 +461,8 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             a = sp[-2], b = sp[-1];
             if (a.type == T_INT && b.type == T_INT) {
                 int64_t n;
-                bool overflow = in->op == OP_ADD   ? __builtin_add_overflow(a.i, b.i, &n)
-                                : in->op == OP_SUB ? __builtin_sub_overflow(a.i, b.i, &n)
+                bool overflow = op == OP_ADD   ? __builtin_add_overflow(a.i, b.i, &n)
+                                : op == OP_SUB ? __builtin_sub_overflow(a.i, b.i, &n)
                                                    : __builtin_mul_overflow(a.i, b.i, &n);
                 if (!overflow) {
                     sp--;
@@ -452,7 +477,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         case OP_GE:
             a = sp[-2], b = sp[-1];
             if (a.type == T_INT && b.type == T_INT) {
-                bool yes = in->op == OP_LT ? a.i < b.i : in->op == OP_LE ? a.i <= b.i : in->op == OP_GT ? a.i > b.i : a.i >= b.i;
+                bool yes = op == OP_LT ? a.i < b.i : op == OP_LE ? a.i <= b.i : op == OP_GT ? a.i > b.i : a.i >= b.i;
                 sp--;
                 sp[-1] = v_bool(yes);
                 break;
@@ -465,7 +490,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             decref(a);
             decref(b);
             sp--;
-            sp[-1] = v_bool(equal == (in->op == OP_EQUALS));
+            sp[-1] = v_bool(equal == (op == OP_EQUALS));
             break;
         }
         case OP_MOD:
@@ -486,7 +511,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         case OP_CONCAT:
         case OP_CMP:
         binary:
-            if (!binary_op(in->op, sp[-2], sp[-1], &r)) goto error;
+            if (!binary_op(op, sp[-2], sp[-1], &r)) goto error;
             decref(POP());
             set_slot(&TOP(), r);
             break;
@@ -505,11 +530,11 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         case OP_INC:
         case OP_DEC:
             a = TOP();
-            if (a.type == T_INT && a.i != (in->op == OP_INC ? INT64_MAX : INT64_MIN)) {
-                TOP().i += in->op == OP_INC ? 1 : -1;
+            if (a.type == T_INT && a.i != (op == OP_INC ? INT64_MAX : INT64_MIN)) {
+                TOP().i += op == OP_INC ? 1 : -1;
                 break;
             }
-            if (!step_value(a, in->op == OP_INC, &r)) goto error;
+            if (!step_value(a, op == OP_INC, &r)) goto error;
             set_slot(&TOP(), r);
             break;
         case OP_NO_MATCH: {
@@ -545,6 +570,71 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         case OP_HALT:
             vm_sp = sp;
             return true;
+
+        /* Superinstructions (fuse() in load.c): the quick case, or the first instruction alone */
+        case OP_LOAD_PUSH_OP:
+            a = fp->base[in->a];
+            if (a.type != T_UNSET && quick_binary(in[2].orig, a, in[1].v, &r)) {
+                PUSH(r);
+                pc = in + 3;
+                break;
+            }
+            op = in->orig;
+            goto dispatch;
+        case OP_LOAD_PUSH_OP_JZ:
+            a = fp->base[in->a];
+            if (a.type != T_UNSET && quick_binary(in[2].orig, a, in[1].v, &r)) {
+                pc = r.b ? in + 4 : code + in[3].a;
+                break;
+            }
+            op = in->orig;
+            goto dispatch;
+        case OP_STEP_LOCAL: {
+            Value *slot = &fp->base[in->a];
+            if (slot->type == T_INT && slot->i != (in[1].orig == OP_INC ? INT64_MAX : INT64_MIN)) {
+                slot->i += in[1].orig == OP_INC ? 1 : -1;
+                pc = in + 3;
+                break;
+            }
+            op = in->orig;
+            goto dispatch;
+        }
+        case OP_LOAD_LOAD_OP:
+            a = fp->base[in->a], b = fp->base[in[1].a];
+            if (a.type != T_UNSET && b.type != T_UNSET && quick_binary(in[2].orig, a, b, &r)) {
+                PUSH(r);
+                pc = in + 3;
+                break;
+            }
+            op = in->orig;
+            goto dispatch;
+        case OP_NOT_JZ:
+            a = POP();
+            if (a.type == T_BOOL ? a.b : is_truthy(a)) pc = code + in[1].a;
+            else pc = in + 2;
+            decref(a);
+            break;
+        case OP_SET_FIELD_POP: {
+            int f = field_slot(in, fp->receiver);
+            if (f < 0) {
+                op = in->orig;
+                goto dispatch;
+            }
+            set_slot(&fp->receiver->fields[f], POP());
+            pc = in + 2;
+            break;
+        }
+        case OP_LOAD_LOAD_INDEX:
+            a = fp->base[in->a], b = fp->base[in[1].a];
+            if (a.type == T_LIST && b.type == T_INT && b.i >= 0 && (uint64_t)b.i < a.l->len) {
+                r = a.l->items[b.i];
+                incref(r);
+                PUSH(r);
+                pc = in + 3;
+                break;
+            }
+            op = in->orig;
+            goto dispatch;
 
         case OP_NEW_ARRAY:
             PUSH(v_list(list_new(0)));
@@ -627,11 +717,11 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             Path *path = in->p;
             Value *keys = sp - 1 - path->nkeys;
             bool ok;
-            if (in->op == OP_SET_PATH) {
+            if (op == OP_SET_PATH) {
                 ok = store_path(&fp->base[in->a], fp->block->locals[in->a], path, keys, TOP());
-            } else if (in->op == OP_SET_PATH_GLOBAL) {
+            } else if (op == OP_SET_PATH_GLOBAL) {
                 ok = store_path(&globals[in->a], program->globals[in->a], path, keys, TOP());
-            } else if (in->op == OP_SET_PATH_CAPTURED) {
+            } else if (op == OP_SET_PATH_CAPTURED) {
                 ok = store_path(&fp->closure->captured[in->a], fp->closure->lambda->block->captures[in->a], path, keys, TOP());
             } else {
                 /* The object is a handle, so writing through a copy of it writes the object */
@@ -651,11 +741,11 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             Path *path = in->p;
             Value *keys = sp - path->nkeys;
             bool ok;
-            if (in->op == OP_DELETE_PATH) {
+            if (op == OP_DELETE_PATH) {
                 ok = remove_path(&fp->base[in->a], fp->block->locals[in->a], path, keys);
-            } else if (in->op == OP_DELETE_PATH_GLOBAL) {
+            } else if (op == OP_DELETE_PATH_GLOBAL) {
                 ok = remove_path(&globals[in->a], program->globals[in->a], path, keys);
-            } else if (in->op == OP_DELETE_PATH_CAPTURED) {
+            } else if (op == OP_DELETE_PATH_CAPTURED) {
                 ok = remove_path(&fp->closure->captured[in->a], fp->closure->lambda->block->captures[in->a], path, keys);
             } else {
                 Value self = fp->receiver ? v_object(fp->receiver) : v_null();
@@ -1015,7 +1105,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             goto error;
 
         default:
-            raise("Unknown instruction %d", in->op);
+            raise("Unknown instruction %d", op);
             goto error;
         }
         continue;

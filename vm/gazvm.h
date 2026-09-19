@@ -252,6 +252,7 @@ typedef struct {
 /* One instruction, after loading: names resolved to what they name */
 typedef struct Instr {
     uint8_t op;
+    uint8_t orig;       /* the instruction the file had here, which op replaces with a superinstruction */
     int32_t a, b;       /* a slot, count, jump target, builtin index... per instruction */
     void *p;            /* a Function, Class, Lambda, Path or member name */
     Value v;            /* PUSH's value; PUSH_FN's function */
@@ -297,7 +298,16 @@ enum {
     OP_SET_FIELD, OP_GET_PROPERTY, OP_GET_PROPERTY_QUIET, OP_GET_PROPERTY_EXISTING,
     OP_GET_METHOD, OP_CALL_METHOD, OP_TRY, OP_END_TRY, OP_CATCH_MATCH, OP_CATCH_VALUE,
     OP_RETHROW, OP_HALT,
-    OP_COUNT
+    OP_COUNT,
+    /* Superinstructions, which the loader puts in place of the first instruction of a sequence
+       (see fuse() in load.c); past OP_COUNT, so no file can name one */
+    OP_LOAD_PUSH_OP,    /* LOAD; PUSH; a quick operator (quick_binary() in vm.c) */
+    OP_LOAD_LOAD_OP,    /* LOAD; LOAD; a quick operator */
+    OP_LOAD_PUSH_OP_JZ, /* LOAD; PUSH; a quick comparison; JZ */
+    OP_STEP_LOCAL,      /* LOAD x; INC or DEC; STORE x */
+    OP_NOT_JZ,          /* NOT; JZ */
+    OP_SET_FIELD_POP,   /* SET_FIELD; POP */
+    OP_LOAD_LOAD_INDEX, /* LOAD; LOAD; INDEX_GET */
 };
 
 /* ---- value.c --------------------------------------------------------------------------- */

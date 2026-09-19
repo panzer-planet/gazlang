@@ -1,0 +1,176 @@
+// The C loader fuses common sequences into superinstructions (fuse() in vm/load.c), which take
+// a quick path only when nothing in the sequence can fail. Every case here misses it, and must
+// then behave exactly as the instructions it replaced: same result, same error, same line.
+
+fn attempt($label, $f) {
+    try {
+        echo "{$label}: " .. $f();
+    } catch (Error $e) {
+        echo "{$label}: {$e.message} (line {$e.line})";
+    }
+}
+
+const MAX = 9223372036854775807;
+const MIN = -9223372036854775807 - 1;
+
+// LOAD; PUSH; operator
+fn plus_one($x) { return $x + 1; }
+fn minus_one($x) { return $x - 1; }
+fn twice($x) { return $x * 2; }
+fn mod_zero($x) { return $x % 0; }
+fn mod_minus_one($x) { return $x % -1; }
+fn is_a_string($x) { return $x == "a"; }
+fn below_ten($x) { return $x < 10; }
+fn spread_over_lines($x) {
+    return $x
+        +
+        1;
+}
+fn unset_plus_one($set) {
+    if ($set) { $x = 1; }
+    return $x + 1;
+}
+attempt("int + 1", () -> plus_one(41));
+attempt("float + 1", () -> plus_one(1.5));
+attempt("string + 1", () -> plus_one("a"));
+attempt("max + 1", () -> plus_one(MAX));
+attempt("min - 1", () -> minus_one(MIN));
+attempt("max * 2", () -> twice(MAX));
+attempt("% 0", () -> mod_zero(7));
+attempt("min % -1", () -> mod_minus_one(MIN));
+attempt("7 % -1", () -> mod_minus_one(7));
+attempt("list == a", () -> is_a_string([1]));
+attempt("a == a", () -> is_a_string("a"));
+attempt("float < 10", () -> below_ten(9.5));
+attempt("string < 10", () -> below_ten("a"));
+attempt("over lines", () -> spread_over_lines(MAX));
+fn unset_is_a($set) {
+    if ($set) { $x = 1; }
+    return $x == "a";
+}
+attempt("unset + 1", () -> unset_plus_one(false));
+attempt("unset == a", () -> unset_is_a(false));
+
+// LOAD; LOAD; operator
+fn add($x, $y) { return $x + $y; }
+fn modulo($x, $y) { return $x % $y; }
+fn same($x, $y) { return $x == $y; }
+fn first_unset($set) {
+    $y = 1;
+    if ($set) { $x = 1; }
+    return $x * $y;
+}
+fn second_unset($set) {
+    $x = 1;
+    if ($set) { $y = 1; }
+    return $x * $y;
+}
+attempt("1 + 2", () -> add(1, 2));
+attempt("max + 1", () -> add(MAX, 1));
+attempt("a + b", () -> add("a", "b"));
+attempt("1.5 + 2", () -> add(1.5, 2));
+attempt("5 % 0", () -> modulo(5, 0));
+attempt("min % -1", () -> modulo(MIN, -1));
+attempt("[1] == [1]", () -> same([1], [1]));
+attempt("1 == 1.0", () -> same(1, 1.0));
+fn first_unset_equals($set) {
+    $y = 1;
+    if ($set) { $x = 1; }
+    return $x == $y;
+}
+fn second_unset_equals($set) {
+    $x = 1;
+    if ($set) { $y = 1; }
+    return $x == $y;
+}
+attempt("first unset", () -> first_unset(false));
+attempt("second unset", () -> second_unset(false));
+attempt("first unset ==", () -> first_unset_equals(false));
+attempt("second unset ==", () -> second_unset_equals(false));
+
+// LOAD; PUSH; comparison; JZ
+fn small($x) {
+    if ($x < 10) { return "small"; }
+    return "large";
+}
+fn is_b($x) {
+    if ($x == "b") { return "b"; }
+    return "not b";
+}
+fn is_b_unset($set) {
+    if ($set) { $x = 1; }
+    if ($x == "b") { return "b"; }
+    return "not b";
+}
+fn small_unset($set) {
+    if ($set) { $x = 1; }
+    if ($x < 10) { return "small"; }
+    return "large";
+}
+attempt("small 3", () -> small(3));
+attempt("small 30", () -> small(30));
+attempt("small 3.5", () -> small(3.5));
+attempt("small a", () -> small("a"));
+attempt("is b", () -> is_b("b"));
+attempt("is b null", () -> is_b(null));
+attempt("small unset", () -> small_unset(false));
+attempt("is b unset", () -> is_b_unset(false));
+
+// LOAD x; INC or DEC; STORE x
+fn up($i) { $i++; return $i; }
+fn down($i) { $i--; return $i; }
+fn up_unset($set) {
+    if ($set) { $i = 1; }
+    $i++;
+    return $i;
+}
+attempt("up 1", () -> up(1));
+attempt("up max", () -> up(MAX));
+attempt("down min", () -> down(MIN));
+attempt("up 1.5", () -> up(1.5));
+attempt("down 0.5", () -> down(0.5));
+attempt("up a", () -> up("a"));
+attempt("up null", () -> up(null));
+attempt("up unset", () -> up_unset(false));
+
+// LOAD; LOAD; INDEX_GET
+fn at($l, $i) { return $l[$i]; }
+fn at_unset($set) {
+    $i = 0;
+    if ($set) { $l = [1]; }
+    return $l[$i];
+}
+fn at_unset_index($set) {
+    $l = [1];
+    if ($set) { $i = 0; }
+    return $l[$i];
+}
+attempt("[1, 2][1]", () -> at([1, 2], 1));
+attempt("[1, 2][2]", () -> at([1, 2], 2));
+attempt("[1, 2][-1]", () -> at([1, 2], -1));
+attempt("[1, 2][a]", () -> at([1, 2], "a"));
+attempt("[1, 2][1.0]", () -> at([1, 2], 1.0));
+attempt("map", () -> at({"k" => "v"}, "k"));
+attempt("map missing", () -> at({"k" => "v"}, 0));
+attempt("string", () -> at("abc", 2));
+attempt("int", () -> at(5, 0));
+attempt("unset list", () -> at_unset(false));
+attempt("unset index", () -> at_unset_index(false));
+
+// NOT; JZ
+fn falsy($x) {
+    if (!$x) { return "falsy"; }
+    return "truthy";
+}
+foreach ([true, false, 0, 1, 0.0, "", "0", [], [0], {}, null] as $x) {
+    attempt("falsy " .. type_of($x), () -> falsy($x));
+}
+
+// SET_FIELD; POP
+class Box {
+    #value;
+    fn set($v) { #value = $v; return #value; }
+}
+$box = Box();
+attempt("set", () -> $box.set([1, 2]));
+attempt("set again", () -> $box.set("x"));
