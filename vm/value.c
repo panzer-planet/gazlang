@@ -641,7 +641,7 @@ bool append_string(Value v, Buf *out) {
         if (text.type != T_STRING) {
             const char *type = type_name(text);
             decref(text);
-            return raise("%s.to_string must return a string, got %s", definer->name->data, type);
+            return raisef("%s.to_string must return a string, got %s", definer->name->data, type);
         }
         buf_add_str(out, text.s);
         decref(text);
@@ -652,7 +652,7 @@ bool append_string(Value v, Buf *out) {
         buf_add_str(out, v.c->name);
         return true;
     default:
-        return raise("Cannot convert %s to string", type_name(v));
+        return raisef("Cannot convert %s to string", type_name(v));
     }
 }
 

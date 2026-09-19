@@ -15,7 +15,7 @@
  *   gc.c        the cycle collector, for what reference counting can't free
  *
  * Errors: a function that can fail returns bool, false meaning an error was raised. The
- * error itself is in `vm_error` (see raise()), and the caller passes the false up until the
+ * error itself is in `vm_error` (see raisef()), and the caller passes the false up until the
  * dispatch loop catches it. No setjmp/longjmp, so nothing is skipped on the way out and every
  * reference count stays right.
  */
@@ -422,7 +422,7 @@ bool raise_undefined_key(Value key);
 /* ---- errors (vm.c) ---------------------------------------------------------------------- */
 
 extern Error *vm_error;     /* the error being raised */
-bool raise(const char *fmt, ...) __attribute__((format(printf, 1, 2)));  /* always false */
+bool raisef(const char *fmt, ...) __attribute__((format(printf, 1, 2)));  /* always false */
 bool raise_str(Str *reason);                                             /* always false */
 bool raise_value(Value v);  /* error($v): a thrown value */
 Error *error_new(Str *reason, Str *path, int64_t line, bool show_location);

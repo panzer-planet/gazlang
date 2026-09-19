@@ -68,7 +68,7 @@ bool raise_str(Str *reason) {
     return false;
 }
 
-bool raise(const char *fmt, ...) {
+bool raisef(const char *fmt, ...) {
     char small[512];
     va_list args;
     va_start(args, fmt);
@@ -226,7 +226,7 @@ void flush_output(void) { fflush(output); }
 /* ---- Calls ----------------------------------------------------------------------------- */
 
 static bool raise_depth(const char *what) {
-    return raise("Maximum call depth of %d exceeded calling %s", MAX_CALL_DEPTH, what);
+    return raisef("Maximum call depth of %d exceeded calling %s", MAX_CALL_DEPTH, what);
 }
 
 /*
@@ -239,7 +239,7 @@ static bool push_frame(Block *block, Value **sp, int argc, Instr *ret, Func *clo
     if (base + nlocals + block->max_stack + 2 > stack_end) {
         if (closure) decref(v_func(closure));
         if (receiver) decref(v_object(receiver));
-        return raise("Stack overflow");
+        return raisef("Stack overflow");
     }
     for (int i = argc; i < nlocals; i++) base[i] = v_unset();
     Frame *f = ++fp;
@@ -324,7 +324,7 @@ static bool enter_value(Value **spp, int argc, Instr *ret, Block **entered) {
     *entered = NULL;
     if (callee.type == T_CLASS) {
         Class *c = callee.c;
-        if (c->abstract) return raise("Cannot construct abstract class %s", c->name->data);
+        if (c->abstract) return raisef("Cannot construct abstract class %s", c->name->data);
         if (!arity_fits(c->lo, c->hi, argc)) {
             Buf what = {0};
             buf_adds(&what, "Class ");
@@ -344,7 +344,7 @@ static bool enter_value(Value **spp, int argc, Instr *ret, Block **entered) {
         *entered = c->block;
         return true;
     }
-    if (callee.type != T_FUNCTION) return raise("Cannot call %s", type_name(callee));
+    if (callee.type != T_FUNCTION) return raisef("Cannot call %s", type_name(callee));
     Func *fn = callee.fn;
     int lo, hi;
     Block *block = NULL;
@@ -506,7 +506,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         case OP_LOAD:
             a = fp->base[in->a];
             if (a.type == T_UNSET) {
-                raise("Undefined variable: %s", fp->block->locals[in->a]->data);
+                raisef("Undefined variable: %s", fp->block->locals[in->a]->data);
                 goto error;
             }
             incref(a);
@@ -524,7 +524,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         case OP_LOAD_GLOBAL:
             a = globals[in->a];
             if (a.type == T_UNSET) {
-                raise("Undefined variable: %s", program->globals[in->a]->data);
+                raisef("Undefined variable: %s", program->globals[in->a]->data);
                 goto error;
             }
             incref(a);
@@ -542,7 +542,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         case OP_LOAD_CAPTURED:
             a = fp->closure ? fp->closure->captured[in->a] : v_unset();
             if (a.type == T_UNSET) {
-                raise("Undefined variable: %s", fp->closure->lambda->block->captures[in->a]->data);
+                raisef("Undefined variable: %s", fp->closure->lambda->block->captures[in->a]->data);
                 goto error;
             }
             incref(a);
@@ -574,7 +574,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
                 name = fp->closure->lambda->block->captures[in->a];
             }
             if (slot->type == T_UNSET) {
-                raise("Undefined variable: %s", name->data);
+                raisef("Undefined variable: %s", name->data);
                 goto error;
             }
             vm_here = in;
@@ -679,7 +679,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             goto error;
         }
         case OP_NO_CONDITION:
-            raise("No arm matched");
+            raisef("No arm matched");
             goto error;
 
         case OP_JMP:
@@ -776,7 +776,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         case OP_ARRAY_EXTEND: {
             a = TOP();
             if (a.type != T_LIST) {
-                raise("Cannot spread %s: only a list can be", type_name(a));
+                raisef("Cannot spread %s: only a list can be", type_name(a));
                 goto error;
             }
             List *l = list_unique(&sp[-2]);
@@ -801,18 +801,18 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             break;
         case OP_FOREACH_CHECK:
             if (TOP().type != T_LIST && TOP().type != T_MAP) {
-                raise("foreach expects a list or map, got %s", type_name(TOP()));
+                raisef("foreach expects a list or map, got %s", type_name(TOP()));
                 goto error;
             }
             break;
         case OP_DESTRUCTURE:
             a = TOP();
             if (a.type != T_LIST) {
-                raise("Cannot destructure %s: only a list can be", type_name(a));
+                raisef("Cannot destructure %s: only a list can be", type_name(a));
                 goto error;
             }
             if (a.l->len != (size_t)in->a) {
-                raise("Cannot destructure a list of %zu %s into %d", a.l->len, a.l->len == 1 ? "element" : "elements", in->a);
+                raisef("Cannot destructure a list of %zu %s into %d", a.l->len, a.l->len == 1 ? "element" : "elements", in->a);
                 goto error;
             }
             break;
@@ -988,7 +988,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             int f = field_slot(in, o);
             if (f < 0) {
                 /* Only hand-written bytecode names a field its class doesn't declare */
-                raise("Cannot set %s here", ((Str *)in->p)->data);
+                raisef("Cannot set %s here", ((Str *)in->p)->data);
                 goto error;
             }
             incref(TOP());
@@ -1133,7 +1133,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             if (callee.type == T_CLASS) {
                 Class *c = callee.c;
                 if (c->abstract) {
-                    raise("Cannot construct abstract class %s", c->name->data);
+                    raisef("Cannot construct abstract class %s", c->name->data);
                     goto error;
                 }
                 if (!arity_fits(c->lo, c->hi, argc)) {
@@ -1155,7 +1155,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
                 break;
             }
             if (callee.type != T_FUNCTION) {
-                raise("Cannot call %s", type_name(callee));
+                raisef("Cannot call %s", type_name(callee));
                 goto error;
             }
             Func *fn = callee.fn;
@@ -1238,7 +1238,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             goto error;
 
         default:
-            raise("Unknown instruction %d", op);
+            raisef("Unknown instruction %d", op);
             goto error;
         }
         continue;

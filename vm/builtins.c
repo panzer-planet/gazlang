@@ -79,8 +79,8 @@ Func *builtin_value(int index) {
 
 /* "Function add expects 2 arguments, 1 given" */
 bool raise_arity(const char *what, int lo, int hi, int argc) {
-    if (lo == hi) return raise("%s expects %d arguments, %d given", what, lo, argc);
-    return raise("%s expects %d to %d arguments, %d given", what, lo, hi, argc);
+    if (lo == hi) return raisef("%s expects %d arguments, %d given", what, lo, argc);
+    return raisef("%s expects %d to %d arguments, %d given", what, lo, hi, argc);
 }
 
 /* Type masks for argument checks */
@@ -159,7 +159,7 @@ static bool want(int builtin, Value v, unsigned mask) {
             }
         }
     }
-    raise("%s() expects %s, got %s", builtin_info[builtin].name, names ? names : b.data, type_name(v));
+    raisef("%s() expects %s, got %s", builtin_info[builtin].name, names ? names : b.data, type_name(v));
     free(b.data);
     return false;
 }
@@ -242,7 +242,7 @@ static List *merge_sort(Value *items, size_t n, Value compare) {
         Value args[2] = {right->items[r], left->items[l]}, order;
         if (!call_value(compare, args, 2, &order)) goto fail;
         if (order.type != T_INT) {
-            raise("sort's comparator must return an int, got %s", type_name(order));
+            raisef("sort's comparator must return an int, got %s", type_name(order));
             decref(order);
             goto fail;
         }
@@ -459,7 +459,7 @@ static bool extreme(int builtin, Value a, Value b, int *cmp) {
         *cmp = (c > 0) - (c < 0);
         return true;
     }
-    return raise("%s() expects two numbers or two strings, got %s and %s", builtin_info[builtin].name, type_name(a), type_name(b));
+    return raisef("%s() expects two numbers or two strings, got %s and %s", builtin_info[builtin].name, type_name(a), type_name(b));
 }
 
 /* realpath(3), with "" and a NUL byte being nothing there. PHP also refuses a path in which
@@ -488,20 +488,20 @@ static char *resolve(Str *path) {
  * while we wait on the other would never finish.
  */
 static bool run_process(List *args, Value *out) {
-    if (args->len == 0) return raise("run() expects a program to run, got an empty list");
+    if (args->len == 0) return raisef("run() expects a program to run, got an empty list");
     for (size_t i = 0; i < args->len; i++) {
         Value v = args->items[i];
-        if (v.type != T_STRING) return raise("run() expects a list of strings, got %s", type_name(v));
-        if (memchr(v.s->data, '\0', v.s->len)) return raise("run() arguments can't contain a NUL byte");
+        if (v.type != T_STRING) return raisef("run() expects a list of strings, got %s", type_name(v));
+        if (memchr(v.s->data, '\0', v.s->len)) return raisef("run() arguments can't contain a NUL byte");
     }
     /* stdout's and stderr's pipes, each [read end, write end] */
     int pipes[2][2];
-    if (pipe(pipes[0]) != 0) return raise("Cannot run a program: %s", strerror(errno));
+    if (pipe(pipes[0]) != 0) return raisef("Cannot run a program: %s", strerror(errno));
     if (pipe(pipes[1]) != 0) {
         int err = errno;
         close(pipes[0][0]);
         close(pipes[0][1]);
-        return raise("Cannot run a program: %s", strerror(err));
+        return raisef("Cannot run a program: %s", strerror(err));
     }
     /* Closed in the child when it starts, so it keeps only the copies made below as 1 and 2 */
     for (int i = 0; i < 4; i++) fcntl(pipes[i / 2][i % 2], F_SETFD, FD_CLOEXEC);
@@ -640,7 +640,7 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     }
     case B_REPLACE:
         if (!want(index, a, STRING) || !want(index, b, STRING) || !want(index, c, STRING)) return false;
-        if (b.s->len == 0) return raise("replace() cannot search for an empty string");
+        if (b.s->len == 0) return raisef("replace() cannot search for an empty string");
         *out = replace(a.s, b.s, c.s);
         return true;
     case B_CONTAINS:
@@ -655,9 +655,9 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     case B_INDEX_OF: {
         Value offset = argc > 2 ? c : v_int(0);
         if (!want(index, a, STRING) || !want(index, b, STRING) || !want(index, offset, INT)) return false;
-        if (b.s->len == 0) return raise("index_of() cannot search for an empty string");
+        if (b.s->len == 0) return raisef("index_of() cannot search for an empty string");
         int64_t n = (int64_t)a.s->len, at = offset.i;
-        if (at > n || at < -n) return raise("index_of() offset %lld is outside the string", (long long)at);
+        if (at > n || at < -n) return raisef("index_of() offset %lld is outside the string", (long long)at);
         if (at < 0) at += n;
         const char *hit = find(a.s->data + at, (size_t)(n - at), b.s->data, b.s->len);
         *out = hit ? v_int(hit - a.s->data) : v_null();
@@ -665,7 +665,7 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     }
     case B_REPEAT: {
         if (!want(index, a, STRING) || !want(index, b, INT)) return false;
-        if (b.i < 0) return raise("repeat() count must not be negative, got %lld", (long long)b.i);
+        if (b.i < 0) return raisef("repeat() count must not be negative, got %lld", (long long)b.i);
         Str *s = str_empty(a.s->len * (size_t)b.i);
         for (int64_t i = 0; i < b.i; i++) s = str_append(s, a.s->data, a.s->len);
         *out = v_str(s);
@@ -673,7 +673,7 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     }
     case B_CHR: {
         if (!want(index, a, INT)) return false;
-        if (a.i < 0 || a.i > 255) return raise("chr() expects a byte value from 0 to 255, got %lld", (long long)a.i);
+        if (a.i < 0 || a.i > 255) return raisef("chr() expects a byte value from 0 to 255, got %lld", (long long)a.i);
         *out = v_str(str_byte((unsigned char)a.i));
         return true;
     }
@@ -712,13 +712,13 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
             *out = v_float(fabs(a.f));
             return true;
         }
-        if (a.i == INT64_MIN) return raise("Integer overflow");
+        if (a.i == INT64_MIN) return raisef("Integer overflow");
         *out = v_int(a.i < 0 ? -a.i : a.i);
         return true;
     case B_INTDIV:
         if (!want(index, a, INT) || !want(index, b, INT)) return false;
-        if (b.i == 0) return raise("Division by zero");
-        if (a.i == INT64_MIN && b.i == -1) return raise("Integer overflow");
+        if (b.i == 0) return raisef("Division by zero");
+        if (a.i == INT64_MIN && b.i == -1) return raisef("Integer overflow");
         *out = v_int(a.i / b.i);
         return true;
     case B_MIN:
@@ -751,7 +751,7 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
             *out = v_bool(map_find(a.m, b) != NULL);
             return true;
         }
-        if (b.type != T_INT) return raise("List indexes must be int, got string");
+        if (b.type != T_INT) return raisef("List indexes must be int, got string");
         *out = v_bool(b.i >= 0 && (uint64_t)b.i < a.l->len);
         return true;
     case B_KEYS:
@@ -775,7 +775,7 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     }
     case B_LAST:
         if (!want(index, a, M(T_LIST))) return false;
-        if (a.l->len == 0) return raise("last() expects a non-empty list");
+        if (a.l->len == 0) return raisef("last() expects a non-empty list");
         *out = a.l->items[a.l->len - 1];
         incref(*out);
         return true;
@@ -857,7 +857,7 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     case B_EXIT: {
         Value code = argc > 0 ? a : v_int(0);
         if (!want(index, code, INT)) return false;
-        if (code.i < 0 || code.i > 255) return raise("exit() expects a code from 0 to 255, got %lld", (long long)code.i);
+        if (code.i < 0 || code.i > 255) return raisef("exit() expects a code from 0 to 255, got %lld", (long long)code.i);
         /* Not an error, so no try sees it and no finally runs: the program simply ends */
         flush_output();
         /* It ends the program mid-instruction, holding whatever it holds: nothing to check */
@@ -871,7 +871,7 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         if (!memchr(a.s->data, '\0', a.s->len) && stat(a.s->data, &st) == 0 && S_ISREG(st.st_mode) && access(a.s->data, R_OK) == 0) {
             f = fopen(a.s->data, "rb");
         }
-        if (!f) return raise("Cannot read file: %s", a.s->data);
+        if (!f) return raisef("Cannot read file: %s", a.s->data);
         Buf text = {0};
         char chunk[65536];
         size_t n;
@@ -885,7 +885,7 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         FILE *f = memchr(a.s->data, '\0', a.s->len) ? NULL : fopen(a.s->data, "wb");
         if (!f || fwrite(b.s->data, 1, b.s->len, f) != b.s->len) {
             if (f) fclose(f);
-            return raise("Cannot write file: %s", a.s->data);
+            return raisef("Cannot write file: %s", a.s->data);
         }
         fclose(f);
         *out = v_null();
@@ -912,7 +912,7 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     }
     case B_CWD: {
         char dir[PATH_MAX];
-        if (!getcwd(dir, sizeof dir)) return raise("Cannot get the working directory");
+        if (!getcwd(dir, sizeof dir)) return raisef("Cannot get the working directory");
         *out = v_str(str_cstr(dir));
         return true;
     }
@@ -943,7 +943,7 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     }
     case B_RAND_INT:
         if (!want(index, a, INT) || !want(index, b, INT)) return false;
-        if (b.i < a.i) return raise("rand_int() expects min <= max, got %lld and %lld", (long long)a.i, (long long)b.i);
+        if (b.i < a.i) return raisef("rand_int() expects min <= max, got %lld and %lld", (long long)a.i, (long long)b.i);
         *out = v_int(random_between(a.i, b.i));
         return true;
     case B_RAND_FLOAT:
@@ -979,5 +979,5 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         return true;
     }
     }
-    return raise("Unknown builtin: %d", index);
+    return raisef("Unknown builtin: %d", index);
 }

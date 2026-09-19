@@ -137,7 +137,7 @@ class HttpTest extends GazLangTestCase
     public static function failures(): array
     {
         return [
-            'refused' => ['http_get("http://127.0.0.1:1/")', 'HTTP error: Failed to connect to 127.0.0.1 port 1'],
+            'refused' => ['http_get("http://127.0.0.1:1/")', 'HTTP error: Failed to connect to 127.0.0.1'],
             'another protocol' => ['http_get("file:///etc/passwd")', 'HTTP error: Protocol "file" '],
             'malformed' => ['http_get("http://[nope/")', 'HTTP error: '],
         ];

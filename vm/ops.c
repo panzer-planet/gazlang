@@ -41,11 +41,11 @@ static bool is_scalar(Value v) {
 
 /* + - * / % on two numbers, neither a string */
 static bool arithmetic(int op, Value l, Value r, Value *out) {
-    if (l.type == T_STRING || r.type == T_STRING) return raise("Cannot use %s on string", symbol(op));
-    if (op == OP_MOD && (l.type == T_FLOAT || r.type == T_FLOAT)) return raise("Cannot use %% on float");
+    if (l.type == T_STRING || r.type == T_STRING) return raisef("Cannot use %s on string", symbol(op));
+    if (op == OP_MOD && (l.type == T_FLOAT || r.type == T_FLOAT)) return raisef("Cannot use %% on float");
     bool zero = r.type == T_INT ? r.i == 0 : r.f == 0.0;
-    if (zero && op == OP_DIV) return raise("Division by zero");
-    if (zero && op == OP_MOD) return raise("Modulo by zero");
+    if (zero && op == OP_DIV) return raisef("Division by zero");
+    if (zero && op == OP_MOD) return raisef("Modulo by zero");
 
     if (l.type == T_INT && r.type == T_INT && op != OP_DIV) {
         int64_t result;
@@ -60,7 +60,7 @@ static bool arithmetic(int op, Value l, Value r, Value *out) {
             result = r.i == -1 ? 0 : l.i % r.i;
             break;
         }
-        if (overflow) return raise("Integer overflow");
+        if (overflow) return raisef("Integer overflow");
         *out = v_int(result);
         return true;
     }
@@ -74,7 +74,7 @@ static bool arithmetic(int op, Value l, Value r, Value *out) {
     case OP_MUL: result = a * b; break;
     default: result = a / b; break;
     }
-    if (!isfinite(result)) return raise("Float overflow");
+    if (!isfinite(result)) return raisef("Float overflow");
     *out = v_float(result);
     return true;
 }
@@ -82,10 +82,10 @@ static bool arithmetic(int op, Value l, Value r, Value *out) {
 /* & | ^ << >> on two ints */
 static bool bitwise(int op, Value l, Value r, Value *out) {
     if (l.type != T_INT || r.type != T_INT) {
-        return raise("Cannot use %s on %s", symbol(op), type_name(l.type == T_INT ? r : l));
+        return raisef("Cannot use %s on %s", symbol(op), type_name(l.type == T_INT ? r : l));
     }
     if ((op == OP_SHL || op == OP_SHR) && (r.i < 0 || r.i > 63)) {
-        return raise("Shift count must be between 0 and 63, got %lld", (long long)r.i);
+        return raisef("Shift count must be between 0 and 63, got %lld", (long long)r.i);
     }
     switch (op) {
     case OP_BIT_AND: *out = v_int(l.i & r.i); break;
@@ -116,9 +116,9 @@ bool binary_op(int op, Value l, Value r, Value *out) {
         return true;
     }
     if (!is_scalar(l) || !is_scalar(r)) {
-        return raise("Cannot use %s on %s", symbol(op), type_name(is_scalar(l) ? r : l));
+        return raisef("Cannot use %s on %s", symbol(op), type_name(is_scalar(l) ? r : l));
     }
-    if (l.type == T_BOOL || r.type == T_BOOL) return raise("Cannot use %s on bool", symbol(op));
+    if (l.type == T_BOOL || r.type == T_BOOL) return raisef("Cannot use %s on bool", symbol(op));
     if (op == OP_ADD || op == OP_SUB || op == OP_MUL || op == OP_DIV || op == OP_MOD) {
         return arithmetic(op, l, r, out);
     }
@@ -126,7 +126,7 @@ bool binary_op(int op, Value l, Value r, Value *out) {
         return bitwise(op, l, r, out);
     }
     if ((l.type == T_STRING) != (r.type == T_STRING)) {
-        return raise("Cannot use %s on string and %s", symbol(op), type_name(l.type == T_STRING ? r : l));
+        return raisef("Cannot use %s on string and %s", symbol(op), type_name(l.type == T_STRING ? r : l));
     }
     int c = l.type == T_STRING ? str_cmp(l.s, r.s) : compare_numbers(l, r);
     switch (op) {
@@ -144,27 +144,27 @@ bool negate(Value v, Value *out) {
         *out = v_float(-v.f);
         return true;
     }
-    if (v.type != T_INT) return raise("Cannot use - on %s", type_name(v));
-    if (v.i == INT64_MIN) return raise("Integer overflow");
+    if (v.type != T_INT) return raisef("Cannot use - on %s", type_name(v));
+    if (v.i == INT64_MIN) return raisef("Integer overflow");
     *out = v_int(-v.i);
     return true;
 }
 
 bool bitwise_not(Value v, Value *out) {
-    if (v.type != T_INT) return raise("Cannot use ~ on %s", type_name(v));
+    if (v.type != T_INT) return raisef("Cannot use ~ on %s", type_name(v));
     *out = v_int(~v.i);
     return true;
 }
 
 /* ++ and -- */
 bool step_value(Value v, bool up, Value *out) {
-    if (v.type != T_INT && v.type != T_FLOAT) return raise("Cannot use %s on %s", up ? "++" : "--", type_name(v));
+    if (v.type != T_INT && v.type != T_FLOAT) return raisef("Cannot use %s on %s", up ? "++" : "--", type_name(v));
     return binary_op(up ? OP_ADD : OP_SUB, v, v_int(1), out);
 }
 
 bool array_key(Value k) {
     if (k.type == T_INT || k.type == T_STRING) return true;
-    return raise("Keys must be int or string, got %s", type_name(k));
+    return raisef("Keys must be int or string, got %s", type_name(k));
 }
 
 bool raise_undefined_key(Value key) {
@@ -174,7 +174,7 @@ bool raise_undefined_key(Value key) {
         quote(key.s, &b);
         return raise_str(buf_to_str(&b));
     }
-    return raise("Undefined key: %lld", (long long)key.i);
+    return raisef("Undefined key: %lld", (long long)key.i);
 }
 
 /* $target[$index]; quiet, on the left of ??, reads what is missing as null */
@@ -182,7 +182,7 @@ bool index_value(Value target, Value index, bool quiet, Value *out) {
     if (target.type == T_LIST) {
         if (index.type != T_INT) {
             if (!array_key(index)) return false;
-            return raise("List indexes must be int, got %s", type_name(index));
+            return raisef("List indexes must be int, got %s", type_name(index));
         }
         if (index.i >= 0 && (uint64_t)index.i < target.l->len) {
             *out = target.l->items[index.i];
@@ -193,7 +193,7 @@ bool index_value(Value target, Value index, bool quiet, Value *out) {
             *out = v_null();
             return true;
         }
-        return raise("Index out of range: %lld", (long long)index.i);
+        return raisef("Index out of range: %lld", (long long)index.i);
     }
     if (target.type == T_MAP) {
         if (!array_key(index)) return false;
@@ -210,7 +210,7 @@ bool index_value(Value target, Value index, bool quiet, Value *out) {
         return raise_undefined_key(index);
     }
     if (target.type == T_STRING) {
-        if (index.type != T_INT) return raise("String positions must be int, got %s", type_name(index));
+        if (index.type != T_INT) return raisef("String positions must be int, got %s", type_name(index));
         if (index.i >= 0 && (uint64_t)index.i < target.s->len) {
             *out = v_str(str_byte((unsigned char)target.s->data[index.i]));
             return true;
@@ -219,14 +219,14 @@ bool index_value(Value target, Value index, bool quiet, Value *out) {
             *out = v_null();
             return true;
         }
-        return raise("Index out of range: %lld", (long long)index.i);
+        return raisef("Index out of range: %lld", (long long)index.i);
     }
-    return raise("Cannot use [] on %s", type_name(target));
+    return raisef("Cannot use [] on %s", type_name(target));
 }
 
 /* An element a compound update reads, which must exist in a list or map */
 bool index_existing(Value target, Value index, Value *out) {
-    if (target.type != T_LIST && target.type != T_MAP) return raise("Cannot use [] on %s", type_name(target));
+    if (target.type != T_LIST && target.type != T_MAP) return raisef("Cannot use [] on %s", type_name(target));
     return index_value(target, index, false, out);
 }
 
@@ -267,20 +267,20 @@ Func *bound_method(Object *o, Class *cls, Str *name) {
 
 static bool raise_undefined_member(Class *c, Str *name) {
     if (name->len == 1 && name->data[0] == '_' && class_method(c, name) >= 0) {
-        return raise("Cannot use the constructor of %s as a member", c->name->data);
+        return raisef("Cannot use the constructor of %s as a member", c->name->data);
     }
-    return raise("%s has no member %s", c->name->data, name->data);
+    return raisef("%s has no member %s", c->name->data, name->data);
 }
 
 static bool raise_not_set(Object *o, Str *name) {
-    return raise("Property %s of %s is not set", name->data, o->cls->name->data);
+    return raisef("Property %s of %s is not set", name->data, o->cls->name->data);
 }
 
 static bool is_constructor(Str *name) { return name->len == 1 && name->data[0] == '_'; }
 
 /* $obj.name: a field's value or a bound method; quiet reads an unset field as null */
 bool property(Value target, Str *name, bool quiet, Value *out) {
-    if (target.type != T_OBJECT) return raise("Cannot use . on %s", type_name(target));
+    if (target.type != T_OBJECT) return raisef("Cannot use . on %s", type_name(target));
     Object *o = target.o;
     int f = class_field(o->cls, name);
     if (f >= 0) {
@@ -309,7 +309,7 @@ static int check_field(Object *o, Str *name) {
     if (f >= 0) return f;
     int m = class_method(o->cls, name);
     if (!is_constructor(name) && m >= 0) {
-        raise("Cannot assign to method %s.%s", o->cls->definers[m]->name->data, name->data);
+        raisef("Cannot assign to method %s.%s", o->cls->definers[m]->name->data, name->data);
     } else {
         raise_undefined_member(o->cls, name);
     }
@@ -318,7 +318,7 @@ static int check_field(Object *o, Str *name) {
 
 /* A field a compound update reads, which must be set */
 bool property_existing(Value target, Str *name, Value *out) {
-    if (target.type != T_OBJECT) return raise("Cannot use . on %s", type_name(target));
+    if (target.type != T_OBJECT) return raisef("Cannot use . on %s", type_name(target));
     int f = check_field(target.o, name);
     if (f < 0) return false;
     if (target.o->fields[f].type == T_UNSET) return raise_not_set(target.o, name);
@@ -336,7 +336,7 @@ bool property_existing(Value target, Str *name, Value *out) {
  * when shared (copy on write), objects written in place. The value is borrowed.
  */
 bool store_path(Value *slot, Str *var_name, Path *path, Value *keys, Value value) {
-    if (slot->type == T_UNSET) return raise("Undefined variable: %s", var_name->data);
+    if (slot->type == T_UNSET) return raisef("Undefined variable: %s", var_name->data);
     Value *cur = slot;
     int k = 0;
     /* What the last step found missing: a map and its key, or an object's field */
@@ -350,7 +350,7 @@ bool store_path(Value *slot, Str *var_name, Path *path, Value *keys, Value value
         PathStep *step = &path->steps[s];
         if (!exists) return missing_object ? raise_not_set(missing_object, missing_field) : raise_undefined_key(missing_key);
         if (step->kind == S_FIELD) {
-            if (cur->type != T_OBJECT) return raise("Cannot use . on %s", type_name(*cur));
+            if (cur->type != T_OBJECT) return raisef("Cannot use . on %s", type_name(*cur));
             Object *o = cur->o;
             int f = check_field(o, step->name);
             if (f < 0) return false;
@@ -370,12 +370,12 @@ bool store_path(Value *slot, Str *var_name, Path *path, Value *keys, Value value
                 return true;
             }
             Value key = keys[k++];
-            if (key.type != T_INT) return raise("List indexes must be int, got %s", type_name(key));
-            if (key.i < 0 || (uint64_t)key.i >= cur->l->len) return raise("Index out of range: %lld", (long long)key.i);
+            if (key.type != T_INT) return raisef("List indexes must be int, got %s", type_name(key));
+            if (key.i < 0 || (uint64_t)key.i >= cur->l->len) return raisef("Index out of range: %lld", (long long)key.i);
             List *l = list_unique(cur);
             cur = &l->items[key.i];
         } else if (cur->type == T_MAP) {
-            if (step->kind == S_APPEND) return raise("Cannot append to a map");
+            if (step->kind == S_APPEND) return raisef("Cannot append to a map");
             Value key = keys[k++];
             Map *m = map_unique(cur);
             Value *found = map_find(m, key);
@@ -388,7 +388,7 @@ bool store_path(Value *slot, Str *var_name, Path *path, Value *keys, Value value
                 missing_object = NULL;
             }
         } else {
-            return raise("Cannot use [] on %s", type_name(*cur));
+            return raisef("Cannot use [] on %s", type_name(*cur));
         }
     }
 
@@ -403,14 +403,14 @@ bool store_path(Value *slot, Str *var_name, Path *path, Value *keys, Value value
 
 /* delete $a[k]...[k]: every step must exist, the last one included */
 bool remove_path(Value *slot, Str *var_name, Path *path, Value *keys) {
-    if (slot->type == T_UNSET) return raise("Undefined variable: %s", var_name->data);
+    if (slot->type == T_UNSET) return raisef("Undefined variable: %s", var_name->data);
     Value *cur = slot;
     int k = 0;
     for (int s = 0; s < path->nsteps; s++) {
         PathStep *step = &path->steps[s];
         bool last = s == path->nsteps - 1;
         if (step->kind == S_FIELD) {
-            if (cur->type != T_OBJECT) return raise("Cannot use . on %s", type_name(*cur));
+            if (cur->type != T_OBJECT) return raisef("Cannot use . on %s", type_name(*cur));
             Object *o = cur->o;
             int f = check_field(o, step->name);
             if (f < 0) return false;
@@ -420,8 +420,8 @@ bool remove_path(Value *slot, Str *var_name, Path *path, Value *keys) {
         }
         Value key = keys[k++];
         if (cur->type == T_LIST) {
-            if (key.type != T_INT) return raise("List indexes must be int, got %s", type_name(key));
-            if (key.i < 0 || (uint64_t)key.i >= cur->l->len) return raise("Index out of range: %lld", (long long)key.i);
+            if (key.type != T_INT) return raisef("List indexes must be int, got %s", type_name(key));
+            if (key.i < 0 || (uint64_t)key.i >= cur->l->len) return raisef("Index out of range: %lld", (long long)key.i);
             List *l = list_unique(cur);
             if (last) {
                 /* The later elements move down: a list's indexes are 0 to len - 1 */
@@ -442,7 +442,7 @@ bool remove_path(Value *slot, Str *var_name, Path *path, Value *keys) {
             }
             cur = found;
         } else {
-            return raise("Cannot use [] on %s", type_name(*cur));
+            return raisef("Cannot use [] on %s", type_name(*cur));
         }
     }
     return true;
