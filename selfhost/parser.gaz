@@ -49,8 +49,7 @@ class VariableCollector {
             // Children sit at any depth of lists and maps: a list literal's [key, value]
             // entries, a match's arms, whose values are a list inside each arm. The last goes
             // on first, so the first comes off next and names are found in source order.
-            for ($i = len($children) - 1; $i >= 0; $i--) {
-                $child = $children[$i];
+            foreach (reverse($children) as $child) {
                 if (is_a($child, AST) || type_of($child) == "list" || type_of($child) == "map") {
                     $stack[] = $child;
                 }

@@ -49,6 +49,7 @@ final class Builtins
         'keys' => 1,
         'values' => 1,
         'last' => 1,
+        'reverse' => 1,
         'map' => 2,
         'filter' => 2,
         'reduce' => 3,
@@ -189,6 +190,7 @@ final class Builtins
             // A list's values are the list itself, in order; a map's are its values in insertion order
             'values' => is_array($this->argument($name, $args[0], 'list', 'map')) ? $args[0] : array_values($args[0]->items),
             'last' => $this->last($this->argument($name, $args[0], 'list')),
+            'reverse' => $this->reverse($this->argument($name, $args[0], 'list', 'map', 'string')),
             // They call back into the program for each element, through the backend running it
             'map' => $this->map($this->argument($name, $args[0], 'list', 'map'), $this->argument($name, $args[1], 'function', 'class')),
             'filter' => $this->filter($this->argument($name, $args[0], 'list', 'map'), $this->argument($name, $args[1], 'function', 'class')),
@@ -698,6 +700,21 @@ final class Builtins
         }
 
         return $list[count($list) - 1];
+    }
+
+    /**
+     * reverse($x): a list's elements, a string's bytes or a map's entries in the other order; a
+     * map keeps its keys
+     *
+     * @param  array|MapValue|string  $value  The list, map or string
+     */
+    private function reverse(array|MapValue|string $value): array|MapValue|string
+    {
+        return match (true) {
+            is_string($value) => strrev($value),
+            is_array($value) => array_reverse($value),
+            default => new MapValue(array_reverse($value->items, true)),
+        };
     }
 
     /**

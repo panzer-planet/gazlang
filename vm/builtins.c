@@ -28,7 +28,7 @@ const BuiltinInfo builtin_info[] = {
     {"ends_with", 2, 2}, {"index_of", 2, 3}, {"repeat", 2, 2}, {"chr", 1, 1}, {"ord", 1, 1},
     {"to_int", 1, 1}, {"to_float", 1, 1}, {"floor", 1, 1}, {"ceil", 1, 1}, {"round", 1, 2},
     {"abs", 1, 1}, {"intdiv", 2, 2}, {"min", 2, 2}, {"max", 2, 2}, {"to_string", 1, 1},
-    {"in_array", 2, 2}, {"has_key", 2, 2}, {"keys", 1, 1}, {"values", 1, 1}, {"last", 1, 1},
+    {"in_array", 2, 2}, {"has_key", 2, 2}, {"keys", 1, 1}, {"values", 1, 1}, {"last", 1, 1}, {"reverse", 1, 1},
     {"map", 2, 2},
     {"filter", 2, 2}, {"reduce", 3, 3}, {"sort", 2, 2}, {"type_of", 1, 1},
     {"is_a", 2, 2}, {"class_of", 1, 1}, {"fields", 1, 1}, {"error", 1, 1}, {"exit", 0, 1},
@@ -42,7 +42,7 @@ enum {
     B_LEN, B_SLICE, B_LOWER, B_UPPER, B_TRIM, B_SPLIT, B_JOIN, B_REPLACE, B_CONTAINS,
     B_STARTS_WITH, B_ENDS_WITH, B_INDEX_OF, B_REPEAT, B_CHR, B_ORD, B_TO_INT, B_TO_FLOAT, B_FLOOR,
     B_CEIL, B_ROUND, B_ABS, B_INTDIV, B_MIN, B_MAX, B_TO_STRING, B_IN_ARRAY, B_HAS_KEY, B_KEYS,
-    B_VALUES, B_LAST, B_MAP, B_FILTER, B_REDUCE, B_SORT, B_TYPE_OF, B_IS_A, B_CLASS_OF, B_FIELDS, B_ERROR, B_EXIT, B_READ_FILE,
+    B_VALUES, B_LAST, B_REVERSE, B_MAP, B_FILTER, B_REDUCE, B_SORT, B_TYPE_OF, B_IS_A, B_CLASS_OF, B_FIELDS, B_ERROR, B_EXIT, B_READ_FILE,
     B_WRITE_FILE, B_FILE_EXISTS, B_REAL_PATH, B_CWD, B_PRINT, B_PRINT_ERROR, B_READ_STDIN,
     B_ARGS, B_BUILTINS,
 };
@@ -637,6 +637,34 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         if (a.l->len == 0) return raise("last() expects a non-empty list");
         *out = a.l->items[a.l->len - 1];
         incref(*out);
+        return true;
+    case B_REVERSE:
+        /* A list's elements, a string's bytes or a map's entries in the other order; a map keeps its keys */
+        if (!want(index, a, M(T_LIST) | M(T_MAP) | M(T_STRING))) return false;
+        if (a.type == T_STRING) {
+            Str *s = str_new(a.s->data, a.s->len);
+            for (size_t i = 0; i < s->len / 2; i++) {
+                char c = s->data[i];
+                s->data[i] = s->data[s->len - 1 - i];
+                s->data[s->len - 1 - i] = c;
+            }
+            *out = v_str(s);
+        } else if (a.type == T_LIST) {
+            List *l = list_new(a.l->len);
+            for (size_t i = a.l->len; i-- > 0;) {
+                incref(a.l->items[i]);
+                list_push(l, a.l->items[i]);
+            }
+            *out = v_list(l);
+        } else {
+            Map *m = map_new();
+            for (size_t i = a.m->used; i-- > 0;) {
+                if (a.m->entries[i].key.type == T_UNSET) continue;   /* a removed entry's hole */
+                incref(a.m->entries[i].value);
+                map_set(m, a.m->entries[i].key, a.m->entries[i].value);
+            }
+            *out = v_map(m);
+        }
         return true;
     case B_MAP:
     case B_FILTER:

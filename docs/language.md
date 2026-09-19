@@ -328,7 +328,9 @@ class's fields, methods and constants across its hierarchy.
 `abs`, `intdiv`, `min($a, $b)`, `max($a, $b)`.
 
 **Lists and maps** — `len`, `slice`, `in_array($value, $list)`, `has_key($x, $key)`, `keys`,
-`values`, `last($list)` (the last element; an empty list is an error), and four that call a function, lambda, bound method, builtin or class for each
+`values`, `last($list)` (the last element; an empty list is an error), `reverse($x)` (a list or
+a string backwards, a string byte by byte, or a map's entries in the other order, keeping their
+keys), and four that call a function, lambda, bound method, builtin or class for each
 element, in order:
 
 - `map($x, $f)` — `$f($value)` for each; a list gives a list, a map a map with the same keys.

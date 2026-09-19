@@ -246,7 +246,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - Included files share one namespace, so modules prefix their privates (`json_*`), and
     including a file runs its top level code. `Error`'s members are reserved across its
     subclasses, so a domain error can't declare its own `#line` or `#message`.
-  - No reverse, no identity key for an object (a side table keyed by node), no `to_int`/
+  - No identity key for an object (a side table keyed by node), no `to_int`/
     `to_float` that returns null instead of throwing, no copy-with-change for objects, no
     `catch (A | B $e)`, no bare rethrow, no `_` to skip an element in a list pattern.
   - `match ($x)` is a linear chain of `EQUALS`; no jump table.
@@ -407,13 +407,15 @@ compile to `CALL_BUILTIN name argc`, and check argument types by their `type_of(
   (null when absent; negative offset from the end; an empty needle or an offset outside the
   string is an error), `repeat`, `chr` (0 to 255), `ord` (one
   byte), `to_int` (ints, bools, decimal strings with an optional `-`), `to_float`, `to_string`.
-- Lists and maps: `in_array` (`==`), `has_key`, `keys`, `values`, `last` (an empty list is an error), and `map`, `filter` (truthiness,
-  as `if`), `reduce($x, $f, $initial)` and `sort` (stable; the comparator must return an int),
-  which call back into GazLang through `Values::$call_value` (the interpreter's `callValue()`,
-  the PHP VM's `valueCaller()`, the C VM's `call_value()`), checked as a call written in the
-  program is. `sort` is a defined merge sort, since a comparator can see which comparisons are
-  made: split in the middle, merge asking `$compare(right, left)`; `Builtins::sort()` and C's
-  `merge_sort()` must stay the same algorithm. Types are checked before anything is called.
+- Lists and maps: `in_array` (`==`), `has_key`, `keys`, `values`, `last` (an empty list is an
+  error), `reverse` (lists, strings by byte, and maps, which keep their keys), and `map`,
+  `filter` (truthiness, as `if`), `reduce($x, $f, $initial)` and `sort` (stable; the
+  comparator must return an int), which call back into GazLang through `Values::$call_value`
+  (the interpreter's `callValue()`, the PHP VM's `valueCaller()`, the C VM's `call_value()`),
+  checked as a call written in the program is. `sort` is a defined merge sort, since a
+  comparator can see which comparisons are made: split in the middle, merge asking
+  `$compare(right, left)`; `Builtins::sort()` and C's `merge_sort()` must stay the same
+  algorithm. Types are checked before anything is called.
 - Types: `type_of` (`int float string bool null list map function class object`), `is_a`,
   `class_of`, `fields` (see "Objects").
 - I/O: `print`/`print_error` (echo without the newline, to stdout or stderr), `read_file`,

@@ -56,9 +56,8 @@ class Dumper {
             // A node's fields or a list or map's elements, each labelled with its name or key.
             // The last goes on first, so the first comes off, and is printed, next.
             if ($children != null) {
-                $labels = keys($children);
-                for ($i = len($labels) - 1; $i >= 0; $i--) {
-                    $stack[] = ["{$labels[$i]}: ", $children[$labels[$i]], $indent .. "  "];
+                foreach (reverse(keys($children)) as $label) {
+                    $stack[] = ["{$label}: ", $children[$label], $indent .. "  "];
                 }
             }
         }

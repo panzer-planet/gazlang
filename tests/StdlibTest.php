@@ -44,6 +44,34 @@ class StdlibTest extends GazLangTestCase
         $this->executeCode('last("abc");');
     }
 
+    public function test_reverse_turns_a_list_or_string_round()
+    {
+        $this->assertSame(
+            "[\"three\", [2], 1]\n[]\ndesserts\n\n",
+            $this->executeCode('echo reverse([1, [2], "three"]); echo reverse([]); echo reverse("stressed"); echo reverse("");')
+        );
+    }
+
+    public function test_reverse_keeps_a_map_s_keys()
+    {
+        // 2 and "2" are different keys; a removed entry leaves nothing behind
+        $this->assertSame(
+            "{\"2\" => \"c\", 2 => \"b\", \"a\" => 1}\n{\"z\" => 3, \"x\" => 1}\n",
+            $this->executeCode('echo reverse({"a" => 1, 2 => "b", "2" => "c"}); $m = {"x" => 1, "y" => 2, "z" => 3}; delete $m["y"]; echo reverse($m);')
+        );
+    }
+
+    public function test_reverse_gives_a_new_value()
+    {
+        $this->assertSame("[[1, 2], [2, 1, 3]]\n", $this->executeCode('$l = [1, 2]; $r = reverse($l); $r[] = 3; echo [$l, $r];'));
+    }
+
+    public function test_reverse_needs_a_list_map_or_string()
+    {
+        $this->expectExceptionMessage('reverse() expects list or map or string, got int');
+        $this->executeCode('reverse(5);');
+    }
+
     public function test_print_writes_without_a_newline_and_converts_as_echo_does()
     {
         $this->assertSame(
