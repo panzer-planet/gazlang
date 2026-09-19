@@ -262,6 +262,9 @@ A file that loads is one the VM can run, so the checks are part of the format:
 - Every instruction name is known and takes the arguments it is given.
 - Every label a jump names is defined in the same block, and every function, builtin, class
   and lambda a name or index refers to exists.
+- Nothing that needs the object a method runs on (`LOAD_FIELD`, `SET_FIELD`, `CALL_PARENT`,
+  `BIND_PARENT`, `CALL_CONSTRUCTOR`) is in a block that can run without one: the top level, a
+  function, a method called or pushed as a function, or a lambda made in any of these.
 - Each block's stack balances: walking it from the top and following every jump, an
   instruction is reached at the same depth on every path, nothing pops from an empty stack,
   and a handler's block starts one deeper, holding the error. The greatest depth reached is

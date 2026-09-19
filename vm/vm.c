@@ -432,7 +432,6 @@ bool call_value(Value callee, Value *args, int argc, Value *out) {
 /* The slot of the field a member instruction names in an object, or -1: through the
    instruction's cache when the object's class is the one it saw last */
 static inline int field_slot(Instr *in, Object *o) {
-    if (!o) return -1;
     if (o->cls != in->cached_class) {
         in->cached_class = o->cls;
         in->cached_at = class_field(o->cls, in->p);
@@ -979,7 +978,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             if (f >= 0 && o->fields[f].type != T_UNSET) {
                 r = o->fields[f];
                 incref(r);
-            } else if (!property(o ? v_object(o) : v_null(), in->p, false, &r)) {
+            } else if (!property(v_object(o), in->p, false, &r)) {
                 goto error;
             }
             PUSH(r);
@@ -989,6 +988,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             Object *o = fp->receiver;
             int f = field_slot(in, o);
             if (f < 0) {
+                /* Only hand-written bytecode names a field its class doesn't declare */
                 raise("Cannot set %s here", ((Str *)in->p)->data);
                 goto error;
             }

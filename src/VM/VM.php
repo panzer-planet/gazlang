@@ -576,7 +576,12 @@ final class VM
                                 $stack[] = Values::property($target, $arg0[$pc - 1]);
                                 break;
                             case 'SET_FIELD':
-                                $receiver->fields[$arg0[$pc - 1]] = $stack[array_key_last($stack)];
+                                $name = $arg0[$pc - 1];
+                                if (! isset($receiver->class->fields[$name])) {
+                                    // Only hand-written bytecode names a field its class doesn't declare
+                                    throw new Exception("Cannot set {$name} here");
+                                }
+                                $receiver->fields[$name] = $stack[array_key_last($stack)];
                                 break;
                             case 'GET_METHOD':
                                 $target = array_pop($stack);

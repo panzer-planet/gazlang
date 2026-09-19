@@ -218,6 +218,7 @@ struct Block {
     int max_stack;      /* the greatest stack depth the loader's walk found */
     int line_no;        /* the line of its header, for nothing but debugging */
     /* while loading */
+    bool objectless;    /* it can run without an object (see mark_objectless()) */
     struct RawInstr *raw;
     int nraw;
     int label_cap;      /* the labels by name (see find_label()), 0 until looked up */

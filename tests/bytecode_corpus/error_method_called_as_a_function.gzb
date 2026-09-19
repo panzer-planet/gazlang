@@ -1,0 +1,20 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals
+PUSH_FN C.m
+POP
+
+class C
+field x C
+method m C
+locals
+LOAD_THIS
+RET
+
+fn C.m 0 0
+locals
+PUSH 1
+SET_FIELD x
+RET

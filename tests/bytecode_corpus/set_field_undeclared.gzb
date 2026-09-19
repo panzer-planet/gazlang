@@ -1,0 +1,74 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals
+@ "set_field_undeclared.gaz" 11
+NEW C 0
+GET_METHOD m
+CALL_METHOD 0 m
+POP
+
+class Error
+field message Error
+field file Error
+field line Error
+field trace Error
+method _ Error
+method to_string Error
+locals $#argument_0
+@ "<builtin>" 1
+CALL_CONSTRUCTOR Error
+POP
+LOAD_THIS
+RET
+
+fn Error._ 1 1
+locals $message
+@ "<builtin>" 6
+LOAD 0
+SET_FIELD message
+POP
+PUSH null
+RET
+
+fn Error.to_string 0 0
+locals
+@ "<builtin>" 7
+PUSH ""
+LOAD_FIELD message
+CONCAT
+RET
+PUSH null
+RET
+
+class C
+field x C
+method m C
+locals
+@ "set_field_undeclared.gaz" 1
+LOAD_THIS
+RET
+
+fn C.m 0 0
+locals $e
+@ "set_field_undeclared.gaz" 4
+TRY CATCH_0
+@ "set_field_undeclared.gaz" 5
+PUSH 1
+SET_FIELD y
+POP
+@ "set_field_undeclared.gaz" 4
+END_TRY
+JMP ENDTRY_0
+LABEL CATCH_0
+CATCH_VALUE
+STORE 0
+@ "set_field_undeclared.gaz" 7
+LOAD 0
+GET_PROPERTY message
+PRINT
+LABEL ENDTRY_0
+@ "set_field_undeclared.gaz" 3
+PUSH null
+RET

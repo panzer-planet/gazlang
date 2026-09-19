@@ -936,6 +936,57 @@ static void check_record(Block *b) {
     }
 }
 
+/* The last block with that key, as the PHP reader's table of blocks by key has it */
+static Block *block_by_key(Str *key) {
+    for (int i = prog->nblocks - 1; i >= 0; i--) {
+        if (prog->blocks[i]->key == key) return prog->blocks[i];
+    }
+    return NULL;
+}
+
+/* Mark the blocks that can run without an object: the top level, the functions, a method called
+   or pushed as a function, and a lambda made in any of these. A key is marked through its last
+   block, as in the PHP reader, then every block with it. */
+static void mark_objectless(void) {
+    int nmethods = 0;
+    for (int i = 0; i < prog->nblocks; i++) nmethods += prog->blocks[i]->nmethods;
+    Str **methods = xmalloc((size_t)nmethods * sizeof(Str *) + 1);
+    nmethods = 0;
+    for (int i = 0; i < prog->nblocks; i++) {
+        Block *b = prog->blocks[i];
+        for (int m = 0; m < b->nmethods; m++) methods[nmethods++] = method_key(b->method_definers[m], b->method_names[m]);
+    }
+
+    /* Each key is pushed once, when it is marked, so the list never holds more than the blocks */
+    Block **work = xmalloc((size_t)prog->nblocks * sizeof(Block *));
+    int nwork = 0;
+    for (int i = 0; i < prog->nblocks; i++) {
+        Block *b = prog->blocks[i];
+        bool root = b->kind == B_TOP || b->kind == B_FN;
+        for (int m = 0; root && b->kind == B_FN && m < nmethods; m++) root = methods[m] != b->name;
+        b = root ? block_by_key(b->key) : NULL;
+        if (b && !b->objectless) b->objectless = true, work[nwork++] = b;
+    }
+    while (nwork) {
+        Block *b = work[--nwork];
+        for (int i = 0; i < b->nraw; i++) {
+            RawInstr *r = &b->raw[i];
+            Block *reached = NULL;
+            if (r->op == OP_CALL || r->op == OP_PUSH_FN) {
+                Function *f = find_function(r->names[0]);
+                reached = f ? f->block : NULL;
+            } else if (r->op == OP_MAKE_CLOSURE) {
+                Lambda *l = find_lambda(r->ints[0]);
+                reached = l ? l->block : NULL;
+            }
+            if (reached && !reached->objectless) reached->objectless = true, work[nwork++] = reached;
+        }
+    }
+    for (int i = 0; i < prog->nblocks; i++) prog->blocks[i]->objectless = block_by_key(prog->blocks[i]->key)->objectless;
+    free(methods);
+    free(work);
+}
+
 typedef struct { int position, height; } Work;
 
 /* A label's position in a block's raw instructions, its last definition if it has several, or
@@ -1034,6 +1085,10 @@ static void check_block(Block *b) {
                     if (n >= b->ncaptures) FAIL("Capture %d is not one of the block's %d captured variables", n, b->ncaptures);
                     break;
                 }
+            }
+            if (b->objectless && (r->op == OP_LOAD_FIELD || r->op == OP_SET_FIELD || r->op == OP_CALL_PARENT ||
+                                  r->op == OP_BIND_PARENT || r->op == OP_CALL_CONSTRUCTOR)) {
+                FAIL("%s can run without an object", info->name);
             }
 
             int pops = info->pops;
@@ -1376,6 +1431,7 @@ Program *load(const char *text, size_t len, const char *path) {
     for (int i = 0; i < prog->nblocks; i++) {
         if (prog->blocks[i]->kind == B_CLASS) check_record(prog->blocks[i]);
     }
+    mark_objectless();
     for (int i = 0; i < prog->nblocks; i++) check_block(prog->blocks[i]);
 
     build_classes();

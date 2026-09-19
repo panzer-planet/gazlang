@@ -24,6 +24,11 @@ final class BytecodeReader
     private const TERMINATORS = ['JMP' => true, 'RET' => true, 'RETHROW' => true, 'HALT' => true];
 
     /**
+     * Instructions that need the object a method or initialiser runs on
+     */
+    private const ON_OBJECT = ['LOAD_FIELD' => true, 'SET_FIELD' => true, 'CALL_PARENT' => true, 'BIND_PARENT' => true, 'CALL_CONSTRUCTOR' => true];
+
+    /**
      * @var list<string> The lines of the file
      */
     private $lines;
@@ -88,8 +93,9 @@ final class BytecodeReader
         foreach ($program->classes as $name => $class) {
             $this->records($name, $class, $program);
         }
+        $objectless = $this->objectless($program);
         foreach ($blocks as $block) {
-            $this->check($block, $program);
+            $this->check($block, $program, isset($objectless[Program::key($block)]));
         }
 
         return $program;
@@ -120,6 +126,50 @@ final class BytecodeReader
                 $fail("Method {$method} has no block {$definer}.{$method}");
             }
         }
+    }
+
+    /**
+     * The blocks that can run without an object: the top level, the functions, a method called or
+     * pushed as a function, and a lambda made in any of these
+     *
+     * @param  Program  $program  The program
+     * @return array<string, true> Their keys
+     */
+    private function objectless(Program $program): array
+    {
+        $blocks = $methods = $work = $objectless = [];
+        foreach ($program->blocks as $block) {
+            $blocks[Program::key($block)] = $block;
+        }
+        foreach ($program->classes as $class) {
+            foreach ($class['methods'] as $method => $definer) {
+                $methods["{$definer}.{$method}"] = true;
+            }
+        }
+        foreach ($program->blocks as $block) {
+            if ($block['kind'] === 'top' || ($block['kind'] === 'fn' && ! isset($methods[$block['name']]))) {
+                $work[] = Program::key($block);
+            }
+        }
+        while ($work !== []) {
+            $key = array_pop($work);
+            if (isset($objectless[$key])) {
+                continue;
+            }
+            $objectless[$key] = true;
+            foreach ($blocks[$key]['code'] as [$opcode, $args]) {
+                $reached = match ($opcode) {
+                    'CALL', 'PUSH_FN' => $args[0],
+                    'MAKE_CLOSURE' => "->{$args[0]}",
+                    default => null,
+                };
+                if ($reached !== null && isset($blocks[$reached])) {
+                    $work[] = $reached;
+                }
+            }
+        }
+
+        return $objectless;
     }
 
     /**
@@ -441,8 +491,9 @@ final class BytecodeReader
      *
      * @param  array<string, mixed>  $block  The block
      * @param  Program  $program  The program, for the names it can use
+     * @param  bool  $objectless  Whether it can run without an object (see objectless())
      */
-    private function check(array $block, Program $program): void
+    private function check(array $block, Program $program, bool $objectless): void
     {
         $where = Program::key($block);
         $where = $where === '' ? 'the top level' : "'{$where}'";
@@ -474,6 +525,9 @@ final class BytecodeReader
 
                 foreach (Program::INSTRUCTIONS[$opcode][0] as $i => $kind) {
                     $this->name($kind, $args[$i], $block, $program, $labels, $fail);
+                }
+                if ($objectless && isset(self::ON_OBJECT[$opcode])) {
+                    $fail("{$opcode} can run without an object");
                 }
 
                 if (! is_int($pops)) {
