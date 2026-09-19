@@ -534,7 +534,11 @@ static bool run_process(List *args, Value *out) {
     char chunk[65536];
     /* poll() skips a negative fd, which is how a stream that has ended drops out */
     while (fds[0].fd >= 0 || fds[1].fd >= 0) {
-        if (poll(fds, 2, -1) < 0 && errno != EINTR) break;
+        /* After EINTR the revents are stale, and a read on one could block: poll again */
+        if (poll(fds, 2, -1) < 0) {
+            if (errno == EINTR) continue;
+            break;
+        }
         for (int i = 0; i < 2; i++) {
             if (fds[i].fd < 0 || !fds[i].revents) continue;
             ssize_t n = read(fds[i].fd, chunk, sizeof chunk);
@@ -548,8 +552,13 @@ static bool run_process(List *args, Value *out) {
     }
     /* Only if poll() failed; the program then gets SIGPIPE rather than blocking on a full pipe */
     for (int i = 0; i < 2; i++) if (fds[i].fd >= 0) close(fds[i].fd);
-    int status;
-    while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
+    int status, waited;
+    while ((waited = waitpid(pid, &status, 0)) < 0 && errno == EINTR) {}
+    if (waited < 0) {
+        free(text[0].data);
+        free(text[1].data);
+        return raisef("Cannot wait for a program: %s", strerror(errno));
+    }
     /* Killed by a signal: minus its number, which no exit code can be */
     int64_t code = WIFEXITED(status) ? WEXITSTATUS(status) : WIFSIGNALED(status) ? -WTERMSIG(status) : -1;
     Map *m = map_new();

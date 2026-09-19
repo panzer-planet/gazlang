@@ -103,6 +103,9 @@ class HttpTest extends GazLangTestCase
         $request = self::request($this->call('http_request("PUT", "{$url}/thing", {}, "data")'));
         $this->assertSame(['PUT', 'data'], [$request['method'], $request['body']]);
         $this->assertSame('DELETE', self::request($this->call('http_request("DELETE", "{$url}/thing")'))['method']);
+        // curl would make a GET with a body a POST unless the method is named
+        $request = self::request($this->call('http_request("GET", "{$url}/thing", {}, "query")'));
+        $this->assertSame(['GET', 'query'], [$request['method'], $request['body']]);
 
         $head = $this->call('http_request("HEAD", "{$url}/thing")');
         $this->assertSame([200, 'application/json', ''], [$head['status'], $head['headers']['content-type'], $head['body']]);

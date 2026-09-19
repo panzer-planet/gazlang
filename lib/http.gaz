@@ -27,11 +27,11 @@ fn http_request($method, $url, $headers = {}, $body = null) {
     $argv = ["curl", "--disable", "--silent", "--show-error", "--include", "--location",
         "--globoff", "--suppress-connect-headers", "--proto", "=http,https", "--proto-redir", "=http,https"];
     http_check_token("method", $method);
-    // curl works out GET and POST itself, and then turns a POST into a GET after a 303 as a
-    // browser does; naming them would keep the method across every redirect
+    // curl works out GET without a body and POST with one itself, and then turns a POST into a
+    // GET after a 303 as a browser does; naming them would keep the method across every redirect
     if ($method == "HEAD") {
         $argv[] = "--head";
-    } else if (!($method == "GET" || $method == "POST" && $body != null)) {
+    } else if (!($method == "GET" && $body == null || $method == "POST" && $body != null)) {
         $argv = [...$argv, "--request", $method];
     }
     foreach ($headers as $name => $value) {
