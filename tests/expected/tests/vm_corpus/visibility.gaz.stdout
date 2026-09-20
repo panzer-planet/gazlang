@@ -1,9 +1,11 @@
 1 2
 [1, 2, "hidden"]
 2 2
-Box.shut is not pub, so only the kind that declares it can use it
-Box.hidden is not pub, so only the kind that declares it can use it
+Box.shut is not pub, so only Box can use it
+Box.hidden is not pub, so only Box can use it
 Box has no member nope
-Box.shut is not pub, so only the kind that declares it can use it
-{"open" => 1, "shut" => 2}
-Box {#open => 1, #shut => 2}
+Box.shared is kin, so only Box and what extends it can use it
+3 3
+Box.shut is not pub, so only Box can use it
+{"open" => 1, "shut" => 2, "shared" => 3}
+Box {#open => 1, #shut => 2, #shared => 3}

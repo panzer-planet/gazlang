@@ -3,7 +3,7 @@
 //   bin/gazlang -f examples/objects.gaz
 
 abstract kind Shape {
-    pub #name;
+    #name;
     fn _($name) { #name = $name; }
     pub abstract fn area();
     pub fn to_string() { return "{#name} with area " .. round(#area(), 2); }

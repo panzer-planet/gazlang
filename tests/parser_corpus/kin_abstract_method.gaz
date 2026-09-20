@@ -1,0 +1,11 @@
+// An abstract method may be kin: a child that can see it can define it, and the kind and its
+// children are the ones that call it
+abstract kind Shape {
+    kin abstract fn area();
+    pub fn describe() { return "area " .. #area(); }
+}
+kind Square extends Shape {
+    #side = 2;
+    kin fn area() { return #side * #side; }
+}
+echo Square().describe();

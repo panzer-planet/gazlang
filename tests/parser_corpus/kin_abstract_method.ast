@@ -1,0 +1,129 @@
+Compound
+  statements:
+@ "tests/parser_corpus/kin_abstract_method.gaz"
+    0: KindDeclaration 3
+      name: "Shape"
+      parent: null
+      abstract: true
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"area" => "kin", "describe" => "pub"}
+      fields: []
+      field_lines: []
+      methods:
+        area: FunctionDeclaration 4
+          name: "area"
+          params: []
+          defaults: []
+          body: Compound
+            statements: []
+          arity: 0
+          kind: "Shape"
+          abstract: true
+        describe: FunctionDeclaration 5
+          name: "describe"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 5
+                expr: BinOp 5
+                  left: String 5
+                    token: 5 STRING "area "
+                    value: "area "
+                  token: 5 CONCAT ..
+                  op: 5 CONCAT ..
+                  right: MethodCall 5
+                    property: Property 5
+                      target: This 5
+                      name: "area"
+                      field: false
+                      constant: false
+                      value: null
+                      static_name: null
+                    args: []
+          arity: 0
+          kind: "Shape"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: {"describe" => "Shape"}
+      abstract_methods: {"area" => "Shape"}
+      slots: []
+      method_table: [["describe", "Shape", "pub", "Shape"]]
+      owner_vis: {"area" => "kin", "describe" => "pub"}
+      declared_at: {"area" => "Shape", "describe" => "Shape"}
+      hidden: []
+      hidden_fields: []
+    1: KindDeclaration 7
+      name: "Square"
+      parent: "Shape"
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"side" => "", "area" => "kin"}
+      fields:
+        side: Num 8
+          token: 8 INTEGER 2
+          value: 2
+      field_lines: {"side" => 8}
+      methods:
+        area: FunctionDeclaration 9
+          name: "area"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 9
+                expr: BinOp 9
+                  left: Property 9
+                    target: This 9
+                    name: "side"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 9 MULTIPLY *
+                  op: 9 MULTIPLY *
+                  right: Property 9
+                    target: This 9
+                    name: "side"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+          arity: 0
+          kind: "Square"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"side" => "Square"}
+      members: {"describe" => "Shape", "area" => "Square"}
+      abstract_methods: []
+      slots: [["side", "Square", ""]]
+      method_table: [["describe", "Shape", "pub", "Shape"], ["area", "Square", "kin", "Shape"]]
+      owner_vis: {"area" => "kin", "describe" => "pub", "side" => ""}
+      declared_at: {"area" => "Shape", "describe" => "Shape"}
+      hidden: []
+      hidden_fields: []
+    2: EchoStatement 11
+      expr: MethodCall 11
+        property: Property 11
+          target: FunctionCall 11
+            name: "Square"
+            args: []
+          name: "describe"
+          field: false
+          constant: false
+          value: null
+          static_name: null
+        args: []

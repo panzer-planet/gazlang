@@ -53,8 +53,9 @@ Compound
       members: {"f" => "A", "theirs" => "A"}
       abstract_methods: []
       slots: []
-      method_table: [["f", "A", ""], ["theirs", "A", "pub"]]
+      method_table: [["f", "A", "", "A"], ["theirs", "A", "pub", "A"]]
       owner_vis: {"f" => "", "theirs" => "pub"}
+      declared_at: {"f" => "A", "theirs" => "A"}
       hidden: []
       hidden_fields: []
     1: KindDeclaration 4
@@ -90,8 +91,9 @@ Compound
       members: {"theirs" => "A", "f" => "B"}
       abstract_methods: []
       slots: []
-      method_table: [["f", "A", ""], ["theirs", "A", "pub"], ["f", "B", "pub"]]
+      method_table: [["f", "A", "", "A"], ["theirs", "A", "pub", "A"], ["f", "B", "pub", "A"]]
       owner_vis: {"theirs" => "pub", "f" => "pub"}
+      declared_at: {"f" => "A", "theirs" => "A"}
       hidden: {"f" => "A"}
       hidden_fields: []
     2: EchoStatement 5

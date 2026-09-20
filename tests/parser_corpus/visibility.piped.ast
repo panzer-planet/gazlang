@@ -1,10 +1,10 @@
 Compound
   statements:
 @ null
-    0: StaticInit 12
+    0: StaticInit 14
       name: "Base::tally"
       value: 0
-    1: StaticInit 13
+    1: StaticInit 15
       name: "Base::ledger"
       value: 5
     2: KindDeclaration 4
@@ -12,44 +12,44 @@ Compound
       parent: null
       abstract: false
       statics:
-        tally: Num 12
-          token: 12 INTEGER 0
+        tally: Num 14
+          token: 14 INTEGER 0
           value: 0
-        ledger: Num 13
-          token: 13 INTEGER 5
+        ledger: Num 15
+          token: 15 INTEGER 5
           value: 5
-      static_lines: {"tally" => 12, "ledger" => 13}
+      static_lines: {"tally" => 14, "ledger" => 15}
       static_methods:
-        bump: FunctionDeclaration 19
+        bump: FunctionDeclaration 22
           name: "Base::bump"
           params: []
           defaults: []
           body: Compound
             statements:
-              0: Statement 19
-                expr: Increment 19
-                  target: Property 19
-                    target: This 19
+              0: Statement 22
+                expr: Increment 22
+                  target: Property 22
+                    target: This 22
                     name: "tally"
                     field: false
                     constant: false
                     value: null
                     static_name: "Base::tally"
-                  op: 19 INCREMENT ++
+                  op: 22 INCREMENT ++
                   prefix: false
-              1: ReturnStatement 19
-                expr: BinOp 19
-                  left: Property 19
-                    target: This 19
+              1: ReturnStatement 22
+                expr: BinOp 22
+                  left: Property 22
+                    target: This 22
                     name: "ledger"
                     field: false
                     constant: false
                     value: null
                     static_name: "Base::ledger"
-                  token: 19 PLUS +
-                  op: 19 PLUS +
-                  right: Property 19
-                    target: This 19
+                  token: 22 PLUS +
+                  op: 22 PLUS +
+                  right: Property 22
+                    target: This 22
                     name: "tally"
                     field: false
                     constant: false
@@ -60,7 +60,7 @@ Compound
           abstract: false
       static_owners: {"tally" => "Base", "ledger" => "Base", "bump" => "Base"}
       static_is_method: {"tally" => false, "ledger" => false, "bump" => true}
-      vis: {"open" => "pub", "shut" => "", "derived" => "", "LIMIT" => "pub", "SECRET" => "", "tally" => "pub", "ledger" => "", "all" => "pub", "hidden" => "", "later" => "pub", "bump" => "pub"}
+      vis: {"open" => "pub", "shut" => "", "shared" => "kin", "derived" => "", "LIMIT" => "pub", "SECRET" => "", "tally" => "pub", "ledger" => "", "all" => "pub", "kin_only" => "kin", "hidden" => "", "later" => "pub", "bump" => "pub"}
       fields:
         open: Num 5
           token: 5 INTEGER 1
@@ -68,34 +68,37 @@ Compound
         shut: Num 6
           token: 6 INTEGER 2
           value: 2
-        derived: BinOp 9
-          left: Property 9
-            target: This 9
+        shared: String 8
+          token: 8 STRING "kin"
+          value: "kin"
+        derived: BinOp 11
+          left: Property 11
+            target: This 11
             name: "shut"
             field: true
             constant: false
             value: null
             static_name: null
-          token: 9 MULTIPLY *
-          op: 9 MULTIPLY *
-          right: Num 9
-            token: 9 INTEGER 10
+          token: 11 MULTIPLY *
+          op: 11 MULTIPLY *
+          right: Num 11
+            token: 11 INTEGER 10
             value: 10
-      field_lines: {"open" => 5, "shut" => 6, "derived" => 9}
+      field_lines: {"open" => 5, "shut" => 6, "shared" => 8, "derived" => 11}
       methods:
-        all: FunctionDeclaration 16
+        all: FunctionDeclaration 18
           name: "all"
           params: []
           defaults: []
           body: Compound
             statements:
-              0: ReturnStatement 16
-                expr: ArrayLiteral 16
+              0: ReturnStatement 18
+                expr: ArrayLiteral 18
                   entries:
                     0:
                       0: null
-                      1: Property 16
-                        target: This 16
+                      1: Property 18
+                        target: This 18
                         name: "open"
                         field: true
                         constant: false
@@ -103,8 +106,8 @@ Compound
                         static_name: null
                     1:
                       0: null
-                      1: Property 16
-                        target: This 16
+                      1: Property 18
+                        target: This 18
                         name: "shut"
                         field: true
                         constant: false
@@ -112,54 +115,63 @@ Compound
                         static_name: null
                     2:
                       0: null
-                      1: Property 16
-                        target: This 16
-                        name: "derived"
+                      1: Property 18
+                        target: This 18
+                        name: "shared"
                         field: true
                         constant: false
                         value: null
                         static_name: null
                     3:
                       0: null
-                      1: Property 16
-                        target: This 16
+                      1: Property 18
+                        target: This 18
+                        name: "derived"
+                        field: true
+                        constant: false
+                        value: null
+                        static_name: null
+                    4:
+                      0: null
+                      1: Property 18
+                        target: This 18
                         name: "LIMIT"
                         field: false
                         constant: true
                         value: 3
                         static_name: null
-                    4:
+                    5:
                       0: null
-                      1: Property 16
-                        target: This 16
+                      1: Property 18
+                        target: This 18
                         name: "SECRET"
                         field: false
                         constant: true
                         value: 4
                         static_name: null
-                    5:
+                    6:
                       0: null
-                      1: Property 16
-                        target: This 16
+                      1: Property 18
+                        target: This 18
                         name: "tally"
                         field: false
                         constant: false
                         value: null
                         static_name: "Base::tally"
-                    6:
+                    7:
                       0: null
-                      1: Property 16
-                        target: This 16
+                      1: Property 18
+                        target: This 18
                         name: "ledger"
                         field: false
                         constant: false
                         value: null
                         static_name: "Base::ledger"
-                    7:
+                    8:
                       0: null
-                      1: MethodCall 16
-                        property: Property 16
-                          target: This 16
+                      1: MethodCall 18
+                        property: Property 18
+                          target: This 18
                           name: "hidden"
                           field: false
                           constant: false
@@ -170,25 +182,48 @@ Compound
           arity: 0
           kind: "Base"
           abstract: false
-        hidden: FunctionDeclaration 17
+        kin_only: FunctionDeclaration 19
+          name: "kin_only"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 19
+                expr: BinOp 19
+                  left: Property 19
+                    target: This 19
+                    name: "shared"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 19 CONCAT ..
+                  op: 19 CONCAT ..
+                  right: String 19
+                    token: 19 STRING "!"
+                    value: "!"
+          arity: 0
+          kind: "Base"
+          abstract: false
+        hidden: FunctionDeclaration 20
           name: "hidden"
           params: []
           defaults: []
           body: Compound
             statements:
-              0: ReturnStatement 17
-                expr: BinOp 17
-                  left: Property 17
-                    target: This 17
+              0: ReturnStatement 20
+                expr: BinOp 20
+                  left: Property 20
+                    target: This 20
                     name: "shut"
                     field: true
                     constant: false
                     value: null
                     static_name: null
-                  token: 17 PLUS +
-                  op: 17 PLUS +
-                  right: Property 17
-                    target: This 17
+                  token: 20 PLUS +
+                  op: 20 PLUS +
+                  right: Property 20
+                    target: This 20
                     name: "SECRET"
                     field: false
                     constant: true
@@ -197,29 +232,29 @@ Compound
           arity: 0
           kind: "Base"
           abstract: false
-        later: FunctionDeclaration 18
+        later: FunctionDeclaration 21
           name: "later"
           params: []
           defaults: []
           body: Compound
             statements:
-              0: ReturnStatement 18
-                expr: Lambda 18
+              0: ReturnStatement 21
+                expr: Lambda 21
                   params: []
                   defaults: []
                   arity: 0
-                  body: BinOp 18
-                    left: Property 18
-                      target: This 18
+                  body: BinOp 21
+                    left: Property 21
+                      target: This 21
                       name: "shut"
                       field: true
                       constant: false
                       value: null
                       static_name: null
-                    token: 18 PLUS +
-                    op: 18 PLUS +
-                    right: Property 18
-                      target: This 18
+                    token: 21 PLUS +
+                    op: 21 PLUS +
+                    right: Property 21
+                      target: This 21
                       name: "SECRET"
                       field: false
                       constant: true
@@ -232,52 +267,53 @@ Compound
           kind: "Base"
           abstract: false
       constants:
-        LIMIT: Num 10
-          token: 10 INTEGER 3
+        LIMIT: Num 12
+          token: 12 INTEGER 3
           value: 3
-        SECRET: Num 11
-          token: 11 INTEGER 4
+        SECRET: Num 13
+          token: 13 INTEGER 4
           value: 4
-      constant_lines: {"LIMIT" => 10, "SECRET" => 11}
+      constant_lines: {"LIMIT" => 12, "SECRET" => 13}
       constant_owners: {"LIMIT" => "Base", "SECRET" => "Base"}
-      layout: {"open" => "Base", "shut" => "Base", "derived" => "Base"}
-      members: {"all" => "Base", "hidden" => "Base", "later" => "Base"}
+      layout: {"open" => "Base", "shut" => "Base", "shared" => "Base", "derived" => "Base"}
+      members: {"all" => "Base", "kin_only" => "Base", "hidden" => "Base", "later" => "Base"}
       abstract_methods: []
-      slots: [["open", "Base", "pub"], ["shut", "Base", ""], ["derived", "Base", ""]]
-      method_table: [["all", "Base", "pub"], ["hidden", "Base", ""], ["later", "Base", "pub"]]
-      owner_vis: {"LIMIT" => "pub", "SECRET" => "", "tally" => "pub", "ledger" => "", "bump" => "pub", "open" => "pub", "shut" => "", "derived" => "", "all" => "pub", "hidden" => "", "later" => "pub"}
+      slots: [["open", "Base", "pub"], ["shut", "Base", ""], ["shared", "Base", "kin"], ["derived", "Base", ""]]
+      method_table: [["all", "Base", "pub", "Base"], ["kin_only", "Base", "kin", "Base"], ["hidden", "Base", "", "Base"], ["later", "Base", "pub", "Base"]]
+      owner_vis: {"LIMIT" => "pub", "SECRET" => "", "tally" => "pub", "ledger" => "", "bump" => "pub", "open" => "pub", "shut" => "", "shared" => "kin", "derived" => "", "all" => "pub", "kin_only" => "kin", "hidden" => "", "later" => "pub"}
+      declared_at: {"all" => "Base", "kin_only" => "Base", "hidden" => "Base", "later" => "Base"}
       hidden: []
       hidden_fields: []
-    3: FunctionDeclaration 19
+    3: FunctionDeclaration 22
       name: "Base::bump"
       params: []
       defaults: []
       body: Compound
         statements:
-          0: Statement 19
-            expr: Increment 19
-              target: Property 19
-                target: This 19
+          0: Statement 22
+            expr: Increment 22
+              target: Property 22
+                target: This 22
                 name: "tally"
                 field: false
                 constant: false
                 value: null
                 static_name: "Base::tally"
-              op: 19 INCREMENT ++
+              op: 22 INCREMENT ++
               prefix: false
-          1: ReturnStatement 19
-            expr: BinOp 19
-              left: Property 19
-                target: This 19
+          1: ReturnStatement 22
+            expr: BinOp 22
+              left: Property 22
+                target: This 22
                 name: "ledger"
                 field: false
                 constant: false
                 value: null
                 static_name: "Base::ledger"
-              token: 19 PLUS +
-              op: 19 PLUS +
-              right: Property 19
-                target: This 19
+              token: 22 PLUS +
+              op: 22 PLUS +
+              right: Property 22
+                target: This 22
                 name: "tally"
                 field: false
                 constant: false
@@ -286,7 +322,7 @@ Compound
       arity: 0
       kind: "Base"
       abstract: false
-    4: KindDeclaration 24
+    4: KindDeclaration 27
       name: "Child"
       parent: "Base"
       abstract: false
@@ -299,19 +335,19 @@ Compound
       fields: []
       field_lines: []
       methods:
-        ours: FunctionDeclaration 27
+        ours: FunctionDeclaration 31
           name: "ours"
           params: []
           defaults: []
           body: Compound
             statements:
-              0: ReturnStatement 27
-                expr: ArrayLiteral 27
+              0: ReturnStatement 31
+                expr: ArrayLiteral 31
                   entries:
                     0:
                       0: null
-                      1: Property 27
-                        target: This 27
+                      1: Property 31
+                        target: This 31
                         name: "open"
                         field: true
                         constant: false
@@ -319,27 +355,47 @@ Compound
                         static_name: null
                     1:
                       0: null
-                      1: Property 27
-                        target: This 27
+                      1: Property 31
+                        target: This 31
+                        name: "shared"
+                        field: true
+                        constant: false
+                        value: null
+                        static_name: null
+                    2:
+                      0: null
+                      1: MethodCall 31
+                        property: Property 31
+                          target: This 31
+                          name: "kin_only"
+                          field: false
+                          constant: false
+                          value: null
+                          static_name: null
+                        args: []
+                    3:
+                      0: null
+                      1: Property 31
+                        target: This 31
                         name: "LIMIT"
                         field: false
                         constant: true
                         value: 3
                         static_name: null
-                    2:
+                    4:
                       0: null
-                      1: Property 27
-                        target: This 27
+                      1: Property 31
+                        target: This 31
                         name: "SECRET"
                         field: false
                         constant: true
                         value: "mine"
                         static_name: null
-                    3:
+                    5:
                       0: null
-                      1: MethodCall 27
-                        property: Property 27
-                          target: This 27
+                      1: MethodCall 31
+                        property: Property 31
+                          target: This 31
                           name: "hidden"
                           field: false
                           constant: false
@@ -350,37 +406,38 @@ Compound
           arity: 0
           kind: "Child"
           abstract: false
-        hidden: FunctionDeclaration 28
+        hidden: FunctionDeclaration 32
           name: "hidden"
           params: []
           defaults: []
           body: Compound
             statements:
-              0: ReturnStatement 28
-                expr: String 28
-                  token: 28 STRING "child"
+              0: ReturnStatement 32
+                expr: String 32
+                  token: 32 STRING "child"
                   value: "child"
           arity: 0
           kind: "Child"
           abstract: false
       constants:
-        SECRET: String 25
-          token: 25 STRING "mine"
+        SECRET: String 28
+          token: 28 STRING "mine"
           value: "mine"
-      constant_lines: {"SECRET" => 25}
+      constant_lines: {"SECRET" => 28}
       constant_owners: {"LIMIT" => "Base", "SECRET" => "Child"}
-      layout: {"open" => "Base"}
-      members: {"all" => "Base", "later" => "Base", "ours" => "Child", "hidden" => "Child"}
+      layout: {"open" => "Base", "shared" => "Base"}
+      members: {"all" => "Base", "kin_only" => "Base", "later" => "Base", "ours" => "Child", "hidden" => "Child"}
       abstract_methods: []
-      slots: [["open", "Base", "pub"], ["shut", "Base", ""], ["derived", "Base", ""]]
-      method_table: [["all", "Base", "pub"], ["hidden", "Base", ""], ["later", "Base", "pub"], ["ours", "Child", "pub"], ["hidden", "Child", ""]]
-      owner_vis: {"LIMIT" => "pub", "tally" => "pub", "bump" => "pub", "open" => "pub", "all" => "pub", "later" => "pub", "SECRET" => "", "ours" => "pub", "hidden" => ""}
+      slots: [["open", "Base", "pub"], ["shut", "Base", ""], ["shared", "Base", "kin"], ["derived", "Base", ""]]
+      method_table: [["all", "Base", "pub", "Base"], ["kin_only", "Base", "kin", "Base"], ["hidden", "Base", "", "Base"], ["later", "Base", "pub", "Base"], ["ours", "Child", "pub", "Child"], ["hidden", "Child", "", "Base"]]
+      owner_vis: {"LIMIT" => "pub", "tally" => "pub", "bump" => "pub", "open" => "pub", "shared" => "kin", "all" => "pub", "kin_only" => "kin", "later" => "pub", "SECRET" => "", "ours" => "pub", "hidden" => ""}
+      declared_at: {"all" => "Base", "kin_only" => "Base", "hidden" => "Base", "later" => "Base", "ours" => "Child"}
       hidden: {"shut" => "Base", "derived" => "Base", "hidden" => "Base", "SECRET" => "Base", "ledger" => "Base"}
       hidden_fields: {"shut" => "Base", "derived" => "Base"}
-    5: EchoStatement 31
-      expr: MethodCall 31
-        property: Property 31
-          target: FunctionCall 31
+    5: EchoStatement 35
+      expr: MethodCall 35
+        property: Property 35
+          target: FunctionCall 35
             name: "Base"
             args: []
           name: "all"
@@ -389,11 +446,11 @@ Compound
           value: null
           static_name: null
         args: []
-    6: EchoStatement 32
-      expr: CallValue 32
-        callee: MethodCall 32
-          property: Property 32
-            target: FunctionCall 32
+    6: EchoStatement 36
+      expr: CallValue 36
+        callee: MethodCall 36
+          property: Property 36
+            target: FunctionCall 36
               name: "Base"
               args: []
             name: "later"
@@ -403,42 +460,42 @@ Compound
             static_name: null
           args: []
         args: []
-    7: EchoStatement 33
-      expr: BinOp 33
-        left: BinOp 33
-          left: BinOp 33
-            left: BinOp 33
-              left: FunctionCall 33
+    7: EchoStatement 37
+      expr: BinOp 37
+        left: BinOp 37
+          left: BinOp 37
+            left: BinOp 37
+              left: FunctionCall 37
                 name: "Base::bump"
                 args: []
-              token: 33 CONCAT ..
-              op: 33 CONCAT ..
-              right: String 33
-                token: 33 STRING " "
+              token: 37 CONCAT ..
+              op: 37 CONCAT ..
+              right: String 37
+                token: 37 STRING " "
                 value: " "
-            token: 33 CONCAT ..
-            op: 33 CONCAT ..
-            right: FunctionRef 33
+            token: 37 CONCAT ..
+            op: 37 CONCAT ..
+            right: FunctionRef 37
               name: "Base::LIMIT"
               constant: true
               value: 3
               static_name: null
-          token: 33 CONCAT ..
-          op: 33 CONCAT ..
-          right: String 33
-            token: 33 STRING " "
+          token: 37 CONCAT ..
+          op: 37 CONCAT ..
+          right: String 37
+            token: 37 STRING " "
             value: " "
-        token: 33 CONCAT ..
-        op: 33 CONCAT ..
-        right: FunctionRef 33
+        token: 37 CONCAT ..
+        op: 37 CONCAT ..
+        right: FunctionRef 37
           name: "Base::tally"
           constant: false
           value: null
           static_name: "Base::tally"
-    8: EchoStatement 34
-      expr: MethodCall 34
-        property: Property 34
-          target: FunctionCall 34
+    8: EchoStatement 38
+      expr: MethodCall 38
+        property: Property 38
+          target: FunctionCall 38
             name: "Child"
             args: []
           name: "ours"
@@ -447,10 +504,10 @@ Compound
           value: null
           static_name: null
         args: []
-    9: EchoStatement 36
-      expr: MethodCall 36
-        property: Property 36
-          target: FunctionCall 36
+    9: EchoStatement 40
+      expr: MethodCall 40
+        property: Property 40
+          target: FunctionCall 40
             name: "Child"
             args: []
           name: "all"
@@ -459,10 +516,10 @@ Compound
           value: null
           static_name: null
         args: []
-    10: EchoStatement 37
-      expr: FunctionCall 37
+    10: EchoStatement 41
+      expr: FunctionCall 41
         name: "fields"
         args:
-          0: FunctionCall 37
+          0: FunctionCall 41
             name: "Child"
             args: []

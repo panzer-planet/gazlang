@@ -57,8 +57,9 @@ Compound
       members: {"_" => "Square"}
       abstract_methods: []
       slots: [["side", "Square", "pub"]]
-      method_table: [["_", "Square", "pub"]]
+      method_table: [["_", "Square", "pub", "Square"]]
       owner_vis: {"side" => "pub", "_" => "pub"}
+      declared_at: {"_" => "Square"}
       hidden: []
       hidden_fields: []
     2: FunctionDeclaration 7

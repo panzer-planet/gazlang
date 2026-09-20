@@ -230,10 +230,10 @@ field history Shape pub
 field double Shape
 field side Square pub
 field area_cache Square
-method _ Square pub
-method to_string Square pub
+method _ Square pub Shape
+method to_string Square pub Shape
 method describe Shape
-method area Square pub
+method area Square pub Shape
 method parent_version Square pub
 method me Square pub
 method later Square pub
@@ -366,10 +366,10 @@ field history Shape pub
 field double Shape
 field side Square pub
 field area_cache Square
-method _ Square pub
-method to_string Square pub
+method _ Square pub Shape
+method to_string Square pub Shape
 method describe Shape
-method area Square pub
+method area Square pub Shape
 method parent_version Square pub
 method me Square pub
 method later Square pub
@@ -420,7 +420,7 @@ field file Error pub
 field line Error pub
 field trace Error pub
 field key NotFound pub
-method _ NotFound pub
+method _ NotFound pub Error
 method to_string Error pub
 locals $#argument_0
 @ 27

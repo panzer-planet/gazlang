@@ -103,7 +103,7 @@ kind Lexer {
         "false" => "FALSE", "kind" => "KIND", "class" => "CLASS", "extends" => "EXTENDS", "abstract" => "ABSTRACT",
         "interface" => "INTERFACE", "implements" => "IMPLEMENTS", "final" => "FINAL",
         "public" => "PUBLIC", "private" => "PRIVATE", "protected" => "PROTECTED",
-        "namespace" => "NAMESPACE", "use" => "USE", "pub" => "PUB", "static" => "STATIC",
+        "namespace" => "NAMESPACE", "use" => "USE", "pub" => "PUB", "kin" => "KIN", "static" => "STATIC",
     };
 
     // Single character escapes in double-quoted strings, and what each stands for

@@ -3,6 +3,7 @@
 kind Box {
     pub #open = 1;
     #shut = 2;
+    kin #shared = 3;
     pub fn read() { return #shut; }
     fn hidden() { return "hidden"; }
 
@@ -31,6 +32,11 @@ echo Box().from_a_lambda($b) .. " " .. Box::from_a_static($b);
 echo fails(() -> $b.shut);
 echo fails(() -> $b.hidden());
 echo fails(() -> $b.nope);
+// kin says which level kept it, since it is not the kind's own
+echo fails(() -> $b.shared);
+// A kind that extends Box reaches it; anything else does not
+kind Lid extends Box { pub fn peek($other) { return $other.shared; } }
+echo Lid().peek($b) .. " " .. Lid().peek(Lid());
 // A write path is checked the same way
 echo fails(() -> ($b.shut = 3));
 // Reflection and printing are not member access, so they see every field that is set

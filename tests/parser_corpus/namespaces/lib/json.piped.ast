@@ -67,5 +67,6 @@ Compound
       slots: []
       method_table: []
       owner_vis: {"EOF" => ""}
+      declared_at: []
       hidden: []
       hidden_fields: []

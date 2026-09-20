@@ -1060,8 +1060,9 @@ kind Program {
         foreach ($block["fields"] as [$field, $declarer, $vis]) {
             $lines[] = "field {$field} {$declarer}" .. ($vis == "" ? "" : " {$vis}");
         }
-        foreach ($block["methods"] as [$method, $definer, $vis]) {
-            $lines[] = "method {$method} {$definer}" .. ($vis == "" ? "" : " {$vis}");
+        foreach ($block["methods"] as [$method, $definer, $vis, $declarer]) {
+            $lines[] = "method {$method} {$definer}" .. ($vis == "" ? "" : " {$vis}")
+                .. ($declarer == $definer ? "" : " {$declarer}");
         }
 
         return $lines;

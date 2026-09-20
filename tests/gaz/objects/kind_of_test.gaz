@@ -1,6 +1,6 @@
 include "../check.gaz";
 
-kind Shape { pub #name = "shape"; }
+kind Shape { kin #name = "shape"; }
 kind Circle extends Shape { pub #r; fn _($r) { #name = "circle"; #r = $r; } }
 kind Square extends Shape { pub #s; fn _($s) { #name = "square"; #s = $s; } }
 

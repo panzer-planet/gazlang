@@ -422,8 +422,9 @@ Compound
       members: {"_" => "Circle", "describe" => "Shape", "to_string" => "Circle", "area" => "Circle", "parent_area" => "Circle", "scale" => "Circle", "me" => "Circle", "chained" => "Circle", "later" => "Circle", "swap" => "Circle", "drop" => "Circle"}
       abstract_methods: []
       slots: [["name", "Shape", ""], ["radius", "Circle", ""], ["history", "Circle", ""], ["doubled", "Circle", ""], ["callback", "Circle", ""]]
-      method_table: [["_", "Circle", "pub"], ["describe", "Shape", "pub"], ["to_string", "Circle", "pub"], ["area", "Circle", "pub"], ["parent_area", "Circle", ""], ["scale", "Circle", ""], ["me", "Circle", ""], ["chained", "Circle", ""], ["later", "Circle", ""], ["swap", "Circle", ""], ["drop", "Circle", ""]]
+      method_table: [["_", "Circle", "pub", "Shape"], ["describe", "Shape", "pub", "Shape"], ["to_string", "Circle", "pub", "Shape"], ["area", "Circle", "pub", "Shape"], ["parent_area", "Circle", "", "Circle"], ["scale", "Circle", "", "Circle"], ["me", "Circle", "", "Circle"], ["chained", "Circle", "", "Circle"], ["later", "Circle", "", "Circle"], ["swap", "Circle", "", "Circle"], ["drop", "Circle", "", "Circle"]]
       owner_vis: {"_" => "pub", "area" => "pub", "describe" => "pub", "to_string" => "pub", "radius" => "", "history" => "", "doubled" => "", "callback" => "", "parent_area" => "", "scale" => "", "me" => "", "chained" => "", "later" => "", "swap" => "", "drop" => ""}
+      declared_at: {"_" => "Shape", "area" => "Shape", "describe" => "Shape", "to_string" => "Shape", "parent_area" => "Circle", "scale" => "Circle", "me" => "Circle", "chained" => "Circle", "later" => "Circle", "swap" => "Circle", "drop" => "Circle"}
       hidden: {"name" => "Shape"}
       hidden_fields: {"name" => "Shape"}
     4: KindDeclaration 31
@@ -544,8 +545,9 @@ Compound
       members: {"_" => "Shape", "describe" => "Shape", "to_string" => "Shape"}
       abstract_methods: {"area" => "Shape"}
       slots: [["name", "Shape", ""]]
-      method_table: [["_", "Shape", "pub"], ["describe", "Shape", "pub"], ["to_string", "Shape", "pub"]]
+      method_table: [["_", "Shape", "pub", "Shape"], ["describe", "Shape", "pub", "Shape"], ["to_string", "Shape", "pub", "Shape"]]
       owner_vis: {"name" => "", "_" => "pub", "area" => "pub", "describe" => "pub", "to_string" => "pub"}
+      declared_at: {"_" => "Shape", "area" => "Shape", "describe" => "Shape", "to_string" => "Shape"}
       hidden: []
       hidden_fields: []
     5: KindDeclaration 40
@@ -568,8 +570,9 @@ Compound
       members: {"_" => "Circle", "describe" => "Shape", "to_string" => "Circle", "area" => "Circle"}
       abstract_methods: []
       slots: [["name", "Shape", ""], ["radius", "Circle", ""], ["history", "Circle", ""], ["doubled", "Circle", ""], ["callback", "Circle", ""]]
-      method_table: [["_", "Circle", "pub"], ["describe", "Shape", "pub"], ["to_string", "Circle", "pub"], ["area", "Circle", "pub"], ["parent_area", "Circle", ""], ["scale", "Circle", ""], ["me", "Circle", ""], ["chained", "Circle", ""], ["later", "Circle", ""], ["swap", "Circle", ""], ["drop", "Circle", ""]]
+      method_table: [["_", "Circle", "pub", "Shape"], ["describe", "Shape", "pub", "Shape"], ["to_string", "Circle", "pub", "Shape"], ["area", "Circle", "pub", "Shape"], ["parent_area", "Circle", "", "Circle"], ["scale", "Circle", "", "Circle"], ["me", "Circle", "", "Circle"], ["chained", "Circle", "", "Circle"], ["later", "Circle", "", "Circle"], ["swap", "Circle", "", "Circle"], ["drop", "Circle", "", "Circle"]]
       owner_vis: {"_" => "pub", "area" => "pub", "describe" => "pub", "to_string" => "pub"}
+      declared_at: {"_" => "Shape", "area" => "Shape", "describe" => "Shape", "to_string" => "Shape", "parent_area" => "Circle", "scale" => "Circle", "me" => "Circle", "chained" => "Circle", "later" => "Circle", "swap" => "Circle", "drop" => "Circle"}
       hidden: {"name" => "Shape", "radius" => "Circle", "history" => "Circle", "doubled" => "Circle", "callback" => "Circle", "parent_area" => "Circle", "scale" => "Circle", "me" => "Circle", "chained" => "Circle", "later" => "Circle", "swap" => "Circle", "drop" => "Circle"}
       hidden_fields: {"name" => "Shape", "radius" => "Circle", "history" => "Circle", "doubled" => "Circle", "callback" => "Circle"}
     6: KindDeclaration 41
@@ -594,6 +597,7 @@ Compound
       slots: []
       method_table: []
       owner_vis: []
+      declared_at: []
       hidden: []
       hidden_fields: []
     7: EchoStatement 42
@@ -714,8 +718,9 @@ Compound
       members: {"echo" => "Words", "match" => "Words", "delete" => "Words", "fn" => "Words"}
       abstract_methods: []
       slots: [["class", "Words", ""], ["if", "Words", ""]]
-      method_table: [["echo", "Words", ""], ["match", "Words", ""], ["delete", "Words", ""], ["fn", "Words", ""]]
+      method_table: [["echo", "Words", "", "Words"], ["match", "Words", "", "Words"], ["delete", "Words", "", "Words"], ["fn", "Words", "", "Words"]]
       owner_vis: {"class" => "", "if" => "", "echo" => "", "match" => "", "delete" => "", "fn" => ""}
+      declared_at: {"echo" => "Words", "match" => "Words", "delete" => "Words", "fn" => "Words"}
       hidden: []
       hidden_fields: []
     9: EchoStatement 53
@@ -774,6 +779,7 @@ Compound
       slots: []
       method_table: []
       owner_vis: {"one" => "pub", "two" => "pub"}
+      declared_at: {"one" => "A", "two" => "A"}
       hidden: []
       hidden_fields: []
     11: KindDeclaration 57
@@ -809,8 +815,9 @@ Compound
       members: {"one" => "B"}
       abstract_methods: {"two" => "A"}
       slots: []
-      method_table: [["one", "B", "pub"]]
+      method_table: [["one", "B", "pub", "A"]]
       owner_vis: {"one" => "pub", "two" => "pub"}
+      declared_at: {"one" => "A", "two" => "A"}
       hidden: []
       hidden_fields: []
     12: KindDeclaration 58
@@ -859,8 +866,9 @@ Compound
       members: {"one" => "B", "two" => "C"}
       abstract_methods: []
       slots: []
-      method_table: [["one", "B", "pub"], ["two", "C", "pub"]]
+      method_table: [["one", "B", "pub", "A"], ["two", "C", "pub", "A"]]
       owner_vis: {"one" => "pub", "two" => "pub"}
+      declared_at: {"one" => "A", "two" => "A"}
       hidden: []
       hidden_fields: []
     13: EchoStatement 59
@@ -992,8 +1000,9 @@ Compound
       members: {"_" => "Calls", "opt" => "Calls"}
       abstract_methods: []
       slots: [["f", "Calls", ""]]
-      method_table: [["_", "Calls", "pub"], ["opt", "Calls", ""]]
+      method_table: [["_", "Calls", "pub", "Calls"], ["opt", "Calls", "", "Calls"]]
       owner_vis: {"f" => "", "_" => "pub", "opt" => ""}
+      declared_at: {"_" => "Calls", "opt" => "Calls"}
       hidden: []
       hidden_fields: []
     15: KindDeclaration 69
@@ -1025,8 +1034,9 @@ Compound
       members: {"_" => "If"}
       abstract_methods: []
       slots: []
-      method_table: [["_", "If", "pub"]]
+      method_table: [["_", "If", "pub", "If"]]
       owner_vis: {"_" => "pub"}
+      declared_at: {"_" => "If"}
       hidden: []
       hidden_fields: []
     16: KindDeclaration 70
@@ -1066,8 +1076,9 @@ Compound
       members: {"_" => "Match"}
       abstract_methods: []
       slots: []
-      method_table: [["_", "Match", "pub"]]
+      method_table: [["_", "Match", "pub", "If"]]
       owner_vis: {"_" => "pub"}
+      declared_at: {"_" => "If"}
       hidden: []
       hidden_fields: []
     17: EchoStatement 71
@@ -1119,7 +1130,8 @@ Compound
       members: {"to_string" => "Printable"}
       abstract_methods: []
       slots: []
-      method_table: [["to_string", "Printable", "pub"]]
+      method_table: [["to_string", "Printable", "pub", "Printable"]]
       owner_vis: {"to_string" => "pub"}
+      declared_at: {"to_string" => "Printable"}
       hidden: []
       hidden_fields: []

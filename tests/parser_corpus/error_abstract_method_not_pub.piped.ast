@@ -1,1 +1,1 @@
-Error: Abstract method A.f must be pub: a child defines what it can see on line 1
+Error: Abstract method A.f must be pub or kin: a child defines what it can see on line 1

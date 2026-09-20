@@ -42,6 +42,7 @@ Compound
       slots: []
       method_table: []
       owner_vis: {"MORE" => ""}
+      declared_at: []
       hidden: []
       hidden_fields: []
     1: Statement 5

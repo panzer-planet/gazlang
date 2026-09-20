@@ -14,9 +14,9 @@ include "../lib/random.gaz";
 abstract kind Player {
     #name;
     pub #rating;
-    pub #energy = 100;
+    kin #energy = 100;
     // What form() gives at the current energy, kept up to date by rest() and tire()
-    pub #sharpness = 0;
+    kin #sharpness = 0;
     pub #goals = 0;
     pub #yellow_cards = 0;
     pub #sent_off = false;

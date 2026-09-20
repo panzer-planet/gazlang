@@ -4,6 +4,8 @@
 kind Base {
     pub #open = 1;
     #shut = 2;
+    // kin is the middle of the ladder: this kind and everything that extends it
+    kin #shared = "kin";
     // A default may read another of the kind's own fields and call its own methods, and the
     // initialiser runs them for a child's objects too
     #derived = #shut * 10;
@@ -13,7 +15,8 @@ kind Base {
     static #ledger = 5;
 
     // Its own members, whatever they escape, including from a lambda written in it
-    pub fn all() { return [#open, #shut, #derived, #LIMIT, #SECRET, #tally, #ledger, #hidden()]; }
+    pub fn all() { return [#open, #shut, #shared, #derived, #LIMIT, #SECRET, #tally, #ledger, #hidden()]; }
+    kin fn kin_only() { return #shared .. "!"; }
     fn hidden() { return #shut + #SECRET; }
     pub fn later() { return () -> #shut + #SECRET; }
     pub static fn bump() { #tally++; return #ledger + #tally; }
@@ -24,7 +27,8 @@ kind Base {
 kind Child extends Base {
     const SECRET = "mine";
 
-    pub fn ours() { return [#open, #LIMIT, #SECRET, #hidden()]; }
+    // A child names what Base marked kin, as well as what it marked pub
+    pub fn ours() { return [#open, #shared, #kin_only(), #LIMIT, #SECRET, #hidden()]; }
     fn hidden() { return "child"; }
 }
 

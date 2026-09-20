@@ -66,8 +66,9 @@ Compound
       members: {"_" => "Error", "to_string" => "Error"}
       abstract_methods: []
       slots: [["message", "Error", "pub"], ["file", "Error", "pub"], ["line", "Error", "pub"], ["trace", "Error", "pub"]]
-      method_table: [["_", "Error", "pub"], ["to_string", "Error", "pub"]]
+      method_table: [["_", "Error", "pub", "Error"], ["to_string", "Error", "pub", "Error"]]
       owner_vis: {"message" => "pub", "file" => "pub", "line" => "pub", "trace" => "pub", "_" => "pub", "to_string" => "pub"}
+      declared_at: {"_" => "Error", "to_string" => "Error"}
       hidden: []
       hidden_fields: []
 @ null
@@ -91,7 +92,8 @@ Compound
       members: {"_" => "Error", "to_string" => "Error"}
       abstract_methods: []
       slots: [["message", "Error", "pub"], ["file", "Error", "pub"], ["line", "Error", "pub"], ["trace", "Error", "pub"]]
-      method_table: [["_", "Error", "pub"], ["to_string", "Error", "pub"]]
+      method_table: [["_", "Error", "pub", "Error"], ["to_string", "Error", "pub", "Error"]]
       owner_vis: {"message" => "pub", "file" => "pub", "line" => "pub", "trace" => "pub", "_" => "pub", "to_string" => "pub"}
+      declared_at: {"_" => "Error", "to_string" => "Error"}
       hidden: []
       hidden_fields: []

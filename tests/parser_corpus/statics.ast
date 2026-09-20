@@ -196,8 +196,9 @@ Compound
       members: {"_" => "Counter", "mine" => "Counter"}
       abstract_methods: []
       slots: [["id", "Counter", ""]]
-      method_table: [["_", "Counter", "pub"], ["mine", "Counter", "pub"]]
+      method_table: [["_", "Counter", "pub", "Counter"], ["mine", "Counter", "pub", "Counter"]]
       owner_vis: {"count" => "pub", "rows" => "", "limit" => "", "next" => "pub", "twice" => "", "id" => "", "_" => "pub", "mine" => "pub"}
+      declared_at: {"_" => "Counter", "mine" => "Counter"}
       hidden: []
       hidden_fields: []
     4: FunctionDeclaration 14
@@ -279,8 +280,9 @@ Compound
       members: {"_" => "Counter", "mine" => "Counter"}
       abstract_methods: []
       slots: [["id", "Counter", ""]]
-      method_table: [["_", "Counter", "pub"], ["mine", "Counter", "pub"]]
+      method_table: [["_", "Counter", "pub", "Counter"], ["mine", "Counter", "pub", "Counter"]]
       owner_vis: {"count" => "pub", "next" => "pub", "_" => "pub", "mine" => "pub"}
+      declared_at: {"_" => "Counter", "mine" => "Counter"}
       hidden: {"id" => "Counter", "rows" => "Counter", "limit" => "Counter", "twice" => "Counter"}
       hidden_fields: {"id" => "Counter"}
     7: EchoStatement 34

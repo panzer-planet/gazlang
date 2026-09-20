@@ -1,1 +1,1 @@
-Error: Node.size is not pub, so only the kind that declares it can use it at tests/vm_corpus/cycles.gaz:19
+Error: Node.size is not pub, so only Node can use it at tests/vm_corpus/cycles.gaz:19

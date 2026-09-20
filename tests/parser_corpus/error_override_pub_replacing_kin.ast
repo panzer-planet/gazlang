@@ -1,0 +1,1 @@
+Error: Method B.f is pub, but A.f is kin: an override escapes as far as what it replaces at tests/parser_corpus/error_override_pub_replacing_kin.gaz:2

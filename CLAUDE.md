@@ -257,15 +257,6 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   for a program that needs them.
 - **Decided, not built**: `interface`/`implements` (a parse-time check that the methods exist,
   plus `is_a`), and `final`. The keywords are reserved.
-- **Decided, not built: `kin`**, the middle level, visible to the kind and everything that
-  extends it, so the ladder is unmarked (mine) → `kin` (mine and my children's) → `pub`
-  (anyone's). `protected` earns a rename where `extends` does not: it is famously misnamed,
-  since it protects less than the default does, and naming the level after *who can see it* is
-  what the word should have done. `kin` and `kind` are one root (kin, kind, kindred), which is
-  why they belong together rather than being a rhyme. `kin static #count` is the spelling, as
-  `pub static #count` is; `public`/`private`/`protected` stay reserved only to say "write
-  `pub`" and "write `kin`", the way `function` says to write `fn`. The bytecode already reads
-  a `kin` marker on a `field` or `method` line, and the VM already resolves it.
 - **Namespaces** are resolved by the parser, so the VM never learns the word and bytecode only
   sees longer names: functions and kinds carry `::`, while a method block stays
   `Kind.method`, which is what lets the loader tell the two apart. Resolution is one pass
@@ -294,7 +285,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - Errors are the parser's: a `use` on a file that declares no namespace, a name that isn't
     `pub`, a name in a `use` clause that is qualified, an alias already taken, a namespace
     only reached through another file's include.
-  - `namespace`, `use` and `pub` are reserved, so `fn use()` no longer parses.
+  - `namespace`, `use`, `pub` and `kin` are reserved, so `fn use()` no longer parses.
 - **Static members** are reached by name as constants are: `Counter::next()`, `Counter::COUNT`,
   `Counter::count`. Not through a value: `$obj::next()` puts a value on the left of the
   parse-time operator, which is the one place PHP's `::` means something else, and `$obj.count`
@@ -626,6 +617,13 @@ $area = $c.area;                              // a bound method
   kind. One keyword for the whole language, which is why the namespace section no longer has an
   "opposite defaults" paragraph. Measured on `compiler/` and `lib/` after the flip, 120 of 339
   members are marked, so the default was fighting the code.
+  - **The ladder is unmarked (mine) → `kin` (mine and my children's) → `pub` (anyone's)**, and
+    it reads the same on every sort of member: `kin #energy = 100;`, `pub static #tally = 0;`.
+    `kin` is for what a kind declares on its children's behalf, which is why `protected` earns
+    a rename where `extends` does not: it protects less than the default does, and a level is
+    better named after who can see it. `kin` and `kind` are one root (kin, kind, kindred).
+    `public` and `protected` stay reserved and say to write `pub` and `kin`, the way
+    `function` says to write `fn`; `private` says a member needs no marker to be its own.
   - **The asking kind is where the code is written**, not what the object is: `#name` and
     `##name` are checked at parse time, `$obj.name` when it runs, and a lambda's and a static
     method's asking kind is the kind they sit in. A block's header carries it (`in Kind`, or
@@ -637,10 +635,13 @@ $area = $c.area;                              // a bound method
     The parent's own methods still reach it on a child's object, and so does the initialiser,
     which sets every slot the kind has (`KIND_INITIALISER` in `ops.c`).
   - **An override escapes as far as what it replaces**, the restrictive choice on purpose:
-    loosening it later breaks nothing. `to_string()` must be `pub`, since printing calls it
-    from outside and a private one would silently print the default form instead; an
-    `abstract fn` must be too, since a child defines what it can see. A constructor takes no
-    marker and always escapes: it is reached by constructing, not by naming.
+    loosening it later breaks nothing. The level belongs to the kind that *declared* the
+    member, not to whichever version runs, so a `method` line carries a declarer once an
+    override makes the two differ (`method area Square kin Shape`) and an ancestor that
+    declared a `kin` method can still call it. `to_string()` must be `pub`, since printing
+    calls it from outside and a private one would silently print the default form instead; an
+    `abstract fn` must be `pub` or `kin`, since a child defines what it can see. A constructor
+    takes no marker and always escapes: it is reached by constructing, not by naming.
   - **`fields()` and `echo` are not member access** and show every field that is set, whatever
     it escapes. Reflection exists so a pass can walk an object without knowing its kind
     (`--ast` does), and an `echo` that hid half an object would be a debugging footgun.

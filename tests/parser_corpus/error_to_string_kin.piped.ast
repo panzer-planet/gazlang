@@ -1,0 +1,1 @@
+Error: Method A.to_string must be pub: printing calls it from outside on line 1

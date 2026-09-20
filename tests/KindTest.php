@@ -656,7 +656,8 @@ class KindTest extends GazLangTestCase
     {
         return [
             'reserved word' => ["\$x = 1;\ninterface Shape {}", 'interface is reserved on line 2'],
-            'reserved word in an expression' => ['echo private;', 'private is reserved on line 1'],
+            'reserved word in an expression' => ['echo private;', "private is reserved: a member says nothing to be its kind's own on line 1"],
+            'a reserved word that names a level' => ['echo protected;', "protected is reserved: write 'kin' on line 1"],
             'dot after #' => ['kind P { pub fn f() { return #.name; } }', 'Write #name, not #.name on line 1'],
             'bare ##' => ['echo ##;', "## alone is not allowed: write ##name for the parent's version of a method on line 1"],
             'kind inside a block' => ['if (true) { kind P {} }', 'Kinds can only be declared at the top level on line 1'],

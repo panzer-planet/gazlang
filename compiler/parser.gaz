@@ -254,7 +254,14 @@ kind Parser {
     };
 
     // Keywords reserved for features that don't exist yet, so adding them never breaks a program
-    const RESERVED = ["INTERFACE", "IMPLEMENTS", "FINAL", "PUBLIC", "PRIVATE", "PROTECTED"];
+    const RESERVED = ["INTERFACE", "IMPLEMENTS", "FINAL"];
+
+    // Reserved, and each says how this language spells what it means
+    const INSTEAD = {
+        "PUBLIC" => "write 'pub'",
+        "PROTECTED" => "write 'kin'",
+        "PRIVATE" => "a member says nothing to be its kind's own",
+    };
 
     // Every builtin function mapped to its parameter count, [fewest, most] when some are
     // optional: the builtins of the runtime this parser runs on, which is the one that will run
@@ -498,6 +505,8 @@ kind Parser {
             #fail("## alone is not allowed: write ##name for the parent's version of a method");
         } else if ($type == "SPREAD") {
             #fail("... only spreads a list into a list literal, as in [...\$a, 1]");
+        } else if (has_key(#INSTEAD, $type)) {
+            #fail("{$token.value} is reserved: {#INSTEAD[$type]}");
         } else if (in_array($type, #RESERVED)) {
             #fail("{$token.value} is reserved");
         }
@@ -1463,11 +1472,12 @@ kind Parser {
         #eat("LEFT_BRACE");
         #kind = $kind;
         while (#current_token.type != "RIGHT_BRACE") {
-            // pub says the member escapes the kind, as it says a name escapes a namespace
+            // The ladder: unmarked is the kind's own, kin reaches what extends it, pub anyone.
+            // pub says the member escapes the kind, as it says a name escapes a namespace.
             $vis = "";
-            if (#current_token.type == "PUB") {
-                #eat("PUB");
-                $vis = "pub";
+            if (#current_token.type == "PUB" || #current_token.type == "KIN") {
+                $vis = #current_token.type == "PUB" ? "pub" : "kin";
+                #eat(#current_token.type);
             }
             if (#current_token.type == "HASH_IDENTIFIER") {
                 #field_declaration($kind, $vis);
@@ -2347,7 +2357,7 @@ kind Parser {
     // Where a name's escaping entry sits in a method table, or null: a private entry of that
     // name belongs to whichever kind declared it, and is not the one an override replaces
     fn entry_of($table, $name) {
-        foreach ($table as $at => [$entry, $definer, $vis]) {
+        foreach ($table as $at => [$entry, $definer, $vis, $declarer]) {
             if ($entry == $name && $vis != "") {
                 return $at;
             }
@@ -2387,6 +2397,9 @@ kind Parser {
             // inherited, since the parent's own methods run on a child's objects and reach it.
             [$kind.slots, $kind.method_table] = [$parent.slots, $parent.method_table];
             [$kind.hidden, $kind.hidden_fields] = [$parent.hidden, $parent.hidden_fields];
+            // Unfiltered: a private member can't be overridden, so this only ever carries
+            // what a child could replace, and the entry it replaces keeps its declarer
+            $kind.declared_at = $parent.declared_at;
             $kind.layout = #escaping($parent.layout, $parent, $kind, true);
             $kind.members = #escaping($parent.members, $parent, $kind);
             $kind.abstract_methods = #escaping($parent.abstract_methods, $parent, $kind);
@@ -2460,7 +2473,7 @@ kind Parser {
             // A child defines an abstract method, and callers call it, so one that escapes
             // nothing could never be defined or reached
             if ($method.abstract && $kind.vis[$name] == "") {
-                #fail_at("Abstract method {$kind.name}.{$name} must be pub: a child defines what it can see", $method.file, $method.line);
+                #fail_at("Abstract method {$kind.name}.{$name} must be pub or kin: a child defines what it can see", $method.file, $method.line);
             }
             // An override answers for the one it replaces, so it escapes as far
             if ($owner != null && $name != "_" && $kind.vis[$name] != $inherited_vis) {
@@ -2486,16 +2499,22 @@ kind Parser {
                 #fail_at("Method {$kind.name}.to_string must be pub: printing calls it from outside", $method.file, $method.line);
             }
             $kind.owner_vis[$name] = $kind.vis[$name];
+            if (!has_key($kind.declared_at, $name)) {
+                $kind.declared_at[$name] = $kind.name;
+            }
             if ($method.abstract) {
                 $kind.abstract_methods[$name] = $kind.name;
             } else {
                 // An override replaces the entry it overrides; a method whose name only a
                 // parent's private one had is a new one, and gets an entry beside it
                 $at = $owner == null ? null : #entry_of($kind.method_table, $name);
+                // An override keeps the declarer, whose marker it had to match: that kind set
+                // what the member escapes and may still name it
+                $declarer = $kind.declared_at[$name] ?? $kind.name;
                 if ($at == null) {
-                    $kind.method_table[] = [$name, $kind.name, $kind.vis[$name]];
+                    $kind.method_table[] = [$name, $kind.name, $kind.vis[$name], $declarer];
                 } else {
-                    $kind.method_table[$at] = [$name, $kind.name, $kind.vis[$name]];
+                    $kind.method_table[$at] = [$name, $kind.name, $kind.vis[$name], $declarer];
                 }
                 $kind.members[$name] = $kind.name;
                 if (has_key($kind.abstract_methods, $name)) {

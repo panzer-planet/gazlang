@@ -1,0 +1,1 @@
+Error: Expected 'pub' or 'kin' but found 'Base' at tests/parser_corpus/visibility.gaz:166

@@ -205,6 +205,7 @@ struct Kind {
     int nmethods;
     Str **methods;      /* every method it can call, the constructor _ included */
     Kind **definers;    /* the kind whose version of each runs */
+    Kind **method_declarers; /* the kind that declared each, which its visibility is against */
     Vis *method_vis;
     Entry *entries;     /* each method's entry, parallel to methods (the constructor's too) */
     int lo, hi;         /* the constructor's arity, 0 0 without one */
@@ -236,7 +237,7 @@ struct Block {
     Str **field_names, **field_declarers;
     Vis *field_vis;
     int nmethods;
-    Str **method_names, **method_definers;
+    Str **method_names, **method_definers, **method_declarers;
     Vis *method_vis;
     int entry;          /* its first instruction in the program's code */
     int max_stack;      /* the greatest stack depth the loader's walk found */

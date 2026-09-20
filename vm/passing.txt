@@ -137,7 +137,6 @@ snippet:301fbb24927a
 snippet:30801682fb27
 snippet:30b3340cd5e4
 snippet:31d304ac3e52
-snippet:323aa25cfdaf
 snippet:32a34dbd9497
 snippet:331d2c507656
 snippet:33299ce9f229
@@ -199,7 +198,6 @@ snippet:49e7d85e2d73
 snippet:4a1a36b0d8af
 snippet:4b8294d1c1dc
 snippet:4ba929f084c7
-snippet:4bfcb8fbe6b7
 snippet:4ceceb3c7c4d
 snippet:4d4a08643174
 snippet:4d5a0f62da17
@@ -214,7 +212,6 @@ snippet:50b2ccc73575
 snippet:510078f21718
 snippet:51aa68284575
 snippet:5208a36b27e3
-snippet:5251c9761f8e
 snippet:52c331acce63
 snippet:52cf40b597d7
 snippet:538947ee324d
@@ -354,7 +351,6 @@ snippet:8d3d73eb8053
 snippet:8d60253ea72c
 snippet:8de815879527
 snippet:8e0e8f845273
-snippet:8e17b1454c00
 snippet:8efcf01e31e3
 snippet:8f09a872f91e
 snippet:8f68906911eb
@@ -532,7 +528,6 @@ snippet:eab0772b9722
 snippet:eabcb912cbf8
 snippet:ebc0d1457d31
 snippet:ed148eb740e7
-snippet:ed15fd9936c8
 snippet:ed844f5098f0
 snippet:edabe5cf743d
 snippet:ee35896bfea5
@@ -618,6 +613,7 @@ tests/bytecode_corpus/error_location_not_quoted.gzb
 tests/bytecode_corpus/error_location_words.gzb
 tests/bytecode_corpus/error_map_set_in_an_int.gzb
 tests/bytecode_corpus/error_method_called_as_a_function.gzb
+tests/bytecode_corpus/error_method_declarer_undefined.gzb
 tests/bytecode_corpus/error_method_definer_undefined.gzb
 tests/bytecode_corpus/error_method_without_block.gzb
 tests/bytecode_corpus/error_missing_argument.gzb
@@ -752,6 +748,7 @@ tests/parser_corpus/include/main.gaz
 tests/parser_corpus/include/same_file_spelt_three_ways.gaz
 tests/parser_corpus/include/symlink_is_the_file_it_points_to.gaz
 tests/parser_corpus/interpolation.gaz
+tests/parser_corpus/kin_abstract_method.gaz
 tests/parser_corpus/kind_constants.gaz
 tests/parser_corpus/kinds.gaz
 tests/parser_corpus/lambdas.gaz

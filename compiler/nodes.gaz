@@ -461,10 +461,15 @@ kind KindDeclarationAST extends AST {
     // parent's private member is here, since its own methods still reach it, and two kinds
     // in one chain may each declare a private member of the same name.
     pub #slots = [];
+    // Each entry is [name, definer, vis, declarer]: the definer is whose version runs, the
+    // declarer the kind that declared the member and so set what it escapes. They differ once
+    // a child overrides, and it is the declarer that says who may name it.
     pub #method_table = [];
     // What each member this kind can name escapes, by name: the filter the tables above are
     // inherited through, and what says whether a use outside the kind is allowed
     pub #owner_vis = {};
+    // The kind that declared each method of the hierarchy, abstract or concrete, by name
+    pub #declared_at = {};
     // Every member a parent has that this kind can't name, with the kind that declares it, so
     // an error can say "is not pub" rather than "has no member"
     pub #hidden = {};

@@ -238,7 +238,7 @@ assigned with `$f = ...` can call `$f` to recurse.
 
 ```gaz
 abstract kind Shape {
-    #name;                               // Shape's own: nothing outside Shape can name it
+    kin #name;                           // Shape's and its children's, not anyone else's
     fn _($name) { #name = $name; }
     pub abstract fn area();
     pub fn to_string() { return "{#name} with area {#area()}"; }
@@ -270,18 +270,26 @@ echo is_a($c, Shape) .. " " .. $c.radius;
 - **`.` reads and writes members**: `$user.name`, `$rows[0].total = 5`, `$obj.method(args)`.
   `$obj.method` on its own is a bound method.
 - **A member is private unless `pub`**, the same word and the same meaning as a namespace's:
-  this name escapes the thing it is written in. Unmarked, a field, method, constant or static
-  is the kind's own, so only that kind's own code can name it; `pub` lets anyone. `#name` and
-  `##name` are checked at parse time, `$obj.name` when it runs, both against the kind the code
-  asking is written in — a lambda's and a static method's is the kind they sit in.
+  this name escapes the thing it is written in. The ladder is unmarked (mine) → `kin` (mine and
+  my children's) → `pub` (anyone's), and it applies to a field, method, constant or static
+  alike: `kin #energy = 100;`, `pub static #tally = 0;`. `#name` and `##name` are checked at
+  parse time, `$obj.name` when it runs, both against the kind the code asking is written in —
+  a lambda's and a static method's is the kind they sit in.
+- **`kin` is for what a kind declares on its children's behalf**: a field they set, a method
+  they call, a hook they define. `protected` earns a rename where `extends` does not, since it
+  famously protects less than the default does, and a level is better named after who can see
+  it. `public` and `protected` stay reserved and say to write `pub` and `kin`; `private` says a
+  member needs no marker to be its kind's own.
 - **A parent's private member is the parent's own.** A child can't name it, and may declare a
   method, constant or static of its own by the same name; both live on, and each kind's code
   reaches the one it can see. A field may not be reused, since a field is a slot: the name is
   taken across the hierarchy. The parent's own methods still reach it on a child's object.
-- **An override escapes as far as what it replaces**, so `pub` on one and nothing on the other
-  is an error. `to_string()` must be `pub`, since printing calls it from outside, and so must
-  an `abstract fn`, since a child defines what it can see. A constructor takes no marker: it
-  is reached by constructing, not by naming.
+- **An override escapes as far as what it replaces**, so `pub` on one and `kin` on the other is
+  an error, and the level belongs to the kind that *declared* the member, not to whichever
+  version runs: an ancestor that declared a `kin` method can still call it after a child
+  overrides it. `to_string()` must be `pub`, since printing calls it from outside; an
+  `abstract fn` must be `pub` or `kin`, since a child defines what it can see. A constructor
+  takes no marker: it is reached by constructing, not by naming.
 - **`fields()` and `echo` are not member access** and show every field that is set, whatever it
   escapes: reflection exists so a pass can walk an object without knowing its kind.
 - **`to_string()`** is the one protocol method: `echo`, `..`, interpolation and `join` use it.

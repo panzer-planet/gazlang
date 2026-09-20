@@ -257,21 +257,21 @@ int kind_field(Kind *c, Str *name, Kind *asking) {
 int kind_method(Kind *c, Str *name, Kind *asking) {
     for (int i = 0; i < c->nmethods; i++) {
         if (c->methods[i] != name) continue;
-        if (member_escapes(c->method_vis[i], c->definers[i], asking)) return i;
+        if (member_escapes(c->method_vis[i], c->method_declarers[i], asking)) return i;
     }
     return -1;
 }
 
-/* Whether a kind has a member of that name at all, whatever it escapes: what tells "is not
-   pub" from "has no member" */
-static bool kind_hides(Kind *c, Str *name) {
+/* The kind and level of a member of that name, whatever it escapes, or NULL when the kind has
+   none: what tells "isn't yours" from "has no member" */
+static Kind *kind_hides(Kind *c, Str *name, Vis *vis) {
     for (int i = 0; i < c->nfields; i++) {
-        if (c->fields[i] == name) return true;
+        if (c->fields[i] == name) return *vis = c->field_vis[i], c->field_declarers[i];
     }
     for (int i = 0; i < c->nmethods; i++) {
-        if (c->methods[i] == name) return true;
+        if (c->methods[i] == name) return *vis = c->method_vis[i], c->method_declarers[i];
     }
-    return false;
+    return NULL;
 }
 
 bool kind_is_a(Kind *c, Kind *ancestor) {
@@ -296,10 +296,17 @@ static bool raise_undefined_member(Kind *c, Str *name) {
     if (name->len == 1 && name->data[0] == '_' && kind_method(c, name, c) >= 0) {
         return raisef("Cannot use the constructor of %s as a member", c->name->data);
     }
-    /* It is there, but not for this asker: say so rather than deny that it exists */
-    if (kind_hides(c, name)) {
-        return raisef("%s.%s is not pub, so only the kind that declares it can use it",
-                      c->name->data, name->data);
+    /* It is there, but not for this asker: say so, and which level kept it, rather than deny
+       that it exists */
+    Vis vis = V_OWN;
+    Kind *declarer = kind_hides(c, name, &vis);
+    if (declarer) {
+        if (vis == V_KIN) {
+            return raisef("%s.%s is kin, so only %s and what extends it can use it",
+                          c->name->data, name->data, declarer->name->data);
+        }
+        return raisef("%s.%s is not pub, so only %s can use it",
+                      c->name->data, name->data, declarer->name->data);
     }
     return raisef("%s has no member %s", c->name->data, name->data);
 }

@@ -1,0 +1,16 @@
+GAZLANG BYTECODE 2
+globals
+
+top
+locals
+
+kind C
+method m C pub D
+locals
+LOAD_THIS
+RET
+
+fn C.m 0 0
+locals
+PUSH null
+RET

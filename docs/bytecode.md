@@ -79,25 +79,29 @@ lines give every field an object of the kind has, in layout order, each with the
 declares it; `method` lines give every method it can call, including the constructor `_`, each
 with the kind whose version runs. The constructor's arity is that method's arity.
 
-A `field` or `method` line may end with `pub`, which says the member escapes the kind that
-declares it, so any code can name it. Nothing said means the member is that kind's own, and
-only its own code reaches it: a child inherits the slot and the entry, since the parent's
-methods still run on the child's objects, but cannot name them. A field name is unique across
-a hierarchy; a method name is not, so two entries of one name may sit side by side, and which
-one answers depends on the kind asking.
+A `field` or `method` line may end with `pub` or `kin`, which say how far the member escapes
+the kind that declares it: `pub` to any code, `kin` to that kind and everything that extends
+it. Nothing said means the member is that kind's own, and only its own code reaches it: a child
+inherits the slot and the entry, since the parent's methods still run on the child's objects,
+but cannot name them. A field name is unique across a hierarchy; a method name is not, so two
+entries of one name may sit side by side, and which one answers depends on the kind asking.
+
+A `method` line may then name the kind that *declared* the member, when an override made that
+differ from the kind whose version runs: `method area Square kin Shape` is Square's version of
+a method Shape declared, and it is Shape's marker that says who may name it. Nothing said means
+the declarer is the definer.
 
 ```
 abstract kind Shape
-field name Shape
+field name Shape kin
 method _ Shape pub
-method area Shape pub
 locals $#argument_0
 
 kind Circle extends Shape
-field name Shape
+field name Shape kin
 field radius Circle pub
 method _ Circle pub
-method area Circle pub
+method area Circle pub Shape
 locals $#argument_0
 ```
 
@@ -314,7 +318,7 @@ A file that loads is one the VM can run, so the checks are part of the format:
   a VM puts an error the program didn't throw itself and what every program reads off one, and
   a file holding `CATCH_VALUE` or `CATCH_MATCH` has that kind at all, since that is what a
   caught error is made as.
-- A block's `in Kind` names a kind the file declares.
+- A block's `in Kind` names a kind the file declares, and so does a `method` line's declarer.
 - `HALT` is in the top level, whose end it is. In a call it would end that call's run instead,
   leaving whatever started the run without a value.
 

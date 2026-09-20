@@ -876,10 +876,14 @@ static Block *read_block(const char *header) {
             b->field_declarers = push_name(b->field_declarers, &b->nfields, declarer);
         } else if (!strcmp(first, "method") && b->kind == B_KIND) {
             Str *name = intern(word(&w, 1)), *definer = intern(word(&w, 2));
+            /* The declarer, when an override made it differ from the definer */
+            Str *declarer = w.n > 4 ? intern(w.w[4]) : definer;
             int n = b->nmethods;
             b->method_names = push_name(b->method_names, &n, name);
             n = b->nmethods;
             b->method_vis = push_vis(b->method_vis, &n, read_vis(&w, 3));
+            n = b->nmethods;
+            b->method_declarers = push_name(b->method_declarers, &n, declarer);
             b->method_definers = push_name(b->method_definers, &b->nmethods, definer);
         } else if (!strcmp(first, "capture") && b->kind == B_LAMBDA) {
             const char *where = word(&w, 2);
@@ -963,6 +967,9 @@ static void check_record(Block *b) {
             fail_at(false, "Method %s runs undefined kind '%s' in kind %s", b->method_names[i]->data, b->method_definers[i]->data, name);
         } else if (!find_function(method_key(b->method_definers[i], b->method_names[i]))) {
             fail_at(false, "Method %s has no block %s.%s in kind %s", b->method_names[i]->data, b->method_definers[i]->data, b->method_names[i]->data, name);
+        }
+        if (!find_kind(b->method_declarers[i])) {
+            fail_at(false, "Method %s is declared by undefined kind '%s' in kind %s", b->method_names[i]->data, b->method_declarers[i]->data, name);
         }
     }
 }
@@ -1224,6 +1231,8 @@ static void build_kinds(void) {
         c->nmethods = b->nmethods;
         c->methods = b->method_names;
         c->method_vis = b->method_vis;
+        c->method_declarers = xmalloc((size_t)b->nmethods * sizeof(Kind *) + 1);
+        for (int m = 0; m < b->nmethods; m++) c->method_declarers[m] = find_kind(b->method_declarers[m]);
         c->definers = xmalloc((size_t)b->nmethods * sizeof(Kind *) + 1);
         c->entries = xcalloc((size_t)b->nmethods + 1, sizeof(Entry));
         for (int m = 0; m < b->nmethods; m++) {

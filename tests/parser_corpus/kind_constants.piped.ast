@@ -335,8 +335,9 @@ Compound
       members: {"is_eof" => "Token", "later" => "Token", "describe" => "Token", "first" => "Token", "in_match" => "Token", "write" => "Token"}
       abstract_methods: []
       slots: [["type", "Token", ""], ["kinds", "Token", ""]]
-      method_table: [["is_eof", "Token", ""], ["later", "Token", ""], ["describe", "Token", ""], ["first", "Token", ""], ["in_match", "Token", ""], ["write", "Token", ""]]
+      method_table: [["is_eof", "Token", "", "Token"], ["later", "Token", "", "Token"], ["describe", "Token", "", "Token"], ["first", "Token", "", "Token"], ["in_match", "Token", "", "Token"], ["write", "Token", "", "Token"]]
       owner_vis: {"EOF" => "pub", "KINDS" => "pub", "TEXT" => "", "type" => "", "kinds" => "", "is_eof" => "", "later" => "", "describe" => "", "first" => "", "in_match" => "", "write" => ""}
+      declared_at: {"is_eof" => "Token", "later" => "Token", "describe" => "Token", "first" => "Token", "in_match" => "Token", "write" => "Token"}
       hidden: []
       hidden_fields: []
     3: KindDeclaration 18
@@ -450,8 +451,9 @@ Compound
       members: {"all_kinds" => "Special"}
       abstract_methods: []
       slots: [["type", "Token", ""], ["kinds", "Token", ""]]
-      method_table: [["is_eof", "Token", ""], ["later", "Token", ""], ["describe", "Token", ""], ["first", "Token", ""], ["in_match", "Token", ""], ["write", "Token", ""], ["all_kinds", "Special", ""]]
+      method_table: [["is_eof", "Token", "", "Token"], ["later", "Token", "", "Token"], ["describe", "Token", "", "Token"], ["first", "Token", "", "Token"], ["in_match", "Token", "", "Token"], ["write", "Token", "", "Token"], ["all_kinds", "Special", "", "Special"]]
       owner_vis: {"EOF" => "pub", "KINDS" => "pub", "FOUR" => "", "ALL" => "", "all_kinds" => ""}
+      declared_at: {"is_eof" => "Token", "later" => "Token", "describe" => "Token", "first" => "Token", "in_match" => "Token", "write" => "Token", "all_kinds" => "Special"}
       hidden: {"type" => "Token", "kinds" => "Token", "is_eof" => "Token", "later" => "Token", "describe" => "Token", "first" => "Token", "in_match" => "Token", "write" => "Token", "TEXT" => "Token"}
       hidden_fields: {"type" => "Token", "kinds" => "Token"}
     4: KindDeclaration 23
@@ -479,6 +481,7 @@ Compound
       slots: []
       method_table: []
       owner_vis: {"NAME" => ""}
+      declared_at: []
       hidden: []
       hidden_fields: []
     5: EchoStatement 24
