@@ -52,6 +52,21 @@ class ErrorTest extends GazLangTestCase
         ];
     }
 
+    public function test_a_long_path_is_named_in_full(): void
+    {
+        // The location is formatted into a 256 byte buffer, with a longer one allocated instead:
+        // only a path this long takes that path, and nothing else in the tests has one
+        $dir = dirname(__DIR__).'/tests/.tmp/'.implode('/', array_fill(0, 20, 'a-directory'));
+        @mkdir($dir, 0777, true);
+        file_put_contents("{$dir}/deep.gaz", "echo 1;\necho 1 / 0;\n");
+        $file = 'tests/.tmp/'.implode('/', array_fill(0, 20, 'a-directory')).'/deep.gaz';
+        $this->assertGreaterThan(256, strlen($file));
+        [$printed, $code] = $this->runProgram($file);
+
+        $this->assertSame("1\nError: Division by zero at {$file}:2\n", $printed);
+        $this->assertSame(1, $code);
+    }
+
     public function test_messages_are_exact_with_no_trailing_location_duplicated()
     {
         try {

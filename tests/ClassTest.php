@@ -602,6 +602,9 @@ class ClassTest extends GazLangTestCase
             'method arity' => ['Account("W").deposit(1, 2);', 'Method Account.deposit expects 1 arguments, 2 given on line 14'],
             'bound method arity' => ['$d = Account("W").deposit; $d();', 'Method Account.deposit expects 1 arguments, 0 given on line 14'],
             'class value arity' => ['$m = Account; $m();', 'Class Account expects 1 to 2 arguments, 0 given on line 14'],
+            // A builtin that calls back checks a class as CALL_VALUE does, with its own copy
+            'class value arity through a builtin' => ['class P { #a; #b; fn _($a, $b) {} } echo map([1, 2], P);', 'Class P expects 2 arguments, 1 given on line 14'],
+            'abstract class through a builtin' => ['abstract class S { abstract fn area(); } echo map([1], S);', 'Cannot construct abstract class S on line 14'],
             'calling a field that is not a function' => ['class P { #x = 1; } P().x();', 'Cannot call int on line 14'],
             'arithmetic' => ['echo Account("W") + 1;', 'Cannot use + on object on line 14'],
             'ordering' => ['echo Account < 1;', 'Cannot use < on class on line 14'],
