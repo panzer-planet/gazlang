@@ -1,4 +1,4 @@
-// CSV (RFC 4180) for GazLang: csv_parse($text) and csv_records($rows).
+// CSV (RFC 4180) for GazLang: csv::parse($text) and csv::records($rows).
 //
 // - Fields are separated by commas and rows by \n or \r\n.
 // - A field in double quotes can contain commas, quotes (written "") and line breaks.
@@ -7,9 +7,11 @@
 //   field are errors: "CSV error on line N: <what>", catchable with try/catch.
 // - Every field is a string; converting numbers is up to the caller.
 
-include "chars.gaz";
+namespace csv;
 
-fn csv_parse($text) {
+include "chars.gaz" use char_at;
+
+pub fn parse($text) {
     $rows = [];
     $row = [];
     $pos = 0;
@@ -45,7 +47,7 @@ fn csv_parse($text) {
             }
             $after = char_at($text, $pos);
             if ($after != "" && $after != "," && $after != "\n" && !($after == "\r" && char_at($text, $pos + 1) == "\n")) {
-                error("CSV error on line $line: unexpected " .. csv_describe($after) .. " after a closing quote");
+                error("CSV error on line $line: unexpected " .. describe($after) .. " after a closing quote");
             }
         } else {
             // Unquoted: up to the next comma or line break, whichever comes first
@@ -105,7 +107,7 @@ fn csv_parse($text) {
 }
 
 // Rows after the first as maps from the first row's names: [{"name" => ..., ...}, ...]
-fn csv_records($rows) {
+pub fn records($rows) {
     if (len($rows) == 0) {
         return [];
     }
@@ -129,7 +131,7 @@ fn csv_records($rows) {
 }
 
 // A character for an error message, with control characters made visible
-fn csv_describe($c) {
+pub fn describe($c) {
     if (ord($c) < 32) {
         return "character " .. ord($c);
     }

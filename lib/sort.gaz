@@ -1,14 +1,15 @@
-// Sorting by key for GazLang, on top of the sort() builtin: sort_values() sorts
-// plain values and sort_by() sorts rows (maps) by one of their keys. Both are stable and
+// Sorting by key for GazLang, on top of the sort() builtin: sort::values() sorts
+// plain values and sort::by() sorts rows (maps) by one of their keys. Both are stable and
 // return a new list; keys are not kept. Values are ordered with <=>, so mixing types that
 // can't be ordered (a number and a string, lists, maps, null) is an error.
+namespace sort;
 
 // $values sorted, smallest first, or largest first if $descending
-fn sort_values($values, $descending = false) {
+pub fn values($values, $descending = false) {
     return sort($values, $descending ? ($a, $b) -> $b <=> $a : ($a, $b) -> $a <=> $b);
 }
 
 // $rows sorted by $row[$key], smallest first, or largest first if $descending
-fn sort_by($rows, $key, $descending = false) {
+pub fn by($rows, $key, $descending = false) {
     return sort($rows, $descending ? ($a, $b) -> $b[$key] <=> $a[$key] : ($a, $b) -> $a[$key] <=> $b[$key]);
 }

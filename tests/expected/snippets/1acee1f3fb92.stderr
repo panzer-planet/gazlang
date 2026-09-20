@@ -1,0 +1,7 @@
+Error: Invalid JSON: expected a digit in the exponent at position 3
+  json::Reader.fail at lib/json.gaz:83
+  json::Reader.parse_number at lib/json.gaz:332
+  json::Reader.parse_value at lib/json.gaz:113
+  json::Reader.parse at lib/json.gaz:73
+  json::decode at lib/json.gaz:24
+  top level on line 1

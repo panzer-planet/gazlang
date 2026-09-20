@@ -31,11 +31,11 @@ class LibCharsTest extends GazLangTestCase
             .' $bytes = '.self::quote($all_bytes).';'
             .' for ($i = 0; $i < 256; $i = $i + 1) {'
             .'   $c = $bytes[$i]; $flags = [];'
-            .'   if (is_space($c)) { $flags[] = "space"; } else { $flags[] = "-"; }'
-            .'   if (is_digit($c)) { $flags[] = "digit"; } else { $flags[] = "-"; }'
-            .'   if (is_hex_digit($c)) { $flags[] = "hex_digit"; } else { $flags[] = "-"; }'
-            .'   if (is_alpha($c)) { $flags[] = "alpha"; } else { $flags[] = "-"; }'
-            .'   if (is_alnum($c)) { $flags[] = "alnum"; } else { $flags[] = "-"; }'
+            .'   if (chars::is_space($c)) { $flags[] = "space"; } else { $flags[] = "-"; }'
+            .'   if (chars::is_digit($c)) { $flags[] = "digit"; } else { $flags[] = "-"; }'
+            .'   if (chars::is_hex_digit($c)) { $flags[] = "hex_digit"; } else { $flags[] = "-"; }'
+            .'   if (chars::is_alpha($c)) { $flags[] = "alpha"; } else { $flags[] = "-"; }'
+            .'   if (chars::is_alnum($c)) { $flags[] = "alnum"; } else { $flags[] = "-"; }'
             .'   echo to_string($i) .. " " .. join($flags, " ");'
             .' }';
 

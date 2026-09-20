@@ -30,7 +30,7 @@ fn caught_message($code) {
         if ($code == "key") { $a = {}; $a["x"]["y"] = 1; }
         if ($code == "builtin") { return lower(5); }
         if ($code == "file") { return read_file("tests/gaz/errors/no_such_file"); }
-        if ($code == "json") { return json_decode("[1,"); }
+        if ($code == "json") { return json::decode("[1,"); }
     } catch ($e) {
         return $e.message;
     }
@@ -133,7 +133,7 @@ check("global catch variable", @last_error.message, "global");
 // Handling bad input without stopping: the reason json_decode needed try/catch
 fn parse_config($text) {
     try {
-        return {"ok" => true, "config" => json_decode($text)};
+        return {"ok" => true, "config" => json::decode($text)};
     } catch ($e) {
         return {"ok" => false, "reason" => $e.message};
     }

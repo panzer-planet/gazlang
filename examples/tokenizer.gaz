@@ -3,7 +3,7 @@
 //   bin/gazlang -f examples/tokenizer.gaz [-- FILE]
 //
 // With no file it tokenizes the snippet below.
-include "../lib/chars.gaz";
+include "../lib/chars.gaz" use char_at, is_digit, is_alpha, is_alnum, is_space;
 
 $keywords = ["if", "else", "while", "return", "function"];
 $operators = ["==", "!=", "<=", ">=", "->", "..", "&&", "||", "+", "-", "*", "/", "%", "=", "<", ">", "!", "(", ")", "{", "}", "[", "]", ",", ";"];

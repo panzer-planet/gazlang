@@ -1,15 +1,17 @@
-// Random choices for GazLang, on top of the rand_int() and rand_float() builtins. Not
+// Random choices for GazLang (random::shuffle(), random::pick(), random::key(),
+// random::chance(), random::weighted()), on the rand_int() and rand_float() builtins. Not
 // cryptographically secure: the numbers are for games, simulations and sampling, not for
 // passwords or keys. Call rand_seed($seed) first to get the same choices on every run.
+namespace random;
 
 // A copy of the list or string in a random order (Fisher-Yates); a copy, since a function
 // can't change its argument
-fn rand_shuffle($x) {
+pub fn shuffle($x) {
     if (type_of($x) == "string") {
-        return join(rand_shuffle(split($x, "")), "");
+        return join(shuffle(split($x, "")), "");
     }
     if (type_of($x) != "list") {
-        error("rand_shuffle() expects list or string, got " .. type_of($x));
+        error("random::shuffle() expects list or string, got " .. type_of($x));
     }
     for ($i = len($x) - 1; $i > 0; $i--) {
         $j = rand_int(0, $i);
@@ -19,36 +21,36 @@ fn rand_shuffle($x) {
 }
 
 // A random key of a non-empty list (an index) or map
-fn rand_key($x) {
+pub fn key($x) {
     if (type_of($x) == "list") {
         if (len($x) == 0) {
-            error("rand_key() expects a non-empty list or map");
+            error("random::key() expects a non-empty list or map");
         }
         return rand_int(0, len($x) - 1);
     }
     $keys = keys($x);
     if (len($keys) == 0) {
-        error("rand_key() expects a non-empty list or map");
+        error("random::key() expects a non-empty list or map");
     }
     return $keys[rand_int(0, len($keys) - 1)];
 }
 
 // A random element of a non-empty list, or value of a map
-fn rand_pick($x) {
-    return $x[rand_key($x)];
+pub fn pick($x) {
+    return $x[key($x)];
 }
 
 // true with probability $p: always from 1 up, never from 0 down
-fn rand_chance($p) {
+pub fn chance($p) {
     return rand_float() < $p;
 }
 
 // An item from a list of [item, weight] pairs, picked with probability in proportion to its
 // weight; $total is the weights added up, when the caller already knows it
-fn rand_weighted($pairs, $total = null) {
+pub fn weighted($pairs, $total = null) {
     $total ??= reduce($pairs, ($sum, $pair) -> $sum + $pair[1], 0);
     if ($total <= 0) {
-        error("rand_weighted() expects weights that add up to more than 0");
+        error("random::weighted() expects weights that add up to more than 0");
     }
     $target = rand_float() * $total;
     foreach ($pairs as [$item, $weight]) {

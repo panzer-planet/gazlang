@@ -1,0 +1,8 @@
+Error: Invalid JSON: unpaired UTF-16 surrogate at position 7
+  json::Reader.fail at lib/json.gaz:83
+  json::Reader.parse_escape at lib/json.gaz:269
+  json::Reader.parse_string at lib/json.gaz:231
+  json::Reader.parse_value at lib/json.gaz:110
+  json::Reader.parse at lib/json.gaz:73
+  json::decode at lib/json.gaz:24
+  top level on line 1

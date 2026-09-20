@@ -4,6 +4,8 @@
 //
 // This file has no top level code, so it can be included:
 // $root = Parser(Lexer($text), $path).parse(). Errors are ParseErrors.
+namespace gazlang;
+
 include "lexer.gaz";
 include "nodes.gaz";
 
@@ -180,7 +182,8 @@ class Parser {
     // scope], checked once the whole program is read as any other use of it is
     #alias_uses = [];
 
-    // Every class a catch clause names, as [name, line, file]
+    // Every catch clause that names a class, as [try node, which catch, line, file, scope]:
+    // the name is in a list on the node, so resolution writes the resolved one back there
     #catch_types = [];
 
     // Whether any catch clause was parsed, so the program needs the Error class
@@ -1208,6 +1211,8 @@ class Parser {
         $body = #block();
 
         $catches = [];
+        // Which of them name a class, so the name can be resolved once the program is read
+        $named = [];
         while (#current_token.type == "CATCH") {
             if ($catches != [] && last($catches)[0] == null) {
                 #fail("A catch without a class catches every error, so it must be the last");
@@ -1216,14 +1221,17 @@ class Parser {
             #eat("CATCH");
             #eat("LEFT_PAREN");
             $class = null;
+            $class_token = #current_token;
             if (#current_token.type == "IDENTIFIER") {
                 $class = #current_token.value;
-                #catch_types[] = [$class, #current_token.line, #file, #scope];
                 #eat("IDENTIFIER");
             }
             $variable = #variable();
             #eat("RIGHT_PAREN");
             $catches[] = [$class, $variable, #block()];
+            if ($class != null) {
+                $named[] = [len($catches) - 1, $class_token.line];
+            }
         }
 
         $finally = null;
@@ -1238,7 +1246,12 @@ class Parser {
             [#in_finally, #loop_depth] = [$in_finally, $loop_depth];
         }
 
-        return #at(TryStatementAST($body, $catches, $finally), $start);
+        $node = #at(TryStatementAST($body, $catches, $finally), $start);
+        foreach ($named as [$index, $line]) {
+            #catch_types[] = [$node, $index, $line, #file, #scope];
+        }
+
+        return $node;
     }
 
     // Parse a loop body, a block in which break and continue are allowed
@@ -1610,9 +1623,10 @@ class Parser {
             $class.parent = #resolve($class.parent, $scope, $class.file, $class.line);
             #check_visible($class.parent, $scope, $class.file, $class.line);
         }
-        foreach (#catch_types as $i => [$name, $line, $file, $scope]) {
-            #catch_types[$i][0] = #resolve($name, $scope, $file, $line);
-            #check_visible(#catch_types[$i][0], $scope, $file, $line);
+        foreach (#catch_types as [$node, $index, $line, $file, $scope]) {
+            $name = #resolve($node.catches[$index][0], $scope, $file, $line);
+            $node.catches[$index][0] = $name;
+            #check_visible($name, $scope, $file, $line);
         }
     }
 
@@ -2007,7 +2021,8 @@ class Parser {
         if ($uses_error) {
             $root.statements = [$error_class, ...$root.statements];
         }
-        foreach (#catch_types as [$name, $line, $file, $scope]) {
+        foreach (#catch_types as [$node, $index, $line, $file, $scope]) {
+            $name = $node.catches[$index][0];
             if (!has_key(#classes, $name)) {
                 #fail_at(#not_a_class($name), $file, $line);
             }
@@ -2364,10 +2379,13 @@ class Parser {
             #fail_at("Cannot include file: {$relative}", #file, $path_token.line);
         }
         if (has_key(#included, $path)) {
+            // Already spliced in, so it gives no statements again, but this file still gets
+            // what it asked for: the namespace qualified, and the use clause's aliases
             $namespace = #file_namespaces[$path] ?? "";
             if ($namespace != "") {
                 #reachable[$namespace] = true;
             }
+            #add_aliases($names, $namespace, $relative, $use_token.line);
 
             return [];
         }

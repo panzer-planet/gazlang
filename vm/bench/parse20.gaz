@@ -1,4 +1,6 @@
 // The self-hosted parser on its biggest input, many times in one process
+namespace gazlang;
+
 include "../../compiler/parser.gaz";
 $path = "compiler/codegen.gaz";
 $text = read_file($path);

@@ -1,10 +1,12 @@
-// Formatting numbers and text for display.
+// Formatting numbers and text for display: format::number(), format::pad_left() and
+// format::pad_right().
+namespace format;
 
 // $number with $decimals digits after the point and thousands separated:
-// format_number(1234.5) is "1,234.50", format_number(-0.004) is "0.00".
-// Rounds like round($number, $decimals), so format_number(1.005) is "1.01", as with PHP's
+// format::number(1234.5) is "1,234.50", format::number(-0.004) is "0.00".
+// Rounds like round($number, $decimals), so it gives "1.01" for 1.005, as with PHP's
 // number_format. The number must fit in an int once scaled by 10^$decimals.
-fn format_number($number, $decimals = 2, $thousands = ",") {
+pub fn number($number, $decimals = 2, $thousands = ",") {
     $scale = 1;
     for ($i = 0; $i < $decimals; $i++) {
         $scale *= 10;
@@ -32,7 +34,7 @@ fn format_number($number, $decimals = 2, $thousands = ",") {
 
 // $value as echo prints it, padded with $pad on the left to at least $width characters (bytes),
 // so numbers and objects line up without converting them first
-fn pad_left($value, $width, $pad = " ") {
+pub fn pad_left($value, $width, $pad = " ") {
     $text = to_string($value);
     $missing = $width - len($text);
     if ($missing <= 0) {
@@ -42,7 +44,7 @@ fn pad_left($value, $width, $pad = " ") {
 }
 
 // $value as echo prints it, padded with $pad on the right to at least $width characters (bytes)
-fn pad_right($value, $width, $pad = " ") {
+pub fn pad_right($value, $width, $pad = " ") {
     $text = to_string($value);
     $missing = $width - len($text);
     if ($missing <= 0) {

@@ -1,4 +1,0 @@
-Error: HTTP error: the body must be a string, got list
-  http_request at lib/http.gaz:35
-  http_post at lib/http.gaz:29
-  top level on line 1

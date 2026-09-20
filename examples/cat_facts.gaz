@@ -18,11 +18,11 @@ const PAGE_SIZE = 10;
 
 // The JSON a URL answers with; any status but 200 is an error
 fn fetch($url) {
-    $response = http_get($url, {"Accept" => "application/json"});
+    $response = http::get($url, {"Accept" => "application/json"});
     if ($response["status"] != 200) {
         error("$url answered {$response["status"]}");
     }
-    return json_decode($response["body"]);
+    return json::decode($response["body"]);
 }
 
 fn random_facts($api, $count, $max_length) {
@@ -101,6 +101,6 @@ if ($facts == null) {
 } else {
     $width = len(to_string(len($facts)));
     foreach ($facts as $i => $fact) {
-        echo pad_left($i + 1, $width) .. ". " .. $fact;
+        echo format::pad_left($i + 1, $width) .. ". " .. $fact;
     }
 }

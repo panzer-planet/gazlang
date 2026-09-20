@@ -1,7 +1,0 @@
-Error: Invalid JSON: expected a digit after the decimal point at position 2
-  JsonReader.fail at lib/json.gaz:81
-  JsonReader.parse_number at lib/json.gaz:315
-  JsonReader.parse_value at lib/json.gaz:111
-  JsonReader.parse at lib/json.gaz:71
-  json_decode at lib/json.gaz:22
-  top level on line 1

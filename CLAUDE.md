@@ -242,12 +242,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     before keeping that.
   - `..=` on a field or element (`#buf ..= $c`) still lowers to `#buf = #buf .. $c` in generated
     code, which copies the string: only a plain variable appends in place.
-  - Included files share one namespace, so modules prefix their privates (`json_*`) and
-    every helper is public: 7 of `lib/http.gaz`'s 11 functions are internals, and
-    `lib/chars.gaz` owns `is_digit` and `char_at` for the whole program. Namespaces are
-    designed and decided; see below. Including a file also runs its top level code.
-    `Error`'s members are reserved across its subclasses, so a domain error can't declare
-    its own `#line` or `#message`.
+  - Including a file also runs its top level code. `Error`'s members are reserved across its
+    subclasses, so a domain error can't declare its own `#line` or `#message`.
   - No identity key for an object (a side table keyed by node), no `to_int`/
     `to_float` that returns null instead of throwing, no copy-with-change for objects, no
     `catch (A | B $e)`, no bare rethrow, no `_` to skip an element in a list pattern.
@@ -263,34 +259,36 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   plus `is_a`), `final`, and `private`/`protected` with public implicit (`#` and `##` checked at
   parse time, `$obj.name` when it runs, against the running method's class; a parent's private
   field is invisible to children, which may then declare their own). The keywords are reserved.
-- **Decided, not built: namespaces**, resolved by the parser, so the VM never learns the word
-  and bytecode only sees longer names.
+- **Namespaces** are resolved by the parser, so the VM never learns the word and bytecode only
+  sees longer names: functions and classes carry `::`, while a method block stays
+  `Class.method`, which is what lets the loader tell the two apart. Resolution is one pass
+  before anything else is checked, so nothing below it knows namespaces exist.
   - `namespace json;` first in a file, at most one, optional: a file without one declares its
-    names globally, as every file does today, and a program never needs one.
-  - **A name is private to its namespace unless `pub`**, which is the defect being fixed: a
-    file is implementation, and only what it says is public escapes it. Privacy is per
-    namespace, not per file, so `compiler/`'s four files declare `namespace gazlang;` and go
-    on seeing each other's everything. This is the opposite default to a class's members,
-    which stay public unless `private`/`protected`, because a class is an interface: worth
-    saying out loud once, since one language holds both.
+    names globally, as every file did before, and a program never needs one.
+  - **A name is private to its namespace unless `pub`**: a file is implementation, and only
+    what it says is public escapes it. Privacy is per namespace, not per file, so `compiler/`'s
+    five files declare `namespace gazlang;` and go on seeing each other's everything, and a
+    test of the internals joins the namespace rather than making them public. This is the
+    opposite default to a class's members, which stay public unless `private`/`protected`,
+    because a class is an interface: worth saying out loud once, since one language holds both.
   - **`include "chars.gaz" use is_digit, char_at as at;`** is the only way to bring a name in
     unqualified. Including a file always makes its namespace reachable qualified
     (`chars::is_digit`); the clause only adds aliases, and names in it are bare, since the
-    string already said which file. There is no standalone `use`, so a file can only name
+    string already said which file. A file already spliced in gives no statements again but
+    still answers its `use` clause. There is no standalone `use`, so a file can only name
     what it includes itself, and no `use ns::*`, which is how the flat namespace came back.
-    The file comes first so an editor can complete the names, and so can the error.
   - **Resolution** is the current namespace, then this file's aliases, then global and
-    builtins. No fallback into another namespace, which is PHP's wart.
+    builtins. No fallback into another namespace, which is PHP's wart. Only a name's first
+    part is resolved, since a namespace holds no namespace: in `namespace gazlang`,
+    `Token::EOF` is `gazlang::Token::EOF` and `json::decode` is already what it means.
+  - **A namespace's own name wins over a builtin of that name inside it**, which is what the
+    order means: `pub fn values()` in `namespace sort` makes a bare `values($x)` in that file
+    `sort::values($x)`. The alternative, builtins first, would mean a new builtin could take a
+    name a namespace already used.
   - Errors are the parser's: a `use` on a file that declares no namespace, a name that isn't
-    `pub`, a namespace that isn't what the file declares, an alias already taken.
-  - `namespace`, `use` and `pub` are not reserved words yet, unlike the keywords above, so
-    reserving them is part of building this, and a program that declares `fn use()` today
-    stops parsing then. `::` is already an operator.
-- **Decided, not built: `::` on a namespace** (`json::decode`, `json::Reader`,
-  `json::Reader::EOF`). The operator itself is built, on class constants; what is left is the
-  names to its left being namespaces, which is the namespace work above. Bytecode keeps
-  `Class.method` for method blocks, since the loader tells a namespaced function from a method
-  by the dot.
+    `pub`, a name in a `use` clause that is qualified, an alias already taken, a namespace
+    only reached through another file's include.
+  - `namespace`, `use` and `pub` are reserved, so `fn use()` no longer parses.
 - **Decided, not built: static members**, reached by name as constants are: `Counter::next()`,
   `Counter::COUNT`, `Counter::count`. Not through a value: `$obj::next()` puts a value on the
   left of the parse-time operator, which is the one place PHP's `::` means something else.
@@ -515,16 +513,17 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   the program, which the self-hosted parser checks calls against. That is right because the
   compiler always runs on the runtime that will run its output, and a loader refuses bytecode
   naming a builtin it lacks.
-- In GazLang instead: `lib/chars.gaz` (character classes), `lib/sort.gaz` (by key, on `sort`),
-  `lib/format.gaz` (`pad_left`/`pad_right`
+- In GazLang instead, each its own namespace, so only what a file marks `pub` escapes it:
+  `chars.gaz` (character classes), `sort.gaz` (`sort::values`, `sort::by`, on `sort`),
+  `format.gaz` (`format::number`, `format::pad_left`/`pad_right`
   convert like echo: display helpers take any value, string functions stay strict),
-  `lib/json.gaz`, `lib/csv.gaz` (RFC 4180), `lib/http.gaz` (method and header names checked
+  `json.gaz`, `csv.gaz` (RFC 4180), `http.gaz` (method and header names checked
   as HTTP tokens and URLs for spaces and control characters, so nothing can end a line of the
   request; credentials dropped on a redirect to another origin; `HttpTest` runs it against
   `tests/fixtures/http_server.php`, over TCP and TLS, which writes framing out by hand so it can
-  get it wrong on purpose; ports vary, so what it prints is checked by shape, not recorded), `lib/random.gaz` (`rand_shuffle`, `rand_pick`,
-  `rand_key`, `rand_chance`, `rand_weighted`; `rand_` since there are no namespaces yet). Scan long strings with `index_of`, not a character
-  at a time.
+  get it wrong on purpose; ports vary, so what it prints is checked by shape, not recorded),
+  `random.gaz` (`random::shuffle`, `random::pick`, `random::key`, `random::chance`,
+  `random::weighted`). Scan long strings with `index_of`, not a character at a time.
 
 ## Function values and closures
 

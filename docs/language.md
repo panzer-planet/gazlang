@@ -410,20 +410,74 @@ own rule: `rand_float()` is the top 53 bits divided by 2^53; `rand_int()` takes 
 and draws again until the result is at most the span, then adds it to `$min`, so every int in
 the range is equally likely. `lib/random.gaz` builds shuffling and picking on these.
 
+## Namespaces
+
+`namespace json;` first in a file, at most one, optional. A file without one declares its names
+globally, which is what every file did before namespaces and what a small program still wants.
+
+```gaz
+namespace json;                       // first in the file
+
+pub fn decode($text) {                // reachable from outside
+    return scan($text);               // its own namespace first, so this is json::scan
+}
+
+fn scan($text) {                      // private: only namespace json can use it
+    return "<" .. $text .. ">";
+}
+```
+
+**A name is private to its namespace unless `pub`.** A file is implementation, and only what it
+says is public escapes it. This is the opposite default to a class's members, which are public
+unless marked otherwise, because a class is an interface. Privacy is per namespace rather than
+per file, so several files can declare the same namespace and go on seeing everything of each
+other's.
+
+```gaz
+include "lib/json.gaz";                              // json:: becomes reachable
+include "lib/chars.gaz" use is_digit, char_at as at; // and these two, unqualified
+
+echo json::decode("1");
+echo is_digit("4") .. at("abc", 0);
+echo json::scan("1");                               // Error: json::scan is not pub
+```
+
+Including a file always makes its namespace reachable qualified. A `use` clause only adds
+aliases, and its names are bare, since the string already said which file they come from. There
+is no standalone `use` and no `use ns::*`, so a file can only name what it includes itself:
+naming a namespace that a file it includes happens to include is an error.
+
+**Resolution** is the current namespace, then this file's aliases, then the global namespace,
+where the builtins are. There is no fallback into another namespace. Only a name's first part is
+resolved, since a namespace holds no namespace: inside `namespace gazlang`, `Token::EOF` is
+`gazlang::Token::EOF`, while `json::decode` is already what it means.
+
+A namespace's own name wins over a builtin of that name inside it, so declaring
+`pub fn values()` in `namespace sort` makes `values($x)` mean `sort::values($x)` in that file;
+write `sort.gaz`'s own calls to the builtin as they are meant, or pick another name.
+
+`::` resolves a name and `.` goes through a value, so `json::decode` and `Token::EOF` are names
+the parser works out, and `$reader.decode` is a member of whatever `$reader` holds. A `:`
+followed by a `:` is always `::`, so a ternary needs a space: `$c ? Token::EOF : $x`.
+
+Namespaces are resolved by the parser, so the VM never learns the word: bytecode only sees
+longer names.
+
 ## Libraries
 
 `include "lib/json.gaz";` splices a file in at parse time, relative to the including file. Each
-file is included once, which also breaks cycles. Everything in `lib/` is written in GazLang:
+file is included once, which also breaks cycles. Every file in `lib/` declares a namespace, so
+its names are reached with `::`; everything in `lib/` is written in GazLang:
 
 | File | What is in it |
 | --- | --- |
-| `sort.gaz` | `sort_values`, `sort_by` |
-| `json.gaz` | `json_decode`, `json_encode` |
-| `csv.gaz` | `csv_parse`, `csv_records` (RFC 4180) |
-| `chars.gaz` | `char_at`, `is_digit`, `is_alpha`, `is_alnum`, `is_space`, `is_hex_digit` |
-| `format.gaz` | `pad_left`, `pad_right` |
-| `http.gaz` | `http_get($url, $headers = {})`, `http_post($url, $body, $headers = {})`, `http_request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins; see below |
-| `random.gaz` | `rand_shuffle` (a shuffled copy of a list or string), `rand_pick` (an element of a list or value of a map), `rand_key`, `rand_chance($p)`, `rand_weighted` (from `[item, weight]` pairs) |
+| `sort.gaz` | `sort::values`, `sort::by` |
+| `json.gaz` | `json::decode`, `json::encode` |
+| `csv.gaz` | `csv::parse`, `csv::records` (RFC 4180) |
+| `chars.gaz` | `chars::char_at`, `chars::is_digit`, `chars::is_alpha`, `chars::is_alnum`, `chars::is_space`, `chars::is_hex_digit` |
+| `format.gaz` | `format::number`, `format::pad_left`, `format::pad_right` |
+| `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins; see below |
+| `random.gaz` | `random::shuffle` (a shuffled copy of a list or string), `random::pick` (an element of a list or value of a map), `random::key`, `random::chance($p)`, `random::weighted` (from `[item, weight]` pairs) |
 
 `http.gaz` returns
 `{"status" => 200, "headers" => {"content-type" => "text/html", ...}, "body" => "..."}`, with
@@ -448,6 +502,6 @@ header names lowercased and a repeated header's values joined with `", "`.
 ```
 include "lib/http.gaz";
 
-$r = http_post("https://example.com/api", "{\"n\": 1}", {"Content-Type" => "application/json"});
+$r = http::post("https://example.com/api", "{\"n\": 1}", {"Content-Type" => "application/json"});
 echo $r["status"] .. " " .. $r["headers"]["content-type"];
 ```

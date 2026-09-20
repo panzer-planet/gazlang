@@ -47,9 +47,17 @@ A **function** gives its name and its arity as fewest then most arguments (they 
 has default parameters). A method is a function whose name is `Class.name`; a GazLang function
 name can't contain a `.`, so the two never collide.
 
+A name in a namespace carries it, with `::` between the parts: `json::decode` is a function and
+`json::Reader.read` a method of the class `json::Reader`. The parser resolves namespaces, so a
+loader needs to know nothing about them beyond treating a name as one word; the dot is still
+what tells a method from a function.
+
 ```
 fn safe_div 2 2
 locals $a $b $e
+
+fn json::decode 1 1
+locals $text
 ```
 
 A **class** is a record followed by the code that makes one of its objects: that code sets the

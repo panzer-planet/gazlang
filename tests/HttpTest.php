@@ -78,7 +78,7 @@ class HttpTest extends GazLangTestCase
      */
     private function call(string $call, array $env = []): array
     {
-        return json_decode($this->gaz("print(json_encode({$call}));", $env), true, flags: JSON_THROW_ON_ERROR);
+        return json_decode($this->gaz("print(json::encode({$call}));", $env), true, flags: JSON_THROW_ON_ERROR);
     }
 
     /**
@@ -104,7 +104,7 @@ class HttpTest extends GazLangTestCase
 
     public function test_get_sends_the_headers_and_gives_the_status_headers_and_body()
     {
-        $response = $this->call('http_get("{$url}/path?q=[1]&r={2}#part", {"X-Test" => "yes", "X-Number" => 5, "X-Empty" => ""})');
+        $response = $this->call('http::get("{$url}/path?q=[1]&r={2}#part", {"X-Test" => "yes", "X-Number" => 5, "X-Empty" => ""})');
 
         $this->assertSame(200, $response['status']);
         $this->assertSame('application/json', $response['headers']['content-type']);
@@ -119,34 +119,34 @@ class HttpTest extends GazLangTestCase
 
     public function test_given_headers_replace_the_defaults()
     {
-        $request = self::request($this->call('http_get("{$url}/", {"user-agent" => "mine", "Accept" => "text/plain"})'));
+        $request = self::request($this->call('http::get("{$url}/", {"user-agent" => "mine", "Accept" => "text/plain"})'));
         $this->assertSame(['mine', 'text/plain'], [$request['headers']['user-agent'], $request['headers']['accept']]);
     }
 
     public function test_post_sends_the_body_as_it_is_whatever_its_size_and_bytes()
     {
-        $request = self::request($this->call('http_post("{$url}/submit", "@tests/fixtures/read_me.txt", {"Content-Type" => "text/plain"})'));
+        $request = self::request($this->call('http::post("{$url}/submit", "@tests/fixtures/read_me.txt", {"Content-Type" => "text/plain"})'));
         $this->assertSame(['POST', '@tests/fixtures/read_me.txt', 'text/plain', '27'], [$request['method'], $request['body'], $request['headers']['content-type'], $request['headers']['content-length']]);
 
         // Compared in GazLang, since JSON can't carry bytes that aren't UTF-8 back
-        $this->assertSame('true', $this->gaz('$body = repeat("a\0\xff", 100000); print(http_post("{$url}/body", $body)["body"] == $body);'));
+        $this->assertSame('true', $this->gaz('$body = repeat("a\0\xff", 100000); print(http::post("{$url}/body", $body)["body"] == $body);'));
     }
 
     public function test_other_methods_and_head()
     {
-        $request = self::request($this->call('http_request("PUT", "{$url}/thing", {}, "data")'));
+        $request = self::request($this->call('http::request("PUT", "{$url}/thing", {}, "data")'));
         $this->assertSame(['PUT', 'data'], [$request['method'], $request['body']]);
-        $this->assertSame('DELETE', self::request($this->call('http_request("DELETE", "{$url}/thing")'))['method']);
-        $request = self::request($this->call('http_request("GET", "{$url}/thing", {}, "query")'));
+        $this->assertSame('DELETE', self::request($this->call('http::request("DELETE", "{$url}/thing")'))['method']);
+        $request = self::request($this->call('http::request("GET", "{$url}/thing", {}, "query")'));
         $this->assertSame(['GET', 'query'], [$request['method'], $request['body']]);
 
-        $head = $this->call('http_request("HEAD", "{$url}/thing")');
+        $head = $this->call('http::request("HEAD", "{$url}/thing")');
         $this->assertSame([200, 'application/json', ''], [$head['status'], $head['headers']['content-type'], $head['body']]);
     }
 
     public function test_an_error_status_is_a_response()
     {
-        $response = $this->call('http_get("{$url}/missing")');
+        $response = $this->call('http::get("{$url}/missing")');
 
         $this->assertSame([404, 'not here'], [$response['status'], $response['body']]);
     }
@@ -155,46 +155,46 @@ class HttpTest extends GazLangTestCase
     {
         $landed = fn (string $call) => self::request($this->call($call));
 
-        $request = $landed('http_get("{$url}/redirect")');
+        $request = $landed('http::get("{$url}/redirect")');
         $this->assertSame(['GET', '/landed?from=redirect'], [$request['method'], $request['uri']]);
-        $this->assertSame('/landed', $landed('http_get("{$url}/relative")')['uri'], 'relative to the redirecting path');
-        $this->assertSame('/landed?next=http://elsewhere.test/', $landed('http_get("{$url}/relative-with-url")')['uri'], 'a URL in a relative one\'s query');
+        $this->assertSame('/landed', $landed('http::get("{$url}/relative")')['uri'], 'relative to the redirecting path');
+        $this->assertSame('/landed?next=http://elsewhere.test/', $landed('http::get("{$url}/relative-with-url")')['uri'], 'a URL in a relative one\'s query');
 
         // A 303, and a 301 or 302 after a POST, become a GET without the body or its type
-        $request = $landed('http_post("{$url}/see-other", "form", {"Content-Type" => "text/plain"})');
+        $request = $landed('http::post("{$url}/see-other", "form", {"Content-Type" => "text/plain"})');
         $this->assertSame(['GET', '', null], [$request['method'], $request['body'], $request['headers']['content-type'] ?? null]);
-        $this->assertSame('GET', $landed('http_post("{$url}/redirect", "form")')['method']);
-        $this->assertSame('PUT', $landed('http_request("PUT", "{$url}/redirect", {}, "data")')['method']);
+        $this->assertSame('GET', $landed('http::post("{$url}/redirect", "form")')['method']);
+        $this->assertSame('PUT', $landed('http::request("PUT", "{$url}/redirect", {}, "data")')['method']);
         // A 307 keeps both
-        $request = $landed('http_post("{$url}/temporary", "form")');
+        $request = $landed('http::post("{$url}/temporary", "form")');
         $this->assertSame(['POST', 'form'], [$request['method'], $request['body']]);
-        $this->assertSame(200, $this->call('http_request("HEAD", "{$url}/see-other")')['status']);
+        $this->assertSame(200, $this->call('http::request("HEAD", "{$url}/see-other")')['status']);
     }
 
     public function test_credentials_go_only_to_the_server_they_were_written_for()
     {
         $headers = '{"Authorization" => "Bearer secret", "Cookie" => "a=1", "X-Other" => "kept"}';
 
-        $same = self::request($this->call("http_get(\"{\$url}/redirect\", {$headers})"))['headers'];
+        $same = self::request($this->call("http::get(\"{\$url}/redirect\", {$headers})"))['headers'];
         $this->assertSame(['Bearer secret', 'a=1', 'kept'], [$same['authorization'], $same['cookie'], $same['x-other']]);
 
         // localhost is another host than 127.0.0.1, though it is the same server
-        $other = self::request($this->call("http_get(\"{\$url}/elsewhere\", {$headers})"))['headers'];
+        $other = self::request($this->call("http::get(\"{\$url}/elsewhere\", {$headers})"))['headers'];
         $this->assertSame([null, null, 'kept'], [$other['authorization'] ?? null, $other['cookie'] ?? null, $other['x-other']]);
         $this->assertStringStartsWith('localhost:', $other['host']);
     }
 
     public function test_bodies_arrive_whole_however_they_are_framed()
     {
-        $this->assertSame("Wikipedia in\r\n\r\nchunks.", $this->call('http_get("{$url}/chunked")')['body']);
-        $this->assertSame(str_repeat('0123456789', 200000), $this->call('http_get("{$url}/large")')['body']);
-        $this->assertSame(str_repeat('x', 2000000), $this->call('http_get("{$url}/large-chunked")')['body']);
-        $this->assertSame('all of it', $this->call('http_get("{$url}/until-close")')['body']);
-        $interim = $this->call('http_get("{$url}/interim")');
+        $this->assertSame("Wikipedia in\r\n\r\nchunks.", $this->call('http::get("{$url}/chunked")')['body']);
+        $this->assertSame(str_repeat('0123456789', 200000), $this->call('http::get("{$url}/large")')['body']);
+        $this->assertSame(str_repeat('x', 2000000), $this->call('http::get("{$url}/large-chunked")')['body']);
+        $this->assertSame('all of it', $this->call('http::get("{$url}/until-close")')['body']);
+        $interim = $this->call('http::get("{$url}/interim")');
         $this->assertSame([200, 'ok'], [$interim['status'], $interim['body']]);
-        $empty = $this->call('http_get("{$url}/no-content")');
+        $empty = $this->call('http::get("{$url}/no-content")');
         $this->assertSame([204, ''], [$empty['status'], $empty['body']]);
-        $this->assertSame('one, two', $this->call('http_get("{$url}/repeated")')['headers']['x-many']);
+        $this->assertSame('one, two', $this->call('http::get("{$url}/repeated")')['headers']['x-many']);
     }
 
     /**
@@ -203,13 +203,13 @@ class HttpTest extends GazLangTestCase
     public static function failures(): array
     {
         return [
-            'cut short' => ['http_get("{$url}/truncated")', 'HTTP error: the connection closed in the middle of the body'],
-            'not HTTP' => ['http_get("{$url}/garbage")', 'HTTP error: not an HTTP response: "hello"'],
-            'no answer' => ['http_get("{$url}/silent")', 'HTTP error: the connection closed before a response came'],
-            'redirected for ever' => ['http_get("{$url}/loop")', 'HTTP error: more than 20 redirects'],
+            'cut short' => ['http::get("{$url}/truncated")', 'HTTP error: the connection closed in the middle of the body'],
+            'not HTTP' => ['http::get("{$url}/garbage")', 'HTTP error: not an HTTP response: "hello"'],
+            'no answer' => ['http::get("{$url}/silent")', 'HTTP error: the connection closed before a response came'],
+            'redirected for ever' => ['http::get("{$url}/loop")', 'HTTP error: more than 20 redirects'],
             // The system words these, differently from one to another
-            'refused' => ['http_get("http://127.0.0.1:1/")', 'Cannot connect to 127.0.0.1 port 1: '],
-            'no such host' => ['http_get("http://nowhere.invalid/")', 'Cannot find host nowhere.invalid: '],
+            'refused' => ['http::get("http://127.0.0.1:1/")', 'Cannot connect to 127.0.0.1 port 1: '],
+            'no such host' => ['http::get("http://nowhere.invalid/")', 'Cannot find host nowhere.invalid: '],
         ];
     }
 
@@ -226,16 +226,16 @@ class HttpTest extends GazLangTestCase
         $trusted = ['SSL_CERT_FILE' => self::ROOT.'/tests/fixtures/tls/cert.pem'];
         $port = self::$tlsPort;
 
-        $request = self::request($this->call("http_post(\"https://localhost:{$port}/secret\", \"sealed\")", $trusted));
+        $request = self::request($this->call("http::post(\"https://localhost:{$port}/secret\", \"sealed\")", $trusted));
         $this->assertSame(['POST', '/secret', 'sealed', "localhost:{$port}"], [$request['method'], $request['uri'], $request['body'], $request['headers']['host']]);
-        $this->assertSame(str_repeat('x', 2000000), $this->call("http_get(\"https://localhost:{$port}/large-chunked\")", $trusted)['body']);
+        $this->assertSame(str_repeat('x', 2000000), $this->call("http::get(\"https://localhost:{$port}/large-chunked\")", $trusted)['body']);
 
         // Not among the system's trusted certificates; and one for localhost, not this address.
         // OpenSSL's wording varies between versions
-        $this->assertStringStartsWith('TLS error with localhost: ', $this->failure("http_get(\"https://localhost:{$port}/\")"));
-        $this->assertStringStartsWith('TLS error with 127.0.0.1: ', $this->failure("http_get(\"https://127.0.0.1:{$port}/\")", $trusted));
+        $this->assertStringStartsWith('TLS error with localhost: ', $this->failure("http::get(\"https://localhost:{$port}/\")"));
+        $this->assertStringStartsWith('TLS error with 127.0.0.1: ', $this->failure("http::get(\"https://127.0.0.1:{$port}/\")", $trusted));
         // Plain HTTP to a TLS server gets no HTTP back (a reset, or bytes that aren't HTTP)
-        $this->assertNotSame('no error', $this->failure("http_get(\"http://localhost:{$port}/\")"));
+        $this->assertNotSame('no error', $this->failure("http::get(\"http://localhost:{$port}/\")"));
     }
 
     public function test_a_socket_is_a_handle_that_closes()
@@ -289,20 +289,20 @@ class HttpTest extends GazLangTestCase
     public static function refused(): array
     {
         return [
-            'space in a header name' => ['http_get("http://localhost/", {"Bad Name" => 1});', 'HTTP error: bad header name: "Bad Name"'],
-            'line break in a header name' => ['http_get("http://localhost/", {"X-A: b\r\nX-B" => 1});', 'HTTP error: bad header name: "X-A: b\r\nX-B"'],
-            'line break in a header value' => ['http_get("http://localhost/", {"X" => "a\r\nY: b"});', 'HTTP error: header X has a line break or NUL byte in its value'],
-            'a header http writes' => ['http_get("http://localhost/", {"Content-Length" => 5});', 'HTTP error: header Content-Length is written by http_request'],
-            'bad method' => ['http_request("GE T", "http://localhost/");', 'HTTP error: bad method: "GE T"'],
-            'body not a string' => ['http_post("http://localhost/", [1]);', 'HTTP error: the body must be a string, got list'],
-            'another scheme' => ['http_get("file:///etc/passwd");', 'HTTP error: only http and https URLs, got "file:///etc/passwd"'],
-            'no scheme' => ['http_get("localhost/x");', 'HTTP error: bad URL: "localhost/x"'],
-            'space in a URL' => ['http_get("http://localhost/a b");', 'HTTP error: bad URL: "http://localhost/a b"'],
-            'line break in a URL' => ['http_get("http://localhost/\r\nX: y");', 'HTTP error: bad URL: "http://localhost/\r\nX: y"'],
-            'credentials in a URL' => ['http_get("http://me:pw@localhost/");', 'HTTP error: a URL can\'t carry credentials; send an Authorization header: "http://me:pw@localhost/"'],
-            'bad port' => ['http_get("http://localhost:99999/");', 'HTTP error: bad port in URL: "http://localhost:99999/"'],
-            'no host' => ['http_get("http:///x");', 'HTTP error: no host in URL: "http:///x"'],
-            'unclosed address' => ['http_get("http://[::1/");', 'HTTP error: bad URL: "http://[::1/"'],
+            'space in a header name' => ['http::get("http://localhost/", {"Bad Name" => 1});', 'HTTP error: bad header name: "Bad Name"'],
+            'line break in a header name' => ['http::get("http://localhost/", {"X-A: b\r\nX-B" => 1});', 'HTTP error: bad header name: "X-A: b\r\nX-B"'],
+            'line break in a header value' => ['http::get("http://localhost/", {"X" => "a\r\nY: b"});', 'HTTP error: header X has a line break or NUL byte in its value'],
+            'a header http writes' => ['http::get("http://localhost/", {"Content-Length" => 5});', 'HTTP error: header Content-Length is written by http::request'],
+            'bad method' => ['http::request("GE T", "http://localhost/");', 'HTTP error: bad method: "GE T"'],
+            'body not a string' => ['http::post("http://localhost/", [1]);', 'HTTP error: the body must be a string, got list'],
+            'another scheme' => ['http::get("file:///etc/passwd");', 'HTTP error: only http and https URLs, got "file:///etc/passwd"'],
+            'no scheme' => ['http::get("localhost/x");', 'HTTP error: bad URL: "localhost/x"'],
+            'space in a URL' => ['http::get("http://localhost/a b");', 'HTTP error: bad URL: "http://localhost/a b"'],
+            'line break in a URL' => ['http::get("http://localhost/\r\nX: y");', 'HTTP error: bad URL: "http://localhost/\r\nX: y"'],
+            'credentials in a URL' => ['http::get("http://me:pw@localhost/");', 'HTTP error: a URL can\'t carry credentials; send an Authorization header: "http://me:pw@localhost/"'],
+            'bad port' => ['http::get("http://localhost:99999/");', 'HTTP error: bad port in URL: "http://localhost:99999/"'],
+            'no host' => ['http::get("http:///x");', 'HTTP error: no host in URL: "http:///x"'],
+            'unclosed address' => ['http::get("http://[::1/");', 'HTTP error: bad URL: "http://[::1/"'],
             'socket port' => ['socket_open("localhost", 0);', 'socket_open() expects a port from 1 to 65535, got 0'],
             'socket host' => ['socket_open("", 80);', 'socket_open() expects a host name'],
             'socket timeout' => ['socket_open("localhost", 80, false, 0);', 'socket_open() expects a timeout above 0 seconds'],

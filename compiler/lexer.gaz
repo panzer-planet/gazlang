@@ -4,7 +4,9 @@
 //
 // This file has no top level code, so the parser can include it: $lexer = Lexer($text),
 // then $lexer.get_next_token() until a token's type is "EOF". Errors are LexErrors.
-include "../lib/chars.gaz";
+namespace gazlang;
+
+include "../lib/chars.gaz" use char_at, is_digit, is_hex_digit;
 
 class Token {
     #type;

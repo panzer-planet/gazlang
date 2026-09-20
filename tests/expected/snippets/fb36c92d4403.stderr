@@ -1,8 +1,0 @@
-Error: Invalid JSON: invalid escape "\\q" at position 1
-  JsonReader.fail at lib/json.gaz:81
-  JsonReader.parse_escape at lib/json.gaz:252
-  JsonReader.parse_string at lib/json.gaz:229
-  JsonReader.parse_value at lib/json.gaz:108
-  JsonReader.parse at lib/json.gaz:71
-  json_decode at lib/json.gaz:22
-  top level on line 1

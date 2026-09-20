@@ -1,5 +1,7 @@
 // compiler/lexer.gaz as the parser will use it, as a library. That it gives the right tokens
 // is SelfHostedLexerTest's job, against the PHP lexer on every .gaz file in the repository.
+namespace gazlang;
+
 include "../../../compiler/lexer.gaz";
 include "../check.gaz";
 

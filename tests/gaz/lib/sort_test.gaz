@@ -1,13 +1,13 @@
 include "../check.gaz";
 include "../../../lib/sort.gaz";
 
-check("numbers", sort_values([5, 3, 9, 1, 3]), [1, 3, 3, 5, 9]);
-check("descending", sort_values([5, 3, 9, 1], true), [9, 5, 3, 1]);
-check("strings compare byte by byte", sort_values(["b", "B", "a", "10", "9"]), ["10", "9", "B", "a", "b"]);
-check("floats and ints together", sort_values([2.5, 1, -0.5, 2]), [-0.5, 1, 2, 2.5]);
-check("empty", sort_values([]), []);
-check("one item", sort_values(["x"]), ["x"]);
-check("keys are dropped", sort_values({"z" => 2, "y" => 1}), [1, 2]);
+check("numbers", sort::values([5, 3, 9, 1, 3]), [1, 3, 3, 5, 9]);
+check("descending", sort::values([5, 3, 9, 1], true), [9, 5, 3, 1]);
+check("strings compare byte by byte", sort::values(["b", "B", "a", "10", "9"]), ["10", "9", "B", "a", "b"]);
+check("floats and ints together", sort::values([2.5, 1, -0.5, 2]), [-0.5, 1, 2, 2.5]);
+check("empty", sort::values([]), []);
+check("one item", sort::values(["x"]), ["x"]);
+check("keys are dropped", sort::values({"z" => 2, "y" => 1}), [1, 2]);
 
 $people = [
     {"name" => "Ada", "team" => "b"},
@@ -16,19 +16,19 @@ $people = [
     {"name" => "Di", "team" => "a"},
 ];
 $by_team = [];
-foreach (sort_by($people, "team") as $person) {
+foreach (sort::by($people, "team") as $person) {
     $by_team[] = $person["name"];
 }
 check("sort_by is stable", $by_team, ["Bob", "Di", "Ada", "Cy"]);
 $by_team_descending = [];
-foreach (sort_by($people, "team", true) as $person) {
+foreach (sort::by($people, "team", true) as $person) {
     $by_team_descending[] = $person["name"];
 }
 check("stable when descending too", $by_team_descending, ["Ada", "Cy", "Bob", "Di"]);
-check("sort_by an int key", sort_by([[3, "c"], [1, "a"], [2, "b"]], 0), [[1, "a"], [2, "b"], [3, "c"]]);
+check("sort_by an int key", sort::by([[3, "c"], [1, "a"], [2, "b"]], 0), [[1, "a"], [2, "b"], [3, "c"]]);
 
 try {
-    sort_values([1, "one"]);
+    sort::values([1, "one"]);
 } catch ($e) {
     check("values that can't be ordered", $e.message, "Cannot use <=> on string and int");
 }

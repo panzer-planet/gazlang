@@ -25,8 +25,8 @@ $group_column = $arguments[1];
 $amount_column = $arguments[2];
 
 try {
-    $rows = csv_parse(read_file($file));
-    $records = csv_records($rows);
+    $rows = csv::parse(read_file($file));
+    $records = csv::records($rows);
 } catch ($e) {
     fail($e.message);
 }
@@ -75,9 +75,9 @@ $table = [[upper($group_column), "ROWS", "TOTAL", "AVERAGE"]];
 foreach ($summary as $line) {
     // A quoted field can contain line breaks, which would break the table
     $group = replace(replace($line["group"], "\r", ""), "\n", " ");
-    $table[] = [$group, $line["count"], format_number($line["total"]), format_number($line["average"])];
+    $table[] = [$group, $line["count"], format::number($line["total"]), format::number($line["average"])];
 }
-$table[] = ["All", to_string(len($records)), format_number($grand_total), format_number($grand_total / len($records))];
+$table[] = ["All", to_string(len($records)), format::number($grand_total), format::number($grand_total / len($records))];
 
 $widest = ($widths, $cells) -> {
     foreach ($cells as $column => $cell) {
@@ -91,9 +91,9 @@ $widths = reduce($table, $widest, [0, 0, 0, 0]);
 
 foreach ($table as $row_number => $cells) {
     // Text left aligned, numbers right aligned
-    $line = pad_right($cells[0], $widths[0]);
+    $line = format::pad_right($cells[0], $widths[0]);
     for ($column = 1; $column < 4; $column++) {
-        $line ..= "  " .. pad_left($cells[$column], $widths[$column]);
+        $line ..= "  " .. format::pad_left($cells[$column], $widths[$column]);
     }
     if ($row_number == len($table) - 1) {
         echo repeat("-", len($line));

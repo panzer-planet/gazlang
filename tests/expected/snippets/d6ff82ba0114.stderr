@@ -1,5 +1,0 @@
-Error: HTTP error: no host in URL: "http:///x"
-  http_parse_url at lib/http.gaz:176
-  http_request at lib/http.gaz:50
-  http_get at lib/http.gaz:25
-  top level on line 1

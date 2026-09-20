@@ -2,6 +2,6 @@
 include "../../lib/csv.gaz";
 include "../../lib/json.gaz";
 
-foreach (csv_parse(read_file(args()[0])) as $row) {
-    echo json_encode($row);
+foreach (csv::parse(read_file(args()[0])) as $row) {
+    echo json::encode($row);
 }

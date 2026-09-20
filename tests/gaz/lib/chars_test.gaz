@@ -1,5 +1,5 @@
 include "../check.gaz";
-include "../../../lib/chars.gaz";
+include "../../../lib/chars.gaz" use char_at, is_char, is_digit, is_hex_digit, is_alpha, is_alnum, is_space;
 
 // char_at stays inside the string
 check("char_at first", char_at("abc", 0), "a");

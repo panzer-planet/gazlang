@@ -6,7 +6,7 @@
 // CLUBS is how many clubs play, from 2 to 20 (4 by default), taken from the strongest down.
 // Everything random is seeded: the squads are always the same, and the same season seed
 // always plays the same season.
-include "../lib/format.gaz";
+include "../lib/format.gaz" use pad_left, pad_right;
 include "../lib/random.gaz";
 
 // Players: a rating from 40 to 95, and every position turns it into attacking and defending
@@ -167,7 +167,7 @@ class Team {
     fn defence() { return #summary()["defence"]; }
     fn goalkeeper() { return #summary()["keeper"]; }
     // Only players who attack at all are shooters, so their weights add up to the attack
-    fn shooter() { return rand_weighted(#summary()["shooters"], #summary()["shooting"]); }
+    fn shooter() { return random::weighted(#summary()["shooters"], #summary()["shooting"]); }
     fn rating() { return round(reduce(#players, ($sum, $player) -> $sum + $player.rating, 0) / 11, 1); }
 
     // The players tired, rested or were sent off
@@ -231,7 +231,7 @@ class Scout {
     fn rating($level) {
         $rating = $level + rand_int(-9, 7);
         // Now and then a club has a star
-        if (rand_chance(0.08)) {
+        if (random::chance(0.08)) {
             $rating += 8;
         }
         return min(max($rating, 40), 95);
@@ -240,7 +240,7 @@ class Scout {
     // Every name in the league is different
     fn new_name() {
         while (true) {
-            $name = rand_pick(FIRST_INITIALS) .. ". " .. rand_pick(SURNAMES);
+            $name = random::pick(FIRST_INITIALS) .. ". " .. random::pick(SURNAMES);
             if (! has_key(#taken, $name)) {
                 #taken[$name] = true;
                 return $name;
@@ -365,13 +365,13 @@ class Fixture {
         if ($roll < 0.17) {
             // The home side gets a little more of the ball
             $home_attack = #home.attack() * 1.1;
-            if (rand_chance($home_attack / ($home_attack + #away.attack()))) {
+            if (random::chance($home_attack / ($home_attack + #away.attack()))) {
                 #attempt($minute, #home, #away);
             } else {
                 #attempt($minute, #away, #home);
             }
         } else if ($roll < 0.2) {
-            #foul($minute, rand_chance(0.5) ? #home : #away);
+            #foul($minute, random::chance(0.5) ? #home : #away);
         }
     }
 
@@ -381,11 +381,11 @@ class Fixture {
 
         // A better shooter against a weaker defence hits the target more often, and beats the keeper more often
         $on_target = $shooter.attacking() / ($shooter.attacking() + $defenders.defence() / 12);
-        if (! rand_chance($on_target * 0.8)) {
+        if (! random::chance($on_target * 0.8)) {
             #emit(Shot($minute, $attackers, $shooter, null));
             return;
         }
-        if (rand_chance($keeper.defending() / ($keeper.defending() + $shooter.attacking() * 1.1))) {
+        if (random::chance($keeper.defending() / ($keeper.defending() + $shooter.attacking() * 1.1))) {
             #emit(Shot($minute, $attackers, $shooter, $keeper));
             return;
         }
@@ -401,7 +401,7 @@ class Fixture {
     }
 
     fn foul($minute, $team) {
-        $player = rand_weighted(map($team.on_pitch(), $player -> [$player, $player.defending() + 1]));
+        $player = random::weighted(map($team.on_pitch(), $player -> [$player, $player.defending() + 1]));
         $red = $player.book();
         if ($red) {
             $team.changed();
@@ -470,7 +470,7 @@ class League {
     // season: everyone plays everyone at home and away, and every team plays once a matchday,
     // except that with an odd number of teams one of them rests each matchday
     fn fixtures() {
-        $teams = rand_shuffle(#teams);
+        $teams = random::shuffle(#teams);
         if (len($teams) % 2 == 1) {
             // Whoever is drawn against null rests
             $teams[] = null;

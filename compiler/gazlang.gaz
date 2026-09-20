@@ -4,6 +4,8 @@
 // standard input, as gazlang reads piped source: no file in its locations, and includes
 // relative to the working directory.
 // bin/gazlang -f compiler/gazlang.gaz -- MODE [FILE]
+namespace gazlang;
+
 include "codegen.gaz";
 
 class Dumper {
@@ -34,8 +36,9 @@ class Dumper {
                     #file = $value.file;
                     echo "@ " .. #literal($value.file);
                 }
-                // "class NumAST" without the "class " and the "AST"
-                $name = slice(to_string(class_of($value)), 6, -3);
+                // "class gazlang::NumAST" without the "class ", the namespace and the "AST":
+                // the node names are this format, so which namespace they sit in is noise
+                $name = last(split(slice(to_string(class_of($value)), 6, -3), "::"));
                 echo $indent .. $label .. $name .. ($value.line == null ? "" : " {$value.line}");
                 $children = fields($value);
                 foreach (#SKIPPED as $name) {

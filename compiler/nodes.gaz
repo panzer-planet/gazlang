@@ -8,6 +8,8 @@
 //
 // This file has no top level code, so it can be included.
 
+namespace gazlang;
+
 abstract class AST {
     #line = null;
     #file = null;

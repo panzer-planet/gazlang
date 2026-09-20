@@ -52,7 +52,7 @@ class CsvTest extends GazLangTestCase
 
         $code = 'include "'.self::ROOT.'/lib/format.gaz"; foreach ('
             .'['.implode(', ', array_map(fn ($n) => var_export($n, true), $numbers)).']'
-            .' as $n) { echo format_number($n) .. " " .. format_number($n, 1) .. " " .. format_number($n, 0); }';
+            .' as $n) { echo format::number($n) .. " " .. format::number($n, 1) .. " " .. format::number($n, 0); }';
         $expected = implode('', array_map(fn ($n) => number_format($n, 2).' '.number_format($n, 1).' '.number_format($n, 0)."\n", $numbers));
 
         $this->assertSame($expected, $this->executeCode($code));

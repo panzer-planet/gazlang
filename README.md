@@ -311,11 +311,11 @@ fn totals_by($rows, $group, $column) {
 }
 
 try {
-    $rows = csv_records(csv_parse(read_file(args()[0] ?? "sales.csv")));
+    $rows = csv::records(csv::parse(read_file(args()[0] ?? "sales.csv")));
     $totals = totals_by($rows, "region", "amount");
 
     foreach (sort(keys($totals), ($a, $b) -> $totals[$b] <=> $totals[$a]) as $region) {
-        echo pad_right($region, 8) .. round($totals[$region], 2);
+        echo format::pad_right($region, 8) .. round($totals[$region], 2);
     }
 } catch (Error $e) {
     print_error("{$e.message}\n");

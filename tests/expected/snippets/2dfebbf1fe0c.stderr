@@ -1,0 +1,5 @@
+Error: HTTP error: bad URL: "localhost/x"
+  http::parse_url at lib/http.gaz:121
+  http::request at lib/http.gaz:52
+  http::get at lib/http.gaz:27
+  top level on line 1

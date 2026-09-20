@@ -9,13 +9,13 @@ fn pretty($value, $indent = "") {
     $type = type_of($value);
     if (($type != "list" && $type != "map") || len($value) == 0) {
         // Scalars, [] and {} are already as short as they get
-        return json_encode($value);
+        return json::encode($value);
     }
 
     $inner = $indent .. "  ";
     $lines = [];
     foreach ($value as $key => $item) {
-        $prefix = $type == "map" ? json_encode(to_string($key)) .. ": " : "";
+        $prefix = $type == "map" ? json::encode(to_string($key)) .. ": " : "";
         $lines[] = $inner .. $prefix .. pretty($item, $inner);
     }
     $brackets = $type == "map" ? "{}" : "[]";
@@ -29,7 +29,7 @@ if (len($arguments) > 0) {
 }
 
 try {
-    echo pretty(json_decode($text));
+    echo pretty(json::decode($text));
 } catch ($e) {
     echo "Error: {$e.message}";
     exit(1);

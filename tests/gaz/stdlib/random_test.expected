@@ -14,7 +14,7 @@ b
 ok shuffle nothing
 ok chance 0 and 1
 ok weighted skips a zero weight
-rand_key() expects a non-empty list or map
-rand_key() expects a non-empty list or map
-rand_weighted() expects weights that add up to more than 0
-rand_shuffle() expects list or string, got map
+random::key() expects a non-empty list or map
+random::key() expects a non-empty list or map
+random::weighted() expects weights that add up to more than 0
+random::shuffle() expects list or string, got map

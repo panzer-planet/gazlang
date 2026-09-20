@@ -1,6 +1,6 @@
-// HTTP/1.1 for GazLang, on the socket builtins (TLS for https): http_get($url, $headers = {}),
-// http_post($url, $body, $headers = {}) and http_request($method, $url, $headers = {},
-// $body = null). Each returns
+// HTTP/1.1 for GazLang, on the socket builtins (TLS for https): http::get($url,
+// $headers = {}), http::post($url, $body, $headers = {}) and http::request($method,
+// $url, $headers = {}, $body = null). Each returns
 // {"status" => 200, "headers" => {"content-type" => "text/plain", ...}, "body" => "..."}.
 //
 // - Any status is a response, 404 and 500 included. A request that gets no response (no such
@@ -17,49 +17,51 @@
 //   handshake for several requests to one server. Redirect targets' ./ and ../ are left for the
 //   server to resolve.
 
-include "chars.gaz";
+namespace http;
 
-const HTTP_MAX_REDIRECTS = 20;
+include "chars.gaz" use is_alnum, is_digit;
 
-fn http_get($url, $headers = {}) {
-    return http_request("GET", $url, $headers);
+const MAX_REDIRECTS = 20;
+
+pub fn get($url, $headers = {}) {
+    return request("GET", $url, $headers);
 }
 
-fn http_post($url, $body, $headers = {}) {
-    return http_request("POST", $url, $headers, $body);
+pub fn post($url, $body, $headers = {}) {
+    return request("POST", $url, $headers, $body);
 }
 
-fn http_request($method, $url, $headers = {}, $body = null) {
-    http_check_token("method", $method);
+pub fn request($method, $url, $headers = {}, $body = null) {
+    check_token("method", $method);
     if ($body != null && type_of($body) != "string") {
         error("HTTP error: the body must be a string, got " .. type_of($body));
     }
     // By lowercased name: [the name as given, its value]
     $sent = {};
     foreach ($headers as $name => $value) {
-        http_check_token("header name", $name);
+        check_token("header name", $name);
         $value = to_string($value);
         if (contains($value, "\r") || contains($value, "\n") || contains($value, "\0")) {
             error("HTTP error: header $name has a line break or NUL byte in its value");
         }
         if (in_array(lower($name), ["host", "content-length", "connection", "transfer-encoding"])) {
-            error("HTTP error: header $name is written by http_request");
+            error("HTTP error: header $name is written by http::request");
         }
         $sent[lower($name)] = [$name, $value];
     }
-    $target = http_parse_url($url);
+    $target = parse_url($url);
     $redirects = 0;
     while (true) {
-        $response = http_exchange($method, $target, $sent, $body);
+        $response = exchange($method, $target, $sent, $body);
         $location = $response["headers"]["location"] ?? null;
         if (!in_array($response["status"], [301, 302, 303, 307, 308]) || $location == null) {
             return $response;
         }
-        if ($redirects == HTTP_MAX_REDIRECTS) {
-            error("HTTP error: more than " .. HTTP_MAX_REDIRECTS .. " redirects");
+        if ($redirects == MAX_REDIRECTS) {
+            error("HTTP error: more than " .. MAX_REDIRECTS .. " redirects");
         }
         $redirects++;
-        $next = http_parse_url(http_resolve($target, $location));
+        $next = parse_url(resolve($target, $location));
         $status = $response["status"];
         if ($status == 303 && $method != "HEAD" || ($status == 301 || $status == 302) && $method == "POST") {
             $method = "GET";
@@ -81,7 +83,7 @@ fn http_request($method, $url, $headers = {}, $body = null) {
 }
 
 // One request on its own connection, and its response
-fn http_exchange($method, $target, $sent, $body) {
+fn exchange($method, $target, $sent, $body) {
     $lines = ["$method {$target["path"]} HTTP/1.1", "Host: {$target["host_header"]}"];
     foreach ({"user-agent" => ["User-Agent", "gazlang"], "accept" => ["Accept", "*/*"]} as $key => $default) {
         $sent[$key] ??= $default;
@@ -96,14 +98,14 @@ fn http_exchange($method, $target, $sent, $body) {
     $socket = socket_open($target["host"], $target["port"], $target["scheme"] == "https");
     try {
         socket_write($socket, join($lines, "\r\n") .. "\r\n\r\n" .. ($body ?? ""));
-        return http_read_response(HttpReader($socket), $method);
+        return read_response(Reader($socket), $method);
     } finally {
         socket_close($socket);
     }
 }
 
 // {"scheme", "host", "port", "path", "host_header", "origin"} from an http or https URL
-fn http_parse_url($url) {
+fn parse_url($url) {
     if (type_of($url) != "string") {
         error("HTTP error: a URL must be a string, got " .. type_of($url));
     }
@@ -167,7 +169,7 @@ fn http_parse_url($url) {
     $default_port = $scheme == "https" ? 443 : 80;
     $port = $default_port;
     if ($port_text != "") {
-        if (len($port_text) > 5 || !http_all_digits($port_text) || to_int($port_text) < 1 || to_int($port_text) > 65535) {
+        if (len($port_text) > 5 || !all_digits($port_text) || to_int($port_text) < 1 || to_int($port_text) > 65535) {
             error("HTTP error: bad port in URL: $shown");
         }
         $port = to_int($port_text);
@@ -181,7 +183,7 @@ fn http_parse_url($url) {
 }
 
 // Where a Location header points, from the URL that sent it
-fn http_resolve($target, $location) {
+fn resolve($target, $location) {
     // Absolute when what comes before :// is a scheme, not a relative path or query holding a URL
     $scheme_end = index_of($location, "://");
     if ($scheme_end != null && $scheme_end > 0) {
@@ -212,7 +214,7 @@ fn http_resolve($target, $location) {
 }
 
 // Reads a response from a socket: lines up to a delimiter, a count of bytes, or the rest
-class HttpReader {
+class Reader {
     #socket;
     #data = "";         // read but not taken yet
 
@@ -278,7 +280,7 @@ class HttpReader {
     }
 }
 
-fn http_read_response($reader, $method) {
+fn read_response($reader, $method) {
     while (true) {
         $head = $reader.line("\r\n\r\n");
         if ($head == null) {
@@ -287,7 +289,7 @@ fn http_read_response($reader, $method) {
         $lines = split($head, "\r\n");
         // "HTTP/1.1 200 OK"
         $words = split($lines[0], " ");
-        if (len($words) < 2 || !starts_with($words[0], "HTTP/1.") || len($words[1]) != 3 || !http_all_digits($words[1])) {
+        if (len($words) < 2 || !starts_with($words[0], "HTTP/1.") || len($words[1]) != 3 || !all_digits($words[1])) {
             error("HTTP error: not an HTTP response: " .. slice(to_string([slice($lines[0], 0, 100)]), 1, -1));
         }
         $status = to_int($words[1]);
@@ -307,16 +309,16 @@ fn http_read_response($reader, $method) {
         }
         $body = match {
             $method == "HEAD" || $status == 204 || $status == 304 => "",
-            contains(lower($headers["transfer-encoding"] ?? ""), "chunked") => http_read_chunked($reader),
-            has_key($headers, "content-length") => $reader.bytes(http_content_length($headers["content-length"])),
+            contains(lower($headers["transfer-encoding"] ?? ""), "chunked") => read_chunked($reader),
+            has_key($headers, "content-length") => $reader.bytes(content_length($headers["content-length"])),
             default => $reader.rest(),
         };
         return {"status" => $status, "headers" => $headers, "body" => $body};
     }
 }
 
-fn http_content_length($text) {
-    if ($text == "" || len($text) > 18 || !http_all_digits($text)) {
+fn content_length($text) {
+    if ($text == "" || len($text) > 18 || !all_digits($text)) {
         error("HTTP error: bad Content-Length: " .. slice(to_string([$text]), 1, -1));
     }
     return to_int($text);
@@ -324,7 +326,7 @@ fn http_content_length($text) {
 
 // Chunks, each a size in hex (maybe with ;extensions) and that many bytes, up to a size of 0
 // and trailer lines, which are skipped
-fn http_read_chunked($reader) {
+fn read_chunked($reader) {
     $parts = [];
     while (true) {
         $line = $reader.line("\r\n");
@@ -358,7 +360,7 @@ fn http_read_chunked($reader) {
     }
 }
 
-fn http_all_digits($text) {
+fn all_digits($text) {
     foreach (split($text, "") as $c) {
         if (!is_digit($c)) {
             return false;
@@ -368,7 +370,7 @@ fn http_all_digits($text) {
 }
 
 // A method or header name must be an HTTP token, which keeps it from ending a line
-fn http_check_token($what, $name) {
+fn check_token($what, $name) {
     if (type_of($name) != "string" || $name == "") {
         error("HTTP error: bad $what: " .. slice(to_string([$name]), 1, -1));
     }

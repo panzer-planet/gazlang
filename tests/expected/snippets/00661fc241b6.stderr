@@ -1,0 +1,8 @@
+Error: Invalid JSON: unexpected "]" at position 3
+  json::Reader.fail at lib/json.gaz:83
+  json::Reader.parse_value at lib/json.gaz:124
+  json::Reader.parse_array at lib/json.gaz:157
+  json::Reader.parse_value at lib/json.gaz:107
+  json::Reader.parse at lib/json.gaz:73
+  json::decode at lib/json.gaz:24
+  top level on line 1

@@ -4,6 +4,8 @@
 // file's text, deterministically, so the same source always gives the same bytes.
 //
 // This file has no top level code, so it can be included.
+namespace gazlang;
+
 include "parser.gaz";
 
 class CodeGenerator {

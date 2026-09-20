@@ -1,0 +1,6 @@
+// A file already spliced in gives no statements again, but this file still gets what it
+// asked for: lib/more.gaz includes lib/json.gaz before this use clause is reached
+include "lib/more.gaz";
+include "lib/json.gaz" use decode, LIMIT;
+
+echo decode("a") .. LIMIT;

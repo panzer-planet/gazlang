@@ -1,0 +1,7 @@
+Error: Invalid JSON: expected , or ] but found "2" at position 3
+  json::Reader.fail at lib/json.gaz:83
+  json::Reader.parse_array at lib/json.gaz:167
+  json::Reader.parse_value at lib/json.gaz:107
+  json::Reader.parse at lib/json.gaz:73
+  json::decode at lib/json.gaz:24
+  top level on line 1

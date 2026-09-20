@@ -1,11 +1,13 @@
 // Character helpers, matching the lexer's character classes exactly
-// (is_space, is_digit, is_hex_digit, is_alpha, is_alnum): ASCII only.
+// (chars::is_space, chars::is_digit, chars::is_hex_digit, chars::is_alpha,
+// chars::is_alnum): ASCII only.
 //
 // Each is_* takes one character. Anything else (an empty or longer string, null, a
 // number) is false rather than an error, so reading past the end of a string is safe.
+namespace chars;
 
 // The character at position $i of $s, or "" outside it (indexing past the end is an error)
-fn char_at($s, $i) {
+pub fn char_at($s, $i) {
     if ($i >= 0 && $i < len($s)) {
         return $s[$i];
     }
@@ -13,30 +15,30 @@ fn char_at($s, $i) {
 }
 
 // Whether $c is a one character string
-fn is_char($c) {
+pub fn is_char($c) {
     return type_of($c) == "string" && len($c) == 1;
 }
 
 // 0 to 9
-fn is_digit($c) {
+pub fn is_digit($c) {
     return is_char($c) && $c >= "0" && $c <= "9";
 }
 
 // 0 to 9, a to f or A to F
-fn is_hex_digit($c) {
+pub fn is_hex_digit($c) {
     return is_digit($c) || is_char($c) && ($c >= "a" && $c <= "f" || $c >= "A" && $c <= "F");
 }
 
 // a to z or A to Z; strings compare byte by byte
-fn is_alpha($c) {
+pub fn is_alpha($c) {
     return is_char($c) && ($c >= "a" && $c <= "z" || $c >= "A" && $c <= "Z");
 }
 
-fn is_alnum($c) {
+pub fn is_alnum($c) {
     return is_alpha($c) || is_digit($c);
 }
 
 // Space, tab, newline or carriage return
-fn is_space($c) {
+pub fn is_space($c) {
     return in_array($c, [" ", "\t", "\n", "\r"]);
 }

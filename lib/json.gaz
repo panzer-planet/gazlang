@@ -1,4 +1,4 @@
-// JSON (RFC 8259) for GazLang: json_decode($text) and json_encode($value).
+// JSON (RFC 8259) for GazLang: json::decode($text) and json::encode($value).
 //
 // Decoding follows PHP's json_decode($text), with maps for objects:
 // - objects become maps with string keys (a key like "0" stays the string "0"), arrays lists;
@@ -16,16 +16,18 @@
 // written as strings. Strings are written as UTF-8, escaping only what JSON requires, and
 // floats keep their exact digits (1.0, 0.30000000000000004, 1.0E+25).
 
-include "chars.gaz";
+namespace json;
 
-fn json_decode($text) {
-    return JsonReader($text).parse();
+include "chars.gaz" use char_at, is_digit, is_hex_digit, is_space;
+
+pub fn decode($text) {
+    return Reader($text).parse();
 }
 
-fn json_encode($value) {
+pub fn encode($value) {
     $type = type_of($value);
     if ($type == "string") {
-        return json_encode_string($value);
+        return encode_string($value);
     }
     if ($type == "function" || $type == "class") {
         error("Cannot encode a {$type} as JSON");
@@ -41,12 +43,12 @@ fn json_encode($value) {
     $parts = [];
     if ($type == "list") {
         foreach ($value as $item) {
-            $parts[] = json_encode($item);
+            $parts[] = encode($item);
         }
         return "[" .. join($parts, ",") .. "]";
     }
     foreach ($value as $key => $item) {
-        $parts[] = json_encode_string(to_string($key)) .. ":" .. json_encode($item);
+        $parts[] = encode_string(to_string($key)) .. ":" .. encode($item);
     }
     return "{" .. join($parts, ",") .. "}";
 }
@@ -56,7 +58,7 @@ fn json_encode($value) {
 // A JSON document being read: the text, the byte position, and how many arrays and objects
 // are open. Objects are handles, so every method moves the same reader and none of this has
 // to be global; a decode running inside another decode gets a reader of its own.
-class JsonReader {
+class Reader {
     #text;
     #pos = 0;
     #depth = 0;
@@ -87,7 +89,7 @@ class JsonReader {
         if ($c == "") {
             return "end of input";
         }
-        return json_encode_string($c);
+        return encode_string($c);
     }
 
     fn skip_whitespace() {
@@ -249,7 +251,7 @@ class JsonReader {
             return #simple[$c];
         }
         if ($c != "u") {
-            #fail("invalid escape " .. json_encode_string("\\" .. $c));
+            #fail("invalid escape " .. encode_string("\\" .. $c));
         }
 
         $unit = #parse_hex4(#pos + 2);
@@ -261,7 +263,7 @@ class JsonReader {
             #fail("unpaired UTF-16 surrogate");
         }
         if ($unit < 0xD800 || $unit > 0xDBFF) {
-            return json_utf8($unit);
+            return utf8($unit);
         }
         if (slice(#text, #pos, 2) != "\\u") {
             #fail("unpaired UTF-16 surrogate");
@@ -271,7 +273,7 @@ class JsonReader {
             #fail("unpaired UTF-16 surrogate");
         }
         #pos += 6;
-        return json_utf8(0x10000 + ($unit - 0xD800) * 0x400 + ($low - 0xDC00));
+        return utf8(0x10000 + ($unit - 0xD800) * 0x400 + ($low - 0xDC00));
     }
 
     // The four hex digits starting at $at, as an int
@@ -301,7 +303,7 @@ class JsonReader {
         if (char_at($text, $pos) == "0") {
             $pos++;
         } else if (is_digit(char_at($text, $pos))) {
-            $pos = json_skip_digits($text, $pos);
+            $pos = skip_digits($text, $pos);
         } else {
             #pos = $pos;
             #fail("expected a digit but found " .. #describe_char());
@@ -314,7 +316,7 @@ class JsonReader {
                 #pos = $pos + 1;
                 #fail("expected a digit after the decimal point");
             }
-            $pos = json_skip_digits($text, $pos + 1);
+            $pos = skip_digits($text, $pos + 1);
             $is_float = true;
         }
 
@@ -329,20 +331,20 @@ class JsonReader {
                 #pos = $pos;
                 #fail("expected a digit in the exponent");
             }
-            $pos = json_skip_digits($text, $pos);
+            $pos = skip_digits($text, $pos);
             $is_float = true;
         }
 
         #pos = $pos;
         $number = slice($text, $start, $pos - $start);
-        if ($is_float || !json_int_fits(slice($text, $start, $digits_end - $start), $negative)) {
+        if ($is_float || !int_fits(slice($text, $start, $digits_end - $start), $negative)) {
             return to_float($number);
         }
         return to_int($number);
     }
 }
 
-fn json_skip_digits($text, $pos) {
+fn skip_digits($text, $pos) {
     while (is_digit(char_at($text, $pos))) {
         $pos++;
     }
@@ -351,7 +353,7 @@ fn json_skip_digits($text, $pos) {
 
 // Whether an integer (with its minus, if any, and no leading zeros) fits in an int.
 // Equal-length digit strings compare byte by byte, which is numeric order.
-fn json_int_fits($integer, $negative) {
+fn int_fits($integer, $negative) {
     $digits = $integer;
     $limit = "9223372036854775807";
     if ($negative) {
@@ -363,7 +365,7 @@ fn json_int_fits($integer, $negative) {
 
 // A code point written as UTF-8 bytes: each continuation byte carries the low 6 bits of
 // what is left, so the tail is shifted away 6 bits at a time
-fn json_utf8($code_point) {
+fn utf8($code_point) {
     if ($code_point < 0x80) {
         return chr($code_point);
     }
@@ -381,7 +383,7 @@ fn json_utf8($code_point) {
 // --- Encoding ---
 
 // A string as a JSON string: quote, backslash and control characters escaped
-fn json_encode_string($string) {
+fn encode_string($string) {
     $escapes = {"\"" => "\\\"", "\\" => "\\\\", "\n" => "\\n", "\r" => "\\r", "\t" => "\\t", "\f" => "\\f", chr(8) => "\\b"};
     $hex = "0123456789abcdef";
     $result = "";

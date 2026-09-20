@@ -1,5 +1,7 @@
 // The self-hosted parser as the library the code generator will include: a tree to walk, a
 // ParseError to catch. That it builds the right tree is tests/SelfHostedParserTest.php's job.
+namespace gazlang;
+
 include "../check.gaz";
 include "../../../compiler/parser.gaz";
 
@@ -60,7 +62,7 @@ check("the variables of a tree 6000 operators deep, in source order", keys($vari
 
 // A path that is no file is only a name for the source, so its includes are relative to the
 // working directory, as they are without a path
-$root = Parser(Lexer("include \"lib/chars.gaz\"; echo is_digit(\"1\");"), "no/such/file.gaz").parse();
+$root = Parser(Lexer("include \"lib/chars.gaz\"; echo chars::is_digit(\"1\");"), "no/such/file.gaz").parse();
 check("includes of source named by a path that is no file", class_of($root.statements[len($root.statements) - 1]) == EchoStatementAST, true);
 check("and its nodes have the name", $root.statements[len($root.statements) - 1].file, "no/such/file.gaz");
 

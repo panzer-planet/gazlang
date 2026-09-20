@@ -8,9 +8,9 @@ design is in [CLAUDE.md](../CLAUDE.md); what the language *is* is in
 
 | Path | What it does |
 | --- | --- |
-| `compiler/` | the front end, in GazLang: `lexer.gaz`, `parser.gaz` and `nodes.gaz`, `codegen.gaz`, and `gazlang.gaz`, the driver, which prints what `-c`, `--tokens` or `--ast` would (`gazlang.gaz -- code\|tokens\|ast [FILE]`, reading piped source without a FILE). `gazlang.gzb` is its bytecode, checked in |
+| `compiler/` | the front end, in GazLang, all of it `namespace gazlang;`: `lexer.gaz`, `parser.gaz` and `nodes.gaz`, `codegen.gaz`, and `gazlang.gaz`, the driver, which prints what `-c`, `--tokens` or `--ast` would (`gazlang.gaz -- code\|tokens\|ast [FILE]`, reading piped source without a FILE). `gazlang.gzb` is its bytecode, checked in |
 | `vm/` | the VM in C, built as `bin/gazlang` with `gazlang.gzb` inside it: it runs source by compiling it with that first. `vm/gazvm.h` says which file does what |
-| `lib/` | the standard library, written in GazLang |
+| `lib/` | the standard library, written in GazLang, a namespace per file (`json::decode`, `chars::is_digit`) |
 | `examples/` | sample programs |
 | `tests/` | PHPUnit, which runs `bin/gazlang`; `tests/gaz/` GazLang programs; the corpora `lexer_corpus/`, `parser_corpus/`, `codegen_corpus/`, `vm_corpus/` and `bytecode_corpus/`; `cli/`; and `expected/`, what every program must print |
 

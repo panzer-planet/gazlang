@@ -1,5 +1,5 @@
 include "../check.gaz";
-include "../../../lib/format.gaz";
+include "../../../lib/format.gaz" use number as format_number, pad_left, pad_right;
 
 check("two decimals by default", format_number(1234.5), "1,234.50");
 check("thousands", format_number(1234567.891, 1), "1,234,567.9");
