@@ -256,9 +256,34 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   no output shows. One connection per request; keep-alive, proxies, compression and HTTP/2 wait
   for a program that needs them.
 - **Decided, not built**: `interface`/`implements` (a parse-time check that the methods exist,
-  plus `is_a`), `final`, and `private`/`protected` with public implicit (`#` and `##` checked at
-  parse time, `$obj.name` when it runs, against the running method's class; a parent's private
-  field is invisible to children, which may then declare their own). The keywords are reserved.
+  plus `is_a`), and `final`. The keywords are reserved.
+- **Decided, not built: `kind`, and members private unless `pub`.** Three changes that only
+  make sense together, since each is what makes the next one cheap.
+  - **A class's members are private unless `pub`**, the flip of what they are today, and the
+    *same word with the same meaning* as a namespace's: `pub` says this name escapes the thing
+    it is written in, whether that thing is a file or a class. One keyword for the whole
+    language, so the "opposite defaults, worth saying out loud once" paragraph stops needing
+    to exist. Measured on `compiler/` and `lib/`, 258 of 435 members are never reached from
+    outside, so public-by-default marks 258 and private-by-default marks 177: the flip is less
+    marking as well as fewer words, and the old default was fighting the code.
+  - **`kin` is the middle level**, visible to the class and everything that extends it, so
+    the ladder is unmarked (mine) → `kin` (mine and my children's) → `pub` (anyone's).
+    `protected` earns a rename where `class` does not: it is famously misnamed, since it
+    protects less than the default does, and naming the level after *who can see it* is what
+    the word should have done. `kin` and `kind` are one root (kin, kind, kindred), which is
+    why they belong together rather than being a rhyme.
+  - **`class` becomes `kind`**, which is what a class is: a kind of thing. `extends` stays,
+    being both accurate and read by everyone. This reaches further than a keyword, because
+    `"class"` is a value and not only syntax: `class_of()` becomes `kind_of()`, `type_of()`
+    gives `"kind"`, `echo Point` prints `kind Point`, the bytecode block header and its
+    errors change, and about 300 recorded files move with them. It is the one rename that
+    describes the thing better rather than differently; `house` and `form` were the other
+    finalists, and `house` lost for asking the rest of the language to join its metaphor.
+  - Consequences to settle while building: `Error`'s members are reached by every program
+    (`$e.message`), so the builtin class declares them `pub`; a static is a member, so
+    `pub static #count` and `kin static #count` are the spellings; `kind` and `kin` are
+    reserved, and `public`/`private`/`protected` stay reserved only to say "write `pub`" and
+    "write `kin`", the way `function` says to write `fn`.
 - **Namespaces** are resolved by the parser, so the VM never learns the word and bytecode only
   sees longer names: functions and classes carry `::`, while a method block stays
   `Class.method`, which is what lets the loader tell the two apart. Resolution is one pass
@@ -268,9 +293,9 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - **A name is private to its namespace unless `pub`**: a file is implementation, and only
     what it says is public escapes it. Privacy is per namespace, not per file, so `compiler/`'s
     five files declare `namespace gazlang;` and go on seeing each other's everything, and a
-    test of the internals joins the namespace rather than making them public. This is the
-    opposite default to a class's members, which stay public unless `private`/`protected`,
-    because a class is an interface: worth saying out loud once, since one language holds both.
+    test of the internals joins the namespace rather than making them public. A class's
+    members are the other way round today; the decision above makes them the same, so `pub`
+    means one thing everywhere.
   - **`include "chars.gaz" use is_digit, char_at as at;`** is the only way to bring a name in
     unqualified. Including a file always makes its namespace reachable qualified
     (`chars::is_digit`); the clause only adds aliases, and names in it are bare, since the
@@ -310,8 +335,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     running one would bring initialisation order and bytecode before the top level. It is
     required, since a slot with nothing in it would need the quiet load a static never wants.
   - **Assigned from anywhere** (`Counter::count = 1`, `#count++`, `Counter::rows[] = $r`),
-    since a class's members are public unless `private`/`protected` says otherwise, and
-    `private static` will then give the class its state back without a rule of its own. Both
+    since a class's members are public today; once they are private unless `pub`, a static
+    that says nothing is the class's own and needs no rule of its own to protect it. Both
     spellings compile to the same instruction, since `::` resolves when it is parsed; the cost
     was a fifth root for `store_path()` next to a local, a global, a capture and `#`, and the
     check refusing `Class::NAME = ...` that mirrors the one refusing `#NAME[0] = 1`.
