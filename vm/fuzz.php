@@ -734,7 +734,7 @@ final class ProgramGenerator
     {
         $out = "kind C{$k}".($kind['parent'] === null ? '' : " extends C{$kind['parent']}")." {\n";
         for ($f = 0; $f < $kind['fields']; $f++) {
-            $out .= "    #c{$k}x{$f}".($this->chance(2) ? ' = '.$this->literal() : '').";\n";
+            $out .= '    '.$this->escapes()."#c{$k}x{$f}".($this->chance(2) ? ' = '.$this->literal() : '').";\n";
         }
         $this->scope = ['kind' => 'method', 'index' => -1, 'owner' => $k, 'params' => $kind['arity'], 'loop' => 0];
         $params = implode(', ', array_map(fn ($p) => "\$p{$p}", range(0, $kind['arity'] - 1)));
@@ -745,14 +745,24 @@ final class ProgramGenerator
         $out .= $this->locals(8).$this->block(8)."    }\n";
         foreach ($kind['methods'] as $m => $arity) {
             $this->scope = ['kind' => 'method', 'index' => $m, 'owner' => $k, 'params' => $arity, 'loop' => 0];
-            $out .= "    fn c{$k}m{$m}(".($arity > 0 ? '$p0' : '').") {\n".$this->locals(8).$this->block(8)."    }\n";
+            $out .= '    '.$this->escapes()."fn c{$k}m{$m}(".($arity > 0 ? '$p0' : '').") {\n".$this->locals(8).$this->block(8)."    }\n";
         }
         if ($this->chance(2)) {
             // One field, so printing an object that holds itself recurses once per level, not twice
-            $out .= "    fn to_string() { return \"C{$k}<\" .. (#c{$k}x0 ?? \"\") .. \">\"; }\n";
+            $out .= "    pub fn to_string() { return \"C{$k}<\" .. (#c{$k}x0 ?? \"\") .. \">\"; }\n";
         }
 
         return $out."}\n";
+    }
+
+    /**
+     * How far a generated member escapes its kind. Never nothing: a generated method reads its
+     * ancestors' fields and the top level reads a constructed object's, so a member that
+     * escaped only its own kind would make most programs fail to compile rather than run.
+     */
+    private function escapes(): string
+    {
+        return $this->chance(4) ? 'kin ' : 'pub ';
     }
 
     /**
