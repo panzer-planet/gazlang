@@ -1,0 +1,9 @@
+// A second file of the same namespace: privacy is per namespace, not per file, so this one
+// sees json.gaz's private names
+namespace json;
+
+include "json.gaz";
+
+pub fn twice($text) {
+    return scan($text) .. scan($text);
+}

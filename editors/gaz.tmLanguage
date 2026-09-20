@@ -153,19 +153,19 @@
 					<key>name</key>
 					<string>keyword.control.gaz</string>
 					<key>match</key>
-					<string>\b(echo|if|else|while|for|foreach|as|break|continue|return|match|default|delete|try|catch|finally|include)\b</string>
+					<string>\b(echo|if|else|while|for|foreach|as|break|continue|return|match|default|delete|try|catch|finally|include|use)\b</string>
 				</dict>
 				<dict>
 					<key>name</key>
 					<string>storage.type.gaz</string>
 					<key>match</key>
-					<string>\b(fn|class|interface|const)\b</string>
+					<string>\b(fn|class|interface|const|namespace)\b</string>
 				</dict>
 				<dict>
 					<key>name</key>
 					<string>storage.modifier.gaz</string>
 					<key>match</key>
-					<string>\b(abstract|extends|implements|final|public|private|protected)\b</string>
+					<string>\b(abstract|extends|implements|final|public|private|protected|pub)\b</string>
 				</dict>
 				<dict>
 					<key>name</key>

@@ -1,0 +1,2 @@
+include "lib/json.gaz";
+echo json::scan("x");

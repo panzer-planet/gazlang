@@ -1,0 +1,152 @@
+Compound
+  statements:
+@ "tests/parser_corpus/namespaces/lib/json.gaz"
+    0: FunctionDeclaration 7
+      name: "json::decode"
+      params: ["\$text"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: ReturnStatement 8
+            expr: FunctionCall 8
+              name: "json::scan"
+              args:
+                0: Variable 8
+                  token: 8 VAR_IDENTIFIER $text
+                  value: "\$text"
+      arity: 1
+      class: null
+      abstract: false
+    1: FunctionDeclaration 11
+      name: "json::scan"
+      params: ["\$text"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: ReturnStatement 12
+            expr: BinOp 12
+              left: BinOp 12
+                left: String 12
+                  token: 12 STRING "<"
+                  value: "<"
+                token: 12 CONCAT ..
+                op: 12 CONCAT ..
+                right: Variable 12
+                  token: 12 VAR_IDENTIFIER $text
+                  value: "\$text"
+              token: 12 CONCAT ..
+              op: 12 CONCAT ..
+              right: String 12
+                token: 12 STRING ">"
+                value: ">"
+      arity: 1
+      class: null
+      abstract: false
+    2: ClassDeclaration 15
+      name: "json::Reader"
+      parent: null
+      abstract: false
+      fields: []
+      field_lines: []
+      methods: []
+      constants:
+        EOF: String 16
+          token: 16 STRING "eof"
+          value: "eof"
+      constant_lines: {"EOF" => 16}
+      constant_owners: {"EOF" => "json::Reader"}
+      layout: []
+      members: []
+      abstract_methods: []
+@ "tests/parser_corpus/namespaces/lib/more.gaz"
+    3: FunctionDeclaration 7
+      name: "json::twice"
+      params: ["\$text"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: ReturnStatement 8
+            expr: BinOp 8
+              left: FunctionCall 8
+                name: "json::scan"
+                args:
+                  0: Variable 8
+                    token: 8 VAR_IDENTIFIER $text
+                    value: "\$text"
+              token: 8 CONCAT ..
+              op: 8 CONCAT ..
+              right: FunctionCall 8
+                name: "json::scan"
+                args:
+                  0: Variable 8
+                    token: 8 VAR_IDENTIFIER $text
+                    value: "\$text"
+      arity: 1
+      class: null
+      abstract: false
+@ "tests/parser_corpus/namespaces/lib/plain.gaz"
+    4: FunctionDeclaration 2
+      name: "plain"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 3
+            expr: String 3
+              token: 3 STRING "plain"
+              value: "plain"
+      arity: 0
+      class: null
+      abstract: false
+@ "tests/parser_corpus/namespaces/main.gaz"
+    5: EchoStatement 7
+      expr: BinOp 7
+        left: FunctionCall 7
+          name: "json::decode"
+          args:
+            0: String 7
+              token: 7 STRING "a"
+              value: "a"
+        token: 7 CONCAT ..
+        op: 7 CONCAT ..
+        right: FunctionCall 7
+          name: "json::decode"
+          args:
+            0: String 7
+              token: 7 STRING "b"
+              value: "b"
+    6: EchoStatement 8
+      expr: BinOp 8
+        left: FunctionRef 8
+          name: "json::LIMIT"
+          constant: true
+          value: 4
+        token: 8 CONCAT ..
+        op: 8 CONCAT ..
+        right: FunctionRef 8
+          name: "json::LIMIT"
+          constant: true
+          value: 4
+    7: EchoStatement 9
+      expr: BinOp 9
+        left: FunctionRef 9
+          name: "json::Reader::EOF"
+          constant: true
+          value: "eof"
+        token: 9 CONCAT ..
+        op: 9 CONCAT ..
+        right: FunctionRef 9
+          name: "json::Reader::EOF"
+          constant: true
+          value: "eof"
+    8: EchoStatement 10
+      expr: FunctionCall 10
+        name: "json::twice"
+        args:
+          0: String 10
+            token: 10 STRING "c"
+            value: "c"
+    9: EchoStatement 11
+      expr: FunctionCall 11
+        name: "plain"
+        args: []

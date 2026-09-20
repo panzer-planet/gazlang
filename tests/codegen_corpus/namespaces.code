@@ -1,0 +1,99 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals
+@ "namespaces.gaz" 36
+PUSH "a"
+CALL json::decode 1
+PRINT
+@ "namespaces.gaz" 37
+PUSH "b"
+CALL json::decode 1
+PRINT
+@ "namespaces.gaz" 38
+PUSH "c"
+NEW json::Strict 1
+GET_METHOD read
+CALL_METHOD 0 read
+PRINT
+
+fn json::decode 1 1
+locals $text
+@ "namespaces.gaz" 9
+LOAD 0
+CALL json::read 1
+RET
+@ "namespaces.gaz" 8
+PUSH null
+RET
+
+fn json::read 1 1
+locals $text
+@ "namespaces.gaz" 14
+LOAD 0
+NEW json::Reader 1
+GET_METHOD read
+CALL_METHOD 0 read
+RET
+@ "namespaces.gaz" 13
+PUSH null
+RET
+
+class json::Reader
+field text json::Reader
+method _ json::Reader
+method read json::Reader
+locals $#argument_0
+@ "namespaces.gaz" 17
+CALL_CONSTRUCTOR json::Reader
+POP
+LOAD_THIS
+RET
+
+fn json::Reader._ 1 1
+locals $text
+@ "namespaces.gaz" 22
+LOAD 0
+SET_FIELD text
+POP
+@ "namespaces.gaz" 21
+PUSH null
+RET
+
+fn json::Reader.read 0 0
+locals
+@ "namespaces.gaz" 26
+LOAD_FIELD text
+PUSH "eof"
+CONCAT
+PUSH 4
+CONCAT
+PUSH 4
+CONCAT
+RET
+@ "namespaces.gaz" 25
+PUSH null
+RET
+
+class json::Strict extends json::Reader
+field text json::Reader
+method _ json::Reader
+method read json::Strict
+locals $#argument_0
+@ "namespaces.gaz" 30
+CALL_CONSTRUCTOR json::Reader
+POP
+LOAD_THIS
+RET
+
+fn json::Strict.read 0 0
+locals
+@ "namespaces.gaz" 32
+PUSH "!"
+CALL_PARENT json::Reader read 0
+CONCAT
+RET
+@ "namespaces.gaz" 31
+PUSH null
+RET

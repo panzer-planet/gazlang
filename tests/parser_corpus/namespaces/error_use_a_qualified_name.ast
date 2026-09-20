@@ -1,0 +1,1 @@
+Error: A name in a use clause is bare: the file it comes from is the string before it, so write 'json', not 'json::...' at tests/parser_corpus/namespaces/error_use_a_qualified_name.gaz:1

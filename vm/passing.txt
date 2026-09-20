@@ -678,6 +678,7 @@ tests/codegen_corpus/expressions.gaz
 tests/codegen_corpus/functions.gaz
 tests/codegen_corpus/includes.gaz
 tests/codegen_corpus/locations.gaz
+tests/codegen_corpus/namespaces.gaz
 tests/codegen_corpus/statements.gaz
 tests/fixtures/bytecode/example.gaz
 tests/fixtures/bytecode/fails.gaz
@@ -744,6 +745,11 @@ tests/parser_corpus/lists_and_maps.gaz
 tests/parser_corpus/literals.gaz
 tests/parser_corpus/locations.gaz
 tests/parser_corpus/match.gaz
+tests/parser_corpus/namespaces/lib/json.gaz
+tests/parser_corpus/namespaces/lib/mid.gaz
+tests/parser_corpus/namespaces/lib/more.gaz
+tests/parser_corpus/namespaces/lib/plain.gaz
+tests/parser_corpus/namespaces/main.gaz
 tests/parser_corpus/no_error_class.gaz
 tests/parser_corpus/postfix.gaz
 tests/parser_corpus/precedence.gaz

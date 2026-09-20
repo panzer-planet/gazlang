@@ -147,6 +147,39 @@ class Parser {
     // reached by name, with ::, and the dot goes through a value
     #dot_on_names = [];
 
+    // The namespace the file being parsed declares, "" when it declares none, so that its
+    // names are global. Saved and restored around an include, as #file is.
+    #namespace = "";
+    // This file's aliases, each bare name an `include ... use` brought in to what it means
+    #aliases = {};
+    // The namespaces this file may write: its own, and every one it includes itself. There
+    // is no standalone use, so naming one a file it includes happens to include is refused.
+    #reachable = {};
+    // Each file's [namespace, aliases, reachable] once it is parsed, since a name is only
+    // resolved when the whole program is read. #scope is the current file's index here, and
+    // 0 is the global scope the builtin classes are parsed in.
+    #scopes = [["", {}, {}]];
+    #scope = 0;
+    // Whether anything has been parsed in this file, since namespace must come first
+    #file_started = false;
+    // The real path of the file being parsed, which is how a namespace is recorded against
+    // it as soon as it is declared, so a cycle back into it still finds it
+    #real_file = null;
+    // The namespace each file declares, by real path, so a `use` on a file already included
+    // is still checked against it
+    #file_namespaces = {};
+    // Every namespace any file declares
+    #namespaces = {};
+    // The namespace each declared top level name is in, and which of them are pub
+    #declared_in = {};
+    #public = {};
+    // Every class's parent and every catch clause's class, as [class or node, scope], since
+    // both name a class that is resolved once the whole program is read
+    #parent_names = [];
+    // Every name an `include ... use` clause brought in, as [qualified name, file, line,
+    // scope], checked once the whole program is read as any other use of it is
+    #alias_uses = [];
+
     // Every class a catch clause names, as [name, line, file]
     #catch_types = [];
 
@@ -228,7 +261,9 @@ class Parser {
         $real_path = $path != null && file_exists($path) ? real_path($path) : null;
         if ($real_path != null) {
             #included[$real_path] = true;
+            #file_namespaces[$real_path] = "";
         }
+        #real_file = $real_path;
         #base_dir = $real_path != null ? #dirname($real_path) : cwd();
         // The main file is shown as the user gave it; included files relative to the working directory
         #file = $path;
@@ -351,7 +386,7 @@ class Parser {
     // first token, which is where it is located however many :: the name has.
     fn function_call($name, $at) {
         $node = #at(FunctionCallAST($name, #arguments()), $at);
-        #uses[] = $node;
+        #uses[] = [$node, #scope];
 
         return $node;
     }
@@ -425,7 +460,7 @@ class Parser {
                 return #function_call($name, $token);
             }
             $node = #at(FunctionRefAST($name), $token);
-            #uses[] = $node;
+            #uses[] = [$node, #scope];
 
             return $node;
         } else if ($type == "MATCH") {
@@ -1183,7 +1218,7 @@ class Parser {
             $class = null;
             if (#current_token.type == "IDENTIFIER") {
                 $class = #current_token.value;
-                #catch_types[] = [$class, #current_token.line, #file];
+                #catch_types[] = [$class, #current_token.line, #file, #scope];
                 #eat("IDENTIFIER");
             }
             $variable = #variable();
@@ -1276,17 +1311,18 @@ class Parser {
     //
     // Only allowed at the top level, which is also why break and continue can
     // never reach a caller's loop: a declaration is never inside a loop.
-    fn function_declaration() {
+    fn function_declaration($pub) {
         $start = #current_token;
         #eat("FN");
         #check_new_name();
-        $name = #current_token.value;
+        $name = #qualify(#current_token.value);
         #eat("IDENTIFIER");
 
         [$params, $defaults] = #parameters("function {$name}");
         // Declared before the body is parsed, so the function can call itself
         $arity = #arity($params, $defaults);
         #functions[$name] = $arity;
+        #declare($name, $pub);
 
         #in_function = true;
         $body = #block();
@@ -1303,7 +1339,7 @@ class Parser {
         if (#current_token.type != "IDENTIFIER") {
             return;
         }
-        $name = #current_token.value;
+        $name = #qualify(#current_token.value);
         if (has_key(#builtins, $name)) {
             #fail("{$name} is a builtin function");
         } else if (has_key(#classes, $name) && #classes[$name].file == #BUILTIN_FILE) {
@@ -1360,7 +1396,7 @@ class Parser {
     // program is read. A field's default is evaluated for each new object, with #
     // being that object and no local variables. Methods may be named with any word,
     // keywords included, since they are always reached through # or a dot.
-    fn class_declaration() {
+    fn class_declaration($pub = false) {
         $start = #current_token;
         $abstract = $start.type == "ABSTRACT";
         if ($abstract) {
@@ -1368,17 +1404,21 @@ class Parser {
         }
         #eat("CLASS");
         #check_new_name();
-        $name = #current_token.value;
+        $name = #qualify(#current_token.value);
         #eat("IDENTIFIER");
         $parent = null;
         if (#current_token.type == "EXTENDS") {
             #eat("EXTENDS");
-            $parent = #current_token.value;
+            $parent = #qualified_name(#current_token.value);
             #eat("IDENTIFIER");
         }
 
         $class = #at(ClassDeclarationAST($name, $parent, $abstract), $start);
         #classes[$name] = $class;
+        #declare($name, $pub);
+        if ($parent != null) {
+            #parent_names[] = [$class, #scope];
+        }
         #eat("LEFT_BRACE");
         #class = $class;
         while (#current_token.type != "RIGHT_BRACE") {
@@ -1429,7 +1469,7 @@ class Parser {
     // whole program is read (see fold()), and a use of the constant is then that value, so
     // neither backend knows constants exist. A top level constant shares the namespace of
     // functions and classes; a class's shares the one its fields and methods are in.
-    fn constant_declaration($class) {
+    fn constant_declaration($class, $pub = false) {
         #eat("CONST");
         $token = #current_token;
         $name = $token.value;
@@ -1451,11 +1491,128 @@ class Parser {
         #eat("SEMICOLON");
 
         if ($class == null) {
+            $name = #qualify($name);
             #constants[$name] = [$expr, null, $name];
+            #declare($name, $pub);
         } else {
             $class.constants[$name] = $expr;
             $class.constant_lines[$name] = $token.line;
             #constants["{$class.name}::{$name}"] = [$expr, $class, "{$class.name}::{$name}"];
+        }
+    }
+
+    // A name declared in the file being parsed, with its namespace on it
+    fn qualify($name) {
+        return #namespace == "" ? $name : "{#namespace}::{$name}";
+    }
+
+    // Record a top level declaration's namespace and whether it escapes it
+    fn declare($name, $pub) {
+        #declared_in[$name] = #namespace;
+        if ($pub) {
+            #public[$name] = true;
+        }
+    }
+
+    // Whether a top level name is declared, as a function, a class or a constant
+    fn declared($name) {
+        return has_key(#functions, $name) || has_key(#classes, $name) || has_key(#constants, $name);
+    }
+
+    // Start a file's own namespace and aliases, giving what leave_file() puts back
+    fn enter_file() {
+        $saved = [#namespace, #aliases, #reachable, #scope, #file_started];
+        [#namespace, #aliases, #reachable, #file_started] = ["", {}, {}, false];
+        #scope = len(#scopes);
+        #scopes[] = ["", {}, {}];
+
+        return $saved;
+    }
+
+    // Keep what the file ended with, for the names in it to be resolved against later
+    fn leave_file($saved) {
+        #scopes[#scope] = [#namespace, #aliases, #reachable];
+        [#namespace, #aliases, #reachable, #scope, #file_started] = $saved;
+    }
+
+    // The declared name a name written in $scope means: the current namespace first, then
+    // the file's aliases, then the global namespace, which is where the builtins are
+    //
+    // Only the first part is resolved, since a namespace holds no namespace: Token::EOF in
+    // namespace gazlang is gazlang::Token::EOF, and json::decode is already what it means.
+    fn resolve($name, $scope, $file, $line) {
+        [$namespace, $aliases, $reachable] = #scopes[$scope];
+        [$head, $rest] = #split_head($name);
+
+        if ($namespace != "" && #declared("{$namespace}::{$head}")) {
+            return "{$namespace}::{$head}{$rest}";
+        }
+        if (has_key($aliases, $head)) {
+            return $aliases[$head] .. $rest;
+        }
+        if ($rest != "" && has_key(#namespaces, $head) && !has_key($reachable, $head)) {
+            #fail_at("Namespace {$head} is not included here: a file can only name what it includes itself", $file, $line);
+        }
+
+        return $name;
+    }
+
+    // A name's first part and everything after it, the rest keeping its leading ::
+    fn split_head($name) {
+        $parts = split($name, "::");
+        $head = $parts[0];
+        delete $parts[0];
+
+        return [$head, len($parts) == 0 ? "" : "::" .. join($parts, "::")];
+    }
+
+    // The declared top level name a resolved name is part of, or null: json::Reader::EOF is
+    // the class json::Reader, and its visibility is the one that governs
+    fn declared_entity($name) {
+        while (true) {
+            if (#declared($name)) {
+                return $name;
+            }
+            if (!contains($name, "::")) {
+                return null;
+            }
+            [$name, $last] = #split_name($name);
+        }
+    }
+
+    // A name is private to its namespace unless pub, which is why a file is implementation
+    // and only what it says is public escapes it
+    fn check_visible($name, $scope, $file, $line) {
+        $entity = #declared_entity($name);
+        if ($entity == null) {
+            return;
+        }
+        $in = #declared_in[$entity] ?? "";
+        if ($in != "" && $in != #scopes[$scope][0] && !has_key(#public, $entity)) {
+            #fail_at("{$entity} is not pub, so only namespace {$in} can use it", $file, $line);
+        }
+    }
+
+    // Resolve every name a file wrote, before anything is checked, so the rest of the parser
+    // only ever sees the name a declaration made
+    fn resolve_names() {
+        foreach (#alias_uses as [$name, $file, $line, $scope]) {
+            if (!#declared($name) && #constant_key($name) == null) {
+                #fail_at("Undefined function or constant: {$name}", $file, $line);
+            }
+            #check_visible($name, $scope, $file, $line);
+        }
+        foreach (#uses as [$node, $scope]) {
+            $node.name = #resolve($node.name, $scope, $node.file, $node.line);
+            #check_visible($node.name, $scope, $node.file, $node.line);
+        }
+        foreach (#parent_names as [$class, $scope]) {
+            $class.parent = #resolve($class.parent, $scope, $class.file, $class.line);
+            #check_visible($class.parent, $scope, $class.file, $class.line);
+        }
+        foreach (#catch_types as $i => [$name, $line, $file, $scope]) {
+            #catch_types[$i][0] = #resolve($name, $scope, $file, $line);
+            #check_visible(#catch_types[$i][0], $scope, $file, $line);
         }
     }
 
@@ -1691,15 +1848,19 @@ class Parser {
         return $class == null ? null : #class_constant($class, $last);
     }
 
-    // What is wrong with a qualified name nothing declares, or null if the name has no ::
+    // What is wrong with a qualified name nothing declares, or null when the name has no ::
+    // or names a namespace, where being undefined is all there is to say
     fn qualified_error($name) {
         if (!contains($name, "::")) {
             return null;
         }
         [$prefix, $last] = #split_name($name);
         $class = #classes[$prefix] ?? null;
+        if ($class != null) {
+            return "Class {$class.name} has no constant {$last}";
+        }
 
-        return $class == null ? #not_a_class($prefix) : "Class {$class.name} has no constant {$last}";
+        return has_key(#namespaces, #split_head($name)[0]) ? null : #not_a_class($prefix);
     }
 
     // Parse a method declaration ([ABSTRACT] FN name parameters (block | SEMICOLON)) into its class
@@ -1829,10 +1990,15 @@ class Parser {
     fn program() {
         $error_class = #builtin_classes();
         $root = CompoundAST();
+        $saved = #enter_file();
         $root.statements = #top_level();
+        #leave_file($saved);
+        // Every name a file wrote becomes the name a declaration made, before anything below
+        // is checked, so only this pass ever learns that namespaces exist
+        #resolve_names();
         // Error is only compiled into programs that can catch, name or extend it
         $uses_error = #catches;
-        foreach (#uses as $use) {
+        foreach (#uses as [$use, $scope]) {
             $uses_error = $uses_error || $use.name == "Error";
         }
         foreach (#classes as $class) {
@@ -1841,7 +2007,7 @@ class Parser {
         if ($uses_error) {
             $root.statements = [$error_class, ...$root.statements];
         }
-        foreach (#catch_types as [$name, $line, $file]) {
+        foreach (#catch_types as [$name, $line, $file, $scope]) {
             if (!has_key(#classes, $name)) {
                 #fail_at(#not_a_class($name), $file, $line);
             }
@@ -1866,7 +2032,7 @@ class Parser {
         foreach (#parent_uses as [$node, $class]) {
             #check_parent_use($node, $class);
         }
-        foreach (#uses as $use) {
+        foreach (#uses as [$use, $scope]) {
             $constant = #constant_key($use.name);
             if ($constant != null) {
                 if (is_a($use, FunctionCallAST)) {
@@ -1891,11 +2057,11 @@ class Parser {
 
                 continue;
             }
-            $error = #qualified_error($use.name);
-            if ($error != null) {
-                #fail_at($error, $use.file, $use.line);
-            }
             if (!has_key(#functions, $use.name)) {
+                $error = #qualified_error($use.name);
+                if ($error != null) {
+                    #fail_at($error, $use.file, $use.line);
+                }
                 $hint = has_key(Lexer::KEYWORDS, lower($use.name))
                     ? " (keywords are lowercase: write '" .. lower($use.name) .. "', not '{$use.name}')"
                     : "";
@@ -2115,20 +2281,59 @@ class Parser {
     fn top_level() {
         $statements = [];
         while (#current_token.type != "EOF") {
-            if (#current_token.type == "FN") {
-                $statements[] = #function_declaration();
-            } else if (#current_token.type == "CLASS" || #current_token.type == "ABSTRACT") {
-                $statements[] = #class_declaration();
-            } else if (#current_token.type == "CONST") {
-                #constant_declaration(null);
+            if (#current_token.type == "NAMESPACE") {
+                #namespace_declaration();
+            } else if (#current_token.type == "PUB" || #current_token.type == "FN"
+                || #current_token.type == "CLASS" || #current_token.type == "ABSTRACT"
+                || #current_token.type == "CONST") {
+                $pub = #current_token.type == "PUB";
+                if ($pub) {
+                    #eat("PUB");
+                }
+                if (#current_token.type == "FN") {
+                    $statements[] = #function_declaration($pub);
+                } else if (#current_token.type == "CLASS" || #current_token.type == "ABSTRACT") {
+                    $statements[] = #class_declaration($pub);
+                } else if (#current_token.type == "CONST") {
+                    #constant_declaration(null, $pub);
+                } else {
+                    #fail("Expected a function (fn), a class or a constant (const) after pub but found " .. #describe(#current_token));
+                }
             } else if (#current_token.type == "INCLUDE") {
                 $statements = [...$statements, ...#include_statement()];
             } else {
                 $statements[] = #statement();
             }
+            #file_started = true;
         }
 
         return $statements;
+    }
+
+    // Parse a namespace declaration (NAMESPACE IDENTIFIER SEMICOLON)
+    //
+    // At most one, first in its file, and optional: a file without one declares its names
+    // globally, as every file did before there were namespaces. Privacy is per namespace,
+    // not per file, so several files can declare the same one and go on seeing everything
+    // of each other's.
+    fn namespace_declaration() {
+        $token = #current_token;
+        #eat("NAMESPACE");
+        if (#namespace != "") {
+            #fail_at("A file can declare at most one namespace", #file, $token.line);
+        }
+        if (#file_started) {
+            #fail_at("namespace must come before everything else in its file", #file, $token.line);
+        }
+        $name = #current_token.value;
+        #eat("IDENTIFIER");
+        #eat("SEMICOLON");
+        #namespace = $name;
+        #namespaces[$name] = true;
+        #reachable[$name] = true;
+        if (#real_file != null) {
+            #file_namespaces[#real_file] = $name;
+        }
     }
 
     // Parse an include (INCLUDE STRING SEMICOLON) and the top level of the included file
@@ -2145,6 +2350,8 @@ class Parser {
             #fail("include paths cannot use interpolation");
         }
         #eat("STRING");
+        $use_token = #current_token;
+        $names = #current_token.type == "USE" ? #use_clause() : [];
         #eat("SEMICOLON");
 
         $relative = $path_token.value;
@@ -2157,19 +2364,76 @@ class Parser {
             #fail_at("Cannot include file: {$relative}", #file, $path_token.line);
         }
         if (has_key(#included, $path)) {
+            $namespace = #file_namespaces[$path] ?? "";
+            if ($namespace != "") {
+                #reachable[$namespace] = true;
+            }
+
             return [];
         }
         #included[$path] = true;
+        #file_namespaces[$path] = "";
 
-        [$lexer, $current_token, $base_dir, $file] = [#lexer, #current_token, #base_dir, #file];
+        [$lexer, $current_token, $base_dir, $file, $real_file] = [#lexer, #current_token, #base_dir, #file, #real_file];
+        $saved = #enter_file();
         #lexer = Lexer($text);
         #base_dir = #dirname($path);
         #file = #display_path($path);
+        #real_file = $path;
         #current_token = #next_token();
         $statements = #top_level();
-        [#lexer, #current_token, #base_dir, #file] = [$lexer, $current_token, $base_dir, $file];
+        $namespace = #namespace;
+        #leave_file($saved);
+        [#lexer, #current_token, #base_dir, #file, #real_file] = [$lexer, $current_token, $base_dir, $file, $real_file];
+        if ($namespace != "") {
+            #reachable[$namespace] = true;
+        }
+        #add_aliases($names, $namespace, $relative, $use_token.line);
 
         return $statements;
+    }
+
+    // Parse an include's use clause (USE name [AS name] (COMMA name [AS name])*)
+    //
+    // The names are bare, since the string already said which file they come from, and the
+    // clause is the only way to bring a name in unqualified: there is no standalone use, so
+    // a file can only name what it includes itself.
+    fn use_clause() {
+        #eat("USE");
+        $names = [];
+        while (true) {
+            $token = #current_token;
+            $name = $token.value;
+            #eat("IDENTIFIER");
+            if (#current_token.type == "DOUBLE_COLON") {
+                #fail("A name in a use clause is bare: the file it comes from is the string before it, so write '{$name}', not '{$name}::...'");
+            }
+            $alias = $name;
+            if (#current_token.type == "AS") {
+                #eat("AS");
+                $alias = #current_token.value;
+                #eat("IDENTIFIER");
+            }
+            $names[] = [$name, $alias, $token.line];
+            if (#current_token.type != "COMMA") {
+                return $names;
+            }
+            #eat("COMMA");
+        }
+    }
+
+    // Add an include's use clause to this file's aliases, now that its namespace is known
+    fn add_aliases($names, $namespace, $relative, $line) {
+        if (len($names) > 0 && $namespace == "") {
+            #fail_at("{$relative} declares no namespace, so there is nothing to use from it", #file, $line);
+        }
+        foreach ($names as [$name, $alias, $at]) {
+            if (has_key(#aliases, $alias)) {
+                #fail_at("{$alias} is already used in this file", #file, $at);
+            }
+            #aliases[$alias] = "{$namespace}::{$name}";
+            #alias_uses[] = ["{$namespace}::{$name}", #file, $at, #scope];
+        }
     }
 
     // Parse the input and return the tree

@@ -1,0 +1,11 @@
+// Including a file makes its namespace reachable qualified; a use clause also brings names
+// in unqualified, bare, since the string already said which file they come from
+include "lib/json.gaz" use decode, LIMIT as CAP, Reader as R;
+include "lib/more.gaz";
+include "lib/plain.gaz";
+
+echo json::decode("a") .. decode("b");
+echo json::LIMIT .. CAP;
+echo json::Reader::EOF .. R::EOF;
+echo json::twice("c");
+echo plain();

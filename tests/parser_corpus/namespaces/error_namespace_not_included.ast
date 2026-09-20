@@ -1,0 +1,1 @@
+Error: Namespace json is not included here: a file can only name what it includes itself at tests/parser_corpus/namespaces/error_namespace_not_included.gaz:2

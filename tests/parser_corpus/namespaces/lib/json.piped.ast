@@ -1,0 +1,60 @@
+Compound
+  statements:
+@ null
+    0: FunctionDeclaration 7
+      name: "json::decode"
+      params: ["\$text"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: ReturnStatement 8
+            expr: FunctionCall 8
+              name: "json::scan"
+              args:
+                0: Variable 8
+                  token: 8 VAR_IDENTIFIER $text
+                  value: "\$text"
+      arity: 1
+      class: null
+      abstract: false
+    1: FunctionDeclaration 11
+      name: "json::scan"
+      params: ["\$text"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: ReturnStatement 12
+            expr: BinOp 12
+              left: BinOp 12
+                left: String 12
+                  token: 12 STRING "<"
+                  value: "<"
+                token: 12 CONCAT ..
+                op: 12 CONCAT ..
+                right: Variable 12
+                  token: 12 VAR_IDENTIFIER $text
+                  value: "\$text"
+              token: 12 CONCAT ..
+              op: 12 CONCAT ..
+              right: String 12
+                token: 12 STRING ">"
+                value: ">"
+      arity: 1
+      class: null
+      abstract: false
+    2: ClassDeclaration 15
+      name: "json::Reader"
+      parent: null
+      abstract: false
+      fields: []
+      field_lines: []
+      methods: []
+      constants:
+        EOF: String 16
+          token: 16 STRING "eof"
+          value: "eof"
+      constant_lines: {"EOF" => 16}
+      constant_owners: {"EOF" => "json::Reader"}
+      layout: []
+      members: []
+      abstract_methods: []

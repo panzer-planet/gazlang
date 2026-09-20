@@ -1,0 +1,16 @@
+Compound
+  statements:
+@ null
+    0: FunctionDeclaration 2
+      name: "plain"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 3
+            expr: String 3
+              token: 3 STRING "plain"
+              value: "plain"
+      arity: 0
+      class: null
+      abstract: false

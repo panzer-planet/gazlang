@@ -1,0 +1,4 @@
+// No namespace, so its names are global, as every file's were before namespaces
+fn plain() {
+    return "plain";
+}

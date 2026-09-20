@@ -1,0 +1,38 @@
+// A namespace is resolved by the parser, so bytecode only sees longer names: every function
+// and class here carries json::, while a method block stays Class.method, which is how the
+// loader tells the two apart.
+namespace json;
+
+pub const LIMIT = 4;
+
+pub fn decode($text) {
+    return read($text);
+}
+
+// Private to the namespace, and called unqualified from inside it
+fn read($text) {
+    return Reader($text).read();
+}
+
+pub class Reader {
+    const EOF = "eof";
+    #text;
+
+    fn _($text) {
+        #text = $text;
+    }
+
+    fn read() {
+        return #text .. Reader::EOF .. LIMIT .. json::LIMIT;
+    }
+}
+
+class Strict extends Reader {
+    fn read() {
+        return "!" .. ##read();
+    }
+}
+
+echo decode("a");
+echo json::decode("b");
+echo Strict("c").read();

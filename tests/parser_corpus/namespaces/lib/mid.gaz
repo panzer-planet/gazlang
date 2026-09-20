@@ -1,0 +1,8 @@
+// Its own namespace, over one it includes itself
+namespace mid;
+
+include "json.gaz";
+
+pub fn go() {
+    return json::decode("m");
+}

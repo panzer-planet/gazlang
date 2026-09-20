@@ -1,0 +1,99 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals
+@ 36
+PUSH "a"
+CALL json::decode 1
+PRINT
+@ 37
+PUSH "b"
+CALL json::decode 1
+PRINT
+@ 38
+PUSH "c"
+NEW json::Strict 1
+GET_METHOD read
+CALL_METHOD 0 read
+PRINT
+
+fn json::decode 1 1
+locals $text
+@ 9
+LOAD 0
+CALL json::read 1
+RET
+@ 8
+PUSH null
+RET
+
+fn json::read 1 1
+locals $text
+@ 14
+LOAD 0
+NEW json::Reader 1
+GET_METHOD read
+CALL_METHOD 0 read
+RET
+@ 13
+PUSH null
+RET
+
+class json::Reader
+field text json::Reader
+method _ json::Reader
+method read json::Reader
+locals $#argument_0
+@ 17
+CALL_CONSTRUCTOR json::Reader
+POP
+LOAD_THIS
+RET
+
+fn json::Reader._ 1 1
+locals $text
+@ 22
+LOAD 0
+SET_FIELD text
+POP
+@ 21
+PUSH null
+RET
+
+fn json::Reader.read 0 0
+locals
+@ 26
+LOAD_FIELD text
+PUSH "eof"
+CONCAT
+PUSH 4
+CONCAT
+PUSH 4
+CONCAT
+RET
+@ 25
+PUSH null
+RET
+
+class json::Strict extends json::Reader
+field text json::Reader
+method _ json::Reader
+method read json::Strict
+locals $#argument_0
+@ 30
+CALL_CONSTRUCTOR json::Reader
+POP
+LOAD_THIS
+RET
+
+fn json::Strict.read 0 0
+locals
+@ 32
+PUSH "!"
+CALL_PARENT json::Reader read 0
+CONCAT
+RET
+@ 31
+PUSH null
+RET

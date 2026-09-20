@@ -1,0 +1,1 @@
+Error: Undefined function or constant: json::nothing at tests/parser_corpus/namespaces/error_use_of_an_undefined_name.gaz:1

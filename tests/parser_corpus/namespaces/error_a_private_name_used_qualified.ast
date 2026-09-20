@@ -1,0 +1,1 @@
+Error: json::scan is not pub, so only namespace json can use it at tests/parser_corpus/namespaces/error_a_private_name_used_qualified.gaz:2

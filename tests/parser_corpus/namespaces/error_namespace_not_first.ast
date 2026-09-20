@@ -1,0 +1,1 @@
+Error: namespace must come before everything else in its file at tests/parser_corpus/namespaces/error_namespace_not_first.gaz:2

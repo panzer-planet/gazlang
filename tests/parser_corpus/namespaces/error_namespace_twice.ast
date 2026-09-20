@@ -1,0 +1,1 @@
+Error: A file can declare at most one namespace at tests/parser_corpus/namespaces/error_namespace_twice.gaz:2

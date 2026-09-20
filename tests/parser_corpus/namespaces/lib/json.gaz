@@ -1,0 +1,17 @@
+// A name is private to its namespace unless pub: a file is implementation, and only what it
+// says is public escapes it
+namespace json;
+
+pub const LIMIT = 4;
+
+pub fn decode($text) {
+    return scan($text);
+}
+
+fn scan($text) {
+    return "<" .. $text .. ">";
+}
+
+pub class Reader {
+    const EOF = "eof";
+}
