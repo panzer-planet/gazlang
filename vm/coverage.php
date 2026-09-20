@@ -2,7 +2,9 @@
 
 // Which lines of the C VM the harness never runs: builds vm/build/gazvm-cov with clang's
 // source-based coverage, runs every entry of vm/passing.txt and every invocation of CliTest's
-// table on it, and prints the summary. GAZVM_STATS is set, as the harness sets it. Both, since the entries never reach the command line's
+// table on it, and prints the summary. GAZVM_STATS is set, as the harness sets it.
+// What stays low is covered elsewhere or by nothing: net.c is HttpTest's, which needs a server
+// and isn't run here, and the rest is what only a failing syscall or a broken platform reaches. Both, since the entries never reach the command line's
 // own code (they are all one shape) and the table is where the options are covered.
 //   php vm/coverage.php           the summary per file
 //   php vm/coverage.php load.c    also every line of load.c that never ran
