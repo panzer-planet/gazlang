@@ -26,7 +26,7 @@ class CliTest extends GazLangTestCase
      *
      * @var array<string, array{0: list<string>, 1?: string|null, 2?: string}>
      */
-    private const CASES = [
+    public const CASES = [
         // Files and program arguments
         'a file' => [['-f', 'args.gaz']],
         'a file with arguments' => [['-f', 'args.gaz', 'x', 'y']],
