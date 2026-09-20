@@ -203,7 +203,7 @@ class ConstTest extends GazLangTestCase
             '#NAME called' => ['class K { const A = 1; fn f() { return #A(); } }', '#A is a constant, not a method on line 1'],
             'a class constant through a dot' => ["class K { const A = 1; }\necho K.A;", "Cannot use . on a class: write 'K::A', not 'K.A' on line 2"],
             'a class constant through a dot in a value' => ["class K { const A = 1; }\nconst B = K.A;", "Cannot use . on a class: write 'K::A', not 'K.A' on line 2"],
-            'Name::NAME called' => ["class K { const A = 1; }\necho K::A();", 'K::A is a constant, not a method on line 2'],
+            'Name::NAME called' => ["class K { const A = 1; }\necho K::A();", 'K::A is a constant, not a function on line 2'],
             'Name::NAME assigned to' => ['class K { const A = 1; } K::A = 2;', 'Can only use = on a variable, or an element or field of one on line 1'],
             '#NAME of another class in a value' => ['const A = #B;', 'Cannot use #B outside a method on line 1'],
             'a constant of a class that has none in a value' => ['class K {} const A = K::B;', 'Class K has no constant B on line 1'],

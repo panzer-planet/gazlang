@@ -2,24 +2,14 @@ Compound
   statements:
 @ "tests/parser_corpus/class_constants.gaz"
     0: EchoStatement 2
-      expr: Property 2
-        target: FunctionRef 2
-          name: "Token"
-          constant: false
-          value: null
-        name: "EOF"
-        field: false
+      expr: FunctionRef 2
+        name: "Token::EOF"
         constant: true
         value: "EOF"
     1: EchoStatement 3
       expr: Index 3
-        target: Property 3
-          target: FunctionRef 3
-            name: "Token"
-            constant: false
-            value: null
-          name: "KINDS"
-          field: false
+        target: FunctionRef 3
+          name: "Token::KINDS"
           constant: true
           value: ["EOF", "EOF!", 2, "other"]
         index: Num 3
@@ -140,13 +130,8 @@ Compound
                   token: 13 CONCAT ..
                   op: 13 CONCAT ..
                   right: Index 13
-                    target: Property 13
-                      target: FunctionRef 13
-                        name: "Token"
-                        constant: false
-                        value: null
-                      name: "KINDS"
-                      field: false
+                    target: FunctionRef 13
+                      name: "Token::KINDS"
                       constant: true
                       value: ["EOF", "EOF!", 2, "other"]
                     index: Num 13
@@ -181,13 +166,8 @@ Compound
                       2: false
                     1:
                       0:
-                        0: Property 14
-                          target: FunctionRef 14
-                            name: "Token"
-                            constant: false
-                            value: null
-                          name: "EOF"
-                          field: false
+                        0: FunctionRef 14
+                          name: "Token::EOF"
                           constant: true
                           value: "EOF"
                       1: Num 14
@@ -286,13 +266,8 @@ Compound
             1:
               0: null
               1: BinOp 6
-                left: Property 6
-                  target: FunctionRef 6
-                    name: "Token"
-                    constant: false
-                    value: null
-                  name: "EOF"
-                  field: false
+                left: FunctionRef 6
+                  name: "Token::EOF"
                   constant: true
                   value: "EOF"
                 token: 6 CONCAT ..
@@ -308,13 +283,8 @@ Compound
                 value: 2
             3:
               0: null
-              1: Property 6
-                target: FunctionRef 6
-                  name: "Other"
-                  constant: false
-                  value: null
-                name: "NAME"
-                field: false
+              1: FunctionRef 6
+                name: "Other::NAME"
                 constant: true
                 value: "other"
           map: false
@@ -369,35 +339,20 @@ Compound
                         value: 4
                     2:
                       0: null
-                      1: Property 21
-                        target: FunctionRef 21
-                          name: "Special"
-                          constant: false
-                          value: null
-                        name: "FOUR"
-                        field: false
+                      1: FunctionRef 21
+                        name: "Special::FOUR"
                         constant: true
                         value: 4
                     3:
                       0: null
-                      1: Property 21
-                        target: FunctionRef 21
-                          name: "Special"
-                          constant: false
-                          value: null
-                        name: "EOF"
-                        field: false
+                      1: FunctionRef 21
+                        name: "Special::EOF"
                         constant: true
                         value: "EOF"
                     4:
                       0: null
-                      1: Property 21
-                        target: FunctionRef 21
-                          name: "Token"
-                          constant: false
-                          value: null
-                        name: "EOF"
-                        field: false
+                      1: FunctionRef 21
+                        name: "Token::EOF"
                         constant: true
                         value: "EOF"
                   map: false
@@ -435,13 +390,8 @@ Compound
                 value: 4
             2:
               0: null
-              1: Property 20
-                target: FunctionRef 20
-                  name: "Special"
-                  constant: false
-                  value: null
-                name: "EOF"
-                field: false
+              1: FunctionRef 20
+                name: "Special::EOF"
                 constant: true
                 value: "EOF"
           map: false
@@ -467,13 +417,8 @@ Compound
       members: []
       abstract_methods: []
     5: EchoStatement 24
-      expr: Property 24
-        target: FunctionRef 24
-          name: "Special"
-          constant: false
-          value: null
-        name: "ALL"
-        field: false
+      expr: FunctionRef 24
+        name: "Special::ALL"
         constant: true
         value: ["EOF", 4, "EOF"]
     6: Statement 26
@@ -509,13 +454,8 @@ Compound
         condition: Boolean 30
           token: 30 TRUE true
           value: true
-        then: Property 30
-          target: FunctionRef 30
-            name: "Token"
-            constant: false
-            value: null
-          name: "EOF"
-          field: false
+        then: FunctionRef 30
+          name: "Token::EOF"
           constant: true
           value: "EOF"
         else: String 30

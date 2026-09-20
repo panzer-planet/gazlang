@@ -9,9 +9,9 @@ include "codegen.gaz";
 class Dumper {
     // What the dump leaves out: where a node is, which the "@" lines and each node's line
     // show, the code generator's (existing), bookkeeping derived from what is shown (resolved),
-    // or indexes into the parser's tables of member and class uses (use and class_use), which
-    // say nothing about the source
-    const SKIPPED = ["line", "file", "existing", "resolved", "use", "class_use"];
+    // or an index into the parser's table of member uses (use), which says nothing about
+    // the source
+    const SKIPPED = ["line", "file", "existing", "resolved", "use"];
 
     // The file of the last node that had a line, false before the first
     #file = false;

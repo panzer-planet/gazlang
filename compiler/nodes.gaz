@@ -141,14 +141,12 @@ class PropertyAST extends AST {
     #name;
     // Whether a #name is a field rather than a method, which the parser knows once the classes are resolved
     #field = false;
-    // Whether this is a class's constant (#NAME or Class::NAME), and if so its value, which the
-    // parser works out once the classes are resolved: a use of a constant is its value
+    // Whether this is a class's constant (#NAME), and if so its value, which the parser
+    // works out once the classes are resolved: a use of a constant is its value
     #constant = false;
     #value = null;
     // Where a #name's record is in Parser.member_uses, or null; not part of the tree
     #use = null;
-    // Where a Name.member's record is in Parser.class_constant_uses, or null; not part of the tree
-    #class_use = null;
     // As IndexAST's
     #existing = false;
 
