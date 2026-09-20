@@ -720,6 +720,12 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     case B_REPEAT: {
         if (!want(index, a, STRING) || !want(index, b, INT)) return false;
         if (b.i < 0) return raisef("repeat() count must not be negative, got %lld", (long long)b.i);
+        /* The length is worked out before anything is allocated, since it would otherwise wrap
+           around and ask for a size that isn't the one it needs */
+        if (b.i != 0 && a.s->len > (SIZE_MAX / 2) / (size_t)b.i) {
+            return raisef("repeat() would make a string of %llu bytes times %lld, which is longer than a string can be",
+                          (unsigned long long)a.s->len, (long long)b.i);
+        }
         Str *s = str_empty(a.s->len * (size_t)b.i);
         for (int64_t i = 0; i < b.i; i++) s = str_append(s, a.s->data, a.s->len);
         *out = v_str(s);

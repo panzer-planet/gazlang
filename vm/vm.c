@@ -770,6 +770,12 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             PUSH(v_list(list_new(0)));
             break;
         case OP_ARRAY_PUSH:
+            /* The list is one NEW_ARRAY made in code the compiler wrote; hand-written bytecode
+               can have anything under the value */
+            if (sp[-2].type != T_LIST) {
+                raisef("ARRAY_PUSH expects a list to append to, got %s", type_name(sp[-2]));
+                goto error;
+            }
             list_push(list_unique(&sp[-2]), sp[-1]);
             sp--;
             break;
@@ -777,6 +783,10 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             a = TOP();
             if (a.type != T_LIST) {
                 raisef("Cannot spread %s: only a list can be", type_name(a));
+                goto error;
+            }
+            if (sp[-2].type != T_LIST) {
+                raisef("ARRAY_EXTEND expects a list to spread into, got %s", type_name(sp[-2]));
                 goto error;
             }
             List *l = list_unique(&sp[-2]);
@@ -791,6 +801,10 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             PUSH(v_map(map_new()));
             break;
         case OP_MAP_SET:
+            if (sp[-3].type != T_MAP) {
+                raisef("MAP_SET expects a map to set the key in, got %s", type_name(sp[-3]));
+                goto error;
+            }
             if (!array_key(sp[-2])) goto error;
             map_set(map_unique(&sp[-3]), sp[-2], sp[-1]);
             decref(sp[-2]);
@@ -1051,6 +1065,12 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
                 sp--;
                 goto call_value;
             }
+            /* GET_METHOD pushed the method and left the object below it; hand-written
+               bytecode can leave anything there, and no walk of the stack can tell */
+            if (method.type != T_ENTRY || callee_slot->type != T_OBJECT) {
+                raisef("CALL_METHOD expects a method of an object, got %s of %s", type_name(method), type_name(*callee_slot));
+                goto error;
+            }
             Entry *entry = method.entry;
             Function *f = entry->function;
             if (!arity_fits(f->lo, f->hi, argc)) {
@@ -1220,10 +1240,14 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             nhandlers--;
             break;
         case OP_CATCH_VALUE:
+            /* The value on top is a catch's error in code the compiler wrote; hand-written
+               bytecode can put anything there, and the loader can't know what a slot holds */
+            if (TOP().type != T_ERROR) { raisef("CATCH_VALUE expects a caught error, got %s", type_name(TOP())); goto error; }
             r = caught(TOP().e);
             set_slot(&TOP(), r);
             break;
         case OP_CATCH_MATCH:
+            if (TOP().type != T_ERROR) { raisef("CATCH_MATCH expects a caught error, got %s", type_name(TOP())); goto error; }
             r = caught(TOP().e);
             if (r.type == T_OBJECT && class_is_a(r.o->cls, in->p)) {
                 set_slot(&TOP(), r);
@@ -1233,6 +1257,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             }
             break;
         case OP_RETHROW:
+            if (TOP().type != T_ERROR) { raisef("RETHROW expects a caught error, got %s", type_name(TOP())); goto error; }
             if (vm_error) decref((Value){.type = T_ERROR, .e = vm_error});
             vm_error = POP().e;
             goto error;
@@ -1306,9 +1331,8 @@ static char *read_all(const char *path, size_t *len) {
     return b.data;
 }
 
-/* What was alive once the program was loaded: the constants in its code, which it holds for
-   the whole run (and, for source, what the compiler's run left, which is nothing but its own
-   constants) */
+/* What was alive before the program was loaded: nothing, or for source what the compiler's run
+   left, which is nothing but its own constants */
 static int64_t loaded;
 
 /* Drop what a finished program still holds: its globals, and everything from the top frame's
@@ -1324,8 +1348,8 @@ static void finish(Value *top) {
 
 /* Run the loaded program from its first instruction, reporting an uncaught error: its exit code.
    With check, GAZVM_STATS then says whether the run freed everything it made: whatever is left
-   once finish() has dropped what the program held, beyond the constants in its code, leaked, a
-   missing decref somewhere. The tests run every program this way, since a leak changes no output. */
+   once finish() has dropped what the program held and then its constants, leaked, a missing
+   decref somewhere. The tests run every program this way, since a leak changes no output. */
 static int run_program(bool check) {
     size_t capacity = (size_t)(MAX_CALL_DEPTH + 4) * (size_t)(program->max_frame + 8) + 1024;
     stack = xcalloc(capacity, sizeof(Value));
@@ -1342,11 +1366,14 @@ static int run_program(bool check) {
     fp->base = stack;
     for (int i = 0; i < top->nlocals; i++) stack[i] = v_unset();
 
-    Value ignored;
+    /* The top level ends by running off its code, which returns nothing; RET there is only
+       written by hand, and the value it returns is dropped */
+    Value returned = v_unset();
     int exit_code = 0;
     Value *held = NULL;
-    if (execute(program->code, frames, &ignored)) {
+    if (execute(program->code, frames, &returned)) {
         held = vm_sp;
+        decref(returned);
     } else {
         Error *thrown = vm_error, *e = thrown;
         if (e->has_value) {
@@ -1376,6 +1403,11 @@ static int run_program(bool check) {
     flush_output();
     finish(held);
     if (check && getenv("GAZVM_STATS")) {
+        /* The constants in the code go too, so that a missing decref on one is a value left
+           over like any other rather than a count one too high on something still held */
+        for (int i = 0; i < program->ncode; i++) {
+            if (program->code[i].orig == OP_PUSH) set_slot(&program->code[i].v, v_unset());
+        }
         fprintf(stderr, "gazvm: %lld values leaked, at most %lld lists, maps, objects and functions alive at once\n",
                 (long long)(counted - loaded), (long long)peak);
     }
@@ -1404,6 +1436,7 @@ typedef struct {
    piped input: onto standard output, or with *text set into memory. Its exit code; it reports its
    own errors on standard error. */
 static int run_front_end(Job *job, const char *mode, char **text, size_t *len) {
+    loaded = counted;
     program = load((const char *)compiler_gzb, compiler_gzb_size, "compiler/gazlang.gzb");
     if (!program) {
         report(vm_error);
@@ -1419,7 +1452,6 @@ static int run_front_end(Job *job, const char *mode, char **text, size_t *len) {
         job->text = NULL;
     }
     if (text) output = open_memstream(text, len);
-    loaded = counted;
     int exit_code = run_program(!text);
     if (text) {
         fclose(output);   /* which also sets text and len */
@@ -1469,6 +1501,7 @@ static void *run(void *arg) {
         job->text = compiled;
         job->len = len;
     }
+    loaded = counted;
     program = load(job->text, job->len, job->path);
     if (!program) {
         report(vm_error);
@@ -1477,7 +1510,6 @@ static void *run(void *arg) {
         job->exit_code = 1;
         return NULL;
     }
-    loaded = counted;
     program_argc = job->argc;
     program_argv = job->argv;
     job->exit_code = run_program(true);

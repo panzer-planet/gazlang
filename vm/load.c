@@ -987,7 +987,8 @@ static void mark_objectless(void) {
     free(work);
 }
 
-typedef struct { int position, height; } Work;
+/* A path to walk: where, how deep the stack is, and how many try handlers are open */
+typedef struct { int position, height, tries; } Work;
 
 /* A label's position in a block's raw instructions, its last definition if it has several, or
    -1. Names are interned, so the table is keyed by the pointer. Built on the first lookup: a
@@ -1028,15 +1029,16 @@ static void check_block(Block *b) {
 #define FAIL(fmt, ...) fail_at(false, fmt " in %s", __VA_ARGS__, where)
 
     int *heights = xmalloc((size_t)(b->nraw + 1) * sizeof(int));
+    int *opens = xmalloc((size_t)(b->nraw + 1) * sizeof(int));
     for (int i = 0; i < b->nraw; i++) heights[i] = -1;
     int nwork = 1, capwork = 16;
     Work *work = xmalloc((size_t)capwork * sizeof(Work));
-    work[0] = (Work){0, 0};
+    work[0] = (Work){0, 0, 0};
     int max = 0;
 
     while (nwork) {
         Work item = work[--nwork];
-        int position = item.position, height = item.height;
+        int position = item.position, height = item.height, tries = item.tries;
         while (position < b->nraw) {
             RawInstr *r = &b->raw[position];
             if (heights[position] >= 0) {
@@ -1048,9 +1050,15 @@ static void check_block(Block *b) {
                     }
                     FAIL("The stack is %d deep at %s (instruction %d), but %d on another path", height, what.data, position, heights[position]);
                 }
+                /* A try's handler is the VM's, not a value on the stack, so where it is open
+                   must be the same on every path, as the depth must */
+                if (opens[position] != tries) {
+                    FAIL("%d try handlers are open at instruction %d, but %d on another path", tries, position, opens[position]);
+                }
                 break;
             }
             heights[position] = height;
+            opens[position] = tries;
             const InstrInfo *info = &INFO[r->op];
 
             for (int i = 0; i < info->nargs; i++) {
@@ -1107,22 +1115,29 @@ static void check_block(Block *b) {
             if (height < pops) {
                 FAIL("%s needs %d value%s but the stack is %d deep at instruction %d", info->name, pops, pops == 1 ? "" : "s", height, position);
             }
+            if (r->op == OP_END_TRY && tries == 0) {
+                FAIL("END_TRY at instruction %d closes a try that no TRY opened", position);
+            }
             height += info->pushes - pops;
             if (height > max) max = height;
 
             /* A jump reaches its label with the stack as it is here; JNN keeps the value it
                tested, and a handler starts one deeper, holding the error */
-            int target = -1, target_height = height;
+            int target = -1, target_height = height, target_tries = tries;
             if (r->op == OP_JMP || r->op == OP_JZ || r->op == OP_JNN || r->op == OP_TRY) {
                 target = find_label(b, r->names[0]);
                 if (r->op == OP_JNN || r->op == OP_TRY) target_height = height + 1;
             } else if (r->op == OP_CATCH_MATCH) {
+                /* Its class didn't match: the next catch is tried with the error still on top */
                 target = find_label(b, r->names[1]);
             }
+            /* A try's handler is open from TRY until END_TRY, or until its catch runs */
+            if (r->op == OP_TRY) tries++;
+            if (r->op == OP_END_TRY) tries--;
             if (target >= 0) {
                 if (target_height > max) max = target_height;
                 if (nwork == capwork) work = xrealloc(work, (size_t)(capwork *= 2) * sizeof(Work));
-                work[nwork++] = (Work){target, target_height};
+                work[nwork++] = (Work){target, target_height, target_tries};
             }
             if (r->op == OP_JMP || r->op == OP_RET || r->op == OP_RETHROW || r->op == OP_HALT) break;
             position++;
@@ -1134,6 +1149,7 @@ static void check_block(Block *b) {
     }
     b->max_stack = max;
     free(heights);
+    free(opens);
     free(work);
 #undef FAIL
 }
@@ -1169,7 +1185,17 @@ static void build_classes(void) {
                 c->hi = c->entries[m].function->hi;
             }
         }
-        if (!strcmp(c->name->data, "Error")) prog->error_class = c;
+        if (!strcmp(c->name->data, "Error")) {
+            /* The VM fills these in for an error the program didn't throw itself (caught() in
+               vm.c), so a class named Error that lacks one would be written outside its fields */
+            static const char *const needed[] = {"message", "file", "line", "trace"};
+            for (size_t f = 0; f < sizeof needed / sizeof *needed; f++) {
+                if (class_field(c, str_intern(needed[f], strlen(needed[f]))) < 0) {
+                    fail_at(false, "class Error must declare %s, which a caught error is given", needed[f]);
+                }
+            }
+            prog->error_class = c;
+        }
     }
 }
 
@@ -1351,7 +1377,10 @@ Program *load(const char *text, size_t len, const char *path) {
         if (!slash) strcpy(dir, ".");
         else if (slash == dir) dir[1] = '\0';
         else *slash = '\0';
-        base_dir = absolute_path(dir);
+        /* Interned, since it outlives the load (paths resolve against it while the program runs) */
+        Str *absolute = absolute_path(dir);
+        base_dir = str_intern(absolute->data, absolute->len);
+        decref(v_str(absolute));
         free(dir);
     }
     /* Split into lines in a copy; a NUL in the file ends its line early, which no valid file has */

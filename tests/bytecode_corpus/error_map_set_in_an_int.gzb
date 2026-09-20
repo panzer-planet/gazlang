@@ -1,0 +1,10 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals
+PUSH 1
+PUSH "k"
+PUSH 2
+MAP_SET
+POP

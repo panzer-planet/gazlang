@@ -6,3 +6,4 @@ parameters:
         - vm/snippets.php
         - vm/coverage.php
         - vm/bench.php
+        - vm/fuzz.php

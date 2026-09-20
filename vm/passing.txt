@@ -554,16 +554,22 @@ snippet:fc59e7ea2778
 snippet:fc9f8a721bbd
 snippet:fcf1b0321652
 snippet:fd9483585108
+snippet:fe1b959f904b
 snippet:fea346c212bc
 snippet:fef41ba077a6
 snippet:ff1429b7db5e
 snippet:ff7761f3e472
 snippet:fff0fce3fd64
 tests/bytecode_corpus/error_abstract_without_class.gzb
+tests/bytecode_corpus/error_array_extend_into_an_int.gzb
+tests/bytecode_corpus/error_array_push_onto_a_float.gzb
 tests/bytecode_corpus/error_bad_path.gzb
 tests/bytecode_corpus/error_call_a_builtin.gzb
+tests/bytecode_corpus/error_call_method_of_a_number.gzb
 tests/bytecode_corpus/error_capture_slot.gzb
 tests/bytecode_corpus/error_capture_where.gzb
+tests/bytecode_corpus/error_catch_match_of_a_string.gzb
+tests/bytecode_corpus/error_catch_value_of_a_number.gzb
 tests/bytecode_corpus/error_check_in_a_lambda.gzb
 tests/bytecode_corpus/error_check_in_a_method.gzb
 tests/bytecode_corpus/error_class_header.gzb
@@ -576,6 +582,8 @@ tests/bytecode_corpus/error_empty_stack.gzb
 tests/bytecode_corpus/error_empty_stack_call.gzb
 tests/bytecode_corpus/error_empty_stack_method.gzb
 tests/bytecode_corpus/error_empty_stack_path.gzb
+tests/bytecode_corpus/error_end_try_without_a_try.gzb
+tests/bytecode_corpus/error_error_class_without_its_fields.gzb
 tests/bytecode_corpus/error_extra_argument.gzb
 tests/bytecode_corpus/error_field_declarer_undefined.gzb
 tests/bytecode_corpus/error_field_in_a_lambda_made_at_top_level.gzb
@@ -589,6 +597,7 @@ tests/bytecode_corpus/error_lambda_index.gzb
 tests/bytecode_corpus/error_location_line.gzb
 tests/bytecode_corpus/error_location_not_quoted.gzb
 tests/bytecode_corpus/error_location_words.gzb
+tests/bytecode_corpus/error_map_set_in_an_int.gzb
 tests/bytecode_corpus/error_method_called_as_a_function.gzb
 tests/bytecode_corpus/error_method_definer_undefined.gzb
 tests/bytecode_corpus/error_method_without_block.gzb
@@ -599,6 +608,7 @@ tests/bytecode_corpus/error_no_locals_at_end.gzb
 tests/bytecode_corpus/error_not_bytecode.gzb
 tests/bytecode_corpus/error_parent_undefined.gzb
 tests/bytecode_corpus/error_record_line_out_of_place.gzb
+tests/bytecode_corpus/error_rethrow_of_a_number.gzb
 tests/bytecode_corpus/error_runs_off_the_end.gzb
 tests/bytecode_corpus/error_self_not_captured.gzb
 tests/bytecode_corpus/error_set_field_at_top_level.gzb
@@ -606,6 +616,7 @@ tests/bytecode_corpus/error_slot.gzb
 tests/bytecode_corpus/error_stack_differs.gzb
 tests/bytecode_corpus/error_stack_differs_after_try.gzb
 tests/bytecode_corpus/error_top_with_words.gzb
+tests/bytecode_corpus/error_try_handler_open_on_one_path.gzb
 tests/bytecode_corpus/error_undefined_builtin.gzb
 tests/bytecode_corpus/error_undefined_callable.gzb
 tests/bytecode_corpus/error_undefined_class.gzb
@@ -648,6 +659,7 @@ tests/bytecode_corpus/raised_error_as_a_value.gzb
 tests/bytecode_corpus/set_field_undeclared.gzb
 tests/bytecode_corpus/spacing.gzb
 tests/bytecode_corpus/superinstruction_lookalikes.gzb
+tests/bytecode_corpus/top_level_ret.gzb
 tests/bytecode_corpus/unreachable_code_is_not_checked.gzb
 tests/bytecode_corpus/values.gzb
 tests/codegen_corpus/assignments.gaz

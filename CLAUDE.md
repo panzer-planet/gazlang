@@ -34,6 +34,9 @@ vendor/bin/phpunit --filter=testMethodName tests/SpecificTest.php
 # After adding tests, collect their snippets for CVMTest
 php vm/snippets.php
 
+# Fuzz the sanitized VM for a minute (--seed N to replay, --seconds S, --shrink FILE)
+php vm/fuzz.php
+
 # What differs from tests/expected; --update adds new programs to vm/passing.txt and records
 # what every entry prints (review that diff)
 php vm/progress.php [FILTER] [--update]
@@ -120,8 +123,9 @@ nothing**: several first versions of a harness or corpus passed everything and c
   matters: a one-line case can't tell one token's line from another's.
 - **The C VM doesn't leak**: output can't show a forgotten `decref`, and ASan's leak detector
   doesn't run on macOS. With `GAZVM_STATS` set, the end of a run drops the globals and the top
-  frame, collects cycles and prints `gazvm: N values leaked`, N being what is left beyond the
-  constants loaded with the code; the harness and `progress.php` fail an entry that leaks or
+  frame, collects cycles, drops the constants in the code (so an extra reference to one shows)
+  and prints `gazvm: N values leaked`, N being what is left beyond what was alive before the
+  program loaded; the harness and `progress.php` fail an entry that leaks or
   prints no line. `exit()` and a refused file say `leaks not checked`. On Linux LeakSanitizer
   also runs in the sanitized builds and catches plain allocations the count can't see;
   `__lsan_default_suppressions()` in `vm.c` exempts only the loader, which gives up on a broken
@@ -185,9 +189,26 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   spend theirs in malloc/free and the collector, so profile those before trying an allocator.
 - **Bytecode has no compatibility promise yet**: stable so far, but free to change; a change
   old files can't load under bumps the version.
-- **Not built yet, wanted**: a fuzzer. The old ones compared against the PHP implementation; one
-  that needs no oracle would run generated and mutated programs on the sanitized build and fail
-  on a crash, a sanitizer report, a leak or a time-out (`GAZVM_STATS`, `CVM::runC()`).
+- **The fuzzer** (`php vm/fuzz.php`, a minute; CI runs one on each push, seeded by the run
+  number) needs no oracle: generated programs, mutated corpus programs and mutated bytecode
+  run through `CVM::runC()`, and it fails on a sanitizer report, a crash, a leak, a time-out,
+  an error raised inside the compiler, or bytecode the compiler wrote that the loader refuses.
+  What they print isn't checked, since nothing says what it should be.
+  - **Generated programs are made to end**: calls only go down (a function calls the ones
+    before it, a method the ones below it), loops run a few times, and a lambda calls nothing
+    that calls back, so a time-out in one is a bug. A mutant may just loop, so its time-out is
+    only reported.
+  - **Everything follows from the seed**, so `--seed N --runs M` replays a run. A failure is
+    saved in `vm/build/fuzz/` and shrunk, a minute in a run and to the end with
+    `--shrink FILE`. A try costs about 0.1s of the sanitized build's start-up, whatever the
+    program, which is why shrinking takes the time, not the run.
+  - **Nothing opens a socket, starts a program, exits or writes a file**: a program naming
+    `run`, `exit`, `write_file`, `read_stdin` or a `socket_` builtin is skipped, an included
+    file's text included, which is sound because a builtin is reached only by its name.
+  - **Break it before believing it**: a missing `decref` in `delete` and a read past a string
+    in `reverse`, planted in turn, were both found within 700 programs. The first also showed
+    that the leak check couldn't see an extra reference to a constant, which is why a checked
+    run now drops the constants too.
 - **Known limits**, none worth fixing yet:
   - The self-hosted parser runs out of call depth on source nested past about 1100 levels
     (recursive descent is about nine calls a level), as an internal error. Its tree walks use
@@ -730,7 +751,12 @@ try {
   that loaders refuse to mismatch.
 - **The loader checks everything**, including a walk of each block's stack through every jump,
   so a file that loads is one the VM can run (Lua and CPython crash on bad bytecode); the walk
-  also gives each frame's size. Peephole rewrites belong to loaders, not the format.
+  also gives each frame's size, and carries the try handlers open, since `END_TRY` closing one
+  that no `TRY` opened corrupts the handler stack. What a value *is* stays the VM's to check
+  when it runs: `CATCH_VALUE`, `CATCH_MATCH` and `RETHROW` ask whether the top is a raised
+  error, `CALL_METHOD` whether it has a method entry over an object, and `ARRAY_PUSH`,
+  `ARRAY_EXTEND` and `MAP_SET` whether they are building a list or a map, as `ADD` asks what
+  it is adding, because a finally block stores the error in a local and loads it back. Peephole rewrites belong to loaders, not the format.
 - **A stack machine**, not registers: the compiler is the part written in GazLang, a stack
   machine's is much simpler, and a loader can add superinstructions without touching the format.
 

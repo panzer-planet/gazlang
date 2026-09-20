@@ -1,0 +1,18 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals
+PUSH "x"
+CATCH_MATCH Error DONE
+LABEL DONE
+POP
+
+class Error
+field message Error
+field file Error
+field line Error
+field trace Error
+locals
+LOAD_THIS
+RET

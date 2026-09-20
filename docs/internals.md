@@ -31,6 +31,11 @@ Everything the tests run is compared with what is recorded as its output, byte f
 - **The command line** (`CliTest`): a table of invocations, each its arguments, what is piped in
   and the working directory, with what each prints in `tests/cli/expected/`.
 - **The compiler compiles itself** to exactly `compiler/gazlang.gzb`.
+- **The fuzzer** (`php vm/fuzz.php`, not part of the suite; CI runs a minute of it): generated
+  programs, mutated corpus programs and mutated bytecode on the sanitized build, failing on a
+  sanitizer report, a crash, a leak, a time-out or an error inside the compiler. A failure is
+  saved and shrunk in `vm/build/fuzz/` with the seed that replays it; once fixed, it goes into
+  a corpus like any other case.
 
 When output changes on purpose, record it and review the diff, since the recordings are the
 spec: `php vm/progress.php --update` for programs (it also adds new ones to `vm/passing.txt`,

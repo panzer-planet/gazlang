@@ -270,6 +270,17 @@ A file that loads is one the VM can run, so the checks are part of the format:
   instruction is reached at the same depth on every path, nothing pops from an empty stack,
   and a handler's block starts one deeper, holding the error. The greatest depth reached is
   what a VM needs to size the block's stack.
+- Each block's handlers balance the same way: an instruction is reached with the same handlers
+  open on every path, and `END_TRY` closes one that a `TRY` opened. (`RET` needs none of this:
+  a call's handlers go with its frame.)
+- A class named `Error` declares `message`, `file`, `line` and `trace`, which is where a VM
+  puts an error the program didn't throw itself.
+
+Whether a value really is one of these, the instructions that consume them check when they run,
+as `ADD` checks its operands: `CATCH_MATCH`, `CATCH_VALUE` and `RETHROW` that the top is a
+raised error, `CALL_METHOD` that it has a method entry and an object under it, and
+`ARRAY_PUSH`, `ARRAY_EXTEND` and `MAP_SET` that they are building a list or a map. A walk of the
+stack can't tell, since a finally block stores its error in a local and loads it back.
 
 What a loader does after that is its own business. The C VM collapses `STORE x; LOAD x; POP`
 into `STORE x`, resolves labels to positions, turns names into indexes and merges common

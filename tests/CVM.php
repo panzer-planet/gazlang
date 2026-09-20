@@ -31,13 +31,18 @@ final class CVM
     }
 
     /**
+     * How long a program may run, in seconds, when not the default below (vm/fuzz.php's are short)
+     */
+    public static ?int $timeLimit = null;
+
+    /**
      * How long a program may run, in seconds: the sanitizers make the C VM slower, and a build
      * GAZVM names can be far slower (the stress build takes over 20 minutes alone to compile the
      * self-hosted compiler, and over an hour with the rest of a run beside it), so it gets two hours
      */
     private static function timeLimit(): int
     {
-        return getenv('GAZVM') ? 7200 : 60;
+        return self::$timeLimit ?? (getenv('GAZVM') ? 7200 : 60);
     }
 
     /**

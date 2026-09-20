@@ -44,6 +44,11 @@ jobs:
         run: composer install --no-interaction --no-progress
       - name: Tests
         run: vendor/bin/phpunit
+      # A minute of fuzzing on a new seed each run, so CI fuzzes a little on every push. A failure
+      # may not be this push's: it prints its seed and a shrunk program to replay it with
+      - name: Fuzz
+        if: runner.os == 'Linux'
+        run: php vm/fuzz.php --seed ${{ github.run_id }} --seconds 60
       # The same on every platform, so once is enough
       - name: phpstan
         if: runner.os == 'Linux'

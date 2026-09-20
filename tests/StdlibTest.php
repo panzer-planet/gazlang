@@ -163,6 +163,8 @@ class StdlibTest extends GazLangTestCase
             'index_of needle' => ['index_of("abc", 1);', 'index_of() expects string, got int'],
             'repeat negative' => ['repeat("a", -1);', 'repeat() count must not be negative, got -1'],
             'repeat count' => ['repeat("a", "2");', 'repeat() expects int, got string'],
+            // The length is worked out before anything is allocated: it would otherwise wrap around
+            'repeat too long' => ['repeat("ab", 9223372036854775807);', 'repeat() would make a string of 2 bytes times 9223372036854775807, which is longer than a string can be'],
         ];
     }
 
