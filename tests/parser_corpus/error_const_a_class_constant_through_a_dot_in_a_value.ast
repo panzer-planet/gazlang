@@ -1,0 +1,1 @@
+Error: Cannot use . on a class: write 'K::A', not 'K.A' at tests/parser_corpus/error_const_a_class_constant_through_a_dot_in_a_value.gaz:2

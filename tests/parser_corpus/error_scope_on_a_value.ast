@@ -1,0 +1,1 @@
+Error: :: resolves a name, so only a name can be on its left at tests/parser_corpus/error_scope_on_a_value.gaz:2

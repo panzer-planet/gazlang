@@ -37,10 +37,10 @@ const KINDS = ["int", "float", {"nested" => AREA}];
 
 class Token {
     const EOF = "EOF";
-    const ENDS = [#EOF, Token.EOF .. "!"];
+    const ENDS = [#EOF, Token::EOF .. "!"];
     fn is_eof($type) { return $type == #EOF; }     // #NAME inside the class
 }
-echo AREA .. " " .. Token.EOF;                       // Class.NAME outside it
+echo AREA .. " " .. Token::EOF;                      // Class::NAME outside it
 ```
 ```
 12 EOF
@@ -58,8 +58,10 @@ values, `$copy = KINDS; $copy[] = 1;` changes the copy.
 
 A top level constant shares the namespace of functions and classes. A class's constant shares
 the one its fields and methods are in, is inherited, and can't be declared again by a child. It
-is reached by name, `Token.EOF` or `#EOF`, not through a value: `$class.EOF` and `$token.EOF`
-are not constants.
+is reached by name, `Token::EOF` or `#EOF`, not through a value: `$class.EOF` and `$token.EOF`
+are not constants. `::` resolves a name and `.` goes through a value, so `Token.EOF` is an error
+that says to write `Token::EOF`. A `:` followed by a `:` is always `::`, so a ternary needs a
+space: `$c ? Token::EOF : $x`.
 
 ## Strings
 
@@ -152,7 +154,7 @@ By precedence, loosest first:
 | additive | `+` `-` |
 | multiplicative | `*` `/` `%` |
 | unary | `-` `!` `~` `++` `--` |
-| postfix | `[index]` `(args)` `.name` |
+| postfix | `[index]` `(args)` `.name` `::name` |
 
 - `+ - * /` are numbers only. `/` **always** gives a float (`6 / 2` is `3.0`); `intdiv()`
   divides ints. `%` is ints only, and its sign follows the left operand.

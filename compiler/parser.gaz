@@ -137,14 +137,15 @@ class Parser {
     #member_uses = [];
 
     // Every constant, in the order declared, as [expression, the class that declares it or
-    // null, its name as errors show it]. A class's constant X is keyed "Class.X".
+    // null, its name as errors show it]. A class's constant X is keyed "Class::X".
     #constants = {};
     // The constants worked out so far, by the same keys
     #constant_values = {};
     // The constants being worked out, outermost first, to find one that depends on itself
     #folding = [];
-    // Every Name.member as [node, whether it is called]: a class's constant if Name is a class,
-    // checked once the classes are resolved. The node holds its index here (PropertyAST.class_use).
+    // Every Name::member and Name.member as [node, whether it is called, whether it was
+    // written with ::]: a class's constant if Name is a class, checked once the classes are
+    // resolved. The node holds its index here (PropertyAST.class_use).
     #class_constant_uses = [];
 
     // Every class a catch clause names, as [name, line, file]
@@ -256,7 +257,7 @@ class Parser {
     // naming things If and Match is the point of the rule.
     fn keyword_hint() {
         foreach ([#current_token, #previous_token] as $token) {
-            if ($token != null && $token.type == "IDENTIFIER" && has_key(Lexer.KEYWORDS, lower($token.value))
+            if ($token != null && $token.type == "IDENTIFIER" && has_key(Lexer::KEYWORDS, lower($token.value))
                 && !has_key(#functions, $token.value) && !has_key(#classes, $token.value) && !has_key(#constants, $token.value)) {
                 return " (keywords are lowercase: write '" .. lower($token.value) .. "', not '{$token.value}')";
             }
@@ -721,7 +722,7 @@ class Parser {
     fn postfix() {
         $node = #primary();
 
-        while (in_array(#current_token.type, ["LEFT_BRACKET", "LEFT_PAREN", "PROPERTY"])) {
+        while (in_array(#current_token.type, ["LEFT_BRACKET", "LEFT_PAREN", "PROPERTY", "DOUBLE_COLON"])) {
             if (#current_token.type == "PROPERTY") {
                 // $user.name: which members the object has is only known when it runs
                 $token = #current_token;
@@ -729,10 +730,29 @@ class Parser {
                 $named = is_a($node, FunctionRefAST);
                 $node = #at(PropertyAST($node, slice($token.value, 1)), $token);
                 if ($named) {
-                    // Token.EOF: a class's constant, if Token turns out to be a class
+                    // Token.EOF: a name on the left of a dot, which is an error if Token turns
+                    // out to be a class, since a class's constant is reached with ::
                     $node.class_use = len(#class_constant_uses);
-                    #class_constant_uses[] = [$node, false];
+                    #class_constant_uses[] = [$node, false, false];
                 }
+
+                continue;
+            }
+            if (#current_token.type == "DOUBLE_COLON") {
+                // Token::EOF: :: resolves a name, so only a name can be on its left
+                if (!is_a($node, FunctionRefAST)) {
+                    #fail(":: resolves a name, so only a name can be on its left");
+                }
+                $token = #current_token;
+                #eat("DOUBLE_COLON");
+                $name = #current_token;
+                if ($name.type != "IDENTIFIER") {
+                    #fail("Expected a name after :: but found " .. #describe($name));
+                }
+                #eat("IDENTIFIER");
+                $node = #at(PropertyAST($node, $name.value), $token);
+                $node.class_use = len(#class_constant_uses);
+                #class_constant_uses[] = [$node, false, true];
 
                 continue;
             }
@@ -1433,7 +1453,7 @@ class Parser {
         } else {
             $class.constants[$name] = $expr;
             $class.constant_lines[$name] = $token.line;
-            #constants["{$class.name}.{$name}"] = [$expr, $class, "{$class.name}.{$name}"];
+            #constants["{$class.name}::{$name}"] = [$expr, $class, "{$class.name}::{$name}"];
         }
     }
 
@@ -1472,7 +1492,7 @@ class Parser {
 
     // The key in #constants of a resolved class's constant, its parent's included, or null if it has none of that name
     fn class_constant($class, $name) {
-        return has_key($class.constant_owners, $name) ? "{$class.constant_owners[$name]}.{$name}" : null;
+        return has_key($class.constant_owners, $name) ? "{$class.constant_owners[$name]}::{$name}" : null;
     }
 
     // Check all of a constant's expression is something fold() can work out, the parts it won't get to included
@@ -1495,6 +1515,9 @@ class Parser {
         if (is_a($node, PropertyAST)) {
             $named = is_a($node.target, FunctionRefAST) ? #classes[$node.target.name] ?? null : null;
             $owner = is_a($node.target, ThisAST) ? $class : $named;
+            if ($named != null) {
+                #check_scoped($node, $named, #class_constant_uses[$node.class_use][2]);
+            }
             if ($owner != null && #class_constant($owner, $node.name) != null) {
                 return;
             }
@@ -1631,17 +1654,29 @@ class Parser {
     //
     // Anything else is left to run: Name may be a constant holding a map, or a function,
     // and what . does to those is an error for when it happens.
-    fn check_class_constant_use($node, $called) {
+    // A class is reached by name, with ::, never through a dot, which goes through a value
+    fn check_scoped($node, $class, $scoped) {
+        if (!$scoped) {
+            #fail_at("Cannot use . on a class: write '{$class.name}::{$node.name}', not '{$class.name}.{$node.name}'", $node.file, $node.line);
+        }
+    }
+
+    fn check_class_constant_use($node, $called, $scoped) {
         $class = #classes[$node.target.name] ?? null;
         if ($class == null) {
+            if ($scoped) {
+                #fail_at(#not_a_class($node.target.name), $node.file, $node.line);
+            }
+
             return;
         }
+        #check_scoped($node, $class, $scoped);
         $constant = #class_constant($class, $node.name);
         if ($constant == null) {
             #fail_at("Class {$class.name} has no constant {$node.name}", $node.file, $node.line);
         }
         if ($called) {
-            #fail_at("{$class.name}.{$node.name} is a constant, not a method", $node.file, $node.line);
+            #fail_at("{$class.name}::{$node.name} is a constant, not a method", $node.file, $node.line);
         }
         $node.constant = true;
         $node.value = #constant_value($constant, $node);
@@ -1658,7 +1693,7 @@ class Parser {
         }
         #eat("FN");
         $token = #current_token;
-        if ($token.type != "IDENTIFIER" && !in_array($token.type, values(Lexer.KEYWORDS))) {
+        if ($token.type != "IDENTIFIER" && !in_array($token.type, values(Lexer::KEYWORDS))) {
             #fail("Expected a name but found " .. #describe($token));
         }
         $name = $token.value;
@@ -1805,8 +1840,8 @@ class Parser {
         foreach (#member_uses as [$node, $class, $argc, $assigned, $written]) {
             #check_member_use($node, $class, $argc, $assigned, $written);
         }
-        foreach (#class_constant_uses as [$node, $called]) {
-            #check_class_constant_use($node, $called);
+        foreach (#class_constant_uses as [$node, $called, $scoped]) {
+            #check_class_constant_use($node, $called, $scoped);
         }
         foreach (#parent_uses as [$node, $class]) {
             #check_parent_use($node, $class);
@@ -1836,7 +1871,7 @@ class Parser {
                 continue;
             }
             if (!has_key(#functions, $use.name)) {
-                $hint = has_key(Lexer.KEYWORDS, lower($use.name))
+                $hint = has_key(Lexer::KEYWORDS, lower($use.name))
                     ? " (keywords are lowercase: write '" .. lower($use.name) .. "', not '{$use.name}')"
                     : "";
                 // A bare name that isn't called is as likely a mistyped constant

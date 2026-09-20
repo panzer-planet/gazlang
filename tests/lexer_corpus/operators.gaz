@@ -14,3 +14,5 @@ $a&$b|$c^~$d $a&&&$b $a|||$b $flags &= 1 $flags <<= 2 $x>>1 $y<<2 $a<<=$b>>=$c
 // ... is one token, and the longest match wins: ..... is ... then ..
 [...$a, ...[1]];
 $a.....$b;
+// :: is one token: a : followed by a : is always ::, so a ternary needs a space
+Token::EOF $c ? A::B : $x ::: :: : ?::

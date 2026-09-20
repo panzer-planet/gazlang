@@ -1,0 +1,1 @@
+Error: Expected a name after :: but found '1' at tests/parser_corpus/error_scope_without_a_name.gaz:2

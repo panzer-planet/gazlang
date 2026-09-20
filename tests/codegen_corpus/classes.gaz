@@ -7,7 +7,7 @@ abstract class Shape {
     fn _($name) { #name = $name; }
     abstract fn area();
     fn to_string() { return "{#name}: " .. #area(); }
-    fn describe() { return #to_string() .. " " .. Shape.SIDES; }
+    fn describe() { return #to_string() .. " " .. Shape::SIDES; }
 }
 class Square extends Shape {
     #side;

@@ -504,3 +504,20 @@ Compound
         field: false
         constant: false
         value: null
+    9: EchoStatement 30
+      expr: Ternary 30
+        condition: Boolean 30
+          token: 30 TRUE true
+          value: true
+        then: Property 30
+          target: FunctionRef 30
+            name: "Token"
+            constant: false
+            value: null
+          name: "EOF"
+          field: false
+          constant: true
+          value: "EOF"
+        else: String 30
+          token: 30 STRING "x"
+          value: "x"

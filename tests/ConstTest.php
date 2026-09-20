@@ -60,10 +60,10 @@ class ConstTest extends GazLangTestCase
         $this->assertSame(
             "EOF\n[\"EOF\", \"EOF!\", 2]\ntrue EOF EOF\n[\"EOF\", \"EOF!\", 2] EOF 4\n",
             $this->executeCode('const TWO = 2;
-                echo Token.EOF; echo Token.KINDS;
+                echo Token::EOF; echo Token::KINDS;
                 class Token {
                     const EOF = "EOF";
-                    const KINDS = [#EOF, Token.EOF .. "!", TWO];
+                    const KINDS = [#EOF, Token::EOF .. "!", TWO];
                     #type = #EOF;
                     fn is_eof() { return #type == #EOF; }
                     fn later() { return () -> #EOF; }
@@ -71,7 +71,7 @@ class ConstTest extends GazLangTestCase
                 }
                 $t = Token(); echo $t.is_eof() .. " " .. $t.later()() .. " " .. $t.describe();
                 class Special extends Token { const FOUR = TWO * 2; fn kinds() { return #KINDS; } }
-                echo Special().kinds() .. " " .. Special.EOF .. " " .. Special.FOUR;')
+                echo Special().kinds() .. " " .. Special::EOF .. " " .. Special::FOUR;')
         );
     }
 
@@ -90,7 +90,7 @@ class ConstTest extends GazLangTestCase
 
     public function test_a_use_compiles_to_the_value()
     {
-        $code = $this->generateCode('const LIMIT = 10 * 2; class A { const NAMES = ["a", "b"]; fn f() { return #NAMES; } } echo LIMIT; echo A.NAMES;');
+        $code = $this->generateCode('const LIMIT = 10 * 2; class A { const NAMES = ["a", "b"]; fn f() { return #NAMES; } } echo LIMIT; echo A::NAMES;');
 
         $this->assertStringContainsString("PUSH 20\n", $code);
         $this->assertSame(2, substr_count($code, 'PUSH ["a", "b"]'));
@@ -166,7 +166,7 @@ class ConstTest extends GazLangTestCase
             'a float as a key' => ['const M = {1.5 => 1};', 'on line 1'],
             'itself' => ['const A = A + 1;', 'Constant A depends on itself: A uses A on line 1'],
             'a cycle' => ["const A = B;\nconst B = C * 2;\nconst C = A;", 'Constant A depends on itself: A uses B uses C uses A on line 3'],
-            'a cycle through a class' => ['class K { const A = K.B; const B = #A; }', 'Constant K.A depends on itself: K.A uses K.B uses K.A on line 1'],
+            'a cycle through a class' => ['class K { const A = K::B; const B = #A; }', 'Constant K::A depends on itself: K::A uses K::B uses K::A on line 1'],
             'declared twice' => ["const A = 1;\nconst A = 2;", 'Constant A is already declared on line 2'],
             'a function of that name' => ["const A = 1;\nfn A() {}", 'Constant A is already declared on line 2'],
             'a constant named like a function' => ["fn a() {}\nconst a = 1;", 'Function a is already declared on line 2'],
@@ -191,7 +191,7 @@ class ConstTest extends GazLangTestCase
             "a child's method" => ["class K { const A = 1; }\nclass L extends K { fn A() {} }", 'Method L.A has the name of a constant of K: constants, fields and methods share names on line 2'],
             "a parent's field" => ["class K { #A; }\nclass L extends K { const A = 1; }", 'Constant A of L has the name of a field of K: constants, fields and methods share names on line 2'],
             "a parent's method" => ["class K { fn A() {} }\nclass L extends K { const A = 1; }", 'Constant A of L has the name of a method of K: constants, fields and methods share names on line 2'],
-            'no such constant' => ["class K { const A = 1; }\necho K.B;", 'Class K has no constant B on line 2'],
+            'no such constant' => ["class K { const A = 1; }\necho K::B;", 'Class K has no constant B on line 2'],
             "a parent can't see a child's" => ["class K { fn f() { return #B; } }\nclass L extends K { const B = 1; }", 'K has no member #B on line 1'],
             '#NAME assigned to' => ['class K { const A = 1; fn f() { #A = 2; } }', 'Cannot change constant #A on line 1'],
             '#NAME element assigned to' => ['class K { const A = [1]; fn f() { #A[0] = 2; } }', 'Cannot change constant #A on line 1'],
@@ -201,10 +201,12 @@ class ConstTest extends GazLangTestCase
             '#NAME element deleted' => ['class K { const A = [1]; fn f() { delete #A[0]; } }', 'Cannot change constant #A on line 1'],
             '#NAME in a pattern' => ['class K { const A = 1; fn f() { [#A] = [2]; } }', 'Cannot change constant #A on line 1'],
             '#NAME called' => ['class K { const A = 1; fn f() { return #A(); } }', '#A is a constant, not a method on line 1'],
-            'Name.NAME called' => ["class K { const A = 1; }\necho K.A();", 'K.A is a constant, not a method on line 2'],
-            'Name.NAME assigned to' => ['class K { const A = 1; } K.A = 2;', 'Can only use = on a variable, or an element or field of one on line 1'],
+            'a class constant through a dot' => ["class K { const A = 1; }\necho K.A;", "Cannot use . on a class: write 'K::A', not 'K.A' on line 2"],
+            'a class constant through a dot in a value' => ["class K { const A = 1; }\nconst B = K.A;", "Cannot use . on a class: write 'K::A', not 'K.A' on line 2"],
+            'Name::NAME called' => ["class K { const A = 1; }\necho K::A();", 'K::A is a constant, not a method on line 2'],
+            'Name::NAME assigned to' => ['class K { const A = 1; } K::A = 2;', 'Can only use = on a variable, or an element or field of one on line 1'],
             '#NAME of another class in a value' => ['const A = #B;', 'Cannot use #B outside a method on line 1'],
-            'a constant of a class that has none in a value' => ['class K {} const A = K.B;', 'Class K has no constant B on line 1'],
+            'a constant of a class that has none in a value' => ['class K {} const A = K::B;', 'Class K has no constant B on line 1'],
             'a variable in the branch not taken' => ['const A = true ? 1 : $x;', "A constant's value can only use literals, operators and other constants on line 1"],
             'a call on the side not needed' => ["fn launch() {}\nconst A = true ||\n launch();", "A constant's value can only use literals, operators and other constants on line 3"],
             'an undefined name on the side not needed' => ['const A = false && MISSING;', 'Undefined constant: MISSING on line 1'],
@@ -270,7 +272,7 @@ class ConstTest extends GazLangTestCase
 
     public function test_a_literal_made_of_constants_is_built_once()
     {
-        $code = $this->generateCode('const A = 1; class T { const B = "b"; } fn f() { return [A, T.B, {"k" => [A]}]; }');
+        $code = $this->generateCode('const A = 1; class T { const B = "b"; } fn f() { return [A, T::B, {"k" => [A]}]; }');
 
         $this->assertStringContainsString('PUSH [1, "b", {"k" => [1]}]', $code);
         $this->assertStringNotContainsString('ARRAY_PUSH', $code);

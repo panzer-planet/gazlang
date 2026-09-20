@@ -1,3 +1,3 @@
 include "lib.gaz";
 const MAIN = 10;
-echo MAIN .. " " .. DOUBLE .. " " .. Lib.NAME;
+echo MAIN .. " " .. DOUBLE .. " " .. Lib::NAME;

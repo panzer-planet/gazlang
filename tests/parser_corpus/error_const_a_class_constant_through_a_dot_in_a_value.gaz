@@ -1,2 +1,2 @@
 class K { const A = 1; }
-echo K::B;
+const B = K.A;

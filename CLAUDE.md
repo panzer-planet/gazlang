@@ -284,16 +284,13 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - Errors are the parser's: a `use` on a file that declares no namespace, a name that isn't
     `pub`, a namespace that isn't what the file declares, an alias already taken.
   - `namespace`, `use` and `pub` are not reserved words yet, unlike the keywords above, so
-    reserving them (and `::` in the operator table) is part of building this, and a program
-    that declares `fn use()` today stops parsing then.
-- **Decided, not built: `::` resolves a name, `.` goes through a value.** `::` is the
-  parse-time operator (`json::decode`, `json::Reader`, `Token::EOF`, `json::Reader::EOF`) and
-  `.` the run-time one (`$obj.field`, `$rows[0].total`). `#name` and `##name` are unchanged.
-  Class constants move from `Class.NAME` to `Class::NAME`, about 32 sites in the repository,
-  which *removes* a rule rather than adding one: "reached by name only, so `$class.NAME` and
-  `$object.NAME` are not constants" stops needing to be said. Bytecode keeps `Class.method`
-  for method blocks, since the loader tells a namespaced function from a method by the dot.
-  A `:` followed by a `:` is always `::`, so a ternary needs a space: `$c ? Token::EOF : $x`.
+    reserving them is part of building this, and a program that declares `fn use()` today
+    stops parsing then. `::` is already an operator.
+- **Decided, not built: `::` on a namespace** (`json::decode`, `json::Reader`,
+  `json::Reader::EOF`). The operator itself is built, on class constants; what is left is the
+  names to its left being namespaces, which is the namespace work above. Bytecode keeps
+  `Class.method` for method blocks, since the loader tells a namespaced function from a method
+  by the dot.
 - **Decided, not built: static members**, reached by name as constants are: `Counter::next()`,
   `Counter::COUNT`. Not through a value: `$obj::next()` puts a value on the left of the
   parse-time operator, which is the one place PHP's `::` means something else. `.` on a class
@@ -312,7 +309,7 @@ version.
 
 - **Precedence**, loosest first: assignment (right associative) → `?:` (right) → `??` (right)
   → `||` → `&&` → equality (`==` `!=` `<=>`) → relational → `..` → `|` → `^` → `&` → shifts →
-  `+ -` → `* / %` → unary → postfix (`[index]`, `(args)`, `.name`) → primary. Bitwise precedence
+  `+ -` → `* / %` → unary → postfix (`[index]`, `(args)`, `.name`, `::name`) → primary. Bitwise precedence
   is Rust's and Python's, not C's, so `$flags & MASK == 0` is `($flags & MASK) == 0`. `..` sits
   looser than the bitwise operators and tighter than comparison, so `"x = " .. $f & MASK` and
   `$f & MASK .. "!"` both do the obvious thing (between the bitwise levels, every unparenthesised
@@ -648,7 +645,7 @@ const HEIGHT = WIDTH + 1;
 
 class Token {
     const EOF = "EOF";
-    const ENDS = [#EOF, Token.EOF .. "!"];
+    const ENDS = [#EOF, Token::EOF .. "!"];
     fn is_eof($type) { return $type == #EOF; }
 }
 ```
@@ -666,10 +663,12 @@ class Token {
 - A top level constant is a bare name, sharing the namespace of functions and classes, so a
   typo is a parse error. Constants are immutable because no write path can start at one; the
   one that could, `#NAME[0] = 1`, is refused (`Cannot change constant #NAME`).
-- **Class constants** are `#NAME` inside and `Class.NAME` outside, inherited, and **can't be
-  redeclared by a child**, since `#NAME` is resolved from the class it is written in. They are
-  **reached by name only**: `$class.NAME` and `$object.NAME` are not constants. Both rules are
-  the restrictive choice on purpose: loosening them later breaks nothing.
+- **Class constants** are `#NAME` inside and `Class::NAME` outside, inherited, and **can't be
+  redeclared by a child**, since `#NAME` is resolved from the class it is written in. That
+  `::` resolves a name and `.` goes through a value is why `$class.NAME` and `$object.NAME`
+  can't be constants: it is the operator that says so, not a rule of its own. `Class.NAME`
+  says to write `Class::NAME`, the way a miscapitalised keyword is told to be lowercase. Not
+  redeclaring is the restrictive choice on purpose: loosening it later breaks nothing.
 - `ConstTest::expressions()` requires a constant to give what a running program gives, for
   every operator and kind of value.
 
