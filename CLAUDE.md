@@ -242,9 +242,12 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     before keeping that.
   - `..=` on a field or element (`#buf ..= $c`) still lowers to `#buf = #buf .. $c` in generated
     code, which copies the string: only a plain variable appends in place.
-  - Included files share one namespace, so modules prefix their privates (`json_*`), and
-    including a file runs its top level code. `Error`'s members are reserved across its
-    subclasses, so a domain error can't declare its own `#line` or `#message`.
+  - Included files share one namespace, so modules prefix their privates (`json_*`) and
+    every helper is public: 7 of `lib/http.gaz`'s 11 functions are internals, and
+    `lib/chars.gaz` owns `is_digit` and `char_at` for the whole program. Namespaces are
+    designed and decided; see below. Including a file also runs its top level code.
+    `Error`'s members are reserved across its subclasses, so a domain error can't declare
+    its own `#line` or `#message`.
   - No identity key for an object (a side table keyed by node), no `to_int`/
     `to_float` that returns null instead of throwing, no copy-with-change for objects, no
     `catch (A | B $e)`, no bare rethrow, no `_` to skip an element in a list pattern.
@@ -260,7 +263,42 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   plus `is_a`), `final`, and `private`/`protected` with public implicit (`#` and `##` checked at
   parse time, `$obj.name` when it runs, against the running method's class; a parent's private
   field is invisible to children, which may then declare their own). The keywords are reserved.
-- **Not planned** until real code asks: traits, late static binding, static members, operator
+- **Decided, not built: namespaces**, resolved by the parser, so the VM never learns the word
+  and bytecode only sees longer names.
+  - `namespace json;` first in a file, at most one, optional: a file without one declares its
+    names globally, as every file does today, and a program never needs one.
+  - **A name is private to its namespace unless `pub`**, which is the defect being fixed: a
+    file is implementation, and only what it says is public escapes it. Privacy is per
+    namespace, not per file, so `compiler/`'s four files declare `namespace gazlang;` and go
+    on seeing each other's everything. This is the opposite default to a class's members,
+    which stay public unless `private`/`protected`, because a class is an interface: worth
+    saying out loud once, since one language holds both.
+  - **`include "chars.gaz" use is_digit, char_at as at;`** is the only way to bring a name in
+    unqualified. Including a file always makes its namespace reachable qualified
+    (`chars::is_digit`); the clause only adds aliases, and names in it are bare, since the
+    string already said which file. There is no standalone `use`, so a file can only name
+    what it includes itself, and no `use ns::*`, which is how the flat namespace came back.
+    The file comes first so an editor can complete the names, and so can the error.
+  - **Resolution** is the current namespace, then this file's aliases, then global and
+    builtins. No fallback into another namespace, which is PHP's wart.
+  - Errors are the parser's: a `use` on a file that declares no namespace, a name that isn't
+    `pub`, a namespace that isn't what the file declares, an alias already taken.
+  - `namespace`, `use` and `pub` are not reserved words yet, unlike the keywords above, so
+    reserving them (and `::` in the operator table) is part of building this, and a program
+    that declares `fn use()` today stops parsing then.
+- **Decided, not built: `::` resolves a name, `.` goes through a value.** `::` is the
+  parse-time operator (`json::decode`, `json::Reader`, `Token::EOF`, `json::Reader::EOF`) and
+  `.` the run-time one (`$obj.field`, `$rows[0].total`). `#name` and `##name` are unchanged.
+  Class constants move from `Class.NAME` to `Class::NAME`, about 32 sites in the repository,
+  which *removes* a rule rather than adding one: "reached by name only, so `$class.NAME` and
+  `$object.NAME` are not constants" stops needing to be said. Bytecode keeps `Class.method`
+  for method blocks, since the loader tells a namespaced function from a method by the dot.
+  A `:` followed by a `:` is always `::`, so a ternary needs a space: `$c ? Token::EOF : $x`.
+- **Decided, not built: static members**, reached by name as constants are: `Counter::next()`,
+  `Counter::COUNT`. Not through a value: `$obj::next()` puts a value on the left of the
+  parse-time operator, which is the one place PHP's `::` means something else. `.` on a class
+  stays an error until a program asks for `class_of($obj).next()`.
+- **Not planned** until real code asks: traits, late static binding, operator
   overloading, `**` and `sqrt`/`pow`/`log`, variadic parameters and spread in calls (pass a
   list), `time()` (time it from outside), `foreach` over a string (`split($s, "")`), regular
   expressions (character classes are explicit on purpose), a REPL.
