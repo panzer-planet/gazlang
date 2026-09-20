@@ -23,15 +23,19 @@ const FORBIDDEN = '/\b(run|socket_\w*|exit|write_file|read_stdin)\b/';
 const INTERESTING = ['0', '1', '-1', '2', '63', '64', '255', '256', '9223372036854775807', '-9223372036854775807', '4294967296', '0.0', '-0.0', '1.5', '1e308', '0.1', '10000', '""', '"a"', '[]', '{}', 'null', 'true', 'false'];
 const BATCH = 48;
 const WORK = 'vm/build/fuzz';
+// Where the programs of this run are written: its own, since a run clears it, and two runs in
+// one checkout would otherwise take each other's files away mid-flight
+$work = WORK.'/work';
 
 $options = getopt('', ['seed:', 'seconds:', 'runs:', 'shrink:']);
 if (isset($options['shrink'])) {
     CVM::build();
     CVM::$timeLimit = 10;
-    @mkdir(CVM::ROOT.'/'.WORK.'/work', 0777, true);
+    $work = WORK.'/shrink';
+    @mkdir(CVM::ROOT.'/'.$work, 0777, true);
     $file = $options['shrink'];
     $ext = pathinfo($file, PATHINFO_EXTENSION);
-    $entry = WORK."/work/replay.{$ext}";
+    $entry = "{$work}/replay.{$ext}";
     copy($file, CVM::ROOT.'/'.$entry);
     $c = CVM::runC([$entry])[$entry];
     $verdict = verdict($entry, $c) ?? exit("{$file}: nothing wrong\n");
@@ -46,8 +50,9 @@ $rng = new Randomizer(new Xoshiro256StarStar($seed));
 
 CVM::build();
 CVM::$timeLimit = 10;
-@mkdir(CVM::ROOT.'/'.WORK.'/work', 0777, true);
-array_map(unlink(...), glob(CVM::ROOT.'/'.WORK.'/work/*') ?: []);
+$work = WORK."/work-{$seed}";
+@mkdir(CVM::ROOT.'/'.$work, 0777, true);
+array_map(unlink(...), glob(CVM::ROOT.'/'.$work.'/*') ?: []);
 
 $seeds = seeds();
 $gzbSeeds = gzbSeeds($seeds, $rng);
@@ -74,7 +79,7 @@ while ($runs === null ? microtime(true) - $start < $seconds : $count < $runs) {
         if ($text === null) {
             continue;
         }
-        $entry = WORK."/work/{$name}";
+        $entry = "{$work}/{$name}";
         file_put_contents(CVM::ROOT.'/'.$entry, $text);
         $batch[$entry] = $n;
     }
@@ -113,6 +118,16 @@ while ($runs === null ? microtime(true) - $start < $seconds : $count < $runs) {
 printf("fuzz: %d programs in %ds, %d distinct failures%s (seed %d)\n", $count, microtime(true) - $start, count($failed),
     $timeouts === 0 ? '' : ", {$timeouts} mutant time-out".($timeouts === 1 ? '' : 's'), $seed);
 exit($failed === [] ? 0 : 1);
+
+/**
+ * This run's working directory, which the top of the file set
+ */
+function work(): string
+{
+    global $work;
+
+    return $work;
+}
 
 /**
  * What is wrong with an entry's run, or null when nothing is
@@ -235,7 +250,7 @@ function firstFailing(array $texts, string $ext, string $signature): ?int
 {
     $entries = [];
     foreach ($texts as $i => $text) {
-        $entries[$i] = WORK."/work/shrink{$i}.{$ext}";
+        $entries[$i] = work()."/shrink{$i}.{$ext}";
         file_put_contents(CVM::ROOT.'/'.$entries[$i], $text);
     }
     $results = CVM::runC(array_values($entries));
@@ -304,7 +319,7 @@ function gzbSeeds(array $seeds, Randomizer $rng): array
         if ($text === null) {
             continue;
         }
-        $file = WORK."/work/compile{$i}.gaz";
+        $file = work()."/compile{$i}.gaz";
         file_put_contents(CVM::ROOT.'/'.$file, $text);
         $commands[$i] = [CVM::ROOT.'/bin/gazlang', '-c', '-f', $file];
     }
@@ -324,8 +339,8 @@ function gzbSeeds(array $seeds, Randomizer $rng): array
  */
 function builtins(): array
 {
-    file_put_contents(CVM::ROOT.'/'.WORK.'/work/builtins.gaz', 'echo builtins();');
-    [$out] = CVM::process([CVM::ROOT.'/bin/gazlang', '-f', WORK.'/work/builtins.gaz']);
+    file_put_contents(CVM::ROOT.'/'.work().'/builtins.gaz', 'echo builtins();');
+    [$out] = CVM::process([CVM::ROOT.'/bin/gazlang', '-f', work().'/builtins.gaz']);
     preg_match_all('/"(\w+)" => (?:(\d+)|\[(\d+), (\d+)\])/', $out, $m, PREG_SET_ORDER);
     $builtins = [];
     foreach ($m as $b) {
