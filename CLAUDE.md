@@ -292,9 +292,26 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   `Class.method` for method blocks, since the loader tells a namespaced function from a method
   by the dot.
 - **Decided, not built: static members**, reached by name as constants are: `Counter::next()`,
-  `Counter::COUNT`. Not through a value: `$obj::next()` puts a value on the left of the
-  parse-time operator, which is the one place PHP's `::` means something else. `.` on a class
-  stays an error until a program asks for `class_of($obj).next()`.
+  `Counter::COUNT`, `Counter::count`. Not through a value: `$obj::next()` puts a value on the
+  left of the parse-time operator, which is the one place PHP's `::` means something else.
+  `.` on a class stays an error until a program asks for `class_of($obj).next()`.
+  - **`static fn next()` and `static #count = 0;`**, and `#name` inside the class whichever
+    kind it is, since `#name` already means a member of the class it is written in and
+    members share one namespace across the hierarchy. A child shares its parent's static, as
+    it shares the rest of the namespace; it can't redeclare one.
+  - **A static field's default is a constant expression**, folded by the parser and stored
+    into the class's slots when it loads, which is more restrictive than an instance field's
+    (any expression, per object) for the reason constants refuse `Point(0, 0)`: running one
+    would bring initialisation order and bytecode before the top level.
+  - **Assigned from anywhere** (`Counter::count = 1`, `#count++`), since a class's members
+    are public unless `private`/`protected` says otherwise, and `private static` then gives
+    the class its state back without a rule of its own. Both spellings compile to the same
+    instruction, a class and a slot, since `::` resolves when it is parsed; the cost is a
+    fifth root for `store_path()` next to a local, a global, a capture and `#`, and the check
+    refusing `Class::NAME = ...` that mirrors the one refusing `#NAME[0] = 1`.
+  - **In a static method `#name` is the class's**, so `#count` is the static field and
+    `#helper()` another static method; naming an instance member is a parse error, since
+    there is no object and members are declared.
 - **Not planned** until real code asks: traits, late static binding, operator
   overloading, `**` and `sqrt`/`pow`/`log`, variadic parameters and spread in calls (pass a
   list), `time()` (time it from outside), `foreach` over a string (`split($s, "")`), regular
