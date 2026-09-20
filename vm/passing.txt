@@ -660,6 +660,8 @@ tests/bytecode_corpus/error_value_unclosed_list.gzb
 tests/bytecode_corpus/error_value_unicode_escape.gzb
 tests/bytecode_corpus/error_value_unterminated.gzb
 tests/bytecode_corpus/error_value_variable.gzb
+tests/bytecode_corpus/error_value_with_a_hash.gzb
+tests/bytecode_corpus/error_value_with_an_arrow.gzb
 tests/bytecode_corpus/error_version.gzb
 tests/bytecode_corpus/halt_inside_a_call.gzb
 tests/bytecode_corpus/raised_error_as_a_value.gzb

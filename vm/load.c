@@ -508,11 +508,6 @@ static Lit lit_next(LitLexer *lx) {
             return t;
         }
     }
-    if (c == '-') {
-        lx->p += 2;
-        t.type = lx->p[-1] == '=' ? "MINUS_ASSIGN" : lx->p[-1] == '-' ? "DECREMENT" : "ARROW";
-        return t;
-    }
     bad_value(lx, "Unexpected character '%c'", c);
 }
 

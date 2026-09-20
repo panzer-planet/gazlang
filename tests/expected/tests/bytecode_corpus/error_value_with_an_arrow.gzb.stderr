@@ -1,0 +1,1 @@
+Error: Bad value '->': Bad value: unexpected ARROW at tests/bytecode_corpus/error_value_with_an_arrow.gzb:6
