@@ -423,8 +423,12 @@ function mutateSource(Randomizer $rng, array $seeds): ?string
 }
 
 /**
- * A bytecode file with one to four mutations: lines deleted, duplicated or swapped, taken from
- * another file, or with an operand or instruction name replaced
+ * A bytecode file with one to four mutations. Most are aimed inside one block: lines moved
+ * within its own instructions, an instruction swapped for another the loader's stack walk
+ * accepts in its place, or an argument rewritten as the kind it is (a slot the block has, a
+ * label it defines, a name the file uses elsewhere). Those keep the file loadable often enough
+ * to reach the VM, where a program the compiler would never write is what finds bugs; one
+ * mutation in eight lands anywhere at all, which is what the loader's own checks see.
  *
  * @param  list<string>  $seeds
  */
@@ -433,47 +437,211 @@ function mutateBytecode(Randomizer $rng, array $seeds): ?string
     $lines = explode("\n", $seeds[$rng->getInt(0, count($seeds) - 1)]);
     // The header and globals line stay, or nearly every mutant is refused at the first line
     $header = array_splice($lines, 0, 2);
+    $pools = operandPools($lines);
     for ($n = $rng->getInt(1, 4); $n > 0 && $lines !== []; $n--) {
-        $at = instructionLine($rng, $lines);
-        $other = instructionLine($rng, $lines);
-        $theirs = explode("\n", $seeds[$rng->getInt(0, count($seeds) - 1)]);
-        $line = $theirs[instructionLine($rng, $theirs)];
-        $words = explode(' ', $lines[$at]);
-        $w = $rng->getInt(min(1, count($words) - 1), count($words) - 1);
-        // Half the mutations move whole lines and half rewrite a word: a moved line usually
-        // costs the file its shape, and the checks past the loader are reached by the others
-        match ($rng->getInt(0, 7)) {
-            0 => array_splice($lines, $at, 1),
-            1 => array_splice($lines, $at, 0, [$lines[$at]]),
-            2 => [$lines[$at], $lines[$other]] = [$lines[$other], $lines[$at]],
-            3 => array_splice($lines, $at, 0, [$line]),
-            4, 5 => $lines[$at] = implode(' ', array_replace($words, [$w => INTERESTING[$rng->getInt(0, count(INTERESTING) - 1)]])),
-            default => $lines[$at] = implode(' ', array_replace($words, [0 => explode(' ', $line)[0]])),
-        };
+        $blocks = bytecodeBlocks($lines);
+        if ($blocks === [] || $rng->getInt(1, 8) === 1) {
+            $lines = mutateAnyLine($rng, $lines, $seeds);
+
+            continue;
+        }
+        $block = $blocks[$rng->getInt(0, count($blocks) - 1)];
+        $at = $block['body'][$rng->getInt(0, count($block['body']) - 1)];
+        $other = $block['body'][$rng->getInt(0, count($block['body']) - 1)];
+        $roll = $rng->getInt(0, 9);
+        if ($roll < 3) {
+            // Lines moved within the block, which keeps its shape even when its code stops making sense
+            match ($rng->getInt(0, 2)) {
+                0 => array_splice($lines, $at, 1),
+                1 => array_splice($lines, $at, 0, [$lines[$at]]),
+                default => [$lines[$at], $lines[$other]] = [$lines[$other], $lines[$at]],
+            };
+        } elseif ($roll < 6) {
+            $lines[$at] = sameShape($rng, $lines[$at]) ?? $lines[$other];
+        } else {
+            $lines[$at] = retarget($rng, $lines[$at], $block, $pools) ?? $lines[$at];
+        }
     }
 
     return keep(implode("\n", [...$header, ...$lines]));
 }
 
 /**
- * A line to mutate, usually an instruction: a block's header lines (top, locals, fn, class,
- * field, capture) are a good part of a small file, and damage to one is refused by the header
- * parser before an instruction is read at all, which is a check the corpus already covers
+ * A mutation anywhere in the file, header lines included: what the loader refuses before it
+ * reads an instruction at all
  *
- * @param  list<string>  $lines
+ * @param  array<int, string>  $lines
+ * @param  list<string>  $seeds
+ * @return list<string>
  */
-function instructionLine(Randomizer $rng, array $lines): int
+function mutateAnyLine(Randomizer $rng, array $lines, array $seeds): array
 {
     $at = $rng->getInt(0, count($lines) - 1);
-    for ($tries = 0; $tries < 8 && ! preg_match('/^[A-Z_]+( |$)/', $lines[$at]); $tries++) {
-        // One try in five stays wherever it landed, so a header is still mutated sometimes
-        if ($rng->getInt(1, 5) === 1) {
-            break;
+    $theirs = explode("\n", $seeds[$rng->getInt(0, count($seeds) - 1)]);
+    $line = $theirs[$rng->getInt(0, count($theirs) - 1)];
+    $words = explode(' ', $lines[$at]);
+    $w = $rng->getInt(min(1, count($words) - 1), count($words) - 1);
+    match ($rng->getInt(0, 3)) {
+        0 => array_splice($lines, $at, 1),
+        1 => array_splice($lines, $at, 0, [$line]),
+        2 => $lines[$at] = implode(' ', array_replace($words, [$w => INTERESTING[$rng->getInt(0, count(INTERESTING) - 1)]])),
+        default => $lines[$at] = $line,
+    };
+
+    return array_values($lines);
+}
+
+/**
+ * The instruction on this line swapped for another with the same arguments and the same effect
+ * on the stack, so the loader's walk accepts it where it stands and the VM runs it: ARRAY_PUSH
+ * where INDEX_GET was, GET_PROPERTY where SET_FIELD was. Null when it is not an instruction, or
+ * nothing else has its shape.
+ */
+function sameShape(Randomizer $rng, string $line): ?string
+{
+    $words = explode(' ', $line);
+    $table = instructionTable();
+    if (! isset($table[$words[0]])) {
+        return null;
+    }
+    $alike = array_values(array_diff($table[$words[0]]['shape'] === '' ? [] : shapes()[$table[$words[0]]['shape']], [$words[0]]));
+    if ($alike === []) {
+        return null;
+    }
+    $words[0] = $alike[$rng->getInt(0, count($alike) - 1)];
+
+    return implode(' ', $words);
+}
+
+/**
+ * One argument of this instruction rewritten as the kind the table says it is: a slot the block
+ * has, a label it defines, a small count, another literal, or a name the file uses for that kind
+ * elsewhere. Null when the line takes no arguments, or nothing is known to put there.
+ *
+ * @param  array{body: list<int>, locals: int, labels: list<string>}  $block
+ * @param  array<string, list<string>>  $pools
+ */
+function retarget(Randomizer $rng, string $line, array $block, array $pools): ?string
+{
+    $words = explode(' ', $line);
+    $kinds = instructionTable()[$words[0]]['kinds'] ?? [];
+    if ($kinds === []) {
+        return null;
+    }
+    $i = $rng->getInt(0, count($kinds) - 1);
+    $pool = $pools[$kinds[$i]] ?? [];
+    $new = match ($kinds[$i]) {
+        'K_SLOT' => $block['locals'] > 0 ? (string) $rng->getInt(0, $block['locals'] - 1) : null,
+        'K_LABEL' => $block['labels'] !== [] ? $block['labels'][$rng->getInt(0, count($block['labels']) - 1)] : null,
+        'K_COUNT' => (string) $rng->getInt(0, 3),
+        'K_VALUE' => INTERESTING[$rng->getInt(0, count(INTERESTING) - 1)],
+        default => $pool !== [] ? $pool[$rng->getInt(0, count($pool) - 1)] : null,
+    };
+    if ($new === null || ! isset($words[$i + 1])) {
+        return null;
+    }
+    // A value is the rest of the line, since a literal can hold spaces
+    if ($kinds[$i] === 'K_VALUE') {
+        return "{$words[0]} {$new}";
+    }
+    $words[$i + 1] = $new;
+
+    return implode(' ', $words);
+}
+
+/**
+ * The instruction table as vm/load.c has it: each instruction to the kinds of its arguments and
+ * a key for the arguments and stack effect together, which is what may stand in its place
+ *
+ * @return array<string, array{kinds: list<string>, shape: string}>
+ */
+function instructionTable(): array
+{
+    static $table = null;
+    if ($table === null) {
+        preg_match_all('/\[OP_\w+\] = \{"([A-Z_]+)", \d+, \{([^}]*)\}, (-?\w+), (-?\w+)\}/',
+            (string) file_get_contents(CVM::ROOT.'/vm/load.c'), $rows, PREG_SET_ORDER);
+        $table = [];
+        foreach ($rows as [, $name, $kinds, $pops, $pushes]) {
+            $kinds = array_values(array_filter(array_map(trim(...), explode(',', $kinds)), fn ($k) => $k !== '0'));
+            $table[$name] = ['kinds' => $kinds, 'shape' => implode(',', $kinds)."|{$pops}|{$pushes}"];
         }
-        $at = $rng->getInt(0, count($lines) - 1);
     }
 
-    return $at;
+    return $table;
+}
+
+/**
+ * The instructions that can stand in each other's place, by shape
+ *
+ * @return array<string, list<string>>
+ */
+function shapes(): array
+{
+    static $shapes = null;
+    if ($shapes === null) {
+        $shapes = [];
+        foreach (instructionTable() as $name => $info) {
+            $shapes[$info['shape']][] = $name;
+        }
+    }
+
+    return $shapes;
+}
+
+/**
+ * Every argument the file uses, by its kind, so one name can be swapped for another the file
+ * knows: a member for a member, a class for a class
+ *
+ * @param  list<string>  $lines
+ * @return array<string, list<string>>
+ */
+function operandPools(array $lines): array
+{
+    $pools = [];
+    foreach ($lines as $line) {
+        $words = explode(' ', $line);
+        foreach (instructionTable()[$words[0]]['kinds'] ?? [] as $i => $kind) {
+            if (isset($words[$i + 1]) && ! in_array($words[$i + 1], $pools[$kind] ?? [], true)) {
+                $pools[$kind][] = $words[$i + 1];
+            }
+        }
+    }
+
+    return $pools;
+}
+
+/**
+ * The blocks of a bytecode file: for each, the lines that are its instructions, how many locals
+ * it has and the labels it defines. A header line begins with a lowercase word and an
+ * instruction with an uppercase one (docs/bytecode.md), so a block needs no end marker.
+ *
+ * @param  list<string>  $lines
+ * @return list<array{body: list<int>, locals: int, labels: list<string>}>
+ */
+function bytecodeBlocks(array $lines): array
+{
+    $blocks = [];
+    $at = -1;
+    foreach ($lines as $i => $line) {
+        if (preg_match('/^(top|fn |lambda |class |abstract class )/', $line)) {
+            $blocks[] = ['body' => [], 'locals' => 0, 'labels' => []];
+            $at = count($blocks) - 1;
+        }
+        if ($at < 0) {
+            continue;
+        }
+        if (str_starts_with($line, 'locals')) {
+            $blocks[$at]['locals'] = count(array_filter(explode(' ', substr($line, 6))));
+        } elseif (preg_match('/^[A-Z_]+( |$)/', $line)) {
+            $blocks[$at]['body'][] = $i;
+            if (str_starts_with($line, 'LABEL ')) {
+                $blocks[$at]['labels'][] = substr($line, 6);
+            }
+        }
+    }
+
+    return array_values(array_filter($blocks, fn ($b) => $b['body'] !== []));
 }
 
 /**
