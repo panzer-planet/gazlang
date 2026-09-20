@@ -21,8 +21,8 @@
 /* ---- The instruction table ------------------------------------------------------------ */
 
 /* Argument kinds */
-enum { K_LABEL, K_VALUE, K_SLOT, K_GLOBAL, K_CAPTURE, K_COUNT, K_LAMBDA, K_FUNCTION, K_CALLABLE,
-       K_BUILTIN, K_CLASS, K_MEMBER, K_PATH, K_ELEMENT_PATH };
+enum { K_LABEL, K_VALUE, K_SLOT, K_GLOBAL, K_STATIC, K_CAPTURE, K_COUNT, K_LAMBDA, K_FUNCTION,
+       K_CALLABLE, K_BUILTIN, K_CLASS, K_MEMBER, K_PATH, K_ELEMENT_PATH };
 
 /* A pops count that depends on the arguments */
 enum { POPS_PATH = -1, POPS_KEYS = -2, POPS_COUNT = -3, POPS_COUNT1 = -4, POPS_COUNT2 = -5 };
@@ -48,6 +48,8 @@ static const InstrInfo INFO[OP_COUNT] = {
     [OP_LOAD_CAPTURED] = {"LOAD_CAPTURED", 1, {K_CAPTURE}, 0, 1},
     [OP_LOAD_QUIET_CAPTURED] = {"LOAD_QUIET_CAPTURED", 1, {K_CAPTURE}, 0, 1},
     [OP_STORE_CAPTURED] = {"STORE_CAPTURED", 1, {K_CAPTURE}, 1, 0},
+    [OP_LOAD_STATIC] = {"LOAD_STATIC", 1, {K_STATIC}, 0, 1},
+    [OP_STORE_STATIC] = {"STORE_STATIC", 1, {K_STATIC}, 1, 0},
     [OP_ADD] = {"ADD", 0, {0}, 2, 1},
     [OP_SUB] = {"SUB", 0, {0}, 2, 1},
     [OP_MUL] = {"MUL", 0, {0}, 2, 1},
@@ -92,10 +94,12 @@ static const InstrInfo INFO[OP_COUNT] = {
     [OP_INDEX_GET_EXISTING] = {"INDEX_GET_EXISTING", 0, {0}, 2, 1},
     [OP_SET_PATH] = {"SET_PATH", 2, {K_PATH, K_SLOT}, POPS_PATH, 1},
     [OP_SET_PATH_GLOBAL] = {"SET_PATH_GLOBAL", 2, {K_PATH, K_GLOBAL}, POPS_PATH, 1},
+    [OP_SET_PATH_STATIC] = {"SET_PATH_STATIC", 2, {K_PATH, K_STATIC}, POPS_PATH, 1},
     [OP_SET_PATH_CAPTURED] = {"SET_PATH_CAPTURED", 2, {K_PATH, K_CAPTURE}, POPS_PATH, 1},
     [OP_SET_PATH_THIS] = {"SET_PATH_THIS", 1, {K_PATH}, POPS_PATH, 1},
     [OP_DELETE_PATH] = {"DELETE_PATH", 2, {K_ELEMENT_PATH, K_SLOT}, POPS_KEYS, 0},
     [OP_DELETE_PATH_GLOBAL] = {"DELETE_PATH_GLOBAL", 2, {K_ELEMENT_PATH, K_GLOBAL}, POPS_KEYS, 0},
+    [OP_DELETE_PATH_STATIC] = {"DELETE_PATH_STATIC", 2, {K_ELEMENT_PATH, K_STATIC}, POPS_KEYS, 0},
     [OP_DELETE_PATH_CAPTURED] = {"DELETE_PATH_CAPTURED", 2, {K_ELEMENT_PATH, K_CAPTURE}, POPS_KEYS, 0},
     [OP_DELETE_PATH_THIS] = {"DELETE_PATH_THIS", 1, {K_ELEMENT_PATH}, POPS_KEYS, 0},
     [OP_CALL] = {"CALL", 2, {K_FUNCTION, K_COUNT}, POPS_COUNT, 1},
@@ -743,7 +747,7 @@ static void read_code(Block *b) {
         for (int i = 0; i < info->nargs; i++) {
             const char *arg = word(&w, i + 1);
             switch (info->kinds[i]) {
-            case K_SLOT: case K_GLOBAL: case K_CAPTURE: case K_COUNT: case K_LAMBDA:
+            case K_SLOT: case K_GLOBAL: case K_STATIC: case K_CAPTURE: case K_COUNT: case K_LAMBDA:
                 r.ints[i] = count(arg);
                 break;
             case K_VALUE:
@@ -1087,6 +1091,9 @@ static void check_block(Block *b) {
                 case K_GLOBAL:
                     if (n >= prog->nglobals) FAIL("Global slot %d is not one of the program's %d globals", n, prog->nglobals);
                     break;
+                case K_STATIC:
+                    if (n >= prog->nstatics) FAIL("Static slot %d is not one of the program's %d static fields", n, prog->nstatics);
+                    break;
                 case K_CAPTURE:
                     if (n >= b->ncaptures) FAIL("Capture %d is not one of the block's %d captured variables", n, b->ncaptures);
                     break;
@@ -1347,7 +1354,9 @@ static void link_program(void) {
                 in->p = r->names[1];
                 break;
             case OP_SET_PATH: case OP_SET_PATH_GLOBAL: case OP_SET_PATH_CAPTURED: case OP_SET_PATH_THIS:
+            case OP_SET_PATH_STATIC:
             case OP_DELETE_PATH: case OP_DELETE_PATH_GLOBAL: case OP_DELETE_PATH_CAPTURED: case OP_DELETE_PATH_THIS:
+            case OP_DELETE_PATH_STATIC:
                 in->p = r->path;
                 in->a = r->ints[1];
                 break;
@@ -1419,6 +1428,19 @@ Program *load(const char *text, size_t len, const char *path) {
     if (strcmp(w.w[0], "globals")) fail("Expected 'globals'");
     for (int i = 1; i < w.n; i++) prog->globals = push_name(prog->globals, &prog->nglobals, intern(w.w[i]));
     free_words(&w);
+
+    /* A static field is named "Class::name", the class being the one that declares it, so a
+       child and its parent name the same slot. The line is optional, as most programs have none */
+    line = next_line();
+    if (line) {
+        split_words(line, &w);
+        if (!strcmp(w.w[0], "statics")) {
+            for (int i = 1; i < w.n; i++) prog->statics = push_name(prog->statics, &prog->nstatics, intern(w.w[i]));
+        } else {
+            at_line--;      /* not ours, so the block reader gets this line */
+        }
+        free_words(&w);
+    }
 
     int cap = 8;
     prog->blocks = xmalloc((size_t)cap * sizeof(Block *));

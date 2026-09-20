@@ -18,11 +18,16 @@ leading and trailing whitespace on a line; a line's parts are separated by white
 ```
 GAZLANG BYTECODE 1
 globals @total @seen
+statics Counter::count
 ```
 
 The first line is the magic and the version. The second lists the global variables, one name
-per global slot, in slot order; a program with no globals writes `globals` on its own. The
-rest of the file is blocks.
+per global slot, in slot order; a program with no globals writes `globals` on its own.
+
+A `statics` line may follow, one name per static field slot, in slot order. A name is
+`Class::field`, the class being the one that *declares* it, so a class and its children name
+the same slot. The line is left out by a program with no static fields. The rest of the file
+is blocks.
 
 ## Blocks
 
@@ -164,6 +169,7 @@ is a GazLang error a `try` can catch, and gets the location of the instruction t
 | `CONCAT_ASSIGN slot` | `v -- w` | `$s ..= v`: appends to a local and pushes the new value. Fails if it is not set. The string is never loaded onto the stack, so the append is in place and a loop of them is linear; `..` otherwise, converting both sides as `echo` does. |
 | `LOAD_GLOBAL slot`, `LOAD_QUIET_GLOBAL slot`, `STORE_GLOBAL slot`, `CONCAT_ASSIGN_GLOBAL slot` | | The same for a global. |
 | `LOAD_CAPTURED slot`, `LOAD_QUIET_CAPTURED slot`, `STORE_CAPTURED slot`, `CONCAT_ASSIGN_CAPTURED slot` | | The same for a captured variable of the running closure, addressed by capture index. |
+| `LOAD_STATIC slot`, `STORE_STATIC slot` | | The same for a static field, addressed by its slot in the `statics` line. There is no quiet form: a static field always has a value, since the compiler writes its default, a constant, before anything else runs. |
 | `ARGC` | `-- n` | Pushes how many arguments the running call was passed, for default parameters. |
 
 ### Operators
@@ -229,10 +235,10 @@ depth limit is reached.
 | `INDEX_GET_QUIET` | `x k -- v` | The same, but null when the target is null or the key is missing (the left of `??`). |
 | `INDEX_GET_EXISTING` | `x k -- v` | The same as `INDEX_GET`, for a compound update, which needs the key to exist. |
 | `SET_PATH path slot` | `… v -- v` | Writes through the local in that slot, taking the path's `[k]` keys from the stack below the value, and leaves the value. Fails on a missing variable or key, or a bad step. |
-| `SET_PATH_GLOBAL path slot`, `SET_PATH_CAPTURED path slot` | | The same for a global or a captured variable. |
+| `SET_PATH_GLOBAL path slot`, `SET_PATH_CAPTURED path slot`, `SET_PATH_STATIC path slot` | | The same for a global, a captured variable or a static field. |
 | `SET_PATH_THIS path` | `… v -- v` | The same, starting at the object the method runs on. |
 | `DELETE_PATH path slot` | `… --` | Removes the element its path ends at, through the local in that slot, taking the path's `[k]` keys from the stack and leaving nothing. A list's later elements move down; a map keeps the order of the rest. Fails on a missing variable, step or element. The path ends in `[k]`: a field can't be removed. |
-| `DELETE_PATH_GLOBAL path slot`, `DELETE_PATH_CAPTURED path slot` | | The same for a global or a captured variable. |
+| `DELETE_PATH_GLOBAL path slot`, `DELETE_PATH_CAPTURED path slot`, `DELETE_PATH_STATIC path slot` | | The same for a global, a captured variable or a static field. |
 | `DELETE_PATH_THIS path` | `… --` | The same, starting at the object the method runs on. |
 
 ### Objects and classes

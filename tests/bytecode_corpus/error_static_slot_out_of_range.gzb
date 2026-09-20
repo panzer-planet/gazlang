@@ -1,0 +1,9 @@
+GAZLANG BYTECODE 1
+globals
+statics A::x
+
+top
+locals
+LOAD_STATIC 3
+PRINT
+HALT

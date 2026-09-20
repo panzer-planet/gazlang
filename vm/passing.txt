@@ -623,6 +623,7 @@ tests/bytecode_corpus/error_set_field_at_top_level.gzb
 tests/bytecode_corpus/error_slot.gzb
 tests/bytecode_corpus/error_stack_differs.gzb
 tests/bytecode_corpus/error_stack_differs_after_try.gzb
+tests/bytecode_corpus/error_static_slot_out_of_range.gzb
 tests/bytecode_corpus/error_top_with_words.gzb
 tests/bytecode_corpus/error_try_handler_open_on_one_path.gzb
 tests/bytecode_corpus/error_undefined_builtin.gzb
@@ -668,6 +669,7 @@ tests/bytecode_corpus/error_version.gzb
 tests/bytecode_corpus/raised_error_as_a_value.gzb
 tests/bytecode_corpus/set_field_undeclared.gzb
 tests/bytecode_corpus/spacing.gzb
+tests/bytecode_corpus/statics.gzb
 tests/bytecode_corpus/superinstruction_lookalikes.gzb
 tests/bytecode_corpus/top_level_ret.gzb
 tests/bytecode_corpus/unreachable_code_is_not_checked.gzb

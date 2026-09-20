@@ -41,6 +41,7 @@ static Value *vm_sp;    /* the top of the stack as the running instruction found
    .., ..=, a builtin): a method they run is called from there */
 static Instr *vm_here;
 static Value *globals;
+static Value *statics;   /* every class's static fields, one slot each, alive for the run */
 static Frame *frames, *fp;  /* every frame; fp is the running one, and fp - frames the call depth */
 static Handler *handlers;
 static int nhandlers, handlers_cap;
@@ -557,6 +558,16 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         case OP_STORE_CAPTURED:
             set_slot(&fp->closure->captured[in->a], POP());
             break;
+        /* A static field always has a value: the compiler puts its default, a constant, at the
+           top of the program, so nothing can read one before it is set */
+        case OP_LOAD_STATIC:
+            a = statics[in->a];
+            incref(a);
+            PUSH(a);
+            break;
+        case OP_STORE_STATIC:
+            set_slot(&statics[in->a], POP());
+            break;
 
         case OP_CONCAT_ASSIGN:
         case OP_CONCAT_ASSIGN_GLOBAL:
@@ -859,6 +870,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         case OP_SET_PATH:
         case OP_SET_PATH_GLOBAL:
         case OP_SET_PATH_CAPTURED:
+        case OP_SET_PATH_STATIC:
         case OP_SET_PATH_THIS: {
             Path *path = in->p;
             Value *keys = sp - 1 - path->nkeys;
@@ -869,6 +881,8 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
                 ok = store_path(&globals[in->a], program->globals[in->a], path, keys, TOP());
             } else if (op == OP_SET_PATH_CAPTURED) {
                 ok = store_path(&fp->closure->captured[in->a], fp->closure->lambda->block->captures[in->a], path, keys, TOP());
+            } else if (op == OP_SET_PATH_STATIC) {
+                ok = store_path(&statics[in->a], program->statics[in->a], path, keys, TOP());
             } else {
                 /* The object is a handle, so writing through a copy of it writes the object */
                 Value self = fp->receiver ? v_object(fp->receiver) : v_null();
@@ -883,6 +897,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         case OP_DELETE_PATH:
         case OP_DELETE_PATH_GLOBAL:
         case OP_DELETE_PATH_CAPTURED:
+        case OP_DELETE_PATH_STATIC:
         case OP_DELETE_PATH_THIS: {
             Path *path = in->p;
             Value *keys = sp - path->nkeys;
@@ -893,6 +908,8 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
                 ok = remove_path(&globals[in->a], program->globals[in->a], path, keys);
             } else if (op == OP_DELETE_PATH_CAPTURED) {
                 ok = remove_path(&fp->closure->captured[in->a], fp->closure->lambda->block->captures[in->a], path, keys);
+            } else if (op == OP_DELETE_PATH_STATIC) {
+                ok = remove_path(&statics[in->a], program->statics[in->a], path, keys);
             } else {
                 Value self = fp->receiver ? v_object(fp->receiver) : v_null();
                 ok = remove_path(&self, this_name(), path, keys);
@@ -1337,15 +1354,17 @@ static char *read_all(const char *path, size_t *len) {
    left, which is nothing but its own constants */
 static int64_t loaded;
 
-/* Drop what a finished program still holds: its globals, and everything from the top frame's
-   locals up. Then collect cycles, and free the run's stack, frames and globals. */
+/* Drop what a finished program still holds: its globals and static fields, and everything from
+   the top frame's locals up. Then collect cycles, and free the run's stack, frames and slots. */
 static void finish(Value *top) {
     for (int i = 0; i < program->nglobals; i++) set_slot(&globals[i], v_unset());
+    for (int i = 0; i < program->nstatics; i++) set_slot(&statics[i], v_unset());
     while (top > stack) set_slot(--top, v_unset());
     gc_collect();
     free(stack);
     free(frames);
     free(globals);
+    free(statics);
 }
 
 /* Run the loaded program from its first instruction, reporting an uncaught error: its exit code.
@@ -1358,6 +1377,7 @@ static int run_program(bool check) {
     stack_end = stack + capacity;
     frames = xcalloc(MAX_CALL_DEPTH + 4, sizeof(Frame));
     globals = xcalloc((size_t)program->nglobals + 1, sizeof(Value));
+    statics = xcalloc((size_t)program->nstatics + 1, sizeof(Value));
     vm_here = NULL;
     /* Every program starts unpredictable, as if it had called rand_seed(), whatever ran before */
     random_seed_unpredictable();
