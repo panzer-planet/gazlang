@@ -6,12 +6,14 @@ Compound
         name: "Token::EOF"
         constant: true
         value: "EOF"
+        static_name: null
     1: EchoStatement 3
       expr: Index 3
         target: FunctionRef 3
           name: "Token::KINDS"
           constant: true
           value: ["EOF", "EOF!", 2, "other"]
+          static_name: null
         index: Num 3
           token: 3 INTEGER 0
           value: 0
@@ -19,6 +21,11 @@ Compound
       name: "Token"
       parent: null
       abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
       fields:
         type: Property 8
           target: This 8
@@ -26,12 +33,14 @@ Compound
           field: false
           constant: true
           value: "EOF"
+          static_name: null
         kinds: Property 9
           target: This 9
           name: "KINDS"
           field: false
           constant: true
           value: ["EOF", "EOF!", 2, "other"]
+          static_name: null
       field_lines: {"type" => 8, "kinds" => 9}
       methods:
         is_eof: FunctionDeclaration 10
@@ -48,6 +57,7 @@ Compound
                     field: true
                     constant: false
                     value: null
+                    static_name: null
                   token: 10 EQUALS ==
                   op: 10 EQUALS ==
                   right: Property 10
@@ -56,6 +66,7 @@ Compound
                     field: false
                     constant: true
                     value: "EOF"
+                    static_name: null
           arity: 0
           class: "Token"
           abstract: false
@@ -76,6 +87,7 @@ Compound
                     field: false
                     constant: true
                     value: "EOF"
+                    static_name: null
                   captures: []
                   self: null
           arity: 0
@@ -91,6 +103,7 @@ Compound
               field: false
               constant: true
               value: "EOF"
+              static_name: null
           body: Compound
             statements:
               0: ReturnStatement 12
@@ -106,6 +119,7 @@ Compound
                     field: false
                     constant: true
                     value: ["EOF", "EOF!", 2, "other"]
+                    static_name: null
           arity: [0, 1]
           class: "Token"
           abstract: false
@@ -124,6 +138,7 @@ Compound
                       field: false
                       constant: true
                       value: ["EOF", "EOF!", 2, "other"]
+                      static_name: null
                     index: Num 13
                       token: 13 INTEGER 0
                       value: 0
@@ -134,6 +149,7 @@ Compound
                       name: "Token::KINDS"
                       constant: true
                       value: ["EOF", "EOF!", 2, "other"]
+                      static_name: null
                     index: Num 13
                       token: 13 INTEGER 1
                       value: 1
@@ -160,6 +176,7 @@ Compound
                           field: false
                           constant: true
                           value: "EOF"
+                          static_name: null
                       1: Num 14
                         token: 14 INTEGER 1
                         value: 1
@@ -170,6 +187,7 @@ Compound
                           name: "Token::EOF"
                           constant: true
                           value: "EOF"
+                          static_name: null
                       1: Num 14
                         token: 14 INTEGER 2
                         value: 2
@@ -198,6 +216,7 @@ Compound
                       field: true
                       constant: false
                       value: null
+                      static_name: null
                     index: null
                   token: 16 ASSIGN =
                   right: Num 16
@@ -212,6 +231,7 @@ Compound
                       field: true
                       constant: false
                       value: null
+                      static_name: null
                     index: Num 16
                       token: 16 INTEGER 0
                       value: 0
@@ -227,6 +247,7 @@ Compound
                     field: true
                     constant: false
                     value: null
+                    static_name: null
                   index: Num 16
                     token: 16 INTEGER 0
                     value: 0
@@ -239,6 +260,7 @@ Compound
                       field: false
                       constant: false
                       value: null
+                      static_name: null
                     index: Num 16
                       token: 16 INTEGER 0
                       value: 0
@@ -263,6 +285,7 @@ Compound
                 field: false
                 constant: true
                 value: "EOF"
+                static_name: null
             1:
               0: null
               1: BinOp 6
@@ -270,6 +293,7 @@ Compound
                   name: "Token::EOF"
                   constant: true
                   value: "EOF"
+                  static_name: null
                 token: 6 CONCAT ..
                 op: 6 CONCAT ..
                 right: String 6
@@ -281,12 +305,14 @@ Compound
                 name: "TWO"
                 constant: true
                 value: 2
+                static_name: null
             3:
               0: null
               1: FunctionRef 6
                 name: "Other::NAME"
                 constant: true
                 value: "other"
+                static_name: null
           map: false
         TEXT: BinOp 7
           left: String 7
@@ -300,6 +326,7 @@ Compound
             field: false
             constant: true
             value: "EOF"
+            static_name: null
       constant_lines: {"EOF" => 5, "KINDS" => 6, "TEXT" => 7}
       constant_owners: {"EOF" => "Token", "KINDS" => "Token", "TEXT" => "Token"}
       layout: {"type" => "Token", "kinds" => "Token"}
@@ -309,6 +336,11 @@ Compound
       name: "Special"
       parent: "Token"
       abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
       fields: []
       field_lines: []
       methods:
@@ -329,6 +361,7 @@ Compound
                         field: false
                         constant: true
                         value: ["EOF", "EOF!", 2, "other"]
+                        static_name: null
                     1:
                       0: null
                       1: Property 21
@@ -337,24 +370,28 @@ Compound
                         field: false
                         constant: true
                         value: 4
+                        static_name: null
                     2:
                       0: null
                       1: FunctionRef 21
                         name: "Special::FOUR"
                         constant: true
                         value: 4
+                        static_name: null
                     3:
                       0: null
                       1: FunctionRef 21
                         name: "Special::EOF"
                         constant: true
                         value: "EOF"
+                        static_name: null
                     4:
                       0: null
                       1: FunctionRef 21
                         name: "Token::EOF"
                         constant: true
                         value: "EOF"
+                        static_name: null
                   map: false
           arity: 0
           class: "Special"
@@ -365,6 +402,7 @@ Compound
             name: "TWO"
             constant: true
             value: 2
+            static_name: null
           token: 19 MULTIPLY *
           op: 19 MULTIPLY *
           right: Num 19
@@ -380,6 +418,7 @@ Compound
                 field: false
                 constant: true
                 value: "EOF"
+                static_name: null
             1:
               0: null
               1: Property 20
@@ -388,12 +427,14 @@ Compound
                 field: false
                 constant: true
                 value: 4
+                static_name: null
             2:
               0: null
               1: FunctionRef 20
                 name: "Special::EOF"
                 constant: true
                 value: "EOF"
+                static_name: null
           map: false
       constant_lines: {"FOUR" => 19, "ALL" => 20}
       constant_owners: {"EOF" => "Token", "KINDS" => "Token", "TEXT" => "Token", "FOUR" => "Special", "ALL" => "Special"}
@@ -404,6 +445,11 @@ Compound
       name: "Other"
       parent: null
       abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
       fields: []
       field_lines: []
       methods: []
@@ -421,6 +467,7 @@ Compound
         name: "Special::ALL"
         constant: true
         value: ["EOF", 4, "EOF"]
+        static_name: null
     6: Statement 26
       expr: Assign 26
         left: Variable 26
@@ -439,16 +486,19 @@ Compound
         field: false
         constant: false
         value: null
+        static_name: null
     8: EchoStatement 28
       expr: Property 28
         target: FunctionRef 28
           name: "TWO"
           constant: true
           value: 2
+          static_name: null
         name: "x"
         field: false
         constant: false
         value: null
+        static_name: null
     9: EchoStatement 30
       expr: Ternary 30
         condition: Boolean 30
@@ -458,6 +508,7 @@ Compound
           name: "Token::EOF"
           constant: true
           value: "EOF"
+          static_name: null
         else: String 30
           token: 30 STRING "x"
           value: "x"

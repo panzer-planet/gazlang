@@ -145,6 +145,18 @@ class Parser {
     #constant_values = {};
     // The constants being worked out, outermost first, to find one that depends on itself
     #folding = [];
+    // Every qualified name written under, with the operator that did it, which is only
+    // allowed if the name turns out to be a static field
+    #static_writes = [];
+    // Every static field, "Owner::name" to its slot in declaration order, and the constant
+    // each starts at, which the code generator writes before anything else runs
+    #statics = {};
+    #static_defaults = [];
+    // Every static method's FunctionDeclarationAST, which the top level gets as a function
+    #static_functions = [];
+    // The class whose static method is being parsed, so #name in it is the class's
+    #in_static = null;
+
     // Every Name.member, which is an error if Name turns out to be a class: a class is
     // reached by name, with ::, and the dot goes through a value
     #dot_on_names = [];
@@ -500,6 +512,9 @@ class Parser {
         if (#class == null) {
             #fail("Cannot use {$token.value} outside a method");
         }
+        if (#in_static != null && $token.type == "HASH") {
+            #fail("Cannot use # in a static method: it has no object");
+        }
         #eat($token.type);
         if ($token.type == "HASH" && #current_token.type == "PROPERTY") {
             #fail("Write #" .. slice(#current_token.value, 1) .. ", not #" .. #current_token.value);
@@ -516,7 +531,7 @@ class Parser {
         }
         $node = #at(PropertyAST($this_node, $name), $token);
         $node.use = len(#member_uses);
-        #member_uses[] = [$node, #class, null, false, false];
+        #member_uses[] = [$node, #class, null, false, false, #in_static != null];
 
         return $node;
     }
@@ -996,7 +1011,12 @@ class Parser {
     // $a, $a[0], $rows[0].total, #count, #items[] and $user.tags[0] can be; # itself, and a
     // path starting anywhere else (make().x), can't. $operator is the assignment or ++/-- token.
     fn assignable($node, $operator) {
-        if (is_a($node, VariableAST) || ((is_a($node, IndexAST) || is_a($node, PropertyAST)) && path_root($node) != null)) {
+        $root = path_root($node);
+        if (is_a($root, FunctionRefAST)) {
+            #static_writes[] = [$root, $operator];
+        }
+        if (is_a($node, VariableAST) || is_a($node, FunctionRefAST) && contains($node.name, "::")
+            || ((is_a($node, IndexAST) || is_a($node, PropertyAST)) && $root != null)) {
             if (is_a($node, PropertyAST) && $node.use != null) {
                 #member_uses[$node.use][3] = true;
             }
@@ -1441,8 +1461,10 @@ class Parser {
                 #constant_declaration($class);
             } else if (#current_token.type == "FN" || #current_token.type == "ABSTRACT") {
                 #method_declaration($class);
+            } else if (#current_token.type == "STATIC") {
+                #static_declaration($class);
             } else {
-                #fail("Expected a field (#name), a method (fn) or a constant (const) but found " .. #describe(#current_token));
+                #fail("Expected a field (#name), a method (fn), a constant (const) or a static but found " .. #describe(#current_token));
             }
         }
         #class = null;
@@ -1663,6 +1685,40 @@ class Parser {
         return #constant_values[$key];
     }
 
+    // Record a static of a resolved class, refusing a name the hierarchy already uses: every
+    // member shares one namespace, and a child can't declare a parent's static again
+    fn check_new_static($class, $name, $line, $is_method) {
+        $what = $is_method ? "Static method {$class.name}::{$name}" : "Static field {$class.name}::#{$name}";
+        if (has_key($class.static_owners, $name)) {
+            #fail_at("{$what} is already declared in {$class.static_owners[$name]}", $class.file, $line);
+        }
+        $owner = $class.constant_owners[$name] ?? $class.layout[$name] ?? $class.members[$name] ?? $class.abstract_methods[$name] ?? null;
+        if ($owner != null) {
+            $kind = match {
+                has_key($class.constant_owners, $name) => "constant",
+                has_key($class.layout, $name) => "field",
+                default => "method",
+            };
+            #fail_at("{$what} has the name of a {$kind} of {$owner}: constants, fields, methods and statics share names", $class.file, $line);
+        }
+        $class.static_owners[$name] = $class.name;
+        $class.static_is_method[$name] = $is_method;
+    }
+
+    // Refuse a member whose name a static of the hierarchy already uses
+    fn check_not_static($class, $name, $what, $line) {
+        if (has_key($class.static_owners, $name)) {
+            $kind = $class.static_is_method[$name] ? "static method" : "static field";
+            #fail_at("{$what} has the name of a {$kind} of {$class.static_owners[$name]}: constants, fields, methods and statics share names", $class.file, $line);
+        }
+    }
+
+    // The key in #statics of a resolved class's static, its parent's included, or null if it
+    // has none of that name
+    fn class_static($class, $name) {
+        return has_key($class.static_owners, $name) ? "{$class.static_owners[$name]}::{$name}" : null;
+    }
+
     // The key in #constants of a resolved class's constant, its parent's included, or null if it has none of that name
     fn class_constant($class, $name) {
         return has_key($class.constant_owners, $name) ? "{$class.constant_owners[$name]}::{$name}" : null;
@@ -1862,6 +1918,21 @@ class Parser {
         return $class == null ? null : #class_constant($class, $last);
     }
 
+    // The key in #statics of the static field a name means, or null if it names none. As a
+    // constant's, a class's static is its owner's, since a child shares it.
+    fn static_key($name) {
+        if (!contains($name, "::")) {
+            return null;
+        }
+        [$prefix, $last] = #split_name($name);
+        $class = #classes[$prefix] ?? null;
+        if ($class == null || ($class.static_is_method[$last] ?? true)) {
+            return null;
+        }
+
+        return #class_static($class, $last);
+    }
+
     // What is wrong with a qualified name nothing declares, or null when the name has no ::
     // or names a namespace, where being undefined is all there is to say
     fn qualified_error($name) {
@@ -1875,6 +1946,72 @@ class Parser {
         }
 
         return has_key(#namespaces, #split_head($name)[0]) ? null : #not_a_class($prefix);
+    }
+
+    // Parse a static declaration (STATIC (HASH_IDENTIFIER ASSIGN expr SEMICOLON | FN method))
+    //
+    // A static belongs to the class rather than to an object, so a field is a slot and a
+    // method a function whose name carries its class. A field's default is a constant
+    // expression, folded as a class constant is: running one would bring initialisation
+    // order and bytecode before the top level, which is what constants refuse for.
+    fn static_declaration($class) {
+        $start = #current_token;
+        #eat("STATIC");
+        if (#current_token.type == "FN") {
+            #static_method($class, $start);
+
+            return;
+        }
+        $token = #current_token;
+        if ($token.type != "HASH_IDENTIFIER") {
+            #fail("Expected a static field (#name) or a static method (fn) but found " .. #describe($token));
+        }
+        $name = slice($token.value, 1);
+        #check_new_member($class, $name);
+        #eat("HASH_IDENTIFIER");
+        if (#current_token.type != "ASSIGN") {
+            #fail("A static field needs a value: write 'static #{$name} = ...;'");
+        }
+        #eat("ASSIGN");
+        #in_constant = true;
+        $expr = #expr();
+        #in_constant = false;
+        #eat("SEMICOLON");
+
+        $class.statics[$name] = $expr;
+        $class.static_lines[$name] = $token.line;
+    }
+
+    // Parse a static method (FN name parameters block), the static having been eaten
+    //
+    // It is a function named Class::name, so calling one is an ordinary call and the VM needs
+    // nothing: a static has no object, which is why a dot never reaches it.
+    fn static_method($class, $start) {
+        #eat("FN");
+        $token = #current_token;
+        if ($token.type != "IDENTIFIER" && !in_array($token.type, values(Lexer::KEYWORDS))) {
+            #fail("Expected a name but found " .. #describe($token));
+        }
+        $name = $token.value;
+        if ($name == "_") {
+            #fail("A constructor can't be static: it makes an object");
+        }
+        #check_new_member($class, $name);
+        #eat($token.type);
+
+        $full = "{$class.name}::{$name}";
+        [$params, $defaults] = #parameters("static method {$full}");
+        $arity = #arity($params, $defaults);
+        #functions[$full] = $arity;
+        #declare($full, has_key(#public, $class.name) || #declared_in[$class.name] == "");
+        [$in_function, $in_static] = [#in_function, #in_static];
+        [#in_function, #in_static] = [true, $class];
+        $body = #block();
+        [#in_function, #in_static] = [$in_function, $in_static];
+
+        $node = #at(FunctionDeclarationAST($full, $params, $defaults, $body, $arity), $start);
+        $class.static_methods[$name] = $node;
+        #static_functions[] = $node;
     }
 
     // Parse a method declaration ([ABSTRACT] FN name parameters (block | SEMICOLON)) into its class
@@ -1923,6 +2060,10 @@ class Parser {
     // Check a class doesn't already declare a member: fields and methods share one namespace
     fn check_new_member($class, $name) {
         $field = #current_token.type == "HASH_IDENTIFIER";
+        if (has_key($class.statics, $name) || has_key($class.static_methods, $name)) {
+            $kind = has_key($class.statics, $name) ? "static field #{$name}" : "static method {$name}";
+            #fail("{$class.name} already has a {$kind}: constants, fields, methods and statics share names");
+        }
         if (has_key($class.constants, $name)) {
             #fail("{$class.name} already has a constant {$name}: constants, fields and methods share names");
         }
@@ -2037,9 +2178,22 @@ class Parser {
             #constant_value($key, $constant[0]);
         }
 
+        // A static field is a slot, and its default a constant, so the two are worked out
+        // here and the code generator writes them before the program's own first instruction
+        $inits = [];
+        foreach (#classes as $class) {
+            foreach ($class.statics as $name => $expr) {
+                #check_constant_expression($expr, $class);
+                #statics["{$class.name}::{$name}"] = len(#static_defaults);
+                #static_defaults[] = #fold($expr, $class);
+                $inits[] = #at(StaticInitAST("{$class.name}::{$name}", last(#static_defaults)), $expr);
+            }
+        }
+        $root.statements = [...$inits, ...$root.statements];
+
         // In source order, so the first mistake in the program is the one reported
-        foreach (#member_uses as [$node, $class, $argc, $assigned, $written]) {
-            #check_member_use($node, $class, $argc, $assigned, $written);
+        foreach (#member_uses as [$node, $class, $argc, $assigned, $written, $in_static]) {
+            #check_member_use($node, $class, $argc, $assigned, $written, $in_static);
         }
         foreach (#dot_on_names as $node) {
             #check_dot_on_name($node);
@@ -2048,6 +2202,15 @@ class Parser {
             #check_parent_use($node, $class);
         }
         foreach (#uses as [$use, $scope]) {
+            $static = #static_key($use.name);
+            if ($static != null) {
+                if (is_a($use, FunctionCallAST)) {
+                    #fail_at("{$use.name} is a static field, not a function", $use.file, $use.line);
+                }
+                $use.static_name = $static;
+
+                continue;
+            }
             $constant = #constant_key($use.name);
             if ($constant != null) {
                 if (is_a($use, FunctionCallAST)) {
@@ -2072,6 +2235,14 @@ class Parser {
 
                 continue;
             }
+            // Child::next is the function Parent::next when the parent declares it
+            if (!has_key(#functions, $use.name) && contains($use.name, "::")) {
+                [$prefix, $last] = #split_name($use.name);
+                $class = #classes[$prefix] ?? null;
+                if ($class != null && ($class.static_is_method[$last] ?? false)) {
+                    $use.name = #class_static($class, $last);
+                }
+            }
             if (!has_key(#functions, $use.name)) {
                 $error = #qualified_error($use.name);
                 if ($error != null) {
@@ -2089,6 +2260,15 @@ class Parser {
                 if ($error != null) {
                     #fail_at($error, $use.file, $use.line);
                 }
+            }
+        }
+
+        // Only a static field of the ones reached by name is a slot, so only it can be written
+        foreach (#static_writes as [$node, $operator]) {
+            if ($node.static_name == null) {
+                #fail_at($node.constant
+                    ? "Cannot change constant {$node.name}"
+                    : "Can only use {$operator.value} on a variable, or an element or field of one", $node.file, $node.line);
             }
         }
 
@@ -2125,10 +2305,13 @@ class Parser {
             #resolve_class($parent, $chain);
             [$class.layout, $class.members, $class.abstract_methods] = [$parent.layout, $parent.members, $parent.abstract_methods];
             $class.constant_owners = $parent.constant_owners;
+            // A child shares its parent's statics, as it shares the rest of the namespace
+            [$class.static_owners, $class.static_is_method] = [$parent.static_owners, $parent.static_is_method];
         }
 
         foreach ($class.constants as $name => $_) {
             $line = $class.constant_lines[$name];
+            #check_not_static($class, $name, "Constant {$name} of {$class.name}", $line);
             // A child can't declare it again: #NAME is worked out from the class it is written in, so there is nothing to override
             if (has_key($class.constant_owners, $name)) {
                 #fail_at("Constant {$name} of {$class.name} is already declared in {$class.constant_owners[$name]}", $class.file, $line);
@@ -2141,8 +2324,16 @@ class Parser {
             $class.constant_owners[$name] = $class.name;
         }
 
+        foreach ($class.statics as $name => $_) {
+            #check_new_static($class, $name, $class.static_lines[$name], false);
+        }
+        foreach ($class.static_methods as $name => $method) {
+            #check_new_static($class, $name, $method.line, true);
+        }
+
         foreach ($class.fields as $name => $_) {
             $line = $class.field_lines[$name];
+            #check_not_static($class, $name, "Field #{$name}", $line);
             if (has_key($class.constant_owners, $name) && $class.constant_owners[$name] != $class.name) {
                 #fail_at("Field #{$name} of {$class.name} has the name of a constant of {$class.constant_owners[$name]}: constants, fields and methods share names", $class.file, $line);
             }
@@ -2156,6 +2347,7 @@ class Parser {
             $class.layout[$name] = $class.name;
         }
         foreach ($class.methods as $name => $method) {
+            #check_not_static($class, $name, "Method {$class.name}.{$name}", $method.line);
             if (has_key($class.constant_owners, $name)) {
                 #fail_at("Method {$class.name}.{$name} has the name of a constant of {$class.constant_owners[$name]}: constants, fields and methods share names", $method.file, $method.line);
             }
@@ -2242,7 +2434,28 @@ class Parser {
     //
     // Called methods are checked against the class the method is written in: a child's
     // version accepts every argument count this one does.
-    fn check_member_use($node, $class, $argc, $assigned, $written) {
+    fn check_member_use($node, $class, $argc, $assigned, $written, $in_static) {
+        $static = #class_static($class, $node.name);
+        if ($static != null) {
+            if ($argc != null && !$class.static_is_method[$node.name]) {
+                #fail_at("#{$node.name} is a static field, not a method", $node.file, $node.line);
+            }
+            if ($argc == null && $class.static_is_method[$node.name]) {
+                #fail_at("#{$node.name} is a static method: call it, or reach it by name", $node.file, $node.line);
+            }
+            if ($argc != null) {
+                $error = #arity_error("Static method {$static}", #functions[$static], $argc);
+                if ($error != null) {
+                    #fail_at($error, $node.file, $node.line);
+                }
+            }
+            $node.static_name = $static;
+
+            return;
+        }
+        if ($in_static) {
+            #fail_at("#{$node.name} is not static, and a static method has no object", $node.file, $node.line);
+        }
         $constant = #class_constant($class, $node.name);
         if ($constant != null) {
             if ($written) {
@@ -2308,7 +2521,13 @@ class Parser {
                 if (#current_token.type == "FN") {
                     $statements[] = #function_declaration($pub);
                 } else if (#current_token.type == "CLASS" || #current_token.type == "ABSTRACT") {
+                    // A static method is a function, so it is spliced in after its class
+                    $from = len(#static_functions);
                     $statements[] = #class_declaration($pub);
+                    while ($from < len(#static_functions)) {
+                        $statements[] = #static_functions[$from];
+                        $from++;
+                    }
                 } else if (#current_token.type == "CONST") {
                     #constant_declaration(null, $pub);
                 } else {

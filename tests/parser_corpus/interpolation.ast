@@ -139,6 +139,7 @@ Compound
                 field: false
                 constant: false
                 value: null
+                static_name: null
             token: 7 CONCAT ..
             op: 7 CONCAT ..
             right: String 7

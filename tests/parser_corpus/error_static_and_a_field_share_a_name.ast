@@ -1,0 +1,1 @@
+Error: K already has a static field #a: constants, fields, methods and statics share names at tests/parser_corpus/error_static_and_a_field_share_a_name.gaz:3

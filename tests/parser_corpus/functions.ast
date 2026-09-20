@@ -282,6 +282,7 @@ Compound
           name: "add"
           constant: false
           value: null
+          static_name: null
     10: EchoStatement 24
       expr: CallValue 24
         callee: Variable 24
@@ -305,12 +306,14 @@ Compound
                   name: "add"
                   constant: false
                   value: null
+                  static_name: null
               1:
                 0: null
                 1: FunctionRef 25
                   name: "twice"
                   constant: false
                   value: null
+                  static_name: null
             map: false
           index: Num 25
             token: 25 INTEGER 0

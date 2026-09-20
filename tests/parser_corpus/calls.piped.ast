@@ -96,6 +96,7 @@ Compound
           name: "len"
           constant: false
           value: null
+          static_name: null
     11: EchoStatement 14
       expr: Index 14
         target: ArrayLiteral 14
@@ -106,12 +107,14 @@ Compound
                 name: "len"
                 constant: false
                 value: null
+                static_name: null
             1:
               0: null
               1: FunctionRef 14
                 name: "upper"
                 constant: false
                 value: null
+                static_name: null
           map: false
         index: Num 14
           token: 14 INTEGER 0
@@ -122,6 +125,7 @@ Compound
           name: "upper"
           constant: false
           value: null
+          static_name: null
         args:
           0: String 15
             token: 15 STRING "x"

@@ -226,6 +226,7 @@ Compound
           field: false
           constant: false
           value: null
+          static_name: null
         token: 22 ASSIGN =
         right: Num 22
           token: 22 INTEGER 5
@@ -241,6 +242,7 @@ Compound
             field: false
             constant: false
             value: null
+            static_name: null
           index: null
         token: 23 ASSIGN =
         right: Num 23
@@ -260,6 +262,7 @@ Compound
           field: false
           constant: false
           value: null
+          static_name: null
         token: 24 PLUS_ASSIGN +=
         right: Num 24
           token: 24 INTEGER 7
@@ -274,6 +277,7 @@ Compound
           field: false
           constant: false
           value: null
+          static_name: null
         token: 25 CONCAT_ASSIGN ..=
         right: String 25
           token: 25 STRING "!"
@@ -415,6 +419,7 @@ Compound
               field: false
               constant: false
               value: null
+              static_name: null
             3: Index 34
               target: Variable 34
                 token: 34 VAR_IDENTIFIER $m

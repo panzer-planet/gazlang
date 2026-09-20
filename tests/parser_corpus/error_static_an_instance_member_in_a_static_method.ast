@@ -1,0 +1,1 @@
+Error: #x is not static, and a static method has no object at tests/parser_corpus/error_static_an_instance_member_in_a_static_method.gaz:3

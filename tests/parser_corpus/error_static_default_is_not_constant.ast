@@ -1,0 +1,1 @@
+Error: A constant's value can only use literals, operators and other constants at tests/parser_corpus/error_static_default_is_not_constant.gaz:3

@@ -61,6 +61,7 @@ Compound
         field: false
         constant: false
         value: null
+        static_name: null
     4: EchoStatement 6
       expr: Property 6
         target: Property 6
@@ -71,10 +72,12 @@ Compound
           field: false
           constant: false
           value: null
+          static_name: null
         name: "city"
         field: false
         constant: false
         value: null
+        static_name: null
     5: EchoStatement 7
       expr: Property 7
         target: Index 7
@@ -88,6 +91,7 @@ Compound
         field: false
         constant: false
         value: null
+        static_name: null
     6: EchoStatement 8
       expr: Index 8
         target: Property 8
@@ -98,6 +102,7 @@ Compound
           field: false
           constant: false
           value: null
+          static_name: null
         index: Num 8
           token: 8 INTEGER 0
           value: 0
@@ -111,10 +116,12 @@ Compound
           field: false
           constant: false
           value: null
+          static_name: null
         name: "first"
         field: false
         constant: false
         value: null
+        static_name: null
     8: EchoStatement 12
       expr: CallValue 12
         callee: Variable 12
@@ -165,6 +172,7 @@ Compound
           name: "len"
           constant: false
           value: null
+          static_name: null
         args:
           0: ArrayLiteral 15
             entries:
@@ -200,6 +208,7 @@ Compound
           field: false
           constant: false
           value: null
+          static_name: null
         args:
           0: Num 17
             token: 17 INTEGER 1
@@ -216,6 +225,7 @@ Compound
         field: false
         constant: false
         value: null
+        static_name: null
     15: EchoStatement 19
       expr: MethodCall 19
         property: Property 19
@@ -229,6 +239,7 @@ Compound
                 field: false
                 constant: false
                 value: null
+                static_name: null
               args: []
             index: Num 19
               token: 19 INTEGER 0
@@ -237,6 +248,7 @@ Compound
           field: false
           constant: false
           value: null
+          static_name: null
         args: []
     16: EchoStatement 20
       expr: Property 20
@@ -249,14 +261,17 @@ Compound
             field: false
             constant: false
             value: null
+            static_name: null
           name: "if"
           field: false
           constant: false
           value: null
+          static_name: null
         name: "class"
         field: false
         constant: false
         value: null
+        static_name: null
     17: EchoStatement 21
       expr: Index 21
         target: String 21
@@ -336,6 +351,7 @@ Compound
             field: false
             constant: false
             value: null
+            static_name: null
           token: 26 COALESCE ??
           op: 26 COALESCE ??
           right: Null 26
@@ -405,6 +421,7 @@ Compound
           field: false
           constant: false
           value: null
+          static_name: null
         op: 33 INCREMENT ++
         prefix: false
     30: Statement 34
@@ -421,6 +438,7 @@ Compound
           field: false
           constant: false
           value: null
+          static_name: null
         op: 34 INCREMENT ++
         prefix: true
     31: EchoStatement 35

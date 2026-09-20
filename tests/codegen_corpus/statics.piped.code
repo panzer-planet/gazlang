@@ -1,0 +1,177 @@
+GAZLANG BYTECODE 1
+globals
+statics Counter::count Counter::rows Counter::limit
+
+top
+locals
+@ 4
+PUSH 0
+STORE_STATIC 0
+@ 5
+PUSH []
+STORE_STATIC 1
+@ 6
+PUSH 10
+STORE_STATIC 2
+@ 34
+LOAD_STATIC 0
+PRINT
+@ 35
+NEW Counter 0
+POP
+@ 36
+NEW Counter 0
+POP
+@ 37
+LOAD_STATIC 0
+PUSH " "
+CONCAT
+LOAD_STATIC 0
+CONCAT
+PRINT
+@ 38
+CALL Counter::next 0
+PUSH " "
+CONCAT
+CALL Counter::next 0
+CONCAT
+PRINT
+@ 39
+CALL Counter::twice 0
+PRINT
+@ 40
+NEW Counter 0
+GET_METHOD mine
+CALL_METHOD 0 mine
+PRINT
+@ 43
+PUSH 100
+STORE_STATIC 0
+LOAD_STATIC 0
+POP
+@ 44
+LOAD_STATIC 0
+PUSH 5
+ADD
+STORE_STATIC 0
+LOAD_STATIC 0
+POP
+@ 45
+LOAD_STATIC 0
+INC
+STORE_STATIC 0
+LOAD_STATIC 0
+POP
+@ 46
+LOAD_STATIC 0
+PRINT
+@ 47
+PUSH "a"
+SET_PATH_STATIC [] 1
+POP
+@ 48
+PUSH "b"
+SET_PATH_STATIC [] 1
+POP
+@ 49
+PUSH 0
+KEY_CHECK
+PUSH "A"
+SET_PATH_STATIC [k] 1
+POP
+@ 50
+LOAD_STATIC 1
+PRINT
+@ 51
+PUSH 0
+KEY_CHECK
+DELETE_PATH_STATIC [k] 1
+@ 52
+LOAD_STATIC 1
+PRINT
+@ 53
+LOAD_STATIC 2
+PRINT
+
+fn Counter::next 0 0
+locals
+@ 15
+LOAD_STATIC 0
+INC
+STORE_STATIC 0
+LOAD_STATIC 0
+POP
+@ 17
+LOAD_STATIC 0
+RET
+@ 14
+PUSH null
+RET
+
+fn Counter::twice 0 0
+locals
+@ 22
+CALL Counter::next 0
+CALL Counter::next 0
+ADD
+RET
+@ 21
+PUSH null
+RET
+
+class Counter
+field id Counter
+method _ Counter
+method mine Counter
+locals
+@ 3
+CALL_CONSTRUCTOR Counter
+POP
+LOAD_THIS
+RET
+
+fn Counter._ 0 0
+locals
+@ 10
+LOAD_STATIC 0
+INC
+STORE_STATIC 0
+LOAD_STATIC 0
+POP
+@ 11
+LOAD_STATIC 0
+SET_FIELD id
+POP
+@ 9
+PUSH null
+RET
+
+fn Counter.mine 0 0
+locals
+@ 27
+PUSH ""
+LOAD_FIELD id
+CONCAT
+PUSH " of "
+CONCAT
+LOAD_STATIC 0
+CONCAT
+PUSH ", limit "
+CONCAT
+LOAD_STATIC 2
+CONCAT
+RET
+@ 25
+PUSH null
+RET
+
+class Tally extends Counter
+field id Counter
+method _ Counter
+method mine Counter
+locals
+@ 32
+CALL_CONSTRUCTOR Counter
+POP
+LOAD_THIS
+RET

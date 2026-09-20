@@ -1,0 +1,4 @@
+class K {
+    static #a = 0;
+}
+echo K::a();

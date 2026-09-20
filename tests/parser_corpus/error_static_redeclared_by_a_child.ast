@@ -1,0 +1,1 @@
+Error: Static field L::#a is already declared in K at tests/parser_corpus/error_static_redeclared_by_a_child.gaz:5

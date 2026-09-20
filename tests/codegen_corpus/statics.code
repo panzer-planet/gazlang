@@ -1,0 +1,177 @@
+GAZLANG BYTECODE 1
+globals
+statics Counter::count Counter::rows Counter::limit
+
+top
+locals
+@ "statics.gaz" 4
+PUSH 0
+STORE_STATIC 0
+@ "statics.gaz" 5
+PUSH []
+STORE_STATIC 1
+@ "statics.gaz" 6
+PUSH 10
+STORE_STATIC 2
+@ "statics.gaz" 34
+LOAD_STATIC 0
+PRINT
+@ "statics.gaz" 35
+NEW Counter 0
+POP
+@ "statics.gaz" 36
+NEW Counter 0
+POP
+@ "statics.gaz" 37
+LOAD_STATIC 0
+PUSH " "
+CONCAT
+LOAD_STATIC 0
+CONCAT
+PRINT
+@ "statics.gaz" 38
+CALL Counter::next 0
+PUSH " "
+CONCAT
+CALL Counter::next 0
+CONCAT
+PRINT
+@ "statics.gaz" 39
+CALL Counter::twice 0
+PRINT
+@ "statics.gaz" 40
+NEW Counter 0
+GET_METHOD mine
+CALL_METHOD 0 mine
+PRINT
+@ "statics.gaz" 43
+PUSH 100
+STORE_STATIC 0
+LOAD_STATIC 0
+POP
+@ "statics.gaz" 44
+LOAD_STATIC 0
+PUSH 5
+ADD
+STORE_STATIC 0
+LOAD_STATIC 0
+POP
+@ "statics.gaz" 45
+LOAD_STATIC 0
+INC
+STORE_STATIC 0
+LOAD_STATIC 0
+POP
+@ "statics.gaz" 46
+LOAD_STATIC 0
+PRINT
+@ "statics.gaz" 47
+PUSH "a"
+SET_PATH_STATIC [] 1
+POP
+@ "statics.gaz" 48
+PUSH "b"
+SET_PATH_STATIC [] 1
+POP
+@ "statics.gaz" 49
+PUSH 0
+KEY_CHECK
+PUSH "A"
+SET_PATH_STATIC [k] 1
+POP
+@ "statics.gaz" 50
+LOAD_STATIC 1
+PRINT
+@ "statics.gaz" 51
+PUSH 0
+KEY_CHECK
+DELETE_PATH_STATIC [k] 1
+@ "statics.gaz" 52
+LOAD_STATIC 1
+PRINT
+@ "statics.gaz" 53
+LOAD_STATIC 2
+PRINT
+
+fn Counter::next 0 0
+locals
+@ "statics.gaz" 15
+LOAD_STATIC 0
+INC
+STORE_STATIC 0
+LOAD_STATIC 0
+POP
+@ "statics.gaz" 17
+LOAD_STATIC 0
+RET
+@ "statics.gaz" 14
+PUSH null
+RET
+
+fn Counter::twice 0 0
+locals
+@ "statics.gaz" 22
+CALL Counter::next 0
+CALL Counter::next 0
+ADD
+RET
+@ "statics.gaz" 21
+PUSH null
+RET
+
+class Counter
+field id Counter
+method _ Counter
+method mine Counter
+locals
+@ "statics.gaz" 3
+CALL_CONSTRUCTOR Counter
+POP
+LOAD_THIS
+RET
+
+fn Counter._ 0 0
+locals
+@ "statics.gaz" 10
+LOAD_STATIC 0
+INC
+STORE_STATIC 0
+LOAD_STATIC 0
+POP
+@ "statics.gaz" 11
+LOAD_STATIC 0
+SET_FIELD id
+POP
+@ "statics.gaz" 9
+PUSH null
+RET
+
+fn Counter.mine 0 0
+locals
+@ "statics.gaz" 27
+PUSH ""
+LOAD_FIELD id
+CONCAT
+PUSH " of "
+CONCAT
+LOAD_STATIC 0
+CONCAT
+PUSH ", limit "
+CONCAT
+LOAD_STATIC 2
+CONCAT
+RET
+@ "statics.gaz" 25
+PUSH null
+RET
+
+class Tally extends Counter
+field id Counter
+method _ Counter
+method mine Counter
+locals
+@ "statics.gaz" 32
+CALL_CONSTRUCTOR Counter
+POP
+LOAD_THIS
+RET

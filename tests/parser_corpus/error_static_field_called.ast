@@ -1,0 +1,1 @@
+Error: K::a is a static field, not a function at tests/parser_corpus/error_static_field_called.gaz:4

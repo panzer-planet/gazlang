@@ -32,6 +32,8 @@ class CodeGenerator {
     #captures = {};
     // Global variable names mapped to global slots
     #global_addresses = {};
+    // Each static field's slot, by "Class::name"
+    #static_addresses = {};
     // Numbers the hidden variables of each lowered construct, so nested ones don't share them
     #hidden_counter = 0;
     // Functions to emit after the top level code
@@ -82,6 +84,7 @@ class CodeGenerator {
     fn dispatch($node) {
         match (class_of($node)) {
             VariableAST => #visit_variable($node),
+            StaticInitAST => #visit_static_init($node),
             AssignAST => #visit_assign($node),
             IncrementAST => #visit_increment($node),
             DeleteStatementAST => #visit_delete_statement($node),
@@ -144,6 +147,13 @@ class CodeGenerator {
         }
     }
 
+    // Emit a static field instruction: LOAD, STORE, SET_PATH or DELETE_PATH, addressed by the
+    // slot of "Class::name", the class being the one that declares it
+    fn emit_static($op, $name, $args = []) {
+        $args[] = #static_addresses[$name] ??= len(#static_addresses);
+        #emit($op .. "_STATIC", $args);
+    }
+
     // A variable no program can name, for a lowered construct
     fn hidden($name) {
         return VariableAST(Token("VAR_IDENTIFIER", $name));
@@ -154,6 +164,16 @@ class CodeGenerator {
     }
 
     // The steps of a path of elements and fields, from its root outwards
+    // The "Class::name" of the static field a target names outright, or null: #count and
+    // Counter::count are slots, while Counter::count[0] is a path through one
+    fn static_target($node) {
+        if (is_a($node, FunctionRefAST) || is_a($node, PropertyAST)) {
+            return $node.static_name;
+        }
+
+        return null;
+    }
+
     fn steps($target) {
         $steps = [];
         for ($node = $target; is_a($node, IndexAST) || is_a($node, PropertyAST); $node = $node.target) {
@@ -178,6 +198,13 @@ class CodeGenerator {
         }
         if ($node.token.type != "ASSIGN") {
             #update($node.left, $node.token, $node.right, true);
+            return;
+        }
+        $static = #static_target($node.left);
+        if ($static != null) {
+            #visit($node.right);
+            #emit_static("STORE", $static);
+            #emit_static("LOAD", $static);
             return;
         }
         if (is_a($node.left, PropertyAST) && is_a($node.left.target, ThisAST)) {
@@ -222,6 +249,9 @@ class CodeGenerator {
         foreach (#steps($target) as $i => $step) {
             if (is_a($step, PropertyAST)) {
                 $place = PropertyAST($place, $step.name);
+                // A rebuilt node keeps what the parser worked out: a static is a slot, and
+                // nothing else would reach it
+                $place.static_name = $step.static_name;
             } else {
                 $key = #hidden("\$#update_key{$i}_{$n}");
                 #visit($step.index);
@@ -326,7 +356,10 @@ class CodeGenerator {
 
         // The variable is only read now, after the keys and value, and updated in place
         $root = path_root($node.left);
-        if (is_a($root, ThisAST)) {
+        $static = #static_target($root);
+        if ($static != null) {
+            #emit_static("SET_PATH", $static, [$path]);
+        } else if (is_a($root, ThisAST)) {
             #emit("SET_PATH_THIS", [$path]);
         } else {
             #emit_variable("SET_PATH", $root, [$path]);
@@ -346,7 +379,10 @@ class CodeGenerator {
         }
 
         $root = path_root($node.target);
-        if (is_a($root, ThisAST)) {
+        $static = #static_target($root);
+        if ($static != null) {
+            #emit_static("DELETE_PATH", $static, [$path]);
+        } else if (is_a($root, ThisAST)) {
             #emit("DELETE_PATH_THIS", [$path]);
         } else {
             #emit_variable("DELETE_PATH", $root, [$path]);
@@ -706,6 +742,10 @@ class CodeGenerator {
             #emit("PUSH", [$node.value]);
             return;
         }
+        if ($node.static_name != null) {
+            #emit_static("LOAD", $node.static_name);
+            return;
+        }
         // #name for a field: fields are never removed and a subclass can't turn one into a method
         if ($node.field && !$node.existing) {
             #emit("LOAD_FIELD", [$node.name]);
@@ -716,6 +756,14 @@ class CodeGenerator {
     }
 
     fn visit_method_call($node) {
+        // #name() where name is static: a static method is a function, so it is a plain call
+        if ($node.property.static_name != null) {
+            foreach ($node.args as $arg) {
+                #visit($arg);
+            }
+            #emit("CALL", [$node.property.static_name, len($node.args)]);
+            return;
+        }
         #visit($node.property.target);
         #emit("GET_METHOD", [$node.property.name]);
         foreach ($node.args as $arg) {
@@ -747,7 +795,17 @@ class CodeGenerator {
         #emit($opcode, [$node.name, len($node.args)]);
     }
 
+    // A static field's default, written once before anything else runs
+    fn visit_static_init($node) {
+        #emit("PUSH", [$node.value]);
+        #emit_static("STORE", $node.name);
+    }
+
     fn visit_function_ref($node) {
+        if ($node.static_name != null) {
+            #emit_static("LOAD", $node.static_name);
+            return;
+        }
         if ($node.constant) {
             // A use of a constant is its value, which the parser worked out
             #emit("PUSH", [$node.value]);
@@ -858,7 +916,7 @@ class CodeGenerator {
             });
         }
 
-        return Program(#blocks, keys(#global_addresses));
+        return Program(#blocks, keys(#global_addresses), keys(#static_addresses));
     }
 
     // The code that makes a new object of a class: the field defaults, the parent's first, then
@@ -930,10 +988,12 @@ class Program {
 
     #blocks;
     #global_names;
+    #static_names;
 
-    fn _($blocks, $global_names) {
+    fn _($blocks, $global_names, $static_names) {
         #blocks = $blocks;
         #global_names = $global_names;
+        #static_names = $static_names;
     }
 
     // The file, ending in a newline. Paths are written relative to the directory of the main
@@ -943,6 +1003,10 @@ class Program {
         // As absolute(dirname($main)): a textual ".." drops the file name the same way
         $base = #absolute($main == null ? "." : $main .. "/..");
         $out = #MAGIC .. " " .. #VERSION .. "\n" .. join(["globals", ...#global_names], " ") .. "\n";
+        // Left out by a program with no static fields, which is most of them
+        if (len(#static_names) > 0) {
+            $out ..= join(["statics", ...#static_names], " ") .. "\n";
+        }
 
         foreach (#blocks as $block) {
             $out ..= "\n";

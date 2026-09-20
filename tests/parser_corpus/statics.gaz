@@ -1,0 +1,53 @@
+// A static belongs to the class rather than to an object: a field is a slot, reached by name,
+// and a method a function whose name carries its class, so neither needs an object.
+class Counter {
+    static #count = 0;
+    static #rows = [];
+    static #limit = 2 * 5;
+    #id;
+
+    fn _() {
+        #count++;
+        #id = #count;
+    }
+
+    static fn next() {
+        #count++;
+
+        return #count;
+    }
+
+    // A static method reaches another by #name, since # is the class it is written in
+    static fn twice() {
+        return #next() + #next();
+    }
+
+    fn mine() {
+        // An instance method sees the statics too
+        return "{#id} of {#count}, limit {#limit}";
+    }
+}
+
+// A child shares its parent's statics, as it shares the rest of the namespace
+class Tally extends Counter {}
+
+echo Counter::count;
+Counter();
+Counter();
+echo Counter::count .. " " .. Tally::count;
+echo Counter::next() .. " " .. Tally::next();
+echo Counter::twice();
+echo Counter().mine();
+
+// A static field is a slot, so it can be written from anywhere and written through
+Counter::count = 100;
+Counter::count += 5;
+Counter::count++;
+echo Counter::count;
+Counter::rows[] = "a";
+Counter::rows[] = "b";
+Counter::rows[0] = "A";
+echo Counter::rows;
+delete Counter::rows[0];
+echo Counter::rows;
+echo Counter::limit;

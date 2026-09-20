@@ -293,6 +293,7 @@ Compound
               field: false
               constant: false
               value: null
+              static_name: null
             token: 15 ASSIGN =
             right: Variable 15
               token: 15 VAR_IDENTIFIER $v
@@ -362,6 +363,7 @@ Compound
                   field: false
                   constant: false
                   value: null
+                  static_name: null
             token: 17 ASSIGN =
             right: Variable 17
               token: 17 VAR_IDENTIFIER $pair
@@ -615,6 +617,7 @@ Compound
               field: false
               constant: false
               value: null
+              static_name: null
             args:
               0: Variable 27
                 token: 27 VAR_IDENTIFIER $marg

@@ -34,6 +34,7 @@ Compound
           field: false
           constant: false
           value: null
+          static_name: null
         args:
           0: Num 9
             token: 9 INTEGER 1

@@ -5,6 +5,11 @@ Compound
       name: "T"
       parent: null
       abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
       fields: []
       field_lines: []
       methods: []
@@ -18,6 +23,7 @@ Compound
                   name: "ALL"
                   constant: true
                   value: ["a", "b", "c"]
+                  static_name: null
             1:
               0: null
               1: Spread 4
@@ -25,6 +31,7 @@ Compound
                   name: "LETTERS"
                   constant: true
                   value: ["a", "b"]
+                  static_name: null
           map: false
       constant_lines: {"MORE" => 4}
       constant_owners: {"MORE" => "T"}

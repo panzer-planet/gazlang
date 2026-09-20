@@ -147,6 +147,9 @@ class PropertyAST extends AST {
     // works out once the classes are resolved: a use of a constant is its value
     #constant = false;
     #value = null;
+    // The "Class::name" of the static field or static method this is, or null: a static is
+    // reached by name, so #count in a method is a slot and #next() a plain call
+    #static_name = null;
     // Where a #name's record is in Parser.member_uses, or null; not part of the tree
     #use = null;
     // As IndexAST's
@@ -192,12 +195,27 @@ class FunctionCallAST extends AST {
 }
 
 // A bare function, class or constant name used as a value
+// A static field's default, which the code generator writes before the program's own first
+// instruction: the value is a constant the parser worked out, so there is no order to define
+class StaticInitAST extends AST {
+    #name;
+    #value;
+
+    fn _($name, $value) {
+        #name = $name;
+        #value = $value;
+    }
+}
+
 class FunctionRefAST extends AST {
     #name;
     // Whether the name is a constant's, and if so its value, which the parser works out once
     // the whole program is read: a use of a constant is its value
     #constant = false;
     #value = null;
+    // The "Class::name" of the static field this names, or null; a static field is a slot,
+    // so Counter::count reads and writes one rather than being a value of its own
+    #static_name = null;
 
     fn _($name) {
         #name = $name;
@@ -273,6 +291,12 @@ class MatchAST extends AST {
 fn path_root($node) {
     while (is_a($node, IndexAST) || is_a($node, PropertyAST)) {
         $node = $node.target;
+    }
+
+    // A qualified name can be a static field, which is a slot and so can be written; that it
+    // is one rather than a constant or a class is checked once the whole program is read
+    if (is_a($node, FunctionRefAST) && contains($node.name, "::")) {
+        return $node;
     }
 
     return is_a($node, VariableAST) || is_a($node, ThisAST) ? $node : null;
@@ -398,6 +422,15 @@ class ClassDeclarationAST extends AST {
     #name;
     #parent;
     #abstract;
+    // Each declared static field's default expression, and the line it is declared on, by name
+    #statics = {};
+    #static_lines = {};
+    // Each declared static method's FunctionDeclarationAST, by name
+    #static_methods = {};
+    // Worked out once the whole program is read: every static, the parent's first, with the
+    // class that declares it, and which of them are methods
+    #static_owners = {};
+    #static_is_method = {};
     // Each declared field's default, or null, by name
     #fields = {};
     // The line each field is declared on, for errors about it

@@ -1,0 +1,6 @@
+class K {
+    static #a = 0;
+}
+class L extends K {
+    static #a = 1;
+}

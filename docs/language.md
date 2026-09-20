@@ -410,6 +410,52 @@ own rule: `rand_float()` is the top 53 bits divided by 2^53; `rand_int()` takes 
 and draws again until the result is at most the span, then adds it to `$min`, so every int in
 the range is equally likely. `lib/random.gaz` builds shuffling and picking on these.
 
+## Statics
+
+A static belongs to the class rather than to an object: a field is one slot the class owns, and
+a method a function that needs no object. Both are reached by name, with `::`.
+
+```gaz
+class Counter {
+    static #count = 0;                // one slot, not one per object
+    static #limit = 2 * 5;            // its value is a constant expression
+    #id;                              // an ordinary field, one per object
+
+    fn _() { #count++; #id = #count; }
+    static fn next() { #count++; return #count; }
+    fn mine() { return "{#id} of {#count}"; }
+}
+
+class Tally extends Counter {}        // shares the same slot
+
+Counter(); Counter();
+echo Counter::count .. " " .. Tally::count;
+echo Counter::next();
+Counter::count = 100;                 // a slot, so it can be written from anywhere
+echo Counter::count;
+```
+```
+2 2
+3
+100
+```
+
+- **`#name` inside the class is the member**, static or not, since `#` already means "a member
+  of the class this is written in". A static method has no object, so naming an instance field
+  or method in one is a parse error, and `#` on its own is too.
+- **A static field's value is a constant expression**, worked out by the parser and written
+  before the program's first instruction. Running one would bring initialisation order and
+  bytecode before the top level, which is why constants refuse `Point(0, 0)` as well. It is
+  required: `static #count;` is an error.
+- **Assigned from anywhere**: `Counter::count = 1`, `Counter::count++`, `Counter::rows[] = $r`
+  and `delete Counter::rows[0]` all work, because a class's members are public unless marked
+  otherwise. A class constant is still not a slot, so `Counter::LIMIT = 1` is an error.
+- **A child shares its parent's static** and can't declare one again, as with a constant: every
+  member shares one namespace across the hierarchy, statics included.
+- **Reached by name only**: `$counter.count` is not a static, and `$counter::next()` puts a
+  value on the left of a parse-time operator, which is an error. `#next` without calling it is
+  an error too; write `Counter::next` for the function.
+
 ## Namespaces
 
 `namespace json;` first in a file, at most one, optional. A file without one declares its names

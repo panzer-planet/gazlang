@@ -24,6 +24,7 @@ Compound
             name: "Shape"
             constant: false
             value: null
+            static_name: null
     2: Statement 4
       expr: Assign 4
         left: Variable 4
@@ -34,10 +35,16 @@ Compound
           name: "Circle"
           constant: false
           value: null
+          static_name: null
     3: ClassDeclaration 6
       name: "Circle"
       parent: "Shape"
       abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
       fields:
         radius: null
         history: ArrayLiteral 8
@@ -50,6 +57,7 @@ Compound
             field: true
             constant: false
             value: null
+            static_name: null
           token: 9 MULTIPLY *
           op: 9 MULTIPLY *
           right: Num 9
@@ -66,6 +74,7 @@ Compound
               field: true
               constant: false
               value: null
+              static_name: null
             token: 10 PLUS +
             op: 10 PLUS +
             right: Variable 10
@@ -97,6 +106,7 @@ Compound
                     field: true
                     constant: false
                     value: null
+                    static_name: null
                   token: 14 ASSIGN =
                   right: Variable 14
                     token: 14 VAR_IDENTIFIER $radius
@@ -110,6 +120,7 @@ Compound
                       field: true
                       constant: false
                       value: null
+                      static_name: null
                     index: null
                   token: 15 ASSIGN =
                   right: Variable 15
@@ -124,6 +135,7 @@ Compound
                       field: true
                       constant: false
                       value: null
+                      static_name: null
                     index: Num 16
                       token: 16 INTEGER 0
                       value: 0
@@ -139,6 +151,7 @@ Compound
                     field: true
                     constant: false
                     value: null
+                    static_name: null
                   op: 17 INCREMENT ++
                   prefix: false
           arity: 1
@@ -164,6 +177,7 @@ Compound
                       field: true
                       constant: false
                       value: null
+                      static_name: null
                   token: 20 MULTIPLY *
                   op: 20 MULTIPLY *
                   right: Property 20
@@ -172,6 +186,7 @@ Compound
                     field: true
                     constant: false
                     value: null
+                    static_name: null
           arity: 0
           class: "Circle"
           abstract: false
@@ -202,6 +217,7 @@ Compound
                         field: true
                         constant: false
                         value: null
+                        static_name: null
                     token: 21 CONCAT ..
                     op: 21 CONCAT ..
                     right: String 21
@@ -244,6 +260,7 @@ Compound
                         field: true
                         constant: false
                         value: null
+                        static_name: null
                       token: 23 MULTIPLY *
                       op: 23 MULTIPLY *
                       right: Variable 23
@@ -279,11 +296,13 @@ Compound
                         field: false
                         constant: false
                         value: null
+                        static_name: null
                       args: []
                     name: "area"
                     field: false
                     constant: false
                     value: null
+                    static_name: null
                   args: []
           arity: 0
           class: "Circle"
@@ -307,6 +326,7 @@ Compound
                         field: false
                         constant: false
                         value: null
+                        static_name: null
                       args: []
                     token: 26 PLUS +
                     op: 26 PLUS +
@@ -316,6 +336,7 @@ Compound
                       field: true
                       constant: false
                       value: null
+                      static_name: null
                   captures: []
                   self: null
           arity: 0
@@ -337,12 +358,14 @@ Compound
                         field: true
                         constant: false
                         value: null
+                        static_name: null
                       1: Property 27
                         target: This 27
                         name: "doubled"
                         field: true
                         constant: false
                         value: null
+                        static_name: null
                   token: 27 ASSIGN =
                   right: ArrayLiteral 27
                     entries:
@@ -354,6 +377,7 @@ Compound
                           field: true
                           constant: false
                           value: null
+                          static_name: null
                       1:
                         0: null
                         1: Property 27
@@ -362,6 +386,7 @@ Compound
                           field: true
                           constant: false
                           value: null
+                          static_name: null
                     map: false
           arity: 0
           class: "Circle"
@@ -380,6 +405,7 @@ Compound
                     field: true
                     constant: false
                     value: null
+                    static_name: null
                   index: Variable 28
                     token: 28 VAR_IDENTIFIER $i
                     value: "\$i"
@@ -396,6 +422,11 @@ Compound
       name: "Shape"
       parent: null
       abstract: true
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
       fields: {"name" => null}
       field_lines: {"name" => 32}
       methods:
@@ -413,6 +444,7 @@ Compound
                     field: true
                     constant: false
                     value: null
+                    static_name: null
                   token: 33 ASSIGN =
                   right: Variable 33
                     token: 33 VAR_IDENTIFIER $name
@@ -451,6 +483,7 @@ Compound
                     field: true
                     constant: false
                     value: null
+                    static_name: null
           arity: [0, 1]
           class: "Shape"
           abstract: false
@@ -475,6 +508,7 @@ Compound
                         field: true
                         constant: false
                         value: null
+                        static_name: null
                     token: 36 CONCAT ..
                     op: 36 CONCAT ..
                     right: String 36
@@ -489,6 +523,7 @@ Compound
                       field: false
                       constant: false
                       value: null
+                      static_name: null
                     args: []
           arity: 0
           class: "Shape"
@@ -503,6 +538,11 @@ Compound
       name: "Dot"
       parent: "Circle"
       abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
       fields: []
       field_lines: []
       methods: []
@@ -516,6 +556,11 @@ Compound
       name: "Empty"
       parent: null
       abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
       fields: []
       field_lines: []
       methods: []
@@ -542,6 +587,11 @@ Compound
       name: "Words"
       parent: null
       abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
       fields:
         class: null
         if: Num 47
@@ -562,6 +612,7 @@ Compound
                   field: true
                   constant: false
                   value: null
+                  static_name: null
           arity: 0
           class: "Words"
           abstract: false
@@ -579,6 +630,7 @@ Compound
                     field: true
                     constant: false
                     value: null
+                    static_name: null
                   token: 49 PLUS +
                   op: 49 PLUS +
                   right: Variable 49
@@ -601,6 +653,7 @@ Compound
                     field: false
                     constant: false
                     value: null
+                    static_name: null
                   args: []
           arity: 0
           class: "Words"
@@ -619,6 +672,7 @@ Compound
                     field: false
                     constant: false
                     value: null
+                    static_name: null
                   args:
                     0: Num 51
                       token: 51 INTEGER 1
@@ -642,11 +696,17 @@ Compound
           field: false
           constant: false
           value: null
+          static_name: null
         args: []
     10: ClassDeclaration 56
       name: "A"
       parent: null
       abstract: true
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
       fields: []
       field_lines: []
       methods:
@@ -682,6 +742,11 @@ Compound
       name: "B"
       parent: "A"
       abstract: true
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
       fields: []
       field_lines: []
       methods:
@@ -708,6 +773,11 @@ Compound
       name: "C"
       parent: "B"
       abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
       fields: []
       field_lines: []
       methods:
@@ -732,6 +802,7 @@ Compound
                     field: false
                     constant: false
                     value: null
+                    static_name: null
                   args: []
           arity: [1, 3]
           class: "C"
@@ -752,6 +823,7 @@ Compound
           field: false
           constant: false
           value: null
+          static_name: null
         args:
           0: Num 59
             token: 59 INTEGER 1
@@ -760,6 +832,11 @@ Compound
       name: "Calls"
       parent: null
       abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
       fields: {"f" => null}
       field_lines: {"f" => 63}
       methods:
@@ -777,6 +854,7 @@ Compound
                     field: true
                     constant: false
                     value: null
+                    static_name: null
                   token: 64 ASSIGN =
                   right: Lambda 64
                     params: ["\$x"]
@@ -810,6 +888,7 @@ Compound
                         field: false
                         constant: false
                         value: null
+                        static_name: null
                       args:
                         0: Num 65
                           token: 65 INTEGER 1
@@ -823,6 +902,7 @@ Compound
                         field: false
                         constant: false
                         value: null
+                        static_name: null
                       args:
                         0: Num 65
                           token: 65 INTEGER 1
@@ -839,6 +919,7 @@ Compound
                       field: true
                       constant: false
                       value: null
+                      static_name: null
                     args:
                       0: Num 65
                         token: 65 INTEGER 1
@@ -862,6 +943,11 @@ Compound
       name: "If"
       parent: null
       abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
       fields: []
       field_lines: []
       methods:
@@ -884,6 +970,11 @@ Compound
       name: "Match"
       parent: "If"
       abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
       fields: []
       field_lines: []
       methods:
@@ -927,6 +1018,11 @@ Compound
       name: "Printable"
       parent: null
       abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
       fields: []
       field_lines: []
       methods:

@@ -1,1 +1,1 @@
-Error: Expected a field (#name), a method (fn) or a constant (const) but found string "x" on line 1
+Error: Expected a field (#name), a method (fn), a constant (const) or a static but found string "x" on line 1

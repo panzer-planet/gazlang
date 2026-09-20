@@ -6,6 +6,7 @@ Compound
         name: "AREA"
         constant: true
         value: 12
+        static_name: null
     1: FunctionDeclaration 4
       name: "area"
       params: ["\$scale"]
@@ -14,6 +15,7 @@ Compound
           name: "WIDTH"
           constant: true
           value: 3
+          static_name: null
       body: Compound
         statements:
           0: ReturnStatement 4
@@ -22,6 +24,7 @@ Compound
                 name: "AREA"
                 constant: true
                 value: 12
+                static_name: null
               token: 4 MULTIPLY *
               op: 4 MULTIPLY *
               right: Variable 4
@@ -39,108 +42,126 @@ Compound
               name: "WIDTH"
               constant: true
               value: 3
+              static_name: null
           1:
             0: null
             1: FunctionRef 26
               name: "F"
               constant: true
               value: 1.5
+              static_name: null
           2:
             0: null
             1: FunctionRef 26
               name: "S"
               constant: true
               value: "ab3"
+              static_name: null
           3:
             0: null
             1: FunctionRef 26
               name: "B"
               constant: true
               value: true
+              static_name: null
           4:
             0: null
             1: FunctionRef 26
               name: "NOTHING"
               constant: true
               value: null
+              static_name: null
           5:
             0: null
             1: FunctionRef 26
               name: "NEGATIVE"
               constant: true
               value: -3
+              static_name: null
           6:
             0: null
             1: FunctionRef 26
               name: "INVERTED"
               constant: true
               value: -4
+              static_name: null
           7:
             0: null
             1: FunctionRef 26
               name: "NOT"
               constant: true
               value: false
+              static_name: null
           8:
             0: null
             1: FunctionRef 26
               name: "BITS"
               constant: true
               value: 6
+              static_name: null
           9:
             0: null
             1: FunctionRef 26
               name: "ORDER"
               constant: true
               value: [-1, true, true, false, false, 5]
+              static_name: null
           10:
             0: null
             1: FunctionRef 26
               name: "PICK"
               constant: true
               value: "wide"
+              static_name: null
           11:
             0: null
             1: FunctionRef 26
               name: "OR_ELSE"
               constant: true
               value: 3
+              static_name: null
           12:
             0: null
             1: FunctionRef 26
               name: "SHORT"
               constant: true
               value: [false, true, 1, 1]
+              static_name: null
           13:
             0: null
             1: FunctionRef 26
               name: "EMPTY_LIST"
               constant: true
               value: []
+              static_name: null
           14:
             0: null
             1: FunctionRef 26
               name: "EMPTY_MAP"
               constant: true
               value: []
+              static_name: null
           15:
             0: null
             1: FunctionRef 26
               name: "NESTED"
               constant: true
               value: [1, [2, "x"], {"k" => [4], 4 => {}}, []]
+              static_name: null
           16:
             0: null
             1: FunctionRef 26
               name: "KEYS"
               constant: true
               value: {"k" => 3, 3 => 2, "ab3" => true}
+              static_name: null
           17:
             0: null
             1: FunctionRef 26
               name: "lower_case"
               constant: true
               value: 1
+              static_name: null
         map: false
     3: EchoStatement 27
       expr: Match 27
@@ -148,6 +169,7 @@ Compound
           name: "WIDTH"
           constant: true
           value: 3
+          static_name: null
         arms:
           0:
             0:
@@ -155,12 +177,14 @@ Compound
                 name: "WIDTH"
                 constant: true
                 value: 3
+                static_name: null
             1: Index 27
               target: Index 27
                 target: FunctionRef 27
                   name: "NESTED"
                   constant: true
                   value: [1, [2, "x"], {"k" => [4], 4 => {}}, []]
+                  static_name: null
                 index: Num 27
                   token: 27 INTEGER 1
                   value: 1
@@ -175,6 +199,7 @@ Compound
                 name: "KEYS"
                 constant: true
                 value: {"k" => 3, 3 => 2, "ab3" => true}
+                static_name: null
               index: String 27
                 token: 27 STRING "k"
                 value: "k"
@@ -185,6 +210,7 @@ Compound
           name: "WIDTH"
           constant: true
           value: 3
+          static_name: null
         token: 28 COALESCE ??
         op: 28 COALESCE ??
         right: Num 28
@@ -205,6 +231,7 @@ Compound
               name: "WIDTH"
               constant: true
               value: 3
+              static_name: null
             token: 29 PLUS +
             op: 29 PLUS +
             right: Variable 29
@@ -222,6 +249,7 @@ Compound
           name: "NESTED"
           constant: true
           value: [1, [2, "x"], {"k" => [4], 4 => {}}, []]
+          static_name: null
     7: Statement 31
       expr: Assign 31
         left: Index 31
@@ -234,23 +262,28 @@ Compound
           name: "WIDTH"
           constant: true
           value: 3
+          static_name: null
     8: EchoStatement 33
       expr: Property 33
         target: FunctionRef 33
           name: "KEYS"
           constant: true
           value: {"k" => 3, 3 => 2, "ab3" => true}
+          static_name: null
         name: "k"
         field: false
         constant: false
         value: null
+        static_name: null
     9: EchoStatement 34
       expr: Property 34
         target: FunctionRef 34
           name: "area"
           constant: false
           value: null
+          static_name: null
         name: "x"
         field: false
         constant: false
         value: null
+        static_name: null

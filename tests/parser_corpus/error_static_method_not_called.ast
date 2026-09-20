@@ -1,0 +1,1 @@
+Error: #f is a static method: call it, or reach it by name at tests/parser_corpus/error_static_method_not_called.gaz:3

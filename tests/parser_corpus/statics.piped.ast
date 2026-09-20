@@ -1,0 +1,445 @@
+Compound
+  statements:
+@ null
+    0: StaticInit 4
+      name: "Counter::count"
+      value: 0
+    1: StaticInit 5
+      name: "Counter::rows"
+      value: []
+    2: StaticInit 6
+      name: "Counter::limit"
+      value: 10
+    3: ClassDeclaration 3
+      name: "Counter"
+      parent: null
+      abstract: false
+      statics:
+        count: Num 4
+          token: 4 INTEGER 0
+          value: 0
+        rows: ArrayLiteral 5
+          entries: []
+          map: false
+        limit: BinOp 6
+          left: Num 6
+            token: 6 INTEGER 2
+            value: 2
+          token: 6 MULTIPLY *
+          op: 6 MULTIPLY *
+          right: Num 6
+            token: 6 INTEGER 5
+            value: 5
+      static_lines: {"count" => 4, "rows" => 5, "limit" => 6}
+      static_methods:
+        next: FunctionDeclaration 14
+          name: "Counter::next"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: Statement 15
+                expr: Increment 15
+                  target: Property 15
+                    target: This 15
+                    name: "count"
+                    field: false
+                    constant: false
+                    value: null
+                    static_name: "Counter::count"
+                  op: 15 INCREMENT ++
+                  prefix: false
+              1: ReturnStatement 17
+                expr: Property 17
+                  target: This 17
+                  name: "count"
+                  field: false
+                  constant: false
+                  value: null
+                  static_name: "Counter::count"
+          arity: 0
+          class: null
+          abstract: false
+        twice: FunctionDeclaration 21
+          name: "Counter::twice"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 22
+                expr: BinOp 22
+                  left: MethodCall 22
+                    property: Property 22
+                      target: This 22
+                      name: "next"
+                      field: false
+                      constant: false
+                      value: null
+                      static_name: "Counter::next"
+                    args: []
+                  token: 22 PLUS +
+                  op: 22 PLUS +
+                  right: MethodCall 22
+                    property: Property 22
+                      target: This 22
+                      name: "next"
+                      field: false
+                      constant: false
+                      value: null
+                      static_name: "Counter::next"
+                    args: []
+          arity: 0
+          class: null
+          abstract: false
+      static_owners: {"count" => "Counter", "rows" => "Counter", "limit" => "Counter", "next" => "Counter", "twice" => "Counter"}
+      static_is_method: {"count" => false, "rows" => false, "limit" => false, "next" => true, "twice" => true}
+      fields: {"id" => null}
+      field_lines: {"id" => 7}
+      methods:
+        _: FunctionDeclaration 9
+          name: "_"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: Statement 10
+                expr: Increment 10
+                  target: Property 10
+                    target: This 10
+                    name: "count"
+                    field: false
+                    constant: false
+                    value: null
+                    static_name: "Counter::count"
+                  op: 10 INCREMENT ++
+                  prefix: false
+              1: Statement 11
+                expr: Assign 11
+                  left: Property 11
+                    target: This 11
+                    name: "id"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 11 ASSIGN =
+                  right: Property 11
+                    target: This 11
+                    name: "count"
+                    field: false
+                    constant: false
+                    value: null
+                    static_name: "Counter::count"
+          arity: 0
+          class: "Counter"
+          abstract: false
+        mine: FunctionDeclaration 25
+          name: "mine"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 27
+                expr: BinOp 27
+                  left: BinOp 27
+                    left: BinOp 27
+                      left: BinOp 27
+                        left: BinOp 27
+                          left: String 27
+                            token: 27 STRING_START ""
+                            value: ""
+                          token: 27 CONCAT ..
+                          op: 27 CONCAT ..
+                          right: Property 27
+                            target: This 27
+                            name: "id"
+                            field: true
+                            constant: false
+                            value: null
+                            static_name: null
+                        token: 27 CONCAT ..
+                        op: 27 CONCAT ..
+                        right: String 27
+                          token: 27 STRING_MIDDLE " of "
+                          value: " of "
+                      token: 27 CONCAT ..
+                      op: 27 CONCAT ..
+                      right: Property 27
+                        target: This 27
+                        name: "count"
+                        field: false
+                        constant: false
+                        value: null
+                        static_name: "Counter::count"
+                    token: 27 CONCAT ..
+                    op: 27 CONCAT ..
+                    right: String 27
+                      token: 27 STRING_MIDDLE ", limit "
+                      value: ", limit "
+                  token: 27 CONCAT ..
+                  op: 27 CONCAT ..
+                  right: Property 27
+                    target: This 27
+                    name: "limit"
+                    field: false
+                    constant: false
+                    value: null
+                    static_name: "Counter::limit"
+          arity: 0
+          class: "Counter"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"id" => "Counter"}
+      members: {"_" => "Counter", "mine" => "Counter"}
+      abstract_methods: []
+    4: FunctionDeclaration 14
+      name: "Counter::next"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: Statement 15
+            expr: Increment 15
+              target: Property 15
+                target: This 15
+                name: "count"
+                field: false
+                constant: false
+                value: null
+                static_name: "Counter::count"
+              op: 15 INCREMENT ++
+              prefix: false
+          1: ReturnStatement 17
+            expr: Property 17
+              target: This 17
+              name: "count"
+              field: false
+              constant: false
+              value: null
+              static_name: "Counter::count"
+      arity: 0
+      class: null
+      abstract: false
+    5: FunctionDeclaration 21
+      name: "Counter::twice"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 22
+            expr: BinOp 22
+              left: MethodCall 22
+                property: Property 22
+                  target: This 22
+                  name: "next"
+                  field: false
+                  constant: false
+                  value: null
+                  static_name: "Counter::next"
+                args: []
+              token: 22 PLUS +
+              op: 22 PLUS +
+              right: MethodCall 22
+                property: Property 22
+                  target: This 22
+                  name: "next"
+                  field: false
+                  constant: false
+                  value: null
+                  static_name: "Counter::next"
+                args: []
+      arity: 0
+      class: null
+      abstract: false
+    6: ClassDeclaration 32
+      name: "Tally"
+      parent: "Counter"
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: {"count" => "Counter", "rows" => "Counter", "limit" => "Counter", "next" => "Counter", "twice" => "Counter"}
+      static_is_method: {"count" => false, "rows" => false, "limit" => false, "next" => true, "twice" => true}
+      fields: []
+      field_lines: []
+      methods: []
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"id" => "Counter"}
+      members: {"_" => "Counter", "mine" => "Counter"}
+      abstract_methods: []
+    7: EchoStatement 34
+      expr: FunctionRef 34
+        name: "Counter::count"
+        constant: false
+        value: null
+        static_name: "Counter::count"
+    8: Statement 35
+      expr: FunctionCall 35
+        name: "Counter"
+        args: []
+    9: Statement 36
+      expr: FunctionCall 36
+        name: "Counter"
+        args: []
+    10: EchoStatement 37
+      expr: BinOp 37
+        left: BinOp 37
+          left: FunctionRef 37
+            name: "Counter::count"
+            constant: false
+            value: null
+            static_name: "Counter::count"
+          token: 37 CONCAT ..
+          op: 37 CONCAT ..
+          right: String 37
+            token: 37 STRING " "
+            value: " "
+        token: 37 CONCAT ..
+        op: 37 CONCAT ..
+        right: FunctionRef 37
+          name: "Tally::count"
+          constant: false
+          value: null
+          static_name: "Counter::count"
+    11: EchoStatement 38
+      expr: BinOp 38
+        left: BinOp 38
+          left: FunctionCall 38
+            name: "Counter::next"
+            args: []
+          token: 38 CONCAT ..
+          op: 38 CONCAT ..
+          right: String 38
+            token: 38 STRING " "
+            value: " "
+        token: 38 CONCAT ..
+        op: 38 CONCAT ..
+        right: FunctionCall 38
+          name: "Counter::next"
+          args: []
+    12: EchoStatement 39
+      expr: FunctionCall 39
+        name: "Counter::twice"
+        args: []
+    13: EchoStatement 40
+      expr: MethodCall 40
+        property: Property 40
+          target: FunctionCall 40
+            name: "Counter"
+            args: []
+          name: "mine"
+          field: false
+          constant: false
+          value: null
+          static_name: null
+        args: []
+    14: Statement 43
+      expr: Assign 43
+        left: FunctionRef 43
+          name: "Counter::count"
+          constant: false
+          value: null
+          static_name: "Counter::count"
+        token: 43 ASSIGN =
+        right: Num 43
+          token: 43 INTEGER 100
+          value: 100
+    15: Statement 44
+      expr: Assign 44
+        left: FunctionRef 44
+          name: "Counter::count"
+          constant: false
+          value: null
+          static_name: "Counter::count"
+        token: 44 PLUS_ASSIGN +=
+        right: Num 44
+          token: 44 INTEGER 5
+          value: 5
+    16: Statement 45
+      expr: Increment 45
+        target: FunctionRef 45
+          name: "Counter::count"
+          constant: false
+          value: null
+          static_name: "Counter::count"
+        op: 45 INCREMENT ++
+        prefix: false
+    17: EchoStatement 46
+      expr: FunctionRef 46
+        name: "Counter::count"
+        constant: false
+        value: null
+        static_name: "Counter::count"
+    18: Statement 47
+      expr: Assign 47
+        left: Index 47
+          target: FunctionRef 47
+            name: "Counter::rows"
+            constant: false
+            value: null
+            static_name: "Counter::rows"
+          index: null
+        token: 47 ASSIGN =
+        right: String 47
+          token: 47 STRING "a"
+          value: "a"
+    19: Statement 48
+      expr: Assign 48
+        left: Index 48
+          target: FunctionRef 48
+            name: "Counter::rows"
+            constant: false
+            value: null
+            static_name: "Counter::rows"
+          index: null
+        token: 48 ASSIGN =
+        right: String 48
+          token: 48 STRING "b"
+          value: "b"
+    20: Statement 49
+      expr: Assign 49
+        left: Index 49
+          target: FunctionRef 49
+            name: "Counter::rows"
+            constant: false
+            value: null
+            static_name: "Counter::rows"
+          index: Num 49
+            token: 49 INTEGER 0
+            value: 0
+        token: 49 ASSIGN =
+        right: String 49
+          token: 49 STRING "A"
+          value: "A"
+    21: EchoStatement 50
+      expr: FunctionRef 50
+        name: "Counter::rows"
+        constant: false
+        value: null
+        static_name: "Counter::rows"
+    22: DeleteStatement 51
+      target: Index 51
+        target: FunctionRef 51
+          name: "Counter::rows"
+          constant: false
+          value: null
+          static_name: "Counter::rows"
+        index: Num 51
+          token: 51 INTEGER 0
+          value: 0
+    23: EchoStatement 52
+      expr: FunctionRef 52
+        name: "Counter::rows"
+        constant: false
+        value: null
+        static_name: "Counter::rows"
+    24: EchoStatement 53
+      expr: FunctionRef 53
+        name: "Counter::limit"
+        constant: false
+        value: null
+        static_name: "Counter::limit"

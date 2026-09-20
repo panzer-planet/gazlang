@@ -24,6 +24,11 @@ Compound
       name: "Square"
       parent: null
       abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
       fields: {"side" => null}
       field_lines: {"side" => 4}
       methods:
@@ -41,6 +46,7 @@ Compound
                     field: true
                     constant: false
                     value: null
+                    static_name: null
                   token: 5 ASSIGN =
                   right: Variable 5
                     token: 5 VAR_IDENTIFIER $side
@@ -71,6 +77,7 @@ Compound
                   field: false
                   constant: false
                   value: null
+                  static_name: null
                 token: 7 MULTIPLY *
                 op: 7 MULTIPLY *
                 right: Property 7
@@ -81,6 +88,7 @@ Compound
                   field: false
                   constant: false
                   value: null
+                  static_name: null
               token: 7 PLUS +
               op: 7 PLUS +
               right: FunctionCall 7

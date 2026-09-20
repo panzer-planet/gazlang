@@ -1,0 +1,4 @@
+class K {
+    #x;
+    static fn f() { return #x; }
+}

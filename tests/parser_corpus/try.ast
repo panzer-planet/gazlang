@@ -5,6 +5,11 @@ Compound
       name: "Error"
       parent: null
       abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
       fields: {"message" => null, "file" => null, "line" => null, "trace" => null}
       field_lines: {"message" => 2, "file" => 3, "line" => 4, "trace" => 5}
       methods:
@@ -22,6 +27,7 @@ Compound
                     field: true
                     constant: false
                     value: null
+                    static_name: null
                   token: 6 ASSIGN =
                   right: Variable 6
                     token: 6 VAR_IDENTIFIER $message
@@ -48,6 +54,7 @@ Compound
                     field: true
                     constant: false
                     value: null
+                    static_name: null
           arity: 0
           class: "Error"
           abstract: false
@@ -122,6 +129,7 @@ Compound
                   field: false
                   constant: false
                   value: null
+                  static_name: null
       finally: null
     4: TryStatement 4
       body: Compound
@@ -177,6 +185,7 @@ Compound
                             field: false
                             constant: false
                             value: null
+                            static_name: null
                         token: 8 CONCAT ..
                         op: 8 CONCAT ..
                         right: String 8
@@ -192,6 +201,7 @@ Compound
                         field: false
                         constant: false
                         value: null
+                        static_name: null
                     token: 8 CONCAT ..
                     op: 8 CONCAT ..
                     right: String 8
@@ -207,6 +217,7 @@ Compound
                     field: false
                     constant: false
                     value: null
+                    static_name: null
         1:
           0: "Error"
           1: Variable 9
@@ -223,6 +234,7 @@ Compound
                   field: false
                   constant: false
                   value: null
+                  static_name: null
         2:
           0: null
           1: Variable 11
@@ -250,6 +262,11 @@ Compound
       name: "NotFound"
       parent: "Error"
       abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
       fields: {"key" => null}
       field_lines: {"key" => 17}
       methods:
@@ -281,6 +298,7 @@ Compound
                     field: true
                     constant: false
                     value: null
+                    static_name: null
                   token: 18 ASSIGN =
                   right: Variable 18
                     token: 18 VAR_IDENTIFIER $key

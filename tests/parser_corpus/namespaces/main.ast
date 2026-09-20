@@ -46,6 +46,11 @@ Compound
       name: "json::Reader"
       parent: null
       abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
       fields: []
       field_lines: []
       methods: []
@@ -121,24 +126,28 @@ Compound
           name: "json::LIMIT"
           constant: true
           value: 4
+          static_name: null
         token: 8 CONCAT ..
         op: 8 CONCAT ..
         right: FunctionRef 8
           name: "json::LIMIT"
           constant: true
           value: 4
+          static_name: null
     7: EchoStatement 9
       expr: BinOp 9
         left: FunctionRef 9
           name: "json::Reader::EOF"
           constant: true
           value: "eof"
+          static_name: null
         token: 9 CONCAT ..
         op: 9 CONCAT ..
         right: FunctionRef 9
           name: "json::Reader::EOF"
           constant: true
           value: "eof"
+          static_name: null
     8: EchoStatement 10
       expr: FunctionCall 10
         name: "json::twice"
