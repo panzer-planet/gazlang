@@ -276,7 +276,10 @@ A file that loads is one the VM can run, so the checks are part of the format:
   open on every path, and `END_TRY` closes one that a `TRY` opened. (`RET` needs none of this:
   a call's handlers go with its frame.)
 - A class named `Error` declares `message`, `file`, `line` and `trace`, which is where a VM
-  puts an error the program didn't throw itself.
+  puts an error the program didn't throw itself, and a file holding `CATCH_VALUE` or
+  `CATCH_MATCH` has that class at all, since that is what a caught error is made as.
+- `HALT` is in the top level, whose end it is. In a call it would end that call's run instead,
+  leaving whatever started the run without a value.
 
 Whether a value really is one of these, the instructions that consume them check when they run,
 as `ADD` checks its operands: `CATCH_MATCH`, `CATCH_VALUE` and `RETHROW` that the top is a

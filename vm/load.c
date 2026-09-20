@@ -1114,6 +1114,11 @@ static void check_block(Block *b) {
             if (height < pops) {
                 FAIL("%s needs %lld value%s but the stack is %d deep at instruction %d", info->name, (long long)pops, pops == 1 ? "" : "s", height, position);
             }
+            /* The loader puts one at the end of the top level itself; anywhere else it would
+               end a call's run, leaving its caller in C without a value or its frames */
+            if (r->op == OP_HALT && b->kind != B_TOP) {
+                FAIL("%s", "HALT ends the program, so it belongs to the top level");
+            }
             if (r->op == OP_END_TRY && tries == 0) {
                 FAIL("END_TRY at instruction %d closes a try that no TRY opened", position);
             }
@@ -1463,6 +1468,18 @@ Program *load(const char *text, size_t len, const char *path) {
     for (int i = 0; i < prog->nblocks; i++) check_block(prog->blocks[i]);
 
     build_classes();
+    /* What a catch sees is made as an Error (caught() in vm.c), so a file that can catch needs
+       the class, whatever its own catch clauses name */
+    if (!prog->error_class) {
+        for (int i = 0; i < prog->nblocks; i++) {
+            for (int j = 0; j < prog->blocks[i]->nraw; j++) {
+                int op = prog->blocks[i]->raw[j].op;
+                if (op == OP_CATCH_VALUE || op == OP_CATCH_MATCH) {
+                    fail_at(false, "%s needs a class Error, which is what a caught error is made as", INFO[op].name);
+                }
+            }
+        }
+    }
     link_program();
     free(lines);
     free(copy);

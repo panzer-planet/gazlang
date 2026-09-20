@@ -162,21 +162,29 @@ class CliTest extends GazLangTestCase
     /**
      * @return array<string, array{0: string, 1: string, 2: int}>
      */
+    /**
+     * The bytecode the table's cases run, which vm/coverage.php makes too: compiled next to a
+     * copy of its source, so the locations in it lead to that copy
+     */
+    public static function fixtures(): void
+    {
+        @mkdir(self::ROOT.'/'.self::BUILD, 0777, true);
+        foreach (['args', 'runtime_error'] as $name) {
+            copy(self::ROOT.'/'.self::DIR."/{$name}.gaz", self::ROOT.'/'.self::BUILD."/{$name}.gaz");
+            [$code, $err] = CVM::process([self::ROOT.'/bin/gazlang', '-c', '-f', self::BUILD."/{$name}.gaz"]);
+            if ($err !== '') {
+                throw new \RuntimeException($err);
+            }
+            file_put_contents(self::ROOT.'/'.self::BUILD."/{$name}.gzb", $code);
+        }
+        copy(self::ROOT.'/'.self::DIR.'/args.gaz', self::ROOT.'/'.self::BUILD.'/source.gzb');
+    }
+
     private static function results(): array
     {
         if (self::$results === []) {
             CVM::build();
-            // Compiled next to a copy of its source, so the locations in it lead to that copy
-            @mkdir(self::ROOT.'/'.self::BUILD, 0777, true);
-            foreach (['args', 'runtime_error'] as $name) {
-                copy(self::ROOT.'/'.self::DIR."/{$name}.gaz", self::ROOT.'/'.self::BUILD."/{$name}.gaz");
-                [$code, $err] = CVM::process([self::ROOT.'/bin/gazlang', '-c', '-f', self::BUILD."/{$name}.gaz"]);
-                if ($err !== '') {
-                    throw new \RuntimeException($err);
-                }
-                file_put_contents(self::ROOT.'/'.self::BUILD."/{$name}.gzb", $code);
-            }
-            copy(self::ROOT.'/'.self::DIR.'/args.gaz', self::ROOT.'/'.self::BUILD.'/source.gzb');
+            self::fixtures();
 
             // By working directory, since CVM::processes() runs a batch in one
             $by_dir = [];

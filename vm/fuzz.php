@@ -60,7 +60,9 @@ $failed = [];
 $timeouts = 0;
 while ($runs === null ? microtime(true) - $start < $seconds : $count < $runs) {
     $batch = [];
-    for ($i = 0; $i < ($runs === null ? BATCH : min(BATCH, $runs - $count)); $i++) {
+    // Worked out once: $count grows in the loop, so as a condition it would end the batch early
+    $size = $runs === null ? BATCH : min(BATCH, $runs - $count);
+    for ($i = 0; $i < $size; $i++) {
         $n = $count++;
         $roll = $rng->getInt(0, 9);
         // Named g (generated) or m (a mutant), since only a generated program is sure to end
@@ -423,17 +425,16 @@ function mutateBytecode(Randomizer $rng, array $seeds): ?string
         $line = $theirs[instructionLine($rng, $theirs)];
         $words = explode(' ', $lines[$at]);
         $w = $rng->getInt(min(1, count($words) - 1), count($words) - 1);
-        match ($rng->getInt(0, 5)) {
+        // Half the mutations move whole lines and half rewrite a word: a moved line usually
+        // costs the file its shape, and the checks past the loader are reached by the others
+        match ($rng->getInt(0, 7)) {
             0 => array_splice($lines, $at, 1),
             1 => array_splice($lines, $at, 0, [$lines[$at]]),
             2 => [$lines[$at], $lines[$other]] = [$lines[$other], $lines[$at]],
             3 => array_splice($lines, $at, 0, [$line]),
-            4 => $words[$w] = INTERESTING[$rng->getInt(0, count(INTERESTING) - 1)],
-            default => $words[0] = explode(' ', $line)[0],
+            4, 5 => $lines[$at] = implode(' ', array_replace($words, [$w => INTERESTING[$rng->getInt(0, count(INTERESTING) - 1)]])),
+            default => $lines[$at] = implode(' ', array_replace($words, [0 => explode(' ', $line)[0]])),
         };
-        if (isset($lines[$at]) && $words !== explode(' ', $lines[$at])) {
-            $lines[$at] = implode(' ', $words);
-        }
     }
 
     return keep(implode("\n", [...$header, ...$lines]));

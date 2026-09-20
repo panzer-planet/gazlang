@@ -758,7 +758,9 @@ try {
 - **The loader checks everything**, including a walk of each block's stack through every jump,
   so a file that loads is one the VM can run (Lua and CPython crash on bad bytecode); the walk
   also gives each frame's size, and carries the try handlers open, since `END_TRY` closing one
-  that no `TRY` opened corrupts the handler stack. What a value *is* stays the VM's to check
+  that no `TRY` opened corrupts the handler stack. `HALT` belongs to the top level (the loader
+  puts one there itself), and a file that can catch needs a class `Error`, which is what a
+  caught error is made as. What a value *is* stays the VM's to check
   when it runs: `CATCH_VALUE`, `CATCH_MATCH` and `RETHROW` ask whether the top is a raised
   error, `CALL_METHOD` whether it has a method entry over an object, and `ARRAY_PUSH`,
   `ARRAY_EXTEND` and `MAP_SET` whether they are building a list or a map, as `ADD` asks what

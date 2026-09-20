@@ -574,6 +574,7 @@ tests/bytecode_corpus/error_capture_slot.gzb
 tests/bytecode_corpus/error_capture_where.gzb
 tests/bytecode_corpus/error_catch_match_of_a_string.gzb
 tests/bytecode_corpus/error_catch_value_of_a_number.gzb
+tests/bytecode_corpus/error_catch_without_an_error_class.gzb
 tests/bytecode_corpus/error_check_in_a_lambda.gzb
 tests/bytecode_corpus/error_check_in_a_method.gzb
 tests/bytecode_corpus/error_class_header.gzb
@@ -598,6 +599,7 @@ tests/bytecode_corpus/error_fn_arity_backwards.gzb
 tests/bytecode_corpus/error_fn_arity_missing.gzb
 tests/bytecode_corpus/error_fn_arity_not_a_number.gzb
 tests/bytecode_corpus/error_global_slot.gzb
+tests/bytecode_corpus/error_halt_inside_a_call.gzb
 tests/bytecode_corpus/error_label_of_another_block.gzb
 tests/bytecode_corpus/error_lambda_index.gzb
 tests/bytecode_corpus/error_location_line.gzb
@@ -663,7 +665,6 @@ tests/bytecode_corpus/error_value_variable.gzb
 tests/bytecode_corpus/error_value_with_a_hash.gzb
 tests/bytecode_corpus/error_value_with_an_arrow.gzb
 tests/bytecode_corpus/error_version.gzb
-tests/bytecode_corpus/halt_inside_a_call.gzb
 tests/bytecode_corpus/raised_error_as_a_value.gzb
 tests/bytecode_corpus/set_field_undeclared.gzb
 tests/bytecode_corpus/spacing.gzb
