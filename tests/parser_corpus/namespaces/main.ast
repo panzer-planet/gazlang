@@ -15,7 +15,7 @@ Compound
                   token: 8 VAR_IDENTIFIER $text
                   value: "\$text"
       arity: 1
-      class: null
+      kind: null
       abstract: false
     1: FunctionDeclaration 11
       name: "json::scan"
@@ -40,9 +40,9 @@ Compound
                 token: 12 STRING ">"
                 value: ">"
       arity: 1
-      class: null
+      kind: null
       abstract: false
-    2: ClassDeclaration 15
+    2: KindDeclaration 15
       name: "json::Reader"
       parent: null
       abstract: false
@@ -87,7 +87,7 @@ Compound
                     token: 8 VAR_IDENTIFIER $text
                     value: "\$text"
       arity: 1
-      class: null
+      kind: null
       abstract: false
 @ "tests/parser_corpus/namespaces/lib/plain.gaz"
     4: FunctionDeclaration 2
@@ -101,7 +101,7 @@ Compound
               token: 3 STRING "plain"
               value: "plain"
       arity: 0
-      class: null
+      kind: null
       abstract: false
 @ "tests/parser_corpus/namespaces/main.gaz"
     5: EchoStatement 7

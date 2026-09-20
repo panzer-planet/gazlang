@@ -8,22 +8,22 @@ include "../../../compiler/parser.gaz";
 $root = Parser(Lexer("echo 1 + 2 * \$x;")).parse();
 $echo = $root.statements[0];
 check("one statement", len($root.statements), 1);
-check("a node's class says what it is", class_of($echo) == EchoStatementAST, true);
+check("a node's kind says what it is", kind_of($echo) == EchoStatementAST, true);
 check("and its parents", is_a($echo, AbstractStatementAST) && is_a($echo, AST), true);
 check("* binds tighter than +", [$echo.expr.op.value, $echo.expr.right.op.value], ["+", "*"]);
 check("a leaf holds its value", [$echo.expr.left.value, $echo.expr.right.right.value], [1, "\$x"]);
 check("inline source has a line and no file", [$echo.line, $echo.file], [1, null]);
-check("a node's fields are in the PHP class's order", keys(fields($echo.expr)), ["line", "file", "left", "token", "op", "right"]);
+check("a node's fields are in the kind's declared order", keys(fields($echo.expr)), ["line", "file", "left", "token", "op", "right"]);
 
-// What a pass needs from a lambda and a class is worked out by the time parse() returns
+// What a pass needs from a lambda and a kind is worked out by the time parse() returns
 $root = Parser(Lexer("\$f = (\$a, \$b = 1) -> \$a + \$n + \$f;"), "inline.gaz").parse();
 $lambda = $root.statements[0].expr.right;
 check("a lambda's captures, arity and self", [$lambda.captures, $lambda.arity, $lambda.self], [["\$n", "\$f"], [1, 2], "\$f"]);
 check("a node from a file has the file", $lambda.file, "inline.gaz");
 
-$root = Parser(Lexer("class A \{ #x; fn f() \{ return #x + #g(); } fn g() \{ return 1; } } class B extends A \{ fn g() \{ return ##g(); } }")).parse();
+$root = Parser(Lexer("kind A \{ #x; fn f() \{ return #x + #g(); } fn g() \{ return 1; } } kind B extends A \{ fn g() \{ return ##g(); } }")).parse();
 [$a, $b] = $root.statements;
-check("a class's layout and members, its parent's included", [$b.layout, $b.members], [{"x" => "A"}, {"f" => "A", "g" => "B"}]);
+check("a kind's layout and members, its parent's included", [$b.layout, $b.members], [{"x" => "A"}, {"f" => "A", "g" => "B"}]);
 $sum = $a.methods["f"].body.statements[0].expr;
 check("a #name knows whether it is a field", [$sum.left.field, $sum.right.property.field], [true, false]);
 check("a ##name knows whose version runs", $b.methods["g"].body.statements[0].expr.definer, "A");
@@ -63,10 +63,10 @@ check("the variables of a tree 6000 operators deep, in source order", keys($vari
 // A path that is no file is only a name for the source, so its includes are relative to the
 // working directory, as they are without a path
 $root = Parser(Lexer("include \"lib/chars.gaz\"; echo chars::is_digit(\"1\");"), "no/such/file.gaz").parse();
-check("includes of source named by a path that is no file", class_of($root.statements[len($root.statements) - 1]) == EchoStatementAST, true);
+check("includes of source named by a path that is no file", kind_of($root.statements[len($root.statements) - 1]) == EchoStatementAST, true);
 check("and its nodes have the name", $root.statements[len($root.statements) - 1].file, "no/such/file.gaz");
 
-// Two parsers at once share nothing: one's functions and classes are not the other's
+// Two parsers at once share nothing: one's functions and kinds are not the other's
 $first = Parser(Lexer("fn only_here() \{ } echo only_here();"));
 $second = Parser(Lexer("echo only_here();"));
 check("the first knows its function", len($first.parse().statements), 2);

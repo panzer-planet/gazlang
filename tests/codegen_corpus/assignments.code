@@ -1,4 +1,4 @@
-GAZLANG BYTECODE 1
+GAZLANG BYTECODE 2
 globals @g @h @l
 
 top
@@ -507,7 +507,7 @@ PUSH 1
 SET_PATH [k].l[] 36
 POP
 
-class P
+kind P
 field n P
 field l P
 field s P

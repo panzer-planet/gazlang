@@ -8,7 +8,7 @@ namespace gazlang;
 
 include "codegen.gaz";
 
-class Dumper {
+kind Dumper {
     // What the dump leaves out: where a node is, which the "@" lines and each node's line
     // show, the code generator's (existing), bookkeeping derived from what is shown (resolved),
     // or an index into the parser's table of member uses (use), which says nothing about
@@ -36,9 +36,9 @@ class Dumper {
                     #file = $value.file;
                     echo "@ " .. #literal($value.file);
                 }
-                // "class gazlang::NumAST" without the "class ", the namespace and the "AST":
+                // "kind gazlang::NumAST" without the "kind ", the namespace and the "AST":
                 // the node names are this format, so which namespace they sit in is noise
-                $name = last(split(slice(to_string(class_of($value)), 6, -3), "::"));
+                $name = last(split(slice(to_string(kind_of($value)), 5, -3), "::"));
                 echo $indent .. $label .. $name .. ($value.line == null ? "" : " {$value.line}");
                 $children = fields($value);
                 foreach (#SKIPPED as $name) {

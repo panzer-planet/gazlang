@@ -1,1 +1,1 @@
-Error: Class K has no constant B at tests/parser_corpus/error_const_no_such_constant.gaz:2
+Error: Kind K has no constant B at tests/parser_corpus/error_const_no_such_constant.gaz:2

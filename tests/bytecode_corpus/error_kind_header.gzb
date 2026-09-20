@@ -1,0 +1,10 @@
+GAZLANG BYTECODE 2
+globals
+
+top
+locals
+
+kind C of D
+locals
+LOAD_THIS
+RET

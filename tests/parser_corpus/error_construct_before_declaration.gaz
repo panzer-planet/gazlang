@@ -1,2 +1,2 @@
 echo Point(1, 2, 3);
-class Point { fn _($x, $y = 0) {} }
+kind Point { fn _($x, $y = 0) {} }

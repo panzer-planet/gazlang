@@ -59,7 +59,7 @@ vendor/bin/pint                     # formatting
 ```
 
 ## Code Style Guidelines
-- **GazLang** (`compiler/`, `lib/`): functions, variables, fields and methods snake_case, classes
+- **GazLang** (`compiler/`, `lib/`): functions, variables, fields and methods snake_case, kinds
   PascalCase, constants UPPERCASE. The lexer's and parser's methods are named after the grammar
   rule or step they read (`get_next_token()`, `function_call()`, `left_associative()`).
 - **C** (`vm/`): plain C11 plus POSIX (`-D_DEFAULT_SOURCE`, which glibc needs for
@@ -199,7 +199,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     that calls back, so a time-out in one is a bug. A mutant may just loop, so its time-out is
     only reported.
   - **Mutations aim at instruction lines**, in the file being mutated and in the one a line is
-    taken from: a block's header lines (`top`, `locals`, `fn`, `class`) are a good part of a
+    taken from: a block's header lines (`top`, `locals`, `fn`, `kind`) are a good part of a
     small bytecode file, and damage to one is refused by the header parser before an
     instruction is read, which the corpus already covers. Aiming (one try in five still lands
     anywhere) took mutants that load from 9% to 13% and moved the refusals into the operand
@@ -232,9 +232,9 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     an object; by-reference parameters aren't worth their cost against refcounting.
   - `$obj.$name` (dynamic member access; `lib/sort.gaz` can sort maps but not objects),
     `json_encode` of an object (`fields()` lists what it would write; `to_string()` and cycles
-    to settle), and `class_name($class)` (the bare name; today `slice(to_string(class_of($x)),
-    6)`).
-  - `class_of` is strict, so a pass over a tree with absent children needs a `type_of` check
+    to settle), and `kind_name($kind)` (the bare name; today `slice(to_string(kind_of($x)),
+    5)`).
+  - `kind_of` is strict, so a pass over a tree with absent children needs a `type_of` check
     first; if that recurs, make it lenient.
   - Scanning bytes: `$s[$i]` makes a one-byte string (shared in C) and there is no `byte_at` or
     "index of the first byte in this set". The self-hosted lexer spells out comparisons and
@@ -243,7 +243,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - `..=` on a field or element (`#buf ..= $c`) still lowers to `#buf = #buf .. $c` in generated
     code, which copies the string: only a plain variable appends in place.
   - Including a file also runs its top level code. `Error`'s members are reserved across its
-    subclasses, so a domain error can't declare its own `#line` or `#message`.
+    children, so a domain error can't declare its own `#line` or `#message`.
   - No identity key for an object (a side table keyed by node), no `to_int`/
     `to_float` that returns null instead of throwing, no copy-with-change for objects, no
     `catch (A | B $e)`, no bare rethrow, no `_` to skip an element in a list pattern.
@@ -257,43 +257,36 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   for a program that needs them.
 - **Decided, not built**: `interface`/`implements` (a parse-time check that the methods exist,
   plus `is_a`), and `final`. The keywords are reserved.
-- **Decided, not built: `kind`, and members private unless `pub`.** Three changes that only
-  make sense together, since each is what makes the next one cheap.
-  - **A class's members are private unless `pub`**, the flip of what they are today, and the
+- **Decided, not built: members private unless `pub`, and `kin`.** Two changes that only make
+  sense together, and that `kind` was the first step of.
+  - **A kind's members are private unless `pub`**, the flip of what they are today, and the
     *same word with the same meaning* as a namespace's: `pub` says this name escapes the thing
-    it is written in, whether that thing is a file or a class. One keyword for the whole
+    it is written in, whether that thing is a file or a kind. One keyword for the whole
     language, so the "opposite defaults, worth saying out loud once" paragraph stops needing
     to exist. Measured on `compiler/` and `lib/`, 258 of 435 members are never reached from
     outside, so public-by-default marks 258 and private-by-default marks 177: the flip is less
     marking as well as fewer words, and the old default was fighting the code.
-  - **`kin` is the middle level**, visible to the class and everything that extends it, so
+  - **`kin` is the middle level**, visible to the kind and everything that extends it, so
     the ladder is unmarked (mine) → `kin` (mine and my children's) → `pub` (anyone's).
-    `protected` earns a rename where `class` does not: it is famously misnamed, since it
+    `protected` earns a rename where `extends` does not: it is famously misnamed, since it
     protects less than the default does, and naming the level after *who can see it* is what
     the word should have done. `kin` and `kind` are one root (kin, kind, kindred), which is
     why they belong together rather than being a rhyme.
-  - **`class` becomes `kind`**, which is what a class is: a kind of thing. `extends` stays,
-    being both accurate and read by everyone. This reaches further than a keyword, because
-    `"class"` is a value and not only syntax: `class_of()` becomes `kind_of()`, `type_of()`
-    gives `"kind"`, `echo Point` prints `kind Point`, the bytecode block header and its
-    errors change, and about 300 recorded files move with them. It is the one rename that
-    describes the thing better rather than differently; `house` and `form` were the other
-    finalists, and `house` lost for asking the rest of the language to join its metaphor.
   - Consequences to settle while building: `Error`'s members are reached by every program
-    (`$e.message`), so the builtin class declares them `pub`; a static is a member, so
-    `pub static #count` and `kin static #count` are the spellings; `kind` and `kin` are
-    reserved, and `public`/`private`/`protected` stay reserved only to say "write `pub`" and
-    "write `kin`", the way `function` says to write `fn`.
+    (`$e.message`), so the builtin kind declares them `pub`; a static is a member, so
+    `pub static #count` and `kin static #count` are the spellings; `kin` is reserved, and
+    `public`/`private`/`protected` stay reserved only to say "write `pub`" and "write `kin`",
+    the way `function` says to write `fn`.
 - **Namespaces** are resolved by the parser, so the VM never learns the word and bytecode only
-  sees longer names: functions and classes carry `::`, while a method block stays
-  `Class.method`, which is what lets the loader tell the two apart. Resolution is one pass
+  sees longer names: functions and kinds carry `::`, while a method block stays
+  `Kind.method`, which is what lets the loader tell the two apart. Resolution is one pass
   before anything else is checked, so nothing below it knows namespaces exist.
   - `namespace json;` first in a file, at most one, optional: a file without one declares its
     names globally, as every file did before, and a program never needs one.
   - **A name is private to its namespace unless `pub`**: a file is implementation, and only
     what it says is public escapes it. Privacy is per namespace, not per file, so `compiler/`'s
     five files declare `namespace gazlang;` and go on seeing each other's everything, and a
-    test of the internals joins the namespace rather than making them public. A class's
+    test of the internals joins the namespace rather than making them public. A kind's
     members are the other way round today; the decision above makes them the same, so `pub`
     means one thing everywhere.
   - **`include "chars.gaz" use is_digit, char_at as at;`** is the only way to bring a name in
@@ -317,17 +310,17 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
 - **Static members** are reached by name as constants are: `Counter::next()`, `Counter::COUNT`,
   `Counter::count`. Not through a value: `$obj::next()` puts a value on the left of the
   parse-time operator, which is the one place PHP's `::` means something else, and `$obj.count`
-  is a member of whatever the object has. `.` on a class stays an error until a program asks
-  for `class_of($obj).next()`.
-  - **`static fn next()` and `static #count = 0;`**, and `#name` inside the class whichever
-    kind it is, since `#name` already means a member of the class it is written in and
+  is a member of whatever the object has. `.` on a kind stays an error until a program asks
+  for `kind_of($obj).next()`.
+  - **`static fn next()` and `static #count = 0;`**, and `#name` inside the kind whichever
+    kind it is, since `#name` already means a member of the kind it is written in and
     members share one namespace across the hierarchy. A child shares its parent's static, as
     it shares the rest of the namespace; it can't redeclare one.
   - **A static field is a slot**, addressed like a global: `statics` in the bytecode header
-    names each one `Class::field` after the class that *declares* it, so a class and its
+    names each one `Kind::field` after the kind that *declares* it, so a kind and its
     children name the same slot, and `LOAD_STATIC`/`STORE_STATIC`/`SET_PATH_STATIC`/
     `DELETE_PATH_STATIC` are the global instructions again. A **static method is a function**
-    named `Class::name`, so calling one is an ordinary `CALL` and the VM learns nothing: a
+    named `Kind::name`, so calling one is an ordinary `CALL` and the VM learns nothing: a
     method block keeps its dot, which is still what says "this one needs an object".
   - **A static field's default is a constant expression**, folded by the parser and written
     before the program's own first instruction, which is more restrictive than an instance
@@ -335,12 +328,12 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     running one would bring initialisation order and bytecode before the top level. It is
     required, since a slot with nothing in it would need the quiet load a static never wants.
   - **Assigned from anywhere** (`Counter::count = 1`, `#count++`, `Counter::rows[] = $r`),
-    since a class's members are public today; once they are private unless `pub`, a static
-    that says nothing is the class's own and needs no rule of its own to protect it. Both
+    since a kind's members are public today; once they are private unless `pub`, a static
+    that says nothing is the kind's own and needs no rule of its own to protect it. Both
     spellings compile to the same instruction, since `::` resolves when it is parsed; the cost
     was a fifth root for `store_path()` next to a local, a global, a capture and `#`, and the
-    check refusing `Class::NAME = ...` that mirrors the one refusing `#NAME[0] = 1`.
-  - **In a static method `#name` is the class's**, so `#count` is the static field and
+    check refusing `Kind::NAME = ...` that mirrors the one refusing `#NAME[0] = 1`.
+  - **In a static method `#name` is the kind's**, so `#count` is the static field and
     `#helper()` another static method; naming an instance member is a parse error, as is `#`
     on its own, since there is no object and members are declared.
   - `#next` without calling it is an error that says to write `Counter::next`, which is the
@@ -377,8 +370,8 @@ version.
   never equals a number or bool, and ordering a string against a number is an error. Numbers
   compare by value, exactly (`1 == 1.0`, but `9007199254740993 != 9007199254740992.0`, unlike
   PHP). A bool equals only itself, `null` only `null`. Lists compare in order, maps by keys and
-  values in any order, and a list never equals a map, even `[] == {}`. Functions, classes and
-  objects compare by identity (bound methods: the same object, class and method). No `===` (it
+  values in any order, and a list never equals a map, even `[] == {}`. Functions, kinds and
+  objects compare by identity (bound methods: the same object, kind and method). No `===` (it
   lexes as `==` then `=`, a syntax error). `<=>` gives -1, 0 or 1 by the ordering rules.
 - **Bitwise** `& | ^ << >> ~` and their compound forms are ints only, as `%` is. A shift count
   must be 0 to 63 (PHP quietly gives 0 above). `>>` keeps the sign, `~$x` is `-$x - 1`, and
@@ -508,8 +501,8 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   written in the program is. `sort` is a defined merge sort, since a comparator can see which
   comparisons are made: split in the middle, merge asking `$compare(right, left)` (`merge_sort()`
   in `builtins.c`). Types are checked before anything is called.
-- Types: `type_of` (`int float string bool null list map function class object socket`), `is_a`,
-  `class_of`, `fields` (see "Objects").
+- Types: `type_of` (`int float string bool null list map function kind object socket`), `is_a`,
+  `kind_of`, `fields` (see "Objects").
 - I/O: `print`/`print_error` (echo without the newline, to stdout or stderr), `read_file`,
   `write_file`, `read_stdin` (empty when the program itself was piped in), `args()` (after the
   gazlang options or `--`; the CLI rejects options it doesn't know, since `getopt` would drop
@@ -588,18 +581,18 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
 
 ## Objects
 
-Declared fields and single inheritance give every class a fixed layout, so fields are slots
+Declared fields and single inheritance give every kind a fixed layout, so fields are slots
 and methods a table in C.
 
 ```
-abstract class Shape {
+abstract kind Shape {
     #name;
     fn _($name) { #name = $name; }
     abstract fn area();
     fn to_string() { return "{#name} with area " .. #area(); }
 }
 
-class Circle extends Shape {
+kind Circle extends Shape {
     #radius;
     #history = [];                            // evaluated for each new object
     fn _($radius) {
@@ -616,23 +609,25 @@ echo is_a($c, Shape) .. " " .. $c.radius;     // true 2
 $area = $c.area;                              // a bound method
 ```
 
-- **Classes** are top level, usable before their declaration, and share the namespace of
-  functions, builtins and constants. `abstract class` can't be constructed; `abstract fn` must
-  be defined by a concrete subclass. A class body holds only fields, methods and constants.
-- **Classes are values and constructing is a call**: `Point(1, 2)`, `$make = Point`. `echo
-  Point` prints `class Point`. A call by name is checked like a function call.
+- **Kinds** are top level, usable before their declaration, and share the namespace of
+  functions, builtins and constants. `abstract kind` can't be constructed; `abstract fn` must
+  be defined by a concrete child kind. A kind body holds only fields, methods and constants.
+- **Kinds are values and constructing is a call**: `Point(1, 2)`, `$make = Point`. `echo
+  Point` prints `kind Point`. A call by name is checked like a function call. `class` is
+  reserved and says to write `kind`, the way `function` says to write `fn`; a kind is a kind
+  of thing, and `"kind"` is what `type_of` gives.
 - **Constructing** sets the field defaults (the parent's first, in order), then runs `_` with
-  the arguments. A class without `_` inherits its parent's. A child calls the parent's with
+  the arguments. A kind without `_` inherits its parent's. A child calls the parent's with
   `##_(...)`, only in a constructor; nothing calls it automatically. `return value;` in `_` and
   `_` as a member are errors.
 - **Fields are declared** (`#x;` or `#x = default;`); a default is evaluated per object, may use
   `#` but not `$` variables. Reading a field never set is an error; `??` reads it as null.
   Objects print only the fields that are set.
-- **`#`** is the object, `#name` its member, checked at parse time against the class and its
+- **`#`** is the object, `#name` its member, checked at parse time against the kind and its
   parents (in methods, field defaults and lambdas in them; elsewhere `Cannot use #name outside a
   method`). **`##name`** is the parent's version of a method, decided at parse time from the
-  class it is written in; only methods, not abstract ones. Bare `##` is a parse error, kept free
-  for the parent class as a value; `#.name` says to write `#name`. Member names can be any word,
+  kind it is written in; only methods, not abstract ones. Bare `##` is a parse error, kept free
+  for the parent kind as a value; `#.name` says to write `#name`. Member names can be any word,
   keywords included.
 - **Members** share one namespace across the hierarchy: a child can't redeclare a field or
   constant or give a field a method's name (the error suggests a new name). An override must
@@ -644,17 +639,17 @@ $area = $c.area;                              // a bound method
 - **`.` is member access**, checked when it runs (`Account has no member foo`). `.name` is one
   token glued to its name, but may start a line so chains continue. `$obj.name(args)` evaluates
   the object, looks the member up, then the arguments, then calls. `$obj.method` is a bound
-  method, `==` another when object, class and method match.
+  method, `==` another when object, kind and method match.
 - **Write paths**: a variable or `#`, then any index or property steps (`$rows[0].total = 5`,
   `#count++`); a path can't start at a call. `store_path()` in `ops.c` is the one definition.
-- `is_a($x, Class)` tests the class and its parents; `class_of($x)` is the object's own class
-  (strict: anything else is an error), so `match (class_of($n)) { NumAST => ... }` dispatches
-  a pass written outside the node classes. `fields($object)` is a map of the set fields, in
-  print order, without `#`, so a pass can walk a tree without knowing its classes.
+- `is_a($x, Kind)` tests the kind and its parents; `kind_of($x)` is the object's own kind
+  (strict: anything else is an error), so `match (kind_of($n)) { NumAST => ... }` dispatches
+  a pass written outside the node kinds. `fields($object)` is a map of the set fields, in
+  print order, without `#`, so a pass can walk a tree without knowing its kinds.
 - **`to_string()` is the one protocol method**, used by echo, `..`, interpolation and `join`,
   also inside lists and maps; it must return a string and take no arguments. Without one an
   object prints as `Account {#owner => "Werner", #balance => 75}`, and one already being printed
-  as `Account {...}`. `json_encode` refuses classes, objects and functions.
+  as `Account {...}`. `json_encode` refuses kinds, objects and functions.
 
 ## match
 
@@ -695,7 +690,7 @@ const WIDTH = 3;
 const AREA = WIDTH * HEIGHT;                  // in terms of others, in any order
 const HEIGHT = WIDTH + 1;
 
-class Token {
+kind Token {
     const EOF = "EOF";
     const ENDS = [#EOF, Token::EOF .. "!"];
     fn is_eof($type) { return $type == #EOF; }
@@ -712,14 +707,14 @@ class Token {
   handle, and a slot and instruction in the VM.
 - **A use is its value**: the parser stamps each use and the compiler pushes the value, so there
   is no constant in the tree below the parser, the bytecode or the VM.
-- A top level constant is a bare name, sharing the namespace of functions and classes, so a
+- A top level constant is a bare name, sharing the namespace of functions and kinds, so a
   typo is a parse error. Constants are immutable because no write path can start at one; the
   one that could, `#NAME[0] = 1`, is refused (`Cannot change constant #NAME`).
-- **Class constants** are `#NAME` inside and `Class::NAME` outside, inherited, and **can't be
-  redeclared by a child**, since `#NAME` is resolved from the class it is written in. That
-  `::` resolves a name and `.` goes through a value is why `$class.NAME` and `$object.NAME`
-  can't be constants: it is the operator that says so, not a rule of its own. `Class.NAME`
-  says to write `Class::NAME`, the way a miscapitalised keyword is told to be lowercase. Not
+- **Kind constants** are `#NAME` inside and `Kind::NAME` outside, inherited, and **can't be
+  redeclared by a child**, since `#NAME` is resolved from the kind it is written in. That
+  `::` resolves a name and `.` goes through a value is why `$kind.NAME` and `$object.NAME`
+  can't be constants: it is the operator that says so, not a rule of its own. `Kind.NAME`
+  says to write `Kind::NAME`, the way a miscapitalised keyword is told to be lowercase. Not
   redeclaring is the restrictive choice on purpose: loosening it later breaks nothing.
 - `ConstTest::expressions()` requires a constant to give what a running program gives, for
   every operator and kind of value.
@@ -743,7 +738,7 @@ class Token {
 ## Errors and try/catch
 
 ```
-class NotFound extends Error {
+kind NotFound extends Error {
     #key;
     fn _($key) { ##_("Not found: {$key}"); #key = $key; }
 }
@@ -764,7 +759,7 @@ try {
 - **Catchable**: every runtime error (including running out of call depth) and anything thrown
   with `error()`. Syntax and include errors happen before the program runs. `return`, `break`,
   `continue` and `exit()` are not errors.
-- **`Error` is a builtin class** written in GazLang (`BUILTIN_SOURCE` in `parser.gaz`, located
+- **`Error` is a builtin kind** written in GazLang (`BUILTIN_SOURCE` in `parser.gaz`, located
   as `<builtin>`): `#message`, `#file` (null for piped input), `#line`, `#trace`, `_($message)`,
   `to_string()`. Programs extend it; runtime errors and `error("text")` are caught as `Error`.
   It is compiled only into programs that use it.
@@ -775,7 +770,7 @@ try {
   throwing never runs `to_string()`.
 - **`#trace`** lists the calls running when the error was raised, innermost first, each where it
   was running (`["inner at fib.gaz:3", "top level at fib.gaz:7"]`): a function by name, a method
-  `Class.name`, a constructor `Class._`, a lambda `->`. Deep traces keep the innermost and
+  `Kind.name`, a constructor `Kind._`, a lambda `->`. Deep traces keep the innermost and
   outermost 10 around `... N more`. Uncaught, the trace is printed under the message unless it is
   a single call. A method run from inside an expression (`to_string()` by echo, `..` or a builtin)
   is called from where the expression is running, and its trace carries on through the calls
@@ -784,7 +779,7 @@ try {
   they were called from through the instructions that can run program code (`PRINT`, `CONCAT`,
   `CONCAT_ASSIGN*`, `CALL_BUILTIN` and `CALL_VALUE` of a builtin), which say where they are;
   `trace_test.gaz` has a case for each, so one that forgets fails there.
-- Catch clauses are tried in order; a typed one matches the class or a subclass; an untyped one
+- Catch clauses are tried in order; a typed one matches the kind or a child kind; an untyped one
   (`catch ($e)`) must be last. An unmatched error carries on unchanged.
 - **`finally`** runs however the block is left: normally, when an error passes, and on
   `return`/`break`/`continue` (a return's value is worked out first). An error in it replaces
@@ -797,7 +792,7 @@ try {
   region already holding a comment can be commented out; an unterminated one is an error at
   the line the outermost opened on. `editors/gaz.tmLanguage` nests them too
   (`EditorGrammarTest` fails when it misses a builtin or keyword).
-- **Keywords are lowercase and exact**, so `class If`, `fn Return()` and `class Match` are
+- **Keywords are lowercase and exact**, so `kind If`, `fn Return()` and `kind Match` are
   ordinary names, which a self-hosted AST wants. PHP matches keywords *and* names
   case-insensitively; matching only keywords that way was its wart without its rule. A
   miscapitalised keyword gets a hint (`keywords are lowercase: write 'return', not 'Return'`) from
@@ -848,7 +843,7 @@ try {
   so a file that loads is one the VM can run (Lua and CPython crash on bad bytecode); the walk
   also gives each frame's size, and carries the try handlers open, since `END_TRY` closing one
   that no `TRY` opened corrupts the handler stack. `HALT` belongs to the top level (the loader
-  puts one there itself), and a file that can catch needs a class `Error`, which is what a
+  puts one there itself), and a file that can catch needs a kind `Error`, which is what a
   caught error is made as. What a value *is* stays the VM's to check
   when it runs: `CATCH_VALUE`, `CATCH_MATCH` and `RETHROW` ask whether the top is a raised
   error, `CALL_METHOD` whether it has a method entry over an object, and `ARRAY_PUSH`,
@@ -863,12 +858,12 @@ try {
   alive at once; its operators are one table matched longest first. The parser's eleven binary
   levels are one table and a loop (precedence climbing) rather than a method each, 28% faster.
   `lambda_heads` is one field, since nothing is read between marking a `(` and asking. A member
-  use's record is found by an index the node holds, not a reference, so a class's tree isn't a
+  use's record is found by an index the node holds, not a reference, so a kind's tree isn't a
   cycle for the collector. Trees are walked with an explicit stack, since a chain of 5000
   operators is 5000 deep. The lexer's operator table is matched longest first, which assumes every
   prefix of an operator is an operator too (except `..`'s; a lone `.` isn't one): a new operator
   that breaks that needs handling. The code generator dispatches with one `match
-  (class_of($node))`, since GazLang can't build a method name, and copies a rebuilt node's
+  (kind_of($node))`, since GazLang can't build a method name, and copies a rebuilt node's
   location by hand (easy to forget; the corpus checks it). The writer's paths stay textual, since
   a path written into bytecode needn't exist.
 - **The tree dump** (`--ast`) prints each node's fields as `fields()` gives them, skipping those

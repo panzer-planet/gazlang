@@ -1,2 +1,2 @@
-class A { fn f() {} }
-abstract class B extends A { abstract fn f(); }
+kind A { fn f() {} }
+abstract kind B extends A { abstract fn f(); }

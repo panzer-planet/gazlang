@@ -167,7 +167,7 @@ foreach ([true, false, 0, 1, 0.0, "", "0", [], [0], {}, null] as $x) {
 }
 
 // SET_FIELD; POP
-class Box {
+kind Box {
     #value;
     fn set($v) { #value = $v; return #value; }
 }

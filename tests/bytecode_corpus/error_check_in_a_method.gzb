@@ -1,10 +1,10 @@
-GAZLANG BYTECODE 1
+GAZLANG BYTECODE 2
 globals
 
 top
 locals
 
-class C
+kind C
 method m C
 locals
 LOAD_THIS

@@ -1,1 +1,1 @@
-Error: Expected 'globals' at broken_bytecode:2
+Error: Bytecode version 1, but this is GazLang bytecode 2 at broken_bytecode:1

@@ -41,7 +41,7 @@ static Value *vm_sp;    /* the top of the stack as the running instruction found
    .., ..=, a builtin): a method they run is called from there */
 static Instr *vm_here;
 static Value *globals;
-static Value *statics;   /* every class's static fields, one slot each, alive for the run */
+static Value *statics;   /* every kind's static fields, one slot each, alive for the run */
 static Frame *frames, *fp;  /* every frame; fp is the running one, and fp - frames the call depth */
 static Handler *handlers;
 static int nhandlers, handlers_cap;
@@ -185,30 +185,30 @@ static Value caught(Error *e) {
         incref(e->caught);
         return e->caught;
     }
-    Class *error_class = program->error_class;
+    Kind *error_kind = program->error_kind;
     Value path = e->path ? v_str(e->path) : v_null();
     Value where = e->line ? v_int(e->line) : v_null();
     Value calls = e->trace.type == T_UNSET ? v_list(list_new(0)) : e->trace;
     if (e->trace.type != T_UNSET) incref(calls);
     if (!e->has_value) {
-        Object *o = xcalloc(1, sizeof(Object) + (size_t)error_class->nfields * sizeof(Value));
+        Object *o = xcalloc(1, sizeof(Object) + (size_t)error_kind->nfields * sizeof(Value));
         gc_track(&o->gc, T_OBJECT);
-        o->cls = error_class;
+        o->kind = error_kind;
         incref(v_str(e->reason));
-        o->fields[class_field(error_class, message)] = v_str(e->reason);
+        o->fields[kind_field(error_kind, message)] = v_str(e->reason);
         incref(path);
-        o->fields[class_field(error_class, file)] = path;
-        o->fields[class_field(error_class, line)] = where;
-        o->fields[class_field(error_class, trace)] = calls;
+        o->fields[kind_field(error_kind, file)] = path;
+        o->fields[kind_field(error_kind, line)] = where;
+        o->fields[kind_field(error_kind, trace)] = calls;
         e->caught = v_object(o);
     } else {
         Value v = e->value;
-        if (v.type == T_OBJECT && error_class && class_is_a(v.o->cls, error_class)
-            && v.o->fields[class_field(v.o->cls, line)].type == T_UNSET) {
+        if (v.type == T_OBJECT && error_kind && kind_is_a(v.o->kind, error_kind)
+            && v.o->fields[kind_field(v.o->kind, line)].type == T_UNSET) {
             incref(path);
-            set_slot(&v.o->fields[class_field(v.o->cls, file)], path);
-            set_slot(&v.o->fields[class_field(v.o->cls, line)], where);
-            set_slot(&v.o->fields[class_field(v.o->cls, trace)], calls);
+            set_slot(&v.o->fields[kind_field(v.o->kind, file)], path);
+            set_slot(&v.o->fields[kind_field(v.o->kind, line)], where);
+            set_slot(&v.o->fields[kind_field(v.o->kind, trace)], calls);
         } else {
             decref(calls);
         }
@@ -254,10 +254,10 @@ static bool push_frame(Block *block, Value **sp, int argc, Instr *ret, Func *clo
     return true;
 }
 
-static Object *object_new(Class *c) {
+static Object *object_new(Kind *c) {
     Object *o = xcalloc(1, sizeof(Object) + (size_t)c->nfields * sizeof(Value));
     gc_track(&o->gc, T_OBJECT);
-    o->cls = c;
+    o->kind = c;
     return o;
 }
 
@@ -270,8 +270,8 @@ static void describe(Value callee, Buf *out) {
     }
 }
 
-static Function *method_function(Class *definer, Str *name) {
-    int m = class_method(definer, name);
+static Function *method_function(Kind *definer, Str *name) {
+    int m = kind_method(definer, name);
     return m < 0 ? NULL : definer->entries[m].function;
 }
 
@@ -288,7 +288,7 @@ static Str *constructor_name(void) {
 }
 
 /* Run a method on an object to its end, from inside an instruction */
-bool call_method(Object *o, Class *definer, Str *name, Value *out) {
+bool call_method(Object *o, Kind *definer, Str *name, Value *out) {
     Function *f = method_function(definer, name);
     if (fp - frames == MAX_CALL_DEPTH) {
         Buf b = {0};
@@ -323,12 +323,12 @@ static bool enter_value(Value **spp, int argc, Instr *ret, Block **entered) {
     Value callee = *callee_slot;
     Value r;
     *entered = NULL;
-    if (callee.type == T_CLASS) {
-        Class *c = callee.c;
-        if (c->abstract) return raisef("Cannot construct abstract class %s", c->name->data);
+    if (callee.type == T_KIND) {
+        Kind *c = callee.k;
+        if (c->abstract) return raisef("Cannot construct abstract kind %s", c->name->data);
         if (!arity_fits(c->lo, c->hi, argc)) {
             Buf what = {0};
-            buf_adds(&what, "Class ");
+            buf_adds(&what, "Kind ");
             buf_add_str(&what, c->name);
             raise_arity(what.data, c->lo, c->hi, argc);
             free(what.data);
@@ -353,7 +353,7 @@ static bool enter_value(Value **spp, int argc, Instr *ret, Block **entered) {
         block = fn->lambda->block;
         lo = block->lo, hi = block->hi;
     } else if (fn->kind == F_BOUND) {
-        Function *f = method_function(fn->cls, fn->name);
+        Function *f = method_function(fn->definer, fn->name);
         block = f->block;
         lo = f->lo, hi = f->hi;
     } else if (fn->kind == F_BUILTIN) {
@@ -430,11 +430,11 @@ bool call_value(Value callee, Value *args, int argc, Value *out) {
 /* ---- The loop -------------------------------------------------------------------------- */
 
 /* The slot of the field a member instruction names in an object, or -1: through the
-   instruction's cache when the object's class is the one it saw last */
+   instruction's cache when the object's kind is the one it saw last */
 static inline int field_slot(Instr *in, Object *o) {
-    if (o->cls != in->cached_class) {
-        in->cached_class = o->cls;
-        in->cached_at = class_field(o->cls, in->p);
+    if (o->kind != in->cached_kind) {
+        in->cached_kind = o->kind;
+        in->cached_at = kind_field(o->kind, in->p);
     }
     return in->cached_at;
 }
@@ -683,7 +683,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             Buf m = {0};
             buf_adds(&m, "No arm matches ");
             if (a.type == T_STRING) quote(a.s, &m);
-            else if (a.type == T_INT || a.type == T_FLOAT || a.type == T_BOOL || a.type == T_NULL || a.type == T_CLASS
+            else if (a.type == T_INT || a.type == T_FLOAT || a.type == T_BOOL || a.type == T_NULL || a.type == T_KIND
                      || a.type == T_FUNCTION) append_string(a, &m);
             else buf_adds(&m, type_name(a));
             raise_str(buf_to_str(&m));
@@ -992,8 +992,8 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             PUSH(v_func(f));
             break;
         }
-        case OP_PUSH_CLASS:
-            PUSH(v_class(in->p));
+        case OP_PUSH_KIND:
+            PUSH(v_kind(in->p));
             break;
         case OP_LOAD_THIS:
             if (fp->receiver) {
@@ -1020,7 +1020,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             Object *o = fp->receiver;
             int f = field_slot(in, o);
             if (f < 0) {
-                /* Only hand-written bytecode names a field its class doesn't declare */
+                /* Only hand-written bytecode names a field its kind doesn't declare */
                 raisef("Cannot set %s here", ((Str *)in->p)->data);
                 goto error;
             }
@@ -1056,15 +1056,15 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             Str *name = in->p;
             if (a.type == T_OBJECT && !(name->len == 1 && name->data[0] == '_')) {
                 int m;
-                if (a.o->cls == in->cached_class) {
+                if (a.o->kind == in->cached_kind) {
                     m = in->cached_at;
                 } else {
-                    m = class_method(a.o->cls, name);
-                    in->cached_class = a.o->cls;
+                    m = kind_method(a.o->kind, name);
+                    in->cached_kind = a.o->kind;
                     in->cached_at = m;
                 }
                 if (m >= 0) {
-                    PUSH(((Value){.type = T_ENTRY, .entry = &a.o->cls->entries[m]}));
+                    PUSH(((Value){.type = T_ENTRY, .entry = &a.o->kind->entries[m]}));
                     break;
                 }
             }
@@ -1113,7 +1113,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         }
         case OP_NEW: {
             if (gc_wanted) gc_collect();
-            Class *c = in->p;
+            Kind *c = in->p;
             if (fp - frames == MAX_CALL_DEPTH) {
                 raise_depth(c->name->data);
                 goto error;
@@ -1123,7 +1123,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             break;
         }
         case OP_CALL_CONSTRUCTOR: {
-            Class *c = in->p;
+            Kind *c = in->p;
             Function *f = method_function(c, constructor_name());
             if (fp - frames == MAX_CALL_DEPTH) {
                 /* Located where the object is being made, not in the initialiser */
@@ -1169,15 +1169,15 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         call_value:;
             Value *callee_slot = sp - argc - 1;
             Value callee = *callee_slot;
-            if (callee.type == T_CLASS) {
-                Class *c = callee.c;
+            if (callee.type == T_KIND) {
+                Kind *c = callee.k;
                 if (c->abstract) {
-                    raisef("Cannot construct abstract class %s", c->name->data);
+                    raisef("Cannot construct abstract kind %s", c->name->data);
                     goto error;
                 }
                 if (!arity_fits(c->lo, c->hi, argc)) {
                     Buf what = {0};
-                    buf_adds(&what, "Class ");
+                    buf_adds(&what, "Kind ");
                     buf_add_str(&what, c->name);
                     raise_arity(what.data, c->lo, c->hi, argc);
                     free(what.data);
@@ -1204,7 +1204,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
                 block = fn->lambda->block;
                 lo = block->lo, hi = block->hi;
             } else if (fn->kind == F_BOUND) {
-                Function *f = method_function(fn->cls, fn->name);
+                Function *f = method_function(fn->definer, fn->name);
                 block = f->block;
                 lo = f->lo, hi = f->hi;
             } else if (fn->kind == F_BUILTIN) {
@@ -1268,7 +1268,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         case OP_CATCH_MATCH:
             if (TOP().type != T_ERROR) { raisef("CATCH_MATCH expects a caught error, got %s", type_name(TOP())); goto error; }
             r = caught(TOP().e);
-            if (r.type == T_OBJECT && class_is_a(r.o->cls, in->p)) {
+            if (r.type == T_OBJECT && kind_is_a(r.o->kind, in->p)) {
                 set_slot(&TOP(), r);
             } else {
                 decref(r);

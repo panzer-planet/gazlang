@@ -1,2 +1,2 @@
-class K { const A = 1; }
-class L extends K { fn A() {} }
+kind K { const A = 1; }
+kind L extends K { fn A() {} }

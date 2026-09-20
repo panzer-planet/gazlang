@@ -118,7 +118,7 @@
 				</dict>
 				<dict>
 					<key>match</key>
-					<string>\b(class)\s+([a-zA-Z_][a-zA-Z0-9_]*)(?:\s+(extends)\s+([a-zA-Z_][a-zA-Z0-9_]*))?</string>
+					<string>\b(kind)\s+([a-zA-Z_][a-zA-Z0-9_]*)(?:\s+(extends)\s+([a-zA-Z_][a-zA-Z0-9_]*))?</string>
 					<key>captures</key>
 					<dict>
 						<key>1</key>
@@ -159,7 +159,7 @@
 					<key>name</key>
 					<string>storage.type.gaz</string>
 					<key>match</key>
-					<string>\b(fn|class|interface|const|namespace)\b</string>
+					<string>\b(fn|kind|class|interface|const|namespace)\b</string>
 				</dict>
 				<dict>
 					<key>name</key>
@@ -259,7 +259,7 @@
 			<key>name</key>
 			<string>support.function.gaz</string>
 			<key>match</key>
-			<string>(?&lt;![\w.$@#])\b(len|slice|lower|upper|trim|split|join|replace|contains|starts_with|ends_with|index_of|repeat|chr|ord|to_int|to_float|to_string|floor|ceil|round|abs|intdiv|min|max|in_array|has_key|keys|values|last|reverse|map|filter|reduce|sort|type_of|is_a|class_of|fields|error|exit|read_file|write_file|file_exists|real_path|cwd|print_error|print|read_stdin|args|builtins|rand_int|rand_float|rand_seed|run|socket_open|socket_read|socket_write|socket_close)\b</string>
+			<string>(?&lt;![\w.$@#])\b(len|slice|lower|upper|trim|split|join|replace|contains|starts_with|ends_with|index_of|repeat|chr|ord|to_int|to_float|to_string|floor|ceil|round|abs|intdiv|min|max|in_array|has_key|keys|values|last|reverse|map|filter|reduce|sort|type_of|is_a|kind_of|fields|error|exit|read_file|write_file|file_exists|real_path|cwd|print_error|print|read_stdin|args|builtins|rand_int|rand_float|rand_seed|run|socket_open|socket_read|socket_write|socket_close)\b</string>
 		</dict>
 		<key>classes</key>
 		<dict>

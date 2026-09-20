@@ -1,10 +1,10 @@
-GAZLANG BYTECODE 1
+GAZLANG BYTECODE 2
 globals
 
 top
 locals
 
-class C extends Missing
+kind C extends Missing
 locals
 LOAD_THIS
 RET

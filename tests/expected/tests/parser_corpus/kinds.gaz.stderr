@@ -1,0 +1,3 @@
+Error: Property radius of Circle is not set at tests/parser_corpus/kinds.gaz:9
+  new Circle at tests/parser_corpus/kinds.gaz:9
+  top level at tests/parser_corpus/kinds.gaz:2

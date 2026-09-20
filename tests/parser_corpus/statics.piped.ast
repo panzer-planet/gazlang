@@ -10,7 +10,7 @@ Compound
     2: StaticInit 6
       name: "Counter::limit"
       value: 10
-    3: ClassDeclaration 3
+    3: KindDeclaration 3
       name: "Counter"
       parent: null
       abstract: false
@@ -58,7 +58,7 @@ Compound
                   value: null
                   static_name: "Counter::count"
           arity: 0
-          class: null
+          kind: null
           abstract: false
         twice: FunctionDeclaration 21
           name: "Counter::twice"
@@ -89,7 +89,7 @@ Compound
                       static_name: "Counter::next"
                     args: []
           arity: 0
-          class: null
+          kind: null
           abstract: false
       static_owners: {"count" => "Counter", "rows" => "Counter", "limit" => "Counter", "next" => "Counter", "twice" => "Counter"}
       static_is_method: {"count" => false, "rows" => false, "limit" => false, "next" => true, "twice" => true}
@@ -131,7 +131,7 @@ Compound
                     value: null
                     static_name: "Counter::count"
           arity: 0
-          class: "Counter"
+          kind: "Counter"
           abstract: false
         mine: FunctionDeclaration 25
           name: "mine"
@@ -186,7 +186,7 @@ Compound
                     value: null
                     static_name: "Counter::limit"
           arity: 0
-          class: "Counter"
+          kind: "Counter"
           abstract: false
       constants: []
       constant_lines: []
@@ -220,7 +220,7 @@ Compound
               value: null
               static_name: "Counter::count"
       arity: 0
-      class: null
+      kind: null
       abstract: false
     5: FunctionDeclaration 21
       name: "Counter::twice"
@@ -251,9 +251,9 @@ Compound
                   static_name: "Counter::next"
                 args: []
       arity: 0
-      class: null
+      kind: null
       abstract: false
-    6: ClassDeclaration 32
+    6: KindDeclaration 32
       name: "Tally"
       parent: "Counter"
       abstract: false

@@ -1,4 +1,4 @@
-GAZLANG BYTECODE 1
+GAZLANG BYTECODE 2
 globals
 
 top
@@ -40,7 +40,7 @@ RET
 PUSH null
 RET
 
-class json::Reader
+kind json::Reader
 field text json::Reader
 method _ json::Reader
 method read json::Reader
@@ -76,7 +76,7 @@ RET
 PUSH null
 RET
 
-class json::Strict extends json::Reader
+kind json::Strict extends json::Reader
 field text json::Reader
 method _ json::Reader
 method read json::Strict

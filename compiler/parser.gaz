@@ -11,7 +11,7 @@ include "nodes.gaz";
 
 // #line and #file are Error's own, and say where in this file the error was raised, so the
 // place in the source being parsed has names of its own, as in LexError
-class ParseError extends Error {
+kind ParseError extends Error {
     #reason;
     #source_file;
     #source_line;
@@ -30,7 +30,7 @@ class ParseError extends Error {
 // A nested lambda contributes the variables it captures, since those must be read when it is
 // created, and nothing it assigns, which is local to its own calls. An object rather than
 // two maps passed along: a map passed to a function is a copy.
-class VariableCollector {
+kind VariableCollector {
     // The names, as the keys of a map, which keeps them in the order they were first met
     #found = {};
     #assigned = {};
@@ -97,7 +97,7 @@ class VariableCollector {
     }
 }
 
-class Parser {
+kind Parser {
     #lexer;
     #current_token;
     // The token before it, so a syntax error can point at a miscapitalised keyword that was
@@ -124,22 +124,22 @@ class Parser {
     // Whether a constant's value is being parsed, where a string can't interpolate a variable
     #in_constant = false;
 
-    // The class whose body is being parsed, where # can be used
-    #class = null;
+    // The kind whose body is being parsed, where # can be used
+    #kind = null;
 
-    // Declared classes by name, resolved once the whole program is read
-    #classes = {};
+    // Declared kinds by name, resolved once the whole program is read
+    #kinds = {};
 
-    // Every #name, in source order, as [node, the class it is written in, the argument count
-    // if it is called or null, whether it is assigned to], checked once the classes are
+    // Every #name, in source order, as [node, the kind it is written in, the argument count
+    // if it is called or null, whether it is assigned to], checked once the kinds are
     // resolved. A node holds its index here (PropertyAST.use), so what is learnt about it
     // later finds the record again, since an object can't be a map key. An index
-    // rather than the record itself, which would make every class's tree a cycle: the node,
-    // its record, the class, its methods, the node.
+    // rather than the record itself, which would make every kind's tree a cycle: the node,
+    // its record, the kind, its methods, the node.
     #member_uses = [];
 
-    // Every constant, in the order declared, as [expression, the class that declares it or
-    // null, its name as errors show it]. A class's constant X is keyed "Class::X".
+    // Every constant, in the order declared, as [expression, the kind that declares it or
+    // null, its name as errors show it]. A kind's constant X is keyed "Kind::X".
     #constants = {};
     // The constants worked out so far, by the same keys
     #constant_values = {};
@@ -154,10 +154,10 @@ class Parser {
     #static_defaults = [];
     // Every static method's FunctionDeclarationAST, which the top level gets as a function
     #static_functions = [];
-    // The class whose static method is being parsed, so #name in it is the class's
+    // The kind whose static method is being parsed, so #name in it is the kind's
     #in_static = null;
 
-    // Every Name.member, which is an error if Name turns out to be a class: a class is
+    // Every Name.member, which is an error if Name turns out to be a kind: a kind is
     // reached by name, with ::, and the dot goes through a value
     #dot_on_names = [];
 
@@ -171,7 +171,7 @@ class Parser {
     #reachable = {};
     // Each file's [namespace, aliases, reachable] once it is parsed, since a name is only
     // resolved when the whole program is read. #scope is the current file's index here, and
-    // 0 is the global scope the builtin classes are parsed in.
+    // 0 is the global scope the builtin kinds are parsed in.
     #scopes = [["", {}, {}]];
     #scope = 0;
     // Whether anything has been parsed in this file, since namespace must come first
@@ -187,26 +187,26 @@ class Parser {
     // The namespace each declared top level name is in, and which of them are pub
     #declared_in = {};
     #public = {};
-    // Every class's parent and every catch clause's class, as [class or node, scope], since
-    // both name a class that is resolved once the whole program is read
+    // Every kind's parent and every catch clause's kind, as [kind or node, scope], since
+    // both name a kind that is resolved once the whole program is read
     #parent_names = [];
     // Every name an `include ... use` clause brought in, as [qualified name, file, line,
     // scope], checked once the whole program is read as any other use of it is
     #alias_uses = [];
 
-    // Every catch clause that names a class, as [try node, which catch, line, file, scope]:
+    // Every catch clause that names a kind, as [try node, which catch, line, file, scope]:
     // the name is in a list on the node, so resolution writes the resolved one back there
     #catch_types = [];
 
-    // Whether any catch clause was parsed, so the program needs the Error class
+    // Whether any catch clause was parsed, so the program needs the Error kind
     #catches = false;
 
-    // Every ##name as [node, the class it is written in], checked once the classes are resolved
+    // Every ##name as [node, the kind it is written in], checked once the kinds are resolved
     #parent_uses = [];
 
-    // Source of the builtin classes, parsed into every program: Error is what runtime errors
+    // Source of the builtin kinds, parsed into every program: Error is what runtime errors
     // and error("message") throw. Single quoted, so nothing in it is interpolated.
-    const BUILTIN_SOURCE = 'class Error {
+    const BUILTIN_SOURCE = 'kind Error {
     #message;
     #file;
     #line;
@@ -215,7 +215,7 @@ class Parser {
     fn to_string() { return "{#message}"; }
 }';
 
-    // How errors name the builtin classes' source
+    // How errors name the builtin kinds' source
     const BUILTIN_FILE = "<builtin>";
 
     // Every call by name and bare name used as a value, in source order, checked against the
@@ -307,7 +307,7 @@ class Parser {
     fn keyword_hint() {
         foreach ([#current_token, #previous_token] as $token) {
             if ($token != null && $token.type == "IDENTIFIER" && has_key(Lexer::KEYWORDS, lower($token.value))
-                && !has_key(#functions, $token.value) && !has_key(#classes, $token.value) && !has_key(#constants, $token.value)) {
+                && !has_key(#functions, $token.value) && !has_key(#kinds, $token.value) && !has_key(#constants, $token.value)) {
                 return " (keywords are lowercase: write '" .. lower($token.value) .. "', not '{$token.value}')";
             }
         }
@@ -505,11 +505,11 @@ class Parser {
 
     // Parse # (the object a method runs on) or #name (its member)
     //
-    // Only inside a class: in a method, a field default, or a lambda in either. Whether the
-    // class has the member is checked once the whole program is read.
+    // Only inside a kind: in a method, a field default, or a lambda in either. Whether the
+    // kind has the member is checked once the whole program is read.
     fn this_member() {
         $token = #current_token;
-        if (#class == null) {
+        if (#kind == null) {
             #fail("Cannot use {$token.value} outside a method");
         }
         if (#in_static != null && $token.type == "HASH") {
@@ -527,22 +527,22 @@ class Parser {
 
         $name = slice($token.value, 1);
         if ($name == "_") {
-            #fail("Cannot use the constructor _ as a member: construct with {#class.name}(...), or call ##_(...) in a child's constructor");
+            #fail("Cannot use the constructor _ as a member: construct with {#kind.name}(...), or call ##_(...) in a child's constructor");
         }
         $node = #at(PropertyAST($this_node, $name), $token);
         $node.use = len(#member_uses);
-        #member_uses[] = [$node, #class, null, false, false, #in_static != null];
+        #member_uses[] = [$node, #kind, null, false, false, #in_static != null];
 
         return $node;
     }
 
-    // Parse ##name (a bound method) or ##name(args) (a call), the parent class's version of a method
+    // Parse ##name (a bound method) or ##name(args) (a call), the parent kind's version of a method
     //
-    // Only inside a class, and ##_(...) only in a constructor. That the parent has the method
+    // Only inside a kind, and ##_(...) only in a constructor. That the parent has the method
     // is checked once the whole program is read.
     fn parent_method() {
         $token = #current_token;
-        if (#class == null) {
+        if (#kind == null) {
             #fail("Cannot use {$token.value} outside a method");
         }
         $name = slice($token.value, 2);
@@ -556,7 +556,7 @@ class Parser {
             #fail("Call the parent's constructor as ##_(...)");
         }
         $node = #at(ParentMethodAST($name, $args), $token);
-        #parent_uses[] = [$node, #class];
+        #parent_uses[] = [$node, #kind];
 
         return $node;
     }
@@ -803,7 +803,7 @@ class Parser {
                 $node = #at(PropertyAST($node, slice($token.value, 1)), $token);
                 if ($named) {
                     // Token.EOF: a dot on a name, which is an error if Token turns out to be
-                    // a class, since a class is reached by name, with ::
+                    // a kind, since a kind is reached by name, with ::
                     #dot_on_names[] = $node;
                 }
 
@@ -1030,7 +1030,7 @@ class Parser {
 
     // Note that a path is written to, on the #name it starts at, if it starts at one: #TABLE[0] = 1 writes under #TABLE
     //
-    // A constant can't be written under, which is checked once the classes are resolved. A
+    // A constant can't be written under, which is checked once the kinds are resolved. A
     // field can, and so can a method as far as the parser knows: what it holds when it runs
     // decides that.
     fn written($target) {
@@ -1219,8 +1219,8 @@ class Parser {
 
     // Parse a try statement (TRY block (CATCH LPAREN [IDENTIFIER] variable RPAREN block)* [FINALLY block]), with a catch or a finally or both
     //
-    // A catch naming a class catches objects of that class or its subclasses; one without a
-    // class catches anything, so it must be the last. That the names are classes is checked
+    // A catch naming a kind catches objects of that kind or its children; one without a
+    // kind catches anything, so it must be the last. That the names are kinds is checked
     // once the whole program is read.
     //
     // return, break and continue can't leave a finally block, so it never replaces a return
@@ -1231,26 +1231,26 @@ class Parser {
         $body = #block();
 
         $catches = [];
-        // Which of them name a class, so the name can be resolved once the program is read
+        // Which of them name a kind, so the name can be resolved once the program is read
         $named = [];
         while (#current_token.type == "CATCH") {
             if ($catches != [] && last($catches)[0] == null) {
-                #fail("A catch without a class catches every error, so it must be the last");
+                #fail("A catch without a kind catches every error, so it must be the last");
             }
             #catches = true;
             #eat("CATCH");
             #eat("LEFT_PAREN");
-            $class = null;
-            $class_token = #current_token;
+            $kind = null;
+            $kind_token = #current_token;
             if (#current_token.type == "IDENTIFIER") {
-                $class = #current_token.value;
+                $kind = #current_token.value;
                 #eat("IDENTIFIER");
             }
             $variable = #variable();
             #eat("RIGHT_PAREN");
-            $catches[] = [$class, $variable, #block()];
-            if ($class != null) {
-                $named[] = [len($catches) - 1, $class_token.line];
+            $catches[] = [$kind, $variable, #block()];
+            if ($kind != null) {
+                $named[] = [len($catches) - 1, $kind_token.line];
             }
         }
 
@@ -1328,7 +1328,7 @@ class Parser {
         #eat("SEMICOLON");
 
         if (is_a($target, PropertyAST)) {
-            #fail("Cannot delete a field: every object of a class has the fields it declares");
+            #fail("Cannot delete a field: every object of a kind has the fields it declares");
         }
         if (!is_a($target, IndexAST) || $target.index == null || path_root($target) == null) {
             #fail("delete needs an element of a list or map, like delete \$a[0]");
@@ -1364,7 +1364,7 @@ class Parser {
         return #at(FunctionDeclarationAST($name, $params, $defaults, $body, $arity), $start);
     }
 
-    // Check the name being declared isn't taken: functions, classes and builtins share one namespace
+    // Check the name being declared isn't taken: functions, kinds and builtins share one namespace
     //
     // Asked before the name is eaten, so the error is at the name. Anything that isn't a
     // name is left for eat() to refuse.
@@ -1375,12 +1375,12 @@ class Parser {
         $name = #qualify(#current_token.value);
         if (has_key(#builtins, $name)) {
             #fail("{$name} is a builtin function");
-        } else if (has_key(#classes, $name) && #classes[$name].file == #BUILTIN_FILE) {
-            #fail("{$name} is a builtin class");
+        } else if (has_key(#kinds, $name) && #kinds[$name].file == #BUILTIN_FILE) {
+            #fail("{$name} is a builtin kind");
         } else if (has_key(#functions, $name)) {
             #fail("Function {$name} is already declared");
-        } else if (has_key(#classes, $name)) {
-            #fail("Class {$name} is already declared");
+        } else if (has_key(#kinds, $name)) {
+            #fail("Kind {$name} is already declared");
         } else if (has_key(#constants, $name)) {
             #fail("Constant {$name} is already declared");
         }
@@ -1422,20 +1422,23 @@ class Parser {
         return [$params, $defaults];
     }
 
-    // Parse a class declaration ([ABSTRACT] CLASS IDENTIFIER [EXTENDS IDENTIFIER] LBRACE (field | method)* RBRACE),
+    // Parse a kind declaration ([ABSTRACT] KIND IDENTIFIER [EXTENDS IDENTIFIER] LBRACE (field | method)* RBRACE),
     // field: HASH_IDENTIFIER [ASSIGN expr] SEMICOLON, method: [ABSTRACT] FN name parameters (block | SEMICOLON)
     //
     // Only at the top level. The parent can be declared later; it is checked once the whole
     // program is read. A field's default is evaluated for each new object, with #
     // being that object and no local variables. Methods may be named with any word,
     // keywords included, since they are always reached through # or a dot.
-    fn class_declaration($pub = false) {
+    fn kind_declaration($pub = false) {
         $start = #current_token;
         $abstract = $start.type == "ABSTRACT";
         if ($abstract) {
             #eat("ABSTRACT");
         }
-        #eat("CLASS");
+        if (#current_token.type == "CLASS") {
+            #fail("Declare kinds with kind, not class");
+        }
+        #eat("KIND");
         #check_new_name();
         $name = #qualify(#current_token.value);
         #eat("IDENTIFIER");
@@ -1446,38 +1449,38 @@ class Parser {
             #eat("IDENTIFIER");
         }
 
-        $class = #at(ClassDeclarationAST($name, $parent, $abstract), $start);
-        #classes[$name] = $class;
+        $kind = #at(KindDeclarationAST($name, $parent, $abstract), $start);
+        #kinds[$name] = $kind;
         #declare($name, $pub);
         if ($parent != null) {
-            #parent_names[] = [$class, #scope];
+            #parent_names[] = [$kind, #scope];
         }
         #eat("LEFT_BRACE");
-        #class = $class;
+        #kind = $kind;
         while (#current_token.type != "RIGHT_BRACE") {
             if (#current_token.type == "HASH_IDENTIFIER") {
-                #field_declaration($class);
+                #field_declaration($kind);
             } else if (#current_token.type == "CONST") {
-                #constant_declaration($class);
+                #constant_declaration($kind);
             } else if (#current_token.type == "FN" || #current_token.type == "ABSTRACT") {
-                #method_declaration($class);
+                #method_declaration($kind);
             } else if (#current_token.type == "STATIC") {
-                #static_declaration($class);
+                #static_declaration($kind);
             } else {
                 #fail("Expected a field (#name), a method (fn), a constant (const) or a static but found " .. #describe(#current_token));
             }
         }
-        #class = null;
+        #kind = null;
         #eat("RIGHT_BRACE");
 
-        return $class;
+        return $kind;
     }
 
-    // Parse a field declaration (HASH_IDENTIFIER [ASSIGN expr] SEMICOLON) into its class
-    fn field_declaration($class) {
+    // Parse a field declaration (HASH_IDENTIFIER [ASSIGN expr] SEMICOLON) into its kind
+    fn field_declaration($kind) {
         $token = #current_token;
         $name = slice($token.value, 1);
-        #check_new_member($class, $name);
+        #check_new_member($kind, $name);
         #eat("HASH_IDENTIFIER");
 
         $default = null;
@@ -1493,30 +1496,30 @@ class Parser {
         }
         #eat("SEMICOLON");
 
-        $class.fields[$name] = $default;
-        $class.field_lines[$name] = $token.line;
+        $kind.fields[$name] = $default;
+        $kind.field_lines[$name] = $token.line;
     }
 
-    // Parse a constant declaration (CONST IDENTIFIER ASSIGN expr SEMICOLON), at the top level or in a class ($class)
+    // Parse a constant declaration (CONST IDENTIFIER ASSIGN expr SEMICOLON), at the top level or in a kind ($kind)
     //
     // The value is any expression the parser can work out itself: literals, operators, lists
     // and maps, and other constants, which may be declared later. It is worked out once the
     // whole program is read (see fold()), and a use of the constant is then that value, so
     // neither backend knows constants exist. A top level constant shares the namespace of
-    // functions and classes; a class's shares the one its fields and methods are in.
-    fn constant_declaration($class, $pub = false) {
+    // functions and kinds; a kind's shares the one its fields and methods are in.
+    fn constant_declaration($kind, $pub = false) {
         #eat("CONST");
         $token = #current_token;
         $name = $token.value;
-        if ($class == null) {
+        if ($kind == null) {
             #check_new_name();
-        } else if ($token.type == "IDENTIFIER" && (has_key($class.constants, $name) || has_key($class.fields, $name) || has_key($class.methods, $name))) {
-            $kind = match {
-                has_key($class.constants, $name) => "constant {$name}",
-                has_key($class.methods, $name) => "method {$name}",
+        } else if ($token.type == "IDENTIFIER" && (has_key($kind.constants, $name) || has_key($kind.fields, $name) || has_key($kind.methods, $name))) {
+            $member = match {
+                has_key($kind.constants, $name) => "constant {$name}",
+                has_key($kind.methods, $name) => "method {$name}",
                 default => "field #{$name}",
             };
-            #fail("{$class.name} already has a {$kind}: constants, fields and methods share names");
+            #fail("{$kind.name} already has a {$member}: constants, fields and methods share names");
         }
         #eat("IDENTIFIER");
         #eat("ASSIGN");
@@ -1525,14 +1528,14 @@ class Parser {
         #in_constant = false;
         #eat("SEMICOLON");
 
-        if ($class == null) {
+        if ($kind == null) {
             $name = #qualify($name);
             #constants[$name] = [$expr, null, $name];
             #declare($name, $pub);
         } else {
-            $class.constants[$name] = $expr;
-            $class.constant_lines[$name] = $token.line;
-            #constants["{$class.name}::{$name}"] = [$expr, $class, "{$class.name}::{$name}"];
+            $kind.constants[$name] = $expr;
+            $kind.constant_lines[$name] = $token.line;
+            #constants["{$kind.name}::{$name}"] = [$expr, $kind, "{$kind.name}::{$name}"];
         }
     }
 
@@ -1549,9 +1552,9 @@ class Parser {
         }
     }
 
-    // Whether a top level name is declared, as a function, a class or a constant
+    // Whether a top level name is declared, as a function, a kind or a constant
     fn declared($name) {
-        return has_key(#functions, $name) || has_key(#classes, $name) || has_key(#constants, $name);
+        return has_key(#functions, $name) || has_key(#kinds, $name) || has_key(#constants, $name);
     }
 
     // Start a file's own namespace and aliases, giving what leave_file() puts back
@@ -1602,7 +1605,7 @@ class Parser {
     }
 
     // The declared top level name a resolved name is part of, or null: json::Reader::EOF is
-    // the class json::Reader, and its visibility is the one that governs
+    // the kind json::Reader, and its visibility is the one that governs
     fn declared_entity($name) {
         while (true) {
             if (#declared($name)) {
@@ -1641,9 +1644,9 @@ class Parser {
             $node.name = #resolve($node.name, $scope, $node.file, $node.line);
             #check_visible($node.name, $scope, $node.file, $node.line);
         }
-        foreach (#parent_names as [$class, $scope]) {
-            $class.parent = #resolve($class.parent, $scope, $class.file, $class.line);
-            #check_visible($class.parent, $scope, $class.file, $class.line);
+        foreach (#parent_names as [$kind, $scope]) {
+            $kind.parent = #resolve($kind.parent, $scope, $kind.file, $kind.line);
+            #check_visible($kind.parent, $scope, $kind.file, $kind.line);
         }
         foreach (#catch_types as [$node, $index, $line, $file, $scope]) {
             $name = #resolve($node.catches[$index][0], $scope, $file, $line);
@@ -1652,12 +1655,12 @@ class Parser {
         }
     }
 
-    // What is wrong with a name written where a class's goes
-    fn not_a_class($name) {
+    // What is wrong with a name written where a kind's goes
+    fn not_a_kind($name) {
         return match {
-            has_key(#functions, $name) => "{$name} is a function, not a class",
-            has_key(#constants, $name) => "{$name} is a constant, not a class",
-            default => "Undefined class: {$name}",
+            has_key(#functions, $name) => "{$name} is a function, not a kind",
+            has_key(#constants, $name) => "{$name} is a constant, not a kind",
+            default => "Undefined kind: {$name}",
         };
     }
 
@@ -1665,7 +1668,7 @@ class Parser {
     // for the error if the constant depends on itself.
     fn constant_value($key, $at) {
         if (!has_key(#constant_values, $key)) {
-            [$expr, $class, $name] = #constants[$key];
+            [$expr, $kind, $name] = #constants[$key];
             if (in_array($name, #folding)) {
                 // From its first appearance among those being worked out, round to it again
                 $from = 0;
@@ -1677,51 +1680,51 @@ class Parser {
                 #fail_at("Constant {$name} depends on itself: " .. join($cycle, " uses "), $at.file, $at.line);
             }
             #folding[] = $name;
-            #check_constant_expression($expr, $class);
-            #constant_values[$key] = #fold($expr, $class);
+            #check_constant_expression($expr, $kind);
+            #constant_values[$key] = #fold($expr, $kind);
             delete #folding[len(#folding) - 1];
         }
 
         return #constant_values[$key];
     }
 
-    // Record a static of a resolved class, refusing a name the hierarchy already uses: every
+    // Record a static of a resolved kind, refusing a name the hierarchy already uses: every
     // member shares one namespace, and a child can't declare a parent's static again
-    fn check_new_static($class, $name, $line, $is_method) {
-        $what = $is_method ? "Static method {$class.name}::{$name}" : "Static field {$class.name}::#{$name}";
-        if (has_key($class.static_owners, $name)) {
-            #fail_at("{$what} is already declared in {$class.static_owners[$name]}", $class.file, $line);
+    fn check_new_static($kind, $name, $line, $is_method) {
+        $what = $is_method ? "Static method {$kind.name}::{$name}" : "Static field {$kind.name}::#{$name}";
+        if (has_key($kind.static_owners, $name)) {
+            #fail_at("{$what} is already declared in {$kind.static_owners[$name]}", $kind.file, $line);
         }
-        $owner = $class.constant_owners[$name] ?? $class.layout[$name] ?? $class.members[$name] ?? $class.abstract_methods[$name] ?? null;
+        $owner = $kind.constant_owners[$name] ?? $kind.layout[$name] ?? $kind.members[$name] ?? $kind.abstract_methods[$name] ?? null;
         if ($owner != null) {
-            $kind = match {
-                has_key($class.constant_owners, $name) => "constant",
-                has_key($class.layout, $name) => "field",
+            $member = match {
+                has_key($kind.constant_owners, $name) => "constant",
+                has_key($kind.layout, $name) => "field",
                 default => "method",
             };
-            #fail_at("{$what} has the name of a {$kind} of {$owner}: constants, fields, methods and statics share names", $class.file, $line);
+            #fail_at("{$what} has the name of a {$member} of {$owner}: constants, fields, methods and statics share names", $kind.file, $line);
         }
-        $class.static_owners[$name] = $class.name;
-        $class.static_is_method[$name] = $is_method;
+        $kind.static_owners[$name] = $kind.name;
+        $kind.static_is_method[$name] = $is_method;
     }
 
     // Refuse a member whose name a static of the hierarchy already uses
-    fn check_not_static($class, $name, $what, $line) {
-        if (has_key($class.static_owners, $name)) {
-            $kind = $class.static_is_method[$name] ? "static method" : "static field";
-            #fail_at("{$what} has the name of a {$kind} of {$class.static_owners[$name]}: constants, fields, methods and statics share names", $class.file, $line);
+    fn check_not_static($kind, $name, $what, $line) {
+        if (has_key($kind.static_owners, $name)) {
+            $member = $kind.static_is_method[$name] ? "static method" : "static field";
+            #fail_at("{$what} has the name of a {$member} of {$kind.static_owners[$name]}: constants, fields, methods and statics share names", $kind.file, $line);
         }
     }
 
-    // The key in #statics of a resolved class's static, its parent's included, or null if it
+    // The key in #statics of a resolved kind's static, its parent's included, or null if it
     // has none of that name
-    fn class_static($class, $name) {
-        return has_key($class.static_owners, $name) ? "{$class.static_owners[$name]}::{$name}" : null;
+    fn kind_static($kind, $name) {
+        return has_key($kind.static_owners, $name) ? "{$kind.static_owners[$name]}::{$name}" : null;
     }
 
-    // The key in #constants of a resolved class's constant, its parent's included, or null if it has none of that name
-    fn class_constant($class, $name) {
-        return has_key($class.constant_owners, $name) ? "{$class.constant_owners[$name]}::{$name}" : null;
+    // The key in #constants of a resolved kind's constant, its parent's included, or null if it has none of that name
+    fn kind_constant($kind, $name) {
+        return has_key($kind.constant_owners, $name) ? "{$kind.constant_owners[$name]}::{$name}" : null;
     }
 
     // Check all of a constant's expression is something fold() can work out, the parts it won't get to included
@@ -1729,11 +1732,11 @@ class Parser {
     // fold() leaves out the side of && || ?? and ?: that isn't needed, as a program does, so on
     // its own it would accept `true ? 1 : $x` and refuse it the day the condition changed.
     // What a constant may be made of is a rule about the source, so it is checked on the source.
-    fn check_constant_expression($node, $class) {
+    fn check_constant_expression($node, $kind) {
         if (is_a($node, FunctionRefAST)) {
             if (#constant_key($node.name) == null) {
                 #fail_at(match {
-                    has_key(#classes, $node.name) => "{$node.name} is a class, not a constant",
+                    has_key(#kinds, $node.name) => "{$node.name} is a kind, not a constant",
                     has_key(#functions, $node.name) => "{$node.name} is a function, not a constant",
                     default => #qualified_error($node.name) ?? "Undefined constant: {$node.name}",
                 }, $node.file, $node.line);
@@ -1743,12 +1746,12 @@ class Parser {
         }
         if (is_a($node, PropertyAST)) {
             // A constant folds before the whole-program checks run, so the dot on a name that
-            // turns out to be a class is caught here too, with the same words
+            // turns out to be a kind is caught here too, with the same words
             if (is_a($node.target, FunctionRefAST)) {
                 #check_dot_on_name($node);
             }
-            $owner = is_a($node.target, ThisAST) ? $class : null;
-            if ($owner != null && #class_constant($owner, $node.name) != null) {
+            $owner = is_a($node.target, ThisAST) ? $kind : null;
+            if ($owner != null && #kind_constant($owner, $node.name) != null) {
                 return;
             }
             #fail_at("A constant's value can only use literals, operators and other constants", $node.file, $node.line);
@@ -1766,13 +1769,13 @@ class Parser {
             // A list or map literal's entries are [key, value], the key null in a list
             foreach (type_of($part) == "list" ? $part : [$part] as $expression) {
                 if ($expression != null) {
-                    #check_constant_expression($expression, $class);
+                    #check_constant_expression($expression, $kind);
                 }
             }
         }
     }
 
-    // Work out the value of a constant's expression, as a program would: $class is the class
+    // Work out the value of a constant's expression, as a program would: $kind is the kind
     // the constant is declared in, which #NAME is a constant of
     //
     // The operators are GazLang's own, run by the VM that runs the parser, which is the one
@@ -1780,11 +1783,11 @@ class Parser {
     // program runs, located at the operator. Only what needs
     // nothing but the source is allowed: no variables, no calls (a function can do anything,
     // and an object it made could be changed through the constant), no indexing.
-    fn fold($node, $class) {
+    fn fold($node, $kind) {
         if (is_a($node, NumAST) || is_a($node, StringAST) || is_a($node, BooleanAST) || is_a($node, NullAST)) {
             return $node.value;
         } else if (is_a($node, UnaryOpAST)) {
-            $value = #fold($node.expr, $class);
+            $value = #fold($node.expr, $kind);
 
             return #located($node, () -> match ($node.op.type) {
                 "NOT" => !$value,
@@ -1792,30 +1795,30 @@ class Parser {
                 default => ~$value,
             });
         } else if (is_a($node, BinOpAST)) {
-            $left = #fold($node.left, $class);
+            $left = #fold($node.left, $kind);
             $type = $node.op.type;
             // As when a program runs, the right side of && || and ?? only counts when it is needed
             if ($type == "AND") {
-                return $left && #fold($node.right, $class);
+                return $left && #fold($node.right, $kind);
             } else if ($type == "OR") {
-                return $left || #fold($node.right, $class);
+                return $left || #fold($node.right, $kind);
             } else if ($type == "COALESCE") {
-                return $left ?? #fold($node.right, $class);
+                return $left ?? #fold($node.right, $kind);
             }
-            $right = #fold($node.right, $class);
+            $right = #fold($node.right, $kind);
 
             return #located($node, () -> #apply($type, $left, $right));
         } else if (is_a($node, TernaryAST)) {
-            return #fold(#fold($node.condition, $class) ? $node.then : $node.else, $class);
+            return #fold(#fold($node.condition, $kind) ? $node.then : $node.else, $kind);
         } else if (is_a($node, ArrayLiteralAST) && !$node.map) {
             $list = [];
             foreach ($node.entries as $entry) {
                 if (is_a($entry[1], SpreadAST)) {
                     // GazLang's own spread, located at the ...
-                    $value = #fold($entry[1].expr, $class);
+                    $value = #fold($entry[1].expr, $kind);
                     $list = #located($entry[1], () -> [...$list, ...$value]);
                 } else {
-                    $list[] = #fold($entry[1], $class);
+                    $list[] = #fold($entry[1], $kind);
                 }
             }
 
@@ -1823,19 +1826,19 @@ class Parser {
         } else if (is_a($node, ArrayLiteralAST)) {
             $map = {};
             foreach ($node.entries as [$key_node, $value_node]) {
-                $key = #fold($key_node, $class);
+                $key = #fold($key_node, $kind);
                 // A key that can't be one is an error at the map, before its value is worked out
                 #located($node, () -> ({$key => null}));
                 // Duplicate keys: the last one wins
-                $map[$key] = #fold($value_node, $class);
+                $map[$key] = #fold($value_node, $kind);
             }
 
             return $map;
         } else if (is_a($node, FunctionRefAST) && #constant_key($node.name) != null) {
             return #constant_value(#constant_key($node.name), $node);
         } else if (is_a($node, PropertyAST) && (is_a($node.target, ThisAST) || is_a($node.target, FunctionRefAST))) {
-            $owner = is_a($node.target, ThisAST) ? $class : #classes[$node.target.name] ?? null;
-            $key = $owner == null ? null : #class_constant($owner, $node.name);
+            $owner = is_a($node.target, ThisAST) ? $kind : #kinds[$node.target.name] ?? null;
+            $key = $owner == null ? null : #kind_constant($owner, $node.name);
             if ($key != null) {
                 return #constant_value($key, $node);
             }
@@ -1880,15 +1883,15 @@ class Parser {
         };
     }
 
-    // Check a Name.member where Name is a class: the class must have the constant, and a constant can't be called
+    // Check a Name.member where Name is a kind: the kind must have the constant, and a constant can't be called
     //
     // Anything else is left to run: Name may be a constant holding a map, or a function,
     // and what . does to those is an error for when it happens.
-    // A class is reached by name, with ::, never through a dot, which goes through a value
+    // A kind is reached by name, with ::, never through a dot, which goes through a value
     fn check_dot_on_name($node) {
-        $class = #classes[$node.target.name] ?? null;
-        if ($class != null) {
-            #fail_at("Cannot use . on a class: write '{$class.name}::{$node.name}', not '{$class.name}.{$node.name}'", $node.file, $node.line);
+        $kind = #kinds[$node.target.name] ?? null;
+        if ($kind != null) {
+            #fail_at("Cannot use . on a kind: write '{$kind.name}::{$node.name}', not '{$kind.name}.{$node.name}'", $node.file, $node.line);
         }
     }
 
@@ -1903,7 +1906,7 @@ class Parser {
     }
 
     // The key in #constants of the constant a name means, or null if it names none. A top
-    // level constant is its own key and a class's is its owner's, since it is inherited, so
+    // level constant is its own key and a kind's is its owner's, since it is inherited, so
     // Special::EOF is the key Token::EOF when Token is what declared it.
     fn constant_key($name) {
         if (has_key(#constants, $name)) {
@@ -1913,24 +1916,24 @@ class Parser {
             return null;
         }
         [$prefix, $last] = #split_name($name);
-        $class = #classes[$prefix] ?? null;
+        $kind = #kinds[$prefix] ?? null;
 
-        return $class == null ? null : #class_constant($class, $last);
+        return $kind == null ? null : #kind_constant($kind, $last);
     }
 
     // The key in #statics of the static field a name means, or null if it names none. As a
-    // constant's, a class's static is its owner's, since a child shares it.
+    // constant's, a kind's static is its owner's, since a child shares it.
     fn static_key($name) {
         if (!contains($name, "::")) {
             return null;
         }
         [$prefix, $last] = #split_name($name);
-        $class = #classes[$prefix] ?? null;
-        if ($class == null || ($class.static_is_method[$last] ?? true)) {
+        $kind = #kinds[$prefix] ?? null;
+        if ($kind == null || ($kind.static_is_method[$last] ?? true)) {
             return null;
         }
 
-        return #class_static($class, $last);
+        return #kind_static($kind, $last);
     }
 
     // What is wrong with a qualified name nothing declares, or null when the name has no ::
@@ -1940,25 +1943,25 @@ class Parser {
             return null;
         }
         [$prefix, $last] = #split_name($name);
-        $class = #classes[$prefix] ?? null;
-        if ($class != null) {
-            return "Class {$class.name} has no constant {$last}";
+        $kind = #kinds[$prefix] ?? null;
+        if ($kind != null) {
+            return "Kind {$kind.name} has no constant {$last}";
         }
 
-        return has_key(#namespaces, #split_head($name)[0]) ? null : #not_a_class($prefix);
+        return has_key(#namespaces, #split_head($name)[0]) ? null : #not_a_kind($prefix);
     }
 
     // Parse a static declaration (STATIC (HASH_IDENTIFIER ASSIGN expr SEMICOLON | FN method))
     //
-    // A static belongs to the class rather than to an object, so a field is a slot and a
-    // method a function whose name carries its class. A field's default is a constant
-    // expression, folded as a class constant is: running one would bring initialisation
+    // A static belongs to the kind rather than to an object, so a field is a slot and a
+    // method a function whose name carries its kind. A field's default is a constant
+    // expression, folded as a kind constant is: running one would bring initialisation
     // order and bytecode before the top level, which is what constants refuse for.
-    fn static_declaration($class) {
+    fn static_declaration($kind) {
         $start = #current_token;
         #eat("STATIC");
         if (#current_token.type == "FN") {
-            #static_method($class, $start);
+            #static_method($kind, $start);
 
             return;
         }
@@ -1967,7 +1970,7 @@ class Parser {
             #fail("Expected a static field (#name) or a static method (fn) but found " .. #describe($token));
         }
         $name = slice($token.value, 1);
-        #check_new_member($class, $name);
+        #check_new_member($kind, $name);
         #eat("HASH_IDENTIFIER");
         if (#current_token.type != "ASSIGN") {
             #fail("A static field needs a value: write 'static #{$name} = ...;'");
@@ -1978,15 +1981,15 @@ class Parser {
         #in_constant = false;
         #eat("SEMICOLON");
 
-        $class.statics[$name] = $expr;
-        $class.static_lines[$name] = $token.line;
+        $kind.statics[$name] = $expr;
+        $kind.static_lines[$name] = $token.line;
     }
 
     // Parse a static method (FN name parameters block), the static having been eaten
     //
-    // It is a function named Class::name, so calling one is an ordinary call and the VM needs
+    // It is a function named Kind::name, so calling one is an ordinary call and the VM needs
     // nothing: a static has no object, which is why a dot never reaches it.
-    fn static_method($class, $start) {
+    fn static_method($kind, $start) {
         #eat("FN");
         $token = #current_token;
         if ($token.type != "IDENTIFIER" && !in_array($token.type, values(Lexer::KEYWORDS))) {
@@ -1996,28 +1999,28 @@ class Parser {
         if ($name == "_") {
             #fail("A constructor can't be static: it makes an object");
         }
-        #check_new_member($class, $name);
+        #check_new_member($kind, $name);
         #eat($token.type);
 
-        $full = "{$class.name}::{$name}";
+        $full = "{$kind.name}::{$name}";
         [$params, $defaults] = #parameters("static method {$full}");
         $arity = #arity($params, $defaults);
         #functions[$full] = $arity;
-        #declare($full, has_key(#public, $class.name) || #declared_in[$class.name] == "");
+        #declare($full, has_key(#public, $kind.name) || #declared_in[$kind.name] == "");
         [$in_function, $in_static] = [#in_function, #in_static];
-        [#in_function, #in_static] = [true, $class];
+        [#in_function, #in_static] = [true, $kind];
         $body = #block();
         [#in_function, #in_static] = [$in_function, $in_static];
 
         $node = #at(FunctionDeclarationAST($full, $params, $defaults, $body, $arity), $start);
-        $class.static_methods[$name] = $node;
+        $kind.static_methods[$name] = $node;
         #static_functions[] = $node;
     }
 
-    // Parse a method declaration ([ABSTRACT] FN name parameters (block | SEMICOLON)) into its class
+    // Parse a method declaration ([ABSTRACT] FN name parameters (block | SEMICOLON)) into its kind
     //
-    // An abstract method has no body, and only an abstract class can declare one.
-    fn method_declaration($class) {
+    // An abstract method has no body, and only an abstract kind can declare one.
+    fn method_declaration($kind) {
         $start = #current_token;
         $abstract = $start.type == "ABSTRACT";
         if ($abstract) {
@@ -2029,13 +2032,13 @@ class Parser {
             #fail("Expected a name but found " .. #describe($token));
         }
         $name = $token.value;
-        #check_new_member($class, $name);
+        #check_new_member($kind, $name);
         #eat($token.type);
 
-        [$params, $defaults] = #parameters("method {$class.name}.{$name}");
+        [$params, $defaults] = #parameters("method {$kind.name}.{$name}");
         if ($abstract) {
-            if (!$class.abstract) {
-                #fail_at("Class {$class.name} has abstract method {$name}, so it must be abstract too", #file, $start.line);
+            if (!$kind.abstract) {
+                #fail_at("Kind {$kind.name} has abstract method {$name}, so it must be abstract too", #file, $start.line);
             }
             if ($name == "_") {
                 #fail_at("A constructor can't be abstract", #file, $start.line);
@@ -2052,30 +2055,30 @@ class Parser {
         }
 
         $method = #at(FunctionDeclarationAST($name, $params, $defaults, $body, #arity($params, $defaults)), $start);
-        $method.class = $class.name;
+        $method.kind = $kind.name;
         $method.abstract = $abstract;
-        $class.methods[$name] = $method;
+        $kind.methods[$name] = $method;
     }
 
-    // Check a class doesn't already declare a member: fields and methods share one namespace
-    fn check_new_member($class, $name) {
+    // Check a kind doesn't already declare a member: fields and methods share one namespace
+    fn check_new_member($kind, $name) {
         $field = #current_token.type == "HASH_IDENTIFIER";
-        if (has_key($class.statics, $name) || has_key($class.static_methods, $name)) {
-            $kind = has_key($class.statics, $name) ? "static field #{$name}" : "static method {$name}";
-            #fail("{$class.name} already has a {$kind}: constants, fields, methods and statics share names");
+        if (has_key($kind.statics, $name) || has_key($kind.static_methods, $name)) {
+            $member = has_key($kind.statics, $name) ? "static field #{$name}" : "static method {$name}";
+            #fail("{$kind.name} already has a {$member}: constants, fields, methods and statics share names");
         }
-        if (has_key($class.constants, $name)) {
-            #fail("{$class.name} already has a constant {$name}: constants, fields and methods share names");
+        if (has_key($kind.constants, $name)) {
+            #fail("{$kind.name} already has a constant {$name}: constants, fields and methods share names");
         }
-        if (has_key($class.fields, $name)) {
+        if (has_key($kind.fields, $name)) {
             #fail($field
-                ? "{$class.name} already has a field #{$name}"
-                : "{$class.name} already has a field #{$name}, and a method can't have a field's name: call the method something else");
+                ? "{$kind.name} already has a field #{$name}"
+                : "{$kind.name} already has a field #{$name}, and a method can't have a field's name: call the method something else");
         }
-        if (has_key($class.methods, $name)) {
+        if (has_key($kind.methods, $name)) {
             #fail($field
-                ? "{$class.name} already has a method {$name}, and a field can't have a method's name: call the field something else, like #{$name}_value"
-                : "{$class.name} already has a method {$name}");
+                ? "{$kind.name} already has a method {$name}, and a field can't have a method's name: call the field something else, like #{$name}_value"
+                : "{$kind.name} already has a method {$name}");
         }
     }
 
@@ -2104,12 +2107,14 @@ class Parser {
             return #delete_statement();
         } else if ($type == "FN") {
             #fail("Functions can only be declared at the top level");
-        } else if ($type == "CLASS" || $type == "ABSTRACT") {
-            #fail("Classes can only be declared at the top level");
+        } else if ($type == "KIND" || $type == "ABSTRACT") {
+            #fail("Kinds can only be declared at the top level");
         } else if ($type == "CONST") {
-            #fail("Constants can only be declared at the top level or in a class");
+            #fail("Constants can only be declared at the top level or in a kind");
         } else if ($type == "FUNCTION") {
             #fail("Declare functions with fn, not function");
+        } else if ($type == "CLASS") {
+            #fail("Declare kinds with kind, not class");
         } else if ($type == "INCLUDE") {
             #fail("include can only be used at the top level");
         } else if ($type == "MATCH") {
@@ -2143,7 +2148,7 @@ class Parser {
     // can be used before it is declared and both backends can trust every call by name.
     // Calls on values ($f(1)) are checked when they run.
     fn program() {
-        $error_class = #builtin_classes();
+        $error_kind = #builtin_kinds();
         $root = CompoundAST();
         $saved = #enter_file();
         $root.statements = #top_level();
@@ -2156,21 +2161,21 @@ class Parser {
         foreach (#uses as [$use, $scope]) {
             $uses_error = $uses_error || $use.name == "Error";
         }
-        foreach (#classes as $class) {
-            $uses_error = $uses_error || $class.parent == "Error";
+        foreach (#kinds as $kind) {
+            $uses_error = $uses_error || $kind.parent == "Error";
         }
         if ($uses_error) {
-            $root.statements = [$error_class, ...$root.statements];
+            $root.statements = [$error_kind, ...$root.statements];
         }
         foreach (#catch_types as [$node, $index, $line, $file, $scope]) {
             $name = $node.catches[$index][0];
-            if (!has_key(#classes, $name)) {
-                #fail_at(#not_a_class($name), $file, $line);
+            if (!has_key(#kinds, $name)) {
+                #fail_at(#not_a_kind($name), $file, $line);
             }
         }
 
-        foreach (#classes as $class) {
-            #resolve_class($class, []);
+        foreach (#kinds as $kind) {
+            #resolve_kind($kind, []);
         }
 
         // In the order declared, so the first mistake in the program is the one reported
@@ -2181,25 +2186,25 @@ class Parser {
         // A static field is a slot, and its default a constant, so the two are worked out
         // here and the code generator writes them before the program's own first instruction
         $inits = [];
-        foreach (#classes as $class) {
-            foreach ($class.statics as $name => $expr) {
-                #check_constant_expression($expr, $class);
-                #statics["{$class.name}::{$name}"] = len(#static_defaults);
-                #static_defaults[] = #fold($expr, $class);
-                $inits[] = #at(StaticInitAST("{$class.name}::{$name}", last(#static_defaults)), $expr);
+        foreach (#kinds as $kind) {
+            foreach ($kind.statics as $name => $expr) {
+                #check_constant_expression($expr, $kind);
+                #statics["{$kind.name}::{$name}"] = len(#static_defaults);
+                #static_defaults[] = #fold($expr, $kind);
+                $inits[] = #at(StaticInitAST("{$kind.name}::{$name}", last(#static_defaults)), $expr);
             }
         }
         $root.statements = [...$inits, ...$root.statements];
 
         // In source order, so the first mistake in the program is the one reported
-        foreach (#member_uses as [$node, $class, $argc, $assigned, $written, $in_static]) {
-            #check_member_use($node, $class, $argc, $assigned, $written, $in_static);
+        foreach (#member_uses as [$node, $kind, $argc, $assigned, $written, $in_static]) {
+            #check_member_use($node, $kind, $argc, $assigned, $written, $in_static);
         }
         foreach (#dot_on_names as $node) {
             #check_dot_on_name($node);
         }
-        foreach (#parent_uses as [$node, $class]) {
-            #check_parent_use($node, $class);
+        foreach (#parent_uses as [$node, $kind]) {
+            #check_parent_use($node, $kind);
         }
         foreach (#uses as [$use, $scope]) {
             $static = #static_key($use.name);
@@ -2221,13 +2226,13 @@ class Parser {
 
                 continue;
             }
-            if (has_key(#classes, $use.name)) {
-                $class = #classes[$use.name];
+            if (has_key(#kinds, $use.name)) {
+                $kind = #kinds[$use.name];
                 if (is_a($use, FunctionCallAST)) {
-                    if ($class.abstract) {
-                        #fail_at("Cannot construct abstract class {$use.name}", $use.file, $use.line);
+                    if ($kind.abstract) {
+                        #fail_at("Cannot construct abstract kind {$use.name}", $use.file, $use.line);
                     }
-                    $error = #arity_error("Class {$use.name}", #constructor_arity($class), len($use.args));
+                    $error = #arity_error("Kind {$use.name}", #constructor_arity($kind), len($use.args));
                     if ($error != null) {
                         #fail_at($error, $use.file, $use.line);
                     }
@@ -2238,9 +2243,9 @@ class Parser {
             // Child::next is the function Parent::next when the parent declares it
             if (!has_key(#functions, $use.name) && contains($use.name, "::")) {
                 [$prefix, $last] = #split_name($use.name);
-                $class = #classes[$prefix] ?? null;
-                if ($class != null && ($class.static_is_method[$last] ?? false)) {
-                    $use.name = #class_static($class, $last);
+                $kind = #kinds[$prefix] ?? null;
+                if ($kind != null && ($kind.static_is_method[$last] ?? false)) {
+                    $use.name = #kind_static($kind, $last);
                 }
             }
             if (!has_key(#functions, $use.name)) {
@@ -2275,23 +2280,23 @@ class Parser {
         return $root;
     }
 
-    // Work out a class's fields and methods from its own and its parent's, checking they fit together
+    // Work out a kind's fields and methods from its own and its parent's, checking they fit together
     //
     // Fields and methods share one namespace, a field can't be declared again, and a method
     // may replace a parent's method but must accept every argument count the parent's accepts
-    // (except the constructor, which each class defines for itself). $chain is the classes
+    // (except the constructor, which each kind defines for itself). $chain is the kinds
     // being resolved that extend this one, to find circular inheritance.
-    fn resolve_class($class, $chain) {
-        if ($class.resolved) {
+    fn resolve_kind($kind, $chain) {
+        if ($kind.resolved) {
             return;
         }
 
-        if ($class.parent != null) {
-            $parent = #classes[$class.parent] ?? null;
+        if ($kind.parent != null) {
+            $parent = #kinds[$kind.parent] ?? null;
             if ($parent == null) {
-                #fail_at(#not_a_class($class.parent), $class.file, $class.line);
+                #fail_at(#not_a_kind($kind.parent), $kind.file, $kind.line);
             }
-            $chain[] = $class.name;
+            $chain[] = $kind.name;
             if (in_array($parent.name, $chain)) {
                 // From the parent's first appearance in the chain, round to it again
                 $from = 0;
@@ -2300,99 +2305,99 @@ class Parser {
                 }
                 $cycle = slice($chain, $from);
                 $cycle[] = $parent.name;
-                #fail_at("Circular inheritance: " .. join($cycle, " extends "), $class.file, $class.line);
+                #fail_at("Circular inheritance: " .. join($cycle, " extends "), $kind.file, $kind.line);
             }
-            #resolve_class($parent, $chain);
-            [$class.layout, $class.members, $class.abstract_methods] = [$parent.layout, $parent.members, $parent.abstract_methods];
-            $class.constant_owners = $parent.constant_owners;
+            #resolve_kind($parent, $chain);
+            [$kind.layout, $kind.members, $kind.abstract_methods] = [$parent.layout, $parent.members, $parent.abstract_methods];
+            $kind.constant_owners = $parent.constant_owners;
             // A child shares its parent's statics, as it shares the rest of the namespace
-            [$class.static_owners, $class.static_is_method] = [$parent.static_owners, $parent.static_is_method];
+            [$kind.static_owners, $kind.static_is_method] = [$parent.static_owners, $parent.static_is_method];
         }
 
-        foreach ($class.constants as $name => $_) {
-            $line = $class.constant_lines[$name];
-            #check_not_static($class, $name, "Constant {$name} of {$class.name}", $line);
-            // A child can't declare it again: #NAME is worked out from the class it is written in, so there is nothing to override
-            if (has_key($class.constant_owners, $name)) {
-                #fail_at("Constant {$name} of {$class.name} is already declared in {$class.constant_owners[$name]}", $class.file, $line);
+        foreach ($kind.constants as $name => $_) {
+            $line = $kind.constant_lines[$name];
+            #check_not_static($kind, $name, "Constant {$name} of {$kind.name}", $line);
+            // A child can't declare it again: #NAME is worked out from the kind it is written in, so there is nothing to override
+            if (has_key($kind.constant_owners, $name)) {
+                #fail_at("Constant {$name} of {$kind.name} is already declared in {$kind.constant_owners[$name]}", $kind.file, $line);
             }
-            $owner = $class.layout[$name] ?? $class.members[$name] ?? $class.abstract_methods[$name] ?? null;
+            $owner = $kind.layout[$name] ?? $kind.members[$name] ?? $kind.abstract_methods[$name] ?? null;
             if ($owner != null) {
-                $kind = has_key($class.layout, $name) ? "field" : "method";
-                #fail_at("Constant {$name} of {$class.name} has the name of a {$kind} of {$owner}: constants, fields and methods share names", $class.file, $line);
+                $member = has_key($kind.layout, $name) ? "field" : "method";
+                #fail_at("Constant {$name} of {$kind.name} has the name of a {$member} of {$owner}: constants, fields and methods share names", $kind.file, $line);
             }
-            $class.constant_owners[$name] = $class.name;
+            $kind.constant_owners[$name] = $kind.name;
         }
 
-        foreach ($class.statics as $name => $_) {
-            #check_new_static($class, $name, $class.static_lines[$name], false);
+        foreach ($kind.statics as $name => $_) {
+            #check_new_static($kind, $name, $kind.static_lines[$name], false);
         }
-        foreach ($class.static_methods as $name => $method) {
-            #check_new_static($class, $name, $method.line, true);
+        foreach ($kind.static_methods as $name => $method) {
+            #check_new_static($kind, $name, $method.line, true);
         }
 
-        foreach ($class.fields as $name => $_) {
-            $line = $class.field_lines[$name];
-            #check_not_static($class, $name, "Field #{$name}", $line);
-            if (has_key($class.constant_owners, $name) && $class.constant_owners[$name] != $class.name) {
-                #fail_at("Field #{$name} of {$class.name} has the name of a constant of {$class.constant_owners[$name]}: constants, fields and methods share names", $class.file, $line);
+        foreach ($kind.fields as $name => $_) {
+            $line = $kind.field_lines[$name];
+            #check_not_static($kind, $name, "Field #{$name}", $line);
+            if (has_key($kind.constant_owners, $name) && $kind.constant_owners[$name] != $kind.name) {
+                #fail_at("Field #{$name} of {$kind.name} has the name of a constant of {$kind.constant_owners[$name]}: constants, fields and methods share names", $kind.file, $line);
             }
-            if (has_key($class.layout, $name)) {
-                #fail_at("Field #{$name} of {$class.name} is already declared in {$class.layout[$name]}", $class.file, $line);
+            if (has_key($kind.layout, $name)) {
+                #fail_at("Field #{$name} of {$kind.name} is already declared in {$kind.layout[$name]}", $kind.file, $line);
             }
-            $owner = $class.members[$name] ?? $class.abstract_methods[$name] ?? null;
+            $owner = $kind.members[$name] ?? $kind.abstract_methods[$name] ?? null;
             if ($owner != null) {
-                #fail_at("Field #{$name} of {$class.name} has the name of a method of {$owner}: fields and methods share names, so call the field something else", $class.file, $line);
+                #fail_at("Field #{$name} of {$kind.name} has the name of a method of {$owner}: fields and methods share names, so call the field something else", $kind.file, $line);
             }
-            $class.layout[$name] = $class.name;
+            $kind.layout[$name] = $kind.name;
         }
-        foreach ($class.methods as $name => $method) {
-            #check_not_static($class, $name, "Method {$class.name}.{$name}", $method.line);
-            if (has_key($class.constant_owners, $name)) {
-                #fail_at("Method {$class.name}.{$name} has the name of a constant of {$class.constant_owners[$name]}: constants, fields and methods share names", $method.file, $method.line);
+        foreach ($kind.methods as $name => $method) {
+            #check_not_static($kind, $name, "Method {$kind.name}.{$name}", $method.line);
+            if (has_key($kind.constant_owners, $name)) {
+                #fail_at("Method {$kind.name}.{$name} has the name of a constant of {$kind.constant_owners[$name]}: constants, fields and methods share names", $method.file, $method.line);
             }
-            if (has_key($class.layout, $name)) {
-                #fail_at("Method {$class.name}.{$name} has the name of a field of {$class.layout[$name]}: fields and methods share names, so call the method something else", $method.file, $method.line);
+            if (has_key($kind.layout, $name)) {
+                #fail_at("Method {$kind.name}.{$name} has the name of a field of {$kind.layout[$name]}: fields and methods share names, so call the method something else", $method.file, $method.line);
             }
-            $owner = $class.members[$name] ?? $class.abstract_methods[$name] ?? null;
-            if ($owner != null && $method.abstract && has_key($class.members, $name)) {
-                #fail_at("Abstract method {$class.name}.{$name} can't replace {$owner}.{$name}", $method.file, $method.line);
+            $owner = $kind.members[$name] ?? $kind.abstract_methods[$name] ?? null;
+            if ($owner != null && $method.abstract && has_key($kind.members, $name)) {
+                #fail_at("Abstract method {$kind.name}.{$name} can't replace {$owner}.{$name}", $method.file, $method.line);
             }
-            // The constructor is each class's own: a child's can take different arguments
+            // The constructor is each kind's own: a child's can take different arguments
             if ($owner != null && $name != "_") {
                 [$fewest, $most] = #bounds($method.arity);
-                [$parent_fewest, $parent_most] = #bounds(#classes[$owner].methods[$name].arity);
+                [$parent_fewest, $parent_most] = #bounds(#kinds[$owner].methods[$name].arity);
                 if ($fewest > $parent_fewest || $most < $parent_most) {
                     $expected = $parent_fewest == $parent_most ? $parent_fewest : "{$parent_fewest} to {$parent_most}";
-                    #fail_at("Method {$class.name}.{$name} must accept every argument count {$owner}.{$name} does ({$expected})", $method.file, $method.line);
+                    #fail_at("Method {$kind.name}.{$name} must accept every argument count {$owner}.{$name} does ({$expected})", $method.file, $method.line);
                 }
             }
             if ($name == "to_string" && #bounds($method.arity)[0] != 0) {
-                #fail_at("Method {$class.name}.to_string must accept 0 arguments: printing calls it with none", $method.file, $method.line);
+                #fail_at("Method {$kind.name}.to_string must accept 0 arguments: printing calls it with none", $method.file, $method.line);
             }
             if ($method.abstract) {
-                $class.abstract_methods[$name] = $class.name;
+                $kind.abstract_methods[$name] = $kind.name;
             } else {
-                $class.members[$name] = $class.name;
-                if (has_key($class.abstract_methods, $name)) {
-                    delete $class.abstract_methods[$name];
+                $kind.members[$name] = $kind.name;
+                if (has_key($kind.abstract_methods, $name)) {
+                    delete $kind.abstract_methods[$name];
                 }
             }
         }
 
-        if (!$class.abstract && $class.abstract_methods != {}) {
-            $name = keys($class.abstract_methods)[0];
-            #fail_at("Class {$class.name} must define abstract method {$name} of {$class.abstract_methods[$name]}, or be abstract", $class.file, $class.line);
+        if (!$kind.abstract && $kind.abstract_methods != {}) {
+            $name = keys($kind.abstract_methods)[0];
+            #fail_at("Kind {$kind.name} must define abstract method {$name} of {$kind.abstract_methods[$name]}, or be abstract", $kind.file, $kind.line);
         }
-        $class.resolved = true;
+        $kind.resolved = true;
     }
 
-    // Check a ##name against the parent of the class it is written in, and record whose version runs
-    fn check_parent_use($node, $class) {
-        if ($class.parent == null) {
-            #fail_at("Cannot use ##{$node.name}: {$class.name} has no parent class", $node.file, $node.line);
+    // Check a ##name against the parent of the kind it is written in, and record whose version runs
+    fn check_parent_use($node, $kind) {
+        if ($kind.parent == null) {
+            #fail_at("Cannot use ##{$node.name}: {$kind.name} has no parent kind", $node.file, $node.line);
         }
-        $parent = #classes[$class.parent];
+        $parent = #kinds[$kind.parent];
         $name = $node.name;
         if (has_key($parent.layout, $name)) {
             #fail_at("##{$name} can only reach a method, and {$name} is a field of {$parent.layout[$name]}", $node.file, $node.line);
@@ -2406,41 +2411,41 @@ class Parser {
 
         $node.definer = $parent.members[$name];
         if ($node.args != null) {
-            $error = #arity_error("Method {$node.definer}.{$name}", #classes[$node.definer].methods[$name].arity, len($node.args));
+            $error = #arity_error("Method {$node.definer}.{$name}", #kinds[$node.definer].methods[$name].arity, len($node.args));
             if ($error != null) {
                 #fail_at($error, $node.file, $node.line);
             }
         }
     }
 
-    // Parse the builtin classes (Error), before the program, so its classes can use them
-    fn builtin_classes() {
+    // Parse the builtin kinds (Error), before the program, so its kinds can use them
+    fn builtin_kinds() {
         [$lexer, $current_token, $file] = [#lexer, #current_token, #file];
         #lexer = Lexer(#BUILTIN_SOURCE);
         #file = #BUILTIN_FILE;
         #current_token = #next_token();
-        $class = #class_declaration();
+        $kind = #kind_declaration();
         [#lexer, #current_token, #file] = [$lexer, $current_token, $file];
 
-        return $class;
+        return $kind;
     }
 
-    // The number of arguments constructing a resolved class takes: its constructor's, or none
-    fn constructor_arity($class) {
-        return has_key($class.members, "_") ? #classes[$class.members["_"]].methods["_"].arity : 0;
+    // The number of arguments constructing a resolved kind takes: its constructor's, or none
+    fn constructor_arity($kind) {
+        return has_key($kind.members, "_") ? #kinds[$kind.members["_"]].methods["_"].arity : 0;
     }
 
-    // Check a #name against its class: the member must exist, a method can't be assigned to, and a call must fit its arity
+    // Check a #name against its kind: the member must exist, a method can't be assigned to, and a call must fit its arity
     //
-    // Called methods are checked against the class the method is written in: a child's
+    // Called methods are checked against the kind the method is written in: a child's
     // version accepts every argument count this one does.
-    fn check_member_use($node, $class, $argc, $assigned, $written, $in_static) {
-        $static = #class_static($class, $node.name);
+    fn check_member_use($node, $kind, $argc, $assigned, $written, $in_static) {
+        $static = #kind_static($kind, $node.name);
         if ($static != null) {
-            if ($argc != null && !$class.static_is_method[$node.name]) {
+            if ($argc != null && !$kind.static_is_method[$node.name]) {
                 #fail_at("#{$node.name} is a static field, not a method", $node.file, $node.line);
             }
-            if ($argc == null && $class.static_is_method[$node.name]) {
+            if ($argc == null && $kind.static_is_method[$node.name]) {
                 #fail_at("#{$node.name} is a static method: call it, or reach it by name", $node.file, $node.line);
             }
             if ($argc != null) {
@@ -2456,7 +2461,7 @@ class Parser {
         if ($in_static) {
             #fail_at("#{$node.name} is not static, and a static method has no object", $node.file, $node.line);
         }
-        $constant = #class_constant($class, $node.name);
+        $constant = #kind_constant($kind, $node.name);
         if ($constant != null) {
             if ($written) {
                 #fail_at("Cannot change constant #{$node.name}", $node.file, $node.line);
@@ -2469,20 +2474,20 @@ class Parser {
 
             return;
         }
-        if (has_key($class.layout, $node.name)) {
+        if (has_key($kind.layout, $node.name)) {
             $node.field = true;
 
             return;
         }
-        $definer = $class.members[$node.name] ?? $class.abstract_methods[$node.name] ?? null;
+        $definer = $kind.members[$node.name] ?? $kind.abstract_methods[$node.name] ?? null;
         if ($definer == null) {
-            #fail_at("{$class.name} has no member #{$node.name}", $node.file, $node.line);
+            #fail_at("{$kind.name} has no member #{$node.name}", $node.file, $node.line);
         }
         if ($assigned) {
             #fail_at("Cannot assign to method #{$node.name}", $node.file, $node.line);
         }
         if ($argc != null) {
-            $error = #arity_error("Method {$definer}.{$node.name}", #classes[$definer].methods[$node.name].arity, $argc);
+            $error = #arity_error("Method {$definer}.{$node.name}", #kinds[$definer].methods[$node.name].arity, $argc);
             if ($error != null) {
                 #fail_at($error, $node.file, $node.line);
             }
@@ -2505,14 +2510,14 @@ class Parser {
         return "{$what} expects {$expected} arguments, {$argc} given";
     }
 
-    // Parse top level items until the end of the current file ((function_declaration | class_declaration | include | statement)*)
+    // Parse top level items until the end of the current file ((function_declaration | kind_declaration | include | statement)*)
     fn top_level() {
         $statements = [];
         while (#current_token.type != "EOF") {
             if (#current_token.type == "NAMESPACE") {
                 #namespace_declaration();
             } else if (#current_token.type == "PUB" || #current_token.type == "FN"
-                || #current_token.type == "CLASS" || #current_token.type == "ABSTRACT"
+                || #current_token.type == "KIND" || #current_token.type == "ABSTRACT"
                 || #current_token.type == "CONST") {
                 $pub = #current_token.type == "PUB";
                 if ($pub) {
@@ -2520,10 +2525,10 @@ class Parser {
                 }
                 if (#current_token.type == "FN") {
                     $statements[] = #function_declaration($pub);
-                } else if (#current_token.type == "CLASS" || #current_token.type == "ABSTRACT") {
-                    // A static method is a function, so it is spliced in after its class
+                } else if (#current_token.type == "KIND" || #current_token.type == "ABSTRACT") {
+                    // A static method is a function, so it is spliced in after its kind
                     $from = len(#static_functions);
-                    $statements[] = #class_declaration($pub);
+                    $statements[] = #kind_declaration($pub);
                     while ($from < len(#static_functions)) {
                         $statements[] = #static_functions[$from];
                         $from++;
@@ -2531,7 +2536,7 @@ class Parser {
                 } else if (#current_token.type == "CONST") {
                     #constant_declaration(null, $pub);
                 } else {
-                    #fail("Expected a function (fn), a class or a constant (const) after pub but found " .. #describe(#current_token));
+                    #fail("Expected a function (fn), a kind or a constant (const) after pub but found " .. #describe(#current_token));
                 }
             } else if (#current_token.type == "INCLUDE") {
                 $statements = [...$statements, ...#include_statement()];

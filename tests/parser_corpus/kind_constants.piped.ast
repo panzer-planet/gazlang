@@ -1,0 +1,514 @@
+Compound
+  statements:
+@ null
+    0: EchoStatement 2
+      expr: FunctionRef 2
+        name: "Token::EOF"
+        constant: true
+        value: "EOF"
+        static_name: null
+    1: EchoStatement 3
+      expr: Index 3
+        target: FunctionRef 3
+          name: "Token::KINDS"
+          constant: true
+          value: ["EOF", "EOF!", 2, "other"]
+          static_name: null
+        index: Num 3
+          token: 3 INTEGER 0
+          value: 0
+    2: KindDeclaration 4
+      name: "Token"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      fields:
+        type: Property 8
+          target: This 8
+          name: "EOF"
+          field: false
+          constant: true
+          value: "EOF"
+          static_name: null
+        kinds: Property 9
+          target: This 9
+          name: "KINDS"
+          field: false
+          constant: true
+          value: ["EOF", "EOF!", 2, "other"]
+          static_name: null
+      field_lines: {"type" => 8, "kinds" => 9}
+      methods:
+        is_eof: FunctionDeclaration 10
+          name: "is_eof"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 10
+                expr: BinOp 10
+                  left: Property 10
+                    target: This 10
+                    name: "type"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 10 EQUALS ==
+                  op: 10 EQUALS ==
+                  right: Property 10
+                    target: This 10
+                    name: "EOF"
+                    field: false
+                    constant: true
+                    value: "EOF"
+                    static_name: null
+          arity: 0
+          kind: "Token"
+          abstract: false
+        later: FunctionDeclaration 11
+          name: "later"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 11
+                expr: Lambda 11
+                  params: []
+                  defaults: []
+                  arity: 0
+                  body: Property 11
+                    target: This 11
+                    name: "EOF"
+                    field: false
+                    constant: true
+                    value: "EOF"
+                    static_name: null
+                  captures: []
+                  self: null
+          arity: 0
+          kind: "Token"
+          abstract: false
+        describe: FunctionDeclaration 12
+          name: "describe"
+          params: ["\$type"]
+          defaults:
+            0: Property 12
+              target: This 12
+              name: "EOF"
+              field: false
+              constant: true
+              value: "EOF"
+              static_name: null
+          body: Compound
+            statements:
+              0: ReturnStatement 12
+                expr: BinOp 12
+                  left: Variable 12
+                    token: 12 VAR_IDENTIFIER $type
+                    value: "\$type"
+                  token: 12 COALESCE ??
+                  op: 12 COALESCE ??
+                  right: Property 12
+                    target: This 12
+                    name: "KINDS"
+                    field: false
+                    constant: true
+                    value: ["EOF", "EOF!", 2, "other"]
+                    static_name: null
+          arity: [0, 1]
+          kind: "Token"
+          abstract: false
+        first: FunctionDeclaration 13
+          name: "first"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 13
+                expr: BinOp 13
+                  left: Index 13
+                    target: Property 13
+                      target: This 13
+                      name: "KINDS"
+                      field: false
+                      constant: true
+                      value: ["EOF", "EOF!", 2, "other"]
+                      static_name: null
+                    index: Num 13
+                      token: 13 INTEGER 0
+                      value: 0
+                  token: 13 CONCAT ..
+                  op: 13 CONCAT ..
+                  right: Index 13
+                    target: FunctionRef 13
+                      name: "Token::KINDS"
+                      constant: true
+                      value: ["EOF", "EOF!", 2, "other"]
+                      static_name: null
+                    index: Num 13
+                      token: 13 INTEGER 1
+                      value: 1
+          arity: 0
+          kind: "Token"
+          abstract: false
+        in_match: FunctionDeclaration 14
+          name: "in_match"
+          params: ["\$t"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: ReturnStatement 14
+                expr: Match 14
+                  subject: Variable 14
+                    token: 14 VAR_IDENTIFIER $t
+                    value: "\$t"
+                  arms:
+                    0:
+                      0:
+                        0: Property 14
+                          target: This 14
+                          name: "EOF"
+                          field: false
+                          constant: true
+                          value: "EOF"
+                          static_name: null
+                      1: Num 14
+                        token: 14 INTEGER 1
+                        value: 1
+                      2: false
+                    1:
+                      0:
+                        0: FunctionRef 14
+                          name: "Token::EOF"
+                          constant: true
+                          value: "EOF"
+                          static_name: null
+                      1: Num 14
+                        token: 14 INTEGER 2
+                        value: 2
+                      2: false
+                    2:
+                      0: null
+                      1: Num 14
+                        token: 14 INTEGER 3
+                        value: 3
+                      2: false
+          arity: 1
+          kind: "Token"
+          abstract: false
+        write: FunctionDeclaration 16
+          name: "write"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: Statement 16
+                expr: Assign 16
+                  left: Index 16
+                    target: Property 16
+                      target: This 16
+                      name: "kinds"
+                      field: true
+                      constant: false
+                      value: null
+                      static_name: null
+                    index: null
+                  token: 16 ASSIGN =
+                  right: Num 16
+                    token: 16 INTEGER 1
+                    value: 1
+              1: Statement 16
+                expr: Assign 16
+                  left: Index 16
+                    target: Property 16
+                      target: This 16
+                      name: "kinds"
+                      field: true
+                      constant: false
+                      value: null
+                      static_name: null
+                    index: Num 16
+                      token: 16 INTEGER 0
+                      value: 0
+                  token: 16 ASSIGN =
+                  right: Num 16
+                    token: 16 INTEGER 2
+                    value: 2
+              2: DeleteStatement 16
+                target: Index 16
+                  target: Property 16
+                    target: This 16
+                    name: "kinds"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  index: Num 16
+                    token: 16 INTEGER 0
+                    value: 0
+              3: Statement 16
+                expr: Assign 16
+                  left: Index 16
+                    target: Property 16
+                      target: This 16
+                      name: "first"
+                      field: false
+                      constant: false
+                      value: null
+                      static_name: null
+                    index: Num 16
+                      token: 16 INTEGER 0
+                      value: 0
+                  token: 16 ASSIGN =
+                  right: Num 16
+                    token: 16 INTEGER 1
+                    value: 1
+          arity: 0
+          kind: "Token"
+          abstract: false
+      constants:
+        EOF: String 5
+          token: 5 STRING "EOF"
+          value: "EOF"
+        KINDS: ArrayLiteral 6
+          entries:
+            0:
+              0: null
+              1: Property 6
+                target: This 6
+                name: "EOF"
+                field: false
+                constant: true
+                value: "EOF"
+                static_name: null
+            1:
+              0: null
+              1: BinOp 6
+                left: FunctionRef 6
+                  name: "Token::EOF"
+                  constant: true
+                  value: "EOF"
+                  static_name: null
+                token: 6 CONCAT ..
+                op: 6 CONCAT ..
+                right: String 6
+                  token: 6 STRING "!"
+                  value: "!"
+            2:
+              0: null
+              1: FunctionRef 6
+                name: "TWO"
+                constant: true
+                value: 2
+                static_name: null
+            3:
+              0: null
+              1: FunctionRef 6
+                name: "Other::NAME"
+                constant: true
+                value: "other"
+                static_name: null
+          map: false
+        TEXT: BinOp 7
+          left: String 7
+            token: 7 STRING_START "kind "
+            value: "kind "
+          token: 7 CONCAT ..
+          op: 7 CONCAT ..
+          right: Property 7
+            target: This 7
+            name: "EOF"
+            field: false
+            constant: true
+            value: "EOF"
+            static_name: null
+      constant_lines: {"EOF" => 5, "KINDS" => 6, "TEXT" => 7}
+      constant_owners: {"EOF" => "Token", "KINDS" => "Token", "TEXT" => "Token"}
+      layout: {"type" => "Token", "kinds" => "Token"}
+      members: {"is_eof" => "Token", "later" => "Token", "describe" => "Token", "first" => "Token", "in_match" => "Token", "write" => "Token"}
+      abstract_methods: []
+    3: KindDeclaration 18
+      name: "Special"
+      parent: "Token"
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      fields: []
+      field_lines: []
+      methods:
+        all_kinds: FunctionDeclaration 21
+          name: "all_kinds"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 21
+                expr: ArrayLiteral 21
+                  entries:
+                    0:
+                      0: null
+                      1: Property 21
+                        target: This 21
+                        name: "KINDS"
+                        field: false
+                        constant: true
+                        value: ["EOF", "EOF!", 2, "other"]
+                        static_name: null
+                    1:
+                      0: null
+                      1: Property 21
+                        target: This 21
+                        name: "FOUR"
+                        field: false
+                        constant: true
+                        value: 4
+                        static_name: null
+                    2:
+                      0: null
+                      1: FunctionRef 21
+                        name: "Special::FOUR"
+                        constant: true
+                        value: 4
+                        static_name: null
+                    3:
+                      0: null
+                      1: FunctionRef 21
+                        name: "Special::EOF"
+                        constant: true
+                        value: "EOF"
+                        static_name: null
+                    4:
+                      0: null
+                      1: FunctionRef 21
+                        name: "Token::EOF"
+                        constant: true
+                        value: "EOF"
+                        static_name: null
+                  map: false
+          arity: 0
+          kind: "Special"
+          abstract: false
+      constants:
+        FOUR: BinOp 19
+          left: FunctionRef 19
+            name: "TWO"
+            constant: true
+            value: 2
+            static_name: null
+          token: 19 MULTIPLY *
+          op: 19 MULTIPLY *
+          right: Num 19
+            token: 19 INTEGER 2
+            value: 2
+        ALL: ArrayLiteral 20
+          entries:
+            0:
+              0: null
+              1: Property 20
+                target: This 20
+                name: "EOF"
+                field: false
+                constant: true
+                value: "EOF"
+                static_name: null
+            1:
+              0: null
+              1: Property 20
+                target: This 20
+                name: "FOUR"
+                field: false
+                constant: true
+                value: 4
+                static_name: null
+            2:
+              0: null
+              1: FunctionRef 20
+                name: "Special::EOF"
+                constant: true
+                value: "EOF"
+                static_name: null
+          map: false
+      constant_lines: {"FOUR" => 19, "ALL" => 20}
+      constant_owners: {"EOF" => "Token", "KINDS" => "Token", "TEXT" => "Token", "FOUR" => "Special", "ALL" => "Special"}
+      layout: {"type" => "Token", "kinds" => "Token"}
+      members: {"is_eof" => "Token", "later" => "Token", "describe" => "Token", "first" => "Token", "in_match" => "Token", "write" => "Token", "all_kinds" => "Special"}
+      abstract_methods: []
+    4: KindDeclaration 23
+      name: "Other"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      fields: []
+      field_lines: []
+      methods: []
+      constants:
+        NAME: String 23
+          token: 23 STRING "other"
+          value: "other"
+      constant_lines: {"NAME" => 23}
+      constant_owners: {"NAME" => "Other"}
+      layout: []
+      members: []
+      abstract_methods: []
+    5: EchoStatement 24
+      expr: FunctionRef 24
+        name: "Special::ALL"
+        constant: true
+        value: ["EOF", 4, "EOF"]
+        static_name: null
+    6: Statement 26
+      expr: Assign 26
+        left: Variable 26
+          token: 26 VAR_IDENTIFIER $t
+          value: "\$t"
+        token: 26 ASSIGN =
+        right: FunctionCall 26
+          name: "Token"
+          args: []
+    7: EchoStatement 27
+      expr: Property 27
+        target: Variable 27
+          token: 27 VAR_IDENTIFIER $t
+          value: "\$t"
+        name: "EOF"
+        field: false
+        constant: false
+        value: null
+        static_name: null
+    8: EchoStatement 28
+      expr: Property 28
+        target: FunctionRef 28
+          name: "TWO"
+          constant: true
+          value: 2
+          static_name: null
+        name: "x"
+        field: false
+        constant: false
+        value: null
+        static_name: null
+    9: EchoStatement 30
+      expr: Ternary 30
+        condition: Boolean 30
+          token: 30 TRUE true
+          value: true
+        then: FunctionRef 30
+          name: "Token::EOF"
+          constant: true
+          value: "EOF"
+          static_name: null
+        else: String 30
+          token: 30 STRING "x"
+          value: "x"

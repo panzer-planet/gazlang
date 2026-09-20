@@ -15,7 +15,7 @@ class BytecodeTest extends GazLangTestCase
 
     public function test_a_program_is_written_as_the_example_file()
     {
-        // The example is small but has a class, a lambda, a try/catch and a map literal
+        // The example is small but has a kind, a lambda, a try/catch and a map literal
         $this->assertSame(
             file_get_contents(self::ROOT.'/tests/fixtures/bytecode/example.gzb'),
             self::succeed(['-c', '-f', 'tests/fixtures/bytecode/example.gaz'])
@@ -137,83 +137,83 @@ class BytecodeTest extends GazLangTestCase
 
     public function test_a_file_of_another_version_is_refused()
     {
-        $this->expectExceptionMessage('Bytecode version 2, but this is GazLang bytecode 1');
-        self::succeed([], "GAZLANG BYTECODE 2\nglobals\n\ntop\nlocals\n");
+        $this->expectExceptionMessage('Bytecode version 3, but this is GazLang bytecode 2');
+        self::succeed([], "GAZLANG BYTECODE 3\nglobals\n\ntop\nlocals\n");
     }
 
     public function test_an_unknown_instruction_is_a_load_error()
     {
         $this->expectExceptionMessage("Unknown instruction 'PUSH_STR' on line 6");
-        self::succeed([], "GAZLANG BYTECODE 1\nglobals\n\ntop\nlocals\nPUSH_STR 1\n");
+        self::succeed([], "GAZLANG BYTECODE 2\nglobals\n\ntop\nlocals\nPUSH_STR 1\n");
     }
 
     public function test_an_undefined_label_is_a_load_error()
     {
         $this->expectExceptionMessage("Undefined label 'NOWHERE' in the top level");
-        self::succeed([], "GAZLANG BYTECODE 1\nglobals\n\ntop\nlocals\nJMP NOWHERE\n");
+        self::succeed([], "GAZLANG BYTECODE 2\nglobals\n\ntop\nlocals\nJMP NOWHERE\n");
     }
 
     public function test_a_label_of_another_block_is_a_load_error()
     {
         // Labels are scoped to their block
         $this->expectExceptionMessage("Undefined label 'HERE' in the top level");
-        self::succeed([], "GAZLANG BYTECODE 1\nglobals\n\ntop\nlocals\nJMP HERE\n\nfn f 0 0\nlocals\nLABEL HERE\nPUSH null\nRET\n");
+        self::succeed([], "GAZLANG BYTECODE 2\nglobals\n\ntop\nlocals\nJMP HERE\n\nfn f 0 0\nlocals\nLABEL HERE\nPUSH null\nRET\n");
     }
 
     public function test_calling_a_builtin_with_call_is_a_load_error()
     {
         // CALL is for the program's own functions; a builtin is CALL_BUILTIN
         $this->expectExceptionMessage("Undefined function 'len' in the top level");
-        self::succeed([], "GAZLANG BYTECODE 1\nglobals\n\ntop\nlocals\nPUSH \"x\"\nCALL len 1\nPOP\n");
+        self::succeed([], "GAZLANG BYTECODE 2\nglobals\n\ntop\nlocals\nPUSH \"x\"\nCALL len 1\nPOP\n");
     }
 
-    public function test_a_class_record_naming_what_is_not_there_is_a_load_error()
+    public function test_a_kind_record_naming_what_is_not_there_is_a_load_error()
     {
-        $this->expectExceptionMessage("Undefined class 'Missing' in class C");
-        self::succeed([], "GAZLANG BYTECODE 1\nglobals\n\ntop\nlocals\n\nclass C extends Missing\nlocals\nLOAD_THIS\nRET\n");
+        $this->expectExceptionMessage("Undefined kind 'Missing' in kind C");
+        self::succeed([], "GAZLANG BYTECODE 2\nglobals\n\ntop\nlocals\n\nkind C extends Missing\nlocals\nLOAD_THIS\nRET\n");
     }
 
     public function test_a_method_without_a_block_is_a_load_error()
     {
-        $this->expectExceptionMessage('Method _ has no block C._ in class C');
-        self::succeed([], "GAZLANG BYTECODE 1\nglobals\n\ntop\nlocals\n\nclass C\nmethod _ C\nlocals\nLOAD_THIS\nRET\n");
+        $this->expectExceptionMessage('Method _ has no block C._ in kind C');
+        self::succeed([], "GAZLANG BYTECODE 2\nglobals\n\ntop\nlocals\n\nkind C\nmethod _ C\nlocals\nLOAD_THIS\nRET\n");
     }
 
     public function test_a_block_that_runs_off_its_end_is_a_load_error()
     {
         // Without this, a call to f would carry on into the block after it
         $this->expectExceptionMessage("The code runs off the end of the block, which must end in RET in 'f'");
-        self::succeed([], "GAZLANG BYTECODE 1\nglobals\n\ntop\nlocals\nCALL f 0\nPOP\n\nfn f 0 0\nlocals\nPUSH 1\nPOP\n");
+        self::succeed([], "GAZLANG BYTECODE 2\nglobals\n\ntop\nlocals\nCALL f 0\nPOP\n\nfn f 0 0\nlocals\nPUSH 1\nPOP\n");
     }
 
     public function test_a_slot_the_block_does_not_have_is_a_load_error()
     {
         $this->expectExceptionMessage("Slot 7 is not one of the block's 0 locals in the top level");
-        self::succeed([], "GAZLANG BYTECODE 1\nglobals\n\ntop\nlocals\nLOAD 7\nPOP\n");
+        self::succeed([], "GAZLANG BYTECODE 2\nglobals\n\ntop\nlocals\nLOAD 7\nPOP\n");
     }
 
     public function test_calling_a_function_that_is_not_there_is_a_load_error()
     {
         $this->expectExceptionMessage("Undefined function 'missing' in the top level");
-        self::succeed([], "GAZLANG BYTECODE 1\nglobals\n\ntop\nlocals\nCALL missing 0\nPOP\n");
+        self::succeed([], "GAZLANG BYTECODE 2\nglobals\n\ntop\nlocals\nCALL missing 0\nPOP\n");
     }
 
     public function test_an_instruction_with_the_wrong_arguments_is_a_load_error()
     {
         $this->expectExceptionMessage('Unexpected end of line on line 6');
-        self::succeed([], "GAZLANG BYTECODE 1\nglobals\n\ntop\nlocals\nCALL f\n");
+        self::succeed([], "GAZLANG BYTECODE 2\nglobals\n\ntop\nlocals\nCALL f\n");
     }
 
     public function test_popping_from_an_empty_stack_is_a_load_error()
     {
         $this->expectExceptionMessage('ADD needs 2 values but the stack is 1 deep at instruction 1 in the top level');
-        self::succeed([], "GAZLANG BYTECODE 1\nglobals\n\ntop\nlocals\nPUSH 1\nADD\nPOP\n");
+        self::succeed([], "GAZLANG BYTECODE 2\nglobals\n\ntop\nlocals\nPUSH 1\nADD\nPOP\n");
     }
 
     public function test_a_stack_that_differs_between_paths_is_a_load_error()
     {
         $this->expectExceptionMessage('The stack is 0 deep at LABEL END (instruction 3), but 1 on another path in the top level');
-        self::succeed([], "GAZLANG BYTECODE 1\nglobals\n\ntop\nlocals\nPUSH 1\nJZ END\nPUSH 2\nLABEL END\nPOP\n");
+        self::succeed([], "GAZLANG BYTECODE 2\nglobals\n\ntop\nlocals\nPUSH 1\nJZ END\nPUSH 2\nLABEL END\nPOP\n");
     }
 
     public function test_a_file_that_was_read_runs_the_same_as_the_program_it_came_from()

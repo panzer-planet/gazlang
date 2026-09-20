@@ -230,50 +230,50 @@ bool index_existing(Value target, Value index, Value *out) {
     return index_value(target, index, false, out);
 }
 
-/* ---- Classes and members --------------------------------------------------------------- */
+/* ---- Kinds and members --------------------------------------------------------------- */
 
 /* Names are interned, so a pointer comparison finds them */
-int class_field(Class *c, Str *name) {
+int kind_field(Kind *c, Str *name) {
     for (int i = 0; i < c->nfields; i++) {
         if (c->fields[i] == name) return i;
     }
     return -1;
 }
 
-int class_method(Class *c, Str *name) {
+int kind_method(Kind *c, Str *name) {
     for (int i = 0; i < c->nmethods; i++) {
         if (c->methods[i] == name) return i;
     }
     return -1;
 }
 
-bool class_is_a(Class *c, Class *ancestor) {
+bool kind_is_a(Kind *c, Kind *ancestor) {
     for (; c; c = c->parent) {
         if (c == ancestor) return true;
     }
     return false;
 }
 
-Func *bound_method(Object *o, Class *cls, Str *name) {
+Func *bound_method(Object *o, Kind *definer, Str *name) {
     Func *f = xcalloc(1, sizeof(Func));
     gc_track(&f->gc, T_FUNCTION);
     f->kind = F_BOUND;
     f->name = name;
-    f->cls = cls;
+    f->definer = definer;
     f->receiver = o;
     incref(v_object(o));
     return f;
 }
 
-static bool raise_undefined_member(Class *c, Str *name) {
-    if (name->len == 1 && name->data[0] == '_' && class_method(c, name) >= 0) {
+static bool raise_undefined_member(Kind *c, Str *name) {
+    if (name->len == 1 && name->data[0] == '_' && kind_method(c, name) >= 0) {
         return raisef("Cannot use the constructor of %s as a member", c->name->data);
     }
     return raisef("%s has no member %s", c->name->data, name->data);
 }
 
 static bool raise_not_set(Object *o, Str *name) {
-    return raisef("Property %s of %s is not set", name->data, o->cls->name->data);
+    return raisef("Property %s of %s is not set", name->data, o->kind->name->data);
 }
 
 static bool is_constructor(Str *name) { return name->len == 1 && name->data[0] == '_'; }
@@ -282,7 +282,7 @@ static bool is_constructor(Str *name) { return name->len == 1 && name->data[0] =
 bool property(Value target, Str *name, bool quiet, Value *out) {
     if (target.type != T_OBJECT) return raisef("Cannot use . on %s", type_name(target));
     Object *o = target.o;
-    int f = class_field(o->cls, name);
+    int f = kind_field(o->kind, name);
     if (f >= 0) {
         if (o->fields[f].type != T_UNSET) {
             *out = o->fields[f];
@@ -295,23 +295,23 @@ bool property(Value target, Str *name, bool quiet, Value *out) {
         }
         return raise_not_set(o, name);
     }
-    int m = class_method(o->cls, name);
+    int m = kind_method(o->kind, name);
     if (m >= 0 && !is_constructor(name)) {
-        *out = v_func(bound_method(o, o->cls->definers[m], name));
+        *out = v_func(bound_method(o, o->kind->definers[m], name));
         return true;
     }
-    return raise_undefined_member(o->cls, name);
+    return raise_undefined_member(o->kind, name);
 }
 
 /* The field a write path goes through: a declared field, not a method */
 static int check_field(Object *o, Str *name) {
-    int f = class_field(o->cls, name);
+    int f = kind_field(o->kind, name);
     if (f >= 0) return f;
-    int m = class_method(o->cls, name);
+    int m = kind_method(o->kind, name);
     if (!is_constructor(name) && m >= 0) {
-        raisef("Cannot assign to method %s.%s", o->cls->definers[m]->name->data, name->data);
+        raisef("Cannot assign to method %s.%s", o->kind->definers[m]->name->data, name->data);
     } else {
-        raise_undefined_member(o->cls, name);
+        raise_undefined_member(o->kind, name);
     }
     return -1;
 }

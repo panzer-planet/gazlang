@@ -8,7 +8,7 @@ namespace gazlang;
 
 include "../lib/chars.gaz" use char_at, is_digit, is_hex_digit;
 
-class Token {
+kind Token {
     #type;
     #value;
     // Set by get_next_token(); a token made elsewhere, as the parser makes some, has none
@@ -37,7 +37,7 @@ class Token {
 
 // #line and #file are Error's own, and say where in this file the error was raised, so the
 // place in the source being read has names of its own. The parser adds the file to these.
-class LexError extends Error {
+kind LexError extends Error {
     #reason;
     #source_line;
 
@@ -48,7 +48,7 @@ class LexError extends Error {
     }
 }
 
-class Lexer {
+kind Lexer {
     #text;
     #length;
     #pos = 0;
@@ -100,7 +100,7 @@ class Lexer {
         "fn" => "FN", "function" => "FUNCTION", "return" => "RETURN", "null" => "NULL",
         "delete" => "DELETE", "match" => "MATCH", "default" => "DEFAULT", "const" => "CONST", "include" => "INCLUDE",
         "try" => "TRY", "catch" => "CATCH", "finally" => "FINALLY", "true" => "TRUE",
-        "false" => "FALSE", "class" => "CLASS", "extends" => "EXTENDS", "abstract" => "ABSTRACT",
+        "false" => "FALSE", "kind" => "KIND", "class" => "CLASS", "extends" => "EXTENDS", "abstract" => "ABSTRACT",
         "interface" => "INTERFACE", "implements" => "IMPLEMENTS", "final" => "FINAL",
         "public" => "PUBLIC", "private" => "PRIVATE", "protected" => "PROTECTED",
         "namespace" => "NAMESPACE", "use" => "USE", "pub" => "PUB", "static" => "STATIC",
@@ -139,11 +139,11 @@ class Lexer {
         #char = #pos < #length ? #text[#pos] : "";
     }
 
-    // Read characters for as long as they are in $class, a string of the ones allowed
-    fn read_while($class) {
+    // Read characters for as long as they are in $allowed, a string of the ones permitted
+    fn read_while($allowed) {
         $start = #pos;
         $i = $start;
-        while ($i < #length && contains($class, #text[$i])) {
+        while ($i < #length && contains($allowed, #text[$i])) {
             $i++;
         }
         #skip($i - $start);

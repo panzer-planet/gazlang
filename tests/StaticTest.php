@@ -3,12 +3,12 @@
 namespace GazLang\Tests;
 
 /**
- * static #count = 0; and static fn next(): a member of the class rather than of an object,
+ * static #count = 0; and static fn next(): a member of the kind rather than of an object,
  * reached by name. tests/parser_corpus/statics.gaz has the parse errors.
  */
 class StaticTest extends GazLangTestCase
 {
-    private const COUNTER = 'class Counter {
+    private const COUNTER = 'kind Counter {
             static #count = 0;
             #id;
             fn _() { #count++; #id = #count; }
@@ -31,7 +31,7 @@ class StaticTest extends GazLangTestCase
     {
         $this->assertSame(
             "1 1\n2 2\n",
-            $this->executeCode(self::COUNTER.'class Tally extends Counter {}
+            $this->executeCode(self::COUNTER.'kind Tally extends Counter {}
                 echo Counter::next() .. " " .. Tally::count;
                 echo Tally::next() .. " " .. Counter::count;')
         );
@@ -41,7 +41,7 @@ class StaticTest extends GazLangTestCase
     {
         $this->assertSame(
             "7\n8\n[\"a\", \"b\"]\n[\"b\"]\n",
-            $this->executeCode('class Reg {
+            $this->executeCode('kind Reg {
                     static #count = 0;
                     static #rows = [];
                 }
@@ -52,11 +52,11 @@ class StaticTest extends GazLangTestCase
         );
     }
 
-    public function test_a_static_method_needs_no_object_and_reaches_the_class_by_hash()
+    public function test_a_static_method_needs_no_object_and_reaches_the_kind_by_hash()
     {
         $this->assertSame(
             "1 2\n3\n",
-            $this->executeCode(self::COUNTER.'class Pair {
+            $this->executeCode(self::COUNTER.'kind Pair {
                     static fn both() { return Counter::next() .. " " .. Counter::next(); }
                 }
                 echo Pair::both();
@@ -84,7 +84,7 @@ class StaticTest extends GazLangTestCase
         return [
             'a field through an object' => ['$c = Counter(); echo $c.count;', 'Counter has no member count'],
             'a method through an object' => ['$c = Counter(); echo $c.next();', 'Counter has no member next'],
-            'a class value on the left of ::' => ['$k = Counter; echo $k::count;', ':: resolves a name, so only a name can be on its left'],
+            'a kind value on the left of ::' => ['$k = Counter; echo $k::count;', ':: resolves a name, so only a name can be on its left'],
         ];
     }
 }

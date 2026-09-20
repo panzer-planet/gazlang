@@ -1,4 +1,4 @@
-GAZLANG BYTECODE 1
+GAZLANG BYTECODE 2
 globals
 
 top
@@ -7,6 +7,6 @@ PUSH 1
 NEW If 1
 POP
 
-class If
+kind If
 locals $#argument_0
 HALT

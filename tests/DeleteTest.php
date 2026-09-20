@@ -50,19 +50,19 @@ class DeleteTest extends GazLangTestCase
 
     public function test_deleting_a_field_is_a_parse_error()
     {
-        $this->expectExceptionMessage('Cannot delete a field: every object of a class has the fields it declares');
-        $this->parse('class C { #x = 1; fn f() { delete #x; } }');
+        $this->expectExceptionMessage('Cannot delete a field: every object of a kind has the fields it declares');
+        $this->parse('kind C { #x = 1; fn f() { delete #x; } }');
     }
 
     public function test_deleting_a_property_of_an_object_is_a_parse_error()
     {
-        $this->expectExceptionMessage('Cannot delete a field: every object of a class has the fields it declares');
-        $this->parse('class C { #x = 1; } $c = C(); delete $c.x;');
+        $this->expectExceptionMessage('Cannot delete a field: every object of a kind has the fields it declares');
+        $this->parse('kind C { #x = 1; } $c = C(); delete $c.x;');
     }
 
     public function test_delete_is_a_keyword_but_still_a_member_name()
     {
-        $this->assertSame("gone\n", $this->executeCode('class C { fn delete() { return "gone"; } } echo C().delete();'));
+        $this->assertSame("gone\n", $this->executeCode('kind C { fn delete() { return "gone"; } } echo C().delete();'));
 
         $this->expectException(ProgramError::class);
         $this->expectExceptionMessage("Expected a name but found 'delete'");
@@ -82,7 +82,7 @@ class DeleteTest extends GazLangTestCase
     {
         $this->assertSame(
             "fn C.f 0 0\nPUSH 0\nKEY_CHECK\nDELETE_PATH_THIS .items[k]\nPUSH null\nRET",
-            substr($this->generateCode('class C { #items = [1]; fn f() { delete #items[0]; } } C().f();'), -strlen("fn C.f 0 0\nPUSH 0\nKEY_CHECK\nDELETE_PATH_THIS .items[k]\nPUSH null\nRET"))
+            substr($this->generateCode('kind C { #items = [1]; fn f() { delete #items[0]; } } C().f();'), -strlen("fn C.f 0 0\nPUSH 0\nKEY_CHECK\nDELETE_PATH_THIS .items[k]\nPUSH null\nRET"))
         );
     }
 }

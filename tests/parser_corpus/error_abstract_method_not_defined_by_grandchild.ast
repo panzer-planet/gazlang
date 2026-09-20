@@ -1,1 +1,1 @@
-Error: Class C must define abstract method one of A, or be abstract at tests/parser_corpus/error_abstract_method_not_defined_by_grandchild.gaz:3
+Error: Kind C must define abstract method one of A, or be abstract at tests/parser_corpus/error_abstract_method_not_defined_by_grandchild.gaz:3

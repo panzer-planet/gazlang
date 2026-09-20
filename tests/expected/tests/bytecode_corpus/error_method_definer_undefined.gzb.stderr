@@ -1,1 +1,1 @@
-Error: Method m runs undefined class 'D' in class C
+Error: Method m runs undefined kind 'D' in kind C

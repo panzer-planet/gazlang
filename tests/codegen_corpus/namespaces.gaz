@@ -1,5 +1,5 @@
 // A namespace is resolved by the parser, so bytecode only sees longer names: every function
-// and class here carries json::, while a method block stays Class.method, which is how the
+// and kind here carries json::, while a method block stays Kind.method, which is how the
 // loader tells the two apart.
 namespace json;
 
@@ -14,7 +14,7 @@ fn read($text) {
     return Reader($text).read();
 }
 
-pub class Reader {
+pub kind Reader {
     const EOF = "eof";
     #text;
 
@@ -27,7 +27,7 @@ pub class Reader {
     }
 }
 
-class Strict extends Reader {
+kind Strict extends Reader {
     fn read() {
         return "!" .. ##read();
     }

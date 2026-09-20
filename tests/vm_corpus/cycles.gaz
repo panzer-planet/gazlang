@@ -1,14 +1,14 @@
 // Values that hold themselves, which reference counting alone never frees: an object through its
 // own field and through a list and a map, a closure that captured itself, two objects holding
 // each other, a bound method kept in its own object. CVMTest checks nothing is left at the end.
-class Node {
+kind Node {
     #next;
     #data;
     #method;
     fn _() { #next = #; #data = [#, {"me" => #}]; #method = #size; }
     fn size() { return len(#data); }
 }
-class Pair { #other; fn link($p) { #other = $p; } }
+kind Pair { #other; fn link($p) { #other = $p; } }
 $total = 0;
 for ($i = 0; $i < 100000; $i++) {
     $n = Node();

@@ -1,6 +1,6 @@
 // A to_string() that fails, reached from everywhere that prints
-class Bad { fn to_string() { return 1 / 0; } }
-class NotText { fn to_string() { return 5; } }
+kind Bad { fn to_string() { return 1 / 0; } }
+kind NotText { fn to_string() { return 5; } }
 foreach ([() -> join([1, Bad()], ","), () -> print(Bad()), () -> print_error(NotText()), () -> "x" .. Bad(),
           () -> to_string([Bad()]), () -> "{Bad()}", () -> error(Bad())] as $f) {
     try {
@@ -15,11 +15,11 @@ $s = "a";
 try { $s ..= Bad(); } catch (Error $e) { echo $e.message .. " " .. $s; }
 // A to_string() that changes the variable being appended to
 @target = "start";
-class Sneaky { fn to_string() { @target = 5; return "!"; } }
+kind Sneaky { fn to_string() { @target = 5; return "!"; } }
 @target ..= Sneaky();
 echo @target;
 // ...and one that makes it something .. has to convert (found by tests/fuzz_vms.php)
-class Sly { fn to_string() { @target = print; return "?"; } }
+kind Sly { fn to_string() { @target = print; return "?"; } }
 @target = "start";
 @target ..= Sly();
 echo @target;

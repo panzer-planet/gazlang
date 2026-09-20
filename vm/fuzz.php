@@ -591,7 +591,7 @@ function shapes(): array
 
 /**
  * Every argument the file uses, by its kind, so one name can be swapped for another the file
- * knows: a member for a member, a class for a class
+ * knows: a member for a member, a kind for a kind
  *
  * @param  list<string>  $lines
  * @return array<string, list<string>>
@@ -624,7 +624,7 @@ function bytecodeBlocks(array $lines): array
     $blocks = [];
     $at = -1;
     foreach ($lines as $i => $line) {
-        if (preg_match('/^(top|fn |lambda |class |abstract class )/', $line)) {
+        if (preg_match('/^(top|fn |lambda |kind |abstract kind )/', $line)) {
             $blocks[] = ['body' => [], 'locals' => 0, 'labels' => []];
             $at = count($blocks) - 1;
         }
@@ -678,9 +678,9 @@ final class ProgramGenerator
     private array $functions = [];
 
     /** @var list<array{parent: int|null, fields: int, methods: list<int>, arity: int}> */
-    private array $classes = [];
+    private array $kinds = [];
 
-    /** @var array{kind: string, index: int, class: int|null, params: int, loop: int} Where the code being generated is */
+    /** @var array{kind: string, index: int, owner: int|null, params: int, loop: int} Where the code being generated is */
     private array $scope;
 
     /**
@@ -691,31 +691,31 @@ final class ProgramGenerator
     public function program(): string
     {
         $this->functions = [];
-        $this->classes = [];
+        $this->kinds = [];
         $out = '';
         for ($i = $this->int(0, 4); $i >= 0; $i--) {
             $required = $this->int(0, 2);
             $this->functions[] = [$required, $required + $this->int(0, 1)];
         }
         for ($i = $this->int(0, 3); $i >= 0; $i--) {
-            $k = count($this->classes);
-            $this->classes[] = ['parent' => $k > 0 && $this->chance(2) ? $this->int(0, $k - 1) : null, 'fields' => $this->int(1, 3), 'methods' => [], 'arity' => $this->int(0, 2)];
+            $k = count($this->kinds);
+            $this->kinds[] = ['parent' => $k > 0 && $this->chance(2) ? $this->int(0, $k - 1) : null, 'fields' => $this->int(1, 3), 'methods' => [], 'arity' => $this->int(0, 2)];
             for ($m = $this->int(1, 3); $m > 0; $m--) {
-                $this->classes[$k]['methods'][] = $this->int(0, 1);
+                $this->kinds[$k]['methods'][] = $this->int(0, 1);
             }
         }
         foreach ($this->functions as $f => [$required, $total]) {
-            $this->scope = ['kind' => 'function', 'index' => $f, 'class' => null, 'params' => $total, 'loop' => 0];
+            $this->scope = ['kind' => 'function', 'index' => $f, 'owner' => null, 'params' => $total, 'loop' => 0];
             $params = [];
             for ($p = 0; $p < $total; $p++) {
                 $params[] = "\$p{$p}".($p >= $required ? ' = '.$this->expr() : '');
             }
             $out .= "fn f{$f}(".implode(', ', $params).") {\n".$this->locals(4).$this->block(4)."}\n";
         }
-        foreach ($this->classes as $k => $class) {
-            $out .= $this->classDeclaration($k, $class);
+        foreach ($this->kinds as $k => $kind) {
+            $out .= $this->kindDeclaration($k, $kind);
         }
-        $this->scope = ['kind' => 'top', 'index' => PHP_INT_MAX, 'class' => null, 'params' => 0, 'loop' => 0];
+        $this->scope = ['kind' => 'top', 'index' => PHP_INT_MAX, 'owner' => null, 'params' => 0, 'loop' => 0];
         $out .= $this->locals(0);
         for ($g = 0; $g < 3; $g++) {
             $out .= "@g{$g} = {$this->literal()};\n";
@@ -728,23 +728,23 @@ final class ProgramGenerator
     }
 
     /**
-     * @param  array{parent: int|null, fields: int, methods: list<int>, arity: int}  $class
+     * @param  array{parent: int|null, fields: int, methods: list<int>, arity: int}  $kind
      */
-    private function classDeclaration(int $k, array $class): string
+    private function kindDeclaration(int $k, array $kind): string
     {
-        $out = "class C{$k}".($class['parent'] === null ? '' : " extends C{$class['parent']}")." {\n";
-        for ($f = 0; $f < $class['fields']; $f++) {
+        $out = "kind C{$k}".($kind['parent'] === null ? '' : " extends C{$kind['parent']}")." {\n";
+        for ($f = 0; $f < $kind['fields']; $f++) {
             $out .= "    #c{$k}x{$f}".($this->chance(2) ? ' = '.$this->literal() : '').";\n";
         }
-        $this->scope = ['kind' => 'method', 'index' => -1, 'class' => $k, 'params' => $class['arity'], 'loop' => 0];
-        $params = implode(', ', array_map(fn ($p) => "\$p{$p}", range(0, $class['arity'] - 1)));
-        $out .= '    fn _('.($class['arity'] > 0 ? $params : '').") {\n";
-        if ($class['parent'] !== null) {
-            $out .= '        ##_('.$this->args($this->classes[$class['parent']]['arity']).");\n";
+        $this->scope = ['kind' => 'method', 'index' => -1, 'owner' => $k, 'params' => $kind['arity'], 'loop' => 0];
+        $params = implode(', ', array_map(fn ($p) => "\$p{$p}", range(0, $kind['arity'] - 1)));
+        $out .= '    fn _('.($kind['arity'] > 0 ? $params : '').") {\n";
+        if ($kind['parent'] !== null) {
+            $out .= '        ##_('.$this->args($this->kinds[$kind['parent']]['arity']).");\n";
         }
         $out .= $this->locals(8).$this->block(8)."    }\n";
-        foreach ($class['methods'] as $m => $arity) {
-            $this->scope = ['kind' => 'method', 'index' => $m, 'class' => $k, 'params' => $arity, 'loop' => 0];
+        foreach ($kind['methods'] as $m => $arity) {
+            $this->scope = ['kind' => 'method', 'index' => $m, 'owner' => $k, 'params' => $arity, 'loop' => 0];
             $out .= "    fn c{$k}m{$m}(".($arity > 0 ? '$p0' : '').") {\n".$this->locals(8).$this->block(8)."    }\n";
         }
         if ($this->chance(2)) {
@@ -844,7 +844,7 @@ final class ProgramGenerator
             5 => "{$this->expr()}[{$this->expr()}]",
             6, 7 => $this->builtinCall(),
             8 => $this->functionCall(),
-            9 => $this->classes === [] ? 'null' : $this->construct(),
+            9 => $this->kinds === [] ? 'null' : $this->construct(),
             10 => "{$this->target()}".$this->field(),
             11 => "({$this->expr()} ? {$this->expr()} : {$this->expr()})",
             12 => $this->lambda(),
@@ -925,7 +925,7 @@ final class ProgramGenerator
     }
 
     /**
-     * The methods of the current class and its parents a method may call: those numbered below
+     * The methods of the current kind and its parents a method may call: those numbered below
      * it, so calls only go down and end
      *
      * @return list<array{0: string, 1: int}>
@@ -933,8 +933,8 @@ final class ProgramGenerator
     private function methodsBefore(): array
     {
         $found = [];
-        for ($k = $this->scope['class']; $k !== null; $k = $this->classes[$k]['parent']) {
-            foreach ($this->classes[$k]['methods'] as $m => $arity) {
+        for ($k = $this->scope['owner']; $k !== null; $k = $this->kinds[$k]['parent']) {
+            foreach ($this->kinds[$k]['methods'] as $m => $arity) {
                 if ($m < $this->scope['index']) {
                     $found[] = ["c{$k}m{$m}", $arity];
                 }
@@ -950,23 +950,23 @@ final class ProgramGenerator
         if ($this->scope['kind'] !== 'top') {
             return $this->literal();
         }
-        $k = $this->int(0, count($this->classes) - 1);
+        $k = $this->int(0, count($this->kinds) - 1);
 
-        return "C{$k}(".$this->args($this->classes[$k]['arity']).')';
+        return "C{$k}(".$this->args($this->kinds[$k]['arity']).')';
     }
 
     /**
-     * A field access, usually one some class declares, or a method called on the object when it
+     * A field access, usually one some kind declares, or a method called on the object when it
      * is a method below the running code's (so, like everything, calls only go down)
      */
     private function field(): string
     {
-        if ($this->classes === []) {
+        if ($this->kinds === []) {
             return '.nothing';
         }
-        $k = $this->int(0, count($this->classes) - 1);
+        $k = $this->int(0, count($this->kinds) - 1);
 
-        return ".c{$k}x".$this->int(0, $this->classes[$k]['fields'] - 1);
+        return ".c{$k}x".$this->int(0, $this->kinds[$k]['fields'] - 1);
     }
 
     /**
@@ -977,7 +977,7 @@ final class ProgramGenerator
     {
         $n = $params >= 0 ? $params : $this->int(0, 2);
         $saved = $this->scope;
-        $this->scope = ['kind' => 'lambda', 'index' => 0, 'class' => $saved['kind'] === 'method' ? $saved['class'] : null, 'params' => max($saved['params'], $n), 'loop' => 0];
+        $this->scope = ['kind' => 'lambda', 'index' => 0, 'owner' => $saved['kind'] === 'method' ? $saved['owner'] : null, 'params' => max($saved['params'], $n), 'loop' => 0];
         $this->depth += 2;
         $body = $this->chance(3) ? "{\n{$this->block(4)}}" : "({$this->expr()})";
         $this->depth -= 2;
@@ -1004,7 +1004,7 @@ final class ProgramGenerator
 
         return match (true) {
             $pick < 2 && $scope['params'] > 0 => '$p'.$this->int(0, $scope['params'] - 1),
-            $pick < 3 && $scope['class'] !== null => $this->chance(2) ? '#' : $this->ownField(),
+            $pick < 3 && $scope['owner'] !== null => $this->chance(2) ? '#' : $this->ownField(),
             $pick < 4 => '@g'.$this->int(0, 2),
             default => '$v'.$this->int(0, 3),
         };
@@ -1013,8 +1013,8 @@ final class ProgramGenerator
     private function ownField(): string
     {
         $fields = [];
-        for ($k = $this->scope['class']; $k !== null; $k = $this->classes[$k]['parent']) {
-            for ($f = 0; $f < $this->classes[$k]['fields']; $f++) {
+        for ($k = $this->scope['owner']; $k !== null; $k = $this->kinds[$k]['parent']) {
+            for ($f = 0; $f < $this->kinds[$k]['fields']; $f++) {
                 $fields[] = "#c{$k}x{$f}";
             }
         }

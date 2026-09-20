@@ -1,4 +1,4 @@
-// Character helpers, matching the lexer's character classes exactly
+// Character helpers, matching the lexer's character kinds exactly
 // (chars::is_space, chars::is_digit, chars::is_hex_digit, chars::is_alpha,
 // chars::is_alnum): ASCII only.
 //

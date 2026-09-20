@@ -1,2 +1,2 @@
-class K { const A = 1; }
+kind K { const A = 1; }
 echo K::A();

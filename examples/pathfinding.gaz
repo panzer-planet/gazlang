@@ -22,7 +22,7 @@ const COSTS = {"S" => 1, "E" => 1, "." => 1, "^" => 3, "~" => 5};
 const STEPS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 
 // A map as a grid of cells, with where to start and finish
-class Terrain {
+kind Terrain {
     #cells = [];
     #width;
     #height;
@@ -94,7 +94,7 @@ class Terrain {
 }
 
 // A binary min-heap of [priority, value] pairs
-class Heap {
+kind Heap {
     #items = [];
 
     fn is_empty() { return len(#items) == 0; }

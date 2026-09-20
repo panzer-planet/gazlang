@@ -38,7 +38,7 @@ const BuiltinInfo builtin_info[] = {
     {"in_array", 2, 2}, {"has_key", 2, 2}, {"keys", 1, 1}, {"values", 1, 1}, {"last", 1, 1}, {"reverse", 1, 1},
     {"map", 2, 2},
     {"filter", 2, 2}, {"reduce", 3, 3}, {"sort", 2, 2}, {"type_of", 1, 1},
-    {"is_a", 2, 2}, {"class_of", 1, 1}, {"fields", 1, 1}, {"error", 1, 1}, {"exit", 0, 1},
+    {"is_a", 2, 2}, {"kind_of", 1, 1}, {"fields", 1, 1}, {"error", 1, 1}, {"exit", 0, 1},
     {"read_file", 1, 1}, {"write_file", 2, 2}, {"file_exists", 1, 1}, {"real_path", 1, 1},
     {"cwd", 0, 0}, {"print", 1, 1}, {"print_error", 1, 1}, {"read_stdin", 0, 0}, {"args", 0, 0},
     {"builtins", 0, 0}, {"rand_int", 2, 2}, {"rand_float", 0, 0}, {"rand_seed", 0, 1},
@@ -51,7 +51,7 @@ enum {
     B_LEN, B_SLICE, B_LOWER, B_UPPER, B_TRIM, B_SPLIT, B_JOIN, B_REPLACE, B_CONTAINS,
     B_STARTS_WITH, B_ENDS_WITH, B_INDEX_OF, B_REPEAT, B_CHR, B_ORD, B_TO_INT, B_TO_FLOAT, B_FLOOR,
     B_CEIL, B_ROUND, B_ABS, B_INTDIV, B_MIN, B_MAX, B_TO_STRING, B_IN_ARRAY, B_HAS_KEY, B_KEYS,
-    B_VALUES, B_LAST, B_REVERSE, B_MAP, B_FILTER, B_REDUCE, B_SORT, B_TYPE_OF, B_IS_A, B_CLASS_OF, B_FIELDS, B_ERROR, B_EXIT, B_READ_FILE,
+    B_VALUES, B_LAST, B_REVERSE, B_MAP, B_FILTER, B_REDUCE, B_SORT, B_TYPE_OF, B_IS_A, B_KIND_OF, B_FIELDS, B_ERROR, B_EXIT, B_READ_FILE,
     B_WRITE_FILE, B_FILE_EXISTS, B_REAL_PATH, B_CWD, B_PRINT, B_PRINT_ERROR, B_READ_STDIN,
     B_ARGS, B_BUILTINS, B_RAND_INT, B_RAND_FLOAT, B_RAND_SEED, B_RUN,
     B_SOCKET_OPEN, B_SOCKET_READ, B_SOCKET_WRITE, B_SOCKET_CLOSE,
@@ -141,7 +141,7 @@ static int64_t random_between(int64_t min, int64_t max) {
 /* Check an argument's type: "len() expects list or map or string, got int" */
 static bool want(int builtin, Value v, unsigned mask) {
     if (mask & M(v.type)) return true;
-    static const Type order[] = {T_INT, T_FLOAT, T_STRING, T_LIST, T_MAP, T_BOOL, T_NULL, T_CLASS, T_OBJECT, T_SOCKET};
+    static const Type order[] = {T_INT, T_FLOAT, T_STRING, T_LIST, T_MAP, T_BOOL, T_NULL, T_KIND, T_OBJECT, T_SOCKET};
     Buf b = {0};
     /* Each builtin names its types in its own order; these are those orders */
     const char *names = NULL;
@@ -151,7 +151,7 @@ static bool want(int builtin, Value v, unsigned mask) {
     case M(T_STRING) | M(T_LIST): names = "string or list"; break;
     case M(T_INT) | M(T_FLOAT): names = "int or float"; break;
     case M(T_LIST) | M(T_MAP): names = "list or map"; break;
-    case M(T_FUNCTION) | M(T_CLASS): names = "function or class"; break;
+    case M(T_FUNCTION) | M(T_KIND): names = "function or kind"; break;
     }
     if (!names) {
         for (size_t i = 0; i < sizeof order / sizeof order[0]; i++) {
@@ -875,13 +875,13 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         return true;
     case B_MAP:
     case B_FILTER:
-        if (!want(index, a, M(T_LIST) | M(T_MAP)) || !want(index, args[1], M(T_FUNCTION) | M(T_CLASS))) return false;
+        if (!want(index, a, M(T_LIST) | M(T_MAP)) || !want(index, args[1], M(T_FUNCTION) | M(T_KIND))) return false;
         return map_or_filter(index == B_MAP, a, args[1], out);
     case B_REDUCE:
-        if (!want(index, a, M(T_LIST) | M(T_MAP)) || !want(index, args[1], M(T_FUNCTION) | M(T_CLASS))) return false;
+        if (!want(index, a, M(T_LIST) | M(T_MAP)) || !want(index, args[1], M(T_FUNCTION) | M(T_KIND))) return false;
         return reduce(a, args[1], args[2], out);
     case B_SORT: {
-        if (!want(index, a, M(T_LIST) | M(T_MAP)) || !want(index, args[1], M(T_FUNCTION) | M(T_CLASS))) return false;
+        if (!want(index, a, M(T_LIST) | M(T_MAP)) || !want(index, args[1], M(T_FUNCTION) | M(T_KIND))) return false;
         List *sorted;
         if (a.type == T_LIST) {
             sorted = merge_sort(a.l->items, a.l->len, args[1]);
@@ -900,20 +900,20 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         *out = v_str(str_cstr(type_name(a)));
         return true;
     case B_IS_A:
-        if (!want(index, b, M(T_CLASS))) return false;
-        *out = v_bool(a.type == T_OBJECT && class_is_a(a.o->cls, b.c));
+        if (!want(index, b, M(T_KIND))) return false;
+        *out = v_bool(a.type == T_OBJECT && kind_is_a(a.o->kind, b.k));
         return true;
-    case B_CLASS_OF:
+    case B_KIND_OF:
         if (!want(index, a, M(T_OBJECT))) return false;
-        *out = v_class(a.o->cls);
+        *out = v_kind(a.o->kind);
         return true;
     case B_FIELDS: {
         if (!want(index, a, M(T_OBJECT))) return false;
         Map *m = map_new();
-        for (int i = 0; i < a.o->cls->nfields; i++) {
+        for (int i = 0; i < a.o->kind->nfields; i++) {
             if (a.o->fields[i].type == T_UNSET) continue;
             incref(a.o->fields[i]);
-            map_set(m, v_str(a.o->cls->fields[i]), a.o->fields[i]);
+            map_set(m, v_str(a.o->kind->fields[i]), a.o->fields[i]);
         }
         *out = v_map(m);
         return true;

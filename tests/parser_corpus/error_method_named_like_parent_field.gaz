@@ -1,4 +1,4 @@
-class A { #size; }
-class B extends A {
+kind A { #size; }
+kind B extends A {
     fn size() {}
 }

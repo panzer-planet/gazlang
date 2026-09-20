@@ -49,7 +49,7 @@ $forget = counter();
 $forget("a");
 check("a captured variable", $forget("b"), {});
 
-class Cart {
+kind Cart {
     #items = ["apple", "pear"];
     fn drop($index) { delete #items[$index]; }
     fn contents() { return #items; }

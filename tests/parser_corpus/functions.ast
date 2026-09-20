@@ -37,7 +37,7 @@ Compound
                 token: 3 VAR_IDENTIFIER $b
                 value: "\$b"
       arity: 2
-      class: null
+      kind: null
       abstract: false
     2: FunctionDeclaration 4
       name: "twice"
@@ -56,7 +56,7 @@ Compound
                   token: 4 VAR_IDENTIFIER $n
                   value: "\$n"
       arity: 1
-      class: null
+      kind: null
       abstract: false
     3: FunctionDeclaration 5
       name: "nothing"
@@ -65,7 +65,7 @@ Compound
       body: Compound
         statements: []
       arity: 0
-      class: null
+      kind: null
       abstract: false
     4: FunctionDeclaration 6
       name: "bare"
@@ -76,7 +76,7 @@ Compound
           0: ReturnStatement 6
             expr: null
       arity: 0
-      class: null
+      kind: null
       abstract: false
     5: FunctionDeclaration 7
       name: "defaults"
@@ -111,7 +111,7 @@ Compound
               token: 7 VAR_IDENTIFIER $c
               value: "\$c"
       arity: [1, 5]
-      class: null
+      kind: null
       abstract: false
     6: EchoStatement 8
       expr: BinOp 8
@@ -206,7 +206,7 @@ Compound
                       token: 14 INTEGER 2
                       value: 2
       arity: 1
-      class: null
+      kind: null
       abstract: false
     8: FunctionDeclaration 16
       name: "loops"
@@ -270,7 +270,7 @@ Compound
                     op: 20 INCREMENT ++
                     prefix: false
       arity: 1
-      class: null
+      kind: null
       abstract: false
     9: Statement 23
       expr: Assign 23
@@ -336,7 +336,7 @@ Compound
               token: 27 VAR_IDENTIFIER $x
               value: "\$x"
       arity: 1
-      class: null
+      kind: null
       abstract: false
     13: FunctionDeclaration 28
       name: "Return"
@@ -349,7 +349,7 @@ Compound
               token: 28 INTEGER 1
               value: 1
       arity: 0
-      class: null
+      kind: null
       abstract: false
     14: EchoStatement 29
       expr: BinOp 29
@@ -439,7 +439,7 @@ Compound
               captures: []
               self: null
       arity: 0
-      class: null
+      kind: null
       abstract: false
     18: FunctionDeclaration 34
       name: "outer"
@@ -508,7 +508,7 @@ Compound
               token: 34 VAR_IDENTIFIER $f
               value: "\$f"
       arity: 0
-      class: null
+      kind: null
       abstract: false
     19: Statement 36
       expr: Assign 36

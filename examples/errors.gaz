@@ -2,7 +2,7 @@
 //
 //   bin/gazlang -f examples/errors.gaz
 
-class NotFound extends Error {
+kind NotFound extends Error {
     #key;
     fn _($key) {
         ##_("No setting named {$key}");
@@ -10,7 +10,7 @@ class NotFound extends Error {
     }
 }
 
-class Settings {
+kind Settings {
     #values;
     fn _($values) { #values = $values; }
     fn get($key) {

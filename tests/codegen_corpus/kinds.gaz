@@ -1,0 +1,46 @@
+// Kinds: construction, fields, methods, parents, constants and errors as objects
+abstract kind Shape {
+    const SIDES = 0;
+    #name;
+    #history = [];
+    #double = #SIDES * 2;
+    fn _($name) { #name = $name; }
+    abstract fn area();
+    fn to_string() { return "{#name}: " .. #area(); }
+    fn describe() { return #to_string() .. " " .. Shape::SIDES; }
+}
+kind Square extends Shape {
+    #side;
+    #area_cache = null;
+    fn _($side, $label = "square") { ##_($label); #side = $side; }
+    fn area() { return #side * #side; }
+    fn to_string() { return ##to_string() .. "!"; }
+    fn parent_version() { return ##to_string; }
+    fn me() { return #; }
+    fn later() { return () -> #side + #area(); }
+    fn cached() { return #area_cache ?? #side; }
+    fn scaled($by, $plus = 0) { return #area() * $by + $plus; }
+}
+kind Unit extends Square {}
+kind Plain { #a = 1; }
+kind Empty {}
+kind NotFound extends Error {
+    #key;
+    fn _($key) { ##_("Not found: {$key}"); #key = $key; }
+}
+$s = Square(2);
+echo $s.area() .. $s.side .. $s.name;
+$m = $s.area;
+echo $m();
+echo $s.parent_version()();
+echo Unit(1).later()();
+$c = Square;
+echo $c(3).area();
+echo kind_of($s)(4);
+echo Plain().a ?? $s.missing ?? 0;
+echo Empty();
+$s.side = 5;
+$s.history[] = 1;
+try { error(NotFound("k")); } catch (NotFound $e) { echo $e.key; } catch (Error $e) { echo $e.message; }
+echo $s.me().side;
+echo $s.scaled(2) + $s.scaled(2, 1);

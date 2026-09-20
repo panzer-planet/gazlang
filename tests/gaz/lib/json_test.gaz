@@ -58,13 +58,13 @@ try {
     check("encoding a function is an error", $e.message, "Cannot encode a function as JSON");
 }
 
-// Nor do classes and objects
-class Point { #x = 1; }
+// Nor do kinds and objects
+kind Point { #x = 1; }
 try {
     json::encode({"p" => Point});
-    echo "FAIL encoding a class";
+    echo "FAIL encoding a kind";
 } catch ($e) {
-    check("encoding a class is an error", $e.message, "Cannot encode a class as JSON");
+    check("encoding a kind is an error", $e.message, "Cannot encode a kind as JSON");
 }
 try {
     json::encode([Point()]);

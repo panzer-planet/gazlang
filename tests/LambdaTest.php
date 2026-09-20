@@ -320,7 +320,7 @@ Undefined variable: $n
         $this->assertSame("function -> at tests/fixtures/closure_name.gaz:2\n", $output);
     }
 
-    public function test_error_class_is_gazlang_error_for_a_bad_lambda_head()
+    public function test_error_kind_is_gazlang_error_for_a_bad_lambda_head()
     {
         $this->expectException(ProgramError::class);
         $this->parse('(1) -> 2;');

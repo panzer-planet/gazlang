@@ -2,7 +2,7 @@
 fn down($n) { return down($n + 1); }
 try { down(0); } catch (Error $e) { echo $e.message; echo len($e.trace); echo $e.trace[10]; }
 
-class Walker {
+kind Walker {
     #steps = 0;
     fn walk() { #steps++; return #walk(); }
     fn to_string() { return "walker " .. #; }
@@ -19,18 +19,18 @@ try { $walk(); } catch (Error $e) { echo $e.message; }
 
 // Constructing, which is two frames deep each time: the limit is met at the construction and at
 // the constructor, depending on how deep it started
-class Nest { fn _($n) { Nest($n + 1); } }
+kind Nest { fn _($n) { Nest($n + 1); } }
 try { Nest(0); } catch (Error $e) { echo $e.message .. " " .. $e.line; }
 fn nest_from_one() { Nest(0); }
 try { nest_from_one(); } catch (Error $e) { echo $e.message .. " " .. $e.line; }
 
-// A class called as a value
+// A kind called as a value
 $make = Nest;
 try { $make(0); } catch (Error $e) { echo $e.message; }
 
 // ##name(...)
-class Base { fn go($n) { return #go($n + 1); } }
-class Child extends Base { fn go($n) { return ##go($n); } }
+kind Base { fn go($n) { return #go($n + 1); } }
+kind Child extends Base { fn go($n) { return ##go($n); } }
 try { Child().go(0); } catch (Error $e) { echo $e.message; }
 
 // to_string() printing itself forever runs in nested loops

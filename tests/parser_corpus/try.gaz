@@ -13,7 +13,7 @@ try {
 } finally {
     echo "always";
 }
-class NotFound extends Error {
+kind NotFound extends Error {
     #key;
     fn _($key) { ##_("Not found: {$key}"); #key = $key; }
 }

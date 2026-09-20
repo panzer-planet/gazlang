@@ -1,2 +1,2 @@
-class A { #x; }
-class B extends A { fn f() { return ##x; } }
+kind A { #x; }
+kind B extends A { fn f() { return ##x; } }

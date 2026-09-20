@@ -12,7 +12,7 @@ Compound
               token: 1 INTEGER 1
               value: 1
       arity: 0
-      class: null
+      kind: null
       abstract: false
 @ "tests/parser_corpus/include/same_file_spelt_three_ways.gaz"
     1: EchoStatement 4

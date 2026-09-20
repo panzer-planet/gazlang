@@ -22,7 +22,7 @@
 
 /* Argument kinds */
 enum { K_LABEL, K_VALUE, K_SLOT, K_GLOBAL, K_STATIC, K_CAPTURE, K_COUNT, K_LAMBDA, K_FUNCTION,
-       K_CALLABLE, K_BUILTIN, K_CLASS, K_MEMBER, K_PATH, K_ELEMENT_PATH };
+       K_CALLABLE, K_BUILTIN, K_KIND, K_MEMBER, K_PATH, K_ELEMENT_PATH };
 
 /* A pops count that depends on the arguments */
 enum { POPS_PATH = -1, POPS_KEYS = -2, POPS_COUNT = -3, POPS_COUNT1 = -4, POPS_COUNT2 = -5 };
@@ -109,11 +109,11 @@ static const InstrInfo INFO[OP_COUNT] = {
     [OP_RET] = {"RET", 0, {0}, 1, 0},
     [OP_PUSH_FN] = {"PUSH_FN", 1, {K_CALLABLE}, 0, 1},
     [OP_MAKE_CLOSURE] = {"MAKE_CLOSURE", 1, {K_LAMBDA}, 0, 1},
-    [OP_PUSH_CLASS] = {"PUSH_CLASS", 1, {K_CLASS}, 0, 1},
-    [OP_NEW] = {"NEW", 2, {K_CLASS, K_COUNT}, POPS_COUNT, 1},
-    [OP_CALL_CONSTRUCTOR] = {"CALL_CONSTRUCTOR", 1, {K_CLASS}, 0, 1},
-    [OP_CALL_PARENT] = {"CALL_PARENT", 3, {K_CLASS, K_MEMBER, K_COUNT}, POPS_COUNT, 1},
-    [OP_BIND_PARENT] = {"BIND_PARENT", 2, {K_CLASS, K_MEMBER}, 0, 1},
+    [OP_PUSH_KIND] = {"PUSH_KIND", 1, {K_KIND}, 0, 1},
+    [OP_NEW] = {"NEW", 2, {K_KIND, K_COUNT}, POPS_COUNT, 1},
+    [OP_CALL_CONSTRUCTOR] = {"CALL_CONSTRUCTOR", 1, {K_KIND}, 0, 1},
+    [OP_CALL_PARENT] = {"CALL_PARENT", 3, {K_KIND, K_MEMBER, K_COUNT}, POPS_COUNT, 1},
+    [OP_BIND_PARENT] = {"BIND_PARENT", 2, {K_KIND, K_MEMBER}, 0, 1},
     [OP_LOAD_THIS] = {"LOAD_THIS", 0, {0}, 0, 1},
     [OP_LOAD_FIELD] = {"LOAD_FIELD", 1, {K_MEMBER}, 0, 1},
     [OP_SET_FIELD] = {"SET_FIELD", 1, {K_MEMBER}, 1, 1},
@@ -124,7 +124,7 @@ static const InstrInfo INFO[OP_COUNT] = {
     [OP_CALL_METHOD] = {"CALL_METHOD", 2, {K_COUNT, K_MEMBER}, POPS_COUNT2, 1},
     [OP_TRY] = {"TRY", 1, {K_LABEL}, 0, 0},
     [OP_END_TRY] = {"END_TRY", 0, {0}, 0, 0},
-    [OP_CATCH_MATCH] = {"CATCH_MATCH", 2, {K_CLASS, K_LABEL}, 1, 1},
+    [OP_CATCH_MATCH] = {"CATCH_MATCH", 2, {K_KIND, K_LABEL}, 1, 1},
     [OP_CATCH_VALUE] = {"CATCH_VALUE", 0, {0}, 1, 1},
     [OP_RETHROW] = {"RETHROW", 0, {0}, 1, 0},
     [OP_HALT] = {"HALT", 0, {0}, 0, 0},
@@ -134,7 +134,7 @@ static const InstrInfo INFO[OP_COUNT] = {
 typedef struct RawInstr {
     int op;
     int ints[3];        /* slot, count and lambda arguments */
-    Str *names[3];      /* label, function, class, member... arguments, interned */
+    Str *names[3];      /* label, function, kind, member... arguments, interned */
     Str *words[4];      /* the words as written, for messages */
     int nwords;
     Value value;        /* PUSH's value */
@@ -302,7 +302,7 @@ static const char *KEYWORDS[][2] = {
     {"echo", "ECHO"}, {"if", "IF"}, {"else", "ELSE"}, {"while", "WHILE"}, {"for", "FOR"}, {"foreach", "FOREACH"},
     {"as", "AS"}, {"break", "BREAK"}, {"continue", "CONTINUE"}, {"fn", "FN"}, {"function", "FUNCTION"},
     {"return", "RETURN"}, {"delete", "DELETE"}, {"match", "MATCH"}, {"default", "DEFAULT"}, {"const", "CONST"},
-    {"include", "INCLUDE"}, {"try", "TRY"}, {"catch", "CATCH"}, {"finally", "FINALLY"}, {"class", "CLASS"},
+    {"include", "INCLUDE"}, {"try", "TRY"}, {"catch", "CATCH"}, {"finally", "FINALLY"}, {"kind", "KIND"}, {"class", "CLASS"},
     {"extends", "EXTENDS"}, {"abstract", "ABSTRACT"}, {"interface", "INTERFACE"}, {"implements", "IMPLEMENTS"},
     {"final", "FINAL"}, {"public", "PUBLIC"}, {"private", "PRIVATE"}, {"protected", "PROTECTED"},
 };
@@ -794,28 +794,28 @@ static Block *read_block(const char *header) {
     Block *b = xcalloc(1, sizeof(Block));
     b->self = -1;
     b->line_no = at_line;
-    const char *kind = w.w[0];
+    const char *block_word = w.w[0];
     char key[64];
-    if (!strcmp(kind, "top")) {
+    if (!strcmp(block_word, "top")) {
         b->kind = B_TOP;
         if (w.n != 1) fail("Expected 'top' on its own");
         b->key = intern("");
-    } else if (!strcmp(kind, "fn")) {
+    } else if (!strcmp(block_word, "fn")) {
         b->kind = B_FN;
         b->name = intern(w.n > 1 ? w.w[1] : "");
         read_arity(&w, 2, &b->lo, &b->hi);
         b->key = b->name;
-    } else if (!strcmp(kind, "class") || !strcmp(kind, "abstract")) {
-        b->kind = B_CLASS;
-        b->is_abstract = !strcmp(kind, "abstract");
+    } else if (!strcmp(block_word, "kind") || !strcmp(block_word, "abstract")) {
+        b->kind = B_KIND;
+        b->is_abstract = !strcmp(block_word, "abstract");
         int from = 1;
         if (b->is_abstract) {
-            if (w.n < 2 || strcmp(w.w[1], "class")) fail("Expected 'abstract class'");
+            if (w.n < 2 || strcmp(w.w[1], "kind")) fail("Expected 'abstract kind'");
             from = 2;
         }
         int rest = w.n - from;
         if (rest != 0 && rest != 1 && !(rest == 3 && !strcmp(w.w[from + 1], "extends"))) {
-            fail("Expected 'class Name' or 'class Name extends Parent'");
+            fail("Expected 'kind Name' or 'kind Name extends Parent'");
         }
         if (rest == 0) fail("Unexpected end of line");
         b->name = intern(w.w[from]);
@@ -825,29 +825,29 @@ static Block *read_block(const char *header) {
         buf_add_str(&k, b->name);
         b->key = str_intern(k.data, k.len);
         free(k.data);
-    } else if (!strcmp(kind, "lambda")) {
+    } else if (!strcmp(block_word, "lambda")) {
         b->kind = B_LAMBDA;
         b->index = count(w.n > 1 ? w.w[1] : "");
         read_arity(&w, 2, &b->lo, &b->hi);
         snprintf(key, sizeof key, "->%d", b->index);
         b->key = intern(key);
     } else {
-        fail("Unknown block '%s'", kind);
+        fail("Unknown block '%s'", block_word);
     }
     free_words(&w);
 
-    /* The record lines a class or lambda block carries, then its locals */
+    /* The record lines a kind or lambda block carries, then its locals */
     for (;;) {
         char *line = next_line();
         if (!line) fail("Expected 'locals'");
         split_words(line, &w);
         const char *first = w.w[0];
-        if (!strcmp(first, "field") && b->kind == B_CLASS) {
+        if (!strcmp(first, "field") && b->kind == B_KIND) {
             Str *name = intern(word(&w, 1)), *declarer = intern(word(&w, 2));
             int n = b->nfields;
             b->field_names = push_name(b->field_names, &n, name);
             b->field_declarers = push_name(b->field_declarers, &b->nfields, declarer);
-        } else if (!strcmp(first, "method") && b->kind == B_CLASS) {
+        } else if (!strcmp(first, "method") && b->kind == B_KIND) {
             Str *name = intern(word(&w, 1)), *definer = intern(word(&w, 2));
             int n = b->nmethods;
             b->method_names = push_name(b->method_names, &n, name);
@@ -896,9 +896,9 @@ static Function *find_function(Str *name) {
     return NULL;
 }
 
-static Class *find_class(Str *name) {
-    for (int i = prog->nclasses - 1; i >= 0; i--) {
-        if (prog->classes[i].name == name) return &prog->classes[i];
+static Kind *find_kind(Str *name) {
+    for (int i = prog->nkinds - 1; i >= 0; i--) {
+        if (prog->kinds[i].name == name) return &prog->kinds[i];
     }
     return NULL;
 }
@@ -920,20 +920,20 @@ static Str *method_key(Str *cls, Str *method) {
     return key;
 }
 
-/* A class's record: its parent, the class each field is declared by, and the block each method runs */
+/* A kind's record: its parent, the kind each field is declared by, and the block each method runs */
 static void check_record(Block *b) {
     const char *name = b->name->data;
-    if (b->parent && !find_class(b->parent)) fail_at(false, "Undefined class '%s' in class %s", b->parent->data, name);
+    if (b->parent && !find_kind(b->parent)) fail_at(false, "Undefined kind '%s' in kind %s", b->parent->data, name);
     for (int i = 0; i < b->nfields; i++) {
-        if (!find_class(b->field_declarers[i])) {
-            fail_at(false, "Field %s is declared by undefined class '%s' in class %s", b->field_names[i]->data, b->field_declarers[i]->data, name);
+        if (!find_kind(b->field_declarers[i])) {
+            fail_at(false, "Field %s is declared by undefined kind '%s' in kind %s", b->field_names[i]->data, b->field_declarers[i]->data, name);
         }
     }
     for (int i = 0; i < b->nmethods; i++) {
-        if (!find_class(b->method_definers[i])) {
-            fail_at(false, "Method %s runs undefined class '%s' in class %s", b->method_names[i]->data, b->method_definers[i]->data, name);
+        if (!find_kind(b->method_definers[i])) {
+            fail_at(false, "Method %s runs undefined kind '%s' in kind %s", b->method_names[i]->data, b->method_definers[i]->data, name);
         } else if (!find_function(method_key(b->method_definers[i], b->method_names[i]))) {
-            fail_at(false, "Method %s has no block %s.%s in class %s", b->method_names[i]->data, b->method_definers[i]->data, b->method_names[i]->data, name);
+            fail_at(false, "Method %s has no block %s.%s in kind %s", b->method_names[i]->data, b->method_definers[i]->data, b->method_names[i]->data, name);
         }
     }
 }
@@ -1079,8 +1079,8 @@ static void check_block(Block *b) {
                 case K_BUILTIN:
                     if (builtin_find(name->data, name->len) < 0) FAIL("Undefined builtin '%s'", name->data);
                     break;
-                case K_CLASS:
-                    if (!find_class(name)) FAIL("Undefined class '%s'", name->data);
+                case K_KIND:
+                    if (!find_kind(name)) FAIL("Undefined kind '%s'", name->data);
                     break;
                 case K_LAMBDA:
                     if (!find_lambda(n)) FAIL("Undefined lambda %d", n);
@@ -1139,7 +1139,7 @@ static void check_block(Block *b) {
                 target = find_label(b, r->names[0]);
                 if (r->op == OP_JNN || r->op == OP_TRY) target_height = height + 1;
             } else if (r->op == OP_CATCH_MATCH) {
-                /* Its class didn't match: the next catch is tried with the error still on top */
+                /* Its kind didn't match: the next catch is tried with the error still on top */
                 target = find_label(b, r->names[1]);
             }
             /* A try's handler is open from TRY until END_TRY, or until its catch runs */
@@ -1167,28 +1167,28 @@ static void check_block(Block *b) {
 
 /* ---- Linking --------------------------------------------------------------------------- */
 
-static void build_classes(void) {
+static void build_kinds(void) {
     int n = 0;
     for (int i = 0; i < prog->nblocks; i++) {
         Block *b = prog->blocks[i];
-        if (b->kind != B_CLASS) continue;
-        Class *c = &prog->classes[n++];
+        if (b->kind != B_KIND) continue;
+        Kind *c = &prog->kinds[n++];
         c->name = b->name;
         c->abstract = b->is_abstract;
         c->block = b;
         c->nfields = b->nfields;
         c->fields = b->field_names;
     }
-    for (int i = 0; i < prog->nclasses; i++) {
-        Class *c = &prog->classes[i];
+    for (int i = 0; i < prog->nkinds; i++) {
+        Kind *c = &prog->kinds[i];
         Block *b = c->block;
-        c->parent = b->parent ? find_class(b->parent) : NULL;
+        c->parent = b->parent ? find_kind(b->parent) : NULL;
         c->nmethods = b->nmethods;
         c->methods = b->method_names;
-        c->definers = xmalloc((size_t)b->nmethods * sizeof(Class *) + 1);
+        c->definers = xmalloc((size_t)b->nmethods * sizeof(Kind *) + 1);
         c->entries = xcalloc((size_t)b->nmethods + 1, sizeof(Entry));
         for (int m = 0; m < b->nmethods; m++) {
-            c->definers[m] = find_class(b->method_definers[m]);
+            c->definers[m] = find_kind(b->method_definers[m]);
             Str *key = method_key(b->method_definers[m], b->method_names[m]);
             c->entries[m] = (Entry){b->method_names[m], key, find_function(key)};
             if (b->method_names[m]->len == 1 && b->method_names[m]->data[0] == '_') {
@@ -1198,14 +1198,14 @@ static void build_classes(void) {
         }
         if (!strcmp(c->name->data, "Error")) {
             /* The VM fills these in for an error the program didn't throw itself (caught() in
-               vm.c), so a class named Error that lacks one would be written outside its fields */
+               vm.c), so a kind named Error that lacks one would be written outside its fields */
             static const char *const needed[] = {"message", "file", "line", "trace"};
             for (size_t f = 0; f < sizeof needed / sizeof *needed; f++) {
-                if (class_field(c, str_intern(needed[f], strlen(needed[f]))) < 0) {
-                    fail_at(false, "class Error must declare %s, which a caught error is given", needed[f]);
+                if (kind_field(c, str_intern(needed[f], strlen(needed[f]))) < 0) {
+                    fail_at(false, "kind Error must declare %s, which a caught error is given", needed[f]);
                 }
             }
-            prog->error_class = c;
+            prog->error_kind = c;
         }
     }
 }
@@ -1268,7 +1268,7 @@ static void link_program(void) {
         Block *b = prog->blocks[i];
         b->entry = prog->ncode;
         int frame = b->nlocals + b->max_stack;
-        if (b->kind == B_CLASS || b->kind == B_TOP) frame += 0;
+        if (b->kind == B_KIND || b->kind == B_TOP) frame += 0;
         if (frame > prog->max_frame) prog->max_frame = frame;
 
         /* STORE x; LOAD x; POP, an assignment used as a statement, is STORE x: the LOAD and
@@ -1309,7 +1309,7 @@ static void link_program(void) {
                 in->a = label < 0 ? -1 : positions[label];
                 break;
             case OP_CATCH_MATCH:
-                in->p = find_class(r->names[0]);
+                in->p = find_kind(r->names[0]);
                 label = find_label(b, r->names[1]);
                 in->a = label < 0 ? -1 : positions[label];
                 break;
@@ -1331,11 +1331,11 @@ static void link_program(void) {
             case OP_MAKE_CLOSURE:
                 in->p = find_lambda(r->ints[0]);
                 break;
-            case OP_PUSH_CLASS: case OP_CALL_CONSTRUCTOR:
-                in->p = find_class(r->names[0]);
+            case OP_PUSH_KIND: case OP_CALL_CONSTRUCTOR:
+                in->p = find_kind(r->names[0]);
                 break;
             case OP_NEW:
-                in->p = find_class(r->names[0]);
+                in->p = find_kind(r->names[0]);
                 in->a = r->ints[1];
                 break;
             case OP_CALL_PARENT:
@@ -1343,7 +1343,7 @@ static void link_program(void) {
                 in->a = r->ints[2];
                 break;
             case OP_BIND_PARENT:
-                in->p = find_class(r->names[0]);
+                in->p = find_kind(r->names[0]);
                 in->v = v_str(r->names[1]);
                 break;
             case OP_LOAD_FIELD: case OP_SET_FIELD: case OP_GET_PROPERTY: case OP_GET_PROPERTY_QUIET:
@@ -1419,7 +1419,7 @@ Program *load(const char *text, size_t len, const char *path) {
     char *line = next_line();
     split_words(line ? line : "", &w);
     if (w.n != 3 || strcmp(w.w[0], "GAZLANG") || strcmp(w.w[1], "BYTECODE")) fail("Not a bytecode file");
-    if (strcmp(w.w[2], "1")) fail("Bytecode version %s, but this is GazLang bytecode 1", w.w[2]);
+    if (strcmp(w.w[2], "2")) fail("Bytecode version %s, but this is GazLang bytecode 2", w.w[2]);
     free_words(&w);
 
     prog = xcalloc(1, sizeof(Program));
@@ -1429,7 +1429,7 @@ Program *load(const char *text, size_t len, const char *path) {
     for (int i = 1; i < w.n; i++) prog->globals = push_name(prog->globals, &prog->nglobals, intern(w.w[i]));
     free_words(&w);
 
-    /* A static field is named "Class::name", the class being the one that declares it, so a
+    /* A static field is named "Kind::name", the kind being the one that declares it, so a
        child and its parent name the same slot. The line is optional, as most programs have none */
     line = next_line();
     if (line) {
@@ -1453,11 +1453,11 @@ Program *load(const char *text, size_t len, const char *path) {
     for (int i = 0; i < prog->nblocks; i++) {
         Block *b = prog->blocks[i];
         if (b->kind == B_FN) prog->nfunctions++;
-        if (b->kind == B_CLASS) prog->nclasses++;
+        if (b->kind == B_KIND) prog->nkinds++;
         if (b->kind == B_LAMBDA) prog->nlambdas++;
     }
     prog->functions = xcalloc((size_t)prog->nfunctions + 1, sizeof(Function));
-    prog->classes = xcalloc((size_t)prog->nclasses + 1, sizeof(Class));
+    prog->kinds = xcalloc((size_t)prog->nkinds + 1, sizeof(Kind));
     prog->lambdas = xcalloc((size_t)prog->nlambdas + 1, sizeof(Lambda));
     int nf = 0, nl = 0;
     for (int i = 0; i < prog->nblocks; i++) {
@@ -1477,27 +1477,27 @@ Program *load(const char *text, size_t len, const char *path) {
             prog->lambdas[nl++] = (Lambda){b->index, b};
         }
     }
-    int nc = prog->nclasses;
-    prog->nclasses = 0;
+    int nc = prog->nkinds;
+    prog->nkinds = 0;
     for (int i = 0; i < prog->nblocks; i++) {
-        if (prog->blocks[i]->kind == B_CLASS) prog->classes[prog->nclasses++].name = prog->blocks[i]->name;
+        if (prog->blocks[i]->kind == B_KIND) prog->kinds[prog->nkinds++].name = prog->blocks[i]->name;
     }
     (void)nc;
     for (int i = 0; i < prog->nblocks; i++) {
-        if (prog->blocks[i]->kind == B_CLASS) check_record(prog->blocks[i]);
+        if (prog->blocks[i]->kind == B_KIND) check_record(prog->blocks[i]);
     }
     mark_objectless();
     for (int i = 0; i < prog->nblocks; i++) check_block(prog->blocks[i]);
 
-    build_classes();
+    build_kinds();
     /* What a catch sees is made as an Error (caught() in vm.c), so a file that can catch needs
-       the class, whatever its own catch clauses name */
-    if (!prog->error_class) {
+       the kind, whatever its own catch clauses name */
+    if (!prog->error_kind) {
         for (int i = 0; i < prog->nblocks; i++) {
             for (int j = 0; j < prog->blocks[i]->nraw; j++) {
                 int op = prog->blocks[i]->raw[j].op;
                 if (op == OP_CATCH_VALUE || op == OP_CATCH_MATCH) {
-                    fail_at(false, "%s needs a class Error, which is what a caught error is made as", INFO[op].name);
+                    fail_at(false, "%s needs a kind Error, which is what a caught error is made as", INFO[op].name);
                 }
             }
         }

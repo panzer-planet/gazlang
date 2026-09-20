@@ -1,1 +1,1 @@
-class K { const A = 1; } K::A = 2;
+kind K { const A = 1; } K::A = 2;

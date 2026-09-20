@@ -1,2 +1,2 @@
 const K = 1;
-class A extends K { }
+kind A extends K { }

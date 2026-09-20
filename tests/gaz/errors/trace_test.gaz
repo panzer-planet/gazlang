@@ -25,7 +25,7 @@ try {
     check("a rethrow keeps where it was first thrown", $again.trace[1], "top level at tests/gaz/errors/trace_test.gaz:19");
 }
 
-class Account {
+kind Account {
     #balance;
     fn _($balance) { #balance = $balance; }
     fn share($people) { return #balance / $people; }
@@ -54,7 +54,7 @@ try {
 
 // A method run from inside an expression, as printing runs to_string(), is called from where
 // the expression is running
-class Broken {
+kind Broken {
     #n = 0;
     fn to_string() { return "n is " .. (1 / #n); }
 }
@@ -70,7 +70,7 @@ try {
 }
 
 // The trace is whole when the error is raised, not as it leaves: caught inside to_string()
-class Careful {
+kind Careful {
     fn to_string() {
         try {
             error("inner");
@@ -87,7 +87,7 @@ check("caught inside to_string", label(Careful()), "label: Careful.to_string at 
     .. "label at tests/gaz/errors/trace_test.gaz:84; top level at tests/gaz/errors/trace_test.gaz:86");
 
 // Every instruction that can run to_string() says where it is running
-class Fails {
+kind Fails {
     fn to_string() { return error("fails"); }
 }
 fn called_from($f) {
@@ -118,7 +118,7 @@ foreach ($sites as [$site, $f]) {
 
 // A second call from the same instruction is still called from it, though the first ran
 // instructions of its own
-class Shouts {
+kind Shouts {
     fn to_string() { return upper("a"); }
 }
 $after_another = [

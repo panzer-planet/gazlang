@@ -1,6 +1,6 @@
-// Declares a class and a function for whoever includes it, and includes its own neighbour
+// Declares a kind and a function for whoever includes it, and includes its own neighbour
 include "deep/helper.gaz";
-class Square {
+kind Square {
     #side;
     fn _($side) { #side = $side; }
 }

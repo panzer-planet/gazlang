@@ -1,0 +1,71 @@
+include "../check.gaz";
+
+kind Shape { #name = "shape"; }
+kind Circle extends Shape { #r; fn _($r) { #name = "circle"; #r = $r; } }
+kind Square extends Shape { #s; fn _($s) { #name = "square"; #s = $s; } }
+
+$c = Circle(2);
+
+// kind_of gives exactly the kind, where is_a tests the hierarchy: the two answer
+// different questions, and a visitor wants the exact one
+check("the object's own kind", kind_of($c) == Circle, true);
+check("not a parent", kind_of($c) == Shape, false);
+check("is_a still follows the hierarchy", is_a($c, Shape), true);
+check("kinds are values, so == is identity", kind_of($c) == kind_of(Circle(9)), true);
+check("type_of of a kind", type_of(kind_of($c)), "kind");
+check("printed as a kind", to_string(kind_of($c)), "kind Circle");
+check("it is the kind, so it constructs", kind_of($c)(5).r, 5);
+check("and is_a accepts it", is_a($c, kind_of($c)), true);
+
+// What it is for: dispatching a pass written outside the node kinds, which is how a
+// compiler with more than one backend has to be written
+kind Num { #v; fn _($v) { #v = $v; } }
+kind Add { #l; #r; fn _($l, $r) { #l = $l; #r = $r; } }
+kind Mul { #l; #r; fn _($l, $r) { #l = $l; #r = $r; } }
+kind Neg { #e; fn _($e) { #e = $e; } }
+
+fn eval($n) {
+    return match (kind_of($n)) {
+        Num => $n.v,
+        Add => eval($n.l) + eval($n.r),
+        Mul => eval($n.l) * eval($n.r),
+        Neg => -eval($n.e),
+        default => error("cannot evaluate " .. to_string(kind_of($n))),
+    };
+}
+
+fn show($n) {
+    return match (kind_of($n)) {
+        Num => to_string($n.v),
+        Add => "(" .. show($n.l) .. " + " .. show($n.r) .. ")",
+        Mul => "(" .. show($n.l) .. " * " .. show($n.r) .. ")",
+        Neg => "-" .. show($n.e),
+        default => "?",
+    };
+}
+
+$tree = Add(Num(2), Mul(Num(3), Neg(Num(4))));
+check("a second pass over the same tree", show($tree), "(2 + (3 * -4))");
+check("evaluating it", eval($tree), -10);
+
+// A node the pass doesn't know reaches the default arm, naming itself
+kind Unknown {}
+fn fails($f) {
+    try {
+        $f();
+    } catch (Error $e) {
+        return $e.message;
+    }
+
+    return "no error";
+}
+check("an unhandled node", fails(() -> eval(Unknown())), "cannot evaluate kind Unknown");
+
+// A kind is a value like any other, so it keys nothing but compares by identity
+check("kinds in a list", in_array(Circle, [Square, Circle]), true);
+check("a kind that isn't there", in_array(Num, [Square, Circle]), false);
+
+// kind_of is an accessor, so it is strict: there is no kind for an int
+check("kind_of of an int", fails(() -> kind_of(1)), "kind_of() expects object, got int");
+check("kind_of of null", fails(() -> kind_of(null)), "kind_of() expects object, got null");
+check("kind_of of a kind", fails(() -> kind_of(Circle)), "kind_of() expects object, got kind");

@@ -1,4 +1,4 @@
-GAZLANG BYTECODE 1
+GAZLANG BYTECODE 2
 globals
 
 top
@@ -60,7 +60,7 @@ LABEL ENDTRY_0
 PUSH null
 RET
 
-class Error
+kind Error
 field message Error
 field file Error
 field line Error
@@ -93,7 +93,7 @@ RET
 PUSH null
 RET
 
-class Counter
+kind Counter
 field count Counter
 method _ Counter
 method step Counter

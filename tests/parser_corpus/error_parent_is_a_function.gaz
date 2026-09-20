@@ -1,2 +1,2 @@
 fn helper() {}
-class B extends helper {}
+kind B extends helper {}

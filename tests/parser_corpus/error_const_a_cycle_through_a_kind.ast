@@ -1,0 +1,1 @@
+Error: Constant K::A depends on itself: K::A uses K::B uses K::A at tests/parser_corpus/error_const_a_cycle_through_a_kind.gaz:1

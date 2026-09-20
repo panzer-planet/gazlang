@@ -1,2 +1,2 @@
-// Naming, extending or catching Error puts the builtin class in the tree
+// Naming, extending or catching Error puts the builtin kind in the tree
 $e = Error;

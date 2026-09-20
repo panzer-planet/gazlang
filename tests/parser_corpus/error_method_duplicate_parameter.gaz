@@ -1,1 +1,1 @@
-class Point { fn move($x, $x) {} }
+kind Point { fn move($x, $x) {} }

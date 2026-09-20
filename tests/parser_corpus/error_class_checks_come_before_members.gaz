@@ -1,2 +1,0 @@
-class A { fn f() { return #nope; } }
-class B extends Missing {}

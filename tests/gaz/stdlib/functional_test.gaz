@@ -49,22 +49,22 @@ fn message($f) {
     }
 }
 check("map needs a list or map", message(() -> map(5, $x -> $x)), "map() expects list or map, got int");
-check("map needs something to call", message(() -> map([], 5)), "map() expects function or class, got int");
+check("map needs something to call", message(() -> map([], 5)), "map() expects function or kind, got int");
 check("filter checks too", message(() -> filter("abc", $x -> $x)), "filter() expects list or map, got string");
-check("reduce checks too", message(() -> reduce([], null, 0)), "reduce() expects function or class, got null");
-check("sort checks too", message(() -> sort({}, "x")), "sort() expects function or class, got string");
+check("reduce checks too", message(() -> reduce([], null, 0)), "reduce() expects function or kind, got null");
+check("sort checks too", message(() -> sort({}, "x")), "sort() expects function or kind, got string");
 
 // Anything callable is called as a call in the program is
-class Pair {
+kind Pair {
     #value;
     fn _($value) { #value = $value; }
     fn twice($x) { return $x * 2; }
 }
-abstract class Shape {}
-check("a class constructs", map(map([1, 2], Pair), $p -> $p.value), [1, 2]);
+abstract kind Shape {}
+check("a kind constructs", map(map([1, 2], Pair), $p -> $p.value), [1, 2]);
 check("a bound method", map([1, 2], Pair(0).twice), [2, 4]);
 check("a builtin", map([[1], [1, 2]], len), [1, 2]);
-check("an abstract class can't", message(() -> map([1], Shape)), "Cannot construct abstract class Shape");
+check("an abstract kind can't", message(() -> map([1], Shape)), "Cannot construct abstract kind Shape");
 check("a builtin with the wrong count", message(() -> map([1], slice)), "Function slice expects 2 to 3 arguments, 1 given");
 check("a lambda with the wrong count", message(() -> map([1], ($a, $b) -> $a)), "Function -> at tests/gaz/stdlib/functional_test.gaz:69 expects 2 arguments, 1 given");
 check("a bound method with the wrong count", message(() -> reduce([1], Pair(0).twice, 0)), "Method Pair.twice expects 1 arguments, 2 given");
@@ -134,7 +134,7 @@ check("sort needs a list or map", message(() -> sort(5, ($a, $b) -> 0)), "sort()
 
 // A builtin as the callback that runs program code itself: to_string() calling a method, map()
 // calling a lambda
-class Named {
+kind Named {
     #name;
     fn _($name) { #name = $name; }
     fn to_string() { return "named " .. #name; }
@@ -145,7 +145,7 @@ $both = [Named(""), Named("x")];
 check("filter with to_string", filter($both, to_string), $both);
 $apply = map;
 check("map as a value, with to_string", $apply({"k" => Named("c")}, to_string), {"k" => "named c"});
-class Broken {
+kind Broken {
     fn to_string() { return 1 / 0; }
 }
 check("its error comes out", message(() -> map([Named("a"), Broken(), Named("b")], to_string)), "Division by zero");

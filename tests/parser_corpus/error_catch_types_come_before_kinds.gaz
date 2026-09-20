@@ -1,0 +1,2 @@
+kind B extends Missing {}
+try { echo 1; } catch (Nope $e) { }

@@ -1,4 +1,4 @@
-GAZLANG BYTECODE 1
+GAZLANG BYTECODE 2
 globals @g
 
 top
@@ -285,7 +285,7 @@ RET
 PUSH null
 RET
 
-class Error
+kind Error
 field message Error
 field file Error
 field line Error

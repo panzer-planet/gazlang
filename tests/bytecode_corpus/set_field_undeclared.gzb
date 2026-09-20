@@ -1,4 +1,4 @@
-GAZLANG BYTECODE 1
+GAZLANG BYTECODE 2
 globals
 
 top
@@ -9,7 +9,7 @@ GET_METHOD m
 CALL_METHOD 0 m
 POP
 
-class Error
+kind Error
 field message Error
 field file Error
 field line Error
@@ -42,7 +42,7 @@ RET
 PUSH null
 RET
 
-class C
+kind C
 field x C
 method m C
 locals

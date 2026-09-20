@@ -1,5 +1,5 @@
-class A { }
-class B extends A {
+kind A { }
+kind B extends A {
     fn f() { return ##missing(); }
     fn g() { return #nope; }
 }

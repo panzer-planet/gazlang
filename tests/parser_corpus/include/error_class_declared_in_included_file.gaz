@@ -1,2 +1,0 @@
-include "lib/shapes.gaz";
-class Square { }

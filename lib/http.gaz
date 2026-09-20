@@ -214,7 +214,7 @@ fn resolve($target, $location) {
 }
 
 // Reads a response from a socket: lines up to a delimiter, a count of bytes, or the rest
-class Reader {
+kind Reader {
     #socket;
     #data = "";         // read but not taken yet
 

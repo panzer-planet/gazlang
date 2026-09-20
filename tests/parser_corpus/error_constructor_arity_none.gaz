@@ -1,2 +1,2 @@
-class Empty {}
+kind Empty {}
 echo Empty(1);

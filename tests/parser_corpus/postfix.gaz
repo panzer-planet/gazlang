@@ -17,7 +17,7 @@ echo len([1])[0];
 echo $user.save(1, 2);
 echo $user.save;
 echo $user.list()[0].name();
-echo $o.echo.if.class;
+echo $o.echo.if.kind;
 echo "abc"[0];
 echo [1, 2][0];
 echo {"k" => 1}["k"];

@@ -87,7 +87,7 @@ check("past the match", describe(1), "not zero");
 
 // Nothing matching and no default is an error naming the subject, strings quoted
 @printed = 0;
-class Loud {
+kind Loud {
     fn to_string() { @printed++; return "loud"; }
 }
 
@@ -109,9 +109,9 @@ check("no arm matches null", fails(() -> match (null) { 1 => 1 }), "No arm match
 // which raising an error must never do
 check("no arm matches a list", fails(() -> match ([1]) { [2] => 1 }), "No arm matches list");
 check("no arm matches a map", fails(() -> match ({"a" => 1}) { 1 => 1 }), "No arm matches map");
-// A class and a function name themselves: dispatching on one is what match is for, so a
-// visitor that meets a node it does not handle has to say which class that was
-check("no arm matches a class", fails(() -> match (class_of(Loud())) { 1 => 1 }), "No arm matches class Loud");
+// A kind and a function name themselves: dispatching on one is what match is for, so a
+// visitor that meets a node it does not handle has to say which kind that was
+check("no arm matches a kind", fails(() -> match (kind_of(Loud())) { 1 => 1 }), "No arm matches kind Loud");
 check("no arm matches a function", fails(() -> match (fails) { 1 => 1 }), "No arm matches function fails");
 check("an object's to_string never runs while the error is raised",
     fails(() -> match (Loud()) { 1 => 1 }), "No arm matches object");

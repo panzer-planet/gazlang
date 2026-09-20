@@ -1,1 +1,1 @@
-Error: Constants can only be declared at the top level or in a class at tests/parser_corpus/error_const_in_a_block.gaz:1
+Error: Constants can only be declared at the top level or in a kind at tests/parser_corpus/error_const_in_a_block.gaz:1

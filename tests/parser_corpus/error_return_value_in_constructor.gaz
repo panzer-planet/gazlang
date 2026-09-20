@@ -1,1 +1,1 @@
-class A { fn _() { return 1; } }
+kind A { fn _() { return 1; } }

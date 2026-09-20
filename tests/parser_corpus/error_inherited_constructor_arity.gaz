@@ -1,3 +1,3 @@
-class A { fn _($x) {} }
-class B extends A {}
+kind A { fn _($x) {} }
+kind B extends A {}
 echo B();

@@ -40,11 +40,11 @@ $v ..= true;
 $v ..= null;
 $v ..= {"k" => 1};
 check("..= appends any value to a string", $v, "12.5truenull{\"k\" => 1}");
-class Loud { fn to_string() { return "L"; } }
+kind Loud { fn to_string() { return "L"; } }
 $w = "x";
 $w ..= Loud();
 check("..= runs to_string on an object", $w, "xL");
-class Angry { fn to_string() { error("nope"); } }
+kind Angry { fn to_string() { error("nope"); } }
 $z = "keep";
 try {
     $z ..= Angry();
@@ -72,7 +72,7 @@ $append = make_appender();
 $append("1");
 check("..= on a captured variable persists between calls", $append("2"), "12");
 check("a second closure has its own", make_appender()("9"), "9");
-class Buffer { #text = ""; fn add($c) { #text ..= $c; return #text; } }
+kind Buffer { #text = ""; fn add($c) { #text ..= $c; return #text; } }
 $buffer = Buffer();
 $buffer.add("a");
 check("..= on a field", $buffer.add("b"), "ab");

@@ -16,7 +16,7 @@ Text, one instruction per line, with no comments. Blank lines are ignored, as is
 leading and trailing whitespace on a line; a line's parts are separated by whitespace.
 
 ```
-GAZLANG BYTECODE 1
+GAZLANG BYTECODE 2
 globals @total @seen
 statics Counter::count
 ```
@@ -25,20 +25,20 @@ The first line is the magic and the version. The second lists the global variabl
 per global slot, in slot order; a program with no globals writes `globals` on its own.
 
 A `statics` line may follow, one name per static field slot, in slot order. A name is
-`Class::field`, the class being the one that *declares* it, so a class and its children name
+`Kind::field`, the kind being the one that *declares* it, so a kind and its children name
 the same slot. The line is left out by a program with no static fields. The rest of the file
 is blocks.
 
 ## Blocks
 
 A block is a unit of code with its own frame and its own labels: the top level, a function, a
-class, or a lambda. A block starts at its header line, which begins with a lowercase word, and
+kind, or a lambda. A block starts at its header line, which begins with a lowercase word, and
 runs until the next header line or the end of the file. Instruction names are uppercase, so a
 block needs no end marker.
 
 The top level block comes first; a loader starts the program at its first instruction, and
 falling off its end ends the program. Then come the functions in declaration order, then each
-class followed by its methods, then the lambdas in index order.
+kind followed by its methods, then the lambdas in index order.
 
 Every block ends with a `locals` line naming the variable in each local slot, in slot order. A
 block's parameters are its first slots, as many as its arity allows.
@@ -49,11 +49,11 @@ locals $c $next
 ```
 
 A **function** gives its name and its arity as fewest then most arguments (they differ when it
-has default parameters). A method is a function whose name is `Class.name`; a GazLang function
+has default parameters). A method is a function whose name is `Kind.name`; a GazLang function
 name can't contain a `.`, so the two never collide.
 
 A name in a namespace carries it, with `::` between the parts: `json::decode` is a function and
-`json::Reader.read` a method of the class `json::Reader`. The parser resolves namespaces, so a
+`json::Reader.read` a method of the kind `json::Reader`. The parser resolves namespaces, so a
 loader needs to know nothing about them beyond treating a name as one word; the dot is still
 what tells a method from a function.
 
@@ -65,20 +65,20 @@ fn json::decode 1 1
 locals $text
 ```
 
-A **class** is a record followed by the code that makes one of its objects: that code sets the
+A **kind** is a record followed by the code that makes one of its objects: that code sets the
 field defaults (the parent's first), calls the constructor and returns the object. `field`
-lines give every field an object of the class has, in layout order, each with the class that
+lines give every field an object of the kind has, in layout order, each with the kind that
 declares it; `method` lines give every method it can call, including the constructor `_`, each
-with the class whose version runs. The constructor's arity is that method's arity.
+with the kind whose version runs. The constructor's arity is that method's arity.
 
 ```
-abstract class Shape
+abstract kind Shape
 field name Shape
 method _ Shape
 method area Shape
 locals $#argument_0
 
-class Circle extends Shape
+kind Circle extends Shape
 field name Shape
 field radius Circle
 method _ Circle
@@ -214,7 +214,7 @@ depth limit is reached.
 | --- | --- | --- |
 | `CALL function count` | `… -- v` | Calls a function of the program by name, with that many arguments. |
 | `CALL_BUILTIN builtin count` | `… -- v` | Calls a builtin. Fails as the builtin does, on an argument of the wrong type. |
-| `CALL_VALUE count` | `f … -- v` | Calls whatever the value under the arguments is: a function, a closure, a bound method or a class. Fails with "Cannot call int" on anything else, or with an arity message. |
+| `CALL_VALUE count` | `f … -- v` | Calls whatever the value under the arguments is: a function, a closure, a bound method or a kind. Fails with "Cannot call int" on anything else, or with an arity message. |
 | `RET` | `v --` | Returns the value, dropping the frame and any try handlers it still has. |
 | `PUSH_FN function` | `-- f` | Pushes a function or builtin as a value. |
 | `MAKE_CLOSURE lambda` | `-- f` | Makes a closure of that lambda, copying in the captured variables that exist, then setting its `self` if it has one. Its location is this instruction's. |
@@ -241,13 +241,13 @@ depth limit is reached.
 | `DELETE_PATH_GLOBAL path slot`, `DELETE_PATH_CAPTURED path slot`, `DELETE_PATH_STATIC path slot` | | The same for a global, a captured variable or a static field. |
 | `DELETE_PATH_THIS path` | `… --` | The same, starting at the object the method runs on. |
 
-### Objects and classes
+### Objects and kinds
 
 | Instruction | Stack | What it does |
 | --- | --- | --- |
-| `PUSH_CLASS class` | `-- c` | Pushes a class as a value. |
-| `NEW class count` | `… -- o` | Makes an object of that class with that many arguments: the class's block sets the field defaults, calls the constructor and returns the object. |
-| `CALL_CONSTRUCTOR class` | `-- v` | In a class's block: runs that class's `_` on the object being made, with the same arguments. |
+| `PUSH_KIND kind` | `-- c` | Pushes a kind as a value. |
+| `NEW kind count` | `… -- o` | Makes an object of that kind with that many arguments: the kind's block sets the field defaults, calls the constructor and returns the object. |
+| `CALL_CONSTRUCTOR kind` | `-- v` | In a kind's block: runs that kind's `_` on the object being made, with the same arguments. |
 | `LOAD_THIS` | `-- o` | Pushes the object the running method or initialiser is on. |
 | `LOAD_FIELD member` | `-- v` | Pushes a field of that object. Fails with "Property x of C is not set". |
 | `SET_FIELD member` | `v -- v` | Sets a field of that object, leaving the value. |
@@ -256,8 +256,8 @@ depth limit is reached.
 | `GET_PROPERTY_EXISTING member` | `o -- v` | The same as `GET_PROPERTY`, for a compound update. |
 | `GET_METHOD member` | `o -- o m` | Pushes the object again with the method to run on it, or the member's value with nothing when it isn't a method. |
 | `CALL_METHOD count member` | `o m … -- v` | Calls what `GET_METHOD` found, or the value as `CALL_VALUE` would. Fails with "Method C.m expects 1 argument, 2 given". |
-| `CALL_PARENT class member count` | `… -- v` | Runs that class's version of a method on the running object (`##name(...)`). |
-| `BIND_PARENT class member` | `-- f` | Pushes that class's version of a method, bound to the running object (`##name`). |
+| `CALL_PARENT kind member count` | `… -- v` | Runs that kind's version of a method on the running object (`##name(...)`). |
+| `BIND_PARENT kind member` | `-- f` | Pushes that kind's version of a method, bound to the running object (`##name`). |
 
 ### Errors
 
@@ -265,7 +265,7 @@ depth limit is reached.
 | --- | --- | --- |
 | `TRY label` | | Installs a handler: an error until the matching `END_TRY` unwinds to the frame and stack depth of this instruction, pushes the error and jumps to the label. |
 | `END_TRY` | | Removes the innermost handler. |
-| `CATCH_MATCH class label` | `e -- v` or `e -- e` | Replaces the error with what catch sees when that is an object of the class or a subclass; otherwise jumps to the label, leaving the error for the next clause. |
+| `CATCH_MATCH kind label` | `e -- v` or `e -- e` | Replaces the error with what catch sees when that is an object of the kind or a child kind; otherwise jumps to the label, leaving the error for the next clause. |
 | `CATCH_VALUE` | `e -- v` | Replaces the error with what catch sees: an `Error` object, or the value the program threw. |
 | `RETHROW` | `e --` | Raises the error again, so an outer handler or the program's caller sees it. |
 
@@ -277,7 +277,7 @@ A file that loads is one the VM can run, so the checks are part of the format:
 - Every instruction name is known and takes the arguments it is given.
 - Every count (a slot, a capture, an argument count) fits in a 32-bit int: one that doesn't is
   refused rather than clamped, since it is a number nothing meant.
-- Every label a jump names is defined in the same block, and every function, builtin, class
+- Every label a jump names is defined in the same block, and every function, builtin, kind
   and lambda a name or index refers to exists.
 - Nothing that needs the object a method runs on (`LOAD_FIELD`, `SET_FIELD`, `CALL_PARENT`,
   `BIND_PARENT`, `CALL_CONSTRUCTOR`) is in a block that can run without one: the top level, a
@@ -289,9 +289,9 @@ A file that loads is one the VM can run, so the checks are part of the format:
 - Each block's handlers balance the same way: an instruction is reached with the same handlers
   open on every path, and `END_TRY` closes one that a `TRY` opened. (`RET` needs none of this:
   a call's handlers go with its frame.)
-- A class named `Error` declares `message`, `file`, `line` and `trace`, which is where a VM
+- A kind named `Error` declares `message`, `file`, `line` and `trace`, which is where a VM
   puts an error the program didn't throw itself, and a file holding `CATCH_VALUE` or
-  `CATCH_MATCH` has that class at all, since that is what a caught error is made as.
+  `CATCH_MATCH` has that kind at all, since that is what a caught error is made as.
 - `HALT` is in the top level, whose end it is. In a call it would end that call's run instead,
   leaving whatever started the run without a value.
 

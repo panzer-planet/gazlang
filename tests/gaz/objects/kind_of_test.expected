@@ -1,0 +1,16 @@
+ok the object's own kind
+ok not a parent
+ok is_a still follows the hierarchy
+ok kinds are values, so == is identity
+ok type_of of a kind
+ok printed as a kind
+ok it is the kind, so it constructs
+ok and is_a accepts it
+ok a second pass over the same tree
+ok evaluating it
+ok an unhandled node
+ok kinds in a list
+ok a kind that isn't there
+ok kind_of of an int
+ok kind_of of null
+ok kind_of of a kind

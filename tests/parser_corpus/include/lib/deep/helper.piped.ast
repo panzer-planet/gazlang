@@ -12,5 +12,5 @@ Compound
               token: 1 INTEGER 1
               value: 1
       arity: 0
-      class: null
+      kind: null
       abstract: false

@@ -1,1 +1,0 @@
-Error: K already has a constant A: constants, fields and methods share names at tests/parser_corpus/error_const_twice_in_a_class.gaz:1

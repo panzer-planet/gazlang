@@ -1,4 +1,4 @@
-GAZLANG BYTECODE 1
+GAZLANG BYTECODE 2
 globals
 
 top
@@ -48,7 +48,7 @@ RET
 PUSH null
 RET
 
-class Square
+kind Square
 field side Square
 method _ Square
 locals $#argument_0

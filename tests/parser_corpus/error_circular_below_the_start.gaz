@@ -1,3 +1,3 @@
-class Top extends A {}
-class A extends B {}
-class B extends A {}
+kind Top extends A {}
+kind A extends B {}
+kind B extends A {}

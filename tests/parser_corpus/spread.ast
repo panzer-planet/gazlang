@@ -1,7 +1,7 @@
 Compound
   statements:
 @ "tests/parser_corpus/spread.gaz"
-    0: ClassDeclaration 4
+    0: KindDeclaration 4
       name: "T"
       parent: null
       abstract: false
@@ -131,7 +131,7 @@ Compound
                     value: 4
               map: false
       arity: 0
-      class: null
+      kind: null
       abstract: false
     6: Statement 10
       expr: Assign 10

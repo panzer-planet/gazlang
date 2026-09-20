@@ -1,1 +1,1 @@
-Error: Field x is declared by undefined class 'D' in class C
+Error: Field x is declared by undefined kind 'D' in kind C

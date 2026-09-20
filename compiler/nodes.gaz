@@ -1,4 +1,4 @@
-// The tree compiler/parser.gaz builds: one class per node, named after what it is (BinOpAST,
+// The tree compiler/parser.gaz builds: one kind per node, named after what it is (BinOpAST,
 // IfStatementAST), its fields what the code generator reads.
 //
 // Fields are declared in the order --ast prints them, since fields() gives them in that order:
@@ -10,13 +10,13 @@
 
 namespace gazlang;
 
-abstract class AST {
+abstract kind AST {
     #line = null;
     #file = null;
 }
 
 // A node that is one token: a literal or a variable
-abstract class TokenValueNodeAST extends AST {
+abstract kind TokenValueNodeAST extends AST {
     #token;
     #value;
 
@@ -26,18 +26,18 @@ abstract class TokenValueNodeAST extends AST {
     }
 }
 
-class NumAST extends TokenValueNodeAST {}
+kind NumAST extends TokenValueNodeAST {}
 
-class StringAST extends TokenValueNodeAST {}
+kind StringAST extends TokenValueNodeAST {}
 
-class NullAST extends TokenValueNodeAST {
+kind NullAST extends TokenValueNodeAST {
     fn _($token) {
         ##_($token);
         #value = null;
     }
 }
 
-class BooleanAST extends TokenValueNodeAST {
+kind BooleanAST extends TokenValueNodeAST {
     fn _($token) {
         ##_($token);
         #value = $token.type == "TRUE";
@@ -45,13 +45,13 @@ class BooleanAST extends TokenValueNodeAST {
 }
 
 // #value is the token's text, "$name" or "@name"
-class VariableAST extends TokenValueNodeAST {
+kind VariableAST extends TokenValueNodeAST {
     fn is_global() {
         return #value[0] == "@";
     }
 }
 
-class UnaryOpAST extends AST {
+kind UnaryOpAST extends AST {
     #op;
     #expr;
 
@@ -61,7 +61,7 @@ class UnaryOpAST extends AST {
     }
 }
 
-class BinOpAST extends AST {
+kind BinOpAST extends AST {
     #left;
     #token;
     #op;
@@ -75,7 +75,7 @@ class BinOpAST extends AST {
     }
 }
 
-class TernaryAST extends AST {
+kind TernaryAST extends AST {
     #condition;
     #then;
     #else;
@@ -87,7 +87,7 @@ class TernaryAST extends AST {
     }
 }
 
-abstract class AbstractStatementAST extends AST {
+abstract kind AbstractStatementAST extends AST {
     #expr;
 
     fn _($expr) {
@@ -95,16 +95,16 @@ abstract class AbstractStatementAST extends AST {
     }
 }
 
-class StatementAST extends AbstractStatementAST {}
+kind StatementAST extends AbstractStatementAST {}
 
-class EchoStatementAST extends AbstractStatementAST {}
+kind EchoStatementAST extends AbstractStatementAST {}
 
-class CompoundAST extends AST {
+kind CompoundAST extends AST {
     #statements = [];
 }
 
 // A list [1, 2] or, with #map, a map {"k" => 1}; each entry is [key, value], the key null in a list
-class ArrayLiteralAST extends AST {
+kind ArrayLiteralAST extends AST {
     #entries;
     #map;
 
@@ -115,7 +115,7 @@ class ArrayLiteralAST extends AST {
 }
 
 // An element of a list literal written ...$expr: the elements of the list #expr gives
-class SpreadAST extends AST {
+kind SpreadAST extends AST {
     #expr;
 
     fn _($expr) {
@@ -124,7 +124,7 @@ class SpreadAST extends AST {
 }
 
 // $target[$index], or $target[] when #index is null
-class IndexAST extends AST {
+kind IndexAST extends AST {
     #target;
     #index;
     // Set by the code generator on the nodes it builds for a compound update, which reads the
@@ -138,16 +138,16 @@ class IndexAST extends AST {
 }
 
 // $target.name, or #name when the target is a ThisAST
-class PropertyAST extends AST {
+kind PropertyAST extends AST {
     #target;
     #name;
-    // Whether a #name is a field rather than a method, which the parser knows once the classes are resolved
+    // Whether a #name is a field rather than a method, which the parser knows once the kinds are resolved
     #field = false;
-    // Whether this is a class's constant (#NAME), and if so its value, which the parser
-    // works out once the classes are resolved: a use of a constant is its value
+    // Whether this is a kind's constant (#NAME), and if so its value, which the parser
+    // works out once the kinds are resolved: a use of a constant is its value
     #constant = false;
     #value = null;
-    // The "Class::name" of the static field or static method this is, or null: a static is
+    // The "Kind::name" of the static field or static method this is, or null: a static is
     // reached by name, so #count in a method is a slot and #next() a plain call
     #static_name = null;
     // Where a #name's record is in Parser.member_uses, or null; not part of the tree
@@ -162,7 +162,7 @@ class PropertyAST extends AST {
 }
 
 // A call on a value: $f(1), pick()(2)
-class CallValueAST extends AST {
+kind CallValueAST extends AST {
     #callee;
     #args;
 
@@ -173,7 +173,7 @@ class CallValueAST extends AST {
 }
 
 // $obj.name(args) or #name(args)
-class MethodCallAST extends AST {
+kind MethodCallAST extends AST {
     #property;
     #args;
 
@@ -184,7 +184,7 @@ class MethodCallAST extends AST {
 }
 
 // A call by name: add(1, 2)
-class FunctionCallAST extends AST {
+kind FunctionCallAST extends AST {
     #name;
     #args;
 
@@ -194,10 +194,10 @@ class FunctionCallAST extends AST {
     }
 }
 
-// A bare function, class or constant name used as a value
+// A bare function, kind or constant name used as a value
 // A static field's default, which the code generator writes before the program's own first
 // instruction: the value is a constant the parser worked out, so there is no order to define
-class StaticInitAST extends AST {
+kind StaticInitAST extends AST {
     #name;
     #value;
 
@@ -207,13 +207,13 @@ class StaticInitAST extends AST {
     }
 }
 
-class FunctionRefAST extends AST {
+kind FunctionRefAST extends AST {
     #name;
     // Whether the name is a constant's, and if so its value, which the parser works out once
     // the whole program is read: a use of a constant is its value
     #constant = false;
     #value = null;
-    // The "Class::name" of the static field this names, or null; a static field is a slot,
+    // The "Kind::name" of the static field this names, or null; a static field is a slot,
     // so Counter::count reads and writes one rather than being a value of its own
     #static_name = null;
 
@@ -223,7 +223,7 @@ class FunctionRefAST extends AST {
 }
 
 // = and the compound assignments; #token says which
-class AssignAST extends AST {
+kind AssignAST extends AST {
     #left;
     #token;
     #right;
@@ -235,7 +235,7 @@ class AssignAST extends AST {
     }
 }
 
-class IncrementAST extends AST {
+kind IncrementAST extends AST {
     #target;
     #op;
     #prefix;
@@ -248,7 +248,7 @@ class IncrementAST extends AST {
 }
 
 // [$a, $b] on the left of = or in a foreach
-class ListPatternAST extends AST {
+kind ListPatternAST extends AST {
     #targets;
 
     fn _($targets) {
@@ -256,7 +256,7 @@ class ListPatternAST extends AST {
     }
 }
 
-class LambdaAST extends AST {
+kind LambdaAST extends AST {
     #params;
     #defaults;
     #arity;
@@ -277,7 +277,7 @@ class LambdaAST extends AST {
 
 // #subject is null when the arms are conditions; each arm is [values, body, is_block],
 // the values null for the default arm
-class MatchAST extends AST {
+kind MatchAST extends AST {
     #subject;
     #arms;
 
@@ -294,7 +294,7 @@ fn path_root($node) {
     }
 
     // A qualified name can be a static field, which is a slot and so can be written; that it
-    // is one rather than a constant or a class is checked once the whole program is read
+    // is one rather than a constant or a kind is checked once the whole program is read
     if (is_a($node, FunctionRefAST) && contains($node.name, "::")) {
         return $node;
     }
@@ -303,10 +303,10 @@ fn path_root($node) {
 }
 
 // # alone, the object a method runs on
-class ThisAST extends AST {}
+kind ThisAST extends AST {}
 
 // #else_if is the IfStatementAST of an else if, #else_body the block of an else; at most one is set
-class IfStatementAST extends AST {
+kind IfStatementAST extends AST {
     #condition;
     #if_body;
     #else_if;
@@ -321,7 +321,7 @@ class IfStatementAST extends AST {
 }
 
 // #step is a for loop's third clause, which runs after the body and on continue
-class WhileStatementAST extends AST {
+kind WhileStatementAST extends AST {
     #condition;
     #body;
     #step;
@@ -334,7 +334,7 @@ class WhileStatementAST extends AST {
 }
 
 // #key is null without one; #value is a variable or a list pattern of them
-class ForeachStatementAST extends AST {
+kind ForeachStatementAST extends AST {
     #iterable;
     #key;
     #value;
@@ -349,7 +349,7 @@ class ForeachStatementAST extends AST {
 }
 
 // break or continue; #token says which
-class LoopControlAST extends AST {
+kind LoopControlAST extends AST {
     #token;
 
     fn _($token) {
@@ -357,7 +357,7 @@ class LoopControlAST extends AST {
     }
 }
 
-class ReturnStatementAST extends AST {
+kind ReturnStatementAST extends AST {
     #expr;
 
     fn _($expr) {
@@ -365,7 +365,7 @@ class ReturnStatementAST extends AST {
     }
 }
 
-class DeleteStatementAST extends AST {
+kind DeleteStatementAST extends AST {
     #target;
 
     fn _($target) {
@@ -373,14 +373,14 @@ class DeleteStatementAST extends AST {
     }
 }
 
-// A function, or a method when #class names its class; an abstract method's body is empty
-class FunctionDeclarationAST extends AST {
+// A function, or a method when #kind names its kind; an abstract method's body is empty
+kind FunctionDeclarationAST extends AST {
     #name;
     #params;
     #defaults;
     #body;
     #arity;
-    #class = null;
+    #kind = null;
     #abstract = false;
 
     fn _($name, $params, $defaults, $body, $arity) {
@@ -392,11 +392,11 @@ class FunctionDeclarationAST extends AST {
     }
 }
 
-// ##name, the parent class's version of a method: a bound method, or a call when #args is a list
-class ParentMethodAST extends AST {
+// ##name, the parent kind's version of a method: a bound method, or a call when #args is a list
+kind ParentMethodAST extends AST {
     #name;
     #args;
-    // The class whose version runs, which the parser knows once the classes are resolved
+    // The kind whose version runs, which the parser knows once the kinds are resolved
     #definer = "";
 
     fn _($name, $args) {
@@ -405,8 +405,8 @@ class ParentMethodAST extends AST {
     }
 }
 
-// Each catch is [class name or null, variable, block]
-class TryStatementAST extends AST {
+// Each catch is [kind name or null, variable, block]
+kind TryStatementAST extends AST {
     #body;
     #catches;
     #finally;
@@ -418,7 +418,7 @@ class TryStatementAST extends AST {
     }
 }
 
-class ClassDeclarationAST extends AST {
+kind KindDeclarationAST extends AST {
     #name;
     #parent;
     #abstract;
@@ -428,7 +428,7 @@ class ClassDeclarationAST extends AST {
     // Each declared static method's FunctionDeclarationAST, by name
     #static_methods = {};
     // Worked out once the whole program is read: every static, the parent's first, with the
-    // class that declares it, and which of them are methods
+    // kind that declares it, and which of them are methods
     #static_owners = {};
     #static_is_method = {};
     // Each declared field's default, or null, by name
@@ -441,11 +441,11 @@ class ClassDeclarationAST extends AST {
     #constants = {};
     #constant_lines = {};
     // Worked out once the whole program is read: every constant, the parent's first, with the
-    // class that declares it
+    // kind that declares it
     #constant_owners = {};
     // Worked out once the whole program is read: every field, the parent's first, with the
-    // class that declares it; every concrete method with the class whose version runs; and
-    // every abstract method still to be defined, with the class that declares it
+    // kind that declares it; every concrete method with the kind whose version runs; and
+    // every abstract method still to be defined, with the kind that declares it
     #layout = {};
     #members = {};
     #abstract_methods = {};

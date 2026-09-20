@@ -1,1 +1,1 @@
-class A { #size; fn size() {} }
+kind A { #size; fn size() {} }

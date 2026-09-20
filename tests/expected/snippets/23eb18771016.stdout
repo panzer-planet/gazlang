@@ -1,0 +1,8 @@
+["kind", "object"]
+kind Point
+[kind Point]
+true
+true
+yes
+Point {#x => 1}
+Point {}

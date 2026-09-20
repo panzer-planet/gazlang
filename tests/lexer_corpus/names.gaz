@@ -2,7 +2,7 @@ echo true false null
 ECHO Echo TRUE False Null RETURN Continue FOR WhIlE Foreach AS Catch TRY
 fn _helper2($If, @while_1) { return; }
 break continue include for while else foreach as try catch as_is asx catcher
-$_ $a1 @b_2 someName x9 If While Return Match Default Class Extends
+$_ $a1 @b_2 someName x9 If While Return Match Default Kind Extends
 // Reserved so that using it says to write fn
 function
 // Reserved for namespaces; a capitalisation of one is still an ordinary name

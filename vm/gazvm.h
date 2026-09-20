@@ -45,8 +45,8 @@ typedef enum {
     T_OBJECT,
     T_SOCKET,   /* a connection, closed when the last reference goes */
     T_ERROR,    /* a raised error, as the stack holds it in a catch or finally block */
-    T_CLASS,    /* lives as long as the program: not counted */
-    T_ENTRY,    /* the method entry GET_METHOD pushes: points into a class, not counted */
+    T_KIND,    /* lives as long as the program: not counted */
+    T_ENTRY,    /* the method entry GET_METHOD pushes: points into a kind, not counted */
 } Type;
 
 #define IS_HEAP(t) ((t) >= T_STRING && (t) <= T_ERROR)
@@ -57,7 +57,7 @@ typedef struct Map Map;
 typedef struct Func Func;
 typedef struct Object Object;
 typedef struct Error Error;
-typedef struct Class Class;
+typedef struct Kind Kind;
 typedef struct Entry Entry;
 typedef struct Socket Socket;
 
@@ -75,7 +75,7 @@ typedef struct Value {
         Func *fn;
         Object *o;
         Error *e;
-        Class *c;
+        Kind *k;
         Entry *entry;
         Socket *sock;
     };
@@ -142,7 +142,7 @@ struct Func {
     Str *name;          /* named, builtin, bound: the name */
     Function *function; /* named: what to run */
     int builtin;        /* builtin: its index in the builtin table */
-    Class *cls;         /* bound: the class whose version runs */
+    Kind *definer;      /* bound: the kind whose version runs */
     Object *receiver;   /* bound, and a closure made in a method: the object # is (counted) */
     Lambda *lambda;     /* closure: its lambda */
     Value *captured;    /* closure: its captured variables, by capture index */
@@ -150,11 +150,11 @@ struct Func {
     int64_t line;
 };
 
-/* An object: a handle, so == is identity. fields[] holds one value per field of its class,
+/* An object: a handle, so == is identity. fields[] holds one value per field of its kind,
    in layout order; a field never set is T_UNSET. */
 struct Object {
     Gc gc;
-    Class *cls;
+    Kind *kind;
     bool printing;      /* while echo prints it, so one that holds itself prints Name {...} */
     Value fields[];
 };
@@ -187,30 +187,30 @@ struct Error {
 /* A method as GET_METHOD finds it: where the version that runs starts */
 struct Entry {
     Str *name;          /* the method's name */
-    Str *key;           /* "Class.name" of the version that runs */
+    Str *key;           /* "Kind.name" of the version that runs */
     Function *function;
 };
 
-struct Class {
+struct Kind {
     Str *name;
-    Class *parent;
+    Kind *parent;
     bool abstract;
     int nfields;
     Str **fields;       /* field names in layout order (interned, so == compares them) */
     int nmethods;
     Str **methods;      /* every method it can call, the constructor _ included */
-    Class **definers;   /* the class whose version of each runs */
+    Kind **definers;   /* the kind whose version of each runs */
     Entry *entries;     /* each method's entry, parallel to methods (the constructor's too) */
     int lo, hi;         /* the constructor's arity, 0 0 without one */
     Block *block;       /* the code that makes an object */
 };
 
-typedef enum { B_TOP, B_FN, B_CLASS, B_LAMBDA } BlockKind;
+typedef enum { B_TOP, B_FN, B_KIND, B_LAMBDA } BlockKind;
 
 struct Block {
     BlockKind kind;
-    Str *name;          /* fn: its name; class: the class name */
-    Str *key;           /* '' top, name, "new Class", "->n": what traces and messages call it */
+    Str *name;          /* fn: its name; kind: the kind name */
+    Str *key;           /* '' top, name, "new Kind", "->n": what traces and messages call it */
     int index;          /* lambda: its index */
     int lo, hi;         /* fn, lambda: arity */
     int nlocals;
@@ -220,8 +220,8 @@ struct Block {
     int self;           /* lambda: the capture that holds the closure itself, or -1 */
     int nmap;
     struct { bool from_closure; int outer; int inner; } *map;   /* lambda: where each capture comes from */
-    bool is_abstract;   /* class */
-    Str *parent;        /* class: the parent's name, or NULL */
+    bool is_abstract;   /* kind */
+    Str *parent;        /* kind: the parent's name, or NULL */
     int nfields;
     Str **field_names, **field_declarers;
     int nmethods;
@@ -239,7 +239,7 @@ struct Block {
 };
 
 struct Function {
-    Str *name;          /* "f", or "Class.name" for a method */
+    Str *name;          /* "f", or "Kind.name" for a method */
     int lo, hi;
     Block *block;
     Func *value;        /* the one value PUSH_FN pushes for it */
@@ -267,14 +267,14 @@ typedef struct Instr {
     uint8_t op;
     uint8_t orig;       /* the instruction the file had here, which op replaces with a superinstruction */
     int32_t a, b;       /* a slot, count, jump target, builtin index... per instruction */
-    void *p;            /* a Function, Class, Lambda, Path or member name */
+    void *p;            /* a Function, Kind, Lambda, Path or member name */
     Value v;            /* PUSH's value; PUSH_FN's function */
     Str *file;          /* where it came from; file NULL and line 0 when unknown */
     int32_t line;
-    /* A member instruction's inline cache: the class it last found the member in, and where
-       (a field's slot or a method's position), so the next object of that class needs no search */
+    /* A member instruction's inline cache: the kind it last found the member in, and where
+       (a field's slot or a method's position), so the next object of that kind needs no search */
     int32_t cached_at;
-    Class *cached_class;
+    Kind *cached_kind;
 } Instr;
 
 typedef struct Program {
@@ -283,16 +283,16 @@ typedef struct Program {
     int nglobals;
     Str **globals;
     int nstatics;
-    Str **statics;      /* each static field as "Class::name", the class being the declarer */
+    Str **statics;      /* each static field as "Kind::name", the kind being the declarer */
     int nblocks;
     Block **blocks;
     int nfunctions;
     Function *functions;
     int nlambdas;
     Lambda *lambdas;    /* by index */
-    int nclasses;
-    Class *classes;
-    Class *error_class; /* the builtin Error class, when the program has it */
+    int nkinds;
+    Kind *kinds;
+    Kind *error_kind; /* the builtin Error kind, when the program has it */
     int max_frame;      /* the most stack one frame can need: locals plus its deepest stack */
 } Program;
 
@@ -309,7 +309,7 @@ enum {
     OP_SET_PATH, OP_SET_PATH_GLOBAL, OP_SET_PATH_CAPTURED, OP_SET_PATH_THIS,
     OP_SET_PATH_STATIC, OP_DELETE_PATH, OP_DELETE_PATH_GLOBAL, OP_DELETE_PATH_CAPTURED,
     OP_DELETE_PATH_THIS, OP_DELETE_PATH_STATIC, OP_CALL,
-    OP_CALL_BUILTIN, OP_CALL_VALUE, OP_ARGC, OP_RET, OP_PUSH_FN, OP_MAKE_CLOSURE, OP_PUSH_CLASS,
+    OP_CALL_BUILTIN, OP_CALL_VALUE, OP_ARGC, OP_RET, OP_PUSH_FN, OP_MAKE_CLOSURE, OP_PUSH_KIND,
     OP_NEW, OP_CALL_CONSTRUCTOR, OP_CALL_PARENT, OP_BIND_PARENT, OP_LOAD_THIS, OP_LOAD_FIELD,
     OP_SET_FIELD, OP_GET_PROPERTY, OP_GET_PROPERTY_QUIET, OP_GET_PROPERTY_EXISTING,
     OP_GET_METHOD, OP_CALL_METHOD, OP_TRY, OP_END_TRY, OP_CATCH_MATCH, OP_CATCH_VALUE,
@@ -360,7 +360,7 @@ static inline Value v_map(Map *m) { Value v = {.type = T_MAP, .m = m}; return v;
 static inline Value v_func(Func *f) { Value v = {.type = T_FUNCTION, .fn = f}; return v; }
 static inline Value v_object(Object *o) { Value v = {.type = T_OBJECT, .o = o}; return v; }
 static inline Value v_socket(Socket *s) { Value v = {.type = T_SOCKET, .sock = s}; return v; }
-static inline Value v_class(Class *c) { Value v = {.type = T_CLASS, .c = c}; return v; }
+static inline Value v_kind(Kind *k) { Value v = {.type = T_KIND, .k = k}; return v; }
 
 Str *str_new(const char *data, size_t len);
 Str *str_cstr(const char *s);
@@ -424,15 +424,15 @@ bool step_value(Value v, bool up, Value *out);
 bool array_key(Value k);                                  /* raises unless int or string */
 bool index_value(Value target, Value index, bool quiet, Value *out);
 bool index_existing(Value target, Value index, Value *out);
-int class_field(Class *c, Str *name);                     /* the slot, or -1 */
-int class_method(Class *c, Str *name);                    /* the method's position, or -1 */
-bool class_is_a(Class *c, Class *ancestor);
+int kind_field(Kind *c, Str *name);                     /* the slot, or -1 */
+int kind_method(Kind *c, Str *name);                    /* the method's position, or -1 */
+bool kind_is_a(Kind *c, Kind *ancestor);
 bool property(Value target, Str *name, bool quiet, Value *out);
 bool property_existing(Value target, Str *name, Value *out);
 bool store_path(Value *slot, Str *var_name, Path *path, Value *keys, Value value);
 bool remove_path(Value *slot, Str *var_name, Path *path, Value *keys);
 bool concat_assign(Value *slot, Value v, Value *out);
-Func *bound_method(Object *o, Class *cls, Str *name);
+Func *bound_method(Object *o, Kind *definer, Str *name);
 bool raise_undefined_key(Value key);
 
 /* ---- errors (vm.c) ---------------------------------------------------------------------- */
@@ -448,7 +448,7 @@ void location_text(Str *path, int64_t line, Buf *out);
 /* ---- vm.c ------------------------------------------------------------------------------ */
 
 extern Program *program;
-bool call_method(Object *o, Class *definer, Str *name, Value *out);   /* runs a method to its end */
+bool call_method(Object *o, Kind *definer, Str *name, Value *out);   /* runs a method to its end */
 bool call_value(Value callee, Value *args, int argc, Value *out);  /* calls a value to its end, as map() does */
 extern FILE *output;        /* where echo and print write: standard output, or memory while compiling */
 void flush_output(void);

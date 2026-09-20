@@ -1,0 +1,22 @@
+GAZLANG BYTECODE 2
+globals
+
+top
+locals $e
+TRY CATCH_0
+PUSH 1
+PUSH 0
+DIV
+POP
+END_TRY
+JMP DONE
+LABEL CATCH_0
+CATCH_VALUE
+STORE 0
+LABEL DONE
+
+kind Error
+field message Error
+locals
+LOAD_THIS
+RET

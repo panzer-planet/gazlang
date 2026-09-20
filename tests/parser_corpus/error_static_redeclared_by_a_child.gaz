@@ -1,6 +1,6 @@
-class K {
+kind K {
     static #a = 0;
 }
-class L extends K {
+kind L extends K {
     static #a = 1;
 }

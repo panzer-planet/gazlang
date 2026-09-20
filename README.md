@@ -228,7 +228,7 @@ Fields are declared, single inheritance, and constructing is just a call — no 
 this object, `#name` one of its fields or methods.
 
 ```gaz
-class Account {
+kind Account {
     #owner;
     #balance = 0;
 
@@ -253,10 +253,10 @@ Ada: 75
 
 ### Errors
 
-Any runtime failure is catchable, and `Error` is a real class you can extend.
+Any runtime failure is catchable, and `Error` is a real kind you can extend.
 
 ```gaz
-class NotFound extends Error {
+kind NotFound extends Error {
     #key;
     fn _($key) { ##_("No such fruit: {$key}"); #key = $key; }
 }

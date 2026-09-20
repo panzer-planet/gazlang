@@ -1,0 +1,10 @@
+GAZLANG BYTECODE 2
+globals
+
+top
+locals
+
+abstract C
+locals
+LOAD_THIS
+RET

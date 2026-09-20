@@ -1,1 +1,1 @@
-class K { #f = 1; const A = #f; }
+kind K { #f = 1; const A = #f; }

@@ -24,7 +24,7 @@ class MatchTest extends GazLangTestCase
     public function test_a_member_may_still_be_called_match()
     {
         // Member names can be any word, keywords included
-        $this->assertEquals("1\n", $this->executeCode('class C { fn match() { return 1; } } echo C().match();'));
+        $this->assertEquals("1\n", $this->executeCode('kind C { fn match() { return 1; } } echo C().match();'));
     }
 
     /**

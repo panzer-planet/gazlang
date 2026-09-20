@@ -1,4 +1,4 @@
-GAZLANG BYTECODE 1
+GAZLANG BYTECODE 2
 globals
 
 top
@@ -7,7 +7,7 @@ PUSH 1
 SET_FIELD x
 POP
 
-class C
+kind C
 field x C
 locals
 LOAD_THIS

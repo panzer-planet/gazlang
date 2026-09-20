@@ -46,26 +46,26 @@ class TryCatchTest extends GazLangTestCase
             'catch without a variable' => ['try { } catch { }', "Expected '(' but found '{'"],
             'catch with a non-variable' => ['try { } catch (1) { }', "Expected a \$variable but found '1'"],
             'catch without try' => ['catch ($e) { }', "Unexpected 'catch'"],
-            'untyped catch before another' => ['try { } catch ($e) { } catch (Error $e) { }', 'A catch without a class catches every error, so it must be the last'],
-            'unknown catch class' => ["try { }\ncatch (Nope \$e) { }", 'Undefined class: Nope on line 2'],
-            'function as a catch class' => ['fn f() {} try { } catch (f $e) { }', 'f is a function, not a class on line 1'],
-            'declaring Error' => ['class Error {}', 'Error is a builtin class on line 1'],
-            'constructing Error without a message' => ['echo Error();', 'Class Error expects 1 arguments, 0 given on line 1'],
+            'untyped catch before another' => ['try { } catch ($e) { } catch (Error $e) { }', 'A catch without a kind catches every error, so it must be the last'],
+            'unknown catch kind' => ["try { }\ncatch (Nope \$e) { }", 'Undefined kind: Nope on line 2'],
+            'function as a catch kind' => ['fn f() {} try { } catch (f $e) { }', 'f is a function, not a kind on line 1'],
+            'declaring Error' => ['kind Error {}', 'Error is a builtin kind on line 1'],
+            'constructing Error without a message' => ['echo Error();', 'Kind Error expects 1 arguments, 0 given on line 1'],
             'syntax errors are not caught' => ['try { echo ; } catch ($e) { }', "Unexpected ';'"],
         ];
     }
 
     private const ERRORS = <<<'CODE'
-        class NotFound extends Error {
+        kind NotFound extends Error {
             #key;
             fn _($key) { ##_("Not found: {$key}"); #key = $key; }
         }
-        class Missing extends NotFound {}
+        kind Missing extends NotFound {}
         fn find($key) { error(Missing($key)); }
 
         CODE;
 
-    public function test_typed_catches_match_the_class_and_its_subclasses_first_match_wins()
+    public function test_typed_catches_match_the_kind_and_its_children_first_match_wins()
     {
         $this->assertEquals("not found: a (Not found: a) on line 6\nerror: Division by zero\nanything: 5\n", $this->executeCode(self::ERRORS.<<<'CODE'
             try { find("a"); } catch (NotFound $e) { echo "not found: {$e.key} ({$e}) on line {$e.line}"; } catch (Error $e) { echo "not run"; }
@@ -102,7 +102,7 @@ class TryCatchTest extends GazLangTestCase
     public function test_thrown_values_are_caught_as_they_are()
     {
         $this->assertEquals("[1, \"a\"]\n{\"k\" => 1}\nnull\nP {}\ntrue\n", $this->executeCode(<<<'CODE'
-            class P {}
+            kind P {}
             $p = P();
             foreach ([[1, "a"], {"k" => 1}, null, $p] as $value) {
                 try { error($value); } catch ($e) { echo $e; }
@@ -125,20 +125,20 @@ class TryCatchTest extends GazLangTestCase
             CODE));
     }
 
-    public function test_error_classes_without_a_catch()
+    public function test_error_kinds_without_a_catch()
     {
-        $this->assertEquals("Not found: x\nclass Error\n", $this->executeCode(self::ERRORS.'echo NotFound("x"); echo Error;'));
+        $this->assertEquals("Not found: x\nkind Error\n", $this->executeCode(self::ERRORS.'echo NotFound("x"); echo Error;'));
     }
 
     public function test_throwing_an_object_does_not_run_its_to_string_unless_nothing_catches_it()
     {
         // This NotFound never sets #message, so its inherited to_string() would fail
         $this->assertEquals("caught a.txt\ncaught b.txt\n", $this->executeCode(<<<'CODE'
-            class NotFound extends Error {
+            kind NotFound extends Error {
                 #path;
                 fn _($path) { #path = $path; }
             }
-            class Loud { fn to_string() { echo "to_string ran"; return "loud"; } }
+            kind Loud { fn to_string() { echo "to_string ran"; return "loud"; } }
             try { error(NotFound("a.txt")); } catch (NotFound $e) { echo "caught {$e.path}"; }
             try { error(Loud()); } catch ($e) { echo "caught b.txt"; }
             CODE));
@@ -148,7 +148,7 @@ class TryCatchTest extends GazLangTestCase
     {
         $this->expectOutputString('');
         try {
-            $this->executeCode('class Loud { fn to_string() { echo "to_string ran"; return "loud"; } } error(Loud());');
+            $this->executeCode('kind Loud { fn to_string() { echo "to_string ran"; return "loud"; } } error(Loud());');
             $this->fail('Expected an error');
         } catch (ProgramError $e) {
             $this->assertSame('loud', $e->getMessage());
@@ -170,8 +170,8 @@ class TryCatchTest extends GazLangTestCase
             'an error object' => ['find("zz");', 'Not found: zz'],
             'an int' => ['error(5);', '5'],
             'a list' => ['error([1, "a"]);', '[1, "a"]'],
-            'an object without to_string' => ['class P {} error(P());', 'P {}'],
-            'an Error whose message was never set' => ['class Oops extends Error { fn _() {} } error(Oops());', 'Property message of Oops is not set at <builtin>:7'],
+            'an object without to_string' => ['kind P {} error(P());', 'P {}'],
+            'an Error whose message was never set' => ['kind Oops extends Error { fn _() {} } error(Oops());', 'Property message of Oops is not set at <builtin>:7'],
         ];
     }
 
@@ -179,7 +179,7 @@ class TryCatchTest extends GazLangTestCase
     {
         $this->assertStringStartsWith(
             "TRY CATCH_0\nPUSH \"x\"\nCALL_BUILTIN error 1\nPOP\nEND_TRY\nJMP ENDTRY_0\n"
-            ."LABEL CATCH_0\nCATCH_VALUE\nSTORE 0\nLOAD 0\nGET_PROPERTY message\nPRINT\nLABEL ENDTRY_0\nclass Error\n",
+            ."LABEL CATCH_0\nCATCH_VALUE\nSTORE 0\nLOAD 0\nGET_PROPERTY message\nPRINT\nLABEL ENDTRY_0\nkind Error\n",
             $this->generateCode('try { error("x"); } catch ($e) { echo $e.message; }')
         );
     }
@@ -190,7 +190,7 @@ class TryCatchTest extends GazLangTestCase
             "TRY CATCH_0\nEND_TRY\nJMP ENDTRY_0\nLABEL CATCH_0\n"
             ."CATCH_MATCH P NEXTCATCH_0_0\nSTORE 0\nJMP ENDTRY_0\nLABEL NEXTCATCH_0_0\n"
             ."CATCH_MATCH Error NEXTCATCH_0_1\nSTORE 0\nJMP ENDTRY_0\nLABEL NEXTCATCH_0_1\nRETHROW\nLABEL ENDTRY_0\n",
-            $this->generateCode('class P {} try { } catch (P $e) { } catch (Error $e) { }')
+            $this->generateCode('kind P {} try { } catch (P $e) { } catch (Error $e) { }')
         );
     }
 

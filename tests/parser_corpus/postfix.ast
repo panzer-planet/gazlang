@@ -267,7 +267,7 @@ Compound
           constant: false
           value: null
           static_name: null
-        name: "class"
+        name: "kind"
         field: false
         constant: false
         value: null

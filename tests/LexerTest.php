@@ -241,11 +241,11 @@ class LexerTest extends GazLangTestCase
         );
     }
 
-    public function test_class_keywords_and_reserved_words()
+    public function test_kind_keywords_and_reserved_words()
     {
         $this->assertSame(
-            ['CLASS', 'EXTENDS', 'ABSTRACT', 'INTERFACE', 'IMPLEMENTS', 'FINAL', 'PUBLIC', 'PRIVATE', 'PROTECTED'],
-            array_column($this->pairs('class extends abstract interface implements final public private protected'), 0)
+            ['KIND', 'EXTENDS', 'ABSTRACT', 'INTERFACE', 'IMPLEMENTS', 'FINAL', 'PUBLIC', 'PRIVATE', 'PROTECTED'],
+            array_column($this->pairs('kind extends abstract interface implements final public private protected'), 0)
         );
     }
 
@@ -303,7 +303,7 @@ class LexerTest extends GazLangTestCase
 
     public function test_keywords_are_lowercase_and_matched_exactly()
     {
-        // Any other capitalisation is an ordinary name, so class If and fn match() are fine
+        // Any other capitalisation is an ordinary name, so kind If and fn match() are fine
         $this->assertSame(
             [['ECHO', 'echo'], ['IDENTIFIER', 'ECHO'], ['TRUE', 'true'], ['IDENTIFIER', 'True'],
                 ['IDENTIFIER', '_Helper2'], ['VAR_IDENTIFIER', '$If'], ['GLOBAL_VAR_IDENTIFIER', '@x_1']],

@@ -1,1 +1,1 @@
-Error: A catch without a class catches every error, so it must be the last at tests/parser_corpus/error_two_untyped_catches.gaz:1
+Error: A catch without a kind catches every error, so it must be the last at tests/parser_corpus/error_two_untyped_catches.gaz:1

@@ -11,7 +11,7 @@ include "../lib/random.gaz";
 
 // Players: a rating from 40 to 95, and every position turns it into attacking and defending
 
-abstract class Player {
+abstract kind Player {
     #name;
     #rating;
     #energy = 100;
@@ -62,28 +62,28 @@ abstract class Player {
     fn profile() { return "{#name} ({#position()} {#rating})"; }
 }
 
-class Goalkeeper extends Player {
+kind Goalkeeper extends Player {
     fn position() { return "GK"; }
     fn work_rate() { return 0.2; }
     fn attacking() { return 0; }
     fn defending() { return #sharpness; }
 }
 
-class Defender extends Player {
+kind Defender extends Player {
     fn position() { return "DF"; }
     fn work_rate() { return 0.8; }
     fn attacking() { return #sharpness * 0.2; }
     fn defending() { return #sharpness; }
 }
 
-class Midfielder extends Player {
+kind Midfielder extends Player {
     fn position() { return "MF"; }
     fn work_rate() { return 1.3; }
     fn attacking() { return #sharpness * 0.6; }
     fn defending() { return #sharpness * 0.5; }
 }
 
-class Forward extends Player {
+kind Forward extends Player {
     fn position() { return "FW"; }
     fn work_rate() { return 1.0; }
     fn attacking() { return #sharpness; }
@@ -95,7 +95,7 @@ class Forward extends Player {
 
 // Teams
 
-class InvalidLineup extends Error {
+kind InvalidLineup extends Error {
     #team;
     fn _($team, $problem) {
         ##_("{$team} can't play: {$problem}");
@@ -103,7 +103,7 @@ class InvalidLineup extends Error {
     }
 }
 
-class Team {
+kind Team {
     #name;
     #formation;
     #players;
@@ -191,7 +191,7 @@ class Team {
 }
 
 // A formation like "4-3-3": defenders, midfielders and forwards, ten outfield players in all
-class Formation {
+kind Formation {
     #name;
     #lines;
 
@@ -203,12 +203,12 @@ class Formation {
         }
     }
 
-    // The classes to fill the eleven with, goalkeeper first
+    // The kinds to fill the eleven with, goalkeeper first
     fn positions() {
         $positions = [Goalkeeper];
-        foreach ([Defender, Midfielder, Forward] as $line => $class) {
+        foreach ([Defender, Midfielder, Forward] as $line => $kind) {
             for ($i = 0; $i < #lines[$line]; $i++) {
-                $positions[] = $class;
+                $positions[] = $kind;
             }
         }
         return $positions;
@@ -218,13 +218,13 @@ class Formation {
 }
 
 // Makes up squads: names from a pool, ratings spread around the club's level
-class Scout {
+kind Scout {
     #taken = {};
 
     fn team($name, $level, $formation) {
         $formation = Formation($formation);
-        // Classes are values: the formation says which ones to construct
-        $players = map($formation.positions(), $class -> $class(#new_name(), #rating($level)));
+        // Kinds are values: the formation says which ones to construct
+        $players = map($formation.positions(), $kind -> $kind(#new_name(), #rating($level)));
         return Team($name, $formation, $players);
     }
 
@@ -265,7 +265,7 @@ const SURNAMES = [
 
 // What happens in a match
 
-abstract class Event {
+abstract kind Event {
     #minute;
     #team;
     fn _($minute, $team) {
@@ -276,7 +276,7 @@ abstract class Event {
     fn to_string() { return pad_left("{#minute}'", 4) .. "  " .. #describe(); }
 }
 
-class Goal extends Event {
+kind Goal extends Event {
     #scorer;
     #score;
     fn _($minute, $team, $scorer, $score) {
@@ -287,7 +287,7 @@ class Goal extends Event {
     fn describe() { return "GOAL! {#scorer} scores for {#team}. {#score}"; }
 }
 
-class Shot extends Event {
+kind Shot extends Event {
     #shooter;
     #keeper;
     fn _($minute, $team, $shooter, $keeper) {
@@ -301,7 +301,7 @@ class Shot extends Event {
     }
 }
 
-class Booking extends Event {
+kind Booking extends Event {
     #player;
     #red;
     fn _($minute, $team, $player, $red) {
@@ -314,7 +314,7 @@ class Booking extends Event {
     }
 }
 
-class Whistle extends Event {
+kind Whistle extends Event {
     #text;
     fn _($minute, $text) {
         ##_($minute, null);
@@ -323,7 +323,7 @@ class Whistle extends Event {
     fn describe() { return #text; }
 }
 
-class Fixture {
+kind Fixture {
     #home;
     #away;
     #home_goals = 0;
@@ -420,7 +420,7 @@ class Fixture {
 
 // A league: everyone plays everyone home and away
 
-class Standing {
+kind Standing {
     #team;
     #played = 0;
     #won = 0;
@@ -455,7 +455,7 @@ class Standing {
     }
 }
 
-class League {
+kind League {
     #teams;
     #standings = {};
 
@@ -547,7 +547,7 @@ class League {
 }
 
 // Commentary on the first few matches of the season
-class Commentator {
+kind Commentator {
     #remaining;
     fn _($matches) { #remaining = $matches; }
 

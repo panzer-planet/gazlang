@@ -1,4 +1,4 @@
-class A {
+kind A {
     fn f() { return #second(1); }
     fn g() { return #first; }
     fn second() {}

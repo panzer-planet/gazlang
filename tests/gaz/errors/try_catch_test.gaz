@@ -142,11 +142,11 @@ check("valid config", parse_config("{\"debug\": true}"), {"ok" => true, "config"
 check("invalid config", parse_config("{debug}")["ok"], false);
 
 // Error objects and typed catch clauses
-class NotFound extends Error {
+kind NotFound extends Error {
     #key;
     fn _($key) { ##_("Not found: {$key}"); #key = $key; }
 }
-class MissingFile extends NotFound {}
+kind MissingFile extends NotFound {}
 
 fn caught_by($value) {
     try {
@@ -161,8 +161,8 @@ fn caught_by($value) {
         return "anything";
     }
 }
-check("a subclass matches its own clause first", caught_by(MissingFile("f")), "MissingFile");
-check("a class matches its clause", caught_by(NotFound("k")), "NotFound");
+check("a child kind matches its own clause first", caught_by(MissingFile("f")), "MissingFile");
+check("a kind matches its clause", caught_by(NotFound("k")), "NotFound");
 check("a string error is an Error", caught_by("text"), "Error");
 check("an Error made directly", caught_by(Error("plain")), "Error");
 check("any other value", caught_by(42), "anything");

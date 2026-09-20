@@ -10,7 +10,7 @@ class LibCharsTest extends GazLangTestCase
 {
     public function test_every_byte_is_classified_like_the_lexer()
     {
-        $classes = [
+        $kinds = [
             'space' => "/^[ \t\n\r]$/", 'digit' => '/^[0-9]$/', 'hex_digit' => '/^[0-9a-fA-F]$/',
             'alpha' => '/^[a-zA-Z]$/', 'alnum' => '/^[a-zA-Z0-9]$/',
         ];
@@ -20,8 +20,8 @@ class LibCharsTest extends GazLangTestCase
             $char = chr($byte);
             $all_bytes .= $char;
             $flags = [];
-            foreach ($classes as $class => $pattern) {
-                $flags[] = preg_match($pattern, $char) ? $class : '-';
+            foreach ($kinds as $kind => $pattern) {
+                $flags[] = preg_match($pattern, $char) ? $kind : '-';
             }
             $expected .= "{$byte} ".implode(' ', $flags)."\n";
         }

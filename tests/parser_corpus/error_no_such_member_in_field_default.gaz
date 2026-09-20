@@ -1,1 +1,1 @@
-class A { #x = #y; }
+kind A { #x = #y; }

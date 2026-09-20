@@ -1,4 +1,4 @@
-class A {
+kind A {
     #x = 1;
     #y = #x + $n + $m;
 }

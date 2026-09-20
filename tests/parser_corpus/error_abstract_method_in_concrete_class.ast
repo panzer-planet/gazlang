@@ -1,1 +1,0 @@
-Error: Class A has abstract method f, so it must be abstract too at tests/parser_corpus/error_abstract_method_in_concrete_class.gaz:2

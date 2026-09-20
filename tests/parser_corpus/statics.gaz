@@ -1,6 +1,6 @@
-// A static belongs to the class rather than to an object: a field is a slot, reached by name,
-// and a method a function whose name carries its class, so neither needs an object.
-class Counter {
+// A static belongs to the kind rather than to an object: a field is a slot, reached by name,
+// and a method a function whose name carries its kind, so neither needs an object.
+kind Counter {
     static #count = 0;
     static #rows = [];
     static #limit = 2 * 5;
@@ -17,7 +17,7 @@ class Counter {
         return #count;
     }
 
-    // A static method reaches another by #name, since # is the class it is written in
+    // A static method reaches another by #name, since # is the kind it is written in
     static fn twice() {
         return #next() + #next();
     }
@@ -29,7 +29,7 @@ class Counter {
 }
 
 // A child shares its parent's statics, as it shares the rest of the namespace
-class Tally extends Counter {}
+kind Tally extends Counter {}
 
 echo Counter::count;
 Counter();

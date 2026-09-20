@@ -27,14 +27,14 @@ echo {$k => 1, "b" => 2, "a" => 3};
 echo [to_float(1.5), attempt(() -> slice("abc", 0, "x")), attempt(() -> slice("abc", "x"))];
 
 // Running out of depth at ##name(), from both parities
-class Base { fn go($n) { return #go($n + 1); } }
-class Child extends Base { fn go($n) { return ##go($n); } }
+kind Base { fn go($n) { return #go($n + 1); } }
+kind Child extends Base { fn go($n) { return ##go($n); } }
 echo attempt(() -> Child().go(0));
 fn one_deeper() { return Child().go(0); }
 echo attempt(() -> one_deeper());
 
-// ...and at a class called as a value, from both parities
-class Again { fn _($class) { $class($class); } }
+// ...and at a kind called as a value, from both parities
+kind Again { fn _($kind) { $kind($kind); } }
 echo attempt(() -> Again(Again));
 fn again_deeper() { Again(Again); }
 echo attempt(() -> again_deeper());

@@ -1,1 +1,1 @@
-class A { fn f($a) {} fn g() { return #f(); } }
+kind A { fn f($a) {} fn g() { return #f(); } }

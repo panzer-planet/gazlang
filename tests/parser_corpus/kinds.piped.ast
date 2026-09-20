@@ -1,0 +1,1050 @@
+Compound
+  statements:
+@ null
+    0: Statement 2
+      expr: Assign 2
+        left: Variable 2
+          token: 2 VAR_IDENTIFIER $c
+          value: "\$c"
+        token: 2 ASSIGN =
+        right: FunctionCall 2
+          name: "Circle"
+          args:
+            0: Num 2
+              token: 2 INTEGER 2
+              value: 2
+    1: EchoStatement 3
+      expr: FunctionCall 3
+        name: "is_a"
+        args:
+          0: Variable 3
+            token: 3 VAR_IDENTIFIER $c
+            value: "\$c"
+          1: FunctionRef 3
+            name: "Shape"
+            constant: false
+            value: null
+            static_name: null
+    2: Statement 4
+      expr: Assign 4
+        left: Variable 4
+          token: 4 VAR_IDENTIFIER $make
+          value: "\$make"
+        token: 4 ASSIGN =
+        right: FunctionRef 4
+          name: "Circle"
+          constant: false
+          value: null
+          static_name: null
+    3: KindDeclaration 6
+      name: "Circle"
+      parent: "Shape"
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      fields:
+        radius: null
+        history: ArrayLiteral 8
+          entries: []
+          map: false
+        doubled: BinOp 9
+          left: Property 9
+            target: This 9
+            name: "radius"
+            field: true
+            constant: false
+            value: null
+            static_name: null
+          token: 9 MULTIPLY *
+          op: 9 MULTIPLY *
+          right: Num 9
+            token: 9 INTEGER 2
+            value: 2
+        callback: Lambda 10
+          params: ["\$x"]
+          defaults: [null]
+          arity: 1
+          body: BinOp 10
+            left: Property 10
+              target: This 10
+              name: "radius"
+              field: true
+              constant: false
+              value: null
+              static_name: null
+            token: 10 PLUS +
+            op: 10 PLUS +
+            right: Variable 10
+              token: 10 VAR_IDENTIFIER $x
+              value: "\$x"
+          captures: []
+          self: null
+      field_lines: {"radius" => 7, "history" => 8, "doubled" => 9, "callback" => 10}
+      methods:
+        _: FunctionDeclaration 12
+          name: "_"
+          params: ["\$radius"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 13
+                expr: ParentMethod 13
+                  name: "_"
+                  args:
+                    0: String 13
+                      token: 13 STRING "circle"
+                      value: "circle"
+                  definer: "Shape"
+              1: Statement 14
+                expr: Assign 14
+                  left: Property 14
+                    target: This 14
+                    name: "radius"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 14 ASSIGN =
+                  right: Variable 14
+                    token: 14 VAR_IDENTIFIER $radius
+                    value: "\$radius"
+              2: Statement 15
+                expr: Assign 15
+                  left: Index 15
+                    target: Property 15
+                      target: This 15
+                      name: "history"
+                      field: true
+                      constant: false
+                      value: null
+                      static_name: null
+                    index: null
+                  token: 15 ASSIGN =
+                  right: Variable 15
+                    token: 15 VAR_IDENTIFIER $radius
+                    value: "\$radius"
+              3: Statement 16
+                expr: Assign 16
+                  left: Index 16
+                    target: Property 16
+                      target: This 16
+                      name: "history"
+                      field: true
+                      constant: false
+                      value: null
+                      static_name: null
+                    index: Num 16
+                      token: 16 INTEGER 0
+                      value: 0
+                  token: 16 PLUS_ASSIGN +=
+                  right: Num 16
+                    token: 16 INTEGER 1
+                    value: 1
+              4: Statement 17
+                expr: Increment 17
+                  target: Property 17
+                    target: This 17
+                    name: "radius"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  op: 17 INCREMENT ++
+                  prefix: false
+          arity: 1
+          kind: "Circle"
+          abstract: false
+        area: FunctionDeclaration 20
+          name: "area"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 20
+                expr: BinOp 20
+                  left: BinOp 20
+                    left: Num 20
+                      token: 20 FLOAT 3.14159
+                      value: 3.14159
+                    token: 20 MULTIPLY *
+                    op: 20 MULTIPLY *
+                    right: Property 20
+                      target: This 20
+                      name: "radius"
+                      field: true
+                      constant: false
+                      value: null
+                      static_name: null
+                  token: 20 MULTIPLY *
+                  op: 20 MULTIPLY *
+                  right: Property 20
+                    target: This 20
+                    name: "radius"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+          arity: 0
+          kind: "Circle"
+          abstract: false
+        to_string: FunctionDeclaration 21
+          name: "to_string"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 21
+                expr: BinOp 21
+                  left: ParentMethod 21
+                    name: "to_string"
+                    args: []
+                    definer: "Shape"
+                  token: 21 CONCAT ..
+                  op: 21 CONCAT ..
+                  right: BinOp 21
+                    left: BinOp 21
+                      left: String 21
+                        token: 21 STRING_START " (r = "
+                        value: " (r = "
+                      token: 21 CONCAT ..
+                      op: 21 CONCAT ..
+                      right: Property 21
+                        target: This 21
+                        name: "radius"
+                        field: true
+                        constant: false
+                        value: null
+                        static_name: null
+                    token: 21 CONCAT ..
+                    op: 21 CONCAT ..
+                    right: String 21
+                      token: 21 STRING_END ")"
+                      value: ")"
+          arity: 0
+          kind: "Circle"
+          abstract: false
+        parent_area: FunctionDeclaration 22
+          name: "parent_area"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 22
+                expr: ParentMethod 22
+                  name: "describe"
+                  args: null
+                  definer: "Shape"
+          arity: 0
+          kind: "Circle"
+          abstract: false
+        scale: FunctionDeclaration 23
+          name: "scale"
+          params: ["\$by"]
+          defaults:
+            0: Num 23
+              token: 23 INTEGER 2
+              value: 2
+          body: Compound
+            statements:
+              0: ReturnStatement 23
+                expr: FunctionCall 23
+                  name: "Circle"
+                  args:
+                    0: BinOp 23
+                      left: Property 23
+                        target: This 23
+                        name: "radius"
+                        field: true
+                        constant: false
+                        value: null
+                        static_name: null
+                      token: 23 MULTIPLY *
+                      op: 23 MULTIPLY *
+                      right: Variable 23
+                        token: 23 VAR_IDENTIFIER $by
+                        value: "\$by"
+          arity: [0, 1]
+          kind: "Circle"
+          abstract: false
+        me: FunctionDeclaration 24
+          name: "me"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 24
+                expr: This 24
+          arity: 0
+          kind: "Circle"
+          abstract: false
+        chained: FunctionDeclaration 25
+          name: "chained"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 25
+                expr: MethodCall 25
+                  property: Property 25
+                    target: MethodCall 25
+                      property: Property 25
+                        target: This 25
+                        name: "me"
+                        field: false
+                        constant: false
+                        value: null
+                        static_name: null
+                      args: []
+                    name: "area"
+                    field: false
+                    constant: false
+                    value: null
+                    static_name: null
+                  args: []
+          arity: 0
+          kind: "Circle"
+          abstract: false
+        later: FunctionDeclaration 26
+          name: "later"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 26
+                expr: Lambda 26
+                  params: []
+                  defaults: []
+                  arity: 0
+                  body: BinOp 26
+                    left: MethodCall 26
+                      property: Property 26
+                        target: This 26
+                        name: "area"
+                        field: false
+                        constant: false
+                        value: null
+                        static_name: null
+                      args: []
+                    token: 26 PLUS +
+                    op: 26 PLUS +
+                    right: Property 26
+                      target: This 26
+                      name: "radius"
+                      field: true
+                      constant: false
+                      value: null
+                      static_name: null
+                  captures: []
+                  self: null
+          arity: 0
+          kind: "Circle"
+          abstract: false
+        swap: FunctionDeclaration 27
+          name: "swap"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: Statement 27
+                expr: Assign 27
+                  left: ListPattern 27
+                    targets:
+                      0: Property 27
+                        target: This 27
+                        name: "radius"
+                        field: true
+                        constant: false
+                        value: null
+                        static_name: null
+                      1: Property 27
+                        target: This 27
+                        name: "doubled"
+                        field: true
+                        constant: false
+                        value: null
+                        static_name: null
+                  token: 27 ASSIGN =
+                  right: ArrayLiteral 27
+                    entries:
+                      0:
+                        0: null
+                        1: Property 27
+                          target: This 27
+                          name: "doubled"
+                          field: true
+                          constant: false
+                          value: null
+                          static_name: null
+                      1:
+                        0: null
+                        1: Property 27
+                          target: This 27
+                          name: "radius"
+                          field: true
+                          constant: false
+                          value: null
+                          static_name: null
+                    map: false
+          arity: 0
+          kind: "Circle"
+          abstract: false
+        drop: FunctionDeclaration 28
+          name: "drop"
+          params: ["\$i"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: DeleteStatement 28
+                target: Index 28
+                  target: Property 28
+                    target: This 28
+                    name: "history"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  index: Variable 28
+                    token: 28 VAR_IDENTIFIER $i
+                    value: "\$i"
+          arity: 1
+          kind: "Circle"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"name" => "Shape", "radius" => "Circle", "history" => "Circle", "doubled" => "Circle", "callback" => "Circle"}
+      members: {"_" => "Circle", "describe" => "Shape", "to_string" => "Circle", "area" => "Circle", "parent_area" => "Circle", "scale" => "Circle", "me" => "Circle", "chained" => "Circle", "later" => "Circle", "swap" => "Circle", "drop" => "Circle"}
+      abstract_methods: []
+    4: KindDeclaration 31
+      name: "Shape"
+      parent: null
+      abstract: true
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      fields: {"name" => null}
+      field_lines: {"name" => 32}
+      methods:
+        _: FunctionDeclaration 33
+          name: "_"
+          params: ["\$name"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 33
+                expr: Assign 33
+                  left: Property 33
+                    target: This 33
+                    name: "name"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 33 ASSIGN =
+                  right: Variable 33
+                    token: 33 VAR_IDENTIFIER $name
+                    value: "\$name"
+          arity: 1
+          kind: "Shape"
+          abstract: false
+        area: FunctionDeclaration 34
+          name: "area"
+          params: []
+          defaults: []
+          body: Compound
+            statements: []
+          arity: 0
+          kind: "Shape"
+          abstract: true
+        describe: FunctionDeclaration 35
+          name: "describe"
+          params: ["\$prefix"]
+          defaults:
+            0: String 35
+              token: 35 STRING ""
+              value: ""
+          body: Compound
+            statements:
+              0: ReturnStatement 35
+                expr: BinOp 35
+                  left: Variable 35
+                    token: 35 VAR_IDENTIFIER $prefix
+                    value: "\$prefix"
+                  token: 35 CONCAT ..
+                  op: 35 CONCAT ..
+                  right: Property 35
+                    target: This 35
+                    name: "name"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+          arity: [0, 1]
+          kind: "Shape"
+          abstract: false
+        to_string: FunctionDeclaration 36
+          name: "to_string"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 36
+                expr: BinOp 36
+                  left: BinOp 36
+                    left: BinOp 36
+                      left: String 36
+                        token: 36 STRING_START ""
+                        value: ""
+                      token: 36 CONCAT ..
+                      op: 36 CONCAT ..
+                      right: Property 36
+                        target: This 36
+                        name: "name"
+                        field: true
+                        constant: false
+                        value: null
+                        static_name: null
+                    token: 36 CONCAT ..
+                    op: 36 CONCAT ..
+                    right: String 36
+                      token: 36 STRING_END " with area "
+                      value: " with area "
+                  token: 36 CONCAT ..
+                  op: 36 CONCAT ..
+                  right: MethodCall 36
+                    property: Property 36
+                      target: This 36
+                      name: "area"
+                      field: false
+                      constant: false
+                      value: null
+                      static_name: null
+                    args: []
+          arity: 0
+          kind: "Shape"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"name" => "Shape"}
+      members: {"_" => "Shape", "describe" => "Shape", "to_string" => "Shape"}
+      abstract_methods: {"area" => "Shape"}
+    5: KindDeclaration 40
+      name: "Dot"
+      parent: "Circle"
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      fields: []
+      field_lines: []
+      methods: []
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"name" => "Shape", "radius" => "Circle", "history" => "Circle", "doubled" => "Circle", "callback" => "Circle"}
+      members: {"_" => "Circle", "describe" => "Shape", "to_string" => "Circle", "area" => "Circle", "parent_area" => "Circle", "scale" => "Circle", "me" => "Circle", "chained" => "Circle", "later" => "Circle", "swap" => "Circle", "drop" => "Circle"}
+      abstract_methods: []
+    6: KindDeclaration 41
+      name: "Empty"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      fields: []
+      field_lines: []
+      methods: []
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: []
+      abstract_methods: []
+    7: EchoStatement 42
+      expr: BinOp 42
+        left: FunctionCall 42
+          name: "Dot"
+          args:
+            0: Num 42
+              token: 42 INTEGER 1
+              value: 1
+        token: 42 CONCAT ..
+        op: 42 CONCAT ..
+        right: FunctionCall 42
+          name: "Empty"
+          args: []
+    8: KindDeclaration 45
+      name: "Words"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      fields:
+        class: null
+        if: Num 47
+          token: 47 INTEGER 1
+          value: 1
+      field_lines: {"class" => 46, "if" => 47}
+      methods:
+        echo: FunctionDeclaration 48
+          name: "echo"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 48
+                expr: Property 48
+                  target: This 48
+                  name: "class"
+                  field: true
+                  constant: false
+                  value: null
+                  static_name: null
+          arity: 0
+          kind: "Words"
+          abstract: false
+        match: FunctionDeclaration 49
+          name: "match"
+          params: ["\$default"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: ReturnStatement 49
+                expr: BinOp 49
+                  left: Property 49
+                    target: This 49
+                    name: "if"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 49 PLUS +
+                  op: 49 PLUS +
+                  right: Variable 49
+                    token: 49 VAR_IDENTIFIER $default
+                    value: "\$default"
+          arity: 1
+          kind: "Words"
+          abstract: false
+        delete: FunctionDeclaration 50
+          name: "delete"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 50
+                expr: MethodCall 50
+                  property: Property 50
+                    target: This 50
+                    name: "echo"
+                    field: false
+                    constant: false
+                    value: null
+                    static_name: null
+                  args: []
+          arity: 0
+          kind: "Words"
+          abstract: false
+        fn: FunctionDeclaration 51
+          name: "fn"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 51
+                expr: MethodCall 51
+                  property: Property 51
+                    target: This 51
+                    name: "match"
+                    field: false
+                    constant: false
+                    value: null
+                    static_name: null
+                  args:
+                    0: Num 51
+                      token: 51 INTEGER 1
+                      value: 1
+          arity: 0
+          kind: "Words"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"class" => "Words", "if" => "Words"}
+      members: {"echo" => "Words", "match" => "Words", "delete" => "Words", "fn" => "Words"}
+      abstract_methods: []
+    9: EchoStatement 53
+      expr: MethodCall 53
+        property: Property 53
+          target: FunctionCall 53
+            name: "Words"
+            args: []
+          name: "echo"
+          field: false
+          constant: false
+          value: null
+          static_name: null
+        args: []
+    10: KindDeclaration 56
+      name: "A"
+      parent: null
+      abstract: true
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      fields: []
+      field_lines: []
+      methods:
+        one: FunctionDeclaration 56
+          name: "one"
+          params: []
+          defaults: []
+          body: Compound
+            statements: []
+          arity: 0
+          kind: "A"
+          abstract: true
+        two: FunctionDeclaration 56
+          name: "two"
+          params: ["\$x", "\$y"]
+          defaults:
+            0: null
+            1: Num 56
+              token: 56 INTEGER 1
+              value: 1
+          body: Compound
+            statements: []
+          arity: [1, 2]
+          kind: "A"
+          abstract: true
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: []
+      abstract_methods: {"one" => "A", "two" => "A"}
+    11: KindDeclaration 57
+      name: "B"
+      parent: "A"
+      abstract: true
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      fields: []
+      field_lines: []
+      methods:
+        one: FunctionDeclaration 57
+          name: "one"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 57
+                expr: Num 57
+                  token: 57 INTEGER 1
+                  value: 1
+          arity: 0
+          kind: "B"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: {"one" => "B"}
+      abstract_methods: {"two" => "A"}
+    12: KindDeclaration 58
+      name: "C"
+      parent: "B"
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      fields: []
+      field_lines: []
+      methods:
+        two: FunctionDeclaration 58
+          name: "two"
+          params: ["\$x", "\$y", "\$z"]
+          defaults:
+            0: null
+            1: Num 58
+              token: 58 INTEGER 1
+              value: 1
+            2: Num 58
+              token: 58 INTEGER 2
+              value: 2
+          body: Compound
+            statements:
+              0: ReturnStatement 58
+                expr: MethodCall 58
+                  property: Property 58
+                    target: This 58
+                    name: "one"
+                    field: false
+                    constant: false
+                    value: null
+                    static_name: null
+                  args: []
+          arity: [1, 3]
+          kind: "C"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: {"one" => "B", "two" => "C"}
+      abstract_methods: []
+    13: EchoStatement 59
+      expr: MethodCall 59
+        property: Property 59
+          target: FunctionCall 59
+            name: "C"
+            args: []
+          name: "two"
+          field: false
+          constant: false
+          value: null
+          static_name: null
+        args:
+          0: Num 59
+            token: 59 INTEGER 1
+            value: 1
+    14: KindDeclaration 62
+      name: "Calls"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      fields: {"f" => null}
+      field_lines: {"f" => 63}
+      methods:
+        _: FunctionDeclaration 64
+          name: "_"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: Statement 64
+                expr: Assign 64
+                  left: Property 64
+                    target: This 64
+                    name: "f"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 64 ASSIGN =
+                  right: Lambda 64
+                    params: ["\$x"]
+                    defaults: [null]
+                    arity: 1
+                    body: Variable 64
+                      token: 64 VAR_IDENTIFIER $x
+                      value: "\$x"
+                    captures: []
+                    self: null
+          arity: 0
+          kind: "Calls"
+          abstract: false
+        opt: FunctionDeclaration 65
+          name: "opt"
+          params: ["\$a", "\$b"]
+          defaults:
+            0: null
+            1: Num 65
+              token: 65 INTEGER 1
+              value: 1
+          body: Compound
+            statements:
+              0: ReturnStatement 65
+                expr: BinOp 65
+                  left: BinOp 65
+                    left: MethodCall 65
+                      property: Property 65
+                        target: This 65
+                        name: "opt"
+                        field: false
+                        constant: false
+                        value: null
+                        static_name: null
+                      args:
+                        0: Num 65
+                          token: 65 INTEGER 1
+                          value: 1
+                    token: 65 PLUS +
+                    op: 65 PLUS +
+                    right: MethodCall 65
+                      property: Property 65
+                        target: This 65
+                        name: "opt"
+                        field: false
+                        constant: false
+                        value: null
+                        static_name: null
+                      args:
+                        0: Num 65
+                          token: 65 INTEGER 1
+                          value: 1
+                        1: Num 65
+                          token: 65 INTEGER 2
+                          value: 2
+                  token: 65 PLUS +
+                  op: 65 PLUS +
+                  right: MethodCall 65
+                    property: Property 65
+                      target: This 65
+                      name: "f"
+                      field: true
+                      constant: false
+                      value: null
+                      static_name: null
+                    args:
+                      0: Num 65
+                        token: 65 INTEGER 1
+                        value: 1
+                      1: Num 65
+                        token: 65 INTEGER 2
+                        value: 2
+                      2: Num 65
+                        token: 65 INTEGER 3
+                        value: 3
+          arity: [1, 2]
+          kind: "Calls"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"f" => "Calls"}
+      members: {"_" => "Calls", "opt" => "Calls"}
+      abstract_methods: []
+    15: KindDeclaration 69
+      name: "If"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      fields: []
+      field_lines: []
+      methods:
+        _: FunctionDeclaration 69
+          name: "_"
+          params: ["\$x"]
+          defaults: [null]
+          body: Compound
+            statements: []
+          arity: 1
+          kind: "If"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: {"_" => "If"}
+      abstract_methods: []
+    16: KindDeclaration 70
+      name: "Match"
+      parent: "If"
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      fields: []
+      field_lines: []
+      methods:
+        _: FunctionDeclaration 70
+          name: "_"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: Statement 70
+                expr: ParentMethod 70
+                  name: "_"
+                  args:
+                    0: Num 70
+                      token: 70 INTEGER 1
+                      value: 1
+                  definer: "If"
+          arity: 0
+          kind: "Match"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: {"_" => "Match"}
+      abstract_methods: []
+    17: EchoStatement 71
+      expr: BinOp 71
+        left: FunctionCall 71
+          name: "If"
+          args:
+            0: Num 71
+              token: 71 INTEGER 1
+              value: 1
+        token: 71 CONCAT ..
+        op: 71 CONCAT ..
+        right: FunctionCall 71
+          name: "Match"
+          args: []
+    18: KindDeclaration 74
+      name: "Printable"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      fields: []
+      field_lines: []
+      methods:
+        to_string: FunctionDeclaration 74
+          name: "to_string"
+          params: ["\$indent"]
+          defaults:
+            0: Num 74
+              token: 74 INTEGER 0
+              value: 0
+          body: Compound
+            statements:
+              0: ReturnStatement 74
+                expr: String 74
+                  token: 74 STRING "p"
+                  value: "p"
+          arity: [0, 1]
+          kind: "Printable"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: {"to_string" => "Printable"}
+      abstract_methods: []

@@ -1,6 +1,6 @@
 // Every operator, and what is folded at compile time: a literal of constants is one PUSH
 const LIMIT = 10;
-class K { const NAMES = ["a", "b"]; }
+kind K { const NAMES = ["a", "b"]; }
 $a = 7;
 $b = 2;
 echo [$a + $b, $a - $b, $a * $b, $a / $b, $a % $b, $a .. $b];

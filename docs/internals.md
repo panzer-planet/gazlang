@@ -144,6 +144,6 @@ it on Linux and macOS on every push. What is open in the language is in
 
 ## Style
 
-GazLang in `compiler/` and `lib/`: functions and variables snake_case, classes PascalCase,
+GazLang in `compiler/` and `lib/`: functions and variables snake_case, kinds PascalCase,
 constants UPPERCASE. The C in `vm/`: plain C11, commented where the C isn't obvious. The tests:
-PHP 8.5, PSR-4 under `GazLang\Tests`, methods camelCase, PHPDoc on classes and methods.
+PHP 8.5, PSR-4 under `GazLang\Tests`, methods camelCase, PHPDoc on kinds and methods.

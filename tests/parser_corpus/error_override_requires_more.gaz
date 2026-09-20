@@ -1,2 +1,2 @@
-class A { fn f($a) {} }
-class B extends A { fn f($a, $b) {} }
+kind A { fn f($a) {} }
+kind B extends A { fn f($a, $b) {} }

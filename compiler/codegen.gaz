@@ -8,7 +8,7 @@ namespace gazlang;
 
 include "parser.gaz";
 
-class CodeGenerator {
+kind CodeGenerator {
     // Opcode emitted for each binary operator token (&& and || are jumps, see logical_op)
     const BINARY_OPCODES = {
         "PLUS" => "ADD", "CONCAT" => "CONCAT", "MINUS" => "SUB", "MULTIPLY" => "MUL", "DIVIDE" => "DIV",
@@ -32,14 +32,14 @@ class CodeGenerator {
     #captures = {};
     // Global variable names mapped to global slots
     #global_addresses = {};
-    // Each static field's slot, by "Class::name"
+    // Each static field's slot, by "Kind::name"
     #static_addresses = {};
     // Numbers the hidden variables of each lowered construct, so nested ones don't share them
     #hidden_counter = 0;
     // Functions to emit after the top level code
     #functions = [];
-    // Every class, by name, to emit after the functions
-    #classes = {};
+    // Every kind, by name, to emit after the functions
+    #kinds = {};
     #label_counter = 0;
     // [continue label, end label, try depth] for the loops enclosing the current node
     #loop_labels = [];
@@ -79,10 +79,10 @@ class CodeGenerator {
         [#file, #line] = [$file, $line];
     }
 
-    // AbstractNodeVisitor builds the method's name from the node's class; GazLang can't call a
-    // method by a name it builds, so each class is spelt out
+    // AbstractNodeVisitor builds the method's name from the node's kind; GazLang can't call a
+    // method by a name it builds, so each kind is spelt out
     fn dispatch($node) {
-        match (class_of($node)) {
+        match (kind_of($node)) {
             VariableAST => #visit_variable($node),
             StaticInitAST => #visit_static_init($node),
             AssignAST => #visit_assign($node),
@@ -109,7 +109,7 @@ class CodeGenerator {
             MatchAST => #visit_match($node),
             TernaryAST => #visit_ternary($node),
             // Its code is emitted after the functions
-            ClassDeclarationAST => {}
+            KindDeclarationAST => {}
             ThisAST => #emit("LOAD_THIS"),
             PropertyAST => #visit_property($node),
             MethodCallAST => #visit_method_call($node),
@@ -148,7 +148,7 @@ class CodeGenerator {
     }
 
     // Emit a static field instruction: LOAD, STORE, SET_PATH or DELETE_PATH, addressed by the
-    // slot of "Class::name", the class being the one that declares it
+    // slot of "Kind::name", the kind being the one that declares it
     fn emit_static($op, $name, $args = []) {
         $args[] = #static_addresses[$name] ??= len(#static_addresses);
         #emit($op .. "_STATIC", $args);
@@ -164,7 +164,7 @@ class CodeGenerator {
     }
 
     // The steps of a path of elements and fields, from its root outwards
-    // The "Class::name" of the static field a target names outright, or null: #count and
+    // The "Kind::name" of the static field a target names outright, or null: #count and
     // Counter::count are slots, while Counter::count[0] is a path through one
     fn static_target($node) {
         if (is_a($node, FunctionRefAST) || is_a($node, PropertyAST)) {
@@ -208,7 +208,7 @@ class CodeGenerator {
             return;
         }
         if (is_a($node.left, PropertyAST) && is_a($node.left.target, ThisAST)) {
-            // #name = value: a field the parser has checked the class declares
+            // #name = value: a field the parser has checked the kind declares
             #visit($node.right);
             #emit("SET_FIELD", [$node.left.name]);
             return;
@@ -611,21 +611,21 @@ class CodeGenerator {
             #emit("JMP", ["ENDTRY_{$n}"]);
 
             #emit("LABEL", ["CATCH_{$n}"]);
-            foreach ($node.catches as $i => [$class, $variable, $body]) {
-                if ($class == null) {
+            foreach ($node.catches as $i => [$kind, $variable, $body]) {
+                if ($kind == null) {
                     #emit("CATCH_VALUE");
                 } else {
-                    #emit("CATCH_MATCH", [$class, "NEXTCATCH_{$n}_{$i}"]);
+                    #emit("CATCH_MATCH", [$kind, "NEXTCATCH_{$n}_{$i}"]);
                 }
                 #emit_variable("STORE", $variable);
                 #visit($body);
-                if ($class != null) {
+                if ($kind != null) {
                     #emit("JMP", ["ENDTRY_{$n}"]);
                     #emit("LABEL", ["NEXTCATCH_{$n}_{$i}"]);
                 }
             }
             // No clause matched: the error carries on
-            if ($class != null) {
+            if ($kind != null) {
                 #emit("RETHROW");
             }
             #emit("LABEL", ["ENDTRY_{$n}"]);
@@ -746,7 +746,7 @@ class CodeGenerator {
             #emit_static("LOAD", $node.static_name);
             return;
         }
-        // #name for a field: fields are never removed and a subclass can't turn one into a method
+        // #name for a field: fields are never removed and a child kind can't turn one into a method
         if ($node.field && !$node.existing) {
             #emit("LOAD_FIELD", [$node.name]);
             return;
@@ -789,7 +789,7 @@ class CodeGenerator {
         }
         $opcode = match {
             has_key(#builtins, $node.name) => "CALL_BUILTIN",
-            has_key(#classes, $node.name) => "NEW",
+            has_key(#kinds, $node.name) => "NEW",
             default => "CALL",
         };
         #emit($opcode, [$node.name, len($node.args)]);
@@ -811,7 +811,7 @@ class CodeGenerator {
             #emit("PUSH", [$node.value]);
             return;
         }
-        #emit(has_key(#classes, $node.name) ? "PUSH_CLASS" : "PUSH_FN", [$node.name]);
+        #emit(has_key(#kinds, $node.name) ? "PUSH_KIND" : "PUSH_FN", [$node.name]);
     }
 
     // MAKE_CLOSURE, with the body compiled later by compile(). The capture map is recorded now,
@@ -878,8 +878,8 @@ class CodeGenerator {
     // Compile the tree into a program
     fn compile() {
         foreach (is_a(#tree, CompoundAST) ? #tree.statements : [] as $statement) {
-            if (is_a($statement, ClassDeclarationAST)) {
-                #classes[$statement.name] = $statement;
+            if (is_a($statement, KindDeclarationAST)) {
+                #kinds[$statement.name] = $statement;
             }
         }
         #visit(#tree);
@@ -890,18 +890,18 @@ class CodeGenerator {
             #block({"kind" => "fn", "name" => $function.name, "arity" => $function.arity});
         }
 
-        // A class block holds its record and the code that makes one of its objects; its methods
-        // are functions named "Class.name", which no function name can be
-        foreach (#classes as $class) {
-            #compile_initialiser($class);
+        // A kind block holds its record and the code that makes one of its objects; its methods
+        // are functions named "Kind.name", which no function name can be
+        foreach (#kinds as $kind) {
+            #compile_initialiser($kind);
             #block({
-                "kind" => "class", "name" => $class.name, "parent" => $class.parent,
-                "abstract" => $class.abstract, "fields" => $class.layout, "methods" => $class.members,
+                "kind" => "kind", "name" => $kind.name, "parent" => $kind.parent,
+                "abstract" => $kind.abstract, "fields" => $kind.layout, "methods" => $kind.members,
             });
-            foreach ($class.methods as $method) {
+            foreach ($kind.methods as $method) {
                 if (!$method.abstract) {
                     #compile_body($method, $method.params);
-                    #block({"kind" => "fn", "name" => "{$class.name}.{$method.name}", "arity" => $method.arity});
+                    #block({"kind" => "fn", "name" => "{$kind.name}.{$method.name}", "arity" => $method.arity});
                 }
             }
         }
@@ -919,27 +919,27 @@ class CodeGenerator {
         return Program(#blocks, keys(#global_addresses), keys(#static_addresses));
     }
 
-    // The code that makes a new object of a class: the field defaults, the parent's first, then
+    // The code that makes a new object of a kind: the field defaults, the parent's first, then
     // the constructor with the same arguments, whose slots are kept free of hidden variables
-    fn compile_initialiser($class) {
-        $arity = has_key($class.members, "_") ? #classes[$class.members["_"]].methods["_"].arity : 0;
+    fn compile_initialiser($kind) {
+        $arity = has_key($kind.members, "_") ? #kinds[$kind.members["_"]].methods["_"].arity : 0;
         #var_addresses = {};
         for ($i = 0; $i < (type_of($arity) == "int" ? $arity : $arity[1]); $i++) {
             #var_addresses["\$#argument_{$i}"] = $i;
         }
         #captures = {};
-        [#file, #line] = [$class.file, $class.line];
+        [#file, #line] = [$kind.file, $kind.line];
 
-        foreach ($class.layout as $field => $declarer) {
-            $default = #classes[$declarer].fields[$field];
+        foreach ($kind.layout as $field => $declarer) {
+            $default = #kinds[$declarer].fields[$field];
             if ($default != null) {
                 #visit($default);
                 #emit("SET_FIELD", [$field]);
                 #emit("POP");
             }
         }
-        if (has_key($class.members, "_")) {
-            #emit("CALL_CONSTRUCTOR", [$class.members["_"]]);
+        if (has_key($kind.members, "_")) {
+            #emit("CALL_CONSTRUCTOR", [$kind.members["_"]]);
             #emit("POP");
         }
         #emit("LOAD_THIS");
@@ -982,9 +982,9 @@ fn index_in($list, $value) {
 }
 
 // The writing half of Program.php: a compiled program as a bytecode file
-class Program {
+kind Program {
     const MAGIC = "GAZLANG BYTECODE";
-    const VERSION = 1;
+    const VERSION = 2;
 
     #blocks;
     #global_names;
@@ -1045,14 +1045,14 @@ class Program {
         $bounds = $arity -> type_of($arity) == "int" ? "{$arity} {$arity}" : "{$arity[0]} {$arity[1]}";
         return match ($block["kind"]) {
             "fn" => ["fn {$block["name"]} " .. $bounds($block["arity"])],
-            "class" => #class_header($block),
+            "kind" => #kind_header($block),
             "lambda" => #lambda_header($block, $bounds($block["arity"])),
             default => ["top"],
         };
     }
 
-    fn class_header($block) {
-        $lines = [($block["abstract"] ? "abstract class " : "class ") .. $block["name"]
+    fn kind_header($block) {
+        $lines = [($block["abstract"] ? "abstract kind " : "kind ") .. $block["name"]
             .. ($block["parent"] == null ? "" : " extends {$block["parent"]}")];
         foreach ($block["fields"] as $field => $declarer) {
             $lines[] = "field {$field} {$declarer}";

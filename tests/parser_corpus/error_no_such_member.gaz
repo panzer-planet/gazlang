@@ -1,1 +1,1 @@
-class A { #x; fn f() { return #y; } }
+kind A { #x; fn f() { return #y; } }

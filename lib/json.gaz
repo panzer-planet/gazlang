@@ -29,7 +29,7 @@ pub fn encode($value) {
     if ($type == "string") {
         return encode_string($value);
     }
-    if ($type == "function" || $type == "class") {
+    if ($type == "function" || $type == "kind") {
         error("Cannot encode a {$type} as JSON");
     }
     if ($type == "object") {
@@ -58,7 +58,7 @@ pub fn encode($value) {
 // A JSON document being read: the text, the byte position, and how many arrays and objects
 // are open. Objects are handles, so every method moves the same reader and none of this has
 // to be global; a decode running inside another decode gets a reader of its own.
-class Reader {
+kind Reader {
     #text;
     #pos = 0;
     #depth = 0;

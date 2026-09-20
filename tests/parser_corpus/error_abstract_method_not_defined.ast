@@ -1,1 +1,1 @@
-Error: Class B must define abstract method one of A, or be abstract at tests/parser_corpus/error_abstract_method_not_defined.gaz:2
+Error: Kind B must define abstract method one of A, or be abstract at tests/parser_corpus/error_abstract_method_not_defined.gaz:2

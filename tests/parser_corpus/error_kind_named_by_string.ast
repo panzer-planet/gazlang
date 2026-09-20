@@ -1,0 +1,1 @@
+Error: Expected a name but found string "A" at tests/parser_corpus/error_kind_named_by_string.gaz:1

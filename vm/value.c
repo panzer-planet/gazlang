@@ -76,7 +76,7 @@ void value_free(Value v) {
         break;
     }
     case T_OBJECT:
-        for (int i = 0; i < v.o->cls->nfields; i++) decref(v.o->fields[i]);
+        for (int i = 0; i < v.o->kind->nfields; i++) decref(v.o->fields[i]);
         free(v.o);
         break;
     case T_SOCKET:
@@ -413,7 +413,7 @@ const char *type_name(Value v) {
     case T_MAP: return "map";
     case T_FUNCTION: return "function";
     case T_OBJECT: return "object";
-    case T_CLASS: return "class";
+    case T_KIND: return "kind";
     case T_SOCKET: return "socket";
     case T_ERROR: return "raised error";
     case T_ENTRY: return "method entry";
@@ -549,7 +549,7 @@ void quote(const Str *s, Buf *out) {
 /* How a function is named in output and messages: add, Point.area, or -> at file.gaz:12 */
 static void describe_function(Func *f, Buf *out) {
     if (f->kind == F_BOUND) {
-        buf_add_str(out, f->cls->name);
+        buf_add_str(out, f->definer->name);
         buf_addc(out, '.');
         buf_add_str(out, f->name);
     } else if (f->kind == F_CLOSURE) {
@@ -568,9 +568,9 @@ static bool append_literal(Value v, Buf *out) {
     return append_string(v, out);
 }
 
-/* An object as its class and the fields that are set: Account {#owner => "Werner"} */
+/* An object as its kind and the fields that are set: Account {#owner => "Werner"} */
 static bool describe_object(Object *o, Buf *out) {
-    buf_add_str(out, o->cls->name);
+    buf_add_str(out, o->kind->name);
     if (o->printing) {
         buf_adds(out, " {...}");
         return true;
@@ -578,12 +578,12 @@ static bool describe_object(Object *o, Buf *out) {
     o->printing = true;
     buf_adds(out, " {");
     bool first = true, ok = true;
-    for (int i = 0; i < o->cls->nfields && ok; i++) {
+    for (int i = 0; i < o->kind->nfields && ok; i++) {
         if (o->fields[i].type == T_UNSET) continue;
         if (!first) buf_adds(out, ", ");
         first = false;
         buf_addc(out, '#');
-        buf_add_str(out, o->cls->fields[i]);
+        buf_add_str(out, o->kind->fields[i]);
         buf_adds(out, " => ");
         ok = append_literal(o->fields[i], out);
     }
@@ -638,9 +638,9 @@ bool append_string(Value v, Buf *out) {
     case T_OBJECT: {
         static Str *to_string_name;
         if (!to_string_name) to_string_name = str_intern("to_string", 9);
-        int m = class_method(v.o->cls, to_string_name);
+        int m = kind_method(v.o->kind, to_string_name);
         if (m < 0) return describe_object(v.o, out);
-        Class *definer = v.o->cls->definers[m];
+        Kind *definer = v.o->kind->definers[m];
         Value text;
         if (!call_method(v.o, definer, to_string_name, &text)) return false;
         if (text.type != T_STRING) {
@@ -652,9 +652,9 @@ bool append_string(Value v, Buf *out) {
         decref(text);
         return true;
     }
-    case T_CLASS:
-        buf_adds(out, "class ");
-        buf_add_str(out, v.c->name);
+    case T_KIND:
+        buf_adds(out, "kind ");
+        buf_add_str(out, v.k->name);
         return true;
     case T_SOCKET:
         buf_adds(out, v.sock->fd < 0 ? "socket (closed)" : "socket");
@@ -706,7 +706,7 @@ int compare_numbers(Value a, Value b) {
 
 /*
  * ==: no conversion between strings and numbers, numbers by value, lists element by element,
- * maps by keys and values in any order, functions, classes and objects by identity (two bound
+ * maps by keys and values in any order, functions, kinds and objects by identity (two bound
  * methods when they bind the same method to the same object)
  */
 bool values_equal(Value a, Value b) {
@@ -741,13 +741,13 @@ bool values_equal(Value a, Value b) {
         if (b.type != T_FUNCTION) return false;
         if (a.fn == b.fn) return true;
         return a.fn->kind == F_BOUND && b.fn->kind == F_BOUND && a.fn->receiver == b.fn->receiver
-            && a.fn->cls == b.fn->cls && a.fn->name == b.fn->name;
+            && a.fn->definer == b.fn->definer && a.fn->name == b.fn->name;
     case T_OBJECT:
         return b.type == T_OBJECT && a.o == b.o;
     case T_SOCKET:
         return b.type == T_SOCKET && a.sock == b.sock;
-    case T_CLASS:
-        return b.type == T_CLASS && a.c == b.c;
+    case T_KIND:
+        return b.type == T_KIND && a.k == b.k;
     default:
         return false;
     }

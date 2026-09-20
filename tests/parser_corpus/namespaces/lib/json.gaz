@@ -12,6 +12,6 @@ fn scan($text) {
     return "<" .. $text .. ">";
 }
 
-pub class Reader {
+pub kind Reader {
     const EOF = "eof";
 }

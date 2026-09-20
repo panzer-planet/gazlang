@@ -20,8 +20,8 @@ ok unwinds through calls
 ok global catch variable
 ok valid config
 ok invalid config
-ok a subclass matches its own clause first
-ok a class matches its clause
+ok a child kind matches its own clause first
+ok a kind matches its clause
 ok a string error is an Error
 ok an Error made directly
 ok any other value

@@ -1,4 +1,4 @@
-GAZLANG BYTECODE 1
+GAZLANG BYTECODE 2
 globals
 
 top
@@ -285,7 +285,7 @@ PUSH ["a", "b"]
 ARRAY_EXTEND
 PRINT
 
-class K
+kind K
 locals
 @ 3
 LOAD_THIS

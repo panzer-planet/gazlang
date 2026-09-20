@@ -97,7 +97,7 @@ fn ordered_item($line) {
 }
 
 // What kind of block a line belongs to
-fn kind($line) {
+fn line_kind($line) {
     return match {
         trim($line) == "" => "blank",
         starts_with($line, "```") => "fence",
@@ -125,7 +125,7 @@ fn to_html($markdown) {
     $i = 0;
     while ($i < len($lines)) {
         $line = $lines[$i];
-        $kind = kind($line);
+        $kind = line_kind($line);
         match ($kind) {
             "blank" => { $i++; }
             "fence" => {
@@ -151,7 +151,7 @@ fn to_html($markdown) {
             default => {
                 // A run of lines of the same kind is one block
                 $run = [];
-                while ($i < len($lines) && kind($lines[$i]) == $kind) {
+                while ($i < len($lines) && line_kind($lines[$i]) == $kind) {
                     $run[] = unmarked($lines[$i], $kind);
                     $i++;
                 }

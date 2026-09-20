@@ -16,10 +16,10 @@ opinionated.
 - **Booleans**: `true` and `false`. A bool is not a number: `true == 1` is false, and
   `true + 1` is an error. Use `to_int(true)`.
 - **`null`**: a keyword. It equals only itself, so `null == 0` and `null == false` are false.
-- **Lists, maps, functions, classes and objects**, below.
+- **Lists, maps, functions, kinds and objects**, below.
 
 `type_of($x)` gives `int`, `float`, `string`, `bool`, `null`, `list`, `map`, `function`,
-`class`, `object` or `socket`.
+`kind`, `object` or `socket`.
 
 ## Variables
 
@@ -35,18 +35,18 @@ const AREA = WIDTH * HEIGHT;          // in terms of others, in any order
 const HEIGHT = WIDTH + 1;
 const KINDS = ["int", "float", {"nested" => AREA}];
 
-class Token {
+kind Token {
     const EOF = "EOF";
     const ENDS = [#EOF, Token::EOF .. "!"];
-    fn is_eof($type) { return $type == #EOF; }     // #NAME inside the class
+    fn is_eof($type) { return $type == #EOF; }     // #NAME inside the kind
 }
-echo AREA .. " " .. Token::EOF;                      // Class::NAME outside it
+echo AREA .. " " .. Token::EOF;                      // Kind::NAME outside it
 ```
 ```
 12 EOF
 ```
 
-`const NAME = value;` at the top level or in a class. The value is whatever needs nothing but
+`const NAME = value;` at the top level or in a kind. The value is whatever needs nothing but
 the source: literals, every operator, `?:`, lists and maps, and other constants. No variables, no
 calls, no indexing. It is worked out before the program runs, so `const X = 1 / 0;` is an error
 at that line whether or not `X` is ever used, and so is a constant that depends on itself.
@@ -56,9 +56,9 @@ the program runs (`Undefined function or constant: WDITH`), which is the reason 
 Nothing can change one: `X = 2` and `X[0] = 2` are syntax errors, and since lists and maps are
 values, `$copy = KINDS; $copy[] = 1;` changes the copy.
 
-A top level constant shares the namespace of functions and classes. A class's constant shares
+A top level constant shares the namespace of functions and kinds. A kind's constant shares
 the one its fields and methods are in, is inherited, and can't be declared again by a child. It
-is reached by name, `Token::EOF` or `#EOF`, not through a value: `$class.EOF` and `$token.EOF`
+is reached by name, `Token::EOF` or `#EOF`, not through a value: `$kind.EOF` and `$token.EOF`
 are not constants. `::` resolves a name and `.` goes through a value, so `Token.EOF` is an error
 that says to write `Token::EOF`. A `:` followed by a `:` is always `::`, so a ternary needs a
 space: `$c ? Token::EOF : $x`.
@@ -237,14 +237,14 @@ assigned with `$f = ...` can call `$f` to recurse.
 ## Objects
 
 ```gaz
-abstract class Shape {
+abstract kind Shape {
     #name;
     fn _($name) { #name = $name; }
     abstract fn area();
     fn to_string() { return "{#name} with area {#area()}"; }
 }
 
-class Circle extends Shape {
+kind Circle extends Shape {
     #radius;
     fn _($radius) {
         ##_("circle");                   // the parent's constructor
@@ -258,13 +258,13 @@ echo $c;                                 // circle with area 12.56636
 echo is_a($c, Shape) .. " " .. $c.radius;
 ```
 
-- **Classes** are top level only, single inheritance, usable before they are declared. They are
-  values: `type_of(Point)` is `"class"`, and `class_of($obj)` gives an object's own class, so
-  `match (class_of($node)) { NumAST => ..., AddAST => ... }` dispatches from outside the classes.
+- **Kinds** are top level only, single inheritance, usable before they are declared. They are
+  values: `type_of(Point)` is `"kind"`, and `kind_of($obj)` gives an object's own kind, so
+  `match (kind_of($node)) { NumAST => ..., AddAST => ... }` dispatches from outside the kinds.
 - **Fields are declared** (`#x;` or `#x = default;`). A default is evaluated per object, so a
   `[]` default is never shared. Reading one never set is an error; `??` reads it as null.
 - **`#` is this object**, `#name` a field or method, `##name` the parent's version of a method.
-  All checked at parse time against the class.
+  All checked at parse time against the kind.
 - **Objects are handles**: `$b = $a; $b.x = 1` changes `$a`. `==` is identity. Lists and maps
   inside them are still values.
 - **`.` reads and writes members**: `$user.name`, `$rows[0].total = 5`, `$obj.method(args)`.
@@ -274,7 +274,7 @@ echo is_a($c, Shape) .. " " .. $c.radius;
 ## Errors
 
 ```gaz
-class NotFound extends Error {
+kind NotFound extends Error {
     #key;
     fn _($key) { ##_("Not found: {$key}"); #key = $key; }
 }
@@ -295,8 +295,8 @@ try {
 - Every runtime failure is catchable: a failed operator or builtin, an undefined variable or
   key, division by zero, running out of call depth. Syntax errors happen before the program
   runs and are not.
-- **`Error` is a builtin class** with `#message`, `#file`, `#line` and `#trace`. Programs
-  extend it; `catch (Type $e)` matches a class or a subclass, and an untyped `catch` must be
+- **`Error` is a builtin kind** with `#message`, `#file`, `#line` and `#trace`. Programs
+  extend it; `catch (Type $e)` matches a kind or a child kind, and an untyped `catch` must be
   last.
 - **`error($value)` throws any value.** A string becomes an `Error`'s message; anything else is
   caught as it is.
@@ -313,12 +313,12 @@ works. An unterminated block comment is an error at the line it opened on.
 
 ## Names
 
-Keywords are lowercase and matched exactly, so `class If`, `fn Return()` and `$while` are all
+Keywords are lowercase and matched exactly, so `kind If`, `fn Return()` and `$while` are all
 ordinary names. Writing a keyword in the wrong case says so. Sigils and member names have their
 own namespaces, so `$default`, `@match` and `fn match()` were always fine.
 
-Functions, classes, builtins and top level constants share one namespace, and so do all of a
-class's fields, methods and constants across its hierarchy.
+Functions, kinds, builtins and top level constants share one namespace, and so do all of a
+kind's fields, methods and constants across its hierarchy.
 
 ## Builtins
 
@@ -332,7 +332,7 @@ class's fields, methods and constants across its hierarchy.
 **Lists and maps** — `len`, `slice`, `in_array($value, $list)`, `has_key($x, $key)`, `keys`,
 `values`, `last($list)` (the last element; an empty list is an error), `reverse($x)` (a list or
 a string backwards, a string byte by byte, or a map's entries in the other order, keeping their
-keys), and four that call a function, lambda, bound method, builtin or class for each
+keys), and four that call a function, lambda, bound method, builtin or kind for each
 element, in order:
 
 - `map($x, $f)` — `$f($value)` for each; a list gives a list, a map a map with the same keys.
@@ -348,7 +348,7 @@ element, in order:
 An error in the function comes out of the builtin, and its trace goes from the function
 straight to where the builtin was called.
 
-**Types** — `type_of`, `is_a($x, Class)`, `class_of($x)`, `fields($object)` (the fields that
+**Types** — `type_of`, `is_a($x, Kind)`, `kind_of($x)`, `fields($object)` (the fields that
 are set, as a map by name, the parent's first; a never-set field is left out).
 
 **Input and output** — `print`, `print_error`, `read_file($path)`,
@@ -412,11 +412,11 @@ the range is equally likely. `lib/random.gaz` builds shuffling and picking on th
 
 ## Statics
 
-A static belongs to the class rather than to an object: a field is one slot the class owns, and
+A static belongs to the kind rather than to an object: a field is one slot the kind owns, and
 a method a function that needs no object. Both are reached by name, with `::`.
 
 ```gaz
-class Counter {
+kind Counter {
     static #count = 0;                // one slot, not one per object
     static #limit = 2 * 5;            // its value is a constant expression
     #id;                              // an ordinary field, one per object
@@ -426,7 +426,7 @@ class Counter {
     fn mine() { return "{#id} of {#count}"; }
 }
 
-class Tally extends Counter {}        // shares the same slot
+kind Tally extends Counter {}        // shares the same slot
 
 Counter(); Counter();
 echo Counter::count .. " " .. Tally::count;
@@ -440,16 +440,16 @@ echo Counter::count;
 100
 ```
 
-- **`#name` inside the class is the member**, static or not, since `#` already means "a member
-  of the class this is written in". A static method has no object, so naming an instance field
+- **`#name` inside the kind is the member**, static or not, since `#` already means "a member
+  of the kind this is written in". A static method has no object, so naming an instance field
   or method in one is a parse error, and `#` on its own is too.
 - **A static field's value is a constant expression**, worked out by the parser and written
   before the program's first instruction. Running one would bring initialisation order and
   bytecode before the top level, which is why constants refuse `Point(0, 0)` as well. It is
   required: `static #count;` is an error.
 - **Assigned from anywhere**: `Counter::count = 1`, `Counter::count++`, `Counter::rows[] = $r`
-  and `delete Counter::rows[0]` all work, because a class's members are public unless marked
-  otherwise. A class constant is still not a slot, so `Counter::LIMIT = 1` is an error.
+  and `delete Counter::rows[0]` all work, because a kind's members are public unless marked
+  otherwise. A kind constant is still not a slot, so `Counter::LIMIT = 1` is an error.
 - **A child shares its parent's static** and can't declare one again, as with a constant: every
   member shares one namespace across the hierarchy, statics included.
 - **Reached by name only**: `$counter.count` is not a static, and `$counter::next()` puts a
@@ -474,8 +474,8 @@ fn scan($text) {                      // private: only namespace json can use it
 ```
 
 **A name is private to its namespace unless `pub`.** A file is implementation, and only what it
-says is public escapes it. This is the opposite default to a class's members, which are public
-unless marked otherwise, because a class is an interface. Privacy is per namespace rather than
+says is public escapes it. This is the opposite default to a kind's members, which are public
+unless marked otherwise, because a kind is an interface. Privacy is per namespace rather than
 per file, so several files can declare the same namespace and go on seeing everything of each
 other's.
 

@@ -1,5 +1,5 @@
-// Classes, members and the object sigils
-abstract class Shape {
+// Kinds, members and the object sigils
+abstract kind Shape {
     #name;
     #history = [];
     fn _($name) { #name = $name; }
@@ -7,7 +7,7 @@ abstract class Shape {
     fn to_string() { return "{#name} with area {#area()}"; }
 }
 
-class Circle extends Shape {
+kind Circle extends Shape {
     #radius;
     fn _($radius) { ##_("circle"); #radius = $radius; }
     fn area() { return 3.14159 * #radius * #radius; }
@@ -23,4 +23,4 @@ $query
     .order("y");
 echo #class #final ## # .x ##..y;
 interface implements final public private protected
-class extends Class EXTENDS Interface Final Public
+kind extends Kind EXTENDS Interface Final Public

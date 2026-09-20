@@ -1,1 +1,1 @@
-class A { #f = () -> $outer; }
+kind A { #f = () -> $outer; }

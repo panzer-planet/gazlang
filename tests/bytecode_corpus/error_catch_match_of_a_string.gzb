@@ -1,4 +1,4 @@
-GAZLANG BYTECODE 1
+GAZLANG BYTECODE 2
 globals
 
 top
@@ -8,7 +8,7 @@ CATCH_MATCH Error DONE
 LABEL DONE
 POP
 
-class Error
+kind Error
 field message Error
 field file Error
 field line Error

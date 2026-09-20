@@ -1,0 +1,30 @@
+const TWO = 2;
+echo Token::EOF;
+echo Token::KINDS[0];
+kind Token {
+    const EOF = "EOF";
+    const KINDS = [#EOF, Token::EOF .. "!", TWO, Other::NAME];
+    const TEXT = "kind {#EOF}";
+    #type = #EOF;
+    #kinds = #KINDS;
+    fn is_eof() { return #type == #EOF; }
+    fn later() { return () -> #EOF; }
+    fn describe($type = #EOF) { return $type ?? #KINDS; }
+    fn first() { return #KINDS[0] .. Token::KINDS[1]; }
+    fn in_match($t) { return match ($t) { #EOF => 1, Token::EOF => 2, default => 3 }; }
+    // A field is still written under, and a method's element is still for when it runs
+    fn write() { #kinds[] = 1; #kinds[0] = 2; delete #kinds[0]; #first[0] = 1; }
+}
+kind Special extends Token {
+    const FOUR = TWO * 2;
+    const ALL = [#EOF, #FOUR, Special::EOF];
+    fn all_kinds() { return [#KINDS, #FOUR, Special::FOUR, Special::EOF, Token::EOF]; }
+}
+kind Other { const NAME = "other"; }
+echo Special::ALL;
+// Not a kind: left to run
+$t = Token();
+echo $t.EOF;
+echo TWO.x;
+// A : after a :: needs a space, since a : followed by a : is always ::
+echo true ? Token::EOF : "x";

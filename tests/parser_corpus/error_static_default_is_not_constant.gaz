@@ -1,4 +1,4 @@
 fn f() { return 1; }
-class K {
+kind K {
     static #a = f();
 }

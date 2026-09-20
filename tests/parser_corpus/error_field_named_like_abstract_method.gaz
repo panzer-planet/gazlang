@@ -1,2 +1,2 @@
-abstract class A { abstract fn size(); }
-abstract class B extends A { #size; }
+abstract kind A { abstract fn size(); }
+abstract kind B extends A { #size; }

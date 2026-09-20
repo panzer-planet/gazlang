@@ -1,7 +1,7 @@
 // ... spreads a list into a list literal, anywhere among its elements
 const LETTERS = ["a", "b"];
 const ALL = [...LETTERS, "c", ...[]];
-class T { const MORE = [...ALL, ...LETTERS]; }
+kind T { const MORE = [...ALL, ...LETTERS]; }
 $a = [1, 2];
 echo [...$a];
 echo [0, ...$a, 3, ...$a,];

@@ -1,1 +1,1 @@
-Error: len is a function, not a class at tests/parser_corpus/error_catch_a_builtin.gaz:1
+Error: len is a function, not a kind at tests/parser_corpus/error_catch_a_builtin.gaz:1

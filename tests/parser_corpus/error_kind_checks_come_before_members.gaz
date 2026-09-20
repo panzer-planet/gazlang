@@ -1,0 +1,2 @@
+kind A { fn f() { return #nope; } }
+kind B extends Missing {}

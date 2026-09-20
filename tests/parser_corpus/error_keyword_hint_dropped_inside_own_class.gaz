@@ -1,3 +1,0 @@
-class Return {
-    fn f() { Return 1; }
-}

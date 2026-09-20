@@ -1,10 +1,10 @@
-GAZLANG BYTECODE 1
+GAZLANG BYTECODE 2
 globals
 
 top
 locals
 
-class C
+kind C
 field x D
 locals
 LOAD_THIS

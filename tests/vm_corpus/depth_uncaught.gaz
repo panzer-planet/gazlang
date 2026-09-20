@@ -1,2 +1,2 @@
-class Loop { fn _() { Loop(); } }
+kind Loop { fn _() { Loop(); } }
 Loop();

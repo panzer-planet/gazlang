@@ -1,1 +1,1 @@
-abstract class A { abstract fn _(); }
+abstract kind A { abstract fn _(); }

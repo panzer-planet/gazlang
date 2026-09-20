@@ -24,10 +24,10 @@ ok map needs something to call
 ok filter checks too
 ok reduce checks too
 ok sort checks too
-ok a class constructs
+ok a kind constructs
 ok a bound method
 ok a builtin
-ok an abstract class can't
+ok an abstract kind can't
 ok a builtin with the wrong count
 ok a lambda with the wrong count
 ok a bound method with the wrong count

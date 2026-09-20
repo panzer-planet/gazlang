@@ -1,15 +1,15 @@
-// Classes: fields, methods, inheritance, bound methods and to_string().
+// Kinds: fields, methods, inheritance, bound methods and to_string().
 //
 //   bin/gazlang -f examples/objects.gaz
 
-abstract class Shape {
+abstract kind Shape {
     #name;
     fn _($name) { #name = $name; }
     abstract fn area();
     fn to_string() { return "{#name} with area " .. round(#area(), 2); }
 }
 
-class Circle extends Shape {
+kind Circle extends Shape {
     #radius;
     fn _($radius) {
         ##_("circle");
@@ -19,7 +19,7 @@ class Circle extends Shape {
     fn to_string() { return ##to_string() .. " (r = {#radius})"; }
 }
 
-class Rectangle extends Shape {
+kind Rectangle extends Shape {
     #width;
     #height;
     fn _($width, $height) {
@@ -39,7 +39,7 @@ echo "smallest: {$by_area[0]}";                 // smallest: circle with area 3.
 echo "circles: " .. len(filter($shapes, $s -> is_a($s, Circle)));   // circles: 1
 
 // Objects are handles: every reference sees the same account
-class Account {
+kind Account {
     #owner;
     #balance = 0;
     #history = [];
@@ -79,7 +79,7 @@ foreach ([5, 10] as $amount) {
 }
 echo "balance after payments: {$account.balance}";   // balance after payments: 85
 
-class Counter {
+kind Counter {
     #counts = {};
     fn counter($key) {
         return () -> {

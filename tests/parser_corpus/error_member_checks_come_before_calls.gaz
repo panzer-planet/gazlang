@@ -1,2 +1,2 @@
 echo missing();
-class A { fn f() { return #nope; } }
+kind A { fn f() { return #nope; } }

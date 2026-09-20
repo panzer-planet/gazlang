@@ -1,1 +1,1 @@
-Error: Undefined class: Missing at tests/parser_corpus/error_catch_type_is_located_at_the_name.gaz:5
+Error: Undefined kind: Missing at tests/parser_corpus/error_catch_type_is_located_at_the_name.gaz:5

@@ -1,7 +1,7 @@
 Compound
   statements:
 @ "<builtin>"
-    0: ClassDeclaration 1
+    0: KindDeclaration 1
       name: "Error"
       parent: null
       abstract: false
@@ -33,7 +33,7 @@ Compound
                     token: 6 VAR_IDENTIFIER $message
                     value: "\$message"
           arity: 1
-          class: "Error"
+          kind: "Error"
           abstract: false
         to_string: FunctionDeclaration 7
           name: "to_string"
@@ -56,7 +56,7 @@ Compound
                     value: null
                     static_name: null
           arity: 0
-          class: "Error"
+          kind: "Error"
           abstract: false
       constants: []
       constant_lines: []
@@ -258,7 +258,7 @@ Compound
             expr: String 14
               token: 14 STRING "always"
               value: "always"
-    6: ClassDeclaration 16
+    6: KindDeclaration 16
       name: "NotFound"
       parent: "Error"
       abstract: false
@@ -304,7 +304,7 @@ Compound
                     token: 18 VAR_IDENTIFIER $key
                     value: "\$key"
           arity: 1
-          class: "NotFound"
+          kind: "NotFound"
           abstract: false
       constants: []
       constant_lines: []
@@ -407,7 +407,7 @@ Compound
                       0: LoopControl 25
                         token: 25 CONTINUE continue
       arity: 1
-      class: null
+      kind: null
       abstract: false
     8: Statement 28
       expr: Assign 28

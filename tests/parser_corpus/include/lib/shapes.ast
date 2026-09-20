@@ -12,10 +12,10 @@ Compound
               token: 1 INTEGER 1
               value: 1
       arity: 0
-      class: null
+      kind: null
       abstract: false
 @ "tests/parser_corpus/include/lib/shapes.gaz"
-    1: ClassDeclaration 3
+    1: KindDeclaration 3
       name: "Square"
       parent: null
       abstract: false
@@ -47,7 +47,7 @@ Compound
                     token: 5 VAR_IDENTIFIER $side
                     value: "\$side"
           arity: 1
-          class: "Square"
+          kind: "Square"
           abstract: false
       constants: []
       constant_lines: []
@@ -90,7 +90,7 @@ Compound
                 name: "helper"
                 args: []
       arity: 1
-      class: null
+      kind: null
       abstract: false
     3: EchoStatement 8
       expr: String 8

@@ -78,7 +78,7 @@ static void each_child(Gc *g, void (*visit)(Value *slot)) {
     }
     case T_OBJECT: {
         Object *o = (Object *)g;
-        for (int i = 0; i < o->cls->nfields; i++) visit(&o->fields[i]);
+        for (int i = 0; i < o->kind->nfields; i++) visit(&o->fields[i]);
         break;
     }
     case T_FUNCTION: {

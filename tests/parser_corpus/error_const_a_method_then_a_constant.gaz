@@ -1,1 +1,1 @@
-class K { fn A() {} const A = 2; }
+kind K { fn A() {} const A = 2; }

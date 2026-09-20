@@ -31,7 +31,7 @@ Compound
                 token: 4 VAR_IDENTIFIER $scale
                 value: "\$scale"
       arity: [0, 1]
-      class: null
+      kind: null
       abstract: false
     2: EchoStatement 26
       expr: ArrayLiteral 26

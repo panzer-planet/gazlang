@@ -12,5 +12,5 @@ Compound
               token: 3 STRING "plain"
               value: "plain"
       arity: 0
-      class: null
+      kind: null
       abstract: false

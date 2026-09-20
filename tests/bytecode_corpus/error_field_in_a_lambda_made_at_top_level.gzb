@@ -1,4 +1,4 @@
-GAZLANG BYTECODE 1
+GAZLANG BYTECODE 2
 globals
 
 top
@@ -6,7 +6,7 @@ locals
 MAKE_CLOSURE 1
 POP
 
-class C
+kind C
 field x C
 method m C
 locals

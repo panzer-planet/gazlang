@@ -1,4 +1,4 @@
-class Counter {
+kind Counter {
     #count = 0;
     fn _($start) { #count = $start; }
     fn step($by = 1) { #count += $by; return #count; }
