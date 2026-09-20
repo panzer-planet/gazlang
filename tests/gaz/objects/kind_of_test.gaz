@@ -1,8 +1,8 @@
 include "../check.gaz";
 
-kind Shape { #name = "shape"; }
-kind Circle extends Shape { #r; fn _($r) { #name = "circle"; #r = $r; } }
-kind Square extends Shape { #s; fn _($s) { #name = "square"; #s = $s; } }
+kind Shape { pub #name = "shape"; }
+kind Circle extends Shape { pub #r; fn _($r) { #name = "circle"; #r = $r; } }
+kind Square extends Shape { pub #s; fn _($s) { #name = "square"; #s = $s; } }
 
 $c = Circle(2);
 
@@ -19,10 +19,10 @@ check("and is_a accepts it", is_a($c, kind_of($c)), true);
 
 // What it is for: dispatching a pass written outside the node kinds, which is how a
 // compiler with more than one backend has to be written
-kind Num { #v; fn _($v) { #v = $v; } }
-kind Add { #l; #r; fn _($l, $r) { #l = $l; #r = $r; } }
-kind Mul { #l; #r; fn _($l, $r) { #l = $l; #r = $r; } }
-kind Neg { #e; fn _($e) { #e = $e; } }
+kind Num { pub #v; fn _($v) { #v = $v; } }
+kind Add { pub #l; pub #r; fn _($l, $r) { #l = $l; #r = $r; } }
+kind Mul { pub #l; pub #r; fn _($l, $r) { #l = $l; #r = $r; } }
+kind Neg { pub #e; fn _($e) { #e = $e; } }
 
 fn eval($n) {
     return match (kind_of($n)) {

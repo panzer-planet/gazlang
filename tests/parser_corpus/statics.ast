@@ -58,7 +58,7 @@ Compound
                   value: null
                   static_name: "Counter::count"
           arity: 0
-          kind: null
+          kind: "Counter"
           abstract: false
         twice: FunctionDeclaration 21
           name: "Counter::twice"
@@ -89,10 +89,11 @@ Compound
                       static_name: "Counter::next"
                     args: []
           arity: 0
-          kind: null
+          kind: "Counter"
           abstract: false
       static_owners: {"count" => "Counter", "rows" => "Counter", "limit" => "Counter", "next" => "Counter", "twice" => "Counter"}
       static_is_method: {"count" => false, "rows" => false, "limit" => false, "next" => true, "twice" => true}
+      vis: {"count" => "pub", "rows" => "", "limit" => "", "id" => "", "_" => "pub", "next" => "pub", "twice" => "", "mine" => "pub"}
       fields: {"id" => null}
       field_lines: {"id" => 7}
       methods:
@@ -194,6 +195,11 @@ Compound
       layout: {"id" => "Counter"}
       members: {"_" => "Counter", "mine" => "Counter"}
       abstract_methods: []
+      slots: [["id", "Counter", ""]]
+      method_table: [["_", "Counter", "pub"], ["mine", "Counter", "pub"]]
+      owner_vis: {"count" => "pub", "rows" => "", "limit" => "", "next" => "pub", "twice" => "", "id" => "", "_" => "pub", "mine" => "pub"}
+      hidden: []
+      hidden_fields: []
     4: FunctionDeclaration 14
       name: "Counter::next"
       params: []
@@ -220,7 +226,7 @@ Compound
               value: null
               static_name: "Counter::count"
       arity: 0
-      kind: null
+      kind: "Counter"
       abstract: false
     5: FunctionDeclaration 21
       name: "Counter::twice"
@@ -251,7 +257,7 @@ Compound
                   static_name: "Counter::next"
                 args: []
       arity: 0
-      kind: null
+      kind: "Counter"
       abstract: false
     6: KindDeclaration 32
       name: "Tally"
@@ -260,17 +266,23 @@ Compound
       statics: []
       static_lines: []
       static_methods: []
-      static_owners: {"count" => "Counter", "rows" => "Counter", "limit" => "Counter", "next" => "Counter", "twice" => "Counter"}
-      static_is_method: {"count" => false, "rows" => false, "limit" => false, "next" => true, "twice" => true}
+      static_owners: {"count" => "Counter", "next" => "Counter"}
+      static_is_method: {"count" => false, "next" => true}
+      vis: []
       fields: []
       field_lines: []
       methods: []
       constants: []
       constant_lines: []
       constant_owners: []
-      layout: {"id" => "Counter"}
+      layout: []
       members: {"_" => "Counter", "mine" => "Counter"}
       abstract_methods: []
+      slots: [["id", "Counter", ""]]
+      method_table: [["_", "Counter", "pub"], ["mine", "Counter", "pub"]]
+      owner_vis: {"count" => "pub", "next" => "pub", "_" => "pub", "mine" => "pub"}
+      hidden: {"id" => "Counter", "rows" => "Counter", "limit" => "Counter", "twice" => "Counter"}
+      hidden_fields: {"id" => "Counter"}
     7: EchoStatement 34
       expr: FunctionRef 34
         name: "Counter::count"

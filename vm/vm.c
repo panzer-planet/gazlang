@@ -195,20 +195,20 @@ static Value caught(Error *e) {
         gc_track(&o->gc, T_OBJECT);
         o->kind = error_kind;
         incref(v_str(e->reason));
-        o->fields[kind_field(error_kind, message)] = v_str(e->reason);
+        o->fields[kind_field(error_kind, message, NULL)] = v_str(e->reason);
         incref(path);
-        o->fields[kind_field(error_kind, file)] = path;
-        o->fields[kind_field(error_kind, line)] = where;
-        o->fields[kind_field(error_kind, trace)] = calls;
+        o->fields[kind_field(error_kind, file, NULL)] = path;
+        o->fields[kind_field(error_kind, line, NULL)] = where;
+        o->fields[kind_field(error_kind, trace, NULL)] = calls;
         e->caught = v_object(o);
     } else {
         Value v = e->value;
         if (v.type == T_OBJECT && error_kind && kind_is_a(v.o->kind, error_kind)
-            && v.o->fields[kind_field(v.o->kind, line)].type == T_UNSET) {
+            && v.o->fields[kind_field(v.o->kind, line, NULL)].type == T_UNSET) {
             incref(path);
-            set_slot(&v.o->fields[kind_field(v.o->kind, file)], path);
-            set_slot(&v.o->fields[kind_field(v.o->kind, line)], where);
-            set_slot(&v.o->fields[kind_field(v.o->kind, trace)], calls);
+            set_slot(&v.o->fields[kind_field(v.o->kind, file, NULL)], path);
+            set_slot(&v.o->fields[kind_field(v.o->kind, line, NULL)], where);
+            set_slot(&v.o->fields[kind_field(v.o->kind, trace, NULL)], calls);
         } else {
             decref(calls);
         }
@@ -271,7 +271,7 @@ static void describe(Value callee, Buf *out) {
 }
 
 static Function *method_function(Kind *definer, Str *name) {
-    int m = kind_method(definer, name);
+    int m = kind_method(definer, name, definer);
     return m < 0 ? NULL : definer->entries[m].function;
 }
 
@@ -431,10 +431,10 @@ bool call_value(Value callee, Value *args, int argc, Value *out) {
 
 /* The slot of the field a member instruction names in an object, or -1: through the
    instruction's cache when the object's kind is the one it saw last */
-static inline int field_slot(Instr *in, Object *o) {
+static inline int field_slot(Instr *in, Object *o, Kind *asking) {
     if (o->kind != in->cached_kind) {
         in->cached_kind = o->kind;
-        in->cached_at = kind_field(o->kind, in->p);
+        in->cached_at = kind_field(o->kind, in->p, asking);
     }
     return in->cached_at;
 }
@@ -758,7 +758,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             decref(a);
             break;
         case OP_SET_FIELD_POP: {
-            int f = field_slot(in, fp->receiver);
+            int f = field_slot(in, fp->receiver, fp->block->owner);
             if (f < 0) {
                 op = in->orig;
                 goto dispatch;
@@ -876,17 +876,17 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             Value *keys = sp - 1 - path->nkeys;
             bool ok;
             if (op == OP_SET_PATH) {
-                ok = store_path(&fp->base[in->a], fp->block->locals[in->a], path, keys, TOP());
+                ok = store_path(&fp->base[in->a], fp->block->locals[in->a], path, keys, TOP(), fp->block->owner);
             } else if (op == OP_SET_PATH_GLOBAL) {
-                ok = store_path(&globals[in->a], program->globals[in->a], path, keys, TOP());
+                ok = store_path(&globals[in->a], program->globals[in->a], path, keys, TOP(), fp->block->owner);
             } else if (op == OP_SET_PATH_CAPTURED) {
-                ok = store_path(&fp->closure->captured[in->a], fp->closure->lambda->block->captures[in->a], path, keys, TOP());
+                ok = store_path(&fp->closure->captured[in->a], fp->closure->lambda->block->captures[in->a], path, keys, TOP(), fp->block->owner);
             } else if (op == OP_SET_PATH_STATIC) {
-                ok = store_path(&statics[in->a], program->statics[in->a], path, keys, TOP());
+                ok = store_path(&statics[in->a], program->statics[in->a], path, keys, TOP(), fp->block->owner);
             } else {
                 /* The object is a handle, so writing through a copy of it writes the object */
                 Value self = fp->receiver ? v_object(fp->receiver) : v_null();
-                ok = store_path(&self, this_name(), path, keys, TOP());
+                ok = store_path(&self, this_name(), path, keys, TOP(), fp->block->owner);
             }
             if (!ok) goto error;
             for (int i = 0; i < path->nkeys; i++) decref(keys[i]);
@@ -903,16 +903,16 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             Value *keys = sp - path->nkeys;
             bool ok;
             if (op == OP_DELETE_PATH) {
-                ok = remove_path(&fp->base[in->a], fp->block->locals[in->a], path, keys);
+                ok = remove_path(&fp->base[in->a], fp->block->locals[in->a], path, keys, fp->block->owner);
             } else if (op == OP_DELETE_PATH_GLOBAL) {
-                ok = remove_path(&globals[in->a], program->globals[in->a], path, keys);
+                ok = remove_path(&globals[in->a], program->globals[in->a], path, keys, fp->block->owner);
             } else if (op == OP_DELETE_PATH_CAPTURED) {
-                ok = remove_path(&fp->closure->captured[in->a], fp->closure->lambda->block->captures[in->a], path, keys);
+                ok = remove_path(&fp->closure->captured[in->a], fp->closure->lambda->block->captures[in->a], path, keys, fp->block->owner);
             } else if (op == OP_DELETE_PATH_STATIC) {
-                ok = remove_path(&statics[in->a], program->statics[in->a], path, keys);
+                ok = remove_path(&statics[in->a], program->statics[in->a], path, keys, fp->block->owner);
             } else {
                 Value self = fp->receiver ? v_object(fp->receiver) : v_null();
-                ok = remove_path(&self, this_name(), path, keys);
+                ok = remove_path(&self, this_name(), path, keys, fp->block->owner);
             }
             if (!ok) goto error;
             for (int i = 0; i < path->nkeys; i++) decref(keys[i]);
@@ -1006,11 +1006,11 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             break;
         case OP_LOAD_FIELD: {
             Object *o = fp->receiver;
-            int f = field_slot(in, o);
+            int f = field_slot(in, o, fp->block->owner);
             if (f >= 0 && o->fields[f].type != T_UNSET) {
                 r = o->fields[f];
                 incref(r);
-            } else if (!property(v_object(o), in->p, false, &r)) {
+            } else if (!property(v_object(o), in->p, false, fp->block->owner, &r)) {
                 goto error;
             }
             PUSH(r);
@@ -1018,7 +1018,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         }
         case OP_SET_FIELD: {
             Object *o = fp->receiver;
-            int f = field_slot(in, o);
+            int f = field_slot(in, o, fp->block->owner);
             if (f < 0) {
                 /* Only hand-written bytecode names a field its kind doesn't declare */
                 raisef("Cannot set %s here", ((Str *)in->p)->data);
@@ -1031,7 +1031,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         case OP_GET_PROPERTY:
             /* A field that is set, found through the cache; anything else the long way */
             if (TOP().type == T_OBJECT) {
-                int f = field_slot(in, TOP().o);
+                int f = field_slot(in, TOP().o, fp->block->owner);
                 if (f >= 0 && TOP().o->fields[f].type != T_UNSET) {
                     r = TOP().o->fields[f];
                     incref(r);
@@ -1039,16 +1039,16 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
                     break;
                 }
             }
-            if (!property(TOP(), in->p, false, &r)) goto error;
+            if (!property(TOP(), in->p, false, fp->block->owner, &r)) goto error;
             set_slot(&TOP(), r);
             break;
         case OP_GET_PROPERTY_QUIET:
             if (TOP().type == T_NULL) break;
-            if (!property(TOP(), in->p, true, &r)) goto error;
+            if (!property(TOP(), in->p, true, fp->block->owner, &r)) goto error;
             set_slot(&TOP(), r);
             break;
         case OP_GET_PROPERTY_EXISTING:
-            if (!property_existing(TOP(), in->p, &r)) goto error;
+            if (!property_existing(TOP(), in->p, fp->block->owner, &r)) goto error;
             set_slot(&TOP(), r);
             break;
         case OP_GET_METHOD: {
@@ -1059,7 +1059,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
                 if (a.o->kind == in->cached_kind) {
                     m = in->cached_at;
                 } else {
-                    m = kind_method(a.o->kind, name);
+                    m = kind_method(a.o->kind, name, fp->block->owner);
                     in->cached_kind = a.o->kind;
                     in->cached_at = m;
                 }
@@ -1068,7 +1068,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
                     break;
                 }
             }
-            if (!property(a, name, false, &r)) goto error;
+            if (!property(a, name, false, fp->block->owner, &r)) goto error;
             set_slot(&TOP(), r);
             PUSH(v_null());
             break;

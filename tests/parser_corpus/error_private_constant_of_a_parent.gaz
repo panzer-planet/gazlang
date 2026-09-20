@@ -1,0 +1,2 @@
+kind A { const SECRET = 1; }
+kind B extends A { pub fn f() { return #SECRET; } }

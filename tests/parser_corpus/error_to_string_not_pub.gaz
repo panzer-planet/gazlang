@@ -1,0 +1,1 @@
+kind A { fn to_string() { return "a"; } }

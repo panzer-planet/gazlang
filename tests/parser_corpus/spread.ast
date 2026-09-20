@@ -10,6 +10,7 @@ Compound
       static_methods: []
       static_owners: []
       static_is_method: []
+      vis: {"MORE" => ""}
       fields: []
       field_lines: []
       methods: []
@@ -38,6 +39,11 @@ Compound
       layout: []
       members: []
       abstract_methods: []
+      slots: []
+      method_table: []
+      owner_vis: {"MORE" => ""}
+      hidden: []
+      hidden_fields: []
     1: Statement 5
       expr: Assign 5
         left: Variable 5
@@ -160,6 +166,7 @@ Compound
             map: false
           captures: ["\$a"]
           self: null
+          owner: null
     7: EchoStatement 12
       expr: ArrayLiteral 12
         entries:

@@ -1,0 +1,1 @@
+Error: Abstract method A.f must be pub: a child defines what it can see at tests/parser_corpus/error_abstract_method_not_pub.gaz:1

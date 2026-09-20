@@ -12,9 +12,9 @@ include "nodes.gaz";
 // #line and #file are Error's own, and say where in this file the error was raised, so the
 // place in the source being parsed has names of its own, as in LexError
 kind ParseError extends Error {
-    #reason;
-    #source_file;
-    #source_line;
+    pub #reason;
+    pub #source_file;
+    pub #source_line;
 
     // Where the error is: a file is null for piped or inline source
     fn _($reason, $source_file, $source_line) {
@@ -32,12 +32,12 @@ kind ParseError extends Error {
 // two maps passed along: a map passed to a function is a copy.
 kind VariableCollector {
     // The names, as the keys of a map, which keeps them in the order they were first met
-    #found = {};
-    #assigned = {};
+    pub #found = {};
+    pub #assigned = {};
 
     // A stack rather than recursion: a chain of operators is as deep on its left as it is
     // long, and two calls a level would run out of call depth at about 5000 of them
-    fn collect($node) {
+    pub fn collect($node) {
         $stack = [$node];
         while (len($stack) > 0) {
             $last = len($stack) - 1;
@@ -206,13 +206,15 @@ kind Parser {
 
     // Source of the builtin kinds, parsed into every program: Error is what runtime errors
     // and error("message") throw. Single quoted, so nothing in it is interpolated.
+    // Every program reaches an error's members ($e.message), and printing one calls its
+    // to_string() from outside, so all of them are pub
     const BUILTIN_SOURCE = 'kind Error {
-    #message;
-    #file;
-    #line;
-    #trace;
+    pub #message;
+    pub #file;
+    pub #line;
+    pub #trace;
     fn _($message) { #message = $message; }
-    fn to_string() { return "{#message}"; }
+    pub fn to_string() { return "{#message}"; }
 }';
 
     // How errors name the builtin kinds' source
@@ -665,7 +667,10 @@ kind Parser {
             }
         }
 
-        return #at(LambdaAST($params, $defaults, $arity, $body, $captures), $start);
+        $lambda = #at(LambdaAST($params, $defaults, $arity, $body, $captures), $start);
+        $lambda.owner = #kind == null ? null : #kind.name;
+
+        return $lambda;
     }
 
     // Check a lambda's parameter list, with the same rules as a function's, and work out its arity
@@ -1458,14 +1463,20 @@ kind Parser {
         #eat("LEFT_BRACE");
         #kind = $kind;
         while (#current_token.type != "RIGHT_BRACE") {
+            // pub says the member escapes the kind, as it says a name escapes a namespace
+            $vis = "";
+            if (#current_token.type == "PUB") {
+                #eat("PUB");
+                $vis = "pub";
+            }
             if (#current_token.type == "HASH_IDENTIFIER") {
-                #field_declaration($kind);
+                #field_declaration($kind, $vis);
             } else if (#current_token.type == "CONST") {
-                #constant_declaration($kind);
+                #constant_declaration($kind, false, $vis);
             } else if (#current_token.type == "FN" || #current_token.type == "ABSTRACT") {
-                #method_declaration($kind);
+                #method_declaration($kind, $vis);
             } else if (#current_token.type == "STATIC") {
-                #static_declaration($kind);
+                #static_declaration($kind, $vis);
             } else {
                 #fail("Expected a field (#name), a method (fn), a constant (const) or a static but found " .. #describe(#current_token));
             }
@@ -1477,7 +1488,7 @@ kind Parser {
     }
 
     // Parse a field declaration (HASH_IDENTIFIER [ASSIGN expr] SEMICOLON) into its kind
-    fn field_declaration($kind) {
+    fn field_declaration($kind, $vis = "") {
         $token = #current_token;
         $name = slice($token.value, 1);
         #check_new_member($kind, $name);
@@ -1498,6 +1509,7 @@ kind Parser {
 
         $kind.fields[$name] = $default;
         $kind.field_lines[$name] = $token.line;
+        $kind.vis[$name] = $vis;
     }
 
     // Parse a constant declaration (CONST IDENTIFIER ASSIGN expr SEMICOLON), at the top level or in a kind ($kind)
@@ -1507,7 +1519,7 @@ kind Parser {
     // whole program is read (see fold()), and a use of the constant is then that value, so
     // neither backend knows constants exist. A top level constant shares the namespace of
     // functions and kinds; a kind's shares the one its fields and methods are in.
-    fn constant_declaration($kind, $pub = false) {
+    fn constant_declaration($kind, $pub = false, $vis = "") {
         #eat("CONST");
         $token = #current_token;
         $name = $token.value;
@@ -1535,6 +1547,7 @@ kind Parser {
         } else {
             $kind.constants[$name] = $expr;
             $kind.constant_lines[$name] = $token.line;
+            $kind.vis[$name] = $vis;
             #constants["{$kind.name}::{$name}"] = [$expr, $kind, "{$kind.name}::{$name}"];
         }
     }
@@ -1705,6 +1718,7 @@ kind Parser {
             #fail_at("{$what} has the name of a {$member} of {$owner}: constants, fields, methods and statics share names", $kind.file, $line);
         }
         $kind.static_owners[$name] = $kind.name;
+        $kind.owner_vis[$name] = $kind.vis[$name];
         $kind.static_is_method[$name] = $is_method;
     }
 
@@ -1718,6 +1732,16 @@ kind Parser {
 
     // The key in #statics of a resolved kind's static, its parent's included, or null if it
     // has none of that name
+    // Why a kind can't name a member its parent has, or null when it has none of that name
+    fn not_pub($kind, $name) {
+        if (!has_key($kind.hidden, $name)) {
+            return null;
+        }
+        $owner = $kind.hidden[$name];
+
+        return "{$owner}::{$name} is not pub, so only {$owner} can use it";
+    }
+
     fn kind_static($kind, $name) {
         return has_key($kind.static_owners, $name) ? "{$kind.static_owners[$name]}::{$name}" : null;
     }
@@ -1753,6 +1777,13 @@ kind Parser {
             $owner = is_a($node.target, ThisAST) ? $kind : null;
             if ($owner != null && #kind_constant($owner, $node.name) != null) {
                 return;
+            }
+            // A parent's private constant is the parent's own, which is worth saying outright
+            if ($owner != null) {
+                $hidden = #not_pub($owner, $node.name);
+                if ($hidden != null) {
+                    #fail_at($hidden, $node.file, $node.line);
+                }
             }
             #fail_at("A constant's value can only use literals, operators and other constants", $node.file, $node.line);
         }
@@ -1945,7 +1976,7 @@ kind Parser {
         [$prefix, $last] = #split_name($name);
         $kind = #kinds[$prefix] ?? null;
         if ($kind != null) {
-            return "Kind {$kind.name} has no constant {$last}";
+            return #not_pub($kind, $last) ?? "Kind {$kind.name} has no constant {$last}";
         }
 
         return has_key(#namespaces, #split_head($name)[0]) ? null : #not_a_kind($prefix);
@@ -1957,11 +1988,11 @@ kind Parser {
     // method a function whose name carries its kind. A field's default is a constant
     // expression, folded as a kind constant is: running one would bring initialisation
     // order and bytecode before the top level, which is what constants refuse for.
-    fn static_declaration($kind) {
+    fn static_declaration($kind, $vis = "") {
         $start = #current_token;
         #eat("STATIC");
         if (#current_token.type == "FN") {
-            #static_method($kind, $start);
+            #static_method($kind, $start, $vis);
 
             return;
         }
@@ -1983,13 +2014,14 @@ kind Parser {
 
         $kind.statics[$name] = $expr;
         $kind.static_lines[$name] = $token.line;
+        $kind.vis[$name] = $vis;
     }
 
     // Parse a static method (FN name parameters block), the static having been eaten
     //
     // It is a function named Kind::name, so calling one is an ordinary call and the VM needs
     // nothing: a static has no object, which is why a dot never reaches it.
-    fn static_method($kind, $start) {
+    fn static_method($kind, $start, $vis = "") {
         #eat("FN");
         $token = #current_token;
         if ($token.type != "IDENTIFIER" && !in_array($token.type, values(Lexer::KEYWORDS))) {
@@ -2013,14 +2045,16 @@ kind Parser {
         [#in_function, #in_static] = [$in_function, $in_static];
 
         $node = #at(FunctionDeclarationAST($full, $params, $defaults, $body, $arity), $start);
+        $node.kind = $kind.name;
         $kind.static_methods[$name] = $node;
+        $kind.vis[$name] = $vis;
         #static_functions[] = $node;
     }
 
     // Parse a method declaration ([ABSTRACT] FN name parameters (block | SEMICOLON)) into its kind
     //
     // An abstract method has no body, and only an abstract kind can declare one.
-    fn method_declaration($kind) {
+    fn method_declaration($kind, $vis = "") {
         $start = #current_token;
         $abstract = $start.type == "ABSTRACT";
         if ($abstract) {
@@ -2032,6 +2066,15 @@ kind Parser {
             #fail("Expected a name but found " .. #describe($token));
         }
         $name = $token.value;
+        // A constructor is reached by constructing rather than by naming, so it escapes its
+        // kind whatever it says: a child's _ overrides its parent's, and a marker on one
+        // would be saying what is already true
+        if ($name == "_") {
+            if ($vis != "") {
+                #fail("A constructor is reached by constructing, so it needs no {$vis}");
+            }
+            $vis = "pub";
+        }
         #check_new_member($kind, $name);
         #eat($token.type);
 
@@ -2058,6 +2101,7 @@ kind Parser {
         $method.kind = $kind.name;
         $method.abstract = $abstract;
         $kind.methods[$name] = $method;
+        $kind.vis[$name] = $vis;
     }
 
     // Check a kind doesn't already declare a member: fields and methods share one namespace
@@ -2282,6 +2326,36 @@ kind Parser {
 
     // Work out a kind's fields and methods from its own and its parent's, checking they fit together
     //
+    // The entries of one of a kind's tables that escape it, so a child can name them. What is
+    // left behind is recorded on $into, so an error about it can say why it isn't there.
+    fn escaping($table, $kind, $into = null, $fields = false) {
+        $out = {};
+        foreach ($table as $name => $value) {
+            if (($kind.owner_vis[$name] ?? "") != "") {
+                $out[$name] = $value;
+            } else if ($into != null) {
+                $into.hidden[$name] = $kind.name;
+                if ($fields) {
+                    $into.hidden_fields[$name] = $value;
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    // Where a name's escaping entry sits in a method table, or null: a private entry of that
+    // name belongs to whichever kind declared it, and is not the one an override replaces
+    fn entry_of($table, $name) {
+        foreach ($table as $at => [$entry, $definer, $vis]) {
+            if ($entry == $name && $vis != "") {
+                return $at;
+            }
+        }
+
+        return null;
+    }
+
     // Fields and methods share one namespace, a field can't be declared again, and a method
     // may replace a parent's method but must accept every argument count the parent's accepts
     // (except the constructor, which each kind defines for itself). $chain is the kinds
@@ -2308,10 +2382,19 @@ kind Parser {
                 #fail_at("Circular inheritance: " .. join($cycle, " extends "), $kind.file, $kind.line);
             }
             #resolve_kind($parent, $chain);
-            [$kind.layout, $kind.members, $kind.abstract_methods] = [$parent.layout, $parent.members, $parent.abstract_methods];
-            $kind.constant_owners = $parent.constant_owners;
+            // A parent's private member is the parent's own: a child can't name it, and may
+            // declare one of its own by that name. Its slot and method entry are still
+            // inherited, since the parent's own methods run on a child's objects and reach it.
+            [$kind.slots, $kind.method_table] = [$parent.slots, $parent.method_table];
+            [$kind.hidden, $kind.hidden_fields] = [$parent.hidden, $parent.hidden_fields];
+            $kind.layout = #escaping($parent.layout, $parent, $kind, true);
+            $kind.members = #escaping($parent.members, $parent, $kind);
+            $kind.abstract_methods = #escaping($parent.abstract_methods, $parent, $kind);
+            $kind.constant_owners = #escaping($parent.constant_owners, $parent, $kind);
             // A child shares its parent's statics, as it shares the rest of the namespace
-            [$kind.static_owners, $kind.static_is_method] = [$parent.static_owners, $parent.static_is_method];
+            $kind.static_owners = #escaping($parent.static_owners, $parent, $kind);
+            $kind.static_is_method = #escaping($parent.static_is_method, $parent);
+            $kind.owner_vis = #escaping($parent.owner_vis, $parent);
         }
 
         foreach ($kind.constants as $name => $_) {
@@ -2327,6 +2410,7 @@ kind Parser {
                 #fail_at("Constant {$name} of {$kind.name} has the name of a {$member} of {$owner}: constants, fields and methods share names", $kind.file, $line);
             }
             $kind.constant_owners[$name] = $kind.name;
+            $kind.owner_vis[$name] = $kind.vis[$name];
         }
 
         foreach ($kind.statics as $name => $_) {
@@ -2345,11 +2429,19 @@ kind Parser {
             if (has_key($kind.layout, $name)) {
                 #fail_at("Field #{$name} of {$kind.name} is already declared in {$kind.layout[$name]}", $kind.file, $line);
             }
+            // A method, constant or static of a parent's that this kind can't name may have
+            // its name reused; a field may not, since every field of an object is a slot of
+            // its own and the initialiser sets each one by name
+            if (has_key($kind.hidden_fields, $name)) {
+                #fail_at("Field #{$name} of {$kind.name} has the name of a field of {$kind.hidden_fields[$name]} that isn't pub: a field is a slot, so the name is taken", $kind.file, $line);
+            }
             $owner = $kind.members[$name] ?? $kind.abstract_methods[$name] ?? null;
             if ($owner != null) {
                 #fail_at("Field #{$name} of {$kind.name} has the name of a method of {$owner}: fields and methods share names, so call the field something else", $kind.file, $line);
             }
             $kind.layout[$name] = $kind.name;
+            $kind.owner_vis[$name] = $kind.vis[$name];
+            $kind.slots[] = [$name, $kind.name, $kind.vis[$name]];
         }
         foreach ($kind.methods as $name => $method) {
             #check_not_static($kind, $name, "Method {$kind.name}.{$name}", $method.line);
@@ -2360,8 +2452,21 @@ kind Parser {
                 #fail_at("Method {$kind.name}.{$name} has the name of a field of {$kind.layout[$name]}: fields and methods share names, so call the method something else", $method.file, $method.line);
             }
             $owner = $kind.members[$name] ?? $kind.abstract_methods[$name] ?? null;
+            // What the parent let escape, before this one's own is recorded below
+            $inherited_vis = $kind.owner_vis[$name] ?? null;
             if ($owner != null && $method.abstract && has_key($kind.members, $name)) {
                 #fail_at("Abstract method {$kind.name}.{$name} can't replace {$owner}.{$name}", $method.file, $method.line);
+            }
+            // A child defines an abstract method, and callers call it, so one that escapes
+            // nothing could never be defined or reached
+            if ($method.abstract && $kind.vis[$name] == "") {
+                #fail_at("Abstract method {$kind.name}.{$name} must be pub: a child defines what it can see", $method.file, $method.line);
+            }
+            // An override answers for the one it replaces, so it escapes as far
+            if ($owner != null && $name != "_" && $kind.vis[$name] != $inherited_vis) {
+                $was = $inherited_vis == "" ? "escapes only {$owner}" : "is {$inherited_vis}";
+                $now = $kind.vis[$name] == "" ? "escapes only {$kind.name}" : "is {$kind.vis[$name]}";
+                #fail_at("Method {$kind.name}.{$name} {$now}, but {$owner}.{$name} {$was}: an override escapes as far as what it replaces", $method.file, $method.line);
             }
             // The constructor is each kind's own: a child's can take different arguments
             if ($owner != null && $name != "_") {
@@ -2375,9 +2480,23 @@ kind Parser {
             if ($name == "to_string" && #bounds($method.arity)[0] != 0) {
                 #fail_at("Method {$kind.name}.to_string must accept 0 arguments: printing calls it with none", $method.file, $method.line);
             }
+            // Printing calls to_string() from outside the kind, so a private one would be
+            // skipped and the object print its fields instead: say so rather than do that
+            if ($name == "to_string" && $kind.vis[$name] != "pub") {
+                #fail_at("Method {$kind.name}.to_string must be pub: printing calls it from outside", $method.file, $method.line);
+            }
+            $kind.owner_vis[$name] = $kind.vis[$name];
             if ($method.abstract) {
                 $kind.abstract_methods[$name] = $kind.name;
             } else {
+                // An override replaces the entry it overrides; a method whose name only a
+                // parent's private one had is a new one, and gets an entry beside it
+                $at = $owner == null ? null : #entry_of($kind.method_table, $name);
+                if ($at == null) {
+                    $kind.method_table[] = [$name, $kind.name, $kind.vis[$name]];
+                } else {
+                    $kind.method_table[$at] = [$name, $kind.name, $kind.vis[$name]];
+                }
                 $kind.members[$name] = $kind.name;
                 if (has_key($kind.abstract_methods, $name)) {
                     delete $kind.abstract_methods[$name];
@@ -2399,6 +2518,11 @@ kind Parser {
         }
         $parent = #kinds[$kind.parent];
         $name = $node.name;
+        // ##name reaches the parent's version, so the parent must let it escape
+        $hidden = #not_pub($kind, $name);
+        if ($hidden != null) {
+            #fail_at($hidden, $node.file, $node.line);
+        }
         if (has_key($parent.layout, $name)) {
             #fail_at("##{$name} can only reach a method, and {$name} is a field of {$parent.layout[$name]}", $node.file, $node.line);
         }
@@ -2481,7 +2605,7 @@ kind Parser {
         }
         $definer = $kind.members[$node.name] ?? $kind.abstract_methods[$node.name] ?? null;
         if ($definer == null) {
-            #fail_at("{$kind.name} has no member #{$node.name}", $node.file, $node.line);
+            #fail_at(#not_pub($kind, $node.name) ?? "{$kind.name} has no member #{$node.name}", $node.file, $node.line);
         }
         if ($assigned) {
             #fail_at("Cannot assign to method #{$node.name}", $node.file, $node.line);
@@ -2679,7 +2803,7 @@ kind Parser {
     }
 
     // Parse the input and return the tree
-    fn parse() {
+    pub fn parse() {
         return #program();
     }
 }

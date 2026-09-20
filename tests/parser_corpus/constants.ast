@@ -239,6 +239,7 @@ Compound
               value: "\$captured"
           captures: ["\$captured"]
           self: null
+          owner: null
     6: Statement 30
       expr: Assign 30
         left: Variable 30

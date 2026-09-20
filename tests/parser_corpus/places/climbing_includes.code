@@ -46,8 +46,8 @@ PUSH null
 RET
 
 kind Square
-field side Square
-method _ Square
+field side Square pub
+method _ Square pub
 locals $#argument_0
 @ "../shapes.gaz" 3
 CALL_CONSTRUCTOR Square

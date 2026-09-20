@@ -169,7 +169,7 @@ foreach ([true, false, 0, 1, 0.0, "", "0", [], [0], {}, null] as $x) {
 // SET_FIELD; POP
 kind Box {
     #value;
-    fn set($v) { #value = $v; return #value; }
+    pub fn set($v) { #value = $v; return #value; }
 }
 $box = Box();
 attempt("set", () -> $box.set([1, 2]));

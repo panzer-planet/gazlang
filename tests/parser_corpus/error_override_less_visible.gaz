@@ -1,0 +1,2 @@
+kind A { pub fn f() {} }
+kind B extends A { fn f() {} }

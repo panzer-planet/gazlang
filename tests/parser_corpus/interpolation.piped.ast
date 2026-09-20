@@ -349,6 +349,7 @@ Compound
                   value: "\$x"
               captures: []
               self: null
+              owner: null
     11: EchoStatement 12
       expr: BinOp 13
         left: BinOp 13

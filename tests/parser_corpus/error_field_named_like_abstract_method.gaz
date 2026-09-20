@@ -1,2 +1,2 @@
-abstract kind A { abstract fn size(); }
+abstract kind A { pub abstract fn size(); }
 abstract kind B extends A { #size; }

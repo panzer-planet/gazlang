@@ -1,0 +1,2 @@
+kind A { fn helper() { return 1; } }
+kind B extends A { pub fn f() { return #helper(); } }

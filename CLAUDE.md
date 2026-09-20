@@ -257,26 +257,15 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   for a program that needs them.
 - **Decided, not built**: `interface`/`implements` (a parse-time check that the methods exist,
   plus `is_a`), and `final`. The keywords are reserved.
-- **Decided, not built: members private unless `pub`, and `kin`.** Two changes that only make
-  sense together, and that `kind` was the first step of.
-  - **A kind's members are private unless `pub`**, the flip of what they are today, and the
-    *same word with the same meaning* as a namespace's: `pub` says this name escapes the thing
-    it is written in, whether that thing is a file or a kind. One keyword for the whole
-    language, so the "opposite defaults, worth saying out loud once" paragraph stops needing
-    to exist. Measured on `compiler/` and `lib/`, 258 of 435 members are never reached from
-    outside, so public-by-default marks 258 and private-by-default marks 177: the flip is less
-    marking as well as fewer words, and the old default was fighting the code.
-  - **`kin` is the middle level**, visible to the kind and everything that extends it, so
-    the ladder is unmarked (mine) → `kin` (mine and my children's) → `pub` (anyone's).
-    `protected` earns a rename where `extends` does not: it is famously misnamed, since it
-    protects less than the default does, and naming the level after *who can see it* is what
-    the word should have done. `kin` and `kind` are one root (kin, kind, kindred), which is
-    why they belong together rather than being a rhyme.
-  - Consequences to settle while building: `Error`'s members are reached by every program
-    (`$e.message`), so the builtin kind declares them `pub`; a static is a member, so
-    `pub static #count` and `kin static #count` are the spellings; `kin` is reserved, and
-    `public`/`private`/`protected` stay reserved only to say "write `pub`" and "write `kin`",
-    the way `function` says to write `fn`.
+- **Decided, not built: `kin`**, the middle level, visible to the kind and everything that
+  extends it, so the ladder is unmarked (mine) → `kin` (mine and my children's) → `pub`
+  (anyone's). `protected` earns a rename where `extends` does not: it is famously misnamed,
+  since it protects less than the default does, and naming the level after *who can see it* is
+  what the word should have done. `kin` and `kind` are one root (kin, kind, kindred), which is
+  why they belong together rather than being a rhyme. `kin static #count` is the spelling, as
+  `pub static #count` is; `public`/`private`/`protected` stay reserved only to say "write
+  `pub`" and "write `kin`", the way `function` says to write `fn`. The bytecode already reads
+  a `kin` marker on a `field` or `method` line, and the VM already resolves it.
 - **Namespaces** are resolved by the parser, so the VM never learns the word and bytecode only
   sees longer names: functions and kinds carry `::`, while a method block stays
   `Kind.method`, which is what lets the loader tell the two apart. Resolution is one pass
@@ -286,9 +275,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - **A name is private to its namespace unless `pub`**: a file is implementation, and only
     what it says is public escapes it. Privacy is per namespace, not per file, so `compiler/`'s
     five files declare `namespace gazlang;` and go on seeing each other's everything, and a
-    test of the internals joins the namespace rather than making them public. A kind's
-    members are the other way round today; the decision above makes them the same, so `pub`
-    means one thing everywhere.
+    test of the internals joins the namespace rather than making them public. A kind's members
+    work the same way, so `pub` means one thing everywhere.
   - **`include "chars.gaz" use is_digit, char_at as at;`** is the only way to bring a name in
     unqualified. Including a file always makes its namespace reachable qualified
     (`chars::is_digit`); the clause only adds aliases, and names in it are bare, since the
@@ -327,9 +315,9 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     field's (any expression, per object) for the reason constants refuse `Point(0, 0)`:
     running one would bring initialisation order and bytecode before the top level. It is
     required, since a slot with nothing in it would need the quiet load a static never wants.
-  - **Assigned from anywhere** (`Counter::count = 1`, `#count++`, `Counter::rows[] = $r`),
-    since a kind's members are public today; once they are private unless `pub`, a static
-    that says nothing is the kind's own and needs no rule of its own to protect it. Both
+  - **Assigned from anywhere it escapes to** (`Counter::count = 1`, `#count++`,
+    `Counter::rows[] = $r`): a `pub static` from anywhere, one that says nothing only from
+    inside the kind, so a static needs no rule of its own to protect it. Both
     spellings compile to the same instruction, since `::` resolves when it is parsed; the cost
     was a fifth root for `store_path()` next to a local, a global, a capture and `#`, and the
     check refusing `Kind::NAME = ...` that mirrors the one refusing `#NAME[0] = 1`.
@@ -633,6 +621,29 @@ $area = $c.area;                              // a bound method
   constant or give a field a method's name (the error suggests a new name). An override must
   accept every argument count the parent's does (constructors exempt), and an abstract method
   can't replace a concrete one.
+- **A member is private unless `pub`**, the *same word with the same meaning* as a namespace's:
+  `pub` says this name escapes the thing it is written in, whether that thing is a file or a
+  kind. One keyword for the whole language, which is why the namespace section no longer has an
+  "opposite defaults" paragraph. Measured on `compiler/` and `lib/` after the flip, 120 of 339
+  members are marked, so the default was fighting the code.
+  - **The asking kind is where the code is written**, not what the object is: `#name` and
+    `##name` are checked at parse time, `$obj.name` when it runs, and a lambda's and a static
+    method's asking kind is the kind they sit in. A block's header carries it (`in Kind`, or
+    the dot in a method's name), so the VM pays nothing until a member is looked up.
+  - **A parent's private member is the parent's own.** A child can't name it, and may declare a
+    method, constant or static of its own by that name: both entries live on and each kind's
+    code reaches the one it can see, which is why a method table can hold two of one name. A
+    field can't be reused, since a field is a slot and the name is taken across the hierarchy.
+    The parent's own methods still reach it on a child's object, and so does the initialiser,
+    which sets every slot the kind has (`KIND_INITIALISER` in `ops.c`).
+  - **An override escapes as far as what it replaces**, the restrictive choice on purpose:
+    loosening it later breaks nothing. `to_string()` must be `pub`, since printing calls it
+    from outside and a private one would silently print the default form instead; an
+    `abstract fn` must be too, since a child defines what it can see. A constructor takes no
+    marker and always escapes: it is reached by constructing, not by naming.
+  - **`fields()` and `echo` are not member access** and show every field that is set, whatever
+    it escapes. Reflection exists so a pass can walk an object without knowing its kind
+    (`--ast` does), and an `echo` that hid half an object would be a debugging footgun.
 - **Objects are handles**: `$b = $a; $b.x = 1` changes `$a`; lists and maps inside stay values.
   `==` is identity, objects are always true, and operators, keys, indexes and `foreach` on them
   are errors.

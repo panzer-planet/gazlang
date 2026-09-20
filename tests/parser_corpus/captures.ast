@@ -28,6 +28,7 @@ Compound
               value: "\$a"
           captures: ["\$a", "\$b"]
           self: null
+          owner: null
     1: Statement 4
       expr: Assign 4
         left: Variable 4
@@ -49,6 +50,7 @@ Compound
               value: "\$a"
           captures: ["\$b", "\$a"]
           self: null
+          owner: null
     2: Statement 5
       expr: Assign 5
         left: Variable 5
@@ -70,6 +72,7 @@ Compound
               value: "\$n"
           captures: ["\$n"]
           self: null
+          owner: null
     3: Statement 6
       expr: Assign 6
         left: Variable 6
@@ -95,6 +98,7 @@ Compound
               value: "\$y"
           captures: ["\$d"]
           self: null
+          owner: null
     4: Statement 7
       expr: Assign 7
         left: Variable 7
@@ -116,6 +120,7 @@ Compound
               value: "\$local"
           captures: ["\$local"]
           self: null
+          owner: null
     5: Statement 9
       expr: Assign 9
         left: Variable 9
@@ -152,6 +157,7 @@ Compound
             map: false
           captures: ["\$u"]
           self: null
+          owner: null
     6: Statement 10
       expr: Assign 10
         left: Variable 10
@@ -188,6 +194,7 @@ Compound
             map: false
           captures: ["\$u"]
           self: null
+          owner: null
     7: Statement 11
       expr: Assign 11
         left: Variable 11
@@ -208,6 +215,7 @@ Compound
               value: 1
           captures: ["\$n"]
           self: null
+          owner: null
     8: Statement 12
       expr: Assign 12
         left: Variable 12
@@ -226,6 +234,7 @@ Compound
             prefix: false
           captures: ["\$n"]
           self: null
+          owner: null
     9: Statement 13
       expr: Assign 13
         left: Variable 13
@@ -250,6 +259,7 @@ Compound
               value: 1
           captures: ["\$memo", "\$k"]
           self: null
+          owner: null
     10: Statement 14
       expr: Assign 14
         left: Variable 14
@@ -274,6 +284,7 @@ Compound
               value: 1
           captures: ["\$a"]
           self: null
+          owner: null
     11: Statement 15
       expr: Assign 15
         left: Variable 15
@@ -300,6 +311,7 @@ Compound
               value: "\$v"
           captures: ["\$o", "\$v"]
           self: null
+          owner: null
     12: Statement 16
       expr: Assign 16
         left: Variable 16
@@ -335,6 +347,7 @@ Compound
               map: false
           captures: ["\$r"]
           self: null
+          owner: null
     13: Statement 17
       expr: Assign 17
         left: Variable 17
@@ -370,6 +383,7 @@ Compound
               value: "\$pair"
           captures: ["\$l", "\$o", "\$pair"]
           self: null
+          owner: null
     14: Statement 19
       expr: Assign 19
         left: Variable 19
@@ -395,8 +409,10 @@ Compound
                 value: "\$outer"
             captures: ["\$outer"]
             self: null
+            owner: null
           captures: ["\$outer"]
           self: null
+          owner: null
     15: Statement 20
       expr: Assign 20
         left: Variable 20
@@ -421,8 +437,10 @@ Compound
                 value: "\$outer"
             captures: ["\$outer"]
             self: null
+            owner: null
           captures: ["\$outer"]
           self: null
+          owner: null
     16: Statement 21
       expr: Assign 21
         left: Variable 21
@@ -451,8 +469,10 @@ Compound
                 value: "\$z"
             captures: ["\$x", "\$z"]
             self: null
+            owner: null
           captures: ["\$z"]
           self: null
+          owner: null
     17: Statement 23
       expr: Assign 23
         left: Variable 23
@@ -495,6 +515,7 @@ Compound
             map: false
           captures: ["\$e1", "\$e2"]
           self: null
+          owner: null
     18: Statement 24
       expr: Assign 24
         left: Variable 24
@@ -530,6 +551,7 @@ Compound
                 2: false
           captures: ["\$s", "\$v1", "\$v2", "\$b1", "\$b2"]
           self: null
+          owner: null
     19: Statement 25
       expr: Assign 25
         left: Variable 25
@@ -554,6 +576,7 @@ Compound
                 2: false
           captures: ["\$c1", "\$b1"]
           self: null
+          owner: null
     20: Statement 26
       expr: Assign 26
         left: Variable 26
@@ -591,6 +614,7 @@ Compound
                 value: "\$i3"
           captures: ["\$i1", "\$i2", "\$i3"]
           self: null
+          owner: null
     21: Statement 27
       expr: Assign 27
         left: Variable 27
@@ -624,6 +648,7 @@ Compound
                 value: "\$marg"
           captures: ["\$arg", "\$idx", "\$marg"]
           self: null
+          owner: null
     22: Statement 28
       expr: Assign 28
         left: Variable 28
@@ -646,6 +671,7 @@ Compound
               value: "\$e"
           captures: ["\$c", "\$t", "\$e"]
           self: null
+          owner: null
     23: Statement 29
       expr: Assign 29
         left: Variable 29
@@ -671,6 +697,7 @@ Compound
                 value: "\$not"
           captures: ["\$neg", "\$not"]
           self: null
+          owner: null
     24: Statement 30
       expr: Assign 30
         left: Variable 30
@@ -689,6 +716,7 @@ Compound
                   value: "\$in_block"
           captures: ["\$in_block"]
           self: null
+          owner: null
     25: Statement 32
       expr: Assign 32
         left: Variable 32
@@ -710,6 +738,7 @@ Compound
               value: "\$fact"
           captures: ["\$fact"]
           self: "\$fact"
+          owner: null
     26: Statement 33
       expr: Assign 33
         left: Variable 33
@@ -734,6 +763,7 @@ Compound
               value: "\$fib"
           captures: ["\$memo", "\$fib"]
           self: "\$fib"
+          owner: null
     27: Statement 34
       expr: Assign 34
         left: Variable 34
@@ -749,6 +779,7 @@ Compound
             value: "\$fact"
           captures: ["\$fact"]
           self: null
+          owner: null
     28: Statement 35
       expr: Assign 35
         left: Variable 35
@@ -764,6 +795,7 @@ Compound
             value: "@g"
           captures: []
           self: null
+          owner: null
     29: Statement 36
       expr: Assign 36
         left: Index 36
@@ -783,6 +815,7 @@ Compound
             value: "\$a"
           captures: ["\$a"]
           self: null
+          owner: null
     30: Statement 37
       expr: Assign 37
         left: Variable 37
@@ -798,6 +831,7 @@ Compound
             value: "\$self"
           captures: ["\$self"]
           self: null
+          owner: null
     31: Statement 39
       expr: Assign 39
         left: Variable 39
@@ -832,6 +866,7 @@ Compound
                           value: "\$outer"
           captures: ["\$xs", "\$outer"]
           self: null
+          owner: null
     32: Statement 40
       expr: Assign 40
         left: Variable 40
@@ -874,6 +909,7 @@ Compound
                           value: "\$outer"
           captures: ["\$xs", "\$outer"]
           self: null
+          owner: null
     33: Statement 41
       expr: Assign 41
         left: Variable 41
@@ -904,3 +940,4 @@ Compound
                         value: "\$free"
           captures: ["\$xs", "\$free"]
           self: null
+          owner: null

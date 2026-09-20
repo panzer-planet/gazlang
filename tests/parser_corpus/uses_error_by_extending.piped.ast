@@ -10,6 +10,7 @@ Compound
       static_methods: []
       static_owners: []
       static_is_method: []
+      vis: {"message" => "pub", "file" => "pub", "line" => "pub", "trace" => "pub", "_" => "pub", "to_string" => "pub"}
       fields: {"message" => null, "file" => null, "line" => null, "trace" => null}
       field_lines: {"message" => 2, "file" => 3, "line" => 4, "trace" => 5}
       methods:
@@ -64,6 +65,11 @@ Compound
       layout: {"message" => "Error", "file" => "Error", "line" => "Error", "trace" => "Error"}
       members: {"_" => "Error", "to_string" => "Error"}
       abstract_methods: []
+      slots: [["message", "Error", "pub"], ["file", "Error", "pub"], ["line", "Error", "pub"], ["trace", "Error", "pub"]]
+      method_table: [["_", "Error", "pub"], ["to_string", "Error", "pub"]]
+      owner_vis: {"message" => "pub", "file" => "pub", "line" => "pub", "trace" => "pub", "_" => "pub", "to_string" => "pub"}
+      hidden: []
+      hidden_fields: []
 @ null
     1: KindDeclaration 1
       name: "Mine"
@@ -74,6 +80,7 @@ Compound
       static_methods: []
       static_owners: []
       static_is_method: []
+      vis: []
       fields: []
       field_lines: []
       methods: []
@@ -83,3 +90,8 @@ Compound
       layout: {"message" => "Error", "file" => "Error", "line" => "Error", "trace" => "Error"}
       members: {"_" => "Error", "to_string" => "Error"}
       abstract_methods: []
+      slots: [["message", "Error", "pub"], ["file", "Error", "pub"], ["line", "Error", "pub"], ["trace", "Error", "pub"]]
+      method_table: [["_", "Error", "pub"], ["to_string", "Error", "pub"]]
+      owner_vis: {"message" => "pub", "file" => "pub", "line" => "pub", "trace" => "pub", "_" => "pub", "to_string" => "pub"}
+      hidden: []
+      hidden_fields: []

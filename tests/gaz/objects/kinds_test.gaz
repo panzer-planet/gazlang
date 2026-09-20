@@ -2,12 +2,12 @@ include "../check.gaz";
 
 // Constructing, fields and defaults
 kind Point {
-    #x;
-    #y = 0;
-    #tags = [];
+    pub #x;
+    pub #y = 0;
+    pub #tags = [];
     fn _($x, $y = 0) { #x = $x; #y = $y; }
-    fn moved($dx) { return Point(#x + $dx, #y); }
-    fn tag($t) { #tags[] = $t; return #; }
+    pub fn moved($dx) { return Point(#x + $dx, #y); }
+    pub fn tag($t) { #tags[] = $t; return #; }
 }
 $p = Point(1);
 check("field set by the constructor", $p.x, 1);
@@ -34,8 +34,8 @@ check("a list copy still holds the same object", $list[0].y, 7);
 
 // Unset fields
 kind Lazy {
-    #value;
-    fn get() { return #value ??= "computed"; }
+    pub #value;
+    pub fn get() { return #value ??= "computed"; }
 }
 $lazy = Lazy();
 check("an unset field reads as null under ??", $lazy.value ?? "unset", "unset");
@@ -50,23 +50,23 @@ try {
 // Inheritance
 abstract kind Animal {
     #name;
-    #sound = "...";
+    pub #sound = "...";
     fn _($name) { #name = $name; }
-    abstract fn kind();
-    fn speak($times = 1) { return "{#name} the {#kind()} says " .. repeat(#sound .. " ", $times); }
-    fn to_string() { return "{#kind()} {#name}"; }
+    pub abstract fn kind();
+    pub fn speak($times = 1) { return "{#name} the {#kind()} says " .. repeat(#sound .. " ", $times); }
+    pub fn to_string() { return "{#kind()} {#name}"; }
 }
 kind Dog extends Animal {
     #tricks = 0;
     fn _($name) { ##_($name); #sound = "woof"; }
-    fn kind() { return "dog"; }
-    fn speak($times = 1, $loud = false) {
+    pub fn kind() { return "dog"; }
+    pub fn speak($times = 1, $loud = false) {
         $said = ##speak($times);
         return $loud ? upper($said) : $said;
     }
 }
 kind Puppy extends Dog {
-    fn kind() { return "puppy"; }
+    pub fn kind() { return "puppy"; }
 }
 $rex = Dog("Rex");
 check("a child calls the parent's method", $rex.speak(2), "Rex the dog says woof woof ");
@@ -84,8 +84,8 @@ check("and differ for another object", Dog("Rex").speak == $speak, false);
 check("bound methods print their kind", to_string($speak), "function Dog.speak");
 
 kind Tally {
-    #count = 0;
-    fn adder() { return $n -> #count += $n; }
+    pub #count = 0;
+    pub fn adder() { return $n -> #count += $n; }
 }
 $tally = Tally();
 $add = $tally.adder();
@@ -95,7 +95,7 @@ check("a closure made in a method keeps its object", $tally.count, 5);
 
 // A to_string() that makes a closure, run twice: the second run still finds to_string()
 kind Wrapped {
-    fn to_string() {
+    pub fn to_string() {
         $x = "w";
         $get = () -> $x;
         return $get();

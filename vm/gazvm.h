@@ -191,15 +191,21 @@ struct Entry {
     Function *function;
 };
 
+/* What a member escapes: only its kind, its kind and what extends it, or anyone */
+typedef enum { V_OWN, V_KIN, V_PUB } Vis;
+
 struct Kind {
     Str *name;
     Kind *parent;
     bool abstract;
     int nfields;
     Str **fields;       /* field names in layout order (interned, so == compares them) */
+    Kind **field_declarers;  /* the kind declaring each, which its visibility is against */
+    Vis *field_vis;
     int nmethods;
     Str **methods;      /* every method it can call, the constructor _ included */
-    Kind **definers;   /* the kind whose version of each runs */
+    Kind **definers;    /* the kind whose version of each runs */
+    Vis *method_vis;
     Entry *entries;     /* each method's entry, parallel to methods (the constructor's too) */
     int lo, hi;         /* the constructor's arity, 0 0 without one */
     Block *block;       /* the code that makes an object */
@@ -222,10 +228,16 @@ struct Block {
     struct { bool from_closure; int outer; int inner; } *map;   /* lambda: where each capture comes from */
     bool is_abstract;   /* kind */
     Str *parent;        /* kind: the parent's name, or NULL */
+    /* The kind this block's code is written in, or NULL: what a member use in it is asked for
+       by. A method's own name carries it; a static method's and a lambda's header say "in K". */
+    Str *owner_name;
+    Kind *owner;
     int nfields;
     Str **field_names, **field_declarers;
+    Vis *field_vis;
     int nmethods;
     Str **method_names, **method_definers;
+    Vis *method_vis;
     int entry;          /* its first instruction in the program's code */
     int max_stack;      /* the greatest stack depth the loader's walk found */
     int line_no;        /* the line of its header, for nothing but debugging */
@@ -424,13 +436,22 @@ bool step_value(Value v, bool up, Value *out);
 bool array_key(Value k);                                  /* raises unless int or string */
 bool index_value(Value target, Value index, bool quiet, Value *out);
 bool index_existing(Value target, Value index, Value *out);
-int kind_field(Kind *c, Str *name);                     /* the slot, or -1 */
-int kind_method(Kind *c, Str *name);                    /* the method's position, or -1 */
+/* A member the asking kind may name: NULL asks from outside every kind, so only a pub one
+   answers. Two kinds in one chain may each declare a private member of one name, so a name
+   alone doesn't pick one. */
+int kind_field(Kind *c, Str *name, Kind *asking);       /* the slot, or -1 */
+int kind_method(Kind *c, Str *name, Kind *asking);      /* the method's position, or -1 */
+bool member_escapes(Vis vis, Kind *declarer, Kind *asking);
+/* The asking kind a kind block uses. That code is the object's initialiser: it sets every
+   slot the kind has, its parents' private fields included, and reads and calls what a field
+   default names, each of which the parser checked against the kind that declares it. A field
+   name is unique across a hierarchy, so reaching past visibility here picks exactly one slot. */
+extern Kind *const KIND_INITIALISER;
 bool kind_is_a(Kind *c, Kind *ancestor);
-bool property(Value target, Str *name, bool quiet, Value *out);
-bool property_existing(Value target, Str *name, Value *out);
-bool store_path(Value *slot, Str *var_name, Path *path, Value *keys, Value value);
-bool remove_path(Value *slot, Str *var_name, Path *path, Value *keys);
+bool property(Value target, Str *name, bool quiet, Kind *asking, Value *out);
+bool property_existing(Value target, Str *name, Kind *asking, Value *out);
+bool store_path(Value *slot, Str *var_name, Path *path, Value *keys, Value value, Kind *asking);
+bool remove_path(Value *slot, Str *var_name, Path *path, Value *keys, Kind *asking);
 bool concat_assign(Value *slot, Value v, Value *out);
 Func *bound_method(Object *o, Kind *definer, Str *name);
 bool raise_undefined_key(Value key);

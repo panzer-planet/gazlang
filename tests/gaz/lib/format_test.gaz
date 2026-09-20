@@ -20,5 +20,5 @@ check("pad_right", pad_right("ab", 4, "."), "ab..");
 check("already wide enough", [pad_left("wide", 2), pad_right("wide", 4)], ["wide", "wide"]);
 check("numbers are padded as echo prints them", [pad_left(42, 4), pad_right(1.5, 5, "."), pad_left(-3, 3, "0")], ["  42", "1.5..", "0-3"]);
 check("so are other values", [pad_left(true, 5), pad_right(null, 6, "!"), pad_left([1], 4)], [" true", "null!!", " [1]"]);
-kind Money { #cents; fn _($cents) { #cents = $cents; } fn to_string() { return "\$" .. intdiv(#cents, 100); } }
+kind Money { #cents; fn _($cents) { #cents = $cents; } pub fn to_string() { return "\$" .. intdiv(#cents, 100); } }
 check("objects through to_string()", pad_left(Money(1250), 5), "  \$12");

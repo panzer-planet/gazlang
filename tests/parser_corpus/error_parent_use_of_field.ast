@@ -1,1 +1,1 @@
-Error: ##x can only reach a method, and x is a field of A at tests/parser_corpus/error_parent_use_of_field.gaz:2
+Error: A::x is not pub, so only A can use it at tests/parser_corpus/error_parent_use_of_field.gaz:2

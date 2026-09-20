@@ -782,6 +782,21 @@ static void read_arity(Words *w, int from, int *lo, int *hi) {
     if (*lo > *hi) fail("An arity of %d to %d takes nothing", *lo, *hi);
 }
 
+/* What a member escapes, from the word after its declarer: nothing said means its kind's own */
+static Vis read_vis(Words *w, int at) {
+    if (w->n <= at) return V_OWN;
+    if (!strcmp(w->w[at], "pub")) return V_PUB;
+    if (!strcmp(w->w[at], "kin")) return V_KIN;
+    fail("Expected 'pub' or 'kin' but found '%s'", w->w[at]);
+    return V_OWN;
+}
+
+static Vis *push_vis(Vis *vis, int *n, Vis one) {
+    vis = xrealloc(vis, (size_t)(*n + 1) * sizeof(Vis));
+    vis[(*n)++] = one;
+    return vis;
+}
+
 static Str **push_name(Str **names, int *n, Str *name) {
     names = xrealloc(names, (size_t)(*n + 1) * sizeof(Str *));
     names[(*n)++] = name;
@@ -796,6 +811,12 @@ static Block *read_block(const char *header) {
     b->line_no = at_line;
     const char *block_word = w.w[0];
     char key[64];
+    /* "in Kind" says which kind the code is written in, where the block's own name can't:
+       take it off before the checks below, which count the words a header has */
+    if (w.n >= 3 && !strcmp(w.w[w.n - 2], "in")) {
+        b->owner_name = intern(w.w[w.n - 1]);
+        w.n -= 2;
+    }
     if (!strcmp(block_word, "top")) {
         b->kind = B_TOP;
         if (w.n != 1) fail("Expected 'top' on its own");
@@ -805,6 +826,10 @@ static Block *read_block(const char *header) {
         b->name = intern(w.n > 1 ? w.w[1] : "");
         read_arity(&w, 2, &b->lo, &b->hi);
         b->key = b->name;
+        if (!b->owner_name) {
+            const char *dot = strrchr(b->name->data, '.');
+            if (dot) b->owner_name = str_intern(b->name->data, (size_t)(dot - b->name->data));
+        }
     } else if (!strcmp(block_word, "kind") || !strcmp(block_word, "abstract")) {
         b->kind = B_KIND;
         b->is_abstract = !strcmp(block_word, "abstract");
@@ -846,11 +871,15 @@ static Block *read_block(const char *header) {
             Str *name = intern(word(&w, 1)), *declarer = intern(word(&w, 2));
             int n = b->nfields;
             b->field_names = push_name(b->field_names, &n, name);
+            n = b->nfields;
+            b->field_vis = push_vis(b->field_vis, &n, read_vis(&w, 3));
             b->field_declarers = push_name(b->field_declarers, &b->nfields, declarer);
         } else if (!strcmp(first, "method") && b->kind == B_KIND) {
             Str *name = intern(word(&w, 1)), *definer = intern(word(&w, 2));
             int n = b->nmethods;
             b->method_names = push_name(b->method_names, &n, name);
+            n = b->nmethods;
+            b->method_vis = push_vis(b->method_vis, &n, read_vis(&w, 3));
             b->method_definers = push_name(b->method_definers, &b->nmethods, definer);
         } else if (!strcmp(first, "capture") && b->kind == B_LAMBDA) {
             const char *where = word(&w, 2);
@@ -1171,6 +1200,12 @@ static void build_kinds(void) {
     int n = 0;
     for (int i = 0; i < prog->nblocks; i++) {
         Block *b = prog->blocks[i];
+        b->owner = b->owner_name ? find_kind(b->owner_name) : NULL;
+        /* A kind block is the initialiser, which sets every slot of the object it builds */
+        if (b->kind == B_KIND) b->owner = KIND_INITIALISER;
+    }
+    for (int i = 0; i < prog->nblocks; i++) {
+        Block *b = prog->blocks[i];
         if (b->kind != B_KIND) continue;
         Kind *c = &prog->kinds[n++];
         c->name = b->name;
@@ -1178,13 +1213,17 @@ static void build_kinds(void) {
         c->block = b;
         c->nfields = b->nfields;
         c->fields = b->field_names;
+        c->field_vis = b->field_vis;
     }
     for (int i = 0; i < prog->nkinds; i++) {
         Kind *c = &prog->kinds[i];
         Block *b = c->block;
         c->parent = b->parent ? find_kind(b->parent) : NULL;
+        c->field_declarers = xmalloc((size_t)b->nfields * sizeof(Kind *) + 1);
+        for (int f = 0; f < b->nfields; f++) c->field_declarers[f] = find_kind(b->field_declarers[f]);
         c->nmethods = b->nmethods;
         c->methods = b->method_names;
+        c->method_vis = b->method_vis;
         c->definers = xmalloc((size_t)b->nmethods * sizeof(Kind *) + 1);
         c->entries = xcalloc((size_t)b->nmethods + 1, sizeof(Entry));
         for (int m = 0; m < b->nmethods; m++) {
@@ -1201,8 +1240,8 @@ static void build_kinds(void) {
                vm.c), so a kind named Error that lacks one would be written outside its fields */
             static const char *const needed[] = {"message", "file", "line", "trace"};
             for (size_t f = 0; f < sizeof needed / sizeof *needed; f++) {
-                if (kind_field(c, str_intern(needed[f], strlen(needed[f]))) < 0) {
-                    fail_at(false, "kind Error must declare %s, which a caught error is given", needed[f]);
+                if (kind_field(c, str_intern(needed[f], strlen(needed[f])), NULL) < 0) {
+                    fail_at(false, "kind Error must declare pub %s, which a caught error is given", needed[f]);
                 }
             }
             prog->error_kind = c;
@@ -1485,6 +1524,11 @@ Program *load(const char *text, size_t len, const char *path) {
     (void)nc;
     for (int i = 0; i < prog->nblocks; i++) {
         if (prog->blocks[i]->kind == B_KIND) check_record(prog->blocks[i]);
+        Str *owner = prog->blocks[i]->owner_name;
+        if (owner && !find_kind(owner)) {
+            fail_at(false, "Block %s is written in undefined kind '%s'",
+                    prog->blocks[i]->key->data, owner->data);
+        }
     }
     mark_objectless();
     for (int i = 0; i < prog->nblocks; i++) check_block(prog->blocks[i]);

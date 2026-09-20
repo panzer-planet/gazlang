@@ -22,13 +22,13 @@ pub kind Reader {
         #text = $text;
     }
 
-    fn read() {
+    pub fn read() {
         return #text .. Reader::EOF .. LIMIT .. json::LIMIT;
     }
 }
 
 kind Strict extends Reader {
-    fn read() {
+    pub fn read() {
         return "!" .. ##read();
     }
 }

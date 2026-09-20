@@ -93,7 +93,7 @@ PRINT
 LOAD_STATIC 2
 PRINT
 
-fn Counter::next 0 0
+fn Counter::next 0 0 in Counter
 locals
 @ "statics.gaz" 15
 LOAD_STATIC 0
@@ -108,7 +108,7 @@ RET
 PUSH null
 RET
 
-fn Counter::twice 0 0
+fn Counter::twice 0 0 in Counter
 locals
 @ "statics.gaz" 22
 CALL Counter::next 0
@@ -121,8 +121,8 @@ RET
 
 kind Counter
 field id Counter
-method _ Counter
-method mine Counter
+method _ Counter pub
+method mine Counter pub
 locals
 @ "statics.gaz" 3
 CALL_CONSTRUCTOR Counter
@@ -167,8 +167,8 @@ RET
 
 kind Tally extends Counter
 field id Counter
-method _ Counter
-method mine Counter
+method _ Counter pub
+method mine Counter pub
 locals
 @ "statics.gaz" 32
 CALL_CONSTRUCTOR Counter

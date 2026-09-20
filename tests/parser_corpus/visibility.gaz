@@ -1,0 +1,37 @@
+// pub says a member escapes its kind, as it says a name escapes a namespace. Unmarked, a
+// member is the kind's own: a child can't name it, and may declare a method, constant or
+// static of its own by the same name. A field is a slot, so its name is taken either way.
+kind Base {
+    pub #open = 1;
+    #shut = 2;
+    // A default may read another of the kind's own fields and call its own methods, and the
+    // initialiser runs them for a child's objects too
+    #derived = #shut * 10;
+    pub const LIMIT = 3;
+    const SECRET = 4;
+    pub static #tally = 0;
+    static #ledger = 5;
+
+    // Its own members, whatever they escape, including from a lambda written in it
+    pub fn all() { return [#open, #shut, #derived, #LIMIT, #SECRET, #tally, #ledger, #hidden()]; }
+    fn hidden() { return #shut + #SECRET; }
+    pub fn later() { return () -> #shut + #SECRET; }
+    pub static fn bump() { #tally++; return #ledger + #tally; }
+}
+
+// A child names what escapes Base, and declares its own SECRET and hidden() beside Base's:
+// same names, different members, since Base's are Base's own
+kind Child extends Base {
+    const SECRET = "mine";
+
+    pub fn ours() { return [#open, #LIMIT, #SECRET, #hidden()]; }
+    fn hidden() { return "child"; }
+}
+
+echo Base().all();
+echo Base().later()();
+echo Base::bump() .. " " .. Base::LIMIT .. " " .. Base::tally;
+echo Child().ours();
+// Base's own methods still reach Base's members, on a Child's object
+echo Child().all();
+echo fields(Child());

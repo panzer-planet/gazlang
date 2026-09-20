@@ -508,10 +508,10 @@ SET_PATH [k].l[] 36
 POP
 
 kind P
-field n P
-field l P
-field s P
-method bump P
+field n P pub
+field l P pub
+field s P pub
+method bump P pub
 locals
 @ 45
 PUSH 0

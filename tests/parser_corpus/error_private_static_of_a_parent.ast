@@ -1,0 +1,1 @@
+Error: A::count is not pub, so only A can use it at tests/parser_corpus/error_private_static_of_a_parent.gaz:2

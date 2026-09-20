@@ -286,12 +286,12 @@ PUSH null
 RET
 
 kind Error
-field message Error
-field file Error
-field line Error
-field trace Error
-method _ Error
-method to_string Error
+field message Error pub
+field file Error pub
+field line Error pub
+field trace Error pub
+method _ Error pub
+method to_string Error pub
 locals $#argument_0
 @ "<builtin>" 1
 CALL_CONSTRUCTOR Error

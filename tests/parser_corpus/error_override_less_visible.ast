@@ -1,0 +1,1 @@
+Error: Method B.f escapes only B, but A.f is pub: an override escapes as far as what it replaces at tests/parser_corpus/error_override_less_visible.gaz:2

@@ -1,5 +1,5 @@
-kind A { #x; }
+kind A { pub #x; }
 kind B extends A {
     #y;
-    #x;
+    pub #x;
 }

@@ -56,9 +56,9 @@ check("sort checks too", message(() -> sort({}, "x")), "sort() expects function 
 
 // Anything callable is called as a call in the program is
 kind Pair {
-    #value;
+    pub #value;
     fn _($value) { #value = $value; }
-    fn twice($x) { return $x * 2; }
+    pub fn twice($x) { return $x * 2; }
 }
 abstract kind Shape {}
 check("a kind constructs", map(map([1, 2], Pair), $p -> $p.value), [1, 2]);
@@ -137,7 +137,7 @@ check("sort needs a list or map", message(() -> sort(5, ($a, $b) -> 0)), "sort()
 kind Named {
     #name;
     fn _($name) { #name = $name; }
-    fn to_string() { return "named " .. #name; }
+    pub fn to_string() { return "named " .. #name; }
 }
 check("to_string runs each object's method", map([Named("a"), Named("b")], to_string), ["named a", "named b"]);
 check("map as reduce's callback", reduce([$x -> "a" .. $x, $x -> $x .. "b"], map, ["p", "q"]), ["apb", "aqb"]);
@@ -146,6 +146,6 @@ check("filter with to_string", filter($both, to_string), $both);
 $apply = map;
 check("map as a value, with to_string", $apply({"k" => Named("c")}, to_string), {"k" => "named c"});
 kind Broken {
-    fn to_string() { return 1 / 0; }
+    pub fn to_string() { return 1 / 0; }
 }
 check("its error comes out", message(() -> map([Named("a"), Broken(), Named("b")], to_string)), "Division by zero");

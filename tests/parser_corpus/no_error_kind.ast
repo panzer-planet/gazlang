@@ -20,3 +20,4 @@ Compound
             value: "\$x"
           captures: []
           self: null
+          owner: null

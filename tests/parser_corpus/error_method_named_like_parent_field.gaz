@@ -1,4 +1,4 @@
-kind A { #size; }
+kind A { pub #size; }
 kind B extends A {
-    fn size() {}
+    pub fn size() {}
 }

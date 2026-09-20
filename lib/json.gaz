@@ -68,7 +68,7 @@ kind Reader {
     fn _($text) { #text = $text; }
 
     // The whole document: one value, then nothing but whitespace
-    fn parse() {
+    pub fn parse() {
         #skip_whitespace();
         $value = #parse_value();
         #skip_whitespace();

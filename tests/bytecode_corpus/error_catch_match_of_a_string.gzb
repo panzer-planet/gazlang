@@ -9,10 +9,10 @@ LABEL DONE
 POP
 
 kind Error
-field message Error
-field file Error
-field line Error
-field trace Error
+field message Error pub
+field file Error pub
+field line Error pub
+field trace Error pub
 locals
 LOAD_THIS
 RET

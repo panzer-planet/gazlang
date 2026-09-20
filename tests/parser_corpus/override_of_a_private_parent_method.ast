@@ -1,0 +1,128 @@
+Compound
+  statements:
+@ "tests/parser_corpus/override_of_a_private_parent_method.gaz"
+    0: KindDeclaration 3
+      name: "A"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"f" => "", "theirs" => "pub"}
+      fields: []
+      field_lines: []
+      methods:
+        f: FunctionDeclaration 3
+          name: "f"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 3
+                expr: String 3
+                  token: 3 STRING "a"
+                  value: "a"
+          arity: 0
+          kind: "A"
+          abstract: false
+        theirs: FunctionDeclaration 3
+          name: "theirs"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 3
+                expr: MethodCall 3
+                  property: Property 3
+                    target: This 3
+                    name: "f"
+                    field: false
+                    constant: false
+                    value: null
+                    static_name: null
+                  args: []
+          arity: 0
+          kind: "A"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: {"f" => "A", "theirs" => "A"}
+      abstract_methods: []
+      slots: []
+      method_table: [["f", "A", ""], ["theirs", "A", "pub"]]
+      owner_vis: {"f" => "", "theirs" => "pub"}
+      hidden: []
+      hidden_fields: []
+    1: KindDeclaration 4
+      name: "B"
+      parent: "A"
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"f" => "pub"}
+      fields: []
+      field_lines: []
+      methods:
+        f: FunctionDeclaration 4
+          name: "f"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 4
+                expr: String 4
+                  token: 4 STRING "b"
+                  value: "b"
+          arity: 0
+          kind: "B"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: {"theirs" => "A", "f" => "B"}
+      abstract_methods: []
+      slots: []
+      method_table: [["f", "A", ""], ["theirs", "A", "pub"], ["f", "B", "pub"]]
+      owner_vis: {"theirs" => "pub", "f" => "pub"}
+      hidden: {"f" => "A"}
+      hidden_fields: []
+    2: EchoStatement 5
+      expr: BinOp 5
+        left: BinOp 5
+          left: MethodCall 5
+            property: Property 5
+              target: FunctionCall 5
+                name: "B"
+                args: []
+              name: "f"
+              field: false
+              constant: false
+              value: null
+              static_name: null
+            args: []
+          token: 5 CONCAT ..
+          op: 5 CONCAT ..
+          right: String 5
+            token: 5 STRING " "
+            value: " "
+        token: 5 CONCAT ..
+        op: 5 CONCAT ..
+        right: MethodCall 5
+          property: Property 5
+            target: FunctionCall 5
+              name: "B"
+              args: []
+            name: "theirs"
+            field: false
+            constant: false
+            value: null
+            static_name: null
+          args: []

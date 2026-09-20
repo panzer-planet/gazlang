@@ -22,6 +22,7 @@ Compound
               value: 2
           captures: []
           self: null
+          owner: null
     1: Statement 3
       expr: Assign 3
         left: Variable 3
@@ -49,6 +50,7 @@ Compound
               value: 4
           captures: []
           self: null
+          owner: null
     2: Statement 4
       expr: Assign 4
         left: Variable 4
@@ -64,6 +66,7 @@ Compound
             value: 42
           captures: []
           self: null
+          owner: null
     3: Statement 5
       expr: Assign 5
         left: Variable 5
@@ -79,6 +82,7 @@ Compound
             value: "\$a"
           captures: []
           self: null
+          owner: null
     4: Statement 6
       expr: Assign 6
         left: Variable 6
@@ -100,6 +104,7 @@ Compound
               value: "\$b"
           captures: []
           self: null
+          owner: null
     5: Statement 7
       expr: Assign 7
         left: Variable 7
@@ -140,6 +145,7 @@ Compound
               value: "\$c"
           captures: []
           self: null
+          owner: null
     6: Statement 8
       expr: Assign 8
         left: Variable 8
@@ -165,8 +171,10 @@ Compound
                 value: "\$y"
             captures: ["\$x"]
             self: null
+            owner: null
           captures: []
           self: null
+          owner: null
     7: Statement 9
       expr: Assign 9
         left: Variable 9
@@ -192,8 +200,10 @@ Compound
                 value: "\$y"
             captures: ["\$x"]
             self: null
+            owner: null
           captures: []
           self: null
+          owner: null
     8: Statement 10
       expr: Assign 10
         left: Variable 10
@@ -213,6 +223,7 @@ Compound
               value: 1
             captures: []
             self: null
+            owner: null
           else: Lambda 10
             params: ["\$y"]
             defaults: [null]
@@ -222,6 +233,7 @@ Compound
               value: 2
             captures: []
             self: null
+            owner: null
     9: Statement 11
       expr: Assign 11
         left: Variable 11
@@ -243,6 +255,7 @@ Compound
               value: "\$x"
             captures: []
             self: null
+            owner: null
     10: Statement 12
       expr: Assign 12
         left: Variable 12
@@ -265,6 +278,7 @@ Compound
             map: true
           captures: []
           self: null
+          owner: null
     11: Statement 13
       expr: Assign 13
         left: Variable 13
@@ -285,6 +299,7 @@ Compound
             map: false
           captures: []
           self: null
+          owner: null
     12: Statement 14
       expr: Assign 14
         left: Variable 14
@@ -303,6 +318,7 @@ Compound
                   value: "\$x"
           captures: []
           self: null
+          owner: null
     13: Statement 15
       expr: Assign 15
         left: Variable 15
@@ -317,6 +333,7 @@ Compound
             statements: []
           captures: []
           self: null
+          owner: null
     14: EchoStatement 16
       expr: CallValue 16
         callee: Lambda 16
@@ -328,6 +345,7 @@ Compound
             value: "\$a"
           captures: []
           self: null
+          owner: null
         args:
           0: Num 16
             token: 16 INTEGER 1
@@ -359,6 +377,7 @@ Compound
                 value: 1
             captures: []
             self: null
+            owner: null
     16: EchoStatement 18
       expr: FunctionCall 18
         name: "slice"
@@ -372,6 +391,7 @@ Compound
               value: "\$a"
             captures: []
             self: null
+            owner: null
           1: Num 18
             token: 18 INTEGER 1
             value: 1

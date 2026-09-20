@@ -394,6 +394,7 @@ Compound
                   value: 2
           captures: []
           self: null
+          owner: null
     16: Statement 32
       expr: Assign 32
         left: Variable 32
@@ -419,6 +420,7 @@ Compound
                 expr: null
           captures: []
           self: null
+          owner: null
     17: FunctionDeclaration 33
       name: "make"
       params: []
@@ -438,6 +440,7 @@ Compound
                       value: "\$n"
               captures: []
               self: null
+              owner: null
       arity: 0
       kind: null
       abstract: false
@@ -503,6 +506,7 @@ Compound
                           value: "\$k"
                 captures: ["\$xs", "\$outer"]
                 self: null
+                owner: null
           1: ReturnStatement 34
             expr: Variable 34
               token: 34 VAR_IDENTIFIER $f
@@ -535,5 +539,7 @@ Compound
                           value: 1
                   captures: []
                   self: null
+                  owner: null
           captures: []
           self: null
+          owner: null

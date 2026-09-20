@@ -26,8 +26,8 @@ kind Terrain {
     #cells = [];
     #width;
     #height;
-    #start;
-    #end;
+    pub #start;
+    pub #end;
 
     fn _($text) {
         foreach (split(trim($text), "\n") as $y => $line) {
@@ -55,7 +55,7 @@ kind Terrain {
     }
 
     // A cell's number, which serves as a key: y * width + x
-    fn id($point) {
+    pub fn id($point) {
         [$x, $y] = $point;
         return $y * #width + $x;
     }
@@ -63,7 +63,7 @@ kind Terrain {
     fn point($id) { return [$id % #width, intdiv($id, #width)]; }
 
     // The open cells next to a point, as ids
-    fn neighbours($id) {
+    pub fn neighbours($id) {
         [$x, $y] = #point($id);
         $found = [];
         foreach (STEPS as [$dx, $dy]) {
@@ -75,13 +75,13 @@ kind Terrain {
         return $found;
     }
 
-    fn cost($id) {
+    pub fn cost($id) {
         [$x, $y] = #point($id);
         return COSTS[#cells[$y][$x]];
     }
 
     // The map with a route drawn on it as $mark, keeping S and E
-    fn draw($route, $mark) {
+    pub fn draw($route, $mark) {
         $cells = #cells;
         foreach ($route as $id) {
             [$x, $y] = #point($id);
@@ -97,9 +97,9 @@ kind Terrain {
 kind Heap {
     #items = [];
 
-    fn is_empty() { return len(#items) == 0; }
+    pub fn is_empty() { return len(#items) == 0; }
 
-    fn push($priority, $value) {
+    pub fn push($priority, $value) {
         #items[] = [$priority, $value];
         $i = len(#items) - 1;
         while ($i > 0) {
@@ -113,7 +113,7 @@ kind Heap {
     }
 
     // Take the pair with the smallest priority
-    fn pop() {
+    pub fn pop() {
         $top = #items[0];
         $last = last(#items);
         delete #items[len(#items) - 1];

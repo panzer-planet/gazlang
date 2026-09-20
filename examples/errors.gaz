@@ -3,7 +3,7 @@
 //   bin/gazlang -f examples/errors.gaz
 
 kind NotFound extends Error {
-    #key;
+    pub #key;
     fn _($key) {
         ##_("No setting named {$key}");
         #key = $key;
@@ -13,7 +13,7 @@ kind NotFound extends Error {
 kind Settings {
     #values;
     fn _($values) { #values = $values; }
-    fn get($key) {
+    pub fn get($key) {
         return #values[$key] ?? error(NotFound($key));
     }
 }

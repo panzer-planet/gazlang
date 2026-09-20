@@ -1,7 +1,7 @@
 kind Counter {
     #count = 0;
     fn _($start) { #count = $start; }
-    fn step($by = 1) { #count += $by; return #count; }
+    pub fn step($by = 1) { #count += $by; return #count; }
 }
 
 fn safe_div($a, $b) {

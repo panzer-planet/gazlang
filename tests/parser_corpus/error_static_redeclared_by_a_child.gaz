@@ -1,6 +1,6 @@
 kind K {
-    static #a = 0;
+    pub static #a = 0;
 }
 kind L extends K {
-    static #a = 1;
+    pub static #a = 1;
 }

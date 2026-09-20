@@ -13,38 +13,38 @@ include "../lib/random.gaz";
 
 abstract kind Player {
     #name;
-    #rating;
-    #energy = 100;
+    pub #rating;
+    pub #energy = 100;
     // What form() gives at the current energy, kept up to date by rest() and tire()
-    #sharpness = 0;
-    #goals = 0;
-    #yellow_cards = 0;
-    #sent_off = false;
+    pub #sharpness = 0;
+    pub #goals = 0;
+    pub #yellow_cards = 0;
+    pub #sent_off = false;
 
     fn _($name, $rating) {
         #name = $name;
         #rating = $rating;
     }
 
-    abstract fn position();
-    abstract fn attacking();
-    abstract fn defending();
+    pub abstract fn position();
+    pub abstract fn attacking();
+    pub abstract fn defending();
     // How much running the position does, which tires the player
-    abstract fn work_rate();
+    pub abstract fn work_rate();
 
     // How well the player is playing right now. Ability grows with the square of the rating,
     // so a 90 is far more dangerous than a 70, and tiredness wears it down
-    fn form() {
+    pub fn form() {
         $ability = #rating / 75.0;
         return 70 * $ability * $ability * (60 + #energy * 0.4) / 100;
     }
 
-    fn tire($minutes) {
+    pub fn tire($minutes) {
         #energy = max(#energy - $minutes * #work_rate(), 40);
         #sharpness = #form();
     }
 
-    fn rest() {
+    pub fn rest() {
         #energy = 100;
         #sharpness = #form();
         #yellow_cards = 0;
@@ -52,45 +52,45 @@ abstract kind Player {
     }
 
     // A booking; the second yellow card is a red one
-    fn book() {
+    pub fn book() {
         #yellow_cards++;
         #sent_off = #yellow_cards == 2;
         return #sent_off;
     }
 
-    fn to_string() { return #name; }
-    fn profile() { return "{#name} ({#position()} {#rating})"; }
+    pub fn to_string() { return #name; }
+    pub fn profile() { return "{#name} ({#position()} {#rating})"; }
 }
 
 kind Goalkeeper extends Player {
-    fn position() { return "GK"; }
-    fn work_rate() { return 0.2; }
-    fn attacking() { return 0; }
-    fn defending() { return #sharpness; }
+    pub fn position() { return "GK"; }
+    pub fn work_rate() { return 0.2; }
+    pub fn attacking() { return 0; }
+    pub fn defending() { return #sharpness; }
 }
 
 kind Defender extends Player {
-    fn position() { return "DF"; }
-    fn work_rate() { return 0.8; }
-    fn attacking() { return #sharpness * 0.2; }
-    fn defending() { return #sharpness; }
+    pub fn position() { return "DF"; }
+    pub fn work_rate() { return 0.8; }
+    pub fn attacking() { return #sharpness * 0.2; }
+    pub fn defending() { return #sharpness; }
 }
 
 kind Midfielder extends Player {
-    fn position() { return "MF"; }
-    fn work_rate() { return 1.3; }
-    fn attacking() { return #sharpness * 0.6; }
-    fn defending() { return #sharpness * 0.5; }
+    pub fn position() { return "MF"; }
+    pub fn work_rate() { return 1.3; }
+    pub fn attacking() { return #sharpness * 0.6; }
+    pub fn defending() { return #sharpness * 0.5; }
 }
 
 kind Forward extends Player {
-    fn position() { return "FW"; }
-    fn work_rate() { return 1.0; }
-    fn attacking() { return #sharpness; }
-    fn defending() { return #sharpness * 0.1; }
+    pub fn position() { return "FW"; }
+    pub fn work_rate() { return 1.0; }
+    pub fn attacking() { return #sharpness; }
+    pub fn defending() { return #sharpness * 0.1; }
 
     // Strikers are at their sharpest while they are fresh
-    fn form() { return ##form() * (#energy > 70 ? 1.1 : 0.9); }
+    pub fn form() { return ##form() * (#energy > 70 ? 1.1 : 0.9); }
 }
 
 // Teams
@@ -104,9 +104,9 @@ kind InvalidLineup extends Error {
 }
 
 kind Team {
-    #name;
-    #formation;
-    #players;
+    pub #name;
+    pub #formation;
+    pub #players;
     // What the players on the pitch add up to (see summary()), forgotten whenever they change
     #cache;
 
@@ -162,32 +162,32 @@ kind Team {
         };
     }
 
-    fn on_pitch() { return #summary()["lineup"]; }
-    fn attack() { return #summary()["attack"]; }
-    fn defence() { return #summary()["defence"]; }
-    fn goalkeeper() { return #summary()["keeper"]; }
+    pub fn on_pitch() { return #summary()["lineup"]; }
+    pub fn attack() { return #summary()["attack"]; }
+    pub fn defence() { return #summary()["defence"]; }
+    pub fn goalkeeper() { return #summary()["keeper"]; }
     // Only players who attack at all are shooters, so their weights add up to the attack
-    fn shooter() { return random::weighted(#summary()["shooters"], #summary()["shooting"]); }
-    fn rating() { return round(reduce(#players, ($sum, $player) -> $sum + $player.rating, 0) / 11, 1); }
+    pub fn shooter() { return random::weighted(#summary()["shooters"], #summary()["shooting"]); }
+    pub fn rating() { return round(reduce(#players, ($sum, $player) -> $sum + $player.rating, 0) / 11, 1); }
 
     // The players tired, rested or were sent off
-    fn changed() { #cache = null; }
+    pub fn changed() { #cache = null; }
 
-    fn tire($minutes) {
+    pub fn tire($minutes) {
         foreach (#players as $player) {
             $player.tire($minutes);
         }
         #changed();
     }
 
-    fn rest() {
+    pub fn rest() {
         foreach (#players as $player) {
             $player.rest();
         }
         #changed();
     }
 
-    fn to_string() { return #name; }
+    pub fn to_string() { return #name; }
 }
 
 // A formation like "4-3-3": defenders, midfielders and forwards, ten outfield players in all
@@ -204,7 +204,7 @@ kind Formation {
     }
 
     // The kinds to fill the eleven with, goalkeeper first
-    fn positions() {
+    pub fn positions() {
         $positions = [Goalkeeper];
         foreach ([Defender, Midfielder, Forward] as $line => $kind) {
             for ($i = 0; $i < #lines[$line]; $i++) {
@@ -214,14 +214,14 @@ kind Formation {
         return $positions;
     }
 
-    fn to_string() { return #name; }
+    pub fn to_string() { return #name; }
 }
 
 // Makes up squads: names from a pool, ratings spread around the club's level
 kind Scout {
     #taken = {};
 
-    fn team($name, $level, $formation) {
+    pub fn team($name, $level, $formation) {
         $formation = Formation($formation);
         // Kinds are values: the formation says which ones to construct
         $players = map($formation.positions(), $kind -> $kind(#new_name(), #rating($level)));
@@ -267,13 +267,13 @@ const SURNAMES = [
 
 abstract kind Event {
     #minute;
-    #team;
+    pub #team;
     fn _($minute, $team) {
         #minute = $minute;
         #team = $team;
     }
-    abstract fn describe();
-    fn to_string() { return pad_left("{#minute}'", 4) .. "  " .. #describe(); }
+    pub abstract fn describe();
+    pub fn to_string() { return pad_left("{#minute}'", 4) .. "  " .. #describe(); }
 }
 
 kind Goal extends Event {
@@ -284,7 +284,7 @@ kind Goal extends Event {
         #scorer = $scorer;
         #score = $score;
     }
-    fn describe() { return "GOAL! {#scorer} scores for {#team}. {#score}"; }
+    pub fn describe() { return "GOAL! {#scorer} scores for {#team}. {#score}"; }
 }
 
 kind Shot extends Event {
@@ -296,7 +296,7 @@ kind Shot extends Event {
         #keeper = $keeper;
     }
     // Without a keeper, the shot missed the target
-    fn describe() {
+    pub fn describe() {
         return #keeper == null ? "{#shooter} ({#team}) shoots wide" : "{#shooter} ({#team}) is denied by {#keeper}";
     }
 }
@@ -309,7 +309,7 @@ kind Booking extends Event {
         #player = $player;
         #red = $red;
     }
-    fn describe() {
+    pub fn describe() {
         return #red ? "RED CARD: {#player} ({#team}) is sent off" : "Yellow card for {#player} ({#team})";
     }
 }
@@ -320,14 +320,14 @@ kind Whistle extends Event {
         ##_($minute, null);
         #text = $text;
     }
-    fn describe() { return #text; }
+    pub fn describe() { return #text; }
 }
 
 kind Fixture {
-    #home;
-    #away;
-    #home_goals = 0;
-    #away_goals = 0;
+    pub #home;
+    pub #away;
+    pub #home_goals = 0;
+    pub #away_goals = 0;
     #listeners = [];
 
     fn _($home, $away) {
@@ -336,12 +336,12 @@ kind Fixture {
     }
 
     // $listener($event) is called for everything that happens
-    fn on_event($listener) {
+    pub fn on_event($listener) {
         #listeners[] = $listener;
         return #;
     }
 
-    fn play() {
+    pub fn play() {
         #home.rest();
         #away.rest();
         for ($minute = 1; $minute <= 90; $minute++) {
@@ -415,7 +415,7 @@ kind Fixture {
         }
     }
 
-    fn to_string() { return "{#home} {#home_goals} - {#away_goals} {#away}"; }
+    pub fn to_string() { return "{#home} {#home_goals} - {#away_goals} {#away}"; }
 }
 
 // A league: everyone plays everyone home and away
@@ -426,12 +426,12 @@ kind Standing {
     #won = 0;
     #drawn = 0;
     #lost = 0;
-    #scored = 0;
+    pub #scored = 0;
     #conceded = 0;
 
     fn _($team) { #team = $team; }
 
-    fn record($scored, $conceded) {
+    pub fn record($scored, $conceded) {
         #played++;
         #scored += $scored;
         #conceded += $conceded;
@@ -444,10 +444,10 @@ kind Standing {
         }
     }
 
-    fn points() { return #won * 3 + #drawn; }
-    fn difference() { return #scored - #conceded; }
+    pub fn points() { return #won * 3 + #drawn; }
+    pub fn difference() { return #scored - #conceded; }
 
-    fn to_string() {
+    pub fn to_string() {
         $difference = #difference() > 0 ? "+" .. #difference() : #difference();
         return pad_right(#team, 22) .. pad_left(#team.rating(), 6)
             .. join(map([#played, #won, #drawn, #lost, #scored, #conceded], $n -> pad_left($n, 4)), "")
@@ -504,7 +504,7 @@ kind League {
 
     // Plays the season; $kick_off($match) is called as each match starts, and
     // $after_matchday($number, $matches) after each matchday
-    fn play_season($kick_off, $after_matchday) {
+    pub fn play_season($kick_off, $after_matchday) {
         foreach (#fixtures() as $index => $matchday) {
             $matches = [];
             foreach ($matchday as [$home, $away]) {
@@ -520,7 +520,7 @@ kind League {
     }
 
     // Points, then goal difference, then goals scored, then name
-    fn table() {
+    pub fn table() {
         return sort(#standings, ($a, $b) -> {
             if ($a.points() != $b.points()) {
                 return $b.points() <=> $a.points();
@@ -535,7 +535,7 @@ kind League {
         });
     }
 
-    fn top_scorers($count) {
+    pub fn top_scorers($count) {
         $scorers = [];
         foreach (#teams as $team) {
             foreach (filter($team.players, $player -> $player.goals > 0) as $player) {
@@ -551,7 +551,7 @@ kind Commentator {
     #remaining;
     fn _($matches) { #remaining = $matches; }
 
-    fn kick_off($match) {
+    pub fn kick_off($match) {
         if (#remaining == 0) {
             return;
         }

@@ -45,6 +45,7 @@ Compound
       static_methods: []
       static_owners: []
       static_is_method: []
+      vis: {"radius" => "", "history" => "", "doubled" => "", "callback" => "", "_" => "pub", "area" => "pub", "to_string" => "pub", "parent_area" => "", "scale" => "", "me" => "", "chained" => "", "later" => "", "swap" => "", "drop" => ""}
       fields:
         radius: null
         history: ArrayLiteral 8
@@ -82,6 +83,7 @@ Compound
               value: "\$x"
           captures: []
           self: null
+          owner: "Circle"
       field_lines: {"radius" => 7, "history" => 8, "doubled" => 9, "callback" => 10}
       methods:
         _: FunctionDeclaration 12
@@ -339,6 +341,7 @@ Compound
                       static_name: null
                   captures: []
                   self: null
+                  owner: "Circle"
           arity: 0
           kind: "Circle"
           abstract: false
@@ -415,9 +418,14 @@ Compound
       constants: []
       constant_lines: []
       constant_owners: []
-      layout: {"name" => "Shape", "radius" => "Circle", "history" => "Circle", "doubled" => "Circle", "callback" => "Circle"}
+      layout: {"radius" => "Circle", "history" => "Circle", "doubled" => "Circle", "callback" => "Circle"}
       members: {"_" => "Circle", "describe" => "Shape", "to_string" => "Circle", "area" => "Circle", "parent_area" => "Circle", "scale" => "Circle", "me" => "Circle", "chained" => "Circle", "later" => "Circle", "swap" => "Circle", "drop" => "Circle"}
       abstract_methods: []
+      slots: [["name", "Shape", ""], ["radius", "Circle", ""], ["history", "Circle", ""], ["doubled", "Circle", ""], ["callback", "Circle", ""]]
+      method_table: [["_", "Circle", "pub"], ["describe", "Shape", "pub"], ["to_string", "Circle", "pub"], ["area", "Circle", "pub"], ["parent_area", "Circle", ""], ["scale", "Circle", ""], ["me", "Circle", ""], ["chained", "Circle", ""], ["later", "Circle", ""], ["swap", "Circle", ""], ["drop", "Circle", ""]]
+      owner_vis: {"_" => "pub", "area" => "pub", "describe" => "pub", "to_string" => "pub", "radius" => "", "history" => "", "doubled" => "", "callback" => "", "parent_area" => "", "scale" => "", "me" => "", "chained" => "", "later" => "", "swap" => "", "drop" => ""}
+      hidden: {"name" => "Shape"}
+      hidden_fields: {"name" => "Shape"}
     4: KindDeclaration 31
       name: "Shape"
       parent: null
@@ -427,6 +435,7 @@ Compound
       static_methods: []
       static_owners: []
       static_is_method: []
+      vis: {"name" => "", "_" => "pub", "area" => "pub", "describe" => "pub", "to_string" => "pub"}
       fields: {"name" => null}
       field_lines: {"name" => 32}
       methods:
@@ -534,6 +543,11 @@ Compound
       layout: {"name" => "Shape"}
       members: {"_" => "Shape", "describe" => "Shape", "to_string" => "Shape"}
       abstract_methods: {"area" => "Shape"}
+      slots: [["name", "Shape", ""]]
+      method_table: [["_", "Shape", "pub"], ["describe", "Shape", "pub"], ["to_string", "Shape", "pub"]]
+      owner_vis: {"name" => "", "_" => "pub", "area" => "pub", "describe" => "pub", "to_string" => "pub"}
+      hidden: []
+      hidden_fields: []
     5: KindDeclaration 40
       name: "Dot"
       parent: "Circle"
@@ -543,15 +557,21 @@ Compound
       static_methods: []
       static_owners: []
       static_is_method: []
+      vis: []
       fields: []
       field_lines: []
       methods: []
       constants: []
       constant_lines: []
       constant_owners: []
-      layout: {"name" => "Shape", "radius" => "Circle", "history" => "Circle", "doubled" => "Circle", "callback" => "Circle"}
-      members: {"_" => "Circle", "describe" => "Shape", "to_string" => "Circle", "area" => "Circle", "parent_area" => "Circle", "scale" => "Circle", "me" => "Circle", "chained" => "Circle", "later" => "Circle", "swap" => "Circle", "drop" => "Circle"}
+      layout: []
+      members: {"_" => "Circle", "describe" => "Shape", "to_string" => "Circle", "area" => "Circle"}
       abstract_methods: []
+      slots: [["name", "Shape", ""], ["radius", "Circle", ""], ["history", "Circle", ""], ["doubled", "Circle", ""], ["callback", "Circle", ""]]
+      method_table: [["_", "Circle", "pub"], ["describe", "Shape", "pub"], ["to_string", "Circle", "pub"], ["area", "Circle", "pub"], ["parent_area", "Circle", ""], ["scale", "Circle", ""], ["me", "Circle", ""], ["chained", "Circle", ""], ["later", "Circle", ""], ["swap", "Circle", ""], ["drop", "Circle", ""]]
+      owner_vis: {"_" => "pub", "area" => "pub", "describe" => "pub", "to_string" => "pub"}
+      hidden: {"name" => "Shape", "radius" => "Circle", "history" => "Circle", "doubled" => "Circle", "callback" => "Circle", "parent_area" => "Circle", "scale" => "Circle", "me" => "Circle", "chained" => "Circle", "later" => "Circle", "swap" => "Circle", "drop" => "Circle"}
+      hidden_fields: {"name" => "Shape", "radius" => "Circle", "history" => "Circle", "doubled" => "Circle", "callback" => "Circle"}
     6: KindDeclaration 41
       name: "Empty"
       parent: null
@@ -561,6 +581,7 @@ Compound
       static_methods: []
       static_owners: []
       static_is_method: []
+      vis: []
       fields: []
       field_lines: []
       methods: []
@@ -570,6 +591,11 @@ Compound
       layout: []
       members: []
       abstract_methods: []
+      slots: []
+      method_table: []
+      owner_vis: []
+      hidden: []
+      hidden_fields: []
     7: EchoStatement 42
       expr: BinOp 42
         left: FunctionCall 42
@@ -592,6 +618,7 @@ Compound
       static_methods: []
       static_owners: []
       static_is_method: []
+      vis: {"class" => "", "if" => "", "echo" => "", "match" => "", "delete" => "", "fn" => ""}
       fields:
         class: null
         if: Num 47
@@ -686,6 +713,11 @@ Compound
       layout: {"class" => "Words", "if" => "Words"}
       members: {"echo" => "Words", "match" => "Words", "delete" => "Words", "fn" => "Words"}
       abstract_methods: []
+      slots: [["class", "Words", ""], ["if", "Words", ""]]
+      method_table: [["echo", "Words", ""], ["match", "Words", ""], ["delete", "Words", ""], ["fn", "Words", ""]]
+      owner_vis: {"class" => "", "if" => "", "echo" => "", "match" => "", "delete" => "", "fn" => ""}
+      hidden: []
+      hidden_fields: []
     9: EchoStatement 53
       expr: MethodCall 53
         property: Property 53
@@ -707,6 +739,7 @@ Compound
       static_methods: []
       static_owners: []
       static_is_method: []
+      vis: {"one" => "pub", "two" => "pub"}
       fields: []
       field_lines: []
       methods:
@@ -738,6 +771,11 @@ Compound
       layout: []
       members: []
       abstract_methods: {"one" => "A", "two" => "A"}
+      slots: []
+      method_table: []
+      owner_vis: {"one" => "pub", "two" => "pub"}
+      hidden: []
+      hidden_fields: []
     11: KindDeclaration 57
       name: "B"
       parent: "A"
@@ -747,6 +785,7 @@ Compound
       static_methods: []
       static_owners: []
       static_is_method: []
+      vis: {"one" => "pub"}
       fields: []
       field_lines: []
       methods:
@@ -769,6 +808,11 @@ Compound
       layout: []
       members: {"one" => "B"}
       abstract_methods: {"two" => "A"}
+      slots: []
+      method_table: [["one", "B", "pub"]]
+      owner_vis: {"one" => "pub", "two" => "pub"}
+      hidden: []
+      hidden_fields: []
     12: KindDeclaration 58
       name: "C"
       parent: "B"
@@ -778,6 +822,7 @@ Compound
       static_methods: []
       static_owners: []
       static_is_method: []
+      vis: {"two" => "pub"}
       fields: []
       field_lines: []
       methods:
@@ -813,6 +858,11 @@ Compound
       layout: []
       members: {"one" => "B", "two" => "C"}
       abstract_methods: []
+      slots: []
+      method_table: [["one", "B", "pub"], ["two", "C", "pub"]]
+      owner_vis: {"one" => "pub", "two" => "pub"}
+      hidden: []
+      hidden_fields: []
     13: EchoStatement 59
       expr: MethodCall 59
         property: Property 59
@@ -837,6 +887,7 @@ Compound
       static_methods: []
       static_owners: []
       static_is_method: []
+      vis: {"f" => "", "_" => "pub", "opt" => ""}
       fields: {"f" => null}
       field_lines: {"f" => 63}
       methods:
@@ -865,6 +916,7 @@ Compound
                       value: "\$x"
                     captures: []
                     self: null
+                    owner: "Calls"
           arity: 0
           kind: "Calls"
           abstract: false
@@ -939,6 +991,11 @@ Compound
       layout: {"f" => "Calls"}
       members: {"_" => "Calls", "opt" => "Calls"}
       abstract_methods: []
+      slots: [["f", "Calls", ""]]
+      method_table: [["_", "Calls", "pub"], ["opt", "Calls", ""]]
+      owner_vis: {"f" => "", "_" => "pub", "opt" => ""}
+      hidden: []
+      hidden_fields: []
     15: KindDeclaration 69
       name: "If"
       parent: null
@@ -948,6 +1005,7 @@ Compound
       static_methods: []
       static_owners: []
       static_is_method: []
+      vis: {"_" => "pub"}
       fields: []
       field_lines: []
       methods:
@@ -966,6 +1024,11 @@ Compound
       layout: []
       members: {"_" => "If"}
       abstract_methods: []
+      slots: []
+      method_table: [["_", "If", "pub"]]
+      owner_vis: {"_" => "pub"}
+      hidden: []
+      hidden_fields: []
     16: KindDeclaration 70
       name: "Match"
       parent: "If"
@@ -975,6 +1038,7 @@ Compound
       static_methods: []
       static_owners: []
       static_is_method: []
+      vis: {"_" => "pub"}
       fields: []
       field_lines: []
       methods:
@@ -1001,6 +1065,11 @@ Compound
       layout: []
       members: {"_" => "Match"}
       abstract_methods: []
+      slots: []
+      method_table: [["_", "Match", "pub"]]
+      owner_vis: {"_" => "pub"}
+      hidden: []
+      hidden_fields: []
     17: EchoStatement 71
       expr: BinOp 71
         left: FunctionCall 71
@@ -1023,6 +1092,7 @@ Compound
       static_methods: []
       static_owners: []
       static_is_method: []
+      vis: {"to_string" => "pub"}
       fields: []
       field_lines: []
       methods:
@@ -1048,3 +1118,8 @@ Compound
       layout: []
       members: {"to_string" => "Printable"}
       abstract_methods: []
+      slots: []
+      method_table: [["to_string", "Printable", "pub"]]
+      owner_vis: {"to_string" => "pub"}
+      hidden: []
+      hidden_fields: []

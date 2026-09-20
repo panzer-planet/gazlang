@@ -1,0 +1,1 @@
+Error: Field #x of B has the name of a field of A that isn't pub: a field is a slot, so the name is taken at tests/parser_corpus/error_field_named_like_a_private_parent_field.gaz:2

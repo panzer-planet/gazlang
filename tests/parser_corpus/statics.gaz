@@ -1,7 +1,7 @@
 // A static belongs to the kind rather than to an object: a field is a slot, reached by name,
 // and a method a function whose name carries its kind, so neither needs an object.
 kind Counter {
-    static #count = 0;
+    pub static #count = 0;
     static #rows = [];
     static #limit = 2 * 5;
     #id;
@@ -11,7 +11,7 @@ kind Counter {
         #id = #count;
     }
 
-    static fn next() {
+    pub static fn next() {
         #count++;
 
         return #count;
@@ -22,7 +22,7 @@ kind Counter {
         return #next() + #next();
     }
 
-    fn mine() {
+    pub fn mine() {
         // An instance method sees the statics too
         return "{#id} of {#count}, limit {#limit}";
     }

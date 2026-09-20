@@ -238,19 +238,19 @@ assigned with `$f = ...` can call `$f` to recurse.
 
 ```gaz
 abstract kind Shape {
-    #name;
+    #name;                               // Shape's own: nothing outside Shape can name it
     fn _($name) { #name = $name; }
-    abstract fn area();
-    fn to_string() { return "{#name} with area {#area()}"; }
+    pub abstract fn area();
+    pub fn to_string() { return "{#name} with area {#area()}"; }
 }
 
 kind Circle extends Shape {
-    #radius;
+    pub #radius;                         // pub, so anyone can read and write it
     fn _($radius) {
         ##_("circle");                   // the parent's constructor
         #radius = $radius;
     }
-    fn area() { return 3.14159 * #radius * #radius; }
+    pub fn area() { return 3.14159 * #radius * #radius; }
 }
 
 $c = Circle(2);                          // constructing is a call; there is no new
@@ -269,13 +269,28 @@ echo is_a($c, Shape) .. " " .. $c.radius;
   inside them are still values.
 - **`.` reads and writes members**: `$user.name`, `$rows[0].total = 5`, `$obj.method(args)`.
   `$obj.method` on its own is a bound method.
+- **A member is private unless `pub`**, the same word and the same meaning as a namespace's:
+  this name escapes the thing it is written in. Unmarked, a field, method, constant or static
+  is the kind's own, so only that kind's own code can name it; `pub` lets anyone. `#name` and
+  `##name` are checked at parse time, `$obj.name` when it runs, both against the kind the code
+  asking is written in — a lambda's and a static method's is the kind they sit in.
+- **A parent's private member is the parent's own.** A child can't name it, and may declare a
+  method, constant or static of its own by the same name; both live on, and each kind's code
+  reaches the one it can see. A field may not be reused, since a field is a slot: the name is
+  taken across the hierarchy. The parent's own methods still reach it on a child's object.
+- **An override escapes as far as what it replaces**, so `pub` on one and nothing on the other
+  is an error. `to_string()` must be `pub`, since printing calls it from outside, and so must
+  an `abstract fn`, since a child defines what it can see. A constructor takes no marker: it
+  is reached by constructing, not by naming.
+- **`fields()` and `echo` are not member access** and show every field that is set, whatever it
+  escapes: reflection exists so a pass can walk an object without knowing its kind.
 - **`to_string()`** is the one protocol method: `echo`, `..`, interpolation and `join` use it.
 
 ## Errors
 
 ```gaz
 kind NotFound extends Error {
-    #key;
+    pub #key;
     fn _($key) { ##_("Not found: {$key}"); #key = $key; }
 }
 
@@ -447,9 +462,10 @@ echo Counter::count;
   before the program's first instruction. Running one would bring initialisation order and
   bytecode before the top level, which is why constants refuse `Point(0, 0)` as well. It is
   required: `static #count;` is an error.
-- **Assigned from anywhere**: `Counter::count = 1`, `Counter::count++`, `Counter::rows[] = $r`
-  and `delete Counter::rows[0]` all work, because a kind's members are public unless marked
-  otherwise. A kind constant is still not a slot, so `Counter::LIMIT = 1` is an error.
+- **Assigned from anywhere the static escapes to**: `Counter::count = 1`, `Counter::count++`,
+  `Counter::rows[] = $r` and `delete Counter::rows[0]` all work on a `pub static`, and inside
+  `Counter` on one that says nothing. A kind constant is still not a slot, so
+  `Counter::LIMIT = 1` is an error.
 - **A child shares its parent's static** and can't declare one again, as with a constant: every
   member shares one namespace across the hierarchy, statics included.
 - **Reached by name only**: `$counter.count` is not a static, and `$counter::next()` puts a
@@ -474,10 +490,10 @@ fn scan($text) {                      // private: only namespace json can use it
 ```
 
 **A name is private to its namespace unless `pub`.** A file is implementation, and only what it
-says is public escapes it. This is the opposite default to a kind's members, which are public
-unless marked otherwise, because a kind is an interface. Privacy is per namespace rather than
-per file, so several files can declare the same namespace and go on seeing everything of each
-other's.
+says is public escapes it. `pub` means the same thing on a kind's member, so one keyword covers
+the whole language: this name escapes the thing it is written in, whether that thing is a file
+or a kind. Privacy is per namespace rather than per file, so several files can declare the same
+namespace and go on seeing everything of each other's.
 
 ```gaz
 include "lib/json.gaz";                              // json:: becomes reachable

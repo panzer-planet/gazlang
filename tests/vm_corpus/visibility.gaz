@@ -1,0 +1,38 @@
+// What privacy refuses when a program runs: $obj.name is checked against the kind the code
+// asking is written in, which a lambda and a static method inherit from the kind they sit in.
+kind Box {
+    pub #open = 1;
+    #shut = 2;
+    pub fn read() { return #shut; }
+    fn hidden() { return "hidden"; }
+
+    // From inside, every member of its own is reachable through a value as well as through #
+    pub fn through_a_value($other) { return [$other.open, $other.shut, $other.hidden()]; }
+    pub fn from_a_lambda($other) { return (() -> $other.shut)(); }
+    pub static fn from_a_static($other) { return $other.shut; }
+}
+
+fn fails($f) {
+    try {
+        $f();
+
+        return "no error";
+    } catch (Error $e) {
+        return $e.message;
+    }
+}
+
+$b = Box();
+echo $b.open .. " " .. $b.read();
+echo Box().through_a_value($b);
+echo Box().from_a_lambda($b) .. " " .. Box::from_a_static($b);
+
+// From outside, only what escapes answers
+echo fails(() -> $b.shut);
+echo fails(() -> $b.hidden());
+echo fails(() -> $b.nope);
+// A write path is checked the same way
+echo fails(() -> ($b.shut = 3));
+// Reflection and printing are not member access, so they see every field that is set
+echo fields($b);
+echo $b;

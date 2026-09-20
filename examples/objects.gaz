@@ -3,10 +3,10 @@
 //   bin/gazlang -f examples/objects.gaz
 
 abstract kind Shape {
-    #name;
+    pub #name;
     fn _($name) { #name = $name; }
-    abstract fn area();
-    fn to_string() { return "{#name} with area " .. round(#area(), 2); }
+    pub abstract fn area();
+    pub fn to_string() { return "{#name} with area " .. round(#area(), 2); }
 }
 
 kind Circle extends Shape {
@@ -15,8 +15,8 @@ kind Circle extends Shape {
         ##_("circle");
         #radius = $radius;
     }
-    fn area() { return 3.14159 * #radius * #radius; }
-    fn to_string() { return ##to_string() .. " (r = {#radius})"; }
+    pub fn area() { return 3.14159 * #radius * #radius; }
+    pub fn to_string() { return ##to_string() .. " (r = {#radius})"; }
 }
 
 kind Rectangle extends Shape {
@@ -27,7 +27,7 @@ kind Rectangle extends Shape {
         #width = $width;
         #height = $height;
     }
-    fn area() { return #width * #height; }
+    pub fn area() { return #width * #height; }
 }
 
 $shapes = [Circle(1), Rectangle(2, 3), Rectangle(2, 2)];
@@ -41,10 +41,10 @@ echo "circles: " .. len(filter($shapes, $s -> is_a($s, Circle)));   // circles: 
 // Objects are handles: every reference sees the same account
 kind Account {
     #owner;
-    #balance = 0;
+    pub #balance = 0;
     #history = [];
     fn _($owner) { #owner = $owner; }
-    fn deposit($amount) {
+    pub fn deposit($amount) {
         if ($amount <= 0) {
             error("Deposits must be positive, got {$amount}");
         }
@@ -52,7 +52,7 @@ kind Account {
         #history[] = "+{$amount}";
         return #;
     }
-    fn withdraw($amount) {
+    pub fn withdraw($amount) {
         if ($amount > #balance) {
             error("{#owner} can't withdraw {$amount} from {#balance}");
         }
@@ -81,13 +81,13 @@ echo "balance after payments: {$account.balance}";   // balance after payments: 
 
 kind Counter {
     #counts = {};
-    fn counter($key) {
+    pub fn counter($key) {
         return () -> {
             #counts[$key] ??= 0;
             #counts[$key]++;
         };
     }
-    fn to_string() { return "Counter {#counts}"; }
+    pub fn to_string() { return "Counter {#counts}"; }
 }
 $counter = Counter();
 $apples = $counter.counter("apples");

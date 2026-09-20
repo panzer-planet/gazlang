@@ -1,0 +1,1 @@
+Error: A::count is not pub, so only A can use it on line 3

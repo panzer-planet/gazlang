@@ -1,7 +1,7 @@
 // Declares a kind and a function for whoever includes it, and includes its own neighbour
 include "deep/helper.gaz";
 kind Square {
-    #side;
+    pub #side;
     fn _($side) { #side = $side; }
 }
 fn area($square) { return $square.side * $square.side + helper(); }

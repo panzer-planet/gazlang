@@ -22,7 +22,7 @@ kind Machine {
 
     fn _($input) { #input = $input; }
 
-    fn run($code) {
+    pub fn run($code) {
         $pc = 0;
         while ($pc < len($code)) {
             [$op, $n] = $code[$pc];

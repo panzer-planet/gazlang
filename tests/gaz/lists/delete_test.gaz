@@ -51,8 +51,8 @@ check("a captured variable", $forget("b"), {});
 
 kind Cart {
     #items = ["apple", "pear"];
-    fn drop($index) { delete #items[$index]; }
-    fn contents() { return #items; }
+    pub fn drop($index) { delete #items[$index]; }
+    pub fn contents() { return #items; }
 }
 $cart = Cart();
 $cart.drop(0);

@@ -11,14 +11,14 @@
 namespace gazlang;
 
 abstract kind AST {
-    #line = null;
-    #file = null;
+    pub #line = null;
+    pub #file = null;
 }
 
 // A node that is one token: a literal or a variable
 abstract kind TokenValueNodeAST extends AST {
     #token;
-    #value;
+    pub #value;
 
     fn _($token) {
         #token = $token;
@@ -46,14 +46,14 @@ kind BooleanAST extends TokenValueNodeAST {
 
 // #value is the token's text, "$name" or "@name"
 kind VariableAST extends TokenValueNodeAST {
-    fn is_global() {
+    pub fn is_global() {
         return #value[0] == "@";
     }
 }
 
 kind UnaryOpAST extends AST {
-    #op;
-    #expr;
+    pub #op;
+    pub #expr;
 
     fn _($op, $expr) {
         #op = $op;
@@ -62,10 +62,10 @@ kind UnaryOpAST extends AST {
 }
 
 kind BinOpAST extends AST {
-    #left;
+    pub #left;
     #token;
-    #op;
-    #right;
+    pub #op;
+    pub #right;
 
     fn _($left, $op, $right) {
         #left = $left;
@@ -76,9 +76,9 @@ kind BinOpAST extends AST {
 }
 
 kind TernaryAST extends AST {
-    #condition;
-    #then;
-    #else;
+    pub #condition;
+    pub #then;
+    pub #else;
 
     fn _($condition, $then, $else) {
         #condition = $condition;
@@ -88,7 +88,7 @@ kind TernaryAST extends AST {
 }
 
 abstract kind AbstractStatementAST extends AST {
-    #expr;
+    pub #expr;
 
     fn _($expr) {
         #expr = $expr;
@@ -100,13 +100,13 @@ kind StatementAST extends AbstractStatementAST {}
 kind EchoStatementAST extends AbstractStatementAST {}
 
 kind CompoundAST extends AST {
-    #statements = [];
+    pub #statements = [];
 }
 
 // A list [1, 2] or, with #map, a map {"k" => 1}; each entry is [key, value], the key null in a list
 kind ArrayLiteralAST extends AST {
-    #entries;
-    #map;
+    pub #entries;
+    pub #map;
 
     fn _($entries, $map = false) {
         #entries = $entries;
@@ -116,7 +116,7 @@ kind ArrayLiteralAST extends AST {
 
 // An element of a list literal written ...$expr: the elements of the list #expr gives
 kind SpreadAST extends AST {
-    #expr;
+    pub #expr;
 
     fn _($expr) {
         #expr = $expr;
@@ -125,11 +125,11 @@ kind SpreadAST extends AST {
 
 // $target[$index], or $target[] when #index is null
 kind IndexAST extends AST {
-    #target;
-    #index;
+    pub #target;
+    pub #index;
     // Set by the code generator on the nodes it builds for a compound update, which reads the
     // current value strictly; not part of the tree
-    #existing = false;
+    pub #existing = false;
 
     fn _($target, $index) {
         #target = $target;
@@ -139,21 +139,21 @@ kind IndexAST extends AST {
 
 // $target.name, or #name when the target is a ThisAST
 kind PropertyAST extends AST {
-    #target;
-    #name;
+    pub #target;
+    pub #name;
     // Whether a #name is a field rather than a method, which the parser knows once the kinds are resolved
-    #field = false;
+    pub #field = false;
     // Whether this is a kind's constant (#NAME), and if so its value, which the parser
     // works out once the kinds are resolved: a use of a constant is its value
-    #constant = false;
-    #value = null;
+    pub #constant = false;
+    pub #value = null;
     // The "Kind::name" of the static field or static method this is, or null: a static is
     // reached by name, so #count in a method is a slot and #next() a plain call
-    #static_name = null;
+    pub #static_name = null;
     // Where a #name's record is in Parser.member_uses, or null; not part of the tree
-    #use = null;
+    pub #use = null;
     // As IndexAST's
-    #existing = false;
+    pub #existing = false;
 
     fn _($target, $name) {
         #target = $target;
@@ -163,8 +163,8 @@ kind PropertyAST extends AST {
 
 // A call on a value: $f(1), pick()(2)
 kind CallValueAST extends AST {
-    #callee;
-    #args;
+    pub #callee;
+    pub #args;
 
     fn _($callee, $args) {
         #callee = $callee;
@@ -174,8 +174,8 @@ kind CallValueAST extends AST {
 
 // $obj.name(args) or #name(args)
 kind MethodCallAST extends AST {
-    #property;
-    #args;
+    pub #property;
+    pub #args;
 
     fn _($property, $args) {
         #property = $property;
@@ -185,8 +185,8 @@ kind MethodCallAST extends AST {
 
 // A call by name: add(1, 2)
 kind FunctionCallAST extends AST {
-    #name;
-    #args;
+    pub #name;
+    pub #args;
 
     fn _($name, $args) {
         #name = $name;
@@ -198,8 +198,8 @@ kind FunctionCallAST extends AST {
 // A static field's default, which the code generator writes before the program's own first
 // instruction: the value is a constant the parser worked out, so there is no order to define
 kind StaticInitAST extends AST {
-    #name;
-    #value;
+    pub #name;
+    pub #value;
 
     fn _($name, $value) {
         #name = $name;
@@ -208,14 +208,14 @@ kind StaticInitAST extends AST {
 }
 
 kind FunctionRefAST extends AST {
-    #name;
+    pub #name;
     // Whether the name is a constant's, and if so its value, which the parser works out once
     // the whole program is read: a use of a constant is its value
-    #constant = false;
-    #value = null;
+    pub #constant = false;
+    pub #value = null;
     // The "Kind::name" of the static field this names, or null; a static field is a slot,
     // so Counter::count reads and writes one rather than being a value of its own
-    #static_name = null;
+    pub #static_name = null;
 
     fn _($name) {
         #name = $name;
@@ -224,9 +224,9 @@ kind FunctionRefAST extends AST {
 
 // = and the compound assignments; #token says which
 kind AssignAST extends AST {
-    #left;
-    #token;
-    #right;
+    pub #left;
+    pub #token;
+    pub #right;
 
     fn _($left, $token, $right) {
         #left = $left;
@@ -236,9 +236,9 @@ kind AssignAST extends AST {
 }
 
 kind IncrementAST extends AST {
-    #target;
-    #op;
-    #prefix;
+    pub #target;
+    pub #op;
+    pub #prefix;
 
     fn _($target, $op, $prefix) {
         #target = $target;
@@ -249,7 +249,7 @@ kind IncrementAST extends AST {
 
 // [$a, $b] on the left of = or in a foreach
 kind ListPatternAST extends AST {
-    #targets;
+    pub #targets;
 
     fn _($targets) {
         #targets = $targets;
@@ -257,14 +257,17 @@ kind ListPatternAST extends AST {
 }
 
 kind LambdaAST extends AST {
-    #params;
-    #defaults;
-    #arity;
-    #body;
+    pub #params;
+    pub #defaults;
+    pub #arity;
+    pub #body;
     // The outer variables it uses, which are copied into the closure when it is created
-    #captures;
+    pub #captures;
     // The captured name that holds the closure itself ($f = <lambda using $f>), or null
-    #self = null;
+    pub #self = null;
+    // The kind this is written in, or null: a #name or a $obj.name in it is asked for by that
+    // kind, and a lambda's block header is the only place that can say so
+    pub #owner = null;
 
     fn _($params, $defaults, $arity, $body, $captures) {
         #params = $params;
@@ -278,8 +281,8 @@ kind LambdaAST extends AST {
 // #subject is null when the arms are conditions; each arm is [values, body, is_block],
 // the values null for the default arm
 kind MatchAST extends AST {
-    #subject;
-    #arms;
+    pub #subject;
+    pub #arms;
 
     fn _($subject, $arms) {
         #subject = $subject;
@@ -307,10 +310,10 @@ kind ThisAST extends AST {}
 
 // #else_if is the IfStatementAST of an else if, #else_body the block of an else; at most one is set
 kind IfStatementAST extends AST {
-    #condition;
-    #if_body;
-    #else_if;
-    #else_body;
+    pub #condition;
+    pub #if_body;
+    pub #else_if;
+    pub #else_body;
 
     fn _($condition, $if_body, $else_if = null, $else_body = null) {
         #condition = $condition;
@@ -322,9 +325,9 @@ kind IfStatementAST extends AST {
 
 // #step is a for loop's third clause, which runs after the body and on continue
 kind WhileStatementAST extends AST {
-    #condition;
-    #body;
-    #step;
+    pub #condition;
+    pub #body;
+    pub #step;
 
     fn _($condition, $body, $step = null) {
         #condition = $condition;
@@ -335,10 +338,10 @@ kind WhileStatementAST extends AST {
 
 // #key is null without one; #value is a variable or a list pattern of them
 kind ForeachStatementAST extends AST {
-    #iterable;
-    #key;
-    #value;
-    #body;
+    pub #iterable;
+    pub #key;
+    pub #value;
+    pub #body;
 
     fn _($iterable, $key, $value, $body) {
         #iterable = $iterable;
@@ -350,7 +353,7 @@ kind ForeachStatementAST extends AST {
 
 // break or continue; #token says which
 kind LoopControlAST extends AST {
-    #token;
+    pub #token;
 
     fn _($token) {
         #token = $token;
@@ -358,7 +361,7 @@ kind LoopControlAST extends AST {
 }
 
 kind ReturnStatementAST extends AST {
-    #expr;
+    pub #expr;
 
     fn _($expr) {
         #expr = $expr;
@@ -366,7 +369,7 @@ kind ReturnStatementAST extends AST {
 }
 
 kind DeleteStatementAST extends AST {
-    #target;
+    pub #target;
 
     fn _($target) {
         #target = $target;
@@ -375,13 +378,13 @@ kind DeleteStatementAST extends AST {
 
 // A function, or a method when #kind names its kind; an abstract method's body is empty
 kind FunctionDeclarationAST extends AST {
-    #name;
-    #params;
-    #defaults;
-    #body;
-    #arity;
-    #kind = null;
-    #abstract = false;
+    pub #name;
+    pub #params;
+    pub #defaults;
+    pub #body;
+    pub #arity;
+    pub #kind = null;
+    pub #abstract = false;
 
     fn _($name, $params, $defaults, $body, $arity) {
         #name = $name;
@@ -394,10 +397,10 @@ kind FunctionDeclarationAST extends AST {
 
 // ##name, the parent kind's version of a method: a bound method, or a call when #args is a list
 kind ParentMethodAST extends AST {
-    #name;
-    #args;
+    pub #name;
+    pub #args;
     // The kind whose version runs, which the parser knows once the kinds are resolved
-    #definer = "";
+    pub #definer = "";
 
     fn _($name, $args) {
         #name = $name;
@@ -407,9 +410,9 @@ kind ParentMethodAST extends AST {
 
 // Each catch is [kind name or null, variable, block]
 kind TryStatementAST extends AST {
-    #body;
-    #catches;
-    #finally;
+    pub #body;
+    pub #catches;
+    pub #finally;
 
     fn _($body, $catches, $finally) {
         #body = $body;
@@ -419,38 +422,57 @@ kind TryStatementAST extends AST {
 }
 
 kind KindDeclarationAST extends AST {
-    #name;
-    #parent;
-    #abstract;
+    pub #name;
+    pub #parent;
+    pub #abstract;
     // Each declared static field's default expression, and the line it is declared on, by name
-    #statics = {};
-    #static_lines = {};
+    pub #statics = {};
+    pub #static_lines = {};
     // Each declared static method's FunctionDeclarationAST, by name
-    #static_methods = {};
+    pub #static_methods = {};
     // Worked out once the whole program is read: every static, the parent's first, with the
     // kind that declares it, and which of them are methods
-    #static_owners = {};
-    #static_is_method = {};
+    pub #static_owners = {};
+    pub #static_is_method = {};
+    // What each declared member of this kind escapes: "pub" anyone's, "kin" this kind and what
+    // extends it, "" only this kind. Members share one namespace, so one map holds them all.
+    pub #vis = {};
     // Each declared field's default, or null, by name
-    #fields = {};
+    pub #fields = {};
     // The line each field is declared on, for errors about it
-    #field_lines = {};
+    pub #field_lines = {};
     // Each declared method's FunctionDeclarationAST, by name
-    #methods = {};
+    pub #methods = {};
     // Each declared constant's expression, and the line it is declared on, by name
-    #constants = {};
-    #constant_lines = {};
+    pub #constants = {};
+    pub #constant_lines = {};
     // Worked out once the whole program is read: every constant, the parent's first, with the
     // kind that declares it
-    #constant_owners = {};
-    // Worked out once the whole program is read: every field, the parent's first, with the
-    // kind that declares it; every concrete method with the kind whose version runs; and
-    // every abstract method still to be defined, with the kind that declares it
-    #layout = {};
-    #members = {};
-    #abstract_methods = {};
+    pub #constant_owners = {};
+    // Worked out once the whole program is read: every field this kind can name, the parent's
+    // first, with the kind that declares it; every concrete method it can name with the kind
+    // whose version runs; and every abstract method still to be defined, with its declarer.
+    // A parent's private member is in none of them, since this kind can't name it.
+    pub #layout = {};
+    pub #members = {};
+    pub #abstract_methods = {};
+    // Every slot an object of this kind has, and every method it can run, in order, as
+    // [name, declarer, vis]: what the bytecode records and the VM resolves against. A
+    // parent's private member is here, since its own methods still reach it, and two kinds
+    // in one chain may each declare a private member of the same name.
+    pub #slots = [];
+    pub #method_table = [];
+    // What each member this kind can name escapes, by name: the filter the tables above are
+    // inherited through, and what says whether a use outside the kind is allowed
+    pub #owner_vis = {};
+    // Every member a parent has that this kind can't name, with the kind that declares it, so
+    // an error can say "is not pub" rather than "has no member"
+    pub #hidden = {};
+    // Of those, the ones that are fields: a field is a slot, so its name is taken across the
+    // hierarchy even where the field itself can't be named
+    pub #hidden_fields = {};
     // Whether those three have been worked out
-    #resolved = false;
+    pub #resolved = false;
 
     fn _($name, $parent, $abstract) {
         #name = $name;

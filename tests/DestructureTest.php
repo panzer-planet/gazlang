@@ -20,10 +20,10 @@ class DestructureTest extends GazLangTestCase
     {
         $this->assertEquals("[\"one\", 2] global {\"k\" => 3} P {#x => 4, #y => 5} 6\n", $this->executeCode(<<<'CODE'
             kind P {
-                #x;
-                #y;
-                #inner;
-                fn set($pair) { [#x, #y] = $pair; return #; }
+                pub #x;
+                pub #y;
+                pub #inner;
+                pub fn set($pair) { [#x, #y] = $pair; return #; }
             }
             $list = [0, 2];
             $map = {};
@@ -116,8 +116,8 @@ class DestructureTest extends GazLangTestCase
             'an append target' => ['[$a[]] = [1];', '[] can only be used to append in an assignment on line 1'],
             'a foreach pattern of non-variables' => ['foreach ([] as [$a[0], $b]) {}', 'A foreach pattern takes variables only on line 1'],
             'a foreach key pattern' => ['foreach ({} as [$k] => $v) {}', 'A foreach key is a variable, not a pattern on line 1'],
-            'an undeclared field target' => ['kind P { fn f() { [#nope] = [1]; } }', 'P has no member #nope on line 1'],
-            'a method target' => ['kind P { fn f() { [#f] = [1]; } }', 'Cannot assign to method #f on line 1'],
+            'an undeclared field target' => ['kind P { pub fn f() { [#nope] = [1]; } }', 'P has no member #nope on line 1'],
+            'a method target' => ['kind P { pub fn f() { [#f] = [1]; } }', 'Cannot assign to method #f on line 1'],
         ];
     }
 

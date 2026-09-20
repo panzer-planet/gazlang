@@ -128,12 +128,12 @@ ADD
 PRINT
 
 kind Error
-field message Error
-field file Error
-field line Error
-field trace Error
-method _ Error
-method to_string Error
+field message Error pub
+field file Error pub
+field line Error pub
+field trace Error pub
+method _ Error pub
+method to_string Error pub
 locals $#argument_0
 @ "<builtin>" 1
 CALL_CONSTRUCTOR Error
@@ -161,11 +161,11 @@ PUSH null
 RET
 
 abstract kind Shape
-field name Shape
-field history Shape
+field name Shape pub
+field history Shape pub
 field double Shape
-method _ Shape
-method to_string Shape
+method _ Shape pub
+method to_string Shape pub
 method describe Shape
 locals $#argument_0
 @ "kinds.gaz" 5
@@ -225,20 +225,20 @@ PUSH null
 RET
 
 kind Square extends Shape
-field name Shape
-field history Shape
+field name Shape pub
+field history Shape pub
 field double Shape
-field side Square
+field side Square pub
 field area_cache Square
-method _ Square
-method to_string Square
+method _ Square pub
+method to_string Square pub
 method describe Shape
-method area Square
-method parent_version Square
-method me Square
-method later Square
+method area Square pub
+method parent_version Square pub
+method me Square pub
+method later Square pub
 method cached Square
-method scaled Square
+method scaled Square pub
 locals $#argument_0 $#argument_1
 @ "kinds.gaz" 5
 NEW_ARRAY
@@ -361,20 +361,20 @@ PUSH null
 RET
 
 kind Unit extends Square
-field name Shape
-field history Shape
+field name Shape pub
+field history Shape pub
 field double Shape
-field side Square
+field side Square pub
 field area_cache Square
-method _ Square
-method to_string Square
+method _ Square pub
+method to_string Square pub
 method describe Shape
-method area Square
-method parent_version Square
-method me Square
-method later Square
+method area Square pub
+method parent_version Square pub
+method me Square pub
+method later Square pub
 method cached Square
-method scaled Square
+method scaled Square pub
 locals $#argument_0 $#argument_1
 @ "kinds.gaz" 5
 NEW_ARRAY
@@ -399,7 +399,7 @@ LOAD_THIS
 RET
 
 kind Plain
-field a Plain
+field a Plain pub
 locals
 @ "kinds.gaz" 25
 PUSH 1
@@ -415,13 +415,13 @@ LOAD_THIS
 RET
 
 kind NotFound extends Error
-field message Error
-field file Error
-field line Error
-field trace Error
-field key NotFound
-method _ NotFound
-method to_string Error
+field message Error pub
+field file Error pub
+field line Error pub
+field trace Error pub
+field key NotFound pub
+method _ NotFound pub
+method to_string Error pub
 locals $#argument_0
 @ "kinds.gaz" 27
 CALL_CONSTRUCTOR NotFound
@@ -443,7 +443,7 @@ POP
 PUSH null
 RET
 
-lambda 0 0 0
+lambda 0 0 0 in Square
 locals
 @ "kinds.gaz" 20
 LOAD_FIELD side

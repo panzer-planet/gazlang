@@ -1,0 +1,1 @@
+Error: A::helper is not pub, so only A can use it at tests/parser_corpus/error_private_method_through_parent_use.gaz:2

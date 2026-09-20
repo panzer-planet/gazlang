@@ -88,7 +88,7 @@ check("past the match", describe(1), "not zero");
 // Nothing matching and no default is an error naming the subject, strings quoted
 @printed = 0;
 kind Loud {
-    fn to_string() { @printed++; return "loud"; }
+    pub fn to_string() { @printed++; return "loud"; }
 }
 
 fn fails($f) {

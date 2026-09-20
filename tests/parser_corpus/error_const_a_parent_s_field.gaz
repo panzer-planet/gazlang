@@ -1,2 +1,2 @@
-kind K { #A; }
+kind K { pub #A; }
 kind L extends K { const A = 1; }

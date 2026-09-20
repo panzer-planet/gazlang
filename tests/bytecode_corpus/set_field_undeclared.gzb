@@ -10,12 +10,12 @@ CALL_METHOD 0 m
 POP
 
 kind Error
-field message Error
-field file Error
-field line Error
-field trace Error
+field message Error pub
+field file Error pub
+field line Error pub
+field trace Error pub
 method _ Error
-method to_string Error
+method to_string Error pub
 locals $#argument_0
 @ "<builtin>" 1
 CALL_CONSTRUCTOR Error
@@ -44,7 +44,7 @@ RET
 
 kind C
 field x C
-method m C
+method m C pub
 locals
 @ "set_field_undeclared.gaz" 1
 LOAD_THIS

@@ -225,6 +225,7 @@ Compound
                 value: "\$x"
               captures: []
               self: null
+              owner: null
           1:
             0: null
             1: ArrayLiteral 16
@@ -242,6 +243,7 @@ Compound
                       value: 1
                     captures: []
                     self: null
+                    owner: null
               map: true
         map: false
     12: EchoStatement 17

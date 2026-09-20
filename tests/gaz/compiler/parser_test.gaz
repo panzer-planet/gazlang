@@ -21,12 +21,20 @@ $lambda = $root.statements[0].expr.right;
 check("a lambda's captures, arity and self", [$lambda.captures, $lambda.arity, $lambda.self], [["\$n", "\$f"], [1, 2], "\$f"]);
 check("a node from a file has the file", $lambda.file, "inline.gaz");
 
-$root = Parser(Lexer("kind A \{ #x; fn f() \{ return #x + #g(); } fn g() \{ return 1; } } kind B extends A \{ fn g() \{ return ##g(); } }")).parse();
+$root = Parser(Lexer("kind A \{ pub #x; pub fn f() \{ return #x + #g(); } pub fn g() \{ return 1; } } kind B extends A \{ pub fn g() \{ return ##g(); } }")).parse();
 [$a, $b] = $root.statements;
 check("a kind's layout and members, its parent's included", [$b.layout, $b.members], [{"x" => "A"}, {"f" => "A", "g" => "B"}]);
 $sum = $a.methods["f"].body.statements[0].expr;
 check("a #name knows whether it is a field", [$sum.left.field, $sum.right.property.field], [true, false]);
 check("a ##name knows whose version runs", $b.methods["g"].body.statements[0].expr.definer, "A");
+
+// A parent's private member keeps its slot and its entry, since the parent's own methods
+// still reach it, but the child can't name it: the two views differ by exactly that
+$hidden_root = Parser(Lexer("kind A \{ #x; pub #y; fn own() \{ return #x; } } kind B extends A \{ #x; }")).parse();
+$child = $hidden_root.statements[1];
+check("a child can only name what its parent lets escape", [$child.layout, $child.hidden], [{"y" => "A", "x" => "B"}, {"x" => "A", "own" => "A"}]);
+check("but every slot is still there, the parent's private one included", $child.slots, [["x", "A", ""], ["y", "A", "pub"], ["x", "B", ""]]);
+check("and so is every method entry", $child.method_table, [["own", "A", ""]]);
 
 // Errors are ParseErrors, with the place in the source apart from the message
 fn parse_error($source, $path = null) {

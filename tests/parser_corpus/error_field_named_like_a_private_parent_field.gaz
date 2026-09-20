@@ -1,0 +1,2 @@
+kind A { #x = 1; }
+kind B extends A { #x = 2; }

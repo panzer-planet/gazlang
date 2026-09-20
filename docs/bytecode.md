@@ -57,12 +57,20 @@ A name in a namespace carries it, with `::` between the parts: `json::decode` is
 loader needs to know nothing about them beyond treating a name as one word; the dot is still
 what tells a method from a function.
 
+A header may end with `in Kind`, naming the kind the block's code is written in. That is who a
+member use in it is asking as, which is what says whether a member that isn't `pub` answers it.
+A method's own name already carries its kind, so only a static method's header and a lambda's
+need to say it; a kind block is the initialiser of its own objects and reaches all of them.
+
 ```
 fn safe_div 2 2
 locals $a $b $e
 
 fn json::decode 1 1
 locals $text
+
+fn Counter::next 0 0 in Counter
+locals
 ```
 
 A **kind** is a record followed by the code that makes one of its objects: that code sets the
@@ -71,22 +79,30 @@ lines give every field an object of the kind has, in layout order, each with the
 declares it; `method` lines give every method it can call, including the constructor `_`, each
 with the kind whose version runs. The constructor's arity is that method's arity.
 
+A `field` or `method` line may end with `pub`, which says the member escapes the kind that
+declares it, so any code can name it. Nothing said means the member is that kind's own, and
+only its own code reaches it: a child inherits the slot and the entry, since the parent's
+methods still run on the child's objects, but cannot name them. A field name is unique across
+a hierarchy; a method name is not, so two entries of one name may sit side by side, and which
+one answers depends on the kind asking.
+
 ```
 abstract kind Shape
 field name Shape
-method _ Shape
-method area Shape
+method _ Shape pub
+method area Shape pub
 locals $#argument_0
 
 kind Circle extends Shape
 field name Shape
-field radius Circle
-method _ Circle
-method area Circle
+field radius Circle pub
+method _ Circle pub
+method area Circle pub
 locals $#argument_0
 ```
 
-A **lambda** gives its index, which `MAKE_CLOSURE` names, and its arity. A `capture` line per
+A **lambda** gives its index, which `MAKE_CLOSURE` names, and its arity, then `in Kind` when it
+is written inside one. A `capture` line per
 captured variable, in capture order, gives the variable's name and where the enclosing frame
 holds it: `local` and a slot, or `captured` and an index in the enclosing closure. A `self`
 line names the captured variable that holds the closure itself, for a lambda assigned to a
@@ -243,6 +259,11 @@ depth limit is reached.
 
 ### Objects and kinds
 
+Every instruction that names a member resolves it against the object's kind *and* the kind the
+running block says its code is written in (`in Kind`, or the dot in a method's name). A member
+that says nothing answers only its own kind, so the same instruction can find a member in one
+block and not in another.
+
 | Instruction | Stack | What it does |
 | --- | --- | --- |
 | `PUSH_KIND kind` | `-- c` | Pushes a kind as a value. |
@@ -251,7 +272,7 @@ depth limit is reached.
 | `LOAD_THIS` | `-- o` | Pushes the object the running method or initialiser is on. |
 | `LOAD_FIELD member` | `-- v` | Pushes a field of that object. Fails with "Property x of C is not set". |
 | `SET_FIELD member` | `v -- v` | Sets a field of that object, leaving the value. |
-| `GET_PROPERTY member` | `o -- v` | Reads a member of an object: a field's value, or a method bound to it. Fails with "C has no member foo" or "Cannot use . on map". |
+| `GET_PROPERTY member` | `o -- v` | Reads a member of an object: a field's value, or a method bound to it. Fails with "C has no member foo", "C.foo is not pub, so only the kind that declares it can use it" or "Cannot use . on map". |
 | `GET_PROPERTY_QUIET member` | `o -- v` | The same, but null for a field that is not set or an object that is null. |
 | `GET_PROPERTY_EXISTING member` | `o -- v` | The same as `GET_PROPERTY`, for a compound update. |
 | `GET_METHOD member` | `o -- o m` | Pushes the object again with the method to run on it, or the member's value with nothing when it isn't a method. |
@@ -289,9 +310,11 @@ A file that loads is one the VM can run, so the checks are part of the format:
 - Each block's handlers balance the same way: an instruction is reached with the same handlers
   open on every path, and `END_TRY` closes one that a `TRY` opened. (`RET` needs none of this:
   a call's handlers go with its frame.)
-- A kind named `Error` declares `message`, `file`, `line` and `trace`, which is where a VM
-  puts an error the program didn't throw itself, and a file holding `CATCH_VALUE` or
-  `CATCH_MATCH` has that kind at all, since that is what a caught error is made as.
+- A kind named `Error` declares `message`, `file`, `line` and `trace` as `pub`, which is where
+  a VM puts an error the program didn't throw itself and what every program reads off one, and
+  a file holding `CATCH_VALUE` or `CATCH_MATCH` has that kind at all, since that is what a
+  caught error is made as.
+- A block's `in Kind` names a kind the file declares.
 - `HALT` is in the top level, whose end it is. In a call it would end that call's run instead,
   leaving whatever started the run without a value.
 

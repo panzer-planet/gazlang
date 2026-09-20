@@ -9,10 +9,10 @@ namespace gazlang;
 include "../lib/chars.gaz" use char_at, is_digit, is_hex_digit;
 
 kind Token {
-    #type;
-    #value;
+    pub #type;
+    pub #value;
     // Set by get_next_token(); a token made elsewhere, as the parser makes some, has none
-    #line = null;
+    pub #line = null;
 
     fn _($type, $value) {
         #type = $type;
@@ -20,7 +20,7 @@ kind Token {
     }
 
     // As --tokens prints it: "3 INTEGER 42", strings as literals, EOF with no value
-    fn to_string() {
+    pub fn to_string() {
         $value = match {
             #type == "EOF" => "",
             // A list prints its strings as literals, and a float already prints as the
@@ -38,8 +38,8 @@ kind Token {
 // #line and #file are Error's own, and say where in this file the error was raised, so the
 // place in the source being read has names of its own. The parser adds the file to these.
 kind LexError extends Error {
-    #reason;
-    #source_line;
+    pub #reason;
+    pub #source_line;
 
     fn _($reason, $source_line) {
         ##_("{$reason} on line {$source_line}");
@@ -535,7 +535,7 @@ kind Lexer {
     }
 
     // Skip whitespace and comments, then read one token
-    fn get_next_token() {
+    pub fn get_next_token() {
         if (len(#queued_tokens) > 0) {
             $token = #queued_tokens[0];
             delete #queued_tokens[0];

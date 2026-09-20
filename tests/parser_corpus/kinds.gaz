@@ -17,8 +17,8 @@ kind Circle extends Shape {
         #radius++;
     }
 
-    fn area() { return 3.14159 * #radius * #radius; }
-    fn to_string() { return ##to_string() .. " (r = {#radius})"; }
+    pub fn area() { return 3.14159 * #radius * #radius; }
+    pub fn to_string() { return ##to_string() .. " (r = {#radius})"; }
     fn parent_area() { return ##describe; }
     fn scale($by = 2) { return Circle(#radius * $by); }
     fn me() { return #; }
@@ -31,9 +31,9 @@ kind Circle extends Shape {
 abstract kind Shape {
     #name;
     fn _($name) { #name = $name; }
-    abstract fn area();
-    fn describe($prefix = "") { return $prefix .. #name; }
-    fn to_string() { return "{#name} with area " .. #area(); }
+    pub abstract fn area();
+    pub fn describe($prefix = "") { return $prefix .. #name; }
+    pub fn to_string() { return "{#name} with area " .. #area(); }
 }
 
 // No constructor of its own: the parent's, or none
@@ -53,9 +53,9 @@ kind Words {
 echo Words().echo();
 
 // An abstract child of an abstract parent; a concrete grandchild defines both
-abstract kind A { abstract fn one(); abstract fn two($x, $y = 1); }
-abstract kind B extends A { fn one() { return 1; } }
-kind C extends B { fn two($x, $y = 1, $z = 2) { return #one(); } }
+abstract kind A { pub abstract fn one(); pub abstract fn two($x, $y = 1); }
+abstract kind B extends A { pub fn one() { return 1; } }
+kind C extends B { pub fn two($x, $y = 1, $z = 2) { return #one(); } }
 echo C().two(1);
 
 // A method called with every argument count it accepts; a field holding a function is called too
@@ -71,4 +71,4 @@ kind Match extends If { fn _() { ##_(1); } }
 echo If(1) .. Match();
 
 // to_string must accept no arguments, which one with only optional parameters does
-kind Printable { fn to_string($indent = 0) { return "p"; } }
+kind Printable { pub fn to_string($indent = 0) { return "p"; } }

@@ -26,6 +26,7 @@ Compound
       static_methods: []
       static_owners: []
       static_is_method: []
+      vis: {"EOF" => "pub", "KINDS" => "pub", "TEXT" => "", "type" => "", "kinds" => "", "is_eof" => "", "later" => "", "describe" => "", "first" => "", "in_match" => "", "write" => ""}
       fields:
         type: Property 8
           target: This 8
@@ -90,6 +91,7 @@ Compound
                     static_name: null
                   captures: []
                   self: null
+                  owner: "Token"
           arity: 0
           kind: "Token"
           abstract: false
@@ -332,6 +334,11 @@ Compound
       layout: {"type" => "Token", "kinds" => "Token"}
       members: {"is_eof" => "Token", "later" => "Token", "describe" => "Token", "first" => "Token", "in_match" => "Token", "write" => "Token"}
       abstract_methods: []
+      slots: [["type", "Token", ""], ["kinds", "Token", ""]]
+      method_table: [["is_eof", "Token", ""], ["later", "Token", ""], ["describe", "Token", ""], ["first", "Token", ""], ["in_match", "Token", ""], ["write", "Token", ""]]
+      owner_vis: {"EOF" => "pub", "KINDS" => "pub", "TEXT" => "", "type" => "", "kinds" => "", "is_eof" => "", "later" => "", "describe" => "", "first" => "", "in_match" => "", "write" => ""}
+      hidden: []
+      hidden_fields: []
     3: KindDeclaration 18
       name: "Special"
       parent: "Token"
@@ -341,6 +348,7 @@ Compound
       static_methods: []
       static_owners: []
       static_is_method: []
+      vis: {"FOUR" => "", "ALL" => "", "all_kinds" => ""}
       fields: []
       field_lines: []
       methods:
@@ -437,10 +445,15 @@ Compound
                 static_name: null
           map: false
       constant_lines: {"FOUR" => 19, "ALL" => 20}
-      constant_owners: {"EOF" => "Token", "KINDS" => "Token", "TEXT" => "Token", "FOUR" => "Special", "ALL" => "Special"}
-      layout: {"type" => "Token", "kinds" => "Token"}
-      members: {"is_eof" => "Token", "later" => "Token", "describe" => "Token", "first" => "Token", "in_match" => "Token", "write" => "Token", "all_kinds" => "Special"}
+      constant_owners: {"EOF" => "Token", "KINDS" => "Token", "FOUR" => "Special", "ALL" => "Special"}
+      layout: []
+      members: {"all_kinds" => "Special"}
       abstract_methods: []
+      slots: [["type", "Token", ""], ["kinds", "Token", ""]]
+      method_table: [["is_eof", "Token", ""], ["later", "Token", ""], ["describe", "Token", ""], ["first", "Token", ""], ["in_match", "Token", ""], ["write", "Token", ""], ["all_kinds", "Special", ""]]
+      owner_vis: {"EOF" => "pub", "KINDS" => "pub", "FOUR" => "", "ALL" => "", "all_kinds" => ""}
+      hidden: {"type" => "Token", "kinds" => "Token", "is_eof" => "Token", "later" => "Token", "describe" => "Token", "first" => "Token", "in_match" => "Token", "write" => "Token", "TEXT" => "Token"}
+      hidden_fields: {"type" => "Token", "kinds" => "Token"}
     4: KindDeclaration 23
       name: "Other"
       parent: null
@@ -450,6 +463,7 @@ Compound
       static_methods: []
       static_owners: []
       static_is_method: []
+      vis: {"NAME" => ""}
       fields: []
       field_lines: []
       methods: []
@@ -462,6 +476,11 @@ Compound
       layout: []
       members: []
       abstract_methods: []
+      slots: []
+      method_table: []
+      owner_vis: {"NAME" => ""}
+      hidden: []
+      hidden_fields: []
     5: EchoStatement 24
       expr: FunctionRef 24
         name: "Special::ALL"

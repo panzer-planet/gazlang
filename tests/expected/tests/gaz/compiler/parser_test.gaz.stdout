@@ -10,14 +10,3 @@ ok a node from a file has the file
 ok a kind's layout and members, its parent's included
 ok a #name knows whether it is a field
 ok a ##name knows whose version runs
-ok a syntax error's message
-ok and its parts
-ok inline source has only a line
-ok a lexer error becomes a ParseError with the file
-ok a check made once the program is read
-ok is_a Error, so an untyped handler sees it too
-ok the variables of a tree 6000 operators deep, in source order
-ok includes of source named by a path that is no file
-ok and its nodes have the name
-ok the first knows its function
-ok the second does not

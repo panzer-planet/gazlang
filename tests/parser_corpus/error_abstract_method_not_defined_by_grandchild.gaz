@@ -1,3 +1,3 @@
-abstract kind A { abstract fn one(); }
+abstract kind A { pub abstract fn one(); }
 abstract kind B extends A {}
 kind C extends B {}

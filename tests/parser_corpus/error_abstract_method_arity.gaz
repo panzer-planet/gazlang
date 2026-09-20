@@ -1,1 +1,1 @@
-abstract kind A { abstract fn f($a); fn g() { return #f(); } }
+abstract kind A { pub abstract fn f($a); fn g() { return #f(); } }

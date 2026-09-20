@@ -21,7 +21,7 @@ kind Dumper {
     // Print a tree. Each thing still to print is [label, value, indentation], the label being
     // what it is to its parent with the ": " after it, or nothing for the root. A stack
     // rather than recursion: a chain of operators is as deep on its left as it is long.
-    fn dump($root) {
+    pub fn dump($root) {
         $stack = [["", $root, ""]];
         while (len($stack) > 0) {
             $last = len($stack) - 1;

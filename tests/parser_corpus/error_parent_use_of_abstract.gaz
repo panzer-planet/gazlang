@@ -1,2 +1,2 @@
-abstract kind A { abstract fn f(); }
-kind B extends A { fn f() { return ##f(); } }
+abstract kind A { pub abstract fn f(); }
+kind B extends A { pub fn f() { return ##f(); } }

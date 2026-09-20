@@ -4,8 +4,8 @@ try { down(0); } catch (Error $e) { echo $e.message; echo len($e.trace); echo $e
 
 kind Walker {
     #steps = 0;
-    fn walk() { #steps++; return #walk(); }
-    fn to_string() { return "walker " .. #; }
+    pub fn walk() { #steps++; return #walk(); }
+    pub fn to_string() { return "walker " .. #; }
 }
 try { Walker().walk(); } catch (Error $e) { echo $e.message; }
 
@@ -29,8 +29,8 @@ $make = Nest;
 try { $make(0); } catch (Error $e) { echo $e.message; }
 
 // ##name(...)
-kind Base { fn go($n) { return #go($n + 1); } }
-kind Child extends Base { fn go($n) { return ##go($n); } }
+kind Base { pub fn go($n) { return #go($n + 1); } }
+kind Child extends Base { pub fn go($n) { return ##go($n); } }
 try { Child().go(0); } catch (Error $e) { echo $e.message; }
 
 // to_string() printing itself forever runs in nested loops

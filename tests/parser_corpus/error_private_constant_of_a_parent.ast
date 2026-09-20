@@ -1,0 +1,1 @@
+Error: A::SECRET is not pub, so only A can use it at tests/parser_corpus/error_private_constant_of_a_parent.gaz:2

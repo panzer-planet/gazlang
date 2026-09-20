@@ -1,0 +1,2 @@
+kind A { static #count = 0; }
+kind B extends A { pub fn f() { return #count; } }

@@ -9,11 +9,11 @@ namespace GazLang\Tests;
 class StaticTest extends GazLangTestCase
 {
     private const COUNTER = 'kind Counter {
-            static #count = 0;
+            pub static #count = 0;
             #id;
             fn _() { #count++; #id = #count; }
-            static fn next() { #count++; return #count; }
-            fn mine() { return #id; }
+            pub static fn next() { #count++; return #count; }
+            pub fn mine() { return #id; }
         } ';
 
     public function test_a_static_field_is_one_slot_however_many_objects_there_are()

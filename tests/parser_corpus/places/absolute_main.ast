@@ -29,6 +29,7 @@ Compound
       static_methods: []
       static_owners: []
       static_is_method: []
+      vis: {"side" => "pub", "_" => "pub"}
       fields: {"side" => null}
       field_lines: {"side" => 4}
       methods:
@@ -60,6 +61,11 @@ Compound
       layout: {"side" => "Square"}
       members: {"_" => "Square"}
       abstract_methods: []
+      slots: [["side", "Square", "pub"]]
+      method_table: [["_", "Square", "pub"]]
+      owner_vis: {"side" => "pub", "_" => "pub"}
+      hidden: []
+      hidden_fields: []
     3: FunctionDeclaration 7
       name: "area"
       params: ["\$square"]

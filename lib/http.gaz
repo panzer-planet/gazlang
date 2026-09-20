@@ -233,7 +233,7 @@ kind Reader {
     }
 
     // Up to $delimiter, which is dropped; null if the stream ends first
-    fn line($delimiter) {
+    pub fn line($delimiter) {
         $from = 0;
         while (true) {
             $at = index_of(#data, $delimiter, $from);
@@ -251,7 +251,7 @@ kind Reader {
     }
 
     // Exactly $n bytes; an error if the stream ends first
-    fn bytes($n) {
+    pub fn bytes($n) {
         $parts = [];
         while (len(#data) < $n) {
             $parts[] = #data;
@@ -267,7 +267,7 @@ kind Reader {
     }
 
     // Everything until the stream ends
-    fn rest() {
+    pub fn rest() {
         $parts = [#data];
         #data = "";
         while (true) {

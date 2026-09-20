@@ -1,0 +1,5 @@
+// A.f escapes only A, so B.f isn't an override of it: it is B's own method, and may escape
+// further than A's without answering for it. Both entries live on, resolved by who asks.
+kind A { fn f() { return "a"; } pub fn theirs() { return #f(); } }
+kind B extends A { pub fn f() { return "b"; } }
+echo B().f() .. " " .. B().theirs();

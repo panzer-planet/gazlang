@@ -638,7 +638,7 @@ bool append_string(Value v, Buf *out) {
     case T_OBJECT: {
         static Str *to_string_name;
         if (!to_string_name) to_string_name = str_intern("to_string", 9);
-        int m = kind_method(v.o->kind, to_string_name);
+        int m = kind_method(v.o->kind, to_string_name, NULL);
         if (m < 0) return describe_object(v.o, out);
         Kind *definer = v.o->kind->definers[m];
         Value text;

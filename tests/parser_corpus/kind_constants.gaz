@@ -2,8 +2,8 @@ const TWO = 2;
 echo Token::EOF;
 echo Token::KINDS[0];
 kind Token {
-    const EOF = "EOF";
-    const KINDS = [#EOF, Token::EOF .. "!", TWO, Other::NAME];
+    pub const EOF = "EOF";
+    pub const KINDS = [#EOF, Token::EOF .. "!", TWO, Other::NAME];
     const TEXT = "kind {#EOF}";
     #type = #EOF;
     #kinds = #KINDS;

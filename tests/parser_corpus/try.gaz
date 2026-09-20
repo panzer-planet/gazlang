@@ -14,7 +14,7 @@ try {
     echo "always";
 }
 kind NotFound extends Error {
-    #key;
+    pub #key;
     fn _($key) { ##_("Not found: {$key}"); #key = $key; }
 }
 // return, break and continue can leave a try or a catch, and a loop or lambda in a finally has its own

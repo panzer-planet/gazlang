@@ -143,6 +143,7 @@ Compound
             value: "\$p"
           captures: []
           self: null
+          owner: null
     12: EchoStatement 31
       expr: Match 31
         subject: Variable 32

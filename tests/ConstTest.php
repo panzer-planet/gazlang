@@ -62,15 +62,15 @@ class ConstTest extends GazLangTestCase
             $this->executeCode('const TWO = 2;
                 echo Token::EOF; echo Token::KINDS;
                 kind Token {
-                    const EOF = "EOF";
-                    const KINDS = [#EOF, Token::EOF .. "!", TWO];
+                    pub const EOF = "EOF";
+                    pub const KINDS = [#EOF, Token::EOF .. "!", TWO];
                     #type = #EOF;
-                    fn is_eof() { return #type == #EOF; }
-                    fn later() { return () -> #EOF; }
-                    fn describe($type = #EOF) { return $type; }
+                    pub fn is_eof() { return #type == #EOF; }
+                    pub fn later() { return () -> #EOF; }
+                    pub fn describe($type = #EOF) { return $type; }
                 }
                 $t = Token(); echo $t.is_eof() .. " " .. $t.later()() .. " " .. $t.describe();
-                kind Special extends Token { const FOUR = TWO * 2; fn kinds() { return #KINDS; } }
+                kind Special extends Token { const FOUR = TWO * 2; pub fn kinds() { return #KINDS; } }
                 echo Special().kinds() .. " " .. Special::EOF .. " " .. Special::FOUR;')
         );
     }
@@ -80,7 +80,7 @@ class ConstTest extends GazLangTestCase
         // Working it out from a value would need a lookup when the program runs; a use is a PUSH
         foreach (['$c = Token; echo $c.EOF;' => 'Cannot use . on kind', '$t = Token(); echo $t.EOF;' => 'Token has no member EOF'] as $code => $message) {
             try {
-                $this->executeCode('kind Token { const EOF = "EOF"; } '.$code);
+                $this->executeCode('kind Token { pub const EOF = "EOF"; } '.$code);
                 $this->fail("Expected an error for {$code}");
             } catch (ProgramError $e) {
                 $this->assertStringContainsString($message, $e->getMessage());
@@ -90,7 +90,7 @@ class ConstTest extends GazLangTestCase
 
     public function test_a_use_compiles_to_the_value()
     {
-        $code = $this->generateCode('const LIMIT = 10 * 2; kind A { const NAMES = ["a", "b"]; fn f() { return #NAMES; } } echo LIMIT; echo A::NAMES;');
+        $code = $this->generateCode('const LIMIT = 10 * 2; kind A { const NAMES = ["a", "b"]; pub fn f() { return #NAMES; } } echo LIMIT; echo A::NAMES;');
 
         $this->assertStringContainsString("PUSH 20\n", $code);
         $this->assertSame(2, substr_count($code, 'PUSH ["a", "b"]'));
@@ -99,7 +99,7 @@ class ConstTest extends GazLangTestCase
 
     public function test_the_left_of_a_coalesce_can_be_a_constant()
     {
-        $this->assertSame("1 x\n", $this->executeCode('const A = 1; kind C { const N = null; fn f() { return #N ?? "x"; } } echo (A ?? 2) .. " " .. C().f();'));
+        $this->assertSame("1 x\n", $this->executeCode('const A = 1; kind C { const N = null; pub fn f() { return #N ?? "x"; } } echo (A ?? 2) .. " " .. C().f();'));
     }
 
     /**
@@ -157,7 +157,7 @@ class ConstTest extends GazLangTestCase
             'an index' => ['const L = [1]; const A = L[0];', "A constant's value can only use literals, operators and other constants on line 1"],
             'a function' => ['const A = len;', 'len is a function, not a constant on line 1'],
             'a kind' => ['kind K {} const A = K;', 'K is a kind, not a constant on line 1'],
-            'a field' => ['kind K { #f = 1; const A = #f; }', "A constant's value can only use literals, operators and other constants on line 1"],
+            'a field' => ['kind K { pub #f = 1; const A = #f; }', "A constant's value can only use literals, operators and other constants on line 1"],
             'a lambda' => ['const A = $x -> 1;', "A constant's value can only use literals, operators and other constants on line 1"],
             'an undefined name' => ['const A = MISSING;', 'Undefined constant: MISSING on line 1'],
             'division by zero' => ["const A = 1;\nconst B = A /\n 0;", 'Division by zero on line 2'],
@@ -186,21 +186,21 @@ class ConstTest extends GazLangTestCase
             'a method then a constant' => ['kind K { fn A() {} const A = 2; }', 'K already has a method A: constants, fields and methods share names on line 1'],
             'a constant then a field' => ['kind K { const A = 2; #A; }', 'K already has a constant A: constants, fields and methods share names on line 1'],
             'a constant then a method' => ['kind K { const A = 2; fn A() {} }', 'K already has a constant A: constants, fields and methods share names on line 1'],
-            'declared again by a child' => ["kind K { const A = 1; }\nkind L extends K {\n const A = 2; }", 'Constant A of L is already declared in K on line 3'],
-            "a child's field" => ["kind K { const A = 1; }\nkind L extends K { #A; }", 'Field #A of L has the name of a constant of K: constants, fields and methods share names on line 2'],
-            "a child's method" => ["kind K { const A = 1; }\nkind L extends K { fn A() {} }", 'Method L.A has the name of a constant of K: constants, fields and methods share names on line 2'],
-            "a parent's field" => ["kind K { #A; }\nkind L extends K { const A = 1; }", 'Constant A of L has the name of a field of K: constants, fields and methods share names on line 2'],
-            "a parent's method" => ["kind K { fn A() {} }\nkind L extends K { const A = 1; }", 'Constant A of L has the name of a method of K: constants, fields and methods share names on line 2'],
+            'declared again by a child' => ["kind K { pub const A = 1; }\nkind L extends K {\n pub const A = 2; }", 'Constant A of L is already declared in K on line 3'],
+            "a child's field" => ["kind K { pub const A = 1; }\nkind L extends K { #A; }", 'Field #A of L has the name of a constant of K: constants, fields and methods share names on line 2'],
+            "a child's method" => ["kind K { pub const A = 1; }\nkind L extends K { fn A() {} }", 'Method L.A has the name of a constant of K: constants, fields and methods share names on line 2'],
+            "a parent's field" => ["kind K { pub #A; }\nkind L extends K { const A = 1; }", 'Constant A of L has the name of a field of K: constants, fields and methods share names on line 2'],
+            "a parent's method" => ["kind K { pub fn A() {} }\nkind L extends K { const A = 1; }", 'Constant A of L has the name of a method of K: constants, fields and methods share names on line 2'],
             'no such constant' => ["kind K { const A = 1; }\necho K::B;", 'Kind K has no constant B on line 2'],
-            "a parent can't see a child's" => ["kind K { fn f() { return #B; } }\nkind L extends K { const B = 1; }", 'K has no member #B on line 1'],
-            '#NAME assigned to' => ['kind K { const A = 1; fn f() { #A = 2; } }', 'Cannot change constant #A on line 1'],
-            '#NAME element assigned to' => ['kind K { const A = [1]; fn f() { #A[0] = 2; } }', 'Cannot change constant #A on line 1'],
-            '#NAME appended to' => ['kind K { const A = [1]; fn f() { #A[] = 2; } }', 'Cannot change constant #A on line 1'],
-            '#NAME incremented' => ['kind K { const A = 1; fn f() { #A++; } }', 'Cannot change constant #A on line 1'],
-            '#NAME compound assigned' => ['kind K { const A = "a"; fn f() { #A ..= "b"; } }', 'Cannot change constant #A on line 1'],
-            '#NAME element deleted' => ['kind K { const A = [1]; fn f() { delete #A[0]; } }', 'Cannot change constant #A on line 1'],
-            '#NAME in a pattern' => ['kind K { const A = 1; fn f() { [#A] = [2]; } }', 'Cannot change constant #A on line 1'],
-            '#NAME called' => ['kind K { const A = 1; fn f() { return #A(); } }', '#A is a constant, not a method on line 1'],
+            "a parent can't see a child's" => ["kind K { pub fn f() { return #B; } }\nkind L extends K { const B = 1; }", 'K has no member #B on line 1'],
+            '#NAME assigned to' => ['kind K { const A = 1; pub fn f() { #A = 2; } }', 'Cannot change constant #A on line 1'],
+            '#NAME element assigned to' => ['kind K { const A = [1]; pub fn f() { #A[0] = 2; } }', 'Cannot change constant #A on line 1'],
+            '#NAME appended to' => ['kind K { const A = [1]; pub fn f() { #A[] = 2; } }', 'Cannot change constant #A on line 1'],
+            '#NAME incremented' => ['kind K { const A = 1; pub fn f() { #A++; } }', 'Cannot change constant #A on line 1'],
+            '#NAME compound assigned' => ['kind K { const A = "a"; pub fn f() { #A ..= "b"; } }', 'Cannot change constant #A on line 1'],
+            '#NAME element deleted' => ['kind K { const A = [1]; pub fn f() { delete #A[0]; } }', 'Cannot change constant #A on line 1'],
+            '#NAME in a pattern' => ['kind K { const A = 1; pub fn f() { [#A] = [2]; } }', 'Cannot change constant #A on line 1'],
+            '#NAME called' => ['kind K { const A = 1; pub fn f() { return #A(); } }', '#A is a constant, not a method on line 1'],
             'a kind constant through a dot' => ["kind K { const A = 1; }\necho K.A;", "Cannot use . on a kind: write 'K::A', not 'K.A' on line 2"],
             'a kind constant through a dot in a value' => ["kind K { const A = 1; }\nconst B = K.A;", "Cannot use . on a kind: write 'K::A', not 'K.A' on line 2"],
             'Name::NAME called' => ["kind K { const A = 1; }\necho K::A();", 'K::A is a constant, not a function on line 2'],
@@ -234,7 +234,7 @@ class ConstTest extends GazLangTestCase
     public function test_a_written_field_is_still_a_field_and_a_method_element_is_still_for_when_it_runs()
     {
         // Noting what is written under a #name must not change what a field or a method allows
-        $this->assertSame("[1, 2]\n", $this->executeCode('kind K { #l = [1]; fn f() { #l[] = 2; return #l; } } echo K().f();'));
+        $this->assertSame("[1, 2]\n", $this->executeCode('kind K { #l = [1]; pub fn f() { #l[] = 2; return #l; } } echo K().f();'));
     }
 
     public function test_a_declared_constant_named_like_a_keyword_gets_no_hint()

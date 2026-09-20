@@ -42,10 +42,10 @@ $v = ++$x;
 $w = $x--;
 $z = [$m["n"] ??= 1, $m["zz"] ??= 2];
 kind P {
-    #n = 0;
-    #l = [];
-    #s = "";
-    fn bump() {
+    pub #n = 0;
+    pub #l = [];
+    pub #s = "";
+    pub fn bump() {
         #n += 1;
         #n++;
         #l[] = #n;

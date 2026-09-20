@@ -876,7 +876,7 @@ kind CodeGenerator {
     }
 
     // Compile the tree into a program
-    fn compile() {
+    pub fn compile() {
         foreach (is_a(#tree, CompoundAST) ? #tree.statements : [] as $statement) {
             if (is_a($statement, KindDeclarationAST)) {
                 #kinds[$statement.name] = $statement;
@@ -887,7 +887,8 @@ kind CodeGenerator {
 
         foreach (#functions as $function) {
             #compile_body($function, $function.params);
-            #block({"kind" => "fn", "name" => $function.name, "arity" => $function.arity});
+            #block({"kind" => "fn", "name" => $function.name, "arity" => $function.arity,
+                "owner" => $function.kind});
         }
 
         // A kind block holds its record and the code that makes one of its objects; its methods
@@ -896,12 +897,13 @@ kind CodeGenerator {
             #compile_initialiser($kind);
             #block({
                 "kind" => "kind", "name" => $kind.name, "parent" => $kind.parent,
-                "abstract" => $kind.abstract, "fields" => $kind.layout, "methods" => $kind.members,
+                "abstract" => $kind.abstract, "fields" => $kind.slots, "methods" => $kind.method_table,
             });
             foreach ($kind.methods as $method) {
                 if (!$method.abstract) {
                     #compile_body($method, $method.params);
-                    #block({"kind" => "fn", "name" => "{$kind.name}.{$method.name}", "arity" => $method.arity});
+                    #block({"kind" => "fn", "name" => "{$kind.name}.{$method.name}", "arity" => $method.arity,
+                        "owner" => $kind.name});
                 }
             }
         }
@@ -913,6 +915,7 @@ kind CodeGenerator {
             #block({
                 "kind" => "lambda", "index" => $i, "arity" => $lambda.arity, "captures" => $lambda.captures,
                 "self" => $lambda.self == null ? null : index_in($lambda.captures, $lambda.self), "map" => $map,
+                "owner" => $lambda.owner,
             });
         }
 
@@ -930,7 +933,7 @@ kind CodeGenerator {
         #captures = {};
         [#file, #line] = [$kind.file, $kind.line];
 
-        foreach ($kind.layout as $field => $declarer) {
+        foreach ($kind.slots as [$field, $declarer, $vis]) {
             $default = #kinds[$declarer].fields[$field];
             if ($default != null) {
                 #visit($default);
@@ -999,7 +1002,7 @@ kind Program {
     // The file, ending in a newline. Paths are written relative to the directory of the main
     // source file ($main as the user named it, or null for piped or inline source), so bytecode
     // saved next to its source reports the same paths as running the source does.
-    fn write($main = null) {
+    pub fn write($main = null) {
         // As absolute(dirname($main)): a textual ".." drops the file name the same way
         $base = #absolute($main == null ? "." : $main .. "/..");
         $out = #MAGIC .. " " .. #VERSION .. "\n" .. join(["globals", ...#global_names], " ") .. "\n";
@@ -1044,7 +1047,7 @@ kind Program {
     fn header($block) {
         $bounds = $arity -> type_of($arity) == "int" ? "{$arity} {$arity}" : "{$arity[0]} {$arity[1]}";
         return match ($block["kind"]) {
-            "fn" => ["fn {$block["name"]} " .. $bounds($block["arity"])],
+            "fn" => ["fn {$block["name"]} " .. $bounds($block["arity"]) .. #in_kind($block)],
             "kind" => #kind_header($block),
             "lambda" => #lambda_header($block, $bounds($block["arity"])),
             default => ["top"],
@@ -1054,18 +1057,27 @@ kind Program {
     fn kind_header($block) {
         $lines = [($block["abstract"] ? "abstract kind " : "kind ") .. $block["name"]
             .. ($block["parent"] == null ? "" : " extends {$block["parent"]}")];
-        foreach ($block["fields"] as $field => $declarer) {
-            $lines[] = "field {$field} {$declarer}";
+        foreach ($block["fields"] as [$field, $declarer, $vis]) {
+            $lines[] = "field {$field} {$declarer}" .. ($vis == "" ? "" : " {$vis}");
         }
-        foreach ($block["methods"] as $method => $definer) {
-            $lines[] = "method {$method} {$definer}";
+        foreach ($block["methods"] as [$method, $definer, $vis]) {
+            $lines[] = "method {$method} {$definer}" .. ($vis == "" ? "" : " {$vis}");
         }
 
         return $lines;
     }
 
+    // " in Kind" for a block written inside a kind whose own name doesn't say which, so the
+    // VM knows who is asking for a member. A method's name carries it, since a function name
+    // can hold no dot; a static method's and a lambda's do not.
+    fn in_kind($block) {
+        $owner = $block["owner"] ?? null;
+
+        return $owner == null || contains($block["name"] ?? "", ".") ? "" : " in {$owner}";
+    }
+
     fn lambda_header($block, $bounds) {
-        $lines = ["lambda {$block["index"]} {$bounds}"];
+        $lines = ["lambda {$block["index"]} {$bounds}" .. #in_kind($block)];
         foreach ($block["map"] as [$from_closure, $outer, $inner]) {
             $lines[] = "capture " .. $block["captures"][$inner] .. ($from_closure ? " captured " : " local ") .. $outer;
         }

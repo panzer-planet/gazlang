@@ -10,6 +10,7 @@ Compound
       static_methods: []
       static_owners: []
       static_is_method: []
+      vis: {"message" => "pub", "file" => "pub", "line" => "pub", "trace" => "pub", "_" => "pub", "to_string" => "pub"}
       fields: {"message" => null, "file" => null, "line" => null, "trace" => null}
       field_lines: {"message" => 2, "file" => 3, "line" => 4, "trace" => 5}
       methods:
@@ -64,6 +65,11 @@ Compound
       layout: {"message" => "Error", "file" => "Error", "line" => "Error", "trace" => "Error"}
       members: {"_" => "Error", "to_string" => "Error"}
       abstract_methods: []
+      slots: [["message", "Error", "pub"], ["file", "Error", "pub"], ["line", "Error", "pub"], ["trace", "Error", "pub"]]
+      method_table: [["_", "Error", "pub"], ["to_string", "Error", "pub"]]
+      owner_vis: {"message" => "pub", "file" => "pub", "line" => "pub", "trace" => "pub", "_" => "pub", "to_string" => "pub"}
+      hidden: []
+      hidden_fields: []
 @ "tests/parser_corpus/try.gaz"
     1: TryStatement 1
       body: Compound
@@ -267,6 +273,7 @@ Compound
       static_methods: []
       static_owners: []
       static_is_method: []
+      vis: {"key" => "pub", "_" => "pub"}
       fields: {"key" => null}
       field_lines: {"key" => 17}
       methods:
@@ -312,6 +319,11 @@ Compound
       layout: {"message" => "Error", "file" => "Error", "line" => "Error", "trace" => "Error", "key" => "NotFound"}
       members: {"_" => "NotFound", "to_string" => "Error"}
       abstract_methods: []
+      slots: [["message", "Error", "pub"], ["file", "Error", "pub"], ["line", "Error", "pub"], ["trace", "Error", "pub"], ["key", "NotFound", "pub"]]
+      method_table: [["_", "NotFound", "pub"], ["to_string", "Error", "pub"]]
+      owner_vis: {"message" => "pub", "file" => "pub", "line" => "pub", "trace" => "pub", "_" => "pub", "to_string" => "pub", "key" => "pub"}
+      hidden: []
+      hidden_fields: []
     7: FunctionDeclaration 21
       name: "f"
       params: ["\$xs"]
@@ -384,6 +396,7 @@ Compound
                                     value: 1
                             captures: []
                             self: null
+                            owner: null
           1: TryStatement 25
             body: Compound
               statements:
@@ -443,6 +456,7 @@ Compound
                 finally: null
           captures: ["\$outer"]
           self: null
+          owner: null
     9: TryStatement 29
       body: Compound
         statements:

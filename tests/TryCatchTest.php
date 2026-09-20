@@ -57,7 +57,7 @@ class TryCatchTest extends GazLangTestCase
 
     private const ERRORS = <<<'CODE'
         kind NotFound extends Error {
-            #key;
+            pub #key;
             fn _($key) { ##_("Not found: {$key}"); #key = $key; }
         }
         kind Missing extends NotFound {}
@@ -135,10 +135,10 @@ class TryCatchTest extends GazLangTestCase
         // This NotFound never sets #message, so its inherited to_string() would fail
         $this->assertEquals("caught a.txt\ncaught b.txt\n", $this->executeCode(<<<'CODE'
             kind NotFound extends Error {
-                #path;
+                pub #path;
                 fn _($path) { #path = $path; }
             }
-            kind Loud { fn to_string() { echo "to_string ran"; return "loud"; } }
+            kind Loud { pub fn to_string() { echo "to_string ran"; return "loud"; } }
             try { error(NotFound("a.txt")); } catch (NotFound $e) { echo "caught {$e.path}"; }
             try { error(Loud()); } catch ($e) { echo "caught b.txt"; }
             CODE));
@@ -148,7 +148,7 @@ class TryCatchTest extends GazLangTestCase
     {
         $this->expectOutputString('');
         try {
-            $this->executeCode('kind Loud { fn to_string() { echo "to_string ran"; return "loud"; } } error(Loud());');
+            $this->executeCode('kind Loud { pub fn to_string() { echo "to_string ran"; return "loud"; } } error(Loud());');
             $this->fail('Expected an error');
         } catch (ProgramError $e) {
             $this->assertSame('loud', $e->getMessage());

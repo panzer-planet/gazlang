@@ -225,21 +225,22 @@ echo $next();
 ### Objects
 
 Fields are declared, single inheritance, and constructing is just a call — no `new`. `#` is
-this object, `#name` one of its fields or methods.
+this object, `#name` one of its fields or methods. A member is the kind's own unless it says
+`pub`, the same word that lets a name out of a namespace.
 
 ```gaz
 kind Account {
-    #owner;
-    #balance = 0;
+    pub #owner;
+    #balance = 0;                         // Account's own: nothing outside can read it
 
     fn _($owner) { #owner = $owner; }     // the constructor
 
-    fn deposit($amount) {
+    pub fn deposit($amount) {
         #balance += $amount;
         return #;                         // # is this object
     }
 
-    fn to_string() { return "{#owner}: {#balance}"; }
+    pub fn to_string() { return "{#owner}: {#balance}"; }
 }
 
 $a = Account("Ada");

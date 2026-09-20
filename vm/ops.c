@@ -7,6 +7,7 @@
 #include "gazvm.h"
 
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -232,19 +233,45 @@ bool index_existing(Value target, Value index, Value *out) {
 
 /* ---- Kinds and members --------------------------------------------------------------- */
 
-/* Names are interned, so a pointer comparison finds them */
-int kind_field(Kind *c, Str *name) {
+static Kind initialiser_asks;
+Kind *const KIND_INITIALISER = &initialiser_asks;
+
+/* Whether a member declared with this visibility answers the kind asking for it */
+bool member_escapes(Vis vis, Kind *declarer, Kind *asking) {
+    if (vis == V_PUB || asking == KIND_INITIALISER) return true;
+    if (!asking) return false;
+    if (vis == V_KIN) return kind_is_a(asking, declarer);
+    return asking == declarer;
+}
+
+/* Names are interned, so a pointer comparison finds them. A kind sees its own members and
+   what its parents let escape, so at most one member of a name answers any one asker. */
+int kind_field(Kind *c, Str *name, Kind *asking) {
     for (int i = 0; i < c->nfields; i++) {
-        if (c->fields[i] == name) return i;
+        if (c->fields[i] != name) continue;
+        if (member_escapes(c->field_vis[i], c->field_declarers[i], asking)) return i;
     }
     return -1;
 }
 
-int kind_method(Kind *c, Str *name) {
+int kind_method(Kind *c, Str *name, Kind *asking) {
     for (int i = 0; i < c->nmethods; i++) {
-        if (c->methods[i] == name) return i;
+        if (c->methods[i] != name) continue;
+        if (member_escapes(c->method_vis[i], c->definers[i], asking)) return i;
     }
     return -1;
+}
+
+/* Whether a kind has a member of that name at all, whatever it escapes: what tells "is not
+   pub" from "has no member" */
+static bool kind_hides(Kind *c, Str *name) {
+    for (int i = 0; i < c->nfields; i++) {
+        if (c->fields[i] == name) return true;
+    }
+    for (int i = 0; i < c->nmethods; i++) {
+        if (c->methods[i] == name) return true;
+    }
+    return false;
 }
 
 bool kind_is_a(Kind *c, Kind *ancestor) {
@@ -266,8 +293,13 @@ Func *bound_method(Object *o, Kind *definer, Str *name) {
 }
 
 static bool raise_undefined_member(Kind *c, Str *name) {
-    if (name->len == 1 && name->data[0] == '_' && kind_method(c, name) >= 0) {
+    if (name->len == 1 && name->data[0] == '_' && kind_method(c, name, c) >= 0) {
         return raisef("Cannot use the constructor of %s as a member", c->name->data);
+    }
+    /* It is there, but not for this asker: say so rather than deny that it exists */
+    if (kind_hides(c, name)) {
+        return raisef("%s.%s is not pub, so only the kind that declares it can use it",
+                      c->name->data, name->data);
     }
     return raisef("%s has no member %s", c->name->data, name->data);
 }
@@ -279,10 +311,10 @@ static bool raise_not_set(Object *o, Str *name) {
 static bool is_constructor(Str *name) { return name->len == 1 && name->data[0] == '_'; }
 
 /* $obj.name: a field's value or a bound method; quiet reads an unset field as null */
-bool property(Value target, Str *name, bool quiet, Value *out) {
+bool property(Value target, Str *name, bool quiet, Kind *asking, Value *out) {
     if (target.type != T_OBJECT) return raisef("Cannot use . on %s", type_name(target));
     Object *o = target.o;
-    int f = kind_field(o->kind, name);
+    int f = kind_field(o->kind, name, asking);
     if (f >= 0) {
         if (o->fields[f].type != T_UNSET) {
             *out = o->fields[f];
@@ -295,7 +327,7 @@ bool property(Value target, Str *name, bool quiet, Value *out) {
         }
         return raise_not_set(o, name);
     }
-    int m = kind_method(o->kind, name);
+    int m = kind_method(o->kind, name, asking);
     if (m >= 0 && !is_constructor(name)) {
         *out = v_func(bound_method(o, o->kind->definers[m], name));
         return true;
@@ -304,10 +336,10 @@ bool property(Value target, Str *name, bool quiet, Value *out) {
 }
 
 /* The field a write path goes through: a declared field, not a method */
-static int check_field(Object *o, Str *name) {
-    int f = kind_field(o->kind, name);
+static int check_field(Object *o, Str *name, Kind *asking) {
+    int f = kind_field(o->kind, name, asking);
     if (f >= 0) return f;
-    int m = kind_method(o->kind, name);
+    int m = kind_method(o->kind, name, asking);
     if (!is_constructor(name) && m >= 0) {
         raisef("Cannot assign to method %s.%s", o->kind->definers[m]->name->data, name->data);
     } else {
@@ -317,9 +349,9 @@ static int check_field(Object *o, Str *name) {
 }
 
 /* A field a compound update reads, which must be set */
-bool property_existing(Value target, Str *name, Value *out) {
+bool property_existing(Value target, Str *name, Kind *asking, Value *out) {
     if (target.type != T_OBJECT) return raisef("Cannot use . on %s", type_name(target));
-    int f = check_field(target.o, name);
+    int f = check_field(target.o, name, asking);
     if (f < 0) return false;
     if (target.o->fields[f].type == T_UNSET) return raise_not_set(target.o, name);
     *out = target.o->fields[f];
@@ -335,7 +367,7 @@ bool property_existing(Value target, Str *name, Value *out) {
  * its last field; anything missing along the way is an error. Lists and maps are copied first
  * when shared (copy on write), objects written in place. The value is borrowed.
  */
-bool store_path(Value *slot, Str *var_name, Path *path, Value *keys, Value value) {
+bool store_path(Value *slot, Str *var_name, Path *path, Value *keys, Value value, Kind *asking) {
     if (slot->type == T_UNSET) return raisef("Undefined variable: %s", var_name->data);
     Value *cur = slot;
     int k = 0;
@@ -352,7 +384,7 @@ bool store_path(Value *slot, Str *var_name, Path *path, Value *keys, Value value
         if (step->kind == S_FIELD) {
             if (cur->type != T_OBJECT) return raisef("Cannot use . on %s", type_name(*cur));
             Object *o = cur->o;
-            int f = check_field(o, step->name);
+            int f = check_field(o, step->name, asking);
             if (f < 0) return false;
             cur = &o->fields[f];
             if (cur->type == T_UNSET) {
@@ -402,7 +434,7 @@ bool store_path(Value *slot, Str *var_name, Path *path, Value *keys, Value value
 }
 
 /* delete $a[k]...[k]: every step must exist, the last one included */
-bool remove_path(Value *slot, Str *var_name, Path *path, Value *keys) {
+bool remove_path(Value *slot, Str *var_name, Path *path, Value *keys, Kind *asking) {
     if (slot->type == T_UNSET) return raisef("Undefined variable: %s", var_name->data);
     Value *cur = slot;
     int k = 0;
@@ -412,7 +444,7 @@ bool remove_path(Value *slot, Str *var_name, Path *path, Value *keys) {
         if (step->kind == S_FIELD) {
             if (cur->type != T_OBJECT) return raisef("Cannot use . on %s", type_name(*cur));
             Object *o = cur->o;
-            int f = check_field(o, step->name);
+            int f = check_field(o, step->name, asking);
             if (f < 0) return false;
             if (o->fields[f].type == T_UNSET) return raise_not_set(o, step->name);
             cur = &o->fields[f];

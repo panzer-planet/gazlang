@@ -42,8 +42,8 @@ RET
 
 kind json::Reader
 field text json::Reader
-method _ json::Reader
-method read json::Reader
+method _ json::Reader pub
+method read json::Reader pub
 locals $#argument_0
 @ "namespaces.gaz" 17
 CALL_CONSTRUCTOR json::Reader
@@ -78,8 +78,8 @@ RET
 
 kind json::Strict extends json::Reader
 field text json::Reader
-method _ json::Reader
-method read json::Strict
+method _ json::Reader pub
+method read json::Strict pub
 locals $#argument_0
 @ "namespaces.gaz" 30
 CALL_CONSTRUCTOR json::Reader

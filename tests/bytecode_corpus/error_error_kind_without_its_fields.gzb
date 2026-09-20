@@ -16,7 +16,7 @@ STORE 0
 LABEL DONE
 
 kind Error
-field message Error
+field message Error pub
 locals
 LOAD_THIS
 RET

@@ -79,7 +79,7 @@ class StdlibTest extends GazLangTestCase
         $this->assertSame(
             // print writes the object's to_string() with no newline, then echo prints what it gave
             "a pennynull\n",
-            $this->executeCode('kind Coin { fn to_string() { return "a penny"; } } echo print(Coin());')
+            $this->executeCode('kind Coin { pub fn to_string() { return "a penny"; } } echo print(Coin());')
         );
     }
 
