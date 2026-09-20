@@ -350,6 +350,7 @@ snippet:979bbbc0c2c7
 snippet:97c4dfdacf48
 snippet:97dcba19905d
 snippet:982e395b9fdd
+snippet:9830e0f26159
 snippet:983c09a1316a
 snippet:993eaba06f8d
 snippet:997e118f726d
@@ -405,6 +406,7 @@ snippet:b7f00ad5d4f4
 snippet:b8f521b29f54
 snippet:b90989259dbf
 snippet:b90a745e04fe
+snippet:b9c1a6faaaa1
 snippet:b9fbb0726c04
 snippet:baf1196ea08e
 snippet:bb196e9c7939
@@ -574,7 +576,9 @@ tests/bytecode_corpus/error_check_in_a_lambda.gzb
 tests/bytecode_corpus/error_check_in_a_method.gzb
 tests/bytecode_corpus/error_class_header.gzb
 tests/bytecode_corpus/error_class_without_name.gzb
+tests/bytecode_corpus/error_count_deeper_than_the_stack.gzb
 tests/bytecode_corpus/error_count_not_a_number.gzb
+tests/bytecode_corpus/error_count_too_large.gzb
 tests/bytecode_corpus/error_delete_path_append.gzb
 tests/bytecode_corpus/error_delete_path_ending_at_field.gzb
 tests/bytecode_corpus/error_empty.gzb
@@ -655,6 +659,7 @@ tests/bytecode_corpus/error_value_unicode_escape.gzb
 tests/bytecode_corpus/error_value_unterminated.gzb
 tests/bytecode_corpus/error_value_variable.gzb
 tests/bytecode_corpus/error_version.gzb
+tests/bytecode_corpus/halt_inside_a_call.gzb
 tests/bytecode_corpus/raised_error_as_a_value.gzb
 tests/bytecode_corpus/set_field_undeclared.gzb
 tests/bytecode_corpus/spacing.gzb

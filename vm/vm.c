@@ -1340,6 +1340,13 @@ static int64_t loaded;
 static void finish(Value *top) {
     for (int i = 0; i < program->nglobals; i++) set_slot(&globals[i], v_unset());
     while (top > stack) set_slot(--top, v_unset());
+    /* The calls still running hold their closure and their object: HALT inside one ends the
+       program where it stands, and an uncaught error has already dropped them (fp is below
+       frames by then) */
+    for (; fp >= frames; fp--) {
+        if (fp->closure) decref(v_func(fp->closure));
+        if (fp->receiver) decref(v_object(fp->receiver));
+    }
     gc_collect();
     free(stack);
     free(frames);

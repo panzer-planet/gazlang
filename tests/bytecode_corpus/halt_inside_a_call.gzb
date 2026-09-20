@@ -1,0 +1,12 @@
+GAZLANG BYTECODE 1
+globals
+
+top
+locals
+PUSH 1
+NEW If 1
+POP
+
+class If
+locals $#argument_0
+HALT

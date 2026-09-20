@@ -198,6 +198,12 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     before it, a method the ones below it), loops run a few times, and a lambda calls nothing
     that calls back, so a time-out in one is a bug. A mutant may just loop, so its time-out is
     only reported.
+  - **Mutations aim at instruction lines**, in the file being mutated and in the one a line is
+    taken from: a block's header lines (`top`, `locals`, `fn`, `class`) are a good part of a
+    small bytecode file, and damage to one is refused by the header parser before an
+    instruction is read, which the corpus already covers. Aiming (one try in five still lands
+    anywhere) took mutants that load from 9% to 13% and moved the refusals into the operand
+    and stack checks.
   - **Everything follows from the seed**, so `--seed N --runs M` replays a run. A failure is
     saved in `vm/build/fuzz/` and shrunk, a minute in a run and to the end with
     `--shrink FILE`. A try costs about 0.1s of the sanitized build's start-up, whatever the

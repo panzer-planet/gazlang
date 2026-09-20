@@ -209,9 +209,12 @@ static int count(const char *word) {
     long long n = 0;
     for (const char *p = word; *p; p++) {
         if (*p < '0' || *p > '9') fail("Expected a number but found '%s'", word);
-        if (n < INT_MAX) n = n * 10 + (*p - '0');
+        /* Refused rather than clamped: a count that doesn't fit is a count nothing meant */
+        if (n > INT_MAX) fail("Number too large: %s", word);
+        n = n * 10 + (*p - '0');
     }
-    return n > INT_MAX ? INT_MAX : (int)n;
+    if (n > INT_MAX) fail("Number too large: %s", word);
+    return (int)n;
 }
 
 static Str *intern(const char *s) { return str_intern(s, strlen(s)); }
@@ -1099,7 +1102,8 @@ static void check_block(Block *b) {
                 FAIL("%s can run without an object", info->name);
             }
 
-            int pops = info->pops;
+            /* Wide, since a file can give a count as large as an int holds */
+            int64_t pops = info->pops;
             switch (pops) {
             case POPS_PATH: pops = r->path->nkeys + 1; break;
             case POPS_KEYS: pops = r->path->nkeys; break;
@@ -1108,17 +1112,17 @@ static void check_block(Block *b) {
             case POPS_COUNT2: {
                 int at = 0;
                 while (info->kinds[at] != K_COUNT) at++;
-                pops = r->ints[at] + (info->pops == POPS_COUNT ? 0 : info->pops == POPS_COUNT1 ? 1 : 2);
+                pops = (int64_t)r->ints[at] + (info->pops == POPS_COUNT ? 0 : info->pops == POPS_COUNT1 ? 1 : 2);
                 break;
             }
             }
             if (height < pops) {
-                FAIL("%s needs %d value%s but the stack is %d deep at instruction %d", info->name, pops, pops == 1 ? "" : "s", height, position);
+                FAIL("%s needs %lld value%s but the stack is %d deep at instruction %d", info->name, (long long)pops, pops == 1 ? "" : "s", height, position);
             }
             if (r->op == OP_END_TRY && tries == 0) {
                 FAIL("END_TRY at instruction %d closes a try that no TRY opened", position);
             }
-            height += info->pushes - pops;
+            height += info->pushes - (int)pops;
             if (height > max) max = height;
 
             /* A jump reaches its label with the stack as it is here; JNN keeps the value it

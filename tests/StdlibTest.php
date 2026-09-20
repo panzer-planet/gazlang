@@ -120,6 +120,15 @@ class StdlibTest extends GazLangTestCase
         ));
     }
 
+    public function test_repeat_of_nothing_is_nothing_however_many_times()
+    {
+        // Whatever the count, since appending no bytes that many times would never end
+        $this->assertSame("0\n0\n0\n6\n", $this->executeCode(
+            'echo len(repeat("", 9223372036854775807)); echo len(repeat("", 0));'
+            .' echo len(repeat("ab", 0)); echo len(repeat("ab", 3));'
+        ));
+    }
+
     /**
      * @dataProvider invalidBytes
      */
@@ -165,6 +174,8 @@ class StdlibTest extends GazLangTestCase
             'repeat count' => ['repeat("a", "2");', 'repeat() expects int, got string'],
             // The length is worked out before anything is allocated: it would otherwise wrap around
             'repeat too long' => ['repeat("ab", 9223372036854775807);', 'repeat() would make a string of 2 bytes times 9223372036854775807, which is longer than a string can be'],
+            // One byte times the largest count is the edge the check itself has to get right
+            'repeat one byte too long' => ['repeat("\\n", 9223372036854775807);', 'repeat() would make a string of 1 bytes times 9223372036854775807, which is longer than a string can be'],
         ];
     }
 

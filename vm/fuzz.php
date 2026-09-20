@@ -57,6 +57,7 @@ printf("fuzz: %d programs and %d bytecode files to mutate\n", count($seeds), cou
 $start = microtime(true);
 $count = 0;
 $failed = [];
+$timeouts = 0;
 while ($runs === null ? microtime(true) - $start < $seconds : $count < $runs) {
     $batch = [];
     for ($i = 0; $i < ($runs === null ? BATCH : min(BATCH, $runs - $count)); $i++) {
@@ -84,8 +85,11 @@ while ($runs === null ? microtime(true) - $start < $seconds : $count < $runs) {
         $ext = pathinfo($entry, PATHINFO_EXTENSION);
         $saved = WORK."/fail-{$seed}-{$batch[$entry]}.{$ext}";
         copy(CVM::ROOT.'/'.$entry, CVM::ROOT.'/'.$saved);
+        // Nothing tells a mutant that loops by itself from one that hangs the VM, so it is
+        // saved and counted but doesn't fail the run: a generated program's time-out does
         if ($verdict === 'time-out' && str_contains($entry, '/m')) {
             echo "time-out of a mutant, which may just loop: {$saved}\n";
+            $timeouts++;
 
             continue;
         }
@@ -104,7 +108,8 @@ while ($runs === null ? microtime(true) - $start < $seconds : $count < $runs) {
         }
     }
 }
-printf("fuzz: %d programs in %ds, %d distinct failures (seed %d)\n", $count, microtime(true) - $start, count($failed), $seed);
+printf("fuzz: %d programs in %ds, %d distinct failures%s (seed %d)\n", $count, microtime(true) - $start, count($failed),
+    $timeouts === 0 ? '' : ", {$timeouts} mutant time-out".($timeouts === 1 ? '' : 's'), $seed);
 exit($failed === [] ? 0 : 1);
 
 /**
@@ -412,10 +417,10 @@ function mutateBytecode(Randomizer $rng, array $seeds): ?string
     // The header and globals line stay, or nearly every mutant is refused at the first line
     $header = array_splice($lines, 0, 2);
     for ($n = $rng->getInt(1, 4); $n > 0 && $lines !== []; $n--) {
-        $at = $rng->getInt(0, count($lines) - 1);
-        $other = $rng->getInt(0, count($lines) - 1);
+        $at = instructionLine($rng, $lines);
+        $other = instructionLine($rng, $lines);
         $theirs = explode("\n", $seeds[$rng->getInt(0, count($seeds) - 1)]);
-        $line = $theirs[$rng->getInt(0, count($theirs) - 1)];
+        $line = $theirs[instructionLine($rng, $theirs)];
         $words = explode(' ', $lines[$at]);
         $w = $rng->getInt(min(1, count($words) - 1), count($words) - 1);
         match ($rng->getInt(0, 5)) {
@@ -432,6 +437,27 @@ function mutateBytecode(Randomizer $rng, array $seeds): ?string
     }
 
     return keep(implode("\n", [...$header, ...$lines]));
+}
+
+/**
+ * A line to mutate, usually an instruction: a block's header lines (top, locals, fn, class,
+ * field, capture) are a good part of a small file, and damage to one is refused by the header
+ * parser before an instruction is read at all, which is a check the corpus already covers
+ *
+ * @param  list<string>  $lines
+ */
+function instructionLine(Randomizer $rng, array $lines): int
+{
+    $at = $rng->getInt(0, count($lines) - 1);
+    for ($tries = 0; $tries < 8 && ! preg_match('/^[A-Z_]+( |$)/', $lines[$at]); $tries++) {
+        // One try in five stays wherever it landed, so a header is still mutated sometimes
+        if ($rng->getInt(1, 5) === 1) {
+            break;
+        }
+        $at = $rng->getInt(0, count($lines) - 1);
+    }
+
+    return $at;
 }
 
 /**
@@ -670,9 +696,15 @@ final class ProgramGenerator
             return $this->literal();
         }
         [$min, $max] = $this->builtins[$name];
-        // repeat() with one of the big counts is minutes of allocating, not a bug worth waiting for
+        // repeat() of any string a few times, or of a short one as many times as it will
+        // take, which it refuses before allocating. A big count on a string of unknown length
+        // is the one combination with nothing to learn: minutes of real allocating, then death
         if ($name === 'repeat') {
-            return "repeat({$this->expr()}, {$this->int(0, 4)})";
+            $counts = ['-1', '1000', '100000', '4611686018427387904', '9223372036854775807'];
+
+            return $this->chance(2)
+                ? "repeat({$this->literal()}, {$this->int(0, 3)})"
+                : 'repeat("ab", '.$counts[$this->int(0, count($counts) - 1)].')';
         }
         $args = [];
         for ($i = $this->int($min, $max); $i > 0; $i--) {

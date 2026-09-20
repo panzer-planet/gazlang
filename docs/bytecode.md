@@ -261,6 +261,8 @@ A file that loads is one the VM can run, so the checks are part of the format:
 
 - The magic and the version, and that the first block is the top level.
 - Every instruction name is known and takes the arguments it is given.
+- Every count (a slot, a capture, an argument count) fits in a 32-bit int: one that doesn't is
+  refused rather than clamped, since it is a number nothing meant.
 - Every label a jump names is defined in the same block, and every function, builtin, class
   and lambda a name or index refers to exists.
 - Nothing that needs the object a method runs on (`LOAD_FIELD`, `SET_FIELD`, `CALL_PARENT`,
