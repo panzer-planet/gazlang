@@ -548,6 +548,7 @@ its names are reached with `::`; everything in `lib/` is written in GazLang:
 | `format.gaz` | `format::number`, `format::pad_left`, `format::pad_right` |
 | `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins; see below |
 | `random.gaz` | `random::shuffle` (a shuffled copy of a list or string), `random::pick` (an element of a list or value of a map), `random::key`, `random::chance($p)`, `random::weighted` (from `[item, weight]` pairs) |
+| `regex.gaz` | `regex::matches($s, $pattern)` (full match), `regex::search($s, $pattern)` (found anywhere), `regex::find($s, $pattern)` (the start index, or null); literals, `.`, `* + ?`, `\|`, `(...)`, `[...]`/`[^...]` with ranges, `^ $`, `\` escapes; no captures, no backreferences, no backtracking |
 
 `http.gaz` returns
 `{"status" => 200, "headers" => {"content-type" => "text/html", ...}, "body" => "..."}`, with
