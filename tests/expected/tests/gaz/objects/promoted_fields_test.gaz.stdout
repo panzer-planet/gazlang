@@ -1,0 +1,8 @@
+ok a promoted field is set from its parameter
+ok a pub promoted field can be read from outside
+ok a plain promoted field stays private
+ok a promoted field's default is its parameter's
+ok a given argument overrides the default
+ok the body runs after promotion, and can use it
+ok kin promotion is visible to the declaring kind
+ok promotion works the same in a child that calls the parent's constructor

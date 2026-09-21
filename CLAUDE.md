@@ -604,6 +604,16 @@ $area = $c.area;                              // a bound method
   the arguments. A kind without `_` inherits its parent's. A child calls the parent's with
   `##_(...)`, only in a constructor; nothing calls it automatically. `return value;` in `_` and
   `_` as a member are errors.
+- **A constructor parameter written `#name` (or `pub #name`, `kin #name`) promotes it**:
+  sugar for declaring the field with that visibility and assigning it from the parameter,
+  `fn _(pub #x, #y) {}` being `#x;` and `#y;` in the kind plus `#x = $x; #y = $y;` as the first
+  lines of `_`'s body — an ordinary `$name` parameter and a promoted `#name` one may mix freely.
+  It is parser sugar only (`compiler/parser.gaz`'s `parameters()`/`promoted_assignment()`):
+  the assignment is a synthesised `#x = $x;` statement prepended to the body, indistinguishable
+  from a hand-written one to the code generator or VM, so it costs nothing beyond parsing. The
+  parameter's own default (evaluated per call, may use `$` unlike a field default) is what
+  gives the field its value; a promoted field takes no default of its own. A constructor with
+  nothing left to write can end with `;` instead of `{}`, the assignments being all there is.
 - **Fields are declared** (`#x;` or `#x = default;`); a default is evaluated per object, may use
   `#` but not `$` variables. Reading a field never set is an error; `??` reads it as null.
   Objects print only the fields that are set.

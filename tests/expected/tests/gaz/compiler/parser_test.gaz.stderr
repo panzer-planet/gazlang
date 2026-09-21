@@ -1,6 +1,6 @@
 Error: Field #x of B has the name of a field of A that isn't pub: a field is a slot, so the name is taken on line 1
   gazlang::Parser.fail_at at compiler/parser.gaz:310
-  gazlang::Parser.resolve_kind at compiler/parser.gaz:2449
-  gazlang::Parser.program at compiler/parser.gaz:2232
-  gazlang::Parser.parse at compiler/parser.gaz:2826
+  gazlang::Parser.resolve_kind at compiler/parser.gaz:2525
+  gazlang::Parser.program at compiler/parser.gaz:2308
+  gazlang::Parser.parse at compiler/parser.gaz:2902
   top level at tests/gaz/compiler/parser_test.gaz:33

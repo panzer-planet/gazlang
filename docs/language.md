@@ -245,10 +245,8 @@ abstract kind Shape {
 }
 
 kind Circle extends Shape {
-    pub #radius;                         // pub, so anyone can read and write it
-    fn _($radius) {
+    fn _(pub #radius) {                  // pub #radius: a field, set from the parameter
         ##_("circle");                   // the parent's constructor
-        #radius = $radius;
     }
     pub fn area() { return 3.14159 * #radius * #radius; }
 }
@@ -263,6 +261,12 @@ echo is_a($c, Shape) .. " " .. $c.radius;
   `match (kind_of($node)) { NumAST => ..., AddAST => ... }` dispatches from outside the kinds.
 - **Fields are declared** (`#x;` or `#x = default;`). A default is evaluated per object, so a
   `[]` default is never shared. Reading one never set is an error; `??` reads it as null.
+- **A constructor parameter written `#name` promotes it to a field**, `pub`/`kin` marking its
+  visibility as they would on a plain field declaration: `fn _(pub #x, #y) {}` declares `#x`
+  (pub) and `#y` (private) and assigns them from the parameters, as if written `#x = $x; #y =
+  $y;` at the top of the body. A default on a promoted parameter is the parameter's own
+  (evaluated per call, so it may use `$` earlier parameters), not a field default. A
+  constructor with nothing else to do can end `;` instead of `{}`.
 - **`#` is this object**, `#name` a field or method, `##name` the parent's version of a method.
   All checked at parse time against the kind.
 - **Objects are handles**: `$b = $a; $b.x = 1` changes `$a`. `==` is identity. Lists and maps

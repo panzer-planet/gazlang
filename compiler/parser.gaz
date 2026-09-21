@@ -1365,7 +1365,7 @@ kind Parser {
         $name = #qualify(#current_token.value);
         #eat("IDENTIFIER");
 
-        [$params, $defaults] = #parameters("function {$name}");
+        [$params, $defaults, $promoted] = #parameters("function {$name}");
         // Declared before the body is parsed, so the function can call itself
         $arity = #arity($params, $defaults);
         #functions[$name] = $arity;
@@ -1400,19 +1400,65 @@ kind Parser {
         }
     }
 
-    // Parse a function or method's parameter list (LPAREN [param (COMMA param)*] RPAREN), param: VAR_IDENTIFIER [ASSIGN expr]
+    // Parse a function or method's parameter list (LPAREN [param (COMMA param)*] RPAREN),
+    // param: VAR_IDENTIFIER [ASSIGN expr] | [PUB | KIN] HASH_IDENTIFIER [ASSIGN expr]
     //
     // $owner is what the parameters belong to, for errors: "function f", "method Point.move".
-    // It gives the names, and each one's default or null.
-    fn parameters($owner) {
+    // The HASH_IDENTIFIER form (constructor property promotion) is only recognised when $kind
+    // is given, which method_declaration() does only for _: it declares the field on $kind (as
+    // field_declaration() would) and returns it in $promoted for the caller to assign from,
+    // since the assignment needs the constructor's body, not just its parameters.
+    // Gives the names (with sigil, "$x"), each one's default or null, and $promoted.
+    fn parameters($owner, $kind = null) {
         #eat("LEFT_PAREN");
         $params = [];
         $defaults = [];
+        $promoted = [];
         $has_default = false;
         while (#current_token.type != "RIGHT_PAREN") {
             if ($params != []) {
                 #eat("COMMA");
             }
+            $vis = "";
+            if ($kind != null && (#current_token.type == "PUB" || #current_token.type == "KIN")) {
+                $vis = #current_token.type == "PUB" ? "pub" : "kin";
+                #eat(#current_token.type);
+            }
+            if ($kind != null && #current_token.type == "HASH_IDENTIFIER") {
+                $token = #current_token;
+                $name = slice($token.value, 1);
+                if ($name == "_") {
+                    #fail("A field can't be named _: that's the constructor");
+                }
+                #check_new_member($kind, $name);
+                #eat("HASH_IDENTIFIER");
+                $param = "$" .. $name;
+                if (in_array($param, $params)) {
+                    #fail("Duplicate parameter {$param} in {$owner}");
+                }
+
+                $default = null;
+                if (#current_token.type == "ASSIGN") {
+                    #eat("ASSIGN");
+                    $default = #expr();
+                    $has_default = true;
+                } else if ($has_default) {
+                    #fail("Required parameter {$param} can't follow a parameter with a default");
+                }
+                // No default of its own: its value always comes from the parameter, assigned
+                // in the constructor's body, whether given or defaulted there
+                $kind.fields[$name] = null;
+                $kind.field_lines[$name] = $token.line;
+                $kind.vis[$name] = $vis;
+                $promoted[] = [$name, $token];
+                $params[] = $param;
+                $defaults[] = $default;
+                continue;
+            }
+            if ($vis != "") {
+                #fail("pub and kin mark a promoted field parameter (#name): plain parameters need neither");
+            }
+
             $param = #current_token.value;
             // Only a $variable can be a duplicate: '$a' is a string, which eat() refuses
             if (#current_token.type == "VAR_IDENTIFIER" && in_array($param, $params)) {
@@ -1433,7 +1479,26 @@ kind Parser {
         }
         #eat("RIGHT_PAREN");
 
-        return [$params, $defaults];
+        return [$params, $defaults, $promoted];
+    }
+
+    // A synthetic #name = $name; for a promoted constructor parameter, exactly as if it had
+    // been written in the body: registered as a member use so the whole-program pass sees it,
+    // and as a write so #check_member_use knows the field is assigned
+    fn promoted_assignment($kind, $name, $token) {
+        $property = #at(PropertyAST(#at(ThisAST(), $token), $name), $token);
+        $property.use = len(#member_uses);
+        #member_uses[] = [$property, $kind, null, false, false, false];
+
+        $assign_token = Token("ASSIGN", "=");
+        $assign_token.line = $token.line;
+        #assignable($property, $assign_token);
+
+        $var_token = Token("VAR_IDENTIFIER", "$" .. $name);
+        $var_token.line = $token.line;
+        $variable = #at(VariableAST($var_token), $token);
+
+        return #at(StatementAST(#at(AssignAST($property, $assign_token, $variable), $token)), $token);
     }
 
     // Parse a kind declaration ([ABSTRACT] KIND IDENTIFIER [EXTENDS IDENTIFIER] LBRACE (field | method)* RBRACE),
@@ -2045,7 +2110,7 @@ kind Parser {
         #eat($token.type);
 
         $full = "{$kind.name}::{$name}";
-        [$params, $defaults] = #parameters("static method {$full}");
+        [$params, $defaults, $promoted] = #parameters("static method {$full}");
         $arity = #arity($params, $defaults);
         #functions[$full] = $arity;
         #declare($full, has_key(#public, $kind.name) || #declared_in[$kind.name] == "");
@@ -2088,7 +2153,7 @@ kind Parser {
         #check_new_member($kind, $name);
         #eat($token.type);
 
-        [$params, $defaults] = #parameters("method {$kind.name}.{$name}");
+        [$params, $defaults, $promoted] = #parameters("method {$kind.name}.{$name}", $name == "_" ? $kind : null);
         if ($abstract) {
             if (!$kind.abstract) {
                 #fail_at("Kind {$kind.name} has abstract method {$name}, so it must be abstract too", #file, $start.line);
@@ -2101,10 +2166,21 @@ kind Parser {
             }
             #eat("SEMICOLON");
             $body = CompoundAST();
+        } else if ($name == "_" && #current_token.type == "SEMICOLON") {
+            // Nothing left to write once every parameter has promoted its field
+            #eat("SEMICOLON");
+            $body = CompoundAST();
         } else {
             [#in_function, #in_constructor] = [true, $name == "_"];
             $body = #block();
             [#in_function, #in_constructor] = [false, false];
+        }
+        if ($promoted != []) {
+            $prelude = [];
+            foreach ($promoted as [$field, $field_token]) {
+                $prelude[] = #promoted_assignment($kind, $field, $field_token);
+            }
+            $body.statements = [...$prelude, ...$body.statements];
         }
 
         $method = #at(FunctionDeclarationAST($name, $params, $defaults, $body, #arity($params, $defaults)), $start);
