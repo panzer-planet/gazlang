@@ -325,8 +325,13 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     program that wants it.
 - **Not planned** until real code asks: traits, late static binding, operator
   overloading, `**` and `sqrt`/`pow`/`log`, variadic parameters and spread in calls (pass a
-  list), `time()` (time it from outside), `foreach` over a string (`split($s, "")`), regular
-  expressions (character classes are explicit on purpose), a REPL.
+  list), `time()` (time it from outside), `foreach` over a string (`split($s, "")`), a REPL.
+- **Regular expressions**: `lib/regex.gaz` (`regex::matches`, `regex::search`,
+  `regex::find`), a Thompson NFA (Pike's VM) so there is no backtracking and no ReDoS.
+  Literals, `.`, `*` `+` `?`, `|`, `(...)` grouping (not capturing), `[...]`/`[^...]`
+  classes with `a-z` ranges, `^`/`$` anchors, `\` escapes. No capture groups, no
+  backreferences, no `\d`/`\w`/`\s` shorthands (`lib/chars.gaz` has those as named
+  functions) — add them if a program needs one.
 
 # The language
 

@@ -1,0 +1,68 @@
+include "../check.gaz";
+include "../../../lib/regex.gaz";
+
+check("literal match", regex::matches("cat", "cat"), true);
+check("literal too long fails full match", regex::matches("cats", "cat"), false);
+check("dot matches any byte", regex::matches("cat", "c.t"), true);
+check("star matches zero", regex::matches("ct", "ca*t"), true);
+check("star matches many", regex::matches("caaaat", "ca*t"), true);
+check("plus needs at least one", regex::matches("ct", "ca+t"), false);
+check("plus matches one", regex::matches("cat", "ca+t"), true);
+check("opt matches zero", regex::matches("ct", "ca?t"), true);
+check("opt matches one", regex::matches("cat", "ca?t"), true);
+check("alternation left", regex::matches("cat", "cat|dog"), true);
+check("alternation right", regex::matches("dog", "cat|dog"), true);
+check("alternation neither", regex::matches("bird", "cat|dog"), false);
+check("three-way alternation", regex::matches("bird", "cat|dog|bird"), true);
+check("group with star", regex::matches("abab", "(ab)*"), true);
+check("group with star, zero reps", regex::matches("", "(ab)*"), true);
+check("group with star rejects partial rep", regex::matches("aba", "(ab)*"), false);
+check("nested group and opt", regex::matches("ababab", "(a(b)?)*"), true);
+
+check("class range hit", regex::matches("5", "[0-9]"), true);
+check("class range miss", regex::matches("x", "[0-9]"), false);
+check("class list", regex::matches("y", "[xyz]"), true);
+check("negated class hit", regex::matches("x", "[^0-9]"), true);
+check("negated class miss", regex::matches("5", "[^0-9]"), false);
+check("class with trailing dash is literal", regex::matches("-", "[a-]"), true);
+check("class with leading caret-as-content", regex::matches("^", "[\\^]"), true);
+
+check("matches is anchored at both ends", regex::matches("xcatx", "cat"), false);
+check("search finds a substring", regex::search("xcatx", "cat"), true);
+check("search finds nothing", regex::search("dog", "cat"), false);
+check("find gives the start index", regex::find("xxcatxx", "cat"), 2);
+check("find is leftmost", regex::find("catcat", "cat"), 0);
+check("find gives null when absent", regex::find("dog", "cat"), null);
+check("find on an empty pattern is position 0", regex::find("abc", ""), 0);
+check("matches an empty pattern only on an empty string", regex::matches("", ""), true);
+check("matches an empty pattern rejects a non-empty string", regex::matches("x", ""), false);
+
+check("explicit anchors act like a full match inside search", regex::search("xxcatxx", "^cat$"), false);
+check("explicit anchors satisfied", regex::search("cat", "^cat$"), true);
+check("caret only matches at position 0", regex::find("acat", "^cat"), null);
+check("dollar only matches at the end", regex::find("catx", "cat$"), null);
+check("dollar matches at the end", regex::find("xcat", "cat$"), 1);
+
+check("backslash escapes a metacharacter", regex::matches("c.t", "c\\.t"), true);
+check("an escaped dot no longer matches any byte", regex::matches("cat", "c\\.t"), false);
+
+check("a small email-shaped pattern", regex::matches("a@b.com", "[a-z]+@[a-z]+\\.[a-z]+"), true);
+check("the same pattern rejects a bare word", regex::matches("nope", "[a-z]+@[a-z]+\\.[a-z]+"), false);
+
+try {
+    regex::matches("x", "(abc");
+} catch ($e) {
+    check("an unclosed group is a catchable error", $e.message, "regex: expected ')' at 4 in /(abc/");
+}
+
+try {
+    regex::matches("x", "[abc");
+} catch ($e) {
+    check("an unclosed class is a catchable error", $e.message, "regex: unterminated '[' in /[abc/");
+}
+
+try {
+    regex::matches("x", "abc)");
+} catch ($e) {
+    check("a stray ')' is a catchable error", $e.message, "regex: unexpected ')' at 3 in /abc)/");
+}

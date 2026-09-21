@@ -1,0 +1,333 @@
+// A small regular expression engine for GazLang: regex::matches($s, $pattern) tests whether
+// $s matches $pattern in full, regex::search($s, $pattern) whether $pattern occurs anywhere in
+// $s, regex::find($s, $pattern) the start index of the first (leftmost) match, or null.
+//
+// Syntax: literal bytes, "." (any byte), "*" "+" "?" (repetition), "|" (alternation),
+// "(...)" (grouping, not capturing), "[...]" and "[^...]" (character classes, with "a-z"
+// ranges), "^" and "$" (start/end of string anchors), "\" to escape a metacharacter.
+// No capture groups, no backreferences, no "\d"/"\w"/"\s" shorthands (see lib/chars.gaz),
+// no lookahead: patterns compile to a Thompson NFA (Pike's VM, ops.c has no part in this;
+// it is plain GazLang) and run in linear time, so there is no catastrophic backtracking.
+namespace regex;
+
+kind Parser {
+    #pat;
+    #pos;
+    #len;
+
+    fn _($pat) {
+        #pat = $pat;
+        #pos = 0;
+        #len = len($pat);
+    }
+
+    fn peek() {
+        if (#pos >= #len) { return null; }
+        return #pat[#pos];
+    }
+
+    fn advance() {
+        $c = #pat[#pos];
+        #pos += 1;
+        return $c;
+    }
+
+    fn expect($c) {
+        if (#peek() != $c) {
+            error("regex: expected '" .. $c .. "' at " .. #pos .. " in /" .. #pat .. "/");
+        }
+        #advance();
+    }
+
+    pub fn parse() {
+        $node = #parse_alt();
+        if (#pos != #len) {
+            error("regex: unexpected '" .. #peek() .. "' at " .. #pos .. " in /" .. #pat .. "/");
+        }
+        return $node;
+    }
+
+    fn parse_alt() {
+        $parts = [#parse_concat()];
+        while (#peek() == "|") {
+            #advance();
+            $parts[] = #parse_concat();
+        }
+        if (len($parts) == 1) { return $parts[0]; }
+        return {"op" => "alt", "parts" => $parts};
+    }
+
+    fn parse_concat() {
+        $parts = [];
+        while (#peek() != null && #peek() != "|" && #peek() != ")") {
+            $parts[] = #parse_repeat();
+        }
+        if (len($parts) == 0) { return {"op" => "empty"}; }
+        if (len($parts) == 1) { return $parts[0]; }
+        return {"op" => "concat", "parts" => $parts};
+    }
+
+    fn parse_repeat() {
+        $atom = #parse_atom();
+        $c = #peek();
+        if ($c == "*") { #advance(); return {"op" => "star", "child" => $atom}; }
+        if ($c == "+") { #advance(); return {"op" => "plus", "child" => $atom}; }
+        if ($c == "?") { #advance(); return {"op" => "opt", "child" => $atom}; }
+        return $atom;
+    }
+
+    fn parse_atom() {
+        $c = #peek();
+        if ($c == null) {
+            error("regex: unexpected end of pattern in /" .. #pat .. "/");
+        }
+        if ($c == "(") {
+            #advance();
+            $node = #parse_alt();
+            #expect(")");
+            return $node;
+        }
+        if ($c == "[") { return #parse_class(); }
+        if ($c == ".") { #advance(); return {"op" => "any"}; }
+        if ($c == "^") { #advance(); return {"op" => "bol"}; }
+        if ($c == "$") { #advance(); return {"op" => "eol"}; }
+        if ($c == "\\") {
+            #advance();
+            $e = #peek();
+            if ($e == null) {
+                error("regex: dangling '\\' in /" .. #pat .. "/");
+            }
+            #advance();
+            return {"op" => "lit", "c" => ord($e)};
+        }
+        #advance();
+        return {"op" => "lit", "c" => ord($c)};
+    }
+
+    fn parse_class() {
+        #advance(); // '['
+        $negate = false;
+        if (#peek() == "^") {
+            $negate = true;
+            #advance();
+        }
+        $ranges = [];
+        $chars = [];
+        $first = true;
+        while (#peek() != "]" || $first) {
+            if (#peek() == null) {
+                error("regex: unterminated '[' in /" .. #pat .. "/");
+            }
+            $first = false;
+            $lo = #class_char();
+            if (#peek() == "-") {
+                $save = #pos;
+                #advance();
+                if (#peek() == "]") {
+                    #pos = $save;
+                    $chars[] = $lo;
+                } else {
+                    $ranges[] = [$lo, #class_char()];
+                }
+            } else {
+                $chars[] = $lo;
+            }
+        }
+        #advance(); // ']'
+        return {"op" => "class", "negate" => $negate, "ranges" => $ranges, "chars" => $chars};
+    }
+
+    fn class_char() {
+        $c = #advance();
+        if ($c == "\\") { return ord(#advance()); }
+        return ord($c);
+    }
+}
+
+// Compiles an AST to a flat instruction list ("prog"): char/any/class/bol/eol consume or
+// assert, split/jmp are epsilon transitions, match ends the program. Instructions flow to
+// the next index by default; split and jmp give explicit targets, patched in once the size
+// of what they jump over is known.
+kind Compiler {
+    pub #prog;
+
+    fn _() { #prog = []; }
+
+    pub fn emit($instr) {
+        #prog[] = $instr;
+        return len(#prog) - 1;
+    }
+
+    pub fn compile($node) {
+        $op = $node["op"];
+        if ($op == "empty") { return; }
+        if ($op == "lit") { #emit({"op" => "char", "c" => $node["c"]}); return; }
+        if ($op == "any") { #emit({"op" => "any"}); return; }
+        if ($op == "class") {
+            #emit({"op" => "class", "negate" => $node["negate"], "ranges" => $node["ranges"], "chars" => $node["chars"]});
+            return;
+        }
+        if ($op == "bol") { #emit({"op" => "bol"}); return; }
+        if ($op == "eol") { #emit({"op" => "eol"}); return; }
+        if ($op == "concat") {
+            foreach ($node["parts"] as $part) { #compile($part); }
+            return;
+        }
+        if ($op == "alt") {
+            $parts = $node["parts"];
+            $jmp_idxs = [];
+            for ($i = 0; $i < len($parts) - 1; $i += 1) {
+                $split_idx = #emit({"op" => "split", "x" => 0, "y" => 0});
+                #prog[$split_idx]["x"] = len(#prog);
+                #compile($parts[$i]);
+                $jmp_idxs[] = #emit({"op" => "jmp", "target" => 0});
+                #prog[$split_idx]["y"] = len(#prog);
+            }
+            #compile($parts[len($parts) - 1]);
+            $end = len(#prog);
+            foreach ($jmp_idxs as $jmp_idx) { #prog[$jmp_idx]["target"] = $end; }
+            return;
+        }
+        if ($op == "star") {
+            $l1 = len(#prog);
+            $split_idx = #emit({"op" => "split", "x" => 0, "y" => 0});
+            #prog[$split_idx]["x"] = len(#prog);
+            #compile($node["child"]);
+            #emit({"op" => "jmp", "target" => $l1});
+            #prog[$split_idx]["y"] = len(#prog);
+            return;
+        }
+        if ($op == "plus") {
+            $l1 = len(#prog);
+            #compile($node["child"]);
+            $split_idx = #emit({"op" => "split", "x" => $l1, "y" => 0});
+            #prog[$split_idx]["y"] = len(#prog);
+            return;
+        }
+        if ($op == "opt") {
+            $split_idx = #emit({"op" => "split", "x" => 0, "y" => 0});
+            #prog[$split_idx]["x"] = len(#prog);
+            #compile($node["child"]);
+            #prog[$split_idx]["y"] = len(#prog);
+            return;
+        }
+        error("regex: internal error, unknown node '" .. $op .. "'");
+    }
+}
+
+fn compile($pattern) {
+    $ast = Parser($pattern).parse();
+    $c = Compiler();
+    $c.compile($ast);
+    $c.emit({"op" => "match"});
+    return $c.prog;
+}
+
+fn class_matches($instr, $byte) {
+    $hit = false;
+    foreach ($instr["ranges"] as $range) {
+        if ($byte >= $range[0] && $byte <= $range[1]) { $hit = true; }
+    }
+    foreach ($instr["chars"] as $c) {
+        if ($byte == $c) { $hit = true; }
+    }
+    if ($instr["negate"]) { return !$hit; }
+    return $hit;
+}
+
+fn consumes($instr, $byte) {
+    $op = $instr["op"];
+    if ($op == "char") { return $instr["c"] == $byte; }
+    if ($op == "any") { return true; }
+    if ($op == "class") { return class_matches($instr, $byte); }
+    return false;
+}
+
+fn blanks($n) {
+    $r = [];
+    for ($i = 0; $i < $n; $i += 1) { $r[] = false; }
+    return $r;
+}
+
+// Runs $prog (Pike's thread-list NFA simulation, no backtracking) against $s starting at
+// $start. Unanchored also seeds a fresh thread at every later position, so the first match
+// found is the leftmost one; full requires the match to end exactly at the end of $s.
+kind Matcher {
+    #prog;
+    #len_s;
+    #mark;
+    #list;
+
+    fn _($prog, $len_s) {
+        #prog = $prog;
+        #len_s = $len_s;
+    }
+
+    // Follows epsilon transitions (split, jmp, satisfied anchors) from $pc, adding every
+    // byte-consuming or match instruction reached to #list, each only once per step.
+    fn add($pc, $sp, $start) {
+        if (#mark[$pc]) { return; }
+        #mark[$pc] = true;
+        $instr = #prog[$pc];
+        $op = $instr["op"];
+        if ($op == "jmp") {
+            #add($instr["target"], $sp, $start);
+        } else if ($op == "split") {
+            #add($instr["x"], $sp, $start);
+            #add($instr["y"], $sp, $start);
+        } else if ($op == "bol") {
+            if ($sp == 0) { #add($pc + 1, $sp, $start); }
+        } else if ($op == "eol") {
+            if ($sp == #len_s) { #add($pc + 1, $sp, $start); }
+        } else {
+            #list[] = {"pc" => $pc, "start" => $start};
+        }
+    }
+
+    fn match_start() {
+        foreach (#list as $thread) {
+            if (#prog[$thread["pc"]]["op"] == "match") { return $thread["start"]; }
+        }
+        return null;
+    }
+
+    pub fn run($s, $start, $unanchored, $full) {
+        #list = [];
+        #mark = blanks(len(#prog));
+        #add(0, $start, $start);
+        $sp = $start;
+        while (true) {
+            $found = #match_start();
+            if ($found != null && (!$full || $sp == #len_s)) { return $found; }
+            if ($sp >= #len_s) { break; }
+            $byte = ord($s[$sp]);
+            $old_list = #list;
+            #list = [];
+            #mark = blanks(len(#prog));
+            foreach ($old_list as $thread) {
+                $instr = #prog[$thread["pc"]];
+                if ($instr["op"] != "match" && consumes($instr, $byte)) {
+                    #add($thread["pc"] + 1, $sp + 1, $thread["start"]);
+                }
+            }
+            if ($unanchored) { #add(0, $sp + 1, $sp + 1); }
+            $sp += 1;
+        }
+        return null;
+    }
+}
+
+// Whether $s matches $pattern in full (as if anchored at both ends).
+pub fn matches($s, $pattern) {
+    return Matcher(compile($pattern), len($s)).run($s, 0, false, true) != null;
+}
+
+// The start index of the first (leftmost) place $pattern occurs in $s, or null.
+pub fn find($s, $pattern) {
+    return Matcher(compile($pattern), len($s)).run($s, 0, true, false);
+}
+
+// Whether $pattern occurs anywhere in $s.
+pub fn search($s, $pattern) {
+    return find($s, $pattern) != null;
+}
