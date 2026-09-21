@@ -4,6 +4,7 @@
 #   make           bin/gazlang, optimised
 #   make TLS=0     the same without OpenSSL: https and socket_open(..., true) are errors
 #   make compiler  rebuild compiler/gazlang.gzb from compiler/ with bin/gazlang alone (see below)
+#   make pgo       bin/gazlang with profile-guided optimisation (see below)
 #   make test      vm/build/gazvm-test, with AddressSanitizer and UndefinedBehaviorSanitizer,
 #                  which tests/CVMTest.php runs (it calls this itself)
 
@@ -81,6 +82,34 @@ compiler: $(GAZLANG)
 	@if cmp -s $(BOOT)/stage2.gzb ../compiler/gazlang.gzb; then echo "compiler/gazlang.gzb is up to date"; \
 	 else cp $(BOOT)/stage2.gzb ../compiler/gazlang.gzb && $(MAKE) all; fi
 
+# make pgo: bin/gazlang with profile-guided optimisation, opt-in so plain make still needs nothing
+# but a C compiler. An instrumented build runs the compiler compiling itself, an ast of the
+# parser and every example (failures ignored), and the optimised build is compiled again with
+# what it counted. Not vm/bench, so the benchmarks stay an honest test. Everything is in
+# build/pgo. Both builds write the same output name, since gcc names its .gcda files after it.
+PGO = build/pgo
+ifneq ($(findstring clang,$(shell $(CC) --version 2>/dev/null)),)
+  PGO_GENERATE = -fprofile-instr-generate
+  PGO_USE = -fprofile-instr-use=$(PGO)/merged.profdata
+  # macOS has llvm-profdata only through xcrun
+  PGO_MERGE = $(if $(shell command -v xcrun),xcrun) llvm-profdata merge -o $(PGO)/merged.profdata $(PGO)/*.profraw
+else
+  PGO_GENERATE = -fprofile-generate -fprofile-dir=$(abspath $(PGO))
+  PGO_USE = -fprofile-use -fprofile-dir=$(abspath $(PGO))
+  PGO_MERGE = true
+endif
+
+pgo: $(COMPILER) $(CONFIG)
+	rm -rf $(PGO) && mkdir -p $(PGO) ../bin
+	$(CC) $(FLAGS) -O2 $(PGO_GENERATE) -o $(PGO)/gazlang $(SOURCES) $(COMPILER) $(LIBS)
+	cd .. && export LLVM_PROFILE_FILE=$(abspath $(PGO))/%p.profraw && \
+	  vm/$(PGO)/gazlang -f compiler/gazlang.gaz -- code compiler/gazlang.gaz > /dev/null && \
+	  vm/$(PGO)/gazlang -f compiler/gazlang.gaz -- ast compiler/parser.gaz > /dev/null && \
+	  for f in examples/*.gaz; do vm/$(PGO)/gazlang -f $$f < /dev/null > /dev/null 2>&1 || true; done
+	$(PGO_MERGE)
+	$(CC) $(FLAGS) -O2 $(PGO_USE) -o $(PGO)/gazlang $(SOURCES) $(COMPILER) $(LIBS)
+	cp $(PGO)/gazlang $(GAZLANG)
+
 test: build/gazvm-test
 
 build/gazvm-test: $(SOURCES) $(HEADERS) $(COMPILER) $(CONFIG)
@@ -97,7 +126,7 @@ build/gazvm-stress: $(SOURCES) $(HEADERS) $(COMPILER) $(CONFIG)
 clean:
 	rm -rf build $(GAZLANG)
 
-.PHONY: all compiler test stress clean
+.PHONY: all compiler pgo test stress clean
 
 # Coverage, for vm/coverage.php
 build/gazvm-cov: $(SOURCES) $(HEADERS) $(COMPILER) $(CONFIG)

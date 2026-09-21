@@ -57,6 +57,7 @@ copied on write, and the cycle collector (`vm/gc.c`) frees what counting can't.
 ```bash
 make -C vm                                          # bin/gazlang, optimised
 make -C vm compiler                                 # after changing compiler/, see below
+make -C vm pgo                                      # bin/gazlang with profile-guided optimisation
 
 bin/gazlang -f examples/functions.gaz               # compile and run
 bin/gazlang -c -f examples/functions.gaz            # print the compiled bytecode
