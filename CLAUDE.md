@@ -185,11 +185,12 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   with it, and rebuilds its compiler before PHP is even installed, then the suite; phpstan and
   pint run on Ubuntu only.
   Development is on an Intel Mac.
-- **Speed**: the same program takes gazlang 0.4 to 1.6 times what it takes PHP (JIT or not),
-  and Python 3.12 1.0 to 2.7 times what it takes gazlang (`php vm/bench.php`, which finds a
-  Python 3.11 or later for the `vm/bench/*.py` ports; the README's table is its output). The
-  arithmetic loop (1.6x) is still about a dozen dispatches an iteration against PHP's JIT, which
-  only a register bytecode or a JIT would close; lists, maps, strings and objects (1.2 to 1.4x)
+- **Speed**: the same program takes gazlang 0.4 to 1.5 times what it takes PHP (JIT or not),
+  and Python 3.12 1.1 to 2.8 times what it takes gazlang (`php vm/bench.php`, which finds a
+  Python 3.11 or later for the `vm/bench/*.py` ports; the README's table is its output on a
+  `make pgo` build, unlabelled there, so a plain build runs a little slower). The
+  arithmetic loop (1.5x) is still about a dozen dispatches an iteration against PHP's JIT, which
+  only a register bytecode or a JIT would close; lists, maps, strings and objects (1.0 to 1.3x)
   spend theirs in malloc/free and the collector, so profile those before trying an allocator.
 - **Bytecode has no compatibility promise yet**: stable so far, but free to change; a change
   old files can't load under bumps the version.
