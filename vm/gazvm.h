@@ -385,8 +385,12 @@ bool str_eq(const Str *a, const Str *b);
 int str_cmp(const Str *a, const Str *b);
 uint64_t str_hash(Str *s);
 
-/* A growable buffer for building text */
-typedef struct { char *data; size_t len, cap; } Buf;
+/* A growable buffer for building text. Zero-initialised (the usual `Buf b = {0}`), it grows on
+   the heap exactly as before. A caller that expects a short result can instead point `data` at
+   a stack array and set `cap` and `on_stack`, and buf_add only promotes it to the heap if it
+   outgrows that array, which is how binary_op's OP_CONCAT avoids two heap round trips for a
+   short `..`. */
+typedef struct { char *data; size_t len, cap; bool on_stack; } Buf;
 void buf_add(Buf *b, const char *data, size_t len);
 void buf_adds(Buf *b, const char *s);
 void buf_addc(Buf *b, char c);

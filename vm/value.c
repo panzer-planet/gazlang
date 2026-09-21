@@ -218,7 +218,14 @@ void buf_add(Buf *b, const char *data, size_t len) {
     if (b->len + len + 1 > b->cap) {
         size_t cap = b->cap ? b->cap * 2 : 64;
         while (cap < b->len + len + 1) cap *= 2;
-        b->data = xrealloc(b->data, cap);
+        if (b->on_stack) {
+            char *heap = xmalloc(cap);
+            memcpy(heap, b->data, b->len);
+            b->data = heap;
+            b->on_stack = false;
+        } else {
+            b->data = xrealloc(b->data, cap);
+        }
         b->cap = cap;
     }
     if (len) memcpy(b->data + b->len, data, len);
@@ -264,7 +271,7 @@ void buf_add_int(Buf *b, long long v) {
 
 Str *buf_to_str(Buf *b) {
     Str *s = str_new(b->data ? b->data : "", b->len);
-    free(b->data);
+    if (!b->on_stack) free(b->data);
     b->data = NULL;
     b->len = b->cap = 0;
     return s;
