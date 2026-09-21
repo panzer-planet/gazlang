@@ -1,8 +1,8 @@
-class Vec {
-    #x; #y;
+kind Vec {
+    pub #x; pub #y;
     fn _($x, $y) { #x = $x; #y = $y; }
-    fn add($o) { return Vec(#x + $o.x, #y + $o.y); }
-    fn dot($o) { return #x * $o.x + #y * $o.y; }
+    pub fn add($o) { return Vec(#x + $o.x, #y + $o.y); }
+    pub fn dot($o) { return #x * $o.x + #y * $o.y; }
 }
 $acc = Vec(0, 0);
 $d = 0;
