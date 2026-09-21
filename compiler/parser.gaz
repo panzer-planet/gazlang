@@ -1447,9 +1447,7 @@ kind Parser {
                 }
                 // No default of its own: its value always comes from the parameter, assigned
                 // in the constructor's body, whether given or defaulted there
-                $kind.fields[$name] = null;
-                $kind.field_lines[$name] = $token.line;
-                $kind.vis[$name] = $vis;
+                #declare_field($kind, $name, null, $vis, $token.line);
                 $promoted[] = [$name, $token];
                 $params[] = $param;
                 $defaults[] = $default;
@@ -1582,8 +1580,15 @@ kind Parser {
         }
         #eat("SEMICOLON");
 
+        #declare_field($kind, $name, $default, $vis, $token.line);
+    }
+
+    // Register a field of $kind: the one place that writes fields/field_lines/vis, so a field
+    // declared with #x; or #x = default; and one promoted from a constructor parameter stay
+    // in sync as the same field to everything downstream (layout, visibility, codegen)
+    fn declare_field($kind, $name, $default, $vis, $line) {
         $kind.fields[$name] = $default;
-        $kind.field_lines[$name] = $token.line;
+        $kind.field_lines[$name] = $line;
         $kind.vis[$name] = $vis;
     }
 
