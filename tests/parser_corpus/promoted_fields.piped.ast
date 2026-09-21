@@ -1,0 +1,140 @@
+Compound
+  statements:
+@ null
+    0: KindDeclaration 5
+      name: "Point"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"x" => "pub", "y" => "kin", "z" => "", "_" => "pub"}
+      fields: {"x" => null, "y" => null, "z" => null}
+      field_lines: {"x" => 6, "y" => 6, "z" => 6}
+      methods:
+        _: FunctionDeclaration 6
+          name: "_"
+          params: ["\$x", "\$y", "\$z"]
+          defaults: [null, null, null]
+          body: Compound
+            statements:
+              0: Statement 6
+                expr: Assign 6
+                  left: Property 6
+                    target: This 6
+                    name: "x"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 6 ASSIGN =
+                  right: Variable 6
+                    token: 6 VAR_IDENTIFIER $x
+                    value: "\$x"
+              1: Statement 6
+                expr: Assign 6
+                  left: Property 6
+                    target: This 6
+                    name: "y"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 6 ASSIGN =
+                  right: Variable 6
+                    token: 6 VAR_IDENTIFIER $y
+                    value: "\$y"
+              2: Statement 6
+                expr: Assign 6
+                  left: Property 6
+                    target: This 6
+                    name: "z"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 6 ASSIGN =
+                  right: Variable 6
+                    token: 6 VAR_IDENTIFIER $z
+                    value: "\$z"
+          arity: 3
+          kind: "Point"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"x" => "Point", "y" => "Point", "z" => "Point"}
+      members: {"_" => "Point"}
+      abstract_methods: []
+      slots: [["x", "Point", "pub"], ["y", "Point", "kin"], ["z", "Point", ""]]
+      method_table: [["_", "Point", "pub", "Point"]]
+      owner_vis: {"x" => "pub", "y" => "kin", "z" => "", "_" => "pub"}
+      declared_at: {"_" => "Point"}
+      hidden: []
+      hidden_fields: []
+    1: KindDeclaration 8
+      name: "Named"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"name" => "pub", "_" => "pub"}
+      fields: {"name" => null}
+      field_lines: {"name" => 9}
+      methods:
+        _: FunctionDeclaration 9
+          name: "_"
+          params: ["\$name"]
+          defaults:
+            0: String 9
+              token: 9 STRING "anon"
+              value: "anon"
+          body: Compound
+            statements:
+              0: Statement 9
+                expr: Assign 9
+                  left: Property 9
+                    target: This 9
+                    name: "name"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 9 ASSIGN =
+                  right: Variable 9
+                    token: 9 VAR_IDENTIFIER $name
+                    value: "\$name"
+              1: EchoStatement 10
+                expr: BinOp 10
+                  left: String 10
+                    token: 10 STRING "made "
+                    value: "made "
+                  token: 10 CONCAT ..
+                  op: 10 CONCAT ..
+                  right: Property 10
+                    target: This 10
+                    name: "name"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+          arity: [0, 1]
+          kind: "Named"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"name" => "Named"}
+      members: {"_" => "Named"}
+      abstract_methods: []
+      slots: [["name", "Named", "pub"]]
+      method_table: [["_", "Named", "pub", "Named"]]
+      owner_vis: {"name" => "pub", "_" => "pub"}
+      declared_at: {"_" => "Named"}
+      hidden: []
+      hidden_fields: []

@@ -218,7 +218,14 @@ void buf_add(Buf *b, const char *data, size_t len) {
     if (b->len + len + 1 > b->cap) {
         size_t cap = b->cap ? b->cap * 2 : 64;
         while (cap < b->len + len + 1) cap *= 2;
-        b->data = xrealloc(b->data, cap);
+        if (b->on_stack) {
+            char *heap = xmalloc(cap);
+            memcpy(heap, b->data, b->len);
+            b->data = heap;
+            b->on_stack = false;
+        } else {
+            b->data = xrealloc(b->data, cap);
+        }
         b->cap = cap;
     }
     if (len) memcpy(b->data + b->len, data, len);
@@ -248,9 +255,23 @@ void buf_addf(Buf *b, const char *fmt, ...) {
     free(big);
 }
 
+/* vsnprintf's format parsing and locale lookup cost more than the digits: this is the
+   hot path for every echo/../interpolation of an int. */
+void buf_add_int(Buf *b, long long v) {
+    char tmp[20]; /* -9223372036854775808 is 20 bytes */
+    char *p = tmp + sizeof tmp;
+    unsigned long long u = v < 0 ? (unsigned long long)(-(v + 1)) + 1ULL : (unsigned long long)v;
+    do {
+        *--p = (char)('0' + (u % 10));
+        u /= 10;
+    } while (u);
+    if (v < 0) *--p = '-';
+    buf_add(b, p, (size_t)(tmp + sizeof tmp - p));
+}
+
 Str *buf_to_str(Buf *b) {
     Str *s = str_new(b->data ? b->data : "", b->len);
-    free(b->data);
+    if (!b->on_stack) free(b->data);
     b->data = NULL;
     b->len = b->cap = 0;
     return s;
@@ -599,7 +620,7 @@ bool append_string(Value v, Buf *out) {
         buf_add_str(out, v.s);
         return true;
     case T_INT:
-        buf_addf(out, "%lld", (long long)v.i);
+        buf_add_int(out, v.i);
         return true;
     case T_FLOAT:
         format_float(v.f, out);

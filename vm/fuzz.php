@@ -4,14 +4,16 @@
 // bytecode run on the sanitized build (as vm/progress.php runs entries), and a run fails on a
 // sanitizer report, a crash, a leak, a time-out, an error raised inside the compiler, or
 // bytecode the compiler wrote that the loader refuses. What they print isn't checked.
-//   php vm/fuzz.php [--seed N] [--seconds S] [--runs N]
+//   php vm/fuzz.php [--seed N] [--seconds S] [--runs N] [--jobs J]
 //   php vm/fuzz.php --shrink FILE   shrink a saved failure with no time limit (in a run, a minute)
 // Everything follows from the seed (printed first) and the checkout, so `--seed N --runs M`
 // replays a run. A failing program is saved in vm/build/fuzz/, shrunk to a small one that fails
 // the same way, and printed; once fixed, add it to a corpus and record what it prints
 // (php vm/progress.php --update). Programs never open sockets, start programs, exit, write
 // files or read standard input: any whose text (or an included file's) names those builtins
-// is skipped, which is sound because a builtin can only be reached by its name.
+// is skipped, which is sound because a builtin can only be reached by its name. --jobs sets how
+// many sanitized processes run at once (default 24, or GAZLANG_JOBS): raise it on a bigger
+// machine to get through more programs in the same time.
 
 require __DIR__.'/../vendor/autoload.php';
 
@@ -21,13 +23,17 @@ use Random\Randomizer;
 
 const FORBIDDEN = '/\b(run|socket_\w*|exit|write_file|read_stdin)\b/';
 const INTERESTING = ['0', '1', '-1', '2', '63', '64', '255', '256', '9223372036854775807', '-9223372036854775807', '4294967296', '0.0', '-0.0', '1.5', '1e308', '0.1', '10000', '""', '"a"', '[]', '{}', 'null', 'true', 'false'];
-const BATCH = 48;
 const WORK = 'vm/build/fuzz';
 // Where the programs of this run are written: its own, since a run clears it, and two runs in
 // one checkout would otherwise take each other's files away mid-flight
 $work = WORK.'/work';
 
-$options = getopt('', ['seed:', 'seconds:', 'runs:', 'shrink:']);
+$options = getopt('', ['seed:', 'seconds:', 'runs:', 'shrink:', 'jobs:']);
+if (isset($options['jobs'])) {
+    CVM::$jobs = (int) $options['jobs'];
+}
+// Twice the concurrency limit, so a batch always keeps every process slot fed
+$batchSize = CVM::jobs() * 2;
 if (isset($options['shrink'])) {
     CVM::build();
     CVM::$timeLimit = 10;
@@ -66,7 +72,7 @@ $timeouts = 0;
 while ($runs === null ? microtime(true) - $start < $seconds : $count < $runs) {
     $batch = [];
     // Worked out once: $count grows in the loop, so as a condition it would end the batch early
-    $size = $runs === null ? BATCH : min(BATCH, $runs - $count);
+    $size = $runs === null ? $batchSize : min($batchSize, $runs - $count);
     for ($i = 0; $i < $size; $i++) {
         $n = $count++;
         $roll = $rng->getInt(0, 9);
@@ -175,8 +181,8 @@ function signature(string $verdict, array $c): string
 /**
  * A smaller program that still fails with the same signature: whole blocks of lines removed
  * where that keeps the failure, then chunks of lines, then of tokens, the chunk halving once
- * none can go. Each try is a sanitized run, about 0.1s even run 24 at once, so it stops after
- * $seconds with what it has.
+ * none can go. Each try is a sanitized run, about 0.1s even run CVM::$jobs at once, so it stops
+ * after $seconds with what it has.
  */
 function shrink(string $text, string $ext, string $signature, int $seconds = 60): string
 {
@@ -201,7 +207,7 @@ function shrinkOnce(string $text, string $ext, string $signature, float $deadlin
             for ($at = 0; $at < count($parts) && microtime(true) < $deadline;) {
                 $tries = [];
                 $next = $at;
-                for (; $next < count($parts) && count($tries) < 24; $next += max(1, $size)) {
+                for (; $next < count($parts) && count($tries) < CVM::jobs(); $next += max(1, $size)) {
                     $length = $size === 0 ? blockLength($parts, $next) : $size;
                     if ($length > 0) {
                         $tries[$next] = [...array_slice($parts, 0, $next), ...array_slice($parts, $next + $length)];

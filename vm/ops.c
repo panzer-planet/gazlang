@@ -104,9 +104,11 @@ static bool bitwise(int op, Value l, Value r, Value *out) {
 /* Any binary operator but && and ||, which short-circuit in the code */
 bool binary_op(int op, Value l, Value r, Value *out) {
     if (op == OP_CONCAT) {
-        Buf b = {0};
+        /* Most concatenations are short: stay off the heap unless this one isn't */
+        char scratch[64];
+        Buf b = { .data = scratch, .cap = sizeof scratch, .on_stack = true };
         if (!append_string(l, &b) || !append_string(r, &b)) {
-            free(b.data);
+            if (!b.on_stack) free(b.data);
             return false;
         }
         *out = v_str(buf_to_str(&b));

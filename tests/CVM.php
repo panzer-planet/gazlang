@@ -46,6 +46,18 @@ final class CVM
     }
 
     /**
+     * How many sanitized processes run at once; each is cheap (about 0.1s, mostly its own
+     * start-up) but ASan's shadow memory adds up, so this stays a deliberate number rather than
+     * following the core count
+     */
+    public static ?int $jobs = null;
+
+    public static function jobs(): int
+    {
+        return self::$jobs ?? (int) (getenv('GAZLANG_JOBS') ?: 24);
+    }
+
+    /**
      * Build the C VM, the tested build and the optimised one, failing loudly if it doesn't compile
      */
     public static function build(): void
@@ -352,7 +364,7 @@ final class CVM
         $running = [];
         $queue = $commands;
         while ($queue !== [] || $running !== []) {
-            while ($queue !== [] && count($running) < 24) {
+            while ($queue !== [] && count($running) < self::jobs()) {
                 $key = array_key_first($queue);
                 $command = $queue[$key];
                 unset($queue[$key]);

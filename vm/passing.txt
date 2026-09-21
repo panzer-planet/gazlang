@@ -23,7 +23,7 @@ lib/http.gaz
 lib/json.gaz
 lib/random.gaz
 lib/regex.gaz
-lib/sort.gaz
+lib/sorting.gaz
 snippet:00661fc241b6
 snippet:00969dd8d0a4
 snippet:00bccbc15316
@@ -715,13 +715,14 @@ tests/gaz/lib/chars_test.gaz
 tests/gaz/lib/format_test.gaz
 tests/gaz/lib/json_test.gaz
 tests/gaz/lib/regex_test.gaz
-tests/gaz/lib/sort_test.gaz
+tests/gaz/lib/sorting_test.gaz
 tests/gaz/lists/delete_test.gaz
 tests/gaz/loops/foreach_test.gaz
 tests/gaz/match/match_test.gaz
 tests/gaz/numbers/floats_test.gaz
 tests/gaz/objects/kind_of_test.gaz
 tests/gaz/objects/kinds_test.gaz
+tests/gaz/objects/promoted_fields_test.gaz
 tests/gaz/operators/assignment_operators_test.gaz
 tests/gaz/operators/bitwise_test.gaz
 tests/gaz/operators/coalesce_test.gaz
@@ -768,6 +769,7 @@ tests/parser_corpus/no_error_kind.gaz
 tests/parser_corpus/override_of_a_private_parent_method.gaz
 tests/parser_corpus/postfix.gaz
 tests/parser_corpus/precedence.gaz
+tests/parser_corpus/promoted_fields.gaz
 tests/parser_corpus/spread.gaz
 tests/parser_corpus/statements.gaz
 tests/parser_corpus/statics.gaz
