@@ -391,6 +391,7 @@ void buf_add(Buf *b, const char *data, size_t len);
 void buf_adds(Buf *b, const char *s);
 void buf_addc(Buf *b, char c);
 void buf_addf(Buf *b, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
+void buf_add_int(Buf *b, long long v);
 void buf_add_str(Buf *b, const Str *s);
 Str *buf_to_str(Buf *b);   /* frees the buffer */
 
