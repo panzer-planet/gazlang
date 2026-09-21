@@ -1,11 +1,13 @@
-// A football league simulator: rated players, a double round-robin season with commentary
-// on the opening match, the final table and the top scorers.
-//
-//   bin/gazlang -f examples/football.gaz -- [CLUBS] [SEED]
-//
-// CLUBS is how many clubs play, from 2 to 20 (4 by default), taken from the strongest down.
-// Everything random is seeded: the squads are always the same, and the same season seed
-// always plays the same season.
+/*
+ * A football league simulator: rated players, a double round-robin season with commentary
+ * on the opening match, the final table and the top scorers.
+ *
+ *   bin/gazlang -f examples/football.gaz -- [CLUBS] [SEED]
+ *
+ * CLUBS is how many clubs play, from 2 to 20 (4 by default), taken from the strongest down.
+ * Everything random is seeded: the squads are always the same, and the same season seed
+ * always plays the same season.
+ */
 include "../lib/format.gaz" use pad_left, pad_right;
 include "../lib/random.gaz";
 

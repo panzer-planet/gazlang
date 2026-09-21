@@ -1,6 +1,8 @@
-// Errors: Error objects, typed catch clauses, throwing any value, and finally.
-//
-//   bin/gazlang -f examples/errors.gaz
+/*
+ * Errors: Error objects, typed catch clauses, throwing any value, and finally.
+ *
+ *   bin/gazlang -f examples/errors.gaz
+ */
 
 kind NotFound extends Error {
     pub #key;

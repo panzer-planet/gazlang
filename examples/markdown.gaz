@@ -1,10 +1,12 @@
-// Turn a little Markdown into HTML: headings, paragraphs, lists, block quotes, fenced code,
-// and inside text **bold**, *emphasis*, `code` and [links](url).
-//
-//   bin/gazlang -f examples/markdown.gaz [-- FILE]
-//
-// Without a file it converts the document below. Not CommonMark: a block is one kind of
-// thing, and emphasis doesn't nest inside itself.
+/*
+ * Turn a little Markdown into HTML: headings, paragraphs, lists, block quotes, fenced code,
+ * and inside text **bold**, *emphasis*, `code` and [links](url).
+ *
+ *   bin/gazlang -f examples/markdown.gaz [-- FILE]
+ *
+ * Without a file it converts the document below. Not CommonMark: a block is one kind of
+ * thing, and emphasis doesn't nest inside itself.
+ */
 
 const DOCUMENT = "# GazLang notes
 

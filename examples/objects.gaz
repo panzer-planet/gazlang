@@ -1,6 +1,8 @@
-// Kinds: fields, methods, inheritance, bound methods and to_string().
-//
-//   bin/gazlang -f examples/objects.gaz
+/*
+ * Kinds: fields, methods, inheritance, bound methods and to_string().
+ *
+ *   bin/gazlang -f examples/objects.gaz
+ */
 
 abstract kind Shape {
     #name;

@@ -1,6 +1,8 @@
-// Functions, function values and closures.
-//
-//   bin/gazlang -f examples/functions.gaz
+/*
+ * Functions, function values and closures.
+ *
+ *   bin/gazlang -f examples/functions.gaz
+ */
 
 // Named functions live at the top level and can be called before they are declared.
 // $ variables are local to the call; @ variables are global.

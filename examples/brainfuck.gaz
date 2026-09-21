@@ -1,10 +1,12 @@
-// A Brainfuck interpreter: the program is compiled to a list of instructions first, folding
-// runs like +++++ into one and pairing each [ with its ], then run on a tape of bytes.
-//
-//   bin/gazlang -f examples/brainfuck.gaz [-- FILE | squares]
-//
-// Input for , comes from standard input. Without a file it runs the programs below; squares
-// runs a longer one.
+/*
+ * A Brainfuck interpreter: the program is compiled to a list of instructions first, folding
+ * runs like +++++ into one and pairing each [ with its ], then run on a tape of bytes.
+ *
+ *   bin/gazlang -f examples/brainfuck.gaz [-- FILE | squares]
+ *
+ * Input for , comes from standard input. Without a file it runs the programs below; squares
+ * runs a longer one.
+ */
 
 // Hello World!, from the Wikipedia article
 const HELLO = "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.";

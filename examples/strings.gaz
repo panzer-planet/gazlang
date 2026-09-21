@@ -1,6 +1,8 @@
-// Strings: interpolation, escapes and the string builtins.
-//
-//   bin/gazlang -f examples/strings.gaz
+/*
+ * Strings: interpolation, escapes and the string builtins.
+ *
+ *   bin/gazlang -f examples/strings.gaz
+ */
 
 $name = "Gaz";
 $user = {"name" => "Werner", "roles" => ["admin", "dev"]};

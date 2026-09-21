@@ -1,8 +1,10 @@
-// Pretty-print JSON with two-space indentation, keeping key order.
-//
-//   bin/gazlang -f examples/json_pretty.gaz [-- FILE]
-//
-// With no file it formats the sample below; invalid JSON stops with an error and exit code 1.
+/*
+ * Pretty-print JSON with two-space indentation, keeping key order.
+ *
+ *   bin/gazlang -f examples/json_pretty.gaz [-- FILE]
+ *
+ * With no file it formats the sample below; invalid JSON stops with an error and exit code 1.
+ */
 include "../lib/json.gaz";
 
 fn pretty($value, $indent = "") {

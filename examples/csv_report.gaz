@@ -1,8 +1,10 @@
-// Summarise a CSV file: group rows by one column and total another.
-//
-//   bin/gazlang -f examples/csv_report.gaz -- FILE GROUP_COLUMN AMOUNT_COLUMN
-//
-// With no arguments it reports examples/data/sales.csv by region and amount.
+/*
+ * Summarise a CSV file: group rows by one column and total another.
+ *
+ *   bin/gazlang -f examples/csv_report.gaz -- FILE GROUP_COLUMN AMOUNT_COLUMN
+ *
+ * With no arguments it reports examples/data/sales.csv by region and amount.
+ */
 include "../lib/csv.gaz";
 include "../lib/format.gaz";
 

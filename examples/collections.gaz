@@ -1,6 +1,8 @@
-// Lists and maps.
-//
-//   bin/gazlang -f examples/collections.gaz
+/*
+ * Lists and maps.
+ *
+ *   bin/gazlang -f examples/collections.gaz
+ */
 
 // A list holds values in order, indexed from 0
 $primes = [2, 3, 5];
