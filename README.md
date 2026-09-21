@@ -58,6 +58,10 @@ echo 'echo "hello";' > hello.gaz
 bin/gazlang -f hello.gaz
 ```
 
+`make -C vm pgo` builds a faster `bin/gazlang` (by a few to ten percent) with profile-guided
+optimisation: it runs gazlang on the compiler and the examples, then compiles it again knowing
+which code is hot. It needs clang with `llvm-profdata` (Xcode's command line tools have it) or gcc.
+
 Then try a sample program or two:
 
 ```bash
@@ -335,7 +339,7 @@ West    899.95
 
 Each program below does the same work in GazLang, PHP and Python (they are in
 [`vm/bench/`](vm/bench)). The time is the whole process's CPU time, best of 7 runs,
-interleaved, on an Intel i7-8700 running macOS.
+interleaved, on an Intel i7-8700 running macOS, with gazlang built by plain `make`.
 
 | Program | GazLang | PHP 8.5 (JIT) | Python 3.12 |
 | --- | ---: | ---: | ---: |
