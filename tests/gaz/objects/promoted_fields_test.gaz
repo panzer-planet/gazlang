@@ -1,0 +1,55 @@
+include "../check.gaz";
+
+// A constructor parameter written as #name (pub, kin, or neither) declares the field, with
+// that visibility, and assigns it from the parameter: sugar for a field declared elsewhere in
+// the kind plus #name = $name; as the first line of the body.
+kind Point {
+    fn _(pub #x, #y) {}
+    pub fn to_string() { return "({#x}, {#y})"; }
+}
+$p = Point(3, 4);
+check("a promoted field is set from its parameter", $p.to_string(), "(3, 4)");
+check("a pub promoted field can be read from outside", $p.x, 3);
+try {
+    echo $p.y;
+    check("a plain promoted field stays private", false, true);
+} catch ($e) {
+    check("a plain promoted field stays private", $e.message, "Point.y is not pub, so only Point can use it");
+}
+
+// A default on a promoted parameter behaves like any parameter default: evaluated per call,
+// not the field-default mechanism (which can't see $ variables)
+kind Named {
+    fn _(pub #name = "anon");
+    pub fn to_string() { return #name; }
+}
+check("a promoted field's default is its parameter's", Named().to_string(), "anon");
+check("a given argument overrides the default", Named("bob").to_string(), "bob");
+
+// The synthetic assignment runs before the rest of the body, so it can use what was promoted
+kind Box {
+    fn _(pub #width, #height) {
+        #area = #width * #height;
+    }
+    pub #area;
+}
+check("the body runs after promotion, and can use it", Box(3, 4).area, 12);
+
+// kin promotes for a kind and what extends it, exactly as kin #x; would
+kind Base {
+    fn _(kin #secret) {}
+    pub fn reveal() { return #secret; }
+}
+check("kin promotion is visible to the declaring kind", Base(1).reveal(), 1);
+
+// A field promoted through inheritance: the parent's constructor still needs calling with ##_
+kind Animal {
+    fn _(pub #name);
+}
+kind Dog extends Animal {
+    fn _($name, pub #breed) {
+        ##_($name);
+    }
+    pub fn to_string() { return "{#name} the {#breed}"; }
+}
+check("promotion works the same in a child that calls the parent's constructor", Dog("Rex", "lab").to_string(), "Rex the lab");

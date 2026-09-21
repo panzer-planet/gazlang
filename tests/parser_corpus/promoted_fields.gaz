@@ -1,0 +1,12 @@
+// A constructor parameter written as #name (optionally pub or kin) declares the field and
+// assigns it, instead of #name; elsewhere in the kind plus #name = $name; in the body. The
+// assignment is prepended to the body, so an explicit body still runs after it, and a
+// constructor that needs nothing else can end with ; instead of {}.
+kind Point {
+    fn _(pub #x, kin #y, #z);
+}
+kind Named {
+    fn _(pub #name = "anon") {
+        echo "made " .. #name;
+    }
+}

@@ -235,7 +235,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - Appending to a list parameter silently does nothing (`fn add_to($l) { $l[] = 1; }`), and
     the parser can't tell it from a function that returns the list. Mutable state belongs in
     an object; by-reference parameters aren't worth their cost against refcounting.
-  - `$obj.$name` (dynamic member access; `lib/sort.gaz` can sort maps but not objects),
+  - `$obj.$name` (dynamic member access; `lib/sorting.gaz` can sort maps but not objects),
     `json_encode` of an object (`fields()` lists what it would write; `to_string()` and cycles
     to settle), and `kind_name($kind)` (the bare name; today `slice(to_string(kind_of($x)),
     5)`).
@@ -284,8 +284,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     part is resolved, since a namespace holds no namespace: in `namespace gazlang`,
     `Token::EOF` is `gazlang::Token::EOF` and `json::decode` is already what it means.
   - **A namespace's own name wins over a builtin of that name inside it**, which is what the
-    order means: `pub fn values()` in `namespace sort` makes a bare `values($x)` in that file
-    `sort::values($x)`. The alternative, builtins first, would mean a new builtin could take a
+    order means: `pub fn values()` in `namespace sorting` makes a bare `values($x)` in that file
+    `sorting::values($x)`. The alternative, builtins first, would mean a new builtin could take a
     name a namespace already used.
   - Errors are the parser's: a `use` on a file that declares no namespace, a name that isn't
     `pub`, a name in a `use` clause that is qualified, an alias already taken, a namespace
@@ -527,7 +527,7 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   compiler always runs on the runtime that will run its output, and a loader refuses bytecode
   naming a builtin it lacks.
 - In GazLang instead, each its own namespace, so only what a file marks `pub` escapes it:
-  `chars.gaz` (character classes), `sort.gaz` (`sort::values`, `sort::by`, on `sort`),
+  `chars.gaz` (character classes), `sorting.gaz` (`sorting::values`, `sorting::by`, on `sort`),
   `format.gaz` (`format::number`, `format::pad_left`/`pad_right`
   convert like echo: display helpers take any value, string functions stay strict),
   `json.gaz`, `csv.gaz` (RFC 4180), `http.gaz` (method and header names checked
@@ -604,6 +604,16 @@ $area = $c.area;                              // a bound method
   the arguments. A kind without `_` inherits its parent's. A child calls the parent's with
   `##_(...)`, only in a constructor; nothing calls it automatically. `return value;` in `_` and
   `_` as a member are errors.
+- **A constructor parameter written `#name` (or `pub #name`, `kin #name`) promotes it**:
+  sugar for declaring the field with that visibility and assigning it from the parameter,
+  `fn _(pub #x, #y) {}` being `#x;` and `#y;` in the kind plus `#x = $x; #y = $y;` as the first
+  lines of `_`'s body — an ordinary `$name` parameter and a promoted `#name` one may mix freely.
+  It is parser sugar only (`compiler/parser.gaz`'s `parameters()`/`promoted_assignment()`):
+  the assignment is a synthesised `#x = $x;` statement prepended to the body, indistinguishable
+  from a hand-written one to the code generator or VM, so it costs nothing beyond parsing. The
+  parameter's own default (evaluated per call, may use `$` unlike a field default) is what
+  gives the field its value; a promoted field takes no default of its own. A constructor with
+  nothing left to write can end with `;` instead of `{}`, the assignments being all there is.
 - **Fields are declared** (`#x;` or `#x = default;`); a default is evaluated per object, may use
   `#` but not `$` variables. Reading a field never set is an error; `??` reads it as null.
   Objects print only the fields that are set.

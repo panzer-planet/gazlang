@@ -245,10 +245,8 @@ abstract kind Shape {
 }
 
 kind Circle extends Shape {
-    pub #radius;                         // pub, so anyone can read and write it
-    fn _($radius) {
+    fn _(pub #radius) {                  // pub #radius: a field, set from the parameter
         ##_("circle");                   // the parent's constructor
-        #radius = $radius;
     }
     pub fn area() { return 3.14159 * #radius * #radius; }
 }
@@ -263,6 +261,12 @@ echo is_a($c, Shape) .. " " .. $c.radius;
   `match (kind_of($node)) { NumAST => ..., AddAST => ... }` dispatches from outside the kinds.
 - **Fields are declared** (`#x;` or `#x = default;`). A default is evaluated per object, so a
   `[]` default is never shared. Reading one never set is an error; `??` reads it as null.
+- **A constructor parameter written `#name` promotes it to a field**, `pub`/`kin` marking its
+  visibility as they would on a plain field declaration: `fn _(pub #x, #y) {}` declares `#x`
+  (pub) and `#y` (private) and assigns them from the parameters, as if written `#x = $x; #y =
+  $y;` at the top of the body. A default on a promoted parameter is the parameter's own
+  (evaluated per call, so it may use `$` earlier parameters), not a field default. A
+  constructor with nothing else to do can end `;` instead of `{}`.
 - **`#` is this object**, `#name` a field or method, `##name` the parent's version of a method.
   All checked at parse time against the kind.
 - **Objects are handles**: `$b = $a; $b.x = 1` changes `$a`. `==` is identity. Lists and maps
@@ -523,8 +527,8 @@ resolved, since a namespace holds no namespace: inside `namespace gazlang`, `Tok
 `gazlang::Token::EOF`, while `json::decode` is already what it means.
 
 A namespace's own name wins over a builtin of that name inside it, so declaring
-`pub fn values()` in `namespace sort` makes `values($x)` mean `sort::values($x)` in that file;
-write `sort.gaz`'s own calls to the builtin as they are meant, or pick another name.
+`pub fn values()` in `namespace sorting` makes `values($x)` mean `sorting::values($x)` in that
+file; write `sorting.gaz`'s own calls to the builtin as they are meant, or pick another name.
 
 `::` resolves a name and `.` goes through a value, so `json::decode` and `Token::EOF` are names
 the parser works out, and `$reader.decode` is a member of whatever `$reader` holds. A `:`
@@ -541,7 +545,7 @@ its names are reached with `::`; everything in `lib/` is written in GazLang:
 
 | File | What is in it |
 | --- | --- |
-| `sort.gaz` | `sort::values`, `sort::by` |
+| `sorting.gaz` | `sorting::values`, `sorting::by` |
 | `json.gaz` | `json::decode`, `json::encode` |
 | `csv.gaz` | `csv::parse`, `csv::records` (RFC 4180) |
 | `chars.gaz` | `chars::char_at`, `chars::is_digit`, `chars::is_alpha`, `chars::is_alnum`, `chars::is_space`, `chars::is_hex_digit` |

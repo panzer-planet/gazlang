@@ -1,0 +1,5 @@
+// A promoted constructor parameter declares its field, so it can't repeat one already declared
+kind Point {
+    #x;
+    fn _(pub #x) {}
+}
