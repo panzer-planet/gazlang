@@ -1,0 +1,45 @@
+ok literal match
+ok literal too long fails full match
+ok dot matches any byte
+ok star matches zero
+ok star matches many
+ok plus needs at least one
+ok plus matches one
+ok opt matches zero
+ok opt matches one
+ok alternation left
+ok alternation right
+ok alternation neither
+ok three-way alternation
+ok group with star
+ok group with star, zero reps
+ok group with star rejects partial rep
+ok nested group and opt
+ok class range hit
+ok class range miss
+ok class list
+ok negated class hit
+ok negated class miss
+ok class with trailing dash is literal
+ok class with leading caret-as-content
+ok matches is anchored at both ends
+ok search finds a substring
+ok search finds nothing
+ok find gives the start index
+ok find is leftmost
+ok find gives null when absent
+ok find on an empty pattern is position 0
+ok matches an empty pattern only on an empty string
+ok matches an empty pattern rejects a non-empty string
+ok explicit anchors act like a full match inside search
+ok explicit anchors satisfied
+ok caret only matches at position 0
+ok dollar only matches at the end
+ok dollar matches at the end
+ok backslash escapes a metacharacter
+ok an escaped dot no longer matches any byte
+ok a small email-shaped pattern
+ok the same pattern rejects a bare word
+ok an unclosed group is a catchable error
+ok an unclosed class is a catchable error
+ok a stray ')' is a catchable error
