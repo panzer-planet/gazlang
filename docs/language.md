@@ -523,8 +523,8 @@ resolved, since a namespace holds no namespace: inside `namespace gazlang`, `Tok
 `gazlang::Token::EOF`, while `json::decode` is already what it means.
 
 A namespace's own name wins over a builtin of that name inside it, so declaring
-`pub fn values()` in `namespace sort` makes `values($x)` mean `sort::values($x)` in that file;
-write `sort.gaz`'s own calls to the builtin as they are meant, or pick another name.
+`pub fn values()` in `namespace sorting` makes `values($x)` mean `sorting::values($x)` in that
+file; write `sorting.gaz`'s own calls to the builtin as they are meant, or pick another name.
 
 `::` resolves a name and `.` goes through a value, so `json::decode` and `Token::EOF` are names
 the parser works out, and `$reader.decode` is a member of whatever `$reader` holds. A `:`
@@ -541,7 +541,7 @@ its names are reached with `::`; everything in `lib/` is written in GazLang:
 
 | File | What is in it |
 | --- | --- |
-| `sort.gaz` | `sort::values`, `sort::by` |
+| `sorting.gaz` | `sorting::values`, `sorting::by` |
 | `json.gaz` | `json::decode`, `json::encode` |
 | `csv.gaz` | `csv::parse`, `csv::records` (RFC 4180) |
 | `chars.gaz` | `chars::char_at`, `chars::is_digit`, `chars::is_alpha`, `chars::is_alnum`, `chars::is_space`, `chars::is_hex_digit` |

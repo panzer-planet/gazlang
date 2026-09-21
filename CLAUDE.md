@@ -235,7 +235,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - Appending to a list parameter silently does nothing (`fn add_to($l) { $l[] = 1; }`), and
     the parser can't tell it from a function that returns the list. Mutable state belongs in
     an object; by-reference parameters aren't worth their cost against refcounting.
-  - `$obj.$name` (dynamic member access; `lib/sort.gaz` can sort maps but not objects),
+  - `$obj.$name` (dynamic member access; `lib/sorting.gaz` can sort maps but not objects),
     `json_encode` of an object (`fields()` lists what it would write; `to_string()` and cycles
     to settle), and `kind_name($kind)` (the bare name; today `slice(to_string(kind_of($x)),
     5)`).
@@ -284,8 +284,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     part is resolved, since a namespace holds no namespace: in `namespace gazlang`,
     `Token::EOF` is `gazlang::Token::EOF` and `json::decode` is already what it means.
   - **A namespace's own name wins over a builtin of that name inside it**, which is what the
-    order means: `pub fn values()` in `namespace sort` makes a bare `values($x)` in that file
-    `sort::values($x)`. The alternative, builtins first, would mean a new builtin could take a
+    order means: `pub fn values()` in `namespace sorting` makes a bare `values($x)` in that file
+    `sorting::values($x)`. The alternative, builtins first, would mean a new builtin could take a
     name a namespace already used.
   - Errors are the parser's: a `use` on a file that declares no namespace, a name that isn't
     `pub`, a name in a `use` clause that is qualified, an alias already taken, a namespace
@@ -527,7 +527,7 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   compiler always runs on the runtime that will run its output, and a loader refuses bytecode
   naming a builtin it lacks.
 - In GazLang instead, each its own namespace, so only what a file marks `pub` escapes it:
-  `chars.gaz` (character classes), `sort.gaz` (`sort::values`, `sort::by`, on `sort`),
+  `chars.gaz` (character classes), `sorting.gaz` (`sorting::values`, `sorting::by`, on `sort`),
   `format.gaz` (`format::number`, `format::pad_left`/`pad_right`
   convert like echo: display helpers take any value, string functions stay strict),
   `json.gaz`, `csv.gaz` (RFC 4180), `http.gaz` (method and header names checked

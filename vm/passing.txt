@@ -22,7 +22,7 @@ lib/format.gaz
 lib/http.gaz
 lib/json.gaz
 lib/random.gaz
-lib/sort.gaz
+lib/sorting.gaz
 snippet:00661fc241b6
 snippet:00969dd8d0a4
 snippet:00bccbc15316
@@ -713,7 +713,7 @@ tests/gaz/functions/default_parameters_test.gaz
 tests/gaz/lib/chars_test.gaz
 tests/gaz/lib/format_test.gaz
 tests/gaz/lib/json_test.gaz
-tests/gaz/lib/sort_test.gaz
+tests/gaz/lib/sorting_test.gaz
 tests/gaz/lists/delete_test.gaz
 tests/gaz/loops/foreach_test.gaz
 tests/gaz/match/match_test.gaz
