@@ -235,6 +235,28 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - Appending to a list parameter silently does nothing (`fn add_to($l) { $l[] = 1; }`), and
     the parser can't tell it from a function that returns the list. Mutable state belongs in
     an object; by-reference parameters aren't worth their cost against refcounting.
+  - A write path can't pass through a call: `$match.home.goalkeeper().clean_sheets++` is
+    refused (`path_root()` in `compiler/nodes.gaz` only unwraps index and property steps, so a
+    call anywhere in the chain looks the same as one at the very start, `make().x`), even though
+    `goalkeeper()` here returns a `Player`, a handle, so mutating it would be exactly right.
+    The parser can't tell that from a call returning a list or map, where writing into a fresh
+    copy would silently do nothing, so it bans a call in the chain uniformly. The fix moves the
+    check from parse time to the VM's `STORE_PATH`: let a call sit mid-path, and raise there if
+    what it returned isn't an object. Until then, bind the call to a variable first
+    (`examples/football.gaz`'s `#clean_sheets` hit this).
+  - `map`/`filter`/`reduce` call their function with the value alone, even over a list, so
+    getting the index needs a `foreach ($x as $i => $v)` instead of a `map()`
+    (`Scout.team()`'s shirt numbers hit this: `map($formation.positions(), $kind -> ...)`
+    became a `foreach` once it needed the index).
+  - `min`/`max` take exactly two numbers or two strings, not a list, and there is no `sum()`:
+    finding the smallest, largest or total of a list is `reduce($x, ($a, $b) -> ..., $initial)`
+    written out by hand every time, not a call.
+  - `split($x, $sep)` has no limit: it always splits on every occurrence, so keeping the
+    trailing remainder together (`"a=b=c"` split on `"="` into `["a", "b=c"]`) needs
+    `index_of` and two `slice`s instead of a third argument.
+  - No `?.`: `$x?.foo` doesn't parse. `??` covers a missing map key or an unset field, but not
+    "this might itself be null, so skip the read"; that's an explicit
+    `$x == null ? null : $x.foo` every time.
   - `$obj.$name` (dynamic member access; `lib/sorting.gaz` can sort maps but not objects),
     `json_encode` of an object (`fields()` lists what it would write; `to_string()` and cycles
     to settle), and `kind_name($kind)` (the bare name; today `slice(to_string(kind_of($x)),

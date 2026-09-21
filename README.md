@@ -42,6 +42,9 @@ no dogs here
   error messages included, is recorded, and thousands of tests hold gazlang to it under
   AddressSanitizer and a leak check, on Linux and on both kinds of Mac. The compiler has to
   compile itself to exactly itself.
+- **Batteries included, and self-hosted.** JSON, CSV, an HTTP/1.1 client with TLS, and
+  regular expressions with no ReDoS (a Thompson NFA, not backtracking) — all in `lib/`, all
+  written in GazLang, none of it a C shortcut.
 
 It is a hobby language, not production software, and it would like company.
 
@@ -62,7 +65,7 @@ bin/gazlang -f hello.gaz
 optimisation: it runs gazlang on the compiler and the examples, then compiles it again knowing
 which code is hot. It needs clang with `llvm-profdata` (Xcode's command line tools have it) or gcc.
 
-Then try a sample program or two:
+Then kick the tyres:
 
 ```bash
 bin/gazlang -f examples/pathfinding.gaz      # the fewest steps and the least effort across a map
@@ -136,6 +139,30 @@ Cannot use + on string
 `+ - * /` are for numbers only. Integers never silently become floats: a result that will not
 fit is an `Integer overflow` error, not a quiet loss of precision. There is no `===`, because
 `==` never converted anything in the first place.
+
+### Operators worth knowing about
+
+```gaz
+$user = null;
+echo $user ?? "guest";                     // ?? reads the left unless null or missing
+echo (5 > 3) ? "yes" : "no";               // ?:, right associative, only the taken branch runs
+
+[$first, $second] = [10, 20];              // a list pattern: unpack in one line
+echo $first + $second;
+
+echo 0xF0 & 0x3C;                          // bitwise & | ^ << >> ~, ints only
+echo -7 % 3;                               // %, ints only, sign follows the left operand
+echo [...[1, 2], ...[3, 4]];               // spread into a list literal
+```
+
+```
+guest
+yes
+30
+48
+-1
+[1, 2, 3, 4]
+```
 
 ### Lists and maps
 
@@ -230,14 +257,13 @@ echo $next();
 
 Fields are declared, single inheritance, and constructing is just a call — no `new`. `#` is
 this object, `#name` one of its fields or methods. A member is the kind's own unless it says
-`pub`, the same word that lets a name out of a namespace.
+`pub` or `kin` (visible to children too) — the same ladder that governs a namespace.
 
 ```gaz
 kind Account {
-    pub #owner;
     #balance = 0;                         // Account's own: nothing outside can read it
 
-    fn _($owner) { #owner = $owner; }     // the constructor
+    fn _(pub #owner) {}                   // a promoted parameter: field + assignment, in one
 
     pub fn deposit($amount) {
         #balance += $amount;
@@ -254,6 +280,52 @@ echo $a;
 
 ```
 Ada: 75
+```
+
+Single inheritance, with `##` reaching the parent's version of a method and a constructor
+calling `##_(...)` to run the parent's:
+
+```gaz
+kind Point {
+    fn _(pub #x, pub #y) {}
+    pub fn to_string() { return "({#x}, {#y})"; }
+}
+
+kind Circle extends Point {
+    fn _($x, $y, #radius) { ##_($x, $y); }
+
+    pub fn area() { return 3.14159 * #radius * #radius; }
+    pub fn to_string() {
+        $area = round(#area(), 2);
+        return "{##to_string()} r={#radius} area={$area}";
+    }
+}
+
+$c = Circle(1, 2, 3);
+echo $c;
+echo $c.x .. "," .. $c.y;   // #x is pub, so it reaches outside the kind
+```
+
+```
+(1, 2) r=3 area=28.27
+1,2
+```
+
+Fields and methods can be `static`, shared by a kind and every child rather than per object:
+
+```gaz
+kind Counter {
+    static #count = 0;
+    static fn next() { return ++Counter::count; }
+}
+
+echo Counter::next();
+echo Counter::next();
+```
+
+```
+1
+2
 ```
 
 ### Errors

@@ -1,6 +1,6 @@
 /*
  * A football league simulator: rated players, a double round-robin season with commentary
- * on the opening match, the final table and the top scorers.
+ * on the opening match, every matchday's scores, the final table and the top scorers.
  *
  *   bin/gazlang -f examples/football.gaz -- [CLUBS] [SEED]
  *
@@ -14,19 +14,21 @@ include "../lib/random.gaz";
 // Players: a rating from 40 to 95, and every position turns it into attacking and defending
 
 abstract kind Player {
-    #name;
-    pub #rating;
     kin #energy = 100;
-    // What form() gives at the current energy, kept up to date by rest() and tire()
+    // What form() gives at the current energy and day_form, kept up to date by rest() and tire()
     kin #sharpness = 0;
+    // Drawn fresh by rest(): some days everything comes off, others nothing does, whoever you
+    // are, so a lesser player can have the game of their life and a star an off day
+    kin #day_form = 1.0;
     pub #goals = 0;
+    pub #clean_sheets = 0;
     pub #yellow_cards = 0;
     pub #sent_off = false;
+    // This match only, reset by rest(): what motm() judges the man of the match on
+    pub #match_goals = 0;
+    pub #saves = 0;
 
-    fn _($name, $rating) {
-        #name = $name;
-        #rating = $rating;
-    }
+    fn _(#name, pub #rating, pub #number) {}
 
     pub abstract fn position();
     pub abstract fn attacking();
@@ -43,14 +45,30 @@ abstract kind Player {
 
     pub fn tire($minutes) {
         #energy = max(#energy - $minutes * #work_rate(), 40);
-        #sharpness = #form();
+        #sharpness = #form() * #day_form;
     }
 
     pub fn rest() {
         #energy = 100;
-        #sharpness = #form();
+        #day_form = #roll_day_form();
+        #sharpness = #form() * #day_form;
         #yellow_cards = 0;
         #sent_off = false;
+        #match_goals = 0;
+        #saves = 0;
+    }
+
+    // Most days are close to normal, but every so often, whoever you are, nothing comes off,
+    // or everything does: uniform noise averages out over a season, so this leaves room for
+    // rare, big swings that a run of them can carry a lesser player up the scoring charts
+    fn roll_day_form() {
+        $tier = random::weighted([["shocker", 10], ["normal", 65], ["good", 20], ["blinder", 5]]);
+        return match ($tier) {
+            "shocker" => 0.5 + rand_float() * 0.2,
+            "normal" => 0.85 + rand_float() * 0.3,
+            "good" => 1.2 + rand_float() * 0.3,
+            "blinder" => 1.6 + rand_float() * 0.6,
+        };
     }
 
     // A booking; the second yellow card is a red one
@@ -61,7 +79,7 @@ abstract kind Player {
     }
 
     pub fn to_string() { return #name; }
-    pub fn profile() { return "{#name} ({#position()} {#rating})"; }
+    pub fn profile() { return "#{#number} {#name} ({#position()} {#rating})"; }
 }
 
 kind Goalkeeper extends Player {
@@ -106,23 +124,16 @@ kind InvalidLineup extends Error {
 }
 
 kind Team {
-    pub #name;
-    pub #formation;
-    pub #players;
     // What the players on the pitch add up to (see summary()), forgotten whenever they change
     #cache;
 
-    fn _($name, $formation, $players) {
-        #name = $name;
-        #formation = $formation;
-        #players = $players;
-
-        if (len($players) != 11) {
-            error(InvalidLineup($name, len($players) .. " players instead of 11"));
+    fn _(pub #name, pub #formation, pub #players) {
+        if (len(#players) != 11) {
+            error(InvalidLineup(#name, len(#players) .. " players instead of 11"));
         }
-        $keepers = len(filter($players, $player -> is_a($player, Goalkeeper)));
+        $keepers = len(filter(#players, $player -> is_a($player, Goalkeeper)));
         if ($keepers != 1) {
-            error(InvalidLineup($name, "{$keepers} goalkeepers"));
+            error(InvalidLineup(#name, "{$keepers} goalkeepers"));
         }
     }
 
@@ -169,7 +180,15 @@ kind Team {
     pub fn defence() { return #summary()["defence"]; }
     pub fn goalkeeper() { return #summary()["keeper"]; }
     // Only players who attack at all are shooters, so their weights add up to the attack
-    pub fn shooter() { return random::weighted(#summary()["shooters"], #summary()["shooting"]); }
+    // Most attempts fall to the sharper players, but the ball finds a fringe player too now
+    // and then, whatever their rating: a scramble, a deflection, a shot nobody saw coming
+    pub fn shooter() {
+        $shooters = #summary()["shooters"];
+        if (random::chance(0.15)) {
+            return random::pick($shooters)[0];
+        }
+        return random::weighted($shooters, #summary()["shooting"]);
+    }
     pub fn rating() { return round(reduce(#players, ($sum, $player) -> $sum + $player.rating, 0) / 11, 1); }
 
     // The players tired, rested or were sent off
@@ -194,14 +213,12 @@ kind Team {
 
 // A formation like "4-3-3": defenders, midfielders and forwards, ten outfield players in all
 kind Formation {
-    #name;
     #lines;
 
-    fn _($name) {
-        #name = $name;
-        #lines = map(split($name, "-"), to_int);
+    fn _(#name) {
+        #lines = map(split(#name, "-"), to_int);
         if (len(#lines) != 3 || reduce(#lines, ($sum, $n) -> $sum + $n, 0) != 10) {
-            error("Not a formation: {$name}");
+            error("Not a formation: {#name}");
         }
     }
 
@@ -225,17 +242,27 @@ kind Scout {
 
     pub fn team($name, $level, $formation) {
         $formation = Formation($formation);
-        // Kinds are values: the formation says which ones to construct
-        $players = map($formation.positions(), $kind -> $kind(#new_name(), #rating($level)));
+        // Kinds are values: the formation says which ones to construct. The goalkeeper is
+        // always first, so shirt 1 always goes in goal
+        $players = [];
+        foreach ($formation.positions() as $shirt => $kind) {
+            $players[] = $kind(#new_name(), #rating($level), $shirt + 1);
+        }
         return Team($name, $formation, $players);
     }
 
+    // Most of a squad sits around the club's level, but every squad has some fringe players
+    // dragging it down and, now and then, a star lifting it up. A wonderkid can turn up
+    // anywhere, a raw talent a small club got lucky with, rated on their own merit, not the
+    // club's
     fn rating($level) {
-        $rating = $level + rand_int(-9, 7);
-        // Now and then a club has a star
-        if (random::chance(0.08)) {
-            $rating += 8;
-        }
+        $tier = random::weighted([["fringe", 25], ["regular", 55], ["star", 16], ["wonderkid", 4]]);
+        $rating = match ($tier) {
+            "fringe" => $level + rand_int(-25, -10),
+            "regular" => $level + rand_int(-6, 6),
+            "star" => $level + rand_int(7, 15),
+            "wonderkid" => rand_int(85, 95),
+        };
         return min(max($rating, 40), 95);
     }
 
@@ -268,73 +295,45 @@ const SURNAMES = [
 // What happens in a match
 
 abstract kind Event {
-    #minute;
-    pub #team;
-    fn _($minute, $team) {
-        #minute = $minute;
-        #team = $team;
-    }
+    fn _(#minute, pub #team) {}
     pub abstract fn describe();
     pub fn to_string() { return pad_left("{#minute}'", 4) .. "  " .. #describe(); }
 }
 
 kind Goal extends Event {
-    #scorer;
-    #score;
-    fn _($minute, $team, $scorer, $score) {
-        ##_($minute, $team);
-        #scorer = $scorer;
-        #score = $score;
-    }
+    fn _($minute, $team, #scorer, #score) { ##_($minute, $team); }
     pub fn describe() { return "GOAL! {#scorer} scores for {#team}. {#score}"; }
 }
 
 kind Shot extends Event {
-    #shooter;
-    #keeper;
-    fn _($minute, $team, $shooter, $keeper) {
-        ##_($minute, $team);
-        #shooter = $shooter;
-        #keeper = $keeper;
-    }
     // Without a keeper, the shot missed the target
+    fn _($minute, $team, #shooter, #keeper) { ##_($minute, $team); }
     pub fn describe() {
         return #keeper == null ? "{#shooter} ({#team}) shoots wide" : "{#shooter} ({#team}) is denied by {#keeper}";
     }
 }
 
 kind Booking extends Event {
-    #player;
-    #red;
-    fn _($minute, $team, $player, $red) {
-        ##_($minute, $team);
-        #player = $player;
-        #red = $red;
-    }
+    fn _($minute, $team, #player, #red) { ##_($minute, $team); }
     pub fn describe() {
         return #red ? "RED CARD: {#player} ({#team}) is sent off" : "Yellow card for {#player} ({#team})";
     }
 }
 
 kind Whistle extends Event {
-    #text;
-    fn _($minute, $text) {
-        ##_($minute, null);
-        #text = $text;
-    }
+    fn _($minute, #text) { ##_($minute, null); }
     pub fn describe() { return #text; }
 }
 
 kind Fixture {
-    pub #home;
-    pub #away;
     pub #home_goals = 0;
     pub #away_goals = 0;
     #listeners = [];
+    // How many fixtures have been played across every season this run, not just this league's
+    pub static #matches_played = 0;
 
-    fn _($home, $away) {
-        #home = $home;
-        #away = $away;
+    fn _(pub #home, pub #away) {
+        Fixture::matches_played++;
     }
 
     // $listener($event) is called for everything that happens
@@ -388,11 +387,13 @@ kind Fixture {
             return;
         }
         if (random::chance($keeper.defending() / ($keeper.defending() + $shooter.attacking() * 1.1))) {
+            $keeper.saves++;
             #emit(Shot($minute, $attackers, $shooter, $keeper));
             return;
         }
 
         $shooter.goals++;
+        $shooter.match_goals++;
         if ($attackers == #home) {
             #home_goals++;
         } else {
@@ -418,12 +419,22 @@ kind Fixture {
     }
 
     pub fn to_string() { return "{#home} {#home_goals} - {#away_goals} {#away}"; }
+
+    // The standout of the 22: goals and saves count for most, an overall attacking or
+    // defensive display (attacking() + defending() reflects the day's sharpness) breaks a tie
+    pub fn motm() {
+        $all = [...#home.players, ...#away.players];
+        return sort($all, ($a, $b) -> #motm_score($b) <=> #motm_score($a))[0];
+    }
+
+    fn motm_score($player) {
+        return $player.match_goals * 5 + $player.saves * 2 + ($player.attacking() + $player.defending()) * 0.05;
+    }
 }
 
 // A league: everyone plays everyone home and away
 
 kind Standing {
-    #team;
     #played = 0;
     #won = 0;
     #drawn = 0;
@@ -431,7 +442,7 @@ kind Standing {
     pub #scored = 0;
     #conceded = 0;
 
-    fn _($team) { #team = $team; }
+    fn _(pub #team) {}
 
     pub fn record($scored, $conceded) {
         #played++;
@@ -460,6 +471,9 @@ kind Standing {
 kind League {
     #teams;
     #standings = {};
+
+    // Every club plays every other club twice, home and away
+    pub static fn matches_for($clubs) { return $clubs * ($clubs - 1); }
 
     fn _($teams) {
         #teams = $teams;
@@ -490,18 +504,11 @@ kind League {
             }
             $first_half[] = $matchday;
             // Keep the first team in place and turn the rest one step
-            $turned = [$teams[0], $teams[$count - 1]];
-            foreach (slice($teams, 1, $count - 2) as $team) {
-                $turned[] = $team;
-            }
-            $teams = $turned;
+            $teams = [$teams[0], $teams[$count - 1], ...slice($teams, 1, $count - 2)];
         }
 
-        $fixtures = $first_half;
-        foreach ($first_half as $matchday) {
-            $fixtures[] = map($matchday, $pair -> [$pair[1], $pair[0]]);
-        }
-        return $fixtures;
+        // The second half of the season is the same fixtures with home and away swapped
+        return [...$first_half, ...map($first_half, $matchday -> map($matchday, $pair -> [$pair[1], $pair[0]]))];
     }
 
     // Plays the season; $kick_off($match) is called as each match starts, and
@@ -545,6 +552,16 @@ kind League {
             }
         }
         return slice(sort($scorers, ($a, $b) -> $b["player"].goals <=> $a["player"].goals), 0, $count);
+    }
+
+    pub fn top_keepers($count) {
+        $keepers = [];
+        foreach (#teams as $team) {
+            foreach (filter($team.players, $player -> is_a($player, Goalkeeper) && $player.clean_sheets > 0) as $player) {
+                $keepers[] = {"player" => $player, "team" => $team};
+            }
+        }
+        return slice(sort($keepers, ($a, $b) -> $b["player"].clean_sheets <=> $a["player"].clean_sheets), 0, $count);
     }
 }
 
@@ -612,7 +629,7 @@ if (len(args()) > 2) {
 
 // A squad has to be a proper eleven
 try {
-    Team("Sunday Strollers", Formation("4-4-2"), [Goalkeeper("J. Bloggs", 50), Goalkeeper("J. Doe", 50)]);
+    Team("Sunday Strollers", Formation("4-4-2"), [Goalkeeper("J. Bloggs", 50, 1), Goalkeeper("J. Doe", 50, 2)]);
 } catch (InvalidLineup $e) {
     echo "Refused: {$e.message}";
 }
@@ -624,19 +641,35 @@ $teams = [];
 foreach (slice($clubs, 0, $count) as [$name, $level, $formation]) {
     $teams[] = $scout.team($name, $level, $formation);
 }
-echo "Season {$seed}: {$count} clubs, " .. $count * ($count - 1) .. " matches";
+echo "Season {$seed}: {$count} clubs, " .. League::matches_for($count) .. " matches";
 
 rand_seed($seed);
 $league = League($teams);
+// Globals, since a plain $ variable assigned inside the callback would be local to each call
+@all_matches = [];
+@motm_awards = {};
 $league.play_season(Commentator(1).kick_off, ($number, $matches) -> {
-    if ($number != 1) {
-        return;
-    }
     echo "";
-    echo "Matchday 1";
-    foreach ($matches as $match) {
+    echo "Matchday {$number}";
+    foreach ($matches as $index => $match) {
         echo pad_left($match.home, 22) .. "  " .. $match.home_goals .. " - " .. $match.away_goals .. "  " .. $match.away;
+        // Read off right away: match_goals and saves reset the moment the next match rests
+        $motm = $match.motm();
+        $name = $motm.to_string();
+        @motm_awards[$name] = {"player" => $motm, "awards" => (@motm_awards[$name]["awards"] ?? 0) + 1};
+        if ($match.away_goals == 0) {
+            $keeper = $match.home.goalkeeper();
+            $keeper.clean_sheets++;
+        }
+        if ($match.home_goals == 0) {
+            $keeper = $match.away.goalkeeper();
+            $keeper.clean_sheets++;
+        }
+        if ($number == 1 && $index == 0) {
+            echo "Player of the match: " .. $motm.profile();
+        }
     }
+    @all_matches = [...@all_matches, ...$matches];
 });
 
 echo "";
@@ -650,3 +683,20 @@ echo "Top scorers";
 foreach ($league.top_scorers(10) as $row) {
     echo pad_left($row["player"].goals, 3) .. "  " .. $row["player"].profile() .. ", {$row["team"]}";
 }
+
+echo "";
+echo "Top goalkeepers, by clean sheets";
+foreach ($league.top_keepers(10) as $row) {
+    echo pad_left($row["player"].clean_sheets, 3) .. "  " .. $row["player"].profile() .. ", {$row["team"]}";
+}
+
+echo "";
+echo "Season stats";
+$goals = reduce(@all_matches, ($sum, $match) -> $sum + $match.home_goals + $match.away_goals, 0);
+echo "Goals: " .. $goals .. " in " .. Fixture::matches_played .. " matches, " .. round($goals / Fixture::matches_played, 2) .. " a game";
+$biggest_win = sort(@all_matches, ($a, $b) -> abs($b.home_goals - $b.away_goals) <=> abs($a.home_goals - $a.away_goals))[0];
+echo "Biggest win: {$biggest_win}";
+$highest_scoring = sort(@all_matches, ($a, $b) -> ($b.home_goals + $b.away_goals) <=> ($a.home_goals + $a.away_goals))[0];
+echo "Highest-scoring match: {$highest_scoring}";
+$player_of_season = sort(values(@motm_awards), ($a, $b) -> $b["awards"] <=> $a["awards"])[0];
+echo "Player of the season: " .. $player_of_season["player"].profile() .. " ({$player_of_season["awards"]} man of the match awards)";
