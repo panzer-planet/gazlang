@@ -11,6 +11,7 @@ examples/errors.gaz
 examples/football.gaz
 examples/football/league.gaz
 examples/football/matches.gaz
+examples/football/money.gaz
 examples/football/players.gaz
 examples/football/teams.gaz
 examples/functions.gaz

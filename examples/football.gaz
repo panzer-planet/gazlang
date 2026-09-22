@@ -7,7 +7,9 @@
  *
  * CLUBS is how many clubs play in each division, from 2 to 20 (4 by default), taken from the
  * strongest down. With more than one season or division, each season prints every division's
- * table and who goes up and down, and the last one the honours. Everything random is seeded:
+ * table and who goes up and down, then the summer: players age, veterans retire and academy
+ * youngsters replace them, and the transfer window moves players up to the richer clubs; the
+ * last season adds the honours. Everything random is seeded:
  * the squads are always the same, and the same seed always plays the same seasons. Seasons
  * are named from 2026/27 whatever the seed; the Nth is played with SEED + N - 1.
  */
@@ -16,7 +18,8 @@ include "football/players.gaz" use Goalkeeper;
 include "football/teams.gaz" use InvalidLineup, Team, Formation, Scout;
 include "football/matches.gaz" use Fixture;
 include "football/league.gaz" use League, Commentator;
-include "../lib/lists.gaz" use flatten, max_by;
+include "football/money.gaz";
+include "../lib/lists.gaz" use flatten, max_by, min_by;
 
 // The clubs, strongest first: name, level (the squad's typical rating) and formation. The
 // first CLUBS make the First Division, the next CLUBS the Second, and so on down
@@ -221,6 +224,11 @@ fn play_pyramid($pyramid, $scout, $seed, $seasons) {
     $honours = [];
     // Everyone who has retired, with the club they left: {"player", "team"}
     $retired = [];
+    // The dearest transfer so far, with its season
+    $record = null;
+    foreach (flatten($pyramid) as $team) {
+        $team.balance = money::starting_balance($team);
+    }
     for ($n = 0; $n < $seasons; $n++) {
         rand_seed($seed + $n);
         $season = season_name(FIRST_SEASON + $n);
@@ -236,6 +244,9 @@ fn play_pyramid($pyramid, $scout, $seed, $seasons) {
             $finish = map($league.table(), $standing -> $standing.team);
             $finishes[] = $finish;
             $champions[] = $finish[0].name;
+            foreach ($finish as $position => $team) {
+                $team.balance += money::prize($level, $position, $count) - money::wages($team);
+            }
 
             echo "";
             echo DIVISIONS[$level];
@@ -268,11 +279,20 @@ fn play_pyramid($pyramid, $scout, $seed, $seasons) {
         }
         if ($n < $seasons - 1) {
             $retired = [...$retired, ...summer(flatten($pyramid), $scout)];
+            $deals = money::window(flatten($pyramid));
+            print_window($deals, flatten($pyramid));
+            if ($deals != []) {
+                $biggest = max_by($deals, $deal -> $deal["fee"]);
+                if ($record == null || $biggest["fee"] > $record["fee"]) {
+                    $record = $biggest;
+                    $record["season"] = $season;
+                }
+            }
         }
     }
 
     if ($seasons > 1) {
-        print_honours($pyramid, $honours, $retired);
+        print_honours($pyramid, $honours, $retired, $record);
     }
 }
 
@@ -313,7 +333,21 @@ fn summer($teams, $scout) {
     return $retired;
 }
 
-fn print_honours($pyramid, $honours, $retired) {
+// The summer's deals, the biggest of them, and who has the most and least money now
+fn print_window($deals, $teams) {
+    if ($deals == []) {
+        echo "Transfer window: no deals";
+    } else {
+        $biggest = max_by($deals, $deal -> $deal["fee"]);
+        echo "Transfer window: " .. len($deals) .. " deals, the biggest {$biggest["player"]} ({$biggest["player"].position()} {$biggest["player"].rating}) "
+            .. "from {$biggest["from"]} to {$biggest["to"]} for " .. money::pounds($biggest["fee"]);
+    }
+    $richest = max_by($teams, $team -> $team.balance);
+    $poorest = min_by($teams, $team -> $team.balance);
+    echo "Richest: {$richest} " .. money::pounds($richest.balance) .. ", poorest: {$poorest} " .. money::pounds($poorest.balance);
+}
+
+fn print_honours($pyramid, $honours, $retired, $record) {
     echo "";
     echo "Honours";
     echo trim(pad_right("Season", 8) .. join(map(slice(DIVISIONS, 0, len($pyramid)), $name -> pad_right($name, 24)), ""));
@@ -324,6 +358,10 @@ fn print_honours($pyramid, $honours, $retired) {
     }
     $table = sort(keys($titles), ($a, $b) -> [$titles[$b], $a] <=> [$titles[$a], $b]);
     echo "League titles: " .. join(map($table, $name -> "{$name} {$titles[$name]}"), ", ");
+    if ($record != null) {
+        echo "Record transfer: {$record["player"]} from {$record["from"]} to {$record["to"]} for "
+            .. money::pounds($record["fee"]) .. " in {$record["season"]}";
+    }
 
     echo "";
     echo "All-time top scorers";
