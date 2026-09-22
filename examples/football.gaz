@@ -268,7 +268,7 @@ fn print_honours($pyramid, $honours) {
         echo trim(pad_right($season, 8) .. join(map($champions, $name -> pad_right($name, 24)), ""));
         $titles[$champions[0]] = ($titles[$champions[0]] ?? 0) + 1;
     }
-    $table = sort(keys($titles), ($a, $b) -> $titles[$b] != $titles[$a] ? $titles[$b] <=> $titles[$a] : $a <=> $b);
+    $table = sort(keys($titles), ($a, $b) -> [$titles[$b], $a] <=> [$titles[$a], $b]);
     echo "League titles: " .. join(map($table, $name -> "{$name} {$titles[$name]}"), ", ");
 
     echo "";

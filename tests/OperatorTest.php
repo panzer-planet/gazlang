@@ -360,8 +360,22 @@ class OperatorTest extends GazLangTestCase
             'string and number' => ['echo "1" <=> 1;', 'Cannot use <=> on string and int on line 1'],
             'bool' => ['echo true <=> false;', 'Cannot use <=> on bool on line 1'],
             'null' => ['echo null <=> 1;', 'Cannot use <=> on null on line 1'],
-            'array' => ['echo [1] <=> [2];', 'Cannot use <=> on list on line 1'],
+            'a list and a number' => ['echo [1] <=> 1;', 'Cannot use <=> on list on line 1'],
+            'a map' => ['echo {} <=> {};', 'Cannot use <=> on map on line 1'],
+            'lists whose elements cannot be ordered' => ['echo [1, 2] <=> [1, "2"];', 'Cannot use <=> on string and int on line 1'],
+            'lists of maps' => ['echo [{}] < [{}];', 'Cannot use < on map on line 1'],
         ];
+    }
+
+    public function test_lists_order_element_by_element()
+    {
+        // The first pair that differs decides, and a shorter list the other starts with comes
+        // first, so a sort by several keys is one comparison of two lists
+        $this->assertEquals("[-1, 1, 0, -1, 0, -1]\n[true, false, true, true]\n[[1, \"z\"], [2, \"a\"], [2, \"b\"]]\n", $this->executeCode(<<<'CODE'
+            echo [[1, 2] <=> [1, 3], ["b", 1] <=> ["a", 9], [1, 1.0] <=> [1, 1], [1] <=> [1, 0], [] <=> [], [[1, 2], 3] <=> [[1, 3], 0]];
+            echo [[1, 2] < [2, "x"], [2] < [1, 9], [1, 2] >= [1, 2], [1, 2] <= [1, 2, 0]];
+            echo sort([[2, "b"], [1, "z"], [2, "a"]], ($a, $b) -> $a <=> $b);
+            CODE));
     }
 
     public function test_strict_equality_operator_is_gone()

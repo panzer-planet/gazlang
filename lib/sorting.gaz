@@ -1,7 +1,8 @@
 // Sorting by key for GazLang, on top of the sort() builtin: sorting::values() sorts
 // plain values and sorting::by() sorts rows (maps) by one of their keys. Both are stable and
 // return a new list; keys are not kept. Values are ordered with <=>, so mixing types that
-// can't be ordered (a number and a string, lists, maps, null) is an error.
+// can't be ordered (a number and a string, maps, null) is an error; lists order element by
+// element.
 namespace sorting;
 
 // $values sorted, smallest first, or largest first if $descending

@@ -367,6 +367,12 @@ version.
   values in any order, and a list never equals a map, even `[] == {}`. Functions, kinds and
   objects compare by identity (bound methods: the same object, kind and method). No `===` (it
   lexes as `==` then `=`, a syntax error). `<=>` gives -1, 0 or 1 by the ordering rules.
+- **Lists order element by element** (`order()` in `ops.c`): the first pair that differs
+  decides, and a list that the other starts with comes first (`[1] < [1, 0]`), as in Python and
+  Rust; each pair follows the rules above, so `[1] < ["a"]` is an error, but only once that pair
+  is reached. Maps can't be ordered. What it is for is sorting by several keys in one
+  comparison, swapping `$a` and `$b` in an element to turn its order round:
+  `[$b.points, $a.name] <=> [$a.points, $b.name]` is most points first, then by name.
 - **Bitwise** `& | ^ << >> ~` and their compound forms are ints only, as `%` is. A shift count
   must be 0 to 63 (PHP quietly gives 0 above). `>>` keeps the sign, `~$x` is `-$x - 1`, and
   bits shifted off the top of `<<` are gone (`1 << 63` is the smallest int), as in C, Java and
@@ -457,7 +463,8 @@ Names are ASCII.
   after it run. `{...$m}`, `f(...$args)`, a bare `...$a` and a rest pattern are parse errors
   that say so; each could be added later without breaking anything. `...` is one token
   (longest match, so `.....` is `...` then `..`).
-- `echo` prints them as literals; arithmetic, ordering and unary `-` on them throw.
+- `echo` prints them as literals; arithmetic and unary `-` on them throw, and so does ordering
+  a map (lists order element by element, see above).
 
 ## Statements, functions and scope
 

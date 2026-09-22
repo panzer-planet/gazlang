@@ -161,6 +161,11 @@ By precedence, loosest first:
 - `==` never converts between types. `"5" == 5` is false, `"1" != "01"`, `1 == 1.0` is true.
   There is no `===`. Ordering a string against a number is an error.
 - `<=>` gives -1, 0 or 1, for comparison functions.
+- Lists order element by element: the first pair that differs decides, and a shorter list the
+  other starts with comes first (`[1, 2] < [1, 3]`, `[1] < [1, 0]`). That makes a sort by
+  several keys one comparison, with `$a` and `$b` swapped in an element to sort it the other
+  way: `sort($teams, ($a, $b) -> [$b.points, $a.name] <=> [$a.points, $b.name])` is most points
+  first, then by name. Maps can't be ordered.
 - `&& || !` short-circuit and return real booleans. Truthiness is C-like for numbers, and a
   string is true unless empty — so `"0"` is true.
 - `& | ^ << >> ~` are ints only. They bind tighter than the comparisons, as in Rust and Python,

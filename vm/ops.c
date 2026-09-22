@@ -101,6 +101,38 @@ static bool bitwise(int op, Value l, Value r, Value *out) {
     return true;
 }
 
+/*
+ * How < <= > >= and <=> order two values, as -1, 0 or 1 in *cmp: two numbers by value, two
+ * strings byte by byte, two lists element by element, the first pair that differs deciding
+ * and a shorter list that the other starts with coming first. Anything else is an error,
+ * inside a list as outside one.
+ */
+static bool order(int op, Value l, Value r, int *cmp) {
+    if (l.type == T_LIST && r.type == T_LIST) {
+        size_t n = l.l->len < r.l->len ? l.l->len : r.l->len;
+        for (size_t i = 0; i < n; i++) {
+            if (!order(op, l.l->items[i], r.l->items[i], cmp)) return false;
+            if (*cmp != 0) return true;
+        }
+        *cmp = (l.l->len > r.l->len) - (l.l->len < r.l->len);
+        return true;
+    }
+    if (!is_scalar(l) || !is_scalar(r)) {
+        return raisef("Cannot use %s on %s", symbol(op), type_name(is_scalar(l) ? r : l));
+    }
+    if (l.type == T_BOOL || r.type == T_BOOL) return raisef("Cannot use %s on bool", symbol(op));
+    if ((l.type == T_STRING) != (r.type == T_STRING)) {
+        return raisef("Cannot use %s on string and %s", symbol(op), type_name(l.type == T_STRING ? r : l));
+    }
+    if (l.type == T_STRING) {
+        int c = str_cmp(l.s, r.s);
+        *cmp = (c > 0) - (c < 0);
+    } else {
+        *cmp = compare_numbers(l, r);
+    }
+    return true;
+}
+
 /* Any binary operator but && and ||, which short-circuit in the code */
 bool binary_op(int op, Value l, Value r, Value *out) {
     if (op == OP_CONCAT) {
@@ -118,6 +150,18 @@ bool binary_op(int op, Value l, Value r, Value *out) {
         *out = v_bool(values_equal(l, r) == (op == OP_EQUALS));
         return true;
     }
+    if (op == OP_LT || op == OP_LE || op == OP_GT || op == OP_GE || op == OP_CMP) {
+        int c;
+        if (!order(op, l, r, &c)) return false;
+        switch (op) {
+        case OP_LT: *out = v_bool(c < 0); break;
+        case OP_LE: *out = v_bool(c <= 0); break;
+        case OP_GT: *out = v_bool(c > 0); break;
+        case OP_GE: *out = v_bool(c >= 0); break;
+        default: *out = v_int(c); break;
+        }
+        return true;
+    }
     if (!is_scalar(l) || !is_scalar(r)) {
         return raisef("Cannot use %s on %s", symbol(op), type_name(is_scalar(l) ? r : l));
     }
@@ -128,18 +172,8 @@ bool binary_op(int op, Value l, Value r, Value *out) {
     if (op == OP_BIT_AND || op == OP_BIT_OR || op == OP_BIT_XOR || op == OP_SHL || op == OP_SHR) {
         return bitwise(op, l, r, out);
     }
-    if ((l.type == T_STRING) != (r.type == T_STRING)) {
-        return raisef("Cannot use %s on string and %s", symbol(op), type_name(l.type == T_STRING ? r : l));
-    }
-    int c = l.type == T_STRING ? str_cmp(l.s, r.s) : compare_numbers(l, r);
-    switch (op) {
-    case OP_LT: *out = v_bool(c < 0); break;
-    case OP_LE: *out = v_bool(c <= 0); break;
-    case OP_GT: *out = v_bool(c > 0); break;
-    case OP_GE: *out = v_bool(c >= 0); break;
-    default: *out = v_int((c > 0) - (c < 0)); break;
-    }
-    return true;
+    /* What is left: < <= > >= <=> were ordered above, so an operator no value supports */
+    return raisef("Cannot use %s on %s", symbol(op), type_name(l));
 }
 
 bool negate(Value v, Value *out) {

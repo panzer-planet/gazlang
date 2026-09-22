@@ -106,20 +106,11 @@ pub kind League {
         }
     }
 
-    // Points, then goal difference, then goals scored, then name
+    // Points, then goal difference, then goals scored, the most first, then name: lists order
+    // element by element, and swapping $a and $b in an element turns its order round
     pub fn table() {
-        return sort(#standings, ($a, $b) -> {
-            if ($a.points() != $b.points()) {
-                return $b.points() <=> $a.points();
-            }
-            if ($a.difference() != $b.difference()) {
-                return $b.difference() <=> $a.difference();
-            }
-            if ($a.scored != $b.scored) {
-                return $b.scored <=> $a.scored;
-            }
-            return $a.team.name <=> $b.team.name;
-        });
+        return sort(#standings, ($a, $b) -> [$b.points(), $b.difference(), $b.scored, $a.team.name]
+            <=> [$a.points(), $a.difference(), $a.scored, $b.team.name]);
     }
 
     pub fn top_scorers($count) {
