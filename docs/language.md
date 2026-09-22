@@ -355,7 +355,9 @@ kind's fields, methods and constants across its hierarchy.
 `join($list, $sep)`, `replace($s, $search, $replacement)`, `contains`, `starts_with`,
 `ends_with`, `index_of($s, $needle, $offset)`, `repeat($s, $count)`, `chr`, `ord`.
 
-**Numbers** — `to_int`, `to_float`, `to_string`, `floor`, `ceil`, `round($x, $precision)`,
+**Numbers** — `to_int($x, $default)`, `to_float($x, $default)` (without a default, a string
+that isn't a number is an error; with one, it gives the default: `to_int($arg, null) ?? 1`; a
+null, list or map is an error either way), `to_string`, `floor`, `ceil`, `round($x, $precision)`,
 `abs`, `intdiv`, `min($a, $b)`, `max($a, $b)`, and `min($list)`, `max($list)` and `sum($list)`
 over a list's or map's values (`sum([])` is 0; `min` and `max` of nothing is an error; `sum`
 adds with `+`, so an int overflowing or a string in the list is `+`'s error).

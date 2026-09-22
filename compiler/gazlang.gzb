@@ -1488,7 +1488,7 @@ PUSH null
 RET
 
 fn gazlang::Lexer.number 0 0
-locals $text $is_float $hex $sign $value $e
+locals $text $is_float $hex $sign $value
 @ "lexer.gaz" 213
 LOAD_THIS
 GET_METHOD read_digits
@@ -1823,33 +1823,27 @@ POP
 JMP ENDIF_18
 LABEL ELSE_18
 LABEL ENDIF_18
-@ "lexer.gaz" 258
-PUSH null
-STORE 4
-LOAD 4
-POP
-@ "lexer.gaz" 259
-TRY CATCH_19
-@ "lexer.gaz" 260
+@ "lexer.gaz" 257
 LOAD 1
-JZ TERNARY_ELSE_20
+JZ TERNARY_ELSE_19
 LOAD 0
-CALL_BUILTIN to_float 1
-JMP TERNARY_END_20
-LABEL TERNARY_ELSE_20
+PUSH null
+CALL_BUILTIN to_float 2
+JMP TERNARY_END_19
+LABEL TERNARY_ELSE_19
 LOAD 0
-CALL_BUILTIN to_int 1
-LABEL TERNARY_END_20
+PUSH null
+CALL_BUILTIN to_int 2
+LABEL TERNARY_END_19
 STORE 4
 LOAD 4
 POP
+@ "lexer.gaz" 258
+LOAD 4
+PUSH null
+EQUALS
+JZ ELSE_20
 @ "lexer.gaz" 259
-END_TRY
-JMP ENDTRY_19
-LABEL CATCH_19
-CATCH_MATCH Error NEXTCATCH_19_0
-STORE 5
-@ "lexer.gaz" 262
 LOAD_THIS
 GET_METHOD fail
 LOAD 1
@@ -1865,12 +1859,11 @@ CONCAT
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "lexer.gaz" 259
-JMP ENDTRY_19
-LABEL NEXTCATCH_19_0
-RETHROW
-LABEL ENDTRY_19
-@ "lexer.gaz" 265
+@ "lexer.gaz" 258
+JMP ENDIF_20
+LABEL ELSE_20
+LABEL ENDIF_20
+@ "lexer.gaz" 262
 LOAD 1
 JZ TERNARY_ELSE_22
 PUSH "FLOAT"
@@ -1887,14 +1880,14 @@ RET
 
 fn gazlang::Lexer.hex_value 1 1
 locals $hex $value $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $digit $e
-@ "lexer.gaz" 270
+@ "lexer.gaz" 267
 PUSH 0
 STORE 1
 LOAD 1
 POP
-@ "lexer.gaz" 271
+@ "lexer.gaz" 268
 TRY CATCH_0
-@ "lexer.gaz" 272
+@ "lexer.gaz" 269
 LOAD 0
 CALL_BUILTIN lower 1
 PUSH ""
@@ -1928,7 +1921,7 @@ INDEX_GET
 STORE 6
 LOAD 6
 POP
-@ "lexer.gaz" 273
+@ "lexer.gaz" 270
 LOAD 1
 PUSH 16
 MUL
@@ -1940,7 +1933,7 @@ STORE 1
 LOAD 1
 POP
 LABEL CONTINUE_1
-@ "lexer.gaz" 272
+@ "lexer.gaz" 269
 LOAD 5
 PUSH 1
 ADD
@@ -1949,48 +1942,48 @@ LOAD 5
 POP
 JMP WHILE_1
 LABEL ENDWHILE_1
-@ "lexer.gaz" 271
+@ "lexer.gaz" 268
 END_TRY
 JMP ENDTRY_0
 LABEL CATCH_0
 CATCH_MATCH Error NEXTCATCH_0_0
 STORE 7
-@ "lexer.gaz" 276
+@ "lexer.gaz" 273
 PUSH null
 RET
-@ "lexer.gaz" 271
+@ "lexer.gaz" 268
 JMP ENDTRY_0
 LABEL NEXTCATCH_0_0
 RETHROW
 LABEL ENDTRY_0
-@ "lexer.gaz" 279
+@ "lexer.gaz" 276
 LOAD 1
 RET
-@ "lexer.gaz" 269
+@ "lexer.gaz" 266
 PUSH null
 RET
 
 fn gazlang::Lexer.read_digits 0 0
 locals
-@ "lexer.gaz" 283
+@ "lexer.gaz" 280
 LOAD_THIS
 GET_METHOD read_while
 PUSH "0123456789"
 CALL_METHOD 1 read_while
 RET
-@ "lexer.gaz" 282
+@ "lexer.gaz" 279
 PUSH null
 RET
 
 fn gazlang::Lexer.read_hex 1 1
 locals $max $start
-@ "lexer.gaz" 288
+@ "lexer.gaz" 285
 LOAD_FIELD pos
 STORE 1
 LOAD 1
 POP
 LABEL WHILE_0
-@ "lexer.gaz" 289
+@ "lexer.gaz" 286
 LOAD_FIELD pos
 LOAD 1
 SUB
@@ -2006,16 +1999,16 @@ LABEL AND_FALSE_1
 PUSH false
 LABEL AND_END_1
 JZ ENDWHILE_0
-@ "lexer.gaz" 290
+@ "lexer.gaz" 287
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "lexer.gaz" 289
+@ "lexer.gaz" 286
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "lexer.gaz" 293
+@ "lexer.gaz" 290
 LOAD_FIELD text
 LOAD 1
 LOAD_FIELD pos
@@ -2023,42 +2016,42 @@ LOAD 1
 SUB
 CALL_BUILTIN slice 3
 RET
-@ "lexer.gaz" 287
+@ "lexer.gaz" 284
 PUSH null
 RET
 
 fn gazlang::Lexer.read_word 0 0
 locals
-@ "lexer.gaz" 298
+@ "lexer.gaz" 295
 LOAD_THIS
 GET_METHOD read_while
 PUSH "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
 CALL_METHOD 1 read_while
 RET
-@ "lexer.gaz" 297
+@ "lexer.gaz" 294
 PUSH null
 RET
 
 fn gazlang::Lexer.string_part 1 1
 locals $first $start_line $last $text $i $c
-@ "lexer.gaz" 309
+@ "lexer.gaz" 306
 LOAD 0
 JZ ELSE_0
-@ "lexer.gaz" 311
+@ "lexer.gaz" 308
 LOAD_FIELD line
 STORE 1
 LOAD 1
 POP
-@ "lexer.gaz" 312
+@ "lexer.gaz" 309
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "lexer.gaz" 309
+@ "lexer.gaz" 306
 JMP ENDIF_0
 LABEL ELSE_0
-@ "lexer.gaz" 314
+@ "lexer.gaz" 311
 LOAD_FIELD interpolations
 CALL_BUILTIN len 1
 PUSH 1
@@ -2066,7 +2059,7 @@ SUB
 STORE 2
 LOAD 2
 POP
-@ "lexer.gaz" 315
+@ "lexer.gaz" 312
 LOAD_FIELD interpolations
 LOAD 2
 INDEX_GET
@@ -2075,53 +2068,53 @@ INDEX_GET
 STORE 1
 LOAD 1
 POP
-@ "lexer.gaz" 316
+@ "lexer.gaz" 313
 LOAD 2
 KEY_CHECK
 DELETE_PATH_THIS .interpolations[k]
 LABEL ENDIF_0
-@ "lexer.gaz" 319
+@ "lexer.gaz" 316
 PUSH ""
 STORE 3
 LOAD 3
 POP
 LABEL WHILE_1
-@ "lexer.gaz" 320
+@ "lexer.gaz" 317
 PUSH true
 JZ ENDWHILE_1
-@ "lexer.gaz" 322
+@ "lexer.gaz" 319
 LOAD_FIELD pos
 STORE 4
 LOAD 4
 POP
 LABEL WHILE_2
-@ "lexer.gaz" 323
+@ "lexer.gaz" 320
 LOAD 4
 LOAD_FIELD length
 LT
 JZ ENDWHILE_2
-@ "lexer.gaz" 324
+@ "lexer.gaz" 321
 LOAD_FIELD text
 LOAD 4
 INDEX_GET
 STORE 5
 LOAD 5
 POP
-@ "lexer.gaz" 325
+@ "lexer.gaz" 322
 LOAD 5
 PUSH "\n"
 EQUALS
 JZ ELSE_3
-@ "lexer.gaz" 326
+@ "lexer.gaz" 323
 LOAD_THIS
 GET_PROPERTY_EXISTING line
 INC
 SET_FIELD line
 POP
-@ "lexer.gaz" 325
+@ "lexer.gaz" 322
 JMP ENDIF_3
 LABEL ELSE_3
-@ "lexer.gaz" 327
+@ "lexer.gaz" 324
 LOAD 5
 PUSH "\""
 EQUALS
@@ -2162,23 +2155,23 @@ LABEL OR_TRUE_5
 PUSH true
 LABEL OR_END_5
 JZ ELSE_4
-@ "lexer.gaz" 328
+@ "lexer.gaz" 325
 JMP ENDWHILE_2
-@ "lexer.gaz" 327
+@ "lexer.gaz" 324
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
 LABEL ENDIF_3
-@ "lexer.gaz" 330
+@ "lexer.gaz" 327
 LOAD 4
 INC
 STORE 4
 LOAD 4
 POP
-@ "lexer.gaz" 323
+@ "lexer.gaz" 320
 JMP WHILE_2
 LABEL ENDWHILE_2
-@ "lexer.gaz" 332
+@ "lexer.gaz" 329
 LOAD_FIELD text
 LOAD_FIELD pos
 LOAD 4
@@ -2187,7 +2180,7 @@ SUB
 CALL_BUILTIN slice 3
 CONCAT_ASSIGN 3
 POP
-@ "lexer.gaz" 333
+@ "lexer.gaz" 330
 LOAD_THIS
 GET_METHOD skip
 LOAD 4
@@ -2195,7 +2188,7 @@ LOAD_FIELD pos
 SUB
 CALL_METHOD 1 skip
 POP
-@ "lexer.gaz" 335
+@ "lexer.gaz" 332
 LOAD_FIELD char
 PUSH ""
 EQUALS
@@ -2212,44 +2205,44 @@ LABEL OR_TRUE_9
 PUSH true
 LABEL OR_END_9
 JZ ELSE_8
-@ "lexer.gaz" 336
+@ "lexer.gaz" 333
 JMP ENDWHILE_1
-@ "lexer.gaz" 335
+@ "lexer.gaz" 332
 JMP ENDIF_8
 LABEL ELSE_8
 LABEL ENDIF_8
-@ "lexer.gaz" 338
+@ "lexer.gaz" 335
 LOAD_FIELD char
 PUSH "\\"
 EQUALS
 JZ ELSE_10
-@ "lexer.gaz" 339
+@ "lexer.gaz" 336
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "lexer.gaz" 340
+@ "lexer.gaz" 337
 LOAD_FIELD char
 PUSH ""
 EQUALS
 JZ ELSE_11
-@ "lexer.gaz" 341
+@ "lexer.gaz" 338
 JMP ENDWHILE_1
-@ "lexer.gaz" 340
+@ "lexer.gaz" 337
 JMP ENDIF_11
 LABEL ELSE_11
 LABEL ENDIF_11
-@ "lexer.gaz" 343
+@ "lexer.gaz" 340
 LOAD_THIS
 GET_METHOD escape
 CALL_METHOD 0 escape
 CONCAT_ASSIGN 3
 POP
-@ "lexer.gaz" 338
+@ "lexer.gaz" 335
 JMP ENDIF_10
 LABEL ELSE_10
-@ "lexer.gaz" 344
+@ "lexer.gaz" 341
 LOAD_FIELD char
 PUSH "$"
 EQUALS
@@ -2267,7 +2260,7 @@ LABEL AND_FALSE_13
 PUSH false
 LABEL AND_END_13
 JZ ELSE_12
-@ "lexer.gaz" 345
+@ "lexer.gaz" 342
 NEW_ARRAY
 PUSH "bare"
 ARRAY_PUSH
@@ -2277,7 +2270,7 @@ PUSH 0
 ARRAY_PUSH
 SET_PATH_THIS .interpolations[]
 POP
-@ "lexer.gaz" 347
+@ "lexer.gaz" 344
 LOAD 0
 JZ TERNARY_ELSE_14
 PUSH "STRING_START"
@@ -2288,10 +2281,10 @@ LABEL TERNARY_END_14
 LOAD 3
 NEW gazlang::Token 2
 RET
-@ "lexer.gaz" 344
+@ "lexer.gaz" 341
 JMP ENDIF_12
 LABEL ELSE_12
-@ "lexer.gaz" 348
+@ "lexer.gaz" 345
 LOAD_FIELD char
 PUSH "{"
 EQUALS
@@ -2308,13 +2301,13 @@ LABEL AND_FALSE_16
 PUSH false
 LABEL AND_END_16
 JZ ELSE_15
-@ "lexer.gaz" 349
+@ "lexer.gaz" 346
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "lexer.gaz" 350
+@ "lexer.gaz" 347
 NEW_ARRAY
 PUSH "braces"
 ARRAY_PUSH
@@ -2324,7 +2317,7 @@ PUSH 0
 ARRAY_PUSH
 SET_PATH_THIS .interpolations[]
 POP
-@ "lexer.gaz" 352
+@ "lexer.gaz" 349
 LOAD 0
 JZ TERNARY_ELSE_17
 PUSH "STRING_START"
@@ -2335,14 +2328,14 @@ LABEL TERNARY_END_17
 LOAD 3
 NEW gazlang::Token 2
 RET
-@ "lexer.gaz" 348
+@ "lexer.gaz" 345
 JMP ENDIF_15
 LABEL ELSE_15
-@ "lexer.gaz" 355
+@ "lexer.gaz" 352
 LOAD_FIELD char
 CONCAT_ASSIGN 3
 POP
-@ "lexer.gaz" 356
+@ "lexer.gaz" 353
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
@@ -2351,32 +2344,32 @@ POP
 LABEL ENDIF_15
 LABEL ENDIF_12
 LABEL ENDIF_10
-@ "lexer.gaz" 320
+@ "lexer.gaz" 317
 JMP WHILE_1
 LABEL ENDWHILE_1
-@ "lexer.gaz" 360
+@ "lexer.gaz" 357
 LOAD_FIELD char
 PUSH ""
 EQUALS
 JZ ELSE_18
-@ "lexer.gaz" 361
+@ "lexer.gaz" 358
 LOAD_THIS
 GET_METHOD fail
 PUSH "Unterminated string"
 LOAD 1
 CALL_METHOD 2 fail
 POP
-@ "lexer.gaz" 360
+@ "lexer.gaz" 357
 JMP ENDIF_18
 LABEL ELSE_18
 LABEL ENDIF_18
-@ "lexer.gaz" 363
+@ "lexer.gaz" 360
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "lexer.gaz" 365
+@ "lexer.gaz" 362
 LOAD 0
 JZ TERNARY_ELSE_19
 PUSH "STRING"
@@ -2387,44 +2380,44 @@ LABEL TERNARY_END_19
 LOAD 3
 NEW gazlang::Token 2
 RET
-@ "lexer.gaz" 308
+@ "lexer.gaz" 305
 PUSH null
 RET
 
 fn gazlang::Lexer.interpolated_index 0 0
-locals $line $key $digits $int $e $tokens $#foreach_array_1 $#foreach_keys_1 $#foreach_count_1 $#foreach_i_1 $token
-@ "lexer.gaz" 374
+locals $line $key $digits $int $tokens $#foreach_array_1 $#foreach_keys_1 $#foreach_count_1 $#foreach_i_1 $token
+@ "lexer.gaz" 371
 LOAD_FIELD line
 STORE 0
 LOAD 0
 POP
-@ "lexer.gaz" 375
+@ "lexer.gaz" 372
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "lexer.gaz" 377
+@ "lexer.gaz" 374
 PUSH null
 STORE 1
 LOAD 1
 POP
-@ "lexer.gaz" 378
+@ "lexer.gaz" 375
 LOAD_FIELD char
 PUSH "$"
 EQUALS
 JZ ELSE_0
-@ "lexer.gaz" 379
+@ "lexer.gaz" 376
 LOAD_THIS
 GET_METHOD var_identifier
 CALL_METHOD 0 var_identifier
 STORE 1
 LOAD 1
 POP
-@ "lexer.gaz" 378
+@ "lexer.gaz" 375
 JMP ENDIF_0
 LABEL ELSE_0
-@ "lexer.gaz" 380
+@ "lexer.gaz" 377
 LOAD_FIELD char
 CALL chars::is_digit 1
 NOT
@@ -2440,84 +2433,68 @@ LABEL OR_TRUE_2
 PUSH true
 LABEL OR_END_2
 JZ ELSE_1
-@ "lexer.gaz" 381
+@ "lexer.gaz" 378
 LOAD_FIELD char
 STORE 2
 LOAD 2
 POP
-@ "lexer.gaz" 382
+@ "lexer.gaz" 379
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "lexer.gaz" 383
+@ "lexer.gaz" 380
 LOAD_THIS
 GET_METHOD read_digits
 CALL_METHOD 0 read_digits
 CONCAT_ASSIGN 2
 POP
-@ "lexer.gaz" 384
-PUSH null
-STORE 3
-LOAD 3
-POP
-@ "lexer.gaz" 385
-TRY CATCH_3
-@ "lexer.gaz" 386
+@ "lexer.gaz" 382
 LOAD 2
-CALL_BUILTIN to_int 1
+PUSH null
+CALL_BUILTIN to_int 2
 STORE 3
 LOAD 3
 POP
-@ "lexer.gaz" 385
-END_TRY
-JMP ENDTRY_3
-LABEL CATCH_3
-CATCH_MATCH Error NEXTCATCH_3_0
-STORE 4
-JMP ENDTRY_3
-LABEL NEXTCATCH_3_0
-RETHROW
-LABEL ENDTRY_3
-@ "lexer.gaz" 390
+@ "lexer.gaz" 383
 LOAD 3
 PUSH null
 NOT_EQUALS
-JZ AND_FALSE_5
+JZ AND_FALSE_4
 LOAD 3
 CALL_BUILTIN to_string 1
 LOAD 2
 EQUALS
-JZ AND_FALSE_5
+JZ AND_FALSE_4
 PUSH true
-JMP AND_END_5
-LABEL AND_FALSE_5
+JMP AND_END_4
+LABEL AND_FALSE_4
 PUSH false
-LABEL AND_END_5
-JZ TERNARY_ELSE_4
+LABEL AND_END_4
+JZ TERNARY_ELSE_3
 PUSH "INTEGER"
 LOAD 3
 NEW gazlang::Token 2
-JMP TERNARY_END_4
-LABEL TERNARY_ELSE_4
+JMP TERNARY_END_3
+LABEL TERNARY_ELSE_3
 PUSH "STRING"
 LOAD 2
 NEW gazlang::Token 2
-LABEL TERNARY_END_4
+LABEL TERNARY_END_3
 STORE 1
 LOAD 1
 POP
-@ "lexer.gaz" 380
+@ "lexer.gaz" 377
 JMP ENDIF_1
 LABEL ELSE_1
-@ "lexer.gaz" 391
+@ "lexer.gaz" 384
 LOAD_THIS
 GET_METHOD is_name_start
 LOAD_FIELD char
 CALL_METHOD 1 is_name_start
-JZ ELSE_6
-@ "lexer.gaz" 392
+JZ ELSE_5
+@ "lexer.gaz" 385
 PUSH "STRING"
 LOAD_THIS
 GET_METHOD read_word
@@ -2526,34 +2503,22 @@ NEW gazlang::Token 2
 STORE 1
 LOAD 1
 POP
-@ "lexer.gaz" 391
-JMP ENDIF_6
-LABEL ELSE_6
-LABEL ENDIF_6
+@ "lexer.gaz" 384
+JMP ENDIF_5
+LABEL ELSE_5
+LABEL ENDIF_5
 LABEL ENDIF_1
 LABEL ENDIF_0
-@ "lexer.gaz" 395
+@ "lexer.gaz" 388
 LOAD 1
 PUSH null
 EQUALS
 NOT
-JZ OR_TRUE_9
+JZ OR_TRUE_8
 LOAD 1
 GET_PROPERTY value
 PUSH "-"
 EQUALS
-NOT
-JZ OR_TRUE_9
-PUSH false
-JMP OR_END_9
-LABEL OR_TRUE_9
-PUSH true
-LABEL OR_END_9
-NOT
-JZ OR_TRUE_8
-LOAD_FIELD char
-PUSH "]"
-NOT_EQUALS
 NOT
 JZ OR_TRUE_8
 PUSH false
@@ -2561,25 +2526,37 @@ JMP OR_END_8
 LABEL OR_TRUE_8
 PUSH true
 LABEL OR_END_8
-JZ ELSE_7
-@ "lexer.gaz" 396
+NOT
+JZ OR_TRUE_7
+LOAD_FIELD char
+PUSH "]"
+NOT_EQUALS
+NOT
+JZ OR_TRUE_7
+PUSH false
+JMP OR_END_7
+LABEL OR_TRUE_7
+PUSH true
+LABEL OR_END_7
+JZ ELSE_6
+@ "lexer.gaz" 389
 LOAD_THIS
 GET_METHOD fail
 PUSH "Invalid array index in interpolated string: use \"\{\$name[...]}\" for anything but [0], [-1], [key] or [\$i]"
 LOAD 0
 CALL_METHOD 2 fail
 POP
-@ "lexer.gaz" 395
-JMP ENDIF_7
-LABEL ELSE_7
-LABEL ENDIF_7
-@ "lexer.gaz" 398
+@ "lexer.gaz" 388
+JMP ENDIF_6
+LABEL ELSE_6
+LABEL ENDIF_6
+@ "lexer.gaz" 391
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "lexer.gaz" 400
+@ "lexer.gaz" 393
 NEW_ARRAY
 PUSH "LEFT_BRACKET"
 PUSH "["
@@ -2591,79 +2568,79 @@ PUSH "RIGHT_BRACKET"
 PUSH "]"
 NEW gazlang::Token 2
 ARRAY_PUSH
+STORE 4
+LOAD 4
+POP
+@ "lexer.gaz" 394
+LOAD 4
+FOREACH_CHECK
 STORE 5
 LOAD 5
-POP
-@ "lexer.gaz" 401
-LOAD 5
-FOREACH_CHECK
+CALL_BUILTIN keys 1
 STORE 6
 LOAD 6
-CALL_BUILTIN keys 1
+POP
+LOAD 6
+CALL_BUILTIN len 1
 STORE 7
 LOAD 7
 POP
-LOAD 7
-CALL_BUILTIN len 1
+PUSH 0
 STORE 8
 LOAD 8
 POP
-PUSH 0
+LABEL WHILE_9
+LOAD 8
+LOAD 7
+LT
+JZ ENDWHILE_9
+LOAD 5
+LOAD 6
+LOAD 8
+INDEX_GET
+INDEX_GET
 STORE 9
 LOAD 9
 POP
-LABEL WHILE_10
-LOAD 9
-LOAD 8
-LT
-JZ ENDWHILE_10
-LOAD 6
-LOAD 7
-LOAD 9
-INDEX_GET
-INDEX_GET
-STORE 10
-LOAD 10
-POP
-@ "lexer.gaz" 402
+@ "lexer.gaz" 395
 LOAD 0
-SET_PATH .line 10
+SET_PATH .line 9
 POP
-LABEL CONTINUE_10
-@ "lexer.gaz" 401
-LOAD 9
+LABEL CONTINUE_9
+@ "lexer.gaz" 394
+LOAD 8
 PUSH 1
 ADD
-STORE 9
-LOAD 9
+STORE 8
+LOAD 8
 POP
-JMP WHILE_10
-LABEL ENDWHILE_10
-@ "lexer.gaz" 405
-LOAD 5
+JMP WHILE_9
+LABEL ENDWHILE_9
+@ "lexer.gaz" 398
+LOAD 4
 RET
-@ "lexer.gaz" 373
+@ "lexer.gaz" 370
 PUSH null
 RET
 
 fn gazlang::Lexer.escape 0 0
 locals $c $hex $code_point
-@ "lexer.gaz" 410
+@ "lexer.gaz" 403
 LOAD_FIELD char
 STORE 0
 LOAD 0
 POP
-@ "lexer.gaz" 411
+@ "lexer.gaz" 404
 LOAD_THIS
 GET_METHOD advance
 CALL_METHOD 0 advance
 POP
-@ "lexer.gaz" 413
+@ "lexer.gaz" 406
 LOAD 0
 PUSH "x"
 EQUALS
 JZ ELSE_0
-@ "lexer.gaz" 414
+@ "lexer.gaz" 407
 LOAD_THIS
 GET_METHOD read_hex
 PUSH 2
@@ -2671,13 +2648,13 @@ CALL_METHOD 1 read_hex
 STORE 1
 LOAD 1
 POP
-@ "lexer.gaz" 415
+@ "lexer.gaz" 408
 LOAD 1
 CALL_BUILTIN len 1
 PUSH 2
 NOT_EQUALS
 JZ ELSE_1
-@ "lexer.gaz" 416
+@ "lexer.gaz" 409
 LOAD_THIS
 GET_METHOD fail
 PUSH "Invalid escape \\x"
@@ -2687,27 +2664,27 @@ PUSH ": expected two hex digits"
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "lexer.gaz" 415
+@ "lexer.gaz" 408
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "lexer.gaz" 419
+@ "lexer.gaz" 412
 LOAD_THIS
 GET_METHOD hex_value
 LOAD 1
 CALL_METHOD 1 hex_value
 CALL_BUILTIN chr 1
 RET
-@ "lexer.gaz" 413
+@ "lexer.gaz" 406
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "lexer.gaz" 422
+@ "lexer.gaz" 415
 LOAD 0
 PUSH "u"
 EQUALS
 JZ ELSE_2
-@ "lexer.gaz" 423
+@ "lexer.gaz" 416
 LOAD_FIELD char
 PUSH "{"
 EQUALS
@@ -2722,22 +2699,22 @@ LABEL TERNARY_END_3
 STORE 1
 LOAD 1
 POP
-@ "lexer.gaz" 424
+@ "lexer.gaz" 417
 LOAD 1
 PUSH null
 EQUALS
 JZ ELSE_4
-@ "lexer.gaz" 425
+@ "lexer.gaz" 418
 LOAD_THIS
 GET_METHOD fail
 PUSH "Invalid escape \\u: expected \\u{...} with 1 to 6 hex digits"
 CALL_METHOD 1 fail
 POP
-@ "lexer.gaz" 424
+@ "lexer.gaz" 417
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
-@ "lexer.gaz" 427
+@ "lexer.gaz" 420
 LOAD_THIS
 GET_METHOD hex_value
 LOAD 1
@@ -2745,7 +2722,7 @@ CALL_METHOD 1 hex_value
 STORE 2
 LOAD 2
 POP
-@ "lexer.gaz" 428
+@ "lexer.gaz" 421
 LOAD 2
 PUSH 1114111
 GT
@@ -2772,7 +2749,7 @@ LABEL OR_TRUE_6
 PUSH true
 LABEL OR_END_6
 JZ ELSE_5
-@ "lexer.gaz" 429
+@ "lexer.gaz" 422
 LOAD_THIS
 GET_METHOD fail
 PUSH "Invalid escape \\u{"
@@ -2782,21 +2759,21 @@ PUSH "}: not a Unicode code point"
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "lexer.gaz" 428
+@ "lexer.gaz" 421
 JMP ENDIF_5
 LABEL ELSE_5
 LABEL ENDIF_5
-@ "lexer.gaz" 432
+@ "lexer.gaz" 425
 LOAD_THIS
 GET_METHOD utf8
 LOAD 2
 CALL_METHOD 1 utf8
 RET
-@ "lexer.gaz" 422
+@ "lexer.gaz" 415
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "lexer.gaz" 435
+@ "lexer.gaz" 428
 LOAD 0
 PUSH "0"
 EQUALS
@@ -2810,7 +2787,7 @@ LABEL AND_FALSE_9
 PUSH false
 LABEL AND_END_9
 JZ ELSE_8
-@ "lexer.gaz" 436
+@ "lexer.gaz" 429
 LOAD_THIS
 GET_METHOD fail
 PUSH "Octal escapes are not supported: \\0"
@@ -2820,11 +2797,11 @@ PUSH " (use \\x)"
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "lexer.gaz" 435
+@ "lexer.gaz" 428
 JMP ENDIF_8
 LABEL ELSE_8
 LABEL ENDIF_8
-@ "lexer.gaz" 439
+@ "lexer.gaz" 432
 PUSH {"n" => "\n", "t" => "\t", "r" => "\r", "v" => "\v", "f" => "\f", "e" => "\e", "0" => "\x00", "\\" => "\\", "\"" => "\"", "$" => "$", "{" => "{"}
 LOAD 0
 INDEX_GET_QUIET
@@ -2839,19 +2816,19 @@ CONCAT
 CALL_METHOD 1 fail
 LABEL COALESCE_END_10
 RET
-@ "lexer.gaz" 409
+@ "lexer.gaz" 402
 PUSH null
 RET
 
 fn gazlang::Lexer.read_braced_hex 0 0
 locals $hex
-@ "lexer.gaz" 444
+@ "lexer.gaz" 437
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "lexer.gaz" 445
+@ "lexer.gaz" 438
 LOAD_THIS
 GET_METHOD read_hex
 PUSH 7
@@ -2859,7 +2836,7 @@ CALL_METHOD 1 read_hex
 STORE 0
 LOAD 0
 POP
-@ "lexer.gaz" 446
+@ "lexer.gaz" 439
 LOAD_FIELD char
 PUSH "}"
 NOT_EQUALS
@@ -2889,47 +2866,47 @@ LABEL OR_TRUE_1
 PUSH true
 LABEL OR_END_1
 JZ ELSE_0
-@ "lexer.gaz" 447
+@ "lexer.gaz" 440
 PUSH null
 RET
-@ "lexer.gaz" 446
+@ "lexer.gaz" 439
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "lexer.gaz" 449
+@ "lexer.gaz" 442
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "lexer.gaz" 451
+@ "lexer.gaz" 444
 LOAD 0
 RET
-@ "lexer.gaz" 443
+@ "lexer.gaz" 436
 PUSH null
 RET
 
 fn gazlang::Lexer.utf8 1 1
 locals $code_point
-@ "lexer.gaz" 456
+@ "lexer.gaz" 449
 LOAD 0
 PUSH 128
 LT
 JZ ELSE_0
-@ "lexer.gaz" 457
+@ "lexer.gaz" 450
 LOAD 0
 CALL_BUILTIN chr 1
 RET
-@ "lexer.gaz" 456
+@ "lexer.gaz" 449
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "lexer.gaz" 459
+@ "lexer.gaz" 452
 LOAD 0
 PUSH 2048
 LT
 JZ ELSE_1
-@ "lexer.gaz" 460
+@ "lexer.gaz" 453
 PUSH 192
 LOAD 0
 PUSH 6
@@ -2944,16 +2921,16 @@ BIT_OR
 CALL_BUILTIN chr 1
 CONCAT
 RET
-@ "lexer.gaz" 459
+@ "lexer.gaz" 452
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "lexer.gaz" 462
+@ "lexer.gaz" 455
 LOAD 0
 PUSH 65536
 LT
 JZ ELSE_2
-@ "lexer.gaz" 463
+@ "lexer.gaz" 456
 PUSH 224
 LOAD 0
 PUSH 12
@@ -2977,11 +2954,11 @@ BIT_OR
 CALL_BUILTIN chr 1
 CONCAT
 RET
-@ "lexer.gaz" 462
+@ "lexer.gaz" 455
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "lexer.gaz" 466
+@ "lexer.gaz" 459
 PUSH 240
 LOAD 0
 PUSH 18
@@ -2997,7 +2974,7 @@ BIT_AND
 BIT_OR
 CALL_BUILTIN chr 1
 CONCAT
-@ "lexer.gaz" 467
+@ "lexer.gaz" 460
 PUSH 128
 LOAD 0
 PUSH 6
@@ -3014,42 +2991,42 @@ BIT_AND
 BIT_OR
 CALL_BUILTIN chr 1
 CONCAT
-@ "lexer.gaz" 466
+@ "lexer.gaz" 459
 RET
-@ "lexer.gaz" 455
+@ "lexer.gaz" 448
 PUSH null
 RET
 
 fn gazlang::Lexer.single_quoted_string 0 0
 locals $start_line $result $i $from $c
-@ "lexer.gaz" 472
+@ "lexer.gaz" 465
 LOAD_FIELD line
 STORE 0
 LOAD 0
 POP
-@ "lexer.gaz" 473
+@ "lexer.gaz" 466
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "lexer.gaz" 475
+@ "lexer.gaz" 468
 PUSH ""
 STORE 1
 LOAD 1
 POP
-@ "lexer.gaz" 476
+@ "lexer.gaz" 469
 LOAD_FIELD pos
 STORE 2
 LOAD 2
 POP
-@ "lexer.gaz" 478
+@ "lexer.gaz" 471
 LOAD 2
 STORE 3
 LOAD 3
 POP
 LABEL WHILE_0
-@ "lexer.gaz" 479
+@ "lexer.gaz" 472
 LOAD 2
 LOAD_FIELD length
 LT
@@ -3066,28 +3043,28 @@ LABEL AND_FALSE_1
 PUSH false
 LABEL AND_END_1
 JZ ENDWHILE_0
-@ "lexer.gaz" 480
+@ "lexer.gaz" 473
 LOAD_FIELD text
 LOAD 2
 INDEX_GET
 STORE 4
 LOAD 4
 POP
-@ "lexer.gaz" 481
+@ "lexer.gaz" 474
 LOAD 4
 PUSH "\n"
 EQUALS
 JZ ELSE_2
-@ "lexer.gaz" 482
+@ "lexer.gaz" 475
 LOAD_THIS
 GET_PROPERTY_EXISTING line
 INC
 SET_FIELD line
 POP
-@ "lexer.gaz" 481
+@ "lexer.gaz" 474
 JMP ENDIF_2
 LABEL ELSE_2
-@ "lexer.gaz" 483
+@ "lexer.gaz" 476
 LOAD 4
 PUSH "\\"
 EQUALS
@@ -3134,7 +3111,7 @@ LABEL AND_FALSE_4
 PUSH false
 LABEL AND_END_4
 JZ ELSE_3
-@ "lexer.gaz" 485
+@ "lexer.gaz" 478
 LOAD_FIELD text
 LOAD 3
 LOAD 2
@@ -3143,48 +3120,48 @@ SUB
 CALL_BUILTIN slice 3
 CONCAT_ASSIGN 1
 POP
-@ "lexer.gaz" 486
+@ "lexer.gaz" 479
 LOAD 2
 INC
 STORE 2
 LOAD 2
 POP
-@ "lexer.gaz" 487
+@ "lexer.gaz" 480
 LOAD 2
 STORE 3
 LOAD 3
 POP
-@ "lexer.gaz" 483
+@ "lexer.gaz" 476
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
 LABEL ENDIF_2
-@ "lexer.gaz" 489
+@ "lexer.gaz" 482
 LOAD 2
 INC
 STORE 2
 LOAD 2
 POP
-@ "lexer.gaz" 479
+@ "lexer.gaz" 472
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "lexer.gaz" 492
+@ "lexer.gaz" 485
 LOAD 2
 LOAD_FIELD length
 GE
 JZ ELSE_7
-@ "lexer.gaz" 493
+@ "lexer.gaz" 486
 LOAD_THIS
 GET_METHOD fail
 PUSH "Unterminated string"
 LOAD 0
 CALL_METHOD 2 fail
 POP
-@ "lexer.gaz" 492
+@ "lexer.gaz" 485
 JMP ENDIF_7
 LABEL ELSE_7
 LABEL ENDIF_7
-@ "lexer.gaz" 495
+@ "lexer.gaz" 488
 LOAD_FIELD text
 LOAD 3
 LOAD 2
@@ -3193,7 +3170,7 @@ SUB
 CALL_BUILTIN slice 3
 CONCAT_ASSIGN 1
 POP
-@ "lexer.gaz" 496
+@ "lexer.gaz" 489
 LOAD_THIS
 GET_METHOD skip
 LOAD 2
@@ -3203,23 +3180,23 @@ LOAD_FIELD pos
 SUB
 CALL_METHOD 1 skip
 POP
-@ "lexer.gaz" 498
+@ "lexer.gaz" 491
 LOAD 1
 RET
-@ "lexer.gaz" 471
+@ "lexer.gaz" 464
 PUSH null
 RET
 
 fn gazlang::Lexer.identifier 0 0
 locals $word
-@ "lexer.gaz" 503
+@ "lexer.gaz" 496
 LOAD_THIS
 GET_METHOD read_word
 CALL_METHOD 0 read_word
 STORE 0
 LOAD 0
 POP
-@ "lexer.gaz" 505
+@ "lexer.gaz" 498
 PUSH {"echo" => "ECHO", "if" => "IF", "else" => "ELSE", "while" => "WHILE", "for" => "FOR", "foreach" => "FOREACH", "as" => "AS", "break" => "BREAK", "continue" => "CONTINUE", "fn" => "FN", "function" => "FUNCTION", "return" => "RETURN", "null" => "NULL", "delete" => "DELETE", "match" => "MATCH", "default" => "DEFAULT", "const" => "CONST", "include" => "INCLUDE", "try" => "TRY", "catch" => "CATCH", "finally" => "FINALLY", "true" => "TRUE", "false" => "FALSE", "kind" => "KIND", "class" => "CLASS", "extends" => "EXTENDS", "abstract" => "ABSTRACT", "interface" => "INTERFACE", "implements" => "IMPLEMENTS", "final" => "FINAL", "public" => "PUBLIC", "private" => "PRIVATE", "protected" => "PROTECTED", "namespace" => "NAMESPACE", "use" => "USE", "pub" => "PUB", "kin" => "KIN", "static" => "STATIC"}
 LOAD 0
 INDEX_GET_QUIET
@@ -3229,13 +3206,13 @@ LABEL COALESCE_END_0
 LOAD 0
 NEW gazlang::Token 2
 RET
-@ "lexer.gaz" 502
+@ "lexer.gaz" 495
 PUSH null
 RET
 
 fn gazlang::Lexer.var_identifier 0 0
 locals $type $sigil
-@ "lexer.gaz" 510
+@ "lexer.gaz" 503
 LOAD_FIELD char
 PUSH "@"
 EQUALS
@@ -3248,25 +3225,25 @@ LABEL TERNARY_END_0
 STORE 0
 LOAD 0
 POP
-@ "lexer.gaz" 511
+@ "lexer.gaz" 504
 LOAD_FIELD char
 STORE 1
 LOAD 1
 POP
-@ "lexer.gaz" 512
+@ "lexer.gaz" 505
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "lexer.gaz" 515
+@ "lexer.gaz" 508
 LOAD_THIS
 GET_METHOD is_name_start
 LOAD_FIELD char
 CALL_METHOD 1 is_name_start
 NOT
 JZ ELSE_1
-@ "lexer.gaz" 516
+@ "lexer.gaz" 509
 LOAD_THIS
 GET_METHOD fail
 PUSH "Invalid variable name: "
@@ -3278,11 +3255,11 @@ CALL_METHOD 0 read_word
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "lexer.gaz" 515
+@ "lexer.gaz" 508
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "lexer.gaz" 519
+@ "lexer.gaz" 512
 LOAD 0
 LOAD 1
 LOAD_THIS
@@ -3291,39 +3268,39 @@ CALL_METHOD 0 read_word
 CONCAT
 NEW gazlang::Token 2
 RET
-@ "lexer.gaz" 509
+@ "lexer.gaz" 502
 PUSH null
 RET
 
 fn gazlang::Lexer.hash 0 0
 locals $parent $sigil
-@ "lexer.gaz" 524
+@ "lexer.gaz" 517
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "lexer.gaz" 525
+@ "lexer.gaz" 518
 LOAD_FIELD char
 PUSH "#"
 EQUALS
 STORE 0
 LOAD 0
 POP
-@ "lexer.gaz" 526
+@ "lexer.gaz" 519
 LOAD 0
 JZ ELSE_0
-@ "lexer.gaz" 527
+@ "lexer.gaz" 520
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "lexer.gaz" 526
+@ "lexer.gaz" 519
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "lexer.gaz" 529
+@ "lexer.gaz" 522
 LOAD 0
 JZ TERNARY_ELSE_1
 PUSH "##"
@@ -3334,13 +3311,13 @@ LABEL TERNARY_END_1
 STORE 1
 LOAD 1
 POP
-@ "lexer.gaz" 530
+@ "lexer.gaz" 523
 LOAD_THIS
 GET_METHOD is_name_start
 LOAD_FIELD char
 CALL_METHOD 1 is_name_start
 JZ ELSE_2
-@ "lexer.gaz" 531
+@ "lexer.gaz" 524
 LOAD 0
 JZ TERNARY_ELSE_3
 PUSH "PARENT_IDENTIFIER"
@@ -3355,11 +3332,11 @@ CALL_METHOD 0 read_word
 CONCAT
 NEW gazlang::Token 2
 RET
-@ "lexer.gaz" 530
+@ "lexer.gaz" 523
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "lexer.gaz" 534
+@ "lexer.gaz" 527
 LOAD 0
 JZ TERNARY_ELSE_4
 PUSH "PARENT"
@@ -3370,42 +3347,42 @@ LABEL TERNARY_END_4
 LOAD 1
 NEW gazlang::Token 2
 RET
-@ "lexer.gaz" 523
+@ "lexer.gaz" 516
 PUSH null
 RET
 
 fn gazlang::Lexer.get_next_token 0 0
 locals $token $line $last $state
-@ "lexer.gaz" 539
+@ "lexer.gaz" 532
 LOAD_FIELD queued_tokens
 CALL_BUILTIN len 1
 PUSH 0
 GT
 JZ ELSE_0
-@ "lexer.gaz" 540
+@ "lexer.gaz" 533
 LOAD_FIELD queued_tokens
 PUSH 0
 INDEX_GET
 STORE 0
 LOAD 0
 POP
-@ "lexer.gaz" 541
+@ "lexer.gaz" 534
 PUSH 0
 KEY_CHECK
 DELETE_PATH_THIS .queued_tokens[k]
-@ "lexer.gaz" 543
+@ "lexer.gaz" 536
 LOAD 0
 RET
-@ "lexer.gaz" 539
+@ "lexer.gaz" 532
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "lexer.gaz" 546
+@ "lexer.gaz" 539
 LOAD_FIELD line
 STORE 1
 LOAD 1
 POP
-@ "lexer.gaz" 547
+@ "lexer.gaz" 540
 LOAD_FIELD interpolations
 CALL_BUILTIN len 1
 PUSH 1
@@ -3413,7 +3390,7 @@ SUB
 STORE 2
 LOAD 2
 POP
-@ "lexer.gaz" 548
+@ "lexer.gaz" 541
 LOAD 2
 PUSH 0
 LT
@@ -3430,12 +3407,12 @@ LABEL TERNARY_END_1
 STORE 3
 LOAD 3
 POP
-@ "lexer.gaz" 550
+@ "lexer.gaz" 543
 LOAD 3
 PUSH "bare"
 EQUALS
 JZ ELSE_2
-@ "lexer.gaz" 552
+@ "lexer.gaz" 545
 LOAD 2
 KEY_CHECK
 PUSH 0
@@ -3443,37 +3420,37 @@ KEY_CHECK
 PUSH "after_bare"
 SET_PATH_THIS .interpolations[k][k]
 POP
-@ "lexer.gaz" 553
+@ "lexer.gaz" 546
 LOAD_THIS
 GET_METHOD var_identifier
 CALL_METHOD 0 var_identifier
 STORE 0
 LOAD 0
 POP
-@ "lexer.gaz" 554
+@ "lexer.gaz" 547
 LOAD_FIELD char
 PUSH "["
 EQUALS
 JZ ELSE_3
-@ "lexer.gaz" 555
+@ "lexer.gaz" 548
 LOAD_THIS
 GET_METHOD interpolated_index
 CALL_METHOD 0 interpolated_index
 SET_FIELD queued_tokens
 POP
-@ "lexer.gaz" 554
+@ "lexer.gaz" 547
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "lexer.gaz" 550
+@ "lexer.gaz" 543
 JMP ENDIF_2
 LABEL ELSE_2
-@ "lexer.gaz" 557
+@ "lexer.gaz" 550
 LOAD 3
 PUSH "after_bare"
 EQUALS
 JZ ELSE_4
-@ "lexer.gaz" 558
+@ "lexer.gaz" 551
 LOAD_THIS
 GET_METHOD string_part
 PUSH false
@@ -3481,20 +3458,20 @@ CALL_METHOD 1 string_part
 STORE 0
 LOAD 0
 POP
-@ "lexer.gaz" 557
+@ "lexer.gaz" 550
 JMP ENDIF_4
 LABEL ELSE_4
-@ "lexer.gaz" 560
+@ "lexer.gaz" 553
 LOAD_THIS
 GET_METHOD skip_ignored
 CALL_METHOD 0 skip_ignored
 POP
-@ "lexer.gaz" 561
+@ "lexer.gaz" 554
 LOAD_FIELD line
 STORE 1
 LOAD 1
 POP
-@ "lexer.gaz" 562
+@ "lexer.gaz" 555
 LOAD_THIS
 GET_METHOD scan_token
 CALL_METHOD 0 scan_token
@@ -3503,29 +3480,29 @@ LOAD 0
 POP
 LABEL ENDIF_4
 LABEL ENDIF_2
-@ "lexer.gaz" 564
+@ "lexer.gaz" 557
 LOAD 1
 SET_PATH .line 0
 POP
-@ "lexer.gaz" 566
+@ "lexer.gaz" 559
 LOAD 0
 RET
-@ "lexer.gaz" 538
+@ "lexer.gaz" 531
 PUSH null
 RET
 
 fn gazlang::Lexer.skip_ignored 0 0
 locals $c
 LABEL WHILE_0
-@ "lexer.gaz" 571
+@ "lexer.gaz" 564
 PUSH true
 JZ ENDWHILE_0
-@ "lexer.gaz" 572
+@ "lexer.gaz" 565
 LOAD_FIELD char
 STORE 0
 LOAD 0
 POP
-@ "lexer.gaz" 573
+@ "lexer.gaz" 566
 LOAD 0
 PUSH " "
 EQUALS
@@ -3566,77 +3543,77 @@ LABEL OR_TRUE_2
 PUSH true
 LABEL OR_END_2
 JZ ELSE_1
-@ "lexer.gaz" 574
+@ "lexer.gaz" 567
 LOAD_THIS
 GET_METHOD skip_whitespace
 CALL_METHOD 0 skip_whitespace
 POP
-@ "lexer.gaz" 573
+@ "lexer.gaz" 566
 JMP ENDIF_1
 LABEL ELSE_1
-@ "lexer.gaz" 575
+@ "lexer.gaz" 568
 LOAD 0
 PUSH "/"
 NOT_EQUALS
 JZ ELSE_5
-@ "lexer.gaz" 576
+@ "lexer.gaz" 569
 PUSH null
 RET
-@ "lexer.gaz" 575
+@ "lexer.gaz" 568
 JMP ENDIF_5
 LABEL ELSE_5
-@ "lexer.gaz" 577
+@ "lexer.gaz" 570
 LOAD_THIS
 GET_METHOD peek
 CALL_METHOD 0 peek
 PUSH "/"
 EQUALS
 JZ ELSE_6
-@ "lexer.gaz" 578
+@ "lexer.gaz" 571
 LOAD_THIS
 GET_METHOD skip_comment
 CALL_METHOD 0 skip_comment
 POP
-@ "lexer.gaz" 577
+@ "lexer.gaz" 570
 JMP ENDIF_6
 LABEL ELSE_6
-@ "lexer.gaz" 579
+@ "lexer.gaz" 572
 LOAD_THIS
 GET_METHOD peek
 CALL_METHOD 0 peek
 PUSH "*"
 EQUALS
 JZ ELSE_7
-@ "lexer.gaz" 580
+@ "lexer.gaz" 573
 LOAD_THIS
 GET_METHOD skip_block_comment
 CALL_METHOD 0 skip_block_comment
 POP
-@ "lexer.gaz" 579
+@ "lexer.gaz" 572
 JMP ENDIF_7
 LABEL ELSE_7
-@ "lexer.gaz" 582
+@ "lexer.gaz" 575
 PUSH null
 RET
 LABEL ENDIF_7
 LABEL ENDIF_6
 LABEL ENDIF_5
 LABEL ENDIF_1
-@ "lexer.gaz" 571
+@ "lexer.gaz" 564
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "lexer.gaz" 570
+@ "lexer.gaz" 563
 PUSH null
 RET
 
 fn gazlang::Lexer.scan_token 0 0
 locals $c $type $last $#update_key1_0 $#update_key2_0 $#update_key1_1 $#update_key2_1 $#foreach_array_2 $#foreach_keys_2 $#foreach_count_2 $#foreach_i_2 $length $operator
-@ "lexer.gaz" 589
+@ "lexer.gaz" 582
 LOAD_FIELD char
 STORE 0
 LOAD 0
 POP
-@ "lexer.gaz" 591
+@ "lexer.gaz" 584
 PUSH {"(" => "LEFT_PAREN", ")" => "RIGHT_PAREN", "[" => "LEFT_BRACKET", "]" => "RIGHT_BRACKET", "," => "COMMA", ";" => "SEMICOLON", "~" => "BIT_NOT"}
 LOAD 0
 INDEX_GET_QUIET
@@ -3646,27 +3623,27 @@ LABEL COALESCE_END_0
 STORE 1
 LOAD 1
 POP
-@ "lexer.gaz" 592
+@ "lexer.gaz" 585
 LOAD 1
 PUSH null
 NOT_EQUALS
 JZ ELSE_1
-@ "lexer.gaz" 593
+@ "lexer.gaz" 586
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "lexer.gaz" 594
+@ "lexer.gaz" 587
 LOAD 1
 LOAD 0
 NEW gazlang::Token 2
 RET
-@ "lexer.gaz" 592
+@ "lexer.gaz" 585
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "lexer.gaz" 601
+@ "lexer.gaz" 594
 LOAD 0
 PUSH "$"
 EQUALS
@@ -3682,10 +3659,10 @@ JMP OR_END_3
 LABEL OR_TRUE_3
 PUSH true
 LABEL OR_END_3
-@ "lexer.gaz" 600
+@ "lexer.gaz" 593
 NOT
 JZ MATCH_ARM_2_0
-@ "lexer.gaz" 602
+@ "lexer.gaz" 595
 LOAD 0
 PUSH "a"
 GE
@@ -3733,17 +3710,17 @@ JMP OR_END_4
 LABEL OR_TRUE_4
 PUSH true
 LABEL OR_END_4
-@ "lexer.gaz" 600
+@ "lexer.gaz" 593
 NOT
 JZ MATCH_ARM_2_1
-@ "lexer.gaz" 603
+@ "lexer.gaz" 596
 LOAD 0
 PUSH "\""
 EQUALS
-@ "lexer.gaz" 600
+@ "lexer.gaz" 593
 NOT
 JZ MATCH_ARM_2_2
-@ "lexer.gaz" 604
+@ "lexer.gaz" 597
 LOAD 0
 PUSH "0"
 GE
@@ -3757,31 +3734,31 @@ JMP AND_END_8
 LABEL AND_FALSE_8
 PUSH false
 LABEL AND_END_8
-@ "lexer.gaz" 600
+@ "lexer.gaz" 593
 NOT
 JZ MATCH_ARM_2_3
-@ "lexer.gaz" 605
+@ "lexer.gaz" 598
 LOAD 0
 PUSH ""
 EQUALS
-@ "lexer.gaz" 600
+@ "lexer.gaz" 593
 NOT
 JZ MATCH_ARM_2_4
-@ "lexer.gaz" 612
+@ "lexer.gaz" 605
 LOAD 0
 PUSH "'"
 EQUALS
-@ "lexer.gaz" 600
+@ "lexer.gaz" 593
 NOT
 JZ MATCH_ARM_2_5
-@ "lexer.gaz" 613
+@ "lexer.gaz" 606
 LOAD 0
 PUSH "#"
 EQUALS
-@ "lexer.gaz" 600
+@ "lexer.gaz" 593
 NOT
 JZ MATCH_ARM_2_6
-@ "lexer.gaz" 615
+@ "lexer.gaz" 608
 LOAD 0
 PUSH "."
 EQUALS
@@ -3798,69 +3775,69 @@ JMP AND_END_9
 LABEL AND_FALSE_9
 PUSH false
 LABEL AND_END_9
-@ "lexer.gaz" 600
+@ "lexer.gaz" 593
 NOT
 JZ MATCH_ARM_2_7
-@ "lexer.gaz" 619
+@ "lexer.gaz" 612
 LOAD 0
 PUSH "{"
 EQUALS
-@ "lexer.gaz" 600
+@ "lexer.gaz" 593
 NOT
 JZ MATCH_ARM_2_8
-@ "lexer.gaz" 627
+@ "lexer.gaz" 620
 LOAD 0
 PUSH "}"
 EQUALS
-@ "lexer.gaz" 600
+@ "lexer.gaz" 593
 NOT
 JZ MATCH_ARM_2_9
 JMP MATCH_ARM_2_10
 LABEL MATCH_ARM_2_0
-@ "lexer.gaz" 601
+@ "lexer.gaz" 594
 LOAD_THIS
 GET_METHOD var_identifier
 CALL_METHOD 0 var_identifier
 RET
-@ "lexer.gaz" 600
+@ "lexer.gaz" 593
 PUSH null
 JMP MATCH_END_2
 LABEL MATCH_ARM_2_1
-@ "lexer.gaz" 602
+@ "lexer.gaz" 595
 LOAD_THIS
 GET_METHOD identifier
 CALL_METHOD 0 identifier
 RET
-@ "lexer.gaz" 600
+@ "lexer.gaz" 593
 PUSH null
 JMP MATCH_END_2
 LABEL MATCH_ARM_2_2
-@ "lexer.gaz" 603
+@ "lexer.gaz" 596
 LOAD_THIS
 GET_METHOD string_part
 PUSH true
 CALL_METHOD 1 string_part
 RET
-@ "lexer.gaz" 600
+@ "lexer.gaz" 593
 PUSH null
 JMP MATCH_END_2
 LABEL MATCH_ARM_2_3
-@ "lexer.gaz" 604
+@ "lexer.gaz" 597
 LOAD_THIS
 GET_METHOD number
 CALL_METHOD 0 number
 RET
-@ "lexer.gaz" 600
+@ "lexer.gaz" 593
 PUSH null
 JMP MATCH_END_2
 LABEL MATCH_ARM_2_4
-@ "lexer.gaz" 607
+@ "lexer.gaz" 600
 LOAD_FIELD interpolations
 CALL_BUILTIN len 1
 PUSH 0
 GT
 JZ ELSE_10
-@ "lexer.gaz" 608
+@ "lexer.gaz" 601
 LOAD_THIS
 GET_METHOD fail
 PUSH "Unterminated string"
@@ -3870,46 +3847,46 @@ PUSH 1
 INDEX_GET
 CALL_METHOD 2 fail
 POP
-@ "lexer.gaz" 607
+@ "lexer.gaz" 600
 JMP ENDIF_10
 LABEL ELSE_10
 LABEL ENDIF_10
-@ "lexer.gaz" 610
+@ "lexer.gaz" 603
 PUSH "EOF"
 PUSH null
 NEW gazlang::Token 2
 RET
-@ "lexer.gaz" 600
+@ "lexer.gaz" 593
 PUSH null
 JMP MATCH_END_2
 LABEL MATCH_ARM_2_5
-@ "lexer.gaz" 612
+@ "lexer.gaz" 605
 PUSH "STRING"
 LOAD_THIS
 GET_METHOD single_quoted_string
 CALL_METHOD 0 single_quoted_string
 NEW gazlang::Token 2
 RET
-@ "lexer.gaz" 600
+@ "lexer.gaz" 593
 PUSH null
 JMP MATCH_END_2
 LABEL MATCH_ARM_2_6
-@ "lexer.gaz" 613
+@ "lexer.gaz" 606
 LOAD_THIS
 GET_METHOD hash
 CALL_METHOD 0 hash
 RET
-@ "lexer.gaz" 600
+@ "lexer.gaz" 593
 PUSH null
 JMP MATCH_END_2
 LABEL MATCH_ARM_2_7
-@ "lexer.gaz" 616
+@ "lexer.gaz" 609
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "lexer.gaz" 617
+@ "lexer.gaz" 610
 PUSH "PROPERTY"
 PUSH "."
 LOAD_THIS
@@ -3918,17 +3895,17 @@ CALL_METHOD 0 read_word
 CONCAT
 NEW gazlang::Token 2
 RET
-@ "lexer.gaz" 600
+@ "lexer.gaz" 593
 PUSH null
 JMP MATCH_END_2
 LABEL MATCH_ARM_2_8
-@ "lexer.gaz" 620
+@ "lexer.gaz" 613
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "lexer.gaz" 621
+@ "lexer.gaz" 614
 LOAD_FIELD interpolations
 CALL_BUILTIN len 1
 PUSH 1
@@ -3936,12 +3913,12 @@ SUB
 STORE 2
 LOAD 2
 POP
-@ "lexer.gaz" 622
+@ "lexer.gaz" 615
 LOAD 2
 PUSH 0
 GE
 JZ ELSE_11
-@ "lexer.gaz" 623
+@ "lexer.gaz" 616
 LOAD 2
 KEY_CHECK
 STORE 3
@@ -3959,26 +3936,26 @@ INDEX_GET_EXISTING
 INC
 SET_PATH_THIS .interpolations[k][k]
 POP
-@ "lexer.gaz" 622
+@ "lexer.gaz" 615
 JMP ENDIF_11
 LABEL ELSE_11
 LABEL ENDIF_11
-@ "lexer.gaz" 625
+@ "lexer.gaz" 618
 PUSH "LEFT_BRACE"
 PUSH "{"
 NEW gazlang::Token 2
 RET
-@ "lexer.gaz" 600
+@ "lexer.gaz" 593
 PUSH null
 JMP MATCH_END_2
 LABEL MATCH_ARM_2_9
-@ "lexer.gaz" 628
+@ "lexer.gaz" 621
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "lexer.gaz" 631
+@ "lexer.gaz" 624
 LOAD_FIELD interpolations
 CALL_BUILTIN len 1
 PUSH 1
@@ -3986,12 +3963,12 @@ SUB
 STORE 2
 LOAD 2
 POP
-@ "lexer.gaz" 632
+@ "lexer.gaz" 625
 LOAD 2
 PUSH 0
 GE
 JZ ELSE_12
-@ "lexer.gaz" 633
+@ "lexer.gaz" 626
 LOAD_FIELD interpolations
 LOAD 2
 INDEX_GET
@@ -4000,7 +3977,7 @@ INDEX_GET
 PUSH 0
 GT
 JZ ELSE_13
-@ "lexer.gaz" 634
+@ "lexer.gaz" 627
 LOAD 2
 KEY_CHECK
 STORE 5
@@ -4018,10 +3995,10 @@ INDEX_GET_EXISTING
 DEC
 SET_PATH_THIS .interpolations[k][k]
 POP
-@ "lexer.gaz" 633
+@ "lexer.gaz" 626
 JMP ENDIF_13
 LABEL ELSE_13
-@ "lexer.gaz" 635
+@ "lexer.gaz" 628
 LOAD_FIELD interpolations
 LOAD 2
 INDEX_GET
@@ -4030,27 +4007,27 @@ INDEX_GET
 PUSH "braces"
 EQUALS
 JZ ELSE_14
-@ "lexer.gaz" 636
+@ "lexer.gaz" 629
 LOAD_THIS
 GET_METHOD string_part
 PUSH false
 CALL_METHOD 1 string_part
 RET
-@ "lexer.gaz" 635
+@ "lexer.gaz" 628
 JMP ENDIF_14
 LABEL ELSE_14
 LABEL ENDIF_14
 LABEL ENDIF_13
-@ "lexer.gaz" 632
+@ "lexer.gaz" 625
 JMP ENDIF_12
 LABEL ELSE_12
 LABEL ENDIF_12
-@ "lexer.gaz" 639
+@ "lexer.gaz" 632
 PUSH "RIGHT_BRACE"
 PUSH "}"
 NEW gazlang::Token 2
 RET
-@ "lexer.gaz" 600
+@ "lexer.gaz" 593
 PUSH null
 JMP MATCH_END_2
 LABEL MATCH_ARM_2_10
@@ -4058,7 +4035,7 @@ PUSH null
 JMP MATCH_END_2
 LABEL MATCH_END_2
 POP
-@ "lexer.gaz" 644
+@ "lexer.gaz" 637
 PUSH [3, 2, 1]
 FOREACH_CHECK
 STORE 7
@@ -4089,7 +4066,7 @@ INDEX_GET
 STORE 11
 LOAD 11
 POP
-@ "lexer.gaz" 645
+@ "lexer.gaz" 638
 LOAD_FIELD text
 LOAD_FIELD pos
 LOAD 11
@@ -4097,7 +4074,7 @@ CALL_BUILTIN slice 3
 STORE 12
 LOAD 12
 POP
-@ "lexer.gaz" 646
+@ "lexer.gaz" 639
 PUSH {"+" => "PLUS", "+=" => "PLUS_ASSIGN", "++" => "INCREMENT", "-" => "MINUS", "-=" => "MINUS_ASSIGN", "--" => "DECREMENT", "->" => "ARROW", "*" => "MULTIPLY", "*=" => "MULTIPLY_ASSIGN", "/" => "DIVIDE", "/=" => "DIVIDE_ASSIGN", "%" => "MODULO", "%=" => "MODULO_ASSIGN", "&" => "BIT_AND", "&=" => "BIT_AND_ASSIGN", "&&" => "AND", "|" => "BIT_OR", "|=" => "BIT_OR_ASSIGN", "||" => "OR", "^" => "BIT_XOR", "^=" => "BIT_XOR_ASSIGN", "<" => "LESS_THAN", "<=" => "LESS_EQUALS", "<=>" => "SPACESHIP", "<<" => "SHIFT_LEFT", "<<=" => "SHIFT_LEFT_ASSIGN", ">" => "GREATER_THAN", ">=" => "GREATER_EQUALS", ">>" => "SHIFT_RIGHT", ">>=" => "SHIFT_RIGHT_ASSIGN", "=" => "ASSIGN", "==" => "EQUALS", "=>" => "DOUBLE_ARROW", "!" => "NOT", "!=" => "NOT_EQUALS", ".." => "CONCAT", "..=" => "CONCAT_ASSIGN", "..." => "SPREAD", "?" => "QUESTION", "??" => "COALESCE", "??=" => "COALESCE_ASSIGN", ":" => "COLON", "::" => "DOUBLE_COLON"}
 LOAD 12
 INDEX_GET_QUIET
@@ -4107,28 +4084,28 @@ LABEL COALESCE_END_16
 STORE 1
 LOAD 1
 POP
-@ "lexer.gaz" 647
+@ "lexer.gaz" 640
 LOAD 1
 PUSH null
 NOT_EQUALS
 JZ ELSE_17
-@ "lexer.gaz" 648
+@ "lexer.gaz" 641
 LOAD_THIS
 GET_METHOD skip
 LOAD 11
 CALL_METHOD 1 skip
 POP
-@ "lexer.gaz" 649
+@ "lexer.gaz" 642
 LOAD 1
 LOAD 12
 NEW gazlang::Token 2
 RET
-@ "lexer.gaz" 647
+@ "lexer.gaz" 640
 JMP ENDIF_17
 LABEL ELSE_17
 LABEL ENDIF_17
 LABEL CONTINUE_15
-@ "lexer.gaz" 644
+@ "lexer.gaz" 637
 LOAD 10
 PUSH 1
 ADD
@@ -4137,7 +4114,7 @@ LOAD 10
 POP
 JMP WHILE_15
 LABEL ENDWHILE_15
-@ "lexer.gaz" 653
+@ "lexer.gaz" 646
 LOAD_THIS
 GET_METHOD fail
 PUSH "Unexpected character '"
@@ -4147,7 +4124,7 @@ PUSH "'"
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "lexer.gaz" 588
+@ "lexer.gaz" 581
 PUSH null
 RET
 

@@ -34,6 +34,7 @@ snippet:02657264e0e3
 snippet:0307fbc1fbc4
 snippet:031e3008cafa
 snippet:032be9ae64e8
+snippet:03cc9edf7b13
 snippet:03fd78ec6827
 snippet:043956983f42
 snippet:0482d24a30b9
@@ -224,6 +225,7 @@ snippet:538947ee324d
 snippet:53a621325789
 snippet:53e13f21e1cb
 snippet:53e86ff3fae4
+snippet:53f41e0f6fbb
 snippet:543f1b1c1c8c
 snippet:5443eab61e61
 snippet:5470178e9e76
@@ -443,6 +445,7 @@ snippet:b9c1a6faaaa1
 snippet:b9fbb0726c04
 snippet:ba249aa46de8
 snippet:baf1196ea08e
+snippet:bb33aad3d823
 snippet:bb4f062e8bc2
 snippet:bb741aaa8e22
 snippet:bbf532002709
@@ -555,6 +558,7 @@ snippet:f65895769746
 snippet:f7554fc59021
 snippet:f7596501168a
 snippet:f7765831b47b
+snippet:f80b5e1ea898
 snippet:f851dcf31057
 snippet:f8a7cf34a98b
 snippet:f8b90c348a0b
@@ -745,6 +749,7 @@ tests/gaz/strings/interpolation_test.gaz
 tests/lexer_corpus/block_comments.gaz
 tests/lexer_corpus/comments.gaz
 tests/lexer_corpus/empty.gaz
+tests/lexer_corpus/interpolated_index_too_large.gaz
 tests/lexer_corpus/interpolation.gaz
 tests/lexer_corpus/ternary.gaz
 tests/lexer_corpus/whitespace_crlf.gaz

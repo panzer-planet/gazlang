@@ -46,9 +46,8 @@ $totals = {};
 $counts = {};
 foreach ($records as $i => $record) {
     $text = trim($record[$amount_column]);
-    try {
-        $amount = to_float($text);
-    } catch ($e) {
+    $amount = to_float($text, null);
+    if ($amount == null) {
         // Row numbers count the header as row 1, like a spreadsheet
         fail("row " .. ($i + 2) .. ": $amount_column \"$text\" is not a number");
     }

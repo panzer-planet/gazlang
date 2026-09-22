@@ -33,7 +33,7 @@ const BuiltinInfo builtin_info[] = {
     {"len", 1, 1}, {"slice", 2, 3}, {"lower", 1, 1}, {"upper", 1, 1}, {"trim", 1, 1},
     {"split", 2, 2}, {"join", 2, 2}, {"replace", 3, 3}, {"contains", 2, 2}, {"starts_with", 2, 2},
     {"ends_with", 2, 2}, {"index_of", 2, 3}, {"repeat", 2, 2}, {"chr", 1, 1}, {"ord", 1, 1},
-    {"to_int", 1, 1}, {"to_float", 1, 1}, {"floor", 1, 1}, {"ceil", 1, 1}, {"round", 1, 2},
+    {"to_int", 1, 2}, {"to_float", 1, 2}, {"floor", 1, 1}, {"ceil", 1, 1}, {"round", 1, 2},
     {"abs", 1, 1}, {"intdiv", 2, 2}, {"min", 1, 2}, {"max", 1, 2}, {"sum", 1, 1}, {"to_string", 1, 1},
     {"in_array", 2, 2}, {"has_key", 2, 2}, {"keys", 1, 1}, {"values", 1, 1}, {"last", 1, 1}, {"reverse", 1, 1},
     {"map", 2, 2},
@@ -341,7 +341,16 @@ static Value replace(Str *s, Str *search, Str *with) {
     return v_str(buf_to_str(&b));
 }
 
-static bool to_int(Value v, Value *out) {
+/* A string, or a float too large for an int, that can't be converted gives the default when there
+   is one (to_int($s, null)); any other type is still an error, as it is a mistake, not bad input */
+static bool fall_back(Value v, int argc, Value fallback, Value *out) {
+    if (argc < 2 || (v.type != T_STRING && v.type != T_FLOAT)) return false;
+    incref(fallback);
+    *out = fallback;
+    return true;
+}
+
+static bool to_int(Value v, int argc, Value fallback, Value *out) {
     int64_t n;
     switch (v.type) {
     case T_INT: *out = v; return true;
@@ -362,6 +371,7 @@ static bool to_int(Value v, Value *out) {
     default:
         break;
     }
+    if (fall_back(v, argc, fallback, out)) return true;
     Buf b = {0};
     buf_adds(&b, "to_int() cannot convert ");
     if (v.type == T_STRING) quote(v.s, &b);
@@ -379,7 +389,7 @@ static bool all_digits(Str *s) {
     return true;
 }
 
-static bool to_float(Value v, Value *out) {
+static bool to_float(Value v, int argc, Value fallback, Value *out) {
     switch (v.type) {
     case T_INT: *out = v_float((double)v.i); return true;
     case T_FLOAT: *out = v; return true;
@@ -400,6 +410,7 @@ static bool to_float(Value v, Value *out) {
     default:
         break;
     }
+    if (fall_back(v, argc, fallback, out)) return true;
     Buf b = {0};
     buf_adds(&b, "to_float() cannot convert ");
     if (v.type == T_STRING) quote(v.s, &b);
@@ -769,9 +780,9 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         *out = v_int((unsigned char)a.s->data[0]);
         return true;
     case B_TO_INT:
-        return to_int(a, out);
+        return to_int(a, argc, b, out);
     case B_TO_FLOAT:
-        return to_float(a, out);
+        return to_float(a, argc, b, out);
     case B_FLOOR:
     case B_CEIL:
         if (!want(index, a, INT | M(T_FLOAT))) return false;

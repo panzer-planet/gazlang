@@ -186,6 +186,15 @@ class StdlibTest extends GazLangTestCase
         ));
     }
 
+    public function test_to_int_and_to_float_give_the_default_for_what_they_cannot_convert()
+    {
+        $this->assertEquals("[42, null, 0, -1, null, 7]\n[2.5, null, 0.0, 1.0E+20]\nwas null\n", $this->executeCode(<<<'CODE'
+            echo [to_int("42", null), to_int("4x", null), to_int("", 0), to_int("99999999999999999999", -1), to_int(1.0E+30, null), to_int("7", "x")];
+            echo [to_float("2.5", null), to_float("x", null), to_float("1e400", 0.0), to_float("99999999999999999999", null)];
+            echo to_int("nope", null) ?? "was null";
+            CODE));
+    }
+
     /**
      * @dataProvider invalidInts
      */
@@ -531,6 +540,9 @@ class StdlibTest extends GazLangTestCase
             'min of a number and a string' => ['min(1, "2");', 'min() expects two numbers or two strings, got int and string'],
             'max of bools' => ['max(true, false);', 'max() expects two numbers or two strings, got bool and bool'],
             'max of lists' => ['max([1], [2]);', 'max() expects two numbers or two strings, got list and list'],
+            'to_int of null with a default' => ['to_int(null, 0);', 'to_int() cannot convert null'],
+            'to_int of a list with a default' => ['to_int([], 0);', 'to_int() cannot convert list'],
+            'to_float of a map with a default' => ['to_float({}, 0.0);', 'to_float() cannot convert map'],
             'min of a number' => ['min(5);', 'min() expects list or map, got int'],
             'min of an empty list' => ['min([]);', 'min() expects a non-empty list or map'],
             'max of an empty map' => ['max({});', 'max() expects a non-empty list or map'],

@@ -1,0 +1,3 @@
+// Digits too large for an int are a string key, as any non-canonical int is
+$a = {};
+echo "$a[99999999999999999999] $a[007] $a[-5]";

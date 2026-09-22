@@ -257,9 +257,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     code, which copies the string: only a plain variable appends in place.
   - Including a file also runs its top level code. `Error`'s members are reserved across its
     children, so a domain error can't declare its own `#line` or `#message`.
-  - No identity key for an object (a side table keyed by node), no `to_int`/
-    `to_float` that returns null instead of throwing, no copy-with-change for objects, no
-    `catch (A | B $e)`, no bare rethrow, no `_` to skip an element in a list pattern.
+  - No identity key for an object (a side table keyed by node), no copy-with-change for
+    objects, no `catch (A | B $e)`, no bare rethrow, no `_` to skip an element in a list pattern.
   - `match ($x)` is a linear chain of `EQUALS`; no jump table.
   - No enum: token types are strings on purpose (they are the `--tokens` format).
 - **HTTP is HTTP/1.1 in GazLang (`lib/http.gaz`) on socket builtins, TLS through OpenSSL**,
@@ -409,8 +408,12 @@ version.
   `round` give floats; `abs` keeps the type; `min`/`max` take two numbers or two strings, or a
   list or map whose values are all numbers or all strings (empty is an error), a tie giving the
   first. `sum` adds a list's or map's values from 0 with `+` (`binary_op(OP_ADD)`), so its
-  errors, overflow and int-or-float are `+`'s and `sum([])` is 0. `to_int` truncates a float and errors outside the int range; `to_float(true)`
-  is 1.0.
+  errors, overflow and int-or-float are `+`'s and `sum([])` is 0. `to_int` truncates a float and
+  errors outside the int range; `to_float(true)` is 1.0. **`to_int($x, $default)` and
+  `to_float($x, $default)`** give the default for a string, or a float too large for an int,
+  that can't be converted (`to_int($arg, null) ?? fail(...)`), so bad input needs no `try`,
+  which would also catch running out of call depth; any other type is still an error, being a
+  mistake rather than bad input (`fall_back()` in `builtins.c`).
 
 ## Strings
 
@@ -923,12 +926,12 @@ try {
 - **The driver raises `LexError` and `ParseError` messages again from the top level**
   (`error($e.message)`), so `--tokens` and `--ast` print only the message; a bug in a port is a
   different error and still arrives with its trace. `LexError` carries `#reason` and
-  `#source_line`, since `#line` is where in `lexer.gaz` it was raised. A `try` in the lexer holds
-  only the `to_int()`/`to_float()` it is about, since `catch (Error)` also catches running out
-  of call depth.
+  `#source_line`, since `#line` is where in `lexer.gaz` it was raised. The one `try` in the lexer
+  (`hex_value()`) holds only the arithmetic it is about, since `catch (Error)` also catches
+  running out of call depth.
 - **What it leans on instead of writing out**: `slice(to_string([$v]), 1, -1)` is a value as a
   literal (a string quoted, which is the inverse of reading one), `..` on a float formats it,
-  `to_int()` in a `try` is the overflow check.
+  `to_int($text, null)` is the overflow check.
 - **Paths** resolve with `cwd()`, `real_path()` and `file_exists()`; the parser harness also
   runs from other working directories and with an absolute include.
 

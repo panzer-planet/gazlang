@@ -611,11 +611,7 @@ fn number_argument($index, $name, $default) {
     if (len($arguments) <= $index) {
         return $default;
     }
-    try {
-        return to_int($arguments[$index]);
-    } catch (Error $e) {
-        fail("{$name} must be a whole number, got \"{$arguments[$index]}\"");
-    }
+    return to_int($arguments[$index], null) ?? fail("{$name} must be a whole number, got \"{$arguments[$index]}\"");
 }
 
 $count = number_argument(0, "CLUBS", 4);

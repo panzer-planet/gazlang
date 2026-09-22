@@ -67,11 +67,7 @@ fn number_argument($arguments, $i, $default) {
     if ($text == null) {
         return $default;
     }
-    try {
-        $number = to_int($text);
-    } catch (Error $e) {
-        $number = 0;
-    }
+    $number = to_int($text, 0);
     if ($number < 1) {
         error("Expected a whole number above 0, got \"$text\"");
     }

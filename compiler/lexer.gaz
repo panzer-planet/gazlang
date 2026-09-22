@@ -253,12 +253,9 @@ kind Lexer {
             #fail("Invalid number literal: " .. $text .. #read_word());
         }
 
-        // The digits are valid, so the only way these fail is by not fitting. Nothing else is
-        // inside the try: an error from anywhere else must not be reported as a large number
-        $value = null;
-        try {
-            $value = $is_float ? to_float($text) : to_int($text);
-        } catch (Error $e) {
+        // The digits are valid, so the only way these fail is by not fitting
+        $value = $is_float ? to_float($text, null) : to_int($text, null);
+        if ($value == null) {
             #fail(($is_float ? "Float" : "Integer") .. " literal too large: {$text}");
         }
 
@@ -381,12 +378,8 @@ kind Lexer {
             $digits = #char;
             #skip(1);
             $digits ..= #read_digits();
-            $int = null;
-            try {
-                $int = to_int($digits);
-            } catch (Error $e) {
-                // A lone - or digits too large for an int: not a canonical int either
-            }
+            // A lone - or digits too large for an int is null: not a canonical int either
+            $int = to_int($digits, null);
             $key = $int != null && to_string($int) == $digits ? Token("INTEGER", $int) : Token("STRING", $digits);
         } else if (#is_name_start(#char)) {
             $key = Token("STRING", #read_word());
