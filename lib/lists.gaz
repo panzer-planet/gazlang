@@ -18,3 +18,31 @@ pub fn flatten($lists) {
     }
     return $all;
 }
+
+// The element whose key is largest, the first of them on a tie: $key($x) is called once for
+// each element and the keys compared with <=>, so a list of keys breaks ties in order
+pub fn max_by($xs, $key) {
+    return extreme($xs, $key, 1, "max_by");
+}
+
+// The element whose key is smallest, the first of them on a tie
+pub fn min_by($xs, $key) {
+    return extreme($xs, $key, -1, "min_by");
+}
+
+fn extreme($xs, $key, $sign, $name) {
+    if (type_of($xs) != "list") {
+        error("lists::{$name}() expects a non-empty list, got " .. type_of($xs));
+    }
+    if ($xs == []) {
+        error("lists::{$name}() expects a non-empty list");
+    }
+    [$best, $best_key] = [$xs[0], $key($xs[0])];
+    foreach (slice($xs, 1) as $x) {
+        $k = $key($x);
+        if (($k <=> $best_key) == $sign) {
+            [$best, $best_key] = [$x, $k];
+        }
+    }
+    return $best;
+}

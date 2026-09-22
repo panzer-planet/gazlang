@@ -3,6 +3,7 @@ namespace matches;
 
 include "../../lib/format.gaz" use pad_left;
 include "../../lib/random.gaz";
+include "../../lib/lists.gaz" use max_by;
 
 abstract kind Event {
     fn _(#minute, pub #team) {}
@@ -134,7 +135,7 @@ pub kind Fixture {
     // defensive display (attacking() + defending() reflects the day's sharpness) breaks a tie
     pub fn motm() {
         $all = [...#home.players, ...#away.players];
-        return sort($all, ($a, $b) -> #motm_score($b) <=> #motm_score($a))[0];
+        return max_by($all, #motm_score);
     }
 
     fn motm_score($player) {

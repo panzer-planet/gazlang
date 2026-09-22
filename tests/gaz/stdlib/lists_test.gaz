@@ -1,10 +1,22 @@
 include "../check.gaz";
-include "../../../lib/lists.gaz" use flatten;
+include "../../../lib/lists.gaz" use flatten, max_by, min_by;
 
 check("flatten joins the lists in order", flatten([[1, 2], [], [3]]), [1, 2, 3]);
 check("flatten goes one level deep", flatten([[[1]], [2, [3]]]), [[1], 2, [3]]);
 check("flatten of nothing", flatten([]), []);
 check("flatten keeps maps whole", flatten([[{"k" => 1}]]), [{"k" => 1}]);
+
+$people = [{"name" => "Ada", "age" => 36}, {"name" => "Bob", "age" => 25}, {"name" => "Cy", "age" => 36}];
+check("max_by gives the element with the largest key", max_by($people, $p -> $p["age"])["name"], "Ada");
+check("min_by gives the smallest", min_by($people, $p -> $p["age"])["name"], "Bob");
+check("max_by gives the first on a tie", max_by([[1, "a"], [2, "b"], [2, "c"]], $x -> $x[0]), [2, "b"]);
+check("min_by gives the first on a tie", min_by([3, 1, 1.0], $x -> $x), 1);
+check("a list of keys breaks ties in order", max_by($people, $p -> [$p["age"], $p["name"]])["name"], "Cy");
+check("max_by of one element", max_by(["only"], $x -> 0), "only");
+// A global, since a closure's captured variables are its own
+@calls = [];
+max_by([5, 6, 7], $x -> { @calls[] = $x; return $x; });
+check("the key is called once for each element, in order", @calls, [5, 6, 7]);
 
 fn message($f) {
     try {
@@ -16,3 +28,6 @@ fn message($f) {
 }
 check("flatten needs a list", message(() -> flatten({"a" => [1]})), "lists::flatten() expects a list of lists, got map");
 check("flatten needs lists in it", message(() -> flatten([[1], 2])), "lists::flatten() expects a list of lists, got int among them");
+check("max_by needs a list", message(() -> max_by({"a" => 1}, $x -> $x)), "lists::max_by() expects a non-empty list, got map");
+check("min_by needs something in it", message(() -> min_by([], $x -> $x)), "lists::min_by() expects a non-empty list");
+check("keys must be orderable", message(() -> max_by([1, "a"], $x -> $x)), "Cannot use <=> on string and int");

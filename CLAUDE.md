@@ -551,7 +551,8 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   naming a builtin it lacks.
 - In GazLang instead, each its own namespace, so only what a file marks `pub` escapes it:
   `chars.gaz` (character classes), `sorting.gaz` (`sorting::values`, `sorting::by`, on `sort`),
-  `lists.gaz` (`lists::flatten`; a list helper goes here rather than into the builtins, since
+  `lists.gaz` (`lists::flatten`, `lists::max_by`/`min_by`, which call the key once per element
+  and keep the first on a tie, so they replace a stable `sort(...)[0]` exactly; a list helper goes here rather than into the builtins, since
   a builtin takes its name from every program and a namespace only from those that include it),
   `format.gaz` (`format::number`, `format::pad_left`/`pad_right`
   convert like echo: display helpers take any value, string functions stay strict),

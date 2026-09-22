@@ -2,5 +2,15 @@ ok flatten joins the lists in order
 ok flatten goes one level deep
 ok flatten of nothing
 ok flatten keeps maps whole
+ok max_by gives the element with the largest key
+ok min_by gives the smallest
+ok max_by gives the first on a tie
+ok min_by gives the first on a tie
+ok a list of keys breaks ties in order
+ok max_by of one element
+ok the key is called once for each element, in order
 ok flatten needs a list
 ok flatten needs lists in it
+ok max_by needs a list
+ok min_by needs something in it
+ok keys must be orderable

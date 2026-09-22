@@ -16,7 +16,7 @@ include "football/players.gaz" use Goalkeeper;
 include "football/teams.gaz" use InvalidLineup, Team, Formation, Scout;
 include "football/matches.gaz" use Fixture;
 include "football/league.gaz" use League, Commentator;
-include "../lib/lists.gaz" use flatten;
+include "../lib/lists.gaz" use flatten, max_by;
 
 // The clubs, strongest first: name, level (the squad's typical rating) and formation. The
 // first CLUBS make the First Division, the next CLUBS the Second, and so on down
@@ -204,11 +204,11 @@ echo "";
 echo "Season stats";
 $goals = sum(map(@all_matches, $match -> $match.home_goals + $match.away_goals));
 echo "Goals: " .. $goals .. " in " .. Fixture::matches_played .. " matches, " .. round($goals / Fixture::matches_played, 2) .. " a game";
-$biggest_win = sort(@all_matches, ($a, $b) -> abs($b.home_goals - $b.away_goals) <=> abs($a.home_goals - $a.away_goals))[0];
+$biggest_win = max_by(@all_matches, $match -> abs($match.home_goals - $match.away_goals));
 echo "Biggest win: {$biggest_win}";
-$highest_scoring = sort(@all_matches, ($a, $b) -> ($b.home_goals + $b.away_goals) <=> ($a.home_goals + $a.away_goals))[0];
+$highest_scoring = max_by(@all_matches, $match -> $match.home_goals + $match.away_goals);
 echo "Highest-scoring match: {$highest_scoring}";
-$player_of_season = sort(values(@motm_awards), ($a, $b) -> $b["awards"] <=> $a["awards"])[0];
+$player_of_season = max_by(values(@motm_awards), $award -> $award["awards"]);
 echo "Player of the season: " .. $player_of_season["player"].profile() .. " ({$player_of_season["awards"]} man of the match awards)";
 
 // Several seasons of the pyramid: every division's table, who goes up and down, the summer in
@@ -281,7 +281,7 @@ fn play_pyramid($pyramid, $scout, $seed, $seasons) {
 fn summer($teams, $scout) {
     $retired = [];
     $newcomers = [];
-    $improved = null;
+    $stayed = [];
     foreach ($teams as $team) {
         foreach ($team.players as $player) {
             $change = $player.grow_older();
@@ -290,8 +290,8 @@ fn summer($teams, $scout) {
                 $youth = $scout.youth(kind_of($player), $team, $player.number);
                 $team.replace($player, $youth);
                 $newcomers[] = {"player" => $youth, "team" => $team};
-            } else if ($improved == null || $change > $improved["change"]) {
-                $improved = {"player" => $player, "team" => $team, "change" => $change};
+            } else {
+                $stayed[] = {"player" => $player, "team" => $team, "change" => $change};
             }
         }
     }
@@ -300,12 +300,13 @@ fn summer($teams, $scout) {
     if ($retired == []) {
         echo "Summer: nobody retired";
     } else {
-        $oldest = sort($retired, ($a, $b) -> $b["player"].age <=> $a["player"].age)[0];
-        $best = sort($newcomers, ($a, $b) -> $b["player"].rating <=> $a["player"].rating)[0];
+        $oldest = max_by($retired, $row -> $row["player"].age);
+        $best = max_by($newcomers, $row -> $row["player"].rating);
         echo "Summer: " .. len($retired) .. " retired, the oldest {$oldest["player"]} ({$oldest["player"].age}, {$oldest["team"]})";
         echo "Best from the academy: {$best["player"]} ({$best["player"].age}, {$best["player"].position()} {$best["player"].rating}, {$best["team"]})";
     }
-    if ($improved != null && $improved["change"] > 0) {
+    $improved = max_by($stayed, $row -> $row["change"]);
+    if ($improved["change"] > 0) {
         $player = $improved["player"];
         echo "Most improved: {$player} ({$player.age}, up {$improved["change"]} to {$player.rating}, {$improved["team"]})";
     }
