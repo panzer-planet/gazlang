@@ -1261,6 +1261,7 @@ kind Parser {
             if (#current_token.type == "IDENTIFIER") {
                 $kind = #current_token.value;
                 #eat("IDENTIFIER");
+                $kind = #qualified_name($kind);
             }
             $variable = #variable();
             #eat("RIGHT_PAREN");
@@ -1502,7 +1503,7 @@ kind Parser {
         return #at(StatementAST(#at(AssignAST($property, $assign_token, $variable), $token)), $token);
     }
 
-    // Parse a kind declaration ([ABSTRACT] KIND IDENTIFIER [EXTENDS IDENTIFIER] LBRACE (field | method)* RBRACE),
+    // Parse a kind declaration ([ABSTRACT] KIND IDENTIFIER [EXTENDS name] LBRACE (field | method)* RBRACE),
     // field: HASH_IDENTIFIER [ASSIGN expr] SEMICOLON, method: [ABSTRACT] FN name parameters (block | SEMICOLON)
     //
     // Only at the top level. The parent can be declared later; it is checked once the whole
@@ -1525,8 +1526,9 @@ kind Parser {
         $parent = null;
         if (#current_token.type == "EXTENDS") {
             #eat("EXTENDS");
-            $parent = #qualified_name(#current_token.value);
+            $parent = #current_token.value;
             #eat("IDENTIFIER");
+            $parent = #qualified_name($parent);
         }
 
         $kind = #at(KindDeclarationAST($name, $parent, $abstract), $start);

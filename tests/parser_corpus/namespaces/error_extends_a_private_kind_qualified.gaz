@@ -1,0 +1,3 @@
+include "lib/problems.gaz";
+
+kind Leak extends problems::Secret {}

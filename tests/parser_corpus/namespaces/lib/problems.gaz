@@ -1,0 +1,10 @@
+// Kinds for other namespaces to extend and catch by their qualified names
+namespace problems;
+
+pub abstract kind Shape {
+    pub abstract fn area();
+}
+
+pub kind Problem extends Error {}
+
+kind Secret extends Error {}

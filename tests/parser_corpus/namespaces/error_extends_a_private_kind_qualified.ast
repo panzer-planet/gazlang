@@ -1,0 +1,1 @@
+Error: problems::Secret is not pub, so only namespace problems can use it at tests/parser_corpus/namespaces/error_extends_a_private_kind_qualified.gaz:3

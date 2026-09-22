@@ -1,0 +1,1 @@
+Error: Expected a name after :: but found '{' at tests/parser_corpus/error_extends_a_name_ending_in_colons.gaz:1

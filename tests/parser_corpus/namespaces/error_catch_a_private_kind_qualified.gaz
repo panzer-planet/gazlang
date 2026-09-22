@@ -1,0 +1,7 @@
+include "lib/problems.gaz";
+
+try {
+    echo 1;
+} catch (problems::Secret $e) {
+    echo 2;
+}

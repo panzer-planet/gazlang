@@ -1,0 +1,14 @@
+// A kind from another namespace, extended and caught by its qualified name
+include "lib/problems.gaz";
+
+kind Square extends problems::Shape {
+    fn _(#side) {}
+    pub fn area() { return #side * #side; }
+}
+
+try {
+    error(problems::Problem("caught by its qualified name"));
+} catch (problems::Problem $e) {
+    echo $e.message;
+}
+echo Square(3).area() .. " " .. is_a(Square(3), problems::Shape);

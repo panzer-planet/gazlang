@@ -1,0 +1,158 @@
+Compound
+  statements:
+@ "<builtin>"
+    0: KindDeclaration 1
+      name: "Error"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"message" => "pub", "file" => "pub", "line" => "pub", "trace" => "pub", "_" => "pub", "to_string" => "pub"}
+      fields: {"message" => null, "file" => null, "line" => null, "trace" => null}
+      field_lines: {"message" => 2, "file" => 3, "line" => 4, "trace" => 5}
+      methods:
+        _: FunctionDeclaration 6
+          name: "_"
+          params: ["\$message"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 6
+                expr: Assign 6
+                  left: Property 6
+                    target: This 6
+                    name: "message"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 6 ASSIGN =
+                  right: Variable 6
+                    token: 6 VAR_IDENTIFIER $message
+                    value: "\$message"
+          arity: 1
+          kind: "Error"
+          abstract: false
+        to_string: FunctionDeclaration 7
+          name: "to_string"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 7
+                expr: BinOp 7
+                  left: String 7
+                    token: 7 STRING_START ""
+                    value: ""
+                  token: 7 CONCAT ..
+                  op: 7 CONCAT ..
+                  right: Property 7
+                    target: This 7
+                    name: "message"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+          arity: 0
+          kind: "Error"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"message" => "Error", "file" => "Error", "line" => "Error", "trace" => "Error"}
+      members: {"_" => "Error", "to_string" => "Error"}
+      abstract_methods: []
+      slots: [["message", "Error", "pub"], ["file", "Error", "pub"], ["line", "Error", "pub"], ["trace", "Error", "pub"]]
+      method_table: [["_", "Error", "pub", "Error"], ["to_string", "Error", "pub", "Error"]]
+      owner_vis: {"message" => "pub", "file" => "pub", "line" => "pub", "trace" => "pub", "_" => "pub", "to_string" => "pub"}
+      declared_at: {"_" => "Error", "to_string" => "Error"}
+      hidden: []
+      hidden_fields: []
+@ "tests/parser_corpus/namespaces/lib/problems.gaz"
+    1: KindDeclaration 4
+      name: "problems::Shape"
+      parent: null
+      abstract: true
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"area" => "pub"}
+      fields: []
+      field_lines: []
+      methods:
+        area: FunctionDeclaration 5
+          name: "area"
+          params: []
+          defaults: []
+          body: Compound
+            statements: []
+          arity: 0
+          kind: "problems::Shape"
+          abstract: true
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: []
+      abstract_methods: {"area" => "problems::Shape"}
+      slots: []
+      method_table: []
+      owner_vis: {"area" => "pub"}
+      declared_at: {"area" => "problems::Shape"}
+      hidden: []
+      hidden_fields: []
+    2: KindDeclaration 8
+      name: "problems::Problem"
+      parent: "Error"
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: []
+      fields: []
+      field_lines: []
+      methods: []
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"message" => "Error", "file" => "Error", "line" => "Error", "trace" => "Error"}
+      members: {"_" => "Error", "to_string" => "Error"}
+      abstract_methods: []
+      slots: [["message", "Error", "pub"], ["file", "Error", "pub"], ["line", "Error", "pub"], ["trace", "Error", "pub"]]
+      method_table: [["_", "Error", "pub", "Error"], ["to_string", "Error", "pub", "Error"]]
+      owner_vis: {"message" => "pub", "file" => "pub", "line" => "pub", "trace" => "pub", "_" => "pub", "to_string" => "pub"}
+      declared_at: {"_" => "Error", "to_string" => "Error"}
+      hidden: []
+      hidden_fields: []
+    3: KindDeclaration 10
+      name: "problems::Secret"
+      parent: "Error"
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: []
+      fields: []
+      field_lines: []
+      methods: []
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"message" => "Error", "file" => "Error", "line" => "Error", "trace" => "Error"}
+      members: {"_" => "Error", "to_string" => "Error"}
+      abstract_methods: []
+      slots: [["message", "Error", "pub"], ["file", "Error", "pub"], ["line", "Error", "pub"], ["trace", "Error", "pub"]]
+      method_table: [["_", "Error", "pub", "Error"], ["to_string", "Error", "pub", "Error"]]
+      owner_vis: {"message" => "pub", "file" => "pub", "line" => "pub", "trace" => "pub", "_" => "pub", "to_string" => "pub"}
+      declared_at: {"_" => "Error", "to_string" => "Error"}
+      hidden: []
+      hidden_fields: []

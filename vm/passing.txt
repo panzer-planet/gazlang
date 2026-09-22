@@ -786,10 +786,12 @@ tests/parser_corpus/literals.gaz
 tests/parser_corpus/locations.gaz
 tests/parser_corpus/match.gaz
 tests/parser_corpus/namespaces/included_twice.gaz
+tests/parser_corpus/namespaces/kinds_named_qualified.gaz
 tests/parser_corpus/namespaces/lib/json.gaz
 tests/parser_corpus/namespaces/lib/mid.gaz
 tests/parser_corpus/namespaces/lib/more.gaz
 tests/parser_corpus/namespaces/lib/plain.gaz
+tests/parser_corpus/namespaces/lib/problems.gaz
 tests/parser_corpus/namespaces/main.gaz
 tests/parser_corpus/no_error_kind.gaz
 tests/parser_corpus/override_of_a_private_parent_method.gaz
