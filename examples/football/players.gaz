@@ -10,8 +10,10 @@ pub abstract kind Player {
     // Drawn fresh by rest(): some days everything comes off, others nothing does, whoever you
     // are, so a lesser player can have the game of their life and a star an off day
     kin #day_form = 1.0;
+    // This season's, and every season's before it
     pub #goals = 0;
     pub #clean_sheets = 0;
+    pub #career_goals = 0;
     pub #yellow_cards = 0;
     pub #sent_off = false;
     // This match only, reset by rest(): what motm() judges the man of the match on
@@ -59,6 +61,13 @@ pub abstract kind Player {
             "good" => 1.2 + rand_float() * 0.3,
             "blinder" => 1.6 + rand_float() * 0.6,
         };
+    }
+
+    // The season is over: its goals join the career's, and the counts start again
+    pub fn new_season() {
+        #career_goals += #goals;
+        #goals = 0;
+        #clean_sheets = 0;
     }
 
     // A booking; the second yellow card is a red one

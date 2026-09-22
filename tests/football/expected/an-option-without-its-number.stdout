@@ -1,0 +1,2 @@
+Usage: bin/gazlang -f examples/football.gaz -- [CLUBS] [SEED] [--seasons N] [--divisions N]
+Error: --seasons needs a number

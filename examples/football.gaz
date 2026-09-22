@@ -1,12 +1,15 @@
 /*
  * A football league simulator: rated players, a double round-robin season with commentary
- * on the opening match, every matchday's scores, the final table and the top scorers.
+ * on the opening match, every matchday's scores, the final table and the top scorers; or,
+ * over several seasons or divisions, a pyramid of leagues with promotion and relegation.
  *
- *   bin/gazlang -f examples/football.gaz -- [CLUBS] [SEED]
+ *   bin/gazlang -f examples/football.gaz -- [CLUBS] [SEED] [--seasons N] [--divisions N]
  *
- * CLUBS is how many clubs play, from 2 to 20 (4 by default), taken from the strongest down.
- * Everything random is seeded: the squads are always the same, and the same season seed
- * always plays the same season.
+ * CLUBS is how many clubs play in each division, from 2 to 20 (4 by default), taken from the
+ * strongest down. With more than one season or division, each season prints every division's
+ * table and who goes up and down, and the last one the honours. Everything random is seeded:
+ * the squads are always the same, and the same season seed always plays the same season;
+ * season N + 1 is played with SEED + N.
  */
 include "../lib/format.gaz" use pad_left, pad_right;
 include "football/players.gaz" use Goalkeeper;
@@ -14,7 +17,8 @@ include "football/teams.gaz" use InvalidLineup, Team, Formation, Scout;
 include "football/matches.gaz" use Fixture;
 include "football/league.gaz" use League, Commentator;
 
-// The clubs, strongest first: name, level (the squad's typical rating) and formation
+// The clubs, strongest first: name, level (the squad's typical rating) and formation. The
+// first CLUBS make the First Division, the next CLUBS the Second, and so on down
 $clubs = [
     ["Harbour City", 82, "4-3-3"], ["Northgate Rovers", 81, "4-4-2"], ["Riverside Athletic", 79, "4-3-3"],
     ["Kingsbridge Wanderers", 78, "3-5-2"], ["Valley United", 77, "4-4-2"], ["Port Albion", 76, "4-3-3"],
@@ -23,47 +27,128 @@ $clubs = [
     ["Hollins Park", 70, "4-4-2"], ["Stonebridge County", 69, "4-3-3"], ["Ashby Villa", 68, "4-5-1"],
     ["Fairhaven Borough", 67, "4-4-2"], ["Millbrook Dynamo", 66, "3-5-2"], ["Bramley Orient", 65, "4-4-2"],
     ["Greywater Celtic", 64, "5-4-1"], ["Dunmore United", 62, "4-4-2"],
+    ["Saltmarsh Town", 61, "4-4-2"], ["Little Hampden", 61, "4-3-3"],
+    ["Kingsmere United", 61, "4-5-1"], ["Ashcombe Rovers", 60, "3-5-2"],
+    ["Brackenmoor Athletic", 60, "4-4-2"], ["Wexley Park", 60, "5-3-2"],
+    ["Burnside Albion", 59, "4-3-3"], ["Chalkhill Town", 59, "4-4-2"],
+    ["Elmstead Wanderers", 59, "3-4-3"], ["Holloway Rangers", 58, "5-4-1"],
+    ["Fenwick City", 58, "4-4-2"], ["Oxley Vale", 58, "4-3-3"], ["Dunsford Athletic", 57, "4-5-1"],
+    ["Cresswell United", 57, "3-5-2"], ["Pennington Town", 57, "4-4-2"],
+    ["Harrowgate Borough", 56, "5-3-2"], ["Lowther Rovers", 56, "4-3-3"],
+    ["Moorcroft Villa", 56, "4-4-2"], ["Netherby Albion", 55, "3-4-3"],
+    ["Sedgemoor Park", 55, "5-4-1"], ["Tidewater Town", 55, "4-4-2"],
+    ["Whitcombe United", 54, "4-3-3"], ["Yarrowby Rovers", 54, "4-5-1"],
+    ["Coldharbour Athletic", 54, "3-5-2"], ["Amberley Town", 53, "4-4-2"],
+    ["Birchwood Rangers", 53, "5-3-2"], ["Copperfield United", 53, "4-3-3"],
+    ["Draycott Wanderers", 52, "4-4-2"], ["Eversleigh Town", 52, "3-4-3"],
+    ["Foxhollow Athletic", 52, "5-4-1"], ["Glenfield Park", 51, "4-4-2"],
+    ["Hartwell Rovers", 51, "4-3-3"], ["Ivybridge Albion", 51, "4-5-1"],
+    ["Juniper Vale", 50, "3-5-2"], ["Kestrel Heath", 50, "4-4-2"], ["Larkspur Town", 50, "5-3-2"],
+    ["Mallow Green", 49, "4-3-3"], ["Northwold United", 49, "4-4-2"],
+    ["Ottery Rangers", 49, "3-4-3"], ["Pebblecombe", 48, "5-4-1"],
+    ["Quarry Bank Athletic", 48, "4-4-2"], ["Rookwood Town", 48, "4-3-3"],
+    ["Swanmere Villa", 47, "4-5-1"], ["Tarnside Rovers", 47, "3-5-2"], ["Upton Marsh", 47, "4-4-2"],
+    ["Vellacott United", 46, "5-3-2"], ["Wyvern Park", 46, "4-3-3"],
+    ["Yewdale Athletic", 46, "4-4-2"], ["Barnstow Borough", 45, "3-4-3"],
+    ["Cheddleton Town", 45, "5-4-1"], ["Dunwich Rovers", 45, "4-4-2"],
+    ["Emberton United", 44, "4-3-3"], ["Farthing Wood", 44, "4-5-1"],
+    ["Grimsdyke Athletic", 44, "3-5-2"], ["Hazelmere Town", 43, "4-4-2"],
+    ["Inglebrook", 43, "5-3-2"], ["Kirkwell Rangers", 43, "4-3-3"], ["Lindenhurst", 42, "4-4-2"],
+    ["Maplestead Albion", 42, "3-4-3"], ["Nettlebed Town", 42, "5-4-1"],
 ];
+
+const DIVISIONS = ["First Division", "Second Division", "Third Division", "Fourth Division"];
+const MAX_CLUBS = 20;
+const MAX_SEASONS = 50;
 
 // Print the usage and the problem, and stop with exit code 1
 fn fail($message) {
-    echo "Usage: bin/gazlang -f examples/football.gaz -- [CLUBS] [SEED]";
+    echo "Usage: bin/gazlang -f examples/football.gaz -- [CLUBS] [SEED] [--seasons N] [--divisions N]";
     echo "Error: {$message}";
     exit(1);
 }
 
-// A whole number from the command line, or $default when it wasn't given
-fn number_argument($index, $name, $default) {
+fn whole_number($text, $name) {
+    return to_int($text, null) ?? fail("{$name} must be a whole number, got \"{$text}\"");
+}
+
+// The command line: CLUBS and SEED in that order, and the options anywhere
+fn options() {
+    $options = {"clubs" => 4, "seed" => 2026, "seasons" => 1, "divisions" => 1};
+    $positional = [];
     $arguments = args();
-    if (len($arguments) <= $index) {
-        return $default;
+    for ($i = 0; $i < len($arguments); $i++) {
+        $argument = $arguments[$i];
+        if (!starts_with($argument, "--")) {
+            $positional[] = $argument;
+            continue;
+        }
+        $name = slice($argument, 2);
+        if (!in_array($name, ["seasons", "divisions"])) {
+            fail("unknown option {$argument}");
+        }
+        if ($i + 1 == len($arguments)) {
+            fail("{$argument} needs a number");
+        }
+        $i++;
+        $options[$name] = whole_number($arguments[$i], $argument);
     }
-    return to_int($arguments[$index], null) ?? fail("{$name} must be a whole number, got \"{$arguments[$index]}\"");
+    if (len($positional) > 2) {
+        fail("expected at most 2 arguments, got " .. len($positional));
+    }
+    foreach ($positional as $i => $text) {
+        $options[["clubs", "seed"][$i]] = whole_number($text, ["CLUBS", "SEED"][$i]);
+    }
+    return $options;
 }
 
-$count = number_argument(0, "CLUBS", 4);
-$seed = number_argument(1, "SEED", 2026);
-if ($count < 2 || $count > len($clubs)) {
-    fail("CLUBS must be from 2 to " .. len($clubs) .. ", got {$count}");
+$options = options();
+$count = $options["clubs"];
+$seed = $options["seed"];
+$seasons = $options["seasons"];
+$divisions = $options["divisions"];
+if ($count < 2 || $count > MAX_CLUBS) {
+    fail("CLUBS must be from 2 to " .. MAX_CLUBS .. ", got {$count}");
 }
-if (len(args()) > 2) {
-    fail("expected at most 2 arguments, got " .. len(args()));
+if ($divisions < 1 || $divisions > len(DIVISIONS)) {
+    fail("--divisions must be from 1 to " .. len(DIVISIONS) .. ", got {$divisions}");
 }
-
-// A squad has to be a proper eleven
-try {
-    Team("Sunday Strollers", Formation("4-4-2"), [Goalkeeper("J. Bloggs", 50, 1), Goalkeeper("J. Doe", 50, 2)]);
-} catch (InvalidLineup $e) {
-    echo "Refused: {$e.message}";
+if ($seasons < 1 || $seasons > MAX_SEASONS) {
+    fail("--seasons must be from 1 to " .. MAX_SEASONS .. ", got {$seasons}");
 }
 
 // The same squads whatever the season
 rand_seed(1);
 $scout = Scout();
-$teams = [];
-foreach (slice($clubs, 0, $count) as [$name, $level, $formation]) {
-    $teams[] = $scout.team($name, $level, $formation);
+// The divisions, strongest first, each a list of its teams
+$pyramid = [];
+foreach (slice($clubs, 0, $count * $divisions) as $i => [$name, $level, $formation]) {
+    if ($i % $count == 0) {
+        $pyramid[] = [];
+    }
+    $pyramid[intdiv($i, $count)][] = $scout.team($name, $level, $formation);
 }
+
+// The table, with a header
+fn print_table($league) {
+    echo pad_right("", 26) .. "Rating" .. join(map(["P", "W", "D", "L", "F", "A"], $label -> pad_left($label, 4)), "") .. "   GD  Pts";
+    foreach ($league.table() as $position => $standing) {
+        echo pad_left($position + 1, 2) .. ". " .. $standing;
+    }
+}
+
+if ($seasons > 1 || $divisions > 1) {
+    play_pyramid($pyramid, $seed, $seasons);
+    exit();
+}
+
+// One season of one division, told in full, after showing that a squad has to be a proper eleven
+try {
+    Team("Sunday Strollers", Formation("4-4-2"), [Goalkeeper("J. Bloggs", 50, 1), Goalkeeper("J. Doe", 50, 2)]);
+} catch (InvalidLineup $e) {
+    echo "Refused: {$e.message}";
+}
+$teams = $pyramid[0];
 echo "Season {$seed}: {$count} clubs, " .. League::matches_for($count) .. " matches";
 
 rand_seed($seed);
@@ -80,12 +165,6 @@ $league.play_season(Commentator(1).kick_off, ($number, $matches) -> {
         $motm = $match.motm();
         $name = $motm.to_string();
         @motm_awards[$name] = {"player" => $motm, "awards" => (@motm_awards[$name]["awards"] ?? 0) + 1};
-        if ($match.away_goals == 0) {
-            $match.home.goalkeeper().clean_sheets++;
-        }
-        if ($match.home_goals == 0) {
-            $match.away.goalkeeper().clean_sheets++;
-        }
         if ($number == 1 && $index == 0) {
             echo "Player of the match: " .. $motm.profile();
         }
@@ -94,10 +173,7 @@ $league.play_season(Commentator(1).kick_off, ($number, $matches) -> {
 });
 
 echo "";
-echo pad_right("", 26) .. "Rating" .. join(map(["P", "W", "D", "L", "F", "A"], $label -> pad_left($label, 4)), "") .. "   GD  Pts";
-foreach ($league.table() as $position => $standing) {
-    echo pad_left($position + 1, 2) .. ". " .. $standing;
-}
+print_table($league);
 
 echo "";
 echo "Top scorers";
@@ -121,3 +197,92 @@ $highest_scoring = sort(@all_matches, ($a, $b) -> ($b.home_goals + $b.away_goals
 echo "Highest-scoring match: {$highest_scoring}";
 $player_of_season = sort(values(@motm_awards), ($a, $b) -> $b["awards"] <=> $a["awards"])[0];
 echo "Player of the season: " .. $player_of_season["player"].profile() .. " ({$player_of_season["awards"]} man of the match awards)";
+
+// Several seasons of the pyramid: every division's table, who goes up and down, and at the end
+// the honours
+fn play_pyramid($pyramid, $seed, $seasons) {
+    $count = len($pyramid[0]);
+    // Each season a sixth of a division, and at least one club, swaps with the one below
+    $moving = max(1, intdiv($count, 6));
+    // Each season's champions of each division, by name
+    $honours = [];
+    for ($season = $seed; $season < $seed + $seasons; $season++) {
+        rand_seed($season);
+        if ($season > $seed) {
+            echo "";
+        }
+        echo "Season {$season}";
+        $finishes = [];
+        $champions = [];
+        foreach ($pyramid as $level => $teams) {
+            $league = League($teams);
+            $league.play_season($match -> null, ($number, $matches) -> null);
+            $finish = map($league.table(), $standing -> $standing.team);
+            $finishes[] = $finish;
+            $champions[] = $finish[0].name;
+
+            echo "";
+            echo DIVISIONS[$level];
+            print_table($league);
+            $scorer = $league.top_scorers(1)[0] ?? null;
+            if ($scorer != null) {
+                echo "Top scorer: {$scorer["player"]} ({$scorer["team"]}), {$scorer["player"].goals} goals";
+            }
+            if ($level > 0) {
+                echo "Promoted: " .. join(slice($finish, 0, $moving), ", ");
+            }
+            if ($level < len($pyramid) - 1) {
+                echo "Relegated: " .. join(slice($finish, -$moving), ", ");
+            }
+        }
+        $honours[] = [$season, $champions];
+
+        // Next season's divisions: the clubs that stay, those coming down and those going up
+        $pyramid = [];
+        foreach ($finishes as $level => $finish) {
+            $stay = slice($finish, $level > 0 ? $moving : 0, $count - ($level > 0 ? $moving : 0) - ($level < len($finishes) - 1 ? $moving : 0));
+            $down = $level > 0 ? slice($finishes[$level - 1], -$moving) : [];
+            $up = $level < len($finishes) - 1 ? slice($finishes[$level + 1], 0, $moving) : [];
+            $pyramid[] = [...$down, ...$stay, ...$up];
+        }
+        foreach ($pyramid as $teams) {
+            foreach ($teams as $team) {
+                foreach ($team.players as $player) {
+                    $player.new_season();
+                }
+            }
+        }
+    }
+
+    if ($seasons > 1) {
+        print_honours($pyramid, $honours);
+    }
+}
+
+fn print_honours($pyramid, $honours) {
+    echo "";
+    echo "Honours";
+    echo trim(pad_right("Season", 8) .. join(map(slice(DIVISIONS, 0, len($pyramid)), $name -> pad_right($name, 24)), ""));
+    $titles = {};
+    foreach ($honours as [$season, $champions]) {
+        echo trim(pad_right($season, 8) .. join(map($champions, $name -> pad_right($name, 24)), ""));
+        $titles[$champions[0]] = ($titles[$champions[0]] ?? 0) + 1;
+    }
+    $table = sort(keys($titles), ($a, $b) -> $titles[$b] != $titles[$a] ? $titles[$b] <=> $titles[$a] : $a <=> $b);
+    echo "League titles: " .. join(map($table, $name -> "{$name} {$titles[$name]}"), ", ");
+
+    echo "";
+    echo "All-time top scorers";
+    $scorers = [];
+    foreach ($pyramid as $teams) {
+        foreach ($teams as $team) {
+            foreach ($team.players as $player) {
+                $scorers[] = {"player" => $player, "team" => $team};
+            }
+        }
+    }
+    $scorers = sort($scorers, ($a, $b) -> $b["player"].career_goals <=> $a["player"].career_goals);
+    foreach (slice($scorers, 0, 10) as $row) {
+        echo pad_left($row["player"].career_goals, 4) .. "  " .. $row["player"].profile() .. ", {$row["team"]}";
+    }
+}

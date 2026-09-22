@@ -94,6 +94,12 @@ pub kind League {
                 $match.play();
                 #standings[$home.name].record($match.home_goals, $match.away_goals);
                 #standings[$away.name].record($match.away_goals, $match.home_goals);
+                if ($match.away_goals == 0) {
+                    $home.goalkeeper().clean_sheets++;
+                }
+                if ($match.home_goals == 0) {
+                    $away.goalkeeper().clean_sheets++;
+                }
                 $matches[] = $match;
             }
             $after_matchday($index + 1, $matches);

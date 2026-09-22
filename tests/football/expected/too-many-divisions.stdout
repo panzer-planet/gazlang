@@ -1,0 +1,2 @@
+Usage: bin/gazlang -f examples/football.gaz -- [CLUBS] [SEED] [--seasons N] [--divisions N]
+Error: --divisions must be from 1 to 4, got 5

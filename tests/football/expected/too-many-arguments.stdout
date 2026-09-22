@@ -1,0 +1,2 @@
+Usage: bin/gazlang -f examples/football.gaz -- [CLUBS] [SEED] [--seasons N] [--divisions N]
+Error: expected at most 2 arguments, got 3
