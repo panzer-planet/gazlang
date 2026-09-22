@@ -4,12 +4,18 @@
  * over several seasons or divisions, a pyramid of leagues with promotion and relegation.
  *
  *   bin/gazlang -f examples/football.gaz -- [CLUBS] [SEED] [--seasons N] [--divisions N]
+ *                                             [--save FILE] [--load FILE]
  *
  * CLUBS is how many clubs play in each division, from 2 to 20 (4 by default), taken from the
  * strongest down. With more than one season or division, each season prints every division's
  * table and who goes up and down, then the summer: players age, veterans retire and academy
  * youngsters replace them, and the transfer window moves players up to the richer clubs; the
- * last season adds the honours. Every season also has a knockout cup for every club. Everything random is seeded:
+ * last season adds the honours. Every season also has a knockout cup for every club.
+ *
+ * --save FILE writes the career to a file once the last season's summer is over, and
+ * --load FILE carries it on for --seasons more, from the same pyramid, squads and history, as
+ * if the run had never stopped: a career saved after two seasons and loaded for a third plays
+ * that third season exactly as a run of three would. CLUBS and --divisions come from the file. Everything random is seeded:
  * the squads are always the same, and the same seed always plays the same seasons. Seasons
  * are named from 2026/27 whatever the seed; the Nth is played with SEED + N - 1.
  */
@@ -21,6 +27,7 @@ include "football/league.gaz" use League, Commentator;
 include "football/money.gaz";
 include "football/cup.gaz" use Cup;
 include "../lib/lists.gaz" use flatten, max_by, min_by;
+include "../lib/json.gaz";
 
 // The clubs, strongest first: name, level (the squad's typical rating) and formation. The
 // first CLUBS make the First Division, the next CLUBS the Second, and so on down
@@ -74,7 +81,7 @@ fn season_name($year) {
 
 // Print the usage and the problem, and stop with exit code 1
 fn fail($message) {
-    echo "Usage: bin/gazlang -f examples/football.gaz -- [CLUBS] [SEED] [--seasons N] [--divisions N]";
+    echo "Usage: bin/gazlang -f examples/football.gaz -- [CLUBS] [SEED] [--seasons N] [--divisions N] [--save FILE] [--load FILE]";
     echo "Error: {$message}";
     exit(1);
 }
@@ -83,9 +90,10 @@ fn whole_number($text, $name) {
     return to_int($text, null) ?? fail("{$name} must be a whole number, got \"{$text}\"");
 }
 
-// The command line: CLUBS and SEED in that order, and the options anywhere
+// The command line: CLUBS and SEED in that order, and the options anywhere. "given" lists
+// what was written rather than left to its default
 fn options() {
-    $options = {"clubs" => 4, "seed" => 2026, "seasons" => 1, "divisions" => 1};
+    $options = {"clubs" => 4, "seed" => 2026, "seasons" => 1, "divisions" => 1, "save" => null, "load" => null, "given" => []};
     $positional = [];
     $arguments = args();
     for ($i = 0; $i < len($arguments); $i++) {
@@ -95,20 +103,23 @@ fn options() {
             continue;
         }
         $name = slice($argument, 2);
-        if (!in_array($name, ["seasons", "divisions"])) {
+        if (!in_array($name, ["seasons", "divisions", "save", "load"])) {
             fail("unknown option {$argument}");
         }
+        $file = in_array($name, ["save", "load"]);
         if ($i + 1 == len($arguments)) {
-            fail("{$argument} needs a number");
+            fail("{$argument} needs " .. ($file ? "a file" : "a number"));
         }
         $i++;
-        $options[$name] = whole_number($arguments[$i], $argument);
+        $options[$name] = $file ? $arguments[$i] : whole_number($arguments[$i], $argument);
+        $options["given"][] = $name;
     }
     if (len($positional) > 2) {
         fail("expected at most 2 arguments, got " .. len($positional));
     }
     foreach ($positional as $i => $text) {
         $options[["clubs", "seed"][$i]] = whole_number($text, ["CLUBS", "SEED"][$i]);
+        $options["given"][] = ["clubs", "seed"][$i];
     }
     return $options;
 }
@@ -118,6 +129,9 @@ $count = $options["clubs"];
 $seed = $options["seed"];
 $seasons = $options["seasons"];
 $divisions = $options["divisions"];
+if ($options["load"] != null && (in_array("clubs", $options["given"]) || in_array("divisions", $options["given"]))) {
+    fail("a loaded career brings its own clubs and divisions: leave out CLUBS and --divisions");
+}
 if ($count < 2 || $count > MAX_CLUBS) {
     fail("CLUBS must be from 2 to " .. MAX_CLUBS .. ", got {$count}");
 }
@@ -154,8 +168,12 @@ fn print_table($league) {
     }
 }
 
-if ($seasons > 1 || $divisions > 1) {
-    play_pyramid($pyramid, $scout, $seed, $seasons);
+if ($options["load"] != null) {
+    play_pyramid(load_career($options["load"], $scout), $scout, $seasons, $options["save"]);
+    exit();
+}
+if ($seasons > 1 || $divisions > 1 || $options["save"] != null) {
+    play_pyramid(new_career($pyramid, $seed), $scout, $seasons, $options["save"]);
     exit();
 }
 
@@ -215,25 +233,30 @@ echo "Highest-scoring match: {$highest_scoring}";
 $player_of_season = max_by(values(@motm_awards), $award -> $award["awards"]);
 echo "Player of the season: " .. $player_of_season["player"].profile() .. " ({$player_of_season["awards"]} man of the match awards)";
 
-// Several seasons of the pyramid: every division's table, who goes up and down, the summer in
-// between, and at the end the honours
-fn play_pyramid($pyramid, $scout, $seed, $seasons) {
-    $count = len($pyramid[0]);
-    // Each season a sixth of a division, and at least one club, swaps with the one below
-    $moving = max(1, intdiv($count, 6));
-    // Each season's champions of each division, by name
-    $honours = [];
-    // Everyone who has retired, with the club they left: {"player", "team"}
-    $retired = [];
-    // The dearest transfer so far, with its season
-    $record = null;
+// A career about to begin: the squads the scout made, with the money they start with
+fn new_career($pyramid, $seed) {
     foreach (flatten($pyramid) as $team) {
         $team.balance = money::starting_balance($team);
     }
-    for ($n = 0; $n < $seasons; $n++) {
+    // played: how many seasons are over; honours: each season's champions of each division
+    // and cup winners, by name; retired: everyone who has retired, {"player", "team"}; record:
+    // the dearest transfer so far, with its season
+    return {"seed" => $seed, "played" => 0, "pyramid" => $pyramid, "honours" => [], "retired" => [], "record" => null};
+}
+
+// Several seasons of the pyramid: every division's table, who goes up and down, the cup, the
+// summer in between, and at the end the honours. With $save, the last season's summer is
+// played too and the career written there, so that loading it carries straight on
+fn play_pyramid($career, $scout, $seasons, $save) {
+    [$seed, $pyramid, $honours, $retired, $record] = [$career["seed"], $career["pyramid"], $career["honours"], $career["retired"], $career["record"]];
+    $count = len($pyramid[0]);
+    // Each season a sixth of a division, and at least one club, swaps with the one below
+    $moving = max(1, intdiv($count, 6));
+    $first = $career["played"];
+    for ($n = $first; $n < $first + $seasons; $n++) {
         rand_seed($seed + $n);
         $season = season_name(FIRST_SEASON + $n);
-        if ($n > 0) {
+        if ($n > $first) {
             echo "";
         }
         echo "Season {$season}";
@@ -288,7 +311,7 @@ fn play_pyramid($pyramid, $scout, $seed, $seasons) {
                 $player.new_season();
             }
         }
-        if ($n < $seasons - 1) {
+        if ($n < $first + $seasons - 1 || $save != null) {
             $retired = [...$retired, ...summer(flatten($pyramid), $scout)];
             $deals = money::window(flatten($pyramid));
             print_window($deals, flatten($pyramid));
@@ -301,8 +324,51 @@ fn play_pyramid($pyramid, $scout, $seed, $seasons) {
         }
     }
 
-    if ($seasons > 1) {
+    if (len($honours) > 1) {
         print_honours($pyramid, $honours, $retired, $record);
+    }
+    if ($save != null) {
+        save_career($save, $seed, $first + $seasons, $pyramid, $scout, $honours, $retired, $record);
+    }
+}
+
+// The career as JSON: the clubs, strongest division first, their squads and money, and the
+// history. A transfer record and the retired keep only what is printed of them
+fn save_career($path, $seed, $played, $pyramid, $scout, $honours, $retired, $record) {
+    $data = {
+        "career" => "football.gaz", "version" => 1, "seed" => $seed, "played" => $played,
+        "names" => $scout.names(),
+        "pyramid" => map($pyramid, $teams -> map($teams, $team -> $team.to_data())),
+        "honours" => $honours,
+        "retired" => map($retired, $row -> ({"player" => $row["player"].to_data(), "team" => to_string($row["team"])})),
+        "record" => $record == null ? null : {
+            "player" => to_string($record["player"]), "from" => to_string($record["from"]),
+            "to" => to_string($record["to"]), "fee" => $record["fee"], "season" => $record["season"],
+        },
+    };
+    write_file($path, json::encode($data) .. "\n");
+}
+
+// A career from save_career(); what it can't make sense of stops the program
+fn load_career($path, $scout) {
+    if (!file_exists($path)) {
+        fail("no saved career at {$path}");
+    }
+    try {
+        $data = json::decode(read_file($path));
+        if (($data["career"] ?? null) != "football.gaz" || ($data["version"] ?? null) != 1) {
+            fail("{$path} is not a saved football.gaz career");
+        }
+        $scout.take($data["names"]);
+        return {
+            "seed" => $data["seed"], "played" => $data["played"],
+            "pyramid" => map($data["pyramid"], $teams -> map($teams, teams::from_data)),
+            "honours" => $data["honours"],
+            "retired" => map($data["retired"], $row -> ({"player" => players::from_data($row["player"]), "team" => $row["team"]})),
+            "record" => $data["record"],
+        };
+    } catch (Error $e) {
+        fail("{$path} is not a saved career: {$e.message}");
     }
 }
 

@@ -1,2 +1,2 @@
 Usage: bin/gazlang -f examples/football.gaz -- [CLUBS] [SEED] [--seasons N] [--divisions N] [--save FILE] [--load FILE]
-Error: --seasons must be from 1 to 50, got 0
+Error: tests/football/fixtures/not_json.json is not a saved career: Invalid JSON: unexpected "n" at position 0

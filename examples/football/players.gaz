@@ -101,6 +101,15 @@ pub abstract kind Player {
         return #sent_off;
     }
 
+    // What a saved career keeps of a player: who they are and what they have done, not how
+    // they feel today, which the next match works out afresh
+    pub fn to_data() {
+        return {
+            "position" => #position(), "name" => #name, "rating" => #rating, "number" => #number,
+            "age" => #age, "career_goals" => #career_goals,
+        };
+    }
+
     pub fn to_string() { return #name; }
     pub fn profile() { return "#{#number} {#name} ({#position()} {#rating})"; }
 }
@@ -134,4 +143,18 @@ pub kind Forward extends Player {
 
     // Strikers are at their sharpest while they are fresh
     pub fn form() { return ##form() * (#energy > 70 ? 1.1 : 0.9); }
+}
+
+// A player back from to_data()
+pub fn from_data($data) {
+    $kind = match ($data["position"]) {
+        "GK" => Goalkeeper,
+        "DF" => Defender,
+        "MF" => Midfielder,
+        "FW" => Forward,
+    };
+    $player = $kind($data["name"], $data["rating"], $data["number"]);
+    $player.age = $data["age"];
+    $player.career_goals = $data["career_goals"];
+    return $player;
 }

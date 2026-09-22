@@ -27,6 +27,12 @@ class FootballTest extends GazLangTestCase
         'no seasons' => ['--seasons', '0'],
         'too many arguments' => ['4', '2026', '9'],
         'too many clubs' => ['21'],
+        'a saved career carried on' => ['--load', 'tests/football/fixtures/career.json', '--seasons', '2'],
+        'no saved career' => ['--load', 'tests/football/fixtures/missing.json'],
+        'a file that is not a career' => ['--load', 'tests/football/fixtures/not_a_career.json'],
+        'a file that is not JSON' => ['--load', 'tests/football/fixtures/not_json.json'],
+        'clubs with a loaded career' => ['6', '--load', 'tests/football/fixtures/career.json'],
+        'save without a file' => ['--save'],
     ];
 
     public static function cases(): array
@@ -48,6 +54,28 @@ class FootballTest extends GazLangTestCase
         $this->assertNotNull($expected, "{$name}: nothing recorded; GAZLANG_RECORD=1 vendor/bin/phpunit --filter FootballTest");
 
         $this->assertSame($expected, [CVM::portable($out), '', $code], $name);
+    }
+
+    public function test_a_saved_career_carries_on_as_if_it_never_stopped()
+    {
+        // The summer after the last season is played before saving, and each season is seeded
+        // on its own, so two seasons saved and two loaded print what four in one run do. Two
+        // loaded, so a summer is played from what was loaded: only a summer spends money
+        $file = sys_get_temp_dir().'/football_career_'.getmypid().'.json';
+        try {
+            [$whole] = $this->runProgram('examples/football.gaz', ['6', '--seasons', '4', '--divisions', '2']);
+            [$first, $code] = $this->runProgram('examples/football.gaz', ['6', '--seasons', '2', '--divisions', '2', '--save', $file]);
+            $this->assertSame(0, $code, $first);
+            [$rest, $code] = $this->runProgram('examples/football.gaz', ['--load', $file, '--seasons', '2']);
+            $this->assertSame(0, $code, $rest);
+
+            $third = strpos($whole, 'Season 2028/29');
+            $this->assertSame(substr($whole, $third), $rest);
+            // The first run printed the honours so far after its two seasons; the rest is the same
+            $this->assertSame(substr($whole, 0, $third), substr($first, 0, strpos($first, "Honours\n")));
+        } finally {
+            @unlink($file);
+        }
     }
 
     public function test_every_recording_belongs_to_a_case()

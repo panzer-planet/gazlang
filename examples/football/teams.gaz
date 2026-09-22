@@ -109,7 +109,22 @@ pub kind Team {
         #changed();
     }
 
+    // What a saved career keeps of a club
+    pub fn to_data() {
+        return {
+            "name" => #name, "formation" => to_string(#formation), "balance" => #balance,
+            "players" => map(#players, $player -> $player.to_data()),
+        };
+    }
+
     pub fn to_string() { return #name; }
+}
+
+// A club back from to_data()
+pub fn from_data($data) {
+    $team = Team($data["name"], Formation($data["formation"]), map($data["players"], players::from_data));
+    $team.balance = $data["balance"];
+    return $team;
 }
 
 // A formation like "4-3-3": defenders, midfielders and forwards, ten outfield players in all
@@ -181,6 +196,15 @@ pub kind Scout {
         $player = $kind(#new_name(), $rating, $shirt);
         $player.age = rand_int(17, 19);
         return $player;
+    }
+
+    // The names given out so far, and names to count as given, so a career carried on from a
+    // save still never gives one twice
+    pub fn names() { return keys(#taken); }
+    pub fn take($names) {
+        foreach ($names as $name) {
+            #taken[$name] = true;
+        }
     }
 
     // Every name in the league is different
