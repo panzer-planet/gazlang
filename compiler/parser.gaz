@@ -1952,14 +1952,9 @@ kind Parser {
             $map = {};
             foreach ($node.entries as [$key_node, $value_node]) {
                 if (is_a($value_node, SpreadAST)) {
-                    // The runtime's rule and words, located at the ...
+                    // GazLang's own spread, located at the ...
                     $value = #fold($value_node.expr, $kind);
-                    if (type_of($value) != "map") {
-                        #fail_at("Cannot spread " .. type_of($value) .. ": only a map can be", $value_node.file, $value_node.line);
-                    }
-                    foreach ($value as $key => $element) {
-                        $map[$key] = $element;
-                    }
+                    $map = #located($value_node, () -> ({...$map, ...$value}));
                     continue;
                 }
                 $key = #fold($key_node, $kind);
