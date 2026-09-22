@@ -3,12 +3,12 @@
 namespace GazLang\Tests;
 
 /**
- * editors/gaz.tmLanguage names every builtin and keyword, so a new one fails here until the
+ * editors/gaz/gaz.tmLanguage names every builtin and keyword, so a new one fails here until the
  * grammar has it; four builtins and two more went unhighlighted before this test existed
  */
 class EditorGrammarTest extends GazLangTestCase
 {
-    private const GRAMMAR = __DIR__.'/../editors/gaz.tmLanguage';
+    private const GRAMMAR = __DIR__.'/../editors/gaz/gaz.tmLanguage';
 
     public function test_it_highlights_exactly_the_builtins()
     {
