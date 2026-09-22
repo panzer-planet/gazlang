@@ -348,9 +348,9 @@ fn summer($teams, $scout) {
 fn print_cup($cup, $winner, $divisions) {
     echo "";
     echo $cup.name;
-    $early = filter($cup.rounds, $round -> len($round[1]) > 4);
+    $early = filter($cup.rounds, ([$name, $ties]) -> len($ties) > 4);
     if ($early != []) {
-        echo join(map($early, $round -> $round[0]), ", ") .. ": " .. sum(map($early, $round -> len($round[1]))) .. " ties";
+        echo join(map($early, ([$name, $ties]) -> $name), ", ") .. ": " .. sum(map($early, ([$name, $ties]) -> len($ties))) .. " ties";
     }
     foreach ($cup.rounds as [$name, $ties]) {
         if (len($ties) <= 4) {
@@ -362,8 +362,8 @@ fn print_cup($cup, $winner, $divisions) {
     }
     echo "Winners: {$winner}";
 
-    $ties = flatten(map($cup.rounds, $round -> map($round[1], $tie -> [$round[0], $tie])));
-    $gap = $pair -> $divisions[object_id($pair[1].winner())] - $divisions[object_id($pair[1].loser())];
+    $ties = flatten(map($cup.rounds, ([$name, $ties]) -> map($ties, $tie -> [$name, $tie])));
+    $gap = ([$round, $tie]) -> $divisions[object_id($tie.winner())] - $divisions[object_id($tie.loser())];
     // The latest round first, so of two as big the one nearer the final is told
     $upset = max_by(reverse($ties), $gap);
     if ($gap($upset) > 0) {

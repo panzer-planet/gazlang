@@ -1,0 +1,1 @@
+Error: Duplicate parameter $a in function f at tests/parser_corpus/error_pattern_parameter_duplicate.gaz:1

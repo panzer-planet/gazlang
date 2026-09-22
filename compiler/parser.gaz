@@ -618,21 +618,33 @@ kind Parser {
         $params = [];
         $defaults = [];
         $lines = [];
+        $patterns = [];
         foreach ($items as [$first, $item]) {
             $default = null;
             if (is_a($item, AssignAST) && $item.token.type == "ASSIGN") {
                 $default = $item.right;
                 $item = $item.left;
             }
-            if ($first.type != "VAR_IDENTIFIER" || !is_a($item, VariableAST) || $item.value != $first.value) {
-                #fail_at("Lambda parameters must be \$variables", #file, $first.line);
+            if ($first.type == "LEFT_BRACKET" && (is_a($item, ArrayLiteralAST) || is_a($item, ListPatternAST))) {
+                // [$a, $b] or, with a default, [$a, $b] = [...], which parsed as taking a list apart
+                $pattern = is_a($item, ListPatternAST)
+                    ? ListPatternAST(map($item.targets, #parameter_target))
+                    : #list_pattern($item, #parameter_target);
+                $pattern.line = $item.line;
+                [$param, $statement] = #pattern_parameter($pattern, len($params));
+                $patterns[] = $statement;
+            } else if ($first.type != "VAR_IDENTIFIER" || !is_a($item, VariableAST) || $item.value != $first.value) {
+                #fail_at("Lambda parameters must be \$variables or [\$variable, ...] patterns", #file, $first.line);
+            } else {
+                $param = $item.value;
             }
-            $params[] = $item.value;
+            $params[] = $param;
             $defaults[] = $default;
             $lines[] = $first.line;
+            #check_bound($params, $patterns, "lambda", $first.line);
         }
 
-        return #lambda($paren, $params, $defaults, $lines);
+        return #lambda($paren, $params, $defaults, $lines, $patterns);
     }
 
     // Parse a lambda's body after its parameters (ARROW (block | expr)) and build the node
@@ -643,7 +655,7 @@ kind Parser {
     //
     // What was set aside is restored after the body, not in a finally: nothing catches a
     // ParseError and carries on parsing.
-    fn lambda($start, $params, $defaults, $lines) {
+    fn lambda($start, $params, $defaults, $lines, $patterns = []) {
         $arity = #check_parameters($params, $defaults, $lines);
         #eat("ARROW");
 
@@ -660,6 +672,18 @@ kind Parser {
             $body = #expr();
         }
         [#in_constructor, #in_finally] = [$in_constructor, $in_finally];
+        // Pattern parameters are taken apart first, which makes an expression body a block
+        // returning it
+        if ($patterns != []) {
+            if (is_a($body, CompoundAST)) {
+                $body.statements = [...$patterns, ...$body.statements];
+            } else {
+                $block = #at(CompoundAST(), $start);
+                $block.statements = [...$patterns, #at(ReturnStatementAST($body), $start)];
+                $block.statements[len($block.statements) - 1].line = $body.line;
+                $body = $block;
+            }
+        }
 
         // The outer variables it uses, except those a plain = (or foreach or catch) makes local to each call
         $variables = VariableCollector();
@@ -1378,7 +1402,7 @@ kind Parser {
         $name = #qualify(#current_token.value);
         #eat("IDENTIFIER");
 
-        [$params, $defaults, $promoted] = #parameters("function {$name}");
+        [$params, $defaults, $promoted, $patterns] = #parameters("function {$name}");
         // Declared before the body is parsed, so the function can call itself
         $arity = #arity($params, $defaults);
         #functions[$name] = $arity;
@@ -1387,6 +1411,7 @@ kind Parser {
         #in_function = true;
         $body = #block();
         #in_function = false;
+        $body.statements = [...$patterns, ...$body.statements];
 
         return #at(FunctionDeclarationAST($name, $params, $defaults, $body, $arity), $start);
     }
@@ -1427,6 +1452,8 @@ kind Parser {
         $params = [];
         $defaults = [];
         $promoted = [];
+        // The statement taking each pattern parameter apart, for the start of the body
+        $patterns = [];
         $has_default = false;
         while (#current_token.type != "RIGHT_PAREN") {
             if ($params != []) {
@@ -1471,11 +1498,18 @@ kind Parser {
             }
 
             $param = #current_token.value;
+            if (#current_token.type == "LEFT_BRACKET") {
+                $pattern_token = #current_token;
+                [$param, $statement] = #pattern_parameter(#list_pattern(#list_literal(), #parameter_target), len($params));
+                $patterns[] = $statement;
+                #check_bound([...$params, $param], $patterns, $owner, $pattern_token.line);
+            } else {
             // Only a $variable can be a duplicate: '$a' is a string, which eat() refuses
-            if (#current_token.type == "VAR_IDENTIFIER" && in_array($param, $params)) {
-                #fail("Duplicate parameter {$param} in {$owner}");
+            if (#current_token.type == "VAR_IDENTIFIER") {
+                #check_bound([...$params, $param], $patterns, $owner, #current_token.line);
             }
             #eat("VAR_IDENTIFIER");
+            }
 
             $default = null;
             if (#current_token.type == "ASSIGN") {
@@ -1490,7 +1524,46 @@ kind Parser {
         }
         #eat("RIGHT_PAREN");
 
-        return [$params, $defaults, $promoted];
+        return [$params, $defaults, $promoted, $patterns];
+    }
+
+    // A list pattern as parameter $index: a hidden parameter in its place, and the statement
+    // taking it apart that starts the body, as if written there. Gives [hidden name, statement].
+    // The pattern's variables are then assigned in the body, so a lambda never captures them.
+    fn pattern_parameter($pattern, $index) {
+        $name = "\$#pattern_{$index}";
+        $token = Token("VAR_IDENTIFIER", $name);
+        $token.line = $pattern.line;
+        $assign_token = Token("ASSIGN", "=");
+        $assign_token.line = $pattern.line;
+        $assign = #at(AssignAST($pattern, $assign_token, #at(VariableAST($token), $token)), $token);
+
+        return [$name, #at(StatementAST($assign), $token)];
+    }
+
+    // A target in a parameter's pattern, which is a $variable, as a parameter is
+    fn parameter_target($target) {
+        if (!is_a($target, VariableAST) || $target.is_global()) {
+            #fail_at("A parameter pattern takes \$variables only", $target.file, $target.line);
+        }
+
+        return $target;
+    }
+
+    // The names a list of parameters binds, failing at the first one bound twice: a pattern's
+    // variables count, its hidden parameter doesn't
+    fn check_bound($params, $patterns, $owner, $line) {
+        $bound = filter($params, $param -> !starts_with($param, "\$#"));
+        foreach ($patterns as $statement) {
+            $bound = [...$bound, ...map($statement.expr.left.targets, $target -> $target.value)];
+        }
+        $seen = {};
+        foreach ($bound as $name) {
+            if (has_key($seen, $name)) {
+                #fail_at("Duplicate parameter {$name} in {$owner}", #file, $line);
+            }
+            $seen[$name] = true;
+        }
     }
 
     // A synthetic #name = $name; for a promoted constructor parameter, exactly as if it had
@@ -2135,7 +2208,7 @@ kind Parser {
         #eat($token.type);
 
         $full = "{$kind.name}::{$name}";
-        [$params, $defaults, $promoted] = #parameters("static method {$full}");
+        [$params, $defaults, $promoted, $patterns] = #parameters("static method {$full}");
         $arity = #arity($params, $defaults);
         #functions[$full] = $arity;
         #declare($full, has_key(#public, $kind.name) || #declared_in[$kind.name] == "");
@@ -2143,6 +2216,7 @@ kind Parser {
         [#in_function, #in_static] = [true, $kind];
         $body = #block();
         [#in_function, #in_static] = [$in_function, $in_static];
+        $body.statements = [...$patterns, ...$body.statements];
 
         $node = #at(FunctionDeclarationAST($full, $params, $defaults, $body, $arity), $start);
         $node.kind = $kind.name;
@@ -2178,7 +2252,7 @@ kind Parser {
         #check_new_member($kind, $name);
         #eat($token.type);
 
-        [$params, $defaults, $promoted] = #parameters("method {$kind.name}.{$name}", $name == "_" ? $kind : null);
+        [$params, $defaults, $promoted, $patterns] = #parameters("method {$kind.name}.{$name}", $name == "_" ? $kind : null);
         if ($abstract) {
             if (!$kind.abstract) {
                 #fail_at("Kind {$kind.name} has abstract method {$name}, so it must be abstract too", #file, $start.line);
@@ -2200,13 +2274,11 @@ kind Parser {
             $body = #block();
             [#in_function, #in_constructor] = [false, false];
         }
-        if ($promoted != []) {
-            $prelude = [];
-            foreach ($promoted as [$field, $field_token]) {
-                $prelude[] = #promoted_assignment($kind, $field, $field_token);
-            }
-            $body.statements = [...$prelude, ...$body.statements];
+        $prelude = $patterns;
+        foreach ($promoted as [$field, $field_token]) {
+            $prelude[] = #promoted_assignment($kind, $field, $field_token);
         }
+        $body.statements = [...$prelude, ...$body.statements];
 
         $method = #at(FunctionDeclarationAST($name, $params, $defaults, $body, #arity($params, $defaults)), $start);
         $method.kind = $kind.name;

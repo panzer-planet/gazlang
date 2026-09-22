@@ -1,0 +1,20 @@
+// List patterns as parameters of lambdas, functions and methods: errors are destructuring's own
+$rounds = [["Final", [1]], ["Semi-finals", [1, 2]]];
+echo map($rounds, ([$name, $ties]) -> "{$name}: " .. len($ties));
+echo map($rounds, ([$name, $ties]) -> { return $name; });
+$f = ($x, [$a, $b] = [10, 20]) -> $x + $a + $b;
+echo [$f(1), $f(1, [2, 3])];
+fn distance([$x1, $y1], [$x2, $y2]) { return abs($x2 - $x1) + abs($y2 - $y1); }
+echo distance([0, 0], [3, 4]);
+kind Grid {
+    fn _(#cells) {}
+    pub fn at([$row, $col]) { return #cells[$row][$col]; }
+    pub static fn origin([$r, $c] = [0, 0]) { return "{$r},{$c}"; }
+}
+echo Grid([[1, 2], [3, 4]]).at([1, 0]) .. " " .. Grid::origin() .. " " .. Grid::origin([5, 6]);
+$name = "outer";
+echo map([["inner", 1]], ([$name, $n]) -> $name) .. " " .. $name;
+echo sort([[2, "b"], [1, "a"]], ([$x, $p], [$y, $q]) -> $x <=> $y);
+foreach ([() -> distance([1], [2, 3]), () -> distance(5, [1, 2]), () -> $f(1, [1, 2, 3])] as $g) {
+    try { $g(); } catch (Error $e) { echo $e.message; }
+}

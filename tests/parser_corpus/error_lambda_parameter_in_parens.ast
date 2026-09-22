@@ -1,1 +1,1 @@
-Error: Lambda parameters must be $variables at tests/parser_corpus/error_lambda_parameter_in_parens.gaz:1
+Error: Lambda parameters must be $variables or [$variable, ...] patterns at tests/parser_corpus/error_lambda_parameter_in_parens.gaz:1

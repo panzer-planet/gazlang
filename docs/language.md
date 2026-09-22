@@ -243,6 +243,14 @@ $sum    = ($a, $b = 1) -> $a + $b;
 $noop   = () -> { return 42; };          // a block body returns only through return
 ```
 
+A parameter can be a list pattern, which takes its argument apart as `[$a, $b] = $x` would
+(exactly that many elements, or an error), in a lambda, a function or a method:
+
+```gaz
+echo map($scores, ([$name, $points]) -> "{$name}: {$points}");
+fn distance([$x1, $y1], [$x2, $y2] = [0, 0]) { return abs($x2 - $x1) + abs($y2 - $y1); }
+```
+
 A closure **owns** the variables it captured: it copies them in when created, and its calls
 read and write them there, so they persist between calls and the enclosing scope never sees the
 changes. A plain `=` inside the body makes a variable local to each call instead. A lambda

@@ -1,0 +1,10 @@
+["Final: 1", "Semi-finals: 2"]
+["Final", "Semi-finals"]
+[31, 6]
+7
+3 0,0 5,6
+["inner"] outer
+[[1, "a"], [2, "b"]]
+Cannot destructure a list of 1 element into 2
+Cannot destructure int: only a list can be
+Cannot destructure a list of 3 elements into 2

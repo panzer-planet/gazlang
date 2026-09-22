@@ -1,0 +1,62 @@
+GAZLANG BYTECODE 2
+globals
+
+top
+locals $g
+@ "pattern_parameters.gaz" 3
+MAKE_CLOSURE 0
+STORE 0
+LOAD 0
+POP
+
+fn f 1 1
+locals $#pattern_0 $#destructure_0 $a $b
+@ "pattern_parameters.gaz" 2
+LOAD 0
+DESTRUCTURE 2
+STORE 1
+LOAD 1
+PUSH 0
+INDEX_GET
+STORE 2
+LOAD 2
+POP
+LOAD 1
+PUSH 1
+INDEX_GET
+STORE 3
+LOAD 3
+POP
+LOAD 1
+POP
+LOAD 2
+RET
+PUSH null
+RET
+
+lambda 0 1 1
+locals $#pattern_0 $#destructure_0 $x $y
+@ "pattern_parameters.gaz" 3
+LOAD 0
+DESTRUCTURE 2
+STORE 1
+LOAD 1
+PUSH 0
+INDEX_GET
+STORE 2
+LOAD 2
+POP
+LOAD 1
+PUSH 1
+INDEX_GET
+STORE 3
+LOAD 3
+POP
+LOAD 1
+POP
+LOAD 2
+LOAD 3
+ADD
+RET
+PUSH null
+RET

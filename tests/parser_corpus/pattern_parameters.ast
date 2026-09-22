@@ -1,0 +1,231 @@
+Compound
+  statements:
+@ "tests/parser_corpus/pattern_parameters.gaz"
+    0: FunctionDeclaration 2
+      name: "distance"
+      params: ["$#pattern_0", "$#pattern_1"]
+      defaults:
+        0: null
+        1: ArrayLiteral 2
+          entries:
+            0:
+              0: null
+              1: Num 2
+                token: 2 INTEGER 0
+                value: 0
+            1:
+              0: null
+              1: Num 2
+                token: 2 INTEGER 0
+                value: 0
+          map: false
+      body: Compound
+        statements:
+          0: Statement 2
+            expr: Assign 2
+              left: ListPattern 2
+                targets:
+                  0: Variable 2
+                    token: 2 VAR_IDENTIFIER $x1
+                    value: "\$x1"
+                  1: Variable 2
+                    token: 2 VAR_IDENTIFIER $y1
+                    value: "\$y1"
+              token: 2 ASSIGN =
+              right: Variable 2
+                token: 2 VAR_IDENTIFIER $#pattern_0
+                value: "$#pattern_0"
+          1: Statement 2
+            expr: Assign 2
+              left: ListPattern 2
+                targets:
+                  0: Variable 2
+                    token: 2 VAR_IDENTIFIER $x2
+                    value: "\$x2"
+                  1: Variable 2
+                    token: 2 VAR_IDENTIFIER $y2
+                    value: "\$y2"
+              token: 2 ASSIGN =
+              right: Variable 2
+                token: 2 VAR_IDENTIFIER $#pattern_1
+                value: "$#pattern_1"
+          2: ReturnStatement 3
+            expr: BinOp 3
+              left: FunctionCall 3
+                name: "abs"
+                args:
+                  0: BinOp 3
+                    left: Variable 3
+                      token: 3 VAR_IDENTIFIER $x2
+                      value: "\$x2"
+                    token: 3 MINUS -
+                    op: 3 MINUS -
+                    right: Variable 3
+                      token: 3 VAR_IDENTIFIER $x1
+                      value: "\$x1"
+              token: 3 PLUS +
+              op: 3 PLUS +
+              right: FunctionCall 3
+                name: "abs"
+                args:
+                  0: BinOp 3
+                    left: Variable 3
+                      token: 3 VAR_IDENTIFIER $y2
+                      value: "\$y2"
+                    token: 3 MINUS -
+                    op: 3 MINUS -
+                    right: Variable 3
+                      token: 3 VAR_IDENTIFIER $y1
+                      value: "\$y1"
+      arity: [1, 2]
+      kind: null
+      abstract: false
+    1: Statement 5
+      expr: Assign 5
+        left: Variable 5
+          token: 5 VAR_IDENTIFIER $names
+          value: "\$names"
+        token: 5 ASSIGN =
+        right: FunctionCall 5
+          name: "map"
+          args:
+            0: ArrayLiteral 5
+              entries:
+                0:
+                  0: null
+                  1: ArrayLiteral 5
+                    entries:
+                      0:
+                        0: null
+                        1: String 5
+                          token: 5 STRING "a"
+                          value: "a"
+                      1:
+                        0: null
+                        1: Num 5
+                          token: 5 INTEGER 1
+                          value: 1
+                    map: false
+              map: false
+            1: Lambda 5
+              params: ["$#pattern_0"]
+              defaults: [null]
+              arity: 1
+              body: Compound 5
+                statements:
+                  0: Statement 5
+                    expr: Assign 5
+                      left: ListPattern 5
+                        targets:
+                          0: Variable 5
+                            token: 5 VAR_IDENTIFIER $name
+                            value: "\$name"
+                          1: Variable 5
+                            token: 5 VAR_IDENTIFIER $n
+                            value: "\$n"
+                      token: 5 ASSIGN =
+                      right: Variable 5
+                        token: 5 VAR_IDENTIFIER $#pattern_0
+                        value: "$#pattern_0"
+                  1: ReturnStatement 5
+                    expr: Variable 5
+                      token: 5 VAR_IDENTIFIER $name
+                      value: "\$name"
+              captures: []
+              self: null
+              owner: null
+    2: Statement 6
+      expr: Assign 6
+        left: Variable 6
+          token: 6 VAR_IDENTIFIER $first
+          value: "\$first"
+        token: 6 ASSIGN =
+        right: Lambda 6
+          params: ["$#pattern_0"]
+          defaults: [null]
+          arity: 1
+          body: Compound
+            statements:
+              0: Statement 6
+                expr: Assign 6
+                  left: ListPattern 6
+                    targets:
+                      0: Variable 6
+                        token: 6 VAR_IDENTIFIER $a
+                        value: "\$a"
+                      1: Variable 6
+                        token: 6 VAR_IDENTIFIER $b
+                        value: "\$b"
+                  token: 6 ASSIGN =
+                  right: Variable 6
+                    token: 6 VAR_IDENTIFIER $#pattern_0
+                    value: "$#pattern_0"
+              1: ReturnStatement 7
+                expr: Variable 7
+                  token: 7 VAR_IDENTIFIER $a
+                  value: "\$a"
+          captures: []
+          self: null
+          owner: null
+    3: KindDeclaration 9
+      name: "Grid"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"at" => "pub"}
+      fields: []
+      field_lines: []
+      methods:
+        at: FunctionDeclaration 10
+          name: "at"
+          params: ["$#pattern_0"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 10
+                expr: Assign 10
+                  left: ListPattern 10
+                    targets:
+                      0: Variable 10
+                        token: 10 VAR_IDENTIFIER $row
+                        value: "\$row"
+                      1: Variable 10
+                        token: 10 VAR_IDENTIFIER $col
+                        value: "\$col"
+                  token: 10 ASSIGN =
+                  right: Variable 10
+                    token: 10 VAR_IDENTIFIER $#pattern_0
+                    value: "$#pattern_0"
+              1: ReturnStatement 10
+                expr: ArrayLiteral 10
+                  entries:
+                    0:
+                      0: null
+                      1: Variable 10
+                        token: 10 VAR_IDENTIFIER $row
+                        value: "\$row"
+                    1:
+                      0: null
+                      1: Variable 10
+                        token: 10 VAR_IDENTIFIER $col
+                        value: "\$col"
+                  map: false
+          arity: 1
+          kind: "Grid"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: {"at" => "Grid"}
+      abstract_methods: []
+      slots: []
+      method_table: [["at", "Grid", "pub", "Grid"]]
+      owner_vis: {"at" => "pub"}
+      declared_at: {"at" => "Grid"}
+      hidden: []
+      hidden_fields: []

@@ -1,0 +1,11 @@
+// A list pattern as a parameter: a hidden $#pattern_N in its place, taken apart first in the body
+fn distance([$x1, $y1], [$x2, $y2] = [0, 0]) {
+    return abs($x2 - $x1) + abs($y2 - $y1);
+}
+$names = map([["a", 1]], ([$name, $n]) -> $name);
+$first = ([$a, $b]) -> {
+    return $a;
+};
+kind Grid {
+    pub fn at([$row, $col]) { return [$row, $col]; }
+}

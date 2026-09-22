@@ -1,0 +1,3 @@
+// Pattern parameters compile to a hidden parameter and a DESTRUCTURE at the start of the body
+fn f([$a, $b]) { return $a; }
+$g = ([$x, $y]) -> $x + $y;

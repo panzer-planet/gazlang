@@ -484,7 +484,8 @@ Names are ASCII.
   default is never shared; the arity is then `[required, total]`. `function` is reserved and
   says to write `fn`.
 - **`$x` is always local** (to the running call or the top level), **`@x` always global**; a
-  function can't read top-level `$x`. Parameters are `$` only. `return` outside a function is a
+  function can't read top-level `$x`. Parameters are `$` only, or a list pattern of `$`
+  variables (below). `return` outside a function is a
   parse error; no return gives `null`. Variables holding `null` are still defined.
 - Calls are capped at 10000 deep (`MAX_CALL_DEPTH` in `gazvm.h`), a catchable GazLang error.
 - `include "path.gaz";` is top level only, takes a string literal relative to the including
@@ -797,6 +798,13 @@ kind Token {
   before anything is written; the right side runs first, then each target left to right, so
   `[$a, $b] = [$b, $a]` swaps. Targets are anything `=` can assign. No nesting, map patterns,
   compound operators or append targets.
+- **A parameter can be a list pattern** of `$variables`, in a lambda, a function or a method
+  (`([$name, $ties]) -> ...`, `fn distance([$x1, $y1], [$x2, $y2])`): one argument, taken
+  apart as `[$a, $b] = $arg;` would, with destructuring's errors, and a default allowed. It is
+  parser sugar, like a promoted parameter (`pattern_parameter()` in `parser.gaz`): a hidden
+  `$#pattern_N` parameter in its place and the destructuring prepended to the body, an
+  expression body becoming a block that returns it, so the variables are the call's own and a
+  lambda never captures them. Nothing below the parser learns of it.
 - `..=` appends in place (`concat_assign()` in `ops.c`), on a variable, a field or an element
   alike, converting what is appended as `..` does, so building a string with it is linear
   rather than a copy per append.

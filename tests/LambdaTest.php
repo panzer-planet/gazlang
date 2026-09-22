@@ -251,8 +251,8 @@ Undefined variable: $n
         return [
             'lambda is at the expression level' => ['1 + $x -> 2;', "Expected ';' but found '->' on line 1"],
             'global parameter' => ['@x -> 1;', "Expected ';' but found '->' on line 1"],
-            'literal parameter' => ['(1) -> 2;', 'Lambda parameters must be $variables on line 1'],
-            'global in the list' => ['($a, @b) -> 1;', 'Lambda parameters must be $variables on line 1'],
+            'literal parameter' => ['(1) -> 2;', 'Lambda parameters must be $variables or [$variable, ...] patterns on line 1'],
+            'global in the list' => ['($a, @b) -> 1;', 'Lambda parameters must be $variables or [$variable, ...] patterns on line 1'],
             'no body' => ['$x -> ;', "Unexpected ';' on line 1"],
             'return in an expression body' => ['$x -> return 1;', "Unexpected 'return' on line 1"],
             'break in a block body outside a loop' => ['while (true) { $f = () -> { break; }; }', 'Cannot use break outside of a loop on line 1'],
@@ -261,9 +261,9 @@ Undefined variable: $n
             'parenthesised head is at the expression level too' => ['echo 1 + ($x) -> 2;', "Expected ';' but found '->' on line 1"],
             'parenthesised head after ??' => ['$f = null; echo $f ?? () -> 7;', "Unexpected ')' on line 1"],
             'parenthesised head after !' => ['echo !() -> 1;', "Unexpected ')' on line 1"],
-            'doubly parenthesised parameter' => ['(($a)) -> 1;', 'Lambda parameters must be $variables on line 1'],
-            'parenthesised parameter in a list' => ['($a, ($b)) -> 1;', 'Lambda parameters must be $variables on line 1'],
-            'indexed parameter' => ['($a[0] = 1) -> 1;', 'Lambda parameters must be $variables on line 1'],
+            'doubly parenthesised parameter' => ['(($a)) -> 1;', 'Lambda parameters must be $variables or [$variable, ...] patterns on line 1'],
+            'parenthesised parameter in a list' => ['($a, ($b)) -> 1;', 'Lambda parameters must be $variables or [$variable, ...] patterns on line 1'],
+            'indexed parameter' => ['($a[0] = 1) -> 1;', 'Lambda parameters must be $variables or [$variable, ...] patterns on line 1'],
             'duplicate parameter reports its own line' => ['($a,
  $a
 ) -> 1;', 'Duplicate parameter $a in lambda on line 2'],

@@ -730,6 +730,7 @@ tests/codegen_corpus/kinds.gaz
 tests/codegen_corpus/locations.gaz
 tests/codegen_corpus/map_spread.gaz
 tests/codegen_corpus/namespaces.gaz
+tests/codegen_corpus/pattern_parameters.gaz
 tests/codegen_corpus/statements.gaz
 tests/codegen_corpus/statics.gaz
 tests/codegen_corpus/write_through_call.gaz
@@ -815,6 +816,7 @@ tests/parser_corpus/namespaces/lib/problems.gaz
 tests/parser_corpus/namespaces/main.gaz
 tests/parser_corpus/no_error_kind.gaz
 tests/parser_corpus/override_of_a_private_parent_method.gaz
+tests/parser_corpus/pattern_parameters.gaz
 tests/parser_corpus/postfix.gaz
 tests/parser_corpus/precedence.gaz
 tests/parser_corpus/promoted_fields.gaz
@@ -838,6 +840,7 @@ tests/vm_corpus/globals.gaz
 tests/vm_corpus/map_churn.gaz
 tests/vm_corpus/map_spread.gaz
 tests/vm_corpus/misc.gaz
+tests/vm_corpus/pattern_parameters.gaz
 tests/vm_corpus/rounding.gaz
 tests/vm_corpus/superinstructions.gaz
 tests/vm_corpus/to_string_errors.gaz
