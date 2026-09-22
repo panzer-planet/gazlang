@@ -61,9 +61,10 @@ echo 'echo "hello";' > hello.gaz
 bin/gazlang -f hello.gaz
 ```
 
-`make -C vm pgo` builds a faster `bin/gazlang` (by a few to ten percent) with profile-guided
-optimisation: it runs gazlang on the compiler and the examples, then compiles it again knowing
-which code is hot. It needs clang with `llvm-profdata` (Xcode's command line tools have it) or gcc.
+The build uses profile-guided optimisation when your compiler supports it (gcc, or clang with
+`llvm-profdata`, which Xcode's command line tools have): it runs gazlang on the compiler and the
+examples, then compiles it again knowing which code is hot, for a few to ten percent. Without
+it you get a plain optimised build; `make -C vm PGO=0` asks for that.
 
 Then kick the tyres:
 

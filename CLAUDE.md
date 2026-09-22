@@ -10,8 +10,10 @@ reasons behind them; history is in git.
 ## Build & Test Commands
 ```bash
 # Build gazlang: the VM in C with the self-hosted compiler built in, as bin/gazlang
-# (not checked in; the tests build it themselves)
+# (not checked in; the tests build it themselves), with profile-guided optimisation where the
+# C compiler can do it; PGO=0 builds plain -O2, a few seconds quicker while editing the C
 make -C vm
+make -C vm PGO=0
 
 # Run a file, print its bytecode, run bytecode, or print its tokens or tree
 bin/gazlang -f examples/functions.gaz
@@ -22,10 +24,6 @@ bin/gazlang --ast -f examples/functions.gaz
 # After changing compiler/, rebuild the compiler gazlang has built in, with gazlang alone
 # (a test fails until then; see "Changing the compiler")
 make -C vm compiler
-
-# bin/gazlang with profile-guided optimisation, trained on the compiler and examples/ (opt-in;
-# plain make stays a plain -O2 build, and won't replace this one until a source changes)
-make -C vm pgo
 
 # The test dependencies, then all tests (about 55s)
 composer install
@@ -187,8 +185,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   Development is on an Intel Mac.
 - **Speed**: the same program takes gazlang 0.4 to 1.5 times what it takes PHP (JIT or not),
   and Python 3.12 1.4 to 2.9 times what it takes gazlang (`php vm/bench.php`, which finds a
-  Python 3.11 or later for the `vm/bench/python/` ports; the README's table is its output on a
-  `make pgo` build, unlabelled there, so a plain build runs a little slower). The
+  Python 3.11 or later for the `vm/bench/python/` ports; the README's table is its output on the
+  default PGO build, so a `PGO=0` build runs a little slower). The
   arithmetic loop (1.5x) is still about a dozen dispatches an iteration against PHP's JIT, which
   only a register bytecode or a JIT would close; lists, maps, strings and objects (0.8 to 1.3x)
   spend theirs in malloc/free and the collector, so profile those before trying an allocator.
@@ -988,11 +986,12 @@ vm/bench.php`: CPU time, interleaved, best of several).
   loop by 5%, so judge a change with the same binary both ways, or on two builds (adding
   `-mbranches-within-32B-boundaries` moves everything), and keep what wins on both. What is
   left in a profile is the dispatch loop, malloc/free and the collector.
-- **PGO is opt-in** (`make pgo`): it makes every benchmark faster, by more than the layout
-  noise and on both layouts, but needs `llvm-profdata` or gcc's profile support, which the
-  bootstrap mustn't. It trains on the compiler and `examples/`, never `vm/bench`, so the
-  benchmarks stay an honest test; `bench.php` times whichever build `bin/gazlang` is, so compare
-  a change with both builds plain (or both PGO). `-O3` was a wash and `-flto` slower.
+- **PGO is the default where the toolchain has it** (gcc, or clang with `llvm-profdata`), and
+  plain `-O2` where it doesn't, so the bootstrap still needs only a C compiler: it makes every
+  benchmark faster, by more than the layout noise and on both layouts, for about 5s more per
+  build. It trains on the compiler and `examples/`, never `vm/bench`, so the benchmarks stay an
+  honest test; `bench.php` times whichever build `bin/gazlang` is, so compare a change with
+  both builds PGO (or both `PGO=0`). `-O3` was a wash and `-flto` slower.
 - **Why C**: over Rust, Zig and Go, since the heap (refcounts plus a cycle collector) is unsafe
   code in every one of them, Go has no refcounts for cheap copy-on-write, and Zig moves under a
   pinned toolchain; C bootstraps with nothing but a C compiler (`TLS=0`), and the differential harness

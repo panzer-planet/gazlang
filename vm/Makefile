@@ -1,10 +1,10 @@
 # gazlang, the GazLang VM in C with the self-hosted compiler built in. libc, libm and OpenSSL
 # (for TLS; make TLS=0 leaves it out, so a C compiler is all it takes), plus od and awk to build
 # in the compiler.
-#   make           bin/gazlang, optimised
+#   make           bin/gazlang, optimised with profiles where the C compiler can (see below)
+#   make PGO=0     the same with plain -O2, a few seconds quicker to build while editing the C
 #   make TLS=0     the same without OpenSSL: https and socket_open(..., true) are errors
 #   make compiler  rebuild compiler/gazlang.gzb from compiler/ with bin/gazlang alone (see below)
-#   make pgo       bin/gazlang with profile-guided optimisation (see below)
 #   make test      vm/build/gazvm-test, with AddressSanitizer and UndefinedBehaviorSanitizer,
 #                  which tests/CVMTest.php runs (it calls this itself)
 
@@ -37,6 +37,28 @@ ifeq ($(TLS),1)
 endif
 
 HEADERS = gazvm.h
+
+# Profile-guided optimisation, on by default where the C compiler can do it (gcc always; clang
+# with llvm-profdata, which macOS has through xcrun) and plain -O2 where it can't, so a C
+# compiler is still all the bootstrap needs. An instrumented build runs the compiler compiling
+# itself, an ast of the parser and every example (failures ignored; none fetches anything
+# without arguments), and the optimised build is compiled again with what it counted. Not
+# vm/bench, so the benchmarks stay an honest test. Everything is in build/pgo. Both builds
+# write the same output name, since gcc names its .gcda files after it.
+PGO_DIR = build/pgo
+ifneq ($(findstring clang,$(shell $(CC) --version 2>/dev/null)),)
+  # macOS has llvm-profdata only through xcrun
+  PROFDATA := $(or $(shell command -v llvm-profdata 2>/dev/null),$(if $(shell xcrun -f llvm-profdata 2>/dev/null),xcrun llvm-profdata))
+  PGO ?= $(if $(PROFDATA),1,0)
+  PGO_GENERATE = -fprofile-instr-generate
+  PGO_USE = -fprofile-instr-use=$(PGO_DIR)/merged.profdata
+  PGO_MERGE = $(PROFDATA) merge -o $(PGO_DIR)/merged.profdata $(PGO_DIR)/*.profraw
+else
+  PGO ?= 1
+  PGO_GENERATE = -fprofile-generate -fprofile-dir=$(abspath $(PGO_DIR))
+  PGO_USE = -fprofile-use -fprofile-dir=$(abspath $(PGO_DIR))
+  PGO_MERGE = true
+endif
 # The self-hosted compiler's bytecode, checked in, built into the VM so it can run source
 COMPILER = build/compiler.c
 GAZLANG = ../bin/gazlang
@@ -46,12 +68,27 @@ GAZLANG = ../bin/gazlang
 # and a build started in the second the last one finished would see nothing newer.
 CONFIG = build/config
 $(shell mkdir -p build; echo '$(FLAGS) $(LIBS)' | cmp -s - $(CONFIG) || { echo '$(FLAGS) $(LIBS)' > $(CONFIG); rm -f $(GAZLANG) build/gazvm-test build/gazvm-stress build/gazvm-cov; })
+# The same for PGO=0 or 1, which only bin/gazlang is built with
+PGO_MODE = build/pgo-mode
+$(shell echo 'PGO=$(PGO)' | cmp -s - $(PGO_MODE) || { echo 'PGO=$(PGO)' > $(PGO_MODE); rm -f $(GAZLANG); })
 
 all: $(GAZLANG)
 
-$(GAZLANG): $(SOURCES) $(HEADERS) $(COMPILER) $(CONFIG)
+$(GAZLANG): $(SOURCES) $(HEADERS) $(COMPILER) $(CONFIG) $(PGO_MODE)
 	@mkdir -p ../bin
+ifeq ($(PGO),1)
+	rm -rf $(PGO_DIR) && mkdir -p $(PGO_DIR)
+	$(CC) $(FLAGS) -O2 $(PGO_GENERATE) -o $(PGO_DIR)/gazlang $(SOURCES) $(COMPILER) $(LIBS)
+	cd .. && export LLVM_PROFILE_FILE=$(abspath $(PGO_DIR))/%p.profraw && \
+	  vm/$(PGO_DIR)/gazlang -f compiler/gazlang.gaz -- code compiler/gazlang.gaz > /dev/null && \
+	  vm/$(PGO_DIR)/gazlang -f compiler/gazlang.gaz -- ast compiler/parser.gaz > /dev/null && \
+	  for f in examples/*.gaz; do vm/$(PGO_DIR)/gazlang -f $$f < /dev/null > /dev/null 2>&1 || true; done
+	$(PGO_MERGE)
+	$(CC) $(FLAGS) -O2 $(PGO_USE) -o $(PGO_DIR)/gazlang $(SOURCES) $(COMPILER) $(LIBS)
+	cp $(PGO_DIR)/gazlang $@
+else
 	$(CC) $(FLAGS) -O2 -o $@ $(SOURCES) $(COMPILER) $(LIBS)
+endif
 
 # The bytes as a C array, written out by od: no escaping to get wrong (and no trigraphs, which
 # -std=c11 turns on, and which the ??= in the compiler's bytecode would be)
@@ -82,34 +119,6 @@ compiler: $(GAZLANG)
 	@if cmp -s $(BOOT)/stage2.gzb ../compiler/gazlang.gzb; then echo "compiler/gazlang.gzb is up to date"; \
 	 else cp $(BOOT)/stage2.gzb ../compiler/gazlang.gzb && $(MAKE) all; fi
 
-# make pgo: bin/gazlang with profile-guided optimisation, opt-in so plain make still needs nothing
-# but a C compiler. An instrumented build runs the compiler compiling itself, an ast of the
-# parser and every example (failures ignored), and the optimised build is compiled again with
-# what it counted. Not vm/bench, so the benchmarks stay an honest test. Everything is in
-# build/pgo. Both builds write the same output name, since gcc names its .gcda files after it.
-PGO = build/pgo
-ifneq ($(findstring clang,$(shell $(CC) --version 2>/dev/null)),)
-  PGO_GENERATE = -fprofile-instr-generate
-  PGO_USE = -fprofile-instr-use=$(PGO)/merged.profdata
-  # macOS has llvm-profdata only through xcrun
-  PGO_MERGE = $(if $(shell command -v xcrun),xcrun) llvm-profdata merge -o $(PGO)/merged.profdata $(PGO)/*.profraw
-else
-  PGO_GENERATE = -fprofile-generate -fprofile-dir=$(abspath $(PGO))
-  PGO_USE = -fprofile-use -fprofile-dir=$(abspath $(PGO))
-  PGO_MERGE = true
-endif
-
-pgo: $(COMPILER) $(CONFIG)
-	rm -rf $(PGO) && mkdir -p $(PGO) ../bin
-	$(CC) $(FLAGS) -O2 $(PGO_GENERATE) -o $(PGO)/gazlang $(SOURCES) $(COMPILER) $(LIBS)
-	cd .. && export LLVM_PROFILE_FILE=$(abspath $(PGO))/%p.profraw && \
-	  vm/$(PGO)/gazlang -f compiler/gazlang.gaz -- code compiler/gazlang.gaz > /dev/null && \
-	  vm/$(PGO)/gazlang -f compiler/gazlang.gaz -- ast compiler/parser.gaz > /dev/null && \
-	  for f in examples/*.gaz; do vm/$(PGO)/gazlang -f $$f < /dev/null > /dev/null 2>&1 || true; done
-	$(PGO_MERGE)
-	$(CC) $(FLAGS) -O2 $(PGO_USE) -o $(PGO)/gazlang $(SOURCES) $(COMPILER) $(LIBS)
-	cp $(PGO)/gazlang $(GAZLANG)
-
 test: build/gazvm-test
 
 build/gazvm-test: $(SOURCES) $(HEADERS) $(COMPILER) $(CONFIG)
@@ -126,7 +135,7 @@ build/gazvm-stress: $(SOURCES) $(HEADERS) $(COMPILER) $(CONFIG)
 clean:
 	rm -rf build $(GAZLANG)
 
-.PHONY: all compiler pgo test stress clean
+.PHONY: all compiler test stress clean
 
 # Coverage, for vm/coverage.php
 build/gazvm-cov: $(SOURCES) $(HEADERS) $(COMPILER) $(CONFIG)
