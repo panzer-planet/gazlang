@@ -457,10 +457,14 @@ Names are ASCII.
   there is an error. `delete` can't take a field (`Cannot delete a field`), a variable, `$a[]`, a
   call's result or a string; a method may still be named `delete`. There is no `pop`: a function can't change its argument, so take `last($l)`
   and delete it, which is how a list is a stack (and cheap: `array_pop()` in PHP).
-- `...$x` spreads a list into a **list literal only** (`[$first, ...$rest]`, `[...$a, ...$b]`);
-  anything but a list is `Cannot spread map: only a list can be`, raised before the elements
-  after it run. `{...$m}`, `f(...$args)`, a bare `...$a` and a rest pattern are parse errors
-  that say so; each could be added later without breaking anything. `...` is one token
+- `...$x` spreads a list into a **list literal** (`[$first, ...$rest]`, `[...$a, ...$b]`) and a
+  map into a **map literal** (`{...$defaults, ...$options, "k" => 1}`), each only its own
+  kind: `Cannot spread map: only a list can be` and `Cannot spread list: only a map can be`,
+  raised before the entries after it run (a list's indexes as keys would be a silent
+  surprise). In a map, later entries win, as a duplicate key does, and a key already there
+  keeps its place (`MAP_EXTEND`, `map_set()`), as in JavaScript and PHP. `f(...$args)`, a bare
+  `...$a` and a rest pattern are parse errors that say so; each could be added later without
+  breaking anything. `...` is one token
   (longest match, so `.....` is `...` then `..`).
 - `echo` prints them as literals; arithmetic and unary `-` on them throw, and so does ordering
   a map (lists order element by element, see above).

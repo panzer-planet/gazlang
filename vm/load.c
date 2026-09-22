@@ -85,6 +85,7 @@ static const InstrInfo INFO[OP_COUNT] = {
     [OP_ARRAY_PUSH] = {"ARRAY_PUSH", 0, {0}, 2, 1},
     [OP_ARRAY_EXTEND] = {"ARRAY_EXTEND", 0, {0}, 2, 1},
     [OP_NEW_MAP] = {"NEW_MAP", 0, {0}, 0, 1},
+    [OP_MAP_EXTEND] = {"MAP_EXTEND", 0, {0}, 2, 1},
     [OP_MAP_SET] = {"MAP_SET", 0, {0}, 3, 1},
     [OP_KEY_CHECK] = {"KEY_CHECK", 0, {0}, 1, 1},
     [OP_FOREACH_CHECK] = {"FOREACH_CHECK", 0, {0}, 1, 1},

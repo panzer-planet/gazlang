@@ -1,1 +1,1 @@
-Error: ... only spreads a list into a list literal, as in [...$a, 1] at tests/parser_corpus/error_spread_in_a_call.gaz:2
+Error: ... only spreads into a list or map literal, as in [...$a, 1] or {...$m, "k" => 1} at tests/parser_corpus/error_spread_in_a_call.gaz:2

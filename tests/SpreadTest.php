@@ -49,6 +49,29 @@ class SpreadTest extends GazLangTestCase
             CODE));
     }
 
+    public function test_a_map_spreads_its_entries_later_ones_winning()
+    {
+        // A key already there keeps its place and takes the later value, as a duplicate key in
+        // a literal does, so defaults then options is {...$defaults, ...$options}
+        $this->assertEquals("{\"colour\" => \"red\", \"size\" => 5}\n{\"size\" => 2, \"colour\" => \"red\", \"extra\" => true}\n{}\nred blue\n", $this->executeCode(<<<'CODE'
+            $defaults = {"colour" => "red", "size" => 2};
+            echo {...$defaults, ...{"size" => 5}};
+            echo {"size" => 1, ...$defaults, "extra" => true};
+            echo {...{}};
+            $copy = {...$defaults};
+            $copy["colour"] = "blue";
+            echo $defaults["colour"] .. " " .. $copy["colour"];
+            CODE));
+    }
+
+    public function test_map_spread_evaluates_left_to_right()
+    {
+        $this->assertEquals("abc{\"a\" => 1, \"c\" => 3}\n", $this->executeCode(<<<'CODE'
+            fn say($s, $v) { print($s); return $v; }
+            echo {...say("a", {"a" => 1}), say("b", "c") => say("c", 3)};
+            CODE));
+    }
+
     public function test_constants_can_spread_constants()
     {
         $this->assertEquals("[\"a\", \"b\", \"x\"]\n", $this->executeCode(<<<'CODE'
@@ -74,6 +97,9 @@ class SpreadTest extends GazLangTestCase
             'a string' => ['echo [..."ab"];', 'Cannot spread string: only a list can be on line 1'],
             'null' => ['$n = null; echo [...$n];', 'Cannot spread null: only a list can be on line 1'],
             'located at the ...' => ["echo [\n1,\n...\n5];", 'Cannot spread int: only a list can be on line 3'],
+            'a list into a map' => ['echo {...[1, 2]};', 'Cannot spread list: only a map can be on line 1'],
+            'null into a map' => ['$n = null; echo {"a" => 1, ...$n};', 'Cannot spread null: only a map can be on line 1'],
+            'a map located at the ...' => ["echo {\n\"a\" => 1,\n...\n5};", 'Cannot spread int: only a map can be on line 3'],
         ];
     }
 
@@ -89,13 +115,13 @@ class SpreadTest extends GazLangTestCase
     public static function syntaxErrors(): array
     {
         return [
-            'in a map' => ['echo {...$m};', '... only spreads a list into a list literal, as in [...$a, 1] on line 1'],
-            'in a call' => ['echo len(...$a);', '... only spreads a list into a list literal, as in [...$a, 1] on line 1'],
-            'alone' => ['$x = ...$a;', '... only spreads a list into a list literal, as in [...$a, 1] on line 1'],
+            'in a call' => ['echo len(...$a);', '... only spreads into a list or map literal, as in [...$a, 1] or {...$m, "k" => 1} on line 1'],
+            'alone' => ['$x = ...$a;', '... only spreads into a list or map literal, as in [...$a, 1] or {...$m, "k" => 1} on line 1'],
             'a rest pattern' => ['[$a, ...$b] = [1, 2];', "A pattern can't take the rest with ...: take the list apart with slice() on line 1"],
             'a rest pattern in foreach' => ['foreach ([] as [...$b]) {}', "A pattern can't take the rest with ...: take the list apart with slice() on line 1"],
             'a constant spreading a non-list' => ['const C = [..."s"];', 'Cannot spread string: only a list can be on line 1'],
             'a constant spreading a variable' => ['const C = [...$a];', "A constant's value can only use literals, operators and other constants on line 1"],
+            'a constant map spreading a list' => ['const C = {...[1]};', 'Cannot spread list: only a map can be on line 1'],
         ];
     }
 

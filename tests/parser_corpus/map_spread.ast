@@ -1,0 +1,54 @@
+Compound
+  statements:
+@ "tests/parser_corpus/map_spread.gaz"
+    0: Statement 2
+      expr: Assign 2
+        left: Variable 2
+          token: 2 VAR_IDENTIFIER $m
+          value: "\$m"
+        token: 2 ASSIGN =
+        right: ArrayLiteral 2
+          entries:
+            0:
+              0: String 2
+                token: 2 STRING "a"
+                value: "a"
+              1: Num 2
+                token: 2 INTEGER 1
+                value: 1
+          map: true
+    1: Statement 3
+      expr: Assign 3
+        left: Variable 3
+          token: 3 VAR_IDENTIFIER $n
+          value: "\$n"
+        token: 3 ASSIGN =
+        right: ArrayLiteral 3
+          entries:
+            0:
+              0: null
+              1: Spread 4
+                expr: Variable 4
+                  token: 4 VAR_IDENTIFIER $m
+                  value: "\$m"
+            1:
+              0: String 5
+                token: 5 STRING "b"
+                value: "b"
+              1: Num 5
+                token: 5 INTEGER 2
+                value: 2
+            2:
+              0: null
+              1: Spread 6
+                expr: ArrayLiteral 6
+                  entries:
+                    0:
+                      0: String 6
+                        token: 6 STRING "a"
+                        value: "a"
+                      1: Num 6
+                        token: 6 INTEGER 3
+                        value: 3
+                  map: true
+          map: true

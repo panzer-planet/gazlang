@@ -1,0 +1,5 @@
+// A spread in a map literal is MAP_EXTEND, in a list ARRAY_EXTEND; a literal with one is never a constant
+$m = {"a" => 1};
+echo {...$m, "b" => 2};
+echo [...[$m], 1];
+echo {...{"k" => 1}};

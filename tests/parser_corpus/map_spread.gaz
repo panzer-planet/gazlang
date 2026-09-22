@@ -1,0 +1,9 @@
+// Spread in a map literal: its entries, and constants built with it
+$m = {"a" => 1};
+$n = {
+    ...$m,
+    "b" => 2,
+    ...{"a" => 3},
+};
+const BASE = {"x" => 1};
+const MORE = {...BASE, "y" => 2};

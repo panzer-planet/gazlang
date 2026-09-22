@@ -1,0 +1,29 @@
+Compound
+  statements:
+@ null
+    0: Statement 1
+      expr: Assign 1
+        left: Variable 1
+          token: 1 VAR_IDENTIFIER $m
+          value: "\$m"
+        token: 1 ASSIGN =
+        right: ArrayLiteral 1
+          entries:
+            0:
+              0: String 1
+                token: 1 STRING "k"
+                value: "k"
+              1: Num 1
+                token: 1 INTEGER 1
+                value: 1
+          map: true
+    1: EchoStatement 2
+      expr: ArrayLiteral 2
+        entries:
+          0:
+            0: null
+            1: Spread 2
+              expr: Variable 2
+                token: 2 VAR_IDENTIFIER $m
+                value: "\$m"
+        map: true

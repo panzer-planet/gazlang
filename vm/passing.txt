@@ -130,6 +130,7 @@ snippet:28b3b403a74d
 snippet:2995a20dadcd
 snippet:299c0aab1fdc
 snippet:29aab7bb789f
+snippet:2a54a5c7e92d
 snippet:2a9600280dc0
 snippet:2afed86490b0
 snippet:2b3c654305b2
@@ -266,7 +267,6 @@ snippet:5d35e2105fa4
 snippet:5d5c56ed0a0c
 snippet:5d94ade4481b
 snippet:5ec44b055eab
-snippet:5f116762bc1d
 snippet:5f1f9edb19e3
 snippet:6036f5680433
 snippet:60bcf377dc10
@@ -305,6 +305,7 @@ snippet:6edab633efbc
 snippet:6f9c7fadac2a
 snippet:6fed8dd34428
 snippet:703635f2744a
+snippet:713562c9df04
 snippet:71725a397fa3
 snippet:71a32e33754e
 snippet:71c6dbbcb307
@@ -365,7 +366,6 @@ snippet:8c02ac0b5f80
 snippet:8c061f692afc
 snippet:8c599870ba61
 snippet:8c9b74c9dc8c
-snippet:8d09712bc14a
 snippet:8d3d73eb8053
 snippet:8d60253ea72c
 snippet:8de815879527
@@ -403,6 +403,7 @@ snippet:9b7705971df9
 snippet:9c650c324437
 snippet:9cb151a9a4a5
 snippet:9d36da4c2b3d
+snippet:9d966c41f962
 snippet:9dbda3809842
 snippet:9dcfed7ab0b4
 snippet:9e2365daad1d
@@ -423,6 +424,7 @@ snippet:a6d995fcefba
 snippet:a6ff831a3b34
 snippet:a8b365a7820b
 snippet:a90898555afd
+snippet:a90bed539e5c
 snippet:a9e521314827
 snippet:ab7840b3d987
 snippet:acb35b2507f9
@@ -539,6 +541,7 @@ snippet:e24b67fa2957
 snippet:e29131072699
 snippet:e2a94b800be0
 snippet:e2ee0e82ec85
+snippet:e3b12fba9913
 snippet:e3b619ee0145
 snippet:e4eb94ebdf7a
 snippet:e4fa45e57bf5
@@ -559,6 +562,7 @@ snippet:ee7b2f431cc5
 snippet:efa1320065a0
 snippet:efcfd450fb56
 snippet:f1172d4ad298
+snippet:f16d6c8cb13a
 snippet:f23fb6d48460
 snippet:f329e365d379
 snippet:f379f0120f3f
@@ -566,6 +570,7 @@ snippet:f412b7d0ed23
 snippet:f4307ef5626e
 snippet:f464d18a16e2
 snippet:f5777f1b79f2
+snippet:f613066511a3
 snippet:f65895769746
 snippet:f7554fc59021
 snippet:f7596501168a
@@ -643,6 +648,7 @@ tests/bytecode_corpus/error_lambda_index.gzb
 tests/bytecode_corpus/error_location_line.gzb
 tests/bytecode_corpus/error_location_not_quoted.gzb
 tests/bytecode_corpus/error_location_words.gzb
+tests/bytecode_corpus/error_map_extend_into_a_list.gzb
 tests/bytecode_corpus/error_map_set_in_an_int.gzb
 tests/bytecode_corpus/error_method_called_as_a_function.gzb
 tests/bytecode_corpus/error_method_declarer_undefined.gzb
@@ -705,6 +711,7 @@ tests/bytecode_corpus/error_value_variable.gzb
 tests/bytecode_corpus/error_value_with_a_hash.gzb
 tests/bytecode_corpus/error_value_with_an_arrow.gzb
 tests/bytecode_corpus/error_version.gzb
+tests/bytecode_corpus/map_extend.gzb
 tests/bytecode_corpus/raised_error_as_a_value.gzb
 tests/bytecode_corpus/set_field_undeclared.gzb
 tests/bytecode_corpus/spacing.gzb
@@ -720,6 +727,7 @@ tests/codegen_corpus/functions.gaz
 tests/codegen_corpus/includes.gaz
 tests/codegen_corpus/kinds.gaz
 tests/codegen_corpus/locations.gaz
+tests/codegen_corpus/map_spread.gaz
 tests/codegen_corpus/namespaces.gaz
 tests/codegen_corpus/statements.gaz
 tests/codegen_corpus/statics.gaz
@@ -794,6 +802,7 @@ tests/parser_corpus/lambdas.gaz
 tests/parser_corpus/lists_and_maps.gaz
 tests/parser_corpus/literals.gaz
 tests/parser_corpus/locations.gaz
+tests/parser_corpus/map_spread.gaz
 tests/parser_corpus/match.gaz
 tests/parser_corpus/namespaces/included_twice.gaz
 tests/parser_corpus/namespaces/kinds_named_qualified.gaz
@@ -809,6 +818,7 @@ tests/parser_corpus/postfix.gaz
 tests/parser_corpus/precedence.gaz
 tests/parser_corpus/promoted_fields.gaz
 tests/parser_corpus/spread.gaz
+tests/parser_corpus/spread_in_a_map.gaz
 tests/parser_corpus/statements.gaz
 tests/parser_corpus/statics.gaz
 tests/parser_corpus/try.gaz
@@ -825,6 +835,7 @@ tests/vm_corpus/exit_code.gaz
 tests/vm_corpus/floats.gaz
 tests/vm_corpus/globals.gaz
 tests/vm_corpus/map_churn.gaz
+tests/vm_corpus/map_spread.gaz
 tests/vm_corpus/misc.gaz
 tests/vm_corpus/rounding.gaz
 tests/vm_corpus/superinstructions.gaz

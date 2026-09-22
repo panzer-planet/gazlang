@@ -1,1 +1,0 @@
-Error: ... only spreads a list into a list literal, as in [...$a, 1] on line 1

@@ -504,7 +504,7 @@ kind Parser {
         } else if ($type == "PARENT") {
             #fail("## alone is not allowed: write ##name for the parent's version of a method");
         } else if ($type == "SPREAD") {
-            #fail("... only spreads a list into a list literal, as in [...\$a, 1]");
+            #fail("... only spreads into a list or map literal, as in [...\$a, 1] or \{...\$m, \"k\" => 1}");
         } else if (has_key(#INSTEAD, $type)) {
             #fail("{$token.value} is reserved: {#INSTEAD[$type]}");
         } else if (in_array($type, #RESERVED)) {
@@ -779,7 +779,8 @@ kind Parser {
         return #at(ArrayLiteralAST($entries), $start);
     }
 
-    // Parse a map literal (LBRACE [entry (COMMA entry)* [COMMA]] RBRACE), entry: expr DOUBLE_ARROW expr
+    // Parse a map literal (LBRACE [entry (COMMA entry)* [COMMA]] RBRACE),
+    // entry: expr DOUBLE_ARROW expr | SPREAD expr
     //
     // Only where an expression is expected: a { that starts a statement is a block, and one
     // right after -> is a lambda's block body, so a lambda returning a map writes ({...}).
@@ -789,9 +790,17 @@ kind Parser {
 
         $entries = [];
         while (#current_token.type != "RIGHT_BRACE") {
-            $key = #expr();
-            #eat("DOUBLE_ARROW");
-            $entries[] = [$key, #expr()];
+            if (#current_token.type == "SPREAD") {
+                // ...$m sets every key of the map $m here, later entries winning, as a
+                // duplicate key does; it has no key of its own, as a list's entries don't
+                $spread = #current_token;
+                #eat("SPREAD");
+                $entries[] = [null, #at(SpreadAST(#expr()), $spread)];
+            } else {
+                $key = #expr();
+                #eat("DOUBLE_ARROW");
+                $entries[] = [$key, #expr()];
+            }
 
             if (#current_token.type != "RIGHT_BRACE") {
                 #eat("COMMA");
@@ -1942,6 +1951,17 @@ kind Parser {
         } else if (is_a($node, ArrayLiteralAST)) {
             $map = {};
             foreach ($node.entries as [$key_node, $value_node]) {
+                if (is_a($value_node, SpreadAST)) {
+                    // The runtime's rule and words, located at the ...
+                    $value = #fold($value_node.expr, $kind);
+                    if (type_of($value) != "map") {
+                        #fail_at("Cannot spread " .. type_of($value) .. ": only a map can be", $value_node.file, $value_node.line);
+                    }
+                    foreach ($value as $key => $element) {
+                        $map[$key] = $element;
+                    }
+                    continue;
+                }
                 $key = #fold($key_node, $kind);
                 // A key that can't be one is an error at the map, before its value is worked out
                 #located($node, () -> ({$key => null}));

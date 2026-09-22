@@ -1,0 +1,4 @@
+{"colour" => "red", "size" => 5}
+{"size" => 2, "colour" => "red", "extra" => true}
+{}
+red blue

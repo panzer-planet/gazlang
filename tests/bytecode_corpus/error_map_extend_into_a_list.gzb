@@ -1,0 +1,9 @@
+GAZLANG BYTECODE 2
+globals
+
+top
+locals
+NEW_ARRAY
+PUSH {"a" => 1}
+MAP_EXTEND
+PRINT

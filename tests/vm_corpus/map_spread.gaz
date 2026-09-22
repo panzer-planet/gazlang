@@ -1,0 +1,17 @@
+// ...$m in a map literal: later entries win, a key already there keeps its place
+$defaults = {"colour" => "red", "size" => 2, "tags" => ["a"]};
+$options = {"size" => 5};
+echo {...$defaults, ...$options};
+echo {"size" => 1, ...$defaults, "extra" => true};
+echo {...{}, ...$options, "size" => 9};
+echo {...$defaults}["tags"];
+$copy = {...$defaults};
+$copy["colour"] = "blue";
+echo $defaults["colour"] .. " " .. $copy["colour"];
+const BASE = {"a" => 1, "b" => 2};
+const MORE = {...BASE, "b" => 3, "c" => 4};
+echo MORE;
+echo [...[1], ...[2]];
+foreach ([() -> ({...[1, 2]}), () -> ({...null}), () -> [...{"a" => 1}]] as $f) {
+    try { $f(); } catch (Error $e) { echo $e.message; }
+}

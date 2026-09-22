@@ -1,0 +1,1 @@
+Error: ... only spreads into a list or map literal, as in [...$a, 1] or {...$m, "k" => 1} at tests/parser_corpus/error_spread_outside_a_literal.gaz:1

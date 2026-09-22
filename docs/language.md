@@ -114,8 +114,17 @@ $all = [...$first, ...$rest];            // join
 $list = [0, ...$list];                   // prepend
 ```
 
-Only a list can be spread (anything else is an error at the `...`), and only into a list
-literal: not into a map, a call's arguments or a pattern.
+A map spreads into a map literal the same way, later entries winning, so options over
+defaults, or a copy with a change, is one literal:
+
+```gaz
+$settings = {...$defaults, ...$options};
+$moved = {...$player, "club" => "Harbour City"};
+```
+
+A key already there keeps its place and takes the later value. Only a list spreads into a
+list and only a map into a map (anything else is an error at the `...`), and nowhere else:
+not into a call's arguments or a pattern.
 
 A list index must be an int in range (no negative indexes); a map key must exist. Read through
 `??` to get `null` instead of an error. A compound assignment (`+=`, `..=`) needs the key to

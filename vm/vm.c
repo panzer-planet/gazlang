@@ -818,6 +818,26 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         case OP_NEW_MAP:
             PUSH(v_map(map_new()));
             break;
+        case OP_MAP_EXTEND: {
+            /* ...$m in a map literal: every key of $m set in the map below, in $m's order, so a
+               key already there keeps its place and takes the new value */
+            a = TOP();
+            if (a.type != T_MAP) {
+                raisef("Cannot spread %s: only a map can be", type_name(a));
+                goto error;
+            }
+            if (sp[-2].type != T_MAP) {
+                raisef("MAP_EXTEND expects a map to spread into, got %s", type_name(sp[-2]));
+                goto error;
+            }
+            Map *m = map_unique(&sp[-2]);
+            for (size_t i = 0; map_next(a.m, &i); i++) {
+                incref(a.m->entries[i].value);
+                map_set(m, a.m->entries[i].key, a.m->entries[i].value);
+            }
+            decref(POP());
+            break;
+        }
         case OP_MAP_SET:
             if (sp[-3].type != T_MAP) {
                 raisef("MAP_SET expects a map to set the key in, got %s", type_name(sp[-3]));

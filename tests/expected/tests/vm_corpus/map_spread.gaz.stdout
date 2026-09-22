@@ -1,0 +1,10 @@
+{"colour" => "red", "size" => 5, "tags" => ["a"]}
+{"size" => 2, "colour" => "red", "tags" => ["a"], "extra" => true}
+{"size" => 9}
+["a"]
+red blue
+{"a" => 1, "b" => 3, "c" => 4}
+[1, 2]
+Cannot spread list: only a map can be
+Cannot spread null: only a map can be
+Cannot spread map: only a list can be

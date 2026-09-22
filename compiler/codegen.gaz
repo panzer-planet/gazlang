@@ -96,8 +96,6 @@ kind CodeGenerator {
             StringAST => #emit("PUSH", [$node.value]),
             ArrayLiteralAST => #visit_array_literal($node),
             IndexAST => #visit_index($node),
-            // An element of a list literal: its elements appended to the list below
-            SpreadAST => { #visit($node.expr); #emit("ARRAY_EXTEND"); }
             StatementAST => #visit_statement($node),
             EchoStatementAST => #visit_echo_statement($node),
             CompoundAST => #visit_compound($node),
@@ -495,15 +493,22 @@ kind CodeGenerator {
 
         #emit($node.map ? "NEW_MAP" : "NEW_ARRAY");
         foreach ($node.entries as [$key, $value]) {
+            if (is_a($value, SpreadAST)) {
+                // ...$x: a list's elements appended to the list below, or a map's keys set in
+                // it, which fails at the ... if it can't be
+                #visit($value.expr);
+                [$file, $line] = [#file, #line];
+                [#file, #line] = [$value.file, $value.line];
+                #emit($node.map ? "MAP_EXTEND" : "ARRAY_EXTEND");
+                [#file, #line] = [$file, $line];
+                continue;
+            }
             if ($key != null) {
                 #visit($key);
                 #emit("KEY_CHECK");
             }
             #visit($value);
-            // A spread appends its own elements
-            if (!is_a($value, SpreadAST)) {
-                #emit($key == null ? "ARRAY_PUSH" : "MAP_SET");
-            }
+            #emit($key == null ? "ARRAY_PUSH" : "MAP_SET");
         }
     }
 
