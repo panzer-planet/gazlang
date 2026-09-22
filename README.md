@@ -35,8 +35,8 @@ no dogs here
 - **It compiles itself.** The lexer, parser and compiler are about 4,400 lines of GazLang,
   running on a VM of about 5,700 lines of plain C, whose one dependency, OpenSSL for HTTPS,
   is optional: `make -C vm TLS=0` needs nothing but a C compiler.
-- **It is quick.** It keeps up with Python 3.12 or beats it by up to 2.8 times, and stays
-  within 1.5 times of PHP 8.5 with its JIT, beating it on calls and closures
+- **It is quick.** It beats Python 3.12 by 1.4 to 2.9 times, and stays within 1.5 times of
+  PHP 8.5 with its JIT, beating it on calls, closures, maps and strings
   ([numbers below](#how-fast-is-it)).
 - **It is checked to the byte.** What every test program, snippet and corpus file prints,
   error messages included, is recorded, and thousands of tests hold gazlang to it under
@@ -415,20 +415,20 @@ interleaved, on an Intel i7-8700 running macOS.
 
 | Program | GazLang | PHP 8.5 (JIT) | Python 3.12 |
 | --- | ---: | ---: | ---: |
-| `fib` — recursive calls, `fib(30)` | **0.062s** | 0.107s | 0.150s |
-| `closures` — `map`, `filter`, `reduce` and `sort` with lambdas | **0.042s** | 0.115s | 0.091s |
-| `loop` — ten million rounds of integer arithmetic | 0.366s | **0.243s** | 1.038s |
-| `objects` — half a million small objects and method calls | 0.176s | **0.170s** | 0.370s |
-| `lists` — a million elements, built, read and written | 0.174s | **0.135s** | 0.257s |
-| `maps` — counting half a million words | 0.163s | **0.127s** | 0.196s |
-| `strings` — building, splitting and joining 3MB of text | 0.164s | **0.131s** | 0.175s |
+| `fib` — recursive calls, `fib(30)` | **0.062s** | 0.102s | 0.145s |
+| `closures` — `map`, `filter`, `reduce` and `sort` with lambdas | **0.040s** | 0.110s | 0.088s |
+| `loop` — ten million rounds of integer arithmetic | 0.350s | **0.236s** | 0.997s |
+| `objects` — half a million small objects and method calls | 0.164s | **0.163s** | 0.353s |
+| `lists` — a million elements, built, read and written | 0.167s | **0.129s** | 0.240s |
+| `maps` — counting half a million words | **0.101s** | 0.122s | 0.188s |
+| `strings` — building, splitting and joining 3MB of text | **0.111s** | 0.122s | 0.166s |
 
 The times include starting up, which is roughly 0.06s for PHP with its JIT, 0.02s for Python
 and under 0.01s for GazLang, so the shortest programs flatter GazLang against PHP. GazLang ran
 compiled bytecode here; compiling from source adds about 10ms to a small program.
 
 Run `php vm/bench.php` to measure on your own machine. It also times the self-hosted compiler
-on real work: it compiles itself, all 4,400 lines, in about 0.2 seconds.
+on real work: it compiles itself, all 4,400 lines, in about a quarter of a second.
 
 ## Where to go next
 
