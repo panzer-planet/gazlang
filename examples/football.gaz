@@ -284,8 +284,7 @@ fn play_pyramid($pyramid, $scout, $seed, $seasons) {
             if ($deals != []) {
                 $biggest = max_by($deals, $deal -> $deal["fee"]);
                 if ($record == null || $biggest["fee"] > $record["fee"]) {
-                    $record = $biggest;
-                    $record["season"] = $season;
+                    $record = {...$biggest, "season" => $season};
                 }
             }
         }
