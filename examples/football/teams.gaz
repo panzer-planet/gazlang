@@ -80,6 +80,16 @@ pub kind Team {
     }
     pub fn rating() { return round(sum(map(#players, $player -> $player.rating)) / 11, 1); }
 
+    // A player leaves, and another takes their place in the eleven
+    pub fn replace($leaving, $joining) {
+        foreach (#players as $i => $player) {
+            if ($player == $leaving) {
+                #players[$i] = $joining;
+            }
+        }
+        #changed();
+    }
+
     // The players tired, rested or were sent off
     pub fn changed() { #cache = null; }
 
@@ -153,6 +163,22 @@ pub kind Scout {
             "wonderkid" => rand_int(85, 95),
         };
         return min(max($rating, 40), 95);
+    }
+
+    // An age for a player in a new squad: most in their twenties, a few teenagers and veterans
+    pub fn age() {
+        $band = random::weighted([[[17, 20], 10], [[21, 25], 35], [[26, 30], 35], [[31, 35], 20]]);
+        return rand_int($band[0], $band[1]);
+    }
+
+    // A youngster from the academy taking a retiring player's place and shirt: raw, and below
+    // the club's level, except now and then a wonderkid
+    pub fn youth($kind, $team, $shirt) {
+        $level = to_int($team.rating());
+        $rating = random::chance(0.05) ? rand_int(80, 90) : max($level + rand_int(-15, -3), 40);
+        $player = $kind(#new_name(), $rating, $shirt);
+        $player.age = rand_int(17, 19);
+        return $player;
     }
 
     // Every name in the league is different

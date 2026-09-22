@@ -14,6 +14,7 @@ pub abstract kind Player {
     pub #goals = 0;
     pub #clean_sheets = 0;
     pub #career_goals = 0;
+    pub #age = 0;
     pub #yellow_cards = 0;
     pub #sent_off = false;
     // This match only, reset by rest(): what motm() judges the man of the match on
@@ -68,6 +69,29 @@ pub abstract kind Player {
         #career_goals += #goals;
         #goals = 0;
         #clean_sheets = 0;
+    }
+
+    // A summer older, giving how much the rating moved: the young tend to improve, the
+    // experienced hold steady and veterans fade
+    pub fn grow_older() {
+        #age++;
+        $change = match {
+            // Now and then a youngster has a breakthrough summer
+            #age <= 21 => rand_int(0, 4) + (random::chance(0.1) ? rand_int(3, 6) : 0),
+            #age <= 25 => rand_int(-1, 4),
+            #age <= 29 => rand_int(-2, 2),
+            #age <= 32 => rand_int(-4, 1),
+            default => rand_int(-6, 0),
+        };
+        $rating = min(max(#rating + $change, 40), 95);
+        $change = $rating - #rating;
+        #rating = $rating;
+        return $change;
+    }
+
+    // Whether this is the summer they hang up their boots: never before 33, always by 37
+    pub fn retires() {
+        return #age >= 33 && random::chance((#age - 32) * 0.2);
     }
 
     // A booking; the second yellow card is a red one
