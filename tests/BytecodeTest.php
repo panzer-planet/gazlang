@@ -262,7 +262,7 @@ class BytecodeTest extends GazLangTestCase
         chdir(self::ROOT);
 
         try {
-            $files = [...glob('examples/*.gaz'), ...glob('lib/*.gaz'), ...glob('tests/gaz/*/*.gaz'), ...glob('compiler/*.gaz'), ...glob('vm/bench/*.gaz')];
+            $files = [...glob('examples/*.gaz'), ...glob('lib/*.gaz'), ...glob('tests/gaz/*/*.gaz'), ...glob('compiler/*.gaz'), ...glob('vm/bench/gaz/*.gaz')];
         } finally {
             chdir($cwd);
         }
