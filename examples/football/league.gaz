@@ -1,0 +1,160 @@
+// A league: everyone plays everyone home and away
+namespace league;
+
+include "../../lib/format.gaz" use pad_left, pad_right;
+include "../../lib/random.gaz";
+include "players.gaz" use Goalkeeper;
+include "matches.gaz" use Fixture;
+
+kind Standing {
+    #played = 0;
+    #won = 0;
+    #drawn = 0;
+    #lost = 0;
+    pub #scored = 0;
+    #conceded = 0;
+
+    fn _(pub #team) {}
+
+    pub fn record($scored, $conceded) {
+        #played++;
+        #scored += $scored;
+        #conceded += $conceded;
+        if ($scored > $conceded) {
+            #won++;
+        } else if ($scored == $conceded) {
+            #drawn++;
+        } else {
+            #lost++;
+        }
+    }
+
+    pub fn points() { return #won * 3 + #drawn; }
+    pub fn difference() { return #scored - #conceded; }
+
+    pub fn to_string() {
+        $difference = #difference() > 0 ? "+" .. #difference() : #difference();
+        return pad_right(#team, 22) .. pad_left(#team.rating(), 6)
+            .. join(map([#played, #won, #drawn, #lost, #scored, #conceded], $n -> pad_left($n, 4)), "")
+            .. pad_left($difference, 5) .. pad_left(#points(), 5);
+    }
+}
+
+pub kind League {
+    #teams;
+    #standings = {};
+
+    // Every club plays every other club twice, home and away
+    pub static fn matches_for($clubs) { return $clubs * ($clubs - 1); }
+
+    fn _($teams) {
+        #teams = $teams;
+        foreach ($teams as $team) {
+            #standings[$team.name] = Standing($team);
+        }
+    }
+
+    // The matchdays of a double round-robin (the circle method) in an order drawn for the
+    // season: everyone plays everyone at home and away, and every team plays once a matchday,
+    // except that with an odd number of teams one of them rests each matchday
+    fn fixtures() {
+        $teams = random::shuffle(#teams);
+        if (len($teams) % 2 == 1) {
+            // Whoever is drawn against null rests
+            $teams[] = null;
+        }
+        $count = len($teams);
+        $first_half = [];
+        for ($round = 0; $round < $count - 1; $round++) {
+            $matchday = [];
+            for ($i = 0; $i < intdiv($count, 2); $i++) {
+                $pair = [$teams[$i], $teams[$count - 1 - $i]];
+                if (in_array(null, $pair)) {
+                    continue;
+                }
+                $matchday[] = ($round + $i) % 2 == 0 ? $pair : [$pair[1], $pair[0]];
+            }
+            $first_half[] = $matchday;
+            // Keep the first team in place and turn the rest one step
+            $teams = [$teams[0], $teams[$count - 1], ...slice($teams, 1, $count - 2)];
+        }
+
+        // The second half of the season is the same fixtures with home and away swapped
+        return [...$first_half, ...map($first_half, $matchday -> map($matchday, $pair -> [$pair[1], $pair[0]]))];
+    }
+
+    // Plays the season; $kick_off($match) is called as each match starts, and
+    // $after_matchday($number, $matches) after each matchday
+    pub fn play_season($kick_off, $after_matchday) {
+        foreach (#fixtures() as $index => $matchday) {
+            $matches = [];
+            foreach ($matchday as [$home, $away]) {
+                $match = Fixture($home, $away);
+                $kick_off($match);
+                $match.play();
+                #standings[$home.name].record($match.home_goals, $match.away_goals);
+                #standings[$away.name].record($match.away_goals, $match.home_goals);
+                $matches[] = $match;
+            }
+            $after_matchday($index + 1, $matches);
+        }
+    }
+
+    // Points, then goal difference, then goals scored, then name
+    pub fn table() {
+        return sort(#standings, ($a, $b) -> {
+            if ($a.points() != $b.points()) {
+                return $b.points() <=> $a.points();
+            }
+            if ($a.difference() != $b.difference()) {
+                return $b.difference() <=> $a.difference();
+            }
+            if ($a.scored != $b.scored) {
+                return $b.scored <=> $a.scored;
+            }
+            return $a.team.name <=> $b.team.name;
+        });
+    }
+
+    pub fn top_scorers($count) {
+        $scorers = [];
+        foreach (#teams as $team) {
+            foreach (filter($team.players, $player -> $player.goals > 0) as $player) {
+                $scorers[] = {"player" => $player, "team" => $team};
+            }
+        }
+        return slice(sort($scorers, ($a, $b) -> $b["player"].goals <=> $a["player"].goals), 0, $count);
+    }
+
+    pub fn top_keepers($count) {
+        $keepers = [];
+        foreach (#teams as $team) {
+            foreach (filter($team.players, $player -> is_a($player, Goalkeeper) && $player.clean_sheets > 0) as $player) {
+                $keepers[] = {"player" => $player, "team" => $team};
+            }
+        }
+        return slice(sort($keepers, ($a, $b) -> $b["player"].clean_sheets <=> $a["player"].clean_sheets), 0, $count);
+    }
+}
+
+// Commentary on the first few matches of the season
+pub kind Commentator {
+    #remaining;
+    fn _($matches) { #remaining = $matches; }
+
+    pub fn kick_off($match) {
+        if (#remaining == 0) {
+            return;
+        }
+        #remaining--;
+        echo "";
+        foreach ([$match.home, $match.away] as $team) {
+            echo "{$team} ({$team.formation}, rated {$team.rating()}): " .. join(map($team.players, $player -> $player.profile()), ", ");
+        }
+        echo "";
+        // A bound method as the listener: it remembers which commentator it belongs to
+        $match.on_event(#report);
+    }
+
+    fn report($event) { echo $event; }
+}

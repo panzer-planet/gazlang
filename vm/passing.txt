@@ -9,6 +9,10 @@ examples/collections.gaz
 examples/csv_report.gaz
 examples/errors.gaz
 examples/football.gaz
+examples/football/league.gaz
+examples/football/matches.gaz
+examples/football/players.gaz
+examples/football/teams.gaz
 examples/functions.gaz
 examples/json_pretty.gaz
 examples/markdown.gaz

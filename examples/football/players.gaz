@@ -1,0 +1,104 @@
+// Players: a rating from 40 to 95, and every position turns it into attacking and defending
+namespace players;
+
+include "../../lib/random.gaz";
+
+pub abstract kind Player {
+    kin #energy = 100;
+    // What form() gives at the current energy and day_form, kept up to date by rest() and tire()
+    kin #sharpness = 0;
+    // Drawn fresh by rest(): some days everything comes off, others nothing does, whoever you
+    // are, so a lesser player can have the game of their life and a star an off day
+    kin #day_form = 1.0;
+    pub #goals = 0;
+    pub #clean_sheets = 0;
+    pub #yellow_cards = 0;
+    pub #sent_off = false;
+    // This match only, reset by rest(): what motm() judges the man of the match on
+    pub #match_goals = 0;
+    pub #saves = 0;
+
+    fn _(#name, pub #rating, pub #number) {}
+
+    pub abstract fn position();
+    pub abstract fn attacking();
+    pub abstract fn defending();
+    // How much running the position does, which tires the player
+    pub abstract fn work_rate();
+
+    // How well the player is playing right now. Ability grows with the square of the rating,
+    // so a 90 is far more dangerous than a 70, and tiredness wears it down
+    pub fn form() {
+        $ability = #rating / 75.0;
+        return 70 * $ability * $ability * (60 + #energy * 0.4) / 100;
+    }
+
+    pub fn tire($minutes) {
+        #energy = max(#energy - $minutes * #work_rate(), 40);
+        #sharpness = #form() * #day_form;
+    }
+
+    pub fn rest() {
+        #energy = 100;
+        #day_form = #roll_day_form();
+        #sharpness = #form() * #day_form;
+        #yellow_cards = 0;
+        #sent_off = false;
+        #match_goals = 0;
+        #saves = 0;
+    }
+
+    // Most days are close to normal, but every so often, whoever you are, nothing comes off,
+    // or everything does: uniform noise averages out over a season, so this leaves room for
+    // rare, big swings that a run of them can carry a lesser player up the scoring charts
+    fn roll_day_form() {
+        $tier = random::weighted([["shocker", 10], ["normal", 65], ["good", 20], ["blinder", 5]]);
+        return match ($tier) {
+            "shocker" => 0.5 + rand_float() * 0.2,
+            "normal" => 0.85 + rand_float() * 0.3,
+            "good" => 1.2 + rand_float() * 0.3,
+            "blinder" => 1.6 + rand_float() * 0.6,
+        };
+    }
+
+    // A booking; the second yellow card is a red one
+    pub fn book() {
+        #yellow_cards++;
+        #sent_off = #yellow_cards == 2;
+        return #sent_off;
+    }
+
+    pub fn to_string() { return #name; }
+    pub fn profile() { return "#{#number} {#name} ({#position()} {#rating})"; }
+}
+
+pub kind Goalkeeper extends Player {
+    pub fn position() { return "GK"; }
+    pub fn work_rate() { return 0.2; }
+    pub fn attacking() { return 0; }
+    pub fn defending() { return #sharpness; }
+}
+
+pub kind Defender extends Player {
+    pub fn position() { return "DF"; }
+    pub fn work_rate() { return 0.8; }
+    pub fn attacking() { return #sharpness * 0.2; }
+    pub fn defending() { return #sharpness; }
+}
+
+pub kind Midfielder extends Player {
+    pub fn position() { return "MF"; }
+    pub fn work_rate() { return 1.3; }
+    pub fn attacking() { return #sharpness * 0.6; }
+    pub fn defending() { return #sharpness * 0.5; }
+}
+
+pub kind Forward extends Player {
+    pub fn position() { return "FW"; }
+    pub fn work_rate() { return 1.0; }
+    pub fn attacking() { return #sharpness; }
+    pub fn defending() { return #sharpness * 0.1; }
+
+    // Strikers are at their sharpest while they are fresh
+    pub fn form() { return ##form() * (#energy > 70 ? 1.1 : 0.9); }
+}

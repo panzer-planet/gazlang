@@ -1,0 +1,143 @@
+// What happens in a match
+namespace matches;
+
+include "../../lib/format.gaz" use pad_left;
+include "../../lib/random.gaz";
+
+abstract kind Event {
+    fn _(#minute, pub #team) {}
+    pub abstract fn describe();
+    pub fn to_string() { return pad_left("{#minute}'", 4) .. "  " .. #describe(); }
+}
+
+kind Goal extends Event {
+    fn _($minute, $team, #scorer, #score) { ##_($minute, $team); }
+    pub fn describe() { return "GOAL! {#scorer} scores for {#team}. {#score}"; }
+}
+
+kind Shot extends Event {
+    // Without a keeper, the shot missed the target
+    fn _($minute, $team, #shooter, #keeper) { ##_($minute, $team); }
+    pub fn describe() {
+        return #keeper == null ? "{#shooter} ({#team}) shoots wide" : "{#shooter} ({#team}) is denied by {#keeper}";
+    }
+}
+
+kind Booking extends Event {
+    fn _($minute, $team, #player, #red) { ##_($minute, $team); }
+    pub fn describe() {
+        return #red ? "RED CARD: {#player} ({#team}) is sent off" : "Yellow card for {#player} ({#team})";
+    }
+}
+
+kind Whistle extends Event {
+    fn _($minute, #text) { ##_($minute, null); }
+    pub fn describe() { return #text; }
+}
+
+pub kind Fixture {
+    pub #home_goals = 0;
+    pub #away_goals = 0;
+    #listeners = [];
+    // How many fixtures have been played across every season this run, not just this league's
+    pub static #matches_played = 0;
+
+    fn _(pub #home, pub #away) {
+        Fixture::matches_played++;
+    }
+
+    // $listener($event) is called for everything that happens
+    pub fn on_event($listener) {
+        #listeners[] = $listener;
+        return #;
+    }
+
+    pub fn play() {
+        #home.rest();
+        #away.rest();
+        for ($minute = 1; $minute <= 90; $minute++) {
+            // Players tire as the match goes on
+            if ($minute % 30 == 0) {
+                #home.tire(30);
+                #away.tire(30);
+            }
+            #minute($minute);
+            if ($minute == 45) {
+                #emit(Whistle(45, "Half time: {#}"));
+            }
+        }
+        #emit(Whistle(90, "Full time: {#}"));
+        return #;
+    }
+
+    fn minute($minute) {
+        // A chance in about one minute in six, a foul in one in thirty, and most minutes nothing
+        $roll = rand_float();
+        if ($roll < 0.17) {
+            // The home side gets a little more of the ball
+            $home_attack = #home.attack() * 1.1;
+            if (random::chance($home_attack / ($home_attack + #away.attack()))) {
+                #attempt($minute, #home, #away);
+            } else {
+                #attempt($minute, #away, #home);
+            }
+        } else if ($roll < 0.2) {
+            #foul($minute, random::chance(0.5) ? #home : #away);
+        }
+    }
+
+    fn attempt($minute, $attackers, $defenders) {
+        $shooter = $attackers.shooter();
+        $keeper = $defenders.goalkeeper();
+
+        // A better shooter against a weaker defence hits the target more often, and beats the keeper more often
+        $on_target = $shooter.attacking() / ($shooter.attacking() + $defenders.defence() / 12);
+        if (! random::chance($on_target * 0.8)) {
+            #emit(Shot($minute, $attackers, $shooter, null));
+            return;
+        }
+        if (random::chance($keeper.defending() / ($keeper.defending() + $shooter.attacking() * 1.1))) {
+            $keeper.saves++;
+            #emit(Shot($minute, $attackers, $shooter, $keeper));
+            return;
+        }
+
+        $shooter.goals++;
+        $shooter.match_goals++;
+        if ($attackers == #home) {
+            #home_goals++;
+        } else {
+            #away_goals++;
+        }
+        // The score as text now: the match itself will have moved on by the end
+        #emit(Goal($minute, $attackers, $shooter, to_string(#)));
+    }
+
+    fn foul($minute, $team) {
+        $player = random::weighted(map($team.on_pitch(), $player -> [$player, $player.defending() + 1]));
+        $red = $player.book();
+        if ($red) {
+            $team.changed();
+        }
+        #emit(Booking($minute, $team, $player, $red));
+    }
+
+    fn emit($event) {
+        foreach (#listeners as $listener) {
+            $listener($event);
+        }
+    }
+
+    pub fn to_string() { return "{#home} {#home_goals} - {#away_goals} {#away}"; }
+
+    // The standout of the 22: goals and saves count for most, an overall attacking or
+    // defensive display (attacking() + defending() reflects the day's sharpness) breaks a tie
+    pub fn motm() {
+        $all = [...#home.players, ...#away.players];
+        return sort($all, ($a, $b) -> #motm_score($b) <=> #motm_score($a))[0];
+    }
+
+    fn motm_score($player) {
+        return $player.match_goals * 5 + $player.saves * 2 + ($player.attacking() + $player.defending()) * 0.05;
+    }
+}
