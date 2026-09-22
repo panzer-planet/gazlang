@@ -1,0 +1,18 @@
+include "../check.gaz";
+include "../../../lib/lists.gaz" use flatten;
+
+check("flatten joins the lists in order", flatten([[1, 2], [], [3]]), [1, 2, 3]);
+check("flatten goes one level deep", flatten([[[1]], [2, [3]]]), [[1], 2, [3]]);
+check("flatten of nothing", flatten([]), []);
+check("flatten keeps maps whole", flatten([[{"k" => 1}]]), [{"k" => 1}]);
+
+fn message($f) {
+    try {
+        $f();
+    } catch (Error $e) {
+        return $e.message;
+    }
+    return "no error";
+}
+check("flatten needs a list", message(() -> flatten({"a" => [1]})), "lists::flatten() expects a list of lists, got map");
+check("flatten needs lists in it", message(() -> flatten([[1], 2])), "lists::flatten() expects a list of lists, got int among them");

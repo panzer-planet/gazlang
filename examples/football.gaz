@@ -16,6 +16,7 @@ include "football/players.gaz" use Goalkeeper;
 include "football/teams.gaz" use InvalidLineup, Team, Formation, Scout;
 include "football/matches.gaz" use Fixture;
 include "football/league.gaz" use League, Commentator;
+include "../lib/lists.gaz" use flatten;
 
 // The clubs, strongest first: name, level (the squad's typical rating) and formation. The
 // first CLUBS make the First Division, the next CLUBS the Second, and so on down
@@ -245,11 +246,9 @@ fn play_pyramid($pyramid, $seed, $seasons) {
             $up = $level < len($finishes) - 1 ? slice($finishes[$level + 1], 0, $moving) : [];
             $pyramid[] = [...$down, ...$stay, ...$up];
         }
-        foreach ($pyramid as $teams) {
-            foreach ($teams as $team) {
-                foreach ($team.players as $player) {
-                    $player.new_season();
-                }
+        foreach (flatten($pyramid) as $team) {
+            foreach ($team.players as $player) {
+                $player.new_season();
             }
         }
     }
@@ -274,11 +273,9 @@ fn print_honours($pyramid, $honours) {
     echo "";
     echo "All-time top scorers";
     $scorers = [];
-    foreach ($pyramid as $teams) {
-        foreach ($teams as $team) {
-            foreach ($team.players as $player) {
-                $scorers[] = {"player" => $player, "team" => $team};
-            }
+    foreach (flatten($pyramid) as $team) {
+        foreach ($team.players as $player) {
+            $scorers[] = {"player" => $player, "team" => $team};
         }
     }
     $scorers = sort($scorers, ($a, $b) -> $b["player"].career_goals <=> $a["player"].career_goals);

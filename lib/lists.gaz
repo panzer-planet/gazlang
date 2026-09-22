@@ -1,0 +1,20 @@
+// Helpers for lists, in GazLang rather than as builtins, so they take no name from any program
+// that doesn't include this file
+namespace lists;
+
+// The elements of a list of lists, in order, one level deep: [[1, 2], [], [3]] is [1, 2, 3]
+pub fn flatten($lists) {
+    if (type_of($lists) != "list") {
+        error("lists::flatten() expects a list of lists, got " .. type_of($lists));
+    }
+    $all = [];
+    foreach ($lists as $list) {
+        if (type_of($list) != "list") {
+            error("lists::flatten() expects a list of lists, got " .. type_of($list) .. " among them");
+        }
+        foreach ($list as $element) {
+            $all[] = $element;
+        }
+    }
+    return $all;
+}

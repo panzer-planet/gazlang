@@ -25,6 +25,7 @@ lib/csv.gaz
 lib/format.gaz
 lib/http.gaz
 lib/json.gaz
+lib/lists.gaz
 lib/random.gaz
 lib/regex.gaz
 lib/sorting.gaz
@@ -755,6 +756,7 @@ tests/gaz/operators/assignment_operators_test.gaz
 tests/gaz/operators/bitwise_test.gaz
 tests/gaz/operators/coalesce_test.gaz
 tests/gaz/stdlib/functional_test.gaz
+tests/gaz/stdlib/lists_test.gaz
 tests/gaz/stdlib/random_test.gaz
 tests/gaz/stdlib/strings_test.gaz
 tests/gaz/strings/interpolation_test.gaz

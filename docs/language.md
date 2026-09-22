@@ -557,6 +557,7 @@ its names are reached with `::`; everything in `lib/` is written in GazLang:
 | File | What is in it |
 | --- | --- |
 | `sorting.gaz` | `sorting::values`, `sorting::by` |
+| `lists.gaz` | `lists::flatten` (a list of lists as one list, one level deep) |
 | `json.gaz` | `json::decode`, `json::encode` |
 | `csv.gaz` | `csv::parse`, `csv::records` (RFC 4180) |
 | `chars.gaz` | `chars::char_at`, `chars::is_digit`, `chars::is_alpha`, `chars::is_alnum`, `chars::is_space`, `chars::is_hex_digit` |

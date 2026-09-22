@@ -1,0 +1,6 @@
+ok flatten joins the lists in order
+ok flatten goes one level deep
+ok flatten of nothing
+ok flatten keeps maps whole
+ok flatten needs a list
+ok flatten needs lists in it
