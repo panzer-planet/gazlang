@@ -8,8 +8,8 @@
  * CLUBS is how many clubs play in each division, from 2 to 20 (4 by default), taken from the
  * strongest down. With more than one season or division, each season prints every division's
  * table and who goes up and down, and the last one the honours. Everything random is seeded:
- * the squads are always the same, and the same season seed always plays the same season;
- * season N + 1 is played with SEED + N.
+ * the squads are always the same, and the same seed always plays the same seasons. Seasons
+ * are named from 2026/27 whatever the seed; the Nth is played with SEED + N - 1.
  */
 include "../lib/format.gaz" use pad_left, pad_right;
 include "football/players.gaz" use Goalkeeper;
@@ -61,6 +61,12 @@ $clubs = [
 const DIVISIONS = ["First Division", "Second Division", "Third Division", "Fourth Division"];
 const MAX_CLUBS = 20;
 const MAX_SEASONS = 50;
+const FIRST_SEASON = 2026;
+
+// A season by its English name: the one starting in 2026 is 2026/27
+fn season_name($year) {
+    return "{$year}/" .. slice("0" .. ($year + 1) % 100, -2);
+}
 
 // Print the usage and the problem, and stop with exit code 1
 fn fail($message) {
@@ -150,7 +156,7 @@ try {
     echo "Refused: {$e.message}";
 }
 $teams = $pyramid[0];
-echo "Season {$seed}: {$count} clubs, " .. League::matches_for($count) .. " matches";
+echo "Season " .. season_name(FIRST_SEASON) .. ": {$count} clubs, " .. League::matches_for($count) .. " matches";
 
 rand_seed($seed);
 $league = League($teams);
@@ -207,9 +213,10 @@ fn play_pyramid($pyramid, $seed, $seasons) {
     $moving = max(1, intdiv($count, 6));
     // Each season's champions of each division, by name
     $honours = [];
-    for ($season = $seed; $season < $seed + $seasons; $season++) {
-        rand_seed($season);
-        if ($season > $seed) {
+    for ($n = 0; $n < $seasons; $n++) {
+        rand_seed($seed + $n);
+        $season = season_name(FIRST_SEASON + $n);
+        if ($n > 0) {
             echo "";
         }
         echo "Season {$season}";
