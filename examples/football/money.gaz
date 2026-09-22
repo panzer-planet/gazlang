@@ -57,7 +57,7 @@ pub fn window($teams) {
             continue;
         }
         $weakest = min_by($buyer.players, $player -> $player.rating);
-        if (has_key($moved, $weakest.to_string())) {
+        if (has_key($moved, object_id($weakest))) {
             continue;
         }
         $offers = [];
@@ -67,7 +67,7 @@ pub fn window($teams) {
             }
             foreach ($seller.players as $player) {
                 if (kind_of($player) != kind_of($weakest) || $player.rating < $weakest.rating + 5
-                    || has_key($moved, $player.to_string())) {
+                    || has_key($moved, object_id($player))) {
                     continue;
                 }
                 $price = $seller.balance < 0 ? value($player) : to_int(value($player) * 1.3);
@@ -88,8 +88,8 @@ pub fn window($teams) {
         [$player.number, $weakest.number] = [$weakest.number, $player.number];
         $buyer.balance -= $fee;
         $seller.balance += $fee;
-        $moved[$player.to_string()] = true;
-        $moved[$weakest.to_string()] = true;
+        $moved[object_id($player)] = true;
+        $moved[object_id($weakest)] = true;
         $deals[] = {"player" => $player, "from" => $seller, "to" => $buyer, "fee" => $fee};
     }
     return $deals;

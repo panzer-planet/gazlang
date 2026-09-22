@@ -387,7 +387,9 @@ An error in the function comes out of the builtin, and its trace goes from the f
 straight to where the builtin was called.
 
 **Types** — `type_of`, `is_a($x, Kind)`, `kind_of($x)`, `fields($object)` (the fields that
-are set, as a map by name, the parent's first; a never-set field is left out).
+are set, as a map by name, the parent's first; a never-set field is left out), `object_id($object)`
+(an int that no other object in the program has or had, the same every run: keep a set of
+objects as `$seen[object_id($x)] = true`).
 
 **Input and output** — `print`, `print_error`, `read_file($path)`,
 `write_file($path, $string)`, `read_stdin()`, `args()`, `builtins()` (every builtin's name

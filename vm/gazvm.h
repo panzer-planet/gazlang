@@ -155,6 +155,7 @@ struct Func {
 struct Object {
     Gc gc;
     Kind *kind;
+    int64_t id;         /* object_id(): 1 for the program's first object, 2 for the next, never reused */
     bool printing;      /* while echo prints it, so one that holds itself prints Name {...} */
     Value fields[];
 };

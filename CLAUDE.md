@@ -255,8 +255,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     before keeping that.
   - Including a file also runs its top level code. `Error`'s members are reserved across its
     children, so a domain error can't declare its own `#line` or `#message`.
-  - No identity key for an object (a side table keyed by node), no copy-with-change for
-    objects, no `catch (A | B $e)`, no bare rethrow, no `_` to skip an element in a list pattern.
+  - No copy-with-change for objects, no `catch (A | B $e)`, no bare rethrow, no `_` to skip an element in a list pattern.
   - `match ($x)` is a linear chain of `EQUALS`; no jump table.
   - No enum: token types are strings on purpose (they are the `--tokens` format).
 - **HTTP is HTTP/1.1 in GazLang (`lib/http.gaz`) on socket builtins, TLS through OpenSSL**,
@@ -509,7 +508,10 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   comparisons are made: split in the middle, merge asking `$compare(right, left)` (`merge_sort()`
   in `builtins.c`). Types are checked before anything is called.
 - Types: `type_of` (`int float string bool null list map function kind object socket`), `is_a`,
-  `kind_of`, `fields` (see "Objects").
+  `kind_of`, `fields` (see "Objects"), `object_id` (an int no other object of the program has or
+  had, counted from 1 in `object_new()` and reset by `run_program()`, so it is the same
+  however the program runs: a set of objects or a side table is a map keyed by it; a counter,
+  not the address, since an address is reused and differs from run to run).
 - I/O: `print`/`print_error` (echo without the newline, to stdout or stderr), `read_file`,
   `write_file`, `read_stdin` (empty when the program itself was piped in), `args()` (after the
   gazlang options or `--`; the CLI rejects options it doesn't know, since `getopt` would drop

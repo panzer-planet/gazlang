@@ -233,6 +233,22 @@ class StdlibTest extends GazLangTestCase
             CODE));
     }
 
+    public function test_object_id_tells_objects_apart()
+    {
+        // Counted from 1 for each program, whatever the compiler made before it ran, so the same
+        // program gives the same ids however it is run; a handle copied is the same object
+        $this->assertEquals("[1, 2, true, false]\n3\n", $this->executeCode(<<<'CODE'
+            kind P {}
+            $a = P();
+            $b = P();
+            $c = $a;
+            echo [object_id($a), object_id($b), object_id($c) == object_id($a), object_id($b) == object_id(P())];
+            $seen = {};
+            foreach ([$a, $b, $c, P()] as $p) { $seen[object_id($p)] = true; }
+            echo len($seen);
+            CODE));
+    }
+
     public function test_sum_adds_as_plus_does()
     {
         $this->assertEquals("[6, 0, 3.5, 5, -1]\n", $this->executeCode(
@@ -549,6 +565,8 @@ class StdlibTest extends GazLangTestCase
             'min of a mixed list' => ['min([1, "a"]);', 'min() expects a list of numbers or of strings, got int and string'],
             'max of a list of lists' => ['max([[1]]);', 'max() expects a list of numbers or of strings, got list and list'],
             'sum of a number' => ['sum(5);', 'sum() expects list or map, got int'],
+            'object_id of a number' => ['object_id(5);', 'object_id() expects object, got int'],
+            'object_id of a kind' => ['kind K {} object_id(K);', 'object_id() expects object, got kind'],
             'sum of strings' => ['sum(["a"]);', 'Cannot use + on string'],
             'sum of bools' => ['sum([1, true]);', 'Cannot use + on bool'],
             'sum overflowing' => ['sum([9223372036854775807, 1]);', 'Integer overflow'],

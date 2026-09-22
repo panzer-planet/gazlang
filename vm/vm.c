@@ -171,6 +171,8 @@ static void locate(Instr *at) {
     }
 }
 
+static Object *object_new(Kind *c);
+
 /* What catch sees: an Error object for an error the program didn't throw itself, or the value
    it threw, given a file, line and trace if it is an Error that has none yet. Worked out once. */
 static Value caught(Error *e) {
@@ -191,9 +193,7 @@ static Value caught(Error *e) {
     Value calls = e->trace.type == T_UNSET ? v_list(list_new(0)) : e->trace;
     if (e->trace.type != T_UNSET) incref(calls);
     if (!e->has_value) {
-        Object *o = xcalloc(1, sizeof(Object) + (size_t)error_kind->nfields * sizeof(Value));
-        gc_track(&o->gc, T_OBJECT);
-        o->kind = error_kind;
+        Object *o = object_new(error_kind);
         incref(v_str(e->reason));
         o->fields[kind_field(error_kind, message, NULL)] = v_str(e->reason);
         incref(path);
@@ -254,10 +254,15 @@ static bool push_frame(Block *block, Value **sp, int argc, Instr *ret, Func *clo
     return true;
 }
 
+/* The id the next object gets: counted per program, so the compiler's objects, made before the
+   program runs, don't shift the program's ids */
+static int64_t next_object_id = 1;
+
 static Object *object_new(Kind *c) {
     Object *o = xcalloc(1, sizeof(Object) + (size_t)c->nfields * sizeof(Value));
     gc_track(&o->gc, T_OBJECT);
     o->kind = c;
+    o->id = next_object_id++;
     return o;
 }
 
@@ -1386,6 +1391,7 @@ static int run_program(bool check) {
     vm_here = NULL;
     /* Every program starts unpredictable, as if it had called rand_seed(), whatever ran before */
     random_seed_unpredictable();
+    next_object_id = 1;
 
     Block *top = program->blocks[0];
     fp = frames;
