@@ -1,0 +1,41 @@
+// ..= on a field, an element, a static field and a path from a call appends in place, and
+// leaves what .. would: a value printing through to_string() joins first, then writes
+kind Shout { pub fn to_string() { return "HEY"; } }
+kind Log {
+    pub #text = "";
+    pub #n = 5;
+    pub #lines = ["a", "b"];
+    static #all = "";
+    pub fn add($s) { #text ..= $s; return #text ..= "|"; }
+    pub fn bump() { #n ..= "!"; #lines[1] ..= "c"; Log::all ..= "s"; #all ..= "t"; }
+}
+$l = Log();
+echo $l.add("x");
+$l.add(1.5);
+$l.add(Shout());
+$l.add(null);
+$l.bump();
+echo $l;
+$m = {"k" => "v", "list" => [1]};
+$m["k"] ..= "w";
+echo $m["k"] ..= [1, "z"];
+$copy = $m;
+$m["k"] ..= "!";
+echo $copy["k"] .. " / " .. $m["k"];
+@g = {"s" => ""};
+@g["s"] ..= "global";
+echo @g;
+$f = () -> { $c = {"s" => "a"}; $c["s"] ..= "b"; return $c; };
+echo $f();
+$l.text = "";
+for ($i = 0; $i < 5; $i++) { $l.text ..= $i; }
+echo $l.text;
+foreach ([() -> $m["nope"] ..= "x", () -> Log().missing ..= "x", () -> $m["list"][5] ..= "x"] as $e) {
+    try { $e(); } catch (Error $err) { echo $err.message; }
+}
+kind Sneaky { pub #box; fn _($b) { #box = $b; } pub fn to_string() { #box.items = []; return "S"; } }
+kind Box { pub #items = ["a"]; }
+$b = Box();
+$b.items[0] ..= Sneaky($b);
+echo $b;
+echo Log::all;

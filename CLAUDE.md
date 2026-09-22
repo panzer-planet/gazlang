@@ -253,8 +253,6 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     "index of the first byte in this set". The self-hosted lexer spells out comparisons and
     walks local indexes, for speed on the PHP VM it was first measured on; measure on the C VM
     before keeping that.
-  - `..=` on a field or element (`#buf ..= $c`) still lowers to `#buf = #buf .. $c` in generated
-    code, which copies the string: only a plain variable appends in place.
   - Including a file also runs its top level code. `Error`'s members are reserved across its
     children, so a domain error can't declare its own `#line` or `#message`.
   - No identity key for an object (a side table keyed by node), no copy-with-change for
@@ -783,8 +781,9 @@ kind Token {
   before anything is written; the right side runs first, then each target left to right, so
   `[$a, $b] = [$b, $a]` swaps. Targets are anything `=` can assign. No nesting, map patterns,
   compound operators or append targets.
-- `..=` on a plain variable appends in place (`concat_assign()` in `ops.c`), converting what is
-  appended as `..` does, so building a string with it is linear rather than a copy per append.
+- `..=` appends in place (`concat_assign()` in `ops.c`), on a variable, a field or an element
+  alike, converting what is appended as `..` does, so building a string with it is linear
+  rather than a copy per append.
 
 ## Errors and try/catch
 
@@ -863,8 +862,11 @@ try {
   location, which `catch` still sees. Include paths show relative to the working directory,
   the main file as given.
 - **Code generation**: calling convention is arguments pushed left to right then `CALL name
-  argc`, the callee's frame holding them in slots 0..argc-1, `RET` pushing the result. Compound
-  assignment (except `..=` on a plain variable), `++`/`--`, `foreach`, list patterns and `??=`
+  argc`, the callee's frame holding them in slots 0..argc-1, `RET` pushing the result. `..=`
+  appends in place, to a plain variable with `CONCAT_ASSIGN` and to anything else with a
+  `SET_PATH` whose path ends in `..=` (`store_path()`); only a value printing through
+  `to_string()` joins first and writes again from the start, since running it could move what
+  the walk points into. Other compound assignment, `++`/`--`, `foreach`, list patterns and `??=`
   are lowered to plain instructions with hidden variables (`$#update_*_n`, `$#foreach_*_n`,
   `$#destructure_n`, `$#match_n`, `$#finally_error_n`) that no program can name. Lists and maps
   made only of constants are built once and pushed as one value. `match` emits the tests first

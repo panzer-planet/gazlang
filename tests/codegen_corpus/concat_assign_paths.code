@@ -1,0 +1,85 @@
+GAZLANG BYTECODE 2
+globals @g
+statics K::all Log::all
+
+top
+locals $m $#update_key0_0 $k $#update_key0_1 $#update_key1_1 $v $#update_key0_2
+@ "concat_assign_paths.gaz" 4
+PUSH ""
+STORE_STATIC 0
+@ "concat_assign_paths.gaz" 7
+PUSH ""
+STORE_STATIC 1
+@ "concat_assign_paths.gaz" 8
+NEW_MAP
+STORE 0
+LOAD 0
+POP
+@ "concat_assign_paths.gaz" 9
+PUSH "a"
+KEY_CHECK
+STORE 1
+LOAD 1
+PUSH "b"
+SET_PATH [k]..= 0
+POP
+@ "concat_assign_paths.gaz" 10
+LOAD 2
+KEY_CHECK
+STORE 3
+PUSH "b"
+KEY_CHECK
+STORE 4
+LOAD 3
+LOAD 4
+LOAD 5
+SET_PATH [k][k]..= 0
+POP
+@ "concat_assign_paths.gaz" 11
+PUSH 1
+KEY_CHECK
+STORE 6
+LOAD 6
+PUSH "c"
+SET_PATH_GLOBAL [k]..= 0
+POP
+@ "concat_assign_paths.gaz" 12
+PUSH "d"
+SET_PATH .s..= 0
+PRINT
+
+kind K
+field s K pub
+method f K pub
+locals
+@ "concat_assign_paths.gaz" 3
+PUSH ""
+@ "concat_assign_paths.gaz" 2
+SET_FIELD s
+POP
+LOAD_THIS
+RET
+
+fn K.f 1 1
+locals $k
+@ "concat_assign_paths.gaz" 5
+PUSH "x"
+SET_PATH_THIS .s..=
+POP
+LOAD 0
+SET_PATH_STATIC ..= 0
+POP
+PUSH 1
+SET_PATH_STATIC ..= 1
+POP
+LOAD_FIELD s
+SET_PATH_THIS .s..=
+POP
+PUSH null
+RET
+
+kind Log
+locals
+@ "concat_assign_paths.gaz" 7
+LOAD_THIS
+RET

@@ -1,0 +1,12 @@
+// ..= through a path appends in place with SET_PATH ...path..=, keys held as for any update
+kind K {
+    pub #s = "";
+    static #all = "";
+    pub fn f($k) { #s ..= "x"; #all ..= $k; Log::all ..= 1; #s ..= #s; }
+}
+kind Log { pub static #all = ""; }
+$m = {};
+$m["a"] ..= "b";
+$m[$k]["b"] ..= $v;
+@g[1] ..= "c";
+echo $m.s ..= "d";

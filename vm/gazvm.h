@@ -272,6 +272,7 @@ typedef struct {
 typedef struct {
     int nsteps;
     int nkeys;
+    bool concat;        /* ends in ..=: what the steps reach is appended to, not replaced */
     PathStep steps[];
 } Path;
 
@@ -456,7 +457,7 @@ extern Kind *const KIND_INITIALISER;
 bool kind_is_a(Kind *c, Kind *ancestor);
 bool property(Value target, Str *name, bool quiet, Kind *asking, Value *out);
 bool property_existing(Value target, Str *name, Kind *asking, Value *out);
-bool store_path(Value *slot, Str *var_name, Path *path, Value *keys, Value value, Kind *asking);
+bool store_path(Value *slot, Str *var_name, Path *path, Value *keys, Value value, Kind *asking, Value *joined);
 bool remove_path(Value *slot, Str *var_name, Path *path, Value *keys, Kind *asking);
 bool concat_assign(Value *slot, Value v, Value *out);
 Func *bound_method(Object *o, Kind *definer, Str *name);

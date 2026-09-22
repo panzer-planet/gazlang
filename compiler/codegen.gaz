@@ -289,10 +289,18 @@ kind CodeGenerator {
             return;
         }
 
-        if ($op.type == "CONCAT_ASSIGN" && is_a($place, VariableAST)) {
-            // $s ..= $x appends in place; a field or an element still lowers
-            #visit($value);
-            #emit_variable("CONCAT_ASSIGN", $place);
+        if ($op.type == "CONCAT_ASSIGN") {
+            // $s ..= $x appends in place, and so does a path ending in ..=, which is how a
+            // field, an element or a static field is appended to
+            if (is_a($place, VariableAST)) {
+                #visit($value);
+                #emit_variable("CONCAT_ASSIGN", $place);
+            } else if (#static_target($place) != null) {
+                #visit($value);
+                #emit_static("SET_PATH", #static_target($place), ["..="]);
+            } else {
+                #path_assign(#assign($place, $value), "..=");
+            }
             return;
         }
 
@@ -352,7 +360,7 @@ kind CodeGenerator {
     }
 
     // An assignment through a path, like $a["k"][0] = value, $a[] = value or $rows[0].total = value
-    fn path_assign($node) {
+    fn path_assign($node, $end = "") {
         $root = #write_root($node.left);
         $path = "";
         foreach (#steps($node.left) as $step) {
@@ -370,6 +378,7 @@ kind CodeGenerator {
             }
         }
         #visit($node.right);
+        $path ..= $end;
 
         // The variable is only read now, after the keys and value, and updated in place
         $static = #static_target($root);

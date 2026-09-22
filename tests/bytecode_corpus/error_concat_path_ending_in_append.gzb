@@ -1,0 +1,9 @@
+GAZLANG BYTECODE 2
+globals
+
+top
+locals $a
+PUSH []
+STORE 0
+PUSH 1
+SET_PATH []..= 0

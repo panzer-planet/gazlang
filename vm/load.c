@@ -647,11 +647,17 @@ static bool is_word_char(char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
 }
 
-/* A write path like [k].total[]; an element path must end at [k] and has no [] */
+/* A write path like [k].total[], or .log..= to append to what it reaches; an element path must
+   end at [k] and has no [] or ..= */
 static Path *read_path(const char *text, bool element) {
-    Path *path = xcalloc(1, sizeof(Path) + (strlen(text) + 1) * sizeof(PathStep));
-    const char *p = text;
-    while (*p) {
+    size_t len = strlen(text);
+    Path *path = xcalloc(1, sizeof(Path) + (len + 1) * sizeof(PathStep));
+    const char *p = text, *end = text + len;
+    if (!element && len >= 3 && !strcmp(end - 3, "..=")) {
+        path->concat = true;
+        end -= 3;
+    }
+    while (p < end) {
         PathStep *step = &path->steps[path->nsteps];
         if (!strncmp(p, "[k]", 3)) {
             step->kind = S_KEY;
@@ -660,9 +666,9 @@ static Path *read_path(const char *text, bool element) {
         } else if (!strncmp(p, "[]", 2) && !element) {
             step->kind = S_APPEND;
             p += 2;
-        } else if (*p == '.' && is_word_char(p[1])) {
+        } else if (*p == '.' && p + 1 < end && is_word_char(p[1])) {
             const char *start = ++p;
-            while (is_word_char(*p)) p++;
+            while (p < end && is_word_char(*p)) p++;
             step->kind = S_FIELD;
             step->name = str_intern(start, (size_t)(p - start));
         } else {
@@ -670,7 +676,11 @@ static Path *read_path(const char *text, bool element) {
         }
         path->nsteps++;
     }
-    if (path->nsteps == 0 || (element && path->steps[path->nsteps - 1].kind != S_KEY)) fail("Bad path '%s'", text);
+    /* A static field is appended to with no steps at all (..=); an append step can't be */
+    if ((path->nsteps == 0 && !path->concat) || (element && path->steps[path->nsteps - 1].kind != S_KEY)
+        || (path->concat && path->nsteps && path->steps[path->nsteps - 1].kind == S_APPEND)) {
+        fail("Bad path '%s'", text);
+    }
     return path;
 }
 

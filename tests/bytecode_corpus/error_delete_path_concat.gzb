@@ -1,0 +1,9 @@
+GAZLANG BYTECODE 2
+globals
+
+top
+locals $a
+PUSH {"k" => "v"}
+STORE 0
+PUSH "k"
+DELETE_PATH [k]..= 0

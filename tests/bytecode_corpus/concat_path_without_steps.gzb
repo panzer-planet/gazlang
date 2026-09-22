@@ -1,0 +1,12 @@
+GAZLANG BYTECODE 2
+globals
+
+top
+locals $a
+PUSH "a"
+STORE 0
+PUSH "b"
+SET_PATH ..= 0
+PRINT
+LOAD 0
+PRINT

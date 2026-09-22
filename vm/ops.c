@@ -375,8 +375,12 @@ bool property_existing(Value target, Str *name, Kind *asking, Value *out) {
  * The variable must exist, a list index must exist, a map may gain its last key and an object
  * its last field; anything missing along the way is an error. Lists and maps are copied first
  * when shared (copy on write), objects written in place. The value is borrowed.
+ *
+ * A path ending in ..= appends the value to what it reaches, which must exist, as .. joins,
+ * and sets *joined to the result, counted: #log ..= $line appends in place when the string
+ * isn't shared, so a loop of appends to a field or element is linear, as one to a variable is.
  */
-bool store_path(Value *slot, Str *var_name, Path *path, Value *keys, Value value, Kind *asking) {
+static bool write_path(Value *slot, Str *var_name, Path *path, Value *keys, Value value, Kind *asking, bool concat, Value *joined) {
     if (slot->type == T_UNSET) return raisef("Undefined variable: %s", var_name->data);
     Value *cur = slot;
     int k = 0;
@@ -433,6 +437,27 @@ bool store_path(Value *slot, Str *var_name, Path *path, Value *keys, Value value
         }
     }
 
+    if (concat) {
+        if (!exists) return missing_object ? raise_not_set(missing_object, missing_field) : raise_undefined_key(missing_key);
+        /* A string appended to by a value that prints without running a method: no program
+           code runs, so cur still points where the walk left it */
+        if (cur->type == T_STRING && value.type != T_OBJECT && value.type != T_LIST && value.type != T_MAP) {
+            return concat_assign(cur, value, joined);
+        }
+        /* Anything else can run to_string(), which could change what cur points into, so join
+           first, as .. does, and write the result from the start again */
+        Value left = *cur;
+        incref(left);
+        bool ok = binary_op(OP_CONCAT, left, value, joined);
+        decref(left);
+        if (!ok) return false;
+        if (!write_path(slot, var_name, path, keys, *joined, asking, false, NULL)) {
+            decref(*joined);
+            return false;
+        }
+        return true;
+    }
+
     incref(value);
     if (!exists && !missing_object) {
         map_set(missing_map, missing_key, value);
@@ -440,6 +465,10 @@ bool store_path(Value *slot, Str *var_name, Path *path, Value *keys, Value value
         set_slot(cur, value);
     }
     return true;
+}
+
+bool store_path(Value *slot, Str *var_name, Path *path, Value *keys, Value value, Kind *asking, Value *joined) {
+    return write_path(slot, var_name, path, keys, value, asking, path->concat, joined);
 }
 
 /* delete $a[k]...[k]: every step must exist, the last one included */

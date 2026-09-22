@@ -440,9 +440,9 @@ class OperatorTest extends GazLangTestCase
         // which would load the string onto the stack and copy all of it on every append
         $this->assertEquals("PUSH \"b\"\nCONCAT_ASSIGN 0\nPOP", $this->generateCode('$s ..= "b";'));
         $this->assertEquals("PUSH \"b\"\nCONCAT_ASSIGN_GLOBAL 0\nPOP", $this->generateCode('@s ..= "b";'));
-        // An element still lowers: the path has to be walked to reach the string
-        $this->assertStringContainsString('CONCAT', $this->generateCode('$a[0] ..= "b";'));
-        $this->assertStringNotContainsString('CONCAT_ASSIGN', $this->generateCode('$a[0] ..= "b";'));
+        // So do an element and a field, through a path ending in ..=, with no CONCAT to copy the string
+        $this->assertEquals("PUSH 0\nKEY_CHECK\nSTORE 0\nLOAD 0\nPUSH \"b\"\nSET_PATH [k]..= 1\nPOP", $this->generateCode('$a[0] ..= "b";'));
+        $this->assertStringNotContainsString("CONCAT\n", $this->generateCode('$o.s ..= "b";'));
     }
 
     public function test_arithmetic_on_strings_throws()

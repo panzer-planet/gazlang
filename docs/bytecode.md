@@ -168,7 +168,11 @@ others consume. A loader must allow for them in its value type:
 
 `SET_PATH` and its variants take a path spelling the steps from a variable to what is written:
 `[k]` takes a key from the stack, `.name` is a field, and a final `[]` appends. `SET_PATH
-[k].total 0` writes `$a[k].total`, with the key pushed before the value.
+[k].total 0` writes `$a[k].total`, with the key pushed before the value. A path ending in `..=`
+appends the value to what it reaches, as `..` joins, and leaves the result instead of the
+value: `SET_PATH_THIS .log..=` is `#log ..= v`, and `SET_PATH_STATIC ..= 0`, with no steps,
+appends to the static field itself. What it reaches must exist. A string that isn't shared is
+appended to in place, so a loop of appends is linear.
 
 ## Instructions
 

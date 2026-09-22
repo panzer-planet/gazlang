@@ -229,12 +229,8 @@ PUSH "s"
 KEY_CHECK
 STORE 16
 LOAD 16
-LOAD 6
-LOAD 16
-INDEX_GET_EXISTING
 PUSH "appended"
-CONCAT
-SET_PATH [k] 6
+SET_PATH [k]..= 6
 POP
 @ "assignments.gaz" 26
 PUSH "n"
@@ -469,11 +465,8 @@ INC
 SET_PATH .n 35
 POP
 @ "assignments.gaz" 63
-LOAD 35
-GET_PROPERTY_EXISTING s
 PUSH "y"
-CONCAT
-SET_PATH .s 35
+SET_PATH .s..= 35
 POP
 @ "assignments.gaz" 64
 LOAD 35
@@ -551,11 +544,8 @@ LOAD_FIELD n
 SET_PATH_THIS .l[]
 POP
 @ "assignments.gaz" 52
-LOAD_THIS
-GET_PROPERTY_EXISTING s
 PUSH "x"
-CONCAT
-SET_FIELD s
+SET_PATH_THIS .s..=
 POP
 @ "assignments.gaz" 53
 LOAD_THIS

@@ -1,0 +1,10 @@
+x|
+Log {#text => "x|1.5|HEY|null|", #n => "5!", #lines => ["a", "bc"]}
+vw[1, "z"]
+vw[1, "z"] / vw[1, "z"]!
+{"s" => "global"}
+{"s" => "ab"}
+01234
+Undefined key: "nope"
+Log has no member missing
+Index out of range: 5

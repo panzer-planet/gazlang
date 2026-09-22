@@ -586,6 +586,7 @@ snippet:fe1b959f904b
 snippet:fea346c212bc
 snippet:fef41ba077a6
 snippet:fff0fce3fd64
+tests/bytecode_corpus/concat_path_without_steps.gzb
 tests/bytecode_corpus/error_abstract_without_kind.gzb
 tests/bytecode_corpus/error_array_extend_into_an_int.gzb
 tests/bytecode_corpus/error_array_push_onto_a_float.gzb
@@ -599,10 +600,12 @@ tests/bytecode_corpus/error_catch_value_of_a_number.gzb
 tests/bytecode_corpus/error_catch_without_an_error_kind.gzb
 tests/bytecode_corpus/error_check_in_a_lambda.gzb
 tests/bytecode_corpus/error_check_in_a_method.gzb
+tests/bytecode_corpus/error_concat_path_ending_in_append.gzb
 tests/bytecode_corpus/error_count_deeper_than_the_stack.gzb
 tests/bytecode_corpus/error_count_not_a_number.gzb
 tests/bytecode_corpus/error_count_too_large.gzb
 tests/bytecode_corpus/error_delete_path_append.gzb
+tests/bytecode_corpus/error_delete_path_concat.gzb
 tests/bytecode_corpus/error_delete_path_ending_at_field.gzb
 tests/bytecode_corpus/error_empty.gzb
 tests/bytecode_corpus/error_empty_stack.gzb
@@ -698,6 +701,7 @@ tests/bytecode_corpus/top_level_ret.gzb
 tests/bytecode_corpus/unreachable_code_is_not_checked.gzb
 tests/bytecode_corpus/values.gzb
 tests/codegen_corpus/assignments.gaz
+tests/codegen_corpus/concat_assign_paths.gaz
 tests/codegen_corpus/expressions.gaz
 tests/codegen_corpus/functions.gaz
 tests/codegen_corpus/includes.gaz
@@ -796,6 +800,7 @@ tests/parser_corpus/uses_error_by_extending.gaz
 tests/parser_corpus/uses_error_by_name.gaz
 tests/parser_corpus/uses_error_by_untyped_catch.gaz
 tests/parser_corpus/visibility.gaz
+tests/vm_corpus/concat_assign_paths.gaz
 tests/vm_corpus/cycles.gaz
 tests/vm_corpus/deep_uncaught.gaz
 tests/vm_corpus/depth.gaz

@@ -874,21 +874,26 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         case OP_SET_PATH_THIS: {
             Path *path = in->p;
             Value *keys = sp - 1 - path->nkeys;
+            Value joined;       /* what a path ending in ..= leaves instead of the value */
             bool ok;
             if (op == OP_SET_PATH) {
-                ok = store_path(&fp->base[in->a], fp->block->locals[in->a], path, keys, TOP(), fp->block->owner);
+                ok = store_path(&fp->base[in->a], fp->block->locals[in->a], path, keys, TOP(), fp->block->owner, &joined);
             } else if (op == OP_SET_PATH_GLOBAL) {
-                ok = store_path(&globals[in->a], program->globals[in->a], path, keys, TOP(), fp->block->owner);
+                ok = store_path(&globals[in->a], program->globals[in->a], path, keys, TOP(), fp->block->owner, &joined);
             } else if (op == OP_SET_PATH_CAPTURED) {
-                ok = store_path(&fp->closure->captured[in->a], fp->closure->lambda->block->captures[in->a], path, keys, TOP(), fp->block->owner);
+                ok = store_path(&fp->closure->captured[in->a], fp->closure->lambda->block->captures[in->a], path, keys, TOP(), fp->block->owner, &joined);
             } else if (op == OP_SET_PATH_STATIC) {
-                ok = store_path(&statics[in->a], program->statics[in->a], path, keys, TOP(), fp->block->owner);
+                ok = store_path(&statics[in->a], program->statics[in->a], path, keys, TOP(), fp->block->owner, &joined);
             } else {
                 /* The object is a handle, so writing through a copy of it writes the object */
                 Value self = fp->receiver ? v_object(fp->receiver) : v_null();
-                ok = store_path(&self, this_name(), path, keys, TOP(), fp->block->owner);
+                ok = store_path(&self, this_name(), path, keys, TOP(), fp->block->owner, &joined);
             }
             if (!ok) goto error;
+            if (path->concat) {
+                decref(TOP());
+                TOP() = joined;
+            }
             for (int i = 0; i < path->nkeys; i++) decref(keys[i]);
             keys[0] = TOP();
             sp = keys + 1;
