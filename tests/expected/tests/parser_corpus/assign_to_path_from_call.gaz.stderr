@@ -1,0 +1,1 @@
+Error: values() expects list or map, got int at tests/parser_corpus/assign_to_path_from_call.gaz:2

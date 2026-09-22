@@ -75,6 +75,7 @@ snippet:145a5f16896b
 snippet:148976aeb9c0
 snippet:14fe36e12fc0
 snippet:159bf22cd6c4
+snippet:16830501e858
 snippet:173d8e69619c
 snippet:175b4a4457bd
 snippet:1782a85838fb
@@ -106,6 +107,8 @@ snippet:224a73171af6
 snippet:225cbff29c1f
 snippet:235bf639ae5e
 snippet:238601630787
+snippet:23adbaa8df3e
+snippet:23e9eff36bdb
 snippet:244f77e11b67
 snippet:2535bd087f56
 snippet:25412f3665f0
@@ -134,6 +137,7 @@ snippet:2eaccdf405ed
 snippet:2eccb64d9731
 snippet:2f145981c68d
 snippet:2fa76f292980
+snippet:301702b89fc5
 snippet:301fbb24927a
 snippet:30801682fb27
 snippet:30b3340cd5e4
@@ -143,6 +147,7 @@ snippet:331d2c507656
 snippet:33299ce9f229
 snippet:333484c01e65
 snippet:337930ae4303
+snippet:33976d3dc824
 snippet:342ae59e2597
 snippet:3493bbb7c52d
 snippet:3559119466bf
@@ -335,10 +340,12 @@ snippet:836b61c5e2dc
 snippet:850b0cdd52fe
 snippet:85641d0fd217
 snippet:85b5fa4fa7d1
+snippet:85f6e4b9d265
 snippet:876870a517ab
 snippet:8857a368234c
 snippet:88902417e239
 snippet:88d26b4230d6
+snippet:895dfa0747e9
 snippet:898c00ebab4c
 snippet:89b715328176
 snippet:89be188c2010
@@ -429,6 +436,7 @@ snippet:b687b83453e7
 snippet:b6b4b66c5cc1
 snippet:b79144b75d8d
 snippet:b7f00ad5d4f4
+snippet:b852a2de904c
 snippet:b8f521b29f54
 snippet:b951b636d906
 snippet:b9c1a6faaaa1
@@ -449,7 +457,6 @@ snippet:c3db4962331c
 snippet:c3ee1b81c3a8
 snippet:c4376f87ee7b
 snippet:c50e2d8b12a7
-snippet:c512c4b2a31a
 snippet:c5f750910f93
 snippet:c6d9b989235b
 snippet:c6ee2b1cace8
@@ -465,6 +472,7 @@ snippet:ca99be1fc03c
 snippet:ca9f7a7cb04a
 snippet:cac58fb478df
 snippet:cb599ae99924
+snippet:cbd643572a8c
 snippet:cc375736490d
 snippet:cc5a8a09da12
 snippet:cc5d97b82892
@@ -553,12 +561,15 @@ snippet:f8b90c348a0b
 snippet:f8f2aedaeeb1
 snippet:f90e03e8bee9
 snippet:f92748a9bd5a
+snippet:f935558ece0b
 snippet:f93d4ae39540
 snippet:f990169e0a62
+snippet:fac26dc31a62
 snippet:facbb85e282e
 snippet:faf54f4d2ead
 snippet:fb085a5615ca
 snippet:fb175da604fd
+snippet:fb287dcbc206
 snippet:fb3e5aedc8ae
 snippet:fb6121ae1136
 snippet:fbca219447cf
@@ -691,6 +702,7 @@ tests/codegen_corpus/locations.gaz
 tests/codegen_corpus/namespaces.gaz
 tests/codegen_corpus/statements.gaz
 tests/codegen_corpus/statics.gaz
+tests/codegen_corpus/write_through_call.gaz
 tests/fixtures/bytecode/example.gaz
 tests/fixtures/bytecode/fails.gaz
 tests/fixtures/closure_name.gaz
@@ -736,6 +748,7 @@ tests/lexer_corpus/empty.gaz
 tests/lexer_corpus/interpolation.gaz
 tests/lexer_corpus/ternary.gaz
 tests/lexer_corpus/whitespace_crlf.gaz
+tests/parser_corpus/assign_to_path_from_call.gaz
 tests/parser_corpus/assignment.gaz
 tests/parser_corpus/calls.gaz
 tests/parser_corpus/captures.gaz

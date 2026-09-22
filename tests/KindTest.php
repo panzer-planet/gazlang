@@ -409,13 +409,13 @@ class KindTest extends GazLangTestCase
         $this->assertEquals("6\n", $this->executeCode(<<<'CODE'
             kind Num { pub #value; fn _($v) { #value = $v; } }
             kind Add { #left; #right; fn _($l, $r) { #left = $l; #right = $r; } }
-            fn sum($node) {
+            fn evaluate($node) {
                 if (is_a($node, Num)) { return $node.value; }
                 $total = 0;
-                foreach (fields($node) as $child) { $total += sum($child); }
+                foreach (fields($node) as $child) { $total += evaluate($child); }
                 return $total;
             }
-            echo sum(Add(Num(1), Add(Num(2), Num(3))));
+            echo evaluate(Add(Num(1), Add(Num(2), Num(3))));
             CODE));
     }
 

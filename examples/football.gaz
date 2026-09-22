@@ -189,7 +189,7 @@ kind Team {
         }
         return random::weighted($shooters, #summary()["shooting"]);
     }
-    pub fn rating() { return round(reduce(#players, ($sum, $player) -> $sum + $player.rating, 0) / 11, 1); }
+    pub fn rating() { return round(sum(map(#players, $player -> $player.rating)) / 11, 1); }
 
     // The players tired, rested or were sent off
     pub fn changed() { #cache = null; }
@@ -217,7 +217,7 @@ kind Formation {
 
     fn _(#name) {
         #lines = map(split(#name, "-"), to_int);
-        if (len(#lines) != 3 || reduce(#lines, ($sum, $n) -> $sum + $n, 0) != 10) {
+        if (len(#lines) != 3 || sum(#lines) != 10) {
             error("Not a formation: {#name}");
         }
     }
@@ -690,7 +690,7 @@ foreach ($league.top_keepers(10) as $row) {
 
 echo "";
 echo "Season stats";
-$goals = reduce(@all_matches, ($sum, $match) -> $sum + $match.home_goals + $match.away_goals, 0);
+$goals = sum(map(@all_matches, $match -> $match.home_goals + $match.away_goals));
 echo "Goals: " .. $goals .. " in " .. Fixture::matches_played .. " matches, " .. round($goals / Fixture::matches_played, 2) .. " a game";
 $biggest_win = sort(@all_matches, ($a, $b) -> abs($b.home_goals - $b.away_goals) <=> abs($a.home_goals - $a.away_goals))[0];
 echo "Biggest win: {$biggest_win}";

@@ -34,7 +34,7 @@ const BuiltinInfo builtin_info[] = {
     {"split", 2, 2}, {"join", 2, 2}, {"replace", 3, 3}, {"contains", 2, 2}, {"starts_with", 2, 2},
     {"ends_with", 2, 2}, {"index_of", 2, 3}, {"repeat", 2, 2}, {"chr", 1, 1}, {"ord", 1, 1},
     {"to_int", 1, 1}, {"to_float", 1, 1}, {"floor", 1, 1}, {"ceil", 1, 1}, {"round", 1, 2},
-    {"abs", 1, 1}, {"intdiv", 2, 2}, {"min", 2, 2}, {"max", 2, 2}, {"to_string", 1, 1},
+    {"abs", 1, 1}, {"intdiv", 2, 2}, {"min", 1, 2}, {"max", 1, 2}, {"sum", 1, 1}, {"to_string", 1, 1},
     {"in_array", 2, 2}, {"has_key", 2, 2}, {"keys", 1, 1}, {"values", 1, 1}, {"last", 1, 1}, {"reverse", 1, 1},
     {"map", 2, 2},
     {"filter", 2, 2}, {"reduce", 3, 3}, {"sort", 2, 2}, {"type_of", 1, 1},
@@ -50,7 +50,7 @@ const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 enum {
     B_LEN, B_SLICE, B_LOWER, B_UPPER, B_TRIM, B_SPLIT, B_JOIN, B_REPLACE, B_CONTAINS,
     B_STARTS_WITH, B_ENDS_WITH, B_INDEX_OF, B_REPEAT, B_CHR, B_ORD, B_TO_INT, B_TO_FLOAT, B_FLOOR,
-    B_CEIL, B_ROUND, B_ABS, B_INTDIV, B_MIN, B_MAX, B_TO_STRING, B_IN_ARRAY, B_HAS_KEY, B_KEYS,
+    B_CEIL, B_ROUND, B_ABS, B_INTDIV, B_MIN, B_MAX, B_SUM, B_TO_STRING, B_IN_ARRAY, B_HAS_KEY, B_KEYS,
     B_VALUES, B_LAST, B_REVERSE, B_MAP, B_FILTER, B_REDUCE, B_SORT, B_TYPE_OF, B_IS_A, B_KIND_OF, B_FIELDS, B_ERROR, B_EXIT, B_READ_FILE,
     B_WRITE_FILE, B_FILE_EXISTS, B_REAL_PATH, B_CWD, B_PRINT, B_PRINT_ERROR, B_READ_STDIN,
     B_ARGS, B_BUILTINS, B_RAND_INT, B_RAND_FLOAT, B_RAND_SEED, B_RUN,
@@ -449,8 +449,9 @@ static double php_round(double value, int places) {
     return tmp;
 }
 
-/* min() and max() order two numbers or two strings as < does */
-static bool extreme(int builtin, Value a, Value b, int *cmp) {
+/* min() and max() order two numbers or two strings as < does; in a list, each against the
+   smallest or largest so far */
+static bool extreme(int builtin, Value a, Value b, bool in_list, int *cmp) {
     bool na = a.type == T_INT || a.type == T_FLOAT, nb = b.type == T_INT || b.type == T_FLOAT;
     if (na && nb) {
         *cmp = compare_numbers(a, b);
@@ -461,7 +462,21 @@ static bool extreme(int builtin, Value a, Value b, int *cmp) {
         *cmp = (c > 0) - (c < 0);
         return true;
     }
+    if (in_list) return raisef("%s() expects a list of numbers or of strings, got %s and %s", builtin_info[builtin].name, type_name(a), type_name(b));
     return raisef("%s() expects two numbers or two strings, got %s and %s", builtin_info[builtin].name, type_name(a), type_name(b));
+}
+
+/* The values of a list, or of a map in order, as one array; a map's are gathered first */
+static Value *values_of(Value v, size_t *n, Value **gathered) {
+    *gathered = NULL;
+    if (v.type == T_LIST) {
+        *n = v.l->len;
+        return v.l->items;
+    }
+    *gathered = malloc((v.m->count ? v.m->count : 1) * sizeof(Value));
+    *n = 0;
+    for (size_t i = 0; map_next(v.m, &i); i++) (*gathered)[(*n)++] = v.m->entries[i].value;
+    return *gathered;
 }
 
 /* realpath(3), with "" and a NUL byte being nothing there. PHP also refuses a path in which
@@ -790,9 +805,52 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     case B_MIN:
     case B_MAX: {
         int cmp = 0;   /* extreme() sets it; gcc can't tell */
-        if (!extreme(index, a, b, &cmp)) return false;
-        *out = (index == B_MIN ? cmp <= 0 : cmp >= 0) ? a : b;
-        incref(*out);
+        if (argc == 2) {
+            if (!extreme(index, a, b, false, &cmp)) return false;
+            *out = (index == B_MIN ? cmp <= 0 : cmp >= 0) ? a : b;
+            incref(*out);
+            return true;
+        }
+        /* One argument: the smallest or largest of a list's or map's values, the first on a tie */
+        if (!want(index, a, M(T_LIST) | M(T_MAP))) return false;
+        Value *gathered, *items;
+        size_t n;
+        items = values_of(a, &n, &gathered);
+        if (n == 0) {
+            free(gathered);
+            return raisef("%s() expects a non-empty list or map", builtin_info[index].name);
+        }
+        Value best = items[0];
+        /* A lone value is still checked, against itself, so min([[]]) is an error as min([[], []]) is */
+        for (size_t i = n == 1 ? 0 : 1; i < n; i++) {
+            if (!extreme(index, best, items[i], true, &cmp)) {
+                free(gathered);
+                return false;
+            }
+            if (index == B_MIN ? cmp > 0 : cmp < 0) best = items[i];
+        }
+        free(gathered);
+        incref(best);
+        *out = best;
+        return true;
+    }
+    case B_SUM: {
+        /* The values added left to right from 0 with +, so its errors and its int or float are +'s */
+        if (!want(index, a, M(T_LIST) | M(T_MAP))) return false;
+        Value *gathered, *items;
+        size_t n;
+        items = values_of(a, &n, &gathered);
+        Value total = v_int(0);
+        for (size_t i = 0; i < n; i++) {
+            Value next;
+            if (!binary_op(OP_ADD, total, items[i], &next)) {
+                free(gathered);
+                return false;
+            }
+            total = next;
+        }
+        free(gathered);
+        *out = total;
         return true;
     }
     case B_TO_STRING: {

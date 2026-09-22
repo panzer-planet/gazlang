@@ -204,7 +204,7 @@ fn least_effort($terrain) {
 }
 
 fn effort($terrain, $route) {
-    return reduce(slice($route, 1), ($sum, $id) -> $sum + $terrain.cost($id), 0);
+    return sum(map(slice($route, 1), $id -> $terrain.cost($id)));
 }
 
 $arguments = args();

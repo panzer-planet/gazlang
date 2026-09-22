@@ -356,7 +356,9 @@ kind's fields, methods and constants across its hierarchy.
 `ends_with`, `index_of($s, $needle, $offset)`, `repeat($s, $count)`, `chr`, `ord`.
 
 **Numbers** — `to_int`, `to_float`, `to_string`, `floor`, `ceil`, `round($x, $precision)`,
-`abs`, `intdiv`, `min($a, $b)`, `max($a, $b)`.
+`abs`, `intdiv`, `min($a, $b)`, `max($a, $b)`, and `min($list)`, `max($list)` and `sum($list)`
+over a list's or map's values (`sum([])` is 0; `min` and `max` of nothing is an error; `sum`
+adds with `+`, so an int overflowing or a string in the list is `+`'s error).
 
 **Lists and maps** — `len`, `slice`, `in_array($value, $list)`, `has_key($x, $key)`, `keys`,
 `values`, `last($list)` (the last element; an empty list is an error), `reverse($x)` (a list or

@@ -48,7 +48,7 @@ pub fn chance($p) {
 // An item from a list of [item, weight] pairs, picked with probability in proportion to its
 // weight; $total is the weights added up, when the caller already knows it
 pub fn weighted($pairs, $total = null) {
-    $total ??= reduce($pairs, ($sum, $pair) -> $sum + $pair[1], 0);
+    $total ??= sum(map($pairs, $pair -> $pair[1]));
     if ($total <= 0) {
         error("random::weighted() expects weights that add up to more than 0");
     }

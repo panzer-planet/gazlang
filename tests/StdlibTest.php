@@ -216,6 +216,21 @@ class StdlibTest extends GazLangTestCase
             CODE));
     }
 
+    public function test_min_and_max_of_a_list_or_map()
+    {
+        $this->assertEquals("[1, 3, \"a\", 9, 7]\n[1, 1.0, 2, 2.0]\n", $this->executeCode(<<<'CODE'
+            echo [min([3, 1, 2]), max([3, 1, 2]), min(["b", "a"]), max({"x" => 1, "y" => 9}), min([7])];
+            echo [min([1, 1.0]), max([1.0, 1]), min([2, 3, 2.0]), max([2.0, 1, 2])];
+            CODE));
+    }
+
+    public function test_sum_adds_as_plus_does()
+    {
+        $this->assertEquals("[6, 0, 3.5, 5, -1]\n", $this->executeCode(
+            'echo [sum([1, 2, 3]), sum([]), sum([1, 2.5]), sum({"a" => 2, "b" => 3}), sum([2, -3])];'
+        ));
+    }
+
     public function test_to_string_matches_echo()
     {
         $this->assertEquals("42|true|null|[1, \"a\"]\n", $this->executeCode(
@@ -516,6 +531,15 @@ class StdlibTest extends GazLangTestCase
             'min of a number and a string' => ['min(1, "2");', 'min() expects two numbers or two strings, got int and string'],
             'max of bools' => ['max(true, false);', 'max() expects two numbers or two strings, got bool and bool'],
             'max of lists' => ['max([1], [2]);', 'max() expects two numbers or two strings, got list and list'],
+            'min of a number' => ['min(5);', 'min() expects list or map, got int'],
+            'min of an empty list' => ['min([]);', 'min() expects a non-empty list or map'],
+            'max of an empty map' => ['max({});', 'max() expects a non-empty list or map'],
+            'min of a mixed list' => ['min([1, "a"]);', 'min() expects a list of numbers or of strings, got int and string'],
+            'max of a list of lists' => ['max([[1]]);', 'max() expects a list of numbers or of strings, got list and list'],
+            'sum of a number' => ['sum(5);', 'sum() expects list or map, got int'],
+            'sum of strings' => ['sum(["a"]);', 'Cannot use + on string'],
+            'sum of bools' => ['sum([1, true]);', 'Cannot use + on bool'],
+            'sum overflowing' => ['sum([9223372036854775807, 1]);', 'Integer overflow'],
         ];
     }
 

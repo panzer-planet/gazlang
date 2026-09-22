@@ -239,9 +239,6 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     getting the index needs a `foreach ($x as $i => $v)` instead of a `map()`
     (`Scout.team()`'s shirt numbers hit this: `map($formation.positions(), $kind -> ...)`
     became a `foreach` once it needed the index).
-  - `min`/`max` take exactly two numbers or two strings, not a list, and there is no `sum()`:
-    finding the smallest, largest or total of a list is `reduce($x, ($a, $b) -> ..., $initial)`
-    written out by hand every time, not a call.
   - `split($x, $sep)` has no limit: it always splits on every occurrence, so keeping the
     trailing remainder together (`"a=b=c"` split on `"="` into `["a", "b=c"]`) needs
     `index_of` and two `slice`s instead of a third argument.
@@ -411,8 +408,10 @@ version.
 - `round($x, $precision = 0)` is PHP's (halves away from zero, with its pre-rounding, so
   `round(1.005, 2)` is `1.01`; negative precision rounds to tens), written out step by step in
   `php_round()` in `builtins.c`, since PHP's own changed between 8.5 releases. `floor`, `ceil`,
-  `round` give floats; `abs` keeps the type; `min`/`max` take two numbers or two strings, a tie
-  giving the first. `to_int` truncates a float and errors outside the int range; `to_float(true)`
+  `round` give floats; `abs` keeps the type; `min`/`max` take two numbers or two strings, or a
+  list or map whose values are all numbers or all strings (empty is an error), a tie giving the
+  first. `sum` adds a list's or map's values from 0 with `+` (`binary_op(OP_ADD)`), so its
+  errors, overflow and int-or-float are `+`'s and `sum([])` is 0. `to_int` truncates a float and errors outside the int range; `to_float(true)`
   is 1.0.
 
 ## Strings
