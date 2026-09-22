@@ -71,6 +71,38 @@ pub kind Fixture {
         return #;
     }
 
+    // Thirty minutes more, for a cup tie level after ninety, the players tiring further
+    pub fn extra_time() {
+        for ($minute = 91; $minute <= 120; $minute++) {
+            if ($minute % 15 == 0) {
+                #home.tire(15);
+                #away.tire(15);
+            }
+            #minute($minute);
+        }
+        #emit(Whistle(120, "After extra time: {#}"));
+        return #;
+    }
+
+    // A shootout, giving how many each side scored: five kicks each, then one each until one
+    // side is ahead, the sharpest attackers stepping up first, and each kick likelier to go in
+    // the more the taker has over the keeper
+    pub fn penalties() {
+        $takers = map([#home, #away], $team -> sort($team.on_pitch(), ($a, $b) -> $b.attacking() <=> $a.attacking()));
+        $keepers = [#away.goalkeeper(), #home.goalkeeper()];
+        $scored = [0, 0];
+        for ($kick = 0; $kick < 5 || $scored[0] == $scored[1]; $kick++) {
+            foreach ([0, 1] as $side) {
+                $taker = $takers[$side][$kick % len($takers[$side])];
+                $keeper = $keepers[$side];
+                if (random::chance(0.6 + 0.3 * $taker.attacking() / ($taker.attacking() + $keeper.defending() + 1))) {
+                    $scored[$side]++;
+                }
+            }
+        }
+        return $scored;
+    }
+
     fn minute($minute) {
         // A chance in about one minute in six, a foul in one in thirty, and most minutes nothing
         $roll = rand_float();

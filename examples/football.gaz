@@ -9,7 +9,7 @@
  * strongest down. With more than one season or division, each season prints every division's
  * table and who goes up and down, then the summer: players age, veterans retire and academy
  * youngsters replace them, and the transfer window moves players up to the richer clubs; the
- * last season adds the honours. Everything random is seeded:
+ * last season adds the honours. Every season also has a knockout cup for every club. Everything random is seeded:
  * the squads are always the same, and the same seed always plays the same seasons. Seasons
  * are named from 2026/27 whatever the seed; the Nth is played with SEED + N - 1.
  */
@@ -19,6 +19,7 @@ include "football/teams.gaz" use InvalidLineup, Team, Formation, Scout;
 include "football/matches.gaz" use Fixture;
 include "football/league.gaz" use League, Commentator;
 include "football/money.gaz";
+include "football/cup.gaz" use Cup;
 include "../lib/lists.gaz" use flatten, max_by, min_by;
 
 // The clubs, strongest first: name, level (the squad's typical rating) and formation. The
@@ -262,7 +263,17 @@ fn play_pyramid($pyramid, $scout, $seed, $seasons) {
                 echo "Relegated: " .. join(slice($finish, -$moving), ", ");
             }
         }
-        $honours[] = [$season, $champions];
+        // The cup, drawn once the league is over and seeded by how it finished
+        $divisions = {};
+        foreach ($finishes as $level => $finish) {
+            foreach ($finish as $team) {
+                $divisions[object_id($team)] = $level;
+            }
+        }
+        $cup = Cup("Albion Cup");
+        $winner = $cup.play(flatten($finishes));
+        print_cup($cup, $winner, $divisions);
+        $honours[] = [$season, $champions, $winner.name];
 
         // Next season's divisions: the clubs that stay, those coming down and those going up
         $pyramid = [];
@@ -332,6 +343,36 @@ fn summer($teams, $scout) {
     return $retired;
 }
 
+// The cup from the quarter-finals on, the rounds before them in a line, and the biggest upset:
+// the winner the most divisions below the club it knocked out
+fn print_cup($cup, $winner, $divisions) {
+    echo "";
+    echo $cup.name;
+    $early = filter($cup.rounds, $round -> len($round[1]) > 4);
+    if ($early != []) {
+        echo join(map($early, $round -> $round[0]), ", ") .. ": " .. sum(map($early, $round -> len($round[1]))) .. " ties";
+    }
+    foreach ($cup.rounds as [$name, $ties]) {
+        if (len($ties) <= 4) {
+            echo $name;
+            foreach ($ties as $tie) {
+                echo "  {$tie}";
+            }
+        }
+    }
+    echo "Winners: {$winner}";
+
+    $ties = flatten(map($cup.rounds, $round -> map($round[1], $tie -> [$round[0], $tie])));
+    $gap = $pair -> $divisions[object_id($pair[1].winner())] - $divisions[object_id($pair[1].loser())];
+    // The latest round first, so of two as big the one nearer the final is told
+    $upset = max_by(reverse($ties), $gap);
+    if ($gap($upset) > 0) {
+        [$round, $tie] = $upset;
+        echo "Giant-killing: {$tie.winner()} (" .. DIVISIONS[$divisions[object_id($tie.winner())]] .. ") knocked out "
+            .. "{$tie.loser()} (" .. DIVISIONS[$divisions[object_id($tie.loser())]] .. ") in the " .. lower($round) .. ", {$tie}";
+    }
+}
+
 // The summer's deals, the biggest of them, and who has the most and least money now
 fn print_window($deals, $teams) {
     if ($deals == []) {
@@ -349,10 +390,10 @@ fn print_window($deals, $teams) {
 fn print_honours($pyramid, $honours, $retired, $record) {
     echo "";
     echo "Honours";
-    echo trim(pad_right("Season", 8) .. join(map(slice(DIVISIONS, 0, len($pyramid)), $name -> pad_right($name, 24)), ""));
+    echo trim(pad_right("Season", 8) .. join(map([...slice(DIVISIONS, 0, len($pyramid)), "Albion Cup"], $name -> pad_right($name, 24)), ""));
     $titles = {};
-    foreach ($honours as [$season, $champions]) {
-        echo trim(pad_right($season, 8) .. join(map($champions, $name -> pad_right($name, 24)), ""));
+    foreach ($honours as [$season, $champions, $cup]) {
+        echo trim(pad_right($season, 8) .. join(map([...$champions, $cup], $name -> pad_right($name, 24)), ""));
         $titles[$champions[0]] = ($titles[$champions[0]] ?? 0) + 1;
     }
     $table = sort(keys($titles), ($a, $b) -> [$titles[$b], $a] <=> [$titles[$a], $b]);

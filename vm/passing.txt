@@ -9,6 +9,7 @@ examples/collections.gaz
 examples/csv_report.gaz
 examples/errors.gaz
 examples/football.gaz
+examples/football/cup.gaz
 examples/football/league.gaz
 examples/football/matches.gaz
 examples/football/money.gaz
