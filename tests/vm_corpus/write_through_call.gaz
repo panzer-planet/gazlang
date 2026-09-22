@@ -1,0 +1,32 @@
+// Writing through a path that starts at a call: each call runs once, and only a field shows
+kind Player {
+    pub #clean_sheets = 0;
+    pub #stats = {"saves" => 0};
+    pub #log = [];
+}
+kind Team {
+    #gk;
+    pub #calls = 0;
+    fn _() { #gk = Player(); }
+    pub fn goalkeeper() { #calls++; return #gk; }
+}
+fn team_list() { return [Player()]; }
+$t = Team();
+$t.goalkeeper().clean_sheets++;
+++$t.goalkeeper().clean_sheets;
+$t.goalkeeper().clean_sheets += 10;
+echo $t.goalkeeper().clean_sheets = $t.goalkeeper().clean_sheets * 2;
+$t.goalkeeper().stats["saves"] = 3;
+$t.goalkeeper().stats["saves"] *= 2;
+$t.goalkeeper().stats["new"] ??= "x";
+$t.goalkeeper().log[] = "a";
+[$t.goalkeeper().log[0], $t.goalkeeper().stats["new"]] = ["b", "y"];
+delete $t.goalkeeper().stats["saves"];
+$f = () -> $t;
+$f().goalkeeper().log[] = "via lambda";
+echo $t.goalkeeper();
+echo $t.calls;
+$p = team_list()[0];
+team_list()[0].clean_sheets = 5;
+fn nums() { return [1]; }
+try { nums().x = 1; } catch ($e) { echo $e; }

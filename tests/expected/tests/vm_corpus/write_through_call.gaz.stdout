@@ -1,0 +1,4 @@
+24
+Player {#clean_sheets => 24, #stats => {"new" => "y"}, #log => ["b", "via lambda"]}
+14
+Cannot use . on list

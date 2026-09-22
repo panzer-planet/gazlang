@@ -1,0 +1,34 @@
+Compound
+  statements:
+@ null
+    0: Statement 1
+      expr: Assign 1
+        left: Variable 1
+          token: 1 VAR_IDENTIFIER $a
+          value: "\$a"
+        token: 1 ASSIGN =
+        right: Num 1
+          token: 1 INTEGER 1
+          value: 1
+    1: Statement 2
+      expr: Assign 2
+        left: Property 2
+          target: Index 2
+            target: FunctionCall 2
+              name: "values"
+              args:
+                0: Variable 2
+                  token: 2 VAR_IDENTIFIER $a
+                  value: "\$a"
+            index: Num 2
+              token: 2 INTEGER 0
+              value: 0
+          name: "x"
+          field: false
+          constant: false
+          value: null
+          static_name: null
+        token: 2 ASSIGN =
+        right: Num 2
+          token: 2 INTEGER 1
+          value: 1

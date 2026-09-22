@@ -272,7 +272,9 @@ echo is_a($c, Shape) .. " " .. $c.radius;
 - **Objects are handles**: `$b = $a; $b.x = 1` changes `$a`. `==` is identity. Lists and maps
   inside them are still values.
 - **`.` reads and writes members**: `$user.name`, `$rows[0].total = 5`, `$obj.method(args)`.
-  `$obj.method` on its own is a bound method.
+  `$obj.method` on its own is a bound method. A write can go through what a call returns, as
+  long as it writes a field: `$team.keeper().saves++` changes the keeper, and the call runs
+  once. `make()[0] = 1` is an error, since it would change a copy no one sees.
 - **A member is private unless `pub`**, the same word and the same meaning as a namespace's:
   this name escapes the thing it is written in. The ladder is unmarked (mine) → `kin` (mine and
   my children's) → `pub` (anyone's), and it applies to a field, method, constant or static

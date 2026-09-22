@@ -305,6 +305,22 @@ fn path_root($node) {
     return is_a($node, VariableAST) || is_a($node, ThisAST) ? $node : null;
 }
 
+// Whether a path starts at a call and writes a field on the way, like $team.keeper().saves++
+//
+// What the call returns is a copy unless it is an object, so a write only shows if it goes
+// through a field: f()[0] = 1 would write into a copy no one sees, and stays an error. A
+// field of what isn't an object is the runtime's error, as it is for a variable's path.
+fn writes_through_call($node) {
+    $field = false;
+    while (is_a($node, IndexAST) || is_a($node, PropertyAST)) {
+        $field = $field || is_a($node, PropertyAST);
+        $node = $node.target;
+    }
+
+    return $field && (is_a($node, FunctionCallAST) || is_a($node, MethodCallAST)
+        || is_a($node, CallValueAST) || is_a($node, ParentMethodAST) && $node.args != null);
+}
+
 // # alone, the object a method runs on
 kind ThisAST extends AST {}
 

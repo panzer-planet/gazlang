@@ -1,0 +1,7 @@
+// A path from a call holds what the call returned in a hidden variable, evaluated before the keys
+fn keeper() {}
+$team.keeper().saves = 1;
+$team.keeper().stats[$k] += 2;
+keeper().log[] = "x";
+$pick()[0].saves++;
+delete $team.keeper().stats[$k];

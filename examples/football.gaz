@@ -658,12 +658,10 @@ $league.play_season(Commentator(1).kick_off, ($number, $matches) -> {
         $name = $motm.to_string();
         @motm_awards[$name] = {"player" => $motm, "awards" => (@motm_awards[$name]["awards"] ?? 0) + 1};
         if ($match.away_goals == 0) {
-            $keeper = $match.home.goalkeeper();
-            $keeper.clean_sheets++;
+            $match.home.goalkeeper().clean_sheets++;
         }
         if ($match.home_goals == 0) {
-            $keeper = $match.away.goalkeeper();
-            $keeper.clean_sheets++;
+            $match.away.goalkeeper().clean_sheets++;
         }
         if ($number == 1 && $index == 0) {
             echo "Player of the match: " .. $motm.profile();

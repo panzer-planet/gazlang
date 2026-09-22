@@ -794,3 +794,4 @@ tests/vm_corpus/uncaught_bad_to_string.gaz
 tests/vm_corpus/uncaught_object.gaz
 tests/vm_corpus/uncaught_value.gaz
 tests/vm_corpus/visibility.gaz
+tests/vm_corpus/write_through_call.gaz

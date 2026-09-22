@@ -174,6 +174,22 @@ kind CodeGenerator {
         return null;
     }
 
+    // The variable, # or static field a write path starts at, or for a path from a call, a
+    // hidden variable holding what the call returned, evaluated now: before the keys and the
+    // value, as it is written to their left. The call's result is an object whenever the
+    // write shows (writes_through_call()), so writing through a copy of the handle is enough.
+    fn write_root($target) {
+        $root = path_root($target);
+        if ($root != null) {
+            return $root;
+        }
+        for ($root = $target; is_a($root, IndexAST) || is_a($root, PropertyAST); $root = $root.target) {}
+        $hidden = #hidden("\$#root_" .. #hidden_counter++);
+        #visit(StatementAST(#assign($hidden, $root)));
+
+        return $hidden;
+    }
+
     fn steps($target) {
         $steps = [];
         for ($node = $target; is_a($node, IndexAST) || is_a($node, PropertyAST); $node = $node.target) {
@@ -245,7 +261,7 @@ kind CodeGenerator {
     fn update($target, $op, $value, $prefix) {
         $n = #hidden_counter++;
 
-        $place = path_root($target);
+        $place = #write_root($target);
         foreach (#steps($target) as $i => $step) {
             if (is_a($step, PropertyAST)) {
                 $place = PropertyAST($place, $step.name);
@@ -337,6 +353,7 @@ kind CodeGenerator {
 
     // An assignment through a path, like $a["k"][0] = value, $a[] = value or $rows[0].total = value
     fn path_assign($node) {
+        $root = #write_root($node.left);
         $path = "";
         foreach (#steps($node.left) as $step) {
             if (is_a($step, PropertyAST)) {
@@ -355,7 +372,6 @@ kind CodeGenerator {
         #visit($node.right);
 
         // The variable is only read now, after the keys and value, and updated in place
-        $root = path_root($node.left);
         $static = #static_target($root);
         if ($static != null) {
             #emit_static("SET_PATH", $static, [$path]);
@@ -367,6 +383,7 @@ kind CodeGenerator {
     }
 
     fn visit_delete_statement($node) {
+        $root = #write_root($node.target);
         $path = "";
         foreach (#steps($node.target) as $step) {
             if (is_a($step, PropertyAST)) {
@@ -378,7 +395,6 @@ kind CodeGenerator {
             }
         }
 
-        $root = path_root($node.target);
         $static = #static_target($root);
         if ($static != null) {
             #emit_static("DELETE_PATH", $static, [$path]);

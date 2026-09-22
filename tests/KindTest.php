@@ -680,7 +680,7 @@ class KindTest extends GazLangTestCase
             'constructing with the wrong argument count' => ["kind P { fn _(\$a) {} }\n\nP();", 'Kind P expects 1 arguments, 0 given on line 3'],
             'constructing without a constructor' => ['kind P {} P(1);', 'Kind P expects 0 arguments, 1 given on line 1'],
             'method call arity' => ['kind P { pub fn f($a) { return #f(); } }', 'Method P.f expects 1 arguments, 0 given on line 1'],
-            'assigning to a call' => ['kind P { pub #x; } fn make() { return P(); } make().x = 1;', 'Can only use = on a variable, or an element or field of one on line 1'],
+            'assigning to an element of a call' => ['fn make() { return [1]; } make()[0] = 1;', 'Can only use = on a variable, or an element or field of one on line 1'],
             'assigning to #' => ['kind P { pub fn f() { # = 1; } }', 'Can only use = on a variable, or an element or field of one on line 1'],
             'incrementing a method' => ['kind P { pub fn f() { #f++; } }', 'Cannot assign to method #f on line 1'],
             'unknown parent' => ["\nkind P extends Nope {}", 'Undefined kind: Nope on line 2'],

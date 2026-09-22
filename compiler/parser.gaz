@@ -1022,15 +1022,17 @@ kind Parser {
 
     // Check a node can be assigned to: a variable, or a path of elements and fields starting at a variable or #
     //
-    // $a, $a[0], $rows[0].total, #count, #items[] and $user.tags[0] can be; # itself, and a
-    // path starting anywhere else (make().x), can't. $operator is the assignment or ++/-- token.
+    // $a, $a[0], $rows[0].total, #count, #items[] and $user.tags[0] can be, and so can a path
+    // from a call through a field ($team.keeper().saves); # itself, a path starting anywhere
+    // else, and a call's elements (make()[0]) can't. $operator is the assignment or ++/-- token.
     fn assignable($node, $operator) {
         $root = path_root($node);
         if (is_a($root, FunctionRefAST)) {
             #static_writes[] = [$root, $operator];
         }
         if (is_a($node, VariableAST) || is_a($node, FunctionRefAST) && contains($node.name, "::")
-            || ((is_a($node, IndexAST) || is_a($node, PropertyAST)) && $root != null)) {
+            || ((is_a($node, IndexAST) || is_a($node, PropertyAST)) && $root != null)
+            || writes_through_call($node)) {
             if (is_a($node, PropertyAST) && $node.use != null) {
                 #member_uses[$node.use][3] = true;
             }
@@ -1344,7 +1346,8 @@ kind Parser {
         if (is_a($target, PropertyAST)) {
             #fail("Cannot delete a field: every object of a kind has the fields it declares");
         }
-        if (!is_a($target, IndexAST) || $target.index == null || path_root($target) == null) {
+        if (!is_a($target, IndexAST) || $target.index == null
+            || path_root($target) == null && !writes_through_call($target)) {
             #fail("delete needs an element of a list or map, like delete \$a[0]");
         }
 

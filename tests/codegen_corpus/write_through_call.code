@@ -1,0 +1,75 @@
+GAZLANG BYTECODE 2
+globals
+
+top
+locals $team $#root_0 $#root_2 $k $#update_key1_1 $#root_3 $pick $#root_5 $#update_key0_4 $#root_6
+@ "write_through_call.gaz" 3
+LOAD 0
+GET_METHOD keeper
+CALL_METHOD 0 keeper
+STORE 1
+LOAD 1
+POP
+PUSH 1
+SET_PATH .saves 1
+POP
+@ "write_through_call.gaz" 4
+LOAD 0
+GET_METHOD keeper
+CALL_METHOD 0 keeper
+STORE 2
+LOAD 2
+POP
+LOAD 3
+KEY_CHECK
+STORE 4
+LOAD 4
+LOAD 2
+GET_PROPERTY_EXISTING stats
+LOAD 4
+INDEX_GET_EXISTING
+PUSH 2
+ADD
+SET_PATH .stats[k] 2
+POP
+@ "write_through_call.gaz" 5
+CALL keeper 0
+STORE 5
+LOAD 5
+POP
+PUSH "x"
+SET_PATH .log[] 5
+POP
+@ "write_through_call.gaz" 6
+LOAD 6
+CALL_VALUE 0
+STORE 7
+LOAD 7
+POP
+PUSH 0
+KEY_CHECK
+STORE 8
+LOAD 8
+LOAD 7
+LOAD 8
+INDEX_GET_EXISTING
+GET_PROPERTY_EXISTING saves
+INC
+SET_PATH [k].saves 7
+POP
+@ "write_through_call.gaz" 7
+LOAD 0
+GET_METHOD keeper
+CALL_METHOD 0 keeper
+STORE 9
+LOAD 9
+POP
+LOAD 3
+KEY_CHECK
+DELETE_PATH .stats[k] 9
+
+fn keeper 0 0
+locals
+@ "write_through_call.gaz" 2
+PUSH null
+RET

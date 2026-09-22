@@ -235,15 +235,6 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - Appending to a list parameter silently does nothing (`fn add_to($l) { $l[] = 1; }`), and
     the parser can't tell it from a function that returns the list. Mutable state belongs in
     an object; by-reference parameters aren't worth their cost against refcounting.
-  - A write path can't pass through a call: `$match.home.goalkeeper().clean_sheets++` is
-    refused (`path_root()` in `compiler/nodes.gaz` only unwraps index and property steps, so a
-    call anywhere in the chain looks the same as one at the very start, `make().x`), even though
-    `goalkeeper()` here returns a `Player`, a handle, so mutating it would be exactly right.
-    The parser can't tell that from a call returning a list or map, where writing into a fresh
-    copy would silently do nothing, so it bans a call in the chain uniformly. The fix moves the
-    check from parse time to the VM's `STORE_PATH`: let a call sit mid-path, and raise there if
-    what it returned isn't an object. Until then, bind the call to a variable first
-    (`examples/football.gaz`'s `#clean_sheets` hit this).
   - `map`/`filter`/`reduce` call their function with the value alone, even over a list, so
     getting the index needs a `foreach ($x as $i => $v)` instead of a `map()`
     (`Scout.team()`'s shirt numbers hit this: `map($formation.positions(), $kind -> ...)`
@@ -695,7 +686,13 @@ $area = $c.area;                              // a bound method
   the object, looks the member up, then the arguments, then calls. `$obj.method` is a bound
   method, `==` another when object, kind and method match.
 - **Write paths**: a variable or `#`, then any index or property steps (`$rows[0].total = 5`,
-  `#count++`); a path can't start at a call. `store_path()` in `ops.c` is the one definition.
+  `#count++`). `store_path()` in `ops.c` is the one definition. A path may also start at a
+  call if a field follows it (`$team.keeper().saves++`, `f()[0].x = 1`): the code generator
+  holds what the call returned in a hidden `$#root_n`, evaluated once and before the keys
+  (`write_root()`), and writes through that, so the VM learns nothing. Without a field
+  (`f()[0] = 1`) the write would land in a copy no one sees, so it stays a parse error
+  (`writes_through_call()` in `nodes.gaz`); a field on what isn't an object is the runtime's
+  error, as on a variable's path. Other expressions (`[$o][0].x = 1`) are still refused.
 - `is_a($x, Kind)` tests the kind and its parents; `kind_of($x)` is the object's own kind
   (strict: anything else is an error), so `match (kind_of($n)) { NumAST => ... }` dispatches
   a pass written outside the node kinds. `fields($object)` is a map of the set fields, in
