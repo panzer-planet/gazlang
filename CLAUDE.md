@@ -245,7 +245,9 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     `$x == null ? null : $x.foo` every time.
   - `$obj.$name` (dynamic member access; `lib/sorting.gaz` can sort maps but not objects),
     `json_encode` of an object (`fields()` lists what it would write; `to_string()` and cycles
-    to settle), and `kind_name($kind)` (the bare name; today `slice(to_string(kind_of($x)),
+    to settle; `examples/football.gaz`'s save hit it and writes `to_data()` by hand; the
+    likeliest fix is a callback, `json::encode($value, $o -> $o.to_data())`, GazLang only and
+    leaking nothing private, since a kind rebuilds itself with its own `from_data()` anyway), and `kind_name($kind)` (the bare name; today `slice(to_string(kind_of($x)),
     5)`).
   - `kind_of` is strict, so a pass over a tree with absent children needs a `type_of` check
     first; if that recurs, make it lenient.
