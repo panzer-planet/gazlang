@@ -25,9 +25,15 @@ bin/gazlang --ast -f tests/programs/functions.gaz
 # (a test fails until then; see "Changing the compiler")
 make -C vm compiler
 
-# The test dependencies, then all tests (about 55s)
+# The test dependencies, then all tests (about 2 minutes): two suites, the language's (`core`) and
+# the games' (`games`, 3 seconds), which a plain run does both of
 composer install
 vendor/bin/phpunit
+vendor/bin/phpunit --testsuite core
+vendor/bin/phpunit --testsuite games
+
+# Play the football manager (needs a terminal); a seed makes the same clubs again
+bin/gazlang -f games/football/main.gaz -- 1
 
 # Run a specific test file, or method
 vendor/bin/phpunit tests/SpecificTest.php

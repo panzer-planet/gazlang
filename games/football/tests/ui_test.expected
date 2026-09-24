@@ -1,0 +1,63 @@
+ok the bar names the club, the season and the matchday
+ok the bar is inverse across the screen
+ok the menu lists the sections in order
+ok the inbox is on show, with its welcome
+ok keys start in the menu
+ok the current section is marked in the menu
+ok the last line says what the keys do
+ok the screen is as big as it was asked to be
+ok 2 is the squad
+ok with a header
+ok and every player of the club
+ok and the formation
+ok the squad's own hints are at the bottom
+ok 3 is tactics, not built yet
+ok 4 is the fixtures
+ok 5 is the table
+ok 6 is finances, not built yet
+ok keys past the last section do nothing
+ok 1 is back at the inbox
+ok tab moves to the section
+ok and the section's border shows it
+ok tab again is back to the menu
+ok j in the menu is the next section
+ok as is the down arrow
+ok k and up go back
+ok and stop at the first
+ok and at the last
+ok enter goes into the section
+ok escape comes back out
+ok in the squad, the first player is selected
+ok j moves down the squad, not the menu
+ok and . sorts it
+ok keys in the menu don't touch the sections
+ok before a match the fixtures have one next, and no results
+ok and all eighteen matches
+ok the first is next
+ok c plays a matchday
+ok and shows the inbox, with the news
+ok the newest message is selected (only bold, as the menu has the keys) and open
+ok the fixtures have a result now, and the next has moved
+ok one match has been played, and it is coloured
+ok the next match is bold
+ok the table lists every club
+ok all ten
+ok the club's own cell is cyan, and another club's is not
+ok and says what the game says
+ok the leader is first
+ok seventeen more and the season is over
+ok the bar says so
+ok and the inbox has the last word
+ok nothing to say yet about it
+ok another c is told the season is over
+ok in bold yellow
+ok and the notice goes with the next key
+ok q quits
+ok so does ctrl+c
+ok and the end of the input
+ok other keys don't
+ok 80 by 24 draws every section without an error
+ok 60 by 20 draws every section without an error
+ok 40 by 12 draws every section without an error
+ok 20 by 6 draws every section without an error
+ok 10 by 3 draws every section without an error

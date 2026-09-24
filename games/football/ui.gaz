@@ -1,0 +1,287 @@
+/*
+ * The interface: a Shell (a top bar, a menu of sections down the left, the section on show, and a
+ * line of hints at the bottom) and a View for each section. A view is given a Rect of the screen
+ * and draws in it; the shell cuts the screen up and decides where keys go. Like Football Manager
+ * the game is mostly tables you move about in, and time moves on with one key: c.
+ *
+ * Views only read the game (game.gaz) and never change it: the shell does that, so what a key
+ * does is in one place. Nothing here talks to the terminal, so it is all tested by drawing into
+ * a tui::Screen and reading its lines.
+ */
+namespace ui;
+
+include "../../lib/term.gaz";
+include "../../lib/tui.gaz";
+
+/* $text cut into lines no wider than $width, on the spaces, keeping its own line breaks */
+fn wrap($text, $width) {
+    $lines = [];
+    foreach (split($text, "\n") as $paragraph) {
+        $line = "";
+        foreach (split($paragraph, " ") as $word) {
+            if ($line == "") {
+                $line = $word;
+            } else if (term::width($line) + 1 + term::width($word) <= $width) {
+                $line ..= " " .. $word;
+            } else {
+                $lines[] = $line;
+                $line = $word;
+            }
+        }
+        $lines[] = $line;
+    }
+    return $lines;
+}
+
+/* What the shell needs of a section */
+pub abstract kind View {
+    fn _(kin #game);
+
+    pub abstract fn title();
+
+    /* Draw in $rect; $focused is whether keys are going to this view */
+    pub abstract fn draw($screen, $rect, $focused);
+
+    /* Take a key that reached the view */
+    pub abstract fn handle($key);
+
+    /* What the keys of this view do, for the line at the bottom */
+    pub fn hints() { return ""; }
+}
+
+/* Messages, the newest first: a list above and the one selected in full below */
+pub kind InboxView extends View {
+    #table = tui::Table(["MD", "Subject"], []);
+
+    pub fn title() { return "Inbox"; }
+    pub fn hints() { return "j/k move"; }
+
+    pub fn draw($screen, $rect, $focused) {
+        $messages = reverse(#game.inbox);
+        #table.set_rows(map($messages, $message -> [$message["matchday"], $message["subject"]]));
+        [$list, $rest] = $rect.split_top(max(min(len($messages), 8) + 1, 2));
+        #table.draw($screen, $list, $focused);
+        $index = #table.selected_index();
+        if ($index == null || $rest.height < 3) {
+            return null;
+        }
+        $message = $messages[$index];
+        tui::box($screen, $rest.col, $rest.row, $rest.width, $rest.height, $message["subject"]);
+        $inside = $rest.inset(1);
+        foreach (slice(wrap($message["body"], $inside.width), 0, $inside.height) as $i => $line) {
+            $screen.put($inside.col, $inside.row + $i, $line);
+        }
+    }
+
+    pub fn handle($key) {
+        #table.handle($key);
+        return null;
+    }
+}
+
+/* The club's players */
+pub kind SquadView extends View {
+    #table = tui::Table(["#", "Name", "Pos", "Age", "Rating", "Goals"], []);
+
+    pub fn title() { return "Squad"; }
+    pub fn hints() { return "j/k move  . , sort  o reverse  x reset"; }
+
+    pub fn draw($screen, $rect, $focused) {
+        $club = #game.club;
+        #table.set_rows(map($club.players, $player -> [$player.number, to_string($player), $player.position(), $player.age, $player.rating, $player.goals]));
+        [$body, $footer] = $rect.split_bottom(2);
+        #table.draw($screen, $body, $focused);
+        tui::label($screen, $footer.col, $footer.row + 1, $footer.width, "{$club.formation}   Team rating {$club.rating()}", "dim");
+    }
+
+    pub fn handle($key) {
+        #table.handle($key);
+        return null;
+    }
+}
+
+/* The club's matches, played and to come */
+pub kind FixturesView extends View {
+    #table = tui::Table(["MD", "Home", "", "Away", "Score", "Res"], [], ($row, $index) -> match ($row[5]) {
+        "W" => "green",
+        "D" => "yellow",
+        "L" => "red",
+        default => $row[4] == "next ▸" ? "bold" : "",
+    });
+
+    pub fn title() { return "Fixtures"; }
+    pub fn hints() { return "j/k move"; }
+
+    pub fn draw($screen, $rect, $focused) {
+        $club = #game.club;
+        $rows = [];
+        $next = true;
+        foreach (#game.league.fixtures_of($club) as $fixture) {
+            $match = $fixture["match"];
+            $result = "";
+            $score = "-";
+            if ($match != null) {
+                [$mine, $theirs] = $fixture["home"] == $club ? [$match.home_goals, $match.away_goals] : [$match.away_goals, $match.home_goals];
+                $result = $mine > $theirs ? "W" : ($mine == $theirs ? "D" : "L");
+                $score = "{$match.home_goals} - {$match.away_goals}";
+            } else if ($next) {
+                $score = "next ▸";
+                $next = false;
+            }
+            $rows[] = [$fixture["matchday"], to_string($fixture["home"]), "v", to_string($fixture["away"]), $score, $result];
+        }
+        #table.set_rows($rows);
+        #table.draw($screen, $rect, $focused);
+    }
+
+    pub fn handle($key) {
+        #table.handle($key);
+        return null;
+    }
+}
+
+/* The league table, with the club's own row marked */
+pub kind LeagueView extends View {
+    #table;
+
+    fn _($game) {
+        ##_($game);
+        $name = $game.club.name;
+        #table = tui::Table(["Pos", "Club", "P", "W", "D", "L", "GF", "GA", "GD", "Pts"], [], ($row, $index) -> $row[1] == $name ? "cyan" : "");
+    }
+
+    pub fn title() { return "League table"; }
+    pub fn hints() { return "j/k move  . , sort  o reverse  x reset"; }
+
+    pub fn draw($screen, $rect, $focused) {
+        $rows = [];
+        foreach (#game.league.table() as $place => $standing) {
+            $rows[] = [$place + 1, $standing.team.name, $standing.played, $standing.won, $standing.drawn, $standing.lost, $standing.scored, $standing.conceded, $standing.difference(), $standing.points()];
+        }
+        #table.set_rows($rows);
+        #table.draw($screen, $rect, $focused);
+    }
+
+    pub fn handle($key) {
+        #table.handle($key);
+        return null;
+    }
+}
+
+/* A section that isn't built yet */
+pub kind PlaceholderView extends View {
+    fn _($game, #heading, #text) {
+        ##_($game);
+    }
+
+    pub fn title() { return #heading; }
+
+    pub fn draw($screen, $rect, $focused) {
+        foreach (slice(wrap(#text, $rect.width), 0, $rect.height) as $i => $line) {
+            $screen.put($rect.col, $rect.row + $i, $line, "dim");
+        }
+    }
+
+    pub fn handle($key) { return null; }
+}
+
+/*
+ * The whole screen. Keys: 1 to 6 (or the arrows in the menu) choose a section, tab moves between
+ * the menu and the section, escape goes back to the menu, c moves time on to the next matchday
+ * and q quits; the rest go to the section on show.
+ */
+pub kind Shell {
+    #current = 0;
+    #where = "menu";
+    #note = "";
+
+    fn _(#game, #sections);
+
+    pub static fn for_game($game) {
+        return Shell($game, [
+            ["Inbox", InboxView($game)],
+            ["Squad", SquadView($game)],
+            ["Tactics", PlaceholderView($game, "Tactics", "Formation, mentality and the instructions each player plays to come with the match day.")],
+            ["Fixtures", FixturesView($game)],
+            ["Table", LeagueView($game)],
+            ["Finances", PlaceholderView($game, "Finances", "The books: wages, income and the transfer budget.")],
+        ]);
+    }
+
+    /* Which section is on show, by name, and whether keys go to the menu or the section */
+    pub fn section() { return #sections[#current][0]; }
+    pub fn focus() { return #where; }
+    pub fn notice() { return #note; }
+
+    pub fn draw($screen) {
+        [$top, $rest] = $screen.bounds().split_top(1);
+        [$rest, $bottom] = $rest.split_bottom(1);
+        [$menu, $content] = $rest.split_left(min(16, $rest.width));
+        $league = #game.league;
+
+        /* the bar: the club on the left, where the season is in the middle, the key to press on the right */
+        $screen.fill($top.col, $top.row, $top.width, 1, " ", "inverse");
+        tui::label($screen, $top.col, $top.row, $top.width, #game.season_label() .. "  ·  Matchday " .. $league.matchdays_played() .. " of " .. $league.matchdays() .. "  ·  " .. #game.place(), "inverse", "center");
+        tui::label($screen, $top.col, $top.row, term::width(#game.club.name) + 2, " " .. #game.club.name, "bold inverse");
+        tui::label($screen, $top.col + $top.width - 14, $top.row, 14, "c Continue ▸ ", "bold inverse", "right");
+
+        $in_menu = #where == "menu";
+        tui::box($screen, $menu.col, $menu.row, $menu.width, $menu.height, "", $in_menu ? "cyan" : "");
+        $inside = $menu.inset(1);
+        foreach (#sections as $i => [$title, $view]) {
+            $shown = $i == #current;
+            tui::label($screen, $inside.col, $inside.row + $i, $inside.width, " " .. ($i + 1) .. " " .. $title, $shown ? ($in_menu ? "inverse" : "bold") : "");
+        }
+
+        $view = #sections[#current][1];
+        tui::box($screen, $content.col, $content.row, $content.width, $content.height, $view.title(), $in_menu ? "" : "cyan");
+        $view.draw($screen, $content.inset(1), !$in_menu);
+
+        $hints = $view.hints();
+        $keys = "1-6 sections  tab focus  c continue  q quit";
+        tui::label($screen, $bottom.col + 1, $bottom.row, max($bottom.width - 2, 0), #note != "" ? #note : ($hints == "" ? $keys : $hints .. "   " .. $keys), #note != "" ? "bold yellow" : "dim");
+    }
+
+    /* Take a key: "quit" when it is time to leave, and null otherwise */
+    pub fn handle($key) {
+        $name = term::name($key);
+        #note = "";
+        if (in_array($name, ["q", "ctrl+c", "eof"])) {
+            return "quit";
+        }
+        if ($name == "c") {
+            if (#game.season_over()) {
+                #note = "The season is over.";
+            } else {
+                #game.advance();
+                // the inbox is where a matchday's news is
+                #current = 0;
+            }
+            return null;
+        }
+        if ($name == "tab") {
+            #where = #where == "menu" ? "content" : "menu";
+            return null;
+        }
+        $number = to_int($name, null);
+        if ($number != null && $number >= 1 && $number <= len(#sections)) {
+            #current = $number - 1;
+            return null;
+        }
+        if (#where == "menu") {
+            match ($name) {
+                "up", "k" => { #current = max(#current - 1, 0); }
+                "down", "j" => { #current = min(#current + 1, len(#sections) - 1); }
+                "enter", "right", "l" => { #where = "content"; }
+                default => {}
+            }
+            return null;
+        }
+        if ($name == "escape") {
+            #where = "menu";
+            return null;
+        }
+        #sections[#current][1].handle($key);
+        return null;
+    }
+}

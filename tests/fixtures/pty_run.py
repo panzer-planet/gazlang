@@ -3,10 +3,10 @@ Run bin/gazlang on a program with a real terminal (a pty) as its standard input 
 print as JSON what the terminal's modes were before, during and after, how the program ended, and
 what it printed. PHP can't make a pty, and raw mode can't be seen from a pipe.
 
-    pty_run.py PROGRAM [KEYS_HEX] [SIGNAL]
+    pty_run.py PROGRAM [KEYS_HEX [SIGNAL [ARGS...]]]
 
-KEYS_HEX is written to the terminal once the program has had time to start; SIGNAL (TERM, INT) is
-sent after that. The window is 132 by 40.
+KEYS_HEX is written to the terminal once the program has had time to start; SIGNAL (TERM, INT, or
+empty for none) is sent after that; ARGS are the program's own arguments. The window is 132 by 40.
 """
 import fcntl
 import json
@@ -27,7 +27,8 @@ def modes(fd):
 
 program = sys.argv[1]
 keys = bytes.fromhex(sys.argv[2]) if len(sys.argv) > 2 else b""
-sig = getattr(signal, "SIG" + sys.argv[3]) if len(sys.argv) > 3 else None
+sig = getattr(signal, "SIG" + sys.argv[3]) if len(sys.argv) > 3 and sys.argv[3] else None
+program_args = ["--", *sys.argv[4:]] if len(sys.argv) > 4 else []
 
 master, slave = os.openpty()
 fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 40, 132, 0, 0))
@@ -52,7 +53,7 @@ def pump(seconds):
 
 
 before = modes(slave)
-process = subprocess.Popen(["bin/gazlang", "-f", program], stdin=slave, stdout=slave, stderr=slave, start_new_session=True)
+process = subprocess.Popen(["bin/gazlang", "-f", program, *program_args], stdin=slave, stdout=slave, stderr=slave, start_new_session=True)
 # Wait for the program to change the terminal, or to end, not a fixed time: a busy machine starts it late
 give_up = time.time() + 3
 while process.poll() is None and modes(slave) == before and time.time() < give_up:

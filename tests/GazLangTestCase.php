@@ -271,4 +271,51 @@ abstract class GazLangTestCase extends TestCase
 
         return $stray;
     }
+
+    /**
+     * Run a GazLang file on a pty, as tests/fixtures/pty_run.py does: a real terminal, so raw mode
+     * can be seen and full-screen programs can run. Skipped where there is no python3 to make one.
+     *
+     * @param  string  $file  Relative to the project root
+     * @param  string  $keysHex  Bytes to type, in hex, once it has started
+     * @param  list<string>  $args  The program's own arguments
+     * @return array{before: array<string, bool>, during: array<string, bool>, after: array<string, bool>, code: int|string, out: string}
+     */
+    protected function fileOnTerminal(string $file, string $keysHex = '', ?string $signal = null, array $args = []): array
+    {
+        $python = trim((string) shell_exec('command -v python3 2>/dev/null'));
+        if ($python === '') {
+            $this->markTestSkipped('needs python3 to make a pty');
+        }
+        self::binary();
+        $command = [$python, 'tests/fixtures/pty_run.py', $file, $keysHex, $signal ?? '', ...$args];
+        $process = proc_open($command, [['file', '/dev/null', 'r'], ['pipe', 'w'], ['pipe', 'w']], $pipes, self::ROOT);
+        $this->assertNotFalse($process);
+        $json = stream_get_contents($pipes[1]);
+        $error = stream_get_contents($pipes[2]);
+        proc_close($process);
+        $this->assertNotSame('', (string) $json, "pty_run.py printed nothing: {$error}");
+
+        /** @var array{before: array<string, bool>, during: array<string, bool>, after: array<string, bool>, code: int|string, out: string} */
+        return json_decode((string) $json, true, 512, JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * Run GazLang code on a pty (see fileOnTerminal())
+     *
+     * @return array{before: array<string, bool>, during: array<string, bool>, after: array<string, bool>, code: int|string, out: string}
+     */
+    protected function onTerminal(string $source, string $keysHex = '', ?string $signal = null): array
+    {
+        $made = tempnam(sys_get_temp_dir(), 'gazterm');
+        $file = $made.'.gaz';
+        file_put_contents($file, $source);
+        try {
+            return $this->fileOnTerminal($file, $keysHex, $signal);
+        } finally {
+            // tempnam() made the first, and only names the second
+            unlink($made);
+            unlink($file);
+        }
+    }
 }

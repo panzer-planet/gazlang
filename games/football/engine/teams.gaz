@@ -162,7 +162,9 @@ pub kind Scout {
         // always first, so shirt 1 always goes in goal
         $players = [];
         foreach ($formation.positions() as $shirt => $kind) {
-            $players[] = $kind(#new_name(), #rating($level), $shirt + 1);
+            $player = $kind(#new_name(), #rating($level), $shirt + 1);
+            $player.age = #age();
+            $players[] = $player;
         }
         return Team($name, $formation, $players);
     }

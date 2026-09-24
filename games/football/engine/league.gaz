@@ -6,13 +6,13 @@ include "../../../lib/random.gaz";
 include "players.gaz" use Goalkeeper;
 include "matches.gaz" use Fixture;
 
-kind Standing {
-    #played = 0;
-    #won = 0;
-    #drawn = 0;
-    #lost = 0;
+pub kind Standing {
+    pub #played = 0;
+    pub #won = 0;
+    pub #drawn = 0;
+    pub #lost = 0;
     pub #scored = 0;
-    #conceded = 0;
+    pub #conceded = 0;
 
     fn _(pub #team) {}
 
@@ -43,6 +43,10 @@ kind Standing {
 pub kind League {
     #teams;
     #standings = {};
+    /* The season's matchdays, drawn in advance, each a list of [home, away]; and the matches played
+       so far, a list of matchdays each a list of Fixtures */
+    #schedule = [];
+    #played = [];
 
     // Every club plays every other club twice, home and away
     pub static fn matches_for($clubs) { return $clubs * ($clubs - 1); }
@@ -83,26 +87,81 @@ pub kind League {
         return [...$first_half, ...map($first_half, $matchday -> map($matchday, $pair -> [$pair[1], $pair[0]]))];
     }
 
-    // Plays the season; $kick_off($match) is called as each match starts, and
-    // $after_matchday($number, $matches) after each matchday
-    pub fn play_season($kick_off, $after_matchday) {
-        foreach (#fixtures() as $index => $matchday) {
-            $matches = [];
-            foreach ($matchday as [$home, $away]) {
-                $match = Fixture($home, $away);
-                $kick_off($match);
-                $match.play();
-                #standings[$home.name].record($match.home_goals, $match.away_goals);
-                #standings[$away.name].record($match.away_goals, $match.home_goals);
-                if ($match.away_goals == 0) {
-                    $home.goalkeeper().clean_sheets++;
+    /* Start a season: draw its fixtures, and forget everything played, the table included.
+       play_matchday() draws one itself if this wasn't called, but a screen that shows the fixtures
+       needs them first. */
+    pub fn draw() {
+        foreach (#teams as $team) {
+            #standings[$team.name] = Standing($team);
+        }
+        #schedule = #fixtures();
+        #played = [];
+        return #;
+    }
+
+    pub fn matchdays() { return len(#schedule); }
+    pub fn matchdays_played() { return len(#played); }
+    pub fn matchdays_left() { return len(#schedule) - len(#played); }
+
+    /* Every match of $team, matchday by matchday, as {"matchday", "home", "away", "match"}, "match"
+       being the Fixture once it has been played and null before */
+    pub fn fixtures_of($team) {
+        $matches = [];
+        foreach (#schedule as $day => $pairs) {
+            foreach ($pairs as [$home, $away]) {
+                if ($home != $team && $away != $team) {
+                    continue;
                 }
-                if ($match.home_goals == 0) {
-                    $away.goalkeeper().clean_sheets++;
+                $found = null;
+                if ($day < len(#played)) {
+                    foreach (#played[$day] as $match) {
+                        if ($match.home == $home && $match.away == $away) {
+                            $found = $match;
+                        }
+                    }
                 }
-                $matches[] = $match;
+                $matches[] = {"matchday" => $day + 1, "home" => $home, "away" => $away, "match" => $found};
             }
-            $after_matchday($index + 1, $matches);
+        }
+        return $matches;
+    }
+
+    /* Play the next matchday and give its matches; $kick_off($match), if given, is called as each
+       starts, before it is played */
+    pub fn play_matchday($kick_off = null) {
+        if (len(#schedule) == 0) {
+            #draw();
+        }
+        if (#matchdays_left() == 0) {
+            error("The season is over");
+        }
+        $matches = [];
+        foreach (#schedule[len(#played)] as [$home, $away]) {
+            $match = Fixture($home, $away);
+            if ($kick_off != null) {
+                $kick_off($match);
+            }
+            $match.play();
+            #standings[$home.name].record($match.home_goals, $match.away_goals);
+            #standings[$away.name].record($match.away_goals, $match.home_goals);
+            if ($match.away_goals == 0) {
+                $home.goalkeeper().clean_sheets++;
+            }
+            if ($match.home_goals == 0) {
+                $away.goalkeeper().clean_sheets++;
+            }
+            $matches[] = $match;
+        }
+        #played[] = $matches;
+        return $matches;
+    }
+
+    /* Play what is left of the season; $kick_off($match) is called as each match starts, and
+       $after_matchday($number, $matches) after each matchday */
+    pub fn play_season($kick_off, $after_matchday) {
+        while (#matchdays_left() > 0 || len(#schedule) == 0) {
+            $matches = #play_matchday($kick_off);
+            $after_matchday(#matchdays_played(), $matches);
         }
     }
 

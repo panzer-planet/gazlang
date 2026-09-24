@@ -4,18 +4,31 @@ A terminal football manager game in GazLang, on `lib/tui.gaz`. It lives in this 
 language can be improved as the game asks for it: a change to `lib/` or the VM goes in the same commit
 as the game code that needed it.
 
+## Run it
+
+    bin/gazlang -f games/football/main.gaz [-- SEED]
+
+A terminal at least 80 columns by 24 rows. `1` to `6` (or the arrows and `enter`) choose a section,
+`tab` moves between the menu and the section, `c` plays the next matchday and `q` quits. In a table:
+`j`/`k`, `g`/`G`, page up and down move, `.` and `,` sort by the next or previous column, `o` turns
+the order round and `x` puts it back. A SEED makes the same ten clubs again.
+
+## What is here
+
 - `engine/` is the model: players and their positions, squads and formations, fixtures with the
-  events of a match, leagues and tables, money and the cup. It started as a copy of the football
-  simulator's files (`tests/programs/football/`) and is the game's own now: change it freely.
+  events of a match, leagues that play a matchday at a time, money and the cup. It started as a copy
+  of the football simulator's files (`tests/programs/football/`) and is the game's own now.
+- `game.gaz` is the state of a game and moving time on; `ui.gaz` is the interface; `main.gaz` is the
+  launcher. `DESIGN.md` says where this is going and what the engine still lacks.
 - `tests/` holds GazLang test programs: each `X_test.gaz` must print exactly the `X_test.expected`
-  next to it. Run them with `vendor/bin/phpunit --testsuite games` (0.4s), and the language alone
-  with `--testsuite core`; a plain `vendor/bin/phpunit` runs both.
+  next to it. Run them with `vendor/bin/phpunit --testsuite games` (3s, two of them on a real
+  terminal), and the language alone with `--testsuite core`; a plain `vendor/bin/phpunit` runs both.
 
 The tests check what stays true however the game is tuned (a season plays every match home and
-away, a table adds up, a second yellow card is a sending off), not what a seeded match prints: the
+away, a table adds up, the inbox says what the match said), not what a seeded match prints: the
 ratings and the odds are meant to change, and a recording would need re-recording with every tweak.
+Every screen is drawn into a `tui::Screen` and read back as text and styles, with no terminal.
 
-Not here yet: the terminal interface, a career (seasons, promotion, the summer transfer window),
-saving and loading. `tests/programs/football.gaz` has a working career loop, saves, and transfers as
+Not here yet: match day, tactics, transfers, saving. `tests/programs/football.gaz` has a working career loop, saves, and transfers as
 a command line program: lift what the game needs from it, and leave it as it is, since it is the
 language's biggest test program (see `tests/programs/README.md`).

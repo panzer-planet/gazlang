@@ -1,0 +1,120 @@
+/*
+ * The state of a game: the clubs, their league, which club the manager has, and the inbox that
+ * tells them what happened. Nothing here draws or reads a key: the interface (ui.gaz) asks it
+ * questions and tells it to move time on, so all of it can be tested without a terminal.
+ */
+namespace game;
+
+include "engine/teams.gaz" use Scout;
+include "engine/league.gaz" use League;
+include "engine/money.gaz";
+
+const CLUBS = [
+    "Riverside FC", "Northgate United", "Harbour Town", "Millbrook Athletic", "Kingsway Rovers",
+    "Oakfield City", "Stonebridge", "Westmoor Wanderers", "Ashford Albion", "Lakeside Rangers",
+];
+const FIRST_YEAR = 2026;
+
+/* 1st, 2nd, 3rd, 4th, 11th, 12th, 13th, 21st */
+pub fn ordinal($n) {
+    $teens = $n % 100 >= 11 && $n % 100 <= 13;
+    $suffix = $teens ? "th" : match ($n % 10) {
+        1 => "st",
+        2 => "nd",
+        3 => "rd",
+        default => "th",
+    };
+    return $n .. $suffix;
+}
+
+pub kind Game {
+    pub #league;
+    pub #inbox = [];
+    pub #season = FIRST_YEAR;
+
+    fn _(pub #teams, pub #club) {
+        #league = League(#teams).draw();
+        #tell("Welcome to {#club}", "The board have appointed you manager of {#club}. There are "
+            .. len(#teams) .. " clubs in the league and " .. #league.matchdays() .. " matchdays to play. "
+            .. #expectation());
+    }
+
+    /* A new game: ten clubs made up from $seed, and the manager at the club $club (an index into CLUBS) */
+    pub static fn start($seed, $club = 0) {
+        rand_seed($seed);
+        $scout = Scout();
+        $teams = [];
+        foreach (CLUBS as $name) {
+            $team = $scout.team($name, rand_int(52, 78), "4-4-2");
+            $team.balance = money::starting_balance($team);
+            $teams[] = $team;
+        }
+        return Game($teams, $teams[$club]);
+    }
+
+    /* What the board hopes for, by how the club's squad rates among the others */
+    fn expectation() {
+        $stronger = len(filter(#teams, $team -> $team.rating() > #club.rating()));
+        if ($stronger < 2) {
+            return "The board expect a challenge for the title.";
+        }
+        if ($stronger < len(#teams) / 2) {
+            return "The board expect a place in the top half.";
+        }
+        return "The board expect you to steer clear of the bottom places.";
+    }
+
+    pub fn season_label() {
+        return #season .. "/" .. slice(to_string(#season + 1), 2);
+    }
+
+    pub fn season_over() { return #league.matchdays_left() == 0; }
+
+    /* The club's place in the table, from 1 */
+    pub fn position() {
+        foreach (#league.table() as $place => $standing) {
+            if ($standing.team == #club) {
+                return $place + 1;
+            }
+        }
+    }
+
+    /* The club's place as it is said: 1st, 2nd */
+    pub fn place() { return ordinal(#position()); }
+
+    fn tell($subject, $body) {
+        #inbox[] = {"matchday" => #league.matchdays_played(), "subject" => $subject, "body" => $body};
+    }
+
+    /* Move time on to the next matchday: everyone plays, and the inbox says what happened. Gives
+       the matches played. */
+    pub fn advance() {
+        if (#season_over()) {
+            error("The season is over");
+        }
+        $matches = #league.play_matchday();
+        foreach ($matches as $match) {
+            if ($match.home == #club || $match.away == #club) {
+                #report($match);
+            }
+        }
+        #tell("Matchday " .. #league.matchdays_played() .. " results", join(map($matches, $match -> "{$match}"), "\n"));
+        if (#season_over()) {
+            $champions = #league.table()[0].team;
+            #tell("The season is over", "{$champions} are the champions. You finished " .. ordinal(#position()) .. ".");
+        }
+        return $matches;
+    }
+
+    /* The message about the club's own match */
+    fn report($match) {
+        $home = $match.home == #club;
+        [$scored, $conceded] = $home ? [$match.home_goals, $match.away_goals] : [$match.away_goals, $match.home_goals];
+        $opponent = $home ? $match.away : $match.home;
+        $what = $scored > $conceded ? "Win" : ($scored == $conceded ? "Draw" : "Defeat");
+        $points = #league.table()[#position() - 1].points();
+        #tell("{$what}: {$match}", "You " .. ($scored > $conceded ? "beat" : ($scored == $conceded ? "drew with" : "lost to"))
+            .. " {$opponent} " .. ($home ? "at home" : "away") .. " {$scored}-{$conceded}. You are "
+            .. ordinal(#position()) .. " on {$points} points.");
+    }
+}

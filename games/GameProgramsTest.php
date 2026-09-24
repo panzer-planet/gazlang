@@ -53,4 +53,28 @@ class GameProgramsTest extends GazLangTestCase
     {
         $this->assertNotSame([], self::programs());
     }
+
+    public function test_the_game_runs_on_a_terminal_and_leaves_it_as_it_found_it()
+    {
+        // 2 is the squad, c moves time on, 5 is the table, q quits
+        $ran = $this->fileOnTerminal('games/football/main.gaz', bin2hex('2c5q'), null, ['1']);
+
+        $this->assertSame(0, $ran['code'], $ran['out']);
+        $this->assertStringContainsString('Riverside FC', $ran['out']);
+        $this->assertStringContainsString('League table', $ran['out']);
+        $this->assertSame(['echo' => false, 'icanon' => false, 'isig' => false], $ran['during']);
+        $this->assertSame(['echo' => true, 'icanon' => true, 'isig' => true], $ran['after']);
+        // it ends on the main screen again, with the cursor back
+        $this->assertStringEndsWith("\e[?25h\e[?1049l", $ran['out']);
+    }
+
+    public function test_the_game_says_when_it_has_no_terminal_or_a_bad_seed()
+    {
+        [$out, $err, $code] = self::gazlang(['-f', 'games/football/main.gaz']);
+        $this->assertSame(['', "Error: The football manager needs a terminal\n", 1], [$out, $err, $code]);
+
+        $ran = $this->fileOnTerminal('games/football/main.gaz', '', null, ['nonsense']);
+        $this->assertSame(1, $ran['code']);
+        $this->assertStringContainsString('where SEED is a whole number', $ran['out']);
+    }
 }

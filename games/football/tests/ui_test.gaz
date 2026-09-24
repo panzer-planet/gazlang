@@ -1,0 +1,251 @@
+/*
+ * The interface, drawn into a tui::Screen and read back as text and styles: what is on the screen
+ * after a game starts, after keys are pressed, and after time moves on. Where the text says
+ * something about the game (a score, a place in the table) it is checked against the game.
+ */
+include "../../../tests/gaz/check.gaz";
+include "../../../lib/term.gaz";
+include "../../../lib/tui.gaz";
+include "../game.gaz" use Game;
+include "../ui.gaz" use Shell;
+
+/* Press keys, given as the bytes a terminal sends, and give what the shell said last */
+fn press($shell, $bytes) {
+    $said = null;
+    foreach (term::decode($bytes, true)["keys"] as $key) {
+        $said = $shell.handle($key) ?? $said;
+    }
+    return $said;
+}
+
+/* The shell drawn on a fresh screen, as its lines */
+fn look($shell, $cols = 100, $rows = 30) {
+    $screen = tui::Screen($cols, $rows);
+    $shell.draw($screen);
+    return $screen;
+}
+
+/* Whether the screen shows $text anywhere */
+fn shows($screen, $text) {
+    foreach ($screen.lines() as $line) {
+        if (contains($line, $text)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* The row (from 1) of the first line from row $from with $text in it, or null */
+fn row_of($screen, $text, $from = 1) {
+    foreach ($screen.lines() as $i => $line) {
+        if ($i + 1 >= $from && contains($line, $text)) {
+            return $i + 1;
+        }
+    }
+    return null;
+}
+
+/* How many lines of the screen have $text in them */
+fn lines_with($screen, $text) {
+    return len(filter($screen.lines(), $line -> contains($line, $text)));
+}
+
+/* Every style used in row $row of the screen */
+fn styles_in($screen, $row) {
+    $styles = {};
+    for ($col = 1; $col <= $screen.cols; $col++) {
+        $styles[$screen.cell($col, $row)[1]] = true;
+    }
+    return keys($styles);
+}
+
+/* The style of the cell where $text starts in row $row, or null when the row hasn't got it */
+fn style_at($screen, $row, $text) {
+    $line = $screen.lines()[$row - 1];
+    $at = index_of($line, $text);
+    return $at == null ? null : $screen.cell(term::width(slice($line, 0, $at)) + 1, $row)[1];
+}
+
+/* How many rows between the bar and the last line are drawn in a result's colour */
+fn results_on($screen) {
+    $count = 0;
+    for ($row = 3; $row <= $screen.rows - 2; $row++) {
+        $styles = join(styles_in($screen, $row), ",");
+        if (contains($styles, "green") || contains($styles, "yellow") || contains($styles, "red")) {
+            $count++;
+        }
+    }
+    return $count;
+}
+
+/* ---- The first screen ---- */
+$game = Game::start(1);
+$shell = Shell::for_game($game);
+$screen = look($shell);
+check("the bar names the club, the season and the matchday", [
+    contains($screen.lines()[0], "Riverside FC"),
+    contains($screen.lines()[0], "2026/27"),
+    contains($screen.lines()[0], "Matchday 0 of 18"),
+    contains($screen.lines()[0], $game.place()),
+    contains($screen.lines()[0], "c Continue"),
+], [true, true, true, true, true]);
+check("the bar is inverse across the screen", [$screen.cell(1, 1)[1], $screen.cell(50, 1)[1], $screen.cell(100, 1)[1]], ["bold inverse", "inverse", "bold inverse"]);
+check("the menu lists the sections in order", [
+    contains($screen.lines()[2], " 1 Inbox"),
+    contains($screen.lines()[3], " 2 Squad"),
+    contains($screen.lines()[4], " 3 Tactics"),
+    contains($screen.lines()[5], " 4 Fixtures"),
+    contains($screen.lines()[6], " 5 Table"),
+    contains($screen.lines()[7], " 6 Finances"),
+], [true, true, true, true, true, true]);
+check("the inbox is on show, with its welcome", [$shell.section(), shows($screen, "Welcome to Riverside FC"), shows($screen, "The board have appointed you")], ["Inbox", true, true]);
+check("keys start in the menu", $shell.focus(), "menu");
+check("the current section is marked in the menu", [$screen.cell(3, 3)[1], $screen.cell(3, 4)[1]], ["inverse", ""]);
+check("the last line says what the keys do", contains($screen.lines()[29], "1-6 sections  tab focus  c continue  q quit"), true);
+check("the screen is as big as it was asked to be", [len($screen.lines()), term::width($screen.lines()[0])], [30, 100]);
+
+/* ---- Sections ---- */
+press($shell, "2");
+$screen = look($shell);
+check("2 is the squad", $shell.section(), "Squad");
+check("with a header", [shows($screen, "Name"), shows($screen, "Pos"), shows($screen, "Rating")], [true, true, true]);
+$named = 0;
+foreach ($game.club.players as $player) {
+    if (shows($screen, to_string($player))) {
+        $named++;
+    }
+}
+check("and every player of the club", $named, 11);
+check("and the formation", shows($screen, "4-4-2   Team rating {$game.club.rating()}"), true);
+check("the squad's own hints are at the bottom", contains($screen.lines()[29], "j/k move  . , sort  o reverse  x reset   1-6 sections"), true);
+
+press($shell, "3");
+$screen = look($shell);
+check("3 is tactics, not built yet", [$shell.section(), shows($screen, "Formation, mentality")], ["Tactics", true]);
+press($shell, "4");
+check("4 is the fixtures", $shell.section(), "Fixtures");
+press($shell, "5");
+check("5 is the table", $shell.section(), "Table");
+press($shell, "6");
+$screen = look($shell);
+check("6 is finances, not built yet", [$shell.section(), shows($screen, "The books")], ["Finances", true]);
+press($shell, "7");
+press($shell, "0");
+check("keys past the last section do nothing", $shell.section(), "Finances");
+press($shell, "1");
+check("1 is back at the inbox", $shell.section(), "Inbox");
+
+/* ---- Where the keys go ---- */
+check("tab moves to the section", [press($shell, "\t"), $shell.focus()], [null, "content"]);
+$screen = look($shell);
+check("and the section's border shows it", [$screen.cell(17, 2)[1], $screen.cell(1, 2)[1]], ["cyan", ""]);
+press($shell, "\t");
+check("tab again is back to the menu", $shell.focus(), "menu");
+press($shell, "j");
+check("j in the menu is the next section", $shell.section(), "Squad");
+press($shell, "\e[B");
+check("as is the down arrow", $shell.section(), "Tactics");
+press($shell, "k");
+press($shell, "\e[A");
+check("k and up go back", $shell.section(), "Inbox");
+press($shell, "k");
+check("and stop at the first", $shell.section(), "Inbox");
+foreach ([1, 2, 3, 4, 5, 6, 7] as $_) {
+    press($shell, "j");
+}
+check("and at the last", $shell.section(), "Finances");
+press($shell, "1");
+press($shell, "\r");
+check("enter goes into the section", $shell.focus(), "content");
+press($shell, "\e");
+check("escape comes back out", $shell.focus(), "menu");
+press($shell, "2");
+press($shell, "\t");
+$screen = look($shell);
+check("in the squad, the first player is selected", [$screen.cell(19, 4)[1], $screen.cell(19, 5)[1]], ["inverse", ""]);
+press($shell, "j");
+$screen = look($shell);
+check("j moves down the squad, not the menu", [$shell.section(), $screen.cell(19, 4)[1], $screen.cell(19, 5)[1]], ["Squad", "", "inverse"]);
+press($shell, ".");
+$screen = look($shell);
+check("and . sorts it", shows($screen, "#▲"), true);
+press($shell, "\e");
+press($shell, "5");
+check("keys in the menu don't touch the sections", $shell.section(), "Table");
+
+/* ---- Time moves on ---- */
+$game = Game::start(2);
+$shell = Shell::for_game($game);
+press($shell, "4");
+$screen = look($shell);
+check("before a match the fixtures have one next, and no results", [lines_with($screen, "next ▸"), results_on($screen)], [1, 0]);
+check("and all eighteen matches", lines_with($screen, " v "), 18);
+check("the first is next", row_of($screen, "next ▸"), 4);
+press($shell, "c");
+$screen = look($shell);
+check("c plays a matchday", [$game.league.matchdays_played(), contains($screen.lines()[0], "Matchday 1 of 18"), contains($screen.lines()[0], $game.place())], [1, true, true]);
+check("and shows the inbox, with the news", [$shell.section(), shows($screen, "Matchday 1 results"), row_of($screen, "Matchday 1 results") != null], ["Inbox", true, true]);
+check("the newest message is selected (only bold, as the menu has the keys) and open", [$screen.cell(19, 4)[1], shows($screen, $game.league.table()[0].team.name)], ["bold", true]);
+press($shell, "4");
+$screen = look($shell);
+check("the fixtures have a result now, and the next has moved", [row_of($screen, "next ▸"), lines_with($screen, "next ▸")], [5, 1]);
+check("one match has been played, and it is coloured", results_on($screen), 1);
+check("the next match is bold", contains(join(styles_in($screen, 5), ","), "bold"), true);
+
+press($shell, "5");
+$screen = look($shell);
+check("the table lists every club", lines_with($screen, "Pos  Club"), 1);
+$found = 0;
+foreach ($game.teams as $team) {
+    if (shows($screen, $team.name)) {
+        $found++;
+    }
+}
+check("all ten", $found, 10);
+$own = row_of($screen, "Riverside FC", 3);
+$other = row_of($screen, $game.teams[1].name, 3);
+check("the club's own cell is cyan, and another club's is not", [contains(style_at($screen, $own, "Riverside FC") ?? "", "cyan"), contains(style_at($screen, $other, $game.teams[1].name) ?? "", "cyan")], [true, false]);
+$standing = null;
+foreach ($game.league.table() as $s) {
+    if ($s.team == $game.club) {
+        $standing = $s;
+    }
+}
+check("and says what the game says", shows($screen, " " .. $standing.points()), true);
+check("the leader is first", contains($screen.lines()[3], $game.league.table()[0].team.name), true);
+
+/* ---- A whole season ---- */
+for ($day = 1; $day < 18; $day++) {
+    press($shell, "c");
+}
+check("seventeen more and the season is over", [$game.season_over(), $game.league.matchdays_played()], [true, 18]);
+$screen = look($shell);
+check("the bar says so", contains($screen.lines()[0], "Matchday 18 of 18"), true);
+check("and the inbox has the last word", shows($screen, "The season is over"), true);
+check("nothing to say yet about it", $shell.notice(), "");
+press($shell, "c");
+$screen = look($shell);
+check("another c is told the season is over", [$shell.notice(), contains($screen.lines()[29], "The season is over.")], ["The season is over.", true]);
+check("in bold yellow", $screen.cell(2, 30)[1], "bold yellow");
+press($shell, "2");
+check("and the notice goes with the next key", $shell.notice(), "");
+
+/* ---- Leaving ---- */
+$shell = Shell::for_game(Game::start(1));
+check("q quits", press($shell, "q"), "quit");
+check("so does ctrl+c", press($shell, "\x03"), "quit");
+check("and the end of the input", $shell.handle({"key" => "eof", "ctrl" => false, "alt" => false, "shift" => false}), "quit");
+check("other keys don't", [press($shell, "j"), press($shell, "x"), press($shell, "z")], [null, null, null]);
+
+/* ---- Other sizes ---- */
+foreach ([[80, 24], [60, 20], [40, 12], [20, 6], [10, 3]] as [$cols, $rows]) {
+    $shell = Shell::for_game(Game::start(3));
+    foreach (["1", "2", "3", "4", "5", "6", "c", "2", "4", "5", "1"] as $key) {
+        press($shell, $key);
+        $screen = look($shell, $cols, $rows);
+        if (len($screen.lines()) != $rows || term::width($screen.lines()[0]) != $cols) {
+            check("the screen keeps its size ({$cols} by {$rows}, after {$key})", "wrong", "right");
+        }
+    }
+    check("{$cols} by {$rows} draws every section without an error", $shell.section(), "Inbox");
+}

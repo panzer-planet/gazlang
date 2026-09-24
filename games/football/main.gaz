@@ -1,0 +1,24 @@
+/*
+ * The football manager: a terminal game. Needs a terminal.
+ *
+ *   bin/gazlang -f games/football/main.gaz [-- SEED]
+ *
+ * SEED makes the same ten clubs again; without one they are different every time.
+ */
+include "../../lib/term.gaz";
+include "../../lib/tui.gaz";
+include "game.gaz" use Game;
+include "ui.gaz" use Shell;
+
+if (!term_is_tty(0) || !term_is_tty(1)) {
+    error("The football manager needs a terminal");
+}
+
+$arguments = args();
+$seed = len($arguments) > 0 ? to_int($arguments[0], null) : rand_int(1, 999999);
+if ($seed == null) {
+    error("Usage: bin/gazlang -f games/football/main.gaz [-- SEED], where SEED is a whole number");
+}
+
+$shell = Shell::for_game(Game::start($seed));
+tui::interact($screen -> $shell.draw($screen), $key -> $shell.handle($key));
