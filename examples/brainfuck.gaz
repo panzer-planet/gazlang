@@ -18,11 +18,10 @@ const SQUARES = "++++[>+++++<-]>[<+++++>-]+<+[>[>+>+<<-]++>>[<<+>>-]>>>[-]++>[-]
 kind Machine {
     #tape = [0];
     #at = 0;
-    #input;
     #read = 0;
     #output = "";
 
-    fn _($input) { #input = $input; }
+    fn _(#input);
 
     pub fn run($code) {
         $pc = 0;
@@ -76,27 +75,27 @@ fn compile($source) {
     $i = 0;
     while ($i < len($source)) {
         $c = $source[$i];
-        if ($c == "+" || $c == "-" || $c == ">" || $c == "<") {
-            // A run of one character
-            $run = 1;
-            while ($i + $run < len($source) && $source[$i + $run] == $c) {
-                $run++;
-            }
-            $i += $run;
-            match ($c) {
-                "+" => { $code[] = ["+", $run % 256]; }
-                "-" => { $code[] = ["+", (256 - $run % 256) % 256]; }
-                default => { $code[] = [$c, $run]; }
-            }
-            continue;
-        }
-        if (slice($source, $i, 3) == "[-]") {
-            $code[] = ["0", 0];
-            $i += 3;
-            continue;
-        }
         match ($c) {
+            "+", "-", ">", "<" => {
+                // A run of one character
+                $run = 1;
+                while ($i + $run < len($source) && $source[$i + $run] == $c) {
+                    $run++;
+                }
+                $i += $run;
+                match ($c) {
+                    "+" => { $code[] = ["+", $run % 256]; }
+                    "-" => { $code[] = ["+", (256 - $run % 256) % 256]; }
+                    default => { $code[] = [$c, $run]; }
+                }
+                continue;
+            }
             "[" => {
+                if (slice($source, $i, 3) == "[-]") {
+                    $code[] = ["0", 0];
+                    $i += 3;
+                    continue;
+                }
                 $open[] = len($code);
                 $code[] = ["[", null];
             }

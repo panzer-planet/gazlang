@@ -434,11 +434,11 @@ on real work: it compiles itself, all 4,400 lines, in about a quarter of a secon
 ## Where to go next
 
 - **[docs/language.md](docs/language.md)** — the whole language, in reference form.
-- **`examples/`** — runnable programs, from [`strings.gaz`](examples/strings.gaz) to
-  [pathfinding](examples/pathfinding.gaz) with Dijkstra's algorithm, a
-  [Brainfuck interpreter](examples/brainfuck.gaz), a
-  [Markdown converter](examples/markdown.gaz) and a [terminal dashboard](examples/dashboard.gaz).
-  They are there to read and to run, and nothing tests them.
+- **`examples/`** — runnable programs: [pathfinding](examples/pathfinding.gaz) with Dijkstra's
+  algorithm, a [Brainfuck interpreter](examples/brainfuck.gaz), a
+  [Markdown converter](examples/markdown.gaz), a [tokenizer](examples/tokenizer.gaz) and a
+  [terminal dashboard](examples/dashboard.gaz). They are there to read and to run, and nothing
+  tests them.
 - **`tests/programs/`** — bigger programs that the tests do run, so they still work: a 700 line
   [football league simulator](tests/programs/football.gaz), a
   [CSV report](tests/programs/csv_report.gaz) and a

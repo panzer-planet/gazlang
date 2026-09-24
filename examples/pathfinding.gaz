@@ -20,16 +20,18 @@ const MAP = "
 ##################
 ";
 
-const COSTS = {"S" => 1, "E" => 1, "." => 1, "^" => 3, "~" => 5};
-const STEPS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
-
 // A map as a grid of cells, with where to start and finish
 kind Terrain {
+    // What entering a cell costs; # is missing because a wall can't be entered
+    const COSTS = {"S" => 1, "E" => 1, "." => 1, "^" => 3, "~" => 5};
+    // The order matters: it decides which of two equal routes is found
+    const STEPS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+
     #cells = [];
     #width;
     #height;
-    pub #start;
-    pub #end;
+    pub #start = null;
+    pub #end = null;
 
     fn _($text) {
         foreach (split(trim($text), "\n") as $y => $line) {
@@ -51,7 +53,7 @@ kind Terrain {
                 error("Row {$y} is " .. len($row) .. " wide, not {#width}");
             }
         }
-        if ((#start ?? null) == null || (#end ?? null) == null) {
+        if (#start == null || #end == null) {
             error("The map needs an S and an E");
         }
     }
@@ -68,7 +70,7 @@ kind Terrain {
     pub fn neighbours($id) {
         [$x, $y] = #point($id);
         $found = [];
-        foreach (STEPS as [$dx, $dy]) {
+        foreach (#STEPS as [$dx, $dy]) {
             [$nx, $ny] = [$x + $dx, $y + $dy];
             if ($nx >= 0 && $ny >= 0 && $nx < #width && $ny < #height && #cells[$ny][$nx] != "#") {
                 $found[] = #id([$nx, $ny]);
@@ -79,7 +81,7 @@ kind Terrain {
 
     pub fn cost($id) {
         [$x, $y] = #point($id);
-        return COSTS[#cells[$y][$x]];
+        return #COSTS[#cells[$y][$x]];
     }
 
     // The map with a route drawn on it as $mark, keeping S and E
@@ -99,6 +101,8 @@ kind Terrain {
 kind Heap {
     #items = [];
 
+    fn swap($a, $b) { [#items[$a], #items[$b]] = [#items[$b], #items[$a]]; }
+
     pub fn is_empty() { return len(#items) == 0; }
 
     pub fn push($priority, $value) {
@@ -109,7 +113,7 @@ kind Heap {
             if (#items[$parent][0] <= #items[$i][0]) {
                 break;
             }
-            [#items[$parent], #items[$i]] = [#items[$i], #items[$parent]];
+            #swap($parent, $i);
             $i = $parent;
         }
     }
@@ -134,7 +138,7 @@ kind Heap {
             if ($smallest == $i) {
                 break;
             }
-            [#items[$smallest], #items[$i]] = [#items[$i], #items[$smallest]];
+            #swap($smallest, $i);
             $i = $smallest;
         }
         return $top;

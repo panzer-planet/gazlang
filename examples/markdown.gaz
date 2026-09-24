@@ -8,6 +8,8 @@
  * thing, and emphasis doesn't nest inside itself.
  */
 
+include "../lib/regex.gaz";
+
 const DOCUMENT = "# GazLang notes
 
 A *small* language with **values, not references**, and a VM in C.
@@ -43,13 +45,7 @@ fn inline($text) {
     $html = "";
     $i = 0;
     while ($i < len($text)) {
-        $found = inline_at($text, $i);
-        if ($found == null) {
-            $html ..= escape($text[$i]);
-            $i++;
-            continue;
-        }
-        [$tag, $end] = $found;
+        [$tag, $end] = inline_at($text, $i) ?? [escape($text[$i]), $i + 1];
         $html ..= $tag;
         $i = $end;
     }
@@ -84,20 +80,6 @@ fn inline_at($text, $i) {
     return null;
 }
 
-// Whether a line starts an ordered list item, like "12. "
-fn ordered_item($line) {
-    $dot = index_of($line, ". ");
-    if ($dot == null || $dot == 0) {
-        return false;
-    }
-    foreach (split(slice($line, 0, $dot), "") as $c) {
-        if ($c < "0" || $c > "9") {
-            return false;
-        }
-    }
-    return true;
-}
-
 // What kind of block a line belongs to
 fn line_kind($line) {
     return match {
@@ -105,7 +87,7 @@ fn line_kind($line) {
         starts_with($line, "```") => "fence",
         starts_with($line, "#") => "heading",
         starts_with($line, "- ") => "ul",
-        ordered_item($line) => "ol",
+        regex::search($line, '^[0-9]+\. ') => "ol",
         starts_with($line, ">") => "quote",
         default => "paragraph",
     };
