@@ -12,7 +12,7 @@ pub abstract kind Event {
 }
 
 pub kind Goal extends Event {
-    fn _($minute, $team, #scorer, #score) { ##_($minute, $team); }
+    fn _($minute, $team, pub #scorer, #score) { ##_($minute, $team); }
     pub fn describe() { return "GOAL! {#scorer} scores for {#team}. {#score}"; }
 }
 
@@ -25,7 +25,7 @@ pub kind Shot extends Event {
 }
 
 pub kind Booking extends Event {
-    fn _($minute, $team, #player, #red) { ##_($minute, $team); }
+    fn _($minute, $team, pub #player, pub #red) { ##_($minute, $team); }
     pub fn describe() {
         return #red ? "RED CARD: {#player} ({#team}) is sent off" : "Yellow card for {#player} ({#team})";
     }
@@ -39,6 +39,9 @@ pub kind Whistle extends Event {
 pub kind Fixture {
     pub #home_goals = 0;
     pub #away_goals = 0;
+    // The minutes played so far
+    pub #elapsed = 0;
+    #started = false;
     #listeners = [];
     // How many fixtures have been played across every season this run, not just this league's
     pub static #matches_played = 0;
@@ -53,21 +56,52 @@ pub kind Fixture {
         return #;
     }
 
-    pub fn play() {
+    /* Get the players ready: rested, with nothing yet played. play() and tick() do this
+       themselves, so it only matters to a matchday that starts every match before any is played. */
+    pub fn start() {
+        if (#started) {
+            return #;
+        }
+        #started = true;
         #home.rest();
         #away.rest();
-        for ($minute = 1; $minute <= 90; $minute++) {
-            // Players tire as the match goes on
-            if ($minute % 30 == 0) {
-                #home.tire(30);
-                #away.tire(30);
-            }
-            #minute($minute);
-            if ($minute == 45) {
-                #emit(Whistle(45, "Half time: {#}"));
-            }
+
+        return #;
+    }
+
+    pub fn finished() { return #elapsed >= 90; }
+
+    /* Play the next minute: the match is played a minute at a time by calling this until it is
+       finished(), which is how one is watched, and play() is just that in a loop */
+    pub fn tick() {
+        if (#finished()) {
+            error("The match is over");
         }
-        #emit(Whistle(90, "Full time: {#}"));
+        #start();
+        #elapsed++;
+        $minute = #elapsed;
+        // Players tire as the match goes on
+        if ($minute % 30 == 0) {
+            #home.tire(30);
+            #away.tire(30);
+        }
+        #minute($minute);
+        if ($minute == 45) {
+            #emit(Whistle(45, "Half time: {#}"));
+        }
+        if ($minute == 90) {
+            #emit(Whistle(90, "Full time: {#}"));
+        }
+
+        return #;
+    }
+
+    /* Play what is left of the match */
+    pub fn play() {
+        while (!#finished()) {
+            #tick();
+        }
+
         return #;
     }
 

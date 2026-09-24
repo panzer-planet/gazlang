@@ -126,9 +126,10 @@ pub kind League {
         return $matches;
     }
 
-    /* Play the next matchday and give its matches; $kick_off($match), if given, is called as each
-       starts, before it is played */
-    pub fn play_matchday($kick_off = null) {
+    /* Start the next matchday and give its matches, none of them played yet: each is made, given
+       to $kick_off($match) if there is one (which is when to attach a listener), and made ready.
+       Play them a minute at a time with tick(), or with play(), and then end_matchday() with them. */
+    pub fn begin_matchday($kick_off = null) {
         if (len(#schedule) == 0) {
             #draw();
         }
@@ -141,7 +142,21 @@ pub kind League {
             if ($kick_off != null) {
                 $kick_off($match);
             }
-            $match.play();
+            $matches[] = $match.start();
+        }
+
+        return $matches;
+    }
+
+    /* The matchday's matches are over: their results go in the table and the fixtures */
+    pub fn end_matchday($matches) {
+        foreach ($matches as $match) {
+            if (!$match.finished()) {
+                error("A match is still being played");
+            }
+        }
+        foreach ($matches as $match) {
+            [$home, $away] = [$match.home, $match.away];
             #standings[$home.name].record($match.home_goals, $match.away_goals);
             #standings[$away.name].record($match.away_goals, $match.home_goals);
             if ($match.away_goals == 0) {
@@ -150,10 +165,21 @@ pub kind League {
             if ($match.home_goals == 0) {
                 $away.goalkeeper().clean_sheets++;
             }
-            $matches[] = $match;
         }
         #played[] = $matches;
+
         return $matches;
+    }
+
+    /* Play the next matchday through and give its matches; $kick_off($match), if given, is called
+       as each starts, before it is played */
+    pub fn play_matchday($kick_off = null) {
+        $matches = #begin_matchday($kick_off);
+        foreach ($matches as $match) {
+            $match.play();
+        }
+
+        return #end_matchday($matches);
     }
 
     /* Play what is left of the season; $kick_off($match) is called as each match starts, and

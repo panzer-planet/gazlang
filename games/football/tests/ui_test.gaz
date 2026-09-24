@@ -6,8 +6,14 @@
 include "../../../tests/gaz/check.gaz";
 include "../../../lib/term.gaz";
 include "../../../lib/tui.gaz";
+include "../engine/matches.gaz" use Goal, Booking;
 include "../game.gaz" use Game;
 include "../ui.gaz" use Shell;
+
+/* How many of $list satisfy $test */
+fn count_where($list, $test) {
+    return len(filter($list, $test));
+}
 
 /* Press keys, given as the bytes a terminal sends, and give what the shell said last */
 fn press($shell, $bytes) {
@@ -66,6 +72,25 @@ fn style_at($screen, $row, $text) {
     return $at == null ? null : $screen.cell(term::width(slice($line, 0, $at)) + 1, $row)[1];
 }
 
+/* The inside of the section on row $row of the screen, as text: what is between the menu and the right border */
+fn pane_text($screen, $row) {
+    return join(slice(term::chars($screen.lines()[$row - 1]), 17, $screen.cols - 18), "");
+}
+
+/* What the commentary line at $row says, put back together from the screen: it wraps, and each
+   line after the first is indented under the words, not the minute */
+fn said_at($screen, $row) {
+    $text = trim(slice(pane_text($screen, $row), 6));
+    for ($next = $row + 1; $next < $screen.rows - 1; $next++) {
+        $line = pane_text($screen, $next);
+        if (!starts_with($line, "      ") || trim($line) == "") {
+            break;
+        }
+        $text ..= " " .. trim($line);
+    }
+    return $text;
+}
+
 /* How many rows between the bar and the last line are drawn in a result's colour */
 fn results_on($screen) {
     $count = 0;
@@ -101,7 +126,7 @@ check("the menu lists the sections in order", [
 check("the inbox is on show, with its welcome", [$shell.section(), shows($screen, "Welcome to Riverside FC"), shows($screen, "The board have appointed you")], ["Inbox", true, true]);
 check("keys start in the menu", $shell.focus(), "menu");
 check("the current section is marked in the menu", [$screen.cell(3, 3)[1], $screen.cell(3, 4)[1]], ["inverse", ""]);
-check("the last line says what the keys do", contains($screen.lines()[29], "1-6 sections  tab focus  c continue  q quit"), true);
+check("the last line says what the keys do", contains($screen.lines()[29], "1-6 sections  tab focus  c continue  C quick  q quit"), true);
 check("the screen is as big as it was asked to be", [len($screen.lines()), term::width($screen.lines()[0])], [30, 100]);
 
 /* ---- Sections ---- */
@@ -181,9 +206,9 @@ $screen = look($shell);
 check("before a match the fixtures have one next, and no results", [lines_with($screen, "next ▸"), results_on($screen)], [1, 0]);
 check("and all eighteen matches", lines_with($screen, " v "), 18);
 check("the first is next", row_of($screen, "next ▸"), 4);
-press($shell, "c");
+press($shell, "C");
 $screen = look($shell);
-check("c plays a matchday", [$game.league.matchdays_played(), contains($screen.lines()[0], "Matchday 1 of 18"), contains($screen.lines()[0], $game.place())], [1, true, true]);
+check("C plays a matchday without watching it", [$game.league.matchdays_played(), contains($screen.lines()[0], "Matchday 1 of 18"), contains($screen.lines()[0], $game.place())], [1, true, true]);
 check("and shows the inbox, with the news", [$shell.section(), shows($screen, "Matchday 1 results"), row_of($screen, "Matchday 1 results") != null], ["Inbox", true, true]);
 check("the newest message is selected (only bold, as the menu has the keys) and open", [$screen.cell(19, 4)[1], shows($screen, $game.league.table()[0].team.name)], ["bold", true]);
 press($shell, "4");
@@ -216,19 +241,172 @@ check("the leader is first", contains($screen.lines()[3], $game.league.table()[0
 
 /* ---- A whole season ---- */
 for ($day = 1; $day < 18; $day++) {
-    press($shell, "c");
+    press($shell, "C");
 }
 check("seventeen more and the season is over", [$game.season_over(), $game.league.matchdays_played()], [true, 18]);
 $screen = look($shell);
 check("the bar says so", contains($screen.lines()[0], "Matchday 18 of 18"), true);
 check("and the inbox has the last word", shows($screen, "The season is over"), true);
 check("nothing to say yet about it", $shell.notice(), "");
-press($shell, "c");
+press($shell, "C");
 $screen = look($shell);
-check("another c is told the season is over", [$shell.notice(), contains($screen.lines()[29], "The season is over.")], ["The season is over.", true]);
+check("another C is told the season is over", [$shell.notice(), contains($screen.lines()[29], "The season is over.")], ["The season is over.", true]);
 check("in bold yellow", $screen.cell(2, 30)[1], "bold yellow");
 press($shell, "2");
 check("and the notice goes with the next key", $shell.notice(), "");
+
+/* ---- Watching a matchday ---- */
+$game = Game::start(6);
+$shell = Shell::for_game($game);
+check("nothing to tick between matchdays", [$shell.tick(), $game.live], [null, null]);
+press($shell, "c");
+$day = $game.live;
+$screen = look($shell);
+check("c begins a matchday to watch", [$day != null, $game.league.matchdays_played(), $day.clock(), $day.finished()], [true, 0, 0, false]);
+check("and it takes over the section", [shows($screen, "Match day"), shows($screen, to_string($day.mine)), shows($screen, "The teams are out.")], [true, true, true]);
+check("the bar says which matchday, and what to press", [contains($screen.lines()[0], "Matchday 1 of 18"), contains($screen.lines()[0], "s Skip")], [true, true]);
+check("the clock and the speed", [contains($screen.lines()[2], "0'"), contains($screen.lines()[2], "▶ x1")], [true, true]);
+$named = 0;
+foreach ($game.club.players as $player) {
+    if (shows($screen, to_string($player))) {
+        $named++;
+    }
+}
+check("the club's eleven are there", $named, 11);
+$others = 0;
+foreach ($day.matches as $match) {
+    if ($match != $day.mine && shows($screen, $match.home.name)) {
+        $others++;
+    }
+}
+check("and the other four matches", $others, 4);
+check("the menu waits: nothing in it is selected", [$screen.cell(3, 3)[1], $shell.focus()], ["dim", "menu"]);
+check("and the hints are the match's", contains($screen.lines()[29], "space pause  +/- speed  s skip to the end   ctrl+c quit"), true);
+
+$shell.tick();
+check("a tick plays a minute", [$day.clock(), $day.mine.elapsed], [1, 1]);
+for ($i = 1; $i < 45; $i++) {
+    $shell.tick();
+}
+$screen = look($shell, 100, 60);
+check("at forty-five it is half time", [$day.clock(), contains($screen.lines()[2], "45'"), shows($screen, "Half time")], [45, true, true]);
+check("and every match has got there", count_where($day.matches, $m -> $m.elapsed == 45), 5);
+
+press($shell, " ");
+$shell.tick();
+$shell.tick();
+$screen = look($shell);
+check("paused, time stops", [$day.clock(), contains($screen.lines()[2], "Paused")], [45, true]);
+press($shell, " ");
+$shell.tick();
+check("and space starts it again", $day.clock(), 46);
+
+press($shell, "+");
+$shell.tick();
+check("+ is faster: two minutes a tick", $day.clock(), 48);
+press($shell, "+");
+$shell.tick();
+check("and faster: five", $day.clock(), 53);
+press($shell, "+");
+$shell.tick();
+check("and faster: fifteen", $day.clock(), 68);
+press($shell, "+");
+press($shell, "+");
+$shell.tick();
+check("no faster than that", $day.clock(), 83);
+press($shell, "-");
+$shell.tick();
+check("- slows it down", $day.clock(), 88);
+press($shell, "-");
+press($shell, "-");
+press($shell, "-");
+press($shell, "-");
+$shell.tick();
+check("but not below one a tick", $day.clock(), 89);
+$shell.tick();
+check("and it stops at ninety", [$day.clock(), $day.finished()], [90, true]);
+$shell.tick();
+check("nothing after that", $day.clock(), 90);
+
+$screen = look($shell);
+check("full time says so", [contains($screen.lines()[2], "Full time"), contains($screen.lines()[0], "c Continue"), contains($screen.lines()[29], "c continue")], [true, true, true]);
+check("with the whistle at the top of the commentary", shows($screen, "Full time: " .. to_string($day.mine)), true);
+
+/* keys that mustn't work while the match is on */
+$other_game = Game::start(6);
+$other = Shell::for_game($other_game);
+press($other, "c");
+check("q doesn't quit", [press($other, "q"), $other.notice()], [null, "Finish the match first: s skips to the end"]);
+check("nor c continue: the match isn't over", [press($other, "c"), $other.notice(), $other_game.live != null], [null, "The match isn't over: s skips to the end", true]);
+$before = $other.section();
+press($other, "3");
+press($other, "\t");
+press($other, "\e[B");
+check("and the sections stay where they were", $other.section(), $before);
+check("ctrl+c does quit", press($other, "\x03"), "quit");
+check("and so does the end of the input", $other.handle({"key" => "eof", "ctrl" => false, "alt" => false, "shift" => false}), "quit");
+
+/* skipping */
+press($other, "s");
+$skipped = $other_game.live;
+check("s plays it out", $skipped.finished(), true);
+$screen = look($other);
+check("and it is full time, and nothing is in the table yet", [contains($screen.lines()[2], "Full time"), $other_game.league.matchdays_played()], [true, 0]);
+
+/* going on: and the next matchday starts afresh, whatever speed and pause this one ended at */
+press($shell, "+");
+press($shell, "+");
+press($shell, " ");
+press($shell, "c");
+check("c at full time goes on to the inbox", [$game.live, $game.league.matchdays_played(), $shell.section(), len($game.inbox)], [null, 1, "Inbox", 3]);
+$screen = look($shell);
+check("with the results", [shows($screen, "Matchday 1 results"), contains($screen.lines()[0], "Matchday 1 of 18")], [true, true]);
+press($other, "\r");
+check("enter does the same", [$other_game.live, $other.section()], [null, "Inbox"]);
+press($shell, "c");
+$shell.tick();
+check("the next matchday starts at one minute a tick, not paused", [$game.live.clock(), $game.league.matchdays_played()], [1, 1]);
+
+/* the club's goals and the other side's, and the cards, in colour: every one on the screen, over several matches */
+$goals = 0;
+$bookings = 0;
+$wrong = [];
+foreach ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as $seed) {
+    $watched = Game::start($seed);
+    $shell = Shell::for_game($watched);
+    press($shell, "c");
+    press($shell, "s");
+    $screen = look($shell, 100, 70);
+    foreach ($watched.live.commentary as $event) {
+        if (!is_a($event, Goal) && !is_a($event, Booking)) {
+            continue;
+        }
+        $expected = is_a($event, Goal) ? ($event.team == $watched.club ? "bold green" : "bold red") : ($event.red ? "bold red" : "yellow");
+        if (is_a($event, Goal)) {
+            $goals++;
+        } else {
+            $bookings++;
+        }
+        /* the minute (after a space, so 4' isn't found in 84') and the start of what is said, which is where the line begins */
+        $key = " {$event.minute}'  " .. slice($event.describe(), 0, 6);
+        $row = row_of($screen, $key, 3);
+        $style = $row == null ? null : style_at($screen, $row, $key);
+        if ($style != $expected) {
+            $wrong[] = "seed {$seed}: " .. to_string($event) .. " is " .. to_string([$style]) .. ", not {$expected}";
+        }
+        if ($row != null && said_at($screen, $row) != $event.describe()) {
+            $wrong[] = "seed {$seed}: " .. to_string($event) .. " reads " .. to_string([said_at($screen, $row)]);
+        }
+    }
+}
+check("there were goals and cards to look at", [$goals > 0, $bookings > 0], [true, true]);
+check("goals are green for the club and red against, cards yellow and red, every one", $wrong, []);
+
+/* a quick matchday isn't watched */
+$quick_game = Game::start(6);
+$quick = Shell::for_game($quick_game);
+press($quick, "C");
+check("C plays a matchday without watching it", [$quick_game.live, $quick_game.league.matchdays_played(), $quick.section()], [null, 1, "Inbox"]);
 
 /* ---- Leaving ---- */
 $shell = Shell::for_game(Game::start(1));
@@ -240,7 +418,7 @@ check("other keys don't", [press($shell, "j"), press($shell, "x"), press($shell,
 /* ---- Other sizes ---- */
 foreach ([[80, 24], [60, 20], [40, 12], [20, 6], [10, 3]] as [$cols, $rows]) {
     $shell = Shell::for_game(Game::start(3));
-    foreach (["1", "2", "3", "4", "5", "6", "c", "2", "4", "5", "1"] as $key) {
+    foreach (["1", "2", "3", "4", "5", "6", "c", "\t", "+", " ", " ", "s", "c", "2", "4", "5", "C", "1"] as $key) {
         press($shell, $key);
         $screen = look($shell, $cols, $rows);
         if (len($screen.lines()) != $rows || term::width($screen.lines()[0]) != $cols) {

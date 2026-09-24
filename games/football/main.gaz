@@ -21,4 +21,4 @@ if ($seed == null) {
 }
 
 $shell = Shell::for_game(Game::start($seed));
-tui::interact($screen -> $shell.draw($screen), $key -> $shell.handle($key));
+tui::interact($screen -> $shell.draw($screen), $key -> $shell.handle($key), null, $shell.tick);

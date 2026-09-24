@@ -95,3 +95,101 @@ foreach ([1, 2, 3] as $seed) {
     }
     check("the season played is a full one ({$seed})", sum(map($table, $row -> $row.played)), 10 * 18);
 }
+
+/* ---- Watching a matchday ---- */
+foreach ([1, 2, 3] as $seed) {
+    $game = Game::start($seed, $seed);
+    $club = $game.club;
+    check("nothing is live between matchdays ({$seed})", $game.live, null);
+    $day = $game.begin_matchday();
+    check("beginning a matchday makes it live ({$seed})", [$game.live == $day, len($day.matches), $day.mine != null, $day.clock(), $day.finished(), len($day.commentary)], [true, 5, true, 0, false, 0]);
+    check("the club's match is one of them ({$seed})", $day.mine.home == $club || $day.mine.away == $club, true);
+    check("nothing is in the table or the inbox yet ({$seed})", [$game.league.matchdays_played(), len($game.inbox)], [0, 1]);
+    try {
+        $game.begin_matchday();
+        check("one matchday at a time ({$seed})", "no error", "an error");
+    } catch (Error $e) {
+        check("one matchday at a time ({$seed})", $e.message, "A matchday is already being played");
+    }
+    try {
+        $game.end_matchday();
+        check("a matchday can't end early ({$seed})", "no error", "an error");
+    } catch (Error $e) {
+        check("a matchday can't end early ({$seed})", $e.message, "A match is still being played");
+    }
+
+    $order = true;
+    $last = 0;
+    for ($minute = 1; $minute <= 90; $minute++) {
+        $day.tick();
+        if ($day.clock() != $minute || count_where($day.matches, $m -> $m.elapsed == $minute) != 5) {
+            check("every match is at minute {$minute} ({$seed})", [$day.clock(), count_where($day.matches, $m -> $m.elapsed == $minute)], [$minute, 5]);
+        }
+        foreach ($day.commentary as $event) {
+            $order = $order && $event.minute <= $minute;
+        }
+    }
+    check("commentary is never ahead of the clock ({$seed})", $order, true);
+    check("a matchday is finished at ninety ({$seed})", [$day.clock(), $day.finished()], [90, true]);
+    $day.tick();
+    check("and another tick plays nothing ({$seed})", [$day.clock(), $day.finished()], [90, true]);
+
+    $commentary = $day.commentary;
+    $minutes = map($commentary, $e -> $e.minute);
+    check("commentary is in order ({$seed})", $minutes, sort($minutes, ($a, $b) -> $a <=> $b));
+    check("and only about the club's match ({$seed})", count_where($commentary, $e -> $e.team != null && $e.team != $day.mine.home && $e.team != $day.mine.away), 0);
+    check("with the half time and full time whistles ({$seed})", map(filter($commentary, $e -> $e.team == null), $e -> $e.minute), [45, 90]);
+    $goals = count_where($commentary, $e -> $e.team != null && contains(to_string($e), "GOAL!"));
+    check("and a line for every goal ({$seed})", $goals, $day.mine.home_goals + $day.mine.away_goals);
+
+    $matches = $game.end_matchday();
+    check("ending it leaves nothing live ({$seed})", [$game.live, $game.league.matchdays_played(), len($matches), len($game.inbox)], [null, 1, 5, 3]);
+    try {
+        $game.end_matchday();
+        check("and it can't end twice ({$seed})", "no error", "an error");
+    } catch (Error $e) {
+        check("and it can't end twice ({$seed})", $e.message, "No matchday is being played");
+    }
+}
+
+/* a matchday is over when every match is, not when one is */
+$uneven = Game::start(4);
+$day = $uneven.begin_matchday();
+for ($minute = 1; $minute <= 90; $minute++) {
+    $day.matches[0].tick();
+}
+check("one match over is not a matchday over", [$day.matches[0].finished(), $day.finished()], [true, false]);
+foreach ($day.matches as $match) {
+    while (!$match.finished()) {
+        $match.tick();
+    }
+}
+check("until the last is", $day.finished(), true);
+
+/* watched to the end or advanced through, the same game */
+$watched = Game::start(5, 2);
+$day = $watched.begin_matchday();
+while (!$day.finished()) {
+    $day.tick();
+}
+$watched.end_matchday();
+$advanced = Game::start(5, 2);
+$advanced.advance();
+check("advance() is watching without looking", [
+    map($watched.inbox, $m -> $m["subject"] .. "|" .. $m["body"]),
+    map($watched.league.table(), $row -> [$row.team.name, $row.points(), $row.scored]),
+], [
+    map($advanced.inbox, $m -> $m["subject"] .. "|" .. $m["body"]),
+    map($advanced.league.table(), $row -> [$row.team.name, $row.points(), $row.scored]),
+]);
+
+$over = Game::start(1);
+for ($day_number = 0; $day_number < 18; $day_number++) {
+    $over.advance();
+}
+try {
+    $over.begin_matchday();
+    check("no matchday after the season", "no error", "an error");
+} catch (Error $e) {
+    check("no matchday after the season", $e.message, "The season is over");
+}

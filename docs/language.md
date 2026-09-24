@@ -763,12 +763,15 @@ with no terminal.
   arrows, `j`/`k`, home and end, page up and down; typing, backspace, delete, the arrows, home and
   end or ctrl+a and ctrl+e, ctrl+u and ctrl+k. `$menu.index()` and `$menu.item()` say what is
   selected and `$field.value()` what was typed.
-- **`tui::interact($draw, $handle, $input = null)`** runs `$draw($screen)` and `$handle($key)` on a screen of its
-  own until `$handle` gives something other than `null`, which is what it gives (`null` too
-  when the input ends). Keys come from `$input`, a `term::Input`, or a new one; a program that
-  shows one screen after another passes the same one to each, since keys typed ahead are in it and
-  a new one for each screen would lose them. Two lambdas can't share a variable they change, so the state lives in an
-  object; `examples/dashboard.gaz` is one. **`tui::choose($items, $title = "", $input = null)`**
+- **`tui::interact($draw, $handle, $input = null, $tick = null, $interval = 0.25)`** runs
+  `$draw($screen)` and `$handle($key)` on a screen of its own until `$handle` gives something
+  other than `null`, which is what it gives (`null` too when the input ends). Keys come from
+  `$input`, a `term::Input`, or a new one; a program that shows one screen after another passes the
+  same one to each, since keys typed ahead are in it and a new one for each screen would lose them.
+  With `$tick`, time passes: when no key has been pressed for `$interval` seconds `$tick()` is called
+  and the screen drawn again, so it can move by itself (a clock, a match being played), and `$tick`
+  ends the screen as `$handle` does. The lambdas share state through `shared` variables, or an
+  object as `examples/dashboard.gaz` does. **`tui::choose($items, $title = "", $input = null)`**
   (the index picked, or `null` if cancelled or there is nothing to pick) and
   **`tui::ask($question, $initial = "", $input = null)`** (the answer, or `null`) are a
   `Menu` and a `TextField` run that way, in the middle of the screen. All three need a terminal.

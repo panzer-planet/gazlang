@@ -699,8 +699,12 @@ pub kind TextField {
  * (a term::Input), or from a new one. A program that shows one screen after another passes the
  * same one to each: keys that arrived together (typed ahead) are in it, and would be lost with a
  * new Input made for each screen.
+ *
+ * With $tick, time passes too: when no key has been pressed for $interval seconds, $tick() is
+ * called and the screen drawn again, so a screen can move by itself (a clock, a match being
+ * played). It ends the screen as $handle does, by giving something other than null.
  */
-pub fn interact($draw, $handle, $input = null) {
+pub fn interact($draw, $handle, $input = null, $tick = null, $interval = 0.25) {
     $input ??= term::Input();
     return term::fullscreen(() -> {
         $size = term_size();
@@ -710,7 +714,15 @@ pub fn interact($draw, $handle, $input = null) {
             $screen.clear();
             $draw($screen);
             print($screen.render());
-            $key = $input.read();
+            $key = $input.read($tick == null ? null : $interval);
+            if ($key == null) {
+                // nothing was pressed for a while
+                $result = $tick();
+                if ($result != null) {
+                    return $result;
+                }
+                continue;
+            }
             if ($key["key"] == "eof") {
                 return null;
             }

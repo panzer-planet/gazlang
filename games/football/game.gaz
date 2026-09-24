@@ -27,7 +27,60 @@ pub fn ordinal($n) {
     return $n .. $suffix;
 }
 
+/*
+ * A matchday being played: every match of it, the club's own among them, ticking together a minute
+ * at a time, and the commentary on the club's match as it happens. Made by Game.begin_matchday().
+ */
+pub kind MatchDay {
+    pub #matches = [];
+    /* The club's match, or null on a matchday the club sits out */
+    pub #mine = null;
+    /* Everything that has happened in the club's match, oldest first */
+    pub #commentary = [];
+
+    fn _(#club);
+
+    /* The league gives each match to this as it is made, which is when to listen to it */
+    pub fn attach($match) {
+        #matches[] = $match;
+        if ($match.home == #club || $match.away == #club) {
+            #mine = $match;
+            $match.on_event(#hear);
+        }
+    }
+
+    fn hear($event) {
+        #commentary[] = $event;
+    }
+
+    /* The minutes played, which every match has in common */
+    pub fn clock() {
+        return len(#matches) == 0 ? 0 : #matches[0].elapsed;
+    }
+
+    pub fn finished() {
+        foreach (#matches as $match) {
+            if (!$match.finished()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /* Play a minute of every match that isn't over */
+    pub fn tick() {
+        foreach (#matches as $match) {
+            if (!$match.finished()) {
+                $match.tick();
+            }
+        }
+    }
+}
+
 pub kind Game {
+    /* The matchday being played, or null between them */
+    pub #live = null;
     pub #league;
     pub #inbox = [];
     pub #season = FIRST_YEAR;
@@ -86,13 +139,30 @@ pub kind Game {
         #inbox[] = {"matchday" => #league.matchdays_played(), "subject" => $subject, "body" => $body};
     }
 
-    /* Move time on to the next matchday: everyone plays, and the inbox says what happened. Gives
-       the matches played. */
-    pub fn advance() {
+    /* Start the next matchday, to be played a minute at a time with live.tick(): every match is
+       made and ready, and the commentary on the club's own is collected. end_matchday() when it is
+       finished(). Gives the MatchDay. */
+    pub fn begin_matchday() {
         if (#season_over()) {
             error("The season is over");
         }
-        $matches = #league.play_matchday();
+        if (#live != null) {
+            error("A matchday is already being played");
+        }
+        #live = MatchDay(#club);
+        #league.begin_matchday(#live.attach);
+
+        return #live;
+    }
+
+    /* The matchday is over: the table and the fixtures have its results, and the inbox says what
+       happened. Gives the matches played. */
+    pub fn end_matchday() {
+        if (#live == null) {
+            error("No matchday is being played");
+        }
+        $matches = #league.end_matchday(#live.matches);
+        #live = null;
         foreach ($matches as $match) {
             if ($match.home == #club || $match.away == #club) {
                 #report($match);
@@ -104,6 +174,17 @@ pub kind Game {
             #tell("The season is over", "{$champions} are the champions. You finished " .. ordinal(#position()) .. ".");
         }
         return $matches;
+    }
+
+    /* Move time on to the next matchday without watching it: everyone plays, and the inbox says
+       what happened. Gives the matches played. */
+    pub fn advance() {
+        $day = #begin_matchday();
+        while (!$day.finished()) {
+            $day.tick();
+        }
+
+        return #end_matchday();
     }
 
     /* The message about the club's own match */

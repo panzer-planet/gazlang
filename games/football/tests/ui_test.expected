@@ -34,7 +34,7 @@ ok keys in the menu don't touch the sections
 ok before a match the fixtures have one next, and no results
 ok and all eighteen matches
 ok the first is next
-ok c plays a matchday
+ok C plays a matchday without watching it
 ok and shows the inbox, with the news
 ok the newest message is selected (only bold, as the menu has the keys) and open
 ok the fixtures have a result now, and the next has moved
@@ -49,9 +49,47 @@ ok seventeen more and the season is over
 ok the bar says so
 ok and the inbox has the last word
 ok nothing to say yet about it
-ok another c is told the season is over
+ok another C is told the season is over
 ok in bold yellow
 ok and the notice goes with the next key
+ok nothing to tick between matchdays
+ok c begins a matchday to watch
+ok and it takes over the section
+ok the bar says which matchday, and what to press
+ok the clock and the speed
+ok the club's eleven are there
+ok and the other four matches
+ok the menu waits: nothing in it is selected
+ok and the hints are the match's
+ok a tick plays a minute
+ok at forty-five it is half time
+ok and every match has got there
+ok paused, time stops
+ok and space starts it again
+ok + is faster: two minutes a tick
+ok and faster: five
+ok and faster: fifteen
+ok no faster than that
+ok - slows it down
+ok but not below one a tick
+ok and it stops at ninety
+ok nothing after that
+ok full time says so
+ok with the whistle at the top of the commentary
+ok q doesn't quit
+ok nor c continue: the match isn't over
+ok and the sections stay where they were
+ok ctrl+c does quit
+ok and so does the end of the input
+ok s plays it out
+ok and it is full time, and nothing is in the table yet
+ok c at full time goes on to the inbox
+ok with the results
+ok enter does the same
+ok the next matchday starts at one minute a tick, not paused
+ok there were goals and cards to look at
+ok goals are green for the club and red against, cards yellow and red, every one
+ok C plays a matchday without watching it
 ok q quits
 ok so does ctrl+c
 ok and the end of the input

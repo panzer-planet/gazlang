@@ -279,9 +279,10 @@ abstract class GazLangTestCase extends TestCase
      * @param  string  $file  Relative to the project root
      * @param  string  $keysHex  Bytes to type, in hex, once it has started
      * @param  list<string>  $args  The program's own arguments
+     * @param  float  $wait  Seconds to let it run after the keys, for one that moves by itself
      * @return array{before: array<string, bool>, during: array<string, bool>, after: array<string, bool>, code: int|string, out: string}
      */
-    protected function fileOnTerminal(string $file, string $keysHex = '', ?string $signal = null, array $args = []): array
+    protected function fileOnTerminal(string $file, string $keysHex = '', ?string $signal = null, array $args = [], float $wait = 0.3): array
     {
         $python = trim((string) shell_exec('command -v python3 2>/dev/null'));
         if ($python === '') {
@@ -289,7 +290,7 @@ abstract class GazLangTestCase extends TestCase
         }
         self::binary();
         $command = [$python, 'tests/fixtures/pty_run.py', $file, $keysHex, $signal ?? '', ...$args];
-        $process = proc_open($command, [['file', '/dev/null', 'r'], ['pipe', 'w'], ['pipe', 'w']], $pipes, self::ROOT);
+        $process = proc_open($command, [['file', '/dev/null', 'r'], ['pipe', 'w'], ['pipe', 'w']], $pipes, self::ROOT, [...getenv(), 'PTY_WAIT' => (string) $wait]);
         $this->assertNotFalse($process);
         $json = stream_get_contents($pipes[1]);
         $error = stream_get_contents($pipes[2]);

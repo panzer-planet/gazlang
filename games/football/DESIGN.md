@@ -60,8 +60,8 @@ A launcher smoke test runs the real thing on a pty. See `README.md`.
    them, so `Team` needs a squad and a lineup, and injuries and suspensions start to matter.
 2. **Tactics.** Formation is fixed at 4-4-2 and nothing else steers a match: mentality, width,
    tempo and instructions should move the odds.
-3. **The match is instant.** A match day should be watched, minute by minute, from the events the
-   engine already emits (they are public for this), with substitutions and tactical changes.
+3. **The match can't be changed.** A match day is watched, minute by minute, but there are no
+   substitutions or tactical changes to make while it is on.
 4. **Players are a number.** One rating; a manager wants attributes, a role, morale, fitness and a
    contract.
 5. **Balance.** Scorelines like 0-8 come from the simulator's odds, and need tuning before anything
@@ -73,8 +73,8 @@ A launcher smoke test runs the real thing on a pty. See `README.md`.
 ## Slices, in order
 
 1. **The shell**: sections, tables, an inbox, moving time on. *(done)*
-2. **Match day**: a match you watch, with commentary from the events, and a lineup to choose from a
-   bigger squad.
+2. **Match day**: a match you watch, with commentary from the events. *(done)* And a lineup to choose
+   from a bigger squad, which needs the squad first (gap 1) and so comes next.
 3. **Tactics**: formation and mentality that change results.
 4. **Transfers and finances**: a market with values and wages, the books, the budget.
 5. **Saving and loading.**

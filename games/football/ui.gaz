@@ -12,6 +12,8 @@ namespace ui;
 
 include "../../lib/term.gaz";
 include "../../lib/tui.gaz";
+include "../../lib/format.gaz" use pad_left;
+include "engine/matches.gaz" use Goal, Booking, Whistle;
 
 /* $text cut into lines no wider than $width, on the spaces, keeping its own line breaks */
 fn wrap($text, $width) {
@@ -185,6 +187,136 @@ pub kind PlaceholderView extends View {
     pub fn handle($key) { return null; }
 }
 
+/* How a line of commentary is drawn: our goals and their goals, cards, and the whistle */
+fn event_style($event, $club) {
+    if (is_a($event, Goal)) {
+        return $event.team == $club ? "bold green" : "bold red";
+    }
+    if (is_a($event, Booking)) {
+        return $event.red ? "bold red" : "yellow";
+    }
+    if (is_a($event, Whistle)) {
+        return "dim";
+    }
+
+    return "";
+}
+
+/*
+ * The matchday being played, as it happens: the score and the clock, what is being said about
+ * the club's match, the club's eleven with their goals and cards, and the other matches' scores.
+ * Time passes when the shell calls step(); the view says how much, since it has the speed.
+ */
+pub kind MatchView extends View {
+    /* Minutes played each time step() is called, at each speed */
+    const SPEEDS = [1, 2, 5, 15];
+    #speed = 0;
+    #paused = false;
+
+    pub fn title() { return "Match day"; }
+
+    pub fn hints() {
+        return #game.live.finished() ? "c continue" : "space pause  +/- speed  s skip to the end";
+    }
+
+    /* A new matchday: at the slowest speed, and not paused */
+    pub fn reset() {
+        #speed = 0;
+        #paused = false;
+    }
+
+    /* Time passes: play the minutes the speed says, unless it is paused or over */
+    pub fn step() {
+        $day = #game.live;
+        if ($day == null || #paused) {
+            return null;
+        }
+        for ($i = 0; $i < #SPEEDS[#speed] && !$day.finished(); $i++) {
+            $day.tick();
+        }
+    }
+
+    /* Take a key: "end" when the matchday is over and it is time to go on, a message to show
+       when a key can't be obeyed, and null otherwise */
+    pub fn handle($key) {
+        $day = #game.live;
+        match (term::name($key)) {
+            "space" => { #paused = !#paused; }
+            "+", "=" => { #speed = min(#speed + 1, len(#SPEEDS) - 1); }
+            "-" => { #speed = max(#speed - 1, 0); }
+            "s" => {
+                while (!$day.finished()) {
+                    $day.tick();
+                }
+            }
+            "c", "enter" => {
+                if ($day.finished()) {
+                    return "end";
+                }
+
+                return "The match isn't over: s skips to the end";
+            }
+            default => {}
+        }
+
+        return null;
+    }
+
+    pub fn draw($screen, $rect, $focused) {
+        $day = #game.live;
+        $club = #game.club;
+        $mine = $day.mine;
+        if ($mine == null) {
+            $screen.put($rect.col, $rect.row, "{$club} doesn't play this matchday.", "dim");
+
+            return null;
+        }
+
+        /* the score, in the middle, with what the game is doing on the left and the clock on the right */
+        [$head, $rest] = $rect.split_top(2);
+        $state = $day.finished() ? "Full time" : (#paused ? "Paused" : "▶ x" .. #SPEEDS[#speed]);
+        tui::label($screen, $head.col, $head.row, $head.width, to_string($mine), "bold", "center");
+        tui::label($screen, $head.col, $head.row, min(12, $head.width), $state, $day.finished() ? "bold" : "dim");
+        tui::label($screen, $head.col + max($head.width - 6, 0), $head.row, min(6, $head.width), $day.clock() .. "'", "bold", "right");
+        $screen.put($head.col, $head.row + 1, repeat("─", $head.width), "dim");
+
+        /* the eleven and the other matches below, as much of them as fits, and the commentary above */
+        [$commentary, $panels] = $rest.split_bottom(min(13, max($rest.height - 5, 0)));
+        if (len($day.commentary) == 0) {
+            $screen.put($commentary.col, $commentary.row, "The teams are out.", "dim");
+        }
+        /* newest first, each under its minute and wrapped to the pane, so a long line keeps its score */
+        $lines = [];
+        foreach (reverse($day.commentary) as $event) {
+            if (len($lines) >= $commentary.height) {
+                break;
+            }
+            foreach (wrap($event.describe(), max($commentary.width - 6, 10)) as $i => $part) {
+                $lines[] = [($i == 0 ? pad_left("{$event.minute}'", 4) .. "  " : "      ") .. $part, event_style($event, $club)];
+            }
+        }
+        foreach (slice($lines, 0, $commentary.height) as $i => [$text, $style]) {
+            tui::label($screen, $commentary.col, $commentary.row + $i, $commentary.width, $text, $style);
+        }
+        if ($panels.height < 3) {
+            return null;
+        }
+        [$eleven, $others] = $panels.split_left(min(44, $panels.width));
+        $rows = map($club.players, $player -> [$player.number, to_string($player), $player.position(), $player.match_goals, $player.sent_off ? "R" : ($player.yellow_cards > 0 ? "Y" : "")]);
+        tui::table($screen, $eleven.col, $eleven.row, ["#", "Name", "Pos", "G", "C"], slice($rows, 0, max($eleven.height - 2, 0)));
+        if ($others.width > 4) {
+            tui::label($screen, $others.col + 2, $others.row, $others.width - 2, "Other matches", "bold");
+            $line = 0;
+            foreach ($day.matches as $match) {
+                if ($match != $mine && $line < $others.height - 2) {
+                    tui::label($screen, $others.col + 2, $others.row + 2 + $line, $others.width - 2, to_string($match));
+                    $line++;
+                }
+            }
+        }
+    }
+}
+
 /*
  * The whole screen. Keys: 1 to 6 (or the arrows in the menu) choose a section, tab moves between
  * the menu and the section, escape goes back to the menu, c moves time on to the next matchday
@@ -195,7 +327,7 @@ pub kind Shell {
     #where = "menu";
     #note = "";
 
-    fn _(#game, #sections);
+    fn _(#game, #sections, #match);
 
     pub static fn for_game($game) {
         return Shell($game, [
@@ -205,7 +337,7 @@ pub kind Shell {
             ["Fixtures", FixturesView($game)],
             ["Table", LeagueView($game)],
             ["Finances", PlaceholderView($game, "Finances", "The books: wages, income and the transfer budget.")],
-        ]);
+        ], MatchView($game));
     }
 
     /* Which section is on show, by name, and whether keys go to the menu or the section */
@@ -218,43 +350,75 @@ pub kind Shell {
         [$rest, $bottom] = $rest.split_bottom(1);
         [$menu, $content] = $rest.split_left(min(16, $rest.width));
         $league = #game.league;
+        $live = #game.live != null;
 
         /* the bar: the club on the left, where the season is in the middle, the key to press on the right */
         $screen.fill($top.col, $top.row, $top.width, 1, " ", "inverse");
-        tui::label($screen, $top.col, $top.row, $top.width, #game.season_label() .. "  ·  Matchday " .. $league.matchdays_played() .. " of " .. $league.matchdays() .. "  ·  " .. #game.place(), "inverse", "center");
+        tui::label($screen, $top.col, $top.row, $top.width, #game.season_label() .. "  ·  Matchday " .. ($league.matchdays_played() + ($live ? 1 : 0)) .. " of " .. $league.matchdays() .. "  ·  " .. #game.place(), "inverse", "center");
         tui::label($screen, $top.col, $top.row, term::width(#game.club.name) + 2, " " .. #game.club.name, "bold inverse");
-        tui::label($screen, $top.col + $top.width - 14, $top.row, 14, "c Continue ▸ ", "bold inverse", "right");
+        tui::label($screen, $top.col + $top.width - 14, $top.row, 14, $live && !#game.live.finished() ? "s Skip ▸ " : "c Continue ▸ ", "bold inverse", "right");
 
-        $in_menu = #where == "menu";
+        /* a matchday being played takes over the section, and the menu waits */
+        $in_menu = #where == "menu" && !$live;
         tui::box($screen, $menu.col, $menu.row, $menu.width, $menu.height, "", $in_menu ? "cyan" : "");
         $inside = $menu.inset(1);
         foreach (#sections as $i => [$title, $view]) {
-            $shown = $i == #current;
-            tui::label($screen, $inside.col, $inside.row + $i, $inside.width, " " .. ($i + 1) .. " " .. $title, $shown ? ($in_menu ? "inverse" : "bold") : "");
+            $shown = $i == #current && !$live;
+            tui::label($screen, $inside.col, $inside.row + $i, $inside.width, " " .. ($i + 1) .. " " .. $title, $live ? "dim" : ($shown ? ($in_menu ? "inverse" : "bold") : ""));
         }
 
-        $view = #sections[#current][1];
+        $view = $live ? #match : #sections[#current][1];
         tui::box($screen, $content.col, $content.row, $content.width, $content.height, $view.title(), $in_menu ? "" : "cyan");
         $view.draw($screen, $content.inset(1), !$in_menu);
 
         $hints = $view.hints();
-        $keys = "1-6 sections  tab focus  c continue  q quit";
+        $keys = $live ? "ctrl+c quit" : "1-6 sections  tab focus  c continue  C quick  q quit";
         tui::label($screen, $bottom.col + 1, $bottom.row, max($bottom.width - 2, 0), #note != "" ? #note : ($hints == "" ? $keys : $hints .. "   " .. $keys), #note != "" ? "bold yellow" : "dim");
+    }
+
+    /* Time passes, while nobody is pressing keys: a matchday being played moves on */
+    pub fn tick() {
+        if (#game.live != null) {
+            #match.step();
+        }
+
+        return null;
     }
 
     /* Take a key: "quit" when it is time to leave, and null otherwise */
     pub fn handle($key) {
         $name = term::name($key);
         #note = "";
-        if (in_array($name, ["q", "ctrl+c", "eof"])) {
+        if (in_array($name, ["ctrl+c", "eof"])) {
             return "quit";
         }
-        if ($name == "c") {
+        if (#game.live != null) {
+            if ($name == "q") {
+                #note = "Finish the match first: s skips to the end";
+                return null;
+            }
+            $result = #match.handle($key);
+            if ($result == "end") {
+                #game.end_matchday();
+                // the inbox is where a matchday's news is
+                #current = 0;
+            } else if ($result != null) {
+                #note = $result;
+            }
+
+            return null;
+        }
+        if ($name == "q") {
+            return "quit";
+        }
+        if ($name == "c" || $name == "C") {
             if (#game.season_over()) {
                 #note = "The season is over.";
+            } else if ($name == "c") {
+                #game.begin_matchday();
+                #match.reset();
             } else {
                 #game.advance();
-                // the inbox is where a matchday's news is
                 #current = 0;
             }
             return null;

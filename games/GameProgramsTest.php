@@ -56,8 +56,8 @@ class GameProgramsTest extends GazLangTestCase
 
     public function test_the_game_runs_on_a_terminal_and_leaves_it_as_it_found_it()
     {
-        // 2 is the squad, c moves time on, 5 is the table, q quits
-        $ran = $this->fileOnTerminal('games/football/main.gaz', bin2hex('2c5q'), null, ['1']);
+        // 2 is the squad, c begins a matchday, s skips to full time, c goes on, 5 is the table, q quits
+        $ran = $this->fileOnTerminal('games/football/main.gaz', bin2hex('2csc5q'), null, ['1']);
 
         $this->assertSame(0, $ran['code'], $ran['out']);
         $this->assertStringContainsString('Riverside FC', $ran['out']);
@@ -76,5 +76,17 @@ class GameProgramsTest extends GazLangTestCase
         $ran = $this->fileOnTerminal('games/football/main.gaz', '', null, ['nonsense']);
         $this->assertSame(1, $ran['code']);
         $this->assertStringContainsString('where SEED is a whole number', $ran['out']);
+    }
+
+    public function test_a_match_moves_by_itself_while_nobody_presses_a_key()
+    {
+        // c begins a matchday and then nothing is pressed: time passes at a minute a quarter of a second,
+        // so in two and a half seconds the first goal of seed 1's match (in the fourth minute) is on the screen
+        $ran = $this->fileOnTerminal('games/football/main.gaz', bin2hex('c'), 'INT', ['1'], 2.5);
+
+        $this->assertSame(-2, $ran['code']);
+        $this->assertStringContainsString('▶ x1', $ran['out']);
+        $this->assertStringContainsString('GOAL!', $ran['out']);
+        $this->assertSame(['echo' => true, 'icanon' => true, 'isig' => true], $ran['after']);
     }
 }

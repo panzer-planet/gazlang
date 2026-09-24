@@ -283,3 +283,101 @@ foreach ([4, 5] as $count) {
         ], [0, 0, 0]);
     }
 }
+
+/* ---- A match, a minute at a time ---- */
+foreach (SEEDS as $seed) {
+    /* the same two squads twice: one match played through, one a minute at a time */
+    [$home, $away] = clubs(2, $seed);
+    $heard = [];
+    $whole = Fixture($home, $away).on_event($hear).play();
+    $through = map($heard, $e -> to_string($e));
+
+    [$home, $away] = clubs(2, $seed);
+    $heard = [];
+    $match = Fixture($home, $away).on_event($hear);
+    check("a new match has played nothing (seed {$seed})", [$match.elapsed, $match.finished(), len($heard)], [0, false, 0]);
+    $whistled = {};
+    for ($minute = 1; $minute <= 90; $minute++) {
+        $match.tick();
+        if ($minute == 44 || $minute == 45 || $minute == 89 || $minute == 90) {
+            $whistled[$minute] = count_where($heard, $e -> is_a($e, Whistle));
+        }
+        if ($match.elapsed != $minute || $match.finished() != ($minute == 90)) {
+            check("the clock and finished() follow the minutes (seed {$seed}, minute {$minute})", [$match.elapsed, $match.finished()], [$minute, $minute == 90]);
+        }
+    }
+    check("half time comes at 45 and full time at 90 (seed {$seed})", $whistled, {44 => 0, 45 => 1, 89 => 1, 90 => 2});
+    check("a match played a minute at a time is the same match (seed {$seed})", [$match.home_goals, $match.away_goals, map($heard, $e -> to_string($e))], [$whole.home_goals, $whole.away_goals, $through]);
+    try {
+        $match.tick();
+        check("no minute after ninety (seed {$seed})", "no error", "an error");
+    } catch (Error $e) {
+        check("no minute after ninety (seed {$seed})", $e.message, "The match is over");
+    }
+    check("play() on a finished match plays nothing (seed {$seed})", [$match.play().elapsed, len($heard)], [90, len($through)]);
+
+    /* started part of the way, played out */
+    [$home, $away] = clubs(2, $seed);
+    $heard = [];
+    $partly = Fixture($home, $away).on_event($hear);
+    for ($minute = 1; $minute <= 30; $minute++) {
+        $partly.tick();
+    }
+    $partly.play();
+    check("play() carries on from where it was (seed {$seed})", [$partly.elapsed, $partly.home_goals, $partly.away_goals, map($heard, $e -> to_string($e))], [90, $whole.home_goals, $whole.away_goals, $through]);
+}
+
+[$home, $away] = clubs(2, 3);
+$ready = Fixture($home, $away);
+$ready.start();
+$ready.start();
+$after_two = rand_int(1, 1000000000);
+[$home, $away] = clubs(2, 3);
+Fixture($home, $away).start();
+check("start() is only done once", $after_two, rand_int(1, 1000000000));
+[$home, $away] = clubs(2, 3);
+$started = Fixture($home, $away).start();
+check("and plays no minutes", [$started.elapsed, $started.finished()], [0, false]);
+
+/* ---- A matchday, begun and ended ---- */
+foreach ([4, 5] as $count) {
+    $label = "{$count} clubs";
+    $teams = clubs($count, 2);
+    $league = League($teams);
+    $log = Log();
+    $matches = $league.begin_matchday($log.kick_off);
+    check("a matchday begins with its matches, none played ({$label})", [
+        len($matches),
+        $log.matches,
+        count_where($matches, $m -> $m.elapsed == 0 && !$m.finished()),
+        $league.matchdays_played(),
+    ], [intdiv($count, 2), intdiv($count, 2), intdiv($count, 2), 0]);
+    /* nobody has kicked a ball, but they are ready: a forward only attacks once rested */
+    $forwards = [];
+    foreach ($matches as $m) {
+        $forwards = [...$forwards, ...filter([...$m.home.players, ...$m.away.players], $p -> $p.position() == "FW")];
+    }
+    check("the players are ready when the matchday begins ({$label})", count_where($forwards, $p -> $p.attacking() > 0), len($forwards));
+    try {
+        $league.end_matchday($matches);
+        check("a matchday can't end with matches unplayed ({$label})", "no error", "an error");
+    } catch (Error $e) {
+        check("a matchday can't end with matches unplayed ({$label})", $e.message, "A match is still being played");
+    }
+    check("and nothing was recorded ({$label})", [$league.matchdays_played(), sum(map($league.table(), $row -> $row.played))], [0, 0]);
+
+    /* all the matches a minute at a time together, as they are watched */
+    for ($minute = 1; $minute <= 90; $minute++) {
+        foreach ($matches as $match) {
+            $match.tick();
+        }
+    }
+    check("every match is over ({$label})", count_where($matches, $m -> $m.finished()), len($matches));
+    $league.end_matchday($matches);
+    check("ending it records the results ({$label})", [
+        $league.matchdays_played(),
+        sum(map($league.table(), $row -> $row.played)),
+        sum(map($league.table(), $row -> $row.scored)),
+    ], [1, 2 * len($matches), sum(map($matches, $m -> $m.home_goals + $m.away_goals))]);
+    check("the results are in the fixtures ({$label})", $league.fixtures_of($matches[0].home)[0]["match"] == $matches[0], true);
+}

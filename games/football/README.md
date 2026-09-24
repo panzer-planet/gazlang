@@ -9,9 +9,19 @@ as the game code that needed it.
     bin/gazlang -f games/football/main.gaz [-- SEED]
 
 A terminal at least 80 columns by 24 rows. `1` to `6` (or the arrows and `enter`) choose a section,
-`tab` moves between the menu and the section, `c` plays the next matchday and `q` quits. In a table:
+`tab` moves between the menu and the section, `c` starts the next matchday, which you watch (see
+below), `C` plays it without watching and `q` quits. In a table:
 `j`/`k`, `g`/`G`, page up and down move, `.` and `,` sort by the next or previous column, `o` turns
 the order round and `x` puts it back. A SEED makes the same ten clubs again.
+
+## Match day
+
+`c` starts a matchday: your match on the screen, minute by minute, with the score and the clock,
+commentary newest first (your goals green, theirs red, cards yellow and red), your eleven with their
+goals and cards, and the other matches' scores. Time passes by itself, a quarter of a second a
+minute. `space` pauses, `+` and `-` change the speed (a minute, two, five or fifteen at a time), `s`
+skips to full time, and at full time `c` goes on: the results go in the table and the inbox. Only
+`ctrl+c` quits while a match is on.
 
 ## What is here
 

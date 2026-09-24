@@ -6,7 +6,9 @@ what it printed. PHP can't make a pty, and raw mode can't be seen from a pipe.
     pty_run.py PROGRAM [KEYS_HEX [SIGNAL [ARGS...]]]
 
 KEYS_HEX is written to the terminal once the program has had time to start; SIGNAL (TERM, INT, or
-empty for none) is sent after that; ARGS are the program's own arguments. The window is 132 by 40.
+empty for none) is sent after that; ARGS are the program's own arguments. The environment's
+PTY_WAIT is how long, in seconds, to let a program run after the keys are typed (default 0.3), for
+one that moves by itself. The window is 132 by 40.
 """
 import fcntl
 import json
@@ -62,9 +64,10 @@ during = modes(slave)
 # then a moment to reach its first read, so that keys and signals arrive after it (a read with a
 # timeout of 0.1 has to have waited for nothing)
 pump(0.3)
+wait = float(os.environ.get("PTY_WAIT", "0.3"))
 if keys:
     os.write(master, keys)
-    pump(0.3)
+    pump(wait)
 if sig:
     process.send_signal(sig)
 deadline = time.time() + 5
@@ -77,4 +80,4 @@ if process.poll() is None:
 else:
     code = process.returncode
 pump(0.1)
-print(json.dumps({"before": before, "during": during, "after": modes(slave), "code": code, "out": out.decode("latin-1")}))
+print(json.dumps({"before": before, "during": during, "after": modes(slave), "code": code, "out": out.decode("utf-8", errors="replace")}))
