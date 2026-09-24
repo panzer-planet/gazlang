@@ -629,9 +629,9 @@ pub kind Shell {
     #where = "menu";
     #note = "";
 
-    fn _(#game, #sections, #match);
+    fn _(#game, #sections, #match, #save_path = null);
 
-    pub static fn for_game($game) {
+    pub static fn for_game($game, $save_path = null) {
         return Shell($game, [
             ["Inbox", InboxView($game)],
             ["Squad", SquadView($game)],
@@ -640,7 +640,7 @@ pub kind Shell {
             ["Table", LeagueView($game)],
             ["Finances", FinancesView($game)],
             ["Transfers", TransfersView($game)],
-        ], MatchView($game));
+        ], MatchView($game), $save_path);
     }
 
     /* Which section is on show, by name, and whether keys go to the menu or the section */
@@ -675,7 +675,7 @@ pub kind Shell {
         $view.draw($screen, $content.inset(1), !$in_menu);
 
         $hints = $view.hints();
-        $keys = $live ? "ctrl+c quit" : "1-7 sections  tab focus  c continue  C quick  q quit";
+        $keys = $live ? "ctrl+c quit" : "1-7 sections  tab focus  c continue  C quick  S save  n new season  q quit";
         tui::label($screen, $bottom.col + 1, $bottom.row, max($bottom.width - 2, 0), #note != "" ? #note : ($hints == "" ? $keys : $hints .. "   " .. $keys), #note != "" ? "bold yellow" : "dim");
     }
 
@@ -718,7 +718,7 @@ pub kind Shell {
         }
         if ($name == "c" || $name == "C") {
             if (#game.season_over()) {
-                #note = "The season is over.";
+                #note = "The season is over. n starts the next one.";
             } else if ($name == "c") {
                 #game.begin_matchday();
                 #match.reset();
@@ -726,6 +726,23 @@ pub kind Shell {
                 #game.advance();
                 #current = 0;
             }
+            return null;
+        }
+        if ($name == "n") {
+            $problem = #game.new_season();
+            #note = $problem == "" ? "A new season begins" : $problem;
+            #current = 0;
+
+            return null;
+        }
+        if ($name == "S") {
+            if (#save_path == null) {
+                #note = "There is nowhere to save to";
+            } else {
+                $problem = #game.save(#save_path);
+                #note = $problem == "" ? "Saved to {#save_path}" : $problem;
+            }
+
             return null;
         }
         if ($name == "tab") {

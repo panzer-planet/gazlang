@@ -933,3 +933,30 @@ try {
 } catch (TransferRefused $e) {
     check("who isn't there can't leave", contains($e.message, "isn't at"), true);
 }
+
+/* ---- What a save keeps ---- */
+$player = Defender("D. Test", 71, 4);
+$player.age = 27;
+$player.goals = 3;
+$player.clean_sheets = 5;
+$player.career_goals = 9;
+$player.injured = 2;
+$player.suspended = 1;
+$player.season_yellows = 4;
+$copy = players::from_data($player.to_data());
+check("a player is saved with what he has done and what keeps him out", [$copy.position(), $copy.rating, $copy.number, $copy.age, $copy.goals, $copy.clean_sheets, $copy.career_goals, $copy.injured, $copy.suspended, $copy.season_yellows], ["DF", 71, 4, 27, 3, 5, 9, 2, 1, 4]);
+$match = Fixture::played($home, $away, 3, 1);
+check("a match played in a saved game is its score", [$match.finished(), $match.home_goals, $match.away_goals, to_string($match)], [true, 3, 1, "{$home} 3 - 1 {$away}"]);
+$four = clubs(4, 31);
+$table_league = League($four);
+$table_league.draw();
+$table_league.play_matchday();
+$table_league.play_matchday();
+$data = $table_league.to_data();
+$again = League::from_data($data, $four);
+check("a league saved mid-season comes back: same table, same fixtures, same results", [
+    map($again.table(), $s -> $s.to_string()) == map($table_league.table(), $s -> $s.to_string()),
+    $again.matchdays_played(), $again.matchdays(), $again.to_data() == $data,
+], [true, 2, 6, true]);
+$again.play_matchday();
+check("and plays on", $again.matchdays_played(), 3);

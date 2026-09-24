@@ -8,6 +8,7 @@ namespace game;
 include "engine/teams.gaz" use Team, Scout, InvalidLineup, TransferRefused;
 include "engine/league.gaz" use League;
 include "engine/money.gaz";
+include "../../lib/json.gaz";
 
 const CLUBS = [
     "Riverside FC", "Northgate United", "Harbour Town", "Millbrook Athletic", "Kingsway Rovers",
@@ -106,7 +107,7 @@ pub kind Game {
     /* The club's money in and out, newest last: {"matchday", "text", "amount"} */
     pub #ledger = [];
 
-    fn _(pub #teams, pub #club) {
+    fn _(pub #teams, pub #club, #scout) {
         #league = League(#teams).draw();
         #tell("Welcome to {#club}", "The board have appointed you manager of {#club}. There are "
             .. len(#teams) .. " clubs in the league and " .. #league.matchdays() .. " matchdays to play. "
@@ -123,7 +124,110 @@ pub kind Game {
             $team.balance = money::starting_balance($team);
             $teams[] = $team;
         }
-        return Game($teams, $teams[$club]);
+        return Game($teams, $teams[$club], $scout);
+    }
+
+    /* What a save file keeps: everything the game is, as data */
+    pub fn to_data() {
+        return {
+            "game" => "football", "version" => 1, "season" => #season, "club" => #club.name,
+            "names" => #scout.names(),
+            "teams" => map(#teams, $team -> $team.to_data()),
+            "league" => #league.to_data(),
+            "inbox" => #inbox, "ledger" => #ledger,
+        };
+    }
+
+    /* A game back from to_data() */
+    pub static fn from_data($data) {
+        $teams = map($data["teams"], teams::from_data);
+        $club = filter($teams, $team -> $team.name == $data["club"])[0];
+        $scout = Scout();
+        $scout.take($data["names"]);
+        $game = Game($teams, $club, $scout);
+        $game.season = $data["season"];
+        $game.league = League::from_data($data["league"], $teams);
+        $game.inbox = $data["inbox"];
+        $game.ledger = $data["ledger"];
+
+        return $game;
+    }
+
+    /* Write the game to $path. Gives "" when it is done, and why not when it isn't. */
+    pub fn save($path) {
+        if (#live != null) {
+            return "Finish the match before saving";
+        }
+        try {
+            write_file($path, json::encode(#to_data()) .. "\n");
+        } catch (Error $e) {
+            return "Couldn't save to {$path}: {$e.message}";
+        }
+
+        return "";
+    }
+
+    /* The game saved at $path; a file that isn't one is an error saying so */
+    pub static fn load($path) {
+        if (!file_exists($path)) {
+            error("No saved game at {$path}");
+        }
+        try {
+            $data = json::decode(read_file($path));
+            if (($data["game"] ?? null) != "football" || ($data["version"] ?? null) != 1) {
+                error("{$path} is not a saved football game");
+            }
+
+            return Game::from_data($data);
+        } catch (Error $e) {
+            error("{$path} is not a saved game: {$e.message}");
+        }
+    }
+
+    /* The summer, once the season is over: prize money by finishing position, everybody a year
+       older with the veterans retiring for youngsters from the academy, the transfer window among
+       the clubs, and a new season's fixtures. Gives "" when it is done, and why not when it isn't. */
+    pub fn new_season() {
+        if (!#season_over()) {
+            return "The season isn't over";
+        }
+        $clubs = len(#teams);
+        foreach (#league.table() as $place => $standing) {
+            $prize = money::prize(2, $place, $clubs);
+            $standing.team.balance += $prize;
+            if ($standing.team == #club) {
+                #ledger[] = {"matchday" => #league.matchdays_played(), "text" => "Prize money, " .. ordinal($place + 1), "amount" => $prize};
+            }
+        }
+        $retired = [];
+        $academy = [];
+        foreach (#teams as $team) {
+            foreach ($team.players as $player) {
+                $player.new_season();
+                $player.grow_older();
+                if ($player.retires()) {
+                    $youth = #scout.youth(kind_of($player), $team, $player.number);
+                    $team.replace($player, $youth);
+                    if ($team == #club) {
+                        $retired[] = $player;
+                        $academy[] = $youth;
+                    }
+                }
+            }
+        }
+        $deals = money::window(#teams);
+        #season++;
+        #league = League(#teams).draw();
+        $body = "A new season begins. " .. #expectation();
+        if ($retired != []) {
+            $body ..= "\n\nRetired: " .. join($retired, ", ") .. ". From the academy: " .. join(map($academy, $p -> "{$p} ({$p.position()}, {$p.rating})"), ", ") .. ".";
+        }
+        foreach (filter($deals, $deal -> $deal["to"] == #club || $deal["from"] == #club) as $deal) {
+            $body ..= "\n\n{$deal["player"]} moved from {$deal["from"]} to {$deal["to"]} for " .. money::pounds($deal["fee"]) .. ".";
+        }
+        #tell(#season_label() .. " begins", $body);
+
+        return "";
     }
 
     /* What the board hopes for, by how the club's squad rates among the others */

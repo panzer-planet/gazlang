@@ -573,3 +573,7 @@ ok a player who leaves the eleven is covered
 ok the last two goalkeepers can't go: Club 2 need two goalkeepers
 ok a squad at sixteen keeps them
 ok who isn't there can't leave
+ok a player is saved with what he has done and what keeps him out
+ok a match played in a saved game is its score
+ok a league saved mid-season comes back: same table, same fixtures, same results
+ok and plays on

@@ -1,9 +1,10 @@
 /*
  * The football manager: a terminal game. Needs a terminal.
  *
- *   bin/gazlang -f games/football/main.gaz [-- SEED]
+ *   bin/gazlang -f games/football/main.gaz [-- SEED | load [FILE]]
  *
- * SEED makes the same ten clubs again; without one they are different every time.
+ * SEED makes the same ten clubs again; without one they are different every time. S saves to
+ * football.save (or FILE), and load carries on from a save.
  */
 include "../../lib/term.gaz";
 include "../../lib/tui.gaz";
@@ -15,10 +16,17 @@ if (!term_is_tty(0) || !term_is_tty(1)) {
 }
 
 $arguments = args();
-$seed = len($arguments) > 0 ? to_int($arguments[0], null) : rand_int(1, 999999);
-if ($seed == null) {
-    error("Usage: bin/gazlang -f games/football/main.gaz [-- SEED], where SEED is a whole number");
+$path = "football.save";
+if (len($arguments) > 0 && $arguments[0] == "load") {
+    $game = Game::load($arguments[1] ?? $path);
+    $path = $arguments[1] ?? $path;
+} else {
+    $seed = len($arguments) > 0 ? to_int($arguments[0], null) : rand_int(1, 999999);
+    if ($seed == null) {
+        error("Usage: bin/gazlang -f games/football/main.gaz [-- SEED | load [FILE]], where SEED is a whole number");
+    }
+    $game = Game::start($seed);
 }
 
-$shell = Shell::for_game(Game::start($seed));
+$shell = Shell::for_game($game, $path);
 tui::interact($screen -> $shell.draw($screen), $key -> $shell.handle($key), null, $shell.tick);

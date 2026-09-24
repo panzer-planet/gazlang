@@ -482,3 +482,103 @@ foreach ($game.teams as $t) {
     }
 }
 check("after all that every club still has an eleven and a squad", $invalid, []);
+
+/* ---- Saving ---- */
+$path = "vm/build/football_game_test.save";
+$game = Game::start(12);
+for ($i = 0; $i < 5; $i++) {
+    $game.advance();
+}
+$game.buy(filter($game.market(), $o -> $o[0].position() == "FW")[0][0]);
+$game.set_mentality(4);
+check("saving gives nothing to say", $game.save($path), "");
+$loaded = Game::load($path);
+check("a saved game loads as the same game", $loaded.to_data() == $game.to_data(), true);
+check("the table, the results, the inbox and the books carry over", [
+    map($loaded.league.table(), $s -> $s.to_string()) == map($game.league.table(), $s -> $s.to_string()),
+    $loaded.league.matchdays_played(), len($loaded.inbox), len($loaded.ledger), $loaded.club.mentality,
+    len($loaded.league.fixtures_of($loaded.club)),
+], [true, 5, len($game.inbox), len($game.ledger), 4, 18]);
+check("fixtures already played have their results", map(filter($loaded.league.fixtures_of($loaded.club), $f -> $f["match"] != null), $f -> to_string($f["match"])), map(filter($game.league.fixtures_of($game.club), $f -> $f["match"] != null), $f -> to_string($f["match"])));
+check("and the club is the same club", [$loaded.club.name, $loaded.club.eleven() == [] ? 0 : len($loaded.club.eleven())], [$game.club.name, 11]);
+while (!$loaded.season_over()) {
+    $loaded.advance();
+}
+check("and it plays on to the end of the season", [$loaded.season_over(), $loaded.league.matchdays_played()], [true, 18]);
+$hurt = Game::start(12);
+$hurt.club.players[3].injure(4);
+$hurt.club.players[4].suspended = 2;
+$hurt.save($path);
+$again = Game::load($path);
+check("a player's state is kept: out for so many matches, a ban", [$again.club.players[3].injured, $again.club.players[4].suspended], [4, 2]);
+$live = Game::start(12);
+$live.begin_matchday();
+check("nothing is saved during a match", [$live.save($path), $live.save($path) != ""], ["Finish the match before saving", true]);
+
+run(["sh", "-c", "echo '{\"game\": \"tennis\"}' > " .. $path]);
+try {
+    Game::load($path);
+    check("another file isn't a game", "no error", "an error");
+} catch (Error $e) {
+    check("another file isn't a game", contains($e.message, "is not a saved game"), true);
+}
+run(["sh", "-c", "echo 'not json' > " .. $path]);
+try {
+    Game::load($path);
+    check("nor is garbage", "no error", "an error");
+} catch (Error $e) {
+    check("nor is garbage", contains($e.message, "is not a saved game"), true);
+}
+run(["rm", "-f", $path]);
+try {
+    Game::load($path);
+    check("a missing file is said to be", "no error", "an error");
+} catch (Error $e) {
+    check("a missing file is said to be", $e.message, "No saved game at {$path}");
+}
+
+/* ---- A new season ---- */
+$game = Game::start(14);
+check("the season isn't over until it is", $game.new_season(), "The season isn't over");
+while (!$game.season_over()) {
+    $game.advance();
+}
+$balances = map($game.teams, $t -> $t.balance);
+$before = $game.club.players;
+$was = {};
+foreach ($before as $p) {
+    $was[object_id($p)] = $p.age;
+}
+$table = $game.league.table();
+$place = 0;
+foreach ($table as $i => $standing) {
+    if ($standing.team == $game.club) {
+        $place = $i;
+    }
+}
+$goals = sum(map($game.club.players, $p -> $p.goals));
+$career = sum(map($game.club.players, $p -> $p.career_goals));
+check("a new season starts", $game.new_season(), "");
+check("with the next year, fresh fixtures and an empty table", [$game.season, $game.league.matchdays_played(), $game.league.matchdays(), $game.season_over(), $game.season_label()], [2027, 0, 18, false, "2027/28"]);
+check("the club was paid prize money for where it finished", $game.ledger[len($game.ledger) - 1]["amount"], money::prize(2, $place, 10));
+$stayed = filter($before, $p -> in_array($p, $game.club.players));
+check("whoever stayed is a year older, and the squad is the size it was", [count_where($stayed, $p -> $p.age == $was[object_id($p)] + 1), len($game.club.players)], [len($stayed), len($before)]);
+check("goals go to the career, and the season's count starts again", [sum(map($game.club.players, $p -> $p.goals)), sum(map($game.club.players, $p -> $p.career_goals)) >= $career], [0, true]);
+check("the inbox says the season begins", $game.inbox[len($game.inbox) - 1]["subject"], "2027/28 begins");
+check("the ledger has the prize money", count_where($game.ledger, $e -> starts_with($e["text"], "Prize money")), 1);
+$invalid = [];
+foreach ($game.teams as $t) {
+    if (len($t.eleven()) != 11 || len($t.players) < 16 || len($t.players) > 24) {
+        $invalid[] = "{$t}";
+    }
+}
+check("every club still has an eleven and a squad", $invalid, []);
+for ($year = 0; $year < 4; $year++) {
+    while (!$game.season_over()) {
+        $game.advance();
+    }
+    $game.new_season();
+}
+check("five seasons on it is still a game", [$game.season, $game.league.matchdays()], [2031, 18]);
+$game.advance();
+check("and a match can be played in it", $game.league.matchdays_played(), 1);

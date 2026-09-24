@@ -127,7 +127,7 @@ check("the menu lists the sections in order", [
 check("the inbox is on show, with its welcome", [$shell.section(), shows($screen, "Welcome to Riverside FC"), shows($screen, "The board have appointed you")], ["Inbox", true, true]);
 check("keys start in the menu", $shell.focus(), "menu");
 check("the current section is marked in the menu", [$screen.cell(3, 3)[1], $screen.cell(3, 4)[1]], ["inverse", ""]);
-check("the last line says what the keys do", contains($screen.lines()[29], "1-7 sections  tab focus  c continue  C quick  q quit"), true);
+check("the last line says what the keys do", contains($screen.lines()[29], "1-7 sections  tab focus  c continue  C quick  S save  n new season  q quit"), true);
 check("the screen is as big as it was asked to be", [len($screen.lines()), term::width($screen.lines()[0])], [30, 100]);
 
 /* ---- Sections ---- */
@@ -379,7 +379,7 @@ check("and the inbox has the last word", shows($screen, "The season is over"), t
 check("nothing to say yet about it", $shell.notice(), "");
 press($shell, "C");
 $screen = look($shell);
-check("another C is told the season is over", [$shell.notice(), contains($screen.lines()[29], "The season is over.")], ["The season is over.", true]);
+check("another C is told the season is over", [$shell.notice(), contains($screen.lines()[29], "The season is over. n starts")], ["The season is over. n starts the next one.", true]);
 check("in bold yellow", $screen.cell(2, 30)[1], "bold yellow");
 press($shell, "2");
 check("and the notice goes with the next key", $shell.notice(), "");
@@ -729,3 +729,27 @@ $club.balance = 0;
 press($shell, "t");
 press($shell, "\r");
 check("a player too dear is refused, saying why, and nothing changes", [starts_with($shell.notice(), "You can't afford"), len($club.players), $club.balance], [true, 17, 0]);
+
+/* ---- Saving, and the next season ---- */
+$path = "vm/build/football_ui_test.save";
+$game = Game::start(4);
+$shell = Shell::for_game($game, $path);
+press($shell, "C");
+press($shell, "C");
+press($shell, "S");
+check("S saves, and says where", [$shell.notice(), file_exists($path)], ["Saved to {$path}", true]);
+$loaded = Game::load($path);
+check("what was saved is the game", [$loaded.league.matchdays_played(), $loaded.club.balance, $loaded.position()], [2, $game.club.balance, $game.position()]);
+$nowhere = Shell::for_game(Game::start(4));
+press($nowhere, "S");
+check("with no save file there is nowhere to save", $nowhere.notice(), "There is nowhere to save to");
+run(["rm", "-f", $path]);
+press($shell, "n");
+check("n before the season is over is told so", $shell.notice(), "The season isn't over");
+for ($i = 0; $i < 16; $i++) {
+    press($shell, "C");
+}
+press($shell, "n");
+check("n at the end starts the next season, and the bar says so", [$shell.notice(), $game.season, contains(look($shell).lines()[0], "2027/28"), contains(look($shell).lines()[0], "Matchday 0 of 18")], ["A new season begins", 2027, true, true]);
+press($shell, "c");
+check("and it can be played", [$game.live != null, $game.season_over()], [true, false]);

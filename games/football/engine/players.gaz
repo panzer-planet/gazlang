@@ -146,7 +146,8 @@ pub abstract kind Player {
     pub fn to_data() {
         return {
             "position" => #position(), "name" => #name, "rating" => #rating, "number" => #number,
-            "age" => #age, "career_goals" => #career_goals,
+            "age" => #age, "career_goals" => #career_goals, "goals" => #goals, "clean_sheets" => #clean_sheets,
+            "injured" => #injured, "suspended" => #suspended, "season_yellows" => #season_yellows,
         };
     }
 
@@ -196,5 +197,10 @@ pub fn from_data($data) {
     $player = $kind($data["name"], $data["rating"], $data["number"]);
     $player.age = $data["age"];
     $player.career_goals = $data["career_goals"];
+    $player.goals = $data["goals"];
+    $player.clean_sheets = $data["clean_sheets"];
+    $player.injured = $data["injured"];
+    $player.suspended = $data["suspended"];
+    $player.season_yellows = $data["season_yellows"];
     return $player;
 }

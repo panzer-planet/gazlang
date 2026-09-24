@@ -62,6 +62,17 @@ pub kind Fixture {
         Fixture::matches_played++;
     }
 
+    /* A match already played, from a saved game: the score and nothing else */
+    pub static fn played($home, $away, $home_goals, $away_goals) {
+        $match = Fixture($home, $away);
+        $match.home_goals = $home_goals;
+        $match.away_goals = $away_goals;
+        $match.elapsed = 90;
+        $match.started = true;
+
+        return $match;
+    }
+
     // $listener($event) is called for everything that happens
     pub fn on_event($listener) {
         #listeners[] = $listener;

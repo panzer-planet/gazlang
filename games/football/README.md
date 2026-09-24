@@ -54,6 +54,14 @@ buys, and `t` switches to your own squad, where `enter` sells at a tenth under h
 richest club that can pay, or abroad if none can. A squad is 16 to 24 players with at least two
 goalkeepers, and nothing is bought or sold during a match.
 
+## Saving, and seasons
+
+`S` saves the game to `football.save` (between matchdays, not during a match), and
+`bin/gazlang -f games/football/main.gaz -- load [FILE]` carries on from it. When the last matchday
+is played, `n` starts the next season: prize money by where you finished, everybody a year older
+(veterans retire for youngsters from the academy), a summer transfer window among the clubs, and
+new fixtures.
+
 ## What is here
 
 - `engine/` is the model: players and their positions, squads and formations, fixtures with the
@@ -70,6 +78,6 @@ away, a table adds up, the inbox says what the match said), not what a seeded ma
 ratings and the odds are meant to change, and a recording would need re-recording with every tweak.
 Every screen is drawn into a `tui::Screen` and read back as text and styles, with no terminal.
 
-Not here yet: saving and seasons after the first. `tests/programs/football.gaz` has a working career loop, saves, and transfers as
+Not here yet: promotion and relegation, cups, contracts. `tests/programs/football.gaz` has a working career loop, saves, and transfers as
 a command line program: lift what the game needs from it, and leave it as it is, since it is the
 language's biggest test program (see `tests/programs/README.md`).

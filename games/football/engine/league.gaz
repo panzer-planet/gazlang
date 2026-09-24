@@ -102,6 +102,32 @@ pub kind League {
         return #;
     }
 
+    /* What a saved game keeps of the season: the fixtures by club name, the results, the table's counts */
+    pub fn to_data() {
+        return {
+            "schedule" => map(#schedule, $day -> map($day, $pair -> [$pair[0].name, $pair[1].name])),
+            "played" => map(#played, $day -> map($day, $match -> [$match.home.name, $match.away.name, $match.home_goals, $match.away_goals])),
+            "standings" => map(#teams, $team -> [$team.name, #standings[$team.name].played, #standings[$team.name].won, #standings[$team.name].drawn, #standings[$team.name].lost, #standings[$team.name].scored, #standings[$team.name].conceded]),
+        };
+    }
+
+    /* A season back from to_data(), over the same clubs */
+    pub static fn from_data($data, $teams) {
+        $by_name = {};
+        foreach ($teams as $team) {
+            $by_name[$team.name] = $team;
+        }
+        $league = League($teams);
+        $league.schedule = map($data["schedule"], $day -> map($day, $pair -> [$by_name[$pair[0]], $by_name[$pair[1]]]));
+        $league.played = map($data["played"], $day -> map($day, $row -> Fixture::played($by_name[$row[0]], $by_name[$row[1]], $row[2], $row[3])));
+        foreach ($data["standings"] as $row) {
+            $standing = $league.standings[$row[0]];
+            [$standing.played, $standing.won, $standing.drawn, $standing.lost, $standing.scored, $standing.conceded] = slice($row, 1, 6);
+        }
+
+        return $league;
+    }
+
     pub fn matchdays() { return len(#schedule); }
     pub fn matchdays_played() { return len(#played); }
     pub fn matchdays_left() { return len(#schedule) - len(#played); }
