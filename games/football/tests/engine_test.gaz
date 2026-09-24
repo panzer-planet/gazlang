@@ -999,3 +999,25 @@ try {
 } catch (InvalidLineup $e) {
     check("but not while a goalkeeper could play", contains($e.message, "0 goalkeepers"), true);
 }
+
+/* ---- Names ---- */
+$scout = Scout();
+$made = [];
+for ($i = 0; $i < 2000; $i++) {
+    $made[] = to_string($scout.youth(Forward, clubs(1, 5)[0], 9));
+}
+$surnames = {};
+$full = {};
+$odd = 0;
+foreach ($made as $name) {
+    $full[$name] = true;
+    $surnames[slice($name, 3, len($name) - 3)] = true;
+    if (!(len($name) > 4 && slice($name, 1, 2) == ". ")) {
+        $odd++;
+    }
+}
+$foreign = ["Abara", "Achebe", "Adeyemi", "Alvarez", "Andersen", "Bauer", "Becker", "Brandt", "Castillo", "Costa", "Diallo", "Dube", "Duarte", "Eriksen", "Ferreira", "Fischer", "Garcia", "Haddad", "Ivanova", "Kamara", "Kowalski", "Lindqvist", "Lopez", "Mbeki", "Mensah", "Moreau", "Morales", "Nakamura", "Novak", "Nwosu", "Okafor", "Olsen", "Ortega", "Petrov", "Rossi", "Ruiz", "Sato", "Silva", "Svensson", "Vargas", "Yilmaz", "Zielinski"];
+$abroad = count_where($made, $n -> in_array(slice($n, 3, len($n) - 3), $foreign));
+check("names are an initial and a surname, and every one is different", [$odd, len($full)], [0, 2000]);
+check("with plenty of variety: hundreds of different surnames", len($surnames) > 200, true);
+check("mostly English, about one in seven from elsewhere", [$abroad > 150, $abroad < 450], [true, true]);

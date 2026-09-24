@@ -502,7 +502,7 @@ pub kind Scout {
     // Every name in the league is different
     fn new_name() {
         while (true) {
-            $name = random::pick(FIRST_INITIALS) .. ". " .. random::pick(SURNAMES);
+            $name = random::pick(FIRST_INITIALS) .. ". " .. random::pick(random::chance(0.14) ? OTHER_SURNAMES : ENGLISH_SURNAMES);
             if (! has_key(#taken, $name)) {
                 #taken[$name] = true;
                 return $name;
@@ -511,16 +511,42 @@ pub kind Scout {
     }
 }
 
+/* Mostly English, as the game is: a name is an initial and a surname, and about one in seven is from elsewhere */
 const FIRST_INITIALS = [
-    "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "R", "S", "T", "V", "W",
+    "A", "B", "C", "D", "E", "F", "G", "H", "J", "K", "L", "M", "N", "O", "P", "R", "S", "T", "W",
     "Y", "Z",
 ];
 
-const SURNAMES = [
-    "Abara", "Achebe", "Adeyemi", "Alvarez", "Andersen", "Bauer", "Becker", "Brandt", "Brennan", "Castillo",
-    "Costa", "Dalton", "Diallo", "Dube", "Duarte", "Eriksen", "Ferreira", "Fischer", "Garcia", "Haddad",
-    "Hale", "Hansen", "Ivanova", "Jansen", "Kamara", "Keane", "Kerr", "Kowalski", "Lindqvist", "Lopez",
-    "Mbeki", "Mensah", "Moreau", "Morales", "Nakamura", "Novak", "Nwosu", "Okafor", "Olsen", "Ortega",
-    "Park", "Petrov", "Quinn", "Rossi", "Ruiz", "Sato", "Silva", "Svensson", "Tanaka", "Vargas", "Walsh",
-    "Wright", "Yilmaz", "Zielinski",
+const ENGLISH_SURNAMES = [
+    "Abbott", "Adams", "Ainsworth", "Alder", "Allen", "Archer", "Armitage", "Ashby", "Ashton", "Atkins",
+    "Bailey", "Baker", "Banks", "Barker", "Barlow", "Barnes", "Bateman", "Baxter", "Beckett", "Bell",
+    "Bennett", "Berry", "Bird", "Blackburn", "Booth", "Bradley", "Brooks", "Brown", "Bruce", "Buckley",
+    "Burgess", "Burns", "Butler", "Byrne", "Carter", "Chambers", "Chapman", "Clarke", "Clayton", "Clegg",
+    "Coates", "Cole", "Collins", "Cook", "Cooper", "Cox", "Craig", "Crawford", "Croft", "Cross",
+    "Dale", "Davies", "Dawson", "Day", "Dean", "Dixon", "Dobson", "Doyle", "Drake", "Duffy",
+    "Dunn", "Dyer", "Eastwood", "Edwards", "Elliott", "Ellis", "Evans", "Fairclough", "Farrell", "Fenton",
+    "Field", "Fisher", "Fletcher", "Ford", "Foster", "Fowler", "Fox", "Francis", "Freeman", "Gardner",
+    "Garner", "Gibson", "Giles", "Gill", "Goodwin", "Gordon", "Grant", "Gray", "Green", "Griffiths",
+    "Hall", "Hamilton", "Hardy", "Harper", "Harris", "Harrison", "Hart", "Hawkins", "Hayes", "Heath",
+    "Henderson", "Hill", "Hobbs", "Hodgson", "Holland", "Holmes", "Hooper", "Howard", "Hughes", "Hunt",
+    "Hunter", "Hutchinson", "Ingram", "Jackson", "James", "Jenkins", "Johnson", "Jones", "Jordan", "Kay",
+    "Kelly", "Kemp", "Kendall", "King", "Knight", "Lamb", "Lane", "Lawrence", "Lawson", "Lee",
+    "Lewis", "Lloyd", "Long", "Lowe", "Lucas", "Marsh", "Marshall", "Martin", "Mason", "Matthews",
+    "May", "Miller", "Mills", "Mitchell", "Moore", "Morgan", "Morris", "Morton", "Murray", "Nash",
+    "Newman", "Nicholls", "Norris", "Oakley", "Oliver", "Osborne", "Owen", "Page", "Palmer", "Parker",
+    "Parry", "Patel", "Payne", "Pearce", "Pearson", "Perry", "Phillips", "Pickering", "Porter", "Powell",
+    "Price", "Pritchard", "Pugh", "Quigley", "Ramsey", "Reed", "Reid", "Reynolds", "Richards", "Roberts",
+    "Robinson", "Rogers", "Rose", "Rowe", "Russell", "Ryan", "Sanders", "Saunders", "Scott", "Sharp",
+    "Shaw", "Simpson", "Slater", "Smith", "Spencer", "Stanley", "Stephens", "Stevens", "Stone", "Sutton",
+    "Swift", "Tate", "Taylor", "Thomas", "Thompson", "Thornton", "Todd", "Turner", "Tyler", "Vaughan",
+    "Wade", "Walker", "Wallace", "Walsh", "Ward", "Warren", "Waters", "Watkins", "Watson", "Webb",
+    "Wells", "West", "Whitehead", "Wilkinson", "Williams", "Wilson", "Wood", "Woods", "Wright", "Young",
+];
+
+const OTHER_SURNAMES = [
+    "Abara", "Achebe", "Adeyemi", "Alvarez", "Andersen", "Bauer", "Becker", "Brandt", "Castillo", "Costa",
+    "Diallo", "Dube", "Duarte", "Eriksen", "Ferreira", "Fischer", "Garcia", "Haddad", "Ivanova", "Kamara",
+    "Kowalski", "Lindqvist", "Lopez", "Mbeki", "Mensah", "Moreau", "Morales", "Nakamura", "Novak", "Nwosu",
+    "Okafor", "Olsen", "Ortega", "Petrov", "Rossi", "Ruiz", "Sato", "Silva", "Svensson", "Vargas", "Yilmaz",
+    "Zielinski",
 ];

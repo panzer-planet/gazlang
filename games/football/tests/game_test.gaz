@@ -471,6 +471,9 @@ for ($i = 0; $i < 30 && len($club.players) < 24; $i++) {
 }
 check("my squad can't grow past 24", [$game.buy(filter($game.market(), $o -> $o[0].position() != "GK")[0][0]), len($club.players)], ["Riverside FC already have 24 players", 24]);
 
+foreach ($game.everyone() as $rich) {
+    $rich.balance = 500000000;
+}
 $outgoing = filter($club.players, $p -> $p.position() == "FW")[0];
 $balance = $club.balance;
 check("selling: gone from the squad, paid the sale price", [$game.sell($outgoing), in_array($outgoing, $club.players), $club.balance], ["", false, $balance + money::sale_price($outgoing)]);

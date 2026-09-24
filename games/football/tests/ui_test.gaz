@@ -774,13 +774,13 @@ check("the table is the club's division's, and the bar says which", [shows($scre
 $first = $game.league.table()[0].team.name;
 check("the champions row is green and the last two red, the club's own bold cyan", [contains(style_at($screen, row_of($screen, $first), $first) ?? "", $first == $game.club.name ? "cyan" : "green")], [true]);
 $last = $game.league.table()[19].team.name;
-check("the bottom is red", style_at($screen, row_of($screen, $last), $last), $last == $game.club.name ? "bold cyan" : "red");
+check("the bottom is red", style_at($screen, row_of($screen, $last, 3), $last), $last == $game.club.name ? "bold cyan" : "red");
 $middle = $game.league.table()[4].team.name;
 check("and the middle plain", style_at($screen, row_of($screen, $middle), $middle), $middle == $game.club.name ? "bold cyan" : "");
 $ninth = $game.league.table()[19].team.name;
 $eighth = $game.league.table()[18].team.name;
 $seventh = $game.league.table()[17].team.name;
-check("the last two are red, the one above is not", [style_at($screen, row_of($screen, $ninth), $ninth), style_at($screen, row_of($screen, $eighth), $eighth), style_at($screen, row_of($screen, $seventh), $seventh)], [$ninth == $game.club.name ? "bold cyan" : "red", $eighth == $game.club.name ? "bold cyan" : "red", $seventh == $game.club.name ? "bold cyan" : ""]);
+check("the last two are red, the one above is not", [style_at($screen, row_of($screen, $ninth, 3), $ninth), style_at($screen, row_of($screen, $eighth, 3), $eighth), style_at($screen, row_of($screen, $seventh, 3), $seventh)], [$ninth == $game.club.name ? "bold cyan" : "red", $eighth == $game.club.name ? "bold cyan" : "red", $seventh == $game.club.name ? "bold cyan" : ""]);
 press($shell, "\t");
 press($shell, "d");
 $screen = look($shell);
