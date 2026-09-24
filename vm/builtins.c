@@ -45,7 +45,7 @@ const BuiltinInfo builtin_info[] = {
     {"builtins", 0, 0}, {"rand_int", 2, 2}, {"rand_float", 0, 0}, {"rand_seed", 0, 1},
     {"run", 1, 2}, {"socket_open", 2, 4}, {"socket_read", 1, 1}, {"socket_write", 2, 2},
     {"socket_close", 1, 1}, {"term_raw", 1, 1}, {"term_read", 0, 1}, {"term_size", 0, 0},
-    {"term_is_tty", 1, 1}, {"monotonic_time", 0, 0},
+    {"term_is_tty", 1, 1}, {"monotonic_time", 0, 0}, {"std_source", 1, 1},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -58,7 +58,7 @@ enum {
     B_ARGS, B_BUILTINS, B_RAND_INT, B_RAND_FLOAT, B_RAND_SEED, B_RUN,
     B_SOCKET_OPEN, B_SOCKET_READ, B_SOCKET_WRITE, B_SOCKET_CLOSE,
     B_TERM_RAW, B_TERM_READ, B_TERM_SIZE, B_TERM_IS_TTY,
-    B_MONOTONIC_TIME,
+    B_MONOTONIC_TIME, B_STD_SOURCE,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -1151,6 +1151,39 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     case B_TERM_IS_TTY:
         if (!want(index, a, INT)) return false;
         return term_is_tty(a.i, out);
+    case B_STD_SOURCE: {
+        /* The text of a standard library file, or null: what `include "std/name.gaz"` reads. GAZLIB, a
+           directory, is read instead of the built-in copy, so the library can be edited without a
+           rebuild. A name is one file's, never a path. */
+        if (!want(index, a, STRING)) return false;
+        *out = v_null();
+        if (memchr(a.s->data, '\0', a.s->len) || memchr(a.s->data, '/', a.s->len) || a.s->data[0] == '.' || a.s->len == 0) return true;
+        const char *dir = getenv("GAZLIB");
+        if (dir && *dir) {
+            Buf path = {0};
+            buf_adds(&path, dir);
+            buf_adds(&path, "/");
+            buf_add(&path, a.s->data, a.s->len);
+            buf_add(&path, "", 1);
+            FILE *f = fopen(path.data, "rb");
+            free(path.data);
+            if (!f) return true;
+            Buf text = {0};
+            char chunk[65536];
+            size_t n;
+            while ((n = fread(chunk, 1, sizeof chunk, f)) > 0) buf_add(&text, chunk, n);
+            fclose(f);
+            *out = v_str(buf_to_str(&text));
+            return true;
+        }
+        for (const StdFile *file = std_files; file->name; file++) {
+            if (strlen(file->name) == a.s->len && !memcmp(file->name, a.s->data, a.s->len)) {
+                *out = v_str(str_new((const char *)file->data, (int)file->len));
+                return true;
+            }
+        }
+        return true;
+    }
     case B_MONOTONIC_TIME: {
         /* Seconds on the system's monotonic clock, from a point nobody promises: only the difference
            between two readings means anything. It doesn't jump when the clock is set, and there are

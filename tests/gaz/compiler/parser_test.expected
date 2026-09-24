@@ -11,8 +11,8 @@ ok a kind's layout and members, its parent's included
 ok a #name knows whether it is a field
 ok a ##name knows whose version runs
 Error: Field #x of B has the name of a field of A that isn't pub: a field is a slot, so the name is taken on line 1
-  gazlang::Parser.fail_at at compiler/parser.gaz:331
-  gazlang::Parser.resolve_kind at compiler/parser.gaz:2810
-  gazlang::Parser.program at compiler/parser.gaz:2593
-  gazlang::Parser.parse at compiler/parser.gaz:3190
+  gazlang::Parser.fail_at at compiler/parser.gaz:333
+  gazlang::Parser.resolve_kind at compiler/parser.gaz:2812
+  gazlang::Parser.program at compiler/parser.gaz:2595
+  gazlang::Parser.parse at compiler/parser.gaz:3201
   top level at tests/gaz/compiler/parser_test.gaz:33

@@ -1,8 +1,8 @@
 // Teams: an eleven in a formation, and the scout who makes them up
 namespace teams;
 
-include "../../../lib/random.gaz";
-include "../../../lib/lists.gaz" use min_by;
+include "std/random.gaz";
+include "std/lists.gaz" use min_by;
 include "players.gaz" use Goalkeeper, Defender, Midfielder, Forward;
 
 pub kind TransferRefused extends Error {
@@ -65,7 +65,7 @@ pub kind Team {
 
     // Whether $list is an eleven this club can field: eleven different players from its squad,
     // one a goalkeeper
-    fn check_eleven($list) {
+    fn check_eleven($list, $strict = true) {
         if (len($list) != 11) {
             error(InvalidLineup(#name, len($list) .. " players in the eleven, not 11"));
         }
@@ -80,7 +80,7 @@ pub kind Team {
         $keepers = len(filter($list, $player -> is_a($player, Goalkeeper)));
         // An outfielder may be in goal when every goalkeeper is out
         $fit_keepers = len(filter(#players, $player -> is_a($player, Goalkeeper) && $player.available()));
-        if ($keepers > 1 || ($keepers == 0 && $fit_keepers > 0)) {
+        if ($keepers > 1 || ($strict && $keepers == 0 && $fit_keepers > 0)) {
             error(InvalidLineup(#name, "{$keepers} goalkeepers in the eleven"));
         }
     }
@@ -112,6 +112,15 @@ pub kind Team {
         }
 
         return $picked;
+    }
+
+    /* The eleven a saved game had, which may have an outfielder in goal though a goalkeeper has since
+       become fit (a match played with the stand-in in it ended, and the next has not begun): the
+       next match's prepare() sorts that out, as it does for a game that wasn't saved */
+    pub fn restore($list) {
+        #check_eleven($list, false);
+        #xi = $list;
+        #changed();
     }
 
     // The eleven who start, as they were picked; and the rest of the squad
@@ -401,7 +410,8 @@ pub kind Team {
 pub fn from_data($data) {
     $squad = map($data["players"], players::from_data);
     $eleven = map($data["eleven"], $number -> filter($squad, $player -> $player.number == $number)[0]);
-    $team = Team($data["name"], $squad, $eleven, $data["preferred"]);
+    $team = Team($data["name"], $squad, null, $data["preferred"]);
+    $team.restore($eleven);
     $team.balance = $data["balance"];
     $team.mentality = $data["mentality"];
     $team.intensity = $data["intensity"];

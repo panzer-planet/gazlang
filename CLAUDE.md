@@ -203,7 +203,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   until a compiler that understands it has been built. Add it to `compiler/`, run
   `make compiler`, and only then use it in `compiler/`. A new instruction goes into the C VM
   before any bytecode using it runs.
-- The bytecode is built in with `od` into `vm/build/compiler.c`: numbers only, so nothing to
+- The bytecode is built in with `od` into `vm/build/compiler.c`, and the standard library the same
+  way into `vm/build/std.c` (see "Builtins and the standard library"): numbers only, so nothing to
   escape, and no trigraphs, which `-std=c11` turns on and the `??=` in it would be.
 
 ## Status and what is next
@@ -606,12 +607,29 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   `run_program()`, since the compiler runs first. **Anything that prints random values calls
   `rand_seed()` first**, or what it prints can't be recorded as expected (snippets and corpus
   files included); unseeded behaviour is tested by type and range only.
+- `std_source($name)`: one file of the built-in standard library as text, or null (see below).
 - `error($value)` raises (see "Errors"); `exit($code = 0)` stops with that code, 0 to 255,
   printing nothing and running no `finally`.
 - `builtins()` is that table as a map, in no promised order: the builtins of the runtime running
   the program, which the self-hosted parser checks calls against. That is right because the
   compiler always runs on the runtime that will run its output, and a loader refuses bytecode
   naming a builtin it lacks.
+- **The standard library is built into the VM** (`vm/build/std.c`, made from `lib/*.gaz` by the
+  Makefile with `od`, as the compiler's bytecode is), so a program in another repository reaches it
+  by name and needs no path to this one: `include "std/json.gaz";`. The parser resolves it (a path
+  starting with `std/`, or a plain name inside a library file, whose "directory" is `<std>`) through
+  the `std_source($name)` builtin, which gives a file's text or null; a name is one file's, never a
+  path. The VM, the bytecode and the collector learn nothing: the file is spliced in as any other, its
+  location is `<std>/json.gaz`, and a name in angle brackets is what bytecode never rewrites, so
+  bytecode runs from anywhere. **Embedding, not a search path** (Python's `sys.path`, Lua's
+  `package.path`): one file, `bin/gazlang`, works from any directory with no install layout to get
+  wrong and no skew between a binary and the library it runs; the cost, a rebuild after editing `lib/`
+  (a few seconds; the tests build it themselves), is met by `GAZLIB=lib`, a directory `std/` reads
+  instead of the built-in copy, for working on the library. `std/` is reserved as a first path
+  component; `./std/x.gaz` is a directory of your own. The repository's own `lib/` files are still
+  tested by path (`tests/gaz`), and `compiler/` includes `lib/chars.gaz` by path, so the compiler
+  builds with nothing but its own sources; the games and examples use `std/`, as any other program
+  would. `StdLibraryTest` checks that what is built in equals `lib/`.
 - In GazLang instead, each its own namespace, so only what a file marks `pub` escapes it:
   `chars.gaz` (character classes), `sorting.gaz` (`sorting::values`, `sorting::by`, on `sort`),
   `lists.gaz` (`lists::flatten`, `lists::max_by`/`min_by`, which call the key once per element

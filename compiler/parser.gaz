@@ -240,6 +240,8 @@ kind Shared {
 
     // How errors name the builtin kinds' source
     const BUILTIN_FILE = "<builtin>";
+    // The directory of the standard library's files, which are built in
+    const STD_DIRECTORY = "<std>";
 
     // Every call by name and bare name used as a value, in source order, checked against the
     // declared functions once the whole program is read
@@ -3101,11 +3103,20 @@ kind Shared {
         #eat("SEMICOLON");
 
         $relative = $path_token.value;
-        $written = starts_with($relative, "/") ? $relative : #base_dir .. "/" .. $relative;
-        $path = file_exists($written) ? real_path($written) : null;
-        // Read before asking whether it was included already, so a file that can't be read
-        // is an error even if it was included before
-        $text = $path == null ? null : #read($path);
+        // "std/name.gaz" is the standard library, built into the VM; a file of it names its
+        // neighbours as any file does, and its own "directory" is <std>, which is not a path
+        // (starting with an angle bracket, it is never rewritten in bytecode)
+        $std = starts_with($relative, "std/") ? slice($relative, 4) : (#base_dir == Parser::STD_DIRECTORY ? $relative : null);
+        if ($std != null) {
+            $path = Parser::STD_DIRECTORY .. "/" .. $std;
+            $text = std_source($std);
+        } else {
+            $written = starts_with($relative, "/") ? $relative : #base_dir .. "/" .. $relative;
+            $path = file_exists($written) ? real_path($written) : null;
+            // Read before asking whether it was included already, so a file that can't be read
+            // is an error even if it was included before
+            $text = $path == null ? null : #read($path);
+        }
         if ($text == null) {
             #fail_at("Cannot include file: {$relative}", #file, $path_token.line);
         }

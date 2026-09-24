@@ -6,8 +6,8 @@
  * SEED makes the same ten clubs again; without one they are different every time. S saves to
  * football.save (or FILE), and load carries on from a save.
  */
-include "../../lib/term.gaz";
-include "../../lib/tui.gaz";
+include "std/term.gaz";
+include "std/tui.gaz";
 include "game.gaz" use Game;
 include "ui.gaz" use Shell;
 

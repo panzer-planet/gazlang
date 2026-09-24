@@ -2,8 +2,8 @@
  * A small terminal dashboard on lib/term.gaz and lib/tui.gaz: up and down pick a task, + and -
  * move its progress, q quits. Needs a terminal.
  */
-include "../lib/term.gaz";
-include "../lib/tui.gaz";
+include "std/term.gaz";
+include "std/tui.gaz";
 
 kind Board {
     #tasks;

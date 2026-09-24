@@ -1,9 +1,9 @@
 // What happens in a match
 namespace matches;
 
-include "../../../lib/format.gaz" use pad_left;
-include "../../../lib/random.gaz";
-include "../../../lib/lists.gaz" use max_by;
+include "std/format.gaz" use pad_left;
+include "std/random.gaz";
+include "std/lists.gaz" use max_by;
 
 pub abstract kind Event {
     fn _(pub #minute, pub #team) {}

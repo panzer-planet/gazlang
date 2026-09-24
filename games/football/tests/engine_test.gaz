@@ -1021,3 +1021,20 @@ $abroad = count_where($made, $n -> in_array(slice($n, 3, len($n) - 3), $foreign)
 check("names are an initial and a surname, and every one is different", [$odd, len($full)], [0, 2000]);
 check("with plenty of variety: hundreds of different surnames", len($surnames) > 200, true);
 check("mostly English, about one in seven from elsewhere", [$abroad > 150, $abroad < 450], [true, true]);
+
+/* saved after a match played with an outfielder in goal, once the goalkeepers are fit again */
+[$home, $away] = clubs(2, 45);
+foreach (filter($home.players, $p -> $p.position() == "GK") as $k) {
+    $k.injure(1);
+}
+$home.prepare();
+$home.finish();
+$loaded = teams::from_data($home.to_data());
+check("a side saved with a stand-in in goal after its goalkeepers are fit again loads, and the next match puts a goalkeeper back", [count_where_kind($loaded.eleven(), "GK"), count_where_kind($loaded.eleven(), "GK") + len($loaded.prepare()) > 0 ? count_where_kind($loaded.eleven(), "GK") : -1], [0, 1]);
+$doubled = filter($away.players, $p -> $p.position() == "GK");
+try {
+    $away.restore([...slice(filter($away.players, $p -> $p.position() != "GK"), 0, 9), $doubled[0], $doubled[1]]);
+    check("but two goalkeepers are never allowed", "no error", "an error");
+} catch (InvalidLineup $e) {
+    check("but two goalkeepers are never allowed", contains($e.message, "2 goalkeepers"), true);
+}

@@ -377,8 +377,8 @@ Error: Index out of range: 5 at trace.gaz:1
 formatting. Here is a sales report in twenty lines:
 
 ```gaz
-include "lib/csv.gaz";
-include "lib/format.gaz";
+include "std/csv.gaz";
+include "std/format.gaz";
 
 fn totals_by($rows, $group, $column) {
     return reduce($rows, ($totals, $row) -> {

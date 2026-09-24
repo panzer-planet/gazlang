@@ -61,6 +61,9 @@ else
 endif
 # The self-hosted compiler's bytecode, checked in, built into the VM so it can run source
 COMPILER = build/compiler.c
+# The standard library, lib/*.gaz, built in the same way: `include "std/tui.gaz"` reads it
+STD = build/std.c
+STD_FILES = $(wildcard ../lib/*.gaz)
 GAZLANG = ../bin/gazlang
 
 # The flags as a file, rewritten only when they change, and every binary depends on it, so
@@ -74,20 +77,20 @@ $(shell echo 'PGO=$(PGO)' | cmp -s - $(PGO_MODE) || { echo 'PGO=$(PGO)' > $(PGO_
 
 all: $(GAZLANG)
 
-$(GAZLANG): $(SOURCES) $(HEADERS) $(COMPILER) $(CONFIG) $(PGO_MODE)
+$(GAZLANG): $(SOURCES) $(HEADERS) $(COMPILER) $(STD) $(CONFIG) $(PGO_MODE)
 	@mkdir -p ../bin
 ifeq ($(PGO),1)
 	rm -rf $(PGO_DIR) && mkdir -p $(PGO_DIR)
-	$(CC) $(FLAGS) -O2 $(PGO_GENERATE) -o $(PGO_DIR)/gazlang $(SOURCES) $(COMPILER) $(LIBS)
+	$(CC) $(FLAGS) -O2 $(PGO_GENERATE) -o $(PGO_DIR)/gazlang $(SOURCES) $(COMPILER) $(STD) $(LIBS)
 	cd .. && export LLVM_PROFILE_FILE=$(abspath $(PGO_DIR))/%p.profraw && \
 	  vm/$(PGO_DIR)/gazlang -f compiler/gazlang.gaz -- code compiler/gazlang.gaz > /dev/null && \
 	  vm/$(PGO_DIR)/gazlang -f compiler/gazlang.gaz -- ast compiler/parser.gaz > /dev/null && \
 	  for f in examples/*.gaz tests/programs/*.gaz; do vm/$(PGO_DIR)/gazlang -f $$f < /dev/null > /dev/null 2>&1 || true; done
 	$(PGO_MERGE)
-	$(CC) $(FLAGS) -O2 $(PGO_USE) -o $(PGO_DIR)/gazlang $(SOURCES) $(COMPILER) $(LIBS)
+	$(CC) $(FLAGS) -O2 $(PGO_USE) -o $(PGO_DIR)/gazlang $(SOURCES) $(COMPILER) $(STD) $(LIBS)
 	cp $(PGO_DIR)/gazlang $@
 else
-	$(CC) $(FLAGS) -O2 -o $@ $(SOURCES) $(COMPILER) $(LIBS)
+	$(CC) $(FLAGS) -O2 -o $@ $(SOURCES) $(COMPILER) $(STD) $(LIBS)
 endif
 
 # The bytes as a C array, written out by od: no escaping to get wrong (and no trigraphs, which
@@ -96,6 +99,12 @@ $(COMPILER): ../compiler/gazlang.gzb Makefile
 	@mkdir -p build
 	{ echo 'const unsigned char compiler_gzb[] = {'; od -An -v -tu1 $< | awk '{ for (i = 1; i <= NF; i++) printf "%s,", $$i; print "" }'; echo '0};'; \
 	  echo 'const unsigned long compiler_gzb_size = sizeof compiler_gzb - 1;'; } > $@
+
+$(STD): $(STD_FILES) Makefile
+	@mkdir -p build
+	{ i=0; for f in $(STD_FILES); do echo "static const unsigned char std_$$i[] = {"; od -An -v -tu1 $$f | awk '{ for (i = 1; i <= NF; i++) printf "%s,", $$i; print "" }'; echo '0};'; i=$$((i + 1)); done; \
+	  echo 'typedef struct { const char *name; const unsigned char *data; unsigned long len; } StdFile;'; \
+	  echo 'const StdFile std_files[] = {'; i=0; for f in $(STD_FILES); do echo "{\"$$(basename $$f)\", std_$$i, sizeof std_$$i - 1},"; i=$$((i + 1)); done; echo '{0, 0, 0}};'; } > $@
 
 # make compiler: after editing compiler/, rebuild compiler/gazlang.gzb with bin/gazlang alone, in three
 # stages: the current compiler compiles the new one (stage 1), which compiles itself (stage 2),
@@ -121,16 +130,16 @@ compiler: $(GAZLANG)
 
 test: build/gazvm-test
 
-build/gazvm-test: $(SOURCES) $(HEADERS) $(COMPILER) $(CONFIG)
+build/gazvm-test: $(SOURCES) $(HEADERS) $(COMPILER) $(STD) $(CONFIG)
 	@mkdir -p build
-	$(CC) $(FLAGS) -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=all -DGC_MINIMUM=64 -o $@ $(SOURCES) $(COMPILER) $(LIBS)
+	$(CC) $(FLAGS) -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=all -DGC_MINIMUM=64 -o $@ $(SOURCES) $(COMPILER) $(STD) $(LIBS)
 
 # Collects cycles at every chance, for testing the collector (slow): GAZVM=vm/build/gazvm-stress php vm/progress.php
 stress: build/gazvm-stress
 
-build/gazvm-stress: $(SOURCES) $(HEADERS) $(COMPILER) $(CONFIG)
+build/gazvm-stress: $(SOURCES) $(HEADERS) $(COMPILER) $(STD) $(CONFIG)
 	@mkdir -p build
-	$(CC) $(FLAGS) -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=all -DGC_MINIMUM=1 -DGC_STRESS -o $@ $(SOURCES) $(COMPILER) $(LIBS)
+	$(CC) $(FLAGS) -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=all -DGC_MINIMUM=1 -DGC_STRESS -o $@ $(SOURCES) $(COMPILER) $(STD) $(LIBS)
 
 clean:
 	rm -rf build $(GAZLANG)
@@ -138,6 +147,6 @@ clean:
 .PHONY: all compiler test stress clean
 
 # Coverage, for vm/coverage.php
-build/gazvm-cov: $(SOURCES) $(HEADERS) $(COMPILER) $(CONFIG)
+build/gazvm-cov: $(SOURCES) $(HEADERS) $(COMPILER) $(STD) $(CONFIG)
 	@mkdir -p build
-	$(CC) $(FLAGS) -O0 -g -fprofile-instr-generate -fcoverage-mapping -o $@ $(SOURCES) $(COMPILER) $(LIBS)
+	$(CC) $(FLAGS) -O0 -g -fprofile-instr-generate -fcoverage-mapping -o $@ $(SOURCES) $(COMPILER) $(STD) $(LIBS)

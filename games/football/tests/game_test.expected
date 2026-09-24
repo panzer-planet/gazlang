@@ -1707,6 +1707,14 @@ ok everyone else stays where they were (25)
 ok the manager's division follows the club (25)
 ok and the new season's fixtures are for the new divisions (25)
 ok the new season's message says so (25)
-Error: vm/build/football_divisions.save is not a saved game: Fernhill Town can't play: 0 goalkeepers in the eleven
-  game::Game::load at games/football/game.gaz:228
-  top level at games/football/tests/game_test.gaz:672
+ok a game saved between seasons keeps both divisions
+ok four seasons of promotion and relegation on, all forty-four clubs are sound
+ok a Championship manager plays forty-six matchdays, and the Premier Division only thirty-eight
+ok after thirty-eight the Premier Division is done and the club's season is not
+ok the club still plays, and only its own division is watched
+ok no message about a division that didn't play
+ok the season is over when the longer one is
+ok the Premier Division's clubs are paid nothing and pay nothing on the Championship's extra matchdays, the Championship's are
+ok a Championship club pays a forty-sixth of its wages a matchday
+ok and a Premier Division club a thirty-eighth
+ok and a Championship club, in the other division, a forty-sixth

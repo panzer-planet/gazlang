@@ -515,6 +515,10 @@ means anything (the starting point is not defined, and the resolution is a micro
 It is for measuring how long something took, or when something is due: `tui::interact` keeps its
 `$tick` steady with it. There is no `time()`: a date would be different on every run.
 
+**The library** — `std_source($name)` is the text of one file of the built-in standard library
+(`"json.gaz"`), or `null`; it is what `include "std/json.gaz"` reads, and a name is a file's, never
+a path.
+
 **Control** — `error($value)`, `exit($code = 0)`.
 
 **Random numbers** — not cryptographically secure: for games, simulations and sampling, never
@@ -605,8 +609,8 @@ or a kind. Privacy is per namespace rather than per file, so several files can d
 namespace and go on seeing everything of each other's.
 
 ```gaz
-include "lib/json.gaz";                              // json:: becomes reachable
-include "lib/chars.gaz" use is_digit, char_at as at; // and these two, unqualified
+include "std/json.gaz";                              // json:: becomes reachable
+include "std/chars.gaz" use is_digit, char_at as at; // and these two, unqualified
 
 echo json::decode("1");
 echo is_digit("4") .. at("abc", 0);
@@ -636,9 +640,16 @@ longer names.
 
 ## Libraries
 
-`include "lib/json.gaz";` splices a file in at parse time, relative to the including file. Each
-file is included once, which also breaks cycles. Every file in `lib/` declares a namespace, so
-its names are reached with `::`; everything in `lib/` is written in GazLang:
+`include "path.gaz";` splices a file in at parse time, relative to the including file. Each
+file is included once, which also breaks cycles.
+
+**The standard library is built into `gazlang`**, so a program anywhere reaches it by name, with
+no path to this repository: `include "std/json.gaz";`. A path that starts with `std/` is the
+library, not a directory (write `./std/x.gaz` for a directory of your own by that name). Every file
+in `lib/` declares a namespace, so its names are reached with `::`; everything in `lib/` is written in
+GazLang. A file of the library names its neighbours as any file does (`include "chars.gaz";`).
+Errors in it are located as `<std>/json.gaz:83`. While working on the library itself, `GAZLIB=lib`
+makes `std/` read that directory instead of the built-in copy, so an edit needs no rebuild.
 
 | File | What is in it |
 | --- | --- |
@@ -675,7 +686,7 @@ header names lowercased and a repeated header's values joined with `", "`.
   read.
 
 ```
-include "lib/http.gaz";
+include "std/http.gaz";
 
 $r = http::post("https://example.com/api", "{\"n\": 1}", {"Content-Type" => "application/json"});
 echo $r["status"] .. " " .. $r["headers"]["content-type"];
@@ -716,7 +727,7 @@ compose with `..`; nothing in it needs a terminal but raw mode.
   the rest of a sequence before it is `escape`.
 
 ```
-include "lib/term.gaz";
+include "std/term.gaz";
 
 term::fullscreen(() -> {
     $input = term::Input();

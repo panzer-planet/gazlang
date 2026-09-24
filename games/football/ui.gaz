@@ -10,9 +10,9 @@
  */
 namespace ui;
 
-include "../../lib/term.gaz";
-include "../../lib/tui.gaz";
-include "../../lib/format.gaz" use pad_left, pad_right;
+include "std/term.gaz";
+include "std/tui.gaz";
+include "std/format.gaz" use pad_left, pad_right;
 include "engine/money.gaz";
 include "engine/teams.gaz" use Team;
 include "engine/matches.gaz" use Goal, Booking, Whistle, Injury, Substitution;

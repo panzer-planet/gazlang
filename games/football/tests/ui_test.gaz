@@ -4,8 +4,8 @@
  * something about the game (a score, a place in the table) it is checked against the game.
  */
 include "../../../tests/gaz/check.gaz";
-include "../../../lib/term.gaz";
-include "../../../lib/tui.gaz";
+include "std/term.gaz";
+include "std/tui.gaz";
 include "../engine/matches.gaz" use Goal, Booking;
 include "../game.gaz" use Game;
 include "../engine/money.gaz";

@@ -492,6 +492,10 @@ Program *load(const char *text, size_t len, const char *path);   /* NULL with vm
 typedef struct { const char *name; int lo, hi; } BuiltinInfo;
 extern const BuiltinInfo builtin_info[];
 extern const int nbuiltins;
+
+/* The standard library's files, built in from lib/ (build/std.c); the list ends with a null name */
+typedef struct { const char *name; const unsigned char *data; unsigned long len; } StdFile;
+extern const StdFile std_files[];
 extern int program_argc;
 extern char *piped_input;       /* standard input main() read, which read_stdin() gives first, or NULL */
 extern size_t piped_input_len;

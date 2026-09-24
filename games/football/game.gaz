@@ -8,7 +8,7 @@ namespace game;
 include "engine/teams.gaz" use Team, Scout, InvalidLineup, TransferRefused;
 include "engine/league.gaz" use League;
 include "engine/money.gaz";
-include "../../lib/json.gaz";
+include "std/json.gaz";
 
 /* The first TOP_SIZE are the top division and the next SECOND_SIZE the second */
 const CLUBS = [

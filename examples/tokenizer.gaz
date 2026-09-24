@@ -5,7 +5,7 @@
  *
  * With no file it tokenizes the snippet below.
  */
-include "../lib/chars.gaz" use is_digit, is_alpha, is_alnum, is_space, span;
+include "std/chars.gaz" use is_digit, is_alpha, is_alnum, is_space, span;
 
 const KEYWORDS = ["if", "else", "while", "return", "function"];
 // Two characters are tried before one, so "==" is never read as "=" twice

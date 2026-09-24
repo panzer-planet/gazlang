@@ -7,7 +7,7 @@
  * Input for , comes from standard input. Without a file it runs the programs below; squares
  * runs a longer one.
  */
-include "../lib/chars.gaz" use span;
+include "std/chars.gaz" use span;
 
 // Hello World!, from the Wikipedia article
 const HELLO = "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.";

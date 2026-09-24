@@ -8,7 +8,7 @@
  * thing, and emphasis doesn't nest inside itself.
  */
 
-include "../lib/regex.gaz";
+include "std/regex.gaz";
 
 const DOCUMENT = "# GazLang notes
 
