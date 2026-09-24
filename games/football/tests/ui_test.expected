@@ -14,7 +14,8 @@ ok the squad's own hints are at the bottom
 ok 3 is tactics
 ok 4 is the fixtures
 ok 5 is the table
-ok 6 is finances, not built yet
+ok 6 is finances
+ok 7 is transfers
 ok keys past the last section do nothing
 ok 1 is back at the inbox
 ok tab moves to the section
@@ -152,3 +153,13 @@ ok 60 by 20 draws every section without an error
 ok 40 by 12 draws every section without an error
 ok 20 by 6 draws every section without an error
 ok 10 by 3 draws every section without an error
+ok finances show the balance in green, and an empty book
+ok after a matchday the books have entries: television and wages, in green and red
+ok and the balance is what the ledger says
+ok the market lists the best players at other clubs, with prices
+ok and the budget and squad size
+ok enter buys the one picked: he is in the squad, and paid for
+ok with the news in the inbox, and the ledger
+ok t switches to selling, listing the squad with what would be paid
+ok enter sells the one picked, for what the squad list said
+ok a player too dear is refused, saying why, and nothing changes

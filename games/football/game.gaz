@@ -5,7 +5,7 @@
  */
 namespace game;
 
-include "engine/teams.gaz" use Scout, InvalidLineup;
+include "engine/teams.gaz" use Team, Scout, InvalidLineup, TransferRefused;
 include "engine/league.gaz" use League;
 include "engine/money.gaz";
 
@@ -103,6 +103,8 @@ pub kind Game {
     pub #league;
     pub #inbox = [];
     pub #season = FIRST_YEAR;
+    /* The club's money in and out, newest last: {"matchday", "text", "amount"} */
+    pub #ledger = [];
 
     fn _(pub #teams, pub #club) {
         #league = League(#teams).draw();
@@ -209,6 +211,7 @@ pub kind Game {
         }
         $matches = #league.end_matchday(#live.matches);
         #live = null;
+        #settle($matches);
         $available = filter(#club.players, $player -> $player.available());
         foreach ($matches as $match) {
             if ($match.home == #club || $match.away == #club) {
@@ -233,6 +236,104 @@ pub kind Game {
         }
 
         return #end_matchday();
+    }
+
+    /* The books for a matchday: every club is paid by television and pays its wages, and the home
+       side takes the gate. The manager's club has each entry in its ledger. */
+    fn settle($matches) {
+        $day = #league.matchdays_played();
+        $home = {};
+        foreach ($matches as $match) {
+            $home[$match.home.name] = $match.home;
+        }
+        foreach (#teams as $team) {
+            $entries = [["Television", money::TELEVISION], ["Wages", -money::matchday_wages($team, #league.matchdays())]];
+            if (has_key($home, $team.name)) {
+                $entries[] = ["Gate receipts", money::gate($team)];
+            }
+            foreach ($entries as [$text, $amount]) {
+                $team.balance += $amount;
+                if ($team == #club) {
+                    #ledger[] = {"matchday" => $day, "text" => $text, "amount" => $amount};
+                }
+            }
+        }
+    }
+
+    /* Everyone at the other clubs, richest talent first, as [player, club] pairs */
+    pub fn market() {
+        $offers = [];
+        foreach (filter(#teams, $team -> $team != #club) as $team) {
+            foreach ($team.players as $player) {
+                $offers[] = [$player, $team];
+            }
+        }
+
+        return sort($offers, ($a, $b) -> [$b[0].rating, $a[0].number] <=> [$a[0].rating, $b[0].number]);
+    }
+
+    /* Buy $player from his club at its price. Gives "" when it is done, and why not when it isn't. */
+    pub fn buy($player) {
+        if (#live != null) {
+            return "No transfers during a match";
+        }
+        $owner = null;
+        foreach (#teams as $team) {
+            if (in_array($player, $team.players)) {
+                $owner = $team;
+            }
+        }
+        if ($owner == null || $owner == #club) {
+            return "{$player} isn't at another club";
+        }
+        $fee = money::price($player);
+        if ($fee > #club.balance) {
+            return "You can't afford " .. money::pounds($fee) .. " for {$player}";
+        }
+        if (len(#club.players) >= Team::MAX_SQUAD) {
+            return "{#club} already have " .. Team::MAX_SQUAD .. " players";
+        }
+        try {
+            $owner.release($player);
+        } catch (TransferRefused $e) {
+            return $e.message;
+        }
+        #club.sign($player);
+        #club.balance -= $fee;
+        $owner.balance += $fee;
+        #ledger[] = {"matchday" => #league.matchdays_played(), "text" => "Signed {$player}", "amount" => -$fee};
+        #tell("Signed: {$player}", "{$player} ({$player.position()}, {$player.rating}) joins from {$owner} for " .. money::pounds($fee) .. ".");
+
+        return "";
+    }
+
+    /* Sell $player, to the richest club that can take him at the price, or abroad if none can.
+       Gives "" when it is done, and why not when it isn't. */
+    pub fn sell($player) {
+        if (#live != null) {
+            return "No transfers during a match";
+        }
+        if (!in_array($player, #club.players)) {
+            return "{$player} isn't at {#club}";
+        }
+        $fee = money::sale_price($player);
+        try {
+            #club.release($player);
+        } catch (TransferRefused $e) {
+            return $e.message;
+        }
+        $buyers = sort(filter(#teams, $team -> $team != #club && $team.balance >= $fee && len($team.players) < Team::MAX_SQUAD), ($a, $b) -> [$b.balance, $a.name] <=> [$a.balance, $b.name]);
+        $to = "abroad";
+        if ($buyers != []) {
+            $buyers[0].sign($player);
+            $buyers[0].balance -= $fee;
+            $to = to_string($buyers[0]);
+        }
+        #club.balance += $fee;
+        #ledger[] = {"matchday" => #league.matchdays_played(), "text" => "Sold {$player}", "amount" => $fee};
+        #tell("Sold: {$player}", "{$player} leaves for {$to} for " .. money::pounds($fee) .. ".");
+
+        return "";
     }
 
     /* What the match did to the club's players: who is hurt or banned now, and who has served it */

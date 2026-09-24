@@ -566,3 +566,10 @@ ok when the season is over there are none
 ok the bench who can play includes a goalkeeper, which a forward can't be replaced with
 ok nobody taken off is offered again
 ok nor anyone who is out
+ok a signing joins the squad, on the lowest shirt number free
+ok and no two players share a number
+ok a full squad is refused
+ok a player who leaves the eleven is covered
+ok the last two goalkeepers can't go: Club 2 need two goalkeepers
+ok a squad at sixteen keeps them
+ok who isn't there can't leave

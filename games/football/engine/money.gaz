@@ -32,6 +32,21 @@ pub fn starting_balance($team) {
     return to_int($above * $above * 20000);
 }
 
+// What a club asks for a player it sells to another: a third over his value
+pub fn price($player) { return to_int(value($player) * 1.3); }
+
+// What a club pays for one a player of the manager's: a tenth under
+pub fn sale_price($player) { return to_int(value($player) * 0.9); }
+
+// A matchday's share of the season's wages
+pub fn matchday_wages($team, $matchdays) { return intdiv(wages($team), $matchdays); }
+
+// What the home club takes at the gate: bigger clubs draw more
+pub fn gate($home) { return to_int(400000 + $home.rating() * 8000); }
+
+// What each club is paid by the broadcasters every matchday
+pub const TELEVISION = 600000;
+
 // Pounds as they are said: £14.5m, £820k, -£1.2m
 pub fn pounds($amount) {
     $sign = $amount < 0 ? "-" : "";

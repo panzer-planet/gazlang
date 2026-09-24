@@ -8,6 +8,7 @@ include "../../../lib/term.gaz";
 include "../../../lib/tui.gaz";
 include "../engine/matches.gaz" use Goal, Booking;
 include "../game.gaz" use Game;
+include "../engine/money.gaz";
 include "../ui.gaz" use Shell;
 
 /* How many of $list satisfy $test */
@@ -126,7 +127,7 @@ check("the menu lists the sections in order", [
 check("the inbox is on show, with its welcome", [$shell.section(), shows($screen, "Welcome to Riverside FC"), shows($screen, "The board have appointed you")], ["Inbox", true, true]);
 check("keys start in the menu", $shell.focus(), "menu");
 check("the current section is marked in the menu", [$screen.cell(3, 3)[1], $screen.cell(3, 4)[1]], ["inverse", ""]);
-check("the last line says what the keys do", contains($screen.lines()[29], "1-6 sections  tab focus  c continue  C quick  q quit"), true);
+check("the last line says what the keys do", contains($screen.lines()[29], "1-7 sections  tab focus  c continue  C quick  q quit"), true);
 check("the screen is as big as it was asked to be", [len($screen.lines()), term::width($screen.lines()[0])], [30, 100]);
 
 /* ---- Sections ---- */
@@ -153,10 +154,12 @@ press($shell, "5");
 check("5 is the table", $shell.section(), "Table");
 press($shell, "6");
 $screen = look($shell);
-check("6 is finances, not built yet", [$shell.section(), shows($screen, "The books")], ["Finances", true]);
+check("6 is finances", [$shell.section(), shows($screen, "Balance"), shows($screen, "Wages a season")], ["Finances", true, true]);
 press($shell, "7");
+check("7 is transfers", [$shell.section(), shows(look($shell), "Transfers: buy")], ["Transfers", true]);
+press($shell, "8");
 press($shell, "0");
-check("keys past the last section do nothing", $shell.section(), "Finances");
+check("keys past the last section do nothing", $shell.section(), "Transfers");
 press($shell, "1");
 check("1 is back at the inbox", $shell.section(), "Inbox");
 
@@ -175,10 +178,10 @@ press($shell, "\e[A");
 check("k and up go back", $shell.section(), "Inbox");
 press($shell, "k");
 check("and stop at the first", $shell.section(), "Inbox");
-foreach ([1, 2, 3, 4, 5, 6, 7] as $_) {
+foreach ([1, 2, 3, 4, 5, 6, 7, 8] as $_) {
     press($shell, "j");
 }
-check("and at the last", $shell.section(), "Finances");
+check("and at the last", $shell.section(), "Transfers");
 press($shell, "1");
 press($shell, "\r");
 check("enter goes into the section", $shell.focus(), "content");
@@ -669,3 +672,60 @@ foreach ([[80, 24], [60, 20], [40, 12], [20, 6], [10, 3]] as [$cols, $rows]) {
     }
     check("{$cols} by {$rows} draws every section without an error", $shell.section(), "Inbox");
 }
+
+/* ---- Finances and transfers ---- */
+$game = Game::start(6);
+$shell = Shell::for_game($game);
+$club = $game.club;
+press($shell, "6");
+$screen = look($shell);
+check("finances show the balance in green, and an empty book", [shows($screen, "Balance  " .. money::pounds($club.balance)), style_at($screen, row_of($screen, "Balance"), "Balance") == "bold green"], [true, true]);
+press($shell, "C");
+press($shell, "6");
+$screen = look($shell);
+check("after a matchday the books have entries: television and wages, in green and red", [shows($screen, "Television"), shows($screen, "Wages"), shows($screen, "+" .. money::pounds(money::TELEVISION))], [true, true, true]);
+check("and the balance is what the ledger says", $club.balance, money::starting_balance($club) + sum(map($game.ledger, $e -> $e["amount"])));
+
+press($shell, "7");
+press($shell, "\t");
+$screen = look($shell);
+$offer = $game.market()[0];
+check("the market lists the best players at other clubs, with prices", [shows($screen, to_string($offer[0])), shows($screen, to_string($offer[1])), shows($screen, money::pounds(money::price($offer[0])))], [true, true, true]);
+check("and the budget and squad size", [shows($screen, "Budget " .. money::pounds($club.balance)), shows($screen, "Squad 17 of 24")], [true, true]);
+$club.balance = 100000000;
+$where = 0;
+foreach ($game.market() as $i => $candidate) {
+    if ($candidate[0].position() != "GK") {
+        $where = $i;
+        break;
+    }
+}
+$offer = $game.market()[$where];
+for ($i = 0; $i < $where; $i++) {
+    press($shell, "j");
+}
+$owner_balance = $offer[1].balance;
+press($shell, "\r");
+check("enter buys the one picked: he is in the squad, and paid for", [in_array($offer[0], $club.players), in_array($offer[0], $offer[1].players), $club.balance, $offer[1].balance, $shell.notice()], [true, false, 100000000 - money::price($offer[0]), $owner_balance + money::price($offer[0]), "Signed {$offer[0]}"]);
+check("with the news in the inbox, and the ledger", [$game.inbox[len($game.inbox) - 1]["subject"], $game.ledger[len($game.ledger) - 1]["text"]], ["Signed: {$offer[0]}", "Signed {$offer[0]}"]);
+press($shell, "t");
+$screen = look($shell);
+check("t switches to selling, listing the squad with what would be paid", [shows($screen, "Transfers: sell"), shows($screen, "Squad 18 of 24"), shows($screen, money::pounds(money::sale_price($club.players[0])))], [true, true, true]);
+$at = 0;
+foreach ($club.players as $i => $candidate) {
+    if ($candidate.position() != "GK") {
+        $at = $i;
+        break;
+    }
+}
+$leaving = $club.players[$at];
+for ($i = 0; $i < $at; $i++) {
+    press($shell, "j");
+}
+$before = $club.balance;
+press($shell, "\r");
+check("enter sells the one picked, for what the squad list said", [in_array($leaving, $club.players), len($club.players), $club.balance, $shell.notice()], [false, 17, $before + money::sale_price($leaving), "Sold {$leaving}"]);
+$club.balance = 0;
+press($shell, "t");
+press($shell, "\r");
+check("a player too dear is refused, saying why, and nothing changes", [starts_with($shell.notice(), "You can't afford"), len($club.players), $club.balance], [true, 17, 0]);

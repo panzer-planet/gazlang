@@ -5,6 +5,10 @@ include "../../../lib/random.gaz";
 include "../../../lib/lists.gaz" use min_by;
 include "players.gaz" use Goalkeeper, Defender, Midfielder, Forward;
 
+pub kind TransferRefused extends Error {
+    fn _($problem) { ##_($problem); }
+}
+
 pub kind InvalidLineup extends Error {
     #team;
     fn _($team, $problem) {
@@ -20,6 +24,9 @@ pub kind InvalidLineup extends Error {
  * defender does, which is what playing out of position costs.
  */
 pub kind Team {
+    /* The most and fewest players a squad may have */
+    pub const MAX_SQUAD = 24;
+    pub const MIN_SQUAD = 16;
     /* Most substitutions in a match */
     pub const SUBSTITUTIONS = 3;
     /* How the team plays, from most defensive to most attacking, and how hard */
@@ -310,6 +317,41 @@ pub kind Team {
     pub fn replace($leaving, $joining) {
         #players = map(#players, $player -> $player == $leaving ? $joining : $player);
         #xi = map(#xi, $player -> $player == $leaving ? $joining : $player);
+        #changed();
+    }
+
+    /* A signing: $player joins the squad, in the lowest shirt number not taken. Refused when the squad is full. */
+    pub fn sign($player) {
+        if (len(#players) >= Team::MAX_SQUAD) {
+            error(TransferRefused("{#name} already have " .. Team::MAX_SQUAD .. " players"));
+        }
+        $taken = map(#players, $p -> $p.number);
+        $number = 1;
+        while (in_array($number, $taken)) {
+            $number++;
+        }
+        $player.number = $number;
+        #players[] = $player;
+        #changed();
+    }
+
+    /* A player leaves the squad. Refused when the squad would be too small or short of goalkeepers;
+       if he was in the eleven, the best cover of his position takes his place. */
+    pub fn release($player) {
+        if (!in_array($player, #players)) {
+            error(TransferRefused("{$player} isn't at {#name}"));
+        }
+        if (len(#players) <= Team::MIN_SQUAD) {
+            error(TransferRefused("{#name} need at least " .. Team::MIN_SQUAD .. " players"));
+        }
+        if (is_a($player, Goalkeeper) && len(filter(#players, $p -> is_a($p, Goalkeeper))) <= 2) {
+            error(TransferRefused("{#name} need two goalkeepers"));
+        }
+        $cover = in_array($player, #xi) ? #best_substitute($player) : null;
+        #players = filter(#players, $p -> $p != $player);
+        if (in_array($player, #xi)) {
+            #xi = $cover != null ? map(#xi, $p -> $p == $player ? $cover : $p) : #best_eleven(#preferred);
+        }
         #changed();
     }
 

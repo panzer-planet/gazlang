@@ -5,6 +5,7 @@
 include "../../../tests/gaz/check.gaz";
 include "../game.gaz" use Game, ordinal, ai_mentality;
 include "../engine/matches.gaz" use Substitution;
+include "../engine/money.gaz";
 
 /* How many of $list satisfy $test */
 fn count_where($list, $test) {
@@ -411,3 +412,73 @@ check("with no match on there is nothing to substitute in", $game.substitute($el
 check("and the lineup can be changed again, and by formation", [$game.auto_lineup("3-5-2"), $game.club.formation()], ["", "3-5-2"]);
 $live = $game.begin_matchday();
 check("but not during a match", [$game.auto_lineup(), $game.swap($game.club.eleven()[1], $game.club.bench()[0])], ["The lineup can't change during a match", "The lineup can't change during a match"]);
+
+/* ---- The books ---- */
+$game = Game::start(8);
+$before = map($game.teams, $t -> $t.balance);
+$matches = $game.advance();
+$wrong = [];
+foreach ($game.teams as $i => $team) {
+    $home = count_where($matches, $m -> $m.home == $team);
+    $expected = $before[$i] + money::TELEVISION - money::matchday_wages($team, $game.league.matchdays()) + $home * money::gate($team);
+    if ($team.balance != $expected) {
+        $wrong[] = "{$team}: {$team.balance} not {$expected}";
+    }
+}
+check("after a matchday every club has been paid and has paid, the home side taking the gate", $wrong, []);
+check("the manager's ledger says so, and only the manager's", [len($game.ledger) >= 2, sum(map($game.ledger, $e -> $e["amount"])) == $game.club.balance - $before[0], $game.ledger[0]["matchday"]], [true, true, 1]);
+while (!$game.season_over()) {
+    $game.advance();
+}
+check("a season on, the ledger still adds up to the balance", sum(map($game.ledger, $e -> $e["amount"])), $game.club.balance - $before[0]);
+
+/* ---- Transfers ---- */
+$game = Game::start(8);
+$club = $game.club;
+$market = $game.market();
+check("the market is everyone at the other clubs, best first", [len($market), count_where($market, $o -> $o[1] == $club), $market[0][0].rating >= $market[len($market) - 1][0].rating], [153, 0, true]);
+$offer = filter($market, $o -> $o[0].position() == "MF")[0];
+[$player, $seller] = $offer;
+$club.balance = 1000;
+check("too dear is refused, and nothing moves", [$game.buy($player) == "You can't afford " .. money::pounds(money::price($player)) .. " for {$player}", in_array($player, $seller.players), $club.balance], [true, true, 1000]);
+check("who is at my own club isn't for sale to me", $game.buy($club.players[0]), "{$club.players[0]} isn't at another club");
+$club.balance = 100000000;
+$seller_before = $seller.balance;
+$count = len($club.players);
+check("with the money it is done", [$game.buy($player), in_array($player, $club.players), in_array($player, $seller.players), len($club.players), $club.balance, $seller.balance], ["", true, false, $count + 1, 100000000 - money::price($player), $seller_before + money::price($player)]);
+check("the inbox and the ledger tell of it", [$game.inbox[len($game.inbox) - 1]["subject"], $game.ledger[0]["amount"]], ["Signed: {$player}", -money::price($player)]);
+$keeper_offer = filter($game.market(), $o -> $o[0].position() == "GK")[0];
+$before = len($keeper_offer[1].players);
+$refusal = $game.buy($keeper_offer[0]);
+check("a club that would be left without two goalkeepers won't sell one", [contains($refusal, "two goalkeepers"), len($keeper_offer[1].players), in_array($keeper_offer[0], $club.players)], [true, $before, false]);
+$club.balance = 1000000000;
+for ($i = 0; $i < 30 && len($club.players) < 24; $i++) {
+    $game.buy(filter($game.market(), $o -> $o[0].position() != "GK" && len($o[1].players) > 16)[0][0]);
+}
+check("my squad can't grow past 24", [$game.buy(filter($game.market(), $o -> $o[0].position() != "GK")[0][0]), len($club.players)], ["Riverside FC already have 24 players", 24]);
+
+$outgoing = filter($club.players, $p -> $p.position() == "FW")[0];
+$balance = $club.balance;
+check("selling: gone from the squad, paid the sale price", [$game.sell($outgoing), in_array($outgoing, $club.players), $club.balance], ["", false, $balance + money::sale_price($outgoing)]);
+$buyer = filter($game.teams, $t -> in_array($outgoing, $t.players));
+check("and taken on by another club, which paid", [len($buyer), len($buyer) == 1 ? $buyer[0] != $club : false], [1, true]);
+check("who isn't mine can't be sold", $game.sell($outgoing), "{$outgoing} isn't at {$club}");
+foreach ($game.teams as $t) {
+    $t.balance = 0;
+}
+$abroad = filter($club.players, $p -> $p.position() == "FW")[0];
+$game.club.balance = 5;
+check("with nobody able to pay he goes abroad, and I am still paid", [$game.sell($abroad), $game.club.balance, count_where($game.teams, $t -> in_array($abroad, $t.players))], ["", 5 + money::sale_price($abroad), 0]);
+$live = $game.begin_matchday();
+check("no transfers during a match", [$game.buy($game.market()[0][0]), $game.sell($game.club.players[3])], ["No transfers during a match", "No transfers during a match"]);
+while (!$live.finished()) {
+    $live.tick();
+}
+$game.end_matchday();
+$invalid = [];
+foreach ($game.teams as $t) {
+    if (len($t.eleven()) != 11 || len($t.players) < 16) {
+        $invalid[] = "{$t}";
+    }
+}
+check("after all that every club still has an eleven and a squad", $invalid, []);

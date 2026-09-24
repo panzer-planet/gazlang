@@ -45,6 +45,15 @@ the best eleven for it), mentality and intensity, with what each does. A side th
 and concedes more; one that presses hard attacks a little more and tires faster. The other clubs
 set up by how they rate against who they play.
 
+## Money and transfers
+
+Every matchday each club is paid by the television and pays a matchday's wages, and the home side
+takes the gate; Finances (`6`) shows the balance and every entry, green in and red out. Transfers
+(`7`) lists every player at the other clubs with the price they ask (a third over his value); `enter`
+buys, and `t` switches to your own squad, where `enter` sells at a tenth under his value to the
+richest club that can pay, or abroad if none can. A squad is 16 to 24 players with at least two
+goalkeepers, and nothing is bought or sold during a match.
+
 ## What is here
 
 - `engine/` is the model: players and their positions, squads and formations, fixtures with the
@@ -61,6 +70,6 @@ away, a table adds up, the inbox says what the match said), not what a seeded ma
 ratings and the odds are meant to change, and a recording would need re-recording with every tweak.
 Every screen is drawn into a `tui::Screen` and read back as text and styles, with no terminal.
 
-Not here yet: transfers, saving. `tests/programs/football.gaz` has a working career loop, saves, and transfers as
+Not here yet: saving and seasons after the first. `tests/programs/football.gaz` has a working career loop, saves, and transfers as
 a command line program: lift what the game needs from it, and leave it as it is, since it is the
 language's biggest test program (see `tests/programs/README.md`).

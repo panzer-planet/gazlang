@@ -6,7 +6,7 @@
  */
 include "../../../tests/gaz/check.gaz";
 include "../engine/players.gaz" use Goalkeeper, Defender, Midfielder, Forward;
-include "../engine/teams.gaz" use Team, Formation, Scout, InvalidLineup;
+include "../engine/teams.gaz" use Team, Formation, Scout, InvalidLineup, TransferRefused;
 include "../engine/matches.gaz" use Fixture, Goal, Booking, Whistle, Injury, Substitution, Shot;
 include "../engine/league.gaz" use League;
 
@@ -884,3 +884,52 @@ check("nobody taken off is offered again", [in_array($forward, $home.substitutes
 $injured = $home.substitutes()[0];
 $injured.injure(2);
 check("nor anyone who is out", in_array($injured, $home.substitutes()), false);
+
+/* ---- Signing and releasing ---- */
+[$home, $away] = clubs(2, 21);
+$star = $away.players[0];
+foreach ($away.players as $p) {
+    if ($p.position() == "FW") {
+        $star = $p;
+    }
+}
+$size = len($home.players);
+$home.sign($star);
+$numbers = map($home.players, $p -> $p.number);
+check("a signing joins the squad, on the lowest shirt number free", [len($home.players), in_array($star, $home.players), $star.number > 0], [$size + 1, true, true]);
+check("and no two players share a number", len(filter($numbers, $n -> len(filter($numbers, $m -> $m == $n)) > 1)), 0);
+$second = $away.players[1];
+try {
+    foreach ($away.players as $p) {
+        $home.sign(Forward("X", 60, 1));
+    }
+    check("a squad can't grow forever", "no error", "an error");
+} catch (TransferRefused $e) {
+    check("a full squad is refused", [len($home.players), contains($e.message, "already have 24")], [24, true]);
+}
+$leaver = filter($away.eleven(), $p -> $p.position() == "DF")[0];
+$away.release($leaver);
+check("a player who leaves the eleven is covered", [len($away.eleven()), in_array($leaver, $away.eleven()), in_array($leaver, $away.players), $away.formation()], [11, false, false, "4-4-2"]);
+$away.sign(Defender("Filler", 55, 1));
+$keepers = filter($away.players, $p -> $p.position() == "GK");
+try {
+    foreach ($keepers as $k) {
+        $away.release($k);
+    }
+    check("the last two goalkeepers can't go", "no error", "an error");
+} catch (TransferRefused $e) {
+    check("the last two goalkeepers can't go: {$e.message}", [contains($e.message, "two goalkeepers"), len(filter($away.players, $p -> $p.position() == "GK"))], [true, 2]);
+}
+$small = Team("Small", slice($away.players, 0, 16));
+try {
+    $small.release($small.players[15]);
+    check("a squad can't be cut below sixteen", "no error", "an error");
+} catch (TransferRefused $e) {
+    check("a squad at sixteen keeps them", [contains($e.message, "at least 16"), len($small.players)], [true, 16]);
+}
+try {
+    $home.release($leaver);
+    check("who isn't there can't leave", "no error", "an error");
+} catch (TransferRefused $e) {
+    check("who isn't there can't leave", contains($e.message, "isn't at"), true);
+}

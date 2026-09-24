@@ -68,7 +68,8 @@ A launcher smoke test runs the real thing on a pty. See `README.md`.
 5. **Balance.** Scorelines like 0-8 come from the simulator's odds, and need tuning before anything
    built on them is fun.
 6. **No calendar.** Time is a matchday counter; it needs dates, a transfer window, a cup.
-7. **No money on screen** (`engine/money.gaz` has values, wages and a summer window).
+7. **Money** *(basic)*: books, a market and selling are in. Not yet: contracts, a transfer window,
+   bids the other side can refuse, the summer window between seasons (`money.window`).
 8. **No saving.** The frozen simulator's career code (`tests/programs/football.gaz`) is the model.
 
 ## Slices, in order
@@ -77,7 +78,7 @@ A launcher smoke test runs the real thing on a pty. See `README.md`.
 2. **Match day**: a match you watch, with commentary from the events. *(done)* And a lineup to choose
    from a bigger squad, which needs the squad first (gap 1) and so comes next.
 3. **Tactics**: formation and mentality that change results. *(done)*
-4. **Transfers and finances**: a market with values and wages, the books, the budget.
+4. **Transfers and finances**: a market with values and wages, the books, the budget. *(done)*
 5. **Saving and loading.**
 6. **Depth**: injuries, morale, contracts, training, youth.
 7. **A season after a season**: promotion and relegation, cups, an end-of-season summary.
