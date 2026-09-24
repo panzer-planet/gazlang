@@ -24,6 +24,12 @@ class TermTest extends GazLangTestCase
         );
     }
 
+    public function test_a_timeout_too_long_for_poll_is_cut_short_not_overflowed()
+    {
+        // standard input is at its end, so this returns at once whatever the timeout
+        $this->assertSame("[\"\"]\n", $this->executeCode('echo to_string([term_read(1e10)]);'));
+    }
+
     /**
      * @dataProvider argumentErrors
      */

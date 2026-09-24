@@ -612,6 +612,7 @@
 "echo \"Hello, \" .. \"World!\";\n$prefix = \"GazLang \";\n$suffix = \"is awesome\";\necho $prefix .. $suffix;"
 "// .. converts a number the way echo does\necho \"Count: \" .. 42;\n\n// On either side\necho 2022 .. \" is the year\";\n\n// Using variable\n$year = 2025;\necho \"The year is \" .. $year;"
 "echo term_is_tty(0) .. \" \" .. term_is_tty(1) .. \" \" .. term_is_tty(2); echo term_size(); try { term_raw(true); } catch (Error $e) { echo $e.message; } term_raw(false); echo term_read(0);"
+"echo to_string([term_read(1e10)]);"
 "try { term_raw(1); } catch (Error $e) { echo $e.message; }"
 "try { term_read(\"x\"); } catch (Error $e) { echo $e.message; }"
 "try { term_read(-1); } catch (Error $e) { echo $e.message; }"

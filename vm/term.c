@@ -82,7 +82,9 @@ bool term_raw(bool on) {
    program waited for the answer to it. Works on a pipe too, which is how it is tested. */
 bool term_read(double timeout, Value *out) {
     flush_output();
-    int ms = timeout < 0 ? -1 : timeout > 2e9 ? 2000000000 : (int)ceil(timeout * 1000);
+    /* poll() takes milliseconds in an int, so a long wait is cut to what fits (about 23 days) */
+    double wait = ceil(timeout * 1000);
+    int ms = timeout < 0 ? -1 : wait > 2000000000.0 ? 2000000000 : (int)wait;
     struct pollfd p = {.fd = STDIN_FILENO, .events = POLLIN};
     int ready;
     while ((ready = poll(&p, 1, ms)) < 0 && errno == EINTR) {}
