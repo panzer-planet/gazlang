@@ -181,3 +181,5 @@ ok d shows the other division
 ok where the top two are green and nobody is red
 ok d again comes back
 ok a manager in the second division sees it, with promotion places green and no relegation
+ok with only injured players and a goalkeeper on the bench, choosing an outfielder to take off says why instead of showing an empty list
+ok but a goalkeeper can be replaced by the one on the bench

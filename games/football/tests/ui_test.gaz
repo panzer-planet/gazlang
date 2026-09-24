@@ -795,3 +795,29 @@ press($second, "5");
 $screen = look($second);
 $table = $second_game.league.table();
 check("a manager in the second division sees it, with promotion places green and no relegation", [shows($screen, "Championship table"), contains($screen.lines()[0], "in the Championship"), style_at($screen, row_of($screen, $table[1].team.name), $table[1].team.name) ?? "", style_at($screen, row_of($screen, $table[9].team.name), $table[9].team.name) ?? ""], [true, true, $table[1].team.name == $second_game.club.name ? "bold cyan" : "green", $table[9].team.name == $second_game.club.name ? "bold cyan" : ""]);
+
+/* ---- A bench with nobody who can come on ---- */
+$game = Game::start(6);
+$shell = Shell::for_game($game);
+press($shell, "c");
+foreach ($game.club.bench() as $p) {
+    if ($p.position() != "GK") {
+        $p.injure(3);
+    }
+}
+$outfielder = filter($game.club.eleven(), $p -> $p.position() != "GK")[0];
+press($shell, "w");
+foreach ($game.club.eleven() as $i => $p) {
+    if ($p == $outfielder) {
+        for ($k = 0; $k < $i; $k++) {
+            press($shell, "j");
+        }
+    }
+}
+press($shell, "\r");
+$screen = look($shell);
+check("with only injured players and a goalkeeper on the bench, choosing an outfielder to take off says why instead of showing an empty list", [contains($shell.notice(), "Nobody on the bench can come on for {$outfielder}"), shows($screen, "who goes off?"), shows($screen, "Who comes on for")], [true, true, false]);
+press($shell, "\x1b");
+press($shell, "w");
+$keeper = filter($game.club.eleven(), $p -> $p.position() == "GK")[0];
+check("but a goalkeeper can be replaced by the one on the bench", [len($game.club.substitutes($keeper)) > 0], [true]);

@@ -555,6 +555,9 @@ pub kind MatchView extends View {
                     return "There is nobody on the bench who can play";
                 }
                 if (#off == null) {
+                    if (#game.club.substitutes($list[#cursor]) == []) {
+                        return "Nobody on the bench can come on for {$list[#cursor]}: they are hurt, banned or only goalkeepers";
+                    }
                     #off = $list[#cursor];
                     #cursor = 0;
 
