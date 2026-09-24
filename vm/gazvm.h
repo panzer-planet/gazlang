@@ -14,6 +14,7 @@
  *   builtins.c  the builtin functions and their arities
  *   gc.c        the cycle collector, for what reference counting can't free
  *   net.c       sockets, and TLS through OpenSSL (the one file that includes it)
+ *   term.c      raw mode, reading keys, the terminal's size
  *
  * Errors: a function that can fail returns bool, false meaning an error was raised. The
  * error itself is in `vm_error` (see raisef()), and the caller passes the false up until the
@@ -508,5 +509,11 @@ bool net_open(Str *host, int64_t port, bool tls, double timeout, Value *out);
 bool net_read(Socket *s, Value *out);
 bool net_write(Socket *s, Str *data);
 void net_close(Socket *s);
+
+/* term.c */
+bool term_raw(bool on);
+bool term_read(double timeout, Value *out);
+bool term_size(Value *out);
+bool term_is_tty(int64_t stream, Value *out);
 
 #endif

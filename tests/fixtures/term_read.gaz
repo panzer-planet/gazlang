@@ -1,0 +1,8 @@
+// Everything term_read() gives until the input ends, as a quoted string
+$all = "";
+while (true) {
+    $chunk = term_read();
+    if ($chunk == "") { break; }
+    $all ..= $chunk;
+}
+echo to_string([$all]);

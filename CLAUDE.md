@@ -82,7 +82,7 @@ vendor/bin/pint                     # formatting
 - `vm/`: the VM in C. `gazvm.h` says which file does what: `value.c` and `ops.c` are what values
   mean (operators, truthiness, printing, keys, indexing, write paths), `builtins.c` the builtins
   and their arities (`builtin_info[]`), `load.c` reading and checking bytecode, `vm.c` running it
-  and the CLI, `gc.c` the cycle collector, `net.c` sockets and TLS.
+  and the CLI, `gc.c` the cycle collector, `net.c` sockets and TLS, `term.c` raw mode and keys.
 - `lib/`: the standard library in GazLang. `examples/`: sample programs.
 - `tests/`: PHPUnit, `tests/gaz/` (GazLang programs), `tests/expected/` (what every program
   prints), and the corpora: `lexer_corpus/`, `parser_corpus/`, `codegen_corpus/`, `vm_corpus/`,
@@ -543,6 +543,21 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   after, as curl does: per socket only macOS can turn it off, and ignoring it for good would
   change what a program writing to a closed pipe does. OpenSSL reports a socket timeout as
   wanting to read; `net.c` says `timed out`.
+- The terminal (`term.c`): `term_raw($on)`, `term_read($timeout = null)`, `term_size()`,
+  `term_is_tty($stream)`, only what GazLang can't do itself; drawing is escape sequences through
+  `print` and turning bytes into keys is GazLang's (`lib/term.gaz`), so the rules are written out
+  and testable from a pipe. `term_read` gives raw bytes (`null` on a timeout, `""` at the end) and
+  works on a pipe, which is how the key decoder is tested; it flushes output first, since `stdout`
+  is buffered in 64KB. **Raw mode outlives the program unless something puts it back**, and
+  `exit()` and an uncaught error skip `finally`, so `term.c` restores it in an `atexit` handler
+  and in handlers for SIGINT, SIGTERM, SIGHUP and SIGQUIT (which then end the program as they
+  would have, so its exit status is still the signal's). Always `TCSANOW`: `TCSADRAIN` waits for
+  the terminal to take the output, which never ends once the terminal is gone. Raw mode turns off
+  `ISIG`, so Ctrl-C is the byte 3 for the program to decide about; a program in a loop that never
+  reads can't be interrupted from the keyboard then. Resize is polled with `term_size()`, not
+  signalled, so nothing runs asynchronously. `tests/fixtures/pty_run.py` runs a program on a pty,
+  since raw mode can't be seen from a pipe; `TermTest` skips those tests without python3.
+  `ponytail:` `run()` hands a child the terminal as raw mode left it.
 - Random numbers, not cryptographically secure (the docs say so): `rand_int($min, $max)` (both
   included), `rand_float()` (0.0 up to 1.0, the top 53 bits), `rand_seed($seed = null)`
   (without a seed, from OS entropy; every program starts that way). xoshiro256** seeded

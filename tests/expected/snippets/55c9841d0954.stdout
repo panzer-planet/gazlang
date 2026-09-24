@@ -1,0 +1,4 @@
+false false false
+{"cols" => 80, "rows" => 24}
+term_raw() needs a terminal on standard input
+

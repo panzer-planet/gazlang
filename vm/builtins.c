@@ -43,7 +43,8 @@ const BuiltinInfo builtin_info[] = {
     {"cwd", 0, 0}, {"print", 1, 1}, {"print_error", 1, 1}, {"read_stdin", 0, 0}, {"args", 0, 0},
     {"builtins", 0, 0}, {"rand_int", 2, 2}, {"rand_float", 0, 0}, {"rand_seed", 0, 1},
     {"run", 1, 2}, {"socket_open", 2, 4}, {"socket_read", 1, 1}, {"socket_write", 2, 2},
-    {"socket_close", 1, 1},
+    {"socket_close", 1, 1}, {"term_raw", 1, 1}, {"term_read", 0, 1}, {"term_size", 0, 0},
+    {"term_is_tty", 1, 1},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -55,6 +56,7 @@ enum {
     B_WRITE_FILE, B_FILE_EXISTS, B_REAL_PATH, B_CWD, B_PRINT, B_PRINT_ERROR, B_READ_STDIN,
     B_ARGS, B_BUILTINS, B_RAND_INT, B_RAND_FLOAT, B_RAND_SEED, B_RUN,
     B_SOCKET_OPEN, B_SOCKET_READ, B_SOCKET_WRITE, B_SOCKET_CLOSE,
+    B_TERM_RAW, B_TERM_READ, B_TERM_SIZE, B_TERM_IS_TTY,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -1118,6 +1120,25 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         net_close(a.sock);
         *out = v_null();
         return true;
+    case B_TERM_RAW:
+        if (!want(index, a, M(T_BOOL))) return false;
+        if (!term_raw(a.b)) return false;
+        *out = v_null();
+        return true;
+    case B_TERM_READ: {
+        /* term_read($timeout = null): seconds to wait, null for as long as it takes */
+        Value timeout = argc > 0 ? a : v_null();
+        if (!want(index, timeout, INT | M(T_FLOAT) | M(T_NULL))) return false;
+        if (timeout.type != T_NULL && (timeout.type == T_INT ? (double)timeout.i : timeout.f) < 0) {
+            return raisef("term_read() expects a timeout of 0 seconds or more");
+        }
+        return term_read(timeout.type == T_NULL ? -1 : timeout.type == T_INT ? (double)timeout.i : timeout.f, out);
+    }
+    case B_TERM_SIZE:
+        return term_size(out);
+    case B_TERM_IS_TTY:
+        if (!want(index, a, INT)) return false;
+        return term_is_tty(a.i, out);
     case B_BUILTINS: {
         Map *m = map_new();
         for (int i = 0; i < nbuiltins; i++) {

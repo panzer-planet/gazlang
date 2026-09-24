@@ -448,6 +448,25 @@ A socket is a handle: copies share the connection, `==` is identity, and it prin
 a timeout, and reading or writing a closed socket are errors. A gazlang built with `make TLS=0`
 has no TLS, and `$tls = true` is an error.
 
+**The terminal** — what a program needs to be interactive and GazLang can't do itself. Drawing
+is escape sequences through `print`, and turning bytes into keys is GazLang's too (`lib/term.gaz`):
+
+- `term_raw($on)` — `true` turns raw mode on for standard input: no echo, no line buffering, each
+  key arrives as it is typed. Ctrl-C and Ctrl-Z arrive as the bytes 3 and 26 instead of ending or
+  stopping the program, so the program decides. `false` puts the terminal back. Anything that ends
+  the program (`exit()`, an uncaught error, SIGINT, SIGTERM, SIGHUP, SIGQUIT) puts it back too,
+  so a crash doesn't leave the shell typing nothing. Standard input that isn't a terminal is an
+  error.
+- `term_read($timeout = null)` — what has arrived on standard input, up to 4KB, waiting for
+  something to. `$timeout` (seconds, an int or a float) gives `null` when it runs out; `""` means
+  the input ended. Output is flushed first, so a prompt is on the screen before the wait. It reads
+  a pipe too, which is how programs that use it are tested.
+- `term_size()` — `{"cols" => 80, "rows" => 24}` for the terminal standard output is, and 80 by 24
+  when it isn't one. Call it each time it matters; nothing tells a program the window changed.
+- `term_is_tty($stream)` — whether standard input (0), output (1) or error (2) is a terminal.
+
+`term_read` reads the descriptor, not the buffer `read_stdin()` fills, so use one or the other.
+
 **Control** — `error($value)`, `exit($code = 0)`.
 
 **Random numbers** — not cryptographically secure: for games, simulations and sampling, never

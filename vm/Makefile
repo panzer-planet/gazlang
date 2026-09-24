@@ -12,7 +12,7 @@ CC ?= cc
 # _DEFAULT_SOURCE: glibc hides POSIX and BSD functions (open_memstream, realpath, memmem) under
 # -std=c11 without it; macOS ignores it
 FLAGS = -std=c11 -D_DEFAULT_SOURCE -Wall -Wextra -Wno-unused-parameter
-SOURCES = value.c ops.c load.c vm.c builtins.c gc.c net.c
+SOURCES = value.c ops.c load.c vm.c builtins.c gc.c net.c term.c
 LIBS = -lm -lpthread
 
 # OpenSSL: from pkg-config, else Homebrew's (keg-only, so not on the default paths), else the

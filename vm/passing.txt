@@ -244,6 +244,7 @@ snippet:549a19f05c57
 snippet:54d49ff6ad66
 snippet:558d4b13c48a
 snippet:558e3cf661d5
+snippet:55c9841d0954
 snippet:55f2fb1811fe
 snippet:569349dde78e
 snippet:5757521ef7c5
@@ -252,6 +253,7 @@ snippet:58b0e900668d
 snippet:58c5f60509d6
 snippet:592bcb255765
 snippet:59a671b1d5e8
+snippet:59a9c36fcd56
 snippet:59f0b657fc6e
 snippet:5a3c1286dc1d
 snippet:5a44a85ee131
@@ -316,6 +318,7 @@ snippet:728bd215d704
 snippet:72d83ecb36c8
 snippet:7324b4ef0f75
 snippet:733764de35b3
+snippet:738a296cbd72
 snippet:73f33e4d5c87
 snippet:73f5f3189cc4
 snippet:73fcd9a28f1c
@@ -513,6 +516,7 @@ snippet:d41b2c9fc5ca
 snippet:d4e28d3730fb
 snippet:d57d1d0ddf85
 snippet:d6289f94cfc0
+snippet:d63ff0dbbcfb
 snippet:d7ec3ca57f51
 snippet:d972dea2e191
 snippet:d9d575a04ff8
@@ -530,6 +534,7 @@ snippet:deab286c69ec
 snippet:df1cc3ac6464
 snippet:df24cebe9ec0
 snippet:df3c1d37c902
+snippet:df4bfd6cbd51
 snippet:df8c7b55cd50
 snippet:e05b07fe83b2
 snippet:e0625463267b
@@ -748,6 +753,7 @@ tests/fixtures/include/main.gaz
 tests/fixtures/include/runtime.gaz
 tests/fixtures/json_roundtrip.gaz
 tests/fixtures/read_stdin.gaz
+tests/fixtures/term_read.gaz
 tests/gaz/check.gaz
 tests/gaz/compiler/lexer_test.gaz
 tests/gaz/compiler/parser_test.gaz
