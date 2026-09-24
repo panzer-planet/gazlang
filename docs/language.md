@@ -603,6 +603,7 @@ its names are reached with `::`; everything in `lib/` is written in GazLang:
 | `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins; see below |
 | `random.gaz` | `random::shuffle` (a shuffled copy of a list or string), `random::pick` (an element of a list or value of a map), `random::key`, `random::chance($p)`, `random::weighted` (from `[item, weight]` pairs) |
 | `regex.gaz` | `regex::matches($s, $pattern)` (full match), `regex::search($s, $pattern)` (found anywhere), `regex::find($s, $pattern)` (the start index, or null); literals, `.`, `* + ?`, `\|`, `(...)`, `[...]`/`[^...]` with ranges, `^ $`, `\` escapes; no captures, no backreferences, no backtracking |
+| `term.gaz` | `term::style`, cursor and screen sequences, `term::decode`, `term::Input`, `term::fullscreen`, on the terminal builtins; see below |
 
 `http.gaz` returns
 `{"status" => 200, "headers" => {"content-type" => "text/html", ...}, "body" => "..."}`, with
@@ -629,4 +630,50 @@ include "lib/http.gaz";
 
 $r = http::post("https://example.com/api", "{\"n\": 1}", {"Content-Type" => "application/json"});
 echo $r["status"] .. " " .. $r["headers"]["content-type"];
+```
+
+`term.gaz` is the terminal, on `term_raw`, `term_read`, `term_size` and `term_is_tty` (see the
+builtins). Drawing functions *return* the escape sequence, so `print(...)` draws and results
+compose with `..`; nothing in it needs a terminal but raw mode.
+
+- **Styles**: `term::style($text, "bold red on_#003")` wraps text in a style and a reset;
+  `term::start($spec)` is the sequence alone. Words: `bold dim italic underline blink inverse
+  hidden strike`; `black red green yellow blue magenta cyan white`, with `bright_` in front for
+  the bright ones; `on_` in front of a colour for the background; `#rgb` and `#rrggbb` for
+  truecolour; `c0` to `c255` for the 256-colour palette. An unknown word is an error. One reset
+  ends every style, so a style inside a style ends both at the inner one's end.
+- **Moving**: `move_to($col, $row)` (the top left is 1, 1), `up`, `down`, `left`, `right`
+  (`$n = 1`), `column`, `hide_cursor`, `show_cursor`, `save_cursor`, `restore_cursor`, `clear`,
+  `clear_line`, `clear_to_end_of_line`, `clear_below`, `enter_screen` and `leave_screen` (a second
+  screen that leaves the terminal as it was), `title`.
+- **`term::fullscreen($f)`** runs `$f` on a screen of its own in raw mode with the cursor hidden,
+  and puts everything back however `$f` ends, an error included. It gives what `$f` gives.
+- **Measuring**: `term::strip($text)` is the text without its escape sequences, and
+  `term::width($text)` the columns it takes, counting characters rather than bytes. A wide
+  character (CJK, emoji) counts one where it takes two.
+- **Keys**: `term::decode($bytes, $flush = false)` turns what `term_read()` gave into
+  `{"keys" => [...], "rest" => "..."}`. A key is `{"key", "ctrl", "alt", "shift"}`, where `"key"`
+  is the character typed (`"a"`, `"é"`, `"space"`) or a name: `enter tab backspace escape up down
+  left right home end insert delete page_up page_down f1` to `f12`, and `unknown` (with the
+  sequence as `"raw"`) for one it doesn't know, such as a mouse report. `rest` is the start of a
+  key the bytes stop in the middle of, to put before the next read; with `$flush`, nothing more
+  is coming and it is taken for what it looks like (a lone `ESC` is `escape`).
+  `term::name($key)` writes a key as `"ctrl+alt+up"`, in the order ctrl, alt, shift, which a
+  `match` can take, and `term::text($key)` is the character it types, or `null`.
+- **`term::Input`** keeps what a read left over, so make one and keep using it:
+  `$input.read($timeout = null)` is the next key, `null` when the time runs out, and
+  `{"key" => "eof"}` when the input ends (again on every call after). A lone `ESC` waits 50ms for
+  the rest of a sequence before it is `escape`.
+
+```
+include "lib/term.gaz";
+
+term::fullscreen(() -> {
+    $input = term::Input();
+    print("press a key, q to quit");
+    while (true) {
+        $key = term::name($input.read());
+        if ($key == "q" || $key == "ctrl+c" || $key == "eof") { break; }
+    }
+});
 ```

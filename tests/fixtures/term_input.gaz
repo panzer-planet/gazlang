@@ -1,0 +1,13 @@
+/*
+ * Every key term::Input reads from standard input, by name and a line each, until the input ends
+ */
+include "../../lib/term.gaz";
+
+$input = term::Input();
+while (true) {
+    $name = term::name($input.read());
+    echo $name;
+    if ($name == "eof") {
+        break;
+    }
+}

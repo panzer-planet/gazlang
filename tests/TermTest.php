@@ -94,6 +94,62 @@ class TermTest extends GazLangTestCase
         $this->assertSame("null\r\n[\"\\e[A\"]\r\n", $ran['out']);
     }
 
+    public function test_input_reads_keys_from_a_pipe_and_says_when_it_ends()
+    {
+        [$out] = self::gazlang(['-f', 'tests/fixtures/term_input.gaz'], "ab\x1b[A\x03\x1b");
+
+        $this->assertSame("a\nb\nup\nctrl+c\nescape\neof\n", $out);
+    }
+
+    public function test_input_takes_a_sequence_that_the_input_ends_in_for_what_it_looks_like()
+    {
+        [$out] = self::gazlang(['-f', 'tests/fixtures/term_input.gaz'], "\x1b[1;");
+
+        $this->assertSame("alt+[\n1\n;\neof\n", $out);
+    }
+
+    public function test_input_says_eof_again_and_again_after_the_end()
+    {
+        [$out] = self::gazlang(['-f', 'tests/fixtures/term_input.gaz'], '');
+
+        $this->assertSame("eof\n", $out);
+    }
+
+    public function test_input_waits_for_a_lone_escape_and_for_no_key_at_all()
+    {
+        $root = self::ROOT;
+        $program = "include \"{$root}/lib/term.gaz\"; term_raw(true); \$input = term::Input();"
+            .' echo to_string([$input.read(0.1)]); echo term::name($input.read()); echo term::name($input.read());';
+
+        // "escape" comes after the wait for more of a sequence; "up" is one whole read
+        $ran = $this->onTerminal($program, '1b', null);
+        $this->assertStringStartsWith("[null]\r\nescape\r\n", $ran['out']);
+
+        $ran = $this->onTerminal($program, '1b5b411b5b42');
+        $this->assertSame("[null]\r\nup\r\ndown\r\n", $ran['out']);
+    }
+
+    public function test_fullscreen_gives_the_terminal_back_when_the_program_inside_it_ends_or_fails()
+    {
+        $root = self::ROOT;
+        $screen = "\e[?1049h";
+        $back = "\e[?1049l";
+
+        // it waits for a key inside, so the terminal can be looked at while it is in use
+        $ran = $this->onTerminal("include \"{$root}/lib/term.gaz\"; echo term::fullscreen(() -> { term_read(); return 7; });", '71');
+        $this->assertSame(0, $ran['code']);
+        $this->assertStringContainsString("{$screen}\e[?25l", $ran['out']);
+        $this->assertStringEndsWith("\e[0m\e[?25h{$back}7\r\n", $ran['out']);
+        $this->assertSame(['echo' => false, 'icanon' => false, 'isig' => false], $ran['during']);
+        $this->assertSame(['echo' => true, 'icanon' => true, 'isig' => true], $ran['after']);
+
+        $ran = $this->onTerminal("include \"{$root}/lib/term.gaz\"; term::fullscreen(() -> { error(\"boom\"); });");
+        $this->assertSame(1, $ran['code']);
+        // the screen is left before the error is printed on the terminal's own
+        $this->assertLessThan(strpos($ran['out'], 'Error: boom'), strpos($ran['out'], $back));
+        $this->assertSame(['echo' => true, 'icanon' => true, 'isig' => true], $ran['after']);
+    }
+
     /**
      * Run GazLang code on a pty, as tests/fixtures/pty_run.py does
      *

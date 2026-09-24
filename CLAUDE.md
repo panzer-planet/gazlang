@@ -586,7 +586,9 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   `tests/fixtures/http_server.php`, over TCP and TLS, which writes framing out by hand so it can
   get it wrong on purpose; ports vary, so what it prints is checked by shape, not recorded),
   `random.gaz` (`random::shuffle`, `random::pick`, `random::key`, `random::chance`,
-  `random::weighted`). Scan long strings with `index_of`, not a character at a time.
+  `random::weighted`), `term.gaz` (`term::style`, the cursor and screen sequences,
+  `term::decode`, `term::Input`, `term::fullscreen`, on the terminal builtins; drawing functions
+  return their sequence, so a program prints them and a test compares them). Scan long strings with `index_of`, not a character at a time.
 
 ## Function values and closures
 

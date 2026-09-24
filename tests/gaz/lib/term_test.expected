@@ -1,0 +1,82 @@
+ok start: attribute
+ok start: several words
+ok start: extra spaces
+ok start: background
+ok start: bright
+ok start: bright background
+ok start: #rrggbb
+ok start: #rgb
+ok start: hex is any case
+ok start: 256 colours
+ok style
+ok unknown style bogus
+ok unknown style bright_bogus
+ok unknown style on_bogus
+ok unknown style #12
+ok unknown style #ggg
+ok unknown style c256
+ok unknown style c-1
+ok unknown style cx
+ok unknown style bright_
+ok move_to is column then row, sent row first
+ok up
+ok up by default is one
+ok moving by nothing is nothing
+ok column
+ok cursor
+ok screen
+ok clear
+ok title
+ok strip: plain
+ok strip: styles
+ok strip: cursor moves
+ok strip: a title
+ok strip: an escape at the end
+ok strip: cut off
+ok strip: nothing
+ok width: ascii
+ok width: multibyte
+ok width: ignores styles
+ok printable
+ok enter, tab, backspace, escape
+ok ctrl letters
+ok ctrl space and the punctuation ones
+ok arrows
+ok arrows, application mode
+ok home, end, insert, delete, pages
+ok home and end, other spellings
+ok function keys
+ok function keys, CSI spelling
+ok shift tab
+ok modifiers
+ok modifiers on a ~ key
+ok alt letters
+ok alt and ctrl
+ok alt enter
+ok alt and a sequence
+ok utf-8
+ok alt utf-8
+ok unknown: a cursor position report
+ok unknown: a mouse report
+ok unknown is kept
+ok a mix
+ok rest: a lone escape
+ok rest: a cut-off sequence
+ok rest: half a character
+ok rest: half of an alt key
+ok rest: joined with the next read
+ok flush: a lone escape
+ok flush: a cut-off sequence
+ok flush: ESC O
+ok flush: half a character
+ok flush leaves a whole sequence alone
+ok text of ["a"]
+ok text of ["Z"]
+ok text of [" "]
+ok text of ["é"]
+ok text of ["\x03"]
+ok text of ["\ea"]
+ok text of ["\r"]
+ok text of ["\e[A"]
+ok text of ["\e[15~"]
+ok name of a plain key

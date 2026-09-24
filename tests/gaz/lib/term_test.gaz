@@ -1,0 +1,94 @@
+include "../check.gaz";
+include "../../../lib/term.gaz";
+
+// The keys in $bytes, named
+fn names($bytes, $flush = false) {
+    return join(map(term::decode($bytes, $flush)["keys"], $k -> term::name($k)), " ");
+}
+
+// Styles
+check("start: attribute", term::start("bold"), "\e[1m");
+check("start: several words", term::start("bold underline red"), "\e[1;4;31m");
+check("start: extra spaces", term::start("  bold   red "), "\e[1;31m");
+check("start: background", term::start("on_blue"), "\e[44m");
+check("start: bright", term::start("bright_green"), "\e[92m");
+check("start: bright background", term::start("on_bright_black"), "\e[100m");
+check("start: #rrggbb", term::start("#ff8800"), "\e[38;2;255;136;0m");
+check("start: #rgb", term::start("#f80"), "\e[38;2;255;136;0m");
+check("start: hex is any case", term::start("on_#FfA"), "\e[48;2;255;255;170m");
+check("start: 256 colours", term::start("c208 on_c17"), "\e[38;5;208;48;5;17m");
+check("style", term::style("hi", "bold red"), "\e[1;31mhi\e[0m");
+foreach (["bogus", "bright_bogus", "on_bogus", "#12", "#ggg", "c256", "c-1", "cx", "bright_"] as $word) {
+    try {
+        term::style("x", $word);
+        check("unknown style " .. $word, "no error", "an error");
+    } catch (Error $e) {
+        check("unknown style " .. $word, $e.message, "term: unknown style \"" .. $word .. "\"");
+    }
+}
+
+// Moving and clearing
+check("move_to is column then row, sent row first", term::move_to(5, 2), "\e[2;5H");
+check("up", term::up(3), "\e[3A");
+check("up by default is one", term::up(), "\e[1A");
+check("moving by nothing is nothing", term::left(0) .. term::down(0) .. term::right(-1), "");
+check("column", term::column(7), "\e[7G");
+check("cursor", term::hide_cursor() .. term::show_cursor(), "\e[?25l\e[?25h");
+check("screen", term::enter_screen() .. term::leave_screen(), "\e[?1049h\e[?1049l");
+check("clear", term::clear() .. term::clear_line(), "\e[2J\e[2K");
+check("title", term::title("x"), "\e]0;x\x07");
+
+// Measuring
+check("strip: plain", term::strip("hello"), "hello");
+check("strip: styles", term::strip(term::style("hi", "bold red") .. " there"), "hi there");
+check("strip: cursor moves", term::strip("a" .. term::move_to(3, 4) .. "b" .. term::clear()), "ab");
+check("strip: a title", term::strip(term::title("x") .. "y"), "y");
+check("strip: an escape at the end", term::strip("a\e"), "a");
+check("strip: cut off", term::strip("a\e[1;"), "a");
+check("strip: nothing", term::strip(""), "");
+check("width: ascii", term::width("hello"), 5);
+check("width: multibyte", term::width("héllo → ✓"), 9);
+check("width: ignores styles", term::width(term::style("héllo", "bold")), 5);
+
+// Keys
+check("printable", names("abZ 9~"), "a b Z space 9 ~");
+check("enter, tab, backspace, escape", names("\r\t\x7f\x08") .. " " .. names("\e", true), "enter tab backspace backspace escape");
+check("ctrl letters", names("\x01\x03\x1a"), "ctrl+a ctrl+c ctrl+z");
+check("ctrl space and the punctuation ones", names("\x00\x1c\x1d\x1e\x1f"), "ctrl+space ctrl+\\ ctrl+] ctrl+^ ctrl+_");
+check("arrows", names("\e[A\e[B\e[C\e[D"), "up down right left");
+check("arrows, application mode", names("\eOA\eOB\eOC\eOD"), "up down right left");
+check("home, end, insert, delete, pages", names("\e[H\e[F\e[2~\e[3~\e[5~\e[6~"), "home end insert delete page_up page_down");
+check("home and end, other spellings", names("\e[1~\e[4~\e[7~\e[8~\eOH\eOF"), "home end home end home end");
+check("function keys", names("\eOP\eOQ\eOR\eOS\e[15~\e[17~\e[18~\e[19~\e[20~\e[21~\e[23~\e[24~"), "f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12");
+check("function keys, CSI spelling", names("\e[11~\e[12~\e[13~\e[14~"), "f1 f2 f3 f4");
+check("shift tab", names("\e[Z"), "shift+tab");
+check("modifiers", names("\e[1;2A\e[1;3A\e[1;5A\e[1;6A\e[1;7A"), "shift+up alt+up ctrl+up ctrl+shift+up ctrl+alt+up");
+check("modifiers on a ~ key", names("\e[3;5~\e[5;2~\e[15;7~"), "ctrl+delete shift+page_up ctrl+alt+f5");
+check("alt letters", names("\ea\eZ\e "), "alt+a alt+Z alt+space");
+check("alt and ctrl", names("\e\x03"), "ctrl+alt+c");
+check("alt enter", names("\e\r"), "alt+enter");
+check("alt and a sequence", names("\e\e[A"), "escape up");
+check("utf-8", names("é→✓😀"), "é → ✓ 😀");
+check("alt utf-8", names("\eé"), "alt+é");
+check("unknown: a cursor position report", names("\e[12;40R"), "unknown");
+check("unknown: a mouse report", names("\e[<0;10;5M"), "unknown");
+check("unknown is kept", term::decode("\e[<0;10;5M")["keys"][0]["raw"], "\e[<0;10;5M");
+check("a mix", names("ab\e[Acd\r"), "a b up c d enter");
+
+// A sequence cut off waits for the rest, unless nothing more is coming
+check("rest: a lone escape", term::decode("\e"), {"keys" => [], "rest" => "\e"});
+check("rest: a cut-off sequence", term::decode("a\e[1;"), {"keys" => [{"key" => "a", "ctrl" => false, "alt" => false, "shift" => false}], "rest" => "\e[1;"});
+check("rest: half a character", term::decode("\xe2\x9c")["rest"], "\xe2\x9c");
+check("rest: half of an alt key", term::decode("\e\xc3")["rest"], "\e\xc3");
+check("rest: joined with the next read", names("\e[1;" .. "5A"), "ctrl+up");
+check("flush: a lone escape", names("\e", true), "escape");
+check("flush: a cut-off sequence", names("\e[1;", true), "alt+[ 1 ;");
+check("flush: ESC O", names("\eO", true), "alt+O");
+check("flush: half a character", term::decode("\xe2\x9c", true)["rest"], "");
+check("flush leaves a whole sequence alone", names("\e[A", true), "up");
+
+// What a key types
+foreach ([["a", "a"], ["Z", "Z"], [" ", " "], ["é", "é"], ["\x03", null], ["\ea", null], ["\r", null], ["\e[A", null], ["\e[15~", null]] as [$bytes, $typed]) {
+    check("text of " .. to_string([$bytes]), term::text(term::decode($bytes)["keys"][0]), $typed);
+}
+check("name of a plain key", term::name({"key" => "x", "ctrl" => false, "alt" => false, "shift" => false}), "x");

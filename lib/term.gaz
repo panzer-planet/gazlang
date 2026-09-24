@@ -1,0 +1,431 @@
+/*
+ * The terminal: styles and colours, moving the cursor, and reading keys.
+ *
+ * Drawing is escape sequences, and every function here that makes one *returns* it, so
+ * print(term::style("hi", "bold red")) draws and "x" .. term::style("hi", "bold") .. "y" composes.
+ * Reading is term_read()'s bytes turned into key events: a map {"key", "ctrl", "alt", "shift"},
+ * where "key" is the character typed ("a", "é", "space") or a name ("enter", "up", "f5").
+ * term::name($key) writes one as "ctrl+c", which is what a `match` wants.
+ *
+ * Nothing here needs a terminal except term_raw(): the decoder is bytes in, keys out, so a
+ * program's keys can be tested by piping them in.
+ */
+namespace term;
+
+const ESC = "\e";
+const CSI = "\e[";
+const RESET = "\e[0m";
+
+// ---- Styles ----------------------------------------------------------------------------------
+
+const ATTRIBUTES = {
+    "bold" => 1, "dim" => 2, "italic" => 3, "underline" => 4, "blink" => 5, "inverse" => 7,
+    "hidden" => 8, "strike" => 9,
+};
+const COLORS = {
+    "black" => 0, "red" => 1, "green" => 2, "yellow" => 3, "blue" => 4, "magenta" => 5,
+    "cyan" => 6, "white" => 7,
+};
+
+// The value of one hex digit, or null
+fn hex_digit($c) {
+    return index_of("0123456789abcdef", lower($c));
+}
+
+// "#f80" or "#ff8800" as [255, 136, 0], or null when it isn't a colour
+fn parse_hex($word) {
+    $digits = slice($word, 1);
+    if (len($digits) != 3 && len($digits) != 6) {
+        return null;
+    }
+    $step = intdiv(len($digits), 3);
+    $rgb = [];
+    for ($i = 0; $i < 3; $i++) {
+        $value = 0;
+        for ($j = 0; $j < $step; $j++) {
+            $d = hex_digit($digits[$i * $step + $j]);
+            if ($d == null) {
+                return null;
+            }
+            $value = $value * 16 + $d;
+        }
+        // one digit stands for both: "f" is "ff"
+        $rgb[] = $step == 1 ? $value * 17 : $value;
+    }
+    return $rgb;
+}
+
+/*
+ * The SGR parameters for one word of a style: "bold", "red", "bright_red", "on_blue", "#ff8800",
+ * "on_#333", "c208" (the 256-colour palette), "on_c17"
+ */
+fn sgr_codes($word) {
+    if (has_key(ATTRIBUTES, $word)) {
+        return [ATTRIBUTES[$word]];
+    }
+    $background = starts_with($word, "on_");
+    $colour = $background ? slice($word, 3) : $word;
+    $base = $background ? 40 : 30;
+    if (starts_with($colour, "bright_")) {
+        $name = slice($colour, 7);
+        if (has_key(COLORS, $name)) {
+            return [$base + 60 + COLORS[$name]];
+        }
+    } else if (has_key(COLORS, $colour)) {
+        return [$base + COLORS[$colour]];
+    } else if (starts_with($colour, "#")) {
+        $rgb = parse_hex($colour);
+        if ($rgb != null) {
+            return [$base + 8, 2, ...$rgb];
+        }
+    } else if (starts_with($colour, "c")) {
+        $n = to_int(slice($colour, 1), null);
+        if ($n != null && $n >= 0 && $n <= 255) {
+            return [$base + 8, 5, $n];
+        }
+    }
+    error("term: unknown style \"" .. $word .. "\"");
+}
+
+// The escape sequence that starts a style: term::start("bold red") is "\e[1;31m"
+pub fn start($spec) {
+    $codes = [];
+    foreach (split(trim($spec), " ") as $word) {
+        if ($word != "") {
+            $codes = [...$codes, ...sgr_codes($word)];
+        }
+    }
+    return CSI .. join($codes, ";") .. "m";
+}
+
+/*
+ * $text in a style, and back to normal after it: term::style("hi", "bold red on_#003"). Words:
+ * bold dim italic underline blink inverse hidden strike; black red green yellow blue magenta
+ * cyan white, bright_ for the bright ones; on_ before a colour for the background; #rgb and
+ * #rrggbb for truecolour; c0 to c255 for the 256-colour palette. An unknown word is an error.
+ * A style inside a style ends both at the inner one's end, since there is one reset.
+ */
+pub fn style($text, $spec) {
+    return start($spec) .. $text .. RESET;
+}
+
+// ---- Moving and clearing ---------------------------------------------------------------------
+
+// The cursor at column $col, row $row; the top left is 1, 1
+pub fn move_to($col, $row) { return CSI .. $row .. ";" .. $col .. "H"; }
+pub fn up($n = 1) { return $n > 0 ? CSI .. $n .. "A" : ""; }
+pub fn down($n = 1) { return $n > 0 ? CSI .. $n .. "B" : ""; }
+pub fn right($n = 1) { return $n > 0 ? CSI .. $n .. "C" : ""; }
+pub fn left($n = 1) { return $n > 0 ? CSI .. $n .. "D" : ""; }
+pub fn column($col) { return CSI .. $col .. "G"; }
+
+pub fn hide_cursor() { return CSI .. "?25l"; }
+pub fn show_cursor() { return CSI .. "?25h"; }
+pub fn save_cursor() { return ESC .. "7"; }
+pub fn restore_cursor() { return ESC .. "8"; }
+
+// The whole screen, the cursor left where it was; add move_to(1, 1) for the corner
+pub fn clear() { return CSI .. "2J"; }
+pub fn clear_line() { return CSI .. "2K"; }
+pub fn clear_to_end_of_line() { return CSI .. "K"; }
+pub fn clear_below() { return CSI .. "J"; }
+
+// A second screen that leaves what was on the terminal untouched when the program is done
+pub fn enter_screen() { return CSI .. "?1049h"; }
+pub fn leave_screen() { return CSI .. "?1049l"; }
+
+// Set the window's title
+pub fn title($text) { return ESC .. "]0;" .. $text .. "\x07"; }
+
+/*
+ * Run $f on a screen of its own in raw mode, with the cursor hidden, and put everything back
+ * however $f ends (an error included; exit() and signals are term.c's). Gives what $f gives.
+ */
+pub fn fullscreen($f) {
+    term_raw(true);
+    print(enter_screen() .. hide_cursor() .. clear() .. move_to(1, 1));
+    try {
+        return $f();
+    } finally {
+        print(RESET .. show_cursor() .. leave_screen());
+        term_raw(false);
+    }
+}
+
+// ---- Measuring -------------------------------------------------------------------------------
+
+// $text without its escape sequences (the CSI ones this file makes, and OSC ones ending in BEL)
+pub fn strip($text) {
+    $out = "";
+    $n = len($text);
+    $i = 0;
+    while ($i < $n) {
+        $at = index_of($text, ESC, $i);
+        if ($at == null) {
+            $out ..= slice($text, $i);
+            break;
+        }
+        $out ..= slice($text, $i, $at - $i);
+        $i = $at + 1;
+        if ($i < $n && $text[$i] == "[") {
+            // parameters and intermediates are 0x20 to 0x3F, then one final byte
+            $i++;
+            while ($i < $n && ord($text[$i]) < 64) {
+                $i++;
+            }
+            $i++;
+        } else if ($i < $n && $text[$i] == "]") {
+            $bell = index_of($text, "\x07", $i);
+            $i = $bell == null ? $n : $bell + 1;
+        } else {
+            // some other escape: ESC and the byte after it
+            $i++;
+        }
+    }
+    return $out;
+}
+
+/*
+ * How many columns $text takes up: its characters, without escape sequences. A character is
+ * a byte that doesn't continue another; ponytail: a wide one (CJK, emoji) takes two columns and
+ * counts one, and a combining mark takes none and counts one.
+ */
+pub fn width($text) {
+    $plain = strip($text);
+    $count = 0;
+    for ($i = 0; $i < len($plain); $i++) {
+        if ((ord($plain[$i]) & 192) != 128) {
+            $count++;
+        }
+    }
+    return $count;
+}
+
+// ---- Keys ------------------------------------------------------------------------------------
+
+fn make_key($key, $ctrl = false, $alt = false, $shift = false) {
+    return {"key" => $key, "ctrl" => $ctrl, "alt" => $alt, "shift" => $shift};
+}
+
+// What follows "ESC [" or "ESC O" as the last byte, by name
+const FINAL_KEYS = {
+    "A" => "up", "B" => "down", "C" => "right", "D" => "left", "H" => "home", "F" => "end",
+    "P" => "f1", "Q" => "f2", "R" => "f3", "S" => "f4",
+};
+
+// "ESC [ N ~", by N
+const TILDE_KEYS = {
+    1 => "home", 2 => "insert", 3 => "delete", 4 => "end", 5 => "page_up", 6 => "page_down",
+    7 => "home", 8 => "end", 11 => "f1", 12 => "f2", 13 => "f3", 14 => "f4", 15 => "f5",
+    17 => "f6", 18 => "f7", 19 => "f8", 20 => "f9", 21 => "f10", 23 => "f11", 24 => "f12",
+};
+
+// A key with the modifiers xterm numbers: 1 plus shift 1, alt 2, ctrl 4 (so 5 is ctrl)
+fn modified($key, $modifier) {
+    $bits = $modifier - 1;
+    return make_key($key, ($bits & 4) != 0, ($bits & 2) != 0, ($bits & 1) != 0);
+}
+
+/*
+ * The key that the CSI sequence at $i ("ESC [", parameters, a final byte) is, as [key, length],
+ * or null when the bytes stop before its final one
+ */
+fn csi_key($bytes, $i) {
+    $n = len($bytes);
+    $j = $i + 2;
+    while ($j < $n && ord($bytes[$j]) < 64) {
+        $j++;
+    }
+    if ($j >= $n) {
+        return null;
+    }
+    $final = $bytes[$j];
+    $length = $j + 1 - $i;
+    $params = split(slice($bytes, $i + 2, $j - $i - 2), ";");
+    $first = to_int($params[0], null);
+    $modifier = len($params) > 1 ? to_int($params[1], null) : null;
+    $raw = slice($bytes, $i, $length);
+
+    if ($final == "Z") {
+        return [make_key("tab", false, false, true), $length];
+    }
+    if ($final == "~" && $first != null && has_key(TILDE_KEYS, $first)) {
+        return [modified(TILDE_KEYS[$first], $modifier ?? 1), $length];
+    }
+    /*
+     * "ESC [ 1 ; 5 A" is ctrl+up, and plain "ESC [ A" is up. R with two parameters is a cursor
+     * position report, not f3, and is left as unknown.
+     */
+    if (has_key(FINAL_KEYS, $final) && !($final == "R" && len($params) == 2 && $modifier == null) && ($first == null || $first == 1)) {
+        return [modified(FINAL_KEYS[$final], $modifier ?? 1), $length];
+    }
+    return [{"key" => "unknown", "ctrl" => false, "alt" => false, "shift" => false, "raw" => $raw}, $length];
+}
+
+/*
+ * The key at $i, as [key, length], or null when the bytes stop in the middle of it. What
+ * $flush says is what to do with a sequence that stops short and nothing more will come: give
+ * what it looks like (a lone ESC is the escape key) instead of null.
+ */
+fn one_key($bytes, $i, $flush) {
+    $n = len($bytes);
+    $b = ord($bytes[$i]);
+
+    if ($b == 27) {
+        if ($i + 1 >= $n) {
+            return $flush ? [make_key("escape"), 1] : null;
+        }
+        $next = $bytes[$i + 1];
+        if ($next == "[") {
+            $found = csi_key($bytes, $i);
+            if ($found == null && $flush) {
+                return [make_key("[", false, true), 2];
+            }
+            return $found;
+        }
+        if ($next == "O") {
+            if ($i + 2 >= $n) {
+                return $flush ? [make_key("O", false, true), 2] : null;
+            }
+            $final = $bytes[$i + 2];
+            if (has_key(FINAL_KEYS, $final)) {
+                return [make_key(FINAL_KEYS[$final]), 3];
+            }
+            return [make_key("O", false, true), 2];
+        }
+        if ($next == ESC) {
+            // the first is a key of its own; the second may begin a sequence
+            return [make_key("escape"), 1];
+        }
+        // alt and whatever came with it
+        $inner = one_key($bytes, $i + 1, $flush);
+        if ($inner == null) {
+            return null;
+        }
+        $key = $inner[0];
+        $key["alt"] = true;
+        return [$key, $inner[1] + 1];
+    }
+
+    if ($b >= 128) {
+        // UTF-8: the first byte says how long the character is
+        $length = $b >= 240 ? 4 : ($b >= 224 ? 3 : ($b >= 192 ? 2 : 1));
+        if ($i + $length > $n) {
+            return $flush ? [make_key(slice($bytes, $i)), $n - $i] : null;
+        }
+        return [make_key(slice($bytes, $i, $length)), $length];
+    }
+
+    if ($b == 13) { return [make_key("enter"), 1]; }
+    if ($b == 9) { return [make_key("tab"), 1]; }
+    if ($b == 127 || $b == 8) { return [make_key("backspace"), 1]; }
+    if ($b == 32) { return [make_key("space"), 1]; }
+    if ($b == 0) { return [make_key("space", true), 1]; }
+    if ($b < 27) {
+        // ctrl-a is 1: the letter is 96 more
+        return [make_key(chr($b + 96), true), 1];
+    }
+    if ($b < 32) {
+        // ctrl-\ ] ^ _ are 28 to 31: the character is 64 more
+        return [make_key(chr($b + 64), true), 1];
+    }
+    return [make_key($bytes[$i]), 1];
+}
+
+/*
+ * The keys in $bytes, as {"keys" => [key, ...], "rest" => "..."}: rest is the start of a key
+ * the bytes stop in the middle of ("\e" or "\e[1;" may be the escape key or the start of an
+ * arrow), to put before whatever arrives next. With $flush nothing more is coming, so rest is
+ * "" and a cut-off sequence is taken for what it looks like.
+ */
+pub fn decode($bytes, $flush = false) {
+    $keys = [];
+    $n = len($bytes);
+    $i = 0;
+    while ($i < $n) {
+        $found = one_key($bytes, $i, $flush);
+        if ($found == null) {
+            break;
+        }
+        $keys[] = $found[0];
+        $i += $found[1];
+    }
+    return {"keys" => $keys, "rest" => slice($bytes, $i)};
+}
+
+// $key as text that a `match` can take: "a", "enter", "ctrl+c", "ctrl+alt+up", "shift+tab"
+pub fn name($key) {
+    $text = $key["key"];
+    if ($key["shift"]) { $text = "shift+" .. $text; }
+    if ($key["alt"]) { $text = "alt+" .. $text; }
+    if ($key["ctrl"]) { $text = "ctrl+" .. $text; }
+    return $text;
+}
+
+// The character $key types, for a text field, or null when it isn't one (ctrl, alt, enter, up)
+pub fn text($key) {
+    if ($key["ctrl"] || $key["alt"]) {
+        return null;
+    }
+    $k = $key["key"];
+    if ($k == "space") {
+        return " ";
+    }
+    // a name is ASCII and longer than one byte; a typed character is one character
+    if (len($k) == 1 || ord($k[0]) >= 128) {
+        return $k;
+    }
+    return null;
+}
+
+// ---- Reading keys ----------------------------------------------------------------------------
+
+/*
+ * How long a lone ESC waits for the rest of a sequence: a terminal sends one whole, so anything
+ * that follows is there within this
+ */
+const ESCAPE_WAIT = 0.05;
+
+/*
+ * Reads keys from standard input through term_read(). It keeps what a read left over (a
+ * sequence cut in two by the reads, several keys in one read), so make one and keep using it.
+ */
+pub kind Input {
+    #queue = [];
+    #rest = "";
+    #ended = false;
+
+    /*
+     * The next key, waiting up to $timeout seconds for one (null: as long as it takes). null when
+     * the time runs out. When the input ends, {"key" => "eof"}, again on every call after.
+     */
+    pub fn read($timeout = null) {
+        while (len(#queue) == 0) {
+            if (#ended) {
+                return make_key("eof");
+            }
+            $chunk = term_read(#rest == "" ? $timeout : ESCAPE_WAIT);
+            if ($chunk == null) {
+                if (#rest == "") {
+                    return null;
+                }
+                // it was a lone ESC, or a sequence that never finished
+                #take(decode(#rest, true));
+            } else if ($chunk == "") {
+                #ended = true;
+                #take(decode(#rest, true));
+            } else {
+                #take(decode(#rest .. $chunk));
+            }
+        }
+        $key = #queue[0];
+        delete #queue[0];
+        return $key;
+    }
+
+    // Queue what a decode found and keep what it left
+    fn take($decoded) {
+        #queue = [...#queue, ...$decoded["keys"]];
+        #rest = $decoded["rest"];
+    }
+}
