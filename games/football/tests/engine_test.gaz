@@ -960,3 +960,42 @@ check("a league saved mid-season comes back: same table, same fixtures, same res
 ], [true, 2, 6, true]);
 $again.play_matchday();
 check("and plays on", $again.matchdays_played(), 3);
+
+/* ---- A goalkeeper back from injury takes the goal again ---- */
+[$home, $away] = clubs(2, 41);
+$keepers = filter($home.players, $p -> $p.position() == "GK");
+foreach ($keepers as $k) {
+    $k.injure(2);
+}
+$home.prepare();
+check("with every goalkeeper out an outfielder is in goal", count_where_kind($home.eleven(), "GK"), 0);
+$home.finish();
+$keepers[0].injured = 0;
+$keepers[1].injured = 0;
+$changes = $home.prepare();
+$best = $keepers[0].rating >= $keepers[1].rating ? $keepers[0] : $keepers[1];
+check("and when one is fit again he takes the goal back, the change reported", [count_where_kind($home.eleven(), "GK"), in_array($best, $home.eleven()), len($changes), $changes[0][1] == $best, len($home.eleven())], [1, true, 1, true, 11]);
+$home.finish();
+check("and a side with its keeper in goal is left alone", [len($home.prepare()), in_array($best, $home.eleven())], [0, true]);
+
+fn count_where_kind($list, $position) {
+    return len(filter($list, $p -> $p.position() == $position));
+}
+
+/* a saved side whose goalkeepers are all out has an outfielder in goal, and loads */
+[$home, $away] = clubs(2, 43);
+foreach (filter($home.players, $p -> $p.position() == "GK") as $k) {
+    $k.injure(3);
+}
+$home.prepare();
+$home.finish();
+$again = teams::from_data($home.to_data());
+check("a side with no fit goalkeeper is saved and loaded as it is", [len($again.eleven()), count_where_kind($again.eleven(), "GK")], [11, 0]);
+$fit = clubs(2, 44)[0];
+try {
+    $outfield = filter($fit.players, $p -> $p.position() != "GK");
+    Team($fit.name, $fit.players, slice($outfield, 0, 11));
+    check("but not while a goalkeeper could play", "no error", "an error");
+} catch (InvalidLineup $e) {
+    check("but not while a goalkeeper could play", contains($e.message, "0 goalkeepers"), true);
+}

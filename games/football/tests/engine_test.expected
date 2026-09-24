@@ -577,3 +577,8 @@ ok a player is saved with what he has done and what keeps him out
 ok a match played in a saved game is its score
 ok a league saved mid-season comes back: same table, same fixtures, same results
 ok and plays on
+ok with every goalkeeper out an outfielder is in goal
+ok and when one is fit again he takes the goal back, the change reported
+ok and a side with its keeper in goal is left alone
+ok a side with no fit goalkeeper is saved and loaded as it is
+ok but not while a goalkeeper could play

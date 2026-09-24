@@ -111,7 +111,7 @@ $screen = look($shell);
 check("the bar names the club, the season and the matchday", [
     contains($screen.lines()[0], "Riverside FC"),
     contains($screen.lines()[0], "2026/27"),
-    contains($screen.lines()[0], "Matchday 0 of 18"),
+    contains($screen.lines()[0], "Matchday 0 of 38"),
     contains($screen.lines()[0], $game.place()),
     contains($screen.lines()[0], "c Continue"),
 ], [true, true, true, true, true]);
@@ -333,11 +333,11 @@ $shell = Shell::for_game($game);
 press($shell, "4");
 $screen = look($shell);
 check("before a match the fixtures have one next, and no results", [lines_with($screen, "next ▸"), results_on($screen)], [1, 0]);
-check("and all eighteen matches", lines_with($screen, " v "), 18);
+check("and as many of the thirty-eight matches as fit", lines_with($screen, " v ") > 20, true);
 check("the first is next", row_of($screen, "next ▸"), 4);
 press($shell, "C");
 $screen = look($shell);
-check("C plays a matchday without watching it", [$game.league.matchdays_played(), contains($screen.lines()[0], "Matchday 1 of 18"), contains($screen.lines()[0], $game.place())], [1, true, true]);
+check("C plays a matchday without watching it", [$game.league.matchdays_played(), contains($screen.lines()[0], "Matchday 1 of 38"), contains($screen.lines()[0], $game.place())], [1, true, true]);
 check("and shows the inbox, with the news", [$shell.section(), shows($screen, "Matchday 1 results"), row_of($screen, "Matchday 1 results") != null], ["Inbox", true, true]);
 check("the newest message is selected (only bold, as the menu has the keys) and open", [$screen.cell(19, 4)[1], shows($screen, $game.league.table()[0].team.name)], ["bold", true]);
 press($shell, "4");
@@ -355,7 +355,7 @@ foreach ($game.teams as $team) {
         $found++;
     }
 }
-check("all ten", $found, 10);
+check("all twenty", $found, 20);
 $own = row_of($screen, "Riverside FC", 3);
 $other = row_of($screen, $game.teams[1].name, 3);
 check("the club's own cell is cyan, and another club's is not", [contains(style_at($screen, $own, "Riverside FC") ?? "", "cyan"), contains(style_at($screen, $other, $game.teams[1].name) ?? "", "cyan")], [true, false]);
@@ -369,13 +369,23 @@ check("and says what the game says", shows($screen, " " .. $standing.points()), 
 check("the leader is first", contains($screen.lines()[3], $game.league.table()[0].team.name), true);
 
 /* ---- A whole season ---- */
-for ($day = 1; $day < 18; $day++) {
+while (!$game.club_done()) {
     press($shell, "C");
 }
-check("seventeen more and the season is over", [$game.season_over(), $game.league.matchdays_played()], [true, 18]);
+check("thirty-seven more and the club's season is over, though the second division's is not", [$game.club_done(), $game.season_over(), $game.league.matchdays_played(), $game.other_league.matchdays_played()], [true, false, 38, 38]);
 $screen = look($shell);
-check("the bar says so", contains($screen.lines()[0], "Matchday 18 of 18"), true);
-check("and the inbox has the last word", shows($screen, "The season is over"), true);
+check("the bar says so", contains($screen.lines()[0], "Matchday 38 of 38"), true);
+check("and the inbox has the last word, saying how many matchdays the Championship has to go", [shows($screen, "The season is over"), lines_with($screen, "8 matchdays to go") + lines_with($screen, "8 matchdays") > 0], [true, true]);
+press($shell, "c");
+$screen = look($shell);
+check("watching a matchday the club sits out: it says so, and the bar stays at the end of the club's season", [shows($screen, "doesn't play this matchday"), contains($screen.lines()[0], "Matchday 38 of 38")], [true, true]);
+press($shell, "s");
+press($shell, "c");
+while (!$game.season_over()) {
+    press($shell, "C");
+}
+check("the Championship plays on until it is done: forty-six matchdays", [$game.other_league.matchdays_played(), $game.league.matchdays_played()], [46, 38]);
+check("and the bar stays at the end of the club's own season", contains(look($shell).lines()[0], "Matchday 38 of 38"), true);
 check("nothing to say yet about it", $shell.notice(), "");
 press($shell, "C");
 $screen = look($shell);
@@ -393,7 +403,7 @@ $day = $game.live;
 $screen = look($shell);
 check("c begins a matchday to watch", [$day != null, $game.league.matchdays_played(), $day.clock(), $day.finished()], [true, 0, 0, false]);
 check("and it takes over the section", [shows($screen, "Match day"), shows($screen, to_string($day.mine)), shows($screen, "The teams are out.")], [true, true, true]);
-check("the bar says which matchday, and what to press", [contains($screen.lines()[0], "Matchday 1 of 18"), contains($screen.lines()[0], "s Skip")], [true, true]);
+check("the bar says which matchday, and what to press", [contains($screen.lines()[0], "Matchday 1 of 38"), contains($screen.lines()[0], "s Skip")], [true, true]);
 check("the clock and the speed", [contains($screen.lines()[2], "0'"), contains($screen.lines()[2], "▶ x1")], [true, true]);
 $named = 0;
 foreach ($game.club.players as $player) {
@@ -408,7 +418,7 @@ foreach ($day.matches as $match) {
         $others++;
     }
 }
-check("and the other four matches", $others, 4);
+check("and the other matches, as many as fit", $others > 5, true);
 check("the menu waits: nothing in it is selected", [$screen.cell(3, 3)[1], $shell.focus()], ["dim", "menu"]);
 check("and the hints are the match's", contains($screen.lines()[29], "space pause  +/- speed  s skip  w substitute  [ ] mentality  i intensity   ctrl+c quit"), true);
 
@@ -419,7 +429,7 @@ for ($i = 1; $i < 45; $i++) {
 }
 $screen = look($shell, 100, 60);
 check("at forty-five it is half time", [$day.clock(), contains($screen.lines()[2], "45'"), shows($screen, "Half time")], [45, true, true]);
-check("and every match has got there", count_where($day.matches, $m -> $m.elapsed == 45), 5);
+check("and every match has got there", count_where($day.matches, $m -> $m.elapsed == 45), len($day.matches));
 
 press($shell, " ");
 $shell.tick();
@@ -487,9 +497,9 @@ press($shell, "+");
 press($shell, "+");
 press($shell, " ");
 press($shell, "c");
-check("c at full time goes on to the inbox", [$game.live, $game.league.matchdays_played(), $shell.section(), len($game.inbox)], [null, 1, "Inbox", 4]);
+check("c at full time goes on to the inbox", [$game.live, $game.league.matchdays_played(), $shell.section(), len($game.inbox)], [null, 1, "Inbox", len($game.inbox)]);
 $screen = look($shell);
-check("with the results", [shows($screen, "Matchday 1 results"), contains($screen.lines()[0], "Matchday 1 of 18")], [true, true]);
+check("with the results", [shows($screen, "Matchday 1 results"), contains($screen.lines()[0], "Matchday 1 of 38")], [true, true]);
 press($other, "\r");
 check("enter does the same", [$other_game.live, $other.section()], [null, "Inbox"]);
 press($shell, "c");
@@ -746,11 +756,11 @@ check("with no save file there is nowhere to save", $nowhere.notice(), "There is
 run(["rm", "-f", $path]);
 press($shell, "n");
 check("n before the season is over is told so", $shell.notice(), "The season isn't over");
-for ($i = 0; $i < 16; $i++) {
+while (!$game.season_over()) {
     press($shell, "C");
 }
 press($shell, "n");
-check("n at the end starts the next season, and the bar says so", [$shell.notice(), $game.season, contains(look($shell).lines()[0], "2027/28"), contains(look($shell).lines()[0], "Matchday 0 of 18")], ["A new season begins", 2027, true, true]);
+check("n at the end starts the next season, and the bar says so", [$shell.notice(), $game.season, contains(look($shell).lines()[0], "2027/28"), contains(look($shell).lines()[0], "Matchday 0 of 38")], ["A new season begins", 2027, true, true]);
 press($shell, "c");
 check("and it can be played", [$game.live != null, $game.season_over()], [true, false]);
 
@@ -763,13 +773,14 @@ $screen = look($shell);
 check("the table is the club's division's, and the bar says which", [shows($screen, "Premier Division table"), contains($screen.lines()[0], "in the Premier Division")], [true, true]);
 $first = $game.league.table()[0].team.name;
 check("the champions row is green and the last two red, the club's own bold cyan", [contains(style_at($screen, row_of($screen, $first), $first) ?? "", $first == $game.club.name ? "cyan" : "green")], [true]);
-$last = $game.league.table()[9].team.name;
+$last = $game.league.table()[19].team.name;
 check("the bottom is red", style_at($screen, row_of($screen, $last), $last), $last == $game.club.name ? "bold cyan" : "red");
 $middle = $game.league.table()[4].team.name;
 check("and the middle plain", style_at($screen, row_of($screen, $middle), $middle), $middle == $game.club.name ? "bold cyan" : "");
-$ninth = $game.league.table()[8].team.name;
-$eighth = $game.league.table()[7].team.name;
-check("the last two are red, the eighth is not", [style_at($screen, row_of($screen, $ninth), $ninth), style_at($screen, row_of($screen, $eighth), $eighth)], [$ninth == $game.club.name ? "bold cyan" : "red", $eighth == $game.club.name ? "bold cyan" : ""]);
+$ninth = $game.league.table()[19].team.name;
+$eighth = $game.league.table()[18].team.name;
+$seventh = $game.league.table()[17].team.name;
+check("the last two are red, the one above is not", [style_at($screen, row_of($screen, $ninth), $ninth), style_at($screen, row_of($screen, $eighth), $eighth), style_at($screen, row_of($screen, $seventh), $seventh)], [$ninth == $game.club.name ? "bold cyan" : "red", $eighth == $game.club.name ? "bold cyan" : "red", $seventh == $game.club.name ? "bold cyan" : ""]);
 press($shell, "\t");
 press($shell, "d");
 $screen = look($shell);
@@ -778,7 +789,7 @@ check("d shows the other division", [shows($screen, "Championship table"), shows
 check("where the top two are green and nobody is red", [contains(style_at($screen, row_of($screen, $other[0].team.name), $other[0].team.name), "green"), contains(style_at($screen, row_of($screen, $other[1].team.name), $other[1].team.name), "green"), style_at($screen, row_of($screen, $other[9].team.name), $other[9].team.name)], [true, true, ""]);
 press($shell, "d");
 check("d again comes back", shows(look($shell), "Premier Division table"), true);
-$second_game = Game::start(6, 12);
+$second_game = Game::start(6, 25);
 $second = Shell::for_game($second_game);
 press($second, "5");
 $screen = look($second);

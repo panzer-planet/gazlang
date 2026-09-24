@@ -64,12 +64,15 @@ new fixtures.
 
 ## Two divisions
 
-Twenty clubs in two divisions of ten, the Premier Division and the Championship; `bin/gazlang -f
-games/football/main.gaz -- SEED` starts you at the first club, and the club is an index into the
-list in `game.gaz` (a club from the eleventh on starts in the Championship). Both divisions play every matchday; the table
-shows yours (`d` looks at the other), with the places that go up green and those that go down red.
-At the end of the season the bottom two of the Premier Division and the top two of the Championship
-swap, and the prize money is bigger in the top division. Saves from before the divisions won't load.
+Forty-four clubs: twenty in the Premier Division (thirty-eight matchdays) and twenty-four in the
+Championship (forty-six). `bin/gazlang -f games/football/main.gaz -- SEED` starts you at the first
+club; the club is an index into the list in `game.gaz` (from the twenty-first on you start in the
+Championship). Both divisions play every matchday until the shorter season ends; a Premier Division
+club then sits out the Championship's last eight matchdays (`c` plays them; the inbox says so). The
+table shows yours (`d` looks at the other), with the places that go up green and those that go down
+red. At the end of the season (`n`, once both are done) the bottom two of the Premier Division and
+the top two of the Championship swap, and the prize money is bigger in the top division. A club is
+only paid and only pays wages for matches it plays. Saves from before the divisions won't load.
 
 ## What is here
 

@@ -53,7 +53,7 @@ ok an injured player is off the eleven on the screen, his substitute is on it, a
 ok the eleven on the screen is the eleven on the pitch
 ok the injury is in the commentary in red, and the substitution in cyan
 ok before a match the fixtures have one next, and no results
-ok and all eighteen matches
+ok and as many of the thirty-eight matches as fit
 ok the first is next
 ok C plays a matchday without watching it
 ok and shows the inbox, with the news
@@ -62,13 +62,16 @@ ok the fixtures have a result now, and the next has moved
 ok one match has been played, and it is coloured
 ok the next match is bold
 ok the table lists every club
-ok all ten
+ok all twenty
 ok the club's own cell is cyan, and another club's is not
 ok and says what the game says
 ok the leader is first
-ok seventeen more and the season is over
+ok thirty-seven more and the club's season is over, though the second division's is not
 ok the bar says so
-ok and the inbox has the last word
+ok and the inbox has the last word, saying how many matchdays the Championship has to go
+ok watching a matchday the club sits out: it says so, and the bar stays at the end of the club's season
+ok the Championship plays on until it is done: forty-six matchdays
+ok and the bar stays at the end of the club's own season
 ok nothing to say yet about it
 ok another C is told the season is over
 ok in bold yellow
@@ -79,7 +82,7 @@ ok and it takes over the section
 ok the bar says which matchday, and what to press
 ok the clock and the speed
 ok the club's eleven are there
-ok and the other four matches
+ok and the other matches, as many as fit
 ok the menu waits: nothing in it is selected
 ok and the hints are the match's
 ok a tick plays a minute
@@ -173,7 +176,7 @@ ok the table is the club's division's, and the bar says which
 ok the champions row is green and the last two red, the club's own bold cyan
 ok the bottom is red
 ok and the middle plain
-ok the last two are red, the eighth is not
+ok the last two are red, the one above is not
 ok d shows the other division
 ok where the top two are green and nobody is red
 ok d again comes back

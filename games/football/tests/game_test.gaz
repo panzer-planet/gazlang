@@ -31,11 +31,11 @@ check("ordinals", $said, ["1st", "2nd", "3rd", "4th", "10th", "11th", "12th", "1
 
 /* ---- A new game ---- */
 $game = Game::start(1);
-check("ten clubs", len($game.teams), 10);
+check("twenty clubs in the first division", len($game.teams), 20);
 check("the manager has the first club by default", $game.club, $game.teams[0]);
 $third = Game::start(1, 3);
 check("or the one asked for", $third.club, $third.teams[3]);
-check("clubs have different names", len(keys(map_of_names($game.teams))), 10);
+check("clubs have different names", len(keys(map_of_names($game.teams))), 20);
 fn map_of_names($teams) {
     $names = {};
     foreach ($teams as $team) {
@@ -46,15 +46,19 @@ fn map_of_names($teams) {
 check("every squad is seventeen with an eleven picked from it, and ages", [
     count_where($game.teams, $team -> len($team.players) == 17 && len($team.eleven()) == 11),
     count_where($game.teams, $team -> count_where($team.players, $player -> $player.age >= 17 && $player.age <= 35) == 17),
-], [10, 10]);
+], [20, 20]);
+$cycle = [];
+for ($i = 0; $i < 20; $i++) {
+    $cycle[] = ["4-4-2", "4-3-3", "3-5-2", "4-5-1", "5-3-2"][$i % 5];
+}
 check("the clubs prefer different formations, and play them", [
     map($game.teams, $team -> $team.preferred),
     map($game.teams, $team -> $team.formation()),
-], [["4-4-2", "4-3-3", "3-5-2", "4-5-1", "5-3-2", "4-4-2", "4-3-3", "3-5-2", "4-5-1", "5-3-2"], ["4-4-2", "4-3-3", "3-5-2", "4-5-1", "5-3-2", "4-4-2", "4-3-3", "3-5-2", "4-5-1", "5-3-2"]]);
-check("clubs have money", count_where($game.teams, $team -> $team.balance > 0), 10);
+], [$cycle, $cycle]);
+check("clubs have money", count_where($game.teams, $team -> $team.balance > 0), 20);
 check("the season", [$game.season_label(), $game.season_over()], ["2026/27", false]);
-check("a season is eighteen matchdays for ten clubs", [$game.league.matchdays(), $game.league.matchdays_played()], [18, 0]);
-check("the club has a place in the table", [$game.position() >= 1, $game.position() <= 10, $game.place()], [true, true, ordinal($game.position())]);
+check("a season is thirty-eight matchdays for twenty clubs", [$game.league.matchdays(), $game.league.matchdays_played(), $game.other_league.matchdays()], [38, 0, 46]);
+check("the club has a place in the table", [$game.position() >= 1, $game.position() <= 20, $game.place()], [true, true, ordinal($game.position())]);
 check("the inbox starts with a welcome", [len($game.inbox), $game.inbox[0]["subject"], $game.inbox[0]["matchday"]], [1, "Welcome to Riverside FC", 0]);
 check("which says what the board expect", contains($game.inbox[0]["body"], "The board expect"), true);
 check("the same seed makes the same game", [
@@ -70,11 +74,11 @@ check("another seed makes another", map(Game::start(7).club.players, $p -> $p.pr
 foreach ([1, 2, 3] as $seed) {
     $game = Game::start($seed, $seed);
     $club = $game.club;
-    for ($day = 1; $day <= 18; $day++) {
+    for ($day = 1; $day <= 38; $day++) {
         $before = len($game.inbox);
         $matches = $game.advance();
         $label = "seed {$seed}, matchday {$day}";
-        check("a matchday is five matches ({$label})", len($matches), 5);
+        check("a matchday is ten matches ({$label})", len($matches), 10);
         check("and counts as played ({$label})", $game.league.matchdays_played(), $day);
 
         $mine = null;
@@ -92,15 +96,15 @@ foreach ([1, 2, 3] as $seed) {
         check("and the score, as the club's ({$label})", contains($report["body"], " {$scored}-{$conceded}."), true);
         check("and where the club is ({$label})", contains($report["body"], "You are " .. $game.place() .. " on "), true);
         $results = message_starting($new, "Matchday {$day} results") ?? {"subject" => "(none)", "body" => ""};
-        check("then all the results ({$label})", [$results["subject"], len(split($results["body"], "\n"))], ["Matchday {$day} results", 5]);
+        check("then all the results ({$label})", [$results["subject"], len(split($results["body"], "\n"))], ["Matchday {$day} results", 10]);
         $elsewhere = message_starting($new, $game.other_division_name() .. ", matchday {$day}") ?? {"subject" => "(none)", "body" => ""};
-        check("and the other division's ({$label})", [$elsewhere["subject"], len(split($elsewhere["body"], "\n"))], [$game.other_division_name() .. ", matchday {$day}", 5]);
-        check("the position is between 1 and 10 ({$label})", [$game.position() >= 1, $game.position() <= 10], [true, true]);
+        check("and the other division's ({$label})", [$elsewhere["subject"], len(split($elsewhere["body"], "\n"))], [$game.other_division_name() .. ", matchday {$day}", 12]);
+        check("the position is between 1 and 20 ({$label})", [$game.position() >= 1, $game.position() <= 20], [true, true]);
         $families = ["Win: ", "Draw: ", "Defeat: ", "Matchday ", "Lineup: ", "Injury: ", "Suspended: ", "Back: ", "The season is over", "Premier Division, ", "Championship, "];
         check("at least the report and the results, and nothing but the news there is ({$label})", [len($new) >= 2, count_where($new, $m -> count_where($families, $f -> starts_with($m["subject"], $f)) == 0)], [true, 0]);
-        check("and the season's end has the last word ({$label})", $day < 18 || $new[len($new) - 1]["subject"] == "The season is over", true);
+        check("and the season's end has the last word ({$label})", $day < 38 || $new[len($new) - 1]["subject"] == "The season is over", true);
     }
-    check("the season is over after eighteen ({$seed})", $game.season_over(), true);
+    check("the club's season is over after thirty-eight, the Championship's not yet ({$seed})", [$game.club_done(), $game.season_over()], [true, false]);
     $last = $game.inbox[len($game.inbox) - 1];
     $table = $game.league.table();
     check("which the inbox says: the champions and where the club finished ({$seed})", [
@@ -108,13 +112,18 @@ foreach ([1, 2, 3] as $seed) {
         contains($last["body"], $table[0].team.name .. " are the champions."),
         contains($last["body"], "You finished " .. $game.place() .. " in the " .. $game.division_name() .. "."),
     ], ["The season is over", true, true]);
+    check("the club sits out the Championship's last eight matchdays: nothing of its own is played ({$seed})", [count_where($game.league.table(), $r -> $r.played != 38), len($game.advance())], [0, 0]);
+    while (!$game.season_over()) {
+        $game.advance();
+    }
+    check("and then the whole season is over, forty-six matchdays in the Championship ({$seed})", [$game.other_league.matchdays_played(), $game.league.matchdays_played()], [46, 38]);
     try {
         $game.advance();
         check("no more matchdays ({$seed})", "no error", "an error");
     } catch (Error $e) {
         check("no more matchdays ({$seed})", $e.message, "The season is over");
     }
-    check("the season played is a full one ({$seed})", sum(map($table, $row -> $row.played)), 10 * 18);
+    check("the season played is a full one ({$seed})", sum(map($table, $row -> $row.played)), 20 * 38);
 }
 
 /* ---- Watching a matchday ---- */
@@ -123,7 +132,7 @@ foreach ([1, 2, 3] as $seed) {
     $club = $game.club;
     check("nothing is live between matchdays ({$seed})", $game.live, null);
     $day = $game.begin_matchday();
-    check("beginning a matchday makes it live ({$seed})", [$game.live == $day, len($day.matches), $day.mine != null, $day.clock(), $day.finished(), len($day.commentary)], [true, 5, true, 0, false, 0]);
+    check("beginning a matchday makes it live ({$seed})", [$game.live == $day, len($day.matches), $day.mine != null, $day.clock(), $day.finished(), len($day.commentary)], [true, 10, true, 0, false, 0]);
     check("the club's match is one of them ({$seed})", $day.mine.home == $club || $day.mine.away == $club, true);
     check("nothing is in the table or the inbox yet ({$seed})", [$game.league.matchdays_played(), len($game.inbox)], [0, 1]);
     try {
@@ -144,7 +153,7 @@ foreach ([1, 2, 3] as $seed) {
     for ($minute = 1; $minute <= 90; $minute++) {
         $day.tick();
         if ($day.clock() != $minute || count_where($day.matches, $m -> $m.elapsed == $minute) != 5) {
-            check("every match is at minute {$minute} ({$seed})", [$day.clock(), count_where($day.matches, $m -> $m.elapsed == $minute)], [$minute, 5]);
+            check("every match is at minute {$minute} ({$seed})", [$day.clock(), count_where($day.matches, $m -> $m.elapsed == $minute)], [$minute, 10]);
         }
         foreach ($day.commentary as $event) {
             $order = $order && $event.minute <= $minute;
@@ -164,7 +173,7 @@ foreach ([1, 2, 3] as $seed) {
     check("and a line for every goal ({$seed})", $goals, $day.mine.home_goals + $day.mine.away_goals);
 
     $matches = $game.end_matchday();
-    check("ending it leaves nothing live ({$seed})", [$game.live, $game.league.matchdays_played(), len($matches), len($game.inbox) >= 3], [null, 1, 5, true]);
+    check("ending it leaves nothing live ({$seed})", [$game.live, $game.league.matchdays_played(), len($matches), len($game.inbox) >= 3], [null, 1, 10, true]);
     try {
         $game.end_matchday();
         check("and it can't end twice ({$seed})", "no error", "an error");
@@ -180,7 +189,7 @@ for ($minute = 1; $minute <= 90; $minute++) {
     $day.matches[0].tick();
 }
 check("one match over is not a matchday over", [$day.matches[0].finished(), $day.finished()], [true, false]);
-foreach ($day.matches as $match) {
+foreach ([...$day.matches, ...$day.unwatched()] as $match) {
     while (!$match.finished()) {
         $match.tick();
     }
@@ -205,7 +214,7 @@ check("advance() is watching without looking", [
 ]);
 
 $over = Game::start(1);
-for ($day_number = 0; $day_number < 18; $day_number++) {
+while (!$over.season_over()) {
     $over.advance();
 }
 try {
@@ -344,7 +353,7 @@ $unfit_starters = 0;
 $invalid = [];
 foreach ([1, 2, 3] as $seed) {
     $game = Game::start($seed);
-    for ($day_number = 1; $day_number <= 18; $day_number++) {
+    for ($day_number = 1; $day_number <= 38; $day_number++) {
         $live = $game.begin_matchday();
         foreach ($game.teams as $team) {
             /* someone who can't play starts only when nobody fit could take his place: another
@@ -503,13 +512,13 @@ check("the table, the results, the inbox and the books carry over", [
     map($loaded.league.table(), $s -> $s.to_string()) == map($game.league.table(), $s -> $s.to_string()),
     $loaded.league.matchdays_played(), len($loaded.inbox), len($loaded.ledger), $loaded.club.mentality,
     len($loaded.league.fixtures_of($loaded.club)),
-], [true, 5, len($game.inbox), len($game.ledger), 4, 18]);
+], [true, 5, len($game.inbox), len($game.ledger), 4, 38]);
 check("fixtures already played have their results", map(filter($loaded.league.fixtures_of($loaded.club), $f -> $f["match"] != null), $f -> to_string($f["match"])), map(filter($game.league.fixtures_of($game.club), $f -> $f["match"] != null), $f -> to_string($f["match"])));
 check("and the club is the same club", [$loaded.club.name, $loaded.club.eleven() == [] ? 0 : len($loaded.club.eleven())], [$game.club.name, 11]);
 while (!$loaded.season_over()) {
     $loaded.advance();
 }
-check("and it plays on to the end of the season", [$loaded.season_over(), $loaded.league.matchdays_played()], [true, 18]);
+check("and it plays on to the end of the season", [$loaded.season_over(), $loaded.league.matchdays_played()], [true, 38]);
 $hurt = Game::start(12);
 $hurt.club.players[3].injure(4);
 $hurt.club.players[4].suspended = 2;
@@ -556,6 +565,7 @@ foreach ($before as $p) {
 }
 $table = $game.league.table();
 $level = $game.level;
+$size = len($game.league.table());
 $place = 0;
 foreach ($table as $i => $standing) {
     if ($standing.team == $game.club) {
@@ -565,8 +575,8 @@ foreach ($table as $i => $standing) {
 $goals = sum(map($game.club.players, $p -> $p.goals));
 $career = sum(map($game.club.players, $p -> $p.career_goals));
 check("a new season starts", $game.new_season(), "");
-check("with the next year, fresh fixtures and an empty table", [$game.season, $game.league.matchdays_played(), $game.league.matchdays(), $game.season_over(), $game.season_label()], [2027, 0, 18, false, "2027/28"]);
-check("the club was paid prize money for where it finished", $game.ledger[len($game.ledger) - 1]["amount"], money::prize(1 + $level, $place, 10));
+check("with the next year, fresh fixtures and an empty table", [$game.season, $game.league.matchdays_played(), $game.league.matchdays(), $game.season_over(), $game.season_label()], [2027, 0, $game.level == 0 ? 38 : 46, false, "2027/28"]);
+check("the club was paid prize money for where it finished", $game.ledger[len($game.ledger) - 1]["amount"], money::prize(1 + $level, $place, $size));
 $stayed = filter($before, $p -> in_array($p, $game.club.players));
 check("whoever stayed is a year older, and the squad is the size it was", [count_where($stayed, $p -> $p.age == $was[object_id($p)] + 1), len($game.club.players)], [len($stayed), len($before)]);
 check("goals go to the career, and the season's count starts again", [sum(map($game.club.players, $p -> $p.goals)), sum(map($game.club.players, $p -> $p.career_goals)) >= $career], [0, true]);
@@ -585,13 +595,13 @@ for ($year = 0; $year < 4; $year++) {
     }
     $game.new_season();
 }
-check("five seasons on it is still a game", [$game.season, $game.league.matchdays()], [2031, 18]);
+check("five seasons on it is still a game", [$game.season, $game.league.matchdays()], [2031, $game.level == 0 ? 38 : 46]);
 $game.advance();
 check("and a match can be played in it", $game.league.matchdays_played(), 1);
 
 /* ---- Two divisions ---- */
 $game = Game::start(20);
-check("two divisions of ten, the manager in the first by default", [len($game.teams), len($game.other_teams), $game.level, $game.division_name(), $game.other_division_name()], [10, 10, 0, "Premier Division", "Championship"]);
+check("two divisions of ten, the manager in the first by default", [len($game.teams), len($game.other_teams), $game.level, $game.division_name(), $game.other_division_name()], [20, 24, 0, "Premier Division", "Championship"]);
 check("the second division's clubs are the weaker", [avg_rating($game.other_teams) < avg_rating($game.teams) - 5], [true]);
 fn name_set($clubs) {
     $set = {};
@@ -603,17 +613,17 @@ fn name_set($clubs) {
 fn avg_rating($clubs) {
     return sum(map($clubs, $t -> $t.rating())) / len($clubs);
 }
-$second = Game::start(20, 13);
-check("a club of the second division starts there", [$second.level, $second.division_name(), $second.club.name, in_array($second.club, $second.teams), $second.inbox[0]["body"] != ""], [1, "Championship", "Thornbury Rovers", true, true]);
+$second = Game::start(20, 25);
+check("a club of the second division starts there", [$second.level, $second.division_name(), $second.club.name, in_array($second.club, $second.teams), $second.inbox[0]["body"] != ""], [1, "Championship", "Greystone City", true, true]);
 check("and the welcome says which division", contains($second.inbox[0]["body"], "in the Championship"), true);
 $matches = $game.advance();
-check("both divisions play every matchday, though only one is in the table", [len($matches), $game.league.matchdays_played(), $game.other_league.matchdays_played()], [5, 1, 1]);
+check("both divisions play every matchday, though only one is in the table", [len($matches), $game.league.matchdays_played(), $game.other_league.matchdays_played()], [10, 1, 1]);
 check("and the other's results are in the inbox", message_starting($game.inbox, "Championship, matchday 1") != null, true);
 $rows = map($game.other_league.table(), $s -> $s.played);
-check("every club of the other division has played", $rows, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]);
+check("every club of the other division has played", $rows, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]);
 
 /* promotion and relegation */
-foreach ([[20, 0], [20, 13]] as [$seed, $start]) {
+foreach ([[20, 0], [20, 25]] as [$seed, $start]) {
     $game = Game::start($seed, $start);
     $was_top = map($game.level == 0 ? $game.teams : $game.other_teams, $t -> $t.name);
     $was_second = map($game.level == 0 ? $game.other_teams : $game.teams, $t -> $t.name);
@@ -625,7 +635,7 @@ foreach ([[20, 0], [20, 13]] as [$seed, $start]) {
     $down = map(slice(reverse($top_league.table()), 0, 2), $s -> $s.team.name);
     $up = map(slice($second_league.table(), 0, 2), $s -> $s.team.name);
     $mine = $game.club.name;
-    $last = $game.inbox[len($game.inbox) - 1];
+    $last = message_starting($game.inbox, "The season is over");
     check("the season's last message says where the club finished, and its fate ({$start})", [contains($last["body"], "in the " .. $game.division_name() .. "."), contains($last["body"], "promoted") == in_array($mine, $up), contains($last["body"], "relegated") == in_array($mine, $down)], [true, true, true]);
     $paid_place = 0;
     foreach ($game.league.table() as $i => $standing) {
@@ -634,14 +644,15 @@ foreach ([[20, 0], [20, 13]] as [$seed, $start]) {
         }
     }
     $paid_level = $game.level;
+    $paid_size = len($game.league.table());
     $game.new_season();
-    check("the prize is the division's: the second division pays less ({$start})", $game.ledger[len($game.ledger) - 1]["amount"], money::prize(1 + $paid_level, $paid_place, 10));
+    check("the prize is the division's: the second division pays less ({$start})", $game.ledger[len($game.ledger) - 1]["amount"], money::prize(1 + $paid_level, $paid_place, $paid_size));
     $top = map($game.level == 0 ? $game.teams : $game.other_teams, $t -> $t.name);
     $bottom = map($game.level == 0 ? $game.other_teams : $game.teams, $t -> $t.name);
-    check("two go up and two go down, ten stay in each ({$start})", [len($top), len($bottom), count_where($up, $n -> in_array($n, $top)), count_where($down, $n -> in_array($n, $bottom)), count_where($down, $n -> in_array($n, $top))], [10, 10, 2, 2, 0]);
-    check("everyone else stays where they were ({$start})", [count_where($was_top, $n -> !in_array($n, $down) && in_array($n, $top)), count_where($was_second, $n -> !in_array($n, $up) && in_array($n, $bottom))], [8, 8]);
+    check("two go up and two go down, twenty and twenty-four in the divisions ({$start})", [len($top), len($bottom), count_where($up, $n -> in_array($n, $top)), count_where($down, $n -> in_array($n, $bottom)), count_where($down, $n -> in_array($n, $top))], [20, 24, 2, 2, 0]);
+    check("everyone else stays where they were ({$start})", [count_where($was_top, $n -> !in_array($n, $down) && in_array($n, $top)), count_where($was_second, $n -> !in_array($n, $up) && in_array($n, $bottom))], [18, 22]);
     check("the manager's division follows the club ({$start})", [in_array($mine, $up) ? 0 : (in_array($mine, $down) ? 1 : ($start == 0 ? 0 : 1)), $game.level, in_array($mine, map($game.teams, $t -> $t.name))], [$game.level, $game.level, true]);
-    check("and the new season's fixtures are for the new divisions ({$start})", [$game.league.matchdays_played(), $game.other_league.matchdays_played(), $game.league.matchdays(), $game.other_league.matchdays()], [0, 0, 18, 18]);
+    check("and the new season's fixtures are for the new divisions ({$start})", [$game.league.matchdays_played(), $game.other_league.matchdays_played(), $game.league.matchdays(), $game.other_league.matchdays()], [0, 0, $game.level == 0 ? 38 : 46, $game.level == 0 ? 46 : 38]);
     check("the new season's message says so ({$start})", contains($game.inbox[len($game.inbox) - 1]["body"], "begins in the " .. $game.division_name()), true);
 }
 
@@ -656,7 +667,7 @@ while (!$game.season_over()) {
 }
 $game.save($saved);
 $again = Game::load($saved);
-check("a game saved between seasons keeps both divisions", [$again.level, map($again.teams, $t -> $t.name) == map($game.teams, $t -> $t.name), map($again.other_teams, $t -> $t.name) == map($game.other_teams, $t -> $t.name), $again.other_league.matchdays_played(), $again.to_data() == $game.to_data()], [$game.level, true, true, 18, true]);
+check("a game saved between seasons keeps both divisions", [$again.level, map($again.teams, $t -> $t.name) == map($game.teams, $t -> $t.name), map($again.other_teams, $t -> $t.name) == map($game.other_teams, $t -> $t.name), $again.other_league.matchdays_played(), $again.to_data() == $game.to_data()], [$game.level, true, true, $game.other_league.matchdays(), true]);
 run(["rm", "-f", $saved]);
 $game.new_season();
 for ($year = 0; $year < 3; $year++) {
@@ -671,4 +682,52 @@ foreach ($game.everyone() as $t) {
         $invalid[] = "{$t}";
     }
 }
-check("four seasons of promotion and relegation on, all twenty clubs are sound", [len($game.everyone()), len(keys(name_set($game.everyone()))), $invalid], [20, 20, []]);
+check("four seasons of promotion and relegation on, all forty-four clubs are sound", [len($game.everyone()), len(keys(name_set($game.everyone()))), $invalid], [44, 44, []]);
+
+/* ---- Seasons of different lengths ---- */
+$game = Game::start(30, 25);
+check("a Championship manager plays forty-six matchdays, and the Premier Division only thirty-eight", [$game.league.matchdays(), $game.other_league.matchdays(), $game.club_done(), $game.season_over()], [46, 38, false, false]);
+for ($i = 0; $i < 38; $i++) {
+    $matches = $game.advance();
+    if (len($matches) != 12) {
+        check("a Championship matchday is twelve matches (matchday {$i})", len($matches), 12);
+    }
+}
+check("after thirty-eight the Premier Division is done and the club's season is not", [$game.other_league.matchdays_left(), $game.league.matchdays_left(), $game.season_over()], [0, 8, false]);
+$live = $game.begin_matchday();
+check("the club still plays, and only its own division is watched", [$live.mine != null, len($live.matches), len($live.unwatched())], [true, 12, 0]);
+while (!$live.finished()) {
+    $live.tick();
+}
+$game.end_matchday();
+check("no message about a division that didn't play", message_starting($game.inbox, "Premier Division, matchday 39"), null);
+while (!$game.season_over()) {
+    $game.advance();
+}
+check("the season is over when the longer one is", [$game.league.matchdays_played(), $game.other_league.matchdays_played()], [46, 38]);
+
+/* the books: a club is paid and pays only for matches it plays */
+$game = Game::start(30);
+for ($i = 0; $i < 38; $i++) {
+    $game.advance();
+}
+$premier_at_38 = map($game.teams, $t -> $t.balance);
+$second_at_38 = map($game.other_teams, $t -> $t.balance);
+$game.advance();
+$game.advance();
+check("the Premier Division's clubs are paid nothing and pay nothing on the Championship's extra matchdays, the Championship's are", [map($game.teams, $t -> $t.balance) == $premier_at_38, map($game.other_teams, $t -> $t.balance) != $second_at_38], [true, true]);
+
+/* wages are a matchday's share of a season of the division's own length */
+$game = Game::start(30, 25);
+$wages_before = money::wages($game.club);
+$game.advance();
+$wage_entry = filter($game.ledger, $e -> $e["text"] == "Wages")[0];
+check("a Championship club pays a forty-sixth of its wages a matchday", $wage_entry["amount"], -intdiv($wages_before, 46));
+$premier = Game::start(30);
+$premier_wages = money::wages($premier.club);
+$premier.advance();
+check("and a Premier Division club a thirty-eighth", filter($premier.ledger, $e -> $e["text"] == "Wages")[0]["amount"], -intdiv($premier_wages, 38));
+$second_team = $premier.other_teams[3];
+$second_start = money::starting_balance($second_team);
+$was_home = $premier.other_league.fixtures_of($second_team)[0]["home"] == $second_team;
+check("and a Championship club, in the other division, a forty-sixth", $second_team.balance, $second_start + money::TELEVISION - intdiv(money::wages($second_team), 46) + ($was_home ? money::gate($second_team) : 0));

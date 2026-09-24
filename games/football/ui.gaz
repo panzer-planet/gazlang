@@ -200,6 +200,8 @@ pub kind FixturesView extends View {
 pub kind LeagueView extends View {
     #table;
     #other = false;
+    /* How many clubs the division on show has, for where relegation begins */
+    #size = 10;
 
     fn _($game) {
         ##_($game);
@@ -207,7 +209,7 @@ pub kind LeagueView extends View {
         #table = tui::Table(["Pos", "Club", "P", "W", "D", "L", "GF", "GA", "GD", "Pts"], [], ($row, $index) -> match {
             $row[1] == $name => "bold cyan",
             #shown_level() == 0 && $row[0] == 1 => "green",
-            #shown_level() == 0 && $row[0] > 8 => "red",
+            #shown_level() == 0 && $row[0] > #size - 2 => "red",
             #shown_level() == 1 && $row[0] <= 2 => "green",
             default => "",
         });
@@ -224,6 +226,7 @@ pub kind LeagueView extends View {
         foreach ((#other ? #game.other_league : #game.league).table() as $place => $standing) {
             $rows[] = [$place + 1, $standing.team.name, $standing.played, $standing.won, $standing.drawn, $standing.lost, $standing.scored, $standing.conceded, $standing.difference(), $standing.points()];
         }
+        #size = len($rows);
         #table.set_rows($rows);
         #table.draw($screen, $rect, $focused);
     }
@@ -675,7 +678,7 @@ pub kind Shell {
 
         /* the bar: the club on the left, where the season is in the middle, the key to press on the right */
         $screen.fill($top.col, $top.row, $top.width, 1, " ", "inverse");
-        tui::label($screen, $top.col, $top.row, $top.width, #game.season_label() .. "  ·  Matchday " .. ($league.matchdays_played() + ($live ? 1 : 0)) .. " of " .. $league.matchdays() .. "  ·  " .. #game.place() .. " in the " .. #game.division_name(), "inverse", "center");
+        tui::label($screen, $top.col, $top.row, $top.width, #game.season_label() .. "  ·  Matchday " .. min($league.matchdays_played() + ($live && $league.matchdays_left() > 0 ? 1 : 0), $league.matchdays()) .. " of " .. $league.matchdays() .. "  ·  " .. #game.place() .. " in the " .. #game.division_name(), "inverse", "center");
         tui::label($screen, $top.col, $top.row, term::width(#game.club.name) + 2, " " .. #game.club.name, "bold inverse");
         tui::label($screen, $top.col + $top.width - 14, $top.row, 14, $live && !#game.live.finished() ? "s Skip ▸ " : "c Continue ▸ ", "bold inverse", "right");
 

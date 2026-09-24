@@ -10,13 +10,22 @@ include "engine/league.gaz" use League;
 include "engine/money.gaz";
 include "../../lib/json.gaz";
 
-/* The first ten are the top division and the next ten the second */
+/* The first TOP_SIZE are the top division and the next SECOND_SIZE the second */
 const CLUBS = [
     "Riverside FC", "Northgate United", "Harbour Town", "Millbrook Athletic", "Kingsway Rovers",
     "Oakfield City", "Stonebridge", "Westmoor Wanderers", "Ashford Albion", "Lakeside Rangers",
     "Fernhill Town", "Marsh Lane FC", "Copperfield", "Thornbury Rovers", "Eastbrook United",
     "Priory Athletic", "Redcliffe", "Sandgate Wanderers", "Hollins Park", "Cranmere City",
+    "Bramley Town", "Cliffe Rovers", "Dunmore United", "Elmstead", "Foxhall Athletic",
+    "Greystone City", "Hartwell Rangers", "Ironbridge", "Jarrow Albion", "Kelthorne",
+    "Lowick Wanderers", "Mossley Park", "Nettlebed FC", "Oldcastle United", "Pennybridge",
+    "Queensmead", "Ravenscar Town", "Silverdale", "Tannerton Athletic", "Upminster Rovers",
+    "Valebrook", "Wexcombe City", "Yarmouth Albion", "Ashgrove", "Blackwater Town",
+    "Crowmarsh", "Denholme United", "Eastleigh Park", "Fallowfield", "Garstone Rovers",
+    "Hexham Wanderers", "Ilkley Athletic", "Kingsmoor", "Larkfield Town",
 ];
+const TOP_SIZE = 20;
+const SECOND_SIZE = 24;
 const DIVISIONS = ["Premier Division", "Championship"];
 /* How many go up and down between the divisions each summer */
 const MOVING = 2;
@@ -87,11 +96,13 @@ pub kind MatchDay {
 
     /* The minutes played, which every match has in common */
     pub fn clock() {
-        return len(#matches) == 0 ? 0 : #matches[0].elapsed;
+        $all = [...#matches, ...#also];
+
+        return $all == [] ? 0 : $all[0].elapsed;
     }
 
     pub fn finished() {
-        foreach (#matches as $match) {
+        foreach ([...#matches, ...#also] as $match) {
             if (!$match.finished()) {
                 return false;
             }
@@ -145,13 +156,14 @@ pub kind Game {
         $scout = Scout();
         $teams = [];
         foreach (CLUBS as $i => $name) {
-            $team = $scout.team($name, $i < 10 ? rand_int(52, 78) : rand_int(40, 62), FORMATIONS[$i % len(FORMATIONS)]);
+            $team = $scout.team($name, $i < TOP_SIZE ? rand_int(52, 78) : rand_int(40, 62), FORMATIONS[$i % len(FORMATIONS)]);
             $team.balance = money::starting_balance($team);
             $teams[] = $team;
         }
-        $level = $club < 10 ? 0 : 1;
-        $mine = slice($teams, $level * 10, 10);
-        $other = slice($teams, (1 - $level) * 10, 10);
+        $level = $club < TOP_SIZE ? 0 : 1;
+        $top = slice($teams, 0, TOP_SIZE);
+        $second = slice($teams, TOP_SIZE, SECOND_SIZE);
+        [$mine, $other] = $level == 0 ? [$top, $second] : [$second, $top];
 
         return Game($mine, $teams[$club], $scout, $other, $level);
     }
@@ -224,10 +236,9 @@ pub kind Game {
         if (!#season_over()) {
             return "The season isn't over";
         }
-        $clubs = len(#teams);
         foreach ([[#league, #level], [#other_league, 1 - #level]] as [$league, $level]) {
             foreach ($league.table() as $place => $standing) {
-                $prize = money::prize(1 + $level, $place, $clubs);
+                $prize = money::prize(1 + $level, $place, len($league.table()));
                 $standing.team.balance += $prize;
                 if ($standing.team == #club) {
                     #ledger[] = {"matchday" => #league.matchdays_played(), "text" => "Prize money, " .. ordinal($place + 1), "amount" => $prize};
@@ -313,7 +324,14 @@ pub kind Game {
         return #season .. "/" .. slice(to_string(#season + 1), 2);
     }
 
-    pub fn season_over() { return #league.matchdays_left() == 0; }
+    /* Both divisions have played every matchday: the second division's season is longer */
+    pub fn season_over() { return #league.matchdays_left() == 0 && #other_league.matchdays_left() == 0; }
+
+    /* The club's own division has played every matchday, though the other may still have some */
+    pub fn club_done() { return #league.matchdays_left() == 0; }
+
+    /* The season the club is in: the league it plays in */
+    fn league_of($team) { return in_array($team, #teams) ? #league : #other_league; }
 
     /* The club's place in the table, from 1 */
     pub fn position() {
@@ -341,6 +359,8 @@ pub kind Game {
         if (#live != null) {
             error("A matchday is already being played");
         }
+        // A division that has played all its matchdays sits the rest out
+        $leagues = filter([#league, #other_league], $league -> $league.matchdays_left() > 0);
         // The other clubs pick their best eleven from who is fit; the manager's stays as it was set,
         // except that anyone who is out is replaced, which the inbox says
         foreach (#everyone() as $team) {
@@ -349,7 +369,7 @@ pub kind Game {
             }
         }
         // ... and set up against whom they play, once the elevens are known
-        foreach ([...#league.next_pairs(), ...#other_league.next_pairs()] as [$home, $away]) {
+        foreach (reduce($leagues, ($all, $league) -> [...$all, ...$league.next_pairs()], []) as [$home, $away]) {
             foreach ([[$home, $away], [$away, $home]] as [$team, $opponent]) {
                 if ($team != #club) {
                     $team.set_mentality(ai_mentality($team.rating() - $opponent.rating()));
@@ -359,8 +379,12 @@ pub kind Game {
         $picked = #club.eleven();
         // Live only once the league has begun it, so a matchday that couldn't begin isn't left half made
         $day = MatchDay(#club);
-        #league.begin_matchday($day.attach);
-        #other_league.begin_matchday($day.attach_other);
+        if (#league.matchdays_left() > 0) {
+            #league.begin_matchday($day.attach);
+        }
+        if (#other_league.matchdays_left() > 0) {
+            #other_league.begin_matchday($day.attach_other);
+        }
         foreach (#club.eleven() as $i => $player) {
             if ($player != $picked[$i]) {
                 #tell("Lineup: {$player} starts", "{$picked[$i]} is out (" .. lower($picked[$i].status()) .. "), so {$player} starts in his place.");
@@ -381,23 +405,27 @@ pub kind Game {
         if (#live == null) {
             error("No matchday is being played");
         }
-        $matches = #league.end_matchday(#live.matches);
-        $others = #other_league.end_matchday(#live.unwatched());
+        $matches = #live.matches == [] ? [] : #league.end_matchday(#live.matches);
+        $others = #live.unwatched() == [] ? [] : #other_league.end_matchday(#live.unwatched());
         #live = null;
         #settle([...$matches, ...$others]);
         $available = filter(#club.players, $player -> $player.available());
-        #tell(#other_division_name() .. ", matchday " .. #league.matchdays_played(), join(map($others, $match -> "{$match}"), "\n"));
+        if ($others != []) {
+            #tell(#other_division_name() .. ", matchday " .. #other_league.matchdays_played(), join(map($others, $match -> "{$match}"), "\n"));
+        }
         foreach ($matches as $match) {
             if ($match.home == #club || $match.away == #club) {
                 #report($match);
             }
         }
-        #tell("Matchday " .. #league.matchdays_played() .. " results", join(map($matches, $match -> "{$match}"), "\n"));
+        if ($matches != []) {
+            #tell("Matchday " .. #league.matchdays_played() .. " results", join(map($matches, $match -> "{$match}"), "\n"));
+        }
         #report_availability($available);
-        if (#season_over()) {
+        if ($matches != [] && #league.matchdays_left() == 0) {
             $champions = #league.table()[0].team;
             #tell("The season is over", "{$champions} are the champions. You finished " .. ordinal(#position()) .. " in the " .. #division_name() .. ". "
-                .. #season_outcome());
+                .. #season_outcome() .. (#season_over() ? "" : " The " .. #other_division_name() .. " has " .. #other_league.matchdays_left() .. " matchdays to go: c plays them."));
         }
         return $matches;
     }
@@ -416,20 +444,22 @@ pub kind Game {
     /* The books for a matchday: every club is paid by television and pays its wages, and the home
        side takes the gate. The manager's club has each entry in its ledger. */
     fn settle($matches) {
-        $day = #league.matchdays_played();
         $home = {};
         foreach ($matches as $match) {
             $home[$match.home.name] = $match.home;
         }
-        foreach (#everyone() as $team) {
-            $entries = [["Television", money::TELEVISION], ["Wages", -money::matchday_wages($team, #league.matchdays())]];
-            if (has_key($home, $team.name)) {
-                $entries[] = ["Gate receipts", money::gate($team)];
-            }
-            foreach ($entries as [$text, $amount]) {
-                $team.balance += $amount;
-                if ($team == #club) {
-                    #ledger[] = {"matchday" => $day, "text" => $text, "amount" => $amount};
+        foreach ($matches as $match) {
+            foreach ([$match.home, $match.away] as $team) {
+                $league = #league_of($team);
+                $entries = [["Television", money::TELEVISION], ["Wages", -money::matchday_wages($team, $league.matchdays())]];
+                if (has_key($home, $team.name)) {
+                    $entries[] = ["Gate receipts", money::gate($team)];
+                }
+                foreach ($entries as [$text, $amount]) {
+                    $team.balance += $amount;
+                    if ($team == #club) {
+                        #ledger[] = {"matchday" => $league.matchdays_played(), "text" => $text, "amount" => $amount};
+                    }
                 }
             }
         }

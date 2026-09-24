@@ -78,7 +78,9 @@ pub kind Team {
             }
         }
         $keepers = len(filter($list, $player -> is_a($player, Goalkeeper)));
-        if ($keepers != 1) {
+        // An outfielder may be in goal when every goalkeeper is out
+        $fit_keepers = len(filter(#players, $player -> is_a($player, Goalkeeper) && $player.available()));
+        if ($keepers > 1 || ($keepers == 0 && $fit_keepers > 0)) {
             error(InvalidLineup(#name, "{$keepers} goalkeepers in the eleven"));
         }
     }
@@ -228,6 +230,14 @@ pub kind Team {
     pub fn prepare() {
         #missing = filter(#players, $player -> !$player.available());
         $changes = [];
+        // A goalkeeper back from injury takes the goal again from the outfielder who stood in
+        $keeper = filter(#players, $player -> is_a($player, Goalkeeper) && $player.available());
+        if ($keeper != [] && len(filter(#xi, $player -> is_a($player, Goalkeeper))) == 0) {
+            $standing_in = min_by(#xi, $player -> $player.rating);
+            $back = sort($keeper, ($a, $b) -> $b.rating <=> $a.rating)[0];
+            #xi = map(#xi, $player -> $player == $standing_in ? $back : $player);
+            $changes[] = [$standing_in, $back];
+        }
         foreach (#xi as $i => $player) {
             if ($player.available()) {
                 continue;
