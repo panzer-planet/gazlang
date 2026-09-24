@@ -5,3 +5,4 @@ bin/gazlang
 tests/.tmp/
 .DS_Store
 /vendor/
+.claude/
