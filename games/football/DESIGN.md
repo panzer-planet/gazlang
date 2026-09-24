@@ -81,4 +81,4 @@ A launcher smoke test runs the real thing on a pty. See `README.md`.
 4. **Transfers and finances**: a market with values and wages, the books, the budget. *(done)*
 5. **Saving and loading.** *(done)*
 6. **Depth**: injuries, morale, contracts, training, youth.
-7. **A season after a season**: *(a single league, repeated: done)* promotion and relegation, cups, an end-of-season summary.
+7. **A season after a season**: *(a single league, repeated: done)* cups, an end-of-season summary. *(promotion and relegation between two divisions: done)*

@@ -61,7 +61,7 @@ class GameProgramsTest extends GazLangTestCase
 
         $this->assertSame(0, $ran['code'], $ran['out']);
         $this->assertStringContainsString('Riverside FC', $ran['out']);
-        $this->assertStringContainsString('League table', $ran['out']);
+        $this->assertStringContainsString('Premier Division table', $ran['out']);
         $this->assertSame(['echo' => false, 'icanon' => false, 'isig' => false], $ran['during']);
         $this->assertSame(['echo' => true, 'icanon' => true, 'isig' => true], $ran['after']);
         // it ends on the main screen again, with the cursor back

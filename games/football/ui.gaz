@@ -193,22 +193,35 @@ pub kind FixturesView extends View {
     }
 }
 
-/* The league table, with the club's own row marked */
+/*
+ * The league table of the club's division, with the club's own row marked and the places that go
+ * up green and the ones that go down red; d looks at the other division's.
+ */
 pub kind LeagueView extends View {
     #table;
+    #other = false;
 
     fn _($game) {
         ##_($game);
         $name = $game.club.name;
-        #table = tui::Table(["Pos", "Club", "P", "W", "D", "L", "GF", "GA", "GD", "Pts"], [], ($row, $index) -> $row[1] == $name ? "bold cyan" : ($index == 0 ? "green" : ($index >= 8 ? "red" : "")));
+        #table = tui::Table(["Pos", "Club", "P", "W", "D", "L", "GF", "GA", "GD", "Pts"], [], ($row, $index) -> match {
+            $row[1] == $name => "bold cyan",
+            #shown_level() == 0 && $row[0] == 1 => "green",
+            #shown_level() == 0 && $row[0] > 8 => "red",
+            #shown_level() == 1 && $row[0] <= 2 => "green",
+            default => "",
+        });
     }
 
-    pub fn title() { return "League table"; }
-    pub fn hints() { return "j/k move  . , sort  o reverse  x reset"; }
+    /* Which division is on show: 0 the top, 1 the second */
+    fn shown_level() { return #other ? 1 - #game.level : #game.level; }
+
+    pub fn title() { return (#other ? #game.other_division_name() : #game.division_name()) .. " table"; }
+    pub fn hints() { return "j/k move  d other division  . , sort  o reverse  x reset"; }
 
     pub fn draw($screen, $rect, $focused) {
         $rows = [];
-        foreach (#game.league.table() as $place => $standing) {
+        foreach ((#other ? #game.other_league : #game.league).table() as $place => $standing) {
             $rows[] = [$place + 1, $standing.team.name, $standing.played, $standing.won, $standing.drawn, $standing.lost, $standing.scored, $standing.conceded, $standing.difference(), $standing.points()];
         }
         #table.set_rows($rows);
@@ -216,6 +229,11 @@ pub kind LeagueView extends View {
     }
 
     pub fn handle($key) {
+        if (term::name($key) == "d") {
+            #other = !#other;
+
+            return null;
+        }
         #table.handle($key);
         return null;
     }
@@ -657,7 +675,7 @@ pub kind Shell {
 
         /* the bar: the club on the left, where the season is in the middle, the key to press on the right */
         $screen.fill($top.col, $top.row, $top.width, 1, " ", "inverse");
-        tui::label($screen, $top.col, $top.row, $top.width, #game.season_label() .. "  ·  Matchday " .. ($league.matchdays_played() + ($live ? 1 : 0)) .. " of " .. $league.matchdays() .. "  ·  " .. #game.place(), "inverse", "center");
+        tui::label($screen, $top.col, $top.row, $top.width, #game.season_label() .. "  ·  Matchday " .. ($league.matchdays_played() + ($live ? 1 : 0)) .. " of " .. $league.matchdays() .. "  ·  " .. #game.place() .. " in the " .. #game.division_name(), "inverse", "center");
         tui::label($screen, $top.col, $top.row, term::width(#game.club.name) + 2, " " .. #game.club.name, "bold inverse");
         tui::label($screen, $top.col + $top.width - 14, $top.row, 14, $live && !#game.live.finished() ? "s Skip ▸ " : "c Continue ▸ ", "bold inverse", "right");
 

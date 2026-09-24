@@ -10,10 +10,16 @@ include "engine/league.gaz" use League;
 include "engine/money.gaz";
 include "../../lib/json.gaz";
 
+/* The first ten are the top division and the next ten the second */
 const CLUBS = [
     "Riverside FC", "Northgate United", "Harbour Town", "Millbrook Athletic", "Kingsway Rovers",
     "Oakfield City", "Stonebridge", "Westmoor Wanderers", "Ashford Albion", "Lakeside Rangers",
+    "Fernhill Town", "Marsh Lane FC", "Copperfield", "Thornbury Rovers", "Eastbrook United",
+    "Priory Athletic", "Redcliffe", "Sandgate Wanderers", "Hollins Park", "Cranmere City",
 ];
+const DIVISIONS = ["Premier Division", "Championship"];
+/* How many go up and down between the divisions each summer */
+const MOVING = 2;
 const FIRST_YEAR = 2026;
 /* The formations the clubs prefer, in turn: the first for the club the manager starts with */
 const FORMATIONS = ["4-4-2", "4-3-3", "3-5-2", "4-5-1", "5-3-2"];
@@ -55,8 +61,16 @@ pub kind MatchDay {
     pub #mine = null;
     /* Everything that has happened in the club's match, oldest first */
     pub #commentary = [];
+    /* The other division's matches, played alongside but not watched */
+    #also = [];
 
     fn _(#club);
+
+    pub fn unwatched() { return #also; }
+
+    pub fn attach_other($match) {
+        #also[] = $match;
+    }
 
     /* The league gives each match to this as it is made, which is when to listen to it */
     pub fn attach($match) {
@@ -88,7 +102,7 @@ pub kind MatchDay {
 
     /* Play a minute of every match that isn't over */
     pub fn tick() {
-        foreach (#matches as $match) {
+        foreach ([...#matches, ...#also] as $match) {
             if (!$match.finished()) {
                 $match.tick();
             }
@@ -101,18 +115,29 @@ pub kind Game {
     pub #live = null;
     /* Who was out when the matchday began, by name, so what changed during it can be told */
     #out_before = {};
+    /* The club's division: its clubs and their season. The other division is beside it, and #level says
+       which the club's is: 0 the top, 1 the second. */
     pub #league;
+    pub #other_league;
     pub #inbox = [];
     pub #season = FIRST_YEAR;
     /* The club's money in and out, newest last: {"matchday", "text", "amount"} */
     pub #ledger = [];
 
-    fn _(pub #teams, pub #club, #scout) {
+    fn _(pub #teams, pub #club, #scout, pub #other_teams, pub #level) {
         #league = League(#teams).draw();
-        #tell("Welcome to {#club}", "The board have appointed you manager of {#club}. There are "
-            .. len(#teams) .. " clubs in the league and " .. #league.matchdays() .. " matchdays to play. "
+        #other_league = League(#other_teams).draw();
+        #tell("Welcome to {#club}", "The board have appointed you manager of {#club}, in the " .. #division_name() .. ". There are "
+            .. len(#teams) .. " clubs in the division and " .. #league.matchdays() .. " matchdays to play. "
             .. #expectation());
     }
+
+    /* Every club in both divisions */
+    pub fn everyone() { return [...#teams, ...#other_teams]; }
+
+    /* The club's division by name, or the other's */
+    pub fn division_name() { return DIVISIONS[#level]; }
+    pub fn other_division_name() { return DIVISIONS[1 - #level]; }
 
     /* A new game: ten clubs made up from $seed, and the manager at the club $club (an index into CLUBS) */
     pub static fn start($seed, $club = 0) {
@@ -120,20 +145,26 @@ pub kind Game {
         $scout = Scout();
         $teams = [];
         foreach (CLUBS as $i => $name) {
-            $team = $scout.team($name, rand_int(52, 78), FORMATIONS[$i % len(FORMATIONS)]);
+            $team = $scout.team($name, $i < 10 ? rand_int(52, 78) : rand_int(40, 62), FORMATIONS[$i % len(FORMATIONS)]);
             $team.balance = money::starting_balance($team);
             $teams[] = $team;
         }
-        return Game($teams, $teams[$club], $scout);
+        $level = $club < 10 ? 0 : 1;
+        $mine = slice($teams, $level * 10, 10);
+        $other = slice($teams, (1 - $level) * 10, 10);
+
+        return Game($mine, $teams[$club], $scout, $other, $level);
     }
 
     /* What a save file keeps: everything the game is, as data */
     pub fn to_data() {
         return {
-            "game" => "football", "version" => 1, "season" => #season, "club" => #club.name,
+            "game" => "football", "version" => 2, "season" => #season, "club" => #club.name, "level" => #level,
             "names" => #scout.names(),
             "teams" => map(#teams, $team -> $team.to_data()),
+            "other_teams" => map(#other_teams, $team -> $team.to_data()),
             "league" => #league.to_data(),
+            "other_league" => #other_league.to_data(),
             "inbox" => #inbox, "ledger" => #ledger,
         };
     }
@@ -144,9 +175,11 @@ pub kind Game {
         $club = filter($teams, $team -> $team.name == $data["club"])[0];
         $scout = Scout();
         $scout.take($data["names"]);
-        $game = Game($teams, $club, $scout);
+        $others = map($data["other_teams"], teams::from_data);
+        $game = Game($teams, $club, $scout, $others, $data["level"]);
         $game.season = $data["season"];
         $game.league = League::from_data($data["league"], $teams);
+        $game.other_league = League::from_data($data["other_league"], $others);
         $game.inbox = $data["inbox"];
         $game.ledger = $data["ledger"];
 
@@ -174,7 +207,7 @@ pub kind Game {
         }
         try {
             $data = json::decode(read_file($path));
-            if (($data["game"] ?? null) != "football" || ($data["version"] ?? null) != 1) {
+            if (($data["game"] ?? null) != "football" || ($data["version"] ?? null) != 2) {
                 error("{$path} is not a saved football game");
             }
 
@@ -192,16 +225,36 @@ pub kind Game {
             return "The season isn't over";
         }
         $clubs = len(#teams);
-        foreach (#league.table() as $place => $standing) {
-            $prize = money::prize(2, $place, $clubs);
-            $standing.team.balance += $prize;
-            if ($standing.team == #club) {
-                #ledger[] = {"matchday" => #league.matchdays_played(), "text" => "Prize money, " .. ordinal($place + 1), "amount" => $prize};
+        foreach ([[#league, #level], [#other_league, 1 - #level]] as [$league, $level]) {
+            foreach ($league.table() as $place => $standing) {
+                $prize = money::prize(1 + $level, $place, $clubs);
+                $standing.team.balance += $prize;
+                if ($standing.team == #club) {
+                    #ledger[] = {"matchday" => #league.matchdays_played(), "text" => "Prize money, " .. ordinal($place + 1), "amount" => $prize};
+                }
             }
         }
+        // The bottom of the top division and the top of the second change places
+        $top_league = #level == 0 ? #league : #other_league;
+        $second_league = #level == 0 ? #other_league : #league;
+        $down = map(slice(reverse($top_league.table()), 0, MOVING), $standing -> $standing.team);
+        $up = map(slice($second_league.table(), 0, MOVING), $standing -> $standing.team);
+        $top = #level == 0 ? #teams : #other_teams;
+        $second = #level == 0 ? #other_teams : #teams;
+        $top = [...filter($top, $team -> !in_array($team, $down)), ...$up];
+        $second = [...filter($second, $team -> !in_array($team, $up)), ...$down];
+        $verdict = "";
+        if (in_array(#club, $up)) {
+            #level = 0;
+            $verdict = "You are promoted to the " .. DIVISIONS[0] .. "!";
+        } else if (in_array(#club, $down)) {
+            #level = 1;
+            $verdict = "You are relegated to the " .. DIVISIONS[1] .. ".";
+        }
+        [#teams, #other_teams] = #level == 0 ? [$top, $second] : [$second, $top];
         $retired = [];
         $academy = [];
-        foreach (#teams as $team) {
+        foreach (#everyone() as $team) {
             foreach ($team.players as $player) {
                 $player.new_season();
                 $player.grow_older();
@@ -215,10 +268,11 @@ pub kind Game {
                 }
             }
         }
-        $deals = money::window(#teams);
+        $deals = money::window(#everyone());
         #season++;
         #league = League(#teams).draw();
-        $body = "A new season begins. " .. #expectation();
+        #other_league = League(#other_teams).draw();
+        $body = "A new season begins in the " .. #division_name() .. ". " .. ($verdict != "" ? $verdict .. " " : "") .. #expectation();
         if ($retired != []) {
             $body ..= "\n\nRetired: " .. join($retired, ", ") .. ". From the academy: " .. join(map($academy, $p -> "{$p} ({$p.position()}, {$p.rating})"), ", ") .. ".";
         }
@@ -226,6 +280,19 @@ pub kind Game {
             $body ..= "\n\n{$deal["player"]} moved from {$deal["from"]} to {$deal["to"]} for " .. money::pounds($deal["fee"]) .. ".";
         }
         #tell(#season_label() .. " begins", $body);
+
+        return "";
+    }
+
+    /* What the finishing position means for next season, as a sentence */
+    fn season_outcome() {
+        $place = #position();
+        if (#level == 1 && $place <= MOVING) {
+            return "You are promoted!";
+        }
+        if (#level == 0 && $place > len(#teams) - MOVING) {
+            return "You are relegated.";
+        }
 
         return "";
     }
@@ -276,13 +343,13 @@ pub kind Game {
         }
         // The other clubs pick their best eleven from who is fit; the manager's stays as it was set,
         // except that anyone who is out is replaced, which the inbox says
-        foreach (#teams as $team) {
+        foreach (#everyone() as $team) {
             if ($team != #club) {
                 $team.auto_eleven();
             }
         }
         // ... and set up against whom they play, once the elevens are known
-        foreach (#league.next_pairs() as [$home, $away]) {
+        foreach ([...#league.next_pairs(), ...#other_league.next_pairs()] as [$home, $away]) {
             foreach ([[$home, $away], [$away, $home]] as [$team, $opponent]) {
                 if ($team != #club) {
                     $team.set_mentality(ai_mentality($team.rating() - $opponent.rating()));
@@ -293,6 +360,7 @@ pub kind Game {
         // Live only once the league has begun it, so a matchday that couldn't begin isn't left half made
         $day = MatchDay(#club);
         #league.begin_matchday($day.attach);
+        #other_league.begin_matchday($day.attach_other);
         foreach (#club.eleven() as $i => $player) {
             if ($player != $picked[$i]) {
                 #tell("Lineup: {$player} starts", "{$picked[$i]} is out (" .. lower($picked[$i].status()) .. "), so {$player} starts in his place.");
@@ -314,9 +382,11 @@ pub kind Game {
             error("No matchday is being played");
         }
         $matches = #league.end_matchday(#live.matches);
+        $others = #other_league.end_matchday(#live.unwatched());
         #live = null;
-        #settle($matches);
+        #settle([...$matches, ...$others]);
         $available = filter(#club.players, $player -> $player.available());
+        #tell(#other_division_name() .. ", matchday " .. #league.matchdays_played(), join(map($others, $match -> "{$match}"), "\n"));
         foreach ($matches as $match) {
             if ($match.home == #club || $match.away == #club) {
                 #report($match);
@@ -326,7 +396,8 @@ pub kind Game {
         #report_availability($available);
         if (#season_over()) {
             $champions = #league.table()[0].team;
-            #tell("The season is over", "{$champions} are the champions. You finished " .. ordinal(#position()) .. ".");
+            #tell("The season is over", "{$champions} are the champions. You finished " .. ordinal(#position()) .. " in the " .. #division_name() .. ". "
+                .. #season_outcome());
         }
         return $matches;
     }
@@ -350,7 +421,7 @@ pub kind Game {
         foreach ($matches as $match) {
             $home[$match.home.name] = $match.home;
         }
-        foreach (#teams as $team) {
+        foreach (#everyone() as $team) {
             $entries = [["Television", money::TELEVISION], ["Wages", -money::matchday_wages($team, #league.matchdays())]];
             if (has_key($home, $team.name)) {
                 $entries[] = ["Gate receipts", money::gate($team)];
@@ -367,7 +438,7 @@ pub kind Game {
     /* Everyone at the other clubs, richest talent first, as [player, club] pairs */
     pub fn market() {
         $offers = [];
-        foreach (filter(#teams, $team -> $team != #club) as $team) {
+        foreach (filter(#everyone(), $team -> $team != #club) as $team) {
             foreach ($team.players as $player) {
                 $offers[] = [$player, $team];
             }
@@ -382,7 +453,7 @@ pub kind Game {
             return "No transfers during a match";
         }
         $owner = null;
-        foreach (#teams as $team) {
+        foreach (#everyone() as $team) {
             if (in_array($player, $team.players)) {
                 $owner = $team;
             }
@@ -426,7 +497,7 @@ pub kind Game {
         } catch (TransferRefused $e) {
             return $e.message;
         }
-        $buyers = sort(filter(#teams, $team -> $team != #club && $team.balance >= $fee && len($team.players) < Team::MAX_SQUAD), ($a, $b) -> [$b.balance, $a.name] <=> [$a.balance, $b.name]);
+        $buyers = sort(filter(#everyone(), $team -> $team != #club && $team.balance >= $fee && len($team.players) < Team::MAX_SQUAD), ($a, $b) -> [$b.balance, $a.name] <=> [$a.balance, $b.name]);
         $to = "abroad";
         if ($buyers != []) {
             $buyers[0].sign($player);

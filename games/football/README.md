@@ -62,6 +62,15 @@ is played, `n` starts the next season: prize money by where you finished, everyb
 (veterans retire for youngsters from the academy), a summer transfer window among the clubs, and
 new fixtures.
 
+## Two divisions
+
+Twenty clubs in two divisions of ten, the Premier Division and the Championship; `bin/gazlang -f
+games/football/main.gaz -- SEED` starts you at the first club, and the club is an index into the
+list in `game.gaz` (a club from the eleventh on starts in the Championship). Both divisions play every matchday; the table
+shows yours (`d` looks at the other), with the places that go up green and those that go down red.
+At the end of the season the bottom two of the Premier Division and the top two of the Championship
+swap, and the prize money is bigger in the top division. Saves from before the divisions won't load.
+
 ## What is here
 
 - `engine/` is the model: players and their positions, squads and formations, fixtures with the
@@ -78,6 +87,6 @@ away, a table adds up, the inbox says what the match said), not what a seeded ma
 ratings and the odds are meant to change, and a recording would need re-recording with every tweak.
 Every screen is drawn into a `tui::Screen` and read back as text and styles, with no terminal.
 
-Not here yet: promotion and relegation, cups, contracts. `tests/programs/football.gaz` has a working career loop, saves, and transfers as
+Not here yet: cups, contracts. `tests/programs/football.gaz` has a working career loop, saves, and transfers as
 a command line program: lift what the game needs from it, and leave it as it is, since it is the
 language's biggest test program (see `tests/programs/README.md`).
