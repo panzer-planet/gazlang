@@ -35,6 +35,15 @@ pub fn starting_balance($team) {
 // What a club asks for a player it sells to another: a third over his value
 pub fn price($player) { return to_int(value($player) * 1.3); }
 
+// What a club asks for a player whose contract has $days_left days to run: half as much once there
+// are only six months left, since the club would lose him for nothing then
+pub fn price_with_contract($player, $days_left) {
+    return $days_left <= 183 ? to_int(price($player) / 2) : price($player);
+}
+
+// What renewing a contract costs: a signing-on fee of a sixteenth of what he is worth
+pub fn renewal_fee($player) { return intdiv(value($player), 16); }
+
 // What a club pays for one a player of the manager's: a tenth under
 pub fn sale_price($player) { return to_int(value($player) * 0.9); }
 

@@ -15,6 +15,9 @@ pub abstract kind Player {
     pub #clean_sheets = 0;
     pub #career_goals = 0;
     pub #age = 0;
+    // The last day of his contract, as a day number (lib/date.gaz): the club that hasn't renewed it by
+    // then loses him. 0 for a player nobody has given one.
+    pub #contract_until = 0;
     // The day the age goes up: month * 100 + day of the month (never the 29th of February)
     pub #birthday = 101;
     pub #yellow_cards = 0;
@@ -162,7 +165,7 @@ pub abstract kind Player {
     pub fn to_data() {
         return {
             "position" => #position(), "name" => #name, "rating" => #rating, "number" => #number,
-            "age" => #age, "birthday" => #birthday, "career_goals" => #career_goals, "goals" => #goals, "clean_sheets" => #clean_sheets,
+            "age" => #age, "birthday" => #birthday, "contract" => #contract_until, "career_goals" => #career_goals, "goals" => #goals, "clean_sheets" => #clean_sheets,
             "injured" => #injured, "suspended" => #suspended, "season_yellows" => #season_yellows,
         };
     }
@@ -222,6 +225,7 @@ pub fn from_data($data) {
     $player = $kind($data["name"], $data["rating"], $data["number"]);
     $player.age = $data["age"];
     $player.birthday = $data["birthday"];
+    $player.contract_until = $data["contract"];
     $player.career_goals = $data["career_goals"];
     $player.goals = $data["goals"];
     $player.clean_sheets = $data["clean_sheets"];

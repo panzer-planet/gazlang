@@ -101,7 +101,7 @@ foreach ([1, 2, 3] as $seed) {
         $elsewhere = filter($new, $m -> starts_with($m["subject"], $game.other_division_name() .. ", matchday "));
         check("and the other division's, at least the one played the same day ({$label})", [len($elsewhere) >= 1, len(split(last($elsewhere)["body"], "\n"))], [true, 12]);
         check("the position is between 1 and 20 ({$label})", [$game.position() >= 1, $game.position() <= 20], [true, true]);
-        $families = ["Win: ", "Draw: ", "Defeat: ", "Matchday ", "Lineup: ", "Injury: ", "Suspended: ", "Back: ", "The season is over", "Premier Division, ", "Championship, ", "The transfer window"];
+        $families = ["Win: ", "Draw: ", "Defeat: ", "Matchday ", "Lineup: ", "Injury: ", "Suspended: ", "Back: ", "The season is over", "Premier Division, ", "Championship, ", "The transfer window", "Contracts"];
         check("at least the report and the results, and nothing but the news there is ({$label})", [len($new) >= 2, count_where($new, $m -> count_where($families, $f -> starts_with($m["subject"], $f)) == 0)], [true, 0]);
         check("and the season's end has the last word ({$label})", $day < 38 || $new[len($new) - 1]["subject"] == "The season is over", true);
     }
@@ -824,7 +824,9 @@ $live = $game.play_on(false);
 $stops[] = [date::format($game.date), $game.inbox[len($game.inbox) - 1]["subject"]];
 $live = $game.play_on(false);
 $stops[] = [date::format($game.date), $game.inbox[len($game.inbox) - 1]["subject"]];
-check("after the last match c stops for the season's review, then for the window, and only then plays", $stops, [["Tue 1 Jun 2027", "2027/28 begins"], ["Thu 1 Jul 2027", "The transfer window is open"]]);
+$live = $game.play_on(false);
+$stops[] = [date::format($game.date), $game.inbox[len($game.inbox) - 1]["subject"]];
+check("after the last match c stops for the season's review, then for the contracts that ran out, then for the window, and only then plays", $stops, [["Tue 1 Jun 2027", "2027/28 begins"], ["Wed 30 Jun 2027", "Contracts have run out"], ["Thu 1 Jul 2027", "The transfer window is open"]]);
 $live = $game.play_on();
 check("then the first match of the new season", [$live != null, date::format($game.date), $game.season], [true, "Sat 14 Aug 2027", 2027]);
 while ($game.live == null && !$game.club_done()) {
@@ -884,3 +886,71 @@ while ($mine.injured > 0) {
 }
 check("when it is over the manager is told, and the player is available", [message_starting($game.inbox, "Back: {$mine}") != null, $mine.available(), contains(message_starting($game.inbox, "Back: {$mine}")["body"], "recovered from his injury")], [true, true, true]);
 check("but not of another club's player", message_starting($game.inbox, "Back: {$theirs}"), null);
+
+/* ---- Contracts ---- */
+$game = Game::start(80);
+$club = $game.club;
+$ends = map($game.everyone(), $t -> map($t.players, $p -> $p.contract_until));
+$all_ends = reduce($ends, ($all, $list) -> [...$all, ...$list], []);
+check("every player has a contract that runs out on a 30 June, from 2027 to 2030", [count_where($all_ends, $d -> date::month($d) == 6 && date::day($d) == 30), count_where($all_ends, $d -> date::year($d) >= 2027 && date::year($d) <= 2030), len($all_ends)], [len($all_ends), len($all_ends), 44 * 17]);
+check("and they are spread: some end each year", count_where([2027, 2028, 2029, 2030], $y -> count_where($all_ends, $d -> date::year($d) == $y) > 0), 4);
+
+/* a player who renews stays, the others leave on 30 June and the academy fills the squad */
+$expiring = filter($club.players, $p -> $p.contract_until == date::days(2027, 6, 30));
+check("some of the club's contracts run out in the first year", len($expiring) > 0, true);
+$club.balance = 1000000000;
+$renewed = $expiring[0];
+$year_before = date::year($renewed.contract_until);
+$years = $renewed.age <= 27 ? 4 : ($renewed.age <= 31 ? 2 : 1);
+check("renewing gives him the years his age deserves and costs the fee", [$game.renew($renewed), date::year($renewed.contract_until), $club.balance], ["", $year_before + $years, 1000000000 - money::renewal_fee($renewed)]);
+check("the inbox and the ledger say so", [$game.inbox[len($game.inbox) - 1]["subject"], $game.ledger[len($game.ledger) - 1]["text"], $game.ledger[len($game.ledger) - 1]["amount"]], ["Renewed: {$renewed}", "Renewed {$renewed}", -money::renewal_fee($renewed)]);
+$long_contract = filter($club.players, $p -> $p.contract_until - $game.date > 730);
+check("a player on a long contract can't be renewed yet, and it says when it runs to", [count_where($long_contract, $p -> starts_with($game.renew($p), "{$p} is on a contract until ")) == len($long_contract)], [true]);
+$poor = filter($club.players, $p -> $p.contract_until == date::days(2027, 6, 30))[0] ?? null;
+if ($poor != null) {
+    $club.balance = 0;
+    check("with no money it's refused, saying so, and nothing changes", [starts_with($game.renew($poor), "You can't afford"), $poor.contract_until], [true, date::days(2027, 6, 30)]);
+}
+check("a stranger's contract isn't the manager's to renew", $game.renew($game.market()[0][0]) != "", true);
+$club.balance = 1000000000;
+$leavers = filter($club.players, $p -> $p.contract_until == date::days(2027, 6, 30));
+$kept = $renewed;
+$before_players = $club.players;
+while ($game.date < date::days(2027, 1, 2)) {
+    $game.advance();
+}
+$warning = message_starting($game.inbox, "Contracts");
+check("on 1 January the manager is warned who is out of contract on 30 June, and told to renew", [$warning != null, contains($warning["body"], "run out on 30 June") || contains($warning["body"], "runs out on 30 June"), contains($warning["body"], "renew in the Squad")], [true, true, true]);
+while ($game.date < date::days(2027, 7, 1)) {
+    $game.advance();
+}
+$gone = filter($leavers, $p -> !in_array($p, $club.players));
+check("the ones whose contracts ran out and were not renewed have left, the renewed one stays", [count_where($gone, $p -> $p == $kept), in_array($kept, $club.players)], [0, true]);
+check("and the squad is full again: seventeen or more, two goalkeepers, the eleven whole", [len($club.players) >= 17, count_where($club.players, $p -> $p.position() == "GK") >= 2, len($club.eleven())], [true, true, 11]);
+$news = message_starting($game.inbox, "Contracts have run out");
+check("and the manager is told who, and who came from the academy", [$news != null, contains($news["body"], "have left") || contains($news["body"], "has left"), contains($news["body"], "From the academy")], [true, true, true]);
+$youth = filter($club.players, $p -> !in_array($p, $before_players));
+check("the academy players have contracts of three seasons", count_where($youth, $p -> $p.contract_until >= date::days(2029, 6, 30)), len($youth));
+check("nobody at any club is still under an expired contract", count_where($game.everyone(), $t -> count_where($t.players, $p -> $p.contract_until < $game.date) > 0), 0);
+
+/* what a club asks for a player with six months left, and what a signing gets */
+$game = Game::start(82);
+$target = filter($game.market(), $o -> $o[0].contract_until == date::days(2027, 6, 30) && $o[0].position() != "GK")[0][0];
+$full = money::price($target);
+check("at the start the asking price is the usual", $game.asking_price($target), $full);
+$game.date = date::days(2027, 1, 5);
+check("in January, with under six months to run, it is half", $game.asking_price($target), intdiv($full, 2));
+$game.club.balance = 1000000000;
+check("and a signing gets a contract of three seasons, the one being played included", [$game.buy($target), date::iso($target.contract_until)], ["", "2029-06-30"]);
+$game.date = date::days(2026, 8, 1);
+$second = filter($game.market(), $o -> $o[0].position() != "GK")[0][0];
+$game.buy($second);
+check("signed in August, three seasons: to the third June after", date::iso($second.contract_until), "2029-06-30");
+
+/* saved */
+$game = Game::start(83);
+$game.advance();
+$game.save("vm/build/football_contract.save");
+$again = Game::load("vm/build/football_contract.save");
+run(["rm", "-f", "vm/build/football_contract.save"]);
+check("a saved game keeps the contracts", map($again.club.players, $p -> $p.contract_until), map($game.club.players, $p -> $p.contract_until));

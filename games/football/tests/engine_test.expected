@@ -612,3 +612,10 @@ ok and then he is available, and a healthy player recovering changes nothing
 ok how long is said in days to a fortnight, then weeks
 ok the status too
 ok a suspension is matches and days don't touch it
+ok a contract made in July for one year ends the next 30 June; from June, the June after
+ok the day contracts run out
+ok a contract is saved
+ok a club asks a third over his value, and half of that once his contract has six months to run
+ok renewing costs a sixteenth of his value
+ok a player who leaves takes nothing with him: the squad is one smaller, the eleven still eleven, with cover in his place
+ok nothing stops a squad being left short, as release() does: that is for the game to fill

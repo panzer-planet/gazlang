@@ -1739,7 +1739,7 @@ ok the season's last match is in May, and the season is not reviewed until June
 ok time goes on to the next season's first match, having reviewed the season on 1 June and opened the window on 1 July
 ok c goes to the club's first match, ready to watch
 ok C plays the next at once and stops, with the news in the inbox
-ok after the last match c stops for the season's review, then for the window, and only then plays
+ok after the last match c stops for the season's review, then for the contracts that ran out, then for the window, and only then plays
 ok then the first match of the new season
 ok and c stops for the window closing on the last day of August, though the matches go on
 ok a saved game keeps its date and its fixtures' dates
@@ -1756,3 +1756,22 @@ ok each day is a day nearer healed, for everyone in the game
 ok and the manager hasn't been told anyone is back yet
 ok when it is over the manager is told, and the player is available
 ok but not of another club's player
+ok every player has a contract that runs out on a 30 June, from 2027 to 2030
+ok and they are spread: some end each year
+ok some of the club's contracts run out in the first year
+ok renewing gives him the years his age deserves and costs the fee
+ok the inbox and the ledger say so
+ok a player on a long contract can't be renewed yet, and it says when it runs to
+ok with no money it's refused, saying so, and nothing changes
+ok a stranger's contract isn't the manager's to renew
+ok on 1 January the manager is warned who is out of contract on 30 June, and told to renew
+ok the ones whose contracts ran out and were not renewed have left, the renewed one stays
+ok and the squad is full again: seventeen or more, two goalkeepers, the eleven whole
+ok and the manager is told who, and who came from the academy
+ok the academy players have contracts of three seasons
+ok nobody at any club is still under an expired contract
+ok at the start the asking price is the usual
+ok in January, with under six months to run, it is half
+ok and a signing gets a contract of three seasons, the one being played included
+ok signed in August, three seasons: to the third June after
+ok a saved game keeps the contracts

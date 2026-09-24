@@ -72,6 +72,16 @@ season is reviewed (below) and the next one is drawn. The **transfer windows** a
 January: outside them Transfers refuses to buy or sell, and says when it opens. On 1 July the other clubs
 do their business, which the inbox tells you of if it involved you.
 
+## Contracts
+
+Every player has a contract that runs out on a 30 June (the Squad screen shows the year). A player
+whose contract runs out leaves, so renew in the last two years with `r` on the Squad screen: a
+sixteenth of his value as a signing-on fee, for as many years as his age deserves (four up to 27, two to
+31, then one). On 1 January the inbox warns you who is out of contract on 30 June, and on 30 June those who
+weren't renewed go and the academy fills the squad with youngsters. The other clubs renew theirs. Signings
+get three seasons; a club asks half as much for a player with under six months left (he would leave for
+nothing). The market shows each player's contract.
+
 ## Saving, and seasons
 
 `S` saves the game to `football.save` (between matchdays, not during a match), and

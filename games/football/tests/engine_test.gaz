@@ -8,6 +8,7 @@ include "../../../tests/gaz/check.gaz";
 include "../engine/players.gaz" use Goalkeeper, Defender, Midfielder, Forward;
 include "std/date.gaz";
 include "../engine/calendar.gaz";
+include "../engine/money.gaz";
 include "../engine/teams.gaz" use Team, Formation, Scout, InvalidLineup, TransferRefused;
 include "../engine/matches.gaz" use Fixture, Goal, Booking, Whistle, Injury, Substitution, Shot;
 include "../engine/league.gaz" use League;
@@ -1134,3 +1135,22 @@ $banned_only = Defender("B", 60, 3);
 $banned_only.suspended = 2;
 $banned_only.recover();
 check("a suspension is matches and days don't touch it", $banned_only.suspended, 2);
+
+/* ---- Contracts ---- */
+check("a contract made in July for one year ends the next 30 June; from June, the June after", [date::iso(calendar::contract_end(date::days(2026, 7, 1), 1)), date::iso(calendar::contract_end(date::days(2026, 7, 1), 3)), date::iso(calendar::contract_end(date::days(2027, 3, 1), 1)), date::iso(calendar::contract_end(date::days(2027, 6, 1), 1)), date::iso(calendar::contract_end(date::days(2026, 12, 31), 2))], ["2027-06-30", "2029-06-30", "2027-06-30", "2028-06-30", "2028-06-30"]);
+check("the day contracts run out", date::format(calendar::expiry_day(2027)), "Wed 30 Jun 2027");
+$signed = Midfielder("C", 70, 8);
+$signed.contract_until = date::days(2029, 6, 30);
+check("a contract is saved", players::from_data($signed.to_data()).contract_until, date::days(2029, 6, 30));
+$star = Forward("S", 80, 9);
+check("a club asks a third over his value, and half of that once his contract has six months to run", [money::price_with_contract($star, 400), money::price_with_contract($star, 184), money::price_with_contract($star, 183), money::price_with_contract($star, 0)], [money::price($star), money::price($star), intdiv(money::price($star), 2), intdiv(money::price($star), 2)]);
+check("renewing costs a sixteenth of his value", money::renewal_fee($star), intdiv(money::value($star), 16));
+
+[$home, $away] = clubs(2, 81);
+$goner = $home.eleven()[4];
+$size = len($home.players);
+$home.leave($goner);
+check("a player who leaves takes nothing with him: the squad is one smaller, the eleven still eleven, with cover in his place", [len($home.players), in_array($goner, $home.players), len($home.eleven()), in_array($goner, $home.eleven())], [$size - 1, false, 11, false]);
+$home.leave($home.players[0]);
+$home.leave($home.players[0]);
+check("nothing stops a squad being left short, as release() does: that is for the game to fill", len($home.players), $size - 3);

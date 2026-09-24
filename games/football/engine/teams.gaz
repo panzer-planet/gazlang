@@ -374,6 +374,17 @@ pub kind Team {
         #changed();
     }
 
+    /* A player leaves the squad without the rules release() has (a contract ran out): if he was in the
+       eleven the best cover of his position takes his place, and the squad may be left short. */
+    pub fn leave($player) {
+        $cover = in_array($player, #xi) ? #best_substitute($player) : null;
+        #players = filter(#players, $p -> $p != $player);
+        if (in_array($player, #xi)) {
+            #xi = $cover != null ? map(#xi, $p -> $p == $player ? $cover : $p) : #best_eleven(#preferred);
+        }
+        #changed();
+    }
+
     // The players tired, rested or were sent off
     pub fn changed() { #cache = null; }
 

@@ -69,9 +69,10 @@ A launcher smoke test runs the real thing on a pty. See `README.md`.
    built on them is fun.
 6. **Calendar** *(done, for now)*: a date, dated fixtures (Saturdays and some Tuesdays), a season from
    1 July to a review on 1 June, transfer windows in July, August and January, birthdays. Not yet:
-   cups and midweek European nights, contracts running out on a date,
-   scouting and training on the calendar.
-7. **Money** *(basic)*: books, a market, selling, prize money and the clubs' windows (July and January) are in.
+   cups and midweek European nights, scouting and training on the calendar.
+7. **Money** *(basic)*: books, a market, selling, prize money, the clubs' windows (July and January)
+   and contracts (running out on 30 June, renewed for a fee) are in. Not yet: wages that follow the
+   contract (they still follow value), free agents, bids the other side can refuse.
    Not yet: contracts, a transfer window you can use, bids the other side can refuse.
 8. **Saving** *(done)*: `Game.to_data`/`from_data`, JSON, any time between matchdays.
 

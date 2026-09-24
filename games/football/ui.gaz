@@ -91,7 +91,7 @@ pub kind InboxView extends View {
  * them (one from the eleven with one from the bench), and a picks the best eleven.
  */
 pub kind SquadView extends View {
-    #table = tui::Table(["#", "Name", "Pos", "Age", "Rating", "Goals", "Role", "Status"], [], ($row, $index) -> match {
+    #table = tui::Table(["#", "Name", "Pos", "Age", "Rating", "Goals", "Role", "Status", "Contract"], [], ($row, $index) -> match {
         starts_with($row[1], "▸") => "bold cyan",
         $row[7] != "" => "red",
         $row[6] == "sub" => "dim",
@@ -102,7 +102,7 @@ pub kind SquadView extends View {
     #picked = null;
 
     pub fn title() { return "Squad"; }
-    pub fn hints() { return "j/k move  enter pick, then enter to swap  a best eleven  . , sort"; }
+    pub fn hints() { return "j/k move  enter pick, then enter to swap  a best eleven  r renew  . , sort"; }
 
     /* Put the game's squad in the table, the eleven first: done for a key as well as for a frame, so
        what a key means never depends on whether a frame came first */
@@ -110,7 +110,7 @@ pub kind SquadView extends View {
         $club = #game.club;
         $eleven = $club.eleven();
         #shown = [...$eleven, ...$club.bench()];
-        #table.set_rows(map(#shown, $player -> [$player.number, (#picked == $player ? "▸ " : "") .. to_string($player), $player.position(), $player.age, $player.rating, $player.goals, in_array($player, $eleven) ? "XI" : "sub", $player.status()]));
+        #table.set_rows(map(#shown, $player -> [$player.number, (#picked == $player ? "▸ " : "") .. to_string($player), $player.position(), $player.age, $player.rating, $player.goals, in_array($player, $eleven) ? "XI" : "sub", $player.status(), date::year($player.contract_until)]));
     }
 
     pub fn draw($screen, $rect, $focused) {
@@ -130,6 +130,11 @@ pub kind SquadView extends View {
             #picked = null;
 
             return ["auto"];
+        }
+        if ($name == "r") {
+            $index = #table.selected_index();
+
+            return $index == null ? null : ["renew", #shown[$index]];
         }
         if ($name != "enter" && $name != "space") {
             #table.handle($key);
@@ -300,7 +305,7 @@ pub kind FinancesView extends View {
  * t switches to your own squad, with what a club would pay. Enter buys or sells the player picked.
  */
 pub kind TransfersView extends View {
-    #market = tui::Table(["Name", "Pos", "Age", "Rating", "Club", "Price"], []);
+    #market = tui::Table(["Name", "Pos", "Age", "Rating", "Club", "Contract", "Price"], []);
     #squad = tui::Table(["Name", "Pos", "Age", "Rating", "Goals", "Fee"], []);
     #selling = false;
     #shown = [];
@@ -315,7 +320,7 @@ pub kind TransfersView extends View {
             #squad.set_rows(map(#shown, $p -> [to_string($p), $p.position(), $p.age, $p.rating, $p.goals, money::pounds(money::sale_price($p))]));
         } else {
             #shown = map(#game.market(), $offer -> $offer[0]);
-            #market.set_rows(map(#game.market(), $offer -> [to_string($offer[0]), $offer[0].position(), $offer[0].age, $offer[0].rating, to_string($offer[1]), money::pounds(money::price($offer[0]))]));
+            #market.set_rows(map(#game.market(), $offer -> [to_string($offer[0]), $offer[0].position(), $offer[0].age, $offer[0].rating, to_string($offer[1]), date::year($offer[0].contract_until), money::pounds(#game.asking_price($offer[0]))]));
         }
     }
 
@@ -809,6 +814,9 @@ pub kind Shell {
         } else if ($action[0] == "intensity") {
             #game.set_intensity($action[1]);
             #note = "Intensity: " .. #game.club.intensity_name();
+        } else if ($action[0] == "renew") {
+            $problem = #game.renew($action[1]);
+            #note = $problem == "" ? "{$action[1]} is on a contract until " .. date::format($action[1].contract_until) : $problem;
         } else if ($action[0] == "buy" || $action[0] == "sell") {
             $problem = $action[0] == "buy" ? #game.buy($action[1]) : #game.sell($action[1]);
             #note = $problem == "" ? ($action[0] == "buy" ? "Signed {$action[1]}" : "Sold {$action[1]}") : $problem;

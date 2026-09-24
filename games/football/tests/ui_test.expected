@@ -73,7 +73,8 @@ ok with the news: one matchday to go in the Championship
 ok C plays the Championship's last matchday unwatched and goes on to the season's review on 1 June
 ok the notice is in bold yellow, and the inbox has the new season
 ok and the notice goes with the next key
-ok c stops again for the transfer window on 1 July
+ok c stops for the contracts that ran out on 30 June
+ok and again for the transfer window on 1 July
 ok and then goes to the first match of the new season, on a Saturday in August
 ok which is on the screen
 ok nothing to tick between matchdays
@@ -187,3 +188,7 @@ ok the fixtures have their dates: the first is 8 August, in the row of the first
 ok the bar shows the day of the match
 ok in September a signing is refused, and the note says when the window opens
 ok in January it goes through
+ok the squad has a Contract column, with the year each one runs to
+ok r on the player selected renews his contract, and says until when
+ok a long contract can't be renewed: the note says why
+ok the market shows contracts and asking prices

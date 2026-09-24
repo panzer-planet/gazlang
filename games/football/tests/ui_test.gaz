@@ -144,7 +144,7 @@ foreach ($game.club.players as $player) {
 }
 check("and every player of the club, reserves too", $named, 17);
 check("and the formation", shows($screen, $game.club.formation() .. "   Team rating {$game.club.rating()}"), true);
-check("the squad's own hints are at the bottom", contains($screen.lines()[29], "j/k move  enter pick, then enter to swap  a best eleven  . , sort"), true);
+check("the squad's own hints are at the bottom", contains($screen.lines()[29], "j/k move  enter pick, then enter to swap  a best eleven  r renew  . , sort"), true);
 
 press($shell, "3");
 $screen = look($shell);
@@ -386,7 +386,9 @@ check("the notice is in bold yellow, and the inbox has the new season", [$screen
 press($shell, "2");
 check("and the notice goes with the next key", $shell.notice(), "");
 press($shell, "c");
-check("c stops again for the transfer window on 1 July", [$game.date_label(), $game.live, $shell.section(), shows(look($shell), "The transfer window is open")], ["Thu 1 Jul 2027", null, "Inbox", true]);
+check("c stops for the contracts that ran out on 30 June", [$game.date_label(), $game.live, shows(look($shell), "Contracts have run out")], ["Wed 30 Jun 2027", null, true]);
+press($shell, "c");
+check("and again for the transfer window on 1 July", [$game.date_label(), $game.live, $shell.section(), shows(look($shell), "The transfer window is open")], ["Thu 1 Jul 2027", null, "Inbox", true]);
 press($shell, "c");
 check("and then goes to the first match of the new season, on a Saturday in August", [$game.live != null, date::month($game.date), date::weekday($game.date), $shell.section()], [true, 8, 5, "Inbox"]);
 check("which is on the screen", [shows(look($shell), "Match day"), contains(look($shell).lines()[0], "Aug 2027")], [true, true]);
@@ -756,8 +758,9 @@ while (!$game.club_done()) {
 }
 press($shell, "C");
 check("after the last match the next season begins on its own: the review, the year and fixtures", [$game.season, contains(look($shell).lines()[0], "Matchday 0 of ")], [2027, true]);
-press($shell, "c");
-press($shell, "c");
+while ($game.live == null) {
+    press($shell, "c");
+}
 check("and it can be played", [$game.live != null, $game.season_over()], [true, false]);
 
 /* ---- Two divisions on screen ---- */
@@ -841,3 +844,27 @@ check("in September a signing is refused, and the note says when the window open
 $game.date = date::days(2027, 1, 5);
 press($shell, "\r");
 check("in January it goes through", starts_with($shell.notice(), "Signed "), true);
+
+/* ---- Contracts on screen ---- */
+$game = Game::start(6);
+$shell = Shell::for_game($game);
+$club = $game.club;
+press($shell, "2");
+$screen = look($shell);
+check("the squad has a Contract column, with the year each one runs to", [shows($screen, "Contract"), count_where($club.eleven(), $p -> contains($screen.lines()[row_of($screen, to_string($p), 3) - 1], "" .. date::year($p.contract_until))) == 11], [true, true]);
+press($shell, "\t");
+$row_player = $club.eleven()[0];
+$row_player.contract_until = date::days(2027, 6, 30);
+$club.balance = 1000000000;
+$before = $club.balance;
+press($shell, "r");
+$years = $row_player.age <= 27 ? 4 : ($row_player.age <= 31 ? 2 : 1);
+check("r on the player selected renews his contract, and says until when", [date::year($row_player.contract_until), starts_with($shell.notice(), "{$row_player} is on a contract until "), $club.balance < $before], [2027 + $years, true, true]);
+$far = $club.eleven()[1];
+$far.contract_until = date::days(2031, 6, 30);
+press($shell, "j");
+press($shell, "r");
+check("a long contract can't be renewed: the note says why", [contains($shell.notice(), "is on a contract until " .. date::format($far.contract_until))], [true]);
+press($shell, "7");
+$screen = look($shell);
+check("the market shows contracts and asking prices", [shows($screen, "Contract"), shows($screen, money::pounds($game.asking_price($game.market()[0][0])))], [true, true]);

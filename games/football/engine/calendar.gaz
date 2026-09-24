@@ -52,6 +52,18 @@ pub fn matchdays($year, $count) {
     return sort($dates, ($a, $b) -> $a <=> $b);
 }
 
+/* The last day of a contract of $years seasons signed on $day: 30 June that ends that many seasons, counting
+   the one being played (from June on, the next one): a contract made in July for one year ends the next
+   30 June, and one made in March, in the season's last months, this one */
+pub fn contract_end($day, $years) {
+    $ends = date::month($day) >= 6 ? date::year($day) + 1 : date::year($day);
+
+    return date::days($ends + $years - 1, 6, 30);
+}
+
+/* The day contracts run out */
+pub fn expiry_day($year) { return date::days($year, 6, 30); }
+
 /* Whether the transfer window is open on $day: July and August, and January */
 pub fn window_open($day) {
     return in_array(date::month($day), [7, 8, 1]);

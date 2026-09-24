@@ -8,9 +8,10 @@ namespace game;
 include "engine/teams.gaz" use Team, Scout, InvalidLineup, TransferRefused;
 include "engine/league.gaz" use League;
 include "engine/money.gaz";
-include "engine/players.gaz";
+include "engine/players.gaz" use Goalkeeper, Defender, Midfielder, Forward;
 include "engine/calendar.gaz";
 include "std/date.gaz";
+include "std/random.gaz";
 include "std/json.gaz";
 
 /* The first TOP_SIZE are the top division and the next SECOND_SIZE the second */
@@ -37,6 +38,11 @@ const FIRST_YEAR = 2026;
 const FORMATIONS = ["4-4-2", "4-3-3", "3-5-2", "4-5-1", "5-3-2"];
 
 /* 1st, 2nd, 3rd, 4th, 11th, 12th, 13th, 21st */
+/* The players whose contracts end on or before $day */
+fn expiring_players($players, $day) {
+    return filter($players, $player -> $player.contract_until <= $day);
+}
+
 pub fn ordinal($n) {
     $teens = $n % 100 >= 11 && $n % 100 <= 13;
     $suffix = $teens ? "th" : match ($n % 10) {
@@ -177,6 +183,12 @@ pub kind Game {
             $team.balance = money::starting_balance($team);
             $teams[] = $team;
         }
+        // Contracts run out between one and four summers on
+        foreach ($teams as $team) {
+            foreach ($team.players as $player) {
+                $player.contract_until = calendar::contract_end(calendar::season_start(FIRST_YEAR), random::weighted([[1, 35], [2, 30], [3, 25], [4, 10]]));
+            }
+        }
         $level = $club < TOP_SIZE ? 0 : 1;
         $top = slice($teams, 0, TOP_SIZE);
         $second = slice($teams, TOP_SIZE, SECOND_SIZE);
@@ -289,6 +301,7 @@ pub kind Game {
                 $player.develop();
                 if ($player.retires()) {
                     $youth = #scout.youth(kind_of($player), $team, $player.number);
+                    $youth.contract_until = calendar::contract_end(#date, 3);
                     $team.replace($player, $youth);
                     if ($team == #club) {
                         $retired[] = $player;
@@ -302,6 +315,10 @@ pub kind Game {
         $body = "A new season begins in the " .. #division_name() .. ". " .. ($verdict != "" ? $verdict .. " " : "") .. #expectation();
         if ($retired != []) {
             $body ..= "\n\nRetired: " .. join($retired, ", ") .. ". From the academy: " .. join(map($academy, $p -> "{$p} ({$p.position()}, {$p.rating})"), ", ") .. ".";
+        }
+        $warning = #contract_warning();
+        if ($warning != "") {
+            $body ..= "\n\n" .. $warning;
         }
         $body ..= "\n\nThe transfer window opens on 1 July, and the first matches are on " .. date::format(min(#league.next_date(), #other_league.next_date())) .. ".";
         #tell(#season_label() .. " begins", $body);
@@ -473,6 +490,9 @@ pub kind Game {
         #date++;
         $notable = false;
         $birthday = date::month(#date) * 100 + date::day(#date);
+        if ($birthday == 630 && #contracts_expire()) {
+            $notable = true;
+        }
         foreach (#everyone() as $team) {
             foreach ($team.players as $player) {
                 if ($player.birthday == $birthday) {
@@ -494,6 +514,10 @@ pub kind Game {
             #tell("The transfer window has closed", "The summer window is shut until 1 January.");
             $notable = true;
         } else if ($birthday == 101) {
+            $warning = #contract_warning();
+            if ($warning != "") {
+                #tell("Contracts", $warning);
+            }
             #open_window("January", "the end of the month");
             $notable = true;
         } else if ($birthday == 131) {
@@ -502,6 +526,94 @@ pub kind Game {
         }
 
         return $notable;
+    }
+
+    /* Which of the club's players are out of contract on the coming 30 June, as a sentence, or "" */
+    fn contract_warning() {
+        $ending = expiring_players(#club.players, calendar::expiry_day(date::month(#date) >= 7 ? date::year(#date) + 1 : date::year(#date)));
+        if ($ending == []) {
+            return "";
+        }
+
+        return len($ending) .. (len($ending) == 1 ? " contract runs" : " contracts run") .. " out on 30 June: " .. join($ending, ", ")
+            .. ". A player whose contract runs out leaves; renew in the Squad (r).";
+    }
+
+    /* 30 June: the contracts that have run out. The other clubs renew theirs; the manager's players
+       leave unless renewed, and the academy fills the squad, told in the inbox. */
+    fn contracts_expire() {
+        $leavers = [];
+        foreach (#everyone() as $team) {
+            foreach ($team.players as $player) {
+                if ($player.contract_until > #date) {
+                    continue;
+                }
+                if ($team == #club) {
+                    $leavers[] = $player;
+                } else {
+                    $player.contract_until = calendar::expiry_day(date::year(#date) + random::weighted([[1, 35], [2, 30], [3, 25], [4, 10]]));
+                }
+            }
+        }
+        if ($leavers == []) {
+            return false;
+        }
+        foreach ($leavers as $player) {
+            #club.leave($player);
+        }
+        $signed = [];
+        while (len(#club.players) < 17 || len(filter(#club.players, $p -> $p.position() == "GK")) < 2) {
+            $kind = Goalkeeper;
+            if (len(filter(#club.players, $p -> $p.position() == "GK")) >= 2) {
+                // the position the squad is shortest of
+                $shortest = Defender;
+                $fewest = len(filter(#club.players, $p -> $p.position() == "DF"));
+                foreach ([[Midfielder, "MF"], [Forward, "FW"]] as [$candidate, $position]) {
+                    if (len(filter(#club.players, $p -> $p.position() == $position)) < $fewest) {
+                        [$shortest, $fewest] = [$candidate, len(filter(#club.players, $p -> $p.position() == $position))];
+                    }
+                }
+                $kind = $shortest;
+            }
+            $youth = #scout.youth($kind, #club, 1);
+            $youth.contract_until = calendar::contract_end(#date, 3);
+            #club.sign($youth);
+            $signed[] = $youth;
+        }
+        #tell("Contracts have run out", join($leavers, ", ") .. (len($leavers) == 1 ? " has" : " have") .. " left: the contract ended on 30 June and was not renewed."
+            .. ($signed == [] ? "" : " From the academy: " .. join(map($signed, $p -> "{$p} ({$p.position()}, {$p.rating})"), ", ") .. "."));
+
+        return true;
+    }
+
+    /* What a club asks for a player, which is less once his contract is nearly over */
+    pub fn asking_price($player) {
+        return money::price_with_contract($player, $player.contract_until - #date);
+    }
+
+    /* A new contract for $player of the club's: as many years as his age deserves, for a signing-on fee.
+       Gives "" when it is done, and why not when it isn't. */
+    pub fn renew($player) {
+        if (#live != null) {
+            return "No contracts during a match";
+        }
+        if (!in_array($player, #club.players)) {
+            return "{$player} isn't at {#club}";
+        }
+        if ($player.contract_until - #date > 730) {
+            return "{$player} is on a contract until " .. date::format($player.contract_until) .. ": renew it in the last two years";
+        }
+        $years = $player.age <= 27 ? 4 : ($player.age <= 31 ? 2 : 1);
+        $fee = money::renewal_fee($player);
+        if ($fee > #club.balance) {
+            return "You can't afford " .. money::pounds($fee) .. " to renew {$player}";
+        }
+        $player.contract_until = calendar::expiry_day(date::year(max($player.contract_until, #date)) + $years);
+        #club.balance -= $fee;
+        #ledger[] = {"matchday" => #league.matchdays_played(), "date" => #date, "text" => "Renewed {$player}", "amount" => -$fee};
+        #tell("Renewed: {$player}", "{$player} signs a new contract until " .. date::format($player.contract_until) .. " for a fee of " .. money::pounds($fee) .. ".");
+
+        return "";
     }
 
     /* A transfer window opens: the clubs do their business, which the manager hears of if it was theirs */
@@ -611,7 +723,7 @@ pub kind Game {
         if ($owner == null || $owner == #club) {
             return "{$player} isn't at another club";
         }
-        $fee = money::price($player);
+        $fee = #asking_price($player);
         if ($fee > #club.balance) {
             return "You can't afford " .. money::pounds($fee) .. " for {$player}";
         }
@@ -624,6 +736,7 @@ pub kind Game {
             return $e.message;
         }
         #club.sign($player);
+        $player.contract_until = calendar::contract_end(#date, 3);
         #club.balance -= $fee;
         $owner.balance += $fee;
         #ledger[] = {"matchday" => #league.matchdays_played(), "text" => "Signed {$player}", "amount" => -$fee};
