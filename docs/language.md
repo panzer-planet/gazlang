@@ -607,7 +607,7 @@ its names are reached with `::`; everything in `lib/` is written in GazLang:
 | `random.gaz` | `random::shuffle` (a shuffled copy of a list or string), `random::pick` (an element of a list or value of a map), `random::key`, `random::chance($p)`, `random::weighted` (from `[item, weight]` pairs) |
 | `regex.gaz` | `regex::matches($s, $pattern)` (full match), `regex::search($s, $pattern)` (found anywhere), `regex::find($s, $pattern)` (the start index, or null); literals, `.`, `* + ?`, `\|`, `(...)`, `[...]`/`[^...]` with ranges, `^ $`, `\` escapes; no captures, no backreferences, no backtracking |
 | `term.gaz` | `term::style`, cursor and screen sequences, `term::decode`, `term::Input`, `term::fullscreen`, on the terminal builtins; see below |
-| `tui.gaz` | `tui::Screen` (a grid of cells that renders only what changed), `tui::box`, `tui::label`, `tui::progress`, `tui::table`, `tui::Menu`, `tui::TextField`, `tui::choose`, `tui::ask`; see below |
+| `tui.gaz` | `tui::Screen` (a grid of cells that renders only what changed), `tui::Rect`, `tui::box`, `tui::label`, `tui::progress`, `tui::table`, `tui::Table`, `tui::Menu`, `tui::TextField`, `tui::choose`, `tui::ask`; see below |
 
 `http.gaz` returns
 `{"status" => 200, "headers" => {"content-type" => "text/html", ...}, "body" => "..."}`, with
@@ -704,6 +704,20 @@ with no terminal.
   `heavy`, `ascii`; the inside is blanked), `tui::progress($screen, $col, $row, $width,
   $fraction, $style = "green")` and `tui::table($screen, $col, $row, $headers, $rows, $style = "")`
   (columns as wide as their widest cell, numbers on the right; gives the rows it took).
+- **`tui::Rect($col, $row, $width, $height)`** is a part of the screen (`$screen.bounds()` is all of
+  it). A view is given one to draw in and cuts it up with `inset($n = 1)`, `split_left($width)`,
+  `split_right`, `split_top($height)` and `split_bottom`, each of the last four giving `[a, b]`, so it
+  does no column arithmetic of its own; a part that doesn't fit is smaller, never negative.
+- **`tui::Table($headers, $rows, $style_of = null)`** is a table you move about in: `draw($screen,
+  $rect, $focused = true)`, scrolling rows, a selected row and columns that sort. `handle($key)` gives
+  `"select"` for enter and `null` otherwise (the arrows or `j`/`k`, home and end or `g`/`G`, page up
+  and down; `.` and `,`, or `>` and `<`, sort by the next or previous column, `o` turns the order
+  round and `x` goes back to the order given). `selected_index()` is the selected row's index in
+  `$rows` however they are sorted now, `selected_row()` the row, `sort_by($column, $descending)` and
+  `sorted_by()` say and set the sort, and `set_rows($rows)` shows others, keeping the selection on
+  its index. A column of numbers is aligned on the right; `$style_of($row, $index)` gives a row's
+  style, for marking the user's own club. The cells of a column must be alike, or sorting on it is
+  an error. A table too wide is squeezed, widest column first, and then cut off.
 - **`tui::Menu($items, $title = "")`** and **`tui::TextField($value = "")`** take keys
   (`handle($key)`) and draw themselves (`draw(...)`). `handle` gives `"select"` or `"cancel"` for
   a menu and `"submit"` or `"cancel"` for a field, and `null` for a key it dealt with itself: the

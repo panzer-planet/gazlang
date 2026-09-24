@@ -122,6 +122,11 @@ pub kind Screen {
         #caret = [$col, $row];
     }
 
+    /* The whole screen as a Rect, for a view to cut up */
+    pub fn bounds() {
+        return Rect(1, 1, #cols, #rows);
+    }
+
     /* Each row as plain text, for a test to read */
     pub fn lines() {
         $lines = [];
@@ -194,6 +199,44 @@ pub kind Screen {
             return $out .. term::hide_cursor();
         }
         return $out .. term::move_to(#caret[0], #caret[1]) .. term::show_cursor();
+    }
+}
+
+/*
+ * A rectangle of the screen: where it starts (columns and rows count from 1) and how big. A view
+ * is given one to draw in and cuts it up with the split_ methods for its parts, so it does no
+ * column arithmetic of its own, and a part that doesn't fit is smaller, never negative.
+ */
+pub kind Rect {
+    fn _(pub #col, pub #row, pub #width, pub #height);
+
+    /* Shrunk by $n on every side, to nothing at the least */
+    pub fn inset($n = 1) {
+        return Rect(#col + $n, #row + $n, max(#width - 2 * $n, 0), max(#height - 2 * $n, 0));
+    }
+
+    /* [the first $width columns, the rest] */
+    pub fn split_left($width) {
+        $left = min(max($width, 0), #width);
+        return [Rect(#col, #row, $left, #height), Rect(#col + $left, #row, #width - $left, #height)];
+    }
+
+    /* [the rest, the last $width columns] */
+    pub fn split_right($width) {
+        $right = min(max($width, 0), #width);
+        return [Rect(#col, #row, #width - $right, #height), Rect(#col + #width - $right, #row, $right, #height)];
+    }
+
+    /* [the first $height rows, the rest] */
+    pub fn split_top($height) {
+        $top = min(max($height, 0), #height);
+        return [Rect(#col, #row, #width, $top), Rect(#col, #row + $top, #width, #height - $top)];
+    }
+
+    /* [the rest, the last $height rows] */
+    pub fn split_bottom($height) {
+        $bottom = min(max($height, 0), #height);
+        return [Rect(#col, #row, #width, #height - $bottom), Rect(#col, #row + #height - $bottom, #width, $bottom)];
     }
 }
 
@@ -311,6 +354,216 @@ pub fn table($screen, $col, $row, $headers, $rows, $style = "") {
 }
 
 /* ---- Widgets that take keys -------------------------------------------------------------- */
+
+/* $text cut to $width characters and padded to it, on the left when $right */
+fn fitted($text, $width, $right) {
+    $chars = slice(term::chars($text), 0, $width);
+    $gap = $width - len($chars);
+    return $right ? repeat(" ", $gap) .. join($chars, "") : join($chars, "") .. repeat(" ", $gap);
+}
+
+/*
+ * A table you move about in: a header, rows that scroll, a selected row, and columns that sort.
+ * $headers are the column names and $rows a list of lists of cells; a column whose cells are all
+ * numbers is aligned on the right. $style_of($row, $index), if given, says what style a row is
+ * drawn in ($index is where it is in $rows, however they are sorted now), so a table can mark
+ * the user's own club. Cells in a column must be alike, or sorting on it is an error.
+ *
+ * handle() gives "select" for enter and null for anything else. Keys: the arrows or j and k, home
+ * and end or g and G, page up and down; "." and "," (or > and <) sort by the next or previous
+ * column, "o" turns the order round and "x" goes back to the order the rows came in.
+ */
+pub kind Table {
+    #headers;
+    #rows = [];
+    #style_of;
+    #numeric = [];
+    /* Indexes into #rows in the order shown, and where in that order the selection is */
+    #order = [];
+    #cursor = 0;
+    #top = 0;
+    #page = 10;
+    #column = null;
+    #descending = false;
+
+    fn _($headers, $rows, $style_of = null) {
+        #headers = $headers;
+        #style_of = $style_of;
+        #rows = $rows;
+        #analyse();
+        #reorder(null);
+    }
+
+    /* Which columns are all numbers */
+    fn analyse() {
+        #numeric = [];
+        foreach (#headers as $i => $header) {
+            $all = len(#rows) > 0;
+            foreach (#rows as $row) {
+                $type = type_of($row[$i]);
+                $all = $all && ($type == "int" || $type == "float");
+            }
+            #numeric[] = $all;
+        }
+    }
+
+    /* Put #order right for the rows and the sort, keeping the row at index $keep selected */
+    fn reorder($keep) {
+        #order = [];
+        for ($i = 0; $i < len(#rows); $i++) {
+            #order[] = $i;
+        }
+        if (#column != null) {
+            $rows = #rows;
+            $column = #column;
+            #order = #descending
+                ? sort(#order, ($a, $b) -> $rows[$b][$column] <=> $rows[$a][$column])
+                : sort(#order, ($a, $b) -> $rows[$a][$column] <=> $rows[$b][$column]);
+        }
+        if ($keep != null) {
+            foreach (#order as $position => $index) {
+                if ($index == $keep) {
+                    #cursor = $position;
+                }
+            }
+        }
+        #cursor = max(min(#cursor, len(#order) - 1), 0);
+    }
+
+    /* Which of the rows is selected, as its index in the rows given, or null when there are none */
+    pub fn selected_index() {
+        return len(#order) == 0 ? null : #order[#cursor];
+    }
+
+    pub fn selected_row() {
+        $index = #selected_index();
+        return $index == null ? null : #rows[$index];
+    }
+
+    /* Show other rows, keeping the selection on the same index where there still is one */
+    pub fn set_rows($rows) {
+        $keep = #selected_index();
+        #rows = $rows;
+        #analyse();
+        #reorder($keep != null && $keep < len($rows) ? $keep : null);
+    }
+
+    /* Sort on column $column (from 0), the least first unless $descending */
+    pub fn sort_by($column, $descending = false) {
+        if ($column < 0 || $column >= len(#headers)) {
+            error("tui::Table has no column {$column}");
+        }
+        $keep = #selected_index();
+        #column = $column;
+        #descending = $descending;
+        #reorder($keep);
+    }
+
+    /* [column, descending] it is sorted by, or null */
+    pub fn sorted_by() {
+        return #column == null ? null : [#column, #descending];
+    }
+
+    pub fn handle($key) {
+        $last = max(len(#order) - 1, 0);
+        match (term::name($key)) {
+            "up", "k" => { #cursor = max(#cursor - 1, 0); }
+            "down", "j" => { #cursor = min(#cursor + 1, $last); }
+            "home", "g" => { #cursor = 0; }
+            "end", "G" => { #cursor = $last; }
+            "page_up" => { #cursor = max(#cursor - #page, 0); }
+            "page_down" => { #cursor = min(#cursor + #page, $last); }
+            ".", ">" => { #sort_by(#column == null ? 0 : min(#column + 1, len(#headers) - 1), #descending); }
+            ",", "<" => { #sort_by(#column == null ? 0 : max(#column - 1, 0), #descending); }
+            "o" => {
+                if (#column != null) {
+                    #sort_by(#column, !#descending);
+                }
+            }
+            "x" => {
+                $keep = #selected_index();
+                #column = null;
+                #descending = false;
+                #reorder($keep);
+            }
+            "enter" => {
+                if (len(#order) > 0) {
+                    return "select";
+                }
+            }
+            default => {}
+        }
+        return null;
+    }
+
+    /* The width of each column: what its widest cell needs, less where the rest is too wide for $available */
+    fn widths($available) {
+        $widths = [];
+        foreach (#headers as $i => $header) {
+            /* one more than the header, for the mark of the column sorted on */
+            $width = term::width(to_string($header)) + 1;
+            foreach (#rows as $row) {
+                $width = max($width, term::width(to_string($row[$i])));
+            }
+            $widths[] = $width;
+        }
+        $total = sum($widths) + 2 * max(len($widths) - 1, 0);
+        while ($total > $available) {
+            $widest = 0;
+            foreach ($widths as $i => $width) {
+                if ($width > $widths[$widest]) {
+                    $widest = $i;
+                }
+            }
+            if ($widths[$widest] <= 3) {
+                break;
+            }
+            $widths[$widest]--;
+            $total--;
+        }
+        return $widths;
+    }
+
+    /* Draw it in $rect, the selection showing as such only when $focused */
+    pub fn draw($screen, $rect, $focused = true) {
+        if ($rect.width < 1 || $rect.height < 1) {
+            return null;
+        }
+        $widths = #widths($rect.width);
+        $visible = $rect.height - 1;
+        #page = max($visible - 1, 1);
+        if (#cursor < #top) {
+            #top = #cursor;
+        }
+        if (#cursor >= #top + $visible) {
+            #top = #cursor - $visible + 1;
+        }
+
+        $at = $rect.col;
+        foreach (#headers as $i => $header) {
+            $mark = #column == $i ? (#descending ? "▼" : "▲") : "";
+            $text = fitted(to_string($header) .. $mark, $widths[$i], #numeric[$i]);
+            label($screen, $at, $rect.row, $widths[$i], $text, #column == $i ? "bold underline" : "bold");
+            $at += $widths[$i] + 2;
+        }
+
+        $style_of = #style_of;
+        for ($line = 0; $line < $visible && #top + $line < len(#order); $line++) {
+            $position = #top + $line;
+            $index = #order[$position];
+            $row = #rows[$index];
+            $cells = [];
+            foreach ($row as $i => $cell) {
+                $cells[] = fitted(to_string($cell), $widths[$i], #numeric[$i]);
+            }
+            $style = $style_of == null ? "" : $style_of($row, $index);
+            if ($position == #cursor) {
+                $style = trim($style .. ($focused ? " inverse" : " bold"));
+            }
+            label($screen, $rect.col, $rect.row + 1 + $line, $rect.width, join($cells, "  "), $style);
+        }
+    }
+}
 
 /*
  * A list to choose from, in a box. handle() takes a key, and gives "select" for enter,

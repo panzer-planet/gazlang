@@ -311,6 +311,202 @@ $s.clear();
 $f.draw($s, 1, 2, 6, "bold");
 check("field: a style", $s.cell(1, 2)[1], "bold");
 
+/* ---- Rect ---- */
+fn dims($rect) {
+    return [$rect.col, $rect.row, $rect.width, $rect.height];
+}
+$r = tui::Rect(3, 2, 10, 6);
+check("rect: inset", dims($r.inset()), [4, 3, 8, 4]);
+check("rect: inset by more", dims($r.inset(2)), [5, 4, 6, 2]);
+check("rect: inset to nothing is nothing, never negative", dims($r.inset(9)), [12, 11, 0, 0]);
+check("rect: split_left", [dims($r.split_left(4)[0]), dims($r.split_left(4)[1])], [[3, 2, 4, 6], [7, 2, 6, 6]]);
+check("rect: split_right", [dims($r.split_right(4)[0]), dims($r.split_right(4)[1])], [[3, 2, 6, 6], [9, 2, 4, 6]]);
+check("rect: split_top", [dims($r.split_top(2)[0]), dims($r.split_top(2)[1])], [[3, 2, 10, 2], [3, 4, 10, 4]]);
+check("rect: split_bottom", [dims($r.split_bottom(2)[0]), dims($r.split_bottom(2)[1])], [[3, 2, 10, 4], [3, 6, 10, 2]]);
+check("rect: splitting off more than there is takes it all", [dims($r.split_left(99)[0]), dims($r.split_left(99)[1])], [[3, 2, 10, 6], [13, 2, 0, 6]]);
+check("rect: splitting off less than nothing takes nothing", [dims($r.split_top(-3)[0]), dims($r.split_top(-3)[1])], [[3, 2, 10, 0], [3, 2, 10, 6]]);
+check("rect: the halves make the whole", dims($r.split_left(3)[0])[2] + dims($r.split_left(3)[1])[2], 10);
+check("rect: a screen's bounds", dims(tui::Screen(20, 5).bounds()), [1, 1, 20, 5]);
+[$sidebar, $main] = tui::Screen(20, 5).bounds().split_left(6);
+check("rect: a sidebar and the rest", [dims($sidebar), dims($main)], [[1, 1, 6, 5], [7, 1, 14, 5]]);
+
+/* ---- Table: the people below, by name, age and rating ---- */
+$people = [["Ann", 31, 71.5], ["Bob", 24, 80.0], ["Cy", 27, 65.25], ["Dee", 24, 90.0]];
+fn names_in($table, $people) {
+    /* the names in the order shown: select each row in turn from the top */
+    $table.handle(term::decode("g")["keys"][0]);
+    $shown = [];
+    foreach ($people as $_) {
+        $shown[] = $table.selected_row()[0];
+        $table.handle(term::decode("j")["keys"][0]);
+    }
+    $table.handle(term::decode("g")["keys"][0]);
+    return join($shown, " ");
+}
+
+$s = tui::Screen(30, 7);
+$table = tui::Table(["Name", "Age", "Rating"], $people);
+$table.draw($s, $s.bounds());
+check("table: header and rows", rows($s), "Name    Age   Rating|Ann      31     71.5|Bob      24     80.0|Cy       27    65.25|Dee      24     90.0||");
+check("table: the header is bold", [$s.cell(1, 1)[1], $s.cell(10, 1)[1]], ["bold", "bold"]);
+check("table: the selected row is inverse", [$s.cell(1, 2)[1], $s.cell(1, 3)[1]], ["inverse", ""]);
+check("table: nothing is sorted", $table.sorted_by(), null);
+check("table: the first row is selected", [$table.selected_index(), $table.selected_row()], [0, ["Ann", 31, 71.5]]);
+$table.draw($s, $s.bounds(), false);
+check("table: unfocused, the selected row is only bold", $s.cell(1, 2)[1], "bold");
+
+$table = tui::Table(["Name", "Age", "Rating"], $people, ($row, $index) -> $row[0] == "Bob" ? "green" : "");
+$s = tui::Screen(30, 7);
+$table.draw($s, $s.bounds());
+check("table: a row style", [$s.cell(1, 2)[1], $s.cell(1, 3)[1], $s.cell(1, 4)[1]], ["inverse", "green", ""]);
+$table.handle(term::decode("j")["keys"][0]);
+$table.draw($s, $s.bounds());
+check("table: a row style and the selection together", $s.cell(1, 3)[1], "green inverse");
+
+/* Sorting */
+$table = tui::Table(["Name", "Age", "Rating"], $people);
+check("table: unsorted is the order given", names_in($table, $people), "Ann Bob Cy Dee");
+$table.sort_by(0, true);
+check("table: by name, the last first", names_in($table, $people), "Dee Cy Bob Ann");
+$table.sort_by(1);
+check("table: by age, ties in the order given", names_in($table, $people), "Bob Dee Cy Ann");
+$table.sort_by(1, true);
+check("table: by age, the oldest first, ties still in the order given", names_in($table, $people), "Ann Cy Bob Dee");
+$table.sort_by(2);
+check("table: by rating, numbers compare as numbers", names_in($table, $people), "Cy Ann Bob Dee");
+check("table: what it is sorted by", $table.sorted_by(), [2, false]);
+try {
+    $table.sort_by(3);
+    check("table: no such column", "no error", "an error");
+} catch (Error $e) {
+    check("table: no such column", $e.message, "tui::Table has no column 3");
+}
+$s = tui::Screen(30, 7);
+$table.draw($s, $s.bounds());
+check("table: the mark of the sort", trim($s.lines()[0]), "Name    Age  Rating▲");
+$table.sort_by(2, true);
+$table.draw($s, $s.bounds());
+check("table: the mark of a descending sort", trim($s.lines()[0]), "Name    Age  Rating▼");
+check("table: the sorted column's header is underlined", [$s.cell(20, 1)[1], $s.cell(1, 1)[1]], ["bold underline", "bold"]);
+
+/* The selection follows its row through a sort */
+$table = tui::Table(["Name", "Age", "Rating"], $people);
+$table.handle(term::decode("j")["keys"][0]);
+$table.handle(term::decode("j")["keys"][0]);
+check("table: selecting the third", $table.selected_row()[0], "Cy");
+$table.sort_by(2, true);
+check("table: the same row is selected after sorting", [$table.selected_row()[0], $table.selected_index()], ["Cy", 2]);
+$table.sort_by(0);
+check("table: and after sorting again", $table.selected_row()[0], "Cy");
+
+/* Keys */
+$table = tui::Table(["Name", "Age", "Rating"], $people);
+$press = ($key) -> $table.handle(term::decode($key)["keys"][0]);
+check("table: enter selects", $press("\r"), "select");
+check("table: other keys are nothing", $press("z"), null);
+$press(".");
+check("table: . sorts by the first column", $table.sorted_by(), [0, false]);
+$press(".");
+$press(".");
+$press(".");
+check("table: . stops at the last column", $table.sorted_by(), [2, false]);
+$press(",");
+check("table: , goes back", $table.sorted_by(), [1, false]);
+$press("o");
+check("table: o turns the order round", $table.sorted_by(), [1, true]);
+$press("o");
+check("table: and back", $table.sorted_by(), [1, false]);
+$press("x");
+check("table: x is unsorted again", [$table.sorted_by(), names_in($table, $people)], [null, "Ann Bob Cy Dee"]);
+$press("o");
+check("table: o does nothing unsorted", $table.sorted_by(), null);
+$press(",");
+check("table: , unsorted starts at the first column", $table.sorted_by(), [0, false]);
+$press("j");
+$press("j");
+check("table: j moves down", $table.selected_index(), 2);
+$press("j");
+$press("j");
+$press("j");
+check("table: and stops at the last", $table.selected_index(), 3);
+$press("g");
+check("table: g is the first", $table.selected_index(), 0);
+$press("G");
+check("table: G is the last", $table.selected_index(), 3);
+$press("k");
+check("table: k moves up", $table.selected_index(), 2);
+
+/* Scrolling */
+$long = map([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], $n -> ["row {$n}"]);
+$table = tui::Table(["Name"], $long);
+$s = tui::Screen(10, 4);
+$table.draw($s, $s.bounds());
+check("table: only what fits, from the top", rows($s), "Name|row 1|row 2|row 3");
+$press = ($key) -> $table.handle(term::decode($key)["keys"][0]);
+$press("j");
+$press("j");
+$press("j");
+$press("j");
+$table.draw($s, $s.bounds());
+check("table: scrolls to keep the selection in view", rows($s), "Name|row 3|row 4|row 5");
+check("table: the selection is the last one showing", [$s.cell(1, 4)[1], $s.cell(1, 3)[1]], ["inverse", ""]);
+$press("k");
+$press("k");
+$press("k");
+$table.draw($s, $s.bounds());
+check("table: and back up", rows($s), "Name|row 2|row 3|row 4");
+$press("g");
+$table.draw($s, $s.bounds());
+$press("\e[6~");
+check("table: page down is the rows showing, less one", $table.selected_index(), 2);
+$press("G");
+$table.draw($s, $s.bounds());
+check("table: the end shows the end", rows($s), "Name|row 8|row 9|row 10");
+
+/* New rows */
+$table = tui::Table(["Name", "Age", "Rating"], $people);
+$press = ($key) -> $table.handle(term::decode($key)["keys"][0]);
+$press("j");
+$press("j");
+$table.sort_by(1);
+/* the row that was selected (index 2) is now the oldest, so last in this sort */
+$table.set_rows([["Zed", 20, 50.0], ["Yan", 30, 60.0], ["Xi", 40, 70.0], ["Wu", 22, 80.0]]);
+check("table: new rows keep the selection on its index", $table.selected_index(), 2);
+check("table: and the sort", names_in($table, $people), "Zed Wu Yan Xi");
+$press("j");
+$press("j");
+$press("j");
+check("table: on the last row", $table.selected_index(), 2);
+$table.set_rows([["Only", 1, 1.0]]);
+check("table: fewer rows than the selection was on", [$table.selected_index(), $table.selected_row()[0]], [0, "Only"]);
+
+/* Nothing to show */
+$table = tui::Table(["Name", "Age"], []);
+$s = tui::Screen(20, 3);
+$table.draw($s, $s.bounds());
+check("table: no rows is a header", rows($s), "Name   Age||");
+check("table: nothing to select", [$table.selected_index(), $table.selected_row(), $table.handle(term::decode("\r")["keys"][0])], [null, null, null]);
+$table.handle(term::decode("j")["keys"][0]);
+$table.sort_by(1);
+check("table: nothing to move or sort", [$table.selected_index(), $table.sorted_by()], [null, [1, false]]);
+$table.set_rows([["A", 1]]);
+check("table: rows arriving", $table.selected_row(), ["A", 1]);
+
+/* A table too wide is squeezed, the widest column first, and cut off */
+$table = tui::Table(["Name", "Age", "Rating"], $people);
+$s = tui::Screen(16, 3);
+$table.draw($s, $s.bounds());
+check("table: squeezed to fit", rows($s), "Name   Age  Rati|Ann     31  71.5|Bob     24  80.0");
+$s = tui::Screen(3, 3);
+$table.draw($s, $s.bounds());
+check("table: squeezed as far as it goes, then cut off", rows($s), "Nam|Ann|Bob");
+$table.draw($s, tui::Rect(1, 1, 0, 3));
+$table.draw($s, tui::Rect(1, 1, 5, 0));
+check("table: no room draws nothing", rows($s), "Nam|Ann|Bob");
+$s = tui::Screen(30, 7);
+$table.draw($s, tui::Rect(5, 3, 20, 3));
+check("table: drawn in a rect of the screen", [trim($s.lines()[0]), trim($s.lines()[2]), trim($s.lines()[3])], ["", "Name    Age   Rating", "Ann      31     71.5"]);
+
 /* ---- centered ---- */
 $s = tui::Screen(20, 10);
 check("centered", tui::centered($s, 10, 4), [6, 4]);

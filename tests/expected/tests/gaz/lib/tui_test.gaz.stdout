@@ -111,5 +111,71 @@ ok field: the cursor follows the text
 ok field: scrolls to keep the cursor in view
 ok field: scrolls back
 ok field: a style
+ok rect: inset
+ok rect: inset by more
+ok rect: inset to nothing is nothing, never negative
+ok rect: split_left
+ok rect: split_right
+ok rect: split_top
+ok rect: split_bottom
+ok rect: splitting off more than there is takes it all
+ok rect: splitting off less than nothing takes nothing
+ok rect: the halves make the whole
+ok rect: a screen's bounds
+ok rect: a sidebar and the rest
+ok table: header and rows
+ok table: the header is bold
+ok table: the selected row is inverse
+ok table: nothing is sorted
+ok table: the first row is selected
+ok table: unfocused, the selected row is only bold
+ok table: a row style
+ok table: a row style and the selection together
+ok table: unsorted is the order given
+ok table: by name, the last first
+ok table: by age, ties in the order given
+ok table: by age, the oldest first, ties still in the order given
+ok table: by rating, numbers compare as numbers
+ok table: what it is sorted by
+ok table: no such column
+ok table: the mark of the sort
+ok table: the mark of a descending sort
+ok table: the sorted column's header is underlined
+ok table: selecting the third
+ok table: the same row is selected after sorting
+ok table: and after sorting again
+ok table: enter selects
+ok table: other keys are nothing
+ok table: . sorts by the first column
+ok table: . stops at the last column
+ok table: , goes back
+ok table: o turns the order round
+ok table: and back
+ok table: x is unsorted again
+ok table: o does nothing unsorted
+ok table: , unsorted starts at the first column
+ok table: j moves down
+ok table: and stops at the last
+ok table: g is the first
+ok table: G is the last
+ok table: k moves up
+ok table: only what fits, from the top
+ok table: scrolls to keep the selection in view
+ok table: the selection is the last one showing
+ok table: and back up
+ok table: page down is the rows showing, less one
+ok table: the end shows the end
+ok table: new rows keep the selection on its index
+ok table: and the sort
+ok table: on the last row
+ok table: fewer rows than the selection was on
+ok table: no rows is a header
+ok table: nothing to select
+ok table: nothing to move or sort
+ok table: rows arriving
+ok table: squeezed to fit
+ok table: squeezed as far as it goes, then cut off
+ok table: no room draws nothing
+ok table: drawn in a rect of the screen
 ok centered
 ok centered: too big is the corner
