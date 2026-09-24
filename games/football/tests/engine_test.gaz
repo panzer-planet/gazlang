@@ -1,0 +1,218 @@
+/*
+ * The engine's rules, as things that stay true however the game is tuned: a season plays every
+ * pairing home and away, a table adds up, a booking is a booking. Nothing here records what a
+ * seeded match prints, since the ratings and the odds are meant to change; tests/programs/football.gaz
+ * is the frozen simulator that does that.
+ */
+include "../../../tests/gaz/check.gaz";
+include "../engine/players.gaz" use Goalkeeper, Defender, Midfielder, Forward;
+include "../engine/teams.gaz" use Team, Formation, Scout, InvalidLineup;
+include "../engine/matches.gaz" use Fixture, Goal, Booking, Whistle;
+include "../engine/league.gaz" use League;
+
+const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8];
+
+/* $count clubs of rising strength, from a seeded scout */
+fn clubs($count, $seed, $formation = "4-4-2") {
+    rand_seed($seed);
+    $scout = Scout();
+    $teams = [];
+    for ($i = 0; $i < $count; $i++) {
+        $teams[] = $scout.team("Club " .. ($i + 1), 55 + $i * 3, $formation);
+    }
+    return $teams;
+}
+
+/* How many of $list satisfy $test */
+fn count_where($list, $test) {
+    return len(filter($list, $test));
+}
+
+/* Remembers who played whom, for a league to call as each match kicks off */
+kind Log {
+    pub #matches = 0;
+    pub #matchdays = 0;
+    pub #goals = 0;
+    pub #pairings = {};
+    pub #played = {};
+
+    pub fn after_matchday($number, $matches) {
+        #matchdays++;
+        foreach ($matches as $match) {
+            #goals += $match.home_goals + $match.away_goals;
+        }
+    }
+
+    pub fn kick_off($match) {
+        #matches++;
+        $pairing = $match.home.name .. " v " .. $match.away.name;
+        #pairings[$pairing] = (#pairings[$pairing] ?? 0) + 1;
+        foreach ([$match.home.name, $match.away.name] as $name) {
+            #played[$name] = (#played[$name] ?? 0) + 1;
+        }
+    }
+}
+
+/* Collects what happens in a match */
+kind Recorder {
+    pub #events = [];
+
+    pub fn hear($event) {
+        #events[] = $event;
+    }
+}
+
+/* ---- Squads ---- */
+$squad = clubs(1, 1)[0];
+check("a squad is eleven", len($squad.players), 11);
+check("442 has one goalkeeper, four defenders, four midfielders and two forwards", [
+    count_where($squad.players, $p -> $p.position() == "GK"),
+    count_where($squad.players, $p -> $p.position() == "DF"),
+    count_where($squad.players, $p -> $p.position() == "MF"),
+    count_where($squad.players, $p -> $p.position() == "FW"),
+], [1, 4, 4, 2]);
+check("shirt 1 is in goal", $squad.players[0].position(), "GK");
+check("shirts are 1 to 11", map($squad.players, $p -> $p.number), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+$other = clubs(1, 2, "3-5-2")[0];
+check("352 has five in midfield", count_where($other.players, $p -> $p.position() == "MF"), 5);
+foreach (SEEDS as $seed) {
+    $ratings = map(clubs(3, $seed)[2].players, $p -> $p.rating);
+    check("ratings stay between 40 and 95 (seed {$seed})", [min($ratings) >= 40, max($ratings) <= 95], [true, true]);
+}
+check("the same seed makes the same squad", map(clubs(2, 9)[1].players, $p -> $p.profile()), map(clubs(2, 9)[1].players, $p -> $p.profile()));
+check("another seed makes another", map(clubs(1, 9)[0].players, $p -> $p.profile()) == map(clubs(1, 10)[0].players, $p -> $p.profile()), false);
+
+try {
+    Team("Sunday Strollers", Formation("4-4-2"), [Goalkeeper("A", 50, 1), Goalkeeper("B", 50, 2)]);
+} catch (InvalidLineup $e) {
+    check("two players is not a team", $e.message, "Sunday Strollers can't play: 2 players instead of 11");
+}
+try {
+    Team("No Keepers", Formation("4-4-2"), map([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], $n -> Defender("D{$n}", 50, $n)));
+} catch (InvalidLineup $e) {
+    check("a team needs a goalkeeper", $e.message, "No Keepers can't play: 0 goalkeepers");
+}
+try {
+    Formation("5-5-5");
+} catch (Error $e) {
+    check("a formation adds up to ten", $e.message, "Not a formation: 5-5-5");
+}
+
+/* ---- Players ---- */
+$player = Forward("A. Striker", 80, 9);
+check("the first yellow card is only a booking", [$player.book(), $player.sent_off], [false, false]);
+check("the second is a sending off", [$player.book(), $player.sent_off], [true, true]);
+$player.rest();
+check("resting clears the cards", [$player.yellow_cards, $player.sent_off], [0, false]);
+$player.rest();
+$fresh = $player.form();
+$player.tire(30);
+check("tiredness lowers form", $player.form() < $fresh, true);
+$player.tire(1000);
+$floor = $player.form();
+$player.tire(1000);
+check("but only so far", $player.form(), $floor);
+check("a keeper doesn't attack", Goalkeeper("K", 70, 1).attacking(), 0);
+/* A player is sharp only once rested, which a match does first; a position is a way of sharing that out */
+$forward = Forward("F", 70, 9);
+$forward.rest();
+$defender = Defender("D", 70, 4);
+$defender.rest();
+check("a forward attacks more than he defends", $forward.attacking() > $forward.defending(), true);
+check("a defender defends more than he attacks", $defender.defending() > $defender.attacking(), true);
+foreach (SEEDS as $seed) {
+    rand_seed($seed);
+    foreach ([17, 21, 25, 29, 32, 35] as $age) {
+        $p = Midfielder("M", 90, 8);
+        $p.age = $age;
+        $before = $p.rating;
+        $change = $p.grow_older();
+        check("growing older moves the rating by what it says (age {$age}, seed {$seed})", [$p.rating - $before, $p.age], [$change, $age + 1]);
+        check("and keeps it between 40 and 95 (age {$age}, seed {$seed})", [$p.rating >= 40, $p.rating <= 95], [true, true]);
+    }
+}
+/* Retirement: never before 33, sometimes at 33, always by 37 */
+rand_seed(1);
+$veteran = Defender("V", 40, 4);
+for ($age = 17; $age <= 37; $age++) {
+    $veteran.age = $age;
+    $retirements = 0;
+    for ($try = 0; $try < 300; $try++) {
+        if ($veteran.retires()) {
+            $retirements++;
+        }
+    }
+    if ($age < 33) {
+        check("nobody retires at {$age}", $retirements, 0);
+    } else if ($age < 37) {
+        check("some retire at {$age}, but not all", [$retirements > 0, $retirements < 300], [true, true]);
+    } else {
+        check("everybody has retired by {$age}", $retirements, 300);
+    }
+}
+
+/* ---- A match ---- */
+foreach (SEEDS as $seed) {
+    [$home, $away] = clubs(2, $seed);
+    $recorder = Recorder();
+    $before = Fixture::matches_played;
+    $match = Fixture($home, $away).on_event($recorder.hear).play();
+    $events = $recorder.events;
+    check("a fixture is counted (seed {$seed})", Fixture::matches_played, $before + 1);
+    check("the score is the goals scored (seed {$seed})", [
+        count_where($events, $e -> is_a($e, Goal) && $e.team == $home),
+        count_where($events, $e -> is_a($e, Goal) && $e.team == $away),
+    ], [$match.home_goals, $match.away_goals]);
+    $minutes = map($events, $e -> $e.minute);
+    check("events come in the order they happen (seed {$seed})", $minutes, sort($minutes, ($a, $b) -> $a <=> $b));
+    check("it stays within ninety minutes (seed {$seed})", [min($minutes) >= 1, max($minutes) <= 90], [true, true]);
+    $whistles = map(filter($events, $e -> is_a($e, Whistle)), $e -> $e.minute);
+    check("half time, then full time (seed {$seed})", $whistles, [45, 90]);
+    check("a sending off is a second booking (seed {$seed})", count_where($events, $e -> is_a($e, Booking)) >= count_where([...$home.players, ...$away.players], $p -> $p.sent_off), true);
+    check("nobody scores for nobody (seed {$seed})", count_where($events, $e -> is_a($e, Goal) && $e.team != $home && $e.team != $away), 0);
+}
+
+foreach (SEEDS as $seed) {
+    [$home, $away] = clubs(2, $seed);
+    $recorder = Recorder();
+    Fixture($home, $away).on_event($recorder.hear).play().extra_time();
+    $whistles = map(filter($recorder.events, $e -> is_a($e, Whistle)), $e -> $e.minute);
+    check("extra time ends on its own whistle (seed {$seed})", $whistles, [45, 90, 120]);
+    $minutes = map($recorder.events, $e -> $e.minute);
+    check("and the events are still in order (seed {$seed})", $minutes, sort($minutes, ($a, $b) -> $a <=> $b));
+    rand_seed($seed);
+    [$scored_home, $scored_away] = Fixture($home, $away).penalties();
+    check("a shootout has a winner (seed {$seed})", [$scored_home != $scored_away, min($scored_home, $scored_away) >= 0], [true, true]);
+}
+
+/* ---- A season ---- */
+foreach ([4, 5, 8] as $count) {
+    foreach ([1, 2, 3] as $seed) {
+        $label = "{$count} clubs, seed {$seed}";
+        $teams = clubs($count, $seed);
+        $league = League($teams);
+        $log = Log();
+        $league.play_season($log.kick_off, $log.after_matchday);
+
+        $matches = League::matches_for($count);
+        check("a season plays every match ({$label})", [$log.matches, $matches], [$count * ($count - 1), $count * ($count - 1)]);
+        check("every club hosts every other once ({$label})", [len($log.pairings), count_where(values($log.pairings), $n -> $n != 1)], [$matches, 0]);
+        check("every club plays home and away against each of the rest ({$label})", [len($log.played), count_where(values($log.played), $n -> $n != 2 * ($count - 1))], [$count, 0]);
+        // with an odd number of clubs one rests each matchday
+        check("a matchday for each round ({$label})", $log.matchdays, 2 * ($count % 2 == 0 ? $count - 1 : $count));
+
+        $table = $league.table();
+        check("the table has everyone ({$label})", len($table), $count);
+        check("goals for and against balance ({$label})", sum(map($table, $row -> $row.difference())), 0);
+        check("the table's goals are the season's ({$label})", sum(map($table, $row -> $row.scored)), $log.goals);
+        $points = sum(map($table, $row -> $row.points()));
+        check("a match gives out 2 points or 3 ({$label})", [$points >= 2 * $matches, $points <= 3 * $matches], [true, true]);
+        $ordered = true;
+        for ($i = 1; $i < $count; $i++) {
+            $above = $table[$i - 1];
+            $below = $table[$i];
+            $ordered = $ordered && ([$above.points(), $above.difference(), $above.scored] <=> [$below.points(), $below.difference(), $below.scored]) >= 0;
+        }
+        check("points, then goal difference, then goals scored ({$label})", $ordered, true);
+    }
+}

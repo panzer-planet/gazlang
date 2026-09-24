@@ -85,6 +85,7 @@ vendor/bin/pint                     # formatting
   and the CLI, `gc.c` the cycle collector, `net.c` sockets and TLS, `term.c` raw mode and keys.
 - `lib/`: the standard library in GazLang. `examples/`: sample programs that nothing tests
   (see "Programs are tests or examples"). `tests/programs/`: programs the tests do run.
+  `games/`: programs built on the language, each with tests of its own (see "A game is neither").
 - `tests/`: PHPUnit, `tests/gaz/` (GazLang programs), `tests/expected/` (what every program
   prints), and the corpora: `lexer_corpus/`, `parser_corpus/`, `codegen_corpus/`, `vm_corpus/`,
   `bytecode_corpus/`, `cli/`, `json/`, `csv/`.
@@ -155,6 +156,19 @@ nothing**: several first versions of a harness or corpus passed everything and c
   failures. When an example needs to keep working, or is worth running under the sanitizers as a
   big program, move it to `tests/programs/` and give it a test; `functions.gaz` and `errors.gaz`
   are there because CI and these docs use them as inputs.
+- **A game is neither a test subject nor an example**: `games/NAME/` is a program being built on
+  the language. It is in this repository so that a change to `lib/` or the VM goes in the same
+  commit as the game code that needed it: there is no module search path (an `include` is relative
+  to the file), so a game in a repository of its own would need a checkout of gazlang at a known
+  path, and every language change would be two commits. Its tests are GazLang programs in
+  `games/NAME/tests/`, run by their own PHPUnit suite (`--testsuite games`; `--testsuite core` for
+  the language alone; a plain run does both), and they assert what stays true however the game is
+  tuned (a season plays every match, a table adds up), not what a seeded run prints: the odds are
+  meant to change, and recordings would be re-recorded with every tweak. What stays byte-exact is
+  `tests/programs/football.gaz`, the frozen simulator the game started from, the VM's biggest test
+  program and the benchmark workload; it is not tuned for the game. That costs 1,400 lines of
+  duplication that will drift, on purpose. While a game's only outward dependency is `../../lib/`
+  includes, moving it to a repository of its own later is cheap.
 - **The README's examples are tests**: `ReadmeTest` runs every ```` ```gaz ```` block followed
   by an output block and requires exactly that output.
 

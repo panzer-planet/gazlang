@@ -1,0 +1,234 @@
+// Teams: an eleven in a formation, and the scout who makes them up
+namespace teams;
+
+include "../../../lib/random.gaz";
+include "players.gaz" use Goalkeeper, Defender, Midfielder, Forward;
+
+pub kind InvalidLineup extends Error {
+    #team;
+    fn _($team, $problem) {
+        ##_("{$team} can't play: {$problem}");
+        #team = $team;
+    }
+}
+
+pub kind Team {
+    // What the players on the pitch add up to (see summary()), forgotten whenever they change
+    #cache;
+    // In pounds, over several seasons: prize money in, wages and transfer fees out
+    pub #balance = 0;
+
+    fn _(pub #name, pub #formation, pub #players) {
+        if (len(#players) != 11) {
+            error(InvalidLineup(#name, len(#players) .. " players instead of 11"));
+        }
+        $keepers = len(filter(#players, $player -> is_a($player, Goalkeeper)));
+        if ($keepers != 1) {
+            error(InvalidLineup(#name, "{$keepers} goalkeepers"));
+        }
+    }
+
+    // The players on the pitch, how strongly they attack and defend together, who is in goal
+    // and who might shoot, worked out in one go the first time it is needed after a change
+    fn summary() {
+        if (#cache != null) {
+            return #cache;
+        }
+        $lineup = [];
+        $attack = 0;
+        $defence = 0;
+        $keeper = null;
+        $best_defender = null;
+        $shooters = [];
+        foreach (#players as $player) {
+            if ($player.sent_off) {
+                continue;
+            }
+            $lineup[] = $player;
+            $attacking = $player.attacking();
+            $defending = $player.defending();
+            $attack += $attacking;
+            $defence += $defending;
+            if ($attacking > 0) {
+                // The more attacking a player, the likelier to shoot
+                $shooters[] = [$player, $attacking];
+            }
+            if (is_a($player, Goalkeeper)) {
+                $keeper = $player;
+            } else if ($best_defender == null || $defending > $best_defender.defending()) {
+                $best_defender = $player;
+            }
+        }
+        // With the goalkeeper sent off, the best defender left on the pitch goes in goal
+        return #cache = {
+            "lineup" => $lineup, "attack" => $attack, "defence" => $defence,
+            "keeper" => $keeper ?? $best_defender, "shooters" => $shooters, "shooting" => $attack,
+        };
+    }
+
+    pub fn on_pitch() { return #summary()["lineup"]; }
+    pub fn attack() { return #summary()["attack"]; }
+    pub fn defence() { return #summary()["defence"]; }
+    pub fn goalkeeper() { return #summary()["keeper"]; }
+    // Only players who attack at all are shooters, so their weights add up to the attack
+    // Most attempts fall to the sharper players, but the ball finds a fringe player too now
+    // and then, whatever their rating: a scramble, a deflection, a shot nobody saw coming
+    pub fn shooter() {
+        $shooters = #summary()["shooters"];
+        if (random::chance(0.15)) {
+            return random::pick($shooters)[0];
+        }
+        return random::weighted($shooters, #summary()["shooting"]);
+    }
+    pub fn rating() { return round(sum(map(#players, $player -> $player.rating)) / 11, 1); }
+
+    // A player leaves, and another takes their place in the eleven
+    pub fn replace($leaving, $joining) {
+        foreach (#players as $i => $player) {
+            if ($player == $leaving) {
+                #players[$i] = $joining;
+            }
+        }
+        #changed();
+    }
+
+    // The players tired, rested or were sent off
+    pub fn changed() { #cache = null; }
+
+    pub fn tire($minutes) {
+        foreach (#players as $player) {
+            $player.tire($minutes);
+        }
+        #changed();
+    }
+
+    pub fn rest() {
+        foreach (#players as $player) {
+            $player.rest();
+        }
+        #changed();
+    }
+
+    // What a saved career keeps of a club
+    pub fn to_data() {
+        return {
+            "name" => #name, "formation" => to_string(#formation), "balance" => #balance,
+            "players" => map(#players, $player -> $player.to_data()),
+        };
+    }
+
+    pub fn to_string() { return #name; }
+}
+
+// A club back from to_data()
+pub fn from_data($data) {
+    $team = Team($data["name"], Formation($data["formation"]), map($data["players"], players::from_data));
+    $team.balance = $data["balance"];
+    return $team;
+}
+
+// A formation like "4-3-3": defenders, midfielders and forwards, ten outfield players in all
+pub kind Formation {
+    #lines;
+
+    fn _(#name) {
+        #lines = map(split(#name, "-"), to_int);
+        if (len(#lines) != 3 || sum(#lines) != 10) {
+            error("Not a formation: {#name}");
+        }
+    }
+
+    // The kinds to fill the eleven with, goalkeeper first
+    pub fn positions() {
+        $positions = [Goalkeeper];
+        foreach ([Defender, Midfielder, Forward] as $line => $kind) {
+            for ($i = 0; $i < #lines[$line]; $i++) {
+                $positions[] = $kind;
+            }
+        }
+        return $positions;
+    }
+
+    pub fn to_string() { return #name; }
+}
+
+// Makes up squads: names from a pool, ratings spread around the club's level
+pub kind Scout {
+    #taken = {};
+
+    pub fn team($name, $level, $formation) {
+        $formation = Formation($formation);
+        // Kinds are values: the formation says which ones to construct. The goalkeeper is
+        // always first, so shirt 1 always goes in goal
+        $players = [];
+        foreach ($formation.positions() as $shirt => $kind) {
+            $players[] = $kind(#new_name(), #rating($level), $shirt + 1);
+        }
+        return Team($name, $formation, $players);
+    }
+
+    // Most of a squad sits around the club's level, but every squad has some fringe players
+    // dragging it down and, now and then, a star lifting it up. A wonderkid can turn up
+    // anywhere, a raw talent a small club got lucky with, rated on their own merit, not the
+    // club's
+    fn rating($level) {
+        $tier = random::weighted([["fringe", 25], ["regular", 55], ["star", 16], ["wonderkid", 4]]);
+        $rating = match ($tier) {
+            "fringe" => $level + rand_int(-25, -10),
+            "regular" => $level + rand_int(-6, 6),
+            "star" => $level + rand_int(7, 15),
+            "wonderkid" => rand_int(85, 95),
+        };
+        return min(max($rating, 40), 95);
+    }
+
+    // An age for a player in a new squad: most in their twenties, a few teenagers and veterans
+    pub fn age() {
+        $band = random::weighted([[[17, 20], 10], [[21, 25], 35], [[26, 30], 35], [[31, 35], 20]]);
+        return rand_int($band[0], $band[1]);
+    }
+
+    // A youngster from the academy taking a retiring player's place and shirt: raw, and below
+    // the club's level, except now and then a wonderkid
+    pub fn youth($kind, $team, $shirt) {
+        $level = to_int($team.rating());
+        $rating = random::chance(0.05) ? rand_int(80, 90) : max($level + rand_int(-15, -3), 40);
+        $player = $kind(#new_name(), $rating, $shirt);
+        $player.age = rand_int(17, 19);
+        return $player;
+    }
+
+    // The names given out so far, and names to count as given, so a career carried on from a
+    // save still never gives one twice
+    pub fn names() { return keys(#taken); }
+    pub fn take($names) {
+        foreach ($names as $name) {
+            #taken[$name] = true;
+        }
+    }
+
+    // Every name in the league is different
+    fn new_name() {
+        while (true) {
+            $name = random::pick(FIRST_INITIALS) .. ". " .. random::pick(SURNAMES);
+            if (! has_key(#taken, $name)) {
+                #taken[$name] = true;
+                return $name;
+            }
+        }
+    }
+}
+
+const FIRST_INITIALS = [
+    "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "R", "S", "T", "V", "W",
+    "Y", "Z",
+];
+
+const SURNAMES = [
+    "Abara", "Achebe", "Adeyemi", "Alvarez", "Andersen", "Bauer", "Becker", "Brandt", "Brennan", "Castillo",
+    "Costa", "Dalton", "Diallo", "Dube", "Duarte", "Eriksen", "Ferreira", "Fischer", "Garcia", "Haddad",
+    "Hale", "Hansen", "Ivanova", "Jansen", "Kamara", "Keane", "Kerr", "Kowalski", "Lindqvist", "Lopez",
+    "Mbeki", "Mensah", "Moreau", "Morales", "Nakamura", "Novak", "Nwosu", "Okafor", "Olsen", "Ortega",
+    "Park", "Petrov", "Quinn", "Rossi", "Ruiz", "Sato", "Silva", "Svensson", "Tanaka", "Vargas", "Walsh",
+    "Wright", "Yilmaz", "Zielinski",
+];

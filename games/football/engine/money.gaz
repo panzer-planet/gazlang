@@ -1,0 +1,96 @@
+// Money: what players are worth, what clubs earn and pay, and the summer transfer window
+namespace money;
+
+include "../../../lib/lists.gaz" use max_by, min_by;
+
+// A player's transfer value in pounds: ability counts for most, and youth for more than age
+pub fn value($player) {
+    $ability = $player.rating / 10.0;
+    $age = match {
+        $player.age <= 23 => 1.3,
+        $player.age <= 28 => 1.0,
+        $player.age <= 31 => 0.7,
+        default => 0.4,
+    };
+    return to_int($ability * $ability * $ability * $ability * 2000 * $age);
+}
+
+// A season's wages for a squad: a quarter of what the players are worth
+pub fn wages($team) {
+    return to_int(sum(map($team.players, $player -> value($player))) / 4);
+}
+
+// What a club earns for finishing a season: more the higher the division and the table
+pub fn prize($level, $position, $clubs) {
+    $pot = [40000000, 12000000, 4000000, 1500000][$level];
+    return to_int($pot * (1 + ($clubs - 1 - $position) * 0.1));
+}
+
+// What a club starts with: the stronger the squad, the deeper the pockets
+pub fn starting_balance($team) {
+    $above = max($team.rating() - 40, 0);
+    return to_int($above * $above * 20000);
+}
+
+// Pounds as they are said: £14.5m, £820k, -£1.2m
+pub fn pounds($amount) {
+    $sign = $amount < 0 ? "-" : "";
+    $amount = abs($amount);
+    if ($amount >= 1000000) {
+        return "{$sign}£" .. round($amount / 1000000, 1) .. "m";
+    }
+    return "{$sign}£" .. intdiv($amount, 1000) .. "k";
+}
+
+// The summer transfer window. The richest clubs go first, each trying once to replace its
+// weakest player with a clearly better one in the same position from a smaller club, which takes
+// the weaker player in part-exchange, so every squad keeps its eleven and its formation. Players
+// move to richer clubs, except that a club in debt sells to anyone, at the player's value; any
+// other wants a third more. Gives the deals.
+pub fn window($teams) {
+    $deals = [];
+    // Nobody moves twice in one window
+    $moved = {};
+    foreach (sort($teams, ($a, $b) -> [$b.balance, $a.name] <=> [$a.balance, $b.name]) as $buyer) {
+        $budget = intdiv($buyer.balance, 2);
+        if ($budget <= 0) {
+            continue;
+        }
+        $weakest = min_by($buyer.players, $player -> $player.rating);
+        if (has_key($moved, object_id($weakest))) {
+            continue;
+        }
+        $offers = [];
+        foreach ($teams as $seller) {
+            if ($seller == $buyer || ($seller.balance >= 0 && $seller.balance >= $buyer.balance)) {
+                continue;
+            }
+            foreach ($seller.players as $player) {
+                if (kind_of($player) != kind_of($weakest) || $player.rating < $weakest.rating + 5
+                    || has_key($moved, object_id($player))) {
+                    continue;
+                }
+                $price = $seller.balance < 0 ? value($player) : to_int(value($player) * 1.3);
+                $fee = max($price - value($weakest), 0);
+                if ($fee <= $budget) {
+                    $offers[] = {"player" => $player, "seller" => $seller, "fee" => $fee};
+                }
+            }
+        }
+        if ($offers == []) {
+            continue;
+        }
+        // The best player on offer, and the cheaper of two as good
+        $deal = max_by($offers, $offer -> [$offer["player"].rating, -$offer["fee"]]);
+        [$player, $seller, $fee] = [$deal["player"], $deal["seller"], $deal["fee"]];
+        $buyer.replace($weakest, $player);
+        $seller.replace($player, $weakest);
+        [$player.number, $weakest.number] = [$weakest.number, $player.number];
+        $buyer.balance -= $fee;
+        $seller.balance += $fee;
+        $moved[object_id($player)] = true;
+        $moved[object_id($weakest)] = true;
+        $deals[] = {"player" => $player, "from" => $seller, "to" => $buyer, "fee" => $fee};
+    }
+    return $deals;
+}

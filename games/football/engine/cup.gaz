@@ -1,0 +1,86 @@
+// A knockout cup: every club in one draw, extra time and penalties when a tie is level
+namespace cup;
+
+include "../../../lib/random.gaz";
+include "matches.gaz" use Fixture;
+
+// How a tie in a round went: the match, and whether it needed extra time or penalties
+pub kind Tie {
+    pub #extra_time = false;
+    // [home, away] kicks scored, when it went to penalties
+    pub #penalties = null;
+
+    fn _(pub #match) {}
+
+    pub fn winner() {
+        [$home, $away] = #penalties ?? [#match.home_goals, #match.away_goals];
+        return $home > $away ? #match.home : #match.away;
+    }
+
+    pub fn loser() {
+        return #winner() == #match.home ? #match.away : #match.home;
+    }
+
+    pub fn to_string() {
+        if (#penalties != null) {
+            return "{#match} (after extra time, {#penalties[0]}-{#penalties[1]} on penalties)";
+        }
+        return #extra_time ? "{#match} (after extra time)" : to_string(#match);
+    }
+}
+
+pub kind Cup {
+    // Each round as it was played: [name, ties]
+    pub #rounds = [];
+
+    fn _(pub #name) {}
+
+    // Plays the cup between $teams, strongest first, giving the winners. When their number
+    // isn't a power of two, the weakest play a first round and the strongest go straight
+    // into the second, so that every round after it halves the field
+    pub fn play($teams) {
+        $size = 1;
+        while ($size * 2 <= len($teams)) {
+            $size *= 2;
+        }
+        $through = $teams;
+        if ($size < len($teams)) {
+            $playing = 2 * (len($teams) - $size);
+            $through = [...slice($teams, 0, len($teams) - $playing), ...#round(slice($teams, -$playing))];
+        }
+        while (len($through) > 1) {
+            $through = #round($through);
+        }
+        return $through[0];
+    }
+
+    // One round, drawn from a hat: the first team out of each pair is at home. Gives the winners
+    fn round($teams) {
+        $name = match (len($teams)) {
+            2 => "Final",
+            4 => "Semi-finals",
+            8 => "Quarter-finals",
+            default => ["First", "Second", "Third", "Fourth", "Fifth"][len(#rounds)] .. " round",
+        };
+        $drawn = random::shuffle($teams);
+        $ties = [];
+        for ($i = 0; $i < len($drawn); $i += 2) {
+            $ties[] = #tie($drawn[$i], $drawn[$i + 1]);
+        }
+        #rounds[] = [$name, $ties];
+        return map($ties, $tie -> $tie.winner());
+    }
+
+    fn tie($home, $away) {
+        $match = Fixture($home, $away).play();
+        $tie = Tie($match);
+        if ($match.home_goals == $match.away_goals) {
+            $match.extra_time();
+            $tie.extra_time = true;
+            if ($match.home_goals == $match.away_goals) {
+                $tie.penalties = $match.penalties();
+            }
+        }
+        return $tie;
+    }
+}

@@ -13,7 +13,8 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "GazLang\\Tests\\": "tests/"
+            "GazLang\\Tests\\": "tests/",
+            "GazLang\\Games\\": "games/"
         }
     },
     "scripts": {

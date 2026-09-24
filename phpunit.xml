@@ -5,8 +5,11 @@
          colors="true"
          stopOnFailure="false">
     <testsuites>
-        <testsuite name="GazLang Test Suite">
+        <testsuite name="core">
             <directory>tests</directory>
+        </testsuite>
+        <testsuite name="games">
+            <directory>games</directory>
         </testsuite>
     </testsuites>
 </phpunit> 
