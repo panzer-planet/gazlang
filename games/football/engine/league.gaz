@@ -47,6 +47,8 @@ pub kind League {
        so far, a list of matchdays each a list of Fixtures */
     #schedule = [];
     #played = [];
+    /* The day each matchday is played, as a day number (lib/date.gaz), in order: none until given */
+    pub #dates = [];
     /* The matches of the matchday begun and not yet ended, or null */
     #open = null;
 
@@ -105,6 +107,7 @@ pub kind League {
     /* What a saved game keeps of the season: the fixtures by club name, the results, the table's counts */
     pub fn to_data() {
         return {
+            "dates" => #dates,
             "schedule" => map(#schedule, $day -> map($day, $pair -> [$pair[0].name, $pair[1].name])),
             "played" => map(#played, $day -> map($day, $match -> [$match.home.name, $match.away.name, $match.home_goals, $match.away_goals])),
             "standings" => map(#teams, $team -> [$team.name, #standings[$team.name].played, #standings[$team.name].won, #standings[$team.name].drawn, #standings[$team.name].lost, #standings[$team.name].scored, #standings[$team.name].conceded]),
@@ -118,6 +121,7 @@ pub kind League {
             $by_name[$team.name] = $team;
         }
         $league = League($teams);
+        $league.dates = $data["dates"];
         $league.schedule = map($data["schedule"], $day -> map($day, $pair -> [$by_name[$pair[0]], $by_name[$pair[1]]]));
         $league.played = map($data["played"], $day -> map($day, $row -> Fixture::played($by_name[$row[0]], $by_name[$row[1]], $row[2], $row[3])));
         foreach ($data["standings"] as $row) {
@@ -126,6 +130,19 @@ pub kind League {
         }
 
         return $league;
+    }
+
+    /* Say when the matchdays are played: one date for each, in order */
+    pub fn assign_dates($dates) {
+        if (len($dates) != len(#schedule)) {
+            error("A season of " .. len(#schedule) .. " matchdays needs " .. len(#schedule) .. " dates, not " .. len($dates));
+        }
+        #dates = $dates;
+    }
+
+    /* The date of the next matchday, or null when the season is over or nothing has been dated */
+    pub fn next_date() {
+        return #matchdays_left() > 0 && len(#dates) > len(#played) ? #dates[len(#played)] : null;
     }
 
     pub fn matchdays() { return len(#schedule); }
@@ -149,7 +166,7 @@ pub kind League {
                         }
                     }
                 }
-                $matches[] = {"matchday" => $day + 1, "home" => $home, "away" => $away, "match" => $found};
+                $matches[] = {"matchday" => $day + 1, "date" => #dates[$day] ?? null, "home" => $home, "away" => $away, "match" => $found};
             }
         }
         return $matches;

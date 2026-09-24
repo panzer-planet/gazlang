@@ -1,0 +1,44 @@
+include "../check.gaz";
+include "../../../lib/date.gaz";
+
+check("day 0 is 1 January 1970, a Thursday", [date::days(1970, 1, 1), date::weekday(0), date::format(0)], [0, 3, "Thu 1 Jan 1970"]);
+check("known days", [date::days(2000, 1, 1), date::days(2026, 8, 8), date::days(1969, 12, 31), date::days(2038, 1, 19)], [10957, 20673, -1, 24855]);
+check("and back", [date::civil(10957), date::civil(20673), date::civil(-1), date::civil(24855)], [[2000, 1, 1], [2026, 8, 8], [1969, 12, 31], [2038, 1, 19]]);
+check("known weekdays: 8 Aug 2026 is a Saturday, 29 Feb 2000 a Tuesday, 25 Dec 1999 a Saturday", [date::weekday(date::days(2026, 8, 8)), date::weekday(date::days(2000, 2, 29)), date::weekday(date::days(1999, 12, 25))], [5, 1, 5]);
+check("every day of four years round-trips and counts on by one", (function_round_trip()), [true, 1461]);
+fn function_round_trip() {
+    $start = date::days(2024, 1, 1);
+    $ok = true;
+    $previous = null;
+    $count = 0;
+    for ($n = $start; $n < $start + 1461; $n++) {
+        [$y, $m, $d] = date::civil($n);
+        if (date::days($y, $m, $d) != $n || ($previous != null && date::weekday($n) != ($previous + 1) % 7)) {
+            $ok = false;
+        }
+        $previous = date::weekday($n);
+        $count++;
+    }
+    return [$ok, $count];
+}
+check("leap years: divisible by four, except centuries that aren't by 400", [date::is_leap(2024), date::is_leap(2023), date::is_leap(1900), date::is_leap(2000), date::is_leap(2100)], [true, false, false, true, false]);
+check("days in a month", [date::days_in_month(2024, 2), date::days_in_month(2023, 2), date::days_in_month(2026, 4), date::days_in_month(2026, 12)], [29, 28, 30, 31]);
+check("a year is 365 days or 366 in a leap year", [date::days(2027, 1, 1) - date::days(2026, 1, 1), date::days(2025, 1, 1) - date::days(2024, 1, 1)], [365, 366]);
+check("the parts", [date::year(20673), date::month(20673), date::day(20673)], [2026, 8, 8]);
+check("the next weekday on or after: a Saturday from a Monday, and the day itself", [date::format(date::next_weekday(date::days(2026, 8, 3), 5)), date::format(date::next_weekday(date::days(2026, 8, 8), 5)), date::format(date::next_weekday(date::days(2026, 8, 9), 5))], ["Sat 8 Aug 2026", "Sat 8 Aug 2026", "Sat 15 Aug 2026"]);
+check("months added: the same day, or the last of a shorter month, across a year end", [date::iso(date::add_months(date::days(2026, 1, 31), 1)), date::iso(date::add_months(date::days(2026, 11, 15), 3)), date::iso(date::add_months(date::days(2026, 3, 31), -1)), date::iso(date::add_months(date::days(2024, 1, 31), 1))], ["2026-02-28", "2027-02-15", "2026-02-28", "2024-02-29"]);
+check("formats", [date::format(date::days(2026, 12, 25)), date::short(date::days(2026, 8, 8)), date::iso(date::days(2026, 8, 8)), date::iso(date::days(2026, 12, 25))], ["Fri 25 Dec 2026", "8 Aug", "2026-08-08", "2026-12-25"]);
+foreach ([[2026, 13, 1], [2026, 0, 1], [2026, 2, 29], [2026, 4, 31], [2026, 1, 0]] as [$y, $m, $d]) {
+    try {
+        date::days($y, $m, $d);
+        check("an impossible date is an error ({$y}-{$m}-{$d})", "no error", "an error");
+    } catch (Error $e) {
+        check("an impossible date is an error ({$y}-{$m}-{$d})", contains($e.message, "There is no"), true);
+    }
+}
+try {
+    date::days_in_month(2026, 13);
+    check("no month 13", "no error", "an error");
+} catch (Error $e) {
+    check("no month 13", $e.message, "There is no month 13");
+}

@@ -10,8 +10,8 @@ so moving it to a repository of its own needs nothing but a `gazlang` binary.
     bin/gazlang -f games/football/main.gaz [-- SEED | load [FILE]]
 
 A terminal at least 80 columns by 24 rows. `1` to `7` (or the arrows and `enter`) choose a section,
-`tab` moves between the menu and the section, `c` starts the next matchday, which you watch (see
-below), `C` plays it without watching and `q` quits. In a table:
+`tab` moves between the menu and the section, `c` moves time on (see "The calendar") to your next
+match, which you watch (see below), `C` plays it without watching and `q` quits. In a table:
 `j`/`k`, `g`/`G`, page up and down move, `.` and `,` sort by the next or previous column, `o` turns
 the order round and `x` puts it back. A SEED makes the same forty-four clubs again; `S` saves and `load` carries on (see below).
 
@@ -55,25 +55,40 @@ buys, and `t` switches to your own squad, where `enter` sells at a tenth under h
 richest club that can pay, or abroad if none can. A squad is 16 to 24 players with at least two
 goalkeepers, and nothing is bought or sold during a match.
 
+## The calendar
+
+The game has a date, shown in the top bar, and time moves a day at a time. `c` carries on until
+something needs you and stops there: your next match (which you watch), or an event the inbox tells you
+about. `C` does the same but plays your match at once. Days that matter to nobody go by: the other
+division's matches are played out unwatched, and everyone's birthday comes round (a player's age goes
+up on his birthday).
+
+A season starts on 1 July. The first matches are on the first Saturday from 8 August and the last by 16
+May: the Premier Division's thirty-eight matchdays are Saturdays with a few weeks' break, and the
+Championship's forty-six the same Saturdays plus five Tuesday nights. On 1 June, after the last match, the
+season is reviewed (below) and the next one is drawn. The **transfer windows** are July and August, and
+January: outside them Transfers refuses to buy or sell, and says when it opens. On 1 July the other clubs
+do their business, which the inbox tells you of if it involved you.
+
 ## Saving, and seasons
 
 `S` saves the game to `football.save` (between matchdays, not during a match), and
-`bin/gazlang -f games/football/main.gaz -- load [FILE]` carries on from it. When the last matchday
-is played, `n` starts the next season: prize money by where you finished, everybody a year older
-(veterans retire for youngsters from the academy), a summer transfer window among the clubs, and
-new fixtures.
+`bin/gazlang -f games/football/main.gaz -- load [FILE]` carries on from it. On 1 June, after the last
+match, the season is reviewed: prize money by where you finished, promotion and relegation, a summer's
+development for every player (ratings move by age), and veterans retiring for youngsters from the
+academy. Then the new season's fixtures are drawn.
 
 ## Two divisions
 
 Forty-four clubs: twenty in the Premier Division (thirty-eight matchdays) and twenty-four in the
 Championship (forty-six). `bin/gazlang -f games/football/main.gaz -- SEED` starts you at the first
 club; the club is an index into the list in `game.gaz` (from the twenty-first on you start in the
-Championship). Both divisions play every matchday until the shorter season ends; a Premier Division
-club then sits out the Championship's last eight matchdays (`c` plays them; the inbox says so). The
-table shows yours (`d` looks at the other), with the places that go up green and those that go down
-red. At the end of the season (`n`, once both are done) the bottom two of the Premier Division and
+Championship). Both divisions are on the same calendar; the Championship, with more matchdays, plays on a
+few midweek nights and on the last Saturday after the Premier Division's season is over (`c` passes
+over those). The table shows yours (`d` looks at the other), with the places that go up green and
+those that go down red. At the season's review the bottom two of the Premier Division and
 the top two of the Championship swap, and the prize money is bigger in the top division. A club is
-only paid and only pays wages for matches it plays. Saves from before the divisions won't load.
+only paid and only pays wages for matches it plays. Saves from before the calendar won't load.
 
 ## What is here
 

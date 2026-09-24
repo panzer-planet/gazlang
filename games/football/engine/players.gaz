@@ -15,6 +15,8 @@ pub abstract kind Player {
     pub #clean_sheets = 0;
     pub #career_goals = 0;
     pub #age = 0;
+    // The day the age goes up: month * 100 + day of the month (never the 29th of February)
+    pub #birthday = 101;
     pub #yellow_cards = 0;
     pub #sent_off = false;
     // This match only, reset by rest(): what motm() judges the man of the match on
@@ -82,10 +84,13 @@ pub abstract kind Player {
         #season_yellows = 0;
     }
 
-    // A summer older, giving how much the rating moved: the young tend to improve, the
-    // experienced hold steady and veterans fade
-    pub fn grow_older() {
-        #age++;
+    // The birthday has come: a year older
+    pub fn celebrate() { #age++; }
+
+    // A summer's development, giving how much the rating moved: the young tend to improve, the
+    // experienced hold steady and veterans fade. Age is not touched: a player's age goes up on
+    // his birthday (see celebrate()), not with the season.
+    pub fn develop() {
         $change = match {
             // Now and then a youngster has a breakthrough summer
             #age <= 21 => rand_int(0, 4) + (random::chance(0.1) ? rand_int(3, 6) : 0),
@@ -146,7 +151,7 @@ pub abstract kind Player {
     pub fn to_data() {
         return {
             "position" => #position(), "name" => #name, "rating" => #rating, "number" => #number,
-            "age" => #age, "career_goals" => #career_goals, "goals" => #goals, "clean_sheets" => #clean_sheets,
+            "age" => #age, "birthday" => #birthday, "career_goals" => #career_goals, "goals" => #goals, "clean_sheets" => #clean_sheets,
             "injured" => #injured, "suspended" => #suspended, "season_yellows" => #season_yellows,
         };
     }
@@ -196,6 +201,7 @@ pub fn from_data($data) {
     };
     $player = $kind($data["name"], $data["rating"], $data["number"]);
     $player.age = $data["age"];
+    $player.birthday = $data["birthday"];
     $player.career_goals = $data["career_goals"];
     $player.goals = $data["goals"];
     $player.clean_sheets = $data["clean_sheets"];

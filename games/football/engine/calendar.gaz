@@ -1,0 +1,63 @@
+/*
+ * The football calendar: when the season's matches are played, and when the transfer windows are
+ * open. A season is named for the year it starts in. It begins on 1 July; the first matches are on
+ * the first Saturday from 8 August and the last by 16 May, mostly Saturdays with some midweek
+ * matchdays (a Tuesday) when a division has more matchdays than there are Saturdays. Dates are day
+ * numbers (lib/date.gaz).
+ */
+namespace calendar;
+
+include "std/date.gaz";
+
+/* The day a season starts, and the day its review is held after the last match */
+pub fn season_start($year) { return date::days($year, 7, 1); }
+pub fn review_day($year) { return date::days($year + 1, 6, 1); }
+
+/* The Saturdays a season's matches may be on, in order */
+pub fn saturdays($year) {
+    $days = [];
+    $last = date::days($year + 1, 5, 16);
+    for ($day = date::next_weekday(date::days($year, 8, 8), 5); $day <= $last; $day += 7) {
+        $days[] = $day;
+    }
+
+    return $days;
+}
+
+/*
+ * The dates of $count matchdays in the season that starts in $year, in order. With no more matchdays
+ * than Saturdays they are Saturdays spread over the season (the weeks left out are its breaks);
+ * with more, every Saturday and the rest on the Tuesday before Saturdays spread over it.
+ */
+pub fn matchdays($year, $count) {
+    $saturdays = saturdays($year);
+    $available = len($saturdays);
+    if ($count <= $available) {
+        $dates = [];
+        for ($i = 0; $i < $count; $i++) {
+            $dates[] = $saturdays[intdiv($i * $available, $count)];
+        }
+
+        return $dates;
+    }
+    $extra = $count - $available;
+    if ($extra > $available - 4) {
+        error("A season of {$available} weeks has no room for {$count} matchdays");
+    }
+    $dates = $saturdays;
+    for ($k = 0; $k < $extra; $k++) {
+        $dates[] = $saturdays[2 + intdiv($k * ($available - 4), $extra)] - 4;
+    }
+
+    return sort($dates, ($a, $b) -> $a <=> $b);
+}
+
+/* Whether the transfer window is open on $day: July and August, and January */
+pub fn window_open($day) {
+    return in_array(date::month($day), [7, 8, 1]);
+}
+
+/* When the window that is shut opens next, as "1 July" or "1 January", for saying why it is closed */
+pub fn window_opens($day) {
+    return date::month($day) >= 2 && date::month($day) <= 6 ? "1 July" : "1 January";
+}

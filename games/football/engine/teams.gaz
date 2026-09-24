@@ -456,12 +456,14 @@ pub kind Scout {
         foreach ($formation.positions() as $shirt => $kind) {
             $player = $kind(#new_name(), #rating($level), $shirt + 1);
             $player.age = #age();
+            $player.birthday = #birthday();
             $players[] = $player;
         }
         // The reserves cover every position, a little below the club's level
         foreach ([Goalkeeper, Defender, Defender, Midfielder, Midfielder, Forward] as $i => $kind) {
             $player = $kind(#new_name(), #rating($level - 8), 12 + $i);
             $player.age = #age();
+            $player.birthday = #birthday();
             $players[] = $player;
         }
 
@@ -490,6 +492,9 @@ pub kind Scout {
         return rand_int($band[0], $band[1]);
     }
 
+    // A day of the year, as month * 100 + day: the 28th at latest, so every year has it
+    fn birthday() { return rand_int(1, 12) * 100 + rand_int(1, 28); }
+
     // A youngster from the academy taking a retiring player's place and shirt: raw, and below
     // the club's level, except now and then a wonderkid
     pub fn youth($kind, $team, $shirt) {
@@ -497,6 +502,7 @@ pub kind Scout {
         $rating = random::chance(0.05) ? rand_int(80, 90) : max($level + rand_int(-15, -3), 40);
         $player = $kind(#new_name(), $rating, $shirt);
         $player.age = rand_int(17, 19);
+        $player.birthday = #birthday();
         return $player;
     }
 

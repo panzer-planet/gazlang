@@ -8,6 +8,8 @@ namespace game;
 include "engine/teams.gaz" use Team, Scout, InvalidLineup, TransferRefused;
 include "engine/league.gaz" use League;
 include "engine/money.gaz";
+include "engine/calendar.gaz";
+include "std/date.gaz";
 include "std/json.gaz";
 
 /* The first TOP_SIZE are the top division and the next SECOND_SIZE the second */
@@ -132,16 +134,30 @@ pub kind Game {
     pub #other_league;
     pub #inbox = [];
     pub #season = FIRST_YEAR;
+    /* Today, as a day number (lib/date.gaz): time moves a day at a time, and the game stops when
+       something needs the manager (a match of the club's, the season's review, a transfer window) */
+    pub #date = 0;
     /* The club's money in and out, newest last: {"matchday", "text", "amount"} */
     pub #ledger = [];
 
     fn _(pub #teams, pub #club, #scout, pub #other_teams, pub #level) {
-        #league = League(#teams).draw();
-        #other_league = League(#other_teams).draw();
+        #date = calendar::season_start(#season);
+        #new_leagues();
         #tell("Welcome to {#club}", "The board have appointed you manager of {#club}, in the " .. #division_name() .. ". There are "
             .. len(#teams) .. " clubs in the division and " .. #league.matchdays() .. " matchdays to play. "
             .. #expectation());
     }
+
+    /* A season's fixtures for both divisions, on the calendar of the season that is starting */
+    fn new_leagues() {
+        #league = League(#teams).draw();
+        #league.assign_dates(calendar::matchdays(#season, #league.matchdays()));
+        #other_league = League(#other_teams).draw();
+        #other_league.assign_dates(calendar::matchdays(#season, #other_league.matchdays()));
+    }
+
+    /* Today as it is said: Sat 8 Aug 2026 */
+    pub fn date_label() { return date::format(#date); }
 
     /* Every club in both divisions */
     pub fn everyone() { return [...#teams, ...#other_teams]; }
@@ -171,7 +187,7 @@ pub kind Game {
     /* What a save file keeps: everything the game is, as data */
     pub fn to_data() {
         return {
-            "game" => "football", "version" => 2, "season" => #season, "club" => #club.name, "level" => #level,
+            "game" => "football", "version" => 3, "season" => #season, "date" => #date, "club" => #club.name, "level" => #level,
             "names" => #scout.names(),
             "teams" => map(#teams, $team -> $team.to_data()),
             "other_teams" => map(#other_teams, $team -> $team.to_data()),
@@ -190,6 +206,7 @@ pub kind Game {
         $others = map($data["other_teams"], teams::from_data);
         $game = Game($teams, $club, $scout, $others, $data["level"]);
         $game.season = $data["season"];
+        $game.date = $data["date"];
         $game.league = League::from_data($data["league"], $teams);
         $game.other_league = League::from_data($data["other_league"], $others);
         $game.inbox = $data["inbox"];
@@ -219,7 +236,7 @@ pub kind Game {
         }
         try {
             $data = json::decode(read_file($path));
-            if (($data["game"] ?? null) != "football" || ($data["version"] ?? null) != 2) {
+            if (($data["game"] ?? null) != "football" || ($data["version"] ?? null) != 3) {
                 error("{$path} is not a saved football game");
             }
 
@@ -268,7 +285,7 @@ pub kind Game {
         foreach (#everyone() as $team) {
             foreach ($team.players as $player) {
                 $player.new_season();
-                $player.grow_older();
+                $player.develop();
                 if ($player.retires()) {
                     $youth = #scout.youth(kind_of($player), $team, $player.number);
                     $team.replace($player, $youth);
@@ -279,17 +296,13 @@ pub kind Game {
                 }
             }
         }
-        $deals = money::window(#everyone());
         #season++;
-        #league = League(#teams).draw();
-        #other_league = League(#other_teams).draw();
+        #new_leagues();
         $body = "A new season begins in the " .. #division_name() .. ". " .. ($verdict != "" ? $verdict .. " " : "") .. #expectation();
         if ($retired != []) {
             $body ..= "\n\nRetired: " .. join($retired, ", ") .. ". From the academy: " .. join(map($academy, $p -> "{$p} ({$p.position()}, {$p.rating})"), ", ") .. ".";
         }
-        foreach (filter($deals, $deal -> $deal["to"] == #club || $deal["from"] == #club) as $deal) {
-            $body ..= "\n\n{$deal["player"]} moved from {$deal["from"]} to {$deal["to"]} for " .. money::pounds($deal["fee"]) .. ".";
-        }
+        $body ..= "\n\nThe transfer window opens on 1 July, and the first matches are on " .. date::format(min(#league.next_date(), #other_league.next_date())) .. ".";
         #tell(#season_label() .. " begins", $body);
 
         return "";
@@ -346,30 +359,83 @@ pub kind Game {
     pub fn place() { return ordinal(#position()); }
 
     fn tell($subject, $body) {
-        #inbox[] = {"matchday" => #league.matchdays_played(), "subject" => $subject, "body" => $body};
+        #inbox[] = {"matchday" => #league.matchdays_played(), "date" => #date, "subject" => $subject, "body" => $body};
     }
 
-    /* Start the next matchday, to be played a minute at a time with live.tick(): every match is
-       made and ready, and the commentary on the club's own is collected. end_matchday() when it is
-       finished(). Gives the MatchDay. */
-    pub fn begin_matchday() {
-        if (#season_over()) {
-            error("The season is over");
-        }
+    /* Move on, a day at a time, to the next date either division plays, and begin that matchday, to be
+       played a minute at a time with live.tick(): every match is made and ready, and the commentary
+       on the club's own is collected. end_matchday() when it is finished(). Gives the MatchDay.
+       Events on the way happen and are told in the inbox (a season's review after its last match, a
+       transfer window). Days the club's division doesn't play are passed over, the other's matches
+       played out unwatched, until its season is over, and then they are the matchdays. With $stopping
+       (which play_on() gives) an event stops the clock instead, giving null. */
+    pub fn begin_matchday($stopping = false) {
         if (#live != null) {
             error("A matchday is already being played");
         }
-        // A division that has played all its matchdays sits the rest out
-        $leagues = filter([#league, #other_league], $league -> $league.matchdays_left() > 0);
-        // The other clubs pick their best eleven from who is fit; the manager's stays as it was set,
+        while (true) {
+            $next = #next_fixture_date();
+            if ($next == null || $next > #date) {
+                // Nothing to play today: on to tomorrow, which may have its own business
+                $notable = #step_day();
+                if ($stopping && $notable) {
+                    return null;
+                }
+                continue;
+            }
+            $day = #open_matchday();
+            // The club's match; or, once its division's season is over and not stopping, the other's
+            if ($day.mine != null || (!$stopping && #league.matchdays_left() == 0)) {
+                return #live;
+            }
+            // Not the club's division's day: the other plays it out, unwatched, and time goes on
+            while (!$day.finished()) {
+                $day.tick();
+            }
+            #end_matchday();
+        }
+    }
+
+    /* Move time on to the next matchday the manager should see or an event that needs them, and play
+       through what doesn't matter on the way: the other division's matchdays, birthdays and the rest.
+       Gives the MatchDay of the club's own next match, ready to be played a minute at a time, or null
+       when something else stopped the clock (the inbox says what); with $watch false the match is
+       played out at once and gives null too. */
+    pub fn play_on($watch = true) {
+        $day = #begin_matchday(true);
+        if ($day == null || $watch) {
+            return $day;
+        }
+        while (!$day.finished()) {
+            $day.tick();
+        }
+        #end_matchday();
+
+        return null;
+    }
+
+    /* The date of the next matchday of either division, or null when both seasons are over */
+    pub fn next_fixture_date() {
+        $dates = filter([#league.next_date(), #other_league.next_date()], $date -> $date != null);
+
+        return $dates == [] ? null : min($dates);
+    }
+
+    /* Begin every matchday that is due today: the club's division's if it has one, and the other's */
+    fn open_matchday() {
+        $due = filter([#league, #other_league], $league -> $league.next_date() != null && $league.next_date() <= #date);
+        // The clubs playing pick their best eleven from who is fit; the manager's stays as it was set,
         // except that anyone who is out is replaced, which the inbox says
-        foreach (#everyone() as $team) {
-            if ($team != #club) {
-                $team.auto_eleven();
+        $pairs = reduce($due, ($all, $league) -> [...$all, ...$league.next_pairs()], []);
+        foreach ($pairs as [$home, $away]) {
+            foreach ([[$home, $away], [$away, $home]] as [$team, $opponent]) {
+                if ($team != #club) {
+                    $team.auto_eleven();
+                }
             }
         }
         // ... and set up against whom they play, once the elevens are known
-        foreach (reduce($leagues, ($all, $league) -> [...$all, ...$league.next_pairs()], []) as [$home, $away]) {
+        foreach ($pairs as [$home, $away]) {
             foreach ([[$home, $away], [$away, $home]] as [$team, $opponent]) {
                 if ($team != #club) {
                     $team.set_mentality(ai_mentality($team.rating() - $opponent.rating()));
@@ -379,10 +445,10 @@ pub kind Game {
         $picked = #club.eleven();
         // Live only once the league has begun it, so a matchday that couldn't begin isn't left half made
         $day = MatchDay(#club);
-        if (#league.matchdays_left() > 0) {
+        if (in_array(#league, $due)) {
             #league.begin_matchday($day.attach);
         }
-        if (#other_league.matchdays_left() > 0) {
+        if (in_array(#other_league, $due)) {
             #other_league.begin_matchday($day.attach_other);
         }
         foreach (#club.eleven() as $i => $player) {
@@ -396,7 +462,54 @@ pub kind Game {
         }
         #live = $day;
 
-        return #live;
+        return $day;
+    }
+
+    /* A day goes by: everybody's birthdays, and what the date brings: the season's review after its
+       last match, the transfer windows opening and shutting. Gives whether anything happened that the
+       manager should hear of. */
+    fn step_day() {
+        #date++;
+        $notable = false;
+        $birthday = date::month(#date) * 100 + date::day(#date);
+        foreach (#everyone() as $team) {
+            foreach ($team.players as $player) {
+                if ($player.birthday == $birthday) {
+                    $player.celebrate();
+                }
+            }
+        }
+        if (#season_over() && #date >= calendar::review_day(#season)) {
+            #new_season();
+            $notable = true;
+        }
+        if ($birthday == 701) {
+            #open_summer_window();
+            $notable = true;
+        } else if ($birthday == 831) {
+            #tell("The transfer window has closed", "The summer window is shut until 1 January.");
+            $notable = true;
+        } else if ($birthday == 101) {
+            #tell("The transfer window is open", "The January window is open until the end of the month.");
+            $notable = true;
+        } else if ($birthday == 131) {
+            #tell("The transfer window has closed", "The January window is shut until 1 July.");
+            $notable = true;
+        }
+
+        return $notable;
+    }
+
+    /* The summer window: the clubs do their business, which the manager hears of if it was theirs */
+    fn open_summer_window() {
+        $deals = money::window(#everyone());
+        $body = "The transfer window is open until the end of August: buy and sell in Transfers.";
+        foreach (filter($deals, $deal -> $deal["to"] == #club || $deal["from"] == #club) as $deal) {
+            $signing = $deal["to"] == #club;
+            $body ..= "\n\n{$deal["player"]} moved from {$deal["from"]} to {$deal["to"]} for " .. money::pounds($deal["fee"]) .. ".";
+            #ledger[] = {"matchday" => #league.matchdays_played(), "text" => ($signing ? "Signed " : "Sold ") .. $deal["player"], "amount" => $signing ? -$deal["fee"] : $deal["fee"]};
+        }
+        #tell("The transfer window is open", $body);
     }
 
     /* The matchday is over: the table and the fixtures have its results, and the inbox says what
@@ -425,7 +538,7 @@ pub kind Game {
         if ($matches != [] && #league.matchdays_left() == 0) {
             $champions = #league.table()[0].team;
             #tell("The season is over", "{$champions} are the champions. You finished " .. ordinal(#position()) .. " in the " .. #division_name() .. ". "
-                .. #season_outcome() .. (#season_over() ? "" : " The " .. #other_division_name() .. " has " .. #other_league.matchdays_left() .. " matchdays to go: c plays them."));
+                .. #season_outcome() .. (#season_over() ? "" : " The " .. #other_division_name() .. " has " .. #other_league.matchdays_left() .. (#other_league.matchdays_left() == 1 ? " matchday" : " matchdays") .. " to go: c plays them."));
         }
         return $matches;
     }
@@ -482,6 +595,9 @@ pub kind Game {
         if (#live != null) {
             return "No transfers during a match";
         }
+        if (!calendar::window_open(#date)) {
+            return "The transfer window is closed until " .. calendar::window_opens(#date);
+        }
         $owner = null;
         foreach (#everyone() as $team) {
             if (in_array($player, $team.players)) {
@@ -517,6 +633,9 @@ pub kind Game {
     pub fn sell($player) {
         if (#live != null) {
             return "No transfers during a match";
+        }
+        if (!calendar::window_open(#date)) {
+            return "The transfer window is closed until " .. calendar::window_opens(#date);
         }
         if (!in_array($player, #club.players)) {
             return "{$player} isn't at {#club}";

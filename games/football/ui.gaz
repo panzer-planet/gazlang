@@ -13,6 +13,7 @@ namespace ui;
 include "std/term.gaz";
 include "std/tui.gaz";
 include "std/format.gaz" use pad_left, pad_right;
+include "std/date.gaz";
 include "engine/money.gaz";
 include "engine/teams.gaz" use Team;
 include "engine/matches.gaz" use Goal, Booking, Whistle, Injury, Substitution;
@@ -56,14 +57,14 @@ pub abstract kind View {
 
 /* Messages, the newest first: a list above and the one selected in full below */
 pub kind InboxView extends View {
-    #table = tui::Table(["MD", "Subject"], []);
+    #table = tui::Table(["Date", "Subject"], []);
 
     pub fn title() { return "Inbox"; }
     pub fn hints() { return "j/k move"; }
 
     pub fn draw($screen, $rect, $focused) {
         $messages = reverse(#game.inbox);
-        #table.set_rows(map($messages, $message -> [$message["matchday"], $message["subject"]]));
+        #table.set_rows(map($messages, $message -> [date::short($message["date"]), $message["subject"]]));
         [$list, $rest] = $rect.split_top(max(min(len($messages), 8) + 1, 2));
         #table.draw($screen, $list, $focused);
         $index = #table.selected_index();
@@ -155,7 +156,7 @@ pub kind SquadView extends View {
 
 /* The club's matches, played and to come */
 pub kind FixturesView extends View {
-    #table = tui::Table(["MD", "Home", "", "Away", "Score", "Res"], [], ($row, $index) -> match ($row[5]) {
+    #table = tui::Table(["Date", "Home", "", "Away", "Score", "Res"], [], ($row, $index) -> match ($row[5]) {
         "W" => "green",
         "D" => "yellow",
         "L" => "red",
@@ -181,7 +182,7 @@ pub kind FixturesView extends View {
                 $score = "next ▸";
                 $next = false;
             }
-            $rows[] = [$fixture["matchday"], to_string($fixture["home"]), "v", to_string($fixture["away"]), $score, $result];
+            $rows[] = [$fixture["date"] == null ? $fixture["matchday"] : date::short($fixture["date"]), to_string($fixture["home"]), "v", to_string($fixture["away"]), $score, $result];
         }
         #table.set_rows($rows);
         #table.draw($screen, $rect, $focused);
@@ -681,7 +682,7 @@ pub kind Shell {
 
         /* the bar: the club on the left, where the season is in the middle, the key to press on the right */
         $screen.fill($top.col, $top.row, $top.width, 1, " ", "inverse");
-        tui::label($screen, $top.col, $top.row, $top.width, #game.season_label() .. "  ·  Matchday " .. min($league.matchdays_played() + ($live && $league.matchdays_left() > 0 ? 1 : 0), $league.matchdays()) .. " of " .. $league.matchdays() .. "  ·  " .. #game.place() .. " in the " .. #game.division_name(), "inverse", "center");
+        tui::label($screen, $top.col, $top.row, $top.width, #game.date_label() .. "  ·  Matchday " .. min($league.matchdays_played() + ($live && $league.matchdays_left() > 0 ? 1 : 0), $league.matchdays()) .. " of " .. $league.matchdays() .. "  ·  " .. #game.place() .. " in the " .. #game.division_name(), "inverse", "center");
         tui::label($screen, $top.col, $top.row, term::width(#game.club.name) + 2, " " .. #game.club.name, "bold inverse");
         tui::label($screen, $top.col + $top.width - 14, $top.row, 14, $live && !#game.live.finished() ? "s Skip ▸ " : "c Continue ▸ ", "bold inverse", "right");
 
@@ -699,7 +700,7 @@ pub kind Shell {
         $view.draw($screen, $content.inset(1), !$in_menu);
 
         $hints = $view.hints();
-        $keys = $live ? "ctrl+c quit" : "1-7 sections  tab focus  c continue  C quick  S save  n new season  q quit";
+        $keys = $live ? "ctrl+c quit" : "1-7 sections  tab focus  c continue  C quick  S save  q quit";
         tui::label($screen, $bottom.col + 1, $bottom.row, max($bottom.width - 2, 0), #note != "" ? #note : ($hints == "" ? $keys : $hints .. "   " .. $keys), #note != "" ? "bold yellow" : "dim");
     }
 
@@ -741,22 +742,15 @@ pub kind Shell {
             return "quit";
         }
         if ($name == "c" || $name == "C") {
-            if (#game.season_over()) {
-                #note = "The season is over. n starts the next one.";
-            } else if ($name == "c") {
-                #game.begin_matchday();
+            // Time goes on a day at a time until something needs the manager: their match, which C plays at once
+            #game.play_on($name == "c");
+            if (#game.live != null) {
                 #match.reset();
             } else {
-                #game.advance();
+                // The inbox says what stopped the clock
                 #current = 0;
+                #note = "Time has moved on to " .. #game.date_label();
             }
-            return null;
-        }
-        if ($name == "n") {
-            $problem = #game.new_season();
-            #note = $problem == "" ? "A new season begins" : $problem;
-            #current = 0;
-
             return null;
         }
         if ($name == "S") {

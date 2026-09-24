@@ -643,7 +643,9 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   request; credentials dropped on a redirect to another origin; `HttpTest` runs it against
   `tests/fixtures/http_server.php`, over TCP and TLS, which writes framing out by hand so it can
   get it wrong on purpose; ports vary, so what it prints is checked by shape, not recorded),
-  `random.gaz` (`random::shuffle`, `random::pick`, `random::key`, `random::chance`,
+  `date.gaz` (`date::days`, `date::civil`, `date::format`: a date is a number of days from 1 January
+  1970, with no clock, since a program that asked one what day it is could not be recorded, so a game
+  keeps its own date), `random.gaz` (`random::shuffle`, `random::pick`, `random::key`, `random::chance`,
   `random::weighted`), `term.gaz` (`term::style`, the cursor and screen sequences,
   `term::decode`, `term::Input`, `term::fullscreen`, on the terminal builtins; drawing functions
   return their sequence, so a program prints them and a test compares them), `tui.gaz`

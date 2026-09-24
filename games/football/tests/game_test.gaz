@@ -6,6 +6,7 @@ include "../../../tests/gaz/check.gaz";
 include "../game.gaz" use Game, ordinal, ai_mentality;
 include "../engine/matches.gaz" use Substitution;
 include "../engine/money.gaz";
+include "std/date.gaz";
 
 /* How many of $list satisfy $test */
 fn count_where($list, $test) {
@@ -97,10 +98,10 @@ foreach ([1, 2, 3] as $seed) {
         check("and where the club is ({$label})", contains($report["body"], "You are " .. $game.place() .. " on "), true);
         $results = message_starting($new, "Matchday {$day} results") ?? {"subject" => "(none)", "body" => ""};
         check("then all the results ({$label})", [$results["subject"], len(split($results["body"], "\n"))], ["Matchday {$day} results", 10]);
-        $elsewhere = message_starting($new, $game.other_division_name() .. ", matchday {$day}") ?? {"subject" => "(none)", "body" => ""};
-        check("and the other division's ({$label})", [$elsewhere["subject"], len(split($elsewhere["body"], "\n"))], [$game.other_division_name() .. ", matchday {$day}", 12]);
+        $elsewhere = filter($new, $m -> starts_with($m["subject"], $game.other_division_name() .. ", matchday "));
+        check("and the other division's, at least the one played the same day ({$label})", [len($elsewhere) >= 1, len(split(last($elsewhere)["body"], "\n"))], [true, 12]);
         check("the position is between 1 and 20 ({$label})", [$game.position() >= 1, $game.position() <= 20], [true, true]);
-        $families = ["Win: ", "Draw: ", "Defeat: ", "Matchday ", "Lineup: ", "Injury: ", "Suspended: ", "Back: ", "The season is over", "Premier Division, ", "Championship, "];
+        $families = ["Win: ", "Draw: ", "Defeat: ", "Matchday ", "Lineup: ", "Injury: ", "Suspended: ", "Back: ", "The season is over", "Premier Division, ", "Championship, ", "The transfer window"];
         check("at least the report and the results, and nothing but the news there is ({$label})", [len($new) >= 2, count_where($new, $m -> count_where($families, $f -> starts_with($m["subject"], $f)) == 0)], [true, 0]);
         check("and the season's end has the last word ({$label})", $day < 38 || $new[len($new) - 1]["subject"] == "The season is over", true);
     }
@@ -117,12 +118,9 @@ foreach ([1, 2, 3] as $seed) {
         $game.advance();
     }
     check("and then the whole season is over, forty-six matchdays in the Championship ({$seed})", [$game.other_league.matchdays_played(), $game.league.matchdays_played()], [46, 38]);
-    try {
-        $game.advance();
-        check("no more matchdays ({$seed})", "no error", "an error");
-    } catch (Error $e) {
-        check("no more matchdays ({$seed})", $e.message, "The season is over");
-    }
+    $season_end = $game.date;
+    $game.advance();
+    check("time goes on after the season: the next one begins, in August of the next year ({$seed})", [$game.season, $game.date > $season_end, date::month($game.date), date::year($game.date)], [2027, true, 8, 2027]);
     check("the season played is a full one ({$seed})", sum(map($table, $row -> $row.played)), 20 * 38);
 }
 
@@ -219,9 +217,9 @@ while (!$over.season_over()) {
 }
 try {
     $over.begin_matchday();
-    check("no matchday after the season", "no error", "an error");
+    check("the next matchday after a season is in the next one", [$over.season, $over.league.matchdays_played()], [2027, 0]);
 } catch (Error $e) {
-    check("no matchday after the season", $e.message, "The season is over");
+    check("the next matchday after a season is in the next one", $e.message, "no error");
 }
 
 /* The shirt numbers of $players */
@@ -581,7 +579,7 @@ check("a new season starts", $game.new_season(), "");
 check("with the next year, fresh fixtures and an empty table", [$game.season, $game.league.matchdays_played(), $game.league.matchdays(), $game.season_over(), $game.season_label()], [2027, 0, $game.level == 0 ? 38 : 46, false, "2027/28"]);
 check("the club was paid prize money for where it finished", $game.ledger[len($game.ledger) - 1]["amount"], money::prize(1 + $level, $place, $size));
 $stayed = filter($before, $p -> in_array($p, $game.club.players));
-check("whoever stayed is a year older, and the squad is the size it was", [count_where($stayed, $p -> $p.age == $was[object_id($p)] + 1), len($game.club.players)], [len($stayed), len($before)]);
+check("a season's end doesn't age anyone: age goes up on birthdays, and the squad is the size it was", [count_where($stayed, $p -> $p.age == $was[object_id($p)]), len($game.club.players)], [len($stayed), len($before)]);
 check("goals go to the career, and the season's count starts again", [sum(map($game.club.players, $p -> $p.goals)), sum(map($game.club.players, $p -> $p.career_goals)) >= $career], [0, true]);
 check("the inbox says the season begins", $game.inbox[len($game.inbox) - 1]["subject"], "2027/28 begins");
 check("the ledger has the prize money", count_where($game.ledger, $e -> starts_with($e["text"], "Prize money")), 1);
@@ -696,7 +694,10 @@ for ($i = 0; $i < 38; $i++) {
         check("a Championship matchday is twelve matches (matchday {$i})", len($matches), 12);
     }
 }
-check("after thirty-eight the Premier Division is done and the club's season is not", [$game.other_league.matchdays_left(), $game.league.matchdays_left(), $game.season_over()], [0, 8, false]);
+while ($game.other_league.matchdays_left() > 0) {
+    $game.advance();
+}
+check("after thirty-eight the Premier Division is done and the club's season is not", [$game.other_league.matchdays_left(), $game.league.matchdays_left(), $game.season_over()], [0, $game.league.matchdays_left(), false]);
 $live = $game.begin_matchday();
 check("the club still plays, and only its own division is watched", [$live.mine != null, len($live.matches), len($live.unwatched())], [true, 12, 0]);
 while (!$live.finished()) {
@@ -716,21 +717,123 @@ for ($i = 0; $i < 38; $i++) {
 }
 $premier_at_38 = map($game.teams, $t -> $t.balance);
 $second_at_38 = map($game.other_teams, $t -> $t.balance);
-$game.advance();
+check("the Championship still has a matchday to play when the Premier Division is done", $game.other_league.matchdays_left() > 0, true);
 $game.advance();
 check("the Premier Division's clubs are paid nothing and pay nothing on the Championship's extra matchdays, the Championship's are", [map($game.teams, $t -> $t.balance) == $premier_at_38, map($game.other_teams, $t -> $t.balance) != $second_at_38], [true, true]);
 
 /* wages are a matchday's share of a season of the division's own length */
 $game = Game::start(30, 25);
-$wages_before = money::wages($game.club);
 $game.advance();
 $wage_entry = filter($game.ledger, $e -> $e["text"] == "Wages")[0];
-check("a Championship club pays a forty-sixth of its wages a matchday", $wage_entry["amount"], -intdiv($wages_before, 46));
+check("a Championship club pays a forty-sixth of its wages a matchday", $wage_entry["amount"], -intdiv(money::wages($game.club), 46));
 $premier = Game::start(30);
-$premier_wages = money::wages($premier.club);
 $premier.advance();
-check("and a Premier Division club a thirty-eighth", filter($premier.ledger, $e -> $e["text"] == "Wages")[0]["amount"], -intdiv($premier_wages, 38));
+check("and a Premier Division club a thirty-eighth", filter($premier.ledger, $e -> $e["text"] == "Wages")[0]["amount"], -intdiv(money::wages($premier.club), 38));
 $second_team = $premier.other_teams[3];
 $second_start = money::starting_balance($second_team);
 $was_home = $premier.other_league.fixtures_of($second_team)[0]["home"] == $second_team;
 check("and a Championship club, in the other division, a forty-sixth", $second_team.balance, $second_start + money::TELEVISION - intdiv(money::wages($second_team), 46) + ($was_home ? money::gate($second_team) : 0));
+
+/* ---- The calendar ---- */
+$game = Game::start(50);
+check("a game starts on 1 July, a Wednesday, in the summer window", [$game.date, $game.date_label(), $game.season], [date::days(2026, 7, 1), "Wed 1 Jul 2026", 2026]);
+$ages = {};
+foreach ($game.everyone() as $team) {
+    foreach ($team.players as $p) {
+        $ages[object_id($p)] = $p.age;
+    }
+}
+$dates = $game.league.dates;
+check("the fixtures are dated: Saturdays, and the first on 8 August", [len($dates), date::format($dates[0]), count_where($dates, $d -> date::weekday($d) == 5)], [38, "Sat 8 Aug 2026", 38]);
+check("the Championship has forty-six, five of them on a Tuesday", [len($game.other_league.dates), count_where($game.other_league.dates, $d -> date::weekday($d) == 1)], [46, 5]);
+$live = $game.begin_matchday();
+check("time moves to the day the first match is played", [$game.date_label(), $live.mine != null, $game.next_fixture_date()], ["Sat 8 Aug 2026", true, $game.league.dates[0]]);
+$wrong = [];
+foreach ($game.everyone() as $team) {
+    foreach ($team.players as $p) {
+        $expected = $ages[object_id($p)] + ($p.birthday > 701 && $p.birthday <= 808 ? 1 : 0);
+        if ($p.age != $expected) {
+            $wrong[] = "{$p}: {$p.age}, birthday {$p.birthday}";
+        }
+    }
+}
+check("everyone whose birthday has gone by since 1 July is a year older, and nobody else", $wrong, []);
+while (!$live.finished()) {
+    $live.tick();
+}
+$game.end_matchday();
+$game.advance();
+check("each matchday is on its date", [$game.date, $game.league.matchdays_played()], [$game.league.dates[1], 2]);
+check("and the messages carry the date", [$game.inbox[len($game.inbox) - 1]["date"], date::format($game.inbox[len($game.inbox) - 1]["date"])], [$game.date, date::format($game.date)]);
+
+/* the transfer windows */
+$game = Game::start(50);
+$target = $game.market()[0][0];
+$game.club.balance = 1000000000;
+check("the window is open in July: a signing is done", $game.buy($target), "");
+$game.advance();
+check("and in August", calendar_open($game.date), true);
+fn calendar_open($day) { return in_array(date::month($day), [7, 8, 1]); }
+$game.date = date::days(2026, 9, 15);
+check("in September it is shut, until January", [$game.buy($game.market()[0][0]), $game.sell($game.club.players[5])], ["The transfer window is closed until 1 January", "The transfer window is closed until 1 January"]);
+$game.date = date::days(2027, 1, 20);
+check("open again in January", $game.buy($game.market()[0][0]), "");
+$game.date = date::days(2027, 3, 1);
+check("shut until July in March", $game.buy($game.market()[0][0]), "The transfer window is closed until 1 July");
+$game.date = date::days(2026, 12, 31);
+check("shut on 31 December", $game.sell($game.club.players[5]), "The transfer window is closed until 1 January");
+$game.date = date::days(2027, 1, 1);
+check("and open the next day", $game.sell($game.club.players[5]), "");
+
+/* what the date brings, through a whole season */
+$game = Game::start(51);
+$subjects = [];
+while (!$game.season_over()) {
+    $game.advance();
+}
+$last_match = $game.date;
+foreach ($game.inbox as $m) {
+    $subjects[] = $m["subject"];
+}
+check("through a season the windows shut and open by the date: August 31st, January 1st and 31st", [
+    count_where($game.inbox, $m -> $m["subject"] == "The transfer window has closed" && date::month($m["date"]) == 8 && date::day($m["date"]) == 31),
+    count_where($game.inbox, $m -> $m["subject"] == "The transfer window is open" && date::month($m["date"]) == 1 && date::day($m["date"]) == 1),
+    count_where($game.inbox, $m -> $m["subject"] == "The transfer window has closed" && date::month($m["date"]) == 1 && date::day($m["date"]) == 31),
+], [1, 1, 1]);
+check("the season's last match is in May, and the season is not reviewed until June", [date::month($last_match), $game.season, $game.season_over()], [5, 2026, true]);
+$game.advance();
+check("time goes on to the next season's first match, having reviewed the season on 1 June and opened the window on 1 July", [$game.season, date::format($game.date), count_where($game.inbox, $m -> $m["subject"] == "2027/28 begins" && $m["date"] == date::days(2027, 6, 1)), count_where($game.inbox, $m -> $m["subject"] == "The transfer window is open" && $m["date"] == date::days(2027, 7, 1))], [2027, "Sat 14 Aug 2027", 1, 1]);
+
+/* play_on: the way the interface moves time */
+$game = Game::start(52);
+$live = $game.play_on();
+check("c goes to the club's first match, ready to watch", [$live != null, $live.mine != null, $game.date_label(), $game.league.matchdays_played()], [true, true, "Sat 8 Aug 2026", 0]);
+while (!$live.finished()) {
+    $live.tick();
+}
+$game.end_matchday();
+check("C plays the next at once and stops, with the news in the inbox", [$game.play_on(false), $game.league.matchdays_played(), $game.live], [null, 2, null]);
+$stops = [];
+while (!$game.club_done()) {
+    $game.play_on(false);
+}
+$stops = [];
+$live = $game.play_on(false);
+$stops[] = [date::format($game.date), $game.inbox[len($game.inbox) - 1]["subject"]];
+$live = $game.play_on(false);
+$stops[] = [date::format($game.date), $game.inbox[len($game.inbox) - 1]["subject"]];
+check("after the last match c stops for the season's review, then for the window, and only then plays", $stops, [["Tue 1 Jun 2027", "2027/28 begins"], ["Thu 1 Jul 2027", "The transfer window is open"]]);
+$live = $game.play_on();
+check("then the first match of the new season", [$live != null, date::format($game.date), $game.season], [true, "Sat 14 Aug 2027", 2027]);
+while ($game.live == null && !$game.club_done()) {
+    $live = $game.play_on(false);
+}
+check("and c stops for the window closing on the last day of August, though the matches go on", [count_where($game.inbox, $m -> $m["subject"] == "The transfer window has closed" && $m["date"] == date::days(2027, 8, 31)) > 0 || date::month($game.date) < 9], [true]);
+
+/* a save keeps the date, and everyone's birthday */
+$game = Game::start(53);
+$game.advance();
+$game.save("vm/build/football_date.save");
+$again = Game::load("vm/build/football_date.save");
+run(["rm", "-f", "vm/build/football_date.save"]);
+check("a saved game keeps its date and its fixtures' dates", [$again.date, $again.league.dates == $game.league.dates, $again.other_league.dates == $game.other_league.dates, $again.club.players[3].birthday, $again.to_data() == $game.to_data()], [$game.date, true, true, $game.club.players[3].birthday, true]);

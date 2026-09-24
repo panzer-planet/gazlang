@@ -8,6 +8,7 @@ include "std/term.gaz";
 include "std/tui.gaz";
 include "../engine/matches.gaz" use Goal, Booking;
 include "../game.gaz" use Game;
+include "std/date.gaz";
 include "../engine/money.gaz";
 include "../ui.gaz" use Shell;
 
@@ -108,9 +109,9 @@ fn results_on($screen) {
 $game = Game::start(1);
 $shell = Shell::for_game($game);
 $screen = look($shell);
-check("the bar names the club, the season and the matchday", [
+check("the bar names the club, the date and the matchday", [
     contains($screen.lines()[0], "Riverside FC"),
-    contains($screen.lines()[0], "2026/27"),
+    contains($screen.lines()[0], "Wed 1 Jul 2026"),
     contains($screen.lines()[0], "Matchday 0 of 38"),
     contains($screen.lines()[0], $game.place()),
     contains($screen.lines()[0], "c Continue"),
@@ -127,7 +128,7 @@ check("the menu lists the sections in order", [
 check("the inbox is on show, with its welcome", [$shell.section(), shows($screen, "Welcome to Riverside FC"), shows($screen, "The board have appointed you")], ["Inbox", true, true]);
 check("keys start in the menu", $shell.focus(), "menu");
 check("the current section is marked in the menu", [$screen.cell(3, 3)[1], $screen.cell(3, 4)[1]], ["inverse", ""]);
-check("the last line says what the keys do", contains($screen.lines()[29], "1-7 sections  tab focus  c continue  C quick  S save  n new season  q quit"), true);
+check("the last line says what the keys do", contains($screen.lines()[29], "1-7 sections  tab focus  c continue  C quick  S save  q quit"), true);
 check("the screen is as big as it was asked to be", [len($screen.lines()), term::width($screen.lines()[0])], [30, 100]);
 
 /* ---- Sections ---- */
@@ -372,27 +373,23 @@ check("the leader is first", contains($screen.lines()[3], $game.league.table()[0
 while (!$game.club_done()) {
     press($shell, "C");
 }
-check("thirty-seven more and the club's season is over, though the second division's is not", [$game.club_done(), $game.season_over(), $game.league.matchdays_played(), $game.other_league.matchdays_played()], [true, false, 38, 38]);
+check("thirty-seven more and the club's season is over, though the second division's is not: it has one matchday left", [$game.club_done(), $game.season_over(), $game.league.matchdays_played(), $game.other_league.matchdays_played(), $game.season], [true, false, 38, 45, 2026]);
 $screen = look($shell);
-check("the bar says so", contains($screen.lines()[0], "Matchday 38 of 38"), true);
-check("and the inbox has the last word, saying how many matchdays the Championship has to go", [shows($screen, "The season is over"), lines_with($screen, "8 matchdays to go") + lines_with($screen, "8 matchdays") > 0], [true, true]);
-press($shell, "c");
-$screen = look($shell);
-check("watching a matchday the club sits out: it says so, and the bar stays at the end of the club's season", [shows($screen, "doesn't play this matchday"), contains($screen.lines()[0], "Matchday 38 of 38")], [true, true]);
-press($shell, "s");
-press($shell, "c");
-while (!$game.season_over()) {
-    press($shell, "C");
-}
-check("the Championship plays on until it is done: forty-six matchdays", [$game.other_league.matchdays_played(), $game.league.matchdays_played()], [46, 38]);
-check("and the bar stays at the end of the club's own season", contains(look($shell).lines()[0], "Matchday 38 of 38"), true);
-check("nothing to say yet about it", $shell.notice(), "");
+check("the bar says so, and the date is in May", [contains($screen.lines()[0], "Matchday 38 of 38"), contains($screen.lines()[0], "May 2027")], [true, true]);
+check("and the inbox has the last word, saying how many matchdays the Championship has to go", [shows($screen, "The season is over"), shows($screen, "The season is over")], [true, true]);
+$message = $game.inbox[len($game.inbox) - 1];
+check("with the news: one matchday to go in the Championship", contains($message["body"], "The Championship has 1 matchday to go"), true);
 press($shell, "C");
 $screen = look($shell);
-check("another C is told the season is over", [$shell.notice(), contains($screen.lines()[29], "The season is over. n starts")], ["The season is over. n starts the next one.", true]);
-check("in bold yellow", $screen.cell(2, 30)[1], "bold yellow");
+check("C plays the Championship's last matchday unwatched and goes on to the season's review on 1 June", [$game.season, $game.date_label(), $shell.notice(), $shell.section()], [2027, "Tue 1 Jun 2027", "Time has moved on to Tue 1 Jun 2027", "Inbox"]);
+check("the notice is in bold yellow, and the inbox has the new season", [$screen.cell(2, 30)[1], shows($screen, "2027/28 begins"), contains($screen.lines()[0], "Matchday 0 of ")], ["bold yellow", true, true]);
 press($shell, "2");
 check("and the notice goes with the next key", $shell.notice(), "");
+press($shell, "c");
+check("c stops again for the transfer window on 1 July", [$game.date_label(), $game.live, $shell.section(), shows(look($shell), "The transfer window is open")], ["Thu 1 Jul 2027", null, "Inbox", true]);
+press($shell, "c");
+check("and then goes to the first match of the new season, on a Saturday in August", [$game.live != null, date::month($game.date), date::weekday($game.date), $shell.section()], [true, 8, 5, "Inbox"]);
+check("which is on the screen", [shows(look($shell), "Match day"), contains(look($shell).lines()[0], "Aug 2027")], [true, true]);
 
 /* ---- Watching a matchday ---- */
 $game = Game::start(6);
@@ -754,13 +751,12 @@ $nowhere = Shell::for_game(Game::start(4));
 press($nowhere, "S");
 check("with no save file there is nowhere to save", $nowhere.notice(), "There is nowhere to save to");
 run(["rm", "-f", $path]);
-press($shell, "n");
-check("n before the season is over is told so", $shell.notice(), "The season isn't over");
-while (!$game.season_over()) {
+while (!$game.club_done()) {
     press($shell, "C");
 }
-press($shell, "n");
-check("n at the end starts the next season, and the bar says so", [$shell.notice(), $game.season, contains(look($shell).lines()[0], "2027/28"), contains(look($shell).lines()[0], "Matchday 0 of 38")], ["A new season begins", 2027, true, true]);
+press($shell, "C");
+check("after the last match the next season begins on its own: the review, the year and fixtures", [$game.season, contains(look($shell).lines()[0], "Matchday 0 of ")], [2027, true]);
+press($shell, "c");
 press($shell, "c");
 check("and it can be played", [$game.live != null, $game.season_over()], [true, false]);
 
@@ -821,3 +817,27 @@ press($shell, "\x1b");
 press($shell, "w");
 $keeper = filter($game.club.eleven(), $p -> $p.position() == "GK")[0];
 check("but a goalkeeper can be replaced by the one on the bench", [len($game.club.substitutes($keeper)) > 0], [true]);
+
+/* ---- Dates on screen ---- */
+$game = Game::start(6);
+$shell = Shell::for_game($game);
+$screen = look($shell);
+check("the inbox lists the messages under their date", [shows($screen, "1 Jul"), shows($screen, "Welcome to Riverside FC")], [true, true]);
+press($shell, "4");
+$screen = look($shell);
+$first_date = date::short($game.league.dates[0]);
+$fixture_row = row_of($screen, $game.league.fixtures_of($game.club)[0]["home"].name, 3);
+check("the fixtures have their dates: the first is 8 August, in the row of the first match", [$first_date, contains($screen.lines()[$fixture_row - 1], "8 Aug"), shows($screen, "Date")], ["8 Aug", true, true]);
+press($shell, "c");
+check("the bar shows the day of the match", [contains(look($shell).lines()[0], "Sat 8 Aug 2026"), $shell.section()], [true, "Fixtures"]);
+press($shell, "s");
+press($shell, "c");
+press($shell, "7");
+press($shell, "\t");
+$game.club.balance = 1000000000;
+$game.date = date::days(2026, 9, 15);
+press($shell, "\r");
+check("in September a signing is refused, and the note says when the window opens", $shell.notice(), "The transfer window is closed until 1 January");
+$game.date = date::days(2027, 1, 5);
+press($shell, "\r");
+check("in January it goes through", starts_with($shell.notice(), "Signed "), true);

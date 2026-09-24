@@ -1,0 +1,103 @@
+/*
+ * Calendar dates, as whole numbers of days: date::days(2026, 8, 8) is a number a program can add to,
+ * compare and count with, and date::civil() and date::format() turn it back into a year, month and
+ * day. Day 0 is 1 January 1970 (the proleptic Gregorian calendar, so any year is fine), which is only
+ * a starting point: there is no time of day, no zone and no clock, since a program that asks a
+ * clock what day it is could not be recorded (see monotonic_time()). A game keeps its own date.
+ */
+namespace date;
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+/* Whether $year is a leap year */
+pub fn is_leap($year) {
+    return $year % 4 == 0 && ($year % 100 != 0 || $year % 400 == 0);
+}
+
+/* The days in month $month (1 to 12) of $year */
+pub fn days_in_month($year, $month) {
+    if ($month < 1 || $month > 12) {
+        error("There is no month {$month}");
+    }
+    if ($month == 2) {
+        return is_leap($year) ? 29 : 28;
+    }
+
+    return in_array($month, [4, 6, 9, 11]) ? 30 : 31;
+}
+
+/* The day number of a year, month (1 to 12) and day of the month: an impossible date is an error */
+pub fn days($year, $month, $day) {
+    if ($month < 1 || $month > 12 || $day < 1 || $day > days_in_month($year, $month)) {
+        error("There is no date {$year}-{$month}-{$day}");
+    }
+    // The year begins in March, so the leap day is the last of it (Howard Hinnant's algorithm)
+    $y = $month <= 2 ? $year - 1 : $year;
+    $era = intdiv($y >= 0 ? $y : $y - 399, 400);
+    $year_of_era = $y - $era * 400;
+    $day_of_year = intdiv(153 * ($month + ($month > 2 ? -3 : 9)) + 2, 5) + $day - 1;
+    $day_of_era = $year_of_era * 365 + intdiv($year_of_era, 4) - intdiv($year_of_era, 100) + $day_of_year;
+
+    return $era * 146097 + $day_of_era - 719468;
+}
+
+/* [year, month, day] of a day number */
+pub fn civil($days) {
+    $z = $days + 719468;
+    $era = intdiv($z >= 0 ? $z : $z - 146096, 146097);
+    $day_of_era = $z - $era * 146097;
+    $year_of_era = intdiv($day_of_era - intdiv($day_of_era, 1460) + intdiv($day_of_era, 36524) - intdiv($day_of_era, 146096), 365);
+    $day_of_year = $day_of_era - (365 * $year_of_era + intdiv($year_of_era, 4) - intdiv($year_of_era, 100));
+    $mp = intdiv(5 * $day_of_year + 2, 153);
+    $day = $day_of_year - intdiv(153 * $mp + 2, 5) + 1;
+    $month = $mp < 10 ? $mp + 3 : $mp - 9;
+
+    return [$year_of_era + $era * 400 + ($month <= 2 ? 1 : 0), $month, $day];
+}
+
+/* The year, month and day of a day number, singly */
+pub fn year($days) { return civil($days)[0]; }
+pub fn month($days) { return civil($days)[1]; }
+pub fn day($days) { return civil($days)[2]; }
+
+/* The weekday of a day number: 0 is Monday and 6 Sunday */
+pub fn weekday($days) {
+    return (($days + 3) % 7 + 7) % 7;
+}
+
+/* The first $weekday (0 Monday to 6 Sunday) on or after $days */
+pub fn next_weekday($days, $weekday) {
+    return $days + (($weekday - weekday($days)) % 7 + 7) % 7;
+}
+
+/* The same day of the month $months later, or the last day of that month if it has no such day */
+pub fn add_months($days, $months) {
+    [$year, $month, $day] = civil($days);
+    $index = $year * 12 + $month - 1 + $months;
+    $year = intdiv($index, 12);
+    $month = $index % 12 + 1;
+
+    return days($year, $month, min($day, days_in_month($year, $month)));
+}
+
+/* "Sat 8 Aug 2026" */
+pub fn format($days) {
+    [$year, $month, $day] = civil($days);
+
+    return WEEKDAYS[weekday($days)] .. " {$day} " .. MONTHS[$month - 1] .. " {$year}";
+}
+
+/* "8 Aug" */
+pub fn short($days) {
+    $parts = civil($days);
+
+    return "{$parts[2]} " .. MONTHS[$parts[1] - 1];
+}
+
+/* "2026-08-08" */
+pub fn iso($days) {
+    [$year, $month, $day] = civil($days);
+
+    return "{$year}-" .. ($month < 10 ? "0" : "") .. $month .. "-" .. ($day < 10 ? "0" : "") .. $day;
+}

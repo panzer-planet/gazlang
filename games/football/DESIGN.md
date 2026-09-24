@@ -67,8 +67,10 @@ A launcher smoke test runs the real thing on a pty. See `README.md`.
    contract.
 5. **Balance.** Scorelines like 0-8 come from the simulator's odds, and need tuning before anything
    built on them is fun.
-6. **No calendar.** Time is a matchday counter (38 in the Premier Division, 46 in the Championship);
-   it needs dates, a transfer window, a cup.
+6. **Calendar** *(done, for now)*: a date, dated fixtures (Saturdays and some Tuesdays), a season from
+   1 July to a review on 1 June, transfer windows in July, August and January, birthdays. Not yet:
+   cups and midweek European nights, injuries counted in days, contracts running out on a date,
+   scouting and training on the calendar.
 7. **Money** *(basic)*: books, a market, selling, prize money and the clubs' summer window are in.
    Not yet: contracts, a transfer window you can use, bids the other side can refuse.
 8. **Saving** *(done)*: `Game.to_data`/`from_data`, JSON, any time between matchdays.

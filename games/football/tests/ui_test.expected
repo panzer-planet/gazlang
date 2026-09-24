@@ -1,4 +1,4 @@
-ok the bar names the club, the season and the matchday
+ok the bar names the club, the date and the matchday
 ok the bar is inverse across the screen
 ok the menu lists the sections in order
 ok the inbox is on show, with its welcome
@@ -66,16 +66,16 @@ ok all twenty
 ok the club's own cell is cyan, and another club's is not
 ok and says what the game says
 ok the leader is first
-ok thirty-seven more and the club's season is over, though the second division's is not
-ok the bar says so
+ok thirty-seven more and the club's season is over, though the second division's is not: it has one matchday left
+ok the bar says so, and the date is in May
 ok and the inbox has the last word, saying how many matchdays the Championship has to go
-ok watching a matchday the club sits out: it says so, and the bar stays at the end of the club's season
-ok the Championship plays on until it is done: forty-six matchdays
-ok and the bar stays at the end of the club's own season
-ok nothing to say yet about it
-ok another C is told the season is over
-ok in bold yellow
+ok with the news: one matchday to go in the Championship
+ok C plays the Championship's last matchday unwatched and goes on to the season's review on 1 June
+ok the notice is in bold yellow, and the inbox has the new season
 ok and the notice goes with the next key
+ok c stops again for the transfer window on 1 July
+ok and then goes to the first match of the new season, on a Saturday in August
+ok which is on the screen
 ok nothing to tick between matchdays
 ok c begins a matchday to watch
 ok and it takes over the section
@@ -169,8 +169,7 @@ ok a player too dear is refused, saying why, and nothing changes
 ok S saves, and says where
 ok what was saved is the game
 ok with no save file there is nowhere to save
-ok n before the season is over is told so
-ok n at the end starts the next season, and the bar says so
+ok after the last match the next season begins on its own: the review, the year and fixtures
 ok and it can be played
 ok the table is the club's division's, and the bar says which
 ok the champions row is green and the last two red, the club's own bold cyan
@@ -183,3 +182,8 @@ ok d again comes back
 ok a manager in the second division sees it, with promotion places green and no relegation
 ok with only injured players and a goalkeeper on the bench, choosing an outfielder to take off says why instead of showing an empty list
 ok but a goalkeeper can be replaced by the one on the bench
+ok the inbox lists the messages under their date
+ok the fixtures have their dates: the first is 8 August, in the row of the first match
+ok the bar shows the day of the match
+ok in September a signing is refused, and the note says when the window opens
+ok in January it goes through

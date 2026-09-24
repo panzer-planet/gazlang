@@ -1,0 +1,18 @@
+ok day 0 is 1 January 1970, a Thursday
+ok known days
+ok and back
+ok known weekdays: 8 Aug 2026 is a Saturday, 29 Feb 2000 a Tuesday, 25 Dec 1999 a Saturday
+ok every day of four years round-trips and counts on by one
+ok leap years: divisible by four, except centuries that aren't by 400
+ok days in a month
+ok a year is 365 days or 366 in a leap year
+ok the parts
+ok the next weekday on or after: a Saturday from a Monday, and the day itself
+ok months added: the same day, or the last of a shorter month, across a year end
+ok formats
+ok an impossible date is an error (2026-13-1)
+ok an impossible date is an error (2026-0-1)
+ok an impossible date is an error (2026-2-29)
+ok an impossible date is an error (2026-4-31)
+ok an impossible date is an error (2026-1-0)
+ok no month 13
