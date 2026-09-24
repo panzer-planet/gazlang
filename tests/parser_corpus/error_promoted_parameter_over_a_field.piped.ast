@@ -1,0 +1,1 @@
+Error: K already has a field #x: a promoted parameter declares its field, so remove the field's own declaration (or write $x as a plain parameter) on line 3

@@ -129,6 +129,9 @@ kind Parser {
 
     // Declared kinds by name, resolved once the whole program is read
     #kinds = {};
+    // The fields a constructor's promoted parameters declared, as "Kind::name", so a second
+    // declaration of one can say where the first came from (a promoted parameter is the field)
+    #promoted = {};
 
     // Every #name, in source order, as [node, the kind it is written in, the argument count
     // if it is called or null, whether it is assigned to], checked once the kinds are
@@ -1584,7 +1587,7 @@ kind Shared {
                 if ($name == "_") {
                     #fail("A field can't be named _: that's the constructor");
                 }
-                #check_new_member($kind, $name);
+                #check_new_member($kind, $name, true);
                 #eat("HASH_IDENTIFIER");
                 $param = "$" .. $name;
                 if (in_array($param, $params)) {
@@ -1602,6 +1605,7 @@ kind Shared {
                 // No default of its own: its value always comes from the parameter, assigned
                 // in the constructor's body, whether given or defaulted there
                 #declare_field($kind, $name, null, $vis, $token.line);
+                #promoted["{$kind.name}::{$name}"] = true;
                 $promoted[] = [$name, $token];
                 $params[] = $param;
                 $defaults[] = $default;
@@ -2406,7 +2410,9 @@ kind Shared {
     }
 
     // Check a kind doesn't already declare a member: fields and methods share one namespace
-    fn check_new_member($kind, $name) {
+    //
+    // $promoting is whether the name being declared is a constructor's promoted parameter
+    fn check_new_member($kind, $name, $promoting = false) {
         $field = #current_token.type == "HASH_IDENTIFIER";
         if (has_key($kind.statics, $name) || has_key($kind.static_methods, $name)) {
             $member = has_key($kind.statics, $name) ? "static field #{$name}" : "static method {$name}";
@@ -2416,6 +2422,15 @@ kind Shared {
             #fail("{$kind.name} already has a constant {$name}: constants, fields and methods share names");
         }
         if (has_key($kind.fields, $name)) {
+            if ($field && $promoting) {
+                if (has_key(#promoted, "{$kind.name}::{$name}")) {
+                    #fail("Duplicate parameter \${$name} in method {$kind.name}._");
+                }
+                #fail("{$kind.name} already has a field #{$name}: a promoted parameter declares its field, so remove the field's own declaration (or write \${$name} as a plain parameter)");
+            }
+            if ($field && has_key(#promoted, "{$kind.name}::{$name}")) {
+                #fail("{$kind.name} already has a field #{$name}, declared by a promoted constructor parameter: remove this declaration");
+            }
             #fail($field
                 ? "{$kind.name} already has a field #{$name}"
                 : "{$kind.name} already has a field #{$name}, and a method can't have a field's name: call the method something else");

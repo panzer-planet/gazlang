@@ -1,0 +1,1 @@
+Error: K already has a field #x, and a method can't have a field's name: call the method something else at tests/parser_corpus/error_method_over_a_field_of_the_name.gaz:3

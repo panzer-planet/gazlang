@@ -1,1 +1,1 @@
-Error: Point already has a field #x at tests/parser_corpus/error_promoted_field_duplicate.gaz:4
+Error: Point already has a field #x: a promoted parameter declares its field, so remove the field's own declaration (or write $x as a plain parameter) at tests/parser_corpus/error_promoted_field_duplicate.gaz:4

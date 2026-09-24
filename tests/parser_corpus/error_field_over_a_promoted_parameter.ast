@@ -1,0 +1,1 @@
+Error: K already has a field #x, declared by a promoted constructor parameter: remove this declaration at tests/parser_corpus/error_field_over_a_promoted_parameter.gaz:3
