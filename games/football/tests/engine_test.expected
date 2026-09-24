@@ -371,11 +371,11 @@ ok its results are in the fixtures (5 clubs, seed 1)
 ok a listener attached at kick off hears the match (5 clubs, seed 1)
 ok play_season plays what is left (5 clubs, seed 1)
 ok no more matchdays (5 clubs, seed 1)
-ok the table agrees with the results (5 clubs, seed 1, Club 1)
 ok the table agrees with the results (5 clubs, seed 1, Club 5)
-ok the table agrees with the results (5 clubs, seed 1, Club 2)
+ok the table agrees with the results (5 clubs, seed 1, Club 1)
 ok the table agrees with the results (5 clubs, seed 1, Club 3)
 ok the table agrees with the results (5 clubs, seed 1, Club 4)
+ok the table agrees with the results (5 clubs, seed 1, Club 2)
 ok drawing again starts a new season (5 clubs, seed 1)
 ok nothing is drawn until asked (5 clubs, seed 2)
 ok a season has its matchdays (5 clubs, seed 2)
@@ -511,8 +511,8 @@ ok and a refused swap changes nothing
 ok prepare puts the best fit reserve of the same position in for each starter who is out
 ok a substitution during the match changes the eleven
 ok and the match's end puts back the eleven it started with
-ok finish counts a match served, for those who were out at the start of it
-ok but not for one hurt during it
+ok finish counts a match of a suspension served, for those who were out at the start of it, and heals no injury
+ok nor for one hurt during it
 ok and counts each match once
 ok with no defender fit on the bench, the best fit reserve of any outfield position comes in
 ok with nobody fit on the bench, nobody comes in, and the starter stays picked
@@ -542,9 +542,9 @@ ok and says a match, not matches, for one
 ok with no bench, an injury is a man short and no substitution
 ok a starter who is out isn't in the eleven when the match starts
 ok in sixty matches there were injuries and red cards to look at
-ok every injury put the player off the pitch and out for one to twelve matches, no team made more than three substitutions, and every red card is a ban
-ok a matchday served counts: two matches out becomes one, one becomes none
-ok and the next serves the other
+ok every injury put the player off the pitch and out for ten to ninety days, no team made more than three substitutions, and every red card is a ban
+ok a matchday served counts for a suspension and not for an injury
+ok however many are played: an injury is days
 ok after extra time the clock says 120
 ok and an injury then is at minute 120
 ok balanced and normal is a team exactly as strong as it is
@@ -607,3 +607,8 @@ ok every player has a birthday in the year, never the 29th of February
 ok and they are spread over the twelve months
 ok a birthday is a year older, and nothing else
 ok the birthday is saved
+ok a day is a day nearer healed: recover() says when he is back
+ok and then he is available, and a healthy player recovering changes nothing
+ok how long is said in days to a fortnight, then weeks
+ok the status too
+ok a suspension is matches and days don't touch it

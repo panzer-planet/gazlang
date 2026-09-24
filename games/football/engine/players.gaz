@@ -22,9 +22,9 @@ pub abstract kind Player {
     // This match only, reset by rest(): what motm() judges the man of the match on
     pub #match_goals = 0;
     pub #saves = 0;
-    // How many matches are still to be missed, through injury or suspension. Counted down by the
-    // team after each match the player was out at the start of (see Team.finish()), so what
-    // happens in a match is served in the next one.
+    // Days still to be out through injury, counted down a day at a time (recover()), and matches
+    // still to be missed through suspension, counted down by the team after each match the player
+    // was out at the start of (see Team.finish()), so what happens in a match is served in the next.
     pub #injured = 0;
     pub #suspended = 0;
     // Yellow cards this season, five of which are a suspension
@@ -125,10 +125,21 @@ pub abstract kind Player {
         return #sent_off;
     }
 
-    // Hurt in a match: off the pitch, and out for this many matches after it
-    pub fn injure($matches) {
-        #injured = $matches;
+    // Hurt in a match: off the pitch, and out for this many days
+    pub fn injure($days) {
+        #injured = $days;
         #hurt = true;
+    }
+
+    // A day goes by: an injury is a day nearer healed
+    // Gives whether he has just healed
+    pub fn recover() {
+        if (#injured == 0) {
+            return false;
+        }
+        #injured--;
+
+        return #injured == 0;
     }
 
     // Whether the player can be picked
@@ -137,7 +148,7 @@ pub abstract kind Player {
     // Why not, as a few words, or "" when they can be picked
     pub fn status() {
         if (#injured > 0) {
-            return "Injured " .. #injured;
+            return "Injured " .. (#injured < 14 ? #injured .. "d" : intdiv(#injured + 3, 7) .. "w");
         }
         if (#suspended > 0) {
             return "Banned " .. #suspended;
@@ -189,6 +200,15 @@ pub kind Forward extends Player {
 
     // Strikers are at their sharpest while they are fresh
     pub fn form() { return ##form() * (#energy > 70 ? 1.1 : 0.9); }
+}
+
+// How long an injury is, as it is said: 5 days, 1 day, 3 weeks
+pub fn days_text($days) {
+    if ($days < 14) {
+        return $days .. ($days == 1 ? " day" : " days");
+    }
+
+    return intdiv($days + 3, 7) .. " weeks";
 }
 
 // A player back from to_data()

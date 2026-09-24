@@ -3,6 +3,7 @@ namespace matches;
 
 include "std/format.gaz" use pad_left;
 include "std/random.gaz";
+include "players.gaz";
 include "std/lists.gaz" use max_by;
 
 pub abstract kind Event {
@@ -32,9 +33,9 @@ pub kind Booking extends Event {
 }
 
 pub kind Injury extends Event {
-    fn _($minute, $team, pub #player, pub #matches) { ##_($minute, $team); }
+    fn _($minute, $team, pub #player, pub #days) { ##_($minute, $team); }
     pub fn describe() {
-        return "{#player} ({#team}) is injured and has to go off: out for " .. #matches .. (#matches == 1 ? " match" : " matches");
+        return "{#player} ({#team}) is injured and has to go off: out for " .. players::days_text(#days);
     }
 }
 
@@ -182,7 +183,7 @@ pub kind Fixture {
         // match or two but some are months, which leaves a club with a player or two out at a time
         if (random::chance(0.006)) {
             $team = random::chance(0.5) ? #home : #away;
-            #injure($team, random::pick($team.on_pitch()), random::weighted([[1, 30], [2, 25], [3, 15], [4, 10], [6, 10], [8, 6], [12, 4]]));
+            #injure($team, random::pick($team.on_pitch()), random::weighted([[10, 30], [17, 25], [24, 15], [31, 10], [45, 10], [60, 6], [90, 4]]));
         }
     }
 
@@ -194,12 +195,12 @@ pub kind Fixture {
         return #;
     }
 
-    // $player of $team is injured, for this many matches: he goes off, and a substitute comes on for
+    // $player of $team is injured, for this many days: he goes off, and a substitute comes on for
     // him if there is one and a substitution left, and if not the team plays a man short
-    pub fn injure($team, $player, $matches) {
-        $player.injure($matches);
+    pub fn injure($team, $player, $days) {
+        $player.injure($days);
         $team.changed();
-        #emit(Injury(#elapsed, $team, $player, $matches));
+        #emit(Injury(#elapsed, $team, $player, $days));
         if (!$team.can_substitute()) {
             return #;
         }

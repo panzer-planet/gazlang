@@ -255,7 +255,7 @@ check("nor two on the bench", $game.swap(outfield_reserves($club)[0], outfield_r
 $snapshot = numbers($club.eleven());
 $hurt = outfield_reserves($club)[0];
 $hurt.injure(2);
-check("a reserve who is out can't be picked, and why", $game.swap($club.eleven()[10], $hurt), "Riverside FC can't play: {$hurt} can't play: Injured 2");
+check("a reserve who is out can't be picked, and why", $game.swap($club.eleven()[10], $hurt), "Riverside FC can't play: {$hurt} can't play: Injured 2d");
 check("an outfield player can't be the goalkeeper", $game.swap($club.eleven()[0], outfield_reserves($club)[1]), "Riverside FC can't play: 0 goalkeepers in the eleven");
 check("and a second goalkeeper isn't allowed", $game.swap($club.eleven()[5], reserve_keeper($club)), "Riverside FC can't play: 2 goalkeepers in the eleven");
 check("a refused swap changes nothing", numbers($club.eleven()), $snapshot);
@@ -296,25 +296,27 @@ check("and nothing was said about it", len($game.inbox), 1);
 $game = Game::start(3);
 $club = $game.club;
 $starter = $club.eleven()[3];
-$starter.injure(2);
+$starter.injure(60);
 $game.begin_matchday();
 $replacement = $club.eleven()[3];
 check("an injured starter is replaced before the match", [in_array($starter, $club.eleven()), $replacement != $starter, $replacement.available()], [false, true, true]);
 $news = message_starting($game.inbox, "Lineup: ");
-check("and the manager is told who, and why", [$news != null, contains($news["subject"], "{$replacement} starts"), contains($news["body"], "{$starter} is out (injured 2)")], [true, true, true]);
+check("and the manager is told who, and why", [$news != null, contains($news["subject"], "{$replacement} starts"), contains($news["body"], "{$starter} is out (" .. lower($starter.status()) .. ")")], [true, true, true]);
+$injured_days = $starter.injured;
+check("the days between passed: not all sixty are left, and he is out of the match", [$injured_days > 0, $injured_days < 60, $starter.status() == "Injured " .. intdiv($injured_days + 3, 7) .. "w"], [true, true, true]);
 $day = $game.live;
 while (!$day.finished()) {
     $day.tick();
 }
 $game.end_matchday();
-check("he missed the match: one fewer to go", $starter.injured, 1);
+check("an injury isn't served by matches but by days: the match didn't change it", $starter.injured, $injured_days);
 check("and after the matchday the eleven is the one that was picked", in_array($replacement, $club.eleven()), true);
 
 /* what a match did to the club's players, told */
 $game = Game::start(4);
 $club = $game.club;
 $returning = $club.eleven()[2];
-$returning.injure(1);
+$returning.suspended = 1;
 $banned = outfield_reserves($club)[2];
 $banned.suspended = 2;
 $day = $game.begin_matchday();
@@ -336,7 +338,7 @@ while (!$day.finished()) {
     $day.tick();
 }
 $game.end_matchday();
-check("an injury in the match is told, with how long", contains(message_starting($game.inbox, "Injury: {$hurt_now}")["body"] ?? "", "{$hurt_now} was injured and will be out for 3 matches."), true);
+check("an injury in the match is told, with how long", contains(message_starting($game.inbox, "Injury: {$hurt_now}")["body"] ?? "", "{$hurt_now} was injured and will be out for 3 days."), true);
 check("a sending off is a suspension, told", contains(message_starting($game.inbox, "Suspended: {$carded}")["body"] ?? "", "{$carded} is suspended for the next 1 match."), true);
 check("and so is a fifth yellow card", message_starting($game.inbox, "Suspended: {$fifth}") != null, true);
 check("someone who has served their time is told they are back", contains(message_starting($game.inbox, "Back: {$returning}")["body"] ?? "", "{$returning} has served his time out and is available again."), true);
@@ -837,3 +839,48 @@ $game.save("vm/build/football_date.save");
 $again = Game::load("vm/build/football_date.save");
 run(["rm", "-f", "vm/build/football_date.save"]);
 check("a saved game keeps its date and its fixtures' dates", [$again.date, $again.league.dates == $game.league.dates, $again.other_league.dates == $game.other_league.dates, $again.club.players[3].birthday, $again.to_data() == $game.to_data()], [$game.date, true, true, $game.club.players[3].birthday, true]);
+
+/* the clubs do business in January too, as in the summer */
+$january_deals = 0;
+foreach ([61, 62, 63, 64] as $seed) {
+    $game = Game::start($seed);
+    $rosters = null;
+    while ($game.date < date::days(2027, 1, 2)) {
+        if ($rosters == null && $game.date >= date::days(2026, 12, 15)) {
+            $rosters = {};
+            foreach ($game.everyone() as $team) {
+                $rosters[$team.name] = map($team.players, $p -> object_id($p));
+            }
+        }
+        $game.advance();
+    }
+    $moved = 0;
+    foreach ($game.everyone() as $team) {
+        $moved += count_where(map($team.players, $p -> object_id($p)), $id -> !in_array($id, $rosters[$team.name]));
+    }
+    $january_deals += $moved;
+    check("every club still has a legal squad in January ({$seed})", count_where($game.everyone(), $t -> len($t.players) < 16 || len($t.players) > 24 || len($t.eleven()) != 11), 0);
+    check("the January window opens with its message on 1 January ({$seed})", count_where($game.inbox, $m -> $m["subject"] == "The transfer window is open" && $m["date"] == date::days(2027, 1, 1) && contains($m["body"], "January transfer window")), 1);
+}
+check("clubs move players between them in January", $january_deals > 0, true);
+
+/* ---- Injuries heal with the days ---- */
+$game = Game::start(70);
+$club = $game.club;
+$mine = $club.players[5];
+$theirs = $game.teams[3].players[5];
+$game.advance();
+$mine.injure(40);
+$theirs.injure(40);
+$start = $game.date;
+while ($game.date - $start < 12) {
+    $game.advance();
+}
+$passed = $game.date - $start;
+check("each day is a day nearer healed, for everyone in the game", [$mine.injured, $theirs.injured], [40 - $passed, 40 - $passed]);
+check("and the manager hasn't been told anyone is back yet", message_starting($game.inbox, "Back: {$mine}"), null);
+while ($mine.injured > 0) {
+    $game.advance();
+}
+check("when it is over the manager is told, and the player is available", [message_starting($game.inbox, "Back: {$mine}") != null, $mine.available(), contains(message_starting($game.inbox, "Back: {$mine}")["body"], "recovered from his injury")], [true, true, true]);
+check("but not of another club's player", message_starting($game.inbox, "Back: {$theirs}"), null);

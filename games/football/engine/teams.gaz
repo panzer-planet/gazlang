@@ -263,11 +263,11 @@ pub kind Team {
         return $changes;
     }
 
-    // After a match: a match served, for everyone who was out at the start of it, and the eleven
+    // After a match: a match of a suspension served, for everyone who was out at the start of it (an
+    // injury heals with the days, not the matches), and the eleven
     // it started with back
     pub fn finish() {
         foreach (#missing as $player) {
-            $player.injured = max($player.injured - 1, 0);
             $player.suspended = max($player.suspended - 1, 0);
         }
         #missing = [];

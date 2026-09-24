@@ -8,6 +8,7 @@ namespace game;
 include "engine/teams.gaz" use Team, Scout, InvalidLineup, TransferRefused;
 include "engine/league.gaz" use League;
 include "engine/money.gaz";
+include "engine/players.gaz";
 include "engine/calendar.gaz";
 include "std/date.gaz";
 include "std/json.gaz";
@@ -477,6 +478,9 @@ pub kind Game {
                 if ($player.birthday == $birthday) {
                     $player.celebrate();
                 }
+                if ($player.recover() && $team == #club) {
+                    #tell("Back: {$player}", "{$player} has recovered from his injury and is available again.");
+                }
             }
         }
         if (#season_over() && #date >= calendar::review_day(#season)) {
@@ -484,13 +488,13 @@ pub kind Game {
             $notable = true;
         }
         if ($birthday == 701) {
-            #open_summer_window();
+            #open_window("summer", "the end of August");
             $notable = true;
         } else if ($birthday == 831) {
             #tell("The transfer window has closed", "The summer window is shut until 1 January.");
             $notable = true;
         } else if ($birthday == 101) {
-            #tell("The transfer window is open", "The January window is open until the end of the month.");
+            #open_window("January", "the end of the month");
             $notable = true;
         } else if ($birthday == 131) {
             #tell("The transfer window has closed", "The January window is shut until 1 July.");
@@ -500,10 +504,10 @@ pub kind Game {
         return $notable;
     }
 
-    /* The summer window: the clubs do their business, which the manager hears of if it was theirs */
-    fn open_summer_window() {
+    /* A transfer window opens: the clubs do their business, which the manager hears of if it was theirs */
+    fn open_window($name, $until) {
         $deals = money::window(#everyone());
-        $body = "The transfer window is open until the end of August: buy and sell in Transfers.";
+        $body = "The {$name} transfer window is open until {$until}: buy and sell in Transfers.";
         foreach (filter($deals, $deal -> $deal["to"] == #club || $deal["from"] == #club) as $deal) {
             $signing = $deal["to"] == #club;
             $body ..= "\n\n{$deal["player"]} moved from {$deal["from"]} to {$deal["to"]} for " .. money::pounds($deal["fee"]) .. ".";
@@ -665,7 +669,7 @@ pub kind Game {
         foreach (#club.players as $player) {
             $name = to_string($player);
             if ($player.hurt && $player.injured > 0) {
-                #tell("Injury: {$name}", "{$name} was injured and will be out for " .. $player.injured .. ($player.injured == 1 ? " match." : " matches."));
+                #tell("Injury: {$name}", "{$name} was injured and will be out for " .. players::days_text($player.injured) .. ".");
             } else if (!$player.available() && !has_key(#out_before, $name)) {
                 #tell("Suspended: {$name}", "{$name} is suspended for the next " .. $player.suspended .. ($player.suspended == 1 ? " match." : " matches."));
             } else if ($player.available() && has_key(#out_before, $name)) {

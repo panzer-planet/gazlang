@@ -1623,7 +1623,8 @@ ok the manager's eleven is left as it was set
 ok and nothing was said about it
 ok an injured starter is replaced before the match
 ok and the manager is told who, and why
-ok he missed the match: one fewer to go
+ok the days between passed: not all sixty are left, and he is out of the match
+ok an injury isn't served by matches but by days: the match didn't change it
 ok and after the matchday the eleven is the one that was picked
 ok an injury in the match is told, with how long
 ok a sending off is a suspension, told
@@ -1742,3 +1743,16 @@ ok after the last match c stops for the season's review, then for the window, an
 ok then the first match of the new season
 ok and c stops for the window closing on the last day of August, though the matches go on
 ok a saved game keeps its date and its fixtures' dates
+ok every club still has a legal squad in January (61)
+ok the January window opens with its message on 1 January (61)
+ok every club still has a legal squad in January (62)
+ok the January window opens with its message on 1 January (62)
+ok every club still has a legal squad in January (63)
+ok the January window opens with its message on 1 January (63)
+ok every club still has a legal squad in January (64)
+ok the January window opens with its message on 1 January (64)
+ok clubs move players between them in January
+ok each day is a day nearer healed, for everyone in the game
+ok and the manager hasn't been told anyone is back yet
+ok when it is over the manager is told, and the player is available
+ok but not of another club's player

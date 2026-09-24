@@ -26,9 +26,11 @@ and a defender picked as a forward attacks as a defender does. The other clubs p
 eleven every matchday; yours stays as you set it, except that a starter who can't play is replaced
 by the best fit reserve and the inbox tells you.
 
-Players get hurt in matches (about two in five have an injury, out for a match or two, sometimes
-months), and a red card is a match's ban, as is a fifth yellow of the season. A player who is hurt
-goes off, and a substitute comes on for him if there is one and a substitution left (three a match).
+Players get hurt in matches (about two in five have an injury) and are out for days, not matches:
+ten days to three months, healing a day at a time whether or not there is a match (the Squad
+screen says `Injured 9d` or `Injured 4w`, and the inbox tells you when someone is back). A red card
+is a match's ban, as is a fifth yellow of the season. A player who is hurt goes off, and a
+substitute comes on for him if there is one and a substitution left (three a match).
 
 ## Match day
 
