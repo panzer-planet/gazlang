@@ -1,18 +1,19 @@
 # Football manager
 
-A terminal football manager game in GazLang, on `lib/tui.gaz`. It lives in this repository so that the
+A terminal football manager game in GazLang, on the standard library's `std/tui.gaz`. It lives in this repository so that the
 language can be improved as the game asks for it: a change to `lib/` or the VM goes in the same commit
-as the game code that needed it.
+as the game code that needed it. Its only outward dependency is the built-in standard library (`include "std/..."`),
+so moving it to a repository of its own needs nothing but a `gazlang` binary.
 
 ## Run it
 
-    bin/gazlang -f games/football/main.gaz [-- SEED]
+    bin/gazlang -f games/football/main.gaz [-- SEED | load [FILE]]
 
-A terminal at least 80 columns by 24 rows. `1` to `6` (or the arrows and `enter`) choose a section,
+A terminal at least 80 columns by 24 rows. `1` to `7` (or the arrows and `enter`) choose a section,
 `tab` moves between the menu and the section, `c` starts the next matchday, which you watch (see
 below), `C` plays it without watching and `q` quits. In a table:
 `j`/`k`, `g`/`G`, page up and down move, `.` and `,` sort by the next or previous column, `o` turns
-the order round and `x` puts it back. A SEED makes the same ten clubs again.
+the order round and `x` puts it back. A SEED makes the same forty-four clubs again; `S` saves and `load` carries on (see below).
 
 ## Squad and lineup
 
@@ -82,7 +83,7 @@ only paid and only pays wages for matches it plays. Saves from before the divisi
 - `game.gaz` is the state of a game and moving time on; `ui.gaz` is the interface; `main.gaz` is the
   launcher. `DESIGN.md` says where this is going and what the engine still lacks.
 - `tests/` holds GazLang test programs: each `X_test.gaz` must print exactly the `X_test.expected`
-  next to it. Run them with `vendor/bin/phpunit --testsuite games` (3s, two of them on a real
+  next to it. Run them with `vendor/bin/phpunit --testsuite games` (under a minute, two of them on a real
   terminal), and the language alone with `--testsuite core`; a plain `vendor/bin/phpunit` runs both.
 
 The tests check what stays true however the game is tuned (a season plays every match home and

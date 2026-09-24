@@ -26,14 +26,14 @@ bin/gazlang --ast -f tests/programs/functions.gaz
 make -C vm compiler
 
 # The test dependencies, then all tests (about 2 minutes): two suites, the language's (`core`) and
-# the games' (`games`, 3 seconds), which a plain run does both of
+# the games' (`games`, under a minute), which a plain run does both of
 composer install
 vendor/bin/phpunit
 vendor/bin/phpunit --testsuite core
 vendor/bin/phpunit --testsuite games
 
 # Play the football manager (needs a terminal); a seed makes the same clubs again
-bin/gazlang -f games/football/main.gaz -- 1
+bin/gazlang -f games/football/main.gaz -- 1     # or: -- load [FILE]
 
 # Run a specific test file, or method
 vendor/bin/phpunit tests/SpecificTest.php
@@ -173,8 +173,9 @@ nothing**: several first versions of a harness or corpus passed everything and c
   meant to change, and recordings would be re-recorded with every tweak. What stays byte-exact is
   `tests/programs/football.gaz`, the frozen simulator the game started from, the VM's biggest test
   program and the benchmark workload; it is not tuned for the game. That costs 1,400 lines of
-  duplication that will drift, on purpose. While a game's only outward dependency is `../../lib/`
-  includes, moving it to a repository of its own later is cheap.
+  duplication that will drift, on purpose. A game reaches the standard library by `include "std/..."`,
+  which the VM carries, so its only outward dependency is a `gazlang` binary and moving it to a
+  repository of its own later is cheap.
 - **The README's examples are tests**: `ReadmeTest` runs every ```` ```gaz ```` block followed
   by an output block and requires exactly that output.
 

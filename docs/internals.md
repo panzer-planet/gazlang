@@ -12,7 +12,7 @@ design is in [CLAUDE.md](../CLAUDE.md); what the language *is* is in
 | `vm/` | the VM in C, built as `bin/gazlang` with `gazlang.gzb` inside it: it runs source by compiling it with that first. `vm/gazvm.h` says which file does what |
 | `lib/` | the standard library, written in GazLang, a namespace per file (`json::decode`, `chars::is_digit`), built into `bin/gazlang` and included as `std/json.gaz` |
 | `examples/` | sample programs, which nothing tests |
-| `games/` | programs built on the language, each with tests of its own (`games/football/`: a terminal football manager, in progress) |
+| `games/` | programs built on the language, each with tests of its own (`games/football/`: a terminal football manager: two divisions, tactics, transfers, saving) |
 | `tests/` | PHPUnit, which runs `bin/gazlang`; `tests/gaz/` GazLang programs; `tests/programs/` bigger programs that the tests run; the corpora `lexer_corpus/`, `parser_corpus/`, `codegen_corpus/`, `vm_corpus/` and `bytecode_corpus/`; `cli/`; and `expected/`, what every program must print |
 
 ## What holds it together

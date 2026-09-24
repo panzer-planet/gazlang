@@ -17,13 +17,13 @@ structure and feel, none of its content. Everything here is our own.
 
 ## What we leave
 
-The mouse, the 3D match view, licensed names and leagues, the scale: ten clubs, one league, a
-squad of eleven and then more, to begin with.
+The mouse, the 3D match view, licensed names and leagues, the scale: two divisions of twenty and
+twenty-four clubs and squads of seventeen, to begin with. Names are made up, mostly English.
 
 ## Layout
 
 ```
- Riverside FC        2026/27 · Matchday 3 of 18 · 4th          c Continue ▸
+ Riverside FC        2026/27 · Matchday 3 of 38 · 4th in the Premier Division         c Continue ▸
 ┌──────────────┐┌─ Squad ─────────────────────────────────────────────────┐
 │ 1 Inbox      ││ #  Name          Pos   Age   Rating   Goals             │
 │ 2 Squad      ││ 1  K. Hale       GK     22       54       0             │
@@ -67,18 +67,20 @@ A launcher smoke test runs the real thing on a pty. See `README.md`.
    contract.
 5. **Balance.** Scorelines like 0-8 come from the simulator's odds, and need tuning before anything
    built on them is fun.
-6. **No calendar.** Time is a matchday counter; it needs dates, a transfer window, a cup.
-7. **Money** *(basic)*: books, a market and selling are in. Not yet: contracts, a transfer window,
-   bids the other side can refuse, the summer window between seasons (`money.window`).
+6. **No calendar.** Time is a matchday counter (38 in the Premier Division, 46 in the Championship);
+   it needs dates, a transfer window, a cup.
+7. **Money** *(basic)*: books, a market, selling, prize money and the clubs' summer window are in.
+   Not yet: contracts, a transfer window you can use, bids the other side can refuse.
 8. **Saving** *(done)*: `Game.to_data`/`from_data`, JSON, any time between matchdays.
 
 ## Slices, in order
 
 1. **The shell**: sections, tables, an inbox, moving time on. *(done)*
-2. **Match day**: a match you watch, with commentary from the events. *(done)* And a lineup to choose
-   from a bigger squad, which needs the squad first (gap 1) and so comes next.
+2. **Match day**: a match you watch, with commentary from the events, and a lineup chosen from a
+   bigger squad. *(done)*
 3. **Tactics**: formation and mentality that change results. *(done)*
 4. **Transfers and finances**: a market with values and wages, the books, the budget. *(done)*
 5. **Saving and loading.** *(done)*
-6. **Depth**: injuries, morale, contracts, training, youth.
-7. **A season after a season**: *(a single league, repeated: done)* cups, an end-of-season summary. *(promotion and relegation between two divisions: done)*
+6. **Depth**: injuries and youth from the academy are in; morale, contracts and training are not.
+7. **A season after a season**: two divisions with two up and two down, the summer's ageing,
+   retirements and window. *(done)* Cups and an end-of-season summary remain.

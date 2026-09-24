@@ -440,12 +440,14 @@ on real work: it compiles itself, all 4,400 lines, in about a quarter of a secon
   [terminal dashboard](examples/dashboard.gaz). They are there to read and to run, and nothing
   tests them.
 - **`games/`** — programs built on the language, in this repository so the language can improve as they ask:
-  a [football manager](games/football/README.md) for the terminal, in progress.
+  a [football manager](games/football/README.md) for the terminal: two divisions, tactics and
+  substitutions, transfers, saving and seasons.
 - **`tests/programs/`** — bigger programs that the tests do run, so they still work: a 700 line
   [football league simulator](tests/programs/football.gaz), a
   [CSV report](tests/programs/csv_report.gaz) and a
   [web API client](tests/programs/cat_facts.gaz).
-- **`lib/`** — the standard library, all of it written in GazLang.
+- **`lib/`** — the standard library, all of it written in GazLang and built into `gazlang`, so a
+  program anywhere includes it by name: `include "std/json.gaz";`.
 - **[docs/internals.md](docs/internals.md)** — how the compiler and VM fit
   together, and how to work on them.
 - **[CLAUDE.md](CLAUDE.md)** — the rules, the reasons behind each design decision, and what
