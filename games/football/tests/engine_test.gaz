@@ -12,6 +12,7 @@ include "../engine/money.gaz";
 include "../engine/teams.gaz" use Team, Formation, Scout, InvalidLineup, TransferRefused;
 include "../engine/matches.gaz" use Fixture, Goal, Booking, Whistle, Injury, Substitution, Shot;
 include "../engine/league.gaz" use League;
+include "../engine/cup.gaz" use Cup;
 
 const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8];
 
@@ -1154,3 +1155,92 @@ check("a player who leaves takes nothing with him: the squad is one smaller, the
 $home.leave($home.players[0]);
 $home.leave($home.players[0]);
 check("nothing stops a squad being left short, as release() does: that is for the game to fill", len($home.players), $size - 3);
+
+/* ---- The cup ---- */
+$field = clubs(44, 90);
+$strongest_first = reverse($field);
+$cup = Cup("The Cup", $strongest_first);
+check("forty-four clubs make six rounds: a first round for the weakest twenty-four, then thirty-two", [$cup.rounds_total(), $cup.round_name(), $cup.round_name_of(1), $cup.round_name_of(2), $cup.round_name_of(3), $cup.round_name_of(4), $cup.round_name_of(5), $cup.finished()], [6, "First round", "Second round", "Third round", "Quarter-finals", "Semi-finals", "Final", false]);
+check("sixteen clubs make four rounds, and thirty-two five, sixty-four six with no first round", [Cup("C", clubs(16, 91)).rounds_total(), Cup("C", clubs(32, 91)).rounds_total(), Cup("C", clubs(64, 91)).rounds_total(), Cup("C", clubs(2, 91)).rounds_total(), Cup("C", clubs(2, 91)).round_name(), Cup("C", clubs(5, 91)).round_name()], [4, 5, 6, 1, "Final", "First round"]);
+$pairs = $cup.next_pairs();
+check("the first round is drawn from the weakest 24: twelve ties, none of the strongest twenty in it", [len($pairs), count_where(reduce($pairs, ($all, $p) -> [...$all, ...$p], []), $t -> in_array($t, slice($strongest_first, 0, 20)))], [12, 0]);
+check("and the draw is kept until the round is played", [$cup.next_pairs() == $pairs, len(keys(dates_set(map(reduce($pairs, ($all, $p) -> [...$all, ...$p], []), $t -> object_id($t)))))], [true, 24]);
+$dates = calendar::cup_dates(2026, 6);
+$cup.assign_dates($dates);
+check("dated, the next round has its day", [$cup.next_date(), $cup.is_in($strongest_first[0]), $cup.is_in($strongest_first[43])], [$dates[0], true, true]);
+try {
+    $cup.assign_dates([1, 2]);
+    check("a cup needs a date for each round", "no error", "an error");
+} catch (Error $e) {
+    check("a cup needs a date for each round", contains($e.message, "needs 6 dates, not 2"), true);
+}
+$heard = [];
+$ties = null;
+$matches = $cup.begin_round();
+foreach ($matches as $match) {
+    $match.play();
+}
+$ties = $cup.end_round($matches);
+check("a round: twelve ties, each with a winner, who goes on", [len($matches), len($ties), count_where($ties, $t -> $cup.is_in($t.winner())), count_where($ties, $t -> $cup.is_in($t.loser()))], [12, 12, 12, 0]);
+check("thirty-two are left: twenty with byes and twelve winners", count_where($field, $t -> $cup.is_in($t)), 32);
+check("and the cup has played its first round, dated for the next", [len($cup.rounds), $cup.rounds[0][0], len($cup.rounds[0][1]), $cup.round_name(), $cup.next_date()], [1, "First round", 12, "Second round", $dates[1]]);
+$second = $cup.next_pairs();
+check("the second round has all thirty-two, sixteen ties", [len($second), count_where(reduce($second, ($all, $p) -> [...$all, ...$p], []), $t -> $cup.is_in($t))], [16, 32]);
+try {
+    $cup.end_round($matches);
+    check("a round can't end twice", "no error", "an error");
+} catch (Error $e) {
+    check("a round can't end twice", contains($e.message, "not the matches of a round begun"), true);
+}
+$before_fixtures = $cup.fixtures_of($strongest_first[30]);
+check("the fixtures of a club still in: what it has played, and the round it is in next", [len(filter($before_fixtures, $f -> $f["tie"] == null)), $before_fixtures[len($before_fixtures) - 1]["round"], $before_fixtures[len($before_fixtures) - 1]["date"]], [1, "Second round", $dates[1]]);
+$played = $cup.play_out();
+check("play_out finishes the cup: five more rounds, a champion, one club left in", [len($played), $cup.finished(), $cup.champion != null, $cup.is_in($cup.champion), count_where($field, $t -> $cup.is_in($t)), $cup.next_date(), $cup.next_pairs()], [5, true, true, true, 1, null, []]);
+check("every round halves the field: 12, 16, 8, 4, 2, 1 ties", map($cup.rounds, $r -> len($r[1])), [12, 16, 8, 4, 2, 1]);
+check("the champion won six matches from a first-round start and five from a bye", count_where($cup.rounds, ([$name, $ties]) -> count_where($ties, $t -> $t.winner() == $cup.champion) > 0) >= 5, true);
+check("a knocked-out club has no fixture to come", count_where(filter($cup.fixtures_of($strongest_first[0]), $f -> $f["tie"] == null), $x -> true) + 0 <= 1, true);
+
+/* extra time and penalties: a ninety minutes that ends level */
+$found_extra = false;
+$found_penalties = false;
+[$a, $b] = clubs(2, 93);
+for ($try = 0; $try < 80 && !($found_extra && $found_penalties); $try++) {
+    rand_seed(1000 + $try);
+    $trial = Cup("Pair", [$b, $a]);
+    $tm = $trial.begin_round();
+    shared $shown = [];
+    $tm[0].on_event($event -> { $shown[] = $event; });
+    $tm[0].play();
+    $tie = $trial.settle($tm)[0];
+    if ($tie.extra_time && !$found_extra) {
+        $found_extra = true;
+        check("a level match goes to extra time, which the listeners hear, to minute 120", [$tm[0].elapsed, count_where($shown, $e -> $e.minute > 90) > 0, in_array($tie.winner(), [$a, $b])], [120, true, true]);
+    }
+    if ($tie.penalties != null && !$found_penalties) {
+        $found_penalties = true;
+        check("and level again, to penalties, which is an event and has a winner", [count_where($shown, $e -> contains($e.describe(), "Penalties:")), $tie.penalties[0] != $tie.penalties[1], contains(to_string($tie), "on penalties)")], [1, true, true]);
+    }
+    check("settling twice changes nothing ({$try})", $trial.settle($tm)[0] == $tie, true);
+}
+check("in eighty tries there was a tie that went to extra time and one to penalties", [$found_extra, $found_penalties], [true, true]);
+
+/* saved half way, and back */
+$mid = Cup("Mid", reverse(clubs(20, 94)));
+$mid.assign_dates(calendar::cup_dates(2026, $mid.rounds_total()));
+$matches = $mid.begin_round();
+foreach ($matches as $match) {
+    $match.play();
+}
+$mid.end_round($matches);
+$restored = Cup::from_data($mid.to_data(), reverse(clubs(20, 94)));
+check("a cup saved between rounds comes back: the rounds played, who is in, the dates", [len($restored.rounds), map($restored.rounds[0][1], $t -> to_string($t)) == map($mid.rounds[0][1], $t -> to_string($t)), $restored.dates == $mid.dates, $restored.round_name(), $restored.champion, $restored.to_data() == $mid.to_data()], [1, true, true, $mid.round_name(), null, true]);
+$mid.play_out();
+check("and a finished cup has its champion saved", [Cup::from_data($mid.to_data(), reverse(clubs(20, 94))).champion != null], [true]);
+check("a cup's prizes by round", [money::cup_prize(0), money::cup_prize(5), money::cup_prize(2) > money::cup_prize(1), money::cup_prize(9)], [100000, 1500000, true, 1500000]);
+
+/* ---- The cup's calendar ---- */
+$cup_days = calendar::cup_dates(2026, 6);
+check("six rounds: five Wednesdays from mid-September to March, in order, and the final on a Saturday in late May", [map($cup_days, $d -> date::format($d))], [["Wed 16 Sep 2026", "Wed 4 Nov 2026", "Wed 16 Dec 2026", "Wed 3 Feb 2027", "Wed 17 Mar 2027", "Sat 22 May 2027"]]);
+check("in order, and none on a league day (Saturdays, and Tuesdays)", [$cup_days == sort($cup_days, ($a, $b) -> $a <=> $b), count_where(slice($cup_days, 0, 5), $d -> in_array($d, calendar::matchdays(2026, 46)) || in_array($d, calendar::matchdays(2026, 38)))], [true, 0]);
+check("a cup of one round is just the final, of two the Wednesday and the final", [map(calendar::cup_dates(2026, 1), $d -> date::format($d)), map(calendar::cup_dates(2026, 2), $d -> date::format($d))], [["Sat 22 May 2027"], ["Wed 16 Sep 2026", "Sat 22 May 2027"]]);
+check("and it follows the year: the next season's are a year on", [date::format(calendar::cup_dates(2027, 3)[2]), date::weekday(calendar::cup_dates(2027, 3)[2])], ["Sat 27 May 2028", 5]);

@@ -173,8 +173,7 @@ pub kind FixturesView extends View {
 
     pub fn draw($screen, $rect, $focused) {
         $club = #game.club;
-        $rows = [];
-        $next = true;
+        $items = [];
         foreach (#game.league.fixtures_of($club) as $fixture) {
             $match = $fixture["match"];
             $result = "";
@@ -183,11 +182,30 @@ pub kind FixturesView extends View {
                 [$mine, $theirs] = $fixture["home"] == $club ? [$match.home_goals, $match.away_goals] : [$match.away_goals, $match.home_goals];
                 $result = $mine > $theirs ? "W" : ($mine == $theirs ? "D" : "L");
                 $score = "{$match.home_goals} - {$match.away_goals}";
-            } else if ($next) {
-                $score = "next ▸";
+            }
+            $items[] = [$fixture["date"] ?? $fixture["matchday"], [$fixture["date"] == null ? $fixture["matchday"] : date::short($fixture["date"]), to_string($fixture["home"]), "v", to_string($fixture["away"]), $score, $result], $match != null];
+        }
+        // The cup: the ties played, and the round the club is in next, whose draw isn't made yet
+        foreach (#game.cup.fixtures_of($club) as $fixture) {
+            $tie = $fixture["tie"];
+            $day = $fixture["date"] == null ? "" : date::short($fixture["date"]);
+            if ($tie == null) {
+                $items[] = [$fixture["date"] ?? 999999, [$day, "The Cup: " .. $fixture["round"], "cup", "(draw to come)", "-", ""], false];
+            } else {
+                $match = $tie.match;
+                $mine = $tie.winner() == $club;
+                $items[] = [$fixture["date"] ?? 0, [$day, to_string($match.home), "cup", to_string($match.away), "{$match.home_goals} - {$match.away_goals}" .. ($tie.penalties != null ? " pens" : ($tie.extra_time ? " aet" : "")), $mine ? "W" : "L"], true];
+            }
+        }
+        $items = sort($items, ($a, $b) -> $a[0] <=> $b[0]);
+        $rows = [];
+        $next = true;
+        foreach ($items as [$when, $row, $played]) {
+            if (!$played && $next) {
+                $row[4] = "next ▸";
                 $next = false;
             }
-            $rows[] = [$fixture["date"] == null ? $fixture["matchday"] : date::short($fixture["date"]), to_string($fixture["home"]), "v", to_string($fixture["away"]), $score, $result];
+            $rows[] = $row;
         }
         #table.set_rows($rows);
         #table.draw($screen, $rect, $focused);
@@ -687,7 +705,7 @@ pub kind Shell {
 
         /* the bar: the club on the left, where the season is in the middle, the key to press on the right */
         $screen.fill($top.col, $top.row, $top.width, 1, " ", "inverse");
-        tui::label($screen, $top.col, $top.row, $top.width, #game.date_label() .. "  ·  Matchday " .. min($league.matchdays_played() + ($live && $league.matchdays_left() > 0 ? 1 : 0), $league.matchdays()) .. " of " .. $league.matchdays() .. "  ·  " .. #game.place() .. " in the " .. #game.division_name(), "inverse", "center");
+        tui::label($screen, $top.col + term::width(#game.club.name) + 3, $top.row, max($top.width - term::width(#game.club.name) - 17, 0), #game.date_label() .. " · " .. (#game.cup_label() ?? ("Matchday " .. min($league.matchdays_played() + ($live && $league.matchdays_left() > 0 ? 1 : 0), $league.matchdays()) .. " of " .. $league.matchdays())) .. " · " .. #game.place() .. " in the " .. #game.division_name(), "inverse", "center");
         tui::label($screen, $top.col, $top.row, term::width(#game.club.name) + 2, " " .. #game.club.name, "bold inverse");
         tui::label($screen, $top.col + $top.width - 14, $top.row, 14, $live && !#game.live.finished() ? "s Skip ▸ " : "c Continue ▸ ", "bold inverse", "right");
 

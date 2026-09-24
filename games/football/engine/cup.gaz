@@ -1,4 +1,9 @@
-// A knockout cup: every club in one draw, extra time and penalties when a tie is level
+/*
+ * A knockout cup, played a round at a time: every club is in one draw, and a round is drawn when its
+ * day comes. A tie that is level after ninety minutes goes to extra time, and to penalties if it is
+ * still level. When the number of clubs isn't a power of two the weakest play a first round and the
+ * strongest go straight into the second, so that every round after it halves the field.
+ */
 namespace cup;
 
 include "std/random.gaz";
@@ -32,55 +37,225 @@ pub kind Tie {
 pub kind Cup {
     // Each round as it was played: [name, ties]
     pub #rounds = [];
+    // The day of each round, in order (day numbers, lib/date.gaz): none until given
+    pub #dates = [];
+    // The clubs still in, strongest first, and the ones in the round being played
+    #alive = [];
+    #names = [];
+    // The pairs drawn for the round about to be played, and the matches made from them
+    #drawn = null;
+    #byes = [];
+    // How many clubs play the first round, when there aren't a power of two of them: the rest have a bye
+    #first_round = 0;
+    #open = null;
+    #settled = {};
+    pub #champion = null;
 
-    fn _(pub #name) {}
-
-    // Plays the cup between $teams, strongest first, giving the winners. When their number
-    // isn't a power of two, the weakest play a first round and the strongest go straight
-    // into the second, so that every round after it halves the field
-    pub fn play($teams) {
+    fn _(pub #name, $teams) {
+        #alive = $teams;
         $size = 1;
         while ($size * 2 <= len($teams)) {
             $size *= 2;
         }
-        $through = $teams;
-        if ($size < len($teams)) {
-            $playing = 2 * (len($teams) - $size);
-            $through = [...slice($teams, 0, len($teams) - $playing), ...#round(slice($teams, -$playing))];
+        #first_round = $size < len($teams) ? 2 * (len($teams) - $size) : 0;
+        $counts = #first_round > 0 ? [#first_round] : [];
+        for ($left = $size; $left >= 2; $left = intdiv($left, 2)) {
+            $counts[] = $left;
         }
-        while (len($through) > 1) {
-            $through = #round($through);
+        // The last round is the final, and a full round of four or eight before it the semi-finals or
+        // quarter-finals; a small first round is only a round
+        foreach ($counts as $i => $count) {
+            $from_end = len($counts) - 1 - $i;
+            #names[] = match {
+                $from_end == 0 => "Final",
+                $from_end == 1 && $count == 4 => "Semi-finals",
+                $from_end == 2 && $count == 8 => "Quarter-finals",
+                default => ["First", "Second", "Third", "Fourth", "Fifth", "Sixth"][$i] .. " round",
+            };
         }
-        return $through[0];
     }
 
-    // One round, drawn from a hat: the first team out of each pair is at home. Gives the winners
-    fn round($teams) {
-        $name = match (len($teams)) {
-            2 => "Final",
-            4 => "Semi-finals",
-            8 => "Quarter-finals",
-            default => ["First", "Second", "Third", "Fourth", "Fifth"][len(#rounds)] .. " round",
-        };
-        $drawn = random::shuffle($teams);
-        $ties = [];
-        for ($i = 0; $i < len($drawn); $i += 2) {
-            $ties[] = #tie($drawn[$i], $drawn[$i + 1]);
+    // How many rounds there are in all
+    pub fn rounds_total() { return len(#names); }
+
+    // The name of the round to be played next, or of the last if it is over
+    pub fn round_name() { return #names[min(len(#rounds), len(#names) - 1)]; }
+
+    pub fn finished() { return #champion != null; }
+
+    // The name of round $index (from 0)
+    pub fn round_name_of($index) { return #names[$index]; }
+
+    // Say when the rounds are played: one day for each, in order
+    pub fn assign_dates($dates) {
+        if (len($dates) != len(#names)) {
+            error("A cup of " .. len(#names) .. " rounds needs " .. len(#names) .. " dates, not " .. len($dates));
         }
-        #rounds[] = [$name, $ties];
-        return map($ties, $tie -> $tie.winner());
+        #dates = $dates;
     }
 
-    fn tie($home, $away) {
-        $match = Fixture($home, $away).play();
-        $tie = Tie($match);
-        if ($match.home_goals == $match.away_goals) {
-            $match.extra_time();
-            $tie.extra_time = true;
-            if ($match.home_goals == $match.away_goals) {
-                $tie.penalties = $match.penalties();
+    // The day of the next round, or null when the cup is over or nothing has been dated
+    pub fn next_date() {
+        return #champion == null && len(#dates) > len(#rounds) ? #dates[len(#rounds)] : null;
+    }
+
+    // Whether $team is still in the cup
+    pub fn is_in($team) { return in_array($team, #alive); }
+
+    // The pairs [home, away] of the round to be played, drawn from a hat when first asked and then kept
+    // (none when the cup is over): who plays whom, before it begins
+    pub fn next_pairs() {
+        if (#champion != null) {
+            return [];
+        }
+        if (#drawn == null) {
+            $playing = #alive;
+            #byes = [];
+            if (len(#rounds) == 0 && #first_round > 0) {
+                // The weakest play, the strongest wait for the second round
+                $playing = slice(#alive, -#first_round);
+                #byes = slice(#alive, 0, len(#alive) - #first_round);
+            }
+            $shuffled = random::shuffle($playing);
+            #drawn = [];
+            for ($i = 0; $i < len($shuffled); $i += 2) {
+                #drawn[] = [$shuffled[$i], $shuffled[$i + 1]];
             }
         }
-        return $tie;
+
+        return #drawn;
+    }
+
+    // Start the round: each match is made, given to $kick_off($match) if there is one (which is when to
+    // attach a listener) and made ready. Give the matches; play them, settle() them, then end_round().
+    pub fn begin_round($kick_off = null) {
+        if (#open != null) {
+            error("A round is already begun");
+        }
+        $matches = [];
+        foreach (#next_pairs() as [$home, $away]) {
+            $match = Fixture($home, $away);
+            if ($kick_off != null) {
+                $kick_off($match);
+            }
+            $matches[] = $match.start();
+        }
+        #open = $matches;
+
+        return $matches;
+    }
+
+    // Once the matches have been played ninety minutes: the level ones go to extra time and, if still
+    // level, penalties, which their listeners hear. Gives a Tie for each. Does nothing twice.
+    pub fn settle($matches) {
+        $ties = [];
+        foreach ($matches as $match) {
+            $key = object_id($match);
+            if (!has_key(#settled, $key)) {
+                $tie = Tie($match);
+                if ($match.home_goals == $match.away_goals) {
+                    $match.extra_time();
+                    $tie.extra_time = true;
+                    if ($match.home_goals == $match.away_goals) {
+                        $tie.penalties = $match.shootout();
+                    }
+                }
+                #settled[$key] = $tie;
+            }
+            $ties[] = #settled[$key];
+        }
+
+        return $ties;
+    }
+
+    // The round is over: the winners go through, and the losers are out. Gives the ties.
+    pub fn end_round($matches) {
+        if (#open == null || $matches != #open) {
+            error("These are not the matches of a round begun and not yet ended");
+        }
+        $ties = #settle($matches);
+        foreach ($ties as $tie) {
+            $tie.match.home.finish();
+            $tie.match.away.finish();
+        }
+        $winners = map($ties, $tie -> $tie.winner());
+        // Still strongest first: the order the clubs went in
+        #alive = filter(#alive, $team -> in_array($team, $winners) || in_array($team, #byes));
+        #rounds[] = [#names[len(#rounds)], $ties];
+        #drawn = null;
+        #byes = [];
+        #open = null;
+        #settled = {};
+        if (len(#alive) == 1) {
+            #champion = #alive[0];
+        }
+
+        return $ties;
+    }
+
+    // Play what is left of the cup at once, unwatched. Gives the rounds played, [name, ties] each.
+    pub fn play_out() {
+        $played = [];
+        while (#champion == null) {
+            $matches = #begin_round();
+            foreach ($matches as $match) {
+                $match.play();
+            }
+            $played[] = [#round_name(), #end_round($matches)];
+        }
+
+        return $played;
+    }
+
+    // Every tie of $team so far, and the round it is in next if it is still in, as
+    // {"round", "date", "tie"}: the date is null for a round already played (it is the match's own), the
+    // tie null before it is played
+    pub fn fixtures_of($team) {
+        $rows = [];
+        foreach (#rounds as $i => [$name, $ties]) {
+            foreach ($ties as $tie) {
+                if ($tie.match.home == $team || $tie.match.away == $team) {
+                    $rows[] = {"round" => $name, "date" => #dates[$i] ?? null, "tie" => $tie};
+                }
+            }
+        }
+        if (#champion == null && in_array($team, #alive)) {
+            $rows[] = {"round" => #round_name(), "date" => #next_date(), "tie" => null};
+        }
+
+        return $rows;
+    }
+
+    // What a saved game keeps of the cup: who is still in, and every tie played
+    pub fn to_data() {
+        return {
+            "name" => #name, "dates" => #dates, "alive" => map(#alive, $team -> $team.name),
+            "champion" => #champion == null ? null : #champion.name,
+            "rounds" => map(#rounds, ([$name, $ties]) -> [$name, map($ties, $tie -> [$tie.match.home.name, $tie.match.away.name, $tie.match.home_goals, $tie.match.away_goals, $tie.extra_time, $tie.penalties])]),
+        };
+    }
+
+    // A cup back from to_data(), over the same clubs, given as they were in order at the start
+    pub static fn from_data($data, $teams) {
+        $by_name = {};
+        foreach ($teams as $team) {
+            $by_name[$team.name] = $team;
+        }
+        $cup = Cup($data["name"], $teams);
+        $cup.dates = $data["dates"];
+        $cup.alive = map($data["alive"], $name -> $by_name[$name]);
+        $cup.champion = $data["champion"] == null ? null : $by_name[$data["champion"]];
+        foreach ($data["rounds"] as [$name, $rows]) {
+            $ties = [];
+            foreach ($rows as [$home, $away, $home_goals, $away_goals, $extra_time, $penalties]) {
+                $tie = Tie(Fixture::played($by_name[$home], $by_name[$away], $home_goals, $away_goals));
+                $tie.extra_time = $extra_time;
+                $tie.penalties = $penalties;
+                $ties[] = $tie;
+            }
+            $cup.rounds[] = [$name, $ties];
+        }
+
+        return $cup;
     }
 }

@@ -1775,3 +1775,25 @@ ok in January, with under six months to run, it is half
 ok and a signing gets a contract of three seasons, the one being played included
 ok signed in August, three seasons: to the third June after
 ok a saved game keeps the contracts
+ok a cup for every club: six rounds from the first round in September to the final in May, on Wednesdays and a Saturday
+ok none on a day a league match is
+ok the club is in the cup at the start, as are the others
+ok play_on comes to the club's cup tie, on the round's day, ready to watch
+ok the day is the cup's: twelve ties, and the tie is the club's
+ok ninety ticks, and then, for a level tie, extra time all at once: the day is not over till every tie is settled
+ok the round is over: twelve ties, twenty-four out of it or through, thirty-two left, and the day ends
+ok the manager is told how the round went, and how their tie did
+ok and the report has the score
+ok the books: a gate if at home, and a prize if it won, and no wages or television
+ok every winner of the round was paid the prize, the home clubs their gates
+ok a Premier Division club has a bye in the first round: the cup's first round was played without it, the inbox tells
+ok through the second round (or out of it): the report follows the club's tie
+ok with the leagues over, the final is a week away and the cup not over
+ok time goes on: the final is played, the season reviewed, the next one drawn with a cup of its own
+ok the review says who won the cup
+ok the club's cup prizes in the books are those of the rounds it won
+ok and the cup's final was on the right day, in May
+ok new_season() plays out what is left of the cup, unwatched, and moves on
+ok a saved game keeps the cup: the rounds played, who is in, the dates
+ok and it can be played on to the end
+ok with a great side the club won several rounds, and each was paid by its round: 250k for the third, and so on

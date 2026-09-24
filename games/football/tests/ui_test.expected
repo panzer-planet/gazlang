@@ -192,3 +192,9 @@ ok the squad has a Contract column, with the year each one runs to
 ok r on the player selected renews his contract, and says until when
 ok a long contract can't be renewed: the note says why
 ok the market shows contracts and asking prices
+ok a cup tie is watched like any match: the bar names the round, and the date is a Wednesday in September
+ok the other ties are shown as the other matches
+ok at the end of the ninety minutes a level tie has gone on: the clock is at ninety or, after extra time, one hundred and twenty
+ok c ends the day: the inbox has the round's results and the club's report
+ok the fixtures have the tie, marked as the cup's, dated, with its score
+ok a club that is out has nothing more of the cup to come

@@ -72,6 +72,17 @@ season is reviewed (below) and the next one is drawn. The **transfer windows** a
 January: outside them Transfers refuses to buy or sell, and says when it opens. On 1 July the other clubs
 do their business, which the inbox tells you of if it involved you.
 
+## The Cup
+
+Every club in both divisions is in one knockout cup, on Wednesdays through the season and the final on a
+Saturday in late May. The twenty-four weakest clubs play a first round on the middle of September, the
+twenty Premier Division clubs joining in the second, then thirty-two, sixteen, the quarter-finals, semi-finals
+and final: six rounds, each drawn from a hat when its day comes. A tie level after ninety minutes goes to extra
+time and then penalties, which you see as commentary. When your club is in the round, `c` stops for your tie and
+you watch it like a league match; a win pays the club a prize that grows each round, and the home club takes
+the gate. The Fixtures screen lists the cup ties among your matches, and the inbox has each round's
+results. If the league finishes before the final, the season's review waits for it.
+
 ## Contracts
 
 Every player has a contract that runs out on a 30 June (the Squad screen shows the year). A player
@@ -100,12 +111,13 @@ few midweek nights and on the last Saturday after the Premier Division's season 
 over those). The table shows yours (`d` looks at the other), with the places that go up green and
 those that go down red. At the season's review the bottom two of the Premier Division and
 the top two of the Championship swap, and the prize money is bigger in the top division. A club is
-only paid and only pays wages for matches it plays. Saves from before the calendar won't load.
+only paid and only pays wages for matches it plays. Saves from before the cup won't load.
 
 ## What is here
 
 - `engine/` is the model: players and their positions, squads and formations, fixtures with the
-  events of a match, leagues that play a matchday at a time, money and the cup. It started as a copy
+  events of a match, leagues that play a matchday at a time, a cup that plays a round at a time, the
+  calendar and money. It started as a copy
   of the football simulator's files (`tests/programs/football/`) and is the game's own now.
 - `game.gaz` is the state of a game and moving time on; `ui.gaz` is the interface; `main.gaz` is the
   launcher. `DESIGN.md` says where this is going and what the engine still lacks.
@@ -118,6 +130,6 @@ away, a table adds up, the inbox says what the match said), not what a seeded ma
 ratings and the odds are meant to change, and a recording would need re-recording with every tweak.
 Every screen is drawn into a `tui::Screen` and read back as text and styles, with no terminal.
 
-Not here yet: cups, contracts. `tests/programs/football.gaz` has a working career loop, saves, and transfers as
+Not here yet: European and league cups, free agents, morale, training. `tests/programs/football.gaz` has a working career loop, saves, and transfers as
 a command line program: lift what the game needs from it, and leave it as it is, since it is the
 language's biggest test program (see `tests/programs/README.md`).

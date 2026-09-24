@@ -101,7 +101,7 @@ foreach ([1, 2, 3] as $seed) {
         $elsewhere = filter($new, $m -> starts_with($m["subject"], $game.other_division_name() .. ", matchday "));
         check("and the other division's, at least the one played the same day ({$label})", [len($elsewhere) >= 1, len(split(last($elsewhere)["body"], "\n"))], [true, 12]);
         check("the position is between 1 and 20 ({$label})", [$game.position() >= 1, $game.position() <= 20], [true, true]);
-        $families = ["Win: ", "Draw: ", "Defeat: ", "Matchday ", "Lineup: ", "Injury: ", "Suspended: ", "Back: ", "The season is over", "Premier Division, ", "Championship, ", "The transfer window", "Contracts"];
+        $families = ["Win: ", "Draw: ", "Defeat: ", "Matchday ", "Lineup: ", "Injury: ", "Suspended: ", "Back: ", "The season is over", "Premier Division, ", "Championship, ", "The transfer window", "Contracts", "The Cup", "Cup: ", "You have won the Cup"];
         check("at least the report and the results, and nothing but the news there is ({$label})", [len($new) >= 2, count_where($new, $m -> count_where($families, $f -> starts_with($m["subject"], $f)) == 0)], [true, 0]);
         check("and the season's end has the last word ({$label})", $day < 38 || $new[len($new) - 1]["subject"] == "The season is over", true);
     }
@@ -954,3 +954,137 @@ $game.save("vm/build/football_contract.save");
 $again = Game::load("vm/build/football_contract.save");
 run(["rm", "-f", "vm/build/football_contract.save"]);
 check("a saved game keeps the contracts", map($again.club.players, $p -> $p.contract_until), map($game.club.players, $p -> $p.contract_until));
+
+/* ---- The cup ---- */
+$game = Game::start(100, 25);
+$cup = $game.cup;
+check("a cup for every club: six rounds from the first round in September to the final in May, on Wednesdays and a Saturday", [$cup.rounds_total(), date::format($cup.dates[0]), date::format($cup.dates[5]), count_where(slice($cup.dates, 0, 5), $d -> date::weekday($d) == 2), date::weekday($cup.dates[5])], [6, "Wed 16 Sep 2026", "Sat 22 May 2027", 5, 5]);
+$league_dates = [...$game.league.dates, ...$game.other_league.dates];
+check("none on a day a league match is", count_where($cup.dates, $d -> in_array($d, $league_dates)), 0);
+check("the club is in the cup at the start, as are the others", count_where($game.everyone(), $t -> $cup.is_in($t)), 44);
+
+/* a Championship club is in the first round, and its tie comes to the manager */
+$found = null;
+for ($i = 0; $i < 200 && $found == null; $i++) {
+    $day = $game.play_on();
+    if ($day == null) {
+        continue;
+    }
+    if ($day.is_cup()) {
+        $found = $day;
+    } else {
+        while (!$day.finished()) {
+            $day.tick();
+        }
+        $game.end_matchday();
+    }
+}
+check("play_on comes to the club's cup tie, on the round's day, ready to watch", [$found != null, $found.mine != null, date::format($game.date), $game.cup_label()], [true, true, "Wed 16 Sep 2026", "The Cup: First round"]);
+check("the day is the cup's: twelve ties, and the tie is the club's", [len($found.matches), $found.is_cup(), $found.mine.home == $game.club || $found.mine.away == $game.club], [12, true, true]);
+$ticks = 0;
+while (!$found.finished()) {
+    $found.tick();
+    $ticks++;
+}
+check("ninety ticks, and then, for a level tie, extra time all at once: the day is not over till every tie is settled", [$ticks >= 90, $found.finished()], [true, true]);
+$balance = $game.club.balance;
+$game.end_matchday();
+$tie = $cup.rounds[0][1][0];
+$mine_tie = null;
+foreach ($cup.rounds[0][1] as $t) {
+    if ($t.match.home == $game.club || $t.match.away == $game.club) {
+        $mine_tie = $t;
+    }
+}
+$won = $mine_tie.winner() == $game.club;
+check("the round is over: twelve ties, twenty-four out of it or through, thirty-two left, and the day ends", [len($cup.rounds), len($cup.rounds[0][1]), count_where($game.everyone(), $t -> $cup.is_in($t)), $game.live], [1, 12, 32, null]);
+check("the manager is told how the round went, and how their tie did", [message_starting($game.inbox, "The Cup: first round") != null, $won ? message_starting($game.inbox, "Cup: through") != null : message_starting($game.inbox, "Cup: knocked out") != null], [true, true]);
+$report = message_starting($game.inbox, $won ? "Cup: through" : "Cup: knocked out");
+check("and the report has the score", contains($report["body"], to_string($mine_tie)), true);
+$entries = filter($game.ledger, $e -> contains($e["text"], "cup"));
+check("the books: a gate if at home, and a prize if it won, and no wages or television", [count_where($entries, $e -> $e["text"] == "Gate receipts, cup"), count_where($entries, $e -> starts_with($e["text"], "Cup prize money")), $game.club.balance - $balance], [$mine_tie.match.home == $game.club ? 1 : 0, $won ? 1 : 0, ($mine_tie.match.home == $game.club ? money::gate($game.club) : 0) + ($won ? money::cup_prize(0) : 0)]);
+check("every winner of the round was paid the prize, the home clubs their gates", [count_where($cup.rounds[0][1], $t -> $t.winner().balance > 0)], [12]);
+
+/* the cup goes on, unwatched when the manager is out of it or it is not their day */
+$game = Game::start(101);
+$cup = $game.cup;
+$before_first = $game.cup.round_name();
+while ($game.date < date::days(2026, 9, 20)) {
+    $game.advance();
+}
+check("a Premier Division club has a bye in the first round: the cup's first round was played without it, the inbox tells", [len($cup.rounds), $cup.rounds[0][0], message_starting($game.inbox, "The Cup: first round") != null, message_starting($game.inbox, "Cup: through"), message_starting($game.inbox, "Cup: knocked out")], [1, "First round", true, null, null]);
+while ($game.date < date::days(2026, 11, 10)) {
+    $game.advance();
+}
+check("through the second round (or out of it): the report follows the club's tie", [len($cup.rounds), message_starting($game.inbox, "Cup: through") != null || message_starting($game.inbox, "Cup: knocked out") != null], [2, true]);
+
+/* the whole season: the final is in May, and the review names the champions */
+$game = Game::start(102);
+while (!$game.season_over()) {
+    $game.advance();
+}
+$cup = $game.cup;
+check("with the leagues over, the final is a week away and the cup not over", [$cup.finished(), date::month($game.date), $cup.round_name()], [false, 5, "Final"]);
+$game.advance();
+check("time goes on: the final is played, the season reviewed, the next one drawn with a cup of its own", [$cup.finished(), $game.cup != $cup, $game.cup.finished(), len($game.cup.rounds), $game.season], [true, true, false, 0, 2027]);
+$review = message_starting($game.inbox, "2027/28 begins");
+check("the review says who won the cup", contains($review["body"], "The Cup was won by " .. $cup.champion), true);
+$round_index = {};
+foreach ($cup.rounds as $i => [$round_name, $round_ties]) {
+    $round_index[lower($round_name)] = $i;
+}
+$prizes = filter($game.ledger, $e -> starts_with($e["text"], "Cup prize money, "));
+check("the club's cup prizes in the books are those of the rounds it won", count_where($prizes, $e -> $e["amount"] == money::cup_prize($round_index[slice($e["text"], 17)])), len($prizes));
+check("and the cup's final was on the right day, in May", [date::format($cup.dates[5])], ["Sat 22 May 2027"]);
+
+/* the cup can be finished off at the review when the leagues are over and rounds are left */
+$game = Game::start(103);
+while (!$game.season_over()) {
+    $game.advance();
+}
+$rounds_before = len($game.cup.rounds);
+$cup = $game.cup;
+check("new_season() plays out what is left of the cup, unwatched, and moves on", [$game.new_season(), $cup.finished(), len($cup.rounds) >= $rounds_before, $game.season], ["", true, true, 2027]);
+
+/* saved in the middle of the cup, and back */
+$game = Game::start(104);
+while ($game.date < date::days(2026, 11, 10)) {
+    $game.advance();
+}
+$game.save("vm/build/football_cup.save");
+$again = Game::load("vm/build/football_cup.save");
+run(["rm", "-f", "vm/build/football_cup.save"]);
+check("a saved game keeps the cup: the rounds played, who is in, the dates", [len($again.cup.rounds), $again.cup.dates == $game.cup.dates, count_where($again.everyone(), $t -> $again.cup.is_in($t)), $again.to_data() == $game.to_data()], [len($game.cup.rounds), true, count_where($game.everyone(), $t -> $game.cup.is_in($t)), true]);
+$loaded_cup = $again.cup;
+while (!$loaded_cup.finished()) {
+    $again.advance();
+}
+check("and it can be played on to the end", $loaded_cup.finished(), true);
+
+/* a manager whose team wins is paid a bigger prize each round */
+$game = Game::start(105);
+foreach ($game.club.players as $p) {
+    $p.rating = 95;
+}
+foreach ($game.teams as $team) {
+    if ($team != $game.club) {
+        foreach ($team.players as $p) {
+            $p.rating = 40;
+        }
+    }
+}
+while ($game.date < date::days(2027, 4, 1)) {
+    $game.advance();
+}
+$prize_rows = filter($game.ledger, $e -> starts_with($e["text"], "Cup prize money, "));
+$names_by_index = ["first round", "second round", "third round", "quarter-finals", "semi-finals", "final"];
+$paid_ok = count_where($prize_rows, $e -> $e["amount"] == money::cup_prize(array_index($names_by_index, slice($e["text"], 17))));
+fn array_index($list, $value) {
+    foreach ($list as $i => $item) {
+        if ($item == $value) {
+            return $i;
+        }
+    }
+    return -1;
+}
+check("with a great side the club won several rounds, and each was paid by its round: 250k for the third, and so on", [len($prize_rows) >= 3, $paid_ok, count_where($prize_rows, $e -> $e["amount"] > 100000) >= 2], [true, len($prize_rows), true]);

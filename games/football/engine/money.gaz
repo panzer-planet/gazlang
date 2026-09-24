@@ -56,6 +56,9 @@ pub fn gate($home) { return to_int(400000 + $home.rating() * 8000); }
 // What each club is paid by the broadcasters every matchday
 pub const TELEVISION = 600000;
 
+// What a club is paid for winning a round of the cup, from the first round to the final
+pub fn cup_prize($round) { return [100000, 150000, 250000, 400000, 700000, 1500000][min($round, 5)]; }
+
 // Pounds as they are said: £14.5m, £820k, -£1.2m
 pub fn pounds($amount) {
     $sign = $amount < 0 ? "-" : "";

@@ -375,14 +375,23 @@ pub kind Team {
     }
 
     /* A player leaves the squad without the rules release() has (a contract ran out): if he was in the
-       eleven the best cover of his position takes his place, and the squad may be left short. */
+       eleven the best cover of his position takes his place if there is one, and the squad may be left
+       short, even of goalkeepers: repair() puts the eleven right once it has been filled up again. */
     pub fn leave($player) {
         $cover = in_array($player, #xi) ? #best_substitute($player) : null;
         #players = filter(#players, $p -> $p != $player);
-        if (in_array($player, #xi)) {
-            #xi = $cover != null ? map(#xi, $p -> $p == $player ? $cover : $p) : #best_eleven(#preferred);
+        if ($cover != null) {
+            #xi = map(#xi, $p -> $p == $player ? $cover : $p);
         }
         #changed();
+    }
+
+    /* After players have left: if the eleven still has anyone who isn't in the squad, pick the best again */
+    pub fn repair() {
+        if (len(filter(#xi, $player -> !in_array($player, #players))) > 0) {
+            #xi = #best_eleven(#preferred);
+            #changed();
+        }
     }
 
     // The players tired, rested or were sent off

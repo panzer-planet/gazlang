@@ -868,3 +868,38 @@ check("a long contract can't be renewed: the note says why", [contains($shell.no
 press($shell, "7");
 $screen = look($shell);
 check("the market shows contracts and asking prices", [shows($screen, "Contract"), shows($screen, money::pounds($game.asking_price($game.market()[0][0])))], [true, true]);
+
+/* ---- The cup on screen ---- */
+$game = Game::start(6, 25);
+$shell = Shell::for_game($game);
+$guard = 0;
+while (($game.live == null || !$game.live.is_cup()) && $guard < 100) {
+    press($shell, "c");
+    if ($game.live != null && !$game.live.is_cup()) {
+        press($shell, "s");
+        press($shell, "c");
+    }
+    $guard++;
+}
+$screen = look($shell);
+check("a cup tie is watched like any match: the bar names the round, and the date is a Wednesday in September", [$game.live.is_cup(), contains($screen.lines()[0], "The Cup: First round"), contains($screen.lines()[0], "Wed 16 Sep 2026"), shows($screen, to_string($game.live.mine))], [true, true, true, true]);
+check("the other ties are shown as the other matches", count_where($game.live.matches, $m -> $m != $game.live.mine && shows($screen, $m.home.name)) > 3, true);
+press($shell, "s");
+$screen = look($shell);
+check("at the end of the ninety minutes a level tie has gone on: the clock is at ninety or, after extra time, one hundred and twenty", in_array($game.live.clock(), [90, 120]), true);
+press($shell, "c");
+$cup_tie = null;
+foreach ($game.cup.rounds[0][1] as $t) {
+    if ($t.match.home == $game.club || $t.match.away == $game.club) {
+        $cup_tie = $t;
+    }
+}
+check("c ends the day: the inbox has the round's results and the club's report", [$game.live, $shell.section(), shows(look($shell), "The Cup: first round") || shows(look($shell), "Cup: through") || shows(look($shell), "Cup: knocked out")], [null, "Inbox", true]);
+press($shell, "4");
+$screen = look($shell);
+check("the fixtures have the tie, marked as the cup's, dated, with its score", [shows($screen, "16 Sep"), lines_with($screen, " cup ") >= 1, shows($screen, $cup_tie.match.home_goals .. " - " .. $cup_tie.match.away_goals)], [true, true, true]);
+if ($cup_tie.winner() == $game.club) {
+    check("a club still in the cup has its next round in the list, with the draw to come", [shows($screen, "(draw to come)"), shows($screen, "The Cup: Second round")], [true, true]);
+} else {
+    check("a club that is out has nothing more of the cup to come", shows($screen, "(draw to come)"), false);
+}

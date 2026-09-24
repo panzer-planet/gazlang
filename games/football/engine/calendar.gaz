@@ -73,3 +73,22 @@ pub fn window_open($day) {
 pub fn window_opens($day) {
     return date::month($day) >= 2 && date::month($day) <= 6 ? "1 July" : "1 January";
 }
+
+/*
+ * The days of a cup's rounds in the season that starts in $year: $rounds of them, the last a Saturday
+ * in the second half of May (the final, after the league) and the others midweek Wednesdays spread over the
+ * season, none of which a league match is on (the leagues play Saturdays and Tuesdays).
+ */
+pub fn cup_dates($year, $rounds) {
+    $dates = [];
+    $first = date::next_weekday(date::days($year, 9, 15), 2);
+    $last = date::next_weekday(date::days($year + 1, 3, 17), 2);
+    $midweek = $rounds - 1;
+    for ($i = 0; $i < $midweek; $i++) {
+        $target = $midweek == 1 ? $first : $first + intdiv($i * ($last - $first), $midweek - 1);
+        $dates[] = date::next_weekday($target, 2);
+    }
+    $dates[] = date::next_weekday(date::days($year + 1, 5, 22), 5);
+
+    return $dates;
+}

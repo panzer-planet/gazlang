@@ -7,6 +7,7 @@ namespace game;
 
 include "engine/teams.gaz" use Team, Scout, InvalidLineup, TransferRefused;
 include "engine/league.gaz" use League;
+include "engine/cup.gaz" use Cup;
 include "engine/money.gaz";
 include "engine/players.gaz" use Goalkeeper, Defender, Midfielder, Forward;
 include "engine/calendar.gaz";
@@ -38,6 +39,11 @@ const FIRST_YEAR = 2026;
 const FORMATIONS = ["4-4-2", "4-3-3", "3-5-2", "4-5-1", "5-3-2"];
 
 /* 1st, 2nd, 3rd, 4th, 11th, 12th, 13th, 21st */
+/* How many of $matches are still being played */
+fn count_unfinished($matches) {
+    return len(filter($matches, $match -> !$match.finished()));
+}
+
 /* The players whose contracts end on or before $day */
 fn expiring_players($players, $day) {
     return filter($players, $player -> $player.contract_until <= $day);
@@ -81,8 +87,15 @@ pub kind MatchDay {
     pub #commentary = [];
     /* The other division's matches, played alongside but not watched */
     #also = [];
+    /* The cup, on a day of its rounds: its ties are the matches, and a level one goes on to extra time
+       and penalties when all are over at ninety minutes */
+    #cup = null;
+    #settled = false;
 
     fn _(#club);
+
+    pub fn play_cup($cup) { #cup = $cup; }
+    pub fn is_cup() { return #cup != null; }
 
     pub fn unwatched() { return #also; }
 
@@ -117,7 +130,7 @@ pub kind MatchDay {
             }
         }
 
-        return true;
+        return #cup == null || #settled;
     }
 
     /* Play a minute of every match that isn't over */
@@ -126,6 +139,11 @@ pub kind MatchDay {
             if (!$match.finished()) {
                 $match.tick();
             }
+        }
+        // The ties that are level go on, all at once, when every match has had its ninety minutes
+        if (#cup != null && !#settled && count_unfinished(#matches) == 0) {
+            #cup.settle(#matches);
+            #settled = true;
         }
     }
 }
@@ -139,6 +157,8 @@ pub kind Game {
        which the club's is: 0 the top, 1 the second. */
     pub #league;
     pub #other_league;
+    /* The cup: every club in the game, a round on a Wednesday every few weeks and the final in May */
+    pub #cup;
     pub #inbox = [];
     pub #season = FIRST_YEAR;
     /* Today, as a day number (lib/date.gaz): time moves a day at a time, and the game stops when
@@ -161,6 +181,17 @@ pub kind Game {
         #league.assign_dates(calendar::matchdays(#season, #league.matchdays()));
         #other_league = League(#other_teams).draw();
         #other_league.assign_dates(calendar::matchdays(#season, #other_league.matchdays()));
+        // Strongest first: the top division by rating, then the second, so the byes go to the top clubs
+        $top = #level == 0 ? #teams : #other_teams;
+        $second = #level == 0 ? #other_teams : #teams;
+        $by_rating = ($a, $b) -> [$b.rating(), $a.name] <=> [$a.rating(), $b.name];
+        #cup = Cup("The Cup", [...sort($top, $by_rating), ...sort($second, $by_rating)]);
+        #cup.assign_dates(calendar::cup_dates(#season, #cup.rounds_total()));
+    }
+
+    /* The cup's round being played, as "The Cup: Third round", or null when the matchday on is not the cup's */
+    pub fn cup_label() {
+        return #live != null && #live.is_cup() ? "The Cup: " .. #cup.round_name() : null;
     }
 
     /* Today as it is said: Sat 8 Aug 2026 */
@@ -200,11 +231,12 @@ pub kind Game {
     /* What a save file keeps: everything the game is, as data */
     pub fn to_data() {
         return {
-            "game" => "football", "version" => 3, "season" => #season, "date" => #date, "club" => #club.name, "level" => #level,
+            "game" => "football", "version" => 4, "season" => #season, "date" => #date, "club" => #club.name, "level" => #level,
             "names" => #scout.names(),
             "teams" => map(#teams, $team -> $team.to_data()),
             "other_teams" => map(#other_teams, $team -> $team.to_data()),
             "league" => #league.to_data(),
+            "cup" => #cup.to_data(),
             "other_league" => #other_league.to_data(),
             "inbox" => #inbox, "ledger" => #ledger,
         };
@@ -222,6 +254,7 @@ pub kind Game {
         $game.date = $data["date"];
         $game.league = League::from_data($data["league"], $teams);
         $game.other_league = League::from_data($data["other_league"], $others);
+        $game.cup = Cup::from_data($data["cup"], [...$teams, ...$others]);
         $game.inbox = $data["inbox"];
         $game.ledger = $data["ledger"];
 
@@ -249,7 +282,7 @@ pub kind Game {
         }
         try {
             $data = json::decode(read_file($path));
-            if (($data["game"] ?? null) != "football" || ($data["version"] ?? null) != 3) {
+            if (($data["game"] ?? null) != "football" || ($data["version"] ?? null) != 4) {
                 error("{$path} is not a saved football game");
             }
 
@@ -266,6 +299,13 @@ pub kind Game {
         if (!#season_over()) {
             return "The season isn't over";
         }
+        // A cup with rounds still to play (its final is after the league) is finished off, unwatched
+        $first_unplayed = len(#cup.rounds);
+        $rest = #cup.finished() ? [] : #cup.play_out();
+        foreach ($rest as $i => [$name, $ties]) {
+            #settle_cup($ties, $first_unplayed + $i);
+        }
+        $cup_note = "The Cup was won by " .. #cup.champion .. (#cup.champion == #club ? ": you won it!" : ".");
         foreach ([[#league, #level], [#other_league, 1 - #level]] as [$league, $level]) {
             foreach ($league.table() as $place => $standing) {
                 $prize = money::prize(1 + $level, $place, len($league.table()));
@@ -312,7 +352,7 @@ pub kind Game {
         }
         #season++;
         #new_leagues();
-        $body = "A new season begins in the " .. #division_name() .. ". " .. ($verdict != "" ? $verdict .. " " : "") .. #expectation();
+        $body = $cup_note .. "\n\nA new season begins in the " .. #division_name() .. ". " .. ($verdict != "" ? $verdict .. " " : "") .. #expectation();
         if ($retired != []) {
             $body ..= "\n\nRetired: " .. join($retired, ", ") .. ". From the academy: " .. join(map($academy, $p -> "{$p} ({$p.position()}, {$p.rating})"), ", ") .. ".";
         }
@@ -402,6 +442,17 @@ pub kind Game {
                 continue;
             }
             $day = #open_matchday();
+            if ($day.is_cup()) {
+                // The club's cup tie is for the manager to see; a day of the cup they are not in is passed
+                if ($stopping && $day.mine != null) {
+                    return #live;
+                }
+                while (!$day.finished()) {
+                    $day.tick();
+                }
+                #end_matchday();
+                continue;
+            }
             // The club's match; or, once its division's season is over and not stopping, the other's
             if ($day.mine != null || (!$stopping && #league.matchdays_left() == 0)) {
                 return #live;
@@ -412,6 +463,59 @@ pub kind Game {
             }
             #end_matchday();
         }
+    }
+
+    /* A day of the cup is over: the winners go through, and the inbox says who, the club's tie first. Gives
+       nothing, as no league match was played. */
+    fn end_cup_day() {
+        $round = #cup.round_name();
+        $index = len(#cup.rounds);
+        $ties = #cup.end_round(#live.matches);
+        #live = null;
+        #settle_cup($ties, $index);
+        $available = filter(#club.players, $player -> $player.available());
+        foreach ($ties as $tie) {
+            if ($tie.match.home == #club || $tie.match.away == #club) {
+                #report_cup($tie, $round);
+            }
+        }
+        #tell("The Cup: " .. lower($round), join(map($ties, $tie -> to_string($tie)), "\n"));
+        #report_availability($available);
+
+        return [];
+    }
+
+    /* The manager's own cup tie, told: through, or out, or the Cup won */
+    fn report_cup($tie, $round) {
+        $match = $tie.match;
+        $won = $tie.winner() == #club;
+        $opponent = $match.home == #club ? $match.away : $match.home;
+        $text = "{$tie}.";
+        if ($won && #cup.finished()) {
+            #tell("You have won the Cup!", "{$text} You beat {$opponent} in the final, and the club is paid " .. money::pounds(money::cup_prize(len(#cup.rounds) - 1)) .. ".");
+        } else if ($won) {
+            #tell("Cup: through", "{$text} You beat {$opponent} and go into the " .. lower(#cup.round_name()) .. ", on " .. date::format(#cup.next_date()) .. ".");
+        } else {
+            #tell("Cup: knocked out", "{$text} {$opponent} go through and you are out of the Cup, in the " .. lower($round) .. ".");
+        }
+    }
+
+    /* The cup's money: the home club's gate for each tie, and a prize for each winner, by the round. Every
+       tie is a match with no television and no wages, since a matchday of the league paid them. */
+    fn settle_cup($ties, $round) {
+        foreach ($ties as $tie) {
+            foreach ([[$tie.match.home, "Gate receipts, cup", money::gate($tie.match.home)], [$tie.winner(), "Cup prize money, " .. lower(#cup_round_name($round)), money::cup_prize($round)]] as [$team, $text, $amount]) {
+                $team.balance += $amount;
+                if ($team == #club) {
+                    #ledger[] = {"matchday" => #league.matchdays_played(), "date" => #date, "text" => $text, "amount" => $amount};
+                }
+            }
+        }
+    }
+
+    /* The name of round $index of this season's cup, for a ledger entry */
+    fn cup_round_name($index) {
+        return #cup.round_name_of($index);
     }
 
     /* Move time on to the next matchday the manager should see or an event that needs them, and play
@@ -434,7 +538,7 @@ pub kind Game {
 
     /* The date of the next matchday of either division, or null when both seasons are over */
     pub fn next_fixture_date() {
-        $dates = filter([#league.next_date(), #other_league.next_date()], $date -> $date != null);
+        $dates = filter([#league.next_date(), #other_league.next_date(), #cup.next_date()], $date -> $date != null);
 
         return $dates == [] ? null : min($dates);
     }
@@ -442,9 +546,10 @@ pub kind Game {
     /* Begin every matchday that is due today: the club's division's if it has one, and the other's */
     fn open_matchday() {
         $due = filter([#league, #other_league], $league -> $league.next_date() != null && $league.next_date() <= #date);
+        $cup_day = #cup.next_date() != null && #cup.next_date() <= #date;
         // The clubs playing pick their best eleven from who is fit; the manager's stays as it was set,
         // except that anyone who is out is replaced, which the inbox says
-        $pairs = reduce($due, ($all, $league) -> [...$all, ...$league.next_pairs()], []);
+        $pairs = reduce($due, ($all, $league) -> [...$all, ...$league.next_pairs()], $cup_day ? #cup.next_pairs() : []);
         foreach ($pairs as [$home, $away]) {
             foreach ([[$home, $away], [$away, $home]] as [$team, $opponent]) {
                 if ($team != #club) {
@@ -463,6 +568,10 @@ pub kind Game {
         $picked = #club.eleven();
         // Live only once the league has begun it, so a matchday that couldn't begin isn't left half made
         $day = MatchDay(#club);
+        if ($cup_day) {
+            $day.play_cup(#cup);
+            #cup.begin_round($day.attach);
+        }
         if (in_array(#league, $due)) {
             #league.begin_matchday($day.attach);
         }
@@ -580,6 +689,7 @@ pub kind Game {
             #club.sign($youth);
             $signed[] = $youth;
         }
+        #club.repair();
         #tell("Contracts have run out", join($leavers, ", ") .. (len($leavers) == 1 ? " has" : " have") .. " left: the contract ended on 30 June and was not renewed."
             .. ($signed == [] ? "" : " From the academy: " .. join(map($signed, $p -> "{$p} ({$p.position()}, {$p.rating})"), ", ") .. "."));
 
@@ -633,6 +743,9 @@ pub kind Game {
     pub fn end_matchday() {
         if (#live == null) {
             error("No matchday is being played");
+        }
+        if (#live.is_cup()) {
+            return #end_cup_day();
         }
         $matches = #live.matches == [] ? [] : #league.end_matchday(#live.matches);
         $others = #live.unwatched() == [] ? [] : #other_league.end_matchday(#live.unwatched());

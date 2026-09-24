@@ -165,6 +165,15 @@ pub kind Fixture {
         return $scored;
     }
 
+    // The shootout that settles a tie level after extra time: penalties() with the result an event, which
+    // a listener hears. Gives the kicks scored, [home, away].
+    pub fn shootout() {
+        $scored = #penalties();
+        #emit(Whistle(120, "Penalties: {#home} {$scored[0]} - {$scored[1]} {#away}"));
+
+        return $scored;
+    }
+
     fn minute($minute) {
         // A chance in about one minute in six, a foul in one in thirty, and most minutes nothing
         $roll = rand_float();

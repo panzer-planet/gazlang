@@ -619,3 +619,36 @@ ok a club asks a third over his value, and half of that once his contract has si
 ok renewing costs a sixteenth of his value
 ok a player who leaves takes nothing with him: the squad is one smaller, the eleven still eleven, with cover in his place
 ok nothing stops a squad being left short, as release() does: that is for the game to fill
+ok forty-four clubs make six rounds: a first round for the weakest twenty-four, then thirty-two
+ok sixteen clubs make four rounds, and thirty-two five, sixty-four six with no first round
+ok the first round is drawn from the weakest 24: twelve ties, none of the strongest twenty in it
+ok and the draw is kept until the round is played
+ok dated, the next round has its day
+ok a cup needs a date for each round
+ok a round: twelve ties, each with a winner, who goes on
+ok thirty-two are left: twenty with byes and twelve winners
+ok and the cup has played its first round, dated for the next
+ok the second round has all thirty-two, sixteen ties
+ok a round can't end twice
+ok the fixtures of a club still in: what it has played, and the round it is in next
+ok play_out finishes the cup: five more rounds, a champion, one club left in
+ok every round halves the field: 12, 16, 8, 4, 2, 1 ties
+ok the champion won six matches from a first-round start and five from a bye
+ok a knocked-out club has no fixture to come
+ok settling twice changes nothing (0)
+ok settling twice changes nothing (1)
+ok a level match goes to extra time, which the listeners hear, to minute 120
+ok settling twice changes nothing (2)
+ok settling twice changes nothing (3)
+ok settling twice changes nothing (4)
+ok settling twice changes nothing (5)
+ok and level again, to penalties, which is an event and has a winner
+ok settling twice changes nothing (6)
+ok in eighty tries there was a tie that went to extra time and one to penalties
+ok a cup saved between rounds comes back: the rounds played, who is in, the dates
+ok and a finished cup has its champion saved
+ok a cup's prizes by round
+ok six rounds: five Wednesdays from mid-September to March, in order, and the final on a Saturday in late May
+ok in order, and none on a league day (Saturdays, and Tuesdays)
+ok a cup of one round is just the final, of two the Wednesday and the final
+ok and it follows the year: the next season's are a year on

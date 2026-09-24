@@ -69,7 +69,8 @@ A launcher smoke test runs the real thing on a pty. See `README.md`.
    built on them is fun.
 6. **Calendar** *(done, for now)*: a date, dated fixtures (Saturdays and some Tuesdays), a season from
    1 July to a review on 1 June, transfer windows in July, August and January, birthdays. Not yet:
-   cups and midweek European nights, scouting and training on the calendar.
+   a league cup and European nights, scouting and training on the calendar. The domestic cup is in
+   (a Wednesday every few weeks, the final in May).
 7. **Money** *(basic)*: books, a market, selling, prize money, the clubs' windows (July and January)
    and contracts (running out on 30 June, renewed for a fee) are in. Not yet: wages that follow the
    contract (they still follow value), free agents, bids the other side can refuse.
@@ -86,4 +87,4 @@ A launcher smoke test runs the real thing on a pty. See `README.md`.
 5. **Saving and loading.** *(done)*
 6. **Depth**: injuries and youth from the academy are in; morale, contracts and training are not.
 7. **A season after a season**: two divisions with two up and two down, the summer's ageing,
-   retirements and window. *(done)* Cups and an end-of-season summary remain.
+   retirements and window. *(done)* A cup is in; an end-of-season summary remains.
