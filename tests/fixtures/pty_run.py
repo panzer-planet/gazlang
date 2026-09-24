@@ -8,7 +8,8 @@ what it printed. PHP can't make a pty, and raw mode can't be seen from a pipe.
 KEYS_HEX is written to the terminal once the program has had time to start; SIGNAL (TERM, INT, or
 empty for none) is sent after that; ARGS are the program's own arguments. The environment's
 PTY_WAIT is how long, in seconds, to let a program run after the keys are typed (default 0.3), for
-one that moves by itself. The window is 132 by 40.
+one that moves by itself. PTY_HOLD, "HEX:EVERY:SECONDS", types those bytes every EVERY seconds for
+SECONDS instead, as a key held down does. The window is 132 by 40.
 """
 import fcntl
 import json
@@ -65,9 +66,17 @@ during = modes(slave)
 # timeout of 0.1 has to have waited for nothing)
 pump(0.3)
 wait = float(os.environ.get("PTY_WAIT", "0.3"))
+hold = os.environ.get("PTY_HOLD")
 if keys:
     os.write(master, keys)
-    pump(wait)
+    if hold:
+        held, every, seconds = hold.split(":")
+        end = time.time() + float(seconds)
+        while time.time() < end:
+            os.write(master, bytes.fromhex(held))
+            pump(float(every))
+    else:
+        pump(wait)
 if sig:
     process.send_signal(sig)
 deadline = time.time() + 5

@@ -364,7 +364,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     program that wants it.
 - **Not planned** until real code asks: traits, late static binding, operator
   overloading, `**` and `sqrt`/`pow`/`log`, variadic parameters and spread in calls (pass a
-  list), `time()` (time it from outside), `foreach` over a string (`split($s, "")`), a REPL.
+  list), `time()` (a wall clock: `monotonic_time()` measures), `foreach` over a string (`split($s, "")`), a REPL.
 - **Regular expressions**: `lib/regex.gaz` (`regex::matches`, `regex::search`,
   `regex::find`), a Thompson NFA (Pike's VM) so there is no backtracking and no ReDoS.
   Literals, `.`, `*` `+` `?`, `|`, `(...)` grouping (not capturing), `[...]`/`[^...]`
@@ -578,6 +578,10 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   after, as curl does: per socket only macOS can turn it off, and ignoring it for good would
   change what a program writing to a closed pipe does. OpenSSL reports a socket timeout as
   wanting to read; `net.c` says `timed out`.
+- `monotonic_time()`: seconds as a float on `CLOCK_MONOTONIC`, from an undefined point, so only a
+  difference means anything; a program that prints it can't be recorded, so tests check its type and
+  that it never goes back, and its uses (`tui::Metronome`) take the time as an argument. There is
+  still no `time()`: a wall clock is different on every run and has dates in it.
 - The terminal (`term.c`): `term_raw($on)`, `term_read($timeout = null)`, `term_size()`,
   `term_is_tty($stream)`, only what GazLang can't do itself; drawing is escape sequences through
   `print` and turning bytes into keys is GazLang's (`lib/term.gaz`), so the rules are written out

@@ -89,4 +89,15 @@ class GameProgramsTest extends GazLangTestCase
         $this->assertStringContainsString('GOAL!', $ran['out']);
         $this->assertSame(['echo' => true, 'icanon' => true, 'isig' => true], $ran['after']);
     }
+
+    public function test_a_match_keeps_moving_while_a_key_is_held_down()
+    {
+        // c begins the matchday, then j (which does nothing in a match) is typed every 50ms for two and a half seconds,
+        // as a key held down repeats: the beat is a quarter of a second, and a wait that started again with each key
+        // would never end. The first goal of seed 1's match is in the fourth minute, a second in.
+        $ran = $this->fileOnTerminal('games/football/main.gaz', bin2hex('c'), 'INT', ['1'], 0.3, bin2hex('j').':0.05:2.5');
+
+        $this->assertSame(-2, $ran['code']);
+        $this->assertStringContainsString('GOAL!', $ran['out']);
+    }
 }

@@ -509,6 +509,12 @@ is escape sequences through `print`, and turning bytes into keys is GazLang's to
 
 `term_read` reads the descriptor, not the buffer `read_stdin()` fills, so use one or the other.
 
+**Time** — `monotonic_time()` is seconds, as a float, on the system's monotonic clock: it only
+counts on, whatever the clock on the wall is set to, and only the difference between two readings
+means anything (the starting point is not defined, and the resolution is a microsecond or better).
+It is for measuring how long something took, or when something is due: `tui::interact` keeps its
+`$tick` steady with it. There is no `time()`: a date would be different on every run.
+
 **Control** — `error($value)`, `exit($code = 0)`.
 
 **Random numbers** — not cryptographically secure: for games, simulations and sampling, never
@@ -757,6 +763,8 @@ with no terminal.
   its index. A column of numbers is aligned on the right; `$style_of($row, $index)` gives a row's
   style, for marking the user's own club. The cells of a column must be alike, or sorting on it is
   an error. A table too wide is squeezed, widest column first, and then cut off.
+- **`tui::Metronome($interval, $now)`** is a steady beat: `due($now)`, `wait($now)` (seconds to the
+  next, 0 if due) and `beat($now)` after taking one; a late beat isn't made up for with two.
 - **`tui::Menu($items, $title = "")`** and **`tui::TextField($value = "")`** take keys
   (`handle($key)`) and draw themselves (`draw(...)`). `handle` gives `"select"` or `"cancel"` for
   a menu and `"submit"` or `"cancel"` for a field, and `null` for a key it dealt with itself: the
@@ -770,8 +778,8 @@ with no terminal.
   same one to each, since keys typed ahead are in it and a new one for each screen would lose them.
   With `$tick`, time passes: when no key has been pressed for `$interval` seconds `$tick()` is called
   and the screen drawn again, so it can move by itself (a clock, a match being played), and `$tick`
-  ends the screen as `$handle` does. Each key starts the wait again, so a key held down stops time:
-  there is no clock to keep a deadline by. The lambdas share state through `shared` variables, or an
+  ends the screen as `$handle` does. The beat is kept by `monotonic_time()` (in a `tui::Metronome`, which
+  takes the time as an argument and can be tested without waiting), so a key held down doesn't hold it up. The lambdas share state through `shared` variables, or an
   object as `examples/dashboard.gaz` does. **`tui::choose($items, $title = "", $input = null)`**
   (the index picked, or `null` if cancelled or there is nothing to pick) and
   **`tui::ask($question, $initial = "", $input = null)`** (the answer, or `null`) are a

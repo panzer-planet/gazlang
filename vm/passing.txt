@@ -768,6 +768,7 @@ tests/gaz/stdlib/functional_test.gaz
 tests/gaz/stdlib/lists_test.gaz
 tests/gaz/stdlib/random_test.gaz
 tests/gaz/stdlib/strings_test.gaz
+tests/gaz/stdlib/time_test.gaz
 tests/gaz/strings/interpolation_test.gaz
 tests/lexer_corpus/block_comments.gaz
 tests/lexer_corpus/comments.gaz

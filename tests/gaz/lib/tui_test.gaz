@@ -511,3 +511,42 @@ check("table: drawn in a rect of the screen", [trim($s.lines()[0]), trim($s.line
 $s = tui::Screen(20, 10);
 check("centered", tui::centered($s, 10, 4), [6, 4]);
 check("centered: too big is the corner", tui::centered($s, 30, 12), [1, 1]);
+
+/* ---- Metronome, with times made up ---- */
+$m = tui::Metronome(0.25, 10.0);
+check("metronome: not due at the start", [$m.due(10.0), $m.due(10.2), $m.due(10.2499)], [false, false, false]);
+check("metronome: due when the beat is", [$m.due(10.25), $m.due(11.0)], [true, true]);
+check("metronome: how long to wait", [round($m.wait(10.0), 3), round($m.wait(10.1), 3), $m.wait(10.25), $m.wait(12.0)], [0.25, 0.15, 0, 0]);
+$m.beat(10.25);
+check("metronome: a beat sets the next an interval on", [$m.due(10.4), $m.due(10.5), round($m.wait(10.3), 3)], [false, true, 0.2]);
+$m.beat(10.5);
+$m.beat(10.75);
+check("metronome: beats on time keep their own time", round($m.wait(10.75), 3), 0.25);
+$late = tui::Metronome(0.25, 20.0);
+$late.beat(20.9);
+check("metronome: a late beat isn't made up for with two", [round($late.wait(20.9), 3), $late.due(21.0), $late.due(21.15)], [0.25, false, true]);
+$slightly = tui::Metronome(0.25, 30.0);
+$slightly.beat(30.3);
+check("metronome: a little late is caught up in the next", round($slightly.wait(30.3), 3), 0.2);
+
+/* keys arriving faster than the beat don't hold it up: a made-up clock, a key every 0.03 seconds */
+$held = tui::Metronome(0.25, 0);
+$ticks = 0;
+for ($step = 1; $step <= 66; $step++) {
+    $when = $step * 0.03;
+    if ($held.due($when)) {
+        $ticks++;
+        $held.beat($when);
+    }
+}
+check("metronome: a held key doesn't stop the beat", $ticks, 7);
+$quiet = tui::Metronome(0.25, 0);
+$quiet_ticks = 0;
+for ($step = 1; $step <= 8; $step++) {
+    $when = $step * 0.25;
+    if ($quiet.due($when)) {
+        $quiet_ticks++;
+        $quiet.beat($when);
+    }
+}
+check("and without keys it beats every interval", $quiet_ticks, 8);

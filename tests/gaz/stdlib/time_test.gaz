@@ -1,0 +1,21 @@
+include "../check.gaz";
+
+$first = monotonic_time();
+check("a float", type_of($first), "float");
+$second = monotonic_time();
+check("it never goes back", $second >= $first, true);
+
+/* and it moves: look until it does, for as long as it takes a clock with a microsecond to tick */
+$looks = 0;
+while (monotonic_time() == $first && $looks < 20000000) {
+    $looks++;
+}
+check("it moves on", monotonic_time() > $first, true);
+check("in seconds: that didn't take a minute", monotonic_time() - $first < 60, true);
+check("and it is positive", $first > 0, true);
+$readings = [];
+for ($i = 0; $i < 100; $i++) {
+    $readings[] = monotonic_time();
+}
+$sorted = sort($readings, ($a, $b) -> $a <=> $b);
+check("a hundred readings come in order", $readings, $sorted);

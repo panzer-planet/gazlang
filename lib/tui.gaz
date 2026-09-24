@@ -694,6 +694,33 @@ pub kind TextField {
 /* ---- Whole screens ----------------------------------------------------------------------- */
 
 /*
+ * A steady beat: when the next one is due, given the time now (seconds from monotonic_time(); it
+ * is passed in, so it can be tested with times made up). A beat that comes late doesn't make up
+ * for it with two: the next is an interval from when it came.
+ */
+pub kind Metronome {
+    #next;
+
+    fn _(#interval, $now) {
+        #next = $now + #interval;
+    }
+
+    /* Whether a beat is due */
+    pub fn due($now) { return $now >= #next; }
+
+    /* Seconds until the next beat, or 0 when it is due */
+    pub fn wait($now) { return max(#next - $now, 0); }
+
+    /* A beat has been taken at $now */
+    pub fn beat($now) {
+        #next += #interval;
+        if (#next <= $now) {
+            #next = $now + #interval;
+        }
+    }
+}
+
+/*
  * Run $draw($screen) and $handle($key) on a screen of its own until $handle gives something
  * other than null, which is what this gives; input that ends gives null. Keys come from $input
  * (a term::Input), or from a new one. A program that shows one screen after another passes the
@@ -703,11 +730,12 @@ pub kind TextField {
  * With $tick, time passes too: when no key has been pressed for $interval seconds, $tick() is
  * called and the screen drawn again, so a screen can move by itself (a clock, a match being
  * played). It ends the screen as $handle does, by giving something other than null.
- * ponytail: the wait starts again with each key, so a key held down (auto-repeat) stops time; a
- * deadline needs a clock, which the language doesn't have.
+ * The beat is steady: a key held down (auto-repeat) doesn't hold it up, since each wait is until the
+ * next beat is due, kept by monotonic_time() in a Metronome, and not a full $interval from the key.
  */
 pub fn interact($draw, $handle, $input = null, $tick = null, $interval = 0.25) {
     $input ??= term::Input();
+    $metronome = $tick == null ? null : Metronome($interval, monotonic_time());
     return term::fullscreen(() -> {
         $size = term_size();
         $screen = Screen($size["cols"], $size["rows"]);
@@ -716,13 +744,19 @@ pub fn interact($draw, $handle, $input = null, $tick = null, $interval = 0.25) {
             $screen.clear();
             $draw($screen);
             print($screen.render());
-            $key = $input.read($tick == null ? null : $interval);
+            if ($metronome == null) {
+                $key = $input.read();
+            } else {
+                $now = monotonic_time();
+                $key = $metronome.due($now) ? null : $input.read($metronome.wait($now));
+            }
             if ($key == null) {
-                // nothing was pressed for a while
+                // the beat is due: time passes, whether or not keys have been coming
                 $result = $tick();
                 if ($result != null) {
                     return $result;
                 }
+                $metronome.beat(monotonic_time());
                 continue;
             }
             if ($key["key"] == "eof") {

@@ -19,6 +19,7 @@
 #include <sys/random.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 
 extern char **environ;
@@ -44,7 +45,7 @@ const BuiltinInfo builtin_info[] = {
     {"builtins", 0, 0}, {"rand_int", 2, 2}, {"rand_float", 0, 0}, {"rand_seed", 0, 1},
     {"run", 1, 2}, {"socket_open", 2, 4}, {"socket_read", 1, 1}, {"socket_write", 2, 2},
     {"socket_close", 1, 1}, {"term_raw", 1, 1}, {"term_read", 0, 1}, {"term_size", 0, 0},
-    {"term_is_tty", 1, 1},
+    {"term_is_tty", 1, 1}, {"monotonic_time", 0, 0},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -57,6 +58,7 @@ enum {
     B_ARGS, B_BUILTINS, B_RAND_INT, B_RAND_FLOAT, B_RAND_SEED, B_RUN,
     B_SOCKET_OPEN, B_SOCKET_READ, B_SOCKET_WRITE, B_SOCKET_CLOSE,
     B_TERM_RAW, B_TERM_READ, B_TERM_SIZE, B_TERM_IS_TTY,
+    B_MONOTONIC_TIME,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -1149,6 +1151,15 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     case B_TERM_IS_TTY:
         if (!want(index, a, INT)) return false;
         return term_is_tty(a.i, out);
+    case B_MONOTONIC_TIME: {
+        /* Seconds on the system's monotonic clock, from a point nobody promises: only the difference
+           between two readings means anything. It doesn't jump when the clock is set, and there are
+           no dates in it, which is the point: time() would be different on every run. */
+        struct timespec now;
+        if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) return raisef("monotonic_time() failed: %s", strerror(errno));
+        *out = v_float((double)now.tv_sec + (double)now.tv_nsec * 1e-9);
+        return true;
+    }
     case B_BUILTINS: {
         Map *m = map_new();
         for (int i = 0; i < nbuiltins; i++) {

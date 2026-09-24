@@ -179,3 +179,12 @@ ok table: no room draws nothing
 ok table: drawn in a rect of the screen
 ok centered
 ok centered: too big is the corner
+ok metronome: not due at the start
+ok metronome: due when the beat is
+ok metronome: how long to wait
+ok metronome: a beat sets the next an interval on
+ok metronome: beats on time keep their own time
+ok metronome: a late beat isn't made up for with two
+ok metronome: a little late is caught up in the next
+ok metronome: a held key doesn't stop the beat
+ok and without keys it beats every interval
