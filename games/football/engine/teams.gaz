@@ -2,6 +2,7 @@
 namespace teams;
 
 include "../../../lib/random.gaz";
+include "../../../lib/lists.gaz" use min_by;
 include "players.gaz" use Goalkeeper, Defender, Midfielder, Forward;
 
 pub kind InvalidLineup extends Error {
@@ -12,19 +13,215 @@ pub kind InvalidLineup extends Error {
     }
 }
 
+/*
+ * A club: its squad (every player it has, pub #players), and the eleven that start, picked from it
+ * (eleven()). There are no positions to fill: the eleven is whoever is picked, one of them a
+ * goalkeeper, and formation() is what they add up to. A defender picked as a forward attacks as a
+ * defender does, which is what playing out of position costs.
+ */
 pub kind Team {
+    /* Most substitutions in a match */
+    pub const SUBSTITUTIONS = 3;
+
     // What the players on the pitch add up to (see summary()), forgotten whenever they change
-    #cache;
+    #cache = null;
     // In pounds, over several seasons: prize money in, wages and transfer fees out
     pub #balance = 0;
+    // The eleven who start, in the order picked (a goalkeeper first when they were picked by
+    // formation), then who is on the pitch as substitutions are made
+    #xi = [];
+    // The formation the club plays when it picks for itself
+    pub #preferred = "4-4-2";
+    // Substitutions made in the match being played, and who was taken off, who can't come back on
+    pub #substitutions = 0;
+    #taken_off = [];
+    // Who was out at the start of the match, whose matches missed are counted at the end of it
+    #missing = [];
+    // The eleven the match started with, which comes back after it: what changed during the match
+    // (a substitute for an injury, a tactical change) isn't next match's pick
+    #started_with = null;
 
-    fn _(pub #name, pub #formation, pub #players) {
-        if (len(#players) != 11) {
-            error(InvalidLineup(#name, len(#players) .. " players instead of 11"));
+    fn _(pub #name, pub #players, $eleven = null, $preferred = "4-4-2") {
+        if (len(#players) < 11) {
+            error(InvalidLineup(#name, len(#players) .. " players in the squad, and 11 are needed"));
         }
-        $keepers = len(filter(#players, $player -> is_a($player, Goalkeeper)));
+        #preferred = $preferred;
+        #xi = $eleven ?? #best_eleven($preferred);
+        #check_eleven(#xi);
+    }
+
+    // Whether $list is an eleven this club can field: eleven different players from its squad,
+    // one a goalkeeper
+    fn check_eleven($list) {
+        if (len($list) != 11) {
+            error(InvalidLineup(#name, len($list) .. " players in the eleven, not 11"));
+        }
+        foreach ($list as $i => $player) {
+            if (!in_array($player, #players)) {
+                error(InvalidLineup(#name, "{$player} isn't in the squad"));
+            }
+            if (in_array($player, slice($list, 0, $i))) {
+                error(InvalidLineup(#name, "{$player} is picked twice"));
+            }
+        }
+        $keepers = len(filter($list, $player -> is_a($player, Goalkeeper)));
         if ($keepers != 1) {
-            error(InvalidLineup(#name, "{$keepers} goalkeepers"));
+            error(InvalidLineup(#name, "{$keepers} goalkeepers in the eleven"));
+        }
+    }
+
+    // The best eleven who can play, in a formation ("4-4-2"): the best goalkeeper, then the best
+    // of each position, and where there aren't enough of a position, the best of the rest. Players
+    // who can't play are only picked when nobody else is left.
+    pub fn best_eleven($formation = "4-4-2") {
+        $lines = map(split($formation, "-"), to_int);
+        $best = ($a, $b) -> [$b.rating, $a.number] <=> [$a.rating, $b.number];
+        $keepers = sort(filter(#players, $player -> is_a($player, Goalkeeper)), $best);
+        if ($keepers == []) {
+            error(InvalidLineup(#name, "no goalkeeper in the squad"));
+        }
+        $free = filter($keepers, $player -> $player.available());
+        // The goalkeeper who is out for the fewest matches, if none is fit
+        $keeper = $free != [] ? $free[0] : min_by($keepers, $player -> $player.injured + $player.suspended);
+        $picked = [$keeper];
+        foreach ([Defender, Midfielder, Forward] as $line => $kind) {
+            $pool = sort(filter(#players, $player -> is_a($player, $kind) && $player.available()), $best);
+            foreach (slice($pool, 0, $lines[$line]) as $player) {
+                $picked[] = $player;
+            }
+        }
+        // Short of a position: fill up with whoever is best of the rest, then whoever is left
+        foreach ([true, false] as $fit) {
+            $rest = sort(filter(#players, $player -> !is_a($player, Goalkeeper) && !in_array($player, $picked) && ($player.available() || !$fit)), $best);
+            $picked = [...$picked, ...slice($rest, 0, 11 - len($picked))];
+        }
+
+        return $picked;
+    }
+
+    // The eleven who start, as they were picked; and the rest of the squad
+    pub fn eleven() { return #xi; }
+    pub fn bench() { return filter(#players, $player -> !in_array($player, #xi)); }
+
+    // What the eleven add up to: "4-4-2", the defenders, midfielders and forwards
+    pub fn formation() {
+        $counts = [0, 0, 0];
+        foreach (#xi as $player) {
+            if (is_a($player, Defender)) {
+                $counts[0]++;
+            } else if (is_a($player, Midfielder)) {
+                $counts[1]++;
+            } else if (is_a($player, Forward)) {
+                $counts[2]++;
+            }
+        }
+
+        return join($counts, "-");
+    }
+
+    // Pick the best eleven for the formation the club prefers
+    pub fn auto_eleven($formation = null) {
+        #xi = #best_eleven($formation ?? #preferred);
+        #changed();
+    }
+
+    // The manager's change: $reserve takes $starter's place in the eleven. The reserve has to be
+    // fit, and the eleven has to stay one that can be fielded.
+    pub fn swap($starter, $reserve) {
+        if (!in_array($starter, #xi)) {
+            error(InvalidLineup(#name, "{$starter} isn't in the eleven"));
+        }
+        if (in_array($reserve, #xi) || !in_array($reserve, #players)) {
+            error(InvalidLineup(#name, "{$reserve} isn't a reserve"));
+        }
+        if (!$reserve.available()) {
+            error(InvalidLineup(#name, "{$reserve} can't play: " .. $reserve.status()));
+        }
+        $list = map(#xi, $player -> $player == $starter ? $reserve : $player);
+        #check_eleven($list);
+        #xi = $list;
+        #changed();
+    }
+
+    // Whether there is a substitution left in this match
+    pub fn can_substitute() { return #substitutions < Team::SUBSTITUTIONS; }
+
+    // Who could come on for $off: fit, on the bench, not taken off already; the best of the same
+    // position, or of any position but goalkeeper (unless the goalkeeper is who is going off).
+    // null when there is nobody.
+    pub fn best_substitute($off) {
+        $best = ($a, $b) -> [$b.rating, $a.number] <=> [$a.rating, $b.number];
+        $bench = filter(#players, $player -> !in_array($player, #xi) && !in_array($player, #taken_off) && $player.available());
+        $same = filter($bench, $player -> kind_of($player) == kind_of($off));
+        if ($same != []) {
+            return sort($same, $best)[0];
+        }
+        $others = filter($bench, $player -> !is_a($player, Goalkeeper) || is_a($off, Goalkeeper));
+        return $others == [] ? null : sort($others, $best)[0];
+    }
+
+    // A substitution during a match: $on takes $off's place, who can't come back on
+    pub fn substitute($off, $on) {
+        if (!#can_substitute()) {
+            error(InvalidLineup(#name, "no substitutions left"));
+        }
+        if (!in_array($off, #xi)) {
+            error(InvalidLineup(#name, "{$off} isn't on the pitch"));
+        }
+        if ($off.sent_off) {
+            error(InvalidLineup(#name, "{$off} has been sent off, and can't be replaced"));
+        }
+        if (in_array($on, #xi) || !in_array($on, #players)) {
+            error(InvalidLineup(#name, "{$on} isn't a substitute"));
+        }
+        if (in_array($on, #taken_off)) {
+            error(InvalidLineup(#name, "{$on} has been taken off and can't come back on"));
+        }
+        if (!$on.available() || $on.sent_off) {
+            error(InvalidLineup(#name, "{$on} can't play"));
+        }
+        if (is_a($on, Goalkeeper) && !is_a($off, Goalkeeper) && is_a(#summary()["keeper"], Goalkeeper)) {
+            error(InvalidLineup(#name, "{$on} is a goalkeeper, and there is one on the pitch"));
+        }
+        #xi = map(#xi, $player -> $player == $off ? $on : $player);
+        #taken_off[] = $off;
+        #substitutions++;
+        #changed();
+    }
+
+    // Before a match: note who is out, and put a fit player in for each starter who is, the best
+    // of the bench in the same position where there is one. Gives [out, in] for each change.
+    pub fn prepare() {
+        #missing = filter(#players, $player -> !$player.available());
+        $changes = [];
+        foreach (#xi as $i => $player) {
+            if ($player.available()) {
+                continue;
+            }
+            $sub = #best_substitute($player);
+            if ($sub != null) {
+                #xi[$i] = $sub;
+                $changes[] = [$player, $sub];
+            }
+        }
+        #started_with = #xi;
+        #changed();
+
+        return $changes;
+    }
+
+    // After a match: a match served, for everyone who was out at the start of it, and the eleven
+    // it started with back
+    pub fn finish() {
+        foreach (#missing as $player) {
+            $player.injured = max($player.injured - 1, 0);
+            $player.suspended = max($player.suspended - 1, 0);
+        }
+        #missing = [];
+        if (#started_with != null) {
+            #xi = #started_with;
+            #started_with = null;
+            #changed();
         }
     }
 
@@ -40,8 +237,8 @@ pub kind Team {
         $keeper = null;
         $best_defender = null;
         $shooters = [];
-        foreach (#players as $player) {
-            if ($player.sent_off) {
+        foreach (#xi as $player) {
+            if ($player.sent_off || $player.hurt) {
                 continue;
             }
             $lineup[] = $player;
@@ -80,15 +277,12 @@ pub kind Team {
         }
         return random::weighted($shooters, #summary()["shooting"]);
     }
-    pub fn rating() { return round(sum(map(#players, $player -> $player.rating)) / 11, 1); }
+    pub fn rating() { return round(sum(map(#xi, $player -> $player.rating)) / 11, 1); }
 
-    // A player leaves, and another takes their place in the eleven
+    // A player leaves the club, and another takes their place, in the eleven too if they were in it
     pub fn replace($leaving, $joining) {
-        foreach (#players as $i => $player) {
-            if ($player == $leaving) {
-                #players[$i] = $joining;
-            }
-        }
+        #players = map(#players, $player -> $player == $leaving ? $joining : $player);
+        #xi = map(#xi, $player -> $player == $leaving ? $joining : $player);
         #changed();
     }
 
@@ -96,7 +290,7 @@ pub kind Team {
     pub fn changed() { #cache = null; }
 
     pub fn tire($minutes) {
-        foreach (#players as $player) {
+        foreach (#xi as $player) {
             $player.tire($minutes);
         }
         #changed();
@@ -106,14 +300,17 @@ pub kind Team {
         foreach (#players as $player) {
             $player.rest();
         }
+        #substitutions = 0;
+        #taken_off = [];
         #changed();
     }
 
     // What a saved career keeps of a club
     pub fn to_data() {
         return {
-            "name" => #name, "formation" => to_string(#formation), "balance" => #balance,
+            "name" => #name, "preferred" => #preferred, "balance" => #balance,
             "players" => map(#players, $player -> $player.to_data()),
+            "eleven" => map(#xi, $player -> $player.number),
         };
     }
 
@@ -122,7 +319,9 @@ pub kind Team {
 
 // A club back from to_data()
 pub fn from_data($data) {
-    $team = Team($data["name"], Formation($data["formation"]), map($data["players"], players::from_data));
+    $squad = map($data["players"], players::from_data);
+    $eleven = map($data["eleven"], $number -> filter($squad, $player -> $player.number == $number)[0]);
+    $team = Team($data["name"], $squad, $eleven, $data["preferred"]);
     $team.balance = $data["balance"];
     return $team;
 }
@@ -156,6 +355,7 @@ pub kind Formation {
 pub kind Scout {
     #taken = {};
 
+    // A squad of seventeen: players for the eleven the formation asks for, and six reserves
     pub fn team($name, $level, $formation) {
         $formation = Formation($formation);
         // Kinds are values: the formation says which ones to construct. The goalkeeper is
@@ -166,7 +366,15 @@ pub kind Scout {
             $player.age = #age();
             $players[] = $player;
         }
-        return Team($name, $formation, $players);
+        // The reserves cover every position, a little below the club's level
+        foreach ([Goalkeeper, Defender, Defender, Midfielder, Midfielder, Forward] as $i => $kind) {
+            $player = $kind(#new_name(), #rating($level - 8), 12 + $i);
+            $player.age = #age();
+            $players[] = $player;
+        }
+
+        // The eleven is the best the squad has for the formation: a reserve can be better than a starter
+        return Team($name, $players, null, to_string($formation));
     }
 
     // Most of a squad sits around the club's level, but every squad has some fringe players

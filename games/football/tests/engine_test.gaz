@@ -7,7 +7,7 @@
 include "../../../tests/gaz/check.gaz";
 include "../engine/players.gaz" use Goalkeeper, Defender, Midfielder, Forward;
 include "../engine/teams.gaz" use Team, Formation, Scout, InvalidLineup;
-include "../engine/matches.gaz" use Fixture, Goal, Booking, Whistle;
+include "../engine/matches.gaz" use Fixture, Goal, Booking, Whistle, Injury, Substitution;
 include "../engine/league.gaz" use League;
 
 const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8];
@@ -67,41 +67,100 @@ kind Log {
 shared $heard = [];
 $hear = $event -> { $heard[] = $event; };
 
+/* A squad from [kind, rating] pairs, numbered from 1 */
+fn squad_of($specs) {
+    $players = [];
+    foreach ($specs as $i => [$kind, $rating]) {
+        $players[] = $kind("P" .. ($i + 1), $rating, $i + 1);
+    }
+    return $players;
+}
+
+/* The shirt numbers of $players */
+fn numbers($players) {
+    return map($players, $p -> $p.number);
+}
+
+/* The squad most of the eleven tests use: two goalkeepers, six defenders, six midfielders, three forwards. Shirts 1 and 2 are goalkeepers,
+   3 to 8 defenders (80, 75, 70, 65, 60, 55), 9 to 14 midfielders (78, 74, 72, 68, 64, 50) and 15 to 17 forwards (90, 85, 60). */
+fn usual_squad() {
+    return squad_of([
+        [Goalkeeper, 70], [Goalkeeper, 60],
+        [Defender, 80], [Defender, 75], [Defender, 70], [Defender, 65], [Defender, 60], [Defender, 55],
+        [Midfielder, 78], [Midfielder, 74], [Midfielder, 72], [Midfielder, 68], [Midfielder, 64], [Midfielder, 50],
+        [Forward, 90], [Forward, 85], [Forward, 60],
+    ]);
+}
+
 /* ---- Squads ---- */
-$squad = clubs(1, 1)[0];
-check("a squad is eleven", len($squad.players), 11);
-check("442 has one goalkeeper, four defenders, four midfielders and two forwards", [
-    count_where($squad.players, $p -> $p.position() == "GK"),
-    count_where($squad.players, $p -> $p.position() == "DF"),
-    count_where($squad.players, $p -> $p.position() == "MF"),
-    count_where($squad.players, $p -> $p.position() == "FW"),
+$team = clubs(1, 1)[0];
+check("a squad is seventeen: an eleven and six reserves", [len($team.players), len($team.eleven()), len($team.bench())], [17, 11, 6]);
+check("442 has one goalkeeper, four defenders, four midfielders and two forwards in the eleven", [
+    count_where($team.eleven(), $p -> $p.position() == "GK"),
+    count_where($team.eleven(), $p -> $p.position() == "DF"),
+    count_where($team.eleven(), $p -> $p.position() == "MF"),
+    count_where($team.eleven(), $p -> $p.position() == "FW"),
 ], [1, 4, 4, 2]);
-check("shirt 1 is in goal", $squad.players[0].position(), "GK");
-check("shirts are 1 to 11", map($squad.players, $p -> $p.number), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+check("and two goalkeepers, six defenders, six midfielders and three forwards in the squad", [
+    count_where($team.players, $p -> $p.position() == "GK"),
+    count_where($team.players, $p -> $p.position() == "DF"),
+    count_where($team.players, $p -> $p.position() == "MF"),
+    count_where($team.players, $p -> $p.position() == "FW"),
+], [2, 6, 6, 3]);
+check("the bench covers every position: a goalkeeper, two defenders, two midfielders, a forward", [
+    count_where($team.bench(), $p -> $p.position() == "GK"),
+    count_where($team.bench(), $p -> $p.position() == "DF"),
+    count_where($team.bench(), $p -> $p.position() == "MF"),
+    count_where($team.bench(), $p -> $p.position() == "FW"),
+], [1, 2, 2, 1]);
+check("the eleven is the best the squad has for its formation, not just the first eleven made", numbers($team.eleven()), numbers($team.best_eleven("4-4-2")));
+check("the eleven and the bench are the squad, nobody twice", [count_where($team.players, $p -> in_array($p, $team.eleven()) != in_array($p, $team.bench())), len($team.eleven()) + len($team.bench())], [17, 17]);
+check("the goalkeeper is first, and shirts are 1 to 17", [$team.eleven()[0].position(), numbers($team.players)], ["GK", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]]);
+check("the formation is what the eleven add up to", [$team.formation(), $team.preferred], ["4-4-2", "4-4-2"]);
 $other = clubs(1, 2, "3-5-2")[0];
-check("352 has five in midfield", count_where($other.players, $p -> $p.position() == "MF"), 5);
+check("352 has five in midfield, and says so", [count_where($other.eleven(), $p -> $p.position() == "MF"), $other.formation(), $other.preferred], [5, "3-5-2", "3-5-2"]);
 foreach (SEEDS as $seed) {
     $ratings = map(clubs(3, $seed)[2].players, $p -> $p.rating);
-    check("ratings stay between 40 and 95 (seed {$seed})", [min($ratings) >= 40, max($ratings) <= 95], [true, true]);
+    check("ratings stay between 40 and 95, the reserves too (seed {$seed})", [min($ratings) >= 40, max($ratings) <= 95, len($ratings)], [true, true, 17]);
 }
 check("the same seed makes the same squad", map(clubs(2, 9)[1].players, $p -> $p.profile()), map(clubs(2, 9)[1].players, $p -> $p.profile()));
 check("another seed makes another", map(clubs(1, 9)[0].players, $p -> $p.profile()) == map(clubs(1, 10)[0].players, $p -> $p.profile()), false);
+check("a reserve is rated below the club's level, on average", [sum(map(clubs(1, 4)[0].bench(), $p -> $p.rating)) / 6 < sum(map(clubs(1, 4)[0].eleven(), $p -> $p.rating)) / 11], [true]);
 
+/* A squad has to be one a team can be made of */
 try {
-    Team("Sunday Strollers", Formation("4-4-2"), [Goalkeeper("A", 50, 1), Goalkeeper("B", 50, 2)]);
+    Team("Sunday Strollers", squad_of([[Goalkeeper, 50], [Goalkeeper, 50]]));
 } catch (InvalidLineup $e) {
-    check("two players is not a team", $e.message, "Sunday Strollers can't play: 2 players instead of 11");
+    check("two players is not a squad", $e.message, "Sunday Strollers can't play: 2 players in the squad, and 11 are needed");
 }
 try {
-    Team("No Keepers", Formation("4-4-2"), map([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], $n -> Defender("D{$n}", 50, $n)));
+    Team("No Keepers", squad_of(map([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], $n -> [Defender, 50])));
 } catch (InvalidLineup $e) {
-    check("a team needs a goalkeeper", $e.message, "No Keepers can't play: 0 goalkeepers");
+    check("a squad needs a goalkeeper", $e.message, "No Keepers can't play: no goalkeeper in the squad");
 }
 try {
     Formation("5-5-5");
 } catch (Error $e) {
     check("a formation adds up to ten", $e.message, "Not a formation: 5-5-5");
 }
+$squad = usual_squad();
+foreach ({
+    "ten in the eleven" => [slice($squad, 0, 10), "10 players in the eleven, not 11"],
+    "twelve in the eleven" => [slice($squad, 0, 12), "12 players in the eleven, not 11"],
+    "somebody twice" => [[...slice($squad, 0, 10), $squad[2]], "P3 is picked twice"],
+    "somebody from another club" => [[...slice($squad, 0, 10), Forward("Stranger", 70, 99)], "Stranger isn't in the squad"],
+    "two goalkeepers" => [[$squad[0], $squad[1], ...slice($squad, 2, 9)], "2 goalkeepers in the eleven"],
+    "no goalkeeper" => [slice($squad, 2, 11), "0 goalkeepers in the eleven"],
+} as $what => [$picked, $problem]) {
+    try {
+        Team("Picky", $squad, $picked);
+        check("an eleven with {$what} is refused", "no error", "an error");
+    } catch (InvalidLineup $e) {
+        check("an eleven with {$what} is refused", $e.message, "Picky can't play: {$problem}");
+    }
+}
+$named = Team("Chosen", $squad, [$squad[0], ...slice($squad, 2, 10)]);
+check("but any eleven of the squad with one goalkeeper is a team, and its formation is what it adds up to", [numbers($named.eleven()), $named.formation()], [[1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], "6-4-0"]);
 
 /* ---- Players ---- */
 $player = Forward("A. Striker", 80, 9);
@@ -424,3 +483,280 @@ $again.begin_matchday();
 $again.draw();
 $started = $again.begin_matchday();
 check("drawing a new season lets a matchday begin again", len($started), 2);
+
+/* ---- Availability and cards ---- */
+$p = Defender("D", 70, 4);
+check("a new player is available", [$p.available(), $p.status(), $p.injured, $p.suspended], [true, "", 0, 0]);
+$p.injure(3);
+check("an injured player is out, off the pitch, and says so", [$p.available(), $p.hurt, $p.status(), $p.injured], [false, true, "Injured 3", 3]);
+$p.rest();
+check("resting is for the next match: the pitch is cleared, the injury isn't", [$p.hurt, $p.injured, $p.available()], [false, 3, false]);
+$q = Midfielder("M", 70, 8);
+check("the first yellow card is only a booking", [$q.book(), $q.suspended, $q.available()], [false, 0, true]);
+check("the second, in the same match, is a red card and a match's suspension", [$q.book(), $q.sent_off, $q.suspended, $q.status(), $q.available()], [true, true, 1, "Banned 1", false]);
+$q.rest();
+check("which the next match leaves alone", [$q.yellow_cards, $q.sent_off, $q.suspended], [0, false, 1]);
+$r = Forward("F", 70, 9);
+for ($match = 1; $match <= 4; $match++) {
+    $r.rest();
+    $r.book();
+}
+check("four yellow cards in four matches are only cards", [$r.season_yellows, $r.suspended], [4, 0]);
+$r.rest();
+$r.book();
+check("the fifth of the season is a suspension, and the count starts again", [$r.suspended, $r.season_yellows, $r.sent_off], [1, 0, false]);
+$r.rest();
+$r.book();
+$r.new_season();
+check("a new season starts the count again", $r.season_yellows, 0);
+$banned = Forward("B", 70, 10);
+$banned.suspended = 3;
+$banned.book();
+$banned.book();
+check("a red card doesn't shorten a longer ban", $banned.suspended, 3);
+
+/* ---- The eleven, picked from the squad ---- */
+$squad = usual_squad();
+$team = Team("Testers", $squad);
+check("the best eleven for 4-4-2: the best goalkeeper, then the best of each position", numbers($team.eleven()), [1, 3, 4, 5, 6, 9, 10, 11, 12, 15, 16]);
+check("the bench is the rest, and the formation is what the eleven add up to", [numbers($team.bench()), $team.formation()], [[2, 7, 8, 13, 14, 17], "4-4-2"]);
+check("for 3-5-2, five midfielders", numbers($team.best_eleven("3-5-2")), [1, 3, 4, 5, 9, 10, 11, 12, 13, 15, 16]);
+check("for 4-3-3, three forwards", numbers($team.best_eleven("4-3-3")), [1, 3, 4, 5, 6, 9, 10, 11, 15, 16, 17]);
+
+$squad[0].injure(2);
+check("a goalkeeper who is out isn't picked", numbers($team.best_eleven())[0], 2);
+$squad[14].injure(1);
+$squad[15].suspended = 1;
+$team.auto_eleven();
+check("nor are forwards who are out: the last forward plays, and the best of the rest fills the gap", numbers($team.eleven()), [2, 3, 4, 5, 6, 9, 10, 11, 12, 17, 13]);
+check("which changes the formation", $team.formation(), "4-5-1");
+$squad[16].injure(4);
+$team.auto_eleven();
+check("with every forward out, the best two of the rest", [numbers($team.eleven()), $team.formation()], [[2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 7], "5-5-0"]);
+$squad[1].injure(1);
+check("and with both goalkeepers out, the one who is out the fewest matches", numbers($team.best_eleven())[0], 2);
+$squad[0].injure(1);
+check("and the better of two who are out the same", numbers($team.best_eleven())[0], 1);
+$short = squad_of([[Goalkeeper, 70], [Defender, 60], [Defender, 60], [Defender, 60], [Defender, 60], [Midfielder, 60], [Midfielder, 60], [Midfielder, 60], [Midfielder, 60], [Forward, 60], [Forward, 60]]);
+$short[9].injure(2);
+$only_eleven = Team("Eleven", $short);
+check("a squad of eleven picks them all, injured or not: there is nobody else", [len($only_eleven.eleven()), in_array($short[9], $only_eleven.eleven())], [11, true]);
+
+/* replacing a player */
+$team = Team("Testers", usual_squad());
+$newcomer = Defender("New", 99, 30);
+$team.replace($team.players[2], $newcomer);
+check("a starter's replacement takes his place in the eleven", [$team.eleven()[1] == $newcomer, len($team.players), len($team.eleven())], [true, 17, 11]);
+$team.replace($team.players[6], Defender("Other", 50, 31));
+check("a reserve's replacement is a reserve", [count_where($team.eleven(), $p -> $p.number == 31), count_where($team.bench(), $p -> $p.number == 31)], [0, 1]);
+
+/* the manager's swap */
+fn swap_result($team, $starter, $reserve) {
+    try {
+        $team.swap($starter, $reserve);
+        return "no error";
+    } catch (InvalidLineup $e) {
+        return $e.message;
+    }
+}
+$squad = usual_squad();
+$team = Team("Testers", $squad);
+$team.rest();
+check("the starters", numbers($team.on_pitch()), [1, 3, 4, 5, 6, 9, 10, 11, 12, 15, 16]);
+$team.swap($squad[14], $squad[16]);
+check("a swap puts the reserve in the starter's place, in the same slot", numbers($team.eleven()), [1, 3, 4, 5, 6, 9, 10, 11, 12, 17, 16]);
+check("and who is on the pitch changed too, not what it was before", [in_array($squad[16], $team.on_pitch()), in_array($squad[14], $team.on_pitch())], [true, false]);
+check("the formation is what they add up to", $team.formation(), "4-4-2");
+$team.swap($squad[3], $squad[12]);
+check("a midfielder for a defender is another formation", $team.formation(), "3-5-2");
+$team.swap($squad[0], $squad[1]);
+check("a goalkeeper for a goalkeeper is fine", $team.eleven()[0].number, 2);
+
+$squad = usual_squad();
+$team = Team("Testers", $squad);
+check("the player going out has to be in the eleven", swap_result($team, $squad[13], $squad[7]), "Testers can't play: P14 isn't in the eleven");
+check("the player coming in has to be a reserve", swap_result($team, $squad[2], $squad[3]), "Testers can't play: P4 isn't a reserve");
+check("and one of the club's", swap_result($team, $squad[2], Forward("Stranger", 70, 99)), "Testers can't play: Stranger isn't a reserve");
+check("an outfield player can't take the goalkeeper's place: there would be none", swap_result($team, $squad[0], $squad[6]), "Testers can't play: 0 goalkeepers in the eleven");
+check("nor a second goalkeeper an outfield player's: there would be two", swap_result($team, $squad[2], $squad[1]), "Testers can't play: 2 goalkeepers in the eleven");
+$squad[7].injure(2);
+check("an injured reserve can't be picked", swap_result($team, $squad[2], $squad[7]), "Testers can't play: P8 can't play: Injured 2");
+$squad[6].suspended = 1;
+check("nor a banned one", swap_result($team, $squad[2], $squad[6]), "Testers can't play: P7 can't play: Banned 1");
+check("and a refused swap changes nothing", numbers($team.eleven()), [1, 3, 4, 5, 6, 9, 10, 11, 12, 15, 16]);
+
+/* getting the eleven ready for a match */
+$squad = usual_squad();
+$team = Team("Testers", $squad);
+$squad[4].injure(2);
+$squad[15].suspended = 1;
+$changes = $team.prepare();
+check("prepare puts the best fit reserve of the same position in for each starter who is out", [map($changes, $c -> [$c[0].number, $c[1].number]), numbers($team.eleven())], [[[5, 7], [16, 17]], [1, 3, 4, 7, 6, 9, 10, 11, 12, 15, 17]]);
+$squad[8].injure(2);
+$team.substitute($squad[9], $squad[12]);
+check("a substitution during the match changes the eleven", numbers($team.eleven()), [1, 3, 4, 7, 6, 9, 13, 11, 12, 15, 17]);
+$team.finish();
+check("and the match's end puts back the eleven it started with", numbers($team.eleven()), [1, 3, 4, 7, 6, 9, 10, 11, 12, 15, 17]);
+check("finish counts a match served, for those who were out at the start of it", [$squad[4].injured, $squad[15].suspended], [1, 0]);
+check("but not for one hurt during it", $squad[8].injured, 2);
+$team.finish();
+check("and counts each match once", [$squad[4].injured, $squad[8].injured], [1, 2]);
+
+$squad = usual_squad();
+$team = Team("Testers", $squad);
+$squad[4].injure(1);
+$squad[6].injure(1);
+$squad[7].suspended = 1;
+check("with no defender fit on the bench, the best fit reserve of any outfield position comes in", map($team.prepare(), $c -> [$c[0].number, $c[1].number]), [[5, 13]]);
+$squad = usual_squad();
+$team = Team("Testers", $squad);
+$squad[4].injure(1);
+foreach ($team.bench() as $reserve) {
+    $reserve.injure(1);
+}
+check("with nobody fit on the bench, nobody comes in, and the starter stays picked", [$team.prepare(), in_array($squad[4], $team.eleven())], [[], true]);
+
+/* a substitution in a match */
+$squad = usual_squad();
+$team = Team("Testers", $squad);
+$team.rest();
+$team.substitute($squad[14], $squad[16]);
+check("a substitute takes the place, and a substitution is used", [numbers($team.eleven()), $team.substitutions, $team.can_substitute()], [[1, 3, 4, 5, 6, 9, 10, 11, 12, 17, 16], 1, true]);
+check("who was taken off can't come back on", swap_result_of_substitute($team, $squad[16], $squad[14]), "Testers can't play: P15 has been taken off and can't come back on");
+fn swap_result_of_substitute($team, $off, $on) {
+    try {
+        $team.substitute($off, $on);
+        return "no error";
+    } catch (InvalidLineup $e) {
+        return $e.message;
+    }
+}
+$team.substitute($squad[3], $squad[6]);
+$team.substitute($squad[4], $squad[7]);
+check("three is the most", [$team.substitutions, $team.can_substitute()], [3, false]);
+check("a fourth is refused", swap_result_of_substitute($team, $squad[5], $squad[12]), "Testers can't play: no substitutions left");
+$team.rest();
+check("a new match has three again, and the taken off can play", [$team.substitutions, $team.can_substitute(), swap_result_of_substitute($team, $squad[6], $squad[3])], [0, true, "no error"]);
+
+$squad = usual_squad();
+$team = Team("Testers", $squad);
+$team.rest();
+check("the substitute has to be on the bench", swap_result_of_substitute($team, $squad[2], $squad[3]), "Testers can't play: P4 isn't a substitute");
+check("and the player going off on the pitch", swap_result_of_substitute($team, $squad[7], $squad[6]), "Testers can't play: P8 isn't on the pitch");
+$squad[6].injure(1);
+check("a substitute has to be fit", swap_result_of_substitute($team, $squad[2], $squad[6]), "Testers can't play: P7 can't play");
+check("a goalkeeper can't come on for an outfield player while there is one in goal", swap_result_of_substitute($team, $squad[2], $squad[1]), "Testers can't play: P2 is a goalkeeper, and there is one on the pitch");
+$squad[3].sent_off = true;
+$team.changed();
+check("nobody replaces a player who was sent off", swap_result_of_substitute($team, $squad[3], $squad[7]), "Testers can't play: P4 has been sent off, and can't be replaced");
+$squad[0].injure(1);
+$team.changed();
+check("but with the goalkeeper hurt, a goalkeeper can come on for anyone", swap_result_of_substitute($team, $squad[4], $squad[1]), "no error");
+
+$squad = usual_squad();
+$team = Team("Testers", $squad);
+check("the best substitute is the best of the same position", $team.best_substitute($squad[4]).number, 7);
+check("a goalkeeper is replaced by a goalkeeper", $team.best_substitute($squad[0]).number, 2);
+check("an outfield player by no goalkeeper: the best forward for a forward", $team.best_substitute($squad[14]).number, 17);
+$squad[6].injure(1);
+$squad[7].injure(1);
+check("or when there isn't one of his position, by the best outfield player", $team.best_substitute($squad[4]).number, 13);
+$squad[1].injure(1);
+check("a goalkeeper with no goalkeeper on the bench is replaced by the best of the rest", $team.best_substitute($squad[0]).number, 13);
+foreach ($team.bench() as $reserve) {
+    $reserve.injure(1);
+}
+check("nobody fit, nobody", $team.best_substitute($squad[4]), null);
+
+/* injuries in a match, and the cover for them */
+[$home, $away] = clubs(2, 3);
+$heard = [];
+$match = Fixture($home, $away).on_event($hear);
+for ($minute = 1; $minute <= 30; $minute++) {
+    $match.tick();
+}
+$victim = $home.on_pitch()[3];
+$cover = $home.best_substitute($victim);
+$match.injure($home, $victim, 3);
+$last = slice($heard, len($heard) - 2);
+check("an injury is an event, then the substitution for it", [is_a($last[0], Injury), is_a($last[1], Substitution), $last[0].minute, $last[1].minute, $last[0].player == $victim, $last[1].on == $cover, $last[1].off == $victim], [true, true, 30, 30, true, true, true]);
+check("he is off, the substitute is on, and he is out for the matches said", [in_array($victim, $home.on_pitch()), in_array($cover, $home.on_pitch()), $home.substitutions, $victim.injured, $victim.hurt], [false, true, 1, 3, true]);
+check("the events say it", [contains(to_string($last[0]), "is injured and has to go off: out for 3 matches"), contains(to_string($last[1]), "Substitution for {$home}: ")], [true, true]);
+$match.injure($home, $home.on_pitch()[2], 1);
+$match.injure($home, $home.on_pitch()[2], 1);
+check("three substitutions are made", $home.substitutions, 3);
+$before = len($home.on_pitch());
+$heard_before = len($heard);
+$match.injure($home, $home.on_pitch()[2], 2);
+check("a fourth injury has no cover: the team plays a man short", [len($home.on_pitch()), $before - 1, len($heard) - $heard_before], [10, 10, 1]);
+check("and says a match, not matches, for one", contains(to_string(Injury(5, $home, $victim, 1)), "out for 1 match"), true);
+
+$eleven_only = Team("Eleven", squad_of([[Goalkeeper, 70], [Defender, 60], [Defender, 60], [Defender, 60], [Defender, 60], [Midfielder, 60], [Midfielder, 60], [Midfielder, 60], [Midfielder, 60], [Forward, 60], [Forward, 60]]));
+[$home, $away] = clubs(2, 4);
+$heard = [];
+$match = Fixture($eleven_only, $away).on_event($hear);
+$match.injure($eleven_only, $eleven_only.on_pitch()[4], 2);
+check("with no bench, an injury is a man short and no substitution", [count_where($heard, $e -> is_a($e, Injury)), count_where($heard, $e -> is_a($e, Substitution)), len($eleven_only.on_pitch())], [1, 0, 10]);
+
+/* the start of a match takes the unavailable off the pitch */
+[$home, $away] = clubs(2, 5);
+$out = $home.eleven()[3];
+$out.injure(2);
+$started = Fixture($home, $away).start();
+check("a starter who is out isn't in the eleven when the match starts", [in_array($out, $home.eleven()), in_array($out, $home.on_pitch()), len($home.on_pitch()), $started.elapsed], [false, false, 11, 0]);
+
+/* and they happen by themselves, in real matches */
+$injuries = 0;
+$reds = 0;
+$problems = [];
+for ($seed = 1; $seed <= 60; $seed++) {
+    [$home, $away] = clubs(2, $seed);
+    $heard = [];
+    Fixture($home, $away).on_event($hear).play();
+    foreach ($heard as $event) {
+        if (is_a($event, Injury)) {
+            $injuries++;
+            if (!$event.player.hurt || $event.player.injured < 1 || $event.player.injured > 12) {
+                $problems[] = "seed {$seed}: {$event.player} is hurt " .. to_string([$event.player.hurt]) .. " for {$event.player.injured}";
+            }
+            if (in_array($event.player, $event.team.on_pitch())) {
+                $problems[] = "seed {$seed}: {$event.player} is injured and still on the pitch";
+            }
+        }
+    }
+    foreach ([$home, $away] as $side) {
+        if ($side.substitutions > 3) {
+            $problems[] = "seed {$seed}: {$side} made {$side.substitutions} substitutions";
+        }
+        foreach ($side.players as $player) {
+            if ($player.sent_off) {
+                $reds++;
+                if ($player.suspended < 1) {
+                    $problems[] = "seed {$seed}: {$player} was sent off and isn't banned";
+                }
+            }
+        }
+    }
+}
+check("in sixty matches there were injuries and red cards to look at", [$injuries > 0, $reds > 0], [true, true]);
+check("every injury put the player off the pitch and out for one to twelve matches, no team made more than three substitutions, and every red card is a ban", $problems, []);
+
+/* matches served, in a league */
+$teams = clubs(4, 8);
+$league = League($teams);
+$sitting = $teams[0].eleven()[5];
+$sitting.injure(2);
+$banned_player = $teams[1].eleven()[6];
+$banned_player.suspended = 1;
+$league.play_matchday();
+check("a matchday served counts: two matches out becomes one, one becomes none", [$sitting.injured, $banned_player.suspended], [1, 0]);
+$league.play_matchday();
+check("and the next serves the other", $sitting.injured, 0);
+
+/* extra time keeps the clock, so what happens in it has its own minute */
+[$home, $away] = clubs(2, 6);
+$heard = [];
+$long_match = Fixture($home, $away).on_event($hear).play().extra_time();
+check("after extra time the clock says 120", $long_match.elapsed, 120);
+$long_match.injure($home, $home.on_pitch()[3], 1);
+check("and an injury then is at minute 120", $heard[len($heard) - 2].minute, 120);

@@ -80,13 +80,14 @@ class GameProgramsTest extends GazLangTestCase
 
     public function test_a_match_moves_by_itself_while_nobody_presses_a_key()
     {
-        // c begins a matchday and then nothing is pressed: time passes at a minute a quarter of a second,
-        // so in two and a half seconds the first goal of seed 1's match (in the fourth minute) is on the screen
+        // c begins a matchday and then nothing is pressed: time passes at a minute a quarter of a second, so in
+        // two and a half seconds the clock has moved on about ten minutes. On the 132-column terminal the last
+        // digit of the clock is at row 3, column 130, and is drawn again (bold) each time it changes.
         $ran = $this->fileOnTerminal('games/football/main.gaz', bin2hex('c'), 'INT', ['1'], 2.5);
 
         $this->assertSame(-2, $ran['code']);
         $this->assertStringContainsString('▶ x1', $ran['out']);
-        $this->assertStringContainsString('GOAL!', $ran['out']);
+        $this->assertGreaterThanOrEqual(6, preg_match_all('/\e\[3;130H\e\[1m\d/', $ran['out']), 'the clock moved on by itself');
         $this->assertSame(['echo' => true, 'icanon' => true, 'isig' => true], $ran['after']);
     }
 
@@ -94,10 +95,10 @@ class GameProgramsTest extends GazLangTestCase
     {
         // c begins the matchday, then j (which does nothing in a match) is typed every 50ms for two and a half seconds,
         // as a key held down repeats: the beat is a quarter of a second, and a wait that started again with each key
-        // would never end. The first goal of seed 1's match is in the fourth minute, a second in.
+        // would never end, and the clock would never move.
         $ran = $this->fileOnTerminal('games/football/main.gaz', bin2hex('c'), 'INT', ['1'], 0.3, bin2hex('j').':0.05:2.5');
 
         $this->assertSame(-2, $ran['code']);
-        $this->assertStringContainsString('GOAL!', $ran['out']);
+        $this->assertGreaterThanOrEqual(6, preg_match_all('/\e\[3;130H\e\[1m\d/', $ran['out']), 'the clock kept moving');
     }
 }

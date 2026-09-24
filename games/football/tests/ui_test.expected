@@ -8,7 +8,7 @@ ok the last line says what the keys do
 ok the screen is as big as it was asked to be
 ok 2 is the squad
 ok with a header
-ok and every player of the club
+ok and every player of the club, reserves too
 ok and the formation
 ok the squad's own hints are at the bottom
 ok 3 is tactics, not built yet
@@ -31,6 +31,26 @@ ok in the squad, the first player is selected
 ok j moves down the squad, not the menu
 ok and . sorts it
 ok keys in the menu don't touch the sections
+ok the squad screen shows the eleven first, then the bench
+ok the eleven's names come before the bench's
+ok with the formation and the rating below, and the help for picking
+ok enter picks the selected player: marked, and the help says who to swap with
+ok in colour
+ok enter again puts him down, and says nothing about it
+ok picking one from the eleven and one from the bench swaps them
+ok and the screen shows it: the newcomer is in the eleven, and the other on the bench
+ok nothing is left picked
+ok two from the eleven is refused, and says so
+ok a reserve who is out can't come in, and why
+ok and the screen shows who is out, in red
+ok a banned player says so
+ok after a swap the eleven is another
+ok a picks the best again
+ok sorted by rating, the best player is at the top
+ok and enter on the top row picks the player on that row, not the one who was there before the sort
+ok an injured player is off the eleven on the screen, his substitute is on it, and the commentary says so
+ok the eleven on the screen is the eleven on the pitch
+ok the injury is in the commentary in red, and the substitution in cyan
 ok before a match the fixtures have one next, and no results
 ok and all eighteen matches
 ok the first is next

@@ -169,6 +169,8 @@ pub kind League {
         }
         foreach ($matches as $match) {
             [$home, $away] = [$match.home, $match.away];
+            $home.finish();
+            $away.finish();
             #standings[$home.name].record($match.home_goals, $match.away_goals);
             #standings[$away.name].record($match.away_goals, $match.home_goals);
             if ($match.away_goals == 0) {
@@ -245,7 +247,7 @@ pub kind Commentator {
         #remaining--;
         echo "";
         foreach ([$match.home, $match.away] as $team) {
-            echo "{$team} ({$team.formation}, rated {$team.rating()}): " .. join(map($team.players, $player -> $player.profile()), ", ");
+            echo "{$team} (" .. $team.formation() .. ", rated {$team.rating()}): " .. join(map($team.eleven(), $player -> $player.profile()), ", ");
         }
         echo "";
         // A bound method as the listener: it remembers which commentator it belongs to

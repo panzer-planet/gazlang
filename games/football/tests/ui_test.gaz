@@ -140,9 +140,9 @@ foreach ($game.club.players as $player) {
         $named++;
     }
 }
-check("and every player of the club", $named, 11);
-check("and the formation", shows($screen, "4-4-2   Team rating {$game.club.rating()}"), true);
-check("the squad's own hints are at the bottom", contains($screen.lines()[29], "j/k move  . , sort  o reverse  x reset   1-6 sections"), true);
+check("and every player of the club, reserves too", $named, 17);
+check("and the formation", shows($screen, $game.club.formation() .. "   Team rating {$game.club.rating()}"), true);
+check("the squad's own hints are at the bottom", contains($screen.lines()[29], "j/k move  enter pick, then enter to swap  a best eleven  . , sort"), true);
 
 press($shell, "3");
 $screen = look($shell);
@@ -197,6 +197,132 @@ check("and . sorts it", shows($screen, "#▲"), true);
 press($shell, "\e");
 press($shell, "5");
 check("keys in the menu don't touch the sections", $shell.section(), "Table");
+
+/* ---- Picking the eleven ---- */
+
+/* A game on the squad screen with the keys going to it: [game, shell] */
+fn on_the_squad($seed) {
+    $game = Game::start($seed);
+    $shell = Shell::for_game($game);
+    press($shell, "2");
+    press($shell, "\t");
+    return [$game, $shell];
+}
+
+/* Move the squad table's selection from row $from to row $to (from 0), and press enter there */
+fn enter_at($shell, $from, $to) {
+    for ($i = $from; $i != $to; $i += $to > $from ? 1 : -1) {
+        press($shell, $to > $from ? "j" : "k");
+    }
+    press($shell, "\r");
+}
+
+/* Which row of the table, from 0, the first reserve who isn't a goalkeeper is on, and who he is */
+fn outfield_reserve_row($club) {
+    foreach ($club.bench() as $i => $player) {
+        if ($player.position() != "GK") {
+            return [11 + $i, $player];
+        }
+    }
+}
+
+[$squad_game, $squad_shell] = on_the_squad(2);
+$club = $squad_game.club;
+$screen = look($squad_shell);
+check("the squad screen shows the eleven first, then the bench", [lines_with($screen, " XI "), lines_with($screen, " sub ")], [11, 6]);
+check("the eleven's names come before the bench's", row_of($screen, to_string($club.eleven()[10]), 3) < row_of($screen, to_string($club.bench()[0]), 3), true);
+check("with the formation and the rating below, and the help for picking", [shows($screen, $club.formation() .. "   Team rating {$club.rating()}"), shows($screen, "Enter picks a player to swap")], [true, true]);
+
+$first = $club.eleven()[0];
+press($squad_shell, "\r");
+$screen = look($squad_shell);
+check("enter picks the selected player: marked, and the help says who to swap with", [shows($screen, "▸ " .. to_string($first)), shows($screen, "Swap {$first} with:")], [true, true]);
+check("in colour", contains(style_at($screen, row_of($screen, "▸ ", 3), "▸ ") ?? "", "cyan"), true);
+press($squad_shell, "\r");
+$screen = look($squad_shell);
+check("enter again puts him down, and says nothing about it", [shows($screen, "▸ " .. to_string($first)), shows($screen, "Enter picks a player"), $squad_shell.notice()], [false, true, ""]);
+
+/* a swap: the last of the eleven for the first outfield reserve */
+[$game, $shell] = on_the_squad(2);
+$club = $game.club;
+$leaving = $club.eleven()[10];
+[$row, $arriving] = outfield_reserve_row($club);
+enter_at($shell, 0, 10);
+enter_at($shell, 10, $row);
+$screen = look($shell);
+check("picking one from the eleven and one from the bench swaps them", [in_array($arriving, $club.eleven()), in_array($leaving, $club.eleven()), $shell.notice()], [true, false, "Lineup changed"]);
+check("and the screen shows it: the newcomer is in the eleven, and the other on the bench", [row_of($screen, to_string($arriving), 3) < 15, row_of($screen, to_string($leaving), 3) > 14], [true, true]);
+check("nothing is left picked", count_where($club.players, $p -> shows($screen, "▸ " .. to_string($p))), 0);
+
+[$game, $shell] = on_the_squad(2);
+$club = $game.club;
+$before = map($club.eleven(), $p -> $p.number);
+enter_at($shell, 0, 1);
+enter_at($shell, 1, 2);
+check("two from the eleven is refused, and says so", [$shell.notice(), map($club.eleven(), $p -> $p.number)], ["Swap a player in the eleven with one on the bench", $before]);
+
+[$game, $shell] = on_the_squad(2);
+$club = $game.club;
+[$row, $arriving] = outfield_reserve_row($club);
+$arriving.injure(2);
+enter_at($shell, 0, 10);
+enter_at($shell, 10, $row);
+check("a reserve who is out can't come in, and why", [contains($shell.notice(), "can't play: Injured 2"), in_array($arriving, $club.eleven())], [true, false]);
+$screen = look($shell);
+check("and the screen shows who is out, in red", [shows($screen, "Injured 2"), contains(style_at($screen, row_of($screen, to_string($arriving), 3), to_string($arriving)) ?? "", "red")], [true, true]);
+
+[$game, $shell] = on_the_squad(2);
+$club = $game.club;
+$banned = $club.eleven()[4];
+$banned.suspended = 1;
+$screen = look($shell);
+check("a banned player says so", shows($screen, "Banned 1"), true);
+
+/* a for the best eleven */
+[$game, $shell] = on_the_squad(2);
+$club = $game.club;
+$best = map($club.eleven(), $p -> $p.number);
+[$row, $arriving] = outfield_reserve_row($club);
+enter_at($shell, 0, 10);
+enter_at($shell, 10, $row);
+check("after a swap the eleven is another", map($club.eleven(), $p -> $p.number) == $best, false);
+press($shell, "a");
+check("a picks the best again", [map($club.eleven(), $p -> $p.number), $shell.notice()], [$best, "The best eleven, picked"]);
+
+/* picking while the table is sorted: a row is still the player it shows */
+[$game, $shell] = on_the_squad(2);
+$club = $game.club;
+$highest = filter($club.players, $p -> $p.rating == max(map($club.players, $q -> $q.rating)))[0];
+press($shell, ".");
+press($shell, ".");
+press($shell, ".");
+press($shell, ".");
+press($shell, ".");
+press($shell, "o");
+$screen = look($shell);
+check("sorted by rating, the best player is at the top", [trim($screen.lines()[2]) != "", contains($screen.lines()[3], to_string($highest))], [true, true]);
+press($shell, "g");
+press($shell, "\r");
+$screen = look($shell);
+check("and enter on the top row picks the player on that row, not the one who was there before the sort", [shows($screen, "▸ " .. to_string($highest)), count_where($club.players, $p -> shows($screen, "▸ " .. to_string($p)))], [true, 1]);
+
+/* the match shows who is playing: the eleven, and a substitute for an injured player */
+[$game, $shell] = on_the_squad(2);
+$club = $game.club;
+press($shell, "\e");
+press($shell, "c");
+$day = $game.live;
+for ($minute = 1; $minute <= 20; $minute++) {
+    $day.tick();
+}
+$hurt_player = $club.eleven()[4];
+$cover = $club.best_substitute($hurt_player);
+$day.mine.injure($club, $hurt_player, 2);
+$screen = look($shell, 100, 60);
+/* on a screen of 60 rows the eleven's table is the last thirteen rows of the section, from row 46; the commentary is above it */
+check("an injured player is off the eleven on the screen, his substitute is on it, and the commentary says so", [row_of($screen, to_string($hurt_player), 46), row_of($screen, to_string($cover), 46) != null, row_of($screen, "Substitution for {$club}: {$cover}", 3) < 46], [null, true, true]);
+check("the eleven on the screen is the eleven on the pitch", count_where($club.eleven(), $p -> row_of($screen, to_string($p), 46) != null), 11);
+check("the injury is in the commentary in red, and the substitution in cyan", [contains(style_at($screen, row_of($screen, "is injured and has to go off", 3), "is injured") ?? "", "red"), contains(style_at($screen, row_of($screen, "Substitution for", 3), "Substitution for") ?? "", "cyan")], [true, true]);
 
 /* ---- Time moves on ---- */
 $game = Game::start(2);

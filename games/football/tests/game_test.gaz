@@ -10,6 +10,16 @@ fn count_where($list, $test) {
     return len(filter($list, $test));
 }
 
+/* The first of $messages whose subject starts with $prefix, or null */
+fn message_starting($messages, $prefix) {
+    foreach ($messages as $message) {
+        if (starts_with($message["subject"], $prefix)) {
+            return $message;
+        }
+    }
+    return null;
+}
+
 /* ---- ordinals ---- */
 $said = [];
 foreach ([1, 2, 3, 4, 10, 11, 12, 13, 14, 21, 22, 23, 101, 111, 112, 113] as $n) {
@@ -31,10 +41,14 @@ fn map_of_names($teams) {
     }
     return $names;
 }
-check("every squad is eleven, with ages", [
-    count_where($game.teams, $team -> len($team.players) == 11),
-    count_where($game.teams, $team -> count_where($team.players, $player -> $player.age >= 17 && $player.age <= 35) == 11),
+check("every squad is seventeen with an eleven picked from it, and ages", [
+    count_where($game.teams, $team -> len($team.players) == 17 && len($team.eleven()) == 11),
+    count_where($game.teams, $team -> count_where($team.players, $player -> $player.age >= 17 && $player.age <= 35) == 17),
 ], [10, 10]);
+check("the clubs prefer different formations, and play them", [
+    map($game.teams, $team -> $team.preferred),
+    map($game.teams, $team -> $team.formation()),
+], [["4-4-2", "4-3-3", "3-5-2", "4-5-1", "5-3-2", "4-4-2", "4-3-3", "3-5-2", "4-5-1", "5-3-2"], ["4-4-2", "4-3-3", "3-5-2", "4-5-1", "5-3-2", "4-4-2", "4-3-3", "3-5-2", "4-5-1", "5-3-2"]]);
 check("clubs have money", count_where($game.teams, $team -> $team.balance > 0), 10);
 check("the season", [$game.season_label(), $game.season_over()], ["2026/27", false]);
 check("a season is eighteen matchdays for ten clubs", [$game.league.matchdays(), $game.league.matchdays_played()], [18, 0]);
@@ -69,15 +83,18 @@ foreach ([1, 2, 3] as $seed) {
         }
         check("the club played once ({$label})", $mine != null, true);
         [$scored, $conceded] = $mine.home == $club ? [$mine.home_goals, $mine.away_goals] : [$mine.away_goals, $mine.home_goals];
-        $report = $game.inbox[$before];
+        $new = slice($game.inbox, $before);
         $verdict = $scored > $conceded ? "Win" : ($scored == $conceded ? "Draw" : "Defeat");
+        $report = message_starting($new, $verdict .. ": ") ?? {"subject" => "(none)", "body" => "", "matchday" => -1};
         check("the report says how it went ({$label})", [starts_with($report["subject"], $verdict .. ": "), contains($report["subject"], $club.name), $report["matchday"]], [true, true, $day]);
         check("and the score, as the club's ({$label})", contains($report["body"], " {$scored}-{$conceded}."), true);
         check("and where the club is ({$label})", contains($report["body"], "You are " .. $game.place() .. " on "), true);
-        $results = $game.inbox[$before + 1];
+        $results = message_starting($new, "Matchday {$day} results") ?? {"subject" => "(none)", "body" => ""};
         check("then all the results ({$label})", [$results["subject"], len(split($results["body"], "\n"))], ["Matchday {$day} results", 5]);
         check("the position is between 1 and 10 ({$label})", [$game.position() >= 1, $game.position() <= 10], [true, true]);
-        check("two messages, or three when the season ends ({$label})", len($game.inbox) - $before, $day == 18 ? 3 : 2);
+        $families = ["Win: ", "Draw: ", "Defeat: ", "Matchday ", "Lineup: ", "Injury: ", "Suspended: ", "Back: ", "The season is over"];
+        check("at least the report and the results, and nothing but the news there is ({$label})", [len($new) >= 2, count_where($new, $m -> count_where($families, $f -> starts_with($m["subject"], $f)) == 0)], [true, 0]);
+        check("and the season's end has the last word ({$label})", $day < 18 || $new[len($new) - 1]["subject"] == "The season is over", true);
     }
     check("the season is over after eighteen ({$seed})", $game.season_over(), true);
     $last = $game.inbox[len($game.inbox) - 1];
@@ -143,7 +160,7 @@ foreach ([1, 2, 3] as $seed) {
     check("and a line for every goal ({$seed})", $goals, $day.mine.home_goals + $day.mine.away_goals);
 
     $matches = $game.end_matchday();
-    check("ending it leaves nothing live ({$seed})", [$game.live, $game.league.matchdays_played(), len($matches), len($game.inbox)], [null, 1, 5, 3]);
+    check("ending it leaves nothing live ({$seed})", [$game.live, $game.league.matchdays_played(), len($matches), len($game.inbox) >= 3], [null, 1, 5, true]);
     try {
         $game.end_matchday();
         check("and it can't end twice ({$seed})", "no error", "an error");
@@ -193,3 +210,152 @@ try {
 } catch (Error $e) {
     check("no matchday after the season", $e.message, "The season is over");
 }
+
+/* The shirt numbers of $players */
+fn numbers($players) {
+    return map($players, $p -> $p.number);
+}
+
+/* The reserves of $team who aren't goalkeepers, in squad order: the bench's shape depends on who was picked */
+fn outfield_reserves($team) {
+    return filter($team.bench(), $p -> $p.position() != "GK");
+}
+
+/* The reserve goalkeeper */
+fn reserve_keeper($team) {
+    return filter($team.bench(), $p -> $p.position() == "GK")[0];
+}
+
+/* ---- The manager's lineup ---- */
+$game = Game::start(1);
+$club = $game.club;
+$forward_out = $club.eleven()[10];
+$forward_in = outfield_reserves($club)[0];
+$before = numbers($club.eleven());
+check("a swap puts the reserve in the starter's place", [$game.swap($forward_out, $forward_in), numbers($club.eleven())], ["", [...slice($before, 0, 10), $forward_in.number]]);
+check("and the starter is on the bench", [in_array($forward_out, $club.bench()), in_array($forward_out, $club.eleven())], [true, false]);
+$other = Game::start(1);
+check("in either order", [$other.swap(outfield_reserves($other.club)[0], $other.club.eleven()[10]), numbers($other.club.eleven())], ["", numbers($club.eleven())]);
+
+$game = Game::start(1);
+$club = $game.club;
+check("two players in the eleven are not a swap", $game.swap($club.eleven()[3], $club.eleven()[4]), "Swap a player in the eleven with one on the bench");
+check("nor two on the bench", $game.swap(outfield_reserves($club)[0], outfield_reserves($club)[1]), "Swap a player in the eleven with one on the bench");
+$snapshot = numbers($club.eleven());
+$hurt = outfield_reserves($club)[0];
+$hurt.injure(2);
+check("a reserve who is out can't be picked, and why", $game.swap($club.eleven()[10], $hurt), "Riverside FC can't play: {$hurt} can't play: Injured 2");
+check("an outfield player can't be the goalkeeper", $game.swap($club.eleven()[0], outfield_reserves($club)[1]), "Riverside FC can't play: 0 goalkeepers in the eleven");
+check("and a second goalkeeper isn't allowed", $game.swap($club.eleven()[5], reserve_keeper($club)), "Riverside FC can't play: 2 goalkeepers in the eleven");
+check("a refused swap changes nothing", numbers($club.eleven()), $snapshot);
+
+$game = Game::start(1);
+$club = $game.club;
+$best = numbers($club.eleven());
+$game.swap($club.eleven()[9], outfield_reserves($club)[0]);
+$game.swap($club.eleven()[8], outfield_reserves($club)[1]);
+check("swaps make a different eleven", numbers($club.eleven()) == $best, false);
+$game.auto_lineup();
+check("and auto_lineup puts the best back", numbers($club.eleven()), $best);
+$game.auto_lineup("3-5-2");
+check("in another formation if asked", [$club.formation(), len($club.eleven())], ["3-5-2", 11]);
+$game.auto_lineup();
+check("or the one the club prefers", $club.formation(), $club.preferred);
+
+$game = Game::start(1);
+$club = $game.club;
+$game.begin_matchday();
+check("the lineup can't change in the middle of a match", $game.swap($club.eleven()[10], outfield_reserves($club)[0]), "The lineup can't change during a match");
+
+/* the other clubs pick for themselves each matchday, the manager's stays as it was set */
+$game = Game::start(2);
+$club = $game.club;
+$rival = $game.teams[3];
+$rival.swap($rival.eleven()[10], outfield_reserves($rival)[0]);
+$rival.swap($rival.eleven()[9], outfield_reserves($rival)[1]);
+$mine = numbers($club.eleven());
+$game.swap($club.eleven()[10], outfield_reserves($club)[0]);
+$mine_changed = numbers($club.eleven());
+$game.begin_matchday();
+check("a rival picks its best eleven again", numbers($rival.eleven()), numbers($rival.best_eleven($rival.preferred)));
+check("the manager's eleven is left as it was set", numbers($club.eleven()), $mine_changed);
+check("and nothing was said about it", len($game.inbox), 1);
+
+/* a starter who is out is replaced, and the inbox says so */
+$game = Game::start(3);
+$club = $game.club;
+$starter = $club.eleven()[3];
+$starter.injure(2);
+$game.begin_matchday();
+$replacement = $club.eleven()[3];
+check("an injured starter is replaced before the match", [in_array($starter, $club.eleven()), $replacement != $starter, $replacement.available()], [false, true, true]);
+$news = message_starting($game.inbox, "Lineup: ");
+check("and the manager is told who, and why", [$news != null, contains($news["subject"], "{$replacement} starts"), contains($news["body"], "{$starter} is out (injured 2)")], [true, true, true]);
+$day = $game.live;
+while (!$day.finished()) {
+    $day.tick();
+}
+$game.end_matchday();
+check("he missed the match: one fewer to go", $starter.injured, 1);
+check("and after the matchday the eleven is the one that was picked", in_array($replacement, $club.eleven()), true);
+
+/* what a match did to the club's players, told */
+$game = Game::start(4);
+$club = $game.club;
+$returning = $club.eleven()[2];
+$returning.injure(1);
+$banned = outfield_reserves($club)[2];
+$banned.suspended = 2;
+$day = $game.begin_matchday();
+for ($minute = 1; $minute <= 10; $minute++) {
+    $day.tick();
+}
+$hurt_now = $club.eleven()[5];
+$day.mine.injure($club, $hurt_now, 3);
+$carded = $club.eleven()[6];
+$carded.book();
+$carded.book();
+$fifth = $club.eleven()[7];
+$fifth.season_yellows = 4;
+$fifth.book();
+$stranger = $day.mine.home == $club ? $day.mine.away : $day.mine.home;
+$stranger_victim = $stranger.on_pitch()[4];
+$day.mine.injure($stranger, $stranger_victim, 2);
+while (!$day.finished()) {
+    $day.tick();
+}
+$game.end_matchday();
+check("an injury in the match is told, with how long", contains(message_starting($game.inbox, "Injury: {$hurt_now}")["body"] ?? "", "{$hurt_now} was injured and will be out for 3 matches."), true);
+check("a sending off is a suspension, told", contains(message_starting($game.inbox, "Suspended: {$carded}")["body"] ?? "", "{$carded} is suspended for the next 1 match."), true);
+check("and so is a fifth yellow card", message_starting($game.inbox, "Suspended: {$fifth}") != null, true);
+check("someone who has served their time is told they are back", contains(message_starting($game.inbox, "Back: {$returning}")["body"] ?? "", "{$returning} has served his time out and is available again."), true);
+check("the other club's injury is not the manager's news", message_starting($game.inbox, "Injury: {$stranger_victim}"), null);
+check("nor is a reserve who is still banned", message_starting($game.inbox, "Back: {$banned}"), null);
+check("the reserve who was out has served a match of his two", [$banned.suspended, $banned.available()], [1, false]);
+
+/* over whole seasons the elevens stay ones that can play, and there is news */
+$injury_news = 0;
+$suspension_news = 0;
+$unfit_starters = 0;
+$invalid = [];
+foreach ([1, 2, 3] as $seed) {
+    $game = Game::start($seed);
+    for ($day_number = 1; $day_number <= 18; $day_number++) {
+        $live = $game.begin_matchday();
+        foreach ($game.teams as $team) {
+            $unfit_starters += count_where($team.eleven(), $p -> !$p.available());
+            if (len($team.eleven()) != 11 || count_where($team.eleven(), $p -> $p.position() == "GK") != 1) {
+                $invalid[] = "seed {$seed}, matchday {$day_number}: {$team} has {$team.formation()}";
+            }
+        }
+        while (!$live.finished()) {
+            $live.tick();
+        }
+        $game.end_matchday();
+    }
+    $injury_news += count_where($game.inbox, $m -> starts_with($m["subject"], "Injury: "));
+    $suspension_news += count_where($game.inbox, $m -> starts_with($m["subject"], "Suspended: "));
+}
+check("every club's eleven is eleven, with one goalkeeper, every matchday", $invalid, []);
+check("and nobody who is out starts", $unfit_starters, 0);
+check("in three seasons there were injuries and suspensions to be told of", [$injury_news > 0, $suspension_news > 0], [true, true]);

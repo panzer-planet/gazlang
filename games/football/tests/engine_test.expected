@@ -1,21 +1,33 @@
-ok a squad is eleven
-ok 442 has one goalkeeper, four defenders, four midfielders and two forwards
-ok shirt 1 is in goal
-ok shirts are 1 to 11
-ok 352 has five in midfield
-ok ratings stay between 40 and 95 (seed 1)
-ok ratings stay between 40 and 95 (seed 2)
-ok ratings stay between 40 and 95 (seed 3)
-ok ratings stay between 40 and 95 (seed 4)
-ok ratings stay between 40 and 95 (seed 5)
-ok ratings stay between 40 and 95 (seed 6)
-ok ratings stay between 40 and 95 (seed 7)
-ok ratings stay between 40 and 95 (seed 8)
+ok a squad is seventeen: an eleven and six reserves
+ok 442 has one goalkeeper, four defenders, four midfielders and two forwards in the eleven
+ok and two goalkeepers, six defenders, six midfielders and three forwards in the squad
+ok the bench covers every position: a goalkeeper, two defenders, two midfielders, a forward
+ok the eleven is the best the squad has for its formation, not just the first eleven made
+ok the eleven and the bench are the squad, nobody twice
+ok the goalkeeper is first, and shirts are 1 to 17
+ok the formation is what the eleven add up to
+ok 352 has five in midfield, and says so
+ok ratings stay between 40 and 95, the reserves too (seed 1)
+ok ratings stay between 40 and 95, the reserves too (seed 2)
+ok ratings stay between 40 and 95, the reserves too (seed 3)
+ok ratings stay between 40 and 95, the reserves too (seed 4)
+ok ratings stay between 40 and 95, the reserves too (seed 5)
+ok ratings stay between 40 and 95, the reserves too (seed 6)
+ok ratings stay between 40 and 95, the reserves too (seed 7)
+ok ratings stay between 40 and 95, the reserves too (seed 8)
 ok the same seed makes the same squad
 ok another seed makes another
-ok two players is not a team
-ok a team needs a goalkeeper
+ok a reserve is rated below the club's level, on average
+ok two players is not a squad
+ok a squad needs a goalkeeper
 ok a formation adds up to ten
+ok an eleven with ten in the eleven is refused
+ok an eleven with twelve in the eleven is refused
+ok an eleven with somebody twice is refused
+ok an eleven with somebody from another club is refused
+ok an eleven with two goalkeepers is refused
+ok an eleven with no goalkeeper is refused
+ok but any eleven of the squad with one goalkeeper is a team, and its formation is what it adds up to
 ok the first yellow card is only a booking
 ok the second is a sending off
 ok resting clears the cards
@@ -317,10 +329,10 @@ ok its results are in the fixtures (4 clubs, seed 1)
 ok a listener attached at kick off hears the match (4 clubs, seed 1)
 ok play_season plays what is left (4 clubs, seed 1)
 ok no more matchdays (4 clubs, seed 1)
-ok the table agrees with the results (4 clubs, seed 1, Club 3)
 ok the table agrees with the results (4 clubs, seed 1, Club 4)
-ok the table agrees with the results (4 clubs, seed 1, Club 2)
 ok the table agrees with the results (4 clubs, seed 1, Club 1)
+ok the table agrees with the results (4 clubs, seed 1, Club 2)
+ok the table agrees with the results (4 clubs, seed 1, Club 3)
 ok drawing again starts a new season (4 clubs, seed 1)
 ok nothing is drawn until asked (4 clubs, seed 2)
 ok a season has its matchdays (4 clubs, seed 2)
@@ -338,8 +350,8 @@ ok a listener attached at kick off hears the match (4 clubs, seed 2)
 ok play_season plays what is left (4 clubs, seed 2)
 ok no more matchdays (4 clubs, seed 2)
 ok the table agrees with the results (4 clubs, seed 2, Club 4)
-ok the table agrees with the results (4 clubs, seed 2, Club 2)
 ok the table agrees with the results (4 clubs, seed 2, Club 3)
+ok the table agrees with the results (4 clubs, seed 2, Club 2)
 ok the table agrees with the results (4 clubs, seed 2, Club 1)
 ok drawing again starts a new season (4 clubs, seed 2)
 ok nothing is drawn until asked (5 clubs, seed 1)
@@ -359,11 +371,11 @@ ok its results are in the fixtures (5 clubs, seed 1)
 ok a listener attached at kick off hears the match (5 clubs, seed 1)
 ok play_season plays what is left (5 clubs, seed 1)
 ok no more matchdays (5 clubs, seed 1)
-ok the table agrees with the results (5 clubs, seed 1, Club 4)
 ok the table agrees with the results (5 clubs, seed 1, Club 5)
-ok the table agrees with the results (5 clubs, seed 1, Club 2)
-ok the table agrees with the results (5 clubs, seed 1, Club 1)
+ok the table agrees with the results (5 clubs, seed 1, Club 4)
 ok the table agrees with the results (5 clubs, seed 1, Club 3)
+ok the table agrees with the results (5 clubs, seed 1, Club 1)
+ok the table agrees with the results (5 clubs, seed 1, Club 2)
 ok drawing again starts a new season (5 clubs, seed 1)
 ok nothing is drawn until asked (5 clubs, seed 2)
 ok a season has its matchdays (5 clubs, seed 2)
@@ -382,11 +394,11 @@ ok its results are in the fixtures (5 clubs, seed 2)
 ok a listener attached at kick off hears the match (5 clubs, seed 2)
 ok play_season plays what is left (5 clubs, seed 2)
 ok no more matchdays (5 clubs, seed 2)
-ok the table agrees with the results (5 clubs, seed 2, Club 5)
 ok the table agrees with the results (5 clubs, seed 2, Club 4)
-ok the table agrees with the results (5 clubs, seed 2, Club 2)
+ok the table agrees with the results (5 clubs, seed 2, Club 5)
 ok the table agrees with the results (5 clubs, seed 2, Club 3)
 ok the table agrees with the results (5 clubs, seed 2, Club 1)
+ok the table agrees with the results (5 clubs, seed 2, Club 2)
 ok drawing again starts a new season (5 clubs, seed 2)
 ok a new match has played nothing (seed 1)
 ok half time comes at 45 and full time at 90 (seed 1)
@@ -459,3 +471,79 @@ ok which leaves the table as it was
 ok and the next matchday can go ahead
 ok nothing begun, nothing to end
 ok drawing a new season lets a matchday begin again
+ok a new player is available
+ok an injured player is out, off the pitch, and says so
+ok resting is for the next match: the pitch is cleared, the injury isn't
+ok the first yellow card is only a booking
+ok the second, in the same match, is a red card and a match's suspension
+ok which the next match leaves alone
+ok four yellow cards in four matches are only cards
+ok the fifth of the season is a suspension, and the count starts again
+ok a new season starts the count again
+ok a red card doesn't shorten a longer ban
+ok the best eleven for 4-4-2: the best goalkeeper, then the best of each position
+ok the bench is the rest, and the formation is what the eleven add up to
+ok for 3-5-2, five midfielders
+ok for 4-3-3, three forwards
+ok a goalkeeper who is out isn't picked
+ok nor are forwards who are out: the last forward plays, and the best of the rest fills the gap
+ok which changes the formation
+ok with every forward out, the best two of the rest
+ok and with both goalkeepers out, the one who is out the fewest matches
+ok and the better of two who are out the same
+ok a squad of eleven picks them all, injured or not: there is nobody else
+ok a starter's replacement takes his place in the eleven
+ok a reserve's replacement is a reserve
+ok the starters
+ok a swap puts the reserve in the starter's place, in the same slot
+ok and who is on the pitch changed too, not what it was before
+ok the formation is what they add up to
+ok a midfielder for a defender is another formation
+ok a goalkeeper for a goalkeeper is fine
+ok the player going out has to be in the eleven
+ok the player coming in has to be a reserve
+ok and one of the club's
+ok an outfield player can't take the goalkeeper's place: there would be none
+ok nor a second goalkeeper an outfield player's: there would be two
+ok an injured reserve can't be picked
+ok nor a banned one
+ok and a refused swap changes nothing
+ok prepare puts the best fit reserve of the same position in for each starter who is out
+ok a substitution during the match changes the eleven
+ok and the match's end puts back the eleven it started with
+ok finish counts a match served, for those who were out at the start of it
+ok but not for one hurt during it
+ok and counts each match once
+ok with no defender fit on the bench, the best fit reserve of any outfield position comes in
+ok with nobody fit on the bench, nobody comes in, and the starter stays picked
+ok a substitute takes the place, and a substitution is used
+ok who was taken off can't come back on
+ok three is the most
+ok a fourth is refused
+ok a new match has three again, and the taken off can play
+ok the substitute has to be on the bench
+ok and the player going off on the pitch
+ok a substitute has to be fit
+ok a goalkeeper can't come on for an outfield player while there is one in goal
+ok nobody replaces a player who was sent off
+ok but with the goalkeeper hurt, a goalkeeper can come on for anyone
+ok the best substitute is the best of the same position
+ok a goalkeeper is replaced by a goalkeeper
+ok an outfield player by no goalkeeper: the best forward for a forward
+ok or when there isn't one of his position, by the best outfield player
+ok a goalkeeper with no goalkeeper on the bench is replaced by the best of the rest
+ok nobody fit, nobody
+ok an injury is an event, then the substitution for it
+ok he is off, the substitute is on, and he is out for the matches said
+ok the events say it
+ok three substitutions are made
+ok a fourth injury has no cover: the team plays a man short
+ok and says a match, not matches, for one
+ok with no bench, an injury is a man short and no substitution
+ok a starter who is out isn't in the eleven when the match starts
+ok in sixty matches there were injuries and red cards to look at
+ok every injury put the player off the pitch and out for one to twelve matches, no team made more than three substitutions, and every red card is a ban
+ok a matchday served counts: two matches out becomes one, one becomes none
+ok and the next serves the other
+ok after extra time the clock says 120
+ok and an injury then is at minute 120

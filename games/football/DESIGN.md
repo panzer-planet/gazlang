@@ -56,12 +56,15 @@ A launcher smoke test runs the real thing on a pty. See `README.md`.
 
 ## The engine's gaps, before this is a game
 
-1. **A squad is only the eleven.** Real squads have reserves and a manager picks the eleven from
-   them, so `Team` needs a squad and a lineup, and injuries and suspensions start to matter.
+1. **A squad is only the eleven.** *(done)* A squad of seventeen and an eleven picked from it, with
+   injuries and suspensions, in-match injuries with automatic substitutes, and a Squad screen to pick
+   with. Not yet: substitutions *you* make during a match, and cover for a position when a squad is
+   short of one (only the best of the rest is used).
 2. **Tactics.** Formation is fixed at 4-4-2 and nothing else steers a match: mentality, width,
    tempo and instructions should move the odds.
-3. **The match can't be changed.** A match day is watched, minute by minute, but there are no
-   substitutions or tactical changes to make while it is on.
+3. **The match can't be changed.** A match day is watched, minute by minute, but you can't make
+   substitutions or tactical changes while it is on (the engine has `Team.substitute()`, with the
+   three-a-match limit, for when you can).
 4. **Players are a number.** One rating; a manager wants attributes, a role, morale, fitness and a
    contract.
 5. **Balance.** Scorelines like 0-8 come from the simulator's odds, and need tuning before anything

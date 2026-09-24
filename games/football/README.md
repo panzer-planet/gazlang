@@ -14,6 +14,21 @@ below), `C` plays it without watching and `q` quits. In a table:
 `j`/`k`, `g`/`G`, page up and down move, `.` and `,` sort by the next or previous column, `o` turns
 the order round and `x` puts it back. A SEED makes the same ten clubs again.
 
+## Squad and lineup
+
+A club has a squad of seventeen and picks an eleven from it. On the Squad screen (`2`) the eleven
+come first, then the bench, each with its role (`XI` or `sub`) and whether it can play (injured or
+banned, in red, with how many matches to go). `enter` picks a player and `enter` on another swaps
+them, one from the eleven with one from the bench; `a` picks the best eleven again. There are no
+positions to fill: the formation is whatever the eleven add up to (`4-4-2`, or `6-4-0` if you like),
+and a defender picked as a forward attacks as a defender does. The other clubs pick their best fit
+eleven every matchday; yours stays as you set it, except that a starter who can't play is replaced
+by the best fit reserve and the inbox tells you.
+
+Players get hurt in matches (about two in five have an injury, out for a match or two, sometimes
+months), and a red card is a match's ban, as is a fifth yellow of the season. A player who is hurt
+goes off, and a substitute comes on for him if there is one and a substitution left (three a match).
+
 ## Match day
 
 `c` starts a matchday: your match on the screen, minute by minute, with the score and the clock,

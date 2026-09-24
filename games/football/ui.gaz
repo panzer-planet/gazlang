@@ -13,7 +13,7 @@ namespace ui;
 include "../../lib/term.gaz";
 include "../../lib/tui.gaz";
 include "../../lib/format.gaz" use pad_left;
-include "engine/matches.gaz" use Goal, Booking, Whistle;
+include "engine/matches.gaz" use Goal, Booking, Whistle, Injury, Substitution;
 
 /* $text cut into lines no wider than $width, on the spaces, keeping its own line breaks */
 fn wrap($text, $width) {
@@ -44,7 +44,8 @@ pub abstract kind View {
     /* Draw in $rect; $focused is whether keys are going to this view */
     pub abstract fn draw($screen, $rect, $focused);
 
-    /* Take a key that reached the view */
+    /* Take a key that reached the view. It changes nothing in the game: it gives null, or an action
+       for the shell to carry out (["swap", $a, $b], ["auto"]). */
     pub abstract fn handle($key);
 
     /* What the keys of this view do, for the line at the bottom */
@@ -81,24 +82,72 @@ pub kind InboxView extends View {
     }
 }
 
-/* The club's players */
+/*
+ * The club's players, and where the manager picks the eleven: the eleven first, then the bench,
+ * each with its role and whether it can play. Enter picks a player and enter on another swaps
+ * them (one from the eleven with one from the bench), and a picks the best eleven.
+ */
 pub kind SquadView extends View {
-    #table = tui::Table(["#", "Name", "Pos", "Age", "Rating", "Goals"], []);
+    #table = tui::Table(["#", "Name", "Pos", "Age", "Rating", "Goals", "Role", "Status"], [], ($row, $index) -> match {
+        starts_with($row[1], "▸") => "bold cyan",
+        $row[7] != "" => "red",
+        $row[6] == "sub" => "dim",
+        default => "",
+    });
+    /* The players in the order the table has them, so a row is a player, and who is picked up */
+    #shown = [];
+    #picked = null;
 
     pub fn title() { return "Squad"; }
-    pub fn hints() { return "j/k move  . , sort  o reverse  x reset"; }
+    pub fn hints() { return "j/k move  enter pick, then enter to swap  a best eleven  . , sort"; }
+
+    /* Put the game's squad in the table, the eleven first: done for a key as well as for a frame, so
+       what a key means never depends on whether a frame came first */
+    fn refresh() {
+        $club = #game.club;
+        $eleven = $club.eleven();
+        #shown = [...$eleven, ...$club.bench()];
+        #table.set_rows(map(#shown, $player -> [$player.number, (#picked == $player ? "▸ " : "") .. to_string($player), $player.position(), $player.age, $player.rating, $player.goals, in_array($player, $eleven) ? "XI" : "sub", $player.status()]));
+    }
 
     pub fn draw($screen, $rect, $focused) {
         $club = #game.club;
-        #table.set_rows(map($club.players, $player -> [$player.number, to_string($player), $player.position(), $player.age, $player.rating, $player.goals]));
+        #refresh();
         [$body, $footer] = $rect.split_bottom(2);
         #table.draw($screen, $body, $focused);
-        tui::label($screen, $footer.col, $footer.row + 1, $footer.width, "{$club.formation}   Team rating {$club.rating()}", "dim");
+        $help = #picked == null ? "Enter picks a player to swap: one of the eleven with one from the bench" : "Swap {#picked} with: move to the other player and press enter";
+        tui::label($screen, $footer.col, $footer.row, $footer.width, "{$club.formation()}   Team rating {$club.rating()}", "dim");
+        tui::label($screen, $footer.col, $footer.row + 1, $footer.width, $help, #picked == null ? "dim" : "cyan");
     }
 
     pub fn handle($key) {
-        #table.handle($key);
-        return null;
+        #refresh();
+        $name = term::name($key);
+        if ($name == "a") {
+            #picked = null;
+
+            return ["auto"];
+        }
+        if ($name != "enter" && $name != "space") {
+            #table.handle($key);
+
+            return null;
+        }
+        $index = #table.selected_index();
+        if ($index == null) {
+            return null;
+        }
+        $player = #shown[$index];
+        if (#picked == null) {
+            #picked = $player;
+
+            return null;
+        }
+        $first = #picked;
+        #picked = null;
+
+        // the same player again puts him down
+        return $first == $player ? null : ["swap", $first, $player];
     }
 }
 
@@ -197,6 +246,12 @@ fn event_style($event, $club) {
     }
     if (is_a($event, Whistle)) {
         return "dim";
+    }
+    if (is_a($event, Injury)) {
+        return "red";
+    }
+    if (is_a($event, Substitution)) {
+        return "cyan";
     }
 
     return "";
@@ -302,7 +357,7 @@ pub kind MatchView extends View {
             return null;
         }
         [$eleven, $others] = $panels.split_left(min(44, $panels.width));
-        $rows = map($club.players, $player -> [$player.number, to_string($player), $player.position(), $player.match_goals, $player.sent_off ? "R" : ($player.yellow_cards > 0 ? "Y" : "")]);
+        $rows = map($club.eleven(), $player -> [$player.number, to_string($player), $player.position(), $player.match_goals, $player.sent_off ? "R" : ($player.hurt ? "+" : ($player.yellow_cards > 0 ? "Y" : ""))]);
         tui::table($screen, $eleven.col, $eleven.row, ["#", "Name", "Pos", "G", "C"], slice($rows, 0, max($eleven.height - 2, 0)));
         if ($others.width > 4) {
             tui::label($screen, $others.col + 2, $others.row, $others.width - 2, "Other matches", "bold");
@@ -445,7 +500,21 @@ pub kind Shell {
             #where = "menu";
             return null;
         }
-        #sections[#current][1].handle($key);
+        $action = #sections[#current][1].handle($key);
+        if ($action != null) {
+            #carry_out($action);
+        }
         return null;
+    }
+
+    /* What a section asked for: the game changes here, in one place */
+    fn carry_out($action) {
+        if ($action[0] == "swap") {
+            $problem = #game.swap($action[1], $action[2]);
+            #note = $problem == "" ? "Lineup changed" : $problem;
+        } else if ($action[0] == "auto") {
+            #game.auto_lineup();
+            #note = "The best eleven, picked";
+        }
     }
 }

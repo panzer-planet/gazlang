@@ -20,6 +20,15 @@ pub abstract kind Player {
     // This match only, reset by rest(): what motm() judges the man of the match on
     pub #match_goals = 0;
     pub #saves = 0;
+    // How many matches are still to be missed, through injury or suspension. Counted down by the
+    // team after each match the player was out at the start of (see Team.finish()), so what
+    // happens in a match is served in the next one.
+    pub #injured = 0;
+    pub #suspended = 0;
+    // Yellow cards this season, five of which are a suspension
+    pub #season_yellows = 0;
+    // Injured in the match being played, and off the pitch
+    pub #hurt = false;
 
     fn _(#name, pub #rating, pub #number) {}
 
@@ -49,6 +58,7 @@ pub abstract kind Player {
         #sent_off = false;
         #match_goals = 0;
         #saves = 0;
+        #hurt = false;
     }
 
     // Most days are close to normal, but every so often, whoever you are, nothing comes off,
@@ -69,6 +79,7 @@ pub abstract kind Player {
         #career_goals += #goals;
         #goals = 0;
         #clean_sheets = 0;
+        #season_yellows = 0;
     }
 
     // A summer older, giving how much the rating moved: the young tend to improve, the
@@ -94,11 +105,40 @@ pub abstract kind Player {
         return #age >= 33 && random::chance((#age - 32) * 0.2);
     }
 
-    // A booking; the second yellow card is a red one
+    // A booking; the second yellow card is a red one, which is a match's suspension, and so is
+    // the fifth yellow of a season
     pub fn book() {
         #yellow_cards++;
+        #season_yellows++;
         #sent_off = #yellow_cards == 2;
+        if (#sent_off) {
+            #suspended = max(#suspended, 1);
+        } else if (#season_yellows >= 5) {
+            #suspended = max(#suspended, 1);
+            #season_yellows = 0;
+        }
         return #sent_off;
+    }
+
+    // Hurt in a match: off the pitch, and out for this many matches after it
+    pub fn injure($matches) {
+        #injured = $matches;
+        #hurt = true;
+    }
+
+    // Whether the player can be picked
+    pub fn available() { return #injured == 0 && #suspended == 0; }
+
+    // Why not, as a few words, or "" when they can be picked
+    pub fn status() {
+        if (#injured > 0) {
+            return "Injured " .. #injured;
+        }
+        if (#suspended > 0) {
+            return "Banned " .. #suspended;
+        }
+
+        return "";
     }
 
     // What a saved career keeps of a player: who they are and what they have done, not how

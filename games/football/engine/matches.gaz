@@ -31,6 +31,18 @@ pub kind Booking extends Event {
     }
 }
 
+pub kind Injury extends Event {
+    fn _($minute, $team, pub #player, pub #matches) { ##_($minute, $team); }
+    pub fn describe() {
+        return "{#player} ({#team}) is injured and has to go off: out for " .. #matches .. (#matches == 1 ? " match" : " matches");
+    }
+}
+
+pub kind Substitution extends Event {
+    fn _($minute, $team, pub #off, pub #on) { ##_($minute, $team); }
+    pub fn describe() { return "Substitution for {#team}: {#on} replaces {#off}"; }
+}
+
 pub kind Whistle extends Event {
     fn _($minute, #text) { ##_($minute, null); }
     pub fn describe() { return #text; }
@@ -63,6 +75,8 @@ pub kind Fixture {
             return #;
         }
         #started = true;
+        #home.prepare();
+        #away.prepare();
         #home.rest();
         #away.rest();
 
@@ -112,6 +126,8 @@ pub kind Fixture {
                 #home.tire(15);
                 #away.tire(15);
             }
+            // the clock runs on, so what happens in extra time is stamped with its minute
+            #elapsed = $minute;
             #minute($minute);
         }
         #emit(Whistle(120, "After extra time: {#}"));
@@ -151,6 +167,30 @@ pub kind Fixture {
         } else if ($roll < 0.2) {
             #foul($minute, random::chance(0.5) ? #home : #away);
         }
+        // Now and then someone goes down: about two matches in five have an injury, and most are a
+        // match or two but some are months, which leaves a club with a player or two out at a time
+        if (random::chance(0.006)) {
+            $team = random::chance(0.5) ? #home : #away;
+            #injure($team, random::pick($team.on_pitch()), random::weighted([[1, 30], [2, 25], [3, 15], [4, 10], [6, 10], [8, 6], [12, 4]]));
+        }
+    }
+
+    // $player of $team is injured, for this many matches: he goes off, and a substitute comes on for
+    // him if there is one and a substitution left, and if not the team plays a man short
+    pub fn injure($team, $player, $matches) {
+        $player.injure($matches);
+        $team.changed();
+        #emit(Injury(#elapsed, $team, $player, $matches));
+        if (!$team.can_substitute()) {
+            return #;
+        }
+        $substitute = $team.best_substitute($player);
+        if ($substitute != null) {
+            $team.substitute($player, $substitute);
+            #emit(Substitution(#elapsed, $team, $player, $substitute));
+        }
+
+        return #;
     }
 
     fn attempt($minute, $attackers, $defenders) {

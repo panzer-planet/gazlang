@@ -5,7 +5,7 @@
  */
 namespace game;
 
-include "engine/teams.gaz" use Scout;
+include "engine/teams.gaz" use Scout, InvalidLineup;
 include "engine/league.gaz" use League;
 include "engine/money.gaz";
 
@@ -14,6 +14,8 @@ const CLUBS = [
     "Oakfield City", "Stonebridge", "Westmoor Wanderers", "Ashford Albion", "Lakeside Rangers",
 ];
 const FIRST_YEAR = 2026;
+/* The formations the clubs prefer, in turn: the first for the club the manager starts with */
+const FORMATIONS = ["4-4-2", "4-3-3", "3-5-2", "4-5-1", "5-3-2"];
 
 /* 1st, 2nd, 3rd, 4th, 11th, 12th, 13th, 21st */
 pub fn ordinal($n) {
@@ -81,6 +83,8 @@ pub kind MatchDay {
 pub kind Game {
     /* The matchday being played, or null between them */
     pub #live = null;
+    /* Who was out when the matchday began, by name, so what changed during it can be told */
+    #out_before = {};
     pub #league;
     pub #inbox = [];
     pub #season = FIRST_YEAR;
@@ -97,8 +101,8 @@ pub kind Game {
         rand_seed($seed);
         $scout = Scout();
         $teams = [];
-        foreach (CLUBS as $name) {
-            $team = $scout.team($name, rand_int(52, 78), "4-4-2");
+        foreach (CLUBS as $i => $name) {
+            $team = $scout.team($name, rand_int(52, 78), FORMATIONS[$i % len(FORMATIONS)]);
             $team.balance = money::starting_balance($team);
             $teams[] = $team;
         }
@@ -149,9 +153,26 @@ pub kind Game {
         if (#live != null) {
             error("A matchday is already being played");
         }
+        // The other clubs pick their best eleven from who is fit; the manager's stays as it was set,
+        // except that anyone who is out is replaced, which the inbox says
+        foreach (#teams as $team) {
+            if ($team != #club) {
+                $team.auto_eleven();
+            }
+        }
+        $picked = #club.eleven();
         // Live only once the league has begun it, so a matchday that couldn't begin isn't left half made
         $day = MatchDay(#club);
         #league.begin_matchday($day.attach);
+        foreach (#club.eleven() as $i => $player) {
+            if ($player != $picked[$i]) {
+                #tell("Lineup: {$player} starts", "{$picked[$i]} is out (" .. lower($picked[$i].status()) .. "), so {$player} starts in his place.");
+            }
+        }
+        #out_before = {};
+        foreach (filter(#club.players, $player -> !$player.available()) as $player) {
+            #out_before[to_string($player)] = true;
+        }
         #live = $day;
 
         return #live;
@@ -165,12 +186,14 @@ pub kind Game {
         }
         $matches = #league.end_matchday(#live.matches);
         #live = null;
+        $available = filter(#club.players, $player -> $player.available());
         foreach ($matches as $match) {
             if ($match.home == #club || $match.away == #club) {
                 #report($match);
             }
         }
         #tell("Matchday " .. #league.matchdays_played() .. " results", join(map($matches, $match -> "{$match}"), "\n"));
+        #report_availability($available);
         if (#season_over()) {
             $champions = #league.table()[0].team;
             #tell("The season is over", "{$champions} are the champions. You finished " .. ordinal(#position()) .. ".");
@@ -187,6 +210,44 @@ pub kind Game {
         }
 
         return #end_matchday();
+    }
+
+    /* What the match did to the club's players: who is hurt or banned now, and who has served it */
+    fn report_availability($available) {
+        foreach (#club.players as $player) {
+            $name = to_string($player);
+            if ($player.hurt && $player.injured > 0) {
+                #tell("Injury: {$name}", "{$name} was injured and will be out for " .. $player.injured .. ($player.injured == 1 ? " match." : " matches."));
+            } else if (!$player.available() && !has_key(#out_before, $name)) {
+                #tell("Suspended: {$name}", "{$name} is suspended for the next " .. $player.suspended .. ($player.suspended == 1 ? " match." : " matches."));
+            } else if ($player.available() && has_key(#out_before, $name)) {
+                #tell("Back: {$name}", "{$name} has served his time out and is available again.");
+            }
+        }
+    }
+
+    /* The manager's change to the eleven: two players of the club, one in the eleven and one on
+       the bench, swap places. Gives "" when it is done, and why not when it isn't. */
+    pub fn swap($a, $b) {
+        if (#live != null) {
+            return "The lineup can't change during a match";
+        }
+        $starting = in_array($a, #club.eleven()) ? [$a, $b] : [$b, $a];
+        if (!in_array($starting[0], #club.eleven()) || in_array($starting[1], #club.eleven())) {
+            return "Swap a player in the eleven with one on the bench";
+        }
+        try {
+            #club.swap($starting[0], $starting[1]);
+        } catch (InvalidLineup $e) {
+            return $e.message;
+        }
+
+        return "";
+    }
+
+    /* The best eleven who can play, in the formation the club prefers (or another) */
+    pub fn auto_lineup($formation = null) {
+        #club.auto_eleven($formation);
     }
 
     /* The message about the club's own match */
