@@ -1,0 +1,1 @@
+Error: A shared variable needs a value: write shared $x = ...; at tests/parser_corpus/error_shared_without_a_value.gaz:1

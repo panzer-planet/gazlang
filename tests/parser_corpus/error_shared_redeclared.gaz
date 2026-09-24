@@ -1,0 +1,2 @@
+shared $x = 1;
+shared $x = 2;

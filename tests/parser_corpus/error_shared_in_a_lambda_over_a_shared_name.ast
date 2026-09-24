@@ -1,0 +1,1 @@
+Error: $x is already shared at tests/parser_corpus/error_shared_in_a_lambda_over_a_shared_name.gaz:3

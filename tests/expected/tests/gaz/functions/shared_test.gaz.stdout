@@ -1,0 +1,36 @@
+ok a closure appends to the list the outside sees
+ok two closures share a counter with the scope they are in
+ok an assignment outside is seen inside
+ok and one inside is seen outside
+ok -- on it
+ok compound assignment
+ok modulo assignment
+ok appending to a string, inside and out
+ok ??= keeps what is there
+ok a list: append, element, delete
+ok a map: key, and a list inside it
+ok a list pattern assigns to it
+ok interpolated
+ok in an expression
+ok a ternary
+ok a copy of the list is a copy
+ok passing it gives a value, not the variable
+ok and a list parameter is still a copy
+ok null, false and 0 are values too
+ok a field through the box
+ok written from outside
+ok each call has its own
+ok each pass through a loop has its own
+ok and in a for loop
+ok three lambdas deep
+ok a lambda can have its own
+ok in a method
+ok in a static method
+ok through a shared variable
+ok a plain variable is still copied into a closure, which keeps its own
+ok and loop closures still take what the variable was
+ok a function can't read a variable of the top level
+ok and its own top is another variable
+ok globals are unaffected
+ok an error in a closure, with what it did before it kept
+ok cycles are made and let go

@@ -1,0 +1,5 @@
+shared $e = 1;
+try {
+    error("x");
+} catch ($e) {
+}

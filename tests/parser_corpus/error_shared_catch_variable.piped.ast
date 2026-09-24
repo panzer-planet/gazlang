@@ -1,0 +1,1 @@
+Error: $e is shared, so it can't be a catch variable: assign it in the block on line 4

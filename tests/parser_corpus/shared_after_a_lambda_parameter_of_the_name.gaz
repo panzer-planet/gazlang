@@ -1,0 +1,3 @@
+$f = $x -> $x;
+shared $x = 1;
+echo $x;

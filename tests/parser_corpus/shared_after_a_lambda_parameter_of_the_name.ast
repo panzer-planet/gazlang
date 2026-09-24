@@ -1,0 +1,89 @@
+Compound
+  statements:
+@ "<builtin>"
+    0: KindDeclaration 9
+      name: "Shared"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"value" => "pub", "_" => "pub"}
+      fields: {"value" => null}
+      field_lines: {"value" => 10}
+      methods:
+        _: FunctionDeclaration 10
+          name: "_"
+          params: ["\$value"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 10
+                expr: Assign 10
+                  left: Property 10
+                    target: This 10
+                    name: "value"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 10 ASSIGN =
+                  right: Variable 10
+                    token: 10 VAR_IDENTIFIER $value
+                    value: "\$value"
+          arity: 1
+          kind: "Shared"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"value" => "Shared"}
+      members: {"_" => "Shared"}
+      abstract_methods: []
+      slots: [["value", "Shared", "pub"]]
+      method_table: [["_", "Shared", "pub", "Shared"]]
+      owner_vis: {"value" => "pub", "_" => "pub"}
+      declared_at: {"_" => "Shared"}
+      hidden: []
+      hidden_fields: []
+@ "tests/parser_corpus/shared_after_a_lambda_parameter_of_the_name.gaz"
+    1: Statement 1
+      expr: Assign 1
+        left: Variable 1
+          token: 1 VAR_IDENTIFIER $f
+          value: "\$f"
+        token: 1 ASSIGN =
+        right: Lambda 1
+          params: ["\$x"]
+          defaults: [null]
+          arity: 1
+          body: Variable 1
+            token: 1 VAR_IDENTIFIER $x
+            value: "\$x"
+          captures: []
+          self: null
+          owner: null
+    2: Statement 2
+      expr: Assign 2
+        left: Variable 2
+          token: 2 VAR_IDENTIFIER $#shared_x
+          value: "$#shared_x"
+        token: 2 ASSIGN =
+        right: FunctionCall 2
+          name: "Shared"
+          args:
+            0: Num 2
+              token: 2 INTEGER 1
+              value: 1
+    3: EchoStatement 3
+      expr: Property 3
+        target: Variable 3
+          token: 3 VAR_IDENTIFIER $#shared_x
+          value: "$#shared_x"
+        name: "value"
+        field: false
+        constant: false
+        value: null
+        static_name: null

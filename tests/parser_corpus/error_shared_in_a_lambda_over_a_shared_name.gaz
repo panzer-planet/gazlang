@@ -1,0 +1,4 @@
+shared $x = 1;
+$f = () -> {
+    shared $x = 2;
+};

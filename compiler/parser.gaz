@@ -201,11 +201,26 @@ kind Parser {
     // Whether any catch clause was parsed, so the program needs the Error kind
     #catches = false;
 
+    // The shared variables visible here, by name ($x): those a `shared` statement declared
+    // earlier in this function, or in the function a lambda is written in and the lambdas
+    // around it. A named function starts with none.
+    #shared = {};
+    // The plain variables named so far in this function or lambda, each with how many times, so
+    // a `shared` statement for one already in use is refused rather than made a second
+    // variable. A lambda's parameters are read as expressions before the -> shows they are
+    // parameters, so lambda() takes them back out (forget_uses()).
+    #plain = {};
+    // The parameters of the function or lambda being parsed, which can't be shared
+    #bound = {};
+    // Whether any shared variable was declared, so the program needs the Shared kind
+    #shares = false;
+
     // Every ##name as [node, the kind it is written in], checked once the kinds are resolved
     #parent_uses = [];
 
     // Source of the builtin kinds, parsed into every program: Error is what runtime errors
-    // and error("message") throw. Single quoted, so nothing in it is interpolated.
+    // and error("message") throw, and Shared is the box a `shared` variable lives in (see
+    // shared_declaration()). Single quoted, so nothing in it is interpolated.
     // Every program reaches an error's members ($e.message), and printing one calls its
     // to_string() from outside, so all of them are pub
     const BUILTIN_SOURCE = 'kind Error {
@@ -215,6 +230,9 @@ kind Parser {
     pub #trace;
     fn _($message) { #message = $message; }
     pub fn to_string() { return "{#message}"; }
+}
+kind Shared {
+    fn _(pub #value);
 }';
 
     // How errors name the builtin kinds' source
@@ -399,11 +417,76 @@ kind Parser {
     }
 
     // Parse a local ($name) or global (@name) variable
+    //
+    // A shared variable is read and written through the box it lives in: $name is
+    // $#shared_name.value, an ordinary field of a hidden variable, so nothing below the parser
+    // learns of it
     fn variable() {
-        $node = #at(VariableAST(#current_token), #current_token);
-        #eat(#current_token.type == "GLOBAL_VAR_IDENTIFIER" ? "GLOBAL_VAR_IDENTIFIER" : "VAR_IDENTIFIER");
+        $token = #current_token;
+        $node = #at(VariableAST($token), $token);
+        #eat($token.type == "GLOBAL_VAR_IDENTIFIER" ? "GLOBAL_VAR_IDENTIFIER" : "VAR_IDENTIFIER");
+        if ($token.type == "GLOBAL_VAR_IDENTIFIER") {
+            return $node;
+        }
+        if (has_key(#shared, $token.value)) {
+            return #shared_use($token);
+        }
+        #plain[$token.value] = (#plain[$token.value] ?? 0) + 1;
 
         return $node;
+    }
+
+    // What a use of the shared variable $token names is: the value in its box
+    fn shared_use($token) {
+        $box_token = Token("VAR_IDENTIFIER", "\$#shared_" .. slice($token.value, 1));
+        $box_token.line = $token.line;
+        $box = #at(VariableAST($box_token), $token);
+
+        return #at(PropertyAST($box, "value"), $token);
+    }
+
+    // The name ($x) of the shared variable a node is a use of, or null if it isn't one
+    fn shared_name($node) {
+        if (is_a($node, PropertyAST) && $node.name == "value" && is_a($node.target, VariableAST)
+            && starts_with($node.target.value, "\$#shared_")) {
+            return "$" .. slice($node.target.value, 9);
+        }
+
+        return null;
+    }
+
+    // Begin a function or lambda body, where the variables named so far start again: with
+    // $inherit (a lambda) the shared variables around it stay visible. Gives what leave_scope()
+    // puts back, and $params are the names the body starts out using.
+    fn enter_scope($params, $inherit) {
+        $saved = [#shared, #plain, #bound];
+        if (!$inherit) {
+            #shared = {};
+        }
+        #plain = {};
+        #bound = {};
+        foreach ($params as $param) {
+            #bound[$param] = true;
+        }
+
+        return $saved;
+    }
+
+    fn leave_scope($saved) {
+        [#shared, #plain, #bound] = $saved;
+    }
+
+    // Take back one use of each of these names: a lambda's parameters, which variable() counted
+    // in the scope around the lambda before its -> showed what they were
+    fn forget_uses($names) {
+        foreach ($names as $name) {
+            $left = (#plain[$name] ?? 0) - 1;
+            if ($left > 0) {
+                #plain[$name] = $left;
+            } else if (has_key(#plain, $name)) {
+                delete #plain[$name];
+            }
+        }
     }
 
     // Parse a call by name (IDENTIFIER arguments), the name having been eaten. $at is its
@@ -633,6 +716,8 @@ kind Parser {
                 $pattern.line = $item.line;
                 [$param, $statement] = #pattern_parameter($pattern, len($params));
                 $patterns[] = $statement;
+            } else if ($first.type == "VAR_IDENTIFIER" && #shared_name($item) != null) {
+                #fail_at("Lambda parameter " .. #shared_name($item) .. " has the name of a shared variable: choose another name", #file, $first.line);
             } else if ($first.type != "VAR_IDENTIFIER" || !is_a($item, VariableAST) || $item.value != $first.value) {
                 #fail_at("Lambda parameters must be \$variables or [\$variable, ...] patterns", #file, $first.line);
             } else {
@@ -658,11 +743,17 @@ kind Parser {
     fn lambda($start, $params, $defaults, $lines, $patterns = []) {
         $arity = #check_parameters($params, $defaults, $lines);
         #eat("ARROW");
+        $bound_names = filter($params, $param -> !starts_with($param, "\$#"));
+        foreach ($patterns as $statement) {
+            $bound_names = [...$bound_names, ...map($statement.expr.left.targets, $target -> $target.value)];
+        }
+        #forget_uses($bound_names);
 
         // A lambda in a constructor isn't the constructor: it can return values, and can't run ##_;
         // one in a finally block can return too
         [$in_constructor, $in_finally] = [#in_constructor, #in_finally];
         [#in_constructor, #in_finally] = [false, false];
+        $scope = #enter_scope($params, true);
         if (#current_token.type == "LEFT_BRACE") {
             [$in_function, $loop_depth] = [#in_function, #loop_depth];
             [#in_function, #loop_depth] = [true, 0];
@@ -697,6 +788,14 @@ kind Parser {
         foreach ($variables.found as $name => $_) {
             if (!in_array($name, $params) && !has_key($variables.assigned, $name)) {
                 $captures[] = $name;
+            }
+        }
+
+        // What it captured, it used: naming one as shared later, where it was already used, is refused
+        #leave_scope($scope);
+        foreach ($captures as $name) {
+            if (!starts_with($name, "\$#")) {
+                #plain[$name] = (#plain[$name] ?? 0) + 1;
             }
         }
 
@@ -981,6 +1080,9 @@ kind Parser {
         $node = #coalesce();
 
         $token = #current_token;
+        if ($token.type == "ARROW" && $start.type == "VAR_IDENTIFIER" && #shared_name($node) != null) {
+            #fail_at("Lambda parameter " .. #shared_name($node) .. " has the name of a shared variable: choose another name", #file, $start.line);
+        }
         if ($token.type == "ARROW" && is_a($node, VariableAST) && !$node.is_global() && $start.type == "VAR_IDENTIFIER") {
             return #lambda($start, [$node.value], [null], [$start.line]);
         }
@@ -1254,10 +1356,17 @@ kind Parser {
     // A pattern's targets are variables only, like foreach's own.
     fn foreach_target() {
         if (#current_token.type != "LEFT_BRACKET") {
+            if (#current_token.type == "VAR_IDENTIFIER" && has_key(#shared, #current_token.value)) {
+                #fail("{#current_token.value} is shared, so it can't be a foreach variable: assign it in the loop's body");
+            }
+
             return #variable();
         }
 
         return #list_pattern(#list_literal(), $target -> {
+            if (#shared_name($target) != null) {
+                #fail_at(#shared_name($target) .. " is shared, so it can't be a foreach variable: assign it in the loop's body", $target.file, $target.line);
+            }
             if (!is_a($target, VariableAST)) {
                 #fail_at("A foreach pattern takes variables only", $target.file, $target.line);
             }
@@ -1295,6 +1404,9 @@ kind Parser {
                 $kind = #current_token.value;
                 #eat("IDENTIFIER");
                 $kind = #qualified_name($kind);
+            }
+            if (#current_token.type == "VAR_IDENTIFIER" && has_key(#shared, #current_token.value)) {
+                #fail("{#current_token.value} is shared, so it can't be a catch variable: assign it in the block");
             }
             $variable = #variable();
             #eat("RIGHT_PAREN");
@@ -1409,7 +1521,9 @@ kind Parser {
         #declare($name, $pub);
 
         #in_function = true;
+        $scope = #enter_scope($params, false);
         $body = #block();
+        #leave_scope($scope);
         #in_function = false;
         $body.statements = [...$patterns, ...$body.statements];
 
@@ -2214,7 +2328,9 @@ kind Parser {
         #declare($full, has_key(#public, $kind.name) || #declared_in[$kind.name] == "");
         [$in_function, $in_static] = [#in_function, #in_static];
         [#in_function, #in_static] = [true, $kind];
+        $scope = #enter_scope($params, false);
         $body = #block();
+        #leave_scope($scope);
         [#in_function, #in_static] = [$in_function, $in_static];
         $body.statements = [...$patterns, ...$body.statements];
 
@@ -2271,7 +2387,9 @@ kind Parser {
             $body = CompoundAST();
         } else {
             [#in_function, #in_constructor] = [true, $name == "_"];
+            $scope = #enter_scope($params, false);
             $body = #block();
+            #leave_scope($scope);
             [#in_function, #in_constructor] = [false, false];
         }
         $prelude = $patterns;
@@ -2332,6 +2450,8 @@ kind Parser {
             return #return_statement();
         } else if ($type == "DELETE") {
             return #delete_statement();
+        } else if ($type == "SHARED") {
+            return #shared_declaration();
         } else if ($type == "FN") {
             #fail("Functions can only be declared at the top level");
         } else if ($type == "KIND" || $type == "ABSTRACT") {
@@ -2359,6 +2479,55 @@ kind Parser {
         return #at(StatementAST($expr), $start);
     }
 
+    // Parse a shared variable's declaration (SHARED VAR_IDENTIFIER ASSIGN expr SEMICOLON)
+    //
+    // A variable that closures share with the function they are written in, rather than each
+    // taking a copy: `shared $count = 0;` and then $count is one variable to all of them. It is
+    // a Shared box in a hidden variable, assigned here (a new box each time this runs, which is
+    // what gives each iteration of a loop its own), and every use of $count after it that
+    // variable() meets is the box's value; a lambda that uses one captures the box, which is a
+    // handle, so the copy it takes is the same box. Nothing below the parser learns of it.
+    //
+    // It is refused where it would be a second variable of the same name: already shared, or
+    // already used as a plain one. A parameter or a foreach or catch variable can't be shared.
+    fn shared_declaration() {
+        $start = #current_token;
+        #eat("SHARED");
+        $token = #current_token;
+        if ($token.type != "VAR_IDENTIFIER") {
+            #fail("Expected a \$variable after shared but found " .. #describe($token));
+        }
+        $name = $token.value;
+        if (has_key(#shared, $name)) {
+            #fail_at("{$name} is already shared", #file, $token.line);
+        }
+        if (has_key(#bound, $name)) {
+            #fail_at("{$name} is a parameter, so it can't be shared: share another variable", #file, $token.line);
+        }
+        if (has_key(#plain, $name)) {
+            #fail_at("{$name} is used before it is shared: write shared {$name} = ...; where it is first set", #file, $token.line);
+        }
+        #eat("VAR_IDENTIFIER");
+        if (#current_token.type != "ASSIGN") {
+            #fail("A shared variable needs a value: write shared {$name} = ...;");
+        }
+        $assign = #current_token;
+        #eat("ASSIGN");
+        $value = #expr();
+        #eat("SEMICOLON");
+
+        // Declared once its value is read, which can't be the variable itself
+        #shared[$name] = true;
+        #shares = true;
+        $box_token = Token("VAR_IDENTIFIER", "\$#shared_" .. slice($name, 1));
+        $box_token.line = $token.line;
+        // Constructed as the global scope, 0, sees Shared, whatever namespace this is written in
+        $construct = #at(FunctionCallAST("Shared", [$value]), $token);
+        #uses[] = [$construct, 0];
+
+        return #at(StatementAST(#at(AssignAST(#at(VariableAST($box_token), $token), $assign, $construct), $assign)), $start);
+    }
+
     // Parse an echo statement (ECHO expr SEMICOLON)
     fn echo_statement() {
         $start = #current_token;
@@ -2375,7 +2544,7 @@ kind Parser {
     // can be used before it is declared and both backends can trust every call by name.
     // Calls on values ($f(1)) are checked when they run.
     fn program() {
-        $error_kind = #builtin_kinds();
+        [$error_kind, $shared_kind] = #builtin_kinds();
         $root = CompoundAST();
         $saved = #enter_file();
         $root.statements = #top_level();
@@ -2393,6 +2562,10 @@ kind Parser {
         }
         if ($uses_error) {
             $root.statements = [$error_kind, ...$root.statements];
+        }
+        // Shared is only compiled into programs with a shared variable
+        if (#shares) {
+            $root.statements = [$shared_kind, ...$root.statements];
         }
         foreach (#catch_types as [$node, $index, $line, $file, $scope]) {
             $name = $node.catches[$index][0];
@@ -2740,10 +2913,13 @@ kind Parser {
         #lexer = Lexer(#BUILTIN_SOURCE);
         #file = #BUILTIN_FILE;
         #current_token = #next_token();
-        $kind = #kind_declaration();
+        $kinds = [];
+        while (#current_token.type != "EOF") {
+            $kinds[] = #kind_declaration();
+        }
         [#lexer, #current_token, #file] = [$lexer, $current_token, $file];
 
-        return $kind;
+        return $kinds;
     }
 
     // The number of arguments constructing a resolved kind takes: its constructor's, or none

@@ -1,0 +1,55 @@
+GAZLANG BYTECODE 2
+globals
+
+top
+locals $#shared_count $inc
+@ "shared.gaz" 1
+PUSH 0
+NEW Shared 1
+STORE 0
+LOAD 0
+POP
+@ "shared.gaz" 2
+MAKE_CLOSURE 0
+STORE 1
+LOAD 1
+POP
+@ "shared.gaz" 3
+LOAD 1
+CALL_VALUE 0
+POP
+@ "shared.gaz" 4
+LOAD 0
+GET_PROPERTY value
+PRINT
+
+kind Shared
+field value Shared pub
+method _ Shared pub
+locals $#argument_0
+@ "<builtin>" 9
+CALL_CONSTRUCTOR Shared
+POP
+LOAD_THIS
+RET
+
+fn Shared._ 1 1
+locals $value
+@ "<builtin>" 10
+LOAD 0
+SET_FIELD value
+POP
+PUSH null
+RET
+
+lambda 0 0 0
+capture $#shared_count local 0
+locals
+@ "shared.gaz" 2
+LOAD_CAPTURED 0
+GET_PROPERTY_EXISTING value
+INC
+SET_PATH_CAPTURED .value 0
+POP
+PUSH null
+RET

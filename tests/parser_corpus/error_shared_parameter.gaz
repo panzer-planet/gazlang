@@ -1,0 +1,3 @@
+fn f($x) {
+    shared $x = 1;
+}

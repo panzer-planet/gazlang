@@ -1,0 +1,1 @@
+Error: $e is shared, so it can't be a catch variable: assign it in the block at tests/parser_corpus/error_shared_catch_variable.gaz:4

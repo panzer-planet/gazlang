@@ -1,0 +1,1 @@
+Error: $x is a parameter, so it can't be shared: share another variable at tests/parser_corpus/error_shared_lambda_parameter_made_shared.gaz:2

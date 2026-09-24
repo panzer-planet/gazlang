@@ -1,0 +1,3 @@
+shared $k = 1;
+foreach ([1] as $k => $v) {
+}

@@ -1,0 +1,1 @@
+Error: $k is shared, so it can't be a foreach variable: assign it in the loop's body at tests/parser_corpus/error_shared_foreach_key.gaz:2

@@ -1,0 +1,35 @@
+// A shared variable: declared with a value, then used like any variable, and by lambdas
+shared $events = [];
+$hear = $e -> { $events[] = $e; };
+shared $count = 0;
+$count++;
+$count += 2;
+$count ??= 9;
+$get = () -> $count;
+echo "count {$count}";
+[$a, $count] = [1, 2];
+delete $events[0];
+
+fn counter($start) {
+    shared $n = $start;
+    return () -> { $n++; return $n; };
+}
+
+$each = [];
+foreach ([1, 2] as $i) {
+    shared $k = $i;
+    $each[] = () -> $k;
+}
+
+$outer = () -> {
+    shared $own = 1;
+    return () -> { $own++; return $count + $own; };
+};
+
+kind Bag {
+    fn collect($items) {
+        shared $seen = [];
+        $add = $v -> { $seen[] = $v; };
+        return $seen;
+    }
+}

@@ -1,0 +1,98 @@
+Compound
+  statements:
+@ "<builtin>"
+    0: KindDeclaration 9
+      name: "Shared"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"value" => "pub", "_" => "pub"}
+      fields: {"value" => null}
+      field_lines: {"value" => 10}
+      methods:
+        _: FunctionDeclaration 10
+          name: "_"
+          params: ["\$value"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 10
+                expr: Assign 10
+                  left: Property 10
+                    target: This 10
+                    name: "value"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 10 ASSIGN =
+                  right: Variable 10
+                    token: 10 VAR_IDENTIFIER $value
+                    value: "\$value"
+          arity: 1
+          kind: "Shared"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"value" => "Shared"}
+      members: {"_" => "Shared"}
+      abstract_methods: []
+      slots: [["value", "Shared", "pub"]]
+      method_table: [["_", "Shared", "pub", "Shared"]]
+      owner_vis: {"value" => "pub", "_" => "pub"}
+      declared_at: {"_" => "Shared"}
+      hidden: []
+      hidden_fields: []
+@ "tests/parser_corpus/shared_is_not_visible_in_a_function.gaz"
+    1: Statement 1
+      expr: Assign 1
+        left: Variable 1
+          token: 1 VAR_IDENTIFIER $#shared_x
+          value: "$#shared_x"
+        token: 1 ASSIGN =
+        right: FunctionCall 1
+          name: "Shared"
+          args:
+            0: Num 1
+              token: 1 INTEGER 1
+              value: 1
+    2: FunctionDeclaration 2
+      name: "f"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 3
+            expr: Variable 3
+              token: 3 VAR_IDENTIFIER $x
+              value: "\$x"
+      arity: 0
+      kind: null
+      abstract: false
+    3: Statement 5
+      expr: Assign 5
+        left: Variable 5
+          token: 5 VAR_IDENTIFIER $g
+          value: "\$g"
+        token: 5 ASSIGN =
+        right: Lambda 5
+          params: []
+          defaults: []
+          arity: 0
+          body: Property 5
+            target: Variable 5
+              token: 5 VAR_IDENTIFIER $#shared_x
+              value: "$#shared_x"
+            name: "value"
+            field: false
+            constant: false
+            value: null
+            static_name: null
+          captures: ["$#shared_x"]
+          self: null
+          owner: null

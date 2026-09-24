@@ -1,0 +1,4 @@
+shared $count = 0;
+$inc = () -> { $count++; };
+$inc();
+echo $count;

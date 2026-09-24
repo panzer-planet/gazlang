@@ -1,0 +1,511 @@
+Compound
+  statements:
+@ "<builtin>"
+    0: KindDeclaration 9
+      name: "Shared"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"value" => "pub", "_" => "pub"}
+      fields: {"value" => null}
+      field_lines: {"value" => 10}
+      methods:
+        _: FunctionDeclaration 10
+          name: "_"
+          params: ["\$value"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 10
+                expr: Assign 10
+                  left: Property 10
+                    target: This 10
+                    name: "value"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 10 ASSIGN =
+                  right: Variable 10
+                    token: 10 VAR_IDENTIFIER $value
+                    value: "\$value"
+          arity: 1
+          kind: "Shared"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"value" => "Shared"}
+      members: {"_" => "Shared"}
+      abstract_methods: []
+      slots: [["value", "Shared", "pub"]]
+      method_table: [["_", "Shared", "pub", "Shared"]]
+      owner_vis: {"value" => "pub", "_" => "pub"}
+      declared_at: {"_" => "Shared"}
+      hidden: []
+      hidden_fields: []
+@ null
+    1: Statement 2
+      expr: Assign 2
+        left: Variable 2
+          token: 2 VAR_IDENTIFIER $#shared_events
+          value: "$#shared_events"
+        token: 2 ASSIGN =
+        right: FunctionCall 2
+          name: "Shared"
+          args:
+            0: ArrayLiteral 2
+              entries: []
+              map: false
+    2: Statement 3
+      expr: Assign 3
+        left: Variable 3
+          token: 3 VAR_IDENTIFIER $hear
+          value: "\$hear"
+        token: 3 ASSIGN =
+        right: Lambda 3
+          params: ["\$e"]
+          defaults: [null]
+          arity: 1
+          body: Compound
+            statements:
+              0: Statement 3
+                expr: Assign 3
+                  left: Index 3
+                    target: Property 3
+                      target: Variable 3
+                        token: 3 VAR_IDENTIFIER $#shared_events
+                        value: "$#shared_events"
+                      name: "value"
+                      field: false
+                      constant: false
+                      value: null
+                      static_name: null
+                    index: null
+                  token: 3 ASSIGN =
+                  right: Variable 3
+                    token: 3 VAR_IDENTIFIER $e
+                    value: "\$e"
+          captures: ["$#shared_events"]
+          self: null
+          owner: null
+    3: Statement 4
+      expr: Assign 4
+        left: Variable 4
+          token: 4 VAR_IDENTIFIER $#shared_count
+          value: "$#shared_count"
+        token: 4 ASSIGN =
+        right: FunctionCall 4
+          name: "Shared"
+          args:
+            0: Num 4
+              token: 4 INTEGER 0
+              value: 0
+    4: Statement 5
+      expr: Increment 5
+        target: Property 5
+          target: Variable 5
+            token: 5 VAR_IDENTIFIER $#shared_count
+            value: "$#shared_count"
+          name: "value"
+          field: false
+          constant: false
+          value: null
+          static_name: null
+        op: 5 INCREMENT ++
+        prefix: false
+    5: Statement 6
+      expr: Assign 6
+        left: Property 6
+          target: Variable 6
+            token: 6 VAR_IDENTIFIER $#shared_count
+            value: "$#shared_count"
+          name: "value"
+          field: false
+          constant: false
+          value: null
+          static_name: null
+        token: 6 PLUS_ASSIGN +=
+        right: Num 6
+          token: 6 INTEGER 2
+          value: 2
+    6: Statement 7
+      expr: Assign 7
+        left: Property 7
+          target: Variable 7
+            token: 7 VAR_IDENTIFIER $#shared_count
+            value: "$#shared_count"
+          name: "value"
+          field: false
+          constant: false
+          value: null
+          static_name: null
+        token: 7 COALESCE_ASSIGN ??=
+        right: Num 7
+          token: 7 INTEGER 9
+          value: 9
+    7: Statement 8
+      expr: Assign 8
+        left: Variable 8
+          token: 8 VAR_IDENTIFIER $get
+          value: "\$get"
+        token: 8 ASSIGN =
+        right: Lambda 8
+          params: []
+          defaults: []
+          arity: 0
+          body: Property 8
+            target: Variable 8
+              token: 8 VAR_IDENTIFIER $#shared_count
+              value: "$#shared_count"
+            name: "value"
+            field: false
+            constant: false
+            value: null
+            static_name: null
+          captures: ["$#shared_count"]
+          self: null
+          owner: null
+    8: EchoStatement 9
+      expr: BinOp 9
+        left: String 9
+          token: 9 STRING_START "count "
+          value: "count "
+        token: 9 CONCAT ..
+        op: 9 CONCAT ..
+        right: Property 9
+          target: Variable 9
+            token: 9 VAR_IDENTIFIER $#shared_count
+            value: "$#shared_count"
+          name: "value"
+          field: false
+          constant: false
+          value: null
+          static_name: null
+    9: Statement 10
+      expr: Assign 10
+        left: ListPattern 10
+          targets:
+            0: Variable 10
+              token: 10 VAR_IDENTIFIER $a
+              value: "\$a"
+            1: Property 10
+              target: Variable 10
+                token: 10 VAR_IDENTIFIER $#shared_count
+                value: "$#shared_count"
+              name: "value"
+              field: false
+              constant: false
+              value: null
+              static_name: null
+        token: 10 ASSIGN =
+        right: ArrayLiteral 10
+          entries:
+            0:
+              0: null
+              1: Num 10
+                token: 10 INTEGER 1
+                value: 1
+            1:
+              0: null
+              1: Num 10
+                token: 10 INTEGER 2
+                value: 2
+          map: false
+    10: DeleteStatement 11
+      target: Index 11
+        target: Property 11
+          target: Variable 11
+            token: 11 VAR_IDENTIFIER $#shared_events
+            value: "$#shared_events"
+          name: "value"
+          field: false
+          constant: false
+          value: null
+          static_name: null
+        index: Num 11
+          token: 11 INTEGER 0
+          value: 0
+    11: FunctionDeclaration 13
+      name: "counter"
+      params: ["\$start"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: Statement 14
+            expr: Assign 14
+              left: Variable 14
+                token: 14 VAR_IDENTIFIER $#shared_n
+                value: "$#shared_n"
+              token: 14 ASSIGN =
+              right: FunctionCall 14
+                name: "Shared"
+                args:
+                  0: Variable 14
+                    token: 14 VAR_IDENTIFIER $start
+                    value: "\$start"
+          1: ReturnStatement 15
+            expr: Lambda 15
+              params: []
+              defaults: []
+              arity: 0
+              body: Compound
+                statements:
+                  0: Statement 15
+                    expr: Increment 15
+                      target: Property 15
+                        target: Variable 15
+                          token: 15 VAR_IDENTIFIER $#shared_n
+                          value: "$#shared_n"
+                        name: "value"
+                        field: false
+                        constant: false
+                        value: null
+                        static_name: null
+                      op: 15 INCREMENT ++
+                      prefix: false
+                  1: ReturnStatement 15
+                    expr: Property 15
+                      target: Variable 15
+                        token: 15 VAR_IDENTIFIER $#shared_n
+                        value: "$#shared_n"
+                      name: "value"
+                      field: false
+                      constant: false
+                      value: null
+                      static_name: null
+              captures: ["$#shared_n"]
+              self: null
+              owner: null
+      arity: 1
+      kind: null
+      abstract: false
+    12: Statement 18
+      expr: Assign 18
+        left: Variable 18
+          token: 18 VAR_IDENTIFIER $each
+          value: "\$each"
+        token: 18 ASSIGN =
+        right: ArrayLiteral 18
+          entries: []
+          map: false
+    13: ForeachStatement 19
+      iterable: ArrayLiteral 19
+        entries:
+          0:
+            0: null
+            1: Num 19
+              token: 19 INTEGER 1
+              value: 1
+          1:
+            0: null
+            1: Num 19
+              token: 19 INTEGER 2
+              value: 2
+        map: false
+      key: null
+      value: Variable 19
+        token: 19 VAR_IDENTIFIER $i
+        value: "\$i"
+      body: Compound
+        statements:
+          0: Statement 20
+            expr: Assign 20
+              left: Variable 20
+                token: 20 VAR_IDENTIFIER $#shared_k
+                value: "$#shared_k"
+              token: 20 ASSIGN =
+              right: FunctionCall 20
+                name: "Shared"
+                args:
+                  0: Variable 20
+                    token: 20 VAR_IDENTIFIER $i
+                    value: "\$i"
+          1: Statement 21
+            expr: Assign 21
+              left: Index 21
+                target: Variable 21
+                  token: 21 VAR_IDENTIFIER $each
+                  value: "\$each"
+                index: null
+              token: 21 ASSIGN =
+              right: Lambda 21
+                params: []
+                defaults: []
+                arity: 0
+                body: Property 21
+                  target: Variable 21
+                    token: 21 VAR_IDENTIFIER $#shared_k
+                    value: "$#shared_k"
+                  name: "value"
+                  field: false
+                  constant: false
+                  value: null
+                  static_name: null
+                captures: ["$#shared_k"]
+                self: null
+                owner: null
+    14: Statement 24
+      expr: Assign 24
+        left: Variable 24
+          token: 24 VAR_IDENTIFIER $outer
+          value: "\$outer"
+        token: 24 ASSIGN =
+        right: Lambda 24
+          params: []
+          defaults: []
+          arity: 0
+          body: Compound
+            statements:
+              0: Statement 25
+                expr: Assign 25
+                  left: Variable 25
+                    token: 25 VAR_IDENTIFIER $#shared_own
+                    value: "$#shared_own"
+                  token: 25 ASSIGN =
+                  right: FunctionCall 25
+                    name: "Shared"
+                    args:
+                      0: Num 25
+                        token: 25 INTEGER 1
+                        value: 1
+              1: ReturnStatement 26
+                expr: Lambda 26
+                  params: []
+                  defaults: []
+                  arity: 0
+                  body: Compound
+                    statements:
+                      0: Statement 26
+                        expr: Increment 26
+                          target: Property 26
+                            target: Variable 26
+                              token: 26 VAR_IDENTIFIER $#shared_own
+                              value: "$#shared_own"
+                            name: "value"
+                            field: false
+                            constant: false
+                            value: null
+                            static_name: null
+                          op: 26 INCREMENT ++
+                          prefix: false
+                      1: ReturnStatement 26
+                        expr: BinOp 26
+                          left: Property 26
+                            target: Variable 26
+                              token: 26 VAR_IDENTIFIER $#shared_count
+                              value: "$#shared_count"
+                            name: "value"
+                            field: false
+                            constant: false
+                            value: null
+                            static_name: null
+                          token: 26 PLUS +
+                          op: 26 PLUS +
+                          right: Property 26
+                            target: Variable 26
+                              token: 26 VAR_IDENTIFIER $#shared_own
+                              value: "$#shared_own"
+                            name: "value"
+                            field: false
+                            constant: false
+                            value: null
+                            static_name: null
+                  captures: ["$#shared_own", "$#shared_count"]
+                  self: null
+                  owner: null
+          captures: ["$#shared_count"]
+          self: null
+          owner: null
+    15: KindDeclaration 29
+      name: "Bag"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"collect" => ""}
+      fields: []
+      field_lines: []
+      methods:
+        collect: FunctionDeclaration 30
+          name: "collect"
+          params: ["\$items"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 31
+                expr: Assign 31
+                  left: Variable 31
+                    token: 31 VAR_IDENTIFIER $#shared_seen
+                    value: "$#shared_seen"
+                  token: 31 ASSIGN =
+                  right: FunctionCall 31
+                    name: "Shared"
+                    args:
+                      0: ArrayLiteral 31
+                        entries: []
+                        map: false
+              1: Statement 32
+                expr: Assign 32
+                  left: Variable 32
+                    token: 32 VAR_IDENTIFIER $add
+                    value: "\$add"
+                  token: 32 ASSIGN =
+                  right: Lambda 32
+                    params: ["\$v"]
+                    defaults: [null]
+                    arity: 1
+                    body: Compound
+                      statements:
+                        0: Statement 32
+                          expr: Assign 32
+                            left: Index 32
+                              target: Property 32
+                                target: Variable 32
+                                  token: 32 VAR_IDENTIFIER $#shared_seen
+                                  value: "$#shared_seen"
+                                name: "value"
+                                field: false
+                                constant: false
+                                value: null
+                                static_name: null
+                              index: null
+                            token: 32 ASSIGN =
+                            right: Variable 32
+                              token: 32 VAR_IDENTIFIER $v
+                              value: "\$v"
+                    captures: ["$#shared_seen"]
+                    self: null
+                    owner: "Bag"
+              2: ReturnStatement 33
+                expr: Property 33
+                  target: Variable 33
+                    token: 33 VAR_IDENTIFIER $#shared_seen
+                    value: "$#shared_seen"
+                  name: "value"
+                  field: false
+                  constant: false
+                  value: null
+                  static_name: null
+          arity: 1
+          kind: "Bag"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: {"collect" => "Bag"}
+      abstract_methods: []
+      slots: []
+      method_table: [["collect", "Bag", "", "Bag"]]
+      owner_vis: {"collect" => ""}
+      declared_at: {"collect" => "Bag"}
+      hidden: []
+      hidden_fields: []

@@ -1,0 +1,204 @@
+include "../check.gaz";
+
+/* ---- A closure changes what the outside sees ---- */
+shared $events = [];
+$hear = $e -> { $events[] = $e; };
+$hear("a");
+$hear("b");
+check("a closure appends to the list the outside sees", $events, ["a", "b"]);
+
+shared $count = 0;
+$inc = () -> { $count++; };
+$get = () -> $count;
+$inc();
+$inc();
+$inc();
+check("two closures share a counter with the scope they are in", [$get(), $count], [3, 3]);
+$count = 10;
+check("an assignment outside is seen inside", $get(), 10);
+$set = $v -> { $count = $v; };
+$set(50);
+check("and one inside is seen outside", $count, 50);
+$count--;
+check("-- on it", $get(), 49);
+
+/* ---- Every way of writing to it ---- */
+shared $n = 5;
+$n += 3;
+$n *= 2;
+$n -= 1;
+check("compound assignment", $n, 15);
+$n %= 4;
+check("modulo assignment", $n, 3);
+shared $s = "a";
+$s ..= "b";
+$append = $t -> { $s ..= $t; };
+$append("c");
+$append("d");
+check("appending to a string, inside and out", $s, "abcd");
+shared $maybe = null;
+$maybe ??= "first";
+$maybe ??= "second";
+check("??= keeps what is there", $maybe, "first");
+shared $list = [1, 2, 3];
+$list[] = 4;
+$list[0] = 10;
+delete $list[1];
+check("a list: append, element, delete", $list, [10, 3, 4]);
+shared $map = {"a" => 1};
+$map["b"] = 2;
+$map["c"] = [];
+$map["c"][] = 3;
+check("a map: key, and a list inside it", $map, {"a" => 1, "b" => 2, "c" => [3]});
+[$first, $n] = [1, 2];
+check("a list pattern assigns to it", [$first, $n], [1, 2]);
+check("interpolated", "n is {$n} and $n", "n is 2 and 2");
+check("in an expression", $n * 10 + 1, 21);
+check("a ternary", $n == 2 ? "two" : "other", "two");
+
+/* ---- Values stay values ---- */
+$copy = $list;
+$copy[] = "z";
+check("a copy of the list is a copy", [len($list), len($copy)], [3, 4]);
+fn doubled($x) { $x *= 2; return $x; }
+check("passing it gives a value, not the variable", [doubled($n), $n], [4, 2]);
+fn append_to($l) { $l[] = "lost"; return len($l); }
+check("and a list parameter is still a copy", [append_to($list), len($list)], [4, 3]);
+shared $nothing = null;
+shared $off = false;
+shared $zero = 0;
+check("null, false and 0 are values too", [$nothing, $off, $zero], [null, false, 0]);
+
+/* ---- An object inside ---- */
+kind Point {
+    fn _(pub #x);
+}
+shared $point = Point(1);
+$move = () -> { $point.x++; };
+$move();
+$move();
+check("a field through the box", $point.x, 3);
+$point.x = 10;
+check("written from outside", [$point.x, ($p -> $p.x)($point)], [10, 10]);
+
+/* ---- A new variable for each call, and each pass through a loop ---- */
+fn counter($start) {
+    shared $c = $start;
+    return () -> { $c++; return $c; };
+}
+$a = counter(10);
+$b = counter(20);
+check("each call has its own", [$a(), $a(), $b(), $a()], [11, 12, 21, 13]);
+
+$fs = [];
+foreach ([1, 2, 3] as $i) {
+    shared $k = $i * 10;
+    $fs[] = () -> { $k++; return $k; };
+}
+check("each pass through a loop has its own", [$fs[0](), $fs[0](), $fs[1](), $fs[2]()], [11, 12, 21, 31]);
+
+$gs = [];
+for ($j = 0; $j < 3; $j++) {
+    shared $seen = [];
+    $gs[] = $x -> { $seen[] = $x; return len($seen); };
+}
+check("and in a for loop", [$gs[0]("a"), $gs[0]("b"), $gs[1]("c")], [1, 2, 1]);
+
+/* ---- Lambdas in lambdas, and methods ---- */
+shared $depth = 0;
+$outer = () -> {
+    $middle = () -> {
+        $inner = () -> { $depth++; };
+        $inner();
+        $inner();
+    };
+    $middle();
+};
+$outer();
+$outer();
+check("three lambdas deep", $depth, 4);
+
+$own = () -> {
+    shared $y = 5;
+    $g = () -> { $y++; return $y; };
+    return $g() + $g();
+};
+check("a lambda can have its own", [$own(), $own()], [13, 13]);
+
+kind Bag {
+    pub fn doubles($items) {
+        shared $seen = [];
+        foreach ($items as $item) {
+            $add = $v -> { $seen[] = $v * 2; };
+            $add($item);
+        }
+        return $seen;
+    }
+    pub static fn total($items) {
+        shared $sum = 0;
+        $add = $v -> { $sum += $v; };
+        foreach ($items as $item) {
+            $add($item);
+        }
+        return $sum;
+    }
+}
+check("in a method", Bag().doubles([1, 2, 3]), [2, 4, 6]);
+check("in a static method", Bag::total([1, 2, 3, 4]), 10);
+
+/* ---- A lambda that calls itself ---- */
+shared $fact = null;
+$fact = $x -> $x < 2 ? 1 : $x * $fact($x - 1);
+check("through a shared variable", $fact(5), 120);
+
+/* ---- What it leaves alone ---- */
+$plain = 0;
+$bump = () -> { $plain++; return $plain; };
+check("a plain variable is still copied into a closure, which keeps its own", [$bump(), $bump(), $bump(), $plain], [1, 2, 3, 0]);
+$snapshots = [];
+foreach ([1, 2, 3] as $v) {
+    $snapshots[] = () -> $v;
+}
+check("and loop closures still take what the variable was", [$snapshots[0](), $snapshots[1](), $snapshots[2]()], [1, 2, 3]);
+shared $x = "top";
+fn no_access() { return $x; }
+try {
+    no_access();
+    check("a function can't read a variable of the top level", "no error", "an error");
+} catch (Error $e) {
+    check("a function can't read a variable of the top level", $e.message, "Undefined variable: \$x");
+}
+fn own_x() {
+    shared $x = "inside";
+    return () -> $x;
+}
+check("and its own $x is another variable", [own_x()(), $x], ["inside", "top"]);
+@global = 1;
+shared $viaglobal = @global;
+$viaglobal++;
+@global++;
+check("globals are unaffected", [$viaglobal, @global], [2, 2]);
+
+/* ---- Errors still work ---- */
+shared $log = [];
+try {
+    $boom = () -> { $log[] = "before"; error("boom"); };
+    $boom();
+} catch (Error $err) {
+    $log[] = $err.message;
+} finally {
+    $log[] = "finally";
+}
+check("an error in a closure, with what it did before it kept", $log, ["before", "boom", "finally"]);
+
+/* ---- A box and its closure make a cycle, which is collected ---- */
+fn cycle() {
+    shared $again = null;
+    $again = () -> $again;
+    return 1;
+}
+$total = 0;
+for ($q = 0; $q < 200; $q++) {
+    $total += cycle();
+}
+check("cycles are made and let go", $total, 200);

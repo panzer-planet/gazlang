@@ -256,6 +256,45 @@ read and write them there, so they persist between calls and the enclosing scope
 changes. A plain `=` inside the body makes a variable local to each call instead. A lambda
 assigned with `$f = ...` can call `$f` to recurse.
 
+To let closures and the scope around them work on the same variable, declare it `shared`:
+
+```gaz
+shared $events = [];
+$hear = $e -> { $events[] = $e; };     // fills the list the outside reads
+$hear("kick off");
+echo len($events);                      // 1
+
+shared $count = 0;
+$inc = () -> { $count++; };
+$get = () -> $count;
+$inc(); $inc();
+echo $get() .. " " .. $count;           // 2 2
+```
+
+`shared $x = value;` needs a value, and from there on `$x` is one variable to the function it is
+written in and to every lambda in it: an assignment, `++`, `+=`, `??=`, `$x[] = ...` or `delete
+$x[0]` in one is seen by all. Everything else about closures is as before: a variable that isn't
+shared is still copied in. The declaration makes a new variable each time it runs, so a closure made
+in a loop gets its own, and a call of a function gets its own:
+
+```gaz
+fn counter($start) {
+    shared $n = $start;
+    return () -> { $n++; return $n; };
+}
+$a = counter(10);  $b = counter(20);
+echo $a() .. " " .. $a() .. " " .. $b();   // 11 12 21
+```
+
+A named function starts with no shared variables and can't read the top level's, as with any
+variable. A lambda can declare its own. A lambda that assigns itself to a shared variable can
+recurse through it. These are errors, when the file is read: sharing a name that is already
+shared, already used or a parameter; a lambda parameter with the name of a shared variable; and a
+shared variable as a `foreach` or `catch` variable (assign it in the body instead). A shared
+variable holds a value like any other: a list is still copied when passed to a function or
+assigned to another variable. `Shared` is a builtin kind name, as `Error` is, and `shared` is a
+reserved word.
+
 ## Objects
 
 ```gaz

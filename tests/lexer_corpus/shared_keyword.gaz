@@ -1,0 +1,7 @@
+shared $x = 1;
+Shared $x = 2;
+$shared = 3;
+@shared = 4;
+#shared;
+shared_count;
+fn shared_use();

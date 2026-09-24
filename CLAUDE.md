@@ -262,7 +262,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
 - **Language gaps**, each waiting for real code to ask:
   - Appending to a list parameter silently does nothing (`fn add_to($l) { $l[] = 1; }`), and
     the parser can't tell it from a function that returns the list. Mutable state belongs in
-    an object; by-reference parameters aren't worth their cost against refcounting.
+    an object, or, for closures, in a `shared` variable; by-reference parameters aren't worth
+    their cost against refcounting.
   - `map`/`filter`/`reduce` call their function with the value alone, even over a list, so
     getting the index needs a `foreach ($x as $i => $v)` instead of a `map()`
     (`Scout.team()`'s shirt numbers hit this: `map($formation.positions(), $kind -> ...)`
@@ -328,7 +329,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - Errors are the parser's: a `use` on a file that declares no namespace, a name that isn't
     `pub`, a name in a `use` clause that is qualified, an alias already taken, a namespace
     only reached through another file's include.
-  - `namespace`, `use`, `pub` and `kin` are reserved, so `fn use()` no longer parses.
+  - `namespace`, `use`, `pub`, `kin` and `shared` are reserved, so `fn use()` no longer parses.
 - **Static members** are reached by name as constants are: `Counter::next()`, `Counter::COUNT`,
   `Counter::count`. Not through a value: `$obj::next()` puts a value on the left of the
   parse-time operator, which is the one place PHP's `::` means something else, and `$obj.count`
@@ -652,6 +653,28 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   `$f = <lambda>` gives the closure its own `$f`, so lambdas recurse. A closure is one value
   (`$g = $f` shares its variables), and a captured name that didn't exist stays undefined until
   the closure sets it with `??=`. `@globals` are never captured. A closure made in a method keeps its object.
+- **`shared $x = value;` makes a variable that closures share** with the function they are
+  written in, instead of each owning a copy: `shared $events = []; $hear = $e -> { $events[] = $e; };`
+  fills the list the outside reads. **Parser sugar only** (`shared_declaration()` and
+  `variable()` in `parser.gaz`): the statement assigns a `Shared` box, a builtin kind holding one
+  `value` and compiled only into programs that use it, to a hidden `$#shared_x`, and every later use
+  of `$x`, in the function and in the lambdas written in it, is `$#shared_x.value`. That is an
+  ordinary field, so write paths, `++`, `??=` and `delete` need nothing, a lambda captures the box (a
+  handle) by value like any variable, and the VM, the bytecode and the collector learn nothing.
+  - **A declaration and a keyword, not a mark on each use or on the closure**: a `$$x` sigil is
+    wanted for variable variables; PHP's `use (&$x)` on the closure makes every use of the variable
+    in the scope around it quietly a shared one, and a closure that forgets it reads a snapshot;
+    and it is the declaration, which makes a new box each time it runs, that gives each pass of a
+    loop and each call of a function its own variable.
+  - **Refused when the file is read**: a name already shared, or already used or a parameter (or a
+    second variable of one name would appear), a lambda parameter with a shared name, and a shared
+    variable as a `foreach` or `catch` variable; a value is required. A named function starts with no
+    shared names, a lambda keeps those around it and may declare its own. A shared variable stays a
+    value: a list is copied when passed on.
+  - **`variable()` counts each plain use**, so a `shared $x` after one is refused; a lambda's
+    parameters are read as expressions before the `->` shows what they are, so `lambda()` takes
+    them back (`forget_uses()`), which a test with `$x -> ...` before `shared $x` found.
+  - `Shared` is a builtin kind name like `Error`, and `shared` a reserved word.
 
 ## Objects
 

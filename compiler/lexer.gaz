@@ -104,6 +104,7 @@ kind Lexer {
         "interface" => "INTERFACE", "implements" => "IMPLEMENTS", "final" => "FINAL",
         "public" => "PUBLIC", "private" => "PRIVATE", "protected" => "PROTECTED",
         "namespace" => "NAMESPACE", "use" => "USE", "pub" => "PUB", "kin" => "KIN", "static" => "STATIC",
+        "shared" => "SHARED",
     };
 
     // Single character escapes in double-quoted strings, and what each stands for

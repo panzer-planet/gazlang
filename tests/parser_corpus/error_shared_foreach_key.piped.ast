@@ -1,0 +1,1 @@
+Error: $k is shared, so it can't be a foreach variable: assign it in the loop's body on line 2

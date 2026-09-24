@@ -1,0 +1,3 @@
+shared $x = 1;
+for (shared $i = 0; $i < 3; $i++) {
+}

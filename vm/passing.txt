@@ -720,6 +720,7 @@ tests/codegen_corpus/locations.gaz
 tests/codegen_corpus/map_spread.gaz
 tests/codegen_corpus/namespaces.gaz
 tests/codegen_corpus/pattern_parameters.gaz
+tests/codegen_corpus/shared.gaz
 tests/codegen_corpus/statements.gaz
 tests/codegen_corpus/statics.gaz
 tests/codegen_corpus/write_through_call.gaz
@@ -745,6 +746,7 @@ tests/gaz/compiler/parser_test.gaz
 tests/gaz/errors/trace_test.gaz
 tests/gaz/errors/try_catch_test.gaz
 tests/gaz/functions/default_parameters_test.gaz
+tests/gaz/functions/shared_test.gaz
 tests/gaz/lib/chars_test.gaz
 tests/gaz/lib/format_test.gaz
 tests/gaz/lib/json_test.gaz
@@ -813,6 +815,9 @@ tests/parser_corpus/pattern_parameters.gaz
 tests/parser_corpus/postfix.gaz
 tests/parser_corpus/precedence.gaz
 tests/parser_corpus/promoted_fields.gaz
+tests/parser_corpus/shared.gaz
+tests/parser_corpus/shared_after_a_lambda_parameter_of_the_name.gaz
+tests/parser_corpus/shared_is_not_visible_in_a_function.gaz
 tests/parser_corpus/spread.gaz
 tests/parser_corpus/spread_in_a_map.gaz
 tests/parser_corpus/statements.gaz
