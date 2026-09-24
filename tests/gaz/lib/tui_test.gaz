@@ -167,6 +167,19 @@ $s = tui::Screen(20, 4);
 tui::table($s, 2, 2, ["é", "x"], [["→→→", 1.5]]);
 check("table: characters, and floats on the right", rows($s), "| é   │ x| ────┼────| →→→ │ 1.5");
 
+$s = tui::Screen(24, 6);
+$height = tui::table($s, 1, 1, ["a"], [[1, 2, 3]]);
+check("table: a row longer than the headers", [rows($s), $height], ["a │   │|──┼───┼──|1 │ 2 │ 3|||", 3]);
+$s = tui::Screen(24, 6);
+tui::table($s, 1, 1, ["a", "b", "c"], [[1], ["xx", 2]]);
+check("table: rows shorter than the headers", rows($s), "a  │ b │ c|───┼───┼──| 1 │   │|xx │ 2 │||");
+$s = tui::Screen(24, 4);
+$height = tui::table($s, 1, 1, [], [[7, 8]]);
+check("table: no headers", [rows($s), $height], ["  │|──┼──|7 │ 8|", 3]);
+$s = tui::Screen(24, 4);
+$height = tui::table($s, 1, 1, ["x"], []);
+check("table: no rows", [rows($s), $height], ["x|─||", 2]);
+
 /* ---- Menu ---- */
 $menu = tui::Menu(["one", "two", "three", "four"], "Pick");
 check("menu: starts on the first", [$menu.index(), $menu.item()], [0, "one"]);
@@ -212,6 +225,11 @@ press($menu, "\e[5~");
 check("menu: page up is a page (the rows showing, less one)", $menu.index(), 2);
 $empty = tui::Menu([]);
 check("menu: no items, nothing to move", [press($empty, "\e[B"), press($empty, "\e[F"), $empty.index()], [null, null, 0]);
+check("menu: j and page down on nothing", [press($empty, "j"), press($empty, "\e[6~"), $empty.index()], [null, null, 0]);
+check("menu: nothing to select", press($empty, "\r"), null);
+$one = tui::Menu(["only"]);
+check("menu: one item can still be selected", press($one, "j\r"), "select");
+check("tui::choose of nothing is nothing", tui::choose([]), null);
 
 /* ---- TextField ---- */
 $f = tui::TextField();
@@ -257,6 +275,24 @@ check("field: ctrl+c cancels", press($f, "\x03"), "cancel");
 $f = tui::TextField("hi");
 press($f, "!");
 check("field: initial value", $f.value(), "hi!");
+
+/* text deleted while scrolled comes back into view, and the cursor stays with it */
+$s = tui::Screen(10, 2);
+$f = tui::TextField("abcdefgh");
+$f.draw($s, 1, 1, 5);
+check("field: scrolled to the end", $s.lines()[0], "efgh      ");
+press($f, "\x7f\x7f\x7f");
+$f.draw($s, 1, 1, 5);
+check("field: five characters and the cursor after them need six columns, so one is off", $s.lines()[0], "bcde      ");
+press($f, "\x7f");
+$f.draw($s, 1, 1, 5);
+check("field: after deleting, what fits is shown from the start", $s.lines()[0], "abcd      ");
+check("field: the cursor is after it", ends_with($s.render(), "\e[1;5H\e[?25h"), true);
+$s = tui::Screen(10, 2);
+$f = tui::TextField("abc");
+$f.draw($s, 1, 1, 0);
+$f.draw($s, 1, 1, -2);
+check("field: no room draws nothing", [$s.lines()[0], $s.render()], ["          ", "\e[0m\e[2J\e[?25l"]);
 
 $s = tui::Screen(10, 2);
 $f = tui::TextField("abc");

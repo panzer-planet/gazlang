@@ -50,6 +50,10 @@ ok table
 ok table: how many rows it took
 ok table: the header is bold, the rule dim
 ok table: characters, and floats on the right
+ok table: a row longer than the headers
+ok table: rows shorter than the headers
+ok table: no headers
+ok table: no rows
 ok menu: starts on the first
 ok menu: down
 ok menu: j is down too
@@ -73,6 +77,10 @@ ok menu: page down goes to the last
 ok menu: scrolled to the end
 ok menu: page up is a page (the rows showing, less one)
 ok menu: no items, nothing to move
+ok menu: j and page down on nothing
+ok menu: nothing to select
+ok menu: one item can still be selected
+ok tui::choose of nothing is nothing
 ok field: starts empty
 ok field: typing
 ok field: inserting in the middle
@@ -92,6 +100,11 @@ ok field: enter submits
 ok field: escape cancels
 ok field: ctrl+c cancels
 ok field: initial value
+ok field: scrolled to the end
+ok field: five characters and the cursor after them need six columns, so one is off
+ok field: after deleting, what fits is shown from the start
+ok field: the cursor is after it
+ok field: no room draws nothing
 ok field: draw
 ok field: the underline style
 ok field: the cursor follows the text

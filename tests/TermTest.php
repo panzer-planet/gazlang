@@ -176,6 +176,26 @@ class TermTest extends GazLangTestCase
         $this->assertStringEndsWith("\e[?1049l[null]\r\n", $this->onTerminal($program, '03')['out']);
     }
 
+    public function test_keys_typed_ahead_between_two_screens_are_kept_when_they_share_an_input()
+    {
+        $root = self::ROOT;
+        $program = "include \"{$root}/lib/term.gaz\"; include \"{$root}/lib/tui.gaz\"; \$in = term::Input();"
+            .' $n = tui::choose(["a", "b", "c"], "", $in); $name = tui::ask("Name?", "", $in);'
+            .' echo to_string([$n, $name]);';
+
+        // down, enter, "hi", enter: all four arrive in one read, before the first screen has ended
+        $ran = $this->onTerminal($program, '1b5b42'.'0d'.bin2hex('hi').'0d');
+        $this->assertSame(0, $ran['code']);
+        $this->assertStringEndsWith("[1, \"hi\"]\r\n", $ran['out']);
+
+        // each screen making its own Input loses them: the second sees nothing and waits for a key
+        $alone = "include \"{$root}/lib/term.gaz\"; include \"{$root}/lib/tui.gaz\";"
+            .' $n = tui::choose(["a", "b", "c"]); $name = tui::ask("Name?");'
+            .' echo to_string([$n, $name]);';
+        $ran = $this->onTerminal($alone, '1b5b42'.'0d'.bin2hex('hi').'0d');
+        $this->assertSame('timed out', $ran['code']);
+    }
+
     public function test_ask_edits_a_line_and_gives_it_on_enter()
     {
         $root = self::ROOT;
@@ -202,7 +222,8 @@ class TermTest extends GazLangTestCase
             $this->markTestSkipped('needs python3 to make a pty');
         }
         self::binary();
-        $file = tempnam(sys_get_temp_dir(), 'gazterm').'.gaz';
+        $made = tempnam(sys_get_temp_dir(), 'gazterm');
+        $file = $made.'.gaz';
         file_put_contents($file, $source);
         try {
             $args = [$python, 'tests/fixtures/pty_run.py', $file, $keysHex, ...($signal === null ? [] : [$signal])];
@@ -216,6 +237,8 @@ class TermTest extends GazLangTestCase
             /** @var array{before: array<string, bool>, during: array<string, bool>, after: array<string, bool>, code: int|string, out: string} */
             return json_decode((string) $json, true, 512, JSON_THROW_ON_ERROR);
         } finally {
+            // tempnam() made the first, and only names the second
+            unlink($made);
             unlink($file);
         }
     }

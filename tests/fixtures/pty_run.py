@@ -44,14 +44,23 @@ def pump(seconds):
         if select.select([master], [], [], 0.05)[0]:
             try:
                 out += os.read(master, 65536)
+            except BlockingIOError:
+                pass
             except OSError:
+                # the other end is gone (Linux says so this way once the program has ended)
                 return
 
 
 before = modes(slave)
 process = subprocess.Popen(["bin/gazlang", "-f", program], stdin=slave, stdout=slave, stderr=slave, start_new_session=True)
-pump(0.6)
+# Wait for the program to change the terminal, or to end, not a fixed time: a busy machine starts it late
+give_up = time.time() + 3
+while process.poll() is None and modes(slave) == before and time.time() < give_up:
+    pump(0.02)
 during = modes(slave)
+# then a moment to reach its first read, so that keys and signals arrive after it (a read with a
+# timeout of 0.1 has to have waited for nothing)
+pump(0.3)
 if keys:
     os.write(master, keys)
     pump(0.3)

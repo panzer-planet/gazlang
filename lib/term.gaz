@@ -154,7 +154,7 @@ pub fn fullscreen($f) {
 
 // ---- Measuring -------------------------------------------------------------------------------
 
-// $text without its escape sequences (the CSI ones this file makes, and OSC ones ending in BEL)
+// $text without its escape sequences: CSI ones, and OSC ones ended by BEL or ST
 pub fn strip($text) {
     $out = "";
     $n = len($text);
@@ -168,21 +168,51 @@ pub fn strip($text) {
         $out ..= slice($text, $i, $at - $i);
         $i = $at + 1;
         if ($i < $n && $text[$i] == "[") {
-            // parameters and intermediates are 0x20 to 0x3F, then one final byte
+            /* parameters and intermediates are 0x20 to 0x3F, then one final byte from 0x40 to 0x7E; a
+               byte that is none of them (a newline) ends the sequence and is text */
             $i++;
-            while ($i < $n && ord($text[$i]) < 64) {
+            while ($i < $n && ord($text[$i]) >= 32 && ord($text[$i]) < 64) {
                 $i++;
             }
-            $i++;
+            if ($i < $n && ord($text[$i]) >= 64 && ord($text[$i]) < 127) {
+                $i++;
+            }
         } else if ($i < $n && $text[$i] == "]") {
+            /* a command string ends at BEL, or at ST (ESC \); one that never ends takes the rest */
             $bell = index_of($text, "\x07", $i);
-            $i = $bell == null ? $n : $bell + 1;
+            $st = index_of($text, ESC .. "\\", $i);
+            if ($bell == null && $st == null) {
+                $i = $n;
+            } else if ($st == null || ($bell != null && $bell < $st)) {
+                $i = $bell + 1;
+            } else {
+                $i = $st + 2;
+            }
         } else {
             // some other escape: ESC and the byte after it
             $i++;
         }
     }
     return $out;
+}
+
+/* How many bytes the first byte $b says a UTF-8 character takes: 1 for ASCII and for a stray continuation byte */
+fn utf8_wanted($b) {
+    return $b >= 240 ? 4 : ($b >= 224 ? 3 : ($b >= 192 ? 2 : 1));
+}
+
+/*
+ * How many bytes the character at $i takes: what its first byte says, but cut short at the first
+ * byte that doesn't continue it (10xxxxxx) and at the end of $text, so bad UTF-8 is never taken
+ * for more than it is, and "\xc3a" is two characters and not one that ate the "a"
+ */
+fn utf8_length($text, $i) {
+    $wanted = utf8_wanted(ord($text[$i]));
+    $length = 1;
+    while ($length < $wanted && $i + $length < len($text) && (ord($text[$i + $length]) & 192) == 128) {
+        $length++;
+    }
+    return $length;
 }
 
 /*
@@ -194,8 +224,7 @@ pub fn chars($text) {
     $n = len($text);
     $i = 0;
     while ($i < $n) {
-        $b = ord($text[$i]);
-        $length = $b >= 240 ? 4 : ($b >= 224 ? 3 : ($b >= 192 ? 2 : 1));
+        $length = utf8_length($text, $i);
         $out[] = slice($text, $i, $length);
         $i += $length;
     }
@@ -203,19 +232,12 @@ pub fn chars($text) {
 }
 
 /*
- * How many columns $text takes up: its characters, without escape sequences. A character is
- * a byte that doesn't continue another; ponytail: a wide one (CJK, emoji) takes two columns and
- * counts one, and a combining mark takes none and counts one.
+ * How many columns $text takes up: its characters (as chars() counts them), without escape
+ * sequences. ponytail: a wide character (CJK, emoji) takes two columns and counts one, and a
+ * combining mark takes none and counts one.
  */
 pub fn width($text) {
-    $plain = strip($text);
-    $count = 0;
-    for ($i = 0; $i < len($plain); $i++) {
-        if ((ord($plain[$i]) & 192) != 128) {
-            $count++;
-        }
-    }
-    return $count;
+    return len(chars(strip($text)));
 }
 
 // ---- Keys ------------------------------------------------------------------------------------
@@ -243,6 +265,10 @@ fn modified($key, $modifier) {
     return make_key($key, ($bits & 4) != 0, ($bits & 2) != 0, ($bits & 1) != 0);
 }
 
+fn unknown_key($raw) {
+    return {"key" => "unknown", "ctrl" => false, "alt" => false, "shift" => false, "raw" => $raw};
+}
+
 /*
  * The key that the CSI sequence at $i ("ESC [", parameters, a final byte) is, as [key, length],
  * or null when the bytes stop before its final one
@@ -250,11 +276,16 @@ fn modified($key, $modifier) {
 fn csi_key($bytes, $i) {
     $n = len($bytes);
     $j = $i + 2;
-    while ($j < $n && ord($bytes[$j]) < 64) {
+    /* parameters and intermediates are 0x20 to 0x3F, then one final byte from 0x40 to 0x7E */
+    while ($j < $n && ord($bytes[$j]) >= 32 && ord($bytes[$j]) < 64) {
         $j++;
     }
     if ($j >= $n) {
         return null;
+    }
+    if (ord($bytes[$j]) < 64 || ord($bytes[$j]) > 126) {
+        /* something else cut the sequence short: what came before it is unknown, and it is a key of its own */
+        return [unknown_key(slice($bytes, $i, $j - $i)), $j - $i];
     }
     $final = $bytes[$j];
     $length = $j + 1 - $i;
@@ -263,20 +294,26 @@ fn csi_key($bytes, $i) {
     $modifier = len($params) > 1 ? to_int($params[1], null) : null;
     $raw = slice($bytes, $i, $length);
 
+    /*
+     * A modifier is 1 to 16 (1, plus 1 shift, 2 alt, 4 ctrl, 8 meta). A bigger number is not one:
+     * "ESC [ 1 ; 80 R" is a cursor position report from row 1, not ctrl+alt+shift+f3. Small
+     * numbers are the same bytes as a key (ctrl+f3 is "ESC [ 1 ; 5 R", as is a report from column
+     * 5), which no reading of the bytes can tell apart.
+     */
+    if ($modifier != null && ($modifier < 1 || $modifier > 16)) {
+        return [unknown_key($raw), $length];
+    }
     if ($final == "Z") {
         return [make_key("tab", false, false, true), $length];
     }
     if ($final == "~" && $first != null && has_key(TILDE_KEYS, $first)) {
         return [modified(TILDE_KEYS[$first], $modifier ?? 1), $length];
     }
-    /*
-     * "ESC [ 1 ; 5 A" is ctrl+up, and plain "ESC [ A" is up. R with two parameters is a cursor
-     * position report, not f3, and is left as unknown.
-     */
-    if (has_key(FINAL_KEYS, $final) && !($final == "R" && len($params) == 2 && $modifier == null) && ($first == null || $first == 1)) {
+    /* "ESC [ 1 ; 5 A" is ctrl+up, and plain "ESC [ A" is up */
+    if (has_key(FINAL_KEYS, $final) && ($first == null || $first == 1)) {
         return [modified(FINAL_KEYS[$final], $modifier ?? 1), $length];
     }
-    return [{"key" => "unknown", "ctrl" => false, "alt" => false, "shift" => false, "raw" => $raw}, $length];
+    return [unknown_key($raw), $length];
 }
 
 /*
@@ -325,10 +362,11 @@ fn one_key($bytes, $i, $flush) {
     }
 
     if ($b >= 128) {
-        // UTF-8: the first byte says how long the character is
-        $length = $b >= 240 ? 4 : ($b >= 224 ? 3 : ($b >= 192 ? 2 : 1));
-        if ($i + $length > $n) {
-            return $flush ? [make_key(slice($bytes, $i)), $n - $i] : null;
+        /* UTF-8: the first byte says how long the character is, unless what follows it isn't a
+           continuation, which makes it a bad byte of its own, not one that eats the next key */
+        $length = utf8_length($bytes, $i);
+        if ($length < utf8_wanted($b) && $i + $length >= $n && !$flush) {
+            return null;
         }
         return [make_key(slice($bytes, $i, $length)), $length];
     }

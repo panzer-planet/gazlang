@@ -707,9 +707,12 @@ with no terminal.
   arrows, `j`/`k`, home and end, page up and down; typing, backspace, delete, the arrows, home and
   end or ctrl+a and ctrl+e, ctrl+u and ctrl+k. `$menu.index()` and `$menu.item()` say what is
   selected and `$field.value()` what was typed.
-- **`tui::interact($draw, $handle)`** runs `$draw($screen)` and `$handle($key)` on a screen of its
+- **`tui::interact($draw, $handle, $input = null)`** runs `$draw($screen)` and `$handle($key)` on a screen of its
   own until `$handle` gives something other than `null`, which is what it gives (`null` too
-  when the input ends). Two lambdas can't share a variable they change, so the state lives in an
-  object; `examples/dashboard.gaz` is one. **`tui::choose($items, $title = "")`** (the index
-  picked, or `null`) and **`tui::ask($question, $initial = "")`** (the answer, or `null`) are a
+  when the input ends). Keys come from `$input`, a `term::Input`, or a new one; a program that
+  shows one screen after another passes the same one to each, since keys typed ahead are in it and
+  a new one for each screen would lose them. Two lambdas can't share a variable they change, so the state lives in an
+  object; `examples/dashboard.gaz` is one. **`tui::choose($items, $title = "", $input = null)`**
+  (the index picked, or `null` if cancelled or there is nothing to pick) and
+  **`tui::ask($question, $initial = "", $input = null)`** (the answer, or `null`) are a
   `Menu` and a `TextField` run that way, in the middle of the screen. All three need a terminal.

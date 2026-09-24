@@ -264,11 +264,29 @@ fn cell_text($value, $width) {
     return $number ? repeat(" ", $gap) .. $text : $text .. repeat(" ", $gap);
 }
 
+/* $cells with "" added to make $count of them */
+fn padded($cells, $count) {
+    while (len($cells) < $count) {
+        $cells[] = "";
+    }
+    return $cells;
+}
+
 /*
  * A table: $headers a list of names, $rows a list of lists, columns as wide as their widest
- * cell and numbers aligned on the right. Gives how many rows it took (two more than $rows).
+ * cell and numbers aligned on the right; a header or a row shorter than the rest is blank where it
+ * stops. Gives how many rows it took (two more than $rows).
  */
 pub fn table($screen, $col, $row, $headers, $rows, $style = "") {
+    /* as many columns as the longest of them, a short row or header being blank in the rest */
+    $columns = len($headers);
+    foreach ($rows as $cells) {
+        $columns = max($columns, len($cells));
+    }
+    $headers = padded($headers, $columns);
+    foreach ($rows as $n => $cells) {
+        $rows[$n] = padded($cells, $columns);
+    }
     $widths = map($headers, $h -> term::width(to_string($h)));
     foreach ($rows as $cells) {
         foreach ($cells as $i => $cell) {
@@ -316,15 +334,20 @@ pub kind Menu {
     pub fn item() { return #items[#selected]; }
 
     pub fn handle($key) {
-        $last = len(#items) - 1;
+        /* an empty menu has nothing to move to, and nothing to select */
+        $last = max(len(#items) - 1, 0);
         match (term::name($key)) {
             "up", "k" => { #selected = max(#selected - 1, 0); }
             "down", "j" => { #selected = min(#selected + 1, $last); }
             "home", "g" => { #selected = 0; }
-            "end", "G" => { #selected = max($last, 0); }
+            "end", "G" => { #selected = $last; }
             "page_up" => { #selected = max(#selected - #page, 0); }
-            "page_down" => { #selected = min(#selected + #page, max($last, 0)); }
-            "enter" => { return "select"; }
+            "page_down" => { #selected = min(#selected + #page, $last); }
+            "enter" => {
+                if (len(#items) > 0) {
+                    return "select";
+                }
+            }
             "escape", "q", "ctrl+c", "eof" => { return "cancel"; }
             default => {}
         }
@@ -399,6 +422,11 @@ pub kind TextField {
 
     /* Draw it $width wide, scrolled sideways to keep the cursor in view, and put the cursor there */
     pub fn draw($screen, $col, $row, $width, $style = "underline") {
+        if ($width <= 0) {
+            return null;
+        }
+        /* not scrolled further than the text needs, or deleting leaves it off the left edge */
+        #left = min(#left, max(len(#chars) - $width + 1, 0));
         if (#at < #left) {
             #left = #at;
         }
@@ -414,14 +442,16 @@ pub kind TextField {
 
 /*
  * Run $draw($screen) and $handle($key) on a screen of its own until $handle gives something
- * other than null, which is what this gives. Input that ends or a screen too small to draw on
- * gives null.
+ * other than null, which is what this gives; input that ends gives null. Keys come from $input
+ * (a term::Input), or from a new one. A program that shows one screen after another passes the
+ * same one to each: keys that arrived together (typed ahead) are in it, and would be lost with a
+ * new Input made for each screen.
  */
-pub fn interact($draw, $handle) {
+pub fn interact($draw, $handle, $input = null) {
+    $input ??= term::Input();
     return term::fullscreen(() -> {
         $size = term_size();
         $screen = Screen($size["cols"], $size["rows"]);
-        $input = term::Input();
         while (true) {
             $screen.fit();
             $screen.clear();
@@ -445,10 +475,13 @@ pub fn centered($screen, $width, $height) {
 }
 
 /*
- * Choose one of $items in a menu of a screen of its own: its index, or null if cancelled.
- * Needs a terminal.
+ * Choose one of $items in a menu of a screen of its own: its index, or null if cancelled or
+ * there is nothing to choose. $input is interact()'s. Needs a terminal.
  */
-pub fn choose($items, $title = "") {
+pub fn choose($items, $title = "", $input = null) {
+    if (len($items) == 0) {
+        return null;
+    }
     $menu = Menu($items, $title);
     $picked = interact(
         $screen -> {
@@ -457,16 +490,17 @@ pub fn choose($items, $title = "") {
             [$col, $row] = centered($screen, $width, $height);
             $menu.draw($screen, $col, $row, $width, $height);
         },
-        $key -> $menu.handle($key)
+        $key -> $menu.handle($key),
+        $input
     );
     return $picked == "select" ? $menu.index() : null;
 }
 
 /*
  * Ask a question on a screen of its own and give the answer, or null if cancelled. $initial is
- * what the field starts with. Needs a terminal.
+ * what the field starts with. $input is interact()'s. Needs a terminal.
  */
-pub fn ask($question, $initial = "") {
+pub fn ask($question, $initial = "", $input = null) {
     $field = TextField($initial);
     $answered = interact(
         $screen -> {
@@ -475,7 +509,8 @@ pub fn ask($question, $initial = "") {
             box($screen, $col, $row, $width, 4, $question);
             $field.draw($screen, $col + 2, $row + 2, $width - 4);
         },
-        $key -> $field.handle($key)
+        $key -> $field.handle($key),
+        $input
     );
     return $answered == "submit" ? $field.value() : null;
 }

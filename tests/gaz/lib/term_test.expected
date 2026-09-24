@@ -34,11 +34,19 @@ ok strip: a title
 ok strip: an escape at the end
 ok strip: cut off
 ok strip: nothing
+ok strip: a newline ends a broken sequence and is text
+ok strip: a title ended by ST
+ok strip: a title ended by BEL, and an ST outside one is an escape of its own
+ok strip: a title that never ends takes the rest
+ok strip: intermediates and a final byte
 ok chars: ascii
 ok chars: each length of character
 ok chars: nothing
 ok chars: a cut-off character is what is left
 ok chars: a stray continuation byte is its own
+ok chars: a lead byte doesn't eat what isn't a continuation
+ok chars: nor two of three
+ok width: agrees with chars on bad UTF-8
 ok width: ascii
 ok width: multibyte
 ok width: ignores styles
@@ -63,6 +71,13 @@ ok utf-8
 ok alt utf-8
 ok unknown: a cursor position report
 ok unknown: a mouse report
+ok unknown: a cursor report from row 1, whose column is no modifier
+ok a modifier of 16 is still one
+ok a modifier of 17 is not
+ok ctrl+f3 is what its bytes say
+ok a control byte ends a sequence, and is a key
+ok a bad UTF-8 byte doesn't eat the next key
+ok half a character still waits for the rest
 ok unknown is kept
 ok a mix
 ok rest: a lone escape
