@@ -56,7 +56,7 @@ fn inline($text) {
 fn inline_at($text, $i) {
     // The longest delimiter first, so ** isn't read as two *
     foreach ([["**", "strong"], ["*", "em"], ["`", "code"]] as [$mark, $tag]) {
-        if (!starts_with(slice($text, $i), $mark)) {
+        if (!starts_with($text, $mark, $i)) {
             continue;
         }
         $close = index_of($text, $mark, $i + len($mark));

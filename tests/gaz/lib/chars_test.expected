@@ -3,6 +3,21 @@ ok char_at last
 ok char_at past the end
 ok char_at negative
 ok char_at empty string
+ok span of a number
+ok span from an offset
+ok span is 0 when the first doesn't
+ok span of everything
+ok span at the end
+ok span past the end
+ok span before the start
+ok span of nothing
+ok span with a lambda
+ok span reaches the end of the string
+ok span reads bytes
+ok span with a qualified name
+ok span cuts a token out
+ok span stops at the first that fails
+ok span called the predicate no more than it had to
 ok digit below 0
 ok digit 0
 ok digit 9

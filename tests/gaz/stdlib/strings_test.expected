@@ -23,6 +23,16 @@ ok contains not
 ok contains empty needle
 ok starts_with
 ok starts_with not
+ok starts_with at an offset
+ok starts_with at the wrong offset
+ok starts_with negative offset counts from the end
+ok starts_with a prefix longer than what is left
+ok starts_with at the last byte
+ok starts_with an empty prefix at the end
+ok starts_with anything else at the end
+ok starts_with an empty prefix is always there
+ok starts_with offset past the end is an error
+ok starts_with negative offset before the start is an error
 ok ends_with
 ok ends_with not
 ok index_of first match

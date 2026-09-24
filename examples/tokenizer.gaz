@@ -5,7 +5,7 @@
  *
  * With no file it tokenizes the snippet below.
  */
-include "../lib/chars.gaz" use char_at, is_digit, is_alpha, is_alnum, is_space;
+include "../lib/chars.gaz" use is_digit, is_alpha, is_alnum, is_space, span;
 
 const KEYWORDS = ["if", "else", "while", "return", "function"];
 // Two characters are tried before one, so "==" is never read as "=" twice
@@ -32,7 +32,7 @@ kind Scanner {
             match {
                 $c == "\n" => { #line++; #pos++; }
                 is_space($c) => { #pos++; }
-                slice(#source, #pos, 2) == "//" => { #comment(); }
+                starts_with(#source, "//", #pos) => { #comment(); }
                 is_digit($c) => { $tokens[] = #number(); }
                 is_alpha($c) || $c == "_" => { $tokens[] = #word(); }
                 $c == "\"" => { $tokens[] = #string(); }
@@ -46,16 +46,19 @@ kind Scanner {
         #pos = index_of(#source, "\n", #pos) ?? len(#source);
     }
 
+    /* The next $length characters, which are read now */
+    fn take($length) {
+        $text = slice(#source, #pos, $length);
+        #pos += $length;
+        return $text;
+    }
+
     fn number() {
-        $start = #pos;
-        while (is_digit(char_at(#source, #pos)) || char_at(#source, #pos) == ".") { #pos++; }
-        return Token("number", slice(#source, $start, #pos - $start), #line);
+        return Token("number", #take(span(#source, #pos, $c -> is_digit($c) || $c == ".")), #line);
     }
 
     fn word() {
-        $start = #pos;
-        while (is_alnum(char_at(#source, #pos)) || char_at(#source, #pos) == "_") { #pos++; }
-        $word = slice(#source, $start, #pos - $start);
+        $word = #take(span(#source, #pos, $c -> is_alnum($c) || $c == "_"));
         return Token(in_array($word, KEYWORDS) ? "keyword" : "name", $word, #line);
     }
 

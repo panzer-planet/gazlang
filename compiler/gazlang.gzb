@@ -252,9 +252,65 @@ RET
 PUSH null
 RET
 
+fn chars::span 3 3
+locals $s $i $predicate $at
+@ "../lib/chars.gaz" 24
+LOAD 1
+PUSH 0
+LT
+JZ ELSE_0
+@ "../lib/chars.gaz" 25
+PUSH 0
+RET
+@ "../lib/chars.gaz" 24
+JMP ENDIF_0
+LABEL ELSE_0
+LABEL ENDIF_0
+@ "../lib/chars.gaz" 27
+LOAD 1
+STORE 3
+LOAD 3
+POP
+LABEL WHILE_1
+@ "../lib/chars.gaz" 28
+LOAD 3
+LOAD 0
+CALL_BUILTIN len 1
+LT
+JZ AND_FALSE_2
+LOAD 2
+LOAD 0
+LOAD 3
+INDEX_GET
+CALL_VALUE 1
+JZ AND_FALSE_2
+PUSH true
+JMP AND_END_2
+LABEL AND_FALSE_2
+PUSH false
+LABEL AND_END_2
+JZ ENDWHILE_1
+@ "../lib/chars.gaz" 29
+LOAD 3
+INC
+STORE 3
+LOAD 3
+POP
+@ "../lib/chars.gaz" 28
+JMP WHILE_1
+LABEL ENDWHILE_1
+@ "../lib/chars.gaz" 31
+LOAD 3
+LOAD 1
+SUB
+RET
+@ "../lib/chars.gaz" 23
+PUSH null
+RET
+
 fn chars::is_char 1 1
 locals $c
-@ "../lib/chars.gaz" 19
+@ "../lib/chars.gaz" 36
 LOAD 0
 CALL_BUILTIN type_of 1
 PUSH "string"
@@ -271,13 +327,13 @@ LABEL AND_FALSE_0
 PUSH false
 LABEL AND_END_0
 RET
-@ "../lib/chars.gaz" 18
+@ "../lib/chars.gaz" 35
 PUSH null
 RET
 
 fn chars::is_digit 1 1
 locals $c
-@ "../lib/chars.gaz" 24
+@ "../lib/chars.gaz" 41
 LOAD 0
 CALL chars::is_char 1
 JZ AND_FALSE_1
@@ -301,13 +357,13 @@ LABEL AND_FALSE_0
 PUSH false
 LABEL AND_END_0
 RET
-@ "../lib/chars.gaz" 23
+@ "../lib/chars.gaz" 40
 PUSH null
 RET
 
 fn chars::is_hex_digit 1 1
 locals $c
-@ "../lib/chars.gaz" 29
+@ "../lib/chars.gaz" 46
 LOAD 0
 CALL chars::is_digit 1
 NOT
@@ -364,13 +420,13 @@ LABEL OR_TRUE_0
 PUSH true
 LABEL OR_END_0
 RET
-@ "../lib/chars.gaz" 28
+@ "../lib/chars.gaz" 45
 PUSH null
 RET
 
 fn chars::is_alpha 1 1
 locals $c
-@ "../lib/chars.gaz" 34
+@ "../lib/chars.gaz" 51
 LOAD 0
 CALL chars::is_char 1
 JZ AND_FALSE_0
@@ -416,13 +472,13 @@ LABEL AND_FALSE_0
 PUSH false
 LABEL AND_END_0
 RET
-@ "../lib/chars.gaz" 33
+@ "../lib/chars.gaz" 50
 PUSH null
 RET
 
 fn chars::is_alnum 1 1
 locals $c
-@ "../lib/chars.gaz" 38
+@ "../lib/chars.gaz" 55
 LOAD 0
 CALL chars::is_alpha 1
 NOT
@@ -437,18 +493,18 @@ LABEL OR_TRUE_0
 PUSH true
 LABEL OR_END_0
 RET
-@ "../lib/chars.gaz" 37
+@ "../lib/chars.gaz" 54
 PUSH null
 RET
 
 fn chars::is_space 1 1
 locals $c
-@ "../lib/chars.gaz" 43
+@ "../lib/chars.gaz" 60
 LOAD 0
 PUSH [" ", "\t", "\n", "\r"]
 CALL_BUILTIN in_array 2
 RET
-@ "../lib/chars.gaz" 42
+@ "../lib/chars.gaz" 59
 PUSH null
 RET
 

@@ -1,5 +1,5 @@
 include "../check.gaz";
-include "../../../lib/chars.gaz" use char_at, is_char, is_digit, is_hex_digit, is_alpha, is_alnum, is_space;
+include "../../../lib/chars.gaz" use char_at, is_char, is_digit, is_hex_digit, is_alpha, is_alnum, is_space, span;
 
 // char_at stays inside the string
 check("char_at first", char_at("abc", 0), "a");
@@ -7,6 +7,33 @@ check("char_at last", char_at("abc", 2), "c");
 check("char_at past the end", char_at("abc", 3), "");
 check("char_at negative", char_at("abc", -1), "");
 check("char_at empty string", char_at("", 0), "");
+
+// span: how long a run of characters satisfying a predicate is
+check("span of a number", span("123abc", 0, is_digit), 3);
+check("span from an offset", span("123abc", 3, is_alpha), 3);
+check("span is 0 when the first doesn't", span("abc", 0, is_digit), 0);
+check("span of everything", span("abc", 0, is_alpha), 3);
+check("span at the end", span("abc", 3, is_alpha), 0);
+check("span past the end", span("abc", 9, is_alpha), 0);
+check("span before the start", span("abc", -1, is_alpha), 0);
+check("span of nothing", span("", 0, is_alpha), 0);
+check("span with a lambda", span("xxxy", 0, $c -> $c == "x"), 3);
+check("span reaches the end of the string", span("xxx", 0, $c -> $c == "x"), 3);
+check("span reads bytes", span("é1", 0, $c -> $c != "1"), 2);
+check("span with a qualified name", chars::span("12x", 0, chars::is_digit), 2);
+check("span cuts a token out", slice("ab12 cd", 2, span("ab12 cd", 2, is_digit)), "12");
+
+/* The predicate is called for each character that satisfies it and for the one that doesn't, and then no more */
+kind Watcher {
+    pub #calls = 0;
+    pub fn wants_a($c) {
+        #calls++;
+        return $c == "a";
+    }
+}
+$watcher = Watcher();
+check("span stops at the first that fails", span("aabaa", 0, $watcher.wants_a), 2);
+check("span called the predicate no more than it had to", $watcher.calls, 3);
 
 // Boundaries: the characters either side of each range
 check("digit below 0", is_digit("/"), false);

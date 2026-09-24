@@ -30,6 +30,24 @@ check("contains not", contains("hello", "elo"), false);
 check("contains empty needle", contains("hello", ""), true);
 check("starts_with", starts_with("hello", "he"), true);
 check("starts_with not", starts_with("hello", "lo"), false);
+check("starts_with at an offset", starts_with("hello", "ll", 2), true);
+check("starts_with at the wrong offset", starts_with("hello", "ll", 3), false);
+check("starts_with negative offset counts from the end", starts_with("hello", "lo", -2), true);
+check("starts_with a prefix longer than what is left", starts_with("hello", "lo!", 3), false);
+check("starts_with at the last byte", starts_with("hello", "o", 4), true);
+check("starts_with an empty prefix at the end", starts_with("hello", "", 5), true);
+check("starts_with anything else at the end", starts_with("hello", "x", 5), false);
+check("starts_with an empty prefix is always there", starts_with("", "", 0), true);
+try {
+    starts_with("abc", "a", 4);
+} catch (Error $e) {
+    check("starts_with offset past the end is an error", $e.message, "starts_with() offset 4 is outside the string");
+}
+try {
+    starts_with("abc", "a", -4);
+} catch (Error $e) {
+    check("starts_with negative offset before the start is an error", $e.message, "starts_with() offset -4 is outside the string");
+}
 check("ends_with", ends_with("hello", "lo"), true);
 check("ends_with not", ends_with("hello", "he"), false);
 

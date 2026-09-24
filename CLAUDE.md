@@ -262,9 +262,11 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - `kind_of` is strict, so a pass over a tree with absent children needs a `type_of` check
     first; if that recurs, make it lenient.
   - Scanning bytes: `$s[$i]` makes a one-byte string (shared in C) and there is no `byte_at` or
-    "index of the first byte in this set". The self-hosted lexer spells out comparisons and
-    walks local indexes, for speed on the PHP VM it was first measured on; measure on the C VM
-    before keeping that.
+    "index of the first byte in this set". `chars::span($s, $i, $predicate)` is "consume while
+    this holds" (the length of the run at `$i`, a GazLang loop calling the predicate) and
+    `starts_with($s, $prefix, $offset)` asks what is at a position without a slice. The
+    self-hosted lexer still spells out comparisons and walks local indexes, for speed on the PHP
+    VM it was first measured on; measure on the C VM before keeping that.
   - Including a file also runs its top level code. `Error`'s members are reserved across its
     children, so a domain error can't declare its own `#line` or `#message`.
   - No copy-with-change for objects, no `catch (A | B $e)`, no bare rethrow, no `_` to skip an element in a list pattern.
@@ -513,9 +515,11 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
 - Strings: `len`, `slice($x, $start, $length)` (strings and lists, PHP's rules including
   negatives), `lower`, `upper`, `trim` (the lexer's whitespace only), `split` (empty separator:
   characters), `join` (elements converted like echo), `replace` (every occurrence; empty search
-  is an error), `contains`, `starts_with`, `ends_with`, `index_of($s, $needle, $offset = 0)`
-  (null when absent; negative offset from the end; an empty needle or an offset outside the
-  string is an error), `repeat`, `chr` (0 to 255), `ord` (one
+  is an error), `contains`, `ends_with`, `starts_with($s, $prefix, $offset = 0)` (whether the
+  prefix is there at the offset, so a scanner asks without slicing off what it has read),
+  `index_of($s, $needle, $offset = 0)` (null when absent), both with the same offset rule: negative
+  from the end, and one outside the string is an error (the end itself is fine to
+  `starts_with`, which finds only an empty prefix there), `repeat`, `chr` (0 to 255), `ord` (one
   byte), `to_int` (ints, bools, decimal strings with an optional `-`), `to_float`, `to_string`.
 - Lists and maps: `in_array` (`==`), `has_key`, `keys`, `values`, `last` (an empty list is an
   error), `reverse` (lists, strings by byte, and maps, which keep their keys), and `map`, `filter`

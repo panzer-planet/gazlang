@@ -374,8 +374,11 @@ kind's fields, methods and constants across its hierarchy.
 ## Builtins
 
 **Strings** — `len`, `slice($x, $start, $length)`, `lower`, `upper`, `trim`, `split($s, $sep)`,
-`join($list, $sep)`, `replace($s, $search, $replacement)`, `contains`, `starts_with`,
-`ends_with`, `index_of($s, $needle, $offset)`, `repeat($s, $count)`, `chr`, `ord`.
+`join($list, $sep)`, `replace($s, $search, $replacement)`, `contains`, `ends_with`,
+`starts_with($s, $prefix, $offset)`, `index_of($s, $needle, $offset)`, `repeat($s, $count)`, `chr`,
+`ord`. Both offsets are optional and count from the end when negative; one outside the string is
+an error. `starts_with` at the end of the string (`$offset` = `len($s)`) is true only for an empty
+prefix.
 
 **Numbers** — `to_int($x, $default)`, `to_float($x, $default)` (without a default, a string
 that isn't a number is an error; with one, it gives the default: `to_int($arg, null) ?? 1`; a
@@ -598,7 +601,7 @@ its names are reached with `::`; everything in `lib/` is written in GazLang:
 | `lists.gaz` | `lists::flatten` (a list of lists as one list, one level deep), `lists::max_by($xs, $key)` and `lists::min_by` (the element whose `$key($x)` is largest or smallest, the first on a tie; a list of keys breaks ties in order) |
 | `json.gaz` | `json::decode`, `json::encode` |
 | `csv.gaz` | `csv::parse`, `csv::records` (RFC 4180) |
-| `chars.gaz` | `chars::char_at`, `chars::is_digit`, `chars::is_alpha`, `chars::is_alnum`, `chars::is_space`, `chars::is_hex_digit` |
+| `chars.gaz` | `chars::char_at`, `chars::is_digit`, `chars::is_alpha`, `chars::is_alnum`, `chars::is_space`, `chars::is_hex_digit`, `chars::span($s, $i, $predicate)` (how many characters from `$i` satisfy the predicate: `slice($s, $i, chars::span($s, $i, chars::is_digit))` is the number at `$i`) |
 | `format.gaz` | `format::number`, `format::pad_left`, `format::pad_right` |
 | `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins; see below |
 | `random.gaz` | `random::shuffle` (a shuffled copy of a list or string), `random::pick` (an element of a list or value of a map), `random::key`, `random::chance($p)`, `random::weighted` (from `[item, weight]` pairs) |

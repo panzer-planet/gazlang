@@ -7,6 +7,7 @@
  * Input for , comes from standard input. Without a file it runs the programs below; squares
  * runs a longer one.
  */
+include "../lib/chars.gaz" use span;
 
 // Hello World!, from the Wikipedia article
 const HELLO = "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.";
@@ -78,10 +79,7 @@ fn compile($source) {
         match ($c) {
             "+", "-", ">", "<" => {
                 // A run of one character
-                $run = 1;
-                while ($i + $run < len($source) && $source[$i + $run] == $c) {
-                    $run++;
-                }
+                $run = span($source, $i, $x -> $x == $c);
                 $i += $run;
                 match ($c) {
                     "+" => { $code[] = ["+", $run % 256]; }

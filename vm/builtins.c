@@ -31,7 +31,7 @@ char **program_argv;
 /* In the order builtins() gives them */
 const BuiltinInfo builtin_info[] = {
     {"len", 1, 1}, {"slice", 2, 3}, {"lower", 1, 1}, {"upper", 1, 1}, {"trim", 1, 1},
-    {"split", 2, 2}, {"join", 2, 2}, {"replace", 3, 3}, {"contains", 2, 2}, {"starts_with", 2, 2},
+    {"split", 2, 2}, {"join", 2, 2}, {"replace", 3, 3}, {"contains", 2, 2}, {"starts_with", 2, 3},
     {"ends_with", 2, 2}, {"index_of", 2, 3}, {"repeat", 2, 2}, {"chr", 1, 1}, {"ord", 1, 1},
     {"to_int", 1, 2}, {"to_float", 1, 2}, {"floor", 1, 1}, {"ceil", 1, 1}, {"round", 1, 2},
     {"abs", 1, 1}, {"intdiv", 2, 2}, {"min", 1, 2}, {"max", 1, 2}, {"sum", 1, 1}, {"to_string", 1, 1},
@@ -726,14 +726,24 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         *out = replace(a.s, b.s, c.s);
         return true;
     case B_CONTAINS:
-    case B_STARTS_WITH:
     case B_ENDS_WITH:
         if (!want(index, a, STRING) || !want(index, b, STRING)) return false;
         if (index == B_CONTAINS) *out = v_bool(find(a.s->data, a.s->len, b.s->data, b.s->len) != NULL);
         else if (b.s->len > a.s->len) *out = v_bool(false);
-        else if (index == B_STARTS_WITH) *out = v_bool(memcmp(a.s->data, b.s->data, b.s->len) == 0);
         else *out = v_bool(memcmp(a.s->data + a.s->len - b.s->len, b.s->data, b.s->len) == 0);
         return true;
+    case B_STARTS_WITH: {
+        /* starts_with($s, $prefix, $offset = 0): whether $prefix is there at $offset, which means
+           what it does in index_of(): from the end when negative, and an error outside the string
+           (the end itself is fine: only an empty prefix is there) */
+        Value offset = argc > 2 ? c : v_int(0);
+        if (!want(index, a, STRING) || !want(index, b, STRING) || !want(index, offset, INT)) return false;
+        int64_t n = (int64_t)a.s->len, at = offset.i;
+        if (at > n || at < -n) return raisef("starts_with() offset %lld is outside the string", (long long)at);
+        if (at < 0) at += n;
+        *out = v_bool((size_t)(n - at) >= b.s->len && memcmp(a.s->data + at, b.s->data, b.s->len) == 0);
+        return true;
+    }
     case B_INDEX_OF: {
         Value offset = argc > 2 ? c : v_int(0);
         if (!want(index, a, STRING) || !want(index, b, STRING) || !want(index, offset, INT)) return false;
