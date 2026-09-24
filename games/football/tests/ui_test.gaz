@@ -146,7 +146,7 @@ check("the squad's own hints are at the bottom", contains($screen.lines()[29], "
 
 press($shell, "3");
 $screen = look($shell);
-check("3 is tactics, not built yet", [$shell.section(), shows($screen, "Formation, mentality")], ["Tactics", true]);
+check("3 is tactics", [$shell.section(), shows($screen, "Formation"), shows($screen, "Mentality"), shows($screen, "Intensity")], ["Tactics", true, true, true]);
 press($shell, "4");
 check("4 is the fixtures", $shell.section(), "Fixtures");
 press($shell, "5");
@@ -407,7 +407,7 @@ foreach ($day.matches as $match) {
 }
 check("and the other four matches", $others, 4);
 check("the menu waits: nothing in it is selected", [$screen.cell(3, 3)[1], $shell.focus()], ["dim", "menu"]);
-check("and the hints are the match's", contains($screen.lines()[29], "space pause  +/- speed  s skip to the end   ctrl+c quit"), true);
+check("and the hints are the match's", contains($screen.lines()[29], "space pause  +/- speed  s skip  w substitute  [ ] mentality  i intensity   ctrl+c quit"), true);
 
 $shell.tick();
 check("a tick plays a minute", [$day.clock(), $day.mine.elapsed], [1, 1]);
@@ -528,6 +528,122 @@ foreach ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as $seed) {
 check("there were goals and cards to look at", [$goals > 0, $bookings > 0], [true, true]);
 check("goals are green for the club and red against, cards yellow and red, every one", $wrong, []);
 
+/* ---- The tactics screen ---- */
+$game = Game::start(6);
+$shell = Shell::for_game($game);
+press($shell, "3");
+press($shell, "\t");
+$club = $game.club;
+$screen = look($shell);
+$keeper = filter($club.eleven(), $p -> $p.position() == "GK")[0];
+$striker = filter($club.eleven(), $p -> $p.position() == "FW")[0];
+check("the picture has the eleven in their lines, forwards on top and the keeper at the bottom", [
+    count_where($club.eleven(), $p -> shows($screen, $p.number .. " " .. $p)),
+    row_of($screen, $striker.number .. " " .. $striker) < row_of($screen, $keeper.number .. " " .. $keeper),
+], [11, true]);
+check("the settings and what they are now", [shows($screen, "Formation"), shows($screen, $club.formation()), shows($screen, "Balanced"), shows($screen, "Normal")], [true, true, true, true]);
+check("and what each does", [shows($screen, "Attack 0%, defence 0%"), shows($screen, "tiredness 0%")], [true, true]);
+check("the hints are the screen's", contains($screen.lines()[29], "j/k choose  h/l change"), true);
+press($shell, "l");
+check("a key on the formation picks the next one, with the best eleven for it", [$club.formation(), $shell.notice() != ""], ["4-3-3", true]);
+press($shell, "h");
+check("and back", $club.formation(), "4-4-2");
+press($shell, "h");
+check("wrapping round the ends", $club.formation(), "5-3-2");
+press($shell, "j");
+press($shell, "l");
+$screen = look($shell);
+check("j moves to the mentality, and l makes it more attacking", [$club.mentality, $club.mentality_name(), $shell.notice(), shows($screen, "Positive"), shows($screen, "Attack +12%, defence -10%")], [3, "Positive", "Mentality: Positive", true, true]);
+press($shell, "l");
+press($shell, "l");
+press($shell, "l");
+check("but not past attacking", $club.mentality, 4);
+press($shell, "j");
+press($shell, "l");
+$screen = look($shell);
+check("intensity too", [$club.intensity, $shell.notice(), shows($screen, "High"), shows($screen, "Attack +5%, tiredness +25%")], [2, "Intensity: High", true, true]);
+press($shell, "j");
+press($shell, "h");
+check("j stops at the last setting", $club.intensity, 1);
+press($shell, "\x1b");
+check("escape goes back to the menu", $shell.focus(), "menu");
+
+/* ---- Tactics and substitutions in a match ---- */
+$game = Game::start(6);
+$shell = Shell::for_game($game);
+press($shell, "c");
+$day = $game.live;
+$club = $game.club;
+$screen = look($shell);
+check("the match shows how the club plays", shows($screen, "Balanced, Normal intensity"), true);
+press($shell, "]");
+press($shell, "i");
+$screen = look($shell);
+check("] is more attacking and i more intense, mid-match, and the header says so", [$club.mentality, $club.intensity, shows($screen, "Positive, High intensity"), $shell.notice()], [3, 2, true, "Intensity: High"]);
+press($shell, "[");
+press($shell, "[");
+press($shell, "[");
+press($shell, "[");
+check("[ goes the other way and stops at defensive", [$club.mentality, shows(look($shell), "Defensive, High intensity")], [0, true]);
+press($shell, "i");
+press($shell, "i");
+check("i goes round", $club.intensity, 1);
+
+for ($i = 0; $i < 10; $i++) {
+    $shell.tick();
+}
+$clock = $day.clock();
+check("time has passed", $clock > 0, true);
+press($shell, "w");
+$screen = look($shell);
+check("w asks who goes off, listing the eleven, and the clock stops", [shows($screen, "who goes off?"), shows($screen, "Substitution (0 of 3 used)"), shows($screen, "Paused")], [true, true, true]);
+$named = count_where($club.eleven(), $p -> shows($screen, $p.profile()));
+check("with all eleven to choose from", $named, 11);
+check("and the hints say how", contains($screen.lines()[29], "Who goes off?  j/k move  enter choose  escape cancel"), true);
+for ($i = 0; $i < 20; $i++) {
+    $shell.tick();
+}
+check("nothing plays while choosing", $day.clock(), $clock);
+check("the cursor is on the first, and moves", [contains($screen.lines()[row_of($screen, $club.eleven()[0].profile()) - 1], "▸"), 1], [true, 1]);
+press($shell, "j");
+$off = $club.eleven()[1];
+$screen = look($shell);
+check("j moves it", contains($screen.lines()[row_of($screen, $off.profile()) - 1], "▸"), true);
+press($shell, "\x1b");
+$screen = look($shell);
+check("escape cancels: nothing changed, and time runs again", [$club.substitutions, shows($screen, "who goes off?")], [0, false]);
+$shell.tick();
+check("the clock is going", $day.clock() > $clock, true);
+
+press($shell, "w");
+press($shell, "j");
+press($shell, "\r");
+$screen = look($shell);
+$off = $club.eleven()[1];
+check("enter chooses who goes off, and then who comes on", [shows($screen, "Who comes on for {$off}?")], [true]);
+$options = $club.substitutes($off);
+check("the choices are the bench who can play", count_where($options, $p -> shows($screen, $p.profile())), len($options));
+$on = $options[0];
+press($shell, "\r");
+check("enter makes the change, and says so", [in_array($on, $club.eleven()), in_array($off, $club.eleven()), $club.substitutions, $shell.notice()], [true, false, 1, "{$on} on for {$off}"]);
+check("and the commentary has it", shows(look($shell), "Substitution for {$club}: {$on} replaces {$off}"), true);
+$shell.tick();
+check("and the clock goes on", $day.clock() > $clock, true);
+
+/* the limit */
+foreach ([2, 3] as $again) {
+    press($shell, "w");
+    press($shell, "\r");
+    press($shell, "\r");
+}
+check("three in all", $club.substitutions, 3);
+press($shell, "w");
+check("a fourth isn't offered", [$shell.notice(), shows(look($shell), "who goes off?")], ["No substitutions left", false]);
+while (!$day.finished()) {
+    $day.tick();
+}
+check("and after the match there is none to make", [press($shell, "w"), $shell.notice()], [null, "The match is over"]);
+
 /* a quick matchday isn't watched */
 $quick_game = Game::start(6);
 $quick = Shell::for_game($quick_game);
@@ -544,7 +660,7 @@ check("other keys don't", [press($shell, "j"), press($shell, "x"), press($shell,
 /* ---- Other sizes ---- */
 foreach ([[80, 24], [60, 20], [40, 12], [20, 6], [10, 3]] as [$cols, $rows]) {
     $shell = Shell::for_game(Game::start(3));
-    foreach (["1", "2", "3", "4", "5", "6", "c", "\t", "+", " ", " ", "s", "c", "2", "4", "5", "C", "1"] as $key) {
+    foreach (["1", "2", "3", "\t", "l", "j", "l", "1", "c", "w", "\r", "\r", "\x1b", "[", "]", "i", "\t", "+", " ", " ", "s", "c", "2", "4", "5", "C", "1"] as $key) {
         press($shell, $key);
         $screen = look($shell, $cols, $rows);
         if (len($screen.lines()) != $rows || term::width($screen.lines()[0]) != $cols) {

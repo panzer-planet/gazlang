@@ -129,6 +129,16 @@ pub kind League {
         return $matches;
     }
 
+    /* The pairs [home, away] of the next matchday, or none when the season is over: who plays whom,
+       before it begins */
+    pub fn next_pairs() {
+        if (len(#schedule) == 0) {
+            #draw();
+        }
+
+        return #matchdays_left() == 0 ? [] : #schedule[len(#played)];
+    }
+
     /* Start the next matchday and give its matches, none of them played yet: each is made, given
        to $kick_off($match) if there is one (which is when to attach a listener), and made ready,
        all of them before any is played. Play them a minute at a time with tick(), or with play(),

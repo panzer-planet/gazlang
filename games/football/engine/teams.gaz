@@ -22,6 +22,9 @@ pub kind InvalidLineup extends Error {
 pub kind Team {
     /* Most substitutions in a match */
     pub const SUBSTITUTIONS = 3;
+    /* How the team plays, from most defensive to most attacking, and how hard */
+    pub const MENTALITIES = ["Defensive", "Cautious", "Balanced", "Positive", "Attacking"];
+    pub const INTENSITIES = ["Low", "Normal", "High"];
 
     // What the players on the pitch add up to (see summary()), forgotten whenever they change
     #cache = null;
@@ -32,6 +35,9 @@ pub kind Team {
     #xi = [];
     // The formation the club plays when it picks for itself
     pub #preferred = "4-4-2";
+    // How it plays: an index into MENTALITIES (2, balanced) and INTENSITIES (1, normal)
+    pub #mentality = 2;
+    pub #intensity = 1;
     // Substitutions made in the match being played, and who was taken off, who can't come back on
     pub #substitutions = 0;
     #taken_off = [];
@@ -143,8 +149,29 @@ pub kind Team {
         #changed();
     }
 
+    // Attacking gets a team the ball more (12% a step from balanced) and leaves it more open (10% a
+    // step less defence); playing hard gets it a little more too (5% a step from normal) and
+    // tires its players faster. A team playing balanced and normally is exactly as strong as it is.
+    pub fn attack_factor() { return 1 + 0.12 * (#mentality - 2) + 0.05 * (#intensity - 1); }
+    pub fn defence_factor() { return 1 - 0.10 * (#mentality - 2); }
+    pub fn tiring_factor() { return 0.75 + 0.25 * #intensity; }
+
+    pub fn mentality_name() { return #MENTALITIES[#mentality]; }
+    pub fn intensity_name() { return #INTENSITIES[#intensity]; }
+
+    // Change how the team plays, staying within what there is
+    pub fn set_mentality($level) { #mentality = min(max($level, 0), len(#MENTALITIES) - 1); }
+    pub fn set_intensity($level) { #intensity = min(max($level, 0), len(#INTENSITIES) - 1); }
+
     // Whether there is a substitution left in this match
     pub fn can_substitute() { return #substitutions < Team::SUBSTITUTIONS; }
+
+    // Who is on the bench and could come on: fit, and not taken off already; for $off, without
+    // the goalkeepers unless a goalkeeper is who is going off
+    pub fn substitutes($off = null) {
+        return filter(#players, $player -> !in_array($player, #xi) && !in_array($player, #taken_off) && $player.available()
+            && ($off == null || !is_a($player, Goalkeeper) || is_a($off, Goalkeeper)));
+    }
 
     // Who could come on for $off: fit, on the bench, not taken off already; the best of the same
     // position, or of any position but goalkeeper (unless the goalkeeper is who is going off).
@@ -291,7 +318,7 @@ pub kind Team {
 
     pub fn tire($minutes) {
         foreach (#xi as $player) {
-            $player.tire($minutes);
+            $player.tire($minutes * #tiring_factor());
         }
         #changed();
     }
@@ -309,6 +336,7 @@ pub kind Team {
     pub fn to_data() {
         return {
             "name" => #name, "preferred" => #preferred, "balance" => #balance,
+            "mentality" => #mentality, "intensity" => #intensity,
             "players" => map(#players, $player -> $player.to_data()),
             "eleven" => map(#xi, $player -> $player.number),
         };
@@ -323,6 +351,8 @@ pub fn from_data($data) {
     $eleven = map($data["eleven"], $number -> filter($squad, $player -> $player.number == $number)[0]);
     $team = Team($data["name"], $squad, $eleven, $data["preferred"]);
     $team.balance = $data["balance"];
+    $team.mentality = $data["mentality"];
+    $team.intensity = $data["intensity"];
     return $team;
 }
 

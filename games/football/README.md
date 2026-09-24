@@ -38,6 +38,13 @@ minute. `space` pauses, `+` and `-` change the speed (a minute, two, five or fif
 skips to full time, and at full time `c` goes on: the results go in the table and the inbox. Only
 `ctrl+c` quits while a match is on.
 
+`w` makes a substitution (who goes off, then who comes on, with the clock stopped; `escape` cancels;
+three a match), `[` and `]` make the side more defensive or more attacking and `i` cycles how hard it
+presses. The Tactics screen (`3`) shows the eleven as a picture and sets the formation (which picks
+the best eleven for it), mentality and intensity, with what each does. A side that attacks scores
+and concedes more; one that presses hard attacks a little more and tires faster. The other clubs
+set up by how they rate against who they play.
+
 ## What is here
 
 - `engine/` is the model: players and their positions, squads and formations, fixtures with the
@@ -54,6 +61,6 @@ away, a table adds up, the inbox says what the match said), not what a seeded ma
 ratings and the odds are meant to change, and a recording would need re-recording with every tweak.
 Every screen is drawn into a `tui::Screen` and read back as text and styles, with no terminal.
 
-Not here yet: match day, tactics, transfers, saving. `tests/programs/football.gaz` has a working career loop, saves, and transfers as
+Not here yet: transfers, saving. `tests/programs/football.gaz` has a working career loop, saves, and transfers as
 a command line program: lift what the game needs from it, and leave it as it is, since it is the
 language's biggest test program (see `tests/programs/README.md`).

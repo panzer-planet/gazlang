@@ -12,7 +12,7 @@ namespace ui;
 
 include "../../lib/term.gaz";
 include "../../lib/tui.gaz";
-include "../../lib/format.gaz" use pad_left;
+include "../../lib/format.gaz" use pad_left, pad_right;
 include "engine/matches.gaz" use Goal, Booking, Whistle, Injury, Substitution;
 
 /* $text cut into lines no wider than $width, on the spaces, keeping its own line breaks */
@@ -236,6 +236,89 @@ pub kind PlaceholderView extends View {
     pub fn handle($key) { return null; }
 }
 
+/* A percentage with its sign: +12, -10, 0 */
+fn signed($n) {
+    return $n > 0 ? "+" .. $n : to_string($n);
+}
+
+/*
+ * How the club plays: the eleven as a picture in its formation, and three settings to move
+ * between with j/k and change with h/l (or enter): the formation (which picks the best eleven for
+ * it), how attacking the side is, and how hard it presses. What each does is said under it.
+ */
+pub kind TacticsView extends View {
+    #row = 0;
+
+    pub fn title() { return "Tactics"; }
+    pub fn hints() { return "j/k choose  h/l change"; }
+
+    /* [name, value, what it does] for each setting; the percentages are Team's factors */
+    fn settings() {
+        $club = #game.club;
+        $mentality = $club.mentality - 2;
+        $intensity = $club.intensity - 1;
+
+        return [
+            ["Formation", $club.formation(), "Picks the best eleven who can play in it"],
+            ["Mentality", $club.mentality_name(), "Attack " .. signed(12 * $mentality) .. "%, defence " .. signed(-10 * $mentality) .. "%: a side that attacks leaves gaps"],
+            ["Intensity", $club.intensity_name(), "Attack " .. signed(5 * $intensity) .. "%, tiredness " .. signed(25 * $intensity) .. "%: pressing hard wears players out"],
+        ];
+    }
+
+    pub fn draw($screen, $rect, $focused) {
+        $club = #game.club;
+        /* the eleven, a row a line of the pitch: forwards at the top */
+        foreach (["FW", "MF", "DF", "GK"] as $i => $position) {
+            $names = map(filter($club.eleven(), $p -> $p.position() == $position), $p -> $p.number .. " " .. $p);
+            tui::label($screen, $rect.col, $rect.row + $i * 2, $rect.width, join($names, "   "), "", "center");
+        }
+        $top = $rect.row + 9;
+        foreach (#settings() as $i => [$name, $value, $effect]) {
+            $selected = $i == #row;
+            tui::label($screen, $rect.col, $top + $i * 3, $rect.width, ($selected ? "▸ " : "  ") .. pad_right($name, 10) .. "◂ " .. $value .. " ▸", $selected && $focused ? "bold cyan" : ($selected ? "bold" : ""));
+            tui::label($screen, $rect.col + 2, $top + $i * 3 + 1, $rect.width - 2, $effect, "dim");
+        }
+        if (#game.live != null) {
+            tui::label($screen, $rect.col, $top + 9, $rect.width, "The formation can't change during a match.", "dim");
+        }
+    }
+
+    pub fn handle($key) {
+        $club = #game.club;
+        $name = term::name($key);
+        $step = match ($name) {
+            "h", "left" => -1,
+            "l", "right", "enter", "space" => 1,
+            default => 0,
+        };
+        if ($step == 0) {
+            if ($name == "j" || $name == "down") {
+                #row = min(#row + 1, 2);
+            } else if ($name == "k" || $name == "up") {
+                #row = max(#row - 1, 0);
+            }
+
+            return null;
+        }
+        if (#row == 0) {
+            $formations = #game.formations();
+            $at = 0;
+            foreach ($formations as $i => $f) {
+                if ($f == $club.formation()) {
+                    $at = $i;
+                }
+            }
+
+            return ["formation", $formations[($at + $step + len($formations)) % len($formations)]];
+        }
+        if (#row == 1) {
+            return ["mentality", $club.mentality + $step];
+        }
+
+        return ["intensity", $club.intensity + $step];
+    }
+}
+
 /* How a line of commentary is drawn: our goals and their goals, cards, and the whistle */
 fn event_style($event, $club) {
     if (is_a($event, Goal)) {
@@ -267,23 +350,41 @@ pub kind MatchView extends View {
     const SPEEDS = [1, 2, 5, 15];
     #speed = 0;
     #paused = false;
+    /* A substitution being made: null, or the player going off once chosen, and where in the list the cursor is */
+    #making = null;
+    #off = null;
+    #cursor = 0;
 
     pub fn title() { return "Match day"; }
 
     pub fn hints() {
-        return #game.live.finished() ? "c continue" : "space pause  +/- speed  s skip to the end";
+        if (#making != null) {
+            return #off == null ? "Who goes off?  j/k move  enter choose  escape cancel" : "Who comes on for {#off}?  j/k move  enter choose  escape cancel";
+        }
+
+        return #game.live.finished() ? "c continue" : "space pause  +/- speed  s skip  w substitute  [ ] mentality  i intensity";
+    }
+
+    /* Whether a substitution is being chosen, which stops the clock */
+    pub fn choosing() { return #making != null; }
+
+    /* Who the list on show offers: the eleven, then the substitutes who can come on */
+    fn candidates() {
+        return #off == null ? #game.club.eleven() : #game.club.substitutes(#off);
     }
 
     /* A new matchday: at the slowest speed, and not paused */
     pub fn reset() {
         #speed = 0;
         #paused = false;
+        #making = null;
+        #off = null;
     }
 
     /* Time passes: play the minutes the speed says, unless it is paused or over */
     pub fn step() {
         $day = #game.live;
-        if ($day == null || #paused) {
+        if ($day == null || #paused || #making != null) {
             return null;
         }
         for ($i = 0; $i < #SPEEDS[#speed] && !$day.finished(); $i++) {
@@ -295,7 +396,24 @@ pub kind MatchView extends View {
        when a key can't be obeyed, and null otherwise */
     pub fn handle($key) {
         $day = #game.live;
+        if (#making != null) {
+            return #choose($key);
+        }
         match (term::name($key)) {
+            "w" => {
+                if ($day.finished()) {
+                    return "The match is over";
+                }
+                if (!#game.club.can_substitute()) {
+                    return "No substitutions left";
+                }
+                #making = true;
+                #off = null;
+                #cursor = 0;
+            }
+            "[" => { return ["mentality", #game.club.mentality - 1]; }
+            "]" => { return ["mentality", #game.club.mentality + 1]; }
+            "i" => { return ["intensity", (#game.club.intensity + 1) % 3]; }
             "space" => { #paused = !#paused; }
             "+", "=" => { #speed = min(#speed + 1, len(#SPEEDS) - 1); }
             "-" => { #speed = max(#speed - 1, 0); }
@@ -317,6 +435,39 @@ pub kind MatchView extends View {
         return null;
     }
 
+    /* A key while choosing a substitution: two lists in turn, who goes off and who comes on */
+    fn choose($key) {
+        $list = #candidates();
+        match (term::name($key)) {
+            "escape" => { #making = null; #off = null; }
+            "down", "j" => { #cursor = min(#cursor + 1, len($list) - 1); }
+            "up", "k" => { #cursor = max(#cursor - 1, 0); }
+            "enter" => {
+                if ($list == []) {
+                    #making = null;
+                    #off = null;
+
+                    return "There is nobody on the bench who can play";
+                }
+                if (#off == null) {
+                    #off = $list[#cursor];
+                    #cursor = 0;
+
+                    return null;
+                }
+                $off = #off;
+                $on = $list[#cursor];
+                #making = null;
+                #off = null;
+
+                return ["substitute", $off, $on];
+            }
+            default => {}
+        }
+
+        return null;
+    }
+
     pub fn draw($screen, $rect, $focused) {
         $day = #game.live;
         $club = #game.club;
@@ -328,30 +479,42 @@ pub kind MatchView extends View {
         }
 
         /* the score, in the middle, with what the game is doing on the left and the clock on the right */
-        [$head, $rest] = $rect.split_top(2);
-        $state = $day.finished() ? "Full time" : (#paused ? "Paused" : "▶ x" .. #SPEEDS[#speed]);
+        [$head, $rest] = $rect.split_top(3);
+        $state = $day.finished() ? "Full time" : (#making != null ? "Paused" : (#paused ? "Paused" : "▶ x" .. #SPEEDS[#speed]));
         tui::label($screen, $head.col, $head.row, $head.width, to_string($mine), "bold", "center");
+        tui::label($screen, $head.col, $head.row + 1, $head.width, "{$club.mentality_name()}, {$club.intensity_name()} intensity", "dim", "center");
         tui::label($screen, $head.col, $head.row, min(12, $head.width), $state, $day.finished() ? "bold" : "dim");
         tui::label($screen, $head.col + max($head.width - 6, 0), $head.row, min(6, $head.width), $day.clock() .. "'", "bold", "right");
-        $screen.put($head.col, $head.row + 1, repeat("─", $head.width), "dim");
+        $screen.put($head.col, $head.row + 2, repeat("─", $head.width), "dim");
 
         /* the eleven and the other matches below, as much of them as fits, and the commentary above */
         [$commentary, $panels] = $rest.split_bottom(min(13, max($rest.height - 5, 0)));
-        if (len($day.commentary) == 0) {
+        if (#making != null) {
+            // choosing takes the whole of the space below the score
+            $commentary = $rest;
+            $screen.put($commentary.col, $commentary.row, #off == null ? "Substitution ({$club.substitutions} of 3 used): who goes off?" : "Who comes on for {#off}?", "bold cyan");
+            foreach (slice(#candidates(), 0, max($commentary.height - 1, 0)) as $i => $player) {
+                tui::label($screen, $commentary.col + 2, $commentary.row + 1 + $i, $commentary.width - 2, ($i == #cursor ? "▸ " : "  ") .. $player.profile() .. ($player.status() == "" ? "" : "  " .. $player.status()), $i == #cursor ? "bold cyan" : "");
+            }
+
+            return null;
+        } else if (len($day.commentary) == 0) {
             $screen.put($commentary.col, $commentary.row, "The teams are out.", "dim");
         }
-        /* newest first, each under its minute and wrapped to the pane, so a long line keeps its score */
-        $lines = [];
-        foreach (reverse($day.commentary) as $event) {
-            if (len($lines) >= $commentary.height) {
-                break;
+        if (#making == null) {
+            /* newest first, each under its minute and wrapped to the pane, so a long line keeps its score */
+            $lines = [];
+            foreach (reverse($day.commentary) as $event) {
+                if (len($lines) >= $commentary.height) {
+                    break;
+                }
+                foreach (wrap($event.describe(), max($commentary.width - 6, 10)) as $i => $part) {
+                    $lines[] = [($i == 0 ? pad_left("{$event.minute}'", 4) .. "  " : "      ") .. $part, event_style($event, $club)];
+                }
             }
-            foreach (wrap($event.describe(), max($commentary.width - 6, 10)) as $i => $part) {
-                $lines[] = [($i == 0 ? pad_left("{$event.minute}'", 4) .. "  " : "      ") .. $part, event_style($event, $club)];
+            foreach (slice($lines, 0, $commentary.height) as $i => [$text, $style]) {
+                tui::label($screen, $commentary.col, $commentary.row + $i, $commentary.width, $text, $style);
             }
-        }
-        foreach (slice($lines, 0, $commentary.height) as $i => [$text, $style]) {
-            tui::label($screen, $commentary.col, $commentary.row + $i, $commentary.width, $text, $style);
         }
         if ($panels.height < 3) {
             return null;
@@ -388,7 +551,7 @@ pub kind Shell {
         return Shell($game, [
             ["Inbox", InboxView($game)],
             ["Squad", SquadView($game)],
-            ["Tactics", PlaceholderView($game, "Tactics", "Formation, mentality and the instructions each player plays to come with the match day.")],
+            ["Tactics", TacticsView($game)],
             ["Fixtures", FixturesView($game)],
             ["Table", LeagueView($game)],
             ["Finances", PlaceholderView($game, "Finances", "The books: wages, income and the transfer budget.")],
@@ -453,7 +616,9 @@ pub kind Shell {
                 return null;
             }
             $result = #match.handle($key);
-            if ($result == "end") {
+            if (type_of($result) == "list") {
+                #carry_out($result);
+            } else if ($result == "end") {
                 #game.end_matchday();
                 // the inbox is where a matchday's news is
                 #current = 0;
@@ -513,8 +678,20 @@ pub kind Shell {
             $problem = #game.swap($action[1], $action[2]);
             #note = $problem == "" ? "Lineup changed" : $problem;
         } else if ($action[0] == "auto") {
-            #game.auto_lineup();
-            #note = "The best eleven, picked";
+            $problem = #game.auto_lineup();
+            #note = $problem == "" ? "The best eleven, picked" : $problem;
+        } else if ($action[0] == "formation") {
+            $problem = #game.auto_lineup($action[1]);
+            #note = $problem == "" ? "{$action[1]}, with the best eleven for it" : $problem;
+        } else if ($action[0] == "mentality") {
+            #game.set_mentality($action[1]);
+            #note = "Mentality: " .. #game.club.mentality_name();
+        } else if ($action[0] == "intensity") {
+            #game.set_intensity($action[1]);
+            #note = "Intensity: " .. #game.club.intensity_name();
+        } else if ($action[0] == "substitute") {
+            $problem = #game.substitute($action[1], $action[2]);
+            #note = $problem == "" ? "{$action[2]} on for {$action[1]}" : $problem;
         }
     }
 }

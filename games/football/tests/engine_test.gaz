@@ -7,7 +7,7 @@
 include "../../../tests/gaz/check.gaz";
 include "../engine/players.gaz" use Goalkeeper, Defender, Midfielder, Forward;
 include "../engine/teams.gaz" use Team, Formation, Scout, InvalidLineup;
-include "../engine/matches.gaz" use Fixture, Goal, Booking, Whistle, Injury, Substitution;
+include "../engine/matches.gaz" use Fixture, Goal, Booking, Whistle, Injury, Substitution, Shot;
 include "../engine/league.gaz" use League;
 
 const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8];
@@ -760,3 +760,127 @@ $long_match = Fixture($home, $away).on_event($hear).play().extra_time();
 check("after extra time the clock says 120", $long_match.elapsed, 120);
 $long_match.injure($home, $home.on_pitch()[3], 1);
 check("and an injury then is at minute 120", $heard[len($heard) - 2].minute, 120);
+
+/* ---- Tactics: how a team plays ---- */
+$team = Team("Testers", usual_squad());
+check("balanced and normal is a team exactly as strong as it is", [$team.mentality, $team.intensity, $team.attack_factor(), $team.defence_factor(), $team.tiring_factor(), $team.mentality_name(), $team.intensity_name()], [2, 1, 1, 1, 1, "Balanced", "Normal"]);
+$rows = [];
+foreach ([0, 1, 2, 3, 4] as $mentality) {
+    $team.set_mentality($mentality);
+    $rows[] = [$team.mentality_name(), round($team.attack_factor(), 4), round($team.defence_factor(), 4)];
+}
+check("attacking is more attack and less defence, a step at a time", $rows, [["Defensive", 0.76, 1.2], ["Cautious", 0.88, 1.1], ["Balanced", 1, 1], ["Positive", 1.12, 0.9], ["Attacking", 1.24, 0.8]]);
+$team.set_mentality(2);
+$rows = [];
+foreach ([0, 1, 2] as $intensity) {
+    $team.set_intensity($intensity);
+    $rows[] = [$team.intensity_name(), round($team.attack_factor(), 4), $team.defence_factor(), $team.tiring_factor()];
+}
+check("playing hard is a little more attack and a lot more tiring, and doesn't touch the defence", $rows, [["Low", 0.95, 1, 0.75], ["Normal", 1, 1, 1], ["High", 1.05, 1, 1.25]]);
+$team.set_mentality(-3);
+$team.set_intensity(-1);
+check("what is asked for stays within what there is: the least", [$team.mentality, $team.intensity], [0, 0]);
+$team.set_mentality(9);
+$team.set_intensity(7);
+check("and the most", [$team.mentality, $team.intensity], [4, 2]);
+
+/* tiring follows the intensity: the same player, rested and played thirty minutes */
+$forms = [];
+foreach ([0, 1, 2] as $intensity) {
+    $tired_team = Team("Tired", usual_squad());
+    $tired_team.set_intensity($intensity);
+    $tired_team.rest();
+    $tired_team.tire(30);
+    $forms[] = $tired_team.eleven()[4].form();
+}
+check("a team playing hard is more tired: lower form the harder it plays", [$forms[0] > $forms[1], $forms[1] > $forms[2]], [true, true]);
+
+/* how it plays changes what happens: the same two squads, the same random numbers, over many matches */
+fn seasons_of_matches($home, $away, $matches) {
+    rand_seed(11);
+    $scored = 0;
+    $attempts_against = 0;
+    $on_target_against = 0;
+    shared $seen = [];
+    $listen = $event -> { $seen[] = $event; };
+    for ($i = 0; $i < $matches; $i++) {
+        $seen = [];
+        $match = Fixture($home, $away).on_event($listen).play();
+        $scored += $match.home_goals;
+        foreach ($seen as $event) {
+            if ((is_a($event, Goal) || is_a($event, Shot)) && $event.team == $away) {
+                $attempts_against++;
+                if (is_a($event, Goal) || $event.keeper != null) {
+                    $on_target_against++;
+                }
+            }
+        }
+    }
+    return [$scored, $on_target_against / $attempts_against];
+}
+[$home, $away] = clubs(2, 13);
+$home.set_mentality(4);
+[$attacking_goals, $attacking_on_target] = seasons_of_matches($home, $away, 400);
+$home.set_mentality(0);
+[$defensive_goals, $defensive_on_target] = seasons_of_matches($home, $away, 400);
+check("attacking scores more than defending, over 400 matches", $attacking_goals > $defensive_goals * 1.08, true);
+check("and defending lets less through: a smaller share of the other side's attempts are on target", $defensive_on_target < $attacking_on_target - 0.03, true);
+
+/* a substitution the manager makes, in a match */
+[$home, $away] = clubs(2, 3);
+$heard = [];
+$match = Fixture($home, $away).on_event($hear);
+for ($minute = 1; $minute <= 20; $minute++) {
+    $match.tick();
+}
+$off = $home.on_pitch()[4];
+$on = $home.best_substitute($off);
+$match.substitute($home, $off, $on);
+check("a substitution is an event at the minute, and the team changes", [is_a($heard[len($heard) - 1], Substitution), $heard[len($heard) - 1].minute, $heard[len($heard) - 1].off == $off, $heard[len($heard) - 1].on == $on, in_array($on, $home.on_pitch()), in_array($off, $home.on_pitch()), $home.substitutions], [true, 20, true, true, true, false, 1]);
+$events_before = len($heard);
+try {
+    $match.substitute($home, $off, $on);
+    check("who has come on can't come off for who went off", "no error", "an error");
+} catch (InvalidLineup $e) {
+    check("who has gone off can't come back", contains($e.message, "isn't on the pitch"), true);
+}
+$match.substitute($home, $home.on_pitch()[2], $home.best_substitute($home.on_pitch()[2]));
+$match.substitute($home, $home.on_pitch()[3], $home.best_substitute($home.on_pitch()[3]));
+$events_before = len($heard);
+try {
+    $match.substitute($home, $home.on_pitch()[5], $home.best_substitute($home.on_pitch()[5]));
+    check("a fourth substitution is refused", "no error", "an error");
+} catch (InvalidLineup $e) {
+    check("a fourth substitution is refused, and nothing is said about it", [$e.message, len($heard) == $events_before, $home.substitutions], ["{$home} can't play: no substitutions left", true, 3]);
+}
+
+/* who plays whom next, before it begins */
+$teams = clubs(4, 9);
+$league = League($teams);
+$next = $league.next_pairs();
+check("the next matchday's pairs, before it begins", [len($next), len($next[0]), $league.matchdays_played()], [2, 2, 0]);
+check("asking again is the same, and changes nothing", [$league.next_pairs() == $next, $league.matchdays_played()], [true, 0]);
+$begun = $league.begin_matchday();
+check("they are the matches that begin", map($begun, $m -> [$m.home, $m.away]), $next);
+foreach ($begun as $match) {
+    $match.play();
+}
+$league.end_matchday($begun);
+check("and the next matchday is another", $league.next_pairs() == $next, false);
+$season = League(clubs(4, 10));
+$season.play_season($m -> null, ($n, $ms) -> null);
+check("when the season is over there are none", $season.next_pairs(), []);
+
+/* who could come on */
+[$home, $away] = clubs(2, 3);
+$match = Fixture($home, $away).start();
+$forward = filter($home.on_pitch(), $p -> $p.position() == "FW")[0];
+$keeper = $home.goalkeeper();
+$bench_keepers = filter($home.substitutes(), $p -> $p.position() == "GK");
+check("the bench who can play includes a goalkeeper, which a forward can't be replaced with", [len($bench_keepers), len(filter($home.substitutes($forward), $p -> $p.position() == "GK")), len(filter($home.substitutes($keeper), $p -> $p.position() == "GK"))], [1, 0, 1]);
+$on = $home.substitutes($forward)[0];
+$home.substitute($forward, $on);
+check("nobody taken off is offered again", [in_array($forward, $home.substitutes()), in_array($on, $home.substitutes())], [false, false]);
+$injured = $home.substitutes()[0];
+$injured.injure(2);
+check("nor anyone who is out", in_array($injured, $home.substitutes()), false);

@@ -11,7 +11,7 @@ ok with a header
 ok and every player of the club, reserves too
 ok and the formation
 ok the squad's own hints are at the bottom
-ok 3 is tactics, not built yet
+ok 3 is tactics
 ok 4 is the fixtures
 ok 5 is the table
 ok 6 is finances, not built yet
@@ -109,6 +109,39 @@ ok enter does the same
 ok the next matchday starts at one minute a tick, not paused
 ok there were goals and cards to look at
 ok goals are green for the club and red against, cards yellow and red, every one
+ok the picture has the eleven in their lines, forwards on top and the keeper at the bottom
+ok the settings and what they are now
+ok and what each does
+ok the hints are the screen's
+ok a key on the formation picks the next one, with the best eleven for it
+ok and back
+ok wrapping round the ends
+ok j moves to the mentality, and l makes it more attacking
+ok but not past attacking
+ok intensity too
+ok j stops at the last setting
+ok escape goes back to the menu
+ok the match shows how the club plays
+ok ] is more attacking and i more intense, mid-match, and the header says so
+ok [ goes the other way and stops at defensive
+ok i goes round
+ok time has passed
+ok w asks who goes off, listing the eleven, and the clock stops
+ok with all eleven to choose from
+ok and the hints say how
+ok nothing plays while choosing
+ok the cursor is on the first, and moves
+ok j moves it
+ok escape cancels: nothing changed, and time runs again
+ok the clock is going
+ok enter chooses who goes off, and then who comes on
+ok the choices are the bench who can play
+ok enter makes the change, and says so
+ok and the commentary has it
+ok and the clock goes on
+ok three in all
+ok a fourth isn't offered
+ok and after the match there is none to make
 ok C plays a matchday without watching it
 ok q quits
 ok so does ctrl+c

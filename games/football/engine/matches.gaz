@@ -18,7 +18,7 @@ pub kind Goal extends Event {
 
 pub kind Shot extends Event {
     // Without a keeper, the shot missed the target
-    fn _($minute, $team, #shooter, #keeper) { ##_($minute, $team); }
+    fn _($minute, $team, pub #shooter, pub #keeper) { ##_($minute, $team); }
     pub fn describe() {
         return #keeper == null ? "{#shooter} ({#team}) shoots wide" : "{#shooter} ({#team}) is denied by {#keeper}";
     }
@@ -157,9 +157,9 @@ pub kind Fixture {
         // A chance in about one minute in six, a foul in one in thirty, and most minutes nothing
         $roll = rand_float();
         if ($roll < 0.17) {
-            // The home side gets a little more of the ball
-            $home_attack = #home.attack() * 1.1;
-            if (random::chance($home_attack / ($home_attack + #away.attack()))) {
+            // The home side gets a little more of the ball, and a team playing to attack gets more
+            $home_attack = #home.attack() * 1.1 * #home.attack_factor();
+            if (random::chance($home_attack / ($home_attack + #away.attack() * #away.attack_factor()))) {
                 #attempt($minute, #home, #away);
             } else {
                 #attempt($minute, #away, #home);
@@ -173,6 +173,14 @@ pub kind Fixture {
             $team = random::chance(0.5) ? #home : #away;
             #injure($team, random::pick($team.on_pitch()), random::weighted([[1, 30], [2, 25], [3, 15], [4, 10], [6, 10], [8, 6], [12, 4]]));
         }
+    }
+
+    // A substitution the manager makes: the rules are Team.substitute()'s, and it is an event
+    pub fn substitute($team, $off, $on) {
+        $team.substitute($off, $on);
+        #emit(Substitution(#elapsed, $team, $off, $on));
+
+        return #;
     }
 
     // $player of $team is injured, for this many matches: he goes off, and a substitute comes on for
@@ -198,7 +206,7 @@ pub kind Fixture {
         $keeper = $defenders.goalkeeper();
 
         // A better shooter against a weaker defence hits the target more often, and beats the keeper more often
-        $on_target = $shooter.attacking() / ($shooter.attacking() + $defenders.defence() / 12);
+        $on_target = $shooter.attacking() / ($shooter.attacking() + $defenders.defence() * $defenders.defence_factor() / 12);
         if (! random::chance($on_target * 0.8)) {
             #emit(Shot($minute, $attackers, $shooter, null));
             return;

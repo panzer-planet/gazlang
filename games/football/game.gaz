@@ -33,6 +33,21 @@ pub fn ordinal($n) {
  * A matchday being played: every match of it, the club's own among them, ticking together a minute
  * at a time, and the commentary on the club's match as it happens. Made by Game.begin_matchday().
  */
+/*
+ * How an AI club sets up against an opponent, from how the two elevens compare (the difference of
+ * their ratings): the stronger side attacks, and the weaker sits back. An index into Team's
+ * MENTALITIES, 0 (defensive) to 4 (attacking).
+ */
+pub fn ai_mentality($difference) {
+    return match {
+        $difference >= 10 => 4,
+        $difference >= 5 => 3,
+        $difference <= -10 => 0,
+        $difference <= -5 => 1,
+        default => 2,
+    };
+}
+
 pub kind MatchDay {
     pub #matches = [];
     /* The club's match, or null on a matchday the club sits out */
@@ -160,6 +175,14 @@ pub kind Game {
                 $team.auto_eleven();
             }
         }
+        // ... and set up against whom they play, once the elevens are known
+        foreach (#league.next_pairs() as [$home, $away]) {
+            foreach ([[$home, $away], [$away, $home]] as [$team, $opponent]) {
+                if ($team != #club) {
+                    $team.set_mentality(ai_mentality($team.rating() - $opponent.rating()));
+                }
+            }
+        }
         $picked = #club.eleven();
         // Live only once the league has begun it, so a matchday that couldn't begin isn't left half made
         $day = MatchDay(#club);
@@ -245,9 +268,38 @@ pub kind Game {
         return "";
     }
 
-    /* The best eleven who can play, in the formation the club prefers (or another) */
+    /* The best eleven who can play, in the formation the club prefers (or another). Gives "" when it
+       is done, and why not when it isn't. */
     pub fn auto_lineup($formation = null) {
+        if (#live != null) {
+            return "The lineup can't change during a match";
+        }
         #club.auto_eleven($formation);
+
+        return "";
+    }
+
+    /* The formations the clubs play, for a choice of them */
+    pub fn formations() { return FORMATIONS; }
+
+    /* How the club plays: an index into the mentalities and the intensities, changed at any time,
+       in a match too */
+    pub fn set_mentality($level) { #club.set_mentality($level); }
+    pub fn set_intensity($level) { #club.set_intensity($level); }
+
+    /* A substitution in the match being played: $off leaves the pitch and $on comes on. Gives "" when
+       it is done, and why not when it isn't. */
+    pub fn substitute($off, $on) {
+        if (#live == null || #live.mine == null) {
+            return "There is no match to make a substitution in";
+        }
+        try {
+            #live.mine.substitute(#club, $off, $on);
+        } catch (InvalidLineup $e) {
+            return $e.message;
+        }
+
+        return "";
     }
 
     /* The message about the club's own match */

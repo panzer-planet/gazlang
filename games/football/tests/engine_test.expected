@@ -547,3 +547,22 @@ ok a matchday served counts: two matches out becomes one, one becomes none
 ok and the next serves the other
 ok after extra time the clock says 120
 ok and an injury then is at minute 120
+ok balanced and normal is a team exactly as strong as it is
+ok attacking is more attack and less defence, a step at a time
+ok playing hard is a little more attack and a lot more tiring, and doesn't touch the defence
+ok what is asked for stays within what there is: the least
+ok and the most
+ok a team playing hard is more tired: lower form the harder it plays
+ok attacking scores more than defending, over 400 matches
+ok and defending lets less through: a smaller share of the other side's attempts are on target
+ok a substitution is an event at the minute, and the team changes
+ok who has gone off can't come back
+ok a fourth substitution is refused, and nothing is said about it
+ok the next matchday's pairs, before it begins
+ok asking again is the same, and changes nothing
+ok they are the matches that begin
+ok and the next matchday is another
+ok when the season is over there are none
+ok the bench who can play includes a goalkeeper, which a forward can't be replaced with
+ok nobody taken off is offered again
+ok nor anyone who is out

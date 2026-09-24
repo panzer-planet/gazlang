@@ -3,7 +3,8 @@
  * a match is checked against the match itself, not against a recorded run.
  */
 include "../../../tests/gaz/check.gaz";
-include "../game.gaz" use Game, ordinal;
+include "../game.gaz" use Game, ordinal, ai_mentality;
+include "../engine/matches.gaz" use Substitution;
 
 /* How many of $list satisfy $test */
 fn count_where($list, $test) {
@@ -343,7 +344,15 @@ foreach ([1, 2, 3] as $seed) {
     for ($day_number = 1; $day_number <= 18; $day_number++) {
         $live = $game.begin_matchday();
         foreach ($game.teams as $team) {
-            $unfit_starters += count_where($team.eleven(), $p -> !$p.available());
+            /* someone who can't play starts only when nobody fit could take his place: another
+               goalkeeper for a goalkeeper, and anyone but a goalkeeper for anyone else */
+            foreach ($team.eleven() as $starter) {
+                if (!$starter.available()) {
+                    $keeper = $starter.position() == "GK";
+                    $cover = filter($team.bench(), $q -> $q.available() && ($q.position() == "GK") == $keeper);
+                    $unfit_starters += $cover == [] ? 0 : 1;
+                }
+            }
             if (len($team.eleven()) != 11 || count_where($team.eleven(), $p -> $p.position() == "GK") != 1) {
                 $invalid[] = "seed {$seed}, matchday {$day_number}: {$team} has {$team.formation()}";
             }
@@ -357,5 +366,48 @@ foreach ([1, 2, 3] as $seed) {
     $suspension_news += count_where($game.inbox, $m -> starts_with($m["subject"], "Suspended: "));
 }
 check("every club's eleven is eleven, with one goalkeeper, every matchday", $invalid, []);
-check("and nobody who is out starts", $unfit_starters, 0);
+check("and nobody who is out starts when a fit player could have", $unfit_starters, 0);
 check("in three seasons there were injuries and suspensions to be told of", [$injury_news > 0, $suspension_news > 0], [true, true]);
+
+/* ---- Tactics ---- */
+check("the AI's mentality by rating difference", map([20, 10, 9, 5, 4, 0, -4, -5, -9, -10, -20], ai_mentality), [4, 4, 3, 3, 2, 2, 2, 1, 1, 0, 0]);
+
+$game = Game::start(5);
+$game.set_mentality(4);
+$game.set_intensity(2);
+check("the manager's tactics are the club's", [$game.club.mentality, $game.club.intensity], [4, 2]);
+$game.set_mentality(99);
+$game.set_intensity(-5);
+check("and stay within what there is", [$game.club.mentality, $game.club.intensity], [4, 0]);
+$game.set_mentality(3);
+$game.set_intensity(1);
+check("the formations to choose from include the usual", [in_array("4-4-2", $game.formations()), in_array("3-5-2", $game.formations())], [true, true]);
+$live = $game.begin_matchday();
+check("a matchday leaves the manager's tactics as they were", [$game.club.mentality, $game.club.intensity], [3, 1]);
+$mine = $live.mine;
+$wrong = [];
+foreach ($live.matches as $match) {
+    foreach ([[$match.home, $match.away], [$match.away, $match.home]] as [$team, $opponent]) {
+        if ($team != $game.club && $team.mentality != ai_mentality($team.rating() - $opponent.rating())) {
+            $wrong[] = "{$team} against {$opponent}: {$team.mentality}";
+        }
+    }
+}
+check("the other clubs set up by how they rate against who they play", $wrong, []);
+
+/* a substitution in the live match, by the manager */
+$off = $game.club.eleven()[5];
+$on = $game.club.best_substitute($off);
+check("a substitution is done", $game.substitute($off, $on), "");
+check("and the eleven has it, with a substitution used and the news in the commentary", [in_array($on, $game.club.eleven()), in_array($off, $game.club.eleven()), $game.club.substitutions, count_where($live.commentary, $e -> is_a($e, Substitution))], [true, false, 1, 1]);
+check("a player who is off can't come on for another", $game.substitute($game.club.eleven()[1], $off) != "", true);
+$eleven = $game.club.eleven();
+check("a refusal changes nothing", $game.club.eleven() == $eleven, true);
+while (!$live.finished()) {
+    $live.tick();
+}
+$game.end_matchday();
+check("with no match on there is nothing to substitute in", $game.substitute($eleven[1], $eleven[2]), "There is no match to make a substitution in");
+check("and the lineup can be changed again, and by formation", [$game.auto_lineup("3-5-2"), $game.club.formation()], ["", "3-5-2"]);
+$live = $game.begin_matchday();
+check("but not during a match", [$game.auto_lineup(), $game.swap($game.club.eleven()[1], $game.club.bench()[0])], ["The lineup can't change during a match", "The lineup can't change during a match"]);
