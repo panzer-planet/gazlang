@@ -717,6 +717,8 @@ tests/codegen_corpus/expressions.gaz
 tests/codegen_corpus/functions.gaz
 tests/codegen_corpus/includes.gaz
 tests/codegen_corpus/kinds.gaz
+tests/codegen_corpus/lambda_bare_list_pattern.gaz
+tests/codegen_corpus/list_pattern_empty_slots.gaz
 tests/codegen_corpus/locations.gaz
 tests/codegen_corpus/map_spread.gaz
 tests/codegen_corpus/namespaces.gaz
@@ -757,6 +759,7 @@ tests/gaz/lib/sorting_test.gaz
 tests/gaz/lib/term_test.gaz
 tests/gaz/lib/tui_test.gaz
 tests/gaz/lists/delete_test.gaz
+tests/gaz/lists/pattern_test.gaz
 tests/gaz/loops/foreach_test.gaz
 tests/gaz/match/match_test.gaz
 tests/gaz/numbers/floats_test.gaz
@@ -798,7 +801,9 @@ tests/parser_corpus/interpolation.gaz
 tests/parser_corpus/kin_abstract_method.gaz
 tests/parser_corpus/kind_constants.gaz
 tests/parser_corpus/kinds.gaz
+tests/parser_corpus/lambda_bare_list_pattern.gaz
 tests/parser_corpus/lambdas.gaz
+tests/parser_corpus/list_pattern_empty_slots.gaz
 tests/parser_corpus/lists_and_maps.gaz
 tests/parser_corpus/literals.gaz
 tests/parser_corpus/locations.gaz

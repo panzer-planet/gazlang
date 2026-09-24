@@ -14,3 +14,7 @@ ok flatten needs lists in it
 ok max_by needs a list
 ok min_by needs something in it
 ok keys must be orderable
+ok unique keeps the first of each, in order
+ok unique compares with ==: 1 and 1.0 are one, "1" another
+ok unique of lists and maps compares them whole
+ok unique of nothing

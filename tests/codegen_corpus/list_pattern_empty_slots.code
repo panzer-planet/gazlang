@@ -1,0 +1,206 @@
+GAZLANG BYTECODE 2
+globals
+
+top
+locals $pair $#destructure_0 $b $triple $#destructure_1 $a $c $list $#destructure_2 $first $second $rows $#foreach_array_3 $#foreach_keys_3 $#foreach_count_3 $#foreach_i_3 $#destructure_4 $value $#foreach_array_5 $#foreach_keys_5 $#foreach_count_5 $#foreach_i_5 $key $#destructure_6 $third $f
+@ "list_pattern_empty_slots.gaz" 1
+LOAD 0
+DESTRUCTURE 2
+STORE 1
+LOAD 1
+PUSH 1
+INDEX_GET
+STORE 2
+LOAD 2
+POP
+LOAD 1
+POP
+@ "list_pattern_empty_slots.gaz" 2
+LOAD 3
+DESTRUCTURE 3
+STORE 4
+LOAD 4
+PUSH 0
+INDEX_GET
+STORE 5
+LOAD 5
+POP
+LOAD 4
+PUSH 2
+INDEX_GET
+STORE 6
+LOAD 6
+POP
+LOAD 4
+POP
+@ "list_pattern_empty_slots.gaz" 3
+LOAD 7
+DESTRUCTURE 3
+STORE 8
+LOAD 8
+PUSH 0
+INDEX_GET
+STORE 9
+LOAD 9
+POP
+LOAD 8
+PUSH 1
+INDEX_GET
+STORE 10
+LOAD 10
+POP
+LOAD 8
+POP
+@ "list_pattern_empty_slots.gaz" 4
+LOAD 11
+FOREACH_CHECK
+STORE 12
+LOAD 12
+CALL_BUILTIN keys 1
+STORE 13
+LOAD 13
+POP
+LOAD 13
+CALL_BUILTIN len 1
+STORE 14
+LOAD 14
+POP
+PUSH 0
+STORE 15
+LOAD 15
+POP
+LABEL WHILE_0
+LOAD 15
+LOAD 14
+LT
+JZ ENDWHILE_0
+LOAD 12
+LOAD 13
+LOAD 15
+INDEX_GET
+INDEX_GET
+DESTRUCTURE 2
+STORE 16
+LOAD 16
+PUSH 1
+INDEX_GET
+STORE 17
+LOAD 17
+POP
+LOAD 16
+POP
+@ "list_pattern_empty_slots.gaz" 5
+LOAD 17
+PRINT
+LABEL CONTINUE_0
+@ "list_pattern_empty_slots.gaz" 4
+LOAD 15
+PUSH 1
+ADD
+STORE 15
+LOAD 15
+POP
+JMP WHILE_0
+LABEL ENDWHILE_0
+@ "list_pattern_empty_slots.gaz" 7
+LOAD 11
+FOREACH_CHECK
+STORE 18
+LOAD 18
+CALL_BUILTIN keys 1
+STORE 19
+LOAD 19
+POP
+LOAD 19
+CALL_BUILTIN len 1
+STORE 20
+LOAD 20
+POP
+PUSH 0
+STORE 21
+LOAD 21
+POP
+LABEL WHILE_1
+LOAD 21
+LOAD 20
+LT
+JZ ENDWHILE_1
+LOAD 19
+LOAD 21
+INDEX_GET
+STORE 22
+LOAD 22
+POP
+LOAD 18
+LOAD 19
+LOAD 21
+INDEX_GET
+INDEX_GET
+DESTRUCTURE 3
+STORE 23
+LOAD 23
+PUSH 2
+INDEX_GET
+STORE 24
+LOAD 24
+POP
+LOAD 23
+POP
+@ "list_pattern_empty_slots.gaz" 8
+LOAD 24
+PRINT
+LABEL CONTINUE_1
+@ "list_pattern_empty_slots.gaz" 7
+LOAD 21
+PUSH 1
+ADD
+STORE 21
+LOAD 21
+POP
+JMP WHILE_1
+LABEL ENDWHILE_1
+@ "list_pattern_empty_slots.gaz" 15
+MAKE_CLOSURE 0
+STORE 25
+LOAD 25
+POP
+
+fn tail 1 1
+locals $#pattern_0 $#destructure_0 $y
+@ "list_pattern_empty_slots.gaz" 11
+LOAD 0
+DESTRUCTURE 2
+STORE 1
+LOAD 1
+PUSH 1
+INDEX_GET
+STORE 2
+LOAD 2
+POP
+LOAD 1
+POP
+@ "list_pattern_empty_slots.gaz" 13
+LOAD 2
+RET
+@ "list_pattern_empty_slots.gaz" 10
+PUSH null
+RET
+
+lambda 0 1 1
+locals $#pattern_0 $#destructure_0 $m
+@ "list_pattern_empty_slots.gaz" 15
+LOAD 0
+DESTRUCTURE 2
+STORE 1
+LOAD 1
+PUSH 1
+INDEX_GET
+STORE 2
+LOAD 2
+POP
+LOAD 1
+POP
+LOAD 2
+RET
+PUSH null
+RET

@@ -479,6 +479,7 @@ void location_text(Str *path, int64_t line, Buf *out);
 
 extern Program *program;
 bool call_method(Object *o, Kind *definer, Str *name, Value *out);   /* runs a method to its end */
+int callable_min_args(Value callee);  /* fewest arguments a program-defined function needs, else -1 */
 bool call_value(Value callee, Value *args, int argc, Value *out);  /* calls a value to its end, as map() does */
 extern FILE *output;        /* where echo and print write: standard output, or memory while compiling */
 void flush_output(void);

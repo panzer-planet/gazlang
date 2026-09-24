@@ -1,0 +1,175 @@
+GAZLANG BYTECODE 2
+globals
+
+top
+locals $add $second $blocked $pairs $mapped $nested
+@ 1
+MAKE_CLOSURE 0
+STORE 0
+LOAD 0
+POP
+@ 2
+MAKE_CLOSURE 1
+STORE 1
+LOAD 1
+POP
+@ 3
+MAKE_CLOSURE 2
+STORE 2
+LOAD 2
+POP
+@ 6
+LOAD 3
+MAKE_CLOSURE 3
+CALL_BUILTIN map 2
+STORE 4
+LOAD 4
+POP
+@ 7
+MAKE_CLOSURE 4
+STORE 5
+LOAD 5
+POP
+
+lambda 0 1 1
+locals $#pattern_0 $#destructure_0 $a $b
+@ 1
+LOAD 0
+DESTRUCTURE 2
+STORE 1
+LOAD 1
+PUSH 0
+INDEX_GET
+STORE 2
+LOAD 2
+POP
+LOAD 1
+PUSH 1
+INDEX_GET
+STORE 3
+LOAD 3
+POP
+LOAD 1
+POP
+LOAD 2
+LOAD 3
+ADD
+RET
+PUSH null
+RET
+
+lambda 1 1 1
+locals $#pattern_0 $#destructure_0 $b
+@ 2
+LOAD 0
+DESTRUCTURE 2
+STORE 1
+LOAD 1
+PUSH 1
+INDEX_GET
+STORE 2
+LOAD 2
+POP
+LOAD 1
+POP
+LOAD 2
+RET
+PUSH null
+RET
+
+lambda 2 1 1
+locals $#pattern_0 $#destructure_0 $x $y
+@ 3
+LOAD 0
+DESTRUCTURE 2
+STORE 1
+LOAD 1
+PUSH 0
+INDEX_GET
+STORE 2
+LOAD 2
+POP
+LOAD 1
+PUSH 1
+INDEX_GET
+STORE 3
+LOAD 3
+POP
+LOAD 1
+POP
+@ 4
+LOAD 2
+LOAD 3
+MUL
+RET
+@ 3
+PUSH null
+RET
+
+lambda 3 1 1
+locals $#pattern_0 $#destructure_0 $k $v
+@ 6
+LOAD 0
+DESTRUCTURE 2
+STORE 1
+LOAD 1
+PUSH 0
+INDEX_GET
+STORE 2
+LOAD 2
+POP
+LOAD 1
+PUSH 1
+INDEX_GET
+STORE 3
+LOAD 3
+POP
+LOAD 1
+POP
+LOAD 2
+LOAD 3
+CONCAT
+RET
+PUSH null
+RET
+
+lambda 4 1 1
+locals $#pattern_0 $#destructure_0 $a
+@ 7
+LOAD 0
+DESTRUCTURE 1
+STORE 1
+LOAD 1
+PUSH 0
+INDEX_GET
+STORE 2
+LOAD 2
+POP
+LOAD 1
+POP
+MAKE_CLOSURE 5
+RET
+PUSH null
+RET
+
+lambda 5 1 1
+capture $a local 2
+locals $#pattern_0 $#destructure_0 $b
+@ 7
+LOAD 0
+DESTRUCTURE 1
+STORE 1
+LOAD 1
+PUSH 0
+INDEX_GET
+STORE 2
+LOAD 2
+POP
+LOAD 1
+POP
+LOAD_CAPTURED 0
+LOAD 2
+ADD
+RET
+PUSH null
+RET

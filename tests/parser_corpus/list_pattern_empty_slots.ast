@@ -1,0 +1,138 @@
+Compound
+  statements:
+@ "tests/parser_corpus/list_pattern_empty_slots.gaz"
+    0: Statement 1
+      expr: Assign 1
+        left: ListPattern 1
+          targets:
+            0: null
+            1: Variable 1
+              token: 1 VAR_IDENTIFIER $b
+              value: "\$b"
+        token: 1 ASSIGN =
+        right: Variable 1
+          token: 1 VAR_IDENTIFIER $pair
+          value: "\$pair"
+    1: Statement 2
+      expr: Assign 2
+        left: ListPattern 2
+          targets:
+            0: Variable 2
+              token: 2 VAR_IDENTIFIER $a
+              value: "\$a"
+            1: null
+            2: Variable 2
+              token: 2 VAR_IDENTIFIER $c
+              value: "\$c"
+        token: 2 ASSIGN =
+        right: Variable 2
+          token: 2 VAR_IDENTIFIER $triple
+          value: "\$triple"
+    2: Statement 3
+      expr: Assign 3
+        left: ListPattern 3
+          targets:
+            0: Variable 3
+              token: 3 VAR_IDENTIFIER $first
+              value: "\$first"
+            1: Variable 3
+              token: 3 VAR_IDENTIFIER $second
+              value: "\$second"
+            2: null
+        token: 3 ASSIGN =
+        right: Variable 3
+          token: 3 VAR_IDENTIFIER $list
+          value: "\$list"
+    3: ForeachStatement 4
+      iterable: Variable 4
+        token: 4 VAR_IDENTIFIER $rows
+        value: "\$rows"
+      key: null
+      value: ListPattern 4
+        targets:
+          0: null
+          1: Variable 4
+            token: 4 VAR_IDENTIFIER $value
+            value: "\$value"
+      body: Compound
+        statements:
+          0: EchoStatement 5
+            expr: Variable 5
+              token: 5 VAR_IDENTIFIER $value
+              value: "\$value"
+    4: ForeachStatement 7
+      iterable: Variable 7
+        token: 7 VAR_IDENTIFIER $rows
+        value: "\$rows"
+      key: Variable 7
+        token: 7 VAR_IDENTIFIER $key
+        value: "\$key"
+      value: ListPattern 7
+        targets:
+          0: null
+          1: null
+          2: Variable 7
+            token: 7 VAR_IDENTIFIER $third
+            value: "\$third"
+      body: Compound
+        statements:
+          0: EchoStatement 8
+            expr: Variable 8
+              token: 8 VAR_IDENTIFIER $third
+              value: "\$third"
+    5: FunctionDeclaration 10
+      name: "tail"
+      params: ["$#pattern_0"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: Statement 11
+            expr: Assign 11
+              left: ListPattern 11
+                targets:
+                  0: null
+                  1: Variable 11
+                    token: 11 VAR_IDENTIFIER $y
+                    value: "\$y"
+              token: 11 ASSIGN =
+              right: Variable 11
+                token: 11 VAR_IDENTIFIER $#pattern_0
+                value: "$#pattern_0"
+          1: ReturnStatement 13
+            expr: Variable 13
+              token: 13 VAR_IDENTIFIER $y
+              value: "\$y"
+      arity: 1
+      kind: null
+      abstract: false
+    6: Statement 15
+      expr: Assign 15
+        left: Variable 15
+          token: 15 VAR_IDENTIFIER $f
+          value: "\$f"
+        token: 15 ASSIGN =
+        right: Lambda 15
+          params: ["$#pattern_0"]
+          defaults: [null]
+          arity: 1
+          body: Compound 15
+            statements:
+              0: Statement 15
+                expr: Assign 15
+                  left: ListPattern 15
+                    targets:
+                      0: null
+                      1: Variable 15
+                        token: 15 VAR_IDENTIFIER $m
+                        value: "\$m"
+                  token: 15 ASSIGN =
+                  right: Variable 15
+                    token: 15 VAR_IDENTIFIER $#pattern_0
+                    value: "$#pattern_0"
+              1: ReturnStatement 15
+                expr: Variable 15
+                  token: 15 VAR_IDENTIFIER $m
+                  value: "\$m"
+          captures: []
+          self: null
+          owner: null

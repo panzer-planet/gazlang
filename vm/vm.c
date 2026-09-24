@@ -403,6 +403,18 @@ static bool enter_value(Value **spp, int argc, Instr *ret, Block **entered) {
     return pushed;
 }
 
+/* How many arguments a function the program defines (a closure, a named function or a bound method)
+   must be given at least, or -1 for anything else (a builtin, a kind, a non-function): what lets map()
+   and filter() pass an element's key as well to a callback that asks for it */
+int callable_min_args(Value callee) {
+    if (callee.type != T_FUNCTION) return -1;
+    Func *fn = callee.fn;
+    if (fn->kind == F_CLOSURE) return fn->lambda->block->lo;
+    if (fn->kind == F_BOUND) return method_function(fn->definer, fn->name)->lo;
+    if (fn->kind == F_BUILTIN) return -1;
+    return fn->function->lo;
+}
+
 /* Call a value to its end from inside an instruction, as map() calls its callback: checked as a
    call in the program is, and called from where the instruction is running. Takes no reference. */
 bool call_value(Value callee, Value *args, int argc, Value *out) {

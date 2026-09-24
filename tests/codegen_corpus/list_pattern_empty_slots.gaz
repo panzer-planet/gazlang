@@ -1,0 +1,15 @@
+[, $b] = $pair;
+[$a, , $c] = $triple;
+[$first, $second, ,] = $list;
+foreach ($rows as [, $value]) {
+    echo $value;
+}
+foreach ($rows as $key => [, , $third]) {
+    echo $third;
+}
+fn tail(
+    [, $y]
+) {
+    return $y;
+}
+$f = ([, $m]) -> $m;

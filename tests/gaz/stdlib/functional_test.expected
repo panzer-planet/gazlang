@@ -59,3 +59,17 @@ ok map as reduce's callback
 ok filter with to_string
 ok map as a value, with to_string
 ok its error comes out
+ok map gives a two-parameter function the index
+ok filter gives it the index: every other element
+ok over a map the second argument is the key
+ok and filter keeps the keys it is given
+ok reduce gives a three-parameter function the index as the third
+ok over a map reduce's third argument is the key
+ok a named function that needs two is given the index too
+ok and so is a method
+ok one parameter: the value alone
+ok a parameter with a default isn't given the index: it asked for one argument
+ok a builtin is never given the index: to_int's second argument is a default
+ok a kind is called with the value alone: Point(x, 0) for each
+ok and one that needs two is an arity error, not given the index
+ok a function that needs three is still an arity error in filter

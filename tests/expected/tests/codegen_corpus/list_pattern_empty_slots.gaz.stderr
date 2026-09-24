@@ -1,0 +1,1 @@
+Error: Undefined variable: $pair at tests/codegen_corpus/list_pattern_empty_slots.gaz:1

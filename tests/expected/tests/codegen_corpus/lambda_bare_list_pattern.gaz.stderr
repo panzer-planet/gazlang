@@ -1,0 +1,1 @@
+Error: Undefined variable: $pairs at tests/codegen_corpus/lambda_bare_list_pattern.gaz:6

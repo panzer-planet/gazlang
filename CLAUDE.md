@@ -266,10 +266,9 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     the parser can't tell it from a function that returns the list. Mutable state belongs in
     an object, or, for closures, in a `shared` variable; by-reference parameters aren't worth
     their cost against refcounting.
-  - `map`/`filter`/`reduce` call their function with the value alone, even over a list, so
-    getting the index needs a `foreach ($x as $i => $v)` instead of a `map()`
-    (`Scout.team()`'s shirt numbers hit this: `map($formation.positions(), $kind -> ...)`
-    became a `foreach` once it needed the index).
+  - A private field can't be set from outside its kind, so restoring saved state (a played match's
+    score, a league's fixtures) takes a static factory written in the kind (`Fixture::played()`,
+    `League::from_data()`); there is no way to construct an object with some fields already set.
   - `split($x, $sep)` has no limit: it always splits on every occurrence, so keeping the
     trailing remainder together (`"a=b=c"` split on `"="` into `["a", "b=c"]`) needs
     `index_of` and two `slice`s instead of a third argument.
@@ -292,7 +291,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     VM it was first measured on; measure on the C VM before keeping that.
   - Including a file also runs its top level code. `Error`'s members are reserved across its
     children, so a domain error can't declare its own `#line` or `#message`.
-  - No copy-with-change for objects, no `catch (A | B $e)`, no bare rethrow, no `_` to skip an element in a list pattern.
+  - No copy-with-change for objects, no `catch (A | B $e)`, no bare rethrow.
   - `match ($x)` is a linear chain of `EQUALS`; no jump table.
   - No enum: token types are strings on purpose (they are the `--tokens` format).
 - **HTTP is HTTP/1.1 in GazLang (`lib/http.gaz`) on socket builtins, TLS through OpenSSL**,
@@ -551,6 +550,13 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   written in the program is. `sort` is a defined merge sort, since a comparator can see which
   comparisons are made: split in the middle, merge asking `$compare(right, left)` (`merge_sort()`
   in `builtins.c`). Types are checked before anything is called.
+  **`map`/`filter` also pass the element's index or key, and `reduce` its third argument, to a
+  function the program defines that needs two (three) arguments** (`callable_min_args()` in `vm.c`: its
+  fewest, or -1 for a builtin, a kind or a non-function): what used to be an arity error is the index
+  now, and nothing that ran before changes. Not to a function with a default for the second parameter
+  (it asked for one), and never to a builtin, whose extra parameters are options (`to_int($x, $default)`),
+  or a kind. It is decided by what a function *needs*, not by what it accepts, so a callback's meaning
+  never depends on a default someone adds.
 - Types: `type_of` (`int float string bool null list map function kind object socket`), `is_a`,
   `kind_of`, `fields` (see "Objects"), `object_id` (an int no other object of the program has or
   had, counted from 1 in `object_new()` and reset by `run_program()`, so it is the same
@@ -633,7 +639,7 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   would. `StdLibraryTest` checks that what is built in equals `lib/`.
 - In GazLang instead, each its own namespace, so only what a file marks `pub` escapes it:
   `chars.gaz` (character classes), `sorting.gaz` (`sorting::values`, `sorting::by`, on `sort`),
-  `lists.gaz` (`lists::flatten`, `lists::max_by`/`min_by`, which call the key once per element
+  `lists.gaz` (`lists::flatten`, `lists::unique`, `lists::max_by`/`min_by`, which call the key once per element
   and keep the first on a tie, so they replace a stable `sort(...)[0]` exactly; a list helper goes here rather than into the builtins, since
   a builtin takes its name from every program and a namespace only from those that include it),
   `format.gaz` (`format::number`, `format::pad_left`/`pad_right`
@@ -902,14 +908,22 @@ kind Token {
 - **List patterns**: `[$a, $b] = $pair;` needs exactly as many elements as targets, checked
   before anything is written; the right side runs first, then each target left to right, so
   `[$a, $b] = [$b, $a]` swaps. Targets are anything `=` can assign. No nesting, map patterns,
-  compound operators or append targets.
+  compound operators or append targets. **An empty slot skips an element**: `[, $b] = $pair`,
+  `[$a, , $c] = $row`, in a `foreach` too. The element is there and counts (`[, $b] = [1, 2, 3]` is the
+  usual error), and nothing is done with it; `[$a, $b,] = ...` is still two elements, as a trailing comma
+  is in a list, so a slot at the end is `[$a, $b, ,]`. The parser reads a slot as an empty entry in the
+  list literal (`list_literal()`) and a pattern takes it as a `null` target (`list_pattern()`, the code
+  generator skips it); a literal that keeps one without becoming a pattern is an error once the program is
+  read, and a pattern of empty slots alone has nothing to take apart.
 - **A parameter can be a list pattern** of `$variables`, in a lambda, a function or a method
   (`([$name, $ties]) -> ...`, `fn distance([$x1, $y1], [$x2, $y2])`): one argument, taken
   apart as `[$a, $b] = $arg;` would, with destructuring's errors, and a default allowed. It is
   parser sugar, like a promoted parameter (`pattern_parameter()` in `parser.gaz`): a hidden
   `$#pattern_N` parameter in its place and the destructuring prepended to the body, an
   expression body becoming a block that returns it, so the variables are the call's own and a
-  lambda never captures them. Nothing below the parser learns of it.
+  lambda never captures them. Nothing below the parser learns of it. **A lambda's one list pattern
+  needs no parentheses**: `[$a, $b] -> $a + $b`, since the brackets already say it is a parameter
+  (`ternary()` sees a list literal followed by `->`); two parameters, or a default, still need them.
 - `..=` appends in place (`concat_assign()` in `ops.c`), on a variable, a field or an element
   alike, converting what is appended as `..` does, so building a string with it is linear
   rather than a copy per append.

@@ -1,0 +1,214 @@
+Compound
+  statements:
+@ null
+    0: Statement 1
+      expr: Assign 1
+        left: Variable 1
+          token: 1 VAR_IDENTIFIER $add
+          value: "\$add"
+        token: 1 ASSIGN =
+        right: Lambda 1
+          params: ["$#pattern_0"]
+          defaults: [null]
+          arity: 1
+          body: Compound 1
+            statements:
+              0: Statement 1
+                expr: Assign 1
+                  left: ListPattern 1
+                    targets:
+                      0: Variable 1
+                        token: 1 VAR_IDENTIFIER $a
+                        value: "\$a"
+                      1: Variable 1
+                        token: 1 VAR_IDENTIFIER $b
+                        value: "\$b"
+                  token: 1 ASSIGN =
+                  right: Variable 1
+                    token: 1 VAR_IDENTIFIER $#pattern_0
+                    value: "$#pattern_0"
+              1: ReturnStatement 1
+                expr: BinOp 1
+                  left: Variable 1
+                    token: 1 VAR_IDENTIFIER $a
+                    value: "\$a"
+                  token: 1 PLUS +
+                  op: 1 PLUS +
+                  right: Variable 1
+                    token: 1 VAR_IDENTIFIER $b
+                    value: "\$b"
+          captures: []
+          self: null
+          owner: null
+    1: Statement 2
+      expr: Assign 2
+        left: Variable 2
+          token: 2 VAR_IDENTIFIER $second
+          value: "\$second"
+        token: 2 ASSIGN =
+        right: Lambda 2
+          params: ["$#pattern_0"]
+          defaults: [null]
+          arity: 1
+          body: Compound 2
+            statements:
+              0: Statement 2
+                expr: Assign 2
+                  left: ListPattern 2
+                    targets:
+                      0: null
+                      1: Variable 2
+                        token: 2 VAR_IDENTIFIER $b
+                        value: "\$b"
+                  token: 2 ASSIGN =
+                  right: Variable 2
+                    token: 2 VAR_IDENTIFIER $#pattern_0
+                    value: "$#pattern_0"
+              1: ReturnStatement 2
+                expr: Variable 2
+                  token: 2 VAR_IDENTIFIER $b
+                  value: "\$b"
+          captures: []
+          self: null
+          owner: null
+    2: Statement 3
+      expr: Assign 3
+        left: Variable 3
+          token: 3 VAR_IDENTIFIER $blocked
+          value: "\$blocked"
+        token: 3 ASSIGN =
+        right: Lambda 3
+          params: ["$#pattern_0"]
+          defaults: [null]
+          arity: 1
+          body: Compound
+            statements:
+              0: Statement 3
+                expr: Assign 3
+                  left: ListPattern 3
+                    targets:
+                      0: Variable 3
+                        token: 3 VAR_IDENTIFIER $x
+                        value: "\$x"
+                      1: Variable 3
+                        token: 3 VAR_IDENTIFIER $y
+                        value: "\$y"
+                  token: 3 ASSIGN =
+                  right: Variable 3
+                    token: 3 VAR_IDENTIFIER $#pattern_0
+                    value: "$#pattern_0"
+              1: ReturnStatement 4
+                expr: BinOp 4
+                  left: Variable 4
+                    token: 4 VAR_IDENTIFIER $x
+                    value: "\$x"
+                  token: 4 MULTIPLY *
+                  op: 4 MULTIPLY *
+                  right: Variable 4
+                    token: 4 VAR_IDENTIFIER $y
+                    value: "\$y"
+          captures: []
+          self: null
+          owner: null
+    3: Statement 6
+      expr: Assign 6
+        left: Variable 6
+          token: 6 VAR_IDENTIFIER $mapped
+          value: "\$mapped"
+        token: 6 ASSIGN =
+        right: FunctionCall 6
+          name: "map"
+          args:
+            0: Variable 6
+              token: 6 VAR_IDENTIFIER $pairs
+              value: "\$pairs"
+            1: Lambda 6
+              params: ["$#pattern_0"]
+              defaults: [null]
+              arity: 1
+              body: Compound 6
+                statements:
+                  0: Statement 6
+                    expr: Assign 6
+                      left: ListPattern 6
+                        targets:
+                          0: Variable 6
+                            token: 6 VAR_IDENTIFIER $k
+                            value: "\$k"
+                          1: Variable 6
+                            token: 6 VAR_IDENTIFIER $v
+                            value: "\$v"
+                      token: 6 ASSIGN =
+                      right: Variable 6
+                        token: 6 VAR_IDENTIFIER $#pattern_0
+                        value: "$#pattern_0"
+                  1: ReturnStatement 6
+                    expr: BinOp 6
+                      left: Variable 6
+                        token: 6 VAR_IDENTIFIER $k
+                        value: "\$k"
+                      token: 6 CONCAT ..
+                      op: 6 CONCAT ..
+                      right: Variable 6
+                        token: 6 VAR_IDENTIFIER $v
+                        value: "\$v"
+              captures: []
+              self: null
+              owner: null
+    4: Statement 7
+      expr: Assign 7
+        left: Variable 7
+          token: 7 VAR_IDENTIFIER $nested
+          value: "\$nested"
+        token: 7 ASSIGN =
+        right: Lambda 7
+          params: ["$#pattern_0"]
+          defaults: [null]
+          arity: 1
+          body: Compound 7
+            statements:
+              0: Statement 7
+                expr: Assign 7
+                  left: ListPattern 7
+                    targets:
+                      0: Variable 7
+                        token: 7 VAR_IDENTIFIER $a
+                        value: "\$a"
+                  token: 7 ASSIGN =
+                  right: Variable 7
+                    token: 7 VAR_IDENTIFIER $#pattern_0
+                    value: "$#pattern_0"
+              1: ReturnStatement 7
+                expr: Lambda 7
+                  params: ["$#pattern_0"]
+                  defaults: [null]
+                  arity: 1
+                  body: Compound 7
+                    statements:
+                      0: Statement 7
+                        expr: Assign 7
+                          left: ListPattern 7
+                            targets:
+                              0: Variable 7
+                                token: 7 VAR_IDENTIFIER $b
+                                value: "\$b"
+                          token: 7 ASSIGN =
+                          right: Variable 7
+                            token: 7 VAR_IDENTIFIER $#pattern_0
+                            value: "$#pattern_0"
+                      1: ReturnStatement 7
+                        expr: BinOp 7
+                          left: Variable 7
+                            token: 7 VAR_IDENTIFIER $a
+                            value: "\$a"
+                          token: 7 PLUS +
+                          op: 7 PLUS +
+                          right: Variable 7
+                            token: 7 VAR_IDENTIFIER $b
+                            value: "\$b"
+                  captures: ["\$a"]
+                  self: null
+                  owner: null
+          captures: []
+          self: null
+          owner: null

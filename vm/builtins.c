@@ -182,10 +182,13 @@ static bool map_or_filter(bool map, Value x, Value f, Value *out) {
     List *list = is_list ? list_new(x.l->len) : NULL;
     Map *m = is_list ? NULL : map_new();
     size_t n = is_list ? x.l->len : x.m->used;
+    /* A function that needs two arguments is given the element's index (a list) or key (a map) too */
+    bool with_key = callable_min_args(f) >= 2;
     for (size_t i = 0; i < n; i++) {
         if (!is_list && !map_next(x.m, &i)) break;
-        Value value = is_list ? x.l->items[i] : x.m->entries[i].value, r;
-        if (!call_value(f, &value, 1, &r)) {
+        Value args[2] = {is_list ? x.l->items[i] : x.m->entries[i].value, is_list ? v_int((int64_t)i) : x.m->entries[i].key};
+        Value value = args[0], r;
+        if (!call_value(f, args, with_key ? 2 : 1, &r)) {
             decref(is_list ? v_list(list) : v_map(m));
             return false;
         }
@@ -208,10 +211,12 @@ static bool reduce(Value x, Value f, Value initial, Value *out) {
     Value carry = initial;
     incref(carry);
     size_t n = x.type == T_LIST ? x.l->len : x.m->used;
+    /* A function that needs three arguments is given the element's index or key as the third */
+    bool with_key = callable_min_args(f) >= 3;
     for (size_t i = 0; i < n; i++) {
         if (x.type == T_MAP && !map_next(x.m, &i)) break;
-        Value args[2] = {carry, x.type == T_LIST ? x.l->items[i] : x.m->entries[i].value}, next;
-        bool ok = call_value(f, args, 2, &next);
+        Value args[3] = {carry, x.type == T_LIST ? x.l->items[i] : x.m->entries[i].value, x.type == T_LIST ? v_int((int64_t)i) : x.m->entries[i].key}, next;
+        bool ok = call_value(f, args, with_key ? 3 : 2, &next);
         decref(carry);
         if (!ok) return false;
         carry = next;

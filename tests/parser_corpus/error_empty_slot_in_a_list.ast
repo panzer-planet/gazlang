@@ -1,0 +1,1 @@
+Error: An empty slot in a list is for taking one apart: write [$a, , $b] = $list, or give the slot a value at tests/parser_corpus/error_empty_slot_in_a_list.gaz:2

@@ -1,0 +1,7 @@
+$add = [$a, $b] -> $a + $b;
+$second = [, $b] -> $b;
+$blocked = [$x, $y] -> {
+    return $x * $y;
+};
+$mapped = map($pairs, [$k, $v] -> $k .. $v);
+$nested = [$a] -> [$b] -> $a + $b;

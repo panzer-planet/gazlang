@@ -90,9 +90,9 @@ pub fn format($days) {
 
 /* "8 Aug" */
 pub fn short($days) {
-    $parts = civil($days);
+    [, $month, $day] = civil($days);
 
-    return "{$parts[2]} " .. MONTHS[$parts[1] - 1];
+    return "{$day} " .. MONTHS[$month - 1];
 }
 
 /* "2026-08-08" */

@@ -163,6 +163,9 @@ kind Parser {
     // Every Name.member, which is an error if Name turns out to be a kind: a kind is
     // reached by name, with ::, and the dot goes through a value
     #dot_on_names = [];
+    // List literals written with an empty slot ([$a, , $b]), which only a pattern may have: each is taken
+    // off when it becomes one, and any left when the program is read is an error
+    #gaps = [];
 
     // The namespace the file being parsed declares, "" when it declares none, so that its
     // names are global. Saved and restored around an include, as #file is.
@@ -750,7 +753,7 @@ kind Shared {
         #eat("ARROW");
         $bound_names = filter($params, $param -> !starts_with($param, "\$#"));
         foreach ($patterns as $statement) {
-            $bound_names = [...$bound_names, ...map($statement.expr.left.targets, $target -> $target.value)];
+            $bound_names = [...$bound_names, ...map(filter($statement.expr.left.targets, $target -> $target != null), $target -> $target.value)];
         }
         #forget_uses($bound_names);
 
@@ -884,7 +887,15 @@ kind Shared {
         #eat("LEFT_BRACKET");
 
         $entries = [];
+        $gap = false;
         while (#current_token.type != "RIGHT_BRACKET") {
+            if (#current_token.type == "COMMA") {
+                // An empty slot: [$a, , $b] takes an element it has no target for
+                $entries[] = [null, null];
+                $gap = true;
+                #eat("COMMA");
+                continue;
+            }
             if (#current_token.type == "SPREAD") {
                 // ...$a puts the elements of the list $a here
                 $spread = #current_token;
@@ -903,8 +914,12 @@ kind Shared {
             }
         }
         #eat("RIGHT_BRACKET");
+        $node = #at(ArrayLiteralAST($entries), $start);
+        if ($gap) {
+            #gaps[] = $node;
+        }
 
-        return #at(ArrayLiteralAST($entries), $start);
+        return $node;
     }
 
     // Parse a map literal (LBRACE [entry (COMMA entry)* [COMMA]] RBRACE),
@@ -1091,6 +1106,14 @@ kind Shared {
         if ($token.type == "ARROW" && is_a($node, VariableAST) && !$node.is_global() && $start.type == "VAR_IDENTIFIER") {
             return #lambda($start, [$node.value], [null], [$start.line]);
         }
+        if ($token.type == "ARROW" && $start.type == "LEFT_BRACKET" && is_a($node, ArrayLiteralAST) && !$node.map) {
+            // [$a, $b] -> ...: the parentheses would say nothing more, so they aren't needed
+            $pattern = #list_pattern($node, #parameter_target);
+            [$param, $statement] = #pattern_parameter($pattern, 0);
+            #check_bound([$param], [$statement], "lambda", $start.line);
+
+            return #lambda($start, [$param], [null], [$start.line], [$statement]);
+        }
         if ($token.type == "QUESTION") {
             #eat("QUESTION");
             $then = #expr();
@@ -1142,9 +1165,10 @@ kind Shared {
     //
     // $target checks each element can be a target, failing if not
     fn list_pattern($literal, $target) {
-        if ($literal.entries == []) {
+        if ($literal.entries == [] || len(filter($literal.entries, $entry -> $entry[1] != null)) == 0) {
             #fail_at("Nothing to take apart: write at least one target in [...]", #file, $literal.line);
         }
+        #gaps = filter(#gaps, $gapped -> $gapped != $literal);
         foreach ($literal.entries as $entry) {
             if (is_a($entry[1], SpreadAST)) {
                 #fail_at("A pattern can't take the rest with ...: take the list apart with slice()", $entry[1].file, $entry[1].line);
@@ -1152,7 +1176,8 @@ kind Shared {
         }
         $targets = [];
         foreach ($literal.entries as $entry) {
-            $targets[] = $target($entry[1]);
+            // An empty slot has no target: the element is there, and nothing is done with it
+            $targets[] = $entry[1] == null ? null : $target($entry[1]);
         }
         $pattern = ListPatternAST($targets);
         [$pattern.line, $pattern.file] = [$literal.line, $literal.file];
@@ -1675,7 +1700,7 @@ kind Shared {
     fn check_bound($params, $patterns, $owner, $line) {
         $bound = filter($params, $param -> !starts_with($param, "\$#"));
         foreach ($patterns as $statement) {
-            $bound = [...$bound, ...map($statement.expr.left.targets, $target -> $target.value)];
+            $bound = [...$bound, ...map(filter($statement.expr.left.targets, $target -> $target != null), $target -> $target.value)];
         }
         $seen = {};
         foreach ($bound as $name) {
@@ -2616,6 +2641,9 @@ kind Shared {
         // In source order, so the first mistake in the program is the one reported
         foreach (#member_uses as [$node, $kind, $argc, $assigned, $written, $in_static]) {
             #check_member_use($node, $kind, $argc, $assigned, $written, $in_static);
+        }
+        foreach (#gaps as $gapped) {
+            #fail_at("An empty slot in a list is for taking one apart: write [\$a, , \$b] = \$list, or give the slot a value", $gapped.file, $gapped.line);
         }
         foreach (#dot_on_names as $node) {
             #check_dot_on_name($node);

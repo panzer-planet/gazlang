@@ -1,0 +1,1 @@
+Error: An empty slot in a list is for taking one apart: write [$a, , $b] = $list, or give the slot a value on line 2

@@ -19,6 +19,20 @@ pub fn flatten($lists) {
     return $all;
 }
 
+// The elements of a list once each, in the order they first come, compared with ==
+// ponytail: compares every element with those kept, so a long list of many different values takes
+// time in proportion to the square of its length; a list of strings or ints could use a map's keys
+pub fn unique($xs) {
+    $kept = [];
+    foreach ($xs as $x) {
+        if (!in_array($x, $kept)) {
+            $kept[] = $x;
+        }
+    }
+
+    return $kept;
+}
+
 // The element whose key is largest, the first of them on a tie: $key($x) is called once for
 // each element and the keys compared with <=>, so a list of keys breaks ties in order
 pub fn max_by($xs, $key) {

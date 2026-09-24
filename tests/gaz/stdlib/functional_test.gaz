@@ -66,7 +66,7 @@ check("a bound method", map([1, 2], Pair(0).twice), [2, 4]);
 check("a builtin", map([[1], [1, 2]], len), [1, 2]);
 check("an abstract kind can't", message(() -> map([1], Shape)), "Cannot construct abstract kind Shape");
 check("a builtin with the wrong count", message(() -> map([1], slice)), "Function slice expects 2 to 3 arguments, 1 given");
-check("a lambda with the wrong count", message(() -> map([1], ($a, $b) -> $a)), "Function -> at tests/gaz/stdlib/functional_test.gaz:69 expects 2 arguments, 1 given");
+check("a lambda with the wrong count", message(() -> map([1], ($a, $b, $c) -> $a)), "Function -> at tests/gaz/stdlib/functional_test.gaz:69 expects 3 arguments, 2 given");
 check("a bound method with the wrong count", message(() -> reduce([1], Pair(0).twice, 0)), "Method Pair.twice expects 1 arguments, 2 given");
 
 // Keys stay what they were: 1 and "1" are different keys
@@ -149,3 +149,41 @@ kind Broken {
     pub fn to_string() { return 1 / 0; }
 }
 check("its error comes out", message(() -> map([Named("a"), Broken(), Named("b")], to_string)), "Division by zero");
+
+// a function that needs two arguments is given the element's index or key as the second
+check("map gives a two-parameter function the index", map(["a", "b", "c"], ($v, $i) -> $i .. $v), ["0a", "1b", "2c"]);
+check("filter gives it the index: every other element", filter([5, 6, 7, 8], ($v, $i) -> $i % 2 == 0), [5, 7]);
+check("over a map the second argument is the key", map({"x" => 1, "y" => 2}, ($v, $k) -> $k .. $v), {"x" => "x1", "y" => "y2"});
+check("and filter keeps the keys it is given", filter({"x" => 1, "y" => 2, "z" => 3}, ($v, $k) -> $k != "y"), {"x" => 1, "z" => 3});
+check("reduce gives a three-parameter function the index as the third", reduce(["a", "b", "c"], ($acc, $v, $i) -> $acc .. $i .. $v, ""), "0a1b2c");
+check("over a map reduce's third argument is the key", reduce({"p" => 2, "q" => 5}, ($acc, $v, $k) -> $acc .. $k .. $v, ""), "p2q5");
+fn tag_with_index($value, $index) { return "{$index}:{$value}"; }
+check("a named function that needs two is given the index too", map(["u", "v"], tag_with_index), ["0:u", "1:v"]);
+kind Tagger {
+    fn tag($value, $index) { return "{$index}={$value}"; }
+    pub fn all($values) { return map($values, #tag); }
+}
+check("and so is a method", Tagger().all(["m", "n"]), ["0=m", "1=n"]);
+// a function that takes the value alone is called with the value alone, as it always was
+check("one parameter: the value alone", map([10, 20], $v -> $v + 1), [11, 21]);
+check("a parameter with a default isn't given the index: it asked for one argument", map([10, 20], ($v, $i = 99) -> $i), [99, 99]);
+check("a builtin is never given the index: to_int's second argument is a default", map(["1", "2"], to_int), [1, 2]);
+kind Point {
+    fn _(pub #x, pub #y = 0);
+}
+kind NeedsTwo {
+    fn _(pub #x, pub #y);
+}
+check("a kind is called with the value alone: Point(x, 0) for each", map(map([1, 2], Point), $p -> [$p.x, $p.y]), [[1, 0], [2, 0]]);
+try {
+    map([1], NeedsTwo);
+    check("and one that needs two is an arity error, not given the index", "no error", "an error");
+} catch (Error $e) {
+    check("and one that needs two is an arity error, not given the index", contains($e.message, "expects 2"), true);
+}
+try {
+    filter([1], ($a, $b, $c) -> 1);
+    check("a function that needs three is still an arity error in filter", "no error", "an error");
+} catch (Error $e) {
+    check("a function that needs three is still an arity error in filter", contains($e.message, "expects 3"), true);
+}

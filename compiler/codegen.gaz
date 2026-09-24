@@ -244,6 +244,10 @@ kind CodeGenerator {
         $list = #hidden("\$#destructure_" .. #hidden_counter++);
         #emit_variable("STORE", $list);
         foreach ($pattern.targets as $i => $target) {
+            // An empty slot: the element is checked for and left
+            if ($target == null) {
+                continue;
+            }
             $element = IndexAST($list, NumAST(Token("INTEGER", $i)));
             #visit(StatementAST(#assign($target, $element)));
         }

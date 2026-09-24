@@ -244,10 +244,15 @@ $noop   = () -> { return 42; };          // a block body returns only through re
 ```
 
 A parameter can be a list pattern, which takes its argument apart as `[$a, $b] = $x` would
-(exactly that many elements, or an error), in a lambda, a function or a method:
+(exactly that many elements, or an error), in a lambda, a function or a method. A lambda whose
+only parameter is a pattern needs no parentheses, and an empty slot takes an element and ignores it:
 
 ```gaz
-echo map($scores, ([$name, $points]) -> "{$name}: {$points}");
+echo map($scores, [$name, $points] -> "{$name}: {$points}");
+echo map($scores, [, $points] -> $points);
+[, $month, $day] = [2026, 8, 8];                    // an empty slot at the start
+[$first, , $third] = ["a", "b", "c"];               // in the middle
+[$x, $y, ,] = [1, 2, 3];                            // at the end: [$x, $y,] is only two elements
 fn distance([$x1, $y1], [$x2, $y2] = [0, 0]) { return abs($x2 - $x1) + abs($y2 - $y1); }
 ```
 
@@ -436,6 +441,13 @@ element, in order:
 - `filter($x, $keep)` — the elements for which `$keep($value)` is true, as `if` reads it; a
   list gives a list, a map a map with the kept keys.
 - `reduce($x, $f, $initial)` — folds the values left: `$carry = $f($carry, $value)`.
+
+A function the program defines (a lambda, a named function, a method) that **needs two arguments** is
+given the element's index (a list) or key (a map) as the second, and for `reduce` one that needs three is
+given it as the third: `map($names, ($name, $i) -> "{$i}. {$name}")`,
+`filter($xs, ($x, $i) -> $i % 2 == 0)`, `reduce($xs, ($carry, $x, $i) -> ...)`. One that needs
+fewer, one with a default for its second parameter, a builtin and a kind are called with the value alone,
+as they always were, so `map($texts, to_int)` still gives `to_int` one argument.
 - `sort($x, $compare)` — the values in a new list, ordered by `$compare($a, $b)`, which returns
   an int below zero when `$a` comes first, as `$a <=> $b` does; anything but an int is an
   error. Stable: a merge sort that splits in the middle and asks `$compare(right, left)`,
@@ -654,7 +666,7 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | File | What is in it |
 | --- | --- |
 | `sorting.gaz` | `sorting::values`, `sorting::by` |
-| `lists.gaz` | `lists::flatten` (a list of lists as one list, one level deep), `lists::max_by($xs, $key)` and `lists::min_by` (the element whose `$key($x)` is largest or smallest, the first on a tie; a list of keys breaks ties in order) |
+| `lists.gaz` | `lists::flatten` (a list of lists as one list, one level deep), `lists::unique($xs)` (each element once, in the order they first come, compared with `==`), `lists::max_by($xs, $key)` and `lists::min_by` (the element whose `$key($x)` is largest or smallest, the first on a tie; a list of keys breaks ties in order) |
 | `json.gaz` | `json::decode`, `json::encode` |
 | `csv.gaz` | `csv::parse`, `csv::records` (RFC 4180) |
 | `chars.gaz` | `chars::char_at`, `chars::is_digit`, `chars::is_alpha`, `chars::is_alnum`, `chars::is_space`, `chars::is_hex_digit`, `chars::span($s, $i, $predicate)` (how many characters from `$i` satisfy the predicate: `slice($s, $i, chars::span($s, $i, chars::is_digit))` is the number at `$i`) |

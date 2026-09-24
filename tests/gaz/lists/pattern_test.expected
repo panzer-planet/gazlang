@@ -1,0 +1,19 @@
+ok an empty first slot
+ok an empty middle slot
+ok an empty last slot
+ok several
+ok an empty slot counts as an element
+ok too few is the same error
+ok targets either side are assigned
+ok foreach with an empty slot
+ok with a key and a trailing slot
+ok a function parameter
+ok a lambda parameter in parentheses
+ok a constructor parameter
+ok a bare list pattern lambda
+ok in map
+ok with an empty slot
+ok with a block body
+ok nested lambdas
+ok it captures what a lambda does
+ok wrong size is the destructuring error
