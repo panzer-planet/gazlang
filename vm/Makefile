@@ -82,7 +82,7 @@ ifeq ($(PGO),1)
 	cd .. && export LLVM_PROFILE_FILE=$(abspath $(PGO_DIR))/%p.profraw && \
 	  vm/$(PGO_DIR)/gazlang -f compiler/gazlang.gaz -- code compiler/gazlang.gaz > /dev/null && \
 	  vm/$(PGO_DIR)/gazlang -f compiler/gazlang.gaz -- ast compiler/parser.gaz > /dev/null && \
-	  for f in examples/*.gaz; do vm/$(PGO_DIR)/gazlang -f $$f < /dev/null > /dev/null 2>&1 || true; done
+	  for f in examples/*.gaz tests/programs/*.gaz; do vm/$(PGO_DIR)/gazlang -f $$f < /dev/null > /dev/null 2>&1 || true; done
 	$(PGO_MERGE)
 	$(CC) $(FLAGS) -O2 $(PGO_USE) -o $(PGO_DIR)/gazlang $(SOURCES) $(COMPILER) $(LIBS)
 	cp $(PGO_DIR)/gazlang $@

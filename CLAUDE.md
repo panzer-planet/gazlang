@@ -16,10 +16,10 @@ make -C vm
 make -C vm PGO=0
 
 # Run a file, print its bytecode, run bytecode, or print its tokens or tree
-bin/gazlang -f examples/functions.gaz
-bin/gazlang -c -f examples/functions.gaz > /tmp/f.gzb && bin/gazlang -f /tmp/f.gzb
-bin/gazlang --tokens -f examples/functions.gaz
-bin/gazlang --ast -f examples/functions.gaz
+bin/gazlang -f tests/programs/functions.gaz
+bin/gazlang -c -f tests/programs/functions.gaz > /tmp/f.gzb && bin/gazlang -f /tmp/f.gzb
+bin/gazlang --tokens -f tests/programs/functions.gaz
+bin/gazlang --ast -f tests/programs/functions.gaz
 
 # After changing compiler/, rebuild the compiler gazlang has built in, with gazlang alone
 # (a test fails until then; see "Changing the compiler")
@@ -47,8 +47,8 @@ php vm/progress.php [FILTER] [--update]
 GAZLANG_RECORD=1 vendor/bin/phpunit --filter 'SelfHosted|CliTest'
 
 # The self-hosted front end from its source; without a file it reads piped source
-bin/gazlang -f compiler/gazlang.gaz -- code examples/functions.gaz
-bin/gazlang -f compiler/gazlang.gaz -- ast < examples/errors.gaz
+bin/gazlang -f compiler/gazlang.gaz -- code tests/programs/functions.gaz
+bin/gazlang -f compiler/gazlang.gaz -- ast < tests/programs/errors.gaz
 
 # The C VM's coverage by the harness, its speed, and a build that collects cycles at every chance
 # (over an hour: collecting is quadratic, and the entries that compile the compiler take longest)
@@ -83,7 +83,8 @@ vendor/bin/pint                     # formatting
   mean (operators, truthiness, printing, keys, indexing, write paths), `builtins.c` the builtins
   and their arities (`builtin_info[]`), `load.c` reading and checking bytecode, `vm.c` running it
   and the CLI, `gc.c` the cycle collector, `net.c` sockets and TLS, `term.c` raw mode and keys.
-- `lib/`: the standard library in GazLang. `examples/`: sample programs.
+- `lib/`: the standard library in GazLang. `examples/`: sample programs that nothing tests
+  (see "Programs are tests or examples"). `tests/programs/`: programs the tests do run.
 - `tests/`: PHPUnit, `tests/gaz/` (GazLang programs), `tests/expected/` (what every program
   prints), and the corpora: `lexer_corpus/`, `parser_corpus/`, `codegen_corpus/`, `vm_corpus/`,
   `bytecode_corpus/`, `cli/`, `json/`, `csv/`.
@@ -145,6 +146,15 @@ nothing**: several first versions of a harness or corpus passed everything and c
   `json_decode` on `tests/json/y_*`/`n_*` (the prefix says whether it must parse), `lib/csv.gaz`
   against `fgetcsv` on `tests/csv/`, `lib/chars.gaz` against the lexer's classes for all 256
   bytes.
+- **Programs are tests or examples, not both**: a program in `tests/programs/` is checked: run
+  under the sanitizers and leak check with its output recorded (`CVMTest`), given arguments and
+  input by its own test (`FootballTest`, `CsvTest`, `HttpTest`), compiled by `BytecodeTest` and
+  mutated by the fuzzer. A program in `examples/` is none of these, so it can be written for a
+  reader (it may need a terminal, the network or a long run) without the cost of a test, and it may
+  stop working without anything saying so. Only the PGO training runs it, and that ignores
+  failures. When an example needs to keep working, or is worth running under the sanitizers as a
+  big program, move it to `tests/programs/` and give it a test; `functions.gaz` and `errors.gaz`
+  are there because CI and these docs use them as inputs.
 - **The README's examples are tests**: `ReadmeTest` runs every ```` ```gaz ```` block followed
   by an output block and requires exactly that output.
 
@@ -245,7 +255,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     `$x == null ? null : $x.foo` every time.
   - `$obj.$name` (dynamic member access; `lib/sorting.gaz` can sort maps but not objects),
     `json_encode` of an object (`fields()` lists what it would write; `to_string()` and cycles
-    to settle; `examples/football.gaz`'s save hit it and writes `to_data()` by hand; the
+    to settle; `tests/programs/football.gaz`'s save hit it and writes `to_data()` by hand; the
     likeliest fix is a callback, `json::encode($value, $o -> $o.to_data())`, GazLang only and
     leaking nothing private, since a kind rebuilds itself with its own `from_data()` anyway), and `kind_name($kind)` (the bare name; today `slice(to_string(kind_of($x)),
     5)`).
@@ -1041,7 +1051,7 @@ vm/bench.php`: CPU time, interleaved, best of several).
 - **PGO is the default where the toolchain has it** (gcc, or clang with `llvm-profdata`), and
   plain `-O2` where it doesn't, so the bootstrap still needs only a C compiler: it makes every
   benchmark faster, by more than the layout noise and on both layouts, for about 5s more per
-  build. It trains on the compiler and `examples/`, never `vm/bench`, so the benchmarks stay an
+  build. It trains on the compiler, `examples/` and `tests/programs/`, never `vm/bench`, so the benchmarks stay an
   honest test; `bench.php` times whichever build `bin/gazlang` is, so compare a change with
   both builds PGO (or both `PGO=0`). `-O3` was a wash and `-flto` slower.
 - **Why C**: over Rust, Zig and Go, since the heap (refcounts plus a cycle collector) is unsafe

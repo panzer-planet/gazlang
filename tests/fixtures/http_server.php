@@ -73,7 +73,7 @@ function respond(string $method, string $uri, array $headers, string $body, stri
         '/truncated' => "HTTP/1.1 200 OK\r\nContent-Length: 10\r\n\r\nshort",
         '/garbage' => "hello\r\n\r\n",
         '/silent' => '',
-        // catfact.ninja's API, for examples/cat_facts.gaz
+        // catfact.ninja's API, for tests/programs/cat_facts.gaz
         '/fact' => $ok(json_encode(catFact((int) ($query['max_length'] ?? PHP_INT_MAX)) ?? (object) []), 'application/json'),
         '/facts' => $ok(json_encode(catFacts((int) ($query['limit'] ?? 10), (int) ($query['page'] ?? 1), (int) ($query['max_length'] ?? PHP_INT_MAX), $address)), 'application/json'),
         default => $ok(json_encode(['method' => $method, 'uri' => $uri, 'headers' => $headers, 'body' => $body], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), 'application/json'),

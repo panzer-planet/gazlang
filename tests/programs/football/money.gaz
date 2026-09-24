@@ -1,7 +1,7 @@
 // Money: what players are worth, what clubs earn and pay, and the summer transfer window
 namespace money;
 
-include "../../lib/lists.gaz" use max_by, min_by;
+include "../../../lib/lists.gaz" use max_by, min_by;
 
 // A player's transfer value in pounds: ability counts for most, and youth for more than age
 pub fn value($player) {

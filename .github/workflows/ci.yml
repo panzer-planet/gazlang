@@ -23,7 +23,7 @@ jobs:
       - name: Build gazlang without TLS
         run: |
           make -C vm TLS=0
-          bin/gazlang -f examples/functions.gaz
+          bin/gazlang -f tests/programs/functions.gaz
           echo 'socket_open("localhost", 1, true);' | bin/gazlang 2>&1 | grep -q 'TLS is not built in'
       - name: Install OpenSSL
         if: runner.os == 'Linux'
@@ -31,7 +31,7 @@ jobs:
       - name: Build gazlang
         run: make -C vm
       - name: Run a program
-        run: bin/gazlang -f examples/functions.gaz
+        run: bin/gazlang -f tests/programs/functions.gaz
       - name: Rebuild the compiler with gazlang
         run: make -C vm compiler && git diff --exit-code compiler/gazlang.gzb
 

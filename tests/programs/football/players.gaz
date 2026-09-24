@@ -1,7 +1,7 @@
 // Players: a rating from 40 to 95, and every position turns it into attacking and defending
 namespace players;
 
-include "../../lib/random.gaz";
+include "../../../lib/random.gaz";
 
 pub abstract kind Player {
     kin #energy = 100;

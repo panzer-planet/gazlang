@@ -3,7 +3,7 @@
 namespace GazLang\Tests;
 
 /**
- * lib/csv.gaz against PHP's fgetcsv, and examples/csv_report.gaz end to end
+ * lib/csv.gaz against PHP's fgetcsv, and tests/programs/csv_report.gaz end to end
  *
  * tests/csv/y_*.csv must parse to the same rows as fgetcsv (with no escape character,
  * as RFC 4180 has none, and without the [null] rows fgetcsv gives blank lines);
@@ -17,7 +17,7 @@ class CsvTest extends GazLangTestCase
         foreach (glob(self::ROOT.'/tests/csv/*.csv') as $path) {
             $documents[basename($path)] = ['tests/csv/'.basename($path)];
         }
-        $documents['sales.csv'] = ['examples/data/sales.csv'];
+        $documents['sales.csv'] = ['tests/programs/data/sales.csv'];
 
         return $documents;
     }
@@ -71,12 +71,12 @@ class CsvTest extends GazLangTestCase
 
             TEXT;
 
-        $this->assertSame([$expected, 0], $this->runProgram('examples/csv_report.gaz'));
+        $this->assertSame([$expected, 0], $this->runProgram('tests/programs/csv_report.gaz'));
     }
 
     public function test_report_groups_by_any_column_and_keeps_line_breaks_out_of_the_table()
     {
-        [$output] = $this->runProgram('examples/csv_report.gaz', ['examples/data/sales.csv', 'product', 'amount']);
+        [$output] = $this->runProgram('tests/programs/csv_report.gaz', ['tests/programs/data/sales.csv', 'product', 'amount']);
 
         $this->assertStringContainsString("\nService plan (12 months)     1     480.00    480.00\n", $output);
         // Equal totals keep the order they first appeared in
@@ -88,9 +88,9 @@ class CsvTest extends GazLangTestCase
      */
     public function test_report_errors(array $args, string $message)
     {
-        $usage = "Usage: bin/gazlang -f examples/csv_report.gaz -- FILE GROUP_COLUMN AMOUNT_COLUMN\n";
+        $usage = "Usage: bin/gazlang -f tests/programs/csv_report.gaz -- FILE GROUP_COLUMN AMOUNT_COLUMN\n";
 
-        $this->assertSame([$usage."Error: {$message}\n", 1], $this->runProgram('examples/csv_report.gaz', $args));
+        $this->assertSame([$usage."Error: {$message}\n", 1], $this->runProgram('tests/programs/csv_report.gaz', $args));
     }
 
     public static function reportErrors(): array
@@ -98,7 +98,7 @@ class CsvTest extends GazLangTestCase
         return [
             'wrong argument count' => [['a.csv'], 'expected 3 arguments, got 1'],
             'missing file' => [['nope.csv', 'a', 'b'], 'Cannot read file: nope.csv'],
-            'unknown column' => [['examples/data/sales.csv', 'regin', 'amount'], 'examples/data/sales.csv has no column "regin" (columns: date, region, product, amount)'],
+            'unknown column' => [['tests/programs/data/sales.csv', 'regin', 'amount'], 'tests/programs/data/sales.csv has no column "regin" (columns: date, region, product, amount)'],
             'invalid CSV' => [['tests/csv/n_unclosed_quote.csv', 'a', 'b'], 'CSV error on line 2: quoted field is never closed'],
             'ragged row' => [['tests/csv/y_ragged_rows.csv', 'a', 'b'], 'CSV error in row 3: 1 field, but the header has 2'],
             'not a number' => [['tests/csv/y_simple.csv', 'age', 'name'], 'row 2: name "Ada" is not a number'],

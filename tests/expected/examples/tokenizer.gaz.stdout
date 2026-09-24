@@ -1,8 +1,0 @@
-1: name fn
-1: name greet
-1: operator (
-1: name name
-1: operator )
-1: operator {
-...
-23 tokens: {"name" => 5, "operator" => 12, "keyword" => 3, "string" => 3}

@@ -51,7 +51,7 @@ foreach (glob('vm/bench/gaz/*.gaz') as $file) {
         $cases[$name]['py'] = [$python, "vm/bench/python/{$name}.py"];
     }
 }
-foreach (['compiler/gazlang.gaz code examples/football.gaz', 'compiler/gazlang.gaz ast compiler/codegen.gaz', 'compiler/gazlang.gaz tokens compiler/codegen.gaz', 'examples/football.gaz'] as $workload) {
+foreach (['compiler/gazlang.gaz code tests/programs/football.gaz', 'compiler/gazlang.gaz ast compiler/codegen.gaz', 'compiler/gazlang.gaz tokens compiler/codegen.gaz', 'tests/programs/football.gaz'] as $workload) {
     $args = explode(' ', $workload);
     $file = array_shift($args);
     $gzb = 'vm/build/bench/'.basename($file, '.gaz').'.gzb';

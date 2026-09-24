@@ -2,18 +2,18 @@
  * Cat facts from https://catfact.ninja, a free API that needs no key: lib/http.gaz and
  * lib/json.gaz at work.
  *
- *   bin/gazlang -f examples/cat_facts.gaz -- random            a random fact
- *   bin/gazlang -f examples/cat_facts.gaz -- random 3 60       three, none over 60 characters
- *   bin/gazlang -f examples/cat_facts.gaz -- list 25           the first 25, fetched page by page
- *   bin/gazlang -f examples/cat_facts.gaz -- list 25 60        the first 25 of at most 60
+ *   bin/gazlang -f tests/programs/cat_facts.gaz -- random            a random fact
+ *   bin/gazlang -f tests/programs/cat_facts.gaz -- random 3 60       three, none over 60 characters
+ *   bin/gazlang -f tests/programs/cat_facts.gaz -- list 25           the first 25, fetched page by page
+ *   bin/gazlang -f tests/programs/cat_facts.gaz -- list 25 60        the first 25 of at most 60
  *
  * --api URL, before the command, asks another server with the same API (the tests run one).
  * Without a command it prints this usage and fetches nothing.
  */
 
-include "../lib/http.gaz";
-include "../lib/json.gaz";
-include "../lib/format.gaz";
+include "../../lib/http.gaz";
+include "../../lib/json.gaz";
+include "../../lib/format.gaz";
 
 const API = "https://catfact.ninja";
 const PAGE_SIZE = 10;
@@ -75,8 +75,8 @@ fn number_argument($arguments, $i, $default) {
 }
 
 fn usage() {
-    echo "Usage: bin/gazlang -f examples/cat_facts.gaz -- [--api URL] random [COUNT [MAX_LENGTH]]";
-    echo "       bin/gazlang -f examples/cat_facts.gaz -- [--api URL] list COUNT [MAX_LENGTH]";
+    echo "Usage: bin/gazlang -f tests/programs/cat_facts.gaz -- [--api URL] random [COUNT [MAX_LENGTH]]";
+    echo "       bin/gazlang -f tests/programs/cat_facts.gaz -- [--api URL] list COUNT [MAX_LENGTH]";
 }
 
 $arguments = args();

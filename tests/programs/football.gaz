@@ -3,7 +3,7 @@
  * on the opening match, every matchday's scores, the final table and the top scorers; or,
  * over several seasons or divisions, a pyramid of leagues with promotion and relegation.
  *
- *   bin/gazlang -f examples/football.gaz -- [CLUBS] [SEED] [--seasons N] [--divisions N]
+ *   bin/gazlang -f tests/programs/football.gaz -- [CLUBS] [SEED] [--seasons N] [--divisions N]
  *                                             [--save FILE] [--load FILE]
  *
  * CLUBS is how many clubs play in each division, from 2 to 20 (4 by default), taken from the
@@ -19,15 +19,15 @@
  * the squads are always the same, and the same seed always plays the same seasons. Seasons
  * are named from 2026/27 whatever the seed; the Nth is played with SEED + N - 1.
  */
-include "../lib/format.gaz" use pad_left, pad_right;
+include "../../lib/format.gaz" use pad_left, pad_right;
 include "football/players.gaz" use Goalkeeper;
 include "football/teams.gaz" use InvalidLineup, Team, Formation, Scout;
 include "football/matches.gaz" use Fixture;
 include "football/league.gaz" use League, Commentator;
 include "football/money.gaz";
 include "football/cup.gaz" use Cup;
-include "../lib/lists.gaz" use flatten, max_by, min_by;
-include "../lib/json.gaz";
+include "../../lib/lists.gaz" use flatten, max_by, min_by;
+include "../../lib/json.gaz";
 
 // The clubs, strongest first: name, level (the squad's typical rating) and formation. The
 // first CLUBS make the First Division, the next CLUBS the Second, and so on down
@@ -81,7 +81,7 @@ fn season_name($year) {
 
 // Print the usage and the problem, and stop with exit code 1
 fn fail($message) {
-    echo "Usage: bin/gazlang -f examples/football.gaz -- [CLUBS] [SEED] [--seasons N] [--divisions N] [--save FILE] [--load FILE]";
+    echo "Usage: bin/gazlang -f tests/programs/football.gaz -- [CLUBS] [SEED] [--seasons N] [--divisions N] [--save FILE] [--load FILE]";
     echo "Error: {$message}";
     exit(1);
 }

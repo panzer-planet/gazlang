@@ -103,7 +103,7 @@ final class CVM
         chdir(self::ROOT);
         try {
             $files = [];
-            foreach (['examples', 'lib', 'compiler', 'tests/gaz', 'tests/fixtures', 'tests/codegen_corpus', 'tests/parser_corpus', 'tests/lexer_corpus', 'tests/vm_corpus'] as $dir) {
+            foreach (['tests/programs', 'lib', 'compiler', 'tests/gaz', 'tests/fixtures', 'tests/codegen_corpus', 'tests/parser_corpus', 'tests/lexer_corpus', 'tests/vm_corpus'] as $dir) {
                 $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS));
                 foreach ($it as $path) {
                     if (str_ends_with((string) $path, '.gaz')) {

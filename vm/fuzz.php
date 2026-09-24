@@ -284,14 +284,14 @@ function tokens(string $text): array
 }
 
 /**
- * The programs to mutate: every GazLang file under tests/ and examples/, and the snippets, each
+ * The programs to mutate: every GazLang file under tests/, and the snippets, each
  * with the directory its includes resolve against, sorted so a seed picks the same ones
  *
  * @return list<array{0: string, 1: string}> The text and its directory
  */
 function seeds(): array
 {
-    $files = [...glob(CVM::ROOT.'/examples/*.gaz') ?: []];
+    $files = [];
     $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(CVM::ROOT.'/tests', FilesystemIterator::SKIP_DOTS));
     foreach ($it as $path) {
         if (str_ends_with((string) $path, '.gaz')) {

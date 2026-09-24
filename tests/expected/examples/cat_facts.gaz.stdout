@@ -1,2 +1,0 @@
-Usage: bin/gazlang -f examples/cat_facts.gaz -- [--api URL] random [COUNT [MAX_LENGTH]]
-       bin/gazlang -f examples/cat_facts.gaz -- [--api URL] list COUNT [MAX_LENGTH]

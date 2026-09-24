@@ -3,7 +3,7 @@
 namespace GazLang\Tests;
 
 /**
- * examples/football.gaz with arguments: every invocation in the table must print what
+ * tests/programs/football.gaz with arguments: every invocation in the table must print what
  * tests/football/expected records for it, standard output and exit code (the run with none is
  * CVMTest's, as every example's is). GAZLANG_RECORD=1 records what it prints instead, for
  * review as a diff.
@@ -45,7 +45,7 @@ class FootballTest extends GazLangTestCase
      */
     public function test_football_prints_what_is_recorded(string $name)
     {
-        [$out, $code] = $this->runProgram('examples/football.gaz', self::CASES[$name]);
+        [$out, $code] = $this->runProgram('tests/programs/football.gaz', self::CASES[$name]);
         $base = self::expected($name);
         if (getenv('GAZLANG_RECORD') !== false) {
             CVM::recordAt($base, [$out, '', $code]);
@@ -63,10 +63,10 @@ class FootballTest extends GazLangTestCase
         // loaded, so a summer is played from what was loaded: only a summer spends money
         $file = sys_get_temp_dir().'/football_career_'.getmypid().'.json';
         try {
-            [$whole] = $this->runProgram('examples/football.gaz', ['6', '--seasons', '4', '--divisions', '2']);
-            [$first, $code] = $this->runProgram('examples/football.gaz', ['6', '--seasons', '2', '--divisions', '2', '--save', $file]);
+            [$whole] = $this->runProgram('tests/programs/football.gaz', ['6', '--seasons', '4', '--divisions', '2']);
+            [$first, $code] = $this->runProgram('tests/programs/football.gaz', ['6', '--seasons', '2', '--divisions', '2', '--save', $file]);
             $this->assertSame(0, $code, $first);
-            [$rest, $code] = $this->runProgram('examples/football.gaz', ['--load', $file, '--seasons', '2']);
+            [$rest, $code] = $this->runProgram('tests/programs/football.gaz', ['--load', $file, '--seasons', '2']);
             $this->assertSame(0, $code, $rest);
 
             $third = strpos($whole, 'Season 2028/29');

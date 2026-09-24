@@ -1,7 +1,7 @@
 // Teams: an eleven in a formation, and the scout who makes them up
 namespace teams;
 
-include "../../lib/random.gaz";
+include "../../../lib/random.gaz";
 include "players.gaz" use Goalkeeper, Defender, Midfielder, Forward;
 
 pub kind InvalidLineup extends Error {

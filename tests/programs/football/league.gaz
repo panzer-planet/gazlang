@@ -1,8 +1,8 @@
 // A league: everyone plays everyone home and away
 namespace league;
 
-include "../../lib/format.gaz" use pad_left, pad_right;
-include "../../lib/random.gaz";
+include "../../../lib/format.gaz" use pad_left, pad_right;
+include "../../../lib/random.gaz";
 include "players.gaz" use Goalkeeper;
 include "matches.gaz" use Fixture;
 

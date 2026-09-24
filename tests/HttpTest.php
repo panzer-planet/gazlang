@@ -268,7 +268,7 @@ class HttpTest extends GazLangTestCase
 
     public function test_the_cat_facts_example_pages_through_the_api()
     {
-        $run = fn (string ...$args) => $this->runProgram('examples/cat_facts.gaz', ['--api', self::$url, ...$args]);
+        $run = fn (string ...$args) => $this->runProgram('tests/programs/cat_facts.gaz', ['--api', self::$url, ...$args]);
         $fact = fn (int $n) => "Fact {$n}".str_repeat('!', $n);
 
         // Two pages of ten

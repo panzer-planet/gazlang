@@ -55,7 +55,7 @@ class ReadmeTest extends GazLangTestCase
             // include paths in the README are written from the project root
             $code = str_replace('include "lib/', 'include "'.realpath(self::ROOT).'/lib/', $code);
             // The one block that reads a file names it in the prose above it
-            $args = str_contains($code, 'sales.csv') ? [realpath(self::ROOT).'/examples/data/sales.csv'] : [];
+            $args = str_contains($code, 'sales.csv') ? [realpath(self::ROOT).'/tests/programs/data/sales.csv'] : [];
             // The trace block prints its own filename, so it has to be written under that name
             $name = str_contains($expected, 'trace.gaz') ? 'trace' : "block_{$i}";
             $blocks["block {$i}"] = [$name, $code, rtrim($expected, "\n"), $args];

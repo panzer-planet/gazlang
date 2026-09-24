@@ -1,7 +1,7 @@
 /*
  * Functions, function values and closures.
  *
- *   bin/gazlang -f examples/functions.gaz
+ *   bin/gazlang -f tests/programs/functions.gaz
  */
 
 // Named functions live at the top level and can be called before they are declared.

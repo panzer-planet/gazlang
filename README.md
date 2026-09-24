@@ -62,8 +62,8 @@ bin/gazlang -f hello.gaz
 ```
 
 The build uses profile-guided optimisation when your compiler supports it (gcc, or clang with
-`llvm-profdata`, which Xcode's command line tools have): it runs gazlang on the compiler and the
-examples, then compiles it again knowing which code is hot, for a few to ten percent. Without
+`llvm-profdata`, which Xcode's command line tools have): it runs gazlang on the compiler and on
+sample programs, then compiles it again knowing which code is hot, for a few to ten percent. Without
 it you get a plain optimised build; `make -C vm PGO=0` asks for that.
 
 Then kick the tyres:
@@ -71,8 +71,8 @@ Then kick the tyres:
 ```bash
 bin/gazlang -f examples/pathfinding.gaz      # the fewest steps and the least effort across a map
 bin/gazlang -f examples/brainfuck.gaz        # a Brainfuck interpreter
-bin/gazlang -f examples/csv_report.gaz -- examples/data/sales.csv region amount
-bin/gazlang -f examples/cat_facts.gaz -- list 5   # from a web API, over HTTPS
+bin/gazlang -f tests/programs/csv_report.gaz -- tests/programs/data/sales.csv region amount
+bin/gazlang -f tests/programs/cat_facts.gaz -- list 5   # from a web API, over HTTPS
 ```
 
 Other ways to run it:
@@ -437,8 +437,12 @@ on real work: it compiles itself, all 4,400 lines, in about a quarter of a secon
 - **`examples/`** — runnable programs, from [`strings.gaz`](examples/strings.gaz) to
   [pathfinding](examples/pathfinding.gaz) with Dijkstra's algorithm, a
   [Brainfuck interpreter](examples/brainfuck.gaz), a
-  [Markdown converter](examples/markdown.gaz) and a 700 line
-  [football league simulator](examples/football.gaz).
+  [Markdown converter](examples/markdown.gaz) and a [terminal dashboard](examples/dashboard.gaz).
+  They are there to read and to run, and nothing tests them.
+- **`tests/programs/`** — bigger programs that the tests do run, so they still work: a 700 line
+  [football league simulator](tests/programs/football.gaz), a
+  [CSV report](tests/programs/csv_report.gaz) and a
+  [web API client](tests/programs/cat_facts.gaz).
 - **`lib/`** — the standard library, all of it written in GazLang.
 - **[docs/internals.md](docs/internals.md)** — how the compiler and VM fit
   together, and how to work on them.
