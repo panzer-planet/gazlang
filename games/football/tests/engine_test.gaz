@@ -381,3 +381,46 @@ foreach ([4, 5] as $count) {
     ], [1, 2 * len($matches), sum(map($matches, $m -> $m.home_goals + $m.away_goals))]);
     check("the results are in the fixtures ({$label})", $league.fixtures_of($matches[0].home)[0]["match"] == $matches[0], true);
 }
+
+/* ---- One matchday at a time, ended once ---- */
+$teams = clubs(4, 5);
+$league = League($teams);
+$first = $league.begin_matchday();
+try {
+    $league.begin_matchday();
+    check("a matchday can't begin while another is open", "no error", "an error");
+} catch (Error $e) {
+    check("a matchday can't begin while another is open", $e.message, "A matchday is already begun");
+}
+foreach ($first as $match) {
+    $match.play();
+}
+try {
+    $league.end_matchday([$first[0]]);
+    check("ending some other list of matches is refused", "no error", "an error");
+} catch (Error $e) {
+    check("ending some other list of matches is refused", $e.message, "These are not the matches of a matchday begun and not yet ended");
+}
+$league.end_matchday($first);
+$played_after_one = sum(map($league.table(), $row -> $row.played));
+try {
+    $league.end_matchday($first);
+    check("and ending it twice", "no error", "an error");
+} catch (Error $e) {
+    check("and ending it twice", $e.message, "These are not the matches of a matchday begun and not yet ended");
+}
+check("which leaves the table as it was", [$league.matchdays_played(), sum(map($league.table(), $row -> $row.played))], [1, $played_after_one]);
+$league.play_matchday();
+check("and the next matchday can go ahead", $league.matchdays_played(), 2);
+$never = League(clubs(4, 6));
+try {
+    $never.end_matchday([]);
+    check("nothing begun, nothing to end", "no error", "an error");
+} catch (Error $e) {
+    check("nothing begun, nothing to end", $e.message, "These are not the matches of a matchday begun and not yet ended");
+}
+$again = League(clubs(4, 7));
+$again.begin_matchday();
+$again.draw();
+$started = $again.begin_matchday();
+check("drawing a new season lets a matchday begin again", len($started), 2);

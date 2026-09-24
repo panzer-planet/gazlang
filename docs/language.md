@@ -770,7 +770,8 @@ with no terminal.
   same one to each, since keys typed ahead are in it and a new one for each screen would lose them.
   With `$tick`, time passes: when no key has been pressed for `$interval` seconds `$tick()` is called
   and the screen drawn again, so it can move by itself (a clock, a match being played), and `$tick`
-  ends the screen as `$handle` does. The lambdas share state through `shared` variables, or an
+  ends the screen as `$handle` does. Each key starts the wait again, so a key held down stops time:
+  there is no clock to keep a deadline by. The lambdas share state through `shared` variables, or an
   object as `examples/dashboard.gaz` does. **`tui::choose($items, $title = "", $input = null)`**
   (the index picked, or `null` if cancelled or there is nothing to pick) and
   **`tui::ask($question, $initial = "", $input = null)`** (the answer, or `null`) are a

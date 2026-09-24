@@ -80,4 +80,4 @@ if process.poll() is None:
 else:
     code = process.returncode
 pump(0.1)
-print(json.dumps({"before": before, "during": during, "after": modes(slave), "code": code, "out": out.decode("utf-8", errors="replace")}))
+print(json.dumps({"before": before, "during": during, "after": modes(slave), "code": code, "out": out.decode("utf-8", errors="backslashreplace")}))

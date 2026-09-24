@@ -703,6 +703,8 @@ pub kind TextField {
  * With $tick, time passes too: when no key has been pressed for $interval seconds, $tick() is
  * called and the screen drawn again, so a screen can move by itself (a clock, a match being
  * played). It ends the screen as $handle does, by giving something other than null.
+ * ponytail: the wait starts again with each key, so a key held down (auto-repeat) stops time; a
+ * deadline needs a clock, which the language doesn't have.
  */
 pub fn interact($draw, $handle, $input = null, $tick = null, $interval = 0.25) {
     $input ??= term::Input();

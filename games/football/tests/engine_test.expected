@@ -452,3 +452,10 @@ ok and nothing was recorded (5 clubs)
 ok every match is over (5 clubs)
 ok ending it records the results (5 clubs)
 ok the results are in the fixtures (5 clubs)
+ok a matchday can't begin while another is open
+ok ending some other list of matches is refused
+ok and ending it twice
+ok which leaves the table as it was
+ok and the next matchday can go ahead
+ok nothing begun, nothing to end
+ok drawing a new season lets a matchday begin again

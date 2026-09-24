@@ -47,6 +47,8 @@ pub kind League {
        so far, a list of matchdays each a list of Fixtures */
     #schedule = [];
     #played = [];
+    /* The matches of the matchday begun and not yet ended, or null */
+    #open = null;
 
     // Every club plays every other club twice, home and away
     pub static fn matches_for($clubs) { return $clubs * ($clubs - 1); }
@@ -96,6 +98,7 @@ pub kind League {
         }
         #schedule = #fixtures();
         #played = [];
+        #open = null;
         return #;
     }
 
@@ -127,14 +130,18 @@ pub kind League {
     }
 
     /* Start the next matchday and give its matches, none of them played yet: each is made, given
-       to $kick_off($match) if there is one (which is when to attach a listener), and made ready.
-       Play them a minute at a time with tick(), or with play(), and then end_matchday() with them. */
+       to $kick_off($match) if there is one (which is when to attach a listener), and made ready,
+       all of them before any is played. Play them a minute at a time with tick(), or with play(),
+       and then end_matchday() with them. One matchday at a time. */
     pub fn begin_matchday($kick_off = null) {
         if (len(#schedule) == 0) {
             #draw();
         }
         if (#matchdays_left() == 0) {
             error("The season is over");
+        }
+        if (#open != null) {
+            error("A matchday is already begun");
         }
         $matches = [];
         foreach (#schedule[len(#played)] as [$home, $away]) {
@@ -144,12 +151,17 @@ pub kind League {
             }
             $matches[] = $match.start();
         }
+        #open = $matches;
 
         return $matches;
     }
 
-    /* The matchday's matches are over: their results go in the table and the fixtures */
+    /* The matchday's matches are over: their results go in the table and the fixtures. These
+       have to be the matches begin_matchday() gave, and once. */
     pub fn end_matchday($matches) {
+        if (#open == null || $matches != #open) {
+            error("These are not the matches of a matchday begun and not yet ended");
+        }
         foreach ($matches as $match) {
             if (!$match.finished()) {
                 error("A match is still being played");
@@ -167,12 +179,13 @@ pub kind League {
             }
         }
         #played[] = $matches;
+        #open = null;
 
         return $matches;
     }
 
     /* Play the next matchday through and give its matches; $kick_off($match), if given, is called
-       as each starts, before it is played */
+       for each when the matchday begins, before any is played */
     pub fn play_matchday($kick_off = null) {
         $matches = #begin_matchday($kick_off);
         foreach ($matches as $match) {
@@ -182,8 +195,9 @@ pub kind League {
         return #end_matchday($matches);
     }
 
-    /* Play what is left of the season; $kick_off($match) is called as each match starts, and
-       $after_matchday($number, $matches) after each matchday */
+    /* Play what is left of the season; $kick_off($match) is called for each match when its matchday
+       begins, before any of that matchday is played, and $after_matchday($number, $matches) after
+       each matchday */
     pub fn play_season($kick_off, $after_matchday) {
         while (#matchdays_left() > 0 || len(#schedule) == 0) {
             $matches = #play_matchday($kick_off);

@@ -149,8 +149,10 @@ pub kind Game {
         if (#live != null) {
             error("A matchday is already being played");
         }
-        #live = MatchDay(#club);
-        #league.begin_matchday(#live.attach);
+        // Live only once the league has begun it, so a matchday that couldn't begin isn't left half made
+        $day = MatchDay(#club);
+        #league.begin_matchday($day.attach);
+        #live = $day;
 
         return #live;
     }
