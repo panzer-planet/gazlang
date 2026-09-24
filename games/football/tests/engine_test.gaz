@@ -62,14 +62,10 @@ kind Log {
     }
 }
 
-/* Collects what happens in a match */
-kind Recorder {
-    pub #events = [];
-
-    pub fn hear($event) {
-        #events[] = $event;
-    }
-}
+/* What happens in a match, collected as it goes: give a match $hear as its listener, and start
+   from $heard = []; before each */
+shared $heard = [];
+$hear = $event -> { $heard[] = $event; };
 
 /* ---- Squads ---- */
 $squad = clubs(1, 1)[0];
@@ -163,10 +159,10 @@ for ($age = 17; $age <= 37; $age++) {
 /* ---- A match ---- */
 foreach (SEEDS as $seed) {
     [$home, $away] = clubs(2, $seed);
-    $recorder = Recorder();
+    $heard = [];
     $before = Fixture::matches_played;
-    $match = Fixture($home, $away).on_event($recorder.hear).play();
-    $events = $recorder.events;
+    $match = Fixture($home, $away).on_event($hear).play();
+    $events = $heard;
     check("a fixture is counted (seed {$seed})", Fixture::matches_played, $before + 1);
     check("the score is the goals scored (seed {$seed})", [
         count_where($events, $e -> is_a($e, Goal) && $e.team == $home),
@@ -183,11 +179,11 @@ foreach (SEEDS as $seed) {
 
 foreach (SEEDS as $seed) {
     [$home, $away] = clubs(2, $seed);
-    $recorder = Recorder();
-    Fixture($home, $away).on_event($recorder.hear).play().extra_time();
-    $whistles = map(filter($recorder.events, $e -> is_a($e, Whistle)), $e -> $e.minute);
+    $heard = [];
+    Fixture($home, $away).on_event($hear).play().extra_time();
+    $whistles = map(filter($heard, $e -> is_a($e, Whistle)), $e -> $e.minute);
     check("extra time ends on its own whistle (seed {$seed})", $whistles, [45, 90, 120]);
-    $minutes = map($recorder.events, $e -> $e.minute);
+    $minutes = map($heard, $e -> $e.minute);
     check("and the events are still in order (seed {$seed})", $minutes, sort($minutes, ($a, $b) -> $a <=> $b));
     rand_seed($seed);
     [$scored_home, $scored_away] = Fixture($home, $away).penalties();
@@ -253,9 +249,9 @@ foreach ([4, 5] as $count) {
         check("its results are in the fixtures ({$label})", [$league.fixtures_of($home)[0]["matchday"], $league.fixtures_of($home)[0]["match"] == $first[0]], [1, true]);
 
         /* kick_off is when a listener can be attached: it hears the match only if it comes first */
-        $recorder = Recorder();
-        $second = $league.play_matchday($match -> $match.on_event($recorder.hear));
-        check("a listener attached at kick off hears the match ({$label})", count_where($recorder.events, $e -> is_a($e, Whistle)), 2 * len($second));
+        $heard = [];
+        $second = $league.play_matchday($match -> $match.on_event($hear));
+        check("a listener attached at kick off hears the match ({$label})", count_where($heard, $e -> is_a($e, Whistle)), 2 * len($second));
 
         $league.play_season($log.kick_off, $log.after_matchday);
         check("play_season plays what is left ({$label})", [$league.matchdays_left(), $league.matchdays_played()], [0, $days]);
