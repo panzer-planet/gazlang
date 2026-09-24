@@ -150,6 +150,40 @@ class TermTest extends GazLangTestCase
         $this->assertSame(['echo' => true, 'icanon' => true, 'isig' => true], $ran['after']);
     }
 
+    public function test_choose_draws_a_menu_and_gives_the_index_picked()
+    {
+        $root = self::ROOT;
+        $program = "include \"{$root}/lib/tui.gaz\"; echo to_string([tui::choose([\"red\", \"green\", \"blue\"], \"Colour\")]);";
+
+        // down, then enter
+        $ran = $this->onTerminal($program, '1b5b420d');
+        $this->assertSame(0, $ran['code']);
+        $this->assertStringContainsString('Colour', $ran['out']);
+        $this->assertStringContainsString('> red', $ran['out']);
+        $this->assertStringContainsString('> green', $ran['out']);
+        $this->assertStringEndsWith("\e[?1049l[1]\r\n", $ran['out']);
+        $this->assertSame(['echo' => true, 'icanon' => true, 'isig' => true], $ran['after']);
+
+        // escape on its own is a cancel, once it has waited for the rest of a sequence that never came
+        $this->assertStringEndsWith("\e[?1049l[null]\r\n", $this->onTerminal($program, '1b')['out']);
+        // ctrl+c is a key here, not a signal
+        $this->assertStringEndsWith("\e[?1049l[null]\r\n", $this->onTerminal($program, '03')['out']);
+    }
+
+    public function test_ask_edits_a_line_and_gives_it_on_enter()
+    {
+        $root = self::ROOT;
+        $program = "include \"{$root}/lib/tui.gaz\"; echo to_string([tui::ask(\"Name?\", \"Wer\")]);";
+
+        // "ner" typed after "Wer", a backspace, then enter
+        $ran = $this->onTerminal($program, bin2hex('ner').'7f0d');
+        $this->assertSame(0, $ran['code']);
+        $this->assertStringContainsString('Name?', $ran['out']);
+        $this->assertStringEndsWith("\e[?1049l[\"Werne\"]\r\n", $ran['out']);
+
+        $this->assertStringEndsWith("\e[?1049l[null]\r\n", $this->onTerminal($program, '1b')['out']);
+    }
+
     /**
      * Run GazLang code on a pty, as tests/fixtures/pty_run.py does
      *

@@ -588,7 +588,11 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   `random.gaz` (`random::shuffle`, `random::pick`, `random::key`, `random::chance`,
   `random::weighted`), `term.gaz` (`term::style`, the cursor and screen sequences,
   `term::decode`, `term::Input`, `term::fullscreen`, on the terminal builtins; drawing functions
-  return their sequence, so a program prints them and a test compares them). Scan long strings with `index_of`, not a character at a time.
+  return their sequence, so a program prints them and a test compares them), `tui.gaz`
+  (`tui::Screen`, `tui::box`, `tui::label`, `tui::progress`, `tui::table`, `tui::Menu`,
+  `tui::TextField`, `tui::choose`, `tui::ask`, `tui::interact`; everything draws into a `Screen`, a grid
+  that `render()` diffs against what it last drew, so a program redraws it all every frame and a test
+  reads `lines()` without a terminal). Scan long strings with `index_of`, not a character at a time.
 
 ## Function values and closures
 

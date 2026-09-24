@@ -604,6 +604,7 @@ its names are reached with `::`; everything in `lib/` is written in GazLang:
 | `random.gaz` | `random::shuffle` (a shuffled copy of a list or string), `random::pick` (an element of a list or value of a map), `random::key`, `random::chance($p)`, `random::weighted` (from `[item, weight]` pairs) |
 | `regex.gaz` | `regex::matches($s, $pattern)` (full match), `regex::search($s, $pattern)` (found anywhere), `regex::find($s, $pattern)` (the start index, or null); literals, `.`, `* + ?`, `\|`, `(...)`, `[...]`/`[^...]` with ranges, `^ $`, `\` escapes; no captures, no backreferences, no backtracking |
 | `term.gaz` | `term::style`, cursor and screen sequences, `term::decode`, `term::Input`, `term::fullscreen`, on the terminal builtins; see below |
+| `tui.gaz` | `tui::Screen` (a grid of cells that renders only what changed), `tui::box`, `tui::label`, `tui::progress`, `tui::table`, `tui::Menu`, `tui::TextField`, `tui::choose`, `tui::ask`; see below |
 
 `http.gaz` returns
 `{"status" => 200, "headers" => {"content-type" => "text/html", ...}, "body" => "..."}`, with
@@ -648,7 +649,8 @@ compose with `..`; nothing in it needs a terminal but raw mode.
   screen that leaves the terminal as it was), `title`.
 - **`term::fullscreen($f)`** runs `$f` on a screen of its own in raw mode with the cursor hidden,
   and puts everything back however `$f` ends, an error included. It gives what `$f` gives.
-- **Measuring**: `term::strip($text)` is the text without its escape sequences, and
+- **Measuring**: `term::chars($text)` is the list of its characters (`split()` splits bytes),
+  `term::strip($text)` the text without its escape sequences, and
   `term::width($text)` the columns it takes, counting characters rather than bytes. A wide
   character (CJK, emoji) counts one where it takes two.
 - **Keys**: `term::decode($bytes, $flush = false)` turns what `term_read()` gave into
@@ -677,3 +679,37 @@ term::fullscreen(() -> {
     }
 });
 ```
+
+`tui.gaz` is widgets, on `term.gaz`. Nothing draws to the terminal directly: everything draws into
+a `tui::Screen`, a grid of cells (one character and one style each, columns and rows counted
+from 1), and `$screen.render()` gives the escape sequences that turn what the terminal shows into
+what the grid holds, and only those. A row that hasn't changed costs one comparison and one that
+has is redrawn from its first changed cell to its last, so a program clears and redraws its whole
+interface every frame without flicker. A test draws into a `Screen` and reads `$screen.lines()`,
+with no terminal.
+
+- **`tui::Screen($cols, $rows)`**: `put($col, $row, $text, $style = "")`, `fill($col, $row,
+  $width, $height, $char = " ", $style = "")`, `clear()`, `cursor($col, $row)` (where the
+  terminal's cursor goes after a render, shown only then), `render()`, `lines()` and
+  `cell($col, $row)` (`[character, style]`), `resize($cols, $rows)`, `fit()` (take the terminal's
+  size, `true` when it changed; nothing tells a program the window changed, so poll it each frame)
+  and `invalidate()` (draw everything at the next render). Drawing outside the screen is clipped.
+  A wide character (CJK, emoji) takes two columns but one cell.
+- **Drawing**: `tui::label($screen, $col, $row, $width, $text, $style = "", $align = "left")` (cut
+  off or padded to `$width`; `"left"`, `"center"`, `"right"`), `tui::box($screen, $col, $row,
+  $width, $height, $title = "", $style = "", $border = "single")` (`single`, `double`, `round`,
+  `heavy`, `ascii`; the inside is blanked), `tui::progress($screen, $col, $row, $width,
+  $fraction, $style = "green")` and `tui::table($screen, $col, $row, $headers, $rows, $style = "")`
+  (columns as wide as their widest cell, numbers on the right; gives the rows it took).
+- **`tui::Menu($items, $title = "")`** and **`tui::TextField($value = "")`** take keys
+  (`handle($key)`) and draw themselves (`draw(...)`). `handle` gives `"select"` or `"cancel"` for
+  a menu and `"submit"` or `"cancel"` for a field, and `null` for a key it dealt with itself: the
+  arrows, `j`/`k`, home and end, page up and down; typing, backspace, delete, the arrows, home and
+  end or ctrl+a and ctrl+e, ctrl+u and ctrl+k. `$menu.index()` and `$menu.item()` say what is
+  selected and `$field.value()` what was typed.
+- **`tui::interact($draw, $handle)`** runs `$draw($screen)` and `$handle($key)` on a screen of its
+  own until `$handle` gives something other than `null`, which is what it gives (`null` too
+  when the input ends). Two lambdas can't share a variable they change, so the state lives in an
+  object; `examples/dashboard.gaz` is one. **`tui::choose($items, $title = "")`** (the index
+  picked, or `null`) and **`tui::ask($question, $initial = "")`** (the answer, or `null`) are a
+  `Menu` and a `TextField` run that way, in the middle of the screen. All three need a terminal.

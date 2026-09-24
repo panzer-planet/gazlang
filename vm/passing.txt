@@ -7,6 +7,7 @@ examples/brainfuck.gaz
 examples/cat_facts.gaz
 examples/collections.gaz
 examples/csv_report.gaz
+examples/dashboard.gaz
 examples/errors.gaz
 examples/football.gaz
 examples/football/cup.gaz
@@ -32,6 +33,7 @@ lib/random.gaz
 lib/regex.gaz
 lib/sorting.gaz
 lib/term.gaz
+lib/tui.gaz
 snippet:00661fc241b6
 snippet:00969dd8d0a4
 snippet:00bccbc15316
@@ -768,6 +770,7 @@ tests/gaz/lib/json_test.gaz
 tests/gaz/lib/regex_test.gaz
 tests/gaz/lib/sorting_test.gaz
 tests/gaz/lib/term_test.gaz
+tests/gaz/lib/tui_test.gaz
 tests/gaz/lists/delete_test.gaz
 tests/gaz/loops/foreach_test.gaz
 tests/gaz/match/match_test.gaz

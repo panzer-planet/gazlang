@@ -14,7 +14,7 @@ namespace term;
 
 const ESC = "\e";
 const CSI = "\e[";
-const RESET = "\e[0m";
+pub const RESET = "\e[0m";
 
 // ---- Styles ----------------------------------------------------------------------------------
 
@@ -181,6 +181,23 @@ pub fn strip($text) {
             // some other escape: ESC and the byte after it
             $i++;
         }
+    }
+    return $out;
+}
+
+/*
+ * $text as a list of its characters: "aé→" is ["a", "é", "→"]. Not split(): that splits bytes.
+ * The first byte says how long a character is; a stray continuation byte is one of its own.
+ */
+pub fn chars($text) {
+    $out = [];
+    $n = len($text);
+    $i = 0;
+    while ($i < $n) {
+        $b = ord($text[$i]);
+        $length = $b >= 240 ? 4 : ($b >= 224 ? 3 : ($b >= 192 ? 2 : 1));
+        $out[] = slice($text, $i, $length);
+        $i += $length;
     }
     return $out;
 }

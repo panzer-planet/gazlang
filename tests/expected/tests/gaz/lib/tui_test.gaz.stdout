@@ -1,0 +1,102 @@
+ok a screen starts blank
+ok size
+ok put
+ok put: a cell is a character and a style
+ok put clips on the right
+ok put keeps the style
+ok put clips on the left
+ok put outside the rows does nothing
+ok put is a character to a cell
+ok fill
+ok fill: the style
+ok fill of no width does nothing
+ok clear
+ok clear: the cells are blank again
+ok resize: blank at the new size
+ok the first render clears and draws what isn't blank
+ok a render of nothing new is only the cursor
+ok a changed cell
+ok a changed row is redrawn from its first change to its last
+ok a style change alone
+ok cleared again: what was there is blanked
+ok invalidate draws everything again
+ok the cursor is shown where it was put
+ok clear forgets the cursor
+ok styles in a row
+ok label: left
+ok label: right
+ok label: centre
+ok label: cut off
+ok label: characters, not bytes
+ok label: no room
+ok box
+ok box: a title
+ok box: a long title is cut
+ok box: the inside is cleared
+ok box: ascii
+ok box: round
+ok box: heavy
+ok box: a title too wide for the box is left out
+ok box: clipped by the screen
+ok box: an unknown border
+ok progress: none
+ok progress: half
+ok progress: all
+ok progress: more than all is all
+ok progress: less than none is none
+ok progress: filled cells take the style, the rest is dim
+ok progress: too narrow for a bar
+ok table
+ok table: how many rows it took
+ok table: the header is bold, the rule dim
+ok table: characters, and floats on the right
+ok menu: starts on the first
+ok menu: down
+ok menu: j is down too
+ok menu: stops at the last
+ok menu: up
+ok menu: stops at the first
+ok menu: end
+ok menu: home
+ok menu: G
+ok menu: g
+ok menu: enter selects
+ok menu: escape cancels
+ok menu: q cancels
+ok menu: ctrl+c cancels
+ok menu: a key it doesn't know is nothing
+ok menu: the end of the input cancels
+ok menu: draw
+ok menu: the selected item is inverse
+ok menu: scrolls to keep the selection in view
+ok menu: page down goes to the last
+ok menu: scrolled to the end
+ok menu: page up is a page (the rows showing, less one)
+ok menu: no items, nothing to move
+ok field: starts empty
+ok field: typing
+ok field: inserting in the middle
+ok field: backspace
+ok field: delete
+ok field: backspace at the start does nothing
+ok field: characters
+ok field: backspace removes a whole character
+ok field: delete removes a whole character
+ok field: right stops at the end
+ok field: ctrl+a and ctrl+e
+ok field: ctrl+k deletes to the end
+ok field: ctrl+u deletes to the start
+ok field: a space is typed
+ok field: alt and ctrl keys don't type
+ok field: enter submits
+ok field: escape cancels
+ok field: ctrl+c cancels
+ok field: initial value
+ok field: draw
+ok field: the underline style
+ok field: the cursor follows the text
+ok field: scrolls to keep the cursor in view
+ok field: scrolls back
+ok field: a style
+ok centered
+ok centered: too big is the corner

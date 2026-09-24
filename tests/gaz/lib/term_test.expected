@@ -34,6 +34,11 @@ ok strip: a title
 ok strip: an escape at the end
 ok strip: cut off
 ok strip: nothing
+ok chars: ascii
+ok chars: each length of character
+ok chars: nothing
+ok chars: a cut-off character is what is left
+ok chars: a stray continuation byte is its own
 ok width: ascii
 ok width: multibyte
 ok width: ignores styles

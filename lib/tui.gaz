@@ -1,0 +1,481 @@
+/*
+ * Widgets for a full-screen terminal program, on lib/term.gaz.
+ *
+ * Nothing draws to the terminal directly. Everything draws into a Screen, a grid of cells, and
+ * $screen.render() gives the escape sequences that change what the terminal shows into what the
+ * grid holds, and only that: a row that hasn't changed costs one comparison, and one that has
+ * is redrawn from its first changed cell to its last. So a program clears and redraws its whole
+ * interface every frame without flicker, and a test draws into a Screen and reads $screen.lines()
+ * without a terminal.
+ *
+ *     $screen = tui::Screen(80, 24);
+ *     tui::box($screen, 1, 1, 30, 5, "Title");
+ *     tui::label($screen, 3, 3, 26, "hello", "bold");
+ *     print($screen.render());
+ *
+ * Interactive widgets (Menu, TextField) take keys from term::Input and draw themselves; choose()
+ * and ask() are each one of them run as a screen of its own.
+ */
+namespace tui;
+
+include "term.gaz";
+
+/* Corners top left, top right, bottom left, bottom right, then across and down */
+const BORDERS = {
+    "single" => ["┌", "┐", "└", "┘", "─", "│"],
+    "double" => ["╔", "╗", "╚", "╝", "═", "║"],
+    "round" => ["╭", "╮", "╰", "╯", "─", "│"],
+    "heavy" => ["┏", "┓", "┗", "┛", "━", "┃"],
+    "ascii" => ["+", "+", "+", "+", "-", "|"],
+};
+
+/*
+ * The screen as a grid of cells, each [character, style], columns and rows counted from 1.
+ * Drawing outside it is clipped, so a widget that doesn't fit is cut off, not an error.
+ */
+pub kind Screen {
+    #cells = [];
+    #blank = [];
+    #shown = null;
+    #caret = null;
+
+    fn _(pub #cols, pub #rows) {
+        #reset();
+    }
+
+    /* Every cell blank and nothing known about what the terminal shows */
+    fn reset() {
+        #blank = [];
+        for ($c = 0; $c < #cols; $c++) {
+            #blank[] = [" ", ""];
+        }
+        #cells = [];
+        for ($r = 0; $r < #rows; $r++) {
+            #cells[] = #blank;
+        }
+        #shown = null;
+        #caret = null;
+    }
+
+    /* Blank every cell */
+    pub fn clear() {
+        #cells = [];
+        for ($r = 0; $r < #rows; $r++) {
+            #cells[] = #blank;
+        }
+        #caret = null;
+    }
+
+    /* The size to be $cols by $rows: blank, and the terminal to be drawn again in full */
+    pub fn resize($cols, $rows) {
+        #cols = $cols;
+        #rows = $rows;
+        #reset();
+    }
+
+    /*
+     * Take the terminal's size (term_size(), which is polled: nothing tells a program the window
+     * changed). True when it was different, and the screen is blank and to be drawn in full.
+     */
+    pub fn fit() {
+        $size = term_size();
+        if ($size["cols"] == #cols && $size["rows"] == #rows) {
+            return false;
+        }
+        #resize($size["cols"], $size["rows"]);
+        return true;
+    }
+
+    /* Forget what the terminal shows, so the next render draws everything (after something else drew) */
+    pub fn invalidate() {
+        #shown = null;
+    }
+
+    /*
+     * $text from column $col of row $row in $style (a term::style() spec, "" for none). One
+     * character to a cell; ponytail: a wide character (CJK, emoji) takes two columns but one cell,
+     * which shifts what follows it on the row, and a control character is drawn as it is.
+     */
+    pub fn put($col, $row, $text, $style = "") {
+        if ($row < 1 || $row > #rows) {
+            return null;
+        }
+        $at = $col;
+        foreach (term::chars($text) as $char) {
+            if ($at >= 1 && $at <= #cols) {
+                #cells[$row - 1][$at - 1] = [$char, $style];
+            }
+            $at++;
+        }
+    }
+
+    /* A $width by $height rectangle of $char in $style */
+    pub fn fill($col, $row, $width, $height, $char = " ", $style = "") {
+        $line = repeat($char, max($width, 0));
+        for ($i = 0; $i < $height; $i++) {
+            #put($col, $row + $i, $line, $style);
+        }
+    }
+
+    /* Where the terminal's cursor goes after a render (a text field's), or none */
+    pub fn cursor($col, $row) {
+        #caret = [$col, $row];
+    }
+
+    /* Each row as plain text, for a test to read */
+    pub fn lines() {
+        $lines = [];
+        foreach (#cells as $row) {
+            $line = "";
+            foreach ($row as $cell) {
+                $line ..= $cell[0];
+            }
+            $lines[] = $line;
+        }
+        return $lines;
+    }
+
+    /* What a cell is, as [character, style] */
+    pub fn cell($col, $row) {
+        return #cells[$row - 1][$col - 1];
+    }
+
+    /*
+     * The escape sequences that make the terminal show this screen. The first render clears the
+     * terminal and draws what isn't blank; after that only what has changed since the last one.
+     */
+    pub fn render() {
+        $full = #shown == null;
+        $out = $full ? term::RESET .. term::clear() : "";
+        for ($r = 0; $r < #rows; $r++) {
+            $row = #cells[$r];
+            if ($full ? $row == #blank : $row == #shown[$r]) {
+                continue;
+            }
+            $first = 0;
+            $last = #cols - 1;
+            if ($full) {
+                /* the clear made the blanks at either end so already */
+                while ($row[$first] == [" ", ""]) {
+                    $first++;
+                }
+                while ($row[$last] == [" ", ""]) {
+                    $last--;
+                }
+            } else {
+                while ($row[$first] == #shown[$r][$first]) {
+                    $first++;
+                }
+                while ($row[$last] == #shown[$r][$last]) {
+                    $last--;
+                }
+            }
+            $out ..= term::move_to($first + 1, $r + 1);
+            $style = "";
+            for ($c = $first; $c <= $last; $c++) {
+                $cell = $row[$c];
+                if ($cell[1] != $style) {
+                    if ($style != "") {
+                        $out ..= term::RESET;
+                    }
+                    $style = $cell[1];
+                    if ($style != "") {
+                        $out ..= term::start($style);
+                    }
+                }
+                $out ..= $cell[0];
+            }
+            if ($style != "") {
+                $out ..= term::RESET;
+            }
+        }
+        #shown = #cells;
+        if (#caret == null) {
+            return $out .. term::hide_cursor();
+        }
+        return $out .. term::move_to(#caret[0], #caret[1]) .. term::show_cursor();
+    }
+}
+
+/* ---- Drawing ----------------------------------------------------------------------------- */
+
+/*
+ * $text in a field $width wide, cut off if longer and padded if shorter, $align "left", "center"
+ * or "right"
+ */
+pub fn label($screen, $col, $row, $width, $text, $style = "", $align = "left") {
+    if ($width <= 0) {
+        return null;
+    }
+    $chars = slice(term::chars($text), 0, $width);
+    $gap = $width - len($chars);
+    $before = match ($align) {
+        "left" => 0,
+        "center" => intdiv($gap, 2),
+        "right" => $gap,
+    };
+    $screen.put($col, $row, repeat(" ", $before) .. join($chars, "") .. repeat(" ", $gap - $before), $style);
+}
+
+/*
+ * A box $width by $height with its top left at $col, $row, its inside blank, and $title in the
+ * top edge. $border is single, double, round, heavy or ascii.
+ */
+pub fn box($screen, $col, $row, $width, $height, $title = "", $style = "", $border = "single") {
+    if (!has_key(BORDERS, $border)) {
+        error("tui::box: unknown border \"" .. $border .. "\"");
+    }
+    if ($width < 2 || $height < 2) {
+        return null;
+    }
+    [$top_left, $top_right, $bottom_left, $bottom_right, $across, $down] = BORDERS[$border];
+    $top = repeat($across, $width - 2);
+    if ($title != "" && $width >= 5) {
+        $words = slice(term::chars(" " .. $title .. " "), 0, $width - 3);
+        $top = $across .. join($words, "") .. repeat($across, $width - 3 - len($words));
+    }
+    $screen.put($col, $row, $top_left .. $top .. $top_right, $style);
+    for ($i = 1; $i < $height - 1; $i++) {
+        $screen.put($col, $row + $i, $down .. repeat(" ", $width - 2) .. $down, $style);
+    }
+    $screen.put($col, $row + $height - 1, $bottom_left .. repeat($across, $width - 2) .. $bottom_right, $style);
+}
+
+/*
+ * A bar $width wide, $fraction (0 to 1) of it filled, and the percentage at its end
+ */
+pub fn progress($screen, $col, $row, $width, $fraction, $style = "green") {
+    $bar = $width - 5;
+    if ($bar < 1) {
+        return null;
+    }
+    $fraction = max(0, min(1, $fraction));
+    $filled = to_int(round($fraction * $bar));
+    $screen.put($col, $row, repeat("█", $filled), $style);
+    $screen.put($col + $filled, $row, repeat("░", $bar - $filled), "dim");
+    label($screen, $col + $bar, $row, 5, to_int(round($fraction * 100)) .. "%", "", "right");
+}
+
+/* $text in a field $width wide, numbers on the right */
+fn cell_text($value, $width) {
+    $text = to_string($value);
+    $gap = max($width - term::width($text), 0);
+    $number = type_of($value) == "int" || type_of($value) == "float";
+    return $number ? repeat(" ", $gap) .. $text : $text .. repeat(" ", $gap);
+}
+
+/*
+ * A table: $headers a list of names, $rows a list of lists, columns as wide as their widest
+ * cell and numbers aligned on the right. Gives how many rows it took (two more than $rows).
+ */
+pub fn table($screen, $col, $row, $headers, $rows, $style = "") {
+    $widths = map($headers, $h -> term::width(to_string($h)));
+    foreach ($rows as $cells) {
+        foreach ($cells as $i => $cell) {
+            $widths[$i] = max($widths[$i], term::width(to_string($cell)));
+        }
+    }
+    $rule = join(map($widths, $w -> repeat("─", $w)), "─┼─");
+    $line = [];
+    foreach ($headers as $i => $header) {
+        $line[] = cell_text($header, $widths[$i]);
+    }
+    $screen.put($col, $row, join($line, " │ "), "bold");
+    $screen.put($col, $row + 1, $rule, "dim");
+    foreach ($rows as $n => $cells) {
+        $line = [];
+        foreach ($cells as $i => $cell) {
+            $line[] = cell_text($cell, $widths[$i]);
+        }
+        $screen.put($col, $row + 2 + $n, join($line, " │ "), $style);
+    }
+    return len($rows) + 2;
+}
+
+/* ---- Widgets that take keys -------------------------------------------------------------- */
+
+/*
+ * A list to choose from, in a box. handle() takes a key, and gives "select" for enter,
+ * "cancel" for escape, q or ctrl+c, and null for anything else, which it has dealt with itself
+ * (the arrows, j and k, home and end, page up and down).
+ */
+pub kind Menu {
+    #items;
+    #title;
+    #selected = 0;
+    #top = 0;
+    #page = 10;
+
+    fn _($items, $title = "") {
+        #items = $items;
+        #title = $title;
+    }
+
+    /* Which item is selected, as an index, and as the item */
+    pub fn index() { return #selected; }
+    pub fn item() { return #items[#selected]; }
+
+    pub fn handle($key) {
+        $last = len(#items) - 1;
+        match (term::name($key)) {
+            "up", "k" => { #selected = max(#selected - 1, 0); }
+            "down", "j" => { #selected = min(#selected + 1, $last); }
+            "home", "g" => { #selected = 0; }
+            "end", "G" => { #selected = max($last, 0); }
+            "page_up" => { #selected = max(#selected - #page, 0); }
+            "page_down" => { #selected = min(#selected + #page, max($last, 0)); }
+            "enter" => { return "select"; }
+            "escape", "q", "ctrl+c", "eof" => { return "cancel"; }
+            default => {}
+        }
+        return null;
+    }
+
+    /* Draw it in a box $width by $height, scrolled so the selected item shows */
+    pub fn draw($screen, $col, $row, $width, $height) {
+        box($screen, $col, $row, $width, $height, #title);
+        $visible = $height - 2;
+        #page = max($visible - 1, 1);
+        if (#selected < #top) {
+            #top = #selected;
+        }
+        if (#selected >= #top + $visible) {
+            #top = #selected - $visible + 1;
+        }
+        for ($i = 0; $i < $visible && #top + $i < len(#items); $i++) {
+            $on = #top + $i == #selected;
+            label($screen, $col + 1, $row + 1 + $i, $width - 2, ($on ? "> " : "  ") .. #items[#top + $i], $on ? "inverse" : "");
+        }
+    }
+}
+
+/*
+ * A line of text being edited. handle() takes a key and gives "submit" for enter, "cancel" for
+ * escape or ctrl+c, and null otherwise: typing inserts, and backspace, delete, the arrows,
+ * home and end (or ctrl+a and ctrl+e), ctrl+u (delete to the start) and ctrl+k (to the end) edit.
+ */
+pub kind TextField {
+    #chars;
+    #at;
+    #left = 0;
+
+    fn _($value = "") {
+        #chars = term::chars($value);
+        #at = len(#chars);
+    }
+
+    pub fn value() { return join(#chars, ""); }
+
+    pub fn handle($key) {
+        $typed = term::text($key);
+        if ($typed != null) {
+            #chars = [...slice(#chars, 0, #at), $typed, ...slice(#chars, #at)];
+            #at++;
+            return null;
+        }
+        match (term::name($key)) {
+            "backspace" => {
+                if (#at > 0) {
+                    #chars = [...slice(#chars, 0, #at - 1), ...slice(#chars, #at)];
+                    #at--;
+                }
+            }
+            "delete" => { #chars = [...slice(#chars, 0, #at), ...slice(#chars, #at + 1)]; }
+            "left" => { #at = max(#at - 1, 0); }
+            "right" => { #at = min(#at + 1, len(#chars)); }
+            "home", "ctrl+a" => { #at = 0; }
+            "end", "ctrl+e" => { #at = len(#chars); }
+            "ctrl+u" => {
+                #chars = slice(#chars, #at);
+                #at = 0;
+            }
+            "ctrl+k" => { #chars = slice(#chars, 0, #at); }
+            "enter" => { return "submit"; }
+            "escape", "ctrl+c", "eof" => { return "cancel"; }
+            default => {}
+        }
+        return null;
+    }
+
+    /* Draw it $width wide, scrolled sideways to keep the cursor in view, and put the cursor there */
+    pub fn draw($screen, $col, $row, $width, $style = "underline") {
+        if (#at < #left) {
+            #left = #at;
+        }
+        if (#at > #left + $width - 1) {
+            #left = #at - $width + 1;
+        }
+        label($screen, $col, $row, $width, join(slice(#chars, #left, $width), ""), $style);
+        $screen.cursor($col + #at - #left, $row);
+    }
+}
+
+/* ---- Whole screens ----------------------------------------------------------------------- */
+
+/*
+ * Run $draw($screen) and $handle($key) on a screen of its own until $handle gives something
+ * other than null, which is what this gives. Input that ends or a screen too small to draw on
+ * gives null.
+ */
+pub fn interact($draw, $handle) {
+    return term::fullscreen(() -> {
+        $size = term_size();
+        $screen = Screen($size["cols"], $size["rows"]);
+        $input = term::Input();
+        while (true) {
+            $screen.fit();
+            $screen.clear();
+            $draw($screen);
+            print($screen.render());
+            $key = $input.read();
+            if ($key["key"] == "eof") {
+                return null;
+            }
+            $result = $handle($key);
+            if ($result != null) {
+                return $result;
+            }
+        }
+    });
+}
+
+/* A box of $width by $height in the middle of $screen, as [col, row] of its top left */
+pub fn centered($screen, $width, $height) {
+    return [max(intdiv($screen.cols - $width, 2), 0) + 1, max(intdiv($screen.rows - $height, 2), 0) + 1];
+}
+
+/*
+ * Choose one of $items in a menu of a screen of its own: its index, or null if cancelled.
+ * Needs a terminal.
+ */
+pub fn choose($items, $title = "") {
+    $menu = Menu($items, $title);
+    $picked = interact(
+        $screen -> {
+            $width = min($screen.cols, max(term::width($title) + 6, 4 + reduce($items, ($most, $item) -> max($most, term::width(to_string($item))), 0)));
+            $height = min($screen.rows, len($items) + 2);
+            [$col, $row] = centered($screen, $width, $height);
+            $menu.draw($screen, $col, $row, $width, $height);
+        },
+        $key -> $menu.handle($key)
+    );
+    return $picked == "select" ? $menu.index() : null;
+}
+
+/*
+ * Ask a question on a screen of its own and give the answer, or null if cancelled. $initial is
+ * what the field starts with. Needs a terminal.
+ */
+pub fn ask($question, $initial = "") {
+    $field = TextField($initial);
+    $answered = interact(
+        $screen -> {
+            $width = min($screen.cols, max(term::width($question) + 4, 40));
+            [$col, $row] = centered($screen, $width, 4);
+            box($screen, $col, $row, $width, 4, $question);
+            $field.draw($screen, $col + 2, $row + 2, $width - 4);
+        },
+        $key -> $field.handle($key)
+    );
+    return $answered == "submit" ? $field.value() : null;
+}

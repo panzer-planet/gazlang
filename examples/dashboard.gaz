@@ -1,0 +1,45 @@
+/*
+ * A small terminal dashboard on lib/term.gaz and lib/tui.gaz: up and down pick a task, + and -
+ * move its progress, q quits. Needs a terminal.
+ */
+include "../lib/term.gaz";
+include "../lib/tui.gaz";
+
+kind Board {
+    #tasks;
+    #picked = 0;
+
+    fn _($tasks) {
+        #tasks = $tasks;
+    }
+
+    pub fn draw($screen) {
+        $width = min($screen.cols, 64);
+        tui::box($screen, 1, 1, $width, len(#tasks) + 5, "Tasks");
+        foreach (#tasks as $i => [$name, $done, $total]) {
+            $on = $i == #picked;
+            tui::label($screen, 3, 3 + $i, 28, ($on ? "> " : "  ") .. $name, $on ? "bold" : "");
+            tui::progress($screen, 32, 3 + $i, $width - 33, $done / $total, $on ? "cyan" : "blue");
+        }
+        tui::label($screen, 3, len(#tasks) + 4, $width - 4, "up/down pick   +/- change   q quit", "dim");
+    }
+
+    pub fn handle($key) {
+        match (term::name($key)) {
+            "up" => { #picked = max(#picked - 1, 0); }
+            "down" => { #picked = min(#picked + 1, len(#tasks) - 1); }
+            "+", "=" => { #tasks[#picked][1] = min(#tasks[#picked][1] + 1, #tasks[#picked][2]); }
+            "-" => { #tasks[#picked][1] = max(#tasks[#picked][1] - 1, 0); }
+            "q", "ctrl+c" => { return "quit"; }
+            default => {}
+        }
+        return null;
+    }
+}
+
+if (!term_is_tty(0) || !term_is_tty(1)) {
+    error("dashboard.gaz needs a terminal");
+}
+
+$board = Board([["Write the lexer", 10, 10], ["Write the parser", 8, 10], ["Write the code generator", 5, 10], ["Write the VM", 3, 10], ["Write the docs", 0, 10]]);
+tui::interact($screen -> $board.draw($screen), $key -> $board.handle($key));

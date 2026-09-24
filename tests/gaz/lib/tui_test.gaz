@@ -1,0 +1,281 @@
+include "../check.gaz";
+include "../../../lib/term.gaz";
+include "../../../lib/tui.gaz";
+
+/* Type $bytes at $widget, key by key, and give what its handle() said last that wasn't null */
+fn press($widget, $bytes) {
+    $said = null;
+    foreach (term::decode($bytes, true)["keys"] as $key) {
+        $said = $widget.handle($key) ?? $said;
+    }
+    return $said;
+}
+
+/* $text without the spaces at its end */
+fn rtrim($text) {
+    while (ends_with($text, " ")) {
+        $text = slice($text, 0, -1);
+    }
+    return $text;
+}
+
+/* The screen's rows with the trailing blanks off, joined with "|" */
+fn rows($screen) {
+    return join(map($screen.lines(), $line -> rtrim($line)), "|");
+}
+
+/* ---- Screen ---- */
+$s = tui::Screen(6, 3);
+check("a screen starts blank", $s.lines(), ["      ", "      ", "      "]);
+check("size", [$s.cols, $s.rows], [6, 3]);
+$s.put(2, 1, "abc");
+check("put", $s.lines()[0], " abc  ");
+check("put: a cell is a character and a style", $s.cell(2, 1), ["a", ""]);
+$s.put(5, 2, "wxyz", "bold");
+check("put clips on the right", $s.lines()[1], "    wx");
+check("put keeps the style", $s.cell(6, 2), ["x", "bold"]);
+$s.put(-1, 3, "abcd");
+check("put clips on the left", $s.lines()[2], "cd    ");
+$s.put(1, 0, "no");
+$s.put(1, 4, "no");
+check("put outside the rows does nothing", $s.lines()[0], " abc  ");
+$s.put(1, 1, "é→x");
+check("put is a character to a cell", $s.lines()[0], "é→xc  ");
+$s.fill(2, 2, 2, 2, "#", "dim");
+check("fill", $s.lines(), ["é→xc  ", " ## wx", "c##   "]);
+check("fill: the style", $s.cell(2, 3), ["#", "dim"]);
+$s.fill(1, 1, 0, 3);
+$s.fill(1, 1, -2, 3);
+check("fill of no width does nothing", $s.lines()[0], "é→xc  ");
+$s.clear();
+check("clear", $s.lines(), ["      ", "      ", "      "]);
+check("clear: the cells are blank again", $s.cell(2, 2), [" ", ""]);
+$s.put(1, 1, "keep");
+$s.resize(3, 2);
+check("resize: blank at the new size", [$s.cols, $s.rows, $s.lines()], [3, 2, ["   ", "   "]]);
+
+/* ---- Rendering ---- */
+$s = tui::Screen(5, 3);
+$s.put(2, 1, "hi");
+$s.put(1, 3, "ab", "bold");
+check(
+    "the first render clears and draws what isn't blank",
+    $s.render(),
+    "\e[0m\e[2J\e[1;2Hhi\e[3;1H\e[1mab\e[0m\e[?25l"
+);
+check("a render of nothing new is only the cursor", $s.render(), "\e[?25l");
+$s.put(3, 1, "o");
+check("a changed cell", $s.render(), "\e[1;3Ho\e[?25l");
+$s.put(1, 1, "x");
+$s.put(5, 1, "y");
+check("a changed row is redrawn from its first change to its last", $s.render(), "\e[1;1Hxho y\e[?25l");
+$s.put(1, 3, "ab", "italic");
+check("a style change alone", $s.render(), "\e[3;1H\e[3mab\e[0m\e[?25l");
+$s.clear();
+check("cleared again: what was there is blanked", $s.render(), "\e[1;1H     \e[3;1H  \e[?25l");
+$s.invalidate();
+check("invalidate draws everything again", $s.render(), "\e[0m\e[2J\e[?25l");
+$s.put(2, 2, "z");
+$s.cursor(3, 2);
+check("the cursor is shown where it was put", $s.render(), "\e[2;2Hz\e[2;3H\e[?25h");
+$s.clear();
+check("clear forgets the cursor", $s.render(), "\e[2;2H \e[?25l");
+
+/* A style ends at the cell where it changes, and each run says where it is */
+$s = tui::Screen(8, 1);
+$s.put(1, 1, "ab", "red");
+$s.put(3, 1, "cd", "on_blue");
+$s.put(5, 1, "ef");
+check("styles in a row", $s.render(), "\e[0m\e[2J\e[1;1H\e[31mab\e[0m\e[44mcd\e[0mef\e[?25l");
+
+/* ---- label ---- */
+$s = tui::Screen(12, 1);
+tui::label($s, 2, 1, 8, "abc");
+check("label: left", $s.lines()[0], " abc        ");
+$s.clear();
+tui::label($s, 2, 1, 8, "abc", "", "right");
+check("label: right", $s.lines()[0], "      abc   ");
+$s.clear();
+tui::label($s, 2, 1, 8, "abc", "", "center");
+check("label: centre", $s.lines()[0], "   abc      ");
+$s.clear();
+tui::label($s, 2, 1, 4, "abcdefgh");
+check("label: cut off", $s.lines()[0], " abcd       ");
+$s.clear();
+tui::label($s, 1, 1, 12, "é→");
+check("label: characters, not bytes", $s.lines()[0], "é→          ");
+tui::label($s, 1, 1, 0, "no");
+tui::label($s, 1, 1, -3, "no");
+check("label: no room", $s.lines()[0], "é→          ");
+
+/* ---- box ---- */
+$s = tui::Screen(10, 4);
+tui::box($s, 1, 1, 10, 4);
+check("box", $s.lines(), ["┌────────┐", "│        │", "│        │", "└────────┘"]);
+tui::box($s, 1, 1, 10, 4, "Hi");
+check("box: a title", $s.lines()[0], "┌─ Hi ───┐");
+tui::box($s, 1, 1, 10, 4, "A very long title");
+check("box: a long title is cut", $s.lines()[0], "┌─ A very┐");
+$s.put(3, 2, "text");
+tui::box($s, 1, 1, 10, 4, "", "", "double");
+check("box: the inside is cleared", $s.lines(), ["╔════════╗", "║        ║", "║        ║", "╚════════╝"]);
+$b = tui::Screen(4, 3);
+tui::box($b, 1, 1, 4, 3, "", "", "ascii");
+check("box: ascii", $b.lines(), ["+--+", "|  |", "+--+"]);
+tui::box($b, 1, 1, 4, 3, "", "", "round");
+check("box: round", $b.lines(), ["╭──╮", "│  │", "╰──╯"]);
+tui::box($b, 1, 1, 4, 3, "", "", "heavy");
+check("box: heavy", $b.lines(), ["┏━━┓", "┃  ┃", "┗━━┛"]);
+tui::box($b, 1, 1, 4, 3, "ab");
+check("box: a title too wide for the box is left out", $b.lines()[0], "┌──┐");
+$b.clear();
+tui::box($b, 3, 2, 4, 3);
+check("box: clipped by the screen", rows($b), "|  ┌─|  │");
+tui::box($b, 1, 1, 1, 1);
+try {
+    tui::box($b, 1, 1, 4, 3, "", "", "wavy");
+    check("box: an unknown border", "no error", "an error");
+} catch (Error $e) {
+    check("box: an unknown border", $e.message, "tui::box: unknown border \"wavy\"");
+}
+
+/* ---- progress ---- */
+$s = tui::Screen(15, 1);
+tui::progress($s, 1, 1, 15, 0);
+check("progress: none", $s.lines()[0], "░░░░░░░░░░   0%");
+tui::progress($s, 1, 1, 15, 0.5);
+check("progress: half", $s.lines()[0], "█████░░░░░  50%");
+tui::progress($s, 1, 1, 15, 1);
+check("progress: all", $s.lines()[0], "██████████ 100%");
+tui::progress($s, 1, 1, 15, 7);
+check("progress: more than all is all", $s.lines()[0], "██████████ 100%");
+tui::progress($s, 1, 1, 15, -1);
+check("progress: less than none is none", $s.lines()[0], "░░░░░░░░░░   0%");
+tui::progress($s, 1, 1, 15, 0.42, "red");
+check("progress: filled cells take the style, the rest is dim", [$s.cell(4, 1), $s.cell(5, 1)], [["█", "red"], ["░", "dim"]]);
+$s = tui::Screen(5, 1);
+tui::progress($s, 1, 1, 5, 0.5);
+check("progress: too narrow for a bar", $s.lines()[0], "     ");
+
+/* ---- table ---- */
+$s = tui::Screen(20, 6);
+$height = tui::table($s, 1, 1, ["Name", "Pts"], [["Ann", 12], ["Bob", 7], ["Christina", 105]]);
+check("table", rows($s), "Name      │ Pts|──────────┼────|Ann       │  12|Bob       │   7|Christina │ 105|");
+check("table: how many rows it took", $height, 5);
+check("table: the header is bold, the rule dim", [$s.cell(1, 1)[1], $s.cell(1, 2)[1], $s.cell(1, 3)[1]], ["bold", "dim", ""]);
+$s = tui::Screen(20, 4);
+tui::table($s, 2, 2, ["é", "x"], [["→→→", 1.5]]);
+check("table: characters, and floats on the right", rows($s), "| é   │ x| ────┼────| →→→ │ 1.5");
+
+/* ---- Menu ---- */
+$menu = tui::Menu(["one", "two", "three", "four"], "Pick");
+check("menu: starts on the first", [$menu.index(), $menu.item()], [0, "one"]);
+check("menu: down", [press($menu, "\e[B"), $menu.index()], [null, 1]);
+press($menu, "j");
+check("menu: j is down too", $menu.index(), 2);
+press($menu, "\e[B\e[B\e[B");
+check("menu: stops at the last", $menu.index(), 3);
+press($menu, "\e[A");
+check("menu: up", $menu.index(), 2);
+press($menu, "k");
+press($menu, "k");
+press($menu, "k");
+check("menu: stops at the first", $menu.index(), 0);
+press($menu, "\e[F");
+check("menu: end", $menu.index(), 3);
+press($menu, "\e[H");
+check("menu: home", $menu.index(), 0);
+press($menu, "G");
+check("menu: G", $menu.index(), 3);
+press($menu, "g");
+check("menu: g", $menu.index(), 0);
+check("menu: enter selects", press($menu, "\r"), "select");
+check("menu: escape cancels", press($menu, "\e"), "cancel");
+check("menu: q cancels", press($menu, "q"), "cancel");
+check("menu: ctrl+c cancels", press($menu, "\x03"), "cancel");
+check("menu: a key it doesn't know is nothing", press($menu, "x"), null);
+check("menu: the end of the input cancels", $menu.handle({"key" => "eof", "ctrl" => false, "alt" => false, "shift" => false}), "cancel");
+
+$s = tui::Screen(12, 5);
+$menu = tui::Menu(["one", "two", "three", "four", "five"], "Pick");
+$menu.draw($s, 1, 1, 12, 5);
+check("menu: draw", $s.lines(), ["┌─ Pick ───┐", "│> one     │", "│  two     │", "│  three   │", "└──────────┘"]);
+check("menu: the selected item is inverse", [$s.cell(3, 2)[1], $s.cell(3, 3)[1]], ["inverse", ""]);
+press($menu, "\e[B\e[B\e[B");
+$menu.draw($s, 1, 1, 12, 5);
+check("menu: scrolls to keep the selection in view", $s.lines()[1] .. $s.lines()[2] .. $s.lines()[3], "│  two     ││  three   ││> four    │");
+press($menu, "\e[6~");
+check("menu: page down goes to the last", $menu.index(), 4);
+$menu.draw($s, 1, 1, 12, 5);
+check("menu: scrolled to the end", $s.lines()[3], "│> five    │");
+press($menu, "\e[5~");
+check("menu: page up is a page (the rows showing, less one)", $menu.index(), 2);
+$empty = tui::Menu([]);
+check("menu: no items, nothing to move", [press($empty, "\e[B"), press($empty, "\e[F"), $empty.index()], [null, null, 0]);
+
+/* ---- TextField ---- */
+$f = tui::TextField();
+check("field: starts empty", $f.value(), "");
+press($f, "abc");
+check("field: typing", $f.value(), "abc");
+press($f, "\e[D\e[D");
+press($f, "X");
+check("field: inserting in the middle", $f.value(), "aXbc");
+press($f, "\x7f");
+check("field: backspace", $f.value(), "abc");
+press($f, "\e[3~");
+check("field: delete", $f.value(), "ac");
+press($f, "\x7f\x7f\x7f");
+check("field: backspace at the start does nothing", $f.value(), "c");
+press($f, "\e[F");
+press($f, "é→");
+check("field: characters", $f.value(), "cé→");
+press($f, "\x7f");
+check("field: backspace removes a whole character", $f.value(), "cé");
+press($f, "\e[H");
+press($f, "\e[3~");
+check("field: delete removes a whole character", $f.value(), "é");
+press($f, "\e[C\e[C\e[C");
+press($f, "b");
+check("field: right stops at the end", $f.value(), "éb");
+press($f, "\x01");
+press($f, ">");
+press($f, "\x05");
+press($f, "<");
+check("field: ctrl+a and ctrl+e", $f.value(), ">éb<");
+press($f, "\e[D\e[D");
+press($f, "\x0b");
+check("field: ctrl+k deletes to the end", $f.value(), ">é");
+press($f, "\x15");
+check("field: ctrl+u deletes to the start", $f.value(), "");
+press($f, "a b");
+check("field: a space is typed", $f.value(), "a b");
+check("field: alt and ctrl keys don't type", [press($f, "\ex\x18"), $f.value()], [null, "a b"]);
+check("field: enter submits", press($f, "\r"), "submit");
+check("field: escape cancels", press($f, "\e"), "cancel");
+check("field: ctrl+c cancels", press($f, "\x03"), "cancel");
+$f = tui::TextField("hi");
+press($f, "!");
+check("field: initial value", $f.value(), "hi!");
+
+$s = tui::Screen(10, 2);
+$f = tui::TextField("abc");
+$f.draw($s, 2, 1, 6);
+check("field: draw", $s.lines()[0], " abc      ");
+check("field: the underline style", $s.cell(2, 1)[1], "underline");
+check("field: the cursor follows the text", $s.render(), "\e[0m\e[2J\e[1;2H\e[4mabc   \e[0m\e[1;5H\e[?25h");
+$f = tui::TextField("abcdefghij");
+$f.draw($s, 1, 1, 6);
+check("field: scrolls to keep the cursor in view", $s.lines()[0], "fghij     ");
+$s.render();
+press($f, "\x01");
+$f.draw($s, 1, 1, 6);
+check("field: scrolls back", $s.lines()[0], "abcdef    ");
+$s.clear();
+$f.draw($s, 1, 2, 6, "bold");
+check("field: a style", $s.cell(1, 2)[1], "bold");
+
+/* ---- centered ---- */
+$s = tui::Screen(20, 10);
+check("centered", tui::centered($s, 10, 4), [6, 4]);
+check("centered: too big is the corner", tui::centered($s, 30, 12), [1, 1]);

@@ -11,6 +11,7 @@ sent after that. The window is 132 by 40.
 import fcntl
 import json
 import os
+import select
 import signal
 import struct
 import subprocess
@@ -30,24 +31,40 @@ sig = getattr(signal, "SIG" + sys.argv[3]) if len(sys.argv) > 3 else None
 
 master, slave = os.openpty()
 fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 40, 132, 0, 0))
+os.set_blocking(master, False)
+out = b""
+
+
+def pump(seconds):
+    """Read what the program prints for a while: a terminal's buffer is small, and a program that
+    fills it waits for a reader, which would look like a program that never ends"""
+    global out
+    end = time.time() + seconds
+    while time.time() < end:
+        if select.select([master], [], [], 0.05)[0]:
+            try:
+                out += os.read(master, 65536)
+            except OSError:
+                return
+
+
 before = modes(slave)
 process = subprocess.Popen(["bin/gazlang", "-f", program], stdin=slave, stdout=slave, stderr=slave, start_new_session=True)
-time.sleep(0.6)
+pump(0.6)
 during = modes(slave)
 if keys:
     os.write(master, keys)
-    time.sleep(0.3)
+    pump(0.3)
 if sig:
     process.send_signal(sig)
-try:
-    code = process.wait(timeout=5)
-except subprocess.TimeoutExpired:
+deadline = time.time() + 5
+while process.poll() is None and time.time() < deadline:
+    pump(0.1)
+if process.poll() is None:
     process.kill()
+    process.wait()
     code = "timed out"
-time.sleep(0.1)
-os.set_blocking(master, False)
-try:
-    out = os.read(master, 65536).decode("latin-1")
-except OSError:
-    out = ""
-print(json.dumps({"before": before, "during": during, "after": modes(slave), "code": code, "out": out}))
+else:
+    code = process.returncode
+pump(0.1)
+print(json.dumps({"before": before, "during": during, "after": modes(slave), "code": code, "out": out.decode("latin-1")}))
