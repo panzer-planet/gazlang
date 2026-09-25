@@ -315,7 +315,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - `workers($n)` is one builtin, not `fork()`/`wait()`/`kill()`, so no program can leave zombies or
     orphans: it returns 1 to n in each worker, and the master stays in C (`workers.c`) for good,
     starting a worker again when one dies of an error or a signal, stopping all of them on
-    SIGINT/SIGTERM/SIGHUP and then dying of that signal. A worker that dies within a second of
+    SIGINT/SIGTERM/SIGHUP and then dying of that signal, unless the program started with it ignored
+    (`nohup`), which stays so. A worker that dies within a second of
     starting stops the lot with its code, as a startup bug would otherwise respawn for ever.
   - **The program runs on its own thread** (see "The C VM"), so a fork is that thread alone, with
     no `main()` to end the process: `run()` in `vm.c` exits a worker itself. And a signal to the

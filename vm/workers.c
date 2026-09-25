@@ -11,7 +11,8 @@
  * signal, and ends once every worker has ended with code 0. A worker that dies within a second of
  * starting is a program that can't start, not bad luck, so rather than start it again and again the
  * master stops the others and exits with its code. SIGINT, SIGTERM and SIGHUP to the master stop
- * the workers, and then end the master as that signal would have.
+ * the workers, and then end the master as that signal would have; one the program was started
+ * ignoring (nohup's SIGHUP) stays ignored.
  *
  * ponytail: a worker killed mid-request drops that request (no graceful drain), and workers whose
  * master is killed with SIGKILL run on as orphans (Linux's PR_SET_PDEATHSIG would end them; macOS
@@ -110,7 +111,12 @@ bool start_workers(int64_t count, Value *out) {
 
     struct sigaction stop = {.sa_handler = on_stop};
     sigemptyset(&stop.sa_mask);
-    for (int i = 0; i < NSTOP; i++) sigaction(STOP_SIGNALS[i], &stop, &saved_stop[i]);
+    /* A signal the program was started ignoring (nohup's SIGHUP, SIGINT in a background job) stays
+       ignored: it is someone's choice that it shouldn't stop the server */
+    for (int i = 0; i < NSTOP; i++) {
+        sigaction(STOP_SIGNALS[i], NULL, &saved_stop[i]);
+        if (saved_stop[i].sa_handler != SIG_IGN) sigaction(STOP_SIGNALS[i], &stop, NULL);
+    }
 
     int n = (int)count;
     pid_t *pids = xcalloc((size_t)n, sizeof *pids);
@@ -185,12 +191,10 @@ bool start_workers(int64_t count, Value *out) {
            terminal back and does the same), or the default */
         int sig = stop_signal;
         restore_signals();
+        raise(sig);
+        /* A handler that returned instead of ending the program */
         struct sigaction dfl = {.sa_handler = SIG_DFL};
         sigemptyset(&dfl.sa_mask);
-        struct sigaction was;
-        sigaction(sig, NULL, &was);
-        if (was.sa_handler == SIG_IGN) sigaction(sig, &dfl, NULL);
-        raise(sig);
         sigaction(sig, &dfl, NULL);
         raise(sig);
     }

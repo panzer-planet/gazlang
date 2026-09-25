@@ -566,7 +566,8 @@ carrying on with a copy of everything, for a server that answers more than one r
 process that called it never returns from it, but waits, starts a worker again when one ends with an
 error or a signal, and ends once every worker has ended with code 0. A worker that fails within a
 second of starting is a program that can't start: the rest are stopped and the program exits with
-its code. Ctrl-C, SIGTERM or SIGHUP stops them all. Workers share nothing after the call, a
+its code. Ctrl-C, SIGTERM or SIGHUP stops them all, unless the program was started ignoring it
+(`nohup` ignores SIGHUP). Workers share nothing after the call, a
 `socket_listen()` listener made before it aside, which is the point: they all accept on one port.
 Each draws its own random numbers. At most 1024, and a worker can't start workers of its own.
 

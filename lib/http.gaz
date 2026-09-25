@@ -376,7 +376,7 @@ fn read_chunked($reader, $limit = null) {
             }
         }
         $parts[] = $reader.bytes($size);
-        if ($reader.line("\r\n") != "") {
+        if ($reader.line("\r\n", $line_limit) != "") {
             error("HTTP error: a chunk is longer than its size says");
         }
     }

@@ -191,6 +191,7 @@ class HttpServerTest extends GazLangTestCase
             'another coding' => ["POST /echo HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: gzip\r\n\r\n", 501],
             'a body too large' => ["POST /echo HTTP/1.1\r\nHost: x\r\nContent-Length: 100001\r\n\r\n", 413],
             'a chunked body too large' => ["POST /echo HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n186a1\r\n", 413],
+            'a chunk that never ends' => ["POST /echo HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n1\r\nA".str_repeat('a', 70000), 431],
             'a bad chunk size' => ["POST /echo HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\nzz\r\n", 400],
             'a head too large' => ["GET / HTTP/1.1\r\nHost: x\r\nX: ".str_repeat('a', 70000)."\r\n\r\n", 431],
             'another expectation' => ["POST /echo HTTP/1.1\r\nHost: x\r\nExpect: magic\r\nContent-Length: 1\r\n\r\n", 417],
@@ -251,6 +252,23 @@ class HttpServerTest extends GazLangTestCase
             proc_terminate($server);
             proc_close($server);
             @unlink($log);
+        }
+    }
+
+    public function test_a_signal_ignored_when_the_server_started_stays_ignored()
+    {
+        // As nohup leaves SIGHUP: the terminal closing must not stop the server
+        $server = proc_open(['sh', '-c', 'trap "" HUP; exec "$0" -f tests/programs/web_server.gaz -- 0 2', self::binary()], [['file', '/dev/null', 'r'], ['pipe', 'w'], ['file', '/dev/null', 'w']], $pipes, self::ROOT);
+        $this->assertNotFalse($server);
+        try {
+            $port = (int) substr(trim((string) fgets($pipes[1])), strlen('listening on '));
+            proc_terminate($server, SIGHUP);
+            usleep(300000);
+            $this->assertTrue(proc_get_status($server)['running']);
+            $this->assertSame(200, self::response(self::exchange("GET / HTTP/1.1\r\nHost: x\r\n\r\n", $port))['status']);
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
         }
     }
 
