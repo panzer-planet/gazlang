@@ -46,6 +46,7 @@ const BuiltinInfo builtin_info[] = {
     {"run", 1, 2}, {"socket_open", 2, 4}, {"socket_read", 1, 1}, {"socket_write", 2, 2},
     {"socket_close", 1, 1}, {"term_raw", 1, 1}, {"term_read", 0, 1}, {"term_size", 0, 0},
     {"term_is_tty", 1, 1}, {"monotonic_time", 0, 0}, {"std_source", 1, 1},
+    {"db_open", 1, 1}, {"db_run", 2, 3}, {"db_close", 1, 1},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -59,6 +60,7 @@ enum {
     B_SOCKET_OPEN, B_SOCKET_READ, B_SOCKET_WRITE, B_SOCKET_CLOSE,
     B_TERM_RAW, B_TERM_READ, B_TERM_SIZE, B_TERM_IS_TTY,
     B_MONOTONIC_TIME, B_STD_SOURCE,
+    B_DB_OPEN, B_DB_RUN, B_DB_CLOSE,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -145,7 +147,7 @@ static int64_t random_between(int64_t min, int64_t max) {
 /* Check an argument's type: "len() expects list or map or string, got int" */
 static bool want(int builtin, Value v, unsigned mask) {
     if (mask & M(v.type)) return true;
-    static const Type order[] = {T_INT, T_FLOAT, T_STRING, T_LIST, T_MAP, T_BOOL, T_NULL, T_KIND, T_OBJECT, T_SOCKET};
+    static const Type order[] = {T_INT, T_FLOAT, T_STRING, T_LIST, T_MAP, T_BOOL, T_NULL, T_KIND, T_OBJECT, T_SOCKET, T_DB};
     Buf b = {0};
     /* Each builtin names its types in its own order; these are those orders */
     const char *names = NULL;
@@ -1135,6 +1137,22 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     case B_SOCKET_CLOSE:
         if (!want(index, a, M(T_SOCKET))) return false;
         net_close(a.sock);
+        *out = v_null();
+        return true;
+    case B_DB_OPEN:
+        if (!want(index, a, STRING)) return false;
+        return db_open(a.s, out);
+    case B_DB_RUN: {
+        /* db_run($db, $sql, $params = []) */
+        Value params = argc > 2 ? c : v_list(list_new(0));
+        bool ok = want(index, a, M(T_DB)) && want(index, b, STRING) && want(index, params, M(T_LIST))
+            && db_run(a.db, b.s, params.l, out);
+        if (argc < 3) decref(params);
+        return ok;
+    }
+    case B_DB_CLOSE:
+        if (!want(index, a, M(T_DB))) return false;
+        db_close(a.db);
         *out = v_null();
         return true;
     case B_TERM_RAW:

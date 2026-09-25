@@ -1,0 +1,41 @@
+ok the handle is its own type
+ok a script makes tables
+ok exec gives the rows changed
+ok query gives maps
+ok row
+ok row of nothing
+ok value
+ok value of nothing
+ok a select changes nothing, whatever ran before
+ok update counts what it changed
+ok returning gives rows and changes
+ok a script gives its last result
+ok a comment after the statement
+ok a comment after the statement, with parameters
+ok nothing to run
+ok strings that look like SQL are only strings
+ok bytes pass through
+ok floats keep their digits
+ok big ints
+ok a column named twice keeps the last
+ok a bad statement
+ok too few parameters
+ok too many parameters
+ok a list can't be a parameter
+ok parameters need one statement
+ok a failed statement changes nothing
+ok infinity is not a float here
+ok a transaction gives what its work returns
+ok and commits
+ok it rolls back and raises again when the work raises
+ok and nothing was deleted
+ok an inner transaction rolls back alone
+ok the outer one committed
+ok an error from the database rolls back too
+ok and the delete is undone
+ok a closed database
+ok an unknown scheme
+ok no path
+ok an unopenable path
+ok a bad type
+ok a bad postgres URL

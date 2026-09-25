@@ -485,6 +485,33 @@ $r = run(["git", "log", "-1", "--format=%s"]);
 if ($r["status"] != 0) { error($r["stderr"]); }
 ```
 
+**Databases** — SQLite and PostgreSQL through one interface, in `lib/db.gaz` (`include "std/db.gaz";`)
+on three builtins, so a driver adds no names to a program:
+
+- `db_open($url)` — `sqlite:FILE` (made if missing), `sqlite::memory:`, or a `postgres://` URL, which
+  libpq reads whole (`postgres://user:password@host:5432/name?sslmode=require`). Gives a `db`.
+- `db_run($db, $sql, $params = [])` — gives `{"rows" => [...], "changes" => N}`: each row a map from
+  column name to value (a repeated name keeps the last), and `changes` the rows an insert, update or
+  delete changed (0 for a query). `db_close($db)` closes it; a `db` no variable holds any more is
+  closed too.
+- Parameters are a list, sent apart from the SQL. The placeholders are the database's own: `?` for
+  SQLite, `$1` for PostgreSQL. With parameters the SQL is one statement; without, it may be a script,
+  and the last statement's result is the one given. There is no last-insert id: use `returning`.
+- Values: SQLite's INTEGER is an int, REAL a float, TEXT and BLOB strings. PostgreSQL's int2, int4 and
+  int8 are ints, float4 and float8 floats, bool a bool, and the rest (numeric, timestamps, json) the text
+  Postgres prints. Both give `null` for NULL. Going in, `null`, ints, floats and strings are sent as
+  they are and a bool as 0 or 1 (SQLite) or `t` or `f`; lists, maps and objects are errors, and so is an
+  infinite float coming back, since floats here are always finite.
+- Errors are catchable and start `sqlite:` or `postgres:`.
+
+`db::open($url)` gives a `Db`, which has `run($sql, $params)`, `query` (the rows), `row` (the first or
+null), `value` (its first column), `exec` (the changes), `transaction($work)` and `close()`.
+`transaction` runs `$work($db)` between begin and commit, rolls back and raises again if it raises, and
+is a savepoint inside another one.
+
+A driver is built in when its library is found (`libsqlite3`, `libpq`); `make SQLITE=0` or `PG=0`
+leaves one out, and `db_open` of that scheme is then an error.
+
 **Sockets** — a connection over TCP, or TLS for `$tls = true`:
 
 - `socket_open($host, $port, $tls = false, $timeout = 30)` — connects, trying each address the

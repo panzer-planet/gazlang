@@ -1,0 +1,56 @@
+/*
+ * Run by DbPgTest against a real server, whose URL is the argument. Temporary tables only, which
+ * go with the connection, so nothing is left behind.
+ */
+include "../gaz/check.gaz";
+include "../../lib/db.gaz";
+
+fn failure($f) {
+    try {
+        $f();
+    } catch ($e) {
+        return $e.message;
+    }
+    return null;
+}
+
+$db = db::open(args()[0]);
+$db.exec("create temp table t (id serial primary key, name text, score float8, ok bool, n numeric, big int8, small int2)");
+check("exec gives the rows changed", $db.exec("insert into t (name, score, ok, n, big, small) values ($1, $2, $3, $4, $5, $6), ($7, $8, $9, $10, $11, $12)",
+    ["a", 1.5, true, "12.50", 9223372036854775807, 7, "b", 2, false, null, -1, -7]), 2);
+check("query gives maps, typed by the column", $db.query("select * from t order by id"), [
+    {"id" => 1, "name" => "a", "score" => 1.5, "ok" => true, "n" => "12.50", "big" => 9223372036854775807, "small" => 7},
+    {"id" => 2, "name" => "b", "score" => 2.0, "ok" => false, "n" => null, "big" => -1, "small" => -7},
+]);
+check("row", $db.row("select name from t where id = $1", [2]), {"name" => "b"});
+check("row of nothing", $db.row("select name from t where id = 99"), null);
+check("value", $db.value("select count(*) from t"), 2);
+check("a select changes nothing", $db.run("select * from t")["changes"], 0);
+check("update", $db.exec("update t set score = score + 1 where id > $1", [0]), 2);
+check("returning", $db.run("delete from t where id = $1 returning name", [2]), {"rows" => [{"name" => "b"}], "changes" => 1});
+check("a script gives its last result", $db.query("select 1 as a; select 2 as b"), [{"b" => 2}]);
+check("strings that look like SQL are only strings", [$db.exec("insert into t (name) values ($1)", ["x'); drop table t; --"]), $db.value("select count(*) from t")], [1, 2]);
+check("text passes through", $db.value("select $1::text", ["é"]), "é");
+check("a float needs no cast", $db.value("select $1::float8", [0.1 + 0.2]), 0.30000000000000004);
+check("a bad statement", failure(() -> $db.query("select nope")), "postgres: column \"nope\" does not exist");
+check("too few parameters", failure(() -> $db.query("select $1")), "postgres: there is no parameter $1");
+check("a list can't be a parameter", failure(() -> $db.query("select $1", [[1]])), "postgres: parameter 1 is a list, which cannot be stored");
+check("a NUL can't be", failure(() -> $db.query("select $1", ["a\0b"])), "postgres: parameter 1 holds a NUL byte, which text cannot");
+check("NaN is not a float here", failure(() -> $db.value("select 'NaN'::float8")), "postgres: cannot read NaN as a float, which is always finite");
+check("a duplicate key", failure(() -> $db.exec("insert into t (id) values ($1)", [1])), "postgres: duplicate key value violates unique constraint \"t_pkey\"");
+
+check("a transaction commits", $db.transaction($d -> { $d.exec("delete from t"); return $d.value("select count(*) from t"); }), 0);
+$db.exec("insert into t (name) values ('kept')");
+check("and rolls back", failure(() -> $db.transaction($d -> { $d.exec("delete from t"); error("boom"); })), "boom");
+check("nothing was deleted", $db.value("select count(*) from t"), 1);
+check("an inner transaction rolls back alone", $db.transaction($d -> {
+    $d.exec("insert into t (name) values ('outer')");
+    $inner = failure(() -> $d.transaction($x -> { $x.exec("delete from t"); error("inner"); }));
+    return [$inner, $d.value("select count(*) from t")];
+}), ["inner", 2]);
+check("after an error in the database the transaction is rolled back", failure(() -> $db.transaction($d -> { $d.exec("delete from t"); $d.exec("nonsense"); })), "postgres: syntax error at or near \"nonsense\"");
+check("and the connection is usable", $db.value("select count(*) from t"), 2);
+
+$db.close();
+check("closed", failure(() -> $db.query("select 1")), "db_run() on a closed database");
+check("a refused connection", starts_with(failure(() -> db::open("postgres://127.0.0.1:1/x?connect_timeout=2")) ?? "", "postgres: cannot connect: "), true);

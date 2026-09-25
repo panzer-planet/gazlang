@@ -4,6 +4,9 @@
 #   make           bin/gazlang, optimised with profiles where the C compiler can (see below)
 #   make PGO=0     the same with plain -O2, a few seconds quicker to build while editing the C
 #   make TLS=0     the same without OpenSSL: https and socket_open(..., true) are errors
+#   make SQLITE=0  the same without SQLite, and PG=0 without PostgreSQL's libpq: db_open() of
+#                  that scheme is an error. Both are on when the library is found, and
+#                  SQLITE=1 or PG=1 make not finding it an error, which is what CI asks for
 #   make compiler  rebuild compiler/gazlang.gzb from compiler/ with bin/gazlang alone (see below)
 #   make test      vm/build/gazvm-test, with AddressSanitizer and UndefinedBehaviorSanitizer,
 #                  which tests/CVMTest.php runs (it calls this itself)
@@ -12,7 +15,7 @@ CC ?= cc
 # _DEFAULT_SOURCE: glibc hides POSIX and BSD functions (open_memstream, realpath, memmem) under
 # -std=c11 without it; macOS ignores it
 FLAGS = -std=c11 -D_DEFAULT_SOURCE -Wall -Wextra -Wno-unused-parameter
-SOURCES = value.c ops.c load.c vm.c builtins.c gc.c net.c term.c
+SOURCES = value.c ops.c load.c vm.c builtins.c gc.c net.c db.c term.c
 LIBS = -lm -lpthread
 
 # OpenSSL: from pkg-config, else Homebrew's (keg-only, so not on the default paths), else the
@@ -34,6 +37,47 @@ ifeq ($(TLS),1)
   endif
   FLAGS += -DGAZ_TLS $(SSL_FLAGS)
   LIBS += $(SSL_LIBS)
+endif
+
+# SQLite and libpq, for db.c's drivers: used when found (from pkg-config, else, for libpq, from
+# pg_config or Homebrew's keg-only libpq), so a C compiler alone still builds gazlang; asking for
+# one with =1 makes it an error if it isn't there
+SQLITE ?= auto
+ifneq ($(SQLITE),0)
+  SQLITE_FLAGS := $(shell pkg-config --cflags sqlite3 2>/dev/null)
+  SQLITE_LIBS := $(or $(shell pkg-config --libs sqlite3 2>/dev/null),-lsqlite3)
+  ifeq ($(shell echo '\#include <sqlite3.h>' | $(CC) -E $(SQLITE_FLAGS) -x c - >/dev/null 2>&1 && echo yes),yes)
+    FLAGS += -DGAZ_SQLITE $(SQLITE_FLAGS)
+    LIBS += $(SQLITE_LIBS)
+    SOURCES += sqlite.c
+  else ifeq ($(SQLITE),1)
+    $(error SQLite not found: install it (apt install libsqlite3-dev), or build without it: make SQLITE=0)
+  endif
+endif
+
+PG ?= auto
+ifneq ($(PG),0)
+  PG_FLAGS := $(shell pkg-config --cflags libpq 2>/dev/null)
+  PG_LIBS := $(shell pkg-config --libs libpq 2>/dev/null)
+  ifeq ($(PG_LIBS),)
+    PG_INC := $(shell pg_config --includedir 2>/dev/null)
+    PG_LIB := $(shell pg_config --libdir 2>/dev/null)
+    BREW_PQ := $(shell brew --prefix libpq 2>/dev/null)
+    ifneq ($(wildcard $(BREW_PQ)/include/libpq-fe.h),)
+      PG_FLAGS := -I$(BREW_PQ)/include
+      PG_LIBS := -L$(BREW_PQ)/lib -lpq
+    else ifneq ($(and $(PG_INC),$(wildcard $(PG_INC)/libpq-fe.h)),)
+      PG_FLAGS := -I$(PG_INC)
+      PG_LIBS := -L$(PG_LIB) -lpq
+    endif
+  endif
+  ifneq ($(PG_LIBS),)
+    FLAGS += -DGAZ_PG $(PG_FLAGS)
+    LIBS += $(PG_LIBS)
+    SOURCES += pg.c
+  else ifeq ($(PG),1)
+    $(error libpq not found: install it (apt install libpq-dev, brew install libpq), or build without it: make PG=0)
+  endif
 endif
 
 HEADERS = gazvm.h

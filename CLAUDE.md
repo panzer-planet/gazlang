@@ -70,9 +70,12 @@ vendor/bin/pint                     # formatting
 - **GazLang** (`compiler/`, `lib/`): functions, variables, fields and methods snake_case, kinds
   PascalCase, constants UPPERCASE. The lexer's and parser's methods are named after the grammar
   rule or step they read (`get_next_token()`, `function_call()`, `left_associative()`).
+  A comment of more than one line is a `/* */` block (` * ` down the side), not stacked `//` lines;
+  `//` is for one line, or a note after code.
 - **C** (`vm/`): plain C11 plus POSIX (`-D_DEFAULT_SOURCE`, which glibc needs for
   `open_memstream`, `realpath` and `memmem`), libc, libm and pthreads, and OpenSSL in `net.c`
-  only (on by default, `make TLS=0` without, `GAZ_TLS` saying which), built warning-free by
+  only (on by default, `make TLS=0` without, `GAZ_TLS` saying which), libsqlite3 in `sqlite.c` and
+  libpq in `pg.c` only (on when found, `make SQLITE=0`/`PG=0` without), built warning-free by
   clang and gcc, commented where the C isn't obvious (a
   flexible array member, a `goto` into shared code), for readers who know a little C.
 - **PHP** (the tests and `vm/*.php`): 8.5 or later, PSR-4 under `GazLang\Tests`, methods
@@ -88,7 +91,7 @@ vendor/bin/pint                     # formatting
 - `vm/`: the VM in C. `gazvm.h` says which file does what: `value.c` and `ops.c` are what values
   mean (operators, truthiness, printing, keys, indexing, write paths), `builtins.c` the builtins
   and their arities (`builtin_info[]`), `load.c` reading and checking bytecode, `vm.c` running it
-  and the CLI, `gc.c` the cycle collector, `net.c` sockets and TLS, `term.c` raw mode and keys.
+  and the CLI, `gc.c` the cycle collector, `net.c` sockets and TLS, `db.c` with `sqlite.c` and `pg.c` databases, `term.c` raw mode and keys.
 - `lib/`: the standard library in GazLang. `examples/`: sample programs that nothing tests
   (see "Programs are tests or examples"). `tests/programs/`: programs the tests do run.
   `games/`: programs built on the language, each with tests of its own (see "A game is neither").
@@ -590,6 +593,20 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   after, as curl does: per socket only macOS can turn it off, and ignoring it for good would
   change what a program writing to a closed pipe does. OpenSSL reports a socket timeout as
   wanting to read; `net.c` says `timed out`.
+- Databases (`db.c`, drivers `sqlite.c` and `pg.c`): `db_open($url)` gives a `db` handle (refcounted
+  like a socket, closed when the last reference goes), `db_run($db, $sql, $params = [])` gives
+  `{"rows", "changes"}`, `db_close($db)`. **Three builtins whatever the drivers**, since a builtin takes
+  its name from every program: the URL's scheme (`sqlite:`, `postgres:`) picks a `DbDriver` (open, run,
+  close) in C, so a new database is a file and a table entry, and `lib/db.gaz` (`db::open`, the `Db`
+  kind with `query`, `row`, `value`, `exec`, `transaction`) is what programs use. **Placeholders are
+  the database's own** (`?`, `$1`), not rewritten: rewriting means reading string literals in C. No
+  last-insert id (`returning` says it in both). Parameters are always bound, never spliced; with them
+  the SQL is one statement, without, a script whose last result is given. Both drivers are on when
+  their library is found (`make SQLITE=1`/`PG=1` make that an error, which CI asks for). SQLite is
+  tested by `tests/gaz/lib/db_test.gaz` on `:memory:` (recorded, sanitized, leak-checked); PostgreSQL
+  by `DbPgTest` running `tests/db/pg_check.gaz` against the server `GAZLANG_TEST_PG` names (skipped
+  without), on temporary tables. `ponytail:` a bool parameter is 0/1 in SQLite, no blobs going in,
+  and PostgreSQL's numeric, timestamps and json come back as text.
 - `monotonic_time()`: seconds as a float on `CLOCK_MONOTONIC`, from an undefined point, so only a
   difference means anything; a program that prints it can't be recorded, so tests check its type and
   that it never goes back, and its uses (`tui::Metronome`) take the time as an argument. There is
@@ -648,7 +665,7 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   a builtin takes its name from every program and a namespace only from those that include it),
   `format.gaz` (`format::number`, `format::pad_left`/`pad_right`
   convert like echo: display helpers take any value, string functions stay strict),
-  `json.gaz`, `csv.gaz` (RFC 4180), `http.gaz` (method and header names checked
+  `json.gaz`, `csv.gaz` (RFC 4180), `db.gaz` (see Databases above), `http.gaz` (method and header names checked
   as HTTP tokens and URLs for spaces and control characters, so nothing can end a line of the
   request; credentials dropped on a redirect to another origin; `HttpTest` runs it against
   `tests/fixtures/http_server.php`, over TCP and TLS, which writes framing out by hand so it can

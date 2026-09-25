@@ -14,6 +14,7 @@
  *   builtins.c  the builtin functions and their arities
  *   gc.c        the cycle collector, for what reference counting can't free
  *   net.c       sockets, and TLS through OpenSSL (the one file that includes it)
+ *   db.c        db_open() and friends: a driver by URL scheme; sqlite.c and pg.c are the drivers
  *   term.c      raw mode, reading keys, the terminal's size
  *
  * Errors: a function that can fail returns bool, false meaning an error was raised. The
@@ -45,6 +46,7 @@ typedef enum {
     T_FUNCTION,
     T_OBJECT,
     T_SOCKET,   /* a connection, closed when the last reference goes */
+    T_DB,       /* a database connection, the same */
     T_ERROR,    /* a raised error, as the stack holds it in a catch or finally block */
     T_KIND,    /* lives as long as the program: not counted */
     T_ENTRY,    /* the method entry GET_METHOD pushes: points into a kind, not counted */
@@ -61,6 +63,7 @@ typedef struct Error Error;
 typedef struct Kind Kind;
 typedef struct Entry Entry;
 typedef struct Socket Socket;
+typedef struct Db Db;
 
 /* One value: a type tag and a payload. 16 bytes, passed around by value. */
 typedef struct Value {
@@ -79,6 +82,7 @@ typedef struct Value {
         Kind *k;
         Entry *entry;
         Socket *sock;
+        Db *db;
     };
 } Value;
 
@@ -167,6 +171,22 @@ struct Socket {
     int fd;             /* -1 once closed */
     void *tls;          /* OpenSSL's SSL *, or NULL for plain TCP: void, so only net.c needs OpenSSL */
     int timeout_ms;     /* for each read and write */
+};
+
+/* One database driver: what db_open() picks by the URL's scheme. sqlite.c and pg.c each supply
+   one, if they were built in. */
+typedef struct DbDriver {
+    const char *name;
+    bool (*open)(Str *url, void **conn);
+    bool (*run)(void *conn, Str *sql, List *params, Value *out);
+    void (*close)(void *conn);
+} DbDriver;
+
+/* A connection made by db_open(): a handle, so copies share it */
+struct Db {
+    int64_t rc;
+    const DbDriver *driver;
+    void *conn;         /* the driver's own, NULL once closed */
 };
 
 /* An error on its way up. */
@@ -376,6 +396,7 @@ static inline Value v_map(Map *m) { Value v = {.type = T_MAP, .m = m}; return v;
 static inline Value v_func(Func *f) { Value v = {.type = T_FUNCTION, .fn = f}; return v; }
 static inline Value v_object(Object *o) { Value v = {.type = T_OBJECT, .o = o}; return v; }
 static inline Value v_socket(Socket *s) { Value v = {.type = T_SOCKET, .sock = s}; return v; }
+static inline Value v_db(Db *d) { Value v = {.type = T_DB, .db = d}; return v; }
 static inline Value v_kind(Kind *k) { Value v = {.type = T_KIND, .k = k}; return v; }
 
 Str *str_new(const char *data, size_t len);
@@ -514,6 +535,15 @@ bool net_open(Str *host, int64_t port, bool tls, double timeout, Value *out);
 bool net_read(Socket *s, Value *out);
 bool net_write(Socket *s, Str *data);
 void net_close(Socket *s);
+
+/* ---- db.c, sqlite.c, pg.c ---------------------------------------------------------------- */
+
+bool db_open(Str *url, Value *out);
+bool db_run(Db *d, Str *sql, List *params, Value *out);
+void db_close(Db *d);
+void db_put(Map *m, const char *key, size_t len, Value v);   /* m[key] = v, taking v's reference */
+Value db_result(List *rows, int64_t changes);   /* the {"rows", "changes"} map a driver's run() gives */
+extern const DbDriver sqlite_driver, pg_driver;  /* defined only when built in (GAZ_SQLITE, GAZ_PG) */
 
 /* term.c */
 bool term_raw(bool on);

@@ -83,6 +83,10 @@ void value_free(Value v) {
         net_close(v.sock);
         free(v.sock);
         break;
+    case T_DB:
+        db_close(v.db);
+        free(v.db);
+        break;
     case T_ERROR: {
         Error *e = v.e;
         decref(v_str(e->reason));
@@ -436,6 +440,7 @@ const char *type_name(Value v) {
     case T_OBJECT: return "object";
     case T_KIND: return "kind";
     case T_SOCKET: return "socket";
+    case T_DB: return "db";
     case T_ERROR: return "raised error";
     case T_ENTRY: return "method entry";
     default: return "unset";
@@ -677,6 +682,9 @@ bool append_string(Value v, Buf *out) {
         buf_adds(out, "kind ");
         buf_add_str(out, v.k->name);
         return true;
+    case T_DB:
+        buf_adds(out, v.db->conn ? "db" : "db (closed)");
+        return true;
     case T_SOCKET:
         buf_adds(out, v.sock->fd < 0 ? "socket (closed)" : "socket");
         return true;
@@ -767,6 +775,8 @@ bool values_equal(Value a, Value b) {
         return b.type == T_OBJECT && a.o == b.o;
     case T_SOCKET:
         return b.type == T_SOCKET && a.sock == b.sock;
+    case T_DB:
+        return b.type == T_DB && a.db == b.db;
     case T_KIND:
         return b.type == T_KIND && a.k == b.k;
     default:

@@ -1,0 +1,69 @@
+include "../check.gaz";
+include "../../../lib/db.gaz";
+
+// What a failing call raises, or null
+fn failure($f) {
+    try {
+        $f();
+    } catch ($e) {
+        return $e.message;
+    }
+    return null;
+}
+
+$db = db::open("sqlite::memory:");
+check("the handle is its own type", type_of(db_open("sqlite::memory:")), "db");
+check("a script makes tables", $db.run("create table t (id integer primary key, name text, score real, note text); insert into t (name, score) values ('seed', 0.5);"), {"rows" => [], "changes" => 1});
+check("exec gives the rows changed", $db.exec("insert into t (name, score, note) values (?, ?, ?), (?, ?, ?)", ["a", 2, null, "b", true, "x"]), 2);
+check("query gives maps", $db.query("select id, name, score, note from t order by id"), [
+    {"id" => 1, "name" => "seed", "score" => 0.5, "note" => null},
+    {"id" => 2, "name" => "a", "score" => 2.0, "note" => null},
+    {"id" => 3, "name" => "b", "score" => 1.0, "note" => "x"},
+]);
+check("row", $db.row("select name from t where id = ?", [2]), {"name" => "a"});
+check("row of nothing", $db.row("select name from t where id = ?", [99]), null);
+check("value", $db.value("select count(*) from t"), 3);
+check("value of nothing", $db.value("select name from t where id = 99"), null);
+check("a select changes nothing, whatever ran before", $db.run("select * from t")["changes"], 0);
+check("update counts what it changed", $db.exec("update t set score = score + 1 where id > ?", [1]), 2);
+check("returning gives rows and changes", $db.run("delete from t where id = ? returning name", [3]), {"rows" => [{"name" => "b"}], "changes" => 1});
+check("a script gives its last result", $db.query("select 1 as a; select 2 as b"), [{"b" => 2}]);
+check("a comment after the statement", $db.query("select 1 as a; -- done"), [{"a" => 1}]);
+check("a comment after the statement, with parameters", $db.query("select ? as a -- by id", [1]), [{"a" => 1}]);
+check("nothing to run", $db.run(" "), {"rows" => [], "changes" => 0});
+check("strings that look like SQL are only strings", [$db.exec("insert into t (name) values (?)", ["x'); drop table t; --"]), $db.value("select count(*) from t")], [1, 3]);
+check("bytes pass through", $db.value("select ?", ["é\0\xff"]), "é\0\xff");
+check("floats keep their digits", $db.value("select ?", [0.1 + 0.2]), 0.30000000000000004);
+check("big ints", $db.value("select ?", [9223372036854775807]), 9223372036854775807);
+check("a column named twice keeps the last", $db.row("select 1 as a, 2 as a"), {"a" => 2});
+
+check("a bad statement", failure(() -> $db.query("select nope")), "sqlite: no such column: nope");
+check("too few parameters", failure(() -> $db.query("select ?")), "sqlite: the SQL takes 1 parameter, got 0");
+check("too many parameters", failure(() -> $db.query("select 1", [1, 2])), "sqlite: the SQL takes 0 parameters, got 2");
+check("a list can't be a parameter", failure(() -> $db.query("select ?", [[1]])), "sqlite: parameter 1 is a list, which cannot be stored");
+check("parameters need one statement", failure(() -> $db.query("select ?; select ?", [1, 2])), "sqlite: parameters need a single statement");
+check("a failed statement changes nothing", failure(() -> $db.exec("insert into t (id) values (?)", [1])), "sqlite: UNIQUE constraint failed: t.id");
+check("infinity is not a float here", failure(() -> $db.value("select 1e999")), "sqlite: column 1e999 is infinite, and floats are always finite");
+
+check("a transaction gives what its work returns", $db.transaction($d -> { $d.exec("delete from t"); return $d.value("select count(*) from t"); }), 0);
+check("and commits", $db.value("select count(*) from t"), 0);
+$db.exec("insert into t (name) values ('kept')");
+check("it rolls back and raises again when the work raises", failure(() -> $db.transaction($d -> { $d.exec("delete from t"); error("boom"); })), "boom");
+check("and nothing was deleted", $db.value("select count(*) from t"), 1);
+check("an inner transaction rolls back alone", $db.transaction($d -> {
+    $d.exec("insert into t (name) values ('outer')");
+    $inner = failure(() -> $d.transaction($x -> { $x.exec("delete from t"); error("inner"); }));
+    return [$inner, $d.value("select count(*) from t")];
+}), ["inner", 2]);
+check("the outer one committed", $db.value("select count(*) from t"), 2);
+check("an error from the database rolls back too", failure(() -> $db.transaction($d -> { $d.exec("delete from t"); $d.exec("nonsense"); })), "sqlite: near \"nonsense\": syntax error");
+check("and the delete is undone", $db.value("select count(*) from t"), 2);
+
+$db.close();
+$db.close();
+check("a closed database", failure(() -> $db.query("select 1")), "db_run() on a closed database");
+check("an unknown scheme", failure(() -> db::open("mysql://localhost/x")), "db_open() expects a URL starting sqlite: or postgres:, got mysql://localhost/x");
+check("no path", failure(() -> db::open("sqlite:")), "sqlite: no path: write sqlite:FILE or sqlite::memory:");
+check("an unopenable path", failure(() -> db::open("sqlite:/nonexistent/dir/x.db")), "sqlite: cannot open /nonexistent/dir/x.db: unable to open database file");
+check("a bad type", failure(() -> db_run(1, "select 1")), "db_run() expects db, got int");
+check("a bad postgres URL", failure(() -> db::open("postgres://localhost:1/x?connect_timeout=1")) != null, true);

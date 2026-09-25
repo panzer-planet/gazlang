@@ -49,7 +49,8 @@ conversion, float formatting, rounding) is a rule GazLang defines and writes out
 as `round()` is in `vm/builtins.c`.
 
 The C is plain C11, libc, libm and pthreads, plus OpenSSL in `net.c` only (for TLS, left out
-by `make TLS=0`, `GAZ_TLS` saying which). A function that can fail returns `bool`, with
+by `make TLS=0`, `GAZ_TLS` saying which), and libsqlite3 and libpq in `sqlite.c` and `pg.c` only (left out
+by `make SQLITE=0 PG=0`; `db.c` picks a driver by URL scheme). A function that can fail returns `bool`, with
 the error in `vm_error`; values are reference counted (`incref`, `decref`), lists and maps are
 copied on write, and the cycle collector (`vm/gc.c`) frees what counting can't.
 

@@ -1,0 +1,83 @@
+/*
+ * Databases: SQLite and PostgreSQL behind one interface, on the db_open(), db_run() and db_close()
+ * builtins, which a driver's library (libsqlite3, libpq) is built into the VM for, if it was found.
+ *
+ *   $db = db::open("sqlite:app.db");          // or "sqlite::memory:", or "postgres://user@host/name"
+ *   $db.exec("create table users (id integer primary key, name text)");
+ *   $db.exec("insert into users (name) values (?)", ["Ada"]);
+ *   foreach ($db.query("select * from users where name = ?", ["Ada"]) as $user) { echo $user["name"]; }
+ *   $db.transaction($db -> { $db.exec("delete from users"); });     // rolled back if it raises
+ *
+ * The parameters are a list, sent apart from the SQL so nothing in them is ever read as SQL. The
+ * placeholders are the database's own: `?` for SQLite, `$1` for PostgreSQL. A row is a map from
+ * column name to value (a repeated name keeps the last); int, float, bool (PostgreSQL only) and
+ * null come back as themselves and everything else as a string. Errors are catchable, and say
+ * which database gave them.
+ *
+ * With parameters the SQL is one statement; without, it may be a script, and the last statement's
+ * result is the one given.
+ */
+namespace db;
+
+pub kind Db {
+    #handle;
+    #depth = 0;
+
+    fn _($url) {
+        #handle = db_open($url);
+    }
+
+    // {"rows" => [row, ...], "changes" => rows an insert, update or delete changed}
+    pub fn run($sql, $params = []) {
+        return db_run(#handle, $sql, $params);
+    }
+
+    pub fn query($sql, $params = []) {
+        return db_run(#handle, $sql, $params)["rows"];
+    }
+
+    // The first row, or null when there is none
+    pub fn row($sql, $params = []) {
+        return db_run(#handle, $sql, $params)["rows"][0] ?? null;
+    }
+
+    // The first column of the first row, or null when there is none
+    pub fn value($sql, $params = []) {
+        $row = #row($sql, $params);
+        return $row == null ? null : values($row)[0];
+    }
+
+    // How many rows an insert, update or delete changed
+    pub fn exec($sql, $params = []) {
+        return db_run(#handle, $sql, $params)["changes"];
+    }
+
+    /*
+     * Runs $work with this database between begin and commit, gives what it returns, and rolls
+     * back and raises again if it raises. Inside another transaction it is a savepoint instead.
+     */
+    pub fn transaction($work) {
+        $savepoint = "gaz_savepoint_" .. #depth;
+        db_run(#handle, #depth == 0 ? "begin" : "savepoint " .. $savepoint);
+        #depth++;
+        try {
+            $result = $work(#);
+            /* Inside the try, so a commit the database refuses is rolled back like a failure of the work */
+            db_run(#handle, #depth == 1 ? "commit" : "release " .. $savepoint);
+        } catch ($e) {
+            #depth--;
+            db_run(#handle, #depth == 0 ? "rollback" : "rollback to " .. $savepoint);
+            error($e);
+        }
+        #depth--;
+        return $result;
+    }
+
+    pub fn close() {
+        db_close(#handle);
+    }
+}
+
+pub fn open($url) {
+    return Db($url);
+}

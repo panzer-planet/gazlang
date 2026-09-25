@@ -6,6 +6,7 @@ compiler/parser.gaz
 lib/chars.gaz
 lib/csv.gaz
 lib/date.gaz
+lib/db.gaz
 lib/format.gaz
 lib/http.gaz
 lib/json.gaz
@@ -752,6 +753,7 @@ tests/gaz/functions/default_parameters_test.gaz
 tests/gaz/functions/shared_test.gaz
 tests/gaz/lib/chars_test.gaz
 tests/gaz/lib/date_test.gaz
+tests/gaz/lib/db_test.gaz
 tests/gaz/lib/format_test.gaz
 tests/gaz/lib/json_test.gaz
 tests/gaz/lib/regex_test.gaz
