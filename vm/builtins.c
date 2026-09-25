@@ -7,6 +7,7 @@
  */
 #include "gazvm.h"
 
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -50,6 +51,7 @@ const BuiltinInfo builtin_info[] = {
     {"socket_listen", 2, 3}, {"socket_accept", 1, 2}, {"socket_port", 1, 1}, {"workers", 1, 1},
     {"time", 0, 0}, {"kind_name", 1, 1}, {"sqrt", 1, 1},
     {"getenv", 1, 1}, {"sleep", 1, 1},
+    {"list_dir", 1, 1}, {"is_dir", 1, 1}, {"make_dir", 1, 1}, {"delete_file", 1, 1}, {"delete_dir", 1, 1},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -67,6 +69,7 @@ enum {
     B_SOCKET_LISTEN, B_SOCKET_ACCEPT, B_SOCKET_PORT, B_WORKERS,
     B_TIME, B_KIND_NAME, B_SQRT,
     B_GETENV, B_SLEEP,
+    B_LIST_DIR, B_IS_DIR, B_MAKE_DIR, B_DELETE_FILE, B_DELETE_DIR,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -661,6 +664,44 @@ static bool run_process(List *args, Str *input, Value *out) {
     return true;
 }
 
+/* 'Cannot list directory "tmp/x": No such file or directory': the path quoted, so a NUL byte or a
+   newline in it shows, and the system's reason, whose words are the same on Linux and macOS */
+static bool raise_path(const char *what, Str *path, int err) {
+    Buf m = {0};
+    buf_adds(&m, what);
+    buf_addc(&m, ' ');
+    quote(path, &m);
+    buf_adds(&m, ": ");
+    buf_adds(&m, strerror(err));
+    return raise_str(buf_to_str(&m));
+}
+
+static int by_bytes(const void *a, const void *b) { return str_cmp(((const Value *)a)->s, ((const Value *)b)->s); }
+
+/* list_dir($path): the entries' names but . and .., sorted byte by byte, since the order
+   readdir() gives differs between file systems */
+static bool list_dir(Str *path, Value *out) {
+    /* No name holds a NUL byte, so a path with one names nothing */
+    DIR *dir = memchr(path->data, '\0', path->len) ? (errno = ENOENT, NULL) : opendir(path->data);
+    if (!dir) return raise_path("Cannot list directory", path, errno);
+    List *l = list_new(0);
+    struct dirent *entry;
+    for (;;) {
+        errno = 0;
+        if (!(entry = readdir(dir))) break;
+        if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..")) list_push(l, v_str(str_cstr(entry->d_name)));
+    }
+    int err = errno;
+    closedir(dir);
+    if (err) {
+        decref(v_list(l));
+        return raise_path("Cannot list directory", path, err);
+    }
+    if (l->len) qsort(l->items, l->len, sizeof *l->items, by_bytes);
+    *out = v_list(l);
+    return true;
+}
+
 static Value keys_of(Value v) {
     if (v.type == T_LIST) {
         List *l = list_new(v.l->len);
@@ -1097,6 +1138,34 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         }
         *out = v_str(str_cstr(real));
         free(real);
+        return true;
+    }
+    case B_LIST_DIR:
+        if (!want(index, a, STRING)) return false;
+        return list_dir(a.s, out);
+    case B_IS_DIR: {
+        /* Following a symlink, as file_exists() does */
+        if (!want(index, a, STRING)) return false;
+        struct stat st;
+        *out = v_bool(!memchr(a.s->data, '\0', a.s->len) && stat(a.s->data, &st) == 0 && S_ISDIR(st.st_mode));
+        return true;
+    }
+    case B_MAKE_DIR:
+    case B_DELETE_FILE:
+    case B_DELETE_DIR: {
+        /* One level each: make_dir() needs the parent there and the name free, delete_dir() an
+           empty directory, and delete_file() refuses a directory (a symlink to one is a file), whose
+           reason is written out here since unlink() gives EPERM on macOS and EISDIR on Linux */
+        if (!want(index, a, STRING)) return false;
+        int err = 0;
+        struct stat st;
+        if (memchr(a.s->data, '\0', a.s->len)) err = ENOENT;
+        else if (index == B_MAKE_DIR) err = mkdir(a.s->data, 0777) == 0 ? 0 : errno;
+        else if (index == B_DELETE_DIR) err = rmdir(a.s->data) == 0 ? 0 : errno;
+        else if (lstat(a.s->data, &st) == 0 && S_ISDIR(st.st_mode)) err = EISDIR;
+        else err = unlink(a.s->data) == 0 ? 0 : errno;
+        if (err) return raise_path(index == B_MAKE_DIR ? "Cannot make directory" : index == B_DELETE_DIR ? "Cannot delete directory" : "Cannot delete file", a.s, err);
+        *out = v_null();
         return true;
     }
     case B_CWD: {

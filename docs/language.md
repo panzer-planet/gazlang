@@ -484,6 +484,14 @@ objects as `$seen[object_id($x)] = true`).
 `write_file($path, $string)`, `read_stdin()`, `args()`, `builtins()` (every builtin's name
 mapped to its parameter count, or `[fewest, most]` when some are optional).
 
+**Directories** — `list_dir($path)` is the names of what a directory holds, without `.` and
+`..`, sorted byte by byte (so `"10"` before `"9"` and `"Z"` before `"a"`), the same on every
+system. `is_dir($path)` is whether there is a directory there (through a symlink too).
+`make_dir($path)` makes one directory, whose parent must be there; `delete_dir($path)` removes an
+empty one; `delete_file($path)` removes a file (or a symlink), never a directory. Each gives
+`null`, and what it can't do is an error naming the path and the system's reason:
+`Cannot make directory "out": File exists`.
+
 **Paths** — `cwd()` is the working directory, which relative paths are resolved from.
 `real_path($path)` is the absolute path with every symlink, `.` and `..` resolved (a directory
 too), and an error when there is nothing there; `file_exists($path)` is whether there is, so

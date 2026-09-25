@@ -605,6 +605,7 @@
 "echo write_file(\"tests/.tmp/write_file.txt\", \"first\"); write_file(\"tests/.tmp/write_file.txt\", \"second\"); echo read_file(\"tests/.tmp/write_file.txt\");"
 "write_file(\"/no/such/dir/out.txt\", \"x\");"
 "write_file(\"out.txt\", [1]);"
+"$d = \"tests/.tmp/dirs\";\nfn clear($dir) {\n    foreach (list_dir($dir) as $name) {\n        $path = \"{$dir}/{$name}\";\n        if (is_dir($path)) { clear($path); } else { delete_file($path); }\n    }\n    delete_dir($dir);\n}\nif (is_dir($d)) { clear($d); }\nmake_dir($d);\nforeach ([\"b\", \"a\", \"Z\", \"10\", \"9\", \"é\", \"_\"] as $name) {\n    write_file(\"{$d}/{$name}\", $name);\n}\nmake_dir(\"{$d}/sub\");\necho list_dir($d);\necho list_dir(\"{$d}/sub\");\necho [is_dir($d), is_dir(\"{$d}/sub/\"), is_dir(\"{$d}/a\"), is_dir(\"{$d}/nope\")];\n$tries = [\n    () -> make_dir($d), () -> make_dir(\"{$d}/no/such\"),\n    () -> delete_file(\"{$d}/sub\"), () -> delete_file(\"{$d}/nope\"),\n    () -> delete_dir($d), () -> delete_dir(\"{$d}/a\"),\n    () -> list_dir(\"{$d}/a\"), () -> list_dir(\"{$d}/nope\"), () -> list_dir(\"{$d}\\0\"),\n];\nforeach ($tries as $try) {\n    try { $try(); } catch (Error $e) { echo $e.message; }\n}\nclear($d);\necho is_dir($d);\necho is_dir(\"{$d}\\0\");"
 "slice(5, 0, 1);"
 "slice(\"abc\", \"0\", 1);"
 "lower(1);"

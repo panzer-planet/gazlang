@@ -257,8 +257,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     `--shrink FILE`. A try costs about 0.1s of the sanitized build's start-up, whatever the
     program, which is why shrinking takes the time, not the run.
   - **Nothing opens a socket, starts a program, exits, waits or writes a file**: a program naming
-    `run`, `exit`, `workers`, `write_file`, `read_stdin`, `sleep`, `getenv` or a `socket_` builtin
-    is skipped (`getenv` since what it gives isn't the seed's), an included
+    `run`, `exit`, `workers`, `write_file`, `read_stdin`, `sleep`, `getenv`, a directory builtin or a
+    `socket_` builtin is skipped (`getenv` since what it gives isn't the seed's), an included
     file's text included, which is sound because a builtin is reached only by its name.
   - **Break it before believing it**: a missing `decref` in `delete` and a read past a string
     in `reverse`, planted in turn, were both found within 700 programs. The first also showed
@@ -642,6 +642,14 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   gazlang options or `--`; the CLI rejects options it doesn't know, since `getopt` would drop
   them silently), `cwd()`, `real_path()` (as `realpath(3)`; `""`, a NUL byte, `file/` and
   `file/..` are nothing, where platforms disagree), `file_exists()`.
+- Directories: `list_dir()` (sorted with `str_cmp`, byte by byte, since `readdir()`'s order is
+  the file system's), `is_dir()` (through symlinks, as `file_exists`), `make_dir()` (one level),
+  `delete_dir()` (empty only), `delete_file()` (not a directory: its reason is written out as
+  `EISDIR`, since `unlink()` says EPERM on macOS). A failure is `Cannot VERB "path": strerror`,
+  the path quoted so a NUL byte shows; a NUL byte in a path is `ENOENT`, as no name holds one.
+  `StdlibTest::test_directories` runs one snippet that makes, lists and clears
+  `tests/.tmp/dirs`, clearing a failed run's leftovers first so it can be recorded; the names in
+  it avoid differing only in case, which macOS's file system can't hold.
 - `run($argv, $input = "")`: `posix_spawnp` of a list of strings, so no shell reads them; the
   environment and working directory inherited. Standard input is `$input` in a temporary file
   unlinked before the program starts (a pipe would need writing while reading two, and SIGPIPE
