@@ -1210,6 +1210,28 @@ vm/bench.php`: CPU time, interleaved, best of several).
   layout), that an entry failing halfway keeps its side effects (as Python's does), and that a
   call to a function not yet defined is an error for that entry. Wanted after the chores batch
   (`read_line()` and friends), which it would use.
+- **Packages: git only to begin, not built.** A package is a directory of GazLang source (no C,
+  so one binary and a C compiler stay the whole install; no bytecode, which has no compatibility
+  promise), a git repository with version tags. A project has `gaz.json` (its name and
+  `"requires": {"router": "github.com/someone/gaz-router@1.2.0"}`), `gaz.lock` (the exact commit
+  of every package, direct or not) and `packages/` inside it, never a global install, for the
+  reason the standard library is embedded. `include "pkg/router/router.gaz"` reserves `pkg/` as
+  `std/` is, found by walking up from the including file to the nearest `gaz.json`. One version
+  of a package per project, since namespaces are program-wide; versions by minimal version
+  selection (Go's: the highest of the minimums asked for, deterministic, no solver). **Git URLs,
+  not a registry**: nothing to run, names unique by construction, the commit hash as integrity; a
+  registry can come later as an index of git repositories (Packagist's shape) without changing a
+  package. The tool would be GazLang built into the binary, as the compiler is (`run()` for git,
+  the HTTP client, JSON, and the chores batch's file builtins).
+  - **The blocker is stability**: a package written today breaks with the next language change,
+    and with no releases it can't say which gazlang it needs. Versioned releases, and some
+    promise about what changes between them, come first, and `gaz.json` then says
+    `"gazlang": ">=0.3"`.
+  - **Renaming the binary to `gaz`** is wanted with it (`gaz pkg add` over `gazlang pkg add`), and
+    matches `.gaz`. Before doing it: check no common package (Homebrew, apt) ships a `gaz`, and
+    decide whether `gaz main.gaz` should run a file without `-f`, which is what makes the short
+    name pay. The cost is mechanical (the Makefile, `GazLangTestCase::binary()`, CI, the docs);
+    a `gazlang` symlink could carry old uses through a release.
 - **Running source**: the compiler runs as a program of its own with its output captured in an
   `open_memstream()` buffer, which is then loaded as bytecode saved next to the source. Each run
   starts with fresh stacks and globals and the compile's leftovers are dropped first, so the leak
