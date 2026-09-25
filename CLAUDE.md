@@ -279,9 +279,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - `split($x, $sep)` has no limit: it always splits on every occurrence, so keeping the
     trailing remainder together (`"a=b=c"` split on `"="` into `["a", "b=c"]`) needs
     `index_of` and two `slice`s instead of a third argument.
-  - `$obj.$name` (dynamic member access; `lib/sorting.gaz` can sort maps but not objects), and
-    `kind_name($kind)` (the bare name; today `slice(to_string(kind_of($x)), 5)`, which
-    `json.gaz` uses too).
+  - `$obj.$name` (dynamic member access; `lib/sorting.gaz` can sort maps but not objects).
   - `kind_of` is strict, so a pass over a tree with absent children needs a `type_of` check
     first; if that recurs, make it lenient.
   - Scanning bytes: `$s[$i]` makes a one-byte string (shared in C) and there is no `byte_at` or
@@ -615,7 +613,9 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   or a kind. It is decided by what a function *needs*, not by what it accepts, so a callback's meaning
   never depends on a default someone adds.
 - Types: `type_of` (`int float string bool null list map function kind object socket`), `is_a`,
-  `kind_of`, `fields` (see "Objects"), `object_id` (an int no other object of the program has or
+  `kind_of`, `kind_name` (a kind's name as declared, namespace included, `tui::Rect`: the bare
+  name is `last(split(..., "::"))` and the other way would be impossible; a kind only, strict as
+  `kind_of` is, so an object's is `kind_name(kind_of($x))`), `fields` (see "Objects"), `object_id` (an int no other object of the program has or
   had, counted from 1 in `object_new()` and reset by `run_program()`, so it is the same
   however the program runs: a set of objects or a side table is a map keyed by it; a counter,
   not the address, since an address is reused and differs from run to run).

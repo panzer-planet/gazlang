@@ -48,7 +48,7 @@ const BuiltinInfo builtin_info[] = {
     {"term_is_tty", 1, 1}, {"monotonic_time", 0, 0}, {"std_source", 1, 1},
     {"db_open", 1, 1}, {"db_run", 2, 3}, {"db_close", 1, 1},
     {"socket_listen", 2, 3}, {"socket_accept", 1, 2}, {"socket_port", 1, 1}, {"workers", 1, 1},
-    {"time", 0, 0},
+    {"time", 0, 0}, {"kind_name", 1, 1},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -64,7 +64,7 @@ enum {
     B_MONOTONIC_TIME, B_STD_SOURCE,
     B_DB_OPEN, B_DB_RUN, B_DB_CLOSE,
     B_SOCKET_LISTEN, B_SOCKET_ACCEPT, B_SOCKET_PORT, B_WORKERS,
-    B_TIME,
+    B_TIME, B_KIND_NAME,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -1001,6 +1001,14 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         if (!want(index, a, M(T_OBJECT))) return false;
         *out = v_kind(a.o->kind);
         return true;
+    case B_KIND_NAME: {
+        /* The name as declared, namespace included (json::Reader): what echo prints after "kind " */
+        if (!want(index, a, M(T_KIND))) return false;
+        Value name = v_str(a.k->name);
+        incref(name);
+        *out = name;
+        return true;
+    }
     case B_OBJECT_ID:
         if (!want(index, a, M(T_OBJECT))) return false;
         *out = v_int(a.o->id);

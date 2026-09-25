@@ -463,7 +463,9 @@ as they always were, so `map($texts, to_int)` still gives `to_int` one argument.
 An error in the function comes out of the builtin, and its trace goes from the function
 straight to where the builtin was called.
 
-**Types** — `type_of`, `is_a($x, Kind)`, `kind_of($x)`, `fields($object)` (the fields that
+**Types** — `type_of`, `is_a($x, Kind)`, `kind_of($x)`, `kind_name($kind)` (the name the kind was
+declared with, as a string, namespace included: `"Point"`, `"tui::Rect"`; an object's is
+`kind_name(kind_of($x))`), `fields($object)` (the fields that
 are set, as a map by name, the parent's first; a never-set field is left out), `object_id($object)`
 (an int that no other object in the program has or had, the same every run: keep a set of
 objects as `$seen[object_id($x)] = true`).
