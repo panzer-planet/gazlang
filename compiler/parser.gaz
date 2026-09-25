@@ -2911,7 +2911,7 @@ kind Html {
         // is checked, so only this pass ever learns that namespaces exist
         #resolve_names();
         // Error is only compiled into programs that can catch, name or extend it
-        $uses_error = #catches;
+        $uses_error = #catches || #names_in_a_type("Error");
         foreach (#uses as [$use, $scope]) {
             $uses_error = $uses_error || $use.name == "Error";
         }
@@ -2922,7 +2922,7 @@ kind Html {
             $root.statements = [$error_kind, ...$root.statements];
         }
         // Shared is only compiled into programs with a shared variable
-        if (#shares) {
+        if (#shares || #names_in_a_type("Shared")) {
             $root.statements = [$shared_kind, ...$root.statements];
         }
         // Html into programs with a template, or that name it themselves
@@ -3257,15 +3257,24 @@ kind Html {
                 continue;
             }
             $mine = $types[$i] ?? null;
-            if ($mine == null || $mine.names != $type.names) {
+            if (!#same_type($mine, $type)) {
                 #fail_at("Method {$kind.name}.{$name} must take {$method.params[$i]} as {$type.text()}, as {$owner}.{$name} does: an override keeps the parent's types", $method.file, $method.line);
             }
         }
         $returns = $parent.return_type ?? null;
         $mine = $method.return_type ?? null;
-        if ($returns != null && ($mine == null || $mine.names != $returns.names)) {
+        if ($returns != null && !#same_type($mine, $returns)) {
             #fail_at("Method {$kind.name}.{$name} must return {$returns.text()}, as {$owner}.{$name} does: an override keeps the parent's types", $method.file, $method.line);
         }
+    }
+
+    // Whether two declared types admit the same names, in whatever order they were written
+    fn same_type($mine, $theirs) {
+        if ($mine == null) {
+            return false;
+        }
+
+        return sort($mine.names) == sort($theirs.names);
     }
 
     // Check a ##name against the parent of the kind it is written in, and record whose version runs
@@ -3309,6 +3318,17 @@ kind Html {
         }
         foreach (#kinds as $kind) {
             if ($kind.parent == "Html") {
+                return true;
+            }
+        }
+
+        return #names_in_a_type("Html");
+    }
+
+    // Whether a declared type names $kind, which a builtin kind must then be compiled in for
+    fn names_in_a_type($kind) {
+        foreach (#type_uses as [$node, $scope]) {
+            if (in_array($kind, $node.names)) {
                 return true;
             }
         }

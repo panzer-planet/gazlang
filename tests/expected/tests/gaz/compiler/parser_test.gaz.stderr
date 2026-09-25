@@ -2,5 +2,5 @@ Error: Field #x of B has the name of a field of A that isn't pub: a field is a s
   gazlang::Parser.fail_at at compiler/parser.gaz:371
   gazlang::Parser.resolve_kind at compiler/parser.gaz:3162
   gazlang::Parser.program at compiler/parser.gaz:2942
-  gazlang::Parser.parse at compiler/parser.gaz:3598
+  gazlang::Parser.parse at compiler/parser.gaz:3618
   top level at tests/gaz/compiler/parser_test.gaz:33

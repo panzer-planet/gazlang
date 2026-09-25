@@ -917,20 +917,34 @@ kind CodeGenerator {
         } else {
             #visit($node.expr);
         }
-        #return_check();
 
         // Finally blocks around the return run first, with the value held in a hidden variable
-        $finally = false;
-        foreach (#try_stack as $handler) {
-            $finally = $finally || $handler != null;
-        }
-        if ($finally) {
+        if (#leaves_tries_first()) {
             $value = #hidden("\$#return_" .. #hidden_counter++);
             #emit_variable("STORE", $value);
             #leave_tries(0);
             #emit_variable("LOAD", $value);
         }
+        #return_check();
         #emit("RET");
+    }
+
+    /*
+     * Whether a return leaves the function's try blocks before it returns: when one has a finally
+     * block to run, and when the return type is checked, so that the function's own catch can't
+     * swallow the error meant for its caller
+     */
+    fn leaves_tries_first() {
+        if (#return_type != null && len(#try_stack) > 0) {
+            return true;
+        }
+        foreach (#try_stack as $handler) {
+            if ($handler != null) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // The check of a returned value against the declared return type, if there is one: the

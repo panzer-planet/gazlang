@@ -147,4 +147,66 @@ class TypeTest extends GazLangTestCase
             echo typed({"name" => "Ann"}, "2");
             CODE);
     }
+
+    public function test_a_builtin_kind_named_only_in_a_type_is_compiled_in()
+    {
+        // Error, Shared and Html are compiled into a program only when it uses them, and a
+        // type is a use: before, the program failed to load
+        $this->assertSame("1\nError\nmade\n", $this->executeCode(<<<'CODE'
+            fn f(Html|int $x) {
+                return $x;
+            }
+            fn g(Error $e) {
+                return kind_name($e);
+            }
+            $h = (Shared $s) -> 1;
+            echo f(1);
+            try {
+                error("x");
+            } catch ($e) {
+                echo g($e);
+            }
+            echo "made";
+            CODE));
+    }
+
+    public function test_a_function_cannot_catch_its_own_return_type_error()
+    {
+        // The return is checked once the function's own try blocks are left, their finally
+        // blocks run: the caller hears of it
+        $this->assertSame("finally\ncaller: f() should return int, got string\n", $this->executeCode(<<<'CODE'
+            fn f(): int {
+                try {
+                    return "x";
+                } catch ($e) {
+                    echo "f caught it";
+                } finally {
+                    echo "finally";
+                }
+                return 0;
+            }
+            try {
+                f();
+            } catch (Error $e) {
+                echo "caller: " .. $e.message;
+            }
+            CODE));
+    }
+
+    public function test_an_override_may_write_the_same_union_in_another_order()
+    {
+        $this->assertSame("1\n", $this->executeCode(<<<'CODE'
+            kind P {
+                pub fn m(int|string $x): ?int {
+                    return null;
+                }
+            }
+            kind C extends P {
+                pub fn m(string|int $x): null|int {
+                    return 1;
+                }
+            }
+            echo C().m("a");
+            CODE));
+    }
 }
