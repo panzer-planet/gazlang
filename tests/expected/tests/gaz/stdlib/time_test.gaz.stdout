@@ -4,3 +4,6 @@ ok it moves on
 ok in seconds: that didn't take a minute
 ok and it is positive
 ok a hundred readings come in order
+ok time() is an int
+ok after 2026 began and before 2100
+ok and doesn't go back in a moment

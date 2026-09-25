@@ -259,7 +259,7 @@
 			<key>name</key>
 			<string>support.function.gaz</string>
 			<key>match</key>
-			<string>(?&lt;![\w.$@#])\b(len|slice|lower|upper|trim|split|join|replace|contains|starts_with|ends_with|index_of|repeat|chr|ord|to_int|to_float|to_string|floor|ceil|round|abs|intdiv|min|max|sum|in_array|has_key|keys|values|last|reverse|map|filter|reduce|sort|type_of|is_a|kind_of|fields|object_id|error|exit|read_file|write_file|file_exists|real_path|cwd|print_error|print|read_stdin|args|builtins|rand_int|rand_float|rand_seed|run|socket_open|socket_read|socket_write|socket_close|term_raw|term_read|term_size|term_is_tty|monotonic_time|std_source|db_open|db_run|db_close)\b</string>
+			<string>(?&lt;![\w.$@#])\b(len|slice|lower|upper|trim|split|join|replace|contains|starts_with|ends_with|index_of|repeat|chr|ord|to_int|to_float|to_string|floor|ceil|round|abs|intdiv|min|max|sum|in_array|has_key|keys|values|last|reverse|map|filter|reduce|sort|type_of|is_a|kind_of|fields|object_id|error|exit|read_file|write_file|file_exists|real_path|cwd|print_error|print|read_stdin|args|builtins|rand_int|rand_float|rand_seed|run|socket_open|socket_read|socket_write|socket_close|term_raw|term_read|term_size|term_is_tty|monotonic_time|std_source|db_open|db_run|db_close|socket_listen|socket_accept|socket_port|workers|time)\b</string>
 		</dict>
 		<key>classes</key>
 		<dict>

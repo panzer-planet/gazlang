@@ -91,7 +91,7 @@ vendor/bin/pint                     # formatting
 - `vm/`: the VM in C. `gazvm.h` says which file does what: `value.c` and `ops.c` are what values
   mean (operators, truthiness, printing, keys, indexing, write paths), `builtins.c` the builtins
   and their arities (`builtin_info[]`), `load.c` reading and checking bytecode, `vm.c` running it
-  and the CLI, `gc.c` the cycle collector, `net.c` sockets and TLS, `db.c` with `sqlite.c` and `pg.c` databases, `term.c` raw mode and keys.
+  and the CLI, `gc.c` the cycle collector, `net.c` sockets and TLS, `db.c` with `sqlite.c` and `pg.c` databases, `term.c` raw mode and keys, `workers.c` `workers()`.
 - `lib/`: the standard library in GazLang. `examples/`: sample programs that nothing tests
   (see "Programs are tests or examples"). `tests/programs/`: programs the tests do run.
   `games/`: programs built on the language, each with tests of its own (see "A game is neither").
@@ -251,7 +251,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     `--shrink FILE`. A try costs about 0.1s of the sanitized build's start-up, whatever the
     program, which is why shrinking takes the time, not the run.
   - **Nothing opens a socket, starts a program, exits or writes a file**: a program naming
-    `run`, `exit`, `write_file`, `read_stdin` or a `socket_` builtin is skipped, an included
+    `run`, `exit`, `workers`, `write_file`, `read_stdin` or a `socket_` builtin is skipped, an included
     file's text included, which is sound because a builtin is reached only by its name.
   - **Break it before believing it**: a missing `decref` in `delete` and a read past a string
     in `reverse`, planted in turn, were both found within 700 programs. The first also showed
@@ -307,6 +307,41 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   runtime dependency; not TLS of our own, which would be thousands of lines of crypto whose bugs
   no output shows. One connection per request; keep-alive, proxies, compression and HTTP/2 wait
   for a program that needs them.
+- **Serving HTTP is `http::serve()` in the same file, in `workers()` processes**, the PHP-FPM
+  model rather than Node's: a server is `socket_listen()`, `workers($n)`, then a loop of
+  `socket_accept()` and one request per connection. **Prefork, not an event loop**: share-nothing
+  processes suit value semantics and refcounting, need no locks, and a crash takes one request, where
+  an event loop needs non-blocking sockets and callbacks or coroutines the language doesn't have.
+  - `workers($n)` is one builtin, not `fork()`/`wait()`/`kill()`, so no program can leave zombies or
+    orphans: it returns 1 to n in each worker, and the master stays in C (`workers.c`) for good,
+    starting a worker again when one dies of an error or a signal, stopping all of them on
+    SIGINT/SIGTERM/SIGHUP and then dying of that signal. A worker that dies within a second of
+    starting stops the lot with its code, as a startup bug would otherwise respawn for ever.
+  - **The program runs on its own thread** (see "The C VM"), so a fork is that thread alone, with
+    no `main()` to end the process: `run()` in `vm.c` exits a worker itself. And a signal to the
+    master may land on `main()`'s thread, which is why the master polls every 50ms instead of
+    sleeping until one; the stop signals are blocked across each `fork()`, or one sent before a new
+    worker has put its own handlers back would only set its copy of the master's flag.
+  - `http::serve` refuses what isn't well formed before the handler sees it (the statuses are in
+    `docs/language.md`), both `Content-Length` and `Transfer-Encoding` included, as the way requests
+    are smuggled past a proxy; handler errors are a 500 and a line on stderr. Request and response
+    are maps, like the client's response. `HttpServerTest` runs `tests/programs/web_server.gaz` and
+    speaks to it over raw sockets, so requests no client would send can be sent.
+  - `ponytail:` no keep-alive; the timeout is per read, so a client trickling bytes holds a worker;
+    no graceful drain on stop; a master killed with SIGKILL leaves its workers running (Linux's
+    `PR_SET_PDEATHSIG` would end them, macOS has nothing like it). No TLS on the server side: a proxy
+    in front does it.
+  - **Next, when a program asks** (the order they would be built in):
+    - A router in GazLang (`lib/router.gaz` or in `http.gaz`): `$app.get("/users/:id", $handler)`,
+      a list of `[method, pattern, handler]` matched by splitting paths on `/` (no regex), named
+      segments into `$request["params"]`, 404 and 405 (with `Allow`) of its own, and middleware as
+      `($request, $next) -> ...` closures wrapped around the handler. Its result is still a handler,
+      so `http::serve($listener, $app.handler())` needs nothing new.
+    - URL decoding (`%20`, `+` in a query) and `application/x-www-form-urlencoded` bodies into
+      maps, a repeated key's values a list; HTML escaping for writing pages; static files
+      (`read_file()` and a content-type table, refusing `..` in the path); cookies (parse `Cookie`,
+      write `Set-Cookie` with `HttpOnly`/`Secure`/`SameSite`); an access log line per request
+      (`http::http_date(time())`, method, path, status, bytes, `monotonic_time()` for how long).
 - **Decided, not built**: `interface`/`implements` (a parse-time check that the methods exist,
   plus `is_a`), and `final`. The keywords are reserved.
 - **Namespaces** are resolved by the parser, so the VM never learns the word and bytecode only
@@ -372,7 +407,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     program that wants it.
 - **Not planned** until real code asks: traits, late static binding, operator
   overloading, `**` and `sqrt`/`pow`/`log`, variadic parameters and spread in calls (pass a
-  list), `time()` (a wall clock: `monotonic_time()` measures), `foreach` over a string (`split($s, "")`), a REPL.
+  list), `foreach` over a string (`split($s, "")`), a REPL.
 - **Regular expressions**: `lib/regex.gaz` (`regex::matches`, `regex::search`,
   `regex::find`), a Thompson NFA (Pike's VM) so there is no backtracking and no ReDoS.
   Literals, `.`, `*` `+` `?`, `|`, `(...)` grouping (not capturing), `[...]`/`[^...]`
@@ -584,7 +619,11 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   can't be started is a catchable error naming it and `strerror()`'s reason, the same words on
   Linux and macOS for the ones tested. A new builtin takes its name from every program:
   `examples/brainfuck.gaz` had a `run()`.
-- Sockets (`net.c`): `socket_open($host, $port, $tls = false, $timeout = 30)` gives a `socket`,
+- Sockets (`net.c`): `socket_listen($host, $port, $backlog = 128)` (port 0 the system's pick,
+  `socket_port()` says which), `socket_accept($listener, $timeout = 30)` (waits for good; the timeout
+  is the connection's), both plain TCP. `workers($n)` (`workers.c`) forks the program for a server;
+  see "Serving HTTP". The fuzzer skips `workers` with the socket builtins.
+  `socket_open($host, $port, $tls = false, $timeout = 30)` gives a `socket`,
   a reference-counted handle closed when the last reference goes (so a forgotten close leaks no
   descriptor), `socket_read()` up to 64KB or `""` at the end, `socket_write()` all of it,
   `socket_close()` twice is fine. TLS verifies the chain against the system's store
@@ -609,8 +648,11 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   and PostgreSQL's numeric, timestamps and json come back as text.
 - `monotonic_time()`: seconds as a float on `CLOCK_MONOTONIC`, from an undefined point, so only a
   difference means anything; a program that prints it can't be recorded, so tests check its type and
-  that it never goes back, and its uses (`tui::Metronome`) take the time as an argument. There is
-  still no `time()`: a wall clock is different on every run and has dates in it.
+  that it never goes back, and its uses (`tui::Metronome`) take the time as an argument.
+- `time()`: the wall clock, whole seconds since 1970 as an int, added for a server's `Date` header
+  and logs. A program that prints it can't be recorded, so it is tested by type and range and by
+  `HttpServerTest` against PHP's clock; `date.gaz` still keeps no clock (`intdiv(time(), 86400)` is
+  today in UTC), so a game keeps its own date.
 - The terminal (`term.c`): `term_raw($on)`, `term_read($timeout = null)`, `term_size()`,
   `term_is_tty($stream)`, only what GazLang can't do itself; drawing is escape sequences through
   `print` and turning bytes into keys is GazLang's (`lib/term.gaz`), so the rules are written out
@@ -669,7 +711,8 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   as HTTP tokens and URLs for spaces and control characters, so nothing can end a line of the
   request; credentials dropped on a redirect to another origin; `HttpTest` runs it against
   `tests/fixtures/http_server.php`, over TCP and TLS, which writes framing out by hand so it can
-  get it wrong on purpose; ports vary, so what it prints is checked by shape, not recorded),
+  get it wrong on purpose; ports vary, so what it prints is checked by shape, not recorded; and the
+  server, `http::serve`, see "Serving HTTP"),
   `date.gaz` (`date::days`, `date::civil`, `date::format`: a date is a number of days from 1 January
   1970, with no clock, since a program that asked one what day it is could not be recorded, so a game
   keeps its own date), `random.gaz` (`random::shuffle`, `random::pick`, `random::key`, `random::chance`,

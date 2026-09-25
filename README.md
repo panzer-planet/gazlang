@@ -42,7 +42,7 @@ no dogs here
   error messages included, is recorded, and thousands of tests hold gazlang to it under
   AddressSanitizer and a leak check, on Linux and on both kinds of Mac. The compiler has to
   compile itself to exactly itself.
-- **Batteries included, and self-hosted.** JSON, CSV, an HTTP/1.1 client with TLS, and
+- **Batteries included, and self-hosted.** JSON, CSV, an HTTP/1.1 client with TLS and a preforking server, and
   regular expressions with no ReDoS (a Thompson NFA, not backtracking) — all in `lib/`, all
   written in GazLang, none of it a C shortcut.
 

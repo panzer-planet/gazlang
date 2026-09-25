@@ -19,3 +19,9 @@ for ($i = 0; $i < 100; $i++) {
 }
 $sorted = sort($readings, ($a, $b) -> $a <=> $b);
 check("a hundred readings come in order", $readings, $sorted);
+
+/* time(): the wall clock, whole seconds since 1970 (HttpServerTest checks it against PHP's) */
+$now = time();
+check("time() is an int", type_of($now), "int");
+check("after 2026 began and before 2100", $now > 1767225600 && $now < 4102444800, true);
+check("and doesn't go back in a moment", time() >= $now, true);

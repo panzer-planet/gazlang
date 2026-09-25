@@ -47,6 +47,8 @@ const BuiltinInfo builtin_info[] = {
     {"socket_close", 1, 1}, {"term_raw", 1, 1}, {"term_read", 0, 1}, {"term_size", 0, 0},
     {"term_is_tty", 1, 1}, {"monotonic_time", 0, 0}, {"std_source", 1, 1},
     {"db_open", 1, 1}, {"db_run", 2, 3}, {"db_close", 1, 1},
+    {"socket_listen", 2, 3}, {"socket_accept", 1, 2}, {"socket_port", 1, 1}, {"workers", 1, 1},
+    {"time", 0, 0},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -61,6 +63,8 @@ enum {
     B_TERM_RAW, B_TERM_READ, B_TERM_SIZE, B_TERM_IS_TTY,
     B_MONOTONIC_TIME, B_STD_SOURCE,
     B_DB_OPEN, B_DB_RUN, B_DB_CLOSE,
+    B_SOCKET_LISTEN, B_SOCKET_ACCEPT, B_SOCKET_PORT, B_WORKERS,
+    B_TIME,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -1138,6 +1142,29 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         if (!want(index, a, M(T_SOCKET))) return false;
         net_close(a.sock);
         *out = v_null();
+        return true;
+    case B_SOCKET_LISTEN: {
+        /* socket_listen($host, $port, $backlog = 128) */
+        Value backlog = argc > 2 ? c : v_int(128);
+        if (!want(index, a, STRING) || !want(index, b, INT) || !want(index, backlog, INT)) return false;
+        return net_listen(a.s, b.i, backlog.i, out);
+    }
+    case B_SOCKET_ACCEPT: {
+        /* socket_accept($listener, $timeout = 30) */
+        Value timeout = argc > 1 ? b : v_int(30);
+        if (!want(index, a, M(T_SOCKET)) || !want(index, timeout, INT | M(T_FLOAT))) return false;
+        return net_accept(a.sock, timeout.type == T_INT ? (double)timeout.i : timeout.f, out);
+    }
+    case B_SOCKET_PORT:
+        if (!want(index, a, M(T_SOCKET))) return false;
+        return net_port(a.sock, out);
+    case B_WORKERS:
+        if (!want(index, a, INT)) return false;
+        return start_workers(a.i, out);
+    case B_TIME:
+        /* Whole seconds since 1 January 1970 UTC, the wall clock: it can jump when the clock is set,
+           so monotonic_time() is what measures how long something took */
+        *out = v_int((int64_t)time(NULL));
         return true;
     case B_DB_OPEN:
         if (!want(index, a, STRING)) return false;

@@ -1,0 +1,6 @@
+socket (listening) true
+socket_read() on a listening socket: socket_accept() a connection
+socket_write() on a listening socket: socket_accept() a connection
+socket (closed)
+socket_accept() on a closed socket
+socket_port() on a closed socket

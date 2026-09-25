@@ -1578,6 +1578,11 @@ static void *run(void *arg) {
     program_argc = job->argc;
     program_argv = job->argv;
     job->exit_code = run_program(true);
+    /* A worker is a fork of this thread alone, with no main() waiting to end the process */
+    if (vm_worker) {
+        fflush(stdout);
+        exit(job->exit_code);
+    }
     return NULL;
 }
 

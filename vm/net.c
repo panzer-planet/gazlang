@@ -1,5 +1,7 @@
 /*
- * Sockets: socket_open(), socket_read(), socket_write() and socket_close(), plain TCP or TLS.
+ * Sockets: socket_open(), socket_read(), socket_write() and socket_close(), plain TCP or TLS, and
+ * socket_listen(), socket_accept() and socket_port() for a server, plain TCP only (TLS is a proxy's
+ * job in front of it).
  *
  * TLS is OpenSSL's, built in unless make is given TLS=0 (GAZ_TLS says which). It checks the
  * server's certificate against the system's trusted ones (or the file SSL_CERT_FILE names) and
@@ -38,8 +40,26 @@ static void sigpipe_ignore(void) {
 
 static void sigpipe_restore(void) { sigaction(SIGPIPE, &saved_sigpipe, NULL); }
 
+/* A connection's timeout for each read and write, and no SIGPIPE from it where the system can
+   say so per socket (macOS); elsewhere sigpipe_ignore() covers each call */
+static void connection_options(int fd, int timeout_ms) {
+    struct timeval tv = {.tv_sec = timeout_ms / 1000, .tv_usec = (timeout_ms % 1000) * 1000};
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof tv);
+    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof tv);
+#ifdef SO_NOSIGPIPE
+    int one = 1;
+    setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &one, sizeof one);
+#endif
+}
+
+/* Seconds as whole milliseconds, at least 1 and at most a day */
+static int to_ms(double timeout) {
+    int ms = timeout > 86400 ? 86400000 : (int)(timeout * 1000);
+    return ms == 0 ? 1 : ms;
+}
+
 /* Connect to one address within the timeout: a non-blocking connect() that poll() waits for,
-   then back to blocking, with the timeout on each read and write. -1 with errno set if not. */
+   then back to blocking. -1 with errno set if not. */
 static int connect_one(struct addrinfo *ai, int timeout_ms) {
     int fd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
     if (fd < 0) return -1;
@@ -62,9 +82,7 @@ static int connect_one(struct addrinfo *ai, int timeout_ms) {
         }
     }
     fcntl(fd, F_SETFL, flags);
-    struct timeval tv = {.tv_sec = timeout_ms / 1000, .tv_usec = (timeout_ms % 1000) * 1000};
-    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof tv);
-    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof tv);
+    connection_options(fd, timeout_ms);
     return fd;
 fail: {
     int err = errno;
@@ -131,6 +149,13 @@ static bool tls_start(Socket *s, const char *host) {
 }
 #endif
 
+static Socket *socket_new(int fd, bool listening, int ms) {
+    Socket *s = xmalloc(sizeof *s);
+    counted++;
+    *s = (Socket){.rc = 1, .fd = fd, .listening = listening, .tls = NULL, .timeout_ms = ms};
+    return s;
+}
+
 /* socket_open($host, $port, $tls, $timeout) */
 bool net_open(Str *host, int64_t port, bool tls, double timeout, Value *out) {
 #ifndef GAZ_TLS
@@ -139,8 +164,7 @@ bool net_open(Str *host, int64_t port, bool tls, double timeout, Value *out) {
     if (host->len == 0 || memchr(host->data, '\0', host->len)) return raisef("socket_open() expects a host name");
     if (port < 1 || port > 65535) return raisef("socket_open() expects a port from 1 to 65535, got %lld", (long long)port);
     if (!(timeout > 0)) return raisef("socket_open() expects a timeout above 0 seconds");
-    int timeout_ms = timeout > 86400 ? 86400000 : (int)(timeout * 1000);
-    if (timeout_ms == 0) timeout_ms = 1;
+    int ms = to_ms(timeout);
     char service[8];
     snprintf(service, sizeof service, "%lld", (long long)port);
     struct addrinfo hints = {.ai_family = AF_UNSPEC, .ai_socktype = SOCK_STREAM}, *found;
@@ -149,18 +173,12 @@ bool net_open(Str *host, int64_t port, bool tls, double timeout, Value *out) {
     /* Each address the name has, in the order given, until one answers */
     int fd = -1, err = 0;
     for (struct addrinfo *ai = found; ai && fd < 0; ai = ai->ai_next) {
-        fd = connect_one(ai, timeout_ms);
+        fd = connect_one(ai, ms);
         if (fd < 0) err = errno;
     }
     freeaddrinfo(found);
     if (fd < 0) return raisef("Cannot connect to %s port %lld: %s", host->data, (long long)port, strerror(err));
-#ifdef SO_NOSIGPIPE
-    int one = 1;
-    setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &one, sizeof one);
-#endif
-    Socket *s = xmalloc(sizeof *s);
-    counted++;
-    *s = (Socket){.rc = 1, .fd = fd, .tls = NULL, .timeout_ms = timeout_ms};
+    Socket *s = socket_new(fd, false, ms);
 #ifdef GAZ_TLS
     if (tls) {
         sigpipe_ignore();
@@ -176,9 +194,73 @@ bool net_open(Str *host, int64_t port, bool tls, double timeout, Value *out) {
     return true;
 }
 
+/* socket_listen($host, $port, $backlog): a listener on the first of the host's addresses that
+   binds, port 0 being one the system picks (socket_port() says which). SO_REUSEADDR, so a server
+   restarted at once can have its port back while the old connections time out. */
+bool net_listen(Str *host, int64_t port, int64_t backlog, Value *out) {
+    if (host->len == 0 || memchr(host->data, '\0', host->len)) return raisef("socket_listen() expects a host name or address");
+    if (port < 0 || port > 65535) return raisef("socket_listen() expects a port from 0 to 65535, got %lld", (long long)port);
+    if (backlog < 1) return raisef("socket_listen() expects a backlog of 1 or more, got %lld", (long long)backlog);
+    char service[8];
+    snprintf(service, sizeof service, "%lld", (long long)port);
+    struct addrinfo hints = {.ai_family = AF_UNSPEC, .ai_socktype = SOCK_STREAM, .ai_flags = AI_PASSIVE}, *found;
+    int gai = getaddrinfo(host->data, service, &hints, &found);
+    if (gai != 0) return raisef("Cannot find host %s: %s", host->data, gai_strerror(gai));
+    int fd = -1, err = 0;
+    for (struct addrinfo *ai = found; ai && fd < 0; ai = ai->ai_next) {
+        fd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
+        if (fd < 0) {
+            err = errno;
+            continue;
+        }
+        fcntl(fd, F_SETFD, FD_CLOEXEC);
+        int one = 1;
+        setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one);
+        if (bind(fd, ai->ai_addr, ai->ai_addrlen) != 0 || listen(fd, backlog > INT32_MAX ? INT32_MAX : (int)backlog) != 0) {
+            err = errno;
+            close(fd);
+            fd = -1;
+        }
+    }
+    freeaddrinfo(found);
+    if (fd < 0) return raisef("Cannot listen on %s port %lld: %s", host->data, (long long)port, strerror(err));
+    *out = v_socket(socket_new(fd, true, 0));
+    return true;
+}
+
+/* socket_accept($listener, $timeout): the next connection, waiting as long as it takes; $timeout
+   bounds each read and write on it, as socket_open()'s does */
+bool net_accept(Socket *listener, double timeout, Value *out) {
+    if (listener->fd < 0) return raisef("socket_accept() on a closed socket");
+    if (!listener->listening) return raisef("socket_accept() expects a listening socket, got a connection");
+    if (!(timeout > 0)) return raisef("socket_accept() expects a timeout above 0 seconds");
+    int fd;
+    /* A connection given up on while it queued is ECONNABORTED: wait for the next */
+    while ((fd = accept(listener->fd, NULL, NULL)) < 0 && (errno == EINTR || errno == ECONNABORTED)) {}
+    if (fd < 0) return raisef("socket_accept() failed: %s", strerror(errno));
+    fcntl(fd, F_SETFD, FD_CLOEXEC);
+    int ms = to_ms(timeout);
+    connection_options(fd, ms);
+    *out = v_socket(socket_new(fd, false, ms));
+    return true;
+}
+
+/* socket_port($socket): the port this end has, which is how a listener on port 0 says which */
+bool net_port(Socket *s, Value *out) {
+    if (s->fd < 0) return raisef("socket_port() on a closed socket");
+    struct sockaddr_storage addr;
+    socklen_t len = sizeof addr;
+    if (getsockname(s->fd, (struct sockaddr *)&addr, &len) != 0) return raisef("socket_port() failed: %s", strerror(errno));
+    int port = addr.ss_family == AF_INET6 ? ntohs(((struct sockaddr_in6 *)&addr)->sin6_port)
+                                          : ntohs(((struct sockaddr_in *)&addr)->sin_port);
+    *out = v_int(port);
+    return true;
+}
+
 /* socket_read($socket): what has arrived, up to 64KB, waiting for something; "" at the end */
 bool net_read(Socket *s, Value *out) {
     if (s->fd < 0) return raisef("socket_read() on a closed socket");
+    if (s->listening) return raisef("socket_read() on a listening socket: socket_accept() a connection");
     char chunk[65536];
     ssize_t n;
     sigpipe_ignore();
@@ -210,6 +292,7 @@ bool net_read(Socket *s, Value *out) {
 /* socket_write($socket, $data): all of it */
 bool net_write(Socket *s, Str *data) {
     if (s->fd < 0) return raisef("socket_write() on a closed socket");
+    if (s->listening) return raisef("socket_write() on a listening socket: socket_accept() a connection");
     sigpipe_ignore();
     for (size_t done = 0; done < data->len;) {
         ssize_t n;

@@ -20,8 +20,10 @@
 namespace http;
 
 include "chars.gaz" use is_alnum, is_digit;
+include "date.gaz";
 
 const MAX_REDIRECTS = 20;
+const MAX_HEAD = 65536;      // a request's line and headers, in bytes
 
 pub fn get($url, $headers = {}) {
     return request("GET", $url, $headers);
@@ -213,13 +215,18 @@ fn resolve($target, $location) {
     return $target["origin"] .. join($parts, "/");
 }
 
-// Reads a response from a socket: lines up to a delimiter, a count of bytes, or the rest
+// Reads a message from a socket: lines up to a delimiter, a count of bytes, or the rest
 kind Reader {
     #socket;
     #data = "";         // read but not taken yet
 
     fn _($socket) {
         #socket = $socket;
+    }
+
+    // Whether anything has been read but not taken
+    pub fn pending() {
+        return #data != "";
     }
 
     // Read more; false at the end of the stream
@@ -232,15 +239,21 @@ kind Reader {
         return true;
     }
 
-    // Up to $delimiter, which is dropped; null if the stream ends first
-    pub fn line($delimiter) {
+    /*
+     * Up to $delimiter, which is dropped; null if the stream ends first. With a $limit, a line
+     * that runs past that many bytes is refused (431) rather than read into memory forever.
+     */
+    pub fn line($delimiter, $limit = null) {
         $from = 0;
         while (true) {
             $at = index_of(#data, $delimiter, $from);
-            if ($at != null) {
+            if ($at != null && ($limit == null || $at <= $limit)) {
                 $line = slice(#data, 0, $at);
                 #data = slice(#data, $at + len($delimiter));
                 return $line;
+            }
+            if ($limit != null && len(#data) > $limit) {
+                error(Refusal(431, "HTTP error: more than $limit bytes without a line end"));
             }
             // A delimiter may straddle what is here and what comes next
             $from = max(0, len(#data) - len($delimiter) + 1);
@@ -324,12 +337,17 @@ fn content_length($text) {
     return to_int($text);
 }
 
-// Chunks, each a size in hex (maybe with ;extensions) and that many bytes, up to a size of 0
-// and trailer lines, which are skipped
-fn read_chunked($reader) {
+/*
+ * Chunks, each a size in hex (maybe with ;extensions) and that many bytes, up to a size of 0
+ * and trailer lines, which are skipped. With a $limit (a server's), a body that adds up to more
+ * is refused (413), and so is a size or trailer line past a few KB.
+ */
+fn read_chunked($reader, $limit = null) {
     $parts = [];
+    $total = 0;
+    $line_limit = $limit == null ? null : MAX_HEAD;
     while (true) {
-        $line = $reader.line("\r\n");
+        $line = $reader.line("\r\n", $line_limit);
         if ($line == null) {
             error("HTTP error: the connection closed in the middle of the body");
         }
@@ -345,9 +363,13 @@ fn read_chunked($reader) {
             }
             $size = $size * 16 + $digit;
         }
+        $total += $size;
+        if ($limit != null && $total > $limit) {
+            error(Refusal(413, "HTTP error: a body of more than $limit bytes"));
+        }
         if ($size == 0) {
             while (true) {
-                $trailer = $reader.line("\r\n");
+                $trailer = $reader.line("\r\n", $line_limit);
                 if ($trailer == null || $trailer == "") {
                     return join($parts, "");
                 }
@@ -379,4 +401,275 @@ fn check_token($what, $name) {
             error("HTTP error: bad $what: " .. slice(to_string([$name]), 1, -1));
         }
     }
+}
+
+/*
+ * The server: http::serve($listener, $handler, $options = {}) answers connections on a
+ * socket_listen() listener for ever, one request per connection, each by calling
+ * $handler($request) with
+ *
+ *   {"method" => "GET", "path" => "/users/7", "query" => "tab=posts", "headers" => {...}, "body" => ""}
+ *
+ * (header names lowercased, a repeated header's values joined with ", ", the path and query as they
+ * came, not decoded) and writing what it returns, a map of "status" (200 if left out), "headers"
+ * and "body" (a string, "" if left out). With workers() first, each worker serves on its own.
+ *
+ * - A request that isn't well formed HTTP/1.x is answered 400 (431 for a head over 64KB, 413 for a
+ *   body over "max_body", 501 for a transfer coding other than chunked, 505 for another HTTP
+ *   version) without calling the handler. One with both Content-Length and Transfer-Encoding is
+ *   refused too, as the way requests are smuggled past a proxy.
+ * - A handler that raises, or returns what can't be written (a header with a line break in it, a
+ *   Content-Length of its own), is answered 500, and the error goes to standard error.
+ * - Content-Length, Connection and Date are written here. No Content-Type unless given.
+ * - A HEAD request gets the headers the body would have, without it.
+ * - Options: "timeout", seconds each read and write may wait (10), and "max_body", in bytes (1MB).
+ * - ponytail: one request per connection (Connection: close), and the timeout is per read, so a
+ *   client trickling a byte at a time holds a worker; keep-alive and a deadline per request wait
+ *   for a program that needs them. TLS is a proxy's job in front of it.
+ */
+
+const REASONS = {
+    100 => "Continue", 200 => "OK", 201 => "Created", 202 => "Accepted", 204 => "No Content",
+    301 => "Moved Permanently", 302 => "Found", 303 => "See Other", 304 => "Not Modified",
+    307 => "Temporary Redirect", 308 => "Permanent Redirect", 400 => "Bad Request",
+    401 => "Unauthorized", 403 => "Forbidden", 404 => "Not Found", 405 => "Method Not Allowed",
+    408 => "Request Timeout", 409 => "Conflict", 410 => "Gone", 413 => "Content Too Large",
+    415 => "Unsupported Media Type", 417 => "Expectation Failed", 422 => "Unprocessable Content",
+    429 => "Too Many Requests", 431 => "Request Header Fields Too Large",
+    500 => "Internal Server Error", 501 => "Not Implemented", 502 => "Bad Gateway",
+    503 => "Service Unavailable", 504 => "Gateway Timeout", 505 => "HTTP Version Not Supported",
+};
+const SERVER_OPTIONS = {"timeout" => 10, "max_body" => 1048576};
+const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// A request refused before the handler sees it, with the status to answer
+kind Refusal extends Error {
+    fn _(pub #status, $message) {
+        ##_($message);
+    }
+}
+
+pub fn serve($listener, $handler, $options = {}) {
+    $options = server_options($options);
+    while (true) {
+        handle(socket_accept($listener, $options["timeout"]), $handler, $options);
+    }
+}
+
+// One connection: its request read, answered and the connection closed, whatever happens
+pub fn handle($socket, $handler, $options = {}) {
+    $options = server_options($options);
+    try {
+        $request = null;
+        try {
+            $request = read_request(Reader($socket), $socket, $options["max_body"]);
+        } catch (Refusal $e) {
+            send_quietly($socket, refusal($e.status));
+        } catch (Error $e) {
+            // Cut off, timed out or malformed: say so, if anyone is still listening
+            send_quietly($socket, refusal(400));
+        }
+        if ($request != null) {
+            $head = $request["method"] == "HEAD";
+            $response = null;
+            try {
+                $response = write_response($handler($request), $head);
+            } catch (Error $e) {
+                print_error("http::serve: {$request["method"]} {$request["path"]}: " .. describe_error($e) .. "\n");
+            } catch ($e) {
+                print_error("http::serve: {$request["method"]} {$request["path"]}: the handler raised $e\n");
+            }
+            send_quietly($socket, $response ?? refusal(500, $head));
+        }
+    } finally {
+        socket_close($socket);
+    }
+}
+
+fn server_options($options) {
+    if (type_of($options) != "map") {
+        error("http::serve() expects a map of options, got " .. type_of($options));
+    }
+    foreach ($options as $name => $value) {
+        if (!has_key(SERVER_OPTIONS, $name)) {
+            error("http::serve() has no option " .. slice(to_string([$name]), 1, -1) .. ": only " .. join(keys(SERVER_OPTIONS), ", "));
+        }
+    }
+    return {...SERVER_OPTIONS, ...$options};
+}
+
+// The request on a connection, or null if it closed before sending anything
+fn read_request($reader, $socket, $max_body) {
+    $head = $reader.line("\r\n\r\n", MAX_HEAD);
+    if ($head == null) {
+        if ($reader.pending()) {
+            error(Refusal(400, "HTTP error: the connection closed in the middle of the head"));
+        }
+        return null;
+    }
+    $lines = split($head, "\r\n");
+    // "GET /path?query HTTP/1.1"
+    $words = split($lines[0], " ");
+    if (len($words) != 3) {
+        error(Refusal(400, "HTTP error: bad request line"));
+    }
+    [$method, $target, $version] = $words;
+    if ($version != "HTTP/1.1" && $version != "HTTP/1.0") {
+        error(Refusal(starts_with($version, "HTTP/") ? 505 : 400, "HTTP error: bad version"));
+    }
+    check_request_token($method);
+    if (!(starts_with($target, "/") || $target == "*" && $method == "OPTIONS") || has_control($target)) {
+        error(Refusal(400, "HTTP error: bad request target"));
+    }
+    $headers = {};
+    foreach (slice($lines, 1) as $line) {
+        $colon = index_of($line, ":");
+        if ($colon == null || has_control($line, true)) {
+            error(Refusal(400, "HTTP error: bad header line"));
+        }
+        // No space before the colon, and no line folded onto the one before
+        $name = lower(slice($line, 0, $colon));
+        check_request_token($name);
+        $value = trim(slice($line, $colon + 1));
+        $headers[$name] = has_key($headers, $name) ? $headers[$name] .. ", " .. $value : $value;
+    }
+    if ($version == "HTTP/1.1" && !has_key($headers, "host")) {
+        error(Refusal(400, "HTTP error: no Host header"));
+    }
+    $query = index_of($target, "?");
+    $request = {
+        "method" => $method,
+        "path" => $query == null ? $target : slice($target, 0, $query),
+        "query" => $query == null ? "" : slice($target, $query + 1),
+        "headers" => $headers,
+        "body" => "",
+    };
+    $chunked = has_key($headers, "transfer-encoding");
+    $length = has_key($headers, "content-length") ? content_length($headers["content-length"]) : 0;
+    if ($chunked && has_key($headers, "content-length")) {
+        error(Refusal(400, "HTTP error: both Content-Length and Transfer-Encoding"));
+    }
+    if ($chunked && lower($headers["transfer-encoding"]) != "chunked") {
+        error(Refusal(501, "HTTP error: a transfer coding other than chunked"));
+    }
+    if ($length > $max_body) {
+        error(Refusal(413, "HTTP error: a body of more than $max_body bytes"));
+    }
+    if (!$chunked && $length == 0) {
+        return $request;
+    }
+    // A client that waits to hear the body is wanted before sending it
+    if (has_key($headers, "expect")) {
+        if (lower($headers["expect"]) != "100-continue") {
+            error(Refusal(417, "HTTP error: an expectation other than 100-continue"));
+        }
+        socket_write($socket, "HTTP/1.1 100 Continue\r\n\r\n");
+    }
+    $request["body"] = $chunked ? read_chunked($reader, $max_body) : $reader.bytes($length);
+    return $request;
+}
+
+fn check_request_token($name) {
+    try {
+        check_token("token", $name);
+    } catch (Error $e) {
+        error(Refusal(400, $e.message));
+    }
+}
+
+// Whether a string has a byte below 33 or DEL (with $spaces, a space or tab is fine)
+fn has_control($text, $spaces = false) {
+    foreach (split($text, "") as $c) {
+        $byte = ord($c);
+        if (($byte < 33 || $byte == 127) && !($spaces && ($c == " " || $c == "\t"))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// The bytes of a handler's response, which is checked as a request's headers are
+fn write_response($response, $head) {
+    if (type_of($response) != "map") {
+        error("the handler returned " .. type_of($response) .. ", not a map of status, headers and body");
+    }
+    foreach ($response as $key => $value) {
+        if (!in_array($key, ["status", "headers", "body"])) {
+            error("a response has status, headers and body, not " .. slice(to_string([$key]), 1, -1));
+        }
+    }
+    $status = $response["status"] ?? 200;
+    $body = $response["body"] ?? "";
+    $headers = $response["headers"] ?? {};
+    if (type_of($status) != "int" || $status < 200 || $status > 599) {
+        error("a response's status must be an int from 200 to 599, got " .. slice(to_string([$status]), 1, -1));
+    }
+    if (type_of($body) != "string") {
+        error("a response's body must be a string, got " .. type_of($body));
+    }
+    if (type_of($headers) != "map") {
+        error("a response's headers must be a map, got " .. type_of($headers));
+    }
+    $bodiless = $status == 204 || $status == 304;
+    if ($bodiless && $body != "") {
+        error("a $status response has no body");
+    }
+    $lines = [status_line($status), "Date: " .. http_date(time()), "Connection: close"];
+    foreach ($headers as $name => $value) {
+        check_token("header name", $name);
+        $value = to_string($value);
+        if (contains($value, "\r") || contains($value, "\n") || contains($value, "\0")) {
+            error("HTTP error: header $name has a line break or NUL byte in its value");
+        }
+        if (in_array(lower($name), ["content-length", "connection", "transfer-encoding", "date"])) {
+            error("HTTP error: header $name is written by http::serve");
+        }
+        $lines[] = "$name: $value";
+    }
+    if (!$bodiless) {
+        $lines[] = "Content-Length: " .. len($body);
+    }
+    return join($lines, "\r\n") .. "\r\n\r\n" .. ($head ? "" : $body);
+}
+
+// A response the server writes itself: the status and its reason, as plain text
+fn refusal($status, $head = false) {
+    $text = (REASONS[$status] ?? "Error") .. "\n";
+    return write_response({"status" => $status, "headers" => {"Content-Type" => "text/plain"}, "body" => $text}, $head);
+}
+
+fn status_line($status) {
+    return "HTTP/1.1 $status " .. (REASONS[$status] ?? "");
+}
+
+// Sent if the other end still listens; a client that has gone away is no error of the server's
+fn send_quietly($socket, $bytes) {
+    try {
+        socket_write($socket, $bytes);
+    } catch (Error $e) {
+    }
+}
+
+fn describe_error($e) {
+    $where = $e.file == null ? "line {$e.line}" : "{$e.file}:{$e.line}";
+    $text = "{$e.message} at $where";
+    foreach ($e.trace as $call) {
+        $text ..= "\n    $call";
+    }
+    return $text;
+}
+
+// Seconds since 1970 as HTTP writes a date: "Sat, 08 Aug 2026 14:02:09 GMT"
+pub fn http_date($time) {
+    $days = intdiv($time, 86400);
+    $seconds = $time - $days * 86400;
+    if ($seconds < 0) {
+        $days--;
+        $seconds += 86400;
+    }
+    [$year, $month, $day] = date::civil($days);
+    $clock = map([intdiv($seconds, 3600), intdiv($seconds, 60) % 60, $seconds % 60], $n -> ($n < 10 ? "0" : "") .. $n);
+    return DAY_NAMES[date::weekday($days)] .. ", " .. ($day < 10 ? "0" : "") .. "$day "
+        .. MONTH_NAMES[$month - 1] .. " $year " .. join($clock, ":") .. " GMT";
 }

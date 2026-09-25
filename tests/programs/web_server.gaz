@@ -1,0 +1,40 @@
+/*
+ * A web server: http::serve() on a socket_listen() listener, in as many workers() as asked.
+ *
+ *   bin/gazlang -f tests/programs/web_server.gaz -- 8080 4     port 8080, four workers
+ *
+ * Port 0 is one the system picks; the first line printed says which. HttpServerTest runs it:
+ *
+ *   /             "hello from worker N"
+ *   /echo         the request as JSON
+ *   /fail         a handler that raises (500)
+ *   /bad-header   a response that can't be written (500)
+ *   /exit         the worker exits with code 3, and the master starts another
+ *   anything else 404
+ *
+ * Without a port it prints this usage and serves nothing.
+ */
+
+include "../../lib/http.gaz";
+include "../../lib/json.gaz";
+
+$args = args();
+$port = to_int($args[0] ?? "", null);
+$count = to_int($args[1] ?? "1", null);
+if ($port == null || $count == null) {
+    print_error("Usage: web_server.gaz PORT [WORKERS]\n");
+    exit(2);
+}
+
+$listener = socket_listen("127.0.0.1", $port);
+echo "listening on " .. socket_port($listener);
+$worker = workers($count);
+
+http::serve($listener, $request -> match ($request["path"]) {
+    "/" => {"body" => "hello from worker $worker\n", "headers" => {"Content-Type" => "text/plain"}},
+    "/echo" => {"headers" => {"Content-Type" => "application/json"}, "body" => json::encode($request)},
+    "/fail" => error("the handler failed on purpose"),
+    "/bad-header" => {"headers" => {"X-Split" => "a\r\nInjected: yes"}},
+    "/exit" => exit(3),
+    default => {"status" => 404, "body" => "no page at {$request["path"]}\n"},
+}, {"max_body" => 100000, "timeout" => 2});

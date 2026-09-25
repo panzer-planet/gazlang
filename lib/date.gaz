@@ -2,8 +2,8 @@
  * Calendar dates, as whole numbers of days: date::days(2026, 8, 8) is a number a program can add to,
  * compare and count with, and date::civil() and date::format() turn it back into a year, month and
  * day. Day 0 is 1 January 1970 (the proleptic Gregorian calendar, so any year is fine), which is only
- * a starting point: there is no time of day, no zone and no clock, since a program that asks a
- * clock what day it is could not be recorded (see monotonic_time()). A game keeps its own date.
+ * a starting point: there is no time of day and no zone. Today, in UTC, is intdiv(time(), 86400), but
+ * a program that asks the clock can't be recorded, so a game keeps its own date.
  */
 namespace date;
 

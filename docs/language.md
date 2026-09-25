@@ -524,8 +524,20 @@ leaves one out, and `db_open` of that scheme is then an error.
 - `socket_close($socket)` — closes it; closing again does nothing. A socket no variable holds
   any more is closed too.
 
+A server listens and accepts:
+
+- `socket_listen($host, $port, $backlog = 128)` — a listening `socket` on the first of the host's
+  addresses that binds (`"127.0.0.1"` for this machine only, `"0.0.0.0"` or `"::"` for every
+  interface). Port 0 is one the system picks.
+- `socket_accept($listener, $timeout = 30)` — waits for the next connection, as long as it takes,
+  and gives it as a `socket`; `$timeout` bounds each read and write on it.
+- `socket_port($socket)` — the port this end has, which is how a listener on port 0 says which.
+
+A listener only accepts: reading or writing one is an error. No TLS on this side; put a proxy
+(Caddy, nginx) in front for https.
+
 A socket is a handle: copies share the connection, `==` is identity, and it prints as `socket`
-(`socket (closed)`). Failing to find the host or connect, a certificate that doesn't check out,
+(`socket (listening)`, `socket (closed)`). Failing to find the host or connect, a certificate that doesn't check out,
 a timeout, and reading or writing a closed socket are errors. A gazlang built with `make TLS=0`
 has no TLS, and `$tls = true` is an error.
 
@@ -548,11 +560,33 @@ is escape sequences through `print`, and turning bytes into keys is GazLang's to
 
 `term_read` reads the descriptor, not the buffer `read_stdin()` fills, so use one or the other.
 
-**Time** — `monotonic_time()` is seconds, as a float, on the system's monotonic clock: it only
+**Workers** — `workers($count)` turns the program into `$count` processes from that point on, each
+carrying on with a copy of everything, for a server that answers more than one request at a time
+(prefork, as PHP-FPM does). It returns the worker's number, 1 to `$count`, in each of them; the
+process that called it never returns from it, but waits, starts a worker again when one ends with an
+error or a signal, and ends once every worker has ended with code 0. A worker that fails within a
+second of starting is a program that can't start: the rest are stopped and the program exits with
+its code. Ctrl-C, SIGTERM or SIGHUP stops them all. Workers share nothing after the call, a
+`socket_listen()` listener made before it aside, which is the point: they all accept on one port.
+Each draws its own random numbers. At most 1024, and a worker can't start workers of its own.
+
+```
+$listener = socket_listen("0.0.0.0", 8080);
+$n = workers(4);
+while (true) {
+    $connection = socket_accept($listener);
+    socket_write($connection, "HTTP/1.1 200 OK\r\nContent-Length: 6\r\n\r\nfrom $n");
+    socket_close($connection);
+}
+```
+
+**Time** — `time()` is the wall clock: whole seconds since 1 January 1970, UTC, as an int. It can
+jump when the clock is set, so it tells what time it is, not how long something took; a program
+that prints it can't be recorded. `monotonic_time()` is seconds, as a float, on the system's monotonic clock: it only
 counts on, whatever the clock on the wall is set to, and only the difference between two readings
 means anything (the starting point is not defined, and the resolution is a microsecond or better).
 It is for measuring how long something took, or when something is due: `tui::interact` keeps its
-`$tick` steady with it. There is no `time()`: a date would be different on every run.
+`$tick` steady with it.
 
 **The library** — `std_source($name)` is the text of one file of the built-in standard library
 (`"json.gaz"`), or `null`; it is what `include "std/json.gaz"` reads, and a name is a file's, never
@@ -698,7 +732,7 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `csv.gaz` | `csv::parse`, `csv::records` (RFC 4180) |
 | `chars.gaz` | `chars::char_at`, `chars::is_digit`, `chars::is_alpha`, `chars::is_alnum`, `chars::is_space`, `chars::is_hex_digit`, `chars::span($s, $i, $predicate)` (how many characters from `$i` satisfy the predicate: `slice($s, $i, chars::span($s, $i, chars::is_digit))` is the number at `$i`) |
 | `format.gaz` | `format::number`, `format::pad_left`, `format::pad_right` |
-| `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins; see below |
+| `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins, and a server, `http::serve($listener, $handler, $options = {})`, `http::handle($socket, $handler, $options = {})` (one connection) and `http::http_date($time)`; see below |
 | `date.gaz` | `date::days($year, $month, $day)` (a date as a whole number of days, day 0 being 1 January 1970: an impossible date is an error), `date::civil($days)` (`[year, month, day]`), `date::year`/`month`/`day`, `date::weekday` (0 Monday to 6 Sunday), `date::next_weekday($days, $weekday)`, `date::add_months`, `date::is_leap`, `date::days_in_month`, and `date::format` (`Sat 8 Aug 2026`), `date::short` (`8 Aug`) and `date::iso` (`2026-08-08`). There is no `today()`: a clock would make a program impossible to record, so a program keeps its own date |
 | `random.gaz` | `random::shuffle` (a shuffled copy of a list or string), `random::pick` (an element of a list or value of a map), `random::key`, `random::chance($p)`, `random::weighted` (from `[item, weight]` pairs) |
 | `regex.gaz` | `regex::matches($s, $pattern)` (full match), `regex::search($s, $pattern)` (found anywhere), `regex::find($s, $pattern)` (the start index, or null); literals, `.`, `* + ?`, `\|`, `(...)`, `[...]`/`[^...]` with ranges, `^ $`, `\` escapes; no captures, no backreferences, no backtracking |
@@ -724,6 +758,45 @@ header names lowercased and a repeated header's values joined with `", "`.
   with a space or control character is an error before anything is sent.
 - Each request has its own connection, waiting 30 seconds at most to connect and for each
   read.
+
+**The server**: `http::serve($listener, $handler, $options = {})` answers the connections on a
+`socket_listen()` listener for ever, calling `$handler($request)` for each request with
+
+```
+{"method" => "GET", "path" => "/users/7", "query" => "tab=posts", "headers" => {...}, "body" => ""}
+```
+
+and writing the map it returns: `"status"` (200 if left out), `"headers"` and `"body"` (a string,
+`""` if left out). Header names are lowercased and a repeated header's values joined with `", "`,
+as in a response; the path and query are as the client sent them, not decoded.
+
+- One request per connection (`Connection: close`). `Content-Length`, `Connection` and `Date` are
+  written for you (giving one is an error); no `Content-Type` unless given. A HEAD request gets the
+  headers without the body; a 204 or 304 can't have one.
+- A request that isn't well formed never reaches the handler: 400 (a bad request line or header
+  line, no `Host` in HTTP/1.1, both `Content-Length` and `Transfer-Encoding`, a body cut short),
+  413 (a body over `max_body`), 431 (a request line and headers over 64KB), 417 (an `Expect` other
+  than `100-continue`, which is answered before the body is read), 501 (a transfer coding other than
+  chunked), 505 (not HTTP/1.x). A connection that closes before sending anything gets nothing.
+- A handler that raises, or returns a response that can't be written (a status outside 200 to 599,
+  a header value with a line break), is a 500, and the error and its trace go to standard error.
+  The worker carries on.
+- Options: `"timeout"`, seconds each read and write may wait (10), and `"max_body"` in bytes
+  (1048576). The timeout is per read, not per request.
+- `http::http_date(time())` is a time as HTTP writes one: `Sat, 08 Aug 2026 14:02:09 GMT`.
+
+```
+include "std/http.gaz";
+
+$listener = socket_listen("0.0.0.0", 8080);
+workers(4);
+http::serve($listener, $request -> match ($request["path"]) {
+    "/" => {"body" => "hello\n", "headers" => {"Content-Type" => "text/plain"}},
+    default => {"status" => 404, "body" => "not found\n"},
+});
+```
+
+A client:
 
 ```
 include "std/http.gaz";

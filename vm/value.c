@@ -686,7 +686,7 @@ bool append_string(Value v, Buf *out) {
         buf_adds(out, v.db->conn ? "db" : "db (closed)");
         return true;
     case T_SOCKET:
-        buf_adds(out, v.sock->fd < 0 ? "socket (closed)" : "socket");
+        buf_adds(out, v.sock->fd < 0 ? "socket (closed)" : v.sock->listening ? "socket (listening)" : "socket");
         return true;
     default:
         return raisef("Cannot convert %s to string", type_name(v));

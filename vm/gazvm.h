@@ -16,6 +16,7 @@
  *   net.c       sockets, and TLS through OpenSSL (the one file that includes it)
  *   db.c        db_open() and friends: a driver by URL scheme; sqlite.c and pg.c are the drivers
  *   term.c      raw mode, reading keys, the terminal's size
+ *   workers.c   workers(): the program as several processes, for a server
  *
  * Errors: a function that can fail returns bool, false meaning an error was raised. The
  * error itself is in `vm_error` (see raisef()), and the caller passes the false up until the
@@ -165,10 +166,12 @@ struct Object {
     Value fields[];
 };
 
-/* A connection made by socket_open(): a handle, so copies share it */
+/* A connection made by socket_open() or socket_accept(), or a socket_listen() listener: a
+   handle, so copies share it */
 struct Socket {
     int64_t rc;
     int fd;             /* -1 once closed */
+    bool listening;     /* a listener, which only accepts */
     void *tls;          /* OpenSSL's SSL *, or NULL for plain TCP: void, so only net.c needs OpenSSL */
     int timeout_ms;     /* for each read and write */
 };
@@ -532,9 +535,17 @@ void random_seed_unpredictable(void);
 /* ---- net.c ----------------------------------------------------------------------------- */
 
 bool net_open(Str *host, int64_t port, bool tls, double timeout, Value *out);
+bool net_listen(Str *host, int64_t port, int64_t backlog, Value *out);
+bool net_accept(Socket *listener, double timeout, Value *out);
+bool net_port(Socket *s, Value *out);
 bool net_read(Socket *s, Value *out);
 bool net_write(Socket *s, Str *data);
 void net_close(Socket *s);
+
+/* ---- workers.c ------------------------------------------------------------------------- */
+
+extern bool vm_worker;   /* this process is one of workers()'s, which ends the program itself */
+bool start_workers(int64_t count, Value *out);
 
 /* ---- db.c, sqlite.c, pg.c ---------------------------------------------------------------- */
 
