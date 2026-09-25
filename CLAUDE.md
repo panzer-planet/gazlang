@@ -237,16 +237,11 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   what makes real web apps and CLI tools pleasant, then by what one stranger needs to find it,
   install it, get a first program working and trust it; not by what would win many users
   (Windows, a registry, an LSP and a playground wait for someone to ask).
-- **Milestone 0.1, the first release**, is what that stranger needs, in this order:
-  1. **Web essentials**: request decoding, the router and templates (all done; see "Templates").
-     Then cookies, static files and uploads as the apps written on it ask.
-  2. **CLI essentials**: argument parsing (done: `lib/cli.gaz`, see "Command line arguments").
-  3. **The `gaz` rename** with `gaz main.gaz`, `-` for standard input, and `#!/usr/bin/env gaz`
-     scripts (done; see "The CLI").
-  4. **A release** (done: see "Releases"). A changelog, a Homebrew tap and a promise about what
-     may change between releases wait until someone needs them.
-  5. **Two tutorials** ("a JSON API in fifteen minutes", "a CLI tool in ten"), a README that
-     opens with the niche, and the source grammar published as a VS Code extension.
+- **0.1, the first release, is out** (`v0.1.0`): request decoding, the router and templates
+  (see "Serving HTTP" and "Templates"), argument parsing (see "Command line arguments"), the `gaz`
+  rename (see "The CLI"), and the release workflow (see "Releases"). What else it had planned
+  (tutorials, a VS Code extension) was dropped; cookies, static files and uploads wait for the
+  apps written on it to ask.
 - **Releases**: `VERSION` holds the version (`0.1.0`), which the Makefile compiles in and
   `gaz --version` prints. Pushing a tag `vX.Y.Z` matching it runs `.github/workflows/release.yml`,
   which builds and tries gaz on Linux (the latest Ubuntu, x86_64) and macOS (Apple silicon and
