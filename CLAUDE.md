@@ -1228,9 +1228,13 @@ vm/bench.php`: CPU time, interleaved, best of several).
     promise about what changes between them, come first, and `gaz.json` then says
     `"gazlang": ">=0.3"`.
   - **Renaming the binary to `gaz`** is wanted with it (`gaz pkg add` over `gazlang pkg add`), and
-    matches `.gaz`; no common package ships a `gaz` command, so the name is free. Still to decide:
-    whether `gaz main.gaz` should run a file without `-f`, which is what makes the short name
-    pay. The cost is mechanical (the Makefile, `GazLangTestCase::binary()`, CI, the docs);
+    matches `.gaz`; no common package ships a `gaz` command, so the name is free. **Decided with
+    it: the first bare argument is the file** (`gaz main.gaz a b`, as Python, PHP and Node do),
+    everything after it the program's, and `-` names standard input as the source (`cat x.gaz |
+    gaz - a b`). Standard input stays the program's whenever a file is given, as it is now; the one
+    change is piped source with bare arguments (`cat x.gaz | gazlang a b`), which becomes `gaz - a
+    b` or keeps `--`. `-f` and `--` go on working. Built with the rename, after the chores branch,
+    which changes how standard input is shared. The cost is mechanical (the Makefile, `GazLangTestCase::binary()`, CI, the docs);
     a `gazlang` symlink could carry old uses through a release.
 - **Running source**: the compiler runs as a program of its own with its output captured in an
   `open_memstream()` buffer, which is then loaded as bytecode saved next to the source. Each run
