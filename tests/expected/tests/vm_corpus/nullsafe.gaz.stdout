@@ -1,0 +1,19 @@
+null
+ann
+bob
+null
+null
+null
+evaluated arg
+hi arg from ann
+null
+parens: null
+default
+undefined, quietly
+interpolated: bob
+hi 1 from bob
+Cannot use . on null
+Cannot use . on string
+Property age of P is not set
+P has no member nope
+ann

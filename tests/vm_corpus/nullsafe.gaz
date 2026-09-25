@@ -1,0 +1,30 @@
+/* ?. : a member read or a method call only when the object is not null, the whole chain null
+ * otherwise, with the arguments after it not evaluated; anything else stays an error */
+kind P {
+    pub #age;
+    fn _(pub #name, pub #friend = null) {}
+    pub fn greet($x) { return "hi $x from {#name}"; }
+}
+fn loud($s) { echo "evaluated $s"; return $s; }
+$none = null;
+$p = P("ann", P("bob"));
+echo $none?.name;
+echo $p?.name;
+echo $p?.friend?.name;
+echo $p.friend.friend?.name;
+echo $none?.friend.name;              // whole chain: null
+echo $none?.greet(loud("arg"));       // arguments not evaluated
+echo $p?.greet(loud("arg"));
+echo $none?.friend[0];                // indexing after a ?. skipped too
+echo ($none?.name) ?? "parens: null";
+echo $none?.name ?? "default";
+echo $undefined?.name ?? "undefined, quietly";
+echo "interpolated: {$p?.friend?.name}";
+$f = () -> $p?.friend?.greet(1);
+echo $f();
+try { echo ($none?.name).x; } catch (Error $e) { echo $e.message; }
+try { echo "str"?.name; } catch (Error $e) { echo $e.message; }
+try { echo $p?.age; } catch (Error $e) { echo $e.message; }
+try { echo $p?.nope; } catch (Error $e) { echo $e.message; }
+$c = true ? $p?.name : "no";
+echo $c;

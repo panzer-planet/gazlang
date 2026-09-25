@@ -1,0 +1,2 @@
+$user = null;
+delete $user?.tags[0];

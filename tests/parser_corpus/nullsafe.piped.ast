@@ -1,0 +1,109 @@
+Compound
+  statements:
+@ null
+    0: Statement 1
+      expr: Assign 1
+        left: Variable 1
+          token: 1 VAR_IDENTIFIER $user
+          value: "\$user"
+        token: 1 ASSIGN =
+        right: Null 1
+          token: 1 NULL null
+          value: null
+    1: EchoStatement 2
+      expr: NullsafeChain 4
+        expr: Property 4
+          target: NullsafeProperty 3
+            target: Variable 2
+              token: 2 VAR_IDENTIFIER $user
+              value: "\$user"
+            name: "friend"
+            field: false
+            constant: false
+            value: null
+            static_name: null
+          name: "name"
+          field: false
+          constant: false
+          value: null
+          static_name: null
+    2: EchoStatement 5
+      expr: NullsafeChain 5
+        expr: Index 5
+          target: MethodCall 5
+            property: NullsafeProperty 5
+              target: Variable 5
+                token: 5 VAR_IDENTIFIER $user
+                value: "\$user"
+              name: "greet"
+              field: false
+              constant: false
+              value: null
+              static_name: null
+            args:
+              0: Num 5
+                token: 5 INTEGER 1
+                value: 1
+              1: Num 5
+                token: 5 INTEGER 2
+                value: 2
+          index: Num 5
+            token: 5 INTEGER 0
+            value: 0
+    3: EchoStatement 6
+      expr: Property 6
+        target: NullsafeChain 6
+          expr: NullsafeProperty 6
+            target: Variable 6
+              token: 6 VAR_IDENTIFIER $user
+              value: "\$user"
+            name: "name"
+            field: false
+            constant: false
+            value: null
+            static_name: null
+        name: "length"
+        field: false
+        constant: false
+        value: null
+        static_name: null
+    4: EchoStatement 7
+      expr: BinOp 7
+        left: NullsafeChain 7
+          expr: NullsafeProperty 7
+            target: Variable 7
+              token: 7 VAR_IDENTIFIER $user
+              value: "\$user"
+            name: "name"
+            field: false
+            constant: false
+            value: null
+            static_name: null
+        token: 7 COALESCE ??
+        op: 7 COALESCE ??
+        right: String 7
+          token: 7 STRING "nobody"
+          value: "nobody"
+    5: Statement 8
+      expr: Assign 8
+        left: Variable 8
+          token: 8 VAR_IDENTIFIER $f
+          value: "\$f"
+        token: 8 ASSIGN =
+        right: Lambda 8
+          params: ["\$u"]
+          defaults: [null]
+          arity: 1
+          body: NullsafeChain 8
+            expr: NullsafeProperty 8
+              target: Variable 8
+                token: 8 VAR_IDENTIFIER $u
+                value: "\$u"
+              name: "name"
+              field: false
+              constant: false
+              value: null
+              static_name: null
+          captures: []
+          self: null
+          owner: null

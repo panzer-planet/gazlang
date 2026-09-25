@@ -163,7 +163,7 @@ By precedence, loosest first:
 | additive | `+` `-` |
 | multiplicative | `*` `/` `%` |
 | unary | `-` `!` `~` `++` `--` |
-| postfix | `[index]` `(args)` `.name` `::name` |
+| postfix | `[index]` `(args)` `.name` `?.name` `::name` |
 
 - `+ - * /` are numbers only. `/` **always** gives a float (`6 / 2` is `3.0`); `intdiv()`
   divides ints. `%` is ints only, and its sign follows the left operand.
@@ -341,6 +341,12 @@ echo is_a($c, Shape) .. " " .. $c.radius;
   `$obj.method` on its own is a bound method. A write can go through what a call returns, as
   long as it writes a field: `$team.keeper().saves++` changes the keeper, and the call runs
   once. `make()[0] = 1` is an error, since it would change a copy no one sees.
+- **`?.` is `.` for an object that might be null**: `$user?.name` is `null` when `$user` is,
+  and so is everything after it in the chain, `$user?.friend.greet(f())` included, whose `.greet`
+  and `f()` never run. Parentheses end the chain: `($user?.name).x` reads `.x` on the `null`.
+  Only `null` is skipped: `?.` on a string is `.`'s error, and so is a member that isn't there or
+  a field never set, which is what sets it apart from `$user.name ?? null` (that one also reads an
+  unset field as null). Nothing can be written through it (`$user?.name = 1`, `++`, `delete`).
 - **A member is private unless `pub`**, the same word and the same meaning as a namespace's:
   this name escapes the thing it is written in. The ladder is unmarked (mine) → `kin` (mine and
   my children's) → `pub` (anyone's), and it applies to a field, method, constant or static

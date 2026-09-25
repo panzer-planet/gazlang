@@ -1,1 +1,0 @@
-Error: delete needs an element of a list or map, like delete $a[0] at tests/parser_corpus/error_delete_is_located_after_the_semicolon.gaz:5

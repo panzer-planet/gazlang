@@ -279,9 +279,6 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - `split($x, $sep)` has no limit: it always splits on every occurrence, so keeping the
     trailing remainder together (`"a=b=c"` split on `"="` into `["a", "b=c"]`) needs
     `index_of` and two `slice`s instead of a third argument.
-  - No `?.`: `$x?.foo` doesn't parse. `??` covers a missing map key or an unset field, but not
-    "this might itself be null, so skip the read"; that's an explicit
-    `$x == null ? null : $x.foo` every time.
   - `$obj.$name` (dynamic member access; `lib/sorting.gaz` can sort maps but not objects),
     `json_encode` of an object (`fields()` lists what it would write; `to_string()` and cycles
     to settle; `tests/programs/football.gaz`'s save hit it and writes `to_data()` by hand; the
@@ -445,7 +442,7 @@ version.
 
 - **Precedence**, loosest first: assignment (right associative) → `?:` (right) → `??` (right)
   → `||` → `&&` → equality (`==` `!=` `<=>`) → relational → `..` → `|` → `^` → `&` → shifts →
-  `+ -` → `* / %` → unary → postfix (`[index]`, `(args)`, `.name`, `::name`) → primary. Bitwise precedence
+  `+ -` → `* / %` → unary → postfix (`[index]`, `(args)`, `.name`, `?.name`, `::name`) → primary. Bitwise precedence
   is Rust's and Python's, not C's, so `$flags & MASK == 0` is `($flags & MASK) == 0`. `..` sits
   looser than the bitwise operators and tighter than comparison, so `"x = " .. $f & MASK` and
   `$f & MASK .. "!"` both do the obvious thing (between the bitwise levels, every unparenthesised
@@ -904,6 +901,16 @@ $area = $c.area;                              // a bound method
   (`f()[0] = 1`) the write would land in a copy no one sees, so it stays a parse error
   (`writes_through_call()` in `nodes.gaz`); a field on what isn't an object is the runtime's
   error, as on a variable's path. Other expressions (`[$o][0].x = 1`) are still refused.
+- **`?.name` is `.name` unless the object is null**, when the whole postfix chain it is in is
+  null and nothing after it runs, arguments included (JavaScript's, C#'s and PHP 8's rule, not one
+  step at a time). Only null is skipped, so a missing member or an unset field is still the error
+  it is after `.`, which is what `?.` adds over `$x.name ?? null`. **Parser and code generator
+  only**: the lexer glues `?.name` into one `NULLSAFE_PROPERTY` token as it does `.name`, the parser
+  makes a `NullsafePropertyAST` (a `PropertyAST`, so everything that asks `is_a` treats it as a
+  member) and wraps the whole chain in a `NullsafeChainAST`, which no write path accepts, and each
+  `?.` compiles to `JNN go; PUSH null; JMP chain_end` with the chain's end label on a stack
+  (`nullsafe_ends`), so the VM and the loader learn nothing. On the left of `??` the chain is read
+  quietly, as `.` is there.
 - `is_a($x, Kind)` tests the kind and its parents; `kind_of($x)` is the object's own kind
   (strict: anything else is an error), so `match (kind_of($n)) { NumAST => ... }` dispatches
   a pass written outside the node kinds. `fields($object)` is a map of the set fields, in

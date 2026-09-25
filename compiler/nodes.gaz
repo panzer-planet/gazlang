@@ -137,6 +137,20 @@ kind IndexAST extends AST {
     }
 }
 
+// $target?.name: the member, or the whole NullsafeChainAST around it null when the target is
+kind NullsafePropertyAST extends PropertyAST {
+}
+
+// An expression with a ?. in its chain of postfix steps ($a?.b.c(), $a?.b[0]): a ?. that finds
+// null makes all of it null, skipping the steps after it and their arguments
+kind NullsafeChainAST extends AST {
+    pub #expr;
+
+    fn _($expr) {
+        #expr = $expr;
+    }
+}
+
 // $target.name, or #name when the target is a ThisAST
 kind PropertyAST extends AST {
     pub #target;

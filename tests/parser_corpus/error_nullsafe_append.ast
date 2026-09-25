@@ -1,0 +1,1 @@
+Error: Cannot use = on a ?. chain: when it finds null there is nothing to write to at tests/parser_corpus/error_nullsafe_append.gaz:2

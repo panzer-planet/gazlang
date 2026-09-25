@@ -1,1 +1,1 @@
-Error: delete needs an element of a list or map, like delete $a[0] at tests/parser_corpus/error_delete_literal_element.gaz:2
+Error: delete needs an element of a list or map, like delete $a[0] at tests/parser_corpus/error_delete_literal_element.gaz:1

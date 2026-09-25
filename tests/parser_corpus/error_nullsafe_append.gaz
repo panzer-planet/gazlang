@@ -1,0 +1,2 @@
+$user = null;
+$user?.tags[] = "x";

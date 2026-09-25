@@ -1,0 +1,1 @@
+Error: Cannot delete through ?.: when it finds null there is nothing to delete at tests/parser_corpus/error_nullsafe_delete.gaz:2

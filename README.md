@@ -146,6 +146,7 @@ fit is an `Integer overflow` error, not a quiet loss of precision. There is no `
 ```gaz
 $user = null;
 echo $user ?? "guest";                     // ?? reads the left unless null or missing
+echo $user?.address.city;                  // ?. : null the whole way if $user is null
 echo (5 > 3) ? "yes" : "no";               // ?:, right associative, only the taken branch runs
 
 [$first, $second] = [10, 20];              // a list pattern: unpack in one line
@@ -158,6 +159,7 @@ echo [...[1, 2], ...[3, 4]];               // spread into a list literal
 
 ```
 guest
+null
 yes
 30
 48

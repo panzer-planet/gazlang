@@ -1,0 +1,8 @@
+$user = null;
+echo $user
+    ?.friend
+    .name;
+echo $user?.greet(1, 2)[0];
+echo ($user?.name).length;
+echo $user?.name ?? "nobody";
+$f = $u -> $u?.name;

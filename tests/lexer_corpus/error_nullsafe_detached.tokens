@@ -1,0 +1,5 @@
+1 VAR_IDENTIFIER $m
+1 COALESCE ??
+1 VAR_IDENTIFIER $n
+2 QUESTION ?
+Error: Unexpected character '.' on line 2

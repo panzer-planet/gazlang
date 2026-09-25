@@ -808,7 +808,7 @@ kind Shared {
         }
 
         $lambda = #at(LambdaAST($params, $defaults, $arity, $body, $captures), $start);
-        $lambda.owner = #kind == null ? null : #kind.name;
+        $lambda.owner = #kind?.name;
 
         return $lambda;
     }
@@ -954,19 +954,29 @@ kind Shared {
         return #at(ArrayLiteralAST($entries, true), $start);
     }
 
-    // Parse a postfix expression (primary (LBRACKET [expr] RBRACKET | arguments | PROPERTY)* [INCREMENT | DECREMENT])
-    //
-    // Empty brackets ($a[] = ...) append, so they are only allowed directly before an assignment.
+    /*
+     * Parse a postfix expression
+     * (primary (LBRACKET [expr] RBRACKET | arguments | PROPERTY | NULLSAFE_PROPERTY)* [INCREMENT | DECREMENT])
+     *
+     * Empty brackets ($a[] = ...) append, so they are only allowed directly before an assignment.
+     * A chain with a ?. in it is wrapped whole in a NullsafeChainAST, which nothing can write to.
+     */
     fn postfix() {
         $node = #primary();
+        $nullsafe = false;
 
-        while (in_array(#current_token.type, ["LEFT_BRACKET", "LEFT_PAREN", "PROPERTY", "DOUBLE_COLON"])) {
-            if (#current_token.type == "PROPERTY") {
+        while (in_array(#current_token.type, ["LEFT_BRACKET", "LEFT_PAREN", "PROPERTY", "NULLSAFE_PROPERTY", "DOUBLE_COLON"])) {
+            if (#current_token.type == "PROPERTY" || #current_token.type == "NULLSAFE_PROPERTY") {
                 // $user.name: which members the object has is only known when it runs
                 $token = #current_token;
-                #eat("PROPERTY");
+                #eat($token.type);
                 $named = is_a($node, FunctionRefAST);
-                $node = #at(PropertyAST($node, slice($token.value, 1)), $token);
+                if ($token.type == "NULLSAFE_PROPERTY") {
+                    $nullsafe = true;
+                    $node = #at(NullsafePropertyAST($node, slice($token.value, 2)), $token);
+                } else {
+                    $node = #at(PropertyAST($node, slice($token.value, 1)), $token);
+                }
                 if ($named) {
                     // Token.EOF: a dot on a name, which is an error if Token turns out to be
                     // a kind, since a kind is reached by name, with ::
@@ -1006,12 +1016,13 @@ kind Shared {
                     #fail("[] can only be used to append in an assignment");
                 }
 
-                return #at(IndexAST($node, null), $bracket);
+                return #nullsafe_chain(#at(IndexAST($node, null), $bracket), $nullsafe);
             }
             $node = #at(IndexAST($node, #expr()), $bracket);
             #eat("RIGHT_BRACKET");
         }
 
+        $node = #nullsafe_chain($node, $nullsafe);
         $token = #current_token;
         if ($token.type == "INCREMENT" || $token.type == "DECREMENT") {
             #eat($token.type);
@@ -1020,6 +1031,17 @@ kind Shared {
         }
 
         return $node;
+    }
+
+    // A chain with a ?. in it as one node, located where it starts to be read
+    fn nullsafe_chain($node, $nullsafe) {
+        if (!$nullsafe) {
+            return $node;
+        }
+        $chain = NullsafeChainAST($node);
+        [$chain.line, $chain.file] = [$node.line, $node.file];
+
+        return $chain;
     }
 
     // Parse a unary expression ((MINUS | NOT | BIT_NOT) unary | (INCREMENT | DECREMENT) postfix | postfix)
@@ -1191,6 +1213,9 @@ kind Shared {
     // from a call through a field ($team.keeper().saves); # itself, a path starting anywhere
     // else, and a call's elements (make()[0]) can't. $operator is the assignment or ++/-- token.
     fn assignable($node, $operator) {
+        if (is_a($node, NullsafeChainAST)) {
+            #fail("Cannot use {$operator.value} on a ?. chain: when it finds null there is nothing to write to");
+        }
         $root = path_root($node);
         if (is_a($root, FunctionRefAST)) {
             #static_writes[] = [$root, $operator];
@@ -1519,12 +1544,15 @@ kind Shared {
         $target = #postfix();
         #eat("SEMICOLON");
 
+        if (is_a($target, NullsafeChainAST)) {
+            #fail_at("Cannot delete through ?.: when it finds null there is nothing to delete", #file, $start.line);
+        }
         if (is_a($target, PropertyAST)) {
-            #fail("Cannot delete a field: every object of a kind has the fields it declares");
+            #fail_at("Cannot delete a field: every object of a kind has the fields it declares", #file, $start.line);
         }
         if (!is_a($target, IndexAST) || $target.index == null
             || path_root($target) == null && !writes_through_call($target)) {
-            #fail("delete needs an element of a list or map, like delete \$a[0]");
+            #fail_at("delete needs an element of a list or map, like delete \$a[0]", #file, $start.line);
         }
 
         #written($target);

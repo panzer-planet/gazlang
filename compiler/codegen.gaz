@@ -41,6 +41,8 @@ kind CodeGenerator {
     // Every kind, by name, to emit after the functions
     #kinds = {};
     #label_counter = 0;
+    // The end label of each ?. chain the current node is in, innermost last
+    #nullsafe_ends = [];
     // [continue label, end label, try depth] for the loops enclosing the current node
     #loop_labels = [];
     // The handlers around the current node, outermost first: a try's finally block, or null
@@ -109,7 +111,8 @@ kind CodeGenerator {
             // Its code is emitted after the functions
             KindDeclarationAST => {}
             ThisAST => #emit("LOAD_THIS"),
-            PropertyAST => #visit_property($node),
+            PropertyAST, NullsafePropertyAST => #visit_property($node),
+            NullsafeChainAST => #visit_nullsafe_chain($node),
             MethodCallAST => #visit_method_call($node),
             ParentMethodAST => #visit_parent_method($node),
             // Its body is emitted after the top level code
@@ -447,7 +450,12 @@ kind CodeGenerator {
             #emit("INDEX_GET_QUIET");
         } else if (is_a($node, PropertyAST) && !$node.constant) {
             #quietly($node.target);
+            if (is_a($node, NullsafePropertyAST)) {
+                #nullsafe_guard();
+            }
             #emit("GET_PROPERTY_QUIET", [$node.name]);
+        } else if (is_a($node, NullsafeChainAST)) {
+            #visit_nullsafe_chain($node, true);
         } else {
             #visit($node);
         }
@@ -786,7 +794,32 @@ kind CodeGenerator {
             return;
         }
         #visit($node.target);
+        if (is_a($node, NullsafePropertyAST)) {
+            #nullsafe_guard();
+        }
         #emit($node.existing ? "GET_PROPERTY_EXISTING" : "GET_PROPERTY", [$node.name]);
+    }
+
+    // A chain with ?. in it, whose value is null if a ?. finds null (quietly, on the left of ??)
+    fn visit_nullsafe_chain($node, $quiet = false) {
+        $end = "NULLSAFE_END_" .. #label_counter++;
+        #nullsafe_ends[] = $end;
+        if ($quiet) {
+            #quietly($node.expr);
+        } else {
+            #visit($node.expr);
+        }
+        delete #nullsafe_ends[len(#nullsafe_ends) - 1];
+        #emit("LABEL", [$end]);
+    }
+
+    // After a ?.'s object: on to the member unless it is null, which is then the chain's value
+    fn nullsafe_guard() {
+        $go = "NULLSAFE_GO_" .. #label_counter++;
+        #emit("JNN", [$go]);
+        #emit("PUSH", [null]);
+        #emit("JMP", [last(#nullsafe_ends)]);
+        #emit("LABEL", [$go]);
     }
 
     fn visit_method_call($node) {
@@ -799,6 +832,9 @@ kind CodeGenerator {
             return;
         }
         #visit($node.property.target);
+        if (is_a($node.property, NullsafePropertyAST)) {
+            #nullsafe_guard();
+        }
         #emit("GET_METHOD", [$node.property.name]);
         foreach ($node.args as $arg) {
             #visit($arg);

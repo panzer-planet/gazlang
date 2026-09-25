@@ -605,10 +605,14 @@ kind Lexer {
             }
             $c == "'" => { return Token("STRING", #single_quoted_string()); }
             $c == "#" => { return #hash(); }
-            // .name is one token, so the name is glued to the dot
+            // .name is one token, so the name is glued to the dot, and so is ?.name
             $c == "." && #is_name_start(#peek()) => {
                 #skip(1);
                 return Token("PROPERTY", "." .. #read_word());
+            }
+            $c == "?" && #peek() == "." && #is_name_start(#peek(2)) => {
+                #skip(2);
+                return Token("NULLSAFE_PROPERTY", "?." .. #read_word());
             }
             $c == "{" => {
                 #skip(1);

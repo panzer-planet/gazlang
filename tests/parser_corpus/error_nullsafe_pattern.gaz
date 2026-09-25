@@ -1,0 +1,2 @@
+$user = null;
+[$user?.name, $b] = [1, 2];

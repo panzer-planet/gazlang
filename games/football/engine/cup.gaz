@@ -230,7 +230,7 @@ pub kind Cup {
     pub fn to_data() {
         return {
             "name" => #name, "dates" => #dates, "alive" => map(#alive, $team -> $team.name),
-            "champion" => #champion == null ? null : #champion.name,
+            "champion" => #champion?.name,
             "rounds" => map(#rounds, ([$name, $ties]) -> [$name, map($ties, $tie -> [$tie.match.home.name, $tie.match.away.name, $tie.match.home_goals, $tie.match.away_goals, $tie.extra_time, $tie.penalties])]),
         };
     }
