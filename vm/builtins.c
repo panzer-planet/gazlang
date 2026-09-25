@@ -689,7 +689,8 @@ static int by_bytes(const void *a, const void *b) { return str_cmp(((const Value
    readdir() gives differs between file systems */
 static bool list_dir(Str *path, Value *out) {
     /* No name holds a NUL byte, so a path with one names nothing */
-    DIR *dir = memchr(path->data, '\0', path->len) ? (errno = ENOENT, NULL) : opendir(path->data);
+    if (memchr(path->data, '\0', path->len)) return raise_path("Cannot list directory", path, ENOENT);
+    DIR *dir = opendir(path->data);
     if (!dir) return raise_path("Cannot list directory", path, errno);
     List *l = list_new(0);
     struct dirent *entry;
