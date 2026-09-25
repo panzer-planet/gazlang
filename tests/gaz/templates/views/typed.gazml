@@ -1,0 +1,2 @@
+@template typed(map $user, int $times = 1): Html
+<p>{{ $user["name"] }}</p>

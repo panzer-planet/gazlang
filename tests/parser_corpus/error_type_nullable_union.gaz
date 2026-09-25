@@ -1,0 +1,2 @@
+// ? takes one name: a union that allows null writes null
+fn f(?int|string $x) {}

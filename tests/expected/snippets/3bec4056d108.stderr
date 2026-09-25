@@ -1,0 +1,3 @@
+Error: total() expects $n to be int, got string on line 1
+  total on line 1
+  top level on line 1

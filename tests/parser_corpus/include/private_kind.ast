@@ -1,0 +1,53 @@
+Compound
+  statements:
+@ "tests/parser_corpus/include/private_kind.gaz"
+    0: KindDeclaration 2
+      name: "secret::Hidden"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: []
+      fields: []
+      field_lines: []
+      methods: []
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: []
+      abstract_methods: []
+      slots: []
+      method_table: []
+      owner_vis: []
+      declared_at: []
+      hidden: []
+      hidden_fields: []
+    1: KindDeclaration 3
+      name: "secret::Shown"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: []
+      fields: []
+      field_lines: []
+      methods: []
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: []
+      abstract_methods: []
+      slots: []
+      method_table: []
+      owner_vis: []
+      declared_at: []
+      hidden: []
+      hidden_fields: []

@@ -1,0 +1,1 @@
+Error: int appears twice in the type int|int at tests/parser_corpus/error_type_repeated.gaz:2

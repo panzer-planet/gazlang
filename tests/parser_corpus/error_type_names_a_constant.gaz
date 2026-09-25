@@ -1,0 +1,4 @@
+const C = 1;
+fn f(): C {
+    return 1;
+}

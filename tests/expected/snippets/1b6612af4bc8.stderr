@@ -1,0 +1,3 @@
+Error: f() expects $label to be string|null, got int on line 1
+  f on line 1
+  top level on line 1

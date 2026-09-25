@@ -1,0 +1,537 @@
+Compound
+  statements:
+@ null
+    0: StaticInit 10
+      name: "shapes::Shape::made"
+      value: 0
+    1: KindDeclaration 5
+      name: "shapes::Shape"
+      parent: null
+      abstract: false
+      statics:
+        made: Num 10
+          token: 10 INTEGER 0
+          value: 0
+      static_types:
+        made: Type 10
+          names: ["int"]
+      static_lines: {"made" => 10}
+      static_methods:
+        count: FunctionDeclaration 33
+          name: "shapes::Shape::count"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 34
+                expr: Property 34
+                  target: This 34
+                  name: "made"
+                  field: false
+                  constant: false
+                  value: null
+                  static_name: "shapes::Shape::made"
+          arity: 0
+          return_type: Type 33
+            names: ["int"]
+          kind: "shapes::Shape"
+          abstract: false
+      static_owners: {"made" => "shapes::Shape", "count" => "shapes::Shape"}
+      static_is_method: {"made" => false, "count" => true}
+      vis: {"name" => "pub", "area" => "kin", "note" => "", "scale" => "", "made" => "pub", "own" => "", "label" => "pub", "_" => "pub", "resize" => "pub", "describe" => "pub", "parent" => "pub", "count" => "pub", "each" => "pub"}
+      fields:
+        name: null
+        area: Num 7
+          token: 7 INTEGER 0
+          value: 0
+        note: Null 8
+          token: 8 NULL null
+          value: null
+        scale: Num 9
+          token: 9 INTEGER 1
+          value: 1
+        own: FunctionRef 11
+          name: "shapes::Shape"
+          constant: false
+          value: null
+          static_name: null
+        label: null
+      field_types:
+        name: Type 6
+          names: ["string"]
+        area: Type 7
+          names: ["float"]
+        note: Type 8
+          names: ["string", "null"]
+        scale: Type 9
+          names: ["int", "float"]
+        own: Type 11
+          names: ["kind"]
+        label: Type 13
+          names: ["string"]
+      field_lines: {"name" => 6, "area" => 7, "note" => 8, "scale" => 9, "own" => 11, "label" => 13}
+      methods:
+        _: FunctionDeclaration 13
+          name: "_"
+          params: ["\$label", "\$parent", "\$scale"]
+          defaults:
+            0: null
+            1: Null 13
+              token: 13 NULL null
+              value: null
+            2: Num 13
+              token: 13 INTEGER 1
+              value: 1
+          body: Compound
+            statements:
+              0: Statement 13
+                expr: Assign 13
+                  left: Property 13
+                    target: This 13
+                    name: "label"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 13 ASSIGN =
+                  right: Variable 13
+                    token: 13 VAR_IDENTIFIER $label
+                    value: "\$label"
+              1: Statement 14
+                expr: Assign 14
+                  left: Property 14
+                    target: This 14
+                    name: "name"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 14 ASSIGN =
+                  right: Variable 14
+                    token: 14 VAR_IDENTIFIER $label
+                    value: "\$label"
+              2: Statement 15
+                expr: Assign 15
+                  left: Property 15
+                    target: This 15
+                    name: "scale"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 15 ASSIGN =
+                  right: Variable 15
+                    token: 15 VAR_IDENTIFIER $scale
+                    value: "\$scale"
+              3: Statement 16
+                expr: Increment 16
+                  target: Property 16
+                    target: This 16
+                    name: "made"
+                    field: false
+                    constant: false
+                    value: null
+                    static_name: "shapes::Shape::made"
+                  op: 16 INCREMENT ++
+                  prefix: false
+          arity: [1, 3]
+          param_types:
+            0: Type 13
+              names: ["string"]
+            1: Type 13
+              names: ["shapes::Shape", "null"]
+            2: Type 13
+              names: ["int"]
+          kind: "shapes::Shape"
+          abstract: false
+        resize: FunctionDeclaration 19
+          name: "resize"
+          params: ["\$by"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 20
+                expr: Assign 20
+                  left: Property 20
+                    target: This 20
+                    name: "area"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 20 ASSIGN =
+                  right: BinOp 20
+                    left: Property 20
+                      target: This 20
+                      name: "area"
+                      field: true
+                      constant: false
+                      value: null
+                      static_name: null
+                    token: 20 MULTIPLY *
+                    op: 20 MULTIPLY *
+                    right: Variable 20
+                      token: 20 VAR_IDENTIFIER $by
+                      value: "\$by"
+              1: ReturnStatement 22
+                expr: Property 22
+                  target: This 22
+                  name: "area"
+                  field: true
+                  constant: false
+                  value: null
+                  static_name: null
+          arity: 1
+          param_types:
+            0: Type 19
+              names: ["int", "float"]
+          return_type: Type 19
+            names: ["float"]
+          kind: "shapes::Shape"
+          abstract: false
+        describe: FunctionDeclaration 25
+          name: "describe"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: EchoStatement 26
+                expr: Property 26
+                  target: This 26
+                  name: "name"
+                  field: true
+                  constant: false
+                  value: null
+                  static_name: null
+          arity: 0
+          return_type: Type 25
+            names: ["null"]
+          kind: "shapes::Shape"
+          abstract: false
+        parent: FunctionDeclaration 29
+          name: "parent"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 30
+                expr: Null 30
+                  token: 30 NULL null
+                  value: null
+          arity: 0
+          return_type: Type 29
+            names: ["shapes::Shape", "null"]
+          kind: "shapes::Shape"
+          abstract: false
+        each: FunctionDeclaration 37
+          name: "each"
+          params: ["\$items", "\$f"]
+          defaults: [null, null]
+          body: Compound
+            statements:
+              0: ReturnStatement 38
+                expr: ArrayLiteral 38
+                  entries:
+                    0:
+                      0: String 38
+                        token: 38 STRING "n"
+                        value: "n"
+                      1: FunctionCall 38
+                        name: "len"
+                        args:
+                          0: Variable 38
+                            token: 38 VAR_IDENTIFIER $items
+                            value: "\$items"
+                  map: true
+          arity: 2
+          param_types:
+            0: Type 37
+              names: ["list"]
+            1: Type 37
+              names: ["function"]
+          return_type: Type 37
+            names: ["map"]
+          kind: "shapes::Shape"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"name" => "shapes::Shape", "area" => "shapes::Shape", "note" => "shapes::Shape", "scale" => "shapes::Shape", "own" => "shapes::Shape", "label" => "shapes::Shape"}
+      members: {"_" => "shapes::Shape", "resize" => "shapes::Shape", "describe" => "shapes::Shape", "parent" => "shapes::Shape", "each" => "shapes::Shape"}
+      abstract_methods: []
+      slots: [["name", "shapes::Shape", "pub"], ["area", "shapes::Shape", "kin"], ["note", "shapes::Shape", ""], ["scale", "shapes::Shape", ""], ["own", "shapes::Shape", ""], ["label", "shapes::Shape", "pub"]]
+      method_table: [["_", "shapes::Shape", "pub", "shapes::Shape"], ["resize", "shapes::Shape", "pub", "shapes::Shape"], ["describe", "shapes::Shape", "pub", "shapes::Shape"], ["parent", "shapes::Shape", "pub", "shapes::Shape"], ["each", "shapes::Shape", "pub", "shapes::Shape"]]
+      owner_vis: {"made" => "pub", "count" => "pub", "name" => "pub", "area" => "kin", "note" => "", "scale" => "", "own" => "", "label" => "pub", "_" => "pub", "resize" => "pub", "describe" => "pub", "parent" => "pub", "each" => "pub"}
+      declared_at: {"_" => "shapes::Shape", "resize" => "shapes::Shape", "describe" => "shapes::Shape", "parent" => "shapes::Shape", "each" => "shapes::Shape"}
+      hidden: []
+      hidden_fields: []
+    2: FunctionDeclaration 33
+      name: "shapes::Shape::count"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 34
+            expr: Property 34
+              target: This 34
+              name: "made"
+              field: false
+              constant: false
+              value: null
+              static_name: "shapes::Shape::made"
+      arity: 0
+      return_type: Type 33
+        names: ["int"]
+      kind: "shapes::Shape"
+      abstract: false
+    3: KindDeclaration 42
+      name: "shapes::Circle"
+      parent: "shapes::Shape"
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: {"made" => "shapes::Shape", "count" => "shapes::Shape"}
+      static_is_method: {"made" => false, "count" => true}
+      vis: {"resize" => "pub"}
+      fields: []
+      field_lines: []
+      methods:
+        resize: FunctionDeclaration 43
+          name: "resize"
+          params: ["\$by"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: ReturnStatement 44
+                expr: BinOp 44
+                  left: ParentMethod 44
+                    name: "resize"
+                    args:
+                      0: Variable 44
+                        token: 44 VAR_IDENTIFIER $by
+                        value: "\$by"
+                    definer: "shapes::Shape"
+                  token: 44 MULTIPLY *
+                  op: 44 MULTIPLY *
+                  right: Num 44
+                    token: 44 INTEGER 3
+                    value: 3
+          arity: 1
+          param_types:
+            0: Type 43
+              names: ["int", "float"]
+          return_type: Type 43
+            names: ["float"]
+          kind: "shapes::Circle"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"name" => "shapes::Shape", "area" => "shapes::Shape", "label" => "shapes::Shape"}
+      members: {"_" => "shapes::Shape", "resize" => "shapes::Circle", "describe" => "shapes::Shape", "parent" => "shapes::Shape", "each" => "shapes::Shape"}
+      abstract_methods: []
+      slots: [["name", "shapes::Shape", "pub"], ["area", "shapes::Shape", "kin"], ["note", "shapes::Shape", ""], ["scale", "shapes::Shape", ""], ["own", "shapes::Shape", ""], ["label", "shapes::Shape", "pub"]]
+      method_table: [["_", "shapes::Shape", "pub", "shapes::Shape"], ["resize", "shapes::Circle", "pub", "shapes::Shape"], ["describe", "shapes::Shape", "pub", "shapes::Shape"], ["parent", "shapes::Shape", "pub", "shapes::Shape"], ["each", "shapes::Shape", "pub", "shapes::Shape"]]
+      owner_vis: {"made" => "pub", "count" => "pub", "name" => "pub", "area" => "kin", "label" => "pub", "_" => "pub", "resize" => "pub", "describe" => "pub", "parent" => "pub", "each" => "pub"}
+      declared_at: {"_" => "shapes::Shape", "resize" => "shapes::Shape", "describe" => "shapes::Shape", "parent" => "shapes::Shape", "each" => "shapes::Shape"}
+      hidden: {"note" => "shapes::Shape", "scale" => "shapes::Shape", "own" => "shapes::Shape"}
+      hidden_fields: {"note" => "shapes::Shape", "scale" => "shapes::Shape", "own" => "shapes::Shape"}
+    4: FunctionDeclaration 48
+      name: "shapes::total"
+      params: ["\$n", "\$label"]
+      defaults:
+        0: null
+        1: Null 48
+          token: 48 NULL null
+          value: null
+      body: Compound
+        statements:
+          0: ReturnStatement 49
+            expr: BinOp 49
+              left: Variable 49
+                token: 49 VAR_IDENTIFIER $n
+                value: "\$n"
+              token: 49 MULTIPLY *
+              op: 49 MULTIPLY *
+              right: Num 49
+                token: 49 INTEGER 2
+                value: 2
+      arity: [1, 2]
+      param_types:
+        0: Type 48
+          names: ["int"]
+        1: Type 48
+          names: ["string", "null"]
+      return_type: Type 48
+        names: ["int"]
+      kind: null
+      abstract: false
+    5: FunctionDeclaration 52
+      name: "shapes::accept"
+      params: ["\$o", "\$k", "\$f", "\$handle"]
+      defaults:
+        0: null
+        1: null
+        2: null
+        3: Null 52
+          token: 52 NULL null
+          value: null
+      body: Compound
+        statements:
+          0: ReturnStatement 53
+            expr: Boolean 53
+              token: 53 TRUE true
+              value: true
+      arity: [3, 4]
+      param_types:
+        0: Type 52
+          names: ["object"]
+        1: Type 52
+          names: ["kind"]
+        2: Type 52
+          names: ["function"]
+        3: Type 52
+          names: ["socket", "db", "null"]
+      return_type: Type 52
+        names: ["bool"]
+      kind: null
+      abstract: false
+    6: Statement 56
+      expr: Assign 56
+        left: Variable 56
+          token: 56 VAR_IDENTIFIER $double
+          value: "\$double"
+        token: 56 ASSIGN =
+        right: Lambda 56
+          params: ["\$x"]
+          defaults: [null]
+          arity: 1
+          param_types:
+            0: Type 56
+              names: ["int"]
+          body: BinOp 56
+            left: Variable 56
+              token: 56 VAR_IDENTIFIER $x
+              value: "\$x"
+            token: 56 MULTIPLY *
+            op: 56 MULTIPLY *
+            right: Num 56
+              token: 56 INTEGER 2
+              value: 2
+          captures: []
+          self: null
+          owner: null
+    7: Statement 57
+      expr: Assign 57
+        left: Variable 57
+          token: 57 VAR_IDENTIFIER $pair
+          value: "\$pair"
+        token: 57 ASSIGN =
+        right: Lambda 57
+          params: ["\$s", "\$shape", "$#pattern_2"]
+          defaults:
+            0: Null 57
+              token: 57 NULL null
+              value: null
+            1: Null 57
+              token: 57 NULL null
+              value: null
+            2: ArrayLiteral 57
+              entries:
+                0:
+                  0: null
+                  1: Num 57
+                    token: 57 INTEGER 1
+                    value: 1
+                1:
+                  0: null
+                  1: Num 57
+                    token: 57 INTEGER 2
+                    value: 2
+              map: false
+          arity: [0, 3]
+          param_types:
+            0: Type 57
+              names: ["string", "null"]
+            1: Type 57
+              names: ["shapes::Shape", "null"]
+            2: null
+          body: Compound 57
+            statements:
+              0: Statement 57
+                expr: Assign 57
+                  left: ListPattern 57
+                    targets:
+                      0: Variable 57
+                        token: 57 VAR_IDENTIFIER $a
+                        value: "\$a"
+                      1: Variable 57
+                        token: 57 VAR_IDENTIFIER $b
+                        value: "\$b"
+                  token: 57 ASSIGN =
+                  right: Variable 57
+                    token: 57 VAR_IDENTIFIER $#pattern_2
+                    value: "$#pattern_2"
+              1: ReturnStatement 57
+                expr: ArrayLiteral 57
+                  entries:
+                    0:
+                      0: null
+                      1: Variable 57
+                        token: 57 VAR_IDENTIFIER $s
+                        value: "\$s"
+                    1:
+                      0: null
+                      1: Variable 57
+                        token: 57 VAR_IDENTIFIER $shape
+                        value: "\$shape"
+                    2:
+                      0: null
+                      1: Variable 57
+                        token: 57 VAR_IDENTIFIER $a
+                        value: "\$a"
+                  map: false
+          captures: []
+          self: null
+          owner: null
+    8: Statement 58
+      expr: Assign 58
+        left: Variable 58
+          token: 58 VAR_IDENTIFIER $typed_list
+          value: "\$typed_list"
+        token: 58 ASSIGN =
+        right: Lambda 58
+          params: ["\$xs", "\$f"]
+          defaults: [null, null]
+          arity: 2
+          param_types:
+            0: Type 58
+              names: ["list"]
+            1: Type 58
+              names: ["function"]
+          body: FunctionCall 58
+            name: "map"
+            args:
+              0: Variable 58
+                token: 58 VAR_IDENTIFIER $xs
+                value: "\$xs"
+              1: Variable 58
+                token: 58 VAR_IDENTIFIER $f
+                value: "\$f"
+          captures: []
+          self: null
+          owner: null
+    9: EchoStatement 59
+      expr: BinOp 59
+        left: FunctionCall 59
+          name: "shapes::total"
+          args:
+            0: Num 59
+              token: 59 INTEGER 4
+              value: 4
+        token: 59 CONCAT ..
+        op: 59 CONCAT ..
+        right: FunctionCall 59
+          name: "shapes::Shape::count"
+          args: []

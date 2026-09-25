@@ -1,0 +1,6 @@
+kind A {
+    pub fn f(): int { return 1; }
+}
+kind B extends A {
+    pub fn f() { return 1; }
+}

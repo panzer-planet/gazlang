@@ -1,0 +1,2 @@
+// A bare name where a parameter goes is more likely a parameter than a type
+fn f(x) {}

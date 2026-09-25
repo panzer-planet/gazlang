@@ -1,0 +1,1 @@
+Error: A pattern parameter takes no type: it is already a list, and its variables are assigned by taking it apart at tests/parser_corpus/error_type_on_pattern_parameter.gaz:2

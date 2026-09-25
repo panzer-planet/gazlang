@@ -1,0 +1,1 @@
+Error: C is a constant, not a type at tests/parser_corpus/error_type_names_a_constant.gaz:2

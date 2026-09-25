@@ -1,0 +1,59 @@
+// Declared types: on parameters, returns, fields, static fields, promoted parameters and
+// lambda parameters, each resolved like a name and shown on the node that declares it
+namespace shapes;
+
+kind Shape {
+    pub string #name;
+    kin float #area = 0;
+    ?string #note = null;
+    int|float #scale = 1;
+    pub static int #made = 0;
+    kind #own = Shape;
+
+    fn _(pub string #label, Shape|null $parent = null, int $scale = 1) {
+        #name = $label;
+        #scale = $scale;
+        #made++;
+    }
+
+    pub fn resize(int|float $by): float {
+        #area = #area * $by;
+
+        return #area;
+    }
+
+    pub fn describe(): null {
+        echo #name;
+    }
+
+    pub fn parent(): ?Shape {
+        return null;
+    }
+
+    pub static fn count(): int {
+        return #made;
+    }
+
+    pub fn each(list $items, function $f): map {
+        return {"n" => len($items)};
+    }
+}
+
+kind Circle extends Shape {
+    pub fn resize(int|float $by): float {
+        return ##resize($by) * 3;
+    }
+}
+
+fn total(int $n, ?string $label = null): int {
+    return $n * 2;
+}
+
+fn accept(object $o, kind $k, function $f, socket|db|null $handle = null): bool {
+    return true;
+}
+
+$double = (int $x) -> $x * 2;
+$pair = (?string $s = null, shapes::Shape|null $shape = null, [$a, $b] = [1, 2]) -> [$s, $shape, $a];
+$typed_list = (list $xs, function $f) -> map($xs, $f);
+echo total(4) .. Shape::count();

@@ -1,0 +1,1 @@
+Error: Method B.f must take $x as int, as A.f does: an override keeps the parent's types at tests/parser_corpus/error_type_override_drops_abstract_type.gaz:5
