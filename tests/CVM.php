@@ -36,13 +36,15 @@ final class CVM
     public static ?int $timeLimit = null;
 
     /**
-     * How long a program may run, in seconds: the sanitizers make the C VM slower, and a build
-     * GAZVM names can be far slower (the stress build takes over 20 minutes alone to compile the
-     * self-hosted compiler, and over an hour with the rest of a run beside it), so it gets two hours
+     * How long a program may run, in seconds: the sanitizers make the C VM slower, and the entries
+     * that compile the compiler come near a minute on a busy CI runner (macOS on Intel killed one
+     * at 60), so three minutes, which still ends a program that loops. A build GAZVM names can be
+     * far slower (the stress build takes over 20 minutes alone to compile the self-hosted compiler,
+     * and over an hour with the rest of a run beside it), so it gets two hours
      */
     private static function timeLimit(): int
     {
-        return self::$timeLimit ?? (getenv('GAZVM') ? 7200 : 60);
+        return self::$timeLimit ?? (getenv('GAZVM') ? 7200 : 180);
     }
 
     /**
