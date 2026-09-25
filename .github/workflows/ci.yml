@@ -17,22 +17,22 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # The bootstrap needs nothing but a C compiler: build gazlang without TLS, SQLite or libpq
+      # The bootstrap needs nothing but a C compiler: build gaz without TLS, SQLite or libpq
       # and run a program. Then with all three (SQLITE=1 and PG=1 make not finding one an error),
-      # and rebuild the compiler with gazlang alone, which must give the checked-in bytecode
-      - name: Build gazlang without TLS or databases
+      # and rebuild the compiler with gaz alone, which must give the checked-in bytecode
+      - name: Build gaz without TLS or databases
         run: |
           make -C vm TLS=0 SQLITE=0 PG=0
-          bin/gazlang -f tests/programs/functions.gaz
-          echo 'socket_open("localhost", 1, true);' | bin/gazlang 2>&1 | grep -q 'TLS is not built in'
-          echo 'db_open("sqlite::memory:");' | bin/gazlang 2>&1 | grep -q 'sqlite is not built in'
+          bin/gaz tests/programs/functions.gaz
+          echo 'socket_open("localhost", 1, true);' | bin/gaz 2>&1 | grep -q 'TLS is not built in'
+          echo 'db_open("sqlite::memory:");' | bin/gaz 2>&1 | grep -q 'sqlite is not built in'
       - name: Install OpenSSL, SQLite and libpq
         if: runner.os == 'Linux'
         run: sudo apt-get install -y libssl-dev libsqlite3-dev libpq-dev
       - name: Install libpq
         if: runner.os == 'macOS'
         run: brew install libpq
-      - name: Build gazlang
+      - name: Build gaz
         run: make -C vm SQLITE=1 PG=1
       # DbPgTest runs against this server, which Ubuntu runners have installed
       - name: Start PostgreSQL
@@ -42,8 +42,8 @@ jobs:
           sudo -u postgres psql -c "create role runner superuser login password 'runner'"
           echo 'GAZLANG_TEST_PG=postgres://runner:runner@localhost/postgres' >> "$GITHUB_ENV"
       - name: Run a program
-        run: bin/gazlang -f tests/programs/functions.gaz
-      - name: Rebuild the compiler with gazlang
+        run: bin/gaz tests/programs/functions.gaz
+      - name: Rebuild the compiler with gaz
         run: make -C vm compiler && git diff --exit-code compiler/gazlang.gzb
 
       # PHP runs the tests (PHPUnit); the language itself needs none

@@ -40,7 +40,7 @@ no dogs here
   PHP 8.5 with its JIT, beating it on calls, closures, maps and strings
   ([numbers below](#how-fast-is-it)).
 - **It is checked to the byte.** What every test program, snippet and corpus file prints,
-  error messages included, is recorded, and thousands of tests hold gazlang to it under
+  error messages included, is recorded, and thousands of tests hold gaz to it under
   AddressSanitizer and a leak check, on Linux and on both kinds of Mac. The compiler has to
   compile itself to exactly itself.
 - **Batteries included, and self-hosted.** JSON, CSV, an HTTP/1.1 client with TLS and a
@@ -63,33 +63,36 @@ git clone https://github.com/panzer-planet/gazlang.git
 cd gazlang && make -C vm
 
 echo 'echo "hello";' > hello.gaz
-bin/gazlang -f hello.gaz
+bin/gaz hello.gaz
 ```
 
 The build uses profile-guided optimisation when your compiler supports it (gcc, or clang with
-`llvm-profdata`, which Xcode's command line tools have): it runs gazlang on the compiler and on
+`llvm-profdata`, which Xcode's command line tools have): it runs gaz on the compiler and on
 sample programs, then compiles it again knowing which code is hot, for a few to ten percent. Without
 it you get a plain optimised build; `make -C vm PGO=0` asks for that.
 
 Then kick the tyres:
 
 ```bash
-bin/gazlang -f examples/pathfinding.gaz      # the fewest steps and the least effort across a map
-bin/gazlang -f examples/brainfuck.gaz        # a Brainfuck interpreter
-bin/gazlang -f tests/programs/csv_report.gaz -- tests/programs/data/sales.csv region amount
-bin/gazlang -f tests/programs/cat_facts.gaz -- list 5   # from a web API, over HTTPS
+bin/gaz examples/pathfinding.gaz            # the fewest steps and the least effort across a map
+bin/gaz examples/brainfuck.gaz              # a Brainfuck interpreter
+bin/gaz tests/programs/csv_report.gaz tests/programs/data/sales.csv region amount
+bin/gaz tests/programs/cat_facts.gaz list 5 # from a web API, over HTTPS
 ```
 
 Other ways to run it:
 
 ```bash
-bin/gazlang -f program.gaz -- arg1 arg2    # arguments, read with args()
-cat program.gaz | bin/gazlang              # piped input runs as one program
-bin/gazlang -c -f program.gaz > x.gzb      # print the compiled VM code, which runs as it is
-bin/gazlang -f x.gzb
-bin/gazlang --tokens -f program.gaz        # print the tokens
-bin/gazlang --ast -f program.gaz           # print the tree
+bin/gaz program.gaz arg1 arg2      # arguments, read with args()
+cat program.gaz | bin/gaz - arg1   # the program from standard input (no file does the same)
+bin/gaz -c program.gaz > x.gzb     # print the compiled VM code, which runs as it is
+bin/gaz x.gzb
+bin/gaz --tokens program.gaz       # print the tokens
+bin/gaz --ast program.gaz          # print the tree
 ```
+
+A script can run as a command of its own: put `bin/` on your `PATH`, start the file with
+`#!/usr/bin/env gaz`, and `chmod +x` it.
 
 The tests are PHPUnit, so running them needs PHP 8.5 or later and `composer install`;
 GazLang itself needs neither.
@@ -417,7 +420,7 @@ West    899.95
 
 ## What comes with it
 
-The standard library is written in GazLang and built into `gazlang`, so any program anywhere
+The standard library is written in GazLang and built into `gaz`, so any program anywhere
 reaches it by name, and each file keeps its names in its own namespace:
 
 ```
@@ -494,7 +497,7 @@ on real work: it compiles itself, all 5,800 lines, in under a third of a second.
   from, and the benchmark workload), a
   [CSV report](tests/programs/csv_report.gaz), a
   [web API client](tests/programs/cat_facts.gaz) and a [web server](tests/programs/web_server.gaz).
-- **`lib/`** — the standard library, all of it written in GazLang and built into `gazlang`, so a
+- **`lib/`** — the standard library, all of it written in GazLang and built into `gaz`, so a
   program anywhere includes it by name: `include "std/json.gaz";`.
 - **[docs/internals.md](docs/internals.md)** — how the compiler and VM fit
   together, and how to work on them.

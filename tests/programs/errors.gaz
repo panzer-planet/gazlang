@@ -1,7 +1,7 @@
 /*
  * Errors: Error objects, typed catch clauses, throwing any value, and finally.
  *
- *   bin/gazlang -f tests/programs/errors.gaz
+ *   bin/gaz tests/programs/errors.gaz
  */
 
 kind NotFound extends Error {

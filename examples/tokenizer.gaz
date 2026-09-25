@@ -1,7 +1,7 @@
 /*
  * A tokenizer for a small C-like language, and a count of what it found.
  *
- *   bin/gazlang -f examples/tokenizer.gaz [-- FILE]
+ *   bin/gaz examples/tokenizer.gaz [FILE]
  *
  * With no file it tokenizes the snippet below.
  */

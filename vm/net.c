@@ -159,7 +159,7 @@ static Socket *socket_new(int fd, bool listening, int ms) {
 /* socket_open($host, $port, $tls, $timeout) */
 bool net_open(Str *host, int64_t port, bool tls, double timeout, Value *out) {
 #ifndef GAZ_TLS
-    if (tls) return raisef("TLS is not built in: this gazlang was built with make TLS=0");
+    if (tls) return raisef("TLS is not built in: this gaz was built with make TLS=0");
 #endif
     if (host->len == 0 || memchr(host->data, '\0', host->len)) return raisef("socket_open() expects a host name");
     if (port < 1 || port > 65535) return raisef("socket_open() expects a port from 1 to 65535, got %lld", (long long)port);

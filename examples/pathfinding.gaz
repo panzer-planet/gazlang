@@ -2,7 +2,7 @@
  * Find the way across a map two ways: the fewest steps (breadth first search) and the least
  * effort (Dijkstra's algorithm, with a binary heap), then draw both routes.
  *
- *   bin/gazlang -f examples/pathfinding.gaz [-- FILE]
+ *   bin/gaz examples/pathfinding.gaz [FILE]
  *
  * A map is rows of: S start, E end, # wall, . grass (costs 1), ^ hills (3), ~ water (5).
  */

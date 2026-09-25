@@ -3,7 +3,7 @@
 namespace GazLang\Tests;
 
 /**
- * The lexer, through `gazlang --tokens`
+ * The lexer, through `gaz --tokens`
  */
 class LexerTest extends GazLangTestCase
 {

@@ -9,7 +9,7 @@ namespace GazLang\Tests;
  * arguments after spaces; "snippet:<id>", a snippet the tests run (see snippets()); or a .gzb
  * file under tests/bytecode_corpus, run as it is, which tests the loaders on files no compiler
  * writes (the ones named error_* must be refused). A source file runs from its source, as
- * `gazlang -f FILE` does, compiled by the self-hosted compiler built into the VM, and a snippet
+ * `gaz FILE` does, compiled by the self-hosted compiler built into the VM, and a snippet
  * piped in from the project root. vm/passing.txt lists the entries, tests/expected what each
  * must print (CVMTest), and vm/progress.php finds new entries and records what they print.
  */
@@ -124,7 +124,7 @@ final class CVM
     }
 
     /**
-     * Run entries on the C VM, many at a time, as `gazlang` would run them: a source file
+     * Run entries on the C VM, many at a time, as `gaz` would run them: a source file
      * from its source, a .gzb file as it is, and a snippet, which has no file, piped in from the
      * project root, as executeCode() runs it with no file
      *
@@ -246,21 +246,21 @@ final class CVM
         if ($gzb === null) {
             self::build();
             // The current source, compiled by the compiler built in
-            [$code, $err, $status] = self::process([self::ROOT.'/bin/gazlang', '-c', '-f', self::DRIVER]);
+            [$code, $err, $status] = self::process([self::ROOT.'/bin/gaz', '-c', '-f', self::DRIVER]);
             if ($status !== 0) {
                 throw new \RuntimeException(self::DRIVER." doesn't compile:\n{$err}");
             }
             $gzb = self::ROOT.'/vm/build/driver.gzb';
             file_put_contents($gzb, $code);
         }
-        $commands = array_combine($files, array_map(fn ($file) => [self::ROOT.'/bin/gazlang', '-f', $gzb, '--', $mode, ...($piped ? [] : [$file])], $files));
+        $commands = array_combine($files, array_map(fn ($file) => [self::ROOT.'/bin/gaz', '-f', $gzb, '--', $mode, ...($piped ? [] : [$file])], $files));
         $results = self::processes($commands, [], $piped ? array_combine($files, $files) : [], $cwd);
 
         return array_map(fn ($result) => [$result[0].$result[1], $result[2]], $results);
     }
 
     /**
-     * The self-hosted front end: gazlang -f compiler/gazlang.gaz -- code|tokens|ast [FILE]
+     * The self-hosted front end: gaz compiler/gazlang.gaz code|tokens|ast [FILE]
      */
     public const DRIVER = 'compiler/gazlang.gaz';
 

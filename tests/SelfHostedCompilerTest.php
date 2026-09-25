@@ -5,10 +5,10 @@ namespace GazLang\Tests;
 /**
  * Checks the GazLang code generator (compiler/codegen.gaz, run by compiler/gazlang.gaz) on its corpus
  *
- * Each tests/codegen_corpus/X.gaz has what `gazlang -c` must print for it in X.code: the bytecode
+ * Each tests/codegen_corpus/X.gaz has what `gaz -c` must print for it in X.code: the bytecode
  * file, or for a file that doesn't parse "Error: <message> at FILE:N" and exit code 1; and in
- * X.piped.code what `gazlang -c < X.gaz` must print, which has no file to show. The self-hosted
- * compiler is run as `gazlang -f compiler/gazlang.gaz -- code FILE` on the C VM (see
+ * X.piped.code what `gaz -c < X.gaz` must print, which has no file to show. The self-hosted
+ * compiler is run as `gaz compiler/gazlang.gaz code FILE` on the C VM (see
  * CVM::driver()). Beyond the corpus, the compiler compiling itself to the same bytecode twice
  * (CVMTest, make compiler) checks it on the largest program there is.
  */

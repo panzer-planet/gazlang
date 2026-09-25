@@ -2,26 +2,26 @@
 
 GazLang is self-hosting: the lexer, parser and code generator are written in GazLang
 (`compiler/`), compiled to bytecode (`compiler/gazlang.gzb`, checked in) and built into a VM in C
-(`vm/`); together they are `bin/gazlang`. The tests are PHP (PHPUnit), which runs `bin/gazlang`.
+(`vm/`); together they are `bin/gaz`. The tests are PHP (PHPUnit), which runs `bin/gaz`.
 `README.md` is the invitation, `docs/language.md` the language reference, `docs/internals.md`
 the contributor guide, `docs/bytecode.md` the bytecode spec. This file holds the rules and the
 reasons behind them; history is in git.
 
 ## Build & Test Commands
 ```bash
-# Build gazlang: the VM in C with the self-hosted compiler built in, as bin/gazlang
+# Build gaz: the VM in C with the self-hosted compiler built in, as bin/gaz
 # (not checked in; the tests build it themselves), with profile-guided optimisation where the
 # C compiler can do it; PGO=0 builds plain -O2, a few seconds quicker while editing the C
 make -C vm
 make -C vm PGO=0
 
 # Run a file, print its bytecode, run bytecode, or print its tokens or tree
-bin/gazlang -f tests/programs/functions.gaz
-bin/gazlang -c -f tests/programs/functions.gaz > /tmp/f.gzb && bin/gazlang -f /tmp/f.gzb
-bin/gazlang --tokens -f tests/programs/functions.gaz
-bin/gazlang --ast -f tests/programs/functions.gaz
+bin/gaz tests/programs/functions.gaz
+bin/gaz -c tests/programs/functions.gaz > /tmp/f.gzb && bin/gaz /tmp/f.gzb
+bin/gaz --tokens tests/programs/functions.gaz
+bin/gaz --ast tests/programs/functions.gaz
 
-# After changing compiler/, rebuild the compiler gazlang has built in, with gazlang alone
+# After changing compiler/, rebuild the compiler gaz has built in, with gaz alone
 # (a test fails until then; see "Changing the compiler")
 make -C vm compiler
 
@@ -33,7 +33,7 @@ vendor/bin/phpunit --testsuite core
 vendor/bin/phpunit --testsuite games
 
 # Play the football manager (needs a terminal); a seed makes the same clubs again
-bin/gazlang -f games/football/main.gaz -- 1     # or: -- load [FILE]
+bin/gaz games/football/main.gaz 1     # or: -- load [FILE]
 
 # Run a specific test file, or method
 vendor/bin/phpunit tests/SpecificTest.php
@@ -53,8 +53,8 @@ php vm/progress.php [FILTER] [--update]
 GAZLANG_RECORD=1 vendor/bin/phpunit --filter 'SelfHosted|CliTest'
 
 # The self-hosted front end from its source; without a file it reads piped source
-bin/gazlang -f compiler/gazlang.gaz -- code tests/programs/functions.gaz
-bin/gazlang -f compiler/gazlang.gaz -- ast < tests/programs/errors.gaz
+bin/gaz compiler/gazlang.gaz code tests/programs/functions.gaz
+bin/gaz compiler/gazlang.gaz ast < tests/programs/errors.gaz
 
 # The C VM's coverage by the harness, its speed, and a build that collects cycles at every chance
 # (over an hour: collecting is quadratic, and the entries that compile the compiler take longest)
@@ -121,7 +121,7 @@ a change to what something prints is recorded (`progress.php --update`, `GAZLANG
 its diff reviewed like code. **Break a checker on purpose before believing a run that finds
 nothing**: several first versions of a harness or corpus passed everything and caught nothing.
 
-- **The tests run `bin/gazlang`**: every `GazLangTestCase` helper (`executeCode()`, `parse()`,
+- **The tests run `bin/gaz`**: every `GazLangTestCase` helper (`executeCode()`, `parse()`,
   `lex()`, `generateCode()`, `runProgram()`, `cli()`) runs the optimised build as a process from
   the project root, a snippet piped in, and a failure is a `ProgramError` holding what it printed
   after `Error: `. `vm/snippets.php` collects the snippets, as JSON, for `CVMTest`. Order matters
@@ -192,7 +192,7 @@ nothing**: several first versions of a harness or corpus passed everything and c
   `tests/programs/football.gaz`, the frozen simulator the game started from, the VM's biggest test
   program and the benchmark workload; it is not tuned for the game. That costs 1,400 lines of
   duplication that will drift, on purpose. A game reaches the standard library by `include "std/..."`,
-  which the VM carries, so its only outward dependency is a `gazlang` binary and moving it to a
+  which the VM carries, so its only outward dependency is a `gaz` binary and moving it to a
   repository of its own later is cheap.
 - **The README's examples are tests**: `ReadmeTest` runs every ```` ```gaz ```` block followed
   by an output block and requires exactly that output.
@@ -206,12 +206,12 @@ can't have used it. Re-measure before trusting a recorded number.
 
 ## Changing the compiler
 
-`make -C vm compiler` rebuilds `compiler/gazlang.gzb` with `bin/gazlang` alone, in three stages:
+`make -C vm compiler` rebuilds `compiler/gazlang.gzb` with `bin/gaz` alone, in three stages:
 the current compiler compiles the new source (stage 1), which compiles itself (stage 2), which
 compiles itself again (stage 3). **Stage 2 must equal stage 3**: stage 1 was written by the old
 code generator, so it differs by design when code generation changes, but a compiler whose
 output depends on how it was itself compiled has a bug. Only then is stage 2 copied over
-`gazlang.gzb` and `bin/gazlang` rebuilt, so a broken edit fails at stage 1 or 2 and leaves a
+`gazlang.gzb` and `bin/gaz` rebuilt, so a broken edit fails at stage 1 or 2 and leaves a
 binary that can compile its fix. Nothing changed means nothing rebuilt.
 `test_make_compiler_rebuilds_the_compiler_without_php` runs it on a copy.
 
@@ -241,20 +241,20 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   1. **Web essentials**: request decoding, the router and templates (all done; see "Templates").
      Then cookies, static files and uploads as the apps written on it ask.
   2. **CLI essentials**: argument parsing (done: `lib/cli.gaz`, see "Command line arguments").
-  3. **The `gaz` rename** with `gaz main.gaz` and `-` for standard input (decided, see
-     "Packages"), and `#!/usr/bin/env gaz` scripts.
+  3. **The `gaz` rename** with `gaz main.gaz`, `-` for standard input, and `#!/usr/bin/env gaz`
+     scripts (done; see "The CLI").
   4. **A release**: a version number `--version` means, a changelog, prebuilt binaries for macOS
      and Linux, and a Homebrew tap; with it, some promise about what may change between
      releases.
   5. **Two tutorials** ("a JSON API in fifteen minutes", "a CLI tool in ten"), a README that
      opens with the niche, and the source grammar published as a VS Code extension.
 - **CI** (`.github/workflows/ci.yml`) runs on Ubuntu and on macOS, Apple silicon and Intel,
-  for every push: it builds gazlang without TLS (the bootstrap needs only a C compiler), then
+  for every push: it builds gaz without TLS (the bootstrap needs only a C compiler), then
   with it, and rebuilds its compiler before PHP is even installed, then the suite; phpstan and
   pint run on Ubuntu only.
   Development is on an Intel Mac.
-- **Speed**: the same program takes gazlang 0.4 to 1.5 times what it takes PHP (JIT or not),
-  and Python 3.13 1.3 to 2.9 times what it takes gazlang (`php vm/bench.php`, which finds a
+- **Speed**: the same program takes gaz 0.4 to 1.5 times what it takes PHP (JIT or not),
+  and Python 3.13 1.3 to 2.9 times what it takes gaz (`php vm/bench.php`, which finds a
   Python 3.11 or later for the `vm/bench/python/` ports; the README's table is its output on the
   default PGO build, so a `PGO=0` build runs a little slower). The
   arithmetic loop (1.5x) is still about a dozen dispatches an iteration against PHP's JIT, which
@@ -691,7 +691,7 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   not the address, since an address is reused and differs from run to run).
 - I/O: `print`/`print_error` (echo without the newline, to stdout or stderr), `read_file`,
   `write_file`, `read_stdin` (empty when the program itself was piped in), `args()` (after the
-  gazlang options or `--`; the CLI rejects options it doesn't know, since `getopt` would drop
+  gaz options or `--`; the CLI rejects options it doesn't know, since `getopt` would drop
   them silently), `cwd()`, `real_path()` (as `realpath(3)`; `""`, a NUL byte, `file/` and
   `file/..` are nothing, where platforms disagree), `file_exists()`.
 - Directories: `list_dir()` (sorted with `str_cmp`, byte by byte, since `readdir()`'s order is
@@ -794,7 +794,7 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   path. The VM, the bytecode and the collector learn nothing: the file is spliced in as any other, its
   location is `<std>/json.gaz`, and a name in angle brackets is what bytecode never rewrites, so
   bytecode runs from anywhere. **Embedding, not a search path** (Python's `sys.path`, Lua's
-  `package.path`): one file, `bin/gazlang`, works from any directory with no install layout to get
+  `package.path`): one file, `bin/gaz`, works from any directory with no install layout to get
   wrong and no skew between a binary and the library it runs; the cost, a rebuild after editing `lib/`
   (a few seconds; the tests build it themselves), is met by `GAZLIB=lib`, a directory `std/` reads
   instead of the built-in copy, for working on the library. `std/` is reserved as a first path
@@ -1220,7 +1220,7 @@ try {
   It is compiled only into programs that use it.
 - **`error($value)` throws any value**: a string becomes an `Error`'s message, anything else is
   caught as it is. An `Error` gets its location and trace where it is first thrown, so
-  `error($e)` rethrows keeping them. Uncaught, gazlang prints `Error: ` and the value as echo
+  `error($e)` rethrows keeping them. Uncaught, gaz prints `Error: ` and the value as echo
   would, with no location (runtime errors keep theirs), and the text is made only then, so
   throwing never runs `to_string()`.
 - **`#trace`** lists the calls running when the error was raised, innermost first, each where it
@@ -1344,12 +1344,16 @@ try {
 
 ## The C VM
 
-`bin/gazlang` runs 0.4 to 1.5 times the time of the same program written in PHP (`php
+`bin/gaz` runs 0.4 to 1.5 times the time of the same program written in PHP (`php
 vm/bench.php`: CPU time, interleaved, best of several).
 
 - **The CLI** parses options as PHP's `getopt` does, plus the check for unknown ones: options
-  end at `--`, `-` or the first non-option; `-f` takes the next argument whatever it is.
-  Bytecode is recognised by its first line or a `.gzb` name. `-c`, `-t` and `--ast` run the
+  end at `--` or the first non-option; `-f` takes the next argument whatever it is. Then, unless
+  `--` ended them or `-f` gave a file, **the first argument is the file** (`gaz main.gaz a b`, as
+  Python, PHP and Node take it) or `-` for the program on standard input, and the rest are the
+  program's. Standard input is the program's whenever a file is given; piped source with bare
+  arguments is `gaz - a b` or `gaz -- a b`. The lexer skips a `#!` first line, so
+  `#!/usr/bin/env gaz` scripts run. Bytecode is recognised by its first line or a `.gzb` name. `-c`, `-t` and `--ast` run the
   built-in front end in that mode; running source runs it in `code` mode first. With no file and
   a terminal on stdin it prints the help to stderr and exits 1: there is no REPL (running each
   line as its own program wouldn't be one).
@@ -1379,18 +1383,13 @@ vm/bench.php`: CPU time, interleaved, best of several).
   package. The tool would be GazLang built into the binary, as the compiler is (`run()` for git,
   the HTTP client, JSON, and the chores batch's file builtins).
   - **The blocker is stability**: a package written today breaks with the next language change,
-    and with no releases it can't say which gazlang it needs. Versioned releases, and some
+    and with no releases it can't say which gaz it needs. Versioned releases, and some
     promise about what changes between them, come first, and `gaz.json` then says
     `"gazlang": ">=0.3"`.
-  - **Renaming the binary to `gaz`** is wanted with it (`gaz pkg add` over `gazlang pkg add`), and
-    matches `.gaz`; no common package ships a `gaz` command, so the name is free. **Decided with
-    it: the first bare argument is the file** (`gaz main.gaz a b`, as Python, PHP and Node do),
-    everything after it the program's, and `-` names standard input as the source (`cat x.gaz |
-    gaz - a b`). Standard input stays the program's whenever a file is given, as it is now; the one
-    change is piped source with bare arguments (`cat x.gaz | gazlang a b`), which becomes `gaz - a
-    b` or keeps `--`. `-f` and `--` go on working. Built with the rename, after the chores branch,
-    which changes how standard input is shared. The cost is mechanical (the Makefile, `GazLangTestCase::binary()`, CI, the docs);
-    a `gazlang` symlink could carry old uses through a release.
+  - **The binary is `gaz`** (`gaz pkg add` reads well, and it matches `.gaz`; no common package
+    ships one), built by `make` with `bin/gazlang` a link to it for a release, so old scripts and
+    habits carry on. The language stays GazLang, and so do the compiler's own names
+    (`namespace gazlang`, `compiler/gazlang.gaz`, `gazlang.gzb`).
 - **Running source**: the compiler runs as a program of its own with its output captured in an
   `open_memstream()` buffer, which is then loaded as bytecode saved next to the source. Each run
   starts with fresh stacks and globals and the compile's leftovers are dropped first, so the leak
@@ -1438,7 +1437,7 @@ vm/bench.php`: CPU time, interleaved, best of several).
   plain `-O2` where it doesn't, so the bootstrap still needs only a C compiler: it makes every
   benchmark faster, by more than the layout noise and on both layouts, for about 5s more per
   build. It trains on the compiler, `examples/` and `tests/programs/`, never `vm/bench`, so the benchmarks stay an
-  honest test; `bench.php` times whichever build `bin/gazlang` is, so compare a change with
+  honest test; `bench.php` times whichever build `bin/gaz` is, so compare a change with
   both builds PGO (or both `PGO=0`). `-O3` was a wash and `-flto` slower.
 - **Why C**: over Rust, Zig and Go, since the heap (refcounts plus a cycle collector) is unsafe
   code in every one of them, Go has no refcounts for cheap copy-on-write, and Zig moves under a

@@ -1,2 +1,2 @@
-Usage: bin/gazlang -f tests/programs/football.gaz -- [CLUBS] [SEED] [--seasons N] [--divisions N] [--save FILE] [--load FILE]
+Usage: bin/gaz tests/programs/football.gaz [CLUBS] [SEED] [--seasons N] [--divisions N] [--save FILE] [--load FILE]
 Error: --seasons must be a whole number, got "two"

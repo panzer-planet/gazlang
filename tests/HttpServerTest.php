@@ -264,7 +264,7 @@ class HttpServerTest extends GazLangTestCase
             for ($wait = 0; ! str_contains((string) file_get_contents($log), 'starting another') && $wait < 100; $wait++) {
                 usleep(20000);
             }
-            $this->assertMatchesRegularExpression('/^gazlang: worker [12] exited with code 3; starting another$/m', (string) file_get_contents($log));
+            $this->assertMatchesRegularExpression('/^gaz: worker [12] exited with code 3; starting another$/m', (string) file_get_contents($log));
 
             proc_terminate($server);
             for ($wait = 0; ($status = proc_get_status($server))['running'] && $wait < 100; $wait++) {
@@ -365,12 +365,12 @@ class HttpServerTest extends GazLangTestCase
         [$out, $err, $code] = self::gazlang([], '$l = socket_listen("127.0.0.1", 0); if (workers(2) == 2) { exit(4); } socket_accept($l);');
 
         $this->assertSame(4, $code);
-        $this->assertSame("gazlang: worker 2 exited with code 4 within a second of starting; stopping\n", $err);
+        $this->assertSame("gaz: worker 2 exited with code 4 within a second of starting; stopping\n", $err);
 
         [$out, $err, $code] = self::gazlang([], 'workers(1); workers(1);');
         $this->assertSame(1, $code);
         $this->assertStringContainsString('Error: workers() in a worker: only the first process can start them', $err);
-        $this->assertStringContainsString('gazlang: worker 1 exited with code 1 within a second of starting; stopping', $err);
+        $this->assertStringContainsString('gaz: worker 1 exited with code 1 within a second of starting; stopping', $err);
     }
 
     public function test_each_worker_draws_its_own_random_numbers()

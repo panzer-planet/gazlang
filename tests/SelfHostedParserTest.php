@@ -8,10 +8,10 @@ use RecursiveIteratorIterator;
 /**
  * Checks the GazLang parser (compiler/parser.gaz, run by compiler/gazlang.gaz) on its corpus
  *
- * Each tests/parser_corpus/X.gaz has what `gazlang --ast` must print for it in X.ast: the tree
+ * Each tests/parser_corpus/X.gaz has what `gaz --ast` must print for it in X.ast: the tree
  * as AST\Dumper prints it, or for a file that doesn't parse "Error: <message> at FILE:N" and exit
- * code 1; and in X.piped.ast what `gazlang --ast < X.gaz` must print, which has no file to show.
- * The self-hosted parser is run as `gazlang -f compiler/gazlang.gaz -- ast FILE` on the C VM (see
+ * code 1; and in X.piped.ast what `gaz --ast < X.gaz` must print, which has no file to show.
+ * The self-hosted parser is run as `gaz compiler/gazlang.gaz ast FILE` on the C VM (see
  * CVM::driver()).
  */
 class SelfHostedParserTest extends GazLangTestCase

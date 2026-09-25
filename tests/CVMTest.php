@@ -86,20 +86,20 @@ class CVMTest extends TestCase
         // On a copy of what the target reads, the VM included, with its times kept so that make
         // doesn't build it again first
         $dir = sys_get_temp_dir().'/gazlang_bootstrap_'.getmypid();
-        $files = ['compiler/*.gaz', 'compiler/gazlang.gzb', 'lib/*.gaz', 'vm/Makefile', 'vm/*.[ch]', 'bin/gazlang', 'vm/build/compiler.c', 'vm/build/std.c', 'vm/build/config', 'vm/build/pgo-mode'];
+        $files = ['compiler/*.gaz', 'compiler/gazlang.gzb', 'lib/*.gaz', 'vm/Makefile', 'vm/*.[ch]', 'bin/gaz', 'vm/build/compiler.c', 'vm/build/std.c', 'vm/build/config', 'vm/build/pgo-mode'];
         exec('mkdir -p '.escapeshellarg($dir).' && cd '.escapeshellarg(CVM::ROOT).' && tar cf - '.implode(' ', $files).' | tar xf - -C '.escapeshellarg($dir).' 2>&1', $output, $code);
         try {
             $this->assertSame(0, $code, implode("\n", $output));
             $make = fn () => CVM::process(['make', '-s', '-C', "{$dir}/vm", 'compiler']);
             $compiler = "{$dir}/compiler/gazlang.gzb";
-            $before = [file_get_contents($compiler), filemtime("{$dir}/bin/gazlang")];
+            $before = [file_get_contents($compiler), filemtime("{$dir}/bin/gaz")];
 
             // An edit that breaks the compiler is refused, and changes nothing
             file_put_contents("{$dir}/compiler/parser.gaz", "fn (\n", FILE_APPEND);
             [, $err, $code] = $make();
             $this->assertNotSame(0, $code);
             $this->assertStringContainsString("Expected a name but found '('", $err);
-            $this->assertSame($before, [file_get_contents($compiler), filemtime("{$dir}/bin/gazlang")]);
+            $this->assertSame($before, [file_get_contents($compiler), filemtime("{$dir}/bin/gaz")]);
             copy(CVM::ROOT.'/compiler/parser.gaz', "{$dir}/compiler/parser.gaz");
 
             // So is a code generator that miscompiles the string "LOAD": the old compiler compiles
@@ -112,7 +112,7 @@ class CVMTest extends TestCase
             [, $err, $code] = $make();
             $this->assertNotSame(0, $code);
             $this->assertStringContainsString('stage 2 differs from stage 3', $err);
-            $this->assertSame($before, [file_get_contents($compiler), filemtime("{$dir}/bin/gazlang")]);
+            $this->assertSame($before, [file_get_contents($compiler), filemtime("{$dir}/bin/gaz")]);
             copy(CVM::ROOT.'/compiler/codegen.gaz', "{$dir}/compiler/codegen.gaz");
 
             // One that moves every location after it is taken: the compiler is rebuilt, compiles
@@ -123,9 +123,9 @@ class CVMTest extends TestCase
             $rebuilt = file_get_contents($compiler);
             $this->assertNotSame($before[0], $rebuilt);
             // (from vm/, as the Makefile compiles it, since the paths it writes depend on that)
-            $this->assertSame([$rebuilt, '', 0], CVM::processes([["{$dir}/bin/gazlang", '-f', '../compiler/gazlang.gzb', '--', 'code', '../compiler/gazlang.gaz']], cwd: "{$dir}/vm")[0]);
+            $this->assertSame([$rebuilt, '', 0], CVM::processes([["{$dir}/bin/gaz", '-f', '../compiler/gazlang.gzb', '--', 'code', '../compiler/gazlang.gaz']], cwd: "{$dir}/vm")[0]);
             // The VM holds the compiler's bytes as they are, in a C array
-            $this->assertStringContainsString($rebuilt, file_get_contents("{$dir}/bin/gazlang"), 'bin/gazlang was not rebuilt');
+            $this->assertStringContainsString($rebuilt, file_get_contents("{$dir}/bin/gaz"), 'bin/gaz was not rebuilt');
         } finally {
             exec('rm -rf '.escapeshellarg($dir));
         }

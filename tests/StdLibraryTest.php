@@ -4,7 +4,7 @@ namespace GazLang\Tests;
 
 /**
  * The standard library built into the VM: `include "std/name.gaz"` reads a copy of lib/ that
- * bin/gazlang carries, so a program anywhere can use it with no path to this repository.
+ * bin/gaz carries, so a program anywhere can use it with no path to this repository.
  */
 class StdLibraryTest extends GazLangTestCase
 {
@@ -22,7 +22,7 @@ class StdLibraryTest extends GazLangTestCase
     }
 
     /**
-     * Run gazlang on a file, from a directory that has nothing to do with the repository
+     * Run gaz on a file, from a directory that has nothing to do with the repository
      *
      * @param  array<string, string>  $env
      * @return array{0: string, 1: string, 2: int}
@@ -31,7 +31,7 @@ class StdLibraryTest extends GazLangTestCase
     {
         self::binary();
         file_put_contents("{$this->dir}/app.gaz", $source);
-        $process = proc_open([self::ROOT.'/bin/gazlang', '-f', 'app.gaz'], [['file', '/dev/null', 'r'], ['pipe', 'w'], ['pipe', 'w']], $pipes, $this->dir, $env === [] ? null : $env + getenv());
+        $process = proc_open([self::ROOT.'/bin/gaz', '-f', 'app.gaz'], [['file', '/dev/null', 'r'], ['pipe', 'w'], ['pipe', 'w']], $pipes, $this->dir, $env === [] ? null : $env + getenv());
         $this->assertNotFalse($process);
         $out = (string) stream_get_contents($pipes[1]);
         $err = (string) stream_get_contents($pipes[2]);
@@ -101,7 +101,7 @@ class StdLibraryTest extends GazLangTestCase
         // Run from a different directory, where no path in it would lead to the library
         file_put_contents("{$this->dir}/app.gzb", $bytecode);
         $other = sys_get_temp_dir();
-        $process = proc_open([self::ROOT.'/bin/gazlang', '-f', "{$this->dir}/app.gzb"], [['file', '/dev/null', 'r'], ['pipe', 'w'], ['pipe', 'w']], $pipes, $other);
+        $process = proc_open([self::ROOT.'/bin/gaz', '-f', "{$this->dir}/app.gzb"], [['file', '/dev/null', 'r'], ['pipe', 'w'], ['pipe', 'w']], $pipes, $other);
         $this->assertNotFalse($process);
         $this->assertSame('  7'."\n", stream_get_contents($pipes[1]));
         proc_close($process);

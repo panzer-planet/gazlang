@@ -1,1 +1,1 @@
-Error: Unknown option --file= (put program arguments after --)
+Error: Unknown option --file= (program arguments go after the file, or after - or --)

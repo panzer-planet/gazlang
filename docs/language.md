@@ -576,7 +576,7 @@ A listener only accepts: reading or writing one is an error. No TLS on this side
 
 A socket is a handle: copies share the connection, `==` is identity, and it prints as `socket`
 (`socket (listening)`, `socket (closed)`). Failing to find the host or connect, a certificate that doesn't check out,
-a timeout, and reading or writing a closed socket are errors. A gazlang built with `make TLS=0`
+a timeout, and reading or writing a closed socket are errors. A gaz built with `make TLS=0`
 has no TLS, and `$tls = true` is an error.
 
 **The terminal** — what a program needs to be interactive and GazLang can't do itself. Drawing
@@ -802,7 +802,7 @@ http::serve($listener, $request -> ({"body" => user_page($user, $posts)}));
 `include "path.gaz";` splices a file in at parse time, relative to the including file. Each
 file is included once, which also breaks cycles.
 
-**The standard library is built into `gazlang`**, so a program anywhere reaches it by name, with
+**The standard library is built into `gaz`**, so a program anywhere reaches it by name, with
 no path to this repository: `include "std/json.gaz";`. A path that starts with `std/` is the
 library, not a directory (write `./std/x.gaz` for a directory of your own by that name). Every file
 in `lib/` declares a namespace, so its names are reached with `::`; everything in `lib/` is written in

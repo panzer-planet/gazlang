@@ -834,6 +834,7 @@ tests/lexer_corpus/comments.gaz
 tests/lexer_corpus/empty.gaz
 tests/lexer_corpus/interpolated_index_too_large.gaz
 tests/lexer_corpus/interpolation.gaz
+tests/lexer_corpus/shebang.gaz
 tests/lexer_corpus/ternary.gaz
 tests/lexer_corpus/whitespace_crlf.gaz
 tests/parser_corpus/assign_to_path_from_call.gaz

@@ -1,0 +1,2 @@
+#!/usr/bin/env gaz
+echo "run as a script, with " .. args();

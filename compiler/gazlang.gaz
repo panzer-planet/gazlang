@@ -1,9 +1,9 @@
-// The self-hosted front end, as gazlang prints it: MODE is code (the bytecode, as -c prints
+// The self-hosted front end, as gaz prints it: MODE is code (the bytecode, as -c prints
 // it; see docs/bytecode.md), tokens (one LINE TYPE VALUE per line, as --tokens) or ast (the
 // tree, as --ast; see Dumper below for the format). Without a FILE the source is read from
-// standard input, as gazlang reads piped source: no file in its locations, and includes
+// standard input, as gaz reads piped source: no file in its locations, and includes
 // relative to the working directory.
-// bin/gazlang -f compiler/gazlang.gaz -- MODE [FILE]
+// bin/gaz compiler/gazlang.gaz MODE [FILE]
 namespace gazlang;
 
 include "codegen.gaz";
@@ -87,7 +87,7 @@ kind Dumper {
 
 $args = args();
 if (len($args) < 1 || len($args) > 2 || !in_array($args[0], ["code", "tokens", "ast"])) {
-    print_error("Usage: gazlang -f compiler/gazlang.gaz -- code|tokens|ast [FILE]\n");
+    print_error("Usage: gaz compiler/gazlang.gaz code|tokens|ast [FILE]\n");
     exit(2);
 }
 [$mode, $path] = len($args) == 2 ? $args : [$args[0], null];

@@ -1,13 +1,14 @@
-# gazlang, the GazLang VM in C with the self-hosted compiler built in. libc, libm and OpenSSL
+# gaz, the GazLang VM in C with the self-hosted compiler built in. libc, libm and OpenSSL
 # (for TLS; make TLS=0 leaves it out, so a C compiler is all it takes), plus od and awk to build
 # in the compiler.
-#   make           bin/gazlang, optimised with profiles where the C compiler can (see below)
+#   make           bin/gaz (and bin/gazlang, a link to it, for a release), optimised with
+#                  profiles where the C compiler can (see below)
 #   make PGO=0     the same with plain -O2, a few seconds quicker to build while editing the C
 #   make TLS=0     the same without OpenSSL: https and socket_open(..., true) are errors
 #   make SQLITE=0  the same without SQLite, and PG=0 without PostgreSQL's libpq: db_open() of
 #                  that scheme is an error. Both are on when the library is found, and
 #                  SQLITE=1 or PG=1 make not finding it an error, which is what CI asks for
-#   make compiler  rebuild compiler/gazlang.gzb from compiler/ with bin/gazlang alone (see below)
+#   make compiler  rebuild compiler/gazlang.gzb from compiler/ with bin/gaz alone (see below)
 #   make test      vm/build/gazvm-test, with AddressSanitizer and UndefinedBehaviorSanitizer,
 #                  which tests/CVMTest.php runs (it calls this itself)
 
@@ -40,7 +41,7 @@ ifeq ($(TLS),1)
 endif
 
 # SQLite and libpq, for db.c's drivers: used when found (from pkg-config, else, for libpq, from
-# pg_config or Homebrew's keg-only libpq), so a C compiler alone still builds gazlang; asking for
+# pg_config or Homebrew's keg-only libpq), so a C compiler alone still builds gaz; asking for
 # one with =1 makes it an error if it isn't there
 SQLITE ?= auto
 ifneq ($(SQLITE),0)
@@ -108,31 +109,36 @@ COMPILER = build/compiler.c
 # The standard library, lib/*.gaz, built in the same way: `include "std/tui.gaz"` reads it
 STD = build/std.c
 STD_FILES = $(wildcard ../lib/*.gaz)
-GAZLANG = ../bin/gazlang
+GAZ = ../bin/gaz
+# The old name, a link, so scripts and habits written for it carry on through a release
+OLD_NAME = ../bin/gazlang
 
 # The flags as a file, rewritten only when they change, and every binary depends on it, so
 # switching TLS rebuilds. The binaries go too: make 3.81 (macOS's) compares times to the second,
 # and a build started in the second the last one finished would see nothing newer.
 CONFIG = build/config
-$(shell mkdir -p build; echo '$(FLAGS) $(LIBS)' | cmp -s - $(CONFIG) || { echo '$(FLAGS) $(LIBS)' > $(CONFIG); rm -f $(GAZLANG) build/gazvm-test build/gazvm-stress build/gazvm-cov; })
-# The same for PGO=0 or 1, which only bin/gazlang is built with
+$(shell mkdir -p build; echo '$(FLAGS) $(LIBS)' | cmp -s - $(CONFIG) || { echo '$(FLAGS) $(LIBS)' > $(CONFIG); rm -f $(GAZ) build/gazvm-test build/gazvm-stress build/gazvm-cov; })
+# The same for PGO=0 or 1, which only bin/gaz is built with
 PGO_MODE = build/pgo-mode
-$(shell echo 'PGO=$(PGO)' | cmp -s - $(PGO_MODE) || { echo 'PGO=$(PGO)' > $(PGO_MODE); rm -f $(GAZLANG); })
+$(shell echo 'PGO=$(PGO)' | cmp -s - $(PGO_MODE) || { echo 'PGO=$(PGO)' > $(PGO_MODE); rm -f $(GAZ); })
 
-all: $(GAZLANG)
+all: $(GAZ) $(OLD_NAME)
 
-$(GAZLANG): $(SOURCES) $(HEADERS) $(COMPILER) $(STD) $(CONFIG) $(PGO_MODE)
+$(OLD_NAME): $(GAZ)
+	ln -sf gaz $@
+
+$(GAZ): $(SOURCES) $(HEADERS) $(COMPILER) $(STD) $(CONFIG) $(PGO_MODE)
 	@mkdir -p ../bin
 ifeq ($(PGO),1)
 	rm -rf $(PGO_DIR) && mkdir -p $(PGO_DIR)
-	$(CC) $(FLAGS) -O2 $(PGO_GENERATE) -o $(PGO_DIR)/gazlang $(SOURCES) $(COMPILER) $(STD) $(LIBS)
+	$(CC) $(FLAGS) -O2 $(PGO_GENERATE) -o $(PGO_DIR)/gaz $(SOURCES) $(COMPILER) $(STD) $(LIBS)
 	cd .. && export LLVM_PROFILE_FILE=$(abspath $(PGO_DIR))/%p.profraw && \
-	  vm/$(PGO_DIR)/gazlang -f compiler/gazlang.gaz -- code compiler/gazlang.gaz > /dev/null && \
-	  vm/$(PGO_DIR)/gazlang -f compiler/gazlang.gaz -- ast compiler/parser.gaz > /dev/null && \
-	  for f in examples/*.gaz tests/programs/*.gaz; do vm/$(PGO_DIR)/gazlang -f $$f < /dev/null > /dev/null 2>&1 || true; done
+	  vm/$(PGO_DIR)/gaz compiler/gazlang.gaz code compiler/gazlang.gaz > /dev/null && \
+	  vm/$(PGO_DIR)/gaz compiler/gazlang.gaz ast compiler/parser.gaz > /dev/null && \
+	  for f in examples/*.gaz tests/programs/*.gaz; do vm/$(PGO_DIR)/gaz $$f < /dev/null > /dev/null 2>&1 || true; done
 	$(PGO_MERGE)
-	$(CC) $(FLAGS) -O2 $(PGO_USE) -o $(PGO_DIR)/gazlang $(SOURCES) $(COMPILER) $(STD) $(LIBS)
-	cp $(PGO_DIR)/gazlang $@
+	$(CC) $(FLAGS) -O2 $(PGO_USE) -o $(PGO_DIR)/gaz $(SOURCES) $(COMPILER) $(STD) $(LIBS)
+	cp $(PGO_DIR)/gaz $@
 else
 	$(CC) $(FLAGS) -O2 -o $@ $(SOURCES) $(COMPILER) $(STD) $(LIBS)
 endif
@@ -150,24 +156,24 @@ $(STD): $(STD_FILES) Makefile
 	  echo 'typedef struct { const char *name; const unsigned char *data; unsigned long len; } StdFile;'; \
 	  echo 'const StdFile std_files[] = {'; i=0; for f in $(STD_FILES); do echo "{\"$$(basename $$f)\", std_$$i, sizeof std_$$i - 1},"; i=$$((i + 1)); done; echo '{0, 0, 0}};'; } > $@
 
-# make compiler: after editing compiler/, rebuild compiler/gazlang.gzb with bin/gazlang alone, in three
+# make compiler: after editing compiler/, rebuild compiler/gazlang.gzb with bin/gaz alone, in three
 # stages: the current compiler compiles the new one (stage 1), which compiles itself (stage 2),
 # which compiles itself again (stage 3). Stage 2 must equal stage 3: stage 1 was written by the
 # old code generator, so it may differ by design, but a compiler whose output depends on how it
-# was itself compiled has a bug. Only then is stage 2 copied over gazlang.gzb and bin/gazlang rebuilt,
-# so a broken edit fails here and leaves bin/gazlang able to compile its fix. An explicit target, not
+# was itself compiled has a bug. Only then is stage 2 copied over gazlang.gzb and bin/gaz rebuilt,
+# so a broken edit fails here and leaves bin/gaz able to compile its fix. An explicit target, not
 # a dependency of gazlang.gzb: a fresh clone's timestamps would have plain make try it with a
-# bin/gazlang that needs gazlang.gzb to be built.
+# bin/gaz that needs gazlang.gzb to be built.
 # ponytail: a stage's own runtime errors name build/bootstrap/ as the directory of its source
 # files, since bytecode paths resolve against the bytecode file; the line numbers are right
 BOOT = build/bootstrap
 COMPILER_SOURCE = ../compiler/gazlang.gaz
 
-compiler: $(GAZLANG)
+compiler: $(GAZ)
 	@mkdir -p $(BOOT)
-	$(GAZLANG) -c -f $(COMPILER_SOURCE) > $(BOOT)/stage1.gzb
-	$(GAZLANG) -f $(BOOT)/stage1.gzb -- code $(COMPILER_SOURCE) > $(BOOT)/stage2.gzb
-	$(GAZLANG) -f $(BOOT)/stage2.gzb -- code $(COMPILER_SOURCE) > $(BOOT)/stage3.gzb
+	$(GAZ) -c $(COMPILER_SOURCE) > $(BOOT)/stage1.gzb
+	$(GAZ) $(BOOT)/stage1.gzb code $(COMPILER_SOURCE) > $(BOOT)/stage2.gzb
+	$(GAZ) $(BOOT)/stage2.gzb code $(COMPILER_SOURCE) > $(BOOT)/stage3.gzb
 	@cmp -s $(BOOT)/stage2.gzb $(BOOT)/stage3.gzb || { echo "stage 2 differs from stage 3: the compiler's output depends on how it was compiled; compiler/gazlang.gzb is unchanged" >&2; exit 1; }
 	@if cmp -s $(BOOT)/stage2.gzb ../compiler/gazlang.gzb; then echo "compiler/gazlang.gzb is up to date"; \
 	 else cp $(BOOT)/stage2.gzb ../compiler/gazlang.gzb && $(MAKE) all; fi
@@ -186,7 +192,7 @@ build/gazvm-stress: $(SOURCES) $(HEADERS) $(COMPILER) $(STD) $(CONFIG)
 	$(CC) $(FLAGS) -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=all -DGC_MINIMUM=1 -DGC_STRESS -o $@ $(SOURCES) $(COMPILER) $(STD) $(LIBS)
 
 clean:
-	rm -rf build $(GAZLANG)
+	rm -rf build $(GAZ) $(OLD_NAME)
 
 .PHONY: all compiler test stress clean
 

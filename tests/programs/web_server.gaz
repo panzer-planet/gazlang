@@ -1,7 +1,7 @@
 /*
  * A web server: http::serve() on a socket_listen() listener, in as many workers() as asked.
  *
- *   bin/gazlang -f tests/programs/web_server.gaz -- 8080 4     port 8080, four workers
+ *   bin/gaz tests/programs/web_server.gaz 8080 4     port 8080, four workers
  *
  * Port 0 is one the system picks; the first line printed says which. HttpServerTest runs it:
  *

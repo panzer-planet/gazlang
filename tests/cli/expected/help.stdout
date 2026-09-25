@@ -1,9 +1,11 @@
-GazLang - A simple programming language compiler
-Usage: gazlang [options] [--] [program arguments...]
+GazLang - a scripting language for web servers and command line tools
+Usage: gaz [options] [file | -] [program arguments...]
+  Runs the file, with everything after it as the program's arguments (args()).
+  - reads the program from standard input, as no file does when something is piped.
 Options:
   -h, --help     Show this help message
   -v, --version  Show version information
-  -c, --code         Print the compiled bytecode instead of running it (gazlang -c -f x.gaz > x.gzb)
+  -c, --code     Print the compiled bytecode instead of running it (gaz -c x.gaz > x.gzb)
   -t, --tokens   Print the lexer's tokens, one LINE TYPE VALUE per line, instead of interpreting
       --ast      Print the parser's tree instead of running it
-  -f, --file     Read input from a file instead of stdin
+  -f, --file     The file to run, as giving it first does

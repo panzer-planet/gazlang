@@ -127,6 +127,10 @@ kind Lexer {
         #length = len($text);
         #char = char_at($text, 0);
         #template = $template;
+        // A script's first line, #!/usr/bin/env gaz, is the shell's; its line end is still read
+        if (starts_with($text, "#!")) {
+            #skip(index_of($text, "\n") ?? #length);
+        }
     }
 
     fn fail($reason, $line = null) {

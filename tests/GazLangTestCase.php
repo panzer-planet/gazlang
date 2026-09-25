@@ -5,7 +5,7 @@ namespace GazLang\Tests;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Base test case for GazLang tests: every helper runs bin/gazlang, the C VM with the self-hosted
+ * Base test case for GazLang tests: every helper runs bin/gaz, the C VM with the self-hosted
  * compiler built in, from the project root
  */
 abstract class GazLangTestCase extends TestCase
@@ -16,10 +16,10 @@ abstract class GazLangTestCase extends TestCase
      * The binary the helpers run: the optimised build, since they start it thousands of times
      * (CVMTest runs every snippet and program under the sanitizers)
      */
-    private const GAZLANG = self::ROOT.'/bin/gazlang';
+    private const GAZLANG = self::ROOT.'/bin/gaz';
 
     /**
-     * The path of gazlang, built first if it isn't yet, for a test that runs it through a shell
+     * The path of gaz, built first if it isn't yet, for a test that runs it through a shell
      */
     protected static function binary(): string
     {
@@ -33,7 +33,7 @@ abstract class GazLangTestCase extends TestCase
     }
 
     /**
-     * Run gazlang with options and what it reads on standard input, from the project root
+     * Run gaz with options and what it reads on standard input, from the project root
      *
      * @param  list<string>  $args  The command line after the binary
      * @param  string  $stdin  What it reads on standard input
@@ -60,7 +60,7 @@ abstract class GazLangTestCase extends TestCase
     }
 
     /**
-     * Run gazlang as a shell's exec() would with 2>&1: its output as lines, without their newlines
+     * Run gaz as a shell's exec() would with 2>&1: its output as lines, without their newlines
      *
      * @param  list<string>  $args  The command line after the binary
      * @param  string  $stdin  What it reads on standard input
@@ -75,7 +75,7 @@ abstract class GazLangTestCase extends TestCase
     }
 
     /**
-     * Run a GazLang file as `bin/gazlang -f FILE -- ARGS` does, from the project root, so FILE
+     * Run a GazLang file as `bin/gaz FILE ARGS` does, from the project root, so FILE
      * is relative to it and errors name files the same way
      *
      * @param  string  $file  Path relative to the project root
@@ -108,7 +108,7 @@ abstract class GazLangTestCase extends TestCase
     }
 
     /**
-     * The tree `gazlang --ast` prints for code piped in
+     * The tree `gaz --ast` prints for code piped in
      *
      * @throws ProgramError If it doesn't parse
      */
@@ -118,7 +118,7 @@ abstract class GazLangTestCase extends TestCase
     }
 
     /**
-     * The tokens `gazlang --tokens` prints for code piped in, without the EOF token, each as
+     * The tokens `gaz --tokens` prints for code piped in, without the EOF token, each as
      * [type, value, line]: a string's value decoded, a number's the number, anything else as printed
      *
      * @return list<array{0: string, 1: mixed, 2: int}>
@@ -170,7 +170,7 @@ abstract class GazLangTestCase extends TestCase
     }
 
     /**
-     * The bytecode `gazlang -c` writes for code piped in, as instructions only: without the
+     * The bytecode `gaz -c` writes for code piped in, as instructions only: without the
      * header, locations and the block records around them
      *
      * @throws ProgramError If it doesn't compile
@@ -185,7 +185,7 @@ abstract class GazLangTestCase extends TestCase
     }
 
     /**
-     * What gazlang printed with these options for code piped in (if any), standard error after
+     * What gaz printed with these options for code piped in (if any), standard error after
      * standard output, or its error as a ProgramError when it exits with a code other than 0
      *
      * @param  list<string>  $args  The options

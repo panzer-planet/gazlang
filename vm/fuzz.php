@@ -328,7 +328,7 @@ function gzbSeeds(array $seeds, Randomizer $rng): array
         }
         $file = work()."/compile{$i}.gaz";
         file_put_contents(CVM::ROOT.'/'.$file, $text);
-        $commands[$i] = [CVM::ROOT.'/bin/gazlang', '-c', '-f', $file];
+        $commands[$i] = [CVM::ROOT.'/bin/gaz', '-c', '-f', $file];
     }
     foreach (CVM::processes($commands) as $result) {
         if ($result[2] === 0) {
@@ -347,7 +347,7 @@ function gzbSeeds(array $seeds, Randomizer $rng): array
 function builtins(): array
 {
     file_put_contents(CVM::ROOT.'/'.work().'/builtins.gaz', 'echo builtins();');
-    [$out] = CVM::process([CVM::ROOT.'/bin/gazlang', '-f', work().'/builtins.gaz']);
+    [$out] = CVM::process([CVM::ROOT.'/bin/gaz', '-f', work().'/builtins.gaz']);
     preg_match_all('/"(\w+)" => (?:(\d+)|\[(\d+), (\d+)\])/', $out, $m, PREG_SET_ORDER);
     $builtins = [];
     foreach ($m as $b) {

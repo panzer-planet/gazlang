@@ -1,6 +1,7 @@
 .idea/
 .phpunit.result.cache
 tests/.readme/
+bin/gaz
 bin/gazlang
 tests/.tmp/
 .DS_Store

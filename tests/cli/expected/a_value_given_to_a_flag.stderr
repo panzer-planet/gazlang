@@ -1,1 +1,1 @@
-Error: Unknown option --ast=1 (put program arguments after --)
+Error: Unknown option --ast=1 (program arguments go after the file, or after - or --)

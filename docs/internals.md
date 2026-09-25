@@ -9,11 +9,11 @@ design is in [CLAUDE.md](../CLAUDE.md); what the language *is* is in
 | Path | What it does |
 | --- | --- |
 | `compiler/` | the front end, in GazLang, all of it `namespace gazlang;`: `lexer.gaz`, `parser.gaz` and `nodes.gaz`, `codegen.gaz`, and `gazlang.gaz`, the driver, which prints what `-c`, `--tokens` or `--ast` would (`gazlang.gaz -- code\|tokens\|ast [FILE]`, reading piped source without a FILE). `gazlang.gzb` is its bytecode, checked in |
-| `vm/` | the VM in C, built as `bin/gazlang` with `gazlang.gzb` inside it: it runs source by compiling it with that first. `vm/gazvm.h` says which file does what |
-| `lib/` | the standard library, written in GazLang, a namespace per file (`json::decode`, `chars::is_digit`), built into `bin/gazlang` and included as `std/json.gaz` |
+| `vm/` | the VM in C, built as `bin/gaz` with `gazlang.gzb` inside it: it runs source by compiling it with that first. `vm/gazvm.h` says which file does what |
+| `lib/` | the standard library, written in GazLang, a namespace per file (`json::decode`, `chars::is_digit`), built into `bin/gaz` and included as `std/json.gaz` |
 | `examples/` | sample programs, which nothing tests |
 | `games/` | programs built on the language, each with tests of its own (`games/football/`: a terminal football manager: two divisions, tactics, transfers, saving) |
-| `tests/` | PHPUnit, which runs `bin/gazlang`; `tests/gaz/` GazLang programs; `tests/programs/` bigger programs that the tests run; the corpora `lexer_corpus/`, `parser_corpus/`, `codegen_corpus/`, `vm_corpus/` and `bytecode_corpus/`; `cli/`; and `expected/`, what every program must print |
+| `tests/` | PHPUnit, which runs `bin/gaz`; `tests/gaz/` GazLang programs; `tests/programs/` bigger programs that the tests run; the corpora `lexer_corpus/`, `parser_corpus/`, `codegen_corpus/`, `vm_corpus/` and `bytecode_corpus/`; `cli/`; and `expected/`, what every program must print |
 
 ## What holds it together
 
@@ -57,14 +57,14 @@ copied on write, and the cycle collector (`vm/gc.c`) frees what counting can't.
 ## Commands
 
 ```bash
-make -C vm                                          # bin/gazlang, with profile-guided optimisation
+make -C vm                                          # bin/gaz, with profile-guided optimisation
 make -C vm PGO=0                                    # the same with plain -O2, quicker to build
 make -C vm compiler                                 # after changing compiler/, see below
 
-bin/gazlang -f tests/programs/functions.gaz               # compile and run
-bin/gazlang -c -f tests/programs/functions.gaz            # print the compiled bytecode
-bin/gazlang --tokens -f tests/programs/functions.gaz      # print the tokens
-bin/gazlang --ast -f tests/programs/functions.gaz         # print the parser's tree
+bin/gaz tests/programs/functions.gaz               # compile and run
+bin/gaz -c tests/programs/functions.gaz            # print the compiled bytecode
+bin/gaz --tokens tests/programs/functions.gaz      # print the tokens
+bin/gaz --ast tests/programs/functions.gaz         # print the parser's tree
 ```
 
 ```bash
@@ -79,12 +79,12 @@ vendor/bin/pint                                     # formatting; --test to chec
 php vm/snippets.php                                 # after adding tests: collect their snippets
 php vm/progress.php [FILTER] [--update]             # what differs from tests/expected; records it
 php vm/coverage.php [file.c]                        # which lines of the C VM the harness never runs
-php vm/bench.php                                    # gazlang against PHP and Python
+php vm/bench.php                                    # gaz against PHP and Python
 ```
 
 ## Tests
 
-- **PHPUnit**: every helper in `GazLangTestCase` runs `bin/gazlang` from the project root.
+- **PHPUnit**: every helper in `GazLangTestCase` runs `bin/gaz` from the project root.
   `executeCode()` pipes a snippet in and gives what it printed, or throws a `ProgramError` with
   what followed `Error: `; `parse()`, `lex()` and `generateCode()` do the same with `--ast`,
   `--tokens` and `-c`; `runProgram()` and `cli()` run files and command lines.
@@ -128,8 +128,8 @@ The compiler emits a text format, one instruction per line, specified in
 [docs/bytecode.md](bytecode.md).
 
 ```bash
-bin/gazlang -c -f x.gaz > x.gzb     # write it
-bin/gazlang -f x.gzb                # run it (recognised by its first line)
+bin/gaz -c x.gaz > x.gzb     # write it
+bin/gaz x.gzb                # run it (recognised by its first line)
 ```
 
 `INFO` in `vm/load.c` is the one table of every instruction's arguments and stack effect;
@@ -140,7 +140,7 @@ from the walk to size its frames.
 
 ## Where things stand
 
-GazLang is its own implementation: the front end in GazLang, the VM in C, and `bin/gazlang`
+GazLang is its own implementation: the front end in GazLang, the VM in C, and `bin/gaz`
 the two together, which rebuilds its own compiler (`make -C vm compiler`). CI builds and tests
 it on Linux and macOS on every push. What is open in the language is in
 [CLAUDE.md](../CLAUDE.md) under "Status and what is next".

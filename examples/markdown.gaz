@@ -2,7 +2,7 @@
  * Turn a little Markdown into HTML: headings, paragraphs, lists, block quotes, fenced code,
  * and inside text **bold**, *emphasis*, `code` and [links](url).
  *
- *   bin/gazlang -f examples/markdown.gaz [-- FILE]
+ *   bin/gaz examples/markdown.gaz [FILE]
  *
  * Without a file it converts the document below. Not CommonMark: a block is one kind of
  * thing, and emphasis doesn't nest inside itself.
@@ -17,7 +17,7 @@ Lines next to each other make one paragraph.
 
 ## What to try
 
-- Run `bin/gazlang -f examples/markdown.gaz`
+- Run `bin/gaz examples/markdown.gaz`
 - Read [the reference](docs/language.md) and the **bold** parts
 - Escape <html> & friends
 

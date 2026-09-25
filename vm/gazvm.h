@@ -1,5 +1,5 @@
 /*
- * gazvm: the GazLang VM in C. Runs the bytecode `gazlang -c` writes (docs/bytecode.md), or
+ * gazvm: the GazLang VM in C. Runs the bytecode `gaz -c` writes (docs/bytecode.md), or
  * source, which it first compiles with the self-hosted compiler built into it (see run() in vm.c).
  *
  * What every operator, builtin, error message and location does is defined here, and

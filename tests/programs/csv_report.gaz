@@ -1,7 +1,7 @@
 /*
  * Summarise a CSV file: group rows by one column and total another.
  *
- *   bin/gazlang -f tests/programs/csv_report.gaz -- FILE GROUP_COLUMN AMOUNT_COLUMN
+ *   bin/gaz tests/programs/csv_report.gaz FILE GROUP_COLUMN AMOUNT_COLUMN
  *
  * With no arguments it reports tests/programs/data/sales.csv by region and amount.
  */
@@ -10,7 +10,7 @@ include "../../lib/format.gaz";
 
 // Print the usage and the problem, and stop with exit code 1
 fn fail($message) {
-    echo "Usage: bin/gazlang -f tests/programs/csv_report.gaz -- FILE GROUP_COLUMN AMOUNT_COLUMN";
+    echo "Usage: bin/gaz tests/programs/csv_report.gaz FILE GROUP_COLUMN AMOUNT_COLUMN";
     echo "Error: $message";
     exit(1);
 }

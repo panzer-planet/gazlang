@@ -1,2 +1,2 @@
-Usage: bin/gazlang -f tests/programs/football.gaz -- [CLUBS] [SEED] [--seasons N] [--divisions N] [--save FILE] [--load FILE]
+Usage: bin/gaz tests/programs/football.gaz [CLUBS] [SEED] [--seasons N] [--divisions N] [--save FILE] [--load FILE]
 Error: a loaded career brings its own clubs and divisions: leave out CLUBS and --divisions

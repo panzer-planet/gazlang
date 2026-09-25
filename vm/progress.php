@@ -36,9 +36,9 @@ foreach ($candidates as $entry) {
         $stdin[$entry] = 'vm/build/snippets/'.substr($entry, 8).'.gaz';
         @mkdir(CVM::ROOT.'/vm/build/snippets', 0777, true);
         file_put_contents(CVM::ROOT.'/'.$stdin[$entry], CVM::snippets()[substr($entry, 8)]);
-        $compile[$entry] = [CVM::ROOT.'/bin/gazlang', '-c'];
+        $compile[$entry] = [CVM::ROOT.'/bin/gaz', '-c'];
     } elseif (! str_ends_with($entry, '.gzb')) {
-        $compile[$entry] = [CVM::ROOT.'/bin/gazlang', '-c', '-f', $entry];
+        $compile[$entry] = [CVM::ROOT.'/bin/gaz', '-c', '-f', $entry];
     }
 }
 $compiled = CVM::processes($compile, [], $stdin);

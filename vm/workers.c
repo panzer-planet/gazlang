@@ -207,11 +207,11 @@ bool start_workers(int64_t count, Value *out) {
             char how[64];
             int code = describe(status, how, sizeof how);
             if (now() - started[i] < 1.0 && !served[i]) {
-                fprintf(stderr, "gazlang: worker %d %s within a second of starting; stopping\n", i + 1, how);
+                fprintf(stderr, "gaz: worker %d %s within a second of starting; stopping\n", i + 1, how);
                 failed = code;
                 break;
             }
-            fprintf(stderr, "gazlang: worker %d %s; starting another\n", i + 1, how);
+            fprintf(stderr, "gaz: worker %d %s; starting another\n", i + 1, how);
             pid_t again = fork_worker(i + 1, served, out);
             if (again == 0) {
                 free(pids);
@@ -219,7 +219,7 @@ bool start_workers(int64_t count, Value *out) {
                 return true;
             }
             if (again < 0) {
-                fprintf(stderr, "gazlang: cannot start worker %d again: %s; stopping\n", i + 1, strerror(errno));
+                fprintf(stderr, "gaz: cannot start worker %d again: %s; stopping\n", i + 1, strerror(errno));
                 failed = 1;
                 alive--;
                 break;

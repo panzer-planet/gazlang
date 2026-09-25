@@ -3,11 +3,11 @@
 A terminal football manager game in GazLang, on the standard library's `std/tui.gaz`. It lives in this repository so that the
 language can be improved as the game asks for it: a change to `lib/` or the VM goes in the same commit
 as the game code that needed it. Its only outward dependency is the built-in standard library (`include "std/..."`),
-so moving it to a repository of its own needs nothing but a `gazlang` binary.
+so moving it to a repository of its own needs nothing but a `gaz` binary.
 
 ## Run it
 
-    bin/gazlang -f games/football/main.gaz [-- SEED | load [FILE]]
+    bin/gaz games/football/main.gaz [SEED | load [FILE]]
 
 A terminal at least 80 columns by 24 rows. `1` to `7` (or the arrows and `enter`) choose a section,
 `tab` moves between the menu and the section, `c` moves time on (see "The calendar") to your next
@@ -96,7 +96,7 @@ nothing). The market shows each player's contract.
 ## Saving, and seasons
 
 `S` saves the game to `football.save` (between matchdays, not during a match), and
-`bin/gazlang -f games/football/main.gaz -- load [FILE]` carries on from it. On 1 June, after the last
+`bin/gaz games/football/main.gaz load [FILE]` carries on from it. On 1 June, after the last
 match, the season is reviewed: prize money by where you finished, promotion and relegation, a summer's
 development for every player (ratings move by age), and veterans retiring for youngsters from the
 academy. Then the new season's fixtures are drawn.
@@ -104,7 +104,7 @@ academy. Then the new season's fixtures are drawn.
 ## Two divisions
 
 Forty-four clubs: twenty in the Premier Division (thirty-eight matchdays) and twenty-four in the
-Championship (forty-six). `bin/gazlang -f games/football/main.gaz -- SEED` starts you at the first
+Championship (forty-six). `bin/gaz games/football/main.gaz SEED` starts you at the first
 club; the club is an index into the list in `game.gaz` (from the twenty-first on you start in the
 Championship). Both divisions are on the same calendar; the Championship, with more matchdays, plays on a
 few midweek nights and on the last Saturday after the Premier Division's season is over (`c` passes

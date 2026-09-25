@@ -546,7 +546,7 @@ static int input_file(Str *input) {
     const char *dir = getenv("TMPDIR");
     Buf path = {0};
     buf_adds(&path, dir && *dir ? dir : "/tmp");
-    buf_adds(&path, "/gazlang-run-XXXXXX");
+    buf_adds(&path, "/gaz-run-XXXXXX");
     buf_add(&path, "", 1);
     int fd = mkstemp(path.data);
     if (fd >= 0) unlink(path.data);

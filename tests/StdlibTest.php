@@ -588,7 +588,7 @@ class StdlibTest extends GazLangTestCase
 
     public function test_cli_rejects_unknown_options_instead_of_dropping_them()
     {
-        $this->assertSame([['Error: Unknown option -n (put program arguments after --)'], 1], self::cli(['-n', '5'], 'echo args();'));
+        $this->assertSame([['Error: Unknown option -n (program arguments go after the file, or after - or --)'], 1], self::cli(['-n', '5'], 'echo args();'));
     }
 
     /**
@@ -698,7 +698,7 @@ class StdlibTest extends GazLangTestCase
         $file = tempnam(sys_get_temp_dir(), 'gaz');
         file_put_contents($file, 'echo rand_int(-9223372036854775807 - 1, 9223372036854775807);');
         try {
-            foreach ([[CVM::BINARY], ['bin/gazlang']] as $gazlang) {
+            foreach ([[CVM::BINARY], ['bin/gaz']] as $gazlang) {
                 [[$first], [$second]] = CVM::processes([[...$gazlang, '-f', $file], [...$gazlang, '-f', $file]]);
                 $this->assertMatchesRegularExpression('/^-?\d+\n$/', $first);
                 $this->assertNotSame($first, $second, implode(' ', $gazlang));

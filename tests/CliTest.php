@@ -3,7 +3,7 @@
 namespace GazLang\Tests;
 
 /**
- * The command line (bin/gazlang): every invocation in the table (its arguments, what is piped in
+ * The command line (bin/gaz): every invocation in the table (its arguments, what is piped in
  * and the working directory) must print what tests/cli/expected records for it, standard output,
  * standard error and exit code. The sanitized build runs them. GAZLANG_RECORD=1 records what it
  * prints instead, for review as a diff.
@@ -35,7 +35,10 @@ class CliTest extends GazLangTestCase
         'a file after --file=' => [['--file=args.gaz', 'y']],
         'program arguments after --' => [['-f', 'args.gaz', '--', '-x', '--y', '--']],
         'an option after a program argument is the program\'s' => [['-f', 'args.gaz', 'x', '-c']],
-        'a lone - ends the options' => [['-', '-f', 'args.gaz'], 'args.gaz'],
+        '- names standard input as the program, and ends the options' => [['-', '-f', 'args.gaz'], 'args.gaz'],
+        'the first argument is the file, and what follows it the program\'s' => [['args.gaz', 'a', '-x', '--y']],
+        'the file first, after options' => [['-c', 'args.gaz']],
+        'a #! line is skipped' => [['shebang.gaz', 'x']],
         '-- ends the options' => [['-c', '--', '-f', 'args.gaz'], 'args.gaz'],
         '-f takes the next argument, whatever it is' => [['-f', '--', 'args.gaz']],
         '-f with nothing after it' => [['-f'], 'args.gaz'],
@@ -136,6 +139,19 @@ class CliTest extends GazLangTestCase
         return array_map(fn ($name) => [$name], array_combine(array_keys(self::CASES), array_keys(self::CASES)));
     }
 
+    public function test_a_script_with_a_hash_bang_line_runs_as_a_command()
+    {
+        $script = (string) tempnam(sys_get_temp_dir(), 'gaz-script');
+        file_put_contents($script, '#!'.self::binary()."\necho \"hello, \" .. args()[0];\n");
+        chmod($script, 0755);
+        try {
+            exec(escapeshellarg($script).' world 2>&1', $output, $code);
+            $this->assertSame([['hello, world'], 0], [$output, $code]);
+        } finally {
+            unlink($script);
+        }
+    }
+
     /**
      * @dataProvider cases
      */
@@ -180,7 +196,7 @@ class CliTest extends GazLangTestCase
         @mkdir(self::ROOT.'/'.self::BUILD, 0777, true);
         foreach (['args', 'runtime_error'] as $name) {
             copy(self::ROOT.'/'.self::DIR."/{$name}.gaz", self::ROOT.'/'.self::BUILD."/{$name}.gaz");
-            [$code, $err] = CVM::process([self::ROOT.'/bin/gazlang', '-c', '-f', self::BUILD."/{$name}.gaz"]);
+            [$code, $err] = CVM::process([self::ROOT.'/bin/gaz', '-c', '-f', self::BUILD."/{$name}.gaz"]);
             if ($err !== '') {
                 throw new \RuntimeException($err);
             }

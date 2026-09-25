@@ -1,5 +1,5 @@
 """
-Run bin/gazlang on a program with a real terminal (a pty) as its standard input and output, and
+Run bin/gaz on a program with a real terminal (a pty) as its standard input and output, and
 print as JSON what the terminal's modes were before, during and after, how the program ended, and
 what it printed. PHP can't make a pty, and raw mode can't be seen from a pipe.
 
@@ -56,7 +56,7 @@ def pump(seconds):
 
 
 before = modes(slave)
-process = subprocess.Popen(["bin/gazlang", "-f", program, *program_args], stdin=slave, stdout=slave, stderr=slave, start_new_session=True)
+process = subprocess.Popen(["bin/gaz", "-f", program, *program_args], stdin=slave, stdout=slave, stderr=slave, start_new_session=True)
 # Wait for the program to change the terminal, or to end, not a fixed time: a busy machine starts it late
 give_up = time.time() + 3
 while process.poll() is None and modes(slave) == before and time.time() < give_up:

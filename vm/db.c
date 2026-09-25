@@ -33,7 +33,7 @@ bool db_open(Str *url, Value *out) {
                 if (!strcmp(drivers[d]->name, schemes[i].driver)) want = drivers[d];
             }
             if (!want) {
-                return raisef("db_open(): %s is not built in: this gazlang was built with make %s=0, or without the library",
+                return raisef("db_open(): %s is not built in: this gaz was built with make %s=0, or without the library",
                     schemes[i].driver, strcmp(schemes[i].driver, "pg") ? "SQLITE" : "PG");
             }
             break;

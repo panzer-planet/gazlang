@@ -1,8 +1,8 @@
 # GazLang bytecode
 
-The format a GazLang compiler writes and a GazLang VM runs. `gazlang -c -f x.gaz` prints it
-and `gazlang -f x.gzb` runs it. `compiler/codegen.gaz` writes it and `vm/load.c` and
-`vm/vm.c` read and run it in `bin/gazlang`. `INFO` in `vm/load.c` holds every instruction with
+The format a GazLang compiler writes and a GazLang VM runs. `gaz -c x.gaz` prints it
+and `gaz x.gzb` runs it. `compiler/codegen.gaz` writes it and `vm/load.c` and
+`vm/vm.c` read and run it in `bin/gaz`. `INFO` in `vm/load.c` holds every instruction with
 its arguments and stack effect, and `BytecodeTest` keeps that table, this document and the VM
 in step.
 
