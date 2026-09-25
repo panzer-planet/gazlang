@@ -1,0 +1,11 @@
+GAZLANG BYTECODE 2
+globals
+
+top
+locals
+
+kind C
+field a C pub int extra
+locals
+LOAD_THIS
+RET

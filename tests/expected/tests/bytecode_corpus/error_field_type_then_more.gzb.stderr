@@ -1,0 +1,1 @@
+Error: Expected the end of the line after field a's type but found 'extra' at tests/bytecode_corpus/error_field_type_then_more.gzb:8

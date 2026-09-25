@@ -1,0 +1,158 @@
+GAZLANG BYTECODE 2
+globals
+statics Account::count
+
+top
+locals $a $e
+@ 1
+PUSH 2
+CALL area 1
+PRINT
+PUSH "x"
+NEW Account 1
+STORE 0
+LOAD 0
+PRINT
+PUSH 3
+SET_PATH .balance 0
+POP
+LOAD 0
+PRINT
+PUSH "s"
+SET_PATH .note 0
+POP
+LOAD 0
+PRINT
+PUSH 7
+STORE_STATIC 0
+LOAD_STATIC 0
+PRINT
+TRY C1
+PUSH "bad"
+CALL area 1
+POP
+END_TRY
+JMP E1
+LABEL C1
+CATCH_MATCH Error NX
+STORE 1
+LOAD 1
+GET_PROPERTY message
+PRINT
+LOAD 1
+GET_PROPERTY trace
+PRINT
+JMP E1
+LABEL NX
+RETHROW
+LABEL E1
+TRY C2
+PUSH "bad"
+SET_PATH .balance 0
+POP
+END_TRY
+JMP E2
+LABEL C2
+CATCH_VALUE
+GET_PROPERTY message
+PRINT
+LABEL E2
+TRY C3
+PUSH 1.5
+STORE_STATIC 0
+END_TRY
+JMP E3
+LABEL C3
+CATCH_VALUE
+GET_PROPERTY message
+PRINT
+LABEL E3
+TRY C4
+PUSH 1
+CALL wrong_return 1
+POP
+END_TRY
+JMP E4
+LABEL C4
+CATCH_VALUE
+GET_PROPERTY message
+PRINT
+LABEL E4
+PUSH "!"
+SET_PATH .note..= 0
+PRINT
+TRY C5
+PUSH "!"
+SET_PATH .balance..= 0
+POP
+END_TRY
+JMP E5
+LABEL C5
+CATCH_VALUE
+GET_PROPERTY message
+PRINT
+LABEL E5
+
+fn area 1 1
+locals $r
+@ 1
+CHECK_PARAM 0 float
+LOAD 0
+LOAD 0
+MUL
+CHECK_RETURN float
+RET
+
+fn wrong_return 1 1
+locals $r
+@ 1
+LOAD 0
+CHECK_RETURN string|null
+RET
+
+kind Error
+field message Error pub
+field file Error pub
+field line Error pub
+field trace Error pub
+method _ Error pub
+locals $#argument_0
+@ 1
+CALL_CONSTRUCTOR Error
+POP
+LOAD_THIS
+RET
+
+fn Error._ 1 1
+locals $message
+@ 1
+LOAD 0
+SET_FIELD message
+POP
+PUSH null
+RET
+
+kind Account
+field owner Account pub string
+field balance Account pub float
+field note Account pub string|null
+static count int
+method _ Account pub
+locals $#argument_0
+@ 1
+PUSH 0
+SET_FIELD balance
+POP
+CALL_CONSTRUCTOR Account
+POP
+LOAD_THIS
+RET
+
+fn Account._ 1 1
+locals $owner
+@ 1
+LOAD 0
+SET_FIELD owner
+POP
+PUSH null
+RET

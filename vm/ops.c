@@ -414,6 +414,42 @@ static bool raise_not_set(Object *o, Str *name) {
 
 static bool is_constructor(Str *name) { return name->len == 1 && name->data[0] == '_'; }
 
+/* ---- Declared types ------------------------------------------------------------------- */
+
+bool type_has(TypeSpec *t, Type type) {
+    for (int i = 0; i < t->n; i++) {
+        if (t->alts[i].type == type && !t->alts[i].kind) return true;
+    }
+    return false;
+}
+
+/* Strict, never converting, with one exception: an int where float is asked is widened, and
+   arrives as a float. A kind admits its children, as is_a does. */
+bool type_admits(TypeSpec *t, Value *v) {
+    for (int i = 0; i < t->n; i++) {
+        if (v->type != t->alts[i].type) continue;
+        if (!t->alts[i].kind || kind_is_a(v->o->kind, t->alts[i].kind)) return true;
+    }
+    if (v->type == T_INT && type_has(t, T_FLOAT)) {
+        *v = v_float((double)v->i);
+        return true;
+    }
+    return false;
+}
+
+/* What a type error says it got: an object by its kind, since "object" would leave out the
+   one thing the check was about */
+const char *describe_type(Value v) {
+    return v.type == T_OBJECT ? v.o->kind->name->data : type_name(v);
+}
+
+bool check_field_type(Object *o, int field, Value *v) {
+    TypeSpec *t = o->kind->field_types ? o->kind->field_types[field] : NULL;
+    if (!t || type_admits(t, v)) return true;
+    return raisef("%s #%s must be %s, got %s", o->kind->field_declarers[field]->name->data,
+                  o->kind->fields[field]->data, t->text->data, describe_type(*v));
+}
+
 /* $obj.name: a field's value or a bound method; quiet reads an unset field as null */
 bool property(Value target, Str *name, bool quiet, Kind *asking, Value *out) {
     if (target.type != T_OBJECT) return raisef("Cannot use . on %s", type_name(target));
@@ -474,8 +510,12 @@ bool property_existing(Value target, Str *name, Kind *asking, Value *out) {
  * A path ending in ..= appends the value to what it reaches, which must exist, as .. joins,
  * and sets *joined to the result, counted: #log ..= $line appends in place when the string
  * isn't shared, so a loop of appends to a field or element is linear, as one to a variable is.
+ *
+ * A path that ends at a field with a declared type checks the value against it first (a write
+ * inside the field's value, $o.items[] = 1, changes nothing the type says): the value may be
+ * widened to a float, which is why it is a pointer.
  */
-static bool write_path(Value *slot, Str *var_name, Path *path, Value *keys, Value value, Kind *asking, bool concat, Value *joined) {
+static bool write_path(Value *slot, Str *var_name, Path *path, Value *keys, Value *value, Kind *asking, bool concat, Value *joined) {
     if (slot->type == T_UNSET) return raisef("Undefined variable: %s", var_name->data);
     Value *cur = slot;
     int k = 0;
@@ -485,10 +525,14 @@ static bool write_path(Value *slot, Str *var_name, Path *path, Value *keys, Valu
     Value missing_key = v_null();
     Object *missing_object = NULL;
     Str *missing_field = NULL;
+    /* The typed field the path ends at, if the last step is one */
+    Object *typed_object = NULL;
+    int typed_field = -1;
 
     for (int s = 0; s < path->nsteps; s++) {
         PathStep *step = &path->steps[s];
         if (!exists) return missing_object ? raise_not_set(missing_object, missing_field) : raise_undefined_key(missing_key);
+        typed_object = NULL;
         if (step->kind == S_FIELD) {
             if (cur->type != T_OBJECT) return raisef("Cannot use . on %s", type_name(*cur));
             Object *o = cur->o;
@@ -500,13 +544,17 @@ static bool write_path(Value *slot, Str *var_name, Path *path, Value *keys, Valu
                 missing_object = o;
                 missing_field = step->name;
             }
+            if (o->kind->field_types && o->kind->field_types[f]) {
+                typed_object = o;
+                typed_field = f;
+            }
             continue;
         }
         if (cur->type == T_LIST) {
             if (step->kind == S_APPEND) {
                 List *l = list_unique(cur);
-                incref(value);
-                list_push(l, value);
+                incref(*value);
+                list_push(l, *value);
                 return true;
             }
             Value key = keys[k++];
@@ -534,35 +582,40 @@ static bool write_path(Value *slot, Str *var_name, Path *path, Value *keys, Valu
 
     if (concat) {
         if (!exists) return missing_object ? raise_not_set(missing_object, missing_field) : raise_undefined_key(missing_key);
+        /* What ..= leaves is a string, whatever is appended: a typed field must allow one. The
+           probe is a string value with no bytes, which the check only reads the tag of. */
+        Value probe = {.type = T_STRING};
+        if (typed_object && !check_field_type(typed_object, typed_field, &probe)) return false;
         /* A string appended to by a value that prints without running a method: no program
            code runs, so cur still points where the walk left it */
-        if (cur->type == T_STRING && value.type != T_OBJECT && value.type != T_LIST && value.type != T_MAP) {
-            return concat_assign(cur, value, joined);
+        if (cur->type == T_STRING && value->type != T_OBJECT && value->type != T_LIST && value->type != T_MAP) {
+            return concat_assign(cur, *value, joined);
         }
         /* Anything else can run to_string(), which could change what cur points into, so join
            first, as .. does, and write the result from the start again */
         Value left = *cur;
         incref(left);
-        bool ok = binary_op(OP_CONCAT, left, value, joined);
+        bool ok = binary_op(OP_CONCAT, left, *value, joined);
         decref(left);
         if (!ok) return false;
-        if (!write_path(slot, var_name, path, keys, *joined, asking, false, NULL)) {
+        if (!write_path(slot, var_name, path, keys, joined, asking, false, NULL)) {
             decref(*joined);
             return false;
         }
         return true;
     }
 
-    incref(value);
+    if (typed_object && !check_field_type(typed_object, typed_field, value)) return false;
+    incref(*value);
     if (!exists && !missing_object) {
-        map_set(missing_map, missing_key, value);
+        map_set(missing_map, missing_key, *value);
     } else {
-        set_slot(cur, value);
+        set_slot(cur, *value);
     }
     return true;
 }
 
-bool store_path(Value *slot, Str *var_name, Path *path, Value *keys, Value value, Kind *asking, Value *joined) {
+bool store_path(Value *slot, Str *var_name, Path *path, Value *keys, Value *value, Kind *asking, Value *joined) {
     return write_path(slot, var_name, path, keys, value, asking, path->concat, joined);
 }
 

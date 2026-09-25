@@ -1,0 +1,12 @@
+4.0
+Account {#owner => "x", #balance => 0.0}
+Account {#owner => "x", #balance => 3.0}
+Account {#owner => "x", #balance => 3.0, #note => "s"}
+7
+area() expects $r to be float, got string
+["area on line 1", "top level on line 1"]
+Account #balance must be float, got string
+Account::count must be int, got float
+wrong_return() should return string|null, got int
+s!
+Account #balance must be float, got string

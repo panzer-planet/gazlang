@@ -1,0 +1,8 @@
+GAZLANG BYTECODE 2
+globals
+
+top
+locals
+PUSH 1
+CHECK_RETURN int|
+POP

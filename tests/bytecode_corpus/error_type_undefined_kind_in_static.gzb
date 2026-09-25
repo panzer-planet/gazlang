@@ -1,0 +1,14 @@
+GAZLANG BYTECODE 2
+globals
+statics C::a
+
+top
+locals
+PUSH 1
+STORE_STATIC 0
+
+kind C
+static a Nope
+locals
+LOAD_THIS
+RET
