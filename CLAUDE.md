@@ -1228,9 +1228,9 @@ vm/bench.php`: CPU time, interleaved, best of several).
     promise about what changes between them, come first, and `gaz.json` then says
     `"gazlang": ">=0.3"`.
   - **Renaming the binary to `gaz`** is wanted with it (`gaz pkg add` over `gazlang pkg add`), and
-    matches `.gaz`. Before doing it: check no common package (Homebrew, apt) ships a `gaz`, and
-    decide whether `gaz main.gaz` should run a file without `-f`, which is what makes the short
-    name pay. The cost is mechanical (the Makefile, `GazLangTestCase::binary()`, CI, the docs);
+    matches `.gaz`; no common package ships a `gaz` command, so the name is free. Still to decide:
+    whether `gaz main.gaz` should run a file without `-f`, which is what makes the short name
+    pay. The cost is mechanical (the Makefile, `GazLangTestCase::binary()`, CI, the docs);
     a `gazlang` symlink could carry old uses through a release.
 - **Running source**: the compiler runs as a program of its own with its output captured in an
   `open_memstream()` buffer, which is then loaded as bytecode saved next to the source. Each run
