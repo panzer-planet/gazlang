@@ -53,8 +53,11 @@ It is a hobby language, not production software, and it would like company.
 
 ## Get it running
 
-You need a C compiler, make and OpenSSL (`apt install libssl-dev` or `brew install
-openssl@3`; or build with `make -C vm TLS=0` for no HTTPS). SQLite and PostgreSQL support is
+Download a release for Linux or macOS from the
+[releases page](https://github.com/panzer-planet/gazlang/releases), unpack it, and put `gaz` on
+your `PATH` (those builds have TLS and SQLite, not PostgreSQL). Or build it: you need a C
+compiler, make and OpenSSL (`apt install libssl-dev` or `brew install openssl@3`; or build with
+`make -C vm TLS=0` for no HTTPS). SQLite and PostgreSQL support is
 built in when their libraries are found (`libsqlite3-dev`, `libpq-dev`; `brew install sqlite
 libpq`), and left out quietly when they aren't.
 

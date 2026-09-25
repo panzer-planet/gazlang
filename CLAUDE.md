@@ -243,11 +243,22 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   2. **CLI essentials**: argument parsing (done: `lib/cli.gaz`, see "Command line arguments").
   3. **The `gaz` rename** with `gaz main.gaz`, `-` for standard input, and `#!/usr/bin/env gaz`
      scripts (done; see "The CLI").
-  4. **A release**: a version number `--version` means, a changelog, prebuilt binaries for macOS
-     and Linux, and a Homebrew tap; with it, some promise about what may change between
-     releases.
+  4. **A release** (done: see "Releases"). A changelog, a Homebrew tap and a promise about what
+     may change between releases wait until someone needs them.
   5. **Two tutorials** ("a JSON API in fifteen minutes", "a CLI tool in ten"), a README that
      opens with the niche, and the source grammar published as a VS Code extension.
+- **Releases**: `VERSION` holds the version (`0.1.0`), which the Makefile compiles in and
+  `gaz --version` prints. Pushing a tag `vX.Y.Z` matching it runs `.github/workflows/release.yml`,
+  which builds and tries gaz on Linux (Ubuntu 22.04, so glibc 2.35 or later) and macOS, each on
+  x86_64 and arm64, and publishes the four `.tar.gz` and their `SHA256SUMS` as a GitHub release
+  with notes from the commits; `gh workflow run release.yml` is a dry run that publishes nothing.
+  To release: change `VERSION`, re-record the CLI's `version` row (`GAZLANG_RECORD=1 vendor/bin/phpunit
+  --filter CliTest`), commit, then tag and push the tag. The binaries have TLS and SQLite but
+  not PostgreSQL, since libpq is rarely installed and Homebrew's can't travel. On macOS OpenSSL
+  is linked in, so they need nothing but the system, and `net.c` trusts the system's
+  `/etc/ssl/cert.pem` too (unless `SSL_CERT_FILE` says otherwise), since a linked-in OpenSSL looks
+  for certificates where Homebrew keeps them; without it every https request failed on a Mac
+  without Homebrew. No promise about what changes between releases yet.
 - **CI** (`.github/workflows/ci.yml`) runs on Ubuntu and on macOS, Apple silicon and Intel,
   for every push: it builds gaz without TLS (the bootstrap needs only a C compiler), then
   with it, and rebuilds its compiler before PHP is even installed, then the suite; phpstan and

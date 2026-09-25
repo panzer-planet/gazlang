@@ -16,6 +16,10 @@ CC ?= cc
 # _DEFAULT_SOURCE: glibc hides POSIX and BSD functions (open_memstream, realpath, memmem) under
 # -std=c11 without it; macOS ignores it
 FLAGS = -std=c11 -D_DEFAULT_SOURCE -Wall -Wextra -Wno-unused-parameter
+# The version, from the file a release's tag must match (.github/workflows/release.yml); a change
+# to it rebuilds, as the flags are part of build/config
+VERSION := $(shell cat ../VERSION)
+FLAGS += -DGAZ_VERSION='"$(VERSION)"'
 SOURCES = value.c ops.c load.c vm.c builtins.c gc.c net.c db.c term.c workers.c
 LIBS = -lm -lpthread
 

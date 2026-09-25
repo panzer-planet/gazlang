@@ -86,7 +86,7 @@ class CVMTest extends TestCase
         // On a copy of what the target reads, the VM included, with its times kept so that make
         // doesn't build it again first
         $dir = sys_get_temp_dir().'/gazlang_bootstrap_'.getmypid();
-        $files = ['compiler/*.gaz', 'compiler/gazlang.gzb', 'lib/*.gaz', 'vm/Makefile', 'vm/*.[ch]', 'bin/gaz', 'vm/build/compiler.c', 'vm/build/std.c', 'vm/build/config', 'vm/build/pgo-mode'];
+        $files = ['VERSION', 'compiler/*.gaz', 'compiler/gazlang.gzb', 'lib/*.gaz', 'vm/Makefile', 'vm/*.[ch]', 'bin/gaz', 'vm/build/compiler.c', 'vm/build/std.c', 'vm/build/config', 'vm/build/pgo-mode'];
         exec('mkdir -p '.escapeshellarg($dir).' && cd '.escapeshellarg(CVM::ROOT).' && tar cf - '.implode(' ', $files).' | tar xf - -C '.escapeshellarg($dir).' 2>&1', $output, $code);
         try {
             $this->assertSame(0, $code, implode("\n", $output));

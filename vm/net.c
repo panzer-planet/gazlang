@@ -93,6 +93,10 @@ fail: {
 }
 
 #ifdef GAZ_TLS
+#ifdef __APPLE__
+#define MACOS_CERTIFICATES "/etc/ssl/cert.pem"
+#endif
+
 /* Made on first use and kept for the run */
 static SSL_CTX *tls_context;
 
@@ -117,6 +121,14 @@ static bool tls_start(Socket *s, const char *host) {
         SSL_CTX_set_min_proto_version(tls_context, TLS1_2_VERSION);
         SSL_CTX_set_verify(tls_context, SSL_VERIFY_PEER, NULL);
         SSL_CTX_set_default_verify_paths(tls_context);
+#ifdef __APPLE__
+        /* An OpenSSL linked in (the release binaries) looks for certificates where Homebrew
+           keeps them, which a Mac without Homebrew doesn't have; the system's own bundle is always
+           here. SSL_CERT_FILE, when set, is the only file trusted, as OpenSSL has it. */
+        if (!getenv("SSL_CERT_FILE") && access(MACOS_CERTIFICATES, R_OK) == 0) {
+            SSL_CTX_load_verify_locations(tls_context, MACOS_CERTIFICATES, NULL);
+        }
+#endif
 #ifdef SSL_OP_IGNORE_UNEXPECTED_EOF
         /* Many servers close without TLS's goodbye; HTTP's own framing catches a cut-off body */
         SSL_CTX_set_options(tls_context, SSL_OP_IGNORE_UNEXPECTED_EOF);

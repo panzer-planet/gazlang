@@ -1587,6 +1587,11 @@ static void *run(void *arg) {
     return NULL;
 }
 
+/* The version, which the Makefile gives from VERSION */
+#ifndef GAZ_VERSION
+#define GAZ_VERSION "unknown"
+#endif
+
 static const char *HELP =
     "GazLang - a scripting language for web servers and command line tools\n"
     "Usage: gaz [options] [file | -] [program arguments...]\n"
@@ -1664,7 +1669,7 @@ int main(int argc, char **argv) {
         return 0;
     }
     if (version) {
-        puts("GazLang version 0.1.0");
+        puts("gaz " GAZ_VERSION);
         return 0;
     }
     if (files > 1) {

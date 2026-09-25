@@ -1,0 +1,105 @@
+name: Release
+
+# Pushing a tag vX.Y.Z (X.Y.Z being what VERSION says) builds gaz for Linux and macOS, each on
+# x86_64 and arm64, and publishes them as a GitHub release:
+#
+#   git tag v0.1.0 && git push origin v0.1.0
+#
+# The binaries carry TLS and SQLite, not PostgreSQL (libpq is rarely installed, and Homebrew's
+# can't travel); a program that needs it builds gaz from source. On macOS OpenSSL is linked in, so
+# a Mac needs nothing but the system; on Linux the binary uses the system's OpenSSL 3 and SQLite,
+# and is built on Ubuntu 22.04 so that any distribution since, with glibc 2.35 or later, runs it.
+
+on:
+  push:
+    tags: ['v*']
+  # By hand (gh workflow run release.yml), a dry run: everything is built and tried, and nothing
+  # is published
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            target: linux-x86_64
+          - os: ubuntu-22.04-arm
+            target: linux-arm64
+          - os: macos-15-intel
+            target: macos-x86_64
+          - os: macos-latest
+            target: macos-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check the tag is the version
+        if: github.ref_type == 'tag'
+        run: |
+          if [ "${GITHUB_REF_NAME#v}" != "$(cat VERSION)" ]; then
+            echo "The tag $GITHUB_REF_NAME doesn't match VERSION ($(cat VERSION))" >&2
+            exit 1
+          fi
+
+      - name: Install OpenSSL and SQLite
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev libsqlite3-dev
+
+      - name: Build on Linux
+        if: runner.os == 'Linux'
+        run: make -C vm TLS=1 SQLITE=1 PG=0
+
+      # Homebrew's OpenSSL, linked in, since a Mac without Homebrew has no libssl to find
+      - name: Build on macOS
+        if: runner.os == 'macOS'
+        run: |
+          ssl="$(brew --prefix openssl@3)"
+          make -C vm TLS=1 SQLITE=1 PG=0 SSL_LIBS="$ssl/lib/libssl.a $ssl/lib/libcrypto.a"
+          if otool -L bin/gaz | grep -q -e /opt/homebrew -e /usr/local; then
+            echo "bin/gaz still needs a Homebrew library:" >&2
+            otool -L bin/gaz >&2
+            exit 1
+          fi
+
+      - name: Try it
+        run: |
+          bin/gaz --version
+          bin/gaz --version | grep -qx "gaz $(cat VERSION)"
+          bin/gaz tests/programs/functions.gaz > /dev/null
+          echo 'include "std/json.gaz"; echo json::encode(db_run(db_open("sqlite::memory:"), "select 1 as one")["rows"]);' | bin/gaz
+
+      - name: Package
+        run: |
+          name="gaz-$(cat VERSION)-${{ matrix.target }}"
+          mkdir "$name"
+          cp bin/gaz LICENSE.md README.md "$name/"
+          tar -czf "$name.tar.gz" "$name"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gaz-${{ matrix.target }}
+          path: gaz-*.tar.gz
+
+  release:
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          (cd dist && sha256sum gaz-*.tar.gz > SHA256SUMS)
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "gaz ${GITHUB_REF_NAME#v}" \
+            --generate-notes
