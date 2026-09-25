@@ -427,11 +427,21 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   `round` has), variadic parameters and spread in calls (pass a
   list), `foreach` over a string (`split($s, "")`), a REPL.
 - **Regular expressions**: `lib/regex.gaz` (`regex::matches`, `regex::search`,
-  `regex::find`), a Thompson NFA (Pike's VM) so there is no backtracking and no ReDoS.
-  Literals, `.`, `*` `+` `?`, `|`, `(...)` grouping (not capturing), `[...]`/`[^...]`
-  classes with `a-z` ranges, `^`/`$` anchors, `\` escapes. No capture groups, no
-  backreferences, no `\d`/`\w`/`\s` shorthands (`lib/chars.gaz` has those as named
-  functions) — add them if a program needs one.
+  `regex::find`, `regex::groups`, `regex::replace`), a Thompson NFA (Pike's VM) so there is no
+  backtracking and no ReDoS. Literals, `.`, `*` `+` `?`, `|`, `(...)` groups (capturing),
+  `[...]`/`[^...]` classes with `a-z` ranges, `^`/`$` anchors, `\` escapes. **Perl's match**:
+  threads run in priority order carrying their group slots (`save` instructions), and one
+  reaching `match` drops the threads after it while those before run on, so repetitions are
+  greedy and the first alternative wins, as every engine a reader knows does; a new start is
+  seeded each step only until something matched, which is what makes it leftmost (the first
+  version returned the first thread to reach `match`, so `find("abcd", "abcd|c")` was 2).
+  `groups` gives a group that took no part as null (Python's None; PHP's `""` can't be told from
+  an empty capture), a repeated one's last. `replace` takes `$with` as it is and moves on a byte
+  after an empty match (Perl's, Python's and JavaScript's `"-a-b-c-"`). `ponytail:` an empty
+  iteration of a starred group dies at the loop, so `(a*)*` reports its group as null where
+  Perl says `""`; no `$1` in replacements or a function for `$with`, no backreferences, no
+  `\d`/`\w`/`\s` shorthands (`lib/chars.gaz` has those as named functions) — add them if a
+  program needs one.
 
 # The language
 
