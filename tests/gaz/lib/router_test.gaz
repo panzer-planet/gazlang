@@ -1,0 +1,90 @@
+include "../check.gaz";
+include "../../../lib/router.gaz";
+
+fn request($method, $path, $query = "") {
+    return {"method" => $method, "path" => $path, "query" => $query, "headers" => {}, "body" => ""};
+}
+
+fn body($text) {
+    return {"body" => $text};
+}
+
+$app = router::Router();
+$app.get("/", $r -> body("home"));
+$app.get("/users/:id", $r -> body("user " .. $r["params"]["id"]));
+$app.get("/users/:id/posts/:post", $r -> body("post " .. $r["params"]["post"] .. " of " .. $r["params"]["id"]));
+$app.post("/users", $r -> ({"status" => 201, "body" => "made"}));
+$app.delete("/users/:id", $r -> body("gone " .. $r["params"]["id"]));
+$app.route("OPTIONS", "/users", $r -> body("options"));
+$app.get("/about/", $r -> body("about"));
+$app.get("/first", $r -> body("first"));
+$app.get("/first", $r -> body("second"));
+$handle = $app.handler();
+
+/* Matching */
+check("a literal path", $handle(request("GET", "/")), body("home"));
+check(":name takes a segment", $handle(request("GET", "/users/7")), body("user 7"));
+check("two names", $handle(request("GET", "/users/7/posts/3")), body("post 3 of 7"));
+check("a name is percent-decoded", $handle(request("GET", "/users/caf%C3%A9")), body("user café"));
+check("a %2F is a / in the value, not a separator", $handle(request("GET", "/users/a%2Fb")), body("user a/b"));
+check("the handler gets the request, with its params", $handle(request("GET", "/users/7")) == body("user 7"), true);
+check("the first route that matches wins", $handle(request("GET", "/first")), body("first"));
+check("other methods by name", [$handle(request("POST", "/users"))["status"], $handle(request("DELETE", "/users/9")), $handle(request("OPTIONS", "/users"))], [201, body("gone 9"), body("options")]);
+check("a GET route answers HEAD", $handle(request("HEAD", "/users/7")), body("user 7"));
+
+/* What matches nothing */
+$wrong_method = $handle(request("PUT", "/users/7"));
+check("a path with other methods is a 405 naming them", [$wrong_method["status"], $wrong_method["headers"]["Allow"]], [405, "GET, DELETE, HEAD"]);
+check("a path nothing has is a 404", $handle(request("GET", "/nope")), {"status" => 404, "headers" => {"Content-Type" => "text/plain"}, "body" => "Not Found\n"});
+check("more segments than a route is a 404", $handle(request("GET", "/users/7/extra"))["status"], 404);
+check("a bad escape is a 400", $handle(request("GET", "/users/%zz"))["status"], 400);
+
+/* The other spelling of a path, with and without its trailing slash */
+check("a slash taken away", $handle(request("GET", "/users/7/", "tab=1")), {"status" => 308, "headers" => {"Location" => "/users/7?tab=1"}, "body" => ""});
+check("a slash added", $handle(request("GET", "/about"))["headers"]["Location"], "/about/");
+check("a :name is never empty, so /users/ is /users", $handle(request("GET", "/users/"))["headers"]["Location"], "/users");
+check("no other spelling: a 404", $handle(request("GET", "/nope/"))["status"], 404);
+
+/* A 404 of your own */
+$custom = router::Router();
+$custom.not_found($r -> ({"status" => 404, "body" => "no page at " .. $r["path"]}));
+check("not_found()", $custom.handler()(request("GET", "/x")), {"status" => 404, "body" => "no page at /x"});
+
+/* Middleware wraps everything, the first added outermost */
+$layered = router::Router();
+$layered.get("/", $r -> body($r["seen"]));
+$layered.use(($r, $next) -> {
+    $r["seen"] = "outer";
+    $response = $next($r);
+    $response["body"] ..= " < outer";
+    return $response;
+});
+$layered.use(($r, $next) -> {
+    $r["seen"] ..= " > inner";
+    $response = $next($r);
+    $response["body"] ..= " < inner";
+    return $response;
+});
+check("middleware runs in the order added, and back out", $layered.handler()(request("GET", "/"))["body"], "outer > inner < inner < outer");
+check("middleware sees a 404 too", $layered.handler()(request("GET", "/x"))["body"], "Not Found\n < inner < outer");
+$short = router::Router();
+$short.get("/", $r -> body("never"));
+$short.use(($r, $next) -> ({"status" => 401, "body" => "log in first"}));
+check("middleware can answer itself", $short.handler()(request("GET", "/")), {"status" => 401, "body" => "log in first"});
+
+/* A route is checked when it is added */
+$failures = [];
+foreach (["users", "/users/:", "/a/:id/b/:id", 5] as $pattern) {
+    try {
+        router::Router().get($pattern, $r -> null);
+        $failures[] = "no error for $pattern";
+    } catch (Error $e) {
+        $failures[] = $e.message;
+    }
+}
+check("bad patterns", $failures, [
+    "A route's pattern starts with /, got \"users\"",
+    "A : in a route's pattern needs a name: /users/:",
+    "A route's pattern names :id twice: /a/:id/b/:id",
+    "A route's pattern starts with /, got 5",
+]);

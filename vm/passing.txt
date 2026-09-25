@@ -13,6 +13,7 @@ lib/json.gaz
 lib/lists.gaz
 lib/random.gaz
 lib/regex.gaz
+lib/router.gaz
 lib/sorting.gaz
 lib/term.gaz
 lib/tui.gaz
@@ -802,6 +803,7 @@ tests/gaz/lib/format_test.gaz
 tests/gaz/lib/http_decode_test.gaz
 tests/gaz/lib/json_test.gaz
 tests/gaz/lib/regex_test.gaz
+tests/gaz/lib/router_test.gaz
 tests/gaz/lib/sorting_test.gaz
 tests/gaz/lib/term_test.gaz
 tests/gaz/lib/tui_test.gaz

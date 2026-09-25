@@ -1,0 +1,264 @@
+/*
+ * Routing requests to handlers, for http::serve():
+ *
+ *   $app = router::Router();
+ *   $app.get("/users/:id", $request -> ({"body" => "user {$request["params"]["id"]}"}));
+ *   $app.post("/users", $create_user);
+ *   $app.use(($request, $next) -> $next($request));      // middleware
+ *   http::serve($listener, $app.handler());
+ *
+ * - A pattern is a path whose segments are literal or :name. A :name takes one whole segment,
+ *   never an empty one, percent-decoded, into $request["params"]; the handler gets the request
+ *   with them in it. A %2F in a segment is a / in its value, never a separator.
+ * - The first route added that matches wins.
+ * - A path that matches with another method is a 405 with an Allow header; a GET route answers
+ *   HEAD too. A path nothing matches is a 404, or what not_found() was given.
+ * - A path that only matches with its trailing slash added or taken away is a 308 redirect to
+ *   that spelling, so a link written either way works and each page has one URL.
+ * - A bad percent-escape in the path is a 400.
+ * - Middleware is ($request, $next) -> response, and wraps everything, the 404s included; the
+ *   first added is the outermost.
+ */
+namespace router;
+
+include "http.gaz";
+
+pub kind Router {
+    #routes = [];
+    #middleware = [];
+    #not_found_handler = null;
+
+    pub fn get($pattern, $handler) {
+        #add("GET", $pattern, $handler);
+    }
+
+    pub fn post($pattern, $handler) {
+        #add("POST", $pattern, $handler);
+    }
+
+    pub fn put($pattern, $handler) {
+        #add("PUT", $pattern, $handler);
+    }
+
+    pub fn patch($pattern, $handler) {
+        #add("PATCH", $pattern, $handler);
+    }
+
+    pub fn delete($pattern, $handler) {
+        #add("DELETE", $pattern, $handler);
+    }
+
+    // Any other method, by name
+    pub fn route($method, $pattern, $handler) {
+        #add($method, $pattern, $handler);
+    }
+
+    pub fn use($middleware) {
+        #middleware[] = $middleware;
+    }
+
+    pub fn not_found($handler) {
+        #not_found_handler = $handler;
+    }
+
+    // The function to give http::serve(): the router with its middleware around it
+    pub fn handler() {
+        $dispatch = $request -> #dispatch($request);
+        foreach (reverse(#middleware) as $middleware) {
+            $dispatch = wrap($middleware, $dispatch);
+        }
+
+        return $dispatch;
+    }
+
+    fn add($method, $pattern, $handler) {
+        #routes[] = Route($method, $pattern, $handler);
+    }
+
+    fn dispatch($request) {
+        $segments = decoded_segments($request["path"]);
+        if ($segments == null) {
+            return plain(400, "Bad Request");
+        }
+
+        $allowed = [];
+        foreach (#routes as $route) {
+            $params = $route.match($segments);
+            if ($params == null) {
+                continue;
+            }
+            if ($route.answers($request["method"])) {
+                return $route.run($request, $params);
+            }
+            $allowed[] = $route.method;
+        }
+
+        if (len($allowed) > 0) {
+            return method_not_allowed($allowed);
+        }
+
+        return #elsewhere($request, $segments);
+    }
+
+    // No route has this path: its other spelling, or not found
+    fn elsewhere($request, $segments) {
+        $other = other_spelling($request["path"]);
+        if ($other != null && #has_path(decoded_segments($other))) {
+            return redirect($other, $request["query"]);
+        }
+        if (#not_found_handler != null) {
+            return (#not_found_handler)($request);
+        }
+
+        return plain(404, "Not Found");
+    }
+
+    fn has_path($segments) {
+        foreach (#routes as $route) {
+            if ($route.match($segments) != null) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
+// One route: a method, a pattern cut into segments, and its handler
+kind Route {
+    #segments;
+    #handler;
+
+    fn _(pub #method, $pattern, $handler) {
+        #segments = pattern_segments($pattern);
+        #handler = $handler;
+    }
+
+    // The params the path's segments give this route, or null when it doesn't match
+    pub fn match($segments) {
+        if (len($segments) != len(#segments)) {
+            return null;
+        }
+        $params = {};
+        foreach (#segments as $i => $expected) {
+            if (!is_param($expected)) {
+                if ($expected != $segments[$i]) {
+                    return null;
+                }
+                continue;
+            }
+            // A :name takes a whole segment, never an empty one: /users/ is not /users/:id
+            if ($segments[$i] == "") {
+                return null;
+            }
+            $params[param_name($expected)] = $segments[$i];
+        }
+
+        return $params;
+    }
+
+    pub fn answers($method) {
+        return $method == #method || $method == "HEAD" && #method == "GET";
+    }
+
+    pub fn run($request, $params) {
+        $request["params"] = $params;
+
+        return (#handler)($request);
+    }
+}
+
+// A pattern's segments, checked: "/users/:id" is ["users", ":id"]
+fn pattern_segments($pattern) {
+    if (type_of($pattern) != "string" || !starts_with($pattern, "/")) {
+        error("A route's pattern starts with /, got " .. slice(to_string([$pattern]), 1, -1));
+    }
+    $segments = segments($pattern);
+    $names = [];
+    foreach ($segments as $segment) {
+        if (!is_param($segment)) {
+            continue;
+        }
+        $name = param_name($segment);
+        if ($name == "") {
+            error("A : in a route's pattern needs a name: $pattern");
+        }
+        if (in_array($name, $names)) {
+            error("A route's pattern names :$name twice: $pattern");
+        }
+        $names[] = $name;
+    }
+
+    return $segments;
+}
+
+// "/users/7" is ["users", "7"], and "/" is []
+fn segments($path) {
+    if ($path == "/") {
+        return [];
+    }
+
+    return split(slice($path, 1), "/");
+}
+
+// A request path's segments, each percent-decoded, or null when an escape is bad
+fn decoded_segments($path) {
+    try {
+        return map(segments($path), http::url_decode);
+    } catch (Error $e) {
+        return null;
+    }
+}
+
+fn is_param($segment) {
+    return starts_with($segment, ":");
+}
+
+fn param_name($segment) {
+    return slice($segment, 1);
+}
+
+// The path with its trailing slash taken away or added, or null for "/"
+fn other_spelling($path) {
+    if ($path == "/") {
+        return null;
+    }
+    if (ends_with($path, "/")) {
+        return slice($path, 0, -1);
+    }
+
+    return $path .. "/";
+}
+
+fn wrap($middleware, $next) {
+    return $request -> $middleware($request, $next);
+}
+
+fn redirect($path, $query) {
+    $location = $path;
+    if ($query != "") {
+        $location ..= "?" .. $query;
+    }
+
+    return {"status" => 308, "headers" => {"Location" => $location}, "body" => ""};
+}
+
+fn method_not_allowed($methods) {
+    $allowed = [];
+    foreach ($methods as $method) {
+        if (!in_array($method, $allowed)) {
+            $allowed[] = $method;
+        }
+    }
+    if (in_array("GET", $allowed)) {
+        $allowed[] = "HEAD";
+    }
+    $response = plain(405, "Method Not Allowed");
+    $response["headers"]["Allow"] = join($allowed, ", ");
+
+    return $response;
+}
+
+fn plain($status, $text) {
+    return {"status" => $status, "headers" => {"Content-Type" => "text/plain"}, "body" => $text .. "\n"};
+}

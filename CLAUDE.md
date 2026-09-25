@@ -237,8 +237,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   install it, get a first program working and trust it; not by what would win many users
   (Windows, a registry, an LSP and a playground wait for someone to ask).
 - **Milestone 0.1, the first release**, is what that stranger needs, in this order:
-  1. **Web essentials**: request decoding (done), the
-     router ("Serving HTTP" has its design), and templates that escape by default, which want
+  1. **Web essentials**: request decoding and the router (both done), and templates that escape by default, which want
      their own design round first (syntax, how one includes another, whether they compile to
      GazLang functions). Then cookies, static files and uploads as the apps written on it ask.
   2. **CLI essentials**: argument parsing (flags, options with values, subcommands, a generated
@@ -373,6 +372,19 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     whose Content-Type isn't `application/x-www-form-urlencoded` rather than giving `{}`.
     Pieces split as the WHATWG parser splits them (empty ones skipped, no `=` is a value of
     `""`). Tested by `tests/gaz/lib/http_decode_test.gaz`, and end to end by `HttpServerTest`.
+  - **Routing is `lib/router.gaz`**, a file of its own so `http.gaz` stays the protocol and a
+    program that only fetches URLs parses no router: `router::Router()` with `get`, `post`,
+    `put`, `patch`, `delete` and `route($method, ...)`, and `$app.handler()` is an ordinary
+    handler for `http::serve`, so the server learns nothing. Patterns are segments, literal or
+    `:name` (no regex); the path is split before it is percent-decoded, so a `%2F` is a `/` in a
+    value and never a separator, and a `:name` never takes an empty segment. Params go into
+    `$request["params"]`, so a handler keeps one argument and tests with a plain map. The first
+    route added that matches wins (Express's rule: nothing to rank). A path matched by other
+    methods is a 405 with `Allow` (a GET route answers HEAD); a path only its other spelling
+    (trailing slash added or taken away) matches is a 308 to that spelling, query kept, so a link
+    works either way and a page has one URL; a bad escape is a 400; the rest a 404 or what
+    `not_found()` was given. Middleware is `($request, $next) -> response` and wraps the whole
+    dispatch, 404s included, the first added outermost. Tested by `tests/gaz/lib/router_test.gaz`.
   - `ponytail:` no keep-alive; writing a response has only the per-write timeout; the stop grace
     is fixed; while workers drain, new connections queue in the listener's backlog (the master
     holds it too) and are reset when the program ends, where closing the listeners first would
@@ -380,11 +392,6 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     workers running (Linux's `PR_SET_PDEATHSIG` would end them, macOS has nothing like it). No TLS
     on the server side: a proxy in front does it.
   - **Next, when a program asks** (the order they would be built in):
-    - A router in GazLang (`lib/router.gaz` or in `http.gaz`): `$app.get("/users/:id", $handler)`,
-      a list of `[method, pattern, handler]` matched by splitting paths on `/` (no regex), named
-      segments into `$request["params"]`, 404 and 405 (with `Allow`) of its own, and middleware as
-      `($request, $next) -> ...` closures wrapped around the handler. Its result is still a handler,
-      so `http::serve($listener, $app.handler())` needs nothing new.
     - The client's address (`socket_peer($socket)`, for logs and rate limits), though behind a
       proxy `X-Forwarded-For` is the one that matters.
     - A `quote($value)` builtin, the value as a literal: `value.c` has it, and
@@ -816,7 +823,7 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   server, `http::serve`, see "Serving HTTP"),
   `date.gaz` (`date::days`, `date::civil`, `date::format`: a date is a number of days from 1 January
   1970, with no clock, since a program that asked one what day it is could not be recorded, so a game
-  keeps its own date), `random.gaz` (`random::shuffle`, `random::pick`, `random::key`, `random::chance`,
+  keeps its own date), `router.gaz` (`router::Router`, see "Serving HTTP"), `random.gaz` (`random::shuffle`, `random::pick`, `random::key`, `random::chance`,
   `random::weighted`), `term.gaz` (`term::style`, the cursor and screen sequences,
   `term::decode`, `term::Input`, `term::fullscreen`, on the terminal builtins; drawing functions
   return their sequence, so a program prints them and a test compares them), `tui.gaz`

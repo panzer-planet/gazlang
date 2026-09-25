@@ -1,0 +1,22 @@
+ok a literal path
+ok :name takes a segment
+ok two names
+ok a name is percent-decoded
+ok a %2F is a / in the value, not a separator
+ok the handler gets the request, with its params
+ok the first route that matches wins
+ok other methods by name
+ok a GET route answers HEAD
+ok a path with other methods is a 405 naming them
+ok a path nothing has is a 404
+ok more segments than a route is a 404
+ok a bad escape is a 400
+ok a slash taken away
+ok a slash added
+ok a :name is never empty, so /users/ is /users
+ok no other spelling: a 404
+ok not_found()
+ok middleware runs in the order added, and back out
+ok middleware sees a 404 too
+ok middleware can answer itself
+ok bad patterns

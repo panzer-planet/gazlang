@@ -776,6 +776,7 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `csv.gaz` | `csv::parse`, `csv::records` (RFC 4180) |
 | `chars.gaz` | `chars::char_at`, `chars::is_digit`, `chars::is_alpha`, `chars::is_alnum`, `chars::is_space`, `chars::is_hex_digit`, `chars::span($s, $i, $predicate)` (how many characters from `$i` satisfy the predicate: `slice($s, $i, chars::span($s, $i, chars::is_digit))` is the number at `$i`) |
 | `format.gaz` | `format::number`, `format::pad_left`, `format::pad_right`, and `format::sprintf($template, $args)` with the arguments as a list: `%s` (as echo prints it), `%d` (an int), `%f` (an int or float, 6 decimals or `%.2f`'s, rounded as `round()` does), `%x` (an int of 0 or more, lowercase hex), `%%`; a width, `-` to pad on the right and `0` to pad a number with zeros after its sign (`%-8s`, `%05.1f`). A count of arguments that isn't the placeholders', a type `%d`, `%f` or `%x` can't take, and a placeholder it doesn't know are errors |
+| `router.gaz` | `router::Router()`, routing requests to handlers for `http::serve`; see below |
 | `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins, and a server, `http::serve($listener, $handler, $options = {})`, `http::handle($socket, $handler, $options = {})` (one connection) and `http::http_date($time)`; see below |
 | `date.gaz` | `date::days($year, $month, $day)` (a date as a whole number of days, day 0 being 1 January 1970: an impossible date is an error), `date::civil($days)` (`[year, month, day]`), `date::year`/`month`/`day`, `date::weekday` (0 Monday to 6 Sunday), `date::next_weekday($days, $weekday)`, `date::add_months`, `date::is_leap`, `date::days_in_month`, and `date::format` (`Sat 8 Aug 2026`), `date::short` (`8 Aug`) and `date::iso` (`2026-08-08`). There is no `today()`: a clock would make a program impossible to record, so a program keeps its own date |
 | `random.gaz` | `random::shuffle` (a shuffled copy of a list or string), `random::pick` (an element of a list or value of a map), `random::key`, `random::chance($p)`, `random::weighted` (from `[item, weight]` pairs) |
@@ -830,6 +831,26 @@ as in a response; the path and query are as the client sent them, not decoded.
   time can't hold a worker; and `"max_body"` in bytes (1048576).
 - It returns when its worker is asked to stop, after answering the request in hand.
 - `http::http_date(time())` is a time as HTTP writes one: `Sat, 08 Aug 2026 14:02:09 GMT`.
+
+**Routing**, with `std/router.gaz`:
+
+```
+$app = router::Router();
+$app.get("/users/:id", $request -> ({"body" => "user {$request["params"]["id"]}"}));
+$app.post("/users", $create_user);
+$app.use(($request, $next) -> $next($request));      // middleware
+http::serve($listener, $app.handler());
+```
+
+- `get`, `post`, `put`, `patch`, `delete`, and `route($method, $pattern, $handler)` for any
+  other. A pattern starts with `/`, and its segments are literal or `:name`; a `:name` takes one
+  whole, non-empty segment, percent-decoded (a `%2F` is a `/` in it), into `$request["params"]`.
+- The first route added that matches wins. A path that matches only with other methods is a 405
+  with an `Allow` header, and a GET route answers HEAD. A path that matches only with its trailing
+  slash added or taken away is a 308 redirect to that spelling. A bad escape is a 400, and
+  anything else a 404, or what `$app.not_found($handler)` gives.
+- Middleware, `($request, $next) -> response`, wraps everything, 404s included; the first added
+  is the outermost, and it can answer without calling `$next`.
 
 Decoding what a request carries, when a handler asks:
 
