@@ -19,7 +19,7 @@
 
 namespace http;
 
-include "chars.gaz" use is_alnum, is_digit;
+include "chars.gaz" use is_alnum, is_digit, is_hex_digit;
 include "date.gaz";
 
 const MAX_REDIRECTS = 20;
@@ -679,4 +679,131 @@ pub fn http_date($time) {
     $clock = map([intdiv($seconds, 3600), intdiv($seconds, 60) % 60, $seconds % 60], $n -> ($n < 10 ? "0" : "") .. $n);
     return DAY_NAMES[date::weekday($days)] .. ", " .. ($day < 10 ? "0" : "") .. "$day "
         .. MONTH_NAMES[$month - 1] .. " $year " .. join($clock, ":") .. " GMT";
+}
+
+/*
+ * Decoding what a request carries: percent-escapes, query strings and form bodies.
+ *
+ * - http::url_decode($text) undoes percent-escapes (%20 is a space), as RFC 3986 has them: a
+ *   + stays a +. A % that isn't followed by two hex digits is an error.
+ * - http::url_encode($text) is the other way: everything but letters, digits and - . _ ~ as %XX.
+ * - http::query($request) is the query string as a map of strings, and http::form($request) a
+ *   form body (Content-Type application/x-www-form-urlencoded) the same way. In both, + is a
+ *   space, as HTML forms send it. A key given twice keeps its last value; http::query_all()
+ *   and http::form_all() give every value, as a list for each key.
+ */
+
+const UNRESERVED = "-._~";
+const FORM_TYPE = "application/x-www-form-urlencoded";
+const HEX = "0123456789ABCDEF";
+
+pub fn url_decode($text) {
+    $decoded = "";
+    $at = 0;
+    while (true) {
+        $percent = index_of($text, "%", $at);
+        if ($percent == null) {
+            return $decoded .. slice($text, $at);
+        }
+        $decoded ..= slice($text, $at, $percent - $at) .. escaped_byte($text, $percent);
+        $at = $percent + 3;
+    }
+}
+
+pub fn url_encode($text) {
+    $encoded = "";
+    foreach (split($text, "") as $c) {
+        if (is_alnum($c) || contains(UNRESERVED, $c)) {
+            $encoded ..= $c;
+        } else {
+            $encoded ..= percent_escape($c);
+        }
+    }
+
+    return $encoded;
+}
+
+pub fn query($request) {
+    return last_values(query_all($request));
+}
+
+pub fn query_all($request) {
+    return decode_pairs($request["query"]);
+}
+
+pub fn form($request) {
+    return last_values(form_all($request));
+}
+
+pub fn form_all($request) {
+    check_form_type($request);
+
+    return decode_pairs($request["body"]);
+}
+
+// The byte the escape at $percent stands for: "%41" is "A"
+fn escaped_byte($text, $percent) {
+    $digits = slice($text, $percent + 1, 2);
+    if (len($digits) < 2 || !is_hex_digit($digits[0]) || !is_hex_digit($digits[1])) {
+        $escape = slice($text, $percent, 3);
+        error("bad percent-escape " .. slice(to_string([$escape]), 1, -1) .. " at $percent");
+    }
+
+    return chr(hex_digit($digits[0]) * 16 + hex_digit($digits[1]));
+}
+
+fn hex_digit($c) {
+    return index_of(HEX, upper($c));
+}
+
+fn percent_escape($c) {
+    $byte = ord($c);
+
+    return "%" .. HEX[intdiv($byte, 16)] .. HEX[$byte % 16];
+}
+
+/*
+ * "a=1&b=x+y&a=2" as {"a" => ["1", "2"], "b" => ["x y"]}, keys in the order they first come:
+ * empty pieces are skipped, and a piece without = is a key whose value is ""
+ */
+fn decode_pairs($text) {
+    $pairs = {};
+    foreach (split($text, "&") as $piece) {
+        if ($piece == "") {
+            continue;
+        }
+        [$key, $value] = key_and_value($piece);
+        $pairs[$key] ??= [];
+        $pairs[$key][] = $value;
+    }
+
+    return $pairs;
+}
+
+fn key_and_value($piece) {
+    $parts = split($piece, "=", 2);
+    $key = form_decode($parts[0]);
+    $value = "";
+    if (len($parts) == 2) {
+        $value = form_decode($parts[1]);
+    }
+
+    return [$key, $value];
+}
+
+// A form's text: + is a space, then percent-escapes
+fn form_decode($text) {
+    return url_decode(replace($text, "+", " "));
+}
+
+fn last_values($all) {
+    return map($all, $values -> last($values));
+}
+
+fn check_form_type($request) {
+    $type = $request["headers"]["content-type"] ?? "";
+    $media_type = lower(trim(split($type, ";")[0]));
+    if ($media_type != FORM_TYPE) {
+        error("http::form() needs a body sent as " .. FORM_TYPE .. ", not " .. slice(to_string([$type]), 1, -1));
+    }
 }

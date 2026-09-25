@@ -799,6 +799,7 @@ tests/gaz/lib/chars_test.gaz
 tests/gaz/lib/date_test.gaz
 tests/gaz/lib/db_test.gaz
 tests/gaz/lib/format_test.gaz
+tests/gaz/lib/http_decode_test.gaz
 tests/gaz/lib/json_test.gaz
 tests/gaz/lib/regex_test.gaz
 tests/gaz/lib/sorting_test.gaz

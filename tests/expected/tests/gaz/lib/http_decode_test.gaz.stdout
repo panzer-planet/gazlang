@@ -1,0 +1,15 @@
+ok an escape is its byte
+ok hex in either case
+ok a + stays a +
+ok nothing to decode
+ok an escaped % is a %
+ok unreserved bytes stay
+ok the rest are escaped, in capitals
+ok every byte comes back
+ok bad escapes
+ok query_all keeps every value
+ok query keeps the last
+ok no query
+ok form
+ok form_all
+ok a body that isn't a form

@@ -130,6 +130,21 @@ class HttpServerTest extends GazLangTestCase
         $this->assertSame(['POST', 'hello', 'a, b'], [$request['method'], $request['body'], $request['headers']['x-twice']]);
     }
 
+    public function test_the_query_and_a_form_body_decode()
+    {
+        $body = 'name=W%C3%A9rner&likes=php&likes=gaz&note=a+b%2Bc';
+        $response = self::response(self::exchange("POST /decoded?page=2&tag=x%20y HTTP/1.1\r\nHost: x\r\n"
+            ."Content-Type: application/x-www-form-urlencoded\r\nContent-Length: ".strlen($body)."\r\n\r\n{$body}"));
+
+        $this->assertSame(200, $response['status']);
+        $this->assertSame([
+            'query' => ['page' => ['2'], 'tag' => ['x y']],
+            'form' => ['name' => ['Wérner'], 'likes' => ['php', 'gaz'], 'note' => ['a b+c']],
+        ], json_decode($response['body'], true));
+        // A request that isn't a form is the handler's error, so a 500
+        $this->assertSame(500, self::get('/decoded')['status']);
+    }
+
     public function test_a_chunked_body_is_put_back_together()
     {
         $response = self::exchange("PUT /echo HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n5;ext=1\r\nhello\r\n7\r\n, world\r\n0\r\nTrailer: skipped\r\n\r\n");

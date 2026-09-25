@@ -831,6 +831,18 @@ as in a response; the path and query are as the client sent them, not decoded.
 - It returns when its worker is asked to stop, after answering the request in hand.
 - `http::http_date(time())` is a time as HTTP writes one: `Sat, 08 Aug 2026 14:02:09 GMT`.
 
+Decoding what a request carries, when a handler asks:
+
+- `http::query($request)` is the query string as a map of strings (`?page=2&q=a+b` is
+  `{"page" => "2", "q" => "a b"}`), and `http::form($request)` a form body the same way. A key
+  given twice keeps its last value; `http::query_all()` and `http::form_all()` give every value, a
+  list for each key. `+` is a space in both, as HTML forms send it.
+- `http::form()` needs the request's Content-Type to be `application/x-www-form-urlencoded`, and
+  is an error otherwise.
+- `http::url_decode($text)` undoes percent-escapes (`%20` is a space, and `+` stays `+`), and a
+  `%` without two hex digits after it is an error: `bad percent-escape "%zz" at 3`.
+  `http::url_encode($text)` escapes everything but letters, digits and `- . _ ~`.
+
 ```
 include "std/http.gaz";
 

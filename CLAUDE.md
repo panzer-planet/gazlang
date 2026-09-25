@@ -237,7 +237,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   install it, get a first program working and trust it; not by what would win many users
   (Windows, a registry, an LSP and a playground wait for someone to ask).
 - **Milestone 0.1, the first release**, is what that stranger needs, in this order:
-  1. **Web essentials**: request decoding (percent-escapes, query strings, form bodies), the
+  1. **Web essentials**: request decoding (done), the
      router ("Serving HTTP" has its design), and templates that escape by default, which want
      their own design round first (syntax, how one includes another, whether they compile to
      GazLang functions). Then cookies, static files and uploads as the apps written on it ask.
@@ -362,6 +362,17 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - **A request has a deadline** (`"request_timeout"`, 30s, a 408) as well as the per-read
     `"timeout"`, which alone let a client trickling a byte every few seconds hold a worker for hours.
     `Reader` checks it before each read, so it can overrun by one read's timeout.
+  - **Decoding a request is asked for, not done for every request**: `http::query($request)`
+    and `http::form($request)` give maps of strings, a key given twice keeping its last value, so
+    a handler never checks a value's type; `query_all()`/`form_all()` give every value as a list
+    (Go's `Get` against the full list, not PHP's `tag[]` convention, where a key's type would
+    depend on what the client sent). `+` is a space only there, as HTML forms send it:
+    `url_decode()` is RFC 3986's, where `+` is itself. A bad escape (`%zz`, a `%` at the end) is
+    an error naming it, not passed through as PHP and browsers do, so a mangled value can't
+    arrive looking valid; a handler that doesn't catch it answers 500. `form()` refuses a body
+    whose Content-Type isn't `application/x-www-form-urlencoded` rather than giving `{}`.
+    Pieces split as the WHATWG parser splits them (empty ones skipped, no `=` is a value of
+    `""`). Tested by `tests/gaz/lib/http_decode_test.gaz`, and end to end by `HttpServerTest`.
   - `ponytail:` no keep-alive; writing a response has only the per-write timeout; the stop grace
     is fixed; while workers drain, new connections queue in the listener's backlog (the master
     holds it too) and are reset when the program ends, where closing the listeners first would
@@ -381,8 +392,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
       compiler file; a builtin takes its name from every program, so the name is the question.
     - Measure it (requests a second against PHP's built-in server and `php-fpm` behind nginx)
       before any tuning; nothing has been timed yet.
-    - URL decoding (`%20`, `+` in a query) and `application/x-www-form-urlencoded` bodies into
-      maps, a repeated key's values a list; HTML escaping for writing pages; static files
+    - HTML escaping for writing pages (with the templates of milestone 0.1); static files
       (`read_file()` and a content-type table, refusing `..` in the path); cookies (parse `Cookie`,
       write `Set-Cookie` with `HttpOnly`/`Secure`/`SameSite`); an access log line per request
       (`http::http_date(time())`, method, path, status, bytes, `monotonic_time()` for how long).

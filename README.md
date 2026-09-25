@@ -429,7 +429,7 @@ echo json::encode({"ok" => true});
 | --- | --- |
 | `std/json.gaz` | `json::decode` and `json::encode`, matching PHP's `json_decode` on the JSON test suite; an object is written as its `to_json()` |
 | `std/csv.gaz` | `csv::parse` (RFC 4180, quotes and line breaks in fields) and `csv::records`, rows as maps by header |
-| `std/http.gaz` | An HTTP/1.1 client, `http::get`/`post`/`request` with https, redirects and chunked bodies; and a server, `http::serve($listener, $handler)`, which turns away malformed requests before your handler sees them |
+| `std/http.gaz` | An HTTP/1.1 client, `http::get`/`post`/`request` with https, redirects and chunked bodies; and a server, `http::serve($listener, $handler)`, which turns away malformed requests before your handler sees them, with `http::query` and `http::form` to decode what they carry |
 | `std/db.gaz` | `db::open("sqlite:app.db")` or `postgres://...`, then `query`, `row`, `value`, `exec` and `transaction`, parameters always bound |
 | `std/regex.gaz` | `regex::matches`, `search`, `find`, `groups` and `replace`: classes, ranges, anchors, alternation, capture groups, and matching in linear time |
 | `std/date.gaz` | Calendar dates as day numbers: `date::days(2026, 8, 8)`, weekdays, adding months, `date::format` |
