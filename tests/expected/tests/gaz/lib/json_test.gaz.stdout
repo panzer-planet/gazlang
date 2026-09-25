@@ -34,4 +34,11 @@ ok decode undoes encode
 ok encode undoes decode for compact JSON
 ok encoding a function is an error
 ok encoding a kind is an error
-ok encoding an object is an error
+ok an object without to_json() is an error that names it
+ok an object is written as its to_json()
+ok inside lists and maps too
+ok the same object twice is fine: only one inside itself is not
+ok and from_json() is how a kind reads itself back
+ok an object inside its own to_json() is an error, not a loop
+ok to_json() may give another object, which is written as its own
+ok a to_json() that gives objects for ever runs out of calls, as any recursion does

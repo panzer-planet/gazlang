@@ -162,7 +162,7 @@ pub abstract kind Player {
 
     // What a saved career keeps of a player: who they are and what they have done, not how
     // they feel today, which the next match works out afresh
-    pub fn to_data() {
+    pub fn to_json() {
         return {
             "position" => #position(), "name" => #name, "rating" => #rating, "number" => #number,
             "age" => #age, "birthday" => #birthday, "contract" => #contract_until, "career_goals" => #career_goals, "goals" => #goals, "clean_sheets" => #clean_sheets,
@@ -214,8 +214,8 @@ pub fn days_text($days) {
     return intdiv($days + 3, 7) .. " weeks";
 }
 
-// A player back from to_data()
-pub fn from_data($data) {
+// A player back from to_json()
+pub fn from_json($data) {
     $kind = match ($data["position"]) {
         "GK" => Goalkeeper,
         "DF" => Defender,

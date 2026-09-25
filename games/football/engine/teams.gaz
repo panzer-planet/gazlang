@@ -414,11 +414,11 @@ pub kind Team {
     }
 
     // What a saved career keeps of a club
-    pub fn to_data() {
+    pub fn to_json() {
         return {
             "name" => #name, "preferred" => #preferred, "balance" => #balance,
             "mentality" => #mentality, "intensity" => #intensity,
-            "players" => map(#players, $player -> $player.to_data()),
+            "players" => map(#players, $player -> $player.to_json()),
             "eleven" => map(#xi, $player -> $player.number),
         };
     }
@@ -426,9 +426,9 @@ pub kind Team {
     pub fn to_string() { return #name; }
 }
 
-// A club back from to_data()
-pub fn from_data($data) {
-    $squad = map($data["players"], players::from_data);
+// A club back from to_json()
+pub fn from_json($data) {
+    $squad = map($data["players"], players::from_json);
     $eleven = map($data["eleven"], $number -> filter($squad, $player -> $player.number == $number)[0]);
     $team = Team($data["name"], $squad, null, $data["preferred"]);
     $team.restore($eleven);

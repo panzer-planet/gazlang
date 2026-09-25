@@ -229,32 +229,32 @@ pub kind Game {
     }
 
     /* What a save file keeps: everything the game is, as data */
-    pub fn to_data() {
+    pub fn to_json() {
         return {
             "game" => "football", "version" => 4, "season" => #season, "date" => #date, "club" => #club.name, "level" => #level,
             "names" => #scout.names(),
-            "teams" => map(#teams, $team -> $team.to_data()),
-            "other_teams" => map(#other_teams, $team -> $team.to_data()),
-            "league" => #league.to_data(),
-            "cup" => #cup.to_data(),
-            "other_league" => #other_league.to_data(),
+            "teams" => map(#teams, $team -> $team.to_json()),
+            "other_teams" => map(#other_teams, $team -> $team.to_json()),
+            "league" => #league.to_json(),
+            "cup" => #cup.to_json(),
+            "other_league" => #other_league.to_json(),
             "inbox" => #inbox, "ledger" => #ledger,
         };
     }
 
-    /* A game back from to_data() */
-    pub static fn from_data($data) {
-        $teams = map($data["teams"], teams::from_data);
+    /* A game back from to_json() */
+    pub static fn from_json($data) {
+        $teams = map($data["teams"], teams::from_json);
         $club = filter($teams, $team -> $team.name == $data["club"])[0];
         $scout = Scout();
         $scout.take($data["names"]);
-        $others = map($data["other_teams"], teams::from_data);
+        $others = map($data["other_teams"], teams::from_json);
         $game = Game($teams, $club, $scout, $others, $data["level"]);
         $game.season = $data["season"];
         $game.date = $data["date"];
-        $game.league = League::from_data($data["league"], $teams);
-        $game.other_league = League::from_data($data["other_league"], $others);
-        $game.cup = Cup::from_data($data["cup"], [...$teams, ...$others]);
+        $game.league = League::from_json($data["league"], $teams);
+        $game.other_league = League::from_json($data["other_league"], $others);
+        $game.cup = Cup::from_json($data["cup"], [...$teams, ...$others]);
         $game.inbox = $data["inbox"];
         $game.ledger = $data["ledger"];
 
@@ -267,7 +267,7 @@ pub kind Game {
             return "Finish the match before saving";
         }
         try {
-            write_file($path, json::encode(#to_data()) .. "\n");
+            write_file($path, json::encode(#to_json()) .. "\n");
         } catch (Error $e) {
             return "Couldn't save to {$path}: {$e.message}";
         }
@@ -286,7 +286,7 @@ pub kind Game {
                 error("{$path} is not a saved football game");
             }
 
-            return Game::from_data($data);
+            return Game::from_json($data);
         } catch (Error $e) {
             error("{$path} is not a saved game: {$e.message}");
         }

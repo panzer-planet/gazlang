@@ -227,7 +227,7 @@ pub kind Cup {
     }
 
     // What a saved game keeps of the cup: who is still in, and every tie played
-    pub fn to_data() {
+    pub fn to_json() {
         return {
             "name" => #name, "dates" => #dates, "alive" => map(#alive, $team -> $team.name),
             "champion" => #champion?.name,
@@ -235,8 +235,8 @@ pub kind Cup {
         };
     }
 
-    // A cup back from to_data(), over the same clubs, given as they were in order at the start
-    pub static fn from_data($data, $teams) {
+    // A cup back from to_json(), over the same clubs, given as they were in order at the start
+    pub static fn from_json($data, $teams) {
         $by_name = {};
         foreach ($teams as $team) {
             $by_name[$team.name] = $team;

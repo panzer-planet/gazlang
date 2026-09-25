@@ -15,6 +15,13 @@
 // Encoding writes compact JSON: a list is a JSON array and a map an object, with int keys
 // written as strings. Strings are written as UTF-8, escaping only what JSON requires, and
 // floats keep their exact digits (1.0, 0.30000000000000004, 1.0E+25).
+//
+// An object is written as what its pub to_json() returns, which is a value to encode (a map, say),
+// not JSON text, and may hold objects itself; one without it is an error ("Team has no member
+// to_json"), and so is one that comes back inside its own. The kind decides what escapes it, so
+// nothing private is written by accident. Decoding gives maps, never objects: a kind that can be
+// read back has a static from_json($data) by convention, which can set its private fields and
+// check them, and a document never gets to choose which kinds are built.
 
 namespace json;
 
@@ -25,6 +32,12 @@ pub fn decode($text) {
 }
 
 pub fn encode($value) {
+    return write($value, {});
+}
+
+// $open holds the object_id() of each object being written around this value, so an object that
+// comes back inside its own to_json() is an error rather than a loop until the calls run out
+fn write($value, $open) {
     $type = type_of($value);
     if ($type == "string") {
         return encode_string($value);
@@ -33,7 +46,12 @@ pub fn encode($value) {
         error("Cannot encode a {$type} as JSON");
     }
     if ($type == "object") {
-        error("Cannot encode an object as JSON");
+        $id = object_id($value);
+        if (has_key($open, $id)) {
+            error("Cannot encode " .. slice(to_string(kind_of($value)), 5) .. " as JSON: its to_json() comes back to itself");
+        }
+        $open[$id] = true;
+        return write($value.to_json(), $open);
     }
     if ($type != "list" && $type != "map") {
         // null, true, false, ints and floats are already written the way JSON writes them
@@ -43,12 +61,12 @@ pub fn encode($value) {
     $parts = [];
     if ($type == "list") {
         foreach ($value as $item) {
-            $parts[] = encode($item);
+            $parts[] = write($item, $open);
         }
         return "[" .. join($parts, ",") .. "]";
     }
     foreach ($value as $key => $item) {
-        $parts[] = encode_string(to_string($key)) .. ":" .. encode($item);
+        $parts[] = encode_string(to_string($key)) .. ":" .. write($item, $open);
     }
     return "{" .. join($parts, ",") .. "}";
 }

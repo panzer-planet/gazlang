@@ -105,7 +105,7 @@ pub kind League {
     }
 
     /* What a saved game keeps of the season: the fixtures by club name, the results, the table's counts */
-    pub fn to_data() {
+    pub fn to_json() {
         return {
             "dates" => #dates,
             "schedule" => map(#schedule, $day -> map($day, $pair -> [$pair[0].name, $pair[1].name])),
@@ -114,8 +114,8 @@ pub kind League {
         };
     }
 
-    /* A season back from to_data(), over the same clubs */
-    pub static fn from_data($data, $teams) {
+    /* A season back from to_json(), over the same clubs */
+    pub static fn from_json($data, $teams) {
         $by_name = {};
         foreach ($teams as $team) {
             $by_name[$team.name] = $team;

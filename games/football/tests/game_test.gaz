@@ -510,7 +510,7 @@ $game.buy(filter($game.market(), $o -> $o[0].position() == "FW")[0][0]);
 $game.set_mentality(4);
 check("saving gives nothing to say", $game.save($path), "");
 $loaded = Game::load($path);
-check("a saved game loads as the same game", $loaded.to_data() == $game.to_data(), true);
+check("a saved game loads as the same game", $loaded.to_json() == $game.to_json(), true);
 check("the table, the results, the inbox and the books carry over", [
     map($loaded.league.table(), $s -> $s.to_string()) == map($game.league.table(), $s -> $s.to_string()),
     $loaded.league.matchdays_played(), len($loaded.inbox), len($loaded.ledger), $loaded.club.mentality,
@@ -670,7 +670,7 @@ while (!$game.season_over()) {
 }
 $game.save($saved);
 $again = Game::load($saved);
-check("a game saved between seasons keeps both divisions", [$again.level, map($again.teams, $t -> $t.name) == map($game.teams, $t -> $t.name), map($again.other_teams, $t -> $t.name) == map($game.other_teams, $t -> $t.name), $again.other_league.matchdays_played(), $again.to_data() == $game.to_data()], [$game.level, true, true, $game.other_league.matchdays(), true]);
+check("a game saved between seasons keeps both divisions", [$again.level, map($again.teams, $t -> $t.name) == map($game.teams, $t -> $t.name), map($again.other_teams, $t -> $t.name) == map($game.other_teams, $t -> $t.name), $again.other_league.matchdays_played(), $again.to_json() == $game.to_json()], [$game.level, true, true, $game.other_league.matchdays(), true]);
 run(["rm", "-f", $saved]);
 $game.new_season();
 for ($year = 0; $year < 3; $year++) {
@@ -840,7 +840,7 @@ $game.advance();
 $game.save("vm/build/football_date.save");
 $again = Game::load("vm/build/football_date.save");
 run(["rm", "-f", "vm/build/football_date.save"]);
-check("a saved game keeps its date and its fixtures' dates", [$again.date, $again.league.dates == $game.league.dates, $again.other_league.dates == $game.other_league.dates, $again.club.players[3].birthday, $again.to_data() == $game.to_data()], [$game.date, true, true, $game.club.players[3].birthday, true]);
+check("a saved game keeps its date and its fixtures' dates", [$again.date, $again.league.dates == $game.league.dates, $again.other_league.dates == $game.other_league.dates, $again.club.players[3].birthday, $again.to_json() == $game.to_json()], [$game.date, true, true, $game.club.players[3].birthday, true]);
 
 /* the clubs do business in January too, as in the summer */
 $january_deals = 0;
@@ -1054,7 +1054,7 @@ while ($game.date < date::days(2026, 11, 10)) {
 $game.save("vm/build/football_cup.save");
 $again = Game::load("vm/build/football_cup.save");
 run(["rm", "-f", "vm/build/football_cup.save"]);
-check("a saved game keeps the cup: the rounds played, who is in, the dates", [len($again.cup.rounds), $again.cup.dates == $game.cup.dates, count_where($again.everyone(), $t -> $again.cup.is_in($t)), $again.to_data() == $game.to_data()], [len($game.cup.rounds), true, count_where($game.everyone(), $t -> $game.cup.is_in($t)), true]);
+check("a saved game keeps the cup: the rounds played, who is in, the dates", [len($again.cup.rounds), $again.cup.dates == $game.cup.dates, count_where($again.everyone(), $t -> $again.cup.is_in($t)), $again.to_json() == $game.to_json()], [len($game.cup.rounds), true, count_where($game.everyone(), $t -> $game.cup.is_in($t)), true]);
 $loaded_cup = $again.cup;
 while (!$loaded_cup.finished()) {
     $again.advance();

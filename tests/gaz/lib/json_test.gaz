@@ -58,7 +58,7 @@ try {
     check("encoding a function is an error", $e.message, "Cannot encode a function as JSON");
 }
 
-// Nor do kinds and objects
+// Nor do kinds, or objects without a to_json()
 kind Point { #x = 1; }
 try {
     json::encode({"p" => Point});
@@ -70,5 +70,45 @@ try {
     json::encode([Point()]);
     echo "FAIL encoding an object";
 } catch ($e) {
-    check("encoding an object is an error", $e.message, "Cannot encode an object as JSON");
+    check("an object without to_json() is an error that names it", $e.message, "Point has no member to_json");
+}
+
+// An object is what its to_json() gives, which may hold objects; private fields stay private
+kind User {
+    #password_hash = "secret";
+    fn _(pub #name, pub #friends = []) {}
+    pub fn to_json() { return {"name" => #name, "friends" => #friends}; }
+    pub static fn from_json($data) { return User($data["name"], map($data["friends"], User::from_json)); }
+}
+$ann = User("ann", [User("bob")]);
+check("an object is written as its to_json()", json::encode($ann), '{"name":"ann","friends":[{"name":"bob","friends":[]}]}');
+check("inside lists and maps too", json::encode({"users" => [$ann.friends[0]]}), '{"users":[{"name":"bob","friends":[]}]}');
+check("the same object twice is fine: only one inside itself is not", json::encode([$ann.friends[0], $ann.friends[0]]), '[{"name":"bob","friends":[]},{"name":"bob","friends":[]}]');
+$back = User::from_json(json::decode(json::encode($ann)));
+check("and from_json() is how a kind reads itself back", [$back.name, $back.friends[0].name, kind_of($back.friends[0]) == User], ["ann", "bob", true]);
+
+kind Loop {
+    pub #next = null;
+    pub fn to_json() { return {"next" => #next}; }
+}
+$a = Loop();
+$b = Loop();
+$a.next = $b;
+$b.next = $a;
+try {
+    json::encode($a);
+    echo "FAIL encoding a cycle";
+} catch ($e) {
+    check("an object inside its own to_json() is an error, not a loop", $e.message, "Cannot encode Loop as JSON: its to_json() comes back to itself");
+}
+
+kind Mirror {
+    pub fn to_json() { return Mirror(); }
+}
+check("to_json() may give another object, which is written as its own", json::encode(Loop()), '{"next":null}');
+try {
+    json::encode(Mirror());
+    echo "FAIL a to_json() that never ends";
+} catch (Error $e) {
+    check("a to_json() that gives objects for ever runs out of calls, as any recursion does", starts_with($e.message, "Maximum call depth"), true);
 }

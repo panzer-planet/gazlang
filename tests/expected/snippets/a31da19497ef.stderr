@@ -1,9 +1,9 @@
 Error: Invalid JSON: expected four hex digits after \u at position 5
-  json::Reader.fail at lib/json.gaz:83
-  json::Reader.parse_hex4 at lib/json.gaz:286
-  json::Reader.parse_escape at lib/json.gaz:257
-  json::Reader.parse_string at lib/json.gaz:231
-  json::Reader.parse_value at lib/json.gaz:110
-  json::Reader.parse at lib/json.gaz:73
-  json::decode at lib/json.gaz:24
+  json::Reader.fail at lib/json.gaz:101
+  json::Reader.parse_hex4 at lib/json.gaz:304
+  json::Reader.parse_escape at lib/json.gaz:275
+  json::Reader.parse_string at lib/json.gaz:249
+  json::Reader.parse_value at lib/json.gaz:128
+  json::Reader.parse at lib/json.gaz:91
+  json::decode at lib/json.gaz:31
   top level on line 1

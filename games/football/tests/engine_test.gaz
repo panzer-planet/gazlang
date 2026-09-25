@@ -947,7 +947,7 @@ $player.career_goals = 9;
 $player.injured = 2;
 $player.suspended = 1;
 $player.season_yellows = 4;
-$copy = players::from_data($player.to_data());
+$copy = players::from_json($player.to_json());
 check("a player is saved with what he has done and what keeps him out", [$copy.position(), $copy.rating, $copy.number, $copy.age, $copy.goals, $copy.clean_sheets, $copy.career_goals, $copy.injured, $copy.suspended, $copy.season_yellows], ["DF", 71, 4, 27, 3, 5, 9, 2, 1, 4]);
 $match = Fixture::played($home, $away, 3, 1);
 check("a match played in a saved game is its score", [$match.finished(), $match.home_goals, $match.away_goals, to_string($match)], [true, 3, 1, "{$home} 3 - 1 {$away}"]);
@@ -956,11 +956,11 @@ $table_league = League($four);
 $table_league.draw();
 $table_league.play_matchday();
 $table_league.play_matchday();
-$data = $table_league.to_data();
-$again = League::from_data($data, $four);
+$data = $table_league.to_json();
+$again = League::from_json($data, $four);
 check("a league saved mid-season comes back: same table, same fixtures, same results", [
     map($again.table(), $s -> $s.to_string()) == map($table_league.table(), $s -> $s.to_string()),
-    $again.matchdays_played(), $again.matchdays(), $again.to_data() == $data,
+    $again.matchdays_played(), $again.matchdays(), $again.to_json() == $data,
 ], [true, 2, 6, true]);
 $again.play_matchday();
 check("and plays on", $again.matchdays_played(), 3);
@@ -993,7 +993,7 @@ foreach (filter($home.players, $p -> $p.position() == "GK") as $k) {
 }
 $home.prepare();
 $home.finish();
-$again = teams::from_data($home.to_data());
+$again = teams::from_json($home.to_json());
 check("a side with no fit goalkeeper is saved and loaded as it is", [len($again.eleven()), count_where_kind($again.eleven(), "GK")], [11, 0]);
 $fit = clubs(2, 44)[0];
 try {
@@ -1036,7 +1036,7 @@ $home.finish();
 foreach (filter($home.players, $p -> $p.position() == "GK") as $k) {
     $k.recover();
 }
-$loaded = teams::from_data($home.to_data());
+$loaded = teams::from_json($home.to_json());
 check("a side saved with a stand-in in goal after its goalkeepers are fit again loads, and the next match puts a goalkeeper back", [count_where_kind($loaded.eleven(), "GK"), count_where_kind($loaded.eleven(), "GK") + len($loaded.prepare()) > 0 ? count_where_kind($loaded.eleven(), "GK") : -1], [0, 1]);
 $doubled = filter($away.players, $p -> $p.position() == "GK");
 try {
@@ -1091,7 +1091,7 @@ for ($i = 0; $i < 5; $i++) {
     $dated.play_matchday();
 }
 check("and none when it is over", [$dated.matchdays_left(), $dated.next_date()], [0, null]);
-$restored = League::from_data($dated.to_data(), $four);
+$restored = League::from_json($dated.to_json(), $four);
 check("the dates are saved", $restored.dates, [100, 107, 114, 121, 128, 135]);
 
 /* ---- Birthdays ---- */
@@ -1115,7 +1115,7 @@ $aged = Defender("Old", 60, 4);
 $aged.age = 30;
 $aged.celebrate();
 check("a birthday is a year older, and nothing else", [$aged.age, $aged.rating], [31, 60]);
-$copy = players::from_data($aged.to_data());
+$copy = players::from_json($aged.to_json());
 check("the birthday is saved", $copy.birthday, $aged.birthday);
 
 /* ---- Injuries heal with the days ---- */
@@ -1142,7 +1142,7 @@ check("a contract made in July for one year ends the next 30 June; from June, th
 check("the day contracts run out", date::format(calendar::expiry_day(2027)), "Wed 30 Jun 2027");
 $signed = Midfielder("C", 70, 8);
 $signed.contract_until = date::days(2029, 6, 30);
-check("a contract is saved", players::from_data($signed.to_data()).contract_until, date::days(2029, 6, 30));
+check("a contract is saved", players::from_json($signed.to_json()).contract_until, date::days(2029, 6, 30));
 $star = Forward("S", 80, 9);
 check("a club asks a third over his value, and half of that once his contract has six months to run", [money::price_with_contract($star, 400), money::price_with_contract($star, 184), money::price_with_contract($star, 183), money::price_with_contract($star, 0)], [money::price($star), money::price($star), intdiv(money::price($star), 2), intdiv(money::price($star), 2)]);
 check("renewing costs a sixteenth of his value", money::renewal_fee($star), intdiv(money::value($star), 16));
@@ -1232,10 +1232,10 @@ foreach ($matches as $match) {
     $match.play();
 }
 $mid.end_round($matches);
-$restored = Cup::from_data($mid.to_data(), reverse(clubs(20, 94)));
-check("a cup saved between rounds comes back: the rounds played, who is in, the dates", [len($restored.rounds), map($restored.rounds[0][1], $t -> to_string($t)) == map($mid.rounds[0][1], $t -> to_string($t)), $restored.dates == $mid.dates, $restored.round_name(), $restored.champion, $restored.to_data() == $mid.to_data()], [1, true, true, $mid.round_name(), null, true]);
+$restored = Cup::from_json($mid.to_json(), reverse(clubs(20, 94)));
+check("a cup saved between rounds comes back: the rounds played, who is in, the dates", [len($restored.rounds), map($restored.rounds[0][1], $t -> to_string($t)) == map($mid.rounds[0][1], $t -> to_string($t)), $restored.dates == $mid.dates, $restored.round_name(), $restored.champion, $restored.to_json() == $mid.to_json()], [1, true, true, $mid.round_name(), null, true]);
 $mid.play_out();
-check("and a finished cup has its champion saved", [Cup::from_data($mid.to_data(), reverse(clubs(20, 94))).champion != null], [true]);
+check("and a finished cup has its champion saved", [Cup::from_json($mid.to_json(), reverse(clubs(20, 94))).champion != null], [true]);
 check("a cup's prizes by round", [money::cup_prize(0), money::cup_prize(5), money::cup_prize(2) > money::cup_prize(1), money::cup_prize(9)], [100000, 1500000, true, 1500000]);
 
 /* ---- The cup's calendar ---- */

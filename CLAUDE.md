@@ -275,16 +275,13 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     their cost against refcounting.
   - A private field can't be set from outside its kind, so restoring saved state (a played match's
     score, a league's fixtures) takes a static factory written in the kind (`Fixture::played()`,
-    `League::from_data()`); there is no way to construct an object with some fields already set.
+    `League::from_json()`); there is no way to construct an object with some fields already set.
   - `split($x, $sep)` has no limit: it always splits on every occurrence, so keeping the
     trailing remainder together (`"a=b=c"` split on `"="` into `["a", "b=c"]`) needs
     `index_of` and two `slice`s instead of a third argument.
-  - `$obj.$name` (dynamic member access; `lib/sorting.gaz` can sort maps but not objects),
-    `json_encode` of an object (`fields()` lists what it would write; `to_string()` and cycles
-    to settle; `tests/programs/football.gaz`'s save hit it and writes `to_data()` by hand; the
-    likeliest fix is a callback, `json::encode($value, $o -> $o.to_data())`, GazLang only and
-    leaking nothing private, since a kind rebuilds itself with its own `from_data()` anyway), and `kind_name($kind)` (the bare name; today `slice(to_string(kind_of($x)),
-    5)`).
+  - `$obj.$name` (dynamic member access; `lib/sorting.gaz` can sort maps but not objects), and
+    `kind_name($kind)` (the bare name; today `slice(to_string(kind_of($x)), 5)`, which
+    `json.gaz` uses too).
   - `kind_of` is strict, so a pass over a tree with absent children needs a `type_of` check
     first; if that recurs, make it lenient.
   - Scanning bytes: `$s[$i]` makes a one-byte string (shared in C) and there is no `byte_at` or
@@ -918,7 +915,19 @@ $area = $c.area;                              // a bound method
 - **`to_string()` is the one protocol method**, used by echo, `..`, interpolation and `join`,
   also inside lists and maps; it must return a string and take no arguments. Without one an
   object prints as `Account {#owner => "Werner", #balance => 75}`, and one already being printed
-  as `Account {...}`. `json_encode` refuses kinds, objects and functions.
+  as `Account {...}`.
+- **`json::encode` writes an object as what its `pub fn to_json()` returns** (a value to encode,
+  not JSON text), recursively, and `json::decode` only ever gives maps and lists: a kind that can be
+  read back has a `static fn from_json($data)` by convention, which nothing calls for it. A
+  protocol, like `to_string()`, rather than a callback at each call (every caller would have to
+  remember it) or writing `fields()` (which shows private fields on purpose, so an API would leak
+  a password hash the day someone returns the object, and would duplicate shared references).
+  Decoding into kinds by type tags is refused for good: a document choosing which kinds are built
+  is PHP's `unserialize` object injection. A missing `to_json()` is the runtime's own `Team has no
+  member to_json`; an object inside its own is an error by `object_id()`, not a loop. Kinds and
+  functions are still refused. GazLang only (`lib/json.gaz`). A `to_json()` whose data must also
+  compare with `==` or round-trip without JSON (the football game's tests do both) returns plain
+  data all the way down rather than leaving nested objects to the encoder.
 
 ## match
 

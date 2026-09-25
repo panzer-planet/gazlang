@@ -1,7 +1,7 @@
 Error: Invalid JSON: expected a string key but found "a" at position 1
-  json::Reader.fail at lib/json.gaz:83
-  json::Reader.parse_object at lib/json.gaz:185
-  json::Reader.parse_value at lib/json.gaz:104
-  json::Reader.parse at lib/json.gaz:73
-  json::decode at lib/json.gaz:24
+  json::Reader.fail at lib/json.gaz:101
+  json::Reader.parse_object at lib/json.gaz:203
+  json::Reader.parse_value at lib/json.gaz:122
+  json::Reader.parse at lib/json.gaz:91
+  json::decode at lib/json.gaz:31
   top level on line 1

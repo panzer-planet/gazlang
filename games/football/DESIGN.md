@@ -75,7 +75,7 @@ A launcher smoke test runs the real thing on a pty. See `README.md`.
    and contracts (running out on 30 June, renewed for a fee) are in. Not yet: wages that follow the
    contract (they still follow value), free agents, bids the other side can refuse.
    Not yet: contracts, a transfer window you can use, bids the other side can refuse.
-8. **Saving** *(done)*: `Game.to_data`/`from_data`, JSON, any time between matchdays.
+8. **Saving** *(done)*: `Game.to_json`/`from_json`, JSON, any time between matchdays.
 
 ## Slices, in order
 
