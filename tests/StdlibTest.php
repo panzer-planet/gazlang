@@ -500,6 +500,15 @@ class StdlibTest extends GazLangTestCase
         $this->executeCode('write_file("out.txt", [1]);');
     }
 
+    public function test_getenv_gives_the_environments_value()
+    {
+        // Not a snippet: the value is this test's, so the C VM's harness couldn't record it
+        $this->assertSame(
+            "a b=c\nnull\n",
+            self::succeed([], 'echo getenv("GAZLANG_TEST_VALUE"); echo getenv("GAZLANG_TEST_NOT_SET");', ['GAZLANG_TEST_VALUE' => 'a b=c'])
+        );
+    }
+
     public function test_read_stdin()
     {
         $this->assertSame([['[two', 'lines]', '0'], 0], self::cli(['-f', 'tests/fixtures/read_stdin.gaz'], "two\nlines"));

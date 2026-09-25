@@ -25,3 +25,35 @@ $now = time();
 check("time() is an int", type_of($now), "int");
 check("after 2026 began and before 2100", $now > 1767225600 && $now < 4102444800, true);
 check("and doesn't go back in a moment", time() >= $now, true);
+
+/* sleep(): at least as long as it was asked for, and not a lot longer */
+$before = monotonic_time();
+check("sleep() gives null", sleep(0.05), null);
+$slept = monotonic_time() - $before;
+check("sleep(0.05) waits that long", $slept >= 0.05, true);
+check("and not a second", $slept < 1, true);
+check("sleep(0) and an int", [sleep(0), sleep(1 - 1)], [null, null]);
+$errors = [];
+foreach ([-1, -0.5, "1", null] as $bad) {
+    try {
+        sleep($bad);
+    } catch (Error $e) {
+        $errors[] = $e.message;
+    }
+}
+check("sleep() takes 0 seconds or more", $errors, [
+    "sleep() expects 0 seconds or more, got -1",
+    "sleep() expects 0 seconds or more, got -0.5",
+    "sleep() expects int or float, got string",
+    "sleep() expects int or float, got null",
+]);
+
+/* getenv(): a string, or null for a name that isn't set (StdlibTest checks a value it sets) */
+check("PATH is a string", type_of(getenv("PATH")), "string");
+check("a name not set is null", getenv("GAZLANG_NOT_SET_ANYWHERE"), null);
+check("nor is the empty name", getenv(""), null);
+try {
+    getenv("PA\0TH");
+} catch (Error $e) {
+    check("a NUL byte is a mistake", $e.message, "getenv() expects a name without a NUL byte");
+}

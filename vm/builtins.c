@@ -49,6 +49,7 @@ const BuiltinInfo builtin_info[] = {
     {"db_open", 1, 1}, {"db_run", 2, 3}, {"db_close", 1, 1},
     {"socket_listen", 2, 3}, {"socket_accept", 1, 2}, {"socket_port", 1, 1}, {"workers", 1, 1},
     {"time", 0, 0}, {"kind_name", 1, 1}, {"sqrt", 1, 1},
+    {"getenv", 1, 1}, {"sleep", 1, 1},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -65,6 +66,7 @@ enum {
     B_DB_OPEN, B_DB_RUN, B_DB_CLOSE,
     B_SOCKET_LISTEN, B_SOCKET_ACCEPT, B_SOCKET_PORT, B_WORKERS,
     B_TIME, B_KIND_NAME, B_SQRT,
+    B_GETENV, B_SLEEP,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -1189,6 +1191,37 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
            so monotonic_time() is what measures how long something took */
         *out = v_int((int64_t)time(NULL));
         return true;
+    case B_GETENV: {
+        /* A name with a NUL byte is a mistake rather than one that isn't set: no name can hold one */
+        if (!want(index, a, STRING)) return false;
+        if (memchr(a.s->data, '\0', a.s->len)) return raisef("getenv() expects a name without a NUL byte");
+        const char *value = getenv(a.s->data);
+        *out = value ? v_str(str_cstr(value)) : v_null();
+        return true;
+    }
+    case B_SLEEP: {
+        /* Output is flushed first, so what was printed before the pause is on the screen during it */
+        if (!want(index, a, INT | M(T_FLOAT))) return false;
+        double seconds = a.type == T_INT ? (double)a.i : a.f;
+        if (seconds < 0) {
+            Buf m = {0};
+            append_string(a, &m);
+            raisef("sleep() expects 0 seconds or more, got %s", m.data);
+            free(m.data);
+            return false;
+        }
+        flush_output();
+        /* A day at a time, so any finite number of seconds fits a timespec; a signal that
+           interrupts it (a worker being stopped) doesn't cut it short */
+        while (seconds > 0) {
+            double step = seconds < 86400 ? seconds : 86400;
+            struct timespec wait = {(time_t)step, (long)((step - floor(step)) * 1e9)}, left;
+            while (nanosleep(&wait, &left) != 0 && errno == EINTR) wait = left;
+            seconds -= step;
+        }
+        *out = v_null();
+        return true;
+    }
     case B_DB_OPEN:
         if (!want(index, a, STRING)) return false;
         return db_open(a.s, out);

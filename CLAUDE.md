@@ -256,8 +256,9 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     saved in `vm/build/fuzz/` and shrunk, a minute in a run and to the end with
     `--shrink FILE`. A try costs about 0.1s of the sanitized build's start-up, whatever the
     program, which is why shrinking takes the time, not the run.
-  - **Nothing opens a socket, starts a program, exits or writes a file**: a program naming
-    `run`, `exit`, `workers`, `write_file`, `read_stdin` or a `socket_` builtin is skipped, an included
+  - **Nothing opens a socket, starts a program, exits, waits or writes a file**: a program naming
+    `run`, `exit`, `workers`, `write_file`, `read_stdin`, `sleep`, `getenv` or a `socket_` builtin
+    is skipped (`getenv` since what it gives isn't the seed's), an included
     file's text included, which is sound because a builtin is reached only by its name.
   - **Break it before believing it**: a missing `decref` in `delete` and a read past a string
     in `reverse`, planted in turn, were both found within 700 programs. The first also showed
@@ -685,6 +686,11 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   and logs. A program that prints it can't be recorded, so it is tested by type and range and by
   `HttpServerTest` against PHP's clock; `date.gaz` still keeps no clock (`intdiv(time(), 86400)` is
   today in UTC), so a game keeps its own date.
+- `sleep($seconds)`: an int or float of 0 or more, `nanosleep()` a day at a time (any finite float
+  fits) and carrying on after a signal; it flushes output first, as `term_read` does, since a
+  program that sleeps is showing progress. `getenv($name)`: a string or null; a NUL byte in the
+  name is an error rather than null, being a mistake. Both are tested by shape (`time_test.gaz`)
+  and `getenv`'s value by `StdlibTest` setting one, since neither can be recorded.
 - The terminal (`term.c`): `term_raw($on)`, `term_read($timeout = null)`, `term_size()`,
   `term_is_tty($stream)`, only what GazLang can't do itself; drawing is escape sequences through
   `print` and turning bytes into keys is GazLang's (`lib/term.gaz`), so the rules are written out

@@ -444,10 +444,10 @@ And built into the language, with no include:
 | Builtins | |
 | --- | --- |
 | Strings, lists and maps | `len`, `slice`, `split`, `join`, `replace`, `index_of`, `starts_with`, `trim`, `upper`; `map`, `filter`, `reduce`, `sort`, `keys`, `values`, `in_array`, `sum`, `min`, `max` |
-| Files and programs | `read_file`, `write_file`, `file_exists`, `read_stdin`, `args`, and `run(["git", "status"])`, which starts a program with no shell in between |
+| Files and programs | `read_file`, `write_file`, `file_exists`, `read_stdin`, `args`, `getenv`, and `run(["git", "status"])`, which starts a program with no shell in between |
 | Sockets and servers | `socket_open` (TCP or TLS), `socket_listen`, `socket_accept`, and `workers($n)`, which runs a server as n processes, restarting any that crash and stopping gracefully |
 | Databases | `db_open`, `db_run`, `db_close`, for SQLite and PostgreSQL |
-| Time and chance | `time`, `monotonic_time`, `rand_int`, `rand_float`, `rand_seed` |
+| Time and chance | `time`, `monotonic_time`, `sleep`, `rand_int`, `rand_float`, `rand_seed` |
 | The terminal | `term_raw`, `term_read`, `term_size`, `term_is_tty` |
 
 [docs/language.md](docs/language.md) has every function and what it does at the edges.

@@ -489,6 +489,9 @@ mapped to its parameter count, or `[fewest, most]` when some are optional).
 too), and an error when there is nothing there; `file_exists($path)` is whether there is, so
 `file_exists("a/../b")` is false when `a` is missing, as the system sees it.
 
+**The environment** — `getenv($name)` is the environment variable's value as a string, or `null`
+when it isn't set. A name with a NUL byte in it is an error.
+
 **Programs** — `run($argv, $input = "")` starts a program and waits for it: `$argv` is a list
 of strings, the program (found on `PATH` unless it has a `/`) and then its arguments, passed as
 they are, with no shell to read `;`, `$` or `*` in them. It inherits the environment and the
@@ -605,7 +608,8 @@ while (true) {
 
 **Time** — `time()` is the wall clock: whole seconds since 1 January 1970, UTC, as an int. It can
 jump when the clock is set, so it tells what time it is, not how long something took; a program
-that prints it can't be recorded. `monotonic_time()` is seconds, as a float, on the system's monotonic clock: it only
+that prints it can't be recorded. `sleep($seconds)` waits that long (an int or a float, 0 or more) and gives `null`; what was printed
+before it is on the screen first. `monotonic_time()` is seconds, as a float, on the system's monotonic clock: it only
 counts on, whatever the clock on the wall is set to, and only the difference between two readings
 means anything (the starting point is not defined, and the resolution is a microsecond or better).
 It is for measuring how long something took, or when something is due: `tui::interact` keeps its
