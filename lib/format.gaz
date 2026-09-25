@@ -1,5 +1,5 @@
-// Formatting numbers and text for display: format::number(), format::pad_left() and
-// format::pad_right().
+// Formatting numbers and text for display: format::number(), format::pad_left(),
+// format::pad_right() and format::sprintf().
 namespace format;
 
 // $number with $decimals digits after the point and thousands separated:
@@ -51,4 +51,160 @@ pub fn pad_right($value, $width, $pad = " ") {
         return $text;
     }
     return $text .. repeat($pad, $missing);
+}
+
+/*
+ * $template with each placeholder replaced by the next of $args, a list (GazLang has no
+ * variadic calls): format::sprintf("%-6s|%5.1f|%03d", ["ab", 2.25, 7]) is "ab    |  2.3|007".
+ * A placeholder is % then flags (- to pad on the right, 0 to pad a number with zeros after its
+ * sign), a width (the fewest bytes), a precision (.2, %f only; 6 without one) and one of:
+ *   %s  the value as echo prints it, whatever it is
+ *   %d  an int
+ *   %f  an int or float with the precision's digits, rounded as round() does (format::number)
+ *   %x  an int of 0 or more in lowercase hex
+ *   %%  a %
+ * As many placeholders as arguments, a type %d, %f or %x can't take, and a placeholder this
+ * doesn't know are errors, raised before anything is formatted.
+ */
+pub fn sprintf($template, $args) {
+    if (type_of($template) != "string" || type_of($args) != "list") {
+        error("sprintf: expects a string and a list, got " .. type_of($template) .. " and " .. type_of($args));
+    }
+    // The text between placeholders as strings, the placeholders as maps
+    $pieces = [];
+    $placeholders = 0;
+    $at = 0;
+    while (true) {
+        $percent = index_of($template, "%", $at);
+        if ($percent == null) {
+            $pieces[] = slice($template, $at);
+            break;
+        }
+        $pieces[] = slice($template, $at, $percent - $at);
+        $spec = placeholder($template, $percent);
+        $at = $percent + len($spec["text"]);
+        if ($spec["conversion"] == "%") {
+            $pieces[] = "%";
+        } else {
+            $pieces[] = $spec;
+            $placeholders++;
+        }
+    }
+    if ($placeholders != len($args)) {
+        error("sprintf: the template takes {$placeholders} arguments, " .. len($args) .. " given");
+    }
+
+    $out = "";
+    $next = 0;
+    foreach ($pieces as $piece) {
+        if (type_of($piece) == "string") {
+            $out ..= $piece;
+        } else {
+            $out ..= convert($piece, $args[$next], $next + 1);
+            $next++;
+        }
+    }
+    return $out;
+}
+
+// The placeholder at $at, the % there, as {"text", "left", "zeros", "width", "precision", "conversion"}
+fn placeholder($template, $at) {
+    $i = $at + 1;
+    $left = false;
+    $zeros = false;
+    while ($i < len($template) && ($template[$i] == "-" || $template[$i] == "0")) {
+        if ($template[$i] == "-") { $left = true; } else { $zeros = true; }
+        $i++;
+    }
+    $width = digits($template, $i);
+    $i += len($width);
+    $precision = null;
+    if ($i < len($template) && $template[$i] == ".") {
+        $precision = digits($template, $i + 1);
+        $i += 1 + len($precision);
+        if ($precision == "") {
+            bad($template, $at, $i, "a precision needs its digits");
+        }
+    }
+    if ($i >= len($template)) {
+        bad($template, $at, $i, "the template ends in the middle of a placeholder");
+    }
+    $conversion = $template[$i];
+    $text = slice($template, $at, $i + 1 - $at);
+    if (!in_array($conversion, ["s", "d", "f", "x", "%"])) {
+        bad($template, $at, $i + 1, "there is no %{$conversion}");
+    }
+    if ($conversion == "%" && $text != "%%") {
+        bad($template, $at, $i + 1, "%% takes no flags, width or precision");
+    }
+    if ($precision != null && $conversion != "f") {
+        bad($template, $at, $i + 1, "only %f takes a precision");
+    }
+    if ($precision != null && to_int($precision) > 18) {
+        bad($template, $at, $i + 1, "a precision is at most 18");
+    }
+    if ($zeros && $conversion == "s") {
+        bad($template, $at, $i + 1, "only a number is padded with zeros");
+    }
+    return {
+        "text" => $text, "left" => $left, "zeros" => $zeros, "conversion" => $conversion,
+        "width" => $width == "" ? 0 : to_int($width), "precision" => $precision == null ? 6 : to_int($precision),
+    };
+}
+
+// The digits at $i, as a string, "" when there are none
+fn digits($s, $i) {
+    $from = $i;
+    while ($i < len($s) && $s[$i] >= "0" && $s[$i] <= "9") {
+        $i++;
+    }
+    return slice($s, $from, $i - $from);
+}
+
+fn bad($template, $from, $to, $why) {
+    error("sprintf: " .. slice(to_string([slice($template, $from, $to - $from)]), 1, -1) .. ": " .. $why);
+}
+
+// One argument as its placeholder says, padded to its width
+fn convert($spec, $value, $n) {
+    $conversion = $spec["conversion"];
+    $type = type_of($value);
+    if (($conversion == "d" || $conversion == "x") && $type != "int" || $conversion == "f" && $type != "int" && $type != "float") {
+        error("sprintf: {$spec["text"]} expects " .. ($conversion == "f" ? "an int or float" : "an int") .. ", got {$type} (argument {$n})");
+    }
+    if ($conversion == "x" && $value < 0) {
+        error("sprintf: {$spec["text"]} expects an int of 0 or more, got {$value} (argument {$n})");
+    }
+    // ponytail: format::number() scales to an int, which caps %f at 9.2E+18 over 10^precision
+    if ($conversion == "f" && abs($value) >= 9.2e18 / 10.0 ** $spec["precision"]) {
+        error("sprintf: {$spec["text"]} can't show {$value} (argument {$n}): with its decimals it must fit in an int");
+    }
+    $text = match ($conversion) {
+        "s" => to_string($value),
+        "d" => to_string($value),
+        "f" => number($value, $spec["precision"], ""),
+        default => hex($value),
+    };
+    $missing = $spec["width"] - len($text);
+    if ($missing <= 0) {
+        return $text;
+    }
+    if ($spec["left"]) {
+        return $text .. repeat(" ", $missing);
+    }
+    if ($spec["zeros"]) {
+        $sign = starts_with($text, "-") ? "-" : "";
+        return $sign .. repeat("0", $missing) .. slice($text, len($sign));
+    }
+    return repeat(" ", $missing) .. $text;
+}
+
+// A non-negative int in lowercase hex
+fn hex($n) {
+    $text = "";
+    while ($n >= 16) {
+        $text = "0123456789abcdef"[$n % 16] .. $text;
+        $n = intdiv($n, 16);
+    }
+    return "0123456789abcdef"[$n] .. $text;
 }

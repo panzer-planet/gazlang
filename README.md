@@ -433,7 +433,7 @@ echo json::encode({"ok" => true});
 | `std/db.gaz` | `db::open("sqlite:app.db")` or `postgres://...`, then `query`, `row`, `value`, `exec` and `transaction`, parameters always bound |
 | `std/regex.gaz` | `regex::matches`, `search`, `find`, `groups` and `replace`: classes, ranges, anchors, alternation, capture groups, and matching in linear time |
 | `std/date.gaz` | Calendar dates as day numbers: `date::days(2026, 8, 8)`, weekdays, adding months, `date::format` |
-| `std/format.gaz` | `format::number(1234.5)` → `1,234.50`, `pad_left`, `pad_right` |
+| `std/format.gaz` | `format::number(1234.5)` → `1,234.50`, `pad_left`, `pad_right`, and `format::sprintf("%-6s%5.1f", [$name, $score])` |
 | `std/lists.gaz`, `std/sorting.gaz` | `flatten`, `unique`, `max_by`/`min_by`; `sorting::by($rows, "points", true)` |
 | `std/random.gaz` | `shuffle`, `pick`, `chance`, `weighted` |
 | `std/chars.gaz` | Character classes (`is_digit`, `is_alpha`, ...) and `span`, for writing scanners |

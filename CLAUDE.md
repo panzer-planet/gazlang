@@ -764,7 +764,12 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   and keep the first on a tie, so they replace a stable `sort(...)[0]` exactly; a list helper goes here rather than into the builtins, since
   a builtin takes its name from every program and a namespace only from those that include it),
   `format.gaz` (`format::number`, `format::pad_left`/`pad_right`
-  convert like echo: display helpers take any value, string functions stay strict),
+  convert like echo: display helpers take any value, string functions stay strict;
+  `format::sprintf($template, $args)`, a list since there are no variadic calls: `%s` echo's
+  text, `%d` and `%x` ints only (`%x` of a negative is an error, not two's complement), `%f`
+  through `format::number()` so it rounds as `round()` does and never by the platform's printf,
+  which caps it at an int's worth of digits and 18 decimals (`ponytail:`); `-` beats `0`, as in C;
+  every placeholder is read and the count checked before anything is formatted),
   `json.gaz`, `csv.gaz` (RFC 4180), `db.gaz` (see Databases above), `http.gaz` (method and header names checked
   as HTTP tokens and URLs for spaces and control characters, so nothing can end a line of the
   request; credentials dropped on a redirect to another origin; `HttpTest` runs it against

@@ -22,3 +22,60 @@ check("numbers are padded as echo prints them", [pad_left(42, 4), pad_right(1.5,
 check("so are other values", [pad_left(true, 5), pad_right(null, 6, "!"), pad_left([1], 4)], [" true", "null!!", " [1]"]);
 kind Money { #cents; fn _($cents) { #cents = $cents; } pub fn to_string() { return "\$" .. intdiv(#cents, 100); } }
 check("objects through to_string()", pad_left(Money(1250), 5), "  \$12");
+
+/* sprintf(): the arguments as a list, one per placeholder */
+check("sprintf", format::sprintf("%-6s|%5.1f|%03d", ["ab", 2.25, 7]), "ab    |  2.3|007");
+check("%s is echo's", format::sprintf("%s and %s, %s", [[1, "a"], null, Money(250)]), "[1, \"a\"] and null, \$2");
+check("%%", format::sprintf("100%% of %d%%", [5]), "100% of 5%");
+check("no placeholders", [format::sprintf("plain", []), format::sprintf("", [])], ["plain", ""]);
+check("%f has 6 decimals", format::sprintf("%f", [1.5]), "1.500000");
+check("%f rounds as round() does", format::sprintf("%.2f %.0f %.0f %.3f", [1.005, 2.5, -2.5, -0.0005]), "1.01 3 -3 -0.001");
+check("%f of an int", format::sprintf("%.1f", [3]), "3.0");
+check("%f of a tiny negative shows no sign", format::sprintf("%.2f", [-0.001]), "0.00");
+check("%x", format::sprintf("%x %x %x", [0, 255, 9223372036854775807]), "0 ff 7fffffffffffffff");
+check("widths pad on the left", format::sprintf("[%4d][%4s][%6.2f][%4x]", [42, "ab", 3.14159, 255]), "[  42][  ab][  3.14][  ff]");
+check("- pads on the right", format::sprintf("[%-4d][%-4s][%-6.1f]", [42, "ab", 2.5]), "[42  ][ab  ][2.5   ]");
+check("0 pads after the sign", format::sprintf("[%05d][%05d][%07.2f][%04x]", [42, -42, -2.5, 10]), "[00042][-0042][-002.50][000a]");
+check("- beats 0, as in C", format::sprintf("[%-05d]", [7]), "[7    ]");
+check("a width that's too small is ignored", format::sprintf("%2d|%1s", [12345, "abc"]), "12345|abc");
+check("the largest precision", format::sprintf("%.18f", [0.5]), "0.500000000000000000");
+
+$failures = [];
+foreach ([
+    ["%d", []], ["%d %s", [1]], ["x", [1]],
+    ["%d", [1.0]], ["%d", ["1"]], ["%d", [true]], ["%f", ["1.5"]], ["%f", [null]], ["%x", [1.5]], ["%x", [-1]],
+    ["%q", [1]], ["50%", []], ["%5", [1]], ["%.f", [1]], ["%.2d", [1]], ["%.2s", ["a"]], ["%.19f", [1]],
+    ["%05s", ["a"]], ["%5%", []], ["%f", [1e300]], ["%.2f", [1e17]],
+    ["%s", "a"], [["%s"], ["a"]],
+] as [$template, $args]) {
+    try {
+        $failures[] = format::sprintf($template, $args);
+    } catch (Error $e) {
+        $failures[] = $e.message;
+    }
+}
+check("what sprintf refuses", $failures, [
+    "sprintf: the template takes 1 arguments, 0 given",
+    "sprintf: the template takes 2 arguments, 1 given",
+    "sprintf: the template takes 0 arguments, 1 given",
+    "sprintf: %d expects an int, got float (argument 1)",
+    "sprintf: %d expects an int, got string (argument 1)",
+    "sprintf: %d expects an int, got bool (argument 1)",
+    "sprintf: %f expects an int or float, got string (argument 1)",
+    "sprintf: %f expects an int or float, got null (argument 1)",
+    "sprintf: %x expects an int, got float (argument 1)",
+    "sprintf: %x expects an int of 0 or more, got -1 (argument 1)",
+    "sprintf: \"%q\": there is no %q",
+    "sprintf: \"%\": the template ends in the middle of a placeholder",
+    "sprintf: \"%5\": the template ends in the middle of a placeholder",
+    "sprintf: \"%.\": a precision needs its digits",
+    "sprintf: \"%.2d\": only %f takes a precision",
+    "sprintf: \"%.2s\": only %f takes a precision",
+    "sprintf: \"%.19f\": a precision is at most 18",
+    "sprintf: \"%05s\": only a number is padded with zeros",
+    "sprintf: \"%5%\": %% takes no flags, width or precision",
+    "sprintf: %f can't show 1.0E+300 (argument 1): with its decimals it must fit in an int",
+    "sprintf: %.2f can't show 1.0E+17 (argument 1): with its decimals it must fit in an int",
+    "sprintf: expects a string and a list, got string and string",
+    "sprintf: expects a string and a list, got list and list",
+]);
