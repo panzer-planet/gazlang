@@ -32,6 +32,10 @@
 		</dict>
 		<dict>
 			<key>include</key>
+			<string>#types</string>
+		</dict>
+		<dict>
+			<key>include</key>
 			<string>#numbers</string>
 		</dict>
 		<dict>
@@ -218,6 +222,39 @@
 			<string>constant.language.gaz</string>
 			<key>match</key>
 			<string>\b(true|false|null)\b</string>
+		</dict>
+		<!-- A declared type: before a $parameter or #field (int $n, ?string #note, int|float $x), or
+		     a return type between a parameter list's ) and the { or ; of the body; a keyword before
+		     a $ or # (echo $x, kin #energy) was matched by the keywords rule already, and null,
+		     kind and function are keywords, so a type made of those keeps their colour -->
+		<key>types</key>
+		<dict>
+			<key>patterns</key>
+			<array>
+				<dict>
+					<key>name</key>
+					<string>entity.name.type.gaz</string>
+					<key>match</key>
+					<string>(?&lt;![\w.$@#])\??[A-Za-z_][\w:]*(?:\s*\|\s*[A-Za-z_][\w:]*)*(?=\s+[$#][a-zA-Z_])</string>
+				</dict>
+				<dict>
+					<key>match</key>
+					<string>(\))\s*(:)\s*(\??[A-Za-z_][\w:]*(?:\s*\|\s*[A-Za-z_][\w:]*)*)(?=\s*[{;])</string>
+					<key>captures</key>
+					<dict>
+						<key>2</key>
+						<dict>
+							<key>name</key>
+							<string>punctuation.separator.type.gaz</string>
+						</dict>
+						<key>3</key>
+						<dict>
+							<key>name</key>
+							<string>entity.name.type.gaz</string>
+						</dict>
+					</dict>
+				</dict>
+			</array>
 		</dict>
 		<key>numbers</key>
 		<dict>

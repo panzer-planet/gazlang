@@ -9,4 +9,6 @@ ok an Html goes into {{ }} as it is
 ok a layout around a template
 ok @{{, emails and CSS at-rules are text
 ok Html::escape
+ok a typed header
+ok a typed header is checked
 ok an error in a template names its line
