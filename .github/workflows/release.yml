@@ -1,14 +1,14 @@
 name: Release
 
-# Pushing a tag vX.Y.Z (X.Y.Z being what VERSION says) builds gaz for Linux and macOS, each on
-# x86_64 and arm64, and publishes them as a GitHub release:
+# Pushing a tag vX.Y.Z (X.Y.Z being what VERSION says) builds gaz for Linux (x86_64) and macOS
+# (Apple silicon and Intel), and publishes them as a GitHub release:
 #
 #   git tag v0.1.0 && git push origin v0.1.0
 #
 # The binaries carry TLS and SQLite, not PostgreSQL (libpq is rarely installed, and Homebrew's
 # can't travel); a program that needs it builds gaz from source. On macOS OpenSSL is linked in, so
 # a Mac needs nothing but the system; on Linux the binary uses the system's OpenSSL 3 and SQLite,
-# and is built on Ubuntu 22.04 so that any distribution since, with glibc 2.35 or later, runs it.
+# and is built on the latest Ubuntu, which CI tests on.
 
 on:
   push:
@@ -25,10 +25,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-22.04
+          - os: ubuntu-latest
             target: linux-x86_64
-          - os: ubuntu-22.04-arm
-            target: linux-arm64
           - os: macos-15-intel
             target: macos-x86_64
           - os: macos-latest

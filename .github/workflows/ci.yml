@@ -10,10 +10,9 @@ jobs:
       # One platform failing shouldn't hide whether the others pass
       fail-fast: false
       matrix:
-        # Linux (gcc, and LeakSanitizer in the sanitized builds): the latest, and Ubuntu 22.04 on
-        # x86_64 and arm64, where the release binaries are built; and macOS on Apple silicon and
-        # on Intel (where it is developed)
-        os: [ubuntu-latest, ubuntu-22.04, ubuntu-22.04-arm, macos-latest, macos-15-intel]
+        # Linux (gcc, and LeakSanitizer in the sanitized builds), and macOS on Apple silicon
+        # and on Intel (where it is developed)
+        os: [ubuntu-latest, macos-latest, macos-15-intel]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5

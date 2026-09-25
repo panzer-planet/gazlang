@@ -5,6 +5,9 @@
  * argument types are checked here, always in the same order, so a call with two bad arguments
  * always names the same one.
  */
+/* memmem() is declared by glibc before 2.38 only under _GNU_SOURCE, not _DEFAULT_SOURCE; undeclared,
+   C takes it to return an int, which cuts the pointer it gives in half */
+#define _GNU_SOURCE
 #include "gazvm.h"
 
 #include <dirent.h>

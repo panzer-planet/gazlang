@@ -81,7 +81,7 @@ vendor/bin/pint                     # formatting
   the model. New code and rewrites follow it; existing code changes when it is worked on, not in
   a sweep.
 - **C** (`vm/`): plain C11 plus POSIX (`-D_DEFAULT_SOURCE`, which glibc needs for
-  `open_memstream`, `realpath` and `memmem`), libc, libm and pthreads, and OpenSSL in `net.c`
+  `open_memstream` and `realpath`; `builtins.c` defines `_GNU_SOURCE` too, for `memmem` before glibc 2.38), libc, libm and pthreads, and OpenSSL in `net.c`
   only (on by default, `make TLS=0` without, `GAZ_TLS` saying which), libsqlite3 in `sqlite.c` and
   libpq in `pg.c` only (on when found, `make SQLITE=0`/`PG=0` without), built warning-free by
   clang and gcc, commented where the C isn't obvious (a
@@ -249,8 +249,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
      opens with the niche, and the source grammar published as a VS Code extension.
 - **Releases**: `VERSION` holds the version (`0.1.0`), which the Makefile compiles in and
   `gaz --version` prints. Pushing a tag `vX.Y.Z` matching it runs `.github/workflows/release.yml`,
-  which builds and tries gaz on Linux (Ubuntu 22.04, so glibc 2.35 or later) and macOS, each on
-  x86_64 and arm64, and publishes the four `.tar.gz` and their `SHA256SUMS` as a GitHub release
+  which builds and tries gaz on Linux (the latest Ubuntu, x86_64) and macOS (Apple silicon and
+  Intel), and publishes the three `.tar.gz` and their `SHA256SUMS` as a GitHub release
   with notes from the commits; `gh workflow run release.yml` is a dry run that publishes nothing.
   To release: change `VERSION`, re-record the CLI's `version` row (`GAZLANG_RECORD=1 vendor/bin/phpunit
   --filter CliTest`), commit, then tag and push the tag. The binaries have TLS and SQLite but
@@ -259,8 +259,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   `/etc/ssl/cert.pem` too (unless `SSL_CERT_FILE` says otherwise), since a linked-in OpenSSL looks
   for certificates where Homebrew keeps them; without it every https request failed on a Mac
   without Homebrew. No promise about what changes between releases yet.
-- **CI** (`.github/workflows/ci.yml`) runs on Ubuntu (the latest, and 22.04 on x86_64 and arm64,
-  where the release binaries are built) and on macOS, Apple silicon and Intel, for every push: it builds gaz without TLS (the bootstrap needs only a C compiler), then
+- **CI** (`.github/workflows/ci.yml`) runs on Ubuntu (the latest) and on macOS, Apple silicon and
+  Intel, for every push: it builds gaz without TLS (the bootstrap needs only a C compiler), then
   with it, and rebuilds its compiler before PHP is even installed, then the suite; phpstan and
   pint run on Ubuntu only.
   Development is on an Intel Mac.
