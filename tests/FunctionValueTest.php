@@ -16,6 +16,14 @@ class FunctionValueTest extends GazLangTestCase
         $this->assertEquals("3\nABC\n", $this->executeCode('$f = len; echo $f("abc"); $u = upper; echo $u("abc");'));
     }
 
+    public function test_every_builtin_is_one_value()
+    {
+        // Past the 64th builtin too: the table of their values once had 64 places
+        $this->assertEquals("true\ntrue\n", $this->executeCode(
+            'echo filter(keys(builtins()), $name -> $name != "x") == keys(builtins()); $f = sqrt; echo $f == sqrt && kind_name == kind_name;'
+        ));
+    }
+
     public function test_calls_on_elements_and_on_call_results()
     {
         $this->assertEquals("7\n3\n3\n", $this->executeCode(

@@ -264,8 +264,9 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     saved in `vm/build/fuzz/` and shrunk, a minute in a run and to the end with
     `--shrink FILE`. A try costs about 0.1s of the sanitized build's start-up, whatever the
     program, which is why shrinking takes the time, not the run.
-  - **Nothing opens a socket, starts a program, exits or writes a file**: a program naming
-    `run`, `exit`, `workers`, `write_file`, `read_stdin` or a `socket_` builtin is skipped, an included
+  - **Nothing opens a socket, starts a program, exits, waits or writes a file**: a program naming
+    `run`, `exit`, `workers`, `write_file`, `read_stdin`, `read_line`, `sleep`, `getenv`, a directory builtin or a
+    `socket_` builtin is skipped (`getenv` since what it gives isn't the seed's), an included
     file's text included, which is sound because a builtin is reached only by its name.
   - **Break it before believing it**: a missing `decref` in `delete` and a read past a string
     in `reverse`, planted in turn, were both found within 700 programs. The first also showed
@@ -290,9 +291,6 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - A private field can't be set from outside its kind, so restoring saved state (a played match's
     score, a league's fixtures) takes a static factory written in the kind (`Fixture::played()`,
     `League::from_json()`); there is no way to construct an object with some fields already set.
-  - `split($x, $sep)` has no limit: it always splits on every occurrence, so keeping the
-    trailing remainder together (`"a=b=c"` split on `"="` into `["a", "b=c"]`) needs
-    `index_of` and two `slice`s instead of a third argument.
   - `$obj.$name` (dynamic member access; `lib/sorting.gaz` can sort maps but not objects).
   - `kind_of` is strict, so a pass over a tree with absent children needs a `type_of` check
     first; if that recurs, make it lenient.
@@ -433,14 +431,25 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     function. A bound static would be the same value by another spelling, so it waits for a
     program that wants it.
 - **Not planned** until real code asks: traits, late static binding, operator
-  overloading, `**` and `sqrt`/`pow`/`log`, variadic parameters and spread in calls (pass a
+  overloading, `log`/`exp`/fractional powers (each needs an algorithm GazLang writes out, as
+  `round` has), variadic parameters and spread in calls (pass a
   list), `foreach` over a string (`split($s, "")`), a REPL.
 - **Regular expressions**: `lib/regex.gaz` (`regex::matches`, `regex::search`,
-  `regex::find`), a Thompson NFA (Pike's VM) so there is no backtracking and no ReDoS.
-  Literals, `.`, `*` `+` `?`, `|`, `(...)` grouping (not capturing), `[...]`/`[^...]`
-  classes with `a-z` ranges, `^`/`$` anchors, `\` escapes. No capture groups, no
-  backreferences, no `\d`/`\w`/`\s` shorthands (`lib/chars.gaz` has those as named
-  functions) — add them if a program needs one.
+  `regex::find`, `regex::groups`, `regex::replace`), a Thompson NFA (Pike's VM) so there is no
+  backtracking and no ReDoS. Literals, `.`, `*` `+` `?`, `|`, `(...)` groups (capturing),
+  `[...]`/`[^...]` classes with `a-z` ranges, `^`/`$` anchors, `\` escapes. **Perl's match**:
+  threads run in priority order carrying their group slots (`save` instructions), and one
+  reaching `match` drops the threads after it while those before run on, so repetitions are
+  greedy and the first alternative wins, as every engine a reader knows does; a new start is
+  seeded each step only until something matched, which is what makes it leftmost (the first
+  version returned the first thread to reach `match`, so `find("abcd", "abcd|c")` was 2).
+  `groups` gives a group that took no part as null (Python's None; PHP's `""` can't be told from
+  an empty capture), a repeated one's last. `replace` takes `$with` as it is and moves on a byte
+  after an empty match (Perl's, Python's and JavaScript's `"-a-b-c-"`). `ponytail:` an empty
+  iteration of a starred group dies at the loop, so `(a*)*` reports its group as null where
+  Perl says `""`; no `$1` in replacements or a function for `$with`, no backreferences, no
+  `\d`/`\w`/`\s` shorthands (`lib/chars.gaz` has those as named functions) — add them if a
+  program needs one.
 
 # The language
 
@@ -451,11 +460,13 @@ version.
 
 - **Precedence**, loosest first: assignment (right associative) → `?:` (right) → `??` (right)
   → `||` → `&&` → equality (`==` `!=` `<=>`) → relational → `..` → `|` → `^` → `&` → shifts →
-  `+ -` → `* / %` → unary → postfix (`[index]`, `(args)`, `.name`, `?.name`, `::name`) → primary. Bitwise precedence
+  `+ -` → `* / %` → unary → `**` (right) → postfix (`[index]`, `(args)`, `.name`, `?.name`, `::name`) → primary. Bitwise precedence
   is Rust's and Python's, not C's, so `$flags & MASK == 0` is `($flags & MASK) == 0`. `..` sits
   looser than the bitwise operators and tighter than comparison, so `"x = " .. $f & MASK` and
   `$f & MASK .. "!"` both do the obvious thing (between the bitwise levels, every unparenthesised
   mix would be an error); shifts stay tighter than `..`, unlike Lua, so `"n = " .. $x << 2` works.
+  `**` is Python's: tighter than a unary on its left, looser than one on its right (`power()` in
+  `parser.gaz` reads a postfix, then `**` and a unary), so `-2 ** 2` is -4 and `2 ** -1` parses.
 - **A real bool**: comparisons, `!`, `&&` and `||` give `true`/`false`, `&&`/`||` short-circuit. A
   bool is not a number: `true == 1` is false and `true + 1` is `Cannot use + on bool`;
   `to_int(true)` is 1. Truthiness (`is_truthy()` in `value.c`) is the one place a non-bool is read
@@ -501,6 +512,14 @@ version.
 - **Nothing overflows silently**: an int that doesn't fit is `Integer overflow` (PHP would
   switch to a float), an infinite float literal is a lexer error, an infinite result is `Float
   overflow`. Division by zero is an error.
+- **`**` is square-and-multiply** (`power()` in `ops.c`), never libm's `pow`, whose rounding
+  differs between platforms and would break recordings: int to a non-negative int is an exact
+  int or `Integer overflow` (squaring the base overflows only when the result would), anything
+  else a float multiplied step by step, a negative exponent one divided by the power (so a power
+  too small to hold is 0.0, 0 to one is `Division by zero`). Only a whole exponent (a whole float
+  too, within the int range): `log`, `exp` and fractional powers stay open until GazLang defines
+  an algorithm for them, since libm's differ in the last bit. `sqrt` is libm's, as IEEE 754
+  requires a square root to be correctly rounded.
 - Int with int gives an int, a float on either side a float, a bool on either side an error.
   **`/` always gives a float** (`6 / 2` is `3.0`, as in Python 3 and Lua 5.3), converting ints
   first, so it loses precision above 2^53; `intdiv()` truncates.
@@ -513,7 +532,7 @@ version.
 - `round($x, $precision = 0)` is PHP's (halves away from zero, with its pre-rounding, so
   `round(1.005, 2)` is `1.01`; negative precision rounds to tens), written out step by step in
   `php_round()` in `builtins.c`, since PHP's own changed between 8.5 releases. `floor`, `ceil`,
-  `round` give floats; `abs` keeps the type; `min`/`max` take two numbers or two strings, or a
+  `round` and `sqrt` give floats (`sqrt` of a negative number is an error); `abs` keeps the type; `min`/`max` take two numbers or two strings, or a
   list or map whose values are all numbers or all strings (empty is an error), a tie giving the
   first. `sum` adds a list's or map's values from 0 with `+` (`binary_op(OP_ADD)`), so its
   errors, overflow and int-or-float are `+`'s and `sum([])` is 0. `to_int` truncates a float and
@@ -605,7 +624,8 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
 
 - Strings: `len`, `slice($x, $start, $length)` (strings and lists, PHP's rules including
   negatives), `lower`, `upper`, `trim` (the lexer's whitespace only), `split` (empty separator:
-  characters), `join` (elements converted like echo), `replace` (every occurrence; empty search
+  characters; a third argument, an int of 1 or more or null, caps the parts, the last holding the
+  rest), `join` (elements converted like echo), `replace` (every occurrence; empty search
   is an error), `contains`, `ends_with`, `starts_with($s, $prefix, $offset = 0)` (whether the
   prefix is there at the offset, so a scanner asks without slicing off what it has read),
   `index_of($s, $needle, $offset = 0)` (null when absent), both with the same offset rule: negative
@@ -615,7 +635,7 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
 - Lists and maps: `in_array` (`==`), `has_key`, `keys`, `values`, `last` (an empty list is an
   error), `reverse` (lists, strings by byte, and maps, which keep their keys), and `map`, `filter`
   (truthiness, as `if`), `reduce($x, $f, $initial)` and `sort` (stable; the comparator must return
-  an int), which call back into GazLang through `call_value()` in `vm.c`, checked as a call
+  an int; without one, or null, it is `<=>` in C, `binary_op(OP_CMP)`, with its errors), which call back into GazLang through `call_value()` in `vm.c`, checked as a call
   written in the program is. `sort` is a defined merge sort, since a comparator can see which
   comparisons are made: split in the middle, merge asking `$compare(right, left)` (`merge_sort()`
   in `builtins.c`). Types are checked before anything is called.
@@ -638,6 +658,18 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   gazlang options or `--`; the CLI rejects options it doesn't know, since `getopt` would drop
   them silently), `cwd()`, `real_path()` (as `realpath(3)`; `""`, a NUL byte, `file/` and
   `file/..` are nothing, where platforms disagree), `file_exists()`.
+- Directories: `list_dir()` (sorted with `str_cmp`, byte by byte, since `readdir()`'s order is
+  the file system's), `is_dir()` (through symlinks, as `file_exists`), `make_dir()` (one level),
+  `delete_dir()` (empty only), `delete_file()` (not a directory: its reason is written out as
+  `EISDIR`, since `unlink()` says EPERM on macOS). A failure is `Cannot VERB "path": strerror`,
+  the path quoted so a NUL byte shows; a NUL byte in a path is `ENOENT`, as no name holds one.
+  `StdlibTest::test_directories` runs one snippet that makes, lists and clears
+  `tests/.tmp/dirs`, clearing a failed run's leftovers first so it can be recorded; the names in
+  it avoid differing only in case, which macOS's file system can't hold.
+- `read_line()`: `getline()` on `stdin`, the line without `"\n"` or `"\r\n"`, or null at the end;
+  through the stdio buffer `read_stdin()` reads too, so the two share the input without losing a
+  byte, and a piped program's input was read by `main()` already, so both find nothing. It
+  flushes output first (a prompt). Tested through `CliTest` rows with `tests/cli/lines.txt`.
 - `run($argv, $input = "")`: `posix_spawnp` of a list of strings, so no shell reads them; the
   environment and working directory inherited. Standard input is `$input` in a temporary file
   unlinked before the program starts (a pipe would need writing while reading two, and SIGPIPE
@@ -682,6 +714,11 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   and logs. A program that prints it can't be recorded, so it is tested by type and range and by
   `HttpServerTest` against PHP's clock; `date.gaz` still keeps no clock (`intdiv(time(), 86400)` is
   today in UTC), so a game keeps its own date.
+- `sleep($seconds)`: an int or float of 0 or more, `nanosleep()` a day at a time (any finite float
+  fits) and carrying on after a signal; it flushes output first, as `term_read` does, since a
+  program that sleeps is showing progress. `getenv($name)`: a string or null; a NUL byte in the
+  name is an error rather than null, being a mistake. Both are tested by shape (`time_test.gaz`)
+  and `getenv`'s value by `StdlibTest` setting one, since neither can be recorded.
 - The terminal (`term.c`): `term_raw($on)`, `term_read($timeout = null)`, `term_size()`,
   `term_is_tty($stream)`, only what GazLang can't do itself; drawing is escape sequences through
   `print` and turning bytes into keys is GazLang's (`lib/term.gaz`), so the rules are written out
@@ -735,7 +772,12 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   and keep the first on a tie, so they replace a stable `sort(...)[0]` exactly; a list helper goes here rather than into the builtins, since
   a builtin takes its name from every program and a namespace only from those that include it),
   `format.gaz` (`format::number`, `format::pad_left`/`pad_right`
-  convert like echo: display helpers take any value, string functions stay strict),
+  convert like echo: display helpers take any value, string functions stay strict;
+  `format::sprintf($template, $args)`, a list since there are no variadic calls: `%s` echo's
+  text, `%d` and `%x` ints only (`%x` of a negative is an error, not two's complement), `%f`
+  through `format::number()` so it rounds as `round()` does and never by the platform's printf,
+  which caps it at an int's worth of digits and 18 decimals (`ponytail:`); `-` beats `0`, as in C;
+  every placeholder is read and the count checked before anything is formatted),
   `json.gaz`, `csv.gaz` (RFC 4180), `db.gaz` (see Databases above), `http.gaz` (method and header names checked
   as HTTP tokens and URLs for spaces and control characters, so nothing can end a line of the
   request; credentials dropped on a redirect to another origin; `HttpTest` runs it against

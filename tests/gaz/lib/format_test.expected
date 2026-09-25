@@ -17,3 +17,19 @@ ok already wide enough
 ok numbers are padded as echo prints them
 ok so are other values
 ok objects through to_string()
+ok sprintf
+ok %s is echo's
+ok %%
+ok no placeholders
+ok %f has 6 decimals
+ok %f rounds as round() does
+ok %f of an int
+ok %f of a tiny negative shows no sign
+ok %x
+ok widths pad on the left
+ok - pads on the right
+ok 0 pads after the sign
+ok - beats 0, as in C
+ok a width that's too small is ignored
+ok the largest precision
+ok what sprintf refuses

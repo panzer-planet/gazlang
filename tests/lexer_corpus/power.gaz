@@ -1,0 +1,6 @@
+// Longest match: **= before ** before *=, and *** is ** then *
+$x ** 2 * 3;
+$x **= 2;
+$x *= 2;
+2***3;
+/** a comment that starts with two stars **/

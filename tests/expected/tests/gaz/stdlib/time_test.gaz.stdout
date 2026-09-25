@@ -7,3 +7,12 @@ ok a hundred readings come in order
 ok time() is an int
 ok after 2026 began and before 2100
 ok and doesn't go back in a moment
+ok sleep() gives null
+ok sleep(0.05) waits that long
+ok and not a second
+ok sleep(0) and an int
+ok sleep() takes 0 seconds or more
+ok PATH is a string
+ok a name not set is null
+ok nor is the empty name
+ok a NUL byte is a mistake

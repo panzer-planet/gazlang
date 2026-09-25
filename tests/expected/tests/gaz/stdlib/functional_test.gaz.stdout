@@ -16,6 +16,14 @@ ok sort strings byte by byte
 ok sort drops keys
 ok sort empty and one
 ok sort is stable
+ok sort by <=>
+ok sort strings by <=>
+ok sort lists by <=>
+ok sort a map's values by <=>
+ok a null comparator is <=>
+ok <=> is stable
+ok sort by <=> of a string and a number
+ok sort by <=> of a map
 ok sort by length then text
 ok a comparator error comes out
 ok map then filter then reduce

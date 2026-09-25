@@ -1,0 +1,18 @@
+// ** binds tighter than a unary on its left and looser than one on its right, as in Python
+echo -2 ** 2;
+echo 2 ** -1;
+echo !$a ** 2;
+echo ~2 ** 2;
+// Right associative
+echo 2 ** 3 ** 2;
+echo 2
+    **
+    3;
+// Tighter than *, looser than a postfix
+echo 2 * 3 ** 2 * 4;
+echo $a[0] ** $f(1).x;
+echo $x++ ** 2;
+echo ++$x ** 2;
+echo (-2) ** 2;
+$y **= 3;
+const C = 2 ** 10;

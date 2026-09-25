@@ -165,6 +165,8 @@ class StdlibTest extends GazLangTestCase
             'upper on an int' => ['upper(1);', 'upper() expects string, got int'],
             'trim on null' => ['trim(null);', 'trim() expects string, got null'],
             'split separator' => ['split("a", 1);', 'split() expects string, got int'],
+            'split limit below one' => ['split("a=b", "=", 0);', 'split() limit must be 1 or more, got 0'],
+            'split limit a float' => ['split("a=b", "=", 2.0);', 'split() expects int or null, got float'],
             'join non-array' => ['join("abc", ",");', 'join() expects list, got string'],
             'join separator' => ['join([], null);', 'join() expects string, got null'],
             'replace empty search' => ['replace("abc", "", "x");', 'replace() cannot search for an empty string'],
@@ -498,6 +500,69 @@ class StdlibTest extends GazLangTestCase
     {
         $this->expectExceptionMessage('write_file() expects string, got list');
         $this->executeCode('write_file("out.txt", [1]);');
+    }
+
+    public function test_directories()
+    {
+        // Relative to the project root, where the C VM's harness runs the snippet too; it clears
+        // what a run that failed half way left, so it prints the same every time
+        @mkdir(dirname(__DIR__).'/tests/.tmp');
+        $this->assertSame(<<<'OUT'
+            ["10", "9", "Z", "_", "a", "b", "sub", "é"]
+            []
+            [true, true, false, false]
+            Cannot make directory "tests/.tmp/dirs": File exists
+            Cannot make directory "tests/.tmp/dirs/no/such": No such file or directory
+            Cannot delete file "tests/.tmp/dirs/sub": Is a directory
+            Cannot delete file "tests/.tmp/dirs/nope": No such file or directory
+            Cannot delete directory "tests/.tmp/dirs": Directory not empty
+            Cannot delete directory "tests/.tmp/dirs/a": Not a directory
+            Cannot list directory "tests/.tmp/dirs/a": Not a directory
+            Cannot list directory "tests/.tmp/dirs/nope": No such file or directory
+            Cannot list directory "tests/.tmp/dirs\x00": No such file or directory
+            false
+            false
+
+            OUT, $this->executeCode(<<<'CODE'
+                $d = "tests/.tmp/dirs";
+                fn clear($dir) {
+                    foreach (list_dir($dir) as $name) {
+                        $path = "{$dir}/{$name}";
+                        if (is_dir($path)) { clear($path); } else { delete_file($path); }
+                    }
+                    delete_dir($dir);
+                }
+                if (is_dir($d)) { clear($d); }
+                make_dir($d);
+                foreach (["b", "a", "Z", "10", "9", "é", "_"] as $name) {
+                    write_file("{$d}/{$name}", $name);
+                }
+                make_dir("{$d}/sub");
+                echo list_dir($d);
+                echo list_dir("{$d}/sub");
+                echo [is_dir($d), is_dir("{$d}/sub/"), is_dir("{$d}/a"), is_dir("{$d}/nope")];
+                $tries = [
+                    () -> make_dir($d), () -> make_dir("{$d}/no/such"),
+                    () -> delete_file("{$d}/sub"), () -> delete_file("{$d}/nope"),
+                    () -> delete_dir($d), () -> delete_dir("{$d}/a"),
+                    () -> list_dir("{$d}/a"), () -> list_dir("{$d}/nope"), () -> list_dir("{$d}\0"),
+                ];
+                foreach ($tries as $try) {
+                    try { $try(); } catch (Error $e) { echo $e.message; }
+                }
+                clear($d);
+                echo is_dir($d);
+                echo is_dir("{$d}\0");
+                CODE));
+    }
+
+    public function test_getenv_gives_the_environments_value()
+    {
+        // Not a snippet: the value is this test's, so the C VM's harness couldn't record it
+        $this->assertSame(
+            "a b=c\nnull\n",
+            self::succeed([], 'echo getenv("GAZLANG_TEST_VALUE"); echo getenv("GAZLANG_TEST_NOT_SET");', ['GAZLANG_TEST_VALUE' => 'a b=c'])
+        );
     }
 
     public function test_read_stdin()

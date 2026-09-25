@@ -1,0 +1,171 @@
+Compound
+  statements:
+@ null
+    0: EchoStatement 2
+      expr: UnaryOp 2
+        op: 2 MINUS -
+        expr: BinOp 2
+          left: Num 2
+            token: 2 INTEGER 2
+            value: 2
+          token: 2 POWER **
+          op: 2 POWER **
+          right: Num 2
+            token: 2 INTEGER 2
+            value: 2
+    1: EchoStatement 3
+      expr: BinOp 3
+        left: Num 3
+          token: 3 INTEGER 2
+          value: 2
+        token: 3 POWER **
+        op: 3 POWER **
+        right: UnaryOp 3
+          op: 3 MINUS -
+          expr: Num 3
+            token: 3 INTEGER 1
+            value: 1
+    2: EchoStatement 4
+      expr: UnaryOp 4
+        op: 4 NOT !
+        expr: BinOp 4
+          left: Variable 4
+            token: 4 VAR_IDENTIFIER $a
+            value: "\$a"
+          token: 4 POWER **
+          op: 4 POWER **
+          right: Num 4
+            token: 4 INTEGER 2
+            value: 2
+    3: EchoStatement 5
+      expr: UnaryOp 5
+        op: 5 BIT_NOT ~
+        expr: BinOp 5
+          left: Num 5
+            token: 5 INTEGER 2
+            value: 2
+          token: 5 POWER **
+          op: 5 POWER **
+          right: Num 5
+            token: 5 INTEGER 2
+            value: 2
+    4: EchoStatement 7
+      expr: BinOp 7
+        left: Num 7
+          token: 7 INTEGER 2
+          value: 2
+        token: 7 POWER **
+        op: 7 POWER **
+        right: BinOp 7
+          left: Num 7
+            token: 7 INTEGER 3
+            value: 3
+          token: 7 POWER **
+          op: 7 POWER **
+          right: Num 7
+            token: 7 INTEGER 2
+            value: 2
+    5: EchoStatement 8
+      expr: BinOp 9
+        left: Num 8
+          token: 8 INTEGER 2
+          value: 2
+        token: 9 POWER **
+        op: 9 POWER **
+        right: Num 10
+          token: 10 INTEGER 3
+          value: 3
+    6: EchoStatement 12
+      expr: BinOp 12
+        left: BinOp 12
+          left: Num 12
+            token: 12 INTEGER 2
+            value: 2
+          token: 12 MULTIPLY *
+          op: 12 MULTIPLY *
+          right: BinOp 12
+            left: Num 12
+              token: 12 INTEGER 3
+              value: 3
+            token: 12 POWER **
+            op: 12 POWER **
+            right: Num 12
+              token: 12 INTEGER 2
+              value: 2
+        token: 12 MULTIPLY *
+        op: 12 MULTIPLY *
+        right: Num 12
+          token: 12 INTEGER 4
+          value: 4
+    7: EchoStatement 13
+      expr: BinOp 13
+        left: Index 13
+          target: Variable 13
+            token: 13 VAR_IDENTIFIER $a
+            value: "\$a"
+          index: Num 13
+            token: 13 INTEGER 0
+            value: 0
+        token: 13 POWER **
+        op: 13 POWER **
+        right: Property 13
+          target: CallValue 13
+            callee: Variable 13
+              token: 13 VAR_IDENTIFIER $f
+              value: "\$f"
+            args:
+              0: Num 13
+                token: 13 INTEGER 1
+                value: 1
+          name: "x"
+          field: false
+          constant: false
+          value: null
+          static_name: null
+    8: EchoStatement 14
+      expr: BinOp 14
+        left: Increment 14
+          target: Variable 14
+            token: 14 VAR_IDENTIFIER $x
+            value: "\$x"
+          op: 14 INCREMENT ++
+          prefix: false
+        token: 14 POWER **
+        op: 14 POWER **
+        right: Num 14
+          token: 14 INTEGER 2
+          value: 2
+    9: EchoStatement 15
+      expr: BinOp 15
+        left: Increment 15
+          target: Variable 15
+            token: 15 VAR_IDENTIFIER $x
+            value: "\$x"
+          op: 15 INCREMENT ++
+          prefix: true
+        token: 15 POWER **
+        op: 15 POWER **
+        right: Num 15
+          token: 15 INTEGER 2
+          value: 2
+    10: EchoStatement 16
+      expr: BinOp 16
+        left: UnaryOp 16
+          op: 16 MINUS -
+          expr: Num 16
+            token: 16 INTEGER 2
+            value: 2
+        token: 16 POWER **
+        op: 16 POWER **
+        right: Num 16
+          token: 16 INTEGER 2
+          value: 2
+    11: Statement 17
+      expr: Assign 17
+        left: Variable 17
+          token: 17 VAR_IDENTIFIER $y
+          value: "\$y"
+        token: 17 POWER_ASSIGN **=
+        right: Num 17
+          token: 17 INTEGER 3
+          value: 3

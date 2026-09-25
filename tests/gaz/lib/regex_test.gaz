@@ -66,3 +66,41 @@ try {
 } catch ($e) {
     check("a stray ')' is a catchable error", $e.message, "regex: unexpected ')' at 3 in /abc)/");
 }
+
+/* Which match: the leftmost, and there Perl's, the greedy and the earlier alternative first */
+check("find is leftmost even when a later start matches first", regex::find("abcd", "abcd|c"), 0);
+check("find of an anchor at the end", regex::find("ab", "$"), 2);
+check("the earlier alternative wins", regex::groups("abab", "(a|ab)(b*)"), ["ab", "a", "b"]);
+check("the first repetition is greedy", regex::groups("aab", "(a*)(a*)b"), ["aab", "aa", ""]);
+check("a lazy-looking optional is greedy too", regex::groups("ab", "(a?)(ab)?b"), ["ab", "a", null]);
+
+/* groups(): the whole match first, then each group by its "(" from the left */
+check("groups", regex::groups("key = value", "([a-z]+) *= *([a-z]+)"), ["key = value", "key", "value"]);
+check("groups in the first match only", regex::groups("a1 b2", "([a-z])([0-9])"), ["a1", "a", "1"]);
+check("nested groups count by their (", regex::groups("ab", "((a)(b))"), ["ab", "ab", "a", "b"]);
+check("a group that takes no part is null", regex::groups("ab", "(x)?(a)(b)"), ["ab", null, "a", "b"]);
+check("a repeated group keeps its last", regex::groups("abc", "([a-c])+"), ["abc", "c"]);
+check("a group can take nothing", regex::groups("ab", "a(x*)b"), ["ab", ""]);
+check("no groups is the match alone", regex::groups("xabx", "ab"), ["ab"]);
+check("an empty match", regex::groups("xyz", "a*"), [""]);
+check("groups of no match is null", regex::groups("zzz", "a"), null);
+check("groups respects anchors", [regex::groups("xa", "^(a)"), regex::groups("ax", "(a)$")], [null, null]);
+
+/* replace(): every match, left to right, not overlapping, the text taken as it is */
+check("replace", regex::replace("hello world", "o", "0"), "hell0 w0rld");
+check("replace a class", regex::replace("a1b22c333", "[0-9]+", "#"), "a#b#c#");
+check("replace an escaped dot", regex::replace("a.b.c", "\\.", "::"), "a::b::c");
+check("replace without a match", regex::replace("abc", "x", "y"), "abc");
+check("replace doesn't overlap", regex::replace("aaaa", "aa", "b"), "bb");
+check("replace takes $1 as it is", regex::replace("ab", "(a)", "$1"), "$1b");
+check("replace with nothing", regex::replace("a-b-c", "-", ""), "abc");
+check("replace at the start only", regex::replace("aaa", "^a", "b"), "baa");
+check("replace at the end only", regex::replace("aaa", "a$", "b"), "aab");
+check("an empty match moves on a byte", regex::replace("abc", "x*", "-"), "-a-b-c-");
+check("an empty match after a match", regex::replace("baaac", "a*", "-"), "-b--c-");
+check("an empty string", regex::replace("", "x*", "-"), "-");
+check("an empty pattern", regex::replace("ab", "", "."), ".a.b.");
+
+/* Linear time: what would take a backtracking engine 2^200 steps */
+check("no catastrophic backtracking", regex::matches(repeat("a", 200), "(a*)*b"), false);
+check("nor in replace", regex::replace(repeat("ab", 3), "(a*)*", "-"), "--b--b--b-");

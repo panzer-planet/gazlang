@@ -9,9 +9,10 @@
 // Everything follows from the seed (printed first) and the checkout, so `--seed N --runs M`
 // replays a run. A failing program is saved in vm/build/fuzz/, shrunk to a small one that fails
 // the same way, and printed; once fixed, add it to a corpus and record what it prints
-// (php vm/progress.php --update). Programs never open sockets, start programs or workers, exit, write
-// files or read standard input: any whose text (or an included file's) names those builtins
-// is skipped, which is sound because a builtin can only be reached by its name. --jobs sets how
+// (php vm/progress.php --update). Programs never open sockets, start programs or workers, exit,
+// sleep, read the environment, touch files or directories or read standard input: any whose
+// text (or an included file's) names those builtins is skipped, which is sound because a builtin
+// can only be reached by its name. --jobs sets how
 // many sanitized processes run at once (default 24, or GAZLANG_JOBS): raise it on a bigger
 // machine to get through more programs in the same time.
 
@@ -21,7 +22,7 @@ use GazLang\Tests\CVM;
 use Random\Engine\Xoshiro256StarStar;
 use Random\Randomizer;
 
-const FORBIDDEN = '/\b(run|socket_\w*|term_\w*|exit|workers|write_file|read_stdin)\b/';
+const FORBIDDEN = '/\b(run|socket_\w*|term_\w*|exit|workers|write_file|read_stdin|sleep|getenv|list_dir|is_dir|make_dir|delete_file|delete_dir|read_line)\b/';
 const INTERESTING = ['0', '1', '-1', '2', '63', '64', '255', '256', '9223372036854775807', '-9223372036854775807', '4294967296', '0.0', '-0.0', '1.5', '1e308', '0.1', '10000', '""', '"a"', '[]', '{}', 'null', 'true', 'false'];
 const WORK = 'vm/build/fuzz';
 // Where the programs of this run are written: its own, since a run clears it, and two runs in
@@ -801,7 +802,7 @@ final class ProgramGenerator
         $v = $this->target();
         $s = match ($this->int(0, $nested ? 17 : 10)) {
             0, 1 => "{$v} = {$this->expr()};",
-            2 => "{$v} ".['+=', '-=', '..=', '??=', '*=', '|=', '<<='][$this->int(0, 6)]." {$this->expr()};",
+            2 => "{$v} ".['+=', '-=', '..=', '??=', '*=', '|=', '<<=', '**='][$this->int(0, 7)]." {$this->expr()};",
             3 => "{$v}[] = {$this->expr()};",
             4 => "{$v}[{$this->expr()}] = {$this->expr()};",
             5 => "{$v}".$this->field()." = {$this->expr()};",
@@ -883,7 +884,7 @@ final class ProgramGenerator
 
     private function operator(): string
     {
-        $ops = ['+', '-', '*', '/', '%', '..', '==', '!=', '<', '<=', '>', '>=', '<=>', '&&', '||', '??', '&', '|', '^', '<<', '>>'];
+        $ops = ['+', '-', '*', '/', '%', '..', '==', '!=', '<', '<=', '>', '>=', '<=>', '&&', '||', '??', '&', '|', '^', '<<', '>>', '**'];
 
         return $ops[$this->int(0, count($ops) - 1)];
     }

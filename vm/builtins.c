@@ -7,6 +7,7 @@
  */
 #include "gazvm.h"
 
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -32,13 +33,13 @@ char **program_argv;
 /* In the order builtins() gives them */
 const BuiltinInfo builtin_info[] = {
     {"len", 1, 1}, {"slice", 2, 3}, {"lower", 1, 1}, {"upper", 1, 1}, {"trim", 1, 1},
-    {"split", 2, 2}, {"join", 2, 2}, {"replace", 3, 3}, {"contains", 2, 2}, {"starts_with", 2, 3},
+    {"split", 2, 3}, {"join", 2, 2}, {"replace", 3, 3}, {"contains", 2, 2}, {"starts_with", 2, 3},
     {"ends_with", 2, 2}, {"index_of", 2, 3}, {"repeat", 2, 2}, {"chr", 1, 1}, {"ord", 1, 1},
     {"to_int", 1, 2}, {"to_float", 1, 2}, {"floor", 1, 1}, {"ceil", 1, 1}, {"round", 1, 2},
     {"abs", 1, 1}, {"intdiv", 2, 2}, {"min", 1, 2}, {"max", 1, 2}, {"sum", 1, 1}, {"to_string", 1, 1},
     {"in_array", 2, 2}, {"has_key", 2, 2}, {"keys", 1, 1}, {"values", 1, 1}, {"last", 1, 1}, {"reverse", 1, 1},
     {"map", 2, 2},
-    {"filter", 2, 2}, {"reduce", 3, 3}, {"sort", 2, 2}, {"type_of", 1, 1},
+    {"filter", 2, 2}, {"reduce", 3, 3}, {"sort", 1, 2}, {"type_of", 1, 1},
     {"is_a", 2, 2}, {"kind_of", 1, 1}, {"fields", 1, 1}, {"object_id", 1, 1}, {"error", 1, 1}, {"exit", 0, 1},
     {"read_file", 1, 1}, {"write_file", 2, 2}, {"file_exists", 1, 1}, {"real_path", 1, 1},
     {"cwd", 0, 0}, {"print", 1, 1}, {"print_error", 1, 1}, {"read_stdin", 0, 0}, {"args", 0, 0},
@@ -48,7 +49,10 @@ const BuiltinInfo builtin_info[] = {
     {"term_is_tty", 1, 1}, {"monotonic_time", 0, 0}, {"std_source", 1, 1},
     {"db_open", 1, 1}, {"db_run", 2, 3}, {"db_close", 1, 1},
     {"socket_listen", 2, 3}, {"socket_accept", 1, 2}, {"socket_port", 1, 1}, {"workers", 1, 1},
-    {"time", 0, 0}, {"kind_name", 1, 1},
+    {"time", 0, 0}, {"kind_name", 1, 1}, {"sqrt", 1, 1},
+    {"getenv", 1, 1}, {"sleep", 1, 1},
+    {"list_dir", 1, 1}, {"is_dir", 1, 1}, {"make_dir", 1, 1}, {"delete_file", 1, 1}, {"delete_dir", 1, 1},
+    {"read_line", 0, 0},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -64,7 +68,10 @@ enum {
     B_MONOTONIC_TIME, B_STD_SOURCE,
     B_DB_OPEN, B_DB_RUN, B_DB_CLOSE,
     B_SOCKET_LISTEN, B_SOCKET_ACCEPT, B_SOCKET_PORT, B_WORKERS,
-    B_TIME, B_KIND_NAME,
+    B_TIME, B_KIND_NAME, B_SQRT,
+    B_GETENV, B_SLEEP,
+    B_LIST_DIR, B_IS_DIR, B_MAKE_DIR, B_DELETE_FILE, B_DELETE_DIR,
+    B_READ_LINE,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -76,7 +83,7 @@ int builtin_find(const char *name, size_t len) {
 
 /* The one value per builtin that PUSH_FN pushes, so == on builtins is identity */
 Func *builtin_value(int index) {
-    static Func *values[64];
+    static Func *values[sizeof builtin_info / sizeof builtin_info[0]];
     if (!values[index]) {
         Func *f = xcalloc(1, sizeof(Func));
         f->gc.rc = INT64_MAX / 2;
@@ -162,6 +169,7 @@ static bool want(int builtin, Value v, unsigned mask) {
     case M(T_INT) | M(T_FLOAT): names = "int or float"; break;
     case M(T_LIST) | M(T_MAP): names = "list or map"; break;
     case M(T_FUNCTION) | M(T_KIND): names = "function or kind"; break;
+    case M(T_FUNCTION) | M(T_KIND) | M(T_NULL): names = "function or kind or null"; break;
     }
     if (!names) {
         for (size_t i = 0; i < sizeof order / sizeof order[0]; i++) {
@@ -234,7 +242,8 @@ static bool reduce(Value x, Value f, Value initial, Value *out) {
 /*
  * sort($x, $compare): a defined merge sort, since a program sees which comparisons are made
  * and in what order: split in the middle, sort each half, merge asking $compare(right, left) and
- * taking from the right only when it is below zero. A new list, or NULL with the error raised.
+ * taking from the right only when it is below zero. A null $compare is <=>, with its errors. A
+ * new list, or NULL with the error raised.
  */
 static List *merge_sort(Value *items, size_t n, Value compare) {
     if (n < 2) {
@@ -257,7 +266,7 @@ static List *merge_sort(Value *items, size_t n, Value compare) {
     size_t l = 0, r = 0;
     while (l < left->len && r < right->len) {
         Value args[2] = {right->items[r], left->items[l]}, order;
-        if (!call_value(compare, args, 2, &order)) goto fail;
+        if (compare.type == T_NULL ? !binary_op(OP_CMP, args[0], args[1], &order) : !call_value(compare, args, 2, &order)) goto fail;
         if (order.type != T_INT) {
             raisef("sort's comparator must return an int, got %s", type_name(order));
             decref(order);
@@ -325,14 +334,17 @@ static const char *find(const char *hay, size_t hay_len, const char *needle, siz
     return memmem(hay, hay_len, needle, needle_len);
 }
 
-static Value split(Str *s, Str *sep) {
+/* split($s, $sep, $limit): at most $limit parts, the last holding the rest of the string */
+static Value split(Str *s, Str *sep, int64_t limit) {
     List *l = list_new(0);
     if (sep->len == 0) {
-        for (size_t i = 0; i < s->len; i++) list_push(l, v_str(str_byte((unsigned char)s->data[i])));
+        size_t i = 0;
+        for (; i < s->len && (int64_t)l->len < limit - 1; i++) list_push(l, v_str(str_byte((unsigned char)s->data[i])));
+        if (i < s->len) list_push(l, v_string(s->data + i, s->len - i));
         return v_list(l);
     }
     const char *p = s->data, *end = s->data + s->len;
-    for (;;) {
+    while ((int64_t)l->len < limit - 1) {
         const char *hit = find(p, (size_t)(end - p), sep->data, sep->len);
         if (!hit) break;
         list_push(l, v_string(p, (size_t)(hit - p)));
@@ -659,6 +671,45 @@ static bool run_process(List *args, Str *input, Value *out) {
     return true;
 }
 
+/* 'Cannot list directory "tmp/x": No such file or directory': the path quoted, so a NUL byte or a
+   newline in it shows, and the system's reason, whose words are the same on Linux and macOS */
+static bool raise_path(const char *what, Str *path, int err) {
+    Buf m = {0};
+    buf_adds(&m, what);
+    buf_addc(&m, ' ');
+    quote(path, &m);
+    buf_adds(&m, ": ");
+    buf_adds(&m, strerror(err));
+    return raise_str(buf_to_str(&m));
+}
+
+static int by_bytes(const void *a, const void *b) { return str_cmp(((const Value *)a)->s, ((const Value *)b)->s); }
+
+/* list_dir($path): the entries' names but . and .., sorted byte by byte, since the order
+   readdir() gives differs between file systems */
+static bool list_dir(Str *path, Value *out) {
+    /* No name holds a NUL byte, so a path with one names nothing */
+    if (memchr(path->data, '\0', path->len)) return raise_path("Cannot list directory", path, ENOENT);
+    DIR *dir = opendir(path->data);
+    if (!dir) return raise_path("Cannot list directory", path, errno);
+    List *l = list_new(0);
+    struct dirent *entry;
+    for (;;) {
+        errno = 0;
+        if (!(entry = readdir(dir))) break;
+        if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..")) list_push(l, v_str(str_cstr(entry->d_name)));
+    }
+    int err = errno;
+    closedir(dir);
+    if (err) {
+        decref(v_list(l));
+        return raise_path("Cannot list directory", path, err);
+    }
+    if (l->len) qsort(l->items, l->len, sizeof *l->items, by_bytes);
+    *out = v_list(l);
+    return true;
+}
+
 static Value keys_of(Value v) {
     if (v.type == T_LIST) {
         List *l = list_new(v.l->len);
@@ -716,10 +767,13 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         *out = v_string(a.s->data + from, to - from);
         return true;
     }
-    case B_SPLIT:
-        if (!want(index, a, STRING) || !want(index, b, STRING)) return false;
-        *out = split(a.s, b.s);
+    case B_SPLIT: {
+        Value limit = argc > 2 ? c : v_null();
+        if (!want(index, a, STRING) || !want(index, b, STRING) || !want(index, limit, INT | M(T_NULL))) return false;
+        if (limit.type == T_INT && limit.i < 1) return raisef("split() limit must be 1 or more, got %lld", (long long)limit.i);
+        *out = split(a.s, b.s, limit.type == T_INT ? limit.i : INT64_MAX);
         return true;
+    }
     case B_JOIN: {
         if (!want(index, b, STRING) || !want(index, a, M(T_LIST))) return false;
         Buf text = {0};
@@ -821,6 +875,20 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         int p = places.i > INT_MAX ? INT_MAX : places.i < INT_MIN ? INT_MIN : (int)places.i;
         if (a.type == T_INT && p >= 0) *out = v_float((double)a.i);
         else *out = v_float(php_round(a.type == T_INT ? (double)a.i : a.f, p));
+        return true;
+    }
+    case B_SQRT: {
+        /* IEEE 754 requires a correctly rounded square root, so every platform gives the same bits */
+        if (!want(index, a, INT | M(T_FLOAT))) return false;
+        double x = a.type == T_INT ? (double)a.i : a.f;
+        if (x < 0) {
+            Buf m = {0};
+            append_string(a, &m);
+            raisef("sqrt() expects a number that is not negative, got %s", m.data);
+            free(m.data);
+            return false;
+        }
+        *out = v_float(sqrt(x));
         return true;
     }
     case B_ABS:
@@ -975,15 +1043,17 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         if (!want(index, a, M(T_LIST) | M(T_MAP)) || !want(index, args[1], M(T_FUNCTION) | M(T_KIND))) return false;
         return reduce(a, args[1], args[2], out);
     case B_SORT: {
-        if (!want(index, a, M(T_LIST) | M(T_MAP)) || !want(index, args[1], M(T_FUNCTION) | M(T_KIND))) return false;
+        /* sort($x, $compare = null) */
+        Value compare = argc > 1 ? b : v_null();
+        if (!want(index, a, M(T_LIST) | M(T_MAP)) || !want(index, compare, M(T_FUNCTION) | M(T_KIND) | M(T_NULL))) return false;
         List *sorted;
         if (a.type == T_LIST) {
-            sorted = merge_sort(a.l->items, a.l->len, args[1]);
+            sorted = merge_sort(a.l->items, a.l->len, compare);
         } else {
             /* The map's values, in order, as values() gives them (which can't fail on a map) */
             Value values;
             call_builtin(B_VALUES, args, 1, &values);
-            sorted = merge_sort(values.l->items, values.l->len, args[1]);
+            sorted = merge_sort(values.l->items, values.l->len, compare);
             decref(values);
         }
         if (!sorted) return false;
@@ -1083,6 +1153,34 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         free(real);
         return true;
     }
+    case B_LIST_DIR:
+        if (!want(index, a, STRING)) return false;
+        return list_dir(a.s, out);
+    case B_IS_DIR: {
+        /* Following a symlink, as file_exists() does */
+        if (!want(index, a, STRING)) return false;
+        struct stat st;
+        *out = v_bool(!memchr(a.s->data, '\0', a.s->len) && stat(a.s->data, &st) == 0 && S_ISDIR(st.st_mode));
+        return true;
+    }
+    case B_MAKE_DIR:
+    case B_DELETE_FILE:
+    case B_DELETE_DIR: {
+        /* One level each: make_dir() needs the parent there and the name free, delete_dir() an
+           empty directory, and delete_file() refuses a directory (a symlink to one is a file), whose
+           reason is written out here since unlink() gives EPERM on macOS and EISDIR on Linux */
+        if (!want(index, a, STRING)) return false;
+        int err = 0;
+        struct stat st;
+        if (memchr(a.s->data, '\0', a.s->len)) err = ENOENT;
+        else if (index == B_MAKE_DIR) err = mkdir(a.s->data, 0777) == 0 ? 0 : errno;
+        else if (index == B_DELETE_DIR) err = rmdir(a.s->data) == 0 ? 0 : errno;
+        else if (lstat(a.s->data, &st) == 0 && S_ISDIR(st.st_mode)) err = EISDIR;
+        else err = unlink(a.s->data) == 0 ? 0 : errno;
+        if (err) return raise_path(index == B_MAKE_DIR ? "Cannot make directory" : index == B_DELETE_DIR ? "Cannot delete directory" : "Cannot delete file", a.s, err);
+        *out = v_null();
+        return true;
+    }
     case B_CWD: {
         char dir[PATH_MAX];
         if (!getcwd(dir, sizeof dir)) return raisef("Cannot get the working directory");
@@ -1106,6 +1204,32 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         size_t n;
         while ((n = fread(chunk, 1, sizeof chunk, stdin)) > 0) buf_add(&text, chunk, n);
         *out = v_str(buf_to_str(&text));
+        return true;
+    }
+    case B_READ_LINE: {
+        /* The next line of standard input without its "\n" or "\r\n", or null at the end. Through
+           the same stdio buffer as read_stdin(), so the two never lose each other's bytes. A
+           program that was itself piped in finds its input at the end already: main() read it.
+           (piped_input, which read_stdin() gives first, is only ever the front end's.) Output is
+           flushed first, so a prompt is on the screen before the wait. */
+        flush_output();
+        char *line = NULL;
+        size_t cap = 0;
+        ssize_t n = getline(&line, &cap, stdin);
+        if (n < 0) {
+            int err = errno;
+            bool failed = ferror(stdin);
+            free(line);
+            if (failed) {
+                clearerr(stdin);
+                return raisef("Cannot read standard input: %s", strerror(err));
+            }
+            *out = v_null();
+            return true;
+        }
+        if (n > 0 && line[n - 1] == '\n') n -= n > 1 && line[n - 2] == '\r' ? 2 : 1;
+        *out = v_string(line, (size_t)n);
+        free(line);
         return true;
     }
     case B_ARGS: {
@@ -1175,6 +1299,37 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
            so monotonic_time() is what measures how long something took */
         *out = v_int((int64_t)time(NULL));
         return true;
+    case B_GETENV: {
+        /* A name with a NUL byte is a mistake rather than one that isn't set: no name can hold one */
+        if (!want(index, a, STRING)) return false;
+        if (memchr(a.s->data, '\0', a.s->len)) return raisef("getenv() expects a name without a NUL byte");
+        const char *value = getenv(a.s->data);
+        *out = value ? v_str(str_cstr(value)) : v_null();
+        return true;
+    }
+    case B_SLEEP: {
+        /* Output is flushed first, so what was printed before the pause is on the screen during it */
+        if (!want(index, a, INT | M(T_FLOAT))) return false;
+        double seconds = a.type == T_INT ? (double)a.i : a.f;
+        if (seconds < 0) {
+            Buf m = {0};
+            append_string(a, &m);
+            raisef("sleep() expects 0 seconds or more, got %s", m.data);
+            free(m.data);
+            return false;
+        }
+        flush_output();
+        /* A day at a time, so any finite number of seconds fits a timespec; a signal that
+           interrupts it (a worker being stopped) doesn't cut it short */
+        while (seconds > 0) {
+            double step = seconds < 86400 ? seconds : 86400;
+            struct timespec wait = {(time_t)step, (long)((step - floor(step)) * 1e9)}, left;
+            while (nanosleep(&wait, &left) != 0 && errno == EINTR) wait = left;
+            seconds -= step;
+        }
+        *out = v_null();
+        return true;
+    }
     case B_DB_OPEN:
         if (!want(index, a, STRING)) return false;
         return db_open(a.s, out);

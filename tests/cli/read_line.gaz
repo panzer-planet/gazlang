@@ -1,0 +1,8 @@
+// Every line of standard input, each without its "\n" or "\r\n", then null at the end
+$count = 0;
+while (($line = read_line()) != null) {
+    echo [$line];
+    $count++;
+}
+echo "{$count} lines";
+echo read_line();

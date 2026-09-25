@@ -261,6 +261,7 @@ kind Shared {
         "ASSIGN", "PLUS_ASSIGN", "MINUS_ASSIGN", "MULTIPLY_ASSIGN", "DIVIDE_ASSIGN", "MODULO_ASSIGN",
         "CONCAT_ASSIGN", "COALESCE_ASSIGN",
         "BIT_AND_ASSIGN", "BIT_OR_ASSIGN", "BIT_XOR_ASSIGN", "SHIFT_LEFT_ASSIGN", "SHIFT_RIGHT_ASSIGN",
+        "POWER_ASSIGN",
     ];
 
     // The binary operators' levels, loosest first, each left associative: the tower in
@@ -1044,7 +1045,7 @@ kind Shared {
         return $chain;
     }
 
-    // Parse a unary expression ((MINUS | NOT | BIT_NOT) unary | (INCREMENT | DECREMENT) postfix | postfix)
+    // Parse a unary expression ((MINUS | NOT | BIT_NOT) unary | power)
     fn unary() {
         $token = #current_token;
 
@@ -1054,13 +1055,33 @@ kind Shared {
             return #at(UnaryOpAST($token, #unary()), $token);
         }
 
+        return #power();
+    }
+
+    /*
+     * Parse a power (((INCREMENT | DECREMENT) postfix | postfix) [POWER unary])
+     *
+     * Tighter than a unary operator on its left and looser than one on its right, as in Python:
+     * -2 ** 2 is -(2 ** 2), and 2 ** -1 needs no parentheses. The right side being a unary,
+     * which reaches back here, makes it right associative: 2 ** 3 ** 2 is 2 ** 9.
+     */
+    fn power() {
+        $token = #current_token;
         if ($token.type == "INCREMENT" || $token.type == "DECREMENT") {
             #eat($token.type);
-
-            return #at(IncrementAST(#assignable(#postfix(), $token), $token, true), $token);
+            $node = #at(IncrementAST(#assignable(#postfix(), $token), $token, true), $token);
+        } else {
+            $node = #postfix();
         }
 
-        return #postfix();
+        $token = #current_token;
+        if ($token.type == "POWER") {
+            #eat("POWER");
+
+            return #at(BinOpAST($node, $token, #unary()), $token);
+        }
+
+        return $node;
     }
 
     // Parse a binary expression whose operators all bind at least as tightly as $level
@@ -2244,6 +2265,7 @@ kind Shared {
             "MULTIPLY" => $left * $right,
             "DIVIDE" => $left / $right,
             "MODULO" => $left % $right,
+            "POWER" => $left ** $right,
             "CONCAT" => $left .. $right,
             "EQUALS" => $left == $right,
             "NOT_EQUALS" => $left != $right,

@@ -1,0 +1,14 @@
+["10", "9", "Z", "_", "a", "b", "sub", "é"]
+[]
+[true, true, false, false]
+Cannot make directory "tests/.tmp/dirs": File exists
+Cannot make directory "tests/.tmp/dirs/no/such": No such file or directory
+Cannot delete file "tests/.tmp/dirs/sub": Is a directory
+Cannot delete file "tests/.tmp/dirs/nope": No such file or directory
+Cannot delete directory "tests/.tmp/dirs": Directory not empty
+Cannot delete directory "tests/.tmp/dirs/a": Not a directory
+Cannot list directory "tests/.tmp/dirs/a": Not a directory
+Cannot list directory "tests/.tmp/dirs/nope": No such file or directory
+Cannot list directory "tests/.tmp/dirs\x00": No such file or directory
+false
+false

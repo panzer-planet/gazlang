@@ -1,0 +1,3 @@
+["first", "second"]
+["\n  third \nlast, without a newline"]
+[null, ""]

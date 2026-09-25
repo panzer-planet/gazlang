@@ -205,6 +205,7 @@ Every one means what `Runtime\Values` says, including the error messages.
 | `ADD`, `SUB`, `MUL` | `a b -- c` | Arithmetic. Ints give an int, a float on either side gives a float. Fails on a non-number, or on "Integer overflow" or "Float overflow". |
 | `DIV` | `a b -- c` | Always gives a float. Fails on "Division by zero". |
 | `MOD` | `a b -- c` | Ints only. Fails on a float or on "Division by zero". |
+| `POW` | `a b -- c` | `a ** b` by square-and-multiply. Two ints and `b` of 0 or more give an exact int or fail on "Integer overflow"; otherwise a float, `b` a whole number (a whole float too), negative for one divided by the power. Fails on "Exponent must be a whole number, got 0.5", "Exponent is too large", "Division by zero" (0 to a negative power) or "Float overflow". |
 | `BIT_AND`, `BIT_OR`, `BIT_XOR` | `a b -- c` | Ints only; fails on anything else. |
 | `SHL`, `SHR` | `a b -- c` | Ints only. A count outside 0 to 63 fails on "Shift count must be between 0 and 63, got 64". `SHL` drops the bits shifted off the top, so the result wraps; `SHR` keeps the sign. |
 | `BIT_NOT` | `a -- b` | Flips every bit of an int, two's complement. Fails on anything else. |

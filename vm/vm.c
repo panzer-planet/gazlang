@@ -659,6 +659,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             }
             goto binary;
         case OP_DIV:
+        case OP_POW:
         case OP_BIT_AND:
         case OP_BIT_OR:
         case OP_BIT_XOR:

@@ -431,9 +431,9 @@ echo json::encode({"ok" => true});
 | `std/csv.gaz` | `csv::parse` (RFC 4180, quotes and line breaks in fields) and `csv::records`, rows as maps by header |
 | `std/http.gaz` | An HTTP/1.1 client, `http::get`/`post`/`request` with https, redirects and chunked bodies; and a server, `http::serve($listener, $handler)`, which turns away malformed requests before your handler sees them |
 | `std/db.gaz` | `db::open("sqlite:app.db")` or `postgres://...`, then `query`, `row`, `value`, `exec` and `transaction`, parameters always bound |
-| `std/regex.gaz` | `regex::matches`, `search` and `find`: classes, ranges, anchors, alternation, and matching in linear time |
+| `std/regex.gaz` | `regex::matches`, `search`, `find`, `groups` and `replace`: classes, ranges, anchors, alternation, capture groups, and matching in linear time |
 | `std/date.gaz` | Calendar dates as day numbers: `date::days(2026, 8, 8)`, weekdays, adding months, `date::format` |
-| `std/format.gaz` | `format::number(1234.5)` → `1,234.50`, `pad_left`, `pad_right` |
+| `std/format.gaz` | `format::number(1234.5)` → `1,234.50`, `pad_left`, `pad_right`, and `format::sprintf("%-6s%5.1f", [$name, $score])` |
 | `std/lists.gaz`, `std/sorting.gaz` | `flatten`, `unique`, `max_by`/`min_by`; `sorting::by($rows, "points", true)` |
 | `std/random.gaz` | `shuffle`, `pick`, `chance`, `weighted` |
 | `std/chars.gaz` | Character classes (`is_digit`, `is_alpha`, ...) and `span`, for writing scanners |
@@ -444,10 +444,10 @@ And built into the language, with no include:
 | Builtins | |
 | --- | --- |
 | Strings, lists and maps | `len`, `slice`, `split`, `join`, `replace`, `index_of`, `starts_with`, `trim`, `upper`; `map`, `filter`, `reduce`, `sort`, `keys`, `values`, `in_array`, `sum`, `min`, `max` |
-| Files and programs | `read_file`, `write_file`, `file_exists`, `read_stdin`, `args`, and `run(["git", "status"])`, which starts a program with no shell in between |
+| Files and programs | `read_file`, `write_file`, `file_exists`, `list_dir`, `make_dir`, `delete_file`, `read_stdin`, `read_line`, `args`, `getenv`, and `run(["git", "status"])`, which starts a program with no shell in between |
 | Sockets and servers | `socket_open` (TCP or TLS), `socket_listen`, `socket_accept`, and `workers($n)`, which runs a server as n processes, restarting any that crash and stopping gracefully |
 | Databases | `db_open`, `db_run`, `db_close`, for SQLite and PostgreSQL |
-| Time and chance | `time`, `monotonic_time`, `rand_int`, `rand_float`, `rand_seed` |
+| Time and chance | `time`, `monotonic_time`, `sleep`, `rand_int`, `rand_float`, `rand_seed` |
 | The terminal | `term_raw`, `term_read`, `term_size`, `term_is_tty` |
 
 [docs/language.md](docs/language.md) has every function and what it does at the edges.

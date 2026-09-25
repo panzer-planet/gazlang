@@ -1,19 +1,27 @@
-// A small regular expression engine for GazLang: regex::matches($s, $pattern) tests whether
-// $s matches $pattern in full, regex::search($s, $pattern) whether $pattern occurs anywhere in
-// $s, regex::find($s, $pattern) the start index of the first (leftmost) match, or null.
-//
-// Syntax: literal bytes, "." (any byte), "*" "+" "?" (repetition), "|" (alternation),
-// "(...)" (grouping, not capturing), "[...]" and "[^...]" (character classes, with "a-z"
-// ranges), "^" and "$" (start/end of string anchors), "\" to escape a metacharacter.
-// No capture groups, no backreferences, no "\d"/"\w"/"\s" shorthands (see lib/chars.gaz),
-// no lookahead: patterns compile to a Thompson NFA (Pike's VM, ops.c has no part in this;
-// it is plain GazLang) and run in linear time, so there is no catastrophic backtracking.
+/*
+ * A small regular expression engine for GazLang: regex::matches($s, $pattern) tests whether
+ * $s matches $pattern in full, regex::search($s, $pattern) whether $pattern occurs anywhere in
+ * $s, regex::find($s, $pattern) the start index of the first (leftmost) match, or null,
+ * regex::groups($s, $pattern) what the first match and each group in it took, and
+ * regex::replace($s, $pattern, $with) every match replaced.
+ *
+ * Syntax: literal bytes, "." (any byte), "*" "+" "?" (repetition, greedy), "|" (alternation,
+ * the first that matches wins), "(...)" (a group, which captures), "[...]" and "[^...]"
+ * (character classes, with "a-z" ranges), "^" and "$" (start/end of string anchors), "\" to
+ * escape a metacharacter. Which match is found is Perl's: the leftmost, and of those the one
+ * the greedy repetitions and the earlier alternatives give. No backreferences, no
+ * "\d"/"\w"/"\s" shorthands (see lib/chars.gaz), no lookahead: patterns compile to a Thompson
+ * NFA (Pike's VM, each thread carrying where its groups started and ended; plain GazLang) and
+ * run in time linear in the string for a given pattern, so there is no catastrophic backtracking.
+ */
 namespace regex;
 
 kind Parser {
     #pat;
     #pos;
     #len;
+    // Groups so far, numbered from 1 by their "(" in the pattern, as the list groups() gives
+    pub #groups = 0;
 
     fn _($pat) {
         #pat = $pat;
@@ -83,9 +91,11 @@ kind Parser {
         }
         if ($c == "(") {
             #advance();
+            #groups += 1;
+            $n = #groups;
             $node = #parse_alt();
             #expect(")");
-            return $node;
+            return {"op" => "group", "n" => $n, "child" => $node};
         }
         if ($c == "[") { return #parse_class(); }
         if ($c == ".") { #advance(); return {"op" => "any"}; }
@@ -144,10 +154,13 @@ kind Parser {
     }
 }
 
-// Compiles an AST to a flat instruction list ("prog"): char/any/class/bol/eol consume or
-// assert, split/jmp are epsilon transitions, match ends the program. Instructions flow to
-// the next index by default; split and jmp give explicit targets, patched in once the size
-// of what they jump over is known.
+/*
+ * Compiles an AST to a flat instruction list ("prog"): char/any/class/bol/eol consume or
+ * assert, split/jmp are epsilon transitions (split's x first, the greedy or earlier way), save
+ * records the position in a slot (group n's start in 2n, its end in 2n + 1), match ends the
+ * program. Instructions flow to the next index by default; split and jmp give explicit
+ * targets, patched in once the size of what they jump over is known.
+ */
 kind Compiler {
     pub #prog;
 
@@ -171,6 +184,12 @@ kind Compiler {
         if ($op == "eol") { #emit({"op" => "eol"}); return; }
         if ($op == "concat") {
             foreach ($node["parts"] as $part) { #compile($part); }
+            return;
+        }
+        if ($op == "group") {
+            #emit({"op" => "save", "slot" => 2 * $node["n"]});
+            #compile($node["child"]);
+            #emit({"op" => "save", "slot" => 2 * $node["n"] + 1});
             return;
         }
         if ($op == "alt") {
@@ -215,12 +234,14 @@ kind Compiler {
     }
 }
 
+// The program for $pattern, and how many groups it has
 fn compile($pattern) {
-    $ast = Parser($pattern).parse();
+    $parser = Parser($pattern);
+    $ast = $parser.parse();
     $c = Compiler();
     $c.compile($ast);
     $c.emit({"op" => "match"});
-    return $c.prog;
+    return [$c.prog, $parser.groups];
 }
 
 fn class_matches($instr, $byte) {
@@ -249,71 +270,90 @@ fn blanks($n) {
     return $r;
 }
 
-// Runs $prog (Pike's thread-list NFA simulation, no backtracking) against $s starting at
-// $start. Unanchored also seeds a fresh thread at every later position, so the first match
-// found is the leftmost one; full requires the match to end exactly at the end of $s.
+/*
+ * Runs a program (Pike's thread-list NFA simulation, no backtracking) against $s from $start.
+ * The threads of a step are in priority order, and each carries its slots. When one reaches
+ * match it is the best that can end here, so the threads after it are dropped, while those
+ * before it run on in case they match later: that is what makes the repetitions greedy and
+ * the first alternative win. Unanchored also starts a new thread at every later position, at
+ * the lowest priority, until something has matched, so the match found is the leftmost; full
+ * only counts a match that ends at the end of $s.
+ */
 kind Matcher {
     #prog;
+    #slots;
     #len_s;
     #mark;
     #list;
 
-    fn _($prog, $len_s) {
-        #prog = $prog;
+    fn _($compiled, $len_s) {
+        [#prog, $groups] = $compiled;
+        #slots = 2 * ($groups + 1);
         #len_s = $len_s;
     }
 
-    // Follows epsilon transitions (split, jmp, satisfied anchors) from $pc, adding every
-    // byte-consuming or match instruction reached to #list, each only once per step.
-    fn add($pc, $sp, $start) {
+    /*
+     * Follows epsilon transitions (split, jmp, save, satisfied anchors) from $pc, adding every
+     * byte-consuming or match instruction reached to #list with the slots that led to it, each
+     * instruction only once per step (the first way there has the priority).
+     */
+    fn add($pc, $sp, $slots) {
         if (#mark[$pc]) { return; }
         #mark[$pc] = true;
         $instr = #prog[$pc];
         $op = $instr["op"];
         if ($op == "jmp") {
-            #add($instr["target"], $sp, $start);
+            #add($instr["target"], $sp, $slots);
         } else if ($op == "split") {
-            #add($instr["x"], $sp, $start);
-            #add($instr["y"], $sp, $start);
+            #add($instr["x"], $sp, $slots);
+            #add($instr["y"], $sp, $slots);
+        } else if ($op == "save") {
+            $slots[$instr["slot"]] = $sp;
+            #add($pc + 1, $sp, $slots);
         } else if ($op == "bol") {
-            if ($sp == 0) { #add($pc + 1, $sp, $start); }
+            if ($sp == 0) { #add($pc + 1, $sp, $slots); }
         } else if ($op == "eol") {
-            if ($sp == #len_s) { #add($pc + 1, $sp, $start); }
+            if ($sp == #len_s) { #add($pc + 1, $sp, $slots); }
         } else {
-            #list[] = {"pc" => $pc, "start" => $start};
+            #list[] = [$pc, $slots];
         }
     }
 
-    fn match_start() {
-        foreach (#list as $thread) {
-            if (#prog[$thread["pc"]]["op"] == "match") { return $thread["start"]; }
-        }
-        return null;
+    // A thread starting at $sp, at the lowest priority
+    fn start($sp) {
+        $slots = [$sp];
+        for ($i = 1; $i < #slots; $i += 1) { $slots[] = null; }
+        #add(0, $sp, $slots);
     }
 
+    // The slots of the match found (the whole match in 0 and 1), or null
     pub fn run($s, $start, $unanchored, $full) {
         #list = [];
         #mark = blanks(len(#prog));
-        #add(0, $start, $start);
+        #start($start);
+        $matched = null;
         $sp = $start;
         while (true) {
-            $found = #match_start();
-            if ($found != null && (!$full || $sp == #len_s)) { return $found; }
-            if ($sp >= #len_s) { break; }
-            $byte = ord($s[$sp]);
-            $old_list = #list;
+            $byte = $sp < #len_s ? ord($s[$sp]) : null;
+            $threads = #list;
             #list = [];
             #mark = blanks(len(#prog));
-            foreach ($old_list as $thread) {
-                $instr = #prog[$thread["pc"]];
-                if ($instr["op"] != "match" && consumes($instr, $byte)) {
-                    #add($thread["pc"] + 1, $sp + 1, $thread["start"]);
+            foreach ($threads as [$pc, $slots]) {
+                $instr = #prog[$pc];
+                if ($instr["op"] == "match") {
+                    if ($full && $sp != #len_s) { continue; }
+                    $slots[1] = $sp;
+                    $matched = $slots;
+                    break;
                 }
+                if ($byte != null && consumes($instr, $byte)) { #add($pc + 1, $sp + 1, $slots); }
             }
-            if ($unanchored) { #add(0, $sp + 1, $sp + 1); }
+            if ($sp >= #len_s) { break; }
+            if ($matched == null && $unanchored) { #start($sp + 1); }
+            if (len(#list) == 0 && ($matched != null || !$unanchored)) { break; }
             $sp += 1;
         }
-        return null;
+        return $matched;
     }
 }
 
@@ -324,10 +364,53 @@ pub fn matches($s, $pattern) {
 
 // The start index of the first (leftmost) place $pattern occurs in $s, or null.
 pub fn find($s, $pattern) {
-    return Matcher(compile($pattern), len($s)).run($s, 0, true, false);
+    $slots = Matcher(compile($pattern), len($s)).run($s, 0, true, false);
+    return $slots == null ? null : $slots[0];
 }
 
 // Whether $pattern occurs anywhere in $s.
 pub fn search($s, $pattern) {
     return find($s, $pattern) != null;
+}
+
+/*
+ * What the first match took, and each group in it: [whole match, group 1, group 2, ...] with
+ * groups numbered by their "(" from the left, a group that took no part null, and a group
+ * repeated what it took the last time. Null when nothing matches.
+ */
+pub fn groups($s, $pattern) {
+    $slots = Matcher(compile($pattern), len($s)).run($s, 0, true, false);
+    if ($slots == null) {
+        return null;
+    }
+    $taken = [];
+    for ($i = 0; $i < len($slots); $i += 2) {
+        $taken[] = $slots[$i] == null || $slots[$i + 1] == null ? null : slice($s, $slots[$i], $slots[$i + 1] - $slots[$i]);
+    }
+    return $taken;
+}
+
+/*
+ * $s with every match of $pattern replaced by $with, taken as it is (no "$1"), looking for the
+ * next match where the last ended. An empty match replaces nothing and the search moves on a
+ * byte, as in Perl, Python and JavaScript: replace("abc", "x*", "-") is "-a-b-c-".
+ */
+pub fn replace($s, $pattern, $with) {
+    $matcher = Matcher(compile($pattern), len($s));
+    $out = "";
+    $at = 0;
+    while ($at <= len($s)) {
+        $slots = $matcher.run($s, $at, true, false);
+        if ($slots == null) {
+            break;
+        }
+        [$from, $to] = [$slots[0], $slots[1]];
+        $out ..= slice($s, $at, $from - $at) .. $with;
+        if ($to == $from) {
+            $out ..= slice($s, $from, 1);
+            $to += 1;
+        }
+        $at = $to;
+    }
+    return $at > len($s) ? $out : $out .. slice($s, $at);
 }

@@ -63,6 +63,68 @@ class OperatorTest extends GazLangTestCase
         ];
     }
 
+    public function test_lexes_power()
+    {
+        // Longest match: **= before ** before *=, and *** is ** then *
+        $this->assertSame(['POWER', 'POWER_ASSIGN', 'MULTIPLY_ASSIGN', 'POWER', 'MULTIPLY'], array_column($this->lex('** **= *= ***'), 0));
+    }
+
+    /**
+     * @dataProvider powers
+     */
+    public function test_power(string $code, string $expected)
+    {
+        $this->assertSame($expected, $this->executeCode($code));
+    }
+
+    public static function powers(): array
+    {
+        return [
+            'an int to an int is an exact int' => ['echo 3 ** 4;', "81\n"],
+            'the largest power of two' => ['echo 2 ** 62;', "4611686018427387904\n"],
+            'the smallest int' => ['echo (-2) ** 63;', "-9223372036854775808\n"],
+            'anything to 0 is 1' => ['echo [0 ** 0, 5 ** 0, 2.5 ** 0];', "[1, 1, 1.0]\n"],
+            'a negative exponent gives a float' => ['echo 2 ** -2;', "0.25\n"],
+            'a float base gives a float' => ['echo 1.5 ** 2;', "2.25\n"],
+            'a whole float exponent' => ['echo 2 ** 3.0;', "8.0\n"],
+            'a unary minus on the left is looser' => ['echo -2 ** 2;', "-4\n"],
+            'a unary minus on the right is tighter' => ['echo 2 ** -1;', "0.5\n"],
+            'right associative' => ['echo 2 ** 3 ** 2;', "512\n"],
+            'tighter than *' => ['echo 2 * 3 ** 2;', "18\n"],
+            'looser than a postfix' => ['$a = [3]; echo $a[0] ** 2;', "9\n"],
+            '**=' => ['$x = 3; $x **= 3; echo $x;', "27\n"],
+            'squaring a big base is not an overflow when the result fits' => ['echo (-1) ** 9223372036854775807;', "-1\n"],
+            'sqrt' => ['echo [sqrt(2), sqrt(9), sqrt(0)];', "[1.4142135623730951, 3.0, 0.0]\n"],
+        ];
+    }
+
+    /**
+     * @dataProvider powerErrors
+     */
+    public function test_power_errors(string $code, string $message)
+    {
+        $this->expectExceptionMessage($message);
+        $this->executeCode($code);
+    }
+
+    public static function powerErrors(): array
+    {
+        return [
+            'an int too big' => ['echo 2 ** 63;', 'Integer overflow on line 1'],
+            'an int too small' => ['echo (-2) ** 65;', 'Integer overflow on line 1'],
+            'a float too big' => ['echo 10.0 ** 309;', 'Float overflow on line 1'],
+            'zero to a negative power' => ['echo 0 ** -1;', 'Division by zero on line 1'],
+            'a fractional exponent' => ['echo 4 ** 0.5;', 'Exponent must be a whole number, got 0.5 on line 1'],
+            'an exponent too big' => ['echo 1.0 ** 1e19;', 'Exponent is too large, got 1.0E+19 on line 1'],
+            'a string' => ['echo "2" ** 2;', 'Cannot use ** on string on line 1'],
+            'a bool' => ['echo 2 ** false;', 'Cannot use ** on bool on line 1'],
+            '**= overflow' => ['$x = 10; $x **= 19;', 'Integer overflow on line 1'],
+            'a constant' => ['const BIG = 2 ** 64;', 'Integer overflow on line 1'],
+            'sqrt of a negative number' => ['sqrt(-4);', 'sqrt() expects a number that is not negative, got -4 on line 1'],
+            'sqrt of a string' => ['sqrt("4");', 'sqrt() expects int or float, got string on line 1'],
+        ];
+    }
+
     /**
      * @dataProvider bitwiseErrors
      */

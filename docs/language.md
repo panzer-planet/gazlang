@@ -151,7 +151,7 @@ By precedence, loosest first:
 
 | Level | Operators |
 | --- | --- |
-| assignment | `=` `+=` `-=` `*=` `/=` `%=` `..=` `??=` `&=` `\|=` `^=` `<<=` `>>=` (right associative) |
+| assignment | `=` `+=` `-=` `*=` `/=` `%=` `**=` `..=` `??=` `&=` `\|=` `^=` `<<=` `>>=` (right associative) |
 | ternary | `$c ? $a : $b` (right associative) |
 | coalesce | `??` |
 | logical | `\|\|` then `&&` |
@@ -163,10 +163,20 @@ By precedence, loosest first:
 | additive | `+` `-` |
 | multiplicative | `*` `/` `%` |
 | unary | `-` `!` `~` `++` `--` |
+| power | `**` (right associative) |
 | postfix | `[index]` `(args)` `.name` `?.name` `::name` |
 
 - `+ - * /` are numbers only. `/` **always** gives a float (`6 / 2` is `3.0`); `intdiv()`
   divides ints. `%` is ints only, and its sign follows the left operand.
+- `**` raises to a power, by multiplying (square-and-multiply), never a library's `pow`, so every
+  platform gives the same bits. An int to an int of 0 or more is an exact int, and `Integer
+  overflow` when it doesn't fit, never a float. Otherwise the result is a float: a negative
+  exponent is one divided by the power (`2 ** -1` is `0.5`), and a float on either side works if
+  the exponent is a whole number (`2 ** 3.0` is `8.0`); `4 ** 0.5` is an error, since a fractional
+  power needs a defined algorithm GazLang doesn't have yet (`sqrt()` is the square root). It
+  binds tighter than a unary operator on its left and looser than one on its right, and is right
+  associative, as in Python: `-2 ** 2` is `-4`, `2 ** -1` needs no parentheses, `2 ** 3 ** 2` is
+  `512`.
 - `==` never converts between types. `"5" == 5` is false, `"1" != "01"`, `1 == 1.0` is true.
   There is no `===`. Ordering a string against a number is an error.
 - `<=>` gives -1, 0 or 1, for comparison functions.
@@ -423,17 +433,18 @@ kind's fields, methods and constants across its hierarchy.
 
 ## Builtins
 
-**Strings** — `len`, `slice($x, $start, $length)`, `lower`, `upper`, `trim`, `split($s, $sep)`,
+**Strings** — `len`, `slice($x, $start, $length)`, `lower`, `upper`, `trim`, `split($s, $sep, $limit)`,
 `join($list, $sep)`, `replace($s, $search, $replacement)`, `contains`, `ends_with`,
 `starts_with($s, $prefix, $offset)`, `index_of($s, $needle, $offset)`, `repeat($s, $count)`, `chr`,
-`ord`. Both offsets are optional and count from the end when negative; one outside the string is
+`ord`. `split`'s `$limit` (an int of 1 or more, or `null` for none) caps the parts, the last
+holding the rest: `split("a=b=c", "=", 2)` is `["a", "b=c"]`. Both offsets are optional and count from the end when negative; one outside the string is
 an error. `starts_with` at the end of the string (`$offset` = `len($s)`) is true only for an empty
 prefix.
 
 **Numbers** — `to_int($x, $default)`, `to_float($x, $default)` (without a default, a string
 that isn't a number is an error; with one, it gives the default: `to_int($arg, null) ?? 1`; a
 null, list or map is an error either way), `to_string`, `floor`, `ceil`, `round($x, $precision)`,
-`abs`, `intdiv`, `min($a, $b)`, `max($a, $b)`, and `min($list)`, `max($list)` and `sum($list)`
+`abs`, `intdiv`, `sqrt` (a float; a negative number is an error), `min($a, $b)`, `max($a, $b)`, and `min($list)`, `max($list)` and `sum($list)`
 over a list's or map's values (`sum([])` is 0; `min` and `max` of nothing is an error; `sum`
 adds with `+`, so an int overflowing or a string in the list is `+`'s error).
 
@@ -454,9 +465,10 @@ given it as the third: `map($names, ($name, $i) -> "{$i}. {$name}")`,
 `filter($xs, ($x, $i) -> $i % 2 == 0)`, `reduce($xs, ($carry, $x, $i) -> ...)`. One that needs
 fewer, one with a default for its second parameter, a builtin and a kind are called with the value alone,
 as they always were, so `map($texts, to_int)` still gives `to_int` one argument.
-- `sort($x, $compare)` — the values in a new list, ordered by `$compare($a, $b)`, which returns
-  an int below zero when `$a` comes first, as `$a <=> $b` does; anything but an int is an
-  error. Stable: a merge sort that splits in the middle and asks `$compare(right, left)`,
+- `sort($x, $compare = null)` — the values in a new list, ordered by `$compare($a, $b)`, which
+  returns an int below zero when `$a` comes first, as `$a <=> $b` does; anything but an int is an
+  error. Without one (or with `null`) it is `<=>` itself, ascending, so `sort([3, 1, 2])` is
+  `[1, 2, 3]` and a list of a string and a number is `<=>`'s error. Stable: a merge sort that splits in the middle and asks `$compare(right, left)`,
   taking from the right only when that is below zero, so a comparator that prints shows the
   same calls on every runtime.
 
@@ -471,13 +483,30 @@ are set, as a map by name, the parent's first; a never-set field is left out), `
 objects as `$seen[object_id($x)] = true`).
 
 **Input and output** — `print`, `print_error`, `read_file($path)`,
-`write_file($path, $string)`, `read_stdin()`, `args()`, `builtins()` (every builtin's name
+`write_file($path, $string)`, `read_stdin()`, `read_line()`, `args()`, `builtins()` (every builtin's name
 mapped to its parameter count, or `[fewest, most]` when some are optional).
+
+`read_line()` is the next line of standard input without its `"\n"` or `"\r\n"` (the last line
+may have neither), or `null` once the input has ended, so `while (($line = read_line()) != null)`
+reads it all; output is flushed first, so a prompt printed with `print` shows before the wait.
+`read_stdin()` is all of standard input that is left, so after some `read_line()`s it is the rest.
+A program that was itself piped in has read its input already: both find nothing.
+
+**Directories** — `list_dir($path)` is the names of what a directory holds, without `.` and
+`..`, sorted byte by byte (so `"10"` before `"9"` and `"Z"` before `"a"`), the same on every
+system. `is_dir($path)` is whether there is a directory there (through a symlink too).
+`make_dir($path)` makes one directory, whose parent must be there; `delete_dir($path)` removes an
+empty one; `delete_file($path)` removes a file (or a symlink), never a directory. Each gives
+`null`, and what it can't do is an error naming the path and the system's reason:
+`Cannot make directory "out": File exists`.
 
 **Paths** — `cwd()` is the working directory, which relative paths are resolved from.
 `real_path($path)` is the absolute path with every symlink, `.` and `..` resolved (a directory
 too), and an error when there is nothing there; `file_exists($path)` is whether there is, so
 `file_exists("a/../b")` is false when `a` is missing, as the system sees it.
+
+**The environment** — `getenv($name)` is the environment variable's value as a string, or `null`
+when it isn't set. A name with a NUL byte in it is an error.
 
 **Programs** — `run($argv, $input = "")` starts a program and waits for it: `$argv` is a list
 of strings, the program (found on `PATH` unless it has a `/`) and then its arguments, passed as
@@ -567,7 +596,8 @@ is escape sequences through `print`, and turning bytes into keys is GazLang's to
   when it isn't one. Call it each time it matters; nothing tells a program the window changed.
 - `term_is_tty($stream)` — whether standard input (0), output (1) or error (2) is a terminal.
 
-`term_read` reads the descriptor, not the buffer `read_stdin()` fills, so use one or the other.
+`term_read` reads the descriptor, not the buffer `read_stdin()` and `read_line()` fill, so use one
+or the other.
 
 **Workers** — `workers($count)` turns the program into `$count` processes from that point on, each
 carrying on with a copy of everything, for a server that answers more than one request at a time
@@ -595,7 +625,8 @@ while (true) {
 
 **Time** — `time()` is the wall clock: whole seconds since 1 January 1970, UTC, as an int. It can
 jump when the clock is set, so it tells what time it is, not how long something took; a program
-that prints it can't be recorded. `monotonic_time()` is seconds, as a float, on the system's monotonic clock: it only
+that prints it can't be recorded. `sleep($seconds)` waits that long (an int or a float, 0 or more) and gives `null`; what was printed
+before it is on the screen first. `monotonic_time()` is seconds, as a float, on the system's monotonic clock: it only
 counts on, whatever the clock on the wall is set to, and only the difference between two readings
 means anything (the starting point is not defined, and the resolution is a microsecond or better).
 It is for measuring how long something took, or when something is due: `tui::interact` keeps its
@@ -744,11 +775,11 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `json.gaz` | `json::decode`, `json::encode`; an object is encoded as what its `pub fn to_json()` returns (a map, say: a value, not JSON text), and one without it is an error. Decoding gives maps and lists, never objects: a kind reads itself back with a `static fn from_json($data)` of its own, by convention |
 | `csv.gaz` | `csv::parse`, `csv::records` (RFC 4180) |
 | `chars.gaz` | `chars::char_at`, `chars::is_digit`, `chars::is_alpha`, `chars::is_alnum`, `chars::is_space`, `chars::is_hex_digit`, `chars::span($s, $i, $predicate)` (how many characters from `$i` satisfy the predicate: `slice($s, $i, chars::span($s, $i, chars::is_digit))` is the number at `$i`) |
-| `format.gaz` | `format::number`, `format::pad_left`, `format::pad_right` |
+| `format.gaz` | `format::number`, `format::pad_left`, `format::pad_right`, and `format::sprintf($template, $args)` with the arguments as a list: `%s` (as echo prints it), `%d` (an int), `%f` (an int or float, 6 decimals or `%.2f`'s, rounded as `round()` does), `%x` (an int of 0 or more, lowercase hex), `%%`; a width, `-` to pad on the right and `0` to pad a number with zeros after its sign (`%-8s`, `%05.1f`). A count of arguments that isn't the placeholders', a type `%d`, `%f` or `%x` can't take, and a placeholder it doesn't know are errors |
 | `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins, and a server, `http::serve($listener, $handler, $options = {})`, `http::handle($socket, $handler, $options = {})` (one connection) and `http::http_date($time)`; see below |
 | `date.gaz` | `date::days($year, $month, $day)` (a date as a whole number of days, day 0 being 1 January 1970: an impossible date is an error), `date::civil($days)` (`[year, month, day]`), `date::year`/`month`/`day`, `date::weekday` (0 Monday to 6 Sunday), `date::next_weekday($days, $weekday)`, `date::add_months`, `date::is_leap`, `date::days_in_month`, and `date::format` (`Sat 8 Aug 2026`), `date::short` (`8 Aug`) and `date::iso` (`2026-08-08`). There is no `today()`: a clock would make a program impossible to record, so a program keeps its own date |
 | `random.gaz` | `random::shuffle` (a shuffled copy of a list or string), `random::pick` (an element of a list or value of a map), `random::key`, `random::chance($p)`, `random::weighted` (from `[item, weight]` pairs) |
-| `regex.gaz` | `regex::matches($s, $pattern)` (full match), `regex::search($s, $pattern)` (found anywhere), `regex::find($s, $pattern)` (the start index, or null); literals, `.`, `* + ?`, `\|`, `(...)`, `[...]`/`[^...]` with ranges, `^ $`, `\` escapes; no captures, no backreferences, no backtracking |
+| `regex.gaz` | `regex::matches($s, $pattern)` (full match), `regex::search($s, $pattern)` (found anywhere), `regex::find($s, $pattern)` (the start index, or null), `regex::groups($s, $pattern)` (the first match and what each `(...)` in it took, a group that took no part `null`, or `null` for no match), `regex::replace($s, $pattern, $with)` (every match, left to right, by `$with` as it is, so `"$1"` is two bytes; an empty match moves on a byte: `replace("abc", "x*", "-")` is `"-a-b-c-"`); literals, `.`, `* + ?` (greedy), `\|` (the first that matches wins), `(...)`, `[...]`/`[^...]` with ranges, `^ $`, `\` escapes; the leftmost match, then Perl's choice; no backreferences, no backtracking |
 | `term.gaz` | `term::style`, cursor and screen sequences, `term::decode`, `term::Input`, `term::fullscreen`, on the terminal builtins; see below |
 | `tui.gaz` | `tui::Screen` (a grid of cells that renders only what changed), `tui::Rect`, `tui::box`, `tui::label`, `tui::progress`, `tui::table`, `tui::Table`, `tui::Menu`, `tui::TextField`, `tui::choose`, `tui::ask`; see below |
 

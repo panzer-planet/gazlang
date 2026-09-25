@@ -43,3 +43,33 @@ ok the same pattern rejects a bare word
 ok an unclosed group is a catchable error
 ok an unclosed class is a catchable error
 ok a stray ')' is a catchable error
+ok find is leftmost even when a later start matches first
+ok find of an anchor at the end
+ok the earlier alternative wins
+ok the first repetition is greedy
+ok a lazy-looking optional is greedy too
+ok groups
+ok groups in the first match only
+ok nested groups count by their (
+ok a group that takes no part is null
+ok a repeated group keeps its last
+ok a group can take nothing
+ok no groups is the match alone
+ok an empty match
+ok groups of no match is null
+ok groups respects anchors
+ok replace
+ok replace a class
+ok replace an escaped dot
+ok replace without a match
+ok replace doesn't overlap
+ok replace takes $1 as it is
+ok replace with nothing
+ok replace at the start only
+ok replace at the end only
+ok an empty match moves on a byte
+ok an empty match after a match
+ok an empty string
+ok an empty pattern
+ok no catastrophic backtracking
+ok nor in replace

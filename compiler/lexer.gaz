@@ -75,7 +75,7 @@ kind Lexer {
     const OPERATORS = {
         "+" => "PLUS", "+=" => "PLUS_ASSIGN", "++" => "INCREMENT",
         "-" => "MINUS", "-=" => "MINUS_ASSIGN", "--" => "DECREMENT", "->" => "ARROW",
-        "*" => "MULTIPLY", "*=" => "MULTIPLY_ASSIGN",
+        "*" => "MULTIPLY", "*=" => "MULTIPLY_ASSIGN", "**" => "POWER", "**=" => "POWER_ASSIGN",
         "/" => "DIVIDE", "/=" => "DIVIDE_ASSIGN",
         "%" => "MODULO", "%=" => "MODULO_ASSIGN",
         "&" => "BIT_AND", "&=" => "BIT_AND_ASSIGN", "&&" => "AND",
