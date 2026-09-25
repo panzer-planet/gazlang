@@ -1,0 +1,1 @@
+Error: A template starts with @template and the function it is, like @template page($title) at tests/parser_corpus/templates/headless.gazml:1

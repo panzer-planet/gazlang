@@ -93,7 +93,8 @@ vendor/bin/pint                     # formatting
 
 ## Layout
 
-- `compiler/`: `lexer.gaz`, `parser.gaz` and `nodes.gaz`, `codegen.gaz`, and `gazlang.gaz`, the
+- `compiler/`: `lexer.gaz`, `parser.gaz` and `nodes.gaz`, `template.gaz` (`.gazml` templates into
+  GazLang), `codegen.gaz`, and `gazlang.gaz`, the
   driver: `gazlang.gaz -- code|tokens|ast [FILE]`, reading standard input without a FILE, a
   usage message and exit 2 otherwise. `gazlang.gzb` is its bytecode.
 - `vm/`: the VM in C. `gazvm.h` says which file does what: `value.c` and `ops.c` are what values
@@ -237,9 +238,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   install it, get a first program working and trust it; not by what would win many users
   (Windows, a registry, an LSP and a playground wait for someone to ask).
 - **Milestone 0.1, the first release**, is what that stranger needs, in this order:
-  1. **Web essentials**: request decoding and the router (both done), and templates that escape by default, which want
-     their own design round first (syntax, how one includes another, whether they compile to
-     GazLang functions). Then cookies, static files and uploads as the apps written on it ask.
+  1. **Web essentials**: request decoding, the router and templates (all done; see "Templates").
+     Then cookies, static files and uploads as the apps written on it ask.
   2. **CLI essentials**: argument parsing (flags, options with values, subcommands, a generated
      `--help`).
   3. **The `gaz` rename** with `gaz main.gaz` and `-` for standard input (decided, see
@@ -1021,6 +1021,47 @@ $area = $c.area;                              // a bound method
   functions are still refused. GazLang only (`lib/json.gaz`). A `to_json()` whose data must also
   compare with `==` or round-trip without JSON (the football game's tests do both) returns plain
   data all the way down rather than leaving nested objects to the encoder.
+
+## Templates
+
+```
+@template user_page($user, $posts)             // views/user.gazml: the function it becomes
+<h1>{{ $user.name }}</h1>                      // escaped, unless it is Html
+@foreach ($posts as $post)
+  <li>{{ $post.title }}</li>
+@endforeach
+{!! $trusted !!}                               // as it is, whatever it is
+```
+
+- **A `.gazml` file is compiled by the compiler when it is included**, into a function returning
+  `Html`, so any GazLang expression works in it, a mistake is an error when the program is read,
+  and nothing is parsed at run time. `compiler/template.gaz` translates it into GazLang source,
+  **one line of source for each line of the template**, which is then lexed and parsed like any
+  file: every error, the parser's or the running program's, is at the template's own line, and
+  the code generator, the VM and the bytecode learn nothing. Not a library: GazLang has no eval,
+  so a library could only offer logic-less templates.
+- **The first line declares it**: `@template name($params)`, so a template has real parameters
+  (defaults included), a wrong call is caught when the program is read, and its file name is free.
+- **Blade's syntax**: `{{ }}` escapes, `{!! !!}` doesn't, `@if`/`@elseif`/`@else`/`@endif` and
+  `@foreach`/`@endforeach` alone on their lines (a line holding one writes nothing, and a line
+  holding only a `{{-- comment --}}` nothing either), `@{{` for a literal `{{`. Another `@word`
+  is text, so CSS's `@media` and an email address need nothing. The translator checks the
+  blocks nest, so a mismatch is a sentence about the template, not a parse error in source the
+  user never wrote.
+- **A template's result is safe HTML, the builtin kind `Html`**, and `{{ }}` leaves an `Html` as
+  it is (`Html::escape()`), so one template includes another (`{{ header($title) }}`, a layout
+  given a page) with no marker. `{!! !!}` is then rare, which is the point: each one stands out
+  in review, where if every include needed one, a `{!! $comment !!}` would hide among them. It is
+  how Rails, Django and Jinja stay safe. `Html($text)` marks text as trusted; `http::serve` takes
+  an `Html` body, as `text/html; charset=utf-8` unless a Content-Type is given.
+- **`Html` is a builtin kind in `BUILTIN_SOURCE`**, like `Error` and `Shared`, compiled into a
+  program that includes a template or names `Html` itself (not because its own code does). It is
+  the first builtin kind with a static method, which `program()` places itself, since only
+  `top_level()` puts a kind's static methods after it.
+- **The output is gathered in `$#html`**, a name no program can write: the lexer reads it only in
+  source translated from a template (`Lexer($text, true)`).
+- `ponytail:` an expression ends at the first `}}` or `!!}`, so it can't hold one, and none spans
+  lines; escaping is for HTML text and quoted attributes, not JavaScript or URLs inside a page.
 
 ## match
 

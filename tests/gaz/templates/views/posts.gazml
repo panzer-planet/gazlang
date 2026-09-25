@@ -1,0 +1,20 @@
+@template posts($user, $posts, $note = "")
+{{-- a comment alone on its line writes nothing --}}
+<h1>{{ $user["name"] }}</h1>
+@if (len($posts) == 0)
+  <p>No posts yet</p>
+@elseif (len($posts) == 1)
+  <p>One post</p>
+@else
+  <p>{{ len($posts) }} posts</p>
+@endif
+<ul>
+  @foreach ($posts as $i => $post)
+    @if ($i > 0)
+  <li class="later">{{ $post }}</li>
+    @else
+  <li>{{ $post }}</li>
+    @endif
+  @endforeach
+</ul>
+<p>{{ $note }}{{-- inline, gone --}}</p>

@@ -1,4 +1,4 @@
 Error: http::serve() expects a map of options, got list
-  http::server_options at lib/http.gaz:499
-  http::serve at lib/http.gaz:459
+  http::server_options at lib/http.gaz:500
+  http::serve at lib/http.gaz:460
   top level on line 1

@@ -1,0 +1,219 @@
+GAZLANG BYTECODE 2
+globals
+
+top
+locals $html
+@ "template.gaz" 3
+PUSH "Hi"
+PUSH ["a", "b"]
+CALL card 2
+STORE 0
+LOAD 0
+POP
+
+fn Html::escape 1 1 in Html
+locals $value $text $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $#destructure_1 $from $to
+@ "<builtin>" 21
+LOAD 0
+CALL_BUILTIN type_of 1
+PUSH "object"
+EQUALS
+JZ AND_FALSE_1
+LOAD 0
+PUSH_KIND Html
+CALL_BUILTIN is_a 2
+JZ AND_FALSE_1
+PUSH true
+JMP AND_END_1
+LABEL AND_FALSE_1
+PUSH false
+LABEL AND_END_1
+JZ ELSE_0
+@ "<builtin>" 22
+LOAD 0
+GET_PROPERTY text
+RET
+@ "<builtin>" 21
+JMP ENDIF_0
+LABEL ELSE_0
+LABEL ENDIF_0
+@ "<builtin>" 24
+LOAD 0
+CALL_BUILTIN to_string 1
+STORE 1
+LOAD 1
+POP
+@ "<builtin>" 25
+PUSH [["&", "&amp;"], ["<", "&lt;"], [">", "&gt;"], ["\"", "&quot;"], ["'", "&#39;"]]
+FOREACH_CHECK
+STORE 2
+LOAD 2
+CALL_BUILTIN keys 1
+STORE 3
+LOAD 3
+POP
+LOAD 3
+CALL_BUILTIN len 1
+STORE 4
+LOAD 4
+POP
+PUSH 0
+STORE 5
+LOAD 5
+POP
+LABEL WHILE_2
+LOAD 5
+LOAD 4
+LT
+JZ ENDWHILE_2
+LOAD 2
+LOAD 3
+LOAD 5
+INDEX_GET
+INDEX_GET
+DESTRUCTURE 2
+STORE 6
+LOAD 6
+PUSH 0
+INDEX_GET
+STORE 7
+LOAD 7
+POP
+LOAD 6
+PUSH 1
+INDEX_GET
+STORE 8
+LOAD 8
+POP
+LOAD 6
+POP
+@ "<builtin>" 26
+LOAD 1
+LOAD 7
+LOAD 8
+CALL_BUILTIN replace 3
+STORE 1
+LOAD 1
+POP
+LABEL CONTINUE_2
+@ "<builtin>" 25
+LOAD 5
+PUSH 1
+ADD
+STORE 5
+LOAD 5
+POP
+JMP WHILE_2
+LABEL ENDWHILE_2
+@ "<builtin>" 29
+LOAD 1
+RET
+@ "<builtin>" 20
+PUSH null
+RET
+
+fn card 2 2
+locals $title $items $#html $#foreach_array_3 $#foreach_keys_3 $#foreach_count_3 $#foreach_i_3 $item
+@ "templates/card.gazml" 1
+PUSH ""
+STORE 2
+LOAD 2
+POP
+@ "templates/card.gazml" 2
+PUSH "<h2>"
+CONCAT_ASSIGN 2
+POP
+LOAD 0
+CALL Html::escape 1
+CONCAT_ASSIGN 2
+POP
+PUSH "</h2>\n"
+CONCAT_ASSIGN 2
+POP
+@ "templates/card.gazml" 3
+LOAD 1
+FOREACH_CHECK
+STORE 3
+LOAD 3
+CALL_BUILTIN keys 1
+STORE 4
+LOAD 4
+POP
+LOAD 4
+CALL_BUILTIN len 1
+STORE 5
+LOAD 5
+POP
+PUSH 0
+STORE 6
+LOAD 6
+POP
+LABEL WHILE_0
+LOAD 6
+LOAD 5
+LT
+JZ ENDWHILE_0
+LOAD 3
+LOAD 4
+LOAD 6
+INDEX_GET
+INDEX_GET
+STORE 7
+LOAD 7
+POP
+@ "templates/card.gazml" 4
+PUSH "  <li>"
+CONCAT_ASSIGN 2
+POP
+LOAD 7
+CONCAT_ASSIGN 2
+POP
+PUSH "</li>\n"
+CONCAT_ASSIGN 2
+POP
+LABEL CONTINUE_0
+@ "templates/card.gazml" 3
+LOAD 6
+PUSH 1
+ADD
+STORE 6
+LOAD 6
+POP
+JMP WHILE_0
+LABEL ENDWHILE_0
+@ "templates/card.gazml" 6
+LOAD 2
+NEW Html 1
+RET
+@ "templates/card.gazml" 1
+PUSH null
+RET
+
+kind Html
+field text Html pub
+method _ Html pub
+method to_string Html pub
+locals $#argument_0
+@ "<builtin>" 12
+CALL_CONSTRUCTOR Html
+POP
+LOAD_THIS
+RET
+
+fn Html._ 1 1
+locals $text
+@ "<builtin>" 13
+LOAD 0
+SET_FIELD text
+POP
+PUSH null
+RET
+
+fn Html.to_string 0 0
+locals
+@ "<builtin>" 16
+LOAD_FIELD text
+RET
+@ "<builtin>" 15
+PUSH null
+RET

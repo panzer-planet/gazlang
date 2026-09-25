@@ -1,0 +1,2 @@
+@template hello($name)
+<p>Hello, {{ $name }}</p>

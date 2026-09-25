@@ -1,0 +1,1 @@
+Error: @elseif after the @else on line 3: the @else comes last at tests/parser_corpus/templates/elseif_after_else.gazml:4

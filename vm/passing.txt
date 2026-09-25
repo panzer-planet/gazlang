@@ -772,6 +772,7 @@ tests/codegen_corpus/power.gaz
 tests/codegen_corpus/shared.gaz
 tests/codegen_corpus/statements.gaz
 tests/codegen_corpus/statics.gaz
+tests/codegen_corpus/template.gaz
 tests/codegen_corpus/write_through_call.gaz
 tests/fixtures/bytecode/example.gaz
 tests/fixtures/bytecode/fails.gaz
@@ -824,6 +825,7 @@ tests/gaz/stdlib/random_test.gaz
 tests/gaz/stdlib/strings_test.gaz
 tests/gaz/stdlib/time_test.gaz
 tests/gaz/strings/interpolation_test.gaz
+tests/gaz/templates/templates_test.gaz
 tests/lexer_corpus/block_comments.gaz
 tests/lexer_corpus/comments.gaz
 tests/lexer_corpus/empty.gaz
@@ -881,6 +883,7 @@ tests/parser_corpus/spread.gaz
 tests/parser_corpus/spread_in_a_map.gaz
 tests/parser_corpus/statements.gaz
 tests/parser_corpus/statics.gaz
+tests/parser_corpus/template.gaz
 tests/parser_corpus/try.gaz
 tests/parser_corpus/uses_error_by_extending.gaz
 tests/parser_corpus/uses_error_by_name.gaz

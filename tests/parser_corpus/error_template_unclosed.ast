@@ -1,0 +1,1 @@
+Error: @if is never closed: it needs an @endif at tests/parser_corpus/templates/unclosed.gazml:2

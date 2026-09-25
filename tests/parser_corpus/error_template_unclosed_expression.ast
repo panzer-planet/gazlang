@@ -1,0 +1,1 @@
+Error: {{ is never closed with }} on its line at tests/parser_corpus/templates/unclosed_expression.gazml:2

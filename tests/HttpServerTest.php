@@ -145,6 +145,15 @@ class HttpServerTest extends GazLangTestCase
         $this->assertSame(500, self::get('/decoded')['status']);
     }
 
+    public function test_a_template_is_served_as_html()
+    {
+        $response = self::get('/hello?name=%3Cscript%3E');
+
+        $this->assertSame(200, $response['status']);
+        $this->assertSame('text/html; charset=utf-8', $response['headers']['content-type']);
+        $this->assertSame("<p>Hello, &lt;script&gt;</p>\n", $response['body']);
+    }
+
     public function test_a_chunked_body_is_put_back_together()
     {
         $response = self::exchange("PUT /echo HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n5;ext=1\r\nhello\r\n7\r\n, world\r\n0\r\nTrailer: skipped\r\n\r\n");

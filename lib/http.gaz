@@ -413,7 +413,8 @@ fn check_token($what, $name) {
  *
  * (header names lowercased, a repeated header's values joined with ", ", the path and query as they
  * came, not decoded) and writing what it returns, a map of "status" (200 if left out), "headers"
- * and "body" (a string, "" if left out). With workers() first, each worker serves on its own.
+ * and "body" (a string, "" if left out, or a template's Html, which is text/html unless a
+ * Content-Type says otherwise). With workers() first, each worker serves on its own.
  *
  * - A request that isn't well formed HTTP/1.x is answered 400 (431 for a head over 64KB, 413 for a
  *   body over "max_body", 501 for a transfer coding other than chunked, 505 for another HTTP
@@ -612,11 +613,15 @@ fn write_response($response, $head) {
     if (type_of($status) != "int" || $status < 200 || $status > 599) {
         error("a response's status must be an int from 200 to 599, got " .. slice(to_string([$status]), 1, -1));
     }
-    if (type_of($body) != "string") {
-        error("a response's body must be a string, got " .. type_of($body));
-    }
     if (type_of($headers) != "map") {
         error("a response's headers must be a map, got " .. type_of($headers));
+    }
+    if (is_html($body)) {
+        $headers = with_html_type($headers);
+        $body = to_string($body);
+    }
+    if (type_of($body) != "string") {
+        error("a response's body must be a string or Html, got " .. type_of($body));
     }
     $bodiless = $status == 204 || $status == 304;
     if ($bodiless && $body != "") {
@@ -638,6 +643,23 @@ fn write_response($response, $head) {
         $lines[] = "Content-Length: " .. len($body);
     }
     return join($lines, "\r\n") .. "\r\n\r\n" .. ($head ? "" : $body);
+}
+
+// A template's result, the builtin kind Html (which only a program using it has)
+fn is_html($body) {
+    return type_of($body) == "object" && kind_name($body) == "Html";
+}
+
+// An Html body is text/html unless the handler said otherwise
+fn with_html_type($headers) {
+    foreach (keys($headers) as $name) {
+        if (lower($name) == "content-type") {
+            return $headers;
+        }
+    }
+    $headers["Content-Type"] = "text/html; charset=utf-8";
+
+    return $headers;
 }
 
 // A response the server writes itself: the status and its reason, as plain text

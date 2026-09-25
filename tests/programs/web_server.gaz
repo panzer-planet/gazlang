@@ -10,6 +10,7 @@
  *   /fail         a handler that raises (500)
  *   /bad-header   a response that can't be written (500)
  *   /decoded      the query and form body, decoded, as JSON (500 unless it is a form)
+ *   /hello        a template's page, for the ?name given
  *   /exit         the worker exits with code 3, and the master starts another
  *   anything else 404
  *
@@ -18,6 +19,7 @@
 
 include "../../lib/http.gaz";
 include "../../lib/json.gaz";
+include "views/hello.gazml";
 
 $args = args();
 $port = to_int($args[0] ?? "", null);
@@ -36,6 +38,7 @@ http::serve($listener, $request -> match ($request["path"]) {
     "/echo" => {"headers" => {"Content-Type" => "application/json"}, "body" => json::encode($request)},
     "/fail" => error("the handler failed on purpose"),
     "/bad-header" => {"headers" => {"X-Split" => "a\r\nInjected: yes"}},
+    "/hello" => {"body" => hello(http::query($request)["name"] ?? "stranger")},
     "/decoded" => {"body" => json::encode({"query" => http::query_all($request), "form" => http::form_all($request)})},
     "/exit" => exit(3),
     default => {"status" => 404, "body" => "no page at {$request["path"]}\n"},

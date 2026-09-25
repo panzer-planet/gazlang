@@ -1,0 +1,12 @@
+ok a template gives Html
+ok what it wrote
+ok @elseif
+ok @if
+ok a default parameter
+ok the five that HTML needs escaped
+ok values print as echo does
+ok an Html goes into {{ }} as it is
+ok a layout around a template
+ok @{{, emails and CSS at-rules are text
+ok Html::escape
+ok an error in a template names its line

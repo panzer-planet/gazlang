@@ -1,0 +1,2 @@
+@template shown($value)
+[{{ $value }}] [{!! $value !!}]

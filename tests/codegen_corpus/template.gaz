@@ -1,0 +1,3 @@
+include "templates/card.gazml";
+
+$html = card("Hi", ["a", "b"]);

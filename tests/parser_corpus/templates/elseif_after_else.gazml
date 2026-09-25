@@ -1,0 +1,5 @@
+@template t()
+@if (true)
+@else
+@elseif (false)
+@endif

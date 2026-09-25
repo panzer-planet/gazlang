@@ -1,0 +1,295 @@
+/*
+ * Templates: a .gazml file that is included is translated here into GazLang source, which is
+ * then lexed and parsed like any file, so the rest of the compiler, the VM and the bytecode
+ * learn nothing. Each line of the template becomes one line of the source, so every error in
+ * it, the parser's or the running program's, is reported at the template's own line.
+ *
+ *   @template user_page($user, $posts)        fn user_page($user, $posts) { $#html = "";
+ *   <h1>{{ $user.name }}</h1>                 $#html ..= "<h1>"; $#html ..= Html::escape(...); ...
+ *   @foreach ($posts as $post)                foreach ($posts as $post) {
+ *   @endforeach                               }
+ *   (after the last line)                     return Html($#html); }
+ *
+ * - {{ expression }} is escaped as HTML, unless it is an Html (another template's result), which
+ *   goes in as it is; {!! expression !!} goes in as it is whatever it is.
+ * - @if (...), @elseif (...), @else, @endif, @foreach (...), @endforeach, each alone on its line,
+ *   and a line holding one writes nothing. Another @word (CSS's @media) is text.
+ * - {{-- comment --}} writes nothing (a line holding only one, not even its line end), and @{{
+ *   writes {{.
+ * - ponytail: an expression ends at the first }} or !!}, so one can't hold them, and none spans
+ *   lines.
+ */
+namespace gazlang;
+
+// For ParseError and, through it, the lexer's TEMPLATE_BUFFER; the parser includes this file too,
+// which an include cycle allows, each file being read once
+include "parser.gaz";
+
+// The directives that open a block, and the one that closes each
+const TEMPLATE_BLOCKS = {"if" => "endif", "foreach" => "endforeach"};
+
+kind TemplateTranslator {
+    #lines;
+    // [directive, line, the line of its @else or null] of each @if or @foreach not yet closed,
+    // innermost last
+    #open = [];
+
+    fn _($text, #file) {
+        #lines = split($text, "\n");
+    }
+
+    // The template as GazLang source, with as many lines
+    pub fn translate() {
+        $source = [#header(#lines[0])];
+        $last = len(#lines) - 1;
+        for ($i = 1; $i <= $last; $i++) {
+            $source[] = #line(#lines[$i], $i + 1, $i < $last);
+        }
+        #check_closed();
+        $source[len($source) - 1] ..= " return Html(" .. TEMPLATE_BUFFER .. "); }";
+
+        return join($source, "\n");
+    }
+
+    // "@template name($a, $b)" as the function it declares, with its output starting empty
+    fn header($text) {
+        $trimmed = trim($text);
+        if (!starts_with($trimmed, "@template ")) {
+            #fail("A template starts with @template and the function it is, like @template page(\$title)", 1);
+        }
+
+        return "fn " .. trim(slice($trimmed, 10)) .. " { " .. TEMPLATE_BUFFER .. " = \"\";";
+    }
+
+    // One line of the template as a line of source: a directive, or text with what it holds
+    fn line($text, $number, $newline) {
+        $directive = #directive($text, $number);
+        if ($directive != null) {
+            return $directive;
+        }
+        if (is_comment_line($text)) {
+            return "";
+        }
+        if ($newline) {
+            $text ..= "\n";
+        }
+
+        return TemplateLine($text, $number, #file).source();
+    }
+
+    // The source for a directive line, or null when the line isn't one
+    fn directive($text, $number) {
+        $trimmed = trim($text);
+        if (!starts_with($trimmed, "@")) {
+            return null;
+        }
+        $word = #directive_word($trimmed);
+        $argument = trim(slice($trimmed, 1 + len($word)));
+
+        return match ($word) {
+            "if" => #open_block("if", $argument, $number, "if "),
+            "foreach" => #open_block("foreach", $argument, $number, "foreach "),
+            "elseif" => #continue_if("elseif", $argument, $number, "} else if "),
+            "else" => #continue_if("else", $argument, $number, "} else"),
+            "endif" => #close_block("if", $argument, $number),
+            "endforeach" => #close_block("foreach", $argument, $number),
+            default => null,
+        };
+    }
+
+    // The letters after the @
+    fn directive_word($trimmed) {
+        $end = 1;
+        while ($end < len($trimmed) && is_letter($trimmed[$end])) {
+            $end++;
+        }
+
+        return slice($trimmed, 1, $end - 1);
+    }
+
+    fn open_block($word, $argument, $number, $keyword) {
+        #check_condition($word, $argument, $number);
+        #open[] = [$word, $number, null];
+
+        return $keyword .. $argument .. " {";
+    }
+
+    // @elseif and @else, which belong to the @if open innermost
+    fn continue_if($word, $argument, $number, $source) {
+        $innermost = #innermost($word, $number);
+        [$block, $opened, $else_line] = $innermost;
+        if ($block != "if") {
+            #fail("@{$word} inside @{$block} (line {$opened}): it belongs to an @if", $number);
+        }
+        if ($else_line != null) {
+            #fail("@{$word} after the @else on line {$else_line}: the @else comes last", $number);
+        }
+        if ($word == "elseif") {
+            #check_condition($word, $argument, $number);
+
+            return $source .. $argument .. " {";
+        }
+        #check_nothing_after($word, $argument, $number);
+        #open[len(#open) - 1][2] = $number;
+
+        return $source .. " {";
+    }
+
+    fn close_block($word, $argument, $number) {
+        $innermost = #innermost("end{$word}", $number);
+        if ($innermost[0] != $word) {
+            #fail("@end{$word} closes @{$innermost[0]} (line {$innermost[1]}), which @" .. TEMPLATE_BLOCKS[$innermost[0]] .. " closes", $number);
+        }
+        #check_nothing_after("end{$word}", $argument, $number);
+        delete #open[len(#open) - 1];
+
+        return "}";
+    }
+
+    fn innermost($word, $number) {
+        if (len(#open) == 0) {
+            #fail("@{$word} with nothing open for it to belong to", $number);
+        }
+
+        return last(#open);
+    }
+
+    // @if and @foreach take their condition in parentheses, as if and foreach do
+    fn check_condition($word, $argument, $number) {
+        if (!starts_with($argument, "(") || !ends_with($argument, ")")) {
+            #fail("@{$word} takes its condition in parentheses, alone on the line: @{$word} (...)", $number);
+        }
+    }
+
+    fn check_nothing_after($word, $argument, $number) {
+        if ($argument != "") {
+            #fail("@{$word} stands alone on its line", $number);
+        }
+    }
+
+    fn check_closed() {
+        if (len(#open) > 0) {
+            [$word, $line, ,] = last(#open);
+            #fail("@{$word} is never closed: it needs an @" .. TEMPLATE_BLOCKS[$word], $line);
+        }
+    }
+
+    fn fail($message, $line) {
+        error(ParseError($message, #file, $line));
+    }
+}
+
+/*
+ * A line of text in a template: what it writes, as statements appending to the output, on one
+ * line of source. Text between the expressions is gathered and written in one piece.
+ */
+kind TemplateLine {
+    #statements = [];
+    #text = "";
+    #at = 0;
+
+    fn _(#line, #number, #file) {}
+
+    pub fn source() {
+        while (#at < len(#line)) {
+            #step();
+        }
+        #flush_text();
+
+        return join(#statements, " ");
+    }
+
+    // Take what comes next: text up to a {{, {!! or @{{, then that
+    fn step() {
+        $next = #next_opening();
+        if ($next == null) {
+            #text ..= slice(#line, #at);
+            #at = len(#line);
+
+            return;
+        }
+        [$at, $opening] = $next;
+        #text ..= slice(#line, #at, $at - #at);
+        #at = $at;
+        match ($opening) {
+            "@{{" => { #literal_braces(); }
+            "{{--" => { #comment(); }
+            "{!!" => { #expression("{!!", "!!}", false); }
+            default => { #expression("{{", "}}", true); }
+        }
+    }
+
+    // Where the next opening is and which it is, or null: the one that starts first
+    fn next_opening() {
+        $best = null;
+        foreach (["@{{", "{{--", "{!!", "{{"] as $opening) {
+            $at = index_of(#line, $opening, #at);
+            if ($at != null && ($best == null || $at < $best[0])) {
+                $best = [$at, $opening];
+            }
+        }
+
+        return $best;
+    }
+
+    fn literal_braces() {
+        #text ..= "{{";
+        #at += 3;
+    }
+
+    fn comment() {
+        $end = #closing("{{--", "--}}");
+        #at = $end + 4;
+    }
+
+    fn expression($opening, $closing, $escaped) {
+        $end = #closing($opening, $closing);
+        $code = trim(slice(#line, #at + len($opening), $end - #at - len($opening)));
+        if ($code == "") {
+            #fail("{$opening} {$closing} holds nothing");
+        }
+        #flush_text();
+        if ($escaped) {
+            #append("Html::escape(" .. $code .. ")");
+        } else {
+            #append("(" .. $code .. ")");
+        }
+        #at = $end + len($closing);
+    }
+
+    // Where the $closing for the $opening at #at is, on this line
+    fn closing($opening, $closing) {
+        $end = index_of(#line, $closing, #at + len($opening));
+        if ($end == null) {
+            #fail("{$opening} is never closed with {$closing} on its line");
+        }
+
+        return $end;
+    }
+
+    fn flush_text() {
+        if (#text != "") {
+            #append(slice(to_string([#text]), 1, -1));
+            #text = "";
+        }
+    }
+
+    fn append($source) {
+        #statements[] = TEMPLATE_BUFFER .. " ..= " .. $source .. ";";
+    }
+
+    fn fail($message) {
+        error(ParseError($message, #file, #number));
+    }
+}
+
+// A line holding one {{-- comment --}} and nothing else, which writes nothing, not even its line end
+fn is_comment_line($text) {
+    $trimmed = trim($text);
+
+    return starts_with($trimmed, "{{--") && index_of($trimmed, "--}}") == len($trimmed) - 4;
+}
+
+fn is_letter($c) {
+    return $c >= "a" && $c <= "z" || $c >= "A" && $c <= "Z";
+}

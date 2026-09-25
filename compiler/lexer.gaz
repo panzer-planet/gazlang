@@ -6,6 +6,10 @@
 // then $lexer.get_next_token() until a token's type is "EOF". Errors are LexErrors.
 namespace gazlang;
 
+// The hidden variable a template's output is gathered in (template.gaz): a name no program can
+// write, which only source translated from a template may use
+const TEMPLATE_BUFFER = "$#html";
+
 include "../lib/chars.gaz" use char_at, is_digit, is_hex_digit;
 
 kind Token {
@@ -52,6 +56,7 @@ kind Lexer {
     #text;
     #length;
     #pos = 0;
+    #template = false;
     // The current character, or "" at the end of the input
     #char;
     #line = 1;
@@ -113,10 +118,15 @@ kind Lexer {
         "\\" => "\\", "\"" => "\"", "$" => "$", "{" => "{",
     };
 
-    fn _($text) {
+    /*
+     * $template is for source translated from a template (template.gaz), which alone may name
+     * the hidden variable its output is gathered in
+     */
+    fn _($text, $template = false) {
         #text = $text;
         #length = len($text);
         #char = char_at($text, 0);
+        #template = $template;
     }
 
     fn fail($reason, $line = null) {
@@ -504,6 +514,11 @@ kind Lexer {
         $type = #char == "@" ? "GLOBAL_VAR_IDENTIFIER" : "VAR_IDENTIFIER";
         $sigil = #char;
         #skip(1);
+        if (#template && $sigil == "$" && starts_with(#text, "#html", #pos)) {
+            #skip(5);
+
+            return Token($type, TEMPLATE_BUFFER);
+        }
 
         // The whole bad name is shown, so $1abc reads as one mistake rather than a lone $
         if (!#is_name_start(#char)) {

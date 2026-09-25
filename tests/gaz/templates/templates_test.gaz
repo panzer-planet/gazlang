@@ -1,0 +1,56 @@
+include "../check.gaz";
+include "views/layout.gazml";
+include "views/posts.gazml";
+include "views/shown.gazml";
+include "views/literal.gazml";
+include "views/broken.gazml";
+
+/* A template is a function giving Html, the text it wrote */
+$page = posts({"name" => "Ann"}, ["first", "second"]);
+check("a template gives Html", kind_name($page), "Html");
+check("what it wrote", to_string($page), join([
+    "<h1>Ann</h1>",
+    "  <p>2 posts</p>",
+    "<ul>",
+    "  <li>first</li>",
+    "  <li class=\"later\">second</li>",
+    "</ul>",
+    "<p></p>",
+    "",
+], "\n"));
+check("@elseif", contains(to_string(posts({"name" => "Ann"}, ["only"])), "<p>One post</p>"), true);
+check("@if", contains(to_string(posts({"name" => "Ann"}, [])), "<p>No posts yet</p>"), true);
+check("a default parameter", contains(to_string(posts({"name" => "A"}, [], "hi")), "<p>hi</p>"), true);
+
+/* {{ }} escapes, {!! !!} doesn't */
+check("the five that HTML needs escaped", to_string(shown("<a href=\"x\">Tom & Jerry's</a>")),
+    "[&lt;a href=&quot;x&quot;&gt;Tom &amp; Jerry&#39;s&lt;/a&gt;] [<a href=\"x\">Tom & Jerry's</a>]\n");
+check("values print as echo does", map([12, 1.5, true, null, [1, "a"]], $v -> to_string(shown($v))),
+    ["[12] [12]\n", "[1.5] [1.5]\n", "[true] [true]\n", "[null] [null]\n", "[[1, &quot;a&quot;]] [[1, \"a\"]]\n"]);
+check("an Html goes into {{ }} as it is", to_string(shown(Html("<b>trusted</b>"))), "[<b>trusted</b>] [<b>trusted</b>]\n");
+
+/* Templates in templates: the inner one's Html isn't escaped again */
+$whole = to_string(layout("Posts & more", posts({"name" => "<Ann>"}, [])));
+check("a layout around a template", [
+    contains($whole, "<title>Posts &amp; more</title>"),
+    contains($whole, "<h1>&lt;Ann&gt;</h1>"),
+    contains($whole, "<p>No posts yet</p>"),
+], [true, true, true]);
+
+/* What looks like a directive or an expression but isn't */
+check("@{{, emails and CSS at-rules are text", to_string(literal()), join([
+    "{{ not an expression }} and me@example.com",
+    "<style>@media (max-width: 600px) { p { color: red; } }</style>",
+    "@import is text too",
+    "",
+], "\n"));
+
+/* Html::escape by itself */
+check("Html::escape", [Html::escape("<&>"), Html::escape(Html("<b>")), Html::escape(5)], ["&lt;&amp;&gt;", "<b>", "5"]);
+
+/* A runtime error in a template is at its own line */
+try {
+    broken({});
+} catch (Error $e) {
+    check("an error in a template names its line", [$e.message, ends_with($e.file, "views/broken.gazml"), $e.line], ["Undefined key: \"missing\"", true, 3]);
+}

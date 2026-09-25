@@ -8,6 +8,7 @@ namespace gazlang;
 
 include "lexer.gaz";
 include "nodes.gaz";
+include "template.gaz";
 
 // #line and #file are Error's own, and say where in this file the error was raised, so the
 // place in the source being parsed has names of its own, as in LexError
@@ -220,6 +221,8 @@ kind Parser {
     #bound = {};
     // Whether any shared variable was declared, so the program needs the Shared kind
     #shares = false;
+    // Whether a template has been included, whose code uses the builtin kind Html
+    #templates = false;
 
     // Every ##name as [node, the kind it is written in], checked once the kinds are resolved
     #parent_uses = [];
@@ -239,6 +242,26 @@ kind Parser {
 }
 kind Shared {
     fn _(pub #value);
+}
+kind Html {
+    fn _(pub #text) {}
+
+    pub fn to_string() {
+        return #text;
+    }
+
+    // A value as HTML: an Html as it is, anything else as echo prints it, escaped
+    pub static fn escape($value) {
+        if (type_of($value) == "object" && is_a($value, Html)) {
+            return $value.text;
+        }
+        $text = to_string($value);
+        foreach ([["&", "&amp;"], ["<", "&lt;"], [">", "&gt;"], ["\"", "&quot;"], ["\'", "&#39;"]] as [$from, $to]) {
+            $text = replace($text, $from, $to);
+        }
+
+        return $text;
+    }
 }';
 
     // How errors name the builtin kinds' source
@@ -2636,7 +2659,7 @@ kind Shared {
     // can be used before it is declared and both backends can trust every call by name.
     // Calls on values ($f(1)) are checked when they run.
     fn program() {
-        [$error_kind, $shared_kind] = #builtin_kinds();
+        [$error_kind, $shared_kind, $html_kind] = #builtin_kinds();
         $root = CompoundAST();
         $saved = #enter_file();
         $root.statements = #top_level();
@@ -2658,6 +2681,11 @@ kind Shared {
         // Shared is only compiled into programs with a shared variable
         if (#shares) {
             $root.statements = [$shared_kind, ...$root.statements];
+        }
+        // Html into programs with a template, or that name it themselves
+        if (#templates || #names_html()) {
+            // with its static method, which a builtin kind's parse doesn't place, unlike top_level()
+            $root.statements = [$html_kind, ...values($html_kind.static_methods), ...$root.statements];
         }
         foreach (#catch_types as [$node, $index, $line, $file, $scope]) {
             $name = $node.catches[$index][0];
@@ -3002,6 +3030,23 @@ kind Shared {
         }
     }
 
+    fn names_html() {
+        foreach (#uses as [$use, $scope]) {
+            // Html's own code names it, which is no reason to compile it in
+            $named = $use.name == "Html" || starts_with($use.name, "Html::");
+            if ($named && $use.file != #BUILTIN_FILE) {
+                return true;
+            }
+        }
+        foreach (#kinds as $kind) {
+            if ($kind.parent == "Html") {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     // Parse the builtin kinds (Error), before the program, so its kinds can use them
     fn builtin_kinds() {
         [$lexer, $current_token, $file] = [#lexer, #current_token, #file];
@@ -3198,6 +3243,11 @@ kind Shared {
         if ($text == null) {
             #fail_at("Cannot include file: {$relative}", #file, $path_token.line);
         }
+        $template = ends_with($relative, ".gazml");
+        if ($template) {
+            $text = TemplateTranslator($text, #display_path($path)).translate();
+            #templates = true;
+        }
         if (has_key(#included, $path)) {
             // Already spliced in, so it gives no statements again, but this file still gets
             // what it asked for: the namespace qualified, and the use clause's aliases
@@ -3214,7 +3264,7 @@ kind Shared {
 
         [$lexer, $current_token, $base_dir, $file, $real_file] = [#lexer, #current_token, #base_dir, #file, #real_file];
         $saved = #enter_file();
-        #lexer = Lexer($text);
+        #lexer = Lexer($text, $template);
         #base_dir = #dirname($path);
         #file = #display_path($path);
         #real_file = $path;

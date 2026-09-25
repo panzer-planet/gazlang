@@ -1,0 +1,1 @@
+Error: @if takes its condition in parentheses, alone on the line: @if (...) at tests/parser_corpus/templates/no_parentheses.gazml:2

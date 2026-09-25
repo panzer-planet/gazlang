@@ -755,6 +755,48 @@ followed by a `:` is always `::`, so a ternary needs a space: `$c ? Token::EOF :
 Namespaces are resolved by the parser, so the VM never learns the word: bytecode only sees
 longer names.
 
+## Templates
+
+A `.gazml` file is a template: HTML with GazLang in it, compiled into a function when it is
+included.
+
+```
+@template user_page($user, $posts)
+<h1>{{ $user.name }}</h1>
+@if (len($posts) == 0)
+  <p>No posts yet</p>
+@else
+  <ul>
+  @foreach ($posts as $post)
+    <li>{{ $post.title }}</li>
+  @endforeach
+  </ul>
+@endif
+```
+
+```
+include "views/user.gazml";
+
+$page = user_page($user, $posts);        // an Html
+http::serve($listener, $request -> ({"body" => user_page($user, $posts)}));
+```
+
+- The first line is `@template name($parameters)`: the function the template becomes, with
+  parameters as a function's, defaults included. Its file name doesn't matter.
+- `{{ expression }}` writes the value as `echo` prints it, **escaped for HTML** (`& < > " '`).
+  `{!! expression !!}` writes it as it is: only for HTML you trust.
+- A template gives an `Html`, which `{{ }}` writes as it is, so templates include each other
+  without escaping twice: `{{ header($title) }}`, or a layout given a page as a parameter.
+  `Html($text)` marks text you trust as HTML, and `Html::escape($value)` escapes a value as
+  `{{ }}` would. `http::serve` sends an `Html` body as `text/html; charset=utf-8`.
+- `@if (...)`, `@elseif (...)`, `@else`, `@endif`, `@foreach (...)` and `@endforeach` each stand
+  alone on their line, which writes nothing. Their conditions are GazLang's, in parentheses.
+- `{{-- comment --}}` writes nothing; a line holding only one writes nothing at all. `@{{` writes
+  `{{`. Any other `@word` is text, so CSS's `@media` and email addresses are fine.
+- Errors are at the template's own line: a mismatched `@endif`, a syntax error inside `{{ }}`,
+  or a missing key when it runs.
+- An expression can't contain `}}` (or `!!}` in a raw one), and stays on one line.
+
 ## Libraries
 
 `include "path.gaz";` splices a file in at parse time, relative to the including file. Each
