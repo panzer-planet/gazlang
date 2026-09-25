@@ -433,7 +433,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
 - **Not planned** until real code asks: traits, late static binding, operator
   overloading, `log`/`exp`/fractional powers (each needs an algorithm GazLang writes out, as
   `round` has), variadic parameters and spread in calls (pass a
-  list), `foreach` over a string (`split($s, "")`), a REPL.
+  list), `foreach` over a string (`split($s, "")`). A REPL is possible and wanted: see "A real
+  REPL" under the C VM.
 - **Regular expressions**: `lib/regex.gaz` (`regex::matches`, `regex::search`,
   `regex::find`, `regex::groups`, `regex::replace`), a Thompson NFA (Pike's VM) so there is no
   backtracking and no ReDoS. Literals, `.`, `*` `+` `?`, `|`, `(...)` groups (capturing),
