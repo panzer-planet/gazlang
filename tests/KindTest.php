@@ -366,9 +366,9 @@ class KindTest extends GazLangTestCase
     public function test_kind_name_is_the_name_a_kind_was_declared_with()
     {
         // Namespace included, as echo shows it: the bare name is the last part after ::, and
-        // there would be no way back from it
+        // there would be no way back from it. An object's is its kind's.
         $this->assertEquals("Unit Shape Error string\ntui::Rect Rect\n", $this->executeCode(self::SHAPES.<<<'CODE'
-            echo kind_name(kind_of(Unit(1))) .. " " .. kind_name(Shape) .. " " .. kind_name(Error) .. " " .. type_of(kind_name(Unit));
+            echo kind_name(Unit(1)) .. " " .. kind_name(Shape) .. " " .. kind_name(Error) .. " " .. type_of(kind_name(Unit));
             include "std/tui.gaz";
             echo kind_name(tui::Rect) .. " " .. last(split(kind_name(tui::Rect), "::"));
             CODE));
@@ -639,8 +639,7 @@ class KindTest extends GazLangTestCase
             'is_a needs a kind' => ['echo is_a(1, "Account");', 'is_a() expects kind, got string on line 14'],
             'kind_of needs an object' => ['echo kind_of(1);', 'kind_of() expects object, got int on line 14'],
             'kind_of of a kind' => ['echo kind_of(Account);', 'kind_of() expects object, got kind on line 14'],
-            'kind_name needs a kind, not an object' => ['echo kind_name(Account("W"));', 'kind_name() expects kind, got object on line 14'],
-            'kind_name of a string' => ['echo kind_name("Account");', 'kind_name() expects kind, got string on line 14'],
+            'kind_name of a string' => ['echo kind_name("Account");', 'kind_name() expects kind or object, got string on line 14'],
             'fields needs an object' => ['echo fields({"a" => 1});', 'fields() expects object, got map on line 14'],
             'to_string returning something else' => ['kind P { pub fn to_string() { return [1]; } } echo P();', 'P.to_string must return a string, got list on line 14'],
             'to_string returning something else, through ..' => ['kind P { pub fn to_string() { return null; } } $s = "a" .. P();', 'P.to_string must return a string, got null on line 14'],

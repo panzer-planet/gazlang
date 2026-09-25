@@ -48,7 +48,7 @@ fn write($value, $open) {
     if ($type == "object") {
         $id = object_id($value);
         if (has_key($open, $id)) {
-            error("Cannot encode " .. kind_name(kind_of($value)) .. " as JSON: its to_json() comes back to itself");
+            error("Cannot encode " .. kind_name($value) .. " as JSON: its to_json() comes back to itself");
         }
         $open[$id] = true;
         return write($value.to_json(), $open);

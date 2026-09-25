@@ -1,1 +1,1 @@
-Error: kind_name() expects kind, got string on line 14
+Error: kind_name() expects kind or object, got string on line 14

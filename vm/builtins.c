@@ -1002,9 +1002,10 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         *out = v_kind(a.o->kind);
         return true;
     case B_KIND_NAME: {
-        /* The name as declared, namespace included (json::Reader): what echo prints after "kind " */
-        if (!want(index, a, M(T_KIND))) return false;
-        Value name = v_str(a.k->name);
+        /* The name as declared, namespace included (json::Reader): what echo prints after "kind ".
+           An object has one kind, so its name is that kind's, with nothing to confuse it with. */
+        if (!want(index, a, M(T_KIND) | M(T_OBJECT))) return false;
+        Value name = v_str(a.type == T_KIND ? a.k->name : a.o->kind->name);
         incref(name);
         *out = name;
         return true;

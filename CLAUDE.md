@@ -614,8 +614,8 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   never depends on a default someone adds.
 - Types: `type_of` (`int float string bool null list map function kind object socket`), `is_a`,
   `kind_of`, `kind_name` (a kind's name as declared, namespace included, `tui::Rect`: the bare
-  name is `last(split(..., "::"))` and the other way would be impossible; a kind only, strict as
-  `kind_of` is, so an object's is `kind_name(kind_of($x))`), `fields` (see "Objects"), `object_id` (an int no other object of the program has or
+  name is `last(split(..., "::"))` and the other way would be impossible; of a kind or an object,
+  whose kind is the only thing it could mean), `fields` (see "Objects"), `object_id` (an int no other object of the program has or
   had, counted from 1 in `object_new()` and reset by `run_program()`, so it is the same
   however the program runs: a set of objects or a side table is a map keyed by it; a counter,
   not the address, since an address is reused and differs from run to run).
