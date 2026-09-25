@@ -197,6 +197,10 @@ output depends on how it was itself compiled has a bug. Only then is stage 2 cop
 binary that can compile its fix. Nothing changed means nothing rebuilt.
 `test_make_compiler_rebuilds_the_compiler_without_php` runs it on a copy.
 
+- **`compiler/gazlang.gzb` is checked in because it is the seed**: a fresh clone has nothing else that can
+  compile `compiler/`, and the bootstrap should need only a C compiler. It is marked generated in
+  `.gitattributes` (no line diff, and no text merge): on a conflict take either side and run
+  `make -C vm compiler`, which rebuilds it from the sources; the self-compile test fails while it is stale.
 - **An explicit target, not a dependency**: plain `make` always builds from the checked-in
   bytecode, since a fresh clone's timestamps are arbitrary and a dependency would have make
   regenerate the compiler with a binary that needs it to be built.
