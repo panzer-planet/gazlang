@@ -259,8 +259,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   `/etc/ssl/cert.pem` too (unless `SSL_CERT_FILE` says otherwise), since a linked-in OpenSSL looks
   for certificates where Homebrew keeps them; without it every https request failed on a Mac
   without Homebrew. No promise about what changes between releases yet.
-- **CI** (`.github/workflows/ci.yml`) runs on Ubuntu and on macOS, Apple silicon and Intel,
-  for every push: it builds gaz without TLS (the bootstrap needs only a C compiler), then
+- **CI** (`.github/workflows/ci.yml`) runs on Ubuntu (the latest, and 22.04 on x86_64 and arm64,
+  where the release binaries are built) and on macOS, Apple silicon and Intel, for every push: it builds gaz without TLS (the bootstrap needs only a C compiler), then
   with it, and rebuilds its compiler before PHP is even installed, then the suite; phpstan and
   pint run on Ubuntu only.
   Development is on an Intel Mac.
