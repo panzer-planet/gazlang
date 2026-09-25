@@ -164,7 +164,6 @@ kind CodeGenerator {
         return AssignAST($to, Token("ASSIGN", "="), $from);
     }
 
-    // The steps of a path of elements and fields, from its root outwards
     // The "Kind::name" of the static field a target names outright, or null: #count and
     // Counter::count are slots, while Counter::count[0] is a path through one
     fn static_target($node) {
@@ -184,13 +183,18 @@ kind CodeGenerator {
         if ($root != null) {
             return $root;
         }
-        for ($root = $target; is_a($root, IndexAST) || is_a($root, PropertyAST); $root = $root.target) {}
+        // Walk in past the elements and fields to the call the path starts at
+        $call = $target;
+        while (is_a($call, IndexAST) || is_a($call, PropertyAST)) {
+            $call = $call.target;
+        }
         $hidden = #hidden("\$#root_" .. #hidden_counter++);
-        #visit(StatementAST(#assign($hidden, $root)));
+        #visit(StatementAST(#assign($hidden, $call)));
 
         return $hidden;
     }
 
+    // The steps of a path of elements and fields, from its root outwards
     fn steps($target) {
         $steps = [];
         for ($node = $target; is_a($node, IndexAST) || is_a($node, PropertyAST); $node = $node.target) {

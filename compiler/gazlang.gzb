@@ -706,7 +706,7 @@ RET
 
 fn gazlang::index_in 2 2
 locals $list $value $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $i $element
-@ "codegen.gaz" 1048
+@ "codegen.gaz" 1052
 LOAD 0
 FOREACH_CHECK
 STORE 2
@@ -743,20 +743,20 @@ INDEX_GET
 STORE 7
 LOAD 7
 POP
-@ "codegen.gaz" 1049
+@ "codegen.gaz" 1053
 LOAD 7
 LOAD 1
 EQUALS
 JZ ELSE_1
-@ "codegen.gaz" 1050
+@ "codegen.gaz" 1054
 LOAD 6
 RET
-@ "codegen.gaz" 1049
+@ "codegen.gaz" 1053
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
 LABEL CONTINUE_0
-@ "codegen.gaz" 1048
+@ "codegen.gaz" 1052
 LOAD 5
 PUSH 1
 ADD
@@ -765,10 +765,10 @@ LOAD 5
 POP
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "codegen.gaz" 1054
+@ "codegen.gaz" 1058
 PUSH null
 RET
-@ "codegen.gaz" 1047
+@ "codegen.gaz" 1051
 PUSH null
 RET
 
@@ -26768,7 +26768,7 @@ RET
 
 fn gazlang::CodeGenerator.static_target 1 1
 locals $node
-@ "codegen.gaz" 171
+@ "codegen.gaz" 170
 LOAD 0
 PUSH_KIND gazlang::FunctionRefAST
 CALL_BUILTIN is_a 2
@@ -26785,53 +26785,54 @@ LABEL OR_TRUE_1
 PUSH true
 LABEL OR_END_1
 JZ ELSE_0
-@ "codegen.gaz" 172
+@ "codegen.gaz" 171
 LOAD 0
 GET_PROPERTY static_name
 RET
-@ "codegen.gaz" 171
+@ "codegen.gaz" 170
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "codegen.gaz" 175
+@ "codegen.gaz" 174
 PUSH null
 RET
-@ "codegen.gaz" 170
+@ "codegen.gaz" 169
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.write_root 1 1
-locals $target $root $hidden
-@ "codegen.gaz" 183
+locals $target $root $call $hidden
+@ "codegen.gaz" 182
 LOAD 0
 CALL gazlang::path_root 1
 STORE 1
 LOAD 1
 POP
-@ "codegen.gaz" 184
+@ "codegen.gaz" 183
 LOAD 1
 PUSH null
 NOT_EQUALS
 JZ ELSE_0
-@ "codegen.gaz" 185
+@ "codegen.gaz" 184
 LOAD 1
 RET
-@ "codegen.gaz" 184
+@ "codegen.gaz" 183
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
 @ "codegen.gaz" 187
 LOAD 0
-STORE 1
-LOAD 1
+STORE 2
+LOAD 2
 POP
 LABEL WHILE_1
-LOAD 1
+@ "codegen.gaz" 188
+LOAD 2
 PUSH_KIND gazlang::IndexAST
 CALL_BUILTIN is_a 2
 NOT
 JZ OR_TRUE_2
-LOAD 1
+LOAD 2
 PUSH_KIND gazlang::PropertyAST
 CALL_BUILTIN is_a 2
 NOT
@@ -26842,15 +26843,16 @@ LABEL OR_TRUE_2
 PUSH true
 LABEL OR_END_2
 JZ ENDWHILE_1
-LABEL CONTINUE_1
-LOAD 1
+@ "codegen.gaz" 189
+LOAD 2
 GET_PROPERTY target
-STORE 1
-LOAD 1
+STORE 2
+LOAD 2
 POP
+@ "codegen.gaz" 188
 JMP WHILE_1
 LABEL ENDWHILE_1
-@ "codegen.gaz" 188
+@ "codegen.gaz" 191
 LOAD_THIS
 GET_METHOD hidden
 PUSH "$#root_"
@@ -26863,35 +26865,35 @@ SET_FIELD hidden_counter
 POP
 CONCAT
 CALL_METHOD 1 hidden
-STORE 2
-LOAD 2
+STORE 3
+LOAD 3
 POP
-@ "codegen.gaz" 189
+@ "codegen.gaz" 192
 LOAD_THIS
 GET_METHOD visit
 LOAD_THIS
 GET_METHOD assign
+LOAD 3
 LOAD 2
-LOAD 1
 CALL_METHOD 2 assign
 NEW gazlang::StatementAST 1
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 191
-LOAD 2
+@ "codegen.gaz" 194
+LOAD 3
 RET
-@ "codegen.gaz" 182
+@ "codegen.gaz" 181
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.steps 1 1
 locals $target $steps $node
-@ "codegen.gaz" 195
+@ "codegen.gaz" 199
 NEW_ARRAY
 STORE 1
 LOAD 1
 POP
-@ "codegen.gaz" 196
+@ "codegen.gaz" 200
 LOAD 0
 STORE 2
 LOAD 2
@@ -26913,7 +26915,7 @@ LABEL OR_TRUE_1
 PUSH true
 LABEL OR_END_1
 JZ ENDWHILE_0
-@ "codegen.gaz" 198
+@ "codegen.gaz" 202
 NEW_ARRAY
 LOAD 2
 ARRAY_PUSH
@@ -26923,7 +26925,7 @@ STORE 1
 LOAD 1
 POP
 LABEL CONTINUE_0
-@ "codegen.gaz" 196
+@ "codegen.gaz" 200
 LOAD 2
 GET_PROPERTY target
 STORE 2
@@ -26931,63 +26933,63 @@ LOAD 2
 POP
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "codegen.gaz" 201
+@ "codegen.gaz" 205
 LOAD 1
 RET
-@ "codegen.gaz" 194
+@ "codegen.gaz" 198
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_variable 1 1
 locals $node
-@ "codegen.gaz" 207
+@ "codegen.gaz" 211
 LOAD_THIS
 GET_METHOD emit_variable
 PUSH "LOAD"
 LOAD 0
 CALL_METHOD 2 emit_variable
 POP
-@ "codegen.gaz" 204
+@ "codegen.gaz" 208
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_assign 1 1
 locals $node $static
-@ "codegen.gaz" 211
+@ "codegen.gaz" 215
 LOAD 0
 GET_PROPERTY left
 PUSH_KIND gazlang::ListPatternAST
 CALL_BUILTIN is_a 2
 JZ ELSE_0
-@ "codegen.gaz" 212
+@ "codegen.gaz" 216
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY right
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 213
+@ "codegen.gaz" 217
 LOAD_THIS
 GET_METHOD destructure
 LOAD 0
 GET_PROPERTY left
 CALL_METHOD 1 destructure
 POP
-@ "codegen.gaz" 214
+@ "codegen.gaz" 218
 PUSH null
 RET
-@ "codegen.gaz" 211
+@ "codegen.gaz" 215
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "codegen.gaz" 216
+@ "codegen.gaz" 220
 LOAD 0
 GET_PROPERTY token
 GET_PROPERTY type
 PUSH "ASSIGN"
 NOT_EQUALS
 JZ ELSE_1
-@ "codegen.gaz" 217
+@ "codegen.gaz" 221
 LOAD_THIS
 GET_METHOD update
 LOAD 0
@@ -26999,14 +27001,14 @@ GET_PROPERTY right
 PUSH true
 CALL_METHOD 4 update
 POP
-@ "codegen.gaz" 218
+@ "codegen.gaz" 222
 PUSH null
 RET
-@ "codegen.gaz" 216
+@ "codegen.gaz" 220
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "codegen.gaz" 220
+@ "codegen.gaz" 224
 LOAD_THIS
 GET_METHOD static_target
 LOAD 0
@@ -27015,40 +27017,40 @@ CALL_METHOD 1 static_target
 STORE 1
 LOAD 1
 POP
-@ "codegen.gaz" 221
+@ "codegen.gaz" 225
 LOAD 1
 PUSH null
 NOT_EQUALS
 JZ ELSE_2
-@ "codegen.gaz" 222
+@ "codegen.gaz" 226
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY right
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 223
+@ "codegen.gaz" 227
 LOAD_THIS
 GET_METHOD emit_static
 PUSH "STORE"
 LOAD 1
 CALL_METHOD 2 emit_static
 POP
-@ "codegen.gaz" 224
+@ "codegen.gaz" 228
 LOAD_THIS
 GET_METHOD emit_static
 PUSH "LOAD"
 LOAD 1
 CALL_METHOD 2 emit_static
 POP
-@ "codegen.gaz" 225
+@ "codegen.gaz" 229
 PUSH null
 RET
-@ "codegen.gaz" 221
+@ "codegen.gaz" 225
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "codegen.gaz" 227
+@ "codegen.gaz" 231
 LOAD 0
 GET_PROPERTY left
 PUSH_KIND gazlang::PropertyAST
@@ -27066,14 +27068,14 @@ LABEL AND_FALSE_4
 PUSH false
 LABEL AND_END_4
 JZ ELSE_3
-@ "codegen.gaz" 229
+@ "codegen.gaz" 233
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY right
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 230
+@ "codegen.gaz" 234
 LOAD_THIS
 GET_METHOD emit
 PUSH "SET_FIELD"
@@ -27084,14 +27086,14 @@ GET_PROPERTY name
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 231
+@ "codegen.gaz" 235
 PUSH null
 RET
-@ "codegen.gaz" 227
+@ "codegen.gaz" 231
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "codegen.gaz" 233
+@ "codegen.gaz" 237
 LOAD 0
 GET_PROPERTY left
 PUSH_KIND gazlang::IndexAST
@@ -27110,27 +27112,27 @@ LABEL OR_TRUE_6
 PUSH true
 LABEL OR_END_6
 JZ ELSE_5
-@ "codegen.gaz" 234
+@ "codegen.gaz" 238
 LOAD_THIS
 GET_METHOD path_assign
 LOAD 0
 CALL_METHOD 1 path_assign
 POP
-@ "codegen.gaz" 235
+@ "codegen.gaz" 239
 PUSH null
 RET
-@ "codegen.gaz" 233
+@ "codegen.gaz" 237
 JMP ENDIF_5
 LABEL ELSE_5
 LABEL ENDIF_5
-@ "codegen.gaz" 238
+@ "codegen.gaz" 242
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY right
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 240
+@ "codegen.gaz" 244
 LOAD_THIS
 GET_METHOD emit_variable
 PUSH "STORE"
@@ -27138,7 +27140,7 @@ LOAD 0
 GET_PROPERTY left
 CALL_METHOD 2 emit_variable
 POP
-@ "codegen.gaz" 241
+@ "codegen.gaz" 245
 LOAD_THIS
 GET_METHOD emit_variable
 PUSH "LOAD"
@@ -27146,13 +27148,13 @@ LOAD 0
 GET_PROPERTY left
 CALL_METHOD 2 emit_variable
 POP
-@ "codegen.gaz" 210
+@ "codegen.gaz" 214
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.destructure 1 1
 locals $pattern $list $#foreach_array_1 $#foreach_keys_1 $#foreach_count_1 $#foreach_i_1 $i $target $element
-@ "codegen.gaz" 246
+@ "codegen.gaz" 250
 LOAD_THIS
 GET_METHOD emit
 PUSH "DESTRUCTURE"
@@ -27163,7 +27165,7 @@ CALL_BUILTIN len 1
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 247
+@ "codegen.gaz" 251
 LOAD_THIS
 GET_METHOD hidden
 PUSH "$#destructure_"
@@ -27179,14 +27181,14 @@ CALL_METHOD 1 hidden
 STORE 1
 LOAD 1
 POP
-@ "codegen.gaz" 248
+@ "codegen.gaz" 252
 LOAD_THIS
 GET_METHOD emit_variable
 PUSH "STORE"
 LOAD 1
 CALL_METHOD 2 emit_variable
 POP
-@ "codegen.gaz" 249
+@ "codegen.gaz" 253
 LOAD 0
 GET_PROPERTY targets
 FOREACH_CHECK
@@ -27224,18 +27226,18 @@ INDEX_GET
 STORE 7
 LOAD 7
 POP
-@ "codegen.gaz" 251
+@ "codegen.gaz" 255
 LOAD 7
 PUSH null
 EQUALS
 JZ ELSE_1
-@ "codegen.gaz" 252
+@ "codegen.gaz" 256
 JMP CONTINUE_0
-@ "codegen.gaz" 251
+@ "codegen.gaz" 255
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "codegen.gaz" 254
+@ "codegen.gaz" 258
 LOAD 1
 PUSH "INTEGER"
 LOAD 6
@@ -27245,7 +27247,7 @@ NEW gazlang::IndexAST 2
 STORE 8
 LOAD 8
 POP
-@ "codegen.gaz" 255
+@ "codegen.gaz" 259
 LOAD_THIS
 GET_METHOD visit
 LOAD_THIS
@@ -27257,7 +27259,7 @@ NEW gazlang::StatementAST 1
 CALL_METHOD 1 visit
 POP
 LABEL CONTINUE_0
-@ "codegen.gaz" 249
+@ "codegen.gaz" 253
 LOAD 5
 PUSH 1
 ADD
@@ -27266,20 +27268,20 @@ LOAD 5
 POP
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "codegen.gaz" 257
+@ "codegen.gaz" 261
 LOAD_THIS
 GET_METHOD emit_variable
 PUSH "LOAD"
 LOAD 1
 CALL_METHOD 2 emit_variable
 POP
-@ "codegen.gaz" 245
+@ "codegen.gaz" 249
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_increment 1 1
 locals $node
-@ "codegen.gaz" 261
+@ "codegen.gaz" 265
 LOAD_THIS
 GET_METHOD update
 LOAD 0
@@ -27291,13 +27293,13 @@ LOAD 0
 GET_PROPERTY prefix
 CALL_METHOD 4 update
 POP
-@ "codegen.gaz" 260
+@ "codegen.gaz" 264
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.update 4 4
 locals $target $op $value $prefix $n $place $#foreach_array_1 $#foreach_keys_1 $#foreach_count_1 $#foreach_i_1 $i $step $key $end_label $right $operator
-@ "codegen.gaz" 267
+@ "codegen.gaz" 271
 LOAD_THIS
 GET_PROPERTY_EXISTING hidden_counter
 LOAD_THIS
@@ -27308,7 +27310,7 @@ POP
 STORE 4
 LOAD 4
 POP
-@ "codegen.gaz" 269
+@ "codegen.gaz" 273
 LOAD_THIS
 GET_METHOD write_root
 LOAD 0
@@ -27316,7 +27318,7 @@ CALL_METHOD 1 write_root
 STORE 5
 LOAD 5
 POP
-@ "codegen.gaz" 270
+@ "codegen.gaz" 274
 LOAD_THIS
 GET_METHOD steps
 LOAD 0
@@ -27356,12 +27358,12 @@ INDEX_GET
 STORE 11
 LOAD 11
 POP
-@ "codegen.gaz" 271
+@ "codegen.gaz" 275
 LOAD 11
 PUSH_KIND gazlang::PropertyAST
 CALL_BUILTIN is_a 2
 JZ ELSE_1
-@ "codegen.gaz" 272
+@ "codegen.gaz" 276
 LOAD 5
 LOAD 11
 GET_PROPERTY name
@@ -27369,15 +27371,15 @@ NEW gazlang::PropertyAST 2
 STORE 5
 LOAD 5
 POP
-@ "codegen.gaz" 275
+@ "codegen.gaz" 279
 LOAD 11
 GET_PROPERTY static_name
 SET_PATH .static_name 5
 POP
-@ "codegen.gaz" 271
+@ "codegen.gaz" 275
 JMP ENDIF_1
 LABEL ELSE_1
-@ "codegen.gaz" 277
+@ "codegen.gaz" 281
 LOAD_THIS
 GET_METHOD hidden
 PUSH "$#update_key"
@@ -27391,27 +27393,27 @@ CALL_METHOD 1 hidden
 STORE 12
 LOAD 12
 POP
-@ "codegen.gaz" 278
+@ "codegen.gaz" 282
 LOAD_THIS
 GET_METHOD visit
 LOAD 11
 GET_PROPERTY index
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 279
+@ "codegen.gaz" 283
 LOAD_THIS
 GET_METHOD emit
 PUSH "KEY_CHECK"
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 280
+@ "codegen.gaz" 284
 LOAD_THIS
 GET_METHOD emit_variable
 PUSH "STORE"
 LOAD 12
 CALL_METHOD 2 emit_variable
 POP
-@ "codegen.gaz" 281
+@ "codegen.gaz" 285
 LOAD 5
 LOAD 12
 NEW gazlang::IndexAST 2
@@ -27419,7 +27421,7 @@ STORE 5
 LOAD 5
 POP
 LABEL ENDIF_1
-@ "codegen.gaz" 284
+@ "codegen.gaz" 288
 LOAD 1
 GET_PROPERTY type
 PUSH "COALESCE_ASSIGN"
@@ -27427,7 +27429,7 @@ NOT_EQUALS
 SET_PATH .existing 5
 POP
 LABEL CONTINUE_0
-@ "codegen.gaz" 270
+@ "codegen.gaz" 274
 LOAD 9
 PUSH 1
 ADD
@@ -27436,13 +27438,13 @@ LOAD 9
 POP
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "codegen.gaz" 287
+@ "codegen.gaz" 291
 LOAD 1
 GET_PROPERTY type
 PUSH "COALESCE_ASSIGN"
 EQUALS
 JZ ELSE_2
-@ "codegen.gaz" 289
+@ "codegen.gaz" 293
 PUSH "COALESCE_END_"
 LOAD_THIS
 GET_PROPERTY_EXISTING label_counter
@@ -27455,13 +27457,13 @@ CONCAT
 STORE 13
 LOAD 13
 POP
-@ "codegen.gaz" 290
+@ "codegen.gaz" 294
 LOAD_THIS
 GET_METHOD quietly
 LOAD 5
 CALL_METHOD 1 quietly
 POP
-@ "codegen.gaz" 291
+@ "codegen.gaz" 295
 LOAD_THIS
 GET_METHOD emit
 PUSH "JNN"
@@ -27470,7 +27472,7 @@ LOAD 13
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 292
+@ "codegen.gaz" 296
 LOAD_THIS
 GET_METHOD visit
 LOAD_THIS
@@ -27480,7 +27482,7 @@ LOAD 2
 CALL_METHOD 2 assign
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 293
+@ "codegen.gaz" 297
 LOAD_THIS
 GET_METHOD emit
 PUSH "LABEL"
@@ -27489,41 +27491,41 @@ LOAD 13
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 294
+@ "codegen.gaz" 298
 PUSH null
 RET
-@ "codegen.gaz" 287
+@ "codegen.gaz" 291
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "codegen.gaz" 297
+@ "codegen.gaz" 301
 LOAD 1
 GET_PROPERTY type
 PUSH "CONCAT_ASSIGN"
 EQUALS
 JZ ELSE_3
-@ "codegen.gaz" 300
+@ "codegen.gaz" 304
 LOAD 5
 PUSH_KIND gazlang::VariableAST
 CALL_BUILTIN is_a 2
 JZ ELSE_4
-@ "codegen.gaz" 301
+@ "codegen.gaz" 305
 LOAD_THIS
 GET_METHOD visit
 LOAD 2
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 302
+@ "codegen.gaz" 306
 LOAD_THIS
 GET_METHOD emit_variable
 PUSH "CONCAT_ASSIGN"
 LOAD 5
 CALL_METHOD 2 emit_variable
 POP
-@ "codegen.gaz" 300
+@ "codegen.gaz" 304
 JMP ENDIF_4
 LABEL ELSE_4
-@ "codegen.gaz" 303
+@ "codegen.gaz" 307
 LOAD_THIS
 GET_METHOD static_target
 LOAD 5
@@ -27531,13 +27533,13 @@ CALL_METHOD 1 static_target
 PUSH null
 NOT_EQUALS
 JZ ELSE_5
-@ "codegen.gaz" 304
+@ "codegen.gaz" 308
 LOAD_THIS
 GET_METHOD visit
 LOAD 2
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 305
+@ "codegen.gaz" 309
 LOAD_THIS
 GET_METHOD emit_static
 PUSH "SET_PATH"
@@ -27548,10 +27550,10 @@ CALL_METHOD 1 static_target
 PUSH ["..="]
 CALL_METHOD 3 emit_static
 POP
-@ "codegen.gaz" 303
+@ "codegen.gaz" 307
 JMP ENDIF_5
 LABEL ELSE_5
-@ "codegen.gaz" 307
+@ "codegen.gaz" 311
 LOAD_THIS
 GET_METHOD path_assign
 LOAD_THIS
@@ -27564,31 +27566,31 @@ CALL_METHOD 2 path_assign
 POP
 LABEL ENDIF_5
 LABEL ENDIF_4
-@ "codegen.gaz" 309
+@ "codegen.gaz" 313
 PUSH null
 RET
-@ "codegen.gaz" 297
+@ "codegen.gaz" 301
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "codegen.gaz" 312
+@ "codegen.gaz" 316
 LOAD 2
 PUSH null
 NOT_EQUALS
 JZ ELSE_6
-@ "codegen.gaz" 313
+@ "codegen.gaz" 317
 LOAD 2
 STORE 14
 LOAD 14
 POP
-@ "codegen.gaz" 314
+@ "codegen.gaz" 318
 LOAD_THIS
 GET_METHOD is_constant
 LOAD 2
 CALL_METHOD 1 is_constant
 NOT
 JZ ELSE_7
-@ "codegen.gaz" 315
+@ "codegen.gaz" 319
 LOAD_THIS
 GET_METHOD hidden
 PUSH "$#update_value_"
@@ -27598,7 +27600,7 @@ CALL_METHOD 1 hidden
 STORE 14
 LOAD 14
 POP
-@ "codegen.gaz" 316
+@ "codegen.gaz" 320
 LOAD_THIS
 GET_METHOD visit
 LOAD_THIS
@@ -27609,11 +27611,11 @@ CALL_METHOD 2 assign
 NEW gazlang::StatementAST 1
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 314
+@ "codegen.gaz" 318
 JMP ENDIF_7
 LABEL ELSE_7
 LABEL ENDIF_7
-@ "codegen.gaz" 318
+@ "codegen.gaz" 322
 LOAD 1
 GET_PROPERTY type
 PUSH "_ASSIGN"
@@ -27629,7 +27631,7 @@ NEW gazlang::Token 2
 STORE 15
 LOAD 15
 POP
-@ "codegen.gaz" 319
+@ "codegen.gaz" 323
 LOAD_THIS
 GET_METHOD visit
 LOAD_THIS
@@ -27642,14 +27644,14 @@ NEW gazlang::BinOpAST 3
 CALL_METHOD 2 assign
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 320
+@ "codegen.gaz" 324
 PUSH null
 RET
-@ "codegen.gaz" 312
+@ "codegen.gaz" 316
 JMP ENDIF_6
 LABEL ELSE_6
 LABEL ENDIF_6
-@ "codegen.gaz" 323
+@ "codegen.gaz" 327
 LOAD_THIS
 GET_METHOD assign
 LOAD 5
@@ -27660,25 +27662,25 @@ CALL_METHOD 2 assign
 STORE 11
 LOAD 11
 POP
-@ "codegen.gaz" 324
+@ "codegen.gaz" 328
 LOAD 3
 JZ ELSE_8
-@ "codegen.gaz" 325
+@ "codegen.gaz" 329
 LOAD_THIS
 GET_METHOD visit
 LOAD 11
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 324
+@ "codegen.gaz" 328
 JMP ENDIF_8
 LABEL ELSE_8
-@ "codegen.gaz" 327
+@ "codegen.gaz" 331
 LOAD_THIS
 GET_METHOD visit
 LOAD 5
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 328
+@ "codegen.gaz" 332
 LOAD_THIS
 GET_METHOD visit
 LOAD 11
@@ -27686,13 +27688,13 @@ NEW gazlang::StatementAST 1
 CALL_METHOD 1 visit
 POP
 LABEL ENDIF_8
-@ "codegen.gaz" 266
+@ "codegen.gaz" 270
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.is_constant 1 1
 locals $node
-@ "codegen.gaz" 334
+@ "codegen.gaz" 338
 LOAD 0
 PUSH_KIND gazlang::NumAST
 CALL_BUILTIN is_a 2
@@ -27732,7 +27734,7 @@ JMP OR_END_1
 LABEL OR_TRUE_1
 PUSH true
 LABEL OR_END_1
-@ "codegen.gaz" 336
+@ "codegen.gaz" 340
 NOT
 JZ OR_TRUE_0
 LOAD 0
@@ -27766,15 +27768,15 @@ JMP OR_END_0
 LABEL OR_TRUE_0
 PUSH true
 LABEL OR_END_0
-@ "codegen.gaz" 334
+@ "codegen.gaz" 338
 RET
-@ "codegen.gaz" 333
+@ "codegen.gaz" 337
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.constant_array 1 1
 locals $node $array $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $#destructure_1 $key $value
-@ "codegen.gaz" 341
+@ "codegen.gaz" 345
 LOAD 0
 GET_PROPERTY map
 JZ TERNARY_ELSE_0
@@ -27786,7 +27788,7 @@ LABEL TERNARY_END_0
 STORE 1
 LOAD 1
 POP
-@ "codegen.gaz" 342
+@ "codegen.gaz" 346
 LOAD 0
 GET_PROPERTY entries
 FOREACH_CHECK
@@ -27831,7 +27833,7 @@ LOAD 8
 POP
 LOAD 6
 POP
-@ "codegen.gaz" 343
+@ "codegen.gaz" 347
 LOAD 7
 PUSH null
 NOT_EQUALS
@@ -27871,19 +27873,19 @@ LABEL AND_FALSE_3
 PUSH false
 LABEL AND_END_3
 JZ ELSE_2
-@ "codegen.gaz" 344
+@ "codegen.gaz" 348
 PUSH null
 RET
-@ "codegen.gaz" 343
+@ "codegen.gaz" 347
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "codegen.gaz" 346
+@ "codegen.gaz" 350
 LOAD 8
 PUSH_KIND gazlang::ArrayLiteralAST
 CALL_BUILTIN is_a 2
 JZ ELSE_6
-@ "codegen.gaz" 347
+@ "codegen.gaz" 351
 LOAD_THIS
 GET_METHOD constant_array
 LOAD 8
@@ -27891,54 +27893,54 @@ CALL_METHOD 1 constant_array
 STORE 8
 LOAD 8
 POP
-@ "codegen.gaz" 348
+@ "codegen.gaz" 352
 LOAD 8
 PUSH null
 EQUALS
 JZ ELSE_7
-@ "codegen.gaz" 349
+@ "codegen.gaz" 353
 PUSH null
 RET
-@ "codegen.gaz" 348
+@ "codegen.gaz" 352
 JMP ENDIF_7
 LABEL ELSE_7
 LABEL ENDIF_7
-@ "codegen.gaz" 346
+@ "codegen.gaz" 350
 JMP ENDIF_6
 LABEL ELSE_6
-@ "codegen.gaz" 351
+@ "codegen.gaz" 355
 LOAD_THIS
 GET_METHOD is_constant
 LOAD 8
 CALL_METHOD 1 is_constant
 JZ ELSE_8
-@ "codegen.gaz" 352
+@ "codegen.gaz" 356
 LOAD 8
 GET_PROPERTY value
 STORE 8
 LOAD 8
 POP
-@ "codegen.gaz" 351
+@ "codegen.gaz" 355
 JMP ENDIF_8
 LABEL ELSE_8
-@ "codegen.gaz" 354
+@ "codegen.gaz" 358
 PUSH null
 RET
 LABEL ENDIF_8
 LABEL ENDIF_6
-@ "codegen.gaz" 357
+@ "codegen.gaz" 361
 LOAD 7
 PUSH null
 EQUALS
 JZ ELSE_9
-@ "codegen.gaz" 358
+@ "codegen.gaz" 362
 LOAD 8
 SET_PATH [] 1
 POP
-@ "codegen.gaz" 357
+@ "codegen.gaz" 361
 JMP ENDIF_9
 LABEL ELSE_9
-@ "codegen.gaz" 360
+@ "codegen.gaz" 364
 LOAD 7
 GET_PROPERTY value
 KEY_CHECK
@@ -27947,7 +27949,7 @@ SET_PATH [k] 1
 POP
 LABEL ENDIF_9
 LABEL CONTINUE_1
-@ "codegen.gaz" 342
+@ "codegen.gaz" 346
 LOAD 5
 PUSH 1
 ADD
@@ -27956,16 +27958,16 @@ LOAD 5
 POP
 JMP WHILE_1
 LABEL ENDWHILE_1
-@ "codegen.gaz" 364
+@ "codegen.gaz" 368
 LOAD 1
 RET
-@ "codegen.gaz" 340
+@ "codegen.gaz" 344
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.path_assign 1 2
 locals $node $end $root $path $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $step $static
-@ "codegen.gaz" 368
+@ "codegen.gaz" 372
 ARGC
 PUSH 1
 GT
@@ -27974,7 +27976,7 @@ JZ PASSED_0
 PUSH ""
 STORE 1
 LABEL PASSED_0
-@ "codegen.gaz" 369
+@ "codegen.gaz" 373
 LOAD_THIS
 GET_METHOD write_root
 LOAD 0
@@ -27983,12 +27985,12 @@ CALL_METHOD 1 write_root
 STORE 2
 LOAD 2
 POP
-@ "codegen.gaz" 370
+@ "codegen.gaz" 374
 PUSH ""
 STORE 3
 LOAD 3
 POP
-@ "codegen.gaz" 371
+@ "codegen.gaz" 375
 LOAD_THIS
 GET_METHOD steps
 LOAD 0
@@ -28023,46 +28025,46 @@ INDEX_GET
 STORE 8
 LOAD 8
 POP
-@ "codegen.gaz" 372
+@ "codegen.gaz" 376
 LOAD 8
 PUSH_KIND gazlang::PropertyAST
 CALL_BUILTIN is_a 2
 JZ ELSE_2
-@ "codegen.gaz" 373
+@ "codegen.gaz" 377
 PUSH "."
 LOAD 8
 GET_PROPERTY name
 CONCAT
 CONCAT_ASSIGN 3
 POP
-@ "codegen.gaz" 372
+@ "codegen.gaz" 376
 JMP ENDIF_2
 LABEL ELSE_2
-@ "codegen.gaz" 374
+@ "codegen.gaz" 378
 LOAD 8
 GET_PROPERTY index
 PUSH null
 EQUALS
 JZ ELSE_3
-@ "codegen.gaz" 375
+@ "codegen.gaz" 379
 PUSH "[]"
 CONCAT_ASSIGN 3
 POP
-@ "codegen.gaz" 374
+@ "codegen.gaz" 378
 JMP ENDIF_3
 LABEL ELSE_3
-@ "codegen.gaz" 377
+@ "codegen.gaz" 381
 PUSH "[k]"
 CONCAT_ASSIGN 3
 POP
-@ "codegen.gaz" 378
+@ "codegen.gaz" 382
 LOAD_THIS
 GET_METHOD visit
 LOAD 8
 GET_PROPERTY index
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 380
+@ "codegen.gaz" 384
 LOAD 8
 GET_PROPERTY index
 PUSH_KIND gazlang::VariableAST
@@ -28081,20 +28083,20 @@ PUSH false
 LABEL AND_END_5
 NOT
 JZ ELSE_4
-@ "codegen.gaz" 381
+@ "codegen.gaz" 385
 LOAD_THIS
 GET_METHOD emit
 PUSH "KEY_CHECK"
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 380
+@ "codegen.gaz" 384
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
 LABEL ENDIF_3
 LABEL ENDIF_2
 LABEL CONTINUE_1
-@ "codegen.gaz" 371
+@ "codegen.gaz" 375
 LOAD 7
 PUSH 1
 ADD
@@ -28103,18 +28105,18 @@ LOAD 7
 POP
 JMP WHILE_1
 LABEL ENDWHILE_1
-@ "codegen.gaz" 385
+@ "codegen.gaz" 389
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY right
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 386
+@ "codegen.gaz" 390
 LOAD 1
 CONCAT_ASSIGN 3
 POP
-@ "codegen.gaz" 389
+@ "codegen.gaz" 393
 LOAD_THIS
 GET_METHOD static_target
 LOAD 2
@@ -28122,12 +28124,12 @@ CALL_METHOD 1 static_target
 STORE 9
 LOAD 9
 POP
-@ "codegen.gaz" 390
+@ "codegen.gaz" 394
 LOAD 9
 PUSH null
 NOT_EQUALS
 JZ ELSE_6
-@ "codegen.gaz" 391
+@ "codegen.gaz" 395
 LOAD_THIS
 GET_METHOD emit_static
 PUSH "SET_PATH"
@@ -28137,15 +28139,15 @@ LOAD 3
 ARRAY_PUSH
 CALL_METHOD 3 emit_static
 POP
-@ "codegen.gaz" 390
+@ "codegen.gaz" 394
 JMP ENDIF_6
 LABEL ELSE_6
-@ "codegen.gaz" 392
+@ "codegen.gaz" 396
 LOAD 2
 PUSH_KIND gazlang::ThisAST
 CALL_BUILTIN is_a 2
 JZ ELSE_7
-@ "codegen.gaz" 393
+@ "codegen.gaz" 397
 LOAD_THIS
 GET_METHOD emit
 PUSH "SET_PATH_THIS"
@@ -28154,10 +28156,10 @@ LOAD 3
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 392
+@ "codegen.gaz" 396
 JMP ENDIF_7
 LABEL ELSE_7
-@ "codegen.gaz" 395
+@ "codegen.gaz" 399
 LOAD_THIS
 GET_METHOD emit_variable
 PUSH "SET_PATH"
@@ -28169,13 +28171,13 @@ CALL_METHOD 3 emit_variable
 POP
 LABEL ENDIF_7
 LABEL ENDIF_6
-@ "codegen.gaz" 368
+@ "codegen.gaz" 372
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_delete_statement 1 1
 locals $node $root $path $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $step $static
-@ "codegen.gaz" 400
+@ "codegen.gaz" 404
 LOAD_THIS
 GET_METHOD write_root
 LOAD 0
@@ -28184,12 +28186,12 @@ CALL_METHOD 1 write_root
 STORE 1
 LOAD 1
 POP
-@ "codegen.gaz" 401
+@ "codegen.gaz" 405
 PUSH ""
 STORE 2
 LOAD 2
 POP
-@ "codegen.gaz" 402
+@ "codegen.gaz" 406
 LOAD_THIS
 GET_METHOD steps
 LOAD 0
@@ -28224,33 +28226,33 @@ INDEX_GET
 STORE 7
 LOAD 7
 POP
-@ "codegen.gaz" 403
+@ "codegen.gaz" 407
 LOAD 7
 PUSH_KIND gazlang::PropertyAST
 CALL_BUILTIN is_a 2
 JZ ELSE_1
-@ "codegen.gaz" 404
+@ "codegen.gaz" 408
 PUSH "."
 LOAD 7
 GET_PROPERTY name
 CONCAT
 CONCAT_ASSIGN 2
 POP
-@ "codegen.gaz" 403
+@ "codegen.gaz" 407
 JMP ENDIF_1
 LABEL ELSE_1
-@ "codegen.gaz" 406
+@ "codegen.gaz" 410
 PUSH "[k]"
 CONCAT_ASSIGN 2
 POP
-@ "codegen.gaz" 407
+@ "codegen.gaz" 411
 LOAD_THIS
 GET_METHOD visit
 LOAD 7
 GET_PROPERTY index
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 408
+@ "codegen.gaz" 412
 LOAD_THIS
 GET_METHOD emit
 PUSH "KEY_CHECK"
@@ -28258,7 +28260,7 @@ CALL_METHOD 1 emit
 POP
 LABEL ENDIF_1
 LABEL CONTINUE_0
-@ "codegen.gaz" 402
+@ "codegen.gaz" 406
 LOAD 6
 PUSH 1
 ADD
@@ -28267,7 +28269,7 @@ LOAD 6
 POP
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "codegen.gaz" 412
+@ "codegen.gaz" 416
 LOAD_THIS
 GET_METHOD static_target
 LOAD 1
@@ -28275,12 +28277,12 @@ CALL_METHOD 1 static_target
 STORE 8
 LOAD 8
 POP
-@ "codegen.gaz" 413
+@ "codegen.gaz" 417
 LOAD 8
 PUSH null
 NOT_EQUALS
 JZ ELSE_2
-@ "codegen.gaz" 414
+@ "codegen.gaz" 418
 LOAD_THIS
 GET_METHOD emit_static
 PUSH "DELETE_PATH"
@@ -28290,15 +28292,15 @@ LOAD 2
 ARRAY_PUSH
 CALL_METHOD 3 emit_static
 POP
-@ "codegen.gaz" 413
+@ "codegen.gaz" 417
 JMP ENDIF_2
 LABEL ELSE_2
-@ "codegen.gaz" 415
+@ "codegen.gaz" 419
 LOAD 1
 PUSH_KIND gazlang::ThisAST
 CALL_BUILTIN is_a 2
 JZ ELSE_3
-@ "codegen.gaz" 416
+@ "codegen.gaz" 420
 LOAD_THIS
 GET_METHOD emit
 PUSH "DELETE_PATH_THIS"
@@ -28307,10 +28309,10 @@ LOAD 2
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 415
+@ "codegen.gaz" 419
 JMP ENDIF_3
 LABEL ELSE_3
-@ "codegen.gaz" 418
+@ "codegen.gaz" 422
 LOAD_THIS
 GET_METHOD emit_variable
 PUSH "DELETE_PATH"
@@ -28322,20 +28324,20 @@ CALL_METHOD 3 emit_variable
 POP
 LABEL ENDIF_3
 LABEL ENDIF_2
-@ "codegen.gaz" 399
+@ "codegen.gaz" 403
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_bin_op 1 1
 locals $node $type $end_label
-@ "codegen.gaz" 423
+@ "codegen.gaz" 427
 LOAD 0
 GET_PROPERTY op
 GET_PROPERTY type
 STORE 1
 LOAD 1
 POP
-@ "codegen.gaz" 424
+@ "codegen.gaz" 428
 LOAD 1
 PUSH "AND"
 EQUALS
@@ -28352,25 +28354,25 @@ LABEL OR_TRUE_1
 PUSH true
 LABEL OR_END_1
 JZ ELSE_0
-@ "codegen.gaz" 425
+@ "codegen.gaz" 429
 LOAD_THIS
 GET_METHOD logical_op
 LOAD 0
 CALL_METHOD 1 logical_op
 POP
-@ "codegen.gaz" 426
+@ "codegen.gaz" 430
 PUSH null
 RET
-@ "codegen.gaz" 424
+@ "codegen.gaz" 428
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "codegen.gaz" 428
+@ "codegen.gaz" 432
 LOAD 1
 PUSH "COALESCE"
 EQUALS
 JZ ELSE_2
-@ "codegen.gaz" 430
+@ "codegen.gaz" 434
 PUSH "COALESCE_END_"
 LOAD_THIS
 GET_PROPERTY_EXISTING label_counter
@@ -28383,14 +28385,14 @@ CONCAT
 STORE 2
 LOAD 2
 POP
-@ "codegen.gaz" 431
+@ "codegen.gaz" 435
 LOAD_THIS
 GET_METHOD quietly
 LOAD 0
 GET_PROPERTY left
 CALL_METHOD 1 quietly
 POP
-@ "codegen.gaz" 432
+@ "codegen.gaz" 436
 LOAD_THIS
 GET_METHOD emit
 PUSH "JNN"
@@ -28399,14 +28401,14 @@ LOAD 2
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 433
+@ "codegen.gaz" 437
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY right
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 434
+@ "codegen.gaz" 438
 LOAD_THIS
 GET_METHOD emit
 PUSH "LABEL"
@@ -28415,28 +28417,28 @@ LOAD 2
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 435
+@ "codegen.gaz" 439
 PUSH null
 RET
-@ "codegen.gaz" 428
+@ "codegen.gaz" 432
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "codegen.gaz" 438
+@ "codegen.gaz" 442
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY left
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 439
+@ "codegen.gaz" 443
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY right
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 440
+@ "codegen.gaz" 444
 LOAD_THIS
 GET_METHOD emit
 PUSH {"PLUS" => "ADD", "CONCAT" => "CONCAT", "MINUS" => "SUB", "MULTIPLY" => "MUL", "DIVIDE" => "DIV", "MODULO" => "MOD", "BIT_AND" => "BIT_AND", "BIT_OR" => "BIT_OR", "BIT_XOR" => "BIT_XOR", "SHIFT_LEFT" => "SHL", "SHIFT_RIGHT" => "SHR", "EQUALS" => "EQUALS", "NOT_EQUALS" => "NOT_EQUALS", "LESS_THAN" => "LT", "LESS_EQUALS" => "LE", "SPACESHIP" => "CMP", "GREATER_THAN" => "GT", "GREATER_EQUALS" => "GE"}
@@ -28444,28 +28446,28 @@ LOAD 1
 INDEX_GET
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 422
+@ "codegen.gaz" 426
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.quietly 1 1
 locals $node
-@ "codegen.gaz" 445
+@ "codegen.gaz" 449
 LOAD 0
 PUSH_KIND gazlang::VariableAST
 CALL_BUILTIN is_a 2
 JZ ELSE_0
-@ "codegen.gaz" 446
+@ "codegen.gaz" 450
 LOAD_THIS
 GET_METHOD emit_variable
 PUSH "LOAD_QUIET"
 LOAD 0
 CALL_METHOD 2 emit_variable
 POP
-@ "codegen.gaz" 445
+@ "codegen.gaz" 449
 JMP ENDIF_0
 LABEL ELSE_0
-@ "codegen.gaz" 447
+@ "codegen.gaz" 451
 LOAD 0
 PUSH_KIND gazlang::IndexAST
 CALL_BUILTIN is_a 2
@@ -28481,30 +28483,30 @@ LABEL AND_FALSE_2
 PUSH false
 LABEL AND_END_2
 JZ ELSE_1
-@ "codegen.gaz" 448
+@ "codegen.gaz" 452
 LOAD_THIS
 GET_METHOD quietly
 LOAD 0
 GET_PROPERTY target
 CALL_METHOD 1 quietly
 POP
-@ "codegen.gaz" 449
+@ "codegen.gaz" 453
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY index
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 450
+@ "codegen.gaz" 454
 LOAD_THIS
 GET_METHOD emit
 PUSH "INDEX_GET_QUIET"
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 447
+@ "codegen.gaz" 451
 JMP ENDIF_1
 LABEL ELSE_1
-@ "codegen.gaz" 451
+@ "codegen.gaz" 455
 LOAD 0
 PUSH_KIND gazlang::PropertyAST
 CALL_BUILTIN is_a 2
@@ -28519,28 +28521,28 @@ LABEL AND_FALSE_4
 PUSH false
 LABEL AND_END_4
 JZ ELSE_3
-@ "codegen.gaz" 452
+@ "codegen.gaz" 456
 LOAD_THIS
 GET_METHOD quietly
 LOAD 0
 GET_PROPERTY target
 CALL_METHOD 1 quietly
 POP
-@ "codegen.gaz" 453
+@ "codegen.gaz" 457
 LOAD 0
 PUSH_KIND gazlang::NullsafePropertyAST
 CALL_BUILTIN is_a 2
 JZ ELSE_5
-@ "codegen.gaz" 454
+@ "codegen.gaz" 458
 LOAD_THIS
 GET_METHOD nullsafe_guard
 CALL_METHOD 0 nullsafe_guard
 POP
-@ "codegen.gaz" 453
+@ "codegen.gaz" 457
 JMP ENDIF_5
 LABEL ELSE_5
 LABEL ENDIF_5
-@ "codegen.gaz" 456
+@ "codegen.gaz" 460
 LOAD_THIS
 GET_METHOD emit
 PUSH "GET_PROPERTY_QUIET"
@@ -28550,25 +28552,25 @@ GET_PROPERTY name
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 451
+@ "codegen.gaz" 455
 JMP ENDIF_3
 LABEL ELSE_3
-@ "codegen.gaz" 457
+@ "codegen.gaz" 461
 LOAD 0
 PUSH_KIND gazlang::NullsafeChainAST
 CALL_BUILTIN is_a 2
 JZ ELSE_6
-@ "codegen.gaz" 458
+@ "codegen.gaz" 462
 LOAD_THIS
 GET_METHOD visit_nullsafe_chain
 LOAD 0
 PUSH true
 CALL_METHOD 2 visit_nullsafe_chain
 POP
-@ "codegen.gaz" 457
+@ "codegen.gaz" 461
 JMP ENDIF_6
 LABEL ELSE_6
-@ "codegen.gaz" 460
+@ "codegen.gaz" 464
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
@@ -28578,13 +28580,13 @@ LABEL ENDIF_6
 LABEL ENDIF_3
 LABEL ENDIF_1
 LABEL ENDIF_0
-@ "codegen.gaz" 444
+@ "codegen.gaz" 448
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.logical_op 1 1
 locals $node $is_and $short_label $end_label $#foreach_array_1 $#foreach_keys_1 $#foreach_count_1 $#foreach_i_1 $operand
-@ "codegen.gaz" 466
+@ "codegen.gaz" 470
 LOAD 0
 GET_PROPERTY op
 GET_PROPERTY type
@@ -28593,7 +28595,7 @@ EQUALS
 STORE 1
 LOAD 1
 POP
-@ "codegen.gaz" 467
+@ "codegen.gaz" 471
 LOAD 1
 JZ TERNARY_ELSE_0
 PUSH "AND_FALSE_"
@@ -28606,7 +28608,7 @@ CONCAT
 STORE 2
 LOAD 2
 POP
-@ "codegen.gaz" 468
+@ "codegen.gaz" 472
 LOAD 1
 JZ TERNARY_ELSE_1
 PUSH "AND_END_"
@@ -28619,13 +28621,13 @@ CONCAT
 STORE 3
 LOAD 3
 POP
-@ "codegen.gaz" 469
+@ "codegen.gaz" 473
 LOAD_THIS
 GET_PROPERTY_EXISTING label_counter
 INC
 SET_FIELD label_counter
 POP
-@ "codegen.gaz" 471
+@ "codegen.gaz" 475
 NEW_ARRAY
 LOAD 0
 GET_PROPERTY left
@@ -28662,27 +28664,27 @@ INDEX_GET
 STORE 8
 LOAD 8
 POP
-@ "codegen.gaz" 472
+@ "codegen.gaz" 476
 LOAD_THIS
 GET_METHOD visit
 LOAD 8
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 473
+@ "codegen.gaz" 477
 LOAD 1
 NOT
 JZ ELSE_3
-@ "codegen.gaz" 474
+@ "codegen.gaz" 478
 LOAD_THIS
 GET_METHOD emit
 PUSH "NOT"
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 473
+@ "codegen.gaz" 477
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "codegen.gaz" 476
+@ "codegen.gaz" 480
 LOAD_THIS
 GET_METHOD emit
 PUSH "JZ"
@@ -28692,7 +28694,7 @@ ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
 LABEL CONTINUE_2
-@ "codegen.gaz" 471
+@ "codegen.gaz" 475
 LOAD 7
 PUSH 1
 ADD
@@ -28701,7 +28703,7 @@ LOAD 7
 POP
 JMP WHILE_2
 LABEL ENDWHILE_2
-@ "codegen.gaz" 479
+@ "codegen.gaz" 483
 LOAD_THIS
 GET_METHOD emit
 PUSH "PUSH"
@@ -28710,7 +28712,7 @@ LOAD 1
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 480
+@ "codegen.gaz" 484
 LOAD_THIS
 GET_METHOD emit
 PUSH "JMP"
@@ -28719,7 +28721,7 @@ LOAD 3
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 481
+@ "codegen.gaz" 485
 LOAD_THIS
 GET_METHOD emit
 PUSH "LABEL"
@@ -28728,7 +28730,7 @@ LOAD 2
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 482
+@ "codegen.gaz" 486
 LOAD_THIS
 GET_METHOD emit
 PUSH "PUSH"
@@ -28738,7 +28740,7 @@ NOT
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 483
+@ "codegen.gaz" 487
 LOAD_THIS
 GET_METHOD emit
 PUSH "LABEL"
@@ -28747,20 +28749,20 @@ LOAD 3
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 465
+@ "codegen.gaz" 469
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_unary_op 1 1
 locals $node $#match_0
-@ "codegen.gaz" 487
+@ "codegen.gaz" 491
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY expr
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 488
+@ "codegen.gaz" 492
 LOAD_THIS
 GET_METHOD emit
 LOAD 0
@@ -28768,77 +28770,77 @@ GET_PROPERTY op
 GET_PROPERTY type
 STORE 1
 LOAD 1
-@ "codegen.gaz" 489
+@ "codegen.gaz" 493
 PUSH "NOT"
-@ "codegen.gaz" 488
+@ "codegen.gaz" 492
 EQUALS
 NOT
 JZ MATCH_ARM_0_0
 LOAD 1
-@ "codegen.gaz" 490
+@ "codegen.gaz" 494
 PUSH "MINUS"
-@ "codegen.gaz" 488
+@ "codegen.gaz" 492
 EQUALS
 NOT
 JZ MATCH_ARM_0_1
 LOAD 1
-@ "codegen.gaz" 491
+@ "codegen.gaz" 495
 PUSH "BIT_NOT"
-@ "codegen.gaz" 488
+@ "codegen.gaz" 492
 EQUALS
 NOT
 JZ MATCH_ARM_0_2
 LOAD 1
-@ "codegen.gaz" 493
+@ "codegen.gaz" 497
 PUSH "INCREMENT"
-@ "codegen.gaz" 488
+@ "codegen.gaz" 492
 EQUALS
 NOT
 JZ MATCH_ARM_0_3
 LOAD 1
-@ "codegen.gaz" 494
+@ "codegen.gaz" 498
 PUSH "DECREMENT"
-@ "codegen.gaz" 488
+@ "codegen.gaz" 492
 EQUALS
 NOT
 JZ MATCH_ARM_0_4
 LOAD 1
 NO_MATCH
 LABEL MATCH_ARM_0_0
-@ "codegen.gaz" 489
+@ "codegen.gaz" 493
 PUSH "NOT"
-@ "codegen.gaz" 488
+@ "codegen.gaz" 492
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_1
-@ "codegen.gaz" 490
+@ "codegen.gaz" 494
 PUSH "NEG"
-@ "codegen.gaz" 488
+@ "codegen.gaz" 492
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_2
-@ "codegen.gaz" 491
+@ "codegen.gaz" 495
 PUSH "BIT_NOT"
-@ "codegen.gaz" 488
+@ "codegen.gaz" 492
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_3
-@ "codegen.gaz" 493
+@ "codegen.gaz" 497
 PUSH "INC"
-@ "codegen.gaz" 488
+@ "codegen.gaz" 492
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_4
-@ "codegen.gaz" 494
+@ "codegen.gaz" 498
 PUSH "DEC"
-@ "codegen.gaz" 488
+@ "codegen.gaz" 492
 JMP MATCH_END_0
 LABEL MATCH_END_0
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 486
+@ "codegen.gaz" 490
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_array_literal 1 1
 locals $node $constant $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $#destructure_1 $key $value $#destructure_2 $file $line $#destructure_3 $#destructure_4
-@ "codegen.gaz" 500
+@ "codegen.gaz" 504
 LOAD 0
 GET_PROPERTY entries
 CALL_BUILTIN len 1
@@ -28856,12 +28858,12 @@ LABEL TERNARY_END_0
 STORE 1
 LOAD 1
 POP
-@ "codegen.gaz" 501
+@ "codegen.gaz" 505
 LOAD 1
 PUSH null
 NOT_EQUALS
 JZ ELSE_1
-@ "codegen.gaz" 502
+@ "codegen.gaz" 506
 LOAD_THIS
 GET_METHOD emit
 PUSH "PUSH"
@@ -28870,14 +28872,14 @@ LOAD 1
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 503
+@ "codegen.gaz" 507
 PUSH null
 RET
-@ "codegen.gaz" 501
+@ "codegen.gaz" 505
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "codegen.gaz" 506
+@ "codegen.gaz" 510
 LOAD_THIS
 GET_METHOD emit
 LOAD 0
@@ -28890,7 +28892,7 @@ PUSH "NEW_ARRAY"
 LABEL TERNARY_END_2
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 507
+@ "codegen.gaz" 511
 LOAD 0
 GET_PROPERTY entries
 FOREACH_CHECK
@@ -28935,19 +28937,19 @@ LOAD 8
 POP
 LOAD 6
 POP
-@ "codegen.gaz" 508
+@ "codegen.gaz" 512
 LOAD 8
 PUSH_KIND gazlang::SpreadAST
 CALL_BUILTIN is_a 2
 JZ ELSE_4
-@ "codegen.gaz" 511
+@ "codegen.gaz" 515
 LOAD_THIS
 GET_METHOD visit
 LOAD 8
 GET_PROPERTY expr
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 512
+@ "codegen.gaz" 516
 NEW_ARRAY
 LOAD_FIELD file
 ARRAY_PUSH
@@ -28969,7 +28971,7 @@ LOAD 11
 POP
 LOAD 9
 POP
-@ "codegen.gaz" 513
+@ "codegen.gaz" 517
 NEW_ARRAY
 LOAD 8
 GET_PROPERTY file
@@ -28991,7 +28993,7 @@ SET_FIELD line
 POP
 LOAD 12
 POP
-@ "codegen.gaz" 514
+@ "codegen.gaz" 518
 LOAD_THIS
 GET_METHOD emit
 LOAD 0
@@ -29004,7 +29006,7 @@ PUSH "ARRAY_EXTEND"
 LABEL TERNARY_END_5
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 515
+@ "codegen.gaz" 519
 NEW_ARRAY
 LOAD 10
 ARRAY_PUSH
@@ -29024,40 +29026,40 @@ SET_FIELD line
 POP
 LOAD 13
 POP
-@ "codegen.gaz" 516
+@ "codegen.gaz" 520
 JMP CONTINUE_3
-@ "codegen.gaz" 508
+@ "codegen.gaz" 512
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
-@ "codegen.gaz" 518
+@ "codegen.gaz" 522
 LOAD 7
 PUSH null
 NOT_EQUALS
 JZ ELSE_6
-@ "codegen.gaz" 519
+@ "codegen.gaz" 523
 LOAD_THIS
 GET_METHOD visit
 LOAD 7
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 520
+@ "codegen.gaz" 524
 LOAD_THIS
 GET_METHOD emit
 PUSH "KEY_CHECK"
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 518
+@ "codegen.gaz" 522
 JMP ENDIF_6
 LABEL ELSE_6
 LABEL ENDIF_6
-@ "codegen.gaz" 522
+@ "codegen.gaz" 526
 LOAD_THIS
 GET_METHOD visit
 LOAD 8
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 523
+@ "codegen.gaz" 527
 LOAD_THIS
 GET_METHOD emit
 LOAD 7
@@ -29072,7 +29074,7 @@ LABEL TERNARY_END_7
 CALL_METHOD 1 emit
 POP
 LABEL CONTINUE_3
-@ "codegen.gaz" 507
+@ "codegen.gaz" 511
 LOAD 5
 PUSH 1
 ADD
@@ -29081,27 +29083,27 @@ LOAD 5
 POP
 JMP WHILE_3
 LABEL ENDWHILE_3
-@ "codegen.gaz" 498
+@ "codegen.gaz" 502
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_index 1 1
 locals $node
-@ "codegen.gaz" 528
+@ "codegen.gaz" 532
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY target
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 529
+@ "codegen.gaz" 533
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY index
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 530
+@ "codegen.gaz" 534
 LOAD_THIS
 GET_METHOD emit
 LOAD 0
@@ -29114,13 +29116,13 @@ PUSH "INDEX_GET"
 LABEL TERNARY_END_0
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 527
+@ "codegen.gaz" 531
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_statement 1 1
 locals $node $prefix $#destructure_0
-@ "codegen.gaz" 535
+@ "codegen.gaz" 539
 LOAD 0
 GET_PROPERTY expr
 PUSH_KIND gazlang::IncrementAST
@@ -29137,7 +29139,7 @@ LABEL AND_FALSE_1
 PUSH false
 LABEL AND_END_1
 JZ ELSE_0
-@ "codegen.gaz" 537
+@ "codegen.gaz" 541
 LOAD 0
 GET_PROPERTY expr
 GET_PROPERTY target
@@ -29149,7 +29151,7 @@ NEW gazlang::IncrementAST 3
 STORE 1
 LOAD 1
 POP
-@ "codegen.gaz" 538
+@ "codegen.gaz" 542
 NEW_ARRAY
 LOAD 0
 GET_PROPERTY expr
@@ -29173,64 +29175,64 @@ SET_PATH .file 1
 POP
 LOAD 2
 POP
-@ "codegen.gaz" 539
+@ "codegen.gaz" 543
 LOAD_THIS
 GET_METHOD visit
 LOAD 1
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 540
+@ "codegen.gaz" 544
 LOAD_THIS
 GET_METHOD emit
 PUSH "POP"
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 541
+@ "codegen.gaz" 545
 PUSH null
 RET
-@ "codegen.gaz" 535
+@ "codegen.gaz" 539
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "codegen.gaz" 544
+@ "codegen.gaz" 548
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY expr
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 545
+@ "codegen.gaz" 549
 LOAD_THIS
 GET_METHOD emit
 PUSH "POP"
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 533
+@ "codegen.gaz" 537
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_echo_statement 1 1
 locals $node
-@ "codegen.gaz" 549
+@ "codegen.gaz" 553
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY expr
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 550
+@ "codegen.gaz" 554
 LOAD_THIS
 GET_METHOD emit
 PUSH "PRINT"
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 548
+@ "codegen.gaz" 552
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_compound 1 1
 locals $node $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $statement
-@ "codegen.gaz" 554
+@ "codegen.gaz" 558
 LOAD 0
 GET_PROPERTY statements
 FOREACH_CHECK
@@ -29262,14 +29264,14 @@ INDEX_GET
 STORE 5
 LOAD 5
 POP
-@ "codegen.gaz" 555
+@ "codegen.gaz" 559
 LOAD_THIS
 GET_METHOD visit
 LOAD 5
 CALL_METHOD 1 visit
 POP
 LABEL CONTINUE_0
-@ "codegen.gaz" 554
+@ "codegen.gaz" 558
 LOAD 4
 PUSH 1
 ADD
@@ -29278,40 +29280,40 @@ LOAD 4
 POP
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "codegen.gaz" 553
+@ "codegen.gaz" 557
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_if_statement 1 1
 locals $node $else_label $end_label
-@ "codegen.gaz" 560
+@ "codegen.gaz" 564
 PUSH "ELSE_"
 LOAD_FIELD label_counter
 CONCAT
 STORE 1
 LOAD 1
 POP
-@ "codegen.gaz" 561
+@ "codegen.gaz" 565
 PUSH "ENDIF_"
 LOAD_FIELD label_counter
 CONCAT
 STORE 2
 LOAD 2
 POP
-@ "codegen.gaz" 562
+@ "codegen.gaz" 566
 LOAD_THIS
 GET_PROPERTY_EXISTING label_counter
 INC
 SET_FIELD label_counter
 POP
-@ "codegen.gaz" 564
+@ "codegen.gaz" 568
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY condition
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 565
+@ "codegen.gaz" 569
 LOAD_THIS
 GET_METHOD emit
 PUSH "JZ"
@@ -29320,14 +29322,14 @@ LOAD 1
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 566
+@ "codegen.gaz" 570
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY if_body
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 567
+@ "codegen.gaz" 571
 LOAD_THIS
 GET_METHOD emit
 PUSH "JMP"
@@ -29336,7 +29338,7 @@ LOAD 2
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 568
+@ "codegen.gaz" 572
 LOAD_THIS
 GET_METHOD emit
 PUSH "LABEL"
@@ -29345,41 +29347,41 @@ LOAD 1
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 569
+@ "codegen.gaz" 573
 LOAD 0
 GET_PROPERTY else_if
 PUSH null
 NOT_EQUALS
 JZ ELSE_0
-@ "codegen.gaz" 570
+@ "codegen.gaz" 574
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY else_if
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 569
+@ "codegen.gaz" 573
 JMP ENDIF_0
 LABEL ELSE_0
-@ "codegen.gaz" 571
+@ "codegen.gaz" 575
 LOAD 0
 GET_PROPERTY else_body
 PUSH null
 NOT_EQUALS
 JZ ELSE_1
-@ "codegen.gaz" 572
+@ "codegen.gaz" 576
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY else_body
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 571
+@ "codegen.gaz" 575
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
 LABEL ENDIF_0
-@ "codegen.gaz" 574
+@ "codegen.gaz" 578
 LOAD_THIS
 GET_METHOD emit
 PUSH "LABEL"
@@ -29388,13 +29390,13 @@ LOAD 2
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 559
+@ "codegen.gaz" 563
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_foreach_statement 1 1
 locals $node $n $array $keys $count $i $key $body $loop
-@ "codegen.gaz" 579
+@ "codegen.gaz" 583
 LOAD_THIS
 GET_PROPERTY_EXISTING hidden_counter
 LOAD_THIS
@@ -29405,7 +29407,7 @@ POP
 STORE 1
 LOAD 1
 POP
-@ "codegen.gaz" 580
+@ "codegen.gaz" 584
 LOAD_THIS
 GET_METHOD hidden
 PUSH "$#foreach_array_"
@@ -29415,7 +29417,7 @@ CALL_METHOD 1 hidden
 STORE 2
 LOAD 2
 POP
-@ "codegen.gaz" 581
+@ "codegen.gaz" 585
 LOAD_THIS
 GET_METHOD hidden
 PUSH "$#foreach_keys_"
@@ -29425,7 +29427,7 @@ CALL_METHOD 1 hidden
 STORE 3
 LOAD 3
 POP
-@ "codegen.gaz" 582
+@ "codegen.gaz" 586
 LOAD_THIS
 GET_METHOD hidden
 PUSH "$#foreach_count_"
@@ -29435,7 +29437,7 @@ CALL_METHOD 1 hidden
 STORE 4
 LOAD 4
 POP
-@ "codegen.gaz" 583
+@ "codegen.gaz" 587
 LOAD_THIS
 GET_METHOD hidden
 PUSH "$#foreach_i_"
@@ -29445,25 +29447,25 @@ CALL_METHOD 1 hidden
 STORE 5
 LOAD 5
 POP
-@ "codegen.gaz" 584
+@ "codegen.gaz" 588
 LOAD 3
 LOAD 5
 NEW gazlang::IndexAST 2
 STORE 6
 LOAD 6
 POP
-@ "codegen.gaz" 586
+@ "codegen.gaz" 590
 NEW gazlang::CompoundAST 0
 STORE 7
 LOAD 7
 POP
-@ "codegen.gaz" 587
+@ "codegen.gaz" 591
 LOAD 0
 GET_PROPERTY key
 PUSH null
 NOT_EQUALS
 JZ ELSE_0
-@ "codegen.gaz" 588
+@ "codegen.gaz" 592
 LOAD_THIS
 GET_METHOD assign
 LOAD 0
@@ -29473,11 +29475,11 @@ CALL_METHOD 2 assign
 NEW gazlang::StatementAST 1
 SET_PATH .statements[] 7
 POP
-@ "codegen.gaz" 587
+@ "codegen.gaz" 591
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "codegen.gaz" 590
+@ "codegen.gaz" 594
 LOAD_THIS
 GET_METHOD assign
 LOAD 0
@@ -29489,7 +29491,7 @@ CALL_METHOD 2 assign
 NEW gazlang::StatementAST 1
 SET_PATH .statements[] 7
 POP
-@ "codegen.gaz" 591
+@ "codegen.gaz" 595
 NEW_ARRAY
 LOAD 7
 GET_PROPERTY statements
@@ -29500,34 +29502,34 @@ GET_PROPERTY statements
 ARRAY_EXTEND
 SET_PATH .statements 7
 POP
-@ "codegen.gaz" 593
+@ "codegen.gaz" 597
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY iterable
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 594
+@ "codegen.gaz" 598
 LOAD_THIS
 GET_METHOD emit
 PUSH "FOREACH_CHECK"
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 595
+@ "codegen.gaz" 599
 LOAD_THIS
 GET_METHOD emit_variable
 PUSH "STORE"
 LOAD 2
 CALL_METHOD 2 emit_variable
 POP
-@ "codegen.gaz" 597
+@ "codegen.gaz" 601
 NEW gazlang::CompoundAST 0
 STORE 8
 LOAD 8
 POP
-@ "codegen.gaz" 598
+@ "codegen.gaz" 602
 NEW_ARRAY
-@ "codegen.gaz" 599
+@ "codegen.gaz" 603
 LOAD_THIS
 GET_METHOD assign
 LOAD 3
@@ -29538,9 +29540,9 @@ ARRAY_PUSH
 NEW gazlang::FunctionCallAST 2
 CALL_METHOD 2 assign
 NEW gazlang::StatementAST 1
-@ "codegen.gaz" 598
+@ "codegen.gaz" 602
 ARRAY_PUSH
-@ "codegen.gaz" 600
+@ "codegen.gaz" 604
 LOAD_THIS
 GET_METHOD assign
 LOAD 4
@@ -29551,9 +29553,9 @@ ARRAY_PUSH
 NEW gazlang::FunctionCallAST 2
 CALL_METHOD 2 assign
 NEW gazlang::StatementAST 1
-@ "codegen.gaz" 598
+@ "codegen.gaz" 602
 ARRAY_PUSH
-@ "codegen.gaz" 601
+@ "codegen.gaz" 605
 LOAD_THIS
 GET_METHOD assign
 LOAD 5
@@ -29563,18 +29565,18 @@ NEW gazlang::Token 2
 NEW gazlang::NumAST 1
 CALL_METHOD 2 assign
 NEW gazlang::StatementAST 1
-@ "codegen.gaz" 598
+@ "codegen.gaz" 602
 ARRAY_PUSH
-@ "codegen.gaz" 603
+@ "codegen.gaz" 607
 LOAD 5
 PUSH "LESS_THAN"
 PUSH "<"
 NEW gazlang::Token 2
 LOAD 4
 NEW gazlang::BinOpAST 3
-@ "codegen.gaz" 604
+@ "codegen.gaz" 608
 LOAD 7
-@ "codegen.gaz" 605
+@ "codegen.gaz" 609
 LOAD_THIS
 GET_METHOD assign
 LOAD 5
@@ -29589,39 +29591,39 @@ NEW gazlang::NumAST 1
 NEW gazlang::BinOpAST 3
 CALL_METHOD 2 assign
 NEW gazlang::StatementAST 1
-@ "codegen.gaz" 602
+@ "codegen.gaz" 606
 NEW gazlang::WhileStatementAST 3
-@ "codegen.gaz" 598
+@ "codegen.gaz" 602
 ARRAY_PUSH
 SET_PATH .statements 8
 POP
-@ "codegen.gaz" 609
+@ "codegen.gaz" 613
 LOAD_THIS
 GET_METHOD visit
 LOAD 8
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 578
+@ "codegen.gaz" 582
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_while_statement 1 1
 locals $node $start_label $end_label $continue_label
-@ "codegen.gaz" 613
+@ "codegen.gaz" 617
 PUSH "WHILE_"
 LOAD_FIELD label_counter
 CONCAT
 STORE 1
 LOAD 1
 POP
-@ "codegen.gaz" 614
+@ "codegen.gaz" 618
 PUSH "ENDWHILE_"
 LOAD_FIELD label_counter
 CONCAT
 STORE 2
 LOAD 2
 POP
-@ "codegen.gaz" 616
+@ "codegen.gaz" 620
 LOAD 0
 GET_PROPERTY step
 PUSH null
@@ -29637,13 +29639,13 @@ LABEL TERNARY_END_0
 STORE 3
 LOAD 3
 POP
-@ "codegen.gaz" 617
+@ "codegen.gaz" 621
 LOAD_THIS
 GET_PROPERTY_EXISTING label_counter
 INC
 SET_FIELD label_counter
 POP
-@ "codegen.gaz" 619
+@ "codegen.gaz" 623
 LOAD_THIS
 GET_METHOD emit
 PUSH "LABEL"
@@ -29652,14 +29654,14 @@ LOAD 1
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 620
+@ "codegen.gaz" 624
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY condition
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 621
+@ "codegen.gaz" 625
 LOAD_THIS
 GET_METHOD emit
 PUSH "JZ"
@@ -29668,7 +29670,7 @@ LOAD 2
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 623
+@ "codegen.gaz" 627
 NEW_ARRAY
 LOAD 3
 ARRAY_PUSH
@@ -29679,27 +29681,27 @@ CALL_BUILTIN len 1
 ARRAY_PUSH
 SET_PATH_THIS .loop_labels[]
 POP
-@ "codegen.gaz" 624
+@ "codegen.gaz" 628
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY body
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 625
+@ "codegen.gaz" 629
 LOAD_FIELD loop_labels
 CALL_BUILTIN len 1
 PUSH 1
 SUB
 KEY_CHECK
 DELETE_PATH_THIS .loop_labels[k]
-@ "codegen.gaz" 627
+@ "codegen.gaz" 631
 LOAD 0
 GET_PROPERTY step
 PUSH null
 NOT_EQUALS
 JZ ELSE_1
-@ "codegen.gaz" 628
+@ "codegen.gaz" 632
 LOAD_THIS
 GET_METHOD emit
 PUSH "LABEL"
@@ -29708,18 +29710,18 @@ LOAD 3
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 629
+@ "codegen.gaz" 633
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY step
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 627
+@ "codegen.gaz" 631
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "codegen.gaz" 632
+@ "codegen.gaz" 636
 LOAD_THIS
 GET_METHOD emit
 PUSH "JMP"
@@ -29728,7 +29730,7 @@ LOAD 1
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 633
+@ "codegen.gaz" 637
 LOAD_THIS
 GET_METHOD emit
 PUSH "LABEL"
@@ -29737,13 +29739,13 @@ LOAD 2
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 612
+@ "codegen.gaz" 616
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_try_statement 1 1
 locals $node $n $#foreach_array_1 $#foreach_keys_1 $#foreach_count_1 $#foreach_i_1 $i $#destructure_2 $kind $variable $body $error
-@ "codegen.gaz" 638
+@ "codegen.gaz" 642
 LOAD_THIS
 GET_PROPERTY_EXISTING label_counter
 LOAD_THIS
@@ -29754,13 +29756,13 @@ POP
 STORE 1
 LOAD 1
 POP
-@ "codegen.gaz" 640
+@ "codegen.gaz" 644
 LOAD 0
 GET_PROPERTY finally
 PUSH null
 NOT_EQUALS
 JZ ELSE_0
-@ "codegen.gaz" 641
+@ "codegen.gaz" 645
 LOAD_THIS
 GET_METHOD emit
 PUSH "TRY"
@@ -29771,33 +29773,33 @@ CONCAT
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 642
+@ "codegen.gaz" 646
 LOAD 0
 GET_PROPERTY finally
 SET_PATH_THIS .try_stack[]
 POP
-@ "codegen.gaz" 640
+@ "codegen.gaz" 644
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "codegen.gaz" 645
+@ "codegen.gaz" 649
 LOAD 0
 GET_PROPERTY catches
 CALL_BUILTIN len 1
 PUSH 0
 EQUALS
 JZ ELSE_1
-@ "codegen.gaz" 646
+@ "codegen.gaz" 650
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY body
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 645
+@ "codegen.gaz" 649
 JMP ENDIF_1
 LABEL ELSE_1
-@ "codegen.gaz" 648
+@ "codegen.gaz" 652
 LOAD_THIS
 GET_METHOD emit
 PUSH "TRY"
@@ -29808,31 +29810,31 @@ CONCAT
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 649
+@ "codegen.gaz" 653
 PUSH null
 SET_PATH_THIS .try_stack[]
 POP
-@ "codegen.gaz" 650
+@ "codegen.gaz" 654
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY body
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 651
+@ "codegen.gaz" 655
 LOAD_FIELD try_stack
 CALL_BUILTIN len 1
 PUSH 1
 SUB
 KEY_CHECK
 DELETE_PATH_THIS .try_stack[k]
-@ "codegen.gaz" 652
+@ "codegen.gaz" 656
 LOAD_THIS
 GET_METHOD emit
 PUSH "END_TRY"
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 653
+@ "codegen.gaz" 657
 LOAD_THIS
 GET_METHOD emit
 PUSH "JMP"
@@ -29843,7 +29845,7 @@ CONCAT
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 655
+@ "codegen.gaz" 659
 LOAD_THIS
 GET_METHOD emit
 PUSH "LABEL"
@@ -29854,7 +29856,7 @@ CONCAT
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 656
+@ "codegen.gaz" 660
 LOAD 0
 GET_PROPERTY catches
 FOREACH_CHECK
@@ -29911,21 +29913,21 @@ LOAD 10
 POP
 LOAD 7
 POP
-@ "codegen.gaz" 657
+@ "codegen.gaz" 661
 LOAD 8
 PUSH null
 EQUALS
 JZ ELSE_3
-@ "codegen.gaz" 658
+@ "codegen.gaz" 662
 LOAD_THIS
 GET_METHOD emit
 PUSH "CATCH_VALUE"
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 657
+@ "codegen.gaz" 661
 JMP ENDIF_3
 LABEL ELSE_3
-@ "codegen.gaz" 660
+@ "codegen.gaz" 664
 LOAD_THIS
 GET_METHOD emit
 PUSH "CATCH_MATCH"
@@ -29943,25 +29945,25 @@ ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
 LABEL ENDIF_3
-@ "codegen.gaz" 662
+@ "codegen.gaz" 666
 LOAD_THIS
 GET_METHOD emit_variable
 PUSH "STORE"
 LOAD 9
 CALL_METHOD 2 emit_variable
 POP
-@ "codegen.gaz" 663
+@ "codegen.gaz" 667
 LOAD_THIS
 GET_METHOD visit
 LOAD 10
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 664
+@ "codegen.gaz" 668
 LOAD 8
 PUSH null
 NOT_EQUALS
 JZ ELSE_4
-@ "codegen.gaz" 665
+@ "codegen.gaz" 669
 LOAD_THIS
 GET_METHOD emit
 PUSH "JMP"
@@ -29972,7 +29974,7 @@ CONCAT
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 666
+@ "codegen.gaz" 670
 LOAD_THIS
 GET_METHOD emit
 PUSH "LABEL"
@@ -29987,12 +29989,12 @@ CONCAT
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 664
+@ "codegen.gaz" 668
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
 LABEL CONTINUE_2
-@ "codegen.gaz" 656
+@ "codegen.gaz" 660
 LOAD 5
 PUSH 1
 ADD
@@ -30001,22 +30003,22 @@ LOAD 5
 POP
 JMP WHILE_2
 LABEL ENDWHILE_2
-@ "codegen.gaz" 670
+@ "codegen.gaz" 674
 LOAD 8
 PUSH null
 NOT_EQUALS
 JZ ELSE_5
-@ "codegen.gaz" 671
+@ "codegen.gaz" 675
 LOAD_THIS
 GET_METHOD emit
 PUSH "RETHROW"
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 670
+@ "codegen.gaz" 674
 JMP ENDIF_5
 LABEL ELSE_5
 LABEL ENDIF_5
-@ "codegen.gaz" 673
+@ "codegen.gaz" 677
 LOAD_THIS
 GET_METHOD emit
 PUSH "LABEL"
@@ -30028,33 +30030,33 @@ ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
 LABEL ENDIF_1
-@ "codegen.gaz" 676
+@ "codegen.gaz" 680
 LOAD 0
 GET_PROPERTY finally
 PUSH null
 NOT_EQUALS
 JZ ELSE_6
-@ "codegen.gaz" 677
+@ "codegen.gaz" 681
 LOAD_FIELD try_stack
 CALL_BUILTIN len 1
 PUSH 1
 SUB
 KEY_CHECK
 DELETE_PATH_THIS .try_stack[k]
-@ "codegen.gaz" 678
+@ "codegen.gaz" 682
 LOAD_THIS
 GET_METHOD emit
 PUSH "END_TRY"
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 679
+@ "codegen.gaz" 683
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY finally
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 680
+@ "codegen.gaz" 684
 LOAD_THIS
 GET_METHOD emit
 PUSH "JMP"
@@ -30065,7 +30067,7 @@ CONCAT
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 682
+@ "codegen.gaz" 686
 LOAD_THIS
 GET_METHOD emit
 PUSH "LABEL"
@@ -30076,7 +30078,7 @@ CONCAT
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 683
+@ "codegen.gaz" 687
 LOAD_THIS
 GET_METHOD hidden
 PUSH "$#finally_error_"
@@ -30086,34 +30088,34 @@ CALL_METHOD 1 hidden
 STORE 11
 LOAD 11
 POP
-@ "codegen.gaz" 684
+@ "codegen.gaz" 688
 LOAD_THIS
 GET_METHOD emit_variable
 PUSH "STORE"
 LOAD 11
 CALL_METHOD 2 emit_variable
 POP
-@ "codegen.gaz" 685
+@ "codegen.gaz" 689
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY finally
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 686
+@ "codegen.gaz" 690
 LOAD_THIS
 GET_METHOD emit_variable
 PUSH "LOAD"
 LOAD 11
 CALL_METHOD 2 emit_variable
 POP
-@ "codegen.gaz" 687
+@ "codegen.gaz" 691
 LOAD_THIS
 GET_METHOD emit
 PUSH "RETHROW"
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 688
+@ "codegen.gaz" 692
 LOAD_THIS
 GET_METHOD emit
 PUSH "LABEL"
@@ -30124,35 +30126,35 @@ CONCAT
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 676
+@ "codegen.gaz" 680
 JMP ENDIF_6
 LABEL ELSE_6
 LABEL ENDIF_6
-@ "codegen.gaz" 637
+@ "codegen.gaz" 641
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.leave_tries 1 1
 locals $depth $stack $last $finally
-@ "codegen.gaz" 695
+@ "codegen.gaz" 699
 LOAD_FIELD try_stack
 STORE 1
 LOAD 1
 POP
 LABEL WHILE_0
-@ "codegen.gaz" 696
+@ "codegen.gaz" 700
 LOAD_FIELD try_stack
 CALL_BUILTIN len 1
 LOAD 0
 GT
 JZ ENDWHILE_0
-@ "codegen.gaz" 697
+@ "codegen.gaz" 701
 LOAD_THIS
 GET_METHOD emit
 PUSH "END_TRY"
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 698
+@ "codegen.gaz" 702
 LOAD_FIELD try_stack
 CALL_BUILTIN len 1
 PUSH 1
@@ -30160,46 +30162,46 @@ SUB
 STORE 2
 LOAD 2
 POP
-@ "codegen.gaz" 699
+@ "codegen.gaz" 703
 LOAD_FIELD try_stack
 LOAD 2
 INDEX_GET
 STORE 3
 LOAD 3
 POP
-@ "codegen.gaz" 700
+@ "codegen.gaz" 704
 LOAD 2
 KEY_CHECK
 DELETE_PATH_THIS .try_stack[k]
-@ "codegen.gaz" 701
+@ "codegen.gaz" 705
 LOAD 3
 PUSH null
 NOT_EQUALS
 JZ ELSE_1
-@ "codegen.gaz" 702
+@ "codegen.gaz" 706
 LOAD_THIS
 GET_METHOD visit
 LOAD 3
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 701
+@ "codegen.gaz" 705
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "codegen.gaz" 696
+@ "codegen.gaz" 700
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "codegen.gaz" 705
+@ "codegen.gaz" 709
 LOAD 1
 SET_FIELD try_stack
 POP
-@ "codegen.gaz" 694
+@ "codegen.gaz" 698
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_loop_control 1 1
 locals $node $#destructure_0 $continue_label $end_label $loop_try_depth
-@ "codegen.gaz" 709
+@ "codegen.gaz" 713
 LOAD_FIELD loop_labels
 CALL_BUILTIN last 1
 DESTRUCTURE 3
@@ -30224,13 +30226,13 @@ LOAD 4
 POP
 LOAD 1
 POP
-@ "codegen.gaz" 711
+@ "codegen.gaz" 715
 LOAD_THIS
 GET_METHOD leave_tries
 LOAD 4
 CALL_METHOD 1 leave_tries
 POP
-@ "codegen.gaz" 712
+@ "codegen.gaz" 716
 LOAD_THIS
 GET_METHOD emit
 PUSH "JMP"
@@ -30249,13 +30251,13 @@ LABEL TERNARY_END_0
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 708
+@ "codegen.gaz" 712
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_match 1 1
 locals $node $n $end_label $subject $default $#foreach_array_2 $#foreach_keys_2 $#foreach_count_2 $#foreach_i_2 $i $arm $label $#foreach_array_3 $#foreach_keys_3 $#foreach_count_3 $#foreach_i_3 $value $#foreach_array_4 $#foreach_keys_4 $#foreach_count_4 $#foreach_i_4 $#destructure_5 $values $body $block
-@ "codegen.gaz" 717
+@ "codegen.gaz" 721
 LOAD_THIS
 GET_PROPERTY_EXISTING label_counter
 LOAD_THIS
@@ -30266,25 +30268,25 @@ POP
 STORE 1
 LOAD 1
 POP
-@ "codegen.gaz" 718
+@ "codegen.gaz" 722
 PUSH "MATCH_END_"
 LOAD 1
 CONCAT
 STORE 2
 LOAD 2
 POP
-@ "codegen.gaz" 719
+@ "codegen.gaz" 723
 PUSH null
 STORE 3
 LOAD 3
 POP
-@ "codegen.gaz" 721
+@ "codegen.gaz" 725
 LOAD 0
 GET_PROPERTY subject
 PUSH null
 NOT_EQUALS
 JZ ELSE_0
-@ "codegen.gaz" 722
+@ "codegen.gaz" 726
 LOAD_THIS
 GET_METHOD hidden
 PUSH "$#match_"
@@ -30300,30 +30302,30 @@ CALL_METHOD 1 hidden
 STORE 3
 LOAD 3
 POP
-@ "codegen.gaz" 723
+@ "codegen.gaz" 727
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY subject
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 724
+@ "codegen.gaz" 728
 LOAD_THIS
 GET_METHOD emit_variable
 PUSH "STORE"
 LOAD 3
 CALL_METHOD 2 emit_variable
 POP
-@ "codegen.gaz" 721
+@ "codegen.gaz" 725
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "codegen.gaz" 727
+@ "codegen.gaz" 731
 PUSH false
 STORE 4
 LOAD 4
 POP
-@ "codegen.gaz" 728
+@ "codegen.gaz" 732
 LOAD 0
 GET_PROPERTY arms
 FOREACH_CHECK
@@ -30361,7 +30363,7 @@ INDEX_GET
 STORE 10
 LOAD 10
 POP
-@ "codegen.gaz" 729
+@ "codegen.gaz" 733
 PUSH "MATCH_ARM_"
 LOAD 1
 CONCAT
@@ -30372,14 +30374,14 @@ CONCAT
 STORE 11
 LOAD 11
 POP
-@ "codegen.gaz" 730
+@ "codegen.gaz" 734
 LOAD 10
 PUSH 0
 INDEX_GET
 PUSH null
 EQUALS
 JZ ELSE_2
-@ "codegen.gaz" 732
+@ "codegen.gaz" 736
 LOAD_THIS
 GET_METHOD emit
 PUSH "JMP"
@@ -30388,18 +30390,18 @@ LOAD 11
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 733
+@ "codegen.gaz" 737
 PUSH true
 STORE 4
 LOAD 4
 POP
-@ "codegen.gaz" 734
+@ "codegen.gaz" 738
 JMP ENDWHILE_1
-@ "codegen.gaz" 730
+@ "codegen.gaz" 734
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "codegen.gaz" 736
+@ "codegen.gaz" 740
 LOAD 10
 PUSH 0
 INDEX_GET
@@ -30432,50 +30434,50 @@ INDEX_GET
 STORE 16
 LOAD 16
 POP
-@ "codegen.gaz" 737
+@ "codegen.gaz" 741
 LOAD 3
 PUSH null
 NOT_EQUALS
 JZ ELSE_4
-@ "codegen.gaz" 738
+@ "codegen.gaz" 742
 LOAD_THIS
 GET_METHOD emit_variable
 PUSH "LOAD"
 LOAD 3
 CALL_METHOD 2 emit_variable
 POP
-@ "codegen.gaz" 737
+@ "codegen.gaz" 741
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
-@ "codegen.gaz" 740
+@ "codegen.gaz" 744
 LOAD_THIS
 GET_METHOD visit
 LOAD 16
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 741
+@ "codegen.gaz" 745
 LOAD 3
 PUSH null
 NOT_EQUALS
 JZ ELSE_5
-@ "codegen.gaz" 742
+@ "codegen.gaz" 746
 LOAD_THIS
 GET_METHOD emit
 PUSH "EQUALS"
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 741
+@ "codegen.gaz" 745
 JMP ENDIF_5
 LABEL ELSE_5
 LABEL ENDIF_5
-@ "codegen.gaz" 744
+@ "codegen.gaz" 748
 LOAD_THIS
 GET_METHOD emit
 PUSH "NOT"
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 745
+@ "codegen.gaz" 749
 LOAD_THIS
 GET_METHOD emit
 PUSH "JZ"
@@ -30485,7 +30487,7 @@ ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
 LABEL CONTINUE_3
-@ "codegen.gaz" 736
+@ "codegen.gaz" 740
 LOAD 15
 PUSH 1
 ADD
@@ -30495,7 +30497,7 @@ POP
 JMP WHILE_3
 LABEL ENDWHILE_3
 LABEL CONTINUE_1
-@ "codegen.gaz" 728
+@ "codegen.gaz" 732
 LOAD 8
 PUSH 1
 ADD
@@ -30504,43 +30506,43 @@ LOAD 8
 POP
 JMP WHILE_1
 LABEL ENDWHILE_1
-@ "codegen.gaz" 748
+@ "codegen.gaz" 752
 LOAD 4
 NOT
 JZ ELSE_6
-@ "codegen.gaz" 749
+@ "codegen.gaz" 753
 LOAD 3
 PUSH null
 EQUALS
 JZ ELSE_7
-@ "codegen.gaz" 750
+@ "codegen.gaz" 754
 LOAD_THIS
 GET_METHOD emit
 PUSH "NO_CONDITION"
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 749
+@ "codegen.gaz" 753
 JMP ENDIF_7
 LABEL ELSE_7
-@ "codegen.gaz" 752
+@ "codegen.gaz" 756
 LOAD_THIS
 GET_METHOD emit_variable
 PUSH "LOAD"
 LOAD 3
 CALL_METHOD 2 emit_variable
 POP
-@ "codegen.gaz" 753
+@ "codegen.gaz" 757
 LOAD_THIS
 GET_METHOD emit
 PUSH "NO_MATCH"
 CALL_METHOD 1 emit
 POP
 LABEL ENDIF_7
-@ "codegen.gaz" 748
+@ "codegen.gaz" 752
 JMP ENDIF_6
 LABEL ELSE_6
 LABEL ENDIF_6
-@ "codegen.gaz" 757
+@ "codegen.gaz" 761
 LOAD 0
 GET_PROPERTY arms
 FOREACH_CHECK
@@ -30597,7 +30599,7 @@ LOAD 24
 POP
 LOAD 21
 POP
-@ "codegen.gaz" 758
+@ "codegen.gaz" 762
 LOAD_THIS
 GET_METHOD emit
 PUSH "LABEL"
@@ -30612,27 +30614,27 @@ CONCAT
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 759
+@ "codegen.gaz" 763
 LOAD_THIS
 GET_METHOD visit
 LOAD 23
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 760
+@ "codegen.gaz" 764
 LOAD 24
 JZ ELSE_9
-@ "codegen.gaz" 761
+@ "codegen.gaz" 765
 LOAD_THIS
 GET_METHOD emit
 PUSH "PUSH"
 PUSH [null]
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 760
+@ "codegen.gaz" 764
 JMP ENDIF_9
 LABEL ELSE_9
 LABEL ENDIF_9
-@ "codegen.gaz" 763
+@ "codegen.gaz" 767
 LOAD_THIS
 GET_METHOD emit
 PUSH "JMP"
@@ -30642,7 +30644,7 @@ ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
 LABEL CONTINUE_8
-@ "codegen.gaz" 757
+@ "codegen.gaz" 761
 LOAD 20
 PUSH 1
 ADD
@@ -30651,7 +30653,7 @@ LOAD 20
 POP
 JMP WHILE_8
 LABEL ENDWHILE_8
-@ "codegen.gaz" 765
+@ "codegen.gaz" 769
 LOAD_THIS
 GET_METHOD emit
 PUSH "LABEL"
@@ -30660,40 +30662,40 @@ LOAD 2
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 716
+@ "codegen.gaz" 720
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_ternary 1 1
 locals $node $else_label $end_label
-@ "codegen.gaz" 769
+@ "codegen.gaz" 773
 PUSH "TERNARY_ELSE_"
 LOAD_FIELD label_counter
 CONCAT
 STORE 1
 LOAD 1
 POP
-@ "codegen.gaz" 770
+@ "codegen.gaz" 774
 PUSH "TERNARY_END_"
 LOAD_FIELD label_counter
 CONCAT
 STORE 2
 LOAD 2
 POP
-@ "codegen.gaz" 771
+@ "codegen.gaz" 775
 LOAD_THIS
 GET_PROPERTY_EXISTING label_counter
 INC
 SET_FIELD label_counter
 POP
-@ "codegen.gaz" 773
+@ "codegen.gaz" 777
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY condition
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 774
+@ "codegen.gaz" 778
 LOAD_THIS
 GET_METHOD emit
 PUSH "JZ"
@@ -30702,14 +30704,14 @@ LOAD 1
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 775
+@ "codegen.gaz" 779
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY then
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 776
+@ "codegen.gaz" 780
 LOAD_THIS
 GET_METHOD emit
 PUSH "JMP"
@@ -30718,7 +30720,7 @@ LOAD 2
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 777
+@ "codegen.gaz" 781
 LOAD_THIS
 GET_METHOD emit
 PUSH "LABEL"
@@ -30727,14 +30729,14 @@ LOAD 1
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 778
+@ "codegen.gaz" 782
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY else
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 779
+@ "codegen.gaz" 783
 LOAD_THIS
 GET_METHOD emit
 PUSH "LABEL"
@@ -30743,17 +30745,17 @@ LOAD 2
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 768
+@ "codegen.gaz" 772
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_property 1 1
 locals $node
-@ "codegen.gaz" 783
+@ "codegen.gaz" 787
 LOAD 0
 GET_PROPERTY constant
 JZ ELSE_0
-@ "codegen.gaz" 784
+@ "codegen.gaz" 788
 LOAD_THIS
 GET_METHOD emit
 PUSH "PUSH"
@@ -30763,20 +30765,20 @@ GET_PROPERTY value
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 785
+@ "codegen.gaz" 789
 PUSH null
 RET
-@ "codegen.gaz" 783
+@ "codegen.gaz" 787
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "codegen.gaz" 787
+@ "codegen.gaz" 791
 LOAD 0
 GET_PROPERTY static_name
 PUSH null
 NOT_EQUALS
 JZ ELSE_1
-@ "codegen.gaz" 788
+@ "codegen.gaz" 792
 LOAD_THIS
 GET_METHOD emit_static
 PUSH "LOAD"
@@ -30784,14 +30786,14 @@ LOAD 0
 GET_PROPERTY static_name
 CALL_METHOD 2 emit_static
 POP
-@ "codegen.gaz" 789
+@ "codegen.gaz" 793
 PUSH null
 RET
-@ "codegen.gaz" 787
+@ "codegen.gaz" 791
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "codegen.gaz" 792
+@ "codegen.gaz" 796
 LOAD 0
 GET_PROPERTY field
 JZ AND_FALSE_3
@@ -30805,7 +30807,7 @@ LABEL AND_FALSE_3
 PUSH false
 LABEL AND_END_3
 JZ ELSE_2
-@ "codegen.gaz" 793
+@ "codegen.gaz" 797
 LOAD_THIS
 GET_METHOD emit
 PUSH "LOAD_FIELD"
@@ -30815,35 +30817,35 @@ GET_PROPERTY name
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 794
+@ "codegen.gaz" 798
 PUSH null
 RET
-@ "codegen.gaz" 792
+@ "codegen.gaz" 796
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "codegen.gaz" 796
+@ "codegen.gaz" 800
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY target
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 797
+@ "codegen.gaz" 801
 LOAD 0
 PUSH_KIND gazlang::NullsafePropertyAST
 CALL_BUILTIN is_a 2
 JZ ELSE_4
-@ "codegen.gaz" 798
+@ "codegen.gaz" 802
 LOAD_THIS
 GET_METHOD nullsafe_guard
 CALL_METHOD 0 nullsafe_guard
 POP
-@ "codegen.gaz" 797
+@ "codegen.gaz" 801
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
-@ "codegen.gaz" 800
+@ "codegen.gaz" 804
 LOAD_THIS
 GET_METHOD emit
 LOAD 0
@@ -30860,13 +30862,13 @@ GET_PROPERTY name
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 782
+@ "codegen.gaz" 786
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_nullsafe_chain 1 2
 locals $node $quiet $end
-@ "codegen.gaz" 804
+@ "codegen.gaz" 808
 ARGC
 PUSH 1
 GT
@@ -30875,7 +30877,7 @@ JZ PASSED_0
 PUSH false
 STORE 1
 LABEL PASSED_0
-@ "codegen.gaz" 805
+@ "codegen.gaz" 809
 PUSH "NULLSAFE_END_"
 LOAD_THIS
 GET_PROPERTY_EXISTING label_counter
@@ -30888,24 +30890,24 @@ CONCAT
 STORE 2
 LOAD 2
 POP
-@ "codegen.gaz" 806
+@ "codegen.gaz" 810
 LOAD 2
 SET_PATH_THIS .nullsafe_ends[]
 POP
-@ "codegen.gaz" 807
+@ "codegen.gaz" 811
 LOAD 1
 JZ ELSE_1
-@ "codegen.gaz" 808
+@ "codegen.gaz" 812
 LOAD_THIS
 GET_METHOD quietly
 LOAD 0
 GET_PROPERTY expr
 CALL_METHOD 1 quietly
 POP
-@ "codegen.gaz" 807
+@ "codegen.gaz" 811
 JMP ENDIF_1
 LABEL ELSE_1
-@ "codegen.gaz" 810
+@ "codegen.gaz" 814
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
@@ -30913,14 +30915,14 @@ GET_PROPERTY expr
 CALL_METHOD 1 visit
 POP
 LABEL ENDIF_1
-@ "codegen.gaz" 812
+@ "codegen.gaz" 816
 LOAD_FIELD nullsafe_ends
 CALL_BUILTIN len 1
 PUSH 1
 SUB
 KEY_CHECK
 DELETE_PATH_THIS .nullsafe_ends[k]
-@ "codegen.gaz" 813
+@ "codegen.gaz" 817
 LOAD_THIS
 GET_METHOD emit
 PUSH "LABEL"
@@ -30929,13 +30931,13 @@ LOAD 2
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 804
+@ "codegen.gaz" 808
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.nullsafe_guard 0 0
 locals $go
-@ "codegen.gaz" 818
+@ "codegen.gaz" 822
 PUSH "NULLSAFE_GO_"
 LOAD_THIS
 GET_PROPERTY_EXISTING label_counter
@@ -30948,7 +30950,7 @@ CONCAT
 STORE 0
 LOAD 0
 POP
-@ "codegen.gaz" 819
+@ "codegen.gaz" 823
 LOAD_THIS
 GET_METHOD emit
 PUSH "JNN"
@@ -30957,14 +30959,14 @@ LOAD 0
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 820
+@ "codegen.gaz" 824
 LOAD_THIS
 GET_METHOD emit
 PUSH "PUSH"
 PUSH [null]
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 821
+@ "codegen.gaz" 825
 LOAD_THIS
 GET_METHOD emit
 PUSH "JMP"
@@ -30974,7 +30976,7 @@ CALL_BUILTIN last 1
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 822
+@ "codegen.gaz" 826
 LOAD_THIS
 GET_METHOD emit
 PUSH "LABEL"
@@ -30983,20 +30985,20 @@ LOAD 0
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 817
+@ "codegen.gaz" 821
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_method_call 1 1
 locals $node $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $arg $#foreach_array_1 $#foreach_keys_1 $#foreach_count_1 $#foreach_i_1
-@ "codegen.gaz" 827
+@ "codegen.gaz" 831
 LOAD 0
 GET_PROPERTY property
 GET_PROPERTY static_name
 PUSH null
 NOT_EQUALS
 JZ ELSE_0
-@ "codegen.gaz" 828
+@ "codegen.gaz" 832
 LOAD 0
 GET_PROPERTY args
 FOREACH_CHECK
@@ -31028,14 +31030,14 @@ INDEX_GET
 STORE 5
 LOAD 5
 POP
-@ "codegen.gaz" 829
+@ "codegen.gaz" 833
 LOAD_THIS
 GET_METHOD visit
 LOAD 5
 CALL_METHOD 1 visit
 POP
 LABEL CONTINUE_1
-@ "codegen.gaz" 828
+@ "codegen.gaz" 832
 LOAD 4
 PUSH 1
 ADD
@@ -31044,7 +31046,7 @@ LOAD 4
 POP
 JMP WHILE_1
 LABEL ENDWHILE_1
-@ "codegen.gaz" 831
+@ "codegen.gaz" 835
 LOAD_THIS
 GET_METHOD emit
 PUSH "CALL"
@@ -31059,14 +31061,14 @@ CALL_BUILTIN len 1
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 832
+@ "codegen.gaz" 836
 PUSH null
 RET
-@ "codegen.gaz" 827
+@ "codegen.gaz" 831
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "codegen.gaz" 834
+@ "codegen.gaz" 838
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
@@ -31074,22 +31076,22 @@ GET_PROPERTY property
 GET_PROPERTY target
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 835
+@ "codegen.gaz" 839
 LOAD 0
 GET_PROPERTY property
 PUSH_KIND gazlang::NullsafePropertyAST
 CALL_BUILTIN is_a 2
 JZ ELSE_2
-@ "codegen.gaz" 836
+@ "codegen.gaz" 840
 LOAD_THIS
 GET_METHOD nullsafe_guard
 CALL_METHOD 0 nullsafe_guard
 POP
-@ "codegen.gaz" 835
+@ "codegen.gaz" 839
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "codegen.gaz" 838
+@ "codegen.gaz" 842
 LOAD_THIS
 GET_METHOD emit
 PUSH "GET_METHOD"
@@ -31100,7 +31102,7 @@ GET_PROPERTY name
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 839
+@ "codegen.gaz" 843
 LOAD 0
 GET_PROPERTY args
 FOREACH_CHECK
@@ -31132,14 +31134,14 @@ INDEX_GET
 STORE 5
 LOAD 5
 POP
-@ "codegen.gaz" 840
+@ "codegen.gaz" 844
 LOAD_THIS
 GET_METHOD visit
 LOAD 5
 CALL_METHOD 1 visit
 POP
 LABEL CONTINUE_3
-@ "codegen.gaz" 839
+@ "codegen.gaz" 843
 LOAD 9
 PUSH 1
 ADD
@@ -31148,7 +31150,7 @@ LOAD 9
 POP
 JMP WHILE_3
 LABEL ENDWHILE_3
-@ "codegen.gaz" 842
+@ "codegen.gaz" 846
 LOAD_THIS
 GET_METHOD emit
 PUSH "CALL_METHOD"
@@ -31163,19 +31165,19 @@ GET_PROPERTY name
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 825
+@ "codegen.gaz" 829
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_parent_method 1 1
 locals $node $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $arg
-@ "codegen.gaz" 846
+@ "codegen.gaz" 850
 LOAD 0
 GET_PROPERTY args
 PUSH null
 EQUALS
 JZ ELSE_0
-@ "codegen.gaz" 847
+@ "codegen.gaz" 851
 LOAD_THIS
 GET_METHOD emit
 PUSH "BIND_PARENT"
@@ -31188,14 +31190,14 @@ GET_PROPERTY name
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 848
+@ "codegen.gaz" 852
 PUSH null
 RET
-@ "codegen.gaz" 846
+@ "codegen.gaz" 850
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "codegen.gaz" 850
+@ "codegen.gaz" 854
 LOAD 0
 GET_PROPERTY args
 FOREACH_CHECK
@@ -31227,14 +31229,14 @@ INDEX_GET
 STORE 5
 LOAD 5
 POP
-@ "codegen.gaz" 851
+@ "codegen.gaz" 855
 LOAD_THIS
 GET_METHOD visit
 LOAD 5
 CALL_METHOD 1 visit
 POP
 LABEL CONTINUE_1
-@ "codegen.gaz" 850
+@ "codegen.gaz" 854
 LOAD 4
 PUSH 1
 ADD
@@ -31243,7 +31245,7 @@ LOAD 4
 POP
 JMP WHILE_1
 LABEL ENDWHILE_1
-@ "codegen.gaz" 853
+@ "codegen.gaz" 857
 LOAD_THIS
 GET_METHOD emit
 PUSH "CALL_PARENT"
@@ -31260,13 +31262,13 @@ CALL_BUILTIN len 1
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 845
+@ "codegen.gaz" 849
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_function_call 1 1
 locals $node $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $arg $opcode
-@ "codegen.gaz" 857
+@ "codegen.gaz" 861
 LOAD 0
 GET_PROPERTY args
 FOREACH_CHECK
@@ -31298,14 +31300,14 @@ INDEX_GET
 STORE 5
 LOAD 5
 POP
-@ "codegen.gaz" 858
+@ "codegen.gaz" 862
 LOAD_THIS
 GET_METHOD visit
 LOAD 5
 CALL_METHOD 1 visit
 POP
 LABEL CONTINUE_0
-@ "codegen.gaz" 857
+@ "codegen.gaz" 861
 LOAD 4
 PUSH 1
 ADD
@@ -31314,43 +31316,43 @@ LOAD 4
 POP
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "codegen.gaz" 861
+@ "codegen.gaz" 865
 LOAD_FIELD builtins
 LOAD 0
 GET_PROPERTY name
 CALL_BUILTIN has_key 2
-@ "codegen.gaz" 860
+@ "codegen.gaz" 864
 NOT
 JZ MATCH_ARM_1_0
-@ "codegen.gaz" 862
+@ "codegen.gaz" 866
 LOAD_FIELD kinds
 LOAD 0
 GET_PROPERTY name
 CALL_BUILTIN has_key 2
-@ "codegen.gaz" 860
+@ "codegen.gaz" 864
 NOT
 JZ MATCH_ARM_1_1
 JMP MATCH_ARM_1_2
 LABEL MATCH_ARM_1_0
-@ "codegen.gaz" 861
+@ "codegen.gaz" 865
 PUSH "CALL_BUILTIN"
-@ "codegen.gaz" 860
+@ "codegen.gaz" 864
 JMP MATCH_END_1
 LABEL MATCH_ARM_1_1
-@ "codegen.gaz" 862
+@ "codegen.gaz" 866
 PUSH "NEW"
-@ "codegen.gaz" 860
+@ "codegen.gaz" 864
 JMP MATCH_END_1
 LABEL MATCH_ARM_1_2
-@ "codegen.gaz" 863
+@ "codegen.gaz" 867
 PUSH "CALL"
-@ "codegen.gaz" 860
+@ "codegen.gaz" 864
 JMP MATCH_END_1
 LABEL MATCH_END_1
 STORE 6
 LOAD 6
 POP
-@ "codegen.gaz" 865
+@ "codegen.gaz" 869
 LOAD_THIS
 GET_METHOD emit
 LOAD 6
@@ -31364,13 +31366,13 @@ CALL_BUILTIN len 1
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 856
+@ "codegen.gaz" 860
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_static_init 1 1
 locals $node
-@ "codegen.gaz" 870
+@ "codegen.gaz" 874
 LOAD_THIS
 GET_METHOD emit
 PUSH "PUSH"
@@ -31380,7 +31382,7 @@ GET_PROPERTY value
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 871
+@ "codegen.gaz" 875
 LOAD_THIS
 GET_METHOD emit_static
 PUSH "STORE"
@@ -31388,19 +31390,19 @@ LOAD 0
 GET_PROPERTY name
 CALL_METHOD 2 emit_static
 POP
-@ "codegen.gaz" 869
+@ "codegen.gaz" 873
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_function_ref 1 1
 locals $node
-@ "codegen.gaz" 875
+@ "codegen.gaz" 879
 LOAD 0
 GET_PROPERTY static_name
 PUSH null
 NOT_EQUALS
 JZ ELSE_0
-@ "codegen.gaz" 876
+@ "codegen.gaz" 880
 LOAD_THIS
 GET_METHOD emit_static
 PUSH "LOAD"
@@ -31408,18 +31410,18 @@ LOAD 0
 GET_PROPERTY static_name
 CALL_METHOD 2 emit_static
 POP
-@ "codegen.gaz" 877
+@ "codegen.gaz" 881
 PUSH null
 RET
-@ "codegen.gaz" 875
+@ "codegen.gaz" 879
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "codegen.gaz" 879
+@ "codegen.gaz" 883
 LOAD 0
 GET_PROPERTY constant
 JZ ELSE_1
-@ "codegen.gaz" 881
+@ "codegen.gaz" 885
 LOAD_THIS
 GET_METHOD emit
 PUSH "PUSH"
@@ -31429,14 +31431,14 @@ GET_PROPERTY value
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 882
+@ "codegen.gaz" 886
 PUSH null
 RET
-@ "codegen.gaz" 879
+@ "codegen.gaz" 883
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "codegen.gaz" 884
+@ "codegen.gaz" 888
 LOAD_THIS
 GET_METHOD emit
 LOAD_FIELD kinds
@@ -31455,18 +31457,18 @@ GET_PROPERTY name
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 874
+@ "codegen.gaz" 878
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_lambda 1 1
 locals $node $map $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $i $name $#update_key1_1
-@ "codegen.gaz" 890
+@ "codegen.gaz" 894
 NEW_ARRAY
 STORE 1
 LOAD 1
 POP
-@ "codegen.gaz" 891
+@ "codegen.gaz" 895
 LOAD 0
 GET_PROPERTY captures
 FOREACH_CHECK
@@ -31504,11 +31506,11 @@ INDEX_GET
 STORE 7
 LOAD 7
 POP
-@ "codegen.gaz" 892
+@ "codegen.gaz" 896
 LOAD_FIELD captures
 LOAD 7
 CALL_BUILTIN has_key 2
-@ "codegen.gaz" 893
+@ "codegen.gaz" 897
 JZ TERNARY_ELSE_1
 NEW_ARRAY
 PUSH true
@@ -31521,7 +31523,7 @@ LOAD 6
 ARRAY_PUSH
 JMP TERNARY_END_1
 LABEL TERNARY_ELSE_1
-@ "codegen.gaz" 894
+@ "codegen.gaz" 898
 NEW_ARRAY
 PUSH false
 ARRAY_PUSH
@@ -31542,11 +31544,11 @@ ARRAY_PUSH
 LOAD 6
 ARRAY_PUSH
 LABEL TERNARY_END_1
-@ "codegen.gaz" 892
+@ "codegen.gaz" 896
 SET_PATH [] 1
 POP
 LABEL CONTINUE_0
-@ "codegen.gaz" 891
+@ "codegen.gaz" 895
 LOAD 5
 PUSH 1
 ADD
@@ -31555,7 +31557,7 @@ LOAD 5
 POP
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "codegen.gaz" 896
+@ "codegen.gaz" 900
 NEW_ARRAY
 LOAD 0
 ARRAY_PUSH
@@ -31563,7 +31565,7 @@ LOAD 1
 ARRAY_PUSH
 SET_PATH_THIS .lambdas[]
 POP
-@ "codegen.gaz" 897
+@ "codegen.gaz" 901
 LOAD_THIS
 GET_METHOD emit
 PUSH "MAKE_CLOSURE"
@@ -31575,20 +31577,20 @@ SUB
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 889
+@ "codegen.gaz" 893
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_call_value 1 1
 locals $node $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $arg
-@ "codegen.gaz" 901
+@ "codegen.gaz" 905
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY callee
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 902
+@ "codegen.gaz" 906
 LOAD 0
 GET_PROPERTY args
 FOREACH_CHECK
@@ -31620,14 +31622,14 @@ INDEX_GET
 STORE 5
 LOAD 5
 POP
-@ "codegen.gaz" 903
+@ "codegen.gaz" 907
 LOAD_THIS
 GET_METHOD visit
 LOAD 5
 CALL_METHOD 1 visit
 POP
 LABEL CONTINUE_0
-@ "codegen.gaz" 902
+@ "codegen.gaz" 906
 LOAD 4
 PUSH 1
 ADD
@@ -31636,7 +31638,7 @@ LOAD 4
 POP
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "codegen.gaz" 905
+@ "codegen.gaz" 909
 LOAD_THIS
 GET_METHOD emit
 PUSH "CALL_VALUE"
@@ -31647,29 +31649,29 @@ CALL_BUILTIN len 1
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 900
+@ "codegen.gaz" 904
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.visit_return_statement 1 1
 locals $node $finally $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $handler $value
-@ "codegen.gaz" 909
+@ "codegen.gaz" 913
 LOAD 0
 GET_PROPERTY expr
 PUSH null
 EQUALS
 JZ ELSE_0
-@ "codegen.gaz" 910
+@ "codegen.gaz" 914
 LOAD_THIS
 GET_METHOD emit
 PUSH "PUSH"
 PUSH [null]
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 909
+@ "codegen.gaz" 913
 JMP ENDIF_0
 LABEL ELSE_0
-@ "codegen.gaz" 912
+@ "codegen.gaz" 916
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
@@ -31677,12 +31679,12 @@ GET_PROPERTY expr
 CALL_METHOD 1 visit
 POP
 LABEL ENDIF_0
-@ "codegen.gaz" 916
+@ "codegen.gaz" 920
 PUSH false
 STORE 1
 LOAD 1
 POP
-@ "codegen.gaz" 917
+@ "codegen.gaz" 921
 LOAD_FIELD try_stack
 FOREACH_CHECK
 STORE 2
@@ -31713,7 +31715,7 @@ INDEX_GET
 STORE 6
 LOAD 6
 POP
-@ "codegen.gaz" 918
+@ "codegen.gaz" 922
 LOAD 1
 NOT
 JZ OR_TRUE_2
@@ -31731,7 +31733,7 @@ STORE 1
 LOAD 1
 POP
 LABEL CONTINUE_1
-@ "codegen.gaz" 917
+@ "codegen.gaz" 921
 LOAD 5
 PUSH 1
 ADD
@@ -31740,10 +31742,10 @@ LOAD 5
 POP
 JMP WHILE_1
 LABEL ENDWHILE_1
-@ "codegen.gaz" 920
+@ "codegen.gaz" 924
 LOAD 1
 JZ ELSE_3
-@ "codegen.gaz" 921
+@ "codegen.gaz" 925
 LOAD_THIS
 GET_METHOD hidden
 PUSH "$#return_"
@@ -31759,43 +31761,43 @@ CALL_METHOD 1 hidden
 STORE 7
 LOAD 7
 POP
-@ "codegen.gaz" 922
+@ "codegen.gaz" 926
 LOAD_THIS
 GET_METHOD emit_variable
 PUSH "STORE"
 LOAD 7
 CALL_METHOD 2 emit_variable
 POP
-@ "codegen.gaz" 923
+@ "codegen.gaz" 927
 LOAD_THIS
 GET_METHOD leave_tries
 PUSH 0
 CALL_METHOD 1 leave_tries
 POP
-@ "codegen.gaz" 924
+@ "codegen.gaz" 928
 LOAD_THIS
 GET_METHOD emit_variable
 PUSH "LOAD"
 LOAD 7
 CALL_METHOD 2 emit_variable
 POP
-@ "codegen.gaz" 920
+@ "codegen.gaz" 924
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "codegen.gaz" 926
+@ "codegen.gaz" 930
 LOAD_THIS
 GET_METHOD emit
 PUSH "RET"
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 908
+@ "codegen.gaz" 912
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.default_arguments 1 1
 locals $function $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $i $default $skip_label
-@ "codegen.gaz" 931
+@ "codegen.gaz" 935
 LOAD 0
 GET_PROPERTY defaults
 FOREACH_CHECK
@@ -31833,18 +31835,18 @@ INDEX_GET
 STORE 6
 LOAD 6
 POP
-@ "codegen.gaz" 932
+@ "codegen.gaz" 936
 LOAD 6
 PUSH null
 EQUALS
 JZ ELSE_1
-@ "codegen.gaz" 933
+@ "codegen.gaz" 937
 JMP CONTINUE_0
-@ "codegen.gaz" 932
+@ "codegen.gaz" 936
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "codegen.gaz" 935
+@ "codegen.gaz" 939
 PUSH "PASSED_"
 LOAD_THIS
 GET_PROPERTY_EXISTING label_counter
@@ -31857,13 +31859,13 @@ CONCAT
 STORE 7
 LOAD 7
 POP
-@ "codegen.gaz" 937
+@ "codegen.gaz" 941
 LOAD_THIS
 GET_METHOD emit
 PUSH "ARGC"
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 938
+@ "codegen.gaz" 942
 LOAD_THIS
 GET_METHOD emit
 PUSH "PUSH"
@@ -31872,19 +31874,19 @@ LOAD 5
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 939
+@ "codegen.gaz" 943
 LOAD_THIS
 GET_METHOD emit
 PUSH "GT"
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 940
+@ "codegen.gaz" 944
 LOAD_THIS
 GET_METHOD emit
 PUSH "NOT"
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 941
+@ "codegen.gaz" 945
 LOAD_THIS
 GET_METHOD emit
 PUSH "JZ"
@@ -31893,13 +31895,13 @@ LOAD 7
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 942
+@ "codegen.gaz" 946
 LOAD_THIS
 GET_METHOD visit
 LOAD 6
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 943
+@ "codegen.gaz" 947
 LOAD_THIS
 GET_METHOD emit
 PUSH "STORE"
@@ -31908,7 +31910,7 @@ LOAD 5
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 944
+@ "codegen.gaz" 948
 LOAD_THIS
 GET_METHOD emit
 PUSH "LABEL"
@@ -31918,7 +31920,7 @@ ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
 LABEL CONTINUE_0
-@ "codegen.gaz" 931
+@ "codegen.gaz" 935
 LOAD 4
 PUSH 1
 ADD
@@ -31927,13 +31929,13 @@ LOAD 4
 POP
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "codegen.gaz" 930
+@ "codegen.gaz" 934
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.compile 0 0
 locals $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $statement $#foreach_array_1 $#foreach_keys_1 $#foreach_count_1 $#foreach_i_1 $function $#foreach_array_2 $#foreach_keys_2 $#foreach_count_2 $#foreach_i_2 $kind $#foreach_array_3 $#foreach_keys_3 $#foreach_count_3 $#foreach_i_3 $method $i $#destructure_4 $lambda $map
-@ "codegen.gaz" 950
+@ "codegen.gaz" 954
 LOAD_FIELD tree
 PUSH_KIND gazlang::CompoundAST
 CALL_BUILTIN is_a 2
@@ -31973,24 +31975,24 @@ INDEX_GET
 STORE 4
 LOAD 4
 POP
-@ "codegen.gaz" 951
+@ "codegen.gaz" 955
 LOAD 4
 PUSH_KIND gazlang::KindDeclarationAST
 CALL_BUILTIN is_a 2
 JZ ELSE_2
-@ "codegen.gaz" 952
+@ "codegen.gaz" 956
 LOAD 4
 GET_PROPERTY name
 KEY_CHECK
 LOAD 4
 SET_PATH_THIS .kinds[k]
 POP
-@ "codegen.gaz" 951
+@ "codegen.gaz" 955
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
 LABEL CONTINUE_1
-@ "codegen.gaz" 950
+@ "codegen.gaz" 954
 LOAD 3
 PUSH 1
 ADD
@@ -31999,19 +32001,19 @@ LOAD 3
 POP
 JMP WHILE_1
 LABEL ENDWHILE_1
-@ "codegen.gaz" 955
+@ "codegen.gaz" 959
 LOAD_THIS
 GET_METHOD visit
 LOAD_FIELD tree
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 956
+@ "codegen.gaz" 960
 LOAD_THIS
 GET_METHOD block
 PUSH {"kind" => "top"}
 CALL_METHOD 1 block
 POP
-@ "codegen.gaz" 958
+@ "codegen.gaz" 962
 LOAD_FIELD functions
 FOREACH_CHECK
 STORE 5
@@ -32042,7 +32044,7 @@ INDEX_GET
 STORE 9
 LOAD 9
 POP
-@ "codegen.gaz" 959
+@ "codegen.gaz" 963
 LOAD_THIS
 GET_METHOD compile_body
 LOAD 9
@@ -32050,7 +32052,7 @@ LOAD 9
 GET_PROPERTY params
 CALL_METHOD 2 compile_body
 POP
-@ "codegen.gaz" 960
+@ "codegen.gaz" 964
 LOAD_THIS
 GET_METHOD block
 NEW_MAP
@@ -32068,19 +32070,19 @@ KEY_CHECK
 LOAD 9
 GET_PROPERTY arity
 MAP_SET
-@ "codegen.gaz" 961
+@ "codegen.gaz" 965
 PUSH "owner"
-@ "codegen.gaz" 960
+@ "codegen.gaz" 964
 KEY_CHECK
-@ "codegen.gaz" 961
+@ "codegen.gaz" 965
 LOAD 9
 GET_PROPERTY kind
-@ "codegen.gaz" 960
+@ "codegen.gaz" 964
 MAP_SET
 CALL_METHOD 1 block
 POP
 LABEL CONTINUE_3
-@ "codegen.gaz" 958
+@ "codegen.gaz" 962
 LOAD 8
 PUSH 1
 ADD
@@ -32089,7 +32091,7 @@ LOAD 8
 POP
 JMP WHILE_3
 LABEL ENDWHILE_3
-@ "codegen.gaz" 966
+@ "codegen.gaz" 970
 LOAD_FIELD kinds
 FOREACH_CHECK
 STORE 10
@@ -32120,72 +32122,72 @@ INDEX_GET
 STORE 14
 LOAD 14
 POP
-@ "codegen.gaz" 967
+@ "codegen.gaz" 971
 LOAD_THIS
 GET_METHOD compile_initialiser
 LOAD 14
 CALL_METHOD 1 compile_initialiser
 POP
-@ "codegen.gaz" 968
+@ "codegen.gaz" 972
 LOAD_THIS
 GET_METHOD block
 NEW_MAP
-@ "codegen.gaz" 969
+@ "codegen.gaz" 973
 PUSH "kind"
-@ "codegen.gaz" 968
+@ "codegen.gaz" 972
 KEY_CHECK
-@ "codegen.gaz" 969
+@ "codegen.gaz" 973
 PUSH "kind"
-@ "codegen.gaz" 968
+@ "codegen.gaz" 972
 MAP_SET
-@ "codegen.gaz" 969
+@ "codegen.gaz" 973
 PUSH "name"
-@ "codegen.gaz" 968
+@ "codegen.gaz" 972
 KEY_CHECK
-@ "codegen.gaz" 969
+@ "codegen.gaz" 973
 LOAD 14
 GET_PROPERTY name
-@ "codegen.gaz" 968
+@ "codegen.gaz" 972
 MAP_SET
-@ "codegen.gaz" 969
+@ "codegen.gaz" 973
 PUSH "parent"
-@ "codegen.gaz" 968
+@ "codegen.gaz" 972
 KEY_CHECK
-@ "codegen.gaz" 969
+@ "codegen.gaz" 973
 LOAD 14
 GET_PROPERTY parent
-@ "codegen.gaz" 968
+@ "codegen.gaz" 972
 MAP_SET
-@ "codegen.gaz" 970
+@ "codegen.gaz" 974
 PUSH "abstract"
-@ "codegen.gaz" 968
+@ "codegen.gaz" 972
 KEY_CHECK
-@ "codegen.gaz" 970
+@ "codegen.gaz" 974
 LOAD 14
 GET_PROPERTY abstract
-@ "codegen.gaz" 968
+@ "codegen.gaz" 972
 MAP_SET
-@ "codegen.gaz" 970
+@ "codegen.gaz" 974
 PUSH "fields"
-@ "codegen.gaz" 968
+@ "codegen.gaz" 972
 KEY_CHECK
-@ "codegen.gaz" 970
+@ "codegen.gaz" 974
 LOAD 14
 GET_PROPERTY slots
-@ "codegen.gaz" 968
+@ "codegen.gaz" 972
 MAP_SET
-@ "codegen.gaz" 970
+@ "codegen.gaz" 974
 PUSH "methods"
-@ "codegen.gaz" 968
+@ "codegen.gaz" 972
 KEY_CHECK
-@ "codegen.gaz" 970
+@ "codegen.gaz" 974
 LOAD 14
 GET_PROPERTY method_table
-@ "codegen.gaz" 968
+@ "codegen.gaz" 972
 MAP_SET
 CALL_METHOD 1 block
 POP
-@ "codegen.gaz" 972
+@ "codegen.gaz" 976
 LOAD 14
 GET_PROPERTY methods
 FOREACH_CHECK
@@ -32217,12 +32219,12 @@ INDEX_GET
 STORE 19
 LOAD 19
 POP
-@ "codegen.gaz" 973
+@ "codegen.gaz" 977
 LOAD 19
 GET_PROPERTY abstract
 NOT
 JZ ELSE_6
-@ "codegen.gaz" 974
+@ "codegen.gaz" 978
 LOAD_THIS
 GET_METHOD compile_body
 LOAD 19
@@ -32230,7 +32232,7 @@ LOAD 19
 GET_PROPERTY params
 CALL_METHOD 2 compile_body
 POP
-@ "codegen.gaz" 975
+@ "codegen.gaz" 979
 LOAD_THIS
 GET_METHOD block
 NEW_MAP
@@ -32255,23 +32257,23 @@ KEY_CHECK
 LOAD 19
 GET_PROPERTY arity
 MAP_SET
-@ "codegen.gaz" 976
+@ "codegen.gaz" 980
 PUSH "owner"
-@ "codegen.gaz" 975
+@ "codegen.gaz" 979
 KEY_CHECK
-@ "codegen.gaz" 976
+@ "codegen.gaz" 980
 LOAD 14
 GET_PROPERTY name
-@ "codegen.gaz" 975
+@ "codegen.gaz" 979
 MAP_SET
 CALL_METHOD 1 block
 POP
-@ "codegen.gaz" 973
+@ "codegen.gaz" 977
 JMP ENDIF_6
 LABEL ELSE_6
 LABEL ENDIF_6
 LABEL CONTINUE_5
-@ "codegen.gaz" 972
+@ "codegen.gaz" 976
 LOAD 18
 PUSH 1
 ADD
@@ -32281,7 +32283,7 @@ POP
 JMP WHILE_5
 LABEL ENDWHILE_5
 LABEL CONTINUE_4
-@ "codegen.gaz" 966
+@ "codegen.gaz" 970
 LOAD 13
 PUSH 1
 ADD
@@ -32290,7 +32292,7 @@ LOAD 13
 POP
 JMP WHILE_4
 LABEL ENDWHILE_4
-@ "codegen.gaz" 982
+@ "codegen.gaz" 986
 PUSH 0
 STORE 20
 LOAD 20
@@ -32301,7 +32303,7 @@ LOAD_FIELD lambdas
 CALL_BUILTIN len 1
 LT
 JZ ENDWHILE_7
-@ "codegen.gaz" 983
+@ "codegen.gaz" 987
 LOAD_FIELD lambdas
 LOAD 20
 INDEX_GET
@@ -32321,7 +32323,7 @@ LOAD 23
 POP
 LOAD 21
 POP
-@ "codegen.gaz" 984
+@ "codegen.gaz" 988
 LOAD_THIS
 GET_METHOD compile_body
 LOAD 22
@@ -32329,49 +32331,49 @@ LOAD 22
 GET_PROPERTY params
 CALL_METHOD 2 compile_body
 POP
-@ "codegen.gaz" 985
+@ "codegen.gaz" 989
 LOAD_THIS
 GET_METHOD block
 NEW_MAP
-@ "codegen.gaz" 986
+@ "codegen.gaz" 990
 PUSH "kind"
-@ "codegen.gaz" 985
+@ "codegen.gaz" 989
 KEY_CHECK
-@ "codegen.gaz" 986
+@ "codegen.gaz" 990
 PUSH "lambda"
-@ "codegen.gaz" 985
+@ "codegen.gaz" 989
 MAP_SET
-@ "codegen.gaz" 986
+@ "codegen.gaz" 990
 PUSH "index"
-@ "codegen.gaz" 985
+@ "codegen.gaz" 989
 KEY_CHECK
-@ "codegen.gaz" 986
+@ "codegen.gaz" 990
 LOAD 20
-@ "codegen.gaz" 985
+@ "codegen.gaz" 989
 MAP_SET
-@ "codegen.gaz" 986
+@ "codegen.gaz" 990
 PUSH "arity"
-@ "codegen.gaz" 985
+@ "codegen.gaz" 989
 KEY_CHECK
-@ "codegen.gaz" 986
+@ "codegen.gaz" 990
 LOAD 22
 GET_PROPERTY arity
-@ "codegen.gaz" 985
+@ "codegen.gaz" 989
 MAP_SET
-@ "codegen.gaz" 986
+@ "codegen.gaz" 990
 PUSH "captures"
-@ "codegen.gaz" 985
+@ "codegen.gaz" 989
 KEY_CHECK
-@ "codegen.gaz" 986
+@ "codegen.gaz" 990
 LOAD 22
 GET_PROPERTY captures
-@ "codegen.gaz" 985
+@ "codegen.gaz" 989
 MAP_SET
-@ "codegen.gaz" 987
+@ "codegen.gaz" 991
 PUSH "self"
-@ "codegen.gaz" 985
+@ "codegen.gaz" 989
 KEY_CHECK
-@ "codegen.gaz" 987
+@ "codegen.gaz" 991
 LOAD 22
 GET_PROPERTY self
 PUSH null
@@ -32386,29 +32388,29 @@ LOAD 22
 GET_PROPERTY self
 CALL gazlang::index_in 2
 LABEL TERNARY_END_8
-@ "codegen.gaz" 985
+@ "codegen.gaz" 989
 MAP_SET
-@ "codegen.gaz" 987
+@ "codegen.gaz" 991
 PUSH "map"
-@ "codegen.gaz" 985
+@ "codegen.gaz" 989
 KEY_CHECK
-@ "codegen.gaz" 987
+@ "codegen.gaz" 991
 LOAD 23
-@ "codegen.gaz" 985
+@ "codegen.gaz" 989
 MAP_SET
-@ "codegen.gaz" 988
+@ "codegen.gaz" 992
 PUSH "owner"
-@ "codegen.gaz" 985
+@ "codegen.gaz" 989
 KEY_CHECK
-@ "codegen.gaz" 988
+@ "codegen.gaz" 992
 LOAD 22
 GET_PROPERTY owner
-@ "codegen.gaz" 985
+@ "codegen.gaz" 989
 MAP_SET
 CALL_METHOD 1 block
 POP
 LABEL CONTINUE_7
-@ "codegen.gaz" 982
+@ "codegen.gaz" 986
 LOAD 20
 INC
 STORE 20
@@ -32416,7 +32418,7 @@ LOAD 20
 POP
 JMP WHILE_7
 LABEL ENDWHILE_7
-@ "codegen.gaz" 992
+@ "codegen.gaz" 996
 LOAD_FIELD blocks
 LOAD_FIELD global_addresses
 CALL_BUILTIN keys 1
@@ -32424,13 +32426,13 @@ LOAD_FIELD static_addresses
 CALL_BUILTIN keys 1
 NEW gazlang::Program 3
 RET
-@ "codegen.gaz" 949
+@ "codegen.gaz" 953
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.compile_initialiser 1 1
 locals $kind $arity $i $#destructure_1 $#foreach_array_2 $#foreach_keys_2 $#foreach_count_2 $#foreach_i_2 $#destructure_3 $field $declarer $vis $default
-@ "codegen.gaz" 998
+@ "codegen.gaz" 1002
 LOAD 0
 GET_PROPERTY members
 PUSH "_"
@@ -32453,11 +32455,11 @@ LABEL TERNARY_END_0
 STORE 1
 LOAD 1
 POP
-@ "codegen.gaz" 999
+@ "codegen.gaz" 1003
 NEW_MAP
 SET_FIELD var_addresses
 POP
-@ "codegen.gaz" 1000
+@ "codegen.gaz" 1004
 PUSH 0
 STORE 2
 LOAD 2
@@ -32478,7 +32480,7 @@ INDEX_GET
 LABEL TERNARY_END_2
 LT
 JZ ENDWHILE_1
-@ "codegen.gaz" 1001
+@ "codegen.gaz" 1005
 PUSH "$#argument_"
 LOAD 2
 CONCAT
@@ -32487,7 +32489,7 @@ LOAD 2
 SET_PATH_THIS .var_addresses[k]
 POP
 LABEL CONTINUE_1
-@ "codegen.gaz" 1000
+@ "codegen.gaz" 1004
 LOAD 2
 INC
 STORE 2
@@ -32495,11 +32497,11 @@ LOAD 2
 POP
 JMP WHILE_1
 LABEL ENDWHILE_1
-@ "codegen.gaz" 1003
+@ "codegen.gaz" 1007
 NEW_MAP
 SET_FIELD captures
 POP
-@ "codegen.gaz" 1004
+@ "codegen.gaz" 1008
 NEW_ARRAY
 LOAD 0
 GET_PROPERTY file
@@ -32521,7 +32523,7 @@ SET_FIELD line
 POP
 LOAD 3
 POP
-@ "codegen.gaz" 1006
+@ "codegen.gaz" 1010
 LOAD 0
 GET_PROPERTY slots
 FOREACH_CHECK
@@ -32572,7 +32574,7 @@ LOAD 11
 POP
 LOAD 8
 POP
-@ "codegen.gaz" 1007
+@ "codegen.gaz" 1011
 LOAD_FIELD kinds
 LOAD 10
 INDEX_GET
@@ -32582,18 +32584,18 @@ INDEX_GET
 STORE 12
 LOAD 12
 POP
-@ "codegen.gaz" 1008
+@ "codegen.gaz" 1012
 LOAD 12
 PUSH null
 NOT_EQUALS
 JZ ELSE_4
-@ "codegen.gaz" 1009
+@ "codegen.gaz" 1013
 LOAD_THIS
 GET_METHOD visit
 LOAD 12
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 1010
+@ "codegen.gaz" 1014
 LOAD_THIS
 GET_METHOD emit
 PUSH "SET_FIELD"
@@ -32602,18 +32604,18 @@ LOAD 9
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 1011
+@ "codegen.gaz" 1015
 LOAD_THIS
 GET_METHOD emit
 PUSH "POP"
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 1008
+@ "codegen.gaz" 1012
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
 LABEL CONTINUE_3
-@ "codegen.gaz" 1006
+@ "codegen.gaz" 1010
 LOAD 7
 PUSH 1
 ADD
@@ -32622,13 +32624,13 @@ LOAD 7
 POP
 JMP WHILE_3
 LABEL ENDWHILE_3
-@ "codegen.gaz" 1014
+@ "codegen.gaz" 1018
 LOAD 0
 GET_PROPERTY members
 PUSH "_"
 CALL_BUILTIN has_key 2
 JZ ELSE_5
-@ "codegen.gaz" 1015
+@ "codegen.gaz" 1019
 LOAD_THIS
 GET_METHOD emit
 PUSH "CALL_CONSTRUCTOR"
@@ -32640,39 +32642,39 @@ INDEX_GET
 ARRAY_PUSH
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 1016
+@ "codegen.gaz" 1020
 LOAD_THIS
 GET_METHOD emit
 PUSH "POP"
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 1014
+@ "codegen.gaz" 1018
 JMP ENDIF_5
 LABEL ELSE_5
 LABEL ENDIF_5
-@ "codegen.gaz" 1018
+@ "codegen.gaz" 1022
 LOAD_THIS
 GET_METHOD emit
 PUSH "LOAD_THIS"
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 1019
+@ "codegen.gaz" 1023
 LOAD_THIS
 GET_METHOD emit
 PUSH "RET"
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 997
+@ "codegen.gaz" 1001
 PUSH null
 RET
 
 fn gazlang::CodeGenerator.compile_body 2 2
 locals $node $slots $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $slot $name $#foreach_array_1 $#foreach_keys_1 $#foreach_count_1 $#foreach_i_1 $index $#destructure_2
-@ "codegen.gaz" 1024
+@ "codegen.gaz" 1028
 NEW_MAP
 SET_FIELD var_addresses
 POP
-@ "codegen.gaz" 1025
+@ "codegen.gaz" 1029
 LOAD 1
 FOREACH_CHECK
 STORE 2
@@ -32709,14 +32711,14 @@ INDEX_GET
 STORE 7
 LOAD 7
 POP
-@ "codegen.gaz" 1026
+@ "codegen.gaz" 1030
 LOAD 7
 KEY_CHECK
 LOAD 6
 SET_PATH_THIS .var_addresses[k]
 POP
 LABEL CONTINUE_0
-@ "codegen.gaz" 1025
+@ "codegen.gaz" 1029
 LOAD 5
 PUSH 1
 ADD
@@ -32725,16 +32727,16 @@ LOAD 5
 POP
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "codegen.gaz" 1028
+@ "codegen.gaz" 1032
 NEW_MAP
 SET_FIELD captures
 POP
-@ "codegen.gaz" 1029
+@ "codegen.gaz" 1033
 LOAD 0
 PUSH_KIND gazlang::LambdaAST
 CALL_BUILTIN is_a 2
 JZ ELSE_1
-@ "codegen.gaz" 1030
+@ "codegen.gaz" 1034
 LOAD 0
 GET_PROPERTY captures
 FOREACH_CHECK
@@ -32772,14 +32774,14 @@ INDEX_GET
 STORE 7
 LOAD 7
 POP
-@ "codegen.gaz" 1031
+@ "codegen.gaz" 1035
 LOAD 7
 KEY_CHECK
 LOAD 12
 SET_PATH_THIS .captures[k]
 POP
 LABEL CONTINUE_2
-@ "codegen.gaz" 1030
+@ "codegen.gaz" 1034
 LOAD 11
 PUSH 1
 ADD
@@ -32788,11 +32790,11 @@ LOAD 11
 POP
 JMP WHILE_2
 LABEL ENDWHILE_2
-@ "codegen.gaz" 1029
+@ "codegen.gaz" 1033
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "codegen.gaz" 1034
+@ "codegen.gaz" 1038
 NEW_ARRAY
 LOAD 0
 GET_PROPERTY file
@@ -32814,20 +32816,20 @@ SET_FIELD line
 POP
 LOAD 13
 POP
-@ "codegen.gaz" 1036
+@ "codegen.gaz" 1040
 LOAD_THIS
 GET_METHOD default_arguments
 LOAD 0
 CALL_METHOD 1 default_arguments
 POP
-@ "codegen.gaz" 1037
+@ "codegen.gaz" 1041
 LOAD_THIS
 GET_METHOD visit
 LOAD 0
 GET_PROPERTY body
 CALL_METHOD 1 visit
 POP
-@ "codegen.gaz" 1039
+@ "codegen.gaz" 1043
 LOAD 0
 PUSH_KIND gazlang::LambdaAST
 CALL_BUILTIN is_a 2
@@ -32846,24 +32848,24 @@ LABEL OR_TRUE_4
 PUSH true
 LABEL OR_END_4
 JZ ELSE_3
-@ "codegen.gaz" 1040
+@ "codegen.gaz" 1044
 LOAD_THIS
 GET_METHOD emit
 PUSH "PUSH"
 PUSH [null]
 CALL_METHOD 2 emit
 POP
-@ "codegen.gaz" 1039
+@ "codegen.gaz" 1043
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "codegen.gaz" 1042
+@ "codegen.gaz" 1046
 LOAD_THIS
 GET_METHOD emit
 PUSH "RET"
 CALL_METHOD 1 emit
 POP
-@ "codegen.gaz" 1023
+@ "codegen.gaz" 1027
 PUSH null
 RET
 
@@ -32882,7 +32884,7 @@ method relative gazlang::Program
 method absolute gazlang::Program
 method segments gazlang::Program
 locals $#argument_0 $#argument_1 $#argument_2
-@ "codegen.gaz" 1058
+@ "codegen.gaz" 1062
 CALL_CONSTRUCTOR gazlang::Program
 POP
 LOAD_THIS
@@ -32890,25 +32892,25 @@ RET
 
 fn gazlang::Program._ 3 3
 locals $blocks $global_names $static_names
-@ "codegen.gaz" 1067
+@ "codegen.gaz" 1071
 LOAD 0
 SET_FIELD blocks
 POP
-@ "codegen.gaz" 1068
+@ "codegen.gaz" 1072
 LOAD 1
 SET_FIELD global_names
 POP
-@ "codegen.gaz" 1069
+@ "codegen.gaz" 1073
 LOAD 2
 SET_FIELD static_names
 POP
-@ "codegen.gaz" 1066
+@ "codegen.gaz" 1070
 PUSH null
 RET
 
 fn gazlang::Program.write 0 1
 locals $main $base $out $#foreach_array_1 $#foreach_keys_1 $#foreach_count_1 $#foreach_i_1 $block $#foreach_array_3 $#foreach_keys_3 $#foreach_count_3 $#foreach_i_3 $line $#destructure_6 $file $#foreach_array_7 $#foreach_keys_7 $#foreach_count_7 $#foreach_i_7 $#destructure_8 $opcode $args $at_file $at_line $#destructure_9 $#foreach_array_12 $#foreach_keys_12 $#foreach_count_12 $#foreach_i_12 $argument
-@ "codegen.gaz" 1075
+@ "codegen.gaz" 1079
 ARGC
 PUSH 0
 GT
@@ -32917,7 +32919,7 @@ JZ PASSED_0
 PUSH null
 STORE 0
 LABEL PASSED_0
-@ "codegen.gaz" 1077
+@ "codegen.gaz" 1081
 LOAD_THIS
 GET_METHOD absolute
 LOAD 0
@@ -32935,7 +32937,7 @@ CALL_METHOD 1 absolute
 STORE 1
 LOAD 1
 POP
-@ "codegen.gaz" 1078
+@ "codegen.gaz" 1082
 PUSH "GAZLANG BYTECODE"
 PUSH " "
 CONCAT
@@ -32956,13 +32958,13 @@ CONCAT
 STORE 2
 LOAD 2
 POP
-@ "codegen.gaz" 1080
+@ "codegen.gaz" 1084
 LOAD_FIELD static_names
 CALL_BUILTIN len 1
 PUSH 0
 GT
 JZ ELSE_2
-@ "codegen.gaz" 1081
+@ "codegen.gaz" 1085
 NEW_ARRAY
 PUSH "statics"
 ARRAY_PUSH
@@ -32974,11 +32976,11 @@ PUSH "\n"
 CONCAT
 CONCAT_ASSIGN 2
 POP
-@ "codegen.gaz" 1080
+@ "codegen.gaz" 1084
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "codegen.gaz" 1084
+@ "codegen.gaz" 1088
 LOAD_FIELD blocks
 FOREACH_CHECK
 STORE 3
@@ -33009,11 +33011,11 @@ INDEX_GET
 STORE 7
 LOAD 7
 POP
-@ "codegen.gaz" 1085
+@ "codegen.gaz" 1089
 PUSH "\n"
 CONCAT_ASSIGN 2
 POP
-@ "codegen.gaz" 1086
+@ "codegen.gaz" 1090
 LOAD_THIS
 GET_METHOD header
 LOAD 7
@@ -33047,14 +33049,14 @@ INDEX_GET
 STORE 12
 LOAD 12
 POP
-@ "codegen.gaz" 1087
+@ "codegen.gaz" 1091
 LOAD 12
 PUSH "\n"
 CONCAT
 CONCAT_ASSIGN 2
 POP
 LABEL CONTINUE_4
-@ "codegen.gaz" 1086
+@ "codegen.gaz" 1090
 LOAD 11
 PUSH 1
 ADD
@@ -33063,7 +33065,7 @@ LOAD 11
 POP
 JMP WHILE_4
 LABEL ENDWHILE_4
-@ "codegen.gaz" 1089
+@ "codegen.gaz" 1093
 NEW_ARRAY
 PUSH "locals"
 ARRAY_PUSH
@@ -33077,7 +33079,7 @@ PUSH "\n"
 CONCAT
 CONCAT_ASSIGN 2
 POP
-@ "codegen.gaz" 1091
+@ "codegen.gaz" 1095
 PUSH [null, null]
 DESTRUCTURE 2
 STORE 13
@@ -33095,7 +33097,7 @@ LOAD 12
 POP
 LOAD 13
 POP
-@ "codegen.gaz" 1092
+@ "codegen.gaz" 1096
 LOAD 7
 PUSH "code"
 INDEX_GET
@@ -33153,7 +33155,7 @@ LOAD 23
 POP
 LOAD 19
 POP
-@ "codegen.gaz" 1094
+@ "codegen.gaz" 1098
 LOAD 20
 PUSH "LABEL"
 NOT_EQUALS
@@ -33190,7 +33192,7 @@ LABEL AND_FALSE_7
 PUSH false
 LABEL AND_END_7
 JZ ELSE_6
-@ "codegen.gaz" 1095
+@ "codegen.gaz" 1099
 NEW_ARRAY
 LOAD 22
 ARRAY_PUSH
@@ -33212,7 +33214,7 @@ LOAD 12
 POP
 LOAD 24
 POP
-@ "codegen.gaz" 1096
+@ "codegen.gaz" 1100
 LOAD 14
 PUSH null
 EQUALS
@@ -33243,15 +33245,15 @@ CONCAT
 LABEL TERNARY_END_10
 CONCAT_ASSIGN 2
 POP
-@ "codegen.gaz" 1094
+@ "codegen.gaz" 1098
 JMP ENDIF_6
 LABEL ELSE_6
 LABEL ENDIF_6
-@ "codegen.gaz" 1098
+@ "codegen.gaz" 1102
 LOAD 20
 CONCAT_ASSIGN 2
 POP
-@ "codegen.gaz" 1099
+@ "codegen.gaz" 1103
 LOAD 21
 FOREACH_CHECK
 STORE 25
@@ -33282,7 +33284,7 @@ INDEX_GET
 STORE 29
 LOAD 29
 POP
-@ "codegen.gaz" 1101
+@ "codegen.gaz" 1105
 PUSH " "
 LOAD 20
 PUSH "PUSH"
@@ -33300,7 +33302,7 @@ CONCAT
 CONCAT_ASSIGN 2
 POP
 LABEL CONTINUE_11
-@ "codegen.gaz" 1099
+@ "codegen.gaz" 1103
 LOAD 28
 PUSH 1
 ADD
@@ -33309,12 +33311,12 @@ LOAD 28
 POP
 JMP WHILE_11
 LABEL ENDWHILE_11
-@ "codegen.gaz" 1103
+@ "codegen.gaz" 1107
 PUSH "\n"
 CONCAT_ASSIGN 2
 POP
 LABEL CONTINUE_5
-@ "codegen.gaz" 1092
+@ "codegen.gaz" 1096
 LOAD 18
 PUSH 1
 ADD
@@ -33324,7 +33326,7 @@ POP
 JMP WHILE_5
 LABEL ENDWHILE_5
 LABEL CONTINUE_3
-@ "codegen.gaz" 1084
+@ "codegen.gaz" 1088
 LOAD 6
 PUSH 1
 ADD
@@ -33333,16 +33335,16 @@ LOAD 6
 POP
 JMP WHILE_3
 LABEL ENDWHILE_3
-@ "codegen.gaz" 1107
+@ "codegen.gaz" 1111
 LOAD 2
 RET
-@ "codegen.gaz" 1075
+@ "codegen.gaz" 1079
 PUSH null
 RET
 
 fn gazlang::Program.literal 1 1
 locals $value
-@ "codegen.gaz" 1113
+@ "codegen.gaz" 1117
 NEW_ARRAY
 LOAD 0
 ARRAY_PUSH
@@ -33352,46 +33354,46 @@ PUSH 1
 NEG
 CALL_BUILTIN slice 3
 RET
-@ "codegen.gaz" 1112
+@ "codegen.gaz" 1116
 PUSH null
 RET
 
 fn gazlang::Program.header 1 1
 locals $block $bounds $#match_0
-@ "codegen.gaz" 1118
+@ "codegen.gaz" 1122
 MAKE_CLOSURE 15
 STORE 1
 LOAD 1
 POP
-@ "codegen.gaz" 1119
+@ "codegen.gaz" 1123
 LOAD 0
 PUSH "kind"
 INDEX_GET
 STORE 2
 LOAD 2
-@ "codegen.gaz" 1120
+@ "codegen.gaz" 1124
 PUSH "fn"
-@ "codegen.gaz" 1119
+@ "codegen.gaz" 1123
 EQUALS
 NOT
 JZ MATCH_ARM_0_0
 LOAD 2
-@ "codegen.gaz" 1121
+@ "codegen.gaz" 1125
 PUSH "kind"
-@ "codegen.gaz" 1119
+@ "codegen.gaz" 1123
 EQUALS
 NOT
 JZ MATCH_ARM_0_1
 LOAD 2
-@ "codegen.gaz" 1122
+@ "codegen.gaz" 1126
 PUSH "lambda"
-@ "codegen.gaz" 1119
+@ "codegen.gaz" 1123
 EQUALS
 NOT
 JZ MATCH_ARM_0_2
 JMP MATCH_ARM_0_3
 LABEL MATCH_ARM_0_0
-@ "codegen.gaz" 1120
+@ "codegen.gaz" 1124
 NEW_ARRAY
 PUSH "fn "
 LOAD 0
@@ -33412,18 +33414,18 @@ LOAD 0
 CALL_METHOD 1 in_kind
 CONCAT
 ARRAY_PUSH
-@ "codegen.gaz" 1119
+@ "codegen.gaz" 1123
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_1
-@ "codegen.gaz" 1121
+@ "codegen.gaz" 1125
 LOAD_THIS
 GET_METHOD kind_header
 LOAD 0
 CALL_METHOD 1 kind_header
-@ "codegen.gaz" 1119
+@ "codegen.gaz" 1123
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_2
-@ "codegen.gaz" 1122
+@ "codegen.gaz" 1126
 LOAD_THIS
 GET_METHOD lambda_header
 LOAD 0
@@ -33433,22 +33435,22 @@ PUSH "arity"
 INDEX_GET
 CALL_VALUE 1
 CALL_METHOD 2 lambda_header
-@ "codegen.gaz" 1119
+@ "codegen.gaz" 1123
 JMP MATCH_END_0
 LABEL MATCH_ARM_0_3
-@ "codegen.gaz" 1123
+@ "codegen.gaz" 1127
 PUSH ["top"]
-@ "codegen.gaz" 1119
+@ "codegen.gaz" 1123
 JMP MATCH_END_0
 LABEL MATCH_END_0
 RET
-@ "codegen.gaz" 1117
+@ "codegen.gaz" 1121
 PUSH null
 RET
 
 fn gazlang::Program.kind_header 1 1
 locals $block $lines $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $#destructure_1 $field $declarer $vis $#foreach_array_2 $#foreach_keys_2 $#foreach_count_2 $#foreach_i_2 $#destructure_3 $method $definer
-@ "codegen.gaz" 1128
+@ "codegen.gaz" 1132
 NEW_ARRAY
 LOAD 0
 PUSH "abstract"
@@ -33463,7 +33465,7 @@ LOAD 0
 PUSH "name"
 INDEX_GET
 CONCAT
-@ "codegen.gaz" 1129
+@ "codegen.gaz" 1133
 LOAD 0
 PUSH "parent"
 INDEX_GET
@@ -33480,12 +33482,12 @@ INDEX_GET
 CONCAT
 LABEL TERNARY_END_1
 CONCAT
-@ "codegen.gaz" 1128
+@ "codegen.gaz" 1132
 ARRAY_PUSH
 STORE 1
 LOAD 1
 POP
-@ "codegen.gaz" 1130
+@ "codegen.gaz" 1134
 LOAD 0
 PUSH "fields"
 INDEX_GET
@@ -33537,7 +33539,7 @@ LOAD 9
 POP
 LOAD 6
 POP
-@ "codegen.gaz" 1131
+@ "codegen.gaz" 1135
 PUSH "field "
 LOAD 7
 CONCAT
@@ -33560,7 +33562,7 @@ CONCAT
 SET_PATH [] 1
 POP
 LABEL CONTINUE_2
-@ "codegen.gaz" 1130
+@ "codegen.gaz" 1134
 LOAD 5
 PUSH 1
 ADD
@@ -33569,7 +33571,7 @@ LOAD 5
 POP
 JMP WHILE_2
 LABEL ENDWHILE_2
-@ "codegen.gaz" 1133
+@ "codegen.gaz" 1137
 LOAD 0
 PUSH "methods"
 INDEX_GET
@@ -33627,7 +33629,7 @@ LOAD 8
 POP
 LOAD 14
 POP
-@ "codegen.gaz" 1134
+@ "codegen.gaz" 1138
 PUSH "method "
 LOAD 15
 CONCAT
@@ -33647,7 +33649,7 @@ LOAD 9
 CONCAT
 LABEL TERNARY_END_5
 CONCAT
-@ "codegen.gaz" 1135
+@ "codegen.gaz" 1139
 LOAD 8
 LOAD 16
 EQUALS
@@ -33660,11 +33662,11 @@ LOAD 8
 CONCAT
 LABEL TERNARY_END_6
 CONCAT
-@ "codegen.gaz" 1134
+@ "codegen.gaz" 1138
 SET_PATH [] 1
 POP
 LABEL CONTINUE_4
-@ "codegen.gaz" 1133
+@ "codegen.gaz" 1137
 LOAD 13
 PUSH 1
 ADD
@@ -33673,16 +33675,16 @@ LOAD 13
 POP
 JMP WHILE_4
 LABEL ENDWHILE_4
-@ "codegen.gaz" 1138
+@ "codegen.gaz" 1142
 LOAD 1
 RET
-@ "codegen.gaz" 1127
+@ "codegen.gaz" 1131
 PUSH null
 RET
 
 fn gazlang::Program.in_kind 1 1
 locals $block $owner
-@ "codegen.gaz" 1145
+@ "codegen.gaz" 1149
 LOAD_QUIET 0
 PUSH "owner"
 INDEX_GET_QUIET
@@ -33692,7 +33694,7 @@ LABEL COALESCE_END_0
 STORE 1
 LOAD 1
 POP
-@ "codegen.gaz" 1147
+@ "codegen.gaz" 1151
 LOAD 1
 PUSH null
 EQUALS
@@ -33722,13 +33724,13 @@ LOAD 1
 CONCAT
 LABEL TERNARY_END_1
 RET
-@ "codegen.gaz" 1144
+@ "codegen.gaz" 1148
 PUSH null
 RET
 
 fn gazlang::Program.lambda_header 2 2
 locals $block $bounds $lines $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $#destructure_1 $from_closure $outer $inner
-@ "codegen.gaz" 1151
+@ "codegen.gaz" 1155
 NEW_ARRAY
 PUSH "lambda "
 LOAD 0
@@ -33748,7 +33750,7 @@ ARRAY_PUSH
 STORE 2
 LOAD 2
 POP
-@ "codegen.gaz" 1152
+@ "codegen.gaz" 1156
 LOAD 0
 PUSH "map"
 INDEX_GET
@@ -33800,7 +33802,7 @@ LOAD 10
 POP
 LOAD 7
 POP
-@ "codegen.gaz" 1153
+@ "codegen.gaz" 1157
 PUSH "capture "
 LOAD 0
 PUSH "captures"
@@ -33821,7 +33823,7 @@ CONCAT
 SET_PATH [] 2
 POP
 LABEL CONTINUE_0
-@ "codegen.gaz" 1152
+@ "codegen.gaz" 1156
 LOAD 6
 PUSH 1
 ADD
@@ -33830,14 +33832,14 @@ LOAD 6
 POP
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "codegen.gaz" 1155
+@ "codegen.gaz" 1159
 LOAD 0
 PUSH "self"
 INDEX_GET
 PUSH null
 NOT_EQUALS
 JZ ELSE_2
-@ "codegen.gaz" 1156
+@ "codegen.gaz" 1160
 PUSH "self "
 LOAD 0
 PUSH "captures"
@@ -33849,32 +33851,32 @@ INDEX_GET
 CONCAT
 SET_PATH [] 2
 POP
-@ "codegen.gaz" 1155
+@ "codegen.gaz" 1159
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "codegen.gaz" 1159
+@ "codegen.gaz" 1163
 LOAD 2
 RET
-@ "codegen.gaz" 1150
+@ "codegen.gaz" 1154
 PUSH null
 RET
 
 fn gazlang::Program.relative 2 2
 locals $file $base $from $to $same $steps $i
-@ "codegen.gaz" 1165
+@ "codegen.gaz" 1169
 LOAD 0
 PUSH "<"
 CALL_BUILTIN starts_with 2
 JZ ELSE_0
-@ "codegen.gaz" 1166
+@ "codegen.gaz" 1170
 LOAD 0
 RET
-@ "codegen.gaz" 1165
+@ "codegen.gaz" 1169
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "codegen.gaz" 1169
+@ "codegen.gaz" 1173
 LOAD_THIS
 GET_METHOD segments
 LOAD 1
@@ -33882,7 +33884,7 @@ CALL_METHOD 1 segments
 STORE 2
 LOAD 2
 POP
-@ "codegen.gaz" 1170
+@ "codegen.gaz" 1174
 LOAD_THIS
 GET_METHOD segments
 LOAD_THIS
@@ -33893,13 +33895,13 @@ CALL_METHOD 1 segments
 STORE 3
 LOAD 3
 POP
-@ "codegen.gaz" 1171
+@ "codegen.gaz" 1175
 PUSH 0
 STORE 4
 LOAD 4
 POP
 LABEL WHILE_1
-@ "codegen.gaz" 1172
+@ "codegen.gaz" 1176
 LOAD 4
 LOAD 2
 CALL_BUILTIN len 1
@@ -33930,21 +33932,21 @@ LABEL AND_FALSE_2
 PUSH false
 LABEL AND_END_2
 JZ ENDWHILE_1
-@ "codegen.gaz" 1173
+@ "codegen.gaz" 1177
 LOAD 4
 INC
 STORE 4
 LOAD 4
 POP
-@ "codegen.gaz" 1172
+@ "codegen.gaz" 1176
 JMP WHILE_1
 LABEL ENDWHILE_1
-@ "codegen.gaz" 1175
+@ "codegen.gaz" 1179
 NEW_ARRAY
 STORE 5
 LOAD 5
 POP
-@ "codegen.gaz" 1176
+@ "codegen.gaz" 1180
 LOAD 4
 STORE 6
 LOAD 6
@@ -33955,12 +33957,12 @@ LOAD 2
 CALL_BUILTIN len 1
 LT
 JZ ENDWHILE_4
-@ "codegen.gaz" 1177
+@ "codegen.gaz" 1181
 PUSH ".."
 SET_PATH [] 5
 POP
 LABEL CONTINUE_4
-@ "codegen.gaz" 1176
+@ "codegen.gaz" 1180
 LOAD 6
 INC
 STORE 6
@@ -33968,7 +33970,7 @@ LOAD 6
 POP
 JMP WHILE_4
 LABEL ENDWHILE_4
-@ "codegen.gaz" 1179
+@ "codegen.gaz" 1183
 LOAD 4
 STORE 6
 LOAD 6
@@ -33979,14 +33981,14 @@ LOAD 3
 CALL_BUILTIN len 1
 LT
 JZ ENDWHILE_5
-@ "codegen.gaz" 1180
+@ "codegen.gaz" 1184
 LOAD 3
 LOAD 6
 INDEX_GET
 SET_PATH [] 5
 POP
 LABEL CONTINUE_5
-@ "codegen.gaz" 1179
+@ "codegen.gaz" 1183
 LOAD 6
 INC
 STORE 6
@@ -33994,23 +33996,23 @@ LOAD 6
 POP
 JMP WHILE_5
 LABEL ENDWHILE_5
-@ "codegen.gaz" 1183
+@ "codegen.gaz" 1187
 LOAD 5
 PUSH "/"
 CALL_BUILTIN join 2
 RET
-@ "codegen.gaz" 1164
+@ "codegen.gaz" 1168
 PUSH null
 RET
 
 fn gazlang::Program.absolute 1 1
 locals $path $parts $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $part
-@ "codegen.gaz" 1189
+@ "codegen.gaz" 1193
 NEW_ARRAY
 STORE 1
 LOAD 1
 POP
-@ "codegen.gaz" 1190
+@ "codegen.gaz" 1194
 LOAD_THIS
 GET_METHOD segments
 LOAD 0
@@ -34056,47 +34058,47 @@ INDEX_GET
 STORE 6
 LOAD 6
 POP
-@ "codegen.gaz" 1192
+@ "codegen.gaz" 1196
 LOAD 6
 PUSH ".."
 EQUALS
 JZ ELSE_2
-@ "codegen.gaz" 1193
+@ "codegen.gaz" 1197
 LOAD 1
 CALL_BUILTIN len 1
 PUSH 0
 GT
 JZ ELSE_3
-@ "codegen.gaz" 1194
+@ "codegen.gaz" 1198
 LOAD 1
 CALL_BUILTIN len 1
 PUSH 1
 SUB
 KEY_CHECK
 DELETE_PATH [k] 1
-@ "codegen.gaz" 1193
+@ "codegen.gaz" 1197
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "codegen.gaz" 1192
+@ "codegen.gaz" 1196
 JMP ENDIF_2
 LABEL ELSE_2
-@ "codegen.gaz" 1196
+@ "codegen.gaz" 1200
 LOAD 6
 PUSH "."
 NOT_EQUALS
 JZ ELSE_4
-@ "codegen.gaz" 1197
+@ "codegen.gaz" 1201
 LOAD 6
 SET_PATH [] 1
 POP
-@ "codegen.gaz" 1196
+@ "codegen.gaz" 1200
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
 LABEL ENDIF_2
 LABEL CONTINUE_1
-@ "codegen.gaz" 1190
+@ "codegen.gaz" 1194
 LOAD 5
 PUSH 1
 ADD
@@ -34105,25 +34107,25 @@ LOAD 5
 POP
 JMP WHILE_1
 LABEL ENDWHILE_1
-@ "codegen.gaz" 1201
+@ "codegen.gaz" 1205
 PUSH "/"
 LOAD 1
 PUSH "/"
 CALL_BUILTIN join 2
 CONCAT
 RET
-@ "codegen.gaz" 1188
+@ "codegen.gaz" 1192
 PUSH null
 RET
 
 fn gazlang::Program.segments 1 1
 locals $path $parts $#foreach_array_0 $#foreach_keys_0 $#foreach_count_0 $#foreach_i_0 $part
-@ "codegen.gaz" 1206
+@ "codegen.gaz" 1210
 NEW_ARRAY
 STORE 1
 LOAD 1
 POP
-@ "codegen.gaz" 1207
+@ "codegen.gaz" 1211
 LOAD 0
 PUSH "/"
 CALL_BUILTIN split 2
@@ -34156,21 +34158,21 @@ INDEX_GET
 STORE 6
 LOAD 6
 POP
-@ "codegen.gaz" 1208
+@ "codegen.gaz" 1212
 LOAD 6
 PUSH ""
 NOT_EQUALS
 JZ ELSE_1
-@ "codegen.gaz" 1209
+@ "codegen.gaz" 1213
 LOAD 6
 SET_PATH [] 1
 POP
-@ "codegen.gaz" 1208
+@ "codegen.gaz" 1212
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
 LABEL CONTINUE_0
-@ "codegen.gaz" 1207
+@ "codegen.gaz" 1211
 LOAD 5
 PUSH 1
 ADD
@@ -34179,10 +34181,10 @@ LOAD 5
 POP
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "codegen.gaz" 1213
+@ "codegen.gaz" 1217
 LOAD 1
 RET
-@ "codegen.gaz" 1205
+@ "codegen.gaz" 1209
 PUSH null
 RET
 
@@ -34927,7 +34929,7 @@ RET
 
 lambda 15 1 1 in gazlang::Program
 locals $arity
-@ "codegen.gaz" 1118
+@ "codegen.gaz" 1122
 LOAD 0
 CALL_BUILTIN type_of 1
 PUSH "int"
