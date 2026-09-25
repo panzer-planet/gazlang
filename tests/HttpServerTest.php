@@ -230,8 +230,8 @@ class HttpServerTest extends GazLangTestCase
         $log = (string) tempnam(sys_get_temp_dir(), 'gazlang-server');
         [$server, $port] = self::startServer(2, $log);
         try {
-            // A worker that dies within a second of starting would stop the lot
-            usleep(1200000);
+            // At once: a worker that dies within a second of starting stops the lot only if it never
+            // took a connection, and this one died of a request
             $this->assertSame('', self::exchange("GET /exit HTTP/1.1\r\nHost: x\r\n\r\n", $port));
             for ($i = 0; $i < 6; $i++) {
                 $this->assertSame(200, self::response(self::exchange("GET / HTTP/1.1\r\nHost: x\r\n\r\n", $port))['status']);
@@ -272,6 +272,59 @@ class HttpServerTest extends GazLangTestCase
         }
     }
 
+    public function test_a_request_that_takes_too_long_to_arrive_is_a_408()
+    {
+        // Each byte comes well within the 2 second read timeout, but the whole never does
+        $socket = stream_socket_client('tcp://127.0.0.1:'.self::$port);
+        $this->assertNotFalse($socket);
+        stream_set_blocking($socket, false);
+        $start = microtime(true);
+        $response = '';
+        foreach (str_split("GET / HTTP/1.1\r\nHost: x\r\nX-Slow: ".str_repeat('a', 20)) as $byte) {
+            @fwrite($socket, $byte);
+            usleep(250000);
+            $response .= (string) fread($socket, 8192);
+            if ($response !== '') {
+                break;
+            }
+        }
+        stream_set_blocking($socket, true);
+        stream_set_timeout($socket, 5);
+        $response .= (string) stream_get_contents($socket);
+        fclose($socket);
+
+        $this->assertSame(408, self::response($response)['status']);
+        $this->assertLessThan(4, microtime(true) - $start);
+    }
+
+    public function test_stopping_lets_the_request_in_hand_finish()
+    {
+        [$server, $port] = self::startServer(2, '/dev/null');
+        try {
+            $socket = stream_socket_client("tcp://127.0.0.1:{$port}");
+            $this->assertNotFalse($socket);
+            stream_set_timeout($socket, 5);
+            fwrite($socket, "GET / HTTP/1.1\r\n");
+            usleep(200000);
+            proc_terminate($server);
+            usleep(300000);
+            // The busy worker waits for the rest of its request, and answers it
+            fwrite($socket, "Host: x\r\n\r\n");
+            $response = self::response((string) stream_get_contents($socket));
+            fclose($socket);
+            $this->assertSame(200, $response['status']);
+
+            for ($wait = 0; ($status = proc_get_status($server))['running'] && $wait < 100; $wait++) {
+                usleep(50000);
+            }
+            $this->assertSame([false, true, SIGTERM], [$status['running'], $status['signaled'], $status['termsig']]);
+            $this->assertFalse(@stream_socket_client("tcp://127.0.0.1:{$port}", $errno, $error, 1), 'a worker still listens');
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+        }
+    }
+
     public function test_workers_ends_when_every_worker_has_ended()
     {
         [$out, $err, $code] = self::gazlang([], 'print("before\n"); echo workers(3);');
@@ -285,7 +338,7 @@ class HttpServerTest extends GazLangTestCase
 
     public function test_a_worker_that_fails_at_once_stops_the_master_with_its_code()
     {
-        [$out, $err, $code] = self::gazlang([], 'if (workers(2) == 2) { exit(4); } while (true) { }');
+        [$out, $err, $code] = self::gazlang([], '$l = socket_listen("127.0.0.1", 0); if (workers(2) == 2) { exit(4); } socket_accept($l);');
 
         $this->assertSame(4, $code);
         $this->assertSame("gazlang: worker 2 exited with code 4 within a second of starting; stopping\n", $err);
@@ -337,7 +390,7 @@ class HttpServerTest extends GazLangTestCase
             'no workers' => ['workers(0);', 'workers() expects 1 to 1024 workers, got 0'],
             'too many workers' => ['workers(1025);', 'workers() expects 1 to 1024 workers, got 1025'],
             'options not a map' => ['include "'.self::ROOT.'/lib/http.gaz"; http::serve(null, null, []);', 'http::serve() expects a map of options, got list'],
-            'an option there is not' => ['include "'.self::ROOT.'/lib/http.gaz"; http::serve(null, null, {"port" => 1});', 'http::serve() has no option "port": only timeout, max_body'],
+            'an option there is not' => ['include "'.self::ROOT.'/lib/http.gaz"; http::serve(null, null, {"port" => 1});', 'http::serve() has no option "port": only timeout, request_timeout, max_body'],
         ];
     }
 

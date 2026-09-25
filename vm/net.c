@@ -229,15 +229,28 @@ bool net_listen(Str *host, int64_t port, int64_t backlog, Value *out) {
 }
 
 /* socket_accept($listener, $timeout): the next connection, waiting as long as it takes; $timeout
-   bounds each read and write on it, as socket_open()'s does */
+   bounds each read and write on it, as socket_open()'s does. In a worker asked to stop, null. */
 bool net_accept(Socket *listener, double timeout, Value *out) {
     if (listener->fd < 0) return raisef("socket_accept() on a closed socket");
     if (!listener->listening) return raisef("socket_accept() expects a listening socket, got a connection");
     if (!(timeout > 0)) return raisef("socket_accept() expects a timeout above 0 seconds");
-    int fd;
-    /* A connection given up on while it queued is ECONNABORTED: wait for the next */
-    while ((fd = accept(listener->fd, NULL, NULL)) < 0 && (errno == EINTR || errno == ECONNABORTED)) {}
-    if (fd < 0) return raisef("socket_accept() failed: %s", strerror(errno));
+    int fd = -1;
+    while (fd < 0) {
+        if (workers_stopping()) {
+            *out = v_null();
+            return true;
+        }
+        /* Waiting in poll() a second at a time, so a stop that comes just before it is still seen;
+           SIGTERM wakes it, or the accept() after it, sooner */
+        struct pollfd p = {.fd = listener->fd, .events = POLLIN};
+        int ready = poll(&p, 1, 1000);
+        if (ready < 0 && errno != EINTR) return raisef("socket_accept() failed: %s", strerror(errno));
+        if (ready <= 0) continue;
+        fd = accept(listener->fd, NULL, NULL);
+        /* Interrupted, or a connection given up on while it queued: wait for the next */
+        if (fd < 0 && errno != EINTR && errno != ECONNABORTED) return raisef("socket_accept() failed: %s", strerror(errno));
+    }
+    worker_accepted();
     fcntl(fd, F_SETFD, FD_CLOEXEC);
     int ms = to_ms(timeout);
     connection_options(fd, ms);

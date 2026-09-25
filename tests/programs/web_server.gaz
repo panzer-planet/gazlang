@@ -37,4 +37,4 @@ http::serve($listener, $request -> match ($request["path"]) {
     "/bad-header" => {"headers" => {"X-Split" => "a\r\nInjected: yes"}},
     "/exit" => exit(3),
     default => {"status" => 404, "body" => "no page at {$request["path"]}\n"},
-}, {"max_body" => 100000, "timeout" => 2});
+}, {"max_body" => 100000, "timeout" => 2, "request_timeout" => 1.5});

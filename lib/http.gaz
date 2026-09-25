@@ -217,12 +217,10 @@ fn resolve($target, $location) {
 
 // Reads a message from a socket: lines up to a delimiter, a count of bytes, or the rest
 kind Reader {
-    #socket;
     #data = "";         // read but not taken yet
 
-    fn _($socket) {
-        #socket = $socket;
-    }
+    // With a $deadline (a monotonic_time()), a read that would start after it is refused (408)
+    fn _(#socket, #deadline = null);
 
     // Whether anything has been read but not taken
     pub fn pending() {
@@ -231,6 +229,9 @@ kind Reader {
 
     // Read more; false at the end of the stream
     fn more() {
+        if (#deadline != null && monotonic_time() > #deadline) {
+            error(Refusal(408, "HTTP error: the request took too long to arrive"));
+        }
         $chunk = socket_read(#socket);
         if ($chunk == "") {
             return false;
@@ -422,10 +423,14 @@ fn check_token($what, $name) {
  *   Content-Length of its own), is answered 500, and the error goes to standard error.
  * - Content-Length, Connection and Date are written here. No Content-Type unless given.
  * - A HEAD request gets the headers the body would have, without it.
- * - Options: "timeout", seconds each read and write may wait (10), and "max_body", in bytes (1MB).
- * - ponytail: one request per connection (Connection: close), and the timeout is per read, so a
- *   client trickling a byte at a time holds a worker; keep-alive and a deadline per request wait
- *   for a program that needs them. TLS is a proxy's job in front of it.
+ * - Options: "timeout", seconds each read and write may wait (10); "request_timeout", seconds the
+ *   whole request may take to arrive (30), after which it is answered 408, so a client trickling a
+ *   byte at a time can't hold a worker; and "max_body", in bytes (1MB).
+ * - It returns when its worker is asked to stop (SIGTERM, see workers()), once the request in hand
+ *   is answered.
+ * - ponytail: one request per connection (Connection: close), keep-alive waiting for a program that
+ *   needs it. The request's deadline is checked before each read, so it can overrun by one
+ *   "timeout"; writing the response has only the per-write timeout. TLS is a proxy's job in front.
  */
 
 const REASONS = {
@@ -439,7 +444,7 @@ const REASONS = {
     500 => "Internal Server Error", 501 => "Not Implemented", 502 => "Bad Gateway",
     503 => "Service Unavailable", 504 => "Gateway Timeout", 505 => "HTTP Version Not Supported",
 };
-const SERVER_OPTIONS = {"timeout" => 10, "max_body" => 1048576};
+const SERVER_OPTIONS = {"timeout" => 10, "request_timeout" => 30, "max_body" => 1048576};
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -452,8 +457,9 @@ kind Refusal extends Error {
 
 pub fn serve($listener, $handler, $options = {}) {
     $options = server_options($options);
-    while (true) {
-        handle(socket_accept($listener, $options["timeout"]), $handler, $options);
+    // Null once a worker is asked to stop: the request in hand has been answered
+    while (($socket = socket_accept($listener, $options["timeout"])) != null) {
+        handle($socket, $handler, $options);
     }
 }
 
@@ -463,7 +469,8 @@ pub fn handle($socket, $handler, $options = {}) {
     try {
         $request = null;
         try {
-            $request = read_request(Reader($socket), $socket, $options["max_body"]);
+            $deadline = monotonic_time() + $options["request_timeout"];
+            $request = read_request(Reader($socket, $deadline), $socket, $options["max_body"]);
         } catch (Refusal $e) {
             send_quietly($socket, refusal($e.status));
         } catch (Error $e) {

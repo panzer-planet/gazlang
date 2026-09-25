@@ -546,6 +546,8 @@ void net_close(Socket *s);
 
 extern bool vm_worker;   /* this process is one of workers()'s, which ends the program itself */
 bool start_workers(int64_t count, Value *out);
+bool workers_stopping(void);   /* a worker has been asked to stop: socket_accept() gives null */
+void worker_accepted(void);    /* a worker has taken a connection, so it did start */
 
 /* ---- db.c, sqlite.c, pg.c ---------------------------------------------------------------- */
 

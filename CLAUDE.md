@@ -316,8 +316,16 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     orphans: it returns 1 to n in each worker, and the master stays in C (`workers.c`) for good,
     starting a worker again when one dies of an error or a signal, stopping all of them on
     SIGINT/SIGTERM/SIGHUP and then dying of that signal, unless the program started with it ignored
-    (`nohup`), which stays so. A worker that dies within a second of
-    starting stops the lot with its code, as a startup bug would otherwise respawn for ever.
+    (`nohup`), which stays so. A worker that dies within a second of starting *without having
+    accepted a connection* stops the lot with its code, as a startup bug would otherwise respawn for
+    ever; one that accepted first died of a request and is started again. Workers say so in a page
+    of shared memory (`mmap`, a byte each), not a pipe, since the master only reads it when one dies.
+  - **Stopping is graceful**: the master sends SIGTERM, which a worker catches (not `SA_RESTART`,
+    so a waiting `accept()` wakes) and turns into `null` from its next `socket_accept()`, so
+    `http::serve()` returns after the request in hand; the master kills what is left after 10
+    seconds (`STOP_GRACE`). `socket_accept()` waits in `poll()` a second at a time, so a stop that
+    lands between its check and the wait is still seen. Ctrl-C reaches the workers directly and
+    ends them at once, which is what it is for at a terminal.
   - **The program runs on its own thread** (see "The C VM"), so a fork is that thread alone, with
     no `main()` to end the process: `run()` in `vm.c` exits a worker itself. And a signal to the
     master may land on `main()`'s thread, which is why the master polls every 50ms instead of
@@ -328,16 +336,28 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     are smuggled past a proxy; handler errors are a 500 and a line on stderr. Request and response
     are maps, like the client's response. `HttpServerTest` runs `tests/programs/web_server.gaz` and
     speaks to it over raw sockets, so requests no client would send can be sent.
-  - `ponytail:` no keep-alive; the timeout is per read, so a client trickling bytes holds a worker;
-    no graceful drain on stop; a master killed with SIGKILL leaves its workers running (Linux's
-    `PR_SET_PDEATHSIG` would end them, macOS has nothing like it). No TLS on the server side: a proxy
-    in front does it.
+  - **A request has a deadline** (`"request_timeout"`, 30s, a 408) as well as the per-read
+    `"timeout"`, which alone let a client trickling a byte every few seconds hold a worker for hours.
+    `Reader` checks it before each read, so it can overrun by one read's timeout.
+  - `ponytail:` no keep-alive; writing a response has only the per-write timeout; the stop grace
+    is fixed; while workers drain, new connections queue in the listener's backlog (the master
+    holds it too) and are reset when the program ends, where closing the listeners first would
+    need `workers()` to know which sockets are listeners; a master killed with SIGKILL leaves its
+    workers running (Linux's `PR_SET_PDEATHSIG` would end them, macOS has nothing like it). No TLS
+    on the server side: a proxy in front does it.
   - **Next, when a program asks** (the order they would be built in):
     - A router in GazLang (`lib/router.gaz` or in `http.gaz`): `$app.get("/users/:id", $handler)`,
       a list of `[method, pattern, handler]` matched by splitting paths on `/` (no regex), named
       segments into `$request["params"]`, 404 and 405 (with `Allow`) of its own, and middleware as
       `($request, $next) -> ...` closures wrapped around the handler. Its result is still a handler,
       so `http::serve($listener, $app.handler())` needs nothing new.
+    - The client's address (`socket_peer($socket)`, for logs and rate limits), though behind a
+      proxy `X-Forwarded-For` is the one that matters.
+    - A `quote($value)` builtin, the value as a literal: `value.c` has it, and
+      `slice(to_string([$x]), 1, -1)` stands in for it ten times in `http.gaz` and once in each
+      compiler file; a builtin takes its name from every program, so the name is the question.
+    - Measure it (requests a second against PHP's built-in server and `php-fpm` behind nginx)
+      before any tuning; nothing has been timed yet.
     - URL decoding (`%20`, `+` in a query) and `application/x-www-form-urlencoded` bodies into
       maps, a repeated key's values a list; HTML escaping for writing pages; static files
       (`read_file()` and a content-type table, refusing `..` in the path); cookies (parse `Cookie`,

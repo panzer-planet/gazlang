@@ -530,7 +530,8 @@ A server listens and accepts:
   addresses that binds (`"127.0.0.1"` for this machine only, `"0.0.0.0"` or `"::"` for every
   interface). Port 0 is one the system picks.
 - `socket_accept($listener, $timeout = 30)` — waits for the next connection, as long as it takes,
-  and gives it as a `socket`; `$timeout` bounds each read and write on it.
+  and gives it as a `socket`; `$timeout` bounds each read and write on it. In a worker that has been
+  asked to stop (see `workers()`), `null`.
 - `socket_port($socket)` — the port this end has, which is how a listener on port 0 says which.
 
 A listener only accepts: reading or writing one is an error. No TLS on this side; put a proxy
@@ -565,9 +566,12 @@ carrying on with a copy of everything, for a server that answers more than one r
 (prefork, as PHP-FPM does). It returns the worker's number, 1 to `$count`, in each of them; the
 process that called it never returns from it, but waits, starts a worker again when one ends with an
 error or a signal, and ends once every worker has ended with code 0. A worker that fails within a
-second of starting is a program that can't start: the rest are stopped and the program exits with
-its code. Ctrl-C, SIGTERM or SIGHUP stops them all, unless the program was started ignoring it
-(`nohup` ignores SIGHUP). Workers share nothing after the call, a
+second of starting, before it has accepted a connection, is a program that can't start: the rest are
+stopped and the program exits with its code. SIGTERM or SIGHUP stops them gracefully: each worker's
+`socket_accept()` gives `null`, so `http::serve()` returns once the request in hand is answered and
+the program ends, and a worker still running after 10 seconds is killed. Ctrl-C reaches the workers
+too and ends them at once. A signal the program was started ignoring stays ignored (`nohup` ignores
+SIGHUP). Workers share nothing after the call, a
 `socket_listen()` listener made before it aside, which is the point: they all accept on one port.
 Each draws its own random numbers. At most 1024, and a worker can't start workers of its own.
 
@@ -776,14 +780,16 @@ as in a response; the path and query are as the client sent them, not decoded.
   headers without the body; a 204 or 304 can't have one.
 - A request that isn't well formed never reaches the handler: 400 (a bad request line or header
   line, no `Host` in HTTP/1.1, both `Content-Length` and `Transfer-Encoding`, a body cut short),
-  413 (a body over `max_body`), 431 (a request line and headers over 64KB), 417 (an `Expect` other
+  408 (the request took longer than `request_timeout`), 413 (a body over `max_body`), 431 (a request line and headers over 64KB), 417 (an `Expect` other
   than `100-continue`, which is answered before the body is read), 501 (a transfer coding other than
   chunked), 505 (not HTTP/1.x). A connection that closes before sending anything gets nothing.
 - A handler that raises, or returns a response that can't be written (a status outside 200 to 599,
   a header value with a line break), is a 500, and the error and its trace go to standard error.
   The worker carries on.
-- Options: `"timeout"`, seconds each read and write may wait (10), and `"max_body"` in bytes
-  (1048576). The timeout is per read, not per request.
+- Options: `"timeout"`, seconds each read and write may wait (10); `"request_timeout"`, seconds the
+  whole request may take to arrive (30), after which it is a 408, so a client sending a byte at a
+  time can't hold a worker; and `"max_body"` in bytes (1048576).
+- It returns when its worker is asked to stop, after answering the request in hand.
 - `http::http_date(time())` is a time as HTTP writes one: `Sat, 08 Aug 2026 14:02:09 GMT`.
 
 ```

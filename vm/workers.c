@@ -9,14 +9,19 @@
  * The call returns the worker's number, 1 to $count, in each worker. The process that called it,
  * the master, never returns: it waits here, starts a worker again when one dies of an error or a
  * signal, and ends once every worker has ended with code 0. A worker that dies within a second of
- * starting is a program that can't start, not bad luck, so rather than start it again and again the
- * master stops the others and exits with its code. SIGINT, SIGTERM and SIGHUP to the master stop
- * the workers, and then end the master as that signal would have; one the program was started
- * ignoring (nohup's SIGHUP) stays ignored.
+ * starting without having taken a connection is a program that can't start, not bad luck, so rather
+ * than start it again and again the master stops the others and exits with its code; one that took
+ * a connection first died of a request, and is started again like any other.
  *
- * ponytail: a worker killed mid-request drops that request (no graceful drain), and workers whose
- * master is killed with SIGKILL run on as orphans (Linux's PR_SET_PDEATHSIG would end them; macOS
- * has nothing like it).
+ * SIGINT, SIGTERM and SIGHUP to the master stop the workers, and then end the master as that signal
+ * would have; one the program was started ignoring (nohup's SIGHUP) stays ignored. Stopping is
+ * graceful: a worker is sent SIGTERM, which makes its next socket_accept() (or the one it waits in)
+ * give null, so http::serve() returns after the request in hand and the worker's program ends; one
+ * still running after STOP_GRACE seconds is killed. Ctrl-C reaches the workers themselves too, and
+ * ends them at once, which is what it is for.
+ *
+ * ponytail: workers whose master is killed with SIGKILL run on as orphans (Linux's
+ * PR_SET_PDEATHSIG would end them; macOS has nothing like it), and the grace is fixed.
  */
 #include "gazvm.h"
 
@@ -26,11 +31,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 
 #define MAX_WORKERS 1024
+#define STOP_GRACE 10.0     /* seconds a worker has to finish its request once asked to stop */
 
 bool vm_worker;
 
@@ -49,6 +56,23 @@ static double now(void) {
     return (double)t.tv_sec + (double)t.tv_nsec / 1e9;
 }
 
+/* In a worker: SIGTERM asks it to stop, and whether it has taken a connection yet, in a page the
+   master shares (one byte per worker), which is how the master tells a start-up failure from a
+   crash on a request */
+static volatile sig_atomic_t stopping;
+static volatile unsigned char *accepted;
+
+static void on_worker_stop(int sig) {
+    (void)sig;
+    stopping = 1;
+}
+
+bool workers_stopping(void) { return stopping; }
+
+void worker_accepted(void) {
+    if (accepted) *accepted = 1;
+}
+
 /* What the master had before it took the signals over, which a worker gets back */
 static struct sigaction saved_stop[NSTOP];
 
@@ -59,7 +83,8 @@ static void restore_signals(void) {
 /* Fork worker `number`: its pid in the master, 0 in the worker, -1 if it couldn't. The stop signals
    are blocked across the fork, or one sent to a worker before it has put its handlers back would
    only set its copy of the master's flag, and the master would wait for it for ever. */
-static pid_t fork_worker(int number, Value *out) {
+static pid_t fork_worker(int number, volatile unsigned char *served, Value *out) {
+    served[number - 1] = 0;
     sigset_t stops, before;
     sigemptyset(&stops);
     for (int i = 0; i < NSTOP; i++) sigaddset(&stops, STOP_SIGNALS[i]);
@@ -68,6 +93,11 @@ static pid_t fork_worker(int number, Value *out) {
     if (pid == 0) {
         vm_worker = true;
         restore_signals();
+        accepted = &served[number - 1];
+        /* Not SA_RESTART, so a socket_accept() waiting is woken to give null */
+        struct sigaction stop = {.sa_handler = on_worker_stop};
+        sigemptyset(&stop.sa_mask);
+        if (saved_stop[1].sa_handler != SIG_IGN) sigaction(SIGTERM, &stop, NULL);
         /* Or every worker would draw the same random numbers */
         random_seed_unpredictable();
         *out = v_int(number);
@@ -87,16 +117,31 @@ static int describe(int status, char *text, size_t size) {
     return WEXITSTATUS(status);
 }
 
-/* Stop every worker still running and wait for them */
+static void pause_briefly(void) { nanosleep(&(struct timespec){.tv_nsec = 50000000}, NULL); }
+
+/* Ask every worker still running to stop, give them STOP_GRACE seconds, kill the rest */
 static void stop_all(pid_t *pids, int count) {
-    for (int i = 0; i < count; i++) {
-        if (pids[i] > 0) kill(pids[i], SIGTERM);
-    }
+    int left = 0;
     for (int i = 0; i < count; i++) {
         if (pids[i] > 0) {
-            while (waitpid(pids[i], NULL, 0) < 0 && errno == EINTR) {}
-            pids[i] = 0;
+            kill(pids[i], SIGTERM);
+            left++;
         }
+    }
+    double until = now() + STOP_GRACE;
+    while (left > 0) {
+        bool late = now() >= until;
+        for (int i = 0; i < count; i++) {
+            if (pids[i] <= 0) continue;
+            if (late) kill(pids[i], SIGKILL);
+            pid_t done;
+            while ((done = waitpid(pids[i], NULL, late ? 0 : WNOHANG)) < 0 && errno == EINTR) {}
+            if (done != 0) {
+                pids[i] = 0;
+                left--;
+            }
+        }
+        if (left > 0) pause_briefly();
     }
 }
 
@@ -119,10 +164,15 @@ bool start_workers(int64_t count, Value *out) {
     }
 
     int n = (int)count;
+    volatile unsigned char *served = mmap(NULL, (size_t)n, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+    if (served == MAP_FAILED) {
+        restore_signals();
+        return raisef("workers() cannot share memory with its workers: %s", strerror(errno));
+    }
     pid_t *pids = xcalloc((size_t)n, sizeof *pids);
     double *started = xcalloc((size_t)n, sizeof *started);
     for (int i = 0; i < n; i++) {
-        pid_t pid = fork_worker(i + 1, out);
+        pid_t pid = fork_worker(i + 1, served, out);
         if (pid == 0) {
             free(pids);
             free(started);
@@ -156,13 +206,13 @@ bool start_workers(int64_t count, Value *out) {
             }
             char how[64];
             int code = describe(status, how, sizeof how);
-            if (now() - started[i] < 1.0) {
+            if (now() - started[i] < 1.0 && !served[i]) {
                 fprintf(stderr, "gazlang: worker %d %s within a second of starting; stopping\n", i + 1, how);
                 failed = code;
                 break;
             }
             fprintf(stderr, "gazlang: worker %d %s; starting another\n", i + 1, how);
-            pid_t again = fork_worker(i + 1, out);
+            pid_t again = fork_worker(i + 1, served, out);
             if (again == 0) {
                 free(pids);
                 free(started);
@@ -178,7 +228,7 @@ bool start_workers(int64_t count, Value *out) {
             started[i] = now();
         }
         /* ponytail: polled every 50ms, which is how long a restart or a stop can wait */
-        if (alive > 0 && failed < 0 && !stop_signal) nanosleep(&(struct timespec){.tv_nsec = 50000000}, NULL);
+        if (alive > 0 && failed < 0 && !stop_signal) pause_briefly();
     }
     stop_all(pids, n);
     free(pids);
