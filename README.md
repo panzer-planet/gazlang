@@ -42,9 +42,11 @@ no dogs here
   error messages included, is recorded, and thousands of tests hold gazlang to it under
   AddressSanitizer and a leak check, on Linux and on both kinds of Mac. The compiler has to
   compile itself to exactly itself.
-- **Batteries included, and self-hosted.** JSON, CSV, an HTTP/1.1 client with TLS and a preforking server, and
-  regular expressions with no ReDoS (a Thompson NFA, not backtracking) — all in `lib/`, all
-  written in GazLang, none of it a C shortcut.
+- **Batteries included, and self-hosted.** JSON, CSV, an HTTP/1.1 client with TLS and a
+  preforking web server, SQLite and PostgreSQL, dates, a terminal UI toolkit, and regular
+  expressions with no ReDoS (a Thompson NFA, not backtracking). The libraries are all in `lib/`,
+  written in GazLang; C does only what GazLang can't, like sockets and the terminal
+  ([the list](#what-comes-with-it)).
 
 It is a hobby language, not production software, and it would like company.
 
@@ -410,6 +412,43 @@ North   1524.0
 West    899.95
 ```
 
+## What comes with it
+
+The standard library is written in GazLang and built into `gazlang`, so any program anywhere
+reaches it by name, and each file keeps its names in its own namespace:
+
+```
+include "std/json.gaz";
+echo json::encode({"ok" => true});
+```
+
+| Library | What it gives you |
+| --- | --- |
+| `std/json.gaz` | `json::decode` and `json::encode`, matching PHP's `json_decode` on the JSON test suite; an object is written as its `to_json()` |
+| `std/csv.gaz` | `csv::parse` (RFC 4180, quotes and line breaks in fields) and `csv::records`, rows as maps by header |
+| `std/http.gaz` | An HTTP/1.1 client, `http::get`/`post`/`request` with https, redirects and chunked bodies; and a server, `http::serve($listener, $handler)`, which turns away malformed requests before your handler sees them |
+| `std/db.gaz` | `db::open("sqlite:app.db")` or `postgres://...`, then `query`, `row`, `value`, `exec` and `transaction`, parameters always bound |
+| `std/regex.gaz` | `regex::matches`, `search` and `find`: classes, ranges, anchors, alternation, and matching in linear time |
+| `std/date.gaz` | Calendar dates as day numbers: `date::days(2026, 8, 8)`, weekdays, adding months, `date::format` |
+| `std/format.gaz` | `format::number(1234.5)` → `1,234.50`, `pad_left`, `pad_right` |
+| `std/lists.gaz`, `std/sorting.gaz` | `flatten`, `unique`, `max_by`/`min_by`; `sorting::by($rows, "points", true)` |
+| `std/random.gaz` | `shuffle`, `pick`, `chance`, `weighted` |
+| `std/chars.gaz` | Character classes (`is_digit`, `is_alpha`, ...) and `span`, for writing scanners |
+| `std/term.gaz`, `std/tui.gaz` | Colours, cursor and keys; a screen that redraws only what changed, boxes, tables, menus, text fields |
+
+And built into the language, with no include:
+
+| Builtins | |
+| --- | --- |
+| Strings, lists and maps | `len`, `slice`, `split`, `join`, `replace`, `index_of`, `starts_with`, `trim`, `upper`; `map`, `filter`, `reduce`, `sort`, `keys`, `values`, `in_array`, `sum`, `min`, `max` |
+| Files and programs | `read_file`, `write_file`, `file_exists`, `read_stdin`, `args`, and `run(["git", "status"])`, which starts a program with no shell in between |
+| Sockets and servers | `socket_open` (TCP or TLS), `socket_listen`, `socket_accept`, and `workers($n)`, which runs a server as n processes, restarting any that crash and stopping gracefully |
+| Databases | `db_open`, `db_run`, `db_close`, for SQLite and PostgreSQL |
+| Time and chance | `time`, `monotonic_time`, `rand_int`, `rand_float`, `rand_seed` |
+| The terminal | `term_raw`, `term_read`, `term_size`, `term_is_tty` |
+
+[docs/language.md](docs/language.md) has every function and what it does at the edges.
+
 ## How fast is it?
 
 Each program below does the same work in GazLang, PHP and Python (they are in
@@ -446,8 +485,8 @@ on real work: it compiles itself, all 4,400 lines, in about a quarter of a secon
   substitutions, transfers, saving and seasons.
 - **`tests/programs/`** — bigger programs that the tests do run, so they still work: a 700 line
   [football league simulator](tests/programs/football.gaz), a
-  [CSV report](tests/programs/csv_report.gaz) and a
-  [web API client](tests/programs/cat_facts.gaz).
+  [CSV report](tests/programs/csv_report.gaz), a
+  [web API client](tests/programs/cat_facts.gaz) and a [web server](tests/programs/web_server.gaz).
 - **`lib/`** — the standard library, all of it written in GazLang and built into `gazlang`, so a
   program anywhere includes it by name: `include "std/json.gaz";`.
 - **[docs/internals.md](docs/internals.md)** — how the compiler and VM fit
