@@ -4,7 +4,8 @@ namespace GazLang\Tests;
 
 /**
  * editors/gaz/gaz.tmLanguage names every builtin and keyword, so a new one fails here until the
- * grammar has it; four builtins and two more went unhighlighted before this test existed
+ * grammar has it; four builtins and two more went unhighlighted before this test existed. The same
+ * holds for editors/gzb/gzb.tmLanguage and the bytecode's instructions.
  */
 class EditorGrammarTest extends GazLangTestCase
 {
@@ -18,6 +19,16 @@ class EditorGrammarTest extends GazLangTestCase
         $builtins = explode(' ', trim($this->executeCode('echo join(keys(builtins()), " ");')));
         $this->assertSame([], array_values(array_diff($builtins, $highlighted)), 'builtins the grammar is missing');
         $this->assertSame([], array_values(array_diff($highlighted, $builtins)), 'names the grammar highlights that are not builtins');
+    }
+
+    public function test_the_bytecode_grammar_names_exactly_the_instructions()
+    {
+        // Its catch-all rule lists every instruction, and marks any other uppercase word invalid
+        $grammar = (string) file_get_contents(self::ROOT.'/editors/gzb/gzb.tmLanguage');
+        $this->assertSame(1, preg_match('#<string>\^\\\\s\*\(([A-Z_|]{200,})\)\\\\b</string>#', $grammar, $match), 'the rule naming every instruction');
+        preg_match_all('/\[OP_\w+\] = \{"([A-Z_]+)"/', (string) file_get_contents(self::ROOT.'/vm/load.c'), $info);
+        $this->assertGreaterThan(80, count($info[1]));
+        $this->assertSame($info[1], explode('|', $match[1]));
     }
 
     public function test_it_highlights_every_keyword()

@@ -95,6 +95,12 @@ vendor/bin/pint                     # formatting
 - `lib/`: the standard library in GazLang. `examples/`: sample programs that nothing tests
   (see "Programs are tests or examples"). `tests/programs/`: programs the tests do run.
   `games/`: programs built on the language, each with tests of its own (see "A game is neither").
+- `editors/`: TextMate grammars, `gaz/gaz.tmLanguage` for source and `gzb/gzb.tmLanguage` for
+  bytecode (VS Code, Sublime and most editors read them). `EditorGrammarTest` fails when the
+  first misses a builtin or keyword, or the second doesn't name exactly `INFO`'s instructions in
+  `vm/load.c`, so a new instruction needs a word in the grammar; the bytecode grammar marks what
+  doesn't fit a line's shape as invalid, and accepts all the loader reads (comments,
+  single-quoted strings and hex in a `PUSH`), not only what the compiler writes.
 - `tests/`: PHPUnit, `tests/gaz/` (GazLang programs), `tests/expected/` (what every program
   prints), and the corpora: `lexer_corpus/`, `parser_corpus/`, `codegen_corpus/`, `vm_corpus/`,
   `bytecode_corpus/`, `cli/`, `json/`, `csv/`.
