@@ -66,145 +66,245 @@ pub fn pad_right($value, $width, $pad = " ") {
  * As many placeholders as arguments, a type %d, %f or %x can't take, and a placeholder this
  * doesn't know are errors, raised before anything is formatted.
  */
+const CONVERSIONS = ["s", "d", "f", "x", "%"];
+const DEFAULT_PRECISION = 6;
+const MAX_PRECISION = 18;
+const HEX_DIGITS = "0123456789abcdef";
+
 pub fn sprintf($template, $args) {
+    check_arguments($template, $args);
+    $pieces = split_template($template);
+    check_count($pieces, $args);
+
+    return fill($pieces, $args);
+}
+
+fn check_arguments($template, $args) {
     if (type_of($template) != "string" || type_of($args) != "list") {
         error("sprintf: expects a string and a list, got " .. type_of($template) .. " and " .. type_of($args));
     }
-    // The text between placeholders as strings, the placeholders as maps
+}
+
+// The template in order: its text between placeholders as strings, its placeholders as Placeholders
+fn split_template($template) {
     $pieces = [];
-    $placeholders = 0;
     $at = 0;
     while (true) {
         $percent = index_of($template, "%", $at);
         if ($percent == null) {
             $pieces[] = slice($template, $at);
-            break;
+
+            return $pieces;
         }
         $pieces[] = slice($template, $at, $percent - $at);
-        $spec = placeholder($template, $percent);
-        $at = $percent + len($spec["text"]);
-        if ($spec["conversion"] == "%") {
+        $placeholder = Placeholder::read($template, $percent);
+        $at = $percent + len($placeholder.text);
+        if ($placeholder.is_percent_sign()) {
             $pieces[] = "%";
         } else {
-            $pieces[] = $spec;
-            $placeholders++;
+            $pieces[] = $placeholder;
         }
     }
-    if ($placeholders != len($args)) {
-        error("sprintf: the template takes {$placeholders} arguments, " .. len($args) .. " given");
-    }
+}
 
+fn check_count($pieces, $args) {
+    $wanted = len(filter($pieces, is_placeholder));
+    if ($wanted != len($args)) {
+        error("sprintf: the template takes {$wanted} arguments, " .. len($args) .. " given");
+    }
+}
+
+fn is_placeholder($piece) {
+    return type_of($piece) == "object";
+}
+
+fn fill($pieces, $args) {
     $out = "";
     $next = 0;
     foreach ($pieces as $piece) {
-        if (type_of($piece) == "string") {
+        if (!is_placeholder($piece)) {
             $out ..= $piece;
-        } else {
-            $out ..= convert($piece, $args[$next], $next + 1);
-            $next++;
+            continue;
         }
+        $out ..= $piece.format($args[$next], $next + 1);
+        $next++;
     }
+
     return $out;
 }
 
-// The placeholder at $at, the % there, as {"text", "left", "zeros", "width", "precision", "conversion"}
-fn placeholder($template, $at) {
-    $i = $at + 1;
-    $left = false;
-    $zeros = false;
-    while ($i < len($template) && ($template[$i] == "-" || $template[$i] == "0")) {
-        if ($template[$i] == "-") { $left = true; } else { $zeros = true; }
-        $i++;
+// One % placeholder: its flags, width, precision and conversion, and how it formats a value
+kind Placeholder {
+    fn _(pub #text, #left, #zeros, #width, #precision, #conversion) {}
+
+    // The placeholder whose % is at $start, checked
+    pub static fn read($template, $start) {
+        $at = $start + 1;
+        $left = false;
+        $zeros = false;
+        while ($at < len($template) && is_flag($template[$at])) {
+            if ($template[$at] == "-") {
+                $left = true;
+            } else {
+                $zeros = true;
+            }
+            $at++;
+        }
+
+        $width = digits($template, $at);
+        $at += len($width);
+
+        $precision = null;
+        if ($at < len($template) && $template[$at] == ".") {
+            $precision = digits($template, $at + 1);
+            $at += 1 + len($precision);
+            if ($precision == "") {
+                refuse($template, $start, $at, "a precision needs its digits");
+            }
+        }
+        if ($at >= len($template)) {
+            refuse($template, $start, $at, "the template ends in the middle of a placeholder");
+        }
+
+        $conversion = $template[$at];
+        $end = $at + 1;
+        $text = slice($template, $start, $end - $start);
+        check_shape($template, $start, $end, $text, $conversion, $precision, $zeros);
+
+        return Placeholder($text, $left, $zeros, number_or($width, 0), number_or($precision, DEFAULT_PRECISION), $conversion);
     }
-    $width = digits($template, $i);
-    $i += len($width);
-    $precision = null;
-    if ($i < len($template) && $template[$i] == ".") {
-        $precision = digits($template, $i + 1);
-        $i += 1 + len($precision);
-        if ($precision == "") {
-            bad($template, $at, $i, "a precision needs its digits");
+
+    pub fn is_percent_sign() {
+        return #conversion == "%";
+    }
+
+    // $value, argument number $position, as this placeholder shows it
+    pub fn format($value, $position) {
+        #check_value($value, $position);
+
+        return #pad(#convert($value));
+    }
+
+    fn check_value($value, $position) {
+        $type = type_of($value);
+        if (!#accepts($type)) {
+            error("sprintf: {#text} expects " .. #expected() .. ", got {$type} (argument {$position})");
+        }
+        if (#conversion == "x" && $value < 0) {
+            error("sprintf: {#text} expects an int of 0 or more, got {$value} (argument {$position})");
+        }
+        // ponytail: format::number() scales to an int, which caps %f at 9.2E+18 over 10^precision
+        if (#conversion == "f" && abs($value) >= 9.2e18 / 10.0 ** #precision) {
+            error("sprintf: {#text} can't show {$value} (argument {$position}): with its decimals it must fit in an int");
         }
     }
-    if ($i >= len($template)) {
-        bad($template, $at, $i, "the template ends in the middle of a placeholder");
+
+    fn accepts($type) {
+        return match (#conversion) {
+            "d", "x" => $type == "int",
+            "f" => $type == "int" || $type == "float",
+            default => true,
+        };
     }
-    $conversion = $template[$i];
-    $text = slice($template, $at, $i + 1 - $at);
-    if (!in_array($conversion, ["s", "d", "f", "x", "%"])) {
-        bad($template, $at, $i + 1, "there is no %{$conversion}");
+
+    fn expected() {
+        if (#conversion == "f") {
+            return "an int or float";
+        }
+
+        return "an int";
+    }
+
+    fn convert($value) {
+        return match (#conversion) {
+            "s", "d" => to_string($value),
+            "f" => number($value, #precision, ""),
+            default => hex($value),
+        };
+    }
+
+    // $text widened to the width: spaces on the left, on the right with -, or zeros after the sign with 0
+    fn pad($text) {
+        $missing = #width - len($text);
+        if ($missing <= 0) {
+            return $text;
+        }
+        if (#left) {
+            return $text .. repeat(" ", $missing);
+        }
+        if (#zeros) {
+            return zero_pad($text, $missing);
+        }
+
+        return repeat(" ", $missing) .. $text;
+    }
+}
+
+// What a placeholder can't be, in the order the errors are checked
+fn check_shape($template, $start, $end, $text, $conversion, $precision, $zeros) {
+    if (!in_array($conversion, CONVERSIONS)) {
+        refuse($template, $start, $end, "there is no %{$conversion}");
     }
     if ($conversion == "%" && $text != "%%") {
-        bad($template, $at, $i + 1, "%% takes no flags, width or precision");
+        refuse($template, $start, $end, "%% takes no flags, width or precision");
     }
     if ($precision != null && $conversion != "f") {
-        bad($template, $at, $i + 1, "only %f takes a precision");
+        refuse($template, $start, $end, "only %f takes a precision");
     }
-    if ($precision != null && to_int($precision) > 18) {
-        bad($template, $at, $i + 1, "a precision is at most 18");
+    if ($precision != null && to_int($precision) > MAX_PRECISION) {
+        refuse($template, $start, $end, "a precision is at most " .. MAX_PRECISION);
     }
     if ($zeros && $conversion == "s") {
-        bad($template, $at, $i + 1, "only a number is padded with zeros");
+        refuse($template, $start, $end, "only a number is padded with zeros");
     }
-    return {
-        "text" => $text, "left" => $left, "zeros" => $zeros, "conversion" => $conversion,
-        "width" => $width == "" ? 0 : to_int($width), "precision" => $precision == null ? 6 : to_int($precision),
-    };
 }
 
-// The digits at $i, as a string, "" when there are none
-fn digits($s, $i) {
-    $from = $i;
-    while ($i < len($s) && $s[$i] >= "0" && $s[$i] <= "9") {
-        $i++;
-    }
-    return slice($s, $from, $i - $from);
+fn is_flag($c) {
+    return $c == "-" || $c == "0";
 }
 
-fn bad($template, $from, $to, $why) {
-    error("sprintf: " .. slice(to_string([slice($template, $from, $to - $from)]), 1, -1) .. ": " .. $why);
+// The digits at $at, as a string, "" when there are none
+fn digits($s, $at) {
+    $from = $at;
+    while ($at < len($s) && $s[$at] >= "0" && $s[$at] <= "9") {
+        $at++;
+    }
+
+    return slice($s, $from, $at - $from);
 }
 
-// One argument as its placeholder says, padded to its width
-fn convert($spec, $value, $n) {
-    $conversion = $spec["conversion"];
-    $type = type_of($value);
-    if (($conversion == "d" || $conversion == "x") && $type != "int" || $conversion == "f" && $type != "int" && $type != "float") {
-        error("sprintf: {$spec["text"]} expects " .. ($conversion == "f" ? "an int or float" : "an int") .. ", got {$type} (argument {$n})");
+// Digits as an int, or $default when there are none
+fn number_or($digits, $default) {
+    if ($digits == null || $digits == "") {
+        return $default;
     }
-    if ($conversion == "x" && $value < 0) {
-        error("sprintf: {$spec["text"]} expects an int of 0 or more, got {$value} (argument {$n})");
+
+    return to_int($digits);
+}
+
+// The placeholder from $from to $to, quoted, and why it can't be
+fn refuse($template, $from, $to, $why) {
+    $placeholder = slice($template, $from, $to - $from);
+    error("sprintf: " .. slice(to_string([$placeholder]), 1, -1) .. ": " .. $why);
+}
+
+// Zeros between a number's sign and its digits
+fn zero_pad($text, $missing) {
+    $sign = "";
+    if (starts_with($text, "-")) {
+        $sign = "-";
     }
-    // ponytail: format::number() scales to an int, which caps %f at 9.2E+18 over 10^precision
-    if ($conversion == "f" && abs($value) >= 9.2e18 / 10.0 ** $spec["precision"]) {
-        error("sprintf: {$spec["text"]} can't show {$value} (argument {$n}): with its decimals it must fit in an int");
-    }
-    $text = match ($conversion) {
-        "s" => to_string($value),
-        "d" => to_string($value),
-        "f" => number($value, $spec["precision"], ""),
-        default => hex($value),
-    };
-    $missing = $spec["width"] - len($text);
-    if ($missing <= 0) {
-        return $text;
-    }
-    if ($spec["left"]) {
-        return $text .. repeat(" ", $missing);
-    }
-    if ($spec["zeros"]) {
-        $sign = starts_with($text, "-") ? "-" : "";
-        return $sign .. repeat("0", $missing) .. slice($text, len($sign));
-    }
-    return repeat(" ", $missing) .. $text;
+
+    return $sign .. repeat("0", $missing) .. slice($text, len($sign));
 }
 
 // A non-negative int in lowercase hex
 fn hex($n) {
     $text = "";
     while ($n >= 16) {
-        $text = "0123456789abcdef"[$n % 16] .. $text;
+        $text = HEX_DIGITS[$n % 16] .. $text;
         $n = intdiv($n, 16);
     }
-    return "0123456789abcdef"[$n] .. $text;
+
+    return HEX_DIGITS[$n] .. $text;
 }

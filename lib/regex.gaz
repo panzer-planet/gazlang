@@ -311,9 +311,13 @@ kind Matcher {
             $slots[$instr["slot"]] = $sp;
             #add($pc + 1, $sp, $slots);
         } else if ($op == "bol") {
-            if ($sp == 0) { #add($pc + 1, $sp, $slots); }
+            if ($sp == 0) {
+                #add($pc + 1, $sp, $slots);
+            }
         } else if ($op == "eol") {
-            if ($sp == #len_s) { #add($pc + 1, $sp, $slots); }
+            if ($sp == #len_s) {
+                #add($pc + 1, $sp, $slots);
+            }
         } else {
             #list[] = [$pc, $slots];
         }
@@ -322,7 +326,9 @@ kind Matcher {
     // A thread starting at $sp, at the lowest priority
     fn start($sp) {
         $slots = [$sp];
-        for ($i = 1; $i < #slots; $i += 1) { $slots[] = null; }
+        for ($i = 1; $i < #slots; $i += 1) {
+            $slots[] = null;
+        }
         #add(0, $sp, $slots);
     }
 
@@ -334,23 +340,39 @@ kind Matcher {
         $matched = null;
         $sp = $start;
         while (true) {
-            $byte = $sp < #len_s ? ord($s[$sp]) : null;
+            $at_end = $sp >= #len_s;
+            $byte = null;
+            if (!$at_end) {
+                $byte = ord($s[$sp]);
+            }
             $threads = #list;
             #list = [];
             #mark = blanks(len(#prog));
             foreach ($threads as [$pc, $slots]) {
                 $instr = #prog[$pc];
                 if ($instr["op"] == "match") {
-                    if ($full && $sp != #len_s) { continue; }
+                    if ($full && !$at_end) {
+                        continue;
+                    }
+                    // The best match ending here: the threads after it have lower priority
                     $slots[1] = $sp;
                     $matched = $slots;
                     break;
                 }
-                if ($byte != null && consumes($instr, $byte)) { #add($pc + 1, $sp + 1, $slots); }
+                if (!$at_end && consumes($instr, $byte)) {
+                    #add($pc + 1, $sp + 1, $slots);
+                }
             }
-            if ($sp >= #len_s) { break; }
-            if ($matched == null && $unanchored) { #start($sp + 1); }
-            if (len(#list) == 0 && ($matched != null || !$unanchored)) { break; }
+            if ($at_end) {
+                break;
+            }
+            if ($matched == null && $unanchored) {
+                #start($sp + 1);
+            }
+            $nothing_left = len(#list) == 0;
+            if ($nothing_left && ($matched != null || !$unanchored)) {
+                break;
+            }
             $sp += 1;
         }
         return $matched;
@@ -384,10 +406,20 @@ pub fn groups($s, $pattern) {
         return null;
     }
     $taken = [];
-    for ($i = 0; $i < len($slots); $i += 2) {
-        $taken[] = $slots[$i] == null || $slots[$i + 1] == null ? null : slice($s, $slots[$i], $slots[$i + 1] - $slots[$i]);
+    for ($group = 0; $group * 2 < len($slots); $group++) {
+        $taken[] = captured($s, $slots, $group);
     }
     return $taken;
+}
+
+// What group $group took, from its slots, or null when it took no part
+fn captured($s, $slots, $group) {
+    $from = $slots[2 * $group];
+    $to = $slots[2 * $group + 1];
+    if ($from == null || $to == null) {
+        return null;
+    }
+    return slice($s, $from, $to - $from);
 }
 
 /*
@@ -412,5 +444,9 @@ pub fn replace($s, $pattern, $with) {
         }
         $at = $to;
     }
-    return $at > len($s) ? $out : $out .. slice($s, $at);
+    // An empty match at the very end steps past it, with nothing left to copy
+    if ($at > len($s)) {
+        return $out;
+    }
+    return $out .. slice($s, $at);
 }
