@@ -242,6 +242,43 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   rename (see "The CLI"), and the release workflow (see "Releases"). What else it had planned
   (tutorials, a VS Code extension) was dropped; cookies, static files and uploads wait for the
   apps written on it to ask.
+- **The roadmap after 0.1**, from ten proposals and a critique of them (build in this order):
+  1. **Optional types**, checked at run time (in progress): PHP's syntax (`int $n`, `): int`,
+     `pub int #x`), `?T` and unions, `: null` for no result, no coercion but int to float, and no
+     generics until they can be a static check only.
+  2. **`gaz --watch app.gaz`**: a supervisor that runs the program as a child, polls the times of
+     its `.gaz`/`.gazml` files, and on a change stops it gracefully (SIGTERM) and runs it again,
+     printing a compile error and waiting when the edit doesn't compile. Not a rolling restart of
+     workers: they are forks of a master holding the old code.
+  3. **A pipe, `|>`**, parser only, Elixir's rule: `$x |> f(a)` is `f($x, a)` and `$x |> $f` is
+     `$f($x)`, since the builtins take their subject first (`$title |> trim |> lower |> replace(" ",
+     "-")`). Not PHP's `f(...)` form, which collides with `...`. A lambda in a pipe is parenthesised.
+  4. **`gaz test`** running `*_test.gaz`, with `std/test.gaz` (`test::expect`, `test::snapshot`
+     recorded next to the test, `--update`), and an exit status; no new syntax or reserved word. A
+     user of gaz shouldn't need PHP to test gaz code.
+  5. **Cryptography, then cookies and signed sessions**: secure random bytes, SHA-256/HMAC and
+     password hashing (through OpenSSL, with a fallback or a clear refusal in `TLS=0` builds), then
+     cookies and signed sessions in `std/http`. Without them a web app can't have logins, sessions
+     or CSRF tokens at all.
+  6. **Tagged literals as ordinary functions**: `name"text {$v}"` is `name(["text ", ""], [$v])`,
+     resolved like any name, as JavaScript's tags and Python's t-strings are. Then `db::sql"..."`,
+     rendered to each driver's own placeholders (`?`, `$n`), with nested fragments and lists for
+     `in (...)`; then `Db.query`/`exec`/`row`/`value` refuse a plain string, with `db::raw()` the
+     visible way round, so SQL injection is impossible by construction; then `html"..."`.
+  7. **Rest patterns** in destructuring, `[$first, ...$rest] = $list`, when JSON handling asks.
+  - **On demand**: dumping the raw bytes of a request that got a 500, to replay it (the small
+    version of record and replay); `parallel($thunks, $max)` over forked processes, giving plain
+    data only and refusing handles a child inherited (a SQLite or PostgreSQL connection must not be
+    used across a fork; check what libpq does first); `std/money`, amounts as integer cents; shape
+    patterns in `match`, only with a syntax that can't be read as today's `==` arms (a map there
+    already means "equals this map").
+  - **Not building**: taint mode (a mark on strings leaks, since one-byte strings are shared and
+    `url_decode()` rebuilds text with `chr()`; Ruby removed taint as useless; tagged literals
+    prevent the bug instead), contracts (types and a guard line cover them, and `ensures` is costly),
+    `sh"..."` (`run()` already takes an argv list, which is safe), native decimals and full record
+    and replay (for now).
+  - **A trap to close**: `Html .. "text"` quietly gives a plain string, which `{{ }}` then escapes;
+    concatenating an `Html` should be an error.
 - **Releases**: `VERSION` holds the version (`0.1.0`), which the Makefile compiles in and
   `gaz --version` prints. Pushing a tag `vX.Y.Z` matching it runs `.github/workflows/release.yml`,
   which builds and tries gaz on Linux (the latest Ubuntu, x86_64) and macOS (Apple silicon and
