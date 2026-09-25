@@ -445,8 +445,9 @@ echo Account::made;
   `$r` equal to `2.0`), in a parameter, a return and a field alike. `"5"` where `int` is asked
   is an error, `2.0` where `int` is asked is an error, `true` where `int` is asked is an error.
 - **Where**: a parameter when the function starts, after its defaults have run, so a default
-  that doesn't fit is an error too; the return on every `return`, the implicit `null` at the
-  end of a function included (a bare `return;` in a function whose type excludes null is a
+  that doesn't fit is an error too; the return on every `return` (once the function's own
+  `finally` blocks have run, so a `catch` inside it can't catch the error: its caller gets it),
+  the implicit `null` at the end of a function included (a bare `return;` in a function whose type excludes null is a
   syntax error); a field on every write that changes its value, from inside the kind or out,
   `=`, `+=`, `++`, `..=` and `??=` alike, its default when the object is made, and a promoted
   parameter. A write inside a field's value (`$o.items[] = 1`) changes nothing the type says.

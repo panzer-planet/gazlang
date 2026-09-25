@@ -1214,7 +1214,8 @@ $double = (int $x) -> $x * 2;
   untyped code compiles exactly as it did and pays nothing (the benchmarks are unchanged). A
   typed parameter or return is an instruction in the function (`CHECK_PARAM` after the
   defaults have run, `CHECK_RETURN` before every `RET`, the implicit `null` at the end
-  included), a typed field or static field a word on its record in the bytecode, checked in
+  included, and after the function's own try blocks are left, their finally blocks run, so its
+  own catch can't swallow the error meant for its caller), a typed field or static field a word on its record in the bytecode, checked in
   the two places a field write goes through (`SET_FIELD` and `write_path()` in `ops.c`) and in
   `STORE_STATIC`. Records rather than instructions for fields, since a field is written by many
   instructions and from outside its kind; instructions rather than records for parameters and
