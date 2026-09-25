@@ -231,6 +231,25 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
 
 ## Status and what is next
 
+- **The goal**: GazLang is the PHP Werner always wanted, for **web servers and CLI tools**, and
+  the project succeeds when **one person besides him chooses to use it**. So work is ranked by
+  what makes real web apps and CLI tools pleasant, then by what one stranger needs to find it,
+  install it, get a first program working and trust it; not by what would win many users
+  (Windows, a registry, an LSP and a playground wait for someone to ask).
+- **Milestone 0.1, the first release**, is what that stranger needs, in this order:
+  1. **Web essentials**: request decoding (percent-escapes, query strings, form bodies), the
+     router ("Serving HTTP" has its design), and templates that escape by default, which want
+     their own design round first (syntax, how one includes another, whether they compile to
+     GazLang functions). Then cookies, static files and uploads as the apps written on it ask.
+  2. **CLI essentials**: argument parsing (flags, options with values, subcommands, a generated
+     `--help`).
+  3. **The `gaz` rename** with `gaz main.gaz` and `-` for standard input (decided, see
+     "Packages"), and `#!/usr/bin/env gaz` scripts.
+  4. **A release**: a version number `--version` means, a changelog, prebuilt binaries for macOS
+     and Linux, and a Homebrew tap; with it, some promise about what may change between
+     releases.
+  5. **Two tutorials** ("a JSON API in fifteen minutes", "a CLI tool in ten"), a README that
+     opens with the niche, and the source grammar published as a VS Code extension.
 - **CI** (`.github/workflows/ci.yml`) runs on Ubuntu and on macOS, Apple silicon and Intel,
   for every push: it builds gazlang without TLS (the bootstrap needs only a C compiler), then
   with it, and rebuilds its compiler before PHP is even installed, then the suite; phpstan and
