@@ -1196,6 +1196,73 @@ kind Token {
   alike, converting what is appended as `..` does, so building a string with it is linear
   rather than a copy per append.
 
+## Types
+
+```
+kind Account {
+    pub float #balance = 0;                   // a field's type before the #
+    static int #made = 0;
+    fn _(pub string #owner, int|float $start = 0) { #balance = $start; }
+    pub fn deposit(int|float $amount): float { #balance += $amount; return #balance; }
+    pub fn close(): null { }                  // returns nothing: null is the value's type
+}
+fn total(int $n, ?string $label = null): int { return $n * 2; }
+$double = (int $x) -> $x * 2;
+```
+
+- **Optional, and checked at run time**: leaving a type out means anything, as before, so
+  untyped code compiles exactly as it did and pays nothing (the benchmarks are unchanged). A
+  typed parameter or return is an instruction in the function (`CHECK_PARAM` after the
+  defaults have run, `CHECK_RETURN` before every `RET`, the implicit `null` at the end
+  included), a typed field or static field a word on its record in the bytecode, checked in
+  the two places a field write goes through (`SET_FIELD` and `write_path()` in `ops.c`) and in
+  `STORE_STATIC`. Records rather than instructions for fields, since a field is written by many
+  instructions and from outside its kind; instructions rather than records for parameters and
+  returns, since `CALL` and `RET` are the hot path and a record would put a test on every call.
+- **PHP's syntax**: the type before what it types, the return after the `)`, `?T` for `T|null`,
+  `A|B` for a union. Fields, static fields, promoted constructor parameters (`fn _(pub string
+  #owner)`, the field's type too) and lambda parameters take one. Not a constructor's return
+  (constructing gives the object) and not a lambda's: after `(...)` a `:` is a ternary's else
+  (`$c ? ($a) : $b`), and telling the two apart would take lookahead past the type. Not a list
+  pattern parameter: it is already a list, and its variables are assigned by taking it apart.
+  A lambda's typed parameters are read as an expression first (`int|null` is two bare names
+  and a `|`) and taken for a type when a `$parameter` follows, which no expression can be
+  followed by (`lambda_item()` in `parser.gaz`); a type before a pattern parses as an index
+  and gives the `]` error, which is the price of no lookahead.
+- **The names are `type_of()`'s and the kinds'**, resolved through namespaces like any name
+  (`TypeAST`, resolved in `resolve_names()`, checked to be kinds in `check_types()`). A kind
+  can't be named after a builtin type, so `int` in a type always means the type. `kind`,
+  `function` and `null` are keywords, so `type_name()` takes those tokens too. No `mixed`: leave
+  the type out. **No generics yet**: `list<int>` is refused with a message, since checking an
+  element type at run time would walk the list on every call; generics come later as a static
+  check only.
+- **Strict, never converting, with one exception: an int where `float` is asked arrives as a
+  float** (`type_admits()` in `ops.c` widens it in the slot, the stack or the field), in a
+  parameter, a return and a field alike, because every int is a float and a program that
+  computes an area shouldn't have to write `2.0`. Nothing else converts: `"5"` is not an int and
+  `2.0` is not an int, which is the language's rule everywhere else (`==`, `+`), and a type that
+  converted would be one more place a string quietly became a number.
+- **`: null`, not `void`**, for a function that returns nothing: a call that returns nothing gives
+  `null`, so the type is the value's type, with no rule of its own. A bare `return;` in a
+  function whose return type excludes null is a parse error, since it could never pass.
+- **Errors are catchable runtime errors** located at the check, the trace showing the caller:
+  `total() expects $n to be int, got string`, `Account.deposit() expects ...`, `Account()
+  expects ...` for a constructor (named as the call that makes the object), `-> at f.gaz:3
+  expects ...` for a lambda (as traces name one), `total() should return int, got string`,
+  `Account #balance must be float, got string`, `Account::made must be int, got string`. An
+  object is named by its kind (`got Circle`), since `object` would leave out what the check
+  was about (`describe_type()`).
+- **An override keeps the parent's types** where the parent declares them (the same type on
+  each such parameter and on the return, `check_override_types()`), the restrictive choice:
+  loosening it to covariance later breaks nothing. Where the parent says nothing the child may
+  say what it likes, so a typed kind can extend an untyped one. Constructors are exempt, as
+  they are from the argument-count rule.
+- **The tree dump shows types only where they are**: `param_types`, `return_type`,
+  `field_types` and `static_types` are fields set only when a declaration has a type, since
+  `fields()` leaves out what was never set, so an untyped program's `--ast` is what it was.
+- Templates get types for free: `@template page(User $user): Html` is copied into the `fn`
+  the template becomes.
+
 ## Errors and try/catch
 
 ```
