@@ -151,7 +151,7 @@ By precedence, loosest first:
 
 | Level | Operators |
 | --- | --- |
-| assignment | `=` `+=` `-=` `*=` `/=` `%=` `..=` `??=` `&=` `\|=` `^=` `<<=` `>>=` (right associative) |
+| assignment | `=` `+=` `-=` `*=` `/=` `%=` `**=` `..=` `??=` `&=` `\|=` `^=` `<<=` `>>=` (right associative) |
 | ternary | `$c ? $a : $b` (right associative) |
 | coalesce | `??` |
 | logical | `\|\|` then `&&` |
@@ -163,10 +163,20 @@ By precedence, loosest first:
 | additive | `+` `-` |
 | multiplicative | `*` `/` `%` |
 | unary | `-` `!` `~` `++` `--` |
+| power | `**` (right associative) |
 | postfix | `[index]` `(args)` `.name` `?.name` `::name` |
 
 - `+ - * /` are numbers only. `/` **always** gives a float (`6 / 2` is `3.0`); `intdiv()`
   divides ints. `%` is ints only, and its sign follows the left operand.
+- `**` raises to a power, by multiplying (square-and-multiply), never a library's `pow`, so every
+  platform gives the same bits. An int to an int of 0 or more is an exact int, and `Integer
+  overflow` when it doesn't fit, never a float. Otherwise the result is a float: a negative
+  exponent is one divided by the power (`2 ** -1` is `0.5`), and a float on either side works if
+  the exponent is a whole number (`2 ** 3.0` is `8.0`); `4 ** 0.5` is an error, since a fractional
+  power needs a defined algorithm GazLang doesn't have yet (`sqrt()` is the square root). It
+  binds tighter than a unary operator on its left and looser than one on its right, and is right
+  associative, as in Python: `-2 ** 2` is `-4`, `2 ** -1` needs no parentheses, `2 ** 3 ** 2` is
+  `512`.
 - `==` never converts between types. `"5" == 5` is false, `"1" != "01"`, `1 == 1.0` is true.
   There is no `===`. Ordering a string against a number is an error.
 - `<=>` gives -1, 0 or 1, for comparison functions.
@@ -433,7 +443,7 @@ prefix.
 **Numbers** — `to_int($x, $default)`, `to_float($x, $default)` (without a default, a string
 that isn't a number is an error; with one, it gives the default: `to_int($arg, null) ?? 1`; a
 null, list or map is an error either way), `to_string`, `floor`, `ceil`, `round($x, $precision)`,
-`abs`, `intdiv`, `min($a, $b)`, `max($a, $b)`, and `min($list)`, `max($list)` and `sum($list)`
+`abs`, `intdiv`, `sqrt` (a float; a negative number is an error), `min($a, $b)`, `max($a, $b)`, and `min($list)`, `max($list)` and `sum($list)`
 over a list's or map's values (`sum([])` is 0; `min` and `max` of nothing is an error; `sum`
 adds with `+`, so an int overflowing or a string in the list is `+`'s error).
 

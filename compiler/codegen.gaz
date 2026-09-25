@@ -12,7 +12,7 @@ kind CodeGenerator {
     // Opcode emitted for each binary operator token (&& and || are jumps, see logical_op)
     const BINARY_OPCODES = {
         "PLUS" => "ADD", "CONCAT" => "CONCAT", "MINUS" => "SUB", "MULTIPLY" => "MUL", "DIVIDE" => "DIV",
-        "MODULO" => "MOD", "BIT_AND" => "BIT_AND", "BIT_OR" => "BIT_OR", "BIT_XOR" => "BIT_XOR",
+        "MODULO" => "MOD", "POWER" => "POW", "BIT_AND" => "BIT_AND", "BIT_OR" => "BIT_OR", "BIT_XOR" => "BIT_XOR",
         "SHIFT_LEFT" => "SHL", "SHIFT_RIGHT" => "SHR", "EQUALS" => "EQUALS", "NOT_EQUALS" => "NOT_EQUALS",
         "LESS_THAN" => "LT", "LESS_EQUALS" => "LE", "SPACESHIP" => "CMP", "GREATER_THAN" => "GT",
         "GREATER_EQUALS" => "GE",

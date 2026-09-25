@@ -1,0 +1,41 @@
+1024
+4611686018427387904
+-9223372036854775808
+-27
+1
+1.0
+7
+1
+-1
+0.5
+0.01
+8.0
+2.25
+0.0010000000000000002
+0.0
+512
+-4
+9
+{"n" => 0.25}
+1.4142135623730951
+4.0
+0.5
+-0.0
+Integer overflow
+Integer overflow
+Integer overflow
+Integer overflow
+Division by zero
+Division by zero
+Float overflow
+Float overflow
+Exponent must be a whole number, got 0.5
+Exponent must be a whole number, got -1.5
+Exponent is too large, got 1.0E+300
+Cannot use ** on string
+Cannot use ** on bool
+Cannot use ** on null
+Cannot use ** on list
+sqrt() expects a number that is not negative, got -1
+sqrt() expects a number that is not negative, got -0.5
+sqrt() expects int or float, got string

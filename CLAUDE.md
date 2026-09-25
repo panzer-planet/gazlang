@@ -425,7 +425,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     function. A bound static would be the same value by another spelling, so it waits for a
     program that wants it.
 - **Not planned** until real code asks: traits, late static binding, operator
-  overloading, `**` and `sqrt`/`pow`/`log`, variadic parameters and spread in calls (pass a
+  overloading, `log`/`exp`/fractional powers (each needs an algorithm GazLang writes out, as
+  `round` has), variadic parameters and spread in calls (pass a
   list), `foreach` over a string (`split($s, "")`), a REPL.
 - **Regular expressions**: `lib/regex.gaz` (`regex::matches`, `regex::search`,
   `regex::find`), a Thompson NFA (Pike's VM) so there is no backtracking and no ReDoS.
@@ -443,11 +444,13 @@ version.
 
 - **Precedence**, loosest first: assignment (right associative) → `?:` (right) → `??` (right)
   → `||` → `&&` → equality (`==` `!=` `<=>`) → relational → `..` → `|` → `^` → `&` → shifts →
-  `+ -` → `* / %` → unary → postfix (`[index]`, `(args)`, `.name`, `?.name`, `::name`) → primary. Bitwise precedence
+  `+ -` → `* / %` → unary → `**` (right) → postfix (`[index]`, `(args)`, `.name`, `?.name`, `::name`) → primary. Bitwise precedence
   is Rust's and Python's, not C's, so `$flags & MASK == 0` is `($flags & MASK) == 0`. `..` sits
   looser than the bitwise operators and tighter than comparison, so `"x = " .. $f & MASK` and
   `$f & MASK .. "!"` both do the obvious thing (between the bitwise levels, every unparenthesised
   mix would be an error); shifts stay tighter than `..`, unlike Lua, so `"n = " .. $x << 2` works.
+  `**` is Python's: tighter than a unary on its left, looser than one on its right (`power()` in
+  `parser.gaz` reads a postfix, then `**` and a unary), so `-2 ** 2` is -4 and `2 ** -1` parses.
 - **A real bool**: comparisons, `!`, `&&` and `||` give `true`/`false`, `&&`/`||` short-circuit. A
   bool is not a number: `true == 1` is false and `true + 1` is `Cannot use + on bool`;
   `to_int(true)` is 1. Truthiness (`is_truthy()` in `value.c`) is the one place a non-bool is read
@@ -493,6 +496,14 @@ version.
 - **Nothing overflows silently**: an int that doesn't fit is `Integer overflow` (PHP would
   switch to a float), an infinite float literal is a lexer error, an infinite result is `Float
   overflow`. Division by zero is an error.
+- **`**` is square-and-multiply** (`power()` in `ops.c`), never libm's `pow`, whose rounding
+  differs between platforms and would break recordings: int to a non-negative int is an exact
+  int or `Integer overflow` (squaring the base overflows only when the result would), anything
+  else a float multiplied step by step, a negative exponent one divided by the power (so a power
+  too small to hold is 0.0, 0 to one is `Division by zero`). Only a whole exponent (a whole float
+  too, within the int range): `log`, `exp` and fractional powers stay open until GazLang defines
+  an algorithm for them, since libm's differ in the last bit. `sqrt` is libm's, as IEEE 754
+  requires a square root to be correctly rounded.
 - Int with int gives an int, a float on either side a float, a bool on either side an error.
   **`/` always gives a float** (`6 / 2` is `3.0`, as in Python 3 and Lua 5.3), converting ints
   first, so it loses precision above 2^53; `intdiv()` truncates.
@@ -505,7 +516,7 @@ version.
 - `round($x, $precision = 0)` is PHP's (halves away from zero, with its pre-rounding, so
   `round(1.005, 2)` is `1.01`; negative precision rounds to tens), written out step by step in
   `php_round()` in `builtins.c`, since PHP's own changed between 8.5 releases. `floor`, `ceil`,
-  `round` give floats; `abs` keeps the type; `min`/`max` take two numbers or two strings, or a
+  `round` and `sqrt` give floats (`sqrt` of a negative number is an error); `abs` keeps the type; `min`/`max` take two numbers or two strings, or a
   list or map whose values are all numbers or all strings (empty is an error), a tie giving the
   first. `sum` adds a list's or map's values from 0 with `+` (`binary_op(OP_ADD)`), so its
   errors, overflow and int-or-float are `+`'s and `sum([])` is 0. `to_int` truncates a float and

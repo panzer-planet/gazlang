@@ -32,6 +32,7 @@ snippet:043956983f42
 snippet:0482d24a30b9
 snippet:04e429fa0d84
 snippet:051d3d879f81
+snippet:0539d45e5eaf
 snippet:05beed9b3b2b
 snippet:05d1255eb07a
 snippet:07841350706c
@@ -41,6 +42,7 @@ snippet:08e5e57badd5
 snippet:0914d2523158
 snippet:09d9dcc6755e
 snippet:0a24709d30c4
+snippet:0a4084358f7a
 snippet:0a8c7860c624
 snippet:0ac2e9884a97
 snippet:0ae1c3a82191
@@ -109,6 +111,7 @@ snippet:2535bd087f56
 snippet:25412f3665f0
 snippet:2610f0765b1b
 snippet:26311cfc4553
+snippet:26d0af20c3d2
 snippet:2726ceb8ca22
 snippet:2767826890c5
 snippet:277af01b25c2
@@ -116,6 +119,7 @@ snippet:27dcf3b74eae
 snippet:27e2fe2d3418
 snippet:286deb204531
 snippet:28b3b403a74d
+snippet:2967f6c9e4e4
 snippet:2995a20dadcd
 snippet:299c0aab1fdc
 snippet:29aab7bb789f
@@ -135,10 +139,12 @@ snippet:2eaccdf405ed
 snippet:2eccb64d9731
 snippet:2f145981c68d
 snippet:2fa76f292980
+snippet:2fd6b4fd1255
 snippet:301702b89fc5
 snippet:301fbb24927a
 snippet:30801682fb27
 snippet:30b3340cd5e4
+snippet:30bf95286a30
 snippet:31d304ac3e52
 snippet:32a34dbd9497
 snippet:331d2c507656
@@ -206,6 +212,7 @@ snippet:4a5aa7c341c9
 snippet:4b3538f58b5d
 snippet:4b8294d1c1dc
 snippet:4ba929f084c7
+snippet:4c157ff7785f
 snippet:4ceceb3c7c4d
 snippet:4d4a08643174
 snippet:4d5a0f62da17
@@ -238,6 +245,7 @@ snippet:558d4b13c48a
 snippet:558e3cf661d5
 snippet:55c9841d0954
 snippet:55f2fb1811fe
+snippet:5656a4dbf4dc
 snippet:569349dde78e
 snippet:5757521ef7c5
 snippet:57f0fd9f4e4f
@@ -275,6 +283,7 @@ snippet:63e01554a45d
 snippet:6420298bc022
 snippet:642c13dbd738
 snippet:64864412c149
+snippet:6503394100a6
 snippet:65a13dc4914c
 snippet:66065d70a243
 snippet:66634118b87a
@@ -300,6 +309,7 @@ snippet:6edab633efbc
 snippet:6f9c7fadac2a
 snippet:6fed8dd34428
 snippet:703635f2744a
+snippet:7112b4104487
 snippet:713562c9df04
 snippet:71725a397fa3
 snippet:71a32e33754e
@@ -316,9 +326,11 @@ snippet:73f5f3189cc4
 snippet:73fcd9a28f1c
 snippet:74407963517f
 snippet:745f58de6b60
+snippet:7523cc847c6c
 snippet:762078ff2c8c
 snippet:766fc69dccf8
 snippet:76d0e1ddc222
+snippet:775f25f64122
 snippet:7855faf786cb
 snippet:786a3d2d7bff
 snippet:78aeb0ce736c
@@ -327,6 +339,7 @@ snippet:7a574ac97841
 snippet:7a7c03a300eb
 snippet:7aaa3f9a3bcb
 snippet:7ae336e4792c
+snippet:7b45f841aa2b
 snippet:7c38d5b66f9f
 snippet:7c5a34d603cc
 snippet:7d11f0e001a4
@@ -349,6 +362,7 @@ snippet:85641d0fd217
 snippet:85b5fa4fa7d1
 snippet:85f6e4b9d265
 snippet:876870a517ab
+snippet:880d7bbcc30f
 snippet:8857a368234c
 snippet:88902417e239
 snippet:88d26b4230d6
@@ -366,6 +380,7 @@ snippet:8d3d73eb8053
 snippet:8d60253ea72c
 snippet:8de815879527
 snippet:8e0e8f845273
+snippet:8ea38e3c92a0
 snippet:8efcf01e31e3
 snippet:8f09a872f91e
 snippet:8f68906911eb
@@ -376,6 +391,7 @@ snippet:91fa57d36c30
 snippet:93174db23cad
 snippet:9345cfade11e
 snippet:93ca29c49cd6
+snippet:94cef872e79a
 snippet:954ab24bd681
 snippet:95b881eddc9e
 snippet:965db313f0fe
@@ -395,6 +411,7 @@ snippet:9a1d2dbc87c3
 snippet:9a5136b6eb91
 snippet:9a8388971788
 snippet:9a882e137aab
+snippet:9ac2eefddb76
 snippet:9b3d05d70fc4
 snippet:9b7705971df9
 snippet:9c650c324437
@@ -403,6 +420,7 @@ snippet:9d36da4c2b3d
 snippet:9d966c41f962
 snippet:9dbda3809842
 snippet:9dcfed7ab0b4
+snippet:9df6f1512250
 snippet:9e2365daad1d
 snippet:9e5497232815
 snippet:9e6bfcc5b77c
@@ -419,10 +437,11 @@ snippet:a646a0229575
 snippet:a6a14e22c230
 snippet:a6d995fcefba
 snippet:a6ff831a3b34
+snippet:a8400ca9ad77
 snippet:a8b365a7820b
 snippet:a90898555afd
-snippet:a90bed539e5c
 snippet:a9e521314827
+snippet:ab095e180d92
 snippet:ab7840b3d987
 snippet:acb35b2507f9
 snippet:ad13f92a1983
@@ -458,6 +477,7 @@ snippet:b9fbb0726c04
 snippet:ba249aa46de8
 snippet:baf1196ea08e
 snippet:bb33aad3d823
+snippet:bb48b1d31859
 snippet:bb4f062e8bc2
 snippet:bb741aaa8e22
 snippet:bbf532002709
@@ -469,12 +489,15 @@ snippet:c1894cf7f59a
 snippet:c19d7b04c68b
 snippet:c1a5c5fa5cfa
 snippet:c1cf1b82e9f2
+snippet:c1ea8a9f1f73
 snippet:c3db4962331c
 snippet:c3ee1b81c3a8
 snippet:c4376f87ee7b
 snippet:c50e2d8b12a7
+snippet:c5b64773ed37
 snippet:c5f750910f93
 snippet:c62a621e1016
+snippet:c699c7e16c04
 snippet:c6d9b989235b
 snippet:c6ee2b1cace8
 snippet:c7732b7a42b4
@@ -490,17 +513,20 @@ snippet:ca9f7a7cb04a
 snippet:cac58fb478df
 snippet:cb599ae99924
 snippet:cbd643572a8c
+snippet:cc1a04ba0d21
 snippet:cc375736490d
 snippet:cc5a8a09da12
 snippet:cc5d97b82892
 snippet:ccd6f9d0b84d
 snippet:ccec7664ef4a
 snippet:cd2c15e448bd
+snippet:cd4d3aaeac9e
 snippet:cd67b37a13b0
 snippet:ce7c121e060f
 snippet:ce82dc643f9d
 snippet:cf3ee2017f55
 snippet:cfbc8018a1de
+snippet:cfc61896bcc5
 snippet:cffa01724dfb
 snippet:d15e05d65afe
 snippet:d1d8047a3193
@@ -513,12 +539,14 @@ snippet:d4e28d3730fb
 snippet:d57d1d0ddf85
 snippet:d6289f94cfc0
 snippet:d63ff0dbbcfb
+snippet:d682c38112d2
 snippet:d7ec3ca57f51
 snippet:d972dea2e191
 snippet:d9d575a04ff8
 snippet:d9f51d9f9da3
 snippet:da0499548580
 snippet:da2bca978646
+snippet:da842cae3e71
 snippet:da86cc892512
 snippet:dac1693065d3
 snippet:dbc17f0a7ed9
@@ -565,7 +593,6 @@ snippet:ee97bd219eff
 snippet:efa1320065a0
 snippet:efcfd450fb56
 snippet:f1172d4ad298
-snippet:f16d6c8cb13a
 snippet:f23fb6d48460
 snippet:f329e365d379
 snippet:f379f0120f3f
@@ -737,6 +764,7 @@ tests/codegen_corpus/map_spread.gaz
 tests/codegen_corpus/namespaces.gaz
 tests/codegen_corpus/nullsafe.gaz
 tests/codegen_corpus/pattern_parameters.gaz
+tests/codegen_corpus/power.gaz
 tests/codegen_corpus/shared.gaz
 tests/codegen_corpus/statements.gaz
 tests/codegen_corpus/statics.gaz
@@ -837,6 +865,7 @@ tests/parser_corpus/nullsafe.gaz
 tests/parser_corpus/override_of_a_private_parent_method.gaz
 tests/parser_corpus/pattern_parameters.gaz
 tests/parser_corpus/postfix.gaz
+tests/parser_corpus/power.gaz
 tests/parser_corpus/precedence.gaz
 tests/parser_corpus/promoted_fields.gaz
 tests/parser_corpus/shared.gaz
@@ -876,6 +905,7 @@ tests/vm_corpus/map_spread.gaz
 tests/vm_corpus/misc.gaz
 tests/vm_corpus/nullsafe.gaz
 tests/vm_corpus/pattern_parameters.gaz
+tests/vm_corpus/power.gaz
 tests/vm_corpus/rounding.gaz
 tests/vm_corpus/superinstructions.gaz
 tests/vm_corpus/to_string_errors.gaz

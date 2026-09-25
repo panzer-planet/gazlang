@@ -55,6 +55,7 @@ static const InstrInfo INFO[OP_COUNT] = {
     [OP_MUL] = {"MUL", 0, {0}, 2, 1},
     [OP_DIV] = {"DIV", 0, {0}, 2, 1},
     [OP_MOD] = {"MOD", 0, {0}, 2, 1},
+    [OP_POW] = {"POW", 0, {0}, 2, 1},
     [OP_BIT_AND] = {"BIT_AND", 0, {0}, 2, 1},
     [OP_BIT_OR] = {"BIT_OR", 0, {0}, 2, 1},
     [OP_BIT_XOR] = {"BIT_XOR", 0, {0}, 2, 1},

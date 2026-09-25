@@ -1,0 +1,50 @@
+GAZLANG BYTECODE 2
+globals
+
+top
+locals $a $l $#update_key0_1
+@ "power.gaz" 1
+PUSH 2
+PUSH 3
+PUSH 2
+POW
+POW
+PRINT
+@ "power.gaz" 2
+LOAD 0
+PUSH 2
+POW
+NEG
+PRINT
+@ "power.gaz" 3
+PUSH 3
+STORE 0
+LOAD 0
+POP
+@ "power.gaz" 4
+LOAD 0
+PUSH 2
+POW
+STORE 0
+LOAD 0
+POP
+@ "power.gaz" 5
+PUSH [2]
+STORE 1
+LOAD 1
+POP
+@ "power.gaz" 6
+PUSH 0
+KEY_CHECK
+STORE 2
+LOAD 2
+LOAD 1
+LOAD 2
+INDEX_GET_EXISTING
+PUSH 3
+POW
+SET_PATH [k] 1
+POP
+@ "power.gaz" 8
+PUSH -8
+PRINT

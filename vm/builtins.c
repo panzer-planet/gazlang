@@ -48,7 +48,7 @@ const BuiltinInfo builtin_info[] = {
     {"term_is_tty", 1, 1}, {"monotonic_time", 0, 0}, {"std_source", 1, 1},
     {"db_open", 1, 1}, {"db_run", 2, 3}, {"db_close", 1, 1},
     {"socket_listen", 2, 3}, {"socket_accept", 1, 2}, {"socket_port", 1, 1}, {"workers", 1, 1},
-    {"time", 0, 0}, {"kind_name", 1, 1},
+    {"time", 0, 0}, {"kind_name", 1, 1}, {"sqrt", 1, 1},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -64,7 +64,7 @@ enum {
     B_MONOTONIC_TIME, B_STD_SOURCE,
     B_DB_OPEN, B_DB_RUN, B_DB_CLOSE,
     B_SOCKET_LISTEN, B_SOCKET_ACCEPT, B_SOCKET_PORT, B_WORKERS,
-    B_TIME, B_KIND_NAME,
+    B_TIME, B_KIND_NAME, B_SQRT,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -76,7 +76,7 @@ int builtin_find(const char *name, size_t len) {
 
 /* The one value per builtin that PUSH_FN pushes, so == on builtins is identity */
 Func *builtin_value(int index) {
-    static Func *values[64];
+    static Func *values[sizeof builtin_info / sizeof builtin_info[0]];
     if (!values[index]) {
         Func *f = xcalloc(1, sizeof(Func));
         f->gc.rc = INT64_MAX / 2;
@@ -821,6 +821,20 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         int p = places.i > INT_MAX ? INT_MAX : places.i < INT_MIN ? INT_MIN : (int)places.i;
         if (a.type == T_INT && p >= 0) *out = v_float((double)a.i);
         else *out = v_float(php_round(a.type == T_INT ? (double)a.i : a.f, p));
+        return true;
+    }
+    case B_SQRT: {
+        /* IEEE 754 requires a correctly rounded square root, so every platform gives the same bits */
+        if (!want(index, a, INT | M(T_FLOAT))) return false;
+        double x = a.type == T_INT ? (double)a.i : a.f;
+        if (x < 0) {
+            Buf m = {0};
+            append_string(a, &m);
+            raisef("sqrt() expects a number that is not negative, got %s", m.data);
+            free(m.data);
+            return false;
+        }
+        *out = v_float(sqrt(x));
         return true;
     }
     case B_ABS:

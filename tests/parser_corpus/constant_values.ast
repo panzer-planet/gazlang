@@ -1,539 +1,588 @@
 Compound
   statements:
 @ "tests/parser_corpus/constant_values.gaz"
-    0: EchoStatement 79
-      expr: ArrayLiteral 79
+    0: EchoStatement 86
+      expr: ArrayLiteral 86
         entries:
           0:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C0"
               constant: true
               value: 3
               static_name: null
           1:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C1"
               constant: true
               value: -2
               static_name: null
           2:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C2"
               constant: true
               value: 12
               static_name: null
           3:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C3"
               constant: true
               value: 3.5
               static_name: null
           4:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C4"
               constant: true
               value: 3.0
               static_name: null
           5:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C5"
               constant: true
               value: -1
               static_name: null
           6:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C6"
               constant: true
               value: 1
               static_name: null
           7:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C7"
               constant: true
               value: 2.5
               static_name: null
           8:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C8"
               constant: true
               value: 0.5
               static_name: null
           9:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C9"
               constant: true
               value: "a12.0truenull[1]{\"k\" => 1}"
               static_name: null
           10:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C10"
               constant: true
               value: true
               static_name: null
           11:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C11"
               constant: true
               value: false
               static_name: null
           12:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C12"
               constant: true
               value: true
               static_name: null
           13:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C13"
               constant: true
               value: true
               static_name: null
           14:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C14"
               constant: true
               value: false
               static_name: null
           15:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C15"
               constant: true
               value: true
               static_name: null
           16:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C16"
               constant: true
               value: false
               static_name: null
           17:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C17"
               constant: true
               value: -1
               static_name: null
           18:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C18"
               constant: true
               value: 1
               static_name: null
           19:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C19"
               constant: true
               value: 0
               static_name: null
           20:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C20"
               constant: true
               value: true
               static_name: null
           21:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C21"
               constant: true
               value: true
               static_name: null
           22:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C22"
               constant: true
               value: true
               static_name: null
           23:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C23"
               constant: true
               value: true
               static_name: null
           24:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C24"
               constant: true
               value: false
               static_name: null
           25:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C25"
               constant: true
               value: -1
               static_name: null
           26:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C26"
               constant: true
               value: true
               static_name: null
           27:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C27"
               constant: true
               value: true
               static_name: null
           28:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C28"
               constant: true
               value: 2
               static_name: null
           29:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C29"
               constant: true
               value: 7
               static_name: null
           30:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C30"
               constant: true
               value: 5
               static_name: null
           31:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C31"
               constant: true
               value: 4611686018427387904
               static_name: null
           32:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C32"
               constant: true
               value: -9223372036854775808
               static_name: null
           33:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C33"
               constant: true
               value: -2
               static_name: null
           34:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C34"
               constant: true
               value: -4
               static_name: null
           35:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C35"
               constant: true
               value: -1
               static_name: null
           36:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C36"
               constant: true
               value: 0
               static_name: null
           37:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C37"
               constant: true
               value: -5
               static_name: null
           38:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C38"
               constant: true
               value: -2.5
               static_name: null
           39:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C39"
               constant: true
               value: -0.0
               static_name: null
           40:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C40"
               constant: true
               value: 3
               static_name: null
           41:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C41"
               constant: true
               value: true
               static_name: null
           42:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C42"
               constant: true
               value: true
               static_name: null
           43:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C43"
               constant: true
               value: false
               static_name: null
           44:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C44"
               constant: true
               value: true
               static_name: null
           45:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C45"
               constant: true
               value: true
               static_name: null
           46:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C46"
               constant: true
               value: false
               static_name: null
           47:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C47"
               constant: true
               value: true
               static_name: null
           48:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C48"
               constant: true
               value: true
               static_name: null
           49:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C49"
               constant: true
               value: true
               static_name: null
           50:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C50"
               constant: true
               value: false
               static_name: null
           51:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C51"
               constant: true
               value: true
               static_name: null
           52:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C52"
               constant: true
               value: false
               static_name: null
           53:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C53"
               constant: true
               value: 1
               static_name: null
           54:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C54"
               constant: true
               value: 0
               static_name: null
           55:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C55"
               constant: true
               value: false
               static_name: null
           56:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C56"
               constant: true
               value: 3
               static_name: null
           57:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C57"
               constant: true
               value: "a"
               static_name: null
           58:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C58"
               constant: true
               value: "b"
               static_name: null
           59:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C59"
               constant: true
               value: "b"
               static_name: null
           60:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C60"
               constant: true
               value: "x"
               static_name: null
           61:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C61"
               constant: true
               value: [1, [2.5, "s"], {"k" => [true, null]}]
               static_name: null
           62:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C62"
               constant: true
               value: {"a" => 2, 1 => "one", "1" => "string one"}
               static_name: null
           63:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C63"
               constant: true
               value: 9223372036854775807
               static_name: null
           64:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C64"
               constant: true
               value: -9223372036854775808
               static_name: null
           65:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C65"
               constant: true
               value: false
               static_name: null
           66:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C66"
               constant: true
               value: 0.30000000000000004
               static_name: null
           67:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C67"
               constant: true
               value: 6.2
               static_name: null
           68:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C68"
               constant: true
               value: "n = 3"
               static_name: null
           69:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C69"
               constant: true
               value: "x2"
               static_name: null
           70:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C70"
               constant: true
               value: 8
               static_name: null
           71:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C71"
               constant: true
               value: true
               static_name: null
           72:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C72"
               constant: true
               value: [1, 2, 3]
               static_name: null
           73:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C73"
               constant: true
               value: [[1], "a1", 2]
               static_name: null
           74:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C74"
               constant: true
               value: {"a" => 3, "b" => 2}
               static_name: null
           75:
             0: null
-            1: FunctionRef 79
+            1: FunctionRef 86
               name: "C75"
               constant: true
               value: {"x" => 2, "y" => [1]}
+              static_name: null
+          76:
+            0: null
+            1: FunctionRef 86
+              name: "C76"
+              constant: true
+              value: 1024
+              static_name: null
+          77:
+            0: null
+            1: FunctionRef 86
+              name: "C77"
+              constant: true
+              value: 0.5
+              static_name: null
+          78:
+            0: null
+            1: FunctionRef 86
+              name: "C78"
+              constant: true
+              value: -4
+              static_name: null
+          79:
+            0: null
+            1: FunctionRef 86
+              name: "C79"
+              constant: true
+              value: 512
+              static_name: null
+          80:
+            0: null
+            1: FunctionRef 86
+              name: "C80"
+              constant: true
+              value: 2.25
+              static_name: null
+          81:
+            0: null
+            1: FunctionRef 86
+              name: "C81"
+              constant: true
+              value: -9223372036854775808
+              static_name: null
+          82:
+            0: null
+            1: FunctionRef 86
+              name: "C82"
+              constant: true
+              value: 8.0
               static_name: null
         map: false

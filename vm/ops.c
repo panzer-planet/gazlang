@@ -19,6 +19,7 @@ static const char *symbol(int op) {
     case OP_MUL: return "*";
     case OP_DIV: return "/";
     case OP_MOD: return "%";
+    case OP_POW: return "**";
     case OP_BIT_AND: return "&";
     case OP_BIT_OR: return "|";
     case OP_BIT_XOR: return "^";
@@ -75,6 +76,62 @@ static bool arithmetic(int op, Value l, Value r, Value *out) {
     case OP_MUL: result = a * b; break;
     default: result = a / b; break;
     }
+    if (!isfinite(result)) return raisef("Float overflow");
+    *out = v_float(result);
+    return true;
+}
+
+/*
+ * ** on two numbers, by square-and-multiply, never libm's pow(), whose rounding differs from one
+ * platform to another. An int to a whole power of 0 or more is an exact int, or "Integer
+ * overflow": squaring the base overflows only when the result would. Anything else is a float:
+ * the base to the power's size by multiplying floats, IEEE's own rounding at each step, and one
+ * divided by that for a negative power (so a result too small to hold is 0.0). Only a whole
+ * exponent: a fractional one needs a defined algorithm for exp and log, which there isn't yet.
+ */
+static bool power(Value l, Value r, Value *out) {
+    uint64_t n;
+    bool negative;
+    if (r.type == T_INT) {
+        negative = r.i < 0;
+        n = negative ? 0 - (uint64_t)r.i : (uint64_t)r.i;
+    } else {
+        if (r.f != floor(r.f)) {
+            Buf b = {0};
+            append_string(r, &b);
+            raisef("Exponent must be a whole number, got %s", b.data);
+            free(b.data);
+            return false;
+        }
+        /* 2^63 as a double; a whole float from -2^63 to 2^63 converts exactly */
+        if (fabs(r.f) >= 9223372036854775808.0) {
+            Buf b = {0};
+            append_string(r, &b);
+            raisef("Exponent is too large, got %s", b.data);
+            free(b.data);
+            return false;
+        }
+        negative = r.f < 0;
+        n = (uint64_t)fabs(r.f);
+    }
+    if (l.type == T_INT && r.type == T_INT && !negative) {
+        int64_t base = l.i, result = 1;
+        while (n) {
+            if ((n & 1) && __builtin_mul_overflow(result, base, &result)) return raisef("Integer overflow");
+            n >>= 1;
+            if (n && __builtin_mul_overflow(base, base, &base)) return raisef("Integer overflow");
+        }
+        *out = v_int(result);
+        return true;
+    }
+    double base = l.type == T_INT ? (double)l.i : l.f, result = 1.0;
+    if (negative && base == 0.0) return raisef("Division by zero");
+    while (n) {
+        if (n & 1) result *= base;
+        n >>= 1;
+        if (n) base *= base;
+    }
+    if (negative) result = 1.0 / result;
     if (!isfinite(result)) return raisef("Float overflow");
     *out = v_float(result);
     return true;
@@ -168,6 +225,10 @@ bool binary_op(int op, Value l, Value r, Value *out) {
     if (l.type == T_BOOL || r.type == T_BOOL) return raisef("Cannot use %s on bool", symbol(op));
     if (op == OP_ADD || op == OP_SUB || op == OP_MUL || op == OP_DIV || op == OP_MOD) {
         return arithmetic(op, l, r, out);
+    }
+    if (op == OP_POW) {
+        if (l.type == T_STRING || r.type == T_STRING) return raisef("Cannot use ** on string");
+        return power(l, r, out);
     }
     if (op == OP_BIT_AND || op == OP_BIT_OR || op == OP_BIT_XOR || op == OP_SHL || op == OP_SHR) {
         return bitwise(op, l, r, out);
