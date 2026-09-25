@@ -430,6 +430,7 @@ echo json::encode({"ok" => true});
 | `std/json.gaz` | `json::decode` and `json::encode`, matching PHP's `json_decode` on the JSON test suite; an object is written as its `to_json()` |
 | `std/csv.gaz` | `csv::parse` (RFC 4180, quotes and line breaks in fields) and `csv::records`, rows as maps by header |
 | Templates (`.gazml`) | HTML with `{{ $escaped }}`, `@if` and `@foreach`, compiled into a function when included: `include "views/page.gazml";` then `page($title)`. Output is escaped unless it is another template's |
+| `std/cli.gaz` | Command line arguments: flags, options, arguments and subcommands declared once, with `--help` written for you and a usage mistake an exit 2 |
 | `std/router.gaz` | `router::Router()`: `$app.get("/users/:id", $handler)`, 404s, 405s and redirects for a stray trailing slash handled, and middleware |
 | `std/http.gaz` | An HTTP/1.1 client, `http::get`/`post`/`request` with https, redirects and chunked bodies; and a server, `http::serve($listener, $handler)`, which turns away malformed requests before your handler sees them, with `http::query` and `http::form` to decode what they carry |
 | `std/db.gaz` | `db::open("sqlite:app.db")` or `postgres://...`, then `query`, `row`, `value`, `exec` and `transaction`, parameters always bound |

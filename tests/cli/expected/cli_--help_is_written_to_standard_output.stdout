@@ -1,0 +1,12 @@
+Keep a list of things to do
+
+Usage: todo [options] <command>
+
+Commands:
+  add   Add a task
+  list  Show the tasks
+
+Options:
+  -v, --verbose      Say more
+  -f, --file <file>  The list to use (default: todo.txt)
+  -h, --help         Show this help

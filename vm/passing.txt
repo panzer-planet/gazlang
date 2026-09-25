@@ -3,7 +3,9 @@ compiler/gazlang.gaz
 compiler/lexer.gaz
 compiler/nodes.gaz
 compiler/parser.gaz
+compiler/template.gaz
 lib/chars.gaz
+lib/cli.gaz
 lib/csv.gaz
 lib/date.gaz
 lib/db.gaz
@@ -798,6 +800,7 @@ tests/gaz/errors/try_catch_test.gaz
 tests/gaz/functions/default_parameters_test.gaz
 tests/gaz/functions/shared_test.gaz
 tests/gaz/lib/chars_test.gaz
+tests/gaz/lib/cli_test.gaz
 tests/gaz/lib/date_test.gaz
 tests/gaz/lib/db_test.gaz
 tests/gaz/lib/format_test.gaz

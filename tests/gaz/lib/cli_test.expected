@@ -1,0 +1,19 @@
+ok defaults
+ok every way to give an option
+ok flags, alone and together
+ok a flag with a value after it
+ok an option given twice keeps the last
+ok options and arguments in any order
+ok -- ends the options
+ok - alone is an argument
+ok an = in a value is kept
+ok mistakes
+ok too many arguments
+ok --help, and -h, stop with code 0 and the help
+ok help
+ok run() calls the command's handler
+ok a parent's option inside the command
+ok try_run gives the command
+ok command mistakes
+ok a command's help
+ok declarations refused

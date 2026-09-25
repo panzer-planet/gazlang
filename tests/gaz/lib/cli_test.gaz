@@ -1,0 +1,169 @@
+include "../check.gaz";
+include "../../../lib/cli.gaz";
+
+fn tool() {
+    $cli = cli::Command("tool", "Does things");
+    $cli.flag("verbose", "v", "Say more");
+    $cli.flag("quiet", "q", "Say less");
+    $cli.option("file", "f", "The file", "in.txt");
+    $cli.option("level", null, "How much");
+    $cli.argument("source", "Where from");
+    $cli.optional("target", "Where to", "out");
+    $cli.rest("extra", "Anything else");
+
+    return $cli;
+}
+
+// What try_parse() stopped with: [its exit code, what it would print]
+fn stopped($cli, $argv) {
+    try {
+        $cli.try_parse($argv);
+        return "no stop";
+    } catch (cli::Stop $stop) {
+        return [$stop.code, $stop.message];
+    }
+}
+
+/* Values */
+check("defaults", tool().try_parse(["a"]), {
+    "verbose" => false, "quiet" => false, "file" => "in.txt", "level" => null,
+    "source" => "a", "target" => "out", "extra" => [],
+});
+check("every way to give an option", map([["-f", "x"], ["-fx"], ["--file", "x"], ["--file=x"]], $given -> tool().try_parse(["a", ...$given])["file"]), ["x", "x", "x", "x"]);
+check("flags, alone and together", tool().try_parse(["-vq", "a"]), {
+    "verbose" => true, "quiet" => true, "file" => "in.txt", "level" => null,
+    "source" => "a", "target" => "out", "extra" => [],
+});
+check("a flag with a value after it", tool().try_parse(["-vfx", "a"])["file"], "x");
+check("an option given twice keeps the last", tool().try_parse(["--level", "1", "a", "--level", "2"])["level"], "2");
+check("options and arguments in any order", tool().try_parse(["a", "-v", "b", "--level=3", "c", "d"]), {
+    "verbose" => true, "quiet" => false, "file" => "in.txt", "level" => "3",
+    "source" => "a", "target" => "b", "extra" => ["c", "d"],
+});
+check("-- ends the options", tool().try_parse(["--", "-v", "--file"])["source"] .. " " .. tool().try_parse(["--", "-v", "--file"])["target"], "-v --file");
+check("- alone is an argument", tool().try_parse(["-"])["source"], "-");
+check("an = in a value is kept", tool().try_parse(["--file=a=b", "x"])["file"], "a=b");
+
+/* Mistakes: code 2, what is wrong, and how to see the help */
+$mistakes = map([[], ["--nope", "a"], ["-z", "a"], ["-f"], ["a", "--level"], ["--verbose=yes", "a"]], $argv -> stopped(tool(), $argv));
+check("mistakes", $mistakes, [
+    [2, "tool: missing argument <source>\nRun 'tool --help' to see what it takes.\n"],
+    [2, "tool: unknown option --nope\nRun 'tool --help' to see what it takes.\n"],
+    [2, "tool: unknown option -z\nRun 'tool --help' to see what it takes.\n"],
+    [2, "tool: -f needs a value\nRun 'tool --help' to see what it takes.\n"],
+    [2, "tool: --level needs a value\nRun 'tool --help' to see what it takes.\n"],
+    [2, "tool: --verbose is a flag, and takes no value\nRun 'tool --help' to see what it takes.\n"],
+]);
+$two = cli::Command("two", "Two arguments");
+$two.argument("a", "First");
+check("too many arguments", stopped($two, ["x", "y"]), [2, "two: unexpected argument y\nRun 'two --help' to see what it takes.\n"]);
+
+/* --help */
+$help = join([
+    "Does things",
+    "",
+    "Usage: tool [options] <source> [target] [extra...]",
+    "",
+    "Arguments:",
+    "  source  Where from",
+    "  target  Where to",
+    "  extra   Anything else",
+    "",
+    "Options:",
+    "  -v, --verbose        Say more",
+    "  -q, --quiet          Say less",
+    "  -f, --file <file>    The file (default: in.txt)",
+    "      --level <level>  How much",
+    "  -h, --help           Show this help",
+    "",
+], "\n");
+check("--help, and -h, stop with code 0 and the help", [stopped(tool(), ["--help"]), stopped(tool(), ["a", "-h"])], [[0, tool().help()], [0, tool().help()]]);
+check("help", tool().help(), $help);
+
+/* Subcommands */
+fn app() {
+    $cli = cli::Command("app", "An app");
+    $cli.flag("verbose", "v", "Say more");
+    $add = $cli.command("add", "Add one", $args -> "added {$args["name"]}, verbose {$args["verbose"]}, force {$args["force"]}");
+    $add.argument("name", "Its name");
+    $add.flag("force", null, "Even if it exists");
+    $cli.command("list", "List them", $args -> "listed");
+
+    return $cli;
+}
+check("run() calls the command's handler", [app().run(["add", "x"]), app().run(["-v", "add", "--force", "x"]), app().run(["list"])], [
+    "added x, verbose false, force false", "added x, verbose true, force true", "listed",
+]);
+check("a parent's option inside the command", app().run(["add", "x", "-v"]), "added x, verbose true, force false");
+check("try_run gives the command", app().try_run(["add", "x"])[0].full_name(), "app add");
+check("command mistakes", map([[], ["nope"], ["add"], ["list", "--force"]], $argv -> stopped(app(), $argv)), [
+    [2, "app: which command? One of add, list\nRun 'app --help' to see what it takes.\n"],
+    [2, "app: unknown command nope\nRun 'app --help' to see what it takes.\n"],
+    [2, "app add: missing argument <name>\nRun 'app add --help' to see what it takes.\n"],
+    [2, "app list: unknown option --force\nRun 'app list --help' to see what it takes.\n"],
+]);
+check("a command's help", stopped(app(), ["add", "--help"])[1], join([
+    "Add one",
+    "",
+    "Usage: app add [options] <name>",
+    "",
+    "Arguments:",
+    "  name  Its name",
+    "",
+    "Options:",
+    "      --force    Even if it exists",
+    "  -v, --verbose  Say more",
+    "  -h, --help     Show this help",
+    "",
+], "\n"));
+
+/* Declaring something that can't work is a program's mistake, an ordinary error */
+$declarations = [
+    $c -> $c.flag("help", null, "x"),
+    $c -> $c.flag("x", "h", "x"),
+    $c -> $c.flag("verbose", null, "again"),
+    $c -> $c.option("other", "v", "again"),
+    $c -> $c.flag("long", "ab", "x"),
+    $c -> $c.command("sub", "x", $a -> null),
+];
+$failures = [];
+foreach ($declarations as $declare) {
+    try {
+        $declare(tool());
+        $failures[] = "no error";
+    } catch (Error $e) {
+        $failures[] = $e.message;
+    }
+}
+$after_rest = cli::Command("r", "r");
+$after_rest.rest("all", "x");
+$after_optional = cli::Command("o", "o");
+$after_optional.optional("maybe", "x");
+$with_commands = cli::Command("w", "w");
+$with_commands.command("sub", "x", $a -> null);
+foreach ([[$after_rest, $c -> $c.argument("more", "x")], [$after_optional, $c -> $c.argument("needed", "x")], [$with_commands, $c -> $c.argument("x", "x")]] as [$command, $declare]) {
+    try {
+        $declare($command);
+        $failures[] = "no error";
+    } catch (Error $e) {
+        $failures[] = $e.message;
+    }
+}
+try {
+    $two.argument("a", "again");
+    $failures[] = "no error";
+} catch (Error $e) {
+    $failures[] = $e.message;
+}
+check("declarations refused", $failures, [
+    "--help and -h are cli's own, for the help it writes",
+    "--help and -h are cli's own, for the help it writes",
+    "tool already has an option --verbose",
+    "tool already has an option -v",
+    "-ab: a short option is one character",
+    "tool takes arguments, so it can't have commands too",
+    "r's argument <all> takes the rest, so nothing can come after it",
+    "o's required argument <needed> can't follow an optional one",
+    "w has commands, so its first argument names one and it can't take others",
+    "two already has an argument a",
+]);

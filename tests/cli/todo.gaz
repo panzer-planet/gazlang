@@ -1,0 +1,18 @@
+/* A command line tool on lib/cli.gaz, for CliTest: what --help, a mistake and a run print, and exit with */
+include "../../lib/cli.gaz";
+
+$cli = cli::Command("todo", "Keep a list of things to do");
+$cli.flag("verbose", "v", "Say more");
+$cli.option("file", "f", "The list to use", "todo.txt");
+
+$add = $cli.command("add", "Add a task", $args -> {
+    echo "adding {$args["task"]} to {$args["file"]}, tagged " .. join($args["tags"], ", ");
+});
+$add.argument("task", "What to add");
+$add.rest("tags", "Tags for it");
+
+$cli.command("list", "Show the tasks", $args -> {
+    echo "listing {$args["file"]}";
+});
+
+$cli.run(args());

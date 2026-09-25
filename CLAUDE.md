@@ -240,8 +240,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
 - **Milestone 0.1, the first release**, is what that stranger needs, in this order:
   1. **Web essentials**: request decoding, the router and templates (all done; see "Templates").
      Then cookies, static files and uploads as the apps written on it ask.
-  2. **CLI essentials**: argument parsing (flags, options with values, subcommands, a generated
-     `--help`).
+  2. **CLI essentials**: argument parsing (done: `lib/cli.gaz`, see "Command line arguments").
   3. **The `gaz` rename** with `gaz main.gaz` and `-` for standard input (decided, see
      "Packages"), and `#!/usr/bin/env gaz` scripts.
   4. **A release**: a version number `--version` means, a changelog, prebuilt binaries for macOS
@@ -823,7 +822,8 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   server, `http::serve`, see "Serving HTTP"),
   `date.gaz` (`date::days`, `date::civil`, `date::format`: a date is a number of days from 1 January
   1970, with no clock, since a program that asked one what day it is could not be recorded, so a game
-  keeps its own date), `router.gaz` (`router::Router`, see "Serving HTTP"), `random.gaz` (`random::shuffle`, `random::pick`, `random::key`, `random::chance`,
+  keeps its own date), `router.gaz` (`router::Router`, see "Serving HTTP"), `cli.gaz`
+  (`cli::Command`, see "Command line arguments"), `random.gaz` (`random::shuffle`, `random::pick`, `random::key`, `random::chance`,
   `random::weighted`), `term.gaz` (`term::style`, the cursor and screen sequences,
   `term::decode`, `term::Input`, `term::fullscreen`, on the terminal builtins; drawing functions
   return their sequence, so a program prints them and a test compares them), `tui.gaz`
@@ -1021,6 +1021,33 @@ $area = $c.area;                              // a bound method
   functions are still refused. GazLang only (`lib/json.gaz`). A `to_json()` whose data must also
   compare with `==` or round-trip without JSON (the football game's tests do both) returns plain
   data all the way down rather than leaving nested objects to the encoder.
+
+## Command line arguments
+
+`lib/cli.gaz`: a program declares what it takes and `cli` parses `args()`, writes `--help`, and
+turns a mistake into a message and an exit.
+
+- **Builder methods** (`$cli.flag(...)`, `option`, `argument`, `optional`, `rest`), not a spec map,
+  so a misspelt method is caught when the program is read and each piece of help sits by what it
+  describes. A declaration that can't work (a second `--verbose`, `-h`, an argument after
+  `rest()`, a required one after an optional one) is an ordinary error: the program's mistake,
+  not its user's.
+- **It exits for the program**: `--help`/`-h` print the help on standard output and exit 0, a
+  mistake prints what is wrong and `Run 'tool --help' ...` on standard error and exits 2, the
+  Unix code for usage. Every tool wants that, so none repeats it; `try_parse()`/`try_run()` raise
+  a `cli::Stop` (its `#code` and the text) instead, for tests.
+- **Subcommands have handlers**: `$cli.command("add", "...", $handler)` is a `Command` of its own,
+  and `$cli.run(args())` parses and calls the handler named with everything parsed, its parents'
+  flags and options included (which are accepted after the command word too, and shown in its
+  help). A command with subcommands takes no arguments of its own.
+- **GNU's rules**: `--file x`, `--file=x`, `-f x`, `-fx`, `-vq`; options and arguments in any order;
+  `--` ends the options; `-` alone is an argument; an option given twice keeps its last value,
+  as a query string does. Values are strings; a flag is `true`/`false`, an option not given its
+  default (null unless one was given).
+- `ponytail:` a negative number as an argument needs `--` first (`-5` is read as an option); no
+  "did you mean" for an unknown option; values aren't typed (`to_int($args["n"], null)`).
+- Tested by `tests/gaz/lib/cli_test.gaz` and by `CliTest` running `tests/cli/todo.gaz` for the
+  exits and which stream each goes to.
 
 ## Templates
 

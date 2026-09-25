@@ -818,6 +818,7 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `csv.gaz` | `csv::parse`, `csv::records` (RFC 4180) |
 | `chars.gaz` | `chars::char_at`, `chars::is_digit`, `chars::is_alpha`, `chars::is_alnum`, `chars::is_space`, `chars::is_hex_digit`, `chars::span($s, $i, $predicate)` (how many characters from `$i` satisfy the predicate: `slice($s, $i, chars::span($s, $i, chars::is_digit))` is the number at `$i`) |
 | `format.gaz` | `format::number`, `format::pad_left`, `format::pad_right`, and `format::sprintf($template, $args)` with the arguments as a list: `%s` (as echo prints it), `%d` (an int), `%f` (an int or float, 6 decimals or `%.2f`'s, rounded as `round()` does), `%x` (an int of 0 or more, lowercase hex), `%%`; a width, `-` to pad on the right and `0` to pad a number with zeros after its sign (`%-8s`, `%05.1f`). A count of arguments that isn't the placeholders', a type `%d`, `%f` or `%x` can't take, and a placeholder it doesn't know are errors |
+| `cli.gaz` | `cli::Command($name, $summary)`, command line arguments with a generated `--help`; see below |
 | `router.gaz` | `router::Router()`, routing requests to handlers for `http::serve`; see below |
 | `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins, and a server, `http::serve($listener, $handler, $options = {})`, `http::handle($socket, $handler, $options = {})` (one connection) and `http::http_date($time)`; see below |
 | `date.gaz` | `date::days($year, $month, $day)` (a date as a whole number of days, day 0 being 1 January 1970: an impossible date is an error), `date::civil($days)` (`[year, month, day]`), `date::year`/`month`/`day`, `date::weekday` (0 Monday to 6 Sunday), `date::next_weekday($days, $weekday)`, `date::add_months`, `date::is_leap`, `date::days_in_month`, and `date::format` (`Sat 8 Aug 2026`), `date::short` (`8 Aug`) and `date::iso` (`2026-08-08`). There is no `today()`: a clock would make a program impossible to record, so a program keeps its own date |
@@ -873,6 +874,29 @@ as in a response; the path and query are as the client sent them, not decoded.
   time can't hold a worker; and `"max_body"` in bytes (1048576).
 - It returns when its worker is asked to stop, after answering the request in hand.
 - `http::http_date(time())` is a time as HTTP writes one: `Sat, 08 Aug 2026 14:02:09 GMT`.
+
+**Command line arguments**, with `std/cli.gaz`:
+
+```
+$cli = cli::Command("todo", "Keep a list of things to do");
+$cli.flag("verbose", "v", "Say more");
+$cli.option("file", "f", "The list to use", "todo.txt");
+$add = $cli.command("add", "Add a task", $args -> add_task($args["file"], $args["task"]));
+$add.argument("task", "What to add");
+$cli.run(args());
+```
+
+- `flag($name, $short, $help)` is `true` when given and `false` when not. `option($name, $short,
+  $help, $default = null)` takes a value, a string. `$short` is one letter, or null for none.
+- `argument($name, $help)` is required, `optional($name, $help, $default = null)` isn't, and
+  `rest($name, $help)` is a list of whatever arguments are left.
+- `$cli.parse(args())` gives a map by name. `$cli.command($name, $summary, $handler)` adds a
+  subcommand, a `Command` of its own, and `$cli.run(args())` calls the handler of the one given.
+- `--file x`, `--file=x`, `-f x`, `-fx` and `-vq` (two flags) all work, options and arguments in
+  any order; `--` ends the options, and an option given twice keeps its last value.
+- `-h` and `--help` print the help, written from the declarations, and exit 0. A mistake prints
+  what is wrong on standard error and exits 2. `try_parse()` and `try_run()` raise a `cli::Stop`
+  instead, whose `code` and `message` are what would have been printed.
 
 **Routing**, with `std/router.gaz`:
 

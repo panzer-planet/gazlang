@@ -1,0 +1,482 @@
+/*
+ * Command line arguments for a GazLang program: declare what it takes, and cli parses args(),
+ * writes --help, and turns a mistake into a message and exit code 2.
+ *
+ *   $cli = cli::Command("todo", "Keep a list of things to do");
+ *   $cli.flag("verbose", "v", "Say more");
+ *   $cli.option("file", "f", "The list to use", "todo.txt");
+ *   $add = $cli.command("add", "Add a task", $args -> add_task($args["file"], $args["task"]));
+ *   $add.argument("task", "What to add");
+ *   $cli.run(args());
+ *
+ * - A flag is true when given and false when not. An option takes a value, a string, or has its
+ *   default (null unless given one). An argument is required, an optional() one has a default,
+ *   and rest() is a list of whatever arguments are left.
+ * - GNU's rules: --file x, --file=x, -f x, -fx, -vq for two flags; options and arguments in any
+ *   order; -- ends the options; - alone is an argument. An option given twice keeps its last value.
+ * - -h and --help print the help and exit 0. A mistake prints what is wrong, and how to see the
+ *   help, on standard error, and exits 2. try_parse() raises a cli::Stop instead of exiting.
+ * - A command with subcommands takes no arguments of its own: the first one names the
+ *   subcommand, whose handler run() calls with everything parsed, its parent's flags and options
+ *   included.
+ */
+namespace cli;
+
+const HELP = "help";
+const USAGE_ERROR = 2;
+
+// What parsing stopped with instead of a result: help to print, or a mistake
+pub kind Stop extends Error {
+    fn _($message, pub #code) {
+        ##_($message);
+    }
+}
+
+pub kind Command {
+    #options = [];
+    #arguments = [];
+    #commands = {};
+
+    fn _(pub #name, pub #summary, #on_run = null, #above = null) {}
+
+    pub fn flag($name, $short, $help) {
+        #add_option(Option($name, $short, $help, false, false));
+    }
+
+    pub fn option($name, $short, $help, $default = null) {
+        #add_option(Option($name, $short, $help, true, $default));
+    }
+
+    pub fn argument($name, $help) {
+        #add_argument(Argument($name, $help, "required", null));
+    }
+
+    pub fn optional($name, $help, $default = null) {
+        #add_argument(Argument($name, $help, "optional", $default));
+    }
+
+    pub fn rest($name, $help) {
+        #add_argument(Argument($name, $help, "rest", []));
+    }
+
+    // A subcommand, which is a Command of its own: give it options and arguments
+    pub fn command($name, $summary, $handler) {
+        if (len(#arguments) > 0) {
+            error("{#name} takes arguments, so it can't have commands too");
+        }
+        #check_new_name(#commands, $name, "a command");
+        $command = Command($name, $summary, $handler, #);
+        #commands[$name] = $command;
+
+        return $command;
+    }
+
+    // What $argv asks for, as a map by name; --help or a mistake ends the program
+    pub fn parse($argv) {
+        return #parsed_or_exit($argv)[1];
+    }
+
+    // As parse(), but raising a cli::Stop where parse() would exit
+    pub fn try_parse($argv) {
+        return #try_run($argv)[1];
+    }
+
+    // Parse $argv and call the handler of the command it names with what was parsed
+    pub fn run($argv) {
+        [$command, $values] = #parsed_or_exit($argv);
+        $handler = $command.handler();
+        if ($handler == null) {
+            error("{$command.full_name()} has no handler to run");
+        }
+
+        return $handler($values);
+    }
+
+    // [the command $argv names, what was parsed], raising a Stop for help or a mistake
+    pub fn try_run($argv) {
+        return Parse(#, $argv).result();
+    }
+
+    pub fn help() {
+        return Help(#).text();
+    }
+
+    pub fn full_name() {
+        if (#above == null) {
+            return #name;
+        }
+
+        return #above.full_name() .. " " .. #name;
+    }
+
+    // What Parse and Help need to see
+    pub fn declared_options() {
+        return #options;
+    }
+
+    pub fn declared_arguments() {
+        return #arguments;
+    }
+
+    pub fn subcommands() {
+        return #commands;
+    }
+
+    pub fn handler() {
+        return #on_run;
+    }
+
+    pub fn parent_command() {
+        return #above;
+    }
+
+    fn parsed_or_exit($argv) {
+        try {
+            return #try_run($argv);
+        } catch (Stop $stop) {
+            show_and_exit($stop);
+        }
+    }
+
+    fn add_option($option) {
+        if ($option.name == HELP || $option.short == "h") {
+            error("--help and -h are cli's own, for the help it writes");
+        }
+        foreach (#options as $other) {
+            if ($other.name == $option.name) {
+                error("{#name} already has an option --{$option.name}");
+            }
+            if ($option.short != null && $other.short == $option.short) {
+                error("{#name} already has an option -{$option.short}");
+            }
+        }
+        #options[] = $option;
+    }
+
+    fn add_argument($argument) {
+        if (len(#commands) > 0) {
+            error("{#name} has commands, so its first argument names one and it can't take others");
+        }
+        $last = len(#arguments) > 0 ? last(#arguments) : null;
+        if ($last != null && $last.kind == "rest") {
+            error("{#name}'s argument <{$last.name}> takes the rest, so nothing can come after it");
+        }
+        if ($last != null && $last.kind == "optional" && $argument.kind == "required") {
+            error("{#name}'s required argument <{$argument.name}> can't follow an optional one");
+        }
+        #check_new_name(#arguments_by_name(), $argument.name, "an argument");
+        #arguments[] = $argument;
+    }
+
+    fn arguments_by_name() {
+        $named = {};
+        foreach (#arguments as $argument) {
+            $named[$argument.name] = $argument;
+        }
+
+        return $named;
+    }
+
+    fn check_new_name($existing, $name, $what) {
+        if (has_key($existing, $name)) {
+            error("{#name} already has {$what} {$name}");
+        }
+    }
+}
+
+// Something with a -- name: a flag (no value) or an option (a value, or its default)
+kind Option {
+    fn _(pub #name, pub #short, pub #help, pub #takes_value, pub #default) {
+        if ($short != null && len($short) != 1) {
+            error("-{$short}: a short option is one character");
+        }
+    }
+
+    pub fn usage() {
+        $long = "--{#name}";
+        if (#takes_value) {
+            $long ..= " <{#name}>";
+        }
+        if (#short == null) {
+            return "    " .. $long;
+        }
+
+        return "-{#short}, " .. $long;
+    }
+
+    pub fn described() {
+        if (#takes_value && #default != null) {
+            return #help .. " (default: {#default})";
+        }
+
+        return #help;
+    }
+}
+
+// A value given by position: required, optional (with a default) or the rest (a list)
+kind Argument {
+    fn _(pub #name, pub #help, pub #kind, pub #default) {}
+
+    pub fn usage() {
+        return match (#kind) {
+            "required" => "<{#name}>",
+            "optional" => "[{#name}]",
+            default => "[{#name}...]",
+        };
+    }
+}
+
+// One parse of an argv against a command, and whichever subcommand it names
+kind Parse {
+    #values = {};
+    #positional = [];
+    #at = 0;
+
+    fn _(#command, #argv) {}
+
+    pub fn result() {
+        #start_values();
+        while (#at < len(#argv)) {
+            $word = #argv[#at];
+            #at++;
+            #take($word);
+            if (#command.subcommands() != {} && len(#positional) == 1) {
+                return #enter_command();
+            }
+        }
+        if (#command.subcommands() != {}) {
+            #stop_with_mistake("which command? One of " .. join(keys(#command.subcommands()), ", "));
+        }
+        #assign_arguments();
+
+        return [#command, #values];
+    }
+
+    // The values before anything is given: flags false, options their defaults
+    fn start_values() {
+        foreach (#command.declared_options() as $option) {
+            #values[$option.name] ??= $option.default;
+        }
+    }
+
+    fn take($word) {
+        if ($word == "--") {
+            #positional = [...#positional, ...slice(#argv, #at)];
+            #at = len(#argv);
+            return;
+        }
+        if (starts_with($word, "--")) {
+            #long_option(slice($word, 2));
+            return;
+        }
+        if (starts_with($word, "-") && $word != "-") {
+            #short_options(slice($word, 1));
+            return;
+        }
+        #positional[] = $word;
+    }
+
+    // --name, --name=value, --name value
+    fn long_option($text) {
+        $parts = split($text, "=", 2);
+        $name = $parts[0];
+        if ($name == HELP) {
+            #stop_with_help();
+        }
+        $option = #find($candidate -> $candidate.name == $name, "--" .. $name);
+        if (len($parts) == 2) {
+            if (!$option.takes_value) {
+                #stop_with_mistake("--{$name} is a flag, and takes no value");
+            }
+            #values[$name] = $parts[1];
+            return;
+        }
+        #set($option, "--" .. $name);
+    }
+
+    // -v, -vq (flags together), -f value, -fvalue
+    fn short_options($letters) {
+        for ($i = 0; $i < len($letters); $i++) {
+            $letter = $letters[$i];
+            if ($letter == "h") {
+                #stop_with_help();
+            }
+            $option = #find($candidate -> $candidate.short == $letter, "-" .. $letter);
+            $attached = slice($letters, $i + 1);
+            if ($option.takes_value && $attached != "") {
+                #values[$option.name] = $attached;
+                return;
+            }
+            #set($option, "-" .. $letter);
+        }
+    }
+
+    // A flag is now true; an option takes the next word
+    fn set($option, $spelled) {
+        if (!$option.takes_value) {
+            #values[$option.name] = true;
+            return;
+        }
+        if (#at >= len(#argv)) {
+            #stop_with_mistake("{$spelled} needs a value");
+        }
+        #values[$option.name] = #argv[#at];
+        #at++;
+    }
+
+    // The option $matches picks, from this command or those above it
+    fn find($matches, $spelled) {
+        $command = #command;
+        while ($command != null) {
+            foreach ($command.declared_options() as $option) {
+                if ($matches($option)) {
+                    return $option;
+                }
+            }
+            $command = $command.parent_command();
+        }
+        #stop_with_mistake("unknown option {$spelled}");
+    }
+
+    // The first argument names a subcommand, which parses the rest, keeping what is parsed so far
+    fn enter_command() {
+        $name = #positional[0];
+        $sub = #command.subcommands()[$name] ?? null;
+        if ($sub == null) {
+            #stop_with_mistake("unknown command {$name}");
+        }
+        $parse = Parse($sub, slice(#argv, #at));
+        $parse.inherit(#values);
+
+        return $parse.result();
+    }
+
+    pub fn inherit($values) {
+        #values = $values;
+    }
+
+    fn assign_arguments() {
+        $words = #positional;
+        foreach (#command.declared_arguments() as $argument) {
+            #values[$argument.name] = #argument_value($argument, $words);
+            $words = slice($words, min(len($words), #taken($argument)));
+        }
+        if (len($words) > 0) {
+            #stop_with_mistake("unexpected argument " .. $words[0]);
+        }
+    }
+
+    fn argument_value($argument, $words) {
+        if ($argument.kind == "rest") {
+            return $words;
+        }
+        if (len($words) > 0) {
+            return $words[0];
+        }
+        if ($argument.kind == "required") {
+            #stop_with_mistake("missing argument <{$argument.name}>");
+        }
+
+        return $argument.default;
+    }
+
+    // How many words an argument takes
+    fn taken($argument) {
+        if ($argument.kind == "rest") {
+            return len(#argv);
+        }
+
+        return 1;
+    }
+
+    fn stop_with_help() {
+        error(Stop(#command.help(), 0));
+    }
+
+    fn stop_with_mistake($what) {
+        $name = #command.full_name();
+        error(Stop("{$name}: {$what}\nRun '{$name} --help' to see what it takes.\n", USAGE_ERROR));
+    }
+}
+
+// The --help text of a command
+kind Help {
+    fn _(#command) {}
+
+    pub fn text() {
+        $sections = [#command.summary .. "\n", "Usage: " .. #usage() .. "\n"];
+        if (#command.subcommands() != {}) {
+            $sections[] = "Commands:\n" .. table(#command_rows());
+        }
+        if (#command.declared_arguments() != []) {
+            $sections[] = "Arguments:\n" .. table(#argument_rows());
+        }
+        $sections[] = "Options:\n" .. table(#option_rows());
+
+        return join($sections, "\n");
+    }
+
+    fn usage() {
+        $words = [#command.full_name(), "[options]"];
+        if (#command.subcommands() != {}) {
+            $words[] = "<command>";
+        }
+        foreach (#command.declared_arguments() as $argument) {
+            $words[] = $argument.usage();
+        }
+
+        return join($words, " ");
+    }
+
+    fn command_rows() {
+        $rows = [];
+        foreach (#command.subcommands() as $name => $command) {
+            $rows[] = [$name, $command.summary];
+        }
+
+        return $rows;
+    }
+
+    fn argument_rows() {
+        return map(#command.declared_arguments(), $argument -> [$argument.name, $argument.help]);
+    }
+
+    // This command's options, those of the commands above it, and --help
+    fn option_rows() {
+        $rows = [];
+        $command = #command;
+        while ($command != null) {
+            foreach ($command.declared_options() as $option) {
+                $rows[] = [$option.usage(), $option.described()];
+            }
+            $command = $command.parent_command();
+        }
+        $rows[] = ["-h, --help", "Show this help"];
+
+        return $rows;
+    }
+}
+
+// Rows of [left, right] as lines, the right column lined up
+fn table($rows) {
+    $width = 0;
+    foreach ($rows as [$left, $right]) {
+        $width = max($width, len($left));
+    }
+    $lines = "";
+    foreach ($rows as [$left, $right]) {
+        $lines ..= "  " .. $left .. repeat(" ", $width - len($left) + 2) .. $right .. "\n";
+    }
+
+    return $lines;
+}
+
+// Help on standard output and exit 0; a mistake on standard error and exit 2
+fn show_and_exit($stop) {
+    if ($stop.code == 0) {
+        print($stop.message);
+    } else {
+        print_error($stop.message);
+    }
+    exit($stop.code);
+}
