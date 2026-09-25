@@ -11,8 +11,9 @@ overflows an integer into a float, and never hands you a zero because a key was 
 something is wrong, it says so, with the line it happened on and how it got there.
 
 ```gaz
+$sentence = "the cat sat on the mat";
 $counts = {};
-foreach (split("the cat sat on the mat", " ") as $word) {
+foreach (split($sentence, " ") as $word) {
     $counts[$word] ??= 0;
     $counts[$word]++;
 }
@@ -165,7 +166,10 @@ echo $first + $second;
 
 echo 0xF0 & 0x3C;                          // bitwise & | ^ << >> ~, ints only
 echo -7 % 3;                               // %, ints only, sign follows the left operand
-echo [...[1, 2], ...[3, 4]];               // spread into a list literal
+
+$front = [1, 2];
+$back = [3, 4];
+echo [...$front, ...$back];                // spread into a list literal
 ```
 
 ```
@@ -201,7 +205,8 @@ fig costs 3.0
 They are two different types, and both are **values**, so assigning one copies it:
 
 ```gaz
-$copy = $original = [1, 2];
+$original = [1, 2];
+$copy = $original;
 $copy[] = 3;
 echo $original;
 echo $copy;
@@ -284,12 +289,14 @@ kind Account {
         return #;                         // # is this object
     }
 
-    pub fn to_string() { return "{#owner}: {#balance}"; }
+    pub fn to_string() {
+        return "{#owner}: {#balance}";
+    }
 }
 
-$a = Account("Ada");
-$a.deposit(50).deposit(25);
-echo $a;
+$account = Account("Ada");
+$account.deposit(50).deposit(25);
+echo $account;
 ```
 
 ```
@@ -300,24 +307,34 @@ Single inheritance, with `##` reaching the parent's version of a method and a co
 calling `##_(...)` to run the parent's:
 
 ```gaz
+const PI = 3.14159;
+
 kind Point {
     fn _(pub #x, pub #y) {}
-    pub fn to_string() { return "({#x}, {#y})"; }
+
+    pub fn to_string() {
+        return "({#x}, {#y})";
+    }
 }
 
 kind Circle extends Point {
-    fn _($x, $y, #radius) { ##_($x, $y); }
+    fn _($x, $y, #radius) {
+        ##_($x, $y);                      // the parent's constructor
+    }
 
-    pub fn area() { return 3.14159 * #radius * #radius; }
+    pub fn area() {
+        return PI * #radius * #radius;
+    }
+
     pub fn to_string() {
         $area = round(#area(), 2);
         return "{##to_string()} r={#radius} area={$area}";
     }
 }
 
-$c = Circle(1, 2, 3);
-echo $c;
-echo $c.x .. "," .. $c.y;   // #x is pub, so it reaches outside the kind
+$circle = Circle(1, 2, 3);
+echo $circle;
+echo $circle.x .. "," .. $circle.y;       // #x is pub, so it reaches outside the kind
 ```
 
 ```
@@ -330,7 +347,10 @@ Fields and methods can be `static`, shared by a kind and every child rather than
 ```gaz
 kind Counter {
     static #count = 0;
-    static fn next() { return ++Counter::count; }
+
+    static fn next() {
+        return ++Counter::count;
+    }
 }
 
 echo Counter::next();
@@ -348,17 +368,22 @@ Any runtime failure is catchable, and `Error` is a real kind you can extend.
 
 ```gaz
 kind NotFound extends Error {
-    #key;
-    fn _($key) { ##_("No such fruit: {$key}"); #key = $key; }
+    fn _(pub #key) {
+        ##_("No such fruit: {$key}");
+    }
 }
 
 fn price($prices, $fruit) {
-    return $prices[$fruit] ?? error(NotFound($fruit));
+    if (!has_key($prices, $fruit)) {
+        error(NotFound($fruit));
+    }
+    return $prices[$fruit];
 }
 
+$prices = {"apple" => 1.5};
 try {
-    echo price({"apple" => 1.5}, "apple");
-    echo price({"apple" => 1.5}, "durian");
+    echo price($prices, "apple");
+    echo price($prices, "durian");
 } catch (NotFound $e) {
     echo "{$e.message} (line {$e.line})";
 }
@@ -366,47 +391,63 @@ try {
 
 ```
 1.5
-No such fruit: durian (line 7)
+No such fruit: durian (line 9)
 ```
 
 Let one escape and you get the line it happened on and the calls that led there:
 
 ```gaz
-fn inner() { return [1][5]; }
-fn outer() { return inner(); }
+fn inner() {
+    $list = [1];
+    return $list[5];
+}
+
+fn outer() {
+    return inner();
+}
+
 echo outer();
 ```
 
 ```
-Error: Index out of range: 5 at trace.gaz:1
-  inner at trace.gaz:1
-  outer at trace.gaz:2
-  top level at trace.gaz:3
+Error: Index out of range: 5 at trace.gaz:3
+  inner at trace.gaz:3
+  outer at trace.gaz:7
+  top level at trace.gaz:10
 ```
 
 ## Something real
 
 The standard library is written in GazLang itself ([what is in it](#what-comes-with-it)). Here
-is a sales report in twenty lines, on its CSV reader and number formatting:
+is a sales report in thirty lines, on its CSV reader and number formatting:
 
 ```gaz
 include "std/csv.gaz";
 include "std/format.gaz";
 
+// The sum of $column for each value of $group
 fn totals_by($rows, $group, $column) {
-    return reduce($rows, ($totals, $row) -> {
+    $totals = {};
+    foreach ($rows as $row) {
         $key = $row[$group];
-        $totals[$key] = ($totals[$key] ?? 0.0) + to_float($row[$column]);
-        return $totals;
-    }, {});
+        $totals[$key] ??= 0.0;
+        $totals[$key] += to_float($row[$column]);
+    }
+    return $totals;
+}
+
+fn largest_first($totals) {
+    return sort(keys($totals), ($a, $b) -> $totals[$b] <=> $totals[$a]);
 }
 
 try {
-    $rows = csv::records(csv::parse(read_file(args()[0] ?? "sales.csv")));
+    $file = args()[0] ?? "sales.csv";
+    $rows = csv::records(csv::parse(read_file($file)));
     $totals = totals_by($rows, "region", "amount");
 
-    foreach (sort(keys($totals), ($a, $b) -> $totals[$b] <=> $totals[$a]) as $region) {
-        echo format::pad_right($region, 8) .. round($totals[$region], 2);
+    foreach (largest_first($totals) as $region) {
+        $total = round($totals[$region], 2);
+        echo format::pad_right($region, 8) .. $total;
     }
 } catch (Error $e) {
     print_error("{$e.message}\n");
