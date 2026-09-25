@@ -165,6 +165,8 @@ class StdlibTest extends GazLangTestCase
             'upper on an int' => ['upper(1);', 'upper() expects string, got int'],
             'trim on null' => ['trim(null);', 'trim() expects string, got null'],
             'split separator' => ['split("a", 1);', 'split() expects string, got int'],
+            'split limit below one' => ['split("a=b", "=", 0);', 'split() limit must be 1 or more, got 0'],
+            'split limit a float' => ['split("a=b", "=", 2.0);', 'split() expects int or null, got float'],
             'join non-array' => ['join("abc", ",");', 'join() expects list, got string'],
             'join separator' => ['join([], null);', 'join() expects string, got null'],
             'replace empty search' => ['replace("abc", "", "x");', 'replace() cannot search for an empty string'],

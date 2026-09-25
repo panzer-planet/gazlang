@@ -11,6 +11,13 @@ ok split without the separator
 ok split empty string
 ok split into characters
 ok split empty string into characters
+ok split at most two
+ok split at most one is the string
+ok split with a limit above the parts
+ok split with a null limit
+ok split keeps an empty rest
+ok split into characters, at most two
+ok split empty string, at most two
 ok join
 ok join converts like echo
 ok join empty array

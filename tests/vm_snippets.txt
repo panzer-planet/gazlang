@@ -548,6 +548,8 @@
 "upper(1);"
 "trim(null);"
 "split(\"a\", 1);"
+"split(\"a=b\", \"=\", 0);"
+"split(\"a=b\", \"=\", 2.0);"
 "join(\"abc\", \",\");"
 "join([], null);"
 "replace(\"abc\", \"\", \"x\");"

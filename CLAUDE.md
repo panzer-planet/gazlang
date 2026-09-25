@@ -283,9 +283,6 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - A private field can't be set from outside its kind, so restoring saved state (a played match's
     score, a league's fixtures) takes a static factory written in the kind (`Fixture::played()`,
     `League::from_json()`); there is no way to construct an object with some fields already set.
-  - `split($x, $sep)` has no limit: it always splits on every occurrence, so keeping the
-    trailing remainder together (`"a=b=c"` split on `"="` into `["a", "b=c"]`) needs
-    `index_of` and two `slice`s instead of a third argument.
   - `$obj.$name` (dynamic member access; `lib/sorting.gaz` can sort maps but not objects).
   - `kind_of` is strict, so a pass over a tree with absent children needs a `type_of` check
     first; if that recurs, make it lenient.
@@ -609,7 +606,8 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
 
 - Strings: `len`, `slice($x, $start, $length)` (strings and lists, PHP's rules including
   negatives), `lower`, `upper`, `trim` (the lexer's whitespace only), `split` (empty separator:
-  characters), `join` (elements converted like echo), `replace` (every occurrence; empty search
+  characters; a third argument, an int of 1 or more or null, caps the parts, the last holding the
+  rest), `join` (elements converted like echo), `replace` (every occurrence; empty search
   is an error), `contains`, `ends_with`, `starts_with($s, $prefix, $offset = 0)` (whether the
   prefix is there at the offset, so a scanner asks without slicing off what it has read),
   `index_of($s, $needle, $offset = 0)` (null when absent), both with the same offset rule: negative
@@ -619,7 +617,7 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
 - Lists and maps: `in_array` (`==`), `has_key`, `keys`, `values`, `last` (an empty list is an
   error), `reverse` (lists, strings by byte, and maps, which keep their keys), and `map`, `filter`
   (truthiness, as `if`), `reduce($x, $f, $initial)` and `sort` (stable; the comparator must return
-  an int), which call back into GazLang through `call_value()` in `vm.c`, checked as a call
+  an int; without one, or null, it is `<=>` in C, `binary_op(OP_CMP)`, with its errors), which call back into GazLang through `call_value()` in `vm.c`, checked as a call
   written in the program is. `sort` is a defined merge sort, since a comparator can see which
   comparisons are made: split in the middle, merge asking `$compare(right, left)` (`merge_sort()`
   in `builtins.c`). Types are checked before anything is called.

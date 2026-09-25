@@ -15,6 +15,13 @@ check("split without the separator", split("abc", ","), ["abc"]);
 check("split empty string", split("", ","), [""]);
 check("split into characters", split("abc", ""), ["a", "b", "c"]);
 check("split empty string into characters", split("", ""), []);
+check("split at most two", split("a=b=c", "=", 2), ["a", "b=c"]);
+check("split at most one is the string", split("a=b=c", "=", 1), ["a=b=c"]);
+check("split with a limit above the parts", split("a=b=c", "=", 9), ["a", "b", "c"]);
+check("split with a null limit", split("a=b=c", "=", null), ["a", "b", "c"]);
+check("split keeps an empty rest", split("a=", "=", 2), ["a", ""]);
+check("split into characters, at most two", split("abc", "", 2), ["a", "bc"]);
+check("split empty string, at most two", [split("", "=", 2), split("", "", 2)], [[""], []]);
 
 check("join", join(["a", "b", "c"], ", "), "a, b, c");
 check("join converts like echo", join([1, true, false, null, [2]], "|"), "1|true|false|null|[2]");

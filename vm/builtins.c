@@ -33,13 +33,13 @@ char **program_argv;
 /* In the order builtins() gives them */
 const BuiltinInfo builtin_info[] = {
     {"len", 1, 1}, {"slice", 2, 3}, {"lower", 1, 1}, {"upper", 1, 1}, {"trim", 1, 1},
-    {"split", 2, 2}, {"join", 2, 2}, {"replace", 3, 3}, {"contains", 2, 2}, {"starts_with", 2, 3},
+    {"split", 2, 3}, {"join", 2, 2}, {"replace", 3, 3}, {"contains", 2, 2}, {"starts_with", 2, 3},
     {"ends_with", 2, 2}, {"index_of", 2, 3}, {"repeat", 2, 2}, {"chr", 1, 1}, {"ord", 1, 1},
     {"to_int", 1, 2}, {"to_float", 1, 2}, {"floor", 1, 1}, {"ceil", 1, 1}, {"round", 1, 2},
     {"abs", 1, 1}, {"intdiv", 2, 2}, {"min", 1, 2}, {"max", 1, 2}, {"sum", 1, 1}, {"to_string", 1, 1},
     {"in_array", 2, 2}, {"has_key", 2, 2}, {"keys", 1, 1}, {"values", 1, 1}, {"last", 1, 1}, {"reverse", 1, 1},
     {"map", 2, 2},
-    {"filter", 2, 2}, {"reduce", 3, 3}, {"sort", 2, 2}, {"type_of", 1, 1},
+    {"filter", 2, 2}, {"reduce", 3, 3}, {"sort", 1, 2}, {"type_of", 1, 1},
     {"is_a", 2, 2}, {"kind_of", 1, 1}, {"fields", 1, 1}, {"object_id", 1, 1}, {"error", 1, 1}, {"exit", 0, 1},
     {"read_file", 1, 1}, {"write_file", 2, 2}, {"file_exists", 1, 1}, {"real_path", 1, 1},
     {"cwd", 0, 0}, {"print", 1, 1}, {"print_error", 1, 1}, {"read_stdin", 0, 0}, {"args", 0, 0},
@@ -169,6 +169,7 @@ static bool want(int builtin, Value v, unsigned mask) {
     case M(T_INT) | M(T_FLOAT): names = "int or float"; break;
     case M(T_LIST) | M(T_MAP): names = "list or map"; break;
     case M(T_FUNCTION) | M(T_KIND): names = "function or kind"; break;
+    case M(T_FUNCTION) | M(T_KIND) | M(T_NULL): names = "function or kind or null"; break;
     }
     if (!names) {
         for (size_t i = 0; i < sizeof order / sizeof order[0]; i++) {
@@ -241,7 +242,8 @@ static bool reduce(Value x, Value f, Value initial, Value *out) {
 /*
  * sort($x, $compare): a defined merge sort, since a program sees which comparisons are made
  * and in what order: split in the middle, sort each half, merge asking $compare(right, left) and
- * taking from the right only when it is below zero. A new list, or NULL with the error raised.
+ * taking from the right only when it is below zero. A null $compare is <=>, with its errors. A
+ * new list, or NULL with the error raised.
  */
 static List *merge_sort(Value *items, size_t n, Value compare) {
     if (n < 2) {
@@ -264,7 +266,7 @@ static List *merge_sort(Value *items, size_t n, Value compare) {
     size_t l = 0, r = 0;
     while (l < left->len && r < right->len) {
         Value args[2] = {right->items[r], left->items[l]}, order;
-        if (!call_value(compare, args, 2, &order)) goto fail;
+        if (compare.type == T_NULL ? !binary_op(OP_CMP, args[0], args[1], &order) : !call_value(compare, args, 2, &order)) goto fail;
         if (order.type != T_INT) {
             raisef("sort's comparator must return an int, got %s", type_name(order));
             decref(order);
@@ -332,14 +334,17 @@ static const char *find(const char *hay, size_t hay_len, const char *needle, siz
     return memmem(hay, hay_len, needle, needle_len);
 }
 
-static Value split(Str *s, Str *sep) {
+/* split($s, $sep, $limit): at most $limit parts, the last holding the rest of the string */
+static Value split(Str *s, Str *sep, int64_t limit) {
     List *l = list_new(0);
     if (sep->len == 0) {
-        for (size_t i = 0; i < s->len; i++) list_push(l, v_str(str_byte((unsigned char)s->data[i])));
+        size_t i = 0;
+        for (; i < s->len && (int64_t)l->len < limit - 1; i++) list_push(l, v_str(str_byte((unsigned char)s->data[i])));
+        if (i < s->len) list_push(l, v_string(s->data + i, s->len - i));
         return v_list(l);
     }
     const char *p = s->data, *end = s->data + s->len;
-    for (;;) {
+    while ((int64_t)l->len < limit - 1) {
         const char *hit = find(p, (size_t)(end - p), sep->data, sep->len);
         if (!hit) break;
         list_push(l, v_string(p, (size_t)(hit - p)));
@@ -761,10 +766,13 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         *out = v_string(a.s->data + from, to - from);
         return true;
     }
-    case B_SPLIT:
-        if (!want(index, a, STRING) || !want(index, b, STRING)) return false;
-        *out = split(a.s, b.s);
+    case B_SPLIT: {
+        Value limit = argc > 2 ? c : v_null();
+        if (!want(index, a, STRING) || !want(index, b, STRING) || !want(index, limit, INT | M(T_NULL))) return false;
+        if (limit.type == T_INT && limit.i < 1) return raisef("split() limit must be 1 or more, got %lld", (long long)limit.i);
+        *out = split(a.s, b.s, limit.type == T_INT ? limit.i : INT64_MAX);
         return true;
+    }
     case B_JOIN: {
         if (!want(index, b, STRING) || !want(index, a, M(T_LIST))) return false;
         Buf text = {0};
@@ -1034,15 +1042,17 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         if (!want(index, a, M(T_LIST) | M(T_MAP)) || !want(index, args[1], M(T_FUNCTION) | M(T_KIND))) return false;
         return reduce(a, args[1], args[2], out);
     case B_SORT: {
-        if (!want(index, a, M(T_LIST) | M(T_MAP)) || !want(index, args[1], M(T_FUNCTION) | M(T_KIND))) return false;
+        /* sort($x, $compare = null) */
+        Value compare = argc > 1 ? b : v_null();
+        if (!want(index, a, M(T_LIST) | M(T_MAP)) || !want(index, compare, M(T_FUNCTION) | M(T_KIND) | M(T_NULL))) return false;
         List *sorted;
         if (a.type == T_LIST) {
-            sorted = merge_sort(a.l->items, a.l->len, args[1]);
+            sorted = merge_sort(a.l->items, a.l->len, compare);
         } else {
             /* The map's values, in order, as values() gives them (which can't fail on a map) */
             Value values;
             call_builtin(B_VALUES, args, 1, &values);
-            sorted = merge_sort(values.l->items, values.l->len, args[1]);
+            sorted = merge_sort(values.l->items, values.l->len, compare);
             decref(values);
         }
         if (!sorted) return false;

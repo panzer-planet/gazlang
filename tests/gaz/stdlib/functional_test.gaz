@@ -30,6 +30,15 @@ $by_length_then_text = ($a, $b) -> {
     $by_length = len($a) <=> len($b);
     return $by_length != 0 ? $by_length : $a <=> $b;
 };
+// Without a comparator, or with null, it is <=>: the same order and the same errors
+check("sort by <=>", sort([5, 3.5, 9, -1, 3]), [-1, 3, 3.5, 5, 9]);
+check("sort strings by <=>", sort(["b", "B", "a", "10", "9"]), ["10", "9", "B", "a", "b"]);
+check("sort lists by <=>", sort([[1, "b"], [0, "z"], [1, "a"], [1]]), [[0, "z"], [1], [1, "a"], [1, "b"]]);
+check("sort a map's values by <=>", sort({"z" => 2, "y" => 1}), [1, 2]);
+check("a null comparator is <=>", sort([2, 1], null), [1, 2]);
+check("<=> is stable", sort([1.0, 1, 0]), [0, 1.0, 1]);
+check("sort by <=> of a string and a number", message(() -> sort([1, "a"])), "Cannot use <=> on string and int");
+check("sort by <=> of a map", message(() -> sort([{}, {}])), "Cannot use <=> on map");
 check("sort by length then text", sort(["bb", "a", "ccc", "aa"], $by_length_then_text), ["a", "aa", "bb", "ccc"]);
 try {
     sort([1, "one"], ($a, $b) -> $a <=> $b);
@@ -52,7 +61,7 @@ check("map needs a list or map", message(() -> map(5, $x -> $x)), "map() expects
 check("map needs something to call", message(() -> map([], 5)), "map() expects function or kind, got int");
 check("filter checks too", message(() -> filter("abc", $x -> $x)), "filter() expects list or map, got string");
 check("reduce checks too", message(() -> reduce([], null, 0)), "reduce() expects function or kind, got null");
-check("sort checks too", message(() -> sort({}, "x")), "sort() expects function or kind, got string");
+check("sort checks too", message(() -> sort({}, "x")), "sort() expects function or kind or null, got string");
 
 // Anything callable is called as a call in the program is
 kind Pair {
@@ -66,7 +75,7 @@ check("a bound method", map([1, 2], Pair(0).twice), [2, 4]);
 check("a builtin", map([[1], [1, 2]], len), [1, 2]);
 check("an abstract kind can't", message(() -> map([1], Shape)), "Cannot construct abstract kind Shape");
 check("a builtin with the wrong count", message(() -> map([1], slice)), "Function slice expects 2 to 3 arguments, 1 given");
-check("a lambda with the wrong count", message(() -> map([1], ($a, $b, $c) -> $a)), "Function -> at tests/gaz/stdlib/functional_test.gaz:69 expects 3 arguments, 2 given");
+check("a lambda with the wrong count", message(() -> map([1], ($a, $b, $c) -> $a)), "Function -> at tests/gaz/stdlib/functional_test.gaz:78 expects 3 arguments, 2 given");
 check("a bound method with the wrong count", message(() -> reduce([1], Pair(0).twice, 0)), "Method Pair.twice expects 1 arguments, 2 given");
 
 // Keys stay what they were: 1 and "1" are different keys

@@ -433,10 +433,11 @@ kind's fields, methods and constants across its hierarchy.
 
 ## Builtins
 
-**Strings** — `len`, `slice($x, $start, $length)`, `lower`, `upper`, `trim`, `split($s, $sep)`,
+**Strings** — `len`, `slice($x, $start, $length)`, `lower`, `upper`, `trim`, `split($s, $sep, $limit)`,
 `join($list, $sep)`, `replace($s, $search, $replacement)`, `contains`, `ends_with`,
 `starts_with($s, $prefix, $offset)`, `index_of($s, $needle, $offset)`, `repeat($s, $count)`, `chr`,
-`ord`. Both offsets are optional and count from the end when negative; one outside the string is
+`ord`. `split`'s `$limit` (an int of 1 or more, or `null` for none) caps the parts, the last
+holding the rest: `split("a=b=c", "=", 2)` is `["a", "b=c"]`. Both offsets are optional and count from the end when negative; one outside the string is
 an error. `starts_with` at the end of the string (`$offset` = `len($s)`) is true only for an empty
 prefix.
 
@@ -464,9 +465,10 @@ given it as the third: `map($names, ($name, $i) -> "{$i}. {$name}")`,
 `filter($xs, ($x, $i) -> $i % 2 == 0)`, `reduce($xs, ($carry, $x, $i) -> ...)`. One that needs
 fewer, one with a default for its second parameter, a builtin and a kind are called with the value alone,
 as they always were, so `map($texts, to_int)` still gives `to_int` one argument.
-- `sort($x, $compare)` — the values in a new list, ordered by `$compare($a, $b)`, which returns
-  an int below zero when `$a` comes first, as `$a <=> $b` does; anything but an int is an
-  error. Stable: a merge sort that splits in the middle and asks `$compare(right, left)`,
+- `sort($x, $compare = null)` — the values in a new list, ordered by `$compare($a, $b)`, which
+  returns an int below zero when `$a` comes first, as `$a <=> $b` does; anything but an int is an
+  error. Without one (or with `null`) it is `<=>` itself, ascending, so `sort([3, 1, 2])` is
+  `[1, 2, 3]` and a list of a string and a number is `<=>`'s error. Stable: a merge sort that splits in the middle and asks `$compare(right, left)`,
   taking from the right only when that is below zero, so a comparator that prints shows the
   same calls on every runtime.
 
