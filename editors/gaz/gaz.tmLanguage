@@ -44,7 +44,19 @@
 		</dict>
 		<dict>
 			<key>include</key>
+			<string>#namespaces</string>
+		</dict>
+		<dict>
+			<key>include</key>
 			<string>#builtins</string>
+		</dict>
+		<dict>
+			<key>include</key>
+			<string>#calls</string>
+		</dict>
+		<dict>
+			<key>include</key>
+			<string>#named-constants</string>
 		</dict>
 		<dict>
 			<key>include</key>
@@ -118,6 +130,23 @@
 				</dict>
 				<dict>
 					<key>match</key>
+					<string>\b(namespace)\s+([a-z_][a-zA-Z0-9_]*)</string>
+					<key>captures</key>
+					<dict>
+						<key>1</key>
+						<dict>
+							<key>name</key>
+							<string>storage.type.namespace.gaz</string>
+						</dict>
+						<key>2</key>
+						<dict>
+							<key>name</key>
+							<string>entity.name.namespace.gaz</string>
+						</dict>
+					</dict>
+				</dict>
+				<dict>
+					<key>match</key>
 					<string>\b(kind)\s+([a-zA-Z_][a-zA-Z0-9_]*)(?:\s+(extends)\s+([a-zA-Z_][a-zA-Z0-9_]*))?</string>
 					<key>captures</key>
 					<dict>
@@ -159,19 +188,27 @@
 					<key>name</key>
 					<string>storage.type.gaz</string>
 					<key>match</key>
-					<string>\b(fn|kind|class|interface|const|namespace)\b</string>
+					<string>\b(fn|kind|const|namespace)\b</string>
 				</dict>
 				<dict>
 					<key>name</key>
 					<string>storage.modifier.gaz</string>
 					<key>match</key>
-					<string>\b(abstract|extends|implements|final|public|private|protected|pub|kin|static|shared)\b</string>
+					<string>\b(abstract|extends|pub|kin|static|shared)\b</string>
 				</dict>
+				<!-- Other languages' words, each an error saying what to write instead: fn, kind, pub, kin -->
 				<dict>
 					<key>name</key>
-					<string>invalid.deprecated.reserved.gaz</string>
+					<string>invalid.deprecated.gaz</string>
 					<key>match</key>
-					<string>\b(function)\b</string>
+					<string>\b(function|class|public|private|protected)\b</string>
+				</dict>
+				<!-- Reserved for features decided but not built, so errors for now -->
+				<dict>
+					<key>name</key>
+					<string>invalid.illegal.reserved.gaz</string>
+					<key>match</key>
+					<string>\b(interface|implements|final)\b</string>
 				</dict>
 			</array>
 		</dict>
@@ -254,12 +291,47 @@
 				</dict>
 			</array>
 		</dict>
+		<!-- json::decode: a namespace is lowercase, and :: resolves a name (Kind::NAME too) -->
+		<key>namespaces</key>
+		<dict>
+			<key>patterns</key>
+			<array>
+				<dict>
+					<key>name</key>
+					<string>entity.name.namespace.gaz</string>
+					<key>match</key>
+					<string>(?&lt;![\w.$@#])\b[a-z_][a-zA-Z0-9_]*(?=::)</string>
+				</dict>
+				<dict>
+					<key>name</key>
+					<string>punctuation.accessor.gaz</string>
+					<key>match</key>
+					<string>::</string>
+				</dict>
+			</array>
+		</dict>
 		<key>builtins</key>
 		<dict>
 			<key>name</key>
 			<string>support.function.gaz</string>
 			<key>match</key>
 			<string>(?&lt;![\w.$@#])\b(len|slice|lower|upper|trim|split|join|replace|contains|starts_with|ends_with|index_of|repeat|chr|ord|to_int|to_float|to_string|floor|ceil|round|abs|intdiv|min|max|sum|in_array|has_key|keys|values|last|reverse|map|filter|reduce|sort|type_of|is_a|kind_of|fields|object_id|error|exit|read_file|write_file|file_exists|real_path|cwd|print_error|print|read_stdin|args|builtins|rand_int|rand_float|rand_seed|run|socket_open|socket_read|socket_write|socket_close|term_raw|term_read|term_size|term_is_tty|monotonic_time|std_source|db_open|db_run|db_close|socket_listen|socket_accept|socket_port|workers|time|kind_name)\b</string>
+		</dict>
+		<!-- A call to one of the program's functions; keywords and builtins are matched first -->
+		<key>calls</key>
+		<dict>
+			<key>name</key>
+			<string>entity.name.function.call.gaz</string>
+			<key>match</key>
+			<string>(?&lt;![\w.$@#])\b[a-z_][a-zA-Z0-9_]*(?=\s*\()</string>
+		</dict>
+		<!-- WIDTH, Token::EOF: constants are UPPERCASE, kinds PascalCase -->
+		<key>named-constants</key>
+		<dict>
+			<key>name</key>
+			<string>constant.other.gaz</string>
+			<key>match</key>
+			<string>(?&lt;![\w.$@#])\b[A-Z][A-Z0-9_]+\b</string>
 		</dict>
 		<key>classes</key>
 		<dict>
