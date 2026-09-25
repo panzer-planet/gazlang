@@ -1,0 +1,4 @@
+// read_line() and read_stdin() share standard input: the rest is what the lines didn't take
+echo [read_line(), read_line()];
+echo [read_stdin()];
+echo [read_line(), read_stdin()];

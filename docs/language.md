@@ -481,8 +481,14 @@ are set, as a map by name, the parent's first; a never-set field is left out), `
 objects as `$seen[object_id($x)] = true`).
 
 **Input and output** — `print`, `print_error`, `read_file($path)`,
-`write_file($path, $string)`, `read_stdin()`, `args()`, `builtins()` (every builtin's name
+`write_file($path, $string)`, `read_stdin()`, `read_line()`, `args()`, `builtins()` (every builtin's name
 mapped to its parameter count, or `[fewest, most]` when some are optional).
+
+`read_line()` is the next line of standard input without its `"\n"` or `"\r\n"` (the last line
+may have neither), or `null` once the input has ended, so `while (($line = read_line()) != null)`
+reads it all; output is flushed first, so a prompt printed with `print` shows before the wait.
+`read_stdin()` is all of standard input that is left, so after some `read_line()`s it is the rest.
+A program that was itself piped in has read its input already: both find nothing.
 
 **Directories** — `list_dir($path)` is the names of what a directory holds, without `.` and
 `..`, sorted byte by byte (so `"10"` before `"9"` and `"Z"` before `"a"`), the same on every
@@ -588,7 +594,8 @@ is escape sequences through `print`, and turning bytes into keys is GazLang's to
   when it isn't one. Call it each time it matters; nothing tells a program the window changed.
 - `term_is_tty($stream)` — whether standard input (0), output (1) or error (2) is a terminal.
 
-`term_read` reads the descriptor, not the buffer `read_stdin()` fills, so use one or the other.
+`term_read` reads the descriptor, not the buffer `read_stdin()` and `read_line()` fill, so use one
+or the other.
 
 **Workers** — `workers($count)` turns the program into `$count` processes from that point on, each
 carrying on with a copy of everything, for a server that answers more than one request at a time

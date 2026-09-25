@@ -52,6 +52,7 @@ const BuiltinInfo builtin_info[] = {
     {"time", 0, 0}, {"kind_name", 1, 1}, {"sqrt", 1, 1},
     {"getenv", 1, 1}, {"sleep", 1, 1},
     {"list_dir", 1, 1}, {"is_dir", 1, 1}, {"make_dir", 1, 1}, {"delete_file", 1, 1}, {"delete_dir", 1, 1},
+    {"read_line", 0, 0},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -70,6 +71,7 @@ enum {
     B_TIME, B_KIND_NAME, B_SQRT,
     B_GETENV, B_SLEEP,
     B_LIST_DIR, B_IS_DIR, B_MAKE_DIR, B_DELETE_FILE, B_DELETE_DIR,
+    B_READ_LINE,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -1191,6 +1193,32 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         size_t n;
         while ((n = fread(chunk, 1, sizeof chunk, stdin)) > 0) buf_add(&text, chunk, n);
         *out = v_str(buf_to_str(&text));
+        return true;
+    }
+    case B_READ_LINE: {
+        /* The next line of standard input without its "\n" or "\r\n", or null at the end. Through
+           the same stdio buffer as read_stdin(), so the two never lose each other's bytes. A
+           program that was itself piped in finds its input at the end already: main() read it.
+           (piped_input, which read_stdin() gives first, is only ever the front end's.) Output is
+           flushed first, so a prompt is on the screen before the wait. */
+        flush_output();
+        char *line = NULL;
+        size_t cap = 0;
+        ssize_t n = getline(&line, &cap, stdin);
+        if (n < 0) {
+            int err = errno;
+            bool failed = ferror(stdin);
+            free(line);
+            if (failed) {
+                clearerr(stdin);
+                return raisef("Cannot read standard input: %s", strerror(err));
+            }
+            *out = v_null();
+            return true;
+        }
+        if (n > 0 && line[n - 1] == '\n') n -= n > 1 && line[n - 2] == '\r' ? 2 : 1;
+        *out = v_string(line, (size_t)n);
+        free(line);
         return true;
     }
     case B_ARGS: {
