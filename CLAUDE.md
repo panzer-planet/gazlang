@@ -223,7 +223,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   pint run on Ubuntu only.
   Development is on an Intel Mac.
 - **Speed**: the same program takes gazlang 0.4 to 1.5 times what it takes PHP (JIT or not),
-  and Python 3.12 1.4 to 2.9 times what it takes gazlang (`php vm/bench.php`, which finds a
+  and Python 3.13 1.3 to 2.9 times what it takes gazlang (`php vm/bench.php`, which finds a
   Python 3.11 or later for the `vm/bench/python/` ports; the README's table is its output on the
   default PGO build, so a `PGO=0` build runs a little slower). The
   arithmetic loop (1.5x) is still about a dozen dispatches an iteration against PHP's JIT, which

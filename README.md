@@ -32,10 +32,11 @@ no dogs here
   a stack trace.
 - **Values that behave like values.** Lists and maps are copied when you assign them, like
   numbers are, so nothing changes behind your back. Objects are handles, shared on purpose.
-- **It compiles itself.** The lexer, parser and compiler are about 4,400 lines of GazLang,
-  running on a VM of about 5,700 lines of plain C, whose one dependency, OpenSSL for HTTPS,
-  is optional: `make -C vm TLS=0` needs nothing but a C compiler.
-- **It is quick.** It beats Python 3.12 by 1.4 to 2.9 times, and stays within 1.5 times of
+- **It compiles itself.** The lexer, parser and compiler are about 5,800 lines of GazLang,
+  running on a VM of about 7,900 lines of plain C. Its libraries (OpenSSL for HTTPS, SQLite and
+  libpq for databases) are all optional: `make -C vm TLS=0 SQLITE=0 PG=0` needs nothing but a C
+  compiler.
+- **It is quick.** It beats Python 3.13 by 1.3 to 2.9 times, and stays within 1.5 times of
   PHP 8.5 with its JIT, beating it on calls, closures, maps and strings
   ([numbers below](#how-fast-is-it)).
 - **It is checked to the byte.** What every test program, snippet and corpus file prints,
@@ -53,7 +54,9 @@ It is a hobby language, not production software, and it would like company.
 ## Get it running
 
 You need a C compiler, make and OpenSSL (`apt install libssl-dev` or `brew install
-openssl@3`; or build with `make -C vm TLS=0` for no HTTPS).
+openssl@3`; or build with `make -C vm TLS=0` for no HTTPS). SQLite and PostgreSQL support is
+built in when their libraries are found (`libsqlite3-dev`, `libpq-dev`; `brew install sqlite
+libpq`), and left out quietly when they aren't.
 
 ```bash
 git clone https://github.com/panzer-planet/gazlang.git
@@ -377,8 +380,8 @@ Error: Index out of range: 5 at trace.gaz:1
 
 ## Something real
 
-`lib/` holds libraries written in GazLang itself — CSV, JSON, sorting by key, string
-formatting. Here is a sales report in twenty lines:
+The standard library is written in GazLang itself ([what is in it](#what-comes-with-it)). Here
+is a sales report in twenty lines, on its CSV reader and number formatting:
 
 ```gaz
 include "std/csv.gaz";
@@ -455,22 +458,22 @@ Each program below does the same work in GazLang, PHP and Python (they are in
 [`vm/bench/`](vm/bench)). The time is the whole process's CPU time, best of 7 runs,
 interleaved, on an Intel i7-8700 running macOS.
 
-| Program | GazLang | PHP 8.5 (JIT) | Python 3.12 |
+| Program | GazLang | PHP 8.5 (JIT) | Python 3.13 |
 | --- | ---: | ---: | ---: |
-| `fib` — recursive calls, `fib(30)` | **0.062s** | 0.102s | 0.145s |
-| `closures` — `map`, `filter`, `reduce` and `sort` with lambdas | **0.040s** | 0.110s | 0.088s |
-| `loop` — ten million rounds of integer arithmetic | 0.350s | **0.236s** | 0.997s |
-| `objects` — half a million small objects and method calls | 0.164s | **0.163s** | 0.353s |
-| `lists` — a million elements, built, read and written | 0.167s | **0.129s** | 0.240s |
-| `maps` — counting half a million words | **0.101s** | 0.122s | 0.188s |
-| `strings` — building, splitting and joining 3MB of text | **0.111s** | 0.122s | 0.166s |
+| `fib` — recursive calls, `fib(30)` | **0.067s** | 0.104s | 0.162s |
+| `closures` — `map`, `filter`, `reduce` and `sort` with lambdas | **0.046s** | 0.112s | 0.088s |
+| `loop` — ten million rounds of integer arithmetic | 0.359s | **0.239s** | 1.034s |
+| `objects` — half a million small objects and method calls | 0.166s | **0.165s** | 0.345s |
+| `lists` — a million elements, built, read and written | 0.174s | **0.131s** | 0.245s |
+| `maps` — counting half a million words | **0.107s** | 0.123s | 0.187s |
+| `strings` — building, splitting and joining 3MB of text | **0.117s** | 0.123s | 0.155s |
 
-The times include starting up, which is roughly 0.06s for PHP with its JIT, 0.02s for Python
+The times include starting up, which is roughly 0.08s for PHP with its JIT, 0.03s for Python
 and under 0.01s for GazLang, so the shortest programs flatter GazLang against PHP. GazLang ran
 compiled bytecode here; compiling from source adds about 10ms to a small program.
 
 Run `php vm/bench.php` to measure on your own machine. It also times the self-hosted compiler
-on real work: it compiles itself, all 4,400 lines, in about a quarter of a second.
+on real work: it compiles itself, all 5,800 lines, in under a third of a second.
 
 ## Where to go next
 
@@ -481,10 +484,11 @@ on real work: it compiles itself, all 4,400 lines, in about a quarter of a secon
   [terminal dashboard](examples/dashboard.gaz). They are there to read and to run, and nothing
   tests them.
 - **`games/`** — programs built on the language, in this repository so the language can improve as they ask:
-  a [football manager](games/football/README.md) for the terminal: two divisions, tactics and
-  substitutions, transfers, saving and seasons.
-- **`tests/programs/`** — bigger programs that the tests do run, so they still work: a 700 line
-  [football league simulator](tests/programs/football.gaz), a
+  a [football manager](games/football/README.md) for the terminal: two divisions and a cup,
+  tactics and substitutions, transfers and contracts, saving and seasons.
+- **`tests/programs/`** — bigger programs that the tests do run, so they still work: a 1,400
+  line [football league simulator](tests/programs/football.gaz) (the frozen one the game started
+  from, and the benchmark workload), a
   [CSV report](tests/programs/csv_report.gaz), a
   [web API client](tests/programs/cat_facts.gaz) and a [web server](tests/programs/web_server.gaz).
 - **`lib/`** — the standard library, all of it written in GazLang and built into `gazlang`, so a
