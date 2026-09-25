@@ -1198,6 +1198,18 @@ vm/bench.php`: CPU time, interleaved, best of several).
   built-in front end in that mode; running source runs it in `code` mode first. With no file and
   a terminal on stdin it prints the help to stderr and exits 1: there is no REPL (running each
   line as its own program wouldn't be one).
+- **A real REPL is possible, not built**, and nothing decided rules it out; what stands in the way
+  is that everything assumes a whole program. It would take: a session mode in the compiler (the
+  parser keeps its function, kind, constant and namespace tables between entries, the code
+  generator keeps the top level's slot map and the global slots, and each entry compiles as a
+  continuation of the top block plus any new blocks); a loader that appends blocks to a running
+  program and grows its globals, statics and top frame instead of `run_program()` starting afresh;
+  and a loop that reads with `term.c`/`lib/term.gaz`, asks for more when the parser runs out of
+  input mid-construct, and prints a bare expression's value as a literal. Decisions it forces:
+  whether a function or kind can be redefined (a kind can't be safely, since objects keep its
+  layout), that an entry failing halfway keeps its side effects (as Python's does), and that a
+  call to a function not yet defined is an error for that entry. Wanted after the chores batch
+  (`read_line()` and friends), which it would use.
 - **Running source**: the compiler runs as a program of its own with its output captured in an
   `open_memstream()` buffer, which is then loaded as bytecode saved next to the source. Each run
   starts with fresh stacks and globals and the compile's leftovers are dropped first, so the leak
