@@ -1,45 +1,100 @@
 /*
- * A small terminal dashboard on lib/term.gaz and lib/tui.gaz: up and down pick a task, + and -
+ * A small terminal dashboard on std/term.gaz and std/tui.gaz: up and down pick a task, + and -
  * move its progress, q quits. Needs a terminal.
+ *
+ * Written in the clean code style: a kind for each thing (a task, the board), small methods whose
+ * names say what they do, named layout numbers, and drawing and key handling kept apart from the
+ * state they show and change.
  */
 include "std/term.gaz";
 include "std/tui.gaz";
 
+const MAX_WIDTH = 64;
+const MARGIN = 3;          // columns from the box's left edge to the text
+const FIRST_TASK_ROW = 3;
+const NAME_WIDTH = 28;
+const BAR_COLUMN = 32;
+const HELP = "up/down pick   +/- change   q quit";
+
+kind Task {
+    fn _(pub #name, pub #done, pub #total) {}
+
+    pub fn advance() {
+        #done = min(#done + 1, #total);
+    }
+
+    pub fn set_back() {
+        #done = max(#done - 1, 0);
+    }
+
+    pub fn progress() {
+        return #done / #total;
+    }
+}
+
 kind Board {
-    #tasks;
-    #picked = 0;
+    #selected = 0;
 
-    fn _($tasks) {
-        #tasks = $tasks;
+    fn _(pub #tasks) {}
+
+    pub fn select_previous() {
+        #selected = max(#selected - 1, 0);
     }
 
-    pub fn draw($screen) {
-        $width = min($screen.cols, 64);
-        tui::box($screen, 1, 1, $width, len(#tasks) + 5, "Tasks");
-        foreach (#tasks as $i => [$name, $done, $total]) {
-            $on = $i == #picked;
-            tui::label($screen, 3, 3 + $i, 28, ($on ? "> " : "  ") .. $name, $on ? "bold" : "");
-            tui::progress($screen, 32, 3 + $i, $width - 33, $done / $total, $on ? "cyan" : "blue");
-        }
-        tui::label($screen, 3, len(#tasks) + 4, $width - 4, "up/down pick   +/- change   q quit", "dim");
+    pub fn select_next() {
+        #selected = min(#selected + 1, len(#tasks) - 1);
     }
 
-    pub fn handle($key) {
-        match (term::name($key)) {
-            "up" => { #picked = max(#picked - 1, 0); }
-            "down" => { #picked = min(#picked + 1, len(#tasks) - 1); }
-            "+", "=" => { #tasks[#picked][1] = min(#tasks[#picked][1] + 1, #tasks[#picked][2]); }
-            "-" => { #tasks[#picked][1] = max(#tasks[#picked][1] - 1, 0); }
-            "q", "ctrl+c" => { return "quit"; }
-            default => {}
-        }
-        return null;
+    pub fn selected_task() {
+        return #tasks[#selected];
+    }
+
+    pub fn is_selected($index) {
+        return $index == #selected;
     }
 }
 
-if (!term_is_tty(0) || !term_is_tty(1)) {
-    error("dashboard.gaz needs a terminal");
+fn draw_board($screen, $board) {
+    $width = min($screen.cols, MAX_WIDTH);
+    $count = len($board.tasks);
+    tui::box($screen, 1, 1, $width, $count + 5, "Tasks");
+    foreach ($board.tasks as $index => $task) {
+        draw_task($screen, FIRST_TASK_ROW + $index, $width, $task, $board.is_selected($index));
+    }
+    tui::label($screen, MARGIN, FIRST_TASK_ROW + $count + 1, $width - 4, HELP, "dim");
 }
 
-$board = Board([["Write the lexer", 10, 10], ["Write the parser", 8, 10], ["Write the code generator", 5, 10], ["Write the VM", 3, 10], ["Write the docs", 0, 10]]);
-tui::interact($screen -> $board.draw($screen), $key -> $board.handle($key));
+fn draw_task($screen, $row, $width, $task, $selected) {
+    $marker = $selected ? "> " : "  ";
+    tui::label($screen, MARGIN, $row, NAME_WIDTH, $marker .. $task.name, $selected ? "bold" : "");
+    tui::progress($screen, BAR_COLUMN, $row, $width - BAR_COLUMN - 1, $task.progress(), $selected ? "cyan" : "blue");
+}
+
+// What a key does to the board; "quit" ends the dashboard, as tui::interact asks
+fn handle_key($board, $key) {
+    match (term::name($key)) {
+        "up" => { $board.select_previous(); }
+        "down" => { $board.select_next(); }
+        "+", "=" => { $board.selected_task().advance(); }
+        "-" => { $board.selected_task().set_back(); }
+        "q", "ctrl+c" => { return "quit"; }
+        default => {}
+    }
+    return null;
+}
+
+fn require_terminal() {
+    if (!term_is_tty(0) || !term_is_tty(1)) {
+        error("dashboard.gaz needs a terminal");
+    }
+}
+
+require_terminal();
+$board = Board([
+    Task("Write the lexer", 10, 10),
+    Task("Write the parser", 8, 10),
+    Task("Write the code generator", 5, 10),
+    Task("Write the VM", 3, 10),
+    Task("Write the docs", 0, 10),
+]);
+tui::interact($screen -> draw_board($screen, $board), $key -> handle_key($board, $key));
