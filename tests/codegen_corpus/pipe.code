@@ -1,0 +1,75 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals $g
+@ "pipe.gaz" 2
+MAKE_CLOSURE 0
+STORE 0
+LOAD 0
+POP
+@ "pipe.gaz" 3
+PUSH 1
+PUSH 2
+CALL add 2
+PRINT
+@ "pipe.gaz" 4
+PUSH "a"
+CALL_BUILTIN upper 1
+PRINT
+@ "pipe.gaz" 5
+LOAD 0
+PUSH "a"
+CALL_VALUE 1
+PRINT
+@ "pipe.gaz" 6
+LOAD 0
+PUSH "a"
+PUSH 1
+CALL_VALUE 2
+PRINT
+@ "pipe.gaz" 7
+MAKE_CLOSURE 1
+PUSH "a"
+CALL_VALUE 1
+PRINT
+@ "pipe.gaz" 10
+LOAD 0
+@ "pipe.gaz" 8
+PUSH "a"
+@ "pipe.gaz" 9
+CALL_BUILTIN upper 1
+@ "pipe.gaz" 10
+CALL_VALUE 1
+@ "pipe.gaz" 8
+PRINT
+
+fn add 2 2
+locals $a $b
+@ "pipe.gaz" 1
+LOAD 0
+LOAD 1
+ADD
+RET
+PUSH null
+RET
+
+lambda 0 1 2
+locals $s $n
+@ "pipe.gaz" 2
+ARGC
+PUSH 1
+GT
+NOT
+JZ PASSED_0
+PUSH 0
+STORE 1
+LABEL PASSED_0
+LOAD 0
+RET
+
+lambda 1 1 1
+locals $v
+@ "pipe.gaz" 7
+LOAD 0
+RET

@@ -1,0 +1,1 @@
+Error: |> binds looser than ..: write ($x |> f) .. $y, or parenthesise what follows |> on line 2

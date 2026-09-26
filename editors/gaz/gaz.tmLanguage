@@ -467,7 +467,7 @@
 			<key>name</key>
 			<string>keyword.operator.gaz</string>
 			<key>match</key>
-			<string>\*\*=?|\?\?=?|&lt;=&gt;|&lt;&lt;=?|&gt;&gt;=?|\.\.\.|\.\.=?|-&gt;|=&gt;|\+\+|--|&amp;&amp;|\|\||[+\-*/%&amp;|^]=?|[&lt;&gt;]=?|[!=]=|=|[!?:~]</string>
+			<string>\*\*=?|\?\?=?|&lt;=&gt;|&lt;&lt;=?|&gt;&gt;=?|\.\.\.|\.\.=?|-&gt;|=&gt;|\+\+|--|&amp;&amp;|\|&gt;|\|\||[+\-*/%&amp;|^]=?|[&lt;&gt;]=?|[!=]=|=|[!?:~]</string>
 		</dict>
 	</dict>
 </dict>

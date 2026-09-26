@@ -1,0 +1,334 @@
+Compound
+  statements:
+@ "tests/parser_corpus/pipe.gaz"
+    0: Statement 2
+      expr: FunctionCall 2
+        name: "f"
+        args:
+          0: Variable 2
+            token: 2 VAR_IDENTIFIER $x
+            value: "\$x"
+    1: Statement 3
+      expr: FunctionCall 3
+        name: "f"
+        args:
+          0: Variable 3
+            token: 3 VAR_IDENTIFIER $x
+            value: "\$x"
+          1: Num 3
+            token: 3 INTEGER 1
+            value: 1
+    2: Statement 4
+      expr: CallValue 4
+        callee: Variable 4
+          token: 4 VAR_IDENTIFIER $g
+          value: "\$g"
+        args:
+          0: Variable 4
+            token: 4 VAR_IDENTIFIER $x
+            value: "\$x"
+    3: Statement 5
+      expr: CallValue 5
+        callee: Variable 5
+          token: 5 VAR_IDENTIFIER $g
+          value: "\$g"
+        args:
+          0: Variable 5
+            token: 5 VAR_IDENTIFIER $x
+            value: "\$x"
+          1: Num 5
+            token: 5 INTEGER 1
+            value: 1
+    4: Statement 6
+      expr: FunctionCall 6
+        name: "Point"
+        args:
+          0: Variable 6
+            token: 6 VAR_IDENTIFIER $x
+            value: "\$x"
+    5: Statement 7
+      expr: FunctionCall 7
+        name: "Point::make"
+        args:
+          0: Variable 7
+            token: 7 VAR_IDENTIFIER $x
+            value: "\$x"
+          1: Num 7
+            token: 7 INTEGER 1
+            value: 1
+    6: Statement 8
+      expr: CallValue 8
+        callee: Lambda 8
+          params: ["\$v"]
+          defaults: [null]
+          arity: 1
+          body: BinOp 8
+            left: Variable 8
+              token: 8 VAR_IDENTIFIER $v
+              value: "\$v"
+            token: 8 MULTIPLY *
+            op: 8 MULTIPLY *
+            right: Num 8
+              token: 8 INTEGER 2
+              value: 2
+          captures: []
+          self: null
+          owner: null
+        args:
+          0: Variable 8
+            token: 8 VAR_IDENTIFIER $x
+            value: "\$x"
+    7: Statement 9
+      expr: CallValue 9
+        callee: FunctionRef 9
+          name: "f"
+          constant: false
+          value: null
+          static_name: null
+        args:
+          0: Variable 9
+            token: 9 VAR_IDENTIFIER $x
+            value: "\$x"
+          1: Num 9
+            token: 9 INTEGER 1
+            value: 1
+    8: Statement 10
+      expr: CallValue 10
+        callee: Index 10
+          target: Variable 10
+            token: 10 VAR_IDENTIFIER $handlers
+            value: "\$handlers"
+          index: String 10
+            token: 10 STRING "k"
+            value: "k"
+        args:
+          0: Variable 10
+            token: 10 VAR_IDENTIFIER $x
+            value: "\$x"
+    9: Statement 12
+      expr: FunctionCall 12
+        name: "h"
+        args:
+          0: FunctionCall 12
+            name: "g"
+            args:
+              0: FunctionCall 12
+                name: "f"
+                args:
+                  0: Variable 12
+                    token: 12 VAR_IDENTIFIER $x
+                    value: "\$x"
+              1: Num 12
+                token: 12 INTEGER 1
+                value: 1
+    10: Statement 13
+      expr: FunctionCall 15
+        name: "g"
+        args:
+          0: FunctionCall 14
+            name: "f"
+            args:
+              0: Variable 13
+                token: 13 VAR_IDENTIFIER $x
+                value: "\$x"
+          1: Num 16
+            token: 16 INTEGER 1
+            value: 1
+    11: Statement 19
+      expr: FunctionCall 19
+        name: "upper"
+        args:
+          0: BinOp 19
+            left: String 19
+              token: 19 STRING "Hello "
+              value: "Hello "
+            token: 19 CONCAT ..
+            op: 19 CONCAT ..
+            right: Variable 19
+              token: 19 VAR_IDENTIFIER $name
+              value: "\$name"
+    12: Statement 20
+      expr: FunctionCall 20
+        name: "f"
+        args:
+          0: BinOp 20
+            left: Variable 20
+              token: 20 VAR_IDENTIFIER $a
+              value: "\$a"
+            token: 20 PLUS +
+            op: 20 PLUS +
+            right: Num 20
+              token: 20 INTEGER 1
+              value: 1
+    13: Statement 21
+      expr: BinOp 21
+        left: FunctionCall 21
+          name: "len"
+          args:
+            0: Variable 21
+              token: 21 VAR_IDENTIFIER $items
+              value: "\$items"
+        token: 21 GREATER_THAN >
+        op: 21 GREATER_THAN >
+        right: Num 21
+          token: 21 INTEGER 3
+          value: 3
+    14: Statement 22
+      expr: BinOp 22
+        left: FunctionCall 22
+          name: "f"
+          args:
+            0: Variable 22
+              token: 22 VAR_IDENTIFIER $a
+              value: "\$a"
+        token: 22 EQUALS ==
+        op: 22 EQUALS ==
+        right: FunctionCall 22
+          name: "g"
+          args:
+            0: Variable 22
+              token: 22 VAR_IDENTIFIER $b
+              value: "\$b"
+    15: Statement 23
+      expr: BinOp 23
+        left: Variable 23
+          token: 23 VAR_IDENTIFIER $a
+          value: "\$a"
+        token: 23 COALESCE ??
+        op: 23 COALESCE ??
+        right: FunctionCall 23
+          name: "f"
+          args:
+            0: Variable 23
+              token: 23 VAR_IDENTIFIER $b
+              value: "\$b"
+    16: Statement 24
+      expr: Ternary 24
+        condition: Variable 24
+          token: 24 VAR_IDENTIFIER $c
+          value: "\$c"
+        then: FunctionCall 24
+          name: "f"
+          args:
+            0: Variable 24
+              token: 24 VAR_IDENTIFIER $a
+              value: "\$a"
+        else: FunctionCall 24
+          name: "g"
+          args:
+            0: Variable 24
+              token: 24 VAR_IDENTIFIER $b
+              value: "\$b"
+    17: FunctionDeclaration 25
+      name: "f"
+      params: ["\$a", "\$b"]
+      defaults:
+        0: null
+        1: Num 25
+          token: 25 INTEGER 0
+          value: 0
+      body: Compound
+        statements:
+          0: ReturnStatement 25
+            expr: Variable 25
+              token: 25 VAR_IDENTIFIER $a
+              value: "\$a"
+      arity: [1, 2]
+      kind: null
+      abstract: false
+    18: FunctionDeclaration 26
+      name: "g"
+      params: ["\$a", "\$b"]
+      defaults:
+        0: null
+        1: Num 26
+          token: 26 INTEGER 0
+          value: 0
+      body: Compound
+        statements:
+          0: ReturnStatement 26
+            expr: Variable 26
+              token: 26 VAR_IDENTIFIER $a
+              value: "\$a"
+      arity: [1, 2]
+      kind: null
+      abstract: false
+    19: FunctionDeclaration 27
+      name: "h"
+      params: ["\$a"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: ReturnStatement 27
+            expr: Variable 27
+              token: 27 VAR_IDENTIFIER $a
+              value: "\$a"
+      arity: 1
+      kind: null
+      abstract: false
+    20: KindDeclaration 28
+      name: "Point"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods:
+        make: FunctionDeclaration 30
+          name: "Point::make"
+          params: ["\$x", "\$y"]
+          defaults: [null, null]
+          body: Compound
+            statements:
+              0: ReturnStatement 30
+                expr: FunctionCall 30
+                  name: "Point"
+                  args:
+                    0: Variable 30
+                      token: 30 VAR_IDENTIFIER $x
+                      value: "\$x"
+          arity: 2
+          kind: "Point"
+          abstract: false
+      static_owners: {"make" => "Point"}
+      static_is_method: {"make" => true}
+      vis: {"_" => "pub", "make" => ""}
+      fields: []
+      field_lines: []
+      methods:
+        _: FunctionDeclaration 29
+          name: "_"
+          params: ["\$x"]
+          defaults: [null]
+          body: Compound
+            statements: []
+          arity: 1
+          kind: "Point"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: {"_" => "Point"}
+      abstract_methods: []
+      slots: []
+      method_table: [["_", "Point", "pub", "Point"]]
+      owner_vis: {"make" => "", "_" => "pub"}
+      declared_at: {"_" => "Point"}
+      hidden: []
+      hidden_fields: []
+    21: FunctionDeclaration 30
+      name: "Point::make"
+      params: ["\$x", "\$y"]
+      defaults: [null, null]
+      body: Compound
+        statements:
+          0: ReturnStatement 30
+            expr: FunctionCall 30
+              name: "Point"
+              args:
+                0: Variable 30
+                  token: 30 VAR_IDENTIFIER $x
+                  value: "\$x"
+      arity: 2
+      kind: "Point"
+      abstract: false

@@ -1,0 +1,6 @@
+// |> is one token, the longest match: | and > apart are not
+$x |> f;
+$x | > 1;
+$x||>1;
+$x|>$g|>h;
+$a |>= 1;

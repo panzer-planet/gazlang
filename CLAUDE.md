@@ -248,9 +248,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
      generics until they can be a static check only.
   2. **`gaz --watch app.gaz`** (done; see "The CLI"). Not a rolling restart of workers: they are
      forks of a master holding the old code.
-  3. **A pipe, `|>`**, parser only, Elixir's rule: `$x |> f(a)` is `f($x, a)` and `$x |> $f` is
-     `$f($x)`, since the builtins take their subject first (`$title |> trim |> lower |> replace(" ",
-     "-")`). Not PHP's `f(...)` form, which collides with `...`. A lambda in a pipe is parenthesised.
+  3. **A pipe, `|>`** (done; see "Operators, truthiness and equality"). Not PHP's `f(...)` form, which collides with `...`.
   4. **`gaz test`** running `*_test.gaz`, with `std/test.gaz` (`test::expect`, `test::snapshot`
      recorded next to the test, `--update`), and an exit status; no new syntax or reserved word. A
      user of gaz shouldn't need PHP to test gaz code.
@@ -536,7 +534,7 @@ version.
 ## Operators, truthiness and equality
 
 - **Precedence**, loosest first: assignment (right associative) → `?:` and `throw` (right) → `??` (right)
-  → `||` → `&&` → equality (`==` `!=` `<=>`) → relational → `..` → `|` → `^` → `&` → shifts →
+  → `||` → `&&` → equality (`==` `!=` `<=>`) → relational → `|>` → `..` → `|` → `^` → `&` → shifts →
   `+ -` → `* / %` → unary → `**` (right) → postfix (`[index]`, `(args)`, `.name`, `?.name`, `::name`) → primary. Bitwise precedence
   is Rust's and Python's, not C's, so `$flags & MASK == 0` is `($flags & MASK) == 0`. `..` sits
   looser than the bitwise operators and tighter than comparison, so `"x = " .. $f & MASK` and
@@ -577,6 +575,24 @@ version.
   between `??` and assignment, so `$x ?? $y ? 1 : 2` tests the coalesced value.
 - `%` takes the left operand's sign. `null`: arithmetic, ordering and unary `-` on it throw;
   `echo null` prints `null`.
+- **`$x |> f(a)` is `f($x, a)`**: the value on the left is the call's first argument, since the
+  builtins take their subject first (`$title |> trim |> lower |> replace(" ", "-")`). `$x |> f` is
+  `f($x)`, `$x |> $g(a)` is `$g($x, a)`, a qualified name or a kind as its call, and a
+  parenthesised expression is called with the value (`|> ($v -> $v * 2)`, `|> ($h["k"])`); left
+  associative. **Parser sugar only** (`pipe()` in `parser.gaz`): the right side is read at the next
+  tighter level, as any operand is, and becomes an ordinary `FunctionCallAST` or `CallValueAST`,
+  so its checks, errors, traces and order of evaluation (a called value before its arguments) are
+  the call's, and nothing below the parser learns of it. `#grouped` (the last expression
+  `parenthesised()` gave) is how a parenthesised expression is told from anything else that
+  starts with `(`.
+  - **Looser than `..` and arithmetic, tighter than comparison**, so `"Hello " .. $name |> upper`
+    pipes the whole greeting and `$items |> len > 3` compares the length. The price is that
+    `$x |> f .. "!"` pipes into `f .. "!"`, which is refused saying `|>` binds looser than `..`.
+  - **Refused**: a lambda right after `|>` (its body would swallow the rest of the chain: write
+    `|> ($v -> ...)`); a method (`|> $obj.m()`, `|> $obj.m`, `|> #m()`), the restrictive choice,
+    loosenable later; anything else that isn't a name, a variable or a parenthesised expression,
+    with or without arguments (`|> 5`, `|> $h["k"]`). `ponytail:` `|> ($a, $b) -> ...` gets the
+    plain `Unexpected ','`.
 
 ## Numbers
 
@@ -1437,7 +1453,7 @@ try {
 ## The self-hosted front end
 
 - **Its shape, and why**: the lexer's scanner is an object, because `include` needs two lexers
-  alive at once; its operators are one table matched longest first. The parser's eleven binary
+  alive at once; its operators are one table matched longest first. The parser's twelve binary
   levels are one table and a loop (precedence climbing) rather than a method each, 28% faster.
   `lambda_heads` is one field, since nothing is read between marking a `(` and asking. A member
   use's record is found by an index the node holds, not a reference, so a kind's tree isn't a

@@ -84,7 +84,7 @@ kind Lexer {
         "/" => "DIVIDE", "/=" => "DIVIDE_ASSIGN",
         "%" => "MODULO", "%=" => "MODULO_ASSIGN",
         "&" => "BIT_AND", "&=" => "BIT_AND_ASSIGN", "&&" => "AND",
-        "|" => "BIT_OR", "|=" => "BIT_OR_ASSIGN", "||" => "OR",
+        "|" => "BIT_OR", "|=" => "BIT_OR_ASSIGN", "||" => "OR", "|>" => "PIPE",
         "^" => "BIT_XOR", "^=" => "BIT_XOR_ASSIGN",
         "<" => "LESS_THAN", "<=" => "LESS_EQUALS", "<=>" => "SPACESHIP",
         "<<" => "SHIFT_LEFT", "<<=" => "SHIFT_LEFT_ASSIGN",

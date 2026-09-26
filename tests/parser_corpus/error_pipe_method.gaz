@@ -1,0 +1,4 @@
+kind A { pub fn m($x) { return $x; } }
+$o = A();
+$x
+    |> $o.m(1);

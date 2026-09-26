@@ -176,6 +176,8 @@ echo -7 % 3;                               // %, ints only, sign follows the lef
 $front = [1, 2];
 $back = [3, 4];
 echo [...$front, ...$back];                // spread into a list literal
+
+echo " Hi There " |> trim |> lower;        // |> passes the value as the first argument
 ```
 
 ```
@@ -186,6 +188,7 @@ yes
 48
 -1
 [1, 2, 3, 4]
+hi there
 ```
 
 ### Lists and maps
