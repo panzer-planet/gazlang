@@ -56,7 +56,6 @@ snippet:0dfee7b4102b
 snippet:0e67d88595a2
 snippet:0eb7f195816d
 snippet:0ee4ec1f854f
-snippet:0efe7e551245
 snippet:0f02593310ac
 snippet:1072191abdd3
 snippet:10f564396acf
@@ -225,6 +224,7 @@ snippet:4b3538f58b5d
 snippet:4b8294d1c1dc
 snippet:4ba929f084c7
 snippet:4c157ff7785f
+snippet:4c513ba6c7d4
 snippet:4ceceb3c7c4d
 snippet:4d4a08643174
 snippet:4d5a0f62da17
@@ -589,7 +589,6 @@ snippet:e0b13264a3df
 snippet:e102baacb07e
 snippet:e194644b6ef5
 snippet:e24b67fa2957
-snippet:e29131072699
 snippet:e2ee0e82ec85
 snippet:e3b12fba9913
 snippet:e3b619ee0145
@@ -653,6 +652,7 @@ snippet:fb46273c851e
 snippet:fb6121ae1136
 snippet:fbca219447cf
 snippet:fbd672f69a6a
+snippet:fc10399694cf
 snippet:fc59e7ea2778
 snippet:fc9f8a721bbd
 snippet:fcf1b0321652
@@ -943,6 +943,7 @@ tests/vm_corpus/cycles.gaz
 tests/vm_corpus/deep_uncaught.gaz
 tests/vm_corpus/depth.gaz
 tests/vm_corpus/depth_uncaught.gaz
+tests/vm_corpus/error_is_a_free_name.gaz
 tests/vm_corpus/exit_code.gaz
 tests/vm_corpus/floats.gaz
 tests/vm_corpus/globals.gaz

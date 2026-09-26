@@ -121,16 +121,16 @@ class FunctionValueTest extends GazLangTestCase
         ];
     }
 
-    public function test_error_as_a_value_keeps_its_message_uncaught()
+    public function test_a_throw_in_a_function_value_keeps_its_message_uncaught()
     {
-        // Printed as it is, without a location, which catch still sees
+        // Printed as it is, without a location but with the call's trace; catch still sees the line
         try {
-            $this->executeCode('$e = error; $e("boom");');
+            $this->executeCode('$e = $m -> throw $m; $e("boom");');
             $this->fail('Expected an error');
         } catch (ProgramError $e) {
-            $this->assertSame('boom', $e->getMessage());
+            $this->assertSame("boom\n  -> on line 1\n  top level on line 1", $e->getMessage());
         }
-        $this->assertSame("boom\n1\n", $this->executeCode('try { $e = error; $e("boom"); } catch (Error $e) { echo $e.message; echo $e.line; }'));
+        $this->assertSame("boom\n1\n", $this->executeCode('try { $e = $m -> throw $m; $e("boom"); } catch (Error $e) { echo $e.message; echo $e.line; }'));
     }
 
     public function test_runaway_recursion_through_a_value_is_a_gazlang_error()

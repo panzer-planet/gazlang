@@ -86,7 +86,7 @@ bool raisef(const char *fmt, ...) {
 }
 
 /* throw $v: a string is the message of an Error, anything else is thrown as it is */
-bool raise_value(Value v) {
+static bool raise_value(Value v) {
     if (vm_error) decref((Value){.type = T_ERROR, .e = vm_error});
     if (v.type == T_STRING) {
         incref(v);

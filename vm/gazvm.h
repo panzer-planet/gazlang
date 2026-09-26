@@ -516,7 +516,6 @@ bool raise_undefined_key(Value key);
 extern Error *vm_error;     /* the error being raised */
 bool raisef(const char *fmt, ...) __attribute__((format(printf, 1, 2)));  /* always false */
 bool raise_str(Str *reason);                                             /* always false */
-bool raise_value(Value v);  /* throw $v: a thrown value */
 Error *error_new(Str *reason, Str *path, int64_t line, bool show_location);
 Str *error_message(Error *e);
 void location_text(Str *path, int64_t line, Buf *out);

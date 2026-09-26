@@ -351,7 +351,7 @@ function builtins(): array
     preg_match_all('/"(\w+)" => (?:(\d+)|\[(\d+), (\d+)\])/', $out, $m, PREG_SET_ORDER);
     $builtins = [];
     foreach ($m as $b) {
-        if (! preg_match(FORBIDDEN, $b[1]) && $b[1] !== 'rand_seed' && $b[1] !== 'error') {
+        if (! preg_match(FORBIDDEN, $b[1]) && $b[1] !== 'rand_seed') {
             $builtins[$b[1]] = isset($b[3]) ? [(int) $b[3], (int) $b[4]] : [(int) $b[2], (int) $b[2]];
         }
     }
