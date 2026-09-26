@@ -279,7 +279,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     and replay (for now).
   - **A trap to close**: `Html .. "text"` quietly gives a plain string, which `{{ }}` then escapes;
     concatenating an `Html` should be an error.
-- **Releases**: `VERSION` holds the version (`0.1.0`), which the Makefile compiles in and
+- **Releases**: `VERSION` holds the version (`0.2.0`), which the Makefile compiles in and
   `gaz --version` prints. Pushing a tag `vX.Y.Z` matching it runs `.github/workflows/release.yml`,
   which builds and tries gaz on Linux (the latest Ubuntu, x86_64) and macOS (Apple silicon and
   Intel), and publishes the three `.tar.gz` and their `SHA256SUMS` as a GitHub release
