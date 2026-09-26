@@ -302,6 +302,9 @@ int watch(const char *self, const char *file, int argc, char **argv) {
             free_list(&shown);
             for (int i = 0; i < files.count; i++) add_file(&shown, files.files[i].path);
         }
+        /* A stop asked for while the files were being worked out (whose compile a Ctrl-C also
+           ends) must not start the program once more on the way out */
+        if (stop_signal) die_of(stop_signal);
         pid_t pid = start_program(self, child);
         bool running = pid > 0;
         if (!running) fputs("gaz: waiting for a change\n", stderr);
