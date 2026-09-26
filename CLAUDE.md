@@ -243,7 +243,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   (tutorials, a VS Code extension) was dropped; cookies, static files and uploads wait for the
   apps written on it to ask.
 - **The roadmap after 0.1**, from ten proposals and a critique of them (build in this order):
-  1. **Optional types**, checked at run time (in progress): PHP's syntax (`int $n`, `): int`,
+  1. **Optional types**, checked at run time (done; see "Types"): PHP's syntax (`int $n`, `): int`,
      `pub int #x`), `?T` and unions, `: null` for no result, no coercion but int to float, and no
      generics until they can be a static check only.
   2. **`gaz --watch app.gaz`**: a supervisor that runs the program as a child, polls the times of
