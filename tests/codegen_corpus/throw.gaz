@@ -1,0 +1,5 @@
+// A throw statement leaves nothing to pop; in an expression, nothing follows THROW on its path
+throw "text";
+$x = $y ?? throw "missing";
+echo $c ? 1 : throw [2];
+$f = $v -> throw $v;

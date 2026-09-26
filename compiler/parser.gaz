@@ -390,6 +390,19 @@ kind Html {
         return "";
     }
 
+    // A hint for a name that is neither declared nor a builtin: a miscapitalised keyword, or
+    // error(), which throw replaced
+    fn undefined_hint($name) {
+        if (has_key(Lexer::KEYWORDS, lower($name))) {
+            return " (keywords are lowercase: write '" .. lower($name) .. "', not '{$name}')";
+        }
+        if ($name == "error") {
+            return " (to raise an error, write 'throw \$value', not 'error(\$value)')";
+        }
+
+        return "";
+    }
+
     // Describe a token the way it appears in the source, for error messages
     fn describe($token) {
         return match {
@@ -722,6 +735,9 @@ kind Html {
             return #parent_method();
         } else if ($type == "PARENT") {
             #fail("## alone is not allowed: write ##name for the parent's version of a method");
+        } else if ($type == "THROW") {
+            // It reaches here only as an operand, since coalesce() takes it anywhere looser
+            #fail("throw can't be an operand: write (throw ...)");
         } else if ($type == "SPREAD") {
             #fail("... only spreads into a list or map literal, as in [...\$a, 1] or \{...\$m, \"k\" => 1}");
         } else if (has_key(#INSTEAD, $type)) {
@@ -1292,8 +1308,16 @@ kind Html {
         return #binary(1);
     }
 
-    // Parse a null coalescing expression (logical_or [?? coalesce]), right associative
+    // Parse a null coalescing expression (throw_expression | logical_or [?? coalesce]), right associative
+    //
+    // A throw starts here, so it can begin any expression down to this level: a statement,
+    // either branch of a ternary, a match arm, a lambda body, and the right side of ??, which
+    // is what $x ?? throw NotFound($key) needs. Below this level it would be an operand
+    // (1 + throw ...), which is refused unless parenthesised.
     fn coalesce() {
+        if (#current_token.type == "THROW") {
+            return #throw_expression();
+        }
         $node = #logical_or();
 
         $token = #current_token;
@@ -1304,6 +1328,21 @@ kind Html {
         }
 
         return $node;
+    }
+
+    // Parse a throw (THROW expr), which raises the value and so never gives one
+    //
+    // Its operand is a whole expression and extends as far right as it can, as a lambda's body
+    // does: throw $a ?? $b throws whichever is there. Nothing after throw is an error: a
+    // rethrow names what it throws (throw $e).
+    fn throw_expression() {
+        $token = #current_token;
+        #eat("THROW");
+        if (#current_token.type == "SEMICOLON") {
+            #fail("throw needs a value: a catch rethrows with throw \$e");
+        }
+
+        return #at(ThrowAST(#expr()), $token);
     }
 
     // Parse a ternary (coalesce [? expr : ternary]), or a lambda with one bare parameter (VAR_IDENTIFIER ARROW lambda_body)
@@ -3020,9 +3059,7 @@ kind Html {
                 if ($error != null) {
                     #fail_at($error, $use.file, $use.line);
                 }
-                $hint = has_key(Lexer::KEYWORDS, lower($use.name))
-                    ? " (keywords are lowercase: write '" .. lower($use.name) .. "', not '{$use.name}')"
-                    : "";
+                $hint = #undefined_hint($use.name);
                 // A bare name that isn't called is as likely a mistyped constant
                 $what = is_a($use, FunctionCallAST) ? "Undefined function" : "Undefined function or constant";
                 #fail_at("{$what}: {$use.name}{$hint}", $use.file, $use.line);

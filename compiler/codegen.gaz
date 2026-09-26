@@ -124,6 +124,7 @@ kind CodeGenerator {
             LambdaAST => #visit_lambda($node),
             CallValueAST => #visit_call_value($node),
             ReturnStatementAST => #visit_return_statement($node),
+            ThrowAST => #visit_throw($node),
         }
     }
 
@@ -548,7 +549,16 @@ kind CodeGenerator {
         }
 
         #visit($node.expr);
-        #emit("POP");
+        // A throw leaves nothing to discard: THROW ends the path
+        if (!is_a($node.expr, ThrowAST)) {
+            #emit("POP");
+        }
+    }
+
+    // THROW ends the path it is on, so in an expression nothing after it needs its value
+    fn visit_throw($node) {
+        #visit($node.expr);
+        #emit("THROW");
     }
 
     fn visit_echo_statement($node) {

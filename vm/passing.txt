@@ -803,6 +803,7 @@ tests/codegen_corpus/shared.gaz
 tests/codegen_corpus/statements.gaz
 tests/codegen_corpus/statics.gaz
 tests/codegen_corpus/template.gaz
+tests/codegen_corpus/throw.gaz
 tests/codegen_corpus/types.gaz
 tests/codegen_corpus/write_through_call.gaz
 tests/fixtures/bytecode/example.gaz
@@ -918,6 +919,7 @@ tests/parser_corpus/spread_in_a_map.gaz
 tests/parser_corpus/statements.gaz
 tests/parser_corpus/statics.gaz
 tests/parser_corpus/template.gaz
+tests/parser_corpus/throw.gaz
 tests/parser_corpus/try.gaz
 tests/parser_corpus/types.gaz
 tests/parser_corpus/uses_error_by_extending.gaz
@@ -952,6 +954,7 @@ tests/vm_corpus/pattern_parameters.gaz
 tests/vm_corpus/power.gaz
 tests/vm_corpus/rounding.gaz
 tests/vm_corpus/superinstructions.gaz
+tests/vm_corpus/throw.gaz
 tests/vm_corpus/to_string_errors.gaz
 tests/vm_corpus/types.gaz
 tests/vm_corpus/uncaught_bad_to_string.gaz
