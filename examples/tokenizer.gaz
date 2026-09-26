@@ -12,8 +12,11 @@ const KEYWORDS = ["if", "else", "while", "return", "function"];
 const OPERATORS = ["==", "!=", "<=", ">=", "->", "..", "&&", "||", "+", "-", "*", "/", "%", "=", "<", ">", "!", "(", ")", "{", "}", "[", "]", ",", ";"];
 
 kind Token {
-    fn _(pub #type, pub #text, pub #line);
-    pub fn to_string() { return "{#line}: {#type} {#text}"; }
+    fn _(pub string #type, pub string #text, pub int #line);
+
+    pub fn to_string(): string {
+        return "{#line}: {#type} {#text}";
+    }
 }
 
 /*
@@ -21,16 +24,17 @@ kind Token {
  * reads, and leaves #pos just past it; errors name the line.
  */
 kind Scanner {
-    #pos = 0;
-    #line = 1;
-    fn _(#source);
+    int #pos = 0;
+    int #line = 1;
 
-    pub fn tokens() {
+    fn _(string #source);
+
+    pub fn tokens(): list {
         $tokens = [];
         while (#pos < len(#source)) {
             $c = #source[#pos];
             match {
-                $c == "\n" => { #line++; #pos++; }
+                $c == "\n" => { #new_line(); }
                 is_space($c) => { #pos++; }
                 starts_with(#source, "//", #pos) => { #comment(); }
                 is_digit($c) => { $tokens[] = #number(); }
@@ -42,27 +46,32 @@ kind Scanner {
         return $tokens;
     }
 
-    fn comment() {
+    fn new_line(): null {
+        #line++;
+        #pos++;
+    }
+
+    fn comment(): null {
         #pos = index_of(#source, "\n", #pos) ?? len(#source);
     }
 
     /* The next $length characters, which are read now */
-    fn take($length) {
+    fn take(int $length): string {
         $text = slice(#source, #pos, $length);
         #pos += $length;
         return $text;
     }
 
-    fn number() {
+    fn number(): Token {
         return Token("number", #take(span(#source, #pos, $c -> is_digit($c) || $c == ".")), #line);
     }
 
-    fn word() {
+    fn word(): Token {
         $word = #take(span(#source, #pos, $c -> is_alnum($c) || $c == "_"));
         return Token(in_array($word, KEYWORDS) ? "keyword" : "name", $word, #line);
     }
 
-    fn string() {
+    fn string(): Token {
         $end = index_of(#source, "\"", #pos + 1);
         if ($end == null) {
             error("line {#line}: unterminated string");
@@ -72,7 +81,7 @@ kind Scanner {
         return Token("string", $text, #line);
     }
 
-    fn operator() {
+    fn operator(): Token {
         $two = slice(#source, #pos, 2);
         $op = in_array($two, OPERATORS) ? $two : #source[#pos];
         if (!in_array($op, OPERATORS)) {

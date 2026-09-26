@@ -17,44 +17,44 @@ const BAR_COLUMN = 32;
 const HELP = "up/down pick   +/- change   q quit";
 
 kind Task {
-    fn _(pub #name, pub #done, pub #total) {}
+    fn _(pub string #name, pub int #done, pub int #total) {}
 
-    pub fn advance() {
+    pub fn advance(): null {
         #done = min(#done + 1, #total);
     }
 
-    pub fn set_back() {
+    pub fn set_back(): null {
         #done = max(#done - 1, 0);
     }
 
-    pub fn progress() {
+    pub fn progress(): float {
         return #done / #total;
     }
 }
 
 kind Board {
-    #selected = 0;
+    int #selected = 0;
 
-    fn _(pub #tasks) {}
+    fn _(pub list #tasks) {}
 
-    pub fn select_previous() {
+    pub fn select_previous(): null {
         #selected = max(#selected - 1, 0);
     }
 
-    pub fn select_next() {
+    pub fn select_next(): null {
         #selected = min(#selected + 1, len(#tasks) - 1);
     }
 
-    pub fn selected_task() {
+    pub fn selected_task(): Task {
         return #tasks[#selected];
     }
 
-    pub fn is_selected($index) {
+    pub fn is_selected(int $index): bool {
         return $index == #selected;
     }
 }
 
-fn draw_board($screen, $board) {
+fn draw_board(tui::Screen $screen, Board $board): null {
     $width = min($screen.cols, MAX_WIDTH);
     $count = len($board.tasks);
     tui::box($screen, 1, 1, $width, $count + 5, "Tasks");
@@ -64,14 +64,14 @@ fn draw_board($screen, $board) {
     tui::label($screen, MARGIN, FIRST_TASK_ROW + $count + 1, $width - 4, HELP, "dim");
 }
 
-fn draw_task($screen, $row, $width, $task, $selected) {
+fn draw_task(tui::Screen $screen, int $row, int $width, Task $task, bool $selected): null {
     $marker = $selected ? "> " : "  ";
     tui::label($screen, MARGIN, $row, NAME_WIDTH, $marker .. $task.name, $selected ? "bold" : "");
     tui::progress($screen, BAR_COLUMN, $row, $width - BAR_COLUMN - 1, $task.progress(), $selected ? "cyan" : "blue");
 }
 
 // What a key does to the board; "quit" ends the dashboard, as tui::interact asks
-fn handle_key($board, $key) {
+fn handle_key(Board $board, map $key): ?string {
     match (term::name($key)) {
         "up" => { $board.select_previous(); }
         "down" => { $board.select_next(); }
@@ -83,7 +83,7 @@ fn handle_key($board, $key) {
     return null;
 }
 
-fn require_terminal() {
+fn require_terminal(): null {
     if (!term_is_tty(0) || !term_is_tty(1)) {
         error("dashboard.gaz needs a terminal");
     }

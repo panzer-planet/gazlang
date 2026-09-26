@@ -434,12 +434,12 @@ Any runtime failure is catchable, and `Error` is a real kind you can extend.
 
 ```gaz
 kind NotFound extends Error {
-    fn _(pub #key) {
+    fn _(pub string #key) {
         ##_("No such fruit: {$key}");
     }
 }
 
-fn price($prices, $fruit) {
+fn price(map $prices, string $fruit): float {
     if (!has_key($prices, $fruit)) {
         error(NotFound($fruit));
     }
@@ -492,7 +492,7 @@ include "std/csv.gaz";
 include "std/format.gaz";
 
 // The sum of $column for each value of $group
-fn totals_by($rows, $group, $column) {
+fn totals_by(list $rows, string $group, string $column): map {
     $totals = {};
     foreach ($rows as $row) {
         $key = $row[$group];
@@ -502,7 +502,7 @@ fn totals_by($rows, $group, $column) {
     return $totals;
 }
 
-fn largest_first($totals) {
+fn largest_first(map $totals): list {
     return sort(keys($totals), ($a, $b) -> $totals[$b] <=> $totals[$a]);
 }
 

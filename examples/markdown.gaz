@@ -36,12 +36,12 @@ fn greet(\$name) {
 ";
 
 // What a character stands for in HTML
-fn escape($text) {
+fn escape(string $text): string {
     return replace(replace(replace($text, "&", "&amp;"), "<", "&lt;"), ">", "&gt;");
 }
 
 // Text with its inline markup turned into tags; the text between is escaped
-fn inline($text) {
+fn inline(string $text): string {
     $html = "";
     $i = 0;
     while ($i < len($text)) {
@@ -53,7 +53,7 @@ fn inline($text) {
 }
 
 // The markup starting at $i as [html, where it ends], or null when there is none
-fn inline_at($text, $i) {
+fn inline_at(string $text, int $i): ?list {
     // The longest delimiter first, so ** isn't read as two *
     foreach ([["**", "strong"], ["*", "em"], ["`", "code"]] as [$mark, $tag]) {
         if (!starts_with($text, $mark, $i)) {
@@ -81,7 +81,7 @@ fn inline_at($text, $i) {
 }
 
 // What kind of block a line belongs to
-fn line_kind($line) {
+fn line_kind(string $line): string {
     return match {
         trim($line) == "" => "blank",
         starts_with($line, "```") => "fence",
@@ -94,7 +94,7 @@ fn line_kind($line) {
 }
 
 // A line without the marker that made it a list item or a quote
-fn unmarked($line, $kind) {
+fn unmarked(string $line, string $kind): string {
     return match ($kind) {
         "ul" => slice($line, 2),
         "ol" => slice($line, index_of($line, ". ") + 2),
@@ -103,7 +103,7 @@ fn unmarked($line, $kind) {
     };
 }
 
-fn to_html($markdown) {
+fn to_html(string $markdown): string {
     $lines = split(replace($markdown, "\r\n", "\n"), "\n");
     $html = [];
     $i = 0;

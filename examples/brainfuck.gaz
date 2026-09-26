@@ -17,14 +17,14 @@ const SQUARES = "++++[>+++++<-]>[<+++++>-]+<+[>[>+>+<<-]++>>[<<+>>-]>>>[-]++>[-]
 
 // What the tape holds and where a program is, while it runs
 kind Machine {
-    #tape = [0];
-    #at = 0;
-    #read = 0;
-    #output = "";
+    list #tape = [0];
+    int #at = 0;
+    int #read = 0;
+    string #output = "";
 
-    fn _(#input);
+    fn _(string #input);
 
-    pub fn run($code) {
+    pub fn run(list $code): string {
         $pc = 0;
         while ($pc < len($code)) {
             [$op, $n] = $code[$pc];
@@ -70,7 +70,7 @@ kind Machine {
 
 // The program as [op, n] pairs: + with n to add (a run of - adds what wraps round to it), > and < with how
 // far to move, [ and ] with where the other one is, and [-] as "0", which sets the cell to 0
-fn compile($source) {
+fn compile(string $source): list {
     $code = [];
     $open = [];
     $i = 0;
@@ -117,7 +117,7 @@ fn compile($source) {
     return $code;
 }
 
-fn brainfuck($source, $input = "") {
+fn brainfuck(string $source, string $input = ""): string {
     return Machine($input).run(compile($source));
 }
 
