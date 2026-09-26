@@ -190,8 +190,7 @@ nothing**: several first versions of a harness or corpus passed everything and c
   tuned (a season plays every match, a table adds up), not what a seeded run prints: the odds are
   meant to change, and recordings would be re-recorded with every tweak. What stays byte-exact is
   `tests/programs/football.gaz`, the frozen simulator the game started from, the VM's biggest test
-  program and the benchmark workload; it is not tuned for the game. That costs 1,400 lines of
-  duplication that will drift, on purpose. A game reaches the standard library by `include "std/..."`,
+  program and the benchmark workload; it is not tuned for the game. The duplication will drift, on purpose. A game reaches the standard library by `include "std/..."`,
   which the VM carries, so its only outward dependency is a `gaz` binary and moving it to a
   repository of its own later is cheap.
 - **The README's examples are tests**: `ReadmeTest` runs every ```` ```gaz ```` block followed
@@ -237,31 +236,21 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   what makes real web apps and CLI tools pleasant, then by what one stranger needs to find it,
   install it, get a first program working and trust it; not by what would win many users
   (Windows, a registry, an LSP and a playground wait for someone to ask).
-- **0.1, the first release, is out** (`v0.1.0`): request decoding, the router and templates
-  (see "Serving HTTP" and "Templates"), argument parsing (see "Command line arguments"), the `gaz`
-  rename (see "The CLI"), and the release workflow (see "Releases"). What else it had planned
-  (tutorials, a VS Code extension) was dropped; cookies, static files and uploads wait for the
-  apps written on it to ask.
-- **The roadmap after 0.1**, from ten proposals and a critique of them (build in this order):
-  1. **Optional types**, checked at run time (done; see "Types"): PHP's syntax (`int $n`, `): int`,
-     `pub int #x`), `?T` and unions, `: null` for no result, no coercion but int to float, and no
-     generics until they can be a static check only.
-  2. **`gaz --watch app.gaz`** (done; see "The CLI"). Not a rolling restart of workers: they are
-     forks of a master holding the old code.
-  3. **A pipe, `|>`** (done; see "Operators, truthiness and equality"). Not PHP's `f(...)` form, which collides with `...`.
-  4. **`gaz test`** running `*_test.gaz`, with `std/test.gaz` (`test::expect`, `test::snapshot`
+- **The roadmap**, in build order (optional types, `gaz --watch` and the pipe are done and
+  described below):
+  1. **`gaz test`** running `*_test.gaz`, with `std/test.gaz` (`test::expect`, `test::snapshot`
      recorded next to the test, `--update`), and an exit status; no new syntax or reserved word. A
      user of gaz shouldn't need PHP to test gaz code.
-  5. **Cryptography, then cookies and signed sessions**: secure random bytes, SHA-256/HMAC and
+  2. **Cryptography, then cookies and signed sessions**: secure random bytes, SHA-256/HMAC and
      password hashing (through OpenSSL, with a fallback or a clear refusal in `TLS=0` builds), then
      cookies and signed sessions in `std/http`. Without them a web app can't have logins, sessions
      or CSRF tokens at all.
-  6. **Tagged literals as ordinary functions**: `name"text {$v}"` is `name(["text ", ""], [$v])`,
+  3. **Tagged literals as ordinary functions**: `name"text {$v}"` is `name(["text ", ""], [$v])`,
      resolved like any name, as JavaScript's tags and Python's t-strings are. Then `db::sql"..."`,
      rendered to each driver's own placeholders (`?`, `$n`), with nested fragments and lists for
      `in (...)`; then `Db.query`/`exec`/`row`/`value` refuse a plain string, with `db::raw()` the
      visible way round, so SQL injection is impossible by construction; then `html"..."`.
-  7. **Rest patterns** in destructuring, `[$first, ...$rest] = $list`, when JSON handling asks.
+  4. **Rest patterns** in destructuring, `[$first, ...$rest] = $list`, when JSON handling asks.
   - **On demand**: dumping the raw bytes of a request that got a 500, to replay it (the small
     version of record and replay); `parallel($thunks, $max)` over forked processes, giving plain
     data only and refusing handles a child inherited (a SQLite or PostgreSQL connection must not be
@@ -275,7 +264,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     and replay (for now).
   - **A trap to close**: `Html .. "text"` quietly gives a plain string, which `{{ }}` then escapes;
     concatenating an `Html` should be an error.
-- **Releases**: `VERSION` holds the version (`0.2.0`), which the Makefile compiles in and
+- **Releases**: `VERSION` holds the version, which the Makefile compiles in and
   `gaz --version` prints. Pushing a tag `vX.Y.Z` matching it runs `.github/workflows/release.yml`,
   which builds and tries gaz on Linux (the latest Ubuntu, x86_64) and macOS (Apple silicon and
   Intel), and publishes the three `.tar.gz` and their `SHA256SUMS` as a GitHub release
@@ -292,12 +281,10 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   with it, and rebuilds its compiler before PHP is even installed, then the suite; phpstan and
   pint run on Ubuntu only.
   Development is on an Intel Mac.
-- **Speed**: the same program takes gaz 0.4 to 1.5 times what it takes PHP (JIT or not),
-  and Python 3.13 1.3 to 2.9 times what it takes gaz (`php vm/bench.php`, which finds a
-  Python 3.11 or later for the `vm/bench/python/` ports; the README's table is its output on the
-  default PGO build, so a `PGO=0` build runs a little slower). The
-  arithmetic loop (1.5x) is still about a dozen dispatches an iteration against PHP's JIT, which
-  only a register bytecode or a JIT would close; lists, maps, strings and objects (0.8 to 1.3x)
+- **Speed** is measured by `php vm/bench.php` (CPU time, interleaved, best of several; the README's
+  table is its output on the default PGO build, so a `PGO=0` build runs a little slower). gaz is
+  around PHP's speed and faster than Python. The arithmetic loop is still about a dozen dispatches an
+  iteration, which only a register bytecode or a JIT would close; lists, maps, strings and objects
   spend theirs in malloc/free and the collector, so profile those before trying an allocator.
 - **Bytecode has no compatibility promise yet**: stable so far, but free to change; a change
   old files can't load under bumps the version.
@@ -313,9 +300,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - **Mutations aim at instruction lines**, in the file being mutated and in the one a line is
     taken from: a block's header lines (`top`, `locals`, `fn`, `kind`) are a good part of a
     small bytecode file, and damage to one is refused by the header parser before an
-    instruction is read, which the corpus already covers. Aiming (one try in five still lands
-    anywhere) took mutants that load from 9% to 13% and moved the refusals into the operand
-    and stack checks.
+    instruction is read, which the corpus already covers. One try in five still lands anywhere.
   - **Everything follows from the seed**, so `--seed N --runs M` replays a run. A failure is
     saved in `vm/build/fuzz/` and shrunk, a minute in a run and to the end with
     `--shrink FILE`. A try costs about 0.1s of the sanitized build's start-up, whatever the
@@ -324,10 +309,6 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     `run`, `exit`, `workers`, `write_file`, `read_stdin`, `read_line`, `sleep`, `getenv`, a directory builtin or a
     `socket_` builtin is skipped (`getenv` since what it gives isn't the seed's), an included
     file's text included, which is sound because a builtin is reached only by its name.
-  - **Break it before believing it**: a missing `decref` in `delete` and a read past a string
-    in `reverse`, planted in turn, were both found within 700 programs. The first also showed
-    that the leak check couldn't see an extra reference to a constant, which is why a checked
-    run now drops the constants too.
 - **Known limits**, none worth fixing yet:
   - The self-hosted parser runs out of call depth on source nested past about 1100 levels
     (recursive descent is about nine calls a level), as an internal error. Its tree walks use
@@ -354,8 +335,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     "index of the first byte in this set". `chars::span($s, $i, $predicate)` is "consume while
     this holds" (the length of the run at `$i`, a GazLang loop calling the predicate) and
     `starts_with($s, $prefix, $offset)` asks what is at a position without a slice. The
-    self-hosted lexer still spells out comparisons and walks local indexes, for speed on the PHP
-    VM it was first measured on; measure on the C VM before keeping that.
+    self-hosted lexer still spells out comparisons and walks local indexes; measure on the C VM
+    whether that still pays.
   - Including a file also runs its top level code. `Error`'s members are reserved across its
     children, so a domain error can't declare its own `#line` or `#message`.
   - No copy-with-change for objects, no `catch (A | B $e)`.
@@ -437,9 +418,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
       compiler file; a builtin takes its name from every program, so the name is the question.
     - Measure it (requests a second against PHP's built-in server and `php-fpm` behind nginx)
       before any tuning; nothing has been timed yet.
-    - HTML escaping for writing pages (with the templates of milestone 0.1); static files
-      (`read_file()` and a content-type table, refusing `..` in the path); cookies (parse `Cookie`,
-      write `Set-Cookie` with `HttpOnly`/`Secure`/`SameSite`); an access log line per request
+    - Static files (`read_file()` and a content-type table, refusing `..` in the path); cookies
+      (see the roadmap); an access log line per request
       (`http::http_date(time())`, method, path, status, bytes, `monotonic_time()` for how long).
 - **Decided, not built**: `interface`/`implements` (a parse-time check that the methods exist,
   plus `is_a`), and `final`. The keywords are reserved.
@@ -451,7 +431,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     names globally, as every file did before, and a program never needs one.
   - **A name is private to its namespace unless `pub`**: a file is implementation, and only
     what it says is public escapes it. Privacy is per namespace, not per file, so `compiler/`'s
-    five files declare `namespace gazlang;` and go on seeing each other's everything, and a
+    files declare `namespace gazlang;` and go on seeing each other's everything, and a
     test of the internals joins the namespace rather than making them public. A kind's members
     work the same way, so `pub` means one thing everywhere.
   - **`include "chars.gaz" use is_digit, char_at as at;`** is the only way to bring a name in
@@ -516,8 +496,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   threads run in priority order carrying their group slots (`save` instructions), and one
   reaching `match` drops the threads after it while those before run on, so repetitions are
   greedy and the first alternative wins, as every engine a reader knows does; a new start is
-  seeded each step only until something matched, which is what makes it leftmost (the first
-  version returned the first thread to reach `match`, so `find("abcd", "abcd|c")` was 2).
+  seeded each step only until something matched, which is what makes it leftmost.
   `groups` gives a group that took no part as null (Python's None; PHP's `""` can't be told from
   an empty capture), a repeated one's last. `replace` takes `$with` as it is and moves on a byte
   after an empty match (Perl's, Python's and JavaScript's `"-a-b-c-"`). `ponytail:` an empty
@@ -1002,9 +981,7 @@ $area = $c.area;                              // a bound method
   can't replace a concrete one.
 - **A member is private unless `pub`**, the *same word with the same meaning* as a namespace's:
   `pub` says this name escapes the thing it is written in, whether that thing is a file or a
-  kind. One keyword for the whole language, which is why the namespace section no longer has an
-  "opposite defaults" paragraph. Measured on `compiler/` and `lib/` after the flip, 120 of 339
-  members are marked, so the default was fighting the code.
+  kind. One keyword for the whole language.
   - **The ladder is unmarked (mine) → `kin` (mine and my children's) → `pub` (anyone's)**, and
     it reads the same on every sort of member: `kin #energy = 100;`, `pub static #tally = 0;`.
     `kin` is for what a kind declares on its children's behalf, which is why `protected` earns
@@ -1484,9 +1461,6 @@ try {
 
 ## The C VM
 
-`bin/gaz` runs 0.4 to 1.5 times the time of the same program written in PHP (`php
-vm/bench.php`: CPU time, interleaved, best of several).
-
 - **The CLI** parses options as PHP's `getopt` does, plus the check for unknown ones: options
   end at `--` or the first non-option; `-f` takes the next argument whatever it is. Then, unless
   `--` ended them or `-f` gave a file, **the first argument is the file** (`gaz main.gaz a b`, as
@@ -1534,8 +1508,7 @@ vm/bench.php`: CPU time, interleaved, best of several).
   input mid-construct, and prints a bare expression's value as a literal. Decisions it forces:
   whether a function or kind can be redefined (a kind can't be safely, since objects keep its
   layout), that an entry failing halfway keeps its side effects (as Python's does), and that a
-  call to a function not yet defined is an error for that entry. Wanted after the chores batch
-  (`read_line()` and friends), which it would use.
+  call to a function not yet defined is an error for that entry.
 - **Packages: git only to begin, not built.** A package is a directory of GazLang source (no C,
   so one binary and a C compiler stay the whole install; no bytecode, which has no compatibility
   promise), a git repository with version tags. A project has `gaz.json` (its name and
@@ -1548,15 +1521,14 @@ vm/bench.php`: CPU time, interleaved, best of several).
   not a registry**: nothing to run, names unique by construction, the commit hash as integrity; a
   registry can come later as an index of git repositories (Packagist's shape) without changing a
   package. The tool would be GazLang built into the binary, as the compiler is (`run()` for git,
-  the HTTP client, JSON, and the chores batch's file builtins).
+  the HTTP client, JSON, and the file builtins).
   - **The blocker is stability**: a package written today breaks with the next language change,
     and with no releases it can't say which gaz it needs. Versioned releases, and some
     promise about what changes between them, come first, and `gaz.json` then says
     `"gazlang": ">=0.3"`.
-  - **The binary is `gaz`** (`gaz pkg add` reads well, and it matches `.gaz`; no common package
-    ships one), built by `make` with `bin/gazlang` a link to it for a release, so old scripts and
-    habits carry on. The language stays GazLang, and so do the compiler's own names
-    (`namespace gazlang`, `compiler/gazlang.gaz`, `gazlang.gzb`).
+  - **The binary is `gaz`**, built by `make` with `bin/gazlang` a link to it for old scripts. The
+    language stays GazLang, and so do the compiler's own names (`namespace gazlang`,
+    `compiler/gazlang.gaz`, `gazlang.gzb`).
 - **Running source**: the compiler runs as a program of its own with its output captured in an
   `open_memstream()` buffer, which is then loaded as bytecode saved next to the source. Each run
   starts with fresh stacks and globals and the compile's leftovers are dropped first, so the leak
@@ -1590,20 +1562,15 @@ vm/bench.php`: CPU time, interleaved, best of several).
   hand-written bytecode has.
 - **Speed**: what paid was an int fast path for `%`, the `STORE; LOAD; POP` peephole, shared
   one-byte strings, not interning names on the hot path, inline caches on member instructions,
-  and the superinstructions (fib 25% faster, the arithmetic loop and lists 15 to 20%, the
-  self-hosted compiler 2 to 7%). A call into another file on the hot path costs twice: a
-  one-line `arity_fits()` in `builtins.c` made `CALL_VALUE` 6% slower once code before it moved,
-  so it is `static inline` in the header. Computed-goto dispatch didn't (the CPU predicts the switch
-  well), nor did a fast path for `==`, nor fusing a comparison or `==` with `JZ` on its own once
-  `LOAD; PUSH; comparison; JZ` existed (a string comparison missed the quick path and paid for
-  the detour). On the development machine (an i7-8700) moving code a few bytes swings a hot
-  loop by 5%, so judge a change with the same binary both ways, or on two builds (adding
-  `-mbranches-within-32B-boundaries` moves everything), and keep what wins on both. What is
-  left in a profile is the dispatch loop, malloc/free and the collector.
+  and the superinstructions. What didn't: computed-goto dispatch (the CPU predicts the switch
+  well), a fast path for `==`, and fusing a comparison with `JZ` on its own. A call into another
+  file on the hot path costs twice, so `arity_fits()` is `static inline` in the header. On the
+  development machine moving code a few bytes swings a hot loop by 5%, so judge a change with the
+  same binary both ways, or on two builds, and keep what wins on both. What is left in a profile
+  is the dispatch loop, malloc/free and the collector.
 - **PGO is the default where the toolchain has it** (gcc, or clang with `llvm-profdata`), and
   plain `-O2` where it doesn't, so the bootstrap still needs only a C compiler: it makes every
-  benchmark faster, by more than the layout noise and on both layouts, for about 5s more per
-  build. It trains on the compiler, `examples/` and `tests/programs/`, never `vm/bench`, so the benchmarks stay an
+  benchmark faster for about 5s more per build. It trains on the compiler, `examples/` and `tests/programs/`, never `vm/bench`, so the benchmarks stay an
   honest test; `bench.php` times whichever build `bin/gaz` is, so compare a change with
   both builds PGO (or both `PGO=0`). `-O3` was a wash and `-flto` slower.
 - **Why C**: over Rust, Zig and Go, since the heap (refcounts plus a cycle collector) is unsafe
