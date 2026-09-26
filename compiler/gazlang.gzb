@@ -153,8 +153,7 @@ STORE 8
 @ "gazlang.gaz" 108
 LOAD 8
 GET_PROPERTY message
-CALL_BUILTIN error 1
-POP
+THROW
 @ "gazlang.gaz" 99
 JMP ENDTRY_6
 LABEL NEXTCATCH_6_0
@@ -184,8 +183,7 @@ STORE 8
 @ "gazlang.gaz" 115
 LOAD 8
 GET_PROPERTY message
-CALL_BUILTIN error 1
-POP
+THROW
 @ "gazlang.gaz" 111
 JMP ENDTRY_8
 LABEL NEXTCATCH_8_0
@@ -1161,8 +1159,7 @@ JNN COALESCE_END_1
 LOAD_FIELD line
 LABEL COALESCE_END_1
 NEW gazlang::LexError 2
-CALL_BUILTIN error 1
-POP
+THROW
 @ "lexer.gaz" 136
 PUSH null
 RET
@@ -7024,8 +7021,7 @@ LOAD 0
 LOAD_FIELD file
 LOAD 1
 NEW gazlang::ParseError 3
-CALL_BUILTIN error 1
-POP
+THROW
 @ "template.gaz" 177
 PUSH null
 RET
@@ -7586,8 +7582,7 @@ LOAD 0
 LOAD_FIELD file
 LOAD_FIELD number
 NEW gazlang::ParseError 3
-CALL_BUILTIN error 1
-POP
+THROW
 @ "template.gaz" 281
 PUSH null
 RET
@@ -8717,8 +8712,7 @@ LOAD_FIELD file
 LOAD_FIELD current_token
 GET_PROPERTY line
 NEW gazlang::ParseError 3
-CALL_BUILTIN error 1
-POP
+THROW
 @ "parser.gaz" 365
 PUSH null
 RET
@@ -8730,8 +8724,7 @@ LOAD 0
 LOAD 1
 LOAD 2
 NEW gazlang::ParseError 3
-CALL_BUILTIN error 1
-POP
+THROW
 @ "parser.gaz" 370
 PUSH null
 RET
@@ -9051,8 +9044,7 @@ LOAD_FIELD file
 LOAD 0
 GET_PROPERTY source_line
 NEW gazlang::ParseError 3
-CALL_BUILTIN error 1
-POP
+THROW
 @ "parser.gaz" 419
 JMP ENDTRY_0
 LABEL NEXTCATCH_0_0

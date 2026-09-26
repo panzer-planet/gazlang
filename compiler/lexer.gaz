@@ -134,7 +134,7 @@ kind Lexer {
     }
 
     fn fail($reason, $line = null) {
-        error(LexError($reason, $line ?? #line));
+        throw LexError($reason, $line ?? #line);
     }
 
     fn advance() {

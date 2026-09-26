@@ -239,7 +239,7 @@ kind Parser {
     #parent_uses = [];
 
     // Source of the builtin kinds, parsed into every program: Error is what runtime errors
-    // and error("message") throw, and Shared is the box a `shared` variable lives in (see
+    // and throw "message" raise, and Shared is the box a `shared` variable lives in (see
     // shared_declaration()). Single quoted, so nothing in it is interpolated.
     // Every program reaches an error's members ($e.message), and printing one calls its
     // to_string() from outside, so all of them are pub
@@ -363,12 +363,12 @@ kind Html {
 
     // Raise an error at the current token's line
     fn fail($message) {
-        error(ParseError($message .. #keyword_hint(), #file, #current_token.line));
+        throw ParseError($message .. #keyword_hint(), #file, #current_token.line);
     }
 
     // Raise an error somewhere else, without the hint
     fn fail_at($message, $file, $line) {
-        error(ParseError($message, $file, $line));
+        throw ParseError($message, $file, $line);
     }
 
     // A hint when the error is at, or just after, a keyword written in the wrong case, or in a
@@ -391,7 +391,7 @@ kind Html {
     }
 
     // A hint for a name that is neither declared nor a builtin: a miscapitalised keyword, or
-    // error(), which throw replaced
+    // a call to error(), since what raises is throw
     fn undefined_hint($name) {
         if (has_key(Lexer::KEYWORDS, lower($name))) {
             return " (keywords are lowercase: write '" .. lower($name) .. "', not '{$name}')";
@@ -419,7 +419,7 @@ kind Html {
         try {
             return #lexer.get_next_token();
         } catch (LexError $e) {
-            error(ParseError($e.reason, #file, $e.source_line));
+            throw ParseError($e.reason, #file, $e.source_line);
         }
     }
 

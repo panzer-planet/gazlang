@@ -105,14 +105,14 @@ if ($mode == "tokens") {
         }
     } catch (LexError $e) {
         // Raised again from the top level, so no trace of the lexer's calls is printed under it
-        error($e.message);
+        throw $e.message;
     }
 } else {
     try {
         $root = Parser(Lexer($text), $path).parse();
     } catch (ParseError $e) {
         // Raised again from the top level, so no trace of the parser's calls is printed under it
-        error($e.message);
+        throw $e.message;
     }
     if ($mode == "ast") {
         Dumper().dump($root);
