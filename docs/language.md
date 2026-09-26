@@ -7,7 +7,7 @@ opinionated.
 ## Values
 
 - **Ints**: `42`, `-7`, `0xFF`. 64-bit, and they never silently overflow — a literal or a
-  result that will not fit is an `Integer overflow` error, where PHP would switch to a float.
+  result that will not fit is an `Integer overflow` error, never a quiet switch to a float.
 - **Floats**: `1.5`, `2e-3`, `3E+2`. Always finite; there is no INF or NAN. A float needs
   digits on both sides of the dot, so `1.` and `.5` are errors. Printing gives the shortest
   digits that read back as the same float (`0.30000000000000004`, `1.0`, `-0.0`).
@@ -71,7 +71,7 @@ backslash is kept).
 
 ```gaz
 echo "Hi $name";                  // a bare $name, greedily
-echo "Hi $rows[0] and $m[key]";   // one PHP-style index after a bare name
+echo "Hi $rows[0] and $m[key]";   // one index after a bare name
 echo "{$user.name} owes {@total + 1}";
 ```
 
@@ -80,9 +80,9 @@ Anything else is literal, so `{round($n, 2)}` prints as written; assign it to a 
 or start the expression with a sigil and call from there (`{$o.shout() .. to_string($n)}`).
 A lone `$`, `$5` and `me@example.com` are all literal too.
 
-This is PHP's rule, and for PHP's reason: `{` has to stay literal so a string holding JSON, CSS
-or braces needs no escaping. GazLang is the more permissive of the two, since `{$n + 1}` is a
-parse error in PHP and works here.
+The reason: `{` has to stay literal so a string holding JSON, CSS or braces needs no escaping,
+so only `{$`, `{@` and `{#` start an expression. Once one has started, anything goes inside the
+braces: `{$n + 1}` works.
 
 Escapes in `"..."`: `\n \t \r \v \f \e \0 \\ \" \$ \{`, `\xHH` (exactly two hex digits) and
 `\u{H…}` (1 to 6 hex digits, written out as UTF-8). Any other escape is an error.
@@ -176,7 +176,7 @@ By precedence, loosest first:
   the exponent is a whole number (`2 ** 3.0` is `8.0`); `4 ** 0.5` is an error, since a fractional
   power needs a defined algorithm GazLang doesn't have yet (`sqrt()` is the square root). It
   binds tighter than a unary operator on its left and looser than one on its right, and is right
-  associative, as in Python: `-2 ** 2` is `-4`, `2 ** -1` needs no parentheses, `2 ** 3 ** 2` is
+  associative: `-2 ** 2` is `-4`, `2 ** -1` needs no parentheses, `2 ** 3 ** 2` is
   `512`.
 - `==` never converts between types. `"5" == 5` is false, `"1" != "01"`, `1 == 1.0` is true.
   There is no `===`. Ordering a string against a number is an error.
@@ -188,8 +188,7 @@ By precedence, loosest first:
   first, then by name. Maps can't be ordered.
 - `&& || !` short-circuit and return real booleans. Truthiness is C-like for numbers, and a
   string is true unless empty — so `"0"` is true.
-- `& | ^ << >> ~` are ints only. They bind tighter than the comparisons, as in Rust and Python,
-  so `$flags & MASK == 0` means `($flags & MASK) == 0`. A shift count must be 0 to 63.
+- `& | ^ << >> ~` are ints only. They bind tighter than the comparisons, so `$flags & MASK == 0` means `($flags & MASK) == 0`. A shift count must be 0 to 63.
 - `$a ?? $b` gives `$a` unless it is null or missing; an undefined variable or a missing key on
   its left is `null` rather than an error. `0`, `false` and `""` are kept.
 
@@ -426,7 +425,7 @@ echo Account::made;
 1
 ```
 
-- **The syntax is PHP's**: the type goes before what it types. Parameters (`int $n`), the
+- **The syntax**: the type goes before what it types. Parameters (`int $n`), the
   return after the parameters (`fn total(int $n): int`), fields (`pub float #balance = 0`), static
   fields (`static int #made = 0`), promoted constructor parameters (`fn _(pub int #id)`) and
   lambda parameters (`(int $x) -> $x * 2`) all take one. A constructor has no return type,
@@ -685,7 +684,7 @@ or the other.
 
 **Workers** — `workers($count)` turns the program into `$count` processes from that point on, each
 carrying on with a copy of everything, for a server that answers more than one request at a time
-(prefork, as PHP-FPM does). It returns the worker's number, 1 to `$count`, in each of them; the
+(prefork: a pool of processes started up front). It returns the worker's number, 1 to `$count`, in each of them; the
 process that called it never returns from it, but waits, starts a worker again when one ends with an
 error or a signal, and ends once every worker has ended with code 0. A worker that fails within a
 second of starting, before it has accepted a connection, is a program that can't start: the rest are
@@ -732,8 +731,7 @@ for passwords, tokens or keys.
   same numbers on every run and on both runtimes; with no seed, from an unpredictable one taken
   from the operating system. Every program starts as if it had called `rand_seed()`.
 
-The generator is xoshiro256\*\*, seeded from the int through SplitMix64 (as PHP's
-`Random\Engine\Xoshiro256StarStar` does). How its 64-bit outputs become numbers is GazLang's
+The generator is xoshiro256\*\*, seeded from the int through SplitMix64. How its 64-bit outputs become numbers is GazLang's
 own rule: `rand_float()` is the top 53 bits divided by 2^53; `rand_int()` takes the span
 `$max - $min` as an unsigned 64-bit number, masks each output down to the bits the span uses,
 and draws again until the result is at most the span, then adds it to `$min`, so every int in
@@ -908,7 +906,7 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins, and a server, `http::serve($listener, $handler, $options = {})`, `http::handle($socket, $handler, $options = {})` (one connection) and `http::http_date($time)`; see below |
 | `date.gaz` | `date::days($year, $month, $day)` (a date as a whole number of days, day 0 being 1 January 1970: an impossible date is an error), `date::civil($days)` (`[year, month, day]`), `date::year`/`month`/`day`, `date::weekday` (0 Monday to 6 Sunday), `date::next_weekday($days, $weekday)`, `date::add_months`, `date::is_leap`, `date::days_in_month`, and `date::format` (`Sat 8 Aug 2026`), `date::short` (`8 Aug`) and `date::iso` (`2026-08-08`). There is no `today()`: a clock would make a program impossible to record, so a program keeps its own date |
 | `random.gaz` | `random::shuffle` (a shuffled copy of a list or string), `random::pick` (an element of a list or value of a map), `random::key`, `random::chance($p)`, `random::weighted` (from `[item, weight]` pairs) |
-| `regex.gaz` | `regex::matches($s, $pattern)` (full match), `regex::search($s, $pattern)` (found anywhere), `regex::find($s, $pattern)` (the start index, or null), `regex::groups($s, $pattern)` (the first match and what each `(...)` in it took, a group that took no part `null`, or `null` for no match), `regex::replace($s, $pattern, $with)` (every match, left to right, by `$with` as it is, so `"$1"` is two bytes; an empty match moves on a byte: `replace("abc", "x*", "-")` is `"-a-b-c-"`); literals, `.`, `* + ?` (greedy), `\|` (the first that matches wins), `(...)`, `[...]`/`[^...]` with ranges, `^ $`, `\` escapes; the leftmost match, then Perl's choice; no backreferences, no backtracking |
+| `regex.gaz` | `regex::matches($s, $pattern)` (full match), `regex::search($s, $pattern)` (found anywhere), `regex::find($s, $pattern)` (the start index, or null), `regex::groups($s, $pattern)` (the first match and what each `(...)` in it took, a group that took no part `null`, or `null` for no match), `regex::replace($s, $pattern, $with)` (every match, left to right, by `$with` as it is, so `"$1"` is two bytes; an empty match moves on a byte: `replace("abc", "x*", "-")` is `"-a-b-c-"`); literals, `.`, `* + ?` (greedy), `\|` (the first that matches wins), `(...)`, `[...]`/`[^...]` with ranges, `^ $`, `\` escapes; the leftmost match, and there the greedy repetition and the earlier alternative; no backreferences, no backtracking |
 | `term.gaz` | `term::style`, cursor and screen sequences, `term::decode`, `term::Input`, `term::fullscreen`, on the terminal builtins; see below |
 | `tui.gaz` | `tui::Screen` (a grid of cells that renders only what changed), `tui::Rect`, `tui::box`, `tui::label`, `tui::progress`, `tui::table`, `tui::Table`, `tui::Menu`, `tui::TextField`, `tui::choose`, `tui::ask`; see below |
 
