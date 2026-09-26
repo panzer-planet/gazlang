@@ -23,7 +23,7 @@ class VMTest extends GazLangTestCase
 
     public function test_cli_runs_piped_programs_with_arguments()
     {
-        [$output, $exit_code] = self::cli(['--', 'a', 'b'], 'echo args(); echo 7 / 2; error("done");');
+        [$output, $exit_code] = self::cli(['--', 'a', 'b'], 'echo args(); echo 7 / 2; throw "done";');
 
         $this->assertSame(['["a", "b"]', '3.5', 'Error: done'], $output);
         $this->assertSame(1, $exit_code);

@@ -235,15 +235,13 @@ Compound
       body: Compound
         statements:
           0: Statement 10
-            expr: FunctionCall 10
-              name: "error"
-              args:
-                0: FunctionCall 10
-                  name: "problems::Problem"
-                  args:
-                    0: String 10
-                      token: 10 STRING "caught by its qualified name"
-                      value: "caught by its qualified name"
+            expr: Throw 10
+              expr: FunctionCall 10
+                name: "problems::Problem"
+                args:
+                  0: String 10
+                    token: 10 STRING "caught by its qualified name"
+                    value: "caught by its qualified name"
       catches:
         0:
           0: "problems::Problem"

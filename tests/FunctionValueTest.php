@@ -117,7 +117,7 @@ class FunctionValueTest extends GazLangTestCase
             'indexing it' => ['echo add[0];', 'Cannot use [] on function on line 2'],
             'foreach over it' => ['foreach (add as $x) {}', 'foreach expects a list or map, got function on line 2'],
             'builtin argument type' => ['echo len(add);', 'len() expects list or map or string, got function on line 2'],
-            'callee is evaluated before the arguments are checked' => ['$five = 5; $five(error("first"));', 'first on line 2'],
+            'callee is evaluated before the arguments are checked' => ['$five = 5; $five(throw "first");', 'first on line 2'],
         ];
     }
 

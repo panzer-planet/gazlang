@@ -206,7 +206,7 @@ class KindTest extends GazLangTestCase
                 }
                 pub fn lazily() {
                     $first = #lazy ??= 7;
-                    $second = #lazy ??= error("not run");
+                    $second = #lazy ??= throw "not run";
                     #cache["k"] ??= [];
                     $empty = #cache["k"];
                     #cache["k"][] = 1;
@@ -493,7 +493,7 @@ class KindTest extends GazLangTestCase
         $this->assertEquals("caught boom at 3\nkept going\n", $this->executeCode(<<<'CODE'
             kind Boom {
                 pub fn to_string() {
-                    return error("boom");
+                    throw "boom";
                 }
             }
             try { echo "x" .. Boom(); } catch ($e) { echo "caught {$e.message} at {$e.line}"; }
@@ -605,8 +605,8 @@ class KindTest extends GazLangTestCase
             'unset field' => ['kind P { pub #x; pub fn get() { return #x; } } echo P().get();', 'Property x of P is not set on line 14'],
             'unset field read with a dot' => ['kind P { pub #x; } echo P().x;', 'Property x of P is not set on line 14'],
             'undeclared member' => ['echo Account("W").nope;', 'Account has no member nope on line 14'],
-            'undeclared member called, before the arguments' => ['Account("W").nope(error("args"));', 'Account has no member nope on line 14'],
-            'unset field called, before the arguments' => ['kind P { pub #f; } P().f(error("args"));', 'Property f of P is not set on line 14'],
+            'undeclared member called, before the arguments' => ['Account("W").nope(throw "args");', 'Account has no member nope on line 14'],
+            'unset field called, before the arguments' => ['kind P { pub #f; } P().f(throw "args");', 'Property f of P is not set on line 14'],
             'constructor as a member' => ['$a = Account("W"); $a._("X");', 'Cannot use the constructor of Account as a member on line 14'],
             'dot on a map' => ['echo {"a" => 1}.a;', 'Cannot use . on map on line 14'],
             'dot on null' => ['$x = null; echo $x.a;', 'Cannot use . on null on line 14'],
@@ -634,7 +634,7 @@ class KindTest extends GazLangTestCase
             'a dot on an element in a path' => ['$l = [1]; $l[0].x = 1;', 'Cannot use . on int on line 14'],
             'undefined variable' => ['$nope.x = 1;', 'Undefined variable: $nope on line 14'],
             'undeclared member under ??' => ['echo Account("W").nope ?? 1;', 'Account has no member nope on line 14'],
-            'keys and value run before the path fails' => ['fn k() { echo "k"; return 0; } $a = Account("W"); $a.nope[k()] = error("value");', 'value'],
+            'keys and value run before the path fails' => ['fn k() { echo "k"; return 0; } $a = Account("W"); $a.nope[k()] = throw "value";', 'value'],
             'constructing an abstract kind through a value' => ['abstract kind S {} $s = S; $s();', 'Cannot construct abstract kind S on line 14'],
             'is_a needs a kind' => ['echo is_a(1, "Account");', 'is_a() expects kind, got string on line 14'],
             'kind_of needs an object' => ['echo kind_of(1);', 'kind_of() expects object, got int on line 14'],
@@ -643,7 +643,7 @@ class KindTest extends GazLangTestCase
             'fields needs an object' => ['echo fields({"a" => 1});', 'fields() expects object, got map on line 14'],
             'to_string returning something else' => ['kind P { pub fn to_string() { return [1]; } } echo P();', 'P.to_string must return a string, got list on line 14'],
             'to_string returning something else, through ..' => ['kind P { pub fn to_string() { return null; } } $s = "a" .. P();', 'P.to_string must return a string, got null on line 14'],
-            'error in the constructor' => ["kind P {\n fn _() { error(\"no\"); }\n}\n\$p = P();", 'no'],
+            'error in the constructor' => ["kind P {\n fn _() { throw \"no\"; }\n}\n\$p = P();", 'no'],
         ];
     }
 

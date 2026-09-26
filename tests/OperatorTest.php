@@ -368,7 +368,7 @@ class OperatorTest extends GazLangTestCase
     public function test_ternary_evaluates_only_the_taken_branch()
     {
         $this->assertEquals("yes\nno\n1\n2\n", $this->executeCode(
-            'echo true ? "yes" : error("not taken"); echo 0 ? error("not taken") : "no";'
+            'echo true ? "yes" : throw "not taken"; echo 0 ? throw "not taken" : "no";'
             .' echo [] ? 1 : "" ? 2 : 1; $x = 1 ? 2 : 3; echo $x;'
         ));
     }

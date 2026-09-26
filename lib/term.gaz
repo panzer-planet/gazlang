@@ -84,7 +84,7 @@ fn sgr_codes($word) {
             return [$base + 8, 5, $n];
         }
     }
-    error("term: unknown style \"" .. $word .. "\"");
+    throw "term: unknown style \"" .. $word .. "\"";
 }
 
 // The escape sequence that starts a style: term::start("bold red") is "\e[1;31m"

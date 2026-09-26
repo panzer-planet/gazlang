@@ -149,7 +149,7 @@ class TermTest extends GazLangTestCase
         $this->assertSame(['echo' => false, 'icanon' => false, 'isig' => false], $ran['during']);
         $this->assertSame(['echo' => true, 'icanon' => true, 'isig' => true], $ran['after']);
 
-        $ran = $this->onTerminal("include \"{$root}/lib/term.gaz\"; term::fullscreen(() -> { error(\"boom\"); });");
+        $ran = $this->onTerminal("include \"{$root}/lib/term.gaz\"; term::fullscreen(() -> { throw \"boom\"; });");
         $this->assertSame(1, $ran['code']);
         // the screen is left before the error is printed on the terminal's own
         $this->assertLessThan(strpos($ran['out'], 'Error: boom'), strpos($ran['out'], $back));

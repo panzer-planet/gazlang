@@ -81,7 +81,7 @@ pub fn sprintf($template, $args) {
 
 fn check_arguments($template, $args) {
     if (type_of($template) != "string" || type_of($args) != "list") {
-        error("sprintf: expects a string and a list, got " .. type_of($template) .. " and " .. type_of($args));
+        throw "sprintf: expects a string and a list, got " .. type_of($template) .. " and " .. type_of($args);
     }
 }
 
@@ -110,7 +110,7 @@ fn split_template($template) {
 fn check_count($pieces, $args) {
     $wanted = len(filter($pieces, is_placeholder));
     if ($wanted != len($args)) {
-        error("sprintf: the template takes {$wanted} arguments, " .. len($args) .. " given");
+        throw "sprintf: the template takes {$wanted} arguments, " .. len($args) .. " given";
     }
 }
 
@@ -188,14 +188,14 @@ kind Placeholder {
     fn check_value($value, $position) {
         $type = type_of($value);
         if (!#accepts($type)) {
-            error("sprintf: {#text} expects " .. #expected() .. ", got {$type} (argument {$position})");
+            throw "sprintf: {#text} expects " .. #expected() .. ", got {$type} (argument {$position})";
         }
         if (#conversion == "x" && $value < 0) {
-            error("sprintf: {#text} expects an int of 0 or more, got {$value} (argument {$position})");
+            throw "sprintf: {#text} expects an int of 0 or more, got {$value} (argument {$position})";
         }
         // ponytail: format::number() scales to an int, which caps %f at 9.2E+18 over 10^precision
         if (#conversion == "f" && abs($value) >= 9.2e18 / 10.0 ** #precision) {
-            error("sprintf: {#text} can't show {$value} (argument {$position}): with its decimals it must fit in an int");
+            throw "sprintf: {#text} can't show {$value} (argument {$position}): with its decimals it must fit in an int";
         }
     }
 
@@ -285,7 +285,7 @@ fn number_or($digits, $default) {
 // The placeholder from $from to $to, quoted, and why it can't be
 fn refuse($template, $from, $to, $why) {
     $placeholder = slice($template, $from, $to - $from);
-    error("sprintf: " .. slice(to_string([$placeholder]), 1, -1) .. ": " .. $why);
+    throw "sprintf: " .. slice(to_string([$placeholder]), 1, -1) .. ": " .. $why;
 }
 
 // Zeros between a number's sign and its digits

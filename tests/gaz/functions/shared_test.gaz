@@ -182,7 +182,7 @@ check("globals are unaffected", [$viaglobal, @global], [2, 2]);
 /* ---- Errors still work ---- */
 shared $log = [];
 try {
-    $boom = () -> { $log[] = "before"; error("boom"); };
+    $boom = () -> { $log[] = "before"; throw "boom"; };
     $boom();
 } catch (Error $err) {
     $log[] = $err.message;

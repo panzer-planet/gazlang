@@ -171,7 +171,7 @@ kind Route {
 // A pattern's segments, checked: "/users/:id" is ["users", ":id"]
 fn pattern_segments($pattern) {
     if (type_of($pattern) != "string" || !starts_with($pattern, "/")) {
-        error("A route's pattern starts with /, got " .. slice(to_string([$pattern]), 1, -1));
+        throw "A route's pattern starts with /, got " .. slice(to_string([$pattern]), 1, -1);
     }
     $segments = segments($pattern);
     $names = [];
@@ -181,10 +181,10 @@ fn pattern_segments($pattern) {
         }
         $name = param_name($segment);
         if ($name == "") {
-            error("A : in a route's pattern needs a name: $pattern");
+            throw "A : in a route's pattern needs a name: $pattern";
         }
         if (in_array($name, $names)) {
-            error("A route's pattern names :$name twice: $pattern");
+            throw "A route's pattern names :$name twice: $pattern";
         }
         $names[] = $name;
     }

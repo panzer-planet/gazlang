@@ -167,6 +167,9 @@ By precedence, loosest first:
 | power | `**` (right associative) |
 | postfix | `[index]` `(args)` `.name` `?.name` `::name` |
 
+`throw` (see [Errors](#errors)) sits with the ternary and lambdas: it can start any expression,
+and the right side of `??`, and its operand runs as far right as it can.
+
 - `+ - * /` are numbers only. `/` **always** gives a float (`6 / 2` is `3.0`); `intdiv()`
   divides ints. `%` is ints only, and its sign follows the left operand.
 - `**` raises to a power, by multiplying (square-and-multiply), never a library's `pow`, so every
@@ -474,7 +477,7 @@ kind NotFound extends Error {
 }
 
 try {
-    error(NotFound("id"));
+    throw NotFound("id");
 } catch (NotFound $e) {
     echo "{$e.message} ({$e.key}) at line {$e.line}";
 } catch (Error $e) {
@@ -492,8 +495,14 @@ try {
 - **`Error` is a builtin kind** with `#message`, `#file`, `#line` and `#trace`. Programs
   extend it; `catch (Type $e)` matches a kind or a child kind, and an untyped `catch` must be
   last.
-- **`error($value)` throws any value.** A string becomes an `Error`'s message; anything else is
-  caught as it is.
+- **`throw $value` raises any value.** A string becomes an `Error`'s message; anything else is
+  caught as it is. An `Error` keeps the line and trace of where it was first thrown, so `throw
+  $e;` in a catch passes it on unchanged.
+- **`throw` is an expression**, so it goes wherever a value is wanted: `$m[$k] ?? throw
+  NotFound($k)`, `default => throw "Unknown cell"` in a `match`, either branch of a ternary, a
+  lambda's body. Its operand is a whole expression and runs as far right as it can (`throw $a ??
+  $b` throws whichever is there). As the operand of a tighter operator it needs parentheses:
+  `$ok || (throw "failed")`.
 - **`#trace`** is the calls that were running, innermost first, as a list of strings. An
   uncaught error prints it under the message.
 - **`finally`** runs however the block is left, including on `return`, `break` and `continue`.
@@ -602,7 +611,7 @@ an argument that isn't a string or holds a NUL byte.
 
 ```
 $r = run(["git", "log", "-1", "--format=%s"]);
-if ($r["status"] != 0) { error($r["stderr"]); }
+if ($r["status"] != 0) { throw $r["stderr"]; }
 ```
 
 **Databases** — SQLite and PostgreSQL through one interface, in `lib/db.gaz` (`include "std/db.gaz";`)
@@ -719,7 +728,7 @@ It is for measuring how long something took, or when something is due: `tui::int
 (`"json.gaz"`), or `null`; it is what `include "std/json.gaz"` reads, and a name is a file's, never
 a path.
 
-**Control** — `error($value)`, `exit($code = 0)`.
+**Control** — `exit($code = 0)`; raising is the keyword `throw`.
 
 **Random numbers** — not cryptographically secure: for games, simulations and sampling, never
 for passwords, tokens or keys.

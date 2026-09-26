@@ -809,7 +809,7 @@ final class ProgramGenerator
             6 => "[{$v}, {$this->target()}] = {$this->expr()};",
             7 => "delete {$v}[{$this->expr()}];",
             8 => "echo {$this->expr()};",
-            9 => $this->scope['kind'] === 'top' || $this->scope['index'] === -1 || $this->finally ? "error({$this->expr()});" : "return {$this->expr()};",
+            9 => $this->scope['kind'] === 'top' || $this->scope['index'] === -1 || $this->finally ? "throw {$this->expr()};" : "return {$this->expr()};",
             10 => "{$v}".['++', '--'][$this->int(0, 1)].';',
             11 => "if ({$this->expr()}) {\n{$this->block(4)}} else {\n{$this->block(4)}}",
             12, 13 => $this->loop(),

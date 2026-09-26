@@ -62,7 +62,7 @@ pub kind Command {
     // A subcommand, which is a Command of its own: give it options and arguments
     pub fn command($name, $summary, $handler) {
         if (len(#arguments) > 0) {
-            error("{#name} takes arguments, so it can't have commands too");
+            throw "{#name} takes arguments, so it can't have commands too";
         }
         #check_new_name(#commands, $name, "a command");
         $command = Command($name, $summary, $handler, #);
@@ -86,7 +86,7 @@ pub kind Command {
         [$command, $values] = #parsed_or_exit($argv);
         $handler = $command.handler();
         if ($handler == null) {
-            error("{$command.full_name()} has no handler to run");
+            throw "{$command.full_name()} has no handler to run";
         }
 
         return $handler($values);
@@ -140,14 +140,14 @@ pub kind Command {
 
     fn add_option($option) {
         if ($option.name == HELP || $option.short == "h") {
-            error("--help and -h are cli's own, for the help it writes");
+            throw "--help and -h are cli's own, for the help it writes";
         }
         foreach (#options as $other) {
             if ($other.name == $option.name) {
-                error("{#name} already has an option --{$option.name}");
+                throw "{#name} already has an option --{$option.name}";
             }
             if ($option.short != null && $other.short == $option.short) {
-                error("{#name} already has an option -{$option.short}");
+                throw "{#name} already has an option -{$option.short}";
             }
         }
         #options[] = $option;
@@ -155,14 +155,14 @@ pub kind Command {
 
     fn add_argument($argument) {
         if (len(#commands) > 0) {
-            error("{#name} has commands, so its first argument names one and it can't take others");
+            throw "{#name} has commands, so its first argument names one and it can't take others";
         }
         $last = len(#arguments) > 0 ? last(#arguments) : null;
         if ($last != null && $last.kind == "rest") {
-            error("{#name}'s argument <{$last.name}> takes the rest, so nothing can come after it");
+            throw "{#name}'s argument <{$last.name}> takes the rest, so nothing can come after it";
         }
         if ($last != null && $last.kind == "optional" && $argument.kind == "required") {
-            error("{#name}'s required argument <{$argument.name}> can't follow an optional one");
+            throw "{#name}'s required argument <{$argument.name}> can't follow an optional one";
         }
         #check_new_name(#arguments_by_name(), $argument.name, "an argument");
         #arguments[] = $argument;
@@ -179,7 +179,7 @@ pub kind Command {
 
     fn check_new_name($existing, $name, $what) {
         if (has_key($existing, $name)) {
-            error("{#name} already has {$what} {$name}");
+            throw "{#name} already has {$what} {$name}";
         }
     }
 }
@@ -188,7 +188,7 @@ pub kind Command {
 kind Option {
     fn _(pub #name, pub #short, pub #help, pub #takes_value, pub #default) {
         if ($short != null && len($short) != 1) {
-            error("-{$short}: a short option is one character");
+            throw "-{$short}: a short option is one character";
         }
     }
 
@@ -390,12 +390,12 @@ kind Parse {
     }
 
     fn stop_with_help() {
-        error(Stop(#command.help(), 0));
+        throw Stop(#command.help(), 0);
     }
 
     fn stop_with_mistake($what) {
         $name = #command.full_name();
-        error(Stop("{$name}: {$what}\nRun '{$name} --help' to see what it takes.\n", USAGE_ERROR));
+        throw Stop("{$name}: {$what}\nRun '{$name} --help' to see what it takes.\n", USAGE_ERROR);
     }
 }
 

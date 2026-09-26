@@ -67,7 +67,7 @@ pub kind Db {
         } catch ($e) {
             #depth--;
             db_run(#handle, #depth == 0 ? "rollback" : "rollback to " .. $savepoint);
-            error($e);
+            throw $e;
         }
         #depth--;
         return $result;

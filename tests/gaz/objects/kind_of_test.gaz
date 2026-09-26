@@ -30,7 +30,7 @@ fn eval($n) {
         Add => eval($n.l) + eval($n.r),
         Mul => eval($n.l) * eval($n.r),
         Neg => -eval($n.e),
-        default => error("cannot evaluate " .. to_string(kind_of($n))),
+        default => throw "cannot evaluate " .. to_string(kind_of($n)),
     };
 }
 

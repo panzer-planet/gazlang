@@ -430,7 +430,8 @@ before the program runs, since checking every element on every call would cost t
 
 ### Errors
 
-Any runtime failure is catchable, and `Error` is a real kind you can extend.
+Any runtime failure is catchable, and `Error` is a real kind you can extend. `throw` raises one,
+and it is an expression, so it fits wherever a value would, after `??` or in a `match` arm.
 
 ```gaz
 kind NotFound extends Error {
@@ -440,10 +441,7 @@ kind NotFound extends Error {
 }
 
 fn price(map $prices, string $fruit): float {
-    if (!has_key($prices, $fruit)) {
-        error(NotFound($fruit));
-    }
-    return $prices[$fruit];
+    return $prices[$fruit] ?? throw NotFound($fruit);
 }
 
 $prices = {"apple" => 1.5};
@@ -457,7 +455,7 @@ try {
 
 ```
 1.5
-No such fruit: durian (line 9)
+No such fruit: durian (line 8)
 ```
 
 Let one escape and you get the line it happened on and the calls that led there:

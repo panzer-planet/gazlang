@@ -156,15 +156,13 @@ Compound
       body: Compound
         statements:
           0: Statement 6
-            expr: FunctionCall 6
-              name: "error"
-              args:
-                0: FunctionCall 6
-                  name: "NotFound"
-                  args:
-                    0: String 6
-                      token: 6 STRING "id"
-                      value: "id"
+            expr: Throw 6
+              expr: FunctionCall 6
+                name: "NotFound"
+                args:
+                  0: String 6
+                    token: 6 STRING "id"
+                    value: "id"
       catches:
         0:
           0: "NotFound"

@@ -32,10 +32,10 @@ delete $rows[0][1];
 delete $rows[1]["k"][0];
 @list = [1];
 delete @list[0];
-try { error("x"); } catch (Error $e) { echo $e.message; } catch ($e) { echo "other"; }
+try { throw "x"; } catch (Error $e) { echo $e.message; } catch ($e) { echo "other"; }
 try { echo 1; } catch (Error $e) { echo 2; }
 try { echo 1; } finally { echo "f"; }
-try { error(1); } catch ($e) { echo $e; } finally { echo "f"; }
+try { throw 1; } catch ($e) { echo $e; } finally { echo "f"; }
 while (true) {
     try {
         try { break; } finally { echo "inner"; }

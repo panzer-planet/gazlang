@@ -41,6 +41,6 @@ echo Plain().a ?? $s.missing ?? 0;
 echo Empty();
 $s.side = 5;
 $s.history[] = 1;
-try { error(NotFound("k")); } catch (NotFound $e) { echo $e.key; } catch (Error $e) { echo $e.message; }
+try { throw NotFound("k"); } catch (NotFound $e) { echo $e.key; } catch (Error $e) { echo $e.message; }
 echo $s.me().side;
 echo $s.scaled(2) + $s.scaled(2, 1);

@@ -11,14 +11,14 @@ try {
 }
 
 fn fail_with($message) {
-    error($message);
+    throw $message;
 }
 
 try {
     fail_with("custom problem");
 } catch ($e) {
-    check("error() message is exact", $e.message, "custom problem");
-    check("error() line is where it was called", $e.line, 14);
+    check("throw's message is exact", $e.message, "custom problem");
+    check("throw's line is where it was written", $e.line, 14);
 }
 
 // Every kind of runtime error can be caught (running out of call depth too, tested in TryCatchTest,
@@ -48,7 +48,7 @@ check("no error", caught_message("none"), "nothing thrown");
 $steps = [];
 try {
     $steps[] = "before";
-    error("stop");
+    throw "stop";
     $steps[] = "after";
 } catch ($e) {
     $steps[] = "caught";
@@ -73,9 +73,9 @@ check("failed += creates no key", $totals, []);
 // Nesting and rethrowing
 try {
     try {
-        error("inner");
+        throw "inner";
     } catch ($e) {
-        error("rethrown: " .. $e.message);
+        throw "rethrown: " .. $e.message;
     }
 } catch ($outer) {
     check("rethrow reaches the outer catch", $outer.message, "rethrown: inner");
@@ -112,7 +112,7 @@ foreach ([1, 2, 3, 4] as $n) {
 check("continue and break inside try", $seen, [1, 3]);
 
 // Errors keep unwinding through functions until a try catches them
-fn level_three() { error("from level three"); }
+fn level_three() { throw "from level three"; }
 fn level_two() { level_three(); return "unreachable"; }
 fn level_one() {
     try {
@@ -125,7 +125,7 @@ check("unwinds through calls", level_one(), "level one caught: from level three"
 
 // Globals work as the catch variable
 try {
-    error("global");
+    throw "global";
 } catch (@last_error) {
 }
 check("global catch variable", @last_error.message, "global");
@@ -150,7 +150,7 @@ kind MissingFile extends NotFound {}
 
 fn caught_by($value) {
     try {
-        error($value);
+        throw $value;
     } catch (MissingFile $e) {
         return "MissingFile";
     } catch (NotFound $e) {
@@ -168,7 +168,7 @@ check("an Error made directly", caught_by(Error("plain")), "Error");
 check("any other value", caught_by(42), "anything");
 
 try {
-    error(NotFound("k"));
+    throw NotFound("k");
 } catch (NotFound $e) {
     check("an error object's message", $e.message, "Not found: k");
     check("its own fields", $e.key, "k");
@@ -177,7 +177,7 @@ try {
 }
 
 try {
-    error([1, 2]);
+    throw [1, 2];
 } catch ($e) {
     check("a thrown list is caught as it is", $e, [1, 2]);
 }
@@ -187,7 +187,7 @@ $log = [];
 try {
     try {
         $log[] = "try";
-        error("plain");
+        throw "plain";
     } catch (NotFound $e) {
         $log[] = "not run";
     } finally {

@@ -2,7 +2,7 @@ ok the innermost call first
 ok its caller next
 ok the top level last
 ok nothing else
-ok error() is traced
+ok throw is traced
 ok a rethrow keeps where it was first thrown
 ok a method
 ok its caller

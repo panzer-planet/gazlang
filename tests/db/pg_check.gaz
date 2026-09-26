@@ -41,11 +41,11 @@ check("a duplicate key", failure(() -> $db.exec("insert into t (id) values ($1)"
 
 check("a transaction commits", $db.transaction($d -> { $d.exec("delete from t"); return $d.value("select count(*) from t"); }), 0);
 $db.exec("insert into t (name) values ('kept')");
-check("and rolls back", failure(() -> $db.transaction($d -> { $d.exec("delete from t"); error("boom"); })), "boom");
+check("and rolls back", failure(() -> $db.transaction($d -> { $d.exec("delete from t"); throw "boom"; })), "boom");
 check("nothing was deleted", $db.value("select count(*) from t"), 1);
 check("an inner transaction rolls back alone", $db.transaction($d -> {
     $d.exec("insert into t (name) values ('outer')");
-    $inner = failure(() -> $d.transaction($x -> { $x.exec("delete from t"); error("inner"); }));
+    $inner = failure(() -> $d.transaction($x -> { $x.exec("delete from t"); throw "inner"; }));
     return [$inner, $d.value("select count(*) from t")];
 }), ["inner", 2]);
 check("after an error in the database the transaction is rolled back", failure(() -> $db.transaction($d -> { $d.exec("delete from t"); $d.exec("nonsense"); })), "postgres: syntax error at or near \"nonsense\"");

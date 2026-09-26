@@ -15,19 +15,19 @@ class TryCatchTest extends GazLangTestCase
     public function test_error_in_a_catch_block_is_not_caught_by_the_same_try()
     {
         $this->expectExceptionMessage('Cannot use * on string on line 3');
-        $this->executeCode("try {\n    error(\"first\");\n} catch (\$e) { \$x = \"a\" * 2; }");
+        $this->executeCode("try {\n    throw \"first\";\n} catch (\$e) { \$x = \"a\" * 2; }");
     }
 
     public function test_uncaught_error_still_prints_its_message_exactly()
     {
         try {
-            $this->executeCode("\n\nerror(\"Syntax error in input on line 7\");");
+            $this->executeCode("\n\nthrow \"Syntax error in input on line 7\";");
             $this->fail('Expected an error');
         } catch (ProgramError $e) {
             $this->assertSame('Syntax error in input on line 7', $e->getMessage());
         }
         // The location is still recorded, for catch
-        $this->assertSame("3\n", $this->executeCode("\n\ntry { error(\"Syntax error in input on line 7\"); } catch (Error \$e) { echo \$e.line; }"));
+        $this->assertSame("3\n", $this->executeCode("\n\ntry { throw \"Syntax error in input on line 7\"; } catch (Error \$e) { echo \$e.line; }"));
     }
 
     /**
@@ -61,7 +61,7 @@ class TryCatchTest extends GazLangTestCase
             fn _($key) { ##_("Not found: {$key}"); #key = $key; }
         }
         kind Missing extends NotFound {}
-        fn find($key) { error(Missing($key)); }
+        fn find($key) { throw Missing($key); }
 
         CODE;
 
@@ -70,7 +70,7 @@ class TryCatchTest extends GazLangTestCase
         $this->assertEquals("not found: a (Not found: a) on line 6\nerror: Division by zero\nanything: 5\n", $this->executeCode(self::ERRORS.<<<'CODE'
             try { find("a"); } catch (NotFound $e) { echo "not found: {$e.key} ({$e}) on line {$e.line}"; } catch (Error $e) { echo "not run"; }
             try { $x = 1 / 0; } catch (NotFound $e) { echo "not run"; } catch (Error $e) { echo "error: {$e.message}"; }
-            try { error(5); } catch (Error $e) { echo "not run"; } catch ($e) { echo "anything: {$e}"; }
+            try { throw 5; } catch (Error $e) { echo "not run"; } catch ($e) { echo "anything: {$e}"; }
             CODE));
     }
 
@@ -91,10 +91,10 @@ class TryCatchTest extends GazLangTestCase
             CODE));
     }
 
-    public function test_runtime_errors_and_error_with_a_string_are_error_objects()
+    public function test_runtime_errors_and_a_thrown_string_are_error_objects()
     {
         $this->assertEquals("object true [bad] bad on line 1\nundefined true\n", $this->executeCode(<<<'CODE'
-            try { error("bad"); } catch ($e) { echo type_of($e) .. " " .. is_a($e, Error) .. " " .. [$e] .. " {$e.message} on line {$e.line}"; }
+            try { throw "bad"; } catch ($e) { echo type_of($e) .. " " .. is_a($e, Error) .. " " .. [$e] .. " {$e.message} on line {$e.line}"; }
             try { echo $nope; } catch (Error $e) { echo "undefined " .. ($e.message == "Undefined variable: \$nope"); }
             CODE));
     }
@@ -105,9 +105,9 @@ class TryCatchTest extends GazLangTestCase
             kind P {}
             $p = P();
             foreach ([[1, "a"], {"k" => 1}, null, $p] as $value) {
-                try { error($value); } catch ($e) { echo $e; }
+                try { throw $value; } catch ($e) { echo $e; }
             }
-            try { error($p); } catch ($e) { echo $e == $p; }
+            try { throw $p; } catch ($e) { echo $e == $p; }
             CODE));
     }
 
@@ -117,10 +117,10 @@ class TryCatchTest extends GazLangTestCase
             $e = NotFound("k");
             echo "made, not thrown: " .. ($e.line ?? "null");
             try {
-                error($e);
+                throw $e;
             } catch (NotFound $caught) {
                 echo "thrown on line {$caught.line}";
-                try { error($caught); } catch ($again) { echo "rethrown keeps line {$again.line}"; }
+                try { throw $caught; } catch ($again) { echo "rethrown keeps line {$again.line}"; }
             }
             CODE));
     }
@@ -139,8 +139,8 @@ class TryCatchTest extends GazLangTestCase
                 fn _($path) { #path = $path; }
             }
             kind Loud { pub fn to_string() { echo "to_string ran"; return "loud"; } }
-            try { error(NotFound("a.txt")); } catch (NotFound $e) { echo "caught {$e.path}"; }
-            try { error(Loud()); } catch ($e) { echo "caught b.txt"; }
+            try { throw NotFound("a.txt"); } catch (NotFound $e) { echo "caught {$e.path}"; }
+            try { throw Loud(); } catch ($e) { echo "caught b.txt"; }
             CODE));
     }
 
@@ -148,7 +148,7 @@ class TryCatchTest extends GazLangTestCase
     {
         $this->expectOutputString('');
         try {
-            $this->executeCode('kind Loud { pub fn to_string() { echo "to_string ran"; return "loud"; } } error(Loud());');
+            $this->executeCode('kind Loud { pub fn to_string() { echo "to_string ran"; return "loud"; } } throw Loud();');
             $this->fail('Expected an error');
         } catch (ProgramError $e) {
             $this->assertSame('loud', $e->getMessage());
@@ -168,19 +168,19 @@ class TryCatchTest extends GazLangTestCase
     {
         return [
             'an error object' => ['find("zz");', 'Not found: zz'],
-            'an int' => ['error(5);', '5'],
-            'a list' => ['error([1, "a"]);', '[1, "a"]'],
-            'an object without to_string' => ['kind P {} error(P());', 'P {}'],
-            'an Error whose message was never set' => ['kind Oops extends Error { fn _() {} } error(Oops());', 'Property message of Oops is not set at <builtin>:7'],
+            'an int' => ['throw 5;', '5'],
+            'a list' => ['throw [1, "a"];', '[1, "a"]'],
+            'an object without to_string' => ['kind P {} throw P();', 'P {}'],
+            'an Error whose message was never set' => ['kind Oops extends Error { fn _() {} } throw Oops();', 'Property message of Oops is not set at <builtin>:7'],
         ];
     }
 
     public function test_code_gen_for_try_catch()
     {
         $this->assertStringStartsWith(
-            "TRY CATCH_0\nPUSH \"x\"\nCALL_BUILTIN error 1\nPOP\nEND_TRY\nJMP ENDTRY_0\n"
+            "TRY CATCH_0\nPUSH \"x\"\nTHROW\nEND_TRY\nJMP ENDTRY_0\n"
             ."LABEL CATCH_0\nCATCH_VALUE\nSTORE 0\nLOAD 0\nGET_PROPERTY message\nPRINT\nLABEL ENDTRY_0\nkind Error\n",
-            $this->generateCode('try { error("x"); } catch ($e) { echo $e.message; }')
+            $this->generateCode('try { throw "x"; } catch ($e) { echo $e.message; }')
         );
     }
 

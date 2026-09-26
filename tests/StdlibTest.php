@@ -320,7 +320,7 @@ class StdlibTest extends GazLangTestCase
     public function test_error_stops_the_program()
     {
         $this->expectExceptionMessage('Undefined variable: $x in 3');
-        $this->executeCode('error("Undefined variable: \$x in " .. 3); echo "unreachable";');
+        $this->executeCode('throw "Undefined variable: \$x in " .. 3; echo "unreachable";');
     }
 
     public function test_builtins_is_the_runtimes_table()

@@ -278,17 +278,17 @@ pub kind Game {
     /* The game saved at $path; a file that isn't one is an error saying so */
     pub static fn load($path) {
         if (!file_exists($path)) {
-            error("No saved game at {$path}");
+            throw "No saved game at {$path}";
         }
         try {
             $data = json::decode(read_file($path));
             if (($data["game"] ?? null) != "football" || ($data["version"] ?? null) != 4) {
-                error("{$path} is not a saved football game");
+                throw "{$path} is not a saved football game";
             }
 
             return Game::from_json($data);
         } catch (Error $e) {
-            error("{$path} is not a saved game: {$e.message}");
+            throw "{$path} is not a saved game: {$e.message}";
         }
     }
 
@@ -429,7 +429,7 @@ pub kind Game {
        (which play_on() gives) an event stops the clock instead, giving null. */
     pub fn begin_matchday($stopping = false) {
         if (#live != null) {
-            error("A matchday is already being played");
+            throw "A matchday is already being played";
         }
         while (true) {
             $next = #next_fixture_date();
@@ -742,7 +742,7 @@ pub kind Game {
        happened. Gives the matches played. */
     pub fn end_matchday() {
         if (#live == null) {
-            error("No matchday is being played");
+            throw "No matchday is being played";
         }
         if (#live.is_cup()) {
             return #end_cup_day();

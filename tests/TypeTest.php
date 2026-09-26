@@ -162,7 +162,7 @@ class TypeTest extends GazLangTestCase
             $h = (Shared $s) -> 1;
             echo f(1);
             try {
-                error("x");
+                throw "x";
             } catch ($e) {
                 echo g($e);
             }

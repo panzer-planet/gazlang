@@ -56,7 +56,7 @@ pub kind Team {
 
     fn _(pub #name, pub #players, $eleven = null, $preferred = "4-4-2") {
         if (len(#players) < 11) {
-            error(InvalidLineup(#name, len(#players) .. " players in the squad, and 11 are needed"));
+            throw InvalidLineup(#name, len(#players) .. " players in the squad, and 11 are needed");
         }
         #preferred = $preferred;
         #xi = $eleven ?? #best_eleven($preferred);
@@ -67,21 +67,21 @@ pub kind Team {
     // one a goalkeeper
     fn check_eleven($list, $strict = true) {
         if (len($list) != 11) {
-            error(InvalidLineup(#name, len($list) .. " players in the eleven, not 11"));
+            throw InvalidLineup(#name, len($list) .. " players in the eleven, not 11");
         }
         foreach ($list as $i => $player) {
             if (!in_array($player, #players)) {
-                error(InvalidLineup(#name, "{$player} isn't in the squad"));
+                throw InvalidLineup(#name, "{$player} isn't in the squad");
             }
             if (in_array($player, slice($list, 0, $i))) {
-                error(InvalidLineup(#name, "{$player} is picked twice"));
+                throw InvalidLineup(#name, "{$player} is picked twice");
             }
         }
         $keepers = len(filter($list, $player -> is_a($player, Goalkeeper)));
         // An outfielder may be in goal when every goalkeeper is out
         $fit_keepers = len(filter(#players, $player -> is_a($player, Goalkeeper) && $player.available()));
         if ($keepers > 1 || ($strict && $keepers == 0 && $fit_keepers > 0)) {
-            error(InvalidLineup(#name, "{$keepers} goalkeepers in the eleven"));
+            throw InvalidLineup(#name, "{$keepers} goalkeepers in the eleven");
         }
     }
 
@@ -93,7 +93,7 @@ pub kind Team {
         $best = ($a, $b) -> [$b.rating, $a.number] <=> [$a.rating, $b.number];
         $keepers = sort(filter(#players, $player -> is_a($player, Goalkeeper)), $best);
         if ($keepers == []) {
-            error(InvalidLineup(#name, "no goalkeeper in the squad"));
+            throw InvalidLineup(#name, "no goalkeeper in the squad");
         }
         $free = filter($keepers, $player -> $player.available());
         // The goalkeeper who is out for the fewest matches, if none is fit
@@ -153,13 +153,13 @@ pub kind Team {
     // fit, and the eleven has to stay one that can be fielded.
     pub fn swap($starter, $reserve) {
         if (!in_array($starter, #xi)) {
-            error(InvalidLineup(#name, "{$starter} isn't in the eleven"));
+            throw InvalidLineup(#name, "{$starter} isn't in the eleven");
         }
         if (in_array($reserve, #xi) || !in_array($reserve, #players)) {
-            error(InvalidLineup(#name, "{$reserve} isn't a reserve"));
+            throw InvalidLineup(#name, "{$reserve} isn't a reserve");
         }
         if (!$reserve.available()) {
-            error(InvalidLineup(#name, "{$reserve} can't play: " .. $reserve.status()));
+            throw InvalidLineup(#name, "{$reserve} can't play: " .. $reserve.status());
         }
         $list = map(#xi, $player -> $player == $starter ? $reserve : $player);
         #check_eleven($list);
@@ -208,25 +208,25 @@ pub kind Team {
     // A substitution during a match: $on takes $off's place, who can't come back on
     pub fn substitute($off, $on) {
         if (!#can_substitute()) {
-            error(InvalidLineup(#name, "no substitutions left"));
+            throw InvalidLineup(#name, "no substitutions left");
         }
         if (!in_array($off, #xi)) {
-            error(InvalidLineup(#name, "{$off} isn't on the pitch"));
+            throw InvalidLineup(#name, "{$off} isn't on the pitch");
         }
         if ($off.sent_off) {
-            error(InvalidLineup(#name, "{$off} has been sent off, and can't be replaced"));
+            throw InvalidLineup(#name, "{$off} has been sent off, and can't be replaced");
         }
         if (in_array($on, #xi) || !in_array($on, #players)) {
-            error(InvalidLineup(#name, "{$on} isn't a substitute"));
+            throw InvalidLineup(#name, "{$on} isn't a substitute");
         }
         if (in_array($on, #taken_off)) {
-            error(InvalidLineup(#name, "{$on} has been taken off and can't come back on"));
+            throw InvalidLineup(#name, "{$on} has been taken off and can't come back on");
         }
         if (!$on.available() || $on.sent_off) {
-            error(InvalidLineup(#name, "{$on} can't play"));
+            throw InvalidLineup(#name, "{$on} can't play");
         }
         if (is_a($on, Goalkeeper) && !is_a($off, Goalkeeper) && is_a(#summary()["keeper"], Goalkeeper)) {
-            error(InvalidLineup(#name, "{$on} is a goalkeeper, and there is one on the pitch"));
+            throw InvalidLineup(#name, "{$on} is a goalkeeper, and there is one on the pitch");
         }
         #xi = map(#xi, $player -> $player == $off ? $on : $player);
         #taken_off[] = $off;
@@ -342,7 +342,7 @@ pub kind Team {
     /* A signing: $player joins the squad, in the lowest shirt number not taken. Refused when the squad is full. */
     pub fn sign($player) {
         if (len(#players) >= Team::MAX_SQUAD) {
-            error(TransferRefused("{#name} already have " .. Team::MAX_SQUAD .. " players"));
+            throw TransferRefused("{#name} already have " .. Team::MAX_SQUAD .. " players");
         }
         $taken = map(#players, $p -> $p.number);
         $number = 1;
@@ -358,13 +358,13 @@ pub kind Team {
        if he was in the eleven, the best cover of his position takes his place. */
     pub fn release($player) {
         if (!in_array($player, #players)) {
-            error(TransferRefused("{$player} isn't at {#name}"));
+            throw TransferRefused("{$player} isn't at {#name}");
         }
         if (len(#players) <= Team::MIN_SQUAD) {
-            error(TransferRefused("{#name} need at least " .. Team::MIN_SQUAD .. " players"));
+            throw TransferRefused("{#name} need at least " .. Team::MIN_SQUAD .. " players");
         }
         if (is_a($player, Goalkeeper) && len(filter(#players, $p -> is_a($p, Goalkeeper))) <= 2) {
-            error(TransferRefused("{#name} need two goalkeepers"));
+            throw TransferRefused("{#name} need two goalkeepers");
         }
         $cover = in_array($player, #xi) ? #best_substitute($player) : null;
         #players = filter(#players, $p -> $p != $player);
@@ -445,7 +445,7 @@ pub kind Formation {
     fn _(#name) {
         #lines = map(split(#name, "-"), to_int);
         if (len(#lines) != 3 || sum(#lines) != 10) {
-            error("Not a formation: {#name}");
+            throw "Not a formation: {#name}";
         }
     }
 

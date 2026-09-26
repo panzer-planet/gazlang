@@ -7,7 +7,7 @@ namespace GazLang\Tests;
  *
  * Each tests/lexer_corpus/X.gaz has what `gaz --tokens` must print for it in X.tokens: each
  * token as `LINE TYPE VALUE`, then on a lexer error the error message, printed by
- * error() as "Error: <message> on line N", with exit code 1. The self-hosted lexer is run as
+ * throw as "Error: <message> on line N", with exit code 1. The self-hosted lexer is run as
  * `gaz compiler/gazlang.gaz tokens FILE`, and with the file on standard input as
  * `... -- tokens < FILE`, on the C VM (see CVM::driver()). The parser's and code generator's
  * harnesses run the lexer over their corpora too.

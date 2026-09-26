@@ -1,8 +1,8 @@
 ok message
 ok file
 ok line
-ok error() message is exact
-ok error() line is where it was called
+ok throw's message is exact
+ok throw's line is where it was written
 ok undefined variable
 ok type error
 ok missing key

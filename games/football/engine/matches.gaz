@@ -101,7 +101,7 @@ pub kind Fixture {
        finished(), which is how one is watched, and play() is just that in a loop */
     pub fn tick() {
         if (#finished()) {
-            error("The match is over");
+            throw "The match is over";
         }
         #start();
         #elapsed++;

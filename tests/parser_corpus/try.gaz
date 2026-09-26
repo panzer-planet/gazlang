@@ -3,7 +3,7 @@ try { echo 1; } catch (@e) { echo @e; }
 try { echo 1; } catch (Error $e) { echo $e.message; }
 try { echo 1; } finally { echo 2; }
 try {
-    error(NotFound("id"));
+    throw NotFound("id");
 } catch (NotFound $e) {
     echo "{$e.message} ({$e.key}) at line {$e.line}";
 } catch (Error $e) {
