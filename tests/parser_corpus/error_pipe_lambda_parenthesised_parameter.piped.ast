@@ -1,0 +1,1 @@
+Error: A lambda after |> must be in parentheses: |> ($v -> ...) on line 3

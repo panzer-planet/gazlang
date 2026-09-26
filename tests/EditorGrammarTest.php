@@ -3,8 +3,8 @@
 namespace GazLang\Tests;
 
 /**
- * editors/gaz/gaz.tmLanguage names every builtin and keyword, so a new one fails here until the
- * grammar has it; four builtins and two more went unhighlighted before this test existed. The same
+ * editors/gaz/gaz.tmLanguage names every builtin and keyword, and matches every operator as one,
+ * so a new one fails here until the grammar has it; four builtins and two more went unhighlighted before this test existed. The same
  * holds for editors/gzb/gzb.tmLanguage and the bytecode's instructions.
  */
 class EditorGrammarTest extends GazLangTestCase
@@ -41,5 +41,23 @@ class EditorGrammarTest extends GazLangTestCase
         preg_match_all('/"([a-z]+)" =>/', $table[1], $keywords);
         $this->assertGreaterThan(20, count($keywords[1]));
         $this->assertSame([], array_values(array_diff($keywords[1], $highlighted)));
+    }
+
+    public function test_it_highlights_every_operator_as_one()
+    {
+        $grammar = (string) file_get_contents(self::GRAMMAR);
+        $this->assertSame(1, preg_match('#<string>keyword\.operator\.gaz</string>\s*<key>match</key>\s*<string>([^<]+)</string>#', $grammar, $rule), 'the keyword.operator.gaz rule');
+        $pattern = html_entity_decode($rule[1], ENT_XML1);
+        // The operators are the lexer's table, OPERATORS in compiler/lexer.gaz
+        $lexer = (string) file_get_contents(self::ROOT.'/compiler/lexer.gaz');
+        $this->assertSame(1, preg_match('/const OPERATORS = \{(.*?)\};/s', $lexer, $table));
+        preg_match_all('/"([^"]+)" =>/', $table[1], $operators);
+        $this->assertGreaterThan(40, count($operators[1]));
+        // :: is coloured with the names it joins, by the rule for json::decode
+        foreach (array_diff($operators[1], ['::']) as $operator) {
+            // The first alternative that matches wins, as in an editor, so the match is the whole operator
+            preg_match('#^(?:'.$pattern.')#', $operator, $match);
+            $this->assertSame($operator, $match[0] ?? null, "{$operator} as one operator");
+        }
     }
 }

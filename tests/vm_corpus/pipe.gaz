@@ -1,0 +1,32 @@
+/* |>: the value on the left becomes the first argument of the call on the right, and runs when
+ * it would in the call written out: before the other arguments, after a called value */
+include "std/json.gaz";
+
+fn add($a, $b) { return $a + $b; }
+fn loud($s) { echo "evaluated $s"; return $s; }
+kind Point {
+    pub #x;
+    fn _($x) { #x = $x; }
+    pub static fn make($x, $y) { return Point($x + $y); }
+}
+$exclaim = $s -> $s .. "!";
+$wrap = ($s, $left, $right) -> $left .. $s .. $right;
+$name = "werner";
+echo "Hello " .. $name |> upper;
+echo [1, 2, 3, 4] |> len > 3;
+echo 5 |> add(1);
+echo "x" |> $exclaim;
+echo "x" |> $wrap("<", ">");
+echo "  My Title  " |> trim |> lower |> replace(" ", "-");
+echo 3 |> Point |> ($p -> $p.x);
+echo (3 |> Point::make(4)).x;
+echo [3, 1, 2]
+    |> sort
+    |> reverse;
+echo {"a" => [1, 2]} |> json::encode;
+echo loud("first") |> replace(loud("second"), loud("third"));
+echo loud("value") |> (loud("callee") == "callee" ? $exclaim : null);
+echo 2 |> ($n -> $n * 10) |> (add)(1);
+try { echo "x" |> $exclaim(1); } catch (Error $e) { echo $e.message; }
+try { echo "x" |> ($s -> $s + 1); } catch (Error $e) { echo $e.message; }
+try { echo 1 |> ([1, 2]); } catch (Error $e) { echo $e.message; }

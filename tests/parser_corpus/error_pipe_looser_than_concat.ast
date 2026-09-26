@@ -1,0 +1,1 @@
+Error: |> binds looser than ..: write ($x |> f) .. $y, or parenthesise what follows |> at tests/parser_corpus/error_pipe_looser_than_concat.gaz:2

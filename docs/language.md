@@ -158,6 +158,7 @@ By precedence, loosest first:
 | logical | `\|\|` then `&&` |
 | equality | `==` `!=` `<=>` |
 | relational | `<` `<=` `>` `>=` |
+| pipe | `\|>` |
 | concat | `..` |
 | bitwise | `\|` then `^` then `&` |
 | shift | `<<` `>>` |
@@ -194,6 +195,24 @@ and the right side of `??`, and its operand runs as far right as it can.
 - `& | ^ << >> ~` are ints only. They bind tighter than the comparisons, so `$flags & MASK == 0` means `($flags & MASK) == 0`. A shift count must be 0 to 63.
 - `$a ?? $b` gives `$a` unless it is null or missing; an undefined variable or a missing key on
   its left is `null` rather than an error. `0`, `false` and `""` are kept.
+- `|>` passes the value on its left to the call on its right, as the **first** argument:
+  `$x |> f(a, b)` is `f($x, a, b)`, `$x |> f` is `f($x)`, and `$x |> $g` is `$g($x)`. Names with
+  `::` and kinds work as their calls do (`$data |> json::encode`, `$x |> Point`), and a
+  parenthesised expression is called with the value: `$n |> ($v -> $v * 2)`. It is left
+  associative, so a chain reads in the order it runs, and a chain may start its lines with `|>`:
+
+  ```
+  $slug = $title
+      |> trim
+      |> lower
+      |> replace(" ", "-");
+  ```
+
+  It binds looser than `..` and arithmetic and tighter than comparisons, so
+  `"Hello " .. $name |> upper` uppercases the whole greeting and `$items |> len > 3` compares the
+  length. It is exactly the call it stands for: the same checks, errors and order of evaluation.
+  A lambda right after `|>` must be in parentheses, since its body would run on over the rest of
+  the chain, and a method can't follow `|>` yet (`$x |> $obj.m()`).
 
 ## Control flow
 

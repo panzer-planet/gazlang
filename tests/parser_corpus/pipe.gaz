@@ -1,0 +1,31 @@
+// The value on the left becomes the first argument of the call on the right
+$x |> f;
+$x |> f(1);
+$x |> $g;
+$x |> $g(1);
+$x |> Point;
+$x |> Point::make(1);
+$x |> ($v -> $v * 2);
+$x |> (f)(1);
+$x |> ($handlers["k"]);
+// Left associative, and a chain may start its lines with |>
+$x |> f |> g(1) |> h;
+$x
+    |> f
+    |> g(
+        1
+    );
+// Looser than .. and arithmetic, tighter than comparison and equality
+"Hello " .. $name |> upper;
+$a + 1 |> f;
+$items |> len > 3;
+$a |> f == $b |> g;
+$a ?? $b |> f;
+$c ? $a |> f : $b |> g;
+fn f($a, $b = 0) { return $a; }
+fn g($a, $b = 0) { return $a; }
+fn h($a) { return $a; }
+kind Point {
+    fn _($x) {}
+    static fn make($x, $y) { return Point($x); }
+}

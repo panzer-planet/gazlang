@@ -1,0 +1,21 @@
+HELLO WERNER
+true
+6
+x!
+<x>
+my-title
+3
+7
+[3, 2, 1]
+{"a":[1,2]}
+evaluated first
+evaluated second
+evaluated third
+first
+evaluated callee
+evaluated value
+value!
+21
+Function -> at tests/vm_corpus/pipe.gaz:12 expects 1 arguments, 2 given
+Cannot use + on string
+Cannot call list

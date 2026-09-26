@@ -98,6 +98,58 @@ class OperatorTest extends GazLangTestCase
         ];
     }
 
+    public function test_lexes_pipe()
+    {
+        // Longest match: |> is one token, but || > is two
+        $this->assertSame(['PIPE', 'OR', 'GREATER_THAN', 'BIT_OR', 'GREATER_THAN'], array_column($this->lex('|> ||> | >'), 0));
+    }
+
+    /**
+     * @dataProvider pipes
+     */
+    public function test_pipe(string $code, string $expected)
+    {
+        $this->assertSame($expected, $this->executeCode($code));
+    }
+
+    public static function pipes(): array
+    {
+        return [
+            'a function by name' => ['echo "abc" |> upper;', "ABC\n"],
+            'the first argument of a call' => ['echo "a-b" |> replace("-", "+");', "a+b\n"],
+            'a function value' => ['$f = $s -> $s .. "!"; echo "hi" |> $f;', "hi!\n"],
+            'the first argument of a call on a value' => ['$f = ($s, $n) -> repeat($s, $n); echo "ab" |> $f(3);', "ababab\n"],
+            'a parenthesised lambda' => ['echo 4 |> ($n -> $n * $n);', "16\n"],
+            'a kind' => ['kind P { pub #x; fn _($x) { #x = $x; } } echo (2 |> P).x;', "2\n"],
+            'left associative' => ['echo " Title " |> trim |> lower;', "title\n"],
+            'looser than ..' => ['echo "a" .. "b" |> upper;', "AB\n"],
+            'looser than +' => ['echo 1 + 2 |> ($n -> $n * 10);', "30\n"],
+            'tighter than a comparison' => ['echo [1, 2, 3] |> len > 2;', "true\n"],
+            'a chain may start its lines with |>' => ["echo [2, 1]\n    |> sort\n    |> reverse;", "[2, 1]\n"],
+        ];
+    }
+
+    /**
+     * @dataProvider pipeErrors
+     */
+    public function test_pipe_errors(string $code, string $message)
+    {
+        $this->expectExceptionMessage($message);
+        $this->executeCode($code);
+    }
+
+    public static function pipeErrors(): array
+    {
+        return [
+            'a lambda needs parentheses' => ['echo 1 |> $n -> $n;', 'A lambda after |> must be in parentheses: |> ($v -> ...) on line 1'],
+            'no method' => ['kind A { pub fn m($x) { return $x; } } $a = A(); echo 1 |> $a.m();', "A method can't follow |> yet: pass the value to it as an argument on line 1"],
+            'not a call' => ['echo 1 |> 2;', '|> is followed by a function, a call or a parenthesised expression on line 1'],
+            'looser than ..' => ['echo "a" |> upper .. "!";', '|> binds looser than ..: write ($x |> f) .. $y, or parenthesise what follows |> on line 1'],
+            'the arity counts the piped value' => ['echo "a" |> upper(1);', 'Function upper expects 1 arguments, 2 given on line 1'],
+            'a value that is no function' => ['echo 1 |> (2);', 'Cannot call int on line 1'],
+        ];
+    }
+
     /**
      * @dataProvider powerErrors
      */

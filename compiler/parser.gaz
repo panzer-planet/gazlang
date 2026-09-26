@@ -289,6 +289,9 @@ kind Html {
     // them, since nothing is read between ternary() marking a ( and parenthesised() asking
     // about it.
     #lambda_head = null;
+    // The expression parenthesised() gave last for a ( expr ), so that pipe() can tell the
+    // parenthesised expression that is called with the value from anything else starting with (
+    #grouped = null;
 
     // Assignment operator token types: = and the compound assignments
     const ASSIGNMENTS = [
@@ -305,13 +308,14 @@ kind Html {
         "AND" => 2,
         "EQUALS" => 3, "NOT_EQUALS" => 3, "SPACESHIP" => 3,
         "LESS_THAN" => 4, "LESS_EQUALS" => 4, "GREATER_THAN" => 4, "GREATER_EQUALS" => 4,
-        "CONCAT" => 5,
-        "BIT_OR" => 6,
-        "BIT_XOR" => 7,
-        "BIT_AND" => 8,
-        "SHIFT_LEFT" => 9, "SHIFT_RIGHT" => 9,
-        "PLUS" => 10, "MINUS" => 10,
-        "MULTIPLY" => 11, "DIVIDE" => 11, "MODULO" => 11,
+        "PIPE" => 5,
+        "CONCAT" => 6,
+        "BIT_OR" => 7,
+        "BIT_XOR" => 8,
+        "BIT_AND" => 9,
+        "SHIFT_LEFT" => 10, "SHIFT_RIGHT" => 10,
+        "PLUS" => 11, "MINUS" => 11,
+        "MULTIPLY" => 12, "DIVIDE" => 12, "MODULO" => 12,
     };
 
     // Keywords reserved for features that don't exist yet, so adding them never breaks a program
@@ -853,6 +857,7 @@ kind Html {
                 }
                 #fail_at("Expected ')' but found " .. #describe($items[0][0]), #file, $items[0][0].line);
             }
+            #grouped = $items[0][1];
 
             return $items[0][1];
         }
@@ -1299,8 +1304,64 @@ kind Html {
                 return $node;
             }
             #eat($token.type);
-            $node = #at(BinOpAST($node, $token, #binary($found + 1)), $token);
+            if ($token.type == "PIPE") {
+                $node = #pipe($node, $token, $found + 1);
+            } else {
+                $node = #at(BinOpAST($node, $token, #binary($found + 1)), $token);
+            }
         }
+    }
+
+    /*
+     * Parse what follows |> and give the call it stands for, the value on its left being the
+     * first argument: $x |> f(a) is f($x, a), $x |> f is f($x), $x |> $g(a) is $g($x, a), and a
+     * parenthesised expression is called with the value, $x |> ($v -> $v * 2). Sugar only: the
+     * result is an ordinary FunctionCallAST or CallValueAST, checked and compiled as one.
+     *
+     * The right side is read at the next tighter level, as any operand is, and must then be one
+     * of those shapes. A lambda must be parenthesised, since its body would run on over the rest
+     * of the chain, and a method can't follow |> yet (the restrictive choice).
+     */
+    fn pipe($value, $token, $level) {
+        $uses = len(#uses);
+        $target = #binary($level);
+        if (#current_token.type == "ARROW") {
+            #fail("A lambda after |> must be in parentheses: |> (\$v -> ...)");
+        }
+        if ($target == #grouped) {
+            return #relocated(CallValueAST($target, [$value]), $target);
+        }
+        if (is_a($target, FunctionRefAST)) {
+            // A name read as a value is a call by name: its use is checked as a call instead
+            #uses = slice(#uses, 0, $uses);
+            $call = #relocated(FunctionCallAST($target.name, [$value]), $target);
+            #uses[] = [$call, #scope];
+
+            return $call;
+        }
+        if (is_a($target, FunctionCallAST) || is_a($target, CallValueAST)) {
+            $target.args = [$value, ...$target.args];
+
+            return $target;
+        }
+        if (is_a($target, VariableAST)) {
+            return #relocated(CallValueAST($target, [$value]), $target);
+        }
+        if (is_a($target, MethodCallAST) || is_a($target, PropertyAST) || is_a($target, ParentMethodAST)) {
+            #fail_at("A method can't follow |> yet: pass the value to it as an argument", #file, $token.line);
+        }
+        if (is_a($target, BinOpAST)) {
+            $op = $target.op.value;
+            #fail_at("|> binds looser than {$op}: write (\$x |> f) {$op} \$y, or parenthesise what follows |>", #file, $token.line);
+        }
+        #fail_at("|> is followed by a function, a call or a parenthesised expression", #file, $token.line);
+    }
+
+    // A node the parser made in place of another, located where that one is
+    fn relocated($node, $from) {
+        [$node.line, $node.file] = [$from.line, $from.file];
+
+        return $node;
     }
 
     // Parse a logical or expression, the loosest binary level

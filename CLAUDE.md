@@ -100,7 +100,7 @@ vendor/bin/pint                     # formatting
 - `vm/`: the VM in C. `gazvm.h` says which file does what: `value.c` and `ops.c` are what values
   mean (operators, truthiness, printing, keys, indexing, write paths), `builtins.c` the builtins
   and their arities (`builtin_info[]`), `load.c` reading and checking bytecode, `vm.c` running it
-  and the CLI, `gc.c` the cycle collector, `net.c` sockets and TLS, `db.c` with `sqlite.c` and `pg.c` databases, `term.c` raw mode and keys, `workers.c` `workers()`.
+  and the CLI, `gc.c` the cycle collector, `net.c` sockets and TLS, `db.c` with `sqlite.c` and `pg.c` databases, `term.c` raw mode and keys, `workers.c` `workers()`, `watch.c` `gaz --watch`.
 - `lib/`: the standard library in GazLang. `examples/`: sample programs that nothing tests
   (see "Programs are tests or examples"). `tests/programs/`: programs the tests do run.
   `games/`: programs built on the language, each with tests of its own (see "A game is neither").
@@ -246,13 +246,9 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   1. **Optional types**, checked at run time (done; see "Types"): PHP's syntax (`int $n`, `): int`,
      `pub int #x`), `?T` and unions, `: null` for no result, no coercion but int to float, and no
      generics until they can be a static check only.
-  2. **`gaz --watch app.gaz`**: a supervisor that runs the program as a child, polls the times of
-     its `.gaz`/`.gazml` files, and on a change stops it gracefully (SIGTERM) and runs it again,
-     printing a compile error and waiting when the edit doesn't compile. Not a rolling restart of
-     workers: they are forks of a master holding the old code.
-  3. **A pipe, `|>`**, parser only, Elixir's rule: `$x |> f(a)` is `f($x, a)` and `$x |> $f` is
-     `$f($x)`, since the builtins take their subject first (`$title |> trim |> lower |> replace(" ",
-     "-")`). Not PHP's `f(...)` form, which collides with `...`. A lambda in a pipe is parenthesised.
+  2. **`gaz --watch app.gaz`** (done; see "The CLI"). Not a rolling restart of workers: they are
+     forks of a master holding the old code.
+  3. **A pipe, `|>`** (done; see "Operators, truthiness and equality"). Not PHP's `f(...)` form, which collides with `...`.
   4. **`gaz test`** running `*_test.gaz`, with `std/test.gaz` (`test::expect`, `test::snapshot`
      recorded next to the test, `--update`), and an exit status; no new syntax or reserved word. A
      user of gaz shouldn't need PHP to test gaz code.
@@ -538,7 +534,7 @@ version.
 ## Operators, truthiness and equality
 
 - **Precedence**, loosest first: assignment (right associative) → `?:` and `throw` (right) → `??` (right)
-  → `||` → `&&` → equality (`==` `!=` `<=>`) → relational → `..` → `|` → `^` → `&` → shifts →
+  → `||` → `&&` → equality (`==` `!=` `<=>`) → relational → `|>` → `..` → `|` → `^` → `&` → shifts →
   `+ -` → `* / %` → unary → `**` (right) → postfix (`[index]`, `(args)`, `.name`, `?.name`, `::name`) → primary. Bitwise precedence
   is Rust's and Python's, not C's, so `$flags & MASK == 0` is `($flags & MASK) == 0`. `..` sits
   looser than the bitwise operators and tighter than comparison, so `"x = " .. $f & MASK` and
@@ -579,6 +575,24 @@ version.
   between `??` and assignment, so `$x ?? $y ? 1 : 2` tests the coalesced value.
 - `%` takes the left operand's sign. `null`: arithmetic, ordering and unary `-` on it throw;
   `echo null` prints `null`.
+- **`$x |> f(a)` is `f($x, a)`**: the value on the left is the call's first argument, since the
+  builtins take their subject first (`$title |> trim |> lower |> replace(" ", "-")`). `$x |> f` is
+  `f($x)`, `$x |> $g(a)` is `$g($x, a)`, a qualified name or a kind as its call, and a
+  parenthesised expression is called with the value (`|> ($v -> $v * 2)`, `|> ($h["k"])`); left
+  associative. **Parser sugar only** (`pipe()` in `parser.gaz`): the right side is read at the next
+  tighter level, as any operand is, and becomes an ordinary `FunctionCallAST` or `CallValueAST`,
+  so its checks, errors, traces and order of evaluation (a called value before its arguments) are
+  the call's, and nothing below the parser learns of it. `#grouped` (the last expression
+  `parenthesised()` gave) is how a parenthesised expression is told from anything else that
+  starts with `(`.
+  - **Looser than `..` and arithmetic, tighter than comparison**, so `"Hello " .. $name |> upper`
+    pipes the whole greeting and `$items |> len > 3` compares the length. The price is that
+    `$x |> f .. "!"` pipes into `f .. "!"`, which is refused saying `|>` binds looser than `..`.
+  - **Refused**: a lambda right after `|>` (its body would swallow the rest of the chain: write
+    `|> ($v -> ...)`); a method (`|> $obj.m()`, `|> $obj.m`, `|> #m()`), the restrictive choice,
+    loosenable later; anything else that isn't a name, a variable or a parenthesised expression,
+    with or without arguments (`|> 5`, `|> $h["k"]`). `ponytail:` `|> ($a, $b) -> ...` gets the
+    plain `Unexpected ','`.
 
 ## Numbers
 
@@ -1439,7 +1453,7 @@ try {
 ## The self-hosted front end
 
 - **Its shape, and why**: the lexer's scanner is an object, because `include` needs two lexers
-  alive at once; its operators are one table matched longest first. The parser's eleven binary
+  alive at once; its operators are one table matched longest first. The parser's twelve binary
   levels are one table and a loop (precedence climbing) rather than a method each, 28% faster.
   `lambda_heads` is one field, since nothing is read between marking a `(` and asking. A member
   use's record is found by an index the node holds, not a reference, so a kind's tree isn't a
@@ -1483,6 +1497,33 @@ vm/bench.php`: CPU time, interleaved, best of several).
   built-in front end in that mode; running source runs it in `code` mode first. With no file and
   a terminal on stdin it prints the help to stderr and exits 1: there is no REPL (running each
   line as its own program wouldn't be one).
+- **`gaz --watch app.gaz ARGS`** (`watch.c`) runs the program and runs it again whenever a file it
+  is made of changes. A supervisor in C that runs no GazLang: it starts `argv[0]` again (spawnp,
+  so a bare `gaz` is found on the PATH as the shell found it; portable, where `/proc/self/exe` and
+  `_NSGetExecutablePath` are one system each) as `gaz -f FILE -- ARGS`, in a process group of its
+  own so a `workers()` master and its workers stop together. A file, never piped source, and not
+  with `-c`, `--tokens` or `--ast`.
+  - **What is watched is the files the program is made of**, not a directory: the main file and
+    the distinct paths of the `@` lines of a `gaz -c` of it (`source_files()` in `load.c`,
+    resolved and shown as the loader shows them, `<builtin>` and `<std>` left out), so templates
+    are watched and the built-in library isn't. Worked out again before each start, so a new
+    include is watched from its first run; a compile that fails keeps the last list. Compiling
+    twice costs the restart one compile, but needs no change to the front end. `ponytail:` a file
+    that leaves no instruction (only constants) isn't watched.
+  - **Polled every 0.25s**, modification time (nanoseconds too), size and inode, portable where
+    inotify and kqueue are one system each. A change or a file gone restarts: SIGTERM to the
+    group (graceful for `workers()`), SIGKILL after 1s, where production's grace is 10s, so a
+    save feels instant. A compile error (the child prints it) or a program that ends by itself
+    waits for the next change.
+  - **Messages on stderr**: `gaz: watching app.gaz and 6 files it includes` (again whenever the
+    list changes), `gaz: views/page.gazml changed, restarting`, `gaz: waiting for a change`.
+  - **SIGINT, SIGTERM, SIGHUP stop the group the same way, then end the supervisor as the signal
+    would**; one it was started ignoring stays ignored (so `sh -c '... &'` background jobs, which
+    ignore SIGINT, need SIGTERM), as in `workers()`. Ctrl-C reaches only the supervisor, since the
+    child's group isn't the terminal's. `ponytail:` so the program can't read the terminal or turn
+    on raw mode (SIGTTIN, SIGTTOU); the supervisor says so and ends it rather than leave it stopped.
+    Handing the child's group the terminal (`tcsetpgrp`) would lift that, with Ctrl-C then the
+    program's. `WatchTest` edits files under a running supervisor.
 - **A real REPL is possible, not built**, and nothing decided rules it out; what stands in the way
   is that everything assumes a whole program. It would take: a session mode in the compiler (the
   parser keeps its function, kind, constant and namespace tables between entries, the code

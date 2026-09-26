@@ -1,0 +1,1 @@
+Error: --watch runs the program, so it can't be combined with -c, --tokens or --ast

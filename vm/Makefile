@@ -20,7 +20,7 @@ FLAGS = -std=c11 -D_DEFAULT_SOURCE -Wall -Wextra -Wno-unused-parameter
 # to it rebuilds, as the flags are part of build/config
 VERSION := $(shell cat ../VERSION)
 FLAGS += -DGAZ_VERSION='"$(VERSION)"'
-SOURCES = value.c ops.c load.c vm.c builtins.c gc.c net.c db.c term.c workers.c
+SOURCES = value.c ops.c load.c vm.c builtins.c gc.c net.c db.c term.c workers.c watch.c
 LIBS = -lm -lpthread
 
 # OpenSSL: from pkg-config, else Homebrew's (keg-only, so not on the default paths), else the

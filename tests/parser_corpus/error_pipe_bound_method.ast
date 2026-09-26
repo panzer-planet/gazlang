@@ -1,0 +1,1 @@
+Error: A method can't follow |> yet: pass the value to it as an argument at tests/parser_corpus/error_pipe_bound_method.gaz:3

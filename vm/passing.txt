@@ -46,6 +46,7 @@ snippet:08e0bd5cec81
 snippet:08e5e57badd5
 snippet:09d9dcc6755e
 snippet:0a4084358f7a
+snippet:0a5ba13c4651
 snippet:0a8c7860c624
 snippet:0ac2e9884a97
 snippet:0ae1c3a82191
@@ -59,6 +60,7 @@ snippet:0ee4ec1f854f
 snippet:0f02593310ac
 snippet:1072191abdd3
 snippet:10f564396acf
+snippet:1136a32df896
 snippet:124cb5627c20
 snippet:125f3499202b
 snippet:1294625564cb
@@ -169,6 +171,7 @@ snippet:36c94ddbd61c
 snippet:36dabea58898
 snippet:37c994772338
 snippet:387310dd39c4
+snippet:38ac217b5194
 snippet:38c3b8865455
 snippet:390a3242b659
 snippet:39863b946b51
@@ -193,6 +196,7 @@ snippet:3f99ffb80574
 snippet:40a59a6bb642
 snippet:40af1e6a7795
 snippet:40f7587cdf0f
+snippet:410a2ac6461b
 snippet:41fb172e3f2e
 snippet:423683005790
 snippet:4250523c81fe
@@ -262,6 +266,7 @@ snippet:569349dde78e
 snippet:5757521ef7c5
 snippet:57f0fd9f4e4f
 snippet:58b0e900668d
+snippet:58bd2cc03c46
 snippet:58c5f60509d6
 snippet:592bcb255765
 snippet:59a671b1d5e8
@@ -360,6 +365,7 @@ snippet:7d11f0e001a4
 snippet:7d1c04badf48
 snippet:7eb5574e5ec8
 snippet:7efc5575f43e
+snippet:7f17f9cdba35
 snippet:7f2d4c318eae
 snippet:7f3b2cd656fd
 snippet:7fddf26120a2
@@ -429,6 +435,7 @@ snippet:9a8388971788
 snippet:9ac2eefddb76
 snippet:9b3d05d70fc4
 snippet:9b7705971df9
+snippet:9b98c45a96f6
 snippet:9c650c324437
 snippet:9cb151a9a4a5
 snippet:9d36da4c2b3d
@@ -447,7 +454,9 @@ snippet:a31da19497ef
 snippet:a36c4190df7f
 snippet:a3cb4b085e5a
 snippet:a4fa4bdde7ca
+snippet:a5173fa8e84e
 snippet:a51786d698d5
+snippet:a5bdc95254e9
 snippet:a646a0229575
 snippet:a6d995fcefba
 snippet:a6ff831a3b34
@@ -554,6 +563,7 @@ snippet:d15e05d65afe
 snippet:d1d8047a3193
 snippet:d1f645850f21
 snippet:d2875ab6a2e7
+snippet:d35e1f12da99
 snippet:d4106ee4a095
 snippet:d41b2c9fc5ca
 snippet:d4e28d3730fb
@@ -561,7 +571,9 @@ snippet:d57d1d0ddf85
 snippet:d6289f94cfc0
 snippet:d63ff0dbbcfb
 snippet:d682c38112d2
+snippet:d78466ea99ad
 snippet:d7ec3ca57f51
+snippet:d854c48c5bcc
 snippet:d972dea2e191
 snippet:d9d575a04ff8
 snippet:d9f51d9f9da3
@@ -798,6 +810,7 @@ tests/codegen_corpus/map_spread.gaz
 tests/codegen_corpus/namespaces.gaz
 tests/codegen_corpus/nullsafe.gaz
 tests/codegen_corpus/pattern_parameters.gaz
+tests/codegen_corpus/pipe.gaz
 tests/codegen_corpus/power.gaz
 tests/codegen_corpus/shared.gaz
 tests/codegen_corpus/statements.gaz
@@ -907,6 +920,7 @@ tests/parser_corpus/no_error_kind.gaz
 tests/parser_corpus/nullsafe.gaz
 tests/parser_corpus/override_of_a_private_parent_method.gaz
 tests/parser_corpus/pattern_parameters.gaz
+tests/parser_corpus/pipe.gaz
 tests/parser_corpus/postfix.gaz
 tests/parser_corpus/power.gaz
 tests/parser_corpus/precedence.gaz
@@ -952,6 +966,7 @@ tests/vm_corpus/map_spread.gaz
 tests/vm_corpus/misc.gaz
 tests/vm_corpus/nullsafe.gaz
 tests/vm_corpus/pattern_parameters.gaz
+tests/vm_corpus/pipe.gaz
 tests/vm_corpus/power.gaz
 tests/vm_corpus/rounding.gaz
 tests/vm_corpus/superinstructions.gaz

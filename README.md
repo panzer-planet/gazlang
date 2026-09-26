@@ -93,6 +93,7 @@ Other ways to run it:
 
 ```bash
 bin/gaz program.gaz arg1 arg2      # arguments, read with args()
+bin/gaz --watch server.gaz 8080    # run it again whenever it or a file it includes changes
 cat program.gaz | bin/gaz - arg1   # the program from standard input (no file does the same)
 bin/gaz -c program.gaz > x.gzb     # print the compiled VM code, which runs as it is
 bin/gaz x.gzb
@@ -175,6 +176,8 @@ echo -7 % 3;                               // %, ints only, sign follows the lef
 $front = [1, 2];
 $back = [3, 4];
 echo [...$front, ...$back];                // spread into a list literal
+
+echo " Hi There " |> trim |> lower;        // |> passes the value as the first argument
 ```
 
 ```
@@ -185,6 +188,7 @@ yes
 48
 -1
 [1, 2, 3, 4]
+hi there
 ```
 
 ### Lists and maps
