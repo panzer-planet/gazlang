@@ -36,7 +36,7 @@ $worker = workers($count);
 http::serve($listener, $request -> match ($request["path"]) {
     "/" => {"body" => "hello from worker $worker\n", "headers" => {"Content-Type" => "text/plain"}},
     "/echo" => {"headers" => {"Content-Type" => "application/json"}, "body" => json::encode($request)},
-    "/fail" => error("the handler failed on purpose"),
+    "/fail" => throw "the handler failed on purpose",
     "/bad-header" => {"headers" => {"X-Split" => "a\r\nInjected: yes"}},
     "/hello" => {"body" => hello(http::query($request)["name"] ?? "stranger")},
     "/decoded" => {"body" => json::encode({"query" => http::query_all($request), "form" => http::form_all($request)})},

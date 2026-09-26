@@ -43,7 +43,7 @@ const BuiltinInfo builtin_info[] = {
     {"in_array", 2, 2}, {"has_key", 2, 2}, {"keys", 1, 1}, {"values", 1, 1}, {"last", 1, 1}, {"reverse", 1, 1},
     {"map", 2, 2},
     {"filter", 2, 2}, {"reduce", 3, 3}, {"sort", 1, 2}, {"type_of", 1, 1},
-    {"is_a", 2, 2}, {"kind_of", 1, 1}, {"fields", 1, 1}, {"object_id", 1, 1}, {"error", 1, 1}, {"exit", 0, 1},
+    {"is_a", 2, 2}, {"kind_of", 1, 1}, {"fields", 1, 1}, {"object_id", 1, 1}, {"exit", 0, 1},
     {"read_file", 1, 1}, {"write_file", 2, 2}, {"file_exists", 1, 1}, {"real_path", 1, 1},
     {"cwd", 0, 0}, {"print", 1, 1}, {"print_error", 1, 1}, {"read_stdin", 0, 0}, {"args", 0, 0},
     {"builtins", 0, 0}, {"rand_int", 2, 2}, {"rand_float", 0, 0}, {"rand_seed", 0, 1},
@@ -63,7 +63,7 @@ enum {
     B_LEN, B_SLICE, B_LOWER, B_UPPER, B_TRIM, B_SPLIT, B_JOIN, B_REPLACE, B_CONTAINS,
     B_STARTS_WITH, B_ENDS_WITH, B_INDEX_OF, B_REPEAT, B_CHR, B_ORD, B_TO_INT, B_TO_FLOAT, B_FLOOR,
     B_CEIL, B_ROUND, B_ABS, B_INTDIV, B_MIN, B_MAX, B_SUM, B_TO_STRING, B_IN_ARRAY, B_HAS_KEY, B_KEYS,
-    B_VALUES, B_LAST, B_REVERSE, B_MAP, B_FILTER, B_REDUCE, B_SORT, B_TYPE_OF, B_IS_A, B_KIND_OF, B_FIELDS, B_OBJECT_ID, B_ERROR, B_EXIT, B_READ_FILE,
+    B_VALUES, B_LAST, B_REVERSE, B_MAP, B_FILTER, B_REDUCE, B_SORT, B_TYPE_OF, B_IS_A, B_KIND_OF, B_FIELDS, B_OBJECT_ID, B_EXIT, B_READ_FILE,
     B_WRITE_FILE, B_FILE_EXISTS, B_REAL_PATH, B_CWD, B_PRINT, B_PRINT_ERROR, B_READ_STDIN,
     B_ARGS, B_BUILTINS, B_RAND_INT, B_RAND_FLOAT, B_RAND_SEED, B_RUN,
     B_SOCKET_OPEN, B_SOCKET_READ, B_SOCKET_WRITE, B_SOCKET_CLOSE,
@@ -1098,8 +1098,6 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         *out = v_map(m);
         return true;
     }
-    case B_ERROR:
-        return raise_value(a);
     case B_EXIT: {
         Value code = argc > 0 ? a : v_int(0);
         if (!want(index, code, INT)) return false;

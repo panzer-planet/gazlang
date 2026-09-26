@@ -1,0 +1,39 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals $y $x $c $f
+@ "throw.gaz" 2
+PUSH "text"
+THROW
+@ "throw.gaz" 3
+LOAD_QUIET 0
+JNN COALESCE_END_0
+PUSH "missing"
+THROW
+LABEL COALESCE_END_0
+STORE 1
+LOAD 1
+POP
+@ "throw.gaz" 4
+LOAD 2
+JZ TERNARY_ELSE_1
+PUSH 1
+JMP TERNARY_END_1
+LABEL TERNARY_ELSE_1
+PUSH [2]
+THROW
+LABEL TERNARY_END_1
+PRINT
+@ "throw.gaz" 5
+MAKE_CLOSURE 0
+STORE 3
+LOAD 3
+POP
+
+lambda 0 1 1
+locals $v
+@ "throw.gaz" 5
+LOAD 0
+THROW
+RET

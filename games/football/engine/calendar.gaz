@@ -42,7 +42,7 @@ pub fn matchdays($year, $count) {
     }
     $extra = $count - $available;
     if ($extra > $available - 4) {
-        error("A season of {$available} weeks has no room for {$count} matchdays");
+        throw "A season of {$available} weeks has no room for {$count} matchdays";
     }
     $dates = $saturdays;
     for ($k = 0; $k < $extra; $k++) {

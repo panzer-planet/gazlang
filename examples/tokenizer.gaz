@@ -74,7 +74,7 @@ kind Scanner {
     fn string(): Token {
         $end = index_of(#source, "\"", #pos + 1);
         if ($end == null) {
-            error("line {#line}: unterminated string");
+            throw "line {#line}: unterminated string";
         }
         $text = slice(#source, #pos, $end + 1 - #pos);
         #pos = $end + 1;
@@ -85,7 +85,7 @@ kind Scanner {
         $two = slice(#source, #pos, 2);
         $op = in_array($two, OPERATORS) ? $two : #source[#pos];
         if (!in_array($op, OPERATORS)) {
-            error("line {#line}: unexpected character \"$op\"");
+            throw "line {#line}: unexpected character \"$op\"";
         }
         #pos += len($op);
         return Token("operator", $op, #line);

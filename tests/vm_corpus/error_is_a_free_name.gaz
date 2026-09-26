@@ -1,0 +1,8 @@
+// error is not a builtin, so a program may declare it: throw is what raises
+fn error($message) {
+    return "logged: {$message}";
+}
+
+echo error("disk full");
+$report = error;
+echo $report("again");

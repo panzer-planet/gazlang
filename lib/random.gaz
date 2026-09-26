@@ -11,7 +11,7 @@ pub fn shuffle($x) {
         return join(shuffle(split($x, "")), "");
     }
     if (type_of($x) != "list") {
-        error("random::shuffle() expects list or string, got " .. type_of($x));
+        throw "random::shuffle() expects list or string, got " .. type_of($x);
     }
     for ($i = len($x) - 1; $i > 0; $i--) {
         $j = rand_int(0, $i);
@@ -24,13 +24,13 @@ pub fn shuffle($x) {
 pub fn key($x) {
     if (type_of($x) == "list") {
         if (len($x) == 0) {
-            error("random::key() expects a non-empty list or map");
+            throw "random::key() expects a non-empty list or map";
         }
         return rand_int(0, len($x) - 1);
     }
     $keys = keys($x);
     if (len($keys) == 0) {
-        error("random::key() expects a non-empty list or map");
+        throw "random::key() expects a non-empty list or map";
     }
     return $keys[rand_int(0, len($keys) - 1)];
 }
@@ -50,7 +50,7 @@ pub fn chance($p) {
 pub fn weighted($pairs, $total = null) {
     $total ??= sum(map($pairs, $pair -> $pair[1]));
     if ($total <= 0) {
-        error("random::weighted() expects weights that add up to more than 0");
+        throw "random::weighted() expects weights that add up to more than 0";
     }
     $target = rand_float() * $total;
     foreach ($pairs as [$item, $weight]) {

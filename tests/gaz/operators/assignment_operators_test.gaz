@@ -44,7 +44,7 @@ kind Loud { pub fn to_string() { return "L"; } }
 $w = "x";
 $w ..= Loud();
 check("..= runs to_string on an object", $w, "xL");
-kind Angry { pub fn to_string() { error("nope"); } }
+kind Angry { pub fn to_string() { throw "nope"; } }
 $z = "keep";
 try {
     $z ..= Angry();

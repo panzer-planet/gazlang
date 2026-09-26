@@ -12,7 +12,7 @@ include "game.gaz" use Game;
 include "ui.gaz" use Shell;
 
 if (!term_is_tty(0) || !term_is_tty(1)) {
-    error("The football manager needs a terminal");
+    throw "The football manager needs a terminal";
 }
 
 $arguments = args();
@@ -23,7 +23,7 @@ if (len($arguments) > 0 && $arguments[0] == "load") {
 } else {
     $seed = len($arguments) > 0 ? to_int($arguments[0], null) : rand_int(1, 999999);
     if ($seed == null) {
-        error("Usage: bin/gaz games/football/main.gaz [SEED | load [FILE]], where SEED is a whole number");
+        throw "Usage: bin/gaz games/football/main.gaz [SEED | load [FILE]], where SEED is a whole number";
     }
     $game = Game::start($seed);
 }

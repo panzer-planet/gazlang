@@ -1,0 +1,5 @@
+try {
+    echo 1;
+} catch ($e) {
+    throw;
+}

@@ -12,16 +12,16 @@ try {
     check("nothing else", len($e.trace), 3);
 }
 
-// error() is traced where it was thrown, and a rethrow keeps that trace
-fn fails() { error("no good"); }
+// throw is traced where it was thrown, and a rethrow keeps that trace
+fn fails() { throw "no good"; }
 try {
     try {
         fails();
     } catch (Error $first) {
-        error($first);
+        throw $first;
     }
 } catch (Error $again) {
-    check("error() is traced", $again.trace[0], "fails at tests/gaz/errors/trace_test.gaz:16");
+    check("throw is traced", $again.trace[0], "fails at tests/gaz/errors/trace_test.gaz:16");
     check("a rethrow keeps where it was first thrown", $again.trace[1], "top level at tests/gaz/errors/trace_test.gaz:19");
 }
 
@@ -73,7 +73,7 @@ try {
 kind Careful {
     pub fn to_string() {
         try {
-            error("inner");
+            throw "inner";
         } catch (Error $e) {
             return join($e.trace, "; ");
         }
@@ -88,7 +88,7 @@ check("caught inside to_string", label(Careful()), "label: Careful.to_string at 
 
 // Every instruction that can run to_string() says where it is running
 kind Fails {
-    pub fn to_string() { return error("fails"); }
+    pub fn to_string() { throw "fails"; }
 }
 fn called_from($f) {
     try {

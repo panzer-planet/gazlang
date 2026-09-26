@@ -1,0 +1,113 @@
+Compound
+  statements:
+@ "tests/parser_corpus/throw.gaz"
+    0: Statement 2
+      expr: Throw 2
+        expr: String 3
+          token: 3 STRING "text"
+          value: "text"
+    1: Statement 4
+      expr: Assign 4
+        left: Variable 4
+          token: 4 VAR_IDENTIFIER $x
+          value: "\$x"
+        token: 4 ASSIGN =
+        right: BinOp 5
+          left: Variable 4
+            token: 4 VAR_IDENTIFIER $y
+            value: "\$y"
+          token: 5 COALESCE ??
+          op: 5 COALESCE ??
+          right: Throw 5
+            expr: Variable 6
+              token: 6 VAR_IDENTIFIER $e
+              value: "\$e"
+    2: Statement 7
+      expr: Assign 7
+        left: Variable 7
+          token: 7 VAR_IDENTIFIER $a
+          value: "\$a"
+        token: 7 ASSIGN =
+        right: Ternary 7
+          condition: Variable 7
+            token: 7 VAR_IDENTIFIER $c
+            value: "\$c"
+          then: Throw 7
+            expr: Num 7
+              token: 7 INTEGER 1
+              value: 1
+          else: Throw 7
+            expr: Num 7
+              token: 7 INTEGER 2
+              value: 2
+    3: Statement 8
+      expr: Assign 8
+        left: Variable 8
+          token: 8 VAR_IDENTIFIER $b
+          value: "\$b"
+        token: 8 ASSIGN =
+        right: Match 8
+          subject: Variable 8
+            token: 8 VAR_IDENTIFIER $c
+            value: "\$c"
+          arms:
+            0:
+              0:
+                0: Num 9
+                  token: 9 INTEGER 1
+                  value: 1
+              1: Num 9
+                token: 9 INTEGER 2
+                value: 2
+              2: false
+            1:
+              0: null
+              1: Throw 10
+                expr: String 10
+                  token: 10 STRING "no"
+                  value: "no"
+              2: false
+    4: Statement 12
+      expr: Assign 12
+        left: Variable 12
+          token: 12 VAR_IDENTIFIER $f
+          value: "\$f"
+        token: 12 ASSIGN =
+        right: Lambda 12
+          params: ["\$v"]
+          defaults: [null]
+          arity: 1
+          body: Throw 12
+            expr: Variable 12
+              token: 12 VAR_IDENTIFIER $v
+              value: "\$v"
+          captures: []
+          self: null
+          owner: null
+    5: Statement 14
+      expr: Throw 14
+        expr: BinOp 14
+          left: Variable 14
+            token: 14 VAR_IDENTIFIER $p
+            value: "\$p"
+          token: 14 COALESCE ??
+          op: 14 COALESCE ??
+          right: Variable 14
+            token: 14 VAR_IDENTIFIER $q
+            value: "\$q"
+    6: Statement 15
+      expr: Assign 15
+        left: Variable 15
+          token: 15 VAR_IDENTIFIER $g
+          value: "\$g"
+        token: 15 ASSIGN =
+        right: BinOp 15
+          left: Variable 15
+            token: 15 VAR_IDENTIFIER $r
+            value: "\$r"
+          token: 15 OR ||
+          op: 15 OR ||
+          right: Throw 15
+            expr: Variable 15
+              token: 15 VAR_IDENTIFIER $s
+              value: "\$s"

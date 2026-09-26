@@ -41,7 +41,7 @@ kind Terrain {
                     "S" => { #start = [$x, $y]; }
                     "E" => { #end = [$x, $y]; }
                     "#", ".", "^", "~" => {}
-                    default => error("Unknown cell '{$cell}' at {$x},{$y}")
+                    default => throw "Unknown cell '{$cell}' at {$x},{$y}"
                 }
             }
             #cells[] = $row;
@@ -50,11 +50,11 @@ kind Terrain {
         #width = len(#cells[0]);
         foreach (#cells as $y => $row) {
             if (len($row) != #width) {
-                error("Row {$y} is " .. len($row) .. " wide, not {#width}");
+                throw "Row {$y} is " .. len($row) .. " wide, not {#width}";
             }
         }
         if (#start == null || #end == null) {
-            error("The map needs an S and an E");
+            throw "The map needs an S and an E";
         }
     }
 

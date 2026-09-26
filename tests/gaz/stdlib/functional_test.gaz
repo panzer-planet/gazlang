@@ -103,9 +103,9 @@ fn count_then_divide($x) {
     return 1 / $x;
 }
 check("map stops", [message(() -> map([1, 0, 2], count_then_divide)), @called], ["Division by zero", 2]);
-check("an error value comes out as it is", message(() -> filter([1], $x -> error("no"))), "no");
+check("an error value comes out as it is", message(() -> filter([1], $x -> throw "no")), "no");
 try {
-    reduce([1], ($c, $x) -> error([$c, $x]), "c");
+    reduce([1], ($c, $x) -> throw [$c, $x], "c");
 } catch ($thrown) {
     check("a thrown value", $thrown, ["c", 1]);
 }

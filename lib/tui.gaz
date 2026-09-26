@@ -266,7 +266,7 @@ pub fn label($screen, $col, $row, $width, $text, $style = "", $align = "left") {
  */
 pub fn box($screen, $col, $row, $width, $height, $title = "", $style = "", $border = "single") {
     if (!has_key(BORDERS, $border)) {
-        error("tui::box: unknown border \"" .. $border .. "\"");
+        throw "tui::box: unknown border \"" .. $border .. "\"";
     }
     if ($width < 2 || $height < 2) {
         return null;
@@ -451,7 +451,7 @@ pub kind Table {
     /* Sort on column $column (from 0), the least first unless $descending */
     pub fn sort_by($column, $descending = false) {
         if ($column < 0 || $column >= len(#headers)) {
-            error("tui::Table has no column {$column}");
+            throw "tui::Table has no column {$column}";
         }
         $keep = #selected_index();
         #column = $column;

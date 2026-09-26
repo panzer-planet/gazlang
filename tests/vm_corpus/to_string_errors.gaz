@@ -2,7 +2,7 @@
 kind Bad { pub fn to_string() { return 1 / 0; } }
 kind NotText { pub fn to_string() { return 5; } }
 foreach ([() -> join([1, Bad()], ","), () -> print(Bad()), () -> print_error(NotText()), () -> "x" .. Bad(),
-          () -> to_string([Bad()]), () -> "{Bad()}", () -> error(Bad())] as $f) {
+          () -> to_string([Bad()]), () -> "{Bad()}", () -> throw Bad()] as $f) {
     try {
         $f();
     } catch (Error $e) {

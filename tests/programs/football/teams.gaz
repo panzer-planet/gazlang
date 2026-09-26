@@ -20,11 +20,11 @@ pub kind Team {
 
     fn _(pub #name, pub #formation, pub #players) {
         if (len(#players) != 11) {
-            error(InvalidLineup(#name, len(#players) .. " players instead of 11"));
+            throw InvalidLineup(#name, len(#players) .. " players instead of 11");
         }
         $keepers = len(filter(#players, $player -> is_a($player, Goalkeeper)));
         if ($keepers != 1) {
-            error(InvalidLineup(#name, "{$keepers} goalkeepers"));
+            throw InvalidLineup(#name, "{$keepers} goalkeepers");
         }
     }
 
@@ -134,7 +134,7 @@ pub kind Formation {
     fn _(#name) {
         #lines = map(split(#name, "-"), to_int);
         if (len(#lines) != 3 || sum(#lines) != 10) {
-            error("Not a formation: {#name}");
+            throw "Not a formation: {#name}";
         }
     }
 

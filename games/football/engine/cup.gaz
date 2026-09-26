@@ -89,7 +89,7 @@ pub kind Cup {
     // Say when the rounds are played: one day for each, in order
     pub fn assign_dates($dates) {
         if (len($dates) != len(#names)) {
-            error("A cup of " .. len(#names) .. " rounds needs " .. len(#names) .. " dates, not " .. len($dates));
+            throw "A cup of " .. len(#names) .. " rounds needs " .. len(#names) .. " dates, not " .. len($dates);
         }
         #dates = $dates;
     }
@@ -130,7 +130,7 @@ pub kind Cup {
     // attach a listener) and made ready. Give the matches; play them, settle() them, then end_round().
     pub fn begin_round($kick_off = null) {
         if (#open != null) {
-            error("A round is already begun");
+            throw "A round is already begun";
         }
         $matches = [];
         foreach (#next_pairs() as [$home, $away]) {
@@ -171,7 +171,7 @@ pub kind Cup {
     // The round is over: the winners go through, and the losers are out. Gives the ties.
     pub fn end_round($matches) {
         if (#open == null || $matches != #open) {
-            error("These are not the matches of a round begun and not yet ended");
+            throw "These are not the matches of a round begun and not yet ended";
         }
         $ties = #settle($matches);
         foreach ($ties as $tie) {

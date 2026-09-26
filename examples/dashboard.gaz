@@ -85,7 +85,7 @@ fn handle_key(Board $board, map $key): ?string {
 
 fn require_terminal(): null {
     if (!term_is_tty(0) || !term_is_tty(1)) {
-        error("dashboard.gaz needs a terminal");
+        throw "dashboard.gaz needs a terminal";
     }
 }
 

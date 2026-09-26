@@ -39,7 +39,7 @@ kind Machine {
                 "<" => {
                     #at -= $n;
                     if (#at < 0) {
-                        error("The pointer moved left of the tape at instruction {$pc}");
+                        throw "The pointer moved left of the tape at instruction {$pc}";
                     }
                 }
                 "[" => {
@@ -99,7 +99,7 @@ fn compile(string $source): list {
             }
             "]" => {
                 if (len($open) == 0) {
-                    error("Unmatched ] at character {$i}");
+                    throw "Unmatched ] at character {$i}";
                 }
                 $start = last($open);
                 delete $open[len($open) - 1];
@@ -112,7 +112,7 @@ fn compile(string $source): list {
         $i++;
     }
     if (len($open) > 0) {
-        error("Unmatched [ at instruction " .. last($open));
+        throw "Unmatched [ at instruction " .. last($open);
     }
     return $code;
 }

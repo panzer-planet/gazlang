@@ -48,11 +48,11 @@ check("infinity is not a float here", failure(() -> $db.value("select 1e999")), 
 check("a transaction gives what its work returns", $db.transaction($d -> { $d.exec("delete from t"); return $d.value("select count(*) from t"); }), 0);
 check("and commits", $db.value("select count(*) from t"), 0);
 $db.exec("insert into t (name) values ('kept')");
-check("it rolls back and raises again when the work raises", failure(() -> $db.transaction($d -> { $d.exec("delete from t"); error("boom"); })), "boom");
+check("it rolls back and raises again when the work raises", failure(() -> $db.transaction($d -> { $d.exec("delete from t"); throw "boom"; })), "boom");
 check("and nothing was deleted", $db.value("select count(*) from t"), 1);
 check("an inner transaction rolls back alone", $db.transaction($d -> {
     $d.exec("insert into t (name) values ('outer')");
-    $inner = failure(() -> $d.transaction($x -> { $x.exec("delete from t"); error("inner"); }));
+    $inner = failure(() -> $d.transaction($x -> { $x.exec("delete from t"); throw "inner"; }));
     return [$inner, $d.value("select count(*) from t")];
 }), ["inner", 2]);
 check("the outer one committed", $db.value("select count(*) from t"), 2);

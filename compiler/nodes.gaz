@@ -422,6 +422,15 @@ kind ReturnStatementAST extends AST {
     }
 }
 
+// throw EXPR: an expression, so it can stand where a value is wanted ($x ?? throw ..., a match arm)
+kind ThrowAST extends AST {
+    pub #expr;
+
+    fn _($expr) {
+        #expr = $expr;
+    }
+}
+
 kind DeleteStatementAST extends AST {
     pub #target;
 

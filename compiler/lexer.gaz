@@ -104,7 +104,7 @@ kind Lexer {
         "foreach" => "FOREACH", "as" => "AS", "break" => "BREAK", "continue" => "CONTINUE",
         "fn" => "FN", "function" => "FUNCTION", "return" => "RETURN", "null" => "NULL",
         "delete" => "DELETE", "match" => "MATCH", "default" => "DEFAULT", "const" => "CONST", "include" => "INCLUDE",
-        "try" => "TRY", "catch" => "CATCH", "finally" => "FINALLY", "true" => "TRUE",
+        "try" => "TRY", "catch" => "CATCH", "finally" => "FINALLY", "throw" => "THROW", "true" => "TRUE",
         "false" => "FALSE", "kind" => "KIND", "class" => "CLASS", "extends" => "EXTENDS", "abstract" => "ABSTRACT",
         "interface" => "INTERFACE", "implements" => "IMPLEMENTS", "final" => "FINAL",
         "public" => "PUBLIC", "private" => "PRIVATE", "protected" => "PROTECTED",
@@ -134,7 +134,7 @@ kind Lexer {
     }
 
     fn fail($reason, $line = null) {
-        error(LexError($reason, $line ?? #line));
+        throw LexError($reason, $line ?? #line);
     }
 
     fn advance() {

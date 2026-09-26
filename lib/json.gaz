@@ -43,12 +43,12 @@ fn write($value, $open) {
         return encode_string($value);
     }
     if ($type == "function" || $type == "kind") {
-        error("Cannot encode a {$type} as JSON");
+        throw "Cannot encode a {$type} as JSON";
     }
     if ($type == "object") {
         $id = object_id($value);
         if (has_key($open, $id)) {
-            error("Cannot encode " .. kind_name($value) .. " as JSON: its to_json() comes back to itself");
+            throw "Cannot encode " .. kind_name($value) .. " as JSON: its to_json() comes back to itself";
         }
         $open[$id] = true;
         return write($value.to_json(), $open);
@@ -98,7 +98,7 @@ kind Reader {
     }
 
     fn fail($message) {
-        error("Invalid JSON: $message at position " .. #pos);
+        throw "Invalid JSON: $message at position " .. #pos;
     }
 
     // The character at the current position, quoted, or "end of input"

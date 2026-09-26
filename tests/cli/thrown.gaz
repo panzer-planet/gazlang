@@ -1,1 +1,1 @@
-error([1, "two"]);
+throw [1, "two"];

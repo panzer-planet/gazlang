@@ -1,0 +1,15 @@
+// throw as a statement, after ??, in both branches of a ternary, in a match arm and a lambda
+throw
+    "text";
+$x = $y
+    ?? throw
+        $e;
+$a = $c ? throw 1 : throw 2;
+$b = match ($c) {
+    1 => 2,
+    default => throw "no",
+};
+$f = $v -> throw $v;
+// Its operand extends as far right as it can
+throw $p ?? $q;
+$g = $r || (throw $s);

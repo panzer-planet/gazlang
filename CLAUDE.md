@@ -362,7 +362,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     VM it was first measured on; measure on the C VM before keeping that.
   - Including a file also runs its top level code. `Error`'s members are reserved across its
     children, so a domain error can't declare its own `#line` or `#message`.
-  - No copy-with-change for objects, no `catch (A | B $e)`, no bare rethrow.
+  - No copy-with-change for objects, no `catch (A | B $e)`.
   - `match ($x)` is a linear chain of `EQUALS`; no jump table.
   - No enum: token types are strings on purpose (they are the `--tokens` format).
 - **HTTP is HTTP/1.1 in GazLang (`lib/http.gaz`) on socket builtins, TLS through OpenSSL**,
@@ -537,7 +537,7 @@ version.
 
 ## Operators, truthiness and equality
 
-- **Precedence**, loosest first: assignment (right associative) → `?:` (right) → `??` (right)
+- **Precedence**, loosest first: assignment (right associative) → `?:` and `throw` (right) → `??` (right)
   → `||` → `&&` → equality (`==` `!=` `<=>`) → relational → `..` → `|` → `^` → `&` → shifts →
   `+ -` → `* / %` → unary → `**` (right) → postfix (`[index]`, `(args)`, `.name`, `?.name`, `::name`) → primary. Bitwise precedence
   is Rust's and Python's, not C's, so `$flags & MASK == 0` is `($flags & MASK) == 0`. `..` sits
@@ -823,8 +823,8 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   `rand_seed()` first**, or what it prints can't be recorded as expected (snippets and corpus
   files included); unseeded behaviour is tested by type and range only.
 - `std_source($name)`: one file of the built-in standard library as text, or null (see below).
-- `error($value)` raises (see "Errors"); `exit($code = 0)` stops with that code, 0 to 255,
-  printing nothing and running no `finally`.
+- `exit($code = 0)` stops with that code, 0 to 255, printing nothing and running no `finally`.
+  Raising is the keyword `throw` (see "Errors").
 - `builtins()` is that table as a map, in no promised order: the builtins of the runtime running
   the program, which the self-hosted parser checks calls against. That is right because the
   compiler always runs on the runtime that will run its output, and a loader refuses bytecode
@@ -1310,30 +1310,45 @@ kind NotFound extends Error {
 }
 
 try {
-    error(NotFound("id"));                    // or any runtime error, or error("text")
+    throw NotFound("id");                     // or any runtime error, or throw "text"
 } catch (NotFound $e) {
     echo "{$e.message} ({$e.key}) at line {$e.line}";
 } catch (Error $e) {
     echo $e.message;                          // division by zero, a missing key...
 } catch ($e) {
-    echo "something else was thrown: {$e}";   // error(5), error([1, 2])
+    echo "something else was thrown: {$e}";   // throw 5, throw [1, 2]
 } finally {
     echo "always";
 }
 ```
 
 - **Catchable**: every runtime error (including running out of call depth) and anything thrown
-  with `error()`. Syntax and include errors happen before the program runs. `return`, `break`,
+  with `throw`. Syntax and include errors happen before the program runs. `return`, `break`,
   `continue` and `exit()` are not errors.
 - **`Error` is a builtin kind** written in GazLang (`BUILTIN_SOURCE` in `parser.gaz`, located
   as `<builtin>`): `#message`, `#file` (null for piped input), `#line`, `#trace`, `_($message)`,
-  `to_string()`. Programs extend it; runtime errors and `error("text")` are caught as `Error`.
-  It is compiled only into programs that use it.
-- **`error($value)` throws any value**: a string becomes an `Error`'s message, anything else is
+  `to_string()`. Programs extend it; runtime errors and `throw "text"` are caught as `Error`.
+  It is compiled only into programs that can catch, name or extend it: a program that throws
+  but never catches doesn't need it, since only a catch turns an error into an object.
+- **`throw $value` raises any value**: a string becomes an `Error`'s message, anything else is
   caught as it is. An `Error` gets its location and trace where it is first thrown, so
-  `error($e)` rethrows keeping them. Uncaught, gaz prints `Error: ` and the value as echo
+  `throw $e;` rethrows keeping them. Uncaught, gaz prints `Error: ` and the value as echo
   would, with no location (runtime errors keep theirs), and the text is made only then, so
-  throwing never runs `to_string()`.
+  throwing never runs `to_string()`. It compiles to `THROW`, which ends its path as `RET` does.
+- **A keyword, not a builtin**: raising is control flow, like `return`, and a reader (and the
+  loader's stack walk) should see that nothing after it runs; a builtin also takes its name from
+  every program, and `error` is a name programs want. **Replacing `error()`, not joining it**:
+  two spellings of one thing would be the first thing a style guide had to settle. A call to an
+  undeclared `error()` says to write `throw` (`undefined_hint()` in `parser.gaz`); a program may
+  declare its own `error`.
+- **An expression, not only a statement**, because raising is often the fallback of a value:
+  `$m[$k] ?? throw NotFound($k)`, `default => throw "Unknown cell"` in a `match`, a ternary's
+  branch, a lambda's body. It is parsed where a lambda is, at the start of `coalesce()`, so it
+  can begin any expression down to `??`'s right side, and its operand is a whole expression
+  that extends as far right as it can (`throw $a ?? $b` throws whichever is there), as a
+  lambda's body does. As the operand of anything tighter (`$ok || throw ...`) it is refused
+  with a message saying to parenthesise it, since `1 + throw $e` reads as a mistake. `throw;`
+  is an error: a rethrow names what it throws.
 - **`#trace`** lists the calls running when the error was raised, innermost first, each where it
   was running (`["inner at fib.gaz:3", "top level at fib.gaz:7"]`): a function by name, a method
   `Kind.name`, a constructor `Kind._`, a lambda `->`. Deep traces keep the innermost and
@@ -1374,7 +1389,7 @@ try {
   ` on line 12` for piped source). Tokens carry their line and the parser stamps `line` and
   `file` on every node (`at()` in `parser.gaz`); the VM locates a runtime error at the
   instruction that raised it (`locate()` in `vm.c`), whose location the compiler wrote from
-  the innermost node that has one. `error()`'s messages are printed as they are, without a
+  the innermost node that has one. A thrown string's message is printed as it is, without a
   location, which `catch` still sees. Include paths show relative to the working directory,
   the main file as given.
 - **Code generation**: calling convention is arguments pushed left to right then `CALL name
@@ -1442,7 +1457,7 @@ try {
 - **Files with no top level code** (`lexer.gaz`, `parser.gaz`, `codegen.gaz`), since including a
   file runs it; the driver is separate.
 - **The driver raises `LexError` and `ParseError` messages again from the top level**
-  (`error($e.message)`), so `--tokens` and `--ast` print only the message; a bug in a port is a
+  (`throw $e.message`), so `--tokens` and `--ast` print only the message; a bug in a port is a
   different error and still arrives with its trace. `LexError` carries `#reason` and
   `#source_line`, since `#line` is where in `lexer.gaz` it was raised. The one `try` in the lexer
   (`hex_value()`) holds only the arithmetic it is about, since `catch (Error)` also catches

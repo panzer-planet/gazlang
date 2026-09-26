@@ -1,0 +1,82 @@
+// throw in every place an expression can start, and what each raises
+kind NotFound extends Error {
+    pub #key;
+
+    fn _($key) {
+        ##_("Not found: {$key}");
+        #key = $key;
+    }
+}
+
+fn find($map, $key) {
+    return $map[$key] ?? throw NotFound($key);
+}
+
+fn sign($n) {
+    return $n > 0 ? 1 : ($n < 0 ? -1 : throw "zero");
+}
+
+fn cell($c) {
+    return match ($c) {
+        "." => 0,
+        default => throw "Unknown cell '{$c}'",
+    };
+}
+
+$wrap = $x -> throw [$x];
+
+echo find({"a" => 1}, "a");
+try {
+    find({}, "b");
+} catch (NotFound $e) {
+    echo "{$e.message} ({$e.key}) at line {$e.line}";
+}
+try {
+    sign(0);
+} catch (Error $e) {
+    echo "{$e.message} at line {$e.line}";
+}
+try {
+    cell("x");
+} catch (Error $e) {
+    echo $e;
+}
+try {
+    $wrap(3);
+} catch ($e) {
+    echo type_of($e) .. " " .. $e[0];
+}
+try {
+    $yes = true;
+    echo $yes ? throw "then" : 1;
+} catch (Error $e) {
+    echo $e.message;
+}
+// A rethrow keeps where the error was first thrown
+try {
+    try {
+        throw "inner";
+    } catch (Error $e) {
+        throw $e;
+    }
+} catch (Error $e) {
+    echo "{$e.message} at line {$e.line}";
+}
+// Parenthesised, it can be an operand
+$found = false;
+try {
+    $found || (throw "not found");
+} catch (Error $e) {
+    echo $e.message;
+}
+// Its operand extends as far right as it can
+try {
+    throw null ?? "the right side";
+} catch (Error $e) {
+    echo $e.message;
+}
+try {
+    throw 5;
+} finally {
+    echo "finally";
+}

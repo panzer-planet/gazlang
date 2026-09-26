@@ -175,7 +175,7 @@ kind TemplateTranslator {
     }
 
     fn fail($message, $line) {
-        error(ParseError($message, #file, $line));
+        throw ParseError($message, #file, $line);
     }
 }
 
@@ -279,7 +279,7 @@ kind TemplateLine {
     }
 
     fn fail($message) {
-        error(ParseError($message, #file, #number));
+        throw ParseError($message, #file, #number);
     }
 }
 

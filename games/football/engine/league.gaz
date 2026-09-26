@@ -135,7 +135,7 @@ pub kind League {
     /* Say when the matchdays are played: one date for each, in order */
     pub fn assign_dates($dates) {
         if (len($dates) != len(#schedule)) {
-            error("A season of " .. len(#schedule) .. " matchdays needs " .. len(#schedule) .. " dates, not " .. len($dates));
+            throw "A season of " .. len(#schedule) .. " matchdays needs " .. len(#schedule) .. " dates, not " .. len($dates);
         }
         #dates = $dates;
     }
@@ -191,10 +191,10 @@ pub kind League {
             #draw();
         }
         if (#matchdays_left() == 0) {
-            error("The season is over");
+            throw "The season is over";
         }
         if (#open != null) {
-            error("A matchday is already begun");
+            throw "A matchday is already begun";
         }
         $matches = [];
         foreach (#schedule[len(#played)] as [$home, $away]) {
@@ -213,11 +213,11 @@ pub kind League {
        have to be the matches begin_matchday() gave, and once. */
     pub fn end_matchday($matches) {
         if (#open == null || $matches != #open) {
-            error("These are not the matches of a matchday begun and not yet ended");
+            throw "These are not the matches of a matchday begun and not yet ended";
         }
         foreach ($matches as $match) {
             if (!$match.finished()) {
-                error("A match is still being played");
+                throw "A match is still being played";
             }
         }
         foreach ($matches as $match) {

@@ -7,7 +7,7 @@ kind Square extends problems::Shape {
 }
 
 try {
-    error(problems::Problem("caught by its qualified name"));
+    throw problems::Problem("caught by its qualified name");
 } catch (problems::Problem $e) {
     echo $e.message;
 }

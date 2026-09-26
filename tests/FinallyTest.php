@@ -8,7 +8,7 @@ class FinallyTest extends GazLangTestCase
     {
         $this->assertEquals("body\nfinally 1\nbody\ncaught boom\nfinally 2\nafter\n", $this->executeCode(<<<'CODE'
             try { echo "body"; } catch ($e) { echo "not run"; } finally { echo "finally 1"; }
-            try { echo "body"; error("boom"); } catch ($e) { echo "caught " .. $e.message; } finally { echo "finally 2"; }
+            try { echo "body"; throw "boom"; } catch ($e) { echo "caught " .. $e.message; } finally { echo "finally 2"; }
             echo "after";
             CODE));
     }
@@ -17,7 +17,7 @@ class FinallyTest extends GazLangTestCase
     {
         $this->assertEquals("inner\nfinally\ncaught first on line 2\n", $this->executeCode(<<<'CODE'
             try {
-                try { echo "inner"; error("first"); } finally { echo "finally"; }
+                try { echo "inner"; throw "first"; } finally { echo "finally"; }
                 echo "not run";
             } catch ($e) {
                 echo "caught {$e.message} on line {$e.line}";
@@ -43,7 +43,7 @@ class FinallyTest extends GazLangTestCase
     {
         $this->assertEquals("finally\nsecond\n", $this->executeCode(<<<'CODE'
             try {
-                try { error("first"); } catch ($e) { error("second"); } finally { echo "finally"; }
+                try { throw "first"; } catch ($e) { throw "second"; } finally { echo "finally"; }
             } catch ($e) {
                 echo $e.message;
             }
@@ -60,7 +60,7 @@ class FinallyTest extends GazLangTestCase
             echo f();
             fn helper() { echo "helper"; return 99; }
             fn g() {
-                try { error("x"); } catch ($e) { return 7; } finally { helper(); echo "catch finally"; }
+                try { throw "x"; } catch ($e) { return 7; } finally { helper(); echo "catch finally"; }
             }
             echo g();
             CODE));
@@ -98,7 +98,7 @@ class FinallyTest extends GazLangTestCase
                 if ($i == 3) { $log[] = "not run"; }
             }
             echo slice($log, 0, 4);
-            try { error("x"); } catch ($e) { echo "still caught here"; }
+            try { throw "x"; } catch ($e) { echo "still caught here"; }
             CODE));
     }
 
@@ -106,10 +106,10 @@ class FinallyTest extends GazLangTestCase
     {
         $this->assertEquals("from finally\nfrom finally too\n", $this->executeCode(<<<'CODE'
             try {
-                try { error("lost"); } finally { error("from finally"); }
+                try { throw "lost"; } finally { throw "from finally"; }
             } catch ($e) { echo $e.message; }
             fn f() {
-                try { return 1; } finally { error("from finally too"); }
+                try { return 1; } finally { throw "from finally too"; }
             }
             try { f(); } catch ($e) { echo $e.message; }
             CODE));
@@ -122,7 +122,7 @@ class FinallyTest extends GazLangTestCase
                 echo "0";
             } finally {
                 while (true) { break; }
-                try { error("x"); } catch ($e) { echo "caught inside"; }
+                try { throw "x"; } catch ($e) { echo "caught inside"; }
                 $f = () -> { return 5; };
                 echo $f();
             }

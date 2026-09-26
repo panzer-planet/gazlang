@@ -118,7 +118,7 @@ check("an object's to_string never runs while the error is raised",
 check("and it really never ran", @printed, 0);
 
 // An arm's body can raise, and a match is an expression anywhere one goes
-check("an arm that raises", fails(() -> match (1) { 1 => error("from an arm") }), "from an arm");
+check("an arm that raises", fails(() -> match (1) { 1 => throw "from an arm" }), "from an arm");
 check("a match as a call argument", to_string(match (1) { 1 => 7 }), "7");
 $f = $x -> match ($x) { 1 => "one", default => "other" };
 check("a match in a lambda", $f(1), "one");

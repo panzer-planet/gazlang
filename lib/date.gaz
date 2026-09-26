@@ -18,7 +18,7 @@ pub fn is_leap($year) {
 /* The days in month $month (1 to 12) of $year */
 pub fn days_in_month($year, $month) {
     if ($month < 1 || $month > 12) {
-        error("There is no month {$month}");
+        throw "There is no month {$month}";
     }
     if ($month == 2) {
         return is_leap($year) ? 29 : 28;
@@ -30,7 +30,7 @@ pub fn days_in_month($year, $month) {
 /* The day number of a year, month (1 to 12) and day of the month: an impossible date is an error */
 pub fn days($year, $month, $day) {
     if ($month < 1 || $month > 12 || $day < 1 || $day > days_in_month($year, $month)) {
-        error("There is no date {$year}-{$month}-{$day}");
+        throw "There is no date {$year}-{$month}-{$day}";
     }
     // The year begins in March, so the leap day is the last of it (Howard Hinnant's algorithm)
     $y = $month <= 2 ? $year - 1 : $year;

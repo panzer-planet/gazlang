@@ -22,7 +22,7 @@ const PAGE_SIZE = 10;
 fn fetch($url) {
     $response = http::get($url, {"Accept" => "application/json"});
     if ($response["status"] != 200) {
-        error("$url answered {$response["status"]}");
+        throw "$url answered {$response["status"]}";
     }
     return json::decode($response["body"]);
 }
@@ -34,7 +34,7 @@ fn random_facts($api, $count, $max_length) {
         // {} when no fact is that short
         $fact = fetch("$api/fact$query")["fact"] ?? null;
         if ($fact == null) {
-            error("No cat fact is $max_length characters or shorter");
+            throw "No cat fact is $max_length characters or shorter";
         }
         $facts[] = $fact;
     }
@@ -69,7 +69,7 @@ fn number_argument($arguments, $i, $default) {
     }
     $number = to_int($text, 0);
     if ($number < 1) {
-        error("Expected a whole number above 0, got \"$text\"");
+        throw "Expected a whole number above 0, got \"$text\"";
     }
     return $number;
 }

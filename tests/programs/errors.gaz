@@ -16,7 +16,7 @@ kind Settings {
     #values;
     fn _($values) { #values = $values; }
     pub fn get($key) {
-        return #values[$key] ?? error(NotFound($key));
+        return #values[$key] ?? throw NotFound($key);
     }
 }
 
@@ -46,7 +46,7 @@ try {
 // Any value can be thrown, and is caught as it is
 fn parse_age($text) {
     if (trim($text) == "") {
-        error({"field" => "age", "got" => $text});
+        throw {"field" => "age", "got" => $text};
     }
     return to_int($text);
 }
@@ -74,7 +74,7 @@ try {
     try {
         $settings.get("missing");
     } catch ($e) {
-        error($e);
+        throw $e;
     }
 } catch (NotFound $e) {
     echo "rethrown from line {$e.line}: {$e.key}";   // rethrown from line 17: missing

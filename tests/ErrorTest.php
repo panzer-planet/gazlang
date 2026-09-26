@@ -82,10 +82,10 @@ class ErrorTest extends GazLangTestCase
         );
     }
 
-    public function test_error_builtin_message_is_printed_as_is()
+    public function test_a_thrown_message_is_printed_as_is()
     {
         try {
-            $this->executeCode("\n\nerror(\"Syntax error in input on line 7\");");
+            $this->executeCode("\n\nthrow \"Syntax error in input on line 7\";");
             $this->fail('Expected an error');
         } catch (ProgramError $e) {
             $this->assertSame('Syntax error in input on line 7', $e->getMessage());

@@ -36,7 +36,7 @@ pub fn post($url, $body, $headers = {}) {
 pub fn request($method, $url, $headers = {}, $body = null) {
     check_token("method", $method);
     if ($body != null && type_of($body) != "string") {
-        error("HTTP error: the body must be a string, got " .. type_of($body));
+        throw "HTTP error: the body must be a string, got " .. type_of($body);
     }
     // By lowercased name: [the name as given, its value]
     $sent = {};
@@ -44,10 +44,10 @@ pub fn request($method, $url, $headers = {}, $body = null) {
         check_token("header name", $name);
         $value = to_string($value);
         if (contains($value, "\r") || contains($value, "\n") || contains($value, "\0")) {
-            error("HTTP error: header $name has a line break or NUL byte in its value");
+            throw "HTTP error: header $name has a line break or NUL byte in its value";
         }
         if (in_array(lower($name), ["host", "content-length", "connection", "transfer-encoding"])) {
-            error("HTTP error: header $name is written by http::request");
+            throw "HTTP error: header $name is written by http::request";
         }
         $sent[lower($name)] = [$name, $value];
     }
@@ -60,7 +60,7 @@ pub fn request($method, $url, $headers = {}, $body = null) {
             return $response;
         }
         if ($redirects == MAX_REDIRECTS) {
-            error("HTTP error: more than " .. MAX_REDIRECTS .. " redirects");
+            throw "HTTP error: more than " .. MAX_REDIRECTS .. " redirects";
         }
         $redirects++;
         $next = parse_url(resolve($target, $location));
@@ -109,22 +109,22 @@ fn exchange($method, $target, $sent, $body) {
 // {"scheme", "host", "port", "path", "host_header", "origin"} from an http or https URL
 fn parse_url($url) {
     if (type_of($url) != "string") {
-        error("HTTP error: a URL must be a string, got " .. type_of($url));
+        throw "HTTP error: a URL must be a string, got " .. type_of($url);
     }
     $shown = slice(to_string([$url]), 1, -1);
     // Nothing a request line can't carry: no space or control character
     foreach (split($url, "") as $c) {
         if (ord($c) <= 32 || ord($c) == 127) {
-            error("HTTP error: bad URL: $shown");
+            throw "HTTP error: bad URL: $shown";
         }
     }
     $scheme_end = index_of($url, "://");
     if ($scheme_end == null) {
-        error("HTTP error: bad URL: $shown");
+        throw "HTTP error: bad URL: $shown";
     }
     $scheme = lower(slice($url, 0, $scheme_end));
     if ($scheme != "http" && $scheme != "https") {
-        error("HTTP error: only http and https URLs, got $shown");
+        throw "HTTP error: only http and https URLs, got $shown";
     }
     $rest = slice($url, $scheme_end + 3);
     $fragment = index_of($rest, "#");
@@ -145,20 +145,20 @@ fn parse_url($url) {
         $path = "/" .. $path;
     }
     if (contains($authority, "@")) {
-        error("HTTP error: a URL can't carry credentials; send an Authorization header: $shown");
+        throw "HTTP error: a URL can't carry credentials; send an Authorization header: $shown";
     }
     // [::1]:8080 or name:8080
     $port_text = "";
     if (starts_with($authority, "[")) {
         $close = index_of($authority, "]");
         if ($close == null) {
-            error("HTTP error: bad URL: $shown");
+            throw "HTTP error: bad URL: $shown";
         }
         $host = slice($authority, 1, $close - 1);
         $after = slice($authority, $close + 1);
         if ($after != "") {
             if (!starts_with($after, ":")) {
-                error("HTTP error: bad URL: $shown");
+                throw "HTTP error: bad URL: $shown";
             }
             $port_text = slice($after, 1);
         }
@@ -172,12 +172,12 @@ fn parse_url($url) {
     $port = $default_port;
     if ($port_text != "") {
         if (len($port_text) > 5 || !all_digits($port_text) || to_int($port_text) < 1 || to_int($port_text) > 65535) {
-            error("HTTP error: bad port in URL: $shown");
+            throw "HTTP error: bad port in URL: $shown";
         }
         $port = to_int($port_text);
     }
     if ($host == "") {
-        error("HTTP error: no host in URL: $shown");
+        throw "HTTP error: no host in URL: $shown";
     }
     $host_header = (contains($host, ":") ? "[$host]" : $host) .. ($port == $default_port ? "" : ":$port");
     return {"scheme" => $scheme, "host" => $host, "port" => $port, "path" => $path,
@@ -230,7 +230,7 @@ kind Reader {
     // Read more; false at the end of the stream
     fn more() {
         if (#deadline != null && monotonic_time() > #deadline) {
-            error(Refusal(408, "HTTP error: the request took too long to arrive"));
+            throw Refusal(408, "HTTP error: the request took too long to arrive");
         }
         $chunk = socket_read(#socket);
         if ($chunk == "") {
@@ -254,7 +254,7 @@ kind Reader {
                 return $line;
             }
             if ($limit != null && len(#data) > $limit) {
-                error(Refusal(431, "HTTP error: more than $limit bytes without a line end"));
+                throw Refusal(431, "HTTP error: more than $limit bytes without a line end");
             }
             // A delimiter may straddle what is here and what comes next
             $from = max(0, len(#data) - len($delimiter) + 1);
@@ -272,7 +272,7 @@ kind Reader {
             $n -= len(#data);
             #data = "";
             if (!#more()) {
-                error("HTTP error: the connection closed in the middle of the body");
+                throw "HTTP error: the connection closed in the middle of the body";
             }
         }
         $parts[] = slice(#data, 0, $n);
@@ -298,13 +298,13 @@ fn read_response($reader, $method) {
     while (true) {
         $head = $reader.line("\r\n\r\n");
         if ($head == null) {
-            error("HTTP error: the connection closed before a response came");
+            throw "HTTP error: the connection closed before a response came";
         }
         $lines = split($head, "\r\n");
         // "HTTP/1.1 200 OK"
         $words = split($lines[0], " ");
         if (len($words) < 2 || !starts_with($words[0], "HTTP/1.") || len($words[1]) != 3 || !all_digits($words[1])) {
-            error("HTTP error: not an HTTP response: " .. slice(to_string([slice($lines[0], 0, 100)]), 1, -1));
+            throw "HTTP error: not an HTTP response: " .. slice(to_string([slice($lines[0], 0, 100)]), 1, -1);
         }
         $status = to_int($words[1]);
         $headers = {};
@@ -333,7 +333,7 @@ fn read_response($reader, $method) {
 
 fn content_length($text) {
     if ($text == "" || len($text) > 18 || !all_digits($text)) {
-        error("HTTP error: bad Content-Length: " .. slice(to_string([$text]), 1, -1));
+        throw "HTTP error: bad Content-Length: " .. slice(to_string([$text]), 1, -1);
     }
     return to_int($text);
 }
@@ -350,23 +350,23 @@ fn read_chunked($reader, $limit = null) {
     while (true) {
         $line = $reader.line("\r\n", $line_limit);
         if ($line == null) {
-            error("HTTP error: the connection closed in the middle of the body");
+            throw "HTTP error: the connection closed in the middle of the body";
         }
         $size_text = trim(split($line, ";")[0]);
         if ($size_text == "" || len($size_text) > 15) {
-            error("HTTP error: bad chunk size: " .. slice(to_string([$line]), 1, -1));
+            throw "HTTP error: bad chunk size: " .. slice(to_string([$line]), 1, -1);
         }
         $size = 0;
         foreach (split(lower($size_text), "") as $c) {
             $digit = index_of("0123456789abcdef", $c);
             if ($digit == null) {
-                error("HTTP error: bad chunk size: " .. slice(to_string([$line]), 1, -1));
+                throw "HTTP error: bad chunk size: " .. slice(to_string([$line]), 1, -1);
             }
             $size = $size * 16 + $digit;
         }
         $total += $size;
         if ($limit != null && $total > $limit) {
-            error(Refusal(413, "HTTP error: a body of more than $limit bytes"));
+            throw Refusal(413, "HTTP error: a body of more than $limit bytes");
         }
         if ($size == 0) {
             while (true) {
@@ -378,7 +378,7 @@ fn read_chunked($reader, $limit = null) {
         }
         $parts[] = $reader.bytes($size);
         if ($reader.line("\r\n", $line_limit) != "") {
-            error("HTTP error: a chunk is longer than its size says");
+            throw "HTTP error: a chunk is longer than its size says";
         }
     }
 }
@@ -395,11 +395,11 @@ fn all_digits($text) {
 // A method or header name must be an HTTP token, which keeps it from ending a line
 fn check_token($what, $name) {
     if (type_of($name) != "string" || $name == "") {
-        error("HTTP error: bad $what: " .. slice(to_string([$name]), 1, -1));
+        throw "HTTP error: bad $what: " .. slice(to_string([$name]), 1, -1);
     }
     foreach (split($name, "") as $c) {
         if (!is_alnum($c) && !contains('!#$%&\'*+-.^_`|~', $c)) {
-            error("HTTP error: bad $what: " .. slice(to_string([$name]), 1, -1));
+            throw "HTTP error: bad $what: " .. slice(to_string([$name]), 1, -1);
         }
     }
 }
@@ -497,11 +497,11 @@ pub fn handle($socket, $handler, $options = {}) {
 
 fn server_options($options) {
     if (type_of($options) != "map") {
-        error("http::serve() expects a map of options, got " .. type_of($options));
+        throw "http::serve() expects a map of options, got " .. type_of($options);
     }
     foreach ($options as $name => $value) {
         if (!has_key(SERVER_OPTIONS, $name)) {
-            error("http::serve() has no option " .. slice(to_string([$name]), 1, -1) .. ": only " .. join(keys(SERVER_OPTIONS), ", "));
+            throw "http::serve() has no option " .. slice(to_string([$name]), 1, -1) .. ": only " .. join(keys(SERVER_OPTIONS), ", ");
         }
     }
     return {...SERVER_OPTIONS, ...$options};
@@ -512,7 +512,7 @@ fn read_request($reader, $socket, $max_body) {
     $head = $reader.line("\r\n\r\n", MAX_HEAD);
     if ($head == null) {
         if ($reader.pending()) {
-            error(Refusal(400, "HTTP error: the connection closed in the middle of the head"));
+            throw Refusal(400, "HTTP error: the connection closed in the middle of the head");
         }
         return null;
     }
@@ -520,21 +520,21 @@ fn read_request($reader, $socket, $max_body) {
     // "GET /path?query HTTP/1.1"
     $words = split($lines[0], " ");
     if (len($words) != 3) {
-        error(Refusal(400, "HTTP error: bad request line"));
+        throw Refusal(400, "HTTP error: bad request line");
     }
     [$method, $target, $version] = $words;
     if ($version != "HTTP/1.1" && $version != "HTTP/1.0") {
-        error(Refusal(starts_with($version, "HTTP/") ? 505 : 400, "HTTP error: bad version"));
+        throw Refusal(starts_with($version, "HTTP/") ? 505 : 400, "HTTP error: bad version");
     }
     check_request_token($method);
     if (!(starts_with($target, "/") || $target == "*" && $method == "OPTIONS") || has_control($target)) {
-        error(Refusal(400, "HTTP error: bad request target"));
+        throw Refusal(400, "HTTP error: bad request target");
     }
     $headers = {};
     foreach (slice($lines, 1) as $line) {
         $colon = index_of($line, ":");
         if ($colon == null || has_control($line, true)) {
-            error(Refusal(400, "HTTP error: bad header line"));
+            throw Refusal(400, "HTTP error: bad header line");
         }
         // No space before the colon, and no line folded onto the one before
         $name = lower(slice($line, 0, $colon));
@@ -543,7 +543,7 @@ fn read_request($reader, $socket, $max_body) {
         $headers[$name] = has_key($headers, $name) ? $headers[$name] .. ", " .. $value : $value;
     }
     if ($version == "HTTP/1.1" && !has_key($headers, "host")) {
-        error(Refusal(400, "HTTP error: no Host header"));
+        throw Refusal(400, "HTTP error: no Host header");
     }
     $query = index_of($target, "?");
     $request = {
@@ -556,13 +556,13 @@ fn read_request($reader, $socket, $max_body) {
     $chunked = has_key($headers, "transfer-encoding");
     $length = has_key($headers, "content-length") ? content_length($headers["content-length"]) : 0;
     if ($chunked && has_key($headers, "content-length")) {
-        error(Refusal(400, "HTTP error: both Content-Length and Transfer-Encoding"));
+        throw Refusal(400, "HTTP error: both Content-Length and Transfer-Encoding");
     }
     if ($chunked && lower($headers["transfer-encoding"]) != "chunked") {
-        error(Refusal(501, "HTTP error: a transfer coding other than chunked"));
+        throw Refusal(501, "HTTP error: a transfer coding other than chunked");
     }
     if ($length > $max_body) {
-        error(Refusal(413, "HTTP error: a body of more than $max_body bytes"));
+        throw Refusal(413, "HTTP error: a body of more than $max_body bytes");
     }
     if (!$chunked && $length == 0) {
         return $request;
@@ -570,7 +570,7 @@ fn read_request($reader, $socket, $max_body) {
     // A client that waits to hear the body is wanted before sending it
     if (has_key($headers, "expect")) {
         if (lower($headers["expect"]) != "100-continue") {
-            error(Refusal(417, "HTTP error: an expectation other than 100-continue"));
+            throw Refusal(417, "HTTP error: an expectation other than 100-continue");
         }
         socket_write($socket, "HTTP/1.1 100 Continue\r\n\r\n");
     }
@@ -582,7 +582,7 @@ fn check_request_token($name) {
     try {
         check_token("token", $name);
     } catch (Error $e) {
-        error(Refusal(400, $e.message));
+        throw Refusal(400, $e.message);
     }
 }
 
@@ -600,42 +600,42 @@ fn has_control($text, $spaces = false) {
 // The bytes of a handler's response, which is checked as a request's headers are
 fn write_response($response, $head) {
     if (type_of($response) != "map") {
-        error("the handler returned " .. type_of($response) .. ", not a map of status, headers and body");
+        throw "the handler returned " .. type_of($response) .. ", not a map of status, headers and body";
     }
     foreach ($response as $key => $value) {
         if (!in_array($key, ["status", "headers", "body"])) {
-            error("a response has status, headers and body, not " .. slice(to_string([$key]), 1, -1));
+            throw "a response has status, headers and body, not " .. slice(to_string([$key]), 1, -1);
         }
     }
     $status = $response["status"] ?? 200;
     $body = $response["body"] ?? "";
     $headers = $response["headers"] ?? {};
     if (type_of($status) != "int" || $status < 200 || $status > 599) {
-        error("a response's status must be an int from 200 to 599, got " .. slice(to_string([$status]), 1, -1));
+        throw "a response's status must be an int from 200 to 599, got " .. slice(to_string([$status]), 1, -1);
     }
     if (type_of($headers) != "map") {
-        error("a response's headers must be a map, got " .. type_of($headers));
+        throw "a response's headers must be a map, got " .. type_of($headers);
     }
     if (is_html($body)) {
         $headers = with_html_type($headers);
         $body = to_string($body);
     }
     if (type_of($body) != "string") {
-        error("a response's body must be a string or Html, got " .. type_of($body));
+        throw "a response's body must be a string or Html, got " .. type_of($body);
     }
     $bodiless = $status == 204 || $status == 304;
     if ($bodiless && $body != "") {
-        error("a $status response has no body");
+        throw "a $status response has no body";
     }
     $lines = [status_line($status), "Date: " .. http_date(time()), "Connection: close"];
     foreach ($headers as $name => $value) {
         check_token("header name", $name);
         $value = to_string($value);
         if (contains($value, "\r") || contains($value, "\n") || contains($value, "\0")) {
-            error("HTTP error: header $name has a line break or NUL byte in its value");
+            throw "HTTP error: header $name has a line break or NUL byte in its value";
         }
         if (in_array(lower($name), ["content-length", "connection", "transfer-encoding", "date"])) {
-            error("HTTP error: header $name is written by http::serve");
+            throw "HTTP error: header $name is written by http::serve";
         }
         $lines[] = "$name: $value";
     }
@@ -768,7 +768,7 @@ fn escaped_byte($text, $percent) {
     $digits = slice($text, $percent + 1, 2);
     if (len($digits) < 2 || !is_hex_digit($digits[0]) || !is_hex_digit($digits[1])) {
         $escape = slice($text, $percent, 3);
-        error("bad percent-escape " .. slice(to_string([$escape]), 1, -1) .. " at $percent");
+        throw "bad percent-escape " .. slice(to_string([$escape]), 1, -1) .. " at $percent";
     }
 
     return chr(hex_digit($digits[0]) * 16 + hex_digit($digits[1]));
@@ -826,6 +826,6 @@ fn check_form_type($request) {
     $type = $request["headers"]["content-type"] ?? "";
     $media_type = lower(trim(split($type, ";")[0]));
     if ($media_type != FORM_TYPE) {
-        error("http::form() needs a body sent as " .. FORM_TYPE .. ", not " .. slice(to_string([$type]), 1, -1));
+        throw "http::form() needs a body sent as " .. FORM_TYPE .. ", not " .. slice(to_string([$type]), 1, -1);
     }
 }

@@ -42,7 +42,7 @@ kind Parser {
 
     fn expect($c) {
         if (#peek() != $c) {
-            error("regex: expected '" .. $c .. "' at " .. #pos .. " in /" .. #pat .. "/");
+            throw "regex: expected '" .. $c .. "' at " .. #pos .. " in /" .. #pat .. "/";
         }
         #advance();
     }
@@ -50,7 +50,7 @@ kind Parser {
     pub fn parse() {
         $node = #parse_alt();
         if (#pos != #len) {
-            error("regex: unexpected '" .. #peek() .. "' at " .. #pos .. " in /" .. #pat .. "/");
+            throw "regex: unexpected '" .. #peek() .. "' at " .. #pos .. " in /" .. #pat .. "/";
         }
         return $node;
     }
@@ -87,7 +87,7 @@ kind Parser {
     fn parse_atom() {
         $c = #peek();
         if ($c == null) {
-            error("regex: unexpected end of pattern in /" .. #pat .. "/");
+            throw "regex: unexpected end of pattern in /" .. #pat .. "/";
         }
         if ($c == "(") {
             #advance();
@@ -105,7 +105,7 @@ kind Parser {
             #advance();
             $e = #peek();
             if ($e == null) {
-                error("regex: dangling '\\' in /" .. #pat .. "/");
+                throw "regex: dangling '\\' in /" .. #pat .. "/";
             }
             #advance();
             return {"op" => "lit", "c" => ord($e)};
@@ -126,7 +126,7 @@ kind Parser {
         $first = true;
         while (#peek() != "]" || $first) {
             if (#peek() == null) {
-                error("regex: unterminated '[' in /" .. #pat .. "/");
+                throw "regex: unterminated '[' in /" .. #pat .. "/";
             }
             $first = false;
             $lo = #class_char();
@@ -230,7 +230,7 @@ kind Compiler {
             #prog[$split_idx]["y"] = len(#prog);
             return;
         }
-        error("regex: internal error, unknown node '" .. $op .. "'");
+        throw "regex: internal error, unknown node '" .. $op .. "'";
     }
 }
 

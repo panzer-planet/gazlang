@@ -1,0 +1,4 @@
+$found = false;
+if (!$found) {
+    error("not found");
+}

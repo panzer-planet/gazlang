@@ -1,0 +1,1 @@
+Error: throw can't be an operand: write (throw ...) at tests/parser_corpus/error_throw_as_operand.gaz:2
