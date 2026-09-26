@@ -196,7 +196,13 @@ nothing**: several first versions of a harness or corpus passed everything and c
 - **The README's examples are tests**: `ReadmeTest` runs every ```` ```gaz ```` block followed
   by an output block and requires exactly that output.
 
-Judge new features by what they cost **in C**: value semantics suit reference counting, and
+**Difficulty is never a reason to refuse a feature.** The pursuit of excellence needs no
+justification: if a feature is right for the language, build it properly, however much work it
+is. Reject one because it is wrong (it breaks a rule of the language, duplicates something, or
+makes the language worse), never because it is hard. "Not worth the cost" is not an argument
+unless the cost is a defect the feature would bring, not the effort of building it.
+
+Judge new features by how they fit **in C**: value semantics suit reference counting, and
 anything that leans on a platform's behaviour (hashing, string conversion, float formatting,
 rounding) must be a rule GazLang defines and writes out step by step. Grow the language by
 writing real GazLang and fixing what hurts, and when a workaround in the repository's GazLang is
@@ -259,7 +265,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     already means "equals this map").
   - **Not building**: taint mode (a mark on strings leaks, since one-byte strings are shared and
     `url_decode()` rebuilds text with `chr()`; Ruby removed taint as useless; tagged literals
-    prevent the bug instead), contracts (types and a guard line cover them, and `ensures` is costly),
+    prevent the bug instead), contracts (types and a guard line cover them),
     `sh"..."` (`run()` already takes an argv list, which is safe), native decimals and full record
     and replay (for now).
   - **A trap to close**: `Html .. "text"` quietly gives a plain string, which `{{ }}` then escapes;
@@ -309,7 +315,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     `run`, `exit`, `workers`, `write_file`, `read_stdin`, `read_line`, `sleep`, `getenv`, a directory builtin or a
     `socket_` builtin is skipped (`getenv` since what it gives isn't the seed's), an included
     file's text included, which is sound because a builtin is reached only by its name.
-- **Known limits**, none worth fixing yet:
+- **Known limits**:
   - The self-hosted parser runs out of call depth on source nested past about 1100 levels
     (recursive descent is about nine calls a level), as an internal error. Its tree walks use
     an explicit stack for that reason.
@@ -319,12 +325,13 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     include locations that climb to the root and back through the real path.
   - The keyword hint misses `IF (1) { }`, where the error lands at the `{`, past the name.
   - `CVMTest` doesn't catch `make compiler` checking in stage 1 instead of stage 2: that only
-    shows when an edit changes code generation, which would cost the suite a second rebuild.
-- **Language gaps**, each waiting for real code to ask:
+    shows when an edit changes code generation; a test for it needs a second rebuild and is wanted.
+- **Language gaps**, closed in the order real code shows what shape each needs:
   - Appending to a list parameter silently does nothing (`fn add_to($l) { $l[] = 1; }`), and
     the parser can't tell it from a function that returns the list. Mutable state belongs in
-    an object, or, for closures, in a `shared` variable; by-reference parameters aren't worth
-    their cost against refcounting.
+    an object, or, for closures, in a `shared` variable. Open: a parse error for a parameter
+    written through an index and never read, or explicit by-reference parameters (which break
+    "values, not references": a parameter would alias the caller's variable).
   - A private field can't be set from outside its kind, so restoring saved state (a played match's
     score, a league's fixtures) takes a static factory written in the kind (`Fixture::played()`,
     `League::from_json()`); there is no way to construct an object with some fields already set.
@@ -484,9 +491,9 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - `#next` without calling it is an error that says to write `Counter::next`, which is the
     function. A bound static would be the same value by another spelling, so it waits for a
     program that wants it.
-- **Not planned** until real code asks: traits, late static binding, operator
-  overloading, `log`/`exp`/fractional powers (each needs an algorithm GazLang writes out, as
-  `round` has), variadic parameters and spread in calls (pass a
+- **Not yet designed**, each built when real code shows what it needs: traits, late static
+  binding, operator overloading, `log`/`exp`/fractional powers (each wants an algorithm GazLang
+  defines, as `round` has), variadic parameters and spread in calls (pass a
   list), `foreach` over a string (`split($s, "")`). A REPL is possible and wanted: see "A real
   REPL" under the C VM.
 - **Regular expressions**: `lib/regex.gaz` (`regex::matches`, `regex::search`,
