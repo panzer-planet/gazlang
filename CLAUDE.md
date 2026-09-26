@@ -100,7 +100,7 @@ vendor/bin/pint                     # formatting
 - `vm/`: the VM in C. `gazvm.h` says which file does what: `value.c` and `ops.c` are what values
   mean (operators, truthiness, printing, keys, indexing, write paths), `builtins.c` the builtins
   and their arities (`builtin_info[]`), `load.c` reading and checking bytecode, `vm.c` running it
-  and the CLI, `gc.c` the cycle collector, `net.c` sockets and TLS, `db.c` with `sqlite.c` and `pg.c` databases, `term.c` raw mode and keys, `workers.c` `workers()`.
+  and the CLI, `gc.c` the cycle collector, `net.c` sockets and TLS, `db.c` with `sqlite.c` and `pg.c` databases, `term.c` raw mode and keys, `workers.c` `workers()`, `watch.c` `gaz --watch`.
 - `lib/`: the standard library in GazLang. `examples/`: sample programs that nothing tests
   (see "Programs are tests or examples"). `tests/programs/`: programs the tests do run.
   `games/`: programs built on the language, each with tests of its own (see "A game is neither").
@@ -246,10 +246,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   1. **Optional types**, checked at run time (done; see "Types"): PHP's syntax (`int $n`, `): int`,
      `pub int #x`), `?T` and unions, `: null` for no result, no coercion but int to float, and no
      generics until they can be a static check only.
-  2. **`gaz --watch app.gaz`**: a supervisor that runs the program as a child, polls the times of
-     its `.gaz`/`.gazml` files, and on a change stops it gracefully (SIGTERM) and runs it again,
-     printing a compile error and waiting when the edit doesn't compile. Not a rolling restart of
-     workers: they are forks of a master holding the old code.
+  2. **`gaz --watch app.gaz`** (done; see "The CLI"). Not a rolling restart of workers: they are
+     forks of a master holding the old code.
   3. **A pipe, `|>`**, parser only, Elixir's rule: `$x |> f(a)` is `f($x, a)` and `$x |> $f` is
      `$f($x)`, since the builtins take their subject first (`$title |> trim |> lower |> replace(" ",
      "-")`). Not PHP's `f(...)` form, which collides with `...`. A lambda in a pipe is parenthesised.
@@ -1483,6 +1481,33 @@ vm/bench.php`: CPU time, interleaved, best of several).
   built-in front end in that mode; running source runs it in `code` mode first. With no file and
   a terminal on stdin it prints the help to stderr and exits 1: there is no REPL (running each
   line as its own program wouldn't be one).
+- **`gaz --watch app.gaz ARGS`** (`watch.c`) runs the program and runs it again whenever a file it
+  is made of changes. A supervisor in C that runs no GazLang: it starts `argv[0]` again (spawnp,
+  so a bare `gaz` is found on the PATH as the shell found it; portable, where `/proc/self/exe` and
+  `_NSGetExecutablePath` are one system each) as `gaz -f FILE -- ARGS`, in a process group of its
+  own so a `workers()` master and its workers stop together. A file, never piped source, and not
+  with `-c`, `--tokens` or `--ast`.
+  - **What is watched is the files the program is made of**, not a directory: the main file and
+    the distinct paths of the `@` lines of a `gaz -c` of it (`source_files()` in `load.c`,
+    resolved and shown as the loader shows them, `<builtin>` and `<std>` left out), so templates
+    are watched and the built-in library isn't. Worked out again before each start, so a new
+    include is watched from its first run; a compile that fails keeps the last list. Compiling
+    twice costs the restart one compile, but needs no change to the front end. `ponytail:` a file
+    that leaves no instruction (only constants) isn't watched.
+  - **Polled every 0.25s**, modification time (nanoseconds too), size and inode, portable where
+    inotify and kqueue are one system each. A change or a file gone restarts: SIGTERM to the
+    group (graceful for `workers()`), SIGKILL after 1s, where production's grace is 10s, so a
+    save feels instant. A compile error (the child prints it) or a program that ends by itself
+    waits for the next change.
+  - **Messages on stderr**: `gaz: watching app.gaz and 6 files it includes` (again whenever the
+    list changes), `gaz: views/page.gazml changed, restarting`, `gaz: waiting for a change`.
+  - **SIGINT, SIGTERM, SIGHUP stop the group the same way, then end the supervisor as the signal
+    would**; one it was started ignoring stays ignored (so `sh -c '... &'` background jobs, which
+    ignore SIGINT, need SIGTERM), as in `workers()`. Ctrl-C reaches only the supervisor, since the
+    child's group isn't the terminal's. `ponytail:` so the program can't read the terminal or turn
+    on raw mode (SIGTTIN, SIGTTOU); the supervisor says so and ends it rather than leave it stopped.
+    Handing the child's group the terminal (`tcsetpgrp`) would lift that, with Ctrl-C then the
+    program's. `WatchTest` edits files under a running supervisor.
 - **A real REPL is possible, not built**, and nothing decided rules it out; what stands in the way
   is that everything assumes a whole program. It would take: a session mode in the compiler (the
   parser keeps its function, kind, constant and namespace tables between entries, the code

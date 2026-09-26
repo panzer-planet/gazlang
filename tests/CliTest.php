@@ -68,6 +68,11 @@ class CliTest extends GazLangTestCase
         'combined flags, the file after them' => [['-cf', 'args.gaz']],
         'tokens beat ast and code' => [['-c', '--ast', '-t', '-f', 'args.gaz']],
         'ast beats code' => [['-c', '--ast', '-f', 'args.gaz']],
+        '--watch needs a file' => [['--watch']],
+        '--watch needs a file, not piped source' => [['--watch', '-'], 'args.gaz'],
+        '--watch with a missing file' => [['--watch', 'missing.gaz']],
+        '--watch runs the program, so not with -c' => [['--watch', '-c', 'args.gaz']],
+        '--watch runs the program, so not with --ast' => [['--ast', '--watch', 'args.gaz']],
 
         // Running source, piped or from a file
         'nothing piped' => [[]],

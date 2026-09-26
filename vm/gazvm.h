@@ -17,6 +17,7 @@
  *   db.c        db_open() and friends: a driver by URL scheme; sqlite.c and pg.c are the drivers
  *   term.c      raw mode, reading keys, the terminal's size
  *   workers.c   workers(): the program as several processes, for a server
+ *   watch.c     gaz --watch: runs the program again whenever a file it is made of changes
  *
  * Errors: a function that can fail returns bool, false meaning an error was raised. The
  * error itself is in `vm_error` (see raisef()), and the caller passes the false up until the
@@ -532,6 +533,11 @@ void flush_output(void);
 /* ---- load.c ---------------------------------------------------------------------------- */
 
 Program *load(const char *text, size_t len, const char *path);   /* NULL with vm_error set */
+char **source_files(const char *text, size_t len, const char *path, int *n);   /* its @ lines' files */
+
+/* ---- watch.c --------------------------------------------------------------------------- */
+
+int watch(const char *self, const char *file, int argc, char **argv);   /* gaz --watch; never returns on a signal */
 
 /* ---- builtins.c ------------------------------------------------------------------------ */
 

@@ -1556,7 +1556,9 @@ static void link_program(void) {
 
 /* ---- The file -------------------------------------------------------------------------- */
 
-Program *load(const char *text, size_t len, const char *path) {
+/* Where reading a file starts: the paths its @ lines resolve against, and its lines, in a copy
+   the caller frees (with `lines`) once it is done */
+static char *start_reading(const char *text, size_t len, const char *path) {
     have_cwd = getcwd(cwd, sizeof cwd) != NULL;
     last_file = NULL;
     /* Piped bytecode has no path: its errors say "on line N", and its paths are relative to the
@@ -1590,7 +1592,11 @@ Program *load(const char *text, size_t len, const char *path) {
         p = nl + 1;
     }
     at_line = 0;
+    return copy;
+}
 
+Program *load(const char *text, size_t len, const char *path) {
+    char *copy = start_reading(text, len, path);
     if (setjmp(failed)) return NULL;
 
     Words w;
@@ -1689,4 +1695,44 @@ Program *load(const char *text, size_t len, const char *path) {
     free(lines);
     free(copy);
     return prog;
+}
+
+/* The files a program is made of, from its bytecode's @ lines: each once, as the loader shows it,
+   without <builtin> and <std>, whose code is built in. What gaz --watch watches. The bytecode is
+   the source file at path compiled, so its paths resolve as running that file resolves them. A
+   malloc'd list of malloc'd paths, its length in *n; NULL if the bytecode is broken. */
+char **source_files(const char *text, size_t len, const char *path, int *n) {
+    char *copy = start_reading(text, len, path);
+    /* Static, so they are still right after a jump back from a broken line */
+    static char **files;
+    static int count;
+    files = NULL;
+    count = 0;
+    if (setjmp(failed)) {
+        for (int i = 0; i < count; i++) free(files[i]);
+        free(files);
+        free(lines);
+        free(copy);
+        return NULL;
+    }
+    char *line;
+    while ((line = next_line())) {
+        if (line[0] != '@') continue;
+        Words w;
+        split_words(line, &w);
+        Str *file = NULL;
+        int at;
+        read_location(&w, &file, &at);
+        free_words(&w);
+        if (!file || file->data[0] == '<') continue;
+        bool seen = false;
+        for (int i = 0; i < count && !seen; i++) seen = strcmp(files[i], file->data) == 0;
+        if (seen) continue;
+        files = xrealloc(files, (size_t)(count + 1) * sizeof(char *));
+        files[count++] = strdup(file->data);
+    }
+    free(lines);
+    free(copy);
+    *n = count;
+    return files;
 }

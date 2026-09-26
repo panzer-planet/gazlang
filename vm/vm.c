@@ -1668,7 +1668,8 @@ static const char *HELP =
     "  -c, --code     Print the compiled bytecode instead of running it (gaz -c x.gaz > x.gzb)\n"
     "  -t, --tokens   Print the lexer's tokens, one LINE TYPE VALUE per line, instead of interpreting\n"
     "      --ast      Print the parser's tree instead of running it\n"
-    "  -f, --file     The file to run, as giving it first does\n";
+    "  -f, --file     The file to run, as giving it first does\n"
+    "      --watch    Run the file, and run it again whenever it or a file it includes changes\n";
 
 static int unknown_option(const char *arg) {
     fprintf(stderr, "Error: Unknown option %s (program arguments go after the file, or after - or --)\n", arg);
@@ -1676,12 +1677,12 @@ static int unknown_option(const char *arg) {
 }
 
 /* The CLI, whose options are read as PHP's getopt("hvf:ct", [help, version, file:, code,
-   tokens, ast]) and its check for options getopt doesn't know. Options end at the first argument
+   tokens, ast, watch]) and its check for options getopt doesn't know. Options end at the first argument
    that isn't one or after "--". Then, unless "--" ended them or -f named a file, the first
    argument is the file, or "-" for standard input, as python, php and node take it; the rest
-   are the program's. */
+   are the program's. --watch hands the file and those arguments to watch() in watch.c. */
 int main(int argc, char **argv) {
-    bool help = false, version = false, code = false, tokens = false, ast = false;
+    bool help = false, version = false, code = false, tokens = false, ast = false, watching = false;
     bool after_dashes = false, from_stdin = false;
     const char *file = NULL;
     int files = 0;
@@ -1701,6 +1702,7 @@ int main(int argc, char **argv) {
             else if (strcmp(name, "code") == 0) code = true;
             else if (strcmp(name, "tokens") == 0) tokens = true;
             else if (strcmp(name, "ast") == 0) ast = true;
+            else if (strcmp(name, "watch") == 0) watching = true;
             else if (strncmp(name, "file=", 5) == 0 && name[5]) file = name + 5, files++;
             else if (strcmp(name, "file") == 0) {
                 /* The next argument, whatever it is; none is no file, as getopt has it */
@@ -1741,6 +1743,14 @@ int main(int argc, char **argv) {
         fputs("Error: Give one file, with -f or --file\n", stderr);
         return 1;
     }
+    if (watching && (code || tokens || ast)) {
+        fputs("Error: --watch runs the program, so it can't be combined with -c, --tokens or --ast\n", stderr);
+        return 1;
+    }
+    if (watching && !file) {
+        fputs("Error: --watch needs a file to run: gaz --watch app.gaz\n", stderr);
+        return 1;
+    }
     Job job = {
         .mode = tokens ? M_TOKENS : ast ? M_AST : code ? M_CODE : M_RUN,
         .path = file, .argc = argc - i, .argv = argv + i, .exit_code = 1,
@@ -1751,6 +1761,10 @@ int main(int argc, char **argv) {
         if (stat(file, &st) != 0 || !S_ISREG(st.st_mode) || access(file, R_OK) != 0 || !(job.text = read_all(file, &job.len))) {
             fprintf(stderr, "Error: Cannot read file: %s\n", file);
             return 1;
+        }
+        if (watching) {
+            free(job.text);
+            return watch(argv[0], file, argc - i, argv + i);
         }
     } else if (isatty(STDIN_FILENO) && !from_stdin) {
         /* No file and nothing piped: there is no interactive mode */
