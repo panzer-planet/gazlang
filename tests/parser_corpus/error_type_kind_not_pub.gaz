@@ -1,0 +1,3 @@
+// A kind that is not pub is not a type outside its namespace
+include "include/private_kind.gaz";
+fn f(secret::Hidden $x) {}

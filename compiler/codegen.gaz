@@ -50,6 +50,8 @@ kind CodeGenerator {
     #try_stack = [];
     // Every lambda seen, in creation order, as [lambda, capture map]; bodies compile later
     #lambdas = [];
+    // The TypeAST the function being compiled returns, or null: every return checks against it
+    #return_type = null;
     // What calls by name check against, as the parser does
     #builtins = builtins();
 
@@ -917,17 +919,54 @@ kind CodeGenerator {
         }
 
         // Finally blocks around the return run first, with the value held in a hidden variable
-        $finally = false;
-        foreach (#try_stack as $handler) {
-            $finally = $finally || $handler != null;
-        }
-        if ($finally) {
+        if (#leaves_tries_first()) {
             $value = #hidden("\$#return_" .. #hidden_counter++);
             #emit_variable("STORE", $value);
             #leave_tries(0);
             #emit_variable("LOAD", $value);
         }
+        #return_check();
         #emit("RET");
+    }
+
+    /*
+     * Whether a return leaves the function's try blocks before it returns: when one has a finally
+     * block to run, and when the return type is checked, so that the function's own catch can't
+     * swallow the error meant for its caller
+     */
+    fn leaves_tries_first() {
+        if (#return_type != null && len(#try_stack) > 0) {
+            return true;
+        }
+        foreach (#try_stack as $handler) {
+            if ($handler != null) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // The check of a returned value against the declared return type, if there is one: the
+    // value is on the stack, and the check widens an int to a float there
+    fn return_check() {
+        if (#return_type != null) {
+            #emit("CHECK_RETURN", [#return_type.text()]);
+        }
+    }
+
+    // A function's prologue for its parameters' types, after their defaults have run so a
+    // default is held to the type too: one check per typed parameter, at the type's own line
+    fn parameter_checks($function) {
+        foreach ($function.param_types ?? [] as $slot => $type) {
+            if ($type == null) {
+                continue;
+            }
+            [$file, $line] = [#file, #line];
+            [#file, #line] = [$type.file, $type.line];
+            #emit("CHECK_PARAM", [$slot, $type.text()]);
+            [#file, #line] = [$file, $line];
+        }
     }
 
     // A function's prologue for its default parameter values
@@ -971,7 +1010,8 @@ kind CodeGenerator {
             #compile_initialiser($kind);
             #block({
                 "kind" => "kind", "name" => $kind.name, "parent" => $kind.parent,
-                "abstract" => $kind.abstract, "fields" => $kind.slots, "methods" => $kind.method_table,
+                "abstract" => $kind.abstract, "fields" => #field_records($kind), "methods" => $kind.method_table,
+                "statics" => #typed_statics($kind),
             });
             foreach ($kind.methods as $method) {
                 if (!$method.abstract) {
@@ -994,6 +1034,29 @@ kind CodeGenerator {
         }
 
         return Program(#blocks, keys(#global_addresses), keys(#static_addresses));
+    }
+
+    // A kind's field lines, each slot as [name, declarer, vis, type text or null]: the type is
+    // the declaring kind's, so a child's record carries it too
+    fn field_records($kind) {
+        $records = [];
+        foreach ($kind.slots as [$field, $declarer, $vis]) {
+            $type = #kinds[$declarer].field_types[$field] ?? null;
+            $records[] = [$field, $declarer, $vis, $type?.text()];
+        }
+
+        return $records;
+    }
+
+    // The static fields a kind declares with a type, each as [name, type text]: what its
+    // record says of them, since the statics line names slots only
+    fn typed_statics($kind) {
+        $statics = [];
+        foreach ($kind.static_types ?? {} as $name => $type) {
+            $statics[] = [$name, $type.text()];
+        }
+
+        return $statics;
     }
 
     // The code that makes a new object of a kind: the field defaults, the parent's first, then
@@ -1036,12 +1099,17 @@ kind CodeGenerator {
             }
         }
         [#file, #line] = [$node.file, $node.line];
+        // A lambda declares no return type; a function's return statements check against its
+        #return_type = is_a($node, LambdaAST) ? null : $node.return_type ?? null;
 
         #default_arguments($node);
+        #parameter_checks($node);
         #visit($node.body);
-        // Falling off the end returns null; a lambda's expression body leaves its value
+        // Falling off the end returns null, which a return type is held to as well; a lambda's
+        // expression body leaves its value
         if (!is_a($node, LambdaAST) || is_a($node.body, CompoundAST)) {
             #emit("PUSH", [null]);
+            #return_check();
         }
         #emit("RET");
     }
@@ -1131,12 +1199,16 @@ kind Program {
     fn kind_header($block) {
         $lines = [($block["abstract"] ? "abstract kind " : "kind ") .. $block["name"]
             .. ($block["parent"] == null ? "" : " extends {$block["parent"]}")];
-        foreach ($block["fields"] as [$field, $declarer, $vis]) {
-            $lines[] = "field {$field} {$declarer}" .. ($vis == "" ? "" : " {$vis}");
+        foreach ($block["fields"] as [$field, $declarer, $vis, $type]) {
+            $lines[] = "field {$field} {$declarer}" .. ($vis == "" ? "" : " {$vis}") .. ($type == null ? "" : " {$type}");
         }
         foreach ($block["methods"] as [$method, $definer, $vis, $declarer]) {
             $lines[] = "method {$method} {$definer}" .. ($vis == "" ? "" : " {$vis}")
                 .. ($declarer == $definer ? "" : " {$declarer}");
+        }
+        // Only a static field with a type has a line: its slot is in the statics line already
+        foreach ($block["statics"] as [$static, $type]) {
+            $lines[] = "static {$static} {$type}";
         }
 
         return $lines;

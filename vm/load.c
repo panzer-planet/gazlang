@@ -22,7 +22,7 @@
 
 /* Argument kinds */
 enum { K_LABEL, K_VALUE, K_SLOT, K_GLOBAL, K_STATIC, K_CAPTURE, K_COUNT, K_LAMBDA, K_FUNCTION,
-       K_CALLABLE, K_BUILTIN, K_KIND, K_MEMBER, K_PATH, K_ELEMENT_PATH };
+       K_CALLABLE, K_BUILTIN, K_KIND, K_MEMBER, K_PATH, K_ELEMENT_PATH, K_TYPE };
 
 /* A pops count that depends on the arguments */
 enum { POPS_PATH = -1, POPS_KEYS = -2, POPS_COUNT = -3, POPS_COUNT1 = -4, POPS_COUNT2 = -5 };
@@ -108,6 +108,8 @@ static const InstrInfo INFO[OP_COUNT] = {
     [OP_CALL_BUILTIN] = {"CALL_BUILTIN", 2, {K_BUILTIN, K_COUNT}, POPS_COUNT, 1},
     [OP_CALL_VALUE] = {"CALL_VALUE", 1, {K_COUNT}, POPS_COUNT1, 1},
     [OP_ARGC] = {"ARGC", 0, {0}, 0, 1},
+    [OP_CHECK_PARAM] = {"CHECK_PARAM", 2, {K_SLOT, K_TYPE}, 0, 0},
+    [OP_CHECK_RETURN] = {"CHECK_RETURN", 1, {K_TYPE}, 1, 1},
     [OP_RET] = {"RET", 0, {0}, 1, 0},
     [OP_PUSH_FN] = {"PUSH_FN", 1, {K_CALLABLE}, 0, 1},
     [OP_MAKE_CLOSURE] = {"MAKE_CLOSURE", 1, {K_LAMBDA}, 0, 1},
@@ -803,6 +805,37 @@ static Vis read_vis(Words *w, int at) {
     return V_OWN;
 }
 
+static bool is_vis_word(const char *word) { return !strcmp(word, "pub") || !strcmp(word, "kin"); }
+
+/* The type_of() names a type may be made of, and the tag each one checks a value against */
+static const struct { const char *name; Type type; } TYPE_WORDS[] = {
+    {"int", T_INT}, {"float", T_FLOAT}, {"string", T_STRING}, {"bool", T_BOOL}, {"null", T_NULL},
+    {"list", T_LIST}, {"map", T_MAP}, {"function", T_FUNCTION}, {"kind", T_KIND}, {"object", T_OBJECT},
+    {"socket", T_SOCKET}, {"db", T_DB},
+};
+
+/* The parts of a type's text, split on |: a part that is none of the words above names a kind */
+typedef struct { Str *parts[64]; int n; } TypeParts;
+
+static void split_type(Str *text, TypeParts *out) {
+    out->n = 0;
+    const char *p = text->data, *end = text->data + text->len;
+    while (p <= end) {
+        const char *bar = memchr(p, '|', (size_t)(end - p));
+        if (!bar) bar = end;
+        if (bar == p || out->n == 64) fail_at(false, "Bad type '%s'", text->data);
+        out->parts[out->n++] = str_intern(p, (size_t)(bar - p));
+        p = bar + 1;
+    }
+}
+
+static int type_word(Str *part) {
+    for (size_t i = 0; i < sizeof TYPE_WORDS / sizeof *TYPE_WORDS; i++) {
+        if (!strcmp(TYPE_WORDS[i].name, part->data)) return (int)i;
+    }
+    return -1;
+}
+
 static Vis *push_vis(Vis *vis, int *n, Vis one) {
     vis = xrealloc(vis, (size_t)(*n + 1) * sizeof(Vis));
     vis[(*n)++] = one;
@@ -881,11 +914,26 @@ static Block *read_block(const char *header) {
         const char *first = w.w[0];
         if (!strcmp(first, "field") && b->kind == B_KIND) {
             Str *name = intern(word(&w, 1)), *declarer = intern(word(&w, 2));
+            /* Then what it escapes, if said, then its type, if it has one */
+            int at = 3;
+            Vis vis = V_OWN;
+            if (w.n > at && is_vis_word(w.w[at])) vis = read_vis(&w, at++);
+            Str *type = w.n > at ? intern(w.w[at++]) : NULL;
+            if (w.n > at) fail("Expected the end of the line after field %s's type but found '%s'", name->data, w.w[at]);
             int n = b->nfields;
             b->field_names = push_name(b->field_names, &n, name);
             n = b->nfields;
-            b->field_vis = push_vis(b->field_vis, &n, read_vis(&w, 3));
+            b->field_vis = push_vis(b->field_vis, &n, vis);
+            n = b->nfields;
+            b->field_type_texts = push_name(b->field_type_texts, &n, type);
             b->field_declarers = push_name(b->field_declarers, &b->nfields, declarer);
+        } else if (!strcmp(first, "static") && b->kind == B_KIND) {
+            /* A static field this kind declares with a type; one without needs no line */
+            Str *name = intern(word(&w, 1)), *type = intern(word(&w, 2));
+            if (w.n > 3) fail("Expected the end of the line after static %s's type but found '%s'", name->data, w.w[3]);
+            int n = b->nstatic_types;
+            b->static_names = push_name(b->static_names, &n, name);
+            b->static_type_texts = push_name(b->static_type_texts, &b->nstatic_types, type);
         } else if (!strcmp(first, "method") && b->kind == B_KIND) {
             Str *name = intern(word(&w, 1)), *definer = intern(word(&w, 2));
             /* The declarer, when an override made it differ from the definer */
@@ -965,14 +1013,49 @@ static Str *method_key(Str *cls, Str *method) {
     return key;
 }
 
+/* Every part of a type's text is a type_of() name or a kind the file declares */
+static void check_type_text(Str *text, const char *where) {
+    TypeParts parts;
+    split_type(text, &parts);
+    for (int i = 0; i < parts.n; i++) {
+        if (type_word(parts.parts[i]) < 0 && !find_kind(parts.parts[i])) {
+            fail_at(false, "Undefined kind '%s' in type '%s' %s", parts.parts[i]->data, text->data, where);
+        }
+    }
+}
+
+/* A type's text as the VM checks it: a tag per alternative, or the kind an alternative names */
+static TypeSpec *read_type(Str *text) {
+    TypeParts parts;
+    split_type(text, &parts);
+    TypeSpec *t = xcalloc(1, sizeof(TypeSpec) + (size_t)parts.n * sizeof t->alts[0]);
+    t->text = text;
+    t->n = parts.n;
+    for (int i = 0; i < parts.n; i++) {
+        int w = type_word(parts.parts[i]);
+        t->alts[i].type = w >= 0 ? TYPE_WORDS[w].type : T_OBJECT;
+        t->alts[i].kind = w >= 0 ? NULL : find_kind(parts.parts[i]);
+    }
+    return t;
+}
+
 /* A kind's record: its parent, the kind each field is declared by, and the block each method runs */
 static void check_record(Block *b) {
     const char *name = b->name->data;
+    char where[300];
     if (b->parent && !find_kind(b->parent)) fail_at(false, "Undefined kind '%s' in kind %s", b->parent->data, name);
     for (int i = 0; i < b->nfields; i++) {
         if (!find_kind(b->field_declarers[i])) {
             fail_at(false, "Field %s is declared by undefined kind '%s' in kind %s", b->field_names[i]->data, b->field_declarers[i]->data, name);
         }
+        if (b->field_type_texts[i]) {
+            snprintf(where, sizeof where, "of field %s in kind %s", b->field_names[i]->data, name);
+            check_type_text(b->field_type_texts[i], where);
+        }
+    }
+    for (int i = 0; i < b->nstatic_types; i++) {
+        snprintf(where, sizeof where, "of static field %s in kind %s", b->static_names[i]->data, name);
+        check_type_text(b->static_type_texts[i], where);
     }
     for (int i = 0; i < b->nmethods; i++) {
         if (!find_kind(b->method_definers[i])) {
@@ -1145,6 +1228,12 @@ static void check_block(Block *b) {
                 case K_CAPTURE:
                     if (n >= b->ncaptures) FAIL("Capture %d is not one of the block's %d captured variables", n, b->ncaptures);
                     break;
+                case K_TYPE: {
+                    char in_where[320];
+                    snprintf(in_where, sizeof in_where, "in %s", where);
+                    check_type_text(name, in_where);
+                    break;
+                }
                 }
             }
             if (b->objectless && (r->op == OP_LOAD_FIELD || r->op == OP_SET_FIELD || r->op == OP_CALL_PARENT ||
@@ -1240,6 +1329,28 @@ static void build_kinds(void) {
         c->parent = b->parent ? find_kind(b->parent) : NULL;
         c->field_declarers = xmalloc((size_t)b->nfields * sizeof(Kind *) + 1);
         for (int f = 0; f < b->nfields; f++) c->field_declarers[f] = find_kind(b->field_declarers[f]);
+        /* Left NULL for a kind with no typed field, so a write to one costs a test of the pointer */
+        for (int f = 0; f < b->nfields; f++) {
+            if (!b->field_type_texts[f]) continue;
+            if (!c->field_types) c->field_types = xcalloc((size_t)b->nfields + 1, sizeof(TypeSpec *));
+            c->field_types[f] = read_type(b->field_type_texts[f]);
+        }
+        /* A typed static field: its slot is the one the statics line names after this kind */
+        for (int s = 0; s < b->nstatic_types; s++) {
+            Buf full = {0};
+            buf_add_str(&full, c->name);
+            buf_adds(&full, "::");
+            buf_add_str(&full, b->static_names[s]);
+            Str *key = str_intern(full.data, full.len);
+            free(full.data);
+            int slot = -1;
+            for (int i = 0; i < prog->nstatics; i++) {
+                if (prog->statics[i] == key) slot = i;
+            }
+            if (slot < 0) fail_at(false, "Static field %s has no slot in the statics line", key->data);
+            if (!prog->static_types) prog->static_types = xcalloc((size_t)prog->nstatics + 1, sizeof(TypeSpec *));
+            prog->static_types[slot] = read_type(b->static_type_texts[s]);
+        }
         c->nmethods = b->nmethods;
         c->methods = b->method_names;
         c->method_vis = b->method_vis;
@@ -1380,6 +1491,12 @@ static void link_program(void) {
             case OP_CALL_BUILTIN:
                 in->a = builtin_find(r->names[0]->data, r->names[0]->len);
                 in->b = r->ints[1];
+                break;
+            case OP_CHECK_PARAM:
+                in->p = read_type(r->names[1]);
+                break;
+            case OP_CHECK_RETURN:
+                in->p = read_type(r->names[0]);
                 break;
             case OP_PUSH_FN: {
                 Function *f = find_function(r->names[0]);

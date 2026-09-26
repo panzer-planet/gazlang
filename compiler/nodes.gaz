@@ -270,10 +270,34 @@ kind ListPatternAST extends AST {
     }
 }
 
+/*
+ * A declared type, on a parameter, a return, a field or a static field: the names of a union's
+ * alternatives, ?T being T|null, each a type_of() name or a kind's, resolved once the whole
+ * program is read. Its text, as bytecode and messages write it, is the names joined with |.
+ */
+kind TypeAST extends AST {
+    pub #names;
+
+    fn _($names) {
+        #names = $names;
+    }
+
+    pub fn text() {
+        return join(#names, "|");
+    }
+
+    pub fn allows_null() {
+        return in_array("null", #names);
+    }
+}
+
 kind LambdaAST extends AST {
     pub #params;
     pub #defaults;
     pub #arity;
+    // Each parameter's TypeAST or null, set only when one has a type, so an untyped lambda
+    // dumps as it always did (fields() leaves out what was never set)
+    pub #param_types;
     pub #body;
     // The outer variables it uses, which are copied into the closure when it is created
     pub #captures;
@@ -413,6 +437,10 @@ kind FunctionDeclarationAST extends AST {
     pub #defaults;
     pub #body;
     pub #arity;
+    // Each parameter's TypeAST or null, and the return's, each set only when there is one,
+    // so an untyped function dumps as it always did (fields() leaves out what was never set)
+    pub #param_types;
+    pub #return_type;
     pub #kind = null;
     pub #abstract = false;
 
@@ -457,6 +485,9 @@ kind KindDeclarationAST extends AST {
     pub #abstract;
     // Each declared static field's default expression, and the line it is declared on, by name
     pub #statics = {};
+    // Each declared static field's TypeAST, by name: set only once one has a type, so an
+    // untyped kind dumps as it always did (fields() leaves out what was never set)
+    pub #static_types;
     pub #static_lines = {};
     // Each declared static method's FunctionDeclarationAST, by name
     pub #static_methods = {};
@@ -469,6 +500,8 @@ kind KindDeclarationAST extends AST {
     pub #vis = {};
     // Each declared field's default, or null, by name
     pub #fields = {};
+    // Each declared field's TypeAST, by name, set as #static_types is
+    pub #field_types;
     // The line each field is declared on, for errors about it
     pub #field_lines = {};
     // Each declared method's FunctionDeclarationAST, by name

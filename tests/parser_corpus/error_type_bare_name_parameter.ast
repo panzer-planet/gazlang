@@ -1,0 +1,1 @@
+Error: Expected a $variable but found 'x' at tests/parser_corpus/error_type_bare_name_parameter.gaz:2

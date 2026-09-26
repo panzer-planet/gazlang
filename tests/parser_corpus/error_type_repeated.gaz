@@ -1,0 +1,2 @@
+// A name given twice in a union
+fn f(int|int $x) {}

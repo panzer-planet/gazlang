@@ -272,6 +272,27 @@ echo $next();
 2
 ```
 
+Types are optional, and checked when the program runs: strictly, except that an int is welcome
+where a float is asked, and arrives as one.
+
+```gaz
+fn area(float $radius): float {
+    return 3.14159 * $radius * $radius;
+}
+
+echo area(2);
+try {
+    area("two");
+} catch (Error $e) {
+    echo $e.message;
+}
+```
+
+```
+12.56636
+area() expects $radius to be float, got string
+```
+
 ### Objects
 
 Fields are declared, single inheritance, and constructing is just a call — no `new`. `#` is

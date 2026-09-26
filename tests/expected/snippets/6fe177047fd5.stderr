@@ -1,0 +1,4 @@
+Error: Account() expects $owner to be string, got int on line 1
+  Account._ on line 1
+  new Account on line 1
+  top level on line 1

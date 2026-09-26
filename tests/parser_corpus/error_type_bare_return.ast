@@ -1,0 +1,1 @@
+Error: return needs a value in a function that returns int at tests/parser_corpus/error_type_bare_return.gaz:2

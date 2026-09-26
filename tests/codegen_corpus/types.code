@@ -1,0 +1,281 @@
+GAZLANG BYTECODE 2
+globals
+statics Account::made
+
+top
+locals $double $a
+@ "types.gaz" 9
+PUSH 0
+STORE_STATIC 0
+@ "types.gaz" 54
+MAKE_CLOSURE 0
+STORE 0
+LOAD 0
+POP
+@ "types.gaz" 55
+PUSH 1
+PUSH "W"
+NEW Savings 2
+STORE 1
+LOAD 1
+POP
+@ "types.gaz" 56
+LOAD 1
+GET_METHOD deposit
+PUSH 2
+CALL_METHOD 1 deposit
+PUSH 3
+CALL total 1
+CONCAT
+LOAD 0
+PUSH 4
+CALL_VALUE 1
+CONCAT
+CALL Account::count 0
+CONCAT
+PRINT
+@ "types.gaz" 57
+CALL nothing 0
+POP
+
+fn Account::count 0 0 in Account
+locals
+@ "types.gaz" 28
+LOAD_STATIC 0
+CHECK_RETURN int
+RET
+@ "types.gaz" 27
+PUSH null
+CHECK_RETURN int
+RET
+
+fn total 1 2
+locals $n $label
+@ "types.gaz" 38
+ARGC
+PUSH 1
+GT
+NOT
+JZ PASSED_0
+PUSH null
+STORE 1
+LABEL PASSED_0
+CHECK_PARAM 0 int
+CHECK_PARAM 1 string|null
+@ "types.gaz" 39
+LOAD 0
+PUSH 10
+GT
+JZ ELSE_1
+@ "types.gaz" 40
+LOAD 0
+CHECK_RETURN int
+RET
+@ "types.gaz" 39
+JMP ENDIF_1
+LABEL ELSE_1
+LABEL ENDIF_1
+@ "types.gaz" 43
+LOAD 0
+PUSH 2
+MUL
+CHECK_RETURN int
+RET
+@ "types.gaz" 38
+PUSH null
+CHECK_RETURN int
+RET
+
+fn nothing 0 0
+locals
+@ "types.gaz" 47
+PUSH "side effect"
+PRINT
+@ "types.gaz" 46
+PUSH null
+CHECK_RETURN null
+RET
+
+fn untyped 1 2
+locals $a $b
+@ "types.gaz" 50
+ARGC
+PUSH 1
+GT
+NOT
+JZ PASSED_0
+PUSH 1
+STORE 1
+LABEL PASSED_0
+@ "types.gaz" 51
+LOAD 0
+LOAD 1
+ADD
+RET
+@ "types.gaz" 50
+PUSH null
+RET
+
+kind Account
+field owner Account pub string
+field balance Account pub float
+field note Account kin string|null
+field history Account
+field id Account pub int
+method _ Account pub
+method deposit Account pub
+method remark Account pub
+static made int
+locals $#argument_0 $#argument_1 $#argument_2
+@ "types.gaz" 6
+PUSH 0
+@ "types.gaz" 4
+SET_FIELD balance
+POP
+@ "types.gaz" 7
+PUSH null
+@ "types.gaz" 4
+SET_FIELD note
+POP
+@ "types.gaz" 8
+NEW_ARRAY
+@ "types.gaz" 4
+SET_FIELD history
+POP
+CALL_CONSTRUCTOR Account
+POP
+LOAD_THIS
+RET
+
+fn Account._ 2 3
+locals $id $owner $start
+@ "types.gaz" 11
+ARGC
+PUSH 2
+GT
+NOT
+JZ PASSED_0
+PUSH 0
+STORE 2
+LABEL PASSED_0
+CHECK_PARAM 0 int
+CHECK_PARAM 1 string
+CHECK_PARAM 2 int|float
+LOAD 0
+SET_FIELD id
+POP
+@ "types.gaz" 12
+LOAD 1
+SET_FIELD owner
+POP
+@ "types.gaz" 13
+LOAD 2
+SET_FIELD balance
+POP
+@ "types.gaz" 14
+LOAD_STATIC 0
+INC
+STORE_STATIC 0
+LOAD_STATIC 0
+POP
+@ "types.gaz" 11
+PUSH null
+RET
+
+fn Account.deposit 1 1
+locals $amount $#update_value_0
+@ "types.gaz" 17
+CHECK_PARAM 0 int|float
+@ "types.gaz" 18
+LOAD 0
+STORE 1
+LOAD 1
+POP
+LOAD_THIS
+GET_PROPERTY_EXISTING balance
+LOAD 1
+ADD
+SET_FIELD balance
+POP
+@ "types.gaz" 20
+LOAD_FIELD balance
+CHECK_RETURN float
+RET
+@ "types.gaz" 17
+PUSH null
+CHECK_RETURN float
+RET
+
+fn Account.remark 0 0
+locals
+@ "types.gaz" 24
+LOAD_FIELD note
+CHECK_RETURN string|null
+RET
+@ "types.gaz" 23
+PUSH null
+CHECK_RETURN string|null
+RET
+
+kind Savings extends Account
+field owner Account pub string
+field balance Account pub float
+field note Account kin string|null
+field history Account
+field id Account pub int
+method _ Account pub
+method deposit Savings pub Account
+method remark Account pub
+locals $#argument_0 $#argument_1 $#argument_2
+@ "types.gaz" 6
+PUSH 0
+@ "types.gaz" 32
+SET_FIELD balance
+POP
+@ "types.gaz" 7
+PUSH null
+@ "types.gaz" 32
+SET_FIELD note
+POP
+@ "types.gaz" 8
+NEW_ARRAY
+@ "types.gaz" 32
+SET_FIELD history
+POP
+CALL_CONSTRUCTOR Account
+POP
+LOAD_THIS
+RET
+
+fn Savings.deposit 1 1
+locals $amount
+@ "types.gaz" 33
+CHECK_PARAM 0 int|float
+@ "types.gaz" 34
+LOAD 0
+PUSH 2
+MUL
+CALL_PARENT Account deposit 1
+CHECK_RETURN float
+RET
+@ "types.gaz" 33
+PUSH null
+CHECK_RETURN float
+RET
+
+lambda 0 1 2
+locals $x $y
+@ "types.gaz" 54
+ARGC
+PUSH 1
+GT
+NOT
+JZ PASSED_0
+PUSH 2
+STORE 1
+LABEL PASSED_0
+CHECK_PARAM 0 int
+LOAD 0
+LOAD 1
+MUL
+RET

@@ -1,0 +1,1 @@
+Error: ?T means T|null, so write int|...|null rather than ?int|... at tests/parser_corpus/error_type_nullable_union.gaz:2

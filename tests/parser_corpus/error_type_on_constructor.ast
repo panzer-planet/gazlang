@@ -1,0 +1,1 @@
+Error: A constructor has no return type: constructing gives the object at tests/parser_corpus/error_type_on_constructor.gaz:2

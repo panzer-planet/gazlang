@@ -219,6 +219,15 @@ struct Entry {
 /* What a member escapes: only its kind, its kind and what extends it, or anyone */
 typedef enum { V_OWN, V_KIN, V_PUB } Vis;
 
+/* A declared type, as a parameter, a return, a field or a static field has one: the
+   alternatives of a union ("int|float|Shape|null"), each a type_of() name as its tag (object
+   with no kind is any object) or a kind, and the text it was written as, for messages */
+typedef struct TypeSpec {
+    Str *text;
+    int n;
+    struct { Type type; Kind *kind; } alts[];
+} TypeSpec;
+
 struct Kind {
     Str *name;
     Kind *parent;
@@ -227,6 +236,7 @@ struct Kind {
     Str **fields;       /* field names in layout order (interned, so == compares them) */
     Kind **field_declarers;  /* the kind declaring each, which its visibility is against */
     Vis *field_vis;
+    TypeSpec **field_types;  /* each field's type, NULL for one without; NULL itself when no field has one */
     int nmethods;
     Str **methods;      /* every method it can call, the constructor _ included */
     Kind **definers;    /* the kind whose version of each runs */
@@ -261,9 +271,12 @@ struct Block {
     int nfields;
     Str **field_names, **field_declarers;
     Vis *field_vis;
+    Str **field_type_texts;  /* kind: each field's type as written, or NULL */
     int nmethods;
     Str **method_names, **method_definers, **method_declarers;
     Vis *method_vis;
+    int nstatic_types;  /* kind: the static fields it declares with a type, and each one's type */
+    Str **static_names, **static_type_texts;
     int entry;          /* its first instruction in the program's code */
     int max_stack;      /* the greatest stack depth the loader's walk found */
     int line_no;        /* the line of its header, for nothing but debugging */
@@ -323,6 +336,7 @@ typedef struct Program {
     Str **globals;
     int nstatics;
     Str **statics;      /* each static field as "Kind::name", the kind being the declarer */
+    TypeSpec **static_types;  /* each static field's type, NULL for one without; NULL itself when none has one */
     int nblocks;
     Block **blocks;
     int nfunctions;
@@ -348,7 +362,7 @@ enum {
     OP_SET_PATH, OP_SET_PATH_GLOBAL, OP_SET_PATH_CAPTURED, OP_SET_PATH_THIS,
     OP_SET_PATH_STATIC, OP_DELETE_PATH, OP_DELETE_PATH_GLOBAL, OP_DELETE_PATH_CAPTURED,
     OP_DELETE_PATH_THIS, OP_DELETE_PATH_STATIC, OP_CALL,
-    OP_CALL_BUILTIN, OP_CALL_VALUE, OP_ARGC, OP_RET, OP_PUSH_FN, OP_MAKE_CLOSURE, OP_PUSH_KIND,
+    OP_CALL_BUILTIN, OP_CALL_VALUE, OP_ARGC, OP_CHECK_PARAM, OP_CHECK_RETURN, OP_RET, OP_PUSH_FN, OP_MAKE_CLOSURE, OP_PUSH_KIND,
     OP_NEW, OP_CALL_CONSTRUCTOR, OP_CALL_PARENT, OP_BIND_PARENT, OP_LOAD_THIS, OP_LOAD_FIELD,
     OP_SET_FIELD, OP_GET_PROPERTY, OP_GET_PROPERTY_QUIET, OP_GET_PROPERTY_EXISTING,
     OP_GET_METHOD, OP_CALL_METHOD, OP_TRY, OP_END_TRY, OP_CATCH_MATCH, OP_CATCH_VALUE,
@@ -483,7 +497,15 @@ extern Kind *const KIND_INITIALISER;
 bool kind_is_a(Kind *c, Kind *ancestor);
 bool property(Value target, Str *name, bool quiet, Kind *asking, Value *out);
 bool property_existing(Value target, Str *name, Kind *asking, Value *out);
-bool store_path(Value *slot, Str *var_name, Path *path, Value *keys, Value value, Kind *asking, Value *joined);
+/* Declared types: whether a value is one of a type's alternatives, an int being widened in
+   place where float is one (2 arrives as 2.0); what a type error says it got (an object by
+   its kind); and a field's type, checked before a write into the field's slot */
+bool type_admits(TypeSpec *t, Value *v);
+bool type_has(TypeSpec *t, Type type);
+const char *describe_type(Value v);
+bool check_field_type(Object *o, int field, Value *v);
+/* The value may be widened to a float by a typed field's check, which is why it is a pointer */
+bool store_path(Value *slot, Str *var_name, Path *path, Value *keys, Value *value, Kind *asking, Value *joined);
 bool remove_path(Value *slot, Str *var_name, Path *path, Value *keys, Kind *asking);
 bool concat_assign(Value *slot, Value v, Value *out);
 Func *bound_method(Object *o, Kind *definer, Str *name);

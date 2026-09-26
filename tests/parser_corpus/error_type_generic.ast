@@ -1,0 +1,1 @@
+Error: Generic types aren't supported yet: write list, not list<...> at tests/parser_corpus/error_type_generic.gaz:1

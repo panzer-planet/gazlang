@@ -40,6 +40,7 @@ snippet:05beed9b3b2b
 snippet:05d1255eb07a
 snippet:07841350706c
 snippet:079aa21e741d
+snippet:08620e34f04a
 snippet:08e0bd5cec81
 snippet:08e5e57badd5
 snippet:0914d2523158
@@ -73,6 +74,7 @@ snippet:148976aeb9c0
 snippet:14fe36e12fc0
 snippet:159bf22cd6c4
 snippet:16830501e858
+snippet:16cc095707a6
 snippet:173d8e69619c
 snippet:175b4a4457bd
 snippet:1782a85838fb
@@ -85,6 +87,7 @@ snippet:1a63f1560024
 snippet:1acee1f3fb92
 snippet:1b0d65336be8
 snippet:1b1701c1e4db
+snippet:1b6612af4bc8
 snippet:1c12fe99a553
 snippet:1c3455d8873d
 snippet:1dabd21ce310
@@ -121,6 +124,7 @@ snippet:277af01b25c2
 snippet:27dcf3b74eae
 snippet:27e2fe2d3418
 snippet:286deb204531
+snippet:2882078c45a1
 snippet:28b3b403a74d
 snippet:2967f6c9e4e4
 snippet:2995a20dadcd
@@ -166,6 +170,7 @@ snippet:37c994772338
 snippet:384dd6c5d165
 snippet:387310dd39c4
 snippet:38c3b8865455
+snippet:390a3242b659
 snippet:39863b946b51
 snippet:398d3a650eb4
 snippet:39ad5dbad7fb
@@ -174,6 +179,7 @@ snippet:3a2cded204e2
 snippet:3b3c105d9208
 snippet:3bb0a099d82c
 snippet:3bb696d94e76
+snippet:3bec4056d108
 snippet:3c6f5138b1fe
 snippet:3ca3dfd9b12f
 snippet:3d52a8fcb38e
@@ -199,6 +205,7 @@ snippet:450dccac8a08
 snippet:451e12b1dd16
 snippet:453cfd8bb719
 snippet:4585f45ad290
+snippet:45f52646fe70
 snippet:4613a745884d
 snippet:46401d45b036
 snippet:4694e7247268
@@ -277,6 +284,7 @@ snippet:5ec44b055eab
 snippet:5f1f9edb19e3
 snippet:6036f5680433
 snippet:60bcf377dc10
+snippet:60fa14d1ad00
 snippet:624a22c7e3e1
 snippet:62572cbcdeb9
 snippet:627092f3e347
@@ -296,6 +304,7 @@ snippet:6717f56db79b
 snippet:675ef5980fe9
 snippet:67a10392e80e
 snippet:6801bbf1ec03
+snippet:689c36921b97
 snippet:698ec05fd6d1
 snippet:69a6a4c6cb07
 snippet:69d8d9674ad2
@@ -311,6 +320,7 @@ snippet:6dfa06dacb83
 snippet:6e01e4c3235b
 snippet:6edab633efbc
 snippet:6f9c7fadac2a
+snippet:6fe177047fd5
 snippet:6fed8dd34428
 snippet:703635f2744a
 snippet:7112b4104487
@@ -334,6 +344,7 @@ snippet:7523cc847c6c
 snippet:762078ff2c8c
 snippet:766fc69dccf8
 snippet:76d0e1ddc222
+snippet:7748a00b9a28
 snippet:775f25f64122
 snippet:7855faf786cb
 snippet:786a3d2d7bff
@@ -434,6 +445,7 @@ snippet:a0575352f61d
 snippet:a0eb82bd2a7d
 snippet:a308b3c45791
 snippet:a31da19497ef
+snippet:a36c4190df7f
 snippet:a3cb4b085e5a
 snippet:a4fa4bdde7ca
 snippet:a51786d698d5
@@ -467,6 +479,7 @@ snippet:b2c6266f336a
 snippet:b2c965277b7b
 snippet:b39caeacdd46
 snippet:b410f976b0ed
+snippet:b4a58abcc08f
 snippet:b4a941e0538e
 snippet:b4fe669ecfe9
 snippet:b5dd88034429
@@ -482,6 +495,7 @@ snippet:b9fbb0726c04
 snippet:ba249aa46de8
 snippet:baf1196ea08e
 snippet:bb33aad3d823
+snippet:bb3875495e32
 snippet:bb48b1d31859
 snippet:bb4f062e8bc2
 snippet:bb741aaa8e22
@@ -537,6 +551,7 @@ snippet:d15e05d65afe
 snippet:d1d8047a3193
 snippet:d1f645850f21
 snippet:d2875ab6a2e7
+snippet:d37821dcb65d
 snippet:d3ddb09e0fec
 snippet:d4106ee4a095
 snippet:d41b2c9fc5ca
@@ -581,6 +596,7 @@ snippet:e3b619ee0145
 snippet:e4eb94ebdf7a
 snippet:e4fa45e57bf5
 snippet:e58db24ee7d4
+snippet:e591f820cb8e
 snippet:e5a9abe3aaf1
 snippet:e73de50dde8a
 snippet:e7d1d9949156
@@ -588,6 +604,7 @@ snippet:ea0faa478243
 snippet:ea4414587c3d
 snippet:eab0772b9722
 snippet:eabcb912cbf8
+snippet:ead05aa51388
 snippet:ebc0d1457d31
 snippet:ed148eb740e7
 snippet:ed844f5098f0
@@ -596,6 +613,7 @@ snippet:ee2fa6995cdd
 snippet:ee35896bfea5
 snippet:ee7b2f431cc5
 snippet:ee97bd219eff
+snippet:eeacc7eb30b0
 snippet:efa1320065a0
 snippet:efcfd450fb56
 snippet:f1172d4ad298
@@ -606,6 +624,7 @@ snippet:f38405730ac1
 snippet:f412b7d0ed23
 snippet:f4307ef5626e
 snippet:f464d18a16e2
+snippet:f4a7fd892fd4
 snippet:f5777f1b79f2
 snippet:f613066511a3
 snippet:f65895769746
@@ -613,6 +632,7 @@ snippet:f7554fc59021
 snippet:f7596501168a
 snippet:f7765831b47b
 snippet:f80b5e1ea898
+snippet:f84ac856d53e
 snippet:f851dcf31057
 snippet:f8a7cf34a98b
 snippet:f8b90c348a0b
@@ -672,6 +692,7 @@ tests/bytecode_corpus/error_error_kind_without_its_fields.gzb
 tests/bytecode_corpus/error_extra_argument.gzb
 tests/bytecode_corpus/error_field_declarer_undefined.gzb
 tests/bytecode_corpus/error_field_in_a_lambda_made_at_top_level.gzb
+tests/bytecode_corpus/error_field_type_then_more.gzb
 tests/bytecode_corpus/error_first_block_not_top.gzb
 tests/bytecode_corpus/error_fn_arity_backwards.gzb
 tests/bytecode_corpus/error_fn_arity_missing.gzb
@@ -706,8 +727,14 @@ tests/bytecode_corpus/error_slot.gzb
 tests/bytecode_corpus/error_stack_differs.gzb
 tests/bytecode_corpus/error_stack_differs_after_try.gzb
 tests/bytecode_corpus/error_static_slot_out_of_range.gzb
+tests/bytecode_corpus/error_static_type_then_more.gzb
+tests/bytecode_corpus/error_static_type_without_slot.gzb
 tests/bytecode_corpus/error_top_with_words.gzb
 tests/bytecode_corpus/error_try_handler_open_on_one_path.gzb
+tests/bytecode_corpus/error_type_empty_part.gzb
+tests/bytecode_corpus/error_type_undefined_kind_in_check.gzb
+tests/bytecode_corpus/error_type_undefined_kind_in_field.gzb
+tests/bytecode_corpus/error_type_undefined_kind_in_static.gzb
 tests/bytecode_corpus/error_undefined_builtin.gzb
 tests/bytecode_corpus/error_undefined_callable.gzb
 tests/bytecode_corpus/error_undefined_function.gzb
@@ -755,6 +782,7 @@ tests/bytecode_corpus/spacing.gzb
 tests/bytecode_corpus/statics.gzb
 tests/bytecode_corpus/superinstruction_lookalikes.gzb
 tests/bytecode_corpus/top_level_ret.gzb
+tests/bytecode_corpus/types.gzb
 tests/bytecode_corpus/unreachable_code_is_not_checked.gzb
 tests/bytecode_corpus/values.gzb
 tests/codegen_corpus/assignments.gaz
@@ -775,6 +803,7 @@ tests/codegen_corpus/shared.gaz
 tests/codegen_corpus/statements.gaz
 tests/codegen_corpus/statics.gaz
 tests/codegen_corpus/template.gaz
+tests/codegen_corpus/types.gaz
 tests/codegen_corpus/write_through_call.gaz
 tests/fixtures/bytecode/example.gaz
 tests/fixtures/bytecode/fails.gaz
@@ -850,6 +879,7 @@ tests/parser_corpus/include/lib/deep/uses_parent_dir.gaz
 tests/parser_corpus/include/lib/link.gaz
 tests/parser_corpus/include/lib/shapes.gaz
 tests/parser_corpus/include/main.gaz
+tests/parser_corpus/include/private_kind.gaz
 tests/parser_corpus/include/same_file_spelt_three_ways.gaz
 tests/parser_corpus/include/symlink_is_the_file_it_points_to.gaz
 tests/parser_corpus/interpolation.gaz
@@ -889,6 +919,7 @@ tests/parser_corpus/statements.gaz
 tests/parser_corpus/statics.gaz
 tests/parser_corpus/template.gaz
 tests/parser_corpus/try.gaz
+tests/parser_corpus/types.gaz
 tests/parser_corpus/uses_error_by_extending.gaz
 tests/parser_corpus/uses_error_by_name.gaz
 tests/parser_corpus/uses_error_by_untyped_catch.gaz
@@ -922,6 +953,7 @@ tests/vm_corpus/power.gaz
 tests/vm_corpus/rounding.gaz
 tests/vm_corpus/superinstructions.gaz
 tests/vm_corpus/to_string_errors.gaz
+tests/vm_corpus/types.gaz
 tests/vm_corpus/uncaught_bad_to_string.gaz
 tests/vm_corpus/uncaught_object.gaz
 tests/vm_corpus/uncaught_value.gaz

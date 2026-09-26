@@ -1,0 +1,3 @@
+Error: whole() expects $n to be int, got float on line 1
+  whole on line 1
+  top level on line 1

@@ -1,0 +1,1 @@
+Error: g is a function, not a type at tests/parser_corpus/error_type_names_a_function.gaz:2

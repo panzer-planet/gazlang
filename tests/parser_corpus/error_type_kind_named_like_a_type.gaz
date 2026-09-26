@@ -1,0 +1,2 @@
+// The type_of() names are reserved for the builtin types
+kind string {}

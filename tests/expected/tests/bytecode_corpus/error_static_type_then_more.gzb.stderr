@@ -1,0 +1,1 @@
+Error: Expected the end of the line after static a's type but found 'extra' at tests/bytecode_corpus/error_static_type_then_more.gzb:8

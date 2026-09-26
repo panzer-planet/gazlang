@@ -1,0 +1,6 @@
+abstract kind A {
+    pub abstract fn f(int $x);
+}
+kind B extends A {
+    pub fn f($x) {}
+}

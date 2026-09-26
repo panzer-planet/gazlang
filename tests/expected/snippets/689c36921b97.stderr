@@ -1,0 +1,3 @@
+Error: Account.deposit() expects $amount to be int|float, got null on line 1
+  Account.deposit on line 1
+  top level on line 1

@@ -1,0 +1,3 @@
+Error: Account #balance must be int, got string on line 1
+  Account.set on line 1
+  top level on line 1

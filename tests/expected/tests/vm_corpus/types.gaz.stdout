@@ -1,0 +1,41 @@
+4.0 2.25
+8 8
+null
+objectkindfunctionlistmapboolnull
+Circle {#name => "circle", #area => 12.0, #note => null, #scale => 1, #tags => [], #label => "circle"}
+24.5
+5.0
+7.0
+7.5
+circle
+ntu ["t", "u"]
+2.5
+2 2
+area() expects $r to be float, got string | area at tests/vm_corpus/types.gaz:55, -> at tests/vm_corpus/types.gaz:123, fails at tests/vm_corpus/types.gaz:87, top level at tests/vm_corpus/types.gaz:123
+total() expects $n to be int, got float | total at tests/vm_corpus/types.gaz:59, -> at tests/vm_corpus/types.gaz:124, fails at tests/vm_corpus/types.gaz:87, top level at tests/vm_corpus/types.gaz:124
+total() expects $label to be string|null, got int | total at tests/vm_corpus/types.gaz:59, -> at tests/vm_corpus/types.gaz:125, fails at tests/vm_corpus/types.gaz:87, top level at tests/vm_corpus/types.gaz:125
+wrong() should return int, got string | wrong at tests/vm_corpus/types.gaz:67, -> at tests/vm_corpus/types.gaz:126, fails at tests/vm_corpus/types.gaz:87, top level at tests/vm_corpus/types.gaz:126
+falls_off() should return int, got null | falls_off at tests/vm_corpus/types.gaz:70, -> at tests/vm_corpus/types.gaz:127, fails at tests/vm_corpus/types.gaz:87, top level at tests/vm_corpus/types.gaz:127
+bad_default() expects $n to be int, got string | bad_default at tests/vm_corpus/types.gaz:73, -> at tests/vm_corpus/types.gaz:128, fails at tests/vm_corpus/types.gaz:87, top level at tests/vm_corpus/types.gaz:128
+takes_shape() expects $s to be Shape, got int | takes_shape at tests/vm_corpus/types.gaz:77, -> at tests/vm_corpus/types.gaz:129, fails at tests/vm_corpus/types.gaz:87, top level at tests/vm_corpus/types.gaz:129
+takes_shape() expects $s to be Shape, got kind | takes_shape at tests/vm_corpus/types.gaz:77, -> at tests/vm_corpus/types.gaz:130, fails at tests/vm_corpus/types.gaz:87, top level at tests/vm_corpus/types.gaz:130
+Circle() expects $radius to be float, got string | Circle._ at tests/vm_corpus/types.gaz:45, new Circle at tests/vm_corpus/types.gaz:44, -> at tests/vm_corpus/types.gaz:131, fails at tests/vm_corpus/types.gaz:87, top level at tests/vm_corpus/types.gaz:131
+Shape() expects $label to be string, got int | Shape._ at tests/vm_corpus/types.gaz:12, new Shape at tests/vm_corpus/types.gaz:3, -> at tests/vm_corpus/types.gaz:132, fails at tests/vm_corpus/types.gaz:87, top level at tests/vm_corpus/types.gaz:132
+Circle.grow() expects $by to be int|float, got null | Circle.grow at tests/vm_corpus/types.gaz:50, -> at tests/vm_corpus/types.gaz:133, fails at tests/vm_corpus/types.gaz:87, top level at tests/vm_corpus/types.gaz:133
+Shape.rename() expects $name to be string, got int | Shape.rename at tests/vm_corpus/types.gaz:24, -> at tests/vm_corpus/types.gaz:134, fails at tests/vm_corpus/types.gaz:87, top level at tests/vm_corpus/types.gaz:134
+Shape #name must be string, got int | -> at tests/vm_corpus/types.gaz:135, fails at tests/vm_corpus/types.gaz:87, top level at tests/vm_corpus/types.gaz:135
+Shape #area must be float, got string | -> at tests/vm_corpus/types.gaz:136, fails at tests/vm_corpus/types.gaz:87, top level at tests/vm_corpus/types.gaz:136
+Shape #scale must be int|float, got string | -> at tests/vm_corpus/types.gaz:137, fails at tests/vm_corpus/types.gaz:87, top level at tests/vm_corpus/types.gaz:137
+no error: null
+Shape #area must be float, got string | -> at tests/vm_corpus/types.gaz:139, fails at tests/vm_corpus/types.gaz:87, top level at tests/vm_corpus/types.gaz:139
+no error: 4.0
+Shape #tags must be list, got string | -> at tests/vm_corpus/types.gaz:141, fails at tests/vm_corpus/types.gaz:87, top level at tests/vm_corpus/types.gaz:141
+Shape::made must be int, got string | -> at tests/vm_corpus/types.gaz:142, fails at tests/vm_corpus/types.gaz:87, top level at tests/vm_corpus/types.gaz:142
+Shape::made must be int, got string | -> at tests/vm_corpus/types.gaz:143, fails at tests/vm_corpus/types.gaz:87, top level at tests/vm_corpus/types.gaz:143
+Shape::made must be int, got float | -> at tests/vm_corpus/types.gaz:144, fails at tests/vm_corpus/types.gaz:87, top level at tests/vm_corpus/types.gaz:144
+no error: 2.0
+[1, null]
+-> at tests/vm_corpus/types.gaz:146 expects $x to be int, got string | -> at tests/vm_corpus/types.gaz:146, -> at tests/vm_corpus/types.gaz:148, fails at tests/vm_corpus/types.gaz:87, top level at tests/vm_corpus/types.gaz:148
+-> at tests/vm_corpus/types.gaz:146 expects $s to be string|null, got int | -> at tests/vm_corpus/types.gaz:146, -> at tests/vm_corpus/types.gaz:149, fails at tests/vm_corpus/types.gaz:87, top level at tests/vm_corpus/types.gaz:149
+Broken #count must be int, got string | new Broken at tests/vm_corpus/types.gaz:152, -> at tests/vm_corpus/types.gaz:155, fails at tests/vm_corpus/types.gaz:87, top level at tests/vm_corpus/types.gaz:155
+["t", "u", 1]

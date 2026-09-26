@@ -86,24 +86,47 @@ inherits the slot and the entry, since the parent's methods still run on the chi
 but cannot name them. A field name is unique across a hierarchy; a method name is not, so two
 entries of one name may sit side by side, and which one answers depends on the kind asking.
 
+A `field` line may end with a type (see "Types" below) after the marker, or where the marker
+would be: every write into that field checks the value against it, however the write is
+spelt, so the check belongs to the field and not to the instruction. The declaring kind's
+type is on every record that has the slot, a child's included.
+
 A `method` line may then name the kind that *declared* the member, when an override made that
 differ from the kind whose version runs: `method area Square kin Shape` is Square's version of
 a method Shape declared, and it is Shape's marker that says who may name it. Nothing said means
 the declarer is the definer.
 
+A `static` line gives a static field the kind declares with a type: its name (without the kind,
+which is the block's own) and the type. Its slot is the one the `statics` header names as
+`Kind::name`; a static field without a type has no line, since the header already has it.
+
 ```
 abstract kind Shape
-field name Shape kin
+field name Shape kin string
 method _ Shape pub
 locals $#argument_0
 
 kind Circle extends Shape
-field name Shape kin
-field radius Circle pub
+field name Shape kin string
+field radius Circle pub float
 method _ Circle pub
 method area Circle pub Shape
+static made int
 locals $#argument_0
 ```
+
+## Types
+
+A type names what a value may be, and is written as one word: the alternatives of a union
+joined with `|`, each a `type_of()` name (`int float string bool null list map function kind
+object socket db`) or a kind's name, so `int|float`, `string|null` (what the source writes
+`?string`) and `Shape`. There is no `?` in the file. A check is strict and never converts, with
+one exception: an int where `float` is one of the alternatives is accepted, and arrives as a
+float. `object` is any object; a kind admits its children, as `is_a` does.
+
+`CHECK_PARAM` and `CHECK_RETURN` carry a type and check a parameter or a returned value. A
+`field` or `static` record carries one and the VM checks every write into that slot. Untyped
+code has none of these, so it pays nothing.
 
 A **lambda** gives its index, which `MAKE_CLOSURE` names, and its arity, then `in Kind` when it
 is written inside one. A `capture` line per
@@ -193,8 +216,7 @@ is a GazLang error a `try` can catch, and gets the location of the instruction t
 | `CONCAT_ASSIGN slot` | `v -- w` | `$s ..= v`: appends to a local and pushes the new value. Fails if it is not set. The string is never loaded onto the stack, so the append is in place and a loop of them is linear; `..` otherwise, converting both sides as `echo` does. |
 | `LOAD_GLOBAL slot`, `LOAD_QUIET_GLOBAL slot`, `STORE_GLOBAL slot`, `CONCAT_ASSIGN_GLOBAL slot` | | The same for a global. |
 | `LOAD_CAPTURED slot`, `LOAD_QUIET_CAPTURED slot`, `STORE_CAPTURED slot`, `CONCAT_ASSIGN_CAPTURED slot` | | The same for a captured variable of the running closure, addressed by capture index. |
-| `LOAD_STATIC slot`, `STORE_STATIC slot` | | The same for a static field, addressed by its slot in the `statics` line. There is no quiet form: a static field always has a value, since the compiler writes its default, a constant, before anything else runs. |
-| `ARGC` | `-- n` | Pushes how many arguments the running call was passed, for default parameters. |
+| `LOAD_STATIC slot`, `STORE_STATIC slot` | | The same for a static field, addressed by its slot in the `statics` line. There is no quiet form: a static field always has a value, since the compiler writes its default, a constant, before anything else runs. A store into a static field with a type (a `static` record) checks the value: "Counter::count must be int, got string". |
 
 ### Operators
 
@@ -240,6 +262,9 @@ depth limit is reached.
 | `CALL function count` | `… -- v` | Calls a function of the program by name, with that many arguments. |
 | `CALL_BUILTIN builtin count` | `… -- v` | Calls a builtin. Fails as the builtin does, on an argument of the wrong type. |
 | `CALL_VALUE count` | `f … -- v` | Calls whatever the value under the arguments is: a function, a closure, a bound method or a kind. Fails with "Cannot call int" on anything else, or with an arity message. |
+| `ARGC` | `-- n` | Pushes how many arguments the running call was passed, for default parameters. |
+| `CHECK_PARAM slot type` | `--` | Fails with "total() expects $n to be int, got string" unless the local in that slot is of the type (see "Types"), widening an int to a float in the slot where the type asks for a float. The compiler writes one per typed parameter after the defaults have run, so a default is held to the type too. |
+| `CHECK_RETURN type` | `v -- v` | The same for the value on top, which a `RET` is about to return: "total() should return int, got string". The compiler writes one before every `RET` of a function with a return type, the implicit `null` at its end included. |
 | `RET` | `v --` | Returns the value, dropping the frame and any try handlers it still has. |
 | `PUSH_FN function` | `-- f` | Pushes a function or builtin as a value. |
 | `MAKE_CLOSURE lambda` | `-- f` | Makes a closure of that lambda, copying in the captured variables that exist, then setting its `self` if it has one. Its location is this instruction's. |
@@ -260,8 +285,8 @@ depth limit is reached.
 | `INDEX_GET` | `x k -- v` | Reads an element of a list, map or string. Fails on "Index out of range: 5", "Undefined key: \"k\"", or a bad target or key. |
 | `INDEX_GET_QUIET` | `x k -- v` | The same, but null when the target is null or the key is missing (the left of `??`). |
 | `INDEX_GET_EXISTING` | `x k -- v` | The same as `INDEX_GET`, for a compound update, which needs the key to exist. |
-| `SET_PATH path slot` | `… v -- v` | Writes through the local in that slot, taking the path's `[k]` keys from the stack below the value, and leaves the value. Fails on a missing variable or key, or a bad step. |
-| `SET_PATH_GLOBAL path slot`, `SET_PATH_CAPTURED path slot`, `SET_PATH_STATIC path slot` | | The same for a global, a captured variable or a static field. |
+| `SET_PATH path slot` | `… v -- v` | Writes through the local in that slot, taking the path's `[k]` keys from the stack below the value, and leaves the value. Fails on a missing variable or key, or a bad step. A path ending at a field with a type checks the value against it first ("Account #balance must be int, got string"), an int widened to a float on the stack too where the type asks for one; a path ending in `..=` there must find a type that allows a string. |
+| `SET_PATH_GLOBAL path slot`, `SET_PATH_CAPTURED path slot`, `SET_PATH_STATIC path slot` | | The same for a global, a captured variable or a static field; `SET_PATH_STATIC ..=` on a typed static field needs its type to allow a string. |
 | `SET_PATH_THIS path` | `… v -- v` | The same, starting at the object the method runs on. |
 | `DELETE_PATH path slot` | `… --` | Removes the element its path ends at, through the local in that slot, taking the path's `[k]` keys from the stack and leaving nothing. A list's later elements move down; a map keeps the order of the rest. Fails on a missing variable, step or element. The path ends in `[k]`: a field can't be removed. |
 | `DELETE_PATH_GLOBAL path slot`, `DELETE_PATH_CAPTURED path slot`, `DELETE_PATH_STATIC path slot` | | The same for a global, a captured variable or a static field. |
@@ -281,7 +306,7 @@ block and not in another.
 | `CALL_CONSTRUCTOR kind` | `-- v` | In a kind's block: runs that kind's `_` on the object being made, with the same arguments. |
 | `LOAD_THIS` | `-- o` | Pushes the object the running method or initialiser is on. |
 | `LOAD_FIELD member` | `-- v` | Pushes a field of that object. Fails with "Property x of C is not set". |
-| `SET_FIELD member` | `v -- v` | Sets a field of that object, leaving the value. |
+| `SET_FIELD member` | `v -- v` | Sets a field of that object, leaving the value. A field with a type checks the value first, as `SET_PATH` does. |
 | `GET_PROPERTY member` | `o -- v` | Reads a member of an object: a field's value, or a method bound to it. Fails with "C has no member foo", "C.foo is not pub, so only the kind that declares it can use it" or "Cannot use . on map". |
 | `GET_PROPERTY_QUIET member` | `o -- v` | The same, but null for a field that is not set or an object that is null. |
 | `GET_PROPERTY_EXISTING member` | `o -- v` | The same as `GET_PROPERTY`, for a compound update. |
@@ -325,6 +350,9 @@ A file that loads is one the VM can run, so the checks are part of the format:
   a file holding `CATCH_VALUE` or `CATCH_MATCH` has that kind at all, since that is what a
   caught error is made as.
 - A block's `in Kind` names a kind the file declares, and so does a `method` line's declarer.
+- Every name in a type, on a `field` or `static` line or in a `CHECK_PARAM` or
+  `CHECK_RETURN`, is a `type_of()` name or a kind the file declares, and a `static` line names
+  a slot the `statics` header has.
 - `HALT` is in the top level, whose end it is. In a call it would end that call's run instead,
   leaving whatever started the run without a value.
 

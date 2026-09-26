@@ -205,6 +205,17 @@ kind Parser {
     // the name is in a list on the node, so resolution writes the resolved one back there
     #catch_types = [];
 
+    // Every declared type, as [TypeAST, scope]: a name in one that isn't a builtin type's is
+    // a kind's, resolved and checked once the whole program is read
+    #type_uses = [];
+    // The type the function being parsed returns, or null: what a bare return is checked against
+    #return_type = null;
+
+    // The type_of() names, which a type is made of besides kinds; no kind can be called one
+    const TYPE_NAMES = ["int", "float", "string", "bool", "null", "list", "map", "function", "kind", "object", "socket", "db"];
+    // Three of them are keywords, so they arrive as their own tokens rather than as names
+    const TYPE_KEYWORDS = ["NULL", "KIND", "FUNCTION"];
+
     // Whether any catch clause was parsed, so the program needs the Error kind
     #catches = false;
 
@@ -548,6 +559,99 @@ kind Html {
         return $name;
     }
 
+    // Parse a type ([QUESTION] type_name (BIT_OR type_name)*), type_name: IDENTIFIER (DOUBLE_COLON IDENTIFIER)* | NULL
+    //
+    // ?T is T|null, and only a single name may follow the ?: a union that allows null writes
+    // null as one of its names. A name is a builtin type's (TYPE_NAMES) or a kind's, resolved
+    // like any other name once the whole program is read.
+    fn type() {
+        $start = #current_token;
+        $nullable = $start.type == "QUESTION";
+        if ($nullable) {
+            #eat("QUESTION");
+        }
+        $names = [#type_name()];
+        if ($nullable && #current_token.type == "BIT_OR") {
+            #fail("?T means T|null, so write {$names[0]}|...|null rather than ?{$names[0]}|...");
+        }
+        while (#current_token.type == "BIT_OR") {
+            #eat("BIT_OR");
+            $names[] = #type_name();
+        }
+        if ($nullable) {
+            $names[] = "null";
+        }
+
+        return #make_type($names, $start);
+    }
+
+    // One name of a type: null, kind or function (keywords, but type names too), or a possibly
+    // qualified name; list<int> is refused for now
+    fn type_name() {
+        $token = #current_token;
+        if (in_array($token.type, #TYPE_KEYWORDS)) {
+            #eat($token.type);
+
+            return lower($token.type);
+        }
+        if ($token.type != "IDENTIFIER") {
+            #fail("Expected a type but found " .. #describe($token));
+        }
+        #eat("IDENTIFIER");
+        $name = #qualified_name($token.value);
+        if (#current_token.type == "LESS_THAN") {
+            #fail("Generic types aren't supported yet: write {$name}, not {$name}<...>");
+        }
+
+        return $name;
+    }
+
+    // The TypeAST for some names, refusing a name given twice, and recorded for resolution
+    fn make_type($names, $start) {
+        $seen = {};
+        foreach ($names as $name) {
+            if (has_key($seen, $name)) {
+                #fail_at("{$name} appears twice in the type " .. join($names, "|"), #file, $start.line);
+            }
+            $seen[$name] = true;
+        }
+        $node = #at(TypeAST($names), $start);
+        #type_uses[] = [$node, #scope];
+
+        return $node;
+    }
+
+    // Whether the current token can start a type: a name, one of the keywords that are types, or ?
+    fn at_type() {
+        return #current_token.type == "IDENTIFIER" || #current_token.type == "QUESTION" || in_array(#current_token.type, #TYPE_KEYWORDS);
+    }
+
+    // Parse a declaration's return type, if it has one ([COLON type]); a constructor has none
+    fn declared_return($constructor) {
+        if (#current_token.type != "COLON") {
+            return null;
+        }
+        if ($constructor) {
+            #fail("A constructor has no return type: constructing gives the object");
+        }
+        #eat("COLON");
+
+        return #type();
+    }
+
+    // Record a declaration's types on its node, only when it has any, so an untyped
+    // declaration dumps as it always did
+    fn with_types($node, $types, $return_type) {
+        if (len(filter($types, $type -> $type != null)) > 0) {
+            $node.param_types = $types;
+        }
+        if ($return_type != null) {
+            $node.return_type = $return_type;
+        }
+
+        return $node;
+    }
+
     // Parse a call's arguments (LPAREN [expr (COMMA expr)*] RPAREN)
     fn arguments() {
         #eat("LEFT_PAREN");
@@ -694,26 +798,25 @@ kind Html {
     // Only a ( that starts an expression at the ternary's level (see ternary()) can head a
     // lambda, so 1 + ($x) -> 2 is a syntax error like 1 + $x -> 2, and anywhere else a
     // comma is the usual error at once. When -> follows, each element must have been
-    // written as $parameter or $parameter = default, not (($a)) or $a[0] = 1.
+    // written as $parameter or $parameter = default, not (($a)) or $a[0] = 1, with a type
+    // before it if it has one.
     fn parenthesised() {
         $paren = #current_token;
         $head = #lambda_head == $paren;
         #eat("LEFT_PAREN");
 
-        // Each item with the token it starts at, for checking it as a parameter
+        // Each item with the token it starts at, for checking it as a parameter, and its type
         $items = [];
         $comma = null;
         if (#current_token.type != "RIGHT_PAREN") {
-            $first = #current_token;
-            $items[] = [$first, #expr()];
+            $items[] = #lambda_item($head);
             while (#current_token.type == "COMMA") {
                 if (!$head) {
                     #unexpected();
                 }
                 $comma ??= #current_token;
                 #eat("COMMA");
-                $first = #current_token;
-                $items[] = [$first, #expr()];
+                $items[] = #lambda_item($head);
             }
         }
         $close = #current_token;
@@ -726,6 +829,14 @@ kind Html {
             if ($items == []) {
                 #fail_at("Unexpected ')'", #file, $close.line);
             }
+            if ($items[0][2] != null) {
+                // Typed parameters and then a colon: a lambda's return type, which there is
+                // no room for, since ) : is a ternary's else in $c ? ($a) : $b
+                if (#current_token.type == "COLON") {
+                    #fail("A lambda can't declare a return type: after ) a : is a ternary's, as in \$c ? (\$a) : \$b");
+                }
+                #fail_at("Expected ')' but found " .. #describe($items[0][0]), #file, $items[0][0].line);
+            }
 
             return $items[0][1];
         }
@@ -734,13 +845,17 @@ kind Html {
         $defaults = [];
         $lines = [];
         $patterns = [];
-        foreach ($items as [$first, $item]) {
+        $types = [];
+        foreach ($items as [$first, $item, $type]) {
             $default = null;
             if (is_a($item, AssignAST) && $item.token.type == "ASSIGN") {
                 $default = $item.right;
                 $item = $item.left;
             }
             if ($first.type == "LEFT_BRACKET" && (is_a($item, ArrayLiteralAST) || is_a($item, ListPatternAST))) {
+                if ($type != null) {
+                    #fail_at("A pattern parameter takes no type: it is already a list, and its variables are assigned by taking it apart", #file, $first.line);
+                }
                 // [$a, $b] or, with a default, [$a, $b] = [...], which parsed as taking a list apart
                 $pattern = is_a($item, ListPatternAST)
                     ? ListPatternAST(map($item.targets, #parameter_target))
@@ -757,11 +872,53 @@ kind Html {
             }
             $params[] = $param;
             $defaults[] = $default;
+            $types[] = $type;
             $lines[] = $first.line;
             #check_bound($params, $patterns, "lambda", $first.line);
         }
 
-        return #lambda($paren, $params, $defaults, $lines, $patterns);
+        return #lambda($paren, $params, $defaults, $lines, $patterns, $types);
+    }
+
+    // One item of a parenthesised list, as [the token it starts at, the expression, its type or null]
+    //
+    // In a lambda head an item may be a typed parameter, int $x. A type reads as an expression
+    // too (int|null is two bare names and a |), so it is parsed as one and taken for a type
+    // when a parameter follows it, which no expression can be followed by; the names it used
+    // are then taken back out of #uses, since they are not functions. A ? starts no expression,
+    // so ?int is read as a type outright.
+    fn lambda_item($head) {
+        $type = null;
+        if ($head && (#current_token.type == "QUESTION" || #current_token.type == "KIND" || #current_token.type == "FUNCTION")) {
+            $type = #type();
+        } else if ($head && (#current_token.type == "IDENTIFIER" || #current_token.type == "NULL")) {
+            $uses = len(#uses);
+            $start = #current_token;
+            $expr = #expr();
+            if (#current_token.type != "VAR_IDENTIFIER" && #current_token.type != "LEFT_BRACKET") {
+                return [$start, $expr, null];
+            }
+            #uses = slice(#uses, 0, $uses);
+            $type = #make_type(#type_names_of($expr, $start), $start);
+        }
+        $first = #current_token;
+
+        return [$first, #expr(), $type];
+    }
+
+    // The names a type spelt as an expression is made of: bare names and null, joined by |
+    fn type_names_of($expr, $start) {
+        if (is_a($expr, BinOpAST) && $expr.op.type == "BIT_OR") {
+            return [...#type_names_of($expr.left, $start), ...#type_names_of($expr.right, $start)];
+        }
+        if (is_a($expr, FunctionRefAST)) {
+            return [$expr.name];
+        }
+        if (is_a($expr, NullAST)) {
+            return ["null"];
+        }
+
+        #fail_at("Expected a type before the parameter", #file, $start.line);
     }
 
     // Parse a lambda's body after its parameters (ARROW (block | expr)) and build the node
@@ -772,7 +929,7 @@ kind Html {
     //
     // What was set aside is restored after the body, not in a finally: nothing catches a
     // ParseError and carries on parsing.
-    fn lambda($start, $params, $defaults, $lines, $patterns = []) {
+    fn lambda($start, $params, $defaults, $lines, $patterns = [], $types = []) {
         $arity = #check_parameters($params, $defaults, $lines);
         #eat("ARROW");
         $bound_names = filter($params, $param -> !starts_with($param, "\$#"));
@@ -782,9 +939,9 @@ kind Html {
         #forget_uses($bound_names);
 
         // A lambda in a constructor isn't the constructor: it can return values, and can't run ##_;
-        // one in a finally block can return too
-        [$in_constructor, $in_finally] = [#in_constructor, #in_finally];
-        [#in_constructor, #in_finally] = [false, false];
+        // one in a finally block can return too, and one in a typed function returns what it likes
+        [$in_constructor, $in_finally, $return_type] = [#in_constructor, #in_finally, #return_type];
+        [#in_constructor, #in_finally, #return_type] = [false, false, null];
         $scope = #enter_scope($params, true);
         if (#current_token.type == "LEFT_BRACE") {
             [$in_function, $loop_depth] = [#in_function, #loop_depth];
@@ -794,7 +951,7 @@ kind Html {
         } else {
             $body = #expr();
         }
-        [#in_constructor, #in_finally] = [$in_constructor, $in_finally];
+        [#in_constructor, #in_finally, #return_type] = [$in_constructor, $in_finally, $return_type];
         // Pattern parameters are taken apart first, which makes an expression body a block
         // returning it
         if ($patterns != []) {
@@ -834,7 +991,7 @@ kind Html {
         $lambda = #at(LambdaAST($params, $defaults, $arity, $body, $captures), $start);
         $lambda.owner = #kind?.name;
 
-        return $lambda;
+        return #with_types($lambda, $types, null);
     }
 
     // Check a lambda's parameter list, with the same rules as a function's, and work out its arity
@@ -1571,6 +1728,10 @@ kind Html {
         if (#in_constructor && #current_token.type != "SEMICOLON") {
             #fail("A constructor can't return a value: constructing gives the object");
         }
+        // A bare return gives null, which a return type that excludes null would refuse every time
+        if (#current_token.type == "SEMICOLON" && #return_type != null && !#return_type.allows_null()) {
+            #fail("return needs a value in a function that returns " .. #return_type.text());
+        }
         $expr = #current_token.type == "SEMICOLON" ? null : #expr();
         #eat("SEMICOLON");
 
@@ -1616,20 +1777,21 @@ kind Html {
         $name = #qualify(#current_token.value);
         #eat("IDENTIFIER");
 
-        [$params, $defaults, $promoted, $patterns] = #parameters("function {$name}");
+        [$params, $defaults, $promoted, $patterns, $types] = #parameters("function {$name}");
+        $returns = #declared_return(false);
         // Declared before the body is parsed, so the function can call itself
         $arity = #arity($params, $defaults);
         #functions[$name] = $arity;
         #declare($name, $pub);
 
-        #in_function = true;
+        [#in_function, #return_type] = [true, $returns];
         $scope = #enter_scope($params, false);
         $body = #block();
         #leave_scope($scope);
-        #in_function = false;
+        [#in_function, #return_type] = [false, null];
         $body.statements = [...$patterns, ...$body.statements];
 
-        return #at(FunctionDeclarationAST($name, $params, $defaults, $body, $arity), $start);
+        return #with_types(#at(FunctionDeclarationAST($name, $params, $defaults, $body, $arity), $start), $types, $returns);
     }
 
     // Check the name being declared isn't taken: functions, kinds and builtins share one namespace
@@ -1655,14 +1817,16 @@ kind Html {
     }
 
     // Parse a function or method's parameter list (LPAREN [param (COMMA param)*] RPAREN),
-    // param: VAR_IDENTIFIER [ASSIGN expr] | [PUB | KIN] HASH_IDENTIFIER [ASSIGN expr]
+    // param: [type] VAR_IDENTIFIER [ASSIGN expr] | [PUB | KIN] [type] HASH_IDENTIFIER [ASSIGN expr] | list_pattern [ASSIGN expr]
     //
     // $owner is what the parameters belong to, for errors: "function f", "method Point.move".
     // The HASH_IDENTIFIER form (constructor property promotion) is only recognised when $kind
     // is given, which method_declaration() does only for _: it declares the field on $kind (as
     // field_declaration() would) and returns it in $promoted for the caller to assign from,
-    // since the assignment needs the constructor's body, not just its parameters.
-    // Gives the names (with sigil, "$x"), each one's default or null, and $promoted.
+    // since the assignment needs the constructor's body, not just its parameters. A promoted
+    // parameter's type is the field's too.
+    // Gives the names (with sigil, "$x"), each one's default or null, $promoted, the pattern
+    // statements, and each one's TypeAST or null.
     fn parameters($owner, $kind = null) {
         #eat("LEFT_PAREN");
         $params = [];
@@ -1670,6 +1834,7 @@ kind Html {
         $promoted = [];
         // The statement taking each pattern parameter apart, for the start of the body
         $patterns = [];
+        $types = [];
         $has_default = false;
         while (#current_token.type != "RIGHT_PAREN") {
             if ($params != []) {
@@ -1679,6 +1844,16 @@ kind Html {
             if ($kind != null && (#current_token.type == "PUB" || #current_token.type == "KIN")) {
                 $vis = #current_token.type == "PUB" ? "pub" : "kin";
                 #eat(#current_token.type);
+            }
+            $type = null;
+            if (#at_type()) {
+                $type_token = #current_token;
+                $type = #type();
+                // A bare name where a parameter goes was more likely meant as the parameter
+                if (!in_array(#current_token.type, ["VAR_IDENTIFIER", "HASH_IDENTIFIER", "LEFT_BRACKET"])) {
+                    $found = len($type.names) == 1 ? "'{$type_token.value}'" : #describe(#current_token);
+                    #fail_at("Expected a \$variable but found {$found}", #file, $type_token.line);
+                }
             }
             if ($kind != null && #current_token.type == "HASH_IDENTIFIER") {
                 $token = #current_token;
@@ -1703,11 +1878,12 @@ kind Html {
                 }
                 // No default of its own: its value always comes from the parameter, assigned
                 // in the constructor's body, whether given or defaulted there
-                #declare_field($kind, $name, null, $vis, $token.line);
+                #declare_field($kind, $name, null, $vis, $token.line, $type);
                 #promoted["{$kind.name}::{$name}"] = true;
                 $promoted[] = [$name, $token];
                 $params[] = $param;
                 $defaults[] = $default;
+                $types[] = $type;
                 continue;
             }
             if ($vis != "") {
@@ -1716,6 +1892,9 @@ kind Html {
 
             $param = #current_token.value;
             if (#current_token.type == "LEFT_BRACKET") {
+                if ($type != null) {
+                    #fail("A pattern parameter takes no type: it is already a list, and its variables are assigned by taking it apart");
+                }
                 $pattern_token = #current_token;
                 [$param, $statement] = #pattern_parameter(#list_pattern(#list_literal(), #parameter_target), len($params));
                 $patterns[] = $statement;
@@ -1738,10 +1917,11 @@ kind Html {
             }
             $params[] = $param;
             $defaults[] = $default;
+            $types[] = $type;
         }
         #eat("RIGHT_PAREN");
 
-        return [$params, $defaults, $promoted, $patterns];
+        return [$params, $defaults, $promoted, $patterns, $types];
     }
 
     // A list pattern as parameter $index: a hidden parameter in its place, and the statement
@@ -1820,6 +2000,10 @@ kind Html {
         }
         #eat("KIND");
         #check_new_name();
+        // In a type, one of these words always means the builtin type, so no kind can take it
+        if (in_array(#current_token.value, #TYPE_NAMES)) {
+            #fail("{#current_token.value} is a type name, so a kind can't be called that");
+        }
         $name = #qualify(#current_token.value);
         #eat("IDENTIFIER");
         $parent = null;
@@ -1846,8 +2030,21 @@ kind Html {
                 $vis = #current_token.type == "PUB" ? "pub" : "kin";
                 #eat(#current_token.type);
             }
+            // A type goes before the name it types, so here it can only be a field's
+            $type = null;
+            if (#at_type()) {
+                $type_token = #current_token;
+                $type = #type();
+                if (#current_token.type != "HASH_IDENTIFIER") {
+                    // A kind inside a kind was not a field of type kind
+                    if (in_array($type_token.type, ["KIND", "FUNCTION"])) {
+                        #fail_at("Expected a field (#name), a method (fn), a constant (const) or a static but found " .. #describe($type_token), #file, $type_token.line);
+                    }
+                    #fail("Expected a field (#name) after the type but found " .. #describe(#current_token));
+                }
+            }
             if (#current_token.type == "HASH_IDENTIFIER") {
-                #field_declaration($kind, $vis);
+                #field_declaration($kind, $vis, $type);
             } else if (#current_token.type == "CONST") {
                 #constant_declaration($kind, false, $vis);
             } else if (#current_token.type == "FN" || #current_token.type == "ABSTRACT") {
@@ -1864,8 +2061,8 @@ kind Html {
         return $kind;
     }
 
-    // Parse a field declaration (HASH_IDENTIFIER [ASSIGN expr] SEMICOLON) into its kind
-    fn field_declaration($kind, $vis = "") {
+    // Parse a field declaration (HASH_IDENTIFIER [ASSIGN expr] SEMICOLON) into its kind, its type already read
+    fn field_declaration($kind, $vis = "", $type = null) {
         $token = #current_token;
         $name = slice($token.value, 1);
         #check_new_member($kind, $name);
@@ -1884,16 +2081,20 @@ kind Html {
         }
         #eat("SEMICOLON");
 
-        #declare_field($kind, $name, $default, $vis, $token.line);
+        #declare_field($kind, $name, $default, $vis, $token.line, $type);
     }
 
     // Register a field of $kind: the one place that writes fields/field_lines/vis, so a field
     // declared with #x; or #x = default; and one promoted from a constructor parameter stay
     // in sync as the same field to everything downstream (layout, visibility, codegen)
-    fn declare_field($kind, $name, $default, $vis, $line) {
+    fn declare_field($kind, $name, $default, $vis, $line, $type = null) {
         $kind.fields[$name] = $default;
         $kind.field_lines[$name] = $line;
         $kind.vis[$name] = $vis;
+        if ($type != null) {
+            $kind.field_types ??= {};
+            $kind.field_types[$name] = $type;
+        }
     }
 
     // Parse a constant declaration (CONST IDENTIFIER ASSIGN expr SEMICOLON), at the top level or in a kind ($kind)
@@ -2050,6 +2251,32 @@ kind Html {
             $node.catches[$index][0] = $name;
             #check_visible($name, $scope, $file, $line);
         }
+        foreach (#type_uses as [$node, $scope]) {
+            $node.names = map($node.names, $name -> #resolve_type_name($name, $scope, $node));
+        }
+    }
+
+    // A type's name as a declaration made it: a builtin type's name is its own, a kind's is
+    // resolved like any other name
+    fn resolve_type_name($name, $scope, $node) {
+        if (in_array($name, #TYPE_NAMES)) {
+            return $name;
+        }
+        $resolved = #resolve($name, $scope, $node.file, $node.line);
+        #check_visible($resolved, $scope, $node.file, $node.line);
+
+        return $resolved;
+    }
+
+    // Every name in a declared type that isn't a builtin type's must be a kind's
+    fn check_types() {
+        foreach (#type_uses as [$node, $scope]) {
+            foreach ($node.names as $name) {
+                if (!in_array($name, #TYPE_NAMES) && !has_key(#kinds, $name)) {
+                    #fail_at(#not_a_type($name), $node.file, $node.line);
+                }
+            }
+        }
     }
 
     // What is wrong with a name written where a kind's goes
@@ -2058,6 +2285,15 @@ kind Html {
             has_key(#functions, $name) => "{$name} is a function, not a kind",
             has_key(#constants, $name) => "{$name} is a constant, not a kind",
             default => "Undefined kind: {$name}",
+        };
+    }
+
+    // What is wrong with a name written in a type: a builtin type's name or a kind's is what goes there
+    fn not_a_type($name) {
+        return match {
+            has_key(#functions, $name) => "{$name} is a function, not a type",
+            has_key(#constants, $name) => "{$name} is a constant, not a type",
+            default => "Undefined type: {$name}",
         };
     }
 
@@ -2387,6 +2623,7 @@ kind Html {
 
             return;
         }
+        $type = #at_type() ? #type() : null;
         $token = #current_token;
         if ($token.type != "HASH_IDENTIFIER") {
             #fail("Expected a static field (#name) or a static method (fn) but found " .. #describe($token));
@@ -2406,6 +2643,10 @@ kind Html {
         $kind.statics[$name] = $expr;
         $kind.static_lines[$name] = $token.line;
         $kind.vis[$name] = $vis;
+        if ($type != null) {
+            $kind.static_types ??= {};
+            $kind.static_types[$name] = $type;
+        }
     }
 
     // Parse a static method (FN name parameters block), the static having been eaten
@@ -2426,19 +2667,20 @@ kind Html {
         #eat($token.type);
 
         $full = "{$kind.name}::{$name}";
-        [$params, $defaults, $promoted, $patterns] = #parameters("static method {$full}");
+        [$params, $defaults, $promoted, $patterns, $types] = #parameters("static method {$full}");
+        $returns = #declared_return(false);
         $arity = #arity($params, $defaults);
         #functions[$full] = $arity;
         #declare($full, has_key(#public, $kind.name) || #declared_in[$kind.name] == "");
         [$in_function, $in_static] = [#in_function, #in_static];
-        [#in_function, #in_static] = [true, $kind];
+        [#in_function, #in_static, #return_type] = [true, $kind, $returns];
         $scope = #enter_scope($params, false);
         $body = #block();
         #leave_scope($scope);
-        [#in_function, #in_static] = [$in_function, $in_static];
+        [#in_function, #in_static, #return_type] = [$in_function, $in_static, null];
         $body.statements = [...$patterns, ...$body.statements];
 
-        $node = #at(FunctionDeclarationAST($full, $params, $defaults, $body, $arity), $start);
+        $node = #with_types(#at(FunctionDeclarationAST($full, $params, $defaults, $body, $arity), $start), $types, $returns);
         $node.kind = $kind.name;
         $kind.static_methods[$name] = $node;
         $kind.vis[$name] = $vis;
@@ -2472,7 +2714,8 @@ kind Html {
         #check_new_member($kind, $name);
         #eat($token.type);
 
-        [$params, $defaults, $promoted, $patterns] = #parameters("method {$kind.name}.{$name}", $name == "_" ? $kind : null);
+        [$params, $defaults, $promoted, $patterns, $types] = #parameters("method {$kind.name}.{$name}", $name == "_" ? $kind : null);
+        $returns = #declared_return($name == "_");
         if ($abstract) {
             if (!$kind.abstract) {
                 #fail_at("Kind {$kind.name} has abstract method {$name}, so it must be abstract too", #file, $start.line);
@@ -2490,11 +2733,11 @@ kind Html {
             #eat("SEMICOLON");
             $body = CompoundAST();
         } else {
-            [#in_function, #in_constructor] = [true, $name == "_"];
+            [#in_function, #in_constructor, #return_type] = [true, $name == "_", $returns];
             $scope = #enter_scope($params, false);
             $body = #block();
             #leave_scope($scope);
-            [#in_function, #in_constructor] = [false, false];
+            [#in_function, #in_constructor, #return_type] = [false, false, null];
         }
         $prelude = $patterns;
         foreach ($promoted as [$field, $field_token]) {
@@ -2502,7 +2745,7 @@ kind Html {
         }
         $body.statements = [...$prelude, ...$body.statements];
 
-        $method = #at(FunctionDeclarationAST($name, $params, $defaults, $body, #arity($params, $defaults)), $start);
+        $method = #with_types(#at(FunctionDeclarationAST($name, $params, $defaults, $body, #arity($params, $defaults)), $start), $types, $returns);
         $method.kind = $kind.name;
         $method.abstract = $abstract;
         $kind.methods[$name] = $method;
@@ -2668,7 +2911,7 @@ kind Html {
         // is checked, so only this pass ever learns that namespaces exist
         #resolve_names();
         // Error is only compiled into programs that can catch, name or extend it
-        $uses_error = #catches;
+        $uses_error = #catches || #names_in_a_type("Error");
         foreach (#uses as [$use, $scope]) {
             $uses_error = $uses_error || $use.name == "Error";
         }
@@ -2679,7 +2922,7 @@ kind Html {
             $root.statements = [$error_kind, ...$root.statements];
         }
         // Shared is only compiled into programs with a shared variable
-        if (#shares) {
+        if (#shares || #names_in_a_type("Shared")) {
             $root.statements = [$shared_kind, ...$root.statements];
         }
         // Html into programs with a template, or that name it themselves
@@ -2693,6 +2936,7 @@ kind Html {
                 #fail_at(#not_a_kind($name), $file, $line);
             }
         }
+        #check_types();
 
         foreach (#kinds as $kind) {
             #resolve_kind($kind, []);
@@ -2958,6 +3202,7 @@ kind Html {
                     $expected = $parent_fewest == $parent_most ? $parent_fewest : "{$parent_fewest} to {$parent_most}";
                     #fail_at("Method {$kind.name}.{$name} must accept every argument count {$owner}.{$name} does ({$expected})", $method.file, $method.line);
                 }
+                #check_override_types($kind, $method, $owner, #kinds[$owner].methods[$name]);
             }
             if ($name == "to_string" && #bounds($method.arity)[0] != 0) {
                 #fail_at("Method {$kind.name}.to_string must accept 0 arguments: printing calls it with none", $method.file, $method.line);
@@ -2997,6 +3242,39 @@ kind Html {
             #fail_at("Kind {$kind.name} must define abstract method {$name} of {$kind.abstract_methods[$name]}, or be abstract", $kind.file, $kind.line);
         }
         $kind.resolved = true;
+    }
+
+    // An override keeps the parent's types where the parent declares them: the same type on
+    // each such parameter and on the return, so code holding the parent's word about a value
+    // is never let down by a child's. Where the parent says nothing, the child may say what it
+    // likes. The same type rather than a wider or narrower one: the restrictive choice, which
+    // can be loosened later without breaking a program.
+    fn check_override_types($kind, $method, $owner, $parent) {
+        $name = $method.name;
+        $types = $method.param_types ?? [];
+        foreach ($parent.param_types ?? [] as $i => $type) {
+            if ($type == null) {
+                continue;
+            }
+            $mine = $types[$i] ?? null;
+            if (!#same_type($mine, $type)) {
+                #fail_at("Method {$kind.name}.{$name} must take {$method.params[$i]} as {$type.text()}, as {$owner}.{$name} does: an override keeps the parent's types", $method.file, $method.line);
+            }
+        }
+        $returns = $parent.return_type ?? null;
+        $mine = $method.return_type ?? null;
+        if ($returns != null && !#same_type($mine, $returns)) {
+            #fail_at("Method {$kind.name}.{$name} must return {$returns.text()}, as {$owner}.{$name} does: an override keeps the parent's types", $method.file, $method.line);
+        }
+    }
+
+    // Whether two declared types admit the same names, in whatever order they were written
+    fn same_type($mine, $theirs) {
+        if ($mine == null) {
+            return false;
+        }
+
+        return sort($mine.names) == sort($theirs.names);
     }
 
     // Check a ##name against the parent of the kind it is written in, and record whose version runs
@@ -3040,6 +3318,17 @@ kind Html {
         }
         foreach (#kinds as $kind) {
             if ($kind.parent == "Html") {
+                return true;
+            }
+        }
+
+        return #names_in_a_type("Html");
+    }
+
+    // Whether a declared type names $kind, which a builtin kind must then be compiled in for
+    fn names_in_a_type($kind) {
+        foreach (#type_uses as [$node, $scope]) {
+            if (in_array($kind, $node.names)) {
                 return true;
             }
         }

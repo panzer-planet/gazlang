@@ -19,7 +19,8 @@ opinionated.
 - **Lists, maps, functions, kinds and objects**, below.
 
 `type_of($x)` gives `int`, `float`, `string`, `bool`, `null`, `list`, `map`, `function`,
-`kind`, `object` or `socket`.
+`kind`, `object`, `socket` or `db`; those names are also what a declared type is written with
+(see "Types").
 
 ## Variables
 
@@ -381,6 +382,89 @@ echo is_a($c, Shape) .. " " .. $c.radius;
 - **`fields()` and `echo` are not member access** and show every field that is set, whatever it
   escapes: reflection exists so a pass can walk an object without knowing its kind.
 - **`to_string()`** is the one protocol method: `echo`, `..`, interpolation and `join` use it.
+
+## Types
+
+Types are optional, and checked when the program runs. Leaving one out means anything, as it
+always did; writing one means the value is checked, strictly, where it arrives.
+
+```gaz
+kind Account {
+    pub string #owner;
+    pub float #balance = 0;
+    kin ?string #note = null;
+    static int #made = 0;
+
+    fn _(pub int #id, string $owner, int|float $start = 0) {
+        #owner = $owner;
+        #balance = $start;
+        #made++;
+    }
+
+    pub fn deposit(int|float $amount): float {
+        #balance += $amount;
+
+        return #balance;
+    }
+
+    pub fn close(): null {
+        #note = "closed";
+    }
+}
+
+fn total(int $n, ?string $label = null): int {
+    return $n * 2;
+}
+
+$double = (int $x) -> $x * 2;
+$a = Account(1, "Ann", 10);
+echo $a.deposit(5) .. " " .. total(4) .. " " .. $double(21);
+echo Account::made;
+```
+```
+15.0 8 42
+1
+```
+
+- **The syntax is PHP's**: the type goes before what it types. Parameters (`int $n`), the
+  return after the parameters (`fn total(int $n): int`), fields (`pub float #balance = 0`), static
+  fields (`static int #made = 0`), promoted constructor parameters (`fn _(pub int #id)`) and
+  lambda parameters (`(int $x) -> $x * 2`) all take one. A constructor has no return type,
+  since constructing gives the object, and a lambda has none either: after `(...)` a `:` is a
+  ternary's, as in `$c ? ($a) : $b`. A list pattern takes no type: it is already a list.
+- **A type is a `type_of()` name** (`int float string bool null list map function kind object
+  socket db`) **or a kind's name**, resolved like any other name, so `Shape` in
+  `namespace shapes` is `shapes::Shape`. `?T` is `T|null`, and `A|B|C` is a union. `object` is
+  any object; a kind admits its children, as `is_a` does. A kind can't be named after a
+  builtin type. No `mixed` or `any`: leave the type out. No generics yet: `list<int>` is an
+  error that says so.
+- **`: null` is the return type of a function that returns nothing**, since a call that returns
+  nothing gives `null`: it is the value's type, not a special word.
+- **Checked when the value arrives, never converted**, with one exception: an int is accepted
+  where `float` is asked and arrives as a float (`fn area(float $r)` called as `area(2)` has
+  `$r` equal to `2.0`), in a parameter, a return and a field alike. `"5"` where `int` is asked
+  is an error, `2.0` where `int` is asked is an error, `true` where `int` is asked is an error.
+- **Where**: a parameter when the function starts, after its defaults have run, so a default
+  that doesn't fit is an error too; the return on every `return` (once the function's own
+  `finally` blocks have run, so a `catch` inside it can't catch the error: its caller gets it),
+  the implicit `null` at the end of a function included (a bare `return;` in a function whose type excludes null is a
+  syntax error); a field on every write that changes its value, from inside the kind or out,
+  `=`, `+=`, `++`, `..=` and `??=` alike, its default when the object is made, and a promoted
+  parameter. A write inside a field's value (`$o.items[] = 1`) changes nothing the type says.
+  A typed field with no default is unset until written, as before.
+- **The errors are ordinary, catchable runtime errors**, located where the check is, with the
+  trace showing the caller: `total() expects $n to be int, got string`, `Account.deposit()
+  expects $amount to be int|float, got null`, `Account() expects $owner to be string, got int`
+  (a constructor is named as the call that makes the object), `-> at file.gaz:12 expects $x
+  to be int, got string` (a lambda as traces name one), `total() should return int, got
+  string`, `Account #balance must be float, got string`, `Account::made must be int, got
+  string`. What it got is named as `type_of()` would, an object by its kind.
+- **An override keeps the parent's types** where the parent declares them: the same type on
+  each such parameter and on the return. Where the parent says nothing, the child may say what
+  it likes. Constructors are each kind's own, as with argument counts.
+- **Untyped code pays nothing**: a typed parameter or return is a check instruction in the
+  function, and a typed field or static field a word on its record in the bytecode, so code
+  without types compiles exactly as it did.
 
 ## Errors
 
@@ -782,7 +866,8 @@ http::serve($listener, $request -> ({"body" => user_page($user, $posts)}));
 ```
 
 - The first line is `@template name($parameters)`: the function the template becomes, with
-  parameters as a function's, defaults included. Its file name doesn't matter.
+  parameters as a function's, defaults and types included (`@template page(User $user, list
+  $posts): Html`). Its file name doesn't matter.
 - `{{ expression }}` writes the value as `echo` prints it, **escaped for HTML** (`& < > " '`).
   `{!! expression !!}` writes it as it is: only for HTML you trust.
 - A template gives an `Html`, which `{{ }}` writes as it is, so templates include each other

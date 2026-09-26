@@ -1,0 +1,162 @@
+// Declared types, checked when the program runs: what passes, what an int becomes where a
+// float is asked, and what every check says when it fails
+kind Shape {
+    pub string #name;
+    pub float #area = 0;
+    pub ?string #note = null;
+    pub int|float #scale = 1;
+    pub list #tags = [];
+    pub static int #made = 0;
+    pub static float #total_area = 0;
+
+    fn _(pub string #label, int $scale = 1) {
+        #name = $label;
+        #scale = $scale;
+        #made++;
+    }
+
+    pub fn grow(int|float $by): float {
+        #area = #area * $by;
+
+        return #area;
+    }
+
+    pub fn rename(string $name): null {
+        #name = $name;
+    }
+
+    pub fn set_note(?string $note) {
+        #note = $note;
+    }
+
+    pub fn tag(string $tag): Shape {
+        #tags[] = $tag;
+        #note ..= $tag;
+
+        return #;
+    }
+
+    pub static fn count(): int {
+        return #made;
+    }
+}
+
+kind Circle extends Shape {
+    fn _(float $radius) {
+        ##_("circle");
+        #area = 3 * $radius * $radius;
+    }
+
+    pub fn grow(int|float $by): float {
+        return ##grow($by) + 0.5;
+    }
+}
+
+fn area(float $r): float {
+    return $r * $r;
+}
+
+fn total(int $n, ?string $label = null): int {
+    return $n * 2;
+}
+
+fn nothing(): null {
+}
+
+fn wrong(): int {
+    return "x";
+}
+
+fn falls_off(): int {
+}
+
+fn bad_default(int $n = "x") {
+    return $n;
+}
+
+fn takes_shape(Shape $s): Shape {
+    return $s;
+}
+
+fn anything(object $o, kind $k, function $f, list $l, map $m, bool $b, null $n): string {
+    return type_of($o) .. type_of($k) .. type_of($f) .. type_of($l) .. type_of($m) .. type_of($b) .. type_of($n);
+}
+
+fn fails($f) {
+    try {
+        return "no error: " .. to_string($f());
+    } catch (Error $e) {
+        return $e.message .. " | " .. join($e.trace, ", ");
+    }
+}
+
+// What passes
+echo area(2) .. " " .. area(1.5);
+echo total(4) .. " " .. total(4, "x");
+echo nothing();
+echo anything(Shape("s"), Shape, area, [], {}, true, null);
+
+// An int arrives as a float where a float is asked: in a parameter, a return, a field and a static
+$c = Circle(2);
+echo $c;
+echo $c.grow(2);
+Shape::total_area = 5;
+echo Shape::total_area;
+$c.area = 7;
+echo $c.area;
+echo $c.grow(1);
+
+// A kind admits its children, and null where ? says so
+echo takes_shape($c).name;
+$c.set_note(null);
+$c.set_note("n");
+echo $c.tag("t").tag("u").note .. " " .. $c.tags;
+
+// ??=, ++ and += go through the same check
+$c.scale ??= 3;
+$c.scale++;
+$c.scale += 0.5;
+echo $c.scale;
+echo Shape::count() .. " " .. Shape::made;
+
+// What fails, and where the trace puts it
+echo fails(() -> area("two"));
+echo fails(() -> total(1.5));
+echo fails(() -> total(1, 2));
+echo fails(() -> wrong());
+echo fails(() -> falls_off());
+echo fails(() -> bad_default());
+echo fails(() -> takes_shape(1));
+echo fails(() -> takes_shape(Shape));
+echo fails(() -> Circle("big"));
+echo fails(() -> Shape(1));
+echo fails(() -> $c.grow(null));
+echo fails(() -> $c.rename(1));
+echo fails(() -> { $c.name = 1; });
+echo fails(() -> { $c.area = "wide"; });
+echo fails(() -> { $c.scale = "x"; });
+echo fails(() -> { $c.name ..= 1; });
+echo fails(() -> { $c.area ..= "!"; });
+echo fails(() -> { $c.scale += 1.5; return $c.scale; });
+echo fails(() -> { $c.tags = "not a list"; });
+echo fails(() -> { Shape::made = "many"; });
+echo fails(() -> { Shape::made ..= "!"; });
+echo fails(() -> { Shape::made += 1.5; });
+echo fails(() -> { Shape::total_area = 2; return Shape::total_area; });
+$typed_lambda = (int $x, ?string $s = null) -> [$x, $s];
+echo $typed_lambda(1);
+echo fails(() -> $typed_lambda("one"));
+echo fails(() -> $typed_lambda(1, 2));
+
+// A field default that isn't of the field's type fails when the object is made
+kind Broken {
+    pub int #count = "none";
+}
+echo fails(() -> Broken());
+
+// A write inside a typed field's value is not a write of the field
+$c.tags[] = 1;
+echo $c.tags;
+
+// Uncaught, the message and the trace show the caller
+total("last");

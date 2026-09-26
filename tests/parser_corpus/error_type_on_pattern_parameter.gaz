@@ -1,0 +1,2 @@
+// A pattern is already a list, and its variables are assigned by taking it apart
+fn f(list [$a, $b]) {}

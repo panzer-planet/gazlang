@@ -1,0 +1,3 @@
+Error: -> on line 1 expects $x to be int, got string on line 1
+  -> on line 1
+  top level on line 1

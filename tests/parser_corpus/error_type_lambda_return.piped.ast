@@ -1,0 +1,1 @@
+Error: A lambda can't declare a return type: after ) a : is a ternary's, as in $c ? ($a) : $b on line 4

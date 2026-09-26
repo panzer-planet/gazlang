@@ -1,0 +1,6 @@
+kind A {
+    pub fn f(int $x) {}
+}
+kind B extends A {
+    pub fn f(string $x) {}
+}

@@ -1,0 +1,57 @@
+// Declared types: a check per typed parameter after the defaults, a check before every return
+// of a function with a return type (the implicit null at its end included), and the types on
+// the field and static records; a lambda checks its parameters and has no return type
+kind Account {
+    pub string #owner;
+    pub float #balance = 0;
+    kin ?string #note = null;
+    #history = [];
+    pub static int #made = 0;
+
+    fn _(pub int #id, string $owner, int|float $start = 0) {
+        #owner = $owner;
+        #balance = $start;
+        #made++;
+    }
+
+    pub fn deposit(int|float $amount): float {
+        #balance += $amount;
+
+        return #balance;
+    }
+
+    pub fn remark(): ?string {
+        return #note;
+    }
+
+    pub static fn count(): int {
+        return #made;
+    }
+}
+
+kind Savings extends Account {
+    pub fn deposit(int|float $amount): float {
+        return ##deposit($amount * 2);
+    }
+}
+
+fn total(int $n, ?string $label = null): int {
+    if ($n > 10) {
+        return $n;
+    }
+
+    return $n * 2;
+}
+
+fn nothing(): null {
+    echo "side effect";
+}
+
+fn untyped($a, $b = 1) {
+    return $a + $b;
+}
+
+$double = (int $x, $y = 2) -> $x * $y;
+$a = Savings(1, "W");
+echo $a.deposit(2) .. total(3) .. $double(4) .. Account::count();
+nothing();

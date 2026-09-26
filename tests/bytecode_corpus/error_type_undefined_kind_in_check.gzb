@@ -1,0 +1,6 @@
+GAZLANG BYTECODE 2
+globals
+
+top
+locals $x
+CHECK_PARAM 0 Missing|int

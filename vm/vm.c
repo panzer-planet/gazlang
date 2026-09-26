@@ -125,6 +125,25 @@ static const char *frame_name(Frame *f) {
     return f->block->key->data;
 }
 
+/* How a type error names the call it is in: "total()", "Account.deposit()", "Counter::next()",
+   "Account()" for a constructor (an object is made by a call of its kind), and a closure as
+   traces name one, "-> at file.gaz:12" */
+static void callee_name(Frame *f, Buf *out) {
+    if (f->closure) {
+        buf_adds(out, "-> ");
+        location_text(f->closure->file, f->closure->line, out);
+        return;
+    }
+    if (f->block->kind != B_FN) {
+        buf_adds(out, frame_name(f));
+        return;
+    }
+    Str *name = f->block->name;
+    if (name->len > 2 && !strcmp(name->data + name->len - 2, "._")) buf_add(out, name->data, name->len - 2);
+    else buf_add_str(out, name);
+    buf_adds(out, "()");
+}
+
 /*
  * The calls running, innermost first, for an error raised at an instruction: each call where
  * it was running, the innermost where the error happened and the ones around it at the call
@@ -583,6 +602,13 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             PUSH(a);
             break;
         case OP_STORE_STATIC:
+            if (program->static_types && program->static_types[in->a]) {
+                TypeSpec *t = program->static_types[in->a];
+                if (!type_admits(t, &TOP())) {
+                    raisef("%s must be %s, got %s", program->statics[in->a]->data, t->text->data, describe_type(TOP()));
+                    goto error;
+                }
+            }
             set_slot(&statics[in->a], POP());
             break;
 
@@ -777,7 +803,8 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             break;
         case OP_SET_FIELD_POP: {
             int f = field_slot(in, fp->receiver, fp->block->owner);
-            if (f < 0) {
+            /* A typed field takes the long way, which checks it */
+            if (f < 0 || (fp->receiver->kind->field_types && fp->receiver->kind->field_types[f])) {
                 op = in->orig;
                 goto dispatch;
             }
@@ -915,17 +942,24 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             Value joined;       /* what a path ending in ..= leaves instead of the value */
             bool ok;
             if (op == OP_SET_PATH) {
-                ok = store_path(&fp->base[in->a], fp->block->locals[in->a], path, keys, TOP(), fp->block->owner, &joined);
+                ok = store_path(&fp->base[in->a], fp->block->locals[in->a], path, keys, &TOP(), fp->block->owner, &joined);
             } else if (op == OP_SET_PATH_GLOBAL) {
-                ok = store_path(&globals[in->a], program->globals[in->a], path, keys, TOP(), fp->block->owner, &joined);
+                ok = store_path(&globals[in->a], program->globals[in->a], path, keys, &TOP(), fp->block->owner, &joined);
             } else if (op == OP_SET_PATH_CAPTURED) {
-                ok = store_path(&fp->closure->captured[in->a], fp->closure->lambda->block->captures[in->a], path, keys, TOP(), fp->block->owner, &joined);
+                ok = store_path(&fp->closure->captured[in->a], fp->closure->lambda->block->captures[in->a], path, keys, &TOP(), fp->block->owner, &joined);
             } else if (op == OP_SET_PATH_STATIC) {
-                ok = store_path(&statics[in->a], program->statics[in->a], path, keys, TOP(), fp->block->owner, &joined);
+                /* With no steps the path appends to the static field itself (..=), which
+                   leaves a string: a typed one must allow that; with steps it writes inside */
+                TypeSpec *t = program->static_types ? program->static_types[in->a] : NULL;
+                if (t && path->nsteps == 0 && !type_has(t, T_STRING)) {
+                    raisef("%s must be %s, got string", program->statics[in->a]->data, t->text->data);
+                    goto error;
+                }
+                ok = store_path(&statics[in->a], program->statics[in->a], path, keys, &TOP(), fp->block->owner, &joined);
             } else {
                 /* The object is a handle, so writing through a copy of it writes the object */
                 Value self = fp->receiver ? v_object(fp->receiver) : v_null();
-                ok = store_path(&self, this_name(), path, keys, TOP(), fp->block->owner, &joined);
+                ok = store_path(&self, this_name(), path, keys, &TOP(), fp->block->owner, &joined);
             }
             if (!ok) goto error;
             if (path->concat) {
@@ -985,6 +1019,30 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         case OP_ARGC:
             PUSH(v_int(fp->argc));
             break;
+        case OP_CHECK_PARAM: {
+            /* After the defaults have run, so a default is held to the type too */
+            Value *slot = &fp->base[in->a];
+            TypeSpec *t = in->p;
+            if (!type_admits(t, slot)) {
+                Buf what = {0};
+                callee_name(fp, &what);
+                raisef("%s expects %s to be %s, got %s", what.data, fp->block->locals[in->a]->data, t->text->data, describe_type(*slot));
+                free(what.data);
+                goto error;
+            }
+            break;
+        }
+        case OP_CHECK_RETURN: {
+            TypeSpec *t = in->p;
+            if (!type_admits(t, &TOP())) {
+                Buf what = {0};
+                callee_name(fp, &what);
+                raisef("%s should return %s, got %s", what.data, t->text->data, describe_type(TOP()));
+                free(what.data);
+                goto error;
+            }
+            break;
+        }
         case OP_RET: {
             Frame *f = fp;
             r = POP();
@@ -1067,6 +1125,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
                 raisef("Cannot set %s here", ((Str *)in->p)->data);
                 goto error;
             }
+            if (o->kind->field_types && !check_field_type(o, f, &TOP())) goto error;
             incref(TOP());
             set_slot(&o->fields[f], TOP());
             break;

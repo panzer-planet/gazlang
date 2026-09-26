@@ -1,0 +1,3 @@
+Error: typed() expects $times to be int, got string at tests/gaz/templates/views/typed.gazml:1
+  typed at tests/gaz/templates/views/typed.gazml:1
+  top level on line 2

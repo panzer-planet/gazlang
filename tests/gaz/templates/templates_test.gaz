@@ -4,6 +4,7 @@ include "views/posts.gazml";
 include "views/shown.gazml";
 include "views/literal.gazml";
 include "views/broken.gazml";
+include "views/typed.gazml";
 
 /* A template is a function giving Html, the text it wrote */
 $page = posts({"name" => "Ann"}, ["first", "second"]);
@@ -47,6 +48,14 @@ check("@{{, emails and CSS at-rules are text", to_string(literal()), join([
 
 /* Html::escape by itself */
 check("Html::escape", [Html::escape("<&>"), Html::escape(Html("<b>")), Html::escape(5)], ["&lt;&amp;&gt;", "<b>", "5"]);
+
+/* A header's parameters can be typed, and the function it becomes may say it gives Html */
+check("a typed header", to_string(typed({"name" => "Ann"}, 2)), "<p>Ann</p>\n");
+try {
+    typed({"name" => "Ann"}, "2");
+} catch (Error $e) {
+    check("a typed header is checked", [$e.message, ends_with($e.file, "views/typed.gazml"), $e.line], ["typed() expects \$times to be int, got string", true, 1]);
+}
 
 /* A runtime error in a template is at its own line */
 try {

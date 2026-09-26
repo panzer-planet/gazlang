@@ -1,0 +1,3 @@
+Error: total() expects $n to be int, got string at tests/vm_corpus/types.gaz:59
+  total at tests/vm_corpus/types.gaz:59
+  top level at tests/vm_corpus/types.gaz:162
