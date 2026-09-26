@@ -31,6 +31,10 @@ no dogs here
 - **Loud, precise errors.** `"5" + 5` is an error, not `10` or `"55"`. A missing key is an
   error unless you ask for a default with `??`. A runtime error names its file and line, with
   a stack trace.
+- **Types when you want them.** Write `fn total(int $n): float` or `pub string #owner` and the
+  types are checked as the program runs, with errors that name the parameter:
+  `total() expects $n to be int, got string`. Leave them out and nothing changes. PHP's syntax,
+  with no silent conversion behind it ([the tour](#types)).
 - **Values that behave like values.** Lists and maps are copied when you assign them, like
   numbers are, so nothing changes behind your back. Objects are handles, shared on purpose.
 - **It compiles itself.** The lexer, parser and compiler are about 5,800 lines of GazLang,
@@ -272,26 +276,7 @@ echo $next();
 2
 ```
 
-Types are optional, and checked when the program runs: strictly, except that an int is welcome
-where a float is asked, and arrives as one.
-
-```gaz
-fn area(float $radius): float {
-    return 3.14159 * $radius * $radius;
-}
-
-echo area(2);
-try {
-    area("two");
-} catch (Error $e) {
-    echo $e.message;
-}
-```
-
-```
-12.56636
-area() expects $radius to be float, got string
-```
+Parameters, return values and fields can have types too: see [Types](#types).
 
 ### Objects
 
@@ -382,6 +367,64 @@ echo Counter::next();
 1
 2
 ```
+
+### Types
+
+Types are optional: write them where they help, leave them out where they don't. They go where
+PHP puts them, and they are checked as the program runs, at the edges: when a function is called,
+when it returns, and whenever a field is written. Nothing is converted to fit, except that an int
+is welcome where a float is asked, and arrives as one.
+
+```gaz
+kind Account {
+    pub float #balance = 0;
+
+    fn _(pub string #owner) {}
+
+    pub fn deposit(int|float $amount): Account {
+        #balance += $amount;
+        return #;
+    }
+}
+
+fn describe(Account $account, ?string $note = null): string {
+    $text = "{$account.owner} has {$account.balance}";
+    if ($note != null) {
+        $text ..= " ($note)";
+    }
+    return $text;
+}
+
+fn attempt($action): null {
+    try {
+        $action();
+    } catch (Error $e) {
+        echo $e.message;
+    }
+}
+
+$account = Account("Ada");
+$account.deposit(50);
+echo describe($account);
+echo describe($account.deposit(25), "after payday");
+
+attempt(() -> $account.deposit("lots"));
+attempt(() -> Account(42));
+attempt(() -> $account.balance = "a lot");
+```
+
+```
+Ada has 50.0
+Ada has 75.0 (after payday)
+Account.deposit() expects $amount to be int|float, got string
+Account() expects $owner to be string, got int
+Account #balance must be float, got string
+```
+
+A type is a `type_of()` name (`int`, `string`, `list`, `map`...) or a kind, which its children
+fit too. `?string` means a string or null, `int|float` either, and `: null` is a function that
+returns nothing. Generics like `list<int>` aren't here yet: they are planned as a check made
+before the program runs, since checking every element on every call would cost too much.
 
 ### Errors
 
