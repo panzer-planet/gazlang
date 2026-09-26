@@ -198,10 +198,10 @@ struct Error {
     Str *reason;        /* the message without the location */
     Str *path;          /* the file, NULL for piped source */
     int64_t line;       /* 0 when unknown */
-    bool show_location; /* false for error("text") */
+    bool show_location; /* false for throw "text" */
     bool gaz;           /* a GazLang error: false only for an error not yet given a location,
                            which a try doesn't catch if it never gets one */
-    bool has_value;     /* error($v) with anything but a string: catch gets $v */
+    bool has_value;     /* throw $v with anything but a string: catch gets $v */
     Value value;
     Value trace;        /* a list of strings, or T_UNSET until recorded */
     Value caught;       /* what catch sees, once worked out (T_UNSET until then) */

@@ -1,1 +1,1 @@
-Error: Bytecode version 3, but this is GazLang bytecode 2 at tests/bytecode_corpus/error_version.gzb:1
+Error: Bytecode version 4, but this is GazLang bytecode 3 at tests/bytecode_corpus/error_version.gzb:1

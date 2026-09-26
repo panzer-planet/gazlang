@@ -1139,7 +1139,7 @@ fn index_in($list, $value) {
 // The writing half of Program.php: a compiled program as a bytecode file
 kind Program {
     const MAGIC = "GAZLANG BYTECODE";
-    const VERSION = 2;
+    const VERSION = 3;
 
     #blocks;
     #global_names;

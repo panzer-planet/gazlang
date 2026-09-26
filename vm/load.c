@@ -1597,7 +1597,7 @@ Program *load(const char *text, size_t len, const char *path) {
     char *line = next_line();
     split_words(line ? line : "", &w);
     if (w.n != 3 || strcmp(w.w[0], "GAZLANG") || strcmp(w.w[1], "BYTECODE")) fail("Not a bytecode file");
-    if (strcmp(w.w[2], "2")) fail("Bytecode version %s, but this is GazLang bytecode 2", w.w[2]);
+    if (strcmp(w.w[2], "3")) fail("Bytecode version %s, but this is GazLang bytecode 3", w.w[2]);
     free_words(&w);
 
     prog = xcalloc(1, sizeof(Program));
