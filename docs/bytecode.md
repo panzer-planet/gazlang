@@ -6,7 +6,7 @@ and `gaz x.gzb` runs it. `compiler/codegen.gaz` writes it and `vm/load.c` and
 its arguments and stack effect, and `BytecodeTest` keeps that table, this document and the VM
 in step.
 
-The version is `1`. A loader refuses any other version. There is no compatibility promise
+The version is `2`. A loader refuses any other version. There is no compatibility promise
 yet: the format has been stable, but it may still change, and a change that old files can't
 load under gets a new version. The same source always gives byte-identical bytecode.
 
@@ -324,6 +324,7 @@ block and not in another.
 | `CATCH_MATCH kind label` | `e -- v` or `e -- e` | Replaces the error with what catch sees when that is an object of the kind or a child kind; otherwise jumps to the label, leaving the error for the next clause. |
 | `CATCH_VALUE` | `e -- v` | Replaces the error with what catch sees: an `Error` object, or the value the program threw. |
 | `RETHROW` | `e --` | Raises the error again, so an outer handler or the program's caller sees it. |
+| `THROW` | `v --` | Raises the value (`throw`): a string as the message of an `Error`, anything else as it is. An `Error` object keeps the location and trace it was first thrown with. Like `JMP`, `RET` and `RETHROW`, nothing after it runs on this path. |
 
 ## What a loader checks
 

@@ -131,6 +131,7 @@ static const InstrInfo INFO[OP_COUNT] = {
     [OP_CATCH_MATCH] = {"CATCH_MATCH", 2, {K_KIND, K_LABEL}, 1, 1},
     [OP_CATCH_VALUE] = {"CATCH_VALUE", 0, {0}, 1, 1},
     [OP_RETHROW] = {"RETHROW", 0, {0}, 1, 0},
+    [OP_THROW] = {"THROW", 0, {0}, 1, 0},
     [OP_HALT] = {"HALT", 0, {0}, 0, 0},
 };
 
@@ -1287,7 +1288,7 @@ static void check_block(Block *b) {
                 if (nwork == capwork) work = xrealloc(work, (size_t)(capwork *= 2) * sizeof(Work));
                 work[nwork++] = (Work){target, target_height, target_tries};
             }
-            if (r->op == OP_JMP || r->op == OP_RET || r->op == OP_RETHROW || r->op == OP_HALT) break;
+            if (r->op == OP_JMP || r->op == OP_RET || r->op == OP_RETHROW || r->op == OP_THROW || r->op == OP_HALT) break;
             position++;
         }
         /* Only the top level may end by running out of instructions, which ends the program */

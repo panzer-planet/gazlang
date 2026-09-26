@@ -366,7 +366,7 @@ enum {
     OP_NEW, OP_CALL_CONSTRUCTOR, OP_CALL_PARENT, OP_BIND_PARENT, OP_LOAD_THIS, OP_LOAD_FIELD,
     OP_SET_FIELD, OP_GET_PROPERTY, OP_GET_PROPERTY_QUIET, OP_GET_PROPERTY_EXISTING,
     OP_GET_METHOD, OP_CALL_METHOD, OP_TRY, OP_END_TRY, OP_CATCH_MATCH, OP_CATCH_VALUE,
-    OP_RETHROW, OP_HALT,
+    OP_RETHROW, OP_THROW, OP_HALT,
     OP_COUNT,
     /* Superinstructions, which the loader puts in place of the first instruction of a sequence
        (see fuse() in load.c); past OP_COUNT, so no file can name one */
@@ -516,7 +516,7 @@ bool raise_undefined_key(Value key);
 extern Error *vm_error;     /* the error being raised */
 bool raisef(const char *fmt, ...) __attribute__((format(printf, 1, 2)));  /* always false */
 bool raise_str(Str *reason);                                             /* always false */
-bool raise_value(Value v);  /* error($v): a thrown value */
+bool raise_value(Value v);  /* throw $v: a thrown value */
 Error *error_new(Str *reason, Str *path, int64_t line, bool show_location);
 Str *error_message(Error *e);
 void location_text(Str *path, int64_t line, Buf *out);

@@ -85,7 +85,7 @@ bool raisef(const char *fmt, ...) {
     return raise_str(s);
 }
 
-/* error($v): a string is the message of an Error, anything else is thrown as it is */
+/* throw $v: a string is the message of an Error, anything else is thrown as it is */
 bool raise_value(Value v) {
     if (vm_error) decref((Value){.type = T_ERROR, .e = vm_error});
     if (v.type == T_STRING) {
@@ -1381,6 +1381,12 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             if (TOP().type != T_ERROR) { raisef("RETHROW expects a caught error, got %s", type_name(TOP())); goto error; }
             if (vm_error) decref((Value){.type = T_ERROR, .e = vm_error});
             vm_error = POP().e;
+            goto error;
+        case OP_THROW:
+            /* throw $value: raise_value() takes its own reference, so ours goes with the pop */
+            r = POP();
+            raise_value(r);
+            decref(r);
             goto error;
 
         default:
