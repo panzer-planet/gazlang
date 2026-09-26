@@ -5,10 +5,11 @@
 
 **A scripting language that would rather stop than guess.**
 
-If you have written PHP, JavaScript or Python, you can read GazLang already. What makes it
-different is what it refuses to do: it never quietly turns a string into a number, never
-overflows an integer into a float, and never hands you a zero because a key was missing. When
-something is wrong, it says so, with the line it happened on and how it got there.
+GazLang is meant to be read at a glance: `$variables`, `fn` for functions, maps and lists
+written as they print. What makes it different is what it refuses to do: it never quietly turns
+a string into a number, never overflows an integer into a float, and never hands you a zero
+because a key was missing. When something is wrong, it says so, with the line it happened on
+and how it got there.
 
 ```gaz
 $sentence = "the cat sat on the mat";
@@ -33,8 +34,8 @@ no dogs here
   a stack trace.
 - **Types when you want them.** Write `fn total(int $n): float` or `pub string #owner` and the
   types are checked as the program runs, with errors that name the parameter:
-  `total() expects $n to be int, got string`. Leave them out and nothing changes. PHP's syntax,
-  with no silent conversion behind it ([the tour](#types)).
+  `total() expects $n to be int, got string`. Leave them out and nothing changes, and nothing
+  is ever converted to fit ([the tour](#types)).
 - **Values that behave like values.** Lists and maps are copied when you assign them, like
   numbers are, so nothing changes behind your back. Objects are handles, shared on purpose.
 - **It compiles itself.** The lexer, parser and compiler are about 5,800 lines of GazLang,
@@ -370,9 +371,10 @@ echo Counter::next();
 
 ### Types
 
-Types are optional: write them where they help, leave them out where they don't. They go where
-PHP puts them, and they are checked as the program runs, at the edges: when a function is called,
-when it returns, and whenever a field is written. Nothing is converted to fit, except that an int
+Types are optional: write them where they help, leave them out where they don't. A type goes
+before what it describes (`int $n`, `pub float #balance`), and a return type after the
+parameters (`): string`). They are checked as the program runs, at the edges: when a function is
+called, when it returns, and whenever a field is written. Nothing is converted to fit, except that an int
 is welcome where a float is asked, and arrives as one.
 
 ```gaz
@@ -538,7 +540,7 @@ echo json::encode({"ok" => true});
 
 | Library | What it gives you |
 | --- | --- |
-| `std/json.gaz` | `json::decode` and `json::encode`, matching PHP's `json_decode` on the JSON test suite; an object is written as its `to_json()` |
+| `std/json.gaz` | `json::decode` and `json::encode`, checked against the JSON test suite; an object is written as its `to_json()` |
 | `std/csv.gaz` | `csv::parse` (RFC 4180, quotes and line breaks in fields) and `csv::records`, rows as maps by header |
 | Templates (`.gazml`) | HTML with `{{ $escaped }}`, `@if` and `@foreach`, compiled into a function when included: `include "views/page.gazml";` then `page($title)`. Output is escaped unless it is another template's |
 | `std/cli.gaz` | Command line arguments: flags, options, arguments and subcommands declared once, with `--help` written for you and a usage mistake an exit 2 |
