@@ -1,0 +1,43 @@
+/*
+ * A zero-config static file server, what `gaz -S` runs (see vm.c's DEVSERVER_SOURCE): serves a
+ * directory over HTTP with no program to write.
+ *
+ *   gaz -S localhost:8000 [--docroot DIR]
+ *
+ * There is no router script argument, the way `php -S` can take one: `include` takes a string
+ * literal, resolved at parse time, so a document naming a file to run at the command line isn't
+ * possible here, on purpose (the same reason there is no type-tag deserialization). A program
+ * that wants more writes its own few lines on `http::serve_static()`.
+ */
+namespace devserver;
+
+include "http.gaz";
+include "cli.gaz";
+
+pub fn main() {
+    $cli = cli::Command("gaz -S", "Serve static files from a directory over HTTP");
+    $cli.argument("address", "Where to listen, as host:port");
+    $cli.option("docroot", "d", "The directory to serve", cwd());
+    $args = $cli.parse(args());
+    [$host, $port] = address($args["address"]);
+    $listener = socket_listen($host, $port);
+    echo "Listening on http://{$args["address"]}\n";
+    /*
+     * workers() flushes standard output when it forks, which is also what puts the line above
+     * on the screen (or a pipe) before the accept loop below blocks for good; one worker is
+     * enough for a dev server, and it comes back if it ever crashes.
+     */
+    workers(1);
+    http::serve($listener, http::serve_static($args["docroot"]));
+}
+
+// ponytail: no [::1]:port brackets, a dev server binds to plain hostnames and IPv4
+fn address($text) {
+    $parts = split($text, ":");
+    $port = len($parts) == 2 ? to_int($parts[1], null) : null;
+    if ($port == null) {
+        throw "expected host:port, got " .. slice(to_string([$text]), 1, -1);
+    }
+
+    return [$parts[0], $port];
+}

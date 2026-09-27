@@ -1214,7 +1214,7 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `chars.gaz` | `chars::char_at`, `chars::is_digit`, `chars::is_alpha`, `chars::is_alnum`, `chars::is_space`, `chars::is_hex_digit`, `chars::span($s, $i, $predicate)` (how many characters from `$i` satisfy the predicate: `slice($s, $i, chars::span($s, $i, chars::is_digit))` is the number at `$i`) |
 | `format.gaz` | `format::number`, `format::pad_left`, `format::pad_right`, and `format::sprintf($template, $args)` with the arguments as a list: `%s` (as echo prints it), `%d` (an int), `%f` (an int or float, 6 decimals or `%.2f`'s, rounded as `round()` does), `%x` (an int of 0 or more, lowercase hex), `%%`; a width, `-` to pad on the right and `0` to pad a number with zeros after its sign (`%-8s`, `%05.1f`). A count of arguments that isn't the placeholders', a type `%d`, `%f` or `%x` can't take, and a placeholder it doesn't know are errors |
 | `cli.gaz` | `cli::Command($name, $summary)`, command line arguments with a generated `--help`; see below |
-| `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins, a server, `http::serve($listener, $handler, $options = {})`, `http::handle($socket, $handler, $options = {})` (one connection), `http::http_date($time)`, and `http::Router()` for routing requests to handlers; see below |
+| `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins, a server, `http::serve($listener, $handler, $options = {})`, `http::handle($socket, $handler, $options = {})` (one connection), `http::http_date($time)`, `http::Router()` for routing requests to handlers, and `http::serve_static($dir)`, a handler that serves files under `$dir`; see below |
 | `date.gaz` | `date::days($year, $month, $day)` (a date as a whole number of days, day 0 being 1 January 1970: an impossible date is an error), `date::civil($days)` (`[year, month, day]`), `date::year`/`month`/`day`, `date::weekday` (0 Monday to 6 Sunday), `date::next_weekday($days, $weekday)`, `date::add_months`, `date::is_leap`, `date::days_in_month`, and `date::format` (`Sat 8 Aug 2026`), `date::short` (`8 Aug`) and `date::iso` (`2026-08-08`). There is no `today()`: a clock would make a program impossible to record, so a program keeps its own date |
 | `random.gaz` | `random::shuffle` (a shuffled copy of a list or string), `random::pick` (an element of a list or value of a map), `random::key`, `random::chance($p)`, `random::weighted` (from `[item, weight]` pairs) |
 | `regex.gaz` | `regex::matches($s, $pattern)` (full match), `regex::search($s, $pattern)` (found anywhere), `regex::find($s, $pattern)` (the start index, or null), `regex::groups($s, $pattern)` (the first match and what each `(...)` in it took, a group that took no part `null`, or `null` for no match), `regex::replace($s, $pattern, $with)` (every match, left to right, by `$with` as it is, so `"$1"` is two bytes; an empty match moves on a byte: `replace("abc", "x*", "-")` is `"-a-b-c-"`); literals, `.`, `* + ?` (greedy), `\|` (the first that matches wins), `(...)`, `[...]`/`[^...]` with ranges, `^ $`, `\` escapes; the leftmost match, and there the greedy repetition and the earlier alternative; no backreferences, no backtracking |
@@ -1311,6 +1311,18 @@ http::serve($listener, $app.handler());
   anything else a 404, or what `$app.not_found($handler)` gives.
 - Middleware, `($request, $next) -> response`, wraps everything, 404s included; the first added
   is the outermost, and it can answer without calling `$next`.
+
+**Static files**, with `http::serve_static($dir)`: a handler, for `http::serve()` directly or as
+a `Router`'s `not_found()`, that answers from files under `$dir`.
+
+- The path is percent-decoded and split into segments; a segment of `..` is refused as a 404, the
+  same answer a missing file gets, rather than resolved and hoped to stay inside `$dir`.
+- A path ending in `/`, or one naming a directory, looks for `index.html` inside it.
+- Content-Type is guessed from the extension (html, css, js, json, images, fonts, `pdf`, `wasm`,
+  `mp4`, `txt`); anything else is `application/octet-stream`.
+- `gaz -S host:port [--docroot DIR]` runs a zero-config server built on this (`std/devserver.gaz`,
+  `--docroot` defaulting to the working directory); a program that wants routing or anything
+  dynamic writes its own few lines on `serve_static()` instead.
 
 Decoding what a request carries, when a handler asks:
 

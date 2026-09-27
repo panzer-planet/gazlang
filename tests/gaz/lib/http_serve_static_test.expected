@@ -1,0 +1,9 @@
+ok an existing file
+ok / serves index.html
+ok a directory without a slash
+ok a directory with a slash
+ok an unknown extension
+ok a missing file
+ok literal .. is refused
+ok percent-encoded .. is refused
+ok a bad escape is a 404 too
