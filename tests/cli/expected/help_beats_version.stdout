@@ -2,6 +2,8 @@ GazLang - a scripting language for web servers and command line tools
 Usage: gaz [options] [file | -] [program arguments...]
   Runs the file, with everything after it as the program's arguments (args()).
   - reads the program from standard input, as no file does when something is piped.
+  gaz test [path] [--update]
+  Runs every *_test.gaz file under path (default the current directory), recursively.
 Options:
   -h, --help     Show this help message
   -v, --version  Show version information

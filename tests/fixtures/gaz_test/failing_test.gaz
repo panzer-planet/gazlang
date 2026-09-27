@@ -1,0 +1,5 @@
+// Deliberately failing, for TestCommandTest: gaz test must report this file as a failure
+include "std/test.gaz";
+
+test::expect("addition", 2 + 2, 4);
+test::expect("subtraction", 5 - 2, 2);

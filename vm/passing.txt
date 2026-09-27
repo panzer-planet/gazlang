@@ -19,6 +19,7 @@ lib/random.gaz
 lib/regex.gaz
 lib/sorting.gaz
 lib/term.gaz
+lib/test.gaz
 lib/tui.gaz
 snippet:00661fc241b6
 snippet:00969dd8d0a4
@@ -867,6 +868,9 @@ tests/fixtures/const/main.gaz
 tests/fixtures/csv_dump.gaz
 tests/fixtures/exit.gaz
 tests/fixtures/function_values/main.gaz
+tests/fixtures/gaz_test/failing_test.gaz
+tests/fixtures/gaz_test/passing/pass_test.gaz
+tests/fixtures/gaz_test/passing/snapshot_test.gaz
 tests/fixtures/include/cycle.gaz
 tests/fixtures/include/lib/fails.gaz
 tests/fixtures/include/lib/math.gaz
@@ -899,6 +903,7 @@ tests/gaz/lib/regex_test.gaz
 tests/gaz/lib/router_test.gaz
 tests/gaz/lib/sorting_test.gaz
 tests/gaz/lib/term_test.gaz
+tests/gaz/lib/test_test.gaz
 tests/gaz/lib/tui_test.gaz
 tests/gaz/lists/delete_test.gaz
 tests/gaz/lists/pattern_test.gaz
