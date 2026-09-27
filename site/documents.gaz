@@ -1,0 +1,235 @@
+/*
+ * What the site knows about the repository it is built from: where it is on GitHub, how the
+ * documents split into pages, and where each link in them goes on the site.
+ *
+ *   $name = documents::choose_repository(null, $remote, getenv("GITHUB_REPOSITORY"));
+ *   $repository = documents::Repository($name);
+ *   $linker = documents::Linker($repository, {"README.md" => "index.html"}, ".");
+ *   echo $linker.resolve("README.md", "docs/x.md#y");   // a GitHub URL, or null if unknown
+ */
+namespace documents;
+
+include "verify.gaz" use is_external;
+include "markdown.gaz";
+
+const GITHUB = "github.com";
+
+// A link as a page shows it
+pub kind Link {
+    fn _(pub string #title, pub string #href) {}
+}
+
+/*
+ * An entry of a navigation list: a link, whether it is the page being shown, and the entries
+ * under it
+ */
+pub kind NavItem {
+    fn _(pub string #title, pub string #href, pub bool #current = false, pub list #children = []) {}
+}
+
+// Where the repository is on GitHub, for links to its files and releases; its name may be unknown
+pub kind Repository {
+    // "owner/name", or null when the site doesn't know where it is
+    fn _(pub ?string #name) {}
+
+    pub fn known(): bool {
+        return #name != null;
+    }
+
+    pub fn home(): ?string {
+        return #name == null ? null : "https://" .. GITHUB .. "/{#name}";
+    }
+
+    // A file or directory of the repository as GitHub shows it, on the default branch
+    pub fn file_url(string $path, bool $directory): ?string {
+        if (#name == null) {
+            return null;
+        }
+        $view = $directory ? "tree" : "blob";
+
+        return #home() .. "/{$view}/HEAD/{$path}";
+    }
+
+    pub fn releases_url(): ?string {
+        return #name == null ? null : #home() .. "/releases";
+    }
+
+    // A file a release published, by the release's tag
+    pub fn download_url(string $tag, string $file): ?string {
+        return #name == null ? null : #home() .. "/releases/download/{$tag}/{$file}";
+    }
+}
+
+/*
+ * The repository's "owner/name": the one given on the command line, else the one git's remote
+ * names, else the one GitHub Actions says ($GITHUB_REPOSITORY), else null. What is given must
+ * be well formed, since it was asked for; a remote that isn't GitHub's is only passed over.
+ */
+pub fn choose_repository(?string $given, ?string $remote, ?string $environment): ?string {
+    if ($given != null) {
+        return repository_name($given) ?? throw "Not a GitHub repository, owner/name: {$given}";
+    }
+    if ($remote != null && name_from_remote($remote) != null) {
+        return name_from_remote($remote);
+    }
+    if ($environment != null) {
+        return repository_name($environment);
+    }
+
+    return null;
+}
+
+/*
+ * "owner/name" from a git remote on GitHub: https://github.com/owner/name, with .git or a
+ * trailing slash or not, git@github.com:owner/name or ssh://git@github.com/owner/name; null for
+ * anything else
+ */
+pub fn name_from_remote(string $url): ?string {
+    $host = index_of($url, GITHUB);
+    // The host whole: after // or user@, not the end of another name
+    if ($host == null || $host == 0 || !contains("/@", $url[$host - 1])) {
+        return null;
+    }
+    $after = $host + len(GITHUB);
+    $separator = $url[$after] ?? "";
+    if ($separator != "/" && $separator != ":") {
+        return null;
+    }
+
+    return repository_name(slice($url, $after + 1));
+}
+
+// "owner/name" from a path that may end in .git or slashes, or null if it isn't two parts
+fn repository_name(string $path): ?string {
+    $path = trim_slashes(trim($path));
+    if (ends_with($path, ".git")) {
+        $path = trim_slashes(slice($path, 0, -4));
+    }
+    $parts = split($path, "/");
+    if (len($parts) != 2 || $parts[0] == "" || $parts[1] == "") {
+        return null;
+    }
+
+    return $path;
+}
+
+fn trim_slashes(string $path): string {
+    while (ends_with($path, "/")) {
+        $path = slice($path, 0, -1);
+    }
+
+    return $path;
+}
+
+/*
+ * A piece of a document that is one page. A document is split at its top headings only for the
+ * reference; the others are one section each.
+ */
+pub kind Section {
+    // Filled in by the first rendering, when the ids are known
+    pub list #headings = [];
+    pub string #page = "";
+
+    fn _(pub string #markdown) {}
+
+    pub fn title(): string {
+        return #headings[0].text;
+    }
+}
+
+/*
+ * The reference split at its top headings: the introduction, then a section for each. Each
+ * section's headings move up a level, since the section is a page whose title is its heading.
+ */
+pub fn split_sections(string $text): list {
+    $sections = [[]];
+    $in_code = false;
+    foreach (split($text, "\n") as $line) {
+        if (starts_with(trim($line), "```")) {
+            $in_code = !$in_code;
+        }
+        if (!$in_code && starts_with($line, "## ")) {
+            $sections[] = [];
+        }
+        if (!$in_code && len($sections) > 1 && starts_with($line, "##")) {
+            $line = slice($line, 1);
+        }
+        $sections[len($sections) - 1][] = $line;
+    }
+
+    return map($sections, $lines -> Section(join($lines, "\n")));
+}
+
+// A document without its badges: lines that start with an image in a link, from other sites
+pub fn without_badges(string $text): string {
+    return join(filter(split($text, "\n"), $line -> !starts_with($line, "[![")), "\n");
+}
+
+// The way back to the site's root from a page at $path: "" or "../" and so on
+pub fn root_of(string $path): string {
+    return repeat("../", len(split($path, "/")) - 1);
+}
+
+// A site path as a link from a page whose way to the root is $root; another site's URL as it is
+pub fn relative(string $root, ?string $target): ?string {
+    if ($target == null || is_external($target)) {
+        return $target;
+    }
+
+    return $root .. $target;
+}
+
+/*
+ * Where each link in the documents goes on the site. A link to one of the documents goes to its
+ * page, and to the page of the reference that has the anchor; a link to any other file of the
+ * repository goes to GitHub, or nowhere (null) when the repository isn't known.
+ */
+pub kind Linker {
+    // Document => anchor id => the page it is on
+    #anchors = {};
+
+    /*
+     * $pages is each document's path in the repository and its first page on the site; $root
+     * is where the repository is, to tell a directory from a file
+     */
+    fn _(Repository #repository, map #pages, string #root) {}
+
+    pub fn add(string $document, Section $section): null {
+        #anchors[$document] ??= {};
+        foreach ($section.headings as $heading) {
+            #anchors[$document][$heading.id] = $section.page;
+        }
+    }
+
+    // A document's link as a path from the site's root, a URL of another site, or null
+    pub fn resolve(string $document, string $url): ?string {
+        // Another site, or a scheme no page may link to, which the Markdown converter drops
+        if (is_external($url) || markdown::scheme_of($url) != null) {
+            return $url;
+        }
+        $hash = index_of($url, "#");
+        $path = $hash == null ? $url : slice($url, 0, $hash);
+        $anchor = $hash == null ? null : slice($url, $hash + 1);
+        $file = $path == "" ? $document : verify::resolve($document, $path) ?? $path;
+
+        if (!has_key(#pages, $file)) {
+            return #repository_link($file, $anchor);
+        }
+        if ($anchor == null) {
+            return #pages[$file];
+        }
+        // An anchor no page has stays on the document's first page, where the check finds it
+        $page = #anchors[$file][$anchor] ?? #pages[$file];
+
+        return "{$page}#{$anchor}";
+    }
+
+    fn repository_link(string $file, ?string $anchor): ?string {
+        $url = #repository.file_url($file, is_dir("{#root}/{$file}"));
+        if ($url == null || $anchor == null) {
+            return $url;
+        }
+
+        return "{$url}#{$anchor}";
+    }
+}

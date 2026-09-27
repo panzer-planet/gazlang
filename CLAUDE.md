@@ -110,6 +110,11 @@ vendor/bin/pint                     # formatting
   `vm/load.c`, so a new instruction needs a word in the grammar; the bytecode grammar marks what
   doesn't fit a line's shape as invalid, and accepts all the loader reads (comments,
   single-quoted strings and hex in a `PUSH`), not only what the compiler writes.
+- `site/`: the website, a GazLang program (see "The website"): `build.gaz` the driver,
+  `pages.gaz` and `templates/*.gazml` the pages, `markdown.gaz`, `highlight.gaz` (on the
+  compiler's lexer), `library.gaz` (the library's pages from its source), `documents.gaz` (links
+  and the repository), `verify.gaz` (the checks every page passes), `style.css`. Its tests are
+  `tests/gaz/site/` and `SiteTest`.
 - `tests/`: PHPUnit, `tests/gaz/` (GazLang programs), `tests/expected/` (what every program
   prints), and the corpora: `lexer_corpus/`, `parser_corpus/`, `codegen_corpus/`, `vm_corpus/`,
   `bytecode_corpus/`, `cli/`, `json/`, `csv/`.
@@ -286,6 +291,41 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   with it, and rebuilds its compiler before PHP is even installed, then the suite; phpstan and
   pint run on Ubuntu only.
   Development is on an Intel Mac.
+- **The website** is built by gaz: `bin/gaz site/build.gaz` (from the root; into `site/dist`,
+  gitignored; open `site/dist/index.html`, or `php -S localhost:8000 -t site/dist`) makes the home
+  page from the README, a reference page per `##` section of `docs/language.md`, a page per
+  `lib/*.gaz` from its `pub` names and the comments above them (read from the source, so it can't
+  drift and a new file appears by itself), and `docs/bytecode.md` and `docs/internals.md`. Pages
+  are `.gazml` templates (`site/templates/`), so escaping is the templates' and not remembered
+  at each concatenation; a link's scheme must be http, https or mailto, anything else leaves its
+  text. **The library's comments are Markdown as the docs are**, through the same converter and
+  links, except that a backslash is always itself (`"\"` in a regex comment means a backslash),
+  and an example indented under a blank line is GazLang code. `.github/workflows/pages.yml`
+  publishes it.
+  **GazLang is highlighted by the compiler's own lexer** (`Lexer.span()` says where each token
+  lies), so a colour can't disagree with the language, and every piece is cut from the source
+  rather than printed from a token, so whitespace, comments and escapes come out as written:
+  `round_trip_test.gaz` requires the pieces, and the HTML read back, to give every docs block and
+  every file of `lib/` and `examples/` byte for byte. Source the lexer refuses is shown plain, not
+  fatal. A fence names its language (`gaz`, `gzb`, `gazml`, `bash`); a plain fence right after
+  code is shown as its output. No JavaScript, fonts or anything fetched from elsewhere.
+  **Every page is checked before anything is written** (`site/verify.gaz`): internal links and
+  anchors, ids given once, tags closed in order, no block inside a `<p>`, and no Markdown the
+  converter failed to read: each block's text outside code is read again, and if that finds a
+  code span or emphasis, the converter got it wrong (a lone `` ` `` or `**` it left as text finds
+  nothing, as on GitHub). A failure leaves the last good site alone, writes the pages to
+  `DIRECTORY.failed/` and names the page and line there.
+  **Where the repository is** comes from `--repository owner/name`, else git's remote origin
+  (any GitHub URL shape), else `$GITHUB_REPOSITORY`; without one the build still succeeds, with a
+  notice, and leaves out the links to the repository's files and releases, since a local clone
+  or a mirror has no GitHub origin. **Download links name `--release TAG`**, which the workflow
+  sets to the latest published release, never `VERSION`: `VERSION` is committed before its tag is
+  pushed and the release published after its builds, so the workflow builds again when the
+  Release workflow finishes (`workflow_run`, since a release published with the workflow's own
+  token starts no `release` workflow). The build is a tool, not a test program: what it writes
+  changes with every docs edit, so `SiteTest` checks it succeeds, has every page, fails on a link
+  planted in a copy of the docs (`--root`), and builds without a repository; `tests/gaz/site/`
+  tests its parts.
 - **Speed** is measured by `php vm/bench.php` (CPU time, interleaved, best of several; the README's
   table is its output on the default PGO build, so a `PGO=0` build runs a little slower). gaz is
   around PHP's speed and faster than Python. The arithmetic loop is still about a dozen dispatches an

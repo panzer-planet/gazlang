@@ -15,7 +15,7 @@ load under gets a new version. The same source always gives byte-identical bytec
 Text, one instruction per line, with no comments. Blank lines are ignored, as is
 leading and trailing whitespace on a line; a line's parts are separated by whitespace.
 
-```
+```gzb
 GAZLANG BYTECODE 3
 globals @total @seen
 statics Counter::count
@@ -43,7 +43,7 @@ kind followed by its methods, then the lambdas in index order.
 Every block ends with a `locals` line naming the variable in each local slot, in slot order. A
 block's parameters are its first slots, as many as its arity allows.
 
-```
+```gzb
 top
 locals $c $next
 ```
@@ -62,7 +62,7 @@ member use in it is asking as, which is what says whether a member that isn't `p
 A method's own name already carries its kind, so only a static method's header and a lambda's
 need to say it; a kind block is the initialiser of its own objects and reaches all of them.
 
-```
+```gzb
 fn safe_div 2 2
 locals $a $b $e
 
@@ -100,7 +100,7 @@ A `static` line gives a static field the kind declares with a type: its name (wi
 which is the block's own) and the type. Its slot is the one the `statics` header names as
 `Kind::name`; a static field without a type has no line, since the header already has it.
 
-```
+```gzb
 abstract kind Shape
 field name Shape kin string
 method _ Shape pub
@@ -135,7 +135,7 @@ holds it: `local` and a slot, or `captured` and an index in the enclosing closur
 line names the captured variable that holds the closure itself, for a lambda assigned to a
 variable it uses (`$f = $n -> $f($n - 1)`).
 
-```
+```gzb
 lambda 0 0 0
 capture $c local 0
 self $f
@@ -147,7 +147,7 @@ locals
 An `@` line gives the source the instructions after it came from, and holds until the next
 `@` line. Locations start afresh in each block, so a block can be read on its own.
 
-```
+```gzb
 @ "lib/json.gaz" 42
 @ 42
 ```
@@ -171,7 +171,7 @@ float. Strings are quoted as `Lexer::quote()` quotes them, so a literal never sp
 Because a literal can hold spaces, an instruction that takes a value takes it as its last
 argument.
 
-```
+```gzb
 PUSH 42
 PUSH 1.0E+25
 PUSH "caught: "

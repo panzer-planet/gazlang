@@ -1,0 +1,117 @@
+// site/markdown.gaz: the Markdown the repository's documents use, as HTML
+include "../../../site/markdown.gaz";
+include "../check.gaz";
+
+fn html(string $text): string {
+    return markdown::Renderer().render($text);
+}
+
+// Headings, with GitHub's ids and a link to themselves
+check("a heading", html("## Why `gaz`? *Really*"),
+    "<h2 id=\"why-gaz-really\">Why <code>gaz</code>? <em>Really</em><a class=\"anchor\" href=\"#why-gaz-really\" aria-label=\"Link to this section\">#</a></h2>");
+$renderer = markdown::Renderer();
+$renderer.render("# Types\n\n## Types\n");
+$renderer.render("### Types & kinds, é");
+check("ids stay unique across renders", map($renderer.headings, $h -> $h.id), ["types", "types-1", "types--kinds-é"]);
+$dups = markdown::Renderer();
+$dups.render("# Dup\n# Dup\n# Dup-1\n# Dup\n# Dup-1");
+check("an id taken by another heading's slug is skipped", map($dups.headings, $h -> $h.id), ["dup", "dup-1", "dup-1-1", "dup-2", "dup-1-2"]);
+check("a heading's text is plain", $renderer.headings[2].text, "Types & kinds, é");
+check("# without a space is text", html("#name"), "<p>#name</p>");
+
+// Paragraphs and inline markup, everything else escaped
+check("lines join into a paragraph", html("one\ntwo\n\nthree"), "<p>one\ntwo</p>\n<p>three</p>");
+check("strong, emphasis and code", html("**a** *b* `c * d` **`e`**"),
+    "<p><strong>a</strong> <em>b</em> <code>c * d</code> <strong><code>e</code></strong></p>");
+check("a lone star is text", html("2 * 3 and *"), "<p>2 * 3 and *</p>");
+check("backslash escapes", html("\\*not\\* a \\` or \\q"), "<p>&#42;not&#42; a &#96; or \\q</p>");
+check("a double backtick span", html("`` a`b ``"), "<p><code>a`b</code></p>");
+check("an unclosed backtick is text", html("a ` b"), "<p>a ` b</p>");
+check("HTML is escaped", html("<b>a & \"b\"</b> `<i>`"), "<p>&lt;b&gt;a &amp; &quot;b&quot;&lt;/b&gt; <code>&lt;i&gt;</code></p>");
+check("a link", html("see [the *docs*](docs/a.md#x)"), "<p>see <a href=\"docs/a.md#x\">the <em>docs</em></a></p>");
+check("an image in a link", html("[![CI](b.svg)](ci)"), "<p><a href=\"ci\"><img src=\"b.svg\" alt=\"CI\"></a></p>");
+check("brackets without a URL are text", html("\$a[0] and [x]"), "<p>\$a[0] and [x]</p>");
+$linked = markdown::Renderer($url -> "site/" .. $url);
+check("links go through the link function", $linked.render("[a](b.md)"), "<p><a href=\"site/b.md\">a</a></p>");
+
+// Lists
+check("a tight list", html("- a\n  more\n- b"), "<ul>\n<li>a\nmore</li>\n<li>b</li>\n</ul>");
+check("an ordered list from 3", html("3. a\n4. b"), "<ol start=\"3\">\n<li>a</li>\n<li>b</li>\n</ol>");
+check("a loose list", html("- a\n\n- b"), "<ul>\n<li><p>a</p></li>\n<li><p>b</p></li>\n</ul>");
+check("a nested list", html("- a\n  - b\n- c"), "<ul>\n<li>a\n<ul>\n<li>b</li>\n</ul></li>\n<li>c</li>\n</ul>");
+check("code in an item", html("- a:\n\n  ```gaz\n  x\n  ```\n\n  after\n- b"),
+    "<ul>\n<li><p>a:</p>\n<pre><code class=\"language-gaz\">x</code></pre>\n<p>after</p></li>\n<li><p>b</p></li>\n</ul>");
+check("a line that isn't indented continues the item", html("- a\nb"), "<ul>\n<li>a\nb</li>\n</ul>");
+check("a paragraph ends a list after a blank line", html("- a\n\nb"), "<ul>\n<li>a</li>\n</ul>\n<p>b</p>");
+
+// Tables
+check("a table", html("| A | B |\n| --- | ---: |\n| `a \\| b` | *c* |"),
+    "<div class=\"table\"><table>\n<thead><tr><th>A</th><th class=\"right\">B</th></tr></thead>\n<tbody>\n<tr><td><code>a | b</code></td><td class=\"right\"><em>c</em></td></tr>\n</tbody>\n</table></div>");
+check("a line starting with | alone is a paragraph", html("| a"), "<p>| a</p>");
+
+// Code, block quotes
+check("fenced code goes to the code function", markdown::Renderer(null, ($l, $c) -> "[{$l}:{$c}]").render("```gaz\na\n\nb\n```"),
+    "<pre><code class=\"language-gaz\">[gaz:a\n\nb]</code></pre>");
+check("plain code is escaped, and after code it is the output", html("```gaz\n1\n```\n```\n<1>\n```\n\n```\nx\n```"),
+    "<pre><code class=\"language-gaz\">1</code></pre>\n<pre class=\"output\"><code>&lt;1&gt;</code></pre>\n<pre><code>x</code></pre>");
+check("an unclosed fence runs to the end", html("```\na"), "<pre><code>a</code></pre>");
+check("a block quote", html("> a\n> *b*"), "<blockquote>\n<p>a\n<em>b</em></p>\n</blockquote>");
+// CRLF line ends give what LF ones do, with no \r left anywhere, in every kind of block
+$crlf_cases = {
+    "a heading and a paragraph" => "# A\n\ntext\nmore\n",
+    "fenced code" => "```gaz\necho 1;\n\necho 2;\n```\n",
+    "a list" => "- a\n  more\n- b\n\n  ```\n  x\n  ```\n",
+    "a table" => "| A | B |\n| --- | --- |\n| a | b |\n",
+    "a quote" => "> a\n> b\n",
+};
+foreach ($crlf_cases as $name => $lf) {
+    $crlf = html(replace($lf, "\n", "\r\n"));
+    check("CRLF in {$name}", [$crlf, contains($crlf, "\r")], [html($lf), false]);
+}
+
+// A mark inside a code span closes nothing
+check("** around code holding **", html("- **`tests/gaz/**/*_test.gaz`** are"),
+    "<ul>\n<li><strong><code>tests/gaz/**/*_test.gaz</code></strong> are</li>\n</ul>");
+check("** around code holding ** and more", html("**`a/**/b`** c"), "<p><strong><code>a/**/b</code></strong> c</p>");
+check("* around code holding *", html("*a `*` b*"), "<p><em>a <code>*</code> b</em></p>");
+check("a link label holding code with ]", html("[a `]` b](x)"), "<p><a href=\"x\">a <code>]</code> b</a></p>");
+check("no space before the closing mark", html("*a * b*"), "<p><em>a * b</em></p>");
+check("no space before the closing **", html("**a ** b**"), "<p><strong>a ** b</strong></p>");
+check("the nearer opener takes the closer", html("*a *b*"), "<p>*a <em>b</em></p>");
+check("the nearer ** takes the closer", html("**a **b**"), "<p>**a <strong>b</strong></p>");
+check("three stars are both", html("***both*** and ***x"), "<p><em><strong>both</strong></em> and ***x</p>");
+check("prose with lone marks stays as it is", html("Write powers as 2 ** 3, and a lone ` is shown as it is."),
+    "<p>Write powers as 2 ** 3, and a lone ` is shown as it is.</p>");
+
+// A fence's language can't break out of its attribute
+check("a language that isn't a plain word is left out", html("```x\" onclick=\"alert(1)\ny\n```"), "<pre><code>y</code></pre>");
+check("a language with + is kept", html("```c++\ny\n```"), "<pre><code class=\"language-c++\">y</code></pre>");
+check("four backticks hold three", html("````\n```\na\n```\n````"), "<pre><code>```\na\n```</code></pre>");
+check("an indented fence takes its indentation off", html("  ```\n  a\n    b\n c\n  ```"), "<pre><code>a\n  b\nc</code></pre>");
+
+// Paragraphs and lists, links
+check("2. doesn't start a list in a paragraph", html("text\n2. more"), "<p>text\n2. more</p>");
+check("1. does", html("text\n1. item"), "<p>text</p>\n<ol>\n<li>item</li>\n</ol>");
+check("a link's title", html("[a](b.md \"T & t\")"), "<p><a href=\"b.md\" title=\"T &amp; t\">a</a></p>");
+check("a link the link function drops is its label", markdown::Renderer($url -> null).render("[*a*](b)"), "<p><em>a</em></p>");
+
+// Tables, links and fences as GitHub reads them
+check("a row's extra cells go and missing ones are empty", html("| A | B |\n| - | - |\n| a | b | c |\n| d |"),
+    "<div class=\"table\"><table>\n<thead><tr><th>A</th><th>B</th></tr></thead>\n<tbody>\n"
+    .. "<tr><td>a</td><td>b</td></tr>\n<tr><td>d</td><td></td></tr>\n</tbody>\n</table></div>");
+check("a URL in angle brackets", html("[a](<b c.md> \"T\")"), "<p><a href=\"b c.md\" title=\"T\">a</a></p>");
+check("backticks after ``` make a code span, not a fence", html("```x``` y"), "<p><code>x</code> y</p>");
+check("a javascript: link is its text", html("[a](javascript:alert(1)) ![b](data:x)"), "<p>a b</p>");
+check("an uppercase scheme too", html("[a](JavaScript:x)"), "<p>a</p>");
+check("a path with a colon after a slash is a path", html("[a](x/y:z)"), "<p><a href=\"x/y:z\">a</a></p>");
+check("safe schemes", map(["https://a", "http://a", "mailto:a", "a.md#b", "vbscript:x"], $u -> markdown::safe_url($u)),
+    ["https://a", "http://a", "mailto:a", "a.md#b", null]);
+
+// Text written for another reader keeps its backslashes, and is otherwise Markdown
+$comments = markdown::Renderer(null, null, false);
+check("a backslash is itself", $comments.render("\"\\\" to escape a `*` and \\n"), "<p>&quot;\\&quot; to escape a <code>*</code> and \\n</p>");
+check("inline alone", $comments.render_inline("Parses `x` fast,\n*really*."), "Parses <code>x</code> fast, <em>really</em>.");
+
+// The helpers
+check("a slug", markdown::slug("How fast is it? (v2_0)"), "how-fast-is-it-v2_0");
+check("plain text", markdown::plain_text("<b>a &lt;b&gt;</b> &amp;amp;"), "a <b> &amp;");

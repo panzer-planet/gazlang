@@ -1,0 +1,29 @@
+ok keywords, literals, numbers and operators
+ok variables, members and names
+ok a kind or constant, a call, a type and a plain name
+ok a kind called is still a kind
+ok a type name called is a call
+ok every keyword the lexer knows
+ok a line comment
+ok a nested block comment is one piece
+ok a comment at the end
+ok a script's first line
+ok escapes stay as written
+ok an interpolation is its tokens
+ok a string in an interpolation
+ok an unterminated string
+ok a character the lexer refuses
+ok an unterminated comment
+ok a bad escape
+ok CRLF
+ok CRLF round trips
+ok HTML is escaped
+ok plain text is escaped
+ok a language without a highlighter is plain
+ok bytecode headers and instructions
+ok a bytecode value is a literal
+ok bytecode round trips
+ok a template
+ok an unclosed {{ is text
+ok a template round trips
+ok a shell comment

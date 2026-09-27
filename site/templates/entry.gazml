@@ -1,0 +1,13 @@
+@template entry(EntryView $view)
+<section class="entry">
+@if ($view.kind == null)
+<h2 id="{{ $view.id() }}"><code>{{ $view.name() }}</code> <span class="what">{{ $view.entry.what }}</span><a class="anchor" href="#{{ $view.id() }}" aria-label="Link to this entry">#</a></h2>
+@else
+<h3 id="{{ $view.id() }}"><code>{{ $view.name() }}</code> <span class="what">{{ $view.entry.what }}</span><a class="anchor" href="#{{ $view.id() }}" aria-label="Link to this entry">#</a></h3>
+@endif
+<pre class="signature"><code class="language-gaz">{{ $view.signature() }}</code></pre>
+{{ $view.doc() }}
+@foreach ($view.members() as $member)
+{{ entry($member) }}
+@endforeach
+</section>

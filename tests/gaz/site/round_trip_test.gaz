@@ -1,0 +1,91 @@
+/*
+ * The highlighter's promise: joining the pieces' text gives the source byte for byte, and the
+ * HTML, its tags dropped and escapes read back, gives it too. Checked on every code block of the
+ * README and docs/, and on every file of lib/ and examples/, which must also all lex (a file
+ * shown plain would pass the round trip while highlighting nothing).
+ */
+include "../../../site/highlight.gaz";
+include "../../../site/markdown.gaz";
+include "../check.gaz";
+
+const DOCUMENTS = ["README.md", "docs/language.md", "docs/bytecode.md", "docs/internals.md"];
+const DIRECTORIES = ["lib", "examples"];
+
+// What a piece of source failed to give back, or "" when both the text and the HTML do
+fn problem(string $language, string $source): string {
+    $pieces = highlight::pieces($language, $source);
+    if (join(map($pieces, $piece -> $piece.text), "") != $source) {
+        return "the pieces' text differs";
+    }
+    if (len(filter($pieces, $piece -> $piece.text == "")) > 0) {
+        return "an empty piece";
+    }
+    if (markdown::plain_text(highlight::render($pieces)) != $source) {
+        return "the HTML differs";
+    }
+
+    return "";
+}
+
+// Whether the lexer read it, rather than the highlighter showing it plain
+fn lexed(string $source): bool {
+    $pieces = highlight::gaz($source);
+
+    return len($pieces) > 1 || $pieces[0].type != highlight::TEXT_TYPE;
+}
+
+// A document's fenced blocks as [language, code, line of the fence]
+fn blocks(string $text): list {
+    $blocks = [];
+    $open = null;
+    $code = [];
+    foreach (split($text, "\n") as $i => $line) {
+        $fence = starts_with(trim($line), "```");
+        if ($open == null && $fence) {
+            $open = [trim(slice(trim($line), 3)), $i + 1];
+            $code = [];
+        } else if ($fence) {
+            $blocks[] = [$open[0], join($code, "\n"), $open[1]];
+            $open = null;
+        } else if ($open != null) {
+            $code[] = $line;
+        }
+    }
+
+    return $blocks;
+}
+
+foreach (DOCUMENTS as $document) {
+    $counts = {};
+    $unlexed = [];
+    foreach (blocks(read_file($document)) as [$language, $code, $line]) {
+        $counts[$language] = ($counts[$language] ?? 0) + 1;
+        $problem = problem($language, $code);
+        if ($problem != "") {
+            echo "FAIL {$document}:{$line}: {$problem}";
+        }
+        if ($language == "gaz" && !lexed($code)) {
+            $unlexed[] = $line;
+        }
+    }
+    check("{$document} has code blocks", $counts != {}, true);
+    check("{$document}'s gaz blocks all lex", $unlexed, []);
+}
+
+foreach (DIRECTORIES as $directory) {
+    $files = filter(list_dir($directory), $file -> ends_with($file, ".gaz"));
+    $failed = [];
+    foreach ($files as $file) {
+        $source = read_file("{$directory}/{$file}");
+        $problem = problem("gaz", $source);
+        if ($problem != "" || !lexed($source)) {
+            $failed[] = "{$file}: " .. ($problem == "" ? "shown plain" : $problem);
+        }
+        // With Windows line ends too
+        if (problem("gaz", replace($source, "\n", "\r\n")) != "") {
+            $failed[] = "{$file} with CRLF";
+        }
+    }
+    check("{$directory}/ has files", len($files) > 0, true);
+    check("every file of {$directory}/ lexes and round trips", $failed, []);
+}

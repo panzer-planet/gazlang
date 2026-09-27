@@ -535,7 +535,7 @@ West    899.95
 The standard library is written in GazLang and built into `gaz`, so any program anywhere
 reaches it by name, and each file keeps its names in its own namespace:
 
-```
+```gaz
 include "std/json.gaz";
 echo json::encode({"ok" => true});
 ```

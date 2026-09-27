@@ -8,3 +8,4 @@ tests/.tmp/
 /vendor/
 .claude/
 football.save
+site/dist/

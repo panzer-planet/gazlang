@@ -1,0 +1,337 @@
+/*
+ * What a file of the standard library offers, read from its source: the names it marks pub
+ * (and the constructors and pub members of its pub kinds), each with its declaration and the
+ * comment above it. It is read with the highlighter's pieces, which are the compiler's tokens
+ * with the comments and whitespace between them kept, so nothing is listed by hand and a new
+ * pub name appears on its page by itself.
+ *
+ *   $library = library::read("csv", read_file("lib/csv.gaz"));
+ *   echo $library.entries[0].name;                // "parse"
+ */
+namespace library;
+
+include "highlight.gaz";
+include "text.gaz";
+
+// What a declaration is, for the page to say
+const FUNCTION = "function";
+const KIND = "kind";
+const CONSTANT = "constant";
+const FIELD = "field";
+const STATIC_FIELD = "static field";
+const METHOD = "method";
+const STATIC_METHOD = "static method";
+const CONSTRUCTOR = "constructor";
+
+// The words before a declaration that say how far it escapes or what sort it is
+const MODIFIERS = ["PUB", "KIN", "STATIC", "ABSTRACT"];
+
+pub kind Entry {
+    // A kind's constructor and pub members, in source order
+    pub list #members = [];
+
+    /*
+     * $signature is the declaration's pieces, from its first word up to its body or the end of
+     * the statement; $doc the text of the comment above it, without the comment marks
+     */
+    fn _(pub string #what, pub string #name, pub list #signature, pub string #doc) {}
+}
+
+// A file of the library: its name, its namespace, the comment it starts with, and its entries
+pub kind Library {
+    fn _(pub string #name, pub string #namespace, pub string #comment, pub list #entries) {}
+}
+
+// A file of the library by its name ("csv") and source
+pub fn read(string $name, string $source): Library {
+    return Reader(highlight::gaz($source)).read($name);
+}
+
+kind Reader {
+    #pieces;
+    // The pieces that are tokens, by index into #pieces, so a declaration is read a token at a time
+    #tokens = [];
+
+    fn _(list $pieces) {
+        #pieces = $pieces;
+        foreach ($pieces as $i => $piece) {
+            if ($piece.type != highlight::SPACE_TYPE && $piece.type != highlight::COMMENT_TYPE) {
+                #tokens[] = $i;
+            }
+        }
+    }
+
+    pub fn read(string $name): Library {
+        $namespace = "";
+        $entries = [];
+        // The pub kind whose body is being read, if any
+        $kind = null;
+        $braces = 0;
+        $parentheses = 0;
+        $t = 0;
+        while ($t < len(#tokens)) {
+            $type = #type($t);
+            if ($type == "NAMESPACE" && $braces == 0) {
+                $namespace = #text($t + 1);
+            }
+            if ($parentheses == 0 && #declares($t, $braces, $kind != null)) {
+                [$entry, $end] = #declaration($t, $braces > 0);
+                if ($braces == 0) {
+                    $entries[] = $entry;
+                    $kind = $entry.what == KIND ? $entry : null;
+                } else {
+                    $kind.members[] = $entry;
+                }
+                $t = $end;
+                continue;
+            }
+            match ($type) {
+                "LEFT_BRACE" => { $braces++; }
+                "RIGHT_BRACE" => { $braces--; }
+                "LEFT_PAREN", "LEFT_BRACKET" => { $parentheses++; }
+                "RIGHT_PAREN", "RIGHT_BRACKET" => { $parentheses--; }
+                default => {}
+            }
+            if ($braces == 0) {
+                $kind = null;
+            }
+            $t++;
+        }
+
+        return Library($name, $namespace, #file_comment(), $entries);
+    }
+
+    /*
+     * Whether token $t starts a declaration the page lists: a pub one at the top level, and in
+     * a pub kind's body a pub member or the constructor, which escapes whatever it says
+     */
+    fn declares(int $t, int $braces, bool $in_pub_kind): bool {
+        if ($braces == 0) {
+            return #type($t) == "PUB";
+        }
+        if ($braces != 1 || !$in_pub_kind) {
+            return false;
+        }
+
+        return #type($t) == "PUB" || #type($t) == "FN" && #text($t + 1) == "_";
+    }
+
+    // The declaration starting at token $t as [Entry, the token after it]
+    fn declaration(int $t, bool $in_kind): list {
+        $u = $t;
+        $static = false;
+        while (in_array(#type($u), MODIFIERS)) {
+            $static = $static || #type($u) == "STATIC";
+            $u++;
+        }
+        // Past a type (a field's), to the word that says what this is
+        while (!#is_declaring_word($u)) {
+            $u++;
+        }
+
+        $name = #type($u) == "HASH_IDENTIFIER" ? slice(#text($u), 1) : #text($u + 1);
+        $what = match (#type($u)) {
+            "FN" => #function_what($name, $in_kind, $static),
+            "KIND" => KIND,
+            "CONST" => CONSTANT,
+            default => $static ? STATIC_FIELD : FIELD,
+        };
+        $end = #declaration_end($u, $what);
+        $first = #tokens[$t];
+        $last = #tokens[$end - 1];
+        $signature = slice(#pieces, $first, $last - $first + 1);
+        $entry = Entry($what, $name, $signature, #comment_above($first));
+
+        return [$entry, $end];
+    }
+
+    // fn, const, a field's #name, or kind followed by its name (not a field's type, kind #k)
+    fn is_declaring_word(int $u): bool {
+        $type = #type($u);
+        if (in_array($type, ["FN", "CONST", "HASH_IDENTIFIER", "EOF"])) {
+            return true;
+        }
+
+        return $type == "KIND" && #type($u + 1) == "IDENTIFIER";
+    }
+
+    fn function_what(string $name, bool $in_kind, bool $static): string {
+        return match {
+            $name == "_" => CONSTRUCTOR,
+            !$in_kind => FUNCTION,
+            $static => STATIC_METHOD,
+            default => METHOD,
+        };
+    }
+
+    /*
+     * The token after a declaration's signature: a function's or kind's ends before its body
+     * (or the ; of one without), a constant's or field's at its ;, past any braces of its value
+     */
+    fn declaration_end(int $u, string $what): int {
+        $depth = 0;
+        $stops_at_brace = in_array($what, [FUNCTION, METHOD, STATIC_METHOD, CONSTRUCTOR, KIND]);
+        while (#type($u) != "EOF") {
+            $type = #type($u);
+            if ($depth == 0 && ($type == "SEMICOLON" || $type == "LEFT_BRACE" && $stops_at_brace)) {
+                return $type == "SEMICOLON" ? $u + 1 : $u;
+            }
+            if (in_array($type, ["LEFT_PAREN", "LEFT_BRACKET", "LEFT_BRACE"])) {
+                $depth++;
+            } else if (in_array($type, ["RIGHT_PAREN", "RIGHT_BRACKET", "RIGHT_BRACE"])) {
+                $depth--;
+            }
+            $u++;
+        }
+
+        return $u;
+    }
+
+    fn type(int $t): string {
+        return $t < len(#tokens) ? #pieces[#tokens[$t]].type : "EOF";
+    }
+
+    fn text(int $t): string {
+        return $t < len(#tokens) ? #pieces[#tokens[$t]].text : "";
+    }
+
+    /*
+     * The comment on the lines right above piece $p, without its marks, or "". A comment after
+     * code on its line is that code's, and a blank line ends the comment.
+     */
+    fn comment_above(int $p): string {
+        $comments = [];
+        $q = $p - 1;
+        while ($q >= 0) {
+            $piece = #pieces[$q];
+            if ($piece.type == highlight::SPACE_TYPE) {
+                if (len(split($piece.text, "\n")) > 2) {
+                    break;
+                }
+            } else if ($piece.type == highlight::COMMENT_TYPE && #starts_line($q)) {
+                $comments = [$piece.text, ...$comments];
+            } else {
+                break;
+            }
+            $q--;
+        }
+
+        return comment_text($comments);
+    }
+
+    // Whether nothing but whitespace is before piece $p on its line
+    fn starts_line(int $p): bool {
+        if ($p == 0) {
+            return true;
+        }
+        $before = #pieces[$p - 1];
+
+        return $before.type == highlight::SPACE_TYPE && ($p == 1 || contains($before.text, "\n"));
+    }
+
+    // The comment the file starts with, up to a blank line
+    fn file_comment(): string {
+        $comments = [];
+        foreach (#pieces as $piece) {
+            if ($piece.type == highlight::COMMENT_TYPE) {
+                $comments[] = $piece.text;
+            } else if ($piece.type != highlight::SPACE_TYPE || len(split($piece.text, "\n")) > 2) {
+                break;
+            }
+        }
+
+        return comment_text($comments);
+    }
+}
+
+// Comments' text without // or /* */ and the * down a block comment's side
+fn comment_text(list $comments): string {
+    $lines = [];
+    foreach ($comments as $comment) {
+        if (starts_with($comment, "//")) {
+            $lines[] = without_prefix(slice($comment, 2), " ");
+            continue;
+        }
+        foreach (split(slice($comment, 2, -2), "\n") as $line) {
+            $lines[] = block_comment_line($line);
+        }
+    }
+    // A block comment's first and last lines are usually empty
+    while (len($lines) > 0 && trim($lines[0]) == "") {
+        delete $lines[0];
+    }
+    while (len($lines) > 0 && trim(last($lines)) == "") {
+        delete $lines[len($lines) - 1];
+    }
+
+    return join($lines, "\n");
+}
+
+fn without_prefix(string $text, string $prefix): string {
+    return starts_with($text, $prefix) ? slice($text, len($prefix)) : $text;
+}
+
+// A line of a block comment without the * down its side and the space after it
+fn block_comment_line(string $line): string {
+    if (trim($line) == "") {
+        return "";
+    }
+    $text = without_prefix(text::unindented($line), "*");
+
+    return without_prefix($text, " ");
+}
+
+/*
+ * A comment's text as Markdown. Comments are Markdown (`code`, *emphasis*, lists, links), read
+ * without backslash escapes, since a backslash in a comment means itself (the site renders them
+ * with markdown::Renderer's $escapes off). What Markdown would take for an indented code block
+ * is an example indented under a blank line, which becomes a fenced GazLang block here.
+ */
+pub fn comment_markdown(string $text): string {
+    $out = [];
+    $code = [];
+    $after_blank = true;
+    $in_list = false;
+    foreach (split($text, "\n") as $line) {
+        $indent = text::indentation($line);
+        $blank = trim($line) == "";
+        if (len($code) > 0 && ($blank || $indent >= 2)) {
+            $code[] = $line;
+            continue;
+        }
+        if (len($code) > 0) {
+            $out = [...$out, ...code_block($code)];
+            $code = [];
+        }
+        if (!$blank && $indent >= 2 && $after_blank && !$in_list) {
+            $code[] = $line;
+            continue;
+        }
+        $out[] = $line;
+        $in_list = !$blank && (starts_with($line, "- ") || $in_list && $indent >= 2);
+        $after_blank = $blank;
+    }
+    if (len($code) > 0) {
+        $out = [...$out, ...code_block($code)];
+    }
+
+    return join($out, "\n");
+}
+
+// Indented lines as a fenced GazLang block, less their common indentation
+fn code_block(list $lines): list {
+    while (trim(last($lines)) == "") {
+        delete $lines[len($lines) - 1];
+    }
+    $written = filter($lines, $line -> trim($line) != "");
+    $indent = min(map($written, $line -> text::indentation($line)));
+
+    return ["```gaz", ...map($lines, $line -> slice($line, min($indent, len($line)))), "```", ""];
+}
+
+// The first paragraph of a comment's text, joined into one line
+pub fn summary(string $text): string {
+    $first = split($text .. "\n\n", "\n\n")[0];
+
+    return join(map(split($first, "\n"), $line -> trim($line)), " ");
+}

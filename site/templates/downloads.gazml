@@ -1,0 +1,21 @@
+@template downloads(?string $version, list $builds, list $more)
+<aside class="download" aria-label="Download">
+@if ($version != null)
+<p><strong>Download gaz {{ $version }}</strong> for</p>
+<ul>
+@foreach ($builds as $build)
+<li><a href="{{ $build.href }}">{{ $build.title }}</a></li>
+@endforeach
+</ul>
+@else
+<p><strong>Download gaz</strong> for Linux or macOS from the releases page, or build it from source below.</p>
+@endif
+<p class="small">
+@foreach ($more as $i => $link)
+@if ($i > 0)
+ ·
+@endif
+<a href="{{ $link.href }}">{{ $link.title }}</a>
+@endforeach
+</p>
+</aside>

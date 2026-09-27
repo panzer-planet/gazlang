@@ -1,0 +1,25 @@
+ok a site with nothing wrong
+ok broken links name the file and line
+ok a link's &amp; is an &
+ok an id given twice
+ok a tag closed out of order
+ok a tag never closed
+ok a close with nothing open
+ok prose with a lone ` and **
+ok an escaped pair
+ok marks in code
+ok a code span left unread
+ok strong left unread across tags
+ok the page code spans once mangled
+ok each block is its own
+ok a list in a paragraph
+ok uppercase tags
+ok a single-quoted and an uppercase href
+ok a page two down
+ok a page two down climbing too far
+ok a path two down
+ok a relative path
+ok a path in the same directory
+ok a path out of the site
+ok mailto is another site
+ok a page is not

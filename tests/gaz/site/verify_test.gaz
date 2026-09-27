@@ -1,0 +1,76 @@
+/*
+ * site/verify.gaz: a site's pages must link to its files and their anchors, give each id once,
+ * close every tag in order, and leave no Markdown unread in their text
+ */
+include "../../../site/verify.gaz";
+include "../check.gaz";
+
+// A list item from the page a Markdown bug once wrote: its code spans read wrong
+const MANGLED = "<li><strong>`tests/gaz/</strong>/<em>_test.gaz<code>** are programs </code></em>_test.expected<code> x</code> file (<code>y</code>GazProgramTest<code>). </code>tests/gaz/check.gaz<code>z</code>gives<code>w</code>check(\$label, \$actual, \$expected)<code>, v</code>, which prints <code>u</code>ok &lt;label&gt;` or a FAIL line</li>";
+
+const SITE = {
+    "index.html" => "<a href=\"#top\" id=\"top\">top</a>\n<a href=\"reference/a.html#one\">one</a> <a href=\"style.css\">css</a>\n<a href=\"https://example.com/x#y\">out</a> <a href=\"mailto:a@b.c\">mail</a>",
+    "reference/a.html" => "<h1 id=\"one\">One</h1> <a href=\"../index.html#top\">up</a> <a href=\"a.html\">self</a> <img src=\"../style.css\" alt=\"\">\n<a href=\"../a&amp;b.html\">escaped</a>",
+    "a&b.html" => "<!doctype html>\n<!-- <b> -->\n<p>a <code>`x` **y**</code> &#42;&#42;</p><br>",
+    "style.css" => "a { href=\"nothing.html\" }",
+};
+
+check("a site with nothing wrong", verify::site(SITE), []);
+
+// Each way a link breaks, broken on purpose
+$broken = SITE;
+$broken["index.html"] ..= "\n<a href=\"missing.html\">gone</a> <a href=\"reference/a.html#two\">no anchor</a>";
+$broken["reference/a.html"] ..= "\n\n<a href=\"#nowhere\">here</a> <img src=\"../../out.png\" alt=\"\"> <a href=\"\">empty</a>";
+check("broken links name the file and line", verify::site($broken), [
+    "index.html:4: broken link to missing.html: there is no missing.html",
+    "index.html:4: broken link to reference/a.html#two: no anchor #two in reference/a.html",
+    "reference/a.html:4: broken link to #nowhere: no anchor #nowhere in reference/a.html",
+    "reference/a.html:4: an empty link",
+    "reference/a.html:4: broken link to ../../out.png: there is no ../../out.png",
+]);
+
+// A link is read as the browser reads it, its character references undone
+$unescaped = {"a&amp;b.html" => "", "index.html" => "<a href=\"a&amp;b.html\">x</a>"};
+check("a link's &amp; is an &", verify::site($unescaped), ["index.html:1: broken link to a&b.html: there is no a&b.html"]);
+
+check("an id given twice", verify::site({"a.html" => "<p id=\"x\"></p>\n<p id=\"x\"></p>"}),
+    ["a.html:2: the id \"x\" is given twice, first on line 1"]);
+
+// Tags must nest
+check("a tag closed out of order", verify::site({"a.html" => "<p><em>\n<strong></em></strong></p>"}),
+    ["a.html:2: </em> closes <strong> from line 2", "a.html:2: </strong> closes <p> from line 1"]);
+check("a tag never closed", verify::site({"a.html" => "<div>\n<p>x</p>"}), ["a.html:1: <div> is never closed"]);
+check("a close with nothing open", verify::site({"a.html" => "x</p>"}), ["a.html:1: </p> closes nothing"]);
+
+// What a Markdown mistake leaves behind, and prose that only looks like it
+check("prose with a lone ` and **", verify::site({"a.html" => "<p>Write powers as 2 ** 3, and a lone ` is shown as it is.</p>"}), []);
+check("an escaped pair", verify::site({"a.html" => "<p>&#42;&#42;not&#42;&#42; and &#96;x&#96;</p>"}), []);
+check("marks in code", verify::site({"a.html" => "<pre>**x** `y`</pre><p><code>**x**</code></p><PRE>*z*</PRE>"}), []);
+check("a code span left unread", verify::site({"a.html" => "<p>a `b` c</p>"}),
+    ["a.html:1: Markdown left in the text, which reads as <code>: a `b` c"]);
+check("strong left unread across tags", verify::site({"a.html" => "<li>**a <em>b</em> c**</li>"}),
+    ["a.html:1: Markdown left in the text, which reads as <strong>: **a b c**"]);
+check("the page code spans once mangled", verify::site({"a.html" => MANGLED}),
+    ["a.html:1: Markdown left in the text, which reads as <code>: `tests/gaz//_test.gaz_test.expected file (GazProgramTesttests/gaz/check.gazgivescheck(\$label, \$actual, \$expected), which prints ok &lt;label&gt;` or a FAIL line"]);
+check("each block is its own", verify::site({"a.html" => "<li>a `b</li><li>c` d</li>"}), []);
+
+// A block a <p> can't hold, which a browser would close the <p> for
+check("a list in a paragraph", verify::site({"a.html" => "<p>a\n<ul><li>b</li></ul></p>"}),
+    ["a.html:2: <ul> inside a <p>, which a browser closes before it"]);
+
+// Tags and attributes in any case, and either quote
+check("uppercase tags", verify::site({"a.html" => "<P>a <EM>b</em></p>"}), []);
+check("a single-quoted and an uppercase href", verify::site({"a.html" => "<a href='b.html'>x</a> <A HREF=\"c.html\">y</A>"}),
+    ["a.html:1: broken link to b.html: there is no b.html", "a.html:1: broken link to c.html: there is no c.html"]);
+
+// A page two directories down
+check("a page two down", verify::site({"a/b/c.html" => "<a href=\"../../index.html#top\">x</a>", "index.html" => "<p id=\"top\"></p>"}), []);
+check("a page two down climbing too far", verify::site({"a/b/c.html" => "<a href=\"../../../index.html\">x</a>", "index.html" => ""}),
+    ["a/b/c.html:1: broken link to ../../../index.html: there is no ../../../index.html"]);
+
+check("a path two down", verify::resolve("a/b/c.html", "../../d.html"), "d.html");
+check("a relative path", verify::resolve("reference/a.html", "../library/b.html"), "library/b.html");
+check("a path in the same directory", verify::resolve("reference/a.html", "./b.html"), "reference/b.html");
+check("a path out of the site", verify::resolve("a.html", "../b.html"), null);
+check("mailto is another site", verify::is_external("mailto:a@b.c"), true);
+check("a page is not", verify::is_external("a.html"), false);

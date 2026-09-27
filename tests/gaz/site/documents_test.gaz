@@ -1,0 +1,75 @@
+// site/documents.gaz: where the repository is, how the reference splits, where each link goes
+include "../../../site/documents.gaz";
+include "../../../site/markdown.gaz";
+include "../check.gaz";
+
+// Every shape of remote git writes, and ones that aren't GitHub's
+check("https", documents::name_from_remote("https://github.com/owner/name"), "owner/name");
+check("https with .git", documents::name_from_remote("https://github.com/owner/name.git"), "owner/name");
+check("https with .git and a slash", documents::name_from_remote("https://github.com/owner/name.git/"), "owner/name");
+check("https with a slash", documents::name_from_remote("https://github.com/owner/name/"), "owner/name");
+check("ssh with a colon", documents::name_from_remote("git@github.com:owner/name.git"), "owner/name");
+check("ssh as a URL", documents::name_from_remote("ssh://git@github.com/owner/name"), "owner/name");
+check("GitLab", documents::name_from_remote("https://gitlab.com/owner/name.git"), null);
+check("a local path", documents::name_from_remote("/home/me/gazlang"), null);
+check("a host that only starts like GitHub's", documents::name_from_remote("https://github.company.com/o/n"), null);
+check("a host that only ends like GitHub's", documents::name_from_remote("https://notgithub.com/o/n"), null);
+check("too many parts", documents::name_from_remote("https://github.com/owner/name/tree/main"), null);
+
+// What is given wins, then the remote, then GitHub Actions' $GITHUB_REPOSITORY, then nothing
+check("given", documents::choose_repository("a/b", "https://github.com/c/d", "e/f"), "a/b");
+check("the remote", documents::choose_repository(null, "https://github.com/c/d", "e/f"), "c/d");
+check("a remote not on GitHub falls to Actions'", documents::choose_repository(null, "/local/clone", "e/f"), "e/f");
+check("no remote", documents::choose_repository(null, null, "e/f"), "e/f");
+check("nothing at all", documents::choose_repository(null, null, null), null);
+check("nothing well formed", documents::choose_repository(null, "https://gitlab.com/c/d", "junk"), null);
+try {
+    documents::choose_repository("not a name", null, null);
+    echo "FAIL a bad name given is an error";
+} catch (Error $e) {
+    check("a bad name given is an error", $e.message, "Not a GitHub repository, owner/name: not a name");
+}
+
+// A repository's links, and none when it isn't known
+$known = documents::Repository("o/n");
+check("a file", $known.file_url("LICENSE.md", false), "https://github.com/o/n/blob/HEAD/LICENSE.md");
+check("a directory", $known.file_url("vm/bench", true), "https://github.com/o/n/tree/HEAD/vm/bench");
+check("a download", $known.download_url("v1.2.3", "x.tar.gz"), "https://github.com/o/n/releases/download/v1.2.3/x.tar.gz");
+$unknown = documents::Repository(null);
+check("unknown", [$unknown.known(), $unknown.home(), $unknown.file_url("a", false), $unknown.releases_url()], [false, null, null, null]);
+
+// The reference splits at its top headings, which move up a level; code is never split
+$sections = documents::split_sections("# Title\nintro\n## One\ntext\n### Sub\n```\n## not a heading\n```\n## Two");
+check("the sections", map($sections, $s -> $s.markdown), [
+    "# Title\nintro",
+    "# One\ntext\n## Sub\n```\n## not a heading\n```",
+    "# Two",
+]);
+check("badges go", documents::without_badges("[![CI](x.svg)](ci)\n# Title"), "# Title");
+
+// Relative links
+check("the root from the top", documents::root_of("index.html"), "");
+check("the root from a directory", documents::root_of("reference/a.html"), "../");
+check("the root from two down", documents::root_of("a/b/c.html"), "../../");
+check("a site path from a page below", documents::relative("../", "index.html#x"), "../index.html#x");
+check("another site", documents::relative("../", "https://a.b/c"), "https://a.b/c");
+check("mail", documents::relative("../", "mailto:a@b.c"), "mailto:a@b.c");
+check("no link", documents::relative("../", null), null);
+
+// Where a document's links go
+$pages = {"README.md" => "index.html", "docs/language.md" => "reference/index.html"};
+$linker = documents::Linker($known, $pages, ".");
+$section = documents::Section("");
+$section.page = "reference/types.html";
+$section.headings = [markdown::Heading(1, "Types", "types"), markdown::Heading(2, "Unions", "unions")];
+$linker.add("docs/language.md", $section);
+check("a document", $linker.resolve("README.md", "docs/language.md"), "reference/index.html");
+check("an anchor on another page", $linker.resolve("README.md", "docs/language.md#unions"), "reference/types.html#unions");
+check("an anchor in the same document", $linker.resolve("docs/language.md", "#types"), "reference/types.html#types");
+check("an anchor no page has", $linker.resolve("docs/language.md", "#typos"), "reference/index.html#typos");
+check("up a directory", $linker.resolve("docs/language.md", "../README.md#x"), "index.html#x");
+check("a file of the repository", $linker.resolve("docs/language.md", "../LICENSE.md"), "https://github.com/o/n/blob/HEAD/LICENSE.md");
+check("a directory of it", $linker.resolve("README.md", "vm#here"), "https://github.com/o/n/tree/HEAD/vm#here");
+check("another site", $linker.resolve("README.md", "https://x.y/z"), "https://x.y/z");
+check("a scheme is left for the converter to judge", $linker.resolve("README.md", "javascript:x"), "javascript:x");
+check("a file when the repository isn't known", documents::Linker($unknown, $pages, ".").resolve("README.md", "LICENSE.md"), null);

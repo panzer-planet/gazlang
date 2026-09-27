@@ -1,0 +1,63 @@
+ok a heading
+ok ids stay unique across renders
+ok an id taken by another heading's slug is skipped
+ok a heading's text is plain
+ok # without a space is text
+ok lines join into a paragraph
+ok strong, emphasis and code
+ok a lone star is text
+ok backslash escapes
+ok a double backtick span
+ok an unclosed backtick is text
+ok HTML is escaped
+ok a link
+ok an image in a link
+ok brackets without a URL are text
+ok links go through the link function
+ok a tight list
+ok an ordered list from 3
+ok a loose list
+ok a nested list
+ok code in an item
+ok a line that isn't indented continues the item
+ok a paragraph ends a list after a blank line
+ok a table
+ok a line starting with | alone is a paragraph
+ok fenced code goes to the code function
+ok plain code is escaped, and after code it is the output
+ok an unclosed fence runs to the end
+ok a block quote
+ok CRLF in a heading and a paragraph
+ok CRLF in fenced code
+ok CRLF in a list
+ok CRLF in a table
+ok CRLF in a quote
+ok ** around code holding **
+ok ** around code holding ** and more
+ok * around code holding *
+ok a link label holding code with ]
+ok no space before the closing mark
+ok no space before the closing **
+ok the nearer opener takes the closer
+ok the nearer ** takes the closer
+ok three stars are both
+ok prose with lone marks stays as it is
+ok a language that isn't a plain word is left out
+ok a language with + is kept
+ok four backticks hold three
+ok an indented fence takes its indentation off
+ok 2. doesn't start a list in a paragraph
+ok 1. does
+ok a link's title
+ok a link the link function drops is its label
+ok a row's extra cells go and missing ones are empty
+ok a URL in angle brackets
+ok backticks after ``` make a code span, not a fence
+ok a javascript: link is its text
+ok an uppercase scheme too
+ok a path with a colon after a slash is a path
+ok safe schemes
+ok a backslash is itself
+ok inline alone
+ok a slug
+ok plain text

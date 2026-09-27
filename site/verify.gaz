@@ -1,0 +1,367 @@
+/*
+ * Checks a site before it is published. The site is a map from each file's path
+ * ("reference/values.html") to its text, and in each page:
+ *
+ * - every href and src that isn't to another site names a file of the site, and an anchor in it
+ *   that some element has as its id;
+ * - no id is given twice;
+ * - every tag that is opened is closed, in the order it was opened.
+ *
+ *   foreach (verify::site($files) as $problem) { print_error("{$problem}\n"); }
+ *
+ * A problem names the file and line: "index.html:12: no anchor #typos in reference/types.html".
+ */
+namespace verify;
+
+include "markdown.gaz" use unescape;
+include "text.gaz";
+
+// The attributes that link to something
+const ATTRIBUTES = ["href", "src"];
+
+// What starts a link to another site, which isn't checked
+const EXTERNAL = ["http://", "https://", "mailto:"];
+
+// Elements that have no closing tag
+const VOID_ELEMENTS = [
+    "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr",
+];
+
+// Elements whose text is code, where Markdown's marks are only characters
+const CODE_ELEMENTS = ["code", "pre", "style", "script"];
+
+// Elements that make a block of text of their own, and that a <p> can't hold
+const BLOCK_ELEMENTS = [
+    "p", "li", "td", "th", "h1", "h2", "h3", "h4", "h5", "h6", "div", "pre", "blockquote", "ul", "ol",
+    "table", "tr", "thead", "tbody", "section", "nav", "header", "footer", "main", "aside",
+];
+
+// A tag that is open, where it was opened
+kind OpenTag {
+    fn _(pub string #name, pub int #line) {}
+}
+
+// The problems with a site's pages, in file and line order; none means all is well
+pub fn site(map $files): list {
+    $ids = {};
+    foreach ($files as $path => $text) {
+        $ids[$path] = attribute_values($text, "id");
+    }
+
+    $problems = [];
+    foreach (sort(keys($files)) as $path) {
+        if (!ends_with($path, ".html")) {
+            continue;
+        }
+        $page_problems = [...line_problems($path, $files, $ids), ...nesting_problems($files[$path])];
+        foreach ($page_problems as $problem) {
+            $problems[] = "{$path}:{$problem}";
+        }
+    }
+
+    return $problems;
+}
+
+// Whether a URL is to another site
+pub fn is_external(string $url): bool {
+    foreach (EXTERNAL as $start) {
+        if (starts_with($url, $start)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// What is wrong with a page's links and ids, each "line: problem"
+fn line_problems(string $path, map $files, map $ids): list {
+    $problems = [];
+    $seen = {};
+    foreach (split($files[$path], "\n") as $i => $line) {
+        $number = $i + 1;
+        foreach (links_in($line) as $url) {
+            $problem = link_problem($path, $url, $files, $ids);
+            if ($problem != null) {
+                $problems[] = "{$number}: {$problem}";
+            }
+        }
+        foreach (id_list($line) as $id) {
+            if (has_key($seen, $id)) {
+                $problems[] = "{$number}: the id \"{$id}\" is given twice, first on line {$seen[$id]}";
+            } else {
+                $seen[$id] = $number;
+            }
+        }
+    }
+
+    return $problems;
+}
+
+// What is wrong with a link from the file at $from, or null
+fn link_problem(string $from, string $url, map $files, map $ids): ?string {
+    if ($url == "") {
+        return "an empty link";
+    }
+    if (is_external($url)) {
+        return null;
+    }
+    [$path, $anchor] = split_anchor($url);
+    $target = $path == "" ? $from : resolve($from, $path);
+    if ($target == null || !has_key($files, $target)) {
+        return "broken link to {$url}: there is no " .. ($target ?? $path);
+    }
+    if ($anchor != null && !has_key($ids[$target], $anchor)) {
+        return "broken link to {$url}: no anchor #{$anchor} in {$target}";
+    }
+
+    return null;
+}
+
+// "page.html#id" as ["page.html", "id"], and "page.html" as ["page.html", null]
+fn split_anchor(string $url): list {
+    $hash = index_of($url, "#");
+    if ($hash == null) {
+        return [$url, null];
+    }
+
+    return [slice($url, 0, $hash), slice($url, $hash + 1)];
+}
+
+/*
+ * A relative path from the file at $from as a path from the site's root, or null for one that
+ * climbs out of the site
+ */
+pub fn resolve(string $from, string $path): ?string {
+    $parts = split($from, "/");
+    delete $parts[len($parts) - 1];
+    foreach (split($path, "/") as $part) {
+        if ($part == "..") {
+            if (len($parts) == 0) {
+                return null;
+            }
+            delete $parts[len($parts) - 1];
+        } else if ($part != "." && $part != "") {
+            $parts[] = $part;
+        }
+    }
+
+    return join($parts, "/");
+}
+
+// Every link on a line, unescaped
+fn links_in(string $line): list {
+    $urls = [];
+    foreach (ATTRIBUTES as $attribute) {
+        foreach (attribute_list($line, $attribute) as $value) {
+            $urls[] = $value;
+        }
+    }
+
+    return $urls;
+}
+
+fn id_list(string $line): list {
+    return attribute_list($line, "id");
+}
+
+// The values of an attribute written name="value" in some HTML, as the keys of a map
+fn attribute_values(string $html, string $name): map {
+    $values = {};
+    foreach (attribute_list($html, $name) as $value) {
+        $values[$value] = true;
+    }
+
+    return $values;
+}
+
+/*
+ * The values of an attribute written name="value" or name='value', in any case, in some HTML,
+ * unescaped, in order
+ */
+fn attribute_list(string $html, string $name): list {
+    $values = [];
+    // lower() changes only ASCII letters, so a place in it is the same place in the HTML
+    $lowered = lower($html);
+    $marker = " " .. lower($name) .. "=";
+    $at = index_of($lowered, $marker);
+    while ($at != null) {
+        $start = $at + len($marker) + 1;
+        $quote = $html[$start - 1] ?? "";
+        $end = len($html);
+        if ($quote == "\"" || $quote == "'") {
+            $end = index_of($html, $quote, $start) ?? len($html);
+            $values[] = unescape(slice($html, $start, $end - $start));
+        }
+        $at = $end < len($html) ? index_of($lowered, $marker, $end) : null;
+    }
+
+    return $values;
+}
+
+/*
+ * Tags closed out of order, closing nothing, or never closed, blocks inside a <p> (which a
+ * browser closes early), and Markdown the converter failed to read, each "line: problem".
+ * Comments and the doctype are skipped; the site escapes every < in text and attributes, so any
+ * other < starts a tag.
+ */
+fn nesting_problems(string $html): list {
+    $problems = [];
+    $open = [];
+    $block = BlockText();
+    $line = 1;
+    $i = 0;
+    while ($i < len($html)) {
+        $at = index_of($html, "<", $i) ?? len($html);
+        $text = slice($html, $i, $at - $i);
+        if (!inside_code($open)) {
+            $block.add($text, $line);
+        }
+        $line += newlines_in($text);
+        if ($at == len($html)) {
+            break;
+        }
+        $end = tag_end($html, $at);
+        $tag = slice($html, $at, $end - $at);
+        $name = tag_name($tag);
+        if (in_array($name, BLOCK_ELEMENTS)) {
+            $problems = [...$problems, ...$block.problems()];
+            $block = BlockText();
+        }
+        if (starts_with($tag, "</")) {
+            $problem = close_problem($open, $name);
+            if ($problem != null) {
+                $problems[] = "{$line}: {$problem}";
+            }
+            $open = without_closed($open, $name);
+        } else if ($name != "" && !in_array($name, VOID_ELEMENTS)) {
+            if (in_array($name, BLOCK_ELEMENTS) && in_paragraph($open)) {
+                $problems[] = "{$line}: <{$name}> inside a <p>, which a browser closes before it";
+            }
+            $open[] = OpenTag($name, $line);
+        }
+        $line += newlines_in($tag);
+        $i = $end;
+    }
+    $problems = [...$problems, ...$block.problems()];
+    foreach ($open as $tag) {
+        $problems[] = "{$tag.line}: <{$tag.name}> is never closed";
+    }
+
+    return $problems;
+}
+
+fn inside_code(list $open): bool {
+    foreach ($open as $tag) {
+        if (in_array($tag.name, CODE_ELEMENTS)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// Whether the innermost block open is a <p>, with only inline elements in it since
+fn in_paragraph(list $open): bool {
+    foreach (reverse($open) as $tag) {
+        if ($tag.name == "p") {
+            return true;
+        }
+        if (in_array($tag.name, BLOCK_ELEMENTS)) {
+            return false;
+        }
+    }
+
+    return false;
+}
+
+/*
+ * The text of one block (a paragraph, a list item, a cell), outside code, as the Markdown
+ * converter left it. The converter turns every `code` span, **strong** and *emphasis* it can
+ * read into tags, so if reading the text again finds one, the converter got it wrong: a lone *
+ * or ` it deliberately left as text finds nothing, exactly as GitHub shows it. A backslash's
+ * * and ` are character references, which stay as they are here, so they are never read again.
+ */
+kind BlockText {
+    #text = "";
+    #line = 0;
+
+    pub fn add(string $text, int $line): null {
+        if (#text == "") {
+            #line = $line;
+        }
+        #text ..= $text;
+    }
+
+    pub fn problems(): list {
+        $html = markdown::Renderer().render_inline(unescape_text(#text));
+        foreach (["<code>", "<strong>", "<em>"] as $tag) {
+            if (contains($html, $tag)) {
+                $shown = trim(replace(#text, "\n", " "));
+
+                return ["{#line}: Markdown left in the text, which reads as {$tag}: {$shown}"];
+            }
+        }
+
+        return [];
+    }
+}
+
+// Text's character references read back, except the * and ` a backslash escaped
+fn unescape_text(string $text): string {
+    $text = replace(replace($text, "&#42;", "&#x2A;"), "&#96;", "&#x60;");
+
+    return unescape($text);
+}
+
+fn newlines_in(string $text): int {
+    return len(split($text, "\n")) - 1;
+}
+
+// Where the tag or comment starting at $at ends, past its >
+fn tag_end(string $html, int $at): int {
+    $close = starts_with($html, "<!--", $at) ? "-->" : ">";
+    $found = index_of($html, $close, $at);
+
+    return $found == null ? len($html) : $found + len($close);
+}
+
+// A tag's element name, lowercase, or "" for a comment or the doctype
+fn tag_name(string $tag): string {
+    if (starts_with($tag, "<!")) {
+        return "";
+    }
+    $i = starts_with($tag, "</") ? 2 : 1;
+    $name = "";
+    while ($i < len($tag) && contains("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", $tag[$i])) {
+        $name ..= $tag[$i];
+        $i++;
+    }
+
+    return lower($name);
+}
+
+// What is wrong with closing $name, or null when it closes the innermost open tag
+fn close_problem(list $open, string $name): ?string {
+    if (len($open) == 0) {
+        return "</{$name}> closes nothing";
+    }
+    $innermost = last($open);
+    if ($innermost.name == $name) {
+        return null;
+    }
+
+    return "</{$name}> closes <{$innermost.name}> from line {$innermost.line}";
+}
+
+// The open tags once $name is closed: up to and including the innermost $name, if it is open
+fn without_closed(list $open, string $name): list {
+    $i = len($open) - 1;
+    while ($i >= 0 && $open[$i].name != $name) {
+        $i--;
+    }
+    if ($i < 0) {
+        return $open;
+    }
+
+    return slice($open, 0, $i);
+}

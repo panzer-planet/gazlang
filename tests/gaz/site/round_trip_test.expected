@@ -1,0 +1,12 @@
+ok README.md has code blocks
+ok README.md's gaz blocks all lex
+ok docs/language.md has code blocks
+ok docs/language.md's gaz blocks all lex
+ok docs/bytecode.md has code blocks
+ok docs/bytecode.md's gaz blocks all lex
+ok docs/internals.md has code blocks
+ok docs/internals.md's gaz blocks all lex
+ok lib/ has files
+ok every file of lib/ lexes and round trips
+ok examples/ has files
+ok every file of examples/ lexes and round trips

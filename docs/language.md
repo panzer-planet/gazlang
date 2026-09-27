@@ -201,7 +201,7 @@ and the right side of `??`, and its operand runs as far right as it can.
   parenthesised expression is called with the value: `$n |> ($v -> $v * 2)`. It is left
   associative, so a chain reads in the order it runs, and a chain may start its lines with `|>`:
 
-  ```
+  ```gaz
   $slug = $title
       |> trim
       |> lower
@@ -628,7 +628,7 @@ exit code, or minus the signal's number when a signal killed it (`-9`). A progra
 started is an error (`Cannot run "nope": No such file or directory`), as are an empty list and
 an argument that isn't a string or holds a NUL byte.
 
-```
+```gaz
 $r = run(["git", "log", "-1", "--format=%s"]);
 if ($r["status"] != 0) { throw $r["stderr"]; }
 ```
@@ -724,7 +724,7 @@ SIGHUP). Workers share nothing after the call, a
 `socket_listen()` listener made before it aside, which is the point: they all accept on one port.
 Each draws its own random numbers. At most 1024, and a worker can't start workers of its own.
 
-```
+```gaz
 $listener = socket_listen("0.0.0.0", 8080);
 $n = workers(4);
 while (true) {
@@ -759,7 +759,7 @@ for passwords, tokens or keys (for those, `random_bytes()` and `std/crypto.gaz`,
   same numbers on every run and on both runtimes; with no seed, from an unpredictable one taken
   from the operating system. Every program starts as if it had called `rand_seed()`.
 
-The generator is xoshiro256\*\*, seeded from the int through SplitMix64. How its 64-bit outputs become numbers is GazLang's
+The generator is xoshiro256**, seeded from the int through SplitMix64. How its 64-bit outputs become numbers is GazLang's
 own rule: `rand_float()` is the top 53 bits divided by 2^53; `rand_int()` takes the span
 `$max - $min` as an unsigned 64-bit number, masks each output down to the bits the span uses,
 and draws again until the result is at most the span, then adds it to `$min`, so every int in
@@ -943,7 +943,7 @@ longer names.
 A `.gazml` file is a template: HTML with GazLang in it, compiled into a function when it is
 included.
 
-```
+```gazml
 @template user_page($user, $posts)
 <h1>{{ $user.name }}</h1>
 @if (len($posts) == 0)
@@ -957,7 +957,7 @@ included.
 @endif
 ```
 
-```
+```gaz
 include "views/user.gazml";
 
 $page = user_page($user, $posts);        // an Html
@@ -1035,7 +1035,7 @@ header names lowercased and a repeated header's values joined with `", "`.
 **The server**: `http::serve($listener, $handler, $options = {})` answers the connections on a
 `socket_listen()` listener for ever, calling `$handler($request)` for each request with
 
-```
+```gaz
 {"method" => "GET", "path" => "/users/7", "query" => "tab=posts", "headers" => {...}, "body" => ""}
 ```
 
@@ -1062,7 +1062,7 @@ as in a response; the path and query are as the client sent them, not decoded.
 
 **Command line arguments**, with `std/cli.gaz`:
 
-```
+```gaz
 $cli = cli::Command("todo", "Keep a list of things to do");
 $cli.flag("verbose", "v", "Say more");
 $cli.option("file", "f", "The list to use", "todo.txt");
@@ -1085,7 +1085,7 @@ $cli.run(args());
 
 **Routing**, with `std/router.gaz`:
 
-```
+```gaz
 $app = router::Router();
 $app.get("/users/:id", $request -> ({"body" => "user {$request["params"]["id"]}"}));
 $app.post("/users", $create_user);
@@ -1115,7 +1115,7 @@ Decoding what a request carries, when a handler asks:
   `%` without two hex digits after it is an error: `bad percent-escape "%zz" at 3`.
   `http::url_encode($text)` escapes everything but letters, digits and `- . _ ~`.
 
-```
+```gaz
 include "std/http.gaz";
 
 $listener = socket_listen("0.0.0.0", 8080);
@@ -1128,7 +1128,7 @@ http::serve($listener, $request -> match ($request["path"]) {
 
 A client:
 
-```
+```gaz
 include "std/http.gaz";
 
 $r = http::post("https://example.com/api", "{\"n\": 1}", {"Content-Type" => "application/json"});
@@ -1169,7 +1169,7 @@ compose with `..`; nothing in it needs a terminal but raw mode.
   `{"key" => "eof"}` when the input ends (again on every call after). A lone `ESC` waits 50ms for
   the rest of a sequence before it is `escape`.
 
-```
+```gaz
 include "std/term.gaz";
 
 term::fullscreen(() -> {

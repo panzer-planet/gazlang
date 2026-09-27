@@ -1,0 +1,461 @@
+/*
+ * Syntax highlighting for the website: source text as a list of Pieces, each a run of the text
+ * with the class it is shown in, and the pieces as HTML.
+ *
+ *   $pieces = highlight::gaz("echo 1;");       // [Piece("kw", "echo"), Piece("", " "), ...]
+ *   echo highlight::to_html("gaz", $source);   // <span class="kw">echo</span> ...
+ *
+ * GazLang is split by the compiler's own lexer, so a colour can never disagree with the
+ * language. The lexer drops whitespace and comments and decodes strings, so the text of every
+ * piece is cut from the source by where the lexer says each token lies (Lexer.span()), never
+ * written back from a token: joining the pieces' text gives the source, byte for byte.
+ * Source the lexer refuses is one plain piece, so a broken example is shown, not fatal.
+ *
+ * Bytecode, templates and shell commands have small highlighters of their own, line by line.
+ */
+namespace highlight;
+
+include "../compiler/lexer.gaz" use Lexer, LexError;
+include "text.gaz";
+
+// The class of text shown plain: whitespace, punctuation, and anything not recognised
+const PLAIN = "";
+
+// A class for each thing a reader tells apart, which the stylesheet colours
+const KEYWORD = "kw";
+const LITERAL = "lit";          // true, false, null
+const NUMBER = "num";
+const STRING = "str";
+const COMMENT = "com";
+const VARIABLE = "var";         // $local, @global
+const MEMBER = "mem";           // #, #name, ##name, .name, ?.name
+const TYPE = "ty";              // a kind or constant (a capital first), or a type's name
+const FUNCTION = "fn";          // a name that is called
+const OPERATOR = "op";
+
+// The piece types that aren't tokens
+pub const SPACE_TYPE = "SPACE";
+pub const COMMENT_TYPE = "COMMENT";
+pub const TEXT_TYPE = "TEXT";
+
+const TOKEN_CLASSES = {
+    "INTEGER" => NUMBER, "FLOAT" => NUMBER,
+    "STRING" => STRING, "STRING_START" => STRING, "STRING_MIDDLE" => STRING, "STRING_END" => STRING,
+    "VAR_IDENTIFIER" => VARIABLE, "GLOBAL_VAR_IDENTIFIER" => VARIABLE,
+    "HASH" => MEMBER, "HASH_IDENTIFIER" => MEMBER, "PARENT" => MEMBER, "PARENT_IDENTIFIER" => MEMBER,
+    "PROPERTY" => MEMBER, "NULLSAFE_PROPERTY" => MEMBER,
+    "TRUE" => LITERAL, "FALSE" => LITERAL, "NULL" => LITERAL,
+    "LEFT_PAREN" => PLAIN, "RIGHT_PAREN" => PLAIN, "LEFT_BRACKET" => PLAIN, "RIGHT_BRACKET" => PLAIN,
+    "LEFT_BRACE" => PLAIN, "RIGHT_BRACE" => PLAIN, "COMMA" => PLAIN, "SEMICOLON" => PLAIN,
+};
+
+// The names of types that aren't keywords, as type_of() gives them; followed by ( one is a call
+const TYPE_NAMES = ["int", "float", "string", "bool", "list", "map", "object", "socket", "db"];
+
+// The words that start a template directive line
+const TEMPLATE_DIRECTIVES = ["template", "if", "elseif", "else", "endif", "foreach", "endforeach"];
+
+// The words in a bytecode header or record line, as against an instruction's name
+const BYTECODE_HEADERS = [
+    "globals", "statics", "top", "fn", "kind", "abstract", "lambda", "locals", "field", "method",
+    "static", "capture", "self",
+];
+const BYTECODE_KEYWORDS = ["in", "extends", "pub", "kin", "local", "captured"];
+
+/*
+ * A run of source text and how it is shown. $type is the lexer's token type for a token of
+ * GazLang, or SPACE_TYPE, COMMENT_TYPE or TEXT_TYPE, so a reader of the pieces (the library pages) can find
+ * declarations and the comments above them.
+ */
+pub kind Piece {
+    fn _(pub string #class, pub string #text, pub string #type = TEXT_TYPE) {}
+}
+
+// The pieces of some text in a language named as a Markdown fence names it
+pub fn pieces(string $language, string $source): list {
+    return match ($language) {
+        "gaz" => gaz($source),
+        "gzb" => bytecode($source),
+        "gazml" => template($source),
+        "bash", "sh", "shell" => shell($source),
+        default => [Piece(PLAIN, $source)],
+    };
+}
+
+// Source in a language as HTML, for inside a <pre><code>
+pub fn to_html(string $language, string $source): string {
+    return render(pieces($language, $source));
+}
+
+// Pieces as HTML: a class is a <span>, and all the text is escaped
+pub fn render(list $pieces): string {
+    $html = "";
+    foreach ($pieces as $piece) {
+        $text = Html::escape($piece.text);
+        if ($piece.class == PLAIN) {
+            $html ..= $text;
+        } else {
+            $html ..= "<span class=\"{$piece.class}\">{$text}</span>";
+        }
+    }
+
+    return $html;
+}
+
+// GazLang source, split by the compiler's lexer; one plain piece if the lexer refuses it
+pub fn gaz(string $source): list {
+    try {
+        return gaz_tokens($source);
+    } catch (LexError $e) {
+        return [Piece(PLAIN, $source)];
+    }
+}
+
+fn gaz_tokens(string $source): list {
+    $lexer = Lexer($source);
+    $tokens = [];
+    $spans = [];
+    $type = null;
+    while ($type != "EOF") {
+        $token = $lexer.get_next_token();
+        $tokens[] = $token;
+        $spans[] = $lexer.span();
+        $type = $token.type;
+    }
+
+    $pieces = [];
+    $end = 0;
+    foreach ($tokens as $i => $token) {
+        [$start, $stop] = $spans[$i];
+        // A token queued with the one before it (the [0] of "$a[0]") was read with it
+        if ($start == $stop) {
+            continue;
+        }
+        foreach (between(slice($source, $end, $start - $end)) as $piece) {
+            $pieces[] = $piece;
+        }
+        $next = $tokens[$i + 1] ?? null;
+        $pieces[] = Piece(token_class($token, $next), slice($source, $start, $stop - $start), $token.type);
+        $end = $stop;
+    }
+    // What is left after the last token: whitespace and comments
+    foreach (between(slice($source, $end)) as $piece) {
+        $pieces[] = $piece;
+    }
+
+    return $pieces;
+}
+
+// How a token is shown, by its type, and for a name by what it looks like and what follows it
+fn token_class($token, $next): string {
+    $class = TOKEN_CLASSES[$token.type] ?? null;
+    if ($class != null) {
+        return $class;
+    }
+    if ($token.type == "IDENTIFIER") {
+        return identifier_class($token.value, $next);
+    }
+    if (is_keyword($token)) {
+        return KEYWORD;
+    }
+
+    return OPERATOR;
+}
+
+fn identifier_class(string $name, $next): string {
+    if ($name[0] >= "A" && $name[0] <= "Z") {
+        return TYPE;
+    }
+    if ($next != null && $next.type == "LEFT_PAREN") {
+        return FUNCTION;
+    }
+    if (in_array($name, TYPE_NAMES)) {
+        return TYPE;
+    }
+
+    return PLAIN;
+}
+
+// A keyword's token type is its word in capitals, which no operator's is
+fn is_keyword($token): bool {
+    $value = $token.value;
+    if (type_of($value) != "string" || $value == "" || $token.type == "IDENTIFIER") {
+        return false;
+    }
+
+    return $value[0] >= "a" && $value[0] <= "z" && $token.type == upper($value);
+}
+
+/*
+ * The text between two tokens, which the lexer skipped: whitespace, // and nested /* */
+ * comments, and a #! line at the start of a script
+ */
+fn between(string $text): list {
+    $pieces = [];
+    $i = 0;
+    $length = len($text);
+    while ($i < $length) {
+        $end = match {
+            starts_with($text, "//", $i) || starts_with($text, "#!", $i) => line_end($text, $i),
+            starts_with($text, "/*", $i) => block_comment_end($text, $i),
+            default => null,
+        };
+        if ($end == null) {
+            $end = whitespace_end($text, $i);
+            $pieces[] = Piece(PLAIN, slice($text, $i, $end - $i), SPACE_TYPE);
+        } else {
+            $pieces[] = Piece(COMMENT, slice($text, $i, $end - $i), COMMENT_TYPE);
+        }
+        $i = $end;
+    }
+
+    return $pieces;
+}
+
+// Where the line $i is on ends, before its line break
+fn line_end(string $text, int $i): int {
+    return index_of($text, "\n", $i) ?? len($text);
+}
+
+// Where the block comment starting at $i ends, past the */ matching its /*
+fn block_comment_end(string $text, int $i): int {
+    $depth = 0;
+    $length = len($text);
+    while ($i < $length) {
+        if (starts_with($text, "/*", $i)) {
+            $depth++;
+            $i += 2;
+        } else if (starts_with($text, "*/", $i)) {
+            $depth--;
+            $i += 2;
+            if ($depth == 0) {
+                return $i;
+            }
+        } else {
+            $i++;
+        }
+    }
+
+    return $length;
+}
+
+// Where the run of whitespace at $i ends; anything else the lexer skipped is one character
+fn whitespace_end(string $text, int $i): int {
+    $end = $i;
+    while ($end < len($text) && contains(" \t\r\n", $text[$end])) {
+        $end++;
+    }
+
+    return max($end, $i + 1);
+}
+
+// Text split into lines that keep their line breaks, so joining them gives the text again
+fn lines(string $text): list {
+    $lines = split($text, "\n");
+    $last = len($lines) - 1;
+    foreach ($lines as $i => $line) {
+        if ($i < $last) {
+            $lines[$i] = $line .. "\n";
+        }
+    }
+    if ($lines[$last] == "") {
+        delete $lines[$last];
+    }
+
+    return $lines;
+}
+
+// A line as [its indentation, the rest]
+fn indented(string $line): list {
+    $indent = text::indentation($line);
+
+    return [slice($line, 0, $indent), slice($line, $indent)];
+}
+
+// A line as [its first word, the rest], the rest starting with the space after the word
+fn first_word(string $line): list {
+    $i = 0;
+    while ($i < len($line) && !contains(" \t\r\n", $line[$i])) {
+        $i++;
+    }
+
+    return [slice($line, 0, $i), slice($line, $i)];
+}
+
+/*
+ * Bytecode (docs/bytecode.md), a line at a time: a header or record word, or an instruction and
+ * its operands. A value (after PUSH, or in an @ location line) is a GazLang literal, which the
+ * lexer highlights; the other operands are names, variables and numbers.
+ */
+pub fn bytecode(string $source): list {
+    $pieces = [];
+    foreach (lines($source) as $line) {
+        [$indent, $rest] = indented($line);
+        if ($indent != "") {
+            $pieces[] = Piece(PLAIN, $indent);
+        }
+        foreach (bytecode_line($rest) as $piece) {
+            $pieces[] = $piece;
+        }
+    }
+
+    return $pieces;
+}
+
+fn bytecode_line(string $line): list {
+    if (starts_with($line, "GAZLANG BYTECODE")) {
+        return [Piece(KEYWORD, "GAZLANG BYTECODE"), ...bytecode_operands(slice($line, 16))];
+    }
+    [$word, $rest] = first_word($line);
+    if ($word == "") {
+        return [Piece(PLAIN, $rest)];
+    }
+    // A location's path and line, and a pushed value, are literals
+    if ($word == "@") {
+        return [Piece(OPERATOR, $word), ...gaz($rest)];
+    }
+    if ($word == "PUSH") {
+        return [Piece(KEYWORD, $word), ...gaz($rest)];
+    }
+    $class = in_array($word, BYTECODE_HEADERS) ? TYPE : KEYWORD;
+
+    return [Piece($class, $word), ...bytecode_operands($rest)];
+}
+
+// Operands separated by whitespace, each shown by what it looks like
+fn bytecode_operands(string $text): list {
+    $pieces = [];
+    $i = 0;
+    while ($i < len($text)) {
+        [$space, $rest] = indented(slice($text, $i));
+        if ($space != "") {
+            $pieces[] = Piece(PLAIN, $space);
+            $i += len($space);
+            continue;
+        }
+        $word = first_word($rest)[0];
+        if ($word == "") {
+            // A line break
+            $word = $rest[0];
+        }
+        $pieces[] = Piece(operand_class($word), $word);
+        $i += len($word);
+    }
+
+    return $pieces;
+}
+
+fn operand_class(string $word): string {
+    $first = $word[0];
+
+    return match {
+        $first == "$" || $first == "@" => VARIABLE,
+        $first >= "0" && $first <= "9" || $first == "-" && len($word) > 1 => NUMBER,
+        in_array($word, BYTECODE_KEYWORDS) => KEYWORD,
+        $first >= "A" && $first <= "Z" => TYPE,
+        default => PLAIN,
+    };
+}
+
+/*
+ * A .gazml template, a line at a time: a directive line is its word and GazLang, and anywhere
+ * else {{ }}, {!! !!} and {{-- --}} are GazLang or a comment in HTML text
+ */
+pub fn template(string $source): list {
+    $pieces = [];
+    foreach (lines($source) as $line) {
+        [$indent, $rest] = indented($line);
+        [$word, $after] = first_word($rest);
+        $line_pieces = template_text($line);
+        if (starts_with($word, "@") && in_array(slice($word, 1), TEMPLATE_DIRECTIVES)) {
+            $line_pieces = [Piece(PLAIN, $indent), Piece(KEYWORD, $word), ...gaz($after)];
+        }
+        foreach ($line_pieces as $piece) {
+            $pieces[] = $piece;
+        }
+    }
+
+    return filter($pieces, $piece -> $piece.text != "");
+}
+
+// HTML text with {{ }}, {!! !!} and {{-- --}} in it; @{{ is text
+fn template_text(string $line): list {
+    $pieces = [];
+    $i = 0;
+    $text_start = 0;
+    while ($i < len($line)) {
+        $mark = template_mark($line, $i);
+        if ($mark == null) {
+            $i++;
+            continue;
+        }
+        [$open, $close] = $mark;
+        $end = index_of($line, $close, $i + len($open));
+        if ($end == null) {
+            break;
+        }
+        $pieces[] = Piece(PLAIN, slice($line, $text_start, $i - $text_start));
+        if ($open == "{{--") {
+            $pieces[] = Piece(COMMENT, slice($line, $i, $end + len($close) - $i));
+        } else {
+            $inside = slice($line, $i + len($open), $end - $i - len($open));
+            $pieces = [...$pieces, Piece(OPERATOR, $open), ...gaz($inside), Piece(OPERATOR, $close)];
+        }
+        $i = $end + len($close);
+        $text_start = $i;
+    }
+    $pieces[] = Piece(PLAIN, slice($line, $text_start));
+
+    return filter($pieces, $piece -> $piece.text != "");
+}
+
+// The [opening, closing] marks of what starts at $i, or null
+fn template_mark(string $line, int $i): ?list {
+    // @{{ is a literal {{
+    if ($i > 0 && $line[$i - 1] == "@") {
+        return null;
+    }
+
+    return match {
+        starts_with($line, "{{--", $i) => ["{{--", "--}}"],
+        starts_with($line, "{{", $i) => ["{{", "}}"],
+        starts_with($line, "{!!", $i) => ["{!!", "!!}"],
+        default => null,
+    };
+}
+
+// Shell commands: a # comment, at the start of a line or after a space, to the end of the line
+pub fn shell(string $source): list {
+    $pieces = [];
+    foreach (lines($source) as $line) {
+        $hash = shell_comment_start($line);
+        if ($hash == null) {
+            $pieces[] = Piece(PLAIN, $line);
+            continue;
+        }
+        $end = line_end($line, $hash);
+        $pieces[] = Piece(PLAIN, slice($line, 0, $hash));
+        $pieces[] = Piece(COMMENT, slice($line, $hash, $end - $hash));
+        $pieces[] = Piece(PLAIN, slice($line, $end));
+    }
+
+    return filter($pieces, $piece -> $piece.text != "");
+}
+
+// Where a line's comment starts, or null; a # inside quotes is text
+fn shell_comment_start(string $line): ?int {
+    $quote = null;
+    foreach (split($line, "") as $i => $c) {
+        if ($quote != null) {
+            if ($c == $quote) {
+                $quote = null;
+            }
+        } else if ($c == "'" || $c == "\"") {
+            $quote = $c;
+        } else if ($c == "#" && ($i == 0 || $line[$i - 1] == " ")) {
+            return $i;
+        }
+    }
+
+    return null;
+}

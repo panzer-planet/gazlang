@@ -1,0 +1,17 @@
+// Small helpers for text that the highlighter, the Markdown converter and the library reader share
+namespace text;
+
+// How many spaces and tabs a line starts with
+pub fn indentation(string $line): int {
+    $count = 0;
+    while ($count < len($line) && ($line[$count] == " " || $line[$count] == "\t")) {
+        $count++;
+    }
+
+    return $count;
+}
+
+// A line without the spaces and tabs it starts with
+pub fn unindented(string $line): string {
+    return slice($line, indentation($line));
+}

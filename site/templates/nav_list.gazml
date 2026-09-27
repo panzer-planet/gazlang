@@ -1,0 +1,14 @@
+@template nav_list(list $items)
+<ul>
+@foreach ($items as $item)
+@if ($item.current)
+<li><a href="{{ $item.href }}" aria-current="page">{{ $item.title }}</a>
+@else
+<li><a href="{{ $item.href }}">{{ $item.title }}</a>
+@endif
+@if (len($item.children) > 0)
+{{ nav_list($item.children) }}
+@endif
+</li>
+@endforeach
+</ul>

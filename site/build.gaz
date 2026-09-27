@@ -1,0 +1,345 @@
+/*
+ * The website, built from the repository: the README as the home page, docs/language.md as the
+ * language reference (a page for each of its sections), a page for each file of the standard
+ * library (made from its pub names and the comments above them), and docs/bytecode.md and
+ * docs/internals.md for contributors. Every page is checked before the build is done (links,
+ * anchors, ids and tags, see verify.gaz), and a problem fails it, naming the page and line.
+ *
+ *   bin/gaz site/build.gaz [DIRECTORY] [--root DIR] [--repository OWNER/NAME] [--release TAG]
+ *
+ * Run from the repository's root; the site goes to site/dist unless a directory is given, and is
+ * made from the documents under --root (the working directory). Links to the repository's other
+ * files and its releases need to know where it is on GitHub: --repository, else git's remote
+ * origin, else $GITHUB_REPOSITORY; without any of them those links are left out, with a notice.
+ * The download links name --release, a tag that has been published; without one the home page
+ * points to the releases page instead, so it never links to a build that doesn't exist yet.
+ */
+include "std/cli.gaz";
+include "pages.gaz";
+include "highlight.gaz";
+include "markdown.gaz";
+include "library.gaz";
+include "verify.gaz";
+include "documents.gaz" use Link, NavItem, Repository, Section, Linker, root_of, relative;
+
+const OUTPUT = "site/dist";
+// Where a build that failed its checks writes its pages instead, after the output's name
+const FAILED_SUFFIX = ".failed";
+const STYLESHEET = "site/style.css";
+
+// The documents that become pages, and the page each becomes (the reference's is its first)
+const README = "README.md";
+const REFERENCE = "docs/language.md";
+const BYTECODE = "docs/bytecode.md";
+const INTERNALS = "docs/internals.md";
+const DOCUMENT_PAGES = {
+    README => "index.html",
+    REFERENCE => "reference/index.html",
+    BYTECODE => "bytecode.html",
+    INTERNALS => "internals.html",
+};
+
+const LIBRARY_DIRECTORY = "lib";
+const LIBRARY_INDEX = "library/index.html";
+
+// The builds a release publishes, as its workflow names them, and what to call each
+const RELEASE_TARGETS = [
+    ["linux-x86_64", "Linux (x86_64)"],
+    ["macos-arm64", "macOS (Apple silicon)"],
+    ["macos-x86_64", "macOS (Intel)"],
+];
+
+const HOME_DESCRIPTION = "GazLang, a scripting language that would rather stop than guess";
+
+// What the build was asked for on the command line
+kind Options {
+    fn _(pub string #output, pub string #root, pub ?string #repository, pub ?string #release) {}
+
+    static fn parse(list $argv): Options {
+        $cli = cli::Command("site/build.gaz", "Build the GazLang website");
+        $cli.optional("directory", "Where to write the site", OUTPUT);
+        $cli.option("root", null, "The repository to read the documents from", ".");
+        $cli.option("repository", null, "Where the repository is on GitHub, as owner/name");
+        $cli.option("release", null, "The published release the download links name, as its tag");
+        $parsed = $cli.parse($argv);
+
+        return Options($parsed["directory"], $parsed["root"], $parsed["repository"], $parsed["release"]);
+    }
+}
+
+kind Site {
+    // Path => Page, in the order they were made
+    #pages = {};
+    #linker;
+    #renderers = {};
+
+    fn _(pub Repository #repository, string #root, ?string #release) {
+        #linker = Linker($repository, DOCUMENT_PAGES, $root);
+    }
+
+    pub fn build(): null {
+        $documents = {};
+        foreach (DOCUMENT_PAGES as $document => $page) {
+            $documents[$document] = #sections($document);
+        }
+        #document_page($documents[README][0], README, "home", "GazLang", #downloads());
+        #reference($documents[REFERENCE]);
+        #document_page($documents[BYTECODE][0], BYTECODE, "bytecode", "Bytecode", Html(""));
+        #document_page($documents[INTERNALS][0], INTERNALS, "internals", "Internals", Html(""));
+        #library();
+    }
+
+    fn read(string $path): string {
+        return read_file("{#root}/{$path}");
+    }
+
+    /*
+     * A document's sections, rendered once to learn their headings' ids and so their pages, so
+     * a link to an anchor in a page not yet made goes where it should
+     */
+    fn sections(string $document): list {
+        $text = #read($document);
+        $sections = [Section(documents::without_badges($text))];
+        if ($document == REFERENCE) {
+            $sections = documents::split_sections($text);
+        }
+        $renderer = markdown::Renderer();
+        foreach ($sections as $i => $section) {
+            $before = len($renderer.headings);
+            $renderer.render($section.markdown);
+            $section.headings = slice($renderer.headings, $before);
+            $section.page = #section_page($document, $i, $section);
+            #linker.add($document, $section);
+        }
+        // Rendered again, links and all, with the ids given in the same order
+        #renderers[$document] = markdown::Renderer(null, ($language, $code) -> highlight::to_html($language, $code));
+
+        return $sections;
+    }
+
+    fn section_page(string $document, int $i, Section $section): string {
+        if ($i == 0) {
+            return DOCUMENT_PAGES[$document];
+        }
+
+        return "reference/" .. $section.headings[0].id .. ".html";
+    }
+
+    // A section as HTML, its links made relative to the page it is on
+    fn render(string $document, Section $section): Html {
+        $renderer = #renderers[$document];
+        $root = root_of($section.page);
+        $renderer.link = $url -> relative($root, #linker.resolve($document, $url));
+
+        return Html($renderer.render($section.markdown));
+    }
+
+    // A document as one page, with $insert before its first second-level heading
+    fn document_page(Section $section, string $document, string $area, string $title, Html $insert): null {
+        $body = Html(before_first_section(#render($document, $section).text, $insert.text));
+        $is_home = $area == "home";
+        $description = $is_home ? HOME_DESCRIPTION : "GazLang: {$title}";
+        $page_title = $is_home ? $title : "{$title} · GazLang";
+        $page = Page($section.page, $area, $page_title, $description, $body);
+        $page.sidebar = heading_navigation($section.headings);
+        #add($page);
+    }
+
+    // The reference: its introduction and a list of its sections, then a page for each section
+    fn reference(list $sections): null {
+        $pages = [];
+        foreach ($sections as $i => $section) {
+            $page = #reference_page($sections, $i);
+            $page.sidebar = reference_navigation($sections, $i, $page.root());
+            $page.sidebar_label = "The reference";
+            $pages[] = $page;
+        }
+        #add_chain($pages, map($sections, $section -> $section.title()));
+    }
+
+    fn reference_page(list $sections, int $i): Page {
+        $section = $sections[$i];
+        $body = #render(REFERENCE, $section);
+        if ($i > 0) {
+            $title = $section.title();
+            $description = "The GazLang language reference: {$title}";
+
+            return Page($section.page, "reference", "{$title} · GazLang reference", $description, $body);
+        }
+        $links = map(slice($sections, 1), $each -> Link($each.title(), slice($each.page, len("reference/"))));
+        $body = Html($body.text .. section_list($links).text);
+
+        return Page($section.page, "reference", "The GazLang language", "The GazLang language reference", $body);
+    }
+
+    // The index of the standard library, then a page for each of its files
+    fn library(): null {
+        $libraries = [];
+        foreach (list_dir("{#root}/" .. LIBRARY_DIRECTORY) as $file) {
+            if (ends_with($file, ".gaz")) {
+                $name = slice($file, 0, -4);
+                $source = LIBRARY_DIRECTORY .. "/" .. $file;
+                $libraries[] = LibraryView(library::read($name, #read($source)), #comment_renderer($source));
+            }
+        }
+
+        $description = "The GazLang standard library";
+        $index_title = "The standard library · GazLang";
+        $index = Page(LIBRARY_INDEX, "library", $index_title, $description, library_index($libraries));
+        $index.sidebar = library_navigation($libraries, null);
+        $index.sidebar_label = "The library";
+        $pages = [$index];
+        $titles = ["The standard library"];
+        foreach ($libraries as $i => $library) {
+            $title = "std/{$library.name}.gaz";
+            $path = "library/{$library.name}.html";
+            $page = Page($path, "library", "{$title} · GazLang", "{$description}: {$title}", library_page($library));
+            $page.sidebar = library_navigation($libraries, $i);
+            $page.sidebar_label = "The library";
+            $pages[] = $page;
+            $titles[] = $title;
+        }
+        #add_chain($pages, $titles);
+    }
+
+    // What renders the comments of a file of the library, its links going where the docs' go
+    fn comment_renderer(string $source): markdown::Renderer {
+        $renderer = markdown::Renderer(null, ($language, $code) -> highlight::to_html($language, $code), false);
+        $root = root_of(LIBRARY_INDEX);
+        $renderer.link = $url -> relative($root, #linker.resolve($source, $url));
+
+        return $renderer;
+    }
+
+    // Pages read in order, each linking to the one before and after it
+    fn add_chain(list $pages, list $titles): null {
+        foreach ($pages as $i => $page) {
+            if ($i > 0) {
+                $page.previous = Link($titles[$i - 1], $pages[$i - 1].path);
+            }
+            if ($i < len($pages) - 1) {
+                $page.next = Link($titles[$i + 1], $pages[$i + 1].path);
+            }
+            #add($page);
+        }
+    }
+
+    fn add(Page $page): null {
+        #pages[$page.path] = $page;
+    }
+
+    // The download box on the home page: the release's builds, or the releases page without one
+    fn downloads(): Html {
+        if (!#repository.known()) {
+            return Html("");
+        }
+        $builds = [];
+        if (#release != null) {
+            foreach (RELEASE_TARGETS as [$target, $label]) {
+                $file = "gaz-" .. version_of(#release) .. "-{$target}.tar.gz";
+                $builds[] = Link($label, #repository.download_url(#release, $file));
+            }
+        }
+        $more = [
+            Link("every release", #repository.releases_url()),
+            Link("the language reference", "reference/index.html"),
+        ];
+        if (#release != null) {
+            $more = [Link("SHA256SUMS", #repository.download_url(#release, "SHA256SUMS")), ...$more];
+        }
+
+        $version = #release == null ? null : version_of(#release);
+
+        return downloads($version, $builds, $more);
+    }
+
+    // Every file of the site: the pages as HTML, and the stylesheet
+    pub fn files(): map {
+        $files = {"style.css" => read_file(STYLESHEET)};
+        foreach (#pages as $path => $page) {
+            $files[$path] = $page.html(#repository);
+        }
+
+        return $files;
+    }
+}
+
+// The files the site writes, so a new build removes what an old one left
+fn clear(string $directory): null {
+    foreach (["", "reference/", "library/"] as $subdirectory) {
+        $path = $directory .. "/" .. $subdirectory;
+        if (!is_dir($path)) {
+            continue;
+        }
+        foreach (list_dir($path) as $file) {
+            if (ends_with($file, ".html") || $file == "style.css") {
+                delete_file($path .. $file);
+            }
+        }
+    }
+}
+
+fn write_site(string $directory, map $files): null {
+    foreach (["", "/reference", "/library"] as $subdirectory) {
+        if (!is_dir($directory .. $subdirectory)) {
+            make_dir($directory .. $subdirectory);
+        }
+    }
+    clear($directory);
+    foreach ($files as $path => $text) {
+        write_file("{$directory}/{$path}", $text);
+    }
+}
+
+// A site written by write_site() taken away, if it is there
+fn remove_site(string $directory): null {
+    if (!is_dir($directory)) {
+        return;
+    }
+    clear($directory);
+    foreach (["/reference", "/library", ""] as $subdirectory) {
+        if (is_dir($directory .. $subdirectory) && len(list_dir($directory .. $subdirectory)) == 0) {
+            delete_dir($directory .. $subdirectory);
+        }
+    }
+}
+
+// Where git's remote origin points, or null without git, a repository or a remote
+fn git_remote(): ?string {
+    $result = run(["git", "remote", "get-url", "origin"]);
+
+    return $result["status"] == 0 ? trim($result["stdout"]) : null;
+}
+
+if (!file_exists(STYLESHEET)) {
+    print_error("Run site/build.gaz from the repository's root\n");
+    exit(2);
+}
+$options = Options::parse(args());
+$name = documents::choose_repository($options.repository, git_remote(), getenv("GITHUB_REPOSITORY"));
+if ($name == null) {
+    print_error("site/build.gaz: no GitHub repository (not given, not git's remote origin, no \$GITHUB_REPOSITORY),"
+        .. " so links to its files and releases are left out\n");
+}
+$site = Site(Repository($name), $options.root, $options.release);
+$site.build();
+$files = $site.files();
+
+/*
+ * Checked before anything is written, so a failed build leaves the last good site where it
+ * was; the pages that failed go next to it, for the lines the problems name
+ */
+$problems = verify::site($files);
+$failed = $options.output .. FAILED_SUFFIX;
+if (len($problems) > 0) {
+    write_site($failed, $files);
+    foreach ($problems as $problem) {
+        print_error("{$failed}/{$problem}\n");
+    }
+    $count = len($problems) == 1 ? "1 problem" : len($problems) .. " problems";
+    print_error("{$count}: the site was not written to {$options.output}; what failed is in {$failed}\n");
+    exit(1);
+}
+remove_site($failed);
+write_site($options.output, $files);
+echo "Wrote " .. len($files) .. " files to {$options.output}";

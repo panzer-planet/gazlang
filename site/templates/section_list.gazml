@@ -1,0 +1,7 @@
+@template section_list(list $links)
+<h2>The sections</h2>
+<ol class="sections">
+@foreach ($links as $link)
+<li><a href="{{ $link.href }}">{{ $link.title }}</a></li>
+@endforeach
+</ol>

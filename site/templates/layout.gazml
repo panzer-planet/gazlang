@@ -1,0 +1,50 @@
+@template layout(Page $page, $repository)
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>{{ $page.title }}</title>
+<meta name="description" content="{{ $page.description }}">
+<link rel="stylesheet" href="{{ $page.root() }}style.css">
+</head>
+<body>
+<a class="skip" href="#site:content">Skip to the content</a>
+<header class="site">
+  <div class="bar">
+    <a class="brand" href="{{ $page.root() }}index.html">GazLang</a>
+    <nav aria-label="Site">
+{{ nav_list($page.site_navigation($repository)) }}
+    </nav>
+  </div>
+</header>
+<div class="layout">
+<main id="site:content">
+{{ $page.body }}
+@if ($page.previous != null || $page.next != null)
+<nav class="pager" aria-label="Previous and next">
+@if ($page.previous != null)
+  <a class="previous" href="{{ $page.root() }}{{ $page.previous.href }}"><span>Previous</span> {{ $page.previous.title }}</a>
+@endif
+@if ($page.next != null)
+  <a class="next" href="{{ $page.root() }}{{ $page.next.href }}"><span>Next</span> {{ $page.next.title }}</a>
+@endif
+</nav>
+@endif
+</main>
+@if (len($page.sidebar) > 0)
+<nav class="sidebar" aria-label="{{ $page.sidebar_label }}">
+{{ nav_list($page.sidebar) }}
+</nav>
+@endif
+</div>
+<footer class="site">
+@if ($repository.known())
+  <p>GazLang is MIT licensed. This site is built from the repository by <code>site/build.gaz</code>, a GazLang program; <a href="{{ $repository.home() }}">the source is on GitHub</a>.</p>
+@else
+  <p>GazLang is MIT licensed. This site is built from the repository by <code>site/build.gaz</code>, a GazLang program.</p>
+@endif
+</footer>
+</body>
+</html>

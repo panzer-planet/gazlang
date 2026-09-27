@@ -1,0 +1,849 @@
+/*
+ * Markdown into HTML, as far as the repository's documents use it: headings (with ids made as
+ * GitHub makes them, so a link that works there works here), paragraphs, lists (nested, and
+ * holding code), tables, block quotes, fenced code, and inside text `code`, **strong**,
+ * *emphasis*, [links](url), ![images](src) and backslash escapes. All text is escaped.
+ *
+ *   $renderer = markdown::Renderer($url -> $url, ($language, $code) -> Html::escape($code));
+ *   echo $renderer.render("# Title\n\nSome *text*.");
+ *   echo $renderer.headings;                          // [Heading(1, "Title", "title")]
+ *
+ * A Renderer keeps the ids it gave, so a document rendered in pieces, one render() each, gets
+ * the ids it would get whole.
+ */
+namespace markdown;
+
+include "text.gaz" use indentation;
+
+// What a backslash can escape: ASCII punctuation
+const ESCAPABLE = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~";
+
+// The characters where something other than text may start
+const SPECIAL = "\\`*[!";
+
+// What a fence's language may be made of, so it can go into a class attribute as it is
+const LANGUAGE_CHARACTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_+-";
+
+// The character references HTML from here holds, and what each stands for; &amp; last
+const ENTITIES = [
+    ["&lt;", "<"], ["&gt;", ">"], ["&quot;", "\""], ["&#39;", "'"], ["&#42;", "*"], ["&#96;", "`"],
+    ["&amp;", "&"],
+];
+
+// The schemes a link may have
+const SAFE_SCHEMES = ["http", "https", "mailto"];
+
+// The fewest backticks that open a fence
+const FENCE_TICKS = 3;
+
+// A line that opens a fence: how far it is indented, how many backticks, and its language
+kind Fence {
+    fn _(pub int #indent, pub int #ticks, pub string #language) {}
+
+    // Whether a line closes this fence: backticks alone, at least as many
+    pub fn closed_by(string $line): bool {
+        $ticks = trim($line);
+
+        return len($ticks) >= #ticks && $ticks == repeat("`", len($ticks));
+    }
+
+    // A line of the code, without as much of its indentation as the fence had
+    pub fn code_line(string $line): string {
+        return slice($line, min(indentation($line), #indent));
+    }
+}
+
+// A link's parts: [label](url "title"), and where it ends in the text
+kind LinkParts {
+    fn _(pub string #label, pub string #url, pub ?string #title, pub int #end) {}
+}
+
+pub kind Heading {
+    fn _(pub int #level, pub string #text, pub string #id) {}
+}
+
+// The lines of a document with a place in them, which the block readers move along
+kind Lines {
+    pub int #at = 0;
+
+    fn _(pub list #lines) {}
+
+    pub fn done(): bool {
+        return #at >= len(#lines);
+    }
+
+    pub fn current(): string {
+        return #lines[#at];
+    }
+
+    // The line $offset after the current one, or null past the end
+    pub fn ahead(int $offset): ?string {
+        return #lines[#at + $offset] ?? null;
+    }
+
+    pub fn advance(): null {
+        #at++;
+    }
+
+    // How many lines from the current one to the next that isn't blank, or null if none is
+    pub fn distance_to_text(): ?int {
+        $offset = 0;
+        while (#at + $offset < len(#lines)) {
+            if (!is_blank(#lines[#at + $offset])) {
+                return $offset;
+            }
+            $offset++;
+        }
+
+        return null;
+    }
+}
+
+pub kind Renderer {
+    // Every heading rendered, in order
+    pub #headings = [];
+    // Every id given, and for each slug the next number to try after it
+    #ids = {};
+    #next_number = {};
+    // What a link's URL becomes in the page: (string $url): string; a page can change it
+    pub #link;
+    // A fenced block as HTML: (string $language, string $code): string
+    #code;
+
+    /*
+     * $escapes says whether a backslash escapes the punctuation after it, as in a document; text
+     * written for another reader (a comment of the library's source) keeps every backslash
+     */
+    fn _($link = null, $code = null, bool #escapes = true) {
+        #link = $link ?? ($url -> $url);
+        #code = $code ?? (($language, $source) -> Html::escape($source));
+    }
+
+    pub fn render(string $text): string {
+        return #blocks(Lines(split(replace($text, "\r\n", "\n"), "\n")), false);
+    }
+
+    // Text as one line of inline markup, with no blocks: a summary, a table cell
+    pub fn render_inline(string $text): string {
+        $lines = map(split(replace($text, "\r\n", "\n"), "\n"), $line -> trim($line));
+
+        return #inline(join($lines, " "));
+    }
+
+    /*
+     * The blocks of some lines. In a tight list item a paragraph is its text alone, without
+     * <p>, as it is in a list whose items no blank line separates.
+     */
+    fn blocks(Lines $lines, bool $tight): string {
+        $html = [];
+        // Whether the last block was code in a language, so a plain one after it is its output
+        $after_code = false;
+        while (!$lines.done()) {
+            $line = $lines.current();
+            if (is_blank($line)) {
+                $lines.advance();
+                continue;
+            }
+            $fence = fence_at($line);
+            $was_code = $after_code;
+            $after_code = $fence != null && $fence.language != "";
+            $html[] = match {
+                $fence != null => #fence($lines, $fence, $was_code),
+                heading_level($line) > 0 => #heading($lines),
+                is_table($lines) => #table($lines),
+                list_marker($line) != null => #list($lines),
+                is_quote($line) => #quote($lines),
+                default => #paragraph($lines, $tight),
+            };
+        }
+
+        return join($html, "\n");
+    }
+
+    /*
+     * ``` (or more backticks) and a language, the code as it is, and as many backticks again (or
+     * the end of the document). A block with no language right after code is what the code prints.
+     */
+    fn fence(Lines $lines, Fence $fence, bool $after_code): string {
+        $lines.advance();
+        $code = [];
+        while (!$lines.done() && !$fence.closed_by($lines.current())) {
+            $code[] = $fence.code_line($lines.current());
+            $lines.advance();
+        }
+        $lines.advance();
+
+        $language = $fence.language;
+        $class = $language == "" ? "" : " class=\"language-" .. Html::escape($language) .. "\"";
+        $pre = "<pre>";
+        if ($language == "" && $after_code) {
+            $pre = "<pre class=\"output\">";
+        }
+        $highlight = #code;
+
+        return "{$pre}<code{$class}>" .. $highlight($language, join($code, "\n")) .. "</code></pre>";
+    }
+
+    fn heading(Lines $lines): string {
+        $line = $lines.current();
+        $lines.advance();
+        $level = heading_level($line);
+        $text = trim(slice($line, $level + 1));
+        $html = #inline($text);
+        $id = #unique_id(slug(plain_text($html)));
+        #headings[] = Heading($level, plain_text($html), $id);
+        $id_attribute = Html::escape($id);
+        $anchor = "<a class=\"anchor\" href=\"#{$id_attribute}\" aria-label=\"Link to this section\">#</a>";
+
+        return "<h{$level} id=\"{$id_attribute}\">{$html}{$anchor}</h{$level}>";
+    }
+
+    /*
+     * A slug not given before, as GitHub makes one: the slug, else the slug with -1, -2 and so on
+     * after it, skipping any taken already, even by a heading whose own slug it was (# Dup, # Dup,
+     * # Dup-1 are dup, dup-1 and dup-1-1)
+     */
+    fn unique_id(string $slug): string {
+        $number = #next_number[$slug] ?? 0;
+        $id = $slug;
+        if ($number > 0) {
+            $id = "{$slug}-{$number}";
+        }
+        while (has_key(#ids, $id)) {
+            $number++;
+            $id = "{$slug}-{$number}";
+        }
+        #next_number[$slug] = $number + 1;
+        #ids[$id] = true;
+
+        return $id;
+    }
+
+    // A header row, a row of dashes (with colons for alignment), then the rows
+    fn table(Lines $lines): string {
+        $header = table_cells($lines.current());
+        $lines.advance();
+        $aligns = map(table_cells($lines.current()), $cell -> alignment($cell));
+        $lines.advance();
+
+        $html = "<div class=\"table\"><table>\n<thead><tr>";
+        foreach ($header as $i => $cell) {
+            $html ..= "<th" .. align_attribute($aligns[$i] ?? "") .. ">" .. #inline($cell) .. "</th>";
+        }
+        $html ..= "</tr></thead>\n<tbody>\n";
+        while (!$lines.done() && starts_with(trim($lines.current()), "|")) {
+            $html ..= "<tr>";
+            foreach (row_of(table_cells($lines.current()), len($header)) as $i => $cell) {
+                $html ..= "<td" .. align_attribute($aligns[$i] ?? "") .. ">" .. #inline($cell) .. "</td>";
+            }
+            $html ..= "</tr>\n";
+            $lines.advance();
+        }
+
+        return $html .. "</tbody>\n</table></div>";
+    }
+
+    /*
+     * Items that start with the same kind of marker. An item goes on over lines indented under
+     * it (a blank line included, when an indented line follows), and over a line of text that
+     * isn't indented but continues its paragraph. A blank line between items or inside one
+     * makes the list loose: its paragraphs are <p>s.
+     */
+    fn list(Lines $lines): string {
+        $first = list_marker($lines.current());
+        $ordered = $first[0];
+        $items = [];
+        $loose = false;
+        while (!$lines.done()) {
+            $marker = list_marker($lines.current());
+            if ($marker == null || $marker[0] != $ordered) {
+                break;
+            }
+            $item = [slice($lines.current(), $marker[1])];
+            $lines.advance();
+            while (!$lines.done()) {
+                $line = $lines.current();
+                if (is_blank($line)) {
+                    $distance = $lines.distance_to_text();
+                    $next = $distance == null ? null : $lines.ahead($distance);
+                    if ($next == null) {
+                        break;
+                    }
+                    $next_marker = list_marker($next);
+                    $continues_item = indentation($next) >= 2;
+                    $continues_list = $next_marker != null && $next_marker[0] == $ordered;
+                    if (!$continues_item && !$continues_list) {
+                        break;
+                    }
+                    $loose = true;
+                    for ($i = 0; $i < $distance; $i++) {
+                        if ($continues_item) {
+                            $item[] = "";
+                        }
+                        $lines.advance();
+                    }
+                    if (!$continues_item) {
+                        break;
+                    }
+                    continue;
+                }
+                $indent = indentation($line);
+                if ($indent >= 2) {
+                    $item[] = slice($line, min($indent, $marker[1]));
+                } else if (starts_block($line)) {
+                    break;
+                } else {
+                    $item[] = $line;
+                }
+                $lines.advance();
+            }
+            $items[] = $item;
+        }
+
+        $tag = $ordered ? "ol" : "ul";
+        $start = $ordered && $first[2] != 1 ? " start=\"{$first[2]}\"" : "";
+        $html = "<{$tag}{$start}>\n";
+        foreach ($items as $item) {
+            $html ..= "<li>" .. #blocks(Lines($item), !$loose) .. "</li>\n";
+        }
+
+        return $html .. "</{$tag}>";
+    }
+
+    fn quote(Lines $lines): string {
+        $inside = [];
+        while (!$lines.done() && is_quote($lines.current())) {
+            $line = slice(trim($lines.current()), 1);
+            $inside[] = starts_with($line, " ") ? slice($line, 1) : $line;
+            $lines.advance();
+        }
+
+        return "<blockquote>\n" .. #blocks(Lines($inside), false) .. "\n</blockquote>";
+    }
+
+    // Lines up to a blank one or the start of another block
+    fn paragraph(Lines $lines, bool $tight): string {
+        $text = [trim($lines.current())];
+        $lines.advance();
+        while (#continues_paragraph($lines)) {
+            $text[] = trim($lines.current());
+            $lines.advance();
+        }
+        $html = #inline(join($text, "\n"));
+
+        return $tight ? $html : "<p>{$html}</p>";
+    }
+
+    fn continues_paragraph(Lines $lines): bool {
+        if ($lines.done() || is_blank($lines.current())) {
+            return false;
+        }
+
+        return !interrupts_paragraph($lines.current()) && !is_table($lines);
+    }
+
+    // Text with its inline markup as tags, and everything else escaped
+    fn inline(string $text): string {
+        $html = "";
+        $i = 0;
+        // Where the text not yet written starts
+        $from = 0;
+        while ($i < len($text)) {
+            $found = contains(SPECIAL, $text[$i]) ? #inline_at($text, $i) : null;
+            if ($found == null) {
+                $i++;
+                continue;
+            }
+            [$markup, $end] = $found;
+            $html ..= Html::escape(slice($text, $from, $i - $from)) .. $markup;
+            $i = $end;
+            $from = $i;
+        }
+
+        return $html .. Html::escape(slice($text, $from));
+    }
+
+    // The markup that starts at $i as [html, where it ends], or null when it is only text
+    fn inline_at(string $text, int $i): ?list {
+        $c = $text[$i];
+        $next = $text[$i + 1] ?? "";
+
+        return match {
+            $c == "\\" && #escapes => escaped($next, $i),
+            $c == "`" => code_span($text, $i),
+            starts_with($text, "***", $i) => #emphasis($text, $i, "***", ["em", "strong"]),
+            $c == "*" && $next == "*" => #emphasis($text, $i, "**", ["strong"]),
+            $c == "*" => #emphasis($text, $i, "*", ["em"]),
+            $c == "!" && $next == "[" => #image($text, $i),
+            $c == "[" => #link_at($text, $i),
+            default => null,
+        };
+    }
+
+    /*
+     * ***both***, **strong** or *emphasis*: the mark, text that doesn't start with a space, and
+     * the first mark after it with no space before it; a code span or escape in between is
+     * skipped whole. $tags are the elements it becomes, outermost first.
+     */
+    fn emphasis(string $text, int $i, string $mark, list $tags): ?list {
+        $start = $i + len($mark);
+        if ($start >= len($text) || $text[$start] == " " || $text[$start] == "*") {
+            return null;
+        }
+        $close = closing_mark($text, $start, $mark);
+        if ($close == null) {
+            return null;
+        }
+        $html = #inline(slice($text, $start, $close - $start));
+        foreach (reverse($tags) as $tag) {
+            $html = "<{$tag}>{$html}</{$tag}>";
+        }
+
+        return [$html, $close + len($mark)];
+    }
+
+    // A link, or its label alone when the link function gives no URL for it
+    fn link_at(string $text, int $i): ?list {
+        $link = bracketed_link($text, $i);
+        if ($link == null) {
+            return null;
+        }
+        $rewrite = #link;
+        $url = safe_url($rewrite($link.url));
+        $label = #inline($link.label);
+        if ($url == null) {
+            return [$label, $link.end];
+        }
+        $title = $link.title == null ? "" : " title=\"" .. Html::escape($link.title) .. "\"";
+
+        return ["<a href=\"" .. Html::escape($url) .. "\"{$title}>{$label}</a>", $link.end];
+    }
+
+    fn image(string $text, int $i): ?list {
+        $link = bracketed_link($text, $i + 1);
+        if ($link == null) {
+            return null;
+        }
+        $alt = Html::escape(plain_text(#inline($link.label)));
+        $url = safe_url($link.url);
+        if ($url == null) {
+            return [$alt, $link.end];
+        }
+        $src = Html::escape($url);
+
+        return ["<img src=\"{$src}\" alt=\"{$alt}\">", $link.end];
+    }
+}
+
+/*
+ * A URL a page may link to: one without a scheme (a path on the site), or http, https or mailto.
+ * Any other scheme (javascript:, data:) is null, and the link is only its text.
+ */
+pub fn safe_url(?string $url): ?string {
+    if ($url == null) {
+        return null;
+    }
+    $scheme = scheme_of($url);
+    if ($scheme == null || in_array($scheme, SAFE_SCHEMES)) {
+        return $url;
+    }
+
+    return null;
+}
+
+// A URL's scheme, lowercase, or null for a path: what comes before a : with no / ? or # before it
+pub fn scheme_of(string $url): ?string {
+    $colon = index_of($url, ":");
+    if ($colon == null) {
+        return null;
+    }
+    $scheme = slice($url, 0, $colon);
+    foreach (split($scheme, "") as $c) {
+        if (contains("/?#", $c)) {
+            return null;
+        }
+    }
+
+    return lower($scheme);
+}
+
+pub fn is_blank(string $line): bool {
+    return trim($line) == "";
+}
+
+// The fence a line opens, or null: three or more backticks, then perhaps a language
+fn fence_at(string $line): ?Fence {
+    $indent = indentation($line);
+    $ticks = 0;
+    while (($line[$indent + $ticks] ?? "") == "`") {
+        $ticks++;
+    }
+    if ($ticks < FENCE_TICKS) {
+        return null;
+    }
+    $info = trim(slice($line, $indent + $ticks));
+    // ```code``` at the start of a paragraph is a code span, not a fence
+    if (contains($info, "`")) {
+        return null;
+    }
+    $word = split($info .. " ", " ")[0];
+
+    return Fence($indent, $ticks, safe_language($word));
+}
+
+// A fence's language if it is a plain word, or "" for anything that could break out of an attribute
+fn safe_language(string $word): string {
+    foreach (split($word, "") as $c) {
+        if (!contains(LANGUAGE_CHARACTERS, $c)) {
+            return "";
+        }
+    }
+
+    return $word;
+}
+
+fn is_quote(string $line): bool {
+    return starts_with(trim($line), ">");
+}
+
+// 1 to 6 for a line of that many #s and a space, 0 for any other line
+fn heading_level(string $line): int {
+    $level = 0;
+    while ($level < len($line) && $line[$level] == "#") {
+        $level++;
+    }
+    if ($level == 0 || $level > 6 || ($line[$level] ?? "") != " ") {
+        return 0;
+    }
+
+    return $level;
+}
+
+// A table starts with a row and a row of dashes under it
+fn is_table(Lines $lines): bool {
+    $under = $lines.ahead(1);
+    if (!starts_with(trim($lines.current()), "|") || $under == null) {
+        return false;
+    }
+    $under = trim($under);
+    foreach (split($under, "") as $c) {
+        if (!contains(" |:-", $c)) {
+            return false;
+        }
+    }
+
+    return starts_with($under, "|") && contains($under, "-");
+}
+
+// A line that starts a block other than a paragraph, which ends a list item's text before it
+fn starts_block(string $line): bool {
+    if (fence_at($line) != null || heading_level($line) > 0) {
+        return true;
+    }
+
+    return list_marker($line) != null || is_quote($line);
+}
+
+/*
+ * A line that ends a paragraph before it: a block's start, except a numbered list that doesn't
+ * start at 1, so a line of prose that begins "2. " stays prose
+ */
+fn interrupts_paragraph(string $line): bool {
+    $marker = list_marker($line);
+    if ($marker != null && $marker[0] && $marker[2] != 1) {
+        return false;
+    }
+
+    return starts_block($line);
+}
+
+/*
+ * A list item's marker as [whether it is ordered, its width with the space after it, its
+ * number], or null: "- " or "* ", or digits, a dot and a space
+ */
+fn list_marker(string $line): ?list {
+    if (starts_with($line, "- ") || starts_with($line, "* ")) {
+        return [false, 2, 0];
+    }
+    $digits = 0;
+    while ($digits < len($line) && $line[$digits] >= "0" && $line[$digits] <= "9") {
+        $digits++;
+    }
+    if ($digits == 0 || $digits > 9 || !starts_with($line, ". ", $digits)) {
+        return null;
+    }
+
+    return [true, $digits + 2, to_int(slice($line, 0, $digits))];
+}
+
+// A table row's cells, split at each | that isn't escaped, with \| as a |
+fn table_cells(string $row): list {
+    $row = trim($row);
+    if (starts_with($row, "|")) {
+        $row = slice($row, 1);
+    }
+    if (ends_with($row, "|") && !ends_with($row, "\\|")) {
+        $row = slice($row, 0, -1);
+    }
+    $cells = [];
+    $cell = "";
+    $i = 0;
+    while ($i < len($row)) {
+        if (starts_with($row, "\\|", $i)) {
+            $cell ..= "|";
+            $i += 2;
+            continue;
+        }
+        if ($row[$i] == "|") {
+            $cells[] = trim($cell);
+            $cell = "";
+        } else {
+            $cell ..= $row[$i];
+        }
+        $i++;
+    }
+    $cells[] = trim($cell);
+
+    return $cells;
+}
+
+// A row's cells as many as the header's: cells past them dropped, missing ones empty
+fn row_of(list $cells, int $width): list {
+    $row = slice($cells, 0, $width);
+    while (len($row) < $width) {
+        $row[] = "";
+    }
+
+    return $row;
+}
+
+// "left", "right", "center" or "" for a cell of the row of dashes
+fn alignment(string $cell): string {
+    $left = starts_with($cell, ":");
+    $right = ends_with($cell, ":");
+
+    return match {
+        $left && $right => "center",
+        $right => "right",
+        $left => "left",
+        default => "",
+    };
+}
+
+fn align_attribute(string $align): string {
+    return $align == "" ? "" : " class=\"{$align}\"";
+}
+
+/*
+ * `code`: a run of backticks, the code, and a run of as many. A space at each end is dropped,
+ * so `` `x` `` can show a backtick. Without a closing run the backticks are text.
+ */
+fn code_span(string $text, int $i): ?list {
+    $run = 0;
+    while ($i + $run < len($text) && $text[$i + $run] == "`") {
+        $run++;
+    }
+    $ticks = repeat("`", $run);
+    $start = $i + $run;
+    $close = index_of($text, $ticks, $start);
+    // A longer run isn't the closing one
+    while ($close != null && ($text[$close + $run] ?? "") == "`") {
+        $after = $close;
+        while (($text[$after] ?? "") == "`") {
+            $after++;
+        }
+        $close = index_of($text, $ticks, $after);
+    }
+    if ($close == null) {
+        return [$ticks, $start];
+    }
+    $code = replace(slice($text, $start, $close - $start), "\n", " ");
+    if (len($code) >= 2 && starts_with($code, " ") && ends_with($code, " ") && trim($code) != "") {
+        $code = slice($code, 1, -1);
+    }
+
+    return ["<code>" .. Html::escape($code) .. "</code>", $close + $run];
+}
+
+// Where a code span that starts at $i ends, or past its backticks if nothing closes it
+fn code_span_end(string $text, int $i): int {
+    return code_span($text, $i)[1];
+}
+
+/*
+ * Where the mark closing emphasis opened before $from is: the first one with no space before it,
+ * a single * being one not beside another. Escapes and code spans are skipped whole, so a mark in
+ * `code` never closes anything.
+ */
+fn closing_mark(string $text, int $from, string $mark): ?int {
+    $i = $from;
+    while ($i < len($text)) {
+        $c = $text[$i];
+        if ($c == "\\") {
+            $i += 2;
+        } else if ($c == "`") {
+            $i = code_span_end($text, $i);
+        } else if (starts_with($text, $mark, $i) && closes_emphasis($text, $i, $mark)) {
+            return $i;
+        } else if (opens_emphasis($text, $i, $mark)) {
+            // A nearer opener takes the closer, and this one stays text: *a *b* is *a <em>b</em>
+            return null;
+        } else if ($c == "*") {
+            $i = star_run_end($text, $i);
+        } else {
+            $i++;
+        }
+    }
+
+    return null;
+}
+
+// Whether the run of stars at $i is the mark, and has no space before it
+fn closes_emphasis(string $text, int $i, string $mark): bool {
+    if ($text[$i - 1] == " ") {
+        return false;
+    }
+
+    return star_run_end($text, $i) - $i == len($mark);
+}
+
+// Whether the run of stars at $i is the mark with a space or the start before it, and text after
+fn opens_emphasis(string $text, int $i, string $mark): bool {
+    if ($text[$i] != "*" || star_run_end($text, $i) - $i != len($mark)) {
+        return false;
+    }
+    $before = $i == 0 ? " " : $text[$i - 1];
+    $after = $text[$i + len($mark)] ?? " ";
+
+    return $before == " " && $after != " ";
+}
+
+// Where the run of stars starting at $i ends
+fn star_run_end(string $text, int $i): int {
+    while (($text[$i] ?? "") == "*") {
+        $i++;
+    }
+
+    return $i;
+}
+
+/*
+ * [label](url "title") at $i, or null. The label may hold brackets, and code spans holding
+ * brackets; the title is optional.
+ */
+fn bracketed_link(string $text, int $i): ?LinkParts {
+    $close = matching($text, $i, "[", "]");
+    if ($close == null || ($text[$close + 1] ?? "") != "(") {
+        return null;
+    }
+    $end = matching($text, $close + 1, "(", ")");
+    if ($end == null) {
+        return null;
+    }
+    $label = slice($text, $i + 1, $close - $i - 1);
+    $target = trim(slice($text, $close + 2, $end - $close - 2));
+    // <a url with spaces>, then perhaps a title
+    if (starts_with($target, "<") && index_of($target, ">") != null) {
+        $angle = index_of($target, ">");
+        $title = trim(slice($target, $angle + 1));
+        $quoted = len($title) >= 2 && starts_with($title, "\"") && ends_with($title, "\"");
+        $title = $quoted ? slice($title, 1, -1) : null;
+
+        return LinkParts($label, slice($target, 1, $angle - 1), $title, $end + 1);
+    }
+    $space = index_of($target, " \"");
+    if ($space == null || !ends_with($target, "\"")) {
+        return LinkParts($label, $target, null, $end + 1);
+    }
+    $url = slice($target, 0, $space);
+    $title = slice($target, $space + 2, -1);
+
+    return LinkParts($label, $url, $title, $end + 1);
+}
+
+// Where the $close matching the $open at $i is, skipping escapes and code spans, or null
+fn matching(string $text, int $i, string $open, string $close): ?int {
+    $depth = 0;
+    while ($i < len($text)) {
+        $c = $text[$i];
+        if ($c == "\\") {
+            $i += 2;
+            continue;
+        }
+        if ($c == "`" && $open != "`") {
+            $i = code_span_end($text, $i);
+            continue;
+        }
+        if ($c == $open) {
+            $depth++;
+        } else if ($c == $close) {
+            $depth--;
+            if ($depth == 0) {
+                return $i;
+            }
+        }
+        $i++;
+    }
+
+    return null;
+}
+
+// The text of some HTML: tags dropped and the characters Html::escape() writes put back
+pub fn plain_text(string $html): string {
+    $text = "";
+    $i = 0;
+    while ($i < len($html)) {
+        $open = index_of($html, "<", $i);
+        if ($open == null) {
+            $text ..= slice($html, $i);
+            break;
+        }
+        $text ..= slice($html, $i, $open - $i);
+        $i = (index_of($html, ">", $open) ?? len($html) - 1) + 1;
+    }
+
+    return unescape($text);
+}
+
+/*
+ * A character a backslash escaped. * and ` are written as character references, so a page
+ * checker can tell one from markup the converter failed to read (verify.gaz)
+ */
+fn escaped(string $next, int $i): ?list {
+    if ($next == "" || !contains(ESCAPABLE, $next)) {
+        return null;
+    }
+    $html = match ($next) {
+        "*" => "&#42;",
+        "`" => "&#96;",
+        default => Html::escape($next),
+    };
+
+    return [$html, $i + 2];
+}
+
+// Text with the character references this converter and Html::escape() write read back
+pub fn unescape(string $text): string {
+    foreach (ENTITIES as [$from, $to]) {
+        $text = replace($text, $from, $to);
+    }
+
+    return $text;
+}
+
+/*
+ * A heading's id as GitHub makes it: lowercase, with anything but letters, digits, _, - and
+ * spaces dropped (bytes of UTF-8 are kept), and spaces as -
+ */
+pub fn slug(string $text): string {
+    $slug = "";
+    foreach (split(lower($text), "") as $c) {
+        if ($c == " ") {
+            $slug ..= "-";
+        } else if ($c >= "a" && $c <= "z" || $c >= "0" && $c <= "9" || $c == "_" || $c == "-" || ord($c) >= 128) {
+            $slug ..= $c;
+        }
+    }
+
+    return $slug;
+}

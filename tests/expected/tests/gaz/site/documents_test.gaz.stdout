@@ -1,0 +1,41 @@
+ok https
+ok https with .git
+ok https with .git and a slash
+ok https with a slash
+ok ssh with a colon
+ok ssh as a URL
+ok GitLab
+ok a local path
+ok a host that only starts like GitHub's
+ok a host that only ends like GitHub's
+ok too many parts
+ok given
+ok the remote
+ok a remote not on GitHub falls to Actions'
+ok no remote
+ok nothing at all
+ok nothing well formed
+ok a bad name given is an error
+ok a file
+ok a directory
+ok a download
+ok unknown
+ok the sections
+ok badges go
+ok the root from the top
+ok the root from a directory
+ok the root from two down
+ok a site path from a page below
+ok another site
+ok mail
+ok no link
+ok a document
+ok an anchor on another page
+ok an anchor in the same document
+ok an anchor no page has
+ok up a directory
+ok a file of the repository
+ok a directory of it
+ok another site
+ok a scheme is left for the converter to judge
+ok a file when the repository isn't known

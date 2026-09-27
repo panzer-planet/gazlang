@@ -65,6 +65,7 @@ bin/gaz tests/programs/functions.gaz               # compile and run
 bin/gaz -c tests/programs/functions.gaz            # print the compiled bytecode
 bin/gaz --tokens tests/programs/functions.gaz      # print the tokens
 bin/gaz --ast tests/programs/functions.gaz         # print the parser's tree
+bin/gaz site/build.gaz                             # the website (site/), from these docs, into site/dist
 ```
 
 ```bash

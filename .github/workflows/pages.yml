@@ -1,0 +1,110 @@
+name: Pages
+
+# Builds the website with gaz itself (site/build.gaz) and publishes it on GitHub Pages. A problem
+# the build finds in a page (a broken link or anchor, an id given twice, a tag left open) fails
+# it, so nothing is published. Pages must be set to "GitHub Actions" in the repository's settings.
+#
+# The download links name the latest *published* release, which this asks GitHub for, never
+# VERSION: VERSION is committed before its tag is pushed, and the release is only published once
+# its builds have been made, so a site built from VERSION would link to files that don't exist
+# yet. So the site is built again once a release is out, when the Release workflow has finished:
+# its release is published with the workflow's own token, and GitHub starts no workflow for an
+# event that token causes, so a `release` trigger would never fire for it; `workflow_run` does,
+# and runs on the default branch, whose docs are the ones to publish (a run on the tag would
+# publish its older docs, and the github-pages environment refuses a tag's deployment anyway).
+# With no release published the home page points to the releases page instead.
+
+on:
+  push:
+    branches: [master]
+    # What the site is made of: its own source, the documents, the standard library (a page per
+    # file), the license, and gaz itself (the lexer highlights the code, the compiler and VM run
+    # the build and its templates)
+    paths:
+      - 'site/**'
+      - 'docs/**'
+      - 'README.md'
+      - 'LICENSE.md'
+      - 'lib/**'
+      - 'compiler/lexer.gaz'
+      - 'compiler/parser.gaz'
+      - 'compiler/template.gaz'
+      - 'compiler/gazlang.gzb'
+      - 'vm/**'
+      - '.github/workflows/pages.yml'
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deployment at a time; a newer run waits rather than cancelling one half done
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # After the Release workflow only when it published a release: it succeeded, for a pushed
+    # tag (a run by hand is a dry run that publishes nothing)
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # configure-pages reads the site's settings
+      pages: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # The site needs only gaz, and gaz only a C compiler: no TLS, databases or profiling
+      - name: Build gaz
+        run: make -C vm TLS=0 SQLITE=0 PG=0 PGO=0
+      # The latest release published. None yet is fine (the home page then points to the releases
+      # page); any other failure (the API, the token) fails the build rather than publish a site
+      # that quietly lost its download links
+      - name: Find the latest release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName 2> gh-error.txt)"; then
+            echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          elif grep -q 'release not found' gh-error.txt; then
+            echo "No release is published yet"
+            echo "tag=" >> "$GITHUB_OUTPUT"
+          else
+            cat gh-error.txt >&2
+            exit 1
+          fi
+      - name: Build the site
+        env:
+          RELEASE: ${{ steps.release.outputs.tag }}
+        run: |
+          if [ -n "$RELEASE" ]; then
+            bin/gaz site/build.gaz --release "$RELEASE"
+          else
+            bin/gaz site/build.gaz
+          fi
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

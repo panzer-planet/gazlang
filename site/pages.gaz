@@ -1,0 +1,202 @@
+/*
+ * The pages of the site as its templates show them: a Page, the views of the library's files
+ * and entries, and the navigation lists, with the templates that write them. No top level code,
+ * so a test can render a template with what it likes (tests/gaz/site/pages_test.gaz).
+ */
+include "highlight.gaz";
+include "markdown.gaz";
+include "library.gaz";
+include "documents.gaz" use Link, NavItem, Repository, root_of;
+include "templates/layout.gazml";
+include "templates/nav_list.gazml";
+include "templates/downloads.gazml";
+include "templates/section_list.gazml";
+include "templates/library_index.gazml";
+include "templates/library_page.gazml";
+include "templates/entry.gazml";
+
+// The parts of the site the navigation bar links to: [section, title, page]
+const SITE_SECTIONS = [
+    ["reference", "Reference", "reference/index.html"],
+    ["library", "Library", "library/index.html"],
+    ["bytecode", "Bytecode", "bytecode.html"],
+    ["internals", "Internals", "internals.html"],
+];
+
+// The heading levels a document's sidebar lists, the first with the second under it
+const SIDEBAR_LEVEL = 2;
+const SIDEBAR_SUBLEVEL = 3;
+
+// A page of the site, with its path from the site's root
+kind Page {
+    pub ?Link #previous = null;
+    pub ?Link #next = null;
+    // NavItems; none means the page has no sidebar
+    pub list #sidebar = [];
+    pub string #sidebar_label = "Contents";
+
+    /*
+     * $section is which part of the site the page belongs to, so the site's navigation marks
+     * it: "home", "reference", "library", "bytecode" or "internals"
+     */
+    fn _(pub string #path, pub string #section, pub string #title, pub string #description, pub Html #body) {}
+
+    // The way back to the site's root from this page, for relative links: "" or "../"
+    pub fn root(): string {
+        return root_of(#path);
+    }
+
+    // The links across the top of the page, this page's part of the site marked
+    pub fn site_navigation(Repository $repository): list {
+        $items = [];
+        foreach (SITE_SECTIONS as [$section, $title, $page]) {
+            $items[] = NavItem($title, #root() .. $page, $section == #section);
+        }
+        if ($repository.known()) {
+            $items[] = NavItem("GitHub", $repository.home());
+        }
+
+        return $items;
+    }
+
+    pub fn html(Repository $repository): string {
+        return to_string(layout(#, $repository));
+    }
+}
+
+/*
+ * An entry of the library as its page shows it: its id and name come from where it is, a
+ * function in a namespace or a member of a kind
+ */
+kind EntryView {
+    fn _(pub library::Entry #entry, string #namespace, pub ?string #kind, markdown::Renderer #renderer) {}
+
+    pub fn id(): string {
+        return #kind == null ? #entry.name : "{#kind}.{#entry.name}";
+    }
+
+    // What it is called where it is used: json::decode, tui::Screen(), Screen.put
+    pub fn name(): string {
+        $name = #entry.name;
+        if (#kind == null) {
+            return "{#namespace}::{$name}";
+        }
+
+        return match (#entry.what) {
+            "constructor" => "{#namespace}::{#kind}()",
+            "static method", "static field", "constant" => "{#namespace}::{#kind}::{$name}",
+            default => "{#kind}.{$name}",
+        };
+    }
+
+    pub fn members(): list {
+        return map(#entry.members, $member -> EntryView($member, #namespace, #entry.name, #renderer));
+    }
+
+    pub fn signature(): Html {
+        return Html(highlight::render(#entry.signature));
+    }
+
+    pub fn doc(): Html {
+        return comment_html(#renderer, #entry.doc);
+    }
+}
+
+/*
+ * A file of the library as its pages show it. Its comments are Markdown, rendered as the docs
+ * are, links going through the same Linker, except that a backslash is always itself: they are
+ * written for readers of the source (a regex's "\" means a backslash).
+ */
+kind LibraryView {
+    pub string #name;
+    // The first paragraph of its comment, inline, for the index
+    pub Html #summary;
+
+    fn _(library::Library #library, markdown::Renderer #renderer) {
+        #name = $library.name;
+        #summary = Html($renderer.render_inline(library::summary($library.comment)));
+    }
+
+    // How a program includes it, highlighted
+    pub fn include_line(): Html {
+        return Html(highlight::to_html("gaz", "include \"std/{#name}.gaz\";"));
+    }
+
+    pub fn comment(): Html {
+        return comment_html(#renderer, #library.comment);
+    }
+
+    pub fn entries(): list {
+        return map(#library.entries, $entry -> EntryView($entry, #library.namespace, null, #renderer));
+    }
+
+    pub fn entry_names(): list {
+        return map(#library.entries, $entry -> $entry.name);
+    }
+}
+
+// A release's version from its tag: v0.2.0 is 0.2.0
+fn version_of(string $tag): string {
+    return starts_with($tag, "v") ? slice($tag, 1) : $tag;
+}
+
+// A page's HTML with $insert before its first <h2>, or at the end if it has none
+fn before_first_section(string $html, string $insert): string {
+    $at = index_of($html, "<h2 ") ?? len($html);
+
+    return slice($html, 0, $at) .. $insert .. slice($html, $at);
+}
+
+// A document's headings as a sidebar: the second level, with the third under each
+fn heading_navigation(list $headings): list {
+    $items = [];
+    foreach ($headings as $heading) {
+        $item = NavItem($heading.text, "#{$heading.id}");
+        if ($heading.level == SIDEBAR_LEVEL) {
+            $items[] = $item;
+        } else if ($heading.level == SIDEBAR_SUBLEVEL && len($items) > 0) {
+            $items[len($items) - 1].children[] = $item;
+        }
+    }
+
+    return $items;
+}
+
+// The reference's sections, the current one opened to its headings
+fn reference_navigation(list $sections, int $current, string $root): list {
+    $items = [];
+    foreach ($sections as $i => $section) {
+        $title = $i == 0 ? "Introduction" : $section.title();
+        $children = [];
+        if ($i == $current && $i > 0) {
+            $headings = filter($section.headings, $heading -> $heading.level == SIDEBAR_LEVEL);
+            $children = map($headings, $heading -> NavItem($heading.text, "#{$heading.id}"));
+        }
+        $items[] = NavItem($title, $root .. $section.page, $i == $current, $children);
+    }
+
+    return $items;
+}
+
+// The library's files, the current one opened to what it offers
+fn library_navigation(list $libraries, ?int $current): list {
+    $items = [];
+    foreach ($libraries as $i => $library) {
+        $children = [];
+        if ($i == $current) {
+            $children = map($library.entry_names(), $name -> NavItem($name, "#{$name}"));
+        }
+        $items[] = NavItem("std/{$library.name}.gaz", "{$library.name}.html", $i == $current, $children);
+    }
+
+    return $items;
+}
+
+// A comment of the library's source as HTML, its examples highlighted
+fn comment_html(markdown::Renderer $renderer, string $comment): Html {
+    if ($comment == "") {
+        return Html("");
+    }
+
+    return Html($renderer.render(library::comment_markdown($comment)));
+}

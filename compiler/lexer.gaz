@@ -41,7 +41,7 @@ kind Token {
 
 // #line and #file are Error's own, and say where in this file the error was raised, so the
 // place in the source being read has names of its own. The parser adds the file to these.
-kind LexError extends Error {
+pub kind LexError extends Error {
     pub #reason;
     pub #source_line;
 
@@ -52,7 +52,7 @@ kind LexError extends Error {
     }
 }
 
-kind Lexer {
+pub kind Lexer {
     #text;
     #length;
     #pos = 0;
@@ -60,6 +60,8 @@ kind Lexer {
     // The current character, or "" at the end of the input
     #char;
     #line = 1;
+    // Where the last token read starts, past the whitespace and comments before it
+    #start = 0;
 
     // Double-quoted strings with an interpolation in progress, innermost last, each
     // [state, the line the string starts on, how many { are open inside it]:
@@ -547,8 +549,19 @@ kind Lexer {
         return Token($parent ? "PARENT" : "HASH", $sigil);
     }
 
+    /*
+     * Where in the text the last token read lies, as [start, end]: what highlights source by
+     * its tokens takes the text between two tokens as whitespace and comments. A bare
+     * interpolated variable's [key] is read with the variable, so its span covers it and the
+     * key's three tokens have empty ones.
+     */
+    pub fn span() {
+        return [#start, #pos];
+    }
+
     // Skip whitespace and comments, then read one token
     pub fn get_next_token() {
+        #start = #pos;
         if (len(#queued_tokens) > 0) {
             $token = #queued_tokens[0];
             delete #queued_tokens[0];
@@ -571,6 +584,7 @@ kind Lexer {
             $token = #string_part(false);
         } else {
             #skip_ignored();
+            #start = #pos;
             $line = #line;
             $token = #scan_token();
         }

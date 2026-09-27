@@ -1,0 +1,91 @@
+// site/library.gaz: what a file of the standard library offers, read from its source
+include "../../../site/library.gaz";
+include "../check.gaz";
+
+const SOURCE = '// Shapes, for the test.
+//
+// A second paragraph.
+namespace shapes;
+
+include "chars.gaz";
+
+const PRIVATE = 1;
+
+// Not this one: a blank line follows
+
+// The area of a square
+// of side $n
+pub fn area(int $n, $options = {"round" => true}): int {
+    pub_looking_name();
+    return $n * $n;
+}
+
+fn hidden() {}
+
+/*
+ * A shape
+ * with a name
+ */
+pub kind Shape {
+    pub string #name = "x";
+    #secret;      // after code: not a comment for the next
+    pub static #made = 0;
+    pub const SIDES = {"a" => 1};
+
+    // Makes one
+    fn _(pub #size) {}
+
+    pub fn grow($by = 1): Shape { return #; }
+    fn shrink() {}
+    pub static fn unit() { return Shape(1); }
+    pub abstract fn draw();
+}
+
+kind Private {
+    pub fn not_listed() {}
+}
+
+pub const TAU = 6.28;
+';
+
+// An entry as "what name: signature | doc"
+fn describe(library::Entry $entry): string {
+    $signature = join(map($entry.signature, $piece -> $piece.text), "");
+
+    return "{$entry.what} {$entry.name}: {$signature} | " .. replace($entry.doc, "\n", " / ");
+}
+
+$library = library::read("shapes", SOURCE);
+check("the name", $library.name, "shapes");
+check("the namespace", $library.namespace, "shapes");
+check("the file's comment", $library.comment, "Shapes, for the test.\n\nA second paragraph.");
+check("the pub names at the top level", map($library.entries, $entry -> describe($entry)), [
+    "function area: pub fn area(int \$n, \$options = {\"round\" => true}): int | The area of a square / of side \$n",
+    "kind Shape: pub kind Shape | A shape / with a name",
+    "constant TAU: pub const TAU = 6.28; | ",
+]);
+check("a pub kind's members and constructor", map($library.entries[1].members, $entry -> describe($entry)), [
+    "field name: pub string #name = \"x\"; | ",
+    "static field made: pub static #made = 0; | ",
+    "constant SIDES: pub const SIDES = {\"a\" => 1}; | ",
+    "constructor _: fn _(pub #size) | Makes one",
+    "method grow: pub fn grow(\$by = 1): Shape | ",
+    "static method unit: pub static fn unit() | ",
+    "method draw: pub abstract fn draw(); | ",
+]);
+check("a signature is highlighted pieces", map($library.entries[0].signature, $piece -> $piece.class)[0], "kw");
+
+// A comment's examples, indented under a blank line, become code; a list's lines don't
+check("examples become code", library::comment_markdown("Use it:\n\n    \$x = 1;\n\n      \$y = 2;\nAfter.\n- a list\n  going on"),
+    "Use it:\n\n```gaz\n\$x = 1;\n\n  \$y = 2;\n```\n\nAfter.\n- a list\n  going on");
+check("a summary is the first paragraph", library::summary("One\ntwo.\n\nThree."), "One two.");
+
+// Every file of lib/ reads, however many there are
+$unread = [];
+foreach (list_dir("lib") as $file) {
+    $read = library::read(slice($file, 0, -4), read_file("lib/{$file}"));
+    if ($read.namespace == "" || $read.comment == "" || len($read.entries) == 0) {
+        $unread[] = $file;
+    }
+}
+check("every file of lib/ has a namespace, a comment and pub names", $unread, []);
