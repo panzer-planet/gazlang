@@ -4,23 +4,21 @@ namespace GazLang\Tests;
 
 /**
  * `gaz test [path] [--update]` (vm/vm.c's dispatch to lib/test.gaz's test::main()): it finds
- * every *_test.gaz file under path, recursively, runs each as its own gaz process, and reports
- * a file as failed if it exits non-zero or its stdout has a FAIL line. Fixtures are
- * tests/fixtures/gaz_test; a testing tool needs a test that doesn't just trust its own output.
+ * every *_test.gaz file under path, recursively, runs each in its own gaz process (reinvoked
+ * with program_path()), and reports a file as failed if it exits non-zero or its stdout has a
+ * FAIL line. Fixtures are tests/fixtures/gaz_test; a testing tool needs a test that doesn't just
+ * trust its own output.
  */
 class TestCommandTest extends GazLangTestCase
 {
     private const FIXTURES = 'tests/fixtures/gaz_test';
 
     /**
-     * gaz test spawns "gaz" by name (run()'s posix_spawnp searches PATH; there is no builtin
-     * for a running program's own executable path), so the subprocess needs bin/ on its PATH.
-     *
      * @return array{0: string, 1: string, 2: int}
      */
     private function gazTest(array $args): array
     {
-        return self::gazlang(['test', ...$args], '', ['PATH' => dirname(self::binary()).':'.getenv('PATH')]);
+        return self::gazlang(['test', ...$args]);
     }
 
     public function test_it_runs_every_test_file_recursively_and_reports_a_failure()
@@ -57,6 +55,28 @@ class TestCommandTest extends GazLangTestCase
 
         $this->assertNotSame(0, $code);
         $this->assertStringContainsString('does not exist', $err);
+    }
+
+    /**
+     * gaz test reinvokes itself with program_path(), argv[0] exactly as gaz was started, so it
+     * works whichever way that was, not only when found on PATH: started here as a relative
+     * path from a working directory other than the project root, it must still find and run
+     * itself the same way for every file it discovered.
+     */
+    public function test_it_reinvokes_itself_correctly_when_started_by_a_relative_path()
+    {
+        self::binary();
+        // A shell cd, as a person typing ./bin/gaz from another directory would, rather than
+        // proc_open() (whose posix_spawn() resolves a relative command before the child's chdir)
+        $command = sprintf(
+            'cd %s && ../bin/gaz test %s 2>&1',
+            escapeshellarg(self::ROOT.'/tests'),
+            escapeshellarg('../'.self::FIXTURES.'/passing')
+        );
+        exec($command, $output, $code);
+
+        $this->assertSame(0, $code, implode("\n", $output));
+        $this->assertStringContainsString('2 files run, 0 failed', implode("\n", $output));
     }
 
     public function test_update_records_a_snapshot_and_a_later_run_compares_against_it()

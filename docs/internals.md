@@ -126,9 +126,10 @@ php vm/bench.php                                    # gaz against PHP and Python
   values. This is how GazLang code gets tested.
 - **`bin/gaz test`** (`TestCommandTest`, fixtures in `tests/fixtures/gaz_test`) is the same idea
   for a program's own tests, without PHP: it finds every `*_test.gaz` under a path, recursively,
-  and runs each as its own `gaz` process (spawned by name, so it needs `gaz` on `PATH`), since
-  `include` only takes a string literal and can't splice in a path a runner only learns at run
-  time. `std/test.gaz`'s `test::expect` is `check()` made public; `test::snapshot` compares a
+  and runs each as its own `gaz` process, reinvoked with `program_path()` (the interpreter's own
+  invocation path, added for exactly this), since `include` only takes a string literal and
+  can't splice in a path a runner only learns at run time. `std/test.gaz`'s `test::expect` is
+  `check()` made public; `test::snapshot` compares a
   value against a file recorded next to the calling test, and `--update` (re)writes it. A file
   fails the run if it exits non-zero or its stdout has a FAIL line.
 - **`tests/lexer_corpus/`** are lexing cases, including deliberately tricky ones; a file named

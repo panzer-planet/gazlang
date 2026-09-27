@@ -553,6 +553,7 @@ extern int program_argc;
 extern char *piped_input;       /* standard input main() read, which read_stdin() gives first, or NULL */
 extern size_t piped_input_len;
 extern char **program_argv;
+extern char *program_exe;       /* argv[0] as main() was given it, for program_path() */
 int builtin_find(const char *name, size_t len);
 bool call_builtin(int index, Value *args, int argc, Value *out);
 static inline bool arity_fits(int lo, int hi, int argc) { return argc >= lo && argc <= hi; }

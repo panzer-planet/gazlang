@@ -273,24 +273,33 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     concatenating an `Html` should be an error.
 - **`gaz test [path] [--update]`**, so a user of gaz doesn't need PHP to test gaz code: it finds
   every `*_test.gaz` file under `path` (the current directory by default), recursively, and runs
-  each as its own `gaz` process. `std/test.gaz` gives `test::expect($label, $actual, $expected)`
-  (`tests/gaz/check.gaz`'s internal `check()`, made public: `ok <label>`, or a FAIL line naming
-  both values) and `test::snapshot($label, $actual)` (compared against a file recorded next to
-  the calling test, `--update` (re)writing it instead). A file fails the run if its output has a
-  FAIL line or it exits non-zero; `gaz test` exits 1 if any file did.
+  each in its own `gaz` process, reinvoked with `program_path()`. `std/test.gaz` gives
+  `test::expect($label, $actual, $expected)` (`tests/gaz/check.gaz`'s internal `check()`, made
+  public: `ok <label>`, or a FAIL line naming both values) and `test::snapshot($label, $actual)`
+  (compared against a file recorded next to the calling test, `--update` (re)writing it instead).
+  A file fails the run if its output has a FAIL line or it exits non-zero; `gaz test` exits 1 if
+  any file did.
   - **A subprocess per file, not `include`-by-computed-path**: `include` only ever takes a
     string literal, resolved at parse time, on purpose, so a runner has no dynamic way to splice
     a discovered path into one program. Running each as `gaz <file> <file> [--update]` needs no
     such thing and gives free isolation, one file's crash or infinite loop can't corrupt
     another's run, at the cost of a process start per file.
+  - **`program_path()`** gives `argv[0]` exactly as `gaz` was invoked (a bare name found on
+    `PATH`, a relative path, or an absolute one; not resolved to a canonical path, which nothing
+    yet needs). `test::main()` passes it to `run()` as the reinvoked program, so `gaz test` works
+    the same way whether it was started as `gaz`, `./bin/gaz` or an absolute path, without
+    needing `gaz` on `PATH` — the concrete problem a self-reinvoking program has; a
+    `/proc/self/exe`/`_NSGetExecutablePath`-based canonical path is a different, bigger feature
+    nobody has asked for yet.
   - **`gaz test` is a bareword subcommand**, dispatched in `vm.c`'s `main()` before any of the
     usual `-`-prefixed option parsing, since `test` names a shape (`cargo test`, `go test`), not a
     flag; a file literally named `test` needs `-f test` to run instead, an accepted, negligible
     edge case. It runs a small fixed bootstrap program (`include "std/test.gaz"; test::main();`)
     with everything after `test` as that program's own `args()`.
-  - **A test file learns its own path as its first argument**, not through a builtin: nothing
-    gives a running program its own path (`args()` is only what follows it on the command line),
-    so the runner passes the file twice, once to say what to run and again as `args()[0]`, which
+  - **A test file learns its own path as its first argument**, not through a builtin: `args()`
+    is only what follows the file on the command line, and `program_path()` names the
+    interpreter, not the script it is running, so neither gives a test file its own path. The
+    runner passes the file twice, once to say what to run and again as `args()[0]`, which
     `test::snapshot()` reads to find where "next to it" is.
   - Fixtures are `tests/fixtures/gaz_test` (`TestCommandTest`); `tests/gaz/lib/test_test.gaz`
     exercises `test::expect()` itself, as `GazProgramTest` does for the rest of the library.

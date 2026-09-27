@@ -13,13 +13,17 @@
  * - `gaz test` finds every *_test.gaz file under path, recursively, and runs each as its own
  *   `gaz` process (include is resolved at parse time from a string literal, so a runner can't
  *   include a path it only learns at run time; a subprocess per file needs no such thing, and
- *   gives free isolation: one file's crash or infinite loop can't corrupt another's run). A file
- *   fails the run if its stdout has a FAIL line or it exits non-zero.
+ *   gives free isolation: one file's crash or infinite loop can't corrupt another's run). It
+ *   reinvokes itself with program_path(), the interpreter's own invocation path exactly as it
+ *   was given (a bare name found on PATH, a relative path, or an absolute one), so `gaz test`
+ *   works the same way regardless of how the running `gaz` was itself started. A file fails the
+ *   run if its stdout has a FAIL line or it exits non-zero.
  * - A subprocess is started as `gaz <file> <file> [--update]`: the file's own path, once to say
  *   what to run and again as its first program argument, since a running program has no builtin
- *   that gives its own path (args() is only what follows it on the line). snapshot() reads that
- *   first argument to find where "next to the test" is; a test file that calls args() itself for
- *   its own reasons should treat args()[0] as its own path and args()[1] as --update, if given.
+ *   that gives the *file's* own path (args() is only what follows it on the line, and
+ *   program_path() names the interpreter, not the script). snapshot() reads that first argument
+ *   to find where "next to the test" is; a test file that calls args() itself for its own
+ *   reasons should treat args()[0] as its own path and args()[1] as --update, if given.
  */
 namespace test;
 
@@ -69,7 +73,7 @@ pub fn main() {
     $files = discover($root);
     $failed = [];
     foreach ($files as $file) {
-        $argv = ["gaz", $file, $file];
+        $argv = [program_path(), $file, $file];
         if ($update) {
             $argv[] = UPDATE_FLAG;
         }

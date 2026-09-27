@@ -32,6 +32,7 @@ int program_argc;
 char *piped_input;
 size_t piped_input_len;
 char **program_argv;
+char *program_exe;   /* argv[0] as main() was given it: program_path() */
 
 /* In the order builtins() gives them */
 const BuiltinInfo builtin_info[] = {
@@ -46,6 +47,7 @@ const BuiltinInfo builtin_info[] = {
     {"is_a", 2, 2}, {"kind_of", 1, 1}, {"fields", 1, 1}, {"object_id", 1, 1}, {"exit", 0, 1},
     {"read_file", 1, 1}, {"write_file", 2, 2}, {"file_exists", 1, 1}, {"real_path", 1, 1},
     {"cwd", 0, 0}, {"print", 1, 1}, {"print_error", 1, 1}, {"read_stdin", 0, 0}, {"args", 0, 0},
+    {"program_path", 0, 0},
     {"builtins", 0, 0}, {"rand_int", 2, 2}, {"rand_float", 0, 0}, {"rand_seed", 0, 1},
     {"run", 1, 2}, {"socket_open", 2, 4}, {"socket_read", 1, 1}, {"socket_write", 2, 2},
     {"socket_close", 1, 1}, {"term_raw", 1, 1}, {"term_read", 0, 1}, {"term_size", 0, 0},
@@ -68,7 +70,7 @@ enum {
     B_CEIL, B_ROUND, B_ABS, B_INTDIV, B_MIN, B_MAX, B_SUM, B_TO_STRING, B_IN_ARRAY, B_HAS_KEY, B_KEYS,
     B_VALUES, B_LAST, B_REVERSE, B_MAP, B_FILTER, B_REDUCE, B_SORT, B_TYPE_OF, B_IS_A, B_KIND_OF, B_FIELDS, B_OBJECT_ID, B_EXIT, B_READ_FILE,
     B_WRITE_FILE, B_FILE_EXISTS, B_REAL_PATH, B_CWD, B_PRINT, B_PRINT_ERROR, B_READ_STDIN,
-    B_ARGS, B_BUILTINS, B_RAND_INT, B_RAND_FLOAT, B_RAND_SEED, B_RUN,
+    B_ARGS, B_PROGRAM_PATH, B_BUILTINS, B_RAND_INT, B_RAND_FLOAT, B_RAND_SEED, B_RUN,
     B_SOCKET_OPEN, B_SOCKET_READ, B_SOCKET_WRITE, B_SOCKET_CLOSE,
     B_TERM_RAW, B_TERM_READ, B_TERM_SIZE, B_TERM_IS_TTY,
     B_MONOTONIC_TIME, B_STD_SOURCE,
@@ -1288,6 +1290,9 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         *out = v_list(l);
         return true;
     }
+    case B_PROGRAM_PATH:
+        *out = v_str(str_cstr(program_exe));
+        return true;
     case B_RAND_INT:
         if (!want(index, a, INT) || !want(index, b, INT)) return false;
         if (b.i < a.i) return raisef("rand_int() expects min <= max, got %lld and %lld", (long long)a.i, (long long)b.i);
