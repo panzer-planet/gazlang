@@ -57,7 +57,9 @@ class LspTest extends GazLangTestCase
         ]);
 
         $this->assertSame(
-            ['jsonrpc' => '2.0', 'id' => 1, 'result' => ['capabilities' => ['textDocumentSync' => 1, 'hoverProvider' => true, 'definitionProvider' => true]]],
+            ['jsonrpc' => '2.0', 'id' => 1, 'result' => ['capabilities' => [
+                'textDocumentSync' => 1, 'hoverProvider' => true, 'definitionProvider' => true, 'completionProvider' => [],
+            ]]],
             $messages[0]
         );
     }
@@ -130,7 +132,7 @@ class LspTest extends GazLangTestCase
     public function test_an_unknown_request_is_answered_method_not_found()
     {
         $messages = $this->session([
-            ['jsonrpc' => '2.0', 'id' => 3, 'method' => 'textDocument/completion', 'params' => []],
+            ['jsonrpc' => '2.0', 'id' => 3, 'method' => 'workspace/symbol', 'params' => []],
         ]);
 
         $this->assertSame(3, $messages[0]['id']);
@@ -269,5 +271,60 @@ class LspTest extends GazLangTestCase
         ]);
 
         $this->assertSame(['jsonrpc' => '2.0', 'id' => 1, 'result' => null], $messages[1]);
+    }
+
+    private function completionsFor(string $uri, string $text): array
+    {
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'method' => 'textDocument/didOpen', 'params' => [
+                'textDocument' => ['uri' => $uri, 'text' => $text],
+            ]],
+            ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'textDocument/completion', 'params' => [
+                'textDocument' => ['uri' => $uri], 'position' => ['line' => 0, 'character' => 0],
+            ]],
+        ]);
+
+        return $messages[1]['result'];
+    }
+
+    public function test_completion_offers_keywords_and_builtins_with_their_arity()
+    {
+        $items = $this->completionsFor('file:///a.gaz', "echo 1;\n");
+        $byLabel = array_column($items, null, 'label');
+
+        $this->assertSame(['label' => 'fn', 'kind' => 14], $byLabel['fn']);
+        $this->assertSame(['label' => 'len', 'kind' => 3, 'detail' => '1 argument'], $byLabel['len']);
+        $this->assertSame(['label' => 'slice', 'kind' => 3, 'detail' => '2 to 3 arguments'], $byLabel['slice']);
+        // A keyword that only hints at the right spelling isn't offered
+        $this->assertArrayNotHasKey('function', $byLabel);
+        $this->assertArrayNotHasKey('class', $byLabel);
+    }
+
+    public function test_completion_offers_a_function_declared_in_the_document()
+    {
+        $items = $this->completionsFor('file:///a.gaz', "fn total(\$a, \$b) { return \$a + \$b; }\n");
+        $byLabel = array_column($items, null, 'label');
+
+        $this->assertSame(['label' => 'total', 'kind' => 3], $byLabel['total']);
+    }
+
+    public function test_completion_offers_a_function_from_an_included_file()
+    {
+        $path = realpath(self::ROOT.'/tests/fixtures/lsp/includer.gaz');
+        $items = $this->completionsFor('file://'.$path, file_get_contents($path));
+        $byLabel = array_column($items, null, 'label');
+
+        $this->assertArrayHasKey('helper', $byLabel);
+    }
+
+    public function test_completion_lists_a_name_declared_reachably_more_than_once_only_once()
+    {
+        $path = realpath(self::ROOT.'/tests/fixtures/lsp/includer.gaz');
+        // helper() is already declared in helper.gaz, which this includes; declaring it again
+        // here too (its own mistake, not ours to judge) must still list it once, not twice
+        $items = $this->completionsFor('file://'.$path, file_get_contents($path)."\nfn helper() { return \"shadowed\"; }\n");
+        $labels = array_column($items, 'label');
+
+        $this->assertSame(1, count(array_filter($labels, fn ($label) => $label === 'helper')));
     }
 }
