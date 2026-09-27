@@ -10,6 +10,7 @@ lib/crypto.gaz
 lib/csv.gaz
 lib/date.gaz
 lib/db.gaz
+lib/devserver.gaz
 lib/format.gaz
 lib/http.gaz
 lib/json.gaz
@@ -872,6 +873,8 @@ tests/fixtures/include/lib/math.gaz
 tests/fixtures/include/main.gaz
 tests/fixtures/include/runtime.gaz
 tests/fixtures/json_roundtrip.gaz
+tests/fixtures/lsp/helper.gaz
+tests/fixtures/lsp/includer.gaz
 tests/fixtures/read_stdin.gaz
 tests/fixtures/term_input.gaz
 tests/fixtures/term_read.gaz
