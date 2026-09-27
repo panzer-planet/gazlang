@@ -200,6 +200,10 @@ pre.output::before {
 .table table { margin: 0; }
 table { border-collapse: collapse; font-size: 0.925rem; }
 th, td { border: 1px solid var(--border); padding: 0.4rem 0.7rem; text-align: left; vertical-align: top; }
+/* A table's own code stays on one line, so auto layout doesn't starve that column: without
+ * this, `overflow-wrap: anywhere` above lets the browser treat a file name as breakable at any
+ * character, and it gives almost all the width to the other column instead. */
+.table code { overflow-wrap: normal; white-space: nowrap; }
 th { background: var(--surface); }
 .right { text-align: right; }
 .center { text-align: center; }
