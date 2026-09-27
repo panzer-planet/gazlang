@@ -20,6 +20,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <sys/random.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -61,7 +62,7 @@ const BuiltinInfo builtin_info[] = {
     {"random_bytes", 1, 1}, {"sha256", 1, 1}, {"hmac_sha256", 2, 2}, {"pbkdf2_sha256", 4, 4},
     {"scrypt", 6, 6}, {"argon2id", 6, 8},
     {"read_stdin_bytes", 1, 1},
-    {"flush_output", 0, 0},
+    {"flush_output", 0, 0}, {"worker_recycle", 0, 0},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -83,7 +84,7 @@ enum {
     B_READ_LINE,
     B_RANDOM_BYTES, B_SHA256, B_HMAC_SHA256, B_PBKDF2_SHA256, B_SCRYPT, B_ARGON2ID,
     B_READ_STDIN_BYTES,
-    B_FLUSH_OUTPUT,
+    B_FLUSH_OUTPUT, B_WORKER_RECYCLE,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -1523,6 +1524,17 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     }
     case B_FLUSH_OUTPUT:
         flush_output();
+        *out = v_null();
+        return true;
+    case B_WORKER_RECYCLE:
+        /* A worker retiring itself on purpose (http::serve's max_requests): flush what's buffered,
+           since a signal-terminated process doesn't run stdio's own atexit flush, then raise SIGUSR2
+           on itself. No handler is installed, so the default disposition (terminate) applies, and
+           workers.c's master tells this apart from a crash and restarts it without logging a failure.
+           A reserved exit code was rejected: exit($code) already lets a program pick any code 0-255,
+           so an unrelated exit() somewhere could collide with one; a signal can't. */
+        flush_output();
+        raise(SIGUSR2);
         *out = v_null();
         return true;
     }

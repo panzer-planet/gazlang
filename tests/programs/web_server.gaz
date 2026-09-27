@@ -2,6 +2,7 @@
  * A web server: http::serve() on a socket_listen() listener, in as many workers() as asked.
  *
  *   bin/gaz tests/programs/web_server.gaz 8080 4     port 8080, four workers
+ *   bin/gaz tests/programs/web_server.gaz 8080 4 3    each worker recycles after 3 requests
  *
  * Port 0 is one the system picks; the first line printed says which. HttpServerTest runs it:
  *
@@ -28,8 +29,9 @@ const SESSION_SECRET = "the web_server.gaz test's session secret";
 $args = args();
 $port = to_int($args[0] ?? "", null);
 $count = to_int($args[1] ?? "1", null);
+$max_requests = has_key($args, 2) ? to_int($args[2], null) : null;
 if ($port == null || $count == null) {
-    print_error("Usage: web_server.gaz PORT [WORKERS]\n");
+    print_error("Usage: web_server.gaz PORT [WORKERS] [MAX_REQUESTS]\n");
     exit(2);
 }
 
@@ -48,7 +50,7 @@ http::serve($listener, $request -> match ($request["path"]) {
     "/two-cookies" => http::set_cookie(http::set_cookie({}, "a", "1"), "b", "2"),
     "/exit" => exit(3),
     default => {"status" => 404, "body" => "no page at {$request["path"]}\n"},
-}, {"max_body" => 100000, "timeout" => 2, "request_timeout" => 1.5});
+}, {"max_body" => 100000, "timeout" => 2, "request_timeout" => 1.5, "max_requests" => $max_requests});
 
 // Reads the session, counts a visit, and writes the session back as a cookie
 fn visits($request) {
