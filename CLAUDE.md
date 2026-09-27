@@ -322,7 +322,10 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   sets to the latest published release, never `VERSION`: `VERSION` is committed before its tag is
   pushed and the release published after its builds, so the workflow builds again when the
   Release workflow finishes (`workflow_run`, since a release published with the workflow's own
-  token starts no `release` workflow). The build is a tool, not a test program: what it writes
+  token starts no `release` workflow). **Publishing is release-only**: `pages.yml` has no `push`
+  trigger, so a docs or library edit on `master` waits for the next release rather than showing on
+  the live site ahead of what a stranger can install; `workflow_dispatch` still runs it by hand.
+  The build is a tool, not a test program: what it writes
   changes with every docs edit, so `SiteTest` checks it succeeds, has every page, fails on a link
   planted in a copy of the docs (`--root`), and builds without a repository; `tests/gaz/site/`
   tests its parts.

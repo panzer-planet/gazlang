@@ -4,34 +4,19 @@ name: Pages
 # the build finds in a page (a broken link or anchor, an id given twice, a tag left open) fails
 # it, so nothing is published. Pages must be set to "GitHub Actions" in the repository's settings.
 #
+# Publishes only on a release, not on every push: the site would otherwise show unreleased
+# docs ahead of what a stranger can actually install. The Release workflow publishes its release
+# with its own token, and GitHub starts no workflow for an event that token causes, so a
+# `release` trigger would never fire for it; `workflow_run` does, and runs on the default
+# branch, whose docs are the ones to publish (a run on the tag would publish its older docs, and
+# the github-pages environment refuses a tag's deployment anyway).
+#
 # The download links name the latest *published* release, which this asks GitHub for, never
 # VERSION: VERSION is committed before its tag is pushed, and the release is only published once
 # its builds have been made, so a site built from VERSION would link to files that don't exist
-# yet. So the site is built again once a release is out, when the Release workflow has finished:
-# its release is published with the workflow's own token, and GitHub starts no workflow for an
-# event that token causes, so a `release` trigger would never fire for it; `workflow_run` does,
-# and runs on the default branch, whose docs are the ones to publish (a run on the tag would
-# publish its older docs, and the github-pages environment refuses a tag's deployment anyway).
-# With no release published the home page points to the releases page instead.
+# yet. With no release published the home page points to the releases page instead.
 
 on:
-  push:
-    branches: [master]
-    # What the site is made of: its own source, the documents, the standard library (a page per
-    # file), the license, and gaz itself (the lexer highlights the code, the compiler and VM run
-    # the build and its templates)
-    paths:
-      - 'site/**'
-      - 'docs/**'
-      - 'README.md'
-      - 'LICENSE.md'
-      - 'lib/**'
-      - 'compiler/lexer.gaz'
-      - 'compiler/parser.gaz'
-      - 'compiler/template.gaz'
-      - 'compiler/gazlang.gzb'
-      - 'vm/**'
-      - '.github/workflows/pages.yml'
   workflow_run:
     workflows: [Release]
     types: [completed]
