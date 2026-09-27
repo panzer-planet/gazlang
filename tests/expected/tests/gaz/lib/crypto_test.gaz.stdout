@@ -93,6 +93,11 @@ ok short tokens
 ok a token of no bytes
 ok a token of fewer
 ok equals
+ok unsign recovers a signed value
+ok unsign refuses another secret
+ok unsign refuses text with no dot
+ok sign of the empty string still verifies
+ok flipping any one byte fails verification
 ok argon2id: the right password
 ok argon2id: a wrong one
 ok argon2id: salted

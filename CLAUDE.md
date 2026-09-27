@@ -247,20 +247,17 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   what makes real web apps and CLI tools pleasant, then by what one stranger needs to find it,
   install it, get a first program working and trust it; not by what would win many users
   (Windows, a registry, an LSP and a playground wait for someone to ask).
-- **The roadmap**, in build order (optional types, `gaz --watch`, the pipe and cryptography are
-  done and described below):
+- **The roadmap**, in build order (optional types, `gaz --watch`, the pipe, cryptography and
+  cookies and signed sessions are done and described below):
   1. **`gaz test`** running `*_test.gaz`, with `std/test.gaz` (`test::expect`, `test::snapshot`
      recorded next to the test, `--update`), and an exit status; no new syntax or reserved word. A
      user of gaz shouldn't need PHP to test gaz code.
-  2. **Cookies and signed sessions** in `std/http`, on the cryptography this item began with (done:
-     see "Cryptography"): signed with `hmac_sha256`, checked with `crypto::equals`, IDs and CSRF
-     tokens from `crypto::token()`. Without them a web app can't have sessions or CSRF tokens.
-  3. **Tagged literals as ordinary functions**: `name"text {$v}"` is `name(["text ", ""], [$v])`,
+  2. **Tagged literals as ordinary functions**: `name"text {$v}"` is `name(["text ", ""], [$v])`,
      resolved like any name, as JavaScript's tags and Python's t-strings are. Then `db::sql"..."`,
      rendered to each driver's own placeholders (`?`, `$n`), with nested fragments and lists for
      `in (...)`; then `Db.query`/`exec`/`row`/`value` refuse a plain string, with `db::raw()` the
      visible way round, so SQL injection is impossible by construction; then `html"..."`.
-  4. **Rest patterns** in destructuring, `[$first, ...$rest] = $list`, when JSON handling asks.
+  3. **Rest patterns** in destructuring, `[$first, ...$rest] = $list`, when JSON handling asks.
   - **On demand**: dumping the raw bytes of a request that got a 500, to replay it (the small
     version of record and replay); `parallel($thunks, $max)` over forked processes, giving plain
     data only and refusing handles a child inherited (a SQLite or PostgreSQL connection must not be
@@ -489,6 +486,19 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     deserialization); a program that wants routing or anything dynamic writes its own few lines
     on `serve_static()` instead. Tested by `tests/gaz/lib/http_serve_static_test.gaz` and,
     end to end, `DevServerTest`.
+  - **Cookies and signed sessions**, in `http.gaz` too, on the cryptography (see "Cryptography"):
+    `http::cookies($request)` (the `Cookie` header as a map), `http::set_cookie($response, $name,
+    $value, $options = {})` (`"path"`, `"http_only"` true by default, `"secure"`, `"same_site"`
+    `"Lax"` by default, `"max_age"`), `http::session($request, $secret)` and
+    `http::session_cookie($response, $session, $secret, $options = {})`, and
+    `http::csrf_token($session)`/`http::verify_csrf($session, $submitted)`. A session is a map,
+    `json::encode`d and signed as one value with `crypto::sign`/`crypto::unsign` (HMAC-SHA256,
+    checked with `crypto::equals`, never `==`); a missing, forged or malformed session cookie is
+    `{}`, never an error a handler must catch, since a client showing up with no session or an old
+    one is routine. A `Set-Cookie` header's value can be a list, one line per cookie, since
+    RFC 6265 forbids joining several with a comma (an `Expires` attribute has one of its own);
+    `write_response()` writes any header's list value that way, not only `Set-Cookie`'s. Tested by
+    `tests/gaz/lib/http_session_test.gaz` and end to end by `HttpServerTest`.
   - `ponytail:` no keep-alive; writing a response has only the per-write timeout; the stop grace
     is fixed; while workers drain, new connections queue in the listener's backlog (the master
     holds it too) and are reset when the program ends, where closing the listeners first would
@@ -503,7 +513,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
       compiler file; a builtin takes its name from every program, so the name is the question.
     - Measure it (requests a second against PHP's built-in server and `php-fpm` behind nginx)
       before any tuning; nothing has been timed yet.
-    - Cookies (see the roadmap); an access log line per request
+    - An access log line per request
       (`http::http_date(time())`, method, path, status, bytes, `monotonic_time()` for how long).
 - **Decided, not built**: `interface`/`implements` (a parse-time check that the methods exist,
   plus `is_a`), and `final`. The keywords are reserved.

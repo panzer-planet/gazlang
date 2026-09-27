@@ -1,0 +1,22 @@
+ok no Cookie header
+ok an empty Cookie header
+ok several cookies
+ok a value with a url-encoded ; or =
+ok empty pieces and one without =
+ok set_cookie url-encodes the value and defaults path, httponly and samesite
+ok a second cookie is a second Set-Cookie line, not joined with the first
+ok set_cookie doesn't touch the rest of the response
+ok an unknown option
+ok no session cookie is an empty session, not an error
+ok a session round-trips through its cookie
+ok a tampered signature is an empty session
+ok the wrong secret is an empty session
+ok a signed value that isn't JSON is an empty session
+ok a signed value that isn't a JSON object is an empty session
+ok no cookie header at all
+ok a fresh session gets a token
+ok calling it again on the same session keeps the token
+ok a submitted token that matches verifies
+ok a submitted token that doesn't match fails
+ok no token yet fails rather than erroring
+ok a non-string submission fails rather than erroring
