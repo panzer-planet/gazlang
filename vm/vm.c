@@ -1669,20 +1669,32 @@ static const char *HELP =
     "  -t, --tokens   Print the lexer's tokens, one LINE TYPE VALUE per line, instead of interpreting\n"
     "      --ast      Print the parser's tree instead of running it\n"
     "  -f, --file     The file to run, as giving it first does\n"
-    "      --watch    Run the file, and run it again whenever it or a file it includes changes\n";
+    "      --watch    Run the file, and run it again whenever it or a file it includes changes\n"
+    "  -S, --serve    Serve static files: gaz -S host:port [--docroot DIR] (see std/devserver.gaz)\n";
+
+/* gaz -S host:port [args...]: std/devserver.gaz's own front door, so a zero-config static file
+   server needs no dynamic include (there is none: include takes a string literal, resolved at
+   parse time) and no router script argument the way php -S can take one. Every argument left
+   after option parsing becomes the bootstrap program's own args(), which cli::Command there
+   parses. */
+static const char *DEVSERVER_SOURCE =
+    "include \"std/devserver.gaz\";\n"
+    "devserver::main();\n";
 
 static int unknown_option(const char *arg) {
     fprintf(stderr, "Error: Unknown option %s (program arguments go after the file, or after - or --)\n", arg);
     return 1;
 }
 
-/* The CLI, whose options are read as PHP's getopt("hvf:ct", [help, version, file:, code,
-   tokens, ast, watch]) and its check for options getopt doesn't know. Options end at the first argument
-   that isn't one or after "--". Then, unless "--" ended them or -f named a file, the first
-   argument is the file, or "-" for standard input, as python, php and node take it; the rest
-   are the program's. --watch hands the file and those arguments to watch() in watch.c. */
+/* The CLI, whose options are read as PHP's getopt("hvf:ctS", [help, version, file:, code,
+   tokens, ast, watch, serve]) and its check for options getopt doesn't know. Options end at the
+   first argument that isn't one or after "--". Then, unless "--" ended them, -f named a file, or
+   -S/--serve was given, the first argument is the file, or "-" for standard input, as python,
+   php and node take it; the rest are the program's. --watch hands the file and those arguments
+   to watch() in watch.c. -S/--serve takes no file at all: it runs DEVSERVER_SOURCE instead, with
+   every remaining argument as the bootstrap program's own. */
 int main(int argc, char **argv) {
-    bool help = false, version = false, code = false, tokens = false, ast = false, watching = false;
+    bool help = false, version = false, code = false, tokens = false, ast = false, watching = false, serving = false;
     bool after_dashes = false, from_stdin = false;
     const char *file = NULL;
     int files = 0;
@@ -1703,6 +1715,7 @@ int main(int argc, char **argv) {
             else if (strcmp(name, "tokens") == 0) tokens = true;
             else if (strcmp(name, "ast") == 0) ast = true;
             else if (strcmp(name, "watch") == 0) watching = true;
+            else if (strcmp(name, "serve") == 0) serving = true;
             else if (strncmp(name, "file=", 5) == 0 && name[5]) file = name + 5, files++;
             else if (strcmp(name, "file") == 0) {
                 /* The next argument, whatever it is; none is no file, as getopt has it */
@@ -1716,6 +1729,7 @@ int main(int argc, char **argv) {
             else if (*c == 'v') version = true;
             else if (*c == 'c') code = true;
             else if (*c == 't') tokens = true;
+            else if (*c == 'S') serving = true;
             else if (*c == 'f') {
                 if (c[1]) file = c + 1, files++;
                 else if (i + 1 < argc) file = argv[++i], files++;
@@ -1724,8 +1738,9 @@ int main(int argc, char **argv) {
         }
     }
 
-    /* gaz main.gaz a b: the first argument left is the file, or - for standard input */
-    if (!file && !after_dashes && i < argc) {
+    /* gaz main.gaz a b: the first argument left is the file, or - for standard input; -S takes
+       no file, so what is left is all the dev server's own arguments */
+    if (!file && !after_dashes && i < argc && !serving) {
         if (strcmp(argv[i], "-") == 0) from_stdin = true;
         else file = argv[i], files++;
         i++;
@@ -1743,6 +1758,18 @@ int main(int argc, char **argv) {
         fputs("Error: Give one file, with -f or --file\n", stderr);
         return 1;
     }
+    if (serving && watching) {
+        fputs("Error: -S/--serve can't be combined with --watch\n", stderr);
+        return 1;
+    }
+    if (serving && (code || tokens || ast)) {
+        fputs("Error: -S/--serve runs the dev server, so it can't be combined with -c, --tokens or --ast\n", stderr);
+        return 1;
+    }
+    if (serving && file) {
+        fputs("Error: -S/--serve takes no file: gaz -S host:port [--docroot DIR]\n", stderr);
+        return 1;
+    }
     if (watching && (code || tokens || ast)) {
         fputs("Error: --watch runs the program, so it can't be combined with -c, --tokens or --ast\n", stderr);
         return 1;
@@ -1756,7 +1783,12 @@ int main(int argc, char **argv) {
         .path = file, .argc = argc - i, .argv = argv + i, .exit_code = 1,
     };
 
-    if (file) {
+    if (serving) {
+        size_t len = strlen(DEVSERVER_SOURCE);
+        job.text = xmalloc(len);
+        memcpy(job.text, DEVSERVER_SOURCE, len);
+        job.len = len;
+    } else if (file) {
         struct stat st;
         if (stat(file, &st) != 0 || !S_ISREG(st.st_mode) || access(file, R_OK) != 0 || !(job.text = read_all(file, &job.len))) {
             fprintf(stderr, "Error: Cannot read file: %s\n", file);

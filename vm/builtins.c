@@ -59,6 +59,7 @@ const BuiltinInfo builtin_info[] = {
     {"random_bytes", 1, 1}, {"sha256", 1, 1}, {"hmac_sha256", 2, 2}, {"pbkdf2_sha256", 4, 4},
     {"scrypt", 6, 6}, {"argon2id", 6, 8},
     {"read_stdin_bytes", 1, 1},
+    {"flush_output", 0, 0},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -80,6 +81,7 @@ enum {
     B_READ_LINE,
     B_RANDOM_BYTES, B_SHA256, B_HMAC_SHA256, B_PBKDF2_SHA256, B_SCRYPT, B_ARGON2ID,
     B_READ_STDIN_BYTES,
+    B_FLUSH_OUTPUT,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -1514,6 +1516,10 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         *out = v_map(m);
         return true;
     }
+    case B_FLUSH_OUTPUT:
+        flush_output();
+        *out = v_null();
+        return true;
     }
     return raisef("Unknown builtin: %d", index);
 }

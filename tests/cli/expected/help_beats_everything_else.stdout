@@ -10,3 +10,4 @@ Options:
       --ast      Print the parser's tree instead of running it
   -f, --file     The file to run, as giving it first does
       --watch    Run the file, and run it again whenever it or a file it includes changes
+  -S, --serve    Serve static files: gaz -S host:port [--docroot DIR] (see std/devserver.gaz)

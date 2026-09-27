@@ -704,6 +704,54 @@ pub fn http_date($time) {
 }
 
 /*
+ * A static file server: http::serve_static($dir) is a handler for http::serve() (or a
+ * Router's not_found()) that answers from files under $dir.
+ *
+ * - The path is percent-decoded and split into segments, as a Router's is; a segment of ".."
+ *   is refused the same way a missing file is, a 404, rather than resolved and hoped to land
+ *   inside $dir: the two look alike to whoever asked, which is the point.
+ * - A path ending in "/", or one naming a directory, looks for "index.html" inside it.
+ * - Content-Type comes from the extension (CONTENT_TYPES); anything else is
+ *   application/octet-stream.
+ */
+const CONTENT_TYPES = {
+    "html" => "text/html; charset=utf-8", "css" => "text/css", "js" => "text/javascript",
+    "json" => "application/json", "png" => "image/png", "jpg" => "image/jpeg",
+    "jpeg" => "image/jpeg", "gif" => "image/gif", "svg" => "image/svg+xml",
+    "ico" => "image/x-icon", "webp" => "image/webp", "txt" => "text/plain",
+    "pdf" => "application/pdf", "woff" => "font/woff", "woff2" => "font/woff2",
+    "ttf" => "font/ttf", "wasm" => "application/wasm", "mp4" => "video/mp4",
+};
+
+pub fn serve_static($dir) {
+    return $request -> {
+        $segments = decoded_segments($request["path"]);
+        if ($segments == null || in_array("..", $segments)) {
+            return plain(404, "Not Found");
+        }
+        $path = len($segments) == 0 ? $dir : $dir .. "/" .. join($segments, "/");
+        if (ends_with($path, "/")) {
+            $path ..= "index.html";
+        } else if (is_dir($path)) {
+            $path ..= "/index.html";
+        }
+        if (!file_exists($path) || is_dir($path)) {
+            return plain(404, "Not Found");
+        }
+
+        return {"status" => 200, "headers" => {"Content-Type" => file_content_type($path)}, "body" => read_file($path)};
+    };
+}
+
+// The extension after the last "."; none of the table's is application/octet-stream
+fn file_content_type($path) {
+    $parts = split($path, ".");
+    $extension = len($parts) > 1 ? lower(last($parts)) : "";
+
+    return CONTENT_TYPES[$extension] ?? "application/octet-stream";
+}
+
+/*
  * Routing requests to handlers, for http::serve():
  *
  *   $app = http::Router();

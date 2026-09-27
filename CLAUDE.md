@@ -476,6 +476,19 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     works either way and a page has one URL; a bad escape is a 400; the rest a 404 or what
     `not_found()` was given. Middleware is `($request, $next) -> response` and wraps the whole
     dispatch, 404s included, the first added outermost. Tested by `tests/gaz/lib/router_test.gaz`.
+  - **Static files are `http::serve_static($dir)`, in `http.gaz` too**: a handler, for
+    `http::serve()` directly or a `Router`'s `not_found()`, answering from files under `$dir`.
+    The path is percent-decoded and split into segments, as a `Router`'s is; a segment of `..`
+    is refused as a 404, the same answer a missing file gets, rather than resolved and hoped to
+    stay inside `$dir`. A path ending in `/`, or one naming a directory, looks for `index.html`
+    inside it; Content-Type comes from a small extension table, `application/octet-stream`
+    otherwise. `gaz -S host:port [--docroot DIR]` (`std/devserver.gaz`, run by `vm.c`'s `-S`)
+    is a zero-config preview server built on it, `php -S`'s equivalent: no router script
+    argument the way `php -S` can take one, since `include` takes a string literal resolved at
+    parse time, never a runtime-named file (the same reason there is no type-tag
+    deserialization); a program that wants routing or anything dynamic writes its own few lines
+    on `serve_static()` instead. Tested by `tests/gaz/lib/http_serve_static_test.gaz` and,
+    end to end, `DevServerTest`.
   - `ponytail:` no keep-alive; writing a response has only the per-write timeout; the stop grace
     is fixed; while workers drain, new connections queue in the listener's backlog (the master
     holds it too) and are reset when the program ends, where closing the listeners first would
@@ -490,8 +503,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
       compiler file; a builtin takes its name from every program, so the name is the question.
     - Measure it (requests a second against PHP's built-in server and `php-fpm` behind nginx)
       before any tuning; nothing has been timed yet.
-    - Static files (`read_file()` and a content-type table, refusing `..` in the path); cookies
-      (see the roadmap); an access log line per request
+    - Cookies (see the roadmap); an access log line per request
       (`http::http_date(time())`, method, path, status, bytes, `monotonic_time()` for how long).
 - **Decided, not built**: `interface`/`implements` (a parse-time check that the methods exist,
   plus `is_a`), and `final`. The keywords are reserved.

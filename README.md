@@ -85,6 +85,8 @@ gaz hello.gaz
 A script can run as a command of its own: start the file with `#!/usr/bin/env gaz` and
 `chmod +x` it.
 
+No program to write for a static site: `gaz -S localhost:8000` serves the current directory.
+
 Then kick the tyres — clone the repository for its `examples/` and `tests/`:
 
 ```bash
