@@ -544,7 +544,27 @@ kind's fields, methods and constants across its hierarchy.
 
 ## Builtins
 
-**Strings** — `len`, `slice($x, $start, $length)`, `lower`, `upper`, `trim`, `split($s, $sep, $limit)`,
+### Strings
+
+| Builtin | What it does |
+| --- | --- |
+| `len($x)` | The number of bytes in a string, or of elements in a list or map |
+| `slice($x, $start, $length = null)` | The piece of a string or list from `$start`, `$length` long or to the end; a negative position counts from the end |
+| `lower($s)` | The string with its ASCII letters in lowercase |
+| `upper($s)` | The string with its ASCII letters in uppercase |
+| `trim($s)` | The string without the spaces, tabs, newlines and carriage returns at either end |
+| `split($s, $sep, $limit = null)` | The pieces of `$s` between each `$sep`, at most `$limit` of them |
+| `join($list, $sep)` | The list's elements as text, with `$sep` between each two |
+| `replace($s, $search, $replacement)` | The string with every `$search` in it replaced |
+| `contains($s, $needle)` | Whether `$needle` is somewhere in `$s` |
+| `starts_with($s, $prefix, $offset = 0)` | Whether `$prefix` is in `$s` at `$offset` |
+| `ends_with($s, $suffix)` | Whether `$s` ends with `$suffix` |
+| `index_of($s, $needle, $offset = 0)` | Where `$needle` first is in `$s`, from `$offset` on, or `null` |
+| `repeat($s, $count)` | The string `$count` times over |
+| `chr($byte)` | The one-byte string with that byte value, 0 to 255 |
+| `ord($char)` | The byte value of a one-byte string |
+
+The builtins for strings are `len`, `slice($x, $start, $length)`, `lower`, `upper`, `trim`, `split($s, $sep, $limit)`,
 `join($list, $sep)`, `replace($s, $search, $replacement)`, `contains`, `ends_with`,
 `starts_with($s, $prefix, $offset)`, `index_of($s, $needle, $offset)`, `repeat($s, $count)`, `chr`,
 `ord`. `split`'s `$limit` (an int of 1 or more, or `null` for none) caps the parts, the last
@@ -552,14 +572,53 @@ holding the rest: `split("a=b=c", "=", 2)` is `["a", "b=c"]`. Both offsets are o
 an error. `starts_with` at the end of the string (`$offset` = `len($s)`) is true only for an empty
 prefix.
 
-**Numbers** — `to_int($x, $default)`, `to_float($x, $default)` (without a default, a string
-that isn't a number is an error; with one, it gives the default: `to_int($arg, null) ?? 1`; a
+### Numbers
+
+| Builtin | What it does |
+| --- | --- |
+| `to_int($x)` | `$x` as an int; a string that isn't a number, or a float too large for an int, is an error |
+| `to_int($x, $default)` | `$x` as an int, or `$default` when it can't convert |
+| `to_float($x)` | `$x` as a float; a string that isn't a number is an error |
+| `to_float($x, $default)` | `$x` as a float, or `$default` when it can't convert |
+| `to_string($x)` | `$x` as text, as `echo` writes it |
+| `floor($x)` | The nearest whole number at or below `$x`, as a float |
+| `ceil($x)` | The nearest whole number at or above `$x`, as a float |
+| `round($x, $precision = 0)` | `$x` rounded to `$precision` decimal places, as a float |
+| `abs($x)` | `$x` without its sign, an int for an int and a float for a float |
+| `intdiv($a, $b)` | `$a` divided by `$b` as an int, the fraction dropped |
+| `sqrt($x)` | The square root, as a float |
+| `min($a, $b)` | The smaller of the two |
+| `max($a, $b)` | The larger of the two |
+| `min($list)` | The smallest of a list's or map's values |
+| `max($list)` | The largest of a list's or map's values |
+| `sum($list)` | A list's or map's values added up with `+`, from 0 |
+
+The builtins for numbers are `to_int($x, $default)`, `to_float($x, $default)` (without a default, a string
+that isn't a number, or a float too large for an int, is an error; with one, it gives the
+default: `to_int($arg, null) ?? 1`; a
 null, list or map is an error either way), `to_string`, `floor`, `ceil`, `round($x, $precision)`,
 `abs`, `intdiv`, `sqrt` (a float; a negative number is an error), `min($a, $b)`, `max($a, $b)`, and `min($list)`, `max($list)` and `sum($list)`
 over a list's or map's values (`sum([])` is 0; `min` and `max` of nothing is an error; `sum`
 adds with `+`, so an int overflowing or a string in the list is `+`'s error).
 
-**Lists and maps** — `len`, `slice`, `in_array($value, $list)`, `has_key($x, $key)`, `keys`,
+### Lists and maps
+
+| Builtin | What it does |
+| --- | --- |
+| `len($x)` | The number of elements in a list or map, or of bytes in a string |
+| `slice($x, $start, $length = null)` | The piece of a list or string from `$start`, `$length` long or to the end |
+| `in_array($value, $list)` | Whether an element of the list is `==` to `$value` |
+| `has_key($x, $key)` | Whether a map has the key, or a list the index |
+| `keys($x)` | A map's keys, or a list's indexes, as a list |
+| `values($x)` | A map's values as a list; a list as it is |
+| `last($list)` | The last element of a list |
+| `reverse($x)` | A list, a string or a map in the other order |
+| `map($x, $f)` | What `$f` gives for each element, as a list or a map with the same keys |
+| `filter($x, $keep)` | The elements for which `$keep` gives something true, as a list or a map with their keys |
+| `reduce($x, $f, $initial)` | The values folded into one from `$initial`, left to right |
+| `sort($x, $compare = null)` | The values in a new list, in the order `$compare`, or `<=>`, gives |
+
+The builtins for lists and maps are `len`, `slice`, `in_array($value, $list)`, `has_key($x, $key)`, `keys`,
 `values`, `last($list)` (the last element; an empty list is an error), `reverse($x)` (a list or
 a string backwards, a string byte by byte, or a map's entries in the other order, keeping their
 keys), and four that call a function, lambda, bound method, builtin or kind for each
@@ -586,14 +645,38 @@ as they always were, so `map($texts, to_int)` still gives `to_int` one argument.
 An error in the function comes out of the builtin, and its trace goes from the function
 straight to where the builtin was called.
 
-**Types** — `type_of`, `is_a($x, Kind)`, `kind_of($x)`, `kind_name($kind)` (the name the kind was
+### Types
+
+| Builtin | What it does |
+| --- | --- |
+| `type_of($x)` | The name of `$x`'s type: `"int"`, `"string"`, `"list"`, `"object"` and so on |
+| `is_a($x, Kind)` | Whether `$x` is an object of that kind or of a child of it |
+| `kind_of($x)` | An object's own kind |
+| `kind_name($kind)` | The name a kind was declared with, as a string |
+| `fields($object)` | An object's fields that are set, as a map by name |
+| `object_id($object)` | An int that is this object's alone in the program |
+
+The builtins for types are `type_of`, `is_a($x, Kind)`, `kind_of($x)`, `kind_name($kind)` (the name the kind was
 declared with, as a string, namespace included: `"Point"`, `"tui::Rect"`; given an object, its
 kind's), `fields($object)` (the fields that
 are set, as a map by name, the parent's first; a never-set field is left out), `object_id($object)`
 (an int that no other object in the program has or had, the same every run: keep a set of
 objects as `$seen[object_id($x)] = true`).
 
-**Input and output** — `print`, `print_error`, `read_file($path)`,
+### Input and output
+
+| Builtin | What it does |
+| --- | --- |
+| `print($value)` | Writes the value to standard output as `echo` does, without a newline |
+| `print_error($value)` | Writes the value to standard error as `echo` does, without a newline |
+| `read_file($path)` | A file's contents, as a string |
+| `write_file($path, $string)` | Writes the string to a file, replacing what it held |
+| `read_stdin()` | All of standard input that is left |
+| `read_line()` | The next line of standard input, or `null` at its end |
+| `args()` | The program's arguments, as a list of strings |
+| `builtins()` | Every builtin's name, mapped to how many arguments it takes |
+
+The builtins for input and output are `print`, `print_error`, `read_file($path)`,
 `write_file($path, $string)`, `read_stdin()`, `read_line()`, `args()`, `builtins()` (every builtin's name
 mapped to its parameter count, or `[fewest, most]` when some are optional).
 
@@ -603,7 +686,17 @@ reads it all; output is flushed first, so a prompt printed with `print` shows be
 `read_stdin()` is all of standard input that is left, so after some `read_line()`s it is the rest.
 A program that was itself piped in has read its input already: both find nothing.
 
-**Directories** — `list_dir($path)` is the names of what a directory holds, without `.` and
+### Directories
+
+| Builtin | What it does |
+| --- | --- |
+| `list_dir($path)` | The names of what a directory holds, sorted byte by byte |
+| `is_dir($path)` | Whether there is a directory at `$path` |
+| `make_dir($path)` | Makes one directory |
+| `delete_dir($path)` | Removes an empty directory |
+| `delete_file($path)` | Removes a file or a symlink |
+
+`list_dir($path)` is the names of what a directory holds, without `.` and
 `..`, sorted byte by byte (so `"10"` before `"9"` and `"Z"` before `"a"`), the same on every
 system. `is_dir($path)` is whether there is a directory there (through a symlink too).
 `make_dir($path)` makes one directory, whose parent must be there; `delete_dir($path)` removes an
@@ -611,15 +704,35 @@ empty one; `delete_file($path)` removes a file (or a symlink), never a directory
 `null`, and what it can't do is an error naming the path and the system's reason:
 `Cannot make directory "out": File exists`.
 
-**Paths** — `cwd()` is the working directory, which relative paths are resolved from.
+### Paths
+
+| Builtin | What it does |
+| --- | --- |
+| `cwd()` | The working directory |
+| `real_path($path)` | The absolute path, with every symlink, `.` and `..` resolved |
+| `file_exists($path)` | Whether there is anything at `$path` |
+
+`cwd()` is the working directory, which relative paths are resolved from.
 `real_path($path)` is the absolute path with every symlink, `.` and `..` resolved (a directory
 too), and an error when there is nothing there; `file_exists($path)` is whether there is, so
 `file_exists("a/../b")` is false when `a` is missing, as the system sees it.
 
-**The environment** — `getenv($name)` is the environment variable's value as a string, or `null`
+### The environment
+
+| Builtin | What it does |
+| --- | --- |
+| `getenv($name)` | An environment variable's value, or `null` when it isn't set |
+
+`getenv($name)` is the environment variable's value as a string, or `null`
 when it isn't set. A name with a NUL byte in it is an error.
 
-**Programs** — `run($argv, $input = "")` starts a program and waits for it: `$argv` is a list
+### Programs
+
+| Builtin | What it does |
+| --- | --- |
+| `run($argv, $input = "")` | Runs a program, with no shell, and gives its status and both of its outputs |
+
+`run($argv, $input = "")` starts a program and waits for it: `$argv` is a list
 of strings, the program (found on `PATH` unless it has a `/`) and then its arguments, passed as
 they are, with no shell to read `;`, `$` or `*` in them. It inherits the environment and the
 working directory, reads `$input` as its standard input (any bytes, any size), and gives
@@ -633,7 +746,15 @@ $r = run(["git", "log", "-1", "--format=%s"]);
 if ($r["status"] != 0) { throw $r["stderr"]; }
 ```
 
-**Databases** — SQLite and PostgreSQL through one interface, in `lib/db.gaz` (`include "std/db.gaz";`)
+### Databases
+
+| Builtin | What it does |
+| --- | --- |
+| `db_open($url)` | Opens a SQLite or PostgreSQL database, as a `db` |
+| `db_run($db, $sql, $params = [])` | Runs SQL and gives the rows and how many rows it changed |
+| `db_close($db)` | Closes the database |
+
+SQLite and PostgreSQL work through one interface, in `lib/db.gaz` (`include "std/db.gaz";`)
 on three builtins, so a driver adds no names to a program:
 
 - `db_open($url)` — `sqlite:FILE` (made if missing), `sqlite::memory:`, or a `postgres://` URL, which
@@ -660,7 +781,19 @@ is a savepoint inside another one.
 A driver is built in when its library is found (`libsqlite3`, `libpq`); `make SQLITE=0` or `PG=0`
 leaves one out, and `db_open` of that scheme is then an error.
 
-**Sockets** — a connection over TCP, or TLS for `$tls = true`:
+### Sockets
+
+| Builtin | What it does |
+| --- | --- |
+| `socket_open($host, $port, $tls = false, $timeout = 30)` | Connects over TCP or TLS, and gives a `socket` |
+| `socket_read($socket)` | What has arrived, up to 64KB, or `""` once the other end has closed |
+| `socket_write($socket, $string)` | Sends the whole string |
+| `socket_close($socket)` | Closes the socket |
+| `socket_listen($host, $port, $backlog = 128)` | A `socket` listening for connections |
+| `socket_accept($listener, $timeout = 30)` | Waits for the next connection, and gives it as a `socket` |
+| `socket_port($socket)` | The port this end of the socket has |
+
+A socket is a connection over TCP, or TLS for `$tls = true`:
 
 - `socket_open($host, $port, $tls = false, $timeout = 30)` — connects, trying each address the
   name has, and gives a `socket`. With TLS the server's certificate must be one the system
@@ -690,7 +823,16 @@ A socket is a handle: copies share the connection, `==` is identity, and it prin
 a timeout, and reading or writing a closed socket are errors. A gaz built with `make TLS=0`
 has no TLS, and `$tls = true` is an error.
 
-**The terminal** — what a program needs to be interactive and GazLang can't do itself. Drawing
+### The terminal
+
+| Builtin | What it does |
+| --- | --- |
+| `term_raw($on)` | Turns raw mode on or off for standard input |
+| `term_read($timeout = null)` | What has arrived on standard input, up to 4KB, or `null` after `$timeout` seconds |
+| `term_size()` | The terminal's columns and rows |
+| `term_is_tty($stream)` | Whether standard input (0), output (1) or error (2) is a terminal |
+
+The terminal builtins are what a program needs to be interactive and GazLang can't do itself. Drawing
 is escape sequences through `print`, and turning bytes into keys is GazLang's too (`lib/term.gaz`):
 
 - `term_raw($on)` — `true` turns raw mode on for standard input: no echo, no line buffering, each
@@ -710,7 +852,13 @@ is escape sequences through `print`, and turning bytes into keys is GazLang's to
 `term_read` reads the descriptor, not the buffer `read_stdin()` and `read_line()` fill, so use one
 or the other.
 
-**Workers** — `workers($count)` turns the program into `$count` processes from that point on, each
+### Workers
+
+| Builtin | What it does |
+| --- | --- |
+| `workers($count)` | Turns the program into `$count` processes, and gives each its number |
+
+`workers($count)` turns the program into `$count` processes from that point on, each
 carrying on with a copy of everything, for a server that answers more than one request at a time
 (prefork: a pool of processes started up front). It returns the worker's number, 1 to `$count`, in each of them; the
 process that called it never returns from it, but waits, starts a worker again when one ends with an
@@ -734,7 +882,15 @@ while (true) {
 }
 ```
 
-**Time** — `time()` is the wall clock: whole seconds since 1 January 1970, UTC, as an int. It can
+### Time
+
+| Builtin | What it does |
+| --- | --- |
+| `time()` | Whole seconds since 1970 by the wall clock, as an int |
+| `sleep($seconds)` | Waits that many seconds |
+| `monotonic_time()` | Seconds on a clock that only counts on, for how long something took |
+
+`time()` is the wall clock: whole seconds since 1 January 1970, UTC, as an int. It can
 jump when the clock is set, so it tells what time it is, not how long something took; a program
 that prints it can't be recorded. `sleep($seconds)` waits that long (an int or a float, 0 or more) and gives `null`; what was printed
 before it is on the screen first. `monotonic_time()` is seconds, as a float, on the system's monotonic clock: it only
@@ -743,13 +899,33 @@ means anything (the starting point is not defined, and the resolution is a micro
 It is for measuring how long something took, or when something is due: `tui::interact` keeps its
 `$tick` steady with it.
 
-**The library** — `std_source($name)` is the text of one file of the built-in standard library
+### The library
+
+| Builtin | What it does |
+| --- | --- |
+| `std_source($name)` | The text of a file of the built-in standard library, or `null` |
+
+`std_source($name)` is the text of one file of the built-in standard library
 (`"json.gaz"`), or `null`; it is what `include "std/json.gaz"` reads, and a name is a file's, never
 a path.
 
-**Control** — `exit($code = 0)`; raising is the keyword `throw`.
+### Control
 
-**Random numbers** — not cryptographically secure: for games, simulations and sampling, never
+| Builtin | What it does |
+| --- | --- |
+| `exit($code = 0)` | Ends the program with that exit code |
+
+`exit($code = 0)` ends the program; raising is the keyword `throw`.
+
+### Random numbers
+
+| Builtin | What it does |
+| --- | --- |
+| `rand_int($min, $max)` | A random int from `$min` to `$max`, both included |
+| `rand_float()` | A random float from `0.0` up to but not including `1.0` |
+| `rand_seed($seed = null)` | Starts the random numbers again from a seed, or from an unpredictable one |
+
+These are not cryptographically secure: for games, simulations and sampling, never
 for passwords, tokens or keys (for those, `random_bytes()` and `std/crypto.gaz`, below).
 
 - `rand_int($min, $max)` — an int from `$min` to `$max`, both included; `$max < $min` is an
@@ -765,7 +941,18 @@ own rule: `rand_float()` is the top 53 bits divided by 2^53; `rand_int()` takes 
 and draws again until the result is at most the span, then adds it to `$min`, so every int in
 the range is equally likely. `lib/random.gaz` builds shuffling and picking on these.
 
-**Cryptography** — built into every `gaz`, with or without TLS, and giving the same bytes on
+### Cryptography
+
+| Builtin | What it does |
+| --- | --- |
+| `random_bytes($length)` | That many bytes from the operating system's secure generator |
+| `sha256($data)` | The SHA-256 digest, 32 raw bytes |
+| `hmac_sha256($data, $key)` | The HMAC-SHA256 of `$data` under `$key`, 32 raw bytes |
+| `pbkdf2_sha256($password, $salt, $iterations, $length)` | A key of `$length` bytes derived with PBKDF2 |
+| `scrypt($password, $salt, ...)` | A key derived with scrypt (full signature below) |
+| `argon2id($password, $salt, ...)` | A key derived with Argon2id (full signature below) |
+
+These are built into every `gaz`, with or without TLS, and give the same bytes on
 every platform. Strings are bytes, and so is what these give: a digest is 32 raw bytes, which
 `crypto::hex()` or `crypto::base64()` in `std/crypto.gaz` turn into text. Most programs want that
 library's `crypto::hash_password()` and `crypto::token()` rather than these.
