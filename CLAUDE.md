@@ -255,6 +255,20 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
      `in (...)`; then `Db.query`/`exec`/`row`/`value` refuse a plain string, with `db::raw()` the
      visible way round, so SQL injection is impossible by construction; then `html"..."`.
   2. **Rest patterns** in destructuring, `[$first, ...$rest] = $list`, when JSON handling asks.
+  3. **A broader `lib/lists.gaz`**: a fuller vocabulary of higher-order helpers as plain functions
+     over plain lists, not a wrapping object (a `Collection` kind would have to be a handle, since every
+     `kind` is — reintroducing exactly the "did I get a copy?" ambiguity `..` and value semantics
+     exist to remove), the list always first so each one reads naturally after `|>`:
+     `group_by($list, $key)` and `count_by` (a map of key → group or count, insertion order kept),
+     `partition($list, $predicate)` (`[$matching, $rest]`, pairs with a list pattern), `chunk($list,
+     $size)`, `zip($a, $b)` (stops at the shorter list, Python's rule, stated in its own doc comment
+     rather than left for a reader to discover), `take`/`drop` (named wrappers over `slice()`, for
+     how they read mid-chain), `pluck($list, $key)` (a list of maps only — `$obj.$name` doesn't
+     exist yet, so a list of objects isn't reachable this way until it does), `sum_by`/`avg`/`avg_by`,
+     `first($list)` (errors on empty, exactly mirroring `last()`), `find($list, $predicate)` (`null`
+     on no match, since not-found is an ordinary outcome, not a bug), `contains_by` (`in_array`'s
+     predicate-based sibling). Each key/predicate function is called once per element, the same
+     discipline `max_by`/`min_by` already keep.
   - **On demand**: dumping the raw bytes of a request that got a 500, to replay it (the small
     version of record and replay); `parallel($thunks, $max)` over forked processes, giving plain
     data only and refusing handles a child inherited (a SQLite or PostgreSQL connection must not be
@@ -493,6 +507,36 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - **`"max_requests"`** (unset, no limit) calls `worker_recycle()` once the worker's accept loop has
     handled that many, instead of looping back to `socket_accept()`: an opt-in policy, since forcing
     it by default would be gaz second-guessing an app that has no accumulating state to worry about.
+  - **`"max_requests"` jitter, not built: a small edge PHP-FPM doesn't have out of the box.** Every
+    worker in an FPM pool shares one exact `pm.max_requests`, so under steady traffic the workers
+    that started closest together drift toward recycling close together too — a real, documented
+    complaint, and FPM itself has no config option to randomise it (verified: nothing in the official
+    `php.net` config reference, and the only "jitter" proposal found is an open, unimplemented issue
+    on `php-fpm-ng`, an unrelated third-party reimplementation, not upstream FPM). Gaz's version is
+    pure library code, no VM change: let `"max_requests"` take `[$min, $max]` as well as a plain int,
+    and have each worker call `rand_int($min, $max)` once at startup to pick its own personal
+    threshold instead of sharing one. **The one real gotcha**: `workers($n)` forks the running
+    program, and a fork duplicates the PRNG's state along with everything else — a worker that
+    doesn't call `rand_seed()` again after `workers()` returns its number would inherit the exact
+    same xoshiro256** state its siblings did, and `rand_int()` would hand every worker the identical
+    "random" threshold, silently defeating the whole point. `lib/http.gaz` reseeding from fresh OS
+    entropy right after `workers()` returns, before touching `"max_requests"`, is what actually makes
+    the jitter real; `rand_seed()`'s own doc already says every program starts freshly seeded, which
+    is true of the master before its first fork but not automatically true of each child after.
+  - **`workers($n)` is a fixed pool, not built: dynamic sizing (PHP-FPM's `pm = dynamic`/`ondemand`)**,
+    growing the pool under load and letting idle workers exit, the one real capability gap against
+    FPM's process manager (`worker_recycle()` already covers the other one, `pm.max_requests`). The
+    blocker isn't the idea, it's that the master currently knows only whether a worker is alive
+    (`workers.c`'s one byte per worker in shared memory) — it has no idea which workers are idle in
+    `socket_accept()` versus busy in a handler, because workers race to accept on the shared listening
+    socket independently with no coordination through the master at all. Scaling needs that byte to
+    become a state (idle/busy, with a last-transition time), workers to write it on each transition,
+    and the master's poll loop to read it: spawn more when nothing's been idle for a stretch, and send
+    one specific worker (not the whole group) the same graceful SIGTERM that shutdown already uses when
+    one's been idle past a timeout with others to spare — which needs the master to track a *target*
+    pool size separate from the live count, so a deliberate scale-down isn't misread as a crash and
+    respawned. `workers($min, $max)` in place of `workers($n)` is the likely shape; `ponytail:` no
+    jitter on synchronized scale-down either, matching FPM's own lack of one.
   - **Decoding a request is asked for, not done for every request**: `http::query($request)`
     and `http::form($request)` give maps of strings, a key given twice keeping its last value, so
     a handler never checks a value's type; `query_all()`/`form_all()` give every value as a list
@@ -556,8 +600,12 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     - A `quote($value)` builtin, the value as a literal: `value.c` has it, and
       `slice(to_string([$x]), 1, -1)` stands in for it ten times in `http.gaz` and once in each
       compiler file; a builtin takes its name from every program, so the name is the question.
-    - Measure it (requests a second against PHP's built-in server and `php-fpm` behind nginx)
-      before any tuning; nothing has been timed yet.
+    - Measured once already, against PHP's built-in server across no-opcache/opcache/opcache+JIT
+      (`ab`, `workers(1)` each side): gaz matches PHP with every performance feature on for an
+      ordinary handler (build data, encode it), and only loses on a tight arithmetic loop inside
+      the handler, which is what JIT is actually for. Not yet measured against `php-fpm` behind
+      nginx, or with a real worker pool on either side; re-measure rather than trust this once
+      the pool-sizing or JIT-adjacent work above lands.
     - An access log line per request
       (`http::http_date(time())`, method, path, status, bytes, `monotonic_time()` for how long).
 - **Decided, not built**: `interface`/`implements` (a parse-time check that the methods exist,
