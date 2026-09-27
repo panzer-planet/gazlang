@@ -416,8 +416,11 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     `--shrink FILE`. A try costs about 0.1s of the sanitized build's start-up, whatever the
     program, which is why shrinking takes the time, not the run.
   - **Nothing opens a socket, starts a program, exits, waits or writes a file**: a program naming
-    `run`, `exit`, `workers`, `write_file`, `read_stdin`, `read_line`, `sleep`, `getenv`, a directory builtin or a
-    `socket_` builtin is skipped (`getenv` since what it gives isn't the seed's), an included
+    `run`, `exit`, `workers`, `worker_recycle`, `write_file`, `read_stdin` (or `read_stdin_bytes`),
+    `read_line`, `sleep`, `getenv`, a directory builtin or a `socket_` builtin is skipped (`getenv`
+    since what it gives isn't the seed's; `worker_recycle` since it ends the process by an unhandled
+    signal, which prints no `GAZVM_STATS` line and would fail the harness for a reason that isn't a
+    bug — found the hard way, by CI actually failing on it, the day it was added), an included
     file's text included, which is sound because a builtin is reached only by its name.
 - **Known limits**:
   - The self-hosted parser runs out of call depth on source nested past about 1100 levels
