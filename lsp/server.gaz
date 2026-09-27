@@ -16,6 +16,7 @@ include "../compiler/parser.gaz";
 include "../lib/json.gaz" use decode, encode;
 include "../lib/chars.gaz" use char_at, is_alnum, span;
 include "../lib/regex.gaz";
+include "../lib/http.gaz";
 
 /* A message framed with a Content-Length header, as every LSP transport uses, read and
  * written over standard input and output */
@@ -49,23 +50,35 @@ kind Connection {
     }
 }
 
+// A file:// URI to the real path it names, for the parser to resolve its relative includes
+// against, or null (piped-source rules: includes relative to the server's own working
+// directory) for anything else, an unsaved document included
+fn path_from_uri($uri) {
+    if (!starts_with($uri, "file://")) {
+        return null;
+    }
+    return http::url_decode(slice($uri, len("file://")));
+}
+
+// The whole extent of one line, as a range, for a diagnostic or a definition to point at
+fn whole_line($lines, $at) {
+    return {"start" => {"line" => $at, "character" => 0}, "end" => {"line" => $at, "character" => len($lines[$at])}};
+}
+
 /*
  * The diagnostics for one document's text: a syntax error, if any, else none. ponytail: only
  * ever one diagnostic, the first the parser hits; a parser that recovered past the first
  * error would give more.
  */
-fn diagnostics($text) {
+fn diagnostics($text, $uri) {
     try {
-        Parser(Lexer($text), null).parse();
+        Parser(Lexer($text), path_from_uri($uri)).parse();
         return [];
     } catch (ParseError $e) {
         $lines = split($text, "\n");
         $at = max(0, min($e.source_line - 1, len($lines) - 1));
         return [{
-            "range" => {
-                "start" => {"line" => $at, "character" => 0},
-                "end" => {"line" => $at, "character" => len($lines[$at])},
-            },
+            "range" => whole_line($lines, $at),
             "severity" => 1, // Error
             "source" => "gazlang",
             "message" => $e.reason,
@@ -86,7 +99,7 @@ fn publish($connection, $uri, $text) {
     $connection.write({
         "jsonrpc" => "2.0",
         "method" => "textDocument/publishDiagnostics",
-        "params" => {"uri" => $uri, "diagnostics" => diagnostics($text)},
+        "params" => {"uri" => $uri, "diagnostics" => diagnostics($text, $uri)},
     });
 }
 
@@ -137,8 +150,7 @@ fn hover($uri, $position) {
     if ($text == null) {
         return null;
     }
-    $lines = split($text, "\n");
-    $word = word_at($lines[$position["line"]] ?? "", $position["character"]);
+    $word = word_at(text_line($text, $position["line"]), $position["character"]);
     if ($word == null) {
         return null;
     }
@@ -153,7 +165,101 @@ fn hover($uri, $position) {
     return {"contents" => {"kind" => "markdown", "value" => "```gaz\nfn {$word}(" .. ($found[1] ?? "") .. ")\n```"}};
 }
 
-@documents = {}; // uri -> text, for hover; didOpen and didChange fill it
+// A real path to the file:// URI that names it, percent-encoding each segment on its own so a
+// literal / in the path stays a separator (http::url_encode would escape it as anyone else's)
+fn uri_from_path($path) {
+    return "file://" .. join(map(split($path, "/"), http::url_encode), "/");
+}
+
+// The directory a real path is in: "/a/b/c.gaz" is "/a/b". $path is always absolute here
+// (real_path()'s or the document's own), so this never needs "." for a bare name.
+fn dirname($path) {
+    $parts = split($path, "/");
+    delete $parts[len($parts) - 1];
+    return join($parts, "/");
+}
+
+// The zero-based line $byte is on, in $text
+fn line_at($text, $byte) {
+    return len(split(slice($text, 0, $byte), "\n")) - 1;
+}
+
+/*
+ * The real paths $text's own include "..."; statements name, relative to $path's directory,
+ * for those that exist on disk (a std/ library include doesn't, and is skipped: only a
+ * program's own files can be followed this way). Repeated regex calls over ever-shorter
+ * slices rather than a single pass, since regex.gaz gives one match at a time.
+ */
+fn included_paths($path, $text) {
+    $dir = dirname($path);
+    $paths = [];
+    $offset = 0;
+    while (true) {
+        $window = slice($text, $offset);
+        $start = regex::find($window, 'include "([^"]*)"');
+        if ($start == null) {
+            break;
+        }
+        $whole = regex::groups($window, 'include "([^"]*)"');
+        $candidate = $dir .. "/" .. $whole[1];
+        if (file_exists($candidate)) {
+            $paths[] = real_path($candidate);
+        }
+        $offset += $start + len($whole[0]);
+    }
+    return $paths;
+}
+
+/*
+ * Where $name is declared with fn: in $text (which is $path's, but the caller's own copy,
+ * possibly unsaved), or the first place it turns up in a file $path includes, followed
+ * breadth-first-ish by recursion; $visited holds every real path followed so far on this
+ * branch, so a cycle of includes ends the search rather than looping. null when nothing
+ * declares it within reach.
+ */
+fn find_definition($path, $text, $name, $visited) {
+    $at = regex::find($text, "fn " .. $name .. "\\(");
+    if ($at != null) {
+        return {"uri" => uri_from_path($path), "range" => whole_line(split($text, "\n"), line_at($text, $at))};
+    }
+    foreach (included_paths($path, $text) as $included) {
+        if (in_array($included, $visited)) {
+            continue;
+        }
+        $visited[] = $included;
+        $found = find_definition($included, read_file($included), $name, $visited);
+        if ($found != null) {
+            return $found;
+        }
+    }
+    return null;
+}
+
+/*
+ * Where the word under the cursor is declared with fn, in this document or a file it includes
+ * (directly or not). ponytail: functions only, as hover is; a builtin has no source to jump to
+ * and gives no result.
+ */
+fn definition($uri, $position) {
+    $path = path_from_uri($uri);
+    $text = @documents[$uri] ?? null;
+    if ($path == null || $text == null) {
+        return null;
+    }
+    $word = word_at(text_line($text, $position["line"]), $position["character"]);
+    if ($word == null) {
+        return null;
+    }
+    return find_definition($path, $text, $word, [$path]);
+}
+
+// The line at $at of $text, or "" past its end
+fn text_line($text, $at) {
+    $lines = split($text, "\n");
+    return $lines[$at] ?? "";
+}
+
+@documents = {}; // uri -> text, for hover and definition; didOpen and didChange fill it
 
 $connection = Connection();
 while (true) {
@@ -177,6 +283,7 @@ while (true) {
                     // Full sync only: a change replaces the whole text, the simplest that works
                     "textDocumentSync" => 1,
                     "hoverProvider" => true,
+                    "definitionProvider" => true,
                 },
             }),
             "shutdown" => respond($connection, $message["id"], null),
@@ -188,6 +295,7 @@ while (true) {
                 last($params["contentChanges"])["text"]
             ),
             "textDocument/hover" => respond($connection, $message["id"], hover($params["textDocument"]["uri"], $params["position"])),
+            "textDocument/definition" => respond($connection, $message["id"], definition($params["textDocument"]["uri"], $params["position"])),
             default => has_key($message, "id")
                 ? $connection.write({
                     "jsonrpc" => "2.0",
