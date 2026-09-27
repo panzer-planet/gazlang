@@ -23,11 +23,12 @@ pub fn main() {
     $listener = socket_listen($host, $port);
     echo "Listening on http://{$args["address"]}\n";
     /*
-     * workers() flushes standard output when it forks, which is also what puts the line above
-     * on the screen (or a pipe) before the accept loop below blocks for good; one worker is
-     * enough for a dev server, and it comes back if it ever crashes.
+     * Without this the line above sits in standard output's buffer until the accept loop below
+     * ends, since nothing else here writes enough to fill it or flushes it for us; a single
+     * process is enough for a dev server, at the cost of workers()'s crash-restart and graceful
+     * SIGTERM drain, which a preview server has no need of.
      */
-    workers(1);
+    flush_output();
     http::serve($listener, http::serve_static($args["docroot"]));
 }
 

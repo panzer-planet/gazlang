@@ -691,6 +691,7 @@ objects as `$seen[object_id($x)] = true`).
 | `read_stdin()` | All of standard input that is left |
 | `read_line()` | The next line of standard input, or `null` at its end |
 | `read_stdin_bytes($n)` | Exactly `$n` bytes of standard input; an error if it ends first |
+| `flush_output()` | Writes standard output's buffer out now, instead of waiting |
 | `args()` | The program's arguments, as a list of strings |
 | `builtins()` | Every builtin's name, mapped to how many arguments it takes |
 
@@ -708,6 +709,11 @@ A program that was itself piped in has read its input already: both find nothing
 call, which is what a protocol framed by a byte count (a `Content-Length` header) needs: unlike
 `read_stdin()`, it doesn't read to the end. It shares the same buffer as `read_stdin()` and
 `read_line()`. Standard input ending before `$n` bytes have arrived is an error.
+
+`flush_output()` is what `read_line()` and `read_stdin_bytes()` already call before they wait
+(so a prompt is on the screen first), exposed for a program that is about to do something else
+blocking and wants to be sure a line it printed is visible first, such as a startup banner
+before a server's first `socket_accept()`.
 
 ### Directories
 
