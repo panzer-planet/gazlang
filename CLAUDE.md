@@ -277,11 +277,14 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
 - **A language server** (`lsp/server.gaz`, `bin/gaz lsp/server.gaz`), so an editor gets errors and
   eventually more without a stranger installing anything but gaz. Diagnostics
   (`textDocument/didOpen`/`didChange` reparses the whole document, full sync, and
-  `publishDiagnostics` the first syntax error) and hover (a builtin's arity from `builtins()`, or a
-  declared function's parameters found by scanning the document's own text for `fn name(...)`,
-  since the parsed tree doesn't exist while the document has an unrelated syntax error, which is
-  the common case mid-edit) are done; next, in the order an editor's user would notice them
-  missing: go-to-definition, then completion. It is `namespace gazlang`, not its own, reusing the
+  `publishDiagnostics` the first syntax error), hover (a builtin's arity from `builtins()`, or a
+  declared function's parameters found by scanning the document's own text for `fn name(...)`),
+  and go-to-definition (the same textual search, followed across the document's own `include`
+  chain — resolved the way the real compiler resolves them, from the document's own directory,
+  and only into files that exist on disk, so a `std/` include isn't chased — cycles ended by a
+  set of real paths already visited on that branch) are done; textual, not from the parsed tree,
+  since the tree doesn't exist while the document has an unrelated syntax error, which is the
+  common case mid-edit. Next: completion. It is `namespace gazlang`, not its own, reusing the
   compiler's own `Lexer` and `Parser` as a test of the internals does (see "Namespaces" and
   `tests/LspTest.php`), rather than making them `pub` for one caller. Framing a message needs an
   exact byte count (`Content-Length`), which needed a builtin of its own: `read_stdin_bytes($n)`,

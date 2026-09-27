@@ -1,0 +1,3 @@
+include "helper.gaz";
+
+echo helper();

@@ -57,7 +57,7 @@ class LspTest extends GazLangTestCase
         ]);
 
         $this->assertSame(
-            ['jsonrpc' => '2.0', 'id' => 1, 'result' => ['capabilities' => ['textDocumentSync' => 1, 'hoverProvider' => true]]],
+            ['jsonrpc' => '2.0', 'id' => 1, 'result' => ['capabilities' => ['textDocumentSync' => 1, 'hoverProvider' => true, 'definitionProvider' => true]]],
             $messages[0]
         );
     }
@@ -90,6 +90,21 @@ class LspTest extends GazLangTestCase
         $this->assertSame([], $messages[0]['params']['diagnostics']);
     }
 
+    public function test_a_relative_include_resolves_against_the_documents_own_directory()
+    {
+        // Not against the server's own working directory: a document with an
+        // `include "helper.gaz";` opened from another checkout entirely (a game, say) must
+        // still find its neighbour, as running it with bin/gaz would.
+        $path = realpath(self::ROOT.'/tests/fixtures/lsp/includer.gaz');
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'method' => 'textDocument/didOpen', 'params' => [
+                'textDocument' => ['uri' => 'file://'.$path, 'text' => file_get_contents($path)],
+            ]],
+        ]);
+
+        $this->assertSame([], $messages[0]['params']['diagnostics']);
+    }
+
     public function test_a_change_is_diagnosed_from_its_last_content_change_the_whole_new_text()
     {
         $messages = $this->session([
@@ -115,7 +130,7 @@ class LspTest extends GazLangTestCase
     public function test_an_unknown_request_is_answered_method_not_found()
     {
         $messages = $this->session([
-            ['jsonrpc' => '2.0', 'id' => 3, 'method' => 'textDocument/definition', 'params' => []],
+            ['jsonrpc' => '2.0', 'id' => 3, 'method' => 'textDocument/completion', 'params' => []],
         ]);
 
         $this->assertSame(3, $messages[0]['id']);
@@ -200,5 +215,59 @@ class LspTest extends GazLangTestCase
         ]);
 
         $this->assertSame([], $messages);
+    }
+
+    private function definitionAt(int $id, string $uri, int $line, int $character): array
+    {
+        return ['jsonrpc' => '2.0', 'id' => $id, 'method' => 'textDocument/definition', 'params' => [
+            'textDocument' => ['uri' => $uri],
+            'position' => ['line' => $line, 'character' => $character],
+        ]];
+    }
+
+    public function test_go_to_definition_finds_a_function_in_the_same_document()
+    {
+        $source = "fn add(\$a, \$b) { return \$a + \$b; }\necho add(1, 2);\n";
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'method' => 'textDocument/didOpen', 'params' => [
+                'textDocument' => ['uri' => 'file:///a.gaz', 'text' => $source],
+            ]],
+            $this->definitionAt(1, 'file:///a.gaz', 1, 6), // "add" in the call
+        ]);
+
+        $this->assertSame(
+            ['jsonrpc' => '2.0', 'id' => 1, 'result' => [
+                'uri' => 'file:///a.gaz',
+                'range' => ['start' => ['line' => 0, 'character' => 0], 'end' => ['line' => 0, 'character' => 34]],
+            ]],
+            $messages[1]
+        );
+    }
+
+    public function test_go_to_definition_follows_an_include_to_another_file()
+    {
+        $path = realpath(self::ROOT.'/tests/fixtures/lsp/includer.gaz');
+        $uri = 'file://'.$path;
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'method' => 'textDocument/didOpen', 'params' => [
+                'textDocument' => ['uri' => $uri, 'text' => file_get_contents($path)],
+            ]],
+            $this->definitionAt(1, $uri, 2, 6), // "helper" in "echo helper();"
+        ]);
+
+        $this->assertSame('file://'.realpath(self::ROOT.'/tests/fixtures/lsp/helper.gaz'), $messages[1]['result']['uri']);
+        $this->assertSame(0, $messages[1]['result']['range']['start']['line']);
+    }
+
+    public function test_go_to_definition_on_a_builtin_gives_no_result()
+    {
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'method' => 'textDocument/didOpen', 'params' => [
+                'textDocument' => ['uri' => 'file:///a.gaz', 'text' => "echo len(\"x\");\n"],
+            ]],
+            $this->definitionAt(1, 'file:///a.gaz', 0, 6), // "len"
+        ]);
+
+        $this->assertSame(['jsonrpc' => '2.0', 'id' => 1, 'result' => null], $messages[1]);
     }
 }
