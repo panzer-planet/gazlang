@@ -4,6 +4,36 @@ How the pieces fit together, and what to know before changing them. The reasonin
 design is in [CLAUDE.md](../CLAUDE.md); what the language *is* is in
 [docs/language.md](language.md).
 
+## Building from source
+
+You need a C compiler, make and OpenSSL (`apt install libssl-dev` or `brew install openssl@3`;
+or build with `TLS=0` for no HTTPS, below):
+
+```bash
+git clone https://github.com/panzer-planet/gazlang.git
+cd gazlang && make -C vm
+
+echo 'echo "hello";' > hello.gaz
+bin/gaz hello.gaz
+```
+
+Every dependency but a C compiler is optional. SQLite and PostgreSQL support build in
+automatically when their libraries are found (`libsqlite3-dev`, `libpq-dev`; `brew install
+sqlite libpq`), and left out quietly when they aren't; leave any of the three out on purpose:
+
+```bash
+make -C vm TLS=0 SQLITE=0 PG=0
+```
+
+The default build uses profile-guided optimisation when the compiler supports it (gcc, or
+clang with `llvm-profdata`, which Xcode's command line tools have): it runs gaz on the compiler
+and on sample programs, then compiles it again knowing which code is hot, for a few to ten
+percent. `make -C vm PGO=0` skips that for a plain `-O2` build, a few seconds quicker while
+editing the C.
+
+The tests are PHPUnit, so running them needs PHP 8.5 or later and `composer install`; GazLang
+itself needs neither.
+
 ## Layout
 
 | Path | What it does |
@@ -141,10 +171,12 @@ from the walk to size its frames.
 
 ## Where things stand
 
-GazLang is its own implementation: the front end in GazLang, the VM in C, and `bin/gaz`
-the two together, which rebuilds its own compiler (`make -C vm compiler`). CI builds and tests
-it on Linux and macOS on every push. What is open in the language is in
-[CLAUDE.md](../CLAUDE.md) under "Status and what is next".
+GazLang is its own implementation: the front end (`compiler/`) is about 6,700 lines of GazLang,
+running on a VM (`vm/`) of about 9,100 lines of plain C, and `bin/gaz` is the two together,
+which rebuilds its own compiler (`make -C vm compiler`). The compiler has to compile itself to
+exactly itself (see "Tests"). CI builds and tests it on Linux and macOS on every push, and the
+test suite needs PHP 8.5 or later and `composer install`; GazLang itself needs neither. What is
+open in the language is in [CLAUDE.md](../CLAUDE.md) under "Status and what is next".
 
 ## Style
 

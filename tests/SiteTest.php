@@ -52,7 +52,7 @@ class SiteTest extends GazLangTestCase
         $this->assertStringContainsString('https://github.com/owner/name/blob/HEAD/LICENSE.md', $home);
 
         // The pager goes on to the next section, and a sidebar holds third-level headings under the second
-        $this->assertStringContainsString('<a class="next" href="../reference/values.html"><span>Next</span> Values</a>', (string) file_get_contents("{$site}/reference/index.html"));
+        $this->assertStringContainsString('<a class="next" href="../reference/introduction.html"><span>Next</span> Introduction</a>', (string) file_get_contents("{$site}/reference/index.html"));
         $this->assertMatchesRegularExpression('~<li><a href="#instructions">Instructions</a>\s*<ul>\s*<li><a href="#stack-and-variables">~', (string) file_get_contents("{$site}/bytecode.html"));
     }
 

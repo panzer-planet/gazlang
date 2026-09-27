@@ -1,0 +1,206 @@
+/*
+ * A Language Server Protocol server for GazLang: diagnostics for now (parse and lex errors),
+ * over stdio, as every editor spawns one. bin/gaz lsp/server.gaz
+ *
+ * namespace gazlang, not its own: this reuses the compiler's own Lexer and Parser, which are
+ * private to that namespace (as a test of the internals does; see CLAUDE.md).
+ */
+namespace gazlang;
+
+/*
+ * By path, not "std/json.gaz": that would pull in a second, differently-pathed copy of
+ * chars.gaz alongside the one compiler/lexer.gaz already includes, and namespace privacy is
+ * per namespace, not per file, so chars::char_at would be declared twice.
+ */
+include "../compiler/parser.gaz";
+include "../lib/json.gaz" use decode, encode;
+include "../lib/chars.gaz" use char_at, is_alnum, span;
+include "../lib/regex.gaz";
+
+/* A message framed with a Content-Length header, as every LSP transport uses, read and
+ * written over standard input and output */
+kind Connection {
+    // The next message, or null at the end of the stream
+    pub fn read() {
+        $length = null;
+        while (true) {
+            $line = read_line();
+            if ($line == null) {
+                return null;
+            }
+            if ($line == "") {
+                break;
+            }
+            if (starts_with($line, "Content-Length: ")) {
+                $length = to_int(slice($line, len("Content-Length: ")), null);
+            }
+            // Any other header (Content-Type, say) is skipped: nothing else is used
+        }
+        if ($length == null) {
+            throw "LSP error: a message with no Content-Length header";
+        }
+        return decode(read_stdin_bytes($length));
+    }
+
+    // A notification or response
+    pub fn write($message) {
+        $body = encode($message);
+        print("Content-Length: " .. len($body) .. "\r\n\r\n" .. $body);
+    }
+}
+
+/*
+ * The diagnostics for one document's text: a syntax error, if any, else none. ponytail: only
+ * ever one diagnostic, the first the parser hits; a parser that recovered past the first
+ * error would give more.
+ */
+fn diagnostics($text) {
+    try {
+        Parser(Lexer($text), null).parse();
+        return [];
+    } catch (ParseError $e) {
+        $lines = split($text, "\n");
+        $at = max(0, min($e.source_line - 1, len($lines) - 1));
+        return [{
+            "range" => {
+                "start" => {"line" => $at, "character" => 0},
+                "end" => {"line" => $at, "character" => len($lines[$at])},
+            },
+            "severity" => 1, // Error
+            "source" => "gazlang",
+            "message" => $e.reason,
+        }];
+    } catch (Error $e) {
+        /* Running out of call depth on deeply nested source, say: not a syntax error with a
+         * line of its own, but still worth a diagnostic rather than killing the server */
+        return [{
+            "range" => {"start" => {"line" => 0, "character" => 0}, "end" => {"line" => 0, "character" => 0}},
+            "severity" => 1,
+            "source" => "gazlang",
+            "message" => $e.message,
+        }];
+    }
+}
+
+fn publish($connection, $uri, $text) {
+    $connection.write({
+        "jsonrpc" => "2.0",
+        "method" => "textDocument/publishDiagnostics",
+        "params" => {"uri" => $uri, "diagnostics" => diagnostics($text)},
+    });
+}
+
+fn respond($connection, $id, $result) {
+    $connection.write({"jsonrpc" => "2.0", "id" => $id, "result" => $result});
+}
+
+// Opened or changed: keep the text, for hover to look at later, and diagnose it
+fn open_or_change($connection, $uri, $text) {
+    @documents[$uri] = $text;
+    publish($connection, $uri, $text);
+}
+
+// The identifier touching $character of $line, or null: scans left and right through word
+// characters, so a cursor anywhere in or right after a name finds all of it
+fn word_at($line, $character) {
+    $is_word = $c -> is_alnum($c) || $c == "_";
+    $at = $is_word(char_at($line, $character)) ? $character : $character - 1;
+    while ($is_word(char_at($line, $at - 1))) {
+        $at--;
+    }
+    $length = span($line, $at, $is_word);
+    return $length == 0 ? null : slice($line, $at, $length);
+}
+
+fn plural($n, $word) {
+    return $n == 1 ? "1 {$word}" : "{$n} {$word}s";
+}
+
+// builtins() maps a name to its argument count, or [fewest, most] when some are optional
+fn describe_arity($arity) {
+    if (type_of($arity) == "list") {
+        return $arity[0] == $arity[1] ? plural($arity[0], "argument") : "{$arity[0]} to {$arity[1]} arguments";
+    }
+    return plural($arity, "argument");
+}
+
+/*
+ * A hover result for the word under the cursor: a builtin's arity from builtins(), or a
+ * declared function's parameter list found by scanning the source text for "fn word(...)".
+ * Textual, not from the parsed tree: the tree doesn't exist while the document has a syntax
+ * error elsewhere, which is the common case while it is being edited. ponytail: finds only a
+ * top-level function or a method of the same name, and only the first; no kinds, fields or
+ * parameter types yet.
+ */
+fn hover($uri, $position) {
+    $text = @documents[$uri] ?? null;
+    if ($text == null) {
+        return null;
+    }
+    $lines = split($text, "\n");
+    $word = word_at($lines[$position["line"]] ?? "", $position["character"]);
+    if ($word == null) {
+        return null;
+    }
+    $builtins = builtins();
+    if (has_key($builtins, $word)) {
+        return {"contents" => {"kind" => "markdown", "value" => "**{$word}** \u{2014} builtin, " .. describe_arity($builtins[$word])}};
+    }
+    $found = regex::groups($text, "fn " .. $word .. "\\(([^)]*)\\)");
+    if ($found == null) {
+        return null;
+    }
+    return {"contents" => {"kind" => "markdown", "value" => "```gaz\nfn {$word}(" .. ($found[1] ?? "") .. ")\n```"}};
+}
+
+@documents = {}; // uri -> text, for hover; didOpen and didChange fill it
+
+$connection = Connection();
+while (true) {
+    $message = $connection.read();
+    if ($message == null) {
+        break;
+    }
+    $method = $message["method"] ?? null;
+    $params = $message["params"] ?? {};
+
+    /*
+     * A message shaped other than a handler expects (params missing a key a real client
+     * always sends, say) is an error response for a request, and just dropped for a
+     * notification, either way not the end of the server: one bad message shouldn't cost
+     * every document open in the session.
+     */
+    try {
+        match ($method) {
+            "initialize" => respond($connection, $message["id"], {
+                "capabilities" => {
+                    // Full sync only: a change replaces the whole text, the simplest that works
+                    "textDocumentSync" => 1,
+                    "hoverProvider" => true,
+                },
+            }),
+            "shutdown" => respond($connection, $message["id"], null),
+            "exit" => exit(0),
+            "textDocument/didOpen" => open_or_change($connection, $params["textDocument"]["uri"], $params["textDocument"]["text"]),
+            "textDocument/didChange" => open_or_change(
+                $connection,
+                $params["textDocument"]["uri"],
+                last($params["contentChanges"])["text"]
+            ),
+            "textDocument/hover" => respond($connection, $message["id"], hover($params["textDocument"]["uri"], $params["position"])),
+            default => has_key($message, "id")
+                ? $connection.write({
+                    "jsonrpc" => "2.0",
+                    "id" => $message["id"],
+                    "error" => {"code" => -32601, "message" => "Method not found: {$method}"},
+                })
+                /* An unhandled notification (initialized, textDocument/didClose, ...) is
+                 * ignored, as the protocol allows */
+                : null,
+        }
+    } catch (Error $e) {
+        if (has_key($message, "id")) {
+            $connection.write({"jsonrpc" => "2.0", "id" => $message["id"], "error" => {"code" => -32603, "message" => $e.message}});
+        }
+    }
+}

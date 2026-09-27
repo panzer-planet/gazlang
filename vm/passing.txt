@@ -16,7 +16,6 @@ lib/json.gaz
 lib/lists.gaz
 lib/random.gaz
 lib/regex.gaz
-lib/router.gaz
 lib/sorting.gaz
 lib/term.gaz
 lib/tui.gaz

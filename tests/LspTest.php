@@ -1,0 +1,204 @@
+<?php
+
+namespace GazLang\Tests;
+
+/**
+ * The Language Server Protocol server (lsp/server.gaz): a session is a sequence of framed
+ * JSON-RPC messages on standard input, and its replies and notifications the same on standard
+ * output. Checked by decoding the messages, not by their exact bytes, since map key order
+ * inside a value isn't the point of these tests.
+ */
+class LspTest extends GazLangTestCase
+{
+    private static function frame(array $message): string
+    {
+        $body = json_encode($message);
+
+        return 'Content-Length: '.strlen($body)."\r\n\r\n".$body;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private static function messages(string $stream): array
+    {
+        $messages = [];
+        while ($stream !== '') {
+            if (! preg_match('/^Content-Length: (\d+)\r\n\r\n/', $stream, $header)) {
+                break;
+            }
+            $length = (int) $header[1];
+            $stream = substr($stream, strlen($header[0]));
+            $messages[] = json_decode(substr($stream, 0, $length), true);
+            $stream = substr($stream, $length);
+        }
+
+        return $messages;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $sent  The messages to send, initialize and exit added
+     * @return list<array<string, mixed>> The messages the server sent back, in order
+     */
+    private function session(array $sent): array
+    {
+        $input = implode('', array_map(self::frame(...), $sent)).self::frame(['jsonrpc' => '2.0', 'method' => 'exit']);
+        [$out, $err, $code] = self::gazlang(['lsp/server.gaz'], $input);
+        $this->assertSame('', $err);
+        $this->assertSame(0, $code);
+
+        return self::messages($out);
+    }
+
+    public function test_initialize_announces_full_document_sync()
+    {
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'initialize', 'params' => ['capabilities' => new \stdClass]],
+        ]);
+
+        $this->assertSame(
+            ['jsonrpc' => '2.0', 'id' => 1, 'result' => ['capabilities' => ['textDocumentSync' => 1, 'hoverProvider' => true]]],
+            $messages[0]
+        );
+    }
+
+    public function test_opening_a_document_with_a_syntax_error_publishes_a_diagnostic()
+    {
+        $source = "fn add(\$a, \$b) { return \$a + \$b\n}\n"; // the ; after the return is missing
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'method' => 'textDocument/didOpen', 'params' => [
+                'textDocument' => ['uri' => 'file:///a.gaz', 'text' => $source],
+            ]],
+        ]);
+
+        $diagnostics = $messages[0]['params']['diagnostics'];
+        $this->assertSame('file:///a.gaz', $messages[0]['params']['uri']);
+        $this->assertCount(1, $diagnostics);
+        $this->assertSame(1, $diagnostics[0]['range']['start']['line']); // 0-based: the second line
+        $this->assertSame(1, $diagnostics[0]['severity']);
+        $this->assertStringContainsString("Expected ';'", $diagnostics[0]['message']);
+    }
+
+    public function test_a_document_with_no_error_publishes_no_diagnostics()
+    {
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'method' => 'textDocument/didOpen', 'params' => [
+                'textDocument' => ['uri' => 'file:///a.gaz', 'text' => "echo 1 + 1;\n"],
+            ]],
+        ]);
+
+        $this->assertSame([], $messages[0]['params']['diagnostics']);
+    }
+
+    public function test_a_change_is_diagnosed_from_its_last_content_change_the_whole_new_text()
+    {
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'method' => 'textDocument/didChange', 'params' => [
+                'textDocument' => ['uri' => 'file:///a.gaz'],
+                // Full sync: only the last entry is the document's new text
+                'contentChanges' => [['text' => 'bad ('], ['text' => "echo 1;\n"]],
+            ]],
+        ]);
+
+        $this->assertSame([], $messages[0]['params']['diagnostics']);
+    }
+
+    public function test_shutdown_answers_with_a_null_result()
+    {
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'id' => 2, 'method' => 'shutdown'],
+        ]);
+
+        $this->assertSame(['jsonrpc' => '2.0', 'id' => 2, 'result' => null], $messages[0]);
+    }
+
+    public function test_an_unknown_request_is_answered_method_not_found()
+    {
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'id' => 3, 'method' => 'textDocument/definition', 'params' => []],
+        ]);
+
+        $this->assertSame(3, $messages[0]['id']);
+        $this->assertSame(-32601, $messages[0]['error']['code']);
+    }
+
+    private function hoverAt(int $id, int $line, int $character): array
+    {
+        return ['jsonrpc' => '2.0', 'id' => $id, 'method' => 'textDocument/hover', 'params' => [
+            'textDocument' => ['uri' => 'file:///a.gaz'],
+            'position' => ['line' => $line, 'character' => $character],
+        ]];
+    }
+
+    public function test_hovering_a_builtin_gives_its_arity()
+    {
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'method' => 'textDocument/didOpen', 'params' => [
+                'textDocument' => ['uri' => 'file:///a.gaz', 'text' => "echo len(\"x\");\n"],
+            ]],
+            $this->hoverAt(1, 0, 6), // "len"
+        ]);
+
+        $this->assertSame(
+            ['jsonrpc' => '2.0', 'id' => 1, 'result' => ['contents' => ['kind' => 'markdown', 'value' => '**len** — builtin, 1 argument']]],
+            $messages[1]
+        );
+    }
+
+    public function test_hovering_a_declared_function_gives_its_parameters()
+    {
+        $source = "fn add(\$a, \$b) { return \$a + \$b; }\necho add(1, 2);\n";
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'method' => 'textDocument/didOpen', 'params' => [
+                'textDocument' => ['uri' => 'file:///a.gaz', 'text' => $source],
+            ]],
+            $this->hoverAt(1, 1, 6), // "add" in the call, not the declaration
+        ]);
+
+        $this->assertSame(
+            ['jsonrpc' => '2.0', 'id' => 1, 'result' => ['contents' => ['kind' => 'markdown', 'value' => "```gaz\nfn add(\$a, \$b)\n```"]]],
+            $messages[1]
+        );
+    }
+
+    public function test_hovering_a_keyword_gives_no_result()
+    {
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'method' => 'textDocument/didOpen', 'params' => [
+                'textDocument' => ['uri' => 'file:///a.gaz', 'text' => "echo 1;\n"],
+            ]],
+            $this->hoverAt(1, 0, 0), // "echo"
+        ]);
+
+        $this->assertSame(['jsonrpc' => '2.0', 'id' => 1, 'result' => null], $messages[1]);
+    }
+
+    public function test_hovering_an_unopened_document_gives_no_result()
+    {
+        $messages = $this->session([$this->hoverAt(1, 0, 0)]);
+
+        $this->assertSame(['jsonrpc' => '2.0', 'id' => 1, 'result' => null], $messages[0]);
+    }
+
+    public function test_a_request_shaped_wrong_is_an_error_response_not_a_dead_server()
+    {
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'textDocument/hover', 'params' => []], // no textDocument key
+            ['jsonrpc' => '2.0', 'id' => 2, 'method' => 'shutdown'],
+        ]);
+
+        $this->assertSame(1, $messages[0]['id']);
+        $this->assertSame(-32603, $messages[0]['error']['code']);
+        // The server is still alive for the next message
+        $this->assertSame(['jsonrpc' => '2.0', 'id' => 2, 'result' => null], $messages[1]);
+    }
+
+    public function test_an_unknown_notification_is_ignored_rather_than_answered()
+    {
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'method' => 'textDocument/didClose', 'params' => []],
+        ]);
+
+        $this->assertSame([], $messages);
+    }
+}

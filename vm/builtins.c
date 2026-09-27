@@ -58,6 +58,7 @@ const BuiltinInfo builtin_info[] = {
     {"read_line", 0, 0},
     {"random_bytes", 1, 1}, {"sha256", 1, 1}, {"hmac_sha256", 2, 2}, {"pbkdf2_sha256", 4, 4},
     {"scrypt", 6, 6}, {"argon2id", 6, 8},
+    {"read_stdin_bytes", 1, 1},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -78,6 +79,7 @@ enum {
     B_LIST_DIR, B_IS_DIR, B_MAKE_DIR, B_DELETE_FILE, B_DELETE_DIR,
     B_READ_LINE,
     B_RANDOM_BYTES, B_SHA256, B_HMAC_SHA256, B_PBKDF2_SHA256, B_SCRYPT, B_ARGON2ID,
+    B_READ_STDIN_BYTES,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -1234,6 +1236,50 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         if (n > 0 && line[n - 1] == '\n') n -= n > 1 && line[n - 2] == '\r' ? 2 : 1;
         *out = v_string(line, (size_t)n);
         free(line);
+        return true;
+    }
+    case B_READ_STDIN_BYTES: {
+        /* Exactly $n bytes of standard input, for a protocol framed by a byte count (an LSP
+           message's Content-Length): unlike read_stdin(), which reads to the end, this reads
+           only what is asked and leaves the rest for the next call. Through the same buffer
+           as read_stdin() and read_line() (piped_input first, for a program piped in whole). */
+        if (!want(index, a, INT)) return false;
+        if (a.i < 0) return raisef("read_stdin_bytes() expects n >= 0, got %lld", (long long)a.i);
+        flush_output();
+        /* One allocation of exactly $n, not a stack chunk read in a loop: $n is known up front,
+           and a stack buffer here would grow call_builtin's frame, which every level of a
+           recursive call pays for (map/filter calling back into GazLang, say). */
+        size_t n = (size_t)a.i;
+        char *buf = xmalloc(n ? n : 1);
+        size_t have = 0;
+        if (piped_input) {
+            have = n < piped_input_len ? n : piped_input_len;
+            memcpy(buf, piped_input, have);
+            piped_input_len -= have;
+            if (piped_input_len) memmove(piped_input, piped_input + have, piped_input_len);
+            else {
+                free(piped_input);
+                piped_input = NULL;
+            }
+        }
+        while (have < n) {
+            size_t got = fread(buf + have, 1, n - have, stdin);
+            if (got == 0) {
+                int err = errno;
+                bool failed = ferror(stdin);
+                size_t short_by = n - have;
+                free(buf);
+                if (failed) {
+                    clearerr(stdin);
+                    return raisef("Cannot read standard input: %s", strerror(err));
+                }
+                return raisef("read_stdin_bytes() expects %lld bytes, standard input ended %zu short",
+                              (long long)a.i, short_by);
+            }
+            have += got;
+        }
+        *out = v_string(buf, n);
+        free(buf);
         return true;
     }
     case B_ARGS: {
