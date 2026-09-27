@@ -162,7 +162,7 @@
 						<key>2</key>
 						<dict>
 							<key>name</key>
-							<string>entity.name.type.class.gaz</string>
+							<string>entity.name.class.gaz</string>
 						</dict>
 						<key>3</key>
 						<dict>
@@ -373,7 +373,7 @@
 		<key>classes</key>
 		<dict>
 			<key>name</key>
-			<string>entity.name.type.class.gaz</string>
+			<string>entity.name.class.gaz</string>
 			<key>match</key>
 			<string>(?&lt;![\w.$@#])\b[A-Z][a-zA-Z0-9_]*\b</string>
 		</dict>
