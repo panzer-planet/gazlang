@@ -554,6 +554,7 @@ echo json::encode({"ok" => true});
 | `std/format.gaz` | `format::number(1234.5)` → `1,234.50`, `pad_left`, `pad_right`, and `format::sprintf("%-6s%5.1f", [$name, $score])` |
 | `std/lists.gaz`, `std/sorting.gaz` | `flatten`, `unique`, `max_by`/`min_by`; `sorting::by($rows, "points", true)` |
 | `std/random.gaz` | `shuffle`, `pick`, `chance`, `weighted` |
+| `std/crypto.gaz` | `crypto::hash_password` and `verify_password` (Argon2id by default, scrypt and PBKDF2 too), `crypto::token()` for sessions and reset links, `crypto::equals`, whose time says nothing about where two secrets differ, hex and base64 |
 | `std/chars.gaz` | Character classes (`is_digit`, `is_alpha`, ...) and `span`, for writing scanners |
 | `std/term.gaz`, `std/tui.gaz` | Colours, cursor and keys; a screen that redraws only what changed, boxes, tables, menus, text fields |
 
@@ -567,6 +568,7 @@ And built into the language, with no include:
 | Databases | `db_open`, `db_run`, `db_close`, for SQLite and PostgreSQL |
 | Time and chance | `time`, `monotonic_time`, `sleep`, `rand_int`, `rand_float`, `rand_seed` |
 | The terminal | `term_raw`, `term_read`, `term_size`, `term_is_tty` |
+| Cryptography | `random_bytes`, `sha256`, `hmac_sha256`, and the password hashes `argon2id`, `scrypt` and `pbkdf2_sha256`, in gaz's own C, so every build has them |
 
 [docs/language.md](docs/language.md) has every function and what it does at the edges.
 

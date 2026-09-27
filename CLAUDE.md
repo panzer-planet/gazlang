@@ -100,7 +100,7 @@ vendor/bin/pint                     # formatting
 - `vm/`: the VM in C. `gazvm.h` says which file does what: `value.c` and `ops.c` are what values
   mean (operators, truthiness, printing, keys, indexing, write paths), `builtins.c` the builtins
   and their arities (`builtin_info[]`), `load.c` reading and checking bytecode, `vm.c` running it
-  and the CLI, `gc.c` the cycle collector, `net.c` sockets and TLS, `db.c` with `sqlite.c` and `pg.c` databases, `term.c` raw mode and keys, `workers.c` `workers()`, `watch.c` `gaz --watch`.
+  and the CLI, `gc.c` the cycle collector, `net.c` sockets and TLS, `db.c` with `sqlite.c` and `pg.c` databases, `term.c` raw mode and keys, `workers.c` `workers()`, `watch.c` `gaz --watch`, `crypto.c` random bytes, hashes and password hashes.
 - `lib/`: the standard library in GazLang. `examples/`: sample programs that nothing tests
   (see "Programs are tests or examples"). `tests/programs/`: programs the tests do run.
   `games/`: programs built on the language, each with tests of its own (see "A game is neither").
@@ -242,15 +242,14 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   what makes real web apps and CLI tools pleasant, then by what one stranger needs to find it,
   install it, get a first program working and trust it; not by what would win many users
   (Windows, a registry, an LSP and a playground wait for someone to ask).
-- **The roadmap**, in build order (optional types, `gaz --watch` and the pipe are done and
-  described below):
+- **The roadmap**, in build order (optional types, `gaz --watch`, the pipe and cryptography are
+  done and described below):
   1. **`gaz test`** running `*_test.gaz`, with `std/test.gaz` (`test::expect`, `test::snapshot`
      recorded next to the test, `--update`), and an exit status; no new syntax or reserved word. A
      user of gaz shouldn't need PHP to test gaz code.
-  2. **Cryptography, then cookies and signed sessions**: secure random bytes, SHA-256/HMAC and
-     password hashing (through OpenSSL, with a fallback or a clear refusal in `TLS=0` builds), then
-     cookies and signed sessions in `std/http`. Without them a web app can't have logins, sessions
-     or CSRF tokens at all.
+  2. **Cookies and signed sessions** in `std/http`, on the cryptography this item began with (done:
+     see "Cryptography"): signed with `hmac_sha256`, checked with `crypto::equals`, IDs and CSRF
+     tokens from `crypto::token()`. Without them a web app can't have sessions or CSRF tokens.
   3. **Tagged literals as ordinary functions**: `name"text {$v}"` is `name(["text ", ""], [$v])`,
      resolved like any name, as JavaScript's tags and Python's t-strings are. Then `db::sql"..."`,
      rendered to each driver's own placeholders (`?`, `$n`), with nested fragments and lists for
@@ -822,6 +821,71 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   `run_program()`, since the compiler runs first. **Anything that prints random values calls
   `rand_seed()` first**, or what it prints can't be recorded as expected (snippets and corpus
   files included); unseeded behaviour is tested by type and range only.
+- **Cryptography** (`crypto.c`): `random_bytes($length)`, `sha256($data)`, `hmac_sha256($data,
+  $key)`, and one builtin per password hash, `pbkdf2_sha256`, `scrypt` and `argon2id`, each with
+  its specification's parameters in order (`argon2id` adds its optional secret and associated
+  data, which RFC 9106's test vector needs); raw bytes in and out, hex and base64 being
+  `lib/crypto.gaz`'s. Six names, since a builtin takes its name from every program: one per
+  algorithm rather than a `kdf($name, $params)` map, so each argument is type-checked where it
+  is and a misspelt parameter can't be a key nobody reads; HMAC in C because PBKDF2 needs it
+  there anyway, and at 600000 iterations only C is fast enough.
+  - **Our own C, not OpenSSL**: from FIPS 180-4, RFC 2104, 8018, 7914, 9106 and 7693 (BLAKE2b),
+    so a `TLS=0` build has all of it, the bootstrap still needs only a C compiler, and every
+    platform gives the same bytes, as the rest of the language's rules do. Bytes are loaded into
+    words of a stated order one at a time, so the host's order never matters. The defaults take
+    roughly 0.15s (Argon2id), 0.25s (scrypt) and 0.3s (PBKDF2) on the development machine.
+  - **Checked against the specifications and against code that shares none with it**:
+    `tests/gaz/lib/crypto_test.gaz` holds every vector FIPS 180-4, RFC 4231, RFC 7914 (PBKDF2 and
+    scrypt) and RFC 9106 give (scrypt's fourth, 1 GiB, runs unsanitized in `CryptoTest`), plus
+    lengths either side of each block and padding edge; `CryptoTest` compares with PHP's hash
+    extension, libsodium, libargon2 (`password_hash()` in both directions), Python's
+    `hashlib.scrypt` and `openssl kdf` (lanes, secret and data, which libsodium lacks), skipping
+    what the machine doesn't have. Its inputs come from a small LCG written on both sides, so the
+    programs print only digests and are recorded and sanitized like any snippet. Planting a wrong
+    constant, round count, padding edge, BLAKE2b counter, Argon2 index rule or lane XOR each failed
+    both; the one mutant nothing sees, Integerify's high word, can't matter while scrypt's memory
+    cap keeps N below 2^32.
+  - **The builtins' limits are what C can do safely, not what a login should cost**: memory at
+    most 4 GiB (RFC 9106's first recommendation is 2 GiB), so Argon2id has at most 524288 lanes
+    (8 KiB each; RFC 9106 allows 2^24 - 1, which no memory under the cap could satisfy), outputs
+    and `random_bytes` at most 1 MiB, iterations and passes at most 2^32 - 1, each refused before
+    anything is allocated, as a catchable error; so is a size a 32-bit `size_t` can't hold, and a
+    failed `malloc` of the big buffers, not `xmalloc`'s exit. A call within them can still take
+    4 GiB and hours; bounding what a stored string may ask for is `verify_password`'s job. Memory is on the heap (the
+    program's thread has a big stack, but 4 GiB is past it), and secrets are wiped by `wipe()`, a
+    `memset` through a volatile pointer the compiler can't prove is one. Argon2's lanes are
+    computed one after another: the result is a lane-parallel implementation's, and threads would
+    only divide the wall time.
+  - **`random_bytes` is `getentropy()`**, 256 bytes a call, as `rand_seed()` without a seed is.
+    `vm/fuzz.php` skips programs naming it (what they print wouldn't follow from the seed) and the
+    three password hashes (their cost is their arguments, so a slow one isn't a bug).
+  - **`lib/crypto.gaz`** is what programs use. `hash_password` writes the PHC string format
+    (`$argon2id$v=19$m=65536,t=3,p=4$<salt>$<hash>`, base64 without padding), which PHP,
+    libsodium and libargon2 write too, so Argon2id hashes move between them; scrypt is
+    `$scrypt$ln=17,r=8,p=1$...` and PBKDF2 `$pbkdf2-sha256$i=600000$...`, options named as the
+    string names them. Defaults: Argon2id with 64 MiB, 3 passes and 4 lanes (RFC 9106's second
+    recommendation, for when 2 GiB is too much), scrypt's and PBKDF2's OWASP's, a 16-byte salt and
+    a 32-byte hash.
+  - **`verify_password` gives false for any stored string it won't read**, as for a wrong
+    password: malformed, not canonical (each parameter a plain decimal, in order), a salt under 8
+    bytes, a hash outside 16 to 64 bytes (a 1-byte hash accepted wrong passwords one time in 256),
+    or asking for more than `LIMITS`: about four times each default (Argon2id `m=262144,t=12,p=16`,
+    scrypt `ln=18,r=16,p=4`, PBKDF2 `i=2400000`), so the worst a planted string costs is 512 MiB
+    and some sixteen times a default login; a `$limits` argument changes them per algorithm.
+    Wrong argument types, and limits naming what doesn't exist, still raise, being the program's
+    mistakes. It derives as many bytes as the stored hash has. `needs_rehash` is true for a string
+    it can't read and otherwise compares the header `hash_password` would write, ignoring the
+    limits, which are about verifying.
+  - **`crypto::equals` compares HMACs of both strings under a key drawn for the call**, not bytes
+    in a loop: a loop would index one-byte strings, each made the first time its byte value is
+    seen, which is a timing difference that depends on the secret, while the MACs' first
+    difference is at a place nobody can predict or steer. It costs two HMACs and a `getentropy()`,
+    and its time still grows with the lengths (a `ponytail:` there).
+  - Hex and base64 are GazLang (a digest is 32 bytes; speed would matter only for bulk data,
+    which nothing encodes yet), and decoding refuses all but the canonical spelling (padding,
+    alphabet, leftover bits), so a value has one. They go through one-byte strings and
+    `index_of`, which leak timing about the bytes; `ponytail:` comments mark each, and an encoder
+    and decoder in C would lift them.
 - `std_source($name)`: one file of the built-in standard library as text, or null (see below).
 - `exit($code = 0)` stops with that code, 0 to 255, printing nothing and running no `finally`.
   Raising is the keyword `throw` (see "Errors").
@@ -867,7 +931,7 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   1970, with no clock, since a program that asked one what day it is could not be recorded, so a game
   keeps its own date), `router.gaz` (`router::Router`, see "Serving HTTP"), `cli.gaz`
   (`cli::Command`, see "Command line arguments"), `random.gaz` (`random::shuffle`, `random::pick`, `random::key`, `random::chance`,
-  `random::weighted`), `term.gaz` (`term::style`, the cursor and screen sequences,
+  `random::weighted`), `crypto.gaz` (see "Cryptography" above), `term.gaz` (`term::style`, the cursor and screen sequences,
   `term::decode`, `term::Input`, `term::fullscreen`, on the terminal builtins; drawing functions
   return their sequence, so a program prints them and a test compares them), `tui.gaz`
   (`tui::Screen`, `tui::Rect`, `tui::box`, `tui::label`, `tui::progress`, `tui::table`, `tui::Table`, `tui::Menu`,

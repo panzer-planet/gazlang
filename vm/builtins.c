@@ -56,6 +56,8 @@ const BuiltinInfo builtin_info[] = {
     {"getenv", 1, 1}, {"sleep", 1, 1},
     {"list_dir", 1, 1}, {"is_dir", 1, 1}, {"make_dir", 1, 1}, {"delete_file", 1, 1}, {"delete_dir", 1, 1},
     {"read_line", 0, 0},
+    {"random_bytes", 1, 1}, {"sha256", 1, 1}, {"hmac_sha256", 2, 2}, {"pbkdf2_sha256", 4, 4},
+    {"scrypt", 6, 6}, {"argon2id", 6, 8},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -75,6 +77,7 @@ enum {
     B_GETENV, B_SLEEP,
     B_LIST_DIR, B_IS_DIR, B_MAKE_DIR, B_DELETE_FILE, B_DELETE_DIR,
     B_READ_LINE,
+    B_RANDOM_BYTES, B_SHA256, B_HMAC_SHA256, B_PBKDF2_SHA256, B_SCRYPT, B_ARGON2ID,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -1407,6 +1410,44 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) return raisef("monotonic_time() failed: %s", strerror(errno));
         *out = v_float((double)now.tv_sec + (double)now.tv_nsec * 1e-9);
         return true;
+    }
+    case B_RANDOM_BYTES:
+        if (!want(index, a, INT)) return false;
+        return crypto_random_bytes(a.i, out);
+    case B_SHA256:
+        if (!want(index, a, STRING)) return false;
+        *out = crypto_sha256(a.s);
+        return true;
+    case B_HMAC_SHA256:
+        /* hmac_sha256($data, $key): the data first, as every builtin takes its subject */
+        if (!want(index, a, STRING) || !want(index, b, STRING)) return false;
+        *out = crypto_hmac_sha256(a.s, b.s);
+        return true;
+    case B_PBKDF2_SHA256:
+        /* pbkdf2_sha256($password, $salt, $iterations, $length) */
+        if (!want(index, a, STRING) || !want(index, b, STRING) || !want(index, c, INT) || !want(index, args[3], INT)) return false;
+        return crypto_pbkdf2_sha256(a.s, b.s, c.i, args[3].i, out);
+    case B_SCRYPT:
+        /* scrypt($password, $salt, $cost, $block_size, $parallelism, $length) */
+        if (!want(index, a, STRING) || !want(index, b, STRING)) return false;
+        for (int i = 2; i < 6; i++) {
+            if (!want(index, args[i], INT)) return false;
+        }
+        return crypto_scrypt(a.s, b.s, c.i, args[3].i, args[4].i, args[5].i, out);
+    case B_ARGON2ID: {
+        /* argon2id($password, $salt, $passes, $memory, $lanes, $length, $secret = "", $data = "") */
+        if (!want(index, a, STRING) || !want(index, b, STRING)) return false;
+        for (int i = 2; i < 6; i++) {
+            if (!want(index, args[i], INT)) return false;
+        }
+        for (int i = 6; i < argc; i++) {
+            if (!want(index, args[i], STRING)) return false;
+        }
+        Str *none = str_empty(0);
+        Str *secret = argc > 6 ? args[6].s : none, *data = argc > 7 ? args[7].s : none;
+        bool ok = crypto_argon2id(a.s, b.s, c.i, args[3].i, args[4].i, args[5].i, secret, data, out);
+        decref(v_str(none));
+        return ok;
     }
     case B_BUILTINS: {
         Map *m = map_new();

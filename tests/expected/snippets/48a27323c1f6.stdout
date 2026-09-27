@@ -1,0 +1,2 @@
+argon2id() expects a salt of 8 bytes or more, got 0
+scrypt() expects a cost that is a power of 2 greater than 1, got 3

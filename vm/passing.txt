@@ -6,6 +6,7 @@ compiler/parser.gaz
 compiler/template.gaz
 lib/chars.gaz
 lib/cli.gaz
+lib/crypto.gaz
 lib/csv.gaz
 lib/date.gaz
 lib/db.gaz
@@ -25,6 +26,7 @@ snippet:00bccbc15316
 snippet:00ccd4d4650a
 snippet:011230dda246
 snippet:0198bb4e4b57
+snippet:01f452b7a431
 snippet:02657264e0e3
 snippet:0307fbc1fbc4
 snippet:031e3008cafa
@@ -41,6 +43,7 @@ snippet:05d1255eb07a
 snippet:05ddf56fbb8e
 snippet:073cfabe8953
 snippet:079aa21e741d
+snippet:07c00ffa843f
 snippet:08620e34f04a
 snippet:08e0bd5cec81
 snippet:08e5e57badd5
@@ -67,6 +70,7 @@ snippet:1294625564cb
 snippet:12ff33e8aac0
 snippet:13044fcda72f
 snippet:139154e1e93f
+snippet:13b2658de3d8
 snippet:145a5f16896b
 snippet:148976aeb9c0
 snippet:14fe36e12fc0
@@ -82,6 +86,7 @@ snippet:1930a0c47d35
 snippet:1937ae4edbd7
 snippet:1961570603d7
 snippet:1a63f1560024
+snippet:1a868018d9af
 snippet:1acee1f3fb92
 snippet:1b0d65336be8
 snippet:1b1701c1e4db
@@ -89,6 +94,7 @@ snippet:1b6612af4bc8
 snippet:1b7260e8c2f2
 snippet:1c12fe99a553
 snippet:1c3455d8873d
+snippet:1c47b5df8d0a
 snippet:1cea492fd919
 snippet:1dabd21ce310
 snippet:1e5ff0963997
@@ -111,6 +117,8 @@ snippet:235bf639ae5e
 snippet:238601630787
 snippet:23adbaa8df3e
 snippet:23e9eff36bdb
+snippet:23efb2d632ad
+snippet:244cc8d0b3cf
 snippet:244f77e11b67
 snippet:2535bd087f56
 snippet:25412f3665f0
@@ -127,6 +135,7 @@ snippet:2882078c45a1
 snippet:28b3b403a74d
 snippet:291f10cadde3
 snippet:2967f6c9e4e4
+snippet:29877974291f
 snippet:2995a20dadcd
 snippet:299c0aab1fdc
 snippet:29aab7bb789f
@@ -154,6 +163,7 @@ snippet:30801682fb27
 snippet:30b3340cd5e4
 snippet:30bf95286a30
 snippet:3117abe9a5c9
+snippet:311a6abac31c
 snippet:31d304ac3e52
 snippet:31e8b83fab5d
 snippet:32a34dbd9497
@@ -185,6 +195,7 @@ snippet:3bb696d94e76
 snippet:3bec4056d108
 snippet:3c6f5138b1fe
 snippet:3ca3dfd9b12f
+snippet:3ce6d31ee6d1
 snippet:3d52a8fcb38e
 snippet:3d7cc0ab2e92
 snippet:3d7f28ec0e49
@@ -205,6 +216,7 @@ snippet:4314531ecc9e
 snippet:440c7cc38a82
 snippet:443a9572bcf0
 snippet:4443ba036a19
+snippet:44b0805d4fea
 snippet:44d092d936ad
 snippet:450127d2d6b2
 snippet:451e12b1dd16
@@ -219,6 +231,7 @@ snippet:47503deb85f9
 snippet:47848390df60
 snippet:47a2a94e9cd2
 snippet:480ad3b5ad27
+snippet:48a27323c1f6
 snippet:48ed28211c42
 snippet:49a81625c16a
 snippet:49e7d85e2d73
@@ -245,6 +258,7 @@ snippet:51aa68284575
 snippet:5208a36b27e3
 snippet:52c331acce63
 snippet:52cf40b597d7
+snippet:532937315428
 snippet:538947ee324d
 snippet:53a621325789
 snippet:53e13f21e1cb
@@ -267,6 +281,7 @@ snippet:5757521ef7c5
 snippet:57f0fd9f4e4f
 snippet:58b0e900668d
 snippet:58bd2cc03c46
+snippet:58c20df24306
 snippet:58c5f60509d6
 snippet:592bcb255765
 snippet:59a671b1d5e8
@@ -287,8 +302,10 @@ snippet:5d10402099dc
 snippet:5d35e2105fa4
 snippet:5d5c56ed0a0c
 snippet:5d94ade4481b
+snippet:5ea01ae61b25
 snippet:5ec44b055eab
 snippet:5f1f9edb19e3
+snippet:6001d9b35359
 snippet:6036f5680433
 snippet:60fa14d1ad00
 snippet:624a22c7e3e1
@@ -302,6 +319,7 @@ snippet:6420298bc022
 snippet:642c13dbd738
 snippet:64864412c149
 snippet:6503394100a6
+snippet:65778841f5fd
 snippet:65a13dc4914c
 snippet:66065d70a243
 snippet:66634118b87a
@@ -334,6 +352,7 @@ snippet:71725a397fa3
 snippet:71a32e33754e
 snippet:71c6dbbcb307
 snippet:71f9d7d01891
+snippet:72326d618df8
 snippet:7258f88aa454
 snippet:728bd215d704
 snippet:72d83ecb36c8
@@ -347,7 +366,9 @@ snippet:74407963517f
 snippet:745f58de6b60
 snippet:7523cc847c6c
 snippet:766fc69dccf8
+snippet:768e8d5ebb1a
 snippet:76d0e1ddc222
+snippet:7710ea0781fb
 snippet:7748a00b9a28
 snippet:775f25f64122
 snippet:7855faf786cb
@@ -359,6 +380,7 @@ snippet:7a7c03a300eb
 snippet:7aaa3f9a3bcb
 snippet:7ae336e4792c
 snippet:7b45f841aa2b
+snippet:7c08777476fc
 snippet:7c38d5b66f9f
 snippet:7c5a34d603cc
 snippet:7d11f0e001a4
@@ -368,6 +390,7 @@ snippet:7efc5575f43e
 snippet:7f17f9cdba35
 snippet:7f2d4c318eae
 snippet:7f3b2cd656fd
+snippet:7fa25d3bc6af
 snippet:7fddf26120a2
 snippet:82ab3f231f57
 snippet:82c265bb4913
@@ -422,6 +445,7 @@ snippet:96d6b7ec2f99
 snippet:96e3f3b41430
 snippet:971bb27de8c6
 snippet:9740df5d596f
+snippet:978640674747
 snippet:979bbbc0c2c7
 snippet:97c4dfdacf48
 snippet:97dcba19905d
@@ -452,6 +476,7 @@ snippet:a0eb82bd2a7d
 snippet:a308b3c45791
 snippet:a31da19497ef
 snippet:a36c4190df7f
+snippet:a380588faf7d
 snippet:a3cb4b085e5a
 snippet:a4fa4bdde7ca
 snippet:a5173fa8e84e
@@ -464,6 +489,7 @@ snippet:a8400ca9ad77
 snippet:a8b365a7820b
 snippet:a90898555afd
 snippet:a9e521314827
+snippet:aa8b9dee81c8
 snippet:ab095e180d92
 snippet:ab7840b3d987
 snippet:acb35b2507f9
@@ -471,8 +497,10 @@ snippet:ad13f92a1983
 snippet:ad3de1a1aed1
 snippet:ad89f2195dd1
 snippet:ad9a500d8c34
+snippet:ae495294eb12
 snippet:ae83d93bfd49
 snippet:af560aadf7ce
+snippet:afda55473682
 snippet:afe641fce35c
 snippet:b0c01160b0b8
 snippet:b0c7b0da741e
@@ -496,6 +524,7 @@ snippet:b67a8b3b82fe
 snippet:b687b83453e7
 snippet:b6b4b66c5cc1
 snippet:b79144b75d8d
+snippet:b7babbd00d6f
 snippet:b7f00ad5d4f4
 snippet:b852a2de904c
 snippet:b8f521b29f54
@@ -512,6 +541,7 @@ snippet:bb4f062e8bc2
 snippet:bb741aaa8e22
 snippet:bbf532002709
 snippet:bc2c057c1e3d
+snippet:bd5ca69849e5
 snippet:bd64bb8fbbee
 snippet:bf0d22f5ae58
 snippet:c13f8ed2a819
@@ -519,6 +549,7 @@ snippet:c19d7b04c68b
 snippet:c1a5c5fa5cfa
 snippet:c1cf1b82e9f2
 snippet:c1ea8a9f1f73
+snippet:c34942efa185
 snippet:c3db4962331c
 snippet:c3ee1b81c3a8
 snippet:c4376f87ee7b
@@ -548,6 +579,7 @@ snippet:cc5a8a09da12
 snippet:cc5d97b82892
 snippet:ccd6f9d0b84d
 snippet:ccec7664ef4a
+snippet:ccecd97cdc7a
 snippet:cd2c15e448bd
 snippet:cd4d3aaeac9e
 snippet:cd533030dfb8
@@ -558,6 +590,7 @@ snippet:cf3ee2017f55
 snippet:cfbc8018a1de
 snippet:cfc61896bcc5
 snippet:cffa01724dfb
+snippet:d0c74ac675c6
 snippet:d15234cbf597
 snippet:d15e05d65afe
 snippet:d1d8047a3193
@@ -576,6 +609,7 @@ snippet:d7ec3ca57f51
 snippet:d854c48c5bcc
 snippet:d972dea2e191
 snippet:d9d575a04ff8
+snippet:d9ebfa1361b4
 snippet:d9f51d9f9da3
 snippet:da0499548580
 snippet:da23fe0f2ca9
@@ -584,10 +618,13 @@ snippet:da842cae3e71
 snippet:da86cc892512
 snippet:dac1693065d3
 snippet:dbc17f0a7ed9
+snippet:dc2729e69f48
 snippet:dc3bf83bbb74
 snippet:dd3bb4a16db5
 snippet:dd6de5a077e4
+snippet:dd768951b836
 snippet:dd8f3f791717
+snippet:de6cc8df3cff
 snippet:deab286c69ec
 snippet:df1cc3ac6464
 snippet:df24cebe9ec0
@@ -600,6 +637,7 @@ snippet:e07ca9beea4a
 snippet:e0b13264a3df
 snippet:e102baacb07e
 snippet:e194644b6ef5
+snippet:e23cea053b13
 snippet:e24b67fa2957
 snippet:e2ee0e82ec85
 snippet:e3b12fba9913
@@ -616,6 +654,7 @@ snippet:ea4414587c3d
 snippet:eab0772b9722
 snippet:eabcb912cbf8
 snippet:ead05aa51388
+snippet:eb89de255a44
 snippet:ebc0d1457d31
 snippet:ecdf5fe0cb6f
 snippet:ed148eb740e7
@@ -623,6 +662,7 @@ snippet:edabe5cf743d
 snippet:ee297ca02d9d
 snippet:ee2fa6995cdd
 snippet:ee7b2f431cc5
+snippet:ee8ccb56d13a
 snippet:ee97bd219eff
 snippet:eeacc7eb30b0
 snippet:efa1320065a0
@@ -643,6 +683,7 @@ snippet:f7554fc59021
 snippet:f7596501168a
 snippet:f7765831b47b
 snippet:f80b5e1ea898
+snippet:f83d645d305c
 snippet:f84ac856d53e
 snippet:f851dcf31057
 snippet:f8a7cf34a98b
@@ -844,6 +885,7 @@ tests/gaz/functions/default_parameters_test.gaz
 tests/gaz/functions/shared_test.gaz
 tests/gaz/lib/chars_test.gaz
 tests/gaz/lib/cli_test.gaz
+tests/gaz/lib/crypto_test.gaz
 tests/gaz/lib/date_test.gaz
 tests/gaz/lib/db_test.gaz
 tests/gaz/lib/format_test.gaz

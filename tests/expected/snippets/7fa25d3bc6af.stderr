@@ -1,0 +1,1 @@
+Error: scrypt() expects a cost that is a power of 2 greater than 1, got -9223372036854775808 on line 1

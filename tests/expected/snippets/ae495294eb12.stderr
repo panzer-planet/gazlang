@@ -1,0 +1,1 @@
+Error: scrypt() expects a cost below 2 ** (16 * block size), got 65536 with a block size of 1 on line 1

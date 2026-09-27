@@ -1,0 +1,1 @@
+Error: scrypt() would use more than 4294967296 bytes of memory: 128 * block size * (cost + parallelism + 2) on line 1

@@ -750,7 +750,7 @@ a path.
 **Control** — `exit($code = 0)`; raising is the keyword `throw`.
 
 **Random numbers** — not cryptographically secure: for games, simulations and sampling, never
-for passwords, tokens or keys.
+for passwords, tokens or keys (for those, `random_bytes()` and `std/crypto.gaz`, below).
 
 - `rand_int($min, $max)` — an int from `$min` to `$max`, both included; `$max < $min` is an
   error.
@@ -764,6 +764,79 @@ own rule: `rand_float()` is the top 53 bits divided by 2^53; `rand_int()` takes 
 `$max - $min` as an unsigned 64-bit number, masks each output down to the bits the span uses,
 and draws again until the result is at most the span, then adds it to `$min`, so every int in
 the range is equally likely. `lib/random.gaz` builds shuffling and picking on these.
+
+**Cryptography** — built into every `gaz`, with or without TLS, and giving the same bytes on
+every platform. Strings are bytes, and so is what these give: a digest is 32 raw bytes, which
+`crypto::hex()` or `crypto::base64()` in `std/crypto.gaz` turn into text. Most programs want that
+library's `crypto::hash_password()` and `crypto::token()` rather than these.
+
+- `random_bytes($length)` — `$length` bytes (0 to 1048576) from the operating system's secure
+  generator, for keys, salts and tokens.
+- `sha256($data)` — SHA-256 (FIPS 180-4).
+- `hmac_sha256($data, $key)` — HMAC-SHA256 (RFC 2104): the data first, as every builtin takes
+  its subject, so `$payload |> hmac_sha256($secret)` reads as it runs.
+- `pbkdf2_sha256($password, $salt, $iterations, $length)` — PBKDF2 with HMAC-SHA256 (RFC 8018),
+  1 to 4294967295 iterations.
+- `scrypt($password, $salt, $cost, $block_size, $parallelism, $length)` — scrypt (RFC 7914):
+  `$cost` is N, a power of 2 greater than 1 and below 2^(16 × `$block_size`), and the memory it
+  uses, 128 × `$block_size` × (`$cost` + `$parallelism` + 2) bytes, at most 4 GiB.
+- `argon2id($password, $salt, $passes, $memory, $lanes, $length, $secret = "", $data = "")` —
+  Argon2id version 1.3 (RFC 9106): `$memory` in KiB, from 8 per lane to 4194304 (4 GiB),
+  rounded down to a multiple of 4 per lane; a salt of 8 bytes or more; 1 to 524288 lanes (as
+  many as 4 GiB can give 8 KiB each), computed one after another; a `$length` of 4 or more; `$secret` is a key kept apart from the
+  stored hashes (a pepper) and `$data` associated data, both optional.
+
+A key derivation's `$length` is 1 to 1048576 bytes. An argument out of range, or memory the
+system won't give, is an error that can be caught.
+
+`std/crypto.gaz` (`include "std/crypto.gaz";`) is what a web app or tool uses:
+
+- `crypto::hash_password($password, $options = {})` — a string to store, in the PHC string
+  format, carrying its algorithm, parameters, a random 16-byte salt and a 32-byte hash, the last
+  two in base64 without padding:
+  `$argon2id$v=19$m=65536,t=3,p=4$<salt>$<hash>`. Argon2id with 64 MiB, 3 passes and 4 lanes
+  (RFC 9106's recommendation for when 2 GiB is too much) unless `$options` says otherwise:
+  `{"algorithm" => "scrypt"}` for scrypt with `ln=17,r=8,p=1` (a cost of 2^17, 128 MiB), or
+  `{"algorithm" => "pbkdf2-sha256"}` for PBKDF2 with `i=600000`, and any parameter by the name the
+  string gives it (`{"m" => 131072}`). Each default takes about a tenth to a third of a second.
+- `crypto::verify_password($password, $stored, $limits = {})` — whether the password is the one
+  `$stored` was made from, compared in a time that depends on the lengths and says nothing about
+  where the hashes differ. The format is the common one, so Argon2id hashes made elsewhere verify
+  here, and these elsewhere. A `$stored` it can't read is `false`, as a wrong password is:
+  missing or extra parts, an unknown algorithm or version, a parameter that isn't a plain
+  decimal of 1 or more, bad base64, a salt under 8 bytes, or a hash under 16 or over 64 bytes (a
+  hash of one byte would match one wrong password in 256). So is one asking for more work than
+  the limits allow, since a stored string can be planted to make every login cost gigabytes or
+  hours: at most `m=262144,t=12,p=16` for Argon2id (256 MiB), `ln=18,r=16,p=4` for scrypt (512
+  MiB) and `i=2400000` for PBKDF2, about four times each default. `$limits` changes them for the
+  algorithms it names: `{"argon2id" => {"m" => 1048576}}`. A password or stored string that isn't
+  a string, and limits naming what doesn't exist, are errors.
+- `crypto::needs_rehash($stored, $options = {})` — whether `$stored` was made with other settings
+  than `$options` give, so a program can store a new hash once a login has shown the password;
+  `true` for a `$stored` it can't read. The limits don't apply here.
+- `crypto::token($bytes = 32)` — that many random bytes in base64url: a session ID, a reset link,
+  a CSRF token (43 characters for 32 bytes). Fewer than 1 byte is an error.
+- `crypto::equals($a, $b)` — whether two secrets are the same, in a time that depends on their
+  lengths and says nothing about where they differ (it compares HMACs of both under a key drawn
+  for the call); `==` stops at the first difference, which lets a caller guess a secret a byte at
+  a time.
+- `crypto::hex($bytes)` and `crypto::from_hex($text)` (either case); `crypto::base64($bytes)` and
+  `crypto::from_base64($text)` (RFC 4648, padded); `crypto::base64url($bytes)` and
+  `crypto::from_base64url($text)` (`-` and `_`, no padding). Decoding refuses anything but the
+  one canonical spelling: a missing or extra `=`, a character of the other alphabet, bits left
+  over that aren't zero. These are written in GazLang, and how long they take can hint at the
+  bytes they encode or decode; hashing and comparing don't.
+
+```
+include "std/crypto.gaz";
+
+$stored = crypto::hash_password($password);          // at sign-up, into the database
+if (crypto::verify_password($attempt, $stored)) {     // at login
+    if (crypto::needs_rehash($stored)) {
+        $stored = crypto::hash_password($attempt);   // the settings have moved on since
+    }
+}
+```
 
 ## Statics
 
@@ -927,6 +1000,7 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `lists.gaz` | `lists::flatten` (a list of lists as one list, one level deep), `lists::unique($xs)` (each element once, in the order they first come, compared with `==`), `lists::max_by($xs, $key)` and `lists::min_by` (the element whose `$key($x)` is largest or smallest, the first on a tie; a list of keys breaks ties in order) |
 | `json.gaz` | `json::decode`, `json::encode`; an object is encoded as what its `pub fn to_json()` returns (a map, say: a value, not JSON text), and one without it is an error. Decoding gives maps and lists, never objects: a kind reads itself back with a `static fn from_json($data)` of its own, by convention |
 | `csv.gaz` | `csv::parse`, `csv::records` (RFC 4180) |
+| `crypto.gaz` | `crypto::hash_password`, `crypto::verify_password`, `crypto::needs_rehash`, `crypto::token`, `crypto::equals`, hex and base64; see "Cryptography" under Builtins |
 | `chars.gaz` | `chars::char_at`, `chars::is_digit`, `chars::is_alpha`, `chars::is_alnum`, `chars::is_space`, `chars::is_hex_digit`, `chars::span($s, $i, $predicate)` (how many characters from `$i` satisfy the predicate: `slice($s, $i, chars::span($s, $i, chars::is_digit))` is the number at `$i`) |
 | `format.gaz` | `format::number`, `format::pad_left`, `format::pad_right`, and `format::sprintf($template, $args)` with the arguments as a list: `%s` (as echo prints it), `%d` (an int), `%f` (an int or float, 6 decimals or `%.2f`'s, rounded as `round()` does), `%x` (an int of 0 or more, lowercase hex), `%%`; a width, `-` to pad on the right and `0` to pad a number with zeros after its sign (`%-8s`, `%05.1f`). A count of arguments that isn't the placeholders', a type `%d`, `%f` or `%x` can't take, and a placeholder it doesn't know are errors |
 | `cli.gaz` | `cli::Command($name, $summary)`, command line arguments with a generated `--help`; see below |

@@ -1,0 +1,232 @@
+ok sha256 of nothing
+ok sha256 of abc
+ok sha256 of 448 bits
+ok sha256 of 896 bits
+ok sha256 of a million a's
+ok sha256 gives 32 raw bytes
+ok sha256 of 55 bytes
+ok hmac_sha256 with 55 bytes of data and key
+ok sha256 of 56 bytes
+ok hmac_sha256 with 56 bytes of data and key
+ok sha256 of 63 bytes
+ok hmac_sha256 with 63 bytes of data and key
+ok sha256 of 64 bytes
+ok hmac_sha256 with 64 bytes of data and key
+ok sha256 of 65 bytes
+ok hmac_sha256 with 65 bytes of data and key
+ok sha256 of 128 bytes
+ok hmac_sha256 with 128 bytes of data and key
+ok RFC 4231 case 1
+ok RFC 4231 case 2
+ok RFC 4231 case 3
+ok RFC 4231 case 4
+ok RFC 4231 case 5
+ok RFC 4231 case 6
+ok RFC 4231 case 7
+ok an empty key
+ok RFC 7914 PBKDF2, 1 iteration
+ok RFC 7914 PBKDF2, 80000 iterations
+ok PBKDF2 cut short in a block
+ok RFC 7914 scrypt 1
+ok RFC 7914 scrypt 2
+ok RFC 7914 scrypt 3
+ok scrypt with an odd block size, from Python's hashlib
+ok RFC 9106 Argon2id
+ok argon2id t=1 m=16 p=2, 4 bytes
+ok argon2id t=1 m=16 p=2, 64 bytes
+ok argon2id t=1 m=16 p=2, 65 bytes
+ok argon2id t=2 m=24 p=3, 97 bytes
+ok argon2id t=2 m=26 p=3, 97 bytes
+ok argon2id t=1 m=1024 p=1, 32 bytes
+ok argon2id t=2 m=1100 p=2, 32 bytes
+ok argon2id of a 1024-byte tag, by its sha256
+ok an empty secret and data are none
+ok random_bytes gives as many as asked
+ok random_bytes differ
+ok random_bytes fills every 256-byte chunk
+ok random_bytes' chunks differ
+ok hex
+ok from_hex, either case
+ok base64 of [""]
+ok from_base64 of [""]
+ok base64url of [""]
+ok from_base64url of [""]
+ok base64 of ["f"]
+ok from_base64 of ["Zg=="]
+ok base64url of ["f"]
+ok from_base64url of ["f"]
+ok base64 of ["fo"]
+ok from_base64 of ["Zm8="]
+ok base64url of ["fo"]
+ok from_base64url of ["fo"]
+ok base64 of ["foo"]
+ok from_base64 of ["Zm9v"]
+ok base64url of ["foo"]
+ok from_base64url of ["foo"]
+ok base64 of ["foob"]
+ok from_base64 of ["Zm9vYg=="]
+ok base64url of ["foob"]
+ok from_base64url of ["foob"]
+ok base64 of ["fooba"]
+ok from_base64 of ["Zm9vYmE="]
+ok base64url of ["fooba"]
+ok from_base64url of ["fooba"]
+ok base64 of ["foobar"]
+ok from_base64 of ["Zm9vYmFy"]
+ok base64url of ["foobar"]
+ok from_base64url of ["foobar"]
+ok base64 and base64url's own characters
+ok every byte there and back
+ok from_hex refuses an odd count
+ok from_hex refuses what isn't hex
+ok from_base64 refuses a missing =
+ok from_base64 refuses base64url
+ok from_base64 refuses = inside
+ok from_base64 refuses three =
+ok from_base64 refuses bits left over
+ok from_base64url refuses padding
+ok from_base64url refuses a single character at the end
+ok a token is 32 bytes in base64url
+ok a token of 12 bytes
+ok tokens differ
+ok short tokens
+ok a token of no bytes
+ok a token of fewer
+ok equals
+ok argon2id: the right password
+ok argon2id: a wrong one
+ok argon2id: salted
+ok argon2id: its settings are the ones asked for
+ok argon2id: other settings
+ok argon2id: the stored string's shape
+ok scrypt: the right password
+ok scrypt: a wrong one
+ok scrypt: salted
+ok scrypt: its settings are the ones asked for
+ok scrypt: other settings
+ok scrypt: the stored string's shape
+ok pbkdf2-sha256: the right password
+ok pbkdf2-sha256: a wrong one
+ok pbkdf2-sha256: salted
+ok pbkdf2-sha256: its settings are the ones asked for
+ok pbkdf2-sha256: other settings
+ok pbkdf2-sha256: the stored string's shape
+ok argon2id's header
+ok argon2id from elsewhere
+ok scrypt from elsewhere
+ok pbkdf2-sha256 from elsewhere
+ok argon2id: the right one
+ok argon2id: a password wrong in its last byte
+ok argon2id: a hash wrong in its last byte
+ok scrypt: the right one
+ok scrypt: a password wrong in its last byte
+ok scrypt: a hash wrong in its last byte
+ok pbkdf2-sha256: the right one
+ok pbkdf2-sha256: a password wrong in its last byte
+ok pbkdf2-sha256: a hash wrong in its last byte
+ok refuses nothing
+ok needs a rehash: nothing
+ok refuses no algorithm
+ok needs a rehash: no algorithm
+ok refuses an unknown algorithm
+ok needs a rehash: an unknown algorithm
+ok refuses argon2id without its version
+ok needs a rehash: argon2id without its version
+ok refuses argon2id of another version
+ok needs a rehash: argon2id of another version
+ok refuses text before it
+ok needs a rehash: text before it
+ok refuses a $ after it
+ok needs a rehash: a $ after it
+ok refuses an extra part
+ok needs a rehash: an extra part
+ok refuses parameters out of order
+ok needs a rehash: parameters out of order
+ok refuses a parameter missing
+ok needs a rehash: a parameter missing
+ok refuses a parameter too many
+ok needs a rehash: a parameter too many
+ok refuses a leading zero
+ok needs a rehash: a leading zero
+ok refuses a plus sign
+ok needs a rehash: a plus sign
+ok refuses a parameter that isn't a number
+ok needs a rehash: a parameter that isn't a number
+ok refuses a parameter of zero
+ok needs a rehash: a parameter of zero
+ok refuses a negative parameter
+ok needs a rehash: a negative parameter
+ok refuses scrypt's ln of zero
+ok needs a rehash: scrypt's ln of zero
+ok refuses scrypt's cost past 2 ** (16 * r)
+ok needs a rehash: scrypt's cost past 2 ** (16 * r)
+ok refuses scrypt's ln over the limit
+ok needs a rehash: scrypt's ln over the limit
+ok refuses scrypt's r over the limit
+ok needs a rehash: scrypt's r over the limit
+ok refuses scrypt's p over the limit
+ok needs a rehash: scrypt's p over the limit
+ok refuses argon2id with less memory than its lanes need
+ok needs a rehash: argon2id with less memory than its lanes need
+ok refuses argon2id's m over the limit
+ok needs a rehash: argon2id's m over the limit
+ok refuses argon2id's t over the limit
+ok needs a rehash: argon2id's t over the limit
+ok refuses argon2id's p over the limit
+ok needs a rehash: argon2id's p over the limit
+ok refuses argon2id asking for 4 GiB and 2 ** 32 passes
+ok needs a rehash: argon2id asking for 4 GiB and 2 ** 32 passes
+ok refuses a number past an int
+ok needs a rehash: a number past an int
+ok refuses PBKDF2 with no iterations
+ok needs a rehash: PBKDF2 with no iterations
+ok refuses PBKDF2's i over the limit
+ok needs a rehash: PBKDF2's i over the limit
+ok refuses a salt in padded base64
+ok needs a rehash: a salt in padded base64
+ok refuses a salt in base64url
+ok needs a rehash: a salt in base64url
+ok refuses a hash with bits left over
+ok needs a rehash: a hash with bits left over
+ok refuses an empty salt
+ok needs a rehash: an empty salt
+ok refuses a salt of 7 bytes
+ok needs a rehash: a salt of 7 bytes
+ok refuses a hash of 15 bytes
+ok needs a rehash: a hash of 15 bytes
+ok refuses a hash of 65 bytes
+ok needs a rehash: a hash of 65 bytes
+ok refuses an empty hash
+ok needs a rehash: an empty hash
+ok refuses the right password with PBKDF2 one iteration over
+ok refuses the right password with argon2id's m one over
+ok refuses the right password with a hash of 65 bytes
+ok refuses the right password with scrypt's ln one over
+ok refuses the right password with scrypt's r one over
+ok refuses the right password with scrypt's p one over
+ok refuses the right password with argon2id's t one over
+ok refuses the right password with argon2id's p one over
+ok refuses the right password with a salt of 7 bytes
+ok refuses the right password with no salt
+ok accepts scrypt's r at its limit
+ok accepts scrypt's p at its limit
+ok accepts argon2id's t at its limit
+ok accepts argon2id's p at its limit
+ok accepts a salt of 8 bytes at its limit
+ok a hash of one byte accepts none of 2000 wrong passwords
+ok nor the right one
+ok a hash of 16 bytes, the shortest read
+ok a hash of 64 bytes, the longest
+ok a lower limit refuses
+ok a limit at the stored cost accepts
+ok other algorithms' limits stay
+ok limits for an unknown algorithm
+ok limits for an unknown parameter
+ok a limit that isn't an int
+ok verify_password still wants strings
+ok needs_rehash ignores the limits
+ok an unknown algorithm
+ok a parameter the algorithm doesn't have
+ok a parameter that isn't an int
+ok scrypt's ln out of range
+ok a password that isn't a string

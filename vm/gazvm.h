@@ -18,6 +18,7 @@
  *   term.c      raw mode, reading keys, the terminal's size
  *   workers.c   workers(): the program as several processes, for a server
  *   watch.c     gaz --watch: runs the program again whenever a file it is made of changes
+ *   crypto.c    random bytes, SHA-256, HMAC and the password hashes, in our own C
  *
  * Errors: a function that can fail returns bool, false meaning an error was raised. The
  * error itself is in `vm_error` (see raisef()), and the caller passes the false up until the
@@ -584,6 +585,16 @@ void db_close(Db *d);
 void db_put(Map *m, const char *key, size_t len, Value v);   /* m[key] = v, taking v's reference */
 Value db_result(List *rows, int64_t changes);   /* the {"rows", "changes"} map a driver's run() gives */
 extern const DbDriver sqlite_driver, pg_driver;  /* defined only when built in (GAZ_SQLITE, GAZ_PG) */
+
+/* ---- crypto.c -------------------------------------------------------------------------- */
+
+bool crypto_random_bytes(int64_t length, Value *out);
+Value crypto_sha256(Str *data);
+Value crypto_hmac_sha256(Str *data, Str *key);
+bool crypto_pbkdf2_sha256(Str *password, Str *salt, int64_t iterations, int64_t length, Value *out);
+bool crypto_scrypt(Str *password, Str *salt, int64_t cost, int64_t block_size, int64_t parallelism, int64_t length, Value *out);
+bool crypto_argon2id(Str *password, Str *salt, int64_t passes, int64_t memory, int64_t lanes, int64_t length,
+                     Str *secret, Str *data, Value *out);
 
 /* term.c */
 bool term_raw(bool on);

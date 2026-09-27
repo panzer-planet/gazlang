@@ -14,7 +14,7 @@ class EditorGrammarTest extends GazLangTestCase
     public function test_it_highlights_exactly_the_builtins()
     {
         $grammar = file_get_contents(self::GRAMMAR);
-        $this->assertSame(1, preg_match('#<string>support\.function\.gaz</string>\s*<key>match</key>\s*<string>[^<]*\\\\b\(([a-z_|]+)\)\\\\b</string>#', $grammar, $match), 'the support.function.gaz rule');
+        $this->assertSame(1, preg_match('#<string>support\.function\.gaz</string>\s*<key>match</key>\s*<string>[^<]*\\\\b\(([a-z0-9_|]+)\)\\\\b</string>#', $grammar, $match), 'the support.function.gaz rule');
         $highlighted = explode('|', $match[1]);
         $builtins = explode(' ', trim($this->executeCode('echo join(keys(builtins()), " ");')));
         $this->assertSame([], array_values(array_diff($builtins, $highlighted)), 'builtins the grammar is missing');
