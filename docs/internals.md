@@ -95,6 +95,7 @@ bin/gaz tests/programs/functions.gaz               # compile and run
 bin/gaz -c tests/programs/functions.gaz            # print the compiled bytecode
 bin/gaz --tokens tests/programs/functions.gaz      # print the tokens
 bin/gaz --ast tests/programs/functions.gaz         # print the parser's tree
+bin/gaz test [path] [--update]                     # run *_test.gaz files under path (default .)
 bin/gaz site/build.gaz                             # the website (site/), from these docs, into site/dist
 ```
 
@@ -123,6 +124,13 @@ php vm/bench.php                                    # gaz against PHP and Python
   `*_test.expected` file (`GazProgramTest`). `tests/gaz/check.gaz` gives
   `check($label, $actual, $expected)`, which prints `ok <label>` or a FAIL line with both
   values. This is how GazLang code gets tested.
+- **`bin/gaz test`** (`TestCommandTest`, fixtures in `tests/fixtures/gaz_test`) is the same idea
+  for a program's own tests, without PHP: it finds every `*_test.gaz` under a path, recursively,
+  and runs each as its own `gaz` process (spawned by name, so it needs `gaz` on `PATH`), since
+  `include` only takes a string literal and can't splice in a path a runner only learns at run
+  time. `std/test.gaz`'s `test::expect` is `check()` made public; `test::snapshot` compares a
+  value against a file recorded next to the calling test, and `--update` (re)writes it. A file
+  fails the run if it exits non-zero or its stdout has a FAIL line.
 - **`tests/lexer_corpus/`** are lexing cases, including deliberately tricky ones; a file named
   `error_*` must be exactly one that fails to lex. Each `X.gaz` has the tokens `--tokens` must
   print in `X.tokens`.

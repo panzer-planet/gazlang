@@ -247,20 +247,17 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   what makes real web apps and CLI tools pleasant, then by what one stranger needs to find it,
   install it, get a first program working and trust it; not by what would win many users
   (Windows, a registry, an LSP and a playground wait for someone to ask).
-- **The roadmap**, in build order (optional types, `gaz --watch`, the pipe and cryptography are
-  done and described below):
-  1. **`gaz test`** running `*_test.gaz`, with `std/test.gaz` (`test::expect`, `test::snapshot`
-     recorded next to the test, `--update`), and an exit status; no new syntax or reserved word. A
-     user of gaz shouldn't need PHP to test gaz code.
-  2. **Cookies and signed sessions** in `std/http`, on the cryptography this item began with (done:
+- **The roadmap**, in build order (optional types, `gaz --watch`, the pipe, cryptography and
+  `gaz test` are done and described below):
+  1. **Cookies and signed sessions** in `std/http`, on the cryptography this item began with (done:
      see "Cryptography"): signed with `hmac_sha256`, checked with `crypto::equals`, IDs and CSRF
      tokens from `crypto::token()`. Without them a web app can't have sessions or CSRF tokens.
-  3. **Tagged literals as ordinary functions**: `name"text {$v}"` is `name(["text ", ""], [$v])`,
+  2. **Tagged literals as ordinary functions**: `name"text {$v}"` is `name(["text ", ""], [$v])`,
      resolved like any name, as JavaScript's tags and Python's t-strings are. Then `db::sql"..."`,
      rendered to each driver's own placeholders (`?`, `$n`), with nested fragments and lists for
      `in (...)`; then `Db.query`/`exec`/`row`/`value` refuse a plain string, with `db::raw()` the
      visible way round, so SQL injection is impossible by construction; then `html"..."`.
-  4. **Rest patterns** in destructuring, `[$first, ...$rest] = $list`, when JSON handling asks.
+  3. **Rest patterns** in destructuring, `[$first, ...$rest] = $list`, when JSON handling asks.
   - **On demand**: dumping the raw bytes of a request that got a 500, to replay it (the small
     version of record and replay); `parallel($thunks, $max)` over forked processes, giving plain
     data only and refusing handles a child inherited (a SQLite or PostgreSQL connection must not be
@@ -274,6 +271,29 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     and replay (for now).
   - **A trap to close**: `Html .. "text"` quietly gives a plain string, which `{{ }}` then escapes;
     concatenating an `Html` should be an error.
+- **`gaz test [path] [--update]`**, so a user of gaz doesn't need PHP to test gaz code: it finds
+  every `*_test.gaz` file under `path` (the current directory by default), recursively, and runs
+  each as its own `gaz` process. `std/test.gaz` gives `test::expect($label, $actual, $expected)`
+  (`tests/gaz/check.gaz`'s internal `check()`, made public: `ok <label>`, or a FAIL line naming
+  both values) and `test::snapshot($label, $actual)` (compared against a file recorded next to
+  the calling test, `--update` (re)writing it instead). A file fails the run if its output has a
+  FAIL line or it exits non-zero; `gaz test` exits 1 if any file did.
+  - **A subprocess per file, not `include`-by-computed-path**: `include` only ever takes a
+    string literal, resolved at parse time, on purpose, so a runner has no dynamic way to splice
+    a discovered path into one program. Running each as `gaz <file> <file> [--update]` needs no
+    such thing and gives free isolation, one file's crash or infinite loop can't corrupt
+    another's run, at the cost of a process start per file.
+  - **`gaz test` is a bareword subcommand**, dispatched in `vm.c`'s `main()` before any of the
+    usual `-`-prefixed option parsing, since `test` names a shape (`cargo test`, `go test`), not a
+    flag; a file literally named `test` needs `-f test` to run instead, an accepted, negligible
+    edge case. It runs a small fixed bootstrap program (`include "std/test.gaz"; test::main();`)
+    with everything after `test` as that program's own `args()`.
+  - **A test file learns its own path as its first argument**, not through a builtin: nothing
+    gives a running program its own path (`args()` is only what follows it on the command line),
+    so the runner passes the file twice, once to say what to run and again as `args()[0]`, which
+    `test::snapshot()` reads to find where "next to it" is.
+  - Fixtures are `tests/fixtures/gaz_test` (`TestCommandTest`); `tests/gaz/lib/test_test.gaz`
+    exercises `test::expect()` itself, as `GazProgramTest` does for the rest of the library.
 - **A language server** (`lsp/server.gaz`, `bin/gaz lsp/server.gaz`), so an editor gets errors and
   eventually more without a stranger installing anything but gaz. Diagnostics
   (`textDocument/didOpen`/`didChange` reparses the whole document, full sync, and

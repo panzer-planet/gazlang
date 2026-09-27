@@ -1214,6 +1214,7 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `chars.gaz` | `chars::char_at`, `chars::is_digit`, `chars::is_alpha`, `chars::is_alnum`, `chars::is_space`, `chars::is_hex_digit`, `chars::span($s, $i, $predicate)` (how many characters from `$i` satisfy the predicate: `slice($s, $i, chars::span($s, $i, chars::is_digit))` is the number at `$i`) |
 | `format.gaz` | `format::number`, `format::pad_left`, `format::pad_right`, and `format::sprintf($template, $args)` with the arguments as a list: `%s` (as echo prints it), `%d` (an int), `%f` (an int or float, 6 decimals or `%.2f`'s, rounded as `round()` does), `%x` (an int of 0 or more, lowercase hex), `%%`; a width, `-` to pad on the right and `0` to pad a number with zeros after its sign (`%-8s`, `%05.1f`). A count of arguments that isn't the placeholders', a type `%d`, `%f` or `%x` can't take, and a placeholder it doesn't know are errors |
 | `cli.gaz` | `cli::Command($name, $summary)`, command line arguments with a generated `--help`; see below |
+| `test.gaz` | `test::expect($label, $actual, $expected)` and `test::snapshot($label, $actual)`, for `gaz test`; see below |
 | `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins, a server, `http::serve($listener, $handler, $options = {})`, `http::handle($socket, $handler, $options = {})` (one connection), `http::http_date($time)`, and `http::Router()` for routing requests to handlers; see below |
 | `date.gaz` | `date::days($year, $month, $day)` (a date as a whole number of days, day 0 being 1 January 1970: an impossible date is an error), `date::civil($days)` (`[year, month, day]`), `date::year`/`month`/`day`, `date::weekday` (0 Monday to 6 Sunday), `date::next_weekday($days, $weekday)`, `date::add_months`, `date::is_leap`, `date::days_in_month`, and `date::format` (`Sat 8 Aug 2026`), `date::short` (`8 Aug`) and `date::iso` (`2026-08-08`). There is no `today()`: a clock would make a program impossible to record, so a program keeps its own date |
 | `random.gaz` | `random::shuffle` (a shuffled copy of a list or string), `random::pick` (an element of a list or value of a map), `random::key`, `random::chance($p)`, `random::weighted` (from `[item, weight]` pairs) |
@@ -1291,6 +1292,31 @@ $cli.run(args());
 - `-h` and `--help` print the help, written from the declarations, and exit 0. A mistake prints
   what is wrong on standard error and exits 2. `try_parse()` and `try_run()` raise a `cli::Stop`
   instead, whose `code` and `message` are what would have been printed.
+
+**Testing**, with `gaz test [path] [--update]` and `std/test.gaz`:
+
+```gaz
+// numbers_test.gaz
+include "std/test.gaz";
+test::expect("two plus two", 2 + 2, 4);
+test::snapshot("a report", build_report());
+```
+
+- `gaz test` finds every `*_test.gaz` file under `path` (the current directory by default),
+  recursively, and runs each as its own `gaz` process: `include` only takes a string literal, so
+  a runner can't splice in a path it only learns at run time, and a subprocess per file gives
+  free isolation, one file's crash or infinite loop can't corrupt another's run. It prints what
+  each file prints, then a summary, and exits 1 if any file failed.
+- `test::expect($label, $actual, $expected)` prints `ok <label>`, or a FAIL line naming both
+  values (the same shape as `tests/gaz/check.gaz`'s internal `check()`, made public); a file
+  fails the run if its output has a FAIL line, or it exits non-zero.
+- `test::snapshot($label, $actual)` compares `$actual` against a file recorded next to the
+  calling test file, named after it and the label; run with `--update` to (re)write it instead
+  of comparing, and review the diff as you would any recorded output.
+- `gaz test` runs a file as `gaz <file> <file> [--update]`: the file's own path, once to say
+  what to run and again as its first program argument, since a running program has no builtin
+  giving its own path. `test::snapshot()` reads that argument to find where to record; a test
+  file has no reason to read `args()` itself.
 
 **Routing**, with `http::Router()` (in `std/http.gaz`, so nothing extra to include):
 

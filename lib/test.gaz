@@ -1,0 +1,157 @@
+/*
+ * Testing GazLang code without PHP: run with `gaz test [path] [--update]`, which runs main()
+ * below in a bootstrap program of its own, path defaulting to the current directory.
+ *
+ *   include "std/test.gaz";
+ *   test::expect("two plus two", 2 + 2, 4);
+ *   test::snapshot("the report", build_report());
+ *
+ * - expect() is check.gaz's check(), the internal helper this project's own tests use, made
+ *   public: it prints "ok <label>" or a FAIL line naming both values.
+ * - snapshot() compares $actual against a file recorded next to the test that called it, and
+ *   under --update (re)writes that file instead of comparing.
+ * - `gaz test` finds every *_test.gaz file under path, recursively, and runs each as its own
+ *   `gaz` process (include is resolved at parse time from a string literal, so a runner can't
+ *   include a path it only learns at run time; a subprocess per file needs no such thing, and
+ *   gives free isolation: one file's crash or infinite loop can't corrupt another's run). A file
+ *   fails the run if its stdout has a FAIL line or it exits non-zero.
+ * - A subprocess is started as `gaz <file> <file> [--update]`: the file's own path, once to say
+ *   what to run and again as its first program argument, since a running program has no builtin
+ *   that gives its own path (args() is only what follows it on the line). snapshot() reads that
+ *   first argument to find where "next to the test" is; a test file that calls args() itself for
+ *   its own reasons should treat args()[0] as its own path and args()[1] as --update, if given.
+ */
+namespace test;
+
+const UPDATE_FLAG = "--update";
+
+// Like check() in tests/gaz/check.gaz: prints "ok <label>", or a FAIL line naming both values
+pub fn expect($label, $actual, $expected) {
+    if ($actual == $expected && type_of($actual) == type_of($expected)) {
+        echo "ok " .. $label;
+    } else {
+        echo "FAIL " .. $label .. ": expected " .. to_string($expected) .. " (" .. type_of($expected) .. "), got " .. to_string($actual) .. " (" .. type_of($actual) .. ")";
+    }
+}
+
+// Compares $actual against the file recorded next to the calling test file, or under --update
+// (re)writes it. Needs the test file's own path, which gaz test passes as args()[0].
+pub fn snapshot($label, $actual) {
+    $path = snapshot_path($label);
+    $text = literal($actual);
+    if (has_flag(UPDATE_FLAG)) {
+        write_file($path, $text);
+        echo "ok " .. $label .. " (snapshot recorded at {$path})";
+        return;
+    }
+    if (!file_exists($path)) {
+        echo "FAIL " .. $label .. ": no snapshot at {$path}; run gaz test --update to record it";
+        return;
+    }
+    $expected = read_file($path);
+    if ($text == $expected) {
+        echo "ok " .. $label;
+    } else {
+        echo "FAIL " .. $label .. ": snapshot {$path} expected " .. $expected .. ", got " .. $text;
+    }
+}
+
+// Run every *_test.gaz file gaz test finds and report; the entry point of the bootstrap program
+pub fn main() {
+    $args = args();
+    $update = in_array(UPDATE_FLAG, $args);
+    $root = ".";
+    foreach ($args as $arg) {
+        if ($arg != UPDATE_FLAG) {
+            $root = $arg;
+        }
+    }
+    $files = discover($root);
+    $failed = [];
+    foreach ($files as $file) {
+        $argv = ["gaz", $file, $file];
+        if ($update) {
+            $argv[] = UPDATE_FLAG;
+        }
+        $result = run($argv);
+        print($result["stdout"]);
+        if ($result["stderr"] != "") {
+            print_error($result["stderr"]);
+        }
+        if ($result["status"] != 0 || has_fail_line($result["stdout"])) {
+            $failed[] = $file;
+        }
+    }
+    echo len($files) .. " file" .. (len($files) == 1 ? "" : "s") .. " run, " .. len($failed) .. " failed";
+    exit(len($failed) > 0 ? 1 : 0);
+}
+
+// Every *_test.gaz under $path, recursively; $path itself if it already names one
+fn discover($path) {
+    if (!file_exists($path)) {
+        throw "gaz test: {$path} does not exist";
+    }
+    if (!is_dir($path)) {
+        return ends_with($path, "_test.gaz") ? [$path] : [];
+    }
+    $files = [];
+    foreach (list_dir($path) as $name) {
+        if (starts_with($name, ".")) {
+            continue;   // .git and the like
+        }
+        $full = $path .. "/" .. $name;
+        if (is_dir($full)) {
+            $files = [...$files, ...discover($full)];
+        } else if (ends_with($name, "_test.gaz")) {
+            $files[] = $full;
+        }
+    }
+
+    return $files;
+}
+
+// Whether any line of $stdout is a FAIL line, exactly as expect() and snapshot() print one
+fn has_fail_line($stdout) {
+    foreach (split($stdout, "\n") as $line) {
+        if (starts_with($line, "FAIL ")) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// Whether $flag is one of this process's own arguments
+fn has_flag($flag) {
+    return in_array($flag, args());
+}
+
+// The calling test file's own path, which gaz test passes as args()[0]
+fn own_path() {
+    $given = args();
+    if (len($given) == 0) {
+        throw "test::snapshot needs the test file's own path; run it with gaz test, not gaz directly";
+    }
+
+    return $given[0];
+}
+
+// Where $label's snapshot for the calling test file lives: next to it, named after it and the label
+fn snapshot_path($label) {
+    $path = own_path();
+    $parts = split($path, "/");
+    $dir = len($parts) > 1 ? join(slice($parts, 0, len($parts) - 1), "/") : ".";
+    $name = last($parts);
+    if (ends_with($name, ".gaz")) {
+        $name = slice($name, 0, len($name) - 4);
+    }
+
+    return "{$dir}/{$name}.{$label}.snap";
+}
+
+// $value as the literal that reads back as it: quote() has no builtin yet, so a value wrapped in
+// a one-element list prints itself as a literal, and slicing off the brackets is the inverse of
+// reading one (the same trick the self-hosted front end uses; see CLAUDE.md).
+fn literal($value) {
+    return slice(to_string([$value]), 1, -1);
+}

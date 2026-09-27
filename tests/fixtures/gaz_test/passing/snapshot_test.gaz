@@ -1,0 +1,4 @@
+// Deliberately passing against a recorded snapshot, for TestCommandTest
+include "std/test.gaz";
+
+test::snapshot("the_value", ["a snapshot", 1, 2.5]);

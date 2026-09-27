@@ -1,0 +1,3 @@
+ok equal ints
+FAIL mismatched types: expected 1 (string), got 1 (int)
+FAIL wrong value: expected b (string), got a (string)

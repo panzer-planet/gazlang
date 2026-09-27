@@ -1652,6 +1652,42 @@ static void *run(void *arg) {
     return NULL;
 }
 
+/* gaz test [path] [--update] runs std/test.gaz's test::main() as a bootstrap program of its
+   own, with everything after "test" as that program's args(). It is dispatched before any of
+   the option parsing below, since it is a bareword subcommand rather than a "-"-prefixed
+   option (cargo test's and go test's shape, not getopt's); a file literally named "test" needs
+   -f test or --file test to run instead, an acceptable, negligible edge case. */
+static const char *TEST_BOOTSTRAP =
+    "include \"std/test.gaz\";\n"
+    "test::main();\n";
+
+static int run_gaz_test(int argc, char **argv) {
+    size_t len = strlen(TEST_BOOTSTRAP);
+    char *text = malloc(len + 1);
+    if (!text) {
+        fputs("Error: out of memory\n", stderr);
+        return 1;
+    }
+    memcpy(text, TEST_BOOTSTRAP, len + 1);
+    Job job = {.mode = M_RUN, .path = NULL, .text = text, .len = len, .argc = argc, .argv = argv, .exit_code = 1};
+    output = stdout;
+    setvbuf(stdout, NULL, _IOFBF, 1 << 16);
+
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setstacksize(&attr, (size_t)1 << 30);
+    pthread_t thread;
+    if (pthread_create(&thread, &attr, run, &job) != 0) {
+        fputs("Error: cannot start the VM's thread\n", stderr);
+        free(job.text);
+        return 1;
+    }
+    pthread_join(thread, NULL);
+    free(job.text);
+    fflush(stdout);
+    return job.exit_code;
+}
+
 /* The version, which the Makefile gives from VERSION */
 #ifndef GAZ_VERSION
 #define GAZ_VERSION "unknown"
@@ -1662,6 +1698,8 @@ static const char *HELP =
     "Usage: gaz [options] [file | -] [program arguments...]\n"
     "  Runs the file, with everything after it as the program's arguments (args()).\n"
     "  - reads the program from standard input, as no file does when something is piped.\n"
+    "  gaz test [path] [--update]\n"
+    "  Runs every *_test.gaz file under path (default the current directory), recursively.\n"
     "Options:\n"
     "  -h, --help     Show this help message\n"
     "  -v, --version  Show version information\n"
@@ -1680,8 +1718,12 @@ static int unknown_option(const char *arg) {
    tokens, ast, watch]) and its check for options getopt doesn't know. Options end at the first argument
    that isn't one or after "--". Then, unless "--" ended them or -f named a file, the first
    argument is the file, or "-" for standard input, as python, php and node take it; the rest
-   are the program's. --watch hands the file and those arguments to watch() in watch.c. */
+   are the program's. --watch hands the file and those arguments to watch() in watch.c.
+   "gaz test ..." is dispatched first, before any of that: see run_gaz_test(). */
 int main(int argc, char **argv) {
+    if (argc > 1 && strcmp(argv[1], "test") == 0) {
+        return run_gaz_test(argc - 2, argv + 2);
+    }
     bool help = false, version = false, code = false, tokens = false, ast = false, watching = false;
     bool after_dashes = false, from_stdin = false;
     const char *file = NULL;
