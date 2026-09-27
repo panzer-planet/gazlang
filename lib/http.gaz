@@ -21,6 +21,8 @@ namespace http;
 
 include "chars.gaz" use is_alnum, is_digit, is_hex_digit;
 include "date.gaz";
+include "crypto.gaz";
+include "json.gaz";
 
 const MAX_REDIRECTS = 20;
 const MAX_HEAD = 65536;      // a request's line and headers, in bytes
@@ -414,7 +416,9 @@ fn check_token($what, $name) {
  * (header names lowercased, a repeated header's values joined with ", ", the path and query as they
  * came, not decoded) and writing what it returns, a map of "status" (200 if left out), "headers"
  * and "body" (a string, "" if left out, or a template's Html, which is text/html unless a
- * Content-Type says otherwise). With workers() first, each worker serves on its own.
+ * Content-Type says otherwise). A header's value is a string, or a list of strings to write it as
+ * that many lines (Set-Cookie, which RFC 6265 forbids joining with a comma). With workers() first,
+ * each worker serves on its own.
  *
  * - A request that isn't well formed HTTP/1.x is answered 400 (431 for a head over 64KB, 413 for a
  *   body over "max_body", 501 for a transfer coding other than chunked, 505 for another HTTP
@@ -630,14 +634,19 @@ fn write_response($response, $head) {
     $lines = [status_line($status), "Date: " .. http_date(time()), "Connection: close"];
     foreach ($headers as $name => $value) {
         check_token("header name", $name);
-        $value = to_string($value);
-        if (contains($value, "\r") || contains($value, "\n") || contains($value, "\0")) {
-            throw "HTTP error: header $name has a line break or NUL byte in its value";
-        }
         if (in_array(lower($name), ["content-length", "connection", "transfer-encoding", "date"])) {
             throw "HTTP error: header $name is written by http::serve";
         }
-        $lines[] = "$name: $value";
+        // A list writes one line per value, since a repeated header (Set-Cookie above all,
+        // whose values RFC 6265 forbids joining with a comma: an Expires attribute has one of
+        // its own) needs more than one line; anything else is the one value it always was.
+        foreach (type_of($value) == "list" ? $value : [$value] as $one) {
+            $one = to_string($one);
+            if (contains($one, "\r") || contains($one, "\n") || contains($one, "\0")) {
+                throw "HTTP error: header $name has a line break or NUL byte in its value";
+            }
+            $lines[] = "$name: $one";
+        }
     }
     if (!$bodiless) {
         $lines[] = "Content-Length: " .. len($body);
@@ -1089,4 +1098,128 @@ fn check_form_type($request) {
     if ($media_type != FORM_TYPE) {
         throw "http::form() needs a body sent as " .. FORM_TYPE .. ", not " .. slice(to_string([$type]), 1, -1);
     }
+}
+
+/*
+ * Cookies, and signed sessions built on them.
+ *
+ * - http::cookies($request) is the Cookie header as a map, url_decode()d.
+ * - http::set_cookie($response, $name, $value, $options = {}) returns $response with a
+ *   Set-Cookie header added (a response can carry several: see write_response() above).
+ *   $options: "path" (a Path attribute, "/" by default), "http_only" (an HttpOnly attribute,
+ *   true by default: a cookie a page's own JavaScript can't read is one XSS can't steal),
+ *   "secure" (a Secure attribute, false by default, since a plain http:// site couldn't send
+ *   the cookie back), "same_site" ("Lax" by default, which stops a cookie going out on a
+ *   cross-site request that isn't a plain navigation, the common CSRF vector) and "max_age" (a
+ *   Max-Age attribute in seconds, a session cookie with none).
+ * - http::session($request, $secret) reads and verifies the session cookie (crypto::sign() and
+ *   crypto::equals(), on a json::encode()d map) and gives the map, or {} for no cookie or one
+ *   that doesn't check out: a forged, tampered or expired cookie is routine, not an error a
+ *   handler must catch.
+ * - http::session_cookie($response, $session, $secret, $options = {}) is the other direction:
+ *   $response with the session's Set-Cookie added.
+ * - http::csrf_token($session) gets or makes a CSRF token in the session, returning the session
+ *   (a handler saves it with session_cookie() as any other session change); http::verify_csrf()
+ *   checks one a form submitted, with crypto::equals() as a signature is checked.
+ */
+
+const SESSION_COOKIE = "session";
+const COOKIE_OPTIONS = {"path" => "/", "http_only" => true, "secure" => false, "same_site" => "Lax", "max_age" => null};
+
+pub fn cookies($request) {
+    $header = $request["headers"]["cookie"] ?? "";
+    $cookies = {};
+    foreach (split($header, ";") as $pair) {
+        $pair = trim($pair);
+        $equals = index_of($pair, "=");
+        if ($pair == "" || $equals == null) {
+            continue;
+        }
+        $cookies[trim(slice($pair, 0, $equals))] = url_decode(trim(slice($pair, $equals + 1)));
+    }
+
+    return $cookies;
+}
+
+pub fn set_cookie($response, $name, $value, $options = {}) {
+    $headers = $response["headers"] ?? {};
+    $existing = $headers["Set-Cookie"] ?? [];
+    if (type_of($existing) != "list") {
+        $existing = [$existing];
+    }
+    $existing[] = cookie_header($name, $value, $options);
+    $headers["Set-Cookie"] = $existing;
+    $response["headers"] = $headers;
+
+    return $response;
+}
+
+fn cookie_header($name, $value, $options) {
+    check_token("cookie name", $name);
+    $options = cookie_options($options);
+    $parts = ["$name=" .. url_encode(to_string($value))];
+    if ($options["path"] != null) {
+        $parts[] = "Path=" .. $options["path"];
+    }
+    if ($options["max_age"] != null) {
+        $parts[] = "Max-Age=" .. $options["max_age"];
+    }
+    if ($options["secure"]) {
+        $parts[] = "Secure";
+    }
+    if ($options["http_only"]) {
+        $parts[] = "HttpOnly";
+    }
+    if ($options["same_site"] != null) {
+        $parts[] = "SameSite=" .. $options["same_site"];
+    }
+
+    return join($parts, "; ");
+}
+
+fn cookie_options($options) {
+    foreach ($options as $name => $value) {
+        if (!has_key(COOKIE_OPTIONS, $name)) {
+            throw "http::set_cookie() has no option " .. slice(to_string([$name]), 1, -1) .. ": only " .. join(keys(COOKIE_OPTIONS), ", ");
+        }
+    }
+
+    return {...COOKIE_OPTIONS, ...$options};
+}
+
+pub fn session($request, $secret) {
+    $signed = cookies($request)[SESSION_COOKIE] ?? null;
+    if ($signed == null) {
+        return {};
+    }
+    $payload = crypto::unsign($signed, $secret);
+    if ($payload == null) {
+        return {};
+    }
+    try {
+        $session = json::decode($payload);
+    } catch (Error $e) {
+        return {};
+    }
+
+    return type_of($session) == "map" ? $session : {};
+}
+
+pub fn session_cookie($response, $session, $secret, $options = {}) {
+    $payload = crypto::sign(json::encode($session), $secret);
+
+    return set_cookie($response, SESSION_COOKIE, $payload, $options);
+}
+
+// The session with a CSRF token if it had none: check $session["csrf_token"] after calling
+pub fn csrf_token($session) {
+    $session["csrf_token"] ??= crypto::token();
+
+    return $session;
+}
+
+pub fn verify_csrf($session, $submitted) {
+    $token = $session["csrf_token"] ?? null;
+
+    return $token != null && type_of($submitted) == "string" && crypto::equals($token, $submitted);
 }

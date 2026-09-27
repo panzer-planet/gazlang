@@ -889,6 +889,7 @@ tests/gaz/lib/date_test.gaz
 tests/gaz/lib/db_test.gaz
 tests/gaz/lib/format_test.gaz
 tests/gaz/lib/http_decode_test.gaz
+tests/gaz/lib/http_session_test.gaz
 tests/gaz/lib/json_test.gaz
 tests/gaz/lib/regex_test.gaz
 tests/gaz/lib/router_test.gaz

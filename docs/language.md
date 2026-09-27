@@ -1210,11 +1210,11 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `lists.gaz` | `lists::flatten` (a list of lists as one list, one level deep), `lists::unique($xs)` (each element once, in the order they first come, compared with `==`), `lists::max_by($xs, $key)` and `lists::min_by` (the element whose `$key($x)` is largest or smallest, the first on a tie; a list of keys breaks ties in order) |
 | `json.gaz` | `json::decode`, `json::encode`; an object is encoded as what its `pub fn to_json()` returns (a map, say: a value, not JSON text), and one without it is an error. Decoding gives maps and lists, never objects: a kind reads itself back with a `static fn from_json($data)` of its own, by convention |
 | `csv.gaz` | `csv::parse`, `csv::records` (RFC 4180) |
-| `crypto.gaz` | `crypto::hash_password`, `crypto::verify_password`, `crypto::needs_rehash`, `crypto::token`, `crypto::equals`, hex and base64; see "Cryptography" under Builtins |
+| `crypto.gaz` | `crypto::hash_password`, `crypto::verify_password`, `crypto::needs_rehash`, `crypto::token`, `crypto::sign($value, $secret)` and `crypto::unsign($signed, $secret)` (tamper-evident values, for cookies), `crypto::equals`, hex and base64; see "Cryptography" under Builtins |
 | `chars.gaz` | `chars::char_at`, `chars::is_digit`, `chars::is_alpha`, `chars::is_alnum`, `chars::is_space`, `chars::is_hex_digit`, `chars::span($s, $i, $predicate)` (how many characters from `$i` satisfy the predicate: `slice($s, $i, chars::span($s, $i, chars::is_digit))` is the number at `$i`) |
 | `format.gaz` | `format::number`, `format::pad_left`, `format::pad_right`, and `format::sprintf($template, $args)` with the arguments as a list: `%s` (as echo prints it), `%d` (an int), `%f` (an int or float, 6 decimals or `%.2f`'s, rounded as `round()` does), `%x` (an int of 0 or more, lowercase hex), `%%`; a width, `-` to pad on the right and `0` to pad a number with zeros after its sign (`%-8s`, `%05.1f`). A count of arguments that isn't the placeholders', a type `%d`, `%f` or `%x` can't take, and a placeholder it doesn't know are errors |
 | `cli.gaz` | `cli::Command($name, $summary)`, command line arguments with a generated `--help`; see below |
-| `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins, a server, `http::serve($listener, $handler, $options = {})`, `http::handle($socket, $handler, $options = {})` (one connection), `http::http_date($time)`, and `http::Router()` for routing requests to handlers; see below |
+| `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins, a server, `http::serve($listener, $handler, $options = {})`, `http::handle($socket, $handler, $options = {})` (one connection), `http::http_date($time)`, `http::Router()` for routing requests to handlers, and cookies and signed sessions (`http::cookies`, `http::set_cookie`, `http::session`, `http::session_cookie`, `http::csrf_token`, `http::verify_csrf`); see below |
 | `date.gaz` | `date::days($year, $month, $day)` (a date as a whole number of days, day 0 being 1 January 1970: an impossible date is an error), `date::civil($days)` (`[year, month, day]`), `date::year`/`month`/`day`, `date::weekday` (0 Monday to 6 Sunday), `date::next_weekday($days, $weekday)`, `date::add_months`, `date::is_leap`, `date::days_in_month`, and `date::format` (`Sat 8 Aug 2026`), `date::short` (`8 Aug`) and `date::iso` (`2026-08-08`). There is no `today()`: a clock would make a program impossible to record, so a program keeps its own date |
 | `random.gaz` | `random::shuffle` (a shuffled copy of a list or string), `random::pick` (an element of a list or value of a map), `random::key`, `random::chance($p)`, `random::weighted` (from `[item, weight]` pairs) |
 | `regex.gaz` | `regex::matches($s, $pattern)` (full match), `regex::search($s, $pattern)` (found anywhere), `regex::find($s, $pattern)` (the start index, or null), `regex::groups($s, $pattern)` (the first match and what each `(...)` in it took, a group that took no part `null`, or `null` for no match), `regex::replace($s, $pattern, $with)` (every match, left to right, by `$with` as it is, so `"$1"` is two bytes; an empty match moves on a byte: `replace("abc", "x*", "-")` is `"-a-b-c-"`); literals, `.`, `* + ?` (greedy), `\|` (the first that matches wins), `(...)`, `[...]`/`[^...]` with ranges, `^ $`, `\` escapes; the leftmost match, and there the greedy repetition and the earlier alternative; no backreferences, no backtracking |
@@ -1323,6 +1323,32 @@ Decoding what a request carries, when a handler asks:
 - `http::url_decode($text)` undoes percent-escapes (`%20` is a space, and `+` stays `+`), and a
   `%` without two hex digits after it is an error: `bad percent-escape "%zz" at 3`.
   `http::url_encode($text)` escapes everything but letters, digits and `- . _ ~`.
+
+**Cookies and signed sessions**, on `crypto::sign`, `crypto::equals` and `crypto::token`:
+
+```gaz
+$session = http::session($request, SECRET);           // {} for no cookie, or one that fails
+$session["user_id"] = 7;
+$response = http::session_cookie({"body" => "..."}, $session, SECRET);
+```
+
+- `http::cookies($request)` is the `Cookie` header as a map, each value `url_decode`d.
+- `http::set_cookie($response, $name, $value, $options = {})` adds a `Set-Cookie` header to
+  (a copy of) `$response`, url-encoding `$value`. A response can carry several: `write_response()`
+  writes a header whose value is a list as that many lines, not joined with a comma, since
+  RFC 6265 forbids joining `Set-Cookie` values (an `Expires` attribute has a comma of its own).
+  `$options`: `"path"` (`"/"`), `"http_only"` (`true`: a cookie a page's own script can't read is
+  one XSS can't steal), `"secure"` (`false`), `"same_site"` (`"Lax"`, so a cookie doesn't go out
+  on a cross-site request that isn't a plain navigation), `"max_age"` in seconds (a session cookie
+  with none).
+- `http::session($request, $secret)` reads, verifies and decodes the session cookie into a map,
+  or `{}` for no cookie or one that fails to verify or decode: a forged, expired or missing session
+  is routine, not an error a handler must catch. `http::session_cookie($response, $session,
+  $secret, $options = {})` is the reverse, adding the session's cookie to `$response`.
+- `http::csrf_token($session)` gets or makes a CSRF token in the session, returning the session
+  with it set (a handler saves the result with `session_cookie()`, as any other session change);
+  `http::verify_csrf($session, $submitted)` checks one a form sent back, with `crypto::equals()`,
+  as a signature is checked.
 
 ```gaz
 include "std/http.gaz";

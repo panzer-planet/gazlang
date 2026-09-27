@@ -5,6 +5,7 @@
  *   crypto::verify_password($password, $stored)  parameters and salt, and checking one
  *   crypto::needs_rehash($stored, $options)      whether it was made with other settings
  *   crypto::token($bytes)                        a random, URL-safe string
+ *   crypto::sign($value, $secret), unsign($signed, $secret)   tamper-evident values (cookies)
  *   crypto::equals($a, $b)                       comparing secrets without leaking where they differ
  *   crypto::hex(), from_hex(), base64(), from_base64(), base64url(), from_base64url()
  */
@@ -264,6 +265,36 @@ pub fn token(int $bytes = TOKEN_BYTES): string {
         throw "crypto::token() expects 1 byte or more, got {$bytes}";
     }
     return base64url(random_bytes($bytes));
+}
+
+/*
+ * $value with an HMAC of itself appended, so a caller can hand it to something untrusted (a
+ * cookie, a URL) and tell whether it comes back unchanged: crypto::unsign() recovers $value if
+ * the MAC still checks out, or null if it doesn't (or the text isn't one sign() made at all).
+ * $secret is the caller's: generate one with crypto::random_bytes() and hold it (config, an
+ * environment variable), since a secret this made up itself couldn't be checked between runs.
+ * The MAC is base64url, so the result is a cookie value or a URL segment as it is; the separator
+ * is a dot, which base64url never contains, so unsign() can always find the last one, whatever
+ * $value holds.
+ */
+const SIGNATURE_SEPARATOR = ".";
+
+pub fn sign(string $value, string $secret): string {
+    return $value .. SIGNATURE_SEPARATOR .. base64url(hmac_sha256($value, $secret));
+}
+
+pub fn unsign(string $signed, string $secret): ?string {
+    $from_end = index_of(reverse($signed), SIGNATURE_SEPARATOR);
+    if ($from_end == null) {
+        return null;
+    }
+    $at = len($signed) - 1 - $from_end;
+    $value = slice($signed, 0, $at);
+    $mac = slice($signed, $at + 1);
+    if (!equals(base64url(hmac_sha256($value, $secret)), $mac)) {
+        return null;
+    }
+    return $value;
 }
 
 /*

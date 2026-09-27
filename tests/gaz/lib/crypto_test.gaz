@@ -144,6 +144,24 @@ check("a token of fewer", error_of(() -> crypto::token(-5)), "crypto::token() ex
 check("equals", [crypto::equals("", ""), crypto::equals("abc", "abc"), crypto::equals("abc", "abd"), crypto::equals("abc", "ab"), crypto::equals("\x00", "")],
     [true, true, false, false, false]);
 
+/* Signing: sign() then unsign() gives back the value, under its own secret only, and a single
+   changed character anywhere (the value, the dot, or the MAC) fails, rather than only the MAC
+   ever being checked */
+$signed = crypto::sign("hello, world", "the secret");
+check("unsign recovers a signed value", crypto::unsign($signed, "the secret"), "hello, world");
+check("unsign refuses another secret", crypto::unsign($signed, "wrong secret"), null);
+check("unsign refuses text with no dot", crypto::unsign("no-separator-here", "the secret"), null);
+check("sign of the empty string still verifies", crypto::unsign(crypto::sign("", "k"), "k"), "");
+$every_flip_fails = true;
+for ($i = 0; $i < len($signed); $i++) {
+    $flipped = split($signed, "");
+    $flipped[$i] = chr((ord($flipped[$i]) + 1) % 256);
+    if (crypto::unsign(join($flipped, ""), "the secret") != null) {
+        $every_flip_fails = false;
+    }
+}
+check("flipping any one byte fails verification", $every_flip_fails, true);
+
 /* Passwords, with small parameters: the defaults take a tenth of a second each on their own */
 $small = {
     "argon2id" => {"m" => 64, "t" => 1, "p" => 2},

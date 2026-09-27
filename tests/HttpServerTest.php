@@ -182,6 +182,47 @@ class HttpServerTest extends GazLangTestCase
         $this->assertSame([200, '20', ''], [$response['status'], $response['headers']['content-length'], $response['body']]);
     }
 
+    public function test_a_session_value_round_trips_through_its_cookie()
+    {
+        $first = self::exchange("GET /visits HTTP/1.1\r\nHost: x\r\n\r\n");
+        $response = self::response($first);
+        $this->assertSame(['visits' => 1], json_decode($response['body'], true));
+        $this->assertMatchesRegularExpression('/^session=.+; Path=\/; HttpOnly; SameSite=Lax$/', $response['headers']['set-cookie']);
+
+        $cookie = explode(';', $response['headers']['set-cookie'], 2)[0];
+        $second = self::response(self::exchange("GET /visits HTTP/1.1\r\nHost: x\r\nCookie: {$cookie}\r\n\r\n"));
+        $this->assertSame(['visits' => 2], json_decode($second['body'], true));
+    }
+
+    public function test_a_request_with_no_cookie_gets_an_empty_session_not_an_error()
+    {
+        $response = self::response(self::exchange("GET /visits HTTP/1.1\r\nHost: x\r\n\r\n"));
+
+        $this->assertSame(200, $response['status']);
+        $this->assertSame(['visits' => 1], json_decode($response['body'], true));
+    }
+
+    public function test_a_tampered_session_cookie_is_an_empty_session_not_a_crash()
+    {
+        $first = self::response(self::exchange("GET /visits HTTP/1.1\r\nHost: x\r\n\r\n"));
+        $cookie = explode(';', $first['headers']['set-cookie'], 2)[0];
+        $tampered = str_replace('session=', 'session=x', $cookie);
+
+        $response = self::response(self::exchange("GET /visits HTTP/1.1\r\nHost: x\r\nCookie: {$tampered}\r\n\r\n"));
+
+        $this->assertSame(200, $response['status']);
+        $this->assertSame(['visits' => 1], json_decode($response['body'], true));
+    }
+
+    public function test_two_cookies_are_two_set_cookie_lines_not_comma_joined()
+    {
+        $response = self::exchange("GET /two-cookies HTTP/1.1\r\nHost: x\r\n\r\n");
+        [$head] = explode("\r\n\r\n", $response, 2);
+        $lines = array_values(array_filter(explode("\r\n", $head), fn ($line) => str_starts_with($line, 'Set-Cookie:')));
+
+        $this->assertSame(['Set-Cookie: a=1; Path=/; HttpOnly; SameSite=Lax', 'Set-Cookie: b=2; Path=/; HttpOnly; SameSite=Lax'], $lines);
+    }
+
     public function test_a_handler_that_fails_is_a_500_and_a_line_on_standard_error()
     {
         $this->assertSame([500, "Internal Server Error\n"], [self::get('/fail')['status'], self::get('/fail')['body']]);
