@@ -13,6 +13,14 @@
  * than start it again and again the master stops the others and exits with its code; one that took
  * a connection first died of a request, and is started again like any other.
  *
+ * worker_recycle() is a third case: a worker retiring itself on purpose (http::serve's
+ * max_requests, PHP-FPM's pm.max_requests), which must be replaced like a crash (the pool stays
+ * $count wide) but logged and restarted like neither a crash nor a graceful stop. It raises
+ * SIGUSR2 on itself, which the master below tells apart before the generic paths: it is started
+ * again at once, skipping the "died within a second of starting" check (a low max_requests
+ * recycling fast on purpose is not a startup failure), with its own log line rather than the
+ * failure phrasing.
+ *
  * SIGINT, SIGTERM and SIGHUP to the master stop the workers, and then end the master as that signal
  * would have; one the program was started ignoring (nohup's SIGHUP) stays ignored. Stopping is
  * graceful: a worker is sent SIGTERM, which makes its next socket_accept() (or the one it waits in)
@@ -119,6 +127,24 @@ static int describe(int status, char *text, size_t size) {
 
 static void pause_briefly(void) { nanosleep(&(struct timespec){.tv_nsec = 50000000}, NULL); }
 
+/* Fork a replacement for worker `i` (0-based) and record it. True means the caller is now the new
+   worker itself, and start_workers() must return true at once; false means the master carries on,
+   having either recorded the new pid or, on a fork failure, failed the whole pool. */
+static bool start_replacement(int i, pid_t *pids, double *started, volatile unsigned char *served,
+                               Value *out, int *failed, int *alive) {
+    pid_t again = fork_worker(i + 1, served, out);
+    if (again == 0) return true;
+    if (again < 0) {
+        fprintf(stderr, "gaz: cannot start worker %d again: %s; stopping\n", i + 1, strerror(errno));
+        *failed = 1;
+        (*alive)--;
+        return false;
+    }
+    pids[i] = again;
+    started[i] = now();
+    return false;
+}
+
 /* Ask every worker still running to stop, give them STOP_GRACE seconds, kill the rest */
 static void stop_all(pid_t *pids, int count) {
     int left = 0;
@@ -204,6 +230,18 @@ bool start_workers(int64_t count, Value *out) {
                 alive--;
                 continue;
             }
+            if (WIFSIGNALED(status) && WTERMSIG(status) == SIGUSR2) {
+                /* A deliberate recycle (worker_recycle()), not a failure: no anti-flapping check,
+                   no failure-style log line */
+                fprintf(stderr, "gaz: worker %d recycled; starting another\n", i + 1);
+                if (start_replacement(i, pids, started, served, out, &failed, &alive)) {
+                    free(pids);
+                    free(started);
+                    return true;
+                }
+                if (failed >= 0) break;
+                continue;
+            }
             char how[64];
             int code = describe(status, how, sizeof how);
             if (now() - started[i] < 1.0 && !served[i]) {
@@ -212,20 +250,12 @@ bool start_workers(int64_t count, Value *out) {
                 break;
             }
             fprintf(stderr, "gaz: worker %d %s; starting another\n", i + 1, how);
-            pid_t again = fork_worker(i + 1, served, out);
-            if (again == 0) {
+            if (start_replacement(i, pids, started, served, out, &failed, &alive)) {
                 free(pids);
                 free(started);
                 return true;
             }
-            if (again < 0) {
-                fprintf(stderr, "gaz: cannot start worker %d again: %s; stopping\n", i + 1, strerror(errno));
-                failed = 1;
-                alive--;
-                break;
-            }
-            pids[i] = again;
-            started[i] = now();
+            if (failed >= 0) break;
         }
         /* ponytail: polled every 50ms, which is how long a restart or a stop can wait */
         if (alive > 0 && failed < 0 && !stop_signal) pause_briefly();

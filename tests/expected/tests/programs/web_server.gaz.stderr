@@ -1,1 +1,1 @@
-Usage: web_server.gaz PORT [WORKERS]
+Usage: web_server.gaz PORT [WORKERS] [MAX_REQUESTS]

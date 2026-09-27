@@ -894,6 +894,7 @@ or the other.
 | Builtin | What it does |
 | --- | --- |
 | `workers($count)` | Turns the program into `$count` processes, and gives each its number |
+| `worker_recycle()` | Ends this worker on purpose; the master replaces it, keeping the pool `$count` wide |
 
 `workers($count)` turns the program into `$count` processes from that point on, each
 carrying on with a copy of everything, for a server that answers more than one request at a time
@@ -908,6 +909,16 @@ too and ends them at once. A signal the program was started ignoring stays ignor
 SIGHUP). Workers share nothing after the call, a
 `socket_listen()` listener made before it aside, which is the point: they all accept on one port.
 Each draws its own random numbers. At most 1024, and a worker can't start workers of its own.
+
+`worker_recycle()` retires the calling worker on purpose (`http::serve()`'s `max_requests`, PHP-FPM's
+`pm.max_requests`): it flushes standard output, then ends the process, and the master replaces it
+at once, so the pool stays `$count` wide and whatever state the worker built up over its life goes
+with it. It never returns. The retiring is by a signal (SIGUSR2), not a reserved exit code, since
+`exit($code)` already lets a program choose any code 0 to 255 freely: a reserved one could collide
+with an unrelated `exit()` somewhere and be misread as a happy recycle, where a signal-terminated
+exit can't. A recycle isn't logged as a failure and skips the "died within a second of starting"
+check that guards against a program that can't start, since a low `max_requests` recycling fast is
+deliberate, not a startup bug.
 
 ```gaz
 $listener = socket_listen("0.0.0.0", 8080);
@@ -1280,7 +1291,9 @@ as in a response; the path and query are as the client sent them, not decoded.
   The worker carries on.
 - Options: `"timeout"`, seconds each read and write may wait (10); `"request_timeout"`, seconds the
   whole request may take to arrive (30), after which it is a 408, so a client sending a byte at a
-  time can't hold a worker; and `"max_body"` in bytes (1048576).
+  time can't hold a worker; `"max_body"` in bytes (1048576); and `"max_requests"` (unset, no limit),
+  after which the worker calls `worker_recycle()` instead of accepting another connection, so a long-
+  lived worker's accumulated state doesn't outlive it.
 - It returns when its worker is asked to stop, after answering the request in hand.
 - `http::http_date(time())` is a time as HTTP writes one: `Sat, 08 Aug 2026 14:02:09 GMT`.
 

@@ -458,6 +458,19 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     accepted a connection* stops the lot with its code, as a startup bug would otherwise respawn for
     ever; one that accepted first died of a request and is started again. Workers say so in a page
     of shared memory (`mmap`, a byte each), not a pipe, since the master only reads it when one dies.
+  - **`worker_recycle()` is a third case**, neither the graceful "clean exit(0), shrink the pool" nor
+    the generic "died, log a failure, restart": a worker retiring itself on purpose (PHP-FPM's
+    `pm.max_requests`, see `http::serve`'s `"max_requests"` below), which must be replaced like a
+    crash (the pool stays `$n` wide, and whatever state the worker built up over its life goes with
+    it) but treated as neither a crash nor a graceful stop. It flushes output, then raises SIGUSR2 on
+    itself with no handler installed, so the default disposition (terminate) applies; a signal, not a
+    reserved exit code, because `exit($code)` already lets a program choose any code 0 to 255 freely,
+    and a reserved one could collide with an unrelated `exit()` somewhere and be misread as a happy
+    recycle, where a signal-terminated exit can't collide with anything `exit()` produces. The master
+    tells `WIFSIGNALED(status) && WTERMSIG(status) == SIGUSR2` apart before the generic failure path:
+    it restarts the worker at once, skipping the "died within a second of starting" check (a low
+    `max_requests` recycling fast on purpose is not a startup failure) and logging a plainly different
+    line (`worker N recycled; starting another`) rather than the failure phrasing.
   - **Stopping is graceful**: the master sends SIGTERM, which a worker catches (not `SA_RESTART`,
     so a waiting `accept()` wakes) and turns into `null` from its next `socket_accept()`, so
     `http::serve()` returns after the request in hand; the master kills what is left after 10
@@ -477,6 +490,9 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - **A request has a deadline** (`"request_timeout"`, 30s, a 408) as well as the per-read
     `"timeout"`, which alone let a client trickling a byte every few seconds hold a worker for hours.
     `Reader` checks it before each read, so it can overrun by one read's timeout.
+  - **`"max_requests"`** (unset, no limit) calls `worker_recycle()` once the worker's accept loop has
+    handled that many, instead of looping back to `socket_accept()`: an opt-in policy, since forcing
+    it by default would be gaz second-guessing an app that has no accumulating state to worry about.
   - **Decoding a request is asked for, not done for every request**: `http::query($request)`
     and `http::form($request)` give maps of strings, a key given twice keeping its last value, so
     a handler never checks a value's type; `query_all()`/`form_all()` give every value as a list

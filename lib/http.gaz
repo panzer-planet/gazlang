@@ -449,7 +449,7 @@ const REASONS = {
     500 => "Internal Server Error", 501 => "Not Implemented", 502 => "Bad Gateway",
     503 => "Service Unavailable", 504 => "Gateway Timeout", 505 => "HTTP Version Not Supported",
 };
-const SERVER_OPTIONS = {"timeout" => 10, "request_timeout" => 30, "max_body" => 1048576};
+const SERVER_OPTIONS = {"timeout" => 10, "request_timeout" => 30, "max_body" => 1048576, "max_requests" => null};
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -462,9 +462,17 @@ kind Refusal extends Error {
 
 pub fn serve($listener, $handler, $options = {}) {
     $options = server_options($options);
+    // PHP-FPM's pm.max_requests: retiring a worker after N requests throws away whatever state it
+    // built up over its life, belt and suspenders next to the process boundary between workers
+    $max_requests = $options["max_requests"];
+    $served = 0;
     // Null once a worker is asked to stop: the request in hand has been answered
     while (($socket = socket_accept($listener, $options["timeout"])) != null) {
         handle($socket, $handler, $options);
+        $served++;
+        if ($max_requests != null && $served >= $max_requests) {
+            worker_recycle();
+        }
     }
 }
 

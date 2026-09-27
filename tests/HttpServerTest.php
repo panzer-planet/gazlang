@@ -43,9 +43,13 @@ class HttpServerTest extends GazLangTestCase
      *
      * @return array{resource, int}
      */
-    private static function startServer(int $workers, string $log): array
+    private static function startServer(int $workers, string $log, ?int $maxRequests = null): array
     {
-        $server = proc_open([self::binary(), '-f', 'tests/programs/web_server.gaz', '--', '0', (string) $workers], [['file', '/dev/null', 'r'], ['pipe', 'w'], ['file', $log, 'w']], $pipes, self::ROOT);
+        $args = ['0', (string) $workers];
+        if ($maxRequests !== null) {
+            $args[] = (string) $maxRequests;
+        }
+        $server = proc_open([self::binary(), '-f', 'tests/programs/web_server.gaz', '--', ...$args], [['file', '/dev/null', 'r'], ['pipe', 'w'], ['file', $log, 'w']], $pipes, self::ROOT);
         if ($server === false) {
             throw new \RuntimeException('Cannot start tests/programs/web_server.gaz');
         }
@@ -313,6 +317,59 @@ class HttpServerTest extends GazLangTestCase
             }
             $this->assertSame([false, true, SIGTERM], [$status['running'], $status['signaled'], $status['termsig']]);
             $this->assertFalse(@stream_socket_client("tcp://127.0.0.1:{$port}", $errno, $error, 1), 'a worker still listens');
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+            @unlink($log);
+        }
+    }
+
+    /**
+     * The pids of a proc_open()ed process's direct children, from the process table
+     *
+     * @return list<int>
+     */
+    private static function childPids(int $pid): array
+    {
+        exec("pgrep -P {$pid}", $lines);
+
+        return array_map('intval', $lines);
+    }
+
+    public function test_a_worker_recycles_after_max_requests_without_dropping_a_request_or_shrinking_the_pool()
+    {
+        $log = (string) tempnam(sys_get_temp_dir(), 'gazlang-server');
+        [$server, $port] = self::startServer(2, $log, 3);
+        try {
+            $before = [];
+            for ($wait = 0; count($before) < 2 && $wait < 100; $wait++) {
+                $before = self::childPids((int) proc_get_status($server)['pid']);
+                usleep(20000);
+            }
+            $this->assertCount(2, $before, 'both workers should have started');
+
+            // More requests than 2 workers * 3 max_requests, so at least one worker recycles
+            for ($i = 0; $i < 10; $i++) {
+                $this->assertSame(200, self::response(self::exchange("GET / HTTP/1.1\r\nHost: x\r\n\r\n", $port))['status']);
+            }
+
+            $after = [];
+            for ($wait = 0; $wait < 100; $wait++) {
+                $after = self::childPids((int) proc_get_status($server)['pid']);
+                if (count($after) === 2 && $after !== $before) {
+                    break;
+                }
+                usleep(20000);
+            }
+            $this->assertCount(2, $after, 'the pool should stay 2 workers wide');
+            $this->assertNotEquals($before, $after, 'at least one worker should have been replaced');
+
+            // The requests after a recycle still succeed
+            $this->assertSame(200, self::response(self::exchange("GET / HTTP/1.1\r\nHost: x\r\n\r\n", $port))['status']);
+
+            $errors = (string) file_get_contents($log);
+            $this->assertMatchesRegularExpression('/^gaz: worker [12] recycled; starting another$/m', $errors);
+            $this->assertDoesNotMatchRegularExpression('/exited with code|died of signal/', $errors);
         } finally {
             proc_terminate($server);
             proc_close($server);
