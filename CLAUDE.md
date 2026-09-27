@@ -279,12 +279,17 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   (`textDocument/didOpen`/`didChange` reparses the whole document, full sync, and
   `publishDiagnostics` the first syntax error), hover (a builtin's arity from `builtins()`, or a
   declared function's parameters found by scanning the document's own text for `fn name(...)`),
-  and go-to-definition (the same textual search, followed across the document's own `include`
+  go-to-definition (the same textual search, followed across the document's own `include`
   chain — resolved the way the real compiler resolves them, from the document's own directory,
   and only into files that exist on disk, so a `std/` include isn't chased — cycles ended by a
-  set of real paths already visited on that branch) are done; textual, not from the parsed tree,
-  since the tree doesn't exist while the document has an unrelated syntax error, which is the
-  common case mid-edit. Next: completion. It is `namespace gazlang`, not its own, reusing the
+  set of real paths already visited on that branch), and completion (every keyword worth
+  completing, one hand-kept list, since `Lexer::KEYWORDS` is private to `Lexer`, and skipping the
+  ones reserved only to hint at a spelling; every builtin with its arity; every function the
+  document can reach by name, itself and what it includes, each once even if declared reachably
+  more than once; no filtering by what is typed, which editors do themselves) are done; textual,
+  not from the parsed tree, since the tree doesn't exist while the document has an unrelated
+  syntax error, which is the common case mid-edit. Nothing else is planned yet; add what a real
+  session of using it shows is missing. It is `namespace gazlang`, not its own, reusing the
   compiler's own `Lexer` and `Parser` as a test of the internals does (see "Namespaces" and
   `tests/LspTest.php`), rather than making them `pub` for one caller. Framing a message needs an
   exact byte count (`Content-Length`), which needed a builtin of its own: `read_stdin_bytes($n)`,

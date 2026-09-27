@@ -18,6 +18,19 @@ include "../lib/chars.gaz" use char_at, is_alnum, span;
 include "../lib/regex.gaz";
 include "../lib/http.gaz";
 
+/*
+ * The lexer's own keywords (compiler/lexer.gaz's Lexer::KEYWORDS is private to Lexer, so this
+ * is its own list, kept by hand), minus the ones reserved only to hint at the right spelling
+ * (function, class, public, private, protected, interface, implements, final all say to write
+ * something else): completing one of those would just teach an error.
+ */
+const KEYWORDS = [
+    "echo", "if", "else", "while", "for", "foreach", "as", "break", "continue", "fn", "return",
+    "null", "delete", "match", "default", "const", "include", "try", "catch", "finally", "throw",
+    "true", "false", "kind", "extends", "abstract", "namespace", "use", "pub", "kin", "static",
+    "shared",
+];
+
 /* A message framed with a Content-Length header, as every LSP transport uses, read and
  * written over standard input and output */
 kind Connection {
@@ -184,30 +197,88 @@ fn line_at($text, $byte) {
     return len(split(slice($text, 0, $byte), "\n")) - 1;
 }
 
+// Every match of $pattern in $text, each as regex::groups() gives it ([whole, group 1, ...]).
+// Repeated calls over ever-shorter slices, since regex.gaz gives one match at a time.
+fn all_matches($text, $pattern) {
+    $matches = [];
+    $offset = 0;
+    while (true) {
+        $window = slice($text, $offset);
+        $start = regex::find($window, $pattern);
+        if ($start == null) {
+            break;
+        }
+        $match = regex::groups($window, $pattern);
+        $matches[] = $match;
+        $offset += $start + len($match[0]);
+    }
+    return $matches;
+}
+
 /*
  * The real paths $text's own include "..."; statements name, relative to $path's directory,
  * for those that exist on disk (a std/ library include doesn't, and is skipped: only a
- * program's own files can be followed this way). Repeated regex calls over ever-shorter
- * slices rather than a single pass, since regex.gaz gives one match at a time.
+ * program's own files can be followed this way).
  */
 fn included_paths($path, $text) {
     $dir = dirname($path);
     $paths = [];
-    $offset = 0;
-    while (true) {
-        $window = slice($text, $offset);
-        $start = regex::find($window, 'include "([^"]*)"');
-        if ($start == null) {
-            break;
-        }
-        $whole = regex::groups($window, 'include "([^"]*)"');
-        $candidate = $dir .. "/" .. $whole[1];
+    foreach (all_matches($text, 'include "([^"]*)"') as $match) {
+        $candidate = $dir .. "/" .. $match[1];
         if (file_exists($candidate)) {
             $paths[] = real_path($candidate);
         }
-        $offset += $start + len($whole[0]);
     }
     return $paths;
+}
+
+// Every name declared with fn in $text, in the order they appear
+fn function_names($text) {
+    return map(all_matches($text, "fn ([A-Za-z_][A-Za-z0-9_]*)\\("), $match -> $match[1]);
+}
+
+/*
+ * Every function fn declares, in $text and every file it includes, directly or not (the same
+ * reach find_definition() searches), each name once even if declared more than once reachably.
+ */
+fn declared_functions($path, $text, $visited) {
+    $names = function_names($text);
+    if ($path != null) {
+        foreach (included_paths($path, $text) as $included) {
+            if (in_array($included, $visited)) {
+                continue;
+            }
+            $visited[] = $included;
+            $names = [...$names, ...declared_functions($included, read_file($included), $visited)];
+        }
+    }
+    $unique = [];
+    foreach ($names as $name) {
+        if (!in_array($name, $unique)) {
+            $unique[] = $name;
+        }
+    }
+    return $unique;
+}
+
+/*
+ * Completions: the language's keywords, every builtin with its arity, and every function this
+ * document can reach by name (itself and what it includes, directly or not). No filtering by
+ * what is typed so far: editors filter a completion list against the prefix themselves.
+ */
+fn completions($uri) {
+    $items = map(KEYWORDS, $word -> ({"label" => $word, "kind" => 14})); // Keyword
+    foreach (builtins() as $name => $arity) {
+        $items[] = {"label" => $name, "kind" => 3, "detail" => describe_arity($arity)}; // Function
+    }
+    $text = @documents[$uri] ?? null;
+    if ($text != null) {
+        $path = path_from_uri($uri);
+        foreach (declared_functions($path, $text, [$path]) as $name) {
+            $items[] = {"label" => $name, "kind" => 3};
+        }
+    }
+    return $items;
 }
 
 /*
@@ -284,6 +355,7 @@ while (true) {
                     "textDocumentSync" => 1,
                     "hoverProvider" => true,
                     "definitionProvider" => true,
+                    "completionProvider" => {},
                 },
             }),
             "shutdown" => respond($connection, $message["id"], null),
@@ -296,6 +368,7 @@ while (true) {
             ),
             "textDocument/hover" => respond($connection, $message["id"], hover($params["textDocument"]["uri"], $params["position"])),
             "textDocument/definition" => respond($connection, $message["id"], definition($params["textDocument"]["uri"], $params["position"])),
+            "textDocument/completion" => respond($connection, $message["id"], completions($params["textDocument"]["uri"])),
             default => has_key($message, "id")
                 ? $connection.write({
                     "jsonrpc" => "2.0",
