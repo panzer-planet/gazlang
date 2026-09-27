@@ -454,8 +454,9 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     whose Content-Type isn't `application/x-www-form-urlencoded` rather than giving `{}`.
     Pieces split as the WHATWG parser splits them (empty ones skipped, no `=` is a value of
     `""`). Tested by `tests/gaz/lib/http_decode_test.gaz`, and end to end by `HttpServerTest`.
-  - **Routing is `lib/router.gaz`**, a file of its own so `http.gaz` stays the protocol and a
-    program that only fetches URLs parses no router: `router::Router()` with `get`, `post`,
+  - **Routing is `http::Router()`, in `http.gaz` itself**, not a file of its own: a separate
+    `router.gaz` read as `router::Router()`, one namespace naming the other redundantly, for a
+    program that was already reaching for `http::serve` to run what it dispatches. `get`, `post`,
     `put`, `patch`, `delete` and `route($method, ...)`, and `$app.handler()` is an ordinary
     handler for `http::serve`, so the server learns nothing. Patterns are segments, literal or
     `:name` (no regex); the path is split before it is percent-decoded, so a `%2F` is a `/` in a
@@ -982,11 +983,11 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   as HTTP tokens and URLs for spaces and control characters, so nothing can end a line of the
   request; credentials dropped on a redirect to another origin; `HttpTest` runs it against
   `tests/fixtures/http_server.php`, over TCP and TLS, which writes framing out by hand so it can
-  get it wrong on purpose; ports vary, so what it prints is checked by shape, not recorded; and the
-  server, `http::serve`, see "Serving HTTP"),
+  get it wrong on purpose; ports vary, so what it prints is checked by shape, not recorded; the
+  server, `http::serve`; and `http::Router`, routing; see "Serving HTTP" for both),
   `date.gaz` (`date::days`, `date::civil`, `date::format`: a date is a number of days from 1 January
   1970, with no clock, since a program that asked one what day it is could not be recorded, so a game
-  keeps its own date), `router.gaz` (`router::Router`, see "Serving HTTP"), `cli.gaz`
+  keeps its own date), `cli.gaz`
   (`cli::Command`, see "Command line arguments"), `random.gaz` (`random::shuffle`, `random::pick`, `random::key`, `random::chance`,
   `random::weighted`), `crypto.gaz` (see "Cryptography" above), `term.gaz` (`term::style`, the cursor and screen sequences,
   `term::decode`, `term::Input`, `term::fullscreen`, on the terminal builtins; drawing functions

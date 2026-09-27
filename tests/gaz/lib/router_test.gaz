@@ -1,5 +1,5 @@
 include "../check.gaz";
-include "../../../lib/router.gaz";
+include "../../../lib/http.gaz";
 
 fn request($method, $path, $query = "") {
     return {"method" => $method, "path" => $path, "query" => $query, "headers" => {}, "body" => ""};
@@ -9,7 +9,7 @@ fn body($text) {
     return {"body" => $text};
 }
 
-$app = router::Router();
+$app = http::Router();
 $app.get("/", $r -> body("home"));
 $app.get("/users/:id", $r -> body("user " .. $r["params"]["id"]));
 $app.get("/users/:id/posts/:post", $r -> body("post " .. $r["params"]["post"] .. " of " .. $r["params"]["id"]));
@@ -46,12 +46,12 @@ check("a :name is never empty, so /users/ is /users", $handle(request("GET", "/u
 check("no other spelling: a 404", $handle(request("GET", "/nope/"))["status"], 404);
 
 /* A 404 of your own */
-$custom = router::Router();
+$custom = http::Router();
 $custom.not_found($r -> ({"status" => 404, "body" => "no page at " .. $r["path"]}));
 check("not_found()", $custom.handler()(request("GET", "/x")), {"status" => 404, "body" => "no page at /x"});
 
 /* Middleware wraps everything, the first added outermost */
-$layered = router::Router();
+$layered = http::Router();
 $layered.get("/", $r -> body($r["seen"]));
 $layered.use(($r, $next) -> {
     $r["seen"] = "outer";
@@ -67,7 +67,7 @@ $layered.use(($r, $next) -> {
 });
 check("middleware runs in the order added, and back out", $layered.handler()(request("GET", "/"))["body"], "outer > inner < inner < outer");
 check("middleware sees a 404 too", $layered.handler()(request("GET", "/x"))["body"], "Not Found\n < inner < outer");
-$short = router::Router();
+$short = http::Router();
 $short.get("/", $r -> body("never"));
 $short.use(($r, $next) -> ({"status" => 401, "body" => "log in first"}));
 check("middleware can answer itself", $short.handler()(request("GET", "/")), {"status" => 401, "body" => "log in first"});
@@ -76,7 +76,7 @@ check("middleware can answer itself", $short.handler()(request("GET", "/")), {"s
 $failures = [];
 foreach (["users", "/users/:", "/a/:id/b/:id", 5] as $pattern) {
     try {
-        router::Router().get($pattern, $r -> null);
+        http::Router().get($pattern, $r -> null);
         $failures[] = "no error for $pattern";
     } catch (Error $e) {
         $failures[] = $e.message;

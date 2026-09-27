@@ -1,8 +1,25 @@
 # The GazLang language
 
-A reference. [The README](../README.md) is the tour; this is the whole thing, briefly. Why any
-of it is the way it is lives in [CLAUDE.md](../CLAUDE.md), which is longer and more
+A reference. [The README](../README.md) is the showcase; this is the whole thing, briefly. Why
+any of it is the way it is lives in [CLAUDE.md](../CLAUDE.md), which is longer and more
 opinionated.
+
+## Introduction
+
+GazLang would rather stop than guess. `"5" + 5` is an error, not `10` or `"55"`; a missing map
+key is an error unless you ask for a default with `??`; an integer that overflows is an error,
+never a quiet switch to a float. Every runtime error names its file and line, with a stack
+trace, and `Error` is a real kind a program can extend and catch.
+
+Types are optional, not a mode: leave them out and nothing changes, write `int $n` or
+`pub float #balance` and they are checked as the program runs, at the edges — a call, a return,
+a field write — with errors that name the parameter or field. Nothing is converted to fit,
+except that an int is welcome where a float is asked, and arrives as one.
+
+Lists and maps are values, copied on assignment like numbers are, so nothing changes behind your
+back; objects are handles, shared on purpose. `??`, `?.`, `|>` and `match` (with or without a
+subject) exist so the common shapes of a program — a fallback, a null-safe chain, a pipeline, a
+multi-way branch — read as themselves rather than as nested calls or `if`/`else`.
 
 ## Values
 
@@ -1197,8 +1214,7 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `chars.gaz` | `chars::char_at`, `chars::is_digit`, `chars::is_alpha`, `chars::is_alnum`, `chars::is_space`, `chars::is_hex_digit`, `chars::span($s, $i, $predicate)` (how many characters from `$i` satisfy the predicate: `slice($s, $i, chars::span($s, $i, chars::is_digit))` is the number at `$i`) |
 | `format.gaz` | `format::number`, `format::pad_left`, `format::pad_right`, and `format::sprintf($template, $args)` with the arguments as a list: `%s` (as echo prints it), `%d` (an int), `%f` (an int or float, 6 decimals or `%.2f`'s, rounded as `round()` does), `%x` (an int of 0 or more, lowercase hex), `%%`; a width, `-` to pad on the right and `0` to pad a number with zeros after its sign (`%-8s`, `%05.1f`). A count of arguments that isn't the placeholders', a type `%d`, `%f` or `%x` can't take, and a placeholder it doesn't know are errors |
 | `cli.gaz` | `cli::Command($name, $summary)`, command line arguments with a generated `--help`; see below |
-| `router.gaz` | `router::Router()`, routing requests to handlers for `http::serve`; see below |
-| `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins, and a server, `http::serve($listener, $handler, $options = {})`, `http::handle($socket, $handler, $options = {})` (one connection) and `http::http_date($time)`; see below |
+| `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins, a server, `http::serve($listener, $handler, $options = {})`, `http::handle($socket, $handler, $options = {})` (one connection), `http::http_date($time)`, and `http::Router()` for routing requests to handlers; see below |
 | `date.gaz` | `date::days($year, $month, $day)` (a date as a whole number of days, day 0 being 1 January 1970: an impossible date is an error), `date::civil($days)` (`[year, month, day]`), `date::year`/`month`/`day`, `date::weekday` (0 Monday to 6 Sunday), `date::next_weekday($days, $weekday)`, `date::add_months`, `date::is_leap`, `date::days_in_month`, and `date::format` (`Sat 8 Aug 2026`), `date::short` (`8 Aug`) and `date::iso` (`2026-08-08`). There is no `today()`: a clock would make a program impossible to record, so a program keeps its own date |
 | `random.gaz` | `random::shuffle` (a shuffled copy of a list or string), `random::pick` (an element of a list or value of a map), `random::key`, `random::chance($p)`, `random::weighted` (from `[item, weight]` pairs) |
 | `regex.gaz` | `regex::matches($s, $pattern)` (full match), `regex::search($s, $pattern)` (found anywhere), `regex::find($s, $pattern)` (the start index, or null), `regex::groups($s, $pattern)` (the first match and what each `(...)` in it took, a group that took no part `null`, or `null` for no match), `regex::replace($s, $pattern, $with)` (every match, left to right, by `$with` as it is, so `"$1"` is two bytes; an empty match moves on a byte: `replace("abc", "x*", "-")` is `"-a-b-c-"`); literals, `.`, `* + ?` (greedy), `\|` (the first that matches wins), `(...)`, `[...]`/`[^...]` with ranges, `^ $`, `\` escapes; the leftmost match, and there the greedy repetition and the earlier alternative; no backreferences, no backtracking |
@@ -1276,10 +1292,10 @@ $cli.run(args());
   what is wrong on standard error and exits 2. `try_parse()` and `try_run()` raise a `cli::Stop`
   instead, whose `code` and `message` are what would have been printed.
 
-**Routing**, with `std/router.gaz`:
+**Routing**, with `http::Router()` (in `std/http.gaz`, so nothing extra to include):
 
 ```gaz
-$app = router::Router();
+$app = http::Router();
 $app.get("/users/:id", $request -> ({"body" => "user {$request["params"]["id"]}"}));
 $app.post("/users", $create_user);
 $app.use(($request, $next) -> $next($request));      // middleware
