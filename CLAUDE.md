@@ -274,6 +274,20 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     and replay (for now).
   - **A trap to close**: `Html .. "text"` quietly gives a plain string, which `{{ }}` then escapes;
     concatenating an `Html` should be an error.
+- **A language server** (`lsp/server.gaz`, `bin/gaz lsp/server.gaz`), so an editor gets errors and
+  eventually more without a stranger installing anything but gaz. Diagnostics
+  (`textDocument/didOpen`/`didChange` reparses the whole document, full sync, and
+  `publishDiagnostics` the first syntax error) and hover (a builtin's arity from `builtins()`, or a
+  declared function's parameters found by scanning the document's own text for `fn name(...)`,
+  since the parsed tree doesn't exist while the document has an unrelated syntax error, which is
+  the common case mid-edit) are done; next, in the order an editor's user would notice them
+  missing: go-to-definition, then completion. It is `namespace gazlang`, not its own, reusing the
+  compiler's own `Lexer` and `Parser` as a test of the internals does (see "Namespaces" and
+  `tests/LspTest.php`), rather than making them `pub` for one caller. Framing a message needs an
+  exact byte count (`Content-Length`), which needed a builtin of its own: `read_stdin_bytes($n)`,
+  since `read_stdin()` reads to the end and blocks a server that stays open between messages. A
+  message shaped other than a handler expects is an error response, or a dropped notification,
+  never the end of the process: one bad message shouldn't cost the whole session.
 - **Releases**: `VERSION` holds the version, which the Makefile compiles in and
   `gaz --version` prints. Pushing a tag `vX.Y.Z` matching it runs `.github/workflows/release.yml`,
   which builds and tries gaz on Linux (the latest Ubuntu, x86_64) and macOS (Apple silicon and

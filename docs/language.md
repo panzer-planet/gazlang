@@ -673,6 +673,7 @@ objects as `$seen[object_id($x)] = true`).
 | `write_file($path, $string)` | Writes the string to a file, replacing what it held |
 | `read_stdin()` | All of standard input that is left |
 | `read_line()` | The next line of standard input, or `null` at its end |
+| `read_stdin_bytes($n)` | Exactly `$n` bytes of standard input; an error if it ends first |
 | `args()` | The program's arguments, as a list of strings |
 | `builtins()` | Every builtin's name, mapped to how many arguments it takes |
 
@@ -685,6 +686,11 @@ may have neither), or `null` once the input has ended, so `while (($line = read_
 reads it all; output is flushed first, so a prompt printed with `print` shows before the wait.
 `read_stdin()` is all of standard input that is left, so after some `read_line()`s it is the rest.
 A program that was itself piped in has read its input already: both find nothing.
+
+`read_stdin_bytes($n)` reads exactly `$n` bytes, leaving the rest of the stream for the next
+call, which is what a protocol framed by a byte count (a `Content-Length` header) needs: unlike
+`read_stdin()`, it doesn't read to the end. It shares the same buffer as `read_stdin()` and
+`read_line()`. Standard input ending before `$n` bytes have arrived is an error.
 
 ### Directories
 
