@@ -455,7 +455,8 @@ kind CodeGenerator {
             #quietly($node.target);
             #visit($node.index);
             #emit("INDEX_GET_QUIET");
-        } else if (is_a($node, PropertyAST) && !$node.constant) {
+        } else if (is_a($node, PropertyAST) && !$node.constant && $node.static_name == null) {
+            // a static is a slot with a value always in it, so it is read as any other time
             #quietly($node.target);
             if (is_a($node, NullsafePropertyAST)) {
                 #nullsafe_guard();

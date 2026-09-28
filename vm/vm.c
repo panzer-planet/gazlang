@@ -1708,6 +1708,13 @@ static const char *HELP =
     "      --ast      Print the parser's tree instead of running it\n"
     "  -f, --file     The file to run, as giving it first does\n"
     "      --watch    Run the file, and run it again whenever it or a file it includes changes\n"
+    "      --tty[=COLSxROWS]\n"
+    "                 Run the file on a pretend terminal (120x40 unless given), to drive a program\n"
+    "                 made with std/tui without one: standard input is its keys, and each screen is\n"
+    "                 printed as numbered lines and the styles on them, when a 'snap' comes and at\n"
+    "                 the end. The keys are words, as term::name() writes them: j enter escape\n"
+    "                 ctrl+c page_up f5, \"text to type\", and 'wait 1.5' to let that many seconds\n"
+    "                 pass (the clock moves only then). gaz --tty app.gaz <<< \"2 j snap enter\"\n"
     "  -S, --serve    Serve static files: gaz -S host:port [--docroot DIR] (see std/devserver.gaz)\n";
 
 /* gaz -S host:port [args...]: std/devserver.gaz's own front door, so a zero-config static file
@@ -1719,13 +1726,26 @@ static const char *DEVSERVER_SOURCE =
     "include \"std/devserver.gaz\";\n"
     "devserver::main();\n";
 
+/* --tty's COLSxROWS into tty_cols and tty_rows: false unless both are 1 to 1000 */
+static bool pretend_size(const char *text) {
+    char *end;
+    long cols = strtol(text, &end, 10);
+    if (end == text || *end != 'x') return false;
+    const char *rows_text = end + 1;
+    long rows = strtol(rows_text, &end, 10);
+    if (end == rows_text || *end || cols < 1 || cols > 1000 || rows < 1 || rows > 1000) return false;
+    tty_cols = (int)cols;
+    tty_rows = (int)rows;
+    return true;
+}
+
 static int unknown_option(const char *arg) {
     fprintf(stderr, "Error: Unknown option %s (program arguments go after the file, or after - or --)\n", arg);
     return 1;
 }
 
 /* The CLI, whose options are read as PHP's getopt("hvf:ctS", [help, version, file:, code,
-   tokens, ast, watch, serve]) and its check for options getopt doesn't know. Options end at the
+   tokens, ast, watch, serve, tty::]) and its check for options getopt doesn't know. Options end at the
    first argument that isn't one or after "--". Then, unless "--" ended them, -f named a file, or
    -S/--serve was given, the first argument is the file, or "-" for standard input, as python,
    php and node take it; the rest are the program's. --watch hands the file and those arguments
@@ -1738,7 +1758,7 @@ int main(int argc, char **argv) {
         return run_gaz_test(argc - 2, argv + 2);
     }
     bool help = false, version = false, code = false, tokens = false, ast = false, watching = false, serving = false;
-    bool after_dashes = false, from_stdin = false;
+    bool after_dashes = false, from_stdin = false, pretend = false;
     const char *file = NULL;
     int files = 0;
     int i = 1;
@@ -1759,6 +1779,14 @@ int main(int argc, char **argv) {
             else if (strcmp(name, "ast") == 0) ast = true;
             else if (strcmp(name, "watch") == 0) watching = true;
             else if (strcmp(name, "serve") == 0) serving = true;
+            else if (strcmp(name, "tty") == 0) pretend = true;
+            else if (strncmp(name, "tty=", 4) == 0) {
+                if (!pretend_size(name + 4)) {
+                    fprintf(stderr, "Error: --tty takes a size as COLSxROWS, each 1 to 1000 (--tty=120x40), not %s\n", name + 4);
+                    return 1;
+                }
+                pretend = true;
+            }
             else if (strncmp(name, "file=", 5) == 0 && name[5]) file = name + 5, files++;
             else if (strcmp(name, "file") == 0) {
                 /* The next argument, whatever it is; none is no file, as getopt has it */
@@ -1820,6 +1848,18 @@ int main(int argc, char **argv) {
     if (watching && !file) {
         fputs("Error: --watch needs a file to run: gaz --watch app.gaz\n", stderr);
         return 1;
+    }
+    if (pretend && (code || tokens || ast || watching || serving)) {
+        fputs("Error: --tty runs the program, so it can't be combined with -c, --tokens, --ast, --watch or -S\n", stderr);
+        return 1;
+    }
+    if (pretend && !file) {
+        fputs("Error: --tty needs a file to run, since standard input is its keys: gaz --tty app.gaz <<< \"j j enter\"\n", stderr);
+        return 1;
+    }
+    if (pretend && tty_rows == 0) {
+        tty_cols = 120;
+        tty_rows = 40;
     }
     Job job = {
         .mode = tokens ? M_TOKENS : ast ? M_AST : code ? M_CODE : M_RUN,

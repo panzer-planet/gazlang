@@ -1,0 +1,14 @@
+=== after: j q (the screen ended) ===
+          10        20        30        40        50        60
+1 ┌─ Fruit ──────────┐
+2 │  Apples          │
+3 │> Pears           │
+4 │  Plums           │
+5 └──────────────────┘
+6 keys: j
+7 beats: 0
+8
+styles:
+3  2-19  inverse  "> Pears"
+6  1-60  bold  "keys: j"
+quit

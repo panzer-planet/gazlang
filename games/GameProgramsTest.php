@@ -71,11 +71,33 @@ class GameProgramsTest extends GazLangTestCase
     public function test_the_game_says_when_it_has_no_terminal_or_a_bad_seed()
     {
         [$out, $err, $code] = self::gazlang(['-f', 'games/football/main.gaz']);
-        $this->assertSame(['', "Error: The football manager needs a terminal\n", 1], [$out, $err, $code]);
+        $this->assertSame(['', 1], [$out, $code]);
+        $this->assertStringStartsWith('Error: This program needs a terminal. Without one, give it keys and read its screens: gaz --tty', $err);
 
         $ran = $this->fileOnTerminal('games/football/main.gaz', '', null, ['nonsense']);
         $this->assertSame(1, $ran['code']);
         $this->assertStringContainsString('where SEED is a whole number', $ran['out']);
+    }
+
+    public function test_the_game_plays_on_a_pretend_terminal_the_same_every_time()
+    {
+        $keys = '2 snap tab j snap c wait 2 snap wait 200';
+        [$out, $err, $code] = self::gazlang(['--tty', 'games/football/main.gaz', '1'], $keys);
+
+        $this->assertSame(['', 0], [$err, $code], $out);
+        $this->assertSame([
+            '=== after: 2 ===',
+            '=== after: 2 tab j ===',
+            '=== after: 2 tab j c wait 2 ===',
+            '=== after: 2 tab j c wait 2 wait 200 (the keys ran out) ===',
+        ], array_values(preg_grep('/^===/', explode("\n", $out))));
+        $this->assertStringContainsString('─ Squad ─', $out);
+        // two seconds into the match it is still being played, and 200 more see it finished
+        [$live, $after] = array_slice(explode('=== after: 2 tab j c wait 2', $out), 1);
+        $this->assertStringContainsString('s Skip', $live);
+        $this->assertStringContainsString('Full time', $after);
+        // the clock is the pretend terminal's, so the same keys give the same screens
+        $this->assertSame($out, self::gazlang(['--tty', 'games/football/main.gaz', '1'], $keys)[0]);
     }
 
     public function test_a_match_moves_by_itself_while_nobody_presses_a_key()

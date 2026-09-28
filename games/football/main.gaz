@@ -11,10 +11,6 @@ include "std/tui.gaz";
 include "game.gaz" use Game;
 include "ui.gaz" use Shell;
 
-if (!term_is_tty(0) || !term_is_tty(1)) {
-    throw "The football manager needs a terminal";
-}
-
 $arguments = args();
 $path = "football.save";
 if (len($arguments) > 0 && $arguments[0] == "load") {

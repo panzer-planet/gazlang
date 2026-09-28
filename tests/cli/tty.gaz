@@ -1,0 +1,32 @@
+/* A screen for gaz --tty to drive: a menu, the keys pressed last, and a beat that counts time */
+include "std/term.gaz";
+include "std/tui.gaz";
+
+kind Demo {
+    #menu = tui::Menu(["Apples", "Pears", "Plums"], "Fruit");
+    #pressed = [];
+    #beats = 0;
+
+    pub fn draw($screen) {
+        #menu.draw($screen, 1, 1, 20, 5);
+        tui::label($screen, 1, 6, 60, "keys: " .. join(slice(#pressed, -12), " "), "bold");
+        tui::label($screen, 1, 7, 60, "beats: " .. #beats);
+    }
+
+    pub fn handle($key) {
+        #pressed[] = term::name($key);
+        if (last(#pressed) == "q") {
+            return "quit";
+        }
+        #menu.handle($key);
+        return null;
+    }
+
+    pub fn tick() {
+        #beats++;
+        return null;
+    }
+}
+
+$demo = Demo();
+echo tui::interact($screen -> $demo.draw($screen), $key -> $demo.handle($key), null, $demo.tick, 0.5);

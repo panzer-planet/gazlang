@@ -1,0 +1,1 @@
+Error: --tty runs the program, so it can't be combined with -c, --tokens, --ast, --watch or -S

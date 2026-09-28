@@ -140,8 +140,17 @@ pub fn title($text) { return ESC .. "]0;" .. $text .. "\x07"; }
 /*
  * Run $f on a screen of its own in raw mode, with the cursor hidden, and put everything back
  * however $f ends (an error included; exit() and signals are term.c's). Gives what $f gives.
+ * Standard input and output must be a terminal, or gaz --tty's pretend one.
  */
 pub fn fullscreen($f) {
+    if (term_is_virtual()) {
+        // gaz --tty: nothing to set up, and screens are printed as text (tui::interact)
+        return $f();
+    }
+    if (!term_is_tty(0) || !term_is_tty(1)) {
+        throw "This program needs a terminal. Without one, give it keys and read its screens: "
+            .. "gaz --tty FILE <<< \"j j enter snap\" (gaz --help says more)";
+    }
     term_raw(true);
     print(enter_screen() .. hide_cursor() .. clear() .. move_to(1, 1));
     try {
@@ -444,8 +453,12 @@ const ESCAPE_WAIT = 0.05;
 /*
  * Reads keys from standard input through term_read(). It keeps what a read left over (a
  * sequence cut in two by the reads, several keys in one read), so make one and keep using it.
+ * Under gaz --tty the keys come from the script on standard input instead (see Script), which
+ * every Input shares, so a program that makes a new one for each screen goes on where the last
+ * one stopped.
  */
 pub kind Input {
+    static #keys = null;
     #queue = [];
     #rest = "";
     #ended = false;
@@ -455,6 +468,9 @@ pub kind Input {
      * the time runs out. When the input ends, {"key" => "eof"}, again on every call after.
      */
     pub fn read($timeout = null) {
+        if (term_is_virtual()) {
+            return #script().read($timeout, false);
+        }
         while (len(#queue) == 0) {
             if (#ended) {
                 return make_key("eof");
@@ -483,4 +499,211 @@ pub kind Input {
         #queue = [...#queue, ...$decoded["keys"]];
         #rest = $decoded["rest"];
     }
+
+    /*
+     * read(), except that under gaz --tty a `snap` in the script comes as the key "snap", for
+     * tui::interact() to show the screen; read() goes past one, since nothing else can show it
+     */
+    pub fn read_or_snap($timeout = null) {
+        return term_is_virtual() ? #script().read($timeout, true) : #read($timeout);
+    }
+
+    /* Under gaz --tty, the script so far, to say which screen a snapshot is */
+    pub fn typed() {
+        return #script().typed();
+    }
+
+    // The script gaz --tty was given, read the first time it is asked for
+    fn script() {
+        #keys ??= Script::parse(read_stdin());
+        return #keys;
+    }
+}
+
+// ---- The keys gaz --tty is given --------------------------------------------------------------
+
+// The names a key can have beyond the character it types, as decode() gives them
+const KEY_NAMES = [
+    "enter", "tab", "backspace", "space", "escape", "up", "down", "left", "right", "home", "end",
+    "insert", "delete", "page_up", "page_down", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8",
+    "f9", "f10", "f11", "f12",
+];
+const MODIFIERS = ["ctrl", "alt", "shift"];
+const SPACES = " \t\r\n";
+
+/* One step of a script: a key to press, time to let pass, or a screen to show */
+kind Step {
+    fn _(pub #action, pub #word, pub #key = null, pub #seconds = 0) {}
+}
+
+/*
+ * What gaz --tty reads from standard input: words separated by spaces or lines. A key is written
+ * as name() writes it (j, J, 2, enter, escape, ctrl+c, alt+x, shift+tab, page_up, f5); text in
+ * double quotes is typed a character at a time ("hello world", with \" and \\ for a quote and a
+ * backslash), which is also how to type a word that is a key's name or a command ("snap").
+ * `wait SECONDS` lets that much time pass on the clock gaz --tty keeps, which moves only then, so
+ * a program run by a beat (a clock, a live match) does the same every time; `snap` shows the
+ * screen. A mistake stops the program before it runs a step, naming the word.
+ */
+kind Script {
+    #steps = [];
+    #at = 0;
+    #waited = 0;    // how much of the wait at #at has passed
+    #done = [];
+
+    static fn parse($text) {
+        $script = Script();
+        $words = words($text);
+        for ($i = 0; $i < len($words); $i++) {
+            [$word, $quoted] = $words[$i];
+            if ($quoted) {
+                $script.type_text($word);
+            } else if ($word == "snap") {
+                $script.add(Step("snap", $word));
+            } else if ($word == "wait") {
+                $seconds = $i + 1 < len($words) && !$words[$i + 1][1] ? to_float($words[$i + 1][0], null) : null;
+                if ($seconds == null || $seconds < 0) {
+                    refuse("'wait' needs a number of seconds after it, 0 or more");
+                }
+                $i++;
+                $script.add(Step("wait", "wait " .. $words[$i][0], null, $seconds));
+            } else {
+                $script.add(Step("press", $word, key_named($word)));
+            }
+        }
+        return $script;
+    }
+
+    fn add($step) {
+        #steps[] = $step;
+    }
+
+    /*
+     * Each character of $text as a key of its own, as a terminal would send it (a space, a tab or
+     * a newline is that key, not the byte); the first carries the text as it was written
+     */
+    fn type_text($text) {
+        $word = slice(to_string([$text]), 1, -1);
+        foreach (chars($text) as $char) {
+            $key = decode($char == "\n" ? "\r" : $char, true)["keys"][0];
+            #add(Step("press", $word, $key));
+            $word = null;
+        }
+    }
+
+    /*
+     * The next key, letting the script's waits pass as Input.read() would wait. A snap is the key
+     * "snap" when $snaps says so, and passed over when not.
+     */
+    pub fn read($timeout, $snaps) {
+        while (#at < len(#steps)) {
+            $step = #steps[#at];
+            if ($step.action == "press") {
+                #next($step);
+                return $step.key;
+            }
+            if ($step.action == "snap") {
+                #at++;
+                if ($snaps) {
+                    return make_key("snap");
+                }
+                continue;
+            }
+            $left = $step.seconds - #waited;
+            if ($timeout != null && $timeout < $left) {
+                sleep($timeout);
+                #waited += $timeout;
+                return null;
+            }
+            sleep($left);
+            #next($step);
+        }
+        return make_key("eof");
+    }
+
+    /* The keys and waits taken so far, as they were written */
+    pub fn typed() {
+        return join(#done, " ");
+    }
+
+    fn next($step) {
+        if ($step.word != null) {
+            #done[] = $step.word;
+        }
+        #at++;
+        #waited = 0;
+    }
+}
+
+/* $text as [word, quoted] pairs: split at spaces, except inside double quotes */
+fn words($text) {
+    $words = [];
+    $n = len($text);
+    $i = 0;
+    while ($i < $n) {
+        if (contains(SPACES, $text[$i])) {
+            $i++;
+        } else if ($text[$i] == "\"") {
+            [$word, $i] = quoted($text, $i + 1);
+            $words[] = [$word, true];
+        } else {
+            $start = $i;
+            while ($i < $n && !contains(SPACES, $text[$i])) {
+                $i++;
+            }
+            $words[] = [slice($text, $start, $i - $start), false];
+        }
+    }
+    return $words;
+}
+
+// The quoted text starting at $i, just after its opening quote, and where it ends: [text, end]
+fn quoted($text, $i) {
+    $word = "";
+    while ($i < len($text)) {
+        $c = $text[$i];
+        if ($c == "\"") {
+            return [$word, $i + 1];
+        }
+        if ($c == "\\" && $i + 1 < len($text)) {
+            $i++;
+            $c = $text[$i];
+        }
+        $word ..= $c;
+        $i++;
+    }
+    refuse("a quote in the keys is never closed");
+}
+
+// The key a script's word names, as decode() would give it: modifiers first, then the key
+fn key_named($word) {
+    $parts = split($word, "+");
+    $key = last($parts);
+    delete $parts[len($parts) - 1];
+    if ($key == "" && len($parts) > 0) {
+        // "ctrl++": the key is the plus
+        $key = "+";
+        delete $parts[len($parts) - 1];
+    }
+    foreach ($parts as $modifier) {
+        if (!in_array($modifier, MODIFIERS)) {
+            refuse(unknown_word($word));
+        }
+    }
+    if (len(chars($key)) != 1 && !in_array($key, KEY_NAMES)) {
+        refuse(unknown_word($word));
+    }
+    return make_key($key, in_array("ctrl", $parts), in_array("alt", $parts), in_array("shift", $parts));
+}
+
+fn unknown_word($word) {
+    $shown = slice(to_string([$word]), 1, -1);
+    return "no key is called {$shown} (text to type goes in double quotes: \"...\"; "
+        .. "a key is a character or " .. join(KEY_NAMES, " ") .. ", after ctrl+ alt+ or shift+ if held)";
+}
+
+/* A mistake in the keys gaz --tty was given: the user's, not the program's, so no trace, and the exit a usage error has */
+fn refuse($message) {
+    print_error("Error: gaz --tty: " .. $message .. "\n");
+    exit(2);
 }

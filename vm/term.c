@@ -8,6 +8,11 @@
  * handler, and handlers for the signals that would end the program without running one. The
  * terminal is the user's shell's as much as the program's, and one left in raw mode types nothing
  * back until `reset`.
+ *
+ * `gaz --tty` gives the program a pretend terminal instead (`tty_cols` by `tty_rows`, 0 by 0 when
+ * there is none), so a program can be driven and seen without one: every term_ builtin answers as
+ * that terminal would, the clock (`tty_clock`) moves only when the program sleeps, and standard
+ * input is a script of keys that term::Input reads, not bytes that term_read() gives.
  */
 #include "gazvm.h"
 
@@ -20,6 +25,9 @@
 #include <sys/ioctl.h>
 #include <termios.h>
 #include <unistd.h>
+
+int tty_cols = 0, tty_rows = 0;
+double tty_clock = 0;
 
 static struct termios saved_mode;
 static bool raw_on = false;
@@ -48,7 +56,7 @@ static void restore_and_die(int sig) {
    stays on, so "\n" still starts a new line. Ctrl-C and Ctrl-Z arrive as the bytes 3 and 26 for
    the program to decide about, not as signals. */
 bool term_raw(bool on) {
-    if (on == raw_on) return true;
+    if (on == raw_on || tty_rows > 0) return true;
     flush_output();
     if (!on) {
         tcsetattr(STDIN_FILENO, TCSANOW, &saved_mode);
@@ -56,7 +64,10 @@ bool term_raw(bool on) {
         for (int i = 0; i < NSIGNALS; i++) sigaction(ending_signals[i], &saved_signals[i], NULL);
         return true;
     }
-    if (!isatty(STDIN_FILENO)) return raisef("term_raw() needs a terminal on standard input");
+    if (!isatty(STDIN_FILENO)) {
+        return raisef("term_raw() needs a terminal on standard input; without one, pipe keys to "
+                      "gaz --tty FILE (gaz --help says how)");
+    }
     if (tcgetattr(STDIN_FILENO, &saved_mode) != 0) return raisef("term_raw() failed: %s", strerror(errno));
     struct termios raw = saved_mode;
     raw.c_iflag &= ~(tcflag_t)(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
@@ -81,6 +92,7 @@ bool term_raw(bool on) {
    the end of the input. Output is flushed first, or a prompt would still be in its buffer while the
    program waited for the answer to it. Works on a pipe too, which is how it is tested. */
 bool term_read(double timeout, Value *out) {
+    if (tty_rows > 0) return raisef("term_read() under gaz --tty: its keys are read by term::Input");
     flush_output();
     /* poll() takes milliseconds in an int, so a long wait is cut to what fits (about 23 days) */
     double wait = ceil(timeout * 1000);
@@ -106,7 +118,10 @@ bool term_read(double timeout, Value *out) {
 bool term_size(Value *out) {
     struct winsize w;
     int cols = 80, rows = 24;
-    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == 0 && w.ws_col > 0 && w.ws_row > 0) {
+    if (tty_rows > 0) {
+        cols = tty_cols;
+        rows = tty_rows;
+    } else if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == 0 && w.ws_col > 0 && w.ws_row > 0) {
         cols = w.ws_col;
         rows = w.ws_row;
     }
@@ -121,9 +136,16 @@ bool term_size(Value *out) {
     return true;
 }
 
-/* term_is_tty($stream): 0, 1 or 2, standard input, output or error */
+/* term_is_tty($stream): 0, 1 or 2, standard input, output or error. Under gaz --tty, input and
+   output are the pretend terminal's, and error is still what it is */
 bool term_is_tty(int64_t stream, Value *out) {
     if (stream < 0 || stream > 2) return raisef("term_is_tty() expects 0, 1 or 2, got %lld", (long long)stream);
-    *out = v_bool(isatty((int)stream) == 1);
+    *out = v_bool(isatty((int)stream) == 1 || (tty_rows > 0 && stream < 2));
+    return true;
+}
+
+/* term_is_virtual(): whether this is gaz --tty's pretend terminal */
+bool term_is_virtual(Value *out) {
+    *out = v_bool(tty_rows > 0);
     return true;
 }

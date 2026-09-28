@@ -1,0 +1,24 @@
+/* ?? and ??= on a static field, written as #name inside the kind and as Kind::name outside */
+kind Cache {
+    static #value = null;
+    pub static #hits = 0;
+
+    pub fn get() {
+        #value ??= "made once";
+        #hits++;
+        return #value;
+    }
+
+    pub fn peek() {
+        return #value ?? "nothing yet";
+    }
+}
+
+$cache = Cache();
+echo $cache.peek();
+echo $cache.get();
+echo $cache.get();
+echo $cache.peek();
+echo Cache::hits ?? "none";
+Cache::hits ??= 100;
+echo Cache::hits;

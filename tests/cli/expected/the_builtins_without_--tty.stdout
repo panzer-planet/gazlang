@@ -1,0 +1,3 @@
+virtual: false
+input and output: false false
+size: {"cols" => 80, "rows" => 24}
