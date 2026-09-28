@@ -775,7 +775,7 @@ pub kind Shell {
 
     /* The board, under the menu: how much it trusts the manager, as a bar and a word, and what it wants */
     fn draw_board($screen, $rect) {
-        if ($rect.height < 4 || $rect.width < 6) {
+        if ($rect.height < 5 || $rect.width < 6) {
             return null;
         }
         $board = #game.board;
@@ -790,7 +790,8 @@ pub kind Shell {
         tui::label($screen, $col, $rect.row, $width, "Board", "bold");
         tui::progress($screen, $col, $rect.row + 1, $width, $board.confidence / 100, $style);
         tui::label($screen, $col, $rect.row + 2, $width, #game.sacked() ? "Sacked" : $board.mood(), $style);
-        tui::label($screen, $col, $rect.row + 3, $width, "Aim: " .. $board.aim, "dim");
+        tui::label($screen, $col, $rect.row + 3, $width, "Aim", "dim");
+        tui::label($screen, $col, $rect.row + 4, $width, $board.aim);
     }
 
     /* Where the season is: the date, the matchday or the cup's round, and the club's place once there is one */

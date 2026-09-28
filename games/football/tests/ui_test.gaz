@@ -915,7 +915,7 @@ $boarded = Game::start(1);
 $panel = Shell::for_game($boarded);
 $screen = look($panel);
 $row = row_of($screen, "│ Board ");
-check("the board sits under the menu: its confidence as a bar, its mood and its aim", [$row != null, contains($screen.lines()[$row], "60%"), contains($screen.lines()[$row + 1], $boarded.board.mood()), contains($screen.lines()[$row + 2], "Aim: " .. $boarded.board.aim)], [true, true, true, true]);
+check("the board sits under the menu: its confidence as a bar, its mood and its aim", [$row != null, contains($screen.lines()[$row], "60%"), contains($screen.lines()[$row + 1], $boarded.board.mood()), contains($screen.lines()[$row + 2], "Aim") && contains($screen.lines()[$row + 3], $boarded.board.aim)], [true, true, true, true]);
 // two relegations in a row: the board's own way to the sack
 $boarded.board.after_season(20, false, true);
 $boarded.board.after_season(20, false, true);

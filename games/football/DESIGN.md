@@ -94,4 +94,5 @@ A launcher smoke test runs the real thing on a pty. See `README.md`.
    sack at the bottom; the game tells it once and the shell ends the game, so code that plays
    seasons still can). Morale and training are not.
 7. **A season after a season**: two divisions with two up and two down, the summer's ageing,
-   retirements and window. *(done)* A cup is in; an end-of-season summary remains.
+   retirements and window. *(done)* A cup is in, and a review when the season ends (the champions,
+   the club's record, the top scorers and keepers).
