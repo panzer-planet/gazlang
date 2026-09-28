@@ -929,8 +929,10 @@ check("the ones whose contracts ran out and were not renewed have left, the rene
 check("and the squad is full again: seventeen or more, two goalkeepers, the eleven whole", [len($club.players) >= 17, count_where($club.players, $p -> $p.position() == "GK") >= 2, len($club.eleven())], [true, true, 11]);
 $news = message_starting($game.inbox, "Contracts have run out");
 check("and the manager is told who, and who came from the academy", [$news != null, contains($news["body"], "have left") || contains($news["body"], "has left"), contains($news["body"], "From the academy")], [true, true, true]);
-$youth = filter($club.players, $p -> !in_array($p, $before_players));
-check("the academy players have contracts of three seasons", count_where($youth, $p -> $p.contract_until >= date::days(2029, 6, 30)), len($youth));
+// the academy's, as the news names them: others may have joined since January too
+$from_academy = split($news["body"], "From the academy: ")[1];
+$youth = filter($club.players, $p -> !in_array($p, $before_players) && contains($from_academy, to_string($p) .. " ("));
+check("the academy players have contracts of three seasons", [len($youth) > 0, count_where($youth, $p -> $p.contract_until >= date::days(2029, 6, 30))], [true, len($youth)]);
 check("nobody at any club is still under an expired contract", count_where($game.everyone(), $t -> count_where($t.players, $p -> $p.contract_until < $game.date) > 0), 0);
 
 /* what a club asks for a player with six months left, and what a signing gets */
