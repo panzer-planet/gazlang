@@ -1,0 +1,7 @@
+virtual: true
+input and output: true true
+size: {"cols" => 30, "rows" => 3}
+the clock starts at 0.0
+and sleeping moves it: 2.5
+term_read() under gaz --tty: its keys are read by term::Input
+a clock past what a float holds: Float overflow

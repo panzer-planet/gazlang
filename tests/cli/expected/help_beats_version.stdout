@@ -12,4 +12,11 @@ Options:
       --ast      Print the parser's tree instead of running it
   -f, --file     The file to run, as giving it first does
       --watch    Run the file, and run it again whenever it or a file it includes changes
+      --tty[=COLSxROWS]
+                 Run the file on a pretend terminal (120x40 unless given), to drive a program
+                 made with std/tui without one: standard input is its keys, and each screen is
+                 printed as numbered lines and the styles on them, when a 'snap' comes and at
+                 the end. The keys are words, as term::name() writes them: j enter escape
+                 ctrl+c page_up f5, "text to type", and 'wait 1.5' to let that many seconds
+                 pass (the clock moves only then). gaz --tty app.gaz <<< "2 j snap enter"
   -S, --serve    Serve static files: gaz -S host:port [--docroot DIR] (see std/devserver.gaz)

@@ -83,13 +83,6 @@ fn handle_key(Board $board, map $key): ?string {
     return null;
 }
 
-fn require_terminal(): null {
-    if (!term_is_tty(0) || !term_is_tty(1)) {
-        throw "dashboard.gaz needs a terminal";
-    }
-}
-
-require_terminal();
 $board = Board([
     Task("Write the lexer", 10, 10),
     Task("Write the parser", 8, 10),

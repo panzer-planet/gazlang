@@ -1,0 +1,53 @@
+=== at the start ===
+          10        20        30        40        50        60
+1 ┌─ Fruit ──────────┐
+2 │> Apples          │
+3 │  Pears           │
+4 │  Plums           │
+5 └──────────────────┘
+6 keys:
+7 beats: 0
+8
+styles:
+2  2-19  inverse  "> Apples"
+6  1-60  bold  "keys:"
+=== after: j "a b\t\n" ctrl+c alt+x shift+tab f5 "snap" ===
+          10        20        30        40        50        60
+1 ┌─ Fruit ──────────┐
+2 │  Apples          │
+3 │> Pears           │
+4 │  Plums           │
+5 └──────────────────┘
+6 keys: space b tab enter ctrl+c alt+x shift+tab f5 s n a p
+7 beats: 0
+8
+styles:
+3  2-19  inverse  "> Pears"
+6  1-60  bold  "keys: space b tab enter ctrl+c alt+x shift+tab f5 s n a p"
+=== after: j "a b\t\n" ctrl+c alt+x shift+tab f5 "snap" wait 1.2 ===
+          10        20        30        40        50        60
+1 ┌─ Fruit ──────────┐
+2 │  Apples          │
+3 │> Pears           │
+4 │  Plums           │
+5 └──────────────────┘
+6 keys: space b tab enter ctrl+c alt+x shift+tab f5 s n a p
+7 beats: 2
+8
+styles:
+3  2-19  inverse  "> Pears"
+6  1-60  bold  "keys: space b tab enter ctrl+c alt+x shift+tab f5 s n a p"
+=== after: j "a b\t\n" ctrl+c alt+x shift+tab f5 "snap" wait 1.2 (the keys ran out) ===
+          10        20        30        40        50        60
+1 ┌─ Fruit ──────────┐
+2 │  Apples          │
+3 │> Pears           │
+4 │  Plums           │
+5 └──────────────────┘
+6 keys: space b tab enter ctrl+c alt+x shift+tab f5 s n a p
+7 beats: 2
+8
+styles:
+3  2-19  inverse  "> Pears"
+6  1-60  bold  "keys: space b tab enter ctrl+c alt+x shift+tab f5 s n a p"
+null

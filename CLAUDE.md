@@ -982,7 +982,7 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   name is an error rather than null, being a mistake. Both are tested by shape (`time_test.gaz`)
   and `getenv`'s value by `StdlibTest` setting one, since neither can be recorded.
 - The terminal (`term.c`): `term_raw($on)`, `term_read($timeout = null)`, `term_size()`,
-  `term_is_tty($stream)`, only what GazLang can't do itself; drawing is escape sequences through
+  `term_is_tty($stream)`, `term_is_virtual()` (see `gaz --tty`), only what GazLang can't do itself; drawing is escape sequences through
   `print` and turning bytes into keys is GazLang's (`lib/term.gaz`), so the rules are written out
   and testable from a pipe. `term_read` gives raw bytes (`null` on a timeout, `""` at the end) and
   works on a pipe, which is how the key decoder is tested; it flushes output first, since `stdout`
@@ -1753,6 +1753,31 @@ try {
     on raw mode (SIGTTIN, SIGTTOU); the supervisor says so and ends it rather than leave it stopped.
     Handing the child's group the terminal (`tcsetpgrp`) would lift that, with Ctrl-C then the
     program's. `WatchTest` edits files under a running supervisor.
+- **`gaz --tty[=COLSxROWS] app.gaz`** runs a program on a pretend terminal (120x40 by default), so
+  a TUI can be developed with no terminal: by an AI agent above all, which is who it is for, out of
+  the box, and by scripts and tests. Standard input is its keys, as a terminal's keyboard is its
+  program's stdin, which is why there is no `--keys`: `gaz --tty app.gaz <<< "2 j snap enter"`, or
+  `< keys.txt`. Stateless on purpose: the same keys always print the same screens, so an agent's
+  shell calls are its session and a sequence showing a bug is already a test case.
+  - **The VM pretends, the library shows** (`tty_cols`, `tty_rows`, `tty_clock` in `term.c`):
+    `term_is_tty()` is true for 0 and 1, `term_size()` the pretend size, `term_raw()` a no-op,
+    `term_is_virtual()` true, and the clock virtual: `monotonic_time()` starts at 0.0 and only
+    `sleep()` moves it, at once, so a screen run by a beat is deterministic. Reading the script
+    is GazLang's (`term::Script`, shared by every `term::Input`, parsed from `read_stdin()` on
+    first use), as turning bytes into keys is, and `term_read()` is an error there, since the
+    script isn't bytes. The screen is printed by `tui::interact()` as `Screen.snapshot()`, from
+    the grid it already has, rather than by a VT emulator in C decoding the escape bytes back:
+    the grid is the truth. `ponytail:` so a bug in `render()`'s bytes doesn't show, and a
+    program drawing its own escapes gets keys and clock but no screens.
+  - **The script's words are `term::name()`'s** (`j`, `enter`, `ctrl+c`, `page_up`), one
+    vocabulary; `"text"` types characters; `wait N` moves the clock; `snap` prints the screen. A
+    snap reaches `interact()` as the key `"snap"` through `Input.read_or_snap()`, never through
+    `read()`, which passes it over, since only `interact()` has a screen to show; a snap that
+    follows a `wait` inside one read is why it can't be peeked for before reading instead.
+    An unknown word is the user's mistake, not the program's: one line and exit 2, no trace.
+  - **The dead end points the way**: `term::fullscreen()` refuses a program without a terminal on
+    stdin and stdout, naming `gaz --tty`, and `term_raw()` does too, so programs don't carry
+    checks of their own and an agent's first `gaz app.gaz` tells it what to do next.
 - **A real REPL is possible, not built**, and nothing decided rules it out; what stands in the way
   is that everything assumes a whole program. It would take: a session mode in the compiler (the
   parser keeps its function, kind, constant and namespace tables between entries, the code

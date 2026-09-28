@@ -63,6 +63,7 @@ const BuiltinInfo builtin_info[] = {
     {"scrypt", 6, 6}, {"argon2id", 6, 8},
     {"read_stdin_bytes", 1, 1},
     {"flush_output", 0, 0}, {"worker_recycle", 0, 0},
+    {"term_is_virtual", 0, 0},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -85,6 +86,7 @@ enum {
     B_RANDOM_BYTES, B_SHA256, B_HMAC_SHA256, B_PBKDF2_SHA256, B_SCRYPT, B_ARGON2ID,
     B_READ_STDIN_BYTES,
     B_FLUSH_OUTPUT, B_WORKER_RECYCLE,
+    B_TERM_IS_VIRTUAL,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -1377,6 +1379,13 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
             return false;
         }
         flush_output();
+        if (tty_rows > 0) {
+            /* gaz --tty: time passes on the pretend terminal's clock, at once, and stays finite */
+            if (!isfinite(tty_clock + seconds)) return raisef("Float overflow");
+            tty_clock += seconds;
+            *out = v_null();
+            return true;
+        }
         /* A day at a time, so any finite number of seconds fits a timespec; a signal that
            interrupts it (a worker being stopped) doesn't cut it short */
         while (seconds > 0) {
@@ -1423,6 +1432,8 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     case B_TERM_IS_TTY:
         if (!want(index, a, INT)) return false;
         return term_is_tty(a.i, out);
+    case B_TERM_IS_VIRTUAL:
+        return term_is_virtual(out);
     case B_STD_SOURCE: {
         /* The text of a standard library file, or null: what `include "std/name.gaz"` reads. GAZLIB, a
            directory, is read instead of the built-in copy, so the library can be edited without a
@@ -1460,6 +1471,10 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         /* Seconds on the system's monotonic clock, from a point nobody promises: only the difference
            between two readings means anything. It doesn't jump when the clock is set, and there are
            no dates in it, which is the point: time() would be different on every run. */
+        if (tty_rows > 0) {
+            *out = v_float(tty_clock);
+            return true;
+        }
         struct timespec now;
         if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) return raisef("monotonic_time() failed: %s", strerror(errno));
         *out = v_float((double)now.tv_sec + (double)now.tv_nsec * 1e-9);

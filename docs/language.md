@@ -868,6 +868,7 @@ has no TLS, and `$tls = true` is an error.
 | `term_read($timeout = null)` | What has arrived on standard input, up to 4KB, or `null` after `$timeout` seconds |
 | `term_size()` | The terminal's columns and rows |
 | `term_is_tty($stream)` | Whether standard input (0), output (1) or error (2) is a terminal |
+| `term_is_virtual()` | Whether this is `gaz --tty`'s pretend terminal |
 
 The terminal builtins are what a program needs to be interactive and GazLang can't do itself. Drawing
 is escape sequences through `print`, and turning bytes into keys is GazLang's too (`lib/term.gaz`):
@@ -885,6 +886,11 @@ is escape sequences through `print`, and turning bytes into keys is GazLang's to
 - `term_size()` — `{"cols" => 80, "rows" => 24}` for the terminal standard output is, and 80 by 24
   when it isn't one. Call it each time it matters; nothing tells a program the window changed.
 - `term_is_tty($stream)` — whether standard input (0), output (1) or error (2) is a terminal.
+- `term_is_virtual()` — whether the program runs on `gaz --tty`'s pretend terminal (see
+  [Without a terminal](#without-a-terminal-gaz---tty)). There, `term_is_tty()` is true for input
+  and output, `term_size()` is the pretend terminal's, `term_raw()` does nothing, `term_read()` is
+  an error (the keys are `term::Input`'s to read), and `monotonic_time()` starts at 0.0 and moves
+  only when the program sleeps, which `sleep()` does at once.
 
 `term_read` reads the descriptor, not the buffer `read_stdin()` and `read_line()` fill, so use one
 or the other.
@@ -1538,4 +1544,48 @@ with no terminal.
   object as `examples/dashboard.gaz` does. **`tui::choose($items, $title = "", $input = null)`**
   (the index picked, or `null` if cancelled or there is nothing to pick) and
   **`tui::ask($question, $initial = "", $input = null)`** (the answer, or `null`) are a
-  `Menu` and a `TextField` run that way, in the middle of the screen. All three need a terminal.
+  `Menu` and a `TextField` run that way, in the middle of the screen. All three need a terminal,
+  or `gaz --tty`'s.
+- **`$screen.snapshot()`** is the screen as text to read: a ruler of columns, the rows numbered,
+  then the text in each style (which is how a selection shows) and the cursor.
+
+#### Without a terminal: gaz --tty
+
+`gaz --tty app.gaz` runs a program on a pretend terminal, 120 columns by 40 rows
+(`--tty=100x30` for another size), so it can be driven and seen with no terminal at all: from a
+script, a test, or an AI agent working on it. Standard input is its keys, and its screens are
+printed as `$screen.snapshot()`s: one wherever the keys say `snap`, and the last one when the
+keys run out or the screen ends.
+
+```bash
+gaz --tty games/football/main.gaz 1 <<< '2 snap tab j snap c wait 3'
+```
+
+```
+=== after: 2 ===
+          10        20        30  ...
+ 1  Riverside FC   Wed 1 Jul 2026 · Matchday 0 of 38 ...
+ 2 ┌──────────────┐┌─ Squad ────────── ...
+...
+styles:
+ 4  2-15  inverse  " 2 Squad"
+```
+
+The keys are words, separated by spaces or lines, so a longer script can be a file
+(`gaz --tty app.gaz < keys.txt`):
+
+- A key is written as `term::name()` writes it: a character (`j`, `J`, `2`, `?`), or `enter`,
+  `tab`, `backspace`, `space`, `escape`, `up`, `down`, `left`, `right`, `home`, `end`, `insert`,
+  `delete`, `page_up`, `page_down`, `f1` to `f12`, after `ctrl+`, `alt+` or `shift+` when held
+  (`ctrl+c`, `shift+tab`).
+- `"text"` in double quotes is typed a character at a time, `\"` and `\\` in it for a quote and
+  a backslash; it is also how to type a word that means something else (`"snap"`, `"enter"`).
+- `wait 1.5` lets that many seconds pass. The pretend terminal keeps its own clock, which moves
+  only then, so a screen run by a beat (a clock, a match being played) moves exactly as far
+  every time, and the same program with the same keys prints the same screens.
+- `snap` prints the screen as it is, headed by the keys that led to it.
+
+A word that isn't one of these stops the program before it runs, with exit code 2. A full-screen
+program run without a terminal says to use `--tty`; `tui::interact()` does all of this, so a
+program made with it needs nothing of its own, and one that draws its own escape sequences gets
+the keys and the clock but no screens.

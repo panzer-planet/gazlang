@@ -15,7 +15,7 @@ class TermTest extends GazLangTestCase
     public function test_without_a_terminal_they_say_so_and_fall_back()
     {
         $this->assertSame(
-            "false false false\n{\"cols\" => 80, \"rows\" => 24}\nterm_raw() needs a terminal on standard input\n\n",
+            "false false false\n{\"cols\" => 80, \"rows\" => 24}\nterm_raw() needs a terminal on standard input; without one, pipe keys to gaz --tty FILE (gaz --help says how)\n\n",
             $this->executeCode('echo term_is_tty(0) .. " " .. term_is_tty(1) .. " " .. term_is_tty(2);'
                 .' echo term_size();'
                 .' try { term_raw(true); } catch (Error $e) { echo $e.message; }'

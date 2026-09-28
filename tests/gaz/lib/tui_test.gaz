@@ -550,3 +550,30 @@ for ($step = 1; $step <= 8; $step++) {
     }
 }
 check("and without keys it beats every interval", $quiet_ticks, 8);
+
+// snapshot(): what gaz --tty prints, numbered from 1 as put() counts
+$shot = tui::Screen(22, 4);
+tui::box($shot, 1, 1, 12, 3, "Menu");
+tui::label($shot, 2, 2, 10, "> First", "inverse");
+tui::label($shot, 14, 2, 8, "7 goals", "bold green");
+check("snapshot: a ruler, numbered rows without their end spaces, then the styled text", $shot.snapshot(), join([
+    "          10        20",
+    "1 ┌─ Menu ───┐",
+    "2 │> First   │ 7 goals",
+    "3 └──────────┘",
+    "4",
+    "styles:",
+    "2  2-11  inverse  \"> First\"",
+    "2  14-21  bold green  \"7 goals\"",
+    "",
+], "\n"));
+$field = tui::Screen(3, 10);
+$field.put(1, 10, "ab");
+$field.cursor(3, 10);
+check("snapshot: rows past 9 widen the margin, and the cursor is said when there is one", $field.snapshot(), join([
+    "",
+    " 1", " 2", " 3", " 4", " 5", " 6", " 7", " 8", " 9",
+    "10 ab",
+    "cursor: column 3, row 10",
+    "",
+], "\n"));

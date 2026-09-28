@@ -1,0 +1,20 @@
+/* What the term builtins and the clock say, on gaz --tty's pretend terminal or without one */
+echo "virtual: " .. term_is_virtual();
+echo "input and output: " .. term_is_tty(0) .. " " .. term_is_tty(1);
+echo "size: " .. term_size();
+if (term_is_virtual()) {
+    echo "the clock starts at " .. monotonic_time();
+    sleep(2.5);
+    echo "and sleeping moves it: " .. monotonic_time();
+    try {
+        term_read(0);
+    } catch ($e) {
+        echo $e.message;
+    }
+    sleep(1e308);
+    try {
+        sleep(1e308);
+    } catch ($e) {
+        echo "a clock past what a float holds: " .. $e.message;
+    }
+}

@@ -1,0 +1,1 @@
+Error: --tty takes a size as COLSxROWS, each 1 to 1000 (--tty=120x40), not 80by24

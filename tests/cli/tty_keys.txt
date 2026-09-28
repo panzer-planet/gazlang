@@ -1,0 +1,6 @@
+snap
+j "a b	
+" ctrl+c alt+x shift+tab f5 "snap"
+snap
+wait 1.2
+snap
