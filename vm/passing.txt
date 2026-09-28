@@ -1027,6 +1027,7 @@ tests/vm_corpus/pattern_parameters.gaz
 tests/vm_corpus/pipe.gaz
 tests/vm_corpus/power.gaz
 tests/vm_corpus/rounding.gaz
+tests/vm_corpus/static_coalesce.gaz
 tests/vm_corpus/superinstructions.gaz
 tests/vm_corpus/throw.gaz
 tests/vm_corpus/to_string_errors.gaz
