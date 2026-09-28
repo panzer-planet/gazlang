@@ -1207,11 +1207,15 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         return true;
     case B_READ_STDIN: {
         Buf text = {0};
-        /* Standard input main() read already, to see whether it was bytecode */
+        /* Source handed to the front end (piped_input) is all of it: what main() read from a pipe
+           to its end, or a built-in program's (gaz test, gaz -S), whose standard input was never
+           read and may be a terminal nobody will close, so it is left alone */
         if (piped_input) {
             buf_add(&text, piped_input, piped_input_len);
             free(piped_input);
             piped_input = NULL;
+            *out = v_str(buf_to_str(&text));
+            return true;
         }
         char chunk[65536];
         size_t n;
