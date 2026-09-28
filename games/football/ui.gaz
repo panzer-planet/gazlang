@@ -51,8 +51,9 @@ pub abstract kind View {
        for the shell to carry out (["swap", $a, $b], ["auto"]). */
     pub abstract fn handle($key);
 
-    /* What the keys of this view do, for the line at the bottom */
-    pub fn hints() { return ""; }
+    /* What the keys of this view do, as [keys, what they do]: for the line at the bottom and the
+       list ? shows. Empty keys are a prompt, said as it is. */
+    pub fn hints() { return []; }
 }
 
 /* Messages, the newest first: a list above and the one selected in full below */
@@ -60,7 +61,7 @@ pub kind InboxView extends View {
     #table = tui::Table(["Date", "Subject"], []);
 
     pub fn title() { return "Inbox"; }
-    pub fn hints() { return "j/k move"; }
+    pub fn hints() { return [["j/k", "move"]]; }
 
     pub fn draw($screen, $rect, $focused) {
         $messages = reverse(#game.inbox);
@@ -96,13 +97,15 @@ pub kind SquadView extends View {
         $row[7] != "" => "red",
         $row[6] == "sub" => "dim",
         default => "",
-    });
+    }).drop_when_narrow([5, 6, 8, 3]);  // goals, role (the dim rows say it), contract, age
     /* The players in the order the table has them, so a row is a player, and who is picked up */
     #shown = [];
     #picked = null;
 
     pub fn title() { return "Squad"; }
-    pub fn hints() { return "j/k move  enter pick, then enter to swap  a best eleven  r renew  . , sort"; }
+    pub fn hints() {
+        return [["j/k", "move"], ["enter", "pick, then enter to swap"], ["a", "best eleven"], ["r", "renew"], [". ,", "sort"], ["o", "reverse"], ["x", "unsorted"]];
+    }
 
     /* Put the game's squad in the table, the eleven first: done for a key as well as for a frame, so
        what a key means never depends on whether a frame came first */
@@ -169,7 +172,7 @@ pub kind FixturesView extends View {
     });
 
     pub fn title() { return "Fixtures"; }
-    pub fn hints() { return "j/k move"; }
+    pub fn hints() { return [["j/k", "move"]]; }
 
     pub fn draw($screen, $rect, $focused) {
         $club = #game.club;
@@ -236,14 +239,14 @@ pub kind LeagueView extends View {
             #shown_level() == 0 && $row[0] > #size - 2 => "red",
             #shown_level() == 1 && $row[0] <= 2 => "green",
             default => "",
-        });
+        }).drop_when_narrow([6, 7]);  // goals for and against: the difference stays
     }
 
     /* Which division is on show: 0 the top, 1 the second */
     fn shown_level() { return #other ? 1 - #game.level : #game.level; }
 
     pub fn title() { return (#other ? #game.other_division_name() : #game.division_name()) .. " table"; }
-    pub fn hints() { return "j/k move  d other division  . , sort  o reverse  x reset"; }
+    pub fn hints() { return [["j/k", "move"], ["d", "other division"], [". ,", "sort"], ["o", "reverse"], ["x", "unsorted"]]; }
 
     pub fn draw($screen, $rect, $focused) {
         $rows = [];
@@ -296,7 +299,7 @@ pub kind FinancesView extends View {
     #table = tui::Table(["MD", "Item", "Amount"], [], ($row, $index) -> starts_with($row[2], "-") ? "red" : "green");
 
     pub fn title() { return "Finances"; }
-    pub fn hints() { return "j/k move"; }
+    pub fn hints() { return [["j/k", "move"]]; }
 
     pub fn draw($screen, $rect, $focused) {
         $club = #game.club;
@@ -323,13 +326,13 @@ pub kind FinancesView extends View {
  * t switches to your own squad, with what a club would pay. Enter buys or sells the player picked.
  */
 pub kind TransfersView extends View {
-    #market = tui::Table(["Name", "Pos", "Age", "Rating", "Club", "Contract", "Price"], []);
-    #squad = tui::Table(["Name", "Pos", "Age", "Rating", "Goals", "Fee"], []);
+    #market = tui::Table(["Name", "Pos", "Age", "Rating", "Club", "Contract", "Price"], []).drop_when_narrow([5, 2]);
+    #squad = tui::Table(["Name", "Pos", "Age", "Rating", "Goals", "Fee"], []).drop_when_narrow([4, 2]);
     #selling = false;
     #shown = [];
 
     pub fn title() { return #selling ? "Transfers: sell" : "Transfers: buy"; }
-    pub fn hints() { return "j/k move  enter " .. (#selling ? "sell" : "buy") .. "  t " .. (#selling ? "buy instead" : "sell instead"); }
+    pub fn hints() { return [["j/k", "move"], ["enter", #selling ? "sell" : "buy"], ["t", #selling ? "buy instead" : "sell instead"], [". ,", "sort"]]; }
 
     fn refresh() {
         $club = #game.club;
@@ -379,7 +382,7 @@ pub kind TacticsView extends View {
     #row = 0;
 
     pub fn title() { return "Tactics"; }
-    pub fn hints() { return "j/k choose  h/l change"; }
+    pub fn hints() { return [["j/k", "choose"], ["h/l", "change"]]; }
 
     /* [name, value, what it does] for each setting; the percentages are Team's factors */
     fn settings() {
@@ -488,10 +491,14 @@ pub kind MatchView extends View {
 
     pub fn hints() {
         if (#making != null) {
-            return #off == null ? "Who goes off?  j/k move  enter choose  escape cancel" : "Who comes on for {#off}?  j/k move  enter choose  escape cancel";
+            $question = #off == null ? "Who goes off?" : "Who comes on for {#off}?";
+            return [["", $question], ["j/k", "move"], ["enter", "choose"], ["escape", "cancel"]];
+        }
+        if (#game.live.finished()) {
+            return [["c", "continue"]];
         }
 
-        return #game.live.finished() ? "c continue" : "space pause  +/- speed  s skip  w substitute  [ ] mentality  i intensity";
+        return [["space", "pause"], ["+/-", "speed"], ["s", "skip"], ["w", "substitute"], ["[ ]", "mentality"], ["i", "intensity"]];
     }
 
     /* Whether a substitution is being chosen, which stops the clock */
@@ -651,20 +658,46 @@ pub kind MatchView extends View {
         if ($panels.height < 3) {
             return null;
         }
-        [$eleven, $others] = $panels.split_left(min(44, $panels.width));
         $rows = map($club.eleven(), $player -> [$player.number, to_string($player), $player.position(), $player.match_goals, $player.sent_off ? "R" : ($player.hurt ? "+" : ($player.yellow_cards > 0 ? "Y" : ""))]);
+        [$eleven, $others] = $panels.split_left(min(eleven_width($rows) + 2, $panels.width));
         tui::table($screen, $eleven.col, $eleven.row, ["#", "Name", "Pos", "G", "C"], slice($rows, 0, max($eleven.height - 2, 0)));
         if ($others.width > 4) {
-            tui::label($screen, $others.col + 2, $others.row, $others.width - 2, "Other matches", "bold");
-            $line = 0;
-            foreach ($day.matches as $match) {
-                if ($match != $mine && $line < $others.height - 2) {
-                    tui::label($screen, $others.col + 2, $others.row + 2 + $line, $others.width - 2, to_string($match));
-                    $line++;
-                }
-            }
+            #draw_others($screen, $others, $day, $mine);
         }
     }
+
+    // The other matches of the matchday, in full where they fit and by the clubs' short names where not
+    fn draw_others($screen, $rect, $day, $mine) {
+        $width = $rect.width - 2;
+        tui::label($screen, $rect.col + 2, $rect.row, $width, "Other matches", "bold");
+        $others = filter($day.matches, $match -> $match != $mine);
+        $fits = reduce($others, ($fits, $match) -> $fits && term::width(to_string($match)) <= $width, true);
+        foreach (slice($others, 0, max($rect.height - 2, 0)) as $line => $match) {
+            $text = $fits ? to_string($match) : short_result($match);
+            tui::label($screen, $rect.col + 2, $rect.row + 2 + $line, $width, $text);
+        }
+    }
+}
+
+// A hint as the line at the bottom says it: "j/k move", or a prompt as it is
+fn hint_text([$keys, $what]) {
+    return $keys == "" ? $what : $keys .. " " .. $what;
+}
+
+// The width tui::table() gives the eleven: its columns and the " │ " between them
+fn eleven_width($rows) {
+    $name = reduce($rows, ($widest, $row) -> max($widest, term::width($row[1])), len("Name"));
+    return len("#") + 1 + $name + len("Pos") + len("G") + len("C") + 4 * term::width(" │ ");
+}
+
+// A club by the first word of its name, which no other club's shares ("Millbrook")
+fn short_name($team) {
+    return split(to_string($team), " ")[0];
+}
+
+// A result in a narrow space: "Millbrook 2-1 Sandgate"
+fn short_result($match) {
+    return short_name($match.home) .. " {$match.home_goals}-{$match.away_goals} " .. short_name($match.away);
 }
 
 /*
@@ -673,9 +706,14 @@ pub kind MatchView extends View {
  * and q quits; the rest go to the section on show.
  */
 pub kind Shell {
+    // The keys that work on every screen, and while a match is on
+    const KEYS = [["1-7", "sections"], ["tab", "menu or section"], ["escape", "back to the menu"], ["c", "continue"], ["C", "play the match at once"], ["S", "save"], ["q", "quit"]];
+    const MATCH_KEYS = [["ctrl+c", "quit"]];
+
     #current = 0;
     #where = "menu";
     #note = "";
+    #keys_shown = false;
 
     fn _(#game, #sections, #match, #save_path = null);
 
@@ -705,7 +743,7 @@ pub kind Shell {
 
         /* the bar: the club on the left, where the season is in the middle, the key to press on the right */
         $screen.fill($top.col, $top.row, $top.width, 1, " ", "inverse");
-        tui::label($screen, $top.col + term::width(#game.club.name) + 3, $top.row, max($top.width - term::width(#game.club.name) - 17, 0), #game.date_label() .. " · " .. (#game.cup_label() ?? ("Matchday " .. min($league.matchdays_played() + ($live && $league.matchdays_left() > 0 ? 1 : 0), $league.matchdays()) .. " of " .. $league.matchdays())) .. " · " .. #game.place() .. " in the " .. #game.division_name(), "inverse", "center");
+        tui::label($screen, $top.col + term::width(#game.club.name) + 3, $top.row, max($top.width - term::width(#game.club.name) - 17, 0), #status(), "inverse", "center");
         tui::label($screen, $top.col, $top.row, term::width(#game.club.name) + 2, " " .. #game.club.name, "bold inverse");
         tui::label($screen, $top.col + $top.width - 14, $top.row, 14, $live && !#game.live.finished() ? "s Skip ▸ " : "c Continue ▸ ", "bold inverse", "right");
 
@@ -722,14 +760,76 @@ pub kind Shell {
         tui::box($screen, $content.col, $content.row, $content.width, $content.height, $view.title(), $in_menu ? "" : "cyan");
         $view.draw($screen, $content.inset(1), !$in_menu);
 
-        $hints = $view.hints();
-        $keys = $live ? "ctrl+c quit" : "1-7 sections  tab focus  c continue  C quick  S save  q quit";
-        tui::label($screen, $bottom.col + 1, $bottom.row, max($bottom.width - 2, 0), #note != "" ? #note : ($hints == "" ? $keys : $hints .. "   " .. $keys), #note != "" ? "bold yellow" : "dim");
+        #draw_bottom($screen, $bottom, $view);
+        if (#keys_shown) {
+            #draw_keys($screen, $view);
+        }
     }
 
-    /* Time passes, while nobody is pressing keys: a matchday being played moves on */
+    /* Where the season is: the date, the matchday or the cup's round, and the club's place once there is one */
+    fn status() {
+        $league = #game.league;
+        $played = $league.matchdays_played() + (#game.live != null && $league.matchdays_left() > 0 ? 1 : 0);
+        if ($played == 0 && #game.cup_label() == null) {
+            return #game.date_label() .. " · Pre-season · " .. #game.division_name();
+        }
+        $stage = #game.cup_label() ?? "Matchday " .. min($played, $league.matchdays()) .. " of " .. $league.matchdays();
+        return #game.date_label() .. " · " .. $stage .. " · " .. #game.place() .. " in the " .. #game.division_name();
+    }
+
+    /* The line at the bottom: a notice, or the section's keys as many as fit, and ? for the rest */
+    fn draw_bottom($screen, $rect, $view) {
+        $width = max($rect.width - 2, 0);
+        if (#note != "") {
+            tui::label($screen, $rect.col + 1, $rect.row, $width, #note, "bold yellow");
+            return null;
+        }
+        $more = "? keys";
+        $room = $width - term::width($more) - 2;
+        $line = "";
+        foreach ($view.hints() as $hint) {
+            $text = hint_text($hint);
+            $next = $line == "" ? $text : $line .. "  " .. $text;
+            if (term::width($next) > $room) {
+                break;
+            }
+            $line = $next;
+        }
+        tui::label($screen, $rect.col + 1, $rect.row, max($room, 0), $line, "dim");
+        tui::label($screen, $rect.col + 1 + $width - term::width($more), $rect.row, term::width($more), $more, "dim");
+    }
+
+    /* Every key there is on this screen, in a box over it, until the next key */
+    fn draw_keys($screen, $view) {
+        $sections = [[$view.title(), filter($view.hints(), $hint -> $hint[0] != "")], ["Everywhere", #game.live != null ? #MATCH_KEYS : #KEYS]];
+        $lines = [];
+        foreach ($sections as [$title, $hints]) {
+            $lines[] = ["", $title];
+            foreach ($hints as $hint) {
+                $lines[] = $hint;
+            }
+            $lines[] = ["", ""];
+        }
+        $key_width = reduce($lines, ($most, $line) -> max($most, term::width($line[0])), 0);
+        $width = min($screen.cols, reduce($lines, ($most, $line) -> max($most, $key_width + 2 + term::width($line[1])), 0) + 4);
+        $height = min($screen.rows, len($lines) + 2);
+        [$col, $row] = tui::centered($screen, $width, $height);
+        $screen.fill($col, $row, $width, $height);
+        tui::box($screen, $col, $row, $width, $height, "Keys", "cyan");
+        foreach (slice($lines, 0, $height - 3) as $i => [$keys, $what]) {
+            $at = $row + 1 + $i;
+            if ($keys == "") {
+                tui::label($screen, $col + 2, $at, $width - 4, $what, "bold");
+            } else {
+                tui::label($screen, $col + 2, $at, $key_width, $keys, "cyan");
+                tui::label($screen, $col + 4 + $key_width, $at, $width - 6 - $key_width, $what);
+            }
+        }
+    }
+
+    /* Time passes, while nobody is pressing keys: a matchday being played moves on, unless the keys are being read */
     pub fn tick() {
-        if (#game.live != null) {
+        if (#game.live != null && !#keys_shown) {
             #match.step();
         }
 
@@ -742,6 +842,11 @@ pub kind Shell {
         #note = "";
         if (in_array($name, ["ctrl+c", "eof"])) {
             return "quit";
+        }
+        if (#keys_shown || $name == "?") {
+            // the list of keys closes at the next key, which does nothing else
+            #keys_shown = !#keys_shown;
+            return null;
         }
         if (#game.live != null) {
             if ($name == "q") {

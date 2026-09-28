@@ -285,6 +285,32 @@ foreach ([4, 5, 8] as $count) {
     }
 }
 
+/* The most league matches in a row $team plays at home, or away */
+fn longest_run($league, $team) {
+    $longest = 0;
+    $run = 0;
+    $last = null;
+    foreach ($league.fixtures_of($team) as $fixture) {
+        $at_home = $fixture["home"] == $team;
+        $run = $at_home == $last ? $run + 1 : 1;
+        $last = $at_home;
+        $longest = max($longest, $run);
+    }
+    return $longest;
+}
+
+/* ---- The fixtures turn every club home and away ---- */
+foreach ([20, 24] as $count) {
+    $teams = clubs($count, 3);
+    $league = League($teams);
+    $league.draw();
+    $longest = 0;
+    foreach ($teams as $team) {
+        $longest = max($longest, longest_run($league, $team));
+    }
+    check("no club of {$count} plays more than three at home, or away, in a row", $longest <= 3, true);
+}
+
 /* ---- A season, a matchday at a time ---- */
 foreach ([4, 5] as $count) {
     foreach ([1, 2] as $seed) {

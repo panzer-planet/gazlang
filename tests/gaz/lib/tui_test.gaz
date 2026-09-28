@@ -577,3 +577,22 @@ check("snapshot: rows past 9 widen the margin, and the cursor is said when there
     "cursor: column 3, row 10",
     "",
 ], "\n"));
+
+/* Too narrow: the columns named go first, then the widest is squeezed */
+$narrow = tui::Table(["Name", "Age", "Rating"], $people).drop_when_narrow([1]);
+$tight = tui::Screen(16, 3);
+$narrow.draw($tight, $tight.bounds());
+check("table: a column is left out rather than the rest squeezed", trim($tight.lines()[1]), "Ann       71.5");
+$roomy = tui::Screen(30, 3);
+$narrow.draw($roomy, $roomy.bounds());
+check("table: and shown again when there is room", trim($roomy.lines()[1]), "Ann      31     71.5");
+$narrow.draw($tight, $tight.bounds());
+$tap = ($key) -> $narrow.handle(term::decode($key)["keys"][0]);
+$tap(".");
+$tap(".");
+check("table: . goes past a column left out", $narrow.sorted_by(), [2, false]);
+$tap(",");
+check("table: and so does ,", $narrow.sorted_by(), [0, false]);
+$tiny = tui::Screen(9, 3);
+$narrow.draw($tiny, $tiny.bounds());
+check("table: past what leaving out saves, the rest are squeezed", trim($tiny.lines()[1]), "Ann  71.5");

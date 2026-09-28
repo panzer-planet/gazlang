@@ -1001,7 +1001,7 @@ check("the round is over: twelve ties, twenty-four out of it or through, thirty-
 check("the manager is told how the round went, and how their tie did", [message_starting($game.inbox, "The Cup: first round") != null, $won ? message_starting($game.inbox, "Cup: through") != null : message_starting($game.inbox, "Cup: knocked out") != null], [true, true]);
 $report = message_starting($game.inbox, $won ? "Cup: through" : "Cup: knocked out");
 check("and the report has the score", contains($report["body"], to_string($mine_tie)), true);
-$entries = filter($game.ledger, $e -> contains($e["text"], "cup"));
+$entries = filter($game.ledger, $e -> contains(lower($e["text"]), "cup"));
 check("the books: a gate if at home, and a prize if it won, and no wages or television", [count_where($entries, $e -> $e["text"] == "Gate receipts, cup"), count_where($entries, $e -> starts_with($e["text"], "Cup prize money")), $game.club.balance - $balance], [$mine_tie.match.home == $game.club ? 1 : 0, $won ? 1 : 0, ($mine_tie.match.home == $game.club ? money::gate($game.club) : 0) + ($won ? money::cup_prize(0) : 0)]);
 check("every winner of the round was paid the prize, the home clubs their gates", [count_where($cup.rounds[0][1], $t -> $t.winner().balance > 0)], [12]);
 

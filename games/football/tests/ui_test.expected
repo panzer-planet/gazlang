@@ -1,10 +1,12 @@
-ok the bar names the club, the date and the matchday
+ok the bar names the club, the date, that the season hasn't begun and the division, with no place yet
 ok the bar is inverse across the screen
 ok the menu lists the sections in order
 ok the inbox is on show, with its welcome
 ok keys start in the menu
 ok the current section is marked in the menu
-ok the last line says what the keys do
+ok the last line says what the section's keys do, and that ? has the rest
+ok ? lists the section's keys and those that work everywhere
+ok and the next key only closes it
 ok the screen is as big as it was asked to be
 ok 2 is the squad
 ok with a header

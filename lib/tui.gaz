@@ -429,13 +429,19 @@ fn fitted($text, $width, $right) {
  *
  * handle() gives "select" for enter and null for anything else. Keys: the arrows or j and k, home
  * and end or g and G, page up and down; "." and "," (or > and <) sort by the next or previous
- * column, "o" turns the order round and "x" goes back to the order the rows came in.
+ * column shown, "o" turns the order round and "x" goes back to the order the rows came in.
+ *
+ * A table too wide for where it is drawn leaves out the columns drop_when_narrow() names, then
+ * squeezes the widest of the rest.
  */
 pub kind Table {
     #headers;
     #rows = [];
     #style_of;
     #numeric = [];
+    /* Columns to leave out when there isn't room, the first first; and those left out last drawn */
+    #droppable = [];
+    #hidden = [];
     /* Indexes into #rows in the order shown, and where in that order the selection is */
     #order = [];
     #cursor = 0;
@@ -450,6 +456,16 @@ pub kind Table {
         #rows = $rows;
         #analyse();
         #reorder(null);
+    }
+
+    /*
+     * When the table is too wide, leave out $columns (indexes from 0) in that order, as many as it
+     * takes, before squeezing any: a name cut to four letters says less than a column not shown.
+     * Gives the table, so it can follow the constructor.
+     */
+    pub fn drop_when_narrow($columns) {
+        #droppable = $columns;
+        return #;
     }
 
     /* Which columns are all numbers */
@@ -531,8 +547,8 @@ pub kind Table {
             "end", "G" => { #cursor = $last; }
             "page_up" => { #cursor = max(#cursor - #page, 0); }
             "page_down" => { #cursor = min(#cursor + #page, $last); }
-            ".", ">" => { #sort_by(#column == null ? 0 : min(#column + 1, len(#headers) - 1), #descending); }
-            ",", "<" => { #sort_by(#column == null ? 0 : max(#column - 1, 0), #descending); }
+            ".", ">" => { #sort_by(#shown_column(#column == null ? 0 : #column + 1, 1), #descending); }
+            ",", "<" => { #sort_by(#shown_column(#column == null ? 0 : #column - 1, -1), #descending); }
             "o" => {
                 if (#column != null) {
                     #sort_by(#column, !#descending);
@@ -554,7 +570,27 @@ pub kind Table {
         return null;
     }
 
-    /* The width of each column: what its widest cell needs, less where the rest is too wide for $available */
+    /*
+     * The first column from $column on, going by $step, that was shown when last drawn; the
+     * nearest the other way at an end, as sorting stops at the last column
+     */
+    fn shown_column($column, $step) {
+        $last = len(#headers) - 1;
+        $start = max(min($column, $last), 0);
+        foreach ([$step, -$step] as $direction) {
+            for ($c = $start; $c >= 0 && $c <= $last; $c += $direction) {
+                if (!in_array($c, #hidden)) {
+                    return $c;
+                }
+            }
+        }
+        return $start;
+    }
+
+    /*
+     * The width of each column: what its widest cell needs, less where the rest is too wide for
+     * $available; null for one left out (see drop_when_narrow())
+     */
     fn widths($available) {
         $widths = [];
         foreach (#headers as $i => $header) {
@@ -566,10 +602,17 @@ pub kind Table {
             $widths[] = $width;
         }
         $total = sum($widths) + 2 * max(len($widths) - 1, 0);
+        foreach (#droppable as $column) {
+            if ($total <= $available) {
+                break;
+            }
+            $total -= $widths[$column] + 2;
+            $widths[$column] = null;
+        }
         while ($total > $available) {
             $widest = 0;
             foreach ($widths as $i => $width) {
-                if ($width > $widths[$widest]) {
+                if ($width != null && $width > ($widths[$widest] ?? 0)) {
                     $widest = $i;
                 }
             }
@@ -588,6 +631,12 @@ pub kind Table {
             return null;
         }
         $widths = #widths($rect.width);
+        #hidden = [];
+        foreach ($widths as $i => $width) {
+            if ($width == null) {
+                #hidden[] = $i;
+            }
+        }
         $visible = $rect.height - 1;
         #page = max($visible - 1, 1);
         if (#cursor < #top) {
@@ -599,6 +648,9 @@ pub kind Table {
 
         $at = $rect.col;
         foreach (#headers as $i => $header) {
+            if ($widths[$i] == null) {
+                continue;
+            }
             $mark = #column == $i ? (#descending ? "▼" : "▲") : "";
             $text = fitted(to_string($header) .. $mark, $widths[$i], #numeric[$i]);
             label($screen, $at, $rect.row, $widths[$i], $text, #column == $i ? "bold underline" : "bold");
@@ -612,7 +664,9 @@ pub kind Table {
             $row = #rows[$index];
             $cells = [];
             foreach ($row as $i => $cell) {
-                $cells[] = fitted(to_string($cell), $widths[$i], #numeric[$i]);
+                if ($widths[$i] != null) {
+                    $cells[] = fitted(to_string($cell), $widths[$i], #numeric[$i]);
+                }
             }
             $style = $style_of == null ? "" : $style_of($row, $index);
             if ($position == #cursor) {
