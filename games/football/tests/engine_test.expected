@@ -314,6 +314,8 @@ ok goals for and against balance (8 clubs, seed 3)
 ok the table's goals are the season's (8 clubs, seed 3)
 ok a match gives out 2 points or 3 (8 clubs, seed 3)
 ok points, then goal difference, then goals scored (8 clubs, seed 3)
+ok no club of 20 plays more than three at home, or away, in a row
+ok no club of 24 plays more than three at home, or away, in a row
 ok nothing is drawn until asked (4 clubs, seed 1)
 ok a season has its matchdays (4 clubs, seed 1)
 ok a club plays everyone home and away (4 clubs, seed 1, Club 1)
@@ -330,9 +332,9 @@ ok a listener attached at kick off hears the match (4 clubs, seed 1)
 ok play_season plays what is left (4 clubs, seed 1)
 ok no more matchdays (4 clubs, seed 1)
 ok the table agrees with the results (4 clubs, seed 1, Club 3)
-ok the table agrees with the results (4 clubs, seed 1, Club 1)
 ok the table agrees with the results (4 clubs, seed 1, Club 4)
 ok the table agrees with the results (4 clubs, seed 1, Club 2)
+ok the table agrees with the results (4 clubs, seed 1, Club 1)
 ok drawing again starts a new season (4 clubs, seed 1)
 ok nothing is drawn until asked (4 clubs, seed 2)
 ok a season has its matchdays (4 clubs, seed 2)
@@ -349,9 +351,9 @@ ok its results are in the fixtures (4 clubs, seed 2)
 ok a listener attached at kick off hears the match (4 clubs, seed 2)
 ok play_season plays what is left (4 clubs, seed 2)
 ok no more matchdays (4 clubs, seed 2)
-ok the table agrees with the results (4 clubs, seed 2, Club 3)
 ok the table agrees with the results (4 clubs, seed 2, Club 4)
 ok the table agrees with the results (4 clubs, seed 2, Club 2)
+ok the table agrees with the results (4 clubs, seed 2, Club 3)
 ok the table agrees with the results (4 clubs, seed 2, Club 1)
 ok drawing again starts a new season (4 clubs, seed 2)
 ok nothing is drawn until asked (5 clubs, seed 1)
@@ -371,8 +373,8 @@ ok its results are in the fixtures (5 clubs, seed 1)
 ok a listener attached at kick off hears the match (5 clubs, seed 1)
 ok play_season plays what is left (5 clubs, seed 1)
 ok no more matchdays (5 clubs, seed 1)
-ok the table agrees with the results (5 clubs, seed 1, Club 5)
 ok the table agrees with the results (5 clubs, seed 1, Club 1)
+ok the table agrees with the results (5 clubs, seed 1, Club 5)
 ok the table agrees with the results (5 clubs, seed 1, Club 3)
 ok the table agrees with the results (5 clubs, seed 1, Club 4)
 ok the table agrees with the results (5 clubs, seed 1, Club 2)
@@ -652,3 +654,17 @@ ok six rounds: five Wednesdays from mid-September to March, in order, and the fi
 ok in order, and none on a league day (Saturdays, and Tuesdays)
 ok a cup of one round is just the final, of two the Wednesday and the final
 ok and it follows the year: the next season's are a year on
+ok the board starts content, with no record
+ok a win is worth more than a draw, and a defeat costs what a win earns
+ok the table counts only after the first matchdays: a place below the target costs, far below costs more, above it earns
+ok a target at the bottom still has places below it that count
+ok losing all the way down: a word when concerned, one when patience runs out, then the sack
+ok and it never goes below nothing
+ok and a win afterwards doesn't bring the manager back
+ok a season's end: the target met pleases the board
+ok missed, it expected more
+ok relegation costs most, though a manager can survive it
+ok and a second relegation does not
+ok promotion with the target met is as good as it gets
+ok the board saves and loads
+ok a game saved before the board kept count starts it afresh

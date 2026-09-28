@@ -379,34 +379,21 @@ fn padded($cells, $count) {
  * stops. Gives how many rows it took (two more than $rows).
  */
 pub fn table($screen, $col, $row, $headers, $rows, $style = "") {
-    /* as many columns as the longest of them, a short row or header being blank in the rest */
-    $columns = len($headers);
-    foreach ($rows as $cells) {
-        $columns = max($columns, len($cells));
-    }
-    $headers = padded($headers, $columns);
-    foreach ($rows as $n => $cells) {
-        $rows[$n] = padded($cells, $columns);
-    }
-    $widths = map($headers, $h -> term::width(to_string($h)));
-    foreach ($rows as $cells) {
-        foreach ($cells as $i => $cell) {
-            $widths[$i] = max($widths[$i], term::width(to_string($cell)));
-        }
-    }
+    [$headers, $rows] = squared($headers, $rows);
+    $widths = column_widths($headers, $rows);
     $rule = join(map($widths, $w -> repeat("─", $w)), "─┼─");
     $line = [];
     foreach ($headers as $i => $header) {
         $line[] = cell_text($header, $widths[$i]);
     }
-    $screen.put($col, $row, join($line, " │ "), "bold");
+    $screen.put($col, $row, join($line, TABLE_SEPARATOR), "bold");
     $screen.put($col, $row + 1, $rule, "dim");
     foreach ($rows as $n => $cells) {
         $line = [];
         foreach ($cells as $i => $cell) {
             $line[] = cell_text($cell, $widths[$i]);
         }
-        $screen.put($col, $row + 2 + $n, join($line, " │ "), $style);
+        $screen.put($col, $row + 2 + $n, join($line, TABLE_SEPARATOR), $style);
     }
     return len($rows) + 2;
 }
@@ -420,6 +407,136 @@ fn fitted($text, $width, $right) {
     return $right ? repeat(" ", $gap) .. join($chars, "") : join($chars, "") .. repeat(" ", $gap);
 }
 
+/* The width table() draws $headers and $rows at, for fitting what goes beside it */
+pub fn table_width($headers, $rows) {
+    [$headers, $rows] = squared($headers, $rows);
+    $widths = column_widths($headers, $rows);
+    return sum($widths) + TABLE_GAP * max(len($widths) - 1, 0);
+}
+
+// What table() puts between columns, and how many columns that takes on the screen
+const TABLE_SEPARATOR = " │ ";
+const TABLE_GAP = 3;
+
+// $headers and $rows with as many cells each as the longest of them, a short row or header blank in the rest
+fn squared($headers, $rows) {
+    $columns = len($headers);
+    foreach ($rows as $cells) {
+        $columns = max($columns, len($cells));
+    }
+    return [padded($headers, $columns), map($rows, $cells -> padded($cells, $columns))];
+}
+
+// Each column's width: its widest cell, the header included
+fn column_widths($headers, $rows) {
+    $widths = map($headers, $h -> term::width(to_string($h)));
+    foreach ($rows as $cells) {
+        foreach ($cells as $i => $cell) {
+            $widths[$i] = max($widths[$i], term::width(to_string($cell)));
+        }
+    }
+    return $widths;
+}
+
+/*
+ * $text cut into lines no wider than $width: at spaces, keeping its own line breaks, and a word
+ * wider than a whole line cut where it must be
+ */
+pub fn wrap($text, $width) {
+    $width = max($width, 1);
+    $lines = [];
+    foreach (split($text, "\n") as $paragraph) {
+        $line = "";
+        foreach (split($paragraph, " ") as $word) {
+            while (term::width($word) > $width) {
+                // a word too long for any line starts one of its own, and is cut into whole lines
+                if ($line != "") {
+                    $lines[] = $line;
+                    $line = "";
+                }
+                $chars = term::chars($word);
+                $lines[] = join(slice($chars, 0, $width), "");
+                $word = join(slice($chars, $width), "");
+            }
+            if ($line == "") {
+                $line = $word;
+            } else if (term::width($line) + 1 + term::width($word) <= $width) {
+                $line ..= " " .. $word;
+            } else {
+                $lines[] = $line;
+                $line = $word;
+            }
+        }
+        $lines[] = $line;
+    }
+    return $lines;
+}
+
+/* $text wrapped into $rect, as much of it as fits, in $style; gives how many lines it took */
+pub fn paragraph($screen, $rect, $text, $style = "") {
+    $lines = slice(wrap($text, $rect.width), 0, max($rect.height, 0));
+    foreach ($lines as $i => $line) {
+        label($screen, $rect.col, $rect.row + $i, $rect.width, $line, $style);
+    }
+    return len($lines);
+}
+
+/*
+ * A line of key hints in $width from $col, $row: $hints is a list of [keys, what they do]
+ * (["j/k", "move"]), said "j/k move", or ["", text] for a prompt said as it is. As many whole
+ * hints as fit, and $more at the right end ("? keys") when given, for where the rest are.
+ */
+pub fn hints($screen, $col, $row, $width, $hints, $more = "", $style = "dim") {
+    $room = $more == "" ? $width : $width - term::width($more) - 2;
+    $line = "";
+    foreach ($hints as [$keys, $what]) {
+        $text = $keys == "" ? $what : $keys .. " " .. $what;
+        $next = $line == "" ? $text : $line .. "  " .. $text;
+        if (term::width($next) > $room) {
+            break;
+        }
+        $line = $next;
+    }
+    label($screen, $col, $row, max($room, 0), $line, $style);
+    if ($more != "" && $width >= term::width($more)) {
+        label($screen, $col + $width - term::width($more), $row, term::width($more), $more, $style);
+    }
+}
+
+/*
+ * Every key there is, in a box in the middle of $screen, over what is there: $groups is a list of
+ * [title, hints], hints as hints() takes them (a prompt, with no keys, is left out). What doesn't
+ * fit the screen is cut off.
+ */
+pub fn key_help($screen, $groups, $title = "Keys") {
+    $lines = [];
+    foreach ($groups as [$heading, $group]) {
+        $lines[] = ["", $heading];
+        foreach (filter($group, $hint -> $hint[0] != "") as $hint) {
+            $lines[] = $hint;
+        }
+        $lines[] = ["", ""];
+    }
+    // no blank line under the last group: the box's border is there
+    delete $lines[len($lines) - 1];
+    $keys_width = reduce($lines, ($most, [$keys, $what]) -> max($most, term::width($keys)), 0);
+    $inner = reduce($lines, ($most, [$keys, $what]) -> max($most, $keys == "" ? term::width($what) : $keys_width + 2 + term::width($what)), term::width($title) + 4);
+    $width = min($screen.cols, $inner + 4);
+    $height = min($screen.rows, len($lines) + 2);
+    [$col, $row] = centered($screen, $width, $height);
+    $screen.fill($col, $row, $width, $height);
+    box($screen, $col, $row, $width, $height, $title, "cyan");
+    foreach (slice($lines, 0, max($height - 2, 0)) as $i => [$keys, $what]) {
+        $at = $row + 1 + $i;
+        if ($keys == "") {
+            label($screen, $col + 2, $at, $width - 4, $what, "bold");
+        } else {
+            label($screen, $col + 2, $at, $keys_width, $keys, "cyan");
+            label($screen, $col + 4 + $keys_width, $at, max($width - 6 - $keys_width, 0), $what);
+        }
+    }
+}
+
 /*
  * A table you move about in: a header, rows that scroll, a selected row, and columns that sort.
  * $headers are the column names and $rows a list of lists of cells; a column whose cells are all
@@ -429,13 +546,19 @@ fn fitted($text, $width, $right) {
  *
  * handle() gives "select" for enter and null for anything else. Keys: the arrows or j and k, home
  * and end or g and G, page up and down; "." and "," (or > and <) sort by the next or previous
- * column, "o" turns the order round and "x" goes back to the order the rows came in.
+ * column shown, "o" turns the order round and "x" goes back to the order the rows came in.
+ *
+ * A table too wide for where it is drawn leaves out the columns drop_when_narrow() names, then
+ * squeezes the widest of the rest.
  */
 pub kind Table {
     #headers;
     #rows = [];
     #style_of;
     #numeric = [];
+    /* Columns to leave out when there isn't room, the first first; and those left out last drawn */
+    #droppable = [];
+    #hidden = [];
     /* Indexes into #rows in the order shown, and where in that order the selection is */
     #order = [];
     #cursor = 0;
@@ -450,6 +573,16 @@ pub kind Table {
         #rows = $rows;
         #analyse();
         #reorder(null);
+    }
+
+    /*
+     * When the table is too wide, leave out $columns (indexes from 0) in that order, as many as it
+     * takes, before squeezing any: a name cut to four letters says less than a column not shown.
+     * Gives the table, so it can follow the constructor.
+     */
+    pub fn drop_when_narrow($columns) {
+        #droppable = $columns;
+        return #;
     }
 
     /* Which columns are all numbers */
@@ -531,8 +664,8 @@ pub kind Table {
             "end", "G" => { #cursor = $last; }
             "page_up" => { #cursor = max(#cursor - #page, 0); }
             "page_down" => { #cursor = min(#cursor + #page, $last); }
-            ".", ">" => { #sort_by(#column == null ? 0 : min(#column + 1, len(#headers) - 1), #descending); }
-            ",", "<" => { #sort_by(#column == null ? 0 : max(#column - 1, 0), #descending); }
+            ".", ">" => { #sort_by(#shown_column(#column == null ? 0 : #column + 1, 1), #descending); }
+            ",", "<" => { #sort_by(#shown_column(#column == null ? 0 : #column - 1, -1), #descending); }
             "o" => {
                 if (#column != null) {
                     #sort_by(#column, !#descending);
@@ -554,7 +687,27 @@ pub kind Table {
         return null;
     }
 
-    /* The width of each column: what its widest cell needs, less where the rest is too wide for $available */
+    /*
+     * The first column from $column on, going by $step, that was shown when last drawn; the
+     * nearest the other way at an end, as sorting stops at the last column
+     */
+    fn shown_column($column, $step) {
+        $last = len(#headers) - 1;
+        $start = max(min($column, $last), 0);
+        foreach ([$step, -$step] as $direction) {
+            for ($c = $start; $c >= 0 && $c <= $last; $c += $direction) {
+                if (!in_array($c, #hidden)) {
+                    return $c;
+                }
+            }
+        }
+        return $start;
+    }
+
+    /*
+     * The width of each column: what its widest cell needs, less where the rest is too wide for
+     * $available; null for one left out (see drop_when_narrow())
+     */
     fn widths($available) {
         $widths = [];
         foreach (#headers as $i => $header) {
@@ -566,10 +719,17 @@ pub kind Table {
             $widths[] = $width;
         }
         $total = sum($widths) + 2 * max(len($widths) - 1, 0);
+        foreach (#droppable as $column) {
+            if ($total <= $available) {
+                break;
+            }
+            $total -= $widths[$column] + 2;
+            $widths[$column] = null;
+        }
         while ($total > $available) {
             $widest = 0;
             foreach ($widths as $i => $width) {
-                if ($width > $widths[$widest]) {
+                if ($width != null && $width > ($widths[$widest] ?? 0)) {
                     $widest = $i;
                 }
             }
@@ -588,6 +748,12 @@ pub kind Table {
             return null;
         }
         $widths = #widths($rect.width);
+        #hidden = [];
+        foreach ($widths as $i => $width) {
+            if ($width == null) {
+                #hidden[] = $i;
+            }
+        }
         $visible = $rect.height - 1;
         #page = max($visible - 1, 1);
         if (#cursor < #top) {
@@ -599,6 +765,9 @@ pub kind Table {
 
         $at = $rect.col;
         foreach (#headers as $i => $header) {
+            if ($widths[$i] == null) {
+                continue;
+            }
             $mark = #column == $i ? (#descending ? "▼" : "▲") : "";
             $text = fitted(to_string($header) .. $mark, $widths[$i], #numeric[$i]);
             label($screen, $at, $rect.row, $widths[$i], $text, #column == $i ? "bold underline" : "bold");
@@ -612,7 +781,9 @@ pub kind Table {
             $row = #rows[$index];
             $cells = [];
             foreach ($row as $i => $cell) {
-                $cells[] = fitted(to_string($cell), $widths[$i], #numeric[$i]);
+                if ($widths[$i] != null) {
+                    $cells[] = fitted(to_string($cell), $widths[$i], #numeric[$i]);
+                }
             }
             $style = $style_of == null ? "" : $style_of($row, $index);
             if ($position == #cursor) {

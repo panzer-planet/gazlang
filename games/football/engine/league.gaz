@@ -80,7 +80,7 @@ pub kind League {
                 if (in_array(null, $pair)) {
                     continue;
                 }
-                $matchday[] = ($round + $i) % 2 == 0 ? $pair : [$pair[1], $pair[0]];
+                $matchday[] = #at_home_first($round, $i) ? $pair : [$pair[1], $pair[0]];
             }
             $first_half[] = $matchday;
             // Keep the first team in place and turn the rest one step
@@ -89,6 +89,19 @@ pub kind League {
 
         // The second half of the season is the same fixtures with home and away swapped
         return [...$first_half, ...map($first_half, $matchday -> map($matchday, $pair -> [$pair[1], $pair[0]]))];
+    }
+
+    /*
+     * Whether the first of pair $i plays at home in round $round (Berger's rule). The team that
+     * stays in place alternates round by round; every other team moves one pair along each round,
+     * so a pair's side by its own index alone turns them home and away in turn. Deciding it by
+     * $round + $i, as this once did, kept a team on one side for half a season.
+     */
+    fn at_home_first($round, $i) {
+        if ($i == 0) {
+            return $round % 2 == 0;
+        }
+        return $i % 2 == 1;
     }
 
     /* Start a season: draw its fixtures, and forget everything played, the table included.

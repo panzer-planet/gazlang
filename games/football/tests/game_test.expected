@@ -432,7 +432,7 @@ ok the position is between 1 and 20 (seed 1, matchday 38)
 ok at least the report and the results, and nothing but the news there is (seed 1, matchday 38)
 ok and the season's end has the last word (seed 1, matchday 38)
 ok the club's season is over after thirty-eight, the Championship's not yet (1)
-ok which the inbox says: the champions and where the club finished (1)
+ok which the inbox says: the champions, where the club finished and its record, the top scorers (1)
 ok the club sits out the Championship's last eight matchdays: nothing of its own is played (1)
 ok and then the whole season is over, forty-six matchdays in the Championship (1)
 ok time goes on after the season: the next one begins, in August of the next year (1)
@@ -856,7 +856,7 @@ ok the position is between 1 and 20 (seed 2, matchday 38)
 ok at least the report and the results, and nothing but the news there is (seed 2, matchday 38)
 ok and the season's end has the last word (seed 2, matchday 38)
 ok the club's season is over after thirty-eight, the Championship's not yet (2)
-ok which the inbox says: the champions and where the club finished (2)
+ok which the inbox says: the champions, where the club finished and its record, the top scorers (2)
 ok the club sits out the Championship's last eight matchdays: nothing of its own is played (2)
 ok and then the whole season is over, forty-six matchdays in the Championship (2)
 ok time goes on after the season: the next one begins, in August of the next year (2)
@@ -1280,7 +1280,7 @@ ok the position is between 1 and 20 (seed 3, matchday 38)
 ok at least the report and the results, and nothing but the news there is (seed 3, matchday 38)
 ok and the season's end has the last word (seed 3, matchday 38)
 ok the club's season is over after thirty-eight, the Championship's not yet (3)
-ok which the inbox says: the champions and where the club finished (3)
+ok which the inbox says: the champions, where the club finished and its record, the top scorers (3)
 ok the club sits out the Championship's last eight matchdays: nothing of its own is played (3)
 ok and then the whole season is over, forty-six matchdays in the Championship (3)
 ok time goes on after the season: the next one begins, in August of the next year (3)
@@ -1797,3 +1797,6 @@ ok new_season() plays out what is left of the cup, unwatched, and moves on
 ok a saved game keeps the cup: the rounds played, who is in, the dates
 ok and it can be played on to the end
 ok with a great side the club won several rounds, and each was paid by its round: 250k for the third, and so on
+ok the board is told what to expect when the manager arrives
+ok a board on the edge sacks the manager, and says so with the record
+ok the game says so once, and the manager stays sacked (ending the game is the shell's)

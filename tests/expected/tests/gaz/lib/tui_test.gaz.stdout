@@ -190,3 +190,19 @@ ok metronome: a held key doesn't stop the beat
 ok and without keys it beats every interval
 ok snapshot: a ruler, numbered rows without their end spaces, then the styled text
 ok snapshot: rows past 9 widen the margin, and the cursor is said when there is one
+ok table: a column is left out rather than the rest squeezed
+ok table: and shown again when there is room
+ok table: . goes past a column left out
+ok table: and so does ,
+ok table: past what leaving out saves, the rest are squeezed
+ok wrap: at spaces, no line wider than asked
+ok wrap: its own line breaks are kept
+ok wrap: a word too long starts a line and is cut into whole lines
+ok wrap: widths are the screen's, not bytes
+ok paragraph: as much as fits, and how many lines that was
+ok table_width: what table() takes, separators included
+ok table_width: a row longer than the header counts
+ok hints: a prompt as it is, then as many whole keys as fit, and where the rest are at the end
+ok hints: with room, all of them, dim
+ok key_help: a box in the middle, each group's keys under its title, prompts left out, no blank line at the end
+ok key_help: centred, the keys in cyan and the titles bold

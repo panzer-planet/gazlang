@@ -13,6 +13,8 @@ include "../engine/teams.gaz" use Team, Formation, Scout, InvalidLineup, Transfe
 include "../engine/matches.gaz" use Fixture, Goal, Booking, Whistle, Injury, Substitution, Shot;
 include "../engine/league.gaz" use League;
 include "../engine/cup.gaz" use Cup;
+include "../engine/board.gaz" use Board;
+include "std/json.gaz";
 
 const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8];
 
@@ -283,6 +285,32 @@ foreach ([4, 5, 8] as $count) {
         }
         check("points, then goal difference, then goals scored ({$label})", $ordered, true);
     }
+}
+
+/* The most league matches in a row $team plays at home, or away */
+fn longest_run($league, $team) {
+    $longest = 0;
+    $run = 0;
+    $last = null;
+    foreach ($league.fixtures_of($team) as $fixture) {
+        $at_home = $fixture["home"] == $team;
+        $run = $at_home == $last ? $run + 1 : 1;
+        $last = $at_home;
+        $longest = max($longest, $run);
+    }
+    return $longest;
+}
+
+/* ---- The fixtures turn every club home and away ---- */
+foreach ([20, 24] as $count) {
+    $teams = clubs($count, 3);
+    $league = League($teams);
+    $league.draw();
+    $longest = 0;
+    foreach ($teams as $team) {
+        $longest = max($longest, longest_run($league, $team));
+    }
+    check("no club of {$count} plays more than three at home, or away, in a row", $longest <= 3, true);
 }
 
 /* ---- A season, a matchday at a time ---- */
@@ -1244,3 +1272,60 @@ check("six rounds: five Wednesdays from mid-September to March, in order, and th
 check("in order, and none on a league day (Saturdays, and Tuesdays)", [$cup_days == sort($cup_days, ($a, $b) -> $a <=> $b), count_where(slice($cup_days, 0, 5), $d -> in_array($d, calendar::matchdays(2026, 46)) || in_array($d, calendar::matchdays(2026, 38)))], [true, 0]);
 check("a cup of one round is just the final, of two the Wednesday and the final", [map(calendar::cup_dates(2026, 1), $d -> date::format($d)), map(calendar::cup_dates(2026, 2), $d -> date::format($d))], [["Sat 22 May 2027"], ["Wed 16 Sep 2026", "Sat 22 May 2027"]]);
 check("and it follows the year: the next season's are a year on", [date::format(calendar::cup_dates(2027, 3)[2]), date::weekday(calendar::cup_dates(2027, 3)[2])], ["Sat 27 May 2028", 5]);
+
+/* ---- The board ---- */
+$board = Board();
+$board.expect(10, "a place in the top half", "Top half");
+check("the board starts content, with no record", [$board.confidence, $board.mood(), $board.matches(), $board.sacked()], [60, "Content", 0, false]);
+$board.after_match(2, 0, 3, 1);
+$board.after_match(1, 1, 3, 2);
+$board.after_match(0, 1, 3, 3);
+check("a win is worth more than a draw, and a defeat costs what a win earns", [$board.confidence, $board.won, $board.drawn, $board.lost], [60 + 3 + 1 - 3, 1, 1, 1]);
+$level = Board();
+$level.expect(10, "a place in the top half", "Top half");
+$level.after_match(1, 1, 15, 5);
+$after_settling = Board();
+$after_settling.expect(10, "a place in the top half", "Top half");
+$after_settling.after_match(1, 1, 11, 11);
+$far = Board();
+$far.expect(10, "a place in the top half", "Top half");
+$far.after_match(1, 1, 20, 11);
+$above = Board();
+$above.expect(10, "a place in the top half", "Top half");
+$above.after_match(1, 1, 4, 11);
+check("the table counts only after the first matchdays: a place below the target costs, far below costs more, above it earns", [$level.confidence, $after_settling.confidence, $far.confidence, $above.confidence], [61, 60, 58, 62]);
+$bottom = Board();
+$bottom.expect(18, "you to steer clear of the bottom places", "Stay up");
+$bottom.after_match(1, 1, 19, 11);
+check("a target at the bottom still has places below it that count", $bottom.confidence, 60);
+
+$falling = Board();
+$falling.expect(18, "you to steer clear of the bottom places", "Stay up");
+$said = [];
+while (!$falling.sacked()) {
+    $said[] = $falling.after_match(0, 3, 20, 20);
+}
+$warnings = filter($said, $s -> $s != "");
+check("losing all the way down: a word when concerned, one when patience runs out, then the sack", [len($warnings), starts_with($warnings[0], "The board are concerned about results. They expect you to steer clear of the bottom places."), starts_with($warnings[1], "The board's patience is running out"), $falling.sacked(), $falling.mood()], [2, true, true, true, "Losing patience"]);
+check("and it never goes below nothing", $falling.confidence >= 0, true);
+$falling.after_match(5, 0, 1, 21);
+check("and a win afterwards doesn't bring the manager back", $falling.sacked(), true);
+
+$season = Board();
+$season.expect(10, "a place in the top half", "Top half");
+check("a season's end: the target met pleases the board", [$season.after_season(8, false, false), $season.confidence, $season.seasons], ["The board are pleased: you did what was asked.", 75, 1]);
+check("missed, it expected more", [$season.after_season(12, false, false), $season.confidence], ["The board expected more.", 65]);
+check("relegation costs most, though a manager can survive it", [$season.after_season(19, false, true), $season.confidence], ["The board are bitterly disappointed by relegation, but you keep your job.", 25]);
+check("and a second relegation does not", [$season.after_season(19, false, true), $season.sacked()], ["", true]);
+$promoted = Board();
+$promoted.expect(2, "a challenge for the title", "Title");
+$promoted.after_season(1, true, false);
+check("promotion with the target met is as good as it gets", $promoted.confidence, 100);
+
+$saved = Board();
+$saved.expect(2, "a challenge for the title", "Title");
+$saved.after_match(3, 0, 1, 1);
+$saved.after_cup_match(0, 0);
+$back = Board::load(json::decode(json::encode($saved.to_json())));
+check("the board saves and loads", [$back.confidence, $back.target, $back.hope, $back.aim, $back.won, $back.drawn, $back.lost], [63, 2, "a challenge for the title", "Title", 1, 1, 0]);
+check("a game saved before the board kept count starts it afresh", [Board::load(null).confidence, Board::load(null).matches()], [60, 0]);

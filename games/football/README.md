@@ -9,7 +9,8 @@ so moving it to a repository of its own needs nothing but a `gaz` binary.
 
     bin/gaz games/football/main.gaz [SEED | load [FILE]]
 
-A terminal at least 80 columns by 24 rows. `1` to `7` (or the arrows and `enter`) choose a section,
+A terminal at least 100 columns by 30 rows (smaller works, with tables leaving out their least
+needed columns). `?` lists every key the screen you are on takes. `1` to `7` (or the arrows and `enter`) choose a section,
 `tab` moves between the menu and the section, `c` moves time on (see "The calendar") to your next
 match, which you watch (see below), `C` plays it without watching and `q` quits. In a table:
 `j`/`k`, `g`/`G`, page up and down move, `.` and `,` sort by the next or previous column, `o` turns
@@ -47,6 +48,18 @@ presses. The Tactics screen (`3`) shows the eleven as a picture and sets the for
 the best eleven for it), mentality and intensity, with what each does. A side that attacks scores
 and concedes more; one that presses hard attacks a little more and tires faster. The other clubs
 set up by how they rate against who they play.
+
+## The board
+
+The board says what it expects when you arrive and at each new season, by how your squad rates
+against the division's: a challenge for the title (the top two), a place in the top half, or to stay
+up. Under the menu is how much it trusts you: a bar, a word for its mood, and the aim. Every league
+result moves it (a win more than a draw, a defeat as much as a win), and after the first ten
+matchdays so does the table: below the aim it wears on the board, well below it more so, at or above
+it earns a little credit. The season's end counts most: the aim met, missed, promotion, relegation.
+The inbox has a word from the board when it grows concerned and when its patience is running out;
+at the bottom you are sacked, told your record in charge, and the game is over (a saved game can be
+loaded). A squad left to age without signings will get you there in a season or two.
 
 ## Money and transfers
 

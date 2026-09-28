@@ -65,8 +65,12 @@ A launcher smoke test runs the real thing on a pty. See `README.md`.
 3. **The match can be changed.** *(done)* Substitutions and tactic changes while it is on.
 4. **Players are a number.** One rating; a manager wants attributes, a role, morale, fitness and a
    contract.
-5. **Balance.** Scorelines like 0-8 come from the simulator's odds, and need tuning before anything
-   built on them is fun.
+5. **Balance** *(done, for now)*: a side's share of the chances goes by the square root of its
+   strength (tactics outside it, so they do what the Tactics screen says), since the shot and the save
+   favour the better side again and the three together gave nine-goal margins; a side two up eases
+   off and one behind late pushes. Measured over whole seasons against real leagues: about 2.9 goals a
+   match, home wins 40-45%, draws 20-25%, a win by five or more in one or two matches in a hundred,
+   champions on 80-100 points. The bottom club still finishes low (10-25).
 6. **Calendar** *(done, for now)*: a date, dated fixtures (Saturdays and some Tuesdays), a season from
    1 July to a review on 1 June, transfer windows in July, August and January, birthdays. Not yet:
    a league cup and European nights, scouting and training on the calendar. The domestic cup is in
@@ -85,6 +89,10 @@ A launcher smoke test runs the real thing on a pty. See `README.md`.
 3. **Tactics**: formation and mentality that change results. *(done)*
 4. **Transfers and finances**: a market with values and wages, the books, the budget. *(done)*
 5. **Saving and loading.** *(done)*
-6. **Depth**: injuries and youth from the academy are in; morale, contracts and training are not.
+6. **Depth**: injuries, youth from the academy and contracts are in, and a board that judges the
+   manager (`engine/board.gaz`: an aim each season, confidence moved by results and the table, the
+   sack at the bottom; the game tells it once and the shell ends the game, so code that plays
+   seasons still can). Morale and training are not.
 7. **A season after a season**: two divisions with two up and two down, the summer's ageing,
-   retirements and window. *(done)* A cup is in; an end-of-season summary remains.
+   retirements and window. *(done)* A cup is in, and a review when the season ends (the champions,
+   the club's record, the top scorers and keepers).

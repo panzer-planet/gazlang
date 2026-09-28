@@ -1,0 +1,156 @@
+/*
+ * The board: what it expects of the manager, how much it trusts them, and the record they are
+ * judged on. Confidence runs from 0 to 100, moves with every league result and more for a season's
+ * end, and at SACKED or below the manager is out. It knows nothing of leagues: the game says where
+ * the club is and what happened.
+ */
+namespace board;
+
+// Where confidence starts, where the board says it is worried, then losing patience, then acts
+const START = 60;
+const CONCERNED = 40;
+const RUNNING_OUT = 25;
+const SACKED = 10;
+// What a result is worth to the board
+const WIN = 3;
+const DRAW = 1;
+const LOSS = -3;
+// How many matchdays before the table counts: early places say little
+const SETTLING = 10;
+// How many places below the target the board minds only a little
+const LEEWAY = 2;
+// A season's end: the target met, missed, and the two changes of division
+const MET = 15;
+const MISSED = -10;
+const PROMOTED = 25;
+const RELEGATED = -30;
+
+pub kind Board {
+    pub #confidence = START;
+    // The place the board expects the club to finish, or better, and what that is in words ("a place in the top half")
+    pub #target = null;
+    pub #hope = "";
+    // The same, short enough for the side of the screen ("Top half")
+    pub #aim = "";
+    // The manager's record in charge: league and cup matches alike
+    pub #won = 0;
+    pub #drawn = 0;
+    pub #lost = 0;
+    pub #seasons = 0;
+    // Once sacked, always: a win after the sack doesn't bring the manager back
+    #fired = false;
+
+    /* A new season's expectation: finish $place or higher, which is $hope in words and $aim in short */
+    pub fn expect($place, $hope, $aim) {
+        #target = $place;
+        #hope = $hope;
+        #aim = $aim;
+    }
+
+    /*
+     * A league result, and where it leaves the club after $matchday matchdays. Gives what the board
+     * has to say about it, or "" when nothing: a warning when confidence falls past a line.
+     */
+    pub fn after_match($scored, $conceded, $place, $matchday) {
+        $before = #confidence;
+        #record($scored, $conceded);
+        $change = $scored > $conceded ? WIN : ($scored == $conceded ? DRAW : LOSS);
+        if ($matchday > SETTLING && #target != null) {
+            /* below the target it wears on them, more once they are well below; at or above it, a
+               little credit. Any place below counts: a target near the bottom has no room below it. */
+            $change += $place <= #target ? 1 : -1 - min(max($place - #target - LEEWAY, 0), 2);
+        }
+        #move($change);
+        return #warning($before);
+    }
+
+    /* A cup result counts in the record, though not with the board */
+    pub fn after_cup_match($scored, $conceded) {
+        #record($scored, $conceded);
+    }
+
+    /* The season's end: the target met or not, promotion or relegation. Gives the board's verdict. */
+    pub fn after_season($place, $promoted, $relegated) {
+        #seasons++;
+        $met = #target != null && $place <= #target;
+        #move(($met ? MET : MISSED) + ($promoted ? PROMOTED : 0) + ($relegated ? RELEGATED : 0));
+        if (#sacked()) {
+            return "";
+        }
+        if ($relegated) {
+            return "The board are bitterly disappointed by relegation, but you keep your job.";
+        }
+        return $met ? "The board are pleased: you did what was asked." : "The board expected more.";
+    }
+
+    pub fn sacked() { return #fired; }
+
+    /* How the board feels, in a word or two, for the screen */
+    pub fn mood() {
+        return match {
+            #confidence >= 75 => "Delighted",
+            #confidence >= 55 => "Content",
+            #confidence > CONCERNED => "Watching",
+            #confidence > RUNNING_OUT => "Concerned",
+            default => "Losing patience",
+        };
+    }
+
+    pub fn matches() { return #won + #drawn + #lost; }
+
+    fn record($scored, $conceded) {
+        if ($scored > $conceded) {
+            #won++;
+        } else if ($scored == $conceded) {
+            #drawn++;
+        } else {
+            #lost++;
+        }
+    }
+
+    fn move($change) {
+        #confidence = min(max(#confidence + $change, 0), 100);
+        if (#confidence <= SACKED) {
+            #fired = true;
+        }
+    }
+
+    // What to tell the manager when confidence has just fallen past a line from $before
+    fn warning($before) {
+        if (#sacked()) {
+            return "";
+        }
+        if ($before > RUNNING_OUT && #confidence <= RUNNING_OUT) {
+            return "The board's patience is running out. Results must improve, and quickly.";
+        }
+        if ($before > CONCERNED && #confidence <= CONCERNED) {
+            return "The board are concerned about results. They expect {#hope}.";
+        }
+        return "";
+    }
+
+    pub fn to_json() {
+        return {
+            "confidence" => #confidence, "target" => #target, "hope" => #hope, "aim" => #aim,
+            "won" => #won, "drawn" => #drawn, "lost" => #lost, "seasons" => #seasons, "fired" => #fired,
+        };
+    }
+
+    static fn from_json($data) {
+        $board = Board();
+        $board.confidence = $data["confidence"];
+        $board.target = $data["target"];
+        $board.hope = $data["hope"];
+        $board.aim = $data["aim"];
+        $board.won = $data["won"];
+        $board.drawn = $data["drawn"];
+        $board.lost = $data["lost"];
+        $board.seasons = $data["seasons"];
+        $board.fired = $data["fired"];
+        return $board;
+    }
+
+    pub static fn load($data) {
+        return $data == null ? Board() : Board::from_json($data);
+    }
+}

@@ -58,10 +58,10 @@ fn lines_with($screen, $text) {
     return len(filter($screen.lines(), $line -> contains($line, $text)));
 }
 
-/* Every style used in row $row of the screen */
-fn styles_in($screen, $row) {
+/* Every style used in row $row of the screen, from column $from */
+fn styles_in($screen, $row, $from = 1) {
     $styles = {};
-    for ($col = 1; $col <= $screen.cols; $col++) {
+    for ($col = $from; $col <= $screen.cols; $col++) {
         $styles[$screen.cell($col, $row)[1]] = true;
     }
     return keys($styles);
@@ -97,7 +97,8 @@ fn said_at($screen, $row) {
 fn results_on($screen) {
     $count = 0;
     for ($row = 3; $row <= $screen.rows - 2; $row++) {
-        $styles = join(styles_in($screen, $row), ",");
+        // the section's side only: the menu's has the board, in colour too
+        $styles = join(filter(styles_in($screen, $row, 17), $s -> $s != ""), ",");
         if (contains($styles, "green") || contains($styles, "yellow") || contains($styles, "red")) {
             $count++;
         }
@@ -109,13 +110,13 @@ fn results_on($screen) {
 $game = Game::start(1);
 $shell = Shell::for_game($game);
 $screen = look($shell);
-check("the bar names the club, the date and the matchday", [
+check("the bar names the club, the date, that the season hasn't begun and the division, with no place yet", [
     contains($screen.lines()[0], "Riverside FC"),
     contains($screen.lines()[0], "Wed 1 Jul 2026"),
-    contains($screen.lines()[0], "Matchday 0 of 38"),
+    contains($screen.lines()[0], "Pre-season · Premier Division"),
     contains($screen.lines()[0], $game.place()),
     contains($screen.lines()[0], "c Continue"),
-], [true, true, true, true, true]);
+], [true, true, true, false, true]);
 check("the bar is inverse across the screen", [$screen.cell(1, 1)[1], $screen.cell(50, 1)[1], $screen.cell(100, 1)[1]], ["bold inverse", "inverse", "bold inverse"]);
 check("the menu lists the sections in order", [
     contains($screen.lines()[2], " 1 Inbox"),
@@ -128,7 +129,12 @@ check("the menu lists the sections in order", [
 check("the inbox is on show, with its welcome", [$shell.section(), shows($screen, "Welcome to Riverside FC"), shows($screen, "The board have appointed you")], ["Inbox", true, true]);
 check("keys start in the menu", $shell.focus(), "menu");
 check("the current section is marked in the menu", [$screen.cell(3, 3)[1], $screen.cell(3, 4)[1]], ["inverse", ""]);
-check("the last line says what the keys do", contains($screen.lines()[29], "1-7 sections  tab focus  c continue  C quick  S save  q quit"), true);
+check("the last line says what the section's keys do, and that ? has the rest", [contains($screen.lines()[29], " j/k move "), ends_with(trim($screen.lines()[29]), "? keys")], [true, true]);
+press($shell, "?");
+$keys = look($shell);
+check("? lists the section's keys and those that work everywhere", [shows($keys, "─ Keys ─"), shows($keys, "Everywhere"), shows($keys, "back to the menu"), shows($keys, "save")], [true, true, true, true]);
+press($shell, "5");
+check("and the next key only closes it", [shows(look($shell), "─ Keys ─"), $shell.section()], [false, "Inbox"]);
 check("the screen is as big as it was asked to be", [len($screen.lines()), term::width($screen.lines()[0])], [30, 100]);
 
 /* ---- Sections ---- */
@@ -340,7 +346,7 @@ press($shell, "C");
 $screen = look($shell);
 check("C plays a matchday without watching it", [$game.league.matchdays_played(), contains($screen.lines()[0], "Matchday 1 of 38"), contains($screen.lines()[0], $game.place())], [1, true, true]);
 check("and shows the inbox, with the news", [$shell.section(), shows($screen, "Matchday 1 results"), row_of($screen, "Matchday 1 results") != null], ["Inbox", true, true]);
-check("the newest message is selected (only bold, as the menu has the keys) and open", [$screen.cell(19, 4)[1], shows($screen, $game.league.table()[0].team.name)], ["bold", true]);
+check("the newest message is selected (only bold, as the menu has the keys) and open", [$screen.cell(19, 4)[1], shows($screen, "─ " .. last($game.inbox)["subject"] .. " ─")], ["bold", true]);
 press($shell, "4");
 $screen = look($shell);
 check("the fixtures have a result now, and the next has moved", [row_of($screen, "next ▸"), lines_with($screen, "next ▸")], [5, 1]);
@@ -382,7 +388,7 @@ check("with the news: one matchday to go in the Championship", contains($message
 press($shell, "C");
 $screen = look($shell);
 check("C plays the Championship's last matchday unwatched and goes on to the season's review on 1 June", [$game.season, $game.date_label(), $shell.notice(), $shell.section()], [2027, "Tue 1 Jun 2027", "Time has moved on to Tue 1 Jun 2027", "Inbox"]);
-check("the notice is in bold yellow, and the inbox has the new season", [$screen.cell(2, 30)[1], shows($screen, "2027/28 begins"), contains($screen.lines()[0], "Matchday 0 of ")], ["bold yellow", true, true]);
+check("the notice is in bold yellow, and the inbox has the new season", [$screen.cell(2, 30)[1], shows($screen, "2027/28 begins"), contains($screen.lines()[0], "Pre-season")], ["bold yellow", true, true]);
 press($shell, "2");
 check("and the notice goes with the next key", $shell.notice(), "");
 press($shell, "c");
@@ -419,7 +425,7 @@ foreach ($day.matches as $match) {
 }
 check("and the other matches, as many as fit", $others > 5, true);
 check("the menu waits: nothing in it is selected", [$screen.cell(3, 3)[1], $shell.focus()], ["dim", "menu"]);
-check("and the hints are the match's", contains($screen.lines()[29], "space pause  +/- speed  s skip  w substitute  [ ] mentality  i intensity   ctrl+c quit"), true);
+check("and the hints are the match's", contains($screen.lines()[29], "space pause  +/- speed  s skip  w substitute  [ ] mentality  i intensity"), true);
 
 $shell.tick();
 check("a tick plays a minute", [$day.clock(), $day.mine.elapsed], [1, 1]);
@@ -757,7 +763,7 @@ while (!$game.club_done()) {
     press($shell, "C");
 }
 press($shell, "C");
-check("after the last match the next season begins on its own: the review, the year and fixtures", [$game.season, contains(look($shell).lines()[0], "Matchday 0 of ")], [2027, true]);
+check("after the last match the next season begins on its own: the review, the year and fixtures", [$game.season, contains(look($shell).lines()[0], "Pre-season")], [2027, true]);
 while ($game.live == null) {
     press($shell, "c");
 }
@@ -793,7 +799,7 @@ $second = Shell::for_game($second_game);
 press($second, "5");
 $screen = look($second);
 $table = $second_game.league.table();
-check("a manager in the second division sees it, with promotion places green and no relegation", [shows($screen, "Championship table"), contains($screen.lines()[0], "in the Championship"), style_at($screen, row_of($screen, $table[1].team.name), $table[1].team.name) ?? "", style_at($screen, row_of($screen, $table[9].team.name), $table[9].team.name) ?? ""], [true, true, $table[1].team.name == $second_game.club.name ? "bold cyan" : "green", $table[9].team.name == $second_game.club.name ? "bold cyan" : ""]);
+check("a manager in the second division sees it, with promotion places green and no relegation", [shows($screen, "Championship table"), contains($screen.lines()[0], "· Championship"), style_at($screen, row_of($screen, $table[1].team.name), $table[1].team.name) ?? "", style_at($screen, row_of($screen, $table[9].team.name), $table[9].team.name) ?? ""], [true, true, $table[1].team.name == $second_game.club.name ? "bold cyan" : "green", $table[9].team.name == $second_game.club.name ? "bold cyan" : ""]);
 
 /* ---- A bench with nobody who can come on ---- */
 $game = Game::start(6);
@@ -903,3 +909,18 @@ if ($cup_tie.winner() == $game.club) {
 } else {
     check("a club that is out has nothing more of the cup to come", shows($screen, "(draw to come)"), false);
 }
+
+/* ---- The board, and the sack ---- */
+$boarded = Game::start(1);
+$panel = Shell::for_game($boarded);
+$screen = look($panel);
+$row = row_of($screen, "│ Board ");
+check("the board sits under the menu: its confidence as a bar, its mood and its aim", [$row != null, contains($screen.lines()[$row], "60%"), contains($screen.lines()[$row + 1], $boarded.board.mood()), contains($screen.lines()[$row + 2], "Aim") && contains($screen.lines()[$row + 3], $boarded.board.aim)], [true, true, true, true]);
+// two relegations in a row: the board's own way to the sack
+$boarded.board.after_season(20, false, true);
+$boarded.board.after_season(20, false, true);
+$screen = look($panel);
+check("sacked, the bar says so and offers to quit", [contains($screen.lines()[$row + 1], "Sacked"), contains($screen.lines()[0], "q Quit")], [true, true]);
+$when = $boarded.date;
+press($panel, "c");
+check("and c moves nothing, saying why", [$boarded.date, $panel.notice()], [$when, "You have been sacked: q quits, and a saved game can be loaded"]);

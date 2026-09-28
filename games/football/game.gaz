@@ -11,6 +11,7 @@ include "engine/cup.gaz" use Cup;
 include "engine/money.gaz";
 include "engine/players.gaz" use Goalkeeper, Defender, Midfielder, Forward;
 include "engine/calendar.gaz";
+include "engine/board.gaz" use Board;
 include "std/date.gaz";
 include "std/random.gaz";
 include "std/json.gaz";
@@ -166,6 +167,8 @@ pub kind Game {
     pub #date = 0;
     /* The club's money in and out, newest last: {"matchday", "text", "amount"} */
     pub #ledger = [];
+    /* What the board expects and how much it trusts the manager: at the bottom, they are sacked */
+    pub #board = Board();
 
     fn _(pub #teams, pub #club, #scout, pub #other_teams, pub #level) {
         #date = calendar::season_start(#season);
@@ -238,7 +241,7 @@ pub kind Game {
             "league" => #league.to_json(),
             "cup" => #cup.to_json(),
             "other_league" => #other_league.to_json(),
-            "inbox" => #inbox, "ledger" => #ledger,
+            "inbox" => #inbox, "ledger" => #ledger, "board" => #board.to_json(),
         };
     }
 
@@ -257,6 +260,8 @@ pub kind Game {
         $game.cup = Cup::from_json($data["cup"], [...$teams, ...$others]);
         $game.inbox = $data["inbox"];
         $game.ledger = $data["ledger"];
+        // a game saved before the board kept count starts it afresh
+        $game.board = Board::load($data["board"] ?? null);
 
         return $game;
     }
@@ -298,6 +303,15 @@ pub kind Game {
     pub fn new_season() {
         if (!#season_over()) {
             return "The season isn't over";
+        }
+        // the board judges the season that ended, before its tables are gone
+        $final = #position();
+        $promoted = #level == 1 && $final <= MOVING;
+        $relegated = #level == 0 && $final > len(#teams) - MOVING;
+        $was_sacked = #board.sacked();
+        $board_verdict = #board.after_season($final, $promoted, $relegated);
+        if (!$was_sacked && #board.sacked()) {
+            #tell_sacked();
         }
         // A cup with rounds still to play (its final is after the league) is finished off, unwatched
         $first_unplayed = len(#cup.rounds);
@@ -352,7 +366,7 @@ pub kind Game {
         }
         #season++;
         #new_leagues();
-        $body = $cup_note .. "\n\nA new season begins in the " .. #division_name() .. ". " .. ($verdict != "" ? $verdict .. " " : "") .. #expectation();
+        $body = $cup_note .. "\n\nA new season begins in the " .. #division_name() .. ". " .. ($verdict != "" ? $verdict .. " " : "") .. $board_verdict .. " " .. #expectation();
         if ($retired != []) {
             $body ..= "\n\nRetired: " .. join($retired, ", ") .. ". From the academy: " .. join(map($academy, $p -> "{$p} ({$p.position()}, {$p.rating})"), ", ") .. ".";
         }
@@ -364,6 +378,34 @@ pub kind Game {
         #tell(#season_label() .. " begins", $body);
 
         return "";
+    }
+
+    /* The division's season in review, told when its last matchday is played: the champions, the
+       club's record and what it means, the best scorers and keepers, and the club's own scorer */
+    fn season_summary() {
+        $table = #league.table();
+        $mine = $table[#position() - 1];
+        $summary = "{$table[0].team} are the champions, on " .. $table[0].points() .. " points. You finished "
+            .. ordinal(#position()) .. " in the " .. #division_name() .. " on " .. $mine.points() .. " points: "
+            .. "{$mine.won} won, {$mine.drawn} drawn, {$mine.lost} lost, {$mine.scored} scored and {$mine.conceded} conceded. "
+            .. #season_outcome();
+        $scorers = #league.top_scorers(3);
+        if ($scorers != []) {
+            $summary ..= "\n\nTop scorers: " .. join(map($scorers, $s -> "{$s["player"]} ({$s["team"]}) {$s["player"].goals}"), ", ") .. ".";
+        }
+        $ours = sort(#club.players, ($a, $b) -> $b.goals <=> $a.goals)[0];
+        if ($ours.goals > 0) {
+            $summary ..= " Yours: {$ours}, with {$ours.goals}.";
+        }
+        $keepers = #league.top_keepers(1);
+        if ($keepers != []) {
+            $summary ..= "\nMost clean sheets: {$keepers[0]["player"]} ({$keepers[0]["team"]}) " .. $keepers[0]["player"].clean_sheets .. ".";
+        }
+        if (!#season_over()) {
+            $left = #other_league.matchdays_left();
+            $summary ..= "\n\nThe " .. #other_division_name() .. " has {$left} " .. ($left == 1 ? "matchday to go: c plays it." : "matchdays to go: c plays them.");
+        }
+        return $summary;
     }
 
     /* What the finishing position means for next season, as a sentence */
@@ -379,16 +421,17 @@ pub kind Game {
         return "";
     }
 
-    /* What the board hopes for, by how the club's squad rates among the others */
+    /* What the board hopes for, by how the club's squad rates among the others, told to the board
+       and given as a sentence */
     fn expectation() {
         $stronger = len(filter(#teams, $team -> $team.rating() > #club.rating()));
-        if ($stronger < 2) {
-            return "The board expect a challenge for the title.";
-        }
-        if ($stronger < len(#teams) / 2) {
-            return "The board expect a place in the top half.";
-        }
-        return "The board expect you to steer clear of the bottom places.";
+        [$place, $hope, $aim] = match {
+            $stronger < 2 => [2, "a challenge for the title", "Title"],
+            $stronger < len(#teams) / 2 => [intdiv(len(#teams), 2), "a place in the top half", "Top half"],
+            default => [len(#teams) - MOVING, "you to steer clear of the bottom places", "Stay up"],
+        };
+        #board.expect($place, $hope, $aim);
+        return "The board expect {$hope}.";
     }
 
     pub fn season_label() {
@@ -477,6 +520,8 @@ pub kind Game {
         foreach ($ties as $tie) {
             if ($tie.match.home == #club || $tie.match.away == #club) {
                 #report_cup($tie, $round);
+                [$scored, $conceded] = #score_for($tie.match);
+                #board.after_cup_match($scored, $conceded);
             }
         }
         #tell("The Cup: " .. lower($round), join(map($ties, $tie -> to_string($tie)), "\n"));
@@ -758,6 +803,7 @@ pub kind Game {
         foreach ($matches as $match) {
             if ($match.home == #club || $match.away == #club) {
                 #report($match);
+                #judge($match);
             }
         }
         if ($matches != []) {
@@ -765,9 +811,7 @@ pub kind Game {
         }
         #report_availability($available);
         if ($matches != [] && #league.matchdays_left() == 0) {
-            $champions = #league.table()[0].team;
-            #tell("The season is over", "{$champions} are the champions. You finished " .. ordinal(#position()) .. " in the " .. #division_name() .. ". "
-                .. #season_outcome() .. (#season_over() ? "" : " The " .. #other_division_name() .. " has " .. #other_league.matchdays_left() .. (#other_league.matchdays_left() == 1 ? " matchday" : " matchdays") .. " to go: c plays them."));
+            #tell("The season is over", #season_summary());
         }
         return $matches;
     }
@@ -958,9 +1002,39 @@ pub kind Game {
     }
 
     /* The message about the club's own match */
+    /* [scored, conceded] of the club in $match */
+    fn score_for($match) {
+        return $match.home == #club ? [$match.home_goals, $match.away_goals] : [$match.away_goals, $match.home_goals];
+    }
+
+    /* What the board makes of a league result: a warning when its confidence falls past a line, the sack at the bottom */
+    fn judge($match) {
+        [$scored, $conceded] = #score_for($match);
+        $was_sacked = #board.sacked();
+        $warning = #board.after_match($scored, $conceded, #position(), #league.matchdays_played());
+        if ($warning != "") {
+            #tell("A word from the board", $warning);
+        }
+        if (!$was_sacked && #board.sacked()) {
+            #tell_sacked();
+        }
+    }
+
+    /* The end: the board has had enough */
+    fn tell_sacked() {
+        $board = #board;
+        #tell("Sacked", "The board have relieved you of your duties as manager of {#club}. The club are "
+            .. ordinal(#position()) .. " in the " .. #division_name() .. ".\n\nYou leave after " .. $board.matches() .. " matches in charge: "
+            .. "{$board.won} won, {$board.drawn} drawn, {$board.lost} lost.");
+    }
+
+    /* Whether the manager has been sacked. The game says so once; ending it is the shell's, which
+       stops moving time on, so that code that plays seasons for its own reasons still can. */
+    pub fn sacked() { return #board.sacked(); }
+
     fn report($match) {
         $home = $match.home == #club;
-        [$scored, $conceded] = $home ? [$match.home_goals, $match.away_goals] : [$match.away_goals, $match.home_goals];
+        [$scored, $conceded] = #score_for($match);
         $opponent = $home ? $match.away : $match.home;
         $what = $scored > $conceded ? "Win" : ($scored == $conceded ? "Draw" : "Defeat");
         $points = #league.table()[#position() - 1].points();

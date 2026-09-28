@@ -140,7 +140,8 @@ pub fn title($text) { return ESC .. "]0;" .. $text .. "\x07"; }
 /*
  * Run $f on a screen of its own in raw mode, with the cursor hidden, and put everything back
  * however $f ends (an error included; exit() and signals are term.c's). Gives what $f gives.
- * Standard input and output must be a terminal, or gaz --tty's pretend one.
+ * Standard input and output must be a terminal, or gaz --tty's pretend one: without, it says so
+ * and exits 1.
  */
 pub fn fullscreen($f) {
     if (term_is_virtual()) {
@@ -148,8 +149,11 @@ pub fn fullscreen($f) {
         return $f();
     }
     if (!term_is_tty(0) || !term_is_tty(1)) {
-        throw "This program needs a terminal. Without one, give it keys and read its screens: "
-            .. "gaz --tty FILE <<< \"j j enter snap\" (gaz --help says more)";
+        /* how it was run, not a bug in the program, so one line and no trace, as a usage error; a
+           program with something else to do without a terminal asks term_is_tty() first */
+        print_error("Error: This program needs a terminal. Without one, give it keys and read its screens: "
+            .. "gaz --tty FILE <<< \"j j enter snap\" (gaz --help says more)\n");
+        exit(1);
     }
     term_raw(true);
     print(enter_screen() .. hide_cursor() .. clear() .. move_to(1, 1));

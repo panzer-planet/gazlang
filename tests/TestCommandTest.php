@@ -33,6 +33,31 @@ class TestCommandTest extends GazLangTestCase
         $this->assertStringContainsString('3 files run, 1 failed', $out);
     }
 
+    /**
+     * The bootstrap program is handed to the front end as source; standard input is the user's and
+     * was never read, so reading on after the source (which a program piped in whole has drained
+     * already) would wait for an end that a terminal, or a pipe held open, never gives.
+     */
+    public function test_it_never_waits_on_standard_input_left_open()
+    {
+        $process = proc_open([self::binary(), 'test', self::FIXTURES.'/passing'], [['pipe', 'r'], ['pipe', 'w'], ['pipe', 'w']], $pipes, self::ROOT);
+        $this->assertIsResource($process);
+        $deadline = microtime(true) + 20;
+        while (proc_get_status($process)['running'] && microtime(true) < $deadline) {
+            usleep(50000);
+        }
+        $running = proc_get_status($process)['running'];
+        if ($running) {
+            proc_terminate($process);
+        }
+        fclose($pipes[0]);
+        $out = stream_get_contents($pipes[1]);
+        proc_close($process);
+
+        $this->assertFalse($running, 'gaz test waited on standard input');
+        $this->assertStringContainsString('2 files run, 0 failed', $out);
+    }
+
     public function test_a_directory_scoped_to_only_passing_files_exits_zero()
     {
         [$out, $err, $code] = $this->gazTest([self::FIXTURES.'/passing']);

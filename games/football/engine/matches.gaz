@@ -6,6 +6,13 @@ include "std/random.gaz";
 include "players.gaz";
 include "std/lists.gaz" use max_by;
 
+// How much more of the ball the home side gets, before the square root
+const HOME_ADVANTAGE = 1.25;
+// How much of the ball a side two goals up gives away, and a third, and so on
+const LEAD_EASING = 0.7;
+// How much more a side behind in the last half hour attacks
+const CHASING = 1.2;
+
 pub abstract kind Event {
     fn _(pub #minute, pub #team) {}
     pub abstract fn describe();
@@ -178,9 +185,13 @@ pub kind Fixture {
         // A chance in about one minute in six, a foul in one in thirty, and most minutes nothing
         $roll = rand_float();
         if ($roll < 0.17) {
-            // The home side gets a little more of the ball, and a team playing to attack gets more
-            $home_attack = #home.attack() * 1.1 * #home.attack_factor();
-            if (random::chance($home_attack / ($home_attack + #away.attack() * #away.attack_factor()))) {
+            /* The home side gets a little more of the ball, and a team playing to attack gets more. The
+               square root of how strong a side is, so a better side is ahead without having all of
+               it: the shot and the save favour it again, and the three together gave nine-goal
+               margins. Tactics are outside it, so they do what the Tactics screen says. */
+            $home_attack = sqrt(#home.attack() * HOME_ADVANTAGE) * #home.attack_factor() * #urgency(#home, $minute);
+            $away_attack = sqrt(#away.attack()) * #away.attack_factor() * #urgency(#away, $minute);
+            if (random::chance($home_attack / ($home_attack + $away_attack))) {
                 #attempt($minute, #home, #away);
             } else {
                 #attempt($minute, #away, #home);
@@ -194,6 +205,19 @@ pub kind Fixture {
             $team = random::chance(0.5) ? #home : #away;
             #injure($team, random::pick($team.on_pitch()), random::weighted([[10, 30], [17, 25], [24, 15], [31, 10], [45, 10], [60, 6], [90, 4]]));
         }
+    }
+
+    /* How hard $team goes forward for the score: a side two goals up sits back a little more with
+       each goal, and one behind in the last half hour pushes */
+    fn urgency($team, $minute) {
+        $lead = $team == #home ? #home_goals - #away_goals : #away_goals - #home_goals;
+        if ($lead >= 2) {
+            return LEAD_EASING ** ($lead - 1);
+        }
+        if ($lead < 0 && $minute > 60) {
+            return CHASING;
+        }
+        return 1.0;
     }
 
     // A substitution the manager makes: the rules are Team.substitute()'s, and it is an event

@@ -101,18 +101,21 @@ foreach ([1, 2, 3] as $seed) {
         $elsewhere = filter($new, $m -> starts_with($m["subject"], $game.other_division_name() .. ", matchday "));
         check("and the other division's, at least the one played the same day ({$label})", [len($elsewhere) >= 1, len(split(last($elsewhere)["body"], "\n"))], [true, 12]);
         check("the position is between 1 and 20 ({$label})", [$game.position() >= 1, $game.position() <= 20], [true, true]);
-        $families = ["Win: ", "Draw: ", "Defeat: ", "Matchday ", "Lineup: ", "Injury: ", "Suspended: ", "Back: ", "The season is over", "Premier Division, ", "Championship, ", "The transfer window", "Contracts", "The Cup", "Cup: ", "You have won the Cup"];
+        $families = ["Win: ", "Draw: ", "Defeat: ", "Matchday ", "Lineup: ", "Injury: ", "Suspended: ", "Back: ", "The season is over", "Premier Division, ", "Championship, ", "The transfer window", "Contracts", "The Cup", "Cup: ", "You have won the Cup", "A word from the board", "Sacked"];
         check("at least the report and the results, and nothing but the news there is ({$label})", [len($new) >= 2, count_where($new, $m -> count_where($families, $f -> starts_with($m["subject"], $f)) == 0)], [true, 0]);
         check("and the season's end has the last word ({$label})", $day < 38 || $new[len($new) - 1]["subject"] == "The season is over", true);
     }
     check("the club's season is over after thirty-eight, the Championship's not yet ({$seed})", [$game.club_done(), $game.season_over()], [true, false]);
     $last = $game.inbox[len($game.inbox) - 1];
     $table = $game.league.table();
-    check("which the inbox says: the champions and where the club finished ({$seed})", [
+    $mine = $table[$game.position() - 1];
+    check("which the inbox says: the champions, where the club finished and its record, the top scorers ({$seed})", [
         $last["subject"],
-        contains($last["body"], $table[0].team.name .. " are the champions."),
-        contains($last["body"], "You finished " .. $game.place() .. " in the " .. $game.division_name() .. "."),
-    ], ["The season is over", true, true]);
+        contains($last["body"], $table[0].team.name .. " are the champions, on " .. $table[0].points() .. " points."),
+        contains($last["body"], "You finished " .. $game.place() .. " in the " .. $game.division_name() .. " on " .. $mine.points() .. " points: "),
+        contains($last["body"], "{$mine.won} won, {$mine.drawn} drawn, {$mine.lost} lost, {$mine.scored} scored and {$mine.conceded} conceded."),
+        contains($last["body"], "Top scorers: " .. $game.league.top_scorers(1)[0]["player"] .. " ("),
+    ], ["The season is over", true, true, true, true]);
     check("the club sits out the Championship's last eight matchdays: nothing of its own is played ({$seed})", [count_where($game.league.table(), $r -> $r.played != 38), len($game.advance())], [0, 0]);
     while (!$game.season_over()) {
         $game.advance();
@@ -639,7 +642,7 @@ foreach ([[20, 0], [20, 25]] as [$seed, $start]) {
     $up = map(slice($second_league.table(), 0, 2), $s -> $s.team.name);
     $mine = $game.club.name;
     $last = message_starting($game.inbox, "The season is over");
-    check("the season's last message says where the club finished, and its fate ({$start})", [contains($last["body"], "in the " .. $game.division_name() .. "."), contains($last["body"], "promoted") == in_array($mine, $up), contains($last["body"], "relegated") == in_array($mine, $down)], [true, true, true]);
+    check("the season's last message says where the club finished, and its fate ({$start})", [contains($last["body"], "in the " .. $game.division_name() .. " on "), contains($last["body"], "promoted") == in_array($mine, $up), contains($last["body"], "relegated") == in_array($mine, $down)], [true, true, true]);
     $paid_place = 0;
     foreach ($game.league.table() as $i => $standing) {
         if ($standing.team == $game.club) {
@@ -929,8 +932,10 @@ check("the ones whose contracts ran out and were not renewed have left, the rene
 check("and the squad is full again: seventeen or more, two goalkeepers, the eleven whole", [len($club.players) >= 17, count_where($club.players, $p -> $p.position() == "GK") >= 2, len($club.eleven())], [true, true, 11]);
 $news = message_starting($game.inbox, "Contracts have run out");
 check("and the manager is told who, and who came from the academy", [$news != null, contains($news["body"], "have left") || contains($news["body"], "has left"), contains($news["body"], "From the academy")], [true, true, true]);
-$youth = filter($club.players, $p -> !in_array($p, $before_players));
-check("the academy players have contracts of three seasons", count_where($youth, $p -> $p.contract_until >= date::days(2029, 6, 30)), len($youth));
+// the academy's, as the news names them: others may have joined since January too
+$from_academy = split($news["body"], "From the academy: ")[1];
+$youth = filter($club.players, $p -> !in_array($p, $before_players) && contains($from_academy, to_string($p) .. " ("));
+check("the academy players have contracts of three seasons", [len($youth) > 0, count_where($youth, $p -> $p.contract_until >= date::days(2029, 6, 30))], [true, len($youth)]);
 check("nobody at any club is still under an expired contract", count_where($game.everyone(), $t -> count_where($t.players, $p -> $p.contract_until < $game.date) > 0), 0);
 
 /* what a club asks for a player with six months left, and what a signing gets */
@@ -1001,7 +1006,7 @@ check("the round is over: twelve ties, twenty-four out of it or through, thirty-
 check("the manager is told how the round went, and how their tie did", [message_starting($game.inbox, "The Cup: first round") != null, $won ? message_starting($game.inbox, "Cup: through") != null : message_starting($game.inbox, "Cup: knocked out") != null], [true, true]);
 $report = message_starting($game.inbox, $won ? "Cup: through" : "Cup: knocked out");
 check("and the report has the score", contains($report["body"], to_string($mine_tie)), true);
-$entries = filter($game.ledger, $e -> contains($e["text"], "cup"));
+$entries = filter($game.ledger, $e -> contains(lower($e["text"]), "cup"));
 check("the books: a gate if at home, and a prize if it won, and no wages or television", [count_where($entries, $e -> $e["text"] == "Gate receipts, cup"), count_where($entries, $e -> starts_with($e["text"], "Cup prize money")), $game.club.balance - $balance], [$mine_tie.match.home == $game.club ? 1 : 0, $won ? 1 : 0, ($mine_tie.match.home == $game.club ? money::gate($game.club) : 0) + ($won ? money::cup_prize(0) : 0)]);
 check("every winner of the round was paid the prize, the home clubs their gates", [count_where($cup.rounds[0][1], $t -> $t.winner().balance > 0)], [12]);
 
@@ -1088,3 +1093,19 @@ fn array_index($list, $value) {
     return -1;
 }
 check("with a great side the club won several rounds, and each was paid by its round: 250k for the third, and so on", [len($prize_rows) >= 3, $paid_ok, count_where($prize_rows, $e -> $e["amount"] > 100000) >= 2], [true, len($prize_rows), true]);
+
+/* ---- The board: the sack ends the game ---- */
+$doomed = Game::start(3);
+check("the board is told what to expect when the manager arrives", [$doomed.board.target != null, contains(message_starting($doomed.inbox, "Welcome")["body"], "The board expect " .. $doomed.board.hope .. ".")], [true, true]);
+$doomed.board.confidence = 11;
+$matchdays = 0;
+while (!$doomed.sacked() && $matchdays < 38) {
+    $doomed.play_on(false);
+    $matchdays++;
+}
+$notice = message_starting($doomed.inbox, "Sacked");
+check("a board on the edge sacks the manager, and says so with the record", [$doomed.sacked(), $notice != null, contains($notice["body"], "matches in charge: {$doomed.board.won} won, {$doomed.board.drawn} drawn, {$doomed.board.lost} lost.")], [true, true, true]);
+while (!$doomed.season_over()) {
+    $doomed.advance();
+}
+check("the game says so once, and the manager stays sacked (ending the game is the shell's)", [count_where($doomed.inbox, $m -> $m["subject"] == "Sacked"), $doomed.sacked()], [1, true]);
