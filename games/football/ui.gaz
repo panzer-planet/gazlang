@@ -745,7 +745,12 @@ pub kind Shell {
         $screen.fill($top.col, $top.row, $top.width, 1, " ", "inverse");
         tui::label($screen, $top.col + term::width(#game.club.name) + 3, $top.row, max($top.width - term::width(#game.club.name) - 17, 0), #status(), "inverse", "center");
         tui::label($screen, $top.col, $top.row, term::width(#game.club.name) + 2, " " .. #game.club.name, "bold inverse");
-        tui::label($screen, $top.col + $top.width - 14, $top.row, 14, $live && !#game.live.finished() ? "s Skip ▸ " : "c Continue ▸ ", "bold inverse", "right");
+        $next = match {
+            $live && !#game.live.finished() => "s Skip ▸ ",
+            #game.sacked() => "q Quit ▸ ",
+            default => "c Continue ▸ ",
+        };
+        tui::label($screen, $top.col + $top.width - 14, $top.row, 14, $next, "bold inverse", "right");
 
         /* a matchday being played takes over the section, and the menu waits */
         $in_menu = #where == "menu" && !$live;
@@ -755,6 +760,8 @@ pub kind Shell {
             $shown = $i == #current && !$live;
             tui::label($screen, $inside.col, $inside.row + $i, $inside.width, " " .. ($i + 1) .. " " .. $title, $live ? "dim" : ($shown ? ($in_menu ? "inverse" : "bold") : ""));
         }
+        [, $below] = $inside.split_top(len(#sections) + 1);
+        #draw_board($screen, $below);
 
         $view = $live ? #match : #sections[#current][1];
         tui::box($screen, $content.col, $content.row, $content.width, $content.height, $view.title(), $in_menu ? "" : "cyan");
@@ -764,6 +771,26 @@ pub kind Shell {
         if (#keys_shown) {
             #draw_keys($screen, $view);
         }
+    }
+
+    /* The board, under the menu: how much it trusts the manager, as a bar and a word, and what it wants */
+    fn draw_board($screen, $rect) {
+        if ($rect.height < 4 || $rect.width < 6) {
+            return null;
+        }
+        $board = #game.board;
+        $style = match {
+            #game.sacked() => "red",
+            $board.confidence > 55 => "green",
+            $board.confidence > 25 => "yellow",
+            default => "red",
+        };
+        $col = $rect.col + 1;
+        $width = $rect.width - 2;
+        tui::label($screen, $col, $rect.row, $width, "Board", "bold");
+        tui::progress($screen, $col, $rect.row + 1, $width, $board.confidence / 100, $style);
+        tui::label($screen, $col, $rect.row + 2, $width, #game.sacked() ? "Sacked" : $board.mood(), $style);
+        tui::label($screen, $col, $rect.row + 3, $width, "Aim: " .. $board.aim, "dim");
     }
 
     /* Where the season is: the date, the matchday or the cup's round, and the club's place once there is one */
@@ -868,6 +895,10 @@ pub kind Shell {
         }
         if ($name == "q") {
             return "quit";
+        }
+        if (($name == "c" || $name == "C") && #game.sacked()) {
+            #note = "You have been sacked: q quits, and a saved game can be loaded";
+            return null;
         }
         if ($name == "c" || $name == "C") {
             // Time goes on a day at a time until something needs the manager: their match, which C plays at once

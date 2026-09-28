@@ -89,6 +89,9 @@ A launcher smoke test runs the real thing on a pty. See `README.md`.
 3. **Tactics**: formation and mentality that change results. *(done)*
 4. **Transfers and finances**: a market with values and wages, the books, the budget. *(done)*
 5. **Saving and loading.** *(done)*
-6. **Depth**: injuries and youth from the academy are in; morale, contracts and training are not.
+6. **Depth**: injuries, youth from the academy and contracts are in, and a board that judges the
+   manager (`engine/board.gaz`: an aim each season, confidence moved by results and the table, the
+   sack at the bottom; the game tells it once and the shell ends the game, so code that plays
+   seasons still can). Morale and training are not.
 7. **A season after a season**: two divisions with two up and two down, the summer's ageing,
    retirements and window. *(done)* A cup is in; an end-of-season summary remains.

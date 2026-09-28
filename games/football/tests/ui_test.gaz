@@ -58,10 +58,10 @@ fn lines_with($screen, $text) {
     return len(filter($screen.lines(), $line -> contains($line, $text)));
 }
 
-/* Every style used in row $row of the screen */
-fn styles_in($screen, $row) {
+/* Every style used in row $row of the screen, from column $from */
+fn styles_in($screen, $row, $from = 1) {
     $styles = {};
-    for ($col = 1; $col <= $screen.cols; $col++) {
+    for ($col = $from; $col <= $screen.cols; $col++) {
         $styles[$screen.cell($col, $row)[1]] = true;
     }
     return keys($styles);
@@ -97,7 +97,8 @@ fn said_at($screen, $row) {
 fn results_on($screen) {
     $count = 0;
     for ($row = 3; $row <= $screen.rows - 2; $row++) {
-        $styles = join(styles_in($screen, $row), ",");
+        // the section's side only: the menu's has the board, in colour too
+        $styles = join(filter(styles_in($screen, $row, 17), $s -> $s != ""), ",");
         if (contains($styles, "green") || contains($styles, "yellow") || contains($styles, "red")) {
             $count++;
         }
@@ -908,3 +909,18 @@ if ($cup_tie.winner() == $game.club) {
 } else {
     check("a club that is out has nothing more of the cup to come", shows($screen, "(draw to come)"), false);
 }
+
+/* ---- The board, and the sack ---- */
+$boarded = Game::start(1);
+$panel = Shell::for_game($boarded);
+$screen = look($panel);
+$row = row_of($screen, "│ Board ");
+check("the board sits under the menu: its confidence as a bar, its mood and its aim", [$row != null, contains($screen.lines()[$row], "60%"), contains($screen.lines()[$row + 1], $boarded.board.mood()), contains($screen.lines()[$row + 2], "Aim: " .. $boarded.board.aim)], [true, true, true, true]);
+// two relegations in a row: the board's own way to the sack
+$boarded.board.after_season(20, false, true);
+$boarded.board.after_season(20, false, true);
+$screen = look($panel);
+check("sacked, the bar says so and offers to quit", [contains($screen.lines()[$row + 1], "Sacked"), contains($screen.lines()[0], "q Quit")], [true, true]);
+$when = $boarded.date;
+press($panel, "c");
+check("and c moves nothing, saying why", [$boarded.date, $panel.notice()], [$when, "You have been sacked: q quits, and a saved game can be loaded"]);

@@ -200,3 +200,6 @@ ok at the end of the ninety minutes a level tie has gone on: the clock is at nin
 ok c ends the day: the inbox has the round's results and the club's report
 ok the fixtures have the tie, marked as the cup's, dated, with its score
 ok a club that is out has nothing more of the cup to come
+ok the board sits under the menu: its confidence as a bar, its mood and its aim
+ok sacked, the bar says so and offers to quit
+ok and c moves nothing, saying why

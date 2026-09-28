@@ -654,3 +654,17 @@ ok six rounds: five Wednesdays from mid-September to March, in order, and the fi
 ok in order, and none on a league day (Saturdays, and Tuesdays)
 ok a cup of one round is just the final, of two the Wednesday and the final
 ok and it follows the year: the next season's are a year on
+ok the board starts content, with no record
+ok a win is worth more than a draw, and a defeat costs what a win earns
+ok the table counts only after the first matchdays: a place below the target costs, far below costs more, above it earns
+ok a target at the bottom still has places below it that count
+ok losing all the way down: a word when concerned, one when patience runs out, then the sack
+ok and it never goes below nothing
+ok and a win afterwards doesn't bring the manager back
+ok a season's end: the target met pleases the board
+ok missed, it expected more
+ok relegation costs most, though a manager can survive it
+ok and a second relegation does not
+ok promotion with the target met is as good as it gets
+ok the board saves and loads
+ok a game saved before the board kept count starts it afresh

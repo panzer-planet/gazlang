@@ -1090,3 +1090,19 @@ fn array_index($list, $value) {
     return -1;
 }
 check("with a great side the club won several rounds, and each was paid by its round: 250k for the third, and so on", [len($prize_rows) >= 3, $paid_ok, count_where($prize_rows, $e -> $e["amount"] > 100000) >= 2], [true, len($prize_rows), true]);
+
+/* ---- The board: the sack ends the game ---- */
+$doomed = Game::start(3);
+check("the board is told what to expect when the manager arrives", [$doomed.board.target != null, contains(message_starting($doomed.inbox, "Welcome")["body"], "The board expect " .. $doomed.board.hope .. ".")], [true, true]);
+$doomed.board.confidence = 11;
+$matchdays = 0;
+while (!$doomed.sacked() && $matchdays < 38) {
+    $doomed.play_on(false);
+    $matchdays++;
+}
+$notice = message_starting($doomed.inbox, "Sacked");
+check("a board on the edge sacks the manager, and says so with the record", [$doomed.sacked(), $notice != null, contains($notice["body"], "matches in charge: {$doomed.board.won} won, {$doomed.board.drawn} drawn, {$doomed.board.lost} lost.")], [true, true, true]);
+while (!$doomed.season_over()) {
+    $doomed.advance();
+}
+check("the game says so once, and the manager stays sacked (ending the game is the shell's)", [count_where($doomed.inbox, $m -> $m["subject"] == "Sacked"), $doomed.sacked()], [1, true]);

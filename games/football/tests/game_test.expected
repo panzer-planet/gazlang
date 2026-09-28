@@ -1797,3 +1797,6 @@ ok new_season() plays out what is left of the cup, unwatched, and moves on
 ok a saved game keeps the cup: the rounds played, who is in, the dates
 ok and it can be played on to the end
 ok with a great side the club won several rounds, and each was paid by its round: 250k for the third, and so on
+ok the board is told what to expect when the manager arrives
+ok a board on the edge sacks the manager, and says so with the record
+ok the game says so once, and the manager stays sacked (ending the game is the shell's)

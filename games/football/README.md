@@ -49,6 +49,18 @@ the best eleven for it), mentality and intensity, with what each does. A side th
 and concedes more; one that presses hard attacks a little more and tires faster. The other clubs
 set up by how they rate against who they play.
 
+## The board
+
+The board says what it expects when you arrive and at each new season, by how your squad rates
+against the division's: a challenge for the title (the top two), a place in the top half, or to stay
+up. Under the menu is how much it trusts you: a bar, a word for its mood, and the aim. Every league
+result moves it (a win more than a draw, a defeat as much as a win), and after the first ten
+matchdays so does the table: below the aim it wears on the board, well below it more so, at or above
+it earns a little credit. The season's end counts most: the aim met, missed, promotion, relegation.
+The inbox has a word from the board when it grows concerned and when its patience is running out;
+at the bottom you are sacked, told your record in charge, and the game is over (a saved game can be
+loaded). A squad left to age without signings will get you there in a season or two.
+
 ## Money and transfers
 
 Every matchday each club is paid by the television and pays a matchday's wages, and the home side
