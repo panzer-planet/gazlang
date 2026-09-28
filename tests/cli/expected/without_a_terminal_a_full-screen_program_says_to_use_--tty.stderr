@@ -1,4 +1,1 @@
 Error: This program needs a terminal. Without one, give it keys and read its screens: gaz --tty FILE <<< "j j enter snap" (gaz --help says more)
-  term::fullscreen at <std>/term.gaz:151
-  tui::interact at <std>/tui.gaz:854
-  top level at tty.gaz:32

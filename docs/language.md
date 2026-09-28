@@ -1251,7 +1251,7 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `random.gaz` | `random::shuffle` (a shuffled copy of a list or string), `random::pick` (an element of a list or value of a map), `random::key`, `random::chance($p)`, `random::weighted` (from `[item, weight]` pairs) |
 | `regex.gaz` | `regex::matches($s, $pattern)` (full match), `regex::search($s, $pattern)` (found anywhere), `regex::find($s, $pattern)` (the start index, or null), `regex::groups($s, $pattern)` (the first match and what each `(...)` in it took, a group that took no part `null`, or `null` for no match), `regex::replace($s, $pattern, $with)` (every match, left to right, by `$with` as it is, so `"$1"` is two bytes; an empty match moves on a byte: `replace("abc", "x*", "-")` is `"-a-b-c-"`); literals, `.`, `* + ?` (greedy), `\|` (the first that matches wins), `(...)`, `[...]`/`[^...]` with ranges, `^ $`, `\` escapes; the leftmost match, and there the greedy repetition and the earlier alternative; no backreferences, no backtracking |
 | `term.gaz` | `term::style`, cursor and screen sequences, `term::decode`, `term::Input`, `term::fullscreen`, on the terminal builtins; see below |
-| `tui.gaz` | `tui::Screen` (a grid of cells that renders only what changed), `tui::Rect`, `tui::box`, `tui::label`, `tui::progress`, `tui::table`, `tui::Table`, `tui::Menu`, `tui::TextField`, `tui::choose`, `tui::ask`; see below |
+| `tui.gaz` | `tui::Screen` (a grid of cells that renders only what changed), `tui::Rect`, `tui::box`, `tui::label`, `tui::progress`, `tui::table`, `tui::Table`, `tui::wrap`, `tui::paragraph`, `tui::hints`, `tui::key_help`, `tui::Menu`, `tui::TextField`, `tui::choose`, `tui::ask`; see below |
 
 `http.gaz` returns
 `{"status" => 200, "headers" => {"content-type" => "text/html", ...}, "body" => "..."}`, with
@@ -1523,7 +1523,21 @@ with no terminal.
   `sorted_by()` say and set the sort, and `set_rows($rows)` shows others, keeping the selection on
   its index. A column of numbers is aligned on the right; `$style_of($row, $index)` gives a row's
   style, for marking the user's own club. The cells of a column must be alike, or sorting on it is
-  an error. A table too wide is squeezed, widest column first, and then cut off.
+  an error. A table too wide leaves out the columns `drop_when_narrow($columns)` names (indexes,
+  the first first; it gives the table, so it can follow the constructor), then squeezes the widest
+  of the rest, then is cut off; `.` and `,` go past a column left out.
+- **`tui::table_width($headers, $rows)`** is the width `tui::table()` draws at, for fitting what goes
+  beside it.
+- **`tui::wrap($text, $width)`** cuts text into lines at spaces, keeping its own line breaks, a word
+  too long for a line starting one of its own and cut into whole lines; widths are the screen's.
+  **`tui::paragraph($screen, $rect, $text, $style = "")`** draws it wrapped into a `Rect`, as much as
+  fits, and gives how many lines that took.
+- **`tui::hints($screen, $col, $row, $width, $hints, $more = "", $style = "dim")`** is a line of
+  key hints: `$hints` is a list of `[keys, what they do]` (`["j/k", "move"]`, shown `j/k move`), or
+  `["", text]` for a prompt shown as it is; as many whole ones as fit, and `$more` (`"? keys"`) at
+  the right end. **`tui::key_help($screen, $groups, $title = "Keys")`** is all of them, in a box in
+  the middle of the screen: `$groups` is `[[title, hints], ...]`, prompts left out. Together they
+  are the usual shape: the keys that fit at the bottom, and `?` for the rest.
 - **`tui::Metronome($interval, $now)`** is a steady beat: `due($now)`, `wait($now)` (seconds to the
   next, 0 if due) and `beat($now)` after taking one; a late beat isn't made up for with two.
 - **`tui::Menu($items, $title = "")`** and **`tui::TextField($value = "")`** take keys

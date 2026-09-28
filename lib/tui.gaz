@@ -379,34 +379,21 @@ fn padded($cells, $count) {
  * stops. Gives how many rows it took (two more than $rows).
  */
 pub fn table($screen, $col, $row, $headers, $rows, $style = "") {
-    /* as many columns as the longest of them, a short row or header being blank in the rest */
-    $columns = len($headers);
-    foreach ($rows as $cells) {
-        $columns = max($columns, len($cells));
-    }
-    $headers = padded($headers, $columns);
-    foreach ($rows as $n => $cells) {
-        $rows[$n] = padded($cells, $columns);
-    }
-    $widths = map($headers, $h -> term::width(to_string($h)));
-    foreach ($rows as $cells) {
-        foreach ($cells as $i => $cell) {
-            $widths[$i] = max($widths[$i], term::width(to_string($cell)));
-        }
-    }
+    [$headers, $rows] = squared($headers, $rows);
+    $widths = column_widths($headers, $rows);
     $rule = join(map($widths, $w -> repeat("─", $w)), "─┼─");
     $line = [];
     foreach ($headers as $i => $header) {
         $line[] = cell_text($header, $widths[$i]);
     }
-    $screen.put($col, $row, join($line, " │ "), "bold");
+    $screen.put($col, $row, join($line, TABLE_SEPARATOR), "bold");
     $screen.put($col, $row + 1, $rule, "dim");
     foreach ($rows as $n => $cells) {
         $line = [];
         foreach ($cells as $i => $cell) {
             $line[] = cell_text($cell, $widths[$i]);
         }
-        $screen.put($col, $row + 2 + $n, join($line, " │ "), $style);
+        $screen.put($col, $row + 2 + $n, join($line, TABLE_SEPARATOR), $style);
     }
     return len($rows) + 2;
 }
@@ -418,6 +405,136 @@ fn fitted($text, $width, $right) {
     $chars = slice(term::chars($text), 0, $width);
     $gap = $width - len($chars);
     return $right ? repeat(" ", $gap) .. join($chars, "") : join($chars, "") .. repeat(" ", $gap);
+}
+
+/* The width table() draws $headers and $rows at, for fitting what goes beside it */
+pub fn table_width($headers, $rows) {
+    [$headers, $rows] = squared($headers, $rows);
+    $widths = column_widths($headers, $rows);
+    return sum($widths) + TABLE_GAP * max(len($widths) - 1, 0);
+}
+
+// What table() puts between columns, and how many columns that takes on the screen
+const TABLE_SEPARATOR = " │ ";
+const TABLE_GAP = 3;
+
+// $headers and $rows with as many cells each as the longest of them, a short row or header blank in the rest
+fn squared($headers, $rows) {
+    $columns = len($headers);
+    foreach ($rows as $cells) {
+        $columns = max($columns, len($cells));
+    }
+    return [padded($headers, $columns), map($rows, $cells -> padded($cells, $columns))];
+}
+
+// Each column's width: its widest cell, the header included
+fn column_widths($headers, $rows) {
+    $widths = map($headers, $h -> term::width(to_string($h)));
+    foreach ($rows as $cells) {
+        foreach ($cells as $i => $cell) {
+            $widths[$i] = max($widths[$i], term::width(to_string($cell)));
+        }
+    }
+    return $widths;
+}
+
+/*
+ * $text cut into lines no wider than $width: at spaces, keeping its own line breaks, and a word
+ * wider than a whole line cut where it must be
+ */
+pub fn wrap($text, $width) {
+    $width = max($width, 1);
+    $lines = [];
+    foreach (split($text, "\n") as $paragraph) {
+        $line = "";
+        foreach (split($paragraph, " ") as $word) {
+            while (term::width($word) > $width) {
+                // a word too long for any line starts one of its own, and is cut into whole lines
+                if ($line != "") {
+                    $lines[] = $line;
+                    $line = "";
+                }
+                $chars = term::chars($word);
+                $lines[] = join(slice($chars, 0, $width), "");
+                $word = join(slice($chars, $width), "");
+            }
+            if ($line == "") {
+                $line = $word;
+            } else if (term::width($line) + 1 + term::width($word) <= $width) {
+                $line ..= " " .. $word;
+            } else {
+                $lines[] = $line;
+                $line = $word;
+            }
+        }
+        $lines[] = $line;
+    }
+    return $lines;
+}
+
+/* $text wrapped into $rect, as much of it as fits, in $style; gives how many lines it took */
+pub fn paragraph($screen, $rect, $text, $style = "") {
+    $lines = slice(wrap($text, $rect.width), 0, max($rect.height, 0));
+    foreach ($lines as $i => $line) {
+        label($screen, $rect.col, $rect.row + $i, $rect.width, $line, $style);
+    }
+    return len($lines);
+}
+
+/*
+ * A line of key hints in $width from $col, $row: $hints is a list of [keys, what they do]
+ * (["j/k", "move"]), said "j/k move", or ["", text] for a prompt said as it is. As many whole
+ * hints as fit, and $more at the right end ("? keys") when given, for where the rest are.
+ */
+pub fn hints($screen, $col, $row, $width, $hints, $more = "", $style = "dim") {
+    $room = $more == "" ? $width : $width - term::width($more) - 2;
+    $line = "";
+    foreach ($hints as [$keys, $what]) {
+        $text = $keys == "" ? $what : $keys .. " " .. $what;
+        $next = $line == "" ? $text : $line .. "  " .. $text;
+        if (term::width($next) > $room) {
+            break;
+        }
+        $line = $next;
+    }
+    label($screen, $col, $row, max($room, 0), $line, $style);
+    if ($more != "" && $width >= term::width($more)) {
+        label($screen, $col + $width - term::width($more), $row, term::width($more), $more, $style);
+    }
+}
+
+/*
+ * Every key there is, in a box in the middle of $screen, over what is there: $groups is a list of
+ * [title, hints], hints as hints() takes them (a prompt, with no keys, is left out). What doesn't
+ * fit the screen is cut off.
+ */
+pub fn key_help($screen, $groups, $title = "Keys") {
+    $lines = [];
+    foreach ($groups as [$heading, $group]) {
+        $lines[] = ["", $heading];
+        foreach (filter($group, $hint -> $hint[0] != "") as $hint) {
+            $lines[] = $hint;
+        }
+        $lines[] = ["", ""];
+    }
+    // no blank line under the last group: the box's border is there
+    delete $lines[len($lines) - 1];
+    $keys_width = reduce($lines, ($most, [$keys, $what]) -> max($most, term::width($keys)), 0);
+    $inner = reduce($lines, ($most, [$keys, $what]) -> max($most, $keys == "" ? term::width($what) : $keys_width + 2 + term::width($what)), term::width($title) + 4);
+    $width = min($screen.cols, $inner + 4);
+    $height = min($screen.rows, len($lines) + 2);
+    [$col, $row] = centered($screen, $width, $height);
+    $screen.fill($col, $row, $width, $height);
+    box($screen, $col, $row, $width, $height, $title, "cyan");
+    foreach (slice($lines, 0, max($height - 2, 0)) as $i => [$keys, $what]) {
+        $at = $row + 1 + $i;
+        if ($keys == "") {
+            label($screen, $col + 2, $at, $width - 4, $what, "bold");
+        } else {
+            label($screen, $col + 2, $at, $keys_width, $keys, "cyan");
+            label($screen, $col + 4 + $keys_width, $at, max($width - 6 - $keys_width, 0), $what);
+        }
+    }
 }
 
 /*

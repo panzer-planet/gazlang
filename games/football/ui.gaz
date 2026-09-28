@@ -18,26 +18,6 @@ include "engine/money.gaz";
 include "engine/teams.gaz" use Team;
 include "engine/matches.gaz" use Goal, Booking, Whistle, Injury, Substitution;
 
-/* $text cut into lines no wider than $width, on the spaces, keeping its own line breaks */
-fn wrap($text, $width) {
-    $lines = [];
-    foreach (split($text, "\n") as $paragraph) {
-        $line = "";
-        foreach (split($paragraph, " ") as $word) {
-            if ($line == "") {
-                $line = $word;
-            } else if (term::width($line) + 1 + term::width($word) <= $width) {
-                $line ..= " " .. $word;
-            } else {
-                $lines[] = $line;
-                $line = $word;
-            }
-        }
-        $lines[] = $line;
-    }
-    return $lines;
-}
-
 /* What the shell needs of a section */
 pub abstract kind View {
     fn _(kin #game);
@@ -74,10 +54,7 @@ pub kind InboxView extends View {
         }
         $message = $messages[$index];
         tui::box($screen, $rest.col, $rest.row, $rest.width, $rest.height, $message["subject"]);
-        $inside = $rest.inset(1);
-        foreach (slice(wrap($message["body"], $inside.width), 0, $inside.height) as $i => $line) {
-            $screen.put($inside.col, $inside.row + $i, $line);
-        }
+        tui::paragraph($screen, $rest.inset(1), $message["body"]);
     }
 
     pub fn handle($key) {
@@ -278,9 +255,7 @@ pub kind PlaceholderView extends View {
     pub fn title() { return #heading; }
 
     pub fn draw($screen, $rect, $focused) {
-        foreach (slice(wrap(#text, $rect.width), 0, $rect.height) as $i => $line) {
-            $screen.put($rect.col, $rect.row + $i, $line, "dim");
-        }
+        tui::paragraph($screen, $rect, #text, "dim");
     }
 
     pub fn handle($key) { return null; }
@@ -647,7 +622,7 @@ pub kind MatchView extends View {
                 if (len($lines) >= $commentary.height) {
                     break;
                 }
-                foreach (wrap($event.describe(), max($commentary.width - 6, 10)) as $i => $part) {
+                foreach (tui::wrap($event.describe(), max($commentary.width - 6, 10)) as $i => $part) {
                     $lines[] = [($i == 0 ? pad_left("{$event.minute}'", 4) .. "  " : "      ") .. $part, event_style($event, $club)];
                 }
             }
@@ -659,8 +634,9 @@ pub kind MatchView extends View {
             return null;
         }
         $rows = map($club.eleven(), $player -> [$player.number, to_string($player), $player.position(), $player.match_goals, $player.sent_off ? "R" : ($player.hurt ? "+" : ($player.yellow_cards > 0 ? "Y" : ""))]);
-        [$eleven, $others] = $panels.split_left(min(eleven_width($rows) + 2, $panels.width));
-        tui::table($screen, $eleven.col, $eleven.row, ["#", "Name", "Pos", "G", "C"], slice($rows, 0, max($eleven.height - 2, 0)));
+        $headers = ["#", "Name", "Pos", "G", "C"];
+        [$eleven, $others] = $panels.split_left(min(tui::table_width($headers, $rows) + 2, $panels.width));
+        tui::table($screen, $eleven.col, $eleven.row, $headers, slice($rows, 0, max($eleven.height - 2, 0)));
         if ($others.width > 4) {
             #draw_others($screen, $others, $day, $mine);
         }
@@ -677,17 +653,6 @@ pub kind MatchView extends View {
             tui::label($screen, $rect.col + 2, $rect.row + 2 + $line, $width, $text);
         }
     }
-}
-
-// A hint as the line at the bottom says it: "j/k move", or a prompt as it is
-fn hint_text([$keys, $what]) {
-    return $keys == "" ? $what : $keys .. " " .. $what;
-}
-
-// The width tui::table() gives the eleven: its columns and the " │ " between them
-fn eleven_width($rows) {
-    $name = reduce($rows, ($widest, $row) -> max($widest, term::width($row[1])), len("Name"));
-    return len("#") + 1 + $name + len("Pos") + len("G") + len("C") + 4 * term::width(" │ ");
 }
 
 // A club by the first word of its name, which no other club's shares ("Millbrook")
@@ -812,47 +777,12 @@ pub kind Shell {
             tui::label($screen, $rect.col + 1, $rect.row, $width, #note, "bold yellow");
             return null;
         }
-        $more = "? keys";
-        $room = $width - term::width($more) - 2;
-        $line = "";
-        foreach ($view.hints() as $hint) {
-            $text = hint_text($hint);
-            $next = $line == "" ? $text : $line .. "  " .. $text;
-            if (term::width($next) > $room) {
-                break;
-            }
-            $line = $next;
-        }
-        tui::label($screen, $rect.col + 1, $rect.row, max($room, 0), $line, "dim");
-        tui::label($screen, $rect.col + 1 + $width - term::width($more), $rect.row, term::width($more), $more, "dim");
+        tui::hints($screen, $rect.col + 1, $rect.row, $width, $view.hints(), "? keys");
     }
 
     /* Every key there is on this screen, in a box over it, until the next key */
     fn draw_keys($screen, $view) {
-        $sections = [[$view.title(), filter($view.hints(), $hint -> $hint[0] != "")], ["Everywhere", #game.live != null ? #MATCH_KEYS : #KEYS]];
-        $lines = [];
-        foreach ($sections as [$title, $hints]) {
-            $lines[] = ["", $title];
-            foreach ($hints as $hint) {
-                $lines[] = $hint;
-            }
-            $lines[] = ["", ""];
-        }
-        $key_width = reduce($lines, ($most, $line) -> max($most, term::width($line[0])), 0);
-        $width = min($screen.cols, reduce($lines, ($most, $line) -> max($most, $key_width + 2 + term::width($line[1])), 0) + 4);
-        $height = min($screen.rows, len($lines) + 2);
-        [$col, $row] = tui::centered($screen, $width, $height);
-        $screen.fill($col, $row, $width, $height);
-        tui::box($screen, $col, $row, $width, $height, "Keys", "cyan");
-        foreach (slice($lines, 0, $height - 3) as $i => [$keys, $what]) {
-            $at = $row + 1 + $i;
-            if ($keys == "") {
-                tui::label($screen, $col + 2, $at, $width - 4, $what, "bold");
-            } else {
-                tui::label($screen, $col + 2, $at, $key_width, $keys, "cyan");
-                tui::label($screen, $col + 4 + $key_width, $at, $width - 6 - $key_width, $what);
-            }
-        }
+        tui::key_help($screen, [[$view.title(), $view.hints()], ["Everywhere", #game.live != null ? #MATCH_KEYS : #KEYS]]);
     }
 
     /* Time passes, while nobody is pressing keys: a matchday being played moves on, unless the keys are being read */
