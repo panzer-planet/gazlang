@@ -2,7 +2,8 @@
 
 GazLang is self-hosting: the lexer, parser and code generator are written in GazLang
 (`compiler/`), compiled to bytecode (`compiler/gazlang.gzb`, checked in) and built into a VM in C
-(`vm/`); together they are `bin/gaz`. The tests are PHP (PHPUnit), which runs `bin/gaz`.
+(`vm/`); together they are `bin/gaz`. The tests are PHP (PHPUnit classes, run in parallel by
+Pest), which runs `bin/gaz`.
 `README.md` is the invitation, `docs/language.md` the language reference, `docs/internals.md`
 the contributor guide, `docs/bytecode.md` the bytecode spec. This file holds the rules and the
 reasons behind them; history is in git.
@@ -25,9 +26,14 @@ bin/gaz --ast tests/programs/functions.gaz
 # (a test fails until then; see "Changing the compiler")
 make -C vm compiler
 
-# The test dependencies, then all tests (about 2 minutes): two suites, the language's (`core`) and
-# the games' (`games`, under a minute), which a plain run does both of
+# The test dependencies, then all tests: a process per core (under 2 minutes), or one test at a
+# time (about 4). Two suites, the language's (`core`) and the games' (`games`, under a minute),
+# which a plain run does both of. --shard=N/M runs the Mth part, as each CI job does, split by
+# the class timings in tests/.pest/shards.json; after adding a test class, refresh them with
+# vendor/bin/pest --parallel --update-shards (a class it doesn't know still runs, in the last part)
 composer install
+vendor/bin/pest --parallel
+vendor/bin/pest --parallel --shard=1/2
 vendor/bin/phpunit
 vendor/bin/phpunit --testsuite core
 vendor/bin/phpunit --testsuite games
@@ -49,7 +55,8 @@ php vm/fuzz.php
 # what every entry prints (review that diff)
 php vm/progress.php [FILTER] [--update]
 
-# After a change to what the front end or the command line prints: record it, review the diff
+# After a change to what the front end or the command line prints: record it, review the diff.
+# Recording (this, vm/snippets.php, progress.php --update) runs one test at a time, never in parallel
 GAZLANG_RECORD=1 vendor/bin/phpunit --filter 'SelfHosted|CliTest'
 
 # The self-hosted front end from its source; without a file it reads piped source
@@ -64,7 +71,7 @@ make -C vm stress && GAZVM=vm/build/gazvm-stress php vm/progress.php
 
 vendor/bin/phpstan analyse          # must be clean
 vendor/bin/pint                     # formatting
-composer ci                         # what CI runs, cold: phpstan with no result cache at 1G, pint --test, phpunit
+composer ci                         # what CI runs, cold: phpstan with no result cache at 1G, pint --test, pest --parallel
 ```
 
 ## Code Style Guidelines
@@ -132,6 +139,14 @@ nothing**: several first versions of a harness or corpus passed everything and c
   the project root, a snippet piped in, and a failure is a `ProgramError` holding what it printed
   after `Error: `. `vm/snippets.php` collects the snippets, as JSON, for `CVMTest`. Order matters
   as much as results: `KEY_CHECK` exists so a bad key fails before later keys and the value run.
+- **The suite runs in parallel**, a whole class to a process (`pest --parallel`), so a class's
+  static caches are computed once, and nothing may assume another class isn't running:
+  `CVM::build()` runs make under a lock (`CVM::exclusively()`), so a clean tree builds once; a
+  file one class writes and another runs is renamed into place (`vm/build/driver.gzb`); and the
+  `tests/.tmp` paths that recorded snippets name are used only holding `CVM::lock('scratch')`,
+  by `CVMTest` running those snippets and by the `StdlibTest` tests they came from. Anything
+  else a test writes is its own class's, or named by its process. `CVM::$jobs` stays 24 under
+  `--parallel`: fewer measured the same.
 - **Programs print what `tests/expected/` records** (`CVMTest`, `tests/CVM.php`): each entry of
   `vm/passing.txt` (every program and corpus file, the snippets in `tests/vm_snippets.txt`, and
   the hand-written broken `.gzb` files) runs on the C VM built with ASan and UBSan and must give
@@ -358,7 +373,9 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   without Homebrew. No promise about what changes between releases yet.
 - **CI** (`.github/workflows/ci.yml`) runs on Ubuntu (the latest) and on macOS, Apple silicon and
   Intel, for every push: it builds gaz without TLS (the bootstrap needs only a C compiler), then
-  with it, and rebuilds its compiler before PHP is even installed, then the suite. phpstan and
+  with it, and rebuilds its compiler before PHP is even installed, then the suite, in two jobs per
+  platform (`pest --parallel --shard=N/2`, each building gaz for itself), with `gaz test` and the
+  minute of fuzzing on the first Linux one only. phpstan and
   pint are a job of their own on Ubuntu, which needs no build and so reports first; phpstan runs
   cold there (no result cache) at a 1G limit, as `composer ci` does locally, since a warm local
   cache once hid a table that needed a gigabyte. LeakSanitizer runs in the sanitized build on

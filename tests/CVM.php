@@ -61,13 +61,69 @@ final class CVM
 
     /**
      * Build the C VM, the tested build and the optimised one, failing loudly if it doesn't compile
+     *
+     * Several test processes call this at once under `pest --parallel`, so make runs holding a
+     * lock: the first builds, and the others wait for it and then find nothing to do, rather than
+     * linking bin/gaz over one another or running it half written
      */
     public static function build(): void
     {
-        exec('make -s -C '.escapeshellarg(self::ROOT.'/vm').' all test 2>&1', $output, $code);
-        if ($code !== 0) {
-            throw new \RuntimeException("Building the C VM failed:\n".implode("\n", $output));
+        self::exclusively('build', function () {
+            exec('make -s -C '.escapeshellarg(self::ROOT.'/vm').' all test 2>&1', $output, $code);
+            if ($code !== 0) {
+                throw new \RuntimeException("Building the C VM failed:\n".implode("\n", $output));
+            }
+        });
+    }
+
+    /**
+     * Run $work holding a lock that every process of a test run shares, named for what it guards
+     * (a file in vm/build), so no two processes are in it at once
+     *
+     * @template T
+     *
+     * @param  callable(): T  $work
+     * @return T
+     */
+    public static function exclusively(string $name, callable $work): mixed
+    {
+        $lock = self::lock($name);
+        try {
+            return $work();
+        } finally {
+            fclose($lock);
         }
+    }
+
+    /**
+     * Take the lock exclusively() takes, waiting for it, and hold it until the handle is closed or
+     * dropped: a test holds it to its end with `$lock = CVM::lock('scratch');`
+     *
+     * @return resource
+     */
+    public static function lock(string $name)
+    {
+        // Asked first, since Pest reports a suppressed warning as a test's own
+        if (! is_dir(self::ROOT.'/vm/build')) {
+            @mkdir(self::ROOT.'/vm/build', 0777, true);
+        }
+        $lock = fopen(self::ROOT."/vm/build/{$name}.lock", 'c');
+        if ($lock === false || ! flock($lock, LOCK_EX)) {
+            throw new \RuntimeException("Cannot lock vm/build/{$name}.lock");
+        }
+
+        return $lock;
+    }
+
+    /**
+     * Write a file by renaming a finished copy into place, so another process running it at the
+     * same moment reads the old file or the new one, never a half-written one
+     */
+    private static function writeAtomically(string $path, string $contents): void
+    {
+        $temporary = $path.'.'.getmypid();
+        file_put_contents($temporary, $contents);
+        rename($temporary, $path);
     }
 
     /**
@@ -153,9 +209,21 @@ final class CVM
                 $commands[$entry] = [self::binary(), '-f', $file, '--', ...$args];
             }
         }
+        // The snippets that use tests/.tmp run holding the scratch lock, which StdlibTest's tests
+        // of the same snippets take too, since what they print depends on what is there
+        $scratch = array_filter($commands, fn ($entry) => isset($stdin[$entry]) && str_contains(self::snippets()[substr($entry, 8)], self::SCRATCH), ARRAY_FILTER_USE_KEY);
+        $results = self::processes(array_diff_key($commands, $scratch), ['GAZVM_STATS' => '1'], $stdin);
+        $results += self::exclusively('scratch', fn () => self::processes($scratch, ['GAZVM_STATS' => '1'], $stdin));
 
-        return array_map(self::leaks(...), self::processes($commands, ['GAZVM_STATS' => '1'], $stdin));
+        // In the order asked for
+        return array_map(self::leaks(...), array_replace($commands, $results));
     }
+
+    /**
+     * The scratch directory the tests write in, relative to the project root; a test that uses it
+     * holds exclusively('scratch'), since several snippets recorded by CVMTest name the same paths
+     */
+    public const SCRATCH = 'tests/.tmp';
 
     /**
      * What an entry must print, as recorded in tests/expected by vm/progress.php --update, or
@@ -252,8 +320,9 @@ final class CVM
             if ($status !== 0) {
                 throw new \RuntimeException(self::DRIVER." doesn't compile:\n{$err}");
             }
+            // The three harnesses may be doing this at once in parallel runs
             $gzb = self::ROOT.'/vm/build/driver.gzb';
-            file_put_contents($gzb, $code);
+            self::writeAtomically($gzb, $code);
         }
         $commands = array_combine($files, array_map(fn ($file) => [self::ROOT.'/bin/gaz', '-f', $gzb, '--', $mode, ...($piped ? [] : [$file])], $files));
         $results = self::processes($commands, [], $piped ? array_combine($files, $files) : [], $cwd);

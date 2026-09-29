@@ -7,9 +7,10 @@
         "php": ">=8.5"
     },
     "require-dev": {
-        "phpunit/phpunit": "^12.5",
+        "phpunit/phpunit": "^13.3",
         "phpstan/phpstan": "^2.2",
-        "laravel/pint": "^1.32"
+        "laravel/pint": "^1.32",
+        "pestphp/pest": "^5.2"
     },
     "autoload-dev": {
         "psr-4": {
@@ -18,7 +19,14 @@
         }
     },
     "scripts": {
-        "test": "phpunit",
+        "test": [
+            "Composer\\Config::disableProcessTimeout",
+            "pest --parallel"
+        ],
+        "test:serial": [
+            "Composer\\Config::disableProcessTimeout",
+            "phpunit"
+        ],
         "analyse": "phpstan analyse --memory-limit=1G",
         "format": "pint",
         "ci": [
@@ -27,5 +35,10 @@
             "pint --test",
             "@test"
         ]
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
     }
 }

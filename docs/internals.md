@@ -72,6 +72,7 @@ When output changes on purpose, record it and review the diff, since the recordi
 spec: `php vm/progress.php --update` for programs (it also adds new ones to `vm/passing.txt`,
 and removes what no entry records), `GAZLANG_RECORD=1 vendor/bin/phpunit --filter SelfHosted`
 for the front end, `GAZLANG_RECORD=1 vendor/bin/phpunit --filter CliTest` for the command line.
+Record with plain `phpunit`, one test at a time, never under `pest --parallel`.
 
 Order matters as much as results: `KEY_CHECK` exists so that a bad key fails before later keys
 and the value are evaluated. Anything that leans on a platform's behaviour (hashing, string
@@ -100,9 +101,11 @@ bin/gaz site/build.gaz                             # the website (site/), from t
 ```
 
 ```bash
-composer install                                    # PHPUnit, phpstan and pint
+composer install                                    # PHPUnit, Pest, phpstan and pint
 
-vendor/bin/phpunit                                  # everything
+vendor/bin/pest --parallel                          # everything, a process per core
+vendor/bin/pest --parallel --shard=1/2              # half of it, as each CI job runs
+vendor/bin/phpunit                                  # everything, one test at a time
 vendor/bin/phpunit tests/MatchTest.php              # one file
 vendor/bin/phpunit --filter=testName tests/X.php    # one test
 vendor/bin/phpstan analyse                          # must be clean

@@ -407,6 +407,8 @@ class StdlibTest extends GazLangTestCase
 
     public function test_real_path_resolves_dots_and_symlinks()
     {
+        // CVMTest runs this snippet too, in another process under pest --parallel
+        $scratch = CVM::lock('scratch');
         // Under the checkout, which the snippet recorder strips, so the recorded snippet is the same every run
         $dir = dirname(__DIR__).'/tests/.tmp/real_path';
         mkdir("{$dir}/sub", 0777, true);
@@ -469,6 +471,8 @@ class StdlibTest extends GazLangTestCase
 
     public function test_write_file_creates_and_overwrites()
     {
+        // CVMTest runs this snippet too, in another process under pest --parallel
+        $scratch = CVM::lock('scratch');
         // Under the checkout, as in test_real_path_resolves_dots_and_symlinks()
         @mkdir(dirname(__DIR__).'/tests/.tmp');
         $path = dirname(__DIR__).'/tests/.tmp/write_file.txt';
@@ -496,6 +500,8 @@ class StdlibTest extends GazLangTestCase
 
     public function test_directories()
     {
+        // CVMTest runs this snippet too, in another process under pest --parallel
+        $scratch = CVM::lock('scratch');
         // Relative to the project root, where the C VM's harness runs the snippet too; it clears
         // what a run that failed half way left, so it prints the same every time
         @mkdir(dirname(__DIR__).'/tests/.tmp');
@@ -555,6 +561,8 @@ class StdlibTest extends GazLangTestCase
      */
     public function test_file_streaming()
     {
+        // CVMTest runs this snippet too, in another process under pest --parallel
+        $scratch = CVM::lock('scratch');
         @mkdir(dirname(__DIR__).'/tests/.tmp');
         $this->assertSame(<<<'OUT'
             ["a", "b c", "", "é", "last"]
