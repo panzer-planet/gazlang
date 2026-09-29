@@ -47,7 +47,7 @@ class CVMTest extends TestCase
         $this->assertSame($expected[2], $c[2], "{$entry}: exit code");
         // A missing decref changes no output, so the C VM counts what it leaves alive
         $this->assertNull(CVM::leak($c), "{$entry}: the C VM leaked");
-        if (str_starts_with($entry, 'tests/bytecode_corpus/')) {
+        if (str_starts_with($entry, 'tests/corpora/bytecode/')) {
             $this->assertSame(str_starts_with(basename($entry), 'error_'), $expected[2] !== 0, "{$entry}: only files named error_* are refused");
         }
     }
@@ -136,7 +136,7 @@ class CVMTest extends TestCase
         // 100000 iterations each make five cycles of different kinds and keep none of them:
         // nothing is left once the top level's variables are dropped, and never more than a
         // collection's worth were alive at once (the tested build collects every 64 new ones)
-        [$leaked, $most] = CVM::alive('tests/vm_corpus/cycles.gaz');
+        [$leaked, $most] = CVM::alive('tests/corpora/vm/cycles.gaz');
         $this->assertSame(0, $leaked);
         $this->assertLessThan(1000, $most);
     }

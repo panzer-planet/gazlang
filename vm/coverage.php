@@ -43,7 +43,7 @@ foreach (CVM::passing() as $i => $entry) {
 CliTest::fixtures();
 $i = 0;
 foreach (CliTest::CASES as $case) {
-    $cwd = $root.'/'.($case[2] ?? 'tests/cli');
+    $cwd = $root.'/'.($case[2] ?? 'tests/corpora/cli');
     $input = isset($case[1]) ? $cwd.'/'.$case[1] : '/dev/null';
     $command = sprintf('cd %s && GAZVM_STATS=1 LLVM_PROFILE_FILE=%s %s/vm/build/gazvm-cov %s < %s > /dev/null 2>&1',
         escapeshellarg($cwd), escapeshellarg("{$dir}/cli{$i}.profraw"), escapeshellarg($root),

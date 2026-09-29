@@ -1,0 +1,1 @@
+Error: Expected '=>' but found '1' at tests/corpora/parser/error_map_missing_arrow.gaz:1

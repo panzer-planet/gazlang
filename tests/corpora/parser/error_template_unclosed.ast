@@ -1,0 +1,1 @@
+Error: @if is never closed: it needs an @endif at tests/corpora/parser/templates/unclosed.gazml:2

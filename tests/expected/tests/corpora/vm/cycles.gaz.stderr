@@ -1,0 +1,1 @@
+Error: Node.size is not pub, so only Node can use it at tests/corpora/vm/cycles.gaz:19

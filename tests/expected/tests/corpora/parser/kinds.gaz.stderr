@@ -1,0 +1,3 @@
+Error: Property radius of Circle is not set at tests/corpora/parser/kinds.gaz:9
+  new Circle at tests/corpora/parser/kinds.gaz:9
+  top level at tests/corpora/parser/kinds.gaz:2

@@ -1,0 +1,1 @@
+Error: Expected a $variable after shared but found '@x' at tests/corpora/parser/error_shared_a_global.gaz:1

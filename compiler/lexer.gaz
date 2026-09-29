@@ -1,5 +1,5 @@
 // The GazLang lexer in GazLang: source text to tokens, as `gazlang --tokens` prints them.
-// tests/SelfHostedLexerTest.php checks its tokens and errors against tests/lexer_corpus.
+// tests/SelfHostedLexerTest.php checks its tokens and errors against tests/corpora/lexer.
 // Methods are named after the step they read (get_next_token(), number(), identifier()).
 //
 // This file has no top level code, so the parser can include it: $lexer = Lexer($text),

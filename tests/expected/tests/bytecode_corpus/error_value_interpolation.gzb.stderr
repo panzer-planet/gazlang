@@ -1,1 +1,0 @@
-Error: Bad value '"a $x"': Bad value: unexpected STRING_START at tests/bytecode_corpus/error_value_interpolation.gzb:6

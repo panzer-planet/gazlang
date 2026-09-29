@@ -1,0 +1,3 @@
+Error: Undefined variable: $cache at tests/corpora/codegen/functions.gaz:25
+  -> at tests/corpora/codegen/functions.gaz:25
+  top level at tests/corpora/codegen/functions.gaz:26

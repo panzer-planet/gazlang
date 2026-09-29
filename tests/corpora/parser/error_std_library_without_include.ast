@@ -1,0 +1,1 @@
+Error: Undefined kind: lists (the standard library has lists.gaz: write include "std/lists.gaz";) at tests/corpora/parser/error_std_library_without_include.gaz:2

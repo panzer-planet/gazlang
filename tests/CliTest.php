@@ -4,7 +4,7 @@ namespace GazLang\Tests;
 
 /**
  * The command line (bin/gaz): every invocation in the table (its arguments, what is piped in
- * and the working directory) must print what tests/cli/expected records for it, standard output,
+ * and the working directory) must print what tests/corpora/cli/expected records for it, standard output,
  * standard error and exit code. The sanitized build runs them. GAZLANG_RECORD=1 records what it
  * prints instead, for review as a diff.
  */
@@ -13,7 +13,7 @@ class CliTest extends GazLangTestCase
     /**
      * Where the programs the table runs are, and its default working directory
      */
-    private const DIR = 'tests/cli';
+    private const DIR = 'tests/corpora/cli';
 
     /**
      * Where the bytecode the table runs is compiled to, from the fixtures
@@ -49,7 +49,7 @@ class CliTest extends GazLangTestCase
         'an empty file name' => [['-f', ''], 'args.gaz'],
         'a missing file' => [['-f', 'missing.gaz']],
         'a directory' => [['-f', '.']],
-        'a file by its path from elsewhere' => [['-f', 'tests/cli/runtime_error.gaz'], null, '.'],
+        'a file by its path from elsewhere' => [['-f', 'tests/corpora/cli/runtime_error.gaz'], null, '.'],
 
         // Code given with -e, standard input left as the program's data
         '-e runs code' => [['-e', 'echo 1 + 2;']],
@@ -137,8 +137,8 @@ class CliTest extends GazLangTestCase
         'an uncaught value' => [['-f', 'thrown.gaz']],
         'an include' => [['-f', 'include.gaz', 'x']],
         'an include, piped, from the working directory' => [[], 'include.gaz'],
-        'an include, piped, from elsewhere' => [[], 'tests/cli/include.gaz', '.'],
-        'an error in an included file' => [['-f', 'tests/cli/include_error.gaz'], null, '.'],
+        'an include, piped, from elsewhere' => [[], 'tests/corpora/cli/include.gaz', '.'],
+        'an error in an included file' => [['-f', 'tests/corpora/cli/include_error.gaz'], null, '.'],
 
         // The front end's modes
         'tokens' => [['-t', '-f', 'args.gaz']],
@@ -158,7 +158,7 @@ class CliTest extends GazLangTestCase
         'bytecode' => [['-f', self::BUILD.'/args.gzb', '--', 'a'], null, '.'],
         'bytecode, piped' => [['--', 'a'], self::BUILD.'/args.gzb', '.'],
         'bytecode with a runtime error' => [['-f', self::BUILD.'/runtime_error.gzb'], null, '.'],
-        'bytecode with a runtime error, from elsewhere' => [['-f', '../../'.self::BUILD.'/runtime_error.gzb']],
+        'bytecode with a runtime error, from elsewhere' => [['-f', '../../../'.self::BUILD.'/runtime_error.gzb']],
         'bytecode with a runtime error, piped' => [[], self::BUILD.'/runtime_error.gzb', '.'],
         'code of bytecode prints it' => [['-c', '-f', self::BUILD.'/args.gzb'], null, '.'],
         'code of piped bytecode prints it' => [['-c'], self::BUILD.'/args.gzb', '.'],

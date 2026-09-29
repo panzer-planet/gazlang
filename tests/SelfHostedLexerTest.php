@@ -5,7 +5,7 @@ namespace GazLang\Tests;
 /**
  * Checks the GazLang lexer (compiler/lexer.gaz, run by compiler/gazlang.gaz) on its corpus
  *
- * Each tests/lexer_corpus/X.gaz has what `gaz --tokens` must print for it in X.tokens: each
+ * Each tests/corpora/lexer/X.gaz has what `gaz --tokens` must print for it in X.tokens: each
  * token as `LINE TYPE VALUE`, then on a lexer error the error message, printed by
  * throw as "Error: <message> on line N", with exit code 1. The self-hosted lexer is run as
  * `gaz compiler/gazlang.gaz tokens FILE`, and with the file on standard input as
@@ -14,7 +14,7 @@ namespace GazLang\Tests;
  */
 class SelfHostedLexerTest extends GazLangTestCase
 {
-    private const CORPUS = 'tests/lexer_corpus';
+    private const CORPUS = 'tests/corpora/lexer';
 
     /**
      * The driver's output and exit code by file, run on the C VM for the whole corpus at once

@@ -1,1 +1,0 @@
-Error: Expected a field (#name) after the type but found 'fn' at tests/parser_corpus/error_type_before_a_method.gaz:2

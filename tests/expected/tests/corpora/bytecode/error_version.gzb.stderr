@@ -1,0 +1,1 @@
+Error: Bytecode version 4, but this is GazLang bytecode 3 at tests/corpora/bytecode/error_version.gzb:1

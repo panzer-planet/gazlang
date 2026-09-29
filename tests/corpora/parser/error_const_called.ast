@@ -1,0 +1,1 @@
+Error: A is a constant, not a function at tests/corpora/parser/error_const_called.gaz:2

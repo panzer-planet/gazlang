@@ -1,0 +1,1 @@
+Error: A constructor can't be abstract at tests/corpora/parser/error_abstract_constructor.gaz:1

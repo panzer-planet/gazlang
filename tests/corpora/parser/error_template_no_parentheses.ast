@@ -1,0 +1,1 @@
+Error: @if takes its condition in parentheses, alone on the line: @if (...) at tests/corpora/parser/templates/no_parentheses.gazml:2

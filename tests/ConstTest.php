@@ -103,7 +103,7 @@ class ConstTest extends GazLangTestCase
     }
 
     /**
-     * An expression for every operator and kind of value a constant can have; tests/parser_corpus/constant_values.gaz
+     * An expression for every operator and kind of value a constant can have; tests/corpora/parser/constant_values.gaz
      * is made from it, so the self-hosted parser, which works values out with GazLang's own operators, is checked on it too
      *
      * @return string[]
@@ -129,7 +129,7 @@ class ConstTest extends GazLangTestCase
     }
 
     /**
-     * What tests/parser_corpus/constant_values.gaz holds: a constant per expression, then all of them
+     * What tests/corpora/parser/constant_values.gaz holds: a constant per expression, then all of them
      */
     public static function constantValuesSource(): string
     {
@@ -149,7 +149,7 @@ class ConstTest extends GazLangTestCase
 
     public function test_the_ports_corpus_file_is_made_from_the_table()
     {
-        $this->assertSame(self::constantValuesSource(), file_get_contents(self::ROOT.'/tests/parser_corpus/constant_values.gaz'));
+        $this->assertSame(self::constantValuesSource(), file_get_contents(self::ROOT.'/tests/corpora/parser/constant_values.gaz'));
     }
 
     public static function errors(): array

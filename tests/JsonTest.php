@@ -5,7 +5,7 @@ namespace GazLang\Tests;
 use JsonException;
 
 /**
- * Checks lib/json.gaz against PHP's json_decode on every file in tests/json
+ * Checks lib/json.gaz against PHP's json_decode on every file in tests/corpora/json
  *
  * y_*.json must decode, and PHP must decode GazLang's re-encoding of it to exactly
  * the value PHP decodes from the original, int and float types and {} versus [] included. n_*.json
@@ -16,8 +16,8 @@ class JsonTest extends GazLangTestCase
     public static function documents(): array
     {
         $documents = [];
-        foreach (glob(self::ROOT.'/tests/json/*.json') as $path) {
-            $documents[basename($path)] = ['tests/json/'.basename($path)];
+        foreach (glob(self::ROOT.'/tests/corpora/json/*.json') as $path) {
+            $documents[basename($path)] = ['tests/corpora/json/'.basename($path)];
         }
 
         return $documents;

@@ -43,7 +43,7 @@ itself needs neither.
 | `lib/` | the standard library, written in GazLang, a namespace per file (`json::decode`, `chars::is_digit`), built into `bin/gaz` and included as `std/json.gaz` |
 | `examples/` | sample programs, which nothing tests |
 | `games/` | programs built on the language, each with tests of its own (`games/football/`: a terminal football manager: two divisions, tactics, transfers, saving) |
-| `tests/` | PHPUnit, which runs `bin/gaz`; `tests/gaz/` GazLang programs; `tests/programs/` bigger programs that the tests run; the corpora `lexer_corpus/`, `parser_corpus/`, `codegen_corpus/`, `vm_corpus/` and `bytecode_corpus/`; `cli/`; and `expected/`, what every program must print |
+| `tests/` | PHPUnit, which runs `bin/gaz`; `tests/gaz/` GazLang programs; `tests/programs/` bigger programs that the tests run; `tests/corpora/`, the corpora `lexer/`, `parser/`, `codegen/`, `vm/`, `bytecode/`, `cli/`, `json/` and `csv/`; and `expected/`, what every program must print |
 
 ## What holds it together
 
@@ -56,11 +56,11 @@ Everything the tests run is compared with what is recorded as its output, byte f
   `GAZVM_STATS` makes the VM count every reference-counted value, drop what the finished program
   still holds, and report what is left over, which must be nothing. A program runs from its
   source, a snippet is piped in from the project root, a `.gzb` runs as it is; in
-  `tests/bytecode_corpus/` the files named `error_*` must be the ones refused.
+  `tests/corpora/bytecode/` the files named `error_*` must be the ones refused.
 - **The front end** (`SelfHostedLexerTest`, `SelfHostedParserTest`, `SelfHostedCompilerTest`):
   each corpus file has what `--tokens`, `--ast` or `-c` must print next to it.
 - **The command line** (`CliTest`): a table of invocations, each its arguments, what is piped in
-  and the working directory, with what each prints in `tests/cli/expected/`.
+  and the working directory, with what each prints in `tests/corpora/cli/expected/`.
 - **The compiler compiles itself** to exactly `compiler/gazlang.gzb`.
 - **The fuzzer** (`php vm/fuzz.php`, not part of the suite; CI runs a minute of it): generated
   programs, mutated corpus programs and mutated bytecode on the sanitized build, failing on a
@@ -132,19 +132,19 @@ php vm/bench.php                                    # gaz against PHP and Python
   `check()` made public; `test::snapshot` compares a
   value against a file recorded next to the calling test, and `--update` (re)writes it. A file
   fails the run if it exits non-zero or its stdout has a FAIL line.
-- **`tests/lexer_corpus/`** are lexing cases, including deliberately tricky ones; a file named
+- **`tests/corpora/lexer/`** are lexing cases, including deliberately tricky ones; a file named
   `error_*` must be exactly one that fails to lex. Each `X.gaz` has the tokens `--tokens` must
   print in `X.tokens`.
-- **`tests/parser_corpus/`** are parsing cases: a file per construct, and an `error_*` file for
+- **`tests/corpora/parser/`** are parsing cases: a file per construct, and an `error_*` file for
   every message the parser can raise, which must be exactly the ones that fail to parse. Each
   `X.gaz` has the tree `--ast` must print in `X.ast`, and piped in `X.piped.ast`; `places/`
   holds the runs from other working directories. The dump is read off each node's fields, so a
   new field shows up in it without being asked. When a location matters, put the node's tokens
   on different lines: a one-line case cannot tell one token's line from another's.
-- **`tests/codegen_corpus/`** are code generation cases, built to reach every branch of the
+- **`tests/corpora/codegen/`** are code generation cases, built to reach every branch of the
   code generator between them. Each `X.gaz` has the bytecode `-c` must print in `X.code`, and
   piped in `X.piped.code`.
-- **`tests/cli/`** holds the programs `CliTest` runs through the command line. A change to its
+- **`tests/corpora/cli/`** holds the programs `CliTest` runs through the command line. A change to its
   options, or to how it reads files and standard input, needs a row there.
 - **`compiler/gazlang.gzb`** is the compiler's bytecode, built into the VM. After changing
   anything under `compiler/`, run `make -C vm compiler`. It compiles the compiler three times
@@ -152,14 +152,14 @@ php vm/bench.php                                    # gaz against PHP and Python
   to be the same, and only then replaces `gazlang.gzb` and rebuilds the VM, so a broken edit
   leaves a VM that can compile its fix. The compiler's own source can't use a new feature until
   it has been built with it once.
-- **`tests/vm_corpus/`** are programs for the C VM that the rest of the repository doesn't
+- **`tests/corpora/vm/`** are programs for the C VM that the rest of the repository doesn't
   reach, found with `php vm/coverage.php`: running out of call depth by every kind of call,
   traces cut short, failing `to_string()`s, floats of every shape, cycles.
-  **`tests/bytecode_corpus/`** are bytecode files written by hand, one broken way per loader
+  **`tests/corpora/bytecode/`** are bytecode files written by hand, one broken way per loader
   message. For the collector, `make -C vm stress` then
   `GAZVM=vm/build/gazvm-stress php vm/progress.php` collects cycles at every chance and takes
   over an hour (with `GAZVM` set, each program may run for two hours).
-- `lib/json.gaz` is checked against PHP's own `json_decode` on every `tests/json/y_*.json` and
+- `lib/json.gaz` is checked against PHP's own `json_decode` on every `tests/corpora/json/y_*.json` and
   `n_*.json`; `lib/csv.gaz` against `fgetcsv`.
 
 ## Bytecode

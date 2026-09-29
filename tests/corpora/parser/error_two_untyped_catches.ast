@@ -1,0 +1,1 @@
+Error: A catch without a kind catches every error, so it must be the last at tests/corpora/parser/error_two_untyped_catches.gaz:1

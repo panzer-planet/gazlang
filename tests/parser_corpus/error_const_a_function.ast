@@ -1,1 +1,0 @@
-Error: len is a function, not a constant at tests/parser_corpus/error_const_a_function.gaz:1

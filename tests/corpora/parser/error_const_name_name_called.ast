@@ -1,0 +1,1 @@
+Error: K::A is a constant, not a function at tests/corpora/parser/error_const_name_name_called.gaz:2

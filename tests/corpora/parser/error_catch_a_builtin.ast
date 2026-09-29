@@ -1,0 +1,1 @@
+Error: len is a function, not a kind at tests/corpora/parser/error_catch_a_builtin.gaz:1

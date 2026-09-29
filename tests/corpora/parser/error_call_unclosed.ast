@@ -1,0 +1,1 @@
+Error: Expected ')' but found ';' at tests/corpora/parser/error_call_unclosed.gaz:1

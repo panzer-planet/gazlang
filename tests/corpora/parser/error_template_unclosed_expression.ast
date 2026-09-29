@@ -1,0 +1,1 @@
+Error: {{ is never closed with }} on its line at tests/corpora/parser/templates/unclosed_expression.gazml:2

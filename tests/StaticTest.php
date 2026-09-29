@@ -4,7 +4,7 @@ namespace GazLang\Tests;
 
 /**
  * static #count = 0; and static fn next(): a member of the kind rather than of an object,
- * reached by name. tests/parser_corpus/statics.gaz has the parse errors.
+ * reached by name. tests/corpora/parser/statics.gaz has the parse errors.
  */
 class StaticTest extends GazLangTestCase
 {

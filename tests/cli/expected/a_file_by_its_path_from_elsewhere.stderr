@@ -1,5 +1,0 @@
-to stderr
-Error: Division by zero at tests/cli/runtime_error.gaz:1
-  inner at tests/cli/runtime_error.gaz:1
-  outer at tests/cli/runtime_error.gaz:2
-  top level at tests/cli/runtime_error.gaz:5

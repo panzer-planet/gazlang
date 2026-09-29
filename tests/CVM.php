@@ -7,7 +7,7 @@ namespace GazLang\Tests;
  *
  * An entry is a path relative to the project root, optionally followed by the program's
  * arguments after spaces; "snippet:<id>", a snippet the tests run (see snippets()); or a .gzb
- * file under tests/bytecode_corpus, run as it is, which tests the loaders on files no compiler
+ * file under tests/corpora/bytecode, run as it is, which tests the loaders on files no compiler
  * writes (the ones named error_* must be refused). A source file runs from its source, as
  * `gaz FILE` does, compiled by the self-hosted compiler built into the VM, and a snippet
  * piped in from the project root. vm/passing.txt lists the entries, tests/expected what each
@@ -105,7 +105,7 @@ final class CVM
         chdir(self::ROOT);
         try {
             $files = [];
-            foreach (['tests/programs', 'lib', 'compiler', 'tests/gaz', 'tests/fixtures', 'tests/codegen_corpus', 'tests/parser_corpus', 'tests/lexer_corpus', 'tests/vm_corpus'] as $dir) {
+            foreach (['tests/programs', 'lib', 'compiler', 'tests/gaz', 'tests/fixtures', 'tests/corpora/codegen', 'tests/corpora/parser', 'tests/corpora/lexer', 'tests/corpora/vm'] as $dir) {
                 $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS));
                 foreach ($it as $path) {
                     if (str_ends_with((string) $path, '.gaz')) {
@@ -113,7 +113,7 @@ final class CVM
                     }
                 }
             }
-            $files = [...$files, ...(glob('tests/bytecode_corpus/*.gzb') ?: [])];
+            $files = [...$files, ...(glob('tests/corpora/bytecode/*.gzb') ?: [])];
             sort($files);
             foreach (array_keys(self::snippets()) as $id) {
                 $files[] = "snippet:{$id}";

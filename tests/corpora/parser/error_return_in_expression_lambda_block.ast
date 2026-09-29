@@ -1,0 +1,1 @@
+Error: Cannot use return outside of a function at tests/corpora/parser/error_return_in_expression_lambda_block.gaz:3

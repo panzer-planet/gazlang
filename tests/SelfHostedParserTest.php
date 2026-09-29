@@ -8,7 +8,7 @@ use RecursiveIteratorIterator;
 /**
  * Checks the GazLang parser (compiler/parser.gaz, run by compiler/gazlang.gaz) on its corpus
  *
- * Each tests/parser_corpus/X.gaz has what `gaz --ast` must print for it in X.ast: the tree
+ * Each tests/corpora/parser/X.gaz has what `gaz --ast` must print for it in X.ast: the tree
  * as AST\Dumper prints it, or for a file that doesn't parse "Error: <message> at FILE:N" and exit
  * code 1; and in X.piped.ast what `gaz --ast < X.gaz` must print, which has no file to show.
  * The self-hosted parser is run as `gaz compiler/gazlang.gaz ast FILE` on the C VM (see
@@ -16,12 +16,12 @@ use RecursiveIteratorIterator;
  */
 class SelfHostedParserTest extends GazLangTestCase
 {
-    private const CORPUS = 'tests/parser_corpus';
+    private const CORPUS = 'tests/corpora/parser';
 
     /**
      * Where the cases run from other working directories keep what they must print
      */
-    private const PLACES = 'tests/parser_corpus/places';
+    private const PLACES = 'tests/corpora/parser/places';
 
     /**
      * The driver's output and exit code by file, run on the C VM for the whole corpus at once
@@ -103,7 +103,7 @@ class SelfHostedParserTest extends GazLangTestCase
      */
     public static function places(): array
     {
-        $include = self::ROOT.'/tests/parser_corpus/include';
+        $include = self::ROOT.'/tests/corpora/parser/include';
         $elsewhere = self::ROOT.'/vm/build/elsewhere';
         @mkdir($elsewhere, 0777, true);
 

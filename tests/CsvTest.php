@@ -5,7 +5,7 @@ namespace GazLang\Tests;
 /**
  * lib/csv.gaz against PHP's fgetcsv, and tests/programs/csv_report.gaz end to end
  *
- * tests/csv/y_*.csv must parse to the same rows as fgetcsv (with no escape character,
+ * tests/corpora/csv/y_*.csv must parse to the same rows as fgetcsv (with no escape character,
  * as RFC 4180 has none, and without the [null] rows fgetcsv gives blank lines);
  * n_*.csv must be rejected with a "CSV error".
  */
@@ -14,8 +14,8 @@ class CsvTest extends GazLangTestCase
     public static function documents(): array
     {
         $documents = [];
-        foreach (glob(self::ROOT.'/tests/csv/*.csv') as $path) {
-            $documents[basename($path)] = ['tests/csv/'.basename($path)];
+        foreach (glob(self::ROOT.'/tests/corpora/csv/*.csv') as $path) {
+            $documents[basename($path)] = ['tests/corpora/csv/'.basename($path)];
         }
         $documents['sales.csv'] = ['tests/programs/data/sales.csv'];
 
@@ -99,9 +99,9 @@ class CsvTest extends GazLangTestCase
             'wrong argument count' => [['a.csv'], 'expected 3 arguments, got 1'],
             'missing file' => [['nope.csv', 'a', 'b'], 'Cannot read file: nope.csv'],
             'unknown column' => [['tests/programs/data/sales.csv', 'regin', 'amount'], 'tests/programs/data/sales.csv has no column "regin" (columns: date, region, product, amount)'],
-            'invalid CSV' => [['tests/csv/n_unclosed_quote.csv', 'a', 'b'], 'CSV error on line 2: quoted field is never closed'],
-            'ragged row' => [['tests/csv/y_ragged_rows.csv', 'a', 'b'], 'CSV error in row 3: 1 field, but the header has 2'],
-            'not a number' => [['tests/csv/y_simple.csv', 'age', 'name'], 'row 2: name "Ada" is not a number'],
+            'invalid CSV' => [['tests/corpora/csv/n_unclosed_quote.csv', 'a', 'b'], 'CSV error on line 2: quoted field is never closed'],
+            'ragged row' => [['tests/corpora/csv/y_ragged_rows.csv', 'a', 'b'], 'CSV error in row 3: 1 field, but the header has 2'],
+            'not a number' => [['tests/corpora/csv/y_simple.csv', 'age', 'name'], 'row 2: name "Ada" is not a number'],
         ];
     }
 

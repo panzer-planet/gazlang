@@ -1,0 +1,4 @@
+Error: oops: deep
+  deeper at tests/corpora/vm/uncaught_object.gaz:3
+  deep at tests/corpora/vm/uncaught_object.gaz:4
+  top level at tests/corpora/vm/uncaught_object.gaz:5

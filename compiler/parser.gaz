@@ -1,5 +1,5 @@
 // The GazLang parser in GazLang: tokens to a tree of the nodes in nodes.gaz, as --ast shows it.
-// tests/SelfHostedParserTest.php checks its trees and errors against tests/parser_corpus.
+// tests/SelfHostedParserTest.php checks its trees and errors against tests/corpora/parser.
 // Methods are named after the grammar rule they read (function_call(), ternary()).
 //
 // This file has no top level code, so it can be included:

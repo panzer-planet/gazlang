@@ -1,0 +1,48 @@
+Compound
+  statements:
+@ "tests/corpora/parser/constant_edges.gaz"
+    0: EchoStatement 4
+      expr: FunctionRef 4
+        name: "MIN"
+        constant: true
+        value: -9223372036854775808
+        static_name: null
+    1: EchoStatement 6
+      expr: ArrayLiteral 6
+        entries:
+          0:
+            0: null
+            1: FunctionRef 6
+              name: "MIN"
+              constant: true
+              value: -9223372036854775808
+              static_name: null
+          1:
+            0: null
+            1: FunctionRef 6
+              name: "WIDTH"
+              constant: true
+              value: 3
+              static_name: null
+          2:
+            0: null
+            1: ArrayLiteral 6
+              entries:
+                0:
+                  0: FunctionRef 6
+                    name: "WIDTH"
+                    constant: true
+                    value: 3
+                    static_name: null
+                  1: ArrayLiteral 6
+                    entries:
+                      0:
+                        0: null
+                        1: FunctionRef 6
+                          name: "MIN"
+                          constant: true
+                          value: -9223372036854775808
+                          static_name: null
+                    map: false
+              map: true
+        map: false

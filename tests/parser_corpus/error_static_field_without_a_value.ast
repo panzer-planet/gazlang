@@ -1,1 +1,0 @@
-Error: A static field needs a value: write 'static #a = ...;' at tests/parser_corpus/error_static_field_without_a_value.gaz:2

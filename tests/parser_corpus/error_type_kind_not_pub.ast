@@ -1,1 +1,0 @@
-Error: secret::Hidden is not pub, so only namespace secret can use it at tests/parser_corpus/error_type_kind_not_pub.gaz:3

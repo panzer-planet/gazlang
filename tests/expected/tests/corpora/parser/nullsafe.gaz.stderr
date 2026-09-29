@@ -1,0 +1,1 @@
+Error: Cannot use . on null at tests/corpora/parser/nullsafe.gaz:6

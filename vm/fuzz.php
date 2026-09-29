@@ -313,14 +313,14 @@ function seeds(): array
 }
 
 /**
- * The bytecode to mutate: tests/bytecode_corpus, and some of the programs compiled
+ * The bytecode to mutate: tests/corpora/bytecode, and some of the programs compiled
  *
  * @param  list<array{0: string, 1: string}>  $seeds
  * @return list<string>
  */
 function gzbSeeds(array $seeds, Randomizer $rng): array
 {
-    $gzb = array_map(file_get_contents(...), glob(CVM::ROOT.'/tests/bytecode_corpus/*.gzb') ?: []);
+    $gzb = array_map(file_get_contents(...), glob(CVM::ROOT.'/tests/corpora/bytecode/*.gzb') ?: []);
     $commands = [];
     foreach ($rng->pickArrayKeys($seeds, min(60, count($seeds))) as $i) {
         $text = absoluteIncludes($seeds[$i][0], $seeds[$i][1]);

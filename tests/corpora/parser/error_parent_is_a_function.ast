@@ -1,0 +1,1 @@
+Error: helper is a function, not a kind at tests/corpora/parser/error_parent_is_a_function.gaz:2

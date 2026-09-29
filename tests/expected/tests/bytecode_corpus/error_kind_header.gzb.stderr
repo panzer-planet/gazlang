@@ -1,1 +1,0 @@
-Error: Expected 'kind Name' or 'kind Name extends Parent' at tests/bytecode_corpus/error_kind_header.gzb:7

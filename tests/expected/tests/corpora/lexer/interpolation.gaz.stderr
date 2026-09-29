@@ -1,0 +1,1 @@
+Error: Undefined variable: $name_2 at tests/corpora/lexer/interpolation.gaz:3

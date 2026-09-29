@@ -1,1 +1,0 @@
-Error: Bad value '"\q"': Unknown escape sequence \q in string at tests/bytecode_corpus/error_value_escape.gzb:6

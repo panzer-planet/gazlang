@@ -5,7 +5,7 @@ namespace GazLang\Tests;
 /**
  * Checks the GazLang code generator (compiler/codegen.gaz, run by compiler/gazlang.gaz) on its corpus
  *
- * Each tests/codegen_corpus/X.gaz has what `gaz -c` must print for it in X.code: the bytecode
+ * Each tests/corpora/codegen/X.gaz has what `gaz -c` must print for it in X.code: the bytecode
  * file, or for a file that doesn't parse "Error: <message> at FILE:N" and exit code 1; and in
  * X.piped.code what `gaz -c < X.gaz` must print, which has no file to show. The self-hosted
  * compiler is run as `gaz compiler/gazlang.gaz code FILE` on the C VM (see
@@ -14,7 +14,7 @@ namespace GazLang\Tests;
  */
 class SelfHostedCompilerTest extends GazLangTestCase
 {
-    private const CORPUS = 'tests/codegen_corpus';
+    private const CORPUS = 'tests/corpora/codegen';
 
     /**
      * The driver's output and exit code by file, run on the C VM for the whole corpus at once
@@ -89,7 +89,7 @@ class SelfHostedCompilerTest extends GazLangTestCase
      */
     public function test_self_hosted_compiler_prints_the_expected_bytecode_from_anywhere(string $cwd, string $file, string $name)
     {
-        $this->assertPortPrints("tests/parser_corpus/places/{$name}.code", CVM::driver('code', [$file], false, $cwd)[$file], $name);
+        $this->assertPortPrints("tests/corpora/parser/places/{$name}.code", CVM::driver('code', [$file], false, $cwd)[$file], $name);
     }
 
     /**
@@ -99,7 +99,7 @@ class SelfHostedCompilerTest extends GazLangTestCase
      */
     public function test_self_hosted_compiler_prints_the_expected_bytecode_on_piped_input_from_anywhere(string $cwd, string $file, string $name)
     {
-        $this->assertPortPrints("tests/parser_corpus/places/{$name}.piped.code", CVM::driver('code', [$file], true, $cwd)[$file], "{$name}, piped");
+        $this->assertPortPrints("tests/corpora/parser/places/{$name}.piped.code", CVM::driver('code', [$file], true, $cwd)[$file], "{$name}, piped");
     }
 
     public function test_every_expected_file_has_its_program()

@@ -1,1 +1,0 @@
-Error: A constructor is reached by constructing, so it needs no pub at tests/parser_corpus/error_pub_on_a_constructor.gaz:1

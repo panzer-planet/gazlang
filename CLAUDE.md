@@ -115,9 +115,9 @@ vendor/bin/pint                     # formatting
   compiler's lexer), `library.gaz` (the library's pages from its source), `documents.gaz` (links
   and the repository), `verify.gaz` (the checks every page passes), `style.css`. Its tests are
   `tests/gaz/site/` and `SiteTest`.
-- `tests/`: PHPUnit, `tests/gaz/` (GazLang programs), `tests/expected/` (what every program
-  prints), and the corpora: `lexer_corpus/`, `parser_corpus/`, `codegen_corpus/`, `vm_corpus/`,
-  `bytecode_corpus/`, `cli/`, `json/`, `csv/`.
+- `tests/`: PHPUnit, `tests/gaz/` (GazLang programs, the standard library's in `tests/gaz/lib/`),
+  `tests/expected/` (what every program prints), and `tests/corpora/`, the corpora: `lexer/`,
+  `parser/`, `codegen/`, `vm/`, `bytecode/`, `cli/`, `json/`, `csv/`.
 
 ## How it is held together
 
@@ -140,10 +140,10 @@ nothing**: several first versions of a harness or corpus passed everything and c
   as it has no file. `progress.php` adds a candidate the compiler accepts and that doesn't leak;
   the list only grows, except when a snippet or fixture itself goes, which `--update` drops
   (`CVM::gone()`; `CVMTest` fails naming them until then).
-- **The front end prints what its corpora record**: each `X.gaz` in `tests/lexer_corpus`,
-  `tests/parser_corpus` and `tests/codegen_corpus` has what `--tokens`, `--ast` or `-c` must
+- **The front end prints what its corpora record**: each `X.gaz` in `tests/corpora/lexer`,
+  `tests/corpora/parser` and `tests/corpora/codegen` has what `--tokens`, `--ast` or `-c` must
   print next to it (`X.tokens`, `X.ast` and `X.piped.ast`, `X.code` and `X.piped.code`; the
-  runs from other working directories in `tests/parser_corpus/places/`), exit code 1 when a line
+  runs from other working directories in `tests/corpora/parser/places/`), exit code 1 when a line
   starts with `Error: ` (`assertPortPrints()`). `SelfHostedLexerTest`, `SelfHostedParserTest`
   and `SelfHostedCompilerTest` run the driver compiled from the current `compiler/` source (not
   the built-in one, which is stale until `make compiler`), 24 at once (`CVM::driver()`). The
@@ -165,8 +165,8 @@ nothing**: several first versions of a harness or corpus passed everything and c
   `leaks --atExit -- bin/gaz ARGS` finds the same);
   `__lsan_default_suppressions()` in `vm.c` exempts only the loader, which gives up on a broken
   file without freeing what it built.
-- **The command line prints what `tests/cli/expected/` records** (`CliTest`): a table of
-  invocations of `tests/cli/` programs (arguments, what is piped in, working directory). A change
+- **The command line prints what `tests/corpora/cli/expected/` records** (`CliTest`): a table of
+  invocations of `tests/corpora/cli/` programs (arguments, what is piped in, working directory). A change
   to its options or how it reads input needs a row.
 - **The compiler compiles itself to itself**: `compiler/gazlang.gzb`, run under the sanitizers,
   compiles `compiler/gazlang.gaz` to exactly `gazlang.gzb`
@@ -175,8 +175,8 @@ nothing**: several first versions of a harness or corpus passed everything and c
 - **GazLang code is tested with GazLang programs**: every `tests/gaz/**/*_test.gaz` must print
   exactly its `*_test.expected` (`GazProgramTest`); `std/test.gaz`'s
   `test::expect($label, $actual, $expected)` (`use expect as check`) prints `ok <label>` or a FAIL line. `lib/json.gaz` is checked against PHP's
-  `json_decode` on `tests/json/y_*`/`n_*` (the prefix says whether it must parse), `lib/csv.gaz`
-  against `fgetcsv` on `tests/csv/`, `lib/chars.gaz` against the lexer's classes for all 256
+  `json_decode` on `tests/corpora/json/y_*`/`n_*` (the prefix says whether it must parse), `lib/csv.gaz`
+  against `fgetcsv` on `tests/corpora/csv/`, `lib/chars.gaz` against the lexer's classes for all 256
   bytes.
 - **Programs are tests or examples, not both**: a program in `tests/programs/` is checked: run
   under the sanitizers and leak check with its output recorded (`CVMTest`), given arguments and
@@ -933,7 +933,7 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
 - `read_line()`: `getline()` on `stdin`, the line without `"\n"` or `"\r\n"`, or null at the end;
   through the stdio buffer `read_stdin()` reads too, so the two share the input without losing a
   byte, and a piped program's input was read by `main()` already, so both find nothing. It
-  flushes output first (a prompt). Tested through `CliTest` rows with `tests/cli/lines.txt`.
+  flushes output first (a prompt). Tested through `CliTest` rows with `tests/corpora/cli/lines.txt`.
 - `run($argv, $input = "")`: `posix_spawnp` of a list of strings, so no shell reads them; the
   environment and working directory inherited. Standard input is `$input` in a temporary file
   unlinked before the program starts (a pipe would need writing while reading two, and SIGPIPE
@@ -1351,7 +1351,7 @@ turns a mistake into a message and an exit.
   default (null unless one was given).
 - `ponytail:` a negative number as an argument needs `--` first (`-5` is read as an option); no
   "did you mean" for an unknown option; values aren't typed (`to_int($args["n"], null)`).
-- Tested by `tests/gaz/lib/cli_test.gaz` and by `CliTest` running `tests/cli/todo.gaz` for the
+- Tested by `tests/gaz/lib/cli_test.gaz` and by `CliTest` running `tests/corpora/cli/todo.gaz` for the
   exits and which stream each goes to.
 
 ## Templates
@@ -1873,8 +1873,8 @@ try {
   after `OP_COUNT` so no file can name one) and leaves the sequence where it was, so a jump into
   it still lands on real instructions. A superinstruction's quick path must be one that can't
   fail or run program code; otherwise it runs its first instruction alone and the rest follow,
-  so errors and their lines are the sequence's own. `tests/vm_corpus/superinstructions.gaz`
-  takes every fallback; `bytecode_corpus/superinstruction_lookalikes.gzb` holds the shapes only
+  so errors and their lines are the sequence's own. `tests/corpora/vm/superinstructions.gaz`
+  takes every fallback; `tests/corpora/bytecode/superinstruction_lookalikes.gzb` holds the shapes only
   hand-written bytecode has.
 - **Speed**: what paid was an int fast path for `%`, the `STORE; LOAD; POP` peephole, shared
   one-byte strings, not interning names on the hot path, inline caches on member instructions,
