@@ -2,6 +2,8 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 class TryCatchTest extends GazLangTestCase
 {
     public function test_running_out_of_call_depth_can_be_caught()
@@ -30,9 +32,7 @@ class TryCatchTest extends GazLangTestCase
         $this->assertSame("3\n", $this->executeCode("\n\ntry { throw \"Syntax error in input on line 7\"; } catch (Error \$e) { echo \$e.line; }"));
     }
 
-    /**
-     * @dataProvider parseErrors
-     */
+    #[DataProvider('parseErrors')]
     public function test_parse_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
@@ -155,9 +155,7 @@ class TryCatchTest extends GazLangTestCase
         }
     }
 
-    /**
-     * @dataProvider uncaughtValues
-     */
+    #[DataProvider('uncaughtValues')]
     public function test_uncaught_values_print_as_echo_would(string $code, string $message)
     {
         $this->expectExceptionMessage($message);

@@ -2,6 +2,8 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 class KindTest extends GazLangTestCase
 {
     private const ACCOUNT = <<<'CODE'
@@ -548,9 +550,7 @@ class KindTest extends GazLangTestCase
             CODE));
     }
 
-    /**
-     * @dataProvider constructorRecursion
-     */
+    #[DataProvider('constructorRecursion')]
     public function test_runaway_construction_is_located_where_the_object_is_made(string $code, string $message)
     {
         [$output, $exit_code] = self::cli([], $code);
@@ -590,9 +590,7 @@ class KindTest extends GazLangTestCase
         );
     }
 
-    /**
-     * @dataProvider runtimeErrors
-     */
+    #[DataProvider('runtimeErrors')]
     public function test_runtime_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
@@ -655,9 +653,7 @@ class KindTest extends GazLangTestCase
             CODE));
     }
 
-    /**
-     * @dataProvider syntaxErrors
-     */
+    #[DataProvider('syntaxErrors')]
     public function test_syntax_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
@@ -739,9 +735,7 @@ class KindTest extends GazLangTestCase
         $this->assertEquals("3\n", $this->executeCode('kind Match { pub fn While() { return 3; } } echo Match().While();'));
     }
 
-    /**
-     * @dataProvider miscapitalisedKeywords
-     */
+    #[DataProvider('miscapitalisedKeywords')]
     public function test_a_keyword_in_the_wrong_case_says_so(string $code, string $message)
     {
         // Nothing here is a keyword any more, so the errors would otherwise be about names
@@ -767,9 +761,7 @@ class KindTest extends GazLangTestCase
         $this->parse('echo missing;');
     }
 
-    /**
-     * @dataProvider declaredKeywordNames
-     */
+    #[DataProvider('declaredKeywordNames')]
     public function test_a_declared_name_gets_no_keyword_hint(string $code)
     {
         // Naming things Return and If is the point of the rule, so an error next to one must

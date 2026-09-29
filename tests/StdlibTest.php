@@ -2,6 +2,8 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 class StdlibTest extends GazLangTestCase
 {
     public function test_values_gives_a_map_s_values_in_order_and_a_list_as_it_is()
@@ -129,9 +131,7 @@ class StdlibTest extends GazLangTestCase
         ));
     }
 
-    /**
-     * @dataProvider invalidBytes
-     */
+    #[DataProvider('invalidBytes')]
     public function test_chr_and_ord_reject_what_is_not_one_byte(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
@@ -150,9 +150,7 @@ class StdlibTest extends GazLangTestCase
         ];
     }
 
-    /**
-     * @dataProvider stringBuiltinErrors
-     */
+    #[DataProvider('stringBuiltinErrors')]
     public function test_string_builtins_reject_bad_arguments(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
@@ -197,9 +195,7 @@ class StdlibTest extends GazLangTestCase
             CODE));
     }
 
-    /**
-     * @dataProvider invalidInts
-     */
+    #[DataProvider('invalidInts')]
     public function test_to_int_rejects_anything_else(string $argument, string $message)
     {
         $this->expectExceptionMessage($message);
@@ -277,9 +273,7 @@ class StdlibTest extends GazLangTestCase
         $this->assertSame(["bye\n", '', 7], self::gazlang([], 'echo "bye"; exit(7);'));
     }
 
-    /**
-     * @dataProvider exitErrors
-     */
+    #[DataProvider('exitErrors')]
     public function test_exit_argument_errors(string $code, string $message)
     {
         // A bad argument is an ordinary, catchable error
@@ -403,9 +397,7 @@ class StdlibTest extends GazLangTestCase
         ];
     }
 
-    /**
-     * @dataProvider unrunnable
-     */
+    #[DataProvider('unrunnable')]
     public function test_run_raises_a_catchable_error_for_what_it_cannot_start(string $code, string $message)
     {
         $this->assertSame("caught\n", $this->executeCode("try { {$code} } catch (Error \$e) { echo \"caught\"; }"));
@@ -655,9 +647,7 @@ class StdlibTest extends GazLangTestCase
         $this->assertSame([['Error: Unknown option -n (program arguments go after the file, or after - or --)'], 1], self::cli(['-n', '5'], 'echo args();'));
     }
 
-    /**
-     * @dataProvider wrongArgumentTypes
-     */
+    #[DataProvider('wrongArgumentTypes')]
     public function test_builtins_check_argument_types(string $code, string $message)
     {
         $this->expectExceptionMessage($message);

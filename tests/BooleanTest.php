@@ -2,6 +2,8 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 class BooleanTest extends GazLangTestCase
 {
     public function test_lexes_true_and_false_keywords()
@@ -23,9 +25,7 @@ class BooleanTest extends GazLangTestCase
         ));
     }
 
-    /**
-     * @dataProvider boolOperatorErrors
-     */
+    #[DataProvider('boolOperatorErrors')]
     public function test_arithmetic_and_ordering_on_a_bool_throw(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
@@ -73,9 +73,7 @@ class BooleanTest extends GazLangTestCase
         ));
     }
 
-    /**
-     * @dataProvider overflows
-     */
+    #[DataProvider('overflows')]
     public function test_overflow_cases(string $code)
     {
         $this->expectExceptionMessage('Integer overflow');

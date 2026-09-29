@@ -3,6 +3,7 @@
 namespace GazLang\Tests;
 
 use JsonException;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Checks lib/json.gaz against PHP's json_decode on every file in tests/corpora/json
@@ -23,9 +24,7 @@ class JsonTest extends GazLangTestCase
         return $documents;
     }
 
-    /**
-     * @dataProvider documents
-     */
+    #[DataProvider('documents')]
     public function test_document_matches_php(string $file)
     {
         $text = file_get_contents(self::ROOT."/{$file}");
@@ -50,9 +49,7 @@ class JsonTest extends GazLangTestCase
         $this->assertSame(json_encode(json_decode($text), JSON_PRESERVE_ZERO_FRACTION), json_encode(json_decode($output), JSON_PRESERVE_ZERO_FRACTION));
     }
 
-    /**
-     * @dataProvider errorMessages
-     */
+    #[DataProvider('errorMessages')]
     public function test_error_messages_say_what_and_where(string $json, string $message)
     {
         $this->expectExceptionMessage($message);

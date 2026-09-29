@@ -2,6 +2,8 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 /**
  * match: how it parses, what it refuses, and the code it compiles to
  *
@@ -27,9 +29,7 @@ class MatchTest extends GazLangTestCase
         $this->assertEquals("1\n", $this->executeCode('kind C { pub fn match() { return 1; } } echo C().match();'));
     }
 
-    /**
-     * @dataProvider parseErrors
-     */
+    #[DataProvider('parseErrors')]
     public function test_parse_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);

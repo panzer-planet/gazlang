@@ -2,6 +2,8 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 /**
  * static #count = 0; and static fn next(): a member of the kind rather than of an object,
  * reached by name. tests/corpora/parser/statics.gaz has the parse errors.
@@ -66,9 +68,8 @@ class StaticTest extends GazLangTestCase
 
     /**
      * A static is reached by name, so a value on the left of it is not one
-     *
-     * @dataProvider notThroughAValue
      */
+    #[DataProvider('notThroughAValue')]
     public function test_a_static_is_not_reached_through_a_value(string $code, string $message)
     {
         try {

@@ -3,6 +3,7 @@
 namespace GazLang\Tests;
 
 use Exception;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class OperatorTest extends GazLangTestCase
 {
@@ -36,9 +37,7 @@ class OperatorTest extends GazLangTestCase
         $this->lex('`');
     }
 
-    /**
-     * @dataProvider bitwisePrecedence
-     */
+    #[DataProvider('bitwisePrecedence')]
     public function test_bitwise_precedence(string $code, string $expected)
     {
         $this->assertEquals($expected, $this->executeCode($code));
@@ -69,9 +68,7 @@ class OperatorTest extends GazLangTestCase
         $this->assertSame(['POWER', 'POWER_ASSIGN', 'MULTIPLY_ASSIGN', 'POWER', 'MULTIPLY'], array_column($this->lex('** **= *= ***'), 0));
     }
 
-    /**
-     * @dataProvider powers
-     */
+    #[DataProvider('powers')]
     public function test_power(string $code, string $expected)
     {
         $this->assertSame($expected, $this->executeCode($code));
@@ -104,9 +101,7 @@ class OperatorTest extends GazLangTestCase
         $this->assertSame(['PIPE', 'OR', 'GREATER_THAN', 'BIT_OR', 'GREATER_THAN'], array_column($this->lex('|> ||> | >'), 0));
     }
 
-    /**
-     * @dataProvider pipes
-     */
+    #[DataProvider('pipes')]
     public function test_pipe(string $code, string $expected)
     {
         $this->assertSame($expected, $this->executeCode($code));
@@ -129,9 +124,7 @@ class OperatorTest extends GazLangTestCase
         ];
     }
 
-    /**
-     * @dataProvider pipeErrors
-     */
+    #[DataProvider('pipeErrors')]
     public function test_pipe_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
@@ -150,9 +143,7 @@ class OperatorTest extends GazLangTestCase
         ];
     }
 
-    /**
-     * @dataProvider powerErrors
-     */
+    #[DataProvider('powerErrors')]
     public function test_power_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
@@ -177,9 +168,7 @@ class OperatorTest extends GazLangTestCase
         ];
     }
 
-    /**
-     * @dataProvider bitwiseErrors
-     */
+    #[DataProvider('bitwiseErrors')]
     public function test_bitwise_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
@@ -215,9 +204,7 @@ class OperatorTest extends GazLangTestCase
         );
     }
 
-    /**
-     * @dataProvider floatErrors
-     */
+    #[DataProvider('floatErrors')]
     public function test_float_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
@@ -251,9 +238,7 @@ class OperatorTest extends GazLangTestCase
         $this->assertEquals("PUSH 0.1\nPUSH 1.0E+25\nMUL\nPRINT", $this->generateCode('echo 0.1 * 1e25;'));
     }
 
-    /**
-     * @dataProvider assignmentOperatorErrors
-     */
+    #[DataProvider('assignmentOperatorErrors')]
     public function test_assignment_operator_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
@@ -278,9 +263,7 @@ class OperatorTest extends GazLangTestCase
         ];
     }
 
-    /**
-     * @dataProvider assignmentOperatorParseErrors
-     */
+    #[DataProvider('assignmentOperatorParseErrors')]
     public function test_assignment_operator_parse_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
@@ -459,9 +442,7 @@ class OperatorTest extends GazLangTestCase
         ));
     }
 
-    /**
-     * @dataProvider spaceshipErrors
-     */
+    #[DataProvider('spaceshipErrors')]
     public function test_spaceship_follows_the_ordering_rules(string $code, string $message)
     {
         $this->expectExceptionMessage($message);

@@ -2,6 +2,8 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 /**
  * The server half: socket_listen(), socket_accept(), socket_port(), workers() and http::serve(),
  * through tests/programs/web_server.gaz, which is asked over raw sockets so that requests no
@@ -267,9 +269,7 @@ class HttpServerTest extends GazLangTestCase
         ];
     }
 
-    /**
-     * @dataProvider refused
-     */
+    #[DataProvider('refused')]
     public function test_a_request_that_is_not_well_formed_never_reaches_the_handler(string $request, int $status)
     {
         $this->assertSame($status, self::response(self::exchange($request))['status']);
@@ -516,9 +516,7 @@ class HttpServerTest extends GazLangTestCase
         ];
     }
 
-    /**
-     * @dataProvider misused
-     */
+    #[DataProvider('misused')]
     public function test_what_is_misused_is_an_error(string $code, string $message)
     {
         $this->expectExceptionMessage($message);

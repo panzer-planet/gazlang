@@ -2,6 +2,8 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 class FinallyTest extends GazLangTestCase
 {
     public function test_finally_runs_after_the_try_block_and_after_a_catch()
@@ -129,9 +131,7 @@ class FinallyTest extends GazLangTestCase
             CODE));
     }
 
-    /**
-     * @dataProvider parseErrors
-     */
+    #[DataProvider('parseErrors')]
     public function test_parse_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);

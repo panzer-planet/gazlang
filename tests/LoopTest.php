@@ -3,6 +3,7 @@
 namespace GazLang\Tests;
 
 use Exception;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class LoopTest extends GazLangTestCase
 {
@@ -137,9 +138,7 @@ class LoopTest extends GazLangTestCase
         $this->executeCode("\$s = \"abc\";\nforeach (\$s as \$c) { }");
     }
 
-    /**
-     * @dataProvider invalidForeach
-     */
+    #[DataProvider('invalidForeach')]
     public function test_foreach_parse_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);

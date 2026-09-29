@@ -2,6 +2,8 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 class FunctionTest extends GazLangTestCase
 {
     public function test_lexes_function_syntax_and_global_variables()
@@ -137,9 +139,7 @@ class FunctionTest extends GazLangTestCase
         }
     }
 
-    /**
-     * @dataProvider defaultParameterErrors
-     */
+    #[DataProvider('defaultParameterErrors')]
     public function test_default_parameter_parse_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);

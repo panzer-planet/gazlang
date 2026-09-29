@@ -2,6 +2,8 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 /**
  * tests/programs/football.gaz with arguments: every invocation in the table must print what
  * tests/football/expected records for it, standard output and exit code (the run with none is
@@ -40,9 +42,7 @@ class FootballTest extends GazLangTestCase
         return array_map(fn ($name) => [$name], array_combine(array_keys(self::CASES), array_keys(self::CASES)));
     }
 
-    /**
-     * @dataProvider cases
-     */
+    #[DataProvider('cases')]
     public function test_football_prints_what_is_recorded(string $name)
     {
         [$out, $code] = $this->runProgram('tests/programs/football.gaz', self::CASES[$name]);

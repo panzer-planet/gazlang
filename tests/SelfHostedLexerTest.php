@@ -2,6 +2,8 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 /**
  * Checks the GazLang lexer (compiler/lexer.gaz, run by compiler/gazlang.gaz) on its corpus
  *
@@ -37,18 +39,14 @@ class SelfHostedLexerTest extends GazLangTestCase
         return $files;
     }
 
-    /**
-     * @dataProvider corpus
-     */
+    #[DataProvider('corpus')]
     public function test_self_hosted_lexer_prints_the_expected_tokens(string $file)
     {
         self::$results = self::$results ?: CVM::driver('tokens', array_keys(self::corpus()));
         $this->assertPortPrints(substr($file, 0, -3).'tokens', self::$results[$file], "Tokens for {$file}");
     }
 
-    /**
-     * @dataProvider corpus
-     */
+    #[DataProvider('corpus')]
     public function test_corpus_files_named_error_are_exactly_the_ones_that_fail(string $file)
     {
         self::$results = self::$results ?: CVM::driver('tokens', array_keys(self::corpus()));

@@ -2,6 +2,8 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 class ArrayTest extends GazLangTestCase
 {
     public function test_lexes_array_syntax()
@@ -112,9 +114,7 @@ class ArrayTest extends GazLangTestCase
         ));
     }
 
-    /**
-     * @dataProvider badKeysBeforeValues
-     */
+    #[DataProvider('badKeysBeforeValues')]
     public function test_a_bad_key_fails_before_later_keys_and_the_value_run(string $code)
     {
         // executeCode also runs this on the VM, which must check keys just as early
@@ -155,9 +155,7 @@ class ArrayTest extends GazLangTestCase
         ));
     }
 
-    /**
-     * @dataProvider runtimeErrors
-     */
+    #[DataProvider('runtimeErrors')]
     public function test_runtime_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
@@ -192,9 +190,7 @@ class ArrayTest extends GazLangTestCase
         ];
     }
 
-    /**
-     * @dataProvider parseErrors
-     */
+    #[DataProvider('parseErrors')]
     public function test_parse_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);

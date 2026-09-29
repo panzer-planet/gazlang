@@ -2,6 +2,7 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -33,9 +34,7 @@ class CVMTest extends TestCase
         return $entries;
     }
 
-    /**
-     * @dataProvider entries
-     */
+    #[DataProvider('entries')]
     public function test_the_c_vm_prints_what_is_expected(string $entry)
     {
         $expected = CVM::expected($entry);

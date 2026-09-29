@@ -2,6 +2,8 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 /**
  * The lexer, through `gaz --tokens`
  */
@@ -50,9 +52,7 @@ class LexerTest extends GazLangTestCase
         );
     }
 
-    /**
-     * @dataProvider invalidEscapes
-     */
+    #[DataProvider('invalidEscapes')]
     public function test_invalid_escapes(string $source, string $message)
     {
         $this->expectExceptionMessage($message);
@@ -90,9 +90,7 @@ class LexerTest extends GazLangTestCase
         $this->assertSame('"\n\t\r\v\f\e\\\\\"\x0012 \x01\x7F é"', $this->printedString("\n\t\r\v\f\e\\\"\x0012 \x01\x7F é"));
     }
 
-    /**
-     * @dataProvider singleQuotedStrings
-     */
+    #[DataProvider('singleQuotedStrings')]
     public function test_single_quoted_strings_are_raw(string $source, string $value)
     {
         $this->assertSame([['STRING', $value]], $this->pairs($source));
@@ -145,9 +143,7 @@ class LexerTest extends GazLangTestCase
         $this->assertSame([['STRING_START', 1], ['VAR_IDENTIFIER', 2], ['STRING_MIDDLE', 3], ['VAR_IDENTIFIER', 4], ['STRING_END', 4]], $this->lines("\"a\n{\$x\n}b\n\$y\""));
     }
 
-    /**
-     * @dataProvider unterminatedInterpolations
-     */
+    #[DataProvider('unterminatedInterpolations')]
     public function test_unterminated_interpolation_reports_where_the_string_starts(string $source)
     {
         $this->expectExceptionMessage('Unterminated string on line 2');
@@ -185,9 +181,7 @@ class LexerTest extends GazLangTestCase
         );
     }
 
-    /**
-     * @dataProvider invalidInterpolatedIndexes
-     */
+    #[DataProvider('invalidInterpolatedIndexes')]
     public function test_invalid_shorthand_index_is_an_error(string $index)
     {
         $this->expectExceptionMessage('Invalid array index in interpolated string');
@@ -311,9 +305,7 @@ class LexerTest extends GazLangTestCase
         );
     }
 
-    /**
-     * @dataProvider invalidWords
-     */
+    #[DataProvider('invalidWords')]
     public function test_invalid_numbers_and_variable_names_show_the_whole_word(string $source, string $message)
     {
         $this->expectExceptionMessage($message);
@@ -347,9 +339,7 @@ class LexerTest extends GazLangTestCase
         );
     }
 
-    /**
-     * @dataProvider invalidHex
-     */
+    #[DataProvider('invalidHex')]
     public function test_invalid_hex_literals(string $source, string $message)
     {
         $this->expectExceptionMessage($message);
@@ -374,9 +364,7 @@ class LexerTest extends GazLangTestCase
         );
     }
 
-    /**
-     * @dataProvider invalidFloats
-     */
+    #[DataProvider('invalidFloats')]
     public function test_invalid_float_literals(string $source, string $message)
     {
         $this->expectExceptionMessage($message);

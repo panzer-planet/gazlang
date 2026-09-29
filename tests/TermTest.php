@@ -2,6 +2,8 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 /**
  * The terminal builtins (vm/term.c): term_raw(), term_read(), term_size() and term_is_tty()
  *
@@ -30,9 +32,7 @@ class TermTest extends GazLangTestCase
         $this->assertSame("[\"\"]\n", $this->executeCode('echo to_string([term_read(1e10)]);'));
     }
 
-    /**
-     * @dataProvider argumentErrors
-     */
+    #[DataProvider('argumentErrors')]
     public function test_their_arguments_are_checked(string $code, string $message)
     {
         $this->assertSame($message."\n", $this->executeCode("try { {$code}; } catch (Error \$e) { echo \$e.message; }"));

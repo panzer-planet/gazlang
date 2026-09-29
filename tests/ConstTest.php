@@ -2,6 +2,8 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 /**
  * const NAME = value; at the top level and in a kind: the parser works the value out, and a use is that value
  */
@@ -221,9 +223,7 @@ class ConstTest extends GazLangTestCase
         ];
     }
 
-    /**
-     * @dataProvider errors
-     */
+    #[DataProvider('errors')]
     public function test_errors(string $code, string $message)
     {
         try {

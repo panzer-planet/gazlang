@@ -2,6 +2,8 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 /**
  * Every gaz code block in README.md prints exactly the output shown under it
  *
@@ -20,9 +22,7 @@ class ReadmeTest extends GazLangTestCase
      */
     private const SCRATCH = self::ROOT.'/tests/.readme';
 
-    /**
-     * @dataProvider blocks
-     */
+    #[DataProvider('blocks')]
     public function test_a_readme_block_prints_what_it_says(string $name, string $code, string $expected, array $args)
     {
         if (! is_dir(self::SCRATCH)) {

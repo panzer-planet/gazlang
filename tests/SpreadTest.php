@@ -2,6 +2,8 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 class SpreadTest extends GazLangTestCase
 {
     public function test_a_list_spreads_its_elements_in_place()
@@ -81,9 +83,7 @@ class SpreadTest extends GazLangTestCase
             CODE));
     }
 
-    /**
-     * @dataProvider runtimeErrors
-     */
+    #[DataProvider('runtimeErrors')]
     public function test_runtime_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
@@ -103,9 +103,7 @@ class SpreadTest extends GazLangTestCase
         ];
     }
 
-    /**
-     * @dataProvider syntaxErrors
-     */
+    #[DataProvider('syntaxErrors')]
     public function test_syntax_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);

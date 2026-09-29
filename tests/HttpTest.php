@@ -2,6 +2,8 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 /**
  * lib/http.gaz and the socket builtins, against tests/fixtures/http_server.php run twice: over
  * plain TCP, and over TLS with tests/fixtures/tls/server.pem, a certificate for localhost made
@@ -213,9 +215,7 @@ class HttpTest extends GazLangTestCase
         ];
     }
 
-    /**
-     * @dataProvider failures
-     */
+    #[DataProvider('failures')]
     public function test_a_request_without_a_proper_response_is_an_error(string $call, string $message)
     {
         $this->assertStringStartsWith($message, $this->failure($call));
@@ -311,9 +311,7 @@ class HttpTest extends GazLangTestCase
         ];
     }
 
-    /**
-     * @dataProvider refused
-     */
+    #[DataProvider('refused')]
     public function test_what_can_be_checked_before_connecting_is(string $call, string $message)
     {
         $this->expectExceptionMessage($message);

@@ -2,6 +2,8 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 class FunctionValueTest extends GazLangTestCase
 {
     private const ADD = 'fn add($a, $b) { return $a + $b; } ';
@@ -67,9 +69,7 @@ class FunctionValueTest extends GazLangTestCase
         $this->assertSame($expected, $this->runProgram('tests/fixtures/function_values/main.gaz'));
     }
 
-    /**
-     * @dataProvider parseErrors
-     */
+    #[DataProvider('parseErrors')]
     public function test_parse_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
@@ -89,9 +89,7 @@ class FunctionValueTest extends GazLangTestCase
         ];
     }
 
-    /**
-     * @dataProvider runtimeErrors
-     */
+    #[DataProvider('runtimeErrors')]
     public function test_runtime_errors_are_catchable_with_their_line(string $code, string $message)
     {
         $this->assertEquals("{$message}\n", $this->executeCode(

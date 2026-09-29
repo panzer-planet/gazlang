@@ -2,11 +2,11 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 class ErrorTest extends GazLangTestCase
 {
-    /**
-     * @dataProvider syntaxErrors
-     */
+    #[DataProvider('syntaxErrors')]
     public function test_syntax_errors_say_what_and_where(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
@@ -32,9 +32,7 @@ class ErrorTest extends GazLangTestCase
         ];
     }
 
-    /**
-     * @dataProvider runtimeErrors
-     */
+    #[DataProvider('runtimeErrors')]
     public function test_runtime_errors_point_at_the_innermost_node(string $code, string $message)
     {
         $this->expectExceptionMessage($message);

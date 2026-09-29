@@ -2,6 +2,8 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 class DestructureTest extends GazLangTestCase
 {
     public function test_taking_a_list_apart_into_variables()
@@ -70,9 +72,7 @@ class DestructureTest extends GazLangTestCase
             CODE));
     }
 
-    /**
-     * @dataProvider runtimeErrors
-     */
+    #[DataProvider('runtimeErrors')]
     public function test_runtime_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
@@ -96,9 +96,7 @@ class DestructureTest extends GazLangTestCase
         $this->assertEquals("1\n", $this->executeCode('$a = 1; try { [$a, $b] = [9]; } catch ($e) {} echo $a;'));
     }
 
-    /**
-     * @dataProvider syntaxErrors
-     */
+    #[DataProvider('syntaxErrors')]
     public function test_syntax_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);

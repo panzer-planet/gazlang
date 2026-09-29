@@ -2,6 +2,7 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 
@@ -54,18 +55,14 @@ class SelfHostedParserTest extends GazLangTestCase
         return $files;
     }
 
-    /**
-     * @dataProvider corpus
-     */
+    #[DataProvider('corpus')]
     public function test_self_hosted_parser_prints_the_expected_tree(string $file)
     {
         self::$results = self::$results ?: CVM::driver('ast', array_keys(self::corpus()));
         $this->assertPortPrints(substr($file, 0, -3).'ast', self::$results[$file], "Tree for {$file}");
     }
 
-    /**
-     * @dataProvider corpus
-     */
+    #[DataProvider('corpus')]
     public function test_corpus_files_named_error_are_exactly_the_ones_that_fail(string $file)
     {
         self::$results = self::$results ?: CVM::driver('ast', array_keys(self::corpus()));
@@ -76,9 +73,8 @@ class SelfHostedParserTest extends GazLangTestCase
     /**
      * Piped source has no file: its locations are line numbers only, and its includes are
      * relative to the working directory, so an include that works from a file fails piped
-     *
-     * @dataProvider corpus
      */
+    #[DataProvider('corpus')]
     public function test_self_hosted_parser_prints_the_expected_tree_on_piped_input(string $file)
     {
         self::$piped = self::$piped ?: CVM::driver('ast', array_keys(self::corpus()), piped: true);
@@ -115,9 +111,7 @@ class SelfHostedParserTest extends GazLangTestCase
         ];
     }
 
-    /**
-     * @dataProvider placesToParseFrom
-     */
+    #[DataProvider('placesToParseFrom')]
     public function test_self_hosted_parser_prints_the_expected_tree_from_anywhere(string $cwd, string $file, string $name)
     {
         $this->assertPortPrints(self::PLACES."/{$name}.ast", CVM::driver('ast', [$file], false, $cwd)[$file], $name);
@@ -125,9 +119,8 @@ class SelfHostedParserTest extends GazLangTestCase
 
     /**
      * Piped, only the working directory matters, which includes are relative to
-     *
-     * @dataProvider placesToParseFrom
      */
+    #[DataProvider('placesToParseFrom')]
     public function test_self_hosted_parser_prints_the_expected_tree_on_piped_input_from_anywhere(string $cwd, string $file, string $name)
     {
         $this->assertPortPrints(self::PLACES."/{$name}.piped.ast", CVM::driver('ast', [$file], true, $cwd)[$file], "{$name}, piped");

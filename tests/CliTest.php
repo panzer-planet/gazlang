@@ -2,6 +2,8 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 /**
  * The command line (bin/gaz): every invocation in the table (its arguments, what is piped in
  * and the working directory) must print what tests/corpora/cli/expected records for it, standard output,
@@ -207,9 +209,7 @@ class CliTest extends GazLangTestCase
         }
     }
 
-    /**
-     * @dataProvider cases
-     */
+    #[DataProvider('cases')]
     public function test_the_cli_prints_what_is_recorded(string $name)
     {
         $result = self::results()[$name];

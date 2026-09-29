@@ -2,6 +2,8 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 /**
  * lib/csv.gaz against PHP's fgetcsv, and tests/programs/csv_report.gaz end to end
  *
@@ -22,9 +24,7 @@ class CsvTest extends GazLangTestCase
         return $documents;
     }
 
-    /**
-     * @dataProvider documents
-     */
+    #[DataProvider('documents')]
     public function test_document_matches_php(string $file)
     {
         [$output, $exit_code] = $this->runProgram('tests/fixtures/csv_dump.gaz', [$file]);
@@ -83,9 +83,7 @@ class CsvTest extends GazLangTestCase
         $this->assertMatchesRegularExpression('/The "Deluxe" Gizmo .*\nGizmo /', $output);
     }
 
-    /**
-     * @dataProvider reportErrors
-     */
+    #[DataProvider('reportErrors')]
     public function test_report_errors(array $args, string $message)
     {
         $usage = "Usage: bin/gaz tests/programs/csv_report.gaz FILE GROUP_COLUMN AMOUNT_COLUMN\n";

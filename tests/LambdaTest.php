@@ -2,6 +2,8 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 class LambdaTest extends GazLangTestCase
 {
     public function test_lexes_the_arrow()
@@ -220,9 +222,7 @@ Undefined variable: $n
         ));
     }
 
-    /**
-     * @dataProvider runtimeErrors
-     */
+    #[DataProvider('runtimeErrors')]
     public function test_runtime_errors(string $code, string $message)
     {
         $this->assertEquals("{$message}\n", $this->executeCode("try { {$code} } catch (\$e) { echo \$e.message; }"));
@@ -237,9 +237,7 @@ Undefined variable: $n
         ];
     }
 
-    /**
-     * @dataProvider parseErrors
-     */
+    #[DataProvider('parseErrors')]
     public function test_parse_errors(string $code, string $message)
     {
         $this->expectExceptionMessage($message);

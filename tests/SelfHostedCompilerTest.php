@@ -2,6 +2,8 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 /**
  * Checks the GazLang code generator (compiler/codegen.gaz, run by compiler/gazlang.gaz) on its corpus
  *
@@ -44,18 +46,14 @@ class SelfHostedCompilerTest extends GazLangTestCase
         return $files;
     }
 
-    /**
-     * @dataProvider corpus
-     */
+    #[DataProvider('corpus')]
     public function test_self_hosted_compiler_prints_the_expected_bytecode(string $file)
     {
         self::$results = self::$results ?: CVM::driver('code', array_keys(self::corpus()));
         $this->assertPortPrints(substr($file, 0, -3).'code', self::$results[$file], "Bytecode for {$file}");
     }
 
-    /**
-     * @dataProvider corpus
-     */
+    #[DataProvider('corpus')]
     public function test_corpus_files_named_error_are_exactly_the_ones_that_fail(string $file)
     {
         self::$results = self::$results ?: CVM::driver('code', array_keys(self::corpus()));
@@ -66,9 +64,8 @@ class SelfHostedCompilerTest extends GazLangTestCase
     /**
      * Piped source has no file: its locations are `@ line` records, and its includes are
      * relative to the working directory
-     *
-     * @dataProvider corpus
      */
+    #[DataProvider('corpus')]
     public function test_self_hosted_compiler_prints_the_expected_bytecode_on_piped_input(string $file)
     {
         self::$piped = self::$piped ?: CVM::driver('code', array_keys(self::corpus()), piped: true);
@@ -84,9 +81,7 @@ class SelfHostedCompilerTest extends GazLangTestCase
         return SelfHostedParserTest::places();
     }
 
-    /**
-     * @dataProvider placesToCompileFrom
-     */
+    #[DataProvider('placesToCompileFrom')]
     public function test_self_hosted_compiler_prints_the_expected_bytecode_from_anywhere(string $cwd, string $file, string $name)
     {
         $this->assertPortPrints("tests/corpora/parser/places/{$name}.code", CVM::driver('code', [$file], false, $cwd)[$file], $name);
@@ -94,9 +89,8 @@ class SelfHostedCompilerTest extends GazLangTestCase
 
     /**
      * Piped, only the working directory matters, which includes are relative to
-     *
-     * @dataProvider placesToCompileFrom
      */
+    #[DataProvider('placesToCompileFrom')]
     public function test_self_hosted_compiler_prints_the_expected_bytecode_on_piped_input_from_anywhere(string $cwd, string $file, string $name)
     {
         $this->assertPortPrints("tests/corpora/parser/places/{$name}.piped.code", CVM::driver('code', [$file], true, $cwd)[$file], "{$name}, piped");

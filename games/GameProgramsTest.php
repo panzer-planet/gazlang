@@ -3,6 +3,7 @@
 namespace GazLang\Games;
 
 use GazLang\Tests\GazLangTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 
@@ -37,9 +38,7 @@ class GameProgramsTest extends GazLangTestCase
         return $programs;
     }
 
-    /**
-     * @dataProvider programs
-     */
+    #[DataProvider('programs')]
     public function test_program_prints_its_expected_output(string $file)
     {
         [$output] = $this->runProgram($file);

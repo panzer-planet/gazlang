@@ -2,6 +2,8 @@
 
 namespace GazLang\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 /**
  * The cryptography builtins (vm/crypto.c) and lib/crypto.gaz against implementations that share
  * no code with them: PHP's hash extension, libsodium and libargon2, Python's hashlib and OpenSSL's
@@ -216,9 +218,7 @@ class CryptoTest extends GazLangTestCase
         );
     }
 
-    /**
-     * @dataProvider badArguments
-     */
+    #[DataProvider('badArguments')]
     public function test_the_builtins_check_their_arguments(string $code, string $message)
     {
         $this->expectExceptionMessage($message);
