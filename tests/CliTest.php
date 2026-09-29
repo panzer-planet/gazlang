@@ -178,9 +178,20 @@ class CliTest extends GazLangTestCase
      */
     private static array $results = [];
 
+    /**
+     * The table as its declared type, so a check that walks it isn't given a union of every
+     * row's own shape (phpstan needed a gigabyte for that)
+     *
+     * @return array<string, array{0: list<string>, 1?: string|null, 2?: string}>
+     */
+    private static function table(): array
+    {
+        return self::CASES;
+    }
+
     public static function cases(): array
     {
-        return array_map(fn ($name) => [$name], array_combine(array_keys(self::CASES), array_keys(self::CASES)));
+        return array_map(fn ($name) => [$name], array_combine(array_keys(self::table()), array_keys(self::table())));
     }
 
     public function test_a_script_with_a_hash_bang_line_runs_as_a_command()
@@ -214,7 +225,7 @@ class CliTest extends GazLangTestCase
 
     public function test_every_recording_belongs_to_a_case()
     {
-        $bases = array_map(self::expected(...), array_keys(self::CASES));
+        $bases = array_map(self::expected(...), array_keys(self::table()));
         $this->assertSame(count($bases), count(array_unique($bases)), 'two cases share a name');
         $recorded = array_unique(array_map(fn ($path) => preg_replace('/\.(stdout|stderr|exit)$/', '', $path), glob(self::ROOT.'/'.self::DIR.'/expected/*')));
         $this->assertSame([], array_values(array_diff($recorded, $bases)));
@@ -257,7 +268,7 @@ class CliTest extends GazLangTestCase
 
             // By working directory, since CVM::processes() runs a batch in one
             $by_dir = [];
-            foreach (self::CASES as $name => $case) {
+            foreach (self::table() as $name => $case) {
                 $by_dir[$case[2] ?? self::DIR][$name] = $case;
             }
             foreach ($by_dir as $dir => $batch) {
