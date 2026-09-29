@@ -50,6 +50,7 @@ typedef enum {
     T_OBJECT,
     T_SOCKET,   /* a connection, closed when the last reference goes */
     T_DB,       /* a database connection, the same */
+    T_FILE,     /* a file open for reading, the same */
     T_ERROR,    /* a raised error, as the stack holds it in a catch or finally block */
     T_KIND,    /* lives as long as the program: not counted */
     T_ENTRY,    /* the method entry GET_METHOD pushes: points into a kind, not counted */
@@ -67,6 +68,7 @@ typedef struct Kind Kind;
 typedef struct Entry Entry;
 typedef struct Socket Socket;
 typedef struct Db Db;
+typedef struct File File;
 
 /* One value: a type tag and a payload. 16 bytes, passed around by value. */
 typedef struct Value {
@@ -86,6 +88,7 @@ typedef struct Value {
         Entry *entry;
         Socket *sock;
         Db *db;
+        File *file;
     };
 } Value;
 
@@ -192,6 +195,12 @@ struct Db {
     int64_t rc;
     const DbDriver *driver;
     void *conn;         /* the driver's own, NULL once closed */
+};
+
+/* A file made by file_open(), read a line at a time: a handle, so copies share the position */
+struct File {
+    int64_t rc;
+    FILE *fp;           /* NULL once closed */
 };
 
 /* An error on its way up. */
@@ -416,6 +425,7 @@ static inline Value v_func(Func *f) { Value v = {.type = T_FUNCTION, .fn = f}; r
 static inline Value v_object(Object *o) { Value v = {.type = T_OBJECT, .o = o}; return v; }
 static inline Value v_socket(Socket *s) { Value v = {.type = T_SOCKET, .sock = s}; return v; }
 static inline Value v_db(Db *d) { Value v = {.type = T_DB, .db = d}; return v; }
+static inline Value v_file(File *f) { Value v = {.type = T_FILE, .file = f}; return v; }
 static inline Value v_kind(Kind *k) { Value v = {.type = T_KIND, .k = k}; return v; }
 
 Str *str_new(const char *data, size_t len);
@@ -583,6 +593,7 @@ void worker_accepted(void);    /* a worker has taken a connection, so it did sta
 bool db_open(Str *url, Value *out);
 bool db_run(Db *d, Str *sql, List *params, Value *out);
 void db_close(Db *d);
+void file_close(File *f);
 void db_put(Map *m, const char *key, size_t len, Value v);   /* m[key] = v, taking v's reference */
 Value db_result(List *rows, int64_t changes);   /* the {"rows", "changes"} map a driver's run() gives */
 extern const DbDriver sqlite_driver, pg_driver;  /* defined only when built in (GAZ_SQLITE, GAZ_PG) */

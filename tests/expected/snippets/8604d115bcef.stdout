@@ -1,0 +1,17 @@
+["a", "b c", "", "é", "last"]
+null
+file file
+["x", "x"]
+"y"
+"y"
+file (closed)
+true
+file_read_line() on a closed file
+file_read_line() expects file, got string
+file_open() expects string, got int
+Cannot open "tests/.tmp/lines.txt/no": Not a directory
+Cannot open "tests/.tmp/nope": No such file or directory
+Cannot open "tests/.tmp": Is a directory
+Cannot open "tests/.tmp/lines.txt\x00": No such file or directory
+null
+0

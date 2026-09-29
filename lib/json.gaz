@@ -42,7 +42,7 @@ fn write($value, $open) {
     if ($type == "string") {
         return encode_string($value);
     }
-    if ($type == "function" || $type == "kind") {
+    if ($type == "function" || $type == "kind" || $type == "socket" || $type == "db" || $type == "file") {
         throw "Cannot encode a {$type} as JSON";
     }
     if ($type == "object") {

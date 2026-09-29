@@ -33,6 +33,7 @@ ok encode $ and { literally
 ok decode undoes encode
 ok encode undoes decode for compact JSON
 ok encoding a function is an error
+ok encoding a file is an error
 ok encoding a kind is an error
 ok an object without to_json() is an error that names it
 ok an object is written as its to_json()

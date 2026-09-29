@@ -812,7 +812,7 @@ static bool is_vis_word(const char *word) { return !strcmp(word, "pub") || !strc
 static const struct { const char *name; Type type; } TYPE_WORDS[] = {
     {"int", T_INT}, {"float", T_FLOAT}, {"string", T_STRING}, {"bool", T_BOOL}, {"null", T_NULL},
     {"list", T_LIST}, {"map", T_MAP}, {"function", T_FUNCTION}, {"kind", T_KIND}, {"object", T_OBJECT},
-    {"socket", T_SOCKET}, {"db", T_DB},
+    {"socket", T_SOCKET}, {"db", T_DB}, {"file", T_FILE},
 };
 
 /* The parts of a type's text, split on |: a part that is none of the words above names a kind */

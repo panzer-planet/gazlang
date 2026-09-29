@@ -403,7 +403,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     program, which is why shrinking takes the time, not the run.
   - **Nothing opens a socket, starts a program, exits, waits or writes a file**: a program naming
     `run`, `exit`, `workers`, `worker_recycle`, `write_file`, `read_stdin` (or `read_stdin_bytes`),
-    `read_line`, `sleep`, `getenv`, a directory builtin or a `socket_` builtin is skipped (`getenv`
+    `read_line`, `sleep`, `getenv`, a directory builtin, a `file_` builtin (`/dev/stdin` waits and
+    `/dev/zero` never ends) or a `socket_` builtin is skipped (`getenv`
     since what it gives isn't the seed's; `worker_recycle` since it ends the process by an unhandled
     signal, which prints no `GAZVM_STATS` line and would fail the harness for a reason that isn't a
     bug — found the hard way, by CI actually failing on it, the day it was added), an included
@@ -894,7 +895,7 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   (it asked for one), and never to a builtin, whose extra parameters are options (`to_int($x, $default)`),
   or a kind. It is decided by what a function *needs*, not by what it accepts, so a callback's meaning
   never depends on a default someone adds.
-- Types: `type_of` (`int float string bool null list map function kind object socket`), `is_a`,
+- Types: `type_of` (`int float string bool null list map function kind object socket db file`), `is_a`,
   `kind_of`, `kind_name` (a kind's name as declared, namespace included, `tui::Rect`: the bare
   name is `last(split(..., "::"))` and the other way would be impossible; of a kind or an object,
   whose kind is the only thing it could mean), `fields` (see "Objects"), `object_id` (an int no other object of the program has or
@@ -906,6 +907,16 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   gaz options or `--`; the CLI rejects options it doesn't know, since `getopt` would drop
   them silently), `cwd()`, `real_path()` (as `realpath(3)`; `""`, a NUL byte, `file/` and
   `file/..` are nothing, where platforms disagree), `file_exists()`.
+- `file_open($path)`, `file_read_line($file)`, `file_close($file)`: a file read a line at a time, so
+  a large file or a log needn't be in memory whole. A `file` is a handle like a `socket` or a `db`
+  (`T_FILE`, refcounted, closed when the last reference goes, closing twice fine), and the line rule
+  is `read_line()`'s (`"\n"` or `"\r\n"` stripped, a last line needing neither, `null` at the end). **Three
+  builtins, not `read_line($f)`**: an optional handle would make `read_line`'s meaning depend on an
+  argument's type, and a handle that could later take a mode (`"w"`, `"a"`) has room. Only a
+  directory is refused (`EISDIR`, written out as `delete_file` does): a pipe or `/dev/stdin` is
+  what streaming is for, where `read_file()` insists on a regular file. Close-on-exec, as a socket is; opened before `workers()` a file shares its
+  offset but not its buffer across the fork, so one worker reads it. `ponytail:` read only, no
+  seek, no bytes; a file being appended to stops at the first `null` (C's end-of-file flag sticks); a `foreach` can't be lazy, so a program loops on `file_read_line()`.
 - Directories: `list_dir()` (sorted with `str_cmp`, byte by byte, since `readdir()`'s order is
   the file system's), `is_dir()` (through symlinks, as `file_exists`), `make_dir()` (one level),
   `delete_dir()` (empty only), `delete_file()` (not a directory: its reason is written out as

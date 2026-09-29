@@ -556,6 +556,70 @@ class StdlibTest extends GazLangTestCase
                 CODE));
     }
 
+    /**
+     * file_open() reads a line at a time: "\n" and "\r\n" end a line, a last line needs no end, a
+     * blank one is "", and null is the end. Two handles to a file read independently, copies of
+     * one share the position, and closing twice is fine.
+     */
+    public function test_file_streaming()
+    {
+        @mkdir(dirname(__DIR__).'/tests/.tmp');
+        $this->assertSame(<<<'OUT'
+            ["a", "b c", "", "é", "last"]
+            null
+            file file
+            ["x", "x"]
+            "y"
+            "y"
+            file (closed)
+            true
+            file_read_line() on a closed file
+            file_read_line() expects file, got string
+            file_open() expects string, got int
+            Cannot open "tests/.tmp/lines.txt/no": Not a directory
+            Cannot open "tests/.tmp/nope": No such file or directory
+            Cannot open "tests/.tmp": Is a directory
+            Cannot open "tests/.tmp/lines.txt\x00": No such file or directory
+            null
+            0
+
+            OUT, $this->executeCode(<<<'CODE'
+                $path = "tests/.tmp/lines.txt";
+                write_file($path, "a\r\nb c\n\né\nlast");
+                $f = file_open($path);
+                $lines = [];
+                while (($line = file_read_line($f)) != null) { $lines[] = $line; }
+                echo $lines;
+                echo file_read_line($f);
+                echo "{$f} " .. type_of($f);
+                write_file($path, "x\ny\n");
+                $one = file_open($path);
+                $two = file_open($path);
+                $copy = $one;
+                echo [file_read_line($one), file_read_line($two)];
+                echo quote_of(file_read_line($copy));
+                echo quote_of(file_read_line($two));
+                file_close($one);
+                file_close($copy);
+                echo $one;
+                echo $one == $copy;
+                fn quote_of($s) { return slice(to_string([$s]), 1, -1); }
+                fn failure($thunk) {
+                    try { $thunk(); } catch (Error $e) { return $e.message; }
+                    return "no error";
+                }
+                echo failure(() -> file_read_line($one));
+                echo failure(() -> file_read_line("x"));
+                echo failure(() -> file_open(5));
+                foreach ([$path .. "/no", "tests/.tmp/nope", "tests/.tmp", $path .. "\0"] as $bad) {
+                    echo failure(() -> file_open($bad));
+                }
+                write_file($path, "");
+                echo file_read_line(file_open($path));
+                echo len(file_read_line(file_open($path)) ?? "");
+                CODE));
+    }
+
     public function test_getenv_gives_the_environments_value()
     {
         // Not a snippet: the value is this test's, so the C VM's harness couldn't record it

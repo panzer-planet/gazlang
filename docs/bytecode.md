@@ -119,7 +119,7 @@ locals $#argument_0
 
 A type names what a value may be, and is written as one word: the alternatives of a union
 joined with `|`, each a `type_of()` name (`int float string bool null list map function kind
-object socket db`) or a kind's name, so `int|float`, `string|null` (what the source writes
+object socket db file`) or a kind's name, so `int|float`, `string|null` (what the source writes
 `?string`) and `Shape`. There is no `?` in the file. A check is strict and never converts, with
 one exception: an int where `float` is one of the alternatives is accepted, and arrives as a
 float. `object` is any object; a kind admits its children, as `is_a` does.

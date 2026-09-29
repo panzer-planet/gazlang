@@ -36,7 +36,7 @@ multi-way branch — read as themselves rather than as nested calls or `if`/`els
 - **Lists, maps, functions, kinds and objects**, below.
 
 `type_of($x)` gives `int`, `float`, `string`, `bool`, `null`, `list`, `map`, `function`,
-`kind`, `object`, `socket` or `db`; those names are also what a declared type is written with
+`kind`, `object`, `socket`, `db` or `file`; those names are also what a declared type is written with
 (see "Types").
 
 ## Variables
@@ -471,7 +471,7 @@ echo Account::made;
   since constructing gives the object, and a lambda has none either: after `(...)` a `:` is a
   ternary's, as in `$c ? ($a) : $b`. A list pattern takes no type: it is already a list.
 - **A type is a `type_of()` name** (`int float string bool null list map function kind object
-  socket db`) **or a kind's name**, resolved like any other name, so `Shape` in
+  socket db file`) **or a kind's name**, resolved like any other name, so `Shape` in
   `namespace shapes` is `shapes::Shape`. `?T` is `T|null`, and `A|B|C` is a union. `object` is
   any object; a kind admits its children, as `is_a` does. A kind can't be named after a
   builtin type. No `mixed` or `any`: leave the type out. No generics yet: `list<int>` is an
@@ -691,6 +691,9 @@ objects as `$seen[object_id($x)] = true`).
 | `read_stdin()` | All of standard input that is left |
 | `read_line()` | The next line of standard input, or `null` at its end |
 | `read_stdin_bytes($n)` | Exactly `$n` bytes of standard input; an error if it ends first |
+| `file_open($path)` | Opens a file to read a line at a time, as a `file` |
+| `file_read_line($file)` | The next line of the file, or `null` at its end |
+| `file_close($file)` | Closes the file |
 | `flush_output()` | Writes standard output's buffer out now, instead of waiting |
 | `args()` | The program's arguments, as a list of strings |
 | `program_path()` | How `gaz` itself was invoked (see below) |
@@ -712,6 +715,18 @@ may have neither), or `null` once the input has ended, so `while (($line = read_
 reads it all; output is flushed first, so a prompt printed with `print` shows before the wait.
 `read_stdin()` is all of standard input that is left, so after some `read_line()`s it is the rest.
 A program that was itself piped in has read its input already: both find nothing.
+
+`file_open($path)`, `file_read_line($file)` and `file_close($file)` read a file a line at a time,
+so a large one needn't be in memory whole (`read_file()` gives all of it at once). A line is read
+as `read_line()` reads one, without its `"\n"` or `"\r\n"` and with the last needing neither, and
+`null` is the end: `while (($line = file_read_line($f)) != null)` reads every line. A file is a
+handle, as a socket is: copies share the position, `==` is identity, it prints as `file` (or
+`file (closed)`), and one no variable holds any more is closed by itself. Closing again does
+nothing; reading a closed file, a path that can't be opened and a directory are errors
+(`Cannot open "path": No such file or directory`). A pipe or `/dev/stdin` opens too, and lines
+arrive as they are written. A file is not inherited by a program started with `run()`, and one
+opened before `workers()` must be read by one worker only: they would share its position but not
+its buffer, and lines would come back twice or not at all.
 
 `read_stdin_bytes($n)` reads exactly `$n` bytes, leaving the rest of the stream for the next
 call, which is what a protocol framed by a byte count (a `Content-Length` header) needs: unlike

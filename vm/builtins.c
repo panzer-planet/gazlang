@@ -64,6 +64,7 @@ const BuiltinInfo builtin_info[] = {
     {"read_stdin_bytes", 1, 1},
     {"flush_output", 0, 0}, {"worker_recycle", 0, 0},
     {"term_is_virtual", 0, 0},
+    {"file_open", 1, 1}, {"file_read_line", 1, 1}, {"file_close", 1, 1},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -87,6 +88,7 @@ enum {
     B_READ_STDIN_BYTES,
     B_FLUSH_OUTPUT, B_WORKER_RECYCLE,
     B_TERM_IS_VIRTUAL,
+    B_FILE_OPEN, B_FILE_READ_LINE, B_FILE_CLOSE,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -173,7 +175,7 @@ static int64_t random_between(int64_t min, int64_t max) {
 /* Check an argument's type: "len() expects list or map or string, got int" */
 static bool want(int builtin, Value v, unsigned mask) {
     if (mask & M(v.type)) return true;
-    static const Type order[] = {T_INT, T_FLOAT, T_STRING, T_LIST, T_MAP, T_BOOL, T_NULL, T_KIND, T_OBJECT, T_SOCKET, T_DB};
+    static const Type order[] = {T_INT, T_FLOAT, T_STRING, T_LIST, T_MAP, T_BOOL, T_NULL, T_KIND, T_OBJECT, T_SOCKET, T_DB, T_FILE};
     Buf b = {0};
     /* Each builtin names its types in its own order; these are those orders */
     const char *names = NULL;
@@ -696,6 +698,56 @@ static bool raise_path(const char *what, Str *path, int err) {
     buf_adds(&m, ": ");
     buf_adds(&m, strerror(err));
     return raise_str(buf_to_str(&m));
+}
+
+/* file_open($path): a file to read a line at a time, so a large one needn't be in memory whole.
+   Not a directory, which fopen() opens on Linux and which then fails at the first read; a pipe or
+   /dev/stdin is fine, since reading as it arrives is what a line at a time is for. */
+static bool open_file(Str *path, Value *out) {
+    struct stat st;
+    if (memchr(path->data, '\0', path->len)) return raise_path("Cannot open", path, ENOENT);
+    if (stat(path->data, &st) != 0) return raise_path("Cannot open", path, errno);
+    if (S_ISDIR(st.st_mode)) return raise_path("Cannot open", path, EISDIR);
+    FILE *fp = fopen(path->data, "rb");
+    if (!fp) return raise_path("Cannot open", path, errno);
+    /* Not for a run() child to inherit, as no socket is */
+    fcntl(fileno(fp), F_SETFD, FD_CLOEXEC);
+    File *f = xmalloc(sizeof *f);
+    counted++;
+    *f = (File){.rc = 1, .fp = fp};
+    *out = v_file(f);
+    return true;
+}
+
+/* file_read_line($file): the next line without its "\n" or "\r\n", or null at the end, as
+   read_line() gives one of standard input */
+static bool read_file_line(File *f, Value *out) {
+    if (!f->fp) return raisef("file_read_line() on a closed file");
+    char *line = NULL;
+    size_t cap = 0;
+    ssize_t n = getline(&line, &cap, f->fp);
+    if (n < 0) {
+        int err = errno;
+        bool failed = ferror(f->fp);
+        free(line);
+        if (failed) {
+            clearerr(f->fp);
+            return raisef("Cannot read file: %s", strerror(err));
+        }
+        *out = v_null();
+        return true;
+    }
+    if (n > 0 && line[n - 1] == '\n') n -= n > 1 && line[n - 2] == '\r' ? 2 : 1;
+    *out = v_str(str_new(line, (size_t)n));
+    free(line);
+    return true;
+}
+
+/* file_close($file), and what freeing one does; closing twice does nothing */
+void file_close(File *f) {
+    if (!f->fp) return;
+    fclose(f->fp);
+    f->fp = NULL;
 }
 
 static int by_bytes(const void *a, const void *b) { return str_cmp(((const Value *)a)->s, ((const Value *)b)->s); }
@@ -1415,6 +1467,17 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     case B_DB_CLOSE:
         if (!want(index, a, M(T_DB))) return false;
         db_close(a.db);
+        *out = v_null();
+        return true;
+    case B_FILE_OPEN:
+        if (!want(index, a, STRING)) return false;
+        return open_file(a.s, out);
+    case B_FILE_READ_LINE:
+        if (!want(index, a, M(T_FILE))) return false;
+        return read_file_line(a.file, out);
+    case B_FILE_CLOSE:
+        if (!want(index, a, M(T_FILE))) return false;
+        file_close(a.file);
         *out = v_null();
         return true;
     case B_TERM_RAW:

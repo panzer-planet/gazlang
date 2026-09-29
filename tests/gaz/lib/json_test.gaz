@@ -58,6 +58,13 @@ try {
     check("encoding a function is an error", $e.message, "Cannot encode a function as JSON");
 }
 
+// A handle can't be written either, and not as the bare word it prints as
+try {
+    json::encode([file_open("tests/gaz/lib/json_test.gaz")]);
+    echo "FAIL encoding a file";
+} catch ($e) {
+    check("encoding a file is an error", $e.message, "Cannot encode a file as JSON");
+}
 // Nor do kinds, or objects without a to_json()
 kind Point { #x = 1; }
 try {
