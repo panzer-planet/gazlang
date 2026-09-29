@@ -2,7 +2,7 @@
  * The game's state: a new game, moving time on, and what the inbox says. What the inbox says about
  * a match is checked against the match itself, not against a recorded run.
  */
-include "std/test.gaz" use expect as check;
+include "std/test.gaz" use expect, throws;
 include "../game.gaz" use Game, ordinal, ai_mentality;
 include "../engine/matches.gaz" use Substitution;
 include "../engine/money.gaz";
@@ -28,15 +28,15 @@ $said = [];
 foreach ([1, 2, 3, 4, 10, 11, 12, 13, 14, 21, 22, 23, 101, 111, 112, 113] as $n) {
     $said[] = ordinal($n);
 }
-check("ordinals", $said, ["1st", "2nd", "3rd", "4th", "10th", "11th", "12th", "13th", "14th", "21st", "22nd", "23rd", "101st", "111th", "112th", "113th"]);
+expect("ordinals", $said, ["1st", "2nd", "3rd", "4th", "10th", "11th", "12th", "13th", "14th", "21st", "22nd", "23rd", "101st", "111th", "112th", "113th"]);
 
 /* ---- A new game ---- */
 $game = Game::start(1);
-check("twenty clubs in the first division", len($game.teams), 20);
-check("the manager has the first club by default", $game.club, $game.teams[0]);
+expect("twenty clubs in the first division", len($game.teams), 20);
+expect("the manager has the first club by default", $game.club, $game.teams[0]);
 $third = Game::start(1, 3);
-check("or the one asked for", $third.club, $third.teams[3]);
-check("clubs have different names", len(keys(map_of_names($game.teams))), 20);
+expect("or the one asked for", $third.club, $third.teams[3]);
+expect("clubs have different names", len(keys(map_of_names($game.teams))), 20);
 fn map_of_names($teams) {
     $names = {};
     foreach ($teams as $team) {
@@ -44,7 +44,7 @@ fn map_of_names($teams) {
     }
     return $names;
 }
-check("every squad is seventeen with an eleven picked from it, and ages", [
+expect("every squad is seventeen with an eleven picked from it, and ages", [
     count_where($game.teams, $team -> len($team.players) == 17 && len($team.eleven()) == 11),
     count_where($game.teams, $team -> count_where($team.players, $player -> $player.age >= 17 && $player.age <= 35) == 17),
 ], [20, 20]);
@@ -52,24 +52,24 @@ $cycle = [];
 for ($i = 0; $i < 20; $i++) {
     $cycle[] = ["4-4-2", "4-3-3", "3-5-2", "4-5-1", "5-3-2"][$i % 5];
 }
-check("the clubs prefer different formations, and play them", [
+expect("the clubs prefer different formations, and play them", [
     map($game.teams, $team -> $team.preferred),
     map($game.teams, $team -> $team.formation()),
 ], [$cycle, $cycle]);
-check("clubs have money", count_where($game.teams, $team -> $team.balance > 0), 20);
-check("the season", [$game.season_label(), $game.season_over()], ["2026/27", false]);
-check("a season is thirty-eight matchdays for twenty clubs", [$game.league.matchdays(), $game.league.matchdays_played(), $game.other_league.matchdays()], [38, 0, 46]);
-check("the club has a place in the table", [$game.position() >= 1, $game.position() <= 20, $game.place()], [true, true, ordinal($game.position())]);
-check("the inbox starts with a welcome", [len($game.inbox), $game.inbox[0]["subject"], $game.inbox[0]["matchday"]], [1, "Welcome to Riverside FC", 0]);
-check("which says what the board expect", contains($game.inbox[0]["body"], "The board expect"), true);
-check("the same seed makes the same game", [
+expect("clubs have money", count_where($game.teams, $team -> $team.balance > 0), 20);
+expect("the season", [$game.season_label(), $game.season_over()], ["2026/27", false]);
+expect("a season is thirty-eight matchdays for twenty clubs", [$game.league.matchdays(), $game.league.matchdays_played(), $game.other_league.matchdays()], [38, 0, 46]);
+expect("the club has a place in the table", [$game.position() >= 1, $game.position() <= 20, $game.place()], [true, true, ordinal($game.position())]);
+expect("the inbox starts with a welcome", [len($game.inbox), $game.inbox[0]["subject"], $game.inbox[0]["matchday"]], [1, "Welcome to Riverside FC", 0]);
+expect("which says what the board expect", contains($game.inbox[0]["body"], "The board expect"), true);
+expect("the same seed makes the same game", [
     map(Game::start(7).club.players, $p -> $p.profile()),
     Game::start(7).inbox[0]["body"],
 ], [
     map(Game::start(7).club.players, $p -> $p.profile()),
     Game::start(7).inbox[0]["body"],
 ]);
-check("another seed makes another", map(Game::start(7).club.players, $p -> $p.profile()) == map(Game::start(8).club.players, $p -> $p.profile()), false);
+expect("another seed makes another", map(Game::start(7).club.players, $p -> $p.profile()) == map(Game::start(8).club.players, $p -> $p.profile()), false);
 
 /* ---- Moving time on ---- */
 foreach ([1, 2, 3] as $seed) {
@@ -79,8 +79,8 @@ foreach ([1, 2, 3] as $seed) {
         $before = len($game.inbox);
         $matches = $game.advance();
         $label = "seed {$seed}, matchday {$day}";
-        check("a matchday is ten matches ({$label})", len($matches), 10);
-        check("and counts as played ({$label})", $game.league.matchdays_played(), $day);
+        expect("a matchday is ten matches ({$label})", len($matches), 10);
+        expect("and counts as played ({$label})", $game.league.matchdays_played(), $day);
 
         $mine = null;
         foreach ($matches as $match) {
@@ -88,99 +88,84 @@ foreach ([1, 2, 3] as $seed) {
                 $mine = $match;
             }
         }
-        check("the club played once ({$label})", $mine != null, true);
+        expect("the club played once ({$label})", $mine != null, true);
         [$scored, $conceded] = $mine.home == $club ? [$mine.home_goals, $mine.away_goals] : [$mine.away_goals, $mine.home_goals];
         $new = slice($game.inbox, $before);
         $verdict = $scored > $conceded ? "Win" : ($scored == $conceded ? "Draw" : "Defeat");
         $report = message_starting($new, $verdict .. ": ") ?? {"subject" => "(none)", "body" => "", "matchday" => -1};
-        check("the report says how it went ({$label})", [starts_with($report["subject"], $verdict .. ": "), contains($report["subject"], $club.name), $report["matchday"]], [true, true, $day]);
-        check("and the score, as the club's ({$label})", contains($report["body"], " {$scored}-{$conceded}."), true);
-        check("and where the club is ({$label})", contains($report["body"], "You are " .. $game.place() .. " on "), true);
+        expect("the report says how it went ({$label})", [starts_with($report["subject"], $verdict .. ": "), contains($report["subject"], $club.name), $report["matchday"]], [true, true, $day]);
+        expect("and the score, as the club's ({$label})", contains($report["body"], " {$scored}-{$conceded}."), true);
+        expect("and where the club is ({$label})", contains($report["body"], "You are " .. $game.place() .. " on "), true);
         $results = message_starting($new, "Matchday {$day} results") ?? {"subject" => "(none)", "body" => ""};
-        check("then all the results ({$label})", [$results["subject"], len(split($results["body"], "\n"))], ["Matchday {$day} results", 10]);
+        expect("then all the results ({$label})", [$results["subject"], len(split($results["body"], "\n"))], ["Matchday {$day} results", 10]);
         $elsewhere = filter($new, $m -> starts_with($m["subject"], $game.other_division_name() .. ", matchday "));
-        check("and the other division's, at least the one played the same day ({$label})", [len($elsewhere) >= 1, len(split(last($elsewhere)["body"], "\n"))], [true, 12]);
-        check("the position is between 1 and 20 ({$label})", [$game.position() >= 1, $game.position() <= 20], [true, true]);
+        expect("and the other division's, at least the one played the same day ({$label})", [len($elsewhere) >= 1, len(split(last($elsewhere)["body"], "\n"))], [true, 12]);
+        expect("the position is between 1 and 20 ({$label})", [$game.position() >= 1, $game.position() <= 20], [true, true]);
         $families = ["Win: ", "Draw: ", "Defeat: ", "Matchday ", "Lineup: ", "Injury: ", "Suspended: ", "Back: ", "The season is over", "Premier Division, ", "Championship, ", "The transfer window", "Contracts", "The Cup", "Cup: ", "You have won the Cup", "A word from the board", "Sacked"];
-        check("at least the report and the results, and nothing but the news there is ({$label})", [len($new) >= 2, count_where($new, $m -> count_where($families, $f -> starts_with($m["subject"], $f)) == 0)], [true, 0]);
-        check("and the season's end has the last word ({$label})", $day < 38 || $new[len($new) - 1]["subject"] == "The season is over", true);
+        expect("at least the report and the results, and nothing but the news there is ({$label})", [len($new) >= 2, count_where($new, $m -> count_where($families, $f -> starts_with($m["subject"], $f)) == 0)], [true, 0]);
+        expect("and the season's end has the last word ({$label})", $day < 38 || $new[len($new) - 1]["subject"] == "The season is over", true);
     }
-    check("the club's season is over after thirty-eight, the Championship's not yet ({$seed})", [$game.club_done(), $game.season_over()], [true, false]);
+    expect("the club's season is over after thirty-eight, the Championship's not yet ({$seed})", [$game.club_done(), $game.season_over()], [true, false]);
     $last = $game.inbox[len($game.inbox) - 1];
     $table = $game.league.table();
     $mine = $table[$game.position() - 1];
-    check("which the inbox says: the champions, where the club finished and its record, the top scorers ({$seed})", [
+    expect("which the inbox says: the champions, where the club finished and its record, the top scorers ({$seed})", [
         $last["subject"],
         contains($last["body"], $table[0].team.name .. " are the champions, on " .. $table[0].points() .. " points."),
         contains($last["body"], "You finished " .. $game.place() .. " in the " .. $game.division_name() .. " on " .. $mine.points() .. " points: "),
         contains($last["body"], "{$mine.won} won, {$mine.drawn} drawn, {$mine.lost} lost, {$mine.scored} scored and {$mine.conceded} conceded."),
         contains($last["body"], "Top scorers: " .. $game.league.top_scorers(1)[0]["player"] .. " ("),
     ], ["The season is over", true, true, true, true]);
-    check("the club sits out the Championship's last eight matchdays: nothing of its own is played ({$seed})", [count_where($game.league.table(), $r -> $r.played != 38), len($game.advance())], [0, 0]);
+    expect("the club sits out the Championship's last eight matchdays: nothing of its own is played ({$seed})", [count_where($game.league.table(), $r -> $r.played != 38), len($game.advance())], [0, 0]);
     while (!$game.season_over()) {
         $game.advance();
     }
-    check("and then the whole season is over, forty-six matchdays in the Championship ({$seed})", [$game.other_league.matchdays_played(), $game.league.matchdays_played()], [46, 38]);
+    expect("and then the whole season is over, forty-six matchdays in the Championship ({$seed})", [$game.other_league.matchdays_played(), $game.league.matchdays_played()], [46, 38]);
     $season_end = $game.date;
     $game.advance();
-    check("time goes on after the season: the next one begins, in August of the next year ({$seed})", [$game.season, $game.date > $season_end, date::month($game.date), date::year($game.date)], [2027, true, 8, 2027]);
-    check("the season played is a full one ({$seed})", sum(map($table, $row -> $row.played)), 20 * 38);
+    expect("time goes on after the season: the next one begins, in August of the next year ({$seed})", [$game.season, $game.date > $season_end, date::month($game.date), date::year($game.date)], [2027, true, 8, 2027]);
+    expect("the season played is a full one ({$seed})", sum(map($table, $row -> $row.played)), 20 * 38);
 }
 
 /* ---- Watching a matchday ---- */
 foreach ([1, 2, 3] as $seed) {
     $game = Game::start($seed, $seed);
     $club = $game.club;
-    check("nothing is live between matchdays ({$seed})", $game.live, null);
+    expect("nothing is live between matchdays ({$seed})", $game.live, null);
     $day = $game.begin_matchday();
-    check("beginning a matchday makes it live ({$seed})", [$game.live == $day, len($day.matches), $day.mine != null, $day.clock(), $day.finished(), len($day.commentary)], [true, 10, true, 0, false, 0]);
-    check("the club's match is one of them ({$seed})", $day.mine.home == $club || $day.mine.away == $club, true);
-    check("nothing is in the table or the inbox yet ({$seed})", [$game.league.matchdays_played(), len($game.inbox)], [0, 1]);
-    try {
-        $game.begin_matchday();
-        check("one matchday at a time ({$seed})", "no error", "an error");
-    } catch (Error $e) {
-        check("one matchday at a time ({$seed})", $e.message, "A matchday is already being played");
-    }
-    try {
-        $game.end_matchday();
-        check("a matchday can't end early ({$seed})", "no error", "an error");
-    } catch (Error $e) {
-        check("a matchday can't end early ({$seed})", $e.message, "A match is still being played");
-    }
+    expect("beginning a matchday makes it live ({$seed})", [$game.live == $day, len($day.matches), $day.mine != null, $day.clock(), $day.finished(), len($day.commentary)], [true, 10, true, 0, false, 0]);
+    expect("the club's match is one of them ({$seed})", $day.mine.home == $club || $day.mine.away == $club, true);
+    expect("nothing is in the table or the inbox yet ({$seed})", [$game.league.matchdays_played(), len($game.inbox)], [0, 1]);
+    throws("one matchday at a time ({$seed})", () -> $game.begin_matchday(), "A matchday is already being played");
+    throws("a matchday can't end early ({$seed})", () -> $game.end_matchday(), "A match is still being played");
 
     $order = true;
     $last = 0;
     for ($minute = 1; $minute <= 90; $minute++) {
         $day.tick();
         if ($day.clock() != $minute || count_where($day.matches, $m -> $m.elapsed == $minute) != 5) {
-            check("every match is at minute {$minute} ({$seed})", [$day.clock(), count_where($day.matches, $m -> $m.elapsed == $minute)], [$minute, 10]);
+            expect("every match is at minute {$minute} ({$seed})", [$day.clock(), count_where($day.matches, $m -> $m.elapsed == $minute)], [$minute, 10]);
         }
         foreach ($day.commentary as $event) {
             $order = $order && $event.minute <= $minute;
         }
     }
-    check("commentary is never ahead of the clock ({$seed})", $order, true);
-    check("a matchday is finished at ninety ({$seed})", [$day.clock(), $day.finished()], [90, true]);
+    expect("commentary is never ahead of the clock ({$seed})", $order, true);
+    expect("a matchday is finished at ninety ({$seed})", [$day.clock(), $day.finished()], [90, true]);
     $day.tick();
-    check("and another tick plays nothing ({$seed})", [$day.clock(), $day.finished()], [90, true]);
+    expect("and another tick plays nothing ({$seed})", [$day.clock(), $day.finished()], [90, true]);
 
     $commentary = $day.commentary;
     $minutes = map($commentary, $e -> $e.minute);
-    check("commentary is in order ({$seed})", $minutes, sort($minutes, ($a, $b) -> $a <=> $b));
-    check("and only about the club's match ({$seed})", count_where($commentary, $e -> $e.team != null && $e.team != $day.mine.home && $e.team != $day.mine.away), 0);
-    check("with the half time and full time whistles ({$seed})", map(filter($commentary, $e -> $e.team == null), $e -> $e.minute), [45, 90]);
+    expect("commentary is in order ({$seed})", $minutes, sort($minutes, ($a, $b) -> $a <=> $b));
+    expect("and only about the club's match ({$seed})", count_where($commentary, $e -> $e.team != null && $e.team != $day.mine.home && $e.team != $day.mine.away), 0);
+    expect("with the half time and full time whistles ({$seed})", map(filter($commentary, $e -> $e.team == null), $e -> $e.minute), [45, 90]);
     $goals = count_where($commentary, $e -> $e.team != null && contains(to_string($e), "GOAL!"));
-    check("and a line for every goal ({$seed})", $goals, $day.mine.home_goals + $day.mine.away_goals);
+    expect("and a line for every goal ({$seed})", $goals, $day.mine.home_goals + $day.mine.away_goals);
 
     $matches = $game.end_matchday();
-    check("ending it leaves nothing live ({$seed})", [$game.live, $game.league.matchdays_played(), len($matches), len($game.inbox) >= 3], [null, 1, 10, true]);
-    try {
-        $game.end_matchday();
-        check("and it can't end twice ({$seed})", "no error", "an error");
-    } catch (Error $e) {
-        check("and it can't end twice ({$seed})", $e.message, "No matchday is being played");
-    }
+    expect("ending it leaves nothing live ({$seed})", [$game.live, $game.league.matchdays_played(), len($matches), len($game.inbox) >= 3], [null, 1, 10, true]);
+    throws("and it can't end twice ({$seed})", () -> $game.end_matchday(), "No matchday is being played");
 }
 
 /* a matchday is over when every match is, not when one is */
@@ -189,13 +174,13 @@ $day = $uneven.begin_matchday();
 for ($minute = 1; $minute <= 90; $minute++) {
     $day.matches[0].tick();
 }
-check("one match over is not a matchday over", [$day.matches[0].finished(), $day.finished()], [true, false]);
+expect("one match over is not a matchday over", [$day.matches[0].finished(), $day.finished()], [true, false]);
 foreach ([...$day.matches, ...$day.unwatched()] as $match) {
     while (!$match.finished()) {
         $match.tick();
     }
 }
-check("until the last is", $day.finished(), true);
+expect("until the last is", $day.finished(), true);
 
 /* watched to the end or advanced through, the same game */
 $watched = Game::start(5, 2);
@@ -206,7 +191,7 @@ while (!$day.finished()) {
 $watched.end_matchday();
 $advanced = Game::start(5, 2);
 $advanced.advance();
-check("advance() is watching without looking", [
+expect("advance() is watching without looking", [
     map($watched.inbox, $m -> $m["subject"] .. "|" .. $m["body"]),
     map($watched.league.table(), $row -> [$row.team.name, $row.points(), $row.scored]),
 ], [
@@ -220,9 +205,9 @@ while (!$over.season_over()) {
 }
 try {
     $over.begin_matchday();
-    check("the next matchday after a season is in the next one", [$over.season, $over.league.matchdays_played()], [2027, 0]);
+    expect("the next matchday after a season is in the next one", [$over.season, $over.league.matchdays_played()], [2027, 0]);
 } catch (Error $e) {
-    check("the next matchday after a season is in the next one", $e.message, "no error");
+    expect("the next matchday after a season is in the next one", $e.message, "no error");
 }
 
 /* The shirt numbers of $players */
@@ -246,40 +231,40 @@ $club = $game.club;
 $forward_out = $club.eleven()[10];
 $forward_in = outfield_reserves($club)[0];
 $before = numbers($club.eleven());
-check("a swap puts the reserve in the starter's place", [$game.swap($forward_out, $forward_in), numbers($club.eleven())], ["", [...slice($before, 0, 10), $forward_in.number]]);
-check("and the starter is on the bench", [in_array($forward_out, $club.bench()), in_array($forward_out, $club.eleven())], [true, false]);
+expect("a swap puts the reserve in the starter's place", [$game.swap($forward_out, $forward_in), numbers($club.eleven())], ["", [...slice($before, 0, 10), $forward_in.number]]);
+expect("and the starter is on the bench", [in_array($forward_out, $club.bench()), in_array($forward_out, $club.eleven())], [true, false]);
 $other = Game::start(1);
-check("in either order", [$other.swap(outfield_reserves($other.club)[0], $other.club.eleven()[10]), numbers($other.club.eleven())], ["", numbers($club.eleven())]);
+expect("in either order", [$other.swap(outfield_reserves($other.club)[0], $other.club.eleven()[10]), numbers($other.club.eleven())], ["", numbers($club.eleven())]);
 
 $game = Game::start(1);
 $club = $game.club;
-check("two players in the eleven are not a swap", $game.swap($club.eleven()[3], $club.eleven()[4]), "Swap a player in the eleven with one on the bench");
-check("nor two on the bench", $game.swap(outfield_reserves($club)[0], outfield_reserves($club)[1]), "Swap a player in the eleven with one on the bench");
+expect("two players in the eleven are not a swap", $game.swap($club.eleven()[3], $club.eleven()[4]), "Swap a player in the eleven with one on the bench");
+expect("nor two on the bench", $game.swap(outfield_reserves($club)[0], outfield_reserves($club)[1]), "Swap a player in the eleven with one on the bench");
 $snapshot = numbers($club.eleven());
 $hurt = outfield_reserves($club)[0];
 $hurt.injure(2);
-check("a reserve who is out can't be picked, and why", $game.swap($club.eleven()[10], $hurt), "Riverside FC can't play: {$hurt} can't play: Injured 2d");
-check("an outfield player can't be the goalkeeper", $game.swap($club.eleven()[0], outfield_reserves($club)[1]), "Riverside FC can't play: 0 goalkeepers in the eleven");
-check("and a second goalkeeper isn't allowed", $game.swap($club.eleven()[5], reserve_keeper($club)), "Riverside FC can't play: 2 goalkeepers in the eleven");
-check("a refused swap changes nothing", numbers($club.eleven()), $snapshot);
+expect("a reserve who is out can't be picked, and why", $game.swap($club.eleven()[10], $hurt), "Riverside FC can't play: {$hurt} can't play: Injured 2d");
+expect("an outfield player can't be the goalkeeper", $game.swap($club.eleven()[0], outfield_reserves($club)[1]), "Riverside FC can't play: 0 goalkeepers in the eleven");
+expect("and a second goalkeeper isn't allowed", $game.swap($club.eleven()[5], reserve_keeper($club)), "Riverside FC can't play: 2 goalkeepers in the eleven");
+expect("a refused swap changes nothing", numbers($club.eleven()), $snapshot);
 
 $game = Game::start(1);
 $club = $game.club;
 $best = numbers($club.eleven());
 $game.swap($club.eleven()[9], outfield_reserves($club)[0]);
 $game.swap($club.eleven()[8], outfield_reserves($club)[1]);
-check("swaps make a different eleven", numbers($club.eleven()) == $best, false);
+expect("swaps make a different eleven", numbers($club.eleven()) == $best, false);
 $game.auto_lineup();
-check("and auto_lineup puts the best back", numbers($club.eleven()), $best);
+expect("and auto_lineup puts the best back", numbers($club.eleven()), $best);
 $game.auto_lineup("3-5-2");
-check("in another formation if asked", [$club.formation(), len($club.eleven())], ["3-5-2", 11]);
+expect("in another formation if asked", [$club.formation(), len($club.eleven())], ["3-5-2", 11]);
 $game.auto_lineup();
-check("or the one the club prefers", $club.formation(), $club.preferred);
+expect("or the one the club prefers", $club.formation(), $club.preferred);
 
 $game = Game::start(1);
 $club = $game.club;
 $game.begin_matchday();
-check("the lineup can't change in the middle of a match", $game.swap($club.eleven()[10], outfield_reserves($club)[0]), "The lineup can't change during a match");
+expect("the lineup can't change in the middle of a match", $game.swap($club.eleven()[10], outfield_reserves($club)[0]), "The lineup can't change during a match");
 
 /* the other clubs pick for themselves each matchday, the manager's stays as it was set */
 $game = Game::start(2);
@@ -291,9 +276,9 @@ $mine = numbers($club.eleven());
 $game.swap($club.eleven()[10], outfield_reserves($club)[0]);
 $mine_changed = numbers($club.eleven());
 $game.begin_matchday();
-check("a rival picks its best eleven again", numbers($rival.eleven()), numbers($rival.best_eleven($rival.preferred)));
-check("the manager's eleven is left as it was set", numbers($club.eleven()), $mine_changed);
-check("and nothing was said about it", len($game.inbox), 1);
+expect("a rival picks its best eleven again", numbers($rival.eleven()), numbers($rival.best_eleven($rival.preferred)));
+expect("the manager's eleven is left as it was set", numbers($club.eleven()), $mine_changed);
+expect("and nothing was said about it", len($game.inbox), 1);
 
 /* a starter who is out is replaced, and the inbox says so */
 $game = Game::start(3);
@@ -302,18 +287,18 @@ $starter = $club.eleven()[3];
 $starter.injure(60);
 $game.begin_matchday();
 $replacement = $club.eleven()[3];
-check("an injured starter is replaced before the match", [in_array($starter, $club.eleven()), $replacement != $starter, $replacement.available()], [false, true, true]);
+expect("an injured starter is replaced before the match", [in_array($starter, $club.eleven()), $replacement != $starter, $replacement.available()], [false, true, true]);
 $news = message_starting($game.inbox, "Lineup: ");
-check("and the manager is told who, and why", [$news != null, contains($news["subject"], "{$replacement} starts"), contains($news["body"], "{$starter} is out (" .. lower($starter.status()) .. ")")], [true, true, true]);
+expect("and the manager is told who, and why", [$news != null, contains($news["subject"], "{$replacement} starts"), contains($news["body"], "{$starter} is out (" .. lower($starter.status()) .. ")")], [true, true, true]);
 $injured_days = $starter.injured;
-check("the days between passed: not all sixty are left, and he is out of the match", [$injured_days > 0, $injured_days < 60, $starter.status() == "Injured " .. intdiv($injured_days + 3, 7) .. "w"], [true, true, true]);
+expect("the days between passed: not all sixty are left, and he is out of the match", [$injured_days > 0, $injured_days < 60, $starter.status() == "Injured " .. intdiv($injured_days + 3, 7) .. "w"], [true, true, true]);
 $day = $game.live;
 while (!$day.finished()) {
     $day.tick();
 }
 $game.end_matchday();
-check("an injury isn't served by matches but by days: the match didn't change it", $starter.injured, $injured_days);
-check("and after the matchday the eleven is the one that was picked", in_array($replacement, $club.eleven()), true);
+expect("an injury isn't served by matches but by days: the match didn't change it", $starter.injured, $injured_days);
+expect("and after the matchday the eleven is the one that was picked", in_array($replacement, $club.eleven()), true);
 
 /* what a match did to the club's players, told */
 $game = Game::start(4);
@@ -341,13 +326,13 @@ while (!$day.finished()) {
     $day.tick();
 }
 $game.end_matchday();
-check("an injury in the match is told, with how long", contains(message_starting($game.inbox, "Injury: {$hurt_now}")["body"] ?? "", "{$hurt_now} was injured and will be out for 3 days."), true);
-check("a sending off is a suspension, told", contains(message_starting($game.inbox, "Suspended: {$carded}")["body"] ?? "", "{$carded} is suspended for the next 1 match."), true);
-check("and so is a fifth yellow card", message_starting($game.inbox, "Suspended: {$fifth}") != null, true);
-check("someone who has served their time is told they are back", contains(message_starting($game.inbox, "Back: {$returning}")["body"] ?? "", "{$returning} has served his time out and is available again."), true);
-check("the other club's injury is not the manager's news", message_starting($game.inbox, "Injury: {$stranger_victim}"), null);
-check("nor is a reserve who is still banned", message_starting($game.inbox, "Back: {$banned}"), null);
-check("the reserve who was out has served a match of his two", [$banned.suspended, $banned.available()], [1, false]);
+expect("an injury in the match is told, with how long", contains(message_starting($game.inbox, "Injury: {$hurt_now}")["body"] ?? "", "{$hurt_now} was injured and will be out for 3 days."), true);
+expect("a sending off is a suspension, told", contains(message_starting($game.inbox, "Suspended: {$carded}")["body"] ?? "", "{$carded} is suspended for the next 1 match."), true);
+expect("and so is a fifth yellow card", message_starting($game.inbox, "Suspended: {$fifth}") != null, true);
+expect("someone who has served their time is told they are back", contains(message_starting($game.inbox, "Back: {$returning}")["body"] ?? "", "{$returning} has served his time out and is available again."), true);
+expect("the other club's injury is not the manager's news", message_starting($game.inbox, "Injury: {$stranger_victim}"), null);
+expect("nor is a reserve who is still banned", message_starting($game.inbox, "Back: {$banned}"), null);
+expect("the reserve who was out has served a match of his two", [$banned.suspended, $banned.available()], [1, false]);
 
 /* over whole seasons the elevens stay ones that can play, and there is news */
 $injury_news = 0;
@@ -383,25 +368,25 @@ foreach ([1, 2, 3] as $seed) {
     $injury_news += count_where($game.inbox, $m -> starts_with($m["subject"], "Injury: "));
     $suspension_news += count_where($game.inbox, $m -> starts_with($m["subject"], "Suspended: "));
 }
-check("every club's eleven is eleven, with one goalkeeper, every matchday", $invalid, []);
-check("and nobody who is out starts when a fit player could have", $unfit_starters, 0);
-check("in three seasons there were injuries and suspensions to be told of", [$injury_news > 0, $suspension_news > 0], [true, true]);
+expect("every club's eleven is eleven, with one goalkeeper, every matchday", $invalid, []);
+expect("and nobody who is out starts when a fit player could have", $unfit_starters, 0);
+expect("in three seasons there were injuries and suspensions to be told of", [$injury_news > 0, $suspension_news > 0], [true, true]);
 
 /* ---- Tactics ---- */
-check("the AI's mentality by rating difference", map([20, 10, 9, 5, 4, 0, -4, -5, -9, -10, -20], ai_mentality), [4, 4, 3, 3, 2, 2, 2, 1, 1, 0, 0]);
+expect("the AI's mentality by rating difference", map([20, 10, 9, 5, 4, 0, -4, -5, -9, -10, -20], ai_mentality), [4, 4, 3, 3, 2, 2, 2, 1, 1, 0, 0]);
 
 $game = Game::start(5);
 $game.set_mentality(4);
 $game.set_intensity(2);
-check("the manager's tactics are the club's", [$game.club.mentality, $game.club.intensity], [4, 2]);
+expect("the manager's tactics are the club's", [$game.club.mentality, $game.club.intensity], [4, 2]);
 $game.set_mentality(99);
 $game.set_intensity(-5);
-check("and stay within what there is", [$game.club.mentality, $game.club.intensity], [4, 0]);
+expect("and stay within what there is", [$game.club.mentality, $game.club.intensity], [4, 0]);
 $game.set_mentality(3);
 $game.set_intensity(1);
-check("the formations to choose from include the usual", [in_array("4-4-2", $game.formations()), in_array("3-5-2", $game.formations())], [true, true]);
+expect("the formations to choose from include the usual", [in_array("4-4-2", $game.formations()), in_array("3-5-2", $game.formations())], [true, true]);
 $live = $game.begin_matchday();
-check("a matchday leaves the manager's tactics as they were", [$game.club.mentality, $game.club.intensity], [3, 1]);
+expect("a matchday leaves the manager's tactics as they were", [$game.club.mentality, $game.club.intensity], [3, 1]);
 $mine = $live.mine;
 $wrong = [];
 foreach ($live.matches as $match) {
@@ -411,24 +396,24 @@ foreach ($live.matches as $match) {
         }
     }
 }
-check("the other clubs set up by how they rate against who they play", $wrong, []);
+expect("the other clubs set up by how they rate against who they play", $wrong, []);
 
 /* a substitution in the live match, by the manager */
 $off = $game.club.eleven()[5];
 $on = $game.club.best_substitute($off);
-check("a substitution is done", $game.substitute($off, $on), "");
-check("and the eleven has it, with a substitution used and the news in the commentary", [in_array($on, $game.club.eleven()), in_array($off, $game.club.eleven()), $game.club.substitutions, count_where($live.commentary, $e -> is_a($e, Substitution))], [true, false, 1, 1]);
-check("a player who is off can't come on for another", $game.substitute($game.club.eleven()[1], $off) != "", true);
+expect("a substitution is done", $game.substitute($off, $on), "");
+expect("and the eleven has it, with a substitution used and the news in the commentary", [in_array($on, $game.club.eleven()), in_array($off, $game.club.eleven()), $game.club.substitutions, count_where($live.commentary, $e -> is_a($e, Substitution))], [true, false, 1, 1]);
+expect("a player who is off can't come on for another", $game.substitute($game.club.eleven()[1], $off) != "", true);
 $eleven = $game.club.eleven();
-check("a refusal changes nothing", $game.club.eleven() == $eleven, true);
+expect("a refusal changes nothing", $game.club.eleven() == $eleven, true);
 while (!$live.finished()) {
     $live.tick();
 }
 $game.end_matchday();
-check("with no match on there is nothing to substitute in", $game.substitute($eleven[1], $eleven[2]), "There is no match to make a substitution in");
-check("and the lineup can be changed again, and by formation", [$game.auto_lineup("3-5-2"), $game.club.formation()], ["", "3-5-2"]);
+expect("with no match on there is nothing to substitute in", $game.substitute($eleven[1], $eleven[2]), "There is no match to make a substitution in");
+expect("and the lineup can be changed again, and by formation", [$game.auto_lineup("3-5-2"), $game.club.formation()], ["", "3-5-2"]);
 $live = $game.begin_matchday();
-check("but not during a match", [$game.auto_lineup(), $game.swap($game.club.eleven()[1], $game.club.bench()[0])], ["The lineup can't change during a match", "The lineup can't change during a match"]);
+expect("but not during a match", [$game.auto_lineup(), $game.swap($game.club.eleven()[1], $game.club.bench()[0])], ["The lineup can't change during a match", "The lineup can't change during a match"]);
 
 /* ---- The books ---- */
 $game = Game::start(8);
@@ -442,55 +427,55 @@ foreach ($game.teams as $i => $team) {
         $wrong[] = "{$team}: {$team.balance} not {$expected}";
     }
 }
-check("after a matchday every club has been paid and has paid, the home side taking the gate", $wrong, []);
-check("the manager's ledger says so, and only the manager's", [len($game.ledger) >= 2, sum(map($game.ledger, $e -> $e["amount"])) == $game.club.balance - $before[0], $game.ledger[0]["matchday"]], [true, true, 1]);
+expect("after a matchday every club has been paid and has paid, the home side taking the gate", $wrong, []);
+expect("the manager's ledger says so, and only the manager's", [len($game.ledger) >= 2, sum(map($game.ledger, $e -> $e["amount"])) == $game.club.balance - $before[0], $game.ledger[0]["matchday"]], [true, true, 1]);
 while (!$game.season_over()) {
     $game.advance();
 }
-check("a season on, the ledger still adds up to the balance", sum(map($game.ledger, $e -> $e["amount"])), $game.club.balance - $before[0]);
+expect("a season on, the ledger still adds up to the balance", sum(map($game.ledger, $e -> $e["amount"])), $game.club.balance - $before[0]);
 
 /* ---- Transfers ---- */
 $game = Game::start(8);
 $club = $game.club;
 $market = $game.market();
-check("the market is everyone at the other clubs, best first", [len($market), count_where($market, $o -> $o[1] == $club), $market[0][0].rating >= $market[len($market) - 1][0].rating], [(len($game.everyone()) - 1) * 17, 0, true]);
+expect("the market is everyone at the other clubs, best first", [len($market), count_where($market, $o -> $o[1] == $club), $market[0][0].rating >= $market[len($market) - 1][0].rating], [(len($game.everyone()) - 1) * 17, 0, true]);
 $offer = filter($market, $o -> $o[0].position() == "MF")[0];
 [$player, $seller] = $offer;
 $club.balance = 1000;
-check("too dear is refused, and nothing moves", [$game.buy($player) == "You can't afford " .. money::pounds(money::price($player)) .. " for {$player}", in_array($player, $seller.players), $club.balance], [true, true, 1000]);
-check("who is at my own club isn't for sale to me", $game.buy($club.players[0]), "{$club.players[0]} isn't at another club");
+expect("too dear is refused, and nothing moves", [$game.buy($player) == "You can't afford " .. money::pounds(money::price($player)) .. " for {$player}", in_array($player, $seller.players), $club.balance], [true, true, 1000]);
+expect("who is at my own club isn't for sale to me", $game.buy($club.players[0]), "{$club.players[0]} isn't at another club");
 $club.balance = 100000000;
 $seller_before = $seller.balance;
 $count = len($club.players);
-check("with the money it is done", [$game.buy($player), in_array($player, $club.players), in_array($player, $seller.players), len($club.players), $club.balance, $seller.balance], ["", true, false, $count + 1, 100000000 - money::price($player), $seller_before + money::price($player)]);
-check("the inbox and the ledger tell of it", [$game.inbox[len($game.inbox) - 1]["subject"], $game.ledger[0]["amount"]], ["Signed: {$player}", -money::price($player)]);
+expect("with the money it is done", [$game.buy($player), in_array($player, $club.players), in_array($player, $seller.players), len($club.players), $club.balance, $seller.balance], ["", true, false, $count + 1, 100000000 - money::price($player), $seller_before + money::price($player)]);
+expect("the inbox and the ledger tell of it", [$game.inbox[len($game.inbox) - 1]["subject"], $game.ledger[0]["amount"]], ["Signed: {$player}", -money::price($player)]);
 $keeper_offer = filter($game.market(), $o -> $o[0].position() == "GK")[0];
 $before = len($keeper_offer[1].players);
 $refusal = $game.buy($keeper_offer[0]);
-check("a club that would be left without two goalkeepers won't sell one", [contains($refusal, "two goalkeepers"), len($keeper_offer[1].players), in_array($keeper_offer[0], $club.players)], [true, $before, false]);
+expect("a club that would be left without two goalkeepers won't sell one", [contains($refusal, "two goalkeepers"), len($keeper_offer[1].players), in_array($keeper_offer[0], $club.players)], [true, $before, false]);
 $club.balance = 1000000000;
 for ($i = 0; $i < 30 && len($club.players) < 24; $i++) {
     $game.buy(filter($game.market(), $o -> $o[0].position() != "GK" && len($o[1].players) > 16)[0][0]);
 }
-check("my squad can't grow past 24", [$game.buy(filter($game.market(), $o -> $o[0].position() != "GK")[0][0]), len($club.players)], ["Riverside FC already have 24 players", 24]);
+expect("my squad can't grow past 24", [$game.buy(filter($game.market(), $o -> $o[0].position() != "GK")[0][0]), len($club.players)], ["Riverside FC already have 24 players", 24]);
 
 foreach ($game.everyone() as $rich) {
     $rich.balance = 500000000;
 }
 $outgoing = filter($club.players, $p -> $p.position() == "FW")[0];
 $balance = $club.balance;
-check("selling: gone from the squad, paid the sale price", [$game.sell($outgoing), in_array($outgoing, $club.players), $club.balance], ["", false, $balance + money::sale_price($outgoing)]);
+expect("selling: gone from the squad, paid the sale price", [$game.sell($outgoing), in_array($outgoing, $club.players), $club.balance], ["", false, $balance + money::sale_price($outgoing)]);
 $buyer = filter($game.teams, $t -> in_array($outgoing, $t.players));
-check("and taken on by another club, which paid", [len($buyer), len($buyer) == 1 ? $buyer[0] != $club : false], [1, true]);
-check("who isn't mine can't be sold", $game.sell($outgoing), "{$outgoing} isn't at {$club}");
+expect("and taken on by another club, which paid", [len($buyer), len($buyer) == 1 ? $buyer[0] != $club : false], [1, true]);
+expect("who isn't mine can't be sold", $game.sell($outgoing), "{$outgoing} isn't at {$club}");
 foreach ($game.teams as $t) {
     $t.balance = 0;
 }
 $abroad = filter($club.players, $p -> $p.position() == "FW")[0];
 $game.club.balance = 5;
-check("with nobody able to pay he goes abroad, and I am still paid", [$game.sell($abroad), $game.club.balance, count_where($game.teams, $t -> in_array($abroad, $t.players))], ["", 5 + money::sale_price($abroad), 0]);
+expect("with nobody able to pay he goes abroad, and I am still paid", [$game.sell($abroad), $game.club.balance, count_where($game.teams, $t -> in_array($abroad, $t.players))], ["", 5 + money::sale_price($abroad), 0]);
 $live = $game.begin_matchday();
-check("no transfers during a match", [$game.buy($game.market()[0][0]), $game.sell($game.club.players[3])], ["No transfers during a match", "No transfers during a match"]);
+expect("no transfers during a match", [$game.buy($game.market()[0][0]), $game.sell($game.club.players[3])], ["No transfers during a match", "No transfers during a match"]);
 while (!$live.finished()) {
     $live.tick();
 }
@@ -501,7 +486,7 @@ foreach ($game.teams as $t) {
         $invalid[] = "{$t}";
     }
 }
-check("after all that every club still has an eleven and a squad", $invalid, []);
+expect("after all that every club still has an eleven and a squad", $invalid, []);
 
 /* ---- Saving ---- */
 $path = "vm/build/football_game_test.save";
@@ -511,55 +496,50 @@ for ($i = 0; $i < 5; $i++) {
 }
 $game.buy(filter($game.market(), $o -> $o[0].position() == "FW")[0][0]);
 $game.set_mentality(4);
-check("saving gives nothing to say", $game.save($path), "");
+expect("saving gives nothing to say", $game.save($path), "");
 $loaded = Game::load($path);
-check("a saved game loads as the same game", $loaded.to_json() == $game.to_json(), true);
-check("the table, the results, the inbox and the books carry over", [
+expect("a saved game loads as the same game", $loaded.to_json() == $game.to_json(), true);
+expect("the table, the results, the inbox and the books carry over", [
     map($loaded.league.table(), $s -> $s.to_string()) == map($game.league.table(), $s -> $s.to_string()),
     $loaded.league.matchdays_played(), len($loaded.inbox), len($loaded.ledger), $loaded.club.mentality,
     len($loaded.league.fixtures_of($loaded.club)),
 ], [true, 5, len($game.inbox), len($game.ledger), 4, 38]);
-check("fixtures already played have their results", map(filter($loaded.league.fixtures_of($loaded.club), $f -> $f["match"] != null), $f -> to_string($f["match"])), map(filter($game.league.fixtures_of($game.club), $f -> $f["match"] != null), $f -> to_string($f["match"])));
-check("and the club is the same club", [$loaded.club.name, $loaded.club.eleven() == [] ? 0 : len($loaded.club.eleven())], [$game.club.name, 11]);
+expect("fixtures already played have their results", map(filter($loaded.league.fixtures_of($loaded.club), $f -> $f["match"] != null), $f -> to_string($f["match"])), map(filter($game.league.fixtures_of($game.club), $f -> $f["match"] != null), $f -> to_string($f["match"])));
+expect("and the club is the same club", [$loaded.club.name, $loaded.club.eleven() == [] ? 0 : len($loaded.club.eleven())], [$game.club.name, 11]);
 while (!$loaded.season_over()) {
     $loaded.advance();
 }
-check("and it plays on to the end of the season", [$loaded.season_over(), $loaded.league.matchdays_played()], [true, 38]);
+expect("and it plays on to the end of the season", [$loaded.season_over(), $loaded.league.matchdays_played()], [true, 38]);
 $hurt = Game::start(12);
 $hurt.club.players[3].injure(4);
 $hurt.club.players[4].suspended = 2;
 $hurt.save($path);
 $again = Game::load($path);
-check("a player's state is kept: out for so many matches, a ban", [$again.club.players[3].injured, $again.club.players[4].suspended], [4, 2]);
+expect("a player's state is kept: out for so many matches, a ban", [$again.club.players[3].injured, $again.club.players[4].suspended], [4, 2]);
 $live = Game::start(12);
 $live.begin_matchday();
-check("nothing is saved during a match", [$live.save($path), $live.save($path) != ""], ["Finish the match before saving", true]);
+expect("nothing is saved during a match", [$live.save($path), $live.save($path) != ""], ["Finish the match before saving", true]);
 
 run(["sh", "-c", "echo '{\"game\": \"tennis\"}' > " .. $path]);
 try {
     Game::load($path);
-    check("another file isn't a game", "no error", "an error");
+    expect("another file isn't a game", "no error", "an error");
 } catch (Error $e) {
-    check("another file isn't a game", contains($e.message, "is not a saved game"), true);
+    expect("another file isn't a game", contains($e.message, "is not a saved game"), true);
 }
 run(["sh", "-c", "echo 'not json' > " .. $path]);
 try {
     Game::load($path);
-    check("nor is garbage", "no error", "an error");
+    expect("nor is garbage", "no error", "an error");
 } catch (Error $e) {
-    check("nor is garbage", contains($e.message, "is not a saved game"), true);
+    expect("nor is garbage", contains($e.message, "is not a saved game"), true);
 }
 run(["rm", "-f", $path]);
-try {
-    Game::load($path);
-    check("a missing file is said to be", "no error", "an error");
-} catch (Error $e) {
-    check("a missing file is said to be", $e.message, "No saved game at {$path}");
-}
+throws("a missing file is said to be", () -> Game::load($path), "No saved game at {$path}");
 
 /* ---- A new season ---- */
 $game = Game::start(14);
-check("the season isn't over until it is", $game.new_season(), "The season isn't over");
+expect("the season isn't over until it is", $game.new_season(), "The season isn't over");
 while (!$game.season_over()) {
     $game.advance();
 }
@@ -580,35 +560,35 @@ foreach ($table as $i => $standing) {
 }
 $goals = sum(map($game.club.players, $p -> $p.goals));
 $career = sum(map($game.club.players, $p -> $p.career_goals));
-check("a new season starts", $game.new_season(), "");
-check("with the next year, fresh fixtures and an empty table", [$game.season, $game.league.matchdays_played(), $game.league.matchdays(), $game.season_over(), $game.season_label()], [2027, 0, $game.level == 0 ? 38 : 46, false, "2027/28"]);
-check("the club was paid prize money for where it finished", $game.ledger[len($game.ledger) - 1]["amount"], money::prize(1 + $level, $place, $size));
+expect("a new season starts", $game.new_season(), "");
+expect("with the next year, fresh fixtures and an empty table", [$game.season, $game.league.matchdays_played(), $game.league.matchdays(), $game.season_over(), $game.season_label()], [2027, 0, $game.level == 0 ? 38 : 46, false, "2027/28"]);
+expect("the club was paid prize money for where it finished", $game.ledger[len($game.ledger) - 1]["amount"], money::prize(1 + $level, $place, $size));
 $stayed = filter($before, $p -> in_array($p, $game.club.players));
-check("a season's end doesn't age anyone: age goes up on birthdays, and the squad is the size it was", [count_where($stayed, $p -> $p.age == $was[object_id($p)]), len($game.club.players)], [len($stayed), len($before)]);
-check("goals go to the career, and the season's count starts again", [sum(map($game.club.players, $p -> $p.goals)), sum(map($game.club.players, $p -> $p.career_goals)) >= $career], [0, true]);
-check("the inbox says the season begins", $game.inbox[len($game.inbox) - 1]["subject"], "2027/28 begins");
-check("the ledger has the prize money", count_where($game.ledger, $e -> starts_with($e["text"], "Prize money")), 1);
+expect("a season's end doesn't age anyone: age goes up on birthdays, and the squad is the size it was", [count_where($stayed, $p -> $p.age == $was[object_id($p)]), len($game.club.players)], [len($stayed), len($before)]);
+expect("goals go to the career, and the season's count starts again", [sum(map($game.club.players, $p -> $p.goals)), sum(map($game.club.players, $p -> $p.career_goals)) >= $career], [0, true]);
+expect("the inbox says the season begins", $game.inbox[len($game.inbox) - 1]["subject"], "2027/28 begins");
+expect("the ledger has the prize money", count_where($game.ledger, $e -> starts_with($e["text"], "Prize money")), 1);
 $invalid = [];
 foreach ($game.teams as $t) {
     if (len($t.eleven()) != 11 || len($t.players) < 16 || len($t.players) > 24) {
         $invalid[] = "{$t}";
     }
 }
-check("every club still has an eleven and a squad", $invalid, []);
+expect("every club still has an eleven and a squad", $invalid, []);
 for ($year = 0; $year < 4; $year++) {
     while (!$game.season_over()) {
         $game.advance();
     }
     $game.new_season();
 }
-check("five seasons on it is still a game", [$game.season, $game.league.matchdays()], [2031, $game.level == 0 ? 38 : 46]);
+expect("five seasons on it is still a game", [$game.season, $game.league.matchdays()], [2031, $game.level == 0 ? 38 : 46]);
 $game.advance();
-check("and a match can be played in it", $game.league.matchdays_played(), 1);
+expect("and a match can be played in it", $game.league.matchdays_played(), 1);
 
 /* ---- Two divisions ---- */
 $game = Game::start(20);
-check("two divisions of ten, the manager in the first by default", [len($game.teams), len($game.other_teams), $game.level, $game.division_name(), $game.other_division_name()], [20, 24, 0, "Premier Division", "Championship"]);
-check("the second division's clubs are the weaker", [avg_rating($game.other_teams) < avg_rating($game.teams) - 5], [true]);
+expect("two divisions of ten, the manager in the first by default", [len($game.teams), len($game.other_teams), $game.level, $game.division_name(), $game.other_division_name()], [20, 24, 0, "Premier Division", "Championship"]);
+expect("the second division's clubs are the weaker", [avg_rating($game.other_teams) < avg_rating($game.teams) - 5], [true]);
 fn name_set($clubs) {
     $set = {};
     foreach ($clubs as $club) {
@@ -620,13 +600,13 @@ fn avg_rating($clubs) {
     return sum(map($clubs, $t -> $t.rating())) / len($clubs);
 }
 $second = Game::start(20, 25);
-check("a club of the second division starts there", [$second.level, $second.division_name(), $second.club.name, in_array($second.club, $second.teams), $second.inbox[0]["body"] != ""], [1, "Championship", "Greystone City", true, true]);
-check("and the welcome says which division", contains($second.inbox[0]["body"], "in the Championship"), true);
+expect("a club of the second division starts there", [$second.level, $second.division_name(), $second.club.name, in_array($second.club, $second.teams), $second.inbox[0]["body"] != ""], [1, "Championship", "Greystone City", true, true]);
+expect("and the welcome says which division", contains($second.inbox[0]["body"], "in the Championship"), true);
 $matches = $game.advance();
-check("both divisions play every matchday, though only one is in the table", [len($matches), $game.league.matchdays_played(), $game.other_league.matchdays_played()], [10, 1, 1]);
-check("and the other's results are in the inbox", message_starting($game.inbox, "Championship, matchday 1") != null, true);
+expect("both divisions play every matchday, though only one is in the table", [len($matches), $game.league.matchdays_played(), $game.other_league.matchdays_played()], [10, 1, 1]);
+expect("and the other's results are in the inbox", message_starting($game.inbox, "Championship, matchday 1") != null, true);
 $rows = map($game.other_league.table(), $s -> $s.played);
-check("every club of the other division has played", $rows, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]);
+expect("every club of the other division has played", $rows, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]);
 
 /* promotion and relegation */
 foreach ([[20, 0], [20, 25]] as [$seed, $start]) {
@@ -642,7 +622,7 @@ foreach ([[20, 0], [20, 25]] as [$seed, $start]) {
     $up = map(slice($second_league.table(), 0, 2), $s -> $s.team.name);
     $mine = $game.club.name;
     $last = message_starting($game.inbox, "The season is over");
-    check("the season's last message says where the club finished, and its fate ({$start})", [contains($last["body"], "in the " .. $game.division_name() .. " on "), contains($last["body"], "promoted") == in_array($mine, $up), contains($last["body"], "relegated") == in_array($mine, $down)], [true, true, true]);
+    expect("the season's last message says where the club finished, and its fate ({$start})", [contains($last["body"], "in the " .. $game.division_name() .. " on "), contains($last["body"], "promoted") == in_array($mine, $up), contains($last["body"], "relegated") == in_array($mine, $down)], [true, true, true]);
     $paid_place = 0;
     foreach ($game.league.table() as $i => $standing) {
         if ($standing.team == $game.club) {
@@ -652,14 +632,14 @@ foreach ([[20, 0], [20, 25]] as [$seed, $start]) {
     $paid_level = $game.level;
     $paid_size = len($game.league.table());
     $game.new_season();
-    check("the prize is the division's: the second division pays less ({$start})", $game.ledger[len($game.ledger) - 1]["amount"], money::prize(1 + $paid_level, $paid_place, $paid_size));
+    expect("the prize is the division's: the second division pays less ({$start})", $game.ledger[len($game.ledger) - 1]["amount"], money::prize(1 + $paid_level, $paid_place, $paid_size));
     $top = map($game.level == 0 ? $game.teams : $game.other_teams, $t -> $t.name);
     $bottom = map($game.level == 0 ? $game.other_teams : $game.teams, $t -> $t.name);
-    check("two go up and two go down, twenty and twenty-four in the divisions ({$start})", [len($top), len($bottom), count_where($up, $n -> in_array($n, $top)), count_where($down, $n -> in_array($n, $bottom)), count_where($down, $n -> in_array($n, $top))], [20, 24, 2, 2, 0]);
-    check("everyone else stays where they were ({$start})", [count_where($was_top, $n -> !in_array($n, $down) && in_array($n, $top)), count_where($was_second, $n -> !in_array($n, $up) && in_array($n, $bottom))], [18, 22]);
-    check("the manager's division follows the club ({$start})", [in_array($mine, $up) ? 0 : (in_array($mine, $down) ? 1 : ($start == 0 ? 0 : 1)), $game.level, in_array($mine, map($game.teams, $t -> $t.name))], [$game.level, $game.level, true]);
-    check("and the new season's fixtures are for the new divisions ({$start})", [$game.league.matchdays_played(), $game.other_league.matchdays_played(), $game.league.matchdays(), $game.other_league.matchdays()], [0, 0, $game.level == 0 ? 38 : 46, $game.level == 0 ? 46 : 38]);
-    check("the new season's message says so ({$start})", contains($game.inbox[len($game.inbox) - 1]["body"], "begins in the " .. $game.division_name()), true);
+    expect("two go up and two go down, twenty and twenty-four in the divisions ({$start})", [len($top), len($bottom), count_where($up, $n -> in_array($n, $top)), count_where($down, $n -> in_array($n, $bottom)), count_where($down, $n -> in_array($n, $top))], [20, 24, 2, 2, 0]);
+    expect("everyone else stays where they were ({$start})", [count_where($was_top, $n -> !in_array($n, $down) && in_array($n, $top)), count_where($was_second, $n -> !in_array($n, $up) && in_array($n, $bottom))], [18, 22]);
+    expect("the manager's division follows the club ({$start})", [in_array($mine, $up) ? 0 : (in_array($mine, $down) ? 1 : ($start == 0 ? 0 : 1)), $game.level, in_array($mine, map($game.teams, $t -> $t.name))], [$game.level, $game.level, true]);
+    expect("and the new season's fixtures are for the new divisions ({$start})", [$game.league.matchdays_played(), $game.other_league.matchdays_played(), $game.league.matchdays(), $game.other_league.matchdays()], [0, 0, $game.level == 0 ? 38 : 46, $game.level == 0 ? 46 : 38]);
+    expect("the new season's message says so ({$start})", contains($game.inbox[len($game.inbox) - 1]["body"], "begins in the " .. $game.division_name()), true);
 }
 
 /* a club at the top of the second division goes up, and one at the bottom of the first goes down */
@@ -673,7 +653,7 @@ while (!$game.season_over()) {
 }
 $game.save($saved);
 $again = Game::load($saved);
-check("a game saved between seasons keeps both divisions", [$again.level, map($again.teams, $t -> $t.name) == map($game.teams, $t -> $t.name), map($again.other_teams, $t -> $t.name) == map($game.other_teams, $t -> $t.name), $again.other_league.matchdays_played(), $again.to_json() == $game.to_json()], [$game.level, true, true, $game.other_league.matchdays(), true]);
+expect("a game saved between seasons keeps both divisions", [$again.level, map($again.teams, $t -> $t.name) == map($game.teams, $t -> $t.name), map($again.other_teams, $t -> $t.name) == map($game.other_teams, $t -> $t.name), $again.other_league.matchdays_played(), $again.to_json() == $game.to_json()], [$game.level, true, true, $game.other_league.matchdays(), true]);
 run(["rm", "-f", $saved]);
 $game.new_season();
 for ($year = 0; $year < 3; $year++) {
@@ -688,32 +668,32 @@ foreach ($game.everyone() as $t) {
         $invalid[] = "{$t}";
     }
 }
-check("four seasons of promotion and relegation on, all forty-four clubs are sound", [len($game.everyone()), len(keys(name_set($game.everyone()))), $invalid], [44, 44, []]);
+expect("four seasons of promotion and relegation on, all forty-four clubs are sound", [len($game.everyone()), len(keys(name_set($game.everyone()))), $invalid], [44, 44, []]);
 
 /* ---- Seasons of different lengths ---- */
 $game = Game::start(30, 25);
-check("a Championship manager plays forty-six matchdays, and the Premier Division only thirty-eight", [$game.league.matchdays(), $game.other_league.matchdays(), $game.club_done(), $game.season_over()], [46, 38, false, false]);
+expect("a Championship manager plays forty-six matchdays, and the Premier Division only thirty-eight", [$game.league.matchdays(), $game.other_league.matchdays(), $game.club_done(), $game.season_over()], [46, 38, false, false]);
 for ($i = 0; $i < 38; $i++) {
     $matches = $game.advance();
     if (len($matches) != 12) {
-        check("a Championship matchday is twelve matches (matchday {$i})", len($matches), 12);
+        expect("a Championship matchday is twelve matches (matchday {$i})", len($matches), 12);
     }
 }
 while ($game.other_league.matchdays_left() > 0) {
     $game.advance();
 }
-check("after thirty-eight the Premier Division is done and the club's season is not", [$game.other_league.matchdays_left(), $game.league.matchdays_left(), $game.season_over()], [0, $game.league.matchdays_left(), false]);
+expect("after thirty-eight the Premier Division is done and the club's season is not", [$game.other_league.matchdays_left(), $game.league.matchdays_left(), $game.season_over()], [0, $game.league.matchdays_left(), false]);
 $live = $game.begin_matchday();
-check("the club still plays, and only its own division is watched", [$live.mine != null, len($live.matches), len($live.unwatched())], [true, 12, 0]);
+expect("the club still plays, and only its own division is watched", [$live.mine != null, len($live.matches), len($live.unwatched())], [true, 12, 0]);
 while (!$live.finished()) {
     $live.tick();
 }
 $game.end_matchday();
-check("no message about a division that didn't play", message_starting($game.inbox, "Premier Division, matchday 39"), null);
+expect("no message about a division that didn't play", message_starting($game.inbox, "Premier Division, matchday 39"), null);
 while (!$game.season_over()) {
     $game.advance();
 }
-check("the season is over when the longer one is", [$game.league.matchdays_played(), $game.other_league.matchdays_played()], [46, 38]);
+expect("the season is over when the longer one is", [$game.league.matchdays_played(), $game.other_league.matchdays_played()], [46, 38]);
 
 /* the books: a club is paid and pays only for matches it plays */
 $game = Game::start(30);
@@ -722,26 +702,26 @@ for ($i = 0; $i < 38; $i++) {
 }
 $premier_at_38 = map($game.teams, $t -> $t.balance);
 $second_at_38 = map($game.other_teams, $t -> $t.balance);
-check("the Championship still has a matchday to play when the Premier Division is done", $game.other_league.matchdays_left() > 0, true);
+expect("the Championship still has a matchday to play when the Premier Division is done", $game.other_league.matchdays_left() > 0, true);
 $game.advance();
-check("the Premier Division's clubs are paid nothing and pay nothing on the Championship's extra matchdays, the Championship's are", [map($game.teams, $t -> $t.balance) == $premier_at_38, map($game.other_teams, $t -> $t.balance) != $second_at_38], [true, true]);
+expect("the Premier Division's clubs are paid nothing and pay nothing on the Championship's extra matchdays, the Championship's are", [map($game.teams, $t -> $t.balance) == $premier_at_38, map($game.other_teams, $t -> $t.balance) != $second_at_38], [true, true]);
 
 /* wages are a matchday's share of a season of the division's own length */
 $game = Game::start(30, 25);
 $game.advance();
 $wage_entry = filter($game.ledger, $e -> $e["text"] == "Wages")[0];
-check("a Championship club pays a forty-sixth of its wages a matchday", $wage_entry["amount"], -intdiv(money::wages($game.club), 46));
+expect("a Championship club pays a forty-sixth of its wages a matchday", $wage_entry["amount"], -intdiv(money::wages($game.club), 46));
 $premier = Game::start(30);
 $premier.advance();
-check("and a Premier Division club a thirty-eighth", filter($premier.ledger, $e -> $e["text"] == "Wages")[0]["amount"], -intdiv(money::wages($premier.club), 38));
+expect("and a Premier Division club a thirty-eighth", filter($premier.ledger, $e -> $e["text"] == "Wages")[0]["amount"], -intdiv(money::wages($premier.club), 38));
 $second_team = $premier.other_teams[3];
 $second_start = money::starting_balance($second_team);
 $was_home = $premier.other_league.fixtures_of($second_team)[0]["home"] == $second_team;
-check("and a Championship club, in the other division, a forty-sixth", $second_team.balance, $second_start + money::TELEVISION - intdiv(money::wages($second_team), 46) + ($was_home ? money::gate($second_team) : 0));
+expect("and a Championship club, in the other division, a forty-sixth", $second_team.balance, $second_start + money::TELEVISION - intdiv(money::wages($second_team), 46) + ($was_home ? money::gate($second_team) : 0));
 
 /* ---- The calendar ---- */
 $game = Game::start(50);
-check("a game starts on 1 July, a Wednesday, in the summer window", [$game.date, $game.date_label(), $game.season], [date::days(2026, 7, 1), "Wed 1 Jul 2026", 2026]);
+expect("a game starts on 1 July, a Wednesday, in the summer window", [$game.date, $game.date_label(), $game.season], [date::days(2026, 7, 1), "Wed 1 Jul 2026", 2026]);
 $ages = {};
 foreach ($game.everyone() as $team) {
     foreach ($team.players as $p) {
@@ -749,10 +729,10 @@ foreach ($game.everyone() as $team) {
     }
 }
 $dates = $game.league.dates;
-check("the fixtures are dated: Saturdays, and the first on 8 August", [len($dates), date::format($dates[0]), count_where($dates, $d -> date::weekday($d) == 5)], [38, "Sat 8 Aug 2026", 38]);
-check("the Championship has forty-six, five of them on a Tuesday", [len($game.other_league.dates), count_where($game.other_league.dates, $d -> date::weekday($d) == 1)], [46, 5]);
+expect("the fixtures are dated: Saturdays, and the first on 8 August", [len($dates), date::format($dates[0]), count_where($dates, $d -> date::weekday($d) == 5)], [38, "Sat 8 Aug 2026", 38]);
+expect("the Championship has forty-six, five of them on a Tuesday", [len($game.other_league.dates), count_where($game.other_league.dates, $d -> date::weekday($d) == 1)], [46, 5]);
 $live = $game.begin_matchday();
-check("time moves to the day the first match is played", [$game.date_label(), $live.mine != null, $game.next_fixture_date()], ["Sat 8 Aug 2026", true, $game.league.dates[0]]);
+expect("time moves to the day the first match is played", [$game.date_label(), $live.mine != null, $game.next_fixture_date()], ["Sat 8 Aug 2026", true, $game.league.dates[0]]);
 $wrong = [];
 foreach ($game.everyone() as $team) {
     foreach ($team.players as $p) {
@@ -762,33 +742,33 @@ foreach ($game.everyone() as $team) {
         }
     }
 }
-check("everyone whose birthday has gone by since 1 July is a year older, and nobody else", $wrong, []);
+expect("everyone whose birthday has gone by since 1 July is a year older, and nobody else", $wrong, []);
 while (!$live.finished()) {
     $live.tick();
 }
 $game.end_matchday();
 $game.advance();
-check("each matchday is on its date", [$game.date, $game.league.matchdays_played()], [$game.league.dates[1], 2]);
-check("and the messages carry the date", [$game.inbox[len($game.inbox) - 1]["date"], date::format($game.inbox[len($game.inbox) - 1]["date"])], [$game.date, date::format($game.date)]);
+expect("each matchday is on its date", [$game.date, $game.league.matchdays_played()], [$game.league.dates[1], 2]);
+expect("and the messages carry the date", [$game.inbox[len($game.inbox) - 1]["date"], date::format($game.inbox[len($game.inbox) - 1]["date"])], [$game.date, date::format($game.date)]);
 
 /* the transfer windows */
 $game = Game::start(50);
 $target = $game.market()[0][0];
 $game.club.balance = 1000000000;
-check("the window is open in July: a signing is done", $game.buy($target), "");
+expect("the window is open in July: a signing is done", $game.buy($target), "");
 $game.advance();
-check("and in August", calendar_open($game.date), true);
+expect("and in August", calendar_open($game.date), true);
 fn calendar_open($day) { return in_array(date::month($day), [7, 8, 1]); }
 $game.date = date::days(2026, 9, 15);
-check("in September it is shut, until January", [$game.buy($game.market()[0][0]), $game.sell($game.club.players[5])], ["The transfer window is closed until 1 January", "The transfer window is closed until 1 January"]);
+expect("in September it is shut, until January", [$game.buy($game.market()[0][0]), $game.sell($game.club.players[5])], ["The transfer window is closed until 1 January", "The transfer window is closed until 1 January"]);
 $game.date = date::days(2027, 1, 20);
-check("open again in January", $game.buy($game.market()[0][0]), "");
+expect("open again in January", $game.buy($game.market()[0][0]), "");
 $game.date = date::days(2027, 3, 1);
-check("shut until July in March", $game.buy($game.market()[0][0]), "The transfer window is closed until 1 July");
+expect("shut until July in March", $game.buy($game.market()[0][0]), "The transfer window is closed until 1 July");
 $game.date = date::days(2026, 12, 31);
-check("shut on 31 December", $game.sell($game.club.players[5]), "The transfer window is closed until 1 January");
+expect("shut on 31 December", $game.sell($game.club.players[5]), "The transfer window is closed until 1 January");
 $game.date = date::days(2027, 1, 1);
-check("and open the next day", $game.sell($game.club.players[5]), "");
+expect("and open the next day", $game.sell($game.club.players[5]), "");
 
 /* what the date brings, through a whole season */
 $game = Game::start(51);
@@ -800,24 +780,24 @@ $last_match = $game.date;
 foreach ($game.inbox as $m) {
     $subjects[] = $m["subject"];
 }
-check("through a season the windows shut and open by the date: August 31st, January 1st and 31st", [
+expect("through a season the windows shut and open by the date: August 31st, January 1st and 31st", [
     count_where($game.inbox, $m -> $m["subject"] == "The transfer window has closed" && date::month($m["date"]) == 8 && date::day($m["date"]) == 31),
     count_where($game.inbox, $m -> $m["subject"] == "The transfer window is open" && date::month($m["date"]) == 1 && date::day($m["date"]) == 1),
     count_where($game.inbox, $m -> $m["subject"] == "The transfer window has closed" && date::month($m["date"]) == 1 && date::day($m["date"]) == 31),
 ], [1, 1, 1]);
-check("the season's last match is in May, and the season is not reviewed until June", [date::month($last_match), $game.season, $game.season_over()], [5, 2026, true]);
+expect("the season's last match is in May, and the season is not reviewed until June", [date::month($last_match), $game.season, $game.season_over()], [5, 2026, true]);
 $game.advance();
-check("time goes on to the next season's first match, having reviewed the season on 1 June and opened the window on 1 July", [$game.season, date::format($game.date), count_where($game.inbox, $m -> $m["subject"] == "2027/28 begins" && $m["date"] == date::days(2027, 6, 1)), count_where($game.inbox, $m -> $m["subject"] == "The transfer window is open" && $m["date"] == date::days(2027, 7, 1))], [2027, "Sat 14 Aug 2027", 1, 1]);
+expect("time goes on to the next season's first match, having reviewed the season on 1 June and opened the window on 1 July", [$game.season, date::format($game.date), count_where($game.inbox, $m -> $m["subject"] == "2027/28 begins" && $m["date"] == date::days(2027, 6, 1)), count_where($game.inbox, $m -> $m["subject"] == "The transfer window is open" && $m["date"] == date::days(2027, 7, 1))], [2027, "Sat 14 Aug 2027", 1, 1]);
 
 /* play_on: the way the interface moves time */
 $game = Game::start(52);
 $live = $game.play_on();
-check("c goes to the club's first match, ready to watch", [$live != null, $live.mine != null, $game.date_label(), $game.league.matchdays_played()], [true, true, "Sat 8 Aug 2026", 0]);
+expect("c goes to the club's first match, ready to watch", [$live != null, $live.mine != null, $game.date_label(), $game.league.matchdays_played()], [true, true, "Sat 8 Aug 2026", 0]);
 while (!$live.finished()) {
     $live.tick();
 }
 $game.end_matchday();
-check("C plays the next at once and stops, with the news in the inbox", [$game.play_on(false), $game.league.matchdays_played(), $game.live], [null, 2, null]);
+expect("C plays the next at once and stops, with the news in the inbox", [$game.play_on(false), $game.league.matchdays_played(), $game.live], [null, 2, null]);
 $stops = [];
 while (!$game.club_done()) {
     $game.play_on(false);
@@ -829,13 +809,13 @@ $live = $game.play_on(false);
 $stops[] = [date::format($game.date), $game.inbox[len($game.inbox) - 1]["subject"]];
 $live = $game.play_on(false);
 $stops[] = [date::format($game.date), $game.inbox[len($game.inbox) - 1]["subject"]];
-check("after the last match c stops for the season's review, then for the contracts that ran out, then for the window, and only then plays", $stops, [["Tue 1 Jun 2027", "2027/28 begins"], ["Wed 30 Jun 2027", "Contracts have run out"], ["Thu 1 Jul 2027", "The transfer window is open"]]);
+expect("after the last match c stops for the season's review, then for the contracts that ran out, then for the window, and only then plays", $stops, [["Tue 1 Jun 2027", "2027/28 begins"], ["Wed 30 Jun 2027", "Contracts have run out"], ["Thu 1 Jul 2027", "The transfer window is open"]]);
 $live = $game.play_on();
-check("then the first match of the new season", [$live != null, date::format($game.date), $game.season], [true, "Sat 14 Aug 2027", 2027]);
+expect("then the first match of the new season", [$live != null, date::format($game.date), $game.season], [true, "Sat 14 Aug 2027", 2027]);
 while ($game.live == null && !$game.club_done()) {
     $live = $game.play_on(false);
 }
-check("and c stops for the window closing on the last day of August, though the matches go on", [count_where($game.inbox, $m -> $m["subject"] == "The transfer window has closed" && $m["date"] == date::days(2027, 8, 31)) > 0 || date::month($game.date) < 9], [true]);
+expect("and c stops for the window closing on the last day of August, though the matches go on", [count_where($game.inbox, $m -> $m["subject"] == "The transfer window has closed" && $m["date"] == date::days(2027, 8, 31)) > 0 || date::month($game.date) < 9], [true]);
 
 /* a save keeps the date, and everyone's birthday */
 $game = Game::start(53);
@@ -843,7 +823,7 @@ $game.advance();
 $game.save("vm/build/football_date.save");
 $again = Game::load("vm/build/football_date.save");
 run(["rm", "-f", "vm/build/football_date.save"]);
-check("a saved game keeps its date and its fixtures' dates", [$again.date, $again.league.dates == $game.league.dates, $again.other_league.dates == $game.other_league.dates, $again.club.players[3].birthday, $again.to_json() == $game.to_json()], [$game.date, true, true, $game.club.players[3].birthday, true]);
+expect("a saved game keeps its date and its fixtures' dates", [$again.date, $again.league.dates == $game.league.dates, $again.other_league.dates == $game.other_league.dates, $again.club.players[3].birthday, $again.to_json() == $game.to_json()], [$game.date, true, true, $game.club.players[3].birthday, true]);
 
 /* the clubs do business in January too, as in the summer */
 $january_deals = 0;
@@ -864,10 +844,10 @@ foreach ([61, 62, 63, 64] as $seed) {
         $moved += count_where(map($team.players, $p -> object_id($p)), $id -> !in_array($id, $rosters[$team.name]));
     }
     $january_deals += $moved;
-    check("every club still has a legal squad in January ({$seed})", count_where($game.everyone(), $t -> len($t.players) < 16 || len($t.players) > 24 || len($t.eleven()) != 11), 0);
-    check("the January window opens with its message on 1 January ({$seed})", count_where($game.inbox, $m -> $m["subject"] == "The transfer window is open" && $m["date"] == date::days(2027, 1, 1) && contains($m["body"], "January transfer window")), 1);
+    expect("every club still has a legal squad in January ({$seed})", count_where($game.everyone(), $t -> len($t.players) < 16 || len($t.players) > 24 || len($t.eleven()) != 11), 0);
+    expect("the January window opens with its message on 1 January ({$seed})", count_where($game.inbox, $m -> $m["subject"] == "The transfer window is open" && $m["date"] == date::days(2027, 1, 1) && contains($m["body"], "January transfer window")), 1);
 }
-check("clubs move players between them in January", $january_deals > 0, true);
+expect("clubs move players between them in January", $january_deals > 0, true);
 
 /* ---- Injuries heal with the days ---- */
 $game = Game::start(70);
@@ -882,39 +862,39 @@ while ($game.date - $start < 12) {
     $game.advance();
 }
 $passed = $game.date - $start;
-check("each day is a day nearer healed, for everyone in the game", [$mine.injured, $theirs.injured], [40 - $passed, 40 - $passed]);
-check("and the manager hasn't been told anyone is back yet", message_starting($game.inbox, "Back: {$mine}"), null);
+expect("each day is a day nearer healed, for everyone in the game", [$mine.injured, $theirs.injured], [40 - $passed, 40 - $passed]);
+expect("and the manager hasn't been told anyone is back yet", message_starting($game.inbox, "Back: {$mine}"), null);
 while ($mine.injured > 0) {
     $game.advance();
 }
-check("when it is over the manager is told, and the player is available", [message_starting($game.inbox, "Back: {$mine}") != null, $mine.available(), contains(message_starting($game.inbox, "Back: {$mine}")["body"], "recovered from his injury")], [true, true, true]);
-check("but not of another club's player", message_starting($game.inbox, "Back: {$theirs}"), null);
+expect("when it is over the manager is told, and the player is available", [message_starting($game.inbox, "Back: {$mine}") != null, $mine.available(), contains(message_starting($game.inbox, "Back: {$mine}")["body"], "recovered from his injury")], [true, true, true]);
+expect("but not of another club's player", message_starting($game.inbox, "Back: {$theirs}"), null);
 
 /* ---- Contracts ---- */
 $game = Game::start(80);
 $club = $game.club;
 $ends = map($game.everyone(), $t -> map($t.players, $p -> $p.contract_until));
 $all_ends = reduce($ends, ($all, $list) -> [...$all, ...$list], []);
-check("every player has a contract that runs out on a 30 June, from 2027 to 2030", [count_where($all_ends, $d -> date::month($d) == 6 && date::day($d) == 30), count_where($all_ends, $d -> date::year($d) >= 2027 && date::year($d) <= 2030), len($all_ends)], [len($all_ends), len($all_ends), 44 * 17]);
-check("and they are spread: some end each year", count_where([2027, 2028, 2029, 2030], $y -> count_where($all_ends, $d -> date::year($d) == $y) > 0), 4);
+expect("every player has a contract that runs out on a 30 June, from 2027 to 2030", [count_where($all_ends, $d -> date::month($d) == 6 && date::day($d) == 30), count_where($all_ends, $d -> date::year($d) >= 2027 && date::year($d) <= 2030), len($all_ends)], [len($all_ends), len($all_ends), 44 * 17]);
+expect("and they are spread: some end each year", count_where([2027, 2028, 2029, 2030], $y -> count_where($all_ends, $d -> date::year($d) == $y) > 0), 4);
 
 /* a player who renews stays, the others leave on 30 June and the academy fills the squad */
 $expiring = filter($club.players, $p -> $p.contract_until == date::days(2027, 6, 30));
-check("some of the club's contracts run out in the first year", len($expiring) > 0, true);
+expect("some of the club's contracts run out in the first year", len($expiring) > 0, true);
 $club.balance = 1000000000;
 $renewed = $expiring[0];
 $year_before = date::year($renewed.contract_until);
 $years = $renewed.age <= 27 ? 4 : ($renewed.age <= 31 ? 2 : 1);
-check("renewing gives him the years his age deserves and costs the fee", [$game.renew($renewed), date::year($renewed.contract_until), $club.balance], ["", $year_before + $years, 1000000000 - money::renewal_fee($renewed)]);
-check("the inbox and the ledger say so", [$game.inbox[len($game.inbox) - 1]["subject"], $game.ledger[len($game.ledger) - 1]["text"], $game.ledger[len($game.ledger) - 1]["amount"]], ["Renewed: {$renewed}", "Renewed {$renewed}", -money::renewal_fee($renewed)]);
+expect("renewing gives him the years his age deserves and costs the fee", [$game.renew($renewed), date::year($renewed.contract_until), $club.balance], ["", $year_before + $years, 1000000000 - money::renewal_fee($renewed)]);
+expect("the inbox and the ledger say so", [$game.inbox[len($game.inbox) - 1]["subject"], $game.ledger[len($game.ledger) - 1]["text"], $game.ledger[len($game.ledger) - 1]["amount"]], ["Renewed: {$renewed}", "Renewed {$renewed}", -money::renewal_fee($renewed)]);
 $long_contract = filter($club.players, $p -> $p.contract_until - $game.date > 730);
-check("a player on a long contract can't be renewed yet, and it says when it runs to", [count_where($long_contract, $p -> starts_with($game.renew($p), "{$p} is on a contract until ")) == len($long_contract)], [true]);
+expect("a player on a long contract can't be renewed yet, and it says when it runs to", [count_where($long_contract, $p -> starts_with($game.renew($p), "{$p} is on a contract until ")) == len($long_contract)], [true]);
 $poor = filter($club.players, $p -> $p.contract_until == date::days(2027, 6, 30))[0] ?? null;
 if ($poor != null) {
     $club.balance = 0;
-    check("with no money it's refused, saying so, and nothing changes", [starts_with($game.renew($poor), "You can't afford"), $poor.contract_until], [true, date::days(2027, 6, 30)]);
+    expect("with no money it's refused, saying so, and nothing changes", [starts_with($game.renew($poor), "You can't afford"), $poor.contract_until], [true, date::days(2027, 6, 30)]);
 }
-check("a stranger's contract isn't the manager's to renew", $game.renew($game.market()[0][0]) != "", true);
+expect("a stranger's contract isn't the manager's to renew", $game.renew($game.market()[0][0]) != "", true);
 $club.balance = 1000000000;
 $leavers = filter($club.players, $p -> $p.contract_until == date::days(2027, 6, 30));
 $kept = $renewed;
@@ -923,34 +903,34 @@ while ($game.date < date::days(2027, 1, 2)) {
     $game.advance();
 }
 $warning = message_starting($game.inbox, "Contracts");
-check("on 1 January the manager is warned who is out of contract on 30 June, and told to renew", [$warning != null, contains($warning["body"], "run out on 30 June") || contains($warning["body"], "runs out on 30 June"), contains($warning["body"], "renew in the Squad")], [true, true, true]);
+expect("on 1 January the manager is warned who is out of contract on 30 June, and told to renew", [$warning != null, contains($warning["body"], "run out on 30 June") || contains($warning["body"], "runs out on 30 June"), contains($warning["body"], "renew in the Squad")], [true, true, true]);
 while ($game.date < date::days(2027, 7, 1)) {
     $game.advance();
 }
 $gone = filter($leavers, $p -> !in_array($p, $club.players));
-check("the ones whose contracts ran out and were not renewed have left, the renewed one stays", [count_where($gone, $p -> $p == $kept), in_array($kept, $club.players)], [0, true]);
-check("and the squad is full again: seventeen or more, two goalkeepers, the eleven whole", [len($club.players) >= 17, count_where($club.players, $p -> $p.position() == "GK") >= 2, len($club.eleven())], [true, true, 11]);
+expect("the ones whose contracts ran out and were not renewed have left, the renewed one stays", [count_where($gone, $p -> $p == $kept), in_array($kept, $club.players)], [0, true]);
+expect("and the squad is full again: seventeen or more, two goalkeepers, the eleven whole", [len($club.players) >= 17, count_where($club.players, $p -> $p.position() == "GK") >= 2, len($club.eleven())], [true, true, 11]);
 $news = message_starting($game.inbox, "Contracts have run out");
-check("and the manager is told who, and who came from the academy", [$news != null, contains($news["body"], "have left") || contains($news["body"], "has left"), contains($news["body"], "From the academy")], [true, true, true]);
+expect("and the manager is told who, and who came from the academy", [$news != null, contains($news["body"], "have left") || contains($news["body"], "has left"), contains($news["body"], "From the academy")], [true, true, true]);
 // the academy's, as the news names them: others may have joined since January too
 $from_academy = split($news["body"], "From the academy: ")[1];
 $youth = filter($club.players, $p -> !in_array($p, $before_players) && contains($from_academy, to_string($p) .. " ("));
-check("the academy players have contracts of three seasons", [len($youth) > 0, count_where($youth, $p -> $p.contract_until >= date::days(2029, 6, 30))], [true, len($youth)]);
-check("nobody at any club is still under an expired contract", count_where($game.everyone(), $t -> count_where($t.players, $p -> $p.contract_until < $game.date) > 0), 0);
+expect("the academy players have contracts of three seasons", [len($youth) > 0, count_where($youth, $p -> $p.contract_until >= date::days(2029, 6, 30))], [true, len($youth)]);
+expect("nobody at any club is still under an expired contract", count_where($game.everyone(), $t -> count_where($t.players, $p -> $p.contract_until < $game.date) > 0), 0);
 
 /* what a club asks for a player with six months left, and what a signing gets */
 $game = Game::start(82);
 $target = filter($game.market(), $o -> $o[0].contract_until == date::days(2027, 6, 30) && $o[0].position() != "GK")[0][0];
 $full = money::price($target);
-check("at the start the asking price is the usual", $game.asking_price($target), $full);
+expect("at the start the asking price is the usual", $game.asking_price($target), $full);
 $game.date = date::days(2027, 1, 5);
-check("in January, with under six months to run, it is half", $game.asking_price($target), intdiv($full, 2));
+expect("in January, with under six months to run, it is half", $game.asking_price($target), intdiv($full, 2));
 $game.club.balance = 1000000000;
-check("and a signing gets a contract of three seasons, the one being played included", [$game.buy($target), date::iso($target.contract_until)], ["", "2029-06-30"]);
+expect("and a signing gets a contract of three seasons, the one being played included", [$game.buy($target), date::iso($target.contract_until)], ["", "2029-06-30"]);
 $game.date = date::days(2026, 8, 1);
 $second = filter($game.market(), $o -> $o[0].position() != "GK")[0][0];
 $game.buy($second);
-check("signed in August, three seasons: to the third June after", date::iso($second.contract_until), "2029-06-30");
+expect("signed in August, three seasons: to the third June after", date::iso($second.contract_until), "2029-06-30");
 
 /* saved */
 $game = Game::start(83);
@@ -958,15 +938,15 @@ $game.advance();
 $game.save("vm/build/football_contract.save");
 $again = Game::load("vm/build/football_contract.save");
 run(["rm", "-f", "vm/build/football_contract.save"]);
-check("a saved game keeps the contracts", map($again.club.players, $p -> $p.contract_until), map($game.club.players, $p -> $p.contract_until));
+expect("a saved game keeps the contracts", map($again.club.players, $p -> $p.contract_until), map($game.club.players, $p -> $p.contract_until));
 
 /* ---- The cup ---- */
 $game = Game::start(100, 25);
 $cup = $game.cup;
-check("a cup for every club: six rounds from the first round in September to the final in May, on Wednesdays and a Saturday", [$cup.rounds_total(), date::format($cup.dates[0]), date::format($cup.dates[5]), count_where(slice($cup.dates, 0, 5), $d -> date::weekday($d) == 2), date::weekday($cup.dates[5])], [6, "Wed 16 Sep 2026", "Sat 22 May 2027", 5, 5]);
+expect("a cup for every club: six rounds from the first round in September to the final in May, on Wednesdays and a Saturday", [$cup.rounds_total(), date::format($cup.dates[0]), date::format($cup.dates[5]), count_where(slice($cup.dates, 0, 5), $d -> date::weekday($d) == 2), date::weekday($cup.dates[5])], [6, "Wed 16 Sep 2026", "Sat 22 May 2027", 5, 5]);
 $league_dates = [...$game.league.dates, ...$game.other_league.dates];
-check("none on a day a league match is", count_where($cup.dates, $d -> in_array($d, $league_dates)), 0);
-check("the club is in the cup at the start, as are the others", count_where($game.everyone(), $t -> $cup.is_in($t)), 44);
+expect("none on a day a league match is", count_where($cup.dates, $d -> in_array($d, $league_dates)), 0);
+expect("the club is in the cup at the start, as are the others", count_where($game.everyone(), $t -> $cup.is_in($t)), 44);
 
 /* a Championship club is in the first round, and its tie comes to the manager */
 $found = null;
@@ -984,14 +964,14 @@ for ($i = 0; $i < 200 && $found == null; $i++) {
         $game.end_matchday();
     }
 }
-check("play_on comes to the club's cup tie, on the round's day, ready to watch", [$found != null, $found.mine != null, date::format($game.date), $game.cup_label()], [true, true, "Wed 16 Sep 2026", "The Cup: First round"]);
-check("the day is the cup's: twelve ties, and the tie is the club's", [len($found.matches), $found.is_cup(), $found.mine.home == $game.club || $found.mine.away == $game.club], [12, true, true]);
+expect("play_on comes to the club's cup tie, on the round's day, ready to watch", [$found != null, $found.mine != null, date::format($game.date), $game.cup_label()], [true, true, "Wed 16 Sep 2026", "The Cup: First round"]);
+expect("the day is the cup's: twelve ties, and the tie is the club's", [len($found.matches), $found.is_cup(), $found.mine.home == $game.club || $found.mine.away == $game.club], [12, true, true]);
 $ticks = 0;
 while (!$found.finished()) {
     $found.tick();
     $ticks++;
 }
-check("ninety ticks, and then, for a level tie, extra time all at once: the day is not over till every tie is settled", [$ticks >= 90, $found.finished()], [true, true]);
+expect("ninety ticks, and then, for a level tie, extra time all at once: the day is not over till every tie is settled", [$ticks >= 90, $found.finished()], [true, true]);
 $balance = $game.club.balance;
 $game.end_matchday();
 $tie = $cup.rounds[0][1][0];
@@ -1002,13 +982,13 @@ foreach ($cup.rounds[0][1] as $t) {
     }
 }
 $won = $mine_tie.winner() == $game.club;
-check("the round is over: twelve ties, twenty-four out of it or through, thirty-two left, and the day ends", [len($cup.rounds), len($cup.rounds[0][1]), count_where($game.everyone(), $t -> $cup.is_in($t)), $game.live], [1, 12, 32, null]);
-check("the manager is told how the round went, and how their tie did", [message_starting($game.inbox, "The Cup: first round") != null, $won ? message_starting($game.inbox, "Cup: through") != null : message_starting($game.inbox, "Cup: knocked out") != null], [true, true]);
+expect("the round is over: twelve ties, twenty-four out of it or through, thirty-two left, and the day ends", [len($cup.rounds), len($cup.rounds[0][1]), count_where($game.everyone(), $t -> $cup.is_in($t)), $game.live], [1, 12, 32, null]);
+expect("the manager is told how the round went, and how their tie did", [message_starting($game.inbox, "The Cup: first round") != null, $won ? message_starting($game.inbox, "Cup: through") != null : message_starting($game.inbox, "Cup: knocked out") != null], [true, true]);
 $report = message_starting($game.inbox, $won ? "Cup: through" : "Cup: knocked out");
-check("and the report has the score", contains($report["body"], to_string($mine_tie)), true);
+expect("and the report has the score", contains($report["body"], to_string($mine_tie)), true);
 $entries = filter($game.ledger, $e -> contains(lower($e["text"]), "cup"));
-check("the books: a gate if at home, and a prize if it won, and no wages or television", [count_where($entries, $e -> $e["text"] == "Gate receipts, cup"), count_where($entries, $e -> starts_with($e["text"], "Cup prize money")), $game.club.balance - $balance], [$mine_tie.match.home == $game.club ? 1 : 0, $won ? 1 : 0, ($mine_tie.match.home == $game.club ? money::gate($game.club) : 0) + ($won ? money::cup_prize(0) : 0)]);
-check("every winner of the round was paid the prize, the home clubs their gates", [count_where($cup.rounds[0][1], $t -> $t.winner().balance > 0)], [12]);
+expect("the books: a gate if at home, and a prize if it won, and no wages or television", [count_where($entries, $e -> $e["text"] == "Gate receipts, cup"), count_where($entries, $e -> starts_with($e["text"], "Cup prize money")), $game.club.balance - $balance], [$mine_tie.match.home == $game.club ? 1 : 0, $won ? 1 : 0, ($mine_tie.match.home == $game.club ? money::gate($game.club) : 0) + ($won ? money::cup_prize(0) : 0)]);
+expect("every winner of the round was paid the prize, the home clubs their gates", [count_where($cup.rounds[0][1], $t -> $t.winner().balance > 0)], [12]);
 
 /* the cup goes on, unwatched when the manager is out of it or it is not their day */
 $game = Game::start(101);
@@ -1017,11 +997,11 @@ $before_first = $game.cup.round_name();
 while ($game.date < date::days(2026, 9, 20)) {
     $game.advance();
 }
-check("a Premier Division club has a bye in the first round: the cup's first round was played without it, the inbox tells", [len($cup.rounds), $cup.rounds[0][0], message_starting($game.inbox, "The Cup: first round") != null, message_starting($game.inbox, "Cup: through"), message_starting($game.inbox, "Cup: knocked out")], [1, "First round", true, null, null]);
+expect("a Premier Division club has a bye in the first round: the cup's first round was played without it, the inbox tells", [len($cup.rounds), $cup.rounds[0][0], message_starting($game.inbox, "The Cup: first round") != null, message_starting($game.inbox, "Cup: through"), message_starting($game.inbox, "Cup: knocked out")], [1, "First round", true, null, null]);
 while ($game.date < date::days(2026, 11, 10)) {
     $game.advance();
 }
-check("through the second round (or out of it): the report follows the club's tie", [len($cup.rounds), message_starting($game.inbox, "Cup: through") != null || message_starting($game.inbox, "Cup: knocked out") != null], [2, true]);
+expect("through the second round (or out of it): the report follows the club's tie", [len($cup.rounds), message_starting($game.inbox, "Cup: through") != null || message_starting($game.inbox, "Cup: knocked out") != null], [2, true]);
 
 /* the whole season: the final is in May, and the review names the champions */
 $game = Game::start(102);
@@ -1029,18 +1009,18 @@ while (!$game.season_over()) {
     $game.advance();
 }
 $cup = $game.cup;
-check("with the leagues over, the final is a week away and the cup not over", [$cup.finished(), date::month($game.date), $cup.round_name()], [false, 5, "Final"]);
+expect("with the leagues over, the final is a week away and the cup not over", [$cup.finished(), date::month($game.date), $cup.round_name()], [false, 5, "Final"]);
 $game.advance();
-check("time goes on: the final is played, the season reviewed, the next one drawn with a cup of its own", [$cup.finished(), $game.cup != $cup, $game.cup.finished(), len($game.cup.rounds), $game.season], [true, true, false, 0, 2027]);
+expect("time goes on: the final is played, the season reviewed, the next one drawn with a cup of its own", [$cup.finished(), $game.cup != $cup, $game.cup.finished(), len($game.cup.rounds), $game.season], [true, true, false, 0, 2027]);
 $review = message_starting($game.inbox, "2027/28 begins");
-check("the review says who won the cup", contains($review["body"], "The Cup was won by " .. $cup.champion), true);
+expect("the review says who won the cup", contains($review["body"], "The Cup was won by " .. $cup.champion), true);
 $round_index = {};
 foreach ($cup.rounds as $i => [$round_name, $round_ties]) {
     $round_index[lower($round_name)] = $i;
 }
 $prizes = filter($game.ledger, $e -> starts_with($e["text"], "Cup prize money, "));
-check("the club's cup prizes in the books are those of the rounds it won", count_where($prizes, $e -> $e["amount"] == money::cup_prize($round_index[slice($e["text"], 17)])), len($prizes));
-check("and the cup's final was on the right day, in May", [date::format($cup.dates[5])], ["Sat 22 May 2027"]);
+expect("the club's cup prizes in the books are those of the rounds it won", count_where($prizes, $e -> $e["amount"] == money::cup_prize($round_index[slice($e["text"], 17)])), len($prizes));
+expect("and the cup's final was on the right day, in May", [date::format($cup.dates[5])], ["Sat 22 May 2027"]);
 
 /* the cup can be finished off at the review when the leagues are over and rounds are left */
 $game = Game::start(103);
@@ -1049,7 +1029,7 @@ while (!$game.season_over()) {
 }
 $rounds_before = len($game.cup.rounds);
 $cup = $game.cup;
-check("new_season() plays out what is left of the cup, unwatched, and moves on", [$game.new_season(), $cup.finished(), len($cup.rounds) >= $rounds_before, $game.season], ["", true, true, 2027]);
+expect("new_season() plays out what is left of the cup, unwatched, and moves on", [$game.new_season(), $cup.finished(), len($cup.rounds) >= $rounds_before, $game.season], ["", true, true, 2027]);
 
 /* saved in the middle of the cup, and back */
 $game = Game::start(104);
@@ -1059,12 +1039,12 @@ while ($game.date < date::days(2026, 11, 10)) {
 $game.save("vm/build/football_cup.save");
 $again = Game::load("vm/build/football_cup.save");
 run(["rm", "-f", "vm/build/football_cup.save"]);
-check("a saved game keeps the cup: the rounds played, who is in, the dates", [len($again.cup.rounds), $again.cup.dates == $game.cup.dates, count_where($again.everyone(), $t -> $again.cup.is_in($t)), $again.to_json() == $game.to_json()], [len($game.cup.rounds), true, count_where($game.everyone(), $t -> $game.cup.is_in($t)), true]);
+expect("a saved game keeps the cup: the rounds played, who is in, the dates", [len($again.cup.rounds), $again.cup.dates == $game.cup.dates, count_where($again.everyone(), $t -> $again.cup.is_in($t)), $again.to_json() == $game.to_json()], [len($game.cup.rounds), true, count_where($game.everyone(), $t -> $game.cup.is_in($t)), true]);
 $loaded_cup = $again.cup;
 while (!$loaded_cup.finished()) {
     $again.advance();
 }
-check("and it can be played on to the end", $loaded_cup.finished(), true);
+expect("and it can be played on to the end", $loaded_cup.finished(), true);
 
 /* a manager whose team wins is paid a bigger prize each round */
 $game = Game::start(105);
@@ -1092,11 +1072,11 @@ fn array_index($list, $value) {
     }
     return -1;
 }
-check("with a great side the club won several rounds, and each was paid by its round: 250k for the third, and so on", [len($prize_rows) >= 3, $paid_ok, count_where($prize_rows, $e -> $e["amount"] > 100000) >= 2], [true, len($prize_rows), true]);
+expect("with a great side the club won several rounds, and each was paid by its round: 250k for the third, and so on", [len($prize_rows) >= 3, $paid_ok, count_where($prize_rows, $e -> $e["amount"] > 100000) >= 2], [true, len($prize_rows), true]);
 
 /* ---- The board: the sack ends the game ---- */
 $doomed = Game::start(3);
-check("the board is told what to expect when the manager arrives", [$doomed.board.target != null, contains(message_starting($doomed.inbox, "Welcome")["body"], "The board expect " .. $doomed.board.hope .. ".")], [true, true]);
+expect("the board is told what to expect when the manager arrives", [$doomed.board.target != null, contains(message_starting($doomed.inbox, "Welcome")["body"], "The board expect " .. $doomed.board.hope .. ".")], [true, true]);
 $doomed.board.confidence = 11;
 $matchdays = 0;
 while (!$doomed.sacked() && $matchdays < 38) {
@@ -1104,8 +1084,8 @@ while (!$doomed.sacked() && $matchdays < 38) {
     $matchdays++;
 }
 $notice = message_starting($doomed.inbox, "Sacked");
-check("a board on the edge sacks the manager, and says so with the record", [$doomed.sacked(), $notice != null, contains($notice["body"], "matches in charge: {$doomed.board.won} won, {$doomed.board.drawn} drawn, {$doomed.board.lost} lost.")], [true, true, true]);
+expect("a board on the edge sacks the manager, and says so with the record", [$doomed.sacked(), $notice != null, contains($notice["body"], "matches in charge: {$doomed.board.won} won, {$doomed.board.drawn} drawn, {$doomed.board.lost} lost.")], [true, true, true]);
 while (!$doomed.season_over()) {
     $doomed.advance();
 }
-check("the game says so once, and the manager stays sacked (ending the game is the shell's)", [count_where($doomed.inbox, $m -> $m["subject"] == "Sacked"), $doomed.sacked()], [1, true]);
+expect("the game says so once, and the manager stays sacked (ending the game is the shell's)", [count_where($doomed.inbox, $m -> $m["subject"] == "Sacked"), $doomed.sacked()], [1, true]);

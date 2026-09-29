@@ -1,44 +1,44 @@
-include "std/test.gaz" use expect as check;
+include "std/test.gaz" use expect;
 include "../../../lib/format.gaz" use number as format_number, pad_left, pad_right;
 
-check("two decimals by default", format_number(1234.5), "1,234.50");
-check("thousands", format_number(1234567.891, 1), "1,234,567.9");
-check("negative", format_number(-9876.5), "-9,876.50");
-check("no decimals", format_number(1999.5, 0), "2,000");
-check("ints", format_number(1000), "1,000.00");
-check("rounds half away from zero", [format_number(0.125), format_number(-0.125)], ["0.13", "-0.13"]);
-check("rounding carries into the whole part", format_number(999.999), "1,000.00");
-check("negative that rounds to zero isn't shown as negative", format_number(-0.004), "0.00");
-check("small", format_number(0.05), "0.05");
-check("halves stored as slightly less still round up", [format_number(1.005), format_number(2.675), format_number(-1.005)], ["1.01", "2.68", "-1.01"]);
-check("custom separator", format_number(1234567, 0, " "), "1 234 567");
-check("no separator", format_number(1234567, 2, ""), "1234567.00");
+expect("two decimals by default", format_number(1234.5), "1,234.50");
+expect("thousands", format_number(1234567.891, 1), "1,234,567.9");
+expect("negative", format_number(-9876.5), "-9,876.50");
+expect("no decimals", format_number(1999.5, 0), "2,000");
+expect("ints", format_number(1000), "1,000.00");
+expect("rounds half away from zero", [format_number(0.125), format_number(-0.125)], ["0.13", "-0.13"]);
+expect("rounding carries into the whole part", format_number(999.999), "1,000.00");
+expect("negative that rounds to zero isn't shown as negative", format_number(-0.004), "0.00");
+expect("small", format_number(0.05), "0.05");
+expect("halves stored as slightly less still round up", [format_number(1.005), format_number(2.675), format_number(-1.005)], ["1.01", "2.68", "-1.01"]);
+expect("custom separator", format_number(1234567, 0, " "), "1 234 567");
+expect("no separator", format_number(1234567, 2, ""), "1234567.00");
 
-check("pad_left", pad_left("7", 3), "  7");
-check("pad_left with zeros", pad_left("7", 3, "0"), "007");
-check("pad_right", pad_right("ab", 4, "."), "ab..");
-check("already wide enough", [pad_left("wide", 2), pad_right("wide", 4)], ["wide", "wide"]);
-check("numbers are padded as echo prints them", [pad_left(42, 4), pad_right(1.5, 5, "."), pad_left(-3, 3, "0")], ["  42", "1.5..", "0-3"]);
-check("so are other values", [pad_left(true, 5), pad_right(null, 6, "!"), pad_left([1], 4)], [" true", "null!!", " [1]"]);
+expect("pad_left", pad_left("7", 3), "  7");
+expect("pad_left with zeros", pad_left("7", 3, "0"), "007");
+expect("pad_right", pad_right("ab", 4, "."), "ab..");
+expect("already wide enough", [pad_left("wide", 2), pad_right("wide", 4)], ["wide", "wide"]);
+expect("numbers are padded as echo prints them", [pad_left(42, 4), pad_right(1.5, 5, "."), pad_left(-3, 3, "0")], ["  42", "1.5..", "0-3"]);
+expect("so are other values", [pad_left(true, 5), pad_right(null, 6, "!"), pad_left([1], 4)], [" true", "null!!", " [1]"]);
 kind Money { #cents; fn _($cents) { #cents = $cents; } pub fn to_string() { return "\$" .. intdiv(#cents, 100); } }
-check("objects through to_string()", pad_left(Money(1250), 5), "  \$12");
+expect("objects through to_string()", pad_left(Money(1250), 5), "  \$12");
 
 /* sprintf(): the arguments as a list, one per placeholder */
-check("sprintf", format::sprintf("%-6s|%5.1f|%03d", ["ab", 2.25, 7]), "ab    |  2.3|007");
-check("%s is echo's", format::sprintf("%s and %s, %s", [[1, "a"], null, Money(250)]), "[1, \"a\"] and null, \$2");
-check("%%", format::sprintf("100%% of %d%%", [5]), "100% of 5%");
-check("no placeholders", [format::sprintf("plain", []), format::sprintf("", [])], ["plain", ""]);
-check("%f has 6 decimals", format::sprintf("%f", [1.5]), "1.500000");
-check("%f rounds as round() does", format::sprintf("%.2f %.0f %.0f %.3f", [1.005, 2.5, -2.5, -0.0005]), "1.01 3 -3 -0.001");
-check("%f of an int", format::sprintf("%.1f", [3]), "3.0");
-check("%f of a tiny negative shows no sign", format::sprintf("%.2f", [-0.001]), "0.00");
-check("%x", format::sprintf("%x %x %x", [0, 255, 9223372036854775807]), "0 ff 7fffffffffffffff");
-check("widths pad on the left", format::sprintf("[%4d][%4s][%6.2f][%4x]", [42, "ab", 3.14159, 255]), "[  42][  ab][  3.14][  ff]");
-check("- pads on the right", format::sprintf("[%-4d][%-4s][%-6.1f]", [42, "ab", 2.5]), "[42  ][ab  ][2.5   ]");
-check("0 pads after the sign", format::sprintf("[%05d][%05d][%07.2f][%04x]", [42, -42, -2.5, 10]), "[00042][-0042][-002.50][000a]");
-check("- beats 0, as in C", format::sprintf("[%-05d]", [7]), "[7    ]");
-check("a width that's too small is ignored", format::sprintf("%2d|%1s", [12345, "abc"]), "12345|abc");
-check("the largest precision", format::sprintf("%.18f", [0.5]), "0.500000000000000000");
+expect("sprintf", format::sprintf("%-6s|%5.1f|%03d", ["ab", 2.25, 7]), "ab    |  2.3|007");
+expect("%s is echo's", format::sprintf("%s and %s, %s", [[1, "a"], null, Money(250)]), "[1, \"a\"] and null, \$2");
+expect("%%", format::sprintf("100%% of %d%%", [5]), "100% of 5%");
+expect("no placeholders", [format::sprintf("plain", []), format::sprintf("", [])], ["plain", ""]);
+expect("%f has 6 decimals", format::sprintf("%f", [1.5]), "1.500000");
+expect("%f rounds as round() does", format::sprintf("%.2f %.0f %.0f %.3f", [1.005, 2.5, -2.5, -0.0005]), "1.01 3 -3 -0.001");
+expect("%f of an int", format::sprintf("%.1f", [3]), "3.0");
+expect("%f of a tiny negative shows no sign", format::sprintf("%.2f", [-0.001]), "0.00");
+expect("%x", format::sprintf("%x %x %x", [0, 255, 9223372036854775807]), "0 ff 7fffffffffffffff");
+expect("widths pad on the left", format::sprintf("[%4d][%4s][%6.2f][%4x]", [42, "ab", 3.14159, 255]), "[  42][  ab][  3.14][  ff]");
+expect("- pads on the right", format::sprintf("[%-4d][%-4s][%-6.1f]", [42, "ab", 2.5]), "[42  ][ab  ][2.5   ]");
+expect("0 pads after the sign", format::sprintf("[%05d][%05d][%07.2f][%04x]", [42, -42, -2.5, 10]), "[00042][-0042][-002.50][000a]");
+expect("- beats 0, as in C", format::sprintf("[%-05d]", [7]), "[7    ]");
+expect("a width that's too small is ignored", format::sprintf("%2d|%1s", [12345, "abc"]), "12345|abc");
+expect("the largest precision", format::sprintf("%.18f", [0.5]), "0.500000000000000000");
 
 $failures = [];
 foreach ([
@@ -54,7 +54,7 @@ foreach ([
         $failures[] = $e.message;
     }
 }
-check("what sprintf refuses", $failures, [
+expect("what sprintf refuses", $failures, [
     "sprintf: the template takes 1 arguments, 0 given",
     "sprintf: the template takes 2 arguments, 1 given",
     "sprintf: the template takes 0 arguments, 1 given",

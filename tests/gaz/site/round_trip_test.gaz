@@ -6,7 +6,7 @@
  */
 include "../../../site/highlight.gaz";
 include "../../../site/markdown.gaz";
-include "std/test.gaz" use expect as check;
+include "std/test.gaz" use expect;
 
 const DOCUMENTS = ["README.md", "docs/language.md", "docs/bytecode.md", "docs/internals.md"];
 const DIRECTORIES = ["lib", "examples"];
@@ -68,8 +68,8 @@ foreach (DOCUMENTS as $document) {
             $unlexed[] = $line;
         }
     }
-    check("{$document} has code blocks", $counts != {}, true);
-    check("{$document}'s gaz blocks all lex", $unlexed, []);
+    expect("{$document} has code blocks", $counts != {}, true);
+    expect("{$document}'s gaz blocks all lex", $unlexed, []);
 }
 
 foreach (DIRECTORIES as $directory) {
@@ -86,6 +86,6 @@ foreach (DIRECTORIES as $directory) {
             $failed[] = "{$file} with CRLF";
         }
     }
-    check("{$directory}/ has files", len($files) > 0, true);
-    check("every file of {$directory}/ lexes and round trips", $failed, []);
+    expect("{$directory}/ has files", len($files) > 0, true);
+    expect("every file of {$directory}/ lexes and round trips", $failed, []);
 }

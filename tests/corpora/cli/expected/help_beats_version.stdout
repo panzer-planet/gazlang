@@ -5,8 +5,9 @@ Usage: gaz [options] [file | -] [program arguments...]
   gaz -e 'code' [program arguments...]
   Runs the code given, with standard input left as the program's data (read_stdin(),
   read_line()) and everything after it as its arguments. Single-quote the code.
-  gaz test [path] [--update]
-  Runs every *_test.gaz file under path (default the current directory), recursively.
+  gaz test [path...] [--update] [-v]
+  Runs every *_test.gaz file under each path (default the current directory), recursively,
+  printing the failures and a count per file; -v prints everything the files print.
 Options:
   -h, --help     Show this help message
   -v, --version  Show version information

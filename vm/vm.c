@@ -1700,7 +1700,7 @@ static void *run(void *arg) {
     return NULL;
 }
 
-/* gaz test [path] [--update] runs std/test.gaz's test::main() as a bootstrap program of its
+/* gaz test [path...] [--update] [-v] runs std/test.gaz's test::main() as a bootstrap program of its
    own, with everything after "test" as that program's args(). It is dispatched before any of
    the option parsing below, since it is a bareword subcommand rather than a "-"-prefixed
    option (cargo test's and go test's shape, not getopt's); a file literally named "test" needs
@@ -1749,8 +1749,9 @@ static const char *HELP =
     "  gaz -e 'code' [program arguments...]\n"
     "  Runs the code given, with standard input left as the program's data (read_stdin(),\n"
     "  read_line()) and everything after it as its arguments. Single-quote the code.\n"
-    "  gaz test [path] [--update]\n"
-    "  Runs every *_test.gaz file under path (default the current directory), recursively.\n"
+    "  gaz test [path...] [--update] [-v]\n"
+    "  Runs every *_test.gaz file under each path (default the current directory), recursively,\n"
+    "  printing the failures and a count per file; -v prints everything the files print.\n"
     "Options:\n"
     "  -h, --help     Show this help message\n"
     "  -v, --version  Show version information\n"

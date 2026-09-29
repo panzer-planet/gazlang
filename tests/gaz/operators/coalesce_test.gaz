@@ -1,39 +1,39 @@
-include "std/test.gaz" use expect as check;
+include "std/test.gaz" use expect, throws;
 
 $values = {"null" => null, "zero" => 0, "false" => false, "empty" => "", "list" => [10, 20]};
 
 // Only null or missing falls through to the right side
-check("null", $values["null"] ?? "default", "default");
-check("zero is kept", $values["zero"] ?? "default", 0);
-check("false is kept", $values["false"] ?? "default", false);
-check("empty string is kept", $values["empty"] ?? "default", "");
-check("a value", "value" ?? "default", "value");
+expect("null", $values["null"] ?? "default", "default");
+expect("zero is kept", $values["zero"] ?? "default", 0);
+expect("false is kept", $values["false"] ?? "default", false);
+expect("empty string is kept", $values["empty"] ?? "default", "");
+expect("a value", "value" ?? "default", "value");
 
 // Missing variables and keys are not errors on the left of ??
-check("undefined variable", $never_assigned ?? "default", "default");
-check("undefined global", @never_assigned ?? "default", "default");
-check("missing key", $values["missing"] ?? "default", "default");
-check("missing key of a missing key", $values["missing"]["deeper"] ?? "default", "default");
-check("missing index", $values["list"][5] ?? "default", "default");
-check("string position out of range", "abc"[10] ?? "default", "default");
+expect("undefined variable", $never_assigned ?? "default", "default");
+expect("undefined global", @never_assigned ?? "default", "default");
+expect("missing key", $values["missing"] ?? "default", "default");
+expect("missing key of a missing key", $values["missing"]["deeper"] ?? "default", "default");
+expect("missing index", $values["list"][5] ?? "default", "default");
+expect("string position out of range", "abc"[10] ?? "default", "default");
 
 // Right associative, and the right side only runs when needed
-check("chain", null ?? $never_assigned ?? "last", "last");
+expect("chain", null ?? $never_assigned ?? "last", "last");
 @calls = 0;
 fn called() {
     @calls++;
     return "called";
 }
-check("not evaluated when the left is set", "set" ?? called(), "set");
-check("evaluated when the left is null", null ?? called(), "called");
-check("so called once", @calls, 1);
+expect("not evaluated when the left is set", "set" ?? called(), "set");
+expect("evaluated when the left is null", null ?? called(), "called");
+expect("so called once", @calls, 1);
 
 // Precedence: lower than || and comparisons, higher than assignment
-check("|| first", false || null ?? "right", false);
-check("comparison first", 1 < 2 ?? "right", true);
+expect("|| first", false || null ?? "right", false);
+expect("comparison first", 1 < 2 ?? "right", true);
 $assigned = $never_assigned ?? 7;
-check("assignment last", $assigned, 7);
-check("in interpolation", "{$values["missing"] ?? "fallback"}", "fallback");
+expect("assignment last", $assigned, 7);
+expect("in interpolation", "{$values["missing"] ?? "fallback"}", "fallback");
 
 // Counting with ??= instead of checking has_key first
 $counts = {};
@@ -41,31 +41,22 @@ foreach (["a", "b", "a", "a"] as $word) {
     $counts[$word] ??= 0;
     $counts[$word]++;
 }
-check("counting", $counts, {"a" => 3, "b" => 1});
+expect("counting", $counts, {"a" => 3, "b" => 1});
 
 // Other errors on the left still happen
-try {
-    $n = 5;
-    echo $n["key"] ?? "default";
-} catch ($e) {
-    check("indexing an int is still an error", $e.message, "Cannot use [] on int");
-}
-try {
-    echo $values[true] ?? "default";
-} catch ($e) {
-    check("a bad key type is still an error", $e.message, "Keys must be int or string, got bool");
-}
+throws("indexing an int is still an error", () -> 5["key"] ?? "default", "Cannot use [] on int");
+throws("a bad key type is still an error", () -> $values[true] ?? "default", "Keys must be int or string, got bool");
 
 // ??= assigns only when the target is null or missing, and gives the resulting value
 $settings = {"port" => 0, "host" => null};
-check("??= sets a missing key", $settings["name"] ??= "app", "app");
-check("??= sets a null key", $settings["host"] ??= "localhost", "localhost");
-check("??= keeps a set key, even 0", $settings["port"] ??= 8080, 0);
-check("??= result", $settings, {"port" => 0, "host" => "localhost", "name" => "app"});
-check("??= creates a variable", $created ??= [], []);
+expect("??= sets a missing key", $settings["name"] ??= "app", "app");
+expect("??= sets a null key", $settings["host"] ??= "localhost", "localhost");
+expect("??= keeps a set key, even 0", $settings["port"] ??= 8080, 0);
+expect("??= result", $settings, {"port" => 0, "host" => "localhost", "name" => "app"});
+expect("??= creates a variable", $created ??= [], []);
 @shared ??= "first";
 @shared ??= "second";
-check("??= on a global", @shared, "first");
+expect("??= on a global", @shared, "first");
 
 // The key runs once; the right side only when needed
 @keys = 0;
@@ -74,20 +65,20 @@ fn next_key() {
     return "k";
 }
 $lazy = {"k" => "set"};
-check("right side not run when set", $lazy[next_key()] ??= called(), "set");
-check("key evaluated once, right side skipped", [@keys, @calls], [1, 1]);
+expect("right side not run when set", $lazy[next_key()] ??= called(), "set");
+expect("key evaluated once, right side skipped", [@keys, @calls], [1, 1]);
 
 $groups = {};
 foreach ({"x" => "a", "y" => "b", "z" => "a"} as $item => $group) {
     $groups[$group] ??= [];
     $groups[$group][] = $item;
 }
-check("grouping with ??=", $groups, {"a" => ["x", "z"], "b" => ["y"]});
+expect("grouping with ??=", $groups, {"a" => ["x", "z"], "b" => ["y"]});
 
 // Like =, it doesn't create missing keys along the way
 try {
     $empty = {};
     $empty["outer"]["inner"] ??= 1;
 } catch ($e) {
-    check("missing outer key is an error", $e.message, "Undefined key: \"outer\"");
+    expect("missing outer key is an error", $e.message, "Undefined key: \"outer\"");
 }

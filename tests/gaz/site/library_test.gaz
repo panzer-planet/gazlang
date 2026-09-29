@@ -1,6 +1,6 @@
 // site/library.gaz: what a file of the standard library offers, read from its source
 include "../../../site/library.gaz";
-include "std/test.gaz" use expect as check;
+include "std/test.gaz" use expect;
 
 const SOURCE = '// Shapes, for the test.
 //
@@ -56,15 +56,15 @@ fn describe(library::Entry $entry): string {
 }
 
 $library = library::read("shapes", SOURCE);
-check("the name", $library.name, "shapes");
-check("the namespace", $library.namespace, "shapes");
-check("the file's comment", $library.comment, "Shapes, for the test.\n\nA second paragraph.");
-check("the pub names at the top level", map($library.entries, $entry -> describe($entry)), [
+expect("the name", $library.name, "shapes");
+expect("the namespace", $library.namespace, "shapes");
+expect("the file's comment", $library.comment, "Shapes, for the test.\n\nA second paragraph.");
+expect("the pub names at the top level", map($library.entries, $entry -> describe($entry)), [
     "function area: pub fn area(int \$n, \$options = {\"round\" => true}): int | The area of a square / of side \$n",
     "kind Shape: pub kind Shape | A shape / with a name",
     "constant TAU: pub const TAU = 6.28; | ",
 ]);
-check("a pub kind's members and constructor", map($library.entries[1].members, $entry -> describe($entry)), [
+expect("a pub kind's members and constructor", map($library.entries[1].members, $entry -> describe($entry)), [
     "field name: pub string #name = \"x\"; | ",
     "static field made: pub static #made = 0; | ",
     "constant SIDES: pub const SIDES = {\"a\" => 1}; | ",
@@ -73,12 +73,12 @@ check("a pub kind's members and constructor", map($library.entries[1].members, $
     "static method unit: pub static fn unit() | ",
     "method draw: pub abstract fn draw(); | ",
 ]);
-check("a signature is highlighted pieces", map($library.entries[0].signature, $piece -> $piece.class)[0], "kw");
+expect("a signature is highlighted pieces", map($library.entries[0].signature, $piece -> $piece.class)[0], "kw");
 
 // A comment's examples, indented under a blank line, become code; a list's lines don't
-check("examples become code", library::comment_markdown("Use it:\n\n    \$x = 1;\n\n      \$y = 2;\nAfter.\n- a list\n  going on"),
+expect("examples become code", library::comment_markdown("Use it:\n\n    \$x = 1;\n\n      \$y = 2;\nAfter.\n- a list\n  going on"),
     "Use it:\n\n```gaz\n\$x = 1;\n\n  \$y = 2;\n```\n\nAfter.\n- a list\n  going on");
-check("a summary is the first paragraph", library::summary("One\ntwo.\n\nThree."), "One two.");
+expect("a summary is the first paragraph", library::summary("One\ntwo.\n\nThree."), "One two.");
 
 // Every file of lib/ reads, however many there are
 $unread = [];
@@ -88,4 +88,4 @@ foreach (list_dir("lib") as $file) {
         $unread[] = $file;
     }
 }
-check("every file of lib/ has a namespace, a comment and pub names", $unread, []);
+expect("every file of lib/ has a namespace, a comment and pub names", $unread, []);

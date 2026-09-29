@@ -1,104 +1,87 @@
-include "std/test.gaz" use expect as check;
+include "std/test.gaz" use expect, throws;
 include "../../../lib/lists.gaz" use flatten, max_by, min_by;
 
-check("flatten joins the lists in order", flatten([[1, 2], [], [3]]), [1, 2, 3]);
-check("flatten goes one level deep", flatten([[[1]], [2, [3]]]), [[1], 2, [3]]);
-check("flatten of nothing", flatten([]), []);
-check("flatten keeps maps whole", flatten([[{"k" => 1}]]), [{"k" => 1}]);
+expect("flatten joins the lists in order", flatten([[1, 2], [], [3]]), [1, 2, 3]);
+expect("flatten goes one level deep", flatten([[[1]], [2, [3]]]), [[1], 2, [3]]);
+expect("flatten of nothing", flatten([]), []);
+expect("flatten keeps maps whole", flatten([[{"k" => 1}]]), [{"k" => 1}]);
 
 $people = [{"name" => "Ada", "age" => 36}, {"name" => "Bob", "age" => 25}, {"name" => "Cy", "age" => 36}];
-check("max_by gives the element with the largest key", max_by($people, $p -> $p["age"])["name"], "Ada");
-check("min_by gives the smallest", min_by($people, $p -> $p["age"])["name"], "Bob");
-check("max_by gives the first on a tie", max_by([[1, "a"], [2, "b"], [2, "c"]], $x -> $x[0]), [2, "b"]);
-check("min_by gives the first on a tie", min_by([3, 1, 1.0], $x -> $x), 1);
-check("a list of keys breaks ties in order", max_by($people, $p -> [$p["age"], $p["name"]])["name"], "Cy");
-check("max_by of one element", max_by(["only"], $x -> 0), "only");
+expect("max_by gives the element with the largest key", max_by($people, $p -> $p["age"])["name"], "Ada");
+expect("min_by gives the smallest", min_by($people, $p -> $p["age"])["name"], "Bob");
+expect("max_by gives the first on a tie", max_by([[1, "a"], [2, "b"], [2, "c"]], $x -> $x[0]), [2, "b"]);
+expect("min_by gives the first on a tie", min_by([3, 1, 1.0], $x -> $x), 1);
+expect("a list of keys breaks ties in order", max_by($people, $p -> [$p["age"], $p["name"]])["name"], "Cy");
+expect("max_by of one element", max_by(["only"], $x -> 0), "only");
 // A global, since a closure's captured variables are its own
 @calls = [];
 max_by([5, 6, 7], $x -> { @calls[] = $x; return $x; });
-check("the key is called once for each element, in order", @calls, [5, 6, 7]);
+expect("the key is called once for each element, in order", @calls, [5, 6, 7]);
 
-fn message($f) {
-    try {
-        $f();
-    } catch (Error $e) {
-        return $e.message;
-    }
-    return "no error";
-}
-check("flatten needs a list", message(() -> flatten({"a" => [1]})), "lists::flatten() expects a list of lists, got map");
-check("flatten needs lists in it", message(() -> flatten([[1], 2])), "lists::flatten() expects a list of lists, got int among them");
-check("max_by needs a list", message(() -> max_by({"a" => 1}, $x -> $x)), "lists::max_by() expects a non-empty list, got map");
-check("min_by needs something in it", message(() -> min_by([], $x -> $x)), "lists::min_by() expects a non-empty list");
-check("keys must be orderable", message(() -> max_by([1, "a"], $x -> $x)), "Cannot use <=> on string and int");
+throws("flatten needs a list", () -> flatten({"a" => [1]}), "lists::flatten() expects a list of lists, got map");
+throws("flatten needs lists in it", () -> flatten([[1], 2]), "lists::flatten() expects a list of lists, got int among them");
+throws("max_by needs a list", () -> max_by({"a" => 1}, $x -> $x), "lists::max_by() expects a non-empty list, got map");
+throws("min_by needs something in it", () -> min_by([], $x -> $x), "lists::min_by() expects a non-empty list");
+throws("keys must be orderable", () -> max_by([1, "a"], $x -> $x), "Cannot use <=> on string and int");
 
-check("unique keeps the first of each, in order", lists::unique([3, 1, 3, 2, 1]), [3, 1, 2]);
-check("unique compares with ==: 1 and 1.0 are one, \"1\" another", lists::unique([1, 1.0, "1", true]), [1, "1", true]);
-check("unique of lists and maps compares them whole", lists::unique([[1], [1], {"a" => 1}, {"a" => 1}, [1, 2]]), [[1], {"a" => 1}, [1, 2]]);
-check("unique of nothing", lists::unique([]), []);
-
-fn failure($thunk) {
-    try {
-        $thunk();
-    } catch (Error $e) {
-        return $e.message;
-    }
-    return "no error";
-}
+expect("unique keeps the first of each, in order", lists::unique([3, 1, 3, 2, 1]), [3, 1, 2]);
+expect("unique compares with ==: 1 and 1.0 are one, \"1\" another", lists::unique([1, 1.0, "1", true]), [1, "1", true]);
+expect("unique of lists and maps compares them whole", lists::unique([[1], [1], {"a" => 1}, {"a" => 1}, [1, 2]]), [[1], {"a" => 1}, [1, 2]]);
+expect("unique of nothing", lists::unique([]), []);
 
 $numbers = [1, 2, 3, 4, 5];
-check("group_by keeps the order keys first come", lists::group_by($numbers, $n -> $n % 2 == 0 ? "even" : "odd"), {"odd" => [1, 3, 5], "even" => [2, 4]});
-check("group_by of nothing", lists::group_by([], $n -> $n), {});
-check("group_by takes int keys", lists::group_by(["a", "bb", "cc"], $s -> len($s)), {1 => ["a"], 2 => ["bb", "cc"]});
+expect("group_by keeps the order keys first come", lists::group_by($numbers, $n -> $n % 2 == 0 ? "even" : "odd"), {"odd" => [1, 3, 5], "even" => [2, 4]});
+expect("group_by of nothing", lists::group_by([], $n -> $n), {});
+expect("group_by takes int keys", lists::group_by(["a", "bb", "cc"], $s -> len($s)), {1 => ["a"], 2 => ["bb", "cc"]});
 @keyed = [];
 lists::group_by([7, 8], $n -> { @keyed[] = $n; return "k"; });
-check("group_by calls the key once for each element", @keyed, [7, 8]);
-check("count_by counts each key", lists::count_by(["a", "b", "a", "c", "a"], $s -> $s), {"a" => 3, "b" => 1, "c" => 1});
-check("count_by of nothing", lists::count_by([], $s -> $s), {});
-check("partition splits in order", lists::partition($numbers, $n -> $n > 2), [[3, 4, 5], [1, 2]]);
-check("partition reads truthiness", lists::partition([0, 1, "", "a"], $v -> $v), [[1, "a"], [0, ""]]);
-check("partition of nothing", lists::partition([], $n -> true), [[], []]);
+expect("group_by calls the key once for each element", @keyed, [7, 8]);
+expect("count_by counts each key", lists::count_by(["a", "b", "a", "c", "a"], $s -> $s), {"a" => 3, "b" => 1, "c" => 1});
+expect("count_by of nothing", lists::count_by([], $s -> $s), {});
+expect("partition splits in order", lists::partition($numbers, $n -> $n > 2), [[3, 4, 5], [1, 2]]);
+expect("partition reads truthiness", lists::partition([0, 1, "", "a"], $v -> $v), [[1, "a"], [0, ""]]);
+expect("partition of nothing", lists::partition([], $n -> true), [[], []]);
 [$big, $small] = lists::partition($numbers, $n -> $n > 3);
-check("partition pairs with a list pattern", [$big, $small], [[4, 5], [1, 2, 3]]);
-check("chunk leaves a short last list", lists::chunk($numbers, 2), [[1, 2], [3, 4], [5]]);
-check("chunk that divides evenly", lists::chunk([1, 2, 3, 4], 2), [[1, 2], [3, 4]]);
-check("chunk larger than the list", lists::chunk([1, 2], 5), [[1, 2]]);
-check("chunk of nothing", lists::chunk([], 3), []);
-check("chunk refuses a size below 1", failure(() -> lists::chunk([1], 0)), "lists::chunk() expects an int of 1 or more, got 0");
-check("zip pairs up", lists::zip([1, 2], ["a", "b"]), [[1, "a"], [2, "b"]]);
-check("zip stops at the shorter list", lists::zip([1, 2, 3], ["a"]), [[1, "a"]]);
-check("zip stops at the shorter list, other way", lists::zip([1], ["a", "b"]), [[1, "a"]]);
-check("zip of nothing", lists::zip([], [1]), []);
-check("take", lists::take($numbers, 2), [1, 2]);
-check("take more than there is", lists::take([1], 5), [1]);
-check("take none", lists::take($numbers, 0), []);
-check("take refuses a negative count", failure(() -> lists::take($numbers, -1)), "lists::take() expects an int of 0 or more, got -1");
-check("drop", lists::drop($numbers, 2), [3, 4, 5]);
-check("drop more than there is", lists::drop([1], 5), []);
-check("drop none", lists::drop([1, 2], 0), [1, 2]);
-check("drop refuses a float count", failure(() -> lists::drop($numbers, 1.5)), "lists::drop() expects an int of 0 or more, got 1.5");
+expect("partition pairs with a list pattern", [$big, $small], [[4, 5], [1, 2, 3]]);
+expect("chunk leaves a short last list", lists::chunk($numbers, 2), [[1, 2], [3, 4], [5]]);
+expect("chunk that divides evenly", lists::chunk([1, 2, 3, 4], 2), [[1, 2], [3, 4]]);
+expect("chunk larger than the list", lists::chunk([1, 2], 5), [[1, 2]]);
+expect("chunk of nothing", lists::chunk([], 3), []);
+throws("chunk refuses a size below 1", () -> lists::chunk([1], 0), "lists::chunk() expects an int of 1 or more, got 0");
+expect("zip pairs up", lists::zip([1, 2], ["a", "b"]), [[1, "a"], [2, "b"]]);
+expect("zip stops at the shorter list", lists::zip([1, 2, 3], ["a"]), [[1, "a"]]);
+expect("zip stops at the shorter list, other way", lists::zip([1], ["a", "b"]), [[1, "a"]]);
+expect("zip of nothing", lists::zip([], [1]), []);
+expect("take", lists::take($numbers, 2), [1, 2]);
+expect("take more than there is", lists::take([1], 5), [1]);
+expect("take none", lists::take($numbers, 0), []);
+throws("take refuses a negative count", () -> lists::take($numbers, -1), "lists::take() expects an int of 0 or more, got -1");
+expect("drop", lists::drop($numbers, 2), [3, 4, 5]);
+expect("drop more than there is", lists::drop([1], 5), []);
+expect("drop none", lists::drop([1, 2], 0), [1, 2]);
+throws("drop refuses a float count", () -> lists::drop($numbers, 1.5), "lists::drop() expects an int of 0 or more, got 1.5");
 $rows = [{"n" => 1, "s" => "a"}, {"n" => 2, "s" => "b"}];
-check("pluck", lists::pluck($rows, "n"), [1, 2]);
-check("pluck of nothing", lists::pluck([], "n"), []);
-check("pluck of a missing key is the map's error", failure(() -> lists::pluck($rows, "x")) != "no error", true);
-check("pluck refuses what isn't a map", failure(() -> lists::pluck([1], "n")), "lists::pluck() expects a list of maps, got int among them");
-check("sum_by", lists::sum_by($rows, $r -> $r["n"]), 3);
-check("sum_by of nothing", lists::sum_by([], $r -> 1), 0);
-check("sum_by adds floats", lists::sum_by([0.5, 1], $x -> $x), 1.5);
-check("avg is a float", lists::avg([1, 2]), 1.5);
-check("avg of whole numbers is still a float", lists::avg([2, 4]), 3.0);
-check("avg of nothing is an error", failure(() -> lists::avg([])), "lists::avg() expects a non-empty list");
-check("avg_by", lists::avg_by($rows, $r -> $r["n"]), 1.5);
-check("avg_by of nothing is an error", failure(() -> lists::avg_by([], $r -> 1)), "lists::avg_by() expects a non-empty list");
-check("first", lists::first([7, 8]), 7);
-check("first of nothing is an error", failure(() -> lists::first([])), "lists::first() expects a non-empty list");
-check("find gives the first match", lists::find($numbers, $n -> $n > 2), 3);
-check("find gives null when nothing matches", lists::find($numbers, $n -> $n > 9), null);
+expect("pluck", lists::pluck($rows, "n"), [1, 2]);
+expect("pluck of nothing", lists::pluck([], "n"), []);
+throws("pluck of a missing key is the map's error", () -> lists::pluck($rows, "x"), Error);
+throws("pluck refuses what isn't a map", () -> lists::pluck([1], "n"), "lists::pluck() expects a list of maps, got int among them");
+expect("sum_by", lists::sum_by($rows, $r -> $r["n"]), 3);
+expect("sum_by of nothing", lists::sum_by([], $r -> 1), 0);
+expect("sum_by adds floats", lists::sum_by([0.5, 1], $x -> $x), 1.5);
+expect("avg is a float", lists::avg([1, 2]), 1.5);
+expect("avg of whole numbers is still a float", lists::avg([2, 4]), 3.0);
+throws("avg of nothing is an error", () -> lists::avg([]), "lists::avg() expects a non-empty list");
+expect("avg_by", lists::avg_by($rows, $r -> $r["n"]), 1.5);
+throws("avg_by of nothing is an error", () -> lists::avg_by([], $r -> 1), "lists::avg_by() expects a non-empty list");
+expect("first", lists::first([7, 8]), 7);
+throws("first of nothing is an error", () -> lists::first([]), "lists::first() expects a non-empty list");
+expect("find gives the first match", lists::find($numbers, $n -> $n > 2), 3);
+expect("find gives null when nothing matches", lists::find($numbers, $n -> $n > 9), null);
 @seen = [];
 lists::find($numbers, $n -> { @seen[] = $n; return $n == 2; });
-check("find stops at the first match", @seen, [1, 2]);
-check("contains_by finds one", lists::contains_by($numbers, $n -> $n == 4), true);
-check("contains_by finds none", lists::contains_by($numbers, $n -> $n == 9), false);
-check("contains_by of nothing", lists::contains_by([], $n -> true), false);
-check("take names a string count as a string", failure(() -> lists::take([1], "x")), "lists::take() expects an int of 0 or more, got \"x\"");
-check("a helper refuses what isn't a list", failure(() -> lists::first("abc")), "lists::first() expects a list, got string");
+expect("find stops at the first match", @seen, [1, 2]);
+expect("contains_by finds one", lists::contains_by($numbers, $n -> $n == 4), true);
+expect("contains_by finds none", lists::contains_by($numbers, $n -> $n == 9), false);
+expect("contains_by of nothing", lists::contains_by([], $n -> true), false);
+throws("take names a string count as a string", () -> lists::take([1], "x"), "lists::take() expects an int of 0 or more, got \"x\"");
+throws("a helper refuses what isn't a list", () -> lists::first("abc"), "lists::first() expects a list, got string");

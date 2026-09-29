@@ -1,4 +1,4 @@
-include "std/test.gaz" use expect as check;
+include "std/test.gaz" use expect, throws;
 
 // Constructing, fields and defaults
 kind Point {
@@ -10,27 +10,27 @@ kind Point {
     pub fn tag($t) { #tags[] = $t; return #; }
 }
 $p = Point(1);
-check("field set by the constructor", $p.x, 1);
-check("default parameter", $p.y, 0);
-check("methods can construct", $p.moved(2).x, 3);
-check("defaults are per object", Point(0).tag("a").tags, ["a"]);
-check("and not shared", Point(0).tags, []);
-check("a kind value constructs", (Point)(5).x, 5);
-check("type_of an object", type_of($p), "object");
-check("type_of a kind", type_of(Point), "kind");
-check("a kind prints its name", to_string(Point), "kind Point");
-check("an object prints its fields", to_string(Point(1, 2)), 'Point {#x => 1, #y => 2, #tags => []}');
+expect("field set by the constructor", $p.x, 1);
+expect("default parameter", $p.y, 0);
+expect("methods can construct", $p.moved(2).x, 3);
+expect("defaults are per object", Point(0).tag("a").tags, ["a"]);
+expect("and not shared", Point(0).tags, []);
+expect("a kind value constructs", (Point)(5).x, 5);
+expect("type_of an object", type_of($p), "object");
+expect("type_of a kind", type_of(Point), "kind");
+expect("a kind prints its name", to_string(Point), "kind Point");
+expect("an object prints its fields", to_string(Point(1, 2)), 'Point {#x => 1, #y => 2, #tags => []}');
 
 // Handles and identity
 $q = $p;
 $q.x = 10;
-check("objects are shared, not copied", $p.x, 10);
-check("== is identity", $p == $q, true);
-check("equal fields don't make equal objects", Point(1) == Point(1), false);
+expect("objects are shared, not copied", $p.x, 10);
+expect("== is identity", $p == $q, true);
+expect("equal fields don't make equal objects", Point(1) == Point(1), false);
 $list = [$p];
 $copy = $list;
 $copy[0].y = 7;
-check("a list copy still holds the same object", $list[0].y, 7);
+expect("a list copy still holds the same object", $list[0].y, 7);
 
 // Unset fields
 kind Lazy {
@@ -38,14 +38,10 @@ kind Lazy {
     pub fn get() { return #value ??= "computed"; }
 }
 $lazy = Lazy();
-check("an unset field reads as null under ??", $lazy.value ?? "unset", "unset");
-check("??= sets it", $lazy.get(), "computed");
-check("and keeps it", $lazy.value, "computed");
-try {
-    echo Lazy().value;
-} catch ($e) {
-    check("reading an unset field is an error", $e.message, "Property value of Lazy is not set");
-}
+expect("an unset field reads as null under ??", $lazy.value ?? "unset", "unset");
+expect("??= sets it", $lazy.get(), "computed");
+expect("and keeps it", $lazy.value, "computed");
+throws("reading an unset field is an error", () -> Lazy().value, "Property value of Lazy is not set");
 
 // Inheritance
 abstract kind Animal {
@@ -69,19 +65,19 @@ kind Puppy extends Dog {
     pub fn kind() { return "puppy"; }
 }
 $rex = Dog("Rex");
-check("a child calls the parent's method", $rex.speak(2), "Rex the dog says woof woof ");
-check("with its own argument", $rex.speak(1, true), "REX THE DOG SAYS WOOF ");
-check("a grandchild inherits the constructor", Puppy("Bit").speak(), "Bit the puppy says woof ");
-check("to_string is used by ..", "I have a " .. $rex, "I have a dog Rex");
-check("and by interpolation", "{$rex}!", "dog Rex!");
-check("is_a follows parents", [is_a($rex, Animal), is_a($rex, Dog), is_a($rex, Puppy)], [true, true, false]);
+expect("a child calls the parent's method", $rex.speak(2), "Rex the dog says woof woof ");
+expect("with its own argument", $rex.speak(1, true), "REX THE DOG SAYS WOOF ");
+expect("a grandchild inherits the constructor", Puppy("Bit").speak(), "Bit the puppy says woof ");
+expect("to_string is used by ..", "I have a " .. $rex, "I have a dog Rex");
+expect("and by interpolation", "{$rex}!", "dog Rex!");
+expect("is_a follows parents", [is_a($rex, Animal), is_a($rex, Dog), is_a($rex, Puppy)], [true, true, false]);
 
 // Methods and closures as values
 $speak = $rex.speak;
-check("a bound method remembers its object", $speak(), "Rex the dog says woof ");
-check("bound methods compare by object and method", $rex.speak == $speak, true);
-check("and differ for another object", Dog("Rex").speak == $speak, false);
-check("bound methods print their kind", to_string($speak), "function Dog.speak");
+expect("a bound method remembers its object", $speak(), "Rex the dog says woof ");
+expect("bound methods compare by object and method", $rex.speak == $speak, true);
+expect("and differ for another object", Dog("Rex").speak == $speak, false);
+expect("bound methods print their kind", to_string($speak), "function Dog.speak");
 
 kind Tally {
     pub #count = 0;
@@ -91,7 +87,7 @@ $tally = Tally();
 $add = $tally.adder();
 $add(2);
 $add(3);
-check("a closure made in a method keeps its object", $tally.count, 5);
+expect("a closure made in a method keeps its object", $tally.count, 5);
 
 // A to_string() that makes a closure, run twice: the second run still finds to_string()
 kind Wrapped {
@@ -102,4 +98,4 @@ kind Wrapped {
     }
 }
 $wrapped = Wrapped();
-check("to_string making a closure, twice", "{$wrapped}{$wrapped}", "ww");
+expect("to_string making a closure, twice", "{$wrapped}{$wrapped}", "ww");

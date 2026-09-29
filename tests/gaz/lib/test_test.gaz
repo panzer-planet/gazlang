@@ -1,8 +1,76 @@
-// test::expect() prints "ok <label>" when the values and their types match, otherwise a FAIL
-// line naming both (gaz test parses that line to decide whether a file passed, so its shape is
-// part of the contract)
-include "std/test.gaz";
+/*
+ * std/test.gaz itself. What passes is checked here directly; what fails is checked by running
+ * programs that fail on purpose and comparing what they print and their exit status, so this
+ * file prints no FAIL line of its own and passes under gaz test like any other.
+ */
+include "std/test.gaz" use expect, throws;
 
-test::expect("equal ints", 2 + 2, 4);
-test::expect("mismatched types", 1, "1");
-test::expect("wrong value", "a", "b");
+kind NotFound extends Error {
+    fn _($key) { ##_("Not found: {$key}"); }
+}
+
+fn deeper($n) {
+    return deeper($n + 1);
+}
+
+/* The lines a program printed, run by the gaz running this, with its exit status */
+fn ran($argv) {
+    $result = run([program_path(), ...$argv]);
+    $lines = split($result["stdout"], "\n");
+    if (last($lines) == "") {
+        delete $lines[len($lines) - 1];
+    }
+
+    return [$lines, $result["status"]];
+}
+
+/* What passes */
+expect("equal ints", 2 + 2, 4);
+expect("equal lists", [1, [2, "3"]], [1, [2, "3"]]);
+throws("a runtime error, by its message", () -> [1, 2][5], "Index out of range: 5");
+throws("a runtime error is an Error", () -> [1, 2][5], Error, "Index out of range: 5");
+throws("and so is a thrown string", () -> throw "no good", Error, "no good");
+throws("a kind of its own", () -> throw NotFound("x"), NotFound, "Not found: x");
+throws("a kind alone", () -> throw NotFound("x"), NotFound);
+throws("a thrown value that isn't an Error", () -> throw [1, "a"], [1, "a"]);
+throws("running out of call depth", () -> deeper(0), "Maximum call depth of 10000 exceeded calling deeper");
+
+/* What fails, and what done() makes of it */
+[$lines, $status] = ran(["tests/fixtures/test_library/failures.gaz"]);
+expect("every way a check fails", $lines, [
+    "ok equal ints",
+    "FAIL mismatched types: expected 1 (string), got 1 (int)",
+    "FAIL wrong value: expected b (string), got a (string)",
+    "FAIL a list, told where: expected [1, [2, 4]] (list), got [1, [2, 3]] (list); first difference at [1][1]: expected 4 (int), got 3 (int)",
+    "FAIL a list too short: expected [1, 2] (list), got [1] (list); first difference at [1]: expected 2 (int), got nothing",
+    "FAIL a list too long: expected [1] (list), got [1, 2] (list); first difference at [1]: expected nothing, got 2 (int)",
+    "FAIL a map, told which key: expected {\"a\" => 1, \"b\" => {\"c\" => \"y\"}} (map), got {\"a\" => 1, \"b\" => {\"c\" => \"x\"}} (map); first difference at [\"b\"][\"c\"]: expected y (string), got x (string)",
+    "FAIL a key missing: expected {\"a\" => 1, \"b\" => 2} (map), got {\"a\" => 1} (map); first difference at [\"b\"]: expected 2 (int), got nothing",
+    "FAIL a key too many: expected {\"a\" => 1} (map), got {\"a\" => 1, \"b\" => 2} (map); first difference at [\"b\"]: expected nothing, got 2 (int)",
+    "FAIL a type inside: expected [1, 2] (list), got [1, \"2\"] (list); first difference at [1]: expected 2 (int), got 2 (string)",
+    "FAIL a long value is cut short: expected x (string), got " .. repeat("ab", 100) .. "... (300 bytes) (string)",
+    "FAIL lines stay on one: expected a (string), got a\\nb (string)",
+    "ok an error",
+    "FAIL nothing thrown: expected \"Index out of range: 5\" to be thrown, nothing was",
+    "FAIL the wrong message: expected \"b\" to be thrown, got Error \"a\"",
+    "FAIL the wrong kind: expected NotFound \"Not found: x\" to be thrown, got Error \"Not found: x\"",
+    "FAIL a child kind is not its parent: expected Error \"Not found: x\" to be thrown, got NotFound \"Not found: x\"",
+    "FAIL the kind alone, wrong: expected NotFound to be thrown, got Error \"x\"",
+    "FAIL nothing thrown, for a kind: expected NotFound to be thrown, nothing was",
+    "FAIL a thrown value compares as expect does: expected \"5\" to be thrown, got 5 (int)",
+]);
+expect("done() exits 1 after a failure", $status, 1);
+
+[$lines, $status] = ran(["-e", 'include "std/test.gaz"; test::expect("fine", 1, 1); test::done();']);
+expect("done() exits 0 when nothing failed", [$lines, $status], [["ok fine"], 0]);
+[$lines, $status] = ran(["-e", 'include "std/test.gaz"; test::expect("wrong", 1, 2); test::expect("fine", 1, 1);']);
+expect("without done(), a failure leaves the exit status alone", $status, 0);
+
+/* A snapshot is found by the path given as the first argument, as gaz test gives it */
+$snapshots = 'include "std/test.gaz"; test::snapshot("recorded", [1, 2]); test::snapshot("stale", [1, 2]); test::snapshot("missing", 3); test::done();';
+[$lines, $status] = ran(["-e", $snapshots, "tests/fixtures/test_library/snapshots"]);
+expect("snapshots", [$lines, $status], [[
+    "ok recorded",
+    "FAIL stale: snapshot tests/fixtures/test_library/snapshots.stale.snap expected [9], got [1, 2]",
+    "FAIL missing: no snapshot at tests/fixtures/test_library/snapshots.missing.snap; run gaz test --update to record it",
+], 1]);

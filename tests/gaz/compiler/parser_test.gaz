@@ -2,39 +2,42 @@
 // ParseError to catch. That it builds the right tree is tests/SelfHostedParserTest.php's job.
 namespace gazlang;
 
-include "std/test.gaz" use expect as check;
+include "std/test.gaz" use expect;
 include "../../../compiler/parser.gaz";
 
 $root = Parser(Lexer("echo 1 + 2 * \$x;")).parse();
 $echo = $root.statements[0];
-check("one statement", len($root.statements), 1);
-check("a node's kind says what it is", kind_of($echo) == EchoStatementAST, true);
-check("and its parents", is_a($echo, AbstractStatementAST) && is_a($echo, AST), true);
-check("* binds tighter than +", [$echo.expr.op.value, $echo.expr.right.op.value], ["+", "*"]);
-check("a leaf holds its value", [$echo.expr.left.value, $echo.expr.right.right.value], [1, "\$x"]);
-check("inline source has a line and no file", [$echo.line, $echo.file], [1, null]);
-check("a node's fields are in the kind's declared order", keys(fields($echo.expr)), ["line", "file", "left", "token", "op", "right"]);
+expect("one statement", len($root.statements), 1);
+expect("a node's kind says what it is", kind_of($echo) == EchoStatementAST, true);
+expect("and its parents", is_a($echo, AbstractStatementAST) && is_a($echo, AST), true);
+expect("* binds tighter than +", [$echo.expr.op.value, $echo.expr.right.op.value], ["+", "*"]);
+expect("a leaf holds its value", [$echo.expr.left.value, $echo.expr.right.right.value], [1, "\$x"]);
+expect("inline source has a line and no file", [$echo.line, $echo.file], [1, null]);
+expect("a node's fields are in the kind's declared order", keys(fields($echo.expr)), ["line", "file", "left", "token", "op", "right"]);
 
 // What a pass needs from a lambda and a kind is worked out by the time parse() returns
 $root = Parser(Lexer("\$f = (\$a, \$b = 1) -> \$a + \$n + \$f;"), "inline.gaz").parse();
 $lambda = $root.statements[0].expr.right;
-check("a lambda's captures, arity and self", [$lambda.captures, $lambda.arity, $lambda.self], [["\$n", "\$f"], [1, 2], "\$f"]);
-check("a node from a file has the file", $lambda.file, "inline.gaz");
+expect("a lambda's captures, arity and self", [$lambda.captures, $lambda.arity, $lambda.self], [["\$n", "\$f"], [1, 2], "\$f"]);
+expect("a node from a file has the file", $lambda.file, "inline.gaz");
 
 $root = Parser(Lexer("kind A \{ pub #x; pub fn f() \{ return #x + #g(); } pub fn g() \{ return 1; } } kind B extends A \{ pub fn g() \{ return ##g(); } }")).parse();
 [$a, $b] = $root.statements;
-check("a kind's layout and members, its parent's included", [$b.layout, $b.members], [{"x" => "A"}, {"f" => "A", "g" => "B"}]);
+expect("a kind's layout and members, its parent's included", [$b.layout, $b.members], [{"x" => "A"}, {"f" => "A", "g" => "B"}]);
 $sum = $a.methods["f"].body.statements[0].expr;
-check("a #name knows whether it is a field", [$sum.left.field, $sum.right.property.field], [true, false]);
-check("a ##name knows whose version runs", $b.methods["g"].body.statements[0].expr.definer, "A");
+expect("a #name knows whether it is a field", [$sum.left.field, $sum.right.property.field], [true, false]);
+expect("a ##name knows whose version runs", $b.methods["g"].body.statements[0].expr.definer, "A");
 
-// A parent's private member keeps its slot and its entry, since the parent's own methods
-// still reach it, but the child can't name it: the two views differ by exactly that
-$hidden_root = Parser(Lexer("kind A \{ #x; pub #y; fn own() \{ return #x; } } kind B extends A \{ #x; }")).parse();
+/*
+ * A parent's private member keeps its slot and its entry, since the parent's own methods
+ * still reach it, but the child can't name it: the two views differ by exactly that. The
+ * child may declare a method of its own by the name (not a field: a field is a slot).
+ */
+$hidden_root = Parser(Lexer("kind A \{ #x; pub #y; fn own() \{ return #x; } } kind B extends A \{ fn x() \{ return 1; } }")).parse();
 $child = $hidden_root.statements[1];
-check("a child can only name what its parent lets escape", [$child.layout, $child.hidden], [{"y" => "A", "x" => "B"}, {"x" => "A", "own" => "A"}]);
-check("but every slot is still there, the parent's private one included", $child.slots, [["x", "A", ""], ["y", "A", "pub"], ["x", "B", ""]]);
-check("and so is every method entry", $child.method_table, [["own", "A", ""]]);
+expect("a child can only name what its parent lets escape", [$child.layout, $child.hidden], [{"y" => "A"}, {"x" => "A", "own" => "A"}]);
+expect("but every slot is still there, the parent's private one included", $child.slots, [["x", "A", ""], ["y", "A", "pub"]]);
+expect("and so is every method entry", $child.method_table, [["own", "A", "", "A"], ["x", "B", "", "B"]]);
 
 // Errors are ParseErrors, with the place in the source apart from the message
 fn parse_error($source, $path = null) {
@@ -47,12 +50,12 @@ fn parse_error($source, $path = null) {
     return null;
 }
 $e = parse_error("echo 1;\necho (2;", "x.gaz");
-check("a syntax error's message", $e.message, "Expected ')' but found ';' at x.gaz:2");
-check("and its parts", [$e.reason, $e.source_file, $e.source_line], ["Expected ')' but found ';'", "x.gaz", 2]);
-check("inline source has only a line", parse_error("echo 1 +;").message, "Unexpected ';' on line 1");
-check("a lexer error becomes a ParseError with the file", parse_error("\n\"open", "x.gaz").message, "Unterminated string at x.gaz:2");
-check("a check made once the program is read", parse_error("echo 1;\necho nowhere();").message, "Undefined function: nowhere on line 2");
-check("is_a Error, so an untyped handler sees it too", is_a($e, Error), true);
+expect("a syntax error's message", $e.message, "Expected ')' but found ';' at x.gaz:2");
+expect("and its parts", [$e.reason, $e.source_file, $e.source_line], ["Expected ')' but found ';'", "x.gaz", 2]);
+expect("inline source has only a line", parse_error("echo 1 +;").message, "Unexpected ';' on line 1");
+expect("a lexer error becomes a ParseError with the file", parse_error("\n\"open", "x.gaz").message, "Unterminated string at x.gaz:2");
+expect("a check made once the program is read", parse_error("echo 1;\necho nowhere();").message, "Undefined function: nowhere on line 2");
+expect("is_a Error, so an untyped handler sees it too", is_a($e, Error), true);
 
 // A chain of operators is as deep on its left as it is long, so a walk of the tree by recursion
 // runs out of call depth at about 5000 of them. The tree is made by hand: what is tested is
@@ -66,18 +69,18 @@ for ($i = 0; $i < 6000; $i++) {
 }
 $variables = VariableCollector();
 $variables.collect($chain);
-check("the variables of a tree 6000 operators deep, in source order", keys($variables.found), ["\$a", "\$b", "\$c"]);
+expect("the variables of a tree 6000 operators deep, in source order", keys($variables.found), ["\$a", "\$b", "\$c"]);
 
 // A path that is no file is only a name for the source, so its includes are relative to the
 // working directory, as they are without a path
 $root = Parser(Lexer("include \"lib/chars.gaz\"; echo chars::is_digit(\"1\");"), "no/such/file.gaz").parse();
-check("includes of source named by a path that is no file", kind_of($root.statements[len($root.statements) - 1]) == EchoStatementAST, true);
-check("and its nodes have the name", $root.statements[len($root.statements) - 1].file, "no/such/file.gaz");
+expect("includes of source named by a path that is no file", kind_of($root.statements[len($root.statements) - 1]) == EchoStatementAST, true);
+expect("and its nodes have the name", $root.statements[len($root.statements) - 1].file, "no/such/file.gaz");
 
 // Two parsers at once share nothing: one's functions and kinds are not the other's
 $first = Parser(Lexer("fn only_here() \{ } echo only_here();"));
 $second = Parser(Lexer("echo only_here();"));
-check("the first knows its function", len($first.parse().statements), 2);
+expect("the first knows its function", len($first.parse().statements), 2);
 $error = null;
 try { $second.parse(); } catch (ParseError $e) { $error = $e.reason; }
-check("the second does not", $error, "Undefined function: only_here");
+expect("the second does not", $error, "Undefined function: only_here");

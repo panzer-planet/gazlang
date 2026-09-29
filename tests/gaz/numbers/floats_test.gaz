@@ -1,59 +1,59 @@
-include "std/test.gaz" use expect as check;
+include "std/test.gaz" use expect;
 
 // Literals, and printing that reads back as the same float
-check("literal", 1.5, 3 / 2);
-check("exponent", 1e3, 1000.0);
-check("negative exponent", 2.5E-3, 0.0025);
-check("prints with .0", to_string(1.0), "1.0");
-check("prints the shortest exact digits", to_string(0.1 + 0.2), "0.30000000000000004");
-check("prints large floats with an exponent", to_string(1e25), "1.0E+25");
-check("prints negative zero", to_string(-0.0), "-0.0");
+expect("literal", 1.5, 3 / 2);
+expect("exponent", 1e3, 1000.0);
+expect("negative exponent", 2.5E-3, 0.0025);
+expect("prints with .0", to_string(1.0), "1.0");
+expect("prints the shortest exact digits", to_string(0.1 + 0.2), "0.30000000000000004");
+expect("prints large floats with an exponent", to_string(1e25), "1.0E+25");
+expect("prints negative zero", to_string(-0.0), "-0.0");
 $sum = 0.1 + 0.2;
-check("interpolates exactly", "sum=$sum", "sum=0.30000000000000004");
+expect("interpolates exactly", "sum=$sum", "sum=0.30000000000000004");
 
 // int with int stays int; a float on either side gives a float
-check("int + int", 2 + 3, 5);
-check("int + float", 2 + 0.5, 2.5);
-check("float * int", 1.5 * 2, 3.0);
-check("float - float", 0.5 - 0.25, 0.25);
-check("to_float of a bool", to_float(true) + 0.5, 1.5);
-check("negate", -1.5 + 0, -1.5);
+expect("int + int", 2 + 3, 5);
+expect("int + float", 2 + 0.5, 2.5);
+expect("float * int", 1.5 * 2, 3.0);
+expect("float - float", 0.5 - 0.25, 0.25);
+expect("to_float of a bool", to_float(true) + 0.5, 1.5);
+expect("negate", -1.5 + 0, -1.5);
 
 // Division follows PHP: exact int division stays an int
-check("division is always a float", 6 / 2, 3.0);
-check("inexact int division", 7 / 2, 3.5);
-check("negative inexact division", -7 / 2, -3.5);
-check("division with a float", 6.0 / 2, 3.0);
-check("intdiv truncates toward zero", [intdiv(7, 2), intdiv(-7, 2)], [3, -3]);
+expect("division is always a float", 6 / 2, 3.0);
+expect("inexact int division", 7 / 2, 3.5);
+expect("negative inexact division", -7 / 2, -3.5);
+expect("division with a float", 6.0 / 2, 3.0);
+expect("intdiv truncates toward zero", [intdiv(7, 2), intdiv(-7, 2)], [3, -3]);
 
 // Comparisons
-check("int equals float", 1 == 1.0, true);
-check("float in an array equals an int", [1.0] == [1], true);
-check("float ordering", 2.5 > 2 && 2.5 < 3, true);
-check("rounding error is visible", 0.1 + 0.2 == 0.3, false);
-check("a string never equals a number", "1.5" == 1.5, false);
-check("to_float compares it", to_float("2.50") == 2.5, true);
+expect("int equals float", 1 == 1.0, true);
+expect("float in an array equals an int", [1.0] == [1], true);
+expect("float ordering", 2.5 > 2 && 2.5 < 3, true);
+expect("rounding error is visible", 0.1 + 0.2 == 0.3, false);
+expect("a string never equals a number", "1.5" == 1.5, false);
+expect("to_float compares it", to_float("2.50") == 2.5, true);
 
 // Truthiness
-check("0.0 is false", !0.0, true);
-check("-0.0 is false", !-0.0, true);
-check("0.5 is true", !0.5, false);
+expect("0.0 is false", !0.0, true);
+expect("-0.0 is false", !-0.0, true);
+expect("0.5 is true", !0.5, false);
 
 // Conversions
-check("to_float int", to_float(3), 3.0);
-check("to_float string", to_float("-1e3"), -1000.0);
-check("to_float integer string", to_float("7"), 7.0);
-check("to_float integer string too large for an int", to_float("-99999999999999999999"), -1e20);
-check("to_int truncates toward zero", [to_int(1.9), to_int(-1.9)], [1, -1]);
-check("type_of", type_of(1.5), "float");
+expect("to_float int", to_float(3), 3.0);
+expect("to_float string", to_float("-1e3"), -1000.0);
+expect("to_float integer string", to_float("7"), 7.0);
+expect("to_float integer string too large for an int", to_float("-99999999999999999999"), -1e20);
+expect("to_int truncates toward zero", [to_int(1.9), to_int(-1.9)], [1, -1]);
+expect("type_of", type_of(1.5), "float");
 
 // Rounding functions return floats, like PHP
-check("floor", [floor(1.5), floor(-1.5), floor(2)], [1.0, -2.0, 2.0]);
-check("ceil", [ceil(1.2), ceil(-1.2)], [2.0, -1.0]);
-check("round halves away from zero", [round(2.5), round(-2.5), round(2.4)], [3.0, -3.0, 2.0]);
-check("abs keeps the type", [abs(-3), abs(-2.5)], [3, 2.5]);
+expect("floor", [floor(1.5), floor(-1.5), floor(2)], [1.0, -2.0, 2.0]);
+expect("ceil", [ceil(1.2), ceil(-1.2)], [2.0, -1.0]);
+expect("round halves away from zero", [round(2.5), round(-2.5), round(2.4)], [3.0, -3.0, 2.0]);
+expect("abs keeps the type", [abs(-3), abs(-2.5)], [3, 2.5]);
 
 // round with a precision, like PHP: stored-as-slightly-less halves still round up
-check("round to decimals", [round(1.005, 2), round(2.675, 2), round(-1.005, 2)], [1.01, 2.68, -1.01]);
-check("round to tens and hundreds", [round(1234.5678, -2), round(15, -1), round(-25, -1)], [1200.0, 20.0, -30.0]);
-check("round with precision 0 is plain round", round(2.5, 0), 3.0);
+expect("round to decimals", [round(1.005, 2), round(2.675, 2), round(-1.005, 2)], [1.01, 2.68, -1.01]);
+expect("round to tens and hundreds", [round(1234.5678, -2), round(15, -1), round(-25, -1)], [1200.0, 20.0, -30.0]);
+expect("round with precision 0 is plain round", round(2.5, 0), 3.0);

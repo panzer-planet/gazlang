@@ -1,84 +1,64 @@
-include "std/test.gaz" use expect as check;
+include "std/test.gaz" use expect, throws;
 include "../../../lib/json.gaz";
 
 // Unicode escapes are built from parts so they stay escapes in this source file
 $u = "\\" .. "u";
 
 // Decoding: types
-check("int", json::decode("42"), 42);
-check("negative zero int", json::decode("-0"), 0);
-check("float", json::decode("1.5"), 1.5);
-check("exponent makes a float", json::decode("1e2"), 100.0);
-check("negative zero float", to_string(json::decode("-0.0")), "-0.0");
-check("largest int stays an int", json::decode("9223372036854775807"), 9223372036854775807);
-check("smallest int stays an int", json::decode("-9223372036854775808"), -9223372036854775807 - 1);
-check("too large for an int becomes a float", json::decode("9223372036854775808"), 9.223372036854775808e18);
-check("true, false, null", json::decode("[true, false, null]"), [true, false, null]);
-check("string", json::decode("\"text\""), "text");
+expect("int", json::decode("42"), 42);
+expect("negative zero int", json::decode("-0"), 0);
+expect("float", json::decode("1.5"), 1.5);
+expect("exponent makes a float", json::decode("1e2"), 100.0);
+expect("negative zero float", to_string(json::decode("-0.0")), "-0.0");
+expect("largest int stays an int", json::decode("9223372036854775807"), 9223372036854775807);
+expect("smallest int stays an int", json::decode("-9223372036854775808"), -9223372036854775807 - 1);
+expect("too large for an int becomes a float", json::decode("9223372036854775808"), 9.223372036854775808e18);
+expect("true, false, null", json::decode("[true, false, null]"), [true, false, null]);
+expect("string", json::decode("\"text\""), "text");
 
 // Decoding: structures
-check("object", json::decode("{\"a\": 1, \"b\": [2]}"), {"a" => 1, "b" => [2]});
-check("empty object and array", json::decode("[{}, []]"), [{}, []]);
-check("numeric object keys stay strings", json::decode("{\"0\": \"a\", \"1\": \"b\"}"), {"0" => "a", "1" => "b"});
-check("leading zero key stays a string", has_key(json::decode("{\"01\": 1}"), "01"), true);
-check("empty key", json::decode("{\"\": 1}"), {"" => 1});
-check("duplicate keys: last wins", json::decode("{\"a\": 1, \"a\": 2}"), {"a" => 2});
-check("whitespace", json::decode(" \t\n\r[ 1 , 2 ]\r\n "), [1, 2]);
+expect("object", json::decode("{\"a\": 1, \"b\": [2]}"), {"a" => 1, "b" => [2]});
+expect("empty object and array", json::decode("[{}, []]"), [{}, []]);
+expect("numeric object keys stay strings", json::decode("{\"0\": \"a\", \"1\": \"b\"}"), {"0" => "a", "1" => "b"});
+expect("leading zero key stays a string", has_key(json::decode("{\"01\": 1}"), "01"), true);
+expect("empty key", json::decode("{\"\": 1}"), {"" => 1});
+expect("duplicate keys: last wins", json::decode("{\"a\": 1, \"a\": 2}"), {"a" => 2});
+expect("whitespace", json::decode(" \t\n\r[ 1 , 2 ]\r\n "), [1, 2]);
 
 // Decoding: strings
-check("simple escapes", json::decode("\"\\\"\\\\\\/\\b\\f\\n\\r\\t\""), "\"\\/" .. chr(8) .. "\f\n\r\t");
-check("unicode escape", json::decode("\"" .. $u .. "0041" .. $u .. "00e9\""), "A" .. chr(195) .. chr(169));
-check("three byte UTF-8", json::decode("\"" .. $u .. "20ac\""), chr(226) .. chr(130) .. chr(172));
-check("surrogate pair", json::decode("\"" .. $u .. "d83d" .. $u .. "de00\""), chr(240) .. chr(159) .. chr(152) .. chr(128));
-check("escaped NUL", json::decode("\"" .. $u .. "0000\""), chr(0));
-check("raw UTF-8 passes through", json::decode("\"caf" .. chr(195) .. chr(169) .. "\""), "caf" .. chr(195) .. chr(169));
+expect("simple escapes", json::decode("\"\\\"\\\\\\/\\b\\f\\n\\r\\t\""), "\"\\/" .. chr(8) .. "\f\n\r\t");
+expect("unicode escape", json::decode("\"" .. $u .. "0041" .. $u .. "00e9\""), "A" .. chr(195) .. chr(169));
+expect("three byte UTF-8", json::decode("\"" .. $u .. "20ac\""), chr(226) .. chr(130) .. chr(172));
+expect("surrogate pair", json::decode("\"" .. $u .. "d83d" .. $u .. "de00\""), chr(240) .. chr(159) .. chr(152) .. chr(128));
+expect("escaped NUL", json::decode("\"" .. $u .. "0000\""), chr(0));
+expect("raw UTF-8 passes through", json::decode("\"caf" .. chr(195) .. chr(169) .. "\""), "caf" .. chr(195) .. chr(169));
 
 // Encoding
-check("encode scalars", json::encode([1, -2, 1.5, 1.0, true, false, null]), "[1,-2,1.5,1.0,true,false,null]");
-check("encode exact floats", json::encode([0.1 + 0.2, 1e25]), "[0.30000000000000004,1.0E+25]");
-check("encode object", json::encode({"a" => 1, "b" => {"c" => null}}), "{\"a\":1,\"b\":{\"c\":null}}");
-check("a map is an object, int keys as strings", json::encode({1 => "a", 0 => "b"}), "{\"1\":\"a\",\"0\":\"b\"}");
-check("empty list and map", json::encode([[], {}]), "[[],{}]");
-check("encode string escapes", json::encode("\"\\/\n\r\t\f" .. chr(8)), "\"\\\"\\\\/\\n\\r\\t\\f\\b\"");
-check("encode other control bytes", json::encode(chr(1) .. chr(31)), "\"" .. $u .. "0001" .. $u .. "001f\"");
-check("encode UTF-8 as is", json::encode("caf" .. chr(195) .. chr(169)), "\"caf" .. chr(195) .. chr(169) .. "\"");
-check("encode $ and { literally", json::encode('{$x} $y'), '"{$x} $y"');
+expect("encode scalars", json::encode([1, -2, 1.5, 1.0, true, false, null]), "[1,-2,1.5,1.0,true,false,null]");
+expect("encode exact floats", json::encode([0.1 + 0.2, 1e25]), "[0.30000000000000004,1.0E+25]");
+expect("encode object", json::encode({"a" => 1, "b" => {"c" => null}}), "{\"a\":1,\"b\":{\"c\":null}}");
+expect("a map is an object, int keys as strings", json::encode({1 => "a", 0 => "b"}), "{\"1\":\"a\",\"0\":\"b\"}");
+expect("empty list and map", json::encode([[], {}]), "[[],{}]");
+expect("encode string escapes", json::encode("\"\\/\n\r\t\f" .. chr(8)), "\"\\\"\\\\/\\n\\r\\t\\f\\b\"");
+expect("encode other control bytes", json::encode(chr(1) .. chr(31)), "\"" .. $u .. "0001" .. $u .. "001f\"");
+expect("encode UTF-8 as is", json::encode("caf" .. chr(195) .. chr(169)), "\"caf" .. chr(195) .. chr(169) .. "\"");
+expect("encode $ and { literally", json::encode('{$x} $y'), '"{$x} $y"');
 
 // Round trips
 $document = {"name" => "Gaz", "tags" => ["a", "b"], "n" => -12, "f" => 0.1, "nested" => [[], {"k" => false}]};
-check("decode undoes encode", json::decode(json::encode($document)), $document);
+expect("decode undoes encode", json::decode(json::encode($document)), $document);
 $text = "{\"a\":[1,2.5,\"x\"],\"b\":{\"c\":null}}";
-check("encode undoes decode for compact JSON", json::encode(json::decode($text)), $text);
+expect("encode undoes decode for compact JSON", json::encode(json::decode($text)), $text);
 
 // Functions have no JSON form
-try {
-    json::encode([len]);
-    echo "FAIL encoding a function";
-} catch ($e) {
-    check("encoding a function is an error", $e.message, "Cannot encode a function as JSON");
-}
+throws("encoding a function is an error", () -> json::encode([len]), "Cannot encode a function as JSON");
 
 // A handle can't be written either, and not as the bare word it prints as
-try {
-    json::encode([file_open("tests/gaz/lib/json_test.gaz")]);
-    echo "FAIL encoding a file";
-} catch ($e) {
-    check("encoding a file is an error", $e.message, "Cannot encode a file as JSON");
-}
+throws("encoding a file is an error", () -> json::encode([file_open("tests/gaz/lib/json_test.gaz")]), "Cannot encode a file as JSON");
 // Nor do kinds, or objects without a to_json()
 kind Point { #x = 1; }
-try {
-    json::encode({"p" => Point});
-    echo "FAIL encoding a kind";
-} catch ($e) {
-    check("encoding a kind is an error", $e.message, "Cannot encode a kind as JSON");
-}
-try {
-    json::encode([Point()]);
-    echo "FAIL encoding an object";
-} catch ($e) {
-    check("an object without to_json() is an error that names it", $e.message, "Point has no member to_json");
-}
+throws("encoding a kind is an error", () -> json::encode({"p" => Point}), "Cannot encode a kind as JSON");
+throws("an object without to_json() is an error that names it", () -> json::encode([Point()]), "Point has no member to_json");
 
 // An object is what its to_json() gives, which may hold objects; private fields stay private
 kind User {
@@ -88,11 +68,11 @@ kind User {
     pub static fn from_json($data) { return User($data["name"], map($data["friends"], User::from_json)); }
 }
 $ann = User("ann", [User("bob")]);
-check("an object is written as its to_json()", json::encode($ann), '{"name":"ann","friends":[{"name":"bob","friends":[]}]}');
-check("inside lists and maps too", json::encode({"users" => [$ann.friends[0]]}), '{"users":[{"name":"bob","friends":[]}]}');
-check("the same object twice is fine: only one inside itself is not", json::encode([$ann.friends[0], $ann.friends[0]]), '[{"name":"bob","friends":[]},{"name":"bob","friends":[]}]');
+expect("an object is written as its to_json()", json::encode($ann), '{"name":"ann","friends":[{"name":"bob","friends":[]}]}');
+expect("inside lists and maps too", json::encode({"users" => [$ann.friends[0]]}), '{"users":[{"name":"bob","friends":[]}]}');
+expect("the same object twice is fine: only one inside itself is not", json::encode([$ann.friends[0], $ann.friends[0]]), '[{"name":"bob","friends":[]},{"name":"bob","friends":[]}]');
 $back = User::from_json(json::decode(json::encode($ann)));
-check("and from_json() is how a kind reads itself back", [$back.name, $back.friends[0].name, kind_of($back.friends[0]) == User], ["ann", "bob", true]);
+expect("and from_json() is how a kind reads itself back", [$back.name, $back.friends[0].name, kind_of($back.friends[0]) == User], ["ann", "bob", true]);
 
 kind Loop {
     pub #next = null;
@@ -102,20 +82,15 @@ $a = Loop();
 $b = Loop();
 $a.next = $b;
 $b.next = $a;
-try {
-    json::encode($a);
-    echo "FAIL encoding a cycle";
-} catch ($e) {
-    check("an object inside its own to_json() is an error, not a loop", $e.message, "Cannot encode Loop as JSON: its to_json() comes back to itself");
-}
+throws("an object inside its own to_json() is an error, not a loop", () -> json::encode($a), "Cannot encode Loop as JSON: its to_json() comes back to itself");
 
 kind Mirror {
     pub fn to_json() { return Mirror(); }
 }
-check("to_json() may give another object, which is written as its own", json::encode(Loop()), '{"next":null}');
+expect("to_json() may give another object, which is written as its own", json::encode(Loop()), '{"next":null}');
 try {
     json::encode(Mirror());
     echo "FAIL a to_json() that never ends";
 } catch (Error $e) {
-    check("a to_json() that gives objects for ever runs out of calls, as any recursion does", starts_with($e.message, "Maximum call depth"), true);
+    expect("a to_json() that gives objects for ever runs out of calls, as any recursion does", starts_with($e.message, "Maximum call depth"), true);
 }

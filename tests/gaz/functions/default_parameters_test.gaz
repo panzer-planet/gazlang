@@ -1,27 +1,27 @@
-include "std/test.gaz" use expect as check;
+include "std/test.gaz" use expect, throws;
 
 fn greet($name, $greeting = "Hello", $end = "!") {
     return "$greeting, $name$end";
 }
-check("both defaults", greet("Gaz"), "Hello, Gaz!");
-check("one default", greet("Gaz", "Hi"), "Hi, Gaz!");
-check("no defaults", greet("Gaz", "Hi", "?"), "Hi, Gaz?");
-check("passing null doesn't use the default", greet("Gaz", null), "null, Gaz!");
+expect("both defaults", greet("Gaz"), "Hello, Gaz!");
+expect("one default", greet("Gaz", "Hi"), "Hi, Gaz!");
+expect("no defaults", greet("Gaz", "Hi", "?"), "Hi, Gaz?");
+expect("passing null doesn't use the default", greet("Gaz", null), "null, Gaz!");
 
 // Defaults are evaluated on every call that needs them, so they are never shared
 fn add_to($item, $list = []) {
     $list[] = $item;
     return $list;
 }
-check("fresh default array", add_to(1), [1]);
-check("still fresh on the next call", add_to(2), [2]);
+expect("fresh default array", add_to(1), [1]);
+expect("still fresh on the next call", add_to(2), [2]);
 
 // A default can use earlier parameters and globals, and call functions
 fn area($width, $height = $width) {
     return $width * $height;
 }
-check("default from an earlier parameter", area(3), 9);
-check("given explicitly", area(3, 4), 12);
+expect("default from an earlier parameter", area(3), 9);
+expect("given explicitly", area(3, 4), 12);
 
 @next_id = 0;
 fn new_id() {
@@ -31,32 +31,24 @@ fn new_id() {
 fn make_item($name, $id = new_id()) {
     return {"id" => $id, "name" => $name};
 }
-check("default calls a function", make_item("a"), {"id" => 1, "name" => "a"});
-check("given explicitly, the default isn't evaluated", make_item("b", 99), {"id" => 99, "name" => "b"});
-check("evaluated again on the next call", make_item("c"), {"id" => 2, "name" => "c"});
+expect("default calls a function", make_item("a"), {"id" => 1, "name" => "a"});
+expect("given explicitly, the default isn't evaluated", make_item("b", 99), {"id" => 99, "name" => "b"});
+expect("evaluated again on the next call", make_item("c"), {"id" => 2, "name" => "c"});
 
 // Defaults run inside the function: its locals, not the caller's
 $outside = "caller's";
 fn scoped($value = $outside) {
     return $value;
 }
-try {
-    scoped();
-} catch ($e) {
-    check("default doesn't see the caller's variables", $e.message, "Undefined variable: \$outside");
-}
-check("given explicitly, the default isn't evaluated either", scoped("fine"), "fine");
+throws("default doesn't see the caller's variables", () -> scoped(), "Undefined variable: \$outside");
+expect("given explicitly, the default isn't evaluated either", scoped("fine"), "fine");
 
 // A failing default is a normal, catchable error
 fn strict($n = 1 / 0) {
     return $n;
 }
-try {
-    strict();
-} catch ($e) {
-    check("error in a default", $e.message, "Division by zero");
-}
-check("not evaluated when the argument is given", strict(5), 5);
+throws("error in a default", () -> strict(), "Division by zero");
+expect("not evaluated when the argument is given", strict(5), 5);
 
 // Recursion with a default accumulator
 fn sum_to($n, $total = 0) {
@@ -65,9 +57,9 @@ fn sum_to($n, $total = 0) {
     }
     return sum_to($n - 1, $total + $n);
 }
-check("recursion with a default", sum_to(4), 10);
+expect("recursion with a default", sum_to(4), 10);
 
 // slice's length is optional too: to the end
-check("slice to the end", slice("hello", 2), "llo");
-check("slice negative start to the end", slice([1, 2, 3], -2), [2, 3]);
-check("slice with a length", slice("hello", 1, 2), "el");
+expect("slice to the end", slice("hello", 2), "llo");
+expect("slice negative start to the end", slice([1, 2, 3], -2), [2, 3]);
+expect("slice with a length", slice("hello", 1, 2), "el");

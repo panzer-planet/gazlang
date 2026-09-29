@@ -1,4 +1,4 @@
-include "std/test.gaz" use expect as check;
+include "std/test.gaz" use expect;
 include "../../../lib/http.gaz";
 
 fn request($path) {
@@ -8,28 +8,28 @@ fn request($path) {
 $serve = http::serve_static("tests/fixtures/static_site");
 
 /* A file, and its Content-Type from the extension */
-check("an existing file", $serve(request("/style.css")), {
+expect("an existing file", $serve(request("/style.css")), {
     "status" => 200, "headers" => {"Content-Type" => "text/css"}, "body" => "body { color: red; }\n",
 });
 
 /* / resolves to index.html */
-check("/ serves index.html", $serve(request("/")), {
+expect("/ serves index.html", $serve(request("/")), {
     "status" => 200, "headers" => {"Content-Type" => "text/html; charset=utf-8"}, "body" => "<h1>home</h1>\n",
 });
 
 /* A directory, with or without its trailing slash, serves its own index.html */
-check("a directory without a slash", $serve(request("/sub"))["body"], "<p>sub</p>\n");
-check("a directory with a slash", $serve(request("/sub/"))["body"], "<p>sub</p>\n");
+expect("a directory without a slash", $serve(request("/sub"))["body"], "<p>sub</p>\n");
+expect("a directory with a slash", $serve(request("/sub/"))["body"], "<p>sub</p>\n");
 
 /* An extension not in the table is application/octet-stream */
-check("an unknown extension", $serve(request("/data.bin"))["headers"]["Content-Type"], "application/octet-stream");
+expect("an unknown extension", $serve(request("/data.bin"))["headers"]["Content-Type"], "application/octet-stream");
 
 /* A missing file is a 404, not an error */
-check("a missing file", $serve(request("/nope.txt")), {
+expect("a missing file", $serve(request("/nope.txt")), {
     "status" => 404, "headers" => {"Content-Type" => "text/plain"}, "body" => "Not Found\n",
 });
 
 /* .. in a segment is refused, plainly or percent-encoded, the same as a missing file */
-check("literal .. is refused", $serve(request("/../style.css"))["status"], 404);
-check("percent-encoded .. is refused", $serve(request("/%2e%2e/style.css"))["status"], 404);
-check("a bad escape is a 404 too", $serve(request("/%zz"))["status"], 404);
+expect("literal .. is refused", $serve(request("/../style.css"))["status"], 404);
+expect("percent-encoded .. is refused", $serve(request("/%2e%2e/style.css"))["status"], 404);
+expect("a bad escape is a 404 too", $serve(request("/%zz"))["status"], 404);

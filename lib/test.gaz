@@ -1,41 +1,93 @@
 /*
- * Testing GazLang code without PHP: run with `gaz test [path] [--update]`, which runs main()
- * below in a bootstrap program of its own, path defaulting to the current directory.
+ * Testing GazLang code: a test file includes this and checks values, and `gaz test` runs every
+ * test file it finds.
  *
- *   include "std/test.gaz";
- *   test::expect("two plus two", 2 + 2, 4);
+ *   include "std/test.gaz" use expect, throws;
+ *   expect("two plus two", 2 + 2, 4);
+ *   throws("past the end", () -> [1, 2][5], "Index out of range: 5");
  *   test::snapshot("the report", build_report());
+ *   test::done();
  *
- * - expect() is what this project's own tests use (tests/gaz programs include it `use expect as
- *   check`): it prints "ok <label>" or a FAIL line naming both values.
- * - snapshot() compares $actual against a file recorded next to the test that called it, and
- *   under --update (re)writes that file instead of comparing.
- * - `gaz test` finds every *_test.gaz file under path, recursively, and runs each as its own
- *   `gaz` process (include is resolved at parse time from a string literal, so a runner can't
- *   include a path it only learns at run time; a subprocess per file needs no such thing, and
- *   gives free isolation: one file's crash or infinite loop can't corrupt another's run). It
- *   reinvokes itself with program_path(), the interpreter's own invocation path exactly as it
- *   was given (a bare name found on PATH, a relative path, or an absolute one), so `gaz test`
- *   works the same way regardless of how the running `gaz` was itself started. A file fails the
- *   run if its stdout has a FAIL line or it exits non-zero.
- * - A subprocess is started as `gaz <file> <file> [--update]`: the file's own path, once to say
- *   what to run and again as its first program argument, since a running program has no builtin
- *   that gives the *file's* own path (args() is only what follows it on the line, and
- *   program_path() names the interpreter, not the script). snapshot() reads that first argument
- *   to find where "next to the test" is; a test file that calls args() itself for its own
- *   reasons should treat args()[0] as its own path and args()[1] as --update, if given.
+ * Every check prints one line: `ok <label>` when it holds, or `FAIL <label>: ...` saying what was
+ * wanted and what came instead. `gaz test` reads those lines, so their shape is the contract.
+ *
+ * - `expect($label, $actual, $expected)` holds when the values are `==` and of the same type.
+ *   For two lists or two maps a FAIL line also names the first index or key where they differ.
+ *   A value longer than 200 bytes is cut short on a FAIL line, which stays one line.
+ * - `throws($label, $thunk, $message)` calls `$thunk` and holds when it throws an error with
+ *   that message; `throws($label, $thunk, $kind, $message)` also requires the error to be of
+ *   exactly that kind (not a child of it, so a test names the kind it means), and the message
+ *   may be left out to check the kind alone. A runtime error and `throw "text"` are an `Error`.
+ *   A thrown value that isn't an `Error` (`throw 5`) is compared as it is, as `expect` would.
+ * - `snapshot($label, $actual)` compares `$actual`, written as a literal, against a file
+ *   recorded next to the test file, named after it and the label; `gaz test --update` (re)writes
+ *   the file instead of comparing.
+ * - `done()` ends the program, with status 1 if any check in it failed and 0 otherwise, so a
+ *   test file run on its own tells a script whether it passed.
+ *
+ * `gaz test [path...] [--update] [-v]` finds every `*_test.gaz` file under each path (the current
+ * directory by default), recursively, and runs each as a `gaz` process of its own: `include`
+ * takes only a string literal, so a runner can't include a path it finds while running, and a
+ * process per file means one file's crash or endless loop can't touch another's run. For each
+ * file it prints the FAIL lines, what the file wrote to standard error, and a line counting its
+ * checks; `-v` prints everything the file printed instead of only the FAIL lines. A file fails
+ * the run if a check failed, it exited with a status other than 0, or it checked nothing. The
+ * run exits 1 if any file failed.
+ *
+ * The runner starts each file as `gaz <file> <file> [--update]`: once to say what to run, and
+ * again as the file's first argument, since a program has no builtin giving its own path;
+ * `snapshot()` reads it to find where "next to the test" is.
  */
 namespace test;
 
 const UPDATE_FLAG = "--update";
+const VERBOSE_FLAGS = ["-v", "--verbose"];
 
-// Prints "ok <label>", or a FAIL line naming both values
+// The most of a value a FAIL line shows, so a huge value still leaves a readable line
+const SHOWN_BYTES = 200;
+
+// How many checks in this program have failed, for done()
+kind Tally {
+    pub static #failures = 0;
+}
+
+// Prints "ok <label>" when $actual == $expected and both are of one type, or a FAIL line naming both
 pub fn expect($label, $actual, $expected) {
     if ($actual == $expected && type_of($actual) == type_of($expected)) {
-        echo "ok " .. $label;
-    } else {
-        echo "FAIL " .. $label .. ": expected " .. to_string($expected) .. " (" .. type_of($expected) .. "), got " .. to_string($actual) .. " (" .. type_of($actual) .. ")";
+        pass($label);
+        return;
     }
+    $reason = "expected " .. described($expected) .. ", got " .. described($actual);
+    if (is_container($actual) && type_of($actual) == type_of($expected)) {
+        $reason ..= "; first difference " .. first_difference($actual, $expected, "");
+    }
+    fail($label, $reason);
+}
+
+/*
+ * Calls $thunk and prints "ok <label>" when it throws what is described, or a FAIL line naming
+ * what was wanted and what was thrown, if anything: throws($label, $thunk, $message), or
+ * throws($label, $thunk, $kind, $message) to require that exact kind too.
+ */
+pub fn throws($label, $thunk, $kind_or_message, $message = null) {
+    $kind = null;
+    $wanted = $kind_or_message;
+    if (type_of($kind_or_message) == "kind") {
+        $kind = $kind_or_message;
+        $wanted = $message;
+    }
+    $wanted_text = described_error($kind, $wanted);
+    $caught = thrown_by($thunk);
+    if (len($caught) == 0) {
+        fail($label, "expected {$wanted_text} to be thrown, nothing was");
+        return;
+    }
+    $thrown = $caught[0];
+    if (is_kind($thrown, $kind) && has_message($thrown, $wanted)) {
+        pass($label);
+        return;
+    }
+    fail($label, "expected {$wanted_text} to be thrown, got " .. described_thrown($thrown));
 }
 
 // Compares $actual against the file recorded next to the calling test file, or under --update
@@ -49,45 +101,103 @@ pub fn snapshot($label, $actual) {
         return;
     }
     if (!file_exists($path)) {
-        echo "FAIL " .. $label .. ": no snapshot at {$path}; run gaz test --update to record it";
+        fail($label, "no snapshot at {$path}; run gaz test --update to record it");
         return;
     }
     $expected = read_file($path);
     if ($text == $expected) {
-        echo "ok " .. $label;
+        pass($label);
     } else {
-        echo "FAIL " .. $label .. ": snapshot {$path} expected " .. $expected .. ", got " .. $text;
+        fail($label, "snapshot {$path} expected " .. clipped($expected) .. ", got " .. clipped($text));
     }
 }
 
-// Run every *_test.gaz file gaz test finds and report; the entry point of the bootstrap program
+// Ends the program: status 1 if any check in it failed, 0 if none did
+pub fn done() {
+    exit(Tally::failures > 0 ? 1 : 0);
+}
+
+// Runs every *_test.gaz file gaz test finds and reports; the entry point of its bootstrap program
 pub fn main() {
-    $args = args();
-    $update = in_array(UPDATE_FLAG, $args);
-    $root = ".";
-    foreach ($args as $arg) {
-        if ($arg != UPDATE_FLAG) {
-            $root = $arg;
+    $paths = [];
+    $update = false;
+    $verbose = false;
+    foreach (args() as $arg) {
+        if ($arg == UPDATE_FLAG) {
+            $update = true;
+        } else if (in_array($arg, VERBOSE_FLAGS)) {
+            $verbose = true;
+        } else if (starts_with($arg, "-")) {
+            print_error("gaz test: unknown option {$arg}; it takes paths, --update and -v\n");
+            exit(2);
+        } else {
+            $paths[] = $arg;
         }
     }
-    $files = discover($root);
-    $failed = [];
+    if (len($paths) == 0) {
+        $paths = ["."];
+    }
+    $files = [];
+    foreach ($paths as $path) {
+        $files = [...$files, ...discover($path)];
+    }
+    $failed = 0;
     foreach ($files as $file) {
-        $argv = [program_path(), $file, $file];
-        if ($update) {
-            $argv[] = UPDATE_FLAG;
-        }
-        $result = run($argv);
-        print($result["stdout"]);
-        if ($result["stderr"] != "") {
-            print_error($result["stderr"]);
-        }
-        if ($result["status"] != 0 || has_fail_line($result["stdout"])) {
-            $failed[] = $file;
+        if (!run_file($file, $update, $verbose)) {
+            $failed++;
         }
     }
-    echo len($files) .. " file" .. (len($files) == 1 ? "" : "s") .. " run, " .. len($failed) .. " failed";
-    exit(len($failed) > 0 ? 1 : 0);
+    echo len($files) .. " file" .. (len($files) == 1 ? "" : "s") .. " run, " .. $failed .. " failed";
+    exit($failed > 0 ? 1 : 0);
+}
+
+// Runs one test file, prints what the run shows of it, and gives whether it passed
+fn run_file($file, $update, $verbose) {
+    $argv = [program_path(), $file, $file];
+    if ($update) {
+        $argv[] = UPDATE_FLAG;
+    }
+    $result = run($argv);
+    $lines = output_lines($result["stdout"]);
+    $checks = 0;
+    $failures = 0;
+    foreach ($lines as $line) {
+        if (starts_with($line, "ok ")) {
+            $checks++;
+        } else if (starts_with($line, "FAIL ")) {
+            $checks++;
+            $failures++;
+        }
+        if ($verbose || starts_with($line, "FAIL ")) {
+            echo $line;
+        }
+    }
+    if ($result["stderr"] != "") {
+        print_error($result["stderr"]);
+    }
+    $summary = "{$file}: {$checks} check" .. ($checks == 1 ? "" : "s") .. ", {$failures} failed";
+    if ($result["status"] != 0) {
+        $summary ..= "; exited with status " .. $result["status"];
+    }
+    if ($checks == 0) {
+        $summary ..= "; nothing was checked";
+    }
+    echo $summary;
+
+    return $failures == 0 && $result["status"] == 0 && $checks > 0;
+}
+
+// The lines of what a program printed, without the empty one after its last newline
+fn output_lines($text) {
+    if ($text == "") {
+        return [];
+    }
+    $lines = split($text, "\n");
+    if (last($lines) == "") {
+        delete $lines[len($lines) - 1];
+    }
+
+    return $lines;
 }
 
 // Every *_test.gaz under $path, recursively; $path itself if it already names one
@@ -114,15 +224,143 @@ fn discover($path) {
     return $files;
 }
 
-// Whether any line of $stdout is a FAIL line, exactly as expect() and snapshot() print one
-fn has_fail_line($stdout) {
-    foreach (split($stdout, "\n") as $line) {
-        if (starts_with($line, "FAIL ")) {
-            return true;
+// Prints the line of a check that held
+fn pass($label) {
+    echo "ok " .. $label;
+}
+
+// Prints a FAIL line, one line whatever the reason holds, and counts it for done()
+fn fail($label, $reason) {
+    Tally::failures++;
+    echo "FAIL " .. $label .. ": " .. $reason;
+}
+
+// A list or a map, which a FAIL line can say where in two of them the difference is
+fn is_container($value) {
+    return type_of($value) == "list" || type_of($value) == "map";
+}
+
+/*
+ * Where two values that aren't == first differ, as the path of indexes and keys down to it and
+ * the two values there: `at [2]["name"]: expected "a" (string), got "b" (string)`. A list is
+ * walked in order, a map by the expected keys in their order and then the keys only $actual has.
+ */
+fn first_difference($actual, $expected, $path) {
+    if (!is_container($actual) || type_of($actual) != type_of($expected)) {
+        return difference_at($path, described($expected), described($actual));
+    }
+    if (type_of($expected) == "list") {
+        return first_list_difference($actual, $expected, $path);
+    }
+
+    return first_map_difference($actual, $expected, $path);
+}
+
+fn first_list_difference($actual, $expected, $path) {
+    $shared = min(len($actual), len($expected));
+    for ($i = 0; $i < $shared; $i++) {
+        if ($actual[$i] != $expected[$i]) {
+            return first_difference($actual[$i], $expected[$i], "{$path}[{$i}]");
+        }
+    }
+    if (len($expected) > $shared) {
+        return difference_at("{$path}[{$shared}]", described($expected[$shared]), "nothing");
+    }
+
+    return difference_at("{$path}[{$shared}]", "nothing", described($actual[$shared]));
+}
+
+fn first_map_difference($actual, $expected, $path) {
+    foreach ($expected as $key => $value) {
+        $place = $path .. "[" .. literal($key) .. "]";
+        if (!has_key($actual, $key)) {
+            return difference_at($place, described($value), "nothing");
+        }
+        if ($actual[$key] != $value) {
+            return first_difference($actual[$key], $value, $place);
+        }
+    }
+    foreach ($actual as $key => $value) {
+        if (!has_key($expected, $key)) {
+            return difference_at($path .. "[" .. literal($key) .. "]", "nothing", described($value));
         }
     }
 
-    return false;
+    return "not found";   // == told them apart, so this is never reached
+}
+
+fn difference_at($path, $expected, $actual) {
+    return "at {$path}: expected {$expected}, got {$actual}";
+}
+
+// A value on a FAIL line: as echo prints it, cut short, then its type
+fn described($value) {
+    return clipped(to_string($value)) .. " (" .. type_of($value) .. ")";
+}
+
+// $text on one line and at most SHOWN_BYTES long, saying how long it was when cut
+fn clipped($text) {
+    $one_line = replace(replace($text, "\r", "\\r"), "\n", "\\n");
+    if (len($one_line) <= SHOWN_BYTES) {
+        return $one_line;
+    }
+
+    return slice($one_line, 0, SHOWN_BYTES) .. "... (" .. len($one_line) .. " bytes)";
+}
+
+// What throws() was asked for, as its FAIL line names it
+fn described_error($kind, $message) {
+    if ($kind == null) {
+        return $message == null ? "an error" : clipped(literal($message));
+    }
+    if ($message == null) {
+        return kind_name($kind);
+    }
+
+    return kind_name($kind) .. " " .. clipped(literal($message));
+}
+
+// What was thrown, as throws()'s FAIL line names it: an Error by its kind and message
+fn described_thrown($thrown) {
+    if (is_error($thrown)) {
+        return kind_name($thrown) .. " " .. clipped(literal($thrown.message));
+    }
+
+    return described($thrown);
+}
+
+// What $thunk threw, as a list of one, or an empty list when it returned
+fn thrown_by($thunk) {
+    try {
+        $thunk();
+    } catch ($e) {
+        return [$e];
+    }
+
+    return [];
+}
+
+fn is_error($value) {
+    return type_of($value) == "object" && is_a($value, Error);
+}
+
+// Whether $thrown is exactly of $kind, or anything when no kind was asked for
+fn is_kind($thrown, $kind) {
+    if ($kind == null) {
+        return true;
+    }
+
+    return type_of($thrown) == "object" && kind_of($thrown) == $kind;
+}
+
+// Whether $thrown carries $message: an Error's message, or any other value itself
+fn has_message($thrown, $message) {
+    if ($message == null) {
+        return true;
+    }
+    $carried = is_error($thrown) ? $thrown.message : $thrown;
+
+    return $carried == $message && type_of($carried) == type_of($message);
 }
 
 // Whether $flag is one of this process's own arguments

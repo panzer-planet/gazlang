@@ -1,19 +1,19 @@
-include "std/test.gaz" use expect as check;
+include "std/test.gaz" use expect;
 include "../../../lib/http.gaz";
 
 /* url_decode(): percent-escapes only, as RFC 3986 has them */
-check("an escape is its byte", http::url_decode("a%20b%41%2f"), "a bA/");
-check("hex in either case", http::url_decode("%c3%A9"), "é");
-check("a + stays a +", http::url_decode("a+b"), "a+b");
-check("nothing to decode", [http::url_decode(""), http::url_decode("plain")], ["", "plain"]);
-check("an escaped % is a %", http::url_decode("100%25"), "100%");
+expect("an escape is its byte", http::url_decode("a%20b%41%2f"), "a bA/");
+expect("hex in either case", http::url_decode("%c3%A9"), "é");
+expect("a + stays a +", http::url_decode("a+b"), "a+b");
+expect("nothing to decode", [http::url_decode(""), http::url_decode("plain")], ["", "plain"]);
+expect("an escaped % is a %", http::url_decode("100%25"), "100%");
 
 /* url_encode(): everything but letters, digits and - . _ ~ */
-check("unreserved bytes stay", http::url_encode("Az09-._~"), "Az09-._~");
-check("the rest are escaped, in capitals", http::url_encode("a b/?&=+é"), "a%20b%2F%3F%26%3D%2B%C3%A9");
+expect("unreserved bytes stay", http::url_encode("Az09-._~"), "Az09-._~");
+expect("the rest are escaped, in capitals", http::url_encode("a b/?&=+é"), "a%20b%2F%3F%26%3D%2B%C3%A9");
 
 $every_byte = join(map(split(repeat("x", 256), ""), ($x, $i) -> chr($i)), "");
-check("every byte comes back", http::url_decode(http::url_encode($every_byte)) == $every_byte, true);
+expect("every byte comes back", http::url_decode(http::url_encode($every_byte)) == $every_byte, true);
 
 /* A bad escape is an error, naming it and where it is */
 $failures = [];
@@ -25,7 +25,7 @@ foreach (["%zz", "100%", "a%4", "%%41", "ok%4g"] as $text) {
         $failures[] = $e.message;
     }
 }
-check("bad escapes", $failures, [
+expect("bad escapes", $failures, [
     "bad percent-escape \"%zz\" at 0",
     "bad percent-escape \"%\" at 3",
     "bad percent-escape \"%4\" at 1",
@@ -35,13 +35,13 @@ check("bad escapes", $failures, [
 
 /* query() and query_all(): the request's query string, + as a space */
 $request = {"query" => "tag=a&tag=b&&page=2&flag&q=x+y%21&=empty&e%3Dq=1=2", "headers" => {}, "body" => ""};
-check("query_all keeps every value", http::query_all($request), {
+expect("query_all keeps every value", http::query_all($request), {
     "tag" => ["a", "b"], "page" => ["2"], "flag" => [""], "q" => ["x y!"], "" => ["empty"], "e=q" => ["1=2"],
 });
-check("query keeps the last", http::query($request), {
+expect("query keeps the last", http::query($request), {
     "tag" => "b", "page" => "2", "flag" => "", "q" => "x y!", "" => "empty", "e=q" => "1=2",
 });
-check("no query", http::query({"query" => ""}), {});
+expect("no query", http::query({"query" => ""}), {});
 
 /* form() and form_all(): a body sent as application/x-www-form-urlencoded */
 $form = {
@@ -49,8 +49,8 @@ $form = {
     "headers" => {"content-type" => "Application/X-WWW-Form-Urlencoded; charset=UTF-8"},
     "body" => "name=W%C3%A9rner&likes=php&likes=gaz",
 };
-check("form", http::form($form), {"name" => "Wérner", "likes" => "gaz"});
-check("form_all", http::form_all($form)["likes"], ["php", "gaz"]);
+expect("form", http::form($form), {"name" => "Wérner", "likes" => "gaz"});
+expect("form_all", http::form_all($form)["likes"], ["php", "gaz"]);
 
 $failures = [];
 foreach ([{}, {"content-type" => "application/json"}, {"content-type" => "multipart/form-data; boundary=x"}] as $headers) {
@@ -61,7 +61,7 @@ foreach ([{}, {"content-type" => "application/json"}, {"content-type" => "multip
         $failures[] = $e.message;
     }
 }
-check("a body that isn't a form", $failures, [
+expect("a body that isn't a form", $failures, [
     "http::form() needs a body sent as application/x-www-form-urlencoded, not \"\"",
     "http::form() needs a body sent as application/x-www-form-urlencoded, not \"application/json\"",
     "http::form() needs a body sent as application/x-www-form-urlencoded, not \"multipart/form-data; boundary=x\"",

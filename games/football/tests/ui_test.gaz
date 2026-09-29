@@ -3,7 +3,7 @@
  * after a game starts, after keys are pressed, and after time moves on. Where the text says
  * something about the game (a score, a place in the table) it is checked against the game.
  */
-include "std/test.gaz" use expect as check;
+include "std/test.gaz" use expect;
 include "std/term.gaz";
 include "std/tui.gaz";
 include "../engine/matches.gaz" use Goal, Booking;
@@ -110,15 +110,15 @@ fn results_on($screen) {
 $game = Game::start(1);
 $shell = Shell::for_game($game);
 $screen = look($shell);
-check("the bar names the club, the date, that the season hasn't begun and the division, with no place yet", [
+expect("the bar names the club, the date, that the season hasn't begun and the division, with no place yet", [
     contains($screen.lines()[0], "Riverside FC"),
     contains($screen.lines()[0], "Wed 1 Jul 2026"),
     contains($screen.lines()[0], "Pre-season · Premier Division"),
     contains($screen.lines()[0], $game.place()),
     contains($screen.lines()[0], "c Continue"),
 ], [true, true, true, false, true]);
-check("the bar is inverse across the screen", [$screen.cell(1, 1)[1], $screen.cell(50, 1)[1], $screen.cell(100, 1)[1]], ["bold inverse", "inverse", "bold inverse"]);
-check("the menu lists the sections in order", [
+expect("the bar is inverse across the screen", [$screen.cell(1, 1)[1], $screen.cell(50, 1)[1], $screen.cell(100, 1)[1]], ["bold inverse", "inverse", "bold inverse"]);
+expect("the menu lists the sections in order", [
     contains($screen.lines()[2], " 1 Inbox"),
     contains($screen.lines()[3], " 2 Squad"),
     contains($screen.lines()[4], " 3 Tactics"),
@@ -126,87 +126,87 @@ check("the menu lists the sections in order", [
     contains($screen.lines()[6], " 5 Table"),
     contains($screen.lines()[7], " 6 Finances"),
 ], [true, true, true, true, true, true]);
-check("the inbox is on show, with its welcome", [$shell.section(), shows($screen, "Welcome to Riverside FC"), shows($screen, "The board have appointed you")], ["Inbox", true, true]);
-check("keys start in the menu", $shell.focus(), "menu");
-check("the current section is marked in the menu", [$screen.cell(3, 3)[1], $screen.cell(3, 4)[1]], ["inverse", ""]);
-check("the last line says what the section's keys do, and that ? has the rest", [contains($screen.lines()[29], " j/k move "), ends_with(trim($screen.lines()[29]), "? keys")], [true, true]);
+expect("the inbox is on show, with its welcome", [$shell.section(), shows($screen, "Welcome to Riverside FC"), shows($screen, "The board have appointed you")], ["Inbox", true, true]);
+expect("keys start in the menu", $shell.focus(), "menu");
+expect("the current section is marked in the menu", [$screen.cell(3, 3)[1], $screen.cell(3, 4)[1]], ["inverse", ""]);
+expect("the last line says what the section's keys do, and that ? has the rest", [contains($screen.lines()[29], " j/k move "), ends_with(trim($screen.lines()[29]), "? keys")], [true, true]);
 press($shell, "?");
 $keys = look($shell);
-check("? lists the section's keys and those that work everywhere", [shows($keys, "─ Keys ─"), shows($keys, "Everywhere"), shows($keys, "back to the menu"), shows($keys, "save")], [true, true, true, true]);
+expect("? lists the section's keys and those that work everywhere", [shows($keys, "─ Keys ─"), shows($keys, "Everywhere"), shows($keys, "back to the menu"), shows($keys, "save")], [true, true, true, true]);
 press($shell, "5");
-check("and the next key only closes it", [shows(look($shell), "─ Keys ─"), $shell.section()], [false, "Inbox"]);
-check("the screen is as big as it was asked to be", [len($screen.lines()), term::width($screen.lines()[0])], [30, 100]);
+expect("and the next key only closes it", [shows(look($shell), "─ Keys ─"), $shell.section()], [false, "Inbox"]);
+expect("the screen is as big as it was asked to be", [len($screen.lines()), term::width($screen.lines()[0])], [30, 100]);
 
 /* ---- Sections ---- */
 press($shell, "2");
 $screen = look($shell);
-check("2 is the squad", $shell.section(), "Squad");
-check("with a header", [shows($screen, "Name"), shows($screen, "Pos"), shows($screen, "Rating")], [true, true, true]);
+expect("2 is the squad", $shell.section(), "Squad");
+expect("with a header", [shows($screen, "Name"), shows($screen, "Pos"), shows($screen, "Rating")], [true, true, true]);
 $named = 0;
 foreach ($game.club.players as $player) {
     if (shows($screen, to_string($player))) {
         $named++;
     }
 }
-check("and every player of the club, reserves too", $named, 17);
-check("and the formation", shows($screen, $game.club.formation() .. "   Team rating {$game.club.rating()}"), true);
-check("the squad's own hints are at the bottom", contains($screen.lines()[29], "j/k move  enter pick, then enter to swap  a best eleven  r renew  . , sort"), true);
+expect("and every player of the club, reserves too", $named, 17);
+expect("and the formation", shows($screen, $game.club.formation() .. "   Team rating {$game.club.rating()}"), true);
+expect("the squad's own hints are at the bottom", contains($screen.lines()[29], "j/k move  enter pick, then enter to swap  a best eleven  r renew  . , sort"), true);
 
 press($shell, "3");
 $screen = look($shell);
-check("3 is tactics", [$shell.section(), shows($screen, "Formation"), shows($screen, "Mentality"), shows($screen, "Intensity")], ["Tactics", true, true, true]);
+expect("3 is tactics", [$shell.section(), shows($screen, "Formation"), shows($screen, "Mentality"), shows($screen, "Intensity")], ["Tactics", true, true, true]);
 press($shell, "4");
-check("4 is the fixtures", $shell.section(), "Fixtures");
+expect("4 is the fixtures", $shell.section(), "Fixtures");
 press($shell, "5");
-check("5 is the table", $shell.section(), "Table");
+expect("5 is the table", $shell.section(), "Table");
 press($shell, "6");
 $screen = look($shell);
-check("6 is finances", [$shell.section(), shows($screen, "Balance"), shows($screen, "Wages a season")], ["Finances", true, true]);
+expect("6 is finances", [$shell.section(), shows($screen, "Balance"), shows($screen, "Wages a season")], ["Finances", true, true]);
 press($shell, "7");
-check("7 is transfers", [$shell.section(), shows(look($shell), "Transfers: buy")], ["Transfers", true]);
+expect("7 is transfers", [$shell.section(), shows(look($shell), "Transfers: buy")], ["Transfers", true]);
 press($shell, "8");
 press($shell, "0");
-check("keys past the last section do nothing", $shell.section(), "Transfers");
+expect("keys past the last section do nothing", $shell.section(), "Transfers");
 press($shell, "1");
-check("1 is back at the inbox", $shell.section(), "Inbox");
+expect("1 is back at the inbox", $shell.section(), "Inbox");
 
 /* ---- Where the keys go ---- */
-check("tab moves to the section", [press($shell, "\t"), $shell.focus()], [null, "content"]);
+expect("tab moves to the section", [press($shell, "\t"), $shell.focus()], [null, "content"]);
 $screen = look($shell);
-check("and the section's border shows it", [$screen.cell(17, 2)[1], $screen.cell(1, 2)[1]], ["cyan", ""]);
+expect("and the section's border shows it", [$screen.cell(17, 2)[1], $screen.cell(1, 2)[1]], ["cyan", ""]);
 press($shell, "\t");
-check("tab again is back to the menu", $shell.focus(), "menu");
+expect("tab again is back to the menu", $shell.focus(), "menu");
 press($shell, "j");
-check("j in the menu is the next section", $shell.section(), "Squad");
+expect("j in the menu is the next section", $shell.section(), "Squad");
 press($shell, "\e[B");
-check("as is the down arrow", $shell.section(), "Tactics");
+expect("as is the down arrow", $shell.section(), "Tactics");
 press($shell, "k");
 press($shell, "\e[A");
-check("k and up go back", $shell.section(), "Inbox");
+expect("k and up go back", $shell.section(), "Inbox");
 press($shell, "k");
-check("and stop at the first", $shell.section(), "Inbox");
+expect("and stop at the first", $shell.section(), "Inbox");
 foreach ([1, 2, 3, 4, 5, 6, 7, 8] as $_) {
     press($shell, "j");
 }
-check("and at the last", $shell.section(), "Transfers");
+expect("and at the last", $shell.section(), "Transfers");
 press($shell, "1");
 press($shell, "\r");
-check("enter goes into the section", $shell.focus(), "content");
+expect("enter goes into the section", $shell.focus(), "content");
 press($shell, "\e");
-check("escape comes back out", $shell.focus(), "menu");
+expect("escape comes back out", $shell.focus(), "menu");
 press($shell, "2");
 press($shell, "\t");
 $screen = look($shell);
-check("in the squad, the first player is selected", [$screen.cell(19, 4)[1], $screen.cell(19, 5)[1]], ["inverse", ""]);
+expect("in the squad, the first player is selected", [$screen.cell(19, 4)[1], $screen.cell(19, 5)[1]], ["inverse", ""]);
 press($shell, "j");
 $screen = look($shell);
-check("j moves down the squad, not the menu", [$shell.section(), $screen.cell(19, 4)[1], $screen.cell(19, 5)[1]], ["Squad", "", "inverse"]);
+expect("j moves down the squad, not the menu", [$shell.section(), $screen.cell(19, 4)[1], $screen.cell(19, 5)[1]], ["Squad", "", "inverse"]);
 press($shell, ".");
 $screen = look($shell);
-check("and . sorts it", shows($screen, "#▲"), true);
+expect("and . sorts it", shows($screen, "#▲"), true);
 press($shell, "\e");
 press($shell, "5");
-check("keys in the menu don't touch the sections", $shell.section(), "Table");
+expect("keys in the menu don't touch the sections", $shell.section(), "Table");
 
 /* ---- Picking the eleven ---- */
 
@@ -239,18 +239,18 @@ fn outfield_reserve_row($club) {
 [$squad_game, $squad_shell] = on_the_squad(2);
 $club = $squad_game.club;
 $screen = look($squad_shell);
-check("the squad screen shows the eleven first, then the bench", [lines_with($screen, " XI "), lines_with($screen, " sub ")], [11, 6]);
-check("the eleven's names come before the bench's", row_of($screen, to_string($club.eleven()[10]), 3) < row_of($screen, to_string($club.bench()[0]), 3), true);
-check("with the formation and the rating below, and the help for picking", [shows($screen, $club.formation() .. "   Team rating {$club.rating()}"), shows($screen, "Enter picks a player to swap")], [true, true]);
+expect("the squad screen shows the eleven first, then the bench", [lines_with($screen, " XI "), lines_with($screen, " sub ")], [11, 6]);
+expect("the eleven's names come before the bench's", row_of($screen, to_string($club.eleven()[10]), 3) < row_of($screen, to_string($club.bench()[0]), 3), true);
+expect("with the formation and the rating below, and the help for picking", [shows($screen, $club.formation() .. "   Team rating {$club.rating()}"), shows($screen, "Enter picks a player to swap")], [true, true]);
 
 $first = $club.eleven()[0];
 press($squad_shell, "\r");
 $screen = look($squad_shell);
-check("enter picks the selected player: marked, and the help says who to swap with", [shows($screen, "▸ " .. to_string($first)), shows($screen, "Swap {$first} with:")], [true, true]);
-check("in colour", contains(style_at($screen, row_of($screen, "▸ ", 3), "▸ ") ?? "", "cyan"), true);
+expect("enter picks the selected player: marked, and the help says who to swap with", [shows($screen, "▸ " .. to_string($first)), shows($screen, "Swap {$first} with:")], [true, true]);
+expect("in colour", contains(style_at($screen, row_of($screen, "▸ ", 3), "▸ ") ?? "", "cyan"), true);
 press($squad_shell, "\r");
 $screen = look($squad_shell);
-check("enter again puts him down, and says nothing about it", [shows($screen, "▸ " .. to_string($first)), shows($screen, "Enter picks a player"), $squad_shell.notice()], [false, true, ""]);
+expect("enter again puts him down, and says nothing about it", [shows($screen, "▸ " .. to_string($first)), shows($screen, "Enter picks a player"), $squad_shell.notice()], [false, true, ""]);
 
 /* a swap: the last of the eleven for the first outfield reserve */
 [$game, $shell] = on_the_squad(2);
@@ -260,16 +260,16 @@ $leaving = $club.eleven()[10];
 enter_at($shell, 0, 10);
 enter_at($shell, 10, $row);
 $screen = look($shell);
-check("picking one from the eleven and one from the bench swaps them", [in_array($arriving, $club.eleven()), in_array($leaving, $club.eleven()), $shell.notice()], [true, false, "Lineup changed"]);
-check("and the screen shows it: the newcomer is in the eleven, and the other on the bench", [row_of($screen, to_string($arriving), 3) < 15, row_of($screen, to_string($leaving), 3) > 14], [true, true]);
-check("nothing is left picked", count_where($club.players, $p -> shows($screen, "▸ " .. to_string($p))), 0);
+expect("picking one from the eleven and one from the bench swaps them", [in_array($arriving, $club.eleven()), in_array($leaving, $club.eleven()), $shell.notice()], [true, false, "Lineup changed"]);
+expect("and the screen shows it: the newcomer is in the eleven, and the other on the bench", [row_of($screen, to_string($arriving), 3) < 15, row_of($screen, to_string($leaving), 3) > 14], [true, true]);
+expect("nothing is left picked", count_where($club.players, $p -> shows($screen, "▸ " .. to_string($p))), 0);
 
 [$game, $shell] = on_the_squad(2);
 $club = $game.club;
 $before = map($club.eleven(), $p -> $p.number);
 enter_at($shell, 0, 1);
 enter_at($shell, 1, 2);
-check("two from the eleven is refused, and says so", [$shell.notice(), map($club.eleven(), $p -> $p.number)], ["Swap a player in the eleven with one on the bench", $before]);
+expect("two from the eleven is refused, and says so", [$shell.notice(), map($club.eleven(), $p -> $p.number)], ["Swap a player in the eleven with one on the bench", $before]);
 
 [$game, $shell] = on_the_squad(2);
 $club = $game.club;
@@ -277,16 +277,16 @@ $club = $game.club;
 $arriving.injure(2);
 enter_at($shell, 0, 10);
 enter_at($shell, 10, $row);
-check("a reserve who is out can't come in, and why", [contains($shell.notice(), "can't play: Injured 2"), in_array($arriving, $club.eleven())], [true, false]);
+expect("a reserve who is out can't come in, and why", [contains($shell.notice(), "can't play: Injured 2"), in_array($arriving, $club.eleven())], [true, false]);
 $screen = look($shell);
-check("and the screen shows who is out, in red", [shows($screen, "Injured 2"), contains(style_at($screen, row_of($screen, to_string($arriving), 3), to_string($arriving)) ?? "", "red")], [true, true]);
+expect("and the screen shows who is out, in red", [shows($screen, "Injured 2"), contains(style_at($screen, row_of($screen, to_string($arriving), 3), to_string($arriving)) ?? "", "red")], [true, true]);
 
 [$game, $shell] = on_the_squad(2);
 $club = $game.club;
 $banned = $club.eleven()[4];
 $banned.suspended = 1;
 $screen = look($shell);
-check("a banned player says so", shows($screen, "Banned 1"), true);
+expect("a banned player says so", shows($screen, "Banned 1"), true);
 
 /* a for the best eleven */
 [$game, $shell] = on_the_squad(2);
@@ -295,9 +295,9 @@ $best = map($club.eleven(), $p -> $p.number);
 [$row, $arriving] = outfield_reserve_row($club);
 enter_at($shell, 0, 10);
 enter_at($shell, 10, $row);
-check("after a swap the eleven is another", map($club.eleven(), $p -> $p.number) == $best, false);
+expect("after a swap the eleven is another", map($club.eleven(), $p -> $p.number) == $best, false);
 press($shell, "a");
-check("a picks the best again", [map($club.eleven(), $p -> $p.number), $shell.notice()], [$best, "The best eleven, picked"]);
+expect("a picks the best again", [map($club.eleven(), $p -> $p.number), $shell.notice()], [$best, "The best eleven, picked"]);
 
 /* picking while the table is sorted: a row is still the player it shows */
 [$game, $shell] = on_the_squad(2);
@@ -310,11 +310,11 @@ press($shell, ".");
 press($shell, ".");
 press($shell, "o");
 $screen = look($shell);
-check("sorted by rating, the best player is at the top", [trim($screen.lines()[2]) != "", contains($screen.lines()[3], to_string($highest))], [true, true]);
+expect("sorted by rating, the best player is at the top", [trim($screen.lines()[2]) != "", contains($screen.lines()[3], to_string($highest))], [true, true]);
 press($shell, "g");
 press($shell, "\r");
 $screen = look($shell);
-check("and enter on the top row picks the player on that row, not the one who was there before the sort", [shows($screen, "▸ " .. to_string($highest)), count_where($club.players, $p -> shows($screen, "▸ " .. to_string($p)))], [true, 1]);
+expect("and enter on the top row picks the player on that row, not the one who was there before the sort", [shows($screen, "▸ " .. to_string($highest)), count_where($club.players, $p -> shows($screen, "▸ " .. to_string($p)))], [true, 1]);
 
 /* the match shows who is playing: the eleven, and a substitute for an injured player */
 [$game, $shell] = on_the_squad(2);
@@ -330,186 +330,186 @@ $cover = $club.best_substitute($hurt_player);
 $day.mine.injure($club, $hurt_player, 2);
 $screen = look($shell, 100, 60);
 /* on a screen of 60 rows the eleven's table is the last thirteen rows of the section, from row 46; the commentary is above it */
-check("an injured player is off the eleven on the screen, his substitute is on it, and the commentary says so", [row_of($screen, to_string($hurt_player), 46), row_of($screen, to_string($cover), 46) != null, row_of($screen, "Substitution for {$club}: {$cover}", 3) < 46], [null, true, true]);
-check("the eleven on the screen is the eleven on the pitch", count_where($club.eleven(), $p -> row_of($screen, to_string($p), 46) != null), 11);
-check("the injury is in the commentary in red, and the substitution in cyan", [contains(style_at($screen, row_of($screen, "is injured and has to go off", 3), "is injured") ?? "", "red"), contains(style_at($screen, row_of($screen, "Substitution for", 3), "Substitution for") ?? "", "cyan")], [true, true]);
+expect("an injured player is off the eleven on the screen, his substitute is on it, and the commentary says so", [row_of($screen, to_string($hurt_player), 46), row_of($screen, to_string($cover), 46) != null, row_of($screen, "Substitution for {$club}: {$cover}", 3) < 46], [null, true, true]);
+expect("the eleven on the screen is the eleven on the pitch", count_where($club.eleven(), $p -> row_of($screen, to_string($p), 46) != null), 11);
+expect("the injury is in the commentary in red, and the substitution in cyan", [contains(style_at($screen, row_of($screen, "is injured and has to go off", 3), "is injured") ?? "", "red"), contains(style_at($screen, row_of($screen, "Substitution for", 3), "Substitution for") ?? "", "cyan")], [true, true]);
 
 /* ---- Time moves on ---- */
 $game = Game::start(2);
 $shell = Shell::for_game($game);
 press($shell, "4");
 $screen = look($shell);
-check("before a match the fixtures have one next, and no results", [lines_with($screen, "next ▸"), results_on($screen)], [1, 0]);
-check("and as many of the thirty-eight matches as fit", lines_with($screen, " v ") > 20, true);
-check("the first is next", row_of($screen, "next ▸"), 4);
+expect("before a match the fixtures have one next, and no results", [lines_with($screen, "next ▸"), results_on($screen)], [1, 0]);
+expect("and as many of the thirty-eight matches as fit", lines_with($screen, " v ") > 20, true);
+expect("the first is next", row_of($screen, "next ▸"), 4);
 press($shell, "C");
 $screen = look($shell);
-check("C plays a matchday without watching it", [$game.league.matchdays_played(), contains($screen.lines()[0], "Matchday 1 of 38"), contains($screen.lines()[0], $game.place())], [1, true, true]);
-check("and shows the inbox, with the news", [$shell.section(), shows($screen, "Matchday 1 results"), row_of($screen, "Matchday 1 results") != null], ["Inbox", true, true]);
-check("the newest message is selected (only bold, as the menu has the keys) and open", [$screen.cell(19, 4)[1], shows($screen, "─ " .. last($game.inbox)["subject"] .. " ─")], ["bold", true]);
+expect("C plays a matchday without watching it", [$game.league.matchdays_played(), contains($screen.lines()[0], "Matchday 1 of 38"), contains($screen.lines()[0], $game.place())], [1, true, true]);
+expect("and shows the inbox, with the news", [$shell.section(), shows($screen, "Matchday 1 results"), row_of($screen, "Matchday 1 results") != null], ["Inbox", true, true]);
+expect("the newest message is selected (only bold, as the menu has the keys) and open", [$screen.cell(19, 4)[1], shows($screen, "─ " .. last($game.inbox)["subject"] .. " ─")], ["bold", true]);
 press($shell, "4");
 $screen = look($shell);
-check("the fixtures have a result now, and the next has moved", [row_of($screen, "next ▸"), lines_with($screen, "next ▸")], [5, 1]);
-check("one match has been played, and it is coloured", results_on($screen), 1);
-check("the next match is bold", contains(join(styles_in($screen, 5), ","), "bold"), true);
+expect("the fixtures have a result now, and the next has moved", [row_of($screen, "next ▸"), lines_with($screen, "next ▸")], [5, 1]);
+expect("one match has been played, and it is coloured", results_on($screen), 1);
+expect("the next match is bold", contains(join(styles_in($screen, 5), ","), "bold"), true);
 
 press($shell, "5");
 $screen = look($shell);
-check("the table lists every club", lines_with($screen, "Pos  Club"), 1);
+expect("the table lists every club", lines_with($screen, "Pos  Club"), 1);
 $found = 0;
 foreach ($game.teams as $team) {
     if (shows($screen, $team.name)) {
         $found++;
     }
 }
-check("all twenty", $found, 20);
+expect("all twenty", $found, 20);
 $own = row_of($screen, "Riverside FC", 3);
 $other = row_of($screen, $game.teams[1].name, 3);
-check("the club's own cell is cyan, and another club's is not", [contains(style_at($screen, $own, "Riverside FC") ?? "", "cyan"), contains(style_at($screen, $other, $game.teams[1].name) ?? "", "cyan")], [true, false]);
+expect("the club's own cell is cyan, and another club's is not", [contains(style_at($screen, $own, "Riverside FC") ?? "", "cyan"), contains(style_at($screen, $other, $game.teams[1].name) ?? "", "cyan")], [true, false]);
 $standing = null;
 foreach ($game.league.table() as $s) {
     if ($s.team == $game.club) {
         $standing = $s;
     }
 }
-check("and says what the game says", shows($screen, " " .. $standing.points()), true);
-check("the leader is first", contains($screen.lines()[3], $game.league.table()[0].team.name), true);
+expect("and says what the game says", shows($screen, " " .. $standing.points()), true);
+expect("the leader is first", contains($screen.lines()[3], $game.league.table()[0].team.name), true);
 
 /* ---- A whole season ---- */
 while (!$game.club_done()) {
     press($shell, "C");
 }
-check("thirty-seven more and the club's season is over, though the second division's is not: it has one matchday left", [$game.club_done(), $game.season_over(), $game.league.matchdays_played(), $game.other_league.matchdays_played(), $game.season], [true, false, 38, 45, 2026]);
+expect("thirty-seven more and the club's season is over, though the second division's is not: it has one matchday left", [$game.club_done(), $game.season_over(), $game.league.matchdays_played(), $game.other_league.matchdays_played(), $game.season], [true, false, 38, 45, 2026]);
 $screen = look($shell);
-check("the bar says so, and the date is in May", [contains($screen.lines()[0], "Matchday 38 of 38"), contains($screen.lines()[0], "May 2027")], [true, true]);
-check("and the inbox has the last word, saying how many matchdays the Championship has to go", [shows($screen, "The season is over"), shows($screen, "The season is over")], [true, true]);
+expect("the bar says so, and the date is in May", [contains($screen.lines()[0], "Matchday 38 of 38"), contains($screen.lines()[0], "May 2027")], [true, true]);
+expect("and the inbox has the last word, saying how many matchdays the Championship has to go", [shows($screen, "The season is over"), shows($screen, "The season is over")], [true, true]);
 $message = $game.inbox[len($game.inbox) - 1];
-check("with the news: one matchday to go in the Championship", contains($message["body"], "The Championship has 1 matchday to go"), true);
+expect("with the news: one matchday to go in the Championship", contains($message["body"], "The Championship has 1 matchday to go"), true);
 press($shell, "C");
 $screen = look($shell);
-check("C plays the Championship's last matchday unwatched and goes on to the season's review on 1 June", [$game.season, $game.date_label(), $shell.notice(), $shell.section()], [2027, "Tue 1 Jun 2027", "Time has moved on to Tue 1 Jun 2027", "Inbox"]);
-check("the notice is in bold yellow, and the inbox has the new season", [$screen.cell(2, 30)[1], shows($screen, "2027/28 begins"), contains($screen.lines()[0], "Pre-season")], ["bold yellow", true, true]);
+expect("C plays the Championship's last matchday unwatched and goes on to the season's review on 1 June", [$game.season, $game.date_label(), $shell.notice(), $shell.section()], [2027, "Tue 1 Jun 2027", "Time has moved on to Tue 1 Jun 2027", "Inbox"]);
+expect("the notice is in bold yellow, and the inbox has the new season", [$screen.cell(2, 30)[1], shows($screen, "2027/28 begins"), contains($screen.lines()[0], "Pre-season")], ["bold yellow", true, true]);
 press($shell, "2");
-check("and the notice goes with the next key", $shell.notice(), "");
+expect("and the notice goes with the next key", $shell.notice(), "");
 press($shell, "c");
-check("c stops for the contracts that ran out on 30 June", [$game.date_label(), $game.live, shows(look($shell), "Contracts have run out")], ["Wed 30 Jun 2027", null, true]);
+expect("c stops for the contracts that ran out on 30 June", [$game.date_label(), $game.live, shows(look($shell), "Contracts have run out")], ["Wed 30 Jun 2027", null, true]);
 press($shell, "c");
-check("and again for the transfer window on 1 July", [$game.date_label(), $game.live, $shell.section(), shows(look($shell), "The transfer window is open")], ["Thu 1 Jul 2027", null, "Inbox", true]);
+expect("and again for the transfer window on 1 July", [$game.date_label(), $game.live, $shell.section(), shows(look($shell), "The transfer window is open")], ["Thu 1 Jul 2027", null, "Inbox", true]);
 press($shell, "c");
-check("and then goes to the first match of the new season, on a Saturday in August", [$game.live != null, date::month($game.date), date::weekday($game.date), $shell.section()], [true, 8, 5, "Inbox"]);
-check("which is on the screen", [shows(look($shell), "Match day"), contains(look($shell).lines()[0], "Aug 2027")], [true, true]);
+expect("and then goes to the first match of the new season, on a Saturday in August", [$game.live != null, date::month($game.date), date::weekday($game.date), $shell.section()], [true, 8, 5, "Inbox"]);
+expect("which is on the screen", [shows(look($shell), "Match day"), contains(look($shell).lines()[0], "Aug 2027")], [true, true]);
 
 /* ---- Watching a matchday ---- */
 $game = Game::start(6);
 $shell = Shell::for_game($game);
-check("nothing to tick between matchdays", [$shell.tick(), $game.live], [null, null]);
+expect("nothing to tick between matchdays", [$shell.tick(), $game.live], [null, null]);
 press($shell, "c");
 $day = $game.live;
 $screen = look($shell);
-check("c begins a matchday to watch", [$day != null, $game.league.matchdays_played(), $day.clock(), $day.finished()], [true, 0, 0, false]);
-check("and it takes over the section", [shows($screen, "Match day"), shows($screen, to_string($day.mine)), shows($screen, "The teams are out.")], [true, true, true]);
-check("the bar says which matchday, and what to press", [contains($screen.lines()[0], "Matchday 1 of 38"), contains($screen.lines()[0], "s Skip")], [true, true]);
-check("the clock and the speed", [contains($screen.lines()[2], "0'"), contains($screen.lines()[2], "▶ x1")], [true, true]);
+expect("c begins a matchday to watch", [$day != null, $game.league.matchdays_played(), $day.clock(), $day.finished()], [true, 0, 0, false]);
+expect("and it takes over the section", [shows($screen, "Match day"), shows($screen, to_string($day.mine)), shows($screen, "The teams are out.")], [true, true, true]);
+expect("the bar says which matchday, and what to press", [contains($screen.lines()[0], "Matchday 1 of 38"), contains($screen.lines()[0], "s Skip")], [true, true]);
+expect("the clock and the speed", [contains($screen.lines()[2], "0'"), contains($screen.lines()[2], "▶ x1")], [true, true]);
 $named = 0;
 foreach ($game.club.players as $player) {
     if (shows($screen, to_string($player))) {
         $named++;
     }
 }
-check("the club's eleven are there", $named, 11);
+expect("the club's eleven are there", $named, 11);
 $others = 0;
 foreach ($day.matches as $match) {
     if ($match != $day.mine && shows($screen, $match.home.name)) {
         $others++;
     }
 }
-check("and the other matches, as many as fit", $others > 5, true);
-check("the menu waits: nothing in it is selected", [$screen.cell(3, 3)[1], $shell.focus()], ["dim", "menu"]);
-check("and the hints are the match's", contains($screen.lines()[29], "space pause  +/- speed  s skip  w substitute  [ ] mentality  i intensity"), true);
+expect("and the other matches, as many as fit", $others > 5, true);
+expect("the menu waits: nothing in it is selected", [$screen.cell(3, 3)[1], $shell.focus()], ["dim", "menu"]);
+expect("and the hints are the match's", contains($screen.lines()[29], "space pause  +/- speed  s skip  w substitute  [ ] mentality  i intensity"), true);
 
 $shell.tick();
-check("a tick plays a minute", [$day.clock(), $day.mine.elapsed], [1, 1]);
+expect("a tick plays a minute", [$day.clock(), $day.mine.elapsed], [1, 1]);
 for ($i = 1; $i < 45; $i++) {
     $shell.tick();
 }
 $screen = look($shell, 100, 60);
-check("at forty-five it is half time", [$day.clock(), contains($screen.lines()[2], "45'"), shows($screen, "Half time")], [45, true, true]);
-check("and every match has got there", count_where($day.matches, $m -> $m.elapsed == 45), len($day.matches));
+expect("at forty-five it is half time", [$day.clock(), contains($screen.lines()[2], "45'"), shows($screen, "Half time")], [45, true, true]);
+expect("and every match has got there", count_where($day.matches, $m -> $m.elapsed == 45), len($day.matches));
 
 press($shell, " ");
 $shell.tick();
 $shell.tick();
 $screen = look($shell);
-check("paused, time stops", [$day.clock(), contains($screen.lines()[2], "Paused")], [45, true]);
+expect("paused, time stops", [$day.clock(), contains($screen.lines()[2], "Paused")], [45, true]);
 press($shell, " ");
 $shell.tick();
-check("and space starts it again", $day.clock(), 46);
+expect("and space starts it again", $day.clock(), 46);
 
 press($shell, "+");
 $shell.tick();
-check("+ is faster: two minutes a tick", $day.clock(), 48);
+expect("+ is faster: two minutes a tick", $day.clock(), 48);
 press($shell, "+");
 $shell.tick();
-check("and faster: five", $day.clock(), 53);
+expect("and faster: five", $day.clock(), 53);
 press($shell, "+");
 $shell.tick();
-check("and faster: fifteen", $day.clock(), 68);
+expect("and faster: fifteen", $day.clock(), 68);
 press($shell, "+");
 press($shell, "+");
 $shell.tick();
-check("no faster than that", $day.clock(), 83);
+expect("no faster than that", $day.clock(), 83);
 press($shell, "-");
 $shell.tick();
-check("- slows it down", $day.clock(), 88);
+expect("- slows it down", $day.clock(), 88);
 press($shell, "-");
 press($shell, "-");
 press($shell, "-");
 press($shell, "-");
 $shell.tick();
-check("but not below one a tick", $day.clock(), 89);
+expect("but not below one a tick", $day.clock(), 89);
 $shell.tick();
-check("and it stops at ninety", [$day.clock(), $day.finished()], [90, true]);
+expect("and it stops at ninety", [$day.clock(), $day.finished()], [90, true]);
 $shell.tick();
-check("nothing after that", $day.clock(), 90);
+expect("nothing after that", $day.clock(), 90);
 
 $screen = look($shell);
-check("full time says so", [contains($screen.lines()[2], "Full time"), contains($screen.lines()[0], "c Continue"), contains($screen.lines()[29], "c continue")], [true, true, true]);
-check("with the whistle at the top of the commentary", shows($screen, "Full time: " .. to_string($day.mine)), true);
+expect("full time says so", [contains($screen.lines()[2], "Full time"), contains($screen.lines()[0], "c Continue"), contains($screen.lines()[29], "c continue")], [true, true, true]);
+expect("with the whistle at the top of the commentary", shows($screen, "Full time: " .. to_string($day.mine)), true);
 
 /* keys that mustn't work while the match is on */
 $other_game = Game::start(6);
 $other = Shell::for_game($other_game);
 press($other, "c");
-check("q doesn't quit", [press($other, "q"), $other.notice()], [null, "Finish the match first: s skips to the end"]);
-check("nor c continue: the match isn't over", [press($other, "c"), $other.notice(), $other_game.live != null], [null, "The match isn't over: s skips to the end", true]);
+expect("q doesn't quit", [press($other, "q"), $other.notice()], [null, "Finish the match first: s skips to the end"]);
+expect("nor c continue: the match isn't over", [press($other, "c"), $other.notice(), $other_game.live != null], [null, "The match isn't over: s skips to the end", true]);
 $before = $other.section();
 press($other, "3");
 press($other, "\t");
 press($other, "\e[B");
-check("and the sections stay where they were", $other.section(), $before);
-check("ctrl+c does quit", press($other, "\x03"), "quit");
-check("and so does the end of the input", $other.handle({"key" => "eof", "ctrl" => false, "alt" => false, "shift" => false}), "quit");
+expect("and the sections stay where they were", $other.section(), $before);
+expect("ctrl+c does quit", press($other, "\x03"), "quit");
+expect("and so does the end of the input", $other.handle({"key" => "eof", "ctrl" => false, "alt" => false, "shift" => false}), "quit");
 
 /* skipping */
 press($other, "s");
 $skipped = $other_game.live;
-check("s plays it out", $skipped.finished(), true);
+expect("s plays it out", $skipped.finished(), true);
 $screen = look($other);
-check("and it is full time, and nothing is in the table yet", [contains($screen.lines()[2], "Full time"), $other_game.league.matchdays_played()], [true, 0]);
+expect("and it is full time, and nothing is in the table yet", [contains($screen.lines()[2], "Full time"), $other_game.league.matchdays_played()], [true, 0]);
 
 /* going on: and the next matchday starts afresh, whatever speed and pause this one ended at */
 press($shell, "+");
 press($shell, "+");
 press($shell, " ");
 press($shell, "c");
-check("c at full time goes on to the inbox", [$game.live, $game.league.matchdays_played(), $shell.section(), len($game.inbox)], [null, 1, "Inbox", len($game.inbox)]);
+expect("c at full time goes on to the inbox", [$game.live, $game.league.matchdays_played(), $shell.section(), len($game.inbox)], [null, 1, "Inbox", len($game.inbox)]);
 $screen = look($shell);
-check("with the results", [shows($screen, "Matchday 1 results"), contains($screen.lines()[0], "Matchday 1 of 38")], [true, true]);
+expect("with the results", [shows($screen, "Matchday 1 results"), contains($screen.lines()[0], "Matchday 1 of 38")], [true, true]);
 press($other, "\r");
-check("enter does the same", [$other_game.live, $other.section()], [null, "Inbox"]);
+expect("enter does the same", [$other_game.live, $other.section()], [null, "Inbox"]);
 press($shell, "c");
 $shell.tick();
-check("the next matchday starts at one minute a tick, not paused", [$game.live.clock(), $game.league.matchdays_played()], [1, 1]);
+expect("the next matchday starts at one minute a tick, not paused", [$game.live.clock(), $game.league.matchdays_played()], [1, 1]);
 
 /* the club's goals and the other side's, and the cards, in colour: every one on the screen, over several matches */
 $goals = 0;
@@ -543,8 +543,8 @@ foreach ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as $seed) {
         }
     }
 }
-check("there were goals and cards to look at", [$goals > 0, $bookings > 0], [true, true]);
-check("goals are green for the club and red against, cards yellow and red, every one", $wrong, []);
+expect("there were goals and cards to look at", [$goals > 0, $bookings > 0], [true, true]);
+expect("goals are green for the club and red against, cards yellow and red, every one", $wrong, []);
 
 /* ---- The tactics screen ---- */
 $game = Game::start(6);
@@ -555,36 +555,36 @@ $club = $game.club;
 $screen = look($shell);
 $keeper = filter($club.eleven(), $p -> $p.position() == "GK")[0];
 $striker = filter($club.eleven(), $p -> $p.position() == "FW")[0];
-check("the picture has the eleven in their lines, forwards on top and the keeper at the bottom", [
+expect("the picture has the eleven in their lines, forwards on top and the keeper at the bottom", [
     count_where($club.eleven(), $p -> shows($screen, $p.number .. " " .. $p)),
     row_of($screen, $striker.number .. " " .. $striker) < row_of($screen, $keeper.number .. " " .. $keeper),
 ], [11, true]);
-check("the settings and what they are now", [shows($screen, "Formation"), shows($screen, $club.formation()), shows($screen, "Balanced"), shows($screen, "Normal")], [true, true, true, true]);
-check("and what each does", [shows($screen, "Attack 0%, defence 0%"), shows($screen, "tiredness 0%")], [true, true]);
-check("the hints are the screen's", contains($screen.lines()[29], "j/k choose  h/l change"), true);
+expect("the settings and what they are now", [shows($screen, "Formation"), shows($screen, $club.formation()), shows($screen, "Balanced"), shows($screen, "Normal")], [true, true, true, true]);
+expect("and what each does", [shows($screen, "Attack 0%, defence 0%"), shows($screen, "tiredness 0%")], [true, true]);
+expect("the hints are the screen's", contains($screen.lines()[29], "j/k choose  h/l change"), true);
 press($shell, "l");
-check("a key on the formation picks the next one, with the best eleven for it", [$club.formation(), $shell.notice() != ""], ["4-3-3", true]);
+expect("a key on the formation picks the next one, with the best eleven for it", [$club.formation(), $shell.notice() != ""], ["4-3-3", true]);
 press($shell, "h");
-check("and back", $club.formation(), "4-4-2");
+expect("and back", $club.formation(), "4-4-2");
 press($shell, "h");
-check("wrapping round the ends", $club.formation(), "5-3-2");
+expect("wrapping round the ends", $club.formation(), "5-3-2");
 press($shell, "j");
 press($shell, "l");
 $screen = look($shell);
-check("j moves to the mentality, and l makes it more attacking", [$club.mentality, $club.mentality_name(), $shell.notice(), shows($screen, "Positive"), shows($screen, "Attack +12%, defence -10%")], [3, "Positive", "Mentality: Positive", true, true]);
+expect("j moves to the mentality, and l makes it more attacking", [$club.mentality, $club.mentality_name(), $shell.notice(), shows($screen, "Positive"), shows($screen, "Attack +12%, defence -10%")], [3, "Positive", "Mentality: Positive", true, true]);
 press($shell, "l");
 press($shell, "l");
 press($shell, "l");
-check("but not past attacking", $club.mentality, 4);
+expect("but not past attacking", $club.mentality, 4);
 press($shell, "j");
 press($shell, "l");
 $screen = look($shell);
-check("intensity too", [$club.intensity, $shell.notice(), shows($screen, "High"), shows($screen, "Attack +5%, tiredness +25%")], [2, "Intensity: High", true, true]);
+expect("intensity too", [$club.intensity, $shell.notice(), shows($screen, "High"), shows($screen, "Attack +5%, tiredness +25%")], [2, "Intensity: High", true, true]);
 press($shell, "j");
 press($shell, "h");
-check("j stops at the last setting", $club.intensity, 1);
+expect("j stops at the last setting", $club.intensity, 1);
 press($shell, "\x1b");
-check("escape goes back to the menu", $shell.focus(), "menu");
+expect("escape goes back to the menu", $shell.focus(), "menu");
 
 /* ---- Tactics and substitutions in a match ---- */
 $game = Game::start(6);
@@ -593,60 +593,60 @@ press($shell, "c");
 $day = $game.live;
 $club = $game.club;
 $screen = look($shell);
-check("the match shows how the club plays", shows($screen, "Balanced, Normal intensity"), true);
+expect("the match shows how the club plays", shows($screen, "Balanced, Normal intensity"), true);
 press($shell, "]");
 press($shell, "i");
 $screen = look($shell);
-check("] is more attacking and i more intense, mid-match, and the header says so", [$club.mentality, $club.intensity, shows($screen, "Positive, High intensity"), $shell.notice()], [3, 2, true, "Intensity: High"]);
+expect("] is more attacking and i more intense, mid-match, and the header says so", [$club.mentality, $club.intensity, shows($screen, "Positive, High intensity"), $shell.notice()], [3, 2, true, "Intensity: High"]);
 press($shell, "[");
 press($shell, "[");
 press($shell, "[");
 press($shell, "[");
-check("[ goes the other way and stops at defensive", [$club.mentality, shows(look($shell), "Defensive, High intensity")], [0, true]);
+expect("[ goes the other way and stops at defensive", [$club.mentality, shows(look($shell), "Defensive, High intensity")], [0, true]);
 press($shell, "i");
 press($shell, "i");
-check("i goes round", $club.intensity, 1);
+expect("i goes round", $club.intensity, 1);
 
 for ($i = 0; $i < 10; $i++) {
     $shell.tick();
 }
 $clock = $day.clock();
-check("time has passed", $clock > 0, true);
+expect("time has passed", $clock > 0, true);
 press($shell, "w");
 $screen = look($shell);
-check("w asks who goes off, listing the eleven, and the clock stops", [shows($screen, "who goes off?"), shows($screen, "Substitution (0 of 3 used)"), shows($screen, "Paused")], [true, true, true]);
+expect("w asks who goes off, listing the eleven, and the clock stops", [shows($screen, "who goes off?"), shows($screen, "Substitution (0 of 3 used)"), shows($screen, "Paused")], [true, true, true]);
 $named = count_where($club.eleven(), $p -> shows($screen, $p.profile()));
-check("with all eleven to choose from", $named, 11);
-check("and the hints say how", contains($screen.lines()[29], "Who goes off?  j/k move  enter choose  escape cancel"), true);
+expect("with all eleven to choose from", $named, 11);
+expect("and the hints say how", contains($screen.lines()[29], "Who goes off?  j/k move  enter choose  escape cancel"), true);
 for ($i = 0; $i < 20; $i++) {
     $shell.tick();
 }
-check("nothing plays while choosing", $day.clock(), $clock);
-check("the cursor is on the first, and moves", [contains($screen.lines()[row_of($screen, $club.eleven()[0].profile()) - 1], "▸"), 1], [true, 1]);
+expect("nothing plays while choosing", $day.clock(), $clock);
+expect("the cursor is on the first, and moves", [contains($screen.lines()[row_of($screen, $club.eleven()[0].profile()) - 1], "▸"), 1], [true, 1]);
 press($shell, "j");
 $off = $club.eleven()[1];
 $screen = look($shell);
-check("j moves it", contains($screen.lines()[row_of($screen, $off.profile()) - 1], "▸"), true);
+expect("j moves it", contains($screen.lines()[row_of($screen, $off.profile()) - 1], "▸"), true);
 press($shell, "\x1b");
 $screen = look($shell);
-check("escape cancels: nothing changed, and time runs again", [$club.substitutions, shows($screen, "who goes off?")], [0, false]);
+expect("escape cancels: nothing changed, and time runs again", [$club.substitutions, shows($screen, "who goes off?")], [0, false]);
 $shell.tick();
-check("the clock is going", $day.clock() > $clock, true);
+expect("the clock is going", $day.clock() > $clock, true);
 
 press($shell, "w");
 press($shell, "j");
 press($shell, "\r");
 $screen = look($shell);
 $off = $club.eleven()[1];
-check("enter chooses who goes off, and then who comes on", [shows($screen, "Who comes on for {$off}?")], [true]);
+expect("enter chooses who goes off, and then who comes on", [shows($screen, "Who comes on for {$off}?")], [true]);
 $options = $club.substitutes($off);
-check("the choices are the bench who can play", count_where($options, $p -> shows($screen, $p.profile())), len($options));
+expect("the choices are the bench who can play", count_where($options, $p -> shows($screen, $p.profile())), len($options));
 $on = $options[0];
 press($shell, "\r");
-check("enter makes the change, and says so", [in_array($on, $club.eleven()), in_array($off, $club.eleven()), $club.substitutions, $shell.notice()], [true, false, 1, "{$on} on for {$off}"]);
-check("and the commentary has it", shows(look($shell), "Substitution for {$club}: {$on} replaces {$off}"), true);
+expect("enter makes the change, and says so", [in_array($on, $club.eleven()), in_array($off, $club.eleven()), $club.substitutions, $shell.notice()], [true, false, 1, "{$on} on for {$off}"]);
+expect("and the commentary has it", shows(look($shell), "Substitution for {$club}: {$on} replaces {$off}"), true);
 $shell.tick();
-check("and the clock goes on", $day.clock() > $clock, true);
+expect("and the clock goes on", $day.clock() > $clock, true);
 
 /* the limit */
 foreach ([2, 3] as $again) {
@@ -654,26 +654,26 @@ foreach ([2, 3] as $again) {
     press($shell, "\r");
     press($shell, "\r");
 }
-check("three in all", $club.substitutions, 3);
+expect("three in all", $club.substitutions, 3);
 press($shell, "w");
-check("a fourth isn't offered", [$shell.notice(), shows(look($shell), "who goes off?")], ["No substitutions left", false]);
+expect("a fourth isn't offered", [$shell.notice(), shows(look($shell), "who goes off?")], ["No substitutions left", false]);
 while (!$day.finished()) {
     $day.tick();
 }
-check("and after the match there is none to make", [press($shell, "w"), $shell.notice()], [null, "The match is over"]);
+expect("and after the match there is none to make", [press($shell, "w"), $shell.notice()], [null, "The match is over"]);
 
 /* a quick matchday isn't watched */
 $quick_game = Game::start(6);
 $quick = Shell::for_game($quick_game);
 press($quick, "C");
-check("C plays a matchday without watching it", [$quick_game.live, $quick_game.league.matchdays_played(), $quick.section()], [null, 1, "Inbox"]);
+expect("C plays a matchday without watching it", [$quick_game.live, $quick_game.league.matchdays_played(), $quick.section()], [null, 1, "Inbox"]);
 
 /* ---- Leaving ---- */
 $shell = Shell::for_game(Game::start(1));
-check("q quits", press($shell, "q"), "quit");
-check("so does ctrl+c", press($shell, "\x03"), "quit");
-check("and the end of the input", $shell.handle({"key" => "eof", "ctrl" => false, "alt" => false, "shift" => false}), "quit");
-check("other keys don't", [press($shell, "j"), press($shell, "x"), press($shell, "z")], [null, null, null]);
+expect("q quits", press($shell, "q"), "quit");
+expect("so does ctrl+c", press($shell, "\x03"), "quit");
+expect("and the end of the input", $shell.handle({"key" => "eof", "ctrl" => false, "alt" => false, "shift" => false}), "quit");
+expect("other keys don't", [press($shell, "j"), press($shell, "x"), press($shell, "z")], [null, null, null]);
 
 /* ---- Other sizes ---- */
 foreach ([[80, 24], [60, 20], [40, 12], [20, 6], [10, 3]] as [$cols, $rows]) {
@@ -682,10 +682,10 @@ foreach ([[80, 24], [60, 20], [40, 12], [20, 6], [10, 3]] as [$cols, $rows]) {
         press($shell, $key);
         $screen = look($shell, $cols, $rows);
         if (len($screen.lines()) != $rows || term::width($screen.lines()[0]) != $cols) {
-            check("the screen keeps its size ({$cols} by {$rows}, after {$key})", "wrong", "right");
+            expect("the screen keeps its size ({$cols} by {$rows}, after {$key})", "wrong", "right");
         }
     }
-    check("{$cols} by {$rows} draws every section without an error", $shell.section(), "Inbox");
+    expect("{$cols} by {$rows} draws every section without an error", $shell.section(), "Inbox");
 }
 
 /* ---- Finances and transfers ---- */
@@ -694,19 +694,19 @@ $shell = Shell::for_game($game);
 $club = $game.club;
 press($shell, "6");
 $screen = look($shell);
-check("finances show the balance in green, and an empty book", [shows($screen, "Balance  " .. money::pounds($club.balance)), style_at($screen, row_of($screen, "Balance"), "Balance") == "bold green"], [true, true]);
+expect("finances show the balance in green, and an empty book", [shows($screen, "Balance  " .. money::pounds($club.balance)), style_at($screen, row_of($screen, "Balance"), "Balance") == "bold green"], [true, true]);
 press($shell, "C");
 press($shell, "6");
 $screen = look($shell);
-check("after a matchday the books have entries: television and wages, in green and red", [shows($screen, "Television"), shows($screen, "Wages"), shows($screen, "+" .. money::pounds(money::TELEVISION))], [true, true, true]);
-check("and the balance is what the ledger says", $club.balance, money::starting_balance($club) + sum(map($game.ledger, $e -> $e["amount"])));
+expect("after a matchday the books have entries: television and wages, in green and red", [shows($screen, "Television"), shows($screen, "Wages"), shows($screen, "+" .. money::pounds(money::TELEVISION))], [true, true, true]);
+expect("and the balance is what the ledger says", $club.balance, money::starting_balance($club) + sum(map($game.ledger, $e -> $e["amount"])));
 
 press($shell, "7");
 press($shell, "\t");
 $screen = look($shell);
 $offer = $game.market()[0];
-check("the market lists the best players at other clubs, with prices", [shows($screen, to_string($offer[0])), shows($screen, to_string($offer[1])), shows($screen, money::pounds(money::price($offer[0])))], [true, true, true]);
-check("and the budget and squad size", [shows($screen, "Budget " .. money::pounds($club.balance)), shows($screen, "Squad 17 of 24")], [true, true]);
+expect("the market lists the best players at other clubs, with prices", [shows($screen, to_string($offer[0])), shows($screen, to_string($offer[1])), shows($screen, money::pounds(money::price($offer[0])))], [true, true, true]);
+expect("and the budget and squad size", [shows($screen, "Budget " .. money::pounds($club.balance)), shows($screen, "Squad 17 of 24")], [true, true]);
 $club.balance = 100000000;
 $where = 0;
 foreach ($game.market() as $i => $candidate) {
@@ -721,11 +721,11 @@ for ($i = 0; $i < $where; $i++) {
 }
 $owner_balance = $offer[1].balance;
 press($shell, "\r");
-check("enter buys the one picked: he is in the squad, and paid for", [in_array($offer[0], $club.players), in_array($offer[0], $offer[1].players), $club.balance, $offer[1].balance, $shell.notice()], [true, false, 100000000 - money::price($offer[0]), $owner_balance + money::price($offer[0]), "Signed {$offer[0]}"]);
-check("with the news in the inbox, and the ledger", [$game.inbox[len($game.inbox) - 1]["subject"], $game.ledger[len($game.ledger) - 1]["text"]], ["Signed: {$offer[0]}", "Signed {$offer[0]}"]);
+expect("enter buys the one picked: he is in the squad, and paid for", [in_array($offer[0], $club.players), in_array($offer[0], $offer[1].players), $club.balance, $offer[1].balance, $shell.notice()], [true, false, 100000000 - money::price($offer[0]), $owner_balance + money::price($offer[0]), "Signed {$offer[0]}"]);
+expect("with the news in the inbox, and the ledger", [$game.inbox[len($game.inbox) - 1]["subject"], $game.ledger[len($game.ledger) - 1]["text"]], ["Signed: {$offer[0]}", "Signed {$offer[0]}"]);
 press($shell, "t");
 $screen = look($shell);
-check("t switches to selling, listing the squad with what would be paid", [shows($screen, "Transfers: sell"), shows($screen, "Squad 18 of 24"), shows($screen, money::pounds(money::sale_price($club.players[0])))], [true, true, true]);
+expect("t switches to selling, listing the squad with what would be paid", [shows($screen, "Transfers: sell"), shows($screen, "Squad 18 of 24"), shows($screen, money::pounds(money::sale_price($club.players[0])))], [true, true, true]);
 $at = 0;
 foreach ($club.players as $i => $candidate) {
     if ($candidate.position() != "GK") {
@@ -739,11 +739,11 @@ for ($i = 0; $i < $at; $i++) {
 }
 $before = $club.balance;
 press($shell, "\r");
-check("enter sells the one picked, for what the squad list said", [in_array($leaving, $club.players), len($club.players), $club.balance, $shell.notice()], [false, 17, $before + money::sale_price($leaving), "Sold {$leaving}"]);
+expect("enter sells the one picked, for what the squad list said", [in_array($leaving, $club.players), len($club.players), $club.balance, $shell.notice()], [false, 17, $before + money::sale_price($leaving), "Sold {$leaving}"]);
 $club.balance = 0;
 press($shell, "t");
 press($shell, "\r");
-check("a player too dear is refused, saying why, and nothing changes", [starts_with($shell.notice(), "You can't afford"), len($club.players), $club.balance], [true, 17, 0]);
+expect("a player too dear is refused, saying why, and nothing changes", [starts_with($shell.notice(), "You can't afford"), len($club.players), $club.balance], [true, 17, 0]);
 
 /* ---- Saving, and the next season ---- */
 $path = "vm/build/football_ui_test.save";
@@ -752,22 +752,22 @@ $shell = Shell::for_game($game, $path);
 press($shell, "C");
 press($shell, "C");
 press($shell, "S");
-check("S saves, and says where", [$shell.notice(), file_exists($path)], ["Saved to {$path}", true]);
+expect("S saves, and says where", [$shell.notice(), file_exists($path)], ["Saved to {$path}", true]);
 $loaded = Game::load($path);
-check("what was saved is the game", [$loaded.league.matchdays_played(), $loaded.club.balance, $loaded.position()], [2, $game.club.balance, $game.position()]);
+expect("what was saved is the game", [$loaded.league.matchdays_played(), $loaded.club.balance, $loaded.position()], [2, $game.club.balance, $game.position()]);
 $nowhere = Shell::for_game(Game::start(4));
 press($nowhere, "S");
-check("with no save file there is nowhere to save", $nowhere.notice(), "There is nowhere to save to");
+expect("with no save file there is nowhere to save", $nowhere.notice(), "There is nowhere to save to");
 run(["rm", "-f", $path]);
 while (!$game.club_done()) {
     press($shell, "C");
 }
 press($shell, "C");
-check("after the last match the next season begins on its own: the review, the year and fixtures", [$game.season, contains(look($shell).lines()[0], "Pre-season")], [2027, true]);
+expect("after the last match the next season begins on its own: the review, the year and fixtures", [$game.season, contains(look($shell).lines()[0], "Pre-season")], [2027, true]);
 while ($game.live == null) {
     press($shell, "c");
 }
-check("and it can be played", [$game.live != null, $game.season_over()], [true, false]);
+expect("and it can be played", [$game.live != null, $game.season_over()], [true, false]);
 
 /* ---- Two divisions on screen ---- */
 $game = Game::start(6);
@@ -775,31 +775,31 @@ $shell = Shell::for_game($game);
 press($shell, "C");
 press($shell, "5");
 $screen = look($shell);
-check("the table is the club's division's, and the bar says which", [shows($screen, "Premier Division table"), contains($screen.lines()[0], "in the Premier Division")], [true, true]);
+expect("the table is the club's division's, and the bar says which", [shows($screen, "Premier Division table"), contains($screen.lines()[0], "in the Premier Division")], [true, true]);
 $first = $game.league.table()[0].team.name;
-check("the champions row is green and the last two red, the club's own bold cyan", [contains(style_at($screen, row_of($screen, $first), $first) ?? "", $first == $game.club.name ? "cyan" : "green")], [true]);
+expect("the champions row is green and the last two red, the club's own bold cyan", [contains(style_at($screen, row_of($screen, $first), $first) ?? "", $first == $game.club.name ? "cyan" : "green")], [true]);
 $last = $game.league.table()[19].team.name;
-check("the bottom is red", style_at($screen, row_of($screen, $last, 3), $last), $last == $game.club.name ? "bold cyan" : "red");
+expect("the bottom is red", style_at($screen, row_of($screen, $last, 3), $last), $last == $game.club.name ? "bold cyan" : "red");
 $middle = $game.league.table()[4].team.name;
-check("and the middle plain", style_at($screen, row_of($screen, $middle), $middle), $middle == $game.club.name ? "bold cyan" : "");
+expect("and the middle plain", style_at($screen, row_of($screen, $middle), $middle), $middle == $game.club.name ? "bold cyan" : "");
 $ninth = $game.league.table()[19].team.name;
 $eighth = $game.league.table()[18].team.name;
 $seventh = $game.league.table()[17].team.name;
-check("the last two are red, the one above is not", [style_at($screen, row_of($screen, $ninth, 3), $ninth), style_at($screen, row_of($screen, $eighth, 3), $eighth), style_at($screen, row_of($screen, $seventh, 3), $seventh)], [$ninth == $game.club.name ? "bold cyan" : "red", $eighth == $game.club.name ? "bold cyan" : "red", $seventh == $game.club.name ? "bold cyan" : ""]);
+expect("the last two are red, the one above is not", [style_at($screen, row_of($screen, $ninth, 3), $ninth), style_at($screen, row_of($screen, $eighth, 3), $eighth), style_at($screen, row_of($screen, $seventh, 3), $seventh)], [$ninth == $game.club.name ? "bold cyan" : "red", $eighth == $game.club.name ? "bold cyan" : "red", $seventh == $game.club.name ? "bold cyan" : ""]);
 press($shell, "\t");
 press($shell, "d");
 $screen = look($shell);
 $other = $game.other_league.table();
-check("d shows the other division", [shows($screen, "Championship table"), shows($screen, $other[0].team.name), shows($screen, $other[9].team.name)], [true, true, true]);
-check("where the top two are green and nobody is red", [contains(style_at($screen, row_of($screen, $other[0].team.name), $other[0].team.name), "green"), contains(style_at($screen, row_of($screen, $other[1].team.name), $other[1].team.name), "green"), style_at($screen, row_of($screen, $other[9].team.name), $other[9].team.name)], [true, true, ""]);
+expect("d shows the other division", [shows($screen, "Championship table"), shows($screen, $other[0].team.name), shows($screen, $other[9].team.name)], [true, true, true]);
+expect("where the top two are green and nobody is red", [contains(style_at($screen, row_of($screen, $other[0].team.name), $other[0].team.name), "green"), contains(style_at($screen, row_of($screen, $other[1].team.name), $other[1].team.name), "green"), style_at($screen, row_of($screen, $other[9].team.name), $other[9].team.name)], [true, true, ""]);
 press($shell, "d");
-check("d again comes back", shows(look($shell), "Premier Division table"), true);
+expect("d again comes back", shows(look($shell), "Premier Division table"), true);
 $second_game = Game::start(6, 25);
 $second = Shell::for_game($second_game);
 press($second, "5");
 $screen = look($second);
 $table = $second_game.league.table();
-check("a manager in the second division sees it, with promotion places green and no relegation", [shows($screen, "Championship table"), contains($screen.lines()[0], "· Championship"), style_at($screen, row_of($screen, $table[1].team.name), $table[1].team.name) ?? "", style_at($screen, row_of($screen, $table[9].team.name), $table[9].team.name) ?? ""], [true, true, $table[1].team.name == $second_game.club.name ? "bold cyan" : "green", $table[9].team.name == $second_game.club.name ? "bold cyan" : ""]);
+expect("a manager in the second division sees it, with promotion places green and no relegation", [shows($screen, "Championship table"), contains($screen.lines()[0], "· Championship"), style_at($screen, row_of($screen, $table[1].team.name), $table[1].team.name) ?? "", style_at($screen, row_of($screen, $table[9].team.name), $table[9].team.name) ?? ""], [true, true, $table[1].team.name == $second_game.club.name ? "bold cyan" : "green", $table[9].team.name == $second_game.club.name ? "bold cyan" : ""]);
 
 /* ---- A bench with nobody who can come on ---- */
 $game = Game::start(6);
@@ -821,24 +821,24 @@ foreach ($game.club.eleven() as $i => $p) {
 }
 press($shell, "\r");
 $screen = look($shell);
-check("with only injured players and a goalkeeper on the bench, choosing an outfielder to take off says why instead of showing an empty list", [contains($shell.notice(), "Nobody on the bench can come on for {$outfielder}"), shows($screen, "who goes off?"), shows($screen, "Who comes on for")], [true, true, false]);
+expect("with only injured players and a goalkeeper on the bench, choosing an outfielder to take off says why instead of showing an empty list", [contains($shell.notice(), "Nobody on the bench can come on for {$outfielder}"), shows($screen, "who goes off?"), shows($screen, "Who comes on for")], [true, true, false]);
 press($shell, "\x1b");
 press($shell, "w");
 $keeper = filter($game.club.eleven(), $p -> $p.position() == "GK")[0];
-check("but a goalkeeper can be replaced by the one on the bench", [len($game.club.substitutes($keeper)) > 0], [true]);
+expect("but a goalkeeper can be replaced by the one on the bench", [len($game.club.substitutes($keeper)) > 0], [true]);
 
 /* ---- Dates on screen ---- */
 $game = Game::start(6);
 $shell = Shell::for_game($game);
 $screen = look($shell);
-check("the inbox lists the messages under their date", [shows($screen, "1 Jul"), shows($screen, "Welcome to Riverside FC")], [true, true]);
+expect("the inbox lists the messages under their date", [shows($screen, "1 Jul"), shows($screen, "Welcome to Riverside FC")], [true, true]);
 press($shell, "4");
 $screen = look($shell);
 $first_date = date::short($game.league.dates[0]);
 $fixture_row = row_of($screen, $game.league.fixtures_of($game.club)[0]["home"].name, 3);
-check("the fixtures have their dates: the first is 8 August, in the row of the first match", [$first_date, contains($screen.lines()[$fixture_row - 1], "8 Aug"), shows($screen, "Date")], ["8 Aug", true, true]);
+expect("the fixtures have their dates: the first is 8 August, in the row of the first match", [$first_date, contains($screen.lines()[$fixture_row - 1], "8 Aug"), shows($screen, "Date")], ["8 Aug", true, true]);
 press($shell, "c");
-check("the bar shows the day of the match", [contains(look($shell).lines()[0], "Sat 8 Aug 2026"), $shell.section()], [true, "Fixtures"]);
+expect("the bar shows the day of the match", [contains(look($shell).lines()[0], "Sat 8 Aug 2026"), $shell.section()], [true, "Fixtures"]);
 press($shell, "s");
 press($shell, "c");
 press($shell, "7");
@@ -846,10 +846,10 @@ press($shell, "\t");
 $game.club.balance = 1000000000;
 $game.date = date::days(2026, 9, 15);
 press($shell, "\r");
-check("in September a signing is refused, and the note says when the window opens", $shell.notice(), "The transfer window is closed until 1 January");
+expect("in September a signing is refused, and the note says when the window opens", $shell.notice(), "The transfer window is closed until 1 January");
 $game.date = date::days(2027, 1, 5);
 press($shell, "\r");
-check("in January it goes through", starts_with($shell.notice(), "Signed "), true);
+expect("in January it goes through", starts_with($shell.notice(), "Signed "), true);
 
 /* ---- Contracts on screen ---- */
 $game = Game::start(6);
@@ -857,7 +857,7 @@ $shell = Shell::for_game($game);
 $club = $game.club;
 press($shell, "2");
 $screen = look($shell);
-check("the squad has a Contract column, with the year each one runs to", [shows($screen, "Contract"), count_where($club.eleven(), $p -> contains($screen.lines()[row_of($screen, to_string($p), 3) - 1], "" .. date::year($p.contract_until))) == 11], [true, true]);
+expect("the squad has a Contract column, with the year each one runs to", [shows($screen, "Contract"), count_where($club.eleven(), $p -> contains($screen.lines()[row_of($screen, to_string($p), 3) - 1], "" .. date::year($p.contract_until))) == 11], [true, true]);
 press($shell, "\t");
 $row_player = $club.eleven()[0];
 $row_player.contract_until = date::days(2027, 6, 30);
@@ -865,15 +865,15 @@ $club.balance = 1000000000;
 $before = $club.balance;
 press($shell, "r");
 $years = $row_player.age <= 27 ? 4 : ($row_player.age <= 31 ? 2 : 1);
-check("r on the player selected renews his contract, and says until when", [date::year($row_player.contract_until), starts_with($shell.notice(), "{$row_player} is on a contract until "), $club.balance < $before], [2027 + $years, true, true]);
+expect("r on the player selected renews his contract, and says until when", [date::year($row_player.contract_until), starts_with($shell.notice(), "{$row_player} is on a contract until "), $club.balance < $before], [2027 + $years, true, true]);
 $far = $club.eleven()[1];
 $far.contract_until = date::days(2031, 6, 30);
 press($shell, "j");
 press($shell, "r");
-check("a long contract can't be renewed: the note says why", [contains($shell.notice(), "is on a contract until " .. date::format($far.contract_until))], [true]);
+expect("a long contract can't be renewed: the note says why", [contains($shell.notice(), "is on a contract until " .. date::format($far.contract_until))], [true]);
 press($shell, "7");
 $screen = look($shell);
-check("the market shows contracts and asking prices", [shows($screen, "Contract"), shows($screen, money::pounds($game.asking_price($game.market()[0][0])))], [true, true]);
+expect("the market shows contracts and asking prices", [shows($screen, "Contract"), shows($screen, money::pounds($game.asking_price($game.market()[0][0])))], [true, true]);
 
 /* ---- The cup on screen ---- */
 $game = Game::start(6, 25);
@@ -888,11 +888,11 @@ while (($game.live == null || !$game.live.is_cup()) && $guard < 100) {
     $guard++;
 }
 $screen = look($shell);
-check("a cup tie is watched like any match: the bar names the round, and the date is a Wednesday in September", [$game.live.is_cup(), contains($screen.lines()[0], "The Cup: First round"), contains($screen.lines()[0], "Wed 16 Sep 2026"), shows($screen, to_string($game.live.mine))], [true, true, true, true]);
-check("the other ties are shown as the other matches", count_where($game.live.matches, $m -> $m != $game.live.mine && shows($screen, $m.home.name)) > 3, true);
+expect("a cup tie is watched like any match: the bar names the round, and the date is a Wednesday in September", [$game.live.is_cup(), contains($screen.lines()[0], "The Cup: First round"), contains($screen.lines()[0], "Wed 16 Sep 2026"), shows($screen, to_string($game.live.mine))], [true, true, true, true]);
+expect("the other ties are shown as the other matches", count_where($game.live.matches, $m -> $m != $game.live.mine && shows($screen, $m.home.name)) > 3, true);
 press($shell, "s");
 $screen = look($shell);
-check("at the end of the ninety minutes a level tie has gone on: the clock is at ninety or, after extra time, one hundred and twenty", in_array($game.live.clock(), [90, 120]), true);
+expect("at the end of the ninety minutes a level tie has gone on: the clock is at ninety or, after extra time, one hundred and twenty", in_array($game.live.clock(), [90, 120]), true);
 press($shell, "c");
 $cup_tie = null;
 foreach ($game.cup.rounds[0][1] as $t) {
@@ -900,14 +900,14 @@ foreach ($game.cup.rounds[0][1] as $t) {
         $cup_tie = $t;
     }
 }
-check("c ends the day: the inbox has the round's results and the club's report", [$game.live, $shell.section(), shows(look($shell), "The Cup: first round") || shows(look($shell), "Cup: through") || shows(look($shell), "Cup: knocked out")], [null, "Inbox", true]);
+expect("c ends the day: the inbox has the round's results and the club's report", [$game.live, $shell.section(), shows(look($shell), "The Cup: first round") || shows(look($shell), "Cup: through") || shows(look($shell), "Cup: knocked out")], [null, "Inbox", true]);
 press($shell, "4");
 $screen = look($shell);
-check("the fixtures have the tie, marked as the cup's, dated, with its score", [shows($screen, "16 Sep"), lines_with($screen, " cup ") >= 1, shows($screen, $cup_tie.match.home_goals .. " - " .. $cup_tie.match.away_goals)], [true, true, true]);
+expect("the fixtures have the tie, marked as the cup's, dated, with its score", [shows($screen, "16 Sep"), lines_with($screen, " cup ") >= 1, shows($screen, $cup_tie.match.home_goals .. " - " .. $cup_tie.match.away_goals)], [true, true, true]);
 if ($cup_tie.winner() == $game.club) {
-    check("a club still in the cup has its next round in the list, with the draw to come", [shows($screen, "(draw to come)"), shows($screen, "The Cup: Second round")], [true, true]);
+    expect("a club still in the cup has its next round in the list, with the draw to come", [shows($screen, "(draw to come)"), shows($screen, "The Cup: Second round")], [true, true]);
 } else {
-    check("a club that is out has nothing more of the cup to come", shows($screen, "(draw to come)"), false);
+    expect("a club that is out has nothing more of the cup to come", shows($screen, "(draw to come)"), false);
 }
 
 /* ---- The board, and the sack ---- */
@@ -915,12 +915,12 @@ $boarded = Game::start(1);
 $panel = Shell::for_game($boarded);
 $screen = look($panel);
 $row = row_of($screen, "│ Board ");
-check("the board sits under the menu: its confidence as a bar, its mood and its aim", [$row != null, contains($screen.lines()[$row], "60%"), contains($screen.lines()[$row + 1], $boarded.board.mood()), contains($screen.lines()[$row + 2], "Aim") && contains($screen.lines()[$row + 3], $boarded.board.aim)], [true, true, true, true]);
+expect("the board sits under the menu: its confidence as a bar, its mood and its aim", [$row != null, contains($screen.lines()[$row], "60%"), contains($screen.lines()[$row + 1], $boarded.board.mood()), contains($screen.lines()[$row + 2], "Aim") && contains($screen.lines()[$row + 3], $boarded.board.aim)], [true, true, true, true]);
 // two relegations in a row: the board's own way to the sack
 $boarded.board.after_season(20, false, true);
 $boarded.board.after_season(20, false, true);
 $screen = look($panel);
-check("sacked, the bar says so and offers to quit", [contains($screen.lines()[$row + 1], "Sacked"), contains($screen.lines()[0], "q Quit")], [true, true]);
+expect("sacked, the bar says so and offers to quit", [contains($screen.lines()[$row + 1], "Sacked"), contains($screen.lines()[0], "q Quit")], [true, true]);
 $when = $boarded.date;
 press($panel, "c");
-check("and c moves nothing, saying why", [$boarded.date, $panel.notice()], [$when, "You have been sacked: q quits, and a saved game can be loaded"]);
+expect("and c moves nothing, saying why", [$boarded.date, $panel.notice()], [$when, "You have been sacked: q quits, and a saved game can be loaded"]);

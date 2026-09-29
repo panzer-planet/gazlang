@@ -1,65 +1,55 @@
-include "std/test.gaz" use expect as check;
+include "std/test.gaz" use expect, throws;
 include "../../../lib/http.gaz";
 include "../../../lib/crypto.gaz";
 
 /* cookies(): the Cookie header as a map, url_decode()d */
-check("no Cookie header", http::cookies({"headers" => {}}), {});
-check("an empty Cookie header", http::cookies({"headers" => {"cookie" => ""}}), {});
-check("several cookies", http::cookies({"headers" => {"cookie" => "a=1; b=2; c=3"}}), {"a" => "1", "b" => "2", "c" => "3"});
-check("a value with a url-encoded ; or =", http::cookies({"headers" => {"cookie" => "a=x%3By; b=x%3Dy"}}), {"a" => "x;y", "b" => "x=y"});
-check("empty pieces and one without =", http::cookies({"headers" => {"cookie" => "a=1;  ; b=2; nonsense"}}), {"a" => "1", "b" => "2"});
+expect("no Cookie header", http::cookies({"headers" => {}}), {});
+expect("an empty Cookie header", http::cookies({"headers" => {"cookie" => ""}}), {});
+expect("several cookies", http::cookies({"headers" => {"cookie" => "a=1; b=2; c=3"}}), {"a" => "1", "b" => "2", "c" => "3"});
+expect("a value with a url-encoded ; or =", http::cookies({"headers" => {"cookie" => "a=x%3By; b=x%3Dy"}}), {"a" => "x;y", "b" => "x=y"});
+expect("empty pieces and one without =", http::cookies({"headers" => {"cookie" => "a=1;  ; b=2; nonsense"}}), {"a" => "1", "b" => "2"});
 
 /* set_cookie(): a Set-Cookie header added, several stacking as a list (see write_response, which
    writes each element as its own line rather than joining them with a comma) */
 $response = http::set_cookie({}, "a", "hello there");
-check("set_cookie url-encodes the value and defaults path, httponly and samesite", $response["headers"]["Set-Cookie"],
+expect("set_cookie url-encodes the value and defaults path, httponly and samesite", $response["headers"]["Set-Cookie"],
     ["a=hello%20there; Path=/; HttpOnly; SameSite=Lax"]);
 $response = http::set_cookie($response, "b", "2", {"secure" => true, "http_only" => false, "same_site" => "Strict", "max_age" => 3600, "path" => "/app"});
-check("a second cookie is a second Set-Cookie line, not joined with the first", $response["headers"]["Set-Cookie"], [
+expect("a second cookie is a second Set-Cookie line, not joined with the first", $response["headers"]["Set-Cookie"], [
     "a=hello%20there; Path=/; HttpOnly; SameSite=Lax",
     "b=2; Path=/app; Max-Age=3600; Secure; SameSite=Strict",
 ]);
-check("set_cookie doesn't touch the rest of the response", http::set_cookie({"body" => "hi"}, "a", "1")["body"], "hi");
-check("an unknown option", error_of(() -> http::set_cookie({}, "a", "1", {"httponly" => false})),
-    "http::set_cookie() has no option \"httponly\": only path, http_only, secure, same_site, max_age");
+expect("set_cookie doesn't touch the rest of the response", http::set_cookie({"body" => "hi"}, "a", "1")["body"], "hi");
+throws("an unknown option", () -> http::set_cookie({}, "a", "1", {"httponly" => false}), "http::set_cookie() has no option \"httponly\": only path, http_only, secure, same_site, max_age");
 
 /* session() and session_cookie(): a session round-trips through a signed cookie */
 $secret = "the server's secret";
-check("no session cookie is an empty session, not an error", http::session({"headers" => {}}, $secret), {});
+expect("no session cookie is an empty session, not an error", http::session({"headers" => {}}, $secret), {});
 $response = http::session_cookie({}, {"user_id" => 7, "role" => "admin"}, $secret);
 $cookie_request = {"headers" => {"cookie" => "session=" .. url_after($response["headers"]["Set-Cookie"][0], "session=")}};
-check("a session round-trips through its cookie", http::session($cookie_request, $secret), {"user_id" => 7, "role" => "admin"});
+expect("a session round-trips through its cookie", http::session($cookie_request, $secret), {"user_id" => 7, "role" => "admin"});
 
 /* A cookie that isn't valid, whatever the reason, is an empty session rather than an error */
 $tampered = replace($cookie_request["headers"]["cookie"], "session=", "session=x");
-check("a tampered signature is an empty session", http::session({"headers" => {"cookie" => $tampered}}, $secret), {});
-check("the wrong secret is an empty session", http::session($cookie_request, "another secret"), {});
-check("a signed value that isn't JSON is an empty session", http::session({"headers" => {"cookie" => "session=" .. crypto::sign("not json", $secret)}}, $secret), {});
-check("a signed value that isn't a JSON object is an empty session", http::session({"headers" => {"cookie" => "session=" .. crypto::sign("[1, 2]", $secret)}}, $secret), {});
-check("no cookie header at all", http::session({"headers" => {}}, $secret), {});
+expect("a tampered signature is an empty session", http::session({"headers" => {"cookie" => $tampered}}, $secret), {});
+expect("the wrong secret is an empty session", http::session($cookie_request, "another secret"), {});
+expect("a signed value that isn't JSON is an empty session", http::session({"headers" => {"cookie" => "session=" .. crypto::sign("not json", $secret)}}, $secret), {});
+expect("a signed value that isn't a JSON object is an empty session", http::session({"headers" => {"cookie" => "session=" .. crypto::sign("[1, 2]", $secret)}}, $secret), {});
+expect("no cookie header at all", http::session({"headers" => {}}, $secret), {});
 
 /* CSRF tokens live in the session, get-or-create */
 $session = http::csrf_token({});
 $first_token = $session["csrf_token"];
-check("a fresh session gets a token", type_of($first_token), "string");
+expect("a fresh session gets a token", type_of($first_token), "string");
 $session = http::csrf_token($session);
-check("calling it again on the same session keeps the token", $session["csrf_token"], $first_token);
-check("a submitted token that matches verifies", http::verify_csrf($session, $first_token), true);
-check("a submitted token that doesn't match fails", http::verify_csrf($session, "wrong"), false);
-check("no token yet fails rather than erroring", http::verify_csrf({}, $first_token), false);
-check("a non-string submission fails rather than erroring", http::verify_csrf($session, 5), false);
+expect("calling it again on the same session keeps the token", $session["csrf_token"], $first_token);
+expect("a submitted token that matches verifies", http::verify_csrf($session, $first_token), true);
+expect("a submitted token that doesn't match fails", http::verify_csrf($session, "wrong"), false);
+expect("no token yet fails rather than erroring", http::verify_csrf({}, $first_token), false);
+expect("a non-string submission fails rather than erroring", http::verify_csrf($session, 5), false);
 
 /* The part of a Set-Cookie header's value after $prefix, up to the first ; */
 fn url_after($set_cookie, $prefix) {
     $rest = slice($set_cookie, index_of($set_cookie, $prefix) + len($prefix));
     return slice($rest, 0, index_of($rest, ";") ?? len($rest));
-}
-
-fn error_of($f) {
-    try {
-        $f();
-        return "no error";
-    } catch (Error $e) {
-        return $e.message;
-    }
 }

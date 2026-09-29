@@ -6,7 +6,7 @@ include "../../../site/pages.gaz";
 include "../../../site/markdown.gaz";
 include "../../../site/library.gaz";
 include "../../../site/documents.gaz";
-include "std/test.gaz" use expect as check;
+include "std/test.gaz" use expect;
 
 const HOSTILE = "<b id=\"x\">it's & \"so\"</b>";
 const ESCAPED = "&lt;b id=&quot;x&quot;&gt;it&#39;s &amp; &quot;so&quot;&lt;/b&gt;";
@@ -20,16 +20,16 @@ $renderer = markdown::Renderer();
 
 // An entry's kind, name and comment
 $entry = library::Entry(HOSTILE, "f", [], HOSTILE);
-check("an entry", escapes(entry(EntryView($entry, "ns", null, $renderer))), [true, false]);
-check("a member", escapes(entry(EntryView($entry, "ns", "Kind", $renderer))), [true, false]);
+expect("an entry", escapes(entry(EntryView($entry, "ns", null, $renderer))), [true, false]);
+expect("a member", escapes(entry(EntryView($entry, "ns", "Kind", $renderer))), [true, false]);
 
 // A navigation list's titles and links
 $nav = nav_list([documents::NavItem(HOSTILE, HOSTILE, true, [documents::NavItem(HOSTILE, "#y")])]);
-check("a navigation list", escapes($nav), [true, false]);
+expect("a navigation list", escapes($nav), [true, false]);
 
 // The download box's version, links and their text
 $box = downloads(HOSTILE, [documents::Link(HOSTILE, HOSTILE)], [documents::Link(HOSTILE, HOSTILE)]);
-check("the download box", escapes($box), [true, false]);
+expect("the download box", escapes($box), [true, false]);
 
 // A page's title, description, pager and sidebar
 $page = Page("reference/a.html", "reference", HOSTILE, HOSTILE, Html("<p>body</p>"));
@@ -38,14 +38,14 @@ $page.next = documents::Link(HOSTILE, "reference/c.html");
 $page.sidebar = [documents::NavItem(HOSTILE, "#z")];
 $page.sidebar_label = HOSTILE;
 $html = layout($page, documents::Repository("o/n"));
-check("a page", escapes($html), [true, false]);
-check("the title is escaped", contains($html.text, "<title>" .. ESCAPED .. "</title>"), true);
-check("a page two down finds the root", Page("a/b/c.html", "home", "t", "d", Html("")).root(), "../../");
+expect("a page", escapes($html), [true, false]);
+expect("the title is escaped", contains($html.text, "<title>" .. ESCAPED .. "</title>"), true);
+expect("a page two down finds the root", Page("a/b/c.html", "home", "t", "d", Html("")).root(), "../../");
 
 // The library's index and a page of it
 $library = library::Library("x", "x", HOSTILE, [$entry]);
-check("the library index", escapes(library_index([LibraryView($library, $renderer)])), [true, false]);
-check("a library page", escapes(library_page(LibraryView($library, $renderer))), [true, false]);
+expect("the library index", escapes(library_index([LibraryView($library, $renderer)])), [true, false]);
+expect("a library page", escapes(library_page(LibraryView($library, $renderer))), [true, false]);
 
 // A sidebar: the second level, with the third under each; a third before any second is left out
 $headings = [
@@ -53,9 +53,9 @@ $headings = [
     markdown::Heading(4, "Deep", "deep"), markdown::Heading(2, "C", "c"),
 ];
 $shape = map(heading_navigation($headings), $item -> [$item.title, map($item.children, $child -> $child.title)]);
-check("a sidebar's levels", $shape, [["A", ["B"]], ["C", []]]);
+expect("a sidebar's levels", $shape, [["A", ["B"]], ["C", []]]);
 
-check("a release's version", [version_of("v1.2.3"), version_of("1.2.3")], ["1.2.3", "1.2.3"]);
-check("before the first section", before_first_section("<h1>T</h1><p>a</p><h2 id=\"b\">B</h2>", "[box]"),
+expect("a release's version", [version_of("v1.2.3"), version_of("1.2.3")], ["1.2.3", "1.2.3"]);
+expect("before the first section", before_first_section("<h1>T</h1><p>a</p><h2 id=\"b\">B</h2>", "[box]"),
     "<h1>T</h1><p>a</p>[box]<h2 id=\"b\">B</h2>");
-check("at the end without one", before_first_section("<p>a</p>", "[box]"), "<p>a</p>[box]");
+expect("at the end without one", before_first_section("<p>a</p>", "[box]"), "<p>a</p>[box]");

@@ -1,4 +1,4 @@
-include "std/test.gaz" use expect as check;
+include "std/test.gaz" use expect, throws;
 include "../../../lib/crypto.gaz" use hex;
 include "../../../lib/lists.gaz";
 
@@ -8,14 +8,14 @@ fn bytes($values) {
 }
 
 /* SHA-256: FIPS 180-4's examples (and NIST's for the million a's) */
-check("sha256 of nothing", hex(sha256("")), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
-check("sha256 of abc", hex(sha256("abc")), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
-check("sha256 of 448 bits", hex(sha256("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq")),
+expect("sha256 of nothing", hex(sha256("")), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+expect("sha256 of abc", hex(sha256("abc")), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+expect("sha256 of 448 bits", hex(sha256("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq")),
     "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1");
-check("sha256 of 896 bits", hex(sha256("abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu")),
+expect("sha256 of 896 bits", hex(sha256("abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu")),
     "cf5b16a778af8380036ce59e7b0492370b249b11e8f07a51afac45037afee9d1");
-check("sha256 of a million a's", hex(sha256(repeat("a", 1000000))), "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0");
-check("sha256 gives 32 raw bytes", len(sha256("x")), 32);
+expect("sha256 of a million a's", hex(sha256(repeat("a", 1000000))), "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0");
+expect("sha256 gives 32 raw bytes", len(sha256("x")), 32);
 
 /* Around the padding's edges: a length that leaves room for the length in the last block (55),
    one that doesn't (56), and whole blocks (64, 128); from PHP's hash() */
@@ -28,42 +28,42 @@ $around_blocks = {
     128 => ["6836cf13bac400e9105071cd6af47084dfacad4e5e302c94bfed24e013afb73e", "8ba3cb07bbfd8aa9156963b5e8f9bda09041400b06a6aef3974a69b886611499"],
 };
 foreach ($around_blocks as $n => [$digest, $mac]) {
-    check("sha256 of {$n} bytes", hex(sha256(repeat("a", $n))), $digest);
-    check("hmac_sha256 with {$n} bytes of data and key", hex(hmac_sha256(repeat("b", $n), repeat("k", $n))), $mac);
+    expect("sha256 of {$n} bytes", hex(sha256(repeat("a", $n))), $digest);
+    expect("hmac_sha256 with {$n} bytes of data and key", hex(hmac_sha256(repeat("b", $n), repeat("k", $n))), $mac);
 }
 
 /* HMAC-SHA256: RFC 4231's test cases 1 to 7 (case 5 is truncated to 128 bits) */
-check("RFC 4231 case 1", hex(hmac_sha256("Hi There", repeat("\x0b", 20))), "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7");
-check("RFC 4231 case 2", hex(hmac_sha256("what do ya want for nothing?", "Jefe")), "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843");
-check("RFC 4231 case 3", hex(hmac_sha256(repeat("\xdd", 50), repeat("\xaa", 20))), "773ea91e36800e46854db8ebd09181a72959098b3ef8c122d9635514ced565fe");
-check("RFC 4231 case 4", hex(hmac_sha256(repeat("\xcd", 50), bytes([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]))),
+expect("RFC 4231 case 1", hex(hmac_sha256("Hi There", repeat("\x0b", 20))), "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7");
+expect("RFC 4231 case 2", hex(hmac_sha256("what do ya want for nothing?", "Jefe")), "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843");
+expect("RFC 4231 case 3", hex(hmac_sha256(repeat("\xdd", 50), repeat("\xaa", 20))), "773ea91e36800e46854db8ebd09181a72959098b3ef8c122d9635514ced565fe");
+expect("RFC 4231 case 4", hex(hmac_sha256(repeat("\xcd", 50), bytes([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]))),
     "82558a389a443c0ea4cc819899f2083a85f0faa3e578f8077a2e3ff46729665b");
-check("RFC 4231 case 5", slice(hex(hmac_sha256("Test With Truncation", repeat("\x0c", 20))), 0, 32), "a3b6167473100ee06e0c796c2955552b");
-check("RFC 4231 case 6", hex(hmac_sha256("Test Using Larger Than Block-Size Key - Hash Key First", repeat("\xaa", 131))),
+expect("RFC 4231 case 5", slice(hex(hmac_sha256("Test With Truncation", repeat("\x0c", 20))), 0, 32), "a3b6167473100ee06e0c796c2955552b");
+expect("RFC 4231 case 6", hex(hmac_sha256("Test Using Larger Than Block-Size Key - Hash Key First", repeat("\xaa", 131))),
     "60e431591ee0b67f0d8a26aacbf5b77f8e0bc6213728c5140546040f0ee37f54");
-check("RFC 4231 case 7", hex(hmac_sha256("This is a test using a larger than block-size key and a larger than block-size data. The key needs to be hashed before being used by the HMAC algorithm.", repeat("\xaa", 131))),
+expect("RFC 4231 case 7", hex(hmac_sha256("This is a test using a larger than block-size key and a larger than block-size data. The key needs to be hashed before being used by the HMAC algorithm.", repeat("\xaa", 131))),
     "9b09ffa71b942fcb27635fbcd5b0e944bfdc63644f0713938a7f51535c3a35e2");
-check("an empty key", hex(hmac_sha256("", "")), "b613679a0814d9ec772f95d778c35fc5ff1697c493715653c6c712144292c5ad");
+expect("an empty key", hex(hmac_sha256("", "")), "b613679a0814d9ec772f95d778c35fc5ff1697c493715653c6c712144292c5ad");
 
 /* PBKDF2-HMAC-SHA256: RFC 7914 section 11 */
-check("RFC 7914 PBKDF2, 1 iteration", hex(pbkdf2_sha256("passwd", "salt", 1, 64)),
+expect("RFC 7914 PBKDF2, 1 iteration", hex(pbkdf2_sha256("passwd", "salt", 1, 64)),
     "55ac046e56e3089fec1691c22544b605f94185216dde0465e68b9d57c20dacbc49ca9cccf179b645991664b39d77ef317c71b845b1e30bd509112041d3a19783");
-check("RFC 7914 PBKDF2, 80000 iterations", hex(pbkdf2_sha256("Password", "NaCl", 80000, 64)),
+expect("RFC 7914 PBKDF2, 80000 iterations", hex(pbkdf2_sha256("Password", "NaCl", 80000, 64)),
     "4ddcd8f60b98be21830cee5ef22701f9641a4418d04c0414aeff08876b34ab56a1d425a1225833549adb841b51c9b3176a272bdebba1d078478f62b397f33c8d");
-check("PBKDF2 cut short in a block", hex(pbkdf2_sha256("password", "salt", 4096, 20)), "c5e478d59288c841aa530db6845c4c8d962893a0");
+expect("PBKDF2 cut short in a block", hex(pbkdf2_sha256("password", "salt", 4096, 20)), "c5e478d59288c841aa530db6845c4c8d962893a0");
 
 /* scrypt: RFC 7914 section 12's first three (the fourth takes 1 GiB: tests/CryptoTest.php) */
-check("RFC 7914 scrypt 1", hex(scrypt("", "", 16, 1, 1, 64)),
+expect("RFC 7914 scrypt 1", hex(scrypt("", "", 16, 1, 1, 64)),
     "77d6576238657b203b19ca42c18a0497f16b4844e3074ae8dfdffa3fede21442fcd0069ded0948f8326a753a0fc81f17e8d3e0fb2e0d3628cf35e20c38d18906");
-check("RFC 7914 scrypt 2", hex(scrypt("password", "NaCl", 1024, 8, 16, 64)),
+expect("RFC 7914 scrypt 2", hex(scrypt("password", "NaCl", 1024, 8, 16, 64)),
     "fdbabe1c9d3472007856e7190d01e9fe7c6ad7cbc8237830e77376634b3731622eaf30d92e22a3886ff109279d9830dac727afb94a83ee6d8360cbdfa2cc0640");
-check("RFC 7914 scrypt 3", hex(scrypt("pleaseletmein", "SodiumChloride", 16384, 8, 1, 64)),
+expect("RFC 7914 scrypt 3", hex(scrypt("pleaseletmein", "SodiumChloride", 16384, 8, 1, 64)),
     "7023bdcb3afd7348461c06cd81fd38ebfda8fbba904f8e3ea9b543f6545da1f2d5432955613f0fcf62d49705242a9af9e61e85dc0d651e40dfcf017b45575887");
-check("scrypt with an odd block size, from Python's hashlib", hex(scrypt("password", "salt", 2, 3, 2, 65)),
+expect("scrypt with an odd block size, from Python's hashlib", hex(scrypt("password", "salt", 2, 3, 2, 65)),
     "971fa5dc8fdc3214285166bfa676a039d9b7eb228a2072aba7d3ece67f2e3107b0aba27664e9fe9d7b9aed652dc7c93526837109c1bde1017fe9966de229d36363");
 
 /* Argon2id: RFC 9106 section 5.3, with a secret and associated data */
-check("RFC 9106 Argon2id", hex(argon2id(repeat("\x01", 32), repeat("\x02", 16), 3, 32, 4, 32, repeat("\x03", 8), repeat("\x04", 12))),
+expect("RFC 9106 Argon2id", hex(argon2id(repeat("\x01", 32), repeat("\x02", 16), 3, 32, 4, 32, repeat("\x03", 8), repeat("\x04", 12))),
     "0d640df58d78766c08c037a34a8b53c9d01ef0452d75b65eb52520e96b01e659");
 /* Tag lengths on each side of H''s 64 bytes, a memory that isn't a multiple of 4 blocks a lane (26
    KiB over 3 lanes is rounded down to 24), and segments longer than the 128 addresses one address
@@ -78,15 +78,15 @@ $argon2 = [
     [32, 2, 1100, 2, "8aa0ecc93fdf290322e7f0794c95d3a49e46c3124e569d9f3c8f9f9bf3bea246"],
 ];
 foreach ($argon2 as [$length, $passes, $memory, $lanes, $expected]) {
-    check("argon2id t={$passes} m={$memory} p={$lanes}, {$length} bytes", hex(argon2id("password", "saltsalt", $passes, $memory, $lanes, $length)), $expected);
+    expect("argon2id t={$passes} m={$memory} p={$lanes}, {$length} bytes", hex(argon2id("password", "saltsalt", $passes, $memory, $lanes, $length)), $expected);
 }
-check("argon2id of a 1024-byte tag, by its sha256", hex(sha256(argon2id("password", "saltsalt", 1, 16, 1, 1024))),
+expect("argon2id of a 1024-byte tag, by its sha256", hex(sha256(argon2id("password", "saltsalt", 1, 16, 1, 1024))),
     "5d3fc016d06af4de195fe994ec64df88893eac4f616bf1e00688808713f62d43");
-check("an empty secret and data are none", argon2id("pw", "saltsalt", 1, 8, 1, 16, "", ""), argon2id("pw", "saltsalt", 1, 8, 1, 16));
+expect("an empty secret and data are none", argon2id("pw", "saltsalt", 1, 8, 1, 16, "", ""), argon2id("pw", "saltsalt", 1, 8, 1, 16));
 
 /* random_bytes */
-check("random_bytes gives as many as asked", [len(random_bytes(0)), len(random_bytes(1)), len(random_bytes(257)), len(random_bytes(1000))], [0, 1, 257, 1000]);
-check("random_bytes differ", random_bytes(16) != random_bytes(16), true);
+expect("random_bytes gives as many as asked", [len(random_bytes(0)), len(random_bytes(1)), len(random_bytes(257)), len(random_bytes(1000))], [0, 1, 257, 1000]);
+expect("random_bytes differ", random_bytes(16) != random_bytes(16), true);
 /* Every 256 bytes (what one getentropy() call gives) is filled: 4 KiB in 16 chunks, none all
    zero (a chance of 2 ** -2048 each) and no two the same */
 $draw = random_bytes(4096);
@@ -94,64 +94,55 @@ $chunks = [];
 for ($at = 0; $at < 4096; $at += 256) {
     $chunks[] = slice($draw, $at, 256);
 }
-check("random_bytes fills every 256-byte chunk", len(filter($chunks, $chunk -> $chunk == repeat("\x00", 256))), 0);
-check("random_bytes' chunks differ", len(lists::unique($chunks)), 16);
+expect("random_bytes fills every 256-byte chunk", len(filter($chunks, $chunk -> $chunk == repeat("\x00", 256))), 0);
+expect("random_bytes' chunks differ", len(lists::unique($chunks)), 16);
 
 /* Hex and base64: RFC 4648 section 10 */
-check("hex", [hex(""), hex("\x00\x7f\x80\xff"), crypto::hex("foobar")], ["", "007f80ff", "666f6f626172"]);
-check("from_hex, either case", [crypto::from_hex(""), crypto::from_hex("007F80fF"), crypto::from_hex("666f6f626172")], ["", "\x00\x7f\x80\xff", "foobar"]);
+expect("hex", [hex(""), hex("\x00\x7f\x80\xff"), crypto::hex("foobar")], ["", "007f80ff", "666f6f626172"]);
+expect("from_hex, either case", [crypto::from_hex(""), crypto::from_hex("007F80fF"), crypto::from_hex("666f6f626172")], ["", "\x00\x7f\x80\xff", "foobar"]);
 $rfc4648 = {"" => "", "f" => "Zg==", "fo" => "Zm8=", "foo" => "Zm9v", "foob" => "Zm9vYg==", "fooba" => "Zm9vYmE=", "foobar" => "Zm9vYmFy"};
 foreach ($rfc4648 as $plain => $encoded) {
-    check("base64 of " .. to_string([$plain]), crypto::base64($plain), $encoded);
-    check("from_base64 of " .. to_string([$encoded]), crypto::from_base64($encoded), $plain);
-    check("base64url of " .. to_string([$plain]), crypto::base64url($plain), replace($encoded, "=", ""));
-    check("from_base64url of " .. to_string([$plain]), crypto::from_base64url(crypto::base64url($plain)), $plain);
+    expect("base64 of " .. to_string([$plain]), crypto::base64($plain), $encoded);
+    expect("from_base64 of " .. to_string([$encoded]), crypto::from_base64($encoded), $plain);
+    expect("base64url of " .. to_string([$plain]), crypto::base64url($plain), replace($encoded, "=", ""));
+    expect("from_base64url of " .. to_string([$plain]), crypto::from_base64url(crypto::base64url($plain)), $plain);
 }
-check("base64 and base64url's own characters", [crypto::base64("\xfb\xff\xbf"), crypto::base64url("\xfb\xff\xbf")], ["+/+/", "-_-_"]);
+expect("base64 and base64url's own characters", [crypto::base64("\xfb\xff\xbf"), crypto::base64url("\xfb\xff\xbf")], ["+/+/", "-_-_"]);
 $all = "";
 for ($i = 0; $i < 256; $i++) {
     $all ..= chr($i);
 }
-check("every byte there and back", [crypto::from_hex(hex($all)), crypto::from_base64(crypto::base64($all)), crypto::from_base64url(crypto::base64url($all))], [$all, $all, $all]);
+expect("every byte there and back", [crypto::from_hex(hex($all)), crypto::from_base64(crypto::base64($all)), crypto::from_base64url(crypto::base64url($all))], [$all, $all, $all]);
 
-fn error_of($f) {
-    try {
-        $f();
-    } catch (Error $e) {
-        return $e.message;
-    }
-    return "no error";
-}
-
-check("from_hex refuses an odd count", error_of(() -> crypto::from_hex("abc")), "crypto::from_hex() expects an even number of digits, got 3");
-check("from_hex refuses what isn't hex", error_of(() -> crypto::from_hex("0g")), "crypto::from_hex() expects hex digits, got \"g\" at 1");
-check("from_base64 refuses a missing =", error_of(() -> crypto::from_base64("Zg")), "crypto::from_base64() expects a multiple of 4 characters, got 2");
-check("from_base64 refuses base64url", error_of(() -> crypto::from_base64("-_-_")), "crypto::from_base64() expects base64 characters, got \"-\" at 0");
-check("from_base64 refuses = inside", error_of(() -> crypto::from_base64("Zg==Zg==")), "crypto::from_base64() expects base64 characters, got \"=\" at 2");
-check("from_base64 refuses three =", error_of(() -> crypto::from_base64("Z===")), "crypto::from_base64() expects base64 characters, got \"=\" at 1");
-check("from_base64 refuses bits left over", error_of(() -> crypto::from_base64("Zh==")), "crypto::from_base64() expects the bits after the last byte to be zero");
-check("from_base64url refuses padding", error_of(() -> crypto::from_base64url("Zg==")), "crypto::from_base64url() expects base64url characters, got \"=\" at 2");
-check("from_base64url refuses a single character at the end", error_of(() -> crypto::from_base64url("Zm9vY")), "crypto::from_base64url() can't end with a single character");
+throws("from_hex refuses an odd count", () -> crypto::from_hex("abc"), "crypto::from_hex() expects an even number of digits, got 3");
+throws("from_hex refuses what isn't hex", () -> crypto::from_hex("0g"), "crypto::from_hex() expects hex digits, got \"g\" at 1");
+throws("from_base64 refuses a missing =", () -> crypto::from_base64("Zg"), "crypto::from_base64() expects a multiple of 4 characters, got 2");
+throws("from_base64 refuses base64url", () -> crypto::from_base64("-_-_"), "crypto::from_base64() expects base64 characters, got \"-\" at 0");
+throws("from_base64 refuses = inside", () -> crypto::from_base64("Zg==Zg=="), "crypto::from_base64() expects base64 characters, got \"=\" at 2");
+throws("from_base64 refuses three =", () -> crypto::from_base64("Z==="), "crypto::from_base64() expects base64 characters, got \"=\" at 1");
+throws("from_base64 refuses bits left over", () -> crypto::from_base64("Zh=="), "crypto::from_base64() expects the bits after the last byte to be zero");
+throws("from_base64url refuses padding", () -> crypto::from_base64url("Zg=="), "crypto::from_base64url() expects base64url characters, got \"=\" at 2");
+throws("from_base64url refuses a single character at the end", () -> crypto::from_base64url("Zm9vY"), "crypto::from_base64url() can't end with a single character");
 
 /* Tokens and comparing */
 $token = crypto::token();
-check("a token is 32 bytes in base64url", [len($token), len(crypto::from_base64url($token))], [43, 32]);
-check("a token of 12 bytes", len(crypto::token(12)), 16);
-check("tokens differ", crypto::token() != crypto::token(), true);
-check("short tokens", [len(crypto::token(1)), len(crypto::token(2)), len(crypto::token(11)), len(crypto::from_base64url(crypto::token(11)))], [2, 3, 15, 11]);
-check("a token of no bytes", error_of(() -> crypto::token(0)), "crypto::token() expects 1 byte or more, got 0");
-check("a token of fewer", error_of(() -> crypto::token(-5)), "crypto::token() expects 1 byte or more, got -5");
-check("equals", [crypto::equals("", ""), crypto::equals("abc", "abc"), crypto::equals("abc", "abd"), crypto::equals("abc", "ab"), crypto::equals("\x00", "")],
+expect("a token is 32 bytes in base64url", [len($token), len(crypto::from_base64url($token))], [43, 32]);
+expect("a token of 12 bytes", len(crypto::token(12)), 16);
+expect("tokens differ", crypto::token() != crypto::token(), true);
+expect("short tokens", [len(crypto::token(1)), len(crypto::token(2)), len(crypto::token(11)), len(crypto::from_base64url(crypto::token(11)))], [2, 3, 15, 11]);
+throws("a token of no bytes", () -> crypto::token(0), "crypto::token() expects 1 byte or more, got 0");
+throws("a token of fewer", () -> crypto::token(-5), "crypto::token() expects 1 byte or more, got -5");
+expect("equals", [crypto::equals("", ""), crypto::equals("abc", "abc"), crypto::equals("abc", "abd"), crypto::equals("abc", "ab"), crypto::equals("\x00", "")],
     [true, true, false, false, false]);
 
 /* Signing: sign() then unsign() gives back the value, under its own secret only, and a single
    changed character anywhere (the value, the dot, or the MAC) fails, rather than only the MAC
    ever being checked */
 $signed = crypto::sign("hello, world", "the secret");
-check("unsign recovers a signed value", crypto::unsign($signed, "the secret"), "hello, world");
-check("unsign refuses another secret", crypto::unsign($signed, "wrong secret"), null);
-check("unsign refuses text with no dot", crypto::unsign("no-separator-here", "the secret"), null);
-check("sign of the empty string still verifies", crypto::unsign(crypto::sign("", "k"), "k"), "");
+expect("unsign recovers a signed value", crypto::unsign($signed, "the secret"), "hello, world");
+expect("unsign refuses another secret", crypto::unsign($signed, "wrong secret"), null);
+expect("unsign refuses text with no dot", crypto::unsign("no-separator-here", "the secret"), null);
+expect("sign of the empty string still verifies", crypto::unsign(crypto::sign("", "k"), "k"), "");
 $every_flip_fails = true;
 for ($i = 0; $i < len($signed); $i++) {
     $flipped = split($signed, "");
@@ -160,7 +151,7 @@ for ($i = 0; $i < len($signed); $i++) {
         $every_flip_fails = false;
     }
 }
-check("flipping any one byte fails verification", $every_flip_fails, true);
+expect("flipping any one byte fails verification", $every_flip_fails, true);
 
 /* Passwords, with small parameters: the defaults take a tenth of a second each on their own */
 $small = {
@@ -170,14 +161,14 @@ $small = {
 };
 foreach ($small as $name => $options) {
     $stored = crypto::hash_password("correct horse", $options);
-    check("{$name}: the right password", crypto::verify_password("correct horse", $stored), true);
-    check("{$name}: a wrong one", crypto::verify_password("correct horsf", $stored), false);
-    check("{$name}: salted", crypto::hash_password("correct horse", $options) != $stored, true);
-    check("{$name}: its settings are the ones asked for", crypto::needs_rehash($stored, $options), false);
-    check("{$name}: other settings", crypto::needs_rehash($stored), true);
-    check("{$name}: the stored string's shape", shape($stored), "\${$name}\$...\$22\$43");
+    expect("{$name}: the right password", crypto::verify_password("correct horse", $stored), true);
+    expect("{$name}: a wrong one", crypto::verify_password("correct horsf", $stored), false);
+    expect("{$name}: salted", crypto::hash_password("correct horse", $options) != $stored, true);
+    expect("{$name}: its settings are the ones asked for", crypto::needs_rehash($stored, $options), false);
+    expect("{$name}: other settings", crypto::needs_rehash($stored), true);
+    expect("{$name}: the stored string's shape", shape($stored), "\${$name}\$...\$22\$43");
 }
-check("argon2id's header", slice(crypto::hash_password("x", {"m" => 64, "t" => 1, "p" => 2}), 0, 28), "\$argon2id\$v=19\$m=64,t=1,p=2\$");
+expect("argon2id's header", slice(crypto::hash_password("x", {"m" => 64, "t" => 1, "p" => 2}), 0, 28), "\$argon2id\$v=19\$m=64,t=1,p=2\$");
 
 /* The stored string without its salt and hash, and their lengths */
 fn shape($stored) {
@@ -194,7 +185,7 @@ $others = [
 ];
 foreach ($others as $stored) {
     $name = split($stored, "\$")[1];
-    check("{$name} from elsewhere", [crypto::verify_password("correct horse", $stored), crypto::verify_password("Correct horse", $stored)], [true, false]);
+    expect("{$name} from elsewhere", [crypto::verify_password("correct horse", $stored), crypto::verify_password("Correct horse", $stored)], [true, false]);
 }
 
 
@@ -228,9 +219,9 @@ $good = {
 foreach ($good as $name => $stored) {
     $parts = len(split($stored, '$'));
     $flipped = with_part($stored, $parts - 1, unpadded(last_byte_flipped(hash_of($stored))));
-    check("{$name}: the right one", crypto::verify_password("pw", $stored), true);
-    check("{$name}: a password wrong in its last byte", crypto::verify_password("px", $stored), false);
-    check("{$name}: a hash wrong in its last byte", crypto::verify_password("pw", $flipped), false);
+    expect("{$name}: the right one", crypto::verify_password("pw", $stored), true);
+    expect("{$name}: a password wrong in its last byte", crypto::verify_password("px", $stored), false);
+    expect("{$name}: a hash wrong in its last byte", crypto::verify_password("pw", $flipped), false);
 }
 
 /* Stored strings verify_password() can't read, or won't: false, as for a wrong password. Each is
@@ -277,8 +268,8 @@ $refused = {
     "an empty hash" => with_part($pbkdf2, 4, ""),
 };
 foreach ($refused as $what => $stored) {
-    check("refuses {$what}", crypto::verify_password("pw", $stored), false);
-    check("needs a rehash: {$what}", crypto::needs_rehash($stored), true);
+    expect("refuses {$what}", crypto::verify_password("pw", $stored), false);
+    expect("needs a rehash: {$what}", crypto::needs_rehash($stored), true);
 }
 
 /* Over the limits or the salt's floor with the right hash, so only the check can refuse them;
@@ -301,7 +292,7 @@ $right_but_refused = {
     "no salt" => stored('$pbkdf2-sha256$i=1', "", pbkdf2_sha256("pw", "", 1, 32)),
 };
 foreach ($right_but_refused as $what => $stored) {
-    check("refuses the right password with {$what}", crypto::verify_password("pw", $stored), false);
+    expect("refuses the right password with {$what}", crypto::verify_password("pw", $stored), false);
 }
 $at_the_limits = {
     "scrypt's r" => stored('$scrypt$ln=1,r=16,p=1', "saltsalt", scrypt("pw", "saltsalt", 2, 16, 1, 32)),
@@ -311,7 +302,7 @@ $at_the_limits = {
     "a salt of 8 bytes" => stored('$pbkdf2-sha256$i=1', "12345678", pbkdf2_sha256("pw", "12345678", 1, 32)),
 };
 foreach ($at_the_limits as $what => $stored) {
-    check("accepts {$what} at its limit", crypto::verify_password("pw", $stored), true);
+    expect("accepts {$what} at its limit", crypto::verify_password("pw", $stored), true);
 }
 
 /* A hash cut to a byte would match a wrong password one time in 256: refused whatever the
@@ -323,30 +314,25 @@ for ($i = 0; $i < 2000; $i++) {
         $accepted++;
     }
 }
-check("a hash of one byte accepts none of 2000 wrong passwords", $accepted, 0);
-check("nor the right one", crypto::verify_password("right", $cut), false);
+expect("a hash of one byte accepts none of 2000 wrong passwords", $accepted, 0);
+expect("nor the right one", crypto::verify_password("right", $cut), false);
 $sixteen = '$pbkdf2-sha256$i=1$' .. unpadded("saltsalt") .. '$' .. unpadded(pbkdf2_sha256("right", "saltsalt", 1, 16));
-check("a hash of 16 bytes, the shortest read", [crypto::verify_password("right", $sixteen), crypto::verify_password("wrong", $sixteen)], [true, false]);
+expect("a hash of 16 bytes, the shortest read", [crypto::verify_password("right", $sixteen), crypto::verify_password("wrong", $sixteen)], [true, false]);
 $sixty_four = '$pbkdf2-sha256$i=1$' .. unpadded("saltsalt") .. '$' .. unpadded(pbkdf2_sha256("right", "saltsalt", 1, 64));
-check("a hash of 64 bytes, the longest", [crypto::verify_password("right", $sixty_four), crypto::verify_password("wrong", $sixty_four)], [true, false]);
+expect("a hash of 64 bytes, the longest", [crypto::verify_password("right", $sixty_four), crypto::verify_password("wrong", $sixty_four)], [true, false]);
 
 /* The limits, lowered and raised again for one algorithm */
-check("a lower limit refuses", crypto::verify_password("pw", $pbkdf2, {"pbkdf2-sha256" => {"i" => 9}}), false);
-check("a limit at the stored cost accepts", crypto::verify_password("pw", $pbkdf2, {"pbkdf2-sha256" => {"i" => 10}}), true);
-check("other algorithms' limits stay", crypto::verify_password("pw", $argon2, {"pbkdf2-sha256" => {"i" => 1}}), true);
-check("limits for an unknown algorithm", error_of(() -> crypto::verify_password("pw", $pbkdf2, {"md5" => {}})),
-    "crypto: unknown algorithm \"md5\" in the limits, expected argon2id, scrypt or pbkdf2-sha256");
-check("limits for an unknown parameter", error_of(() -> crypto::verify_password("pw", $pbkdf2, {"scrypt" => {"n" => 5}})),
-    "crypto: scrypt's limits are ints for ln, r, p, got \"n\" => 5");
-check("a limit that isn't an int", error_of(() -> crypto::verify_password("pw", $pbkdf2, {"scrypt" => {"ln" => 5.0}})),
-    "crypto: scrypt's limits are ints for ln, r, p, got \"ln\" => 5.0");
-check("verify_password still wants strings", error_of(() -> crypto::verify_password("pw", null)),
-    "crypto::verify_password() expects \$stored to be string, got null");
-check("needs_rehash ignores the limits", crypto::needs_rehash(with_part($pbkdf2, 2, "i=2400001"), {"algorithm" => "pbkdf2-sha256", "i" => 2400001}), false);
+expect("a lower limit refuses", crypto::verify_password("pw", $pbkdf2, {"pbkdf2-sha256" => {"i" => 9}}), false);
+expect("a limit at the stored cost accepts", crypto::verify_password("pw", $pbkdf2, {"pbkdf2-sha256" => {"i" => 10}}), true);
+expect("other algorithms' limits stay", crypto::verify_password("pw", $argon2, {"pbkdf2-sha256" => {"i" => 1}}), true);
+throws("limits for an unknown algorithm", () -> crypto::verify_password("pw", $pbkdf2, {"md5" => {}}), "crypto: unknown algorithm \"md5\" in the limits, expected argon2id, scrypt or pbkdf2-sha256");
+throws("limits for an unknown parameter", () -> crypto::verify_password("pw", $pbkdf2, {"scrypt" => {"n" => 5}}), "crypto: scrypt's limits are ints for ln, r, p, got \"n\" => 5");
+throws("a limit that isn't an int", () -> crypto::verify_password("pw", $pbkdf2, {"scrypt" => {"ln" => 5.0}}), "crypto: scrypt's limits are ints for ln, r, p, got \"ln\" => 5.0");
+throws("verify_password still wants strings", () -> crypto::verify_password("pw", null), "crypto::verify_password() expects \$stored to be string, got null");
+expect("needs_rehash ignores the limits", crypto::needs_rehash(with_part($pbkdf2, 2, "i=2400001"), {"algorithm" => "pbkdf2-sha256", "i" => 2400001}), false);
 
-check("an unknown algorithm", error_of(() -> crypto::hash_password("pw", {"algorithm" => "md5"})),
-    "crypto: unknown algorithm \"md5\", expected argon2id, scrypt or pbkdf2-sha256");
-check("a parameter the algorithm doesn't have", error_of(() -> crypto::hash_password("pw", {"i" => 5})), "crypto: argon2id has no parameter \"i\", expected m, t, p");
-check("a parameter that isn't an int", error_of(() -> crypto::hash_password("pw", {"t" => "3"})), "crypto: argon2id's t must be an int, got string");
-check("scrypt's ln out of range", error_of(() -> crypto::hash_password("pw", {"algorithm" => "scrypt", "ln" => 63})), "crypto: scrypt's ln must be from 1 to 62, got 63");
-check("a password that isn't a string", error_of(() -> crypto::hash_password(5)), "crypto::hash_password() expects \$password to be string, got int");
+throws("an unknown algorithm", () -> crypto::hash_password("pw", {"algorithm" => "md5"}), "crypto: unknown algorithm \"md5\", expected argon2id, scrypt or pbkdf2-sha256");
+throws("a parameter the algorithm doesn't have", () -> crypto::hash_password("pw", {"i" => 5}), "crypto: argon2id has no parameter \"i\", expected m, t, p");
+throws("a parameter that isn't an int", () -> crypto::hash_password("pw", {"t" => "3"}), "crypto: argon2id's t must be an int, got string");
+throws("scrypt's ln out of range", () -> crypto::hash_password("pw", {"algorithm" => "scrypt", "ln" => 63}), "crypto: scrypt's ln must be from 1 to 62, got 63");
+throws("a password that isn't a string", () -> crypto::hash_password(5), "crypto::hash_password() expects \$password to be string, got int");

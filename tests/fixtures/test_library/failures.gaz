@@ -1,0 +1,33 @@
+/*
+ * Deliberately failing, for tests/gaz/lib/test_test.gaz: every way a check of std/test.gaz can
+ * fail, once, between checks that pass, and done() at the end, which must exit 1
+ */
+include "std/test.gaz" use expect, throws;
+
+kind NotFound extends Error {
+    fn _($key) { ##_("Not found: {$key}"); }
+}
+
+expect("equal ints", 2 + 2, 4);
+expect("mismatched types", 1, "1");
+expect("wrong value", "a", "b");
+expect("a list, told where", [1, [2, 3]], [1, [2, 4]]);
+expect("a list too short", [1], [1, 2]);
+expect("a list too long", [1, 2], [1]);
+expect("a map, told which key", {"a" => 1, "b" => {"c" => "x"}}, {"a" => 1, "b" => {"c" => "y"}});
+expect("a key missing", {"a" => 1}, {"a" => 1, "b" => 2});
+expect("a key too many", {"a" => 1, "b" => 2}, {"a" => 1});
+expect("a type inside", [1, "2"], [1, 2]);
+expect("a long value is cut short", repeat("ab", 150), "x");
+expect("lines stay on one", "a\nb", "a");
+
+throws("an error", () -> [1][5], "Index out of range: 5");
+throws("nothing thrown", () -> 1, "Index out of range: 5");
+throws("the wrong message", () -> throw "a", "b");
+throws("the wrong kind", () -> throw "Not found: x", NotFound, "Not found: x");
+throws("a child kind is not its parent", () -> throw NotFound("x"), Error, "Not found: x");
+throws("the kind alone, wrong", () -> throw "x", NotFound);
+throws("nothing thrown, for a kind", () -> 1, NotFound);
+throws("a thrown value compares as expect does", () -> throw 5, "5");
+
+test::done();

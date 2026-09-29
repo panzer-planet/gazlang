@@ -1,3 +1,14 @@
 ok equal ints
-FAIL mismatched types: expected 1 (string), got 1 (int)
-FAIL wrong value: expected b (string), got a (string)
+ok equal lists
+ok a runtime error, by its message
+ok a runtime error is an Error
+ok and so is a thrown string
+ok a kind of its own
+ok a kind alone
+ok a thrown value that isn't an Error
+ok running out of call depth
+ok every way a check fails
+ok done() exits 1 after a failure
+ok done() exits 0 when nothing failed
+ok without done(), a failure leaves the exit status alone
+ok snapshots

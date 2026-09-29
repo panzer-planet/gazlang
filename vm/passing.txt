@@ -978,7 +978,6 @@ tests/fixtures/const/main.gaz
 tests/fixtures/csv_dump.gaz
 tests/fixtures/exit.gaz
 tests/fixtures/function_values/main.gaz
-tests/fixtures/gaz_test/failing_test.gaz
 tests/fixtures/gaz_test/passing/pass_test.gaz
 tests/fixtures/gaz_test/passing/snapshot_test.gaz
 tests/fixtures/include/cycle.gaz
@@ -992,6 +991,7 @@ tests/fixtures/lsp/includer.gaz
 tests/fixtures/read_stdin.gaz
 tests/fixtures/term_input.gaz
 tests/fixtures/term_read.gaz
+tests/fixtures/test_library/failures.gaz
 tests/gaz/compiler/lexer_test.gaz
 tests/gaz/compiler/parser_test.gaz
 tests/gaz/errors/trace_test.gaz

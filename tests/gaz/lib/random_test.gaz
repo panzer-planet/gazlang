@@ -1,12 +1,12 @@
-include "std/test.gaz" use expect as check;
+include "std/test.gaz" use expect;
 include "../../../lib/random.gaz";
 
 // Unseeded, only the kind of result can be checked
 $shuffled = random::shuffle([1, 2, 3, 4, 5]);
-check("unseeded shuffle keeps the elements", sort($shuffled, ($a, $b) -> $a <=> $b), [1, 2, 3, 4, 5]);
-check("unseeded pick is an element", in_array(random::pick(["a", "b"]), ["a", "b"]), true);
-check("unseeded key is a key", in_array(random::key({"x" => 1, "y" => 2}), ["x", "y"]), true);
-check("unseeded chance is a bool", type_of(random::chance(0.5)), "bool");
+expect("unseeded shuffle keeps the elements", sort($shuffled, ($a, $b) -> $a <=> $b), [1, 2, 3, 4, 5]);
+expect("unseeded pick is an element", in_array(random::pick(["a", "b"]), ["a", "b"]), true);
+expect("unseeded key is a key", in_array(random::key({"x" => 1, "y" => 2}), ["x", "y"]), true);
+expect("unseeded chance is a bool", type_of(random::chance(0.5)), "bool");
 
 // Seeded, the same choices every run and in every runtime
 rand_seed(7);
@@ -29,9 +29,9 @@ fn range_of($n) {
 }
 
 // The edges
-check("shuffle nothing", [random::shuffle([]), random::shuffle(""), random::shuffle([1])], [[], "", [1]]);
-check("chance 0 and 1", [random::chance(0), random::chance(1), random::chance(0.0), random::chance(1.0)], [false, true, false, true]);
-check("weighted skips a zero weight", random::weighted([["never", 0], ["always", 3]]), "always");
+expect("shuffle nothing", [random::shuffle([]), random::shuffle(""), random::shuffle([1])], [[], "", [1]]);
+expect("chance 0 and 1", [random::chance(0), random::chance(1), random::chance(0.0), random::chance(1.0)], [false, true, false, true]);
+expect("weighted skips a zero weight", random::weighted([["never", 0], ["always", 3]]), "always");
 foreach ([() -> random::pick([]), () -> random::key({}), () -> random::weighted([]), () -> random::shuffle({})] as $f) {
     try {
         $f();

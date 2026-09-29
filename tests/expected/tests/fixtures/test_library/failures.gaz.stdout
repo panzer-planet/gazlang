@@ -1,0 +1,20 @@
+ok equal ints
+FAIL mismatched types: expected 1 (string), got 1 (int)
+FAIL wrong value: expected b (string), got a (string)
+FAIL a list, told where: expected [1, [2, 4]] (list), got [1, [2, 3]] (list); first difference at [1][1]: expected 4 (int), got 3 (int)
+FAIL a list too short: expected [1, 2] (list), got [1] (list); first difference at [1]: expected 2 (int), got nothing
+FAIL a list too long: expected [1] (list), got [1, 2] (list); first difference at [1]: expected nothing, got 2 (int)
+FAIL a map, told which key: expected {"a" => 1, "b" => {"c" => "y"}} (map), got {"a" => 1, "b" => {"c" => "x"}} (map); first difference at ["b"]["c"]: expected y (string), got x (string)
+FAIL a key missing: expected {"a" => 1, "b" => 2} (map), got {"a" => 1} (map); first difference at ["b"]: expected 2 (int), got nothing
+FAIL a key too many: expected {"a" => 1} (map), got {"a" => 1, "b" => 2} (map); first difference at ["b"]: expected nothing, got 2 (int)
+FAIL a type inside: expected [1, 2] (list), got [1, "2"] (list); first difference at [1]: expected 2 (int), got 2 (string)
+FAIL a long value is cut short: expected x (string), got abababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab... (300 bytes) (string)
+FAIL lines stay on one: expected a (string), got a\nb (string)
+ok an error
+FAIL nothing thrown: expected "Index out of range: 5" to be thrown, nothing was
+FAIL the wrong message: expected "b" to be thrown, got Error "a"
+FAIL the wrong kind: expected NotFound "Not found: x" to be thrown, got Error "Not found: x"
+FAIL a child kind is not its parent: expected Error "Not found: x" to be thrown, got NotFound "Not found: x"
+FAIL the kind alone, wrong: expected NotFound to be thrown, got Error "x"
+FAIL nothing thrown, for a kind: expected NotFound to be thrown, nothing was
+FAIL a thrown value compares as expect does: expected "5" to be thrown, got 5 (int)

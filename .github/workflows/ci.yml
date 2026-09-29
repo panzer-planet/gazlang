@@ -62,6 +62,10 @@ jobs:
         run: bin/gaz tests/programs/functions.gaz
       - name: Rebuild the compiler with gaz
         run: make -C vm compiler && git diff --exit-code compiler/gazlang.gzb
+      # The GazLang tests under gaz's own runner, before PHP is installed: it needs none
+      - name: gaz test
+        if: runner.os == 'Linux'
+        run: bin/gaz test tests/gaz games
 
       # PHP runs the tests (PHPUnit); the language itself needs none
       - uses: shivammathur/setup-php@v2

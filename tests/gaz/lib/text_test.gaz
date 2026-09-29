@@ -1,27 +1,21 @@
-include "std/test.gaz" use expect as check;
+include "std/test.gaz" use expect, throws;
 include "../../../lib/text.gaz";
 
-check("lines split on newlines", text::lines("a\nb\nc"), ["a", "b", "c"]);
-check("a last line needs no end", text::lines("a\nb"), text::lines("a\nb\n"));
-check("a final newline leaves no empty line", text::lines("a\nb\n"), ["a", "b"]);
-check("an empty line at the end is kept", text::lines("a\n\n"), ["a", ""]);
-check("an empty line in the middle is kept", text::lines("a\n\nb"), ["a", "", "b"]);
-check("an empty line first is kept", text::lines("\na"), ["", "a"]);
-check("a lone newline is one empty line", text::lines("\n"), [""]);
-check("the empty string has no lines", text::lines(""), []);
-check("a line without a newline", text::lines("only"), ["only"]);
-check("\\r\\n ends a line as \\n does", text::lines("a\r\nb\r\n"), ["a", "b"]);
-check("a mix of both", text::lines("a\r\nb\nc"), ["a", "b", "c"]);
-check("a \\r inside a line stays", text::lines("a\rb\nc"), ["a\rb", "c"]);
-check("a \\r with no \\n after it stays, as read_line leaves it", text::lines("a\r"), ["a\r"]);
-check("only a line that ends is stripped of its \\r", text::lines("a\r\nb\r"), ["a", "b\r"]);
-check("a \\r\\n and nothing else is one empty line", text::lines("\r\n"), [""]);
-check("spaces are kept", text::lines("  a \n b"), ["  a ", " b"]);
-check("bytes past ASCII pass through", text::lines("é\nü\n"), ["é", "ü"]);
-$failure = "no error";
-try {
-    text::lines(["a"]);
-} catch (Error $e) {
-    $failure = $e.message;
-}
-check("a list is an error", $failure, "text::lines() expects a string, got list");
+expect("lines split on newlines", text::lines("a\nb\nc"), ["a", "b", "c"]);
+expect("a last line needs no end", text::lines("a\nb"), text::lines("a\nb\n"));
+expect("a final newline leaves no empty line", text::lines("a\nb\n"), ["a", "b"]);
+expect("an empty line at the end is kept", text::lines("a\n\n"), ["a", ""]);
+expect("an empty line in the middle is kept", text::lines("a\n\nb"), ["a", "", "b"]);
+expect("an empty line first is kept", text::lines("\na"), ["", "a"]);
+expect("a lone newline is one empty line", text::lines("\n"), [""]);
+expect("the empty string has no lines", text::lines(""), []);
+expect("a line without a newline", text::lines("only"), ["only"]);
+expect("\\r\\n ends a line as \\n does", text::lines("a\r\nb\r\n"), ["a", "b"]);
+expect("a mix of both", text::lines("a\r\nb\nc"), ["a", "b", "c"]);
+expect("a \\r inside a line stays", text::lines("a\rb\nc"), ["a\rb", "c"]);
+expect("a \\r with no \\n after it stays, as read_line leaves it", text::lines("a\r"), ["a\r"]);
+expect("only a line that ends is stripped of its \\r", text::lines("a\r\nb\r"), ["a", "b\r"]);
+expect("a \\r\\n and nothing else is one empty line", text::lines("\r\n"), [""]);
+expect("spaces are kept", text::lines("  a \n b"), ["  a ", " b"]);
+expect("bytes past ASCII pass through", text::lines("é\nü\n"), ["é", "ü"]);
+throws("a list is an error", () -> text::lines(["a"]), "text::lines() expects a string, got list");

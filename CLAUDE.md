@@ -174,8 +174,12 @@ nothing**: several first versions of a harness or corpus passed everything and c
   (`test_the_self_hosted_compiler_compiles_itself_to_itself`). This checks the front end on the
   largest program there is.
 - **GazLang code is tested with GazLang programs**: every `tests/gaz/**/*_test.gaz` must print
-  exactly its `*_test.expected` (`GazProgramTest`); `std/test.gaz`'s
-  `test::expect($label, $actual, $expected)` (`use expect as check`) prints `ok <label>` or a FAIL line. `lib/json.gaz` is checked against PHP's
+  exactly its `*_test.expected` (`GazProgramTest`) and pass under `bin/gaz test tests/gaz games`
+  (CI runs it). They include `std/test.gaz` `use expect, throws`: `expect($label, $actual,
+  $expected)` prints `ok <label>` or a FAIL line, and `throws($label, $thunk, [$kind,] $message)`
+  checks an error rather than a `try` block written out, except where the test is of `try` and
+  `catch` themselves, or of more than the message (`#line`, `#trace`, state after the error).
+  `lib/json.gaz` is checked against PHP's
   `json_decode` on `tests/corpora/json/y_*`/`n_*` (the prefix says whether it must parse), `lib/csv.gaz`
   against `fgetcsv` on `tests/corpora/csv/`, `lib/chars.gaz` against the lexer's classes for all 256
   bytes.
@@ -271,14 +275,24 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     and replay (for now).
   - **A trap to close**: `Html .. "text"` quietly gives a plain string, which `{{ }}` then escapes;
     concatenating an `Html` should be an error.
-- **`gaz test [path] [--update]`**, so a user of gaz doesn't need PHP to test gaz code: it finds
-  every `*_test.gaz` file under `path` (the current directory by default), recursively, and runs
-  each in its own `gaz` process, reinvoked with `program_path()`. `std/test.gaz` gives
-  `test::expect($label, $actual, $expected)` (`ok <label>`, or a FAIL line naming both values,
-  and what this project's own `tests/gaz` programs check with) and `test::snapshot($label, $actual)`
-  (compared against a file recorded next to the calling test, `--update` (re)writing it instead).
-  A file fails the run if its output has a FAIL line or it exits non-zero; `gaz test` exits 1 if
-  any file did.
+- **`gaz test [path...] [--update] [-v]`**, so a user of gaz doesn't need PHP to test gaz code: it
+  finds every `*_test.gaz` file under each path (the current directory by default), recursively,
+  and runs each in its own `gaz` process, reinvoked with `program_path()`. `std/test.gaz` gives
+  `test::expect($label, $actual, $expected)` (`ok <label>`, or a FAIL line naming both values and,
+  for two lists or maps, the first index or key where they differ), `test::throws($label, $thunk,
+  [$kind,] $message)`, `test::snapshot($label, $actual)` (compared against a file recorded next to
+  the calling test, `--update` (re)writing it instead) and `test::done()` (exit 1 if a check
+  failed). Every check is one line, `ok ` or `FAIL `, which is what the runner counts, so a value
+  on a FAIL line is cut past 200 bytes and its newlines escaped. The runner prints each file's
+  FAIL lines, its stderr and `path: N checks, M failed`; `-v` prints everything. A file fails if a
+  check failed, it exits non-zero, or it checked nothing (a test that tests nothing passes by
+  mistake); `gaz test` exits 1 if any file did.
+  - **`throws` matches a kind exactly** (`kind_of($e) == $kind`), not by `is_a`: under `is_a`,
+    naming `Error` would accept every error, so a test couldn't say that a specific kind was not
+    what came. A runtime error and `throw "text"` are `Error`; a thrown value that isn't an
+    `Error` is compared with the expected one as `expect` compares.
+  - **`done()`'s count is a static field** (`Tally::failures` in the namespace, so no global a
+    test could collide with), raised by every failing check.
   - **A subprocess per file, not `include`-by-computed-path**: `include` only ever takes a
     string literal, resolved at parse time, on purpose, so a runner has no dynamic way to splice
     a discovered path into one program. Running each as `gaz <file> <file> [--update]` needs no
@@ -301,8 +315,11 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     interpreter, not the script it is running, so neither gives a test file its own path. The
     runner passes the file twice, once to say what to run and again as `args()[0]`, which
     `test::snapshot()` reads to find where "next to it" is.
-  - Fixtures are `tests/fixtures/gaz_test` (`TestCommandTest`); `tests/gaz/lib/test_test.gaz`
-    exercises `test::expect()` itself, as `GazProgramTest` does for the rest of the library.
+  - Fixtures are `tests/fixtures/gaz_test` (`TestCommandTest`), which all pass since `gaz test
+    tests` runs over them too; the failing files are written into a temporary copy.
+    `tests/gaz/lib/test_test.gaz` checks what passes directly and what fails by running
+    `tests/fixtures/test_library/failures.gaz` (and `gaz -e` snippets) with `run()`, comparing their
+    lines and exit status, so it prints no FAIL line of its own.
 - **A language server** (`lsp/server.gaz`, `bin/gaz lsp/server.gaz`), so an editor gets errors and
   eventually more without a stranger installing anything but gaz. Diagnostics
   (`textDocument/didOpen`/`didChange` reparses the whole document, full sync, and

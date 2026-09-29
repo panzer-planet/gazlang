@@ -1,13 +1,13 @@
-include "std/test.gaz" use expect as check;
+include "std/test.gaz" use expect;
 include "../../../lib/json.gaz";
 
 // The caught error is an Error object with #message, #file and #line
 try {
     $x = 1 / 0;
 } catch ($e) {
-    check("message", $e.message, "Division by zero");
-    check("file", $e.file, "tests/gaz/errors/try_catch_test.gaz");
-    check("line", $e.line, 6);
+    expect("message", $e.message, "Division by zero");
+    expect("file", $e.file, "tests/gaz/errors/try_catch_test.gaz");
+    expect("line", $e.line, 6);
 }
 
 fn fail_with($message) {
@@ -17,8 +17,8 @@ fn fail_with($message) {
 try {
     fail_with("custom problem");
 } catch ($e) {
-    check("throw's message is exact", $e.message, "custom problem");
-    check("throw's line is where it was written", $e.line, 14);
+    expect("throw's message is exact", $e.message, "custom problem");
+    expect("throw's line is where it was written", $e.line, 14);
 }
 
 // Every kind of runtime error can be caught (running out of call depth too, tested in TryCatchTest,
@@ -36,13 +36,13 @@ fn caught_message($code) {
     }
     return "nothing thrown";
 }
-check("undefined variable", caught_message("undefined"), "Undefined variable: \$missing");
-check("type error", caught_message("type"), "Cannot use * on string");
-check("missing key", caught_message("key"), "Undefined key: \"x\"");
-check("builtin argument", caught_message("builtin"), "lower() expects string, got int");
-check("file error", caught_message("file"), "Cannot read file: tests/gaz/errors/no_such_file");
-check("invalid JSON", caught_message("json"), "Invalid JSON: unexpected end of input at position 3");
-check("no error", caught_message("none"), "nothing thrown");
+expect("undefined variable", caught_message("undefined"), "Undefined variable: \$missing");
+expect("type error", caught_message("type"), "Cannot use * on string");
+expect("missing key", caught_message("key"), "Undefined key: \"x\"");
+expect("builtin argument", caught_message("builtin"), "lower() expects string, got int");
+expect("file error", caught_message("file"), "Cannot read file: tests/gaz/errors/no_such_file");
+expect("invalid JSON", caught_message("json"), "Invalid JSON: unexpected end of input at position 3");
+expect("no error", caught_message("none"), "nothing thrown");
 
 // Execution continues after the catch block; nothing after the error in the try runs
 $steps = [];
@@ -54,7 +54,7 @@ try {
     $steps[] = "caught";
 }
 $steps[] = "continued";
-check("control flow", $steps, ["before", "caught", "continued"]);
+expect("control flow", $steps, ["before", "caught", "continued"]);
 
 // A failed update changes nothing
 $item = {"count" => "not a number"};
@@ -62,13 +62,13 @@ try {
     $item["count"]++;
 } catch ($e) {
 }
-check("failed ++ leaves the value", $item, {"count" => "not a number"});
+expect("failed ++ leaves the value", $item, {"count" => "not a number"});
 $totals = [];
 try {
     $totals["missing"] += 1;
 } catch ($e) {
 }
-check("failed += creates no key", $totals, []);
+expect("failed += creates no key", $totals, []);
 
 // Nesting and rethrowing
 try {
@@ -78,7 +78,7 @@ try {
         throw "rethrown: " .. $e.message;
     }
 } catch ($outer) {
-    check("rethrow reaches the outer catch", $outer.message, "rethrown: inner");
+    expect("rethrow reaches the outer catch", $outer.message, "rethrown: inner");
 }
 
 // return, break and continue are not errors: they pass through try
@@ -94,7 +94,7 @@ fn first_positive($numbers) {
     }
     return null;
 }
-check("return from inside try", first_positive([-1, 0, 7, 8]), 7);
+expect("return from inside try", first_positive([-1, 0, 7, 8]), 7);
 
 $seen = [];
 foreach ([1, 2, 3, 4] as $n) {
@@ -109,7 +109,7 @@ foreach ([1, 2, 3, 4] as $n) {
     } catch ($e) {
     }
 }
-check("continue and break inside try", $seen, [1, 3]);
+expect("continue and break inside try", $seen, [1, 3]);
 
 // Errors keep unwinding through functions until a try catches them
 fn level_three() { throw "from level three"; }
@@ -121,14 +121,14 @@ fn level_one() {
         return "level one caught: " .. $e.message;
     }
 }
-check("unwinds through calls", level_one(), "level one caught: from level three");
+expect("unwinds through calls", level_one(), "level one caught: from level three");
 
 // Globals work as the catch variable
 try {
     throw "global";
 } catch (@last_error) {
 }
-check("global catch variable", @last_error.message, "global");
+expect("global catch variable", @last_error.message, "global");
 
 // Handling bad input without stopping: the reason json_decode needed try/catch
 fn parse_config($text) {
@@ -138,8 +138,8 @@ fn parse_config($text) {
         return {"ok" => false, "reason" => $e.message};
     }
 }
-check("valid config", parse_config("{\"debug\": true}"), {"ok" => true, "config" => {"debug" => true}});
-check("invalid config", parse_config("{debug}")["ok"], false);
+expect("valid config", parse_config("{\"debug\": true}"), {"ok" => true, "config" => {"debug" => true}});
+expect("invalid config", parse_config("{debug}")["ok"], false);
 
 // Error objects and typed catch clauses
 kind NotFound extends Error {
@@ -161,25 +161,25 @@ fn caught_by($value) {
         return "anything";
     }
 }
-check("a child kind matches its own clause first", caught_by(MissingFile("f")), "MissingFile");
-check("a kind matches its clause", caught_by(NotFound("k")), "NotFound");
-check("a string error is an Error", caught_by("text"), "Error");
-check("an Error made directly", caught_by(Error("plain")), "Error");
-check("any other value", caught_by(42), "anything");
+expect("a child kind matches its own clause first", caught_by(MissingFile("f")), "MissingFile");
+expect("a kind matches its clause", caught_by(NotFound("k")), "NotFound");
+expect("a string error is an Error", caught_by("text"), "Error");
+expect("an Error made directly", caught_by(Error("plain")), "Error");
+expect("any other value", caught_by(42), "anything");
 
 try {
     throw NotFound("k");
 } catch (NotFound $e) {
-    check("an error object's message", $e.message, "Not found: k");
-    check("its own fields", $e.key, "k");
-    check("where it was thrown", $e.line, 171);
-    check("it prints as its message", "{$e}", "Not found: k");
+    expect("an error object's message", $e.message, "Not found: k");
+    expect("its own fields", $e.key, "k");
+    expect("where it was thrown", $e.line, 171);
+    expect("it prints as its message", "{$e}", "Not found: k");
 }
 
 try {
     throw [1, 2];
 } catch ($e) {
-    check("a thrown list is caught as it is", $e, [1, 2]);
+    expect("a thrown list is caught as it is", $e, [1, 2]);
 }
 
 // An error no clause matches carries on, running finally on the way
@@ -196,4 +196,4 @@ try {
 } catch (Error $e) {
     $log[] = "outer caught {$e.message}";
 }
-check("unmatched errors carry on through finally", $log, ["try", "finally", "outer caught plain"]);
+expect("unmatched errors carry on through finally", $log, ["try", "finally", "outer caught plain"]);

@@ -1273,7 +1273,7 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `chars.gaz` | `chars::char_at`, `chars::is_digit`, `chars::is_alpha`, `chars::is_alnum`, `chars::is_space`, `chars::is_hex_digit`, `chars::span($s, $i, $predicate)` (how many characters from `$i` satisfy the predicate: `slice($s, $i, chars::span($s, $i, chars::is_digit))` is the number at `$i`) |
 | `format.gaz` | `format::number`, `format::pad_left`, `format::pad_right`, and `format::sprintf($template, $args)` with the arguments as a list: `%s` (as echo prints it), `%d` (an int), `%f` (an int or float, 6 decimals or `%.2f`'s, rounded as `round()` does), `%x` (an int of 0 or more, lowercase hex), `%%`; a width, `-` to pad on the right and `0` to pad a number with zeros after its sign (`%-8s`, `%05.1f`). A count of arguments that isn't the placeholders', a type `%d`, `%f` or `%x` can't take, and a placeholder it doesn't know are errors |
 | `cli.gaz` | `cli::Command($name, $summary)`, command line arguments with a generated `--help`; see below |
-| `test.gaz` | `test::expect($label, $actual, $expected)` and `test::snapshot($label, $actual)`, for `gaz test`; see below |
+| `test.gaz` | `test::expect($label, $actual, $expected)`, `test::throws($label, $thunk, $message)`, `test::snapshot($label, $actual)` and `test::done()`, for `gaz test`; see below |
 | `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins, a server, `http::serve($listener, $handler, $options = {})`, `http::handle($socket, $handler, $options = {})` (one connection), `http::http_date($time)`, `http::Router()` for routing requests to handlers, `http::serve_static($dir)`, a handler that serves files under `$dir`, and cookies and signed sessions (`http::cookies`, `http::set_cookie`, `http::session`, `http::session_cookie`, `http::csrf_token`, `http::verify_csrf`); see below |
 | `date.gaz` | `date::days($year, $month, $day)` (a date as a whole number of days, day 0 being 1 January 1970: an impossible date is an error), `date::civil($days)` (`[year, month, day]`), `date::year`/`month`/`day`, `date::weekday` (0 Monday to 6 Sunday), `date::next_weekday($days, $weekday)`, `date::add_months`, `date::is_leap`, `date::days_in_month`, and `date::format` (`Sat 8 Aug 2026`), `date::short` (`8 Aug`) and `date::iso` (`2026-08-08`). There is no `today()`: a date is a plain number of days, so a program that needs today's date works it out (`intdiv(time(), 86400)` is today in UTC), which also keeps date code testable with fixed dates |
 | `random.gaz` | `random::shuffle` (a shuffled copy of a list or string), `random::pick` (an element of a list or value of a map), `random::key`, `random::chance($p)`, `random::weighted` (from `[item, weight]` pairs) |
@@ -1354,26 +1354,41 @@ $cli.run(args());
   what is wrong on standard error and exits 2. `try_parse()` and `try_run()` raise a `cli::Stop`
   instead, whose `code` and `message` are what would have been printed.
 
-**Testing**, with `gaz test [path] [--update]` and `std/test.gaz`:
+**Testing**, with `gaz test [path...] [--update] [-v]` and `std/test.gaz`:
 
 ```gaz
 // numbers_test.gaz
-include "std/test.gaz";
-test::expect("two plus two", 2 + 2, 4);
+include "std/test.gaz" use expect, throws;
+expect("two plus two", 2 + 2, 4);
+throws("past the end", () -> [1, 2][5], "Index out of range: 5");
 test::snapshot("a report", build_report());
+test::done();
 ```
 
-- `gaz test` finds every `*_test.gaz` file under `path` (the current directory by default),
+- Every check prints one line: `ok <label>`, or `FAIL <label>: ` and what was wanted and what came
+  instead, cut short past 200 bytes of a value so it stays one line.
+- `expect($label, $actual, $expected)` holds when the values are `==` and of the same type. For
+  two lists or two maps, a FAIL line also says where they first differ
+  (`first difference at [2]["name"]: expected 3 (int), got 4 (int)`).
+- `throws($label, $thunk, $message)` calls `$thunk` and holds when it throws an error with that
+  message. `throws($label, $thunk, $kind, $message)` also requires exactly that kind, not a child
+  of it, so a test names the kind it means; leave the message out to check the kind alone. A
+  runtime error and `throw "text"` are an `Error`, and a thrown value that isn't an `Error`
+  (`throw 5`) is compared as it is, as `expect` compares.
+- `test::snapshot($label, $actual)` compares `$actual`, as a literal, against a file recorded next
+  to the calling test file, named after it and the label; run with `--update` to (re)write it
+  instead of comparing, and review the diff as you would any recorded output.
+- `test::done()` ends the program with status 1 if any check in it failed, and 0 otherwise, so a
+  test file run on its own tells a script whether it passed.
+- `gaz test` finds every `*_test.gaz` file under each path (the current directory by default),
   recursively, and runs each in its own `gaz` process, reinvoked with `program_path()`: `include`
   only takes a string literal, so a runner can't splice in a path it only learns at run time, and
-  a subprocess per file gives free isolation, one file's crash or infinite loop can't corrupt
-  another's run. It prints what each file prints, then a summary, and exits 1 if any file failed.
-- `test::expect($label, $actual, $expected)` prints `ok <label>`, or a FAIL line naming both
-  values; a file
-  fails the run if its output has a FAIL line, or it exits non-zero.
-- `test::snapshot($label, $actual)` compares `$actual` against a file recorded next to the
-  calling test file, named after it and the label; run with `--update` to (re)write it instead
-  of comparing, and review the diff as you would any recorded output.
+  a process per file keeps one file's crash or endless loop out of another's run. For each file
+  it prints the FAIL lines, what the file wrote to standard error, and
+  `path: 17 checks, 0 failed`; `-v` prints everything the file printed instead of only its FAIL
+  lines. A file fails if a check failed, it exited with a status other than 0, or it checked
+  nothing (a test that tests nothing passes by mistake). Last comes `N files run, M failed`, and
+  the exit status is 1 if any file failed.
 - `gaz test` runs a file as `<program_path()> <file> <file> [--update]`: the file's own path,
   once to say what to run and again as its first program argument, since a running program has no
   builtin giving the *file's* own path (`program_path()` names the interpreter, not the script

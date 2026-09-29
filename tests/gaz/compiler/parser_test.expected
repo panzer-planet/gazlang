@@ -10,9 +10,17 @@ ok a node from a file has the file
 ok a kind's layout and members, its parent's included
 ok a #name knows whether it is a field
 ok a ##name knows whose version runs
-Error: Field #x of B has the name of a field of A that isn't pub: a field is a slot, so the name is taken on line 1
-  gazlang::Parser.fail_at at compiler/parser.gaz:375
-  gazlang::Parser.resolve_kind at compiler/parser.gaz:3270
-  gazlang::Parser.program at compiler/parser.gaz:3052
-  gazlang::Parser.parse at compiler/parser.gaz:3726
-  top level at tests/gaz/compiler/parser_test.gaz:33
+ok a child can only name what its parent lets escape
+ok but every slot is still there, the parent's private one included
+ok and so is every method entry
+ok a syntax error's message
+ok and its parts
+ok inline source has only a line
+ok a lexer error becomes a ParseError with the file
+ok a check made once the program is read
+ok is_a Error, so an untyped handler sees it too
+ok the variables of a tree 6000 operators deep, in source order
+ok includes of source named by a path that is no file
+ok and its nodes have the name
+ok the first knows its function
+ok the second does not

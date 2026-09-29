@@ -1,43 +1,43 @@
-include "std/test.gaz" use expect as check;
+include "std/test.gaz" use expect, throws;
 
 // A list's later elements move down, so its indexes stay 0 to len - 1
 $list = [1, 2, 3];
 delete $list[1];
-check("a list closes the gap", $list, [1, 3]);
-check("the list is shorter", len($list), 2);
+expect("a list closes the gap", $list, [1, 3]);
+expect("the list is shorter", len($list), 2);
 
 delete $list[1];
-check("the last element goes", $list, [1]);
+expect("the last element goes", $list, [1]);
 
 // A map keeps the order of what is left
 $map = {"a" => 1, "b" => 2, "c" => 3};
 delete $map["b"];
-check("a map keeps its order", $map, {"a" => 1, "c" => 3});
-check("the keys are left", join(keys($map), ","), "a,c");
-check("the key is gone", has_key($map, "b"), false);
+expect("a map keeps its order", $map, {"a" => 1, "c" => 3});
+expect("the keys are left", join(keys($map), ","), "a,c");
+expect("the key is gone", has_key($map, "b"), false);
 
 // Lists and maps are values, so a copy is untouched
 $original = {"a" => 1, "b" => 2};
 $copy = $original;
 delete $copy["a"];
-check("the copy changed", has_key($copy, "a"), false);
-check("the original did not", has_key($original, "a"), true);
+expect("the copy changed", has_key($copy, "a"), false);
+expect("the original did not", has_key($original, "a"), true);
 
 // Any path an assignment can write, ending at an element
 $nested = {"rows" => [[1, 2], [3, 4]]};
 delete $nested["rows"][0][1];
-check("through a path", $nested, {"rows" => [[1], [3, 4]]});
+expect("through a path", $nested, {"rows" => [[1], [3, 4]]});
 
 @global = [1, 2];
 delete @global[0];
-check("a global", @global, [2]);
+expect("a global", @global, [2]);
 
 fn scope_out($scopes, $name) {
     delete $scopes[len($scopes) - 1][$name];
 
     return $scopes;
 }
-check("what it is for", scope_out([{"x" => 1, "y" => 2}], "x"), [{"y" => 2}]);
+expect("what it is for", scope_out([{"x" => 1, "y" => 2}], "x"), [{"y" => 2}]);
 
 // A closure's captured variable
 fn counter() {
@@ -47,7 +47,7 @@ fn counter() {
 }
 $forget = counter();
 $forget("a");
-check("a captured variable", $forget("b"), {});
+expect("a captured variable", $forget("b"), {});
 
 kind Cart {
     #items = ["apple", "pear"];
@@ -56,40 +56,26 @@ kind Cart {
 }
 $cart = Cart();
 $cart.drop(0);
-check("a field of an object", $cart.contents(), ["pear"]);
+expect("a field of an object", $cart.contents(), ["pear"]);
 
 $rows = [{"total" => 1}];
 delete $rows[0]["total"];
-check("a map inside a list", $rows, [{}]);
+expect("a map inside a list", $rows, [{}]);
 
 // Removing what isn't there is an error, as reading it is
-try {
+throws("a missing key", () -> {
     $gone = {"a" => 1};
     delete $gone["b"];
-    echo "FAIL a missing key should fail";
-} catch (Error $e) {
-    check("a missing key", $e.message, "Undefined key: \"b\"");
-}
+}, "Undefined key: \"b\"");
 
-try {
+throws("an index out of range", () -> {
     $short = [1];
     delete $short[5];
-    echo "FAIL an index out of range should fail";
-} catch (Error $e) {
-    check("an index out of range", $e.message, "Index out of range: 5");
-}
+}, "Index out of range: 5");
 
-try {
+throws("a string", () -> {
     $text = "abc";
     delete $text[0];
-    echo "FAIL deleting from a string should fail";
-} catch (Error $e) {
-    check("a string", $e.message, "Cannot use [] on string");
-}
+}, "Cannot use [] on string");
 
-try {
-    delete $never[0];
-    echo "FAIL an undefined variable should fail";
-} catch (Error $e) {
-    check("an undefined variable", $e.message, "Undefined variable: \$never");
-}
+throws("an undefined variable", () -> { delete $never[0]; }, "Undefined variable: \$never");

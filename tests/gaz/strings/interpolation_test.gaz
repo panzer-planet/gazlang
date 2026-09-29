@@ -1,4 +1,4 @@
-include "std/test.gaz" use expect as check;
+include "std/test.gaz" use expect;
 
 $name = "Gaz";
 $name_2 = "two";
@@ -9,42 +9,42 @@ $user = {"name" => "Werner", "tags" => ["admin"]};
 @count = 41;
 
 // Shorthand: $name, greedy over letters, digits and underscores
-check("bare variable", "Hi $name!", "Hi Gaz!");
-check("bare variable at the start and end", "$name", "Gaz");
-check("bare variable is greedy", "$name_2", "two");
+expect("bare variable", "Hi $name!", "Hi Gaz!");
+expect("bare variable at the start and end", "$name", "Gaz");
+expect("bare variable is greedy", "$name_2", "two");
 
 // Shorthand takes one PHP-style index: [int], [-int], [unquoted key] or [$variable]
-check("shorthand int index", "got $items[1]!", "got second!");
-check("shorthand negative index", "$keys[-1]", "int -1");
-check("shorthand unquoted key", "$user[name]", "Werner");
-check("shorthand variable index", "$items[$i]", "second");
-check("shorthand reads only one index", "$items[0][1]", "first[1]");
-check("shorthand non-canonical digits are a string key", "$keys[01] $keys[-0] $keys[1]", "string 01 string -0 int 1");
+expect("shorthand int index", "got $items[1]!", "got second!");
+expect("shorthand negative index", "$keys[-1]", "int -1");
+expect("shorthand unquoted key", "$user[name]", "Werner");
+expect("shorthand variable index", "$items[$i]", "second");
+expect("shorthand reads only one index", "$items[0][1]", "first[1]");
+expect("shorthand non-canonical digits are a string key", "$keys[01] $keys[-0] $keys[1]", "string 01 string -0 int 1");
 
 // Braces: any expression starting with $ or @
-check("braces", "Hi {$name}!", "Hi Gaz!");
-check("braces around a longer name", "{$name}_2", "Gaz_2");
-check("index", "{$items[1]}", "second");
-check("nested keys with quotes inside", "{$user["tags"][0]}", "admin");
-check("global", "{@count} calls", "41 calls");
-check("expression", "{@count + 1}", "42");
-check("function call after the sigil", "{$items[len($items) - 1]}", "second");
-check("several in a row", "$name{$name}$name", "GazGazGaz");
-check("map literal inside interpolation", "{$user["missing"] ?? {}}", "{}");
-check("nested braces inside interpolation", "{$keys[1] ?? {1 => {}}} {@count ?? (() -> { return 0; })()}", "int 1 41");
-check("interpolated string inside interpolation", "{$user["na{$name}"] ?? "none"}", "none");
+expect("braces", "Hi {$name}!", "Hi Gaz!");
+expect("braces around a longer name", "{$name}_2", "Gaz_2");
+expect("index", "{$items[1]}", "second");
+expect("nested keys with quotes inside", "{$user["tags"][0]}", "admin");
+expect("global", "{@count} calls", "41 calls");
+expect("expression", "{@count + 1}", "42");
+expect("function call after the sigil", "{$items[len($items) - 1]}", "second");
+expect("several in a row", "$name{$name}$name", "GazGazGaz");
+expect("map literal inside interpolation", "{$user["missing"] ?? {}}", "{}");
+expect("nested braces inside interpolation", "{$keys[1] ?? {1 => {}}} {@count ?? (() -> { return 0; })()}", "int 1 41");
+expect("interpolated string inside interpolation", "{$user["na{$name}"] ?? "none"}", "none");
 
 // Values convert like echo and +
-check("ints convert", "n={@count}", "n=41");
-check("null, lists and maps", "{$user["missing"] ?? null} {$user["tags"]} {$keys}", "null [\"admin\"] {\"01\" => \"string 01\", \"-0\" => \"string -0\", 1 => \"int 1\", -1 => \"int -1\"}");
+expect("ints convert", "n={@count}", "n=41");
+expect("null, lists and maps", "{$user["missing"] ?? null} {$user["tags"]} {$keys}", "null [\"admin\"] {\"01\" => \"string 01\", \"-0\" => \"string -0\", 1 => \"int 1\", -1 => \"int -1\"}");
 
 // Not interpolation
-check("dollar before a digit", "costs $5", "costs " .. "$" .. "5");
-check("lone dollar", "$", "\$");
-check("email address", "me@example.com", "me" .. "@" .. "example.com");
-check("brace before a space", "{ $name}", "{ Gaz}");
-check("brace alone", "{}", "{" .. "}");
-check("escaped dollar", "\$name", "$" .. "name");
-check("escaped brace", "\{$name}", "{Gaz}");
-check("escaped both", "\{\$name}", "{" .. "$" .. "name}");
-check("single quotes stay raw", '$name {$name}', "\$name \{\$name}");
+expect("dollar before a digit", "costs $5", "costs " .. "$" .. "5");
+expect("lone dollar", "$", "\$");
+expect("email address", "me@example.com", "me" .. "@" .. "example.com");
+expect("brace before a space", "{ $name}", "{ Gaz}");
+expect("brace alone", "{}", "{" .. "}");
+expect("escaped dollar", "\$name", "$" .. "name");
+expect("escaped brace", "\{$name}", "{Gaz}");
+expect("escaped both", "\{\$name}", "{" .. "$" .. "name}");
+expect("single quotes stay raw", '$name {$name}', "\$name \{\$name}");

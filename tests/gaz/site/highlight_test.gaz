@@ -1,6 +1,6 @@
 // site/highlight.gaz: the class each piece of source is shown in, and HTML that escapes it all
 include "../../../site/highlight.gaz";
-include "std/test.gaz" use expect as check;
+include "std/test.gaz" use expect;
 
 // The pieces of some GazLang as "class:text" strings, whitespace left out, for comparing
 fn shown(string $language, string $source): list {
@@ -15,58 +15,58 @@ fn round_trips(string $language, string $source): bool {
 }
 
 // Every class a token can be given
-check("keywords, literals, numbers and operators", shown("gaz", "if (true) { return 1 + 2.5; } else { null; }"),
+expect("keywords, literals, numbers and operators", shown("gaz", "if (true) { return 1 + 2.5; } else { null; }"),
     ["kw:if", ":(", "lit:true", ":)", ":{", "kw:return", "num:1", "op:+", "num:2.5", ":;", ":}", "kw:else", ":{", "lit:null", ":;", ":}"]);
-check("variables, members and names", shown("gaz", "\$a = @b.c ?? #d.e(#) ?? ##f() ?? \$g?.h;"),
+expect("variables, members and names", shown("gaz", "\$a = @b.c ?? #d.e(#) ?? ##f() ?? \$g?.h;"),
     ["var:\$a", "op:=", "var:@b", "mem:.c", "op:??", "mem:#d", "mem:.e", ":(", "mem:#", ":)", "op:??", "mem:##f", ":(", ":)", "op:??", "var:\$g", "mem:?.h", ":;"]);
-check("a kind or constant, a call, a type and a plain name", shown("gaz", "fn f(int \$n): Point { return g(MAX, x); }"),
+expect("a kind or constant, a call, a type and a plain name", shown("gaz", "fn f(int \$n): Point { return g(MAX, x); }"),
     ["kw:fn", "fn:f", ":(", "ty:int", "var:\$n", ":)", "op::", "ty:Point", ":{", "kw:return", "fn:g", ":(", "ty:MAX", ":,", ":x", ":)", ":;", ":}"]);
-check("a kind called is still a kind", shown("gaz", "Point(1)"), ["ty:Point", ":(", "num:1", ":)"]);
-check("a type name called is a call", shown("gaz", "map(\$x, \$f)"), ["fn:map", ":(", "var:\$x", ":,", "var:\$f", ":)"]);
-check("every keyword the lexer knows", shown("gaz", "pub kin static abstract kind shared namespace use"),
+expect("a kind called is still a kind", shown("gaz", "Point(1)"), ["ty:Point", ":(", "num:1", ":)"]);
+expect("a type name called is a call", shown("gaz", "map(\$x, \$f)"), ["fn:map", ":(", "var:\$x", ":,", "var:\$f", ":)"]);
+expect("every keyword the lexer knows", shown("gaz", "pub kin static abstract kind shared namespace use"),
     ["kw:pub", "kw:kin", "kw:static", "kw:abstract", "kw:kind", "kw:shared", "kw:namespace", "kw:use"]);
 
 // Comments and whitespace, which the lexer drops, are cut from the source
-check("a line comment", shown("gaz", "1; // one\n2;"), ["num:1", ":;", "com:// one", "num:2", ":;"]);
-check("a nested block comment is one piece", shown("gaz", "/* a /* b */ c */ 1"), ["com:/* a /* b */ c */", "num:1"]);
-check("a comment at the end", shown("gaz", "1 /* x */"), ["num:1", "com:/* x */"]);
-check("a script's first line", shown("gaz", "#!/usr/bin/env gaz\necho 1;"), ["com:#!/usr/bin/env gaz", "kw:echo", "num:1", ":;"]);
+expect("a line comment", shown("gaz", "1; // one\n2;"), ["num:1", ":;", "com:// one", "num:2", ":;"]);
+expect("a nested block comment is one piece", shown("gaz", "/* a /* b */ c */ 1"), ["com:/* a /* b */ c */", "num:1"]);
+expect("a comment at the end", shown("gaz", "1 /* x */"), ["num:1", "com:/* x */"]);
+expect("a script's first line", shown("gaz", "#!/usr/bin/env gaz\necho 1;"), ["com:#!/usr/bin/env gaz", "kw:echo", "num:1", ":;"]);
 
 // Strings as they are written, escapes and interpolation included
-check("escapes stay as written", shown("gaz", "\"a\\n\\u{e9}\\\"\" 'b\\'c'"), ["str:\"a\\n\\u{e9}\\\"\"", "str:'b\\'c'"]);
-check("an interpolation is its tokens", shown("gaz", "\"x {\$a.b} y \$c[0] z\""),
+expect("escapes stay as written", shown("gaz", "\"a\\n\\u{e9}\\\"\" 'b\\'c'"), ["str:\"a\\n\\u{e9}\\\"\"", "str:'b\\'c'"]);
+expect("an interpolation is its tokens", shown("gaz", "\"x {\$a.b} y \$c[0] z\""),
     ["str:\"x {", "var:\$a", "mem:.b", "str:} y ", "var:\$c[0]", "str: z\""]);
-check("a string in an interpolation", shown("gaz", "\"a {\$m[\"k\"]} b\""), ["str:\"a {", "var:\$m", ":[", "str:\"k\"", ":]", "str:} b\""]);
+expect("a string in an interpolation", shown("gaz", "\"a {\$m[\"k\"]} b\""), ["str:\"a {", "var:\$m", ":[", "str:\"k\"", ":]", "str:} b\""]);
 
 // What the lexer refuses is shown plain, whole
-check("an unterminated string", shown("gaz", "echo \"open"), [":echo \"open"]);
-check("a character the lexer refuses", shown("gaz", "1 ` 2"), [":1 ` 2"]);
-check("an unterminated comment", shown("gaz", "1 /* 2"), [":1 /* 2"]);
-check("a bad escape", round_trips("gaz", "\"\\q\""), true);
+expect("an unterminated string", shown("gaz", "echo \"open"), [":echo \"open"]);
+expect("a character the lexer refuses", shown("gaz", "1 ` 2"), [":1 ` 2"]);
+expect("an unterminated comment", shown("gaz", "1 /* 2"), [":1 /* 2"]);
+expect("a bad escape", round_trips("gaz", "\"\\q\""), true);
 
 // CRLF line ends are kept
-check("CRLF", shown("gaz", "1;\r\n// c\r\n2;\r\n"), ["num:1", ":;", "com:// c\r", "num:2", ":;"]);
-check("CRLF round trips", round_trips("gaz", "fn f() {\r\n    return \"a\r\nb\";\r\n}\r\n"), true);
+expect("CRLF", shown("gaz", "1;\r\n// c\r\n2;\r\n"), ["num:1", ":;", "com:// c\r", "num:2", ":;"]);
+expect("CRLF round trips", round_trips("gaz", "fn f() {\r\n    return \"a\r\nb\";\r\n}\r\n"), true);
 
 // HTML: every piece escaped, a class a span
-check("HTML is escaped", highlight::to_html("gaz", "\$a < \"<b>&'\" // <i>"),
+expect("HTML is escaped", highlight::to_html("gaz", "\$a < \"<b>&'\" // <i>"),
     "<span class=\"var\">\$a</span> <span class=\"op\">&lt;</span> <span class=\"str\">&quot;&lt;b&gt;&amp;&#39;&quot;</span> <span class=\"com\">// &lt;i&gt;</span>");
-check("plain text is escaped", highlight::to_html("", "<a href=\"x\">&</a>"), "&lt;a href=&quot;x&quot;&gt;&amp;&lt;/a&gt;");
-check("a language without a highlighter is plain", shown("text", "echo 1;"), [":echo 1;"]);
+expect("plain text is escaped", highlight::to_html("", "<a href=\"x\">&</a>"), "&lt;a href=&quot;x&quot;&gt;&amp;&lt;/a&gt;");
+expect("a language without a highlighter is plain", shown("text", "echo 1;"), [":echo 1;"]);
 
 // Bytecode, a line at a time
-check("bytecode headers and instructions", shown("gzb", "GAZLANG BYTECODE 3\nglobals @total\nfn f 1 2 in K\n  LOAD \$a\n  JMP L1\nlocals \$a \$#b\n"),
+expect("bytecode headers and instructions", shown("gzb", "GAZLANG BYTECODE 3\nglobals @total\nfn f 1 2 in K\n  LOAD \$a\n  JMP L1\nlocals \$a \$#b\n"),
     ["kw:GAZLANG BYTECODE", "num:3", "ty:globals", "var:@total", "ty:fn", ":f", "num:1", "num:2", "kw:in", "ty:K", "kw:LOAD", "var:\$a", "kw:JMP", "ty:L1", "ty:locals", "var:\$a", "var:\$#b"]);
-check("a bytecode value is a literal", shown("gzb", "PUSH {\"a\" => [-1, 2.5]}\n@ \"lib/x.gaz\" 42"),
+expect("a bytecode value is a literal", shown("gzb", "PUSH {\"a\" => [-1, 2.5]}\n@ \"lib/x.gaz\" 42"),
     ["kw:PUSH", ":{", "str:\"a\"", "op:=>", ":[", "op:-", "num:1", ":,", "num:2.5", ":]", ":}", "op:@", "str:\"lib/x.gaz\"", "num:42"]);
-check("bytecode round trips", round_trips("gzb", "top\r\n  PUSH \"a b\"  \n\n  RET\nlocals"), true);
+expect("bytecode round trips", round_trips("gzb", "top\r\n  PUSH \"a b\"  \n\n  RET\nlocals"), true);
 
 // Templates: directives, {{ }}, {!! !!}, comments, and @{{ as text
-check("a template", shown("gazml", "@template p(\$u)\n<b>{{ \$u.name }}</b> {!! \$raw !!} {{-- note --}} @{{ x\n  @endif\n"),
+expect("a template", shown("gazml", "@template p(\$u)\n<b>{{ \$u.name }}</b> {!! \$raw !!} {{-- note --}} @{{ x\n  @endif\n"),
     ["kw:@template", "fn:p", ":(", "var:\$u", ":)", ":<b>", "op:{{", "var:\$u", "mem:.name", "op:}}", ":</b> ", "op:{!!", "var:\$raw", "op:!!}", "com:{{-- note --}}", ": @{{ x\n", "kw:@endif"]);
-check("an unclosed {{ is text", shown("gazml", "a {{ b"), [":a {{ b"]);
-check("a template round trips", round_trips("gazml", "@if (\$a)\r\n  <p>{{ \$a }} {{ ` }}</p>\r\n@endif"), true);
+expect("an unclosed {{ is text", shown("gazml", "a {{ b"), [":a {{ b"]);
+expect("a template round trips", round_trips("gazml", "@if (\$a)\r\n  <p>{{ \$a }} {{ ` }}</p>\r\n@endif"), true);
 
 // Shell: a comment, not a # inside quotes
-check("a shell comment", shown("bash", "make -C vm  # build\necho '#no' \"#no\" a#b\n"),
+expect("a shell comment", shown("bash", "make -C vm  # build\necho '#no' \"#no\" a#b\n"),
     [":make -C vm  ", "com:# build", ":echo '#no' \"#no\" a#b\n"]);

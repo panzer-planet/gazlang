@@ -9,8 +9,8 @@ use RecursiveIteratorIterator;
  * Runs the GazLang test programs: every file under tests/gaz ending in _test.gaz must print
  * exactly the contents of the matching _test.expected file
  *
- * A test prints its results with test::expect() from std/test.gaz (`include "std/test.gaz" use expect
- * as check;`), so a failure is a readable diff against the expected file.
+ * A test prints its results with expect() and throws() from std/test.gaz (`include "std/test.gaz"
+ * use expect, throws;`), so a failure is a readable diff against the expected file.
  */
 class GazProgramTest extends GazLangTestCase
 {
