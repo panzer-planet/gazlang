@@ -405,9 +405,11 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   around PHP's speed and faster than Python. The arithmetic loop is still about nine dispatches an
   iteration after fusion (a register form would need about six), which only a register bytecode
   or a JIT would close; lists, maps, strings and objects spend theirs in malloc/free (about 17% of
-  a football run) and the collector. Lists are three quarters of the allocations (a header and an
-  items array each), so storing a small list's items in its header comes before a pool; measure
-  with a sampling profile first.
+  a football run) and the collector. A list keeps its first four items in its own header (see
+  "Values"), which took 28% of the allocation calls out of a football run and 18% out of compiling
+  it; what is left is mostly lists past four items, map headers and index arrays, closures'
+  captured arrays and strings, so small maps come before a pool; measure with a sampling profile
+  first.
 - **Bytecode has no compatibility promise yet**: stable so far, but free to change; a change
   old files can't load under bumps the version.
 - **The fuzzer** (`php vm/fuzz.php`, a minute; CI runs one on each push, seeded by the run
@@ -1878,7 +1880,11 @@ try {
   errors are reference counted, and lists and maps copied on write, which is PHP's value
   semantics exactly. A map is PHP's design: entries in insertion order with holes, and an
   open-addressed index rebuilt as it grows. Names are interned, so member lookups compare
-  pointers; one-byte strings are 256 shared values.
+  pointers; one-byte strings are 256 shared values. A list's first `LIST_INLINE` (4) items
+  live in its header, and move to an array of their own when it outgrows that, never back, so
+  most lists are one malloc: 4 is what the first push allocated anyway, so a list of one to four
+  costs the memory it did, and 6 or 8 saved a point or two more allocations for 32 or 64 more
+  bytes on every list. A `List` is never copied as a struct, since `items` points into it.
 - **Frames live on one value stack**: a call's pushed arguments become the callee's first
   locals, and its stack is sized by the loader's walk. The one use of the C stack is a method
   or a builtin's callback run from inside an instruction (`call_method()`, `call_value()`), which

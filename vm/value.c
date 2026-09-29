@@ -53,7 +53,7 @@ void value_free(Value v) {
         break;
     case T_LIST:
         for (size_t i = 0; i < v.l->len; i++) decref(v.l->items[i]);
-        free(v.l->items);
+        if (v.l->items != v.l->inline_items) free(v.l->items);
         free(v.l);
         break;
     case T_MAP:
@@ -291,15 +291,26 @@ List *list_new(size_t cap) {
     List *l = xmalloc(sizeof(List));
     gc_track(&l->gc, T_LIST);
     l->len = 0;
-    l->cap = cap;
-    l->items = cap ? xmalloc(cap * sizeof(Value)) : NULL;
+    if (cap <= LIST_INLINE) {
+        l->cap = LIST_INLINE;
+        l->items = l->inline_items;
+    } else {
+        l->cap = cap;
+        l->items = xmalloc(cap * sizeof(Value));
+    }
     return l;
 }
 
 void list_push(List *l, Value v) {
     if (l->len == l->cap) {
-        l->cap = l->cap ? l->cap * 2 : 4;
-        l->items = xrealloc(l->items, l->cap * sizeof(Value));
+        l->cap *= 2;
+        if (l->items == l->inline_items) {
+            /* outgrowing the header: the first array of its own, never realloc'd from inline */
+            l->items = xmalloc(l->cap * sizeof(Value));
+            memcpy(l->items, l->inline_items, l->len * sizeof(Value));
+        } else {
+            l->items = xrealloc(l->items, l->cap * sizeof(Value));
+        }
     }
     l->items[l->len++] = v;
 }

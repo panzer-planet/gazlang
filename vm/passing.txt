@@ -961,6 +961,7 @@ tests/corpora/vm/pattern_parameters.gaz
 tests/corpora/vm/pipe.gaz
 tests/corpora/vm/power.gaz
 tests/corpora/vm/rounding.gaz
+tests/corpora/vm/small_lists.gaz
 tests/corpora/vm/static_coalesce.gaz
 tests/corpora/vm/superinstructions.gaz
 tests/corpora/vm/throw.gaz

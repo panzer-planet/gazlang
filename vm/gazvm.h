@@ -112,11 +112,17 @@ typedef struct Gc {
 } Gc;
 
 /* A list: a growable array of values. Copy on write: a list held by two variables is shared
-   until one of them writes, which copies it first (see list_unique()). */
+   until one of them writes, which copies it first (see list_unique()).
+   Most lists are short, so a list keeps its first LIST_INLINE items in its own header: items
+   points at inline_items until the list outgrows it, then at an array of its own, and never
+   back. That saves a second malloc and free for most lists. A List is never moved or copied
+   as a struct, which would leave items pointing into the old header. */
+#define LIST_INLINE 4
 struct List {
     Gc gc;
     size_t len, cap;
     Value *items;
+    Value inline_items[LIST_INLINE];
 };
 
 /* A map entry; a removed entry keeps its place with key.type == T_UNSET until compacted */

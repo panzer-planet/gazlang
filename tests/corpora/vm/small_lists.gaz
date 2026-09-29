@@ -1,0 +1,129 @@
+/* Lists keep their first few items in their own header (LIST_INLINE in vm/gazvm.h) and move
+ * them to an array of their own when they outgrow it. Every size from empty to past the
+ * boundary, grown, copied, changed and freed, must behave as one kind of list. */
+include "std/json.gaz";
+
+const SIZES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 16, 17];
+
+fn upto($n) {
+    $l = [];
+    for ($i = 1; $i <= $n; $i++) {
+        $l[] = $i;
+    }
+    return $l;
+}
+
+// Growing one at a time, a copy taken at every size keeps what it had
+$l = [];
+$copies = [];
+for ($i = 1; $i <= 12; $i++) {
+    $l[] = $i * 10;
+    $copies[] = $l;
+}
+echo $l;
+foreach ($copies as $i => $c) {
+    echo "{$i}: " .. join($c, ",");
+}
+
+// Copy on write of a small list and of a grown one: each side keeps its own
+foreach (SIZES as $n) {
+    $a = upto($n);
+    $b = $a;
+    $b[] = "new";
+    if ($n > 0) {
+        $b[0] = "first";
+    }
+    echo [$n, len($a), len($b), $a == upto($n), last($b)];
+}
+
+// Passed in, grown inside, returned
+fn grow($list, $by) {
+    for ($i = 0; $i < $by; $i++) {
+        $list[] = "+{$i}";
+    }
+    return $list;
+}
+$small = [1, 2];
+$grown = grow($small, 7);
+echo $small;
+echo $grown;
+echo grow(grow([], 3), 3);
+
+// Nested small lists, each changed through a path
+$grid = [];
+for ($r = 0; $r < 6; $r++) {
+    $grid[] = upto($r);
+}
+$grid[5][] = 6;
+$grid[2][0] = "x";
+$grid[0][] = "was empty";
+echo $grid;
+
+// Deleting from small lists and around the boundary, then growing again
+foreach (SIZES as $n) {
+    $d = upto($n);
+    if ($n > 0) {
+        delete $d[0];
+    }
+    if ($n > 2) {
+        delete $d[len($d) - 1];
+    }
+    $d[] = "again";
+    $d[] = "and again";
+    echo $d;
+}
+
+// Builtins giving lists at sizes either side of the boundary
+foreach (SIZES as $n) {
+    $u = upto($n);
+    echo [
+        sort(reverse($u)) == $u,
+        reverse($u),
+        slice($u, 1, 5),
+        filter($u, $x -> $x % 2 == 0),
+        map($u, $x -> $x * $x),
+        split(repeat("a,", $n), ","),
+        keys(reduce($u, ($m, $x) -> ({...$m, "k{$x}" => $x}), {})),
+        [...$u, ...$u],
+    ];
+}
+echo sort([5, 3, 9, 1, 7, 2], ($a, $b) -> $b <=> $a);
+
+// Small lists inside a map and an object, changed through them
+kind Bag {
+    pub #items = [];
+    pub fn add($x) {
+        #items[] = $x;
+    }
+}
+$bag = Bag();
+$held = {"pair" => [1, 2], "none" => []};
+for ($i = 0; $i < 7; $i++) {
+    $bag.add($i);
+    $held["pair"][] = $i;
+    $held["none"][] = $i * 2;
+}
+echo $bag.items;
+echo $held;
+
+// JSON round trips at every size, nested
+foreach (SIZES as $n) {
+    $doc = {"n" => $n, "items" => upto($n), "nested" => [upto($n % 4), []]};
+    $text = json::encode($doc);
+    echo json::decode($text) == $doc ? "same {$n}" : "differs {$n}: {$text}";
+}
+
+// Cycles through a map and an object, made at small and grown sizes, left for the collector
+kind Node {
+    pub #links = [];
+}
+for ($round = 0; $round < 200; $round++) {
+    $node = Node();
+    $node.links[] = $node;
+    for ($i = 0; $i < $round % 9; $i++) {
+        $node.links[] = [$i, $node];
+    }
+    $other = Node();
+    $other.links[] = {"back" => [$other, upto($round % 7)]};
+}
+echo "cycles made";
