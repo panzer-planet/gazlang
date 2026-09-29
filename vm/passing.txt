@@ -20,6 +20,7 @@ lib/regex.gaz
 lib/sorting.gaz
 lib/term.gaz
 lib/test.gaz
+lib/text.gaz
 lib/tui.gaz
 snippet:00661fc241b6
 snippet:00969dd8d0a4
@@ -905,6 +906,7 @@ tests/gaz/lib/router_test.gaz
 tests/gaz/lib/sorting_test.gaz
 tests/gaz/lib/term_test.gaz
 tests/gaz/lib/test_test.gaz
+tests/gaz/lib/text_test.gaz
 tests/gaz/lib/tui_test.gaz
 tests/gaz/lists/delete_test.gaz
 tests/gaz/lists/pattern_test.gaz

@@ -1106,6 +1106,9 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   outcome, not a bug) and `contains_by` (`in_array`'s predicate-based sibling). A list helper goes here
   rather than into the builtins, since a builtin takes its name from every program and a namespace only
   from those that include it),
+  `text.gaz` (`text::lines`: what `read_line()` reads, as a list, so `text::lines(read_stdin())` is a
+  `gaz -e` one-liner's input: `split($s, "\n")` leaves a trailing `""` after a final newline, and "\r\n" is
+  stripped only where a "\n" follows, as `read_line()` and `file_read_line()` do),
   `format.gaz` (`format::number`, `format::pad_left`/`pad_right`
   convert like echo: display helpers take any value, string functions stay strict;
   `format::sprintf($template, $args)`, a list since there are no variadic calls: `%s` echo's

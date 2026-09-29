@@ -1,0 +1,18 @@
+ok lines split on newlines
+ok a last line needs no end
+ok a final newline leaves no empty line
+ok an empty line at the end is kept
+ok an empty line in the middle is kept
+ok an empty line first is kept
+ok a lone newline is one empty line
+ok the empty string has no lines
+ok a line without a newline
+ok \r\n ends a line as \n does
+ok a mix of both
+ok a \r inside a line stays
+ok a \r with no \n after it stays, as read_line leaves it
+ok only a line that ends is stripped of its \r
+ok a \r\n and nothing else is one empty line
+ok spaces are kept
+ok bytes past ASCII pass through
+ok a list is an error
