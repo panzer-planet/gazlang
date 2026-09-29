@@ -248,27 +248,13 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   install it, get a first program working and trust it; not by what would win many users
   (Windows, a registry, an LSP and a playground wait for someone to ask).
 - **The roadmap**, in build order (optional types, `gaz --watch`, the pipe, cryptography, cookies
-  and signed sessions, and `gaz test` are done and described below):
+  and signed sessions, `gaz test` and the list helpers in `lib/lists.gaz` are done and described below):
   1. **Tagged literals as ordinary functions**: `name"text {$v}"` is `name(["text ", ""], [$v])`,
      resolved like any name, as JavaScript's tags and Python's t-strings are. Then `db::sql"..."`,
      rendered to each driver's own placeholders (`?`, `$n`), with nested fragments and lists for
      `in (...)`; then `Db.query`/`exec`/`row`/`value` refuse a plain string, with `db::raw()` the
      visible way round, so SQL injection is impossible by construction; then `html"..."`.
   2. **Rest patterns** in destructuring, `[$first, ...$rest] = $list`, when JSON handling asks.
-  3. **A broader `lib/lists.gaz`**: a fuller vocabulary of higher-order helpers as plain functions
-     over plain lists, not a wrapping object (a `Collection` kind would have to be a handle, since every
-     `kind` is — reintroducing exactly the "did I get a copy?" ambiguity `..` and value semantics
-     exist to remove), the list always first so each one reads naturally after `|>`:
-     `group_by($list, $key)` and `count_by` (a map of key → group or count, insertion order kept),
-     `partition($list, $predicate)` (`[$matching, $rest]`, pairs with a list pattern), `chunk($list,
-     $size)`, `zip($a, $b)` (stops at the shorter list, Python's rule, stated in its own doc comment
-     rather than left for a reader to discover), `take`/`drop` (named wrappers over `slice()`, for
-     how they read mid-chain), `pluck($list, $key)` (a list of maps only — `$obj.$name` doesn't
-     exist yet, so a list of objects isn't reachable this way until it does), `sum_by`/`avg`/`avg_by`,
-     `first($list)` (errors on empty, exactly mirroring `last()`), `find($list, $predicate)` (`null`
-     on no match, since not-found is an ordinary outcome, not a bug), `contains_by` (`in_array`'s
-     predicate-based sibling). Each key/predicate function is called once per element, the same
-     discipline `max_by`/`min_by` already keep.
   - **On demand**: dumping the raw bytes of a request that got a 500, to replay it (the small
     version of record and replay); `parallel($thunks, $max)` over forked processes, giving plain
     data only and refusing handles a child inherited (a SQLite or PostgreSQL connection must not be
@@ -1095,9 +1081,20 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   would. `StdLibraryTest` checks that what is built in equals `lib/`.
 - In GazLang instead, each its own namespace, so only what a file marks `pub` escapes it:
   `chars.gaz` (character classes), `sorting.gaz` (`sorting::values`, `sorting::by`, on `sort`),
-  `lists.gaz` (`lists::flatten`, `lists::unique`, `lists::max_by`/`min_by`, which call the key once per element
-  and keep the first on a tie, so they replace a stable `sort(...)[0]` exactly; a list helper goes here rather than into the builtins, since
-  a builtin takes its name from every program and a namespace only from those that include it),
+  `lists.gaz` (plain functions over plain lists, not a wrapping object: a `Collection` kind would have to be a
+  handle, since every `kind` is, reintroducing the "did I get a copy?" ambiguity `..` and value semantics
+  exist to remove; the list is always first so each reads naturally after `|>`, and each key or predicate
+  function is called once per element. `flatten`, `unique`, `max_by`/`min_by` (the first on a tie, so
+  they replace a stable `sort(...)[0]` exactly), `group_by`/`count_by` (a map of key to group or count,
+  insertion order kept, keys ints or strings as a map's are), `partition` (`[$matching, $rest]`, pairs with
+  a list pattern), `chunk`, `zip` (stops at the shorter list, Python's rule, said in its own doc comment),
+  `take`/`drop` (named wrappers over `slice()`, for how they read mid-chain, and unlike it an error for a
+  negative count), `pluck` (a list of maps only: `$obj.$name` doesn't exist yet, so a list of objects isn't
+  reachable until it does), `sum_by`/`avg`/`avg_by` (`avg` is always a float and an error on empty),
+  `first` (an error on empty, mirroring `last()`), `find` (`null` on no match, since not-found is an ordinary
+  outcome, not a bug) and `contains_by` (`in_array`'s predicate-based sibling). A list helper goes here
+  rather than into the builtins, since a builtin takes its name from every program and a namespace only
+  from those that include it),
   `format.gaz` (`format::number`, `format::pad_left`/`pad_right`
   convert like echo: display helpers take any value, string functions stay strict;
   `format::sprintf($template, $args)`, a list since there are no variadic calls: `%s` echo's

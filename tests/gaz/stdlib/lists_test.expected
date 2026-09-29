@@ -18,3 +18,52 @@ ok unique keeps the first of each, in order
 ok unique compares with ==: 1 and 1.0 are one, "1" another
 ok unique of lists and maps compares them whole
 ok unique of nothing
+ok group_by keeps the order keys first come
+ok group_by of nothing
+ok group_by takes int keys
+ok group_by calls the key once for each element
+ok count_by counts each key
+ok count_by of nothing
+ok partition splits in order
+ok partition reads truthiness
+ok partition of nothing
+ok partition pairs with a list pattern
+ok chunk leaves a short last list
+ok chunk that divides evenly
+ok chunk larger than the list
+ok chunk of nothing
+ok chunk refuses a size below 1
+ok zip pairs up
+ok zip stops at the shorter list
+ok zip stops at the shorter list, other way
+ok zip of nothing
+ok take
+ok take more than there is
+ok take none
+ok take refuses a negative count
+ok drop
+ok drop more than there is
+ok drop none
+ok drop refuses a float count
+ok pluck
+ok pluck of nothing
+ok pluck of a missing key is the map's error
+ok pluck refuses what isn't a map
+ok sum_by
+ok sum_by of nothing
+ok sum_by adds floats
+ok avg is a float
+ok avg of whole numbers is still a float
+ok avg of nothing is an error
+ok avg_by
+ok avg_by of nothing is an error
+ok first
+ok first of nothing is an error
+ok find gives the first match
+ok find gives null when nothing matches
+ok find stops at the first match
+ok contains_by finds one
+ok contains_by finds none
+ok contains_by of nothing
+ok take names a string count as a string
+ok a helper refuses what isn't a list
