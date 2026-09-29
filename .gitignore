@@ -2,6 +2,7 @@
 .phpunit.result.cache
 tests/.readme/
 bin/gaz
+bin/gaz.dSYM/
 bin/gazlang
 tests/.tmp/
 .DS_Store
