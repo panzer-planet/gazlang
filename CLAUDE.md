@@ -375,7 +375,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   Intel, for every push: it builds gaz without TLS (the bootstrap needs only a C compiler), then
   with it, and rebuilds its compiler before PHP is even installed, then the suite, in two jobs per
   platform (`pest --parallel --shard=N/2`, each building gaz for itself), with `gaz test` and the
-  minute of fuzzing on the first Linux one only. phpstan and
+  minute of fuzzing on the second Linux one only. phpstan and
   pint are a job of their own on Ubuntu, which needs no build and so reports first; phpstan runs
   cold there (no result cache) at a 1G limit, as `composer ci` does locally, since a warm local
   cache once hid a table that needed a gigabyte. LeakSanitizer runs in the sanitized build on
