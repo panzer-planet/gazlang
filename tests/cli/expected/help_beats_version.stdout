@@ -2,6 +2,9 @@ GazLang - a scripting language for web servers and command line tools
 Usage: gaz [options] [file | -] [program arguments...]
   Runs the file, with everything after it as the program's arguments (args()).
   - reads the program from standard input, as no file does when something is piped.
+  gaz -e 'code' [program arguments...]
+  Runs the code given, with standard input left as the program's data (read_stdin(),
+  read_line()) and everything after it as its arguments. Single-quote the code.
   gaz test [path] [--update]
   Runs every *_test.gaz file under path (default the current directory), recursively.
 Options:
@@ -11,6 +14,7 @@ Options:
   -t, --tokens   Print the lexer's tokens, one LINE TYPE VALUE per line, instead of interpreting
       --ast      Print the parser's tree instead of running it
   -f, --file     The file to run, as giving it first does
+  -e, --eval     The code to run, in place of a file; given more than once, the pieces are lines
       --watch    Run the file, and run it again whenever it or a file it includes changes
       --tty[=COLSxROWS]
                  Run the file on a pretend terminal (120x40 unless given), to drive a program

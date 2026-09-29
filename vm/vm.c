@@ -1698,6 +1698,9 @@ static const char *HELP =
     "Usage: gaz [options] [file | -] [program arguments...]\n"
     "  Runs the file, with everything after it as the program's arguments (args()).\n"
     "  - reads the program from standard input, as no file does when something is piped.\n"
+    "  gaz -e 'code' [program arguments...]\n"
+    "  Runs the code given, with standard input left as the program's data (read_stdin(),\n"
+    "  read_line()) and everything after it as its arguments. Single-quote the code.\n"
     "  gaz test [path] [--update]\n"
     "  Runs every *_test.gaz file under path (default the current directory), recursively.\n"
     "Options:\n"
@@ -1707,6 +1710,7 @@ static const char *HELP =
     "  -t, --tokens   Print the lexer's tokens, one LINE TYPE VALUE per line, instead of interpreting\n"
     "      --ast      Print the parser's tree instead of running it\n"
     "  -f, --file     The file to run, as giving it first does\n"
+    "  -e, --eval     The code to run, in place of a file; given more than once, the pieces are lines\n"
     "      --watch    Run the file, and run it again whenever it or a file it includes changes\n"
     "      --tty[=COLSxROWS]\n"
     "                 Run the file on a pretend terminal (120x40 unless given), to drive a program\n"
@@ -1739,17 +1743,31 @@ static bool pretend_size(const char *text) {
     return true;
 }
 
+/* One -e's code: each is a line of its own, so an error names the line it is on */
+static void add_eval(Buf *eval, bool *evaluating, const char *code) {
+    if (*evaluating) buf_addc(eval, '\n');
+    buf_adds(eval, code);
+    *evaluating = true;
+}
+
+static int eval_needs_code(void) {
+    fputs("Error: -e needs the code to run: gaz -e 'echo 1 + 2;'\n", stderr);
+    return 1;
+}
+
 static int unknown_option(const char *arg) {
     fprintf(stderr, "Error: Unknown option %s (program arguments go after the file, or after - or --)\n", arg);
     return 1;
 }
 
-/* The CLI, whose options are read as PHP's getopt("hvf:ctS", [help, version, file:, code,
+/* The CLI, whose options are read as PHP's getopt("hvf:e:ctS", [help, version, file:, eval:, code,
    tokens, ast, watch, serve, tty::]) and its check for options getopt doesn't know. Options end at the
    first argument that isn't one or after "--". Then, unless "--" ended them, -f named a file, or
    -S/--serve was given, the first argument is the file, or "-" for standard input, as python,
    php and node take it; the rest are the program's. --watch hands the file and those arguments
-   to watch() in watch.c. -S/--serve takes no file at all: it runs DEVSERVER_SOURCE instead, with
+   to watch() in watch.c. -e/--eval takes the program's text in place of a file, each -e a line,
+   and everything left is the program's arguments, as with -S; standard input is never read, so
+   it stays the program's data. -S/--serve takes no file at all: it runs DEVSERVER_SOURCE instead, with
    every remaining argument as the bootstrap program's own. "gaz test ..." is dispatched first,
    before any of that: see run_gaz_test(). */
 int main(int argc, char **argv) {
@@ -1758,7 +1776,8 @@ int main(int argc, char **argv) {
         return run_gaz_test(argc - 2, argv + 2);
     }
     bool help = false, version = false, code = false, tokens = false, ast = false, watching = false, serving = false;
-    bool after_dashes = false, from_stdin = false, pretend = false;
+    bool after_dashes = false, from_stdin = false, pretend = false, evaluating = false;
+    Buf eval = {0};
     const char *file = NULL;
     int files = 0;
     int i = 1;
@@ -1788,6 +1807,11 @@ int main(int argc, char **argv) {
                 pretend = true;
             }
             else if (strncmp(name, "file=", 5) == 0 && name[5]) file = name + 5, files++;
+            else if (strncmp(name, "eval=", 5) == 0) add_eval(&eval, &evaluating, name + 5);
+            else if (strcmp(name, "eval") == 0) {
+                if (i + 1 >= argc) return eval_needs_code();
+                add_eval(&eval, &evaluating, argv[++i]);
+            }
             else if (strcmp(name, "file") == 0) {
                 /* The next argument, whatever it is; none is no file, as getopt has it */
                 if (i + 1 < argc) file = argv[++i], files++;
@@ -1801,7 +1825,12 @@ int main(int argc, char **argv) {
             else if (*c == 'c') code = true;
             else if (*c == 't') tokens = true;
             else if (*c == 'S') serving = true;
-            else if (*c == 'f') {
+            else if (*c == 'e') {
+                if (c[1]) add_eval(&eval, &evaluating, c + 1);
+                else if (i + 1 < argc) add_eval(&eval, &evaluating, argv[++i]);
+                else return eval_needs_code();
+                break;
+            } else if (*c == 'f') {
                 if (c[1]) file = c + 1, files++;
                 else if (i + 1 < argc) file = argv[++i], files++;
                 break;
@@ -1809,9 +1838,9 @@ int main(int argc, char **argv) {
         }
     }
 
-    /* gaz main.gaz a b: the first argument left is the file, or - for standard input; -S takes
-       no file, so what is left is all the dev server's own arguments */
-    if (!file && !after_dashes && i < argc && !serving) {
+    /* gaz main.gaz a b: the first argument left is the file, or - for standard input; -S and -e
+       take no file, so what is left is all the program's own arguments */
+    if (!file && !after_dashes && i < argc && !serving && !evaluating) {
         if (strcmp(argv[i], "-") == 0) from_stdin = true;
         else file = argv[i], files++;
         i++;
@@ -1827,6 +1856,14 @@ int main(int argc, char **argv) {
     }
     if (files > 1) {
         fputs("Error: Give one file, with -f or --file\n", stderr);
+        return 1;
+    }
+    if (evaluating && (file || from_stdin)) {
+        fputs("Error: Give code with -e or a file to run, not both\n", stderr);
+        return 1;
+    }
+    if (evaluating && (watching || serving || pretend)) {
+        fputs("Error: -e runs code that has no file, so it can't be combined with --watch, -S or --tty\n", stderr);
         return 1;
     }
     if (serving && watching) {
@@ -1866,7 +1903,11 @@ int main(int argc, char **argv) {
         .path = file, .argc = argc - i, .argv = argv + i, .exit_code = 1,
     };
 
-    if (serving) {
+    if (evaluating) {
+        if (!eval.data) buf_add(&eval, "", 0);
+        job.text = eval.data;
+        job.len = eval.len;
+    } else if (serving) {
         size_t len = strlen(DEVSERVER_SOURCE);
         job.text = xmalloc(len);
         memcpy(job.text, DEVSERVER_SOURCE, len);

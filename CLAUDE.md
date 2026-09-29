@@ -1734,6 +1734,20 @@ try {
   built-in front end in that mode; running source runs it in `code` mode first. With no file and
   a terminal on stdin it prints the help to stderr and exits 1: there is no REPL (running each
   line as its own program wouldn't be one).
+  - **`gaz -e CODE`** (`--eval`, `-eCODE`; more than once, each a line joined by `"\n"`) runs text
+    given on the command line: the same path `-S` and `gaz test` take (`job.text` set, no path, so
+    the front end reads it as piped source, which it consumes before the program starts), and
+    **`main()` never reads standard input for it**, which is the whole point: `read_stdin()` and
+    `read_line()` find the data that was piped in. Nothing in `compiler/` knows about it. Every
+    argument left after the options is the program's `args()` (never a file), refused with a file,
+    `-`-as-file (`-f`), `--watch`, `-S` and `--tty`, and `-e` with no code. Errors are "on line N",
+    as piped source's are, not a made-up file name, which would break resolving includes from the
+    working directory. **Plain program semantics, on purpose**: no implicit `echo` of a last
+    expression (a rule that changes what a statement does by where it sits), no `-n`/`-p` line loop
+    (C would wrap the text, shifting line numbers and inventing `$line`), and no prelude of
+    libraries (implicit, and about 70ms a run): `include "std/lists.gaz";` is the price, and a
+    `lists::x` without it says so (`library_hint()` in `parser.gaz`). `ponytail:` code shows in
+    `ps`; no columns in an error.
 - **`gaz --watch app.gaz ARGS`** (`watch.c`) runs the program and runs it again whenever a file it
   is made of changes. A supervisor in C that runs no GazLang: it starts `argv[0]` again (spawnp,
   so a bare `gaz` is found on the PATH as the shell found it; portable, where `/proc/self/exe` and

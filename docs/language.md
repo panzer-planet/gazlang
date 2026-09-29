@@ -716,6 +716,18 @@ reads it all; output is flushed first, so a prompt printed with `print` shows be
 `read_stdin()` is all of standard input that is left, so after some `read_line()`s it is the rest.
 A program that was itself piped in has read its input already: both find nothing.
 
+**`gaz -e 'code'` runs the code given in place of a file** (`--eval` is the same), so a one-liner
+needs no file, and **standard input stays the program's data**: `read_stdin()` and `read_line()`
+read what is piped in, since the program's own text came from the command line.
+`ls | gaz -e 'while (($name = read_line()) != null) { echo upper($name); }'`. Single-quote the
+code, so the shell leaves the `$` of a variable alone. Given more than once, each `-e` is a line
+of the program, so an error names the line it is on. Everything after the options is the
+program's own `args()`, never a file (`gaz -e 'echo args();' a -x` is `["a", "-x"]`), and `--`
+ends the options as it does elsewhere. It is a complete program as any other is: statements
+end in `;`, a value is printed with `echo`, and nothing is included for you, so a library is
+`include "std/lists.gaz";` first. `-c`, `--tokens` and `--ast` work with it, to see how a
+one-liner was read. It can't be combined with a file, `--watch`, `-S` or `--tty`.
+
 `file_open($path)`, `file_read_line($file)` and `file_close($file)` read a file a line at a time,
 so a large one needn't be in memory whole (`read_file()` gives all of it at once). A line is read
 as `read_line()` reads one, without its `"\n"` or `"\r\n"` and with the last needing neither, and

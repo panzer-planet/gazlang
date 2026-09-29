@@ -1,0 +1,1 @@
+Error: -e runs code that has no file, so it can't be combined with --watch, -S or --tty

@@ -1,0 +1,8 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+@ 1
+PUSH 1
+PRINT

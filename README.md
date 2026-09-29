@@ -85,7 +85,9 @@ gaz hello.gaz
 A script can run as a command of its own: start the file with `#!/usr/bin/env gaz` and
 `chmod +x` it.
 
-No program to write for a static site: `gaz -S localhost:8000` serves the current directory.
+No program to write for a static site: `gaz -S localhost:8000` serves the current directory. And for a
+one-liner, `gaz -e` runs the code you give it and leaves standard input as its data:
+`ls | gaz -e 'while (($name = read_line()) != null) { echo upper($name); }'`.
 
 Then kick the tyres — clone the repository for its `examples/` and `tests/`:
 
