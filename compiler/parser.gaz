@@ -2384,8 +2384,18 @@ kind Html {
         return match {
             has_key(#functions, $name) => "{$name} is a function, not a kind",
             has_key(#constants, $name) => "{$name} is a constant, not a kind",
-            default => "Undefined kind: {$name}",
+            default => "Undefined kind: {$name}" .. #library_hint($name),
         };
+    }
+
+    // A name that is one of the standard library's files says to include it: `lists::first()`
+    // without the include reads as a kind that isn't there
+    fn library_hint($name) {
+        if (contains($name, "::") || std_source($name .. ".gaz") == null) {
+            return "";
+        }
+
+        return " (the standard library has {$name}.gaz: write include \"std/{$name}.gaz\";)";
     }
 
     // What is wrong with a name written in a type: a builtin type's name or a kind's is what goes there

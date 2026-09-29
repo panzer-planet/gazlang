@@ -1,0 +1,2 @@
+// Not a standard library file: no hint
+$x = nosuch::first([1]);

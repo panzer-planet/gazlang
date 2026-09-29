@@ -1,0 +1,1 @@
+Error: Undefined kind: nosuch at tests/parser_corpus/error_unknown_namespace_no_hint.gaz:2
