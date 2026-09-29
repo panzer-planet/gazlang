@@ -157,28 +157,26 @@ class LoopTest extends GazLangTestCase
         ];
     }
 
-    public function test_code_gen_lowers_foreach_to_a_while_loop_over_keys()
+    public function test_code_gen_steps_foreach_with_foreach_next()
     {
         $code = $this->generateCode('foreach ([7] as $k => $v) { continue; }');
 
-        // Slots: $#array 0, $#keys 1, $#count 2, $#i 3, $k 4, $v 5
-        $this->assertStringContainsString("CALL_BUILTIN keys 1\nSTORE 1", $code);
-        // The count is taken once, before the loop, not on every iteration
-        $this->assertStringContainsString("LOAD 1\nCALL_BUILTIN len 1\nSTORE 2", $code);
-        $this->assertSame(1, substr_count($code, 'CALL_BUILTIN len'));
-        $this->assertStringContainsString("LABEL WHILE_0\nLOAD 3\nLOAD 2\nLT\nJZ ENDWHILE_0", $code);
-        // $k = $#keys[$#i]; $v = $#array[$#keys[$#i]]; continue jumps to the step
-        $this->assertStringContainsString("LOAD 1\nLOAD 3\nINDEX_GET\nSTORE 4\nLOAD 4\nPOP\nLOAD 0\nLOAD 1\nLOAD 3\nINDEX_GET\nINDEX_GET\nSTORE 5", $code);
-        $this->assertStringContainsString("JMP CONTINUE_0\nLABEL CONTINUE_0\nLOAD 3\nPUSH 1\nADD\nSTORE 3", $code);
+        // Slots: $#array 0, $#position 1, $k 2, $v 3; nothing is made per loop, such as a list of keys
+        $this->assertStringContainsString("FOREACH_CHECK\nSTORE 0\nPUSH 0\nSTORE 1\nLABEL FOREACH_0\n", $code);
+        $this->assertStringNotContainsString('CALL_BUILTIN', $code);
+        // The key is on top, and is assigned first; continue goes straight to the next step
+        $this->assertStringContainsString("FOREACH_NEXT_KEY 0 1 ENDFOREACH_0\nSTORE 2\nSTORE 3\nJMP FOREACH_0\nJMP FOREACH_0\nLABEL ENDFOREACH_0", $code);
+        // Without a key, only the value is pushed
+        $this->assertStringContainsString("FOREACH_NEXT 0 1 ENDFOREACH_0\nSTORE 2\n", $this->generateCode('foreach ([7] as $v) { }'));
     }
 
     public function test_code_gen_gives_nested_foreach_loops_their_own_hidden_variables()
     {
         $code = $this->generateCode('foreach ([[1]] as $row) { foreach ($row as $cell) { } }');
 
-        // Two separate keys() results stored in two separate slots
-        preg_match_all('/CALL_BUILTIN keys 1\nSTORE (\d+)/', $code, $slots);
-        $this->assertCount(2, array_unique($slots[1]));
+        // Two loops stepping through two separate slots, each with a position of its own
+        preg_match_all('/FOREACH_NEXT (\d+) (\d+) /', $code, $slots);
+        $this->assertCount(4, array_unique([...$slots[1], ...$slots[2]]));
     }
 
     public function test_code_gen_for_while()

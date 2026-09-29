@@ -1,0 +1,248 @@
+// foreach steps through the list or map as it was when the loop started (FOREACH_NEXT)
+
+// Writes to the variable being iterated, inside the body, don't change what the loop sees
+$list = [1, 2, 3];
+foreach ($list as $i => $x) {
+    $list[] = $x * 10;
+    $list[0] = 99;
+    echo "list {$i} {$x}";
+}
+echo $list;
+
+$list = [1, 2, 3];
+foreach ($list as $x) {
+    delete $list[0];
+    echo "shrinking {$x}";
+}
+echo $list;
+
+$list = [1, 2, 3];
+foreach ($list as $x) {
+    $list = "gone";
+    echo "reassigned {$x}";
+}
+echo $list;
+
+$map = {"a" => 1, "b" => 2, "c" => 3};
+foreach ($map as $k => $v) {
+    if (has_key($map, "b")) {
+        delete $map["b"];
+    }
+    $map["d"] = 4;
+    $map["a"] = 100;
+    echo "map {$k} {$v}";
+}
+echo $map;
+
+// A map with removed entries: the holes are stepped over, wherever they are
+$map = {"a" => 1, "b" => 2, "c" => 3, "d" => 4, "e" => 5};
+delete $map["a"];
+delete $map["c"];
+delete $map["e"];
+foreach ($map as $k => $v) {
+    echo "holes {$k} {$v}";
+}
+$empty = {"x" => 1};
+delete $empty["x"];
+foreach ($empty as $k => $v) {
+    echo "never";
+}
+echo "all removed: " .. len($empty);
+
+// Nothing to iterate: the loop variables stay as they were
+foreach ([] as $never) {
+    echo "never";
+}
+foreach ({} as $never_key => $never) {
+    echo "never";
+}
+echo ($never ?? "no value") .. " " .. ($never_key ?? "no key");
+
+// The loop variables keep their last values
+foreach ({"x" => 1, "y" => 2} as $key => $value) {
+}
+echo "{$key} {$value}";
+
+// Keys of a list are its indexes; a map's keep their types
+foreach ({1 => "int", "1" => "string"} as $k => $v) {
+    echo type_of($k) .. " {$v}";
+}
+
+// continue steps on, break leaves, and both work in nested loops over the same list
+$rows = [1, 2, 3, 4];
+foreach ($rows as $a) {
+    if ($a == 2) {
+        continue;
+    }
+    foreach ($rows as $b) {
+        if ($b > $a) {
+            break;
+        }
+        if ($b == 1) {
+            continue;
+        }
+        echo "pair {$a} {$b}";
+    }
+    if ($a == 3) {
+        break;
+    }
+}
+
+// A value that is a list or map is a copy
+$grid = [[1, 2], [3, 4]];
+foreach ($grid as $i => $row) {
+    $row[] = 0;
+    $grid[$i][0] = -1;
+    echo $row;
+}
+echo $grid;
+
+// List patterns, a key first, and an empty slot
+foreach ({"p" => [1, 2], "q" => [3, 4]} as $name => [$first, $second]) {
+    echo "{$name} {$first} {$second}";
+}
+foreach ([[1, 2, 3], [4, 5, 6]] as [, $middle, ,]) {
+    echo "middle {$middle}";
+}
+
+// The key is assigned before the value is taken apart
+try {
+    foreach ({"ok" => [1, 2], "bad" => [1]} as $name => [$first, $second]) {
+        echo "pattern {$name}";
+    }
+} catch (Error $e) {
+    echo "{$e.message} on line {$e.line}, key {$name}";
+}
+
+// Global loop variables, and a global iterated while it is written
+@total = [5, 6];
+foreach (@total as @k => @v) {
+    @total[] = @v;
+}
+echo "{@k} {@v} {@total}";
+
+// Over what a call returns, which nothing else holds
+fn numbers($n) {
+    $out = [];
+    for ($i = 0; $i < $n; $i++) {
+        $out[] = $i;
+    }
+    return $out;
+}
+foreach (numbers(3) as $n) {
+    echo "number {$n}";
+}
+
+// return from inside a loop, and from inside loops nested in a function
+fn find($list, $wanted) {
+    foreach ($list as $i => $x) {
+        foreach ([1, 2] as $unused) {
+            if ($x == $wanted) {
+                return $i;
+            }
+        }
+    }
+    return null;
+}
+echo find([4, 5, 6], 6) .. " " .. (find([4, 5, 6], 7) ?? "none");
+
+// Recursion: each call has its own loop
+fn depth($tree) {
+    $deepest = 0;
+    foreach ($tree as $child) {
+        $deepest = max($deepest, 1 + depth($child));
+    }
+    return $deepest;
+}
+echo "depth " .. depth([[[]], [[[]]], []]);
+
+// break, continue and return through finally blocks
+fn guarded($list) {
+    foreach ($list as $x) {
+        try {
+            if ($x == 1) {
+                continue;
+            }
+            if ($x == 2) {
+                break;
+            }
+        } finally {
+            echo "finally {$x}";
+        }
+    }
+    foreach ($list as $x) {
+        try {
+            return "returned at {$x}";
+        } finally {
+            echo "finally before return";
+        }
+    }
+}
+echo guarded([1, 2, 3]);
+
+// An error thrown from the body leaves the loop
+try {
+    foreach ([1, 2, 3] as $x) {
+        if ($x == 2) {
+            throw "stop at {$x}";
+        }
+        echo "before the throw {$x}";
+    }
+} catch (Error $e) {
+    echo $e.message;
+}
+
+// In a lambda and in a method
+$sum = $list -> {
+    $total = 0;
+    foreach ($list as $x) {
+        $total += $x;
+    }
+    return $total;
+};
+echo "lambda " .. $sum([1, 2, 3]);
+
+kind Bag {
+    #items = [];
+    pub fn add($item) {
+        #items[] = $item;
+        return #;
+    }
+    pub fn each_twice() {
+        $out = [];
+        foreach (#items as $item) {
+            #items[] = $item;
+            $out[] = $item;
+        }
+        return $out;
+    }
+}
+$bag = Bag().add("a").add("b");
+echo $bag.each_twice();
+echo $bag.each_twice();
+
+// Closures made in a loop each keep the value of their pass
+$makers = [];
+foreach ([1, 2, 3] as $x) {
+    $makers[] = () -> $x * 100;
+}
+echo map($makers, $f -> $f());
+
+// Writing to the list after the loop has finished with it
+$after = [1, 2];
+foreach ($after as $x) {
+}
+$after[] = 3;
+echo $after;
+
+// The iterated value is checked where the loop is
+try {
+    foreach (
+        5 as $x
+    ) {
+    }
+} catch (Error $e) {
+    echo "{$e.message} on line {$e.line}";
+}
+foreach ("text" as $x) {
+}

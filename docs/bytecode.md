@@ -281,6 +281,8 @@ depth limit is reached.
 | `MAP_SET` | `m k v -- m` | Sets a key of the map below. |
 | `KEY_CHECK` | `k -- k` | Fails unless the value can be a key, so a bad key fails before later keys and the value run. |
 | `FOREACH_CHECK` | `x -- x` | Fails with "foreach expects a list or map" unless it is one. |
+| `FOREACH_NEXT slot position label` | `-- v`, or `--` and a jump | Steps a `foreach`: pushes the element of the list or map in the first slot at or after the position in the second (an int, 0 at the start; a map's removed entries are skipped), and sets the position past it. When there are no more it puts null in the first slot, so the list or map isn't kept alive by it (a loop left early keeps it until the frame ends), and jumps to the label. Fails unless the first slot holds a list or map and the second an int of 0 or more. |
+| `FOREACH_NEXT_KEY slot position label` | `-- v k`, or `--` and a jump | The same, pushing the element's index or key above it. |
 | `DESTRUCTURE count` | `l -- l` | Fails unless the value is a list of that many elements. |
 | `INDEX_GET` | `x k -- v` | Reads an element of a list, map or string. Fails on "Index out of range: 5", "Undefined key: \"k\"", or a bad target or key. |
 | `INDEX_GET_QUIET` | `x k -- v` | The same, but null when the target is null or the key is missing (the left of `??`). |
@@ -341,8 +343,9 @@ A file that loads is one the VM can run, so the checks are part of the format:
   function, a method called or pushed as a function, or a lambda made in any of these.
 - Each block's stack balances: walking it from the top and following every jump, an
   instruction is reached at the same depth on every path, nothing pops from an empty stack,
-  and a handler's block starts one deeper, holding the error. The greatest depth reached is
-  what a VM needs to size the block's stack.
+  a handler's block starts one deeper, holding the error, and a `FOREACH_NEXT`'s label is
+  reached without what it would have pushed. The greatest depth reached is what a VM needs to
+  size the block's stack.
 - Each block's handlers balance the same way: an instruction is reached with the same handlers
   open on every path, and `END_TRY` closes one that a `TRY` opened. (`RET` needs none of this:
   a call's handlers go with its frame.)

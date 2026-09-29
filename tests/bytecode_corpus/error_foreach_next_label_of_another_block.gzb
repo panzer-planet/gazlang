@@ -1,0 +1,19 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals $each $at
+PUSH [1]
+STORE 0
+PUSH 0
+STORE 1
+CALL f 0
+POP
+FOREACH_NEXT 0 1 THERE
+PRINT
+
+fn f 0 0
+locals
+LABEL THERE
+PUSH null
+RET

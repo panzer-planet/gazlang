@@ -207,8 +207,8 @@ class TryCatchTest extends GazLangTestCase
     {
         $code = $this->generateCode('foreach ([1] as $v) { try { continue; } catch ($e) { } }');
 
-        // The lowered foreach's continue runs its step, after leaving the try
-        $this->assertMatchesRegularExpression('/TRY CATCH_\d+\nEND_TRY\nJMP CONTINUE_\d+/', $code);
+        // continue steps the foreach, after leaving the try
+        $this->assertMatchesRegularExpression('/TRY CATCH_\d+\nEND_TRY\nJMP FOREACH_\d+/', $code);
     }
 
     public function test_code_gen_leaves_each_try_when_breaking_out_of_a_loop()

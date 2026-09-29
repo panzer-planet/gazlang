@@ -146,9 +146,14 @@ kind CodeGenerator {
             $args[] = #captures[$name];
             #emit($op .. "_CAPTURED", $args);
         } else {
-            $args[] = #var_addresses[$name] ??= len(#var_addresses);
+            $args[] = #local_slot($variable);
             #emit($op, $args);
         }
+    }
+
+    // The slot of a local variable, allocated the first time it is seen
+    fn local_slot($variable) {
+        return #var_addresses[$variable.value] ??= len(#var_addresses);
     }
 
     // Emit a static field instruction: LOAD, STORE, SET_PATH or DELETE_PATH, addressed by the
@@ -591,39 +596,46 @@ kind CodeGenerator {
         #emit("LABEL", [$end_label]);
     }
 
-    // foreach as the equivalent while loop over keys()
+    /*
+     * foreach as a loop of FOREACH_NEXT, which steps through the list or map as it was when the
+     * loop started, held in a hidden variable (so a write to where it came from copies it), with
+     * its position in another
+     */
     fn visit_foreach_statement($node) {
         $n = #hidden_counter++;
-        $array = #hidden("\$#foreach_array_{$n}");
-        $keys = #hidden("\$#foreach_keys_{$n}");
-        $count = #hidden("\$#foreach_count_{$n}");
-        $i = #hidden("\$#foreach_i_{$n}");
-        $key = IndexAST($keys, $i);
-
-        $body = CompoundAST();
-        if ($node.key != null) {
-            $body.statements[] = StatementAST(#assign($node.key, $key));
-        }
-        $body.statements[] = StatementAST(#assign($node.value, IndexAST($array, $key)));
-        $body.statements = [...$body.statements, ...$node.body.statements];
+        $each = #hidden("\$#foreach_array_{$n}");
+        $position = #hidden("\$#foreach_position_{$n}");
+        $start_label = "FOREACH_" .. #label_counter;
+        $end_label = "ENDFOREACH_" .. #label_counter;
+        #label_counter++;
 
         #visit($node.iterable);
         #emit("FOREACH_CHECK");
-        #emit_variable("STORE", $array);
+        #emit_variable("STORE", $each);
+        #emit("PUSH", [0]);
+        #emit_variable("STORE", $position);
 
-        $loop = CompoundAST();
-        $loop.statements = [
-            StatementAST(#assign($keys, FunctionCallAST("keys", [$array]))),
-            StatementAST(#assign($count, FunctionCallAST("len", [$keys]))),
-            StatementAST(#assign($i, NumAST(Token("INTEGER", 0)))),
-            WhileStatementAST(
-                BinOpAST($i, Token("LESS_THAN", "<"), $count),
-                $body,
-                StatementAST(#assign($i, BinOpAST($i, Token("PLUS", "+"), NumAST(Token("INTEGER", 1)))))
-            ),
-        ];
+        #emit("LABEL", [$start_label]);
+        $step = $node.key == null ? "FOREACH_NEXT" : "FOREACH_NEXT_KEY";
+        #emit($step, [#local_slot($each), #local_slot($position), $end_label]);
+        // The key is on top, and is assigned first
+        if ($node.key != null) {
+            #emit_variable("STORE", $node.key);
+        }
+        if (is_a($node.value, ListPatternAST)) {
+            #destructure($node.value);
+            #emit("POP");
+        } else {
+            #emit_variable("STORE", $node.value);
+        }
 
-        #visit($loop);
+        // continue goes straight to the next step, which is all a foreach has to do
+        #loop_labels[] = [$start_label, $end_label, len(#try_stack)];
+        #visit_compound($node.body);
+        delete #loop_labels[len(#loop_labels) - 1];
+
+        #emit("JMP", [$start_label]);
+        #emit("LABEL", [$end_label]);
     }
 
     fn visit_while_statement($node) {

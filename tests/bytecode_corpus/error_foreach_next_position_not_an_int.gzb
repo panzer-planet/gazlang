@@ -1,0 +1,12 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals $each $at
+PUSH {"a" => 1}
+STORE 0
+PUSH 0.0
+STORE 1
+FOREACH_NEXT 0 1 END
+PRINT
+LABEL END

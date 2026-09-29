@@ -2,7 +2,7 @@ GAZLANG BYTECODE 3
 globals
 
 top
-locals $pair $#destructure_0 $b $triple $#destructure_1 $a $c $list $#destructure_2 $first $second $rows $#foreach_array_3 $#foreach_keys_3 $#foreach_count_3 $#foreach_i_3 $#destructure_4 $value $#foreach_array_5 $#foreach_keys_5 $#foreach_count_5 $#foreach_i_5 $key $#destructure_6 $third $f
+locals $pair $#destructure_0 $b $triple $#destructure_1 $a $c $list $#destructure_2 $first $second $rows $#foreach_array_3 $#foreach_position_3 $#destructure_4 $value $#foreach_array_5 $#foreach_position_5 $key $#destructure_6 $third $f
 @ "list_pattern_empty_slots.gaz" 1
 LOAD 0
 DESTRUCTURE 2
@@ -55,114 +55,55 @@ POP
 LOAD 11
 FOREACH_CHECK
 STORE 12
-LOAD 12
-CALL_BUILTIN keys 1
+PUSH 0
 STORE 13
-LOAD 13
-POP
-LOAD 13
-CALL_BUILTIN len 1
+LABEL FOREACH_0
+FOREACH_NEXT 12 13 ENDFOREACH_0
+DESTRUCTURE 2
 STORE 14
 LOAD 14
-POP
-PUSH 0
+PUSH 1
+INDEX_GET
 STORE 15
 LOAD 15
 POP
-LABEL WHILE_0
-LOAD 15
 LOAD 14
-LT
-JZ ENDWHILE_0
-LOAD 12
-LOAD 13
-LOAD 15
-INDEX_GET
-INDEX_GET
-DESTRUCTURE 2
-STORE 16
-LOAD 16
-PUSH 1
-INDEX_GET
-STORE 17
-LOAD 17
-POP
-LOAD 16
 POP
 @ "list_pattern_empty_slots.gaz" 5
-LOAD 17
+LOAD 15
 PRINT
-LABEL CONTINUE_0
 @ "list_pattern_empty_slots.gaz" 4
-LOAD 15
-PUSH 1
-ADD
-STORE 15
-LOAD 15
-POP
-JMP WHILE_0
-LABEL ENDWHILE_0
+JMP FOREACH_0
+LABEL ENDFOREACH_0
 @ "list_pattern_empty_slots.gaz" 7
 LOAD 11
 FOREACH_CHECK
+STORE 16
+PUSH 0
+STORE 17
+LABEL FOREACH_1
+FOREACH_NEXT_KEY 16 17 ENDFOREACH_1
 STORE 18
-LOAD 18
-CALL_BUILTIN keys 1
+DESTRUCTURE 3
 STORE 19
 LOAD 19
-POP
-LOAD 19
-CALL_BUILTIN len 1
+PUSH 2
+INDEX_GET
 STORE 20
 LOAD 20
 POP
-PUSH 0
-STORE 21
-LOAD 21
-POP
-LABEL WHILE_1
-LOAD 21
-LOAD 20
-LT
-JZ ENDWHILE_1
 LOAD 19
-LOAD 21
-INDEX_GET
-STORE 22
-LOAD 22
-POP
-LOAD 18
-LOAD 19
-LOAD 21
-INDEX_GET
-INDEX_GET
-DESTRUCTURE 3
-STORE 23
-LOAD 23
-PUSH 2
-INDEX_GET
-STORE 24
-LOAD 24
-POP
-LOAD 23
 POP
 @ "list_pattern_empty_slots.gaz" 8
-LOAD 24
+LOAD 20
 PRINT
-LABEL CONTINUE_1
 @ "list_pattern_empty_slots.gaz" 7
-LOAD 21
-PUSH 1
-ADD
-STORE 21
-LOAD 21
-POP
-JMP WHILE_1
-LABEL ENDWHILE_1
+JMP FOREACH_1
+LABEL ENDFOREACH_1
 @ "list_pattern_empty_slots.gaz" 15
 MAKE_CLOSURE 0
-STORE 25
-LOAD 25
+STORE 21
+LOAD 21
 POP
 
 fn tail 1 1

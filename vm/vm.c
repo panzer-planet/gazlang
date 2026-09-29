@@ -897,6 +897,54 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
                 goto error;
             }
             break;
+        case OP_FOREACH_NEXT:
+        case OP_FOREACH_NEXT_KEY: {
+            /* The next element of the list or map in slot a, from the position in slot b, which
+               moves past it. The slot holds a reference, so the list or map is never changed in
+               place while the loop runs: a write to the variable it came from copies it first. */
+            Value *each = &fp->base[in->a], *at = &fp->base[in->b];
+            /* What the slots hold is the compiler's to get right; hand-written bytecode can
+               put anything there, and the loader can't know what a slot holds */
+            if (each->type != T_LIST && each->type != T_MAP) {
+                raisef("%s expects a list or map in slot %d, got %s", op == OP_FOREACH_NEXT ? "FOREACH_NEXT" : "FOREACH_NEXT_KEY", in->a, type_name(*each));
+                goto error;
+            }
+            if (at->type != T_INT || at->i < 0) {
+                raisef("%s expects a position of 0 or more in slot %d", op == OP_FOREACH_NEXT ? "FOREACH_NEXT" : "FOREACH_NEXT_KEY", in->b);
+                goto error;
+            }
+            size_t i = (size_t)at->i;
+            bool more;
+            if (each->type == T_LIST) {
+                more = i < each->l->len;
+                if (more) {
+                    a = each->l->items[i];
+                    b = v_int(at->i);
+                }
+            } else {
+                /* A removed entry keeps its place as a hole, which map_next() steps over */
+                more = map_next(each->m, &i);
+                if (more) {
+                    a = each->m->entries[i].value;
+                    b = each->m->entries[i].key;
+                }
+            }
+            if (!more) {
+                /* Done: let go of the list or map now, so the variable it came from needn't
+                   copy it on its next write */
+                set_slot(each, v_null());
+                pc = in->p;
+                break;
+            }
+            at->i = (int64_t)i + 1;
+            incref(a);
+            PUSH(a);
+            if (op == OP_FOREACH_NEXT_KEY) {
+                incref(b);
+                PUSH(b);
+            }
+            break;
+        }
         case OP_DESTRUCTURE:
             a = TOP();
             if (a.type != T_LIST) {

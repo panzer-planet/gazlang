@@ -1,0 +1,52 @@
+list 0 1
+list 1 2
+list 2 3
+[99, 2, 3, 10, 20, 30]
+shrinking 1
+shrinking 2
+shrinking 3
+[]
+reassigned 1
+reassigned 2
+reassigned 3
+gone
+map a 1
+map b 2
+map c 3
+{"a" => 100, "c" => 3, "d" => 4}
+holes b 2
+holes d 4
+all removed: 0
+no value no key
+y 2
+int int
+string string
+pair 3 2
+pair 3 3
+[1, 2, 0]
+[3, 4, 0]
+[[-1, 2], [-1, 4]]
+p 1 2
+q 3 4
+middle 2
+middle 5
+pattern ok
+Cannot destructure a list of 1 element into 2 on line 110, key bad
+1 6 [5, 6, 5, 6]
+number 0
+number 1
+number 2
+2 none
+depth 3
+finally 1
+finally 2
+finally before return
+returned at 1
+before the throw 1
+stop at 2
+lambda 6
+["a", "b"]
+["a", "b", "a", "b"]
+[100, 200, 300]
+[1, 2, 3]
+foreach expects a list or map, got int on line 240

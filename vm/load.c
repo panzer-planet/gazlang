@@ -90,6 +90,8 @@ static const InstrInfo INFO[OP_COUNT] = {
     [OP_MAP_SET] = {"MAP_SET", 0, {0}, 3, 1},
     [OP_KEY_CHECK] = {"KEY_CHECK", 0, {0}, 1, 1},
     [OP_FOREACH_CHECK] = {"FOREACH_CHECK", 0, {0}, 1, 1},
+    [OP_FOREACH_NEXT] = {"FOREACH_NEXT", 3, {K_SLOT, K_SLOT, K_LABEL}, 0, 1},
+    [OP_FOREACH_NEXT_KEY] = {"FOREACH_NEXT_KEY", 3, {K_SLOT, K_SLOT, K_LABEL}, 0, 2},
     [OP_DESTRUCTURE] = {"DESTRUCTURE", 1, {K_COUNT}, 1, 1},
     [OP_INDEX_GET] = {"INDEX_GET", 0, {0}, 2, 1},
     [OP_INDEX_GET_QUIET] = {"INDEX_GET_QUIET", 0, {0}, 2, 1},
@@ -1279,6 +1281,10 @@ static void check_block(Block *b) {
             } else if (r->op == OP_CATCH_MATCH) {
                 /* Its kind didn't match: the next catch is tried with the error still on top */
                 target = find_label(b, r->names[1]);
+            } else if (r->op == OP_FOREACH_NEXT || r->op == OP_FOREACH_NEXT_KEY) {
+                /* At the end it jumps without pushing anything */
+                target = find_label(b, r->names[2]);
+                target_height = height - info->pushes;
             }
             /* A try's handler is open from TRY until END_TRY, or until its catch runs */
             if (r->op == OP_TRY) tries++;
@@ -1484,6 +1490,11 @@ static void link_program(void) {
                 in->p = find_kind(r->names[0]);
                 label = find_label(b, r->names[1]);
                 in->a = label < 0 ? -1 : positions[label];
+                break;
+            case OP_FOREACH_NEXT: case OP_FOREACH_NEXT_KEY:
+                /* a and b are the two slots, so the jump's target is p, an instruction */
+                label = find_label(b, r->names[2]);
+                in->p = label < 0 ? NULL : prog->code + positions[label];
                 break;
             case OP_CALL:
                 in->p = find_function(r->names[0]);

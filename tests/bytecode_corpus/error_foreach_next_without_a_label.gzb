@@ -1,0 +1,6 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals $each $at
+FOREACH_NEXT 0 1

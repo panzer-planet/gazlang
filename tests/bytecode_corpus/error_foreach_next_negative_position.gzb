@@ -1,0 +1,14 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals $each $at
+@ 2
+PUSH [1, 2]
+STORE 0
+PUSH -1
+STORE 1
+FOREACH_NEXT_KEY 0 1 END
+POP
+PRINT
+LABEL END

@@ -1654,9 +1654,15 @@ try {
   appends in place, to a plain variable with `CONCAT_ASSIGN` and to anything else with a
   `SET_PATH` whose path ends in `..=` (`store_path()`); only a value printing through
   `to_string()` joins first and writes again from the start, since running it could move what
-  the walk points into. Other compound assignment, `++`/`--`, `foreach`, list patterns and `??=`
-  are lowered to plain instructions with hidden variables (`$#update_*_n`, `$#foreach_*_n`,
-  `$#destructure_n`, `$#match_n`, `$#finally_error_n`) that no program can name. Lists and maps
+  the walk points into. Other compound assignment, `++`/`--`, list patterns and `??=` are
+  lowered to plain instructions with hidden variables (`$#update_*_n`, `$#destructure_n`,
+  `$#match_n`, `$#finally_error_n`) that no program can name. `foreach` keeps what it iterates
+  and an int position in two such variables (`$#foreach_*_n`) and steps with `FOREACH_NEXT`
+  (`_KEY` when it wants the key), which reads the element in place: lowering it to a loop over
+  `keys()` made a list of keys per loop and two `INDEX_GET`s per element. The hidden
+  variable's reference is the snapshot, since a write elsewhere copies a shared list or map first;
+  when the loop runs out the instruction nulls it, so the next write to the original needn't copy
+  (a loop left by `break`, `return` or `throw` keeps it until the frame ends, as before). Lists and maps
   made only of constants are built once and pushed as one value. `match` emits the tests first
   and the bodies after, so every arm leaves exactly one value and the stack depth agrees on
   every path. `try` emits `TRY`/`END_TRY` handlers, with `break`/`continue`/`return` leaving

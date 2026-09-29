@@ -753,6 +753,17 @@ tests/bytecode_corpus/error_first_block_not_top.gzb
 tests/bytecode_corpus/error_fn_arity_backwards.gzb
 tests/bytecode_corpus/error_fn_arity_missing.gzb
 tests/bytecode_corpus/error_fn_arity_not_a_number.gzb
+tests/bytecode_corpus/error_foreach_next_after_the_end.gzb
+tests/bytecode_corpus/error_foreach_next_key_loops_with_its_values.gzb
+tests/bytecode_corpus/error_foreach_next_label_as_slot.gzb
+tests/bytecode_corpus/error_foreach_next_label_of_another_block.gzb
+tests/bytecode_corpus/error_foreach_next_negative_position.gzb
+tests/bytecode_corpus/error_foreach_next_of_an_int.gzb
+tests/bytecode_corpus/error_foreach_next_position_not_an_int.gzb
+tests/bytecode_corpus/error_foreach_next_slot.gzb
+tests/bytecode_corpus/error_foreach_next_stack_at_end.gzb
+tests/bytecode_corpus/error_foreach_next_undefined_label.gzb
+tests/bytecode_corpus/error_foreach_next_without_a_label.gzb
 tests/bytecode_corpus/error_global_slot.gzb
 tests/bytecode_corpus/error_halt_inside_a_call.gzb
 tests/bytecode_corpus/error_kind_header.gzb
@@ -831,6 +842,7 @@ tests/bytecode_corpus/error_value_variable.gzb
 tests/bytecode_corpus/error_value_with_a_hash.gzb
 tests/bytecode_corpus/error_value_with_an_arrow.gzb
 tests/bytecode_corpus/error_version.gzb
+tests/bytecode_corpus/foreach_next.gzb
 tests/bytecode_corpus/map_extend.gzb
 tests/bytecode_corpus/raised_error_as_a_value.gzb
 tests/bytecode_corpus/set_field_undeclared.gzb
@@ -1021,6 +1033,7 @@ tests/vm_corpus/depth_uncaught.gaz
 tests/vm_corpus/error_is_a_free_name.gaz
 tests/vm_corpus/exit_code.gaz
 tests/vm_corpus/floats.gaz
+tests/vm_corpus/foreach.gaz
 tests/vm_corpus/globals.gaz
 tests/vm_corpus/map_churn.gaz
 tests/vm_corpus/map_spread.gaz
