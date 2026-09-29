@@ -19,7 +19,13 @@
     },
     "scripts": {
         "test": "phpunit",
-        "analyse": "phpstan analyse",
-        "format": "pint"
+        "analyse": "phpstan analyse --memory-limit=1G",
+        "format": "pint",
+        "ci": [
+            "phpstan clear-result-cache",
+            "@analyse",
+            "pint --test",
+            "@test"
+        ]
     }
 }

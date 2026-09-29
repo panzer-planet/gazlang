@@ -64,6 +64,7 @@ make -C vm stress && GAZVM=vm/build/gazvm-stress php vm/progress.php
 
 vendor/bin/phpstan analyse          # must be clean
 vendor/bin/pint                     # formatting
+composer ci                         # what CI runs, cold: phpstan with no result cache at 1G, pint --test, phpunit
 ```
 
 ## Code Style Guidelines
@@ -338,8 +339,11 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   without Homebrew. No promise about what changes between releases yet.
 - **CI** (`.github/workflows/ci.yml`) runs on Ubuntu (the latest) and on macOS, Apple silicon and
   Intel, for every push: it builds gaz without TLS (the bootstrap needs only a C compiler), then
-  with it, and rebuilds its compiler before PHP is even installed, then the suite; phpstan and
-  pint run on Ubuntu only.
+  with it, and rebuilds its compiler before PHP is even installed, then the suite. phpstan and
+  pint are a job of their own on Ubuntu, which needs no build and so reports first; phpstan runs
+  cold there (no result cache) at a 1G limit, as `composer ci` does locally, since a warm local
+  cache once hid a table that needed a gigabyte. LeakSanitizer runs in the sanitized build on
+  Linux only: Apple's clang has none, and Homebrew's LLVM gave only system-library noise.
   Development is on an Intel Mac.
 - **The website** is built by gaz: `bin/gaz site/build.gaz` (from the root; into `site/dist`,
   gitignored; open `site/dist/index.html`, or `php -S localhost:8000 -t site/dist`) makes the home

@@ -5,6 +5,23 @@ on:
   pull_request:
 
 jobs:
+  # The static checks need no build, so they run beside the tests and say so within a couple of
+  # minutes; a cold phpstan (CI has no result cache) is what `composer ci` runs locally too
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: none
+      - name: Install the PHP dependencies
+        run: composer install --no-interaction --no-progress
+      - name: phpstan
+        run: vendor/bin/phpstan analyse --memory-limit=1G
+      - name: pint
+        run: vendor/bin/pint --test
+
   test:
     strategy:
       # One platform failing shouldn't hide whether the others pass
@@ -60,10 +77,3 @@ jobs:
       - name: Fuzz
         if: runner.os == 'Linux'
         run: php vm/fuzz.php --seed ${{ github.run_id }} --seconds 60
-      # The same on every platform, so once is enough
-      - name: phpstan
-        if: matrix.os == 'ubuntu-latest'
-        run: vendor/bin/phpstan analyse --memory-limit=1G
-      - name: pint
-        if: matrix.os == 'ubuntu-latest'
-        run: vendor/bin/pint --test
