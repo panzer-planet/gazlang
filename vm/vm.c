@@ -1791,6 +1791,11 @@ static bool pretend_size(const char *text) {
     return true;
 }
 
+/* The code -e gave. Static, so it is still reachable when main() returns early (help, a refused
+   combination, an unknown option): the process is ending, and a leak checker would count a buffer
+   only a local held. A run that goes on hands it to the job, which frees it. */
+static Buf eval_code;
+
 /* One -e's code: each is a line of its own, so an error names the line it is on */
 static void add_eval(Buf *eval, bool *evaluating, const char *code) {
     if (*evaluating) buf_addc(eval, '\n');
@@ -1825,7 +1830,6 @@ int main(int argc, char **argv) {
     }
     bool help = false, version = false, code = false, tokens = false, ast = false, watching = false, serving = false;
     bool after_dashes = false, from_stdin = false, pretend = false, evaluating = false;
-    Buf eval = {0};
     const char *file = NULL;
     int files = 0;
     int i = 1;
@@ -1855,10 +1859,10 @@ int main(int argc, char **argv) {
                 pretend = true;
             }
             else if (strncmp(name, "file=", 5) == 0 && name[5]) file = name + 5, files++;
-            else if (strncmp(name, "eval=", 5) == 0) add_eval(&eval, &evaluating, name + 5);
+            else if (strncmp(name, "eval=", 5) == 0) add_eval(&eval_code, &evaluating, name + 5);
             else if (strcmp(name, "eval") == 0) {
                 if (i + 1 >= argc) return eval_needs_code();
-                add_eval(&eval, &evaluating, argv[++i]);
+                add_eval(&eval_code, &evaluating, argv[++i]);
             }
             else if (strcmp(name, "file") == 0) {
                 /* The next argument, whatever it is; none is no file, as getopt has it */
@@ -1874,8 +1878,8 @@ int main(int argc, char **argv) {
             else if (*c == 't') tokens = true;
             else if (*c == 'S') serving = true;
             else if (*c == 'e') {
-                if (c[1]) add_eval(&eval, &evaluating, c + 1);
-                else if (i + 1 < argc) add_eval(&eval, &evaluating, argv[++i]);
+                if (c[1]) add_eval(&eval_code, &evaluating, c + 1);
+                else if (i + 1 < argc) add_eval(&eval_code, &evaluating, argv[++i]);
                 else return eval_needs_code();
                 break;
             } else if (*c == 'f') {
@@ -1952,9 +1956,9 @@ int main(int argc, char **argv) {
     };
 
     if (evaluating) {
-        if (!eval.data) buf_add(&eval, "", 0);
-        job.text = eval.data;
-        job.len = eval.len;
+        if (!eval_code.data) buf_add(&eval_code, "", 0);
+        job.text = eval_code.data;
+        job.len = eval_code.len;
     } else if (serving) {
         size_t len = strlen(DEVSERVER_SOURCE);
         job.text = xmalloc(len);

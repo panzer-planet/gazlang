@@ -160,7 +160,9 @@ nothing**: several first versions of a harness or corpus passed everything and c
   and prints `gazvm: N values leaked`, N being what is left beyond what was alive before the
   program loaded; the harness and `progress.php` fail an entry that leaks or
   prints no line. `exit()` and a refused file say `leaks not checked`. On Linux LeakSanitizer
-  also runs in the sanitized builds and catches plain allocations the count can't see;
+  also runs in the sanitized builds and catches plain allocations the count can't see (a `main()`
+  that returns early without freeing what an option collected: on a Mac,
+  `leaks --atExit -- bin/gaz ARGS` finds the same);
   `__lsan_default_suppressions()` in `vm.c` exempts only the loader, which gives up on a broken
   file without freeing what it built.
 - **The command line prints what `tests/cli/expected/` records** (`CliTest`): a table of
