@@ -3,7 +3,8 @@
  * compare and count with, and date::civil() and date::format() turn it back into a year, month and
  * day. Day 0 is 1 January 1970 (the proleptic Gregorian calendar, so any year is fine), which is only
  * a starting point: there is no time of day and no zone. Today, in UTC, is intdiv(time(), 86400), but
- * a program that asks the clock can't be recorded, so a game keeps its own date.
+ * a program that asks the clock prints something different each day, so one that must print the same
+ * every run, a game with a seed, keeps its own date.
  */
 namespace date;
 
