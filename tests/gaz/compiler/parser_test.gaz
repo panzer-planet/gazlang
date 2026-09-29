@@ -2,7 +2,7 @@
 // ParseError to catch. That it builds the right tree is tests/SelfHostedParserTest.php's job.
 namespace gazlang;
 
-include "../check.gaz";
+include "std/test.gaz" use expect as check;
 include "../../../compiler/parser.gaz";
 
 $root = Parser(Lexer("echo 1 + 2 * \$x;")).parse();

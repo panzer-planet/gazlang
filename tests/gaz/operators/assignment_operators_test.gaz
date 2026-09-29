@@ -1,4 +1,4 @@
-include "../check.gaz";
+include "std/test.gaz" use expect as check;
 
 // Compound assignment applies the operator and assigns the result
 $n = 10;

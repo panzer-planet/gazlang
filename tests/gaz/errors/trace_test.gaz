@@ -1,4 +1,4 @@
-include "../check.gaz";
+include "std/test.gaz" use expect as check;
 
 fn inner($n) { return 1 / $n; }
 fn outer($n) { return inner($n); }

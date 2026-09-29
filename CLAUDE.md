@@ -173,8 +173,8 @@ nothing**: several first versions of a harness or corpus passed everything and c
   (`test_the_self_hosted_compiler_compiles_itself_to_itself`). This checks the front end on the
   largest program there is.
 - **GazLang code is tested with GazLang programs**: every `tests/gaz/**/*_test.gaz` must print
-  exactly its `*_test.expected` (`GazProgramTest`); `check.gaz`'s `check($label, $actual,
-  $expected)` prints `ok <label>` or a FAIL line. `lib/json.gaz` is checked against PHP's
+  exactly its `*_test.expected` (`GazProgramTest`); `std/test.gaz`'s
+  `test::expect($label, $actual, $expected)` (`use expect as check`) prints `ok <label>` or a FAIL line. `lib/json.gaz` is checked against PHP's
   `json_decode` on `tests/json/y_*`/`n_*` (the prefix says whether it must parse), `lib/csv.gaz`
   against `fgetcsv` on `tests/csv/`, `lib/chars.gaz` against the lexer's classes for all 256
   bytes.
@@ -273,8 +273,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
 - **`gaz test [path] [--update]`**, so a user of gaz doesn't need PHP to test gaz code: it finds
   every `*_test.gaz` file under `path` (the current directory by default), recursively, and runs
   each in its own `gaz` process, reinvoked with `program_path()`. `std/test.gaz` gives
-  `test::expect($label, $actual, $expected)` (`tests/gaz/check.gaz`'s internal `check()`, made
-  public: `ok <label>`, or a FAIL line naming both values) and `test::snapshot($label, $actual)`
+  `test::expect($label, $actual, $expected)` (`ok <label>`, or a FAIL line naming both values,
+  and what this project's own `tests/gaz` programs check with) and `test::snapshot($label, $actual)`
   (compared against a file recorded next to the calling test, `--update` (re)writing it instead).
   A file fails the run if its output has a FAIL line or it exits non-zero; `gaz test` exits 1 if
   any file did.

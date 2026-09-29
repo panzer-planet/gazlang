@@ -3,7 +3,7 @@
 namespace gazlang;
 
 include "../../../compiler/lexer.gaz";
-include "../check.gaz";
+include "std/test.gaz" use expect as check;
 
 // The parser makes tokens of its own (the .. of an interpolated string), which have no line
 check("a token made by hand prints", to_string(Token("CONCAT", "..")), " CONCAT ..");

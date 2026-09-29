@@ -1,4 +1,4 @@
-include "../check.gaz";
+include "std/test.gaz" use expect as check;
 
 fn greet($name, $greeting = "Hello", $end = "!") {
     return "$greeting, $name$end";

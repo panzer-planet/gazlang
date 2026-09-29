@@ -6,7 +6,7 @@ include "../../../site/pages.gaz";
 include "../../../site/markdown.gaz";
 include "../../../site/library.gaz";
 include "../../../site/documents.gaz";
-include "../check.gaz";
+include "std/test.gaz" use expect as check;
 
 const HOSTILE = "<b id=\"x\">it's & \"so\"</b>";
 const ESCAPED = "&lt;b id=&quot;x&quot;&gt;it&#39;s &amp; &quot;so&quot;&lt;/b&gt;";

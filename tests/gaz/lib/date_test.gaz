@@ -1,4 +1,4 @@
-include "../check.gaz";
+include "std/test.gaz" use expect as check;
 include "../../../lib/date.gaz";
 
 check("day 0 is 1 January 1970, a Thursday", [date::days(1970, 1, 1), date::weekday(0), date::format(0)], [0, 3, "Thu 1 Jan 1970"]);

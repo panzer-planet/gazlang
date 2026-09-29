@@ -1,4 +1,4 @@
-include "../check.gaz";
+include "std/test.gaz" use expect as check;
 
 // Collects what a foreach saw, as "key=value" strings
 fn pairs($array) {

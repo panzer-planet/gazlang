@@ -1,4 +1,4 @@
-include "../check.gaz";
+include "std/test.gaz" use expect as check;
 
 check("upper", upper("abC1_z"), "ABC1_Z");
 check("lower", lower("AbC1_Z"), "abc1_z");

@@ -1,4 +1,4 @@
-include "../check.gaz";
+include "std/test.gaz" use expect as check;
 
 // Literals, and printing that reads back as the same float
 check("literal", 1.5, 3 / 2);

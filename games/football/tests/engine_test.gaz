@@ -4,7 +4,7 @@
  * seeded match prints, since the ratings and the odds are meant to change; tests/programs/football.gaz
  * is the frozen simulator that does that.
  */
-include "../../../tests/gaz/check.gaz";
+include "std/test.gaz" use expect as check;
 include "../engine/players.gaz" use Goalkeeper, Defender, Midfielder, Forward;
 include "std/date.gaz";
 include "../engine/calendar.gaz";

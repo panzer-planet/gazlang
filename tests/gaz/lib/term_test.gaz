@@ -1,4 +1,4 @@
-include "../check.gaz";
+include "std/test.gaz" use expect as check;
 include "../../../lib/term.gaz";
 
 // The keys in $bytes, named

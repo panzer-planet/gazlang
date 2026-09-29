@@ -1,6 +1,6 @@
 // site/library.gaz: what a file of the standard library offers, read from its source
 include "../../../site/library.gaz";
-include "../check.gaz";
+include "std/test.gaz" use expect as check;
 
 const SOURCE = '// Shapes, for the test.
 //

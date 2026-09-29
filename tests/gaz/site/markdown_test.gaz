@@ -1,6 +1,6 @@
 // site/markdown.gaz: the Markdown the repository's documents use, as HTML
 include "../../../site/markdown.gaz";
-include "../check.gaz";
+include "std/test.gaz" use expect as check;
 
 fn html(string $text): string {
     return markdown::Renderer().render($text);

@@ -2,7 +2,7 @@
  * Run by DbPgTest against a real server, whose URL is the argument. Temporary tables only, which
  * go with the connection, so nothing is left behind.
  */
-include "../gaz/check.gaz";
+include "std/test.gaz" use expect as check;
 include "../../lib/db.gaz";
 
 fn failure($f) {

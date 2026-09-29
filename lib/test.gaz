@@ -6,8 +6,8 @@
  *   test::expect("two plus two", 2 + 2, 4);
  *   test::snapshot("the report", build_report());
  *
- * - expect() is check.gaz's check(), the internal helper this project's own tests use, made
- *   public: it prints "ok <label>" or a FAIL line naming both values.
+ * - expect() is what this project's own tests use (tests/gaz programs include it `use expect as
+ *   check`): it prints "ok <label>" or a FAIL line naming both values.
  * - snapshot() compares $actual against a file recorded next to the test that called it, and
  *   under --update (re)writes that file instead of comparing.
  * - `gaz test` finds every *_test.gaz file under path, recursively, and runs each as its own
@@ -29,7 +29,7 @@ namespace test;
 
 const UPDATE_FLAG = "--update";
 
-// Like check() in tests/gaz/check.gaz: prints "ok <label>", or a FAIL line naming both values
+// Prints "ok <label>", or a FAIL line naming both values
 pub fn expect($label, $actual, $expected) {
     if ($actual == $expected && type_of($actual) == type_of($expected)) {
         echo "ok " .. $label;

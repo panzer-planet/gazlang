@@ -1,7 +1,7 @@
 // site/documents.gaz: where the repository is, how the reference splits, where each link goes
 include "../../../site/documents.gaz";
 include "../../../site/markdown.gaz";
-include "../check.gaz";
+include "std/test.gaz" use expect as check;
 
 // Every shape of remote git writes, and ones that aren't GitHub's
 check("https", documents::name_from_remote("https://github.com/owner/name"), "owner/name");

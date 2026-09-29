@@ -1,4 +1,4 @@
-include "../check.gaz";
+include "std/test.gaz" use expect as check;
 
 $first = monotonic_time();
 check("a float", type_of($first), "float");

@@ -896,7 +896,6 @@ tests/fixtures/lsp/includer.gaz
 tests/fixtures/read_stdin.gaz
 tests/fixtures/term_input.gaz
 tests/fixtures/term_read.gaz
-tests/gaz/check.gaz
 tests/gaz/compiler/lexer_test.gaz
 tests/gaz/compiler/parser_test.gaz
 tests/gaz/errors/trace_test.gaz

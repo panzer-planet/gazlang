@@ -1,4 +1,4 @@
-include "../check.gaz";
+include "std/test.gaz" use expect as check;
 include "../../../lib/random.gaz";
 
 // Unseeded, only the kind of result can be checked

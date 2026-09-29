@@ -1,4 +1,4 @@
-include "../check.gaz";
+include "std/test.gaz" use expect as check;
 
 // An expression: arms are tried in order and compared with ==, several to an arm
 check("the first arm", match (1) { 1 => "one", 2 => "two", default => "many" }, "one");

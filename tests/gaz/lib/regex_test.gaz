@@ -1,4 +1,4 @@
-include "../check.gaz";
+include "std/test.gaz" use expect as check;
 include "../../../lib/regex.gaz";
 
 check("literal match", regex::matches("cat", "cat"), true);

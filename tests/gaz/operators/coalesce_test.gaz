@@ -1,4 +1,4 @@
-include "../check.gaz";
+include "std/test.gaz" use expect as check;
 
 $values = {"null" => null, "zero" => 0, "false" => false, "empty" => "", "list" => [10, 20]};
 

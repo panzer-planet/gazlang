@@ -1,4 +1,4 @@
-include "../check.gaz";
+include "std/test.gaz" use expect as check;
 
 // A constructor parameter written as #name (pub, kin, or neither) declares the field, with
 // that visibility, and assigns it from the parameter: sugar for a field declared elsewhere in

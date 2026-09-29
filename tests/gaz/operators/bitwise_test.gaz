@@ -1,4 +1,4 @@
-include "../check.gaz";
+include "std/test.gaz" use expect as check;
 
 // & | ^ ~ << >> are ints only and see the int as 64 bits, not as a quantity
 check("&", 12 & 10, 8);

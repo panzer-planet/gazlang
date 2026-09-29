@@ -6,7 +6,7 @@
  */
 include "../../../site/highlight.gaz";
 include "../../../site/markdown.gaz";
-include "../check.gaz";
+include "std/test.gaz" use expect as check;
 
 const DOCUMENTS = ["README.md", "docs/language.md", "docs/bytecode.md", "docs/internals.md"];
 const DIRECTORIES = ["lib", "examples"];

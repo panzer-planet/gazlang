@@ -1369,7 +1369,7 @@ test::snapshot("a report", build_report());
   a subprocess per file gives free isolation, one file's crash or infinite loop can't corrupt
   another's run. It prints what each file prints, then a summary, and exits 1 if any file failed.
 - `test::expect($label, $actual, $expected)` prints `ok <label>`, or a FAIL line naming both
-  values (the same shape as `tests/gaz/check.gaz`'s internal `check()`, made public); a file
+  values; a file
   fails the run if its output has a FAIL line, or it exits non-zero.
 - `test::snapshot($label, $actual)` compares `$actual` against a file recorded next to the
   calling test file, named after it and the label; run with `--update` to (re)write it instead

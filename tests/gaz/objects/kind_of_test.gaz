@@ -1,4 +1,4 @@
-include "../check.gaz";
+include "std/test.gaz" use expect as check;
 
 kind Shape { kin #name = "shape"; }
 kind Circle extends Shape { pub #r; fn _($r) { #name = "circle"; #r = $r; } }

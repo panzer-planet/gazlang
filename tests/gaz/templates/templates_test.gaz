@@ -1,4 +1,4 @@
-include "../check.gaz";
+include "std/test.gaz" use expect as check;
 include "views/layout.gazml";
 include "views/posts.gazml";
 include "views/shown.gazml";

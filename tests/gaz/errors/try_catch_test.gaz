@@ -1,4 +1,4 @@
-include "../check.gaz";
+include "std/test.gaz" use expect as check;
 include "../../../lib/json.gaz";
 
 // The caught error is an Error object with #message, #file and #line

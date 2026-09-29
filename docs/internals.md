@@ -121,9 +121,9 @@ php vm/bench.php                                    # gaz against PHP and Python
   what followed `Error: `; `parse()`, `lex()` and `generateCode()` do the same with `--ast`,
   `--tokens` and `-c`; `runProgram()` and `cli()` run files and command lines.
 - **`tests/gaz/**/*_test.gaz`** are GazLang programs that must print exactly their
-  `*_test.expected` file (`GazProgramTest`). `tests/gaz/check.gaz` gives
-  `check($label, $actual, $expected)`, which prints `ok <label>` or a FAIL line with both
-  values. This is how GazLang code gets tested.
+  `*_test.expected` file (`GazProgramTest`). `std/test.gaz`'s
+  `test::expect($label, $actual, $expected)` (included `use expect as check`) prints `ok <label>`
+  or a FAIL line with both values. This is how GazLang code gets tested.
 - **`bin/gaz test`** (`TestCommandTest`, fixtures in `tests/fixtures/gaz_test`) is the same idea
   for a program's own tests, without PHP: it finds every `*_test.gaz` under a path, recursively,
   and runs each as its own `gaz` process, reinvoked with `program_path()` (the interpreter's own

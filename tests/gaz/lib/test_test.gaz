@@ -1,6 +1,6 @@
-// test::expect() prints exactly what check.gaz's check() does: "ok <label>" when the values
-// and their types match, otherwise a FAIL line naming both (gaz test parses that line to decide
-// whether a file passed, so its shape is part of the contract)
+// test::expect() prints "ok <label>" when the values and their types match, otherwise a FAIL
+// line naming both (gaz test parses that line to decide whether a file passed, so its shape is
+// part of the contract)
 include "std/test.gaz";
 
 test::expect("equal ints", 2 + 2, 4);

@@ -1,4 +1,4 @@
-include "../check.gaz";
+include "std/test.gaz" use expect as check;
 include "../../../lib/http.gaz";
 
 /* url_decode(): percent-escapes only, as RFC 3986 has them */
