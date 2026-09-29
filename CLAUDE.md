@@ -379,9 +379,12 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   tests its parts.
 - **Speed** is measured by `php vm/bench.php` (CPU time, interleaved, best of several; the README's
   table is its output on the default PGO build, so a `PGO=0` build runs a little slower). gaz is
-  around PHP's speed and faster than Python. The arithmetic loop is still about a dozen dispatches an
-  iteration, which only a register bytecode or a JIT would close; lists, maps, strings and objects
-  spend theirs in malloc/free and the collector, so profile those before trying an allocator.
+  around PHP's speed and faster than Python. The arithmetic loop is still about nine dispatches an
+  iteration after fusion (a register form would need about six), which only a register bytecode
+  or a JIT would close; lists, maps, strings and objects spend theirs in malloc/free (about 17% of
+  a football run) and the collector. Lists are three quarters of the allocations (a header and an
+  items array each), so storing a small list's items in its header comes before a pool; measure
+  with a sampling profile first.
 - **Bytecode has no compatibility promise yet**: stable so far, but free to change; a change
   old files can't load under bumps the version.
 - **The fuzzer** (`php vm/fuzz.php`, a minute; CI runs one on each push, seeded by the run

@@ -164,13 +164,13 @@ on an Intel i7-8700 running macOS.
 
 | Program | GazLang | PHP 8.5 (JIT) | Python 3.13 |
 | --- | ---: | ---: | ---: |
-| `fib` — recursive calls, `fib(30)` | **0.067s** | 0.104s | 0.162s |
-| `closures` — `map`, `filter`, `reduce` and `sort` with lambdas | **0.046s** | 0.112s | 0.088s |
-| `loop` — ten million rounds of integer arithmetic | 0.359s | **0.239s** | 1.034s |
-| `objects` — half a million small objects and method calls | 0.166s | **0.165s** | 0.345s |
-| `lists` — a million elements, built, read and written | 0.174s | **0.131s** | 0.245s |
-| `maps` — counting half a million words | **0.107s** | 0.123s | 0.187s |
-| `strings` — building, splitting and joining 3MB of text | **0.117s** | 0.123s | 0.155s |
+| `fib` — recursive calls, `fib(30)` | **0.064s** | 0.102s | 0.160s |
+| `closures` — `map`, `filter`, `reduce` and `sort` with lambdas | **0.045s** | 0.111s | 0.086s |
+| `loop` — ten million rounds of integer arithmetic | 0.356s | **0.235s** | 1.029s |
+| `objects` — half a million small objects and method calls | 0.167s | **0.163s** | 0.343s |
+| `lists` — a million elements, built, read and written | 0.133s | **0.127s** | 0.241s |
+| `maps` — counting half a million words | **0.103s** | 0.121s | 0.187s |
+| `strings` — building, splitting and joining 3MB of text | **0.107s** | 0.120s | 0.150s |
 
 Run `php vm/bench.php` to measure on your own machine.
 
