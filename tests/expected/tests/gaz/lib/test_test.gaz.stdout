@@ -6,6 +6,7 @@ ok and so is a thrown string
 ok a kind of its own
 ok a kind alone
 ok a thrown value that isn't an Error
+ok a message after something that is not a kind
 ok running out of call depth
 ok every way a check fails
 ok done() exits 1 after a failure

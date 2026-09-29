@@ -20,6 +20,8 @@ expect("a key too many", {"a" => 1, "b" => 2}, {"a" => 1});
 expect("a type inside", [1, "2"], [1, 2]);
 expect("a long value is cut short", repeat("ab", 150), "x");
 expect("lines stay on one", "a\nb", "a");
+expect("a trailing space shows", "a ", "a");
+expect("a label\non two lines", 1, 2);
 
 throws("an error", () -> [1][5], "Index out of range: 5");
 throws("nothing thrown", () -> 1, "Index out of range: 5");

@@ -37,10 +37,11 @@ class GazProgramTest extends GazLangTestCase
      */
     public function test_program_prints_its_expected_output(string $file)
     {
-        [$output] = $this->runProgram($file);
+        [$output, $code] = $this->runProgram($file);
 
         $expected = self::ROOT.'/'.substr($file, 0, -strlen('.gaz')).'.expected';
         $this->assertFileExists($expected, "Missing expected output for {$file}; it printed:\n{$output}");
         $this->assertSame(file_get_contents($expected), $output, $file);
+        $this->assertSame(0, $code, "{$file} exited {$code}:\n{$output}");
     }
 }

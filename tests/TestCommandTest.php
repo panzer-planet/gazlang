@@ -112,6 +112,20 @@ class TestCommandTest extends GazLangTestCase
         $this->assertSame("gaz test: unknown option --nope; it takes paths, --update and -v\n", $err);
     }
 
+    public function test_a_path_that_does_not_exist_is_a_usage_error()
+    {
+        [$out, $err, $code] = $this->gazTest(['tests/fixtures/gaz_test/nope']);
+
+        $this->assertSame(2, $code, $out.$err);
+        $this->assertSame("gaz test: tests/fixtures/gaz_test/nope does not exist\n", $err);
+        $this->assertSame('', $out);
+    }
+
+    /**
+     * The bootstrap program is handed to the front end as source; standard input is the user's and
+     * was never read, so reading on after the source (which a program piped in whole has drained
+     * already) would wait for an end that a terminal, or a pipe held open, never gives.
+     */
     public function test_it_never_waits_on_standard_input_left_open()
     {
         $process = proc_open([self::binary(), 'test', self::FIXTURES.'/passing'], [['pipe', 'r'], ['pipe', 'w'], ['pipe', 'w']], $pipes, self::ROOT);
@@ -188,8 +202,8 @@ class TestCommandTest extends GazLangTestCase
             copy(self::ROOT.'/'.self::FIXTURES.'/passing/snapshot_test.gaz', $file);
             $this->assertFileDoesNotExist($snapshot);
 
-            // -v, since what was recorded is an ok line, which only -v shows
-            [$out, $err, $code] = $this->gazTest([$dir, '--update', '-v']);
+            // What was recorded is shown without -v, since an update writes files
+            [$out, $err, $code] = $this->gazTest([$dir, '--update']);
             $this->assertSame(0, $code, $out.$err);
             $this->assertStringContainsString('snapshot recorded', $out);
             $this->assertFileExists($snapshot);

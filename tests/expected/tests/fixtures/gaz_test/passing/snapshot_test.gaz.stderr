@@ -1,5 +1,5 @@
 Error: test::snapshot needs the test file's own path; run it with gaz test, not gaz directly
-  test::own_path at <std>/test.gaz:375
-  test::snapshot_path at <std>/test.gaz:383
-  test::snapshot at <std>/test.gaz:96
+  test::own_path at <std>/test.gaz:386
+  test::snapshot_path at <std>/test.gaz:394
+  test::snapshot at <std>/test.gaz:99
   top level at tests/fixtures/gaz_test/passing/snapshot_test.gaz:4

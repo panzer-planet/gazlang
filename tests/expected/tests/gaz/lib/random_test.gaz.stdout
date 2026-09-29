@@ -2,19 +2,19 @@ ok unseeded shuffle keeps the elements
 ok unseeded pick is an element
 ok unseeded key is a key
 ok unseeded chance is a bool
-[4, 7, 5, 2, 6, 1, 8, 3]
-fecgbhda
-40
-3
-3
-b
-[true, false, false, true, false, true, true, false, true, false]
-["rare", "common", "common", "common", "common", "common", "common", "common", "common", "common"]
-["y", "x", "y", "x", "y"]
+ok seeded shuffle of a list
+ok seeded shuffle of a string
+ok seeded pick from a list
+ok seeded pick from a map
+ok seeded key of a list
+ok seeded key of a map
+ok seeded chance
+ok seeded weighted
+ok seeded weighted with a total
 ok shuffle nothing
 ok chance 0 and 1
 ok weighted skips a zero weight
-random::key() expects a non-empty list or map
-random::key() expects a non-empty list or map
-random::weighted() expects weights that add up to more than 0
-random::shuffle() expects list or string, got map
+ok pick of nothing
+ok key of nothing
+ok weighted of nothing
+ok shuffle of a map

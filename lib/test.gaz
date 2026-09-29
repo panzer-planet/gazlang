@@ -70,6 +70,9 @@ pub fn expect($label, $actual, $expected) {
  * throws($label, $thunk, $kind, $message) to require that exact kind too.
  */
 pub fn throws($label, $thunk, $kind_or_message, $message = null) {
+    if ($message != null && type_of($kind_or_message) != "kind") {
+        throw "test::throws() takes a kind before a message, not " .. type_of($kind_or_message);
+    }
     $kind = null;
     $wanted = $kind_or_message;
     if (type_of($kind_or_message) == "kind") {
@@ -97,7 +100,7 @@ pub fn snapshot($label, $actual) {
     $text = literal($actual);
     if (has_flag(UPDATE_FLAG)) {
         write_file($path, $text);
-        echo "ok " .. $label .. " (snapshot recorded at {$path})";
+        echo "ok " .. one_line($label) .. " (snapshot recorded at {$path})";
         return;
     }
     if (!file_exists($path)) {
@@ -168,7 +171,7 @@ fn run_file($file, $update, $verbose) {
             $checks++;
             $failures++;
         }
-        if ($verbose || starts_with($line, "FAIL ")) {
+        if ($verbose || starts_with($line, "FAIL ") || $update && contains($line, " (snapshot recorded at ")) {
             echo $line;
         }
     }
@@ -203,7 +206,8 @@ fn output_lines($text) {
 // Every *_test.gaz under $path, recursively; $path itself if it already names one
 fn discover($path) {
     if (!file_exists($path)) {
-        throw "gaz test: {$path} does not exist";
+        print_error("gaz test: {$path} does not exist\n");
+        exit(2);
     }
     if (!is_dir($path)) {
         return ends_with($path, "_test.gaz") ? [$path] : [];
@@ -226,13 +230,13 @@ fn discover($path) {
 
 // Prints the line of a check that held
 fn pass($label) {
-    echo "ok " .. $label;
+    echo "ok " .. one_line($label);
 }
 
 // Prints a FAIL line, one line whatever the reason holds, and counts it for done()
 fn fail($label, $reason) {
     Tally::failures++;
-    echo "FAIL " .. $label .. ": " .. $reason;
+    echo "FAIL " .. one_line($label) .. ": " .. $reason;
 }
 
 // A list or a map, which a FAIL line can say where in two of them the difference is
@@ -295,17 +299,24 @@ fn difference_at($path, $expected, $actual) {
 
 // A value on a FAIL line: as echo prints it, cut short, then its type
 fn described($value) {
-    return clipped(to_string($value)) .. " (" .. type_of($value) .. ")";
+    $shown = type_of($value) == "string" ? literal($value) : to_string($value);
+
+    return clipped($shown) .. " (" .. type_of($value) .. ")";
+}
+
+// $text on one line: a carriage return or a newline is written out, so a FAIL line stays one
+fn one_line($text) {
+    return replace(replace($text, "\r", "\\r"), "\n", "\\n");
 }
 
 // $text on one line and at most SHOWN_BYTES long, saying how long it was when cut
 fn clipped($text) {
-    $one_line = replace(replace($text, "\r", "\\r"), "\n", "\\n");
-    if (len($one_line) <= SHOWN_BYTES) {
-        return $one_line;
+    $line = one_line($text);
+    if (len($line) <= SHOWN_BYTES) {
+        return $line;
     }
 
-    return slice($one_line, 0, SHOWN_BYTES) .. "... (" .. len($one_line) .. " bytes)";
+    return slice($line, 0, SHOWN_BYTES) .. "... (" .. len($line) .. " bytes)";
 }
 
 // What throws() was asked for, as its FAIL line names it

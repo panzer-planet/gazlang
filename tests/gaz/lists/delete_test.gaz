@@ -78,4 +78,10 @@ throws("a string", () -> {
     delete $text[0];
 }, "Cannot use [] on string");
 
-throws("an undefined variable", () -> { delete $never[0]; }, "Undefined variable: \$never");
+// Written out rather than as a thunk: in a lambda $never would be a capture, another instruction
+try {
+    delete $never[0];
+    echo "FAIL an undefined variable should fail";
+} catch (Error $e) {
+    expect("an undefined variable", $e.message, "Undefined variable: \$never");
+}

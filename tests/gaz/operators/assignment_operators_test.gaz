@@ -52,7 +52,13 @@ try {
 } catch (Error $e) {
     expect("nothing is appended when converting fails", $z, "keep");
 }
-throws("..= needs the variable", () -> { $missing ..= "x"; }, 'Undefined variable: $missing');
+// Written out rather than as a thunk: in a lambda $missing would be a capture, another instruction
+try {
+    $missing ..= "x";
+    expect("unreachable", 1, 2);
+} catch (Error $e) {
+    expect("..= needs the variable", $e.message, 'Undefined variable: $missing');
+}
 @global_buffer = "g";
 @global_buffer ..= "h";
 expect("..= on a global", @global_buffer, "gh");
