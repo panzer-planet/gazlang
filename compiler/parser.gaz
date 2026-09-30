@@ -3750,9 +3750,13 @@ kind Html {
         if ($argc >= $fewest && $argc <= $most) {
             return null;
         }
-        $expected = $fewest == $most ? $fewest : "{$fewest} to {$most}";
+        $expected = match {
+            $fewest != $most => "{$fewest} to {$most} arguments",
+            $fewest == 1 => "1 argument",
+            default => "{$fewest} arguments",
+        };
 
-        return "{$what} expects {$expected} arguments, {$argc} given";
+        return "{$what} expects {$expected}, {$argc} given";
     }
 
     // Parse top level items until the end of the current file ((function_declaration | kind_declaration | include | statement)*)

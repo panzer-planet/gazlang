@@ -1,1 +1,1 @@
-Error: Function f expects 1 arguments, 2 given at tests/corpora/parser/error_pipe_arity.gaz:3
+Error: Function f expects 1 argument, 2 given at tests/corpora/parser/error_pipe_arity.gaz:3

@@ -83,8 +83,8 @@ class FunctionValueTest extends GazLangTestCase
             'undeclared name in an array' => ["\$h = [\n  len,\n  nope,\n];", 'Undefined function or constant: nope on line 3'],
             'assigning to a call' => ['$f = len; $f(1) = 2;', 'Can only use = on a variable, or an element or field of one on line 1'],
             'incrementing a call' => ['$f = len; $f(1)++;', 'Can only use ++ on a variable, or an element or field of one on line 1'],
-            'call by name still checked' => ['$f = len; len(1, 2);', 'Function len expects 1 arguments, 2 given on line 1'],
-            'the first mistake in source order is reported' => ["len(1, 2);\nnope();", 'Function len expects 1 arguments, 2 given on line 1'],
+            'call by name still checked' => ['$f = len; len(1, 2);', 'Function len expects 1 argument, 2 given on line 1'],
+            'the first mistake in source order is reported' => ["len(1, 2);\nnope();", 'Function len expects 1 argument, 2 given on line 1'],
             'even when a reference comes later' => ["zap();\n\$f = nope;", 'Undefined function: zap on line 1'],
         ];
     }
@@ -104,7 +104,7 @@ class FunctionValueTest extends GazLangTestCase
             'calling null' => ['null(1);', 'Cannot call null on line 2'],
             'calling a string' => ['"add"(1, 2);', 'Cannot call string on line 2'],
             'too few arguments through a value' => ['$f = add; $f(1);', 'Function add expects 2 arguments, 1 given on line 2'],
-            'too many arguments to a builtin value' => ['$l = len; $l("a", "b");', 'Function len expects 1 arguments, 2 given on line 2'],
+            'too many arguments to a builtin value' => ['$l = len; $l("a", "b");', 'Function len expects 1 argument, 2 given on line 2'],
             'optional arguments through a value' => ['$s = slice; $s();', 'Function slice expects 2 to 3 arguments, 0 given on line 2'],
             'multi-line call reports the line of its opening paren' => ["\$f = add;\n\$f(\n1\n);", 'Function add expects 2 arguments, 1 given on line 3'],
             'arithmetic' => ['echo add + 1;', 'Cannot use + on function on line 2'],

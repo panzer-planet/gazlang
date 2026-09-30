@@ -113,9 +113,9 @@ Func *builtin_value(int index) {
 }
 
 
-/* "Function add expects 2 arguments, 1 given" */
+/* "Function add expects 2 arguments, 1 given", or "1 argument" */
 bool raise_arity(const char *what, int lo, int hi, int argc) {
-    if (lo == hi) return raisef("%s expects %d arguments, %d given", what, lo, argc);
+    if (lo == hi) return raisef("%s expects %d argument%s, %d given", what, lo, lo == 1 ? "" : "s", argc);
     return raisef("%s expects %d to %d arguments, %d given", what, lo, hi, argc);
 }
 

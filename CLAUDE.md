@@ -472,8 +472,6 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - `CVMTest` doesn't catch `make compiler` checking in stage 1 instead of stage 2: that only
     shows when an edit changes code generation; a test for it needs a second rebuild and is wanted.
   - **Open bugs**, found by audits and reviews and not fixed yet:
-    - Arity errors say "expects 1 arguments" (`builtins.c`), and the text is recorded in
-      `tests/expected`, so fixing the grammar means re-recording.
     - `kind A { pub int public #x; }` (a reserved word after a type) gets the generic "Expected
       a field after the type" error, not the hint to write `pub`.
 - **Language gaps**, closed in the order real code shows what shape each needs:

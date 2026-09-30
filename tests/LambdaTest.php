@@ -231,7 +231,7 @@ Undefined variable: $n
     public static function runtimeErrors(): array
     {
         return [
-            'too many arguments' => ['$f = $x -> $x; $f(1, 2);', 'Function -> on line 1 expects 1 arguments, 2 given'],
+            'too many arguments' => ['$f = $x -> $x; $f(1, 2);', 'Function -> on line 1 expects 1 argument, 2 given'],
             'too few with defaults' => ['$f = ($a, $b = 1) -> $a; $f();', 'Function -> on line 1 expects 1 to 2 arguments, 0 given'],
             'arithmetic on a closure' => ['echo ($x -> $x) + 1;', 'Cannot use + on function'],
         ];

@@ -55,7 +55,7 @@ foreach ([
     }
 }
 expect("what sprintf refuses", $failures, [
-    "sprintf: the template takes 1 arguments, 0 given",
+    "sprintf: the template takes 1 argument, 0 given",
     "sprintf: the template takes 2 arguments, 1 given",
     "sprintf: the template takes 0 arguments, 1 given",
     "sprintf: %d expects an int, got float (argument 1)",

@@ -1,1 +1,1 @@
-Error: Function one expects 1 arguments, 2 given (a tagged string passes 2: its text parts and its values) on line 4
+Error: Function one expects 1 argument, 2 given (a tagged string passes 2: its text parts and its values) on line 4

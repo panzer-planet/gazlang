@@ -1,1 +1,1 @@
-Error: Function len expects 1 arguments, 2 given at tests/corpora/parser/error_arity_too_many.gaz:1
+Error: Function len expects 1 argument, 2 given at tests/corpora/parser/error_arity_too_many.gaz:1

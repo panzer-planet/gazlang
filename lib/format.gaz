@@ -110,7 +110,8 @@ fn split_template($template) {
 fn check_count($pieces, $args) {
     $wanted = len(filter($pieces, is_placeholder));
     if ($wanted != len($args)) {
-        throw "sprintf: the template takes {$wanted} arguments, " .. len($args) .. " given";
+        $noun = $wanted == 1 ? "argument" : "arguments";
+        throw "sprintf: the template takes {$wanted} {$noun}, " .. len($args) .. " given";
     }
 }
 

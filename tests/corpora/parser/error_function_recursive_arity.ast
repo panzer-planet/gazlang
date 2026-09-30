@@ -1,1 +1,1 @@
-Error: Function f expects 1 arguments, 0 given at tests/corpora/parser/error_function_recursive_arity.gaz:1
+Error: Function f expects 1 argument, 0 given at tests/corpora/parser/error_function_recursive_arity.gaz:1

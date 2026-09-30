@@ -72,7 +72,7 @@ expect("a builtin", map([[1], [1, 2]], len), [1, 2]);
 throws("an abstract kind can't", () -> map([1], Shape), "Cannot construct abstract kind Shape");
 throws("a builtin with the wrong count", () -> map([1], slice), "Function slice expects 2 to 3 arguments, 1 given");
 throws("a lambda with the wrong count", () -> map([1], ($a, $b, $c) -> $a), "Function -> at tests/gaz/lib/functional_test.gaz:74 expects 3 arguments, 2 given");
-throws("a bound method with the wrong count", () -> reduce([1], Pair(0).twice, 0), "Method Pair.twice expects 1 arguments, 2 given");
+throws("a bound method with the wrong count", () -> reduce([1], Pair(0).twice, 0), "Method Pair.twice expects 1 argument, 2 given");
 
 // Keys stay what they were: 1 and "1" are different keys
 expect("map keeps int and string keys apart", map({1 => "a", "1" => "b"}, upper), {1 => "A", "1" => "B"});

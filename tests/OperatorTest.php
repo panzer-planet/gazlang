@@ -138,7 +138,7 @@ class OperatorTest extends GazLangTestCase
             'no method' => ['kind A { pub fn m($x) { return $x; } } $a = A(); echo 1 |> $a.m();', "A method can't follow |> yet: pass the value to it as an argument on line 1"],
             'not a call' => ['echo 1 |> 2;', '|> is followed by a function, a call or a parenthesised expression on line 1'],
             'looser than ..' => ['echo "a" |> upper .. "!";', '|> binds looser than ..: write ($x |> f) .. $y, or parenthesise what follows |> on line 1'],
-            'the arity counts the piped value' => ['echo "a" |> upper(1);', 'Function upper expects 1 arguments, 2 given on line 1'],
+            'the arity counts the piped value' => ['echo "a" |> upper(1);', 'Function upper expects 1 argument, 2 given on line 1'],
             'a value that is no function' => ['echo 1 |> (2);', 'Cannot call int on line 1'],
         ];
     }

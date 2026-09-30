@@ -50,7 +50,7 @@ class TryCatchTest extends GazLangTestCase
             'unknown catch kind' => ["try { }\ncatch (Nope \$e) { }", 'Undefined kind: Nope on line 2'],
             'function as a catch kind' => ['fn f() {} try { } catch (f $e) { }', 'f is a function, not a kind on line 1'],
             'declaring Error' => ['kind Error {}', 'Error is a builtin kind on line 1'],
-            'constructing Error without a message' => ['echo Error();', 'Kind Error expects 1 arguments, 0 given on line 1'],
+            'constructing Error without a message' => ['echo Error();', 'Kind Error expects 1 argument, 0 given on line 1'],
             'syntax errors are not caught' => ['try { echo ; } catch ($e) { }', "Unexpected ';'"],
         ];
     }

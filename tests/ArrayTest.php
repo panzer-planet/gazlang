@@ -202,7 +202,7 @@ class ArrayTest extends GazLangTestCase
         return [
             'reading []' => ['$a = []; echo $a[];', '[] can only be used to append in an assignment'],
             'assigning into a call' => ['fn f() { return []; } f()[0] = 1;', 'Can only use = on a variable, or an element or field of one'],
-            'len arity' => ['echo len([], []);', 'Function len expects 1 arguments, 2 given'],
+            'len arity' => ['echo len([], []);', 'Function len expects 1 argument, 2 given'],
             'redeclaring len' => ['fn len($x) { }', 'len is a builtin function'],
             'unterminated literal' => ['echo [1, 2;', "Expected ',' but found ';'"],
             'keys in a list' => ['echo ["a" => 1];', 'A list has no keys: write a map as {key => value}'],
