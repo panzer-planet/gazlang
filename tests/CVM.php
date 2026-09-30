@@ -103,16 +103,25 @@ final class CVM
      */
     public static function lock(string $name)
     {
-        // Asked first, since Pest reports a suppressed warning as a test's own
-        if (! is_dir(self::ROOT.'/vm/build')) {
-            @mkdir(self::ROOT.'/vm/build', 0777, true);
-        }
+        self::makeDirectory(self::ROOT.'/vm/build');
         $lock = fopen(self::ROOT."/vm/build/{$name}.lock", 'c');
         if ($lock === false || ! flock($lock, LOCK_EX)) {
             throw new \RuntimeException("Cannot lock vm/build/{$name}.lock");
         }
 
         return $lock;
+    }
+
+    /**
+     * Make a directory and its parents unless it is there, asking first rather than hiding
+     * mkdir()'s warning with @, which Pest reports as the running test's own; another process
+     * may make it in between, which is fine
+     */
+    public static function makeDirectory(string $dir): void
+    {
+        if (! is_dir($dir) && ! mkdir($dir, 0777, true) && ! is_dir($dir)) {
+            throw new \RuntimeException("Cannot make {$dir}");
+        }
     }
 
     /**
@@ -193,7 +202,7 @@ final class CVM
     {
         // The scratch directory the tests write in (StdlibTest makes it too), which a snippet
         // that writes a file expects, whichever test runs first
-        @mkdir(self::ROOT.'/tests/.tmp');
+        self::makeDirectory(self::ROOT.'/tests/.tmp');
         $commands = [];
         $stdin = [];
         foreach ($entries as $entry) {
@@ -202,7 +211,7 @@ final class CVM
             if (str_starts_with($file, 'snippet:')) {
                 $id = substr($file, 8);
                 $stdin[$entry] = "vm/build/snippets/{$id}.gaz";
-                @mkdir(self::ROOT.'/vm/build/snippets', 0777, true);
+                self::makeDirectory(self::ROOT.'/vm/build/snippets');
                 file_put_contents(self::ROOT.'/'.$stdin[$entry], self::snippets()[$id] ?? throw new \RuntimeException("{$entry}: not in tests/vm_snippets.txt"));
                 $commands[$entry] = [self::binary()];
             } else {
@@ -269,7 +278,7 @@ final class CVM
      */
     public static function recordAt(string $base, array $result): void
     {
-        @mkdir(dirname($base), 0777, true);
+        self::makeDirectory(dirname($base));
         file_put_contents("{$base}.stdout", self::portable($result[0]));
         foreach (['stderr' => self::portable($result[1]), 'exit' => $result[2] === 0 ? '' : "{$result[2]}\n"] as $suffix => $text) {
             if ($text === '') {

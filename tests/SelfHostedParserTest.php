@@ -101,7 +101,7 @@ class SelfHostedParserTest extends GazLangTestCase
     {
         $include = self::ROOT.'/tests/corpora/parser/include';
         $elsewhere = self::ROOT.'/vm/build/elsewhere';
-        @mkdir($elsewhere, 0777, true);
+        CVM::makeDirectory($elsewhere);
 
         return [
             'main file given by its absolute path' => [self::ROOT, "{$include}/main.gaz", 'absolute_main'],

@@ -474,7 +474,7 @@ class StdlibTest extends GazLangTestCase
         // CVMTest runs this snippet too, in another process under pest --parallel
         $scratch = CVM::lock('scratch');
         // Under the checkout, as in test_real_path_resolves_dots_and_symlinks()
-        @mkdir(dirname(__DIR__).'/tests/.tmp');
+        CVM::makeDirectory(dirname(__DIR__).'/tests/.tmp');
         $path = dirname(__DIR__).'/tests/.tmp/write_file.txt';
 
         try {
@@ -504,7 +504,7 @@ class StdlibTest extends GazLangTestCase
         $scratch = CVM::lock('scratch');
         // Relative to the project root, where the C VM's harness runs the snippet too; it clears
         // what a run that failed half way left, so it prints the same every time
-        @mkdir(dirname(__DIR__).'/tests/.tmp');
+        CVM::makeDirectory(dirname(__DIR__).'/tests/.tmp');
         $this->assertSame(<<<'OUT'
             ["10", "9", "Z", "_", "a", "b", "sub", "é"]
             []
@@ -563,7 +563,7 @@ class StdlibTest extends GazLangTestCase
     {
         // CVMTest runs this snippet too, in another process under pest --parallel
         $scratch = CVM::lock('scratch');
-        @mkdir(dirname(__DIR__).'/tests/.tmp');
+        CVM::makeDirectory(dirname(__DIR__).'/tests/.tmp');
         $this->assertSame(<<<'OUT'
             ["a", "b c", "", "é", "last"]
             null

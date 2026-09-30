@@ -316,12 +316,28 @@ class HttpServerTest extends GazLangTestCase
                 usleep(50000);
             }
             $this->assertSame([false, true, SIGTERM], [$status['running'], $status['signaled'], $status['termsig']]);
-            $this->assertFalse(@stream_socket_client("tcp://127.0.0.1:{$port}", $errno, $error, 1), 'a worker still listens');
+            $this->assertFalse(self::listens($port), 'a worker still listens');
         } finally {
             proc_terminate($server);
             proc_close($server);
             @unlink($log);
         }
+    }
+
+    /**
+     * Whether something accepts a connection on a port; the refusal's warning is expected, so it
+     * is caught here rather than hidden with @, which Pest reports as the test's own
+     */
+    private static function listens(int $port): bool
+    {
+        set_error_handler(fn () => true);
+        try {
+            $socket = stream_socket_client("tcp://127.0.0.1:{$port}", $errno, $error, 1);
+        } finally {
+            restore_error_handler();
+        }
+
+        return $socket !== false;
     }
 
     /**
@@ -440,7 +456,7 @@ class HttpServerTest extends GazLangTestCase
                 usleep(50000);
             }
             $this->assertSame([false, true, SIGTERM], [$status['running'], $status['signaled'], $status['termsig']]);
-            $this->assertFalse(@stream_socket_client("tcp://127.0.0.1:{$port}", $errno, $error, 1), 'a worker still listens');
+            $this->assertFalse(self::listens($port), 'a worker still listens');
         } finally {
             proc_terminate($server);
             proc_close($server);

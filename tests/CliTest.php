@@ -248,7 +248,7 @@ class CliTest extends GazLangTestCase
      */
     public static function fixtures(): void
     {
-        @mkdir(self::ROOT.'/'.self::BUILD, 0777, true);
+        CVM::makeDirectory(self::ROOT.'/'.self::BUILD);
         foreach (['args', 'runtime_error'] as $name) {
             copy(self::ROOT.'/'.self::DIR."/{$name}.gaz", self::ROOT.'/'.self::BUILD."/{$name}.gaz");
             [$code, $err] = CVM::process([self::ROOT.'/bin/gaz', '-c', '-f', self::BUILD."/{$name}.gaz"]);
