@@ -290,8 +290,11 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     prevent the bug instead), contracts (types and a guard line cover them),
     `sh"..."` (`run()` already takes an argv list, which is safe), native decimals and full record
     and replay (for now).
-  - **A trap to close**: `Html .. "text"` quietly gives a plain string, which `{{ }}` then escapes;
-    concatenating an `Html` should be an error.
+  - **A trap to close**: concatenating an `Html` value (`Html("<b>") .. "text"`, not the kind)
+    quietly gives a plain string, which `{{ }}` then escapes a second time. It should be an error
+    in `..`, `..=` and `join`, where the conversion happens; `echo`, `print` and `to_string()`
+    stay allowed since they make no new value, and `{!! !!}` in templates must emit
+    `to_string(...)` first, as `template.gaz` writes `$#html ..= (code)` today.
 - **`gaz test [path...] [--update] [-v]`**, so a user of gaz doesn't need PHP to test gaz code: it
   finds every `*_test.gaz` file under each path (the current directory by default), recursively,
   and runs each in its own `gaz` process, reinvoked with `program_path()`. `std/test.gaz` gives
