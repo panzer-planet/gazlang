@@ -471,6 +471,9 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - The keyword hint misses `IF (1) { }`, where the error lands at the `{`, past the name.
   - `CVMTest` doesn't catch `make compiler` checking in stage 1 instead of stage 2: that only
     shows when an edit changes code generation; a test for it needs a second rebuild and is wanted.
+  - Naming a private INSTANCE method through a kind's name (`Tally::m()`, where `m` is a method
+    of `Counter` and not a static one) says `Counter::m is not pub`, when the real mistake is that
+    `m` is not a static member.
 - **Language gaps**, closed in the order real code shows what shape each needs:
   - Appending to a list parameter silently does nothing (`fn add_to($l) { $l[] = 1; }`), and
     the parser can't tell it from a function that returns the list. Mutable state belongs in
