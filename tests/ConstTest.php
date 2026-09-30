@@ -72,7 +72,7 @@ class ConstTest extends GazLangTestCase
                     pub fn describe($type = #EOF) { return $type; }
                 }
                 $t = Token(); echo $t.is_eof() .. " " .. $t.later()() .. " " .. $t.describe();
-                kind Special extends Token { const FOUR = TWO * 2; pub fn kinds() { return #KINDS; } }
+                kind Special extends Token { pub const FOUR = TWO * 2; pub fn kinds() { return #KINDS; } }
                 echo Special().kinds() .. " " .. Special::EOF .. " " .. Special::FOUR;')
         );
     }
@@ -92,7 +92,7 @@ class ConstTest extends GazLangTestCase
 
     public function test_a_use_compiles_to_the_value()
     {
-        $code = $this->generateCode('const LIMIT = 10 * 2; kind A { const NAMES = ["a", "b"]; pub fn f() { return #NAMES; } } echo LIMIT; echo A::NAMES;');
+        $code = $this->generateCode('const LIMIT = 10 * 2; kind A { pub const NAMES = ["a", "b"]; pub fn f() { return #NAMES; } } echo LIMIT; echo A::NAMES;');
 
         $this->assertStringContainsString("PUSH 20\n", $code);
         $this->assertSame(2, substr_count($code, 'PUSH ["a", "b"]'));
@@ -209,7 +209,7 @@ class ConstTest extends GazLangTestCase
             'a kind constant through a dot' => ["kind K { const A = 1; }\necho K.A;", "Cannot use . on a kind: write 'K::A', not 'K.A' on line 2"],
             'a kind constant through a dot in a value' => ["kind K { const A = 1; }\nconst B = K.A;", "Cannot use . on a kind: write 'K::A', not 'K.A' on line 2"],
             'Name::NAME called' => ["kind K { const A = 1; }\necho K::A();", 'K::A is a constant, not a function on line 2'],
-            'Name::NAME assigned to' => ['kind K { const A = 1; } K::A = 2;', 'Cannot change constant K::A on line 1'],
+            'Name::NAME assigned to' => ['kind K { pub const A = 1; } K::A = 2;', 'Cannot change constant K::A on line 1'],
             '#NAME of another kind in a value' => ['const A = #B;', 'Cannot use #B outside a method on line 1'],
             'a constant of a kind that has none in a value' => ['kind K {} const A = K::B;', 'Kind K has no constant B on line 1'],
             'a variable in the branch not taken' => ['const A = true ? 1 : $x;', "A constant's value can only use literals, operators and other constants on line 1"],
@@ -275,7 +275,7 @@ class ConstTest extends GazLangTestCase
 
     public function test_a_literal_made_of_constants_is_built_once()
     {
-        $code = $this->generateCode('const A = 1; kind T { const B = "b"; } fn f() { return [A, T::B, {"k" => [A]}]; }');
+        $code = $this->generateCode('const A = 1; kind T { pub const B = "b"; } fn f() { return [A, T::B, {"k" => [A]}]; }');
 
         $this->assertStringContainsString('PUSH [1, "b", {"k" => [1]}]', $code);
         $this->assertStringNotContainsString('ARRAY_PUSH', $code);

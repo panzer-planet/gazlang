@@ -1,0 +1,497 @@
+Compound
+  statements:
+@ null
+    0: StaticInit 9
+      name: "Limits::count"
+      value: 10
+    1: StaticInit 10
+      name: "Limits::steps"
+      value: 2
+    2: StaticInit 11
+      name: "Limits::made"
+      value: 0
+    3: KindDeclaration 4
+      name: "Limits"
+      parent: null
+      abstract: false
+      statics:
+        count: FunctionRef 9
+          name: "Limits::SPAN"
+          constant: true
+          value: 10
+          static_name: null
+        steps: FunctionRef 10
+          name: "Limits::STEP"
+          constant: true
+          value: 2
+          static_name: null
+        made: Num 11
+          token: 11 INTEGER 0
+          value: 0
+      static_lines: {"count" => 9, "steps" => 10, "made" => 11}
+      static_methods:
+        span: FunctionDeclaration 14
+          name: "Limits::span"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 14
+                expr: FunctionRef 14
+                  name: "Limits::SPAN"
+                  constant: true
+                  value: 10
+                  static_name: null
+          arity: 0
+          kind: "Limits"
+          abstract: false
+        step: FunctionDeclaration 15
+          name: "Limits::step"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 15
+                expr: FunctionRef 15
+                  name: "Limits::STEP"
+                  constant: true
+                  value: 2
+                  static_name: null
+          arity: 0
+          kind: "Limits"
+          abstract: false
+        describe: FunctionDeclaration 16
+          name: "Limits::describe"
+          params: ["\$extra"]
+          defaults:
+            0: Num 16
+              token: 16 INTEGER 0
+              value: 0
+          body: Compound
+            statements:
+              0: ReturnStatement 16
+                expr: BinOp 16
+                  left: BinOp 16
+                    left: FunctionCall 16
+                      name: "Limits::span"
+                      args: []
+                    token: 16 PLUS +
+                    op: 16 PLUS +
+                    right: FunctionRef 16
+                      name: "Limits::count"
+                      constant: false
+                      value: null
+                      static_name: "Limits::count"
+                  token: 16 PLUS +
+                  op: 16 PLUS +
+                  right: Variable 16
+                    token: 16 VAR_IDENTIFIER $extra
+                    value: "\$extra"
+          arity: [0, 1]
+          kind: "Limits"
+          abstract: false
+      static_owners: {"count" => "Limits", "steps" => "Limits", "made" => "Limits", "span" => "Limits", "step" => "Limits", "describe" => "Limits"}
+      static_is_method: {"count" => false, "steps" => false, "made" => false, "span" => true, "step" => true, "describe" => true}
+      vis: {"MAX" => "", "STEP" => "kin", "MIN" => "pub", "SPAN" => "", "count" => "", "steps" => "kin", "made" => "pub", "top" => "", "span" => "", "step" => "kin", "describe" => "pub", "clamp" => "pub"}
+      fields:
+        top: FunctionRef 12
+          name: "Limits::MAX"
+          constant: true
+          value: 10
+          static_name: null
+      field_lines: {"top" => 12}
+      methods:
+        clamp: FunctionDeclaration 18
+          name: "clamp"
+          params: ["\$n", "\$top"]
+          defaults:
+            0: null
+            1: FunctionRef 18
+              name: "Limits::MAX"
+              constant: true
+              value: 10
+              static_name: null
+          body: Compound
+            statements:
+              0: Statement 19
+                expr: Assign 19
+                  left: Variable 19
+                    token: 19 VAR_IDENTIFIER $check
+                    value: "\$check"
+                  token: 19 ASSIGN =
+                  right: Lambda 19
+                    params: ["\$x"]
+                    defaults: [null]
+                    arity: 1
+                    body: BinOp 19
+                      left: Variable 19
+                        token: 19 VAR_IDENTIFIER $x
+                        value: "\$x"
+                      token: 19 GREATER_THAN >
+                      op: 19 GREATER_THAN >
+                      right: FunctionRef 19
+                        name: "Limits::MAX"
+                        constant: true
+                        value: 10
+                        static_name: null
+                    captures: []
+                    self: null
+                    owner: "Limits"
+              1: Statement 20
+                expr: Increment 20
+                  target: FunctionRef 20
+                    name: "Limits::count"
+                    constant: false
+                    value: null
+                    static_name: "Limits::count"
+                  op: 20 INCREMENT ++
+                  prefix: false
+              2: Statement 21
+                expr: Assign 21
+                  left: FunctionRef 21
+                    name: "Limits::made"
+                    constant: false
+                    value: null
+                    static_name: "Limits::made"
+                  token: 21 ASSIGN =
+                  right: FunctionRef 21
+                    name: "Limits::count"
+                    constant: false
+                    value: null
+                    static_name: "Limits::count"
+              3: ReturnStatement 22
+                expr: Ternary 22
+                  condition: CallValue 22
+                    callee: Variable 22
+                      token: 22 VAR_IDENTIFIER $check
+                      value: "\$check"
+                    args:
+                      0: Variable 22
+                        token: 22 VAR_IDENTIFIER $n
+                        value: "\$n"
+                  then: Variable 22
+                    token: 22 VAR_IDENTIFIER $top
+                    value: "\$top"
+                  else: Variable 22
+                    token: 22 VAR_IDENTIFIER $n
+                    value: "\$n"
+          arity: [1, 2]
+          kind: "Limits"
+          abstract: false
+      constants:
+        MAX: Num 5
+          token: 5 INTEGER 10
+          value: 10
+        STEP: Num 6
+          token: 6 INTEGER 2
+          value: 2
+        MIN: Num 7
+          token: 7 INTEGER 0
+          value: 0
+        SPAN: BinOp 8
+          left: FunctionRef 8
+            name: "Limits::MAX"
+            constant: true
+            value: 10
+            static_name: null
+          token: 8 MINUS -
+          op: 8 MINUS -
+          right: FunctionRef 8
+            name: "Limits::MIN"
+            constant: true
+            value: 0
+            static_name: null
+      constant_lines: {"MAX" => 5, "STEP" => 6, "MIN" => 7, "SPAN" => 8}
+      constant_owners: {"MAX" => "Limits", "STEP" => "Limits", "MIN" => "Limits", "SPAN" => "Limits"}
+      layout: {"top" => "Limits"}
+      members: {"clamp" => "Limits"}
+      abstract_methods: []
+      slots: [["top", "Limits", ""]]
+      method_table: [["clamp", "Limits", "pub", "Limits"]]
+      owner_vis: {"MAX" => "", "STEP" => "kin", "MIN" => "pub", "SPAN" => "", "count" => "", "steps" => "kin", "made" => "pub", "span" => "", "step" => "kin", "describe" => "pub", "top" => "", "clamp" => "pub"}
+      declared_at: {"clamp" => "Limits"}
+      hidden: []
+      hidden_fields: []
+    4: FunctionDeclaration 14
+      name: "Limits::span"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 14
+            expr: FunctionRef 14
+              name: "Limits::SPAN"
+              constant: true
+              value: 10
+              static_name: null
+      arity: 0
+      kind: "Limits"
+      abstract: false
+    5: FunctionDeclaration 15
+      name: "Limits::step"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 15
+            expr: FunctionRef 15
+              name: "Limits::STEP"
+              constant: true
+              value: 2
+              static_name: null
+      arity: 0
+      kind: "Limits"
+      abstract: false
+    6: FunctionDeclaration 16
+      name: "Limits::describe"
+      params: ["\$extra"]
+      defaults:
+        0: Num 16
+          token: 16 INTEGER 0
+          value: 0
+      body: Compound
+        statements:
+          0: ReturnStatement 16
+            expr: BinOp 16
+              left: BinOp 16
+                left: FunctionCall 16
+                  name: "Limits::span"
+                  args: []
+                token: 16 PLUS +
+                op: 16 PLUS +
+                right: FunctionRef 16
+                  name: "Limits::count"
+                  constant: false
+                  value: null
+                  static_name: "Limits::count"
+              token: 16 PLUS +
+              op: 16 PLUS +
+              right: Variable 16
+                token: 16 VAR_IDENTIFIER $extra
+                value: "\$extra"
+      arity: [0, 1]
+      kind: "Limits"
+      abstract: false
+    7: KindDeclaration 26
+      name: "Tight"
+      parent: "Limits"
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: {"steps" => "Limits", "made" => "Limits", "step" => "Limits", "describe" => "Limits"}
+      static_is_method: {"steps" => false, "made" => false, "step" => true, "describe" => true}
+      vis: {"step_twice" => "pub"}
+      fields: []
+      field_lines: []
+      methods:
+        step_twice: FunctionDeclaration 27
+          name: "step_twice"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 27
+                expr: ArrayLiteral 27
+                  entries:
+                    0:
+                      0: null
+                      1: FunctionRef 27
+                        name: "Tight::STEP"
+                        constant: true
+                        value: 2
+                        static_name: null
+                    1:
+                      0: null
+                      1: FunctionRef 27
+                        name: "Limits::STEP"
+                        constant: true
+                        value: 2
+                        static_name: null
+                    2:
+                      0: null
+                      1: FunctionRef 27
+                        name: "Tight::steps"
+                        constant: false
+                        value: null
+                        static_name: "Limits::steps"
+                    3:
+                      0: null
+                      1: FunctionCall 27
+                        name: "Limits::step"
+                        args: []
+                    4:
+                      0: null
+                      1: FunctionCall 27
+                        name: "Limits::step"
+                        args: []
+                  map: false
+          arity: 0
+          kind: "Tight"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: {"STEP" => "Limits", "MIN" => "Limits"}
+      layout: []
+      members: {"clamp" => "Limits", "step_twice" => "Tight"}
+      abstract_methods: []
+      slots: [["top", "Limits", ""]]
+      method_table: [["clamp", "Limits", "pub", "Limits"], ["step_twice", "Tight", "pub", "Tight"]]
+      owner_vis: {"STEP" => "kin", "MIN" => "pub", "steps" => "kin", "made" => "pub", "step" => "kin", "describe" => "pub", "clamp" => "pub", "step_twice" => "pub"}
+      declared_at: {"clamp" => "Limits", "step_twice" => "Tight"}
+      hidden: {"top" => "Limits", "MAX" => "Limits", "SPAN" => "Limits", "count" => "Limits", "span" => "Limits"}
+      hidden_fields: {"top" => "Limits"}
+    8: KindDeclaration 30
+      name: "Gauge"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"low" => "pub"}
+      fields: []
+      field_lines: []
+      methods:
+        low: FunctionDeclaration 31
+          name: "low"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 31
+                expr: FunctionRef 31
+                  name: "Limits::MIN"
+                  constant: true
+                  value: 0
+                  static_name: null
+          arity: 0
+          kind: "Gauge"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: {"low" => "Gauge"}
+      abstract_methods: []
+      slots: []
+      method_table: [["low", "Gauge", "pub", "Gauge"]]
+      owner_vis: {"low" => "pub"}
+      declared_at: {"low" => "Gauge"}
+      hidden: []
+      hidden_fields: []
+    9: FunctionDeclaration 34
+      name: "describe"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 35
+            expr: FunctionCall 35
+              name: "Limits::describe"
+              args: []
+      arity: 0
+      kind: null
+      abstract: false
+    10: Statement 38
+      expr: Assign 38
+        left: Variable 38
+          token: 38 VAR_IDENTIFIER $describe
+          value: "\$describe"
+        token: 38 ASSIGN =
+        right: FunctionRef 38
+          name: "Limits::describe"
+          constant: false
+          value: null
+          static_name: null
+    11: EchoStatement 39
+      expr: ArrayLiteral 39
+        entries:
+          0:
+            0: null
+            1: FunctionRef 39
+              name: "Limits::MIN"
+              constant: true
+              value: 0
+              static_name: null
+          1:
+            0: null
+            1: FunctionRef 39
+              name: "Tight::MIN"
+              constant: true
+              value: 0
+              static_name: null
+          2:
+            0: null
+            1: FunctionRef 39
+              name: "Limits::made"
+              constant: false
+              value: null
+              static_name: "Limits::made"
+          3:
+            0: null
+            1: CallValue 39
+              callee: Variable 39
+                token: 39 VAR_IDENTIFIER $describe
+                value: "\$describe"
+              args: []
+          4:
+            0: null
+            1: FunctionCall 39
+              name: "describe"
+              args: []
+          5:
+            0: null
+            1: FunctionCall 39
+              name: "Limits::describe"
+              args:
+                0: Num 39
+                  token: 39 INTEGER 1
+                  value: 1
+        map: false
+    12: EchoStatement 40
+      expr: MethodCall 40
+        property: Property 40
+          target: FunctionCall 40
+            name: "Limits"
+            args: []
+          name: "clamp"
+          field: false
+          constant: false
+          value: null
+          static_name: null
+        args:
+          0: Num 40
+            token: 40 INTEGER 20
+            value: 20
+    13: EchoStatement 41
+      expr: FunctionRef 41
+        name: "Limits::made"
+        constant: false
+        value: null
+        static_name: "Limits::made"
+    14: EchoStatement 42
+      expr: MethodCall 42
+        property: Property 42
+          target: FunctionCall 42
+            name: "Tight"
+            args: []
+          name: "step_twice"
+          field: false
+          constant: false
+          value: null
+          static_name: null
+        args: []
+    15: EchoStatement 43
+      expr: MethodCall 43
+        property: Property 43
+          target: FunctionCall 43
+            name: "Gauge"
+            args: []
+          name: "low"
+          field: false
+          constant: false
+          value: null
+          static_name: null
+        args: []

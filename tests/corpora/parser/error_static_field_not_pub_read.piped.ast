@@ -1,0 +1,1 @@
+Error: Counter::count is not pub, so only Counter can use it on line 5

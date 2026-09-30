@@ -51,7 +51,7 @@ Compound
       static_methods: []
       static_owners: []
       static_is_method: []
-      vis: {"EOF" => ""}
+      vis: {"EOF" => "pub"}
       fields: []
       field_lines: []
       methods: []
@@ -66,7 +66,7 @@ Compound
       abstract_methods: []
       slots: []
       method_table: []
-      owner_vis: {"EOF" => ""}
+      owner_vis: {"EOF" => "pub"}
       declared_at: []
       hidden: []
       hidden_fields: []

@@ -44,8 +44,8 @@ class StaticTest extends GazLangTestCase
         $this->assertSame(
             "7\n8\n[\"a\", \"b\"]\n[\"b\"]\n",
             $this->executeCode('kind Reg {
-                    static #count = 0;
-                    static #rows = [];
+                    pub static #count = 0;
+                    pub static #rows = [];
                 }
                 Reg::count = 7; echo Reg::count;
                 Reg::count++; echo Reg::count;
@@ -59,7 +59,7 @@ class StaticTest extends GazLangTestCase
         $this->assertSame(
             "1 2\n3\n",
             $this->executeCode(self::COUNTER.'kind Pair {
-                    static fn both() { return Counter::next() .. " " .. Counter::next(); }
+                    pub static fn both() { return Counter::next() .. " " .. Counter::next(); }
                 }
                 echo Pair::both();
                 echo Counter::next();')

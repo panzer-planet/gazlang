@@ -1,0 +1,1 @@
+Error: Counter::next is kin, so only Counter and what extends it can use it at tests/corpora/parser/error_static_method_kin_from_top_level.gaz:5

@@ -47,6 +47,7 @@ snippet:073cfabe8953
 snippet:079aa21e741d
 snippet:07c00ffa843f
 snippet:08620e34f04a
+snippet:08d3dadbb3cd
 snippet:08e0bd5cec81
 snippet:08e5e57badd5
 snippet:09d9dcc6755e
@@ -149,7 +150,6 @@ snippet:2b68d89f90e5
 snippet:2c8819de600a
 snippet:2d529dfa9d80
 snippet:2d72ef52de79
-snippet:2df0cb49cf7d
 snippet:2dfebbf1fe0c
 snippet:2e06bbc9a855
 snippet:2e317f86362d
@@ -234,7 +234,6 @@ snippet:47848390df60
 snippet:47a2a94e9cd2
 snippet:480ad3b5ad27
 snippet:48a27323c1f6
-snippet:48ed28211c42
 snippet:49a81625c16a
 snippet:49e7d85e2d73
 snippet:4a1a36b0d8af
@@ -323,6 +322,7 @@ snippet:64864412c149
 snippet:6503394100a6
 snippet:65778841f5fd
 snippet:65a13dc4914c
+snippet:65a3e00379a6
 snippet:66065d70a243
 snippet:66634118b87a
 snippet:66a331c29016
@@ -341,7 +341,6 @@ snippet:6cb102682ea8
 snippet:6d419cb91361
 snippet:6dc8837bb204
 snippet:6de097ef80f9
-snippet:6dfa06dacb83
 snippet:6e01e4c3235b
 snippet:6edab633efbc
 snippet:6f9c7fadac2a
@@ -385,6 +384,7 @@ snippet:7b45f841aa2b
 snippet:7c08777476fc
 snippet:7c38d5b66f9f
 snippet:7c5a34d603cc
+snippet:7cc8ab9574bc
 snippet:7d11f0e001a4
 snippet:7d1c04badf48
 snippet:7eb5574e5ec8
@@ -547,6 +547,7 @@ snippet:bc2c057c1e3d
 snippet:bd5ca69849e5
 snippet:bd64bb8fbbee
 snippet:bf0d22f5ae58
+snippet:bffa096f42e8
 snippet:c13f8ed2a819
 snippet:c19d7b04c68b
 snippet:c1a5c5fa5cfa
@@ -589,7 +590,6 @@ snippet:cd533030dfb8
 snippet:cd67b37a13b0
 snippet:ce7c121e060f
 snippet:ce82dc643f9d
-snippet:cf3ee2017f55
 snippet:cfbc8018a1de
 snippet:cfc61896bcc5
 snippet:cffa01724dfb
@@ -904,6 +904,7 @@ tests/corpora/parser/include/symlink_is_the_file_it_points_to.gaz
 tests/corpora/parser/interpolation.gaz
 tests/corpora/parser/kin_abstract_method.gaz
 tests/corpora/parser/kind_constants.gaz
+tests/corpora/parser/kind_members_by_name.gaz
 tests/corpora/parser/kinds.gaz
 tests/corpora/parser/lambda_bare_list_pattern.gaz
 tests/corpora/parser/lambdas.gaz
@@ -1036,6 +1037,7 @@ tests/gaz/lists/pattern_test.gaz
 tests/gaz/loops/foreach_test.gaz
 tests/gaz/match/match_test.gaz
 tests/gaz/numbers/floats_test.gaz
+tests/gaz/objects/kind_members_by_name_test.gaz
 tests/gaz/objects/kind_of_test.gaz
 tests/gaz/objects/kinds_test.gaz
 tests/gaz/objects/private_member_names_test.gaz

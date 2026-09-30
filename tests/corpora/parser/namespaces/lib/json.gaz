@@ -13,5 +13,5 @@ fn scan($text) {
 }
 
 pub kind Reader {
-    const EOF = "eof";
+    pub const EOF = "eof";
 }

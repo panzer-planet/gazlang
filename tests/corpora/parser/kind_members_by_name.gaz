@@ -1,0 +1,43 @@
+// Kind::name reaches a constant or static where it escapes to: a pub one anywhere, a kin one
+// in the kind and what extends it, any other in the kind alone (its methods, defaults,
+// constants, static initialisers and the lambdas in them)
+kind Limits {
+    const MAX = 10;
+    kin const STEP = 2;
+    pub const MIN = 0;
+    const SPAN = Limits::MAX - Limits::MIN;
+    static #count = Limits::SPAN;
+    kin static #steps = Limits::STEP;
+    pub static #made = 0;
+    #top = Limits::MAX;
+
+    static fn span() { return Limits::SPAN; }
+    kin static fn step() { return Limits::STEP; }
+    pub static fn describe($extra = 0) { return Limits::span() + Limits::count + $extra; }
+
+    pub fn clamp($n, $top = Limits::MAX) {
+        $check = $x -> $x > Limits::MAX;
+        Limits::count++;
+        Limits::made = Limits::count;
+        return $check($n) ? $top : $n;
+    }
+}
+
+kind Tight extends Limits {
+    pub fn step_twice() { return [Tight::STEP, Limits::STEP, Tight::steps, Limits::step(), Tight::step()]; }
+}
+
+kind Gauge {
+    pub fn low() { return Limits::MIN; }
+}
+
+fn describe() {
+    return Limits::describe();
+}
+
+$describe = Limits::describe;
+echo [Limits::MIN, Tight::MIN, Limits::made, $describe(), describe(), 1 |> Limits::describe];
+echo Limits().clamp(20);
+echo Limits::made;
+echo Tight().step_twice();
+echo Gauge().low();

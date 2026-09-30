@@ -93,7 +93,7 @@ Compound
           abstract: false
       static_owners: {"count" => "Counter", "rows" => "Counter", "limit" => "Counter", "next" => "Counter", "twice" => "Counter"}
       static_is_method: {"count" => false, "rows" => false, "limit" => false, "next" => true, "twice" => true}
-      vis: {"count" => "pub", "rows" => "", "limit" => "", "id" => "", "_" => "pub", "next" => "pub", "twice" => "", "mine" => "pub"}
+      vis: {"count" => "pub", "rows" => "pub", "limit" => "pub", "id" => "", "_" => "pub", "next" => "pub", "twice" => "pub", "mine" => "pub"}
       fields: {"id" => null}
       field_lines: {"id" => 7}
       methods:
@@ -197,7 +197,7 @@ Compound
       abstract_methods: []
       slots: [["id", "Counter", ""]]
       method_table: [["_", "Counter", "pub", "Counter"], ["mine", "Counter", "pub", "Counter"]]
-      owner_vis: {"count" => "pub", "rows" => "", "limit" => "", "next" => "pub", "twice" => "", "id" => "", "_" => "pub", "mine" => "pub"}
+      owner_vis: {"count" => "pub", "rows" => "pub", "limit" => "pub", "next" => "pub", "twice" => "pub", "id" => "", "_" => "pub", "mine" => "pub"}
       declared_at: {"_" => "Counter", "mine" => "Counter"}
       hidden: []
       hidden_fields: []
@@ -267,8 +267,8 @@ Compound
       statics: []
       static_lines: []
       static_methods: []
-      static_owners: {"count" => "Counter", "next" => "Counter"}
-      static_is_method: {"count" => false, "next" => true}
+      static_owners: {"count" => "Counter", "rows" => "Counter", "limit" => "Counter", "next" => "Counter", "twice" => "Counter"}
+      static_is_method: {"count" => false, "rows" => false, "limit" => false, "next" => true, "twice" => true}
       vis: []
       fields: []
       field_lines: []
@@ -281,9 +281,9 @@ Compound
       abstract_methods: []
       slots: [["id", "Counter", ""]]
       method_table: [["_", "Counter", "pub", "Counter"], ["mine", "Counter", "pub", "Counter"]]
-      owner_vis: {"count" => "pub", "next" => "pub", "_" => "pub", "mine" => "pub"}
+      owner_vis: {"count" => "pub", "rows" => "pub", "limit" => "pub", "next" => "pub", "twice" => "pub", "_" => "pub", "mine" => "pub"}
       declared_at: {"_" => "Counter", "mine" => "Counter"}
-      hidden: {"id" => "Counter", "rows" => "Counter", "limit" => "Counter", "twice" => "Counter"}
+      hidden: {"id" => "Counter"}
       hidden_fields: {"id" => "Counter"}
     7: EchoStatement 34
       expr: FunctionRef 34

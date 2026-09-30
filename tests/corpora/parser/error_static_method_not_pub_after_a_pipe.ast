@@ -1,0 +1,1 @@
+Error: Counter::twice is not pub, so only Counter can use it at tests/corpora/parser/error_static_method_not_pub_after_a_pipe.gaz:5

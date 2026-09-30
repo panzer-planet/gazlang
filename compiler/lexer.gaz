@@ -101,7 +101,7 @@ pub kind Lexer {
     };
 
     // Lowercase and matched exactly: a capitalisation of one is an ordinary name
-    const KEYWORDS = {
+    pub const KEYWORDS = {
         "echo" => "ECHO", "if" => "IF", "else" => "ELSE", "while" => "WHILE", "for" => "FOR",
         "foreach" => "FOREACH", "as" => "AS", "break" => "BREAK", "continue" => "CONTINUE",
         "fn" => "FN", "function" => "FUNCTION", "return" => "RETURN", "null" => "NULL",

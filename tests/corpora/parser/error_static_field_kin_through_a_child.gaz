@@ -1,0 +1,6 @@
+kind Counter {
+    kin static #count = 0;
+}
+kind Tally extends Counter {}
+echo
+    Tally::count;

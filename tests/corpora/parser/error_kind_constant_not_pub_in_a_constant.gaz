@@ -1,0 +1,5 @@
+kind Limits {
+    const MAX = 10;
+}
+const TWICE =
+    Limits::MAX * 2;

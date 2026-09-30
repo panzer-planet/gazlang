@@ -1,0 +1,1 @@
+Error: Counter::count is not pub, so only Counter can use it at tests/corpora/parser/error_static_field_not_pub_read.gaz:5

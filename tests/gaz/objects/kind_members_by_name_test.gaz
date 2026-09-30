@@ -1,0 +1,43 @@
+include "std/test.gaz" use expect;
+
+/*
+ * Kind::name reaches a constant or static where it escapes to, as .name and #name do: a pub
+ * one anywhere, a kin one in the kind that declared it and what extends it, any other in that
+ * kind alone. The asking kind is the one the code is written in.
+ */
+kind Limits {
+    const MAX = 10;
+    kin const STEP = 2;
+    pub const MIN = 0;
+    static #count = 0;
+    kin static #steps = Limits::STEP;
+    pub static #made = Limits::MAX - Limits::MIN;
+
+    static fn max() { return Limits::MAX; }
+    kin static fn step() { return Limits::STEP; }
+    pub static fn describe() { return Limits::max() .. "/" .. Limits::count; }
+
+    pub fn clamp($n, $top = Limits::MAX) {
+        Limits::count++;
+        $over = $x -> $x > Limits::MAX;
+        return $over($n) ? $top : $n;
+    }
+}
+
+kind Tight extends Limits {
+    pub fn kin_reach() { return [Tight::STEP, Limits::STEP, Tight::steps, Limits::step(), Tight::step()]; }
+}
+
+expect("a pub constant, static field and static method from the top level", [Limits::MIN, Limits::made, Limits::describe()], [0, 10, "10/0"]);
+expect("the kind reaches its own private members, in a lambda and a default too", Limits().clamp(20), 10);
+expect("and changes its own private static", Limits::describe(), "10/1");
+expect("a kind that extends it reaches what is kin", Tight().kin_reach(), [2, 2, 2, 2, 2]);
+
+// What doesn't escape is refused when the program is read, from anywhere outside
+fn refused($source) {
+    $result = run([program_path(), "-e", "kind C \{ const X = 1; kin static #n = 0; static fn f() \{ return 1; } }\n" .. $source]);
+    return trim($result["stderr"]);
+}
+expect("a private constant from the top level", refused("echo C::X;"), "Error: C::X is not pub, so only C can use it on line 2");
+expect("a kin static from a kind that doesn't extend it", refused("kind D \{ pub fn g() \{ C::n = 1; } }"), "Error: C::n is kin, so only C and what extends it can use it on line 2");
+expect("a private static method as a value from a function", refused("fn g() \{ return C::f; }"), "Error: C::f is not pub, so only C can use it on line 2");

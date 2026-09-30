@@ -2,8 +2,8 @@
 // and a method a function whose name carries its kind, so neither needs an object.
 kind Counter {
     pub static #count = 0;
-    static #rows = [];
-    static #limit = 2 * 5;
+    pub static #rows = [];
+    pub static #limit = 2 * 5;
     #id;
 
     fn _() {
@@ -18,7 +18,7 @@ kind Counter {
     }
 
     // A static method reaches another by #name, since # is the kind it is written in
-    static fn twice() {
+    pub static fn twice() {
         return #next() + #next();
     }
 

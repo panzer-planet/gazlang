@@ -1,0 +1,5 @@
+kind Limits {
+    kin const MAX = 10;
+}
+echo
+    Limits::MAX;

@@ -280,8 +280,9 @@ kind Html {
     // The directory of the standard library's files, which are built in
     const STD_DIRECTORY = "<std>";
 
-    // Every call by name and bare name used as a value, in source order, checked against the
-    // declared functions once the whole program is read
+    // Every call by name and bare name used as a value, in source order, as [the node, its
+    // file's scope, the kind it is written in or null], checked against the declared
+    // functions once the whole program is read
     #uses = [];
 
     // The ( that starts the expression being parsed at the ternary's level, the only place a
@@ -559,7 +560,7 @@ kind Html {
     // A call by name, recorded to be checked once the whole program is read
     fn function_call_node($name, $args, $at) {
         $node = #at(FunctionCallAST($name, $args), $at);
-        #uses[] = [$node, #scope];
+        #uses[] = [$node, #scope, #kind];
 
         return $node;
     }
@@ -731,7 +732,7 @@ kind Html {
             }
             #refuse_spaced_tag($name, $token);
             $node = #at(FunctionRefAST($name), $token);
-            #uses[] = [$node, #scope];
+            #uses[] = [$node, #scope, #kind];
 
             return $node;
         } else if ($type == "MATCH") {
@@ -1420,7 +1421,7 @@ kind Html {
             // A name read as a value is a call by name: its use is checked as a call instead
             #uses = slice(#uses, 0, $uses);
             $call = #relocated(FunctionCallAST($target.name, [$value]), $target);
-            #uses[] = [$call, #scope];
+            #uses[] = [$call, #scope, #kind];
 
             return $call;
         }
@@ -2426,7 +2427,7 @@ kind Html {
             }
             #check_visible($name, $scope, $file, $line);
         }
-        foreach (#uses as [$node, $scope]) {
+        foreach (#uses as [$node, $scope, $_]) {
             $node.name = #resolve($node.name, $scope, $node.file, $node.line);
             #check_visible($node.name, $scope, $node.file, $node.line);
         }
@@ -3098,7 +3099,7 @@ kind Html {
         $box_token.line = $token.line;
         // Constructed as the global scope, 0, sees Shared, whatever namespace this is written in
         $construct = #at(FunctionCallAST("Shared", [$value]), $token);
-        #uses[] = [$construct, 0];
+        #uses[] = [$construct, 0, #kind];
 
         return #at(StatementAST(#at(AssignAST(#at(VariableAST($box_token), $token), $assign, $construct), $assign)), $start);
     }
@@ -3129,7 +3130,7 @@ kind Html {
         #resolve_names();
         // Error is only compiled into programs that can catch, name or extend it
         $uses_error = #catches || #names_in_a_type("Error");
-        foreach (#uses as [$use, $scope]) {
+        foreach (#uses as [$use, $scope, $_]) {
             $uses_error = $uses_error || $use.name == "Error";
         }
         foreach (#kinds as $kind) {
@@ -3190,12 +3191,13 @@ kind Html {
         foreach (#parent_uses as [$node, $kind]) {
             #check_parent_use($node, $kind);
         }
-        foreach (#uses as [$use, $scope]) {
+        foreach (#uses as [$use, $scope, $asker]) {
             $static = #static_key($use.name);
             if ($static != null) {
                 if (is_a($use, FunctionCallAST)) {
                     #fail_at("{$use.name} is a static field, not a function", $use.file, $use.line);
                 }
+                #check_member_escapes($use, $asker);
                 $use.static_name = $static;
 
                 continue;
@@ -3205,6 +3207,7 @@ kind Html {
                 if (is_a($use, FunctionCallAST)) {
                     #fail_at("{$use.name} is a constant, not a function", $use.file, $use.line);
                 }
+                #check_member_escapes($use, $asker);
                 $use.constant = true;
                 $use.value = #constant_value($constant, $use);
 
@@ -3242,6 +3245,7 @@ kind Html {
                 $what = is_a($use, FunctionCallAST) ? "Undefined function" : "Undefined function or constant";
                 #fail_at("{$what}: {$use.name}{$hint}", $use.file, $use.line);
             }
+            #check_member_escapes($use, $asker);
             if (is_a($use, FunctionCallAST)) {
                 $error = #arity_error("Function {$use.name}", #functions[$use.name], len($use.args));
                 if ($error != null) {
@@ -3260,6 +3264,53 @@ kind Html {
         }
 
         return $root;
+    }
+
+    /*
+     * A Kind::name reaching a constant or static must be let out to where it is written, as
+     * .name and #name are: a pub member to anywhere, a kin one to the kind that declared it
+     * and what extends it, any other only to the kind that declared it. The asking kind is
+     * the one the code is written in (a method, a default, a lambda in it), and code outside
+     * every kind has none. A parent's private member isn't among a child's, so naming it
+     * through the child is qualified_error()'s, before this is reached.
+     */
+    fn check_member_escapes($use, $asker) {
+        if (!contains($use.name, "::")) {
+            return;
+        }
+        [$prefix, $name] = #split_name($use.name);
+        $kind = #kinds[$prefix] ?? null;
+        if ($kind == null) {
+            return;
+        }
+        $owner = $kind.constant_owners[$name] ?? $kind.static_owners[$name] ?? null;
+        if ($owner == null) {
+            return;
+        }
+        $vis = #kinds[$owner].owner_vis[$name];
+        if ($vis == "pub" || ($asker != null && $asker.name == $owner)) {
+            return;
+        }
+        if ($vis == "kin") {
+            if (!#extends_kind($asker, $owner)) {
+                #fail_at("{$owner}::{$name} is kin, so only {$owner} and what extends it can use it", $use.file, $use.line);
+            }
+
+            return;
+        }
+        #fail_at("{$owner}::{$name} is not pub, so only {$owner} can use it", $use.file, $use.line);
+    }
+
+    // Whether a kind, or null for code outside every kind, is $ancestor or extends it
+    fn extends_kind($kind, $ancestor) {
+        while ($kind != null) {
+            if ($kind.name == $ancestor) {
+                return true;
+            }
+            $kind = $kind.parent == null ? null : #kinds[$kind.parent];
+        }
+
+        return false;
     }
 
     // Work out a kind's fields and methods from its own and its parent's, checking they fit together
@@ -3533,7 +3584,7 @@ kind Html {
     }
 
     fn names_html() {
-        foreach (#uses as [$use, $scope]) {
+        foreach (#uses as [$use, $scope, $_]) {
             // Html's own code names it, which is no reason to compile it in
             $named = $use.name == "Html" || starts_with($use.name, "Html::");
             if ($named && $use.file != #BUILTIN_FILE) {

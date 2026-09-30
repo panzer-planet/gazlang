@@ -78,7 +78,7 @@ class SpreadTest extends GazLangTestCase
     {
         $this->assertEquals("[\"a\", \"b\", \"x\"]\n", $this->executeCode(<<<'CODE'
             const LETTERS = ["a", "b"];
-            kind T { const ALL = [...LETTERS, "x"]; }
+            kind T { pub const ALL = [...LETTERS, "x"]; }
             echo T::ALL;
             CODE));
     }

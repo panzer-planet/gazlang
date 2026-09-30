@@ -1,0 +1,1 @@
+Error: Counter::next is kin, so only Counter and what extends it can use it on line 5

@@ -349,7 +349,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   chain — resolved the way the real compiler resolves them, from the document's own directory,
   and only into files that exist on disk, so a `std/` include isn't chased — cycles ended by a
   set of real paths already visited on that branch), and completion (every keyword worth
-  completing, one hand-kept list, since `Lexer::KEYWORDS` is private to `Lexer`, and skipping the
+  completing, one hand-kept list mirroring `Lexer::KEYWORDS`, skipping the
   ones reserved only to hint at a spelling; every builtin with its arity; every function the
   document can reach by name, itself and what it includes, each once even if declared reachably
   more than once; no filtering by what is typed, which editors do themselves) are done; textual,
@@ -471,8 +471,6 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - `CVMTest` doesn't catch `make compiler` checking in stage 1 instead of stage 2: that only
     shows when an edit changes code generation; a test for it needs a second rebuild and is wanted.
   - **Open bugs**, found by the docs audit and not fixed yet:
-    - A private static method can be called from outside its kind (`C::n()`, and `$f = C::n`),
-      where a private static field is refused.
     - `public`, `protected` and `private` inside a kind body get the generic "Expected a field"
       error: their hint to write `pub` or `kin` exists only at the start of a statement.
     - Arity errors say "expects 1 arguments" (`builtins.c`), and the text is recorded in
@@ -1363,9 +1361,14 @@ $area = $c.area;                              // a bound method
     better named after who can see it. `kin` and `kind` are one root (kin, kind, kindred).
     `public` and `protected` stay reserved and say to write `pub` and `kin`, the way
     `function` says to write `fn`; `private` says a member needs no marker to be its own.
-  - **The asking kind is where the code is written**, not what the object is: `#name` and
-    `##name` are checked at parse time, `$obj.name` when it runs, and a lambda's and a static
-    method's asking kind is the kind they sit in. A block's header carries it (`in Kind`, or
+  - **The asking kind is where the code is written**, not what the object is: `#name`,
+    `##name` and a constant or static reached by name (`Kind::NAME`, `Kind::name`, whichever
+    way it is used: read, written, called, taken as a value, piped into) are checked at parse
+    time, `$obj.name` when it runs, and a lambda's and a static method's asking kind is the kind
+    they sit in. Code outside every kind (the top level, a function, a template) has none, so
+    reaches only what is `pub` (`check_member_escapes()`, from the kind each use in `#uses` was
+    written in): `Limits::MAX is not pub, so only Limits can use it`, `Limits::MAX is kin, so
+    only Limits and what extends it can use it`, the runtime's words for `.name`. A block's header carries it (`in Kind`, or
     the dot in a method's name), so the VM pays nothing until a member is looked up.
   - **A parent's private member is the parent's own.** A child can't name it, and may declare a
     method, constant or static of its own by that name: both entries live on and each kind's
@@ -1559,7 +1562,8 @@ kind Token {
 - A top level constant is a bare name, sharing the namespace of functions and kinds, so a
   typo is a parse error. Constants are immutable because no write path can start at one; the
   one that could, `#NAME[0] = 1`, is refused (`Cannot change constant #NAME`).
-- **Kind constants** are `#NAME` inside and `Kind::NAME` outside, inherited, and **can't be
+- **Kind constants** are `#NAME` inside and `Kind::NAME` outside (which needs `pub`, or `kin`
+  in a kind that extends it: a constant is a member like any other), inherited, and **can't be
   redeclared by a child**, since `#NAME` is resolved from the kind it is written in. That
   `::` resolves a name and `.` goes through a value is why `$kind.NAME` and `$object.NAME`
   can't be constants: it is the operator that says so, not a rule of its own. `Kind.NAME`

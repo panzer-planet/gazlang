@@ -1,0 +1,5 @@
+kind Counter {
+    kin static fn next() { return 1; }
+}
+echo
+    Counter::next();

@@ -1,0 +1,5 @@
+kind Counter {
+    static fn next() { return 1; }
+}
+$next =
+    Counter::next;

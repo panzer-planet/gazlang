@@ -1,0 +1,9 @@
+kind Limits {
+    const MAX = 10;
+}
+kind Gauge {
+    pub fn top() {
+        return
+            Limits::MAX;
+    }
+}

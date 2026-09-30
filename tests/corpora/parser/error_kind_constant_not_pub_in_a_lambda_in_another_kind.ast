@@ -1,0 +1,1 @@
+Error: Limits::MAX is not pub, so only Limits can use it at tests/corpora/parser/error_kind_constant_not_pub_in_a_lambda_in_another_kind.gaz:7

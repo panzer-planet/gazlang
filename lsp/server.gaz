@@ -19,8 +19,8 @@ include "../lib/regex.gaz";
 include "../lib/http.gaz";
 
 /*
- * The lexer's own keywords (compiler/lexer.gaz's Lexer::KEYWORDS is private to Lexer, so this
- * is its own list, kept by hand), minus the ones reserved only to hint at the right spelling
+ * The lexer's own keywords (compiler/lexer.gaz's Lexer::KEYWORDS, as a list kept by hand),
+ * minus the ones reserved only to hint at the right spelling
  * (function, class, public, private, protected, interface, implements, final all say to write
  * something else): completing one of those would just teach an error.
  */

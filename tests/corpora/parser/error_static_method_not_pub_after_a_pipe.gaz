@@ -1,0 +1,5 @@
+kind Counter {
+    static fn twice($n) { return $n * 2; }
+}
+echo 2
+    |> Counter::twice;

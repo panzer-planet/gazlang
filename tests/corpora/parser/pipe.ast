@@ -291,7 +291,7 @@ Compound
           abstract: false
       static_owners: {"make" => "Point"}
       static_is_method: {"make" => true}
-      vis: {"_" => "pub", "make" => ""}
+      vis: {"_" => "pub", "make" => "pub"}
       fields: []
       field_lines: []
       methods:
@@ -312,7 +312,7 @@ Compound
       abstract_methods: []
       slots: []
       method_table: [["_", "Point", "pub", "Point"]]
-      owner_vis: {"make" => "", "_" => "pub"}
+      owner_vis: {"make" => "pub", "_" => "pub"}
       declared_at: {"_" => "Point"}
       hidden: []
       hidden_fields: []

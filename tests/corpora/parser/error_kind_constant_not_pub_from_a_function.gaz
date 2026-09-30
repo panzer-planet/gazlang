@@ -1,0 +1,7 @@
+kind Limits {
+    const MAX = 10;
+}
+fn biggest() {
+    return
+        Limits::MAX;
+}

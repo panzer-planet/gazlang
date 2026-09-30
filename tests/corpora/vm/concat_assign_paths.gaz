@@ -5,7 +5,7 @@ kind Log {
     pub #text = "";
     pub #n = 5;
     pub #lines = ["a", "b"];
-    static #all = "";
+    pub static #all = "";
     pub fn add($s) { #text ..= $s; return #text ..= "|"; }
     pub fn bump() { #n ..= "!"; #lines[1] ..= "c"; Log::all ..= "s"; #all ..= "t"; }
 }

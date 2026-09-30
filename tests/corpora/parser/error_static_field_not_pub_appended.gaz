@@ -1,0 +1,8 @@
+kind Counter {
+    static #rows = [];
+}
+kind Log {
+    pub fn add($row) {
+        Counter::rows[] = $row;
+    }
+}

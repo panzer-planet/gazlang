@@ -54,7 +54,7 @@ const HEIGHT = WIDTH + 1;
 const KINDS = ["int", "float", {"nested" => AREA}];
 
 kind Token {
-    const EOF = "EOF";
+    pub const EOF = "EOF";                           // pub, to be reached from outside
     const ENDS = [#EOF, Token::EOF .. "!"];
     fn is_eof($type) { return $type == #EOF; }     // #NAME inside the kind
 }
@@ -75,8 +75,9 @@ Nothing can change one: `X = 2` and `X[0] = 2` are syntax errors, and since list
 values, `$copy = KINDS; $copy[] = 1;` changes the copy.
 
 A top level constant shares the namespace of functions and kinds. A kind's constant shares
-the one its fields and methods are in, is inherited, and can't be declared again by a child. It
-is reached by name, `Token::EOF` or `#EOF`, not through a value: `$kind.EOF` and `$token.EOF`
+the one its fields and methods are in, is inherited, and can't be declared again by a child.
+Like every member it is the kind's own unless `pub` (or `kin`, for the kinds that extend it), so
+`Token::EOF` outside `Token` needs `pub const EOF`. It is reached by name, `Token::EOF` or `#EOF`, not through a value: `$kind.EOF` and `$token.EOF`
 are not constants. `::` resolves a name and `.` goes through a value, so `Token.EOF` is an error
 that says to write `Token::EOF`. A `:` followed by a `:` is always `::`, so a ternary needs a
 space: `$c ? Token::EOF : $x`.
@@ -434,9 +435,12 @@ echo is_a($c, Shape) .. " " .. $c.radius;
 - **A member is private unless `pub`**, the same word and the same meaning as a namespace's:
   this name escapes the thing it is written in. The ladder is unmarked (mine) → `kin` (mine and
   my children's) → `pub` (anyone's), and it applies to a field, method, constant or static
-  alike: `kin #energy = 100;`, `pub static #tally = 0;`. `#name` and `##name` are checked at
-  parse time, `$obj.name` when it runs, both against the kind the code asking is written in —
-  a lambda's and a static method's is the kind they sit in.
+  alike: `kin #energy = 100;`, `pub static #tally = 0;`. `#name`, `##name` and a constant or
+  static reached by name (`Limits::MAX`, `Counter::next()`) are checked at parse time,
+  `$obj.name` when it runs, all against the kind the code asking is written in — a lambda's and
+  a static method's is the kind they sit in, and code outside every kind (the top level, a
+  function, a template) reaches only what is `pub`: `Limits::MAX is not pub, so only Limits can
+  use it`, or `Limits::MAX is kin, so only Limits and what extends it can use it`.
 - **`kin` is for what a kind declares on its children's behalf**: a field they set, a method
   they call, a hook they define. `protected` earns a rename where `extends` does not, since it
   famously protects less than the default does, and a level is better named after who can see
@@ -466,7 +470,7 @@ kind Account {
     pub string #owner;
     pub float #balance = 0;
     kin ?string #note = null;
-    static int #made = 0;
+    pub static int #made = 0;
 
     fn _(pub int #id, string $owner, int|float $start = 0) {
         #owner = $owner;
@@ -1214,7 +1218,7 @@ kind Counter {
     #id;                              // an ordinary field, one per object
 
     fn _() { #count++; #id = #count; }
-    static fn next() { #count++; return #count; }
+    pub static fn next() { #count++; return #count; }
     fn mine() { return "{#id} of {#count}"; }
 }
 
@@ -1239,9 +1243,10 @@ echo Counter::count;
   before the program's first instruction. Running one would bring initialisation order and
   bytecode before the top level, which is why constants refuse `Point(0, 0)` as well. It is
   required: `static #count;` is an error.
-- **Assigned from anywhere the static escapes to**: `Counter::count = 1`, `Counter::count++`,
-  `Counter::rows[] = $r` and `delete Counter::rows[0]` all work on a `pub static`, and inside
-  `Counter` on one that says nothing. A kind constant is still not a slot, so
+- **Read, called and assigned from anywhere the static escapes to**, as every member is:
+  `Counter::next()`, `Counter::count = 1`, `Counter::count++`, `Counter::rows[] = $r` and
+  `delete Counter::rows[0]` all work on a `pub static`, in a kind that extends `Counter` on a
+  `kin` one, and inside `Counter` on one that says nothing. A kind constant is still not a slot, so
   `Counter::LIMIT = 1` is an error.
 - **A child shares its parent's static** and can't declare one again, as with a constant: every
   member shares one namespace across the hierarchy, statics included.

@@ -55,7 +55,7 @@ const HOME_DESCRIPTION = "GazLang, a scripting language that would rather stop t
 kind Options {
     fn _(pub string #output, pub string #root, pub ?string #repository, pub ?string #release) {}
 
-    static fn parse(list $argv): Options {
+    pub static fn parse(list $argv): Options {
         $cli = cli::Command("site/build.gaz", "Build the GazLang website");
         $cli.optional("directory", "Where to write the site", OUTPUT);
         $cli.option("root", null, "The repository to read the documents from", ".");

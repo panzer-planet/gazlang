@@ -555,7 +555,7 @@ kind Script {
     #waited = 0;    // how much of the wait at #at has passed
     #done = [];
 
-    static fn parse($text) {
+    pub static fn parse($text) {
         $script = Script();
         $words = words($text);
         for ($i = 0; $i < len($words); $i++) {

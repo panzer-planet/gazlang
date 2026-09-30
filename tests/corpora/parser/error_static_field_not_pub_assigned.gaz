@@ -1,0 +1,5 @@
+kind Counter {
+    static #count = 0;
+}
+
+Counter::count = 5;

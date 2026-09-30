@@ -1,0 +1,1 @@
+Error: Limits::MAX is kin, so only Limits and what extends it can use it on line 7

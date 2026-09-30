@@ -8,7 +8,7 @@ kind Point {
         #values = $values;
     }
 
-    static fn make($strings, $values) {
+    pub static fn make($strings, $values) {
         return Point($strings, $values);
     }
 }

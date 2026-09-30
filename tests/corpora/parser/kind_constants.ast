@@ -349,7 +349,7 @@ Compound
       static_methods: []
       static_owners: []
       static_is_method: []
-      vis: {"FOUR" => "", "ALL" => "", "all_kinds" => ""}
+      vis: {"FOUR" => "", "ALL" => "pub", "all_kinds" => ""}
       fields: []
       field_lines: []
       methods:
@@ -452,7 +452,7 @@ Compound
       abstract_methods: []
       slots: [["type", "Token", ""], ["kinds", "Token", ""]]
       method_table: [["is_eof", "Token", "", "Token"], ["later", "Token", "", "Token"], ["describe", "Token", "", "Token"], ["first", "Token", "", "Token"], ["in_match", "Token", "", "Token"], ["write", "Token", "", "Token"], ["all_kinds", "Special", "", "Special"]]
-      owner_vis: {"EOF" => "pub", "KINDS" => "pub", "FOUR" => "", "ALL" => "", "all_kinds" => ""}
+      owner_vis: {"EOF" => "pub", "KINDS" => "pub", "FOUR" => "", "ALL" => "pub", "all_kinds" => ""}
       declared_at: {"is_eof" => "Token", "later" => "Token", "describe" => "Token", "first" => "Token", "in_match" => "Token", "write" => "Token", "all_kinds" => "Special"}
       hidden: {"type" => "Token", "kinds" => "Token", "is_eof" => "Token", "later" => "Token", "describe" => "Token", "first" => "Token", "in_match" => "Token", "write" => "Token", "TEXT" => "Token"}
       hidden_fields: {"type" => "Token", "kinds" => "Token"}
@@ -465,7 +465,7 @@ Compound
       static_methods: []
       static_owners: []
       static_is_method: []
-      vis: {"NAME" => ""}
+      vis: {"NAME" => "pub"}
       fields: []
       field_lines: []
       methods: []
@@ -480,7 +480,7 @@ Compound
       abstract_methods: []
       slots: []
       method_table: []
-      owner_vis: {"NAME" => ""}
+      owner_vis: {"NAME" => "pub"}
       declared_at: []
       hidden: []
       hidden_fields: []

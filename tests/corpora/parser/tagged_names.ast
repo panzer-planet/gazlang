@@ -29,7 +29,7 @@ Compound
           abstract: false
       static_owners: {"make" => "Point"}
       static_is_method: {"make" => true}
-      vis: {"strings" => "pub", "values" => "pub", "_" => "pub", "make" => ""}
+      vis: {"strings" => "pub", "values" => "pub", "_" => "pub", "make" => "pub"}
       fields: {"strings" => null, "values" => null}
       field_lines: {"strings" => 3, "values" => 4}
       methods:
@@ -76,7 +76,7 @@ Compound
       abstract_methods: []
       slots: [["strings", "Point", "pub"], ["values", "Point", "pub"]]
       method_table: [["_", "Point", "pub", "Point"]]
-      owner_vis: {"make" => "", "strings" => "pub", "values" => "pub", "_" => "pub"}
+      owner_vis: {"make" => "pub", "strings" => "pub", "values" => "pub", "_" => "pub"}
       declared_at: {"_" => "Point"}
       hidden: []
       hidden_fields: []

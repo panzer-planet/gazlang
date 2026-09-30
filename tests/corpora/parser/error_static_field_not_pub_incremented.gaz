@@ -1,0 +1,6 @@
+kind Counter {
+    static #count = 0;
+}
+fn bump() {
+    Counter::count++;
+}
