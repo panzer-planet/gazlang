@@ -3,53 +3,58 @@
  * builtins, which a driver's library (libsqlite3, libpq) is built into the VM for, if it was found.
  *
  *   $db = db::open("sqlite:app.db");          // or "sqlite::memory:", or "postgres://user@host/name"
- *   $db.exec("create table users (id integer primary key, name text)");
- *   $db.exec("insert into users (name) values (?)", ["Ada"]);
- *   foreach ($db.query("select * from users where name = ?", ["Ada"]) as $user) { echo $user["name"]; }
- *   $db.transaction($db -> { $db.exec("delete from users"); });     // rolled back if it raises
+ *   $db.exec(db::sql"create table users (id integer primary key, name text)");
+ *   $name = "Ada";
+ *   $db.exec(db::sql"insert into users (name) values ({$name})");
+ *   foreach ($db.query(db::sql"select * from users where name = {$name}") as $user) { echo $user["name"]; }
+ *   $db.transaction($db -> { $db.exec(db::sql"delete from users"); });     // rolled back if it raises
  *
- * The parameters are a list, sent apart from the SQL so nothing in them is ever read as SQL. The
- * placeholders are the database's own: `?` for SQLite, `$1` for PostgreSQL. A row is a map from
- * column name to value (a repeated name keeps the last); int, float, bool (PostgreSQL only) and
- * null come back as themselves and everything else as a string. Errors are catchable, and say
- * which database gave them.
+ * SQL is written `db::sql"..."`, and what it interpolates is sent apart from it, so nothing in a
+ * value is ever read as SQL: a `Db` writes each database's own placeholders (`?` for SQLite, `$1`
+ * for PostgreSQL) and refuses a plain string, so SQL can't be put together from values by mistake.
+ * `db::raw($text)` is the visible way round, for SQL built some other way. The `db_run()` builtin
+ * underneath still takes a string and a list of parameters.
  *
- * With parameters the SQL is one statement; without, it may be a script, and the last statement's
- * result is the one given.
+ * A row is a map from column name to value (a repeated name keeps the last); int, float, bool
+ * (PostgreSQL only) and null come back as themselves and everything else as a string. Errors are
+ * catchable, and say which database gave them. With values the SQL is one statement; without, it
+ * may be a script, and the last statement's result is the one given.
  */
 namespace db;
 
 pub kind Db {
     #handle;
+    #placeholder;
     #depth = 0;
 
     fn _($url) {
         #handle = db_open($url);
+        #placeholder = placeholder_for($url);
     }
 
     // {"rows" => [row, ...], "changes" => rows an insert, update or delete changed}
-    pub fn run($sql, $params = []) {
-        return db_run(#handle, $sql, $params);
+    pub fn run($sql) {
+        return #result($sql, "run");
     }
 
-    pub fn query($sql, $params = []) {
-        return db_run(#handle, $sql, $params)["rows"];
+    pub fn query($sql) {
+        return #result($sql, "query")["rows"];
     }
 
     // The first row, or null when there is none
-    pub fn row($sql, $params = []) {
-        return db_run(#handle, $sql, $params)["rows"][0] ?? null;
+    pub fn row($sql) {
+        return #result($sql, "row")["rows"][0] ?? null;
     }
 
     // The first column of the first row, or null when there is none
-    pub fn value($sql, $params = []) {
-        $row = #row($sql, $params);
+    pub fn value($sql) {
+        $row = #result($sql, "value")["rows"][0] ?? null;
         return $row == null ? null : values($row)[0];
     }
 
     // How many rows an insert, update or delete changed
-    pub fn exec($sql, $params = []) {
-        return db_run(#handle, $sql, $params)["changes"];
+    pub fn exec($sql) {
+        return #result($sql, "exec")["changes"];
     }
 
     /*
@@ -76,6 +81,31 @@ pub kind Db {
     pub fn close() {
         db_close(#handle);
     }
+
+    // Runs an Sql, rendered for this database; anything else is refused, naming the method
+    fn result($sql, $method) {
+        if (!is_a($sql, Sql)) {
+            throw "Db.{$method}() takes db::sql\"...\", not " .. described($sql) .. ': write db::sql"select ... where id = {$id}", or db::raw($text) for SQL built some other way';
+        }
+        [$text, $params] = $sql.render(#placeholder);
+        return db_run(#handle, $text, $params);
+    }
+}
+
+// Each database's placeholders, by the URL's scheme, as db_open() reads it
+fn placeholder_for($url) {
+    if (starts_with($url, "sqlite:")) {
+        return question_mark;
+    }
+    return numbered;
+}
+
+fn question_mark($n) {
+    return "?";
+}
+
+fn numbered($n) {
+    return '$' .. $n;
 }
 
 pub fn open($url) {
@@ -123,7 +153,7 @@ pub kind Sql {
     }
 
     pub fn to_string(): string {
-        return #render($n -> "?")[0];
+        return #render(question_mark)[0];
     }
 
     fn write_into($rendering) {

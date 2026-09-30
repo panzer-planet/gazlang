@@ -861,9 +861,11 @@ on three builtins, so a driver adds no names to a program:
   column name to value (a repeated name keeps the last), and `changes` the rows an insert, update or
   delete changed (0 for a query). `db_close($db)` closes it; a `db` no variable holds any more is
   closed too.
-- Parameters are a list, sent apart from the SQL. The placeholders are the database's own: `?` for
-  SQLite, `$1` for PostgreSQL. With parameters the SQL is one statement; without, it may be a script,
-  and the last statement's result is the one given. There is no last-insert id: use `returning`.
+- Parameters are a list, sent apart from the SQL. The builtin takes the database's own placeholders
+  (`?` for SQLite, `$1` for PostgreSQL) and a plain string, since it is the layer underneath:
+  programs write `db::sql"..."`, below, which writes them. With parameters the SQL is one statement;
+  without, it may be a script, and the last statement's result is the one given. There is no
+  last-insert id: use `returning`.
 - Values: SQLite's INTEGER is an int, REAL a float, TEXT and BLOB strings. PostgreSQL's int2, int4 and
   int8 are ints, float4 and float8 floats, bool a bool, and the rest (numeric, timestamps, json) the text
   Postgres prints. Both give `null` for NULL. Going in, `null`, ints, floats and strings are sent as
@@ -871,10 +873,55 @@ on three builtins, so a driver adds no names to a program:
   infinite float coming back, since floats here are always finite.
 - Errors are catchable and start `sqlite:` or `postgres:`.
 
-`db::open($url)` gives a `Db`, which has `run($sql, $params)`, `query` (the rows), `row` (the first or
-null), `value` (its first column), `exec` (the changes), `transaction($work)` and `close()`.
+`db::open($url)` gives a `Db`, which has `run($sql)`, `query` (the rows), `row` (the first or null),
+`value` (its first column), `exec` (the changes), `transaction($work)` and `close()`.
 `transaction` runs `$work($db)` between begin and commit, rolls back and raises again if it raises, and
 is a savepoint inside another one.
+
+SQL is a tagged string, `db::sql"..."`, whose values are sent apart from the text, so nothing a value
+holds is ever read as SQL:
+
+```gaz
+include "std/db.gaz";
+
+$db = db::open("sqlite::memory:");
+$db.exec(db::sql"create table users (id integer primary key, name text, age int)");
+foreach ([["Ada", 36], ["Alan", 41], ["Grace", 85]] as [$name, $age]) {
+    $db.exec(db::sql"insert into users (name, age) values ({$name}, {$age})");
+}
+
+$ids = [1, 3];
+$least = 40;
+$older = db::sql" and age > {$least}";               // a fragment, built apart
+$column = db::ident("name");                        // a name that can't be a parameter
+echo $db.query(db::sql"select {$column} from users where id in {$ids}{$older}");
+```
+
+```
+[{"name" => "Grace"}]
+```
+
+- **Each `Db` writes its own placeholders**: `?` for a `sqlite:` URL, `$1`, `$2`... for `postgres:`
+  and `postgresql:`, numbered across the whole statement.
+- **A value** that is an int, float, string, bool or null is one parameter, sent as it is.
+- **A list** is a placeholder for each item in parentheses, `(?, ?)`, for `in (...)`, or a row of
+  `values`. Its items must be ints, floats, strings, bools or nulls, and **an empty list is an
+  error**: `in ()` isn't SQL, and whether no items means nothing or everything is for the program to
+  say.
+- **Another `db::sql"..."`** is spliced in and its values numbered with the rest, so a condition can
+  be built apart, and an empty `db::sql""` leaves one out.
+- **`db::ident($name)`** is a table or column name, written quoted with any `"` in it doubled, so it
+  is always exactly one name. Quoted names keep their case in PostgreSQL (`"Name"` is not `name`
+  there), and a dot is part of the name: a table in a schema is two, `{$schema}.{$table}`.
+- Anything else (a map, a function, an object) is an error when the `db::sql"..."` is made.
+- **`$` and a digit can't be in the text**: PostgreSQL would read `$1` as the first value, whichever
+  that is. Interpolate the value instead.
+- **The methods refuse a plain string**, so SQL can't be put together from values by mistake:
+  `Db.query() takes db::sql"...", not a string`. **`db::raw($text)`** is the way round, for SQL
+  built some other way (a migration read from a file): used as it is, with no values, and the one
+  place to check by hand.
+- Printing a `db::sql"..."` shows its text with `?` for each value, never the values, which may be
+  secrets.
 
 A driver is built in when its library is found (`libsqlite3`, `libpq`); `make SQLITE=0` or `PG=0`
 leaves one out, and `db_open` of that scheme is then an error.

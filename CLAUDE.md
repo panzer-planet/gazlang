@@ -274,10 +274,10 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   1. **Tagged literals as ordinary functions**: `name"text {$v}"` is `name(["text ", ""], [$v])`,
      resolved like any name, as JavaScript's tags and Python's t-strings are (this stage is
      "Tagged strings" under Strings; `lib/` can use tags only through a `bin/gaz` whose built-in
-     compiler knows them, since the library is compiled by it). Then `db::sql"..."`,
-     rendered to each driver's own placeholders (`?`, `$n`), with nested fragments and lists for
-     `in (...)`; then `Db.query`/`exec`/`row`/`value` refuse a plain string, with `db::raw()` the
-     visible way round, so SQL injection is impossible by construction; then `html"..."`.
+     compiler knows them, since the library is compiled by it). `db::sql"..."` with `Db` refusing
+     a plain string is done (see "Databases"). Then `web::html"..."`: a tag function in a new
+     library namespace `web`, not the `Html` kind and not a global `html`; then concatenating an
+     `Html` becomes an error (the trap below).
   2. **Rest patterns** in destructuring, `[$first, ...$rest] = $list`, when JSON handling asks.
   - **On demand**: dumping the raw bytes of a request that got a 500, to replay it (the small
     version of record and replay); `parallel($thunks, $max)` over forked processes, giving plain
@@ -1022,10 +1022,32 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   `{"rows", "changes"}`, `db_close($db)`. **Three builtins whatever the drivers**, since a builtin takes
   its name from every program: the URL's scheme (`sqlite:`, `postgres:`) picks a `DbDriver` (open, run,
   close) in C, so a new database is a file and a table entry, and `lib/db.gaz` (`db::open`, the `Db`
-  kind with `query`, `row`, `value`, `exec`, `transaction`) is what programs use. **Placeholders are
-  the database's own** (`?`, `$1`), not rewritten: rewriting means reading string literals in C. No
-  last-insert id (`returning` says it in both). Parameters are always bound, never spliced; with them
-  the SQL is one statement, without, a script whose last result is given. Both drivers are on when
+  kind with `run`, `query`, `row`, `value`, `exec`, `transaction`) is what programs use. **The
+  builtin takes the database's own placeholders** (`?`, `$1`) and a string, not rewritten: rewriting
+  means reading string literals in C. No last-insert id (`returning` says it in both). Parameters are
+  always bound, never spliced; with them the SQL is one statement, without, a script whose last
+  result is given.
+  - **Programs write `db::sql"..."`** (a tagged string, `db::Sql`), and `Db`'s methods take exactly
+    one and **refuse anything else** (`Db.query() takes db::sql"...", not a string: ...`), so SQL
+    can't be put together from values by mistake. `Db` picks the placeholder from the URL's scheme
+    (`sqlite:` `?`, `postgres:`/`postgresql:` `$n`) and `Sql.render($placeholder)` gives `[$text,
+    $params]`, walking the parts with one counter: a nested `Sql` is spliced in and renumbered, a
+    list is `(?, ?)` for `in (...)` or a `values` row (scalars only; **an empty list is an error**,
+    since rendering it `(null)` makes `not in` quietly match nothing), a `db::ident($name)` is
+    `"name"` with `"` doubled (empty and NUL refused), and any other scalar one parameter, its type
+    kept. Values are checked when the `Sql` is made, so the error is at the line that wrote it.
+  - **The tag refuses `$` and a digit in its text**: with PostgreSQL `db::sql"select $1, {$x}"`
+    would render `select $1, $1` and bind `$x` twice. A false alarm inside an SQL string literal is
+    accepted, loud being the safe side; a stray `?` needs no rule, as the driver's parameter count
+    catches it.
+  - **`db::raw($text)`** is the visible way round (a migration from a file), no values and exempt from
+    the `$1` rule; `transaction()` uses the builtin for its own fixed statements. `to_string()` of an
+    `Sql` is its text with `?` placeholders, never the values, which may be secrets.
+  - Interpolation starts only at `{$`, `{@` or `{#`, so a fragment or a name is interpolated from a
+    variable (`$filter = db::sql"..."; ... {$filter}`), never written `{db::ident(...)}` inline.
+  - `tests/gaz/lib/sql_test.gaz` renders both styles with no database; `db_test.gaz` and
+    `pg_check.gaz` run them. `ponytail:` no helper joins a list of fragments (a bulk insert of many
+    rows is one `values {$row}` per row, or a loop in a transaction). Both drivers are on when
   their library is found (`make SQLITE=1`/`PG=1` make that an error, which CI asks for). SQLite is
   tested by `tests/gaz/lib/db_test.gaz` on `:memory:` (recorded, sanitized, leak-checked); PostgreSQL
   by `DbPgTest` running `tests/db/pg_check.gaz` against the server `GAZLANG_TEST_PG` names (skipped

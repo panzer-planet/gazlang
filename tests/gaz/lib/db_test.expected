@@ -33,6 +33,23 @@ ok an inner transaction rolls back alone
 ok the outer one committed
 ok an error from the database rolls back too
 ok and the delete is undone
+ok run refuses a string
+ok query refuses a string
+ok row refuses a string
+ok value refuses a string
+ok exec refuses a string
+ok and anything else
+ok and ran nothing
+ok raw runs as it is
+ok a raw script
+ok a list is in (...)
+ok and not in (...)
+ok a name is quoted
+ok a condition left out
+ok a condition added, its value numbered with the rest
+ok null is sent as null
+ok quotes, NUL bytes and SQL in values are data
+ok and the table is still there
 ok a closed database
 ok an unknown scheme
 ok no path

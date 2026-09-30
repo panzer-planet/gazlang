@@ -15,42 +15,77 @@ fn failure($f) {
 }
 
 $db = db::open(args()[0]);
-$db.exec("create temp table t (id serial primary key, name text, score float8, ok bool, n numeric, big int8, small int2)");
-expect("exec gives the rows changed", $db.exec("insert into t (name, score, ok, n, big, small) values ($1, $2, $3, $4, $5, $6), ($7, $8, $9, $10, $11, $12)",
-    ["a", 1.5, true, "12.50", 9223372036854775807, 7, "b", 2, false, null, -1, -7]), 2);
-expect("query gives maps, typed by the column", $db.query("select * from t order by id"), [
+$db.exec(db::sql"create temp table t (id serial primary key, name text, score float8, ok bool, n numeric, big int8, small int2)");
+$a = ["a", 1.5, true, "12.50", 9223372036854775807, 7];
+$b = ["b", 2, false, null, -1, -7];
+expect("exec gives the rows changed", $db.exec(db::sql"insert into t (name, score, ok, n, big, small) values {$a}, {$b}"), 2);
+expect("query gives maps, typed by the column", $db.query(db::sql"select * from t order by id"), [
     {"id" => 1, "name" => "a", "score" => 1.5, "ok" => true, "n" => "12.50", "big" => 9223372036854775807, "small" => 7},
     {"id" => 2, "name" => "b", "score" => 2.0, "ok" => false, "n" => null, "big" => -1, "small" => -7},
 ]);
-expect("row", $db.row("select name from t where id = $1", [2]), {"name" => "b"});
-expect("row of nothing", $db.row("select name from t where id = 99"), null);
-expect("value", $db.value("select count(*) from t"), 2);
-expect("a select changes nothing", $db.run("select * from t")["changes"], 0);
-expect("update", $db.exec("update t set score = score + 1 where id > $1", [0]), 2);
-expect("returning", $db.run("delete from t where id = $1 returning name", [2]), {"rows" => [{"name" => "b"}], "changes" => 1});
-expect("a script gives its last result", $db.query("select 1 as a; select 2 as b"), [{"b" => 2}]);
-expect("strings that look like SQL are only strings", [$db.exec("insert into t (name) values ($1)", ["x'); drop table t; --"]), $db.value("select count(*) from t")], [1, 2]);
-expect("text passes through", $db.value("select $1::text", ["é"]), "é");
-expect("a float needs no cast", $db.value("select $1::float8", [0.1 + 0.2]), 0.30000000000000004);
-throws("a bad statement", () -> $db.query("select nope"), "postgres: column \"nope\" does not exist");
-throws("too few parameters", () -> $db.query("select $1"), "postgres: there is no parameter $1");
-throws("a list can't be a parameter", () -> $db.query("select $1", [[1]]), "postgres: parameter 1 is a list, which cannot be stored");
-throws("a NUL can't be", () -> $db.query("select $1", ["a\0b"]), "postgres: parameter 1 holds a NUL byte, which text cannot");
-throws("NaN is not a float here", () -> $db.value("select 'NaN'::float8"), "postgres: cannot read NaN as a float, which is always finite");
-throws("a duplicate key", () -> $db.exec("insert into t (id) values ($1)", [1]), "postgres: duplicate key value violates unique constraint \"t_pkey\"");
+$two = 2;
+expect("row", $db.row(db::sql"select name from t where id = {$two}"), {"name" => "b"});
+expect("row of nothing", $db.row(db::sql"select name from t where id = 99"), null);
+expect("value", $db.value(db::sql"select count(*) from t"), 2);
+expect("a select changes nothing", $db.run(db::sql"select * from t")["changes"], 0);
+$zero = 0;
+expect("update", $db.exec(db::sql"update t set score = score + 1 where id > {$zero}"), 2);
+expect("returning", $db.run(db::sql"delete from t where id = {$two} returning name"), {"rows" => [{"name" => "b"}], "changes" => 1});
+expect("a script gives its last result", $db.query(db::sql"select 1 as a; select 2 as b"), [{"b" => 2}]);
+$attack = "x'); drop table t; --";
+expect("strings that look like SQL are only strings", [$db.exec(db::sql"insert into t (name) values ({$attack})"), $db.value(db::sql"select count(*) from t")], [1, 2]);
+$text = "é";
+expect("text passes through", $db.value(db::sql"select {$text}::text"), "é");
+$float = 0.1 + 0.2;
+expect("a float needs no cast", $db.value(db::sql"select {$float}::float8"), 0.30000000000000004);
+throws("a bad statement", () -> $db.query(db::sql"select nope"), "postgres: column \"nope\" does not exist");
+throws("too few parameters", () -> $db.query(db::raw('select $1')), "postgres: there is no parameter \$1");
+throws("a list can't be a parameter", () -> db_run(db_open(args()[0]), 'select $1', [[1]]), "postgres: parameter 1 is a list, which cannot be stored");
+$nul = "a\0b";
+throws("a NUL can't be", () -> $db.query(db::sql"select {$nul}"), "postgres: parameter 1 holds a NUL byte, which text cannot");
+throws("NaN is not a float here", () -> $db.value(db::sql"select 'NaN'::float8"), "postgres: cannot read NaN as a float, which is always finite");
+$one = 1;
+throws("a duplicate key", () -> $db.exec(db::sql"insert into t (id) values ({$one})"), "postgres: duplicate key value violates unique constraint \"t_pkey\"");
 
-expect("a transaction commits", $db.transaction($d -> { $d.exec("delete from t"); return $d.value("select count(*) from t"); }), 0);
-$db.exec("insert into t (name) values ('kept')");
-throws("and rolls back", () -> $db.transaction($d -> { $d.exec("delete from t"); throw "boom"; }), "boom");
-expect("nothing was deleted", $db.value("select count(*) from t"), 1);
+expect("a transaction commits", $db.transaction($d -> { $d.exec(db::sql"delete from t"); return $d.value(db::sql"select count(*) from t"); }), 0);
+$db.exec(db::sql"insert into t (name) values ('kept')");
+throws("and rolls back", () -> $db.transaction($d -> { $d.exec(db::sql"delete from t"); throw "boom"; }), "boom");
+expect("nothing was deleted", $db.value(db::sql"select count(*) from t"), 1);
 expect("an inner transaction rolls back alone", $db.transaction($d -> {
-    $d.exec("insert into t (name) values ('outer')");
-    $inner = failure(() -> $d.transaction($x -> { $x.exec("delete from t"); throw "inner"; }));
-    return [$inner, $d.value("select count(*) from t")];
+    $d.exec(db::sql"insert into t (name) values ('outer')");
+    $inner = failure(() -> $d.transaction($x -> { $x.exec(db::sql"delete from t"); throw "inner"; }));
+    return [$inner, $d.value(db::sql"select count(*) from t")];
 }), ["inner", 2]);
-throws("after an error in the database the transaction is rolled back", () -> $db.transaction($d -> { $d.exec("delete from t"); $d.exec("nonsense"); }), "postgres: syntax error at or near \"nonsense\"");
-expect("and the connection is usable", $db.value("select count(*) from t"), 2);
+throws("after an error in the database the transaction is rolled back", () -> $db.transaction($d -> { $d.exec(db::sql"delete from t"); $d.exec(db::sql"nonsense"); }), "postgres: syntax error at or near \"nonsense\"");
+expect("and the connection is usable", $db.value(db::sql"select count(*) from t"), 2);
+
+/*
+ * db::sql's placeholders are numbered for PostgreSQL: across a fragment spliced in, a list for
+ * in (...), and a quoted name.
+ */
+throws("a plain string is refused", () -> $db.query("select 1"), 'Db.query() takes db::sql"...", not a string: write db::sql"select ... where id = {$id}", or db::raw($text) for SQL built some other way');
+$db.exec(db::raw('create temp table people (id int primary key, "Full name" text, age int, active bool)'));
+$people = [[1, "Ada", 36, true], [2, "Alan", 41, false], [3, "Grace", null, true]];
+foreach ($people as $person) {
+    $db.exec(db::sql"insert into people values {$person}");
+}
+$ids = [1, 3];
+expect("a list is in (...)", $db.query(db::sql"select id from people where id in {$ids} order by id"), [{"id" => 1}, {"id" => 3}]);
+$column = db::ident("Full name");
+$age = 40;
+$filter = db::sql" and age > {$age}";
+$active = false;
+expect("a fragment's values are numbered with the rest", $db.query(db::sql"select {$column} as name from people where active = {$active}{$filter} and id not in {$ids}"),
+    [{"name" => "Alan"}]);
+$nothing = null;
+expect("null is sent as null", $db.value(db::sql"select count(*) from people where age is not distinct from {$nothing}::int"), 1);
+$names = ["O'Brien", "a\"b", "'; drop table people; --"];
+foreach ($names as $i => $name) {
+    $db.exec(db::sql"insert into people (id, {$column}) values ({$i + 10}, {$name})");
+}
+expect("quotes and SQL in values are data", $db.query(db::sql"select {$column} as name from people where id >= 10 order by id"),
+    map($names, $name -> ({"name" => $name})));
 
 $db.close();
-throws("closed", () -> $db.query("select 1"), "db_run() on a closed database");
+throws("closed", () -> $db.query(db::sql"select 1"), "db_run() on a closed database");
 expect("a refused connection", starts_with(failure(() -> db::open("postgres://127.0.0.1:1/x?connect_timeout=2")) ?? "", "postgres: cannot connect: "), true);

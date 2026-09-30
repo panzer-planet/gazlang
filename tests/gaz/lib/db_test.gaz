@@ -13,55 +13,109 @@ fn failure($f) {
 
 $db = db::open("sqlite::memory:");
 expect("the handle is its own type", type_of(db_open("sqlite::memory:")), "db");
-expect("a script makes tables", $db.run("create table t (id integer primary key, name text, score real, note text); insert into t (name, score) values ('seed', 0.5);"), {"rows" => [], "changes" => 1});
-expect("exec gives the rows changed", $db.exec("insert into t (name, score, note) values (?, ?, ?), (?, ?, ?)", ["a", 2, null, "b", true, "x"]), 2);
-expect("query gives maps", $db.query("select id, name, score, note from t order by id"), [
+expect("a script makes tables", $db.run(db::sql"create table t (id integer primary key, name text, score real, note text); insert into t (name, score) values ('seed', 0.5);"), {"rows" => [], "changes" => 1});
+$a = ["a", 2, null];
+$b = ["b", true, "x"];
+expect("exec gives the rows changed", $db.exec(db::sql"insert into t (name, score, note) values {$a}, {$b}"), 2);
+expect("query gives maps", $db.query(db::sql"select id, name, score, note from t order by id"), [
     {"id" => 1, "name" => "seed", "score" => 0.5, "note" => null},
     {"id" => 2, "name" => "a", "score" => 2.0, "note" => null},
     {"id" => 3, "name" => "b", "score" => 1.0, "note" => "x"},
 ]);
-expect("row", $db.row("select name from t where id = ?", [2]), {"name" => "a"});
-expect("row of nothing", $db.row("select name from t where id = ?", [99]), null);
-expect("value", $db.value("select count(*) from t"), 3);
-expect("value of nothing", $db.value("select name from t where id = 99"), null);
-expect("a select changes nothing, whatever ran before", $db.run("select * from t")["changes"], 0);
-expect("update counts what it changed", $db.exec("update t set score = score + 1 where id > ?", [1]), 2);
-expect("returning gives rows and changes", $db.run("delete from t where id = ? returning name", [3]), {"rows" => [{"name" => "b"}], "changes" => 1});
-expect("a script gives its last result", $db.query("select 1 as a; select 2 as b"), [{"b" => 2}]);
-expect("a comment after the statement", $db.query("select 1 as a; -- done"), [{"a" => 1}]);
-expect("a comment after the statement, with parameters", $db.query("select ? as a -- by id", [1]), [{"a" => 1}]);
-expect("nothing to run", $db.run(" "), {"rows" => [], "changes" => 0});
-expect("strings that look like SQL are only strings", [$db.exec("insert into t (name) values (?)", ["x'); drop table t; --"]), $db.value("select count(*) from t")], [1, 3]);
-expect("bytes pass through", $db.value("select ?", ["é\0\xff"]), "é\0\xff");
-expect("floats keep their digits", $db.value("select ?", [0.1 + 0.2]), 0.30000000000000004);
-expect("big ints", $db.value("select ?", [9223372036854775807]), 9223372036854775807);
-expect("a column named twice keeps the last", $db.row("select 1 as a, 2 as a"), {"a" => 2});
+$id = 2;
+expect("row", $db.row(db::sql"select name from t where id = {$id}"), {"name" => "a"});
+$missing = 99;
+expect("row of nothing", $db.row(db::sql"select name from t where id = {$missing}"), null);
+expect("value", $db.value(db::sql"select count(*) from t"), 3);
+expect("value of nothing", $db.value(db::sql"select name from t where id = 99"), null);
+expect("a select changes nothing, whatever ran before", $db.run(db::sql"select * from t")["changes"], 0);
+$first = 1;
+expect("update counts what it changed", $db.exec(db::sql"update t set score = score + 1 where id > {$first}"), 2);
+$last = 3;
+expect("returning gives rows and changes", $db.run(db::sql"delete from t where id = {$last} returning name"), {"rows" => [{"name" => "b"}], "changes" => 1});
+expect("a script gives its last result", $db.query(db::sql"select 1 as a; select 2 as b"), [{"b" => 2}]);
+expect("a comment after the statement", $db.query(db::sql"select 1 as a; -- done"), [{"a" => 1}]);
+expect("a comment after the statement, with parameters", $db.query(db::sql"select {$first} as a -- by id"), [{"a" => 1}]);
+expect("nothing to run", $db.run(db::sql" "), {"rows" => [], "changes" => 0});
+$attack = "x'); drop table t; --";
+expect("strings that look like SQL are only strings", [$db.exec(db::sql"insert into t (name) values ({$attack})"), $db.value(db::sql"select count(*) from t")], [1, 3]);
+$bytes = "é\0\xff";
+expect("bytes pass through", $db.value(db::sql"select {$bytes}"), "é\0\xff");
+$float = 0.1 + 0.2;
+expect("floats keep their digits", $db.value(db::sql"select {$float}"), 0.30000000000000004);
+$big = 9223372036854775807;
+expect("big ints", $db.value(db::sql"select {$big}"), 9223372036854775807);
+expect("a column named twice keeps the last", $db.row(db::sql"select 1 as a, 2 as a"), {"a" => 2});
 
-throws("a bad statement", () -> $db.query("select nope"), "sqlite: no such column: nope");
-throws("too few parameters", () -> $db.query("select ?"), "sqlite: the SQL takes 1 parameter, got 0");
-throws("too many parameters", () -> $db.query("select 1", [1, 2]), "sqlite: the SQL takes 0 parameters, got 2");
-throws("a list can't be a parameter", () -> $db.query("select ?", [[1]]), "sqlite: parameter 1 is a list, which cannot be stored");
-throws("parameters need one statement", () -> $db.query("select ?; select ?", [1, 2]), "sqlite: parameters need a single statement");
-throws("a failed statement changes nothing", () -> $db.exec("insert into t (id) values (?)", [1]), "sqlite: UNIQUE constraint failed: t.id");
-throws("infinity is not a float here", () -> $db.value("select 1e999"), "sqlite: column 1e999 is infinite, and floats are always finite");
+throws("a bad statement", () -> $db.query(db::sql"select nope"), "sqlite: no such column: nope");
+throws("too few parameters", () -> $db.query(db::sql"select ?"), "sqlite: the SQL takes 1 parameter, got 0");
+throws("too many parameters", () -> db_run(db_open("sqlite::memory:"), "select 1", [1, 2]), "sqlite: the SQL takes 0 parameters, got 2");
+throws("a list can't be a parameter", () -> db_run(db_open("sqlite::memory:"), "select ?", [[1]]), "sqlite: parameter 1 is a list, which cannot be stored");
+$second = 2;
+throws("parameters need one statement", () -> $db.query(db::sql"select {$first}; select {$second}"), "sqlite: parameters need a single statement");
+throws("a failed statement changes nothing", () -> $db.exec(db::sql"insert into t (id) values ({$first})"), "sqlite: UNIQUE constraint failed: t.id");
+throws("infinity is not a float here", () -> $db.value(db::sql"select 1e999"), "sqlite: column 1e999 is infinite, and floats are always finite");
 
-expect("a transaction gives what its work returns", $db.transaction($d -> { $d.exec("delete from t"); return $d.value("select count(*) from t"); }), 0);
-expect("and commits", $db.value("select count(*) from t"), 0);
-$db.exec("insert into t (name) values ('kept')");
-throws("it rolls back and raises again when the work raises", () -> $db.transaction($d -> { $d.exec("delete from t"); throw "boom"; }), "boom");
-expect("and nothing was deleted", $db.value("select count(*) from t"), 1);
+expect("a transaction gives what its work returns", $db.transaction($d -> { $d.exec(db::sql"delete from t"); return $d.value(db::sql"select count(*) from t"); }), 0);
+expect("and commits", $db.value(db::sql"select count(*) from t"), 0);
+$db.exec(db::sql"insert into t (name) values ('kept')");
+throws("it rolls back and raises again when the work raises", () -> $db.transaction($d -> { $d.exec(db::sql"delete from t"); throw "boom"; }), "boom");
+expect("and nothing was deleted", $db.value(db::sql"select count(*) from t"), 1);
 expect("an inner transaction rolls back alone", $db.transaction($d -> {
-    $d.exec("insert into t (name) values ('outer')");
-    $inner = failure(() -> $d.transaction($x -> { $x.exec("delete from t"); throw "inner"; }));
-    return [$inner, $d.value("select count(*) from t")];
+    $d.exec(db::sql"insert into t (name) values ('outer')");
+    $inner = failure(() -> $d.transaction($x -> { $x.exec(db::sql"delete from t"); throw "inner"; }));
+    return [$inner, $d.value(db::sql"select count(*) from t")];
 }), ["inner", 2]);
-expect("the outer one committed", $db.value("select count(*) from t"), 2);
-throws("an error from the database rolls back too", () -> $db.transaction($d -> { $d.exec("delete from t"); $d.exec("nonsense"); }), "sqlite: near \"nonsense\": syntax error");
-expect("and the delete is undone", $db.value("select count(*) from t"), 2);
+expect("the outer one committed", $db.value(db::sql"select count(*) from t"), 2);
+throws("an error from the database rolls back too", () -> $db.transaction($d -> { $d.exec(db::sql"delete from t"); $d.exec(db::sql"nonsense"); }), "sqlite: near \"nonsense\": syntax error");
+expect("and the delete is undone", $db.value(db::sql"select count(*) from t"), 2);
+
+/*
+ * A plain string is refused by every method, so SQL can't be put together from values by mistake;
+ * db::raw() is the way round.
+ */
+$refused = ': write db::sql"select ... where id = {$id}", or db::raw($text) for SQL built some other way';
+throws("run refuses a string", () -> $db.run("select 1"), 'Db.run() takes db::sql"...", not a string' .. $refused);
+throws("query refuses a string", () -> $db.query("select 1"), 'Db.query() takes db::sql"...", not a string' .. $refused);
+throws("row refuses a string", () -> $db.row("select 1"), 'Db.row() takes db::sql"...", not a string' .. $refused);
+throws("value refuses a string", () -> $db.value("select 1"), 'Db.value() takes db::sql"...", not a string' .. $refused);
+throws("exec refuses a string", () -> $db.exec("delete from t"), 'Db.exec() takes db::sql"...", not a string' .. $refused);
+throws("and anything else", () -> $db.query(null), 'Db.query() takes db::sql"...", not null' .. $refused);
+expect("and ran nothing", $db.value(db::sql"select count(*) from t"), 2);
+expect("raw runs as it is", $db.value(db::raw("select count(*) from t")), 2);
+expect("a raw script", $db.run(db::raw("create table people (id integer primary key, \"Full name\" text, age int); insert into people (\"Full name\", age) values ('Ada', 36), ('Alan', 41), ('Grace', null)")),
+    {"rows" => [], "changes" => 3});
+
+$ids = [1, 3];
+expect("a list is in (...)", $db.query(db::sql"select id from people where id in {$ids} order by id"), [{"id" => 1}, {"id" => 3}]);
+expect("and not in (...)", $db.query(db::sql"select id from people where id not in {$ids}"), [{"id" => 2}]);
+$column = db::ident("Full name");
+expect("a name is quoted", $db.value(db::sql"select {$column} from people where id = {$second}"), "Alan");
+fn older_than($age) {
+    if ($age == null) {
+        return db::sql"";
+    }
+    return db::sql" and age > {$age}";
+}
+$name = "A%";
+$no_filter = older_than(null);
+expect("a condition left out", $db.query(db::sql"select id from people where {$column} like {$name}{$no_filter} order by id"), [{"id" => 1}, {"id" => 2}]);
+$age = 40;
+$filter = older_than($age);
+expect("a condition added, its value numbered with the rest", $db.query(db::sql"select id from people where {$column} like {$name}{$filter} and id > {$first}"), [{"id" => 2}]);
+$nothing = null;
+expect("null is sent as null", $db.value(db::sql"select count(*) from people where age is {$nothing}"), 1);
+$names = ["O'Brien", "a\"b", "x\0y", "'; drop table people; --"];
+foreach ($names as $i => $text) {
+    $db.exec(db::sql"insert into people (id, {$column}) values ({$i + 10}, {$text})");
+}
+expect("quotes, NUL bytes and SQL in values are data", $db.query(db::sql"select {$column} as name from people where id >= 10 order by id"),
+    map($names, $text -> ({"name" => $text})));
+expect("and the table is still there", $db.value(db::sql"select count(*) from people"), 7);
 
 $db.close();
 $db.close();
-throws("a closed database", () -> $db.query("select 1"), "db_run() on a closed database");
+throws("a closed database", () -> $db.query(db::sql"select 1"), "db_run() on a closed database");
 throws("an unknown scheme", () -> db::open("mysql://localhost/x"), "db_open() expects a URL starting sqlite: or postgres:, got mysql://localhost/x");
 throws("no path", () -> db::open("sqlite:"), "sqlite: no path: write sqlite:FILE or sqlite::memory:");
 throws("an unopenable path", () -> db::open("sqlite:/nonexistent/dir/x.db"), "sqlite: cannot open /nonexistent/dir/x.db: unable to open database file");
