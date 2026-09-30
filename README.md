@@ -55,7 +55,7 @@ no price for tea
 - **A small set of operators that pull their weight.** `??` and `?.` for missing things, `|>`
   for pipelines, `match` with or without a subject, list patterns for unpacking, spread for
   combining lists and maps.
-- **It is quick.** It beats Python 3.13 by 1.4 to 2.9 times, and stays within 1.5 times of
+- **It is quick.** It beats Python 3.13 by 1.4 to 2.9 times, and stays within about 1.5 times of
   PHP 8.5 with its JIT, beating it on calls, closures, maps and strings
   ([numbers below](#how-fast-is-it)).
 - **Batteries included, and self-hosted.** JSON, CSV, an HTTP/1.1 client with TLS and a
@@ -172,7 +172,7 @@ on an Intel i7-8700 running macOS.
 | `maps` — counting half a million words | **0.103s** | 0.121s | 0.187s |
 | `strings` — building, splitting and joining 3MB of text | **0.107s** | 0.120s | 0.150s |
 
-Run `php vm/bench.php` to measure on your own machine.
+Run `php vm/bench.php 7` to measure on your own machine.
 
 ## Where to go next
 

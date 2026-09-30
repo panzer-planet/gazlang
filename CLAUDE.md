@@ -470,6 +470,17 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - The keyword hint misses `IF (1) { }`, where the error lands at the `{`, past the name.
   - `CVMTest` doesn't catch `make compiler` checking in stage 1 instead of stage 2: that only
     shows when an edit changes code generation; a test for it needs a second rebuild and is wanted.
+  - **Open bugs**, found by the docs audit and not fixed yet:
+    - A child's method named like a parent's private method breaks the loader:
+      `kind A { fn f() {} } kind B extends A { fn f() {} }` gives `Expected 'pub' or 'kin' but
+      found 'A'`, since the code generator writes `method f B A` with no marker. Both entries
+      should live on, as "A parent's private member is the parent's own" says.
+    - A private static method can be called from outside its kind (`C::n()`, and `$f = C::n`),
+      where a private static field is refused.
+    - `public`, `protected` and `private` inside a kind body get the generic "Expected a field"
+      error: their hint to write `pub` or `kin` exists only at the start of a statement.
+    - Arity errors say "expects 1 arguments" (`builtins.c`), and the text is recorded in
+      `tests/expected`, so fixing the grammar means re-recording.
 - **Language gaps**, closed in the order real code shows what shape each needs:
   - Appending to a list parameter silently does nothing (`fn add_to($l) { $l[] = 1; }`), and
     the parser can't tell it from a function that returns the list. Mutable state belongs in

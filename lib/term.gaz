@@ -7,8 +7,8 @@
  * where "key" is the character typed ("a", "é", "space") or a name ("enter", "up", "f5").
  * term::name($key) writes one as "ctrl+c", which is what a `match` wants.
  *
- * Nothing here needs a terminal except term_raw(): the decoder is bytes in, keys out, so a
- * program's keys can be tested by piping them in.
+ * Nothing here needs a terminal except term_raw() and fullscreen(): the decoder is bytes in, keys
+ * out, so a program's keys can be tested by piping them in.
  */
 namespace term;
 
