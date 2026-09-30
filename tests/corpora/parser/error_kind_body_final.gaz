@@ -1,0 +1,4 @@
+kind Account {
+    #balance = 0;
+    final fn deposit($n) {}
+}

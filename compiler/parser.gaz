@@ -2034,6 +2034,10 @@ kind Html {
                 $vis = #current_token.type == "PUB" ? "pub" : "kin";
                 #eat(#current_token.type);
             }
+            // public #x, protected #x, private #x: the markers are spelled pub and kin
+            if (has_key(#INSTEAD, #current_token.type)) {
+                #fail("{#current_token.value} is reserved: {#INSTEAD[#current_token.type]}");
+            }
             $type = null;
             if (#at_type()) {
                 $type_token = #current_token;
@@ -2171,6 +2175,20 @@ kind Html {
         return #at(StatementAST(#at(AssignAST($property, $assign_token, $variable), $token)), $token);
     }
 
+    // A reserved word where a member goes says what to write, as it does where a statement goes
+    fn refuse_reserved_member() {
+        $token = #current_token;
+        if (has_key(#INSTEAD, $token.type)) {
+            #fail("{$token.value} is reserved: {#INSTEAD[$token.type]}");
+        }
+        if ($token.type == "CLASS") {
+            #fail("Declare kinds with kind, not class");
+        }
+        if (in_array($token.type, #RESERVED)) {
+            #fail("{$token.value} is reserved");
+        }
+    }
+
     // Parse a kind declaration ([ABSTRACT] KIND IDENTIFIER [EXTENDS name] LBRACE (field | method)* RBRACE),
     // field: HASH_IDENTIFIER [ASSIGN expr] SEMICOLON, method: [ABSTRACT] FN name parameters (block | SEMICOLON)
     //
@@ -2225,8 +2243,11 @@ kind Html {
                 $type_token = #current_token;
                 $type = #type();
                 if (#current_token.type != "HASH_IDENTIFIER") {
+                    if ($type_token.type == "FUNCTION") {
+                        #fail_at("Declare methods with fn, not function", #file, $type_token.line);
+                    }
                     // A kind inside a kind was not a field of type kind
-                    if (in_array($type_token.type, ["KIND", "FUNCTION"])) {
+                    if ($type_token.type == "KIND") {
                         #fail_at("Expected a field (#name), a method (fn), a constant (const) or a static but found " .. #describe($type_token), #file, $type_token.line);
                     }
                     #fail("Expected a field (#name) after the type but found " .. #describe(#current_token));
@@ -2241,6 +2262,7 @@ kind Html {
             } else if (#current_token.type == "STATIC") {
                 #static_declaration($kind, $vis);
             } else {
+                #refuse_reserved_member();
                 #fail("Expected a field (#name), a method (fn), a constant (const) or a static but found " .. #describe(#current_token));
             }
         }

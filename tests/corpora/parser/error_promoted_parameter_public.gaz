@@ -1,0 +1,5 @@
+kind Account {
+    fn _(
+        public #owner
+    ) {}
+}

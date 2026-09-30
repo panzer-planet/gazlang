@@ -1,0 +1,1 @@
+Error: Declare methods with fn, not function at tests/corpora/parser/error_kind_body_function.gaz:3

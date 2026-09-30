@@ -1,0 +1,1 @@
+Error: public is reserved: write 'pub' at tests/corpora/parser/error_kind_body_public_after_pub.gaz:3

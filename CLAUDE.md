@@ -471,8 +471,6 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - `CVMTest` doesn't catch `make compiler` checking in stage 1 instead of stage 2: that only
     shows when an edit changes code generation; a test for it needs a second rebuild and is wanted.
   - **Open bugs**, found by the docs audit and not fixed yet:
-    - `public`, `protected` and `private` inside a kind body get the generic "Expected a field"
-      error: their hint to write `pub` or `kin` exists only at the start of a statement.
     - Arity errors say "expects 1 arguments" (`builtins.c`), and the text is recorded in
       `tests/expected`, so fixing the grammar means re-recording.
 - **Language gaps**, closed in the order real code shows what shape each needs:
@@ -1360,7 +1358,9 @@ $area = $c.area;                              // a bound method
     a rename where `extends` does not: it protects less than the default does, and a level is
     better named after who can see it. `kin` and `kind` are one root (kin, kind, kindred).
     `public` and `protected` stay reserved and say to write `pub` and `kin`, the way
-    `function` says to write `fn`; `private` says a member needs no marker to be its own.
+    `function` says to write `fn`; `private` says a member needs no marker to be its own. Each
+    says so wherever it lands: where a statement, a member (after a marker too) or a promoted
+    parameter starts (`refuse_reserved_member()`).
   - **The asking kind is where the code is written**, not what the object is: `#name`,
     `##name` and a constant or static reached by name (`Kind::NAME`, `Kind::name`, whichever
     way it is used: read, written, called, taken as a value, piped into) are checked at parse

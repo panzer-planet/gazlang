@@ -1,0 +1,1 @@
+Error: protected is reserved: write 'kin' at tests/corpora/parser/error_promoted_parameter_protected_after_pub.gaz:3

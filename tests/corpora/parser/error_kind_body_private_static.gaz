@@ -1,0 +1,4 @@
+kind Account {
+    #balance = 0;
+    private static #made = 0;
+}

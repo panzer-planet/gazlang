@@ -1,0 +1,5 @@
+kind Account {
+    #balance = 0;
+
+    public fn deposit($n) {}
+}

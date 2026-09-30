@@ -1,0 +1,4 @@
+kind Account {
+    pub
+        public fn deposit($n) {}
+}

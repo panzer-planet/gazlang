@@ -1,0 +1,4 @@
+kind Account {
+    fn _(pub
+        protected #owner) {}
+}
