@@ -2538,6 +2538,15 @@ kind Html {
         $kind.static_owners[$name] = $kind.name;
         $kind.owner_vis[$name] = $kind.vis[$name];
         $kind.static_is_method[$name] = $is_method;
+        #claim($kind, $name);
+    }
+
+    // A name a kind declares is its own from there down: a parent's private member of that
+    // name no longer answers for it, in this kind or its children
+    fn claim($kind, $name) {
+        if (has_key($kind.hidden, $name)) {
+            delete $kind.hidden[$name];
+        }
     }
 
     // Refuse a member whose name a static of the hierarchy already uses
@@ -3316,8 +3325,8 @@ kind Html {
             // inherited, since the parent's own methods run on a child's objects and reach it.
             [$kind.slots, $kind.method_table] = [$parent.slots, $parent.method_table];
             [$kind.hidden, $kind.hidden_fields] = [$parent.hidden, $parent.hidden_fields];
-            // Unfiltered: a private member can't be overridden, so this only ever carries
-            // what a child could replace, and the entry it replaces keeps its declarer
+            // Unfiltered: a parent's private name is declared again by a child that reuses it
+            // (below), and an override keeps the declarer of the entry it replaces
             $kind.declared_at = $parent.declared_at;
             $kind.layout = #escaping($parent.layout, $parent, $kind, true);
             $kind.members = #escaping($parent.members, $parent, $kind);
@@ -3343,6 +3352,7 @@ kind Html {
             }
             $kind.constant_owners[$name] = $kind.name;
             $kind.owner_vis[$name] = $kind.vis[$name];
+            #claim($kind, $name);
         }
 
         foreach ($kind.statics as $name => $_) {
@@ -3419,8 +3429,11 @@ kind Html {
                 #fail_at("Method {$kind.name}.to_string must be pub: printing calls it from outside", $method.file, $method.line);
             }
             $kind.owner_vis[$name] = $kind.vis[$name];
-            if (!has_key($kind.declared_at, $name)) {
+            // A method that replaces nothing this kind can see is declared here, even when a
+            // parent's private one had the name: that one is the parent's own, not overridden
+            if ($owner == null) {
                 $kind.declared_at[$name] = $kind.name;
+                #claim($kind, $name);
             }
             if ($method.abstract) {
                 $kind.abstract_methods[$name] = $kind.name;
@@ -3490,8 +3503,13 @@ kind Html {
         }
         $parent = #kinds[$kind.parent];
         $name = $node.name;
-        // ##name reaches the parent's version, so the parent must let it escape
-        $hidden = #not_pub($kind, $name);
+        // ##name reaches the parent's version, so the parent must let it escape: neither its
+        // own private member nor one of its parents' that it didn't declare again. Asked of the
+        // parent, since a child that declares the name itself no longer counts it as hidden.
+        if (($parent.owner_vis[$name] ?? null) == "") {
+            #fail_at("{$parent.name}::{$name} is not pub, so only {$parent.name} can use it", $node.file, $node.line);
+        }
+        $hidden = #not_pub($parent, $name);
         if ($hidden != null) {
             #fail_at($hidden, $node.file, $node.line);
         }

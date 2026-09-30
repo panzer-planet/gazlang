@@ -1,0 +1,136 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+@ 23
+NEW Hidden 0
+GET_METHOD call
+CALL_METHOD 0 call
+PRINT
+@ 24
+NEW Hidden 0
+GET_METHOD mine
+CALL_METHOD 0 mine
+PRINT
+@ 25
+NEW Open 0
+GET_METHOD g
+CALL_METHOD 0 g
+PRINT
+@ 26
+NEW Grandchild 0
+GET_METHOD g
+CALL_METHOD 0 g
+PRINT
+@ 27
+NEW Grandchild 0
+GET_METHOD call
+CALL_METHOD 0 call
+PRINT
+
+kind Base
+method f Base
+method g Base
+method call Base pub
+locals
+@ 4
+LOAD_THIS
+RET
+
+fn Base.f 0 0
+locals
+@ 5
+PUSH "Base.f"
+RET
+PUSH null
+RET
+
+fn Base.g 0 0
+locals
+@ 6
+PUSH "Base.g"
+RET
+PUSH null
+RET
+
+fn Base.call 0 0
+locals
+@ 7
+LOAD_THIS
+GET_METHOD f
+CALL_METHOD 0 f
+PUSH " "
+CONCAT
+LOAD_THIS
+GET_METHOD g
+CALL_METHOD 0 g
+CONCAT
+RET
+PUSH null
+RET
+
+kind Hidden extends Base
+method f Base
+method g Base
+method call Base pub
+method f Hidden
+method mine Hidden pub
+locals
+@ 10
+LOAD_THIS
+RET
+
+fn Hidden.f 0 0
+locals
+@ 11
+PUSH "Hidden.f"
+RET
+PUSH null
+RET
+
+fn Hidden.mine 0 0
+locals
+@ 12
+LOAD_THIS
+GET_METHOD f
+CALL_METHOD 0 f
+RET
+PUSH null
+RET
+
+kind Open extends Base
+method f Base
+method g Base
+method call Base pub
+method g Open pub
+locals
+@ 15
+LOAD_THIS
+RET
+
+fn Open.g 0 0
+locals
+@ 16
+PUSH "Open.g"
+RET
+PUSH null
+RET
+
+kind Grandchild extends Open
+method f Base
+method g Base
+method call Base pub
+method g Grandchild pub Open
+locals
+@ 19
+LOAD_THIS
+RET
+
+fn Grandchild.g 0 0
+locals
+@ 20
+PUSH "Grandchild.g"
+RET
+PUSH null
+RET

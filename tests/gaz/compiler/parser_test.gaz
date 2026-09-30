@@ -35,7 +35,7 @@ expect("a ##name knows whose version runs", $b.methods["g"].body.statements[0].e
  */
 $hidden_root = Parser(Lexer("kind A \{ #x; pub #y; fn own() \{ return #x; } } kind B extends A \{ fn x() \{ return 1; } }")).parse();
 $child = $hidden_root.statements[1];
-expect("a child can only name what its parent lets escape", [$child.layout, $child.hidden], [{"y" => "A"}, {"x" => "A", "own" => "A"}]);
+expect("a child can only name what its parent lets escape, less what it declares itself", [$child.layout, $child.hidden], [{"y" => "A"}, {"own" => "A"}]);
 expect("but every slot is still there, the parent's private one included", $child.slots, [["x", "A", ""], ["y", "A", "pub"]]);
 expect("and so is every method entry", $child.method_table, [["own", "A", "", "A"], ["x", "B", "", "B"]]);
 

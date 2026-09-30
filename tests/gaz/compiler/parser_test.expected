@@ -10,7 +10,7 @@ ok a node from a file has the file
 ok a kind's layout and members, its parent's included
 ok a #name knows whether it is a field
 ok a ##name knows whose version runs
-ok a child can only name what its parent lets escape
+ok a child can only name what its parent lets escape, less what it declares itself
 ok but every slot is still there, the parent's private one included
 ok and so is every method entry
 ok a syntax error's message

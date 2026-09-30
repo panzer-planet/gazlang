@@ -1,0 +1,12 @@
+ok the parent's methods reach the parent's own on a child's object
+ok the child's methods reach the child's own
+ok a parent's bound method is its own
+ok a child's bound method is its own
+ok neither is reachable from outside, and the error names the child's
+ok the parent's alone is still named on a parent's object
+ok a pub method named like a parent's private one is reachable from outside
+ok and the parent's code still reaches its own
+ok a grandchild's override replaces the child's
+ok ##f reaches the child's version
+ok the first parent's code still reaches its private one
+ok a kin method is overridden

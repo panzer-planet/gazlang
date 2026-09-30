@@ -1,0 +1,58 @@
+include "std/test.gaz" use expect, throws;
+
+/*
+ * A parent's private member is the parent's own: a child may declare a method, constant or
+ * static of that name, both live on, and each kind's code reaches the one it can see.
+ */
+kind Base {
+    const LABEL = "Base";
+    static #made = "Base made";
+    static fn describe() { return "Base described"; }
+    fn f() { return "Base.f"; }
+    pub fn from_base() { return [#f(), #LABEL, #made, #describe()]; }
+    pub fn bound_from_base() { return #f; }
+}
+
+kind Child extends Base {
+    const LABEL = "Child";
+    static #made = "Child made";
+    static fn describe() { return "Child described"; }
+    fn f() { return "Child.f"; }
+    pub fn from_child() { return [#f(), #LABEL, #made, #describe()]; }
+    pub fn bound_from_child() { return #f; }
+}
+
+$child = Child();
+expect("the parent's methods reach the parent's own on a child's object", $child.from_base(), ["Base.f", "Base", "Base made", "Base described"]);
+expect("the child's methods reach the child's own", $child.from_child(), ["Child.f", "Child", "Child made", "Child described"]);
+expect("a parent's bound method is its own", $child.bound_from_base()(), "Base.f");
+expect("a child's bound method is its own", $child.bound_from_child()(), "Child.f");
+throws("neither is reachable from outside, and the error names the child's", () -> $child.f(), "Child.f is not pub, so only Child can use it");
+throws("the parent's alone is still named on a parent's object", () -> Base().f(), "Base.f is not pub, so only Base can use it");
+
+// A pub method reusing a private one's name escapes as far as its own marker says
+kind Open extends Base {
+    pub fn f() { return "Open.f"; }
+}
+expect("a pub method named like a parent's private one is reachable from outside", Open().f(), "Open.f");
+expect("and the parent's code still reaches its own", Open().from_base()[0], "Base.f");
+
+// A grandchild overrides the child's method, not the private one the child hid
+kind Grandchild extends Open {
+    pub fn f() { return "Grandchild.f"; }
+    pub fn up() { return ##f(); }
+}
+$grandchild = Grandchild();
+expect("a grandchild's override replaces the child's", $grandchild.f(), "Grandchild.f");
+expect("##f reaches the child's version", $grandchild.up(), "Open.f");
+expect("the first parent's code still reaches its private one", $grandchild.from_base()[0], "Base.f");
+
+// A kin method is still overridden, the parent's code reaching the override
+kind Family {
+    kin fn f() { return "Family.f"; }
+    pub fn call() { return #f(); }
+}
+kind Member extends Family {
+    kin fn f() { return "Member.f"; }
+}
+expect("a kin method is overridden", Member().call(), "Member.f");

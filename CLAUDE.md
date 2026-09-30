@@ -471,10 +471,6 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - `CVMTest` doesn't catch `make compiler` checking in stage 1 instead of stage 2: that only
     shows when an edit changes code generation; a test for it needs a second rebuild and is wanted.
   - **Open bugs**, found by the docs audit and not fixed yet:
-    - A child's method named like a parent's private method breaks the loader:
-      `kind A { fn f() {} } kind B extends A { fn f() {} }` gives `Expected 'pub' or 'kin' but
-      found 'A'`, since the code generator writes `method f B A` with no marker. Both entries
-      should live on, as "A parent's private member is the parent's own" says.
     - A private static method can be called from outside its kind (`C::n()`, and `$f = C::n`),
       where a private static field is refused.
     - `public`, `protected` and `private` inside a kind body get the generic "Expected a field"
@@ -1373,7 +1369,9 @@ $area = $c.area;                              // a bound method
     the dot in a method's name), so the VM pays nothing until a member is looked up.
   - **A parent's private member is the parent's own.** A child can't name it, and may declare a
     method, constant or static of its own by that name: both entries live on and each kind's
-    code reaches the one it can see, which is why a method table can hold two of one name. A
+    code reaches the one it can see, which is why a method table can hold two of one name (the
+    child's declared by the child, not an override, so it takes any marker and its own children
+    override it; `claim()` in `parser.gaz`). A
     field can't be reused, since a field is a slot and the name is taken across the hierarchy.
     The parent's own methods still reach it on a child's object, and so does the initialiser,
     which sets every slot the kind has (`KIND_INITIALISER` in `ops.c`).

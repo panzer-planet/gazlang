@@ -429,10 +429,10 @@ Compound
       members: {"all" => "Base", "kin_only" => "Base", "later" => "Base", "ours" => "Child", "hidden" => "Child"}
       abstract_methods: []
       slots: [["open", "Base", "pub"], ["shut", "Base", ""], ["shared", "Base", "kin"], ["derived", "Base", ""]]
-      method_table: [["all", "Base", "pub", "Base"], ["kin_only", "Base", "kin", "Base"], ["hidden", "Base", "", "Base"], ["later", "Base", "pub", "Base"], ["ours", "Child", "pub", "Child"], ["hidden", "Child", "", "Base"]]
+      method_table: [["all", "Base", "pub", "Base"], ["kin_only", "Base", "kin", "Base"], ["hidden", "Base", "", "Base"], ["later", "Base", "pub", "Base"], ["ours", "Child", "pub", "Child"], ["hidden", "Child", "", "Child"]]
       owner_vis: {"LIMIT" => "pub", "tally" => "pub", "bump" => "pub", "open" => "pub", "shared" => "kin", "all" => "pub", "kin_only" => "kin", "later" => "pub", "SECRET" => "", "ours" => "pub", "hidden" => ""}
-      declared_at: {"all" => "Base", "kin_only" => "Base", "hidden" => "Base", "later" => "Base", "ours" => "Child"}
-      hidden: {"shut" => "Base", "derived" => "Base", "hidden" => "Base", "SECRET" => "Base", "ledger" => "Base"}
+      declared_at: {"all" => "Base", "kin_only" => "Base", "hidden" => "Child", "later" => "Base", "ours" => "Child"}
+      hidden: {"shut" => "Base", "derived" => "Base", "ledger" => "Base"}
       hidden_fields: {"shut" => "Base", "derived" => "Base"}
     5: EchoStatement 35
       expr: MethodCall 35

@@ -1,0 +1,27 @@
+// A parent's private method is the parent's own: a child's method of that name is a new
+// entry beside it, declared by the child, whatever its marker, and a grandchild overriding
+// the child's keeps the child as the declarer
+kind Base {
+    fn f() { return "Base.f"; }
+    fn g() { return "Base.g"; }
+    pub fn call() { return #f() .. " " .. #g(); }
+}
+
+kind Hidden extends Base {
+    fn f() { return "Hidden.f"; }
+    pub fn mine() { return #f(); }
+}
+
+kind Open extends Base {
+    pub fn g() { return "Open.g"; }
+}
+
+kind Grandchild extends Open {
+    pub fn g() { return "Grandchild.g"; }
+}
+
+echo Hidden().call();
+echo Hidden().mine();
+echo Open().g();
+echo Grandchild().g();
+echo Grandchild().call();

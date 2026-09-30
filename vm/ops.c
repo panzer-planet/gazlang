@@ -360,12 +360,13 @@ int kind_method(Kind *c, Str *name, Kind *asking) {
 }
 
 /* The kind and level of a member of that name, whatever it escapes, or NULL when the kind has
-   none: what tells "isn't yours" from "has no member" */
+   none: what tells "isn't yours" from "has no member". A child's method named like a parent's
+   private one is an entry after it, and the one to name, being the object's kind's nearest. */
 static Kind *kind_hides(Kind *c, Str *name, Vis *vis) {
     for (int i = 0; i < c->nfields; i++) {
         if (c->fields[i] == name) return *vis = c->field_vis[i], c->field_declarers[i];
     }
-    for (int i = 0; i < c->nmethods; i++) {
+    for (int i = c->nmethods - 1; i >= 0; i--) {
         if (c->methods[i] == name) return *vis = c->method_vis[i], c->method_declarers[i];
     }
     return NULL;

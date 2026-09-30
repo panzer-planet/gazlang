@@ -868,6 +868,7 @@ tests/corpora/codegen/nullsafe.gaz
 tests/corpora/codegen/pattern_parameters.gaz
 tests/corpora/codegen/pipe.gaz
 tests/corpora/codegen/power.gaz
+tests/corpora/codegen/private_method_names_reused.gaz
 tests/corpora/codegen/shared.gaz
 tests/corpora/codegen/statements.gaz
 tests/corpora/codegen/statics.gaz
@@ -1037,6 +1038,7 @@ tests/gaz/match/match_test.gaz
 tests/gaz/numbers/floats_test.gaz
 tests/gaz/objects/kind_of_test.gaz
 tests/gaz/objects/kinds_test.gaz
+tests/gaz/objects/private_member_names_test.gaz
 tests/gaz/objects/promoted_fields_test.gaz
 tests/gaz/operators/assignment_operators_test.gaz
 tests/gaz/operators/bitwise_test.gaz
