@@ -1027,32 +1027,42 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   means reading string literals in C. No last-insert id (`returning` says it in both). Parameters are
   always bound, never spliced; with them the SQL is one statement, without, a script whose last
   result is given.
-  - **Programs write `db::sql"..."`** (a tagged string, `db::Sql`), and `Db`'s methods take exactly
-    one and **refuse anything else** (`Db.query() takes db::sql"...", not a string: ...`), so SQL
-    can't be put together from values by mistake. `Db` picks the placeholder from the URL's scheme
+  - **Programs write `db::sql"..."`** (a tagged string, the kind `db::Sql`), and `Db`'s methods take
+    exactly one and **refuse anything else** (`Db.query() takes db::sql"...", not a string: ...`),
+    so a plain string can't reach the database by accident. **`Sql` isn't `pub`**, so
+    `db::Sql([$concatenated], [])` is `db::Sql is not pub, so only namespace db can use it`, and
+    `sql()`, `raw()` and `Db` (one namespace) are what make and take one; a pub function may still
+    declare `: Sql`. What remains is deliberate: a constructor is always reachable, so
+    `kind_of($fragment)([...], [])` builds one on purpose, as visibly as `db::raw()`, and its
+    constructor still checks the parts and values. `Db` picks the placeholder from the URL's scheme
     (`sqlite:` `?`, `postgres:`/`postgresql:` `$n`) and `Sql.render($placeholder)` gives `[$text,
     $params]`, walking the parts with one counter: a nested `Sql` is spliced in and renumbered, a
     list is `(?, ?)` for `in (...)` or a `values` row (scalars only; **an empty list is an error**,
     since rendering it `(null)` makes `not in` quietly match nothing), a `db::ident($name)` is
     `"name"` with `"` doubled (empty and NUL refused), and any other scalar one parameter, its type
     kept. Values are checked when the `Sql` is made, so the error is at the line that wrote it.
-  - **The tag refuses `$` and a digit in its text**: with PostgreSQL `db::sql"select $1, {$x}"`
-    would render `select $1, $1` and bind `$x` twice. A false alarm inside an SQL string literal is
-    accepted, loud being the safe side; a stray `?` needs no rule, as the driver's parameter count
-    catches it.
+  - **The tag refuses a numbered placeholder in its text**, `$` or `?` and a digit: with PostgreSQL
+    `db::sql"select $1, {$x}"` would render `select $1, $1` and bind `$x` twice, and SQLite reads
+    `?1` as the first value however many `?` there are. A false alarm inside an SQL string literal
+    or a `$$...$$` body is accepted, loud being the safe side, with `db::raw()` the way round. A
+    bare `?` and a named `:name`, `@name` or `$name` need no rule: the driver's parameter count
+    refuses them (`sqlite: the SQL takes 2 parameters, got 1`).
+  - **The tag refuses what looks like a call in braces** (`{name(`, or a qualified `{a::b`):
+    interpolation starts only at `{$`, `{@` or `{#`, so `{db::ident($c)}` would be text and give a
+    baffling driver error. A linear scan (`check_no_call()`); any other brace stays text, so
+    PostgreSQL's `'{1,2}'` and JSON's `'{"k": 1}'` work.
   - **`db::raw($text)`** is the visible way round (a migration from a file), no values and exempt from
     the `$1` rule; `transaction()` uses the builtin for its own fixed statements. `to_string()` of an
     `Sql` is its text with `?` placeholders, never the values, which may be secrets.
-  - Interpolation starts only at `{$`, `{@` or `{#`, so a fragment or a name is interpolated from a
-    variable (`$filter = db::sql"..."; ... {$filter}`), never written `{db::ident(...)}` inline.
   - `tests/gaz/lib/sql_test.gaz` renders both styles with no database; `db_test.gaz` and
     `pg_check.gaz` run them. `ponytail:` no helper joins a list of fragments (a bulk insert of many
-    rows is one `values {$row}` per row, or a loop in a transaction). Both drivers are on when
-  their library is found (`make SQLITE=1`/`PG=1` make that an error, which CI asks for). SQLite is
-  tested by `tests/gaz/lib/db_test.gaz` on `:memory:` (recorded, sanitized, leak-checked); PostgreSQL
-  by `DbPgTest` running `tests/db/pg_check.gaz` against the server `GAZLANG_TEST_PG` names (skipped
-  without), on temporary tables. `ponytail:` a bool parameter is 0/1 in SQLite, no blobs going in,
-  and PostgreSQL's numeric, timestamps and json come back as text.
+    rows is one `values {$row}` per row, or a loop in a transaction).
+  - Both drivers are on when their library is found (`make SQLITE=1`/`PG=1` make that an error,
+    which CI asks for). SQLite is tested by `tests/gaz/lib/db_test.gaz` on `:memory:` (recorded,
+    sanitized, leak-checked); PostgreSQL by `DbPgTest` running `tests/db/pg_check.gaz` against the
+    server `GAZLANG_TEST_PG` names (skipped without), on temporary tables. `ponytail:` a bool
+    parameter is 0/1 in SQLite, no blobs going in, and PostgreSQL's numeric, timestamps and json
+    come back as text.
 - `monotonic_time()`: seconds as a float on `CLOCK_MONOTONIC`, from an undefined point, so only a
   difference means anything; a program that prints it can't be recorded, so tests check its type and
   that it never goes back, and its uses (`tui::Metronome`) take the time as an argument.

@@ -1,4 +1,5 @@
-ok a tag is an Sql
+ok a tag makes what raw makes
+ok which is the library's own kind
 ok SQLite's placeholders
 ok PostgreSQL's are numbered
 ok printing shows the SQL, never the values
@@ -16,7 +17,7 @@ ok and for SQLite
 ok an empty fragment adds nothing
 ok a fragment used twice numbers each use
 ok fragments nest in fragments
-ok rendering again gives the same
+ok rendering for one database leaves the fragment as it was
 ok a list is a placeholder for each item
 ok a list of one
 ok a list's items keep their types
@@ -39,8 +40,20 @@ ok a map is refused
 ok a function is refused
 ok an object is refused by its kind
 ok a tag is called with lists
+ok Sql can't be named outside its namespace
 ok one more text part than values
 ok text parts are strings
+ok values are checked
+ok ?1 in the text is refused
+ok a ? alone is text, for the driver to count
+ok a ? before a letter too
+ok a call in braces is refused
+ok so is a plain one
+ok and a qualified name
+ok a word in braces is text
+ok an array literal is text
+ok so is JSON
+ok a brace at the end is text
 ok raw is used as it is
-ok raw is an Sql, so it can be spliced in
+ok raw is a fragment, so it can be spliced in
 ok raw takes a string

@@ -22,6 +22,7 @@ ok a bad statement
 ok too few parameters
 ok too many parameters
 ok a list can't be a parameter
+ok a named placeholder is counted by the driver
 ok parameters need one statement
 ok a failed statement changes nothing
 ok infinity is not a float here

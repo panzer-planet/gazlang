@@ -52,6 +52,7 @@ throws("too few parameters", () -> $db.query(db::sql"select ?"), "sqlite: the SQ
 throws("too many parameters", () -> db_run(db_open("sqlite::memory:"), "select 1", [1, 2]), "sqlite: the SQL takes 0 parameters, got 2");
 throws("a list can't be a parameter", () -> db_run(db_open("sqlite::memory:"), "select ?", [[1]]), "sqlite: parameter 1 is a list, which cannot be stored");
 $second = 2;
+throws("a named placeholder is counted by the driver", () -> $db.query(db::sql"select {$first} as a, :name as b"), "sqlite: the SQL takes 2 parameters, got 1");
 throws("parameters need one statement", () -> $db.query(db::sql"select {$first}; select {$second}"), "sqlite: parameters need a single statement");
 throws("a failed statement changes nothing", () -> $db.exec(db::sql"insert into t (id) values ({$first})"), "sqlite: UNIQUE constraint failed: t.id");
 throws("infinity is not a float here", () -> $db.value(db::sql"select 1e999"), "sqlite: column 1e999 is infinite, and floats are always finite");

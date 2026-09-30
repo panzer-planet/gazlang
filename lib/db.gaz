@@ -11,9 +11,13 @@
  *
  * SQL is written `db::sql"..."`, and what it interpolates is sent apart from it, so nothing in a
  * value is ever read as SQL: a `Db` writes each database's own placeholders (`?` for SQLite, `$1`
- * for PostgreSQL) and refuses a plain string, so SQL can't be put together from values by mistake.
- * `db::raw($text)` is the visible way round, for SQL built some other way. The `db_run()` builtin
- * underneath still takes a string and a list of parameters.
+ * for PostgreSQL) and refuses anything that isn't one, so a plain string can't reach the database
+ * by accident. The ways round are deliberate and visible: `db::raw($text)`, for SQL built some
+ * other way, and building a fragment through `kind_of()` of one, since a constructor is always
+ * reachable. The `db_run()` builtin underneath still takes a string and a list of parameters.
+ *
+ * Only `{$`, `{@` and `{#` start an interpolation, so a fragment or a name is put in a variable
+ * first: `$column = db::ident("name");` then `{$column}`.
  *
  * A row is a map from column name to value (a repeated name keeps the last); int, float, bool
  * (PostgreSQL only) and null come back as themselves and everything else as a string. Errors are
@@ -21,6 +25,8 @@
  * may be a script, and the last statement's result is the one given.
  */
 namespace db;
+
+include "chars.gaz" use char_at, span, is_digit, is_alpha, is_alnum;
 
 pub kind Db {
     #handle;
@@ -114,14 +120,17 @@ pub fn open($url) {
 
 // What a value sent to the database may be, and what an in (...) list may hold
 const SCALARS = ["int", "float", "string", "bool", "null"];
-const DIGITS = "0123456789";
+// How SQLite and PostgreSQL number a parameter in the text: ?1, $1
+const NUMBERED_PLACEHOLDERS = ["?", '$'];
 
 /*
  * A piece of SQL with its values kept apart, made by the tag `db::sql"..."`, or by `db::raw()`. The
  * text parts are always one more than the values. Nothing about it changes once it is made, and
- * printing it shows the SQL with `?` for each value, never the values, which may be secrets.
+ * printing it shows the SQL with `?` for each value, never the values, which may be secrets. Not
+ * `pub`, so no program writes `db::Sql(...)` from a string by accident: only the tag and `raw()`
+ * make one.
  */
-pub kind Sql {
+kind Sql {
     #strings;
     #values;
 
@@ -253,12 +262,15 @@ pub kind Ident {
  *   be built apart and added or left out;
  * - `db::ident($name)`: a table or column name, quoted.
  *
- * The text can't hold `$1`: that is how PostgreSQL numbers parameters, so it would be read as the
- * first value, whichever that is. Interpolate the value instead, or use `db::raw()`.
+ * The text can't hold `$1` or `?1`: that is how PostgreSQL and SQLite number parameters, so it
+ * would be read as whichever value has that number. Nor can it hold what looks like a call in
+ * braces, `{db::ident($c)}`, which is text, since only `{$`, `{@` and `{#` start an
+ * interpolation. Interpolate a variable instead; `db::raw()` is the way round a false alarm, such
+ * as `$1` inside an SQL string literal or a `$$...$$` function body.
  */
 pub fn sql(list $strings, list $values): Sql {
     foreach ($strings as $text) {
-        check_no_numbered_placeholder($text);
+        check_text($text);
     }
     return Sql($strings, $values);
 }
@@ -276,12 +288,81 @@ pub fn ident(string $name): Ident {
     return Ident($name);
 }
 
-fn check_no_numbered_placeholder($text) {
-    foreach (split(DIGITS, "") as $digit) {
-        if (contains($text, '$' .. $digit)) {
-            throw 'db::sql text can\'t hold $' .. $digit .. ": interpolate the value instead";
+/*
+ * What the tag refuses in its text: a numbered placeholder, which the database would bind to
+ * whichever value has that number, and a call written where only a variable is interpolated.
+ */
+fn check_text($text) {
+    foreach (NUMBERED_PLACEHOLDERS as $mark) {
+        check_no_numbered_placeholder($text, $mark);
+    }
+    check_no_call($text);
+}
+
+fn check_no_numbered_placeholder($text, $mark) {
+    foreach (positions($text, $mark) as $at) {
+        $next = char_at($text, $at + 1);
+        if (is_digit($next)) {
+            throw "db::sql text can't hold " .. $mark .. $next .. ": interpolate the value instead";
         }
     }
+}
+
+// `{db::ident($c)}` in the text is text: only `{$`, `{@` and `{#` start an interpolation
+fn check_no_call($text) {
+    foreach (positions($text, "{") as $at) {
+        $call = call_at($text, $at + 1);
+        if ($call != null) {
+            throw "db::sql text holds {" .. $call .. '}: only a variable is interpolated, so write $value = ' .. $call .. ' first, then {$value}';
+        }
+    }
+}
+
+/*
+ * What looks like a call written at $start, shown as `db::ident(...)`, `upper(...)` or
+ * `Kind::NAME`: a name followed by `(`, or a qualified one. Null for anything else, so `'{1,2}'`,
+ * `'{a,b}'` and `'{"k": 1}'` stay text.
+ */
+fn call_at($text, $start) {
+    $at = $start;
+    $qualified = false;
+    while (is_name_start(char_at($text, $at))) {
+        $at += span($text, $at, is_name_char);
+        if (!starts_with($text, "::", $at)) {
+            break;
+        }
+        $at += 2;
+        $qualified = true;
+    }
+    if ($at > $start && char_at($text, $at) == "(") {
+        return slice($text, $start, $at - $start) .. "(...)";
+    }
+    if ($qualified) {
+        return slice($text, $start, $at - $start);
+    }
+    return null;
+}
+
+fn is_name_start($c) {
+    return is_alpha($c) || $c == "_";
+}
+
+fn is_name_char($c) {
+    return is_alnum($c) || $c == "_";
+}
+
+// Where $needle starts in $text, each time, left to right
+fn positions($text, $needle) {
+    $found = [];
+    $at = index_of($text, $needle);
+    while ($at != null) {
+        $found[] = $at;
+        if ($at + 1 >= len($text)) {
+            break;
+        }
+        $at = index_of($text, $needle, $at + 1);
+    }
+    return $found;
 }
 
 fn check_value($value) {

@@ -86,6 +86,9 @@ foreach ($names as $i => $name) {
 expect("quotes and SQL in values are data", $db.query(db::sql"select {$column} as name from people where id >= 10 order by id"),
     map($names, $name -> ({"name" => $name})));
 
+expect("an array literal's braces are text", $db.value(db::sql"select ('{1,2}'::int[])[2] + {$one}"), 3);
+expect("and so are JSON's", $db.value(db::sql"select '{\"k\": 1}'::json ->> 'k'"), "1");
+
 $db.close();
 throws("closed", () -> $db.query(db::sql"select 1"), "db_run() on a closed database");
 expect("a refused connection", starts_with(failure(() -> db::open("postgres://127.0.0.1:1/x?connect_timeout=2")) ?? "", "postgres: cannot connect: "), true);

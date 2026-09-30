@@ -914,12 +914,21 @@ echo $db.query(db::sql"select {$column} from users where id in {$ids}{$older}");
   is always exactly one name. Quoted names keep their case in PostgreSQL (`"Name"` is not `name`
   there), and a dot is part of the name: a table in a schema is two, `{$schema}.{$table}`.
 - Anything else (a map, a function, an object) is an error when the `db::sql"..."` is made.
-- **`$` and a digit can't be in the text**: PostgreSQL would read `$1` as the first value, whichever
-  that is. Interpolate the value instead.
-- **The methods refuse a plain string**, so SQL can't be put together from values by mistake:
-  `Db.query() takes db::sql"...", not a string`. **`db::raw($text)`** is the way round, for SQL
-  built some other way (a migration read from a file): used as it is, with no values, and the one
-  place to check by hand.
+- **Only a variable is interpolated**: as in any string, `{$`, `{@` and `{#` start an
+  interpolation and nothing else does, so `{db::ident($c)}` would be text. Put a fragment or a name
+  in a variable first, `$column = db::ident($c);`, then write `{$column}`; the tag refuses what
+  looks like a call in braces (`db::sql text holds {db::ident(...)}: ...`), while a brace before
+  anything else (`'{1,2}'`, `'{"k": 1}'`) is text as usual.
+- **A numbered placeholder can't be in the text**: `$1` (PostgreSQL's) or `?1` (SQLite's) would be
+  read as whichever value has that number. Interpolate the value instead. A bare `?`, or a named
+  placeholder like `:name`, is caught by the database's own count of parameters. A false alarm, a
+  `$1` inside an SQL string literal or a `$$...$$` function body, is what `db::raw()` is for.
+- **The methods refuse anything but a `db::sql"..."`**, so a plain string can't reach the database
+  by accident: `Db.query() takes db::sql"...", not a string`. **`db::raw($text)`** is the way
+  round, for SQL built some other way (a migration read from a file): used as it is, with no
+  values, and the one place to check by hand. The kind behind a `db::sql"..."` isn't public, so
+  no program builds one from a string without meaning to; building one on purpose through
+  `kind_of()` of a fragment is as deliberate as `db::raw()`.
 - Printing a `db::sql"..."` shows its text with `?` for each value, never the values, which may be
   secrets.
 

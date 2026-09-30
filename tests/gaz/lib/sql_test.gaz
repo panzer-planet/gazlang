@@ -16,7 +16,8 @@ fn postgres($sql) {
 $id = 7;
 $name = "Ada";
 $query = db::sql"select * from users where id = {$id} and name = {$name}";
-expect("a tag is an Sql", is_a($query, db::Sql), true);
+expect("a tag makes what raw makes", kind_of($query) == kind_of(db::raw("select 1")), true);
+expect("which is the library's own kind", kind_name($query), "db::Sql");
 expect("SQLite's placeholders", sqlite($query), ["select * from users where id = ? and name = ?", [7, "Ada"]]);
 expect("PostgreSQL's are numbered", postgres($query), ['select * from users where id = $1 and name = $2', [7, "Ada"]]);
 expect("printing shows the SQL, never the values", to_string($query), "select * from users where id = ? and name = ?");
@@ -57,7 +58,11 @@ $one = 1;
 $deep = db::sql"a = {$one} and ({$nested})";
 expect("fragments nest in fragments", postgres($deep),
     ['a = $1 and (select * from users where name = $2 and age > $3 and id = $4)', [1, "Ada", 30, 7]]);
-expect("rendering again gives the same", postgres($deep), postgres($deep));
+expect("rendering for one database leaves the fragment as it was", [sqlite($deep), postgres($deep), to_string($deep)], [
+    ["a = ? and (select * from users where name = ? and age > ? and id = ?)", [1, "Ada", 30, 7]],
+    ['a = $1 and (select * from users where name = $2 and age > $3 and id = $4)', [1, "Ada", 30, 7]],
+    "a = ? and (select * from users where name = ? and age > ? and id = ?)",
+]);
 
 $ids = [3, 1, 2];
 expect("a list is a placeholder for each item", postgres(db::sql"select * from t where id in {$ids} and x = {$name}"),
@@ -98,10 +103,39 @@ throws("a function is refused", () -> db::sql"{$function}", "db::sql can't send 
 $object = db::open("sqlite::memory:");
 throws("an object is refused by its kind", () -> db::sql"{$object}", "db::sql can't send a db::Db: a value is an int, float, string, bool or null, a list of those, a db::sql\"...\" or a db::ident()");
 throws("a tag is called with lists", () -> db::sql("select 1", []), "db::sql() expects \$strings to be list, got string");
-throws("one more text part than values", () -> db::Sql(["a"], [1]), "db::Sql() takes one more text part than values, got 1 and 1");
-throws("text parts are strings", () -> db::Sql([1, "b"], [2]), "db::Sql() takes strings as its text parts, got an int");
+
+/*
+ * Sql isn't pub, so a program can't build one from a string by accident. A constructor is always
+ * reachable through kind_of(), which is deliberate, and still checks what it is given.
+ */
+$outside = run([program_path(), "-e", 'include "lib/db.gaz"; echo db::Sql(["select 1"], []);']);
+expect("Sql can't be named outside its namespace", [$outside["status"], $outside["stderr"]],
+    [1, "Error: db::Sql is not pub, so only namespace db can use it on line 1\n"]);
+$make = kind_of($query);
+throws("one more text part than values", () -> $make(["a"], [1]), "db::Sql() takes one more text part than values, got 1 and 1");
+throws("text parts are strings", () -> $make([1, "b"], [2]), "db::Sql() takes strings as its text parts, got an int");
+throws("values are checked", () -> $make(["a", ""], [$map]), "db::sql can't send a map: a value is an int, float, string, bool or null, a list of those, a db::sql\"...\" or a db::ident()");
+
+$first = "Ada";
+$second = "Alan";
+throws("?1 in the text is refused", () -> db::sql"select {$first} as x, {$second} as y, ?1 as z", "db::sql text can't hold ?1: interpolate the value instead");
+expect("a ? alone is text, for the driver to count", sqlite(db::sql"select ? where a = {$id}"), ["select ? where a = ?", [7]]);
+expect("a ? before a letter too", sqlite(db::sql"select ?a"), ["select ?a", []]);
+
+throws("a call in braces is refused", () -> db::sql"select {db::ident($name)} from t",
+    'db::sql text holds {db::ident(...)}: only a variable is interpolated, so write $value = db::ident(...) first, then {$value}');
+throws("so is a plain one", () -> db::sql"select {upper($name)}", 'db::sql text holds {upper(...)}: only a variable is interpolated, so write $value = upper(...) first, then {$value}');
+throws("and a qualified name", () -> db::sql"select {Kind::NAME}", 'db::sql text holds {Kind::NAME}: only a variable is interpolated, so write $value = Kind::NAME first, then {$value}');
+expect("a word in braces is text", sqlite(db::sql"select '{a}', '{_x1,b}'"), ["select '{a}', '{_x1,b}'", []]);
+expect("an array literal is text", postgres(db::sql"select '{1,2}'::int[], '{a,b}'::text[], {$id}"), ["select '{1,2}'::int[], '{a,b}'::text[], \$1", [7]]);
+expect("so is JSON", postgres(db::sql"select '{\"k\": 1}'::json, '{}'::json"), ["select '{\"k\": 1}'::json, '{}'::json", []]);
+expect("a brace at the end is text", sqlite(db::sql"select '{'"), ["select '{'", []]);
 
 $raw = db::raw('select $1 from t where a = ?');
 expect("raw is used as it is", postgres($raw), ['select $1 from t where a = ?', []]);
-expect("raw is an Sql, so it can be spliced in", postgres(db::sql"{$raw} and b = {$id}"), ['select $1 from t where a = ? and b = $1', [7]]);
+/*
+ * Deliberately so: raw is the way round every rule, and a raw $1 spliced next to a value binds that
+ * value to it, since raw text is used as it is.
+ */
+expect("raw is a fragment, so it can be spliced in", postgres(db::sql"{$raw} and b = {$id}"), ['select $1 from t where a = ? and b = $1', [7]]);
 throws("raw takes a string", () -> db::raw(["select 1"]), "db::raw() expects \$text to be string, got list");
