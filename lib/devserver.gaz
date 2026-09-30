@@ -4,7 +4,7 @@
  *
  *   gaz -S localhost:8000 [--docroot DIR]
  *
- * There is no router script argument, the way `php -S` can take one: `include` takes a string
+ * There is no router script argument: `include` takes a string
  * literal, resolved at parse time, so a document naming a file to run at the command line isn't
  * possible here, on purpose (the same reason there is no type-tag deserialization). A program
  * that wants more writes its own few lines on `http::serve_static()`.

@@ -77,7 +77,7 @@ composer ci                         # what CI runs, cold: phpstan with no result
 ## Code Style Guidelines
 - **GazLang** (`compiler/`, `lib/`): functions, variables, fields and methods snake_case, kinds
   PascalCase, constants UPPERCASE. The lexer's and parser's methods are named after the grammar
-  rule or step they read (`get_next_token()`, `function_call()`, `left_associative()`).
+  rule or step they read (`get_next_token()`, `function_call()`, `binary()`).
   A comment of more than one line is a `/* */` block (` * ` down the side), not stacked `//` lines;
   `//` is for one line, or a note after code.
   **Clean code over dense code**: a kind for each concept rather than a list read by position
@@ -268,7 +268,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   the project succeeds when **one person besides him chooses to use it**. So work is ranked by
   what makes real web apps and CLI tools pleasant, then by what one stranger needs to find it,
   install it, get a first program working and trust it; not by what would win many users
-  (Windows, a registry, an LSP and a playground wait for someone to ask).
+  (Windows, a registry and a playground wait for someone to ask).
 - **The roadmap**, in build order (optional types, `gaz --watch`, the pipe, cryptography, cookies
   and signed sessions, `gaz test` and the list helpers in `lib/lists.gaz` are done and described below):
   1. **Tagged literals as ordinary functions**: `name"text {$v}"` is `name(["text ", ""], [$v])`,
@@ -375,10 +375,10 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   for certificates where Homebrew keeps them; without it every https request failed on a Mac
   without Homebrew. No promise about what changes between releases yet.
 - **CI** (`.github/workflows/ci.yml`) runs on Ubuntu (the latest) and on macOS, Apple silicon and
-  Intel, for every push: it builds gaz without TLS (the bootstrap needs only a C compiler), then
-  with it, and rebuilds its compiler before PHP is even installed, then the suite, in two jobs per
-  platform (`pest --parallel --shard=N/2`, each building gaz for itself), with `gaz test` and the
-  minute of fuzzing on the second Linux one only. phpstan and
+  Intel, for every push: it builds gaz without TLS or databases (the bootstrap needs only a C
+  compiler), then with them, and rebuilds its compiler before PHP is even installed, then the
+  suite, in two jobs per platform (`pest --parallel --shard=N/2`, each building gaz for itself),
+  with `gaz test` and the minute of fuzzing on the second Linux one only. phpstan and
   pint are a job of their own on Ubuntu, which needs no build and so reports first; phpstan runs
   cold there (no result cache) at a 1G limit, as `composer ci` does locally, since a warm local
   cache once hid a table that needed a gigabyte. LeakSanitizer runs in the sanitized build on
@@ -434,8 +434,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   first.
 - **Bytecode has no compatibility promise yet**: stable so far, but free to change; a change
   old files can't load under bumps the version.
-- **The fuzzer** (`php vm/fuzz.php`, a minute; CI runs one on each push, seeded by the run
-  number) needs no oracle: generated programs, mutated corpus programs and mutated bytecode
+- **The fuzzer** (`php vm/fuzz.php`, a minute; CI runs one on each push, seeded by the run's
+  id) needs no oracle: generated programs, mutated corpus programs and mutated bytecode
   run through `CVM::runC()`, and it fails on a sanitizer report, a crash, a leak, a time-out,
   an error raised inside the compiler, or bytecode the compiler wrote that the loader refuses.
   What they print isn't checked, since nothing says what it should be.
@@ -453,15 +453,15 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     program, which is why shrinking takes the time, not the run.
   - **Nothing opens a socket, starts a program, exits, waits or writes a file**: a program naming
     `run`, `exit`, `workers`, `worker_recycle`, `write_file`, `read_stdin` (or `read_stdin_bytes`),
-    `read_line`, `sleep`, `getenv`, a directory builtin, a `file_` builtin (`/dev/stdin` waits and
-    `/dev/zero` never ends) or a `socket_` builtin is skipped (`getenv`
+    `read_line`, `sleep`, `getenv`, a directory builtin, a `term_` builtin, a `file_` builtin
+    (`/dev/stdin` waits and `/dev/zero` never ends) or a `socket_` builtin is skipped (`getenv`
     since what it gives isn't the seed's; `worker_recycle` since it ends the process by an unhandled
     signal, which prints no `GAZVM_STATS` line and would fail the harness for a reason that isn't a
     bug — found the hard way, by CI actually failing on it, the day it was added), an included
     file's text included, which is sound because a builtin is reached only by its name.
 - **Known limits**:
-  - The self-hosted parser runs out of call depth on source nested past about 1100 levels
-    (recursive descent is about nine calls a level), as an internal error. Its tree walks use
+  - The self-hosted parser runs out of call depth on source nested past about 900 levels
+    (recursive descent is about eleven calls a level), as an internal error. Its tree walks use
     an explicit stack for that reason.
   - A `make compiler` stage's own runtime errors name `vm/build/bootstrap/` as the source
     directory, since bytecode paths resolve against the bytecode file; the lines are right.
@@ -638,8 +638,8 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     - The client's address (`socket_peer($socket)`, for logs and rate limits), though behind a
       proxy `X-Forwarded-For` is the one that matters.
     - A `quote($value)` builtin, the value as a literal: `value.c` has it, and
-      `slice(to_string([$x]), 1, -1)` stands in for it ten times in `http.gaz` and once in each
-      compiler file; a builtin takes its name from every program, so the name is the question.
+      `slice(to_string([$x]), 1, -1)` stands in for it fourteen times in `http.gaz` and once in
+      most compiler files; a builtin takes its name from every program, so the name is the question.
     - Measured once already, against PHP's built-in server across no-opcache/opcache/opcache+JIT
       (`ab`, `workers(1)` each side): gaz matches PHP with every performance feature on for an
       ordinary handler (build data, encode it), and only loses on a tight arithmetic loop inside
@@ -1225,7 +1225,8 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   `date.gaz` (`date::days`, `date::civil`, `date::format`: a date is a number of days from 1 January
   1970, with no clock, since a program that asked one what day it is could not be recorded, so a game
   keeps its own date), `cli.gaz`
-  (`cli::Command`, see "Command line arguments"), `random.gaz` (`random::shuffle`, `random::pick`, `random::key`, `random::chance`,
+  (`cli::Command`, see "Command line arguments"), `test.gaz` (see `gaz test`),
+  `random.gaz` (`random::shuffle`, `random::pick`, `random::key`, `random::chance`,
   `random::weighted`), `crypto.gaz` (see "Cryptography" above), `term.gaz` (`term::style`, the cursor and screen sequences,
   `term::decode`, `term::Input`, `term::fullscreen`, on the terminal builtins; drawing functions
   return their sequence, so a program prints them and a test compares them), `tui.gaz`
@@ -1290,19 +1291,19 @@ and methods a table in C.
 abstract kind Shape {
     #name;
     fn _($name) { #name = $name; }
-    abstract fn area();
-    fn to_string() { return "{#name} with area " .. #area(); }
+    pub abstract fn area();
+    pub fn to_string() { return "{#name} with area " .. #area(); }
 }
 
 kind Circle extends Shape {
-    #radius;
+    pub #radius;
     #history = [];                            // evaluated for each new object
     fn _($radius) {
         ##_("circle");                        // the parent's constructor
         #radius = $radius;
     }
-    fn area() { return 3.14159 * #radius * #radius; }
-    fn to_string() { return ##to_string() .. " (r = {#radius})"; }
+    pub fn area() { return 3.14159 * #radius * #radius; }
+    pub fn to_string() { return ##to_string() .. " (r = {#radius})"; }
 }
 
 $c = Circle(2);                               // constructing is a call; no new
@@ -1778,7 +1779,7 @@ try {
   compilers' output diffs readably. A binary cache can come later if loading measures slow.
 - **A block per function** (code objects, as in Lua and Python), labels scoped to their block
   and hidden variables numbered within it, so a change in one block renumbers nothing else.
-  Each block ends with a `locals` line naming its slots.
+  Each block's header ends with a `locals` line naming its slots.
 - **Locations as `@ "file" line` lines**, paths relative to the main source's directory and
   resolved against the bytecode file's, so bytecode saved next to its source reports exactly
   what running the source does. `<builtin>` is never rewritten.
@@ -1804,7 +1805,7 @@ try {
 - **Its shape, and why**: the lexer's scanner is an object, because `include` needs two lexers
   alive at once; its operators are one table matched longest first. The parser's twelve binary
   levels are one table and a loop (precedence climbing) rather than a method each, 28% faster.
-  `lambda_heads` is one field, since nothing is read between marking a `(` and asking. A member
+  `lambda_head` is one field, since nothing is read between marking a `(` and asking. A member
   use's record is found by an index the node holds, not a reference, so a kind's tree isn't a
   cycle for the collector. Trees are walked with an explicit stack, since a chain of 5000
   operators is 5000 deep. The lexer's operator table is matched longest first, which assumes every
@@ -1934,9 +1935,9 @@ try {
   package. The tool would be GazLang built into the binary, as the compiler is (`run()` for git,
   the HTTP client, JSON, and the file builtins).
   - **The blocker is stability**: a package written today breaks with the next language change,
-    and with no releases it can't say which gaz it needs. Versioned releases, and some
-    promise about what changes between them, come first, and `gaz.json` then says
-    `"gazlang": ">=0.3"`.
+    and with no promise about what changes between releases it can't say which gaz it needs.
+    Versioned releases exist; some promise about what changes between them comes first, and
+    `gaz.json` then says `"gazlang": ">=0.3"`.
   - **The binary is `gaz`**, built by `make` with `bin/gazlang` a link to it for old scripts. The
     language stays GazLang, and so do the compiler's own names (`namespace gazlang`,
     `compiler/gazlang.gaz`, `gazlang.gzb`).

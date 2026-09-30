@@ -55,13 +55,13 @@ no price for tea
 - **A small set of operators that pull their weight.** `??` and `?.` for missing things, `|>`
   for pipelines, `match` with or without a subject, list patterns for unpacking, spread for
   combining lists and maps.
-- **It is quick.** It beats Python 3.13 by 1.3 to 2.9 times, and stays within 1.5 times of
+- **It is quick.** It beats Python 3.13 by 1.4 to 2.9 times, and stays within 1.5 times of
   PHP 8.5 with its JIT, beating it on calls, closures, maps and strings
   ([numbers below](#how-fast-is-it)).
 - **Batteries included, and self-hosted.** JSON, CSV, an HTTP/1.1 client with TLS and a
   preforking web server, SQLite and PostgreSQL, dates, a terminal UI toolkit, regular
-  expressions with no ReDoS, and password hashing (Argon2id, scrypt, PBKDF2) — all written in
-  GazLang itself ([the list](#what-comes-with-it)).
+  expressions with no ReDoS, and password hashing (Argon2id, scrypt, PBKDF2) — most of it
+  written in GazLang itself ([the list](#what-comes-with-it)).
 - **It is checked to the byte.** What every test program prints, error messages included, is
   recorded and held to under AddressSanitizer and a leak check. The compiler compiles itself to
   exactly itself. See [docs/internals.md](docs/internals.md) if that's the kind of thing you
@@ -152,9 +152,9 @@ JSON and CSV, HTML templates that escape by default, command line parsing with `
 for you, an HTTP/1.1 client and a preforking server, a router, SQLite and PostgreSQL, regular
 expressions, dates, number and string formatting, sorting and list helpers, cryptographically
 sound randomness, password hashing and HMACs, and a terminal UI toolkit with boxes, tables,
-menus and a screen that redraws only what changed. Sockets, the terminal and cryptography are
-the only parts written in C; everything else is GazLang, reachable in
-[`lib/`](lib) and documented in [docs/language.md](docs/language.md#libraries).
+menus and a screen that redraws only what changed. Sockets and worker processes, the database
+drivers, the terminal and cryptography are the only parts written in C; everything else is
+GazLang, reachable in [`lib/`](lib) and documented in [docs/language.md](docs/language.md#libraries).
 
 ## How fast is it?
 
@@ -184,7 +184,7 @@ Run `php vm/bench.php` to measure on your own machine.
 - **`games/`** — programs built on the language, in this repository so the language can improve
   as they ask: a [football manager](games/football/README.md) for the terminal.
 - **`lsp/`** — a Language Server Protocol server for GazLang, `bin/gaz lsp/server.gaz`,
-  diagnostics and hover so far.
+  diagnostics, hover, go-to-definition and completion.
 - **[docs/internals.md](docs/internals.md)** — how the compiler and VM fit together, the build,
   and how to work on them.
 - **[CLAUDE.md](CLAUDE.md)** — the rules, the reasons behind each design decision, and what is

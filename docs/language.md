@@ -189,8 +189,9 @@ foreach ($words as $word) {
     $counts[$word]++;
 }
 ```
- `$a[] = v` appends and is only valid as an assignment
-target; there is no `pop` — take `last($list)`, then `delete` it.
+
+`$a[] = v` appends and is only valid as an assignment target; there is no `pop` — take
+`last($list)`, then `delete` it.
 
 Strings index the same way, by an int position, to a one character string, read only.
 
@@ -241,7 +242,7 @@ and the right side of `??`, and its operand runs as far right as it can.
   several keys one comparison, with `$a` and `$b` swapped in an element to sort it the other
   way: `sort($teams, ($a, $b) -> [$b.points, $a.name] <=> [$a.points, $b.name])` is most points
   first, then by name. Maps can't be ordered.
-- `&& || !` short-circuit and return real booleans. Truthiness is C-like for numbers, and a
+- `&& || !` short-circuit and return real booleans. A number is true unless it is zero, and a
   string is true unless empty — so `"0"` is true.
 - `& | ^ << >> ~` are ints only. They bind tighter than the comparisons, so `$flags & MASK == 0` means `($flags & MASK) == 0`. A shift count must be 0 to 63.
 - `$a ?? $b` gives `$a` unless it is null or missing; an undefined variable or a missing key on
@@ -361,7 +362,7 @@ echo $get() .. " " .. $count;           // 2 2
 
 `shared $x = value;` needs a value, and from there on `$x` is one variable to the function it is
 written in and to every lambda in it: an assignment, `++`, `+=`, `??=`, `$x[] = ...` or `delete
-$x[0]` in one is seen by all. Everything else about closures is as before: a variable that isn't
+$x[0]` in one is seen by all. Everything else about closures is as above: a variable that isn't
 shared is still copied in. The declaration makes a new variable each time it runs, so a closure made
 in a loop gets its own, and a call of a function gets its own:
 
@@ -457,8 +458,8 @@ echo is_a($c, Shape) .. " " .. $c.radius;
 
 ## Types
 
-Types are optional, and checked when the program runs. Leaving one out means anything, as it
-always did; writing one means the value is checked, strictly, where it arrives.
+Types are optional, and checked when the program runs. Leaving one out means anything; writing
+one means the value is checked, strictly, where it arrives.
 
 ```gaz
 kind Account {
@@ -523,7 +524,7 @@ echo Account::made;
   syntax error); a field on every write that changes its value, from inside the kind or out,
   `=`, `+=`, `++`, `..=` and `??=` alike, its default when the object is made, and a promoted
   parameter. A write inside a field's value (`$o.items[] = 1`) changes nothing the type says.
-  A typed field with no default is unset until written, as before.
+  A typed field with no default is unset until written, as an untyped one is.
 - **The errors are ordinary, catchable runtime errors**, located where the check is, with the
   trace showing the caller: `total() expects $n to be int, got string`, `Account.deposit()
   expects $amount to be int|float, got null`, `Account() expects $owner to be string, got int`
@@ -536,7 +537,7 @@ echo Account::made;
   it likes. Constructors are each kind's own, as with argument counts.
 - **Untyped code pays nothing**: a typed parameter or return is a check instruction in the
   function, and a typed field or static field a word on its record in the bytecode, so code
-  without types compiles exactly as it did.
+  without types compiles to no checks at all.
 
 ## Errors
 
@@ -585,6 +586,12 @@ and the first `*/` closes only that, so commenting out a region that already hol
 works. An unterminated block comment is an error at the line it opened on.
 
 ## Names
+
+The keywords are `echo if else while for foreach as break continue fn return null delete match
+default const include try catch finally throw true false kind extends abstract namespace use pub
+kin static shared`. `interface`, `implements` and `final` are reserved, and
+`function`, `class`, `public`, `private` and `protected` are reserved to say what to write
+instead.
 
 Keywords are lowercase and matched exactly, so `kind If`, `fn Return()` and `$while` are all
 ordinary names. Writing a keyword in the wrong case says so. Sigils and member names have their
@@ -685,13 +692,13 @@ given the element's index (a list) or key (a map) as the second, and for `reduce
 given it as the third: `map($names, ($name, $i) -> "{$i}. {$name}")`,
 `filter($xs, ($x, $i) -> $i % 2 == 0)`, `reduce($xs, ($carry, $x, $i) -> ...)`. One that needs
 fewer, one with a default for its second parameter, a builtin and a kind are called with the value alone,
-as they always were, so `map($texts, to_int)` still gives `to_int` one argument.
+so `map($texts, to_int)` gives `to_int` one argument.
 - `sort($x, $compare = null)` — the values in a new list, ordered by `$compare($a, $b)`, which
   returns an int below zero when `$a` comes first, as `$a <=> $b` does; anything but an int is an
   error. Without one (or with `null`) it is `<=>` itself, ascending, so `sort([3, 1, 2])` is
   `[1, 2, 3]` and a list of a string and a number is `<=>`'s error. Stable: a merge sort that splits in the middle and asks `$compare(right, left)`,
   taking from the right only when that is below zero, so a comparator that prints shows the
-  same calls on every runtime.
+  same calls on every platform.
 
 An error in the function comes out of the builtin, and its trace goes from the function
 straight to where the builtin was called.
@@ -1033,10 +1040,9 @@ SIGHUP). Workers share nothing after the call, a
 `socket_listen()` listener made before it aside, which is the point: they all accept on one port.
 Each draws its own random numbers. At most 1024, and a worker can't start workers of its own.
 
-`worker_recycle()` retires the calling worker on purpose (`http::serve()`'s `max_requests`, PHP-FPM's
-`pm.max_requests`): it flushes standard output, then ends the process, and the master replaces it
-at once, so the pool stays `$count` wide and whatever state the worker built up over its life goes
-with it. It never returns. The retiring is by a signal (SIGUSR2), not a reserved exit code, since
+`worker_recycle()` retires the calling worker on purpose (`http::serve()`'s `max_requests`): it
+flushes standard output, then ends the process, and the master replaces it at once, so the pool
+stays `$count` wide and whatever state the worker built up over its life goes with it. It never returns. The retiring is by a signal (SIGUSR2), not a reserved exit code, since
 `exit($code)` already lets a program choose any code 0 to 255 freely: a reserved one could collide
 with an unrelated `exit()` somewhere and be misread as a happy recycle, where a signal-terminated
 exit can't. A recycle isn't logged as a failure and skips the "died within a second of starting"
@@ -1103,7 +1109,7 @@ for passwords, tokens or keys (for those, `random_bytes()` and `std/crypto.gaz`,
   error.
 - `rand_float()` — a float from `0.0` up to but not including `1.0`.
 - `rand_seed($seed = null)` — restarts the sequence from an int seed, so a program draws the
-  same numbers on every run and on both runtimes; with no seed, from an unpredictable one taken
+  same numbers on every run and every platform; with no seed, from an unpredictable one taken
   from the operating system. Every program starts as if it had called `rand_seed()`.
 
 The generator is xoshiro256**, seeded from the int through SplitMix64. How its 64-bit outputs become numbers is GazLang's
@@ -1203,7 +1209,7 @@ a method a function that needs no object. Both are reached by name, with `::`.
 
 ```gaz
 kind Counter {
-    static #count = 0;                // one slot, not one per object
+    pub static #count = 0;            // one slot, not one per object
     static #limit = 2 * 5;            // its value is a constant expression
     #id;                              // an ordinary field, one per object
 
@@ -1217,7 +1223,7 @@ kind Tally extends Counter {}        // shares the same slot
 Counter(); Counter();
 echo Counter::count .. " " .. Tally::count;
 echo Counter::next();
-Counter::count = 100;                 // a slot, so it can be written from anywhere
+Counter::count = 100;                 // a pub slot, so it can be written from anywhere
 echo Counter::count;
 ```
 ```
@@ -1246,7 +1252,7 @@ echo Counter::count;
 ## Namespaces
 
 `namespace json;` first in a file, at most one, optional. A file without one declares its names
-globally, which is what every file did before namespaces and what a small program still wants.
+globally, which is what a small program wants.
 
 ```gaz
 namespace json;                       // first in the file
@@ -1359,8 +1365,9 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `text.gaz` | `text::lines($text)`: the lines of a string as `read_line()` reads them (`"\n"` or `"\r\n"` ends one, a last line needs no end), without the empty line `split($text, "\n")` leaves after a final newline; `text::lines(read_stdin())` is a one-liner's whole input |
 | `json.gaz` | `json::decode`, `json::encode`; an object is encoded as what its `pub fn to_json()` returns (a map, say: a value, not JSON text), and one without it is an error. Decoding gives maps and lists, never objects: a kind reads itself back with a `static fn from_json($data)` of its own, by convention |
 | `csv.gaz` | `csv::parse`, `csv::records` (RFC 4180) |
+| `db.gaz` | `db::open($url)` (a `Db`), `db::sql"..."`, `db::raw($text)` and `db::ident($name)`; see "Databases" under Builtins |
 | `crypto.gaz` | `crypto::hash_password`, `crypto::verify_password`, `crypto::needs_rehash`, `crypto::token`, `crypto::sign($value, $secret)` and `crypto::unsign($signed, $secret)` (tamper-evident values, for cookies), `crypto::equals`, hex and base64; see "Cryptography" under Builtins |
-| `chars.gaz` | `chars::char_at`, `chars::is_digit`, `chars::is_alpha`, `chars::is_alnum`, `chars::is_space`, `chars::is_hex_digit`, `chars::span($s, $i, $predicate)` (how many characters from `$i` satisfy the predicate: `slice($s, $i, chars::span($s, $i, chars::is_digit))` is the number at `$i`) |
+| `chars.gaz` | `chars::char_at`, `chars::is_char` (a one-character string), `chars::is_digit`, `chars::is_alpha`, `chars::is_alnum`, `chars::is_space`, `chars::is_hex_digit`, `chars::span($s, $i, $predicate)` (how many characters from `$i` satisfy the predicate: `slice($s, $i, chars::span($s, $i, chars::is_digit))` is the number at `$i`) |
 | `format.gaz` | `format::number`, `format::pad_left`, `format::pad_right`, and `format::sprintf($template, $args)` with the arguments as a list: `%s` (as echo prints it), `%d` (an int), `%f` (an int or float, 6 decimals or `%.2f`'s, rounded as `round()` does), `%x` (an int of 0 or more, lowercase hex), `%%`; a width, `-` to pad on the right and `0` to pad a number with zeros after its sign (`%-8s`, `%05.1f`). A count of arguments that isn't the placeholders', a type `%d`, `%f` or `%x` can't take, and a placeholder it doesn't know are errors |
 | `cli.gaz` | `cli::Command($name, $summary)`, command line arguments with a generated `--help`; see below |
 | `test.gaz` | `test::expect($label, $actual, $expected)`, `test::throws($label, $thunk, $message)`, `test::snapshot($label, $actual)` and `test::done()`, for `gaz test`; see below |
@@ -1369,7 +1376,7 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `random.gaz` | `random::shuffle` (a shuffled copy of a list or string), `random::pick` (an element of a list or value of a map), `random::key`, `random::chance($p)`, `random::weighted` (from `[item, weight]` pairs) |
 | `regex.gaz` | `regex::matches($s, $pattern)` (full match), `regex::search($s, $pattern)` (found anywhere), `regex::find($s, $pattern)` (the start index, or null), `regex::groups($s, $pattern)` (the first match and what each `(...)` in it took, a group that took no part `null`, or `null` for no match), `regex::replace($s, $pattern, $with)` (every match, left to right, by `$with` as it is, so `"$1"` is two bytes; an empty match moves on a byte: `replace("abc", "x*", "-")` is `"-a-b-c-"`); literals, `.`, `* + ?` (greedy), `\|` (the first that matches wins), `(...)`, `[...]`/`[^...]` with ranges, `^ $`, `\` escapes; the leftmost match, and there the greedy repetition and the earlier alternative; no backreferences, no backtracking |
 | `term.gaz` | `term::style`, cursor and screen sequences, `term::decode`, `term::Input`, `term::fullscreen`, on the terminal builtins; see below |
-| `tui.gaz` | `tui::Screen` (a grid of cells that renders only what changed), `tui::Rect`, `tui::box`, `tui::label`, `tui::progress`, `tui::table`, `tui::Table`, `tui::wrap`, `tui::paragraph`, `tui::hints`, `tui::key_help`, `tui::Menu`, `tui::TextField`, `tui::choose`, `tui::ask`; see below |
+| `tui.gaz` | `tui::Screen` (a grid of cells that renders only what changed), `tui::Rect`, `tui::box`, `tui::label`, `tui::progress`, `tui::table`, `tui::table_width`, `tui::Table`, `tui::wrap`, `tui::paragraph`, `tui::hints`, `tui::key_help`, `tui::centered($screen, $width, $height)` (`[col, row]` of a box that size in the middle), `tui::Metronome`, `tui::Menu`, `tui::TextField`, `tui::interact`, `tui::choose`, `tui::ask`; see below |
 
 `http.gaz` returns
 `{"status" => 200, "headers" => {"content-type" => "text/html", ...}, "body" => "..."}`, with
@@ -1710,8 +1717,8 @@ gaz --tty games/football/main.gaz 1 <<< '2 snap tab j snap c wait 3'
 
 ```
 === after: 2 ===
-          10        20        30  ...
- 1  Riverside FC   Wed 1 Jul 2026 · Matchday 0 of 38 ...
+           10        20        30  ...
+ 1  Riverside FC   Wed 1 Jul 2026 · Pre-season · Premier Division ...
  2 ┌──────────────┐┌─ Squad ────────── ...
 ...
 styles:

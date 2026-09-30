@@ -40,8 +40,9 @@ The top level block comes first; a loader starts the program at its first instru
 falling off its end ends the program. Then come the functions in declaration order, then each
 kind followed by its methods, then the lambdas in index order.
 
-Every block ends with a `locals` line naming the variable in each local slot, in slot order. A
-block's parameters are its first slots, as many as its arity allows.
+Every block's header ends with a `locals` line naming the variable in each local slot, in slot
+order, after any record lines and before its first instruction. A block's parameters are its
+first slots, as many as its arity allows.
 
 ```gzb
 top
@@ -109,7 +110,7 @@ locals $#argument_0
 kind Circle extends Shape
 field name Shape kin string
 field radius Circle pub float
-method _ Circle pub
+method _ Circle pub Shape
 method area Circle pub Shape
 static made int
 locals $#argument_0
@@ -136,10 +137,10 @@ line names the captured variable that holds the closure itself, for a lambda ass
 variable it uses (`$f = $n -> $f($n - 1)`).
 
 ```gzb
-lambda 0 0 0
-capture $c local 0
+lambda 0 1 1
+capture $f local 0
 self $f
-locals
+locals $n
 ```
 
 ## Locations
@@ -167,7 +168,8 @@ A `LABEL` is a position rather than an instruction, so it carries no location.
 loader must read the sign and the digits as one number: the smallest int is written
 `-9223372036854775808`, whose digits alone don't fit an int (a folded constant can be it).
 Floats are written as GazLang prints them, with the shortest digits that read back as the same
-float. Strings are quoted as `Lexer::quote()` quotes them, so a literal never spans lines.
+float. Strings are quoted as `echo` shows one inside a list (`quote()` in `vm/value.c`), so a
+literal never spans lines.
 Because a literal can hold spaces, an instruction that takes a value takes it as its last
 argument.
 
@@ -183,7 +185,7 @@ others consume. A loader must allow for them in its value type:
 
 - a **method entry**, which `GET_METHOD` pushes and `CALL_METHOD` consumes: the method to run
   on the object below it, or nothing when the member wasn't a method.
-- a **raised error**, which the loader's error handling pushes when it enters a catch block,
+- a **raised error**, which the VM's error handling pushes when it enters a catch block,
   and `CATCH_MATCH`, `CATCH_VALUE` and `RETHROW` consume. A finally block stores one in a
   local until it rethrows it.
 
@@ -220,7 +222,7 @@ is a GazLang error a `try` can catch, and gets the location of the instruction t
 
 ### Operators
 
-Every one means what `Runtime\Values` says, including the error messages.
+Every one means what `vm/ops.c` says, including the error messages.
 
 | Instruction | Stack | What it does |
 | --- | --- | --- |
@@ -309,11 +311,11 @@ block and not in another.
 | `LOAD_THIS` | `-- o` | Pushes the object the running method or initialiser is on. |
 | `LOAD_FIELD member` | `-- v` | Pushes a field of that object. Fails with "Property x of C is not set". |
 | `SET_FIELD member` | `v -- v` | Sets a field of that object, leaving the value. A field with a type checks the value first, as `SET_PATH` does. |
-| `GET_PROPERTY member` | `o -- v` | Reads a member of an object: a field's value, or a method bound to it. Fails with "C has no member foo", "C.foo is not pub, so only the kind that declares it can use it" or "Cannot use . on map". |
+| `GET_PROPERTY member` | `o -- v` | Reads a member of an object: a field's value, or a method bound to it. Fails with "C has no member foo", "C.foo is not pub, so only C can use it" or "Cannot use . on map". |
 | `GET_PROPERTY_QUIET member` | `o -- v` | The same, but null for a field that is not set or an object that is null. |
 | `GET_PROPERTY_EXISTING member` | `o -- v` | The same as `GET_PROPERTY`, for a compound update. |
 | `GET_METHOD member` | `o -- o m` | Pushes the object again with the method to run on it, or the member's value with nothing when it isn't a method. |
-| `CALL_METHOD count member` | `o m … -- v` | Calls what `GET_METHOD` found, or the value as `CALL_VALUE` would. Fails with "Method C.m expects 1 argument, 2 given". |
+| `CALL_METHOD count member` | `o m … -- v` | Calls what `GET_METHOD` found, or the value as `CALL_VALUE` would. Fails with "Method C.m expects 2 arguments, 1 given". |
 | `CALL_PARENT kind member count` | `… -- v` | Runs that kind's version of a method on the running object (`##name(...)`). |
 | `BIND_PARENT kind member` | `-- f` | Pushes that kind's version of a method, bound to the running object (`##name`). |
 

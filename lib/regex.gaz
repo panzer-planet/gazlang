@@ -8,7 +8,7 @@
  * Syntax: literal bytes, "." (any byte), "*" "+" "?" (repetition, greedy), "|" (alternation,
  * the first that matches wins), "(...)" (a group, which captures), "[...]" and "[^...]"
  * (character classes, with "a-z" ranges), "^" and "$" (start/end of string anchors), "\" to
- * escape a metacharacter. Which match is found is Perl's: the leftmost, and of those the one
+ * escape a metacharacter. Which match is found is the leftmost, and of those the one
  * the greedy repetitions and the earlier alternatives give. No backreferences, no
  * "\d"/"\w"/"\s" shorthands (see lib/chars.gaz), no lookahead: patterns compile to a Thompson
  * NFA (Pike's VM, each thread carrying where its groups started and ended; plain GazLang) and
@@ -425,7 +425,7 @@ fn captured($s, $slots, $group) {
 /*
  * $s with every match of $pattern replaced by $with, taken as it is (no "$1"), looking for the
  * next match where the last ended. An empty match replaces nothing and the search moves on a
- * byte, as in Perl, Python and JavaScript: replace("abc", "x*", "-") is "-a-b-c-".
+ * byte: replace("abc", "x*", "-") is "-a-b-c-".
  */
 pub fn replace($s, $pattern, $with) {
     $matcher = Matcher(compile($pattern), len($s));

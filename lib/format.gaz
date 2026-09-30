@@ -4,8 +4,8 @@ namespace format;
 
 // $number with $decimals digits after the point and thousands separated:
 // format::number(1234.5) is "1,234.50", format::number(-0.004) is "0.00".
-// Rounds like round($number, $decimals), so it gives "1.01" for 1.005, as with PHP's
-// number_format. The number must fit in an int once scaled by 10^$decimals.
+// Rounds like round($number, $decimals), so it gives "1.01" for 1.005, with halves
+// rounded away from zero. The number must fit in an int once scaled by 10^$decimals.
 pub fn number($number, $decimals = 2, $thousands = ",") {
     $scale = 1;
     for ($i = 0; $i < $decimals; $i++) {

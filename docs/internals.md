@@ -38,7 +38,7 @@ itself needs neither.
 
 | Path | What it does |
 | --- | --- |
-| `compiler/` | the front end, in GazLang, all of it `namespace gazlang;`: `lexer.gaz`, `parser.gaz` and `nodes.gaz`, `codegen.gaz`, and `gazlang.gaz`, the driver, which prints what `-c`, `--tokens` or `--ast` would (`gazlang.gaz -- code\|tokens\|ast [FILE]`, reading piped source without a FILE). `gazlang.gzb` is its bytecode, checked in |
+| `compiler/` | the front end, in GazLang, all of it `namespace gazlang;`: `lexer.gaz`, `parser.gaz` and `nodes.gaz`, `template.gaz` (`.gazml` templates into GazLang), `codegen.gaz`, and `gazlang.gaz`, the driver, which prints what `-c`, `--tokens` or `--ast` would (`gazlang.gaz -- code\|tokens\|ast [FILE]`, reading piped source without a FILE). `gazlang.gzb` is its bytecode, checked in |
 | `vm/` | the VM in C, built as `bin/gaz` with `gazlang.gzb` inside it: it runs source by compiling it with that first. `vm/gazvm.h` says which file does what |
 | `lib/` | the standard library, written in GazLang, a namespace per file (`json::decode`, `chars::is_digit`), built into `bin/gaz` and included as `std/json.gaz` |
 | `examples/` | sample programs, which nothing tests |
@@ -137,7 +137,8 @@ php vm/bench.php                                    # gaz against PHP and Python
   can't splice in a path a runner only learns at run time. `test::snapshot` compares a value
   against a file recorded next to the calling test, and `--update` (re)writes it. A file fails the
   run if its stdout has a FAIL line, it exits non-zero, or it prints no check at all; the runner
-  prints only FAIL lines and a count per file, everything with `-v`. The fixtures there all pass,
+  prints only FAIL lines, what a file wrote to standard error and a count per file, everything
+  with `-v`. The fixtures there all pass,
   since `gaz test tests` runs over them too, so `TestCommandTest` writes its failing files into a
   temporary copy; `tests/gaz/lib/test_test.gaz` checks each FAIL line by running
   `tests/fixtures/test_library/failures.gaz` with `run()`.
@@ -189,8 +190,8 @@ from the walk to size its frames.
 
 ## Where things stand
 
-GazLang is its own implementation: the front end (`compiler/`) is about 6,700 lines of GazLang,
-running on a VM (`vm/`) of about 9,100 lines of plain C, and `bin/gaz` is the two together,
+GazLang is its own implementation: the front end (`compiler/`) is about 6,800 lines of GazLang,
+running on a VM (`vm/`) of about 10,100 lines of plain C, and `bin/gaz` is the two together,
 which rebuilds its own compiler (`make -C vm compiler`). The compiler has to compile itself to
 exactly itself (see "Tests"). CI builds and tests it on Linux and macOS on every push, and the
 test suite needs PHP 8.5 or later and `composer install`; GazLang itself needs neither. What is
@@ -200,4 +201,4 @@ open in the language is in [CLAUDE.md](../CLAUDE.md) under "Status and what is n
 
 GazLang in `compiler/` and `lib/`: functions and variables snake_case, kinds PascalCase,
 constants UPPERCASE. The C in `vm/`: plain C11, commented where the C isn't obvious. The tests:
-PHP 8.5, PSR-4 under `GazLang\Tests`, methods camelCase, PHPDoc on kinds and methods.
+PHP 8.5, PSR-4 under `GazLang\Tests`, methods camelCase, PHPDoc on classes and methods.
