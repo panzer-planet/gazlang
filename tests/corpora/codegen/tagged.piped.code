@@ -1,0 +1,37 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals $x
+@ 9
+PUSH 1
+STORE 0
+LOAD 0
+POP
+@ 10
+PUSH ["a ", " b ", ""]
+NEW_ARRAY
+LOAD 0
+ARRAY_PUSH
+LOAD 0
+ARRAY_PUSH
+CALL t 2
+PRINT
+@ 11
+PUSH [""]
+NEW_ARRAY
+CALL t 2
+PRINT
+
+fn t 2 2
+locals $strings $values
+@ 6
+NEW_ARRAY
+LOAD 0
+ARRAY_PUSH
+LOAD 1
+ARRAY_PUSH
+RET
+@ 5
+PUSH null
+RET

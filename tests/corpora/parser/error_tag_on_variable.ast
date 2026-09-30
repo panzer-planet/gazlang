@@ -1,0 +1,1 @@
+Error: Expected ';' but found string "select 1" at tests/corpora/parser/error_tag_on_variable.gaz:2

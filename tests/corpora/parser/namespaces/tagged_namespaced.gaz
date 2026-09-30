@@ -1,0 +1,6 @@
+include "lib/tags.gaz" use upper, upper as loud;
+
+$x = 1;
+tags::upper"a {$x}";
+upper"b";
+loud"c";

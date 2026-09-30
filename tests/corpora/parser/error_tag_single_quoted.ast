@@ -1,0 +1,1 @@
+Error: A tag takes a double-quoted string: write sql"...", not sql'...' at tests/corpora/parser/error_tag_single_quoted.gaz:3

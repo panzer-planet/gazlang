@@ -1,0 +1,13 @@
+// A tagged string is a call with two lists: its text parts and its values
+fn shout($strings, $values) {
+    return $strings;
+}
+
+shout"plain";
+shout"";
+$x = 1;
+// The call is where the tag is; each list where the string starts, each part where it starts
+echo
+    shout"one {$x}
+two {$x}
+three";

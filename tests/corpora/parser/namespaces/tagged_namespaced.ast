@@ -1,0 +1,113 @@
+Compound
+  statements:
+@ "tests/corpora/parser/namespaces/lib/tags.gaz"
+    0: FunctionDeclaration 4
+      name: "tags::upper"
+      params: ["\$strings", "\$values"]
+      defaults: [null, null]
+      body: Compound
+        statements:
+          0: ReturnStatement 5
+            expr: FunctionCall 5
+              name: "tags::hidden"
+              args:
+                0: Variable 5
+                  token: 5 VAR_IDENTIFIER $strings
+                  value: "\$strings"
+                1: Variable 5
+                  token: 5 VAR_IDENTIFIER $values
+                  value: "\$values"
+      arity: 2
+      kind: null
+      abstract: false
+    1: FunctionDeclaration 8
+      name: "tags::hidden"
+      params: ["\$strings", "\$values"]
+      defaults: [null, null]
+      body: Compound
+        statements:
+          0: ReturnStatement 9
+            expr: ArrayLiteral 9
+              entries:
+                0:
+                  0: null
+                  1: Variable 9
+                    token: 9 VAR_IDENTIFIER $strings
+                    value: "\$strings"
+                1:
+                  0: null
+                  1: Variable 9
+                    token: 9 VAR_IDENTIFIER $values
+                    value: "\$values"
+              map: false
+      arity: 2
+      kind: null
+      abstract: false
+@ "tests/corpora/parser/namespaces/tagged_namespaced.gaz"
+    2: Statement 3
+      expr: Assign 3
+        left: Variable 3
+          token: 3 VAR_IDENTIFIER $x
+          value: "\$x"
+        token: 3 ASSIGN =
+        right: Num 3
+          token: 3 INTEGER 1
+          value: 1
+    3: Statement 4
+      expr: FunctionCall 4
+        name: "tags::upper"
+        args:
+          0: ArrayLiteral 4
+            entries:
+              0:
+                0: null
+                1: String 4
+                  token: 4 STRING_START "a "
+                  value: "a "
+              1:
+                0: null
+                1: String 4
+                  token: 4 STRING_END ""
+                  value: ""
+            map: false
+          1: ArrayLiteral 4
+            entries:
+              0:
+                0: null
+                1: Variable 4
+                  token: 4 VAR_IDENTIFIER $x
+                  value: "\$x"
+            map: false
+        tagged: true
+    4: Statement 5
+      expr: FunctionCall 5
+        name: "tags::upper"
+        args:
+          0: ArrayLiteral 5
+            entries:
+              0:
+                0: null
+                1: String 5
+                  token: 5 STRING "b"
+                  value: "b"
+            map: false
+          1: ArrayLiteral 5
+            entries: []
+            map: false
+        tagged: true
+    5: Statement 6
+      expr: FunctionCall 6
+        name: "tags::upper"
+        args:
+          0: ArrayLiteral 6
+            entries:
+              0:
+                0: null
+                1: String 6
+                  token: 6 STRING "c"
+                  value: "c"
+            map: false
+          1: ArrayLiteral 6
+            entries: []
+            map: false
+        tagged: true

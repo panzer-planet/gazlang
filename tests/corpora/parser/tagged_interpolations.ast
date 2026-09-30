@@ -1,0 +1,405 @@
+Compound
+  statements:
+@ "tests/corpora/parser/tagged_interpolations.gaz"
+    0: FunctionDeclaration 2
+      name: "t"
+      params: ["\$strings", "\$values"]
+      defaults: [null, null]
+      body: Compound
+        statements:
+          0: ReturnStatement 3
+            expr: ArrayLiteral 3
+              entries:
+                0:
+                  0: null
+                  1: Variable 3
+                    token: 3 VAR_IDENTIFIER $strings
+                    value: "\$strings"
+                1:
+                  0: null
+                  1: Variable 3
+                    token: 3 VAR_IDENTIFIER $values
+                    value: "\$values"
+              map: false
+      arity: 2
+      kind: null
+      abstract: false
+    1: Statement 6
+      expr: Assign 6
+        left: Variable 6
+          token: 6 VAR_IDENTIFIER $x
+          value: "\$x"
+        token: 6 ASSIGN =
+        right: Num 6
+          token: 6 INTEGER 1
+          value: 1
+    2: Statement 7
+      expr: Assign 7
+        left: Variable 7
+          token: 7 VAR_IDENTIFIER $list
+          value: "\$list"
+        token: 7 ASSIGN =
+        right: ArrayLiteral 7
+          entries:
+            0:
+              0: null
+              1: Num 7
+                token: 7 INTEGER 1
+                value: 1
+            1:
+              0: null
+              1: Num 7
+                token: 7 INTEGER 2
+                value: 2
+          map: false
+    3: Statement 8
+      expr: Assign 8
+        left: Variable 8
+          token: 8 VAR_IDENTIFIER $map
+          value: "\$map"
+        token: 8 ASSIGN =
+        right: ArrayLiteral 8
+          entries:
+            0:
+              0: String 8
+                token: 8 STRING "k"
+                value: "k"
+              1: Num 8
+                token: 8 INTEGER 3
+                value: 3
+          map: true
+    4: Statement 9
+      expr: Assign 9
+        left: Variable 9
+          token: 9 GLOBAL_VAR_IDENTIFIER @g
+          value: "@g"
+        token: 9 ASSIGN =
+        right: Num 9
+          token: 9 INTEGER 4
+          value: 4
+    5: Statement 10
+      expr: FunctionCall 10
+        name: "t"
+        args:
+          0: ArrayLiteral 10
+            entries:
+              0:
+                0: null
+                1: String 10
+                  token: 10 STRING_START ""
+                  value: ""
+              1:
+                0: null
+                1: String 10
+                  token: 10 STRING_MIDDLE ""
+                  value: ""
+              2:
+                0: null
+                1: String 10
+                  token: 10 STRING_END ""
+                  value: ""
+            map: false
+          1: ArrayLiteral 10
+            entries:
+              0:
+                0: null
+                1: Variable 10
+                  token: 10 VAR_IDENTIFIER $x
+                  value: "\$x"
+              1:
+                0: null
+                1: Variable 10
+                  token: 10 VAR_IDENTIFIER $x
+                  value: "\$x"
+            map: false
+        tagged: true
+    6: Statement 11
+      expr: FunctionCall 11
+        name: "t"
+        args:
+          0: ArrayLiteral 11
+            entries:
+              0:
+                0: null
+                1: String 11
+                  token: 11 STRING_START ""
+                  value: ""
+              1:
+                0: null
+                1: String 11
+                  token: 11 STRING_END ""
+                  value: ""
+            map: false
+          1: ArrayLiteral 11
+            entries:
+              0:
+                0: null
+                1: Variable 11
+                  token: 11 VAR_IDENTIFIER $x
+                  value: "\$x"
+            map: false
+        tagged: true
+    7: Statement 12
+      expr: FunctionCall 12
+        name: "t"
+        args:
+          0: ArrayLiteral 12
+            entries:
+              0:
+                0: null
+                1: String 12
+                  token: 12 STRING_START "a "
+                  value: "a "
+              1:
+                0: null
+                1: String 12
+                  token: 12 STRING_MIDDLE " b "
+                  value: " b "
+              2:
+                0: null
+                1: String 12
+                  token: 12 STRING_MIDDLE " c "
+                  value: " c "
+              3:
+                0: null
+                1: String 12
+                  token: 12 STRING_MIDDLE " d "
+                  value: " d "
+              4:
+                0: null
+                1: String 12
+                  token: 12 STRING_END ""
+                  value: ""
+            map: false
+          1: ArrayLiteral 12
+            entries:
+              0:
+                0: null
+                1: Index 12
+                  target: Variable 12
+                    token: 12 VAR_IDENTIFIER $list
+                    value: "\$list"
+                  index: Num 12
+                    token: 12 INTEGER 0
+                    value: 0
+              1:
+                0: null
+                1: Index 12
+                  target: Variable 12
+                    token: 12 VAR_IDENTIFIER $list
+                    value: "\$list"
+                  index: Num 12
+                    token: 12 INTEGER 1
+                    value: 1
+              2:
+                0: null
+                1: Index 12
+                  target: Variable 12
+                    token: 12 VAR_IDENTIFIER $map
+                    value: "\$map"
+                  index: String 12
+                    token: 12 STRING "k"
+                    value: "k"
+              3:
+                0: null
+                1: Index 12
+                  target: Variable 12
+                    token: 12 VAR_IDENTIFIER $list
+                    value: "\$list"
+                  index: Variable 12
+                    token: 12 VAR_IDENTIFIER $x
+                    value: "\$x"
+            map: false
+        tagged: true
+    8: Statement 13
+      expr: FunctionCall 13
+        name: "t"
+        args:
+          0: ArrayLiteral 13
+            entries:
+              0:
+                0: null
+                1: String 13
+                  token: 13 STRING_START ""
+                  value: ""
+              1:
+                0: null
+                1: String 13
+                  token: 13 STRING_MIDDLE " "
+                  value: " "
+              2:
+                0: null
+                1: String 13
+                  token: 13 STRING_MIDDLE " "
+                  value: " "
+              3:
+                0: null
+                1: String 13
+                  token: 13 STRING_MIDDLE " "
+                  value: " "
+              4:
+                0: null
+                1: String 13
+                  token: 13 STRING_END ""
+                  value: ""
+            map: false
+          1: ArrayLiteral 13
+            entries:
+              0:
+                0: null
+                1: BinOp 13
+                  left: Variable 13
+                    token: 13 VAR_IDENTIFIER $x
+                    value: "\$x"
+                  token: 13 PLUS +
+                  op: 13 PLUS +
+                  right: Num 13
+                    token: 13 INTEGER 1
+                    value: 1
+              1:
+                0: null
+                1: Index 13
+                  target: Variable 13
+                    token: 13 VAR_IDENTIFIER $map
+                    value: "\$map"
+                  index: String 13
+                    token: 13 STRING "k"
+                    value: "k"
+              2:
+                0: null
+                1: Variable 13
+                  token: 13 GLOBAL_VAR_IDENTIFIER @g
+                  value: "@g"
+              3:
+                0: null
+                1: BinOp 13
+                  left: Variable 13
+                    token: 13 VAR_IDENTIFIER $x
+                    value: "\$x"
+                  token: 13 COALESCE ??
+                  op: 13 COALESCE ??
+                  right: Num 13
+                    token: 13 INTEGER 0
+                    value: 0
+            map: false
+        tagged: true
+    9: Statement 14
+      expr: FunctionCall 14
+        name: "t"
+        args:
+          0: ArrayLiteral 14
+            entries:
+              0:
+                0: null
+                1: String 14
+                  token: 14 STRING_START "escapes \n \" \$x {"
+                  value: "escapes \n \" \$x {"
+              1:
+                0: null
+                1: String 14
+                  token: 14 STRING_END "}"
+                  value: "}"
+            map: false
+          1: ArrayLiteral 14
+            entries:
+              0:
+                0: null
+                1: Variable 14
+                  token: 14 VAR_IDENTIFIER $x
+                  value: "\$x"
+            map: false
+        tagged: true
+    10: KindDeclaration 16
+      name: "Box"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"field" => "", "show" => "pub", "self" => "pub"}
+      fields:
+        field: Num 17
+          token: 17 INTEGER 5
+          value: 5
+      field_lines: {"field" => 17}
+      methods:
+        show: FunctionDeclaration 19
+          name: "show"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 20
+                expr: FunctionCall 20
+                  name: "t"
+                  args:
+                    0: ArrayLiteral 20
+                      entries:
+                        0:
+                          0: null
+                          1: String 20
+                            token: 20 STRING_START ""
+                            value: ""
+                        1:
+                          0: null
+                          1: String 20
+                            token: 20 STRING_MIDDLE " "
+                            value: " "
+                        2:
+                          0: null
+                          1: String 20
+                            token: 20 STRING_END ""
+                            value: ""
+                      map: false
+                    1: ArrayLiteral 20
+                      entries:
+                        0:
+                          0: null
+                          1: Property 20
+                            target: This 20
+                            name: "field"
+                            field: true
+                            constant: false
+                            value: null
+                            static_name: null
+                        1:
+                          0: null
+                          1: MethodCall 20
+                            property: Property 20
+                              target: This 20
+                              name: "self"
+                              field: false
+                              constant: false
+                              value: null
+                              static_name: null
+                            args: []
+                      map: false
+                  tagged: true
+          arity: 0
+          kind: "Box"
+          abstract: false
+        self: FunctionDeclaration 23
+          name: "self"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 24
+                expr: This 24
+          arity: 0
+          kind: "Box"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"field" => "Box"}
+      members: {"show" => "Box", "self" => "Box"}
+      abstract_methods: []
+      slots: [["field", "Box", ""]]
+      method_table: [["show", "Box", "pub", "Box"], ["self", "Box", "pub", "Box"]]
+      owner_vis: {"field" => "", "show" => "pub", "self" => "pub"}
+      declared_at: {"show" => "Box", "self" => "Box"}
+      hidden: []
+      hidden_fields: []

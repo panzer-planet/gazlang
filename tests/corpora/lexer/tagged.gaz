@@ -1,0 +1,8 @@
+// A name touching a double quote is a TAG; the string after it lexes as any string
+sql"plain";
+sql"";
+shout"a {$x} b $y[0] c"
+Point"x"
+_under9"\n\u{e9}"
+// Not touching: a name, then a string
+spaced "x";

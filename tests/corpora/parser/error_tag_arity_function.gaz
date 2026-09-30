@@ -1,0 +1,4 @@
+fn one($strings) {}
+
+$x = 1;
+one"text {$x}";

@@ -1,0 +1,5 @@
+// PHP's elseif keeps its hint when a string touches it
+if (1) {
+}
+elseif"x" {
+}

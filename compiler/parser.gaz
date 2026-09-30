@@ -387,7 +387,7 @@ kind Html {
         }
         // PHP's elseif is read as a call to a function of that name, which fails at the { after it
         $token = #statement_token;
-        if ($token != null && $token.type == "IDENTIFIER" && lower($token.value) == "elseif" && !has_key(#functions, $token.value)) {
+        if ($token != null && ($token.type == "IDENTIFIER" || $token.type == "TAG") && lower($token.value) == "elseif" && !has_key(#functions, $token.value)) {
             return " (write 'else if', not '{$token.value}')";
         }
 
@@ -413,6 +413,7 @@ kind Html {
             $token.type == "EOF" => "end of file",
             // A list prints its strings as literals
             in_array($token.type, ["STRING", "STRING_START", "STRING_MIDDLE", "STRING_END"]) => "string " .. slice(to_string([$token.value]), 1, -1),
+            $token.type == "TAG" => "tag {$token.value}\"...\"",
             // A float prints as the shortest literal that reads back
             default => "'{$token.value}'",
         };
@@ -552,24 +553,30 @@ kind Html {
     // Parse a call by name (IDENTIFIER arguments), the name having been eaten. $at is its
     // first token, which is where it is located however many :: the name has.
     fn function_call($name, $at) {
-        $node = #at(FunctionCallAST($name, #arguments()), $at);
+        return #function_call_node($name, #arguments(), $at);
+    }
+
+    // A call by name, recorded to be checked once the whole program is read
+    fn function_call_node($name, $args, $at) {
+        $node = #at(FunctionCallAST($name, $args), $at);
         #uses[] = [$node, #scope];
 
         return $node;
     }
 
-    // The rest of a name after its first part (( DOUBLE_COLON IDENTIFIER )*)
+    // The rest of a name after its first part (( DOUBLE_COLON IDENTIFIER )* [DOUBLE_COLON TAG])
     //
     // :: resolves a name, so Token::EOF and json::Reader::EOF are each one name, read here and
-    // looked up once the whole program is read, as a bare name is.
+    // looked up once the whole program is read, as a bare name is. A tag (db::sql"...") ends
+    // the name, since its string follows.
     fn qualified_name($name) {
         while (#current_token.type == "DOUBLE_COLON") {
             #eat("DOUBLE_COLON");
             $part = #current_token;
-            if ($part.type != "IDENTIFIER") {
+            if ($part.type != "IDENTIFIER" && $part.type != "TAG") {
                 #fail("Expected a name after :: but found " .. #describe($part));
             }
-            #eat("IDENTIFIER");
+            #eat($part.type);
             $name ..= "::" .. $part.value;
         }
 
@@ -713,12 +720,16 @@ kind Html {
             #eat("NULL");
 
             return #at(NullAST($token), $token);
-        } else if ($type == "IDENTIFIER") {
-            #eat("IDENTIFIER");
-            $name = #qualified_name($token.value);
+        } else if ($type == "IDENTIFIER" || $type == "TAG") {
+            #eat($type);
+            $name = $type == "TAG" ? $token.value : #qualified_name($token.value);
+            if (#previous_token.type == "TAG") {
+                return #tagged_literal($name, $token);
+            }
             if (#current_token.type == "LEFT_PAREN") {
                 return #function_call($name, $token);
             }
+            #refuse_spaced_tag($name, $token);
             $node = #at(FunctionRefAST($name), $token);
             #uses[] = [$node, #scope];
 
@@ -1083,6 +1094,80 @@ kind Html {
         }
     }
 
+    /*
+     * Parse a tagged string (TAG (STRING | STRING_START expr (STRING_MIDDLE expr)* STRING_END)),
+     * the tag's name having been read, $at being its first token
+     *
+     * Sugar for a call: name"a {$x} b" is name(["a ", " b"], [$x]), the text parts with their
+     * escapes read, one more of them than there are values, empty ones kept, and the values as
+     * they are, never made text. It is an ordinary FunctionCallAST, so the name is resolved and
+     * checked as any call's; #tagged only lets an error about it say so.
+     */
+    fn tagged_literal($name, $at) {
+        $start = #current_token;
+        $parts = [#string_part_entry($start)];
+        $values = [];
+        #eat($start.type);
+        $part = $start;
+        while ($part.type == "STRING_START" || $part.type == "STRING_MIDDLE") {
+            $values[] = [null, #expr()];
+            $part = #current_token;
+            if ($part.type != "STRING_MIDDLE" && $part.type != "STRING_END") {
+                #fail("Expected '}' but found " .. #describe($part));
+            }
+            #eat($part.type);
+            $parts[] = #string_part_entry($part);
+        }
+
+        $args = [#at(ArrayLiteralAST($parts), $start), #at(ArrayLiteralAST($values), $start)];
+        $node = #function_call_node($name, $args, $at);
+        $node.tagged = true;
+
+        return $node;
+    }
+
+    // One text part of a tagged string, as an entry of the list literal holding them
+    fn string_part_entry($token) {
+        return [null, #at(StringAST($token), $token)];
+    }
+
+    /*
+     * A name followed by a string, which only a tag can be: refused saying so. What a tag can't
+     * be keeps the usual error, which explains it better: see cannot_be_a_tag().
+     */
+    fn refuse_spaced_tag($name, $token) {
+        $next = #current_token.type;
+        $string_follows = $next == "STRING" || $next == "STRING_START";
+        if (!$string_follows || #cannot_be_a_tag($name)) {
+            return;
+        }
+        #fail_at("A tag touches its string: write {$name}\"...\", with no space", #file, $token.line);
+    }
+
+    /*
+     * Whether a name followed by a string is a different mistake: a miscapitalised keyword
+     * (ECHO "x", which has its own hint), PHP's elseif, a builtin that can't take a tag's two
+     * arguments (print "hello" is a missing parenthesis, and tagging it would fail on arity), or
+     * a constant already declared (a missing comma in a list).
+     */
+    fn cannot_be_a_tag($name) {
+        if (has_key(Lexer::KEYWORDS, lower($name)) || lower($name) == "elseif") {
+            return true;
+        }
+        if (has_key(#constants, $name)) {
+            return true;
+        }
+
+        return has_key(#builtins, $name) && !#takes_two_arguments(#builtins[$name]);
+    }
+
+    // Whether a builtin's arity, a count or [fewest, most], admits the two arguments of a tag
+    fn takes_two_arguments($arity) {
+        [$fewest, $most] = type_of($arity) == "list" ? $arity : [$arity, $arity];
+
+        return $fewest <= 2 && 2 <= $most;
+    }
+
     // Parse a list literal (LBRACKET [expr (COMMA expr)* [COMMA]] RBRACKET)
     fn list_literal() {
         $start = #current_token;
@@ -1338,6 +1423,9 @@ kind Html {
             #uses[] = [$call, #scope];
 
             return $call;
+        }
+        if (is_a($target, FunctionCallAST) && ($target.tagged ?? false)) {
+            #fail_at("A tagged string can't follow |>: it is already a call", #file, $token.line);
         }
         if (is_a($target, FunctionCallAST) || is_a($target, CallValueAST)) {
             $target.args = [$value, ...$target.args];
@@ -3111,7 +3199,7 @@ kind Html {
                     }
                     $error = #arity_error("Kind {$use.name}", #constructor_arity($kind), len($use.args));
                     if ($error != null) {
-                        #fail_at($error, $use.file, $use.line);
+                        #fail_at($error .. #tagged_hint($use), $use.file, $use.line);
                     }
                 }
 
@@ -3138,7 +3226,7 @@ kind Html {
             if (is_a($use, FunctionCallAST)) {
                 $error = #arity_error("Function {$use.name}", #functions[$use.name], len($use.args));
                 if ($error != null) {
-                    #fail_at($error, $use.file, $use.line);
+                    #fail_at($error .. #tagged_hint($use), $use.file, $use.line);
                 }
             }
         }
@@ -3521,6 +3609,11 @@ kind Html {
                 #fail_at($error, $node.file, $node.line);
             }
         }
+    }
+
+    // What to add to a call's arity error when the call is a tagged string, whose arguments aren't written out
+    fn tagged_hint($call) {
+        return ($call.tagged ?? false) ? " (a tagged string passes 2: its text parts and its values)" : "";
     }
 
     // The fewest and most arguments an arity allows

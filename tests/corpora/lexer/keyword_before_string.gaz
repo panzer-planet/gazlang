@@ -1,0 +1,7 @@
+// A keyword is never a tag: these are the keyword, then a string
+echo"x";
+return"y";
+match"z";
+echo'single';
+// A capitalised keyword is an ordinary name, so it is a tag
+ECHO"x";

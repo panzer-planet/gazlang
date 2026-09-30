@@ -1,0 +1,10 @@
+// Tags from a namespace: pub ones escape it, others don't
+namespace tags;
+
+pub fn upper($strings, $values) {
+    return hidden($strings, $values);
+}
+
+fn hidden($strings, $values) {
+    return [$strings, $values];
+}

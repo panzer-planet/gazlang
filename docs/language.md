@@ -107,6 +107,40 @@ Escapes in `"..."`: `\n \t \r \v \f \e \0 \\ \" \$ \{`, `\xHH` (exactly two hex 
 `..` concatenates, converting each side the way `echo` does, so `"x" .. true` is `"xtrue"` and
 `1 .. 2` is `"12"`. `..=` appends.
 
+### Tagged strings
+
+A name touching a double-quoted string, with no space between them, **tags** it: the string is
+not joined into text but handed to the function of that name, as two lists.
+
+```gaz
+fn shout($strings, $values) {
+    $text = $strings[0];
+    foreach ($values as $i => $value) {
+        $text ..= upper(to_string($value)) .. $strings[$i + 1];
+    }
+    return $text;
+}
+
+$name = "gaz";
+$age = 3;
+echo shout"hello {$name}, you are {$age}!";   // shout(["hello ", ", you are ", "!"], [$name, $age])
+echo shout"no values";                        // shout(["no values"], [])
+```
+
+- **The text parts** come first, with their escapes already read. There is always one more part
+  than there are values, so a value at the start or end, or two side by side, has an empty part
+  next to it: `t"{$a}{$b}"` is `t(["", "", ""], [$a, $b])`.
+- **The values** come second, exactly as they are, never converted to text, each evaluated once,
+  left to right. Every form of interpolation works: `$x`, `$x[0]`, `{$expr}`, `{@global}`,
+  `{#field}` in a method, and another tagged string inside the braces.
+- **A tag is a name**, and a tagged string is an ordinary call by that name: a function, a
+  qualified one (`db::sql"..."`), one brought in by `use`, a static method, a kind (which
+  constructs) or a builtin that takes two arguments. It is checked like any call when the program
+  is read, so an undefined, private or wrong-sized tag is an error before anything runs.
+- Only a name: `$f"..."` and `$obj.m"..."` are errors, and so is a name before a single-quoted
+  string (`sql'...'`). A keyword is never a tag, so `echo"x"` still echoes.
+- A tagged string is already a call, so it can't follow `|>`; `t"..." |> len` pipes its result on.
+
 ## Lists and maps
 
 ```gaz

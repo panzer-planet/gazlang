@@ -1,0 +1,4 @@
+1 ECHO echo
+1 STRING "fine"
+1 SEMICOLON ;
+Error: A tag takes a double-quoted string: write sql"...", not sql'...' on line 2

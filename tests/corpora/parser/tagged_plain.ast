@@ -1,0 +1,93 @@
+Compound
+  statements:
+@ "tests/corpora/parser/tagged_plain.gaz"
+    0: FunctionDeclaration 2
+      name: "shout"
+      params: ["\$strings", "\$values"]
+      defaults: [null, null]
+      body: Compound
+        statements:
+          0: ReturnStatement 3
+            expr: Variable 3
+              token: 3 VAR_IDENTIFIER $strings
+              value: "\$strings"
+      arity: 2
+      kind: null
+      abstract: false
+    1: Statement 6
+      expr: FunctionCall 6
+        name: "shout"
+        args:
+          0: ArrayLiteral 6
+            entries:
+              0:
+                0: null
+                1: String 6
+                  token: 6 STRING "plain"
+                  value: "plain"
+            map: false
+          1: ArrayLiteral 6
+            entries: []
+            map: false
+        tagged: true
+    2: Statement 7
+      expr: FunctionCall 7
+        name: "shout"
+        args:
+          0: ArrayLiteral 7
+            entries:
+              0:
+                0: null
+                1: String 7
+                  token: 7 STRING ""
+                  value: ""
+            map: false
+          1: ArrayLiteral 7
+            entries: []
+            map: false
+        tagged: true
+    3: Statement 8
+      expr: Assign 8
+        left: Variable 8
+          token: 8 VAR_IDENTIFIER $x
+          value: "\$x"
+        token: 8 ASSIGN =
+        right: Num 8
+          token: 8 INTEGER 1
+          value: 1
+    4: EchoStatement 10
+      expr: FunctionCall 11
+        name: "shout"
+        args:
+          0: ArrayLiteral 11
+            entries:
+              0:
+                0: null
+                1: String 11
+                  token: 11 STRING_START "one "
+                  value: "one "
+              1:
+                0: null
+                1: String 11
+                  token: 11 STRING_MIDDLE "\ntwo "
+                  value: "\ntwo "
+              2:
+                0: null
+                1: String 12
+                  token: 12 STRING_END "\nthree"
+                  value: "\nthree"
+            map: false
+          1: ArrayLiteral 11
+            entries:
+              0:
+                0: null
+                1: Variable 11
+                  token: 11 VAR_IDENTIFIER $x
+                  value: "\$x"
+              1:
+                0: null
+                1: Variable 12
+                  token: 12 VAR_IDENTIFIER $x
+                  value: "\$x"
+            map: false
+        tagged: true

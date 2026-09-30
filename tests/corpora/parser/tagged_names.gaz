@@ -1,0 +1,18 @@
+// A tag is a name: a function, a qualified static method, a kind, or a builtin that takes two
+kind Point {
+    pub #strings;
+    pub #values;
+
+    fn _($strings, $values) {
+        #strings = $strings;
+        #values = $values;
+    }
+
+    static fn make($strings, $values) {
+        return Point($strings, $values);
+    }
+}
+
+$p = Point"x {1} y";
+$q = Point::make"z";
+$r = in_array"w";

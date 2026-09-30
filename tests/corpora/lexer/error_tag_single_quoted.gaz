@@ -1,0 +1,2 @@
+echo 'fine';
+sql'select 1';

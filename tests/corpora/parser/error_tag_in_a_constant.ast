@@ -1,0 +1,1 @@
+Error: A constant's value can only use literals, operators and other constants at tests/corpora/parser/error_tag_in_a_constant.gaz:3

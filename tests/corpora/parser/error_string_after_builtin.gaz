@@ -1,0 +1,2 @@
+// A builtin that cannot take a tag's two arguments keeps the usual error: this is a missing parenthesis
+print "hello";

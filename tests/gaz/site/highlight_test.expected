@@ -10,6 +10,7 @@ ok a comment at the end
 ok a script's first line
 ok escapes stay as written
 ok an interpolation is its tokens
+ok a tag is a call, a keyword before a string still a keyword
 ok a string in an interpolation
 ok an unterminated string
 ok a character the lexer refuses

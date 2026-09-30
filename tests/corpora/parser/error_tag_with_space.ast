@@ -1,0 +1,1 @@
+Error: A tag touches its string: write sql"...", with no space at tests/corpora/parser/error_tag_with_space.gaz:4

@@ -1,0 +1,9 @@
+// A tagged string inside an interpolation of another, and a tagged string as an argument
+fn t($strings, $values) {
+    return $strings;
+}
+
+$id = $v -> $v;
+echo t"a {$id(t"b {$id}")} c";
+echo len(t"d");
+echo t"e" |> len;

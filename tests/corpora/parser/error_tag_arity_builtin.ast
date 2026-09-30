@@ -1,0 +1,1 @@
+Error: Function len expects 1 arguments, 2 given (a tagged string passes 2: its text parts and its values) at tests/corpora/parser/error_tag_arity_builtin.gaz:3

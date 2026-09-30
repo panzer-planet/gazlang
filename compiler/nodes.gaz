@@ -201,6 +201,8 @@ kind MethodCallAST extends AST {
 kind FunctionCallAST extends AST {
     pub #name;
     pub #args;
+    // true for a tagged string (name"..."), and left unset otherwise, so only one dumps it
+    pub #tagged;
 
     fn _($name, $args) {
         #name = $name;

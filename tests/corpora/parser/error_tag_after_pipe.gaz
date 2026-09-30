@@ -1,0 +1,4 @@
+fn sql($strings, $values) {}
+
+$x = 1
+    |> sql"select 1";

@@ -1,0 +1,26 @@
+// Every form of interpolation, the values passed as they are; empty parts are kept
+fn t($strings, $values) {
+    return [$strings, $values];
+}
+
+$x = 1;
+$list = [1, 2];
+$map = {"k" => 3};
+@g = 4;
+t"{$x}{$x}";
+t"$x";
+t"a $list[0] b $list[1] c $map[k] d $list[$x]";
+t"{$x + 1} {$map["k"]} {@g} {$x ?? 0}";
+t"escapes \n \" \$x \{$x}";
+
+kind Box {
+    #field = 5;
+
+    pub fn show() {
+        return t"{#field} {#self()}";
+    }
+
+    pub fn self() {
+        return #;
+    }
+}

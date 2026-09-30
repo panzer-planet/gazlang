@@ -257,7 +257,9 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
 - **The roadmap**, in build order (optional types, `gaz --watch`, the pipe, cryptography, cookies
   and signed sessions, `gaz test` and the list helpers in `lib/lists.gaz` are done and described below):
   1. **Tagged literals as ordinary functions**: `name"text {$v}"` is `name(["text ", ""], [$v])`,
-     resolved like any name, as JavaScript's tags and Python's t-strings are. Then `db::sql"..."`,
+     resolved like any name, as JavaScript's tags and Python's t-strings are (this stage is
+     "Tagged strings" under Strings; `lib/` can use tags only through a `bin/gaz` whose built-in
+     compiler knows them, since the library is compiled by it). Then `db::sql"..."`,
      rendered to each driver's own placeholders (`?`, `$n`), with nested fragments and lists for
      `in (...)`; then `Db.query`/`exec`/`row`/`value` refuse a plain string, with `db::raw()` the
      visible way round, so SQL injection is impossible by construction; then `html"..."`.
@@ -837,6 +839,24 @@ Names are ASCII.
   nest; the parser desugars to `..`, so the VM needs nothing. Include paths can't interpolate.
 - `quote()` in `value.c` is the exact inverse of a literal, and everything that shows a string
   as source uses it.
+- **Tagged strings**: a name touching a double quote (`sql"..."`, `db::sql"..."`) is `sql($parts,
+  $values)`: the text parts with escapes read, always one more than the values, empty ones kept,
+  and the values as they are, never made text. **Parser sugar only**: the lexer gives a `TAG`
+  token (the name) instead of `IDENTIFIER` when a non-keyword word touches `"`, the string's tokens
+  following as usual, and `tagged_literal()` in `parser.gaz` makes an ordinary `FunctionCallAST`
+  of two list literals (the parts all constants, so pushed as one value), marked `#tagged` only so
+  an arity error can say what was passed; name resolution, `pub`, `use`, arity and types are a
+  call's, and nothing below the parser learns of it.
+  - **Names only**, since a tag is looked up when the program is read: `$f"..."` stays a syntax
+    error. **No raw text list**: nothing needs one yet, and `name'...'` is refused by the lexer so
+    that spelling stays free for a raw tag.
+  - **A keyword is never a tag** (`echo"x"`, `return"x"` keep their meaning), so a keyword can't
+    become one later without breaking programs; a capitalised keyword is a name, so `ECHO"x"` is a
+    call (with the lowercase hint when undefined).
+  - **Refused with a message**: a name, a space, then a string (`A tag touches its string`, which
+    no valid program has: a name is never followed by a string, and a miscapitalised keyword keeps
+    its own hint), and a tagged string after `|>` (it is already a call; `pipe()` would otherwise
+    add a third argument).
 
 ## Lists and maps
 

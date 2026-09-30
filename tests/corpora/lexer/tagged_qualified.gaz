@@ -1,0 +1,7 @@
+// Only the last part of a qualified name touches the quote, so only it is the TAG
+db::sql"select {$id}";
+a::b::
+c"x";
+db
+::
+sql"on three lines";

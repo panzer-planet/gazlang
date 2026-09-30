@@ -1,0 +1,3 @@
+fn sql($strings, $values) {}
+
+sql'select 1';

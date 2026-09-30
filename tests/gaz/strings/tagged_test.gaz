@@ -1,0 +1,100 @@
+include "std/test.gaz" use expect, throws;
+include "../../fixtures/tag_library.gaz" use bracket, bracket as angles;
+
+// What a tag is given, as it is: [text parts, values]
+fn parts($strings, $values) {
+    return [$strings, $values];
+}
+
+// The types of the values, to show none were made text
+fn types($strings, $values) {
+    return map($values, $value -> type_of($value));
+}
+
+kind Point {
+    pub #x;
+    pub #y;
+
+    fn _($strings, $values) {
+        [#x, #y] = $values;
+    }
+}
+
+kind Greeter {
+    #name = "Gaz";
+
+    pub fn greet() {
+        return parts"Hi {#name}, {#shout(#name)}";
+    }
+
+    fn shout($text) {
+        return upper($text);
+    }
+}
+
+// Text parts and values
+expect("no interpolation", parts"plain", [["plain"], []]);
+expect("empty", parts"", [[""], []]);
+expect("escapes are read", parts"a\n\"\$x\{", [["a\n\"\$x{"], []]);
+$x = 1;
+$list = [10, 20];
+$map = {"k" => "v"};
+@g = "global";
+expect("a bare variable", parts"a $x b", [["a ", " b"], [1]]);
+expect("bare indexes", parts"$list[0] $map[k] $list[$x]", [["", " ", " ", ""], [10, "v", 20]]);
+expect("braces", parts"{$x + 1} {$map["k"]} {@g}", [["", " ", " ", ""], [2, "v", "global"]]);
+expect("adjacent values keep the empty parts", parts"{$x}{$x}", [["", "", ""], [1, 1]]);
+expect("one more part than values", parts"a{$x}b{$x}c{$x}d", [["a", "b", "c", "d"], [1, 1, 1]]);
+expect("a field and a method in a method", Greeter().greet(), [["Hi ", ", ", ""], ["Gaz", "GAZ"]]);
+expect("across lines", parts"one {$x}
+two", [["one ", "\ntwo"], [1]]);
+
+// Values are passed as they are, never made text
+[$three, $four] = [3, 4];
+$object = Point"{$three}, {$four}";
+[$float, $bool, $null, $function] = [1.5, true, null, parts];
+expect("values keep their types", types"{$x}{$float}{$map["k"]}{$bool}{$null}{$list}{$map}{$object}{$function}",
+    ["int", "float", "string", "bool", "null", "list", "map", "object", "function"]);
+expect("a list value is the list", parts"{$list}", [["", ""], [[10, 20]]]);
+
+// Interpolations run once each, left to right
+shared $order = [];
+$note = $n -> {
+    $order[] = $n;
+    return $n;
+};
+parts"{$note(1)} {$note(2)} $x {$note(3)}";
+expect("left to right, once each", $order, [1, 2, 3]);
+
+// A tag gives whatever it returns
+expect("a list", parts"x", [["x"], []]);
+expect("a kind constructs", [$object.x, $object.y], [3, 4]);
+expect("a builtin that takes two", in_array"x", false);
+
+// Tags inside functions, lambdas and each other
+fn wrapped($v) {
+    return parts"<{$v}>";
+}
+expect("in a function", wrapped(5), [["<", ">"], [5]]);
+$lambda = $v -> parts"[{$v}]";
+expect("in a lambda", $lambda(6), [["[", "]"], [6]]);
+$id = $v -> $v;
+expect("nested", parts"a {$id(parts"b {$x}")} c", [["a ", " c"], [[["b ", ""], [1]]]]);
+expect("an argument", len(parts"a {$x}"), 2);
+expect("piped on", parts"a {$x} b" |> len, 2);
+
+// A namespaced tag, qualified or by its use alias
+expect("qualified", tags::bracket"a {$x} b {$list[1]}", "a <1> b <20>");
+expect("by use", bracket"{$x}", "<1>");
+expect("by alias", angles"n = {$x}!", "n = <1>!");
+
+// Errors from what a tag is: an ordinary call
+fn typed(string $strings, list $values) {
+    return $strings;
+}
+throws("a typed parameter", () -> typed"x", "typed() expects \$strings to be string, got list");
+throws("a builtin refusing the lists", () -> join"x", "join() expects string, got list");
+fn failing($strings, $values) {
+    throw "no {$strings[0]}";
+}
+throws("a tag that throws", () -> failing"good", "no good");

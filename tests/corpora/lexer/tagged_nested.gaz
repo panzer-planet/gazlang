@@ -1,0 +1,4 @@
+// A tagged string inside an interpolation, inside a tagged string
+outer"a {$f(inner"b {$x}
+c")} d"
+outer"{$m["k"]}{@g}{#field}"

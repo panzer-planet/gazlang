@@ -1,0 +1,27 @@
+ok no interpolation
+ok empty
+ok escapes are read
+ok a bare variable
+ok bare indexes
+ok braces
+ok adjacent values keep the empty parts
+ok one more part than values
+ok a field and a method in a method
+ok across lines
+ok values keep their types
+ok a list value is the list
+ok left to right, once each
+ok a list
+ok a kind constructs
+ok a builtin that takes two
+ok in a function
+ok in a lambda
+ok nested
+ok an argument
+ok piped on
+ok qualified
+ok by use
+ok by alias
+ok a typed parameter
+ok a builtin refusing the lists
+ok a tag that throws

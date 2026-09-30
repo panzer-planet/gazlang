@@ -1,0 +1,1 @@
+Error: tags::hidden is not pub, so only namespace tags can use it at tests/corpora/parser/namespaces/error_tag_not_pub.gaz:4

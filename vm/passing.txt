@@ -871,6 +871,7 @@ tests/corpora/codegen/power.gaz
 tests/corpora/codegen/shared.gaz
 tests/corpora/codegen/statements.gaz
 tests/corpora/codegen/statics.gaz
+tests/corpora/codegen/tagged.gaz
 tests/corpora/codegen/template.gaz
 tests/corpora/codegen/throw.gaz
 tests/corpora/codegen/types.gaz
@@ -918,7 +919,9 @@ tests/corpora/parser/namespaces/lib/mid.gaz
 tests/corpora/parser/namespaces/lib/more.gaz
 tests/corpora/parser/namespaces/lib/plain.gaz
 tests/corpora/parser/namespaces/lib/problems.gaz
+tests/corpora/parser/namespaces/lib/tags.gaz
 tests/corpora/parser/namespaces/main.gaz
+tests/corpora/parser/namespaces/tagged_namespaced.gaz
 tests/corpora/parser/no_error_kind.gaz
 tests/corpora/parser/nullsafe.gaz
 tests/corpora/parser/override_of_a_private_parent_method.gaz
@@ -935,6 +938,10 @@ tests/corpora/parser/spread.gaz
 tests/corpora/parser/spread_in_a_map.gaz
 tests/corpora/parser/statements.gaz
 tests/corpora/parser/statics.gaz
+tests/corpora/parser/tagged_interpolations.gaz
+tests/corpora/parser/tagged_names.gaz
+tests/corpora/parser/tagged_nested.gaz
+tests/corpora/parser/tagged_plain.gaz
 tests/corpora/parser/template.gaz
 tests/corpora/parser/throw.gaz
 tests/corpora/parser/try.gaz
@@ -990,6 +997,7 @@ tests/fixtures/json_roundtrip.gaz
 tests/fixtures/lsp/helper.gaz
 tests/fixtures/lsp/includer.gaz
 tests/fixtures/read_stdin.gaz
+tests/fixtures/tag_library.gaz
 tests/fixtures/term_input.gaz
 tests/fixtures/term_read.gaz
 tests/fixtures/test_library/failures.gaz
@@ -1040,6 +1048,7 @@ tests/gaz/site/pages_test.gaz
 tests/gaz/site/round_trip_test.gaz
 tests/gaz/site/verify_test.gaz
 tests/gaz/strings/interpolation_test.gaz
+tests/gaz/strings/tagged_test.gaz
 tests/gaz/templates/templates_test.gaz
 tests/programs/cat_facts.gaz
 tests/programs/csv_report.gaz

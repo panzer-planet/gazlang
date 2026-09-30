@@ -1,0 +1,1 @@
+Error: SQL is a constant, not a function at tests/corpora/parser/error_tag_is_a_constant.gaz:3

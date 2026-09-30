@@ -1,0 +1,123 @@
+Compound
+  statements:
+@ "tests/corpora/parser/tagged_nested.gaz"
+    0: FunctionDeclaration 2
+      name: "t"
+      params: ["\$strings", "\$values"]
+      defaults: [null, null]
+      body: Compound
+        statements:
+          0: ReturnStatement 3
+            expr: Variable 3
+              token: 3 VAR_IDENTIFIER $strings
+              value: "\$strings"
+      arity: 2
+      kind: null
+      abstract: false
+    1: Statement 6
+      expr: Assign 6
+        left: Variable 6
+          token: 6 VAR_IDENTIFIER $id
+          value: "\$id"
+        token: 6 ASSIGN =
+        right: Lambda 6
+          params: ["\$v"]
+          defaults: [null]
+          arity: 1
+          body: Variable 6
+            token: 6 VAR_IDENTIFIER $v
+            value: "\$v"
+          captures: []
+          self: null
+          owner: null
+    2: EchoStatement 7
+      expr: FunctionCall 7
+        name: "t"
+        args:
+          0: ArrayLiteral 7
+            entries:
+              0:
+                0: null
+                1: String 7
+                  token: 7 STRING_START "a "
+                  value: "a "
+              1:
+                0: null
+                1: String 7
+                  token: 7 STRING_END " c"
+                  value: " c"
+            map: false
+          1: ArrayLiteral 7
+            entries:
+              0:
+                0: null
+                1: CallValue 7
+                  callee: Variable 7
+                    token: 7 VAR_IDENTIFIER $id
+                    value: "\$id"
+                  args:
+                    0: FunctionCall 7
+                      name: "t"
+                      args:
+                        0: ArrayLiteral 7
+                          entries:
+                            0:
+                              0: null
+                              1: String 7
+                                token: 7 STRING_START "b "
+                                value: "b "
+                            1:
+                              0: null
+                              1: String 7
+                                token: 7 STRING_END ""
+                                value: ""
+                          map: false
+                        1: ArrayLiteral 7
+                          entries:
+                            0:
+                              0: null
+                              1: Variable 7
+                                token: 7 VAR_IDENTIFIER $id
+                                value: "\$id"
+                          map: false
+                      tagged: true
+            map: false
+        tagged: true
+    3: EchoStatement 8
+      expr: FunctionCall 8
+        name: "len"
+        args:
+          0: FunctionCall 8
+            name: "t"
+            args:
+              0: ArrayLiteral 8
+                entries:
+                  0:
+                    0: null
+                    1: String 8
+                      token: 8 STRING "d"
+                      value: "d"
+                map: false
+              1: ArrayLiteral 8
+                entries: []
+                map: false
+            tagged: true
+    4: EchoStatement 9
+      expr: FunctionCall 9
+        name: "len"
+        args:
+          0: FunctionCall 9
+            name: "t"
+            args:
+              0: ArrayLiteral 9
+                entries:
+                  0:
+                    0: null
+                    1: String 9
+                      token: 9 STRING "e"
+                      value: "e"
+                map: false
+              1: ArrayLiteral 9
+                entries: []
+                map: false
+            tagged: true

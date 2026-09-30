@@ -1,0 +1,1 @@
+Error: A tagged string can't follow |>: it is already a call at tests/corpora/parser/error_tag_after_pipe.gaz:4

@@ -1,0 +1,45 @@
+Compound
+  statements:
+@ null
+    0: FunctionDeclaration 4
+      name: "tags::upper"
+      params: ["\$strings", "\$values"]
+      defaults: [null, null]
+      body: Compound
+        statements:
+          0: ReturnStatement 5
+            expr: FunctionCall 5
+              name: "tags::hidden"
+              args:
+                0: Variable 5
+                  token: 5 VAR_IDENTIFIER $strings
+                  value: "\$strings"
+                1: Variable 5
+                  token: 5 VAR_IDENTIFIER $values
+                  value: "\$values"
+      arity: 2
+      kind: null
+      abstract: false
+    1: FunctionDeclaration 8
+      name: "tags::hidden"
+      params: ["\$strings", "\$values"]
+      defaults: [null, null]
+      body: Compound
+        statements:
+          0: ReturnStatement 9
+            expr: ArrayLiteral 9
+              entries:
+                0:
+                  0: null
+                  1: Variable 9
+                    token: 9 VAR_IDENTIFIER $strings
+                    value: "\$strings"
+                1:
+                  0: null
+                  1: Variable 9
+                    token: 9 VAR_IDENTIFIER $values
+                    value: "\$values"
+              map: false
+      arity: 2
+      kind: null
+      abstract: false

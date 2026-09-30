@@ -1,0 +1,11 @@
+/*
+ * A tagged string is a call with two lists: the text parts, all constants, pushed as one value,
+ * and the values, built as any list is
+ */
+fn t($strings, $values) {
+    return [$strings, $values];
+}
+
+$x = 1;
+echo t"a {$x} b $x";
+echo t"";

@@ -1,0 +1,12 @@
+// A namespaced tag for tests/gaz/strings/tagged_test.gaz, reached by a use alias
+namespace tags;
+
+// The text with each value in angle brackets
+pub fn bracket($strings, $values) {
+    $text = $strings[0];
+    foreach ($values as $i => $value) {
+        $text ..= "<{$value}>" .. $strings[$i + 1];
+    }
+
+    return $text;
+}

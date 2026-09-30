@@ -1,0 +1,164 @@
+Compound
+  statements:
+@ null
+    0: KindDeclaration 2
+      name: "Point"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods:
+        make: FunctionDeclaration 11
+          name: "Point::make"
+          params: ["\$strings", "\$values"]
+          defaults: [null, null]
+          body: Compound
+            statements:
+              0: ReturnStatement 12
+                expr: FunctionCall 12
+                  name: "Point"
+                  args:
+                    0: Variable 12
+                      token: 12 VAR_IDENTIFIER $strings
+                      value: "\$strings"
+                    1: Variable 12
+                      token: 12 VAR_IDENTIFIER $values
+                      value: "\$values"
+          arity: 2
+          kind: "Point"
+          abstract: false
+      static_owners: {"make" => "Point"}
+      static_is_method: {"make" => true}
+      vis: {"strings" => "pub", "values" => "pub", "_" => "pub", "make" => ""}
+      fields: {"strings" => null, "values" => null}
+      field_lines: {"strings" => 3, "values" => 4}
+      methods:
+        _: FunctionDeclaration 6
+          name: "_"
+          params: ["\$strings", "\$values"]
+          defaults: [null, null]
+          body: Compound
+            statements:
+              0: Statement 7
+                expr: Assign 7
+                  left: Property 7
+                    target: This 7
+                    name: "strings"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 7 ASSIGN =
+                  right: Variable 7
+                    token: 7 VAR_IDENTIFIER $strings
+                    value: "\$strings"
+              1: Statement 8
+                expr: Assign 8
+                  left: Property 8
+                    target: This 8
+                    name: "values"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 8 ASSIGN =
+                  right: Variable 8
+                    token: 8 VAR_IDENTIFIER $values
+                    value: "\$values"
+          arity: 2
+          kind: "Point"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"strings" => "Point", "values" => "Point"}
+      members: {"_" => "Point"}
+      abstract_methods: []
+      slots: [["strings", "Point", "pub"], ["values", "Point", "pub"]]
+      method_table: [["_", "Point", "pub", "Point"]]
+      owner_vis: {"make" => "", "strings" => "pub", "values" => "pub", "_" => "pub"}
+      declared_at: {"_" => "Point"}
+      hidden: []
+      hidden_fields: []
+    1: FunctionDeclaration 11
+      name: "Point::make"
+      params: ["\$strings", "\$values"]
+      defaults: [null, null]
+      body: Compound
+        statements:
+          0: ReturnStatement 12
+            expr: FunctionCall 12
+              name: "Point"
+              args:
+                0: Variable 12
+                  token: 12 VAR_IDENTIFIER $strings
+                  value: "\$strings"
+                1: Variable 12
+                  token: 12 VAR_IDENTIFIER $values
+                  value: "\$values"
+      arity: 2
+      kind: "Point"
+      abstract: false
+    2: Statement 16
+      expr: Assign 16
+        left: Variable 16
+          token: 16 VAR_IDENTIFIER $p
+          value: "\$p"
+        token: 16 ASSIGN =
+        right: FunctionCall 16
+          name: "Point"
+          args:
+            0: ArrayLiteral 16
+              entries:
+                0:
+                  0: null
+                  1: String 16
+                    token: 16 STRING "x {1} y"
+                    value: "x {1} y"
+              map: false
+            1: ArrayLiteral 16
+              entries: []
+              map: false
+          tagged: true
+    3: Statement 17
+      expr: Assign 17
+        left: Variable 17
+          token: 17 VAR_IDENTIFIER $q
+          value: "\$q"
+        token: 17 ASSIGN =
+        right: FunctionCall 17
+          name: "Point::make"
+          args:
+            0: ArrayLiteral 17
+              entries:
+                0:
+                  0: null
+                  1: String 17
+                    token: 17 STRING "z"
+                    value: "z"
+              map: false
+            1: ArrayLiteral 17
+              entries: []
+              map: false
+          tagged: true
+    4: Statement 18
+      expr: Assign 18
+        left: Variable 18
+          token: 18 VAR_IDENTIFIER $r
+          value: "\$r"
+        token: 18 ASSIGN =
+        right: FunctionCall 18
+          name: "in_array"
+          args:
+            0: ArrayLiteral 18
+              entries:
+                0:
+                  0: null
+                  1: String 18
+                    token: 18 STRING "w"
+                    value: "w"
+              map: false
+            1: ArrayLiteral 18
+              entries: []
+              map: false
+          tagged: true

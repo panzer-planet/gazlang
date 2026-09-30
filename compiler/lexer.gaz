@@ -508,11 +508,25 @@ pub kind Lexer {
         return $result;
     }
 
-    // A keyword, or an IDENTIFIER for any other bare name
+    /*
+     * A keyword, a TAG for a name touching a double quote (sql"..."), or an IDENTIFIER for any
+     * other bare name. A keyword is never a tag, so echo"x" still echoes; a name touching a
+     * single quote is refused, keeping name'...' free for a tag that takes its text raw.
+     */
     fn identifier() {
         $word = #read_word();
+        $keyword = #KEYWORDS[$word] ?? null;
+        if ($keyword != null) {
+            return Token($keyword, $word);
+        }
+        if (#char == "\"") {
+            return Token("TAG", $word);
+        }
+        if (#char == "'") {
+            #fail("A tag takes a double-quoted string: write {$word}\"...\", not {$word}'...'");
+        }
 
-        return Token(#KEYWORDS[$word] ?? "IDENTIFIER", $word);
+        return Token("IDENTIFIER", $word);
     }
 
     // A local ($name) or global (@name) variable; the sigil is part of the name

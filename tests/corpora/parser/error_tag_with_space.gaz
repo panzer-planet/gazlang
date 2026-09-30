@@ -1,0 +1,5 @@
+fn sql($strings, $values) {}
+
+$rows =
+    sql
+    "select 1";

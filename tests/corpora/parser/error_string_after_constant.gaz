@@ -1,0 +1,3 @@
+// A constant followed by a string is a missing comma, not a tag
+const A = 1;
+echo [A "x"];

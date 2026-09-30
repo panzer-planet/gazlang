@@ -1,0 +1,3 @@
+fn t($strings, $values) {}
+
+const TEXT = t"x";

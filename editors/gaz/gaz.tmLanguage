@@ -52,6 +52,10 @@
 		</dict>
 		<dict>
 			<key>include</key>
+			<string>#tags</string>
+		</dict>
+		<dict>
+			<key>include</key>
 			<string>#builtins</string>
 		</dict>
 		<dict>
@@ -346,6 +350,15 @@
 					<string>::</string>
 				</dict>
 			</array>
+		</dict>
+		<!-- sql"...", db::sql"...": a name touching a double quote is called with the string; a
+		     keyword before one (echo"x") was matched by the keywords rule already -->
+		<key>tags</key>
+		<dict>
+			<key>name</key>
+			<string>entity.name.function.call.tag.gaz</string>
+			<key>match</key>
+			<string>(?&lt;![\w.$@#])\b[a-zA-Z_][a-zA-Z0-9_]*(?=")</string>
 		</dict>
 		<key>builtins</key>
 		<dict>

@@ -1,0 +1,4 @@
+kind Empty {}
+
+$e =
+    Empty"x";
