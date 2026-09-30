@@ -1,0 +1,1 @@
+Error: An empty slot in a list is for taking one apart: write [$a, , $b] = $list, or give the slot a value at tests/corpora/parser/error_const_empty_slot_through_another_constant.gaz:3

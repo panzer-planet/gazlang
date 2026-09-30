@@ -2605,6 +2605,11 @@ kind Html {
             }
             #fail_at("A constant's value can only use literals, operators and other constants", $node.file, $node.line);
         }
+        // Constants fold before the empty slots left in #gaps are refused, so one here is refused
+        // now, in the same words, rather than reaching fold() as a null entry
+        if (in_array($node, #gaps)) {
+            #fail_gap($node);
+        }
         $parts = match {
             is_a($node, NumAST) || is_a($node, StringAST) || is_a($node, BooleanAST) || is_a($node, NullAST) => [],
             is_a($node, UnaryOpAST) => [$node.expr],
@@ -2622,6 +2627,11 @@ kind Html {
                 }
             }
         }
+    }
+
+    // Refuse a list literal left with an empty slot, which only a pattern may have
+    fn fail_gap($literal) {
+        #fail_at("An empty slot in a list is for taking one apart: write [\$a, , \$b] = \$list, or give the slot a value", $literal.file, $literal.line);
     }
 
     // Work out the value of a constant's expression, as a program would: $kind is the kind
@@ -3163,7 +3173,7 @@ kind Html {
             #check_member_use($node, $kind, $argc, $assigned, $written, $in_static);
         }
         foreach (#gaps as $gapped) {
-            #fail_at("An empty slot in a list is for taking one apart: write [\$a, , \$b] = \$list, or give the slot a value", $gapped.file, $gapped.line);
+            #fail_gap($gapped);
         }
         foreach (#dot_on_names as $node) {
             #check_dot_on_name($node);

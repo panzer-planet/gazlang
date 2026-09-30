@@ -1,0 +1,5 @@
+kind Suit {
+    const HEARTS = "hearts";
+    const ALL =
+        [,];
+}
