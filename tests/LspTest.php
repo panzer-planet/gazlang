@@ -295,20 +295,20 @@ class LspTest extends GazLangTestCase
         $this->assertSame(['label' => 'fn', 'kind' => 14], $byLabel['fn']);
         $this->assertSame(['label' => 'len', 'kind' => 3, 'detail' => '1 argument'], $byLabel['len']);
         $this->assertSame(['label' => 'slice', 'kind' => 3, 'detail' => '2 to 3 arguments'], $byLabel['slice']);
-        // A keyword that only hints at the right spelling isn't offered
+        // A word reserved for what isn't built isn't offered, nor another language's keyword
+        $this->assertArrayNotHasKey('interface', $byLabel);
         $this->assertArrayNotHasKey('function', $byLabel);
-        $this->assertArrayNotHasKey('class', $byLabel);
     }
 
     /**
      * Every keyword the lexer knows is offered, in its order, except the ones the parser only
-     * refuses with a hint, so a new keyword can't be forgotten by completion
+     * refuses (reserved for what isn't built), so a new keyword can't be forgotten by completion
      */
     public function test_completion_offers_every_keyword_of_the_lexer_but_the_hints()
     {
         preg_match('/pub const KEYWORDS = \{(.*?)\};/s', file_get_contents(self::ROOT.'/compiler/lexer.gaz'), $table);
         preg_match_all('/"(\w+)" =>/', $table[1], $words);
-        $hints = ['function', 'class', 'interface', 'implements', 'final', 'public', 'private', 'protected'];
+        $hints = ['interface', 'implements', 'final'];
         $offered = array_column(array_filter(
             $this->completionsFor('file:///a.gaz', "echo 1;\n"),
             fn ($item) => $item['kind'] === 14,

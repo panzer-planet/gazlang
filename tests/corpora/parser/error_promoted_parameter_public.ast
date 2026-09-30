@@ -1,1 +1,1 @@
-Error: public is reserved: write 'pub' at tests/corpora/parser/error_promoted_parameter_public.gaz:3
+Error: Undefined type: public at tests/corpora/parser/error_promoted_parameter_public.gaz:3

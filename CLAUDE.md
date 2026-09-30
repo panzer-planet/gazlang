@@ -349,9 +349,9 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   chain — resolved the way the real compiler resolves them, from the document's own directory,
   and only into files that exist on disk, so a `std/` include isn't chased — cycles ended by a
   set of real paths already visited on that branch), and completion (every keyword worth
-  completing: `Lexer::KEYWORDS` in its order, skipping the ones reserved only to hint at a
-  spelling, `Parser::RESERVED`, `Parser::INSTEAD` and `function` and `class`, so a new keyword
-  is offered by itself, which `LspTest` checks against the lexer's table; every builtin with its arity; every function the
+  completing: `Lexer::KEYWORDS` in its order, skipping the ones the parser only refuses,
+  `Parser::RESERVED`, so a new keyword is offered by itself, which `LspTest` checks against
+  the lexer's table; every builtin with its arity; every function the
   document can reach by name, itself and what it includes, each once even if declared reachably
   more than once; no filtering by what is typed, which editors do themselves) are done; textual,
   not from the parsed tree, since the tree doesn't exist while the document has an unrelated
@@ -471,9 +471,6 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - The keyword hint misses `IF (1) { }`, where the error lands at the `{`, past the name.
   - `CVMTest` doesn't catch `make compiler` checking in stage 1 instead of stage 2: that only
     shows when an edit changes code generation; a test for it needs a second rebuild and is wanted.
-  - **Open bugs**, found by audits and reviews and not fixed yet:
-    - `kind A { pub int public #x; }` (a reserved word after a type) gets the generic "Expected
-      a field after the type" error, not the hint to write `pub`.
 - **Language gaps**, closed in the order real code shows what shape each needs:
   - Appending to a list parameter silently does nothing (`fn add_to($l) { $l[] = 1; }`), and
     the parser can't tell it from a function that returns the list. Mutable state belongs in
@@ -926,8 +923,8 @@ Names are ASCII.
   callable before its declaration. The parser checks every call's name and argument count once
   the whole program is read, so the VM trusts calls. A default is evaluated on each call
   that leaves the argument out, inside the function, so it sees earlier parameters and a `[]`
-  default is never shared; the arity is then `[required, total]`. `function` is reserved and
-  says to write `fn`.
+  default is never shared; the arity is then `[required, total]`. `function` is an ordinary
+  name (and a type's), not a keyword.
 - **`$x` is always local** (to the running call or the top level), **`@x` always global**; a
   function can't read top-level `$x`. Parameters are `$` only, or a list pattern of `$`
   variables (below). `return` outside a function is a
@@ -1320,9 +1317,8 @@ $area = $c.area;                              // a bound method
   functions, builtins and constants. `abstract kind` can't be constructed; `abstract fn` must
   be defined by a concrete child kind. A kind body holds only fields, methods and constants.
 - **Kinds are values and constructing is a call**: `Point(1, 2)`, `$make = Point`. `echo
-  Point` prints `kind Point`. A call by name is checked like a function call. `class` is
-  reserved and says to write `kind`, the way `function` says to write `fn`; a kind is a kind
-  of thing, and `"kind"` is what `type_of` gives.
+  Point` prints `kind Point`. A call by name is checked like a function call. `class` is an
+  ordinary name; a kind is a kind of thing, and `"kind"` is what `type_of` gives.
 - **Constructing** sets the field defaults (the parent's first, in order), then runs `_` with
   the arguments. A kind without `_` inherits its parent's. A child calls the parent's with
   `##_(...)`, only in a constructor; nothing calls it automatically. `return value;` in `_` and
@@ -1358,10 +1354,11 @@ $area = $c.area;                              // a bound method
     `kin` is for what a kind declares on its children's behalf, which is why `protected` earns
     a rename where `extends` does not: it protects less than the default does, and a level is
     better named after who can see it. `kin` and `kind` are one root (kin, kind, kindred).
-    `public` and `protected` stay reserved and say to write `pub` and `kin`, the way
-    `function` says to write `fn`; `private` says a member needs no marker to be its own. Each
-    says so wherever it lands: where a statement, a member (after a marker too) or a promoted
-    parameter starts (`refuse_reserved_member()`).
+    `pub` and `kin` are the whole vocabulary of markers: `public`, `protected` and `private`
+    are ordinary names, so writing one is the plain error any stray name gets, and a reader
+    learns one spelling. Only `interface`, `implements` and `final` are reserved (decided, not
+    built), and say so wherever they land: where a statement, a member (after a marker too) or
+    an expression starts (`refuse_reserved_member()`).
   - **The asking kind is where the code is written**, not what the object is: `#name`,
     `##name` and a constant or static reached by name (`Kind::NAME`, `Kind::name`, whichever
     way it is used: read, written, called, taken as a value, piped into) are checked at parse
@@ -1643,8 +1640,8 @@ $double = (int $x) -> $x * 2;
   and gives the `]` error, which is the price of no lookahead.
 - **The names are `type_of()`'s and the kinds'**, resolved through namespaces like any name
   (`TypeAST`, resolved in `resolve_names()`, checked to be kinds in `check_types()`). A kind
-  can't be named after a builtin type, so `int` in a type always means the type. `kind`,
-  `function` and `null` are keywords, so `type_name()` takes those tokens too. No `mixed`: leave
+  can't be named after a builtin type, so `int` in a type always means the type. `kind` and
+  `null` are keywords, so `type_name()` takes those tokens too. No `mixed`: leave
   the type out. **No generics yet**: `list<int>` is refused with a message, since checking an
   element type at run time would walk the list on every call; generics come later as a static
   check only.

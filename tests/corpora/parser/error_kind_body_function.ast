@@ -1,1 +1,1 @@
-Error: Declare methods with fn, not function at tests/corpora/parser/error_kind_body_function.gaz:3
+Error: Expected a field (#name) after the type but found 'deposit' at tests/corpora/parser/error_kind_body_function.gaz:4

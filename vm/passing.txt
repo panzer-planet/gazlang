@@ -927,6 +927,7 @@ tests/corpora/parser/namespaces/main.gaz
 tests/corpora/parser/namespaces/tagged_namespaced.gaz
 tests/corpora/parser/no_error_kind.gaz
 tests/corpora/parser/nullsafe.gaz
+tests/corpora/parser/other_languages_words.gaz
 tests/corpora/parser/override_of_a_private_parent_method.gaz
 tests/corpora/parser/pattern_parameters.gaz
 tests/corpora/parser/pipe.gaz
@@ -1041,6 +1042,7 @@ tests/gaz/numbers/floats_test.gaz
 tests/gaz/objects/kind_members_by_name_test.gaz
 tests/gaz/objects/kind_of_test.gaz
 tests/gaz/objects/kinds_test.gaz
+tests/gaz/objects/other_languages_words_test.gaz
 tests/gaz/objects/private_member_names_test.gaz
 tests/gaz/objects/promoted_fields_test.gaz
 tests/gaz/operators/assignment_operators_test.gaz

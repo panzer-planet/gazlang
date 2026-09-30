@@ -52,7 +52,7 @@ const TOKEN_CLASSES = {
 };
 
 // The names of types that aren't keywords, as type_of() gives them; followed by ( one is a call
-const TYPE_NAMES = ["int", "float", "string", "bool", "list", "map", "object", "socket", "db", "file"];
+const TYPE_NAMES = ["int", "float", "string", "bool", "list", "map", "function", "object", "socket", "db", "file"];
 
 // The words that start a template directive line
 const TEMPLATE_DIRECTIVES = ["template", "if", "elseif", "else", "endif", "foreach", "endforeach"];

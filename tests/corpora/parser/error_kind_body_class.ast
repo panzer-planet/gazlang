@@ -1,1 +1,1 @@
-Error: Declare kinds with kind, not class at tests/corpora/parser/error_kind_body_class.gaz:3
+Error: Expected a field (#name) after the type but found 'Ledger' at tests/corpora/parser/error_kind_body_class.gaz:4

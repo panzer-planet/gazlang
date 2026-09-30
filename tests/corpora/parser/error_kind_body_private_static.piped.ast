@@ -1,1 +1,1 @@
-Error: private is reserved: a member says nothing to be its kind's own on line 3
+Error: Expected a field (#name) after the type but found 'static' on line 3

@@ -1,0 +1,23 @@
+include "std/test.gaz" use expect;
+
+/*
+ * function, class, public, private and protected are ordinary names: fn and kind declare, pub
+ * and kin are the markers, and function is still a type's name where a type goes
+ */
+const private = "a constant";
+fn public() { return "a function"; }
+fn function(function $f): string { return $f(); }
+
+kind class {
+    pub #protected = "a field";
+    pub fn private() { return private; }
+}
+kind protected extends class {}
+
+$o = protected();
+expect("a function named public", public(), "a function");
+expect("a function named function, taking a function", function(public), "a function");
+expect("a field named protected, after a dot", $o.protected, "a field");
+expect("a method named private, reading a constant of that name", $o.private(), "a constant");
+expect("kinds named class and protected", [kind_name(class), is_a($o, class)], ["class", true]);
+expect("function as a lambda's parameter type", ((function $g) -> $g())(public), "a function");

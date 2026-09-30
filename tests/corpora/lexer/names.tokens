@@ -51,7 +51,7 @@
 5 IDENTIFIER Default
 5 IDENTIFIER Kind
 5 IDENTIFIER Extends
-7 FUNCTION function
+7 IDENTIFIER function
 9 NAMESPACE namespace
 9 USE use
 9 PUB pub
@@ -60,7 +60,7 @@
 9 IDENTIFIER Pub
 9 IDENTIFIER namespaced
 9 IDENTIFIER used
-9 PUBLIC public
-9 PRIVATE private
-9 PROTECTED protected
+9 IDENTIFIER public
+9 IDENTIFIER private
+9 IDENTIFIER protected
 10 EOF

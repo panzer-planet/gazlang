@@ -1,0 +1,1 @@
+Error: Expected ';' but found 'f' at tests/corpora/parser/error_function_before_a_name.gaz:1

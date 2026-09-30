@@ -1,1 +1,1 @@
-Error: protected is reserved: write 'kin' at tests/corpora/parser/error_kind_body_protected.gaz:3
+Error: Undefined type: protected at tests/corpora/parser/error_kind_body_protected.gaz:3

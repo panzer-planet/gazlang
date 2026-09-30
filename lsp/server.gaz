@@ -19,22 +19,11 @@ include "../lib/regex.gaz";
 include "../lib/http.gaz";
 
 /*
- * Keywords that say to write another (fn, kind), where the parser has no table of them; the
- * rest reserved only to hint at a spelling are Parser::RESERVED and Parser::INSTEAD's
- */
-const SPELLED_OTHERWISE = ["FUNCTION", "CLASS"];
-
-/*
- * The lexer's own keywords (Lexer::KEYWORDS), in its order, minus the ones reserved only to
- * hint at the right spelling: completing one of those would just teach an error
+ * The lexer's own keywords (Lexer::KEYWORDS), in its order, minus the ones the parser only
+ * refuses (Parser::RESERVED): completing one of those would just teach an error
  */
 fn keywords() {
-    return filter(keys(Lexer::KEYWORDS), $word -> !hints_only(Lexer::KEYWORDS[$word]));
-}
-
-// Whether a keyword's token type is one the parser only ever refuses, saying what to write
-fn hints_only($type) {
-    return in_array($type, SPELLED_OTHERWISE) || in_array($type, Parser::RESERVED) || has_key(Parser::INSTEAD, $type);
+    return filter(keys(Lexer::KEYWORDS), $word -> !in_array(Lexer::KEYWORDS[$word], Parser::RESERVED));
 }
 
 /* A message framed with a Content-Length header, as every LSP transport uses, read and

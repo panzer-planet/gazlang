@@ -213,9 +213,9 @@ class FunctionTest extends GazLangTestCase
         $this->parse('fn outer() { fn inner() { } }');
     }
 
-    public function test_the_old_function_keyword_says_to_use_fn()
+    public function test_function_is_a_name_not_a_way_to_declare_one()
     {
-        $this->expectExceptionMessage('Declare functions with fn, not function on line 1');
+        $this->expectExceptionMessage("Expected ';' but found 'add' on line 1");
         $this->parse('function add($a, $b) { return $a + $b; }');
     }
 

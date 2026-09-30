@@ -214,7 +214,7 @@ kind Parser {
     // The type_of() names, which a type is made of besides kinds; no kind can be called one
     const TYPE_NAMES = ["int", "float", "string", "bool", "null", "list", "map", "function", "kind", "object", "socket", "db", "file"];
     // Three of them are keywords, so they arrive as their own tokens rather than as names
-    const TYPE_KEYWORDS = ["NULL", "KIND", "FUNCTION"];
+    const TYPE_KEYWORDS = ["NULL", "KIND"];
 
     // Whether any catch clause was parsed, so the program needs the Error kind
     #catches = false;
@@ -321,13 +321,6 @@ kind Html {
 
     // Keywords reserved for features that don't exist yet, so adding them never breaks a program
     pub const RESERVED = ["INTERFACE", "IMPLEMENTS", "FINAL"];
-
-    // Reserved, and each says how this language spells what it means
-    pub const INSTEAD = {
-        "PUBLIC" => "write 'pub'",
-        "PROTECTED" => "write 'kin'",
-        "PRIVATE" => "a member says nothing to be its kind's own",
-    };
 
     // Every builtin function mapped to its parameter count, [fewest, most] when some are
     // optional: the builtins of the runtime this parser runs on, which is the one that will run
@@ -610,7 +603,7 @@ kind Html {
         return #make_type($names, $start);
     }
 
-    // One name of a type: null, kind or function (keywords, but type names too), or a possibly
+    // One name of a type: null or kind (keywords, but type names too), or a possibly
     // qualified name; list<int> is refused for now
     fn type_name() {
         $token = #current_token;
@@ -756,8 +749,6 @@ kind Html {
             #fail("throw can't be an operand: write (throw ...)");
         } else if ($type == "SPREAD") {
             #fail("... only spreads into a list or map literal, as in [...\$a, 1] or \{...\$m, \"k\" => 1}");
-        } else if (has_key(#INSTEAD, $type)) {
-            #fail("{$token.value} is reserved: {#INSTEAD[$type]}");
         } else if (in_array($type, #RESERVED)) {
             #fail("{$token.value} is reserved");
         }
@@ -922,7 +913,7 @@ kind Html {
     // so ?int is read as a type outright.
     fn lambda_item($head) {
         $type = null;
-        if ($head && (#current_token.type == "QUESTION" || #current_token.type == "KIND" || #current_token.type == "FUNCTION")) {
+        if ($head && (#current_token.type == "QUESTION" || #current_token.type == "KIND")) {
             $type = #type();
         } else if ($head && (#current_token.type == "IDENTIFIER" || #current_token.type == "NULL")) {
             $uses = len(#uses);
@@ -2034,10 +2025,6 @@ kind Html {
                 $vis = #current_token.type == "PUB" ? "pub" : "kin";
                 #eat(#current_token.type);
             }
-            // public #x, protected #x, private #x: the markers are spelled pub and kin
-            if (has_key(#INSTEAD, #current_token.type)) {
-                #fail("{#current_token.value} is reserved: {#INSTEAD[#current_token.type]}");
-            }
             $type = null;
             if (#at_type()) {
                 $type_token = #current_token;
@@ -2175,15 +2162,9 @@ kind Html {
         return #at(StatementAST(#at(AssignAST($property, $assign_token, $variable), $token)), $token);
     }
 
-    // A reserved word where a member goes says what to write, as it does where a statement goes
+    // A reserved word where a member goes says so, as it does where a statement goes
     fn refuse_reserved_member() {
         $token = #current_token;
-        if (has_key(#INSTEAD, $token.type)) {
-            #fail("{$token.value} is reserved: {#INSTEAD[$token.type]}");
-        }
-        if ($token.type == "CLASS") {
-            #fail("Declare kinds with kind, not class");
-        }
         if (in_array($token.type, #RESERVED)) {
             #fail("{$token.value} is reserved");
         }
@@ -2201,9 +2182,6 @@ kind Html {
         $abstract = $start.type == "ABSTRACT";
         if ($abstract) {
             #eat("ABSTRACT");
-        }
-        if (#current_token.type == "CLASS") {
-            #fail("Declare kinds with kind, not class");
         }
         #eat("KIND");
         #check_new_name();
@@ -2243,9 +2221,6 @@ kind Html {
                 $type_token = #current_token;
                 $type = #type();
                 if (#current_token.type != "HASH_IDENTIFIER") {
-                    if ($type_token.type == "FUNCTION") {
-                        #fail_at("Declare methods with fn, not function", #file, $type_token.line);
-                    }
                     // A kind inside a kind was not a field of type kind
                     if ($type_token.type == "KIND") {
                         #fail_at("Expected a field (#name), a method (fn), a constant (const) or a static but found " .. #describe($type_token), #file, $type_token.line);
@@ -3056,10 +3031,6 @@ kind Html {
             #fail("Kinds can only be declared at the top level");
         } else if ($type == "CONST") {
             #fail("Constants can only be declared at the top level or in a kind");
-        } else if ($type == "FUNCTION") {
-            #fail("Declare functions with fn, not function");
-        } else if ($type == "CLASS") {
-            #fail("Declare kinds with kind, not class");
         } else if ($type == "INCLUDE") {
             #fail("include can only be used at the top level");
         } else if ($type == "MATCH") {

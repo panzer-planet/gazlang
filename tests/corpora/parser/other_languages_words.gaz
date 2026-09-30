@@ -1,0 +1,11 @@
+// Other languages' words are ordinary names: pub and kin are the markers, fn and kind declare
+const private = "private";
+fn public() { return "public"; }
+fn function($f) { return $f(); }
+kind class {
+    pub #protected = "protected";
+    pub fn private() { return private; }
+}
+kind protected extends class {}
+$o = protected();
+echo [public(), function(public), $o.protected, $o.private(), kind_name(class)];

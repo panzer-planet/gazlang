@@ -1,0 +1,1 @@
+Error: Expected ';' but found 'fn' at tests/corpora/parser/error_public_before_fn.gaz:2

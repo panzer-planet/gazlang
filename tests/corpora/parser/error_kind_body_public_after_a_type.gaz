@@ -1,0 +1,4 @@
+kind Account {
+    pub int
+        public #balance;
+}

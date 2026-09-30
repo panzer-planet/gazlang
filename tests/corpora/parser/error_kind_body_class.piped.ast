@@ -1,1 +1,1 @@
-Error: Declare kinds with kind, not class on line 3
+Error: Expected a field (#name) after the type but found 'Ledger' on line 4

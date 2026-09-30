@@ -1,0 +1,6 @@
+ok a function named public
+ok a function named function, taking a function
+ok a field named protected, after a dot
+ok a method named private, reading a constant of that name
+ok kinds named class and protected
+ok function as a lambda's parameter type

@@ -1,1 +1,1 @@
-Error: Declare methods with fn, not function on line 3
+Error: Expected a field (#name) after the type but found 'deposit' on line 4

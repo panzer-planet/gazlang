@@ -1,1 +1,1 @@
-Error: public is reserved: write 'pub' at tests/corpora/parser/error_kind_body_public_after_pub.gaz:3
+Error: Expected a field (#name) after the type but found 'fn' at tests/corpora/parser/error_kind_body_public_after_pub.gaz:3

@@ -157,9 +157,9 @@
 25 INTERFACE interface
 25 IMPLEMENTS implements
 25 FINAL final
-25 PUBLIC public
-25 PRIVATE private
-25 PROTECTED protected
+25 IDENTIFIER public
+25 IDENTIFIER private
+25 IDENTIFIER protected
 26 KIND kind
 26 EXTENDS extends
 26 IDENTIFIER Kind

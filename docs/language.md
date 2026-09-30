@@ -445,8 +445,8 @@ echo is_a($c, Shape) .. " " .. $c.radius;
 - **`kin` is for what a kind declares on its children's behalf**: a field they set, a method
   they call, a hook they define. `protected` earns a rename where `extends` does not, since it
   famously protects less than the default does, and a level is better named after who can see
-  it. `public` and `protected` stay reserved and say to write `pub` and `kin`; `private` says a
-  member needs no marker to be its kind's own.
+  it. `pub` and `kin` are the whole vocabulary of markers: `public`, `protected` and `private`
+  are ordinary names.
 - **A parent's private member is the parent's own.** A child can't name it, and may declare a
   method, constant or static of its own by the same name; both live on, and each kind's code
   reaches the one it can see. A field may not be reused, since a field is a slot: the name is
@@ -594,9 +594,9 @@ works. An unterminated block comment is an error at the line it opened on.
 
 The keywords are `echo if else while for foreach as break continue fn return null delete match
 default const include try catch finally throw true false kind extends abstract namespace use pub
-kin static shared`. `interface`, `implements` and `final` are reserved, and
-`function`, `class`, `public`, `private` and `protected` are reserved to say what to write
-instead.
+kin static shared`. `interface`, `implements` and `final` are reserved for features decided but
+not built. Other languages' words (`function`, `class`, `public`, `private`, `protected`) are
+ordinary names.
 
 Keywords are lowercase and matched exactly, so `kind If`, `fn Return()` and `$while` are all
 ordinary names. Writing a keyword in the wrong case says so. Sigils and member names have their

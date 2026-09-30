@@ -1,0 +1,161 @@
+Compound
+  statements:
+@ null
+    0: FunctionDeclaration 3
+      name: "public"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 3
+            expr: String 3
+              token: 3 STRING "public"
+              value: "public"
+      arity: 0
+      kind: null
+      abstract: false
+    1: FunctionDeclaration 4
+      name: "function"
+      params: ["\$f"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: ReturnStatement 4
+            expr: CallValue 4
+              callee: Variable 4
+                token: 4 VAR_IDENTIFIER $f
+                value: "\$f"
+              args: []
+      arity: 1
+      kind: null
+      abstract: false
+    2: KindDeclaration 5
+      name: "class"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"protected" => "pub", "private" => "pub"}
+      fields:
+        protected: String 6
+          token: 6 STRING "protected"
+          value: "protected"
+      field_lines: {"protected" => 6}
+      methods:
+        private: FunctionDeclaration 7
+          name: "private"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 7
+                expr: FunctionRef 7
+                  name: "private"
+                  constant: true
+                  value: "private"
+                  static_name: null
+          arity: 0
+          kind: "class"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"protected" => "class"}
+      members: {"private" => "class"}
+      abstract_methods: []
+      slots: [["protected", "class", "pub"]]
+      method_table: [["private", "class", "pub", "class"]]
+      owner_vis: {"protected" => "pub", "private" => "pub"}
+      declared_at: {"private" => "class"}
+      hidden: []
+      hidden_fields: []
+    3: KindDeclaration 9
+      name: "protected"
+      parent: "class"
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: []
+      fields: []
+      field_lines: []
+      methods: []
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"protected" => "class"}
+      members: {"private" => "class"}
+      abstract_methods: []
+      slots: [["protected", "class", "pub"]]
+      method_table: [["private", "class", "pub", "class"]]
+      owner_vis: {"protected" => "pub", "private" => "pub"}
+      declared_at: {"private" => "class"}
+      hidden: []
+      hidden_fields: []
+    4: Statement 10
+      expr: Assign 10
+        left: Variable 10
+          token: 10 VAR_IDENTIFIER $o
+          value: "\$o"
+        token: 10 ASSIGN =
+        right: FunctionCall 10
+          name: "protected"
+          args: []
+    5: EchoStatement 11
+      expr: ArrayLiteral 11
+        entries:
+          0:
+            0: null
+            1: FunctionCall 11
+              name: "public"
+              args: []
+          1:
+            0: null
+            1: FunctionCall 11
+              name: "function"
+              args:
+                0: FunctionRef 11
+                  name: "public"
+                  constant: false
+                  value: null
+                  static_name: null
+          2:
+            0: null
+            1: Property 11
+              target: Variable 11
+                token: 11 VAR_IDENTIFIER $o
+                value: "\$o"
+              name: "protected"
+              field: false
+              constant: false
+              value: null
+              static_name: null
+          3:
+            0: null
+            1: MethodCall 11
+              property: Property 11
+                target: Variable 11
+                  token: 11 VAR_IDENTIFIER $o
+                  value: "\$o"
+                name: "private"
+                field: false
+                constant: false
+                value: null
+                static_name: null
+              args: []
+          4:
+            0: null
+            1: FunctionCall 11
+              name: "kind_name"
+              args:
+                0: FunctionRef 11
+                  name: "class"
+                  constant: false
+                  value: null
+                  static_name: null
+        map: false
