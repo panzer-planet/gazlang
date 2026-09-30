@@ -1,0 +1,12 @@
+<b>x</b>
+<b>x</b>
+[<b>x</b>, {"k" => <b>x</b>}]
+<b>x</b> <b>x</b>
+0: Cannot concatenate Html: build it with web::html"...", or use .text for its markup as a plain string at line 12
+1: Cannot concatenate Html: build it with web::html"...", or use .text for its markup as a plain string at line 13
+2: Cannot concatenate Html: build it with web::html"...", or use .text for its markup as a plain string at line 16
+3: Cannot concatenate Html: build it with web::html"...", or use .text for its markup as a plain string at line 20
+4: Cannot concatenate Html: build it with web::html"...", or use .text for its markup as a plain string at line 24
+5: Cannot concatenate Html: build it with web::html"...", or use .text for its markup as a plain string at line 28
+6: Cannot concatenate Html: build it with web::html"...", or use .text for its markup as a plain string at line 30
+7: Cannot concatenate Html: build it with web::html"...", or use .text for its markup as a plain string at line 34

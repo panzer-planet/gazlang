@@ -1385,6 +1385,7 @@ static void build_kinds(void) {
             }
             prog->error_kind = c;
         }
+        if (!strcmp(c->name->data, "Html")) prog->html_kind = c;
     }
 }
 

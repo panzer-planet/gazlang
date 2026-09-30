@@ -1,0 +1,47 @@
+// An Html is printed as it is, but refused wherever it would be joined into a new string
+$h = Html("<b>x</b>");
+echo $h;
+print($h);
+print_error($h);
+echo "";
+echo [$h, {"k" => $h}];
+echo to_string($h) .. " " .. $h.text;
+
+// Each path the C takes: .., ..= on a local, a global, a captured variable and a path, join()
+$tries = [
+    () -> $h .. "",
+    () -> 1 .. $h,
+    () -> {
+        $s = "";
+        $s ..= $h;
+    },
+    () -> {
+        @g = "";
+        @g ..= $h;
+    },
+    () -> {
+        $list = ["a"];
+        $list[0] ..= $h;
+    },
+    () -> {
+        $o = Html("");
+        $o ..= "a";
+    },
+    () -> join([1, $h], ""),
+];
+$captured = "";
+$tries[] = () -> {
+    $captured ..= $h;
+};
+foreach ($tries as $i => $try) {
+    try {
+        $try();
+        echo "{$i}: no error";
+    } catch (Error $e) {
+        echo "{$i}: {$e.message} at line {$e.line}";
+    }
+}
+
+// Uncaught, it ends the program at the operator
+echo "a" ..
+    $h;

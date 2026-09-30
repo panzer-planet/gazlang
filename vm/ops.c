@@ -196,7 +196,7 @@ bool binary_op(int op, Value l, Value r, Value *out) {
         /* Most concatenations are short: stay off the heap unless this one isn't */
         char scratch[64];
         Buf b = { .data = scratch, .cap = sizeof scratch, .on_stack = true };
-        if (!append_string(l, &b) || !append_string(r, &b)) {
+        if (!append_joined(l, &b) || !append_joined(r, &b)) {
             if (!b.on_stack) free(b.data);
             return false;
         }
@@ -674,7 +674,17 @@ bool remove_path(Value *slot, Str *var_name, Path *path, Value *keys, Kind *aski
 bool concat_assign(Value *slot, Value v, Value *out) {
     if (slot->type == T_STRING) {
         Str *text;
-        if (!to_string(v, &text)) return false;
+        if (v.type == T_STRING) {
+            incref(v);
+            text = v.s;
+        } else {
+            Buf b = {0};
+            if (!append_joined(v, &b)) {
+                free(b.data);
+                return false;
+            }
+            text = buf_to_str(&b);
+        }
         /* to_string() may have run a method that changed the variable */
         if (slot->type == T_STRING) {
             if (slot->s->rc == 1) {

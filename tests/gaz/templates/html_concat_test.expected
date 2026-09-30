@@ -1,0 +1,22 @@
+ok Html .. string
+ok string .. Html
+ok Html .. Html
+ok interpolated in braces
+ok interpolated bare
+ok join()
+ok join() of Html alone
+ok a string ..= an Html
+ok an Html ..= a string
+ok an element ..= an Html
+ok a template's result, from a method
+ok the error is at the operator
+ok the variable is as it was
+ok to_string()
+ok the to_string() method
+ok .text
+ok Html::escape() keeps it
+ok in a list, as a literal
+ok {{ }} and {!! !!} of an Html
+ok {!! !!} of a string
+ok a layout around a template
+ok any other object

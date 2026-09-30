@@ -363,6 +363,7 @@ typedef struct Program {
     int nkinds;
     Kind *kinds;
     Kind *error_kind; /* the builtin Error kind, when the program has it */
+    Kind *html_kind;  /* the builtin Html kind, which .. and join() refuse (append_joined()) */
     int max_frame;      /* the most stack one frame can need: locals plus its deepest stack */
 } Program;
 
@@ -479,6 +480,7 @@ void format_float(double f, Buf *out);
 void quote(const Str *s, Buf *out);
 bool to_string(Value v, Str **out);          /* echo's text; can run to_string() */
 bool append_string(Value v, Buf *out);       /* the same, into a buffer */
+bool append_joined(Value v, Buf *out);       /* the same for .., ..= and join(), refusing an Html */
 bool values_equal(Value a, Value b);
 int compare_numbers(Value a, Value b);       /* -1, 0 or 1 */
 bool parse_integer(const char *s, size_t len, int64_t *out);

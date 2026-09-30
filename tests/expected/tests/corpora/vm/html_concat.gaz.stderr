@@ -1,0 +1,1 @@
+<b>x</b>Error: Cannot concatenate Html: build it with web::html"...", or use .text for its markup as a plain string at tests/corpora/vm/html_concat.gaz:46

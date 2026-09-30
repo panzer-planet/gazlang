@@ -11,7 +11,8 @@
  *   (after the last line)                     return Html($#html); }
  *
  * - {{ expression }} is escaped as HTML, unless it is an Html (another template's result), which
- *   goes in as it is; {!! expression !!} goes in as it is whatever it is.
+ *   goes in as it is; {!! expression !!} goes in as it is whatever it is, through to_string(),
+ *   since ..= refuses an Html.
  * - @if (...), @elseif (...), @else, @endif, @foreach (...), @endforeach, each alone on its line,
  *   and a line holding one writes nothing. Another @word (CSS's @media) is text.
  * - {{-- comment --}} writes nothing (a line holding only one, not even its line end), and @{{
@@ -252,7 +253,7 @@ kind TemplateLine {
         if ($escaped) {
             #append("Html::escape(" .. $code .. ")");
         } else {
-            #append("(" .. $code .. ")");
+            #append("to_string((" .. $code .. "))");
         }
         #at = $end + len($closing);
     }

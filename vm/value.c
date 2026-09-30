@@ -712,6 +712,18 @@ bool append_string(Value v, Buf *out) {
     }
 }
 
+/*
+ * The text .., ..= and join() make, which is echo's except for an Html (or a kind extending it):
+ * joined into a plain string, it would be escaped again by {{ }}, so it is refused, without
+ * naming its contents. echo, print and to_string() stay append_string()'s.
+ */
+bool append_joined(Value v, Buf *out) {
+    if (v.type == T_OBJECT && program->html_kind && kind_is_a(v.o->kind, program->html_kind)) {
+        return raisef("Cannot concatenate Html: build it with web::html\"...\", or use .text for its markup as a plain string");
+    }
+    return append_string(v, out);
+}
+
 bool to_string(Value v, Str **out) {
     if (v.type == T_STRING) {
         incref(v);

@@ -1343,6 +1343,11 @@ http::serve($listener, $request -> ({"body" => user_page($user, $posts)}));
   without escaping twice: `{{ header($title) }}`, or a layout given a page as a parameter.
   `Html($text)` marks text you trust as HTML, and `Html::escape($value)` escapes a value as
   `{{ }}` would. `http::serve` sends an `Html` body as `text/html; charset=utf-8`.
+- **An `Html` can't be concatenated**: joined into a plain string, `{{ }}` would escape its
+  markup a second time. `..`, `..=`, `join()` and interpolation refuse one with `Cannot
+  concatenate Html: build it with web::html"...", or use .text for its markup as a plain
+  string`; `echo`, `print`, `to_string($h)` and `$h.text` give its markup when a plain string is
+  what you want.
 - `@if (...)`, `@elseif (...)`, `@else`, `@endif`, `@foreach (...)` and `@endforeach` each stand
   alone on their line, which writes nothing. Their conditions are GazLang's, in parentheses.
 - `{{-- comment --}}` writes nothing; a line holding only one writes nothing at all. `@{{` writes

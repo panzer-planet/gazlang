@@ -1497,6 +1497,16 @@ turns a mistake into a message and an exit.
   in review, where if every include needed one, a `{!! $comment !!}` would hide among them. It is
   how Rails, Django and Jinja stay safe. `Html($text)` marks text as trusted; `http::serve` takes
   an `Html` body, as `text/html; charset=utf-8` unless a Content-Type is given.
+- **Concatenating an `Html` is an error** (`Cannot concatenate Html: build it with
+  web::html"...", or use .text for its markup as a plain string`), since the plain string it
+  gave was escaped again by `{{ }}`: `..`, `..=`, `join()` and so interpolation, either side,
+  a kind extending `Html` too, and never its contents in the message. The loader notes the kind
+  named `Html` (`html_kind`, as `error_kind`) and `append_joined()` in `value.c` refuses it on
+  the conversion path, one tag compare ahead of echo's conversion (the `strings` and `objects`
+  benchmarks didn't move). `echo`, `print`,
+  `to_string()`, `.text` and `format`'s helpers (which call `to_string()`) make no `..` and still
+  give the markup; `{!! !!}` writes `to_string((...))` for the same reason. Any other object with
+  a `to_string()` concatenates as before.
 - **`Html` is a builtin kind in `BUILTIN_SOURCE`**, like `Error` and `Shared`, compiled into a
   program that includes a template or names `Html` itself (not because its own code does). It is
   the first builtin kind with a static method, which `program()` places itself, since only

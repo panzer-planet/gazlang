@@ -846,7 +846,7 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         Buf text = {0};
         for (size_t i = 0; i < a.l->len; i++) {
             if (i) buf_add_str(&text, b.s);
-            if (!append_string(a.l->items[i], &text)) {
+            if (!append_joined(a.l->items[i], &text)) {
                 free(text.data);
                 return false;
             }

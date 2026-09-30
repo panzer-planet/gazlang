@@ -1,0 +1,70 @@
+include "std/test.gaz" use expect, throws;
+include "views/shown.gazml";
+include "views/layout.gazml";
+
+/*
+ * An Html joined into a plain string would be escaped a second time by {{ }}, so .., ..=, join()
+ * and interpolation refuse one; echo, print, to_string() and .text are how to get its markup
+ */
+const REFUSED = "Cannot concatenate Html: build it with web::html\"...\", or use .text for its markup as a plain string";
+
+kind Card {
+    fn _(#title) {}
+
+    pub fn html() {
+        return shown(#title);
+    }
+}
+
+$h = Html("<b>x</b>");
+throws("Html .. string", () -> $h .. " tail", REFUSED);
+throws("string .. Html", () -> "y" .. $h, REFUSED);
+throws("Html .. Html", () -> $h .. $h, REFUSED);
+throws("interpolated in braces", () -> "{$h}", REFUSED);
+throws("interpolated bare", () -> "$h!", REFUSED);
+throws("join()", () -> join(["a", $h], ","), REFUSED);
+throws("join() of Html alone", () -> join([$h], ""), REFUSED);
+throws("a string ..= an Html", () -> {
+    $s = "a";
+    $s ..= $h;
+}, REFUSED);
+throws("an Html ..= a string", () -> {
+    $g = Html("<i>");
+    $g ..= "y";
+}, REFUSED);
+throws("an element ..= an Html", () -> {
+    $m = {"k" => "a"};
+    $m["k"] ..= $h;
+}, REFUSED);
+throws("a template's result, from a method", () -> "<div>" .. Card("t").html(), REFUSED);
+
+/* Nothing is written when ..= refuses */
+$s = "kept";
+try {
+    $s ..= $h;
+} catch (Error $e) {
+    expect("the error is at the operator", $e.line, 44);
+}
+expect("the variable is as it was", $s, "kept");
+
+/* Getting the markup on purpose */
+expect("to_string()", to_string($h), "<b>x</b>");
+expect("the to_string() method", $h.to_string(), "<b>x</b>");
+expect(".text", $h.text .. " tail", "<b>x</b> tail");
+expect("Html::escape() keeps it", Html::escape($h), "<b>x</b>");
+expect("in a list, as a literal", to_string([$h]), "[<b>x</b>]");
+
+/* Templates still write an Html as it is, in {{ }} and {!! !!}, and around one another */
+expect("{{ }} and {!! !!} of an Html", to_string(shown($h)), "[<b>x</b>] [<b>x</b>]\n");
+expect("{!! !!} of a string", to_string(shown("<i>")), "[&lt;i&gt;] [<i>]\n");
+expect("a layout around a template", contains(to_string(layout("t", shown($h))), "[<b>x</b>] [<b>x</b>]"), true);
+
+/* Another object that prints through to_string() still concatenates */
+kind Name {
+    fn _(#text) {}
+
+    pub fn to_string() {
+        return #text;
+    }
+}
+expect("any other object", Name("Ann") .. "!", "Ann!");

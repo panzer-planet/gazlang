@@ -484,9 +484,12 @@ Compound
                       token: 4 VAR_IDENTIFIER $#html
                       value: "$#html"
                     token: 4 CONCAT_ASSIGN ..=
-                    right: Variable 4
-                      token: 4 VAR_IDENTIFIER $item
-                      value: "\$item"
+                    right: FunctionCall 4
+                      name: "to_string"
+                      args:
+                        0: Variable 4
+                          token: 4 VAR_IDENTIFIER $item
+                          value: "\$item"
                 2: Statement 4
                   expr: Assign 4
                     left: Variable 4
