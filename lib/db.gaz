@@ -81,3 +81,207 @@ pub kind Db {
 pub fn open($url) {
     return Db($url);
 }
+
+// What a value sent to the database may be, and what an in (...) list may hold
+const SCALARS = ["int", "float", "string", "bool", "null"];
+const DIGITS = "0123456789";
+
+/*
+ * A piece of SQL with its values kept apart, made by the tag `db::sql"..."`, or by `db::raw()`. The
+ * text parts are always one more than the values. Nothing about it changes once it is made, and
+ * printing it shows the SQL with `?` for each value, never the values, which may be secrets.
+ */
+pub kind Sql {
+    #strings;
+    #values;
+
+    fn _(list $strings, list $values) {
+        if (len($strings) != len($values) + 1) {
+            throw "db::Sql() takes one more text part than values, got " .. len($strings) .. " and " .. len($values);
+        }
+        foreach ($strings as $text) {
+            if (type_of($text) != "string") {
+                throw "db::Sql() takes strings as its text parts, got " .. described($text);
+            }
+        }
+        foreach ($values as $value) {
+            check_value($value);
+        }
+        #strings = $strings;
+        #values = $values;
+    }
+
+    /*
+     * The SQL for one database and the values to send with it, as `[$text, $params]`.
+     * `$placeholder` gives the text for the Nth value, counted from 1 across every fragment spliced
+     * in: `$n -> "?"` for SQLite, `$n -> '$' .. $n` for PostgreSQL. A `Db` calls it for you.
+     */
+    pub fn render($placeholder): list {
+        $rendering = Rendering($placeholder);
+        #write_into($rendering);
+        return [$rendering.text, $rendering.params];
+    }
+
+    pub fn to_string(): string {
+        return #render($n -> "?")[0];
+    }
+
+    fn write_into($rendering) {
+        foreach (#values as $i => $value) {
+            $rendering.write(#strings[$i]);
+            #write_value($rendering, $value);
+        }
+        $rendering.write(last(#strings));
+    }
+
+    fn write_value($rendering, $value) {
+        if (is_a($value, Sql)) {
+            $value.write_into($rendering);
+            return;
+        }
+        if (is_a($value, Ident)) {
+            $rendering.write($value.quoted());
+            return;
+        }
+        if (type_of($value) == "list") {
+            #write_list($rendering, $value);
+            return;
+        }
+        $rendering.parameter($value);
+    }
+
+    // A list is one placeholder for each item, in parentheses, for in (...)
+    fn write_list($rendering, $items) {
+        $rendering.write("(");
+        foreach ($items as $i => $item) {
+            if ($i > 0) {
+                $rendering.write(", ");
+            }
+            $rendering.parameter($item);
+        }
+        $rendering.write(")");
+    }
+}
+
+// The text being written and the values it has taken so far
+kind Rendering {
+    pub #text = "";
+    pub #params = [];
+    #placeholder;
+
+    fn _($placeholder) {
+        #placeholder = $placeholder;
+    }
+
+    pub fn write($text) {
+        #text ..= $text;
+    }
+
+    pub fn parameter($value) {
+        #params[] = $value;
+        $placeholder = #placeholder;
+        #text ..= $placeholder(len(#params));
+    }
+}
+
+/*
+ * A name in the SQL (a table or a column) that can't be a parameter, written `"name"` with each `"`
+ * in it doubled, so any text is one name and never more SQL. Quoted names keep their case in
+ * PostgreSQL: `"Name"` and `name` are different columns there. A dot is part of the name, so a table
+ * in a schema is two, `{$schema}.{$table}`, each a `db::ident()`.
+ */
+pub kind Ident {
+    #name;
+
+    fn _(string $name) {
+        if ($name == "") {
+            throw "db::ident() can't take an empty name";
+        }
+        if (contains($name, "\0")) {
+            throw "db::ident() can't take a name holding a NUL byte";
+        }
+        #name = $name;
+    }
+
+    pub fn quoted(): string {
+        return '"' .. replace(#name, '"', '""') .. '"';
+    }
+
+    pub fn to_string(): string {
+        return #quoted();
+    }
+}
+
+/*
+ * The tag: `db::sql"select * from users where id = {$id}"` is SQL whose values are sent apart from
+ * it, so nothing in them is ever read as SQL. A value may be:
+ *
+ * - an int, float, string, bool or null: one parameter;
+ * - a list of those: `(?, ?, ?)`, for `where id in {$ids}`; an empty list is an error, since
+ *   `in ()` isn't SQL and what no items should mean (nothing, or everything) is the program's to say;
+ * - another `db::sql"..."`: spliced in, its values numbered along with the rest, so a condition can
+ *   be built apart and added or left out;
+ * - `db::ident($name)`: a table or column name, quoted.
+ *
+ * The text can't hold `$1`: that is how PostgreSQL numbers parameters, so it would be read as the
+ * first value, whichever that is. Interpolate the value instead, or use `db::raw()`.
+ */
+pub fn sql(list $strings, list $values): Sql {
+    foreach ($strings as $text) {
+        check_no_numbered_placeholder($text);
+    }
+    return Sql($strings, $values);
+}
+
+/*
+ * SQL built some other way, used as it is, with no values: a migration read from a file, or a
+ * statement put together by code that is trusted to do so. Every use is a place to check by hand.
+ */
+pub fn raw(string $text): Sql {
+    return Sql([$text], []);
+}
+
+// A table or column name for a `db::sql"..."`, written quoted (see `Ident`)
+pub fn ident(string $name): Ident {
+    return Ident($name);
+}
+
+fn check_no_numbered_placeholder($text) {
+    foreach (split(DIGITS, "") as $digit) {
+        if (contains($text, '$' .. $digit)) {
+            throw 'db::sql text can\'t hold $' .. $digit .. ": interpolate the value instead";
+        }
+    }
+}
+
+fn check_value($value) {
+    if (is_a($value, Sql) || is_a($value, Ident) || in_array(type_of($value), SCALARS)) {
+        return;
+    }
+    if (type_of($value) != "list") {
+        throw "db::sql can't send " .. described($value) .. ': a value is an int, float, string, bool or null, a list of those, a db::sql"..." or a db::ident()';
+    }
+    if (len($value) == 0) {
+        throw "db::sql can't put an empty list in (...): decide what no items means";
+    }
+    foreach ($value as $item) {
+        if (!in_array(type_of($item), SCALARS)) {
+            throw "db::sql can't put " .. described($item) .. " in a list: an in (...) list holds ints, floats, strings, bools and nulls";
+        }
+    }
+}
+
+// A value's type for a message: "a string", "an int", "null", "a Point"
+fn described($value) {
+    $type = type_of($value);
+    if ($type == "object") {
+        $type = kind_name($value);
+    }
+    if ($type == "null") {
+        return "null";
+    }
+    if ($type == "int") {
+        return "an int";
+    }
+    return "a " .. $type;
+}

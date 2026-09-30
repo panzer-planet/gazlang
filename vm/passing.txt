@@ -1023,6 +1023,7 @@ tests/gaz/lib/random_test.gaz
 tests/gaz/lib/regex_test.gaz
 tests/gaz/lib/router_test.gaz
 tests/gaz/lib/sorting_test.gaz
+tests/gaz/lib/sql_test.gaz
 tests/gaz/lib/strings_test.gaz
 tests/gaz/lib/term_test.gaz
 tests/gaz/lib/test_test.gaz

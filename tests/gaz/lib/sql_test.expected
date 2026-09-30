@@ -1,0 +1,46 @@
+ok a tag is an Sql
+ok SQLite's placeholders
+ok PostgreSQL's are numbered
+ok printing shows the SQL, never the values
+ok and so does interpolating it
+ok no interpolation, no parameters
+ok a value at each end
+ok values keep their types
+ok an expression is one value
+ok a string holding SQL is only a value
+ok NUL bytes and quotes stay in the value
+ok text that isn't an interpolation is text
+ok SQL over several lines
+ok a fragment is spliced in, numbered with the rest
+ok and for SQLite
+ok an empty fragment adds nothing
+ok a fragment used twice numbers each use
+ok fragments nest in fragments
+ok rendering again gives the same
+ok a list is a placeholder for each item
+ok a list of one
+ok a list's items keep their types
+ok a list prints as its placeholders
+ok an empty list is refused
+ok a list in a list
+ok a fragment in a list
+ok a name is quoted
+ok a quote in a name is doubled, so it stays one name
+ok a name prints quoted
+ok a dot is part of the name
+ok an empty name
+ok a NUL in a name
+ok a name is a string
+ok a name in a list
+ok $1 in the text is refused
+ok so is any $ and digit
+ok a $ alone is text
+ok a map is refused
+ok a function is refused
+ok an object is refused by its kind
+ok a tag is called with lists
+ok one more text part than values
+ok text parts are strings
+ok raw is used as it is
+ok raw is an Sql, so it can be spliced in
+ok raw takes a string

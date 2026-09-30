@@ -1,0 +1,107 @@
+/*
+ * db::sql"...", db::raw() and db::ident(), rendered for each database's placeholders without one:
+ * what a Db sends is Sql.render()'s text and parameters, so these are what reaches the driver.
+ */
+include "std/test.gaz" use expect, throws;
+include "../../../lib/db.gaz";
+
+fn sqlite($sql) {
+    return $sql.render($n -> "?");
+}
+
+fn postgres($sql) {
+    return $sql.render($n -> '$' .. $n);
+}
+
+$id = 7;
+$name = "Ada";
+$query = db::sql"select * from users where id = {$id} and name = {$name}";
+expect("a tag is an Sql", is_a($query, db::Sql), true);
+expect("SQLite's placeholders", sqlite($query), ["select * from users where id = ? and name = ?", [7, "Ada"]]);
+expect("PostgreSQL's are numbered", postgres($query), ['select * from users where id = $1 and name = $2', [7, "Ada"]]);
+expect("printing shows the SQL, never the values", to_string($query), "select * from users where id = ? and name = ?");
+expect("and so does interpolating it", "{$query}", "select * from users where id = ? and name = ?");
+
+expect("no interpolation, no parameters", postgres(db::sql"select 1"), ["select 1", []]);
+expect("a value at each end", postgres(db::sql"{$id}{$name}"), ['$1$2', [7, "Ada"]]);
+$values = [1, 2.5, true, false, null, "1"];
+expect("values keep their types", postgres(db::sql"select {$values[0]}, {$values[1]}, {$values[2]}, {$values[3]}, {$values[4]}, {$values[5]}"),
+    ['select $1, $2, $3, $4, $5, $6', [1, 2.5, true, false, null, "1"]]);
+expect("an expression is one value", sqlite(db::sql"select {$id * 2}"), ["select ?", [14]]);
+$attack = "'; drop table t; --";
+expect("a string holding SQL is only a value", postgres(db::sql"select {$attack}"), ['select $1', ["'; drop table t; --"]]);
+$odd_text = "a\0'\"b";
+expect("NUL bytes and quotes stay in the value", sqlite(db::sql"select {$odd_text}"), ["select ?", ["a\0'\"b"]]);
+expect("text that isn't an interpolation is text", sqlite(db::sql"select '{1}'"), ["select '{1}'", []]);
+expect("SQL over several lines", postgres(db::sql"
+    select name
+    from users
+    where id = {$id}
+"), ['
+    select name
+    from users
+    where id = $1
+', [7]]);
+
+$older = 30;
+$filter = db::sql" and age > {$older}";
+$nested = db::sql"select * from users where name = {$name}{$filter} and id = {$id}";
+expect("a fragment is spliced in, numbered with the rest", postgres($nested),
+    ['select * from users where name = $1 and age > $2 and id = $3', ["Ada", 30, 7]]);
+expect("and for SQLite", sqlite($nested), ["select * from users where name = ? and age > ? and id = ?", ["Ada", 30, 7]]);
+$none = db::sql"";
+expect("an empty fragment adds nothing", postgres(db::sql"select 1{$none}"), ["select 1", []]);
+expect("a fragment used twice numbers each use", postgres(db::sql"select 1 where {$filter} or {$filter}"),
+    ['select 1 where  and age > $1 or  and age > $2', [30, 30]]);
+$one = 1;
+$deep = db::sql"a = {$one} and ({$nested})";
+expect("fragments nest in fragments", postgres($deep),
+    ['a = $1 and (select * from users where name = $2 and age > $3 and id = $4)', [1, "Ada", 30, 7]]);
+expect("rendering again gives the same", postgres($deep), postgres($deep));
+
+$ids = [3, 1, 2];
+expect("a list is a placeholder for each item", postgres(db::sql"select * from t where id in {$ids} and x = {$name}"),
+    ['select * from t where id in ($1, $2, $3) and x = $4', [3, 1, 2, "Ada"]]);
+$five = [5];
+expect("a list of one", sqlite(db::sql"id in {$five}"), ["id in (?)", [5]]);
+$mixed = [1, 1.5, "s", true, null];
+expect("a list's items keep their types", postgres(db::sql"{$mixed}"), ['($1, $2, $3, $4, $5)', [1, 1.5, "s", true, null]]);
+expect("a list prints as its placeholders", to_string(db::sql"id not in {$ids}"), "id not in (?, ?, ?)");
+$empty = [];
+throws("an empty list is refused", () -> db::sql"select * from t where id not in {$empty}",
+    "db::sql can't put an empty list in (...): decide what no items means");
+$lists = [$ids];
+throws("a list in a list", () -> db::sql"{$lists}", "db::sql can't put a list in a list: an in (...) list holds ints, floats, strings, bools and nulls");
+$fragments = [$filter];
+throws("a fragment in a list", () -> db::sql"{$fragments}", "db::sql can't put a db::Sql in a list: an in (...) list holds ints, floats, strings, bools and nulls");
+
+$column = db::ident("name");
+expect("a name is quoted", postgres(db::sql"select {$column} from t where {$column} = {$name}"),
+    ['select "name" from t where "name" = $1', ["Ada"]]);
+$odd = db::ident("a \"b\"; drop table t");
+expect("a quote in a name is doubled, so it stays one name", sqlite(db::sql"select {$odd}"), ["select \"a \"\"b\"\"; drop table t\"", []]);
+expect("a name prints quoted", to_string(db::ident("Name")), "\"Name\"");
+expect("a dot is part of the name", to_string(db::ident("s.t")), "\"s.t\"");
+throws("an empty name", () -> db::ident(""), "db::ident() can't take an empty name");
+throws("a NUL in a name", () -> db::ident("a\0b"), "db::ident() can't take a name holding a NUL byte");
+throws("a name is a string", () -> db::ident(1), "db::ident() expects \$name to be string, got int");
+$names = [$column];
+throws("a name in a list", () -> db::sql"{$names}", "db::sql can't put a db::Ident in a list: an in (...) list holds ints, floats, strings, bools and nulls");
+
+throws("\$1 in the text is refused", () -> db::sql"select $1, {$id}", 'db::sql text can\'t hold $1: interpolate the value instead');
+throws("so is any \$ and digit", () -> db::sql"select {$id} where a = $9", 'db::sql text can\'t hold $9: interpolate the value instead');
+expect("a \$ alone is text", sqlite(db::sql"select '$' || {$name}"), ["select '\$' || ?", ["Ada"]]);
+$map = {"a" => 1};
+throws("a map is refused", () -> db::sql"{$map}", "db::sql can't send a map: a value is an int, float, string, bool or null, a list of those, a db::sql\"...\" or a db::ident()");
+$function = sqlite;
+throws("a function is refused", () -> db::sql"{$function}", "db::sql can't send a function: a value is an int, float, string, bool or null, a list of those, a db::sql\"...\" or a db::ident()");
+$object = db::open("sqlite::memory:");
+throws("an object is refused by its kind", () -> db::sql"{$object}", "db::sql can't send a db::Db: a value is an int, float, string, bool or null, a list of those, a db::sql\"...\" or a db::ident()");
+throws("a tag is called with lists", () -> db::sql("select 1", []), "db::sql() expects \$strings to be list, got string");
+throws("one more text part than values", () -> db::Sql(["a"], [1]), "db::Sql() takes one more text part than values, got 1 and 1");
+throws("text parts are strings", () -> db::Sql([1, "b"], [2]), "db::Sql() takes strings as its text parts, got an int");
+
+$raw = db::raw('select $1 from t where a = ?');
+expect("raw is used as it is", postgres($raw), ['select $1 from t where a = ?', []]);
+expect("raw is an Sql, so it can be spliced in", postgres(db::sql"{$raw} and b = {$id}"), ['select $1 from t where a = ? and b = $1', [7]]);
+throws("raw takes a string", () -> db::raw(["select 1"]), "db::raw() expects \$text to be string, got list");
