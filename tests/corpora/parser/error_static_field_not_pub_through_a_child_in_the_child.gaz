@@ -1,0 +1,9 @@
+kind Counter {
+    static #n = 0;
+}
+kind Tally extends Counter {
+    pub static fn get() {
+        return
+            Tally::n;
+    }
+}

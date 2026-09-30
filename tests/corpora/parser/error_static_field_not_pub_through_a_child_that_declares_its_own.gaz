@@ -1,0 +1,11 @@
+// Tally's own private #n answers for Tally::n, and Counter can't use it
+kind Counter {
+    static #n = 0;
+    pub static fn get() {
+        return
+            Tally::n;
+    }
+}
+kind Tally extends Counter {
+    static #n = 1;
+}

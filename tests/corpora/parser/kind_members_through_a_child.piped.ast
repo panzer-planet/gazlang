@@ -1,0 +1,356 @@
+Compound
+  statements:
+@ null
+    0: StaticInit 7
+      name: "Counter::n"
+      value: 5
+    1: StaticInit 8
+      name: "Counter::rows"
+      value: []
+    2: KindDeclaration 4
+      name: "Counter"
+      parent: null
+      abstract: false
+      statics:
+        n: FunctionRef 7
+          name: "Tally::MAX"
+          constant: true
+          value: 5
+          static_name: null
+        rows: ArrayLiteral 8
+          entries: []
+          map: false
+      static_lines: {"n" => 7, "rows" => 8}
+      static_methods:
+        add: FunctionDeclaration 10
+          name: "Counter::add"
+          params: ["\$a", "\$b"]
+          defaults: [null, null]
+          body: Compound
+            statements:
+              0: ReturnStatement 10
+                expr: BinOp 10
+                  left: Variable 10
+                    token: 10 VAR_IDENTIFIER $a
+                    value: "\$a"
+                  token: 10 PLUS +
+                  op: 10 PLUS +
+                  right: Variable 10
+                    token: 10 VAR_IDENTIFIER $b
+                    value: "\$b"
+          arity: 2
+          kind: "Counter"
+          abstract: false
+        bump: FunctionDeclaration 12
+          name: "Counter::bump"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: Statement 13
+                expr: Assign 13
+                  left: FunctionRef 13
+                    name: "Tally::n"
+                    constant: false
+                    value: null
+                    static_name: "Counter::n"
+                  token: 13 ASSIGN =
+                  right: Num 13
+                    token: 13 INTEGER 1
+                    value: 1
+              1: Statement 14
+                expr: Increment 14
+                  target: FunctionRef 14
+                    name: "Tally::n"
+                    constant: false
+                    value: null
+                    static_name: "Counter::n"
+                  op: 14 INCREMENT ++
+                  prefix: false
+              2: Statement 15
+                expr: Assign 15
+                  left: Index 15
+                    target: FunctionRef 15
+                      name: "Tally::rows"
+                      constant: false
+                      value: null
+                      static_name: "Counter::rows"
+                    index: null
+                  token: 15 ASSIGN =
+                  right: FunctionRef 15
+                    name: "Sub::n"
+                    constant: false
+                    value: null
+                    static_name: "Counter::n"
+              3: Statement 16
+                expr: Assign 16
+                  left: Variable 16
+                    token: 16 VAR_IDENTIFIER $add
+                    value: "\$add"
+                  token: 16 ASSIGN =
+                  right: FunctionRef 16
+                    name: "Counter::add"
+                    constant: false
+                    value: null
+                    static_name: null
+              4: ReturnStatement 17
+                expr: ArrayLiteral 17
+                  entries:
+                    0:
+                      0: null
+                      1: FunctionRef 17
+                        name: "Tally::n"
+                        constant: false
+                        value: null
+                        static_name: "Counter::n"
+                    1:
+                      0: null
+                      1: FunctionRef 17
+                        name: "Tally::TWICE"
+                        constant: true
+                        value: 10
+                        static_name: null
+                    2:
+                      0: null
+                      1: CallValue 17
+                        callee: Variable 17
+                          token: 17 VAR_IDENTIFIER $add
+                          value: "\$add"
+                        args:
+                          0: Num 17
+                            token: 17 INTEGER 1
+                            value: 1
+                          1: Num 17
+                            token: 17 INTEGER 2
+                            value: 2
+                    3:
+                      0: null
+                      1: FunctionCall 17
+                        name: "Counter::add"
+                        args:
+                          0: Num 17
+                            token: 17 INTEGER 3
+                            value: 3
+                          1: Num 17
+                            token: 17 INTEGER 4
+                            value: 4
+                    4:
+                      0: null
+                      1: FunctionRef 17
+                        name: "Tally::rows"
+                        constant: false
+                        value: null
+                        static_name: "Counter::rows"
+                  map: false
+          arity: 0
+          kind: "Counter"
+          abstract: false
+      static_owners: {"n" => "Counter", "rows" => "Counter", "add" => "Counter", "bump" => "Counter"}
+      static_is_method: {"n" => false, "rows" => false, "add" => true, "bump" => true}
+      vis: {"MAX" => "", "TWICE" => "", "n" => "", "rows" => "", "add" => "", "bump" => "pub"}
+      fields: []
+      field_lines: []
+      methods: []
+      constants:
+        MAX: Num 5
+          token: 5 INTEGER 5
+          value: 5
+        TWICE: BinOp 6
+          left: FunctionRef 6
+            name: "Tally::MAX"
+            constant: true
+            value: 5
+            static_name: null
+          token: 6 MULTIPLY *
+          op: 6 MULTIPLY *
+          right: Num 6
+            token: 6 INTEGER 2
+            value: 2
+      constant_lines: {"MAX" => 5, "TWICE" => 6}
+      constant_owners: {"MAX" => "Counter", "TWICE" => "Counter"}
+      layout: []
+      members: []
+      abstract_methods: []
+      slots: []
+      method_table: []
+      owner_vis: {"MAX" => "", "TWICE" => "", "n" => "", "rows" => "", "add" => "", "bump" => "pub"}
+      declared_at: []
+      hidden: []
+      hidden_fields: []
+    3: FunctionDeclaration 10
+      name: "Counter::add"
+      params: ["\$a", "\$b"]
+      defaults: [null, null]
+      body: Compound
+        statements:
+          0: ReturnStatement 10
+            expr: BinOp 10
+              left: Variable 10
+                token: 10 VAR_IDENTIFIER $a
+                value: "\$a"
+              token: 10 PLUS +
+              op: 10 PLUS +
+              right: Variable 10
+                token: 10 VAR_IDENTIFIER $b
+                value: "\$b"
+      arity: 2
+      kind: "Counter"
+      abstract: false
+    4: FunctionDeclaration 12
+      name: "Counter::bump"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: Statement 13
+            expr: Assign 13
+              left: FunctionRef 13
+                name: "Tally::n"
+                constant: false
+                value: null
+                static_name: "Counter::n"
+              token: 13 ASSIGN =
+              right: Num 13
+                token: 13 INTEGER 1
+                value: 1
+          1: Statement 14
+            expr: Increment 14
+              target: FunctionRef 14
+                name: "Tally::n"
+                constant: false
+                value: null
+                static_name: "Counter::n"
+              op: 14 INCREMENT ++
+              prefix: false
+          2: Statement 15
+            expr: Assign 15
+              left: Index 15
+                target: FunctionRef 15
+                  name: "Tally::rows"
+                  constant: false
+                  value: null
+                  static_name: "Counter::rows"
+                index: null
+              token: 15 ASSIGN =
+              right: FunctionRef 15
+                name: "Sub::n"
+                constant: false
+                value: null
+                static_name: "Counter::n"
+          3: Statement 16
+            expr: Assign 16
+              left: Variable 16
+                token: 16 VAR_IDENTIFIER $add
+                value: "\$add"
+              token: 16 ASSIGN =
+              right: FunctionRef 16
+                name: "Counter::add"
+                constant: false
+                value: null
+                static_name: null
+          4: ReturnStatement 17
+            expr: ArrayLiteral 17
+              entries:
+                0:
+                  0: null
+                  1: FunctionRef 17
+                    name: "Tally::n"
+                    constant: false
+                    value: null
+                    static_name: "Counter::n"
+                1:
+                  0: null
+                  1: FunctionRef 17
+                    name: "Tally::TWICE"
+                    constant: true
+                    value: 10
+                    static_name: null
+                2:
+                  0: null
+                  1: CallValue 17
+                    callee: Variable 17
+                      token: 17 VAR_IDENTIFIER $add
+                      value: "\$add"
+                    args:
+                      0: Num 17
+                        token: 17 INTEGER 1
+                        value: 1
+                      1: Num 17
+                        token: 17 INTEGER 2
+                        value: 2
+                3:
+                  0: null
+                  1: FunctionCall 17
+                    name: "Counter::add"
+                    args:
+                      0: Num 17
+                        token: 17 INTEGER 3
+                        value: 3
+                      1: Num 17
+                        token: 17 INTEGER 4
+                        value: 4
+                4:
+                  0: null
+                  1: FunctionRef 17
+                    name: "Tally::rows"
+                    constant: false
+                    value: null
+                    static_name: "Counter::rows"
+              map: false
+      arity: 0
+      kind: "Counter"
+      abstract: false
+    5: KindDeclaration 20
+      name: "Tally"
+      parent: "Counter"
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: {"bump" => "Counter"}
+      static_is_method: {"bump" => true}
+      vis: []
+      fields: []
+      field_lines: []
+      methods: []
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: []
+      abstract_methods: []
+      slots: []
+      method_table: []
+      owner_vis: {"bump" => "pub"}
+      declared_at: []
+      hidden: {"MAX" => "Counter", "TWICE" => "Counter", "n" => "Counter", "rows" => "Counter", "add" => "Counter"}
+      hidden_fields: []
+    6: KindDeclaration 21
+      name: "Sub"
+      parent: "Tally"
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: {"bump" => "Counter"}
+      static_is_method: {"bump" => true}
+      vis: []
+      fields: []
+      field_lines: []
+      methods: []
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: []
+      abstract_methods: []
+      slots: []
+      method_table: []
+      owner_vis: {"bump" => "pub"}
+      declared_at: []
+      hidden: {"MAX" => "Counter", "TWICE" => "Counter", "n" => "Counter", "rows" => "Counter", "add" => "Counter"}
+      hidden_fields: []
+    7: EchoStatement 23
+      expr: FunctionCall 23
+        name: "Counter::bump"
+        args: []

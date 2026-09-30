@@ -1,0 +1,1 @@
+Error: Counter::f is not pub, so only Counter can use it at tests/corpora/parser/error_static_method_not_pub_through_a_child_in_a_grandchild.gaz:8

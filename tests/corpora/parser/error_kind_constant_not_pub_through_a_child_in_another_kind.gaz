@@ -1,0 +1,10 @@
+kind Counter {
+    const MAX = 5;
+}
+kind Tally extends Counter {}
+kind Gauge {
+    pub static fn top() {
+        return
+            Tally::MAX;
+    }
+}

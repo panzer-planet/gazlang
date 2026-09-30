@@ -1,0 +1,6 @@
+kind Counter {
+    static #n = 0;
+}
+kind Tally extends Counter {}
+Tally::n
+    = 1;

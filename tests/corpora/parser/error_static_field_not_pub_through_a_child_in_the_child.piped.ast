@@ -1,0 +1,1 @@
+Error: Counter::n is not pub, so only Counter can use it on line 7

@@ -2,6 +2,9 @@ ok a pub constant, static field and static method from the top level
 ok the kind reaches its own private members, in a lambda and a default too
 ok and changes its own private static
 ok a kind that extends it reaches what is kin
+ok the kind reaches its own private members through a child's name
 ok a private constant from the top level
 ok a kin static from a kind that doesn't extend it
+ok a private constant through a child's name, from the child
+ok a private static method through a grandchild's name, from a sibling
 ok a private static method as a value from a function

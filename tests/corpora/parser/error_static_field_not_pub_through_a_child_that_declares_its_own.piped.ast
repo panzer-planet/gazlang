@@ -1,0 +1,1 @@
+Error: Tally::n is not pub, so only Tally can use it on line 6

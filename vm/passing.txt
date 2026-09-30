@@ -905,6 +905,7 @@ tests/corpora/parser/interpolation.gaz
 tests/corpora/parser/kin_abstract_method.gaz
 tests/corpora/parser/kind_constants.gaz
 tests/corpora/parser/kind_members_by_name.gaz
+tests/corpora/parser/kind_members_through_a_child.gaz
 tests/corpora/parser/kinds.gaz
 tests/corpora/parser/lambda_bare_list_pattern.gaz
 tests/corpora/parser/lambdas.gaz

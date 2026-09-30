@@ -17,6 +17,14 @@ kind Limits {
     kin static fn step() { return Limits::STEP; }
     pub static fn describe() { return Limits::max() .. "/" .. Limits::count; }
 
+    // Its own private members through a kind that extends it: the asking kind declared them
+    pub static fn through_a_child() {
+        Tight::count++;
+        $max = Tight::max;
+        return [Tight::MAX, Tight::count, $max(), 1 |> Tight::plus(1)];
+    }
+    static fn plus($a, $b) { return $a + $b; }
+
     pub fn clamp($n, $top = Limits::MAX) {
         Limits::count++;
         $over = $x -> $x > Limits::MAX;
@@ -32,6 +40,7 @@ expect("a pub constant, static field and static method from the top level", [Lim
 expect("the kind reaches its own private members, in a lambda and a default too", Limits().clamp(20), 10);
 expect("and changes its own private static", Limits::describe(), "10/1");
 expect("a kind that extends it reaches what is kin", Tight().kin_reach(), [2, 2, 2, 2, 2]);
+expect("the kind reaches its own private members through a child's name", Limits::through_a_child(), [10, 2, 10, 2]);
 
 // What doesn't escape is refused when the program is read, from anywhere outside
 fn refused($source) {
@@ -40,4 +49,6 @@ fn refused($source) {
 }
 expect("a private constant from the top level", refused("echo C::X;"), "Error: C::X is not pub, so only C can use it on line 2");
 expect("a kin static from a kind that doesn't extend it", refused("kind D \{ pub fn g() \{ C::n = 1; } }"), "Error: C::n is kin, so only C and what extends it can use it on line 2");
+expect("a private constant through a child's name, from the child", refused("kind E extends C \{ pub fn g() \{ return E::X; } }"), "Error: C::X is not pub, so only C can use it on line 2");
+expect("a private static method through a grandchild's name, from a sibling", refused("kind E extends C \{} kind F extends E \{} kind G \{ pub fn g() \{ return F::f(); } }"), "Error: C::f is not pub, so only C can use it on line 2");
 expect("a private static method as a value from a function", refused("fn g() \{ return C::f; }"), "Error: C::f is not pub, so only C can use it on line 2");

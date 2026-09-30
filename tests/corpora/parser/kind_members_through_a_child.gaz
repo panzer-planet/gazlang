@@ -1,0 +1,23 @@
+// A kind reaches its own private constants and statics through the name of a kind that
+// extends it, since the asking kind is the declaring one: reads, writes, calls, a static
+// method as a value and after |>, in constants and static defaults too
+kind Counter {
+    const MAX = 5;
+    const TWICE = Tally::MAX * 2;
+    static #n = Tally::MAX;
+    static #rows = [];
+
+    static fn add($a, $b) { return $a + $b; }
+
+    pub static fn bump() {
+        Tally::n = 1;
+        Tally::n++;
+        Tally::rows[] = Sub::n;
+        $add = Tally::add;
+        return [Tally::n, Tally::TWICE, $add(1, 2), 3 |> Sub::add(4), Tally::rows];
+    }
+}
+kind Tally extends Counter {}
+kind Sub extends Tally {}
+
+echo Counter::bump();

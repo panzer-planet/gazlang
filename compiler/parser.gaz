@@ -2608,7 +2608,7 @@ kind Html {
     // What a constant may be made of is a rule about the source, so it is checked on the source.
     fn check_constant_expression($node, $kind) {
         if (is_a($node, FunctionRefAST)) {
-            if (#constant_key($node.name) == null) {
+            if (#constant_key(#as_asked($node.name, $kind)) == null) {
                 #fail_at(match {
                     has_key(#kinds, $node.name) => "{$node.name} is a kind, not a constant",
                     has_key(#functions, $node.name) => "{$node.name} is a function, not a constant",
@@ -2731,8 +2731,8 @@ kind Html {
             }
 
             return $map;
-        } else if (is_a($node, FunctionRefAST) && #constant_key($node.name) != null) {
-            return #constant_value(#constant_key($node.name), $node);
+        } else if (is_a($node, FunctionRefAST) && #constant_key(#as_asked($node.name, $kind)) != null) {
+            return #constant_value(#constant_key(#as_asked($node.name, $kind)), $node);
         } else if (is_a($node, PropertyAST) && (is_a($node.target, ThisAST) || is_a($node.target, FunctionRefAST))) {
             $owner = is_a($node.target, ThisAST) ? $kind : #kinds[$node.target.name] ?? null;
             $key = $owner == null ? null : #kind_constant($owner, $node.name);
@@ -3214,22 +3214,23 @@ kind Html {
             #check_parent_use($node, $kind);
         }
         foreach (#uses as [$use, $scope, $asker]) {
-            $static = #static_key($use.name);
+            $name = #as_asked($use.name, $asker);
+            $static = #static_key($name);
             if ($static != null) {
                 if (is_a($use, FunctionCallAST)) {
                     #fail_at("{$use.name} is a static field, not a function", $use.file, $use.line);
                 }
-                #check_member_escapes($use, $asker);
+                #check_member_escapes($use, $asker, $name);
                 $use.static_name = $static;
 
                 continue;
             }
-            $constant = #constant_key($use.name);
+            $constant = #constant_key($name);
             if ($constant != null) {
                 if (is_a($use, FunctionCallAST)) {
                     #fail_at("{$use.name} is a constant, not a function", $use.file, $use.line);
                 }
-                #check_member_escapes($use, $asker);
+                #check_member_escapes($use, $asker, $name);
                 $use.constant = true;
                 $use.value = #constant_value($constant, $use);
 
@@ -3250,8 +3251,8 @@ kind Html {
                 continue;
             }
             // Child::next is the function Parent::next when the parent declares it
-            if (!has_key(#functions, $use.name) && contains($use.name, "::")) {
-                [$prefix, $last] = #split_name($use.name);
+            if (!has_key(#functions, $use.name) && contains($name, "::")) {
+                [$prefix, $last] = #split_name($name);
                 $kind = #kinds[$prefix] ?? null;
                 if ($kind != null && ($kind.static_is_method[$last] ?? false)) {
                     $use.name = #kind_static($kind, $last);
@@ -3294,13 +3295,14 @@ kind Html {
      * and what extends it, any other only to the kind that declared it. The asking kind is
      * the one the code is written in (a method, a default, a lambda in it), and code outside
      * every kind has none. A parent's private member isn't among a child's, so naming it
-     * through the child is qualified_error()'s, before this is reached.
+     * through the child is qualified_error()'s, before this is reached, unless as_asked()
+     * found the asking kind is the one that declared it. $asked is the name as_asked() gave.
      */
-    fn check_member_escapes($use, $asker) {
-        if (!contains($use.name, "::")) {
+    fn check_member_escapes($use, $asker, $asked = $use.name) {
+        if (!contains($asked, "::")) {
             return;
         }
-        [$prefix, $name] = #split_name($use.name);
+        [$prefix, $name] = #split_name($asked);
         $kind = #kinds[$prefix] ?? null;
         if ($kind == null) {
             return;
@@ -3321,6 +3323,26 @@ kind Html {
             return;
         }
         #fail_at("{$owner}::{$name} is not pub, so only {$owner} can use it", $use.file, $use.line);
+    }
+
+    /*
+     * The name a Kind::name written in $asker means there: a constant or static $asker
+     * declared without pub, named through a kind that extends it, is $asker's own. The child
+     * doesn't carry it, since it doesn't escape to the child, but the asking kind is the
+     * declaring one, which is all a private member asks. Any other name is itself.
+     */
+    fn as_asked($name, $asker) {
+        if ($asker == null || !contains($name, "::")) {
+            return $name;
+        }
+        [$prefix, $last] = #split_name($name);
+        $kind = #kinds[$prefix] ?? null;
+        if ($kind == null || ($kind.hidden[$last] ?? null) != $asker.name) {
+            return $name;
+        }
+        $own = ($asker.constant_owners[$last] ?? $asker.static_owners[$last] ?? null) == $asker.name;
+
+        return $own ? "{$asker.name}::{$last}" : $name;
     }
 
     // Whether a kind, or null for code outside every kind, is $ancestor or extends it

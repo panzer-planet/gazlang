@@ -473,10 +473,6 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - **Open bugs**, found by audits and reviews and not fixed yet:
     - Arity errors say "expects 1 arguments" (`builtins.c`), and the text is recorded in
       `tests/expected`, so fixing the grammar means re-recording.
-    - Inside its own kind, a private static named through a child (`kind Counter { static #n = 0;
-      static fn f() { return Tally::n; } } kind Tally extends Counter {}`) is refused as
-      `Counter::n is not pub, so only Counter can use it`, since a child doesn't carry its
-      parent's private names; the asking kind is the declaring one, so it should be allowed.
     - `kind A { pub int public #x; }` (a reserved word after a type) gets the generic "Expected
       a field after the type" error, not the hint to write `pub`.
     - `lsp/server.gaz` keeps its own list of keywords, though `Lexer::KEYWORDS` is `pub` now.
@@ -1375,7 +1371,9 @@ $area = $c.area;                              // a bound method
     they sit in. Code outside every kind (the top level, a function, a template) has none, so
     reaches only what is `pub` (`check_member_escapes()`, from the kind each use in `#uses` was
     written in): `Limits::MAX is not pub, so only Limits can use it`, `Limits::MAX is kin, so
-    only Limits and what extends it can use it`, the runtime's words for `.name`. A block's header carries it (`in Kind`, or
+    only Limits and what extends it can use it`, the runtime's words for `.name`. A kind's own
+    private member named through a child (`Tally::n` in `Counter`) is its own, though the child
+    doesn't carry it (`as_asked()`). A block's header carries it (`in Kind`, or
     the dot in a method's name), so the VM pays nothing until a member is looked up.
   - **A parent's private member is the parent's own.** A child can't name it, and may declare a
     method, constant or static of its own by that name: both entries live on and each kind's

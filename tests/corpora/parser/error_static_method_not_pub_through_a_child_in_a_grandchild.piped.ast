@@ -1,0 +1,1 @@
+Error: Counter::f is not pub, so only Counter can use it on line 8

@@ -437,8 +437,9 @@ echo is_a($c, Shape) .. " " .. $c.radius;
   my children's) → `pub` (anyone's), and it applies to a field, method, constant or static
   alike: `kin #energy = 100;`, `pub static #tally = 0;`. `#name`, `##name` and a constant or
   static reached by name (`Limits::MAX`, `Counter::next()`) are checked at parse time,
-  `$obj.name` when it runs, all against the kind the code asking is written in — a lambda's and
-  a static method's is the kind they sit in, and code outside every kind (the top level, a
+  `$obj.name` when it runs, all against the kind the code asking is written in, whichever kind's
+  name reaches the member (a kind reaches its own private static through a child's name too) — a
+  lambda's and a static method's is the kind they sit in, and code outside every kind (the top level, a
   function, a template) reaches only what is `pub`: `Limits::MAX is not pub, so only Limits can
   use it`, or `Limits::MAX is kin, so only Limits and what extends it can use it`.
 - **`kin` is for what a kind declares on its children's behalf**: a field they set, a method

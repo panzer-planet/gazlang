@@ -1,0 +1,1 @@
+Error: Counter::MAX is not pub, so only Counter can use it at tests/corpora/parser/error_kind_constant_not_pub_through_a_child_in_another_kind.gaz:8

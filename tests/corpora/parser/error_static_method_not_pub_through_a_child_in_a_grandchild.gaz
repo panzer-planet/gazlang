@@ -1,0 +1,10 @@
+kind Counter {
+    static fn f() { return 1; }
+}
+kind Tally extends Counter {}
+kind Sub extends Tally {
+    pub static fn g() {
+        return
+            Sub::f();
+    }
+}
