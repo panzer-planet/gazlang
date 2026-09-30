@@ -1,0 +1,79 @@
+/*
+ * HTML built in code, safely: `web::html"..."` is an `Html`, as a template's result is, with its
+ * text taken as markup and every value escaped as `{{ }}` escapes it.
+ *
+ *   include "std/web.gaz";
+ *
+ *   $items = map(["Tom & Jerry", "<script>"], $name -> web::html"<li>{$name}</li>");
+ *   $list = web::html"<ul class=\"names\">{$items}</ul>";
+ *   echo $list;          // <ul class="names"><li>Tom &amp; Jerry</li><li>&lt;script&gt;</li></ul>
+ *
+ * An `Html` can't be concatenated (`..` refuses one), so fragments are put together by
+ * interpolating them into another `web::html"..."`, which keeps them as they are, or by passing
+ * them to a template's `{{ }}`, which does the same.
+ *
+ * Escaping is for HTML text and attribute values in double or single quotes. It doesn't make a
+ * value safe in an unquoted attribute, as a URL (`href="{$url}"` takes a `javascript:` URL as it
+ * is), inside `<script>` or `<style>`, or in an event handler such as `onclick`: check or build
+ * those values yourself.
+ */
+namespace web;
+
+/*
+ * An `Html` from a tagged string: its text as it is, since it was written in the program, and
+ * each value by what it is:
+ *
+ * - an `Html` as it is, so fragments nest;
+ * - a list, each of its elements by these rules, one after another with nothing between;
+ * - anything else as `echo` prints it (`null`, `true`, `12`, `1.5`, or an object's
+ *   `to_string()`), escaped: `&` `<` `>` `"` `'` become `&amp;` `&lt;` `&gt;` `&quot;` `&#39;`.
+ *
+ * A map, and a list inside a list, are errors: neither has one obvious text.
+ */
+pub fn html(list $strings, list $values): Html {
+    check_parts($strings, $values);
+    $text = $strings[0];
+    foreach ($values as $i => $value) {
+        $text ..= markup($value);
+        $text ..= $strings[$i + 1];
+    }
+
+    return Html($text);
+}
+
+// A value's markup: a list's elements one after another, anything else as {{ }} writes it
+fn markup($value) {
+    if (type_of($value) != "list") {
+        return piece($value);
+    }
+    $text = "";
+    foreach ($value as $element) {
+        if (type_of($element) == "list") {
+            throw "web::html can't put a list inside a list in markup: flatten it first";
+        }
+        $text ..= piece($element);
+    }
+
+    return $text;
+}
+
+// One value that isn't a list, escaped unless it is an Html
+fn piece($value) {
+    if (type_of($value) == "map") {
+        throw "web::html can't put a map in markup: interpolate its values one at a time";
+    }
+
+    return Html::escape($value);
+}
+
+// What a tagged string gives, which a direct call might not: one more text part than values
+fn check_parts($strings, $values) {
+    foreach ($strings as $part) {
+        if (type_of($part) != "string") {
+            throw "web::html takes a tagged string's text parts, which are strings, got " .. type_of($part);
+        }
+    }
+    if (len($strings) != len($values) + 1) {
+        throw "web::html takes one more text part than values, got " .. len($strings) .. " and " .. len($values);
+    }
+}

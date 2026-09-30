@@ -1,0 +1,29 @@
+ok each special character
+ok a value in a double-quoted attribute
+ok a value in a single-quoted attribute
+ok the text is markup, as written
+ok type_of
+ok kind_of
+ok no values
+ok echo prints its markup
+ok an Html value
+ok nested web::html, escaped once
+ok a list of Html
+ok a list of strings
+ok a list of numbers
+ok a list of both
+ok an empty list
+ok null, bools, ints and floats
+ok an object by its to_string(), escaped
+ok only a value
+ok adjacent values
+ok an empty tagged string
+ok markup over several lines
+ok a map
+ok a list in a list
+ok a map in a list
+ok a text part that isn't a string
+ok too few text parts
+ok parts must be a list
+ok ..
+ok .text

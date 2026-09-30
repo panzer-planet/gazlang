@@ -1,0 +1,103 @@
+/*
+ * web::html"...": its text as markup, its values escaped as {{ }} escapes them, an Html kept, a
+ * list joined, a map and a list in a list refused
+ */
+include "std/test.gaz" use expect, throws;
+include "../../../lib/web.gaz";
+
+// The text of an Html, which is what these compare
+fn text($html) {
+    return $html.text;
+}
+
+/* Each character HTML needs escaped, and the text around it left alone */
+$amp = "&";
+$lt = "<";
+$gt = ">";
+$quote = "\"";
+$apostrophe = "'";
+expect("each special character", text(web::html"<p>{$amp} {$lt} {$gt} {$quote} {$apostrophe}</p>"),
+    "<p>&amp; &lt; &gt; &quot; &#39;</p>");
+$hostile = "\" onmouseover=\"alert('x')";
+expect("a value in a double-quoted attribute", text(web::html"<a title=\"{$hostile}\">x</a>"),
+    "<a title=\"&quot; onmouseover=&quot;alert(&#39;x&#39;)\">x</a>");
+expect("a value in a single-quoted attribute", text(web::html"<a title='{$hostile}'>x</a>"),
+    "<a title='&quot; onmouseover=&quot;alert(&#39;x&#39;)'>x</a>");
+expect("the text is markup, as written", text(web::html"<b class=\"x\">&amp; 'quoted'</b>"),
+    "<b class=\"x\">&amp; 'quoted'</b>");
+
+/* The result is an Html */
+$plain = web::html"<br>";
+expect("type_of", type_of($plain), "object");
+expect("kind_of", kind_of($plain) == Html, true);
+expect("no values", text($plain), "<br>");
+expect("echo prints its markup", to_string($plain), "<br>");
+
+/* An Html is kept as it is, so fragments nest */
+$bold = Html("<b>trusted</b>");
+expect("an Html value", text(web::html"<p>{$bold}</p>"), "<p><b>trusted</b></p>");
+$name = "<Ann>";
+$inner = web::html"<em>{$name}</em>";
+expect("nested web::html, escaped once", text(web::html"<p>{$inner}</p>"), "<p><em>&lt;Ann&gt;</em></p>");
+
+/* A list is its elements one after another */
+$items = map(["a & b", "<c>"], $item -> web::html"<li>{$item}</li>");
+expect("a list of Html", text(web::html"<ul>{$items}</ul>"), "<ul><li>a &amp; b</li><li>&lt;c&gt;</li></ul>");
+$words = ["x", "<y>"];
+expect("a list of strings", text(web::html"<p>{$words}</p>"), "<p>x&lt;y&gt;</p>");
+$numbers = [1, 2.5, -3];
+expect("a list of numbers", text(web::html"{$numbers}"), "12.5-3");
+$mixed = [Html("<hr>"), "<", null];
+expect("a list of both", text(web::html"{$mixed}"), "<hr>&lt;null");
+$empty = [];
+expect("an empty list", text(web::html"<ul>{$empty}</ul>"), "<ul></ul>");
+
+/* Values print as echo prints them */
+$nothing = null;
+$yes = true;
+$no = false;
+$int = 12;
+$float = 1.5;
+expect("null, bools, ints and floats", text(web::html"{$nothing} {$yes} {$no} {$int} {$float}"), "null true false 12 1.5");
+kind Name {
+    fn _(#text) {}
+
+    pub fn to_string() {
+        return #text;
+    }
+}
+$object = Name("<Bo>");
+expect("an object by its to_string(), escaped", text(web::html"{$object}"), "&lt;Bo&gt;");
+
+/* Empty parts and interpolations side by side */
+$a = "<";
+$b = ">";
+expect("only a value", text(web::html"{$a}"), "&lt;");
+expect("adjacent values", text(web::html"{$a}{$b}{$a}"), "&lt;&gt;&lt;");
+expect("an empty tagged string", text(web::html""), "");
+
+/* Several lines */
+$title = "R&D";
+$page = web::html"<section>
+  <h1>{$title}</h1>
+</section>";
+expect("markup over several lines", text($page), "<section>\n  <h1>R&amp;D</h1>\n</section>");
+
+/* What has no one obvious text */
+$map = {"k" => "v"};
+throws("a map", () -> web::html"<p>{$map}</p>", "web::html can't put a map in markup: interpolate its values one at a time");
+$in_list = [["a"]];
+throws("a list in a list", () -> web::html"{$in_list}", "web::html can't put a list inside a list in markup: flatten it first");
+$map_in_list = ["a", {"k" => 1}];
+throws("a map in a list", () -> web::html"{$map_in_list}", "web::html can't put a map in markup: interpolate its values one at a time");
+
+/* A direct call must look like what a tagged string gives */
+throws("a text part that isn't a string", () -> web::html([Html("<b>")], []),
+    "web::html takes a tagged string's text parts, which are strings, got object");
+throws("too few text parts", () -> web::html(["a"], [1]), "web::html takes one more text part than values, got 1 and 1");
+throws("parts must be a list", () -> web::html("a", []), "web::html() expects \$strings to be list, got string");
+
+/* The result can't be concatenated, and .text is its markup */
+$fragment = web::html"<i>{$name}</i>";
+throws("..", () -> $fragment .. "!", "Cannot concatenate Html: build it with web::html\"...\", or use .text for its markup as a plain string");
+expect(".text", $fragment.text .. "!", "<i>&lt;Ann&gt;</i>!");

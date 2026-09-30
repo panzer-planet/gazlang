@@ -1,0 +1,5 @@
+ok a fragment in {{ }} and {!! !!}
+ok a plain string beside it is escaped
+ok templates' results in a list in the tag
+ok and kept as they are
+ok the alias is the namespace's function

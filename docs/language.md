@@ -141,6 +141,8 @@ echo shout"no values";                        // shout(["no values"], [])
 - Only a name: `$f"..."` and `$obj.m"..."` are errors, and so is a name before a single-quoted
   string (`sql'...'`). A keyword is never a tag, so `echo"x"` still echoes.
 - A tagged string is already a call, so it can't follow `|>`; `t"..." |> len` pipes its result on.
+- The standard library has two: `db::sql"..."` for SQL (see "Databases") and `web::html"..."`
+  for HTML (see "Templates").
 
 ## Lists and maps
 
@@ -1355,6 +1357,32 @@ http::serve($listener, $request -> ({"body" => user_page($user, $posts)}));
 - Errors are at the template's own line: a mismatched `@endif`, a syntax error inside `{{ }}`,
   or a missing key when it runs.
 - An expression can't contain `}}` (or `!!}` in a raw one), and stays on one line.
+- Escaping is for HTML text and attribute values in quotes: a value in an unquoted attribute, a
+  URL (`href="{{ $url }}"` takes a `javascript:` URL as it is), `<script>`, `<style>` or an event
+  handler such as `onclick` needs checking or building by the program.
+
+**HTML built in code** is `web::html"..."` (`include "std/web.gaz";`), a tagged string that gives
+an `Html`: its text is markup as written, and each value is escaped as `{{ }}` escapes it, an
+`Html` kept as it is. A list is its elements one after another, each by the same rule, so a list
+of fragments makes a list in the page:
+
+```gaz
+include "std/web.gaz";
+
+$names = ["Tom & Jerry", "<script>"];
+$items = map($names, $name -> web::html"<li>{$name}</li>");
+echo web::html"<ul class=\"names\">{$items}</ul>";
+```
+
+```
+<ul class="names"><li>Tom &amp; Jerry</li><li>&lt;script&gt;</li></ul>
+```
+
+A value prints as `echo` prints it (`null`, `true`, `12`, `1.5`, an object's `to_string()`)
+before it is escaped. A map, or a list inside a list, is an error (`web::html can't put a map in
+markup: interpolate its values one at a time`). The result goes into `{{ }}` and into another
+`web::html"..."` as it is, and is refused by `..` like any `Html`. The same contexts are safe as
+in templates.
 
 ## Libraries
 
@@ -1383,6 +1411,7 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `cli.gaz` | `cli::Command($name, $summary)`, command line arguments with a generated `--help`; see below |
 | `test.gaz` | `test::expect($label, $actual, $expected)`, `test::throws($label, $thunk, $message)`, `test::snapshot($label, $actual)` and `test::done()`, for `gaz test`; see below |
 | `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins, a server, `http::serve($listener, $handler, $options = {})`, `http::handle($socket, $handler, $options = {})` (one connection), `http::http_date($time)`, `http::Router()` for routing requests to handlers, `http::serve_static($dir)`, a handler that serves files under `$dir`, and cookies and signed sessions (`http::cookies`, `http::set_cookie`, `http::session`, `http::session_cookie`, `http::csrf_token`, `http::verify_csrf`); see below |
+| `web.gaz` | `web::html"..."`, an `Html` from a tagged string: the text as markup, each value escaped as `{{ }}` escapes it, an `Html` kept and a list joined; see "Templates" |
 | `date.gaz` | `date::days($year, $month, $day)` (a date as a whole number of days, day 0 being 1 January 1970: an impossible date is an error), `date::civil($days)` (`[year, month, day]`), `date::year`/`month`/`day`, `date::weekday` (0 Monday to 6 Sunday), `date::next_weekday($days, $weekday)`, `date::add_months`, `date::is_leap`, `date::days_in_month`, and `date::format` (`Sat 8 Aug 2026`), `date::short` (`8 Aug`) and `date::iso` (`2026-08-08`). There is no `today()`: a date is a plain number of days, so a program that needs today's date works it out (`intdiv(time(), 86400)` is today in UTC), which also keeps date code testable with fixed dates |
 | `random.gaz` | `random::shuffle` (a shuffled copy of a list or string), `random::pick` (an element of a list or value of a map), `random::key`, `random::chance($p)`, `random::weighted` (from `[item, weight]` pairs) |
 | `regex.gaz` | `regex::matches($s, $pattern)` (full match), `regex::search($s, $pattern)` (found anywhere), `regex::find($s, $pattern)` (the start index, or null), `regex::groups($s, $pattern)` (the first match and what each `(...)` in it took, a group that took no part `null`, or `null` for no match), `regex::replace($s, $pattern, $with)` (every match, left to right, by `$with` as it is, so `"$1"` is two bytes; an empty match moves on a byte: `replace("abc", "x*", "-")` is `"-a-b-c-"`); literals, `.`, `* + ?` (greedy), `\|` (the first that matches wins), `(...)`, `[...]`/`[^...]` with ranges, `^ $`, `\` escapes; the leftmost match, and there the greedy repetition and the earlier alternative; no backreferences, no backtracking |

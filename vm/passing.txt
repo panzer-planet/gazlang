@@ -22,6 +22,7 @@ lib/term.gaz
 lib/test.gaz
 lib/text.gaz
 lib/tui.gaz
+lib/web.gaz
 snippet:00661fc241b6
 snippet:00969dd8d0a4
 snippet:00bccbc15316
@@ -1035,6 +1036,7 @@ tests/gaz/lib/test_test.gaz
 tests/gaz/lib/text_test.gaz
 tests/gaz/lib/time_test.gaz
 tests/gaz/lib/tui_test.gaz
+tests/gaz/lib/web_test.gaz
 tests/gaz/lists/delete_test.gaz
 tests/gaz/lists/pattern_test.gaz
 tests/gaz/loops/foreach_test.gaz
@@ -1060,6 +1062,7 @@ tests/gaz/strings/interpolation_test.gaz
 tests/gaz/strings/tagged_test.gaz
 tests/gaz/templates/html_concat_test.gaz
 tests/gaz/templates/templates_test.gaz
+tests/gaz/templates/web_html_test.gaz
 tests/programs/cat_facts.gaz
 tests/programs/csv_report.gaz
 tests/programs/errors.gaz

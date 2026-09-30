@@ -270,31 +270,21 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   install it, get a first program working and trust it; not by what would win many users
   (Windows, a registry and a playground wait for someone to ask).
 - **The roadmap**, in build order (optional types, `gaz --watch`, the pipe, cryptography, cookies
-  and signed sessions, `gaz test` and the list helpers in `lib/lists.gaz` are done and described below):
-  1. **Tagged literals as ordinary functions**: `name"text {$v}"` is `name(["text ", ""], [$v])`,
-     resolved like any name, as JavaScript's tags and Python's t-strings are (this stage is
-     "Tagged strings" under Strings; `lib/` can use tags only through a `bin/gaz` whose built-in
-     compiler knows them, since the library is compiled by it). `db::sql"..."` with `Db` refusing
-     a plain string is done (see "Databases"). Then `web::html"..."`: a tag function in a new
-     library namespace `web`, not the `Html` kind and not a global `html`; then concatenating an
-     `Html` becomes an error (the trap below).
-  2. **Rest patterns** in destructuring, `[$first, ...$rest] = $list`, when JSON handling asks.
+  and signed sessions, `gaz test`, the list helpers in `lib/lists.gaz` and tagged literals, with
+  `db::sql"..."` and `web::html"..."` on them, are done and described below):
+  1. **Rest patterns** in destructuring, `[$first, ...$rest] = $list`, when JSON handling asks.
   - **On demand**: dumping the raw bytes of a request that got a 500, to replay it (the small
     version of record and replay); `parallel($thunks, $max)` over forked processes, giving plain
     data only and refusing handles a child inherited (a SQLite or PostgreSQL connection must not be
     used across a fork; check what libpq does first); `std/money`, amounts as integer cents; shape
     patterns in `match`, only with a syntax that can't be read as today's `==` arms (a map there
-    already means "equals this map").
+    already means "equals this map"); `db::join($fragments, $separator)`, not designed yet, for a
+    bulk insert of many rows as one statement.
   - **Not building**: taint mode (a mark on strings leaks, since one-byte strings are shared and
     `url_decode()` rebuilds text with `chr()`; Ruby removed taint as useless; tagged literals
     prevent the bug instead), contracts (types and a guard line cover them),
     `sh"..."` (`run()` already takes an argv list, which is safe), native decimals and full record
     and replay (for now).
-  - **A trap to close**: concatenating an `Html` value (`Html("<b>") .. "text"`, not the kind)
-    quietly gives a plain string, which `{{ }}` then escapes a second time. It should be an error
-    in `..`, `..=` and `join`, where the conversion happens; `echo`, `print` and `to_string()`
-    stay allowed since they make no new value, and `{!! !!}` in templates must emit
-    `to_string(...)` first, as `template.gaz` writes `$#html ..= (code)` today.
 - **`gaz test [path...] [--update] [-v]`**, so a user of gaz doesn't need PHP to test gaz code: it
   finds every `*_test.gaz` file under each path (the current directory by default), recursively,
   and runs each in its own `gaz` process, reinvoked with `program_path()`. `std/test.gaz` gives
@@ -881,6 +871,9 @@ Names are ASCII.
     no valid program has: a name is never followed by a string, and a miscapitalised keyword keeps
     its own hint), and a tagged string after `|>` (it is already a call; `pipe()` would otherwise
     add a third argument).
+  - **The library's tags** are `db::sql"..."` (see "Databases") and `web::html"..."` (see
+    "Templates"), each in its namespace, never a global name; `lib/` can use a tag only through a
+    `bin/gaz` whose built-in compiler knows them, since the library is compiled by it.
 
 ## Lists and maps
 
@@ -1220,7 +1213,8 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   through `format::number()` so it rounds as `round()` does and never by the platform's printf,
   which caps it at an int's worth of digits and 18 decimals (`ponytail:`); `-` beats `0`, as in C;
   every placeholder is read and the count checked before anything is formatted),
-  `json.gaz`, `csv.gaz` (RFC 4180), `db.gaz` (see Databases above), `http.gaz` (method and header names checked
+  `json.gaz`, `csv.gaz` (RFC 4180), `db.gaz` (see Databases above), `web.gaz` (`web::html"..."`,
+  see "Templates"), `http.gaz` (method and header names checked
   as HTTP tokens and URLs for spaces and control characters, so nothing can end a line of the
   request; credentials dropped on a redirect to another origin; `HttpTest` runs it against
   `tests/fixtures/http_server.php`, over TCP and TLS, which writes framing out by hand so it can
@@ -1507,6 +1501,19 @@ turns a mistake into a message and an exit.
   `to_string()`, `.text` and `format`'s helpers (which call `to_string()`) make no `..` and still
   give the markup; `{!! !!}` writes `to_string((...))` for the same reason. Any other object with
   a `to_string()` concatenates as before.
+- **`web::html"..."`** (`lib/web.gaz`, `namespace web`; not the `Html` kind and not a global
+  `html`, so it takes no name from a program) is an `Html` from a tagged string, for markup built
+  in code: the text parts as they are, since the program wrote them, and each value through
+  `Html::escape()`, so an `Html` is kept (fragments nest) and anything else is echo's text
+  escaped (`& < > " '`, `null`/`true`/`12` as echo prints them). A list is its elements joined with
+  nothing between, each by the same rule, which is how a list of fragments becomes a `<ul>`; a map
+  and a list inside a list are errors (`web::html can't put a map in markup: ...`), having no one
+  obvious text. It builds a plain string of the text and escaped strings and makes one `Html` at
+  the end, so it concatenates no `Html` itself. A direct call is checked for what a tagged string
+  gives (strings, one more than the values). Only text and quoted attributes are safe contexts,
+  as in templates, which its header comment and `docs/language.md` say; context-aware escaping
+  (URLs, `<script>`) waits for a program that needs it. Tested by `tests/gaz/lib/web_test.gaz`,
+  and with templates by `tests/gaz/templates/web_html_test.gaz`.
 - **`Html` is a builtin kind in `BUILTIN_SOURCE`**, like `Error` and `Shared`, compiled into a
   program that includes a template or names `Html` itself (not because its own code does). It is
   the first builtin kind with a static method, which `program()` places itself, since only

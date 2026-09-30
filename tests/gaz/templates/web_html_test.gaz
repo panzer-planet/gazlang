@@ -1,0 +1,24 @@
+/*
+ * web::html"..." with templates: its result goes into {{ }} and {!! !!} as it is, never escaped
+ * twice, and a template's result goes into it the same way. Written in a namespace of its own,
+ * reaching the tag by an alias.
+ */
+namespace shop;
+
+include "std/test.gaz" use expect;
+include "std/web.gaz" use html;
+include "views/card.gazml";
+
+$name = "Tom & Jerry";
+$title = html"<em>{$name}</em>";
+$body = html"<p>{$name}</p>";
+expect("a fragment in {{ }} and {!! !!}", to_string(card($title, $body)),
+    "<div class=\"card\"><h2><em>Tom &amp; Jerry</em></h2><p>Tom &amp; Jerry</p><p>Tom &amp; Jerry</p></div>\n");
+expect("a plain string beside it is escaped", to_string(card("<x>", $body)),
+    "<div class=\"card\"><h2>&lt;x&gt;</h2><p>Tom &amp; Jerry</p><p>Tom &amp; Jerry</p></div>\n");
+
+$cards = [card("a", $body), card("b", $body)];
+$page = html"<main>{$cards}</main>";
+expect("templates' results in a list in the tag", starts_with($page.text, "<main><div class=\"card\"><h2>a</h2>"), true);
+expect("and kept as they are", ends_with($page.text, "<h2>b</h2><p>Tom &amp; Jerry</p><p>Tom &amp; Jerry</p></div>\n</main>"), true);
+expect("the alias is the namespace's function", html == web::html, true);
