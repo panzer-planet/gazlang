@@ -19,17 +19,23 @@ include "../lib/regex.gaz";
 include "../lib/http.gaz";
 
 /*
- * The lexer's own keywords (compiler/lexer.gaz's Lexer::KEYWORDS, as a list kept by hand),
- * minus the ones reserved only to hint at the right spelling
- * (function, class, public, private, protected, interface, implements, final all say to write
- * something else): completing one of those would just teach an error.
+ * Keywords that say to write another (fn, kind), where the parser has no table of them; the
+ * rest reserved only to hint at a spelling are Parser::RESERVED and Parser::INSTEAD's
  */
-const KEYWORDS = [
-    "echo", "if", "else", "while", "for", "foreach", "as", "break", "continue", "fn", "return",
-    "null", "delete", "match", "default", "const", "include", "try", "catch", "finally", "throw",
-    "true", "false", "kind", "extends", "abstract", "namespace", "use", "pub", "kin", "static",
-    "shared",
-];
+const SPELLED_OTHERWISE = ["FUNCTION", "CLASS"];
+
+/*
+ * The lexer's own keywords (Lexer::KEYWORDS), in its order, minus the ones reserved only to
+ * hint at the right spelling: completing one of those would just teach an error
+ */
+fn keywords() {
+    return filter(keys(Lexer::KEYWORDS), $word -> !hints_only(Lexer::KEYWORDS[$word]));
+}
+
+// Whether a keyword's token type is one the parser only ever refuses, saying what to write
+fn hints_only($type) {
+    return in_array($type, SPELLED_OTHERWISE) || in_array($type, Parser::RESERVED) || has_key(Parser::INSTEAD, $type);
+}
 
 /* A message framed with a Content-Length header, as every LSP transport uses, read and
  * written over standard input and output */
@@ -267,7 +273,7 @@ fn declared_functions($path, $text, $visited) {
  * what is typed so far: editors filter a completion list against the prefix themselves.
  */
 fn completions($uri) {
-    $items = map(KEYWORDS, $word -> ({"label" => $word, "kind" => 14})); // Keyword
+    $items = map(keywords(), $word -> ({"label" => $word, "kind" => 14})); // Keyword
     foreach (builtins() as $name => $arity) {
         $items[] = {"label" => $name, "kind" => 3, "detail" => describe_arity($arity)}; // Function
     }

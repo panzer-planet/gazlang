@@ -300,6 +300,24 @@ class LspTest extends GazLangTestCase
         $this->assertArrayNotHasKey('class', $byLabel);
     }
 
+    /**
+     * Every keyword the lexer knows is offered, in its order, except the ones the parser only
+     * refuses with a hint, so a new keyword can't be forgotten by completion
+     */
+    public function test_completion_offers_every_keyword_of_the_lexer_but_the_hints()
+    {
+        preg_match('/pub const KEYWORDS = \{(.*?)\};/s', file_get_contents(self::ROOT.'/compiler/lexer.gaz'), $table);
+        preg_match_all('/"(\w+)" =>/', $table[1], $words);
+        $hints = ['function', 'class', 'interface', 'implements', 'final', 'public', 'private', 'protected'];
+        $offered = array_column(array_filter(
+            $this->completionsFor('file:///a.gaz', "echo 1;\n"),
+            fn ($item) => $item['kind'] === 14,
+        ), 'label');
+
+        $this->assertNotEmpty($words[1]);
+        $this->assertSame(array_values(array_diff($words[1], $hints)), $offered);
+    }
+
     public function test_completion_offers_a_function_declared_in_the_document()
     {
         $items = $this->completionsFor('file:///a.gaz', "fn total(\$a, \$b) { return \$a + \$b; }\n");

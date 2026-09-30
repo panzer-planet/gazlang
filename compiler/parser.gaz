@@ -320,10 +320,10 @@ kind Html {
     };
 
     // Keywords reserved for features that don't exist yet, so adding them never breaks a program
-    const RESERVED = ["INTERFACE", "IMPLEMENTS", "FINAL"];
+    pub const RESERVED = ["INTERFACE", "IMPLEMENTS", "FINAL"];
 
     // Reserved, and each says how this language spells what it means
-    const INSTEAD = {
+    pub const INSTEAD = {
         "PUBLIC" => "write 'pub'",
         "PROTECTED" => "write 'kin'",
         "PRIVATE" => "a member says nothing to be its kind's own",

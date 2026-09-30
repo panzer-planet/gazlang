@@ -349,8 +349,9 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   chain — resolved the way the real compiler resolves them, from the document's own directory,
   and only into files that exist on disk, so a `std/` include isn't chased — cycles ended by a
   set of real paths already visited on that branch), and completion (every keyword worth
-  completing, one hand-kept list mirroring `Lexer::KEYWORDS`, skipping the
-  ones reserved only to hint at a spelling; every builtin with its arity; every function the
+  completing: `Lexer::KEYWORDS` in its order, skipping the ones reserved only to hint at a
+  spelling, `Parser::RESERVED`, `Parser::INSTEAD` and `function` and `class`, so a new keyword
+  is offered by itself, which `LspTest` checks against the lexer's table; every builtin with its arity; every function the
   document can reach by name, itself and what it includes, each once even if declared reachably
   more than once; no filtering by what is typed, which editors do themselves) are done; textual,
   not from the parsed tree, since the tree doesn't exist while the document has an unrelated
@@ -475,7 +476,6 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
       `tests/expected`, so fixing the grammar means re-recording.
     - `kind A { pub int public #x; }` (a reserved word after a type) gets the generic "Expected
       a field after the type" error, not the hint to write `pub`.
-    - `lsp/server.gaz` keeps its own list of keywords, though `Lexer::KEYWORDS` is `pub` now.
 - **Language gaps**, closed in the order real code shows what shape each needs:
   - Appending to a list parameter silently does nothing (`fn add_to($l) { $l[] = 1; }`), and
     the parser can't tell it from a function that returns the list. Mutable state belongs in
