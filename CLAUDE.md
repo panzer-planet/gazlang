@@ -470,9 +470,16 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - The keyword hint misses `IF (1) { }`, where the error lands at the `{`, past the name.
   - `CVMTest` doesn't catch `make compiler` checking in stage 1 instead of stage 2: that only
     shows when an edit changes code generation; a test for it needs a second rebuild and is wanted.
-  - **Open bugs**, found by the docs audit and not fixed yet:
+  - **Open bugs**, found by audits and reviews and not fixed yet:
     - Arity errors say "expects 1 arguments" (`builtins.c`), and the text is recorded in
       `tests/expected`, so fixing the grammar means re-recording.
+    - Inside its own kind, a private static named through a child (`kind Counter { static #n = 0;
+      static fn f() { return Tally::n; } } kind Tally extends Counter {}`) is refused as
+      `Counter::n is not pub, so only Counter can use it`, since a child doesn't carry its
+      parent's private names; the asking kind is the declaring one, so it should be allowed.
+    - `kind A { pub int public #x; }` (a reserved word after a type) gets the generic "Expected
+      a field after the type" error, not the hint to write `pub`.
+    - `lsp/server.gaz` keeps its own list of keywords, though `Lexer::KEYWORDS` is `pub` now.
 - **Language gaps**, closed in the order real code shows what shape each needs:
   - Appending to a list parameter silently does nothing (`fn add_to($l) { $l[] = 1; }`), and
     the parser can't tell it from a function that returns the list. Mutable state belongs in
