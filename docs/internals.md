@@ -43,6 +43,10 @@ itself needs neither.
 | `lib/` | the standard library, written in GazLang, a namespace per file (`json::decode`, `chars::is_digit`), built into `bin/gaz` and included as `std/json.gaz` |
 | `examples/` | sample programs, which nothing tests |
 | `games/` | programs built on the language, each with tests of its own (`games/football/`: a terminal football manager: two divisions, tactics, transfers, saving) |
+| `apps/` | web apps built to find what hurts (`apps/todo/`: registration, login and todos on PostgreSQL, with `FRICTION.md`, what the library and language lack); their tests need a database, so CI doesn't run them |
+| `editors/` | TextMate grammars: `gaz/` for source, `gzb/` for bytecode and `gazml/` for templates; `EditorGrammarTest` fails when one misses a builtin, keyword, instruction or template directive |
+| `lsp/` | the language server, `bin/gaz lsp/server.gaz` |
+| `site/` | the website, a GazLang program: `bin/gaz site/build.gaz` |
 | `tests/` | PHPUnit, which runs `bin/gaz`; `tests/gaz/` GazLang programs; `tests/programs/` bigger programs that the tests run; `tests/corpora/`, the corpora `lexer/`, `parser/`, `codegen/`, `vm/`, `bytecode/`, `cli/`, `json/` and `csv/`; and `expected/`, what every program must print |
 
 ## What holds it together

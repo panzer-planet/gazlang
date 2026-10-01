@@ -1104,6 +1104,11 @@ disturbing the connection or file for the others. The process that called `worke
 copy until it ends, so a PostgreSQL connection opened before it stays open, idle, as long as the
 server runs.
 
+On macOS the first SQLite open sets `OS_ACTIVITY_MODE=disable` in the process, which a program
+started with `run()` inherits. Apple's SQLite logs a signpost on every open, and the logging
+library's state does not survive a fork: without this a worker's open crashed now and then when the
+process that started the workers had opened a database first (migrations at start-up).
+
 `worker_recycle()` retires the calling worker on purpose (`http::serve()`'s `max_requests`): it
 flushes standard output, then ends the process, and the master replaces it at once, so the pool
 stays `$count` wide and whatever state the worker built up over its life goes with it. It never returns. The retiring is by a signal (SIGUSR2), not a reserved exit code, since

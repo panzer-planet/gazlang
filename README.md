@@ -319,6 +319,10 @@ Run `php vm/bench.php 7` to measure on your own machine.
   as they ask: a [football manager](games/football/README.md) for the terminal.
 - **`lsp/`** — a Language Server Protocol server for GazLang, `bin/gaz lsp/server.gaz`,
   diagnostics, hover, go-to-definition and completion.
+- **`editors/`** — TextMate grammars for source (`.gaz`), bytecode (`.gzb`) and templates
+  (`.gazml`), which VS Code, Sublime and most editors read.
+- **`apps/todo/`** — a web app built to find what the language and library lack: registration,
+  login and todos on PostgreSQL, with [a log of the friction](apps/todo/FRICTION.md).
 - **[docs/internals.md](docs/internals.md)** — how the compiler and VM fit together, the build,
   and how to work on them.
 - **[CLAUDE.md](CLAUDE.md)** — the rules, the reasons behind each design decision, and what is
