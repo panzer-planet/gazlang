@@ -704,13 +704,13 @@ RET
 
 fn gazlang::is_comment_line 1 1
 locals $text $trimmed
-@ "template.gaz" 289
+@ "template.gaz" 314
 LOAD 0
 CALL_BUILTIN trim 1
 STORE 1
 LOAD 1
 POP
-@ "template.gaz" 291
+@ "template.gaz" 316
 LOAD 1
 PUSH "{{--"
 CALL_BUILTIN starts_with 2
@@ -730,13 +730,13 @@ LABEL AND_FALSE_0
 PUSH false
 LABEL AND_END_0
 RET
-@ "template.gaz" 288
+@ "template.gaz" 313
 PUSH null
 RET
 
 fn gazlang::is_letter 1 1
 locals $c
-@ "template.gaz" 295
+@ "template.gaz" 320
 LOAD 0
 PUSH "a"
 GE
@@ -773,7 +773,7 @@ LABEL OR_TRUE_0
 PUSH true
 LABEL OR_END_0
 RET
-@ "template.gaz" 294
+@ "template.gaz" 319
 PUSH null
 RET
 
@@ -6147,6 +6147,7 @@ field open gazlang::TemplateTranslator
 field file gazlang::TemplateTranslator
 method _ gazlang::TemplateTranslator pub
 method translate gazlang::TemplateTranslator pub
+method is_namespace_line gazlang::TemplateTranslator
 method header gazlang::TemplateTranslator
 method line gazlang::TemplateTranslator
 method directive gazlang::TemplateTranslator
@@ -6160,9 +6161,9 @@ method check_nothing_after gazlang::TemplateTranslator
 method check_closed gazlang::TemplateTranslator
 method fail gazlang::TemplateTranslator
 locals $#argument_0 $#argument_1
-@ "template.gaz" 36
+@ "template.gaz" 40
 NEW_ARRAY
-@ "template.gaz" 32
+@ "template.gaz" 36
 SET_FIELD open
 POP
 CALL_CONSTRUCTOR gazlang::TemplateTranslator
@@ -6172,89 +6173,129 @@ RET
 
 fn gazlang::TemplateTranslator._ 2 2
 locals $text $file
-@ "template.gaz" 38
+@ "template.gaz" 42
 LOAD 1
 SET_FIELD file
 POP
-@ "template.gaz" 39
+@ "template.gaz" 43
 LOAD 0
 PUSH "\n"
 CALL_BUILTIN split 2
 SET_FIELD lines
 POP
-@ "template.gaz" 38
+@ "template.gaz" 42
 PUSH null
 RET
 
 fn gazlang::TemplateTranslator.translate 0 0
-locals $source $last $i $#update_key0_1
-@ "template.gaz" 44
+locals $source $first $last $i $#update_key0_1
+@ "template.gaz" 48
 NEW_ARRAY
-LOAD_THIS
-GET_METHOD header
-LOAD_FIELD lines
-PUSH 0
-INDEX_GET
-CALL_METHOD 1 header
-ARRAY_PUSH
 STORE 0
 LOAD 0
 POP
-@ "template.gaz" 45
+@ "template.gaz" 49
+PUSH 0
+STORE 1
+LOAD 1
+POP
+@ "template.gaz" 50
+LOAD_THIS
+GET_METHOD is_namespace_line
+LOAD_FIELD lines
+PUSH 0
+INDEX_GET
+CALL_METHOD 1 is_namespace_line
+JZ ELSE_0
+@ "template.gaz" 52
+LOAD_FIELD lines
+PUSH 0
+INDEX_GET
+CALL_BUILTIN trim 1
+SET_PATH [] 0
+POP
+@ "template.gaz" 53
+PUSH 1
+STORE 1
+LOAD 1
+POP
+@ "template.gaz" 50
+JMP ENDIF_0
+LABEL ELSE_0
+LABEL ENDIF_0
+@ "template.gaz" 55
+LOAD_THIS
+GET_METHOD header
+LOAD_THIS
+GET_PROPERTY_QUIET lines
+LOAD 1
+INDEX_GET_QUIET
+JNN COALESCE_END_1
+PUSH ""
+LABEL COALESCE_END_1
+LOAD 1
+PUSH 1
+ADD
+CALL_METHOD 2 header
+SET_PATH [] 0
+POP
+@ "template.gaz" 56
 LOAD_FIELD lines
 CALL_BUILTIN len 1
 PUSH 1
 SUB
-STORE 1
-LOAD 1
-POP
-@ "template.gaz" 46
-PUSH 1
 STORE 2
 LOAD 2
 POP
-LABEL WHILE_0
-LOAD 2
+@ "template.gaz" 57
 LOAD 1
+PUSH 1
+ADD
+STORE 3
+LOAD 3
+POP
+LABEL WHILE_2
+LOAD 3
+LOAD 2
 LE
-JZ ENDWHILE_0
-@ "template.gaz" 47
+JZ ENDWHILE_2
+@ "template.gaz" 58
 LOAD_THIS
 GET_METHOD line
 LOAD_FIELD lines
-LOAD 2
+LOAD 3
 INDEX_GET
-LOAD 2
+LOAD 3
 PUSH 1
 ADD
+LOAD 3
 LOAD 2
-LOAD 1
 LT
 CALL_METHOD 3 line
 SET_PATH [] 0
 POP
-LABEL CONTINUE_0
-@ "template.gaz" 46
-LOAD 2
+LABEL CONTINUE_2
+@ "template.gaz" 57
+LOAD 3
 INC
-STORE 2
-LOAD 2
+STORE 3
+LOAD 3
 POP
-JMP WHILE_0
-LABEL ENDWHILE_0
-@ "template.gaz" 49
+JMP WHILE_2
+LABEL ENDWHILE_2
+@ "template.gaz" 60
 LOAD_THIS
 GET_METHOD check_closed
 CALL_METHOD 0 check_closed
 POP
-@ "template.gaz" 50
+@ "template.gaz" 61
 LOAD 0
 CALL_BUILTIN len 1
 PUSH 1
 SUB
 KEY_CHECK
-STORE 3
-LOAD 3
+STORE 4
+LOAD 4
 PUSH " return Html("
 PUSH "$#html"
 CONCAT
@@ -6262,46 +6303,109 @@ PUSH "); }"
 CONCAT
 SET_PATH [k]..= 0
 POP
-@ "template.gaz" 52
+@ "template.gaz" 63
 LOAD 0
 PUSH "\n"
 CALL_BUILTIN join 2
 RET
-@ "template.gaz" 43
+@ "template.gaz" 47
 PUSH null
 RET
 
-fn gazlang::TemplateTranslator.header 1 1
+fn gazlang::TemplateTranslator.is_namespace_line 1 1
 locals $text $trimmed
-@ "template.gaz" 57
+@ "template.gaz" 68
 LOAD 0
 CALL_BUILTIN trim 1
 STORE 1
 LOAD 1
 POP
-@ "template.gaz" 58
+@ "template.gaz" 70
 LOAD 1
+PUSH "namespace"
+EQUALS
+NOT
+JZ OR_TRUE_0
+LOAD 1
+PUSH "namespace "
+CALL_BUILTIN starts_with 2
+NOT
+JZ OR_TRUE_0
+PUSH false
+JMP OR_END_0
+LABEL OR_TRUE_0
+PUSH true
+LABEL OR_END_0
+RET
+@ "template.gaz" 67
+PUSH null
+RET
+
+fn gazlang::TemplateTranslator.header 2 2
+locals $text $number $trimmed $declaration $marker
+@ "template.gaz" 76
+LOAD 0
+CALL_BUILTIN trim 1
+STORE 2
+LOAD 2
+POP
+@ "template.gaz" 77
+LOAD 2
 PUSH "@template "
 CALL_BUILTIN starts_with 2
 NOT
 JZ ELSE_0
-@ "template.gaz" 59
+@ "template.gaz" 78
 LOAD_THIS
 GET_METHOD fail
 PUSH "A template starts with @template and the function it is, like @template page(\$title)"
-PUSH 1
+LOAD 1
 CALL_METHOD 2 fail
 POP
-@ "template.gaz" 58
+@ "template.gaz" 77
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "template.gaz" 62
-PUSH "fn "
-LOAD 1
+@ "template.gaz" 80
+LOAD 2
 PUSH 10
 CALL_BUILTIN slice 2
 CALL_BUILTIN trim 1
+STORE 3
+LOAD 3
+POP
+@ "template.gaz" 81
+PUSH ""
+STORE 4
+LOAD 4
+POP
+@ "template.gaz" 82
+LOAD 3
+PUSH "pub "
+CALL_BUILTIN starts_with 2
+JZ ELSE_1
+@ "template.gaz" 83
+PUSH "pub "
+STORE 4
+LOAD 4
+POP
+@ "template.gaz" 84
+LOAD 3
+PUSH 4
+CALL_BUILTIN slice 2
+CALL_BUILTIN trim 1
+STORE 3
+LOAD 3
+POP
+@ "template.gaz" 82
+JMP ENDIF_1
+LABEL ELSE_1
+LABEL ENDIF_1
+@ "template.gaz" 87
+LOAD 4
+PUSH "fn "
+CONCAT
+LOAD 3
 CONCAT
 PUSH " { "
 CONCAT
@@ -6310,13 +6414,13 @@ CONCAT
 PUSH " = \"\";"
 CONCAT
 RET
-@ "template.gaz" 56
+@ "template.gaz" 75
 PUSH null
 RET
 
 fn gazlang::TemplateTranslator.line 3 3
 locals $text $number $newline $directive
-@ "template.gaz" 67
+@ "template.gaz" 92
 LOAD_THIS
 GET_METHOD directive
 LOAD 0
@@ -6325,41 +6429,41 @@ CALL_METHOD 2 directive
 STORE 3
 LOAD 3
 POP
-@ "template.gaz" 68
+@ "template.gaz" 93
 LOAD 3
 PUSH null
 NOT_EQUALS
 JZ ELSE_0
-@ "template.gaz" 69
+@ "template.gaz" 94
 LOAD 3
 RET
-@ "template.gaz" 68
+@ "template.gaz" 93
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "template.gaz" 71
+@ "template.gaz" 96
 LOAD 0
 CALL gazlang::is_comment_line 1
 JZ ELSE_1
-@ "template.gaz" 72
+@ "template.gaz" 97
 PUSH ""
 RET
-@ "template.gaz" 71
+@ "template.gaz" 96
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "template.gaz" 74
+@ "template.gaz" 99
 LOAD 2
 JZ ELSE_2
-@ "template.gaz" 75
+@ "template.gaz" 100
 PUSH "\n"
 CONCAT_ASSIGN 0
 POP
-@ "template.gaz" 74
+@ "template.gaz" 99
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "template.gaz" 78
+@ "template.gaz" 103
 LOAD 0
 LOAD 1
 LOAD_FIELD file
@@ -6367,32 +6471,32 @@ NEW gazlang::TemplateLine 3
 GET_METHOD source
 CALL_METHOD 0 source
 RET
-@ "template.gaz" 66
+@ "template.gaz" 91
 PUSH null
 RET
 
 fn gazlang::TemplateTranslator.directive 2 2
 locals $text $number $trimmed $word $argument $#match_0
-@ "template.gaz" 83
+@ "template.gaz" 108
 LOAD 0
 CALL_BUILTIN trim 1
 STORE 2
 LOAD 2
 POP
-@ "template.gaz" 84
+@ "template.gaz" 109
 LOAD 2
 PUSH "@"
 CALL_BUILTIN starts_with 2
 NOT
 JZ ELSE_0
-@ "template.gaz" 85
+@ "template.gaz" 110
 PUSH null
 RET
-@ "template.gaz" 84
+@ "template.gaz" 109
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "template.gaz" 87
+@ "template.gaz" 112
 LOAD_THIS
 GET_METHOD directive_word
 LOAD 2
@@ -6400,7 +6504,7 @@ CALL_METHOD 1 directive_word
 STORE 3
 LOAD 3
 POP
-@ "template.gaz" 88
+@ "template.gaz" 113
 LOAD 2
 PUSH 1
 LOAD 3
@@ -6411,54 +6515,54 @@ CALL_BUILTIN trim 1
 STORE 4
 LOAD 4
 POP
-@ "template.gaz" 90
+@ "template.gaz" 115
 LOAD 3
 STORE 5
 LOAD 5
-@ "template.gaz" 91
+@ "template.gaz" 116
 PUSH "if"
-@ "template.gaz" 90
+@ "template.gaz" 115
 EQUALS
 NOT
 JZ MATCH_ARM_1_0
 LOAD 5
-@ "template.gaz" 92
+@ "template.gaz" 117
 PUSH "foreach"
-@ "template.gaz" 90
+@ "template.gaz" 115
 EQUALS
 NOT
 JZ MATCH_ARM_1_1
 LOAD 5
-@ "template.gaz" 93
+@ "template.gaz" 118
 PUSH "elseif"
-@ "template.gaz" 90
+@ "template.gaz" 115
 EQUALS
 NOT
 JZ MATCH_ARM_1_2
 LOAD 5
-@ "template.gaz" 94
+@ "template.gaz" 119
 PUSH "else"
-@ "template.gaz" 90
+@ "template.gaz" 115
 EQUALS
 NOT
 JZ MATCH_ARM_1_3
 LOAD 5
-@ "template.gaz" 95
+@ "template.gaz" 120
 PUSH "endif"
-@ "template.gaz" 90
+@ "template.gaz" 115
 EQUALS
 NOT
 JZ MATCH_ARM_1_4
 LOAD 5
-@ "template.gaz" 96
+@ "template.gaz" 121
 PUSH "endforeach"
-@ "template.gaz" 90
+@ "template.gaz" 115
 EQUALS
 NOT
 JZ MATCH_ARM_1_5
 JMP MATCH_ARM_1_6
 LABEL MATCH_ARM_1_0
-@ "template.gaz" 91
+@ "template.gaz" 116
 LOAD_THIS
 GET_METHOD open_block
 PUSH "if"
@@ -6466,10 +6570,10 @@ LOAD 4
 LOAD 1
 PUSH "if "
 CALL_METHOD 4 open_block
-@ "template.gaz" 90
+@ "template.gaz" 115
 JMP MATCH_END_1
 LABEL MATCH_ARM_1_1
-@ "template.gaz" 92
+@ "template.gaz" 117
 LOAD_THIS
 GET_METHOD open_block
 PUSH "foreach"
@@ -6477,10 +6581,10 @@ LOAD 4
 LOAD 1
 PUSH "foreach "
 CALL_METHOD 4 open_block
-@ "template.gaz" 90
+@ "template.gaz" 115
 JMP MATCH_END_1
 LABEL MATCH_ARM_1_2
-@ "template.gaz" 93
+@ "template.gaz" 118
 LOAD_THIS
 GET_METHOD continue_if
 PUSH "elseif"
@@ -6488,10 +6592,10 @@ LOAD 4
 LOAD 1
 PUSH "} else if "
 CALL_METHOD 4 continue_if
-@ "template.gaz" 90
+@ "template.gaz" 115
 JMP MATCH_END_1
 LABEL MATCH_ARM_1_3
-@ "template.gaz" 94
+@ "template.gaz" 119
 LOAD_THIS
 GET_METHOD continue_if
 PUSH "else"
@@ -6499,48 +6603,48 @@ LOAD 4
 LOAD 1
 PUSH "} else"
 CALL_METHOD 4 continue_if
-@ "template.gaz" 90
+@ "template.gaz" 115
 JMP MATCH_END_1
 LABEL MATCH_ARM_1_4
-@ "template.gaz" 95
+@ "template.gaz" 120
 LOAD_THIS
 GET_METHOD close_block
 PUSH "if"
 LOAD 4
 LOAD 1
 CALL_METHOD 3 close_block
-@ "template.gaz" 90
+@ "template.gaz" 115
 JMP MATCH_END_1
 LABEL MATCH_ARM_1_5
-@ "template.gaz" 96
+@ "template.gaz" 121
 LOAD_THIS
 GET_METHOD close_block
 PUSH "foreach"
 LOAD 4
 LOAD 1
 CALL_METHOD 3 close_block
-@ "template.gaz" 90
+@ "template.gaz" 115
 JMP MATCH_END_1
 LABEL MATCH_ARM_1_6
-@ "template.gaz" 97
+@ "template.gaz" 122
 PUSH null
-@ "template.gaz" 90
+@ "template.gaz" 115
 JMP MATCH_END_1
 LABEL MATCH_END_1
 RET
-@ "template.gaz" 82
+@ "template.gaz" 107
 PUSH null
 RET
 
 fn gazlang::TemplateTranslator.directive_word 1 1
 locals $trimmed $end
-@ "template.gaz" 103
+@ "template.gaz" 128
 PUSH 1
 STORE 1
 LOAD 1
 POP
 LABEL WHILE_0
-@ "template.gaz" 104
+@ "template.gaz" 129
 LOAD 1
 LOAD 0
 CALL_BUILTIN len 1
@@ -6557,16 +6661,16 @@ LABEL AND_FALSE_1
 PUSH false
 LABEL AND_END_1
 JZ ENDWHILE_0
-@ "template.gaz" 105
+@ "template.gaz" 130
 LOAD 1
 INC
 STORE 1
 LOAD 1
 POP
-@ "template.gaz" 104
+@ "template.gaz" 129
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "template.gaz" 108
+@ "template.gaz" 133
 LOAD 0
 PUSH 1
 LOAD 1
@@ -6574,13 +6678,13 @@ PUSH 1
 SUB
 CALL_BUILTIN slice 3
 RET
-@ "template.gaz" 102
+@ "template.gaz" 127
 PUSH null
 RET
 
 fn gazlang::TemplateTranslator.open_block 4 4
 locals $word $argument $number $keyword
-@ "template.gaz" 112
+@ "template.gaz" 137
 LOAD_THIS
 GET_METHOD check_condition
 LOAD 0
@@ -6588,7 +6692,7 @@ LOAD 1
 LOAD 2
 CALL_METHOD 3 check_condition
 POP
-@ "template.gaz" 113
+@ "template.gaz" 138
 NEW_ARRAY
 LOAD 0
 ARRAY_PUSH
@@ -6598,20 +6702,20 @@ PUSH null
 ARRAY_PUSH
 SET_PATH_THIS .open[]
 POP
-@ "template.gaz" 115
+@ "template.gaz" 140
 LOAD 3
 LOAD 1
 CONCAT
 PUSH " {"
 CONCAT
 RET
-@ "template.gaz" 111
+@ "template.gaz" 136
 PUSH null
 RET
 
 fn gazlang::TemplateTranslator.continue_if 4 4
 locals $word $argument $number $source $innermost $#destructure_0 $block $opened $else_line
-@ "template.gaz" 120
+@ "template.gaz" 145
 LOAD_THIS
 GET_METHOD innermost
 LOAD 0
@@ -6620,7 +6724,7 @@ CALL_METHOD 2 innermost
 STORE 4
 LOAD 4
 POP
-@ "template.gaz" 121
+@ "template.gaz" 146
 LOAD 4
 DESTRUCTURE 3
 STORE 5
@@ -6644,12 +6748,12 @@ LOAD 8
 POP
 LOAD 5
 POP
-@ "template.gaz" 122
+@ "template.gaz" 147
 LOAD 6
 PUSH "if"
 NOT_EQUALS
 JZ ELSE_0
-@ "template.gaz" 123
+@ "template.gaz" 148
 LOAD_THIS
 GET_METHOD fail
 PUSH "@"
@@ -6668,16 +6772,16 @@ CONCAT
 LOAD 2
 CALL_METHOD 2 fail
 POP
-@ "template.gaz" 122
+@ "template.gaz" 147
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "template.gaz" 125
+@ "template.gaz" 150
 LOAD 8
 PUSH null
 NOT_EQUALS
 JZ ELSE_1
-@ "template.gaz" 126
+@ "template.gaz" 151
 LOAD_THIS
 GET_METHOD fail
 PUSH "@"
@@ -6692,16 +6796,16 @@ CONCAT
 LOAD 2
 CALL_METHOD 2 fail
 POP
-@ "template.gaz" 125
+@ "template.gaz" 150
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "template.gaz" 128
+@ "template.gaz" 153
 LOAD 0
 PUSH "elseif"
 EQUALS
 JZ ELSE_2
-@ "template.gaz" 129
+@ "template.gaz" 154
 LOAD_THIS
 GET_METHOD check_condition
 LOAD 0
@@ -6709,18 +6813,18 @@ LOAD 1
 LOAD 2
 CALL_METHOD 3 check_condition
 POP
-@ "template.gaz" 131
+@ "template.gaz" 156
 LOAD 3
 LOAD 1
 CONCAT
 PUSH " {"
 CONCAT
 RET
-@ "template.gaz" 128
+@ "template.gaz" 153
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "template.gaz" 133
+@ "template.gaz" 158
 LOAD_THIS
 GET_METHOD check_nothing_after
 LOAD 0
@@ -6728,7 +6832,7 @@ LOAD 1
 LOAD 2
 CALL_METHOD 3 check_nothing_after
 POP
-@ "template.gaz" 134
+@ "template.gaz" 159
 LOAD_FIELD open
 CALL_BUILTIN len 1
 PUSH 1
@@ -6739,18 +6843,18 @@ KEY_CHECK
 LOAD 2
 SET_PATH_THIS .open[k][k]
 POP
-@ "template.gaz" 136
+@ "template.gaz" 161
 LOAD 3
 PUSH " {"
 CONCAT
 RET
-@ "template.gaz" 119
+@ "template.gaz" 144
 PUSH null
 RET
 
 fn gazlang::TemplateTranslator.close_block 3 3
 locals $word $argument $number $innermost
-@ "template.gaz" 140
+@ "template.gaz" 165
 LOAD_THIS
 GET_METHOD innermost
 PUSH "end"
@@ -6761,14 +6865,14 @@ CALL_METHOD 2 innermost
 STORE 3
 LOAD 3
 POP
-@ "template.gaz" 141
+@ "template.gaz" 166
 LOAD 3
 PUSH 0
 INDEX_GET
 LOAD 0
 NOT_EQUALS
 JZ ELSE_0
-@ "template.gaz" 142
+@ "template.gaz" 167
 LOAD_THIS
 GET_METHOD fail
 PUSH "@end"
@@ -6799,11 +6903,11 @@ CONCAT
 LOAD 2
 CALL_METHOD 2 fail
 POP
-@ "template.gaz" 141
+@ "template.gaz" 166
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "template.gaz" 144
+@ "template.gaz" 169
 LOAD_THIS
 GET_METHOD check_nothing_after
 PUSH "end"
@@ -6813,29 +6917,29 @@ LOAD 1
 LOAD 2
 CALL_METHOD 3 check_nothing_after
 POP
-@ "template.gaz" 145
+@ "template.gaz" 170
 LOAD_FIELD open
 CALL_BUILTIN len 1
 PUSH 1
 SUB
 KEY_CHECK
 DELETE_PATH_THIS .open[k]
-@ "template.gaz" 147
+@ "template.gaz" 172
 PUSH "}"
 RET
-@ "template.gaz" 139
+@ "template.gaz" 164
 PUSH null
 RET
 
 fn gazlang::TemplateTranslator.innermost 2 2
 locals $word $number
-@ "template.gaz" 151
+@ "template.gaz" 176
 LOAD_FIELD open
 CALL_BUILTIN len 1
 PUSH 0
 EQUALS
 JZ ELSE_0
-@ "template.gaz" 152
+@ "template.gaz" 177
 LOAD_THIS
 GET_METHOD fail
 PUSH "@"
@@ -6846,21 +6950,21 @@ CONCAT
 LOAD 1
 CALL_METHOD 2 fail
 POP
-@ "template.gaz" 151
+@ "template.gaz" 176
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "template.gaz" 155
+@ "template.gaz" 180
 LOAD_FIELD open
 CALL_BUILTIN last 1
 RET
-@ "template.gaz" 150
+@ "template.gaz" 175
 PUSH null
 RET
 
 fn gazlang::TemplateTranslator.check_condition 3 3
 locals $word $argument $number
-@ "template.gaz" 160
+@ "template.gaz" 185
 LOAD 1
 PUSH "("
 CALL_BUILTIN starts_with 2
@@ -6879,7 +6983,7 @@ LABEL OR_TRUE_1
 PUSH true
 LABEL OR_END_1
 JZ ELSE_0
-@ "template.gaz" 161
+@ "template.gaz" 186
 LOAD_THIS
 GET_METHOD fail
 PUSH "@"
@@ -6894,22 +6998,22 @@ CONCAT
 LOAD 2
 CALL_METHOD 2 fail
 POP
-@ "template.gaz" 160
+@ "template.gaz" 185
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "template.gaz" 159
+@ "template.gaz" 184
 PUSH null
 RET
 
 fn gazlang::TemplateTranslator.check_nothing_after 3 3
 locals $word $argument $number
-@ "template.gaz" 166
+@ "template.gaz" 191
 LOAD 1
 PUSH ""
 NOT_EQUALS
 JZ ELSE_0
-@ "template.gaz" 167
+@ "template.gaz" 192
 LOAD_THIS
 GET_METHOD fail
 PUSH "@"
@@ -6920,23 +7024,23 @@ CONCAT
 LOAD 2
 CALL_METHOD 2 fail
 POP
-@ "template.gaz" 166
+@ "template.gaz" 191
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "template.gaz" 165
+@ "template.gaz" 190
 PUSH null
 RET
 
 fn gazlang::TemplateTranslator.check_closed 0 0
 locals $#destructure_0 $word $line
-@ "template.gaz" 172
+@ "template.gaz" 197
 LOAD_FIELD open
 CALL_BUILTIN len 1
 PUSH 0
 GT
 JZ ELSE_0
-@ "template.gaz" 173
+@ "template.gaz" 198
 LOAD_FIELD open
 CALL_BUILTIN last 1
 DESTRUCTURE 3
@@ -6955,7 +7059,7 @@ LOAD 2
 POP
 LOAD 0
 POP
-@ "template.gaz" 174
+@ "template.gaz" 199
 LOAD_THIS
 GET_METHOD fail
 PUSH "@"
@@ -6970,23 +7074,23 @@ CONCAT
 LOAD 2
 CALL_METHOD 2 fail
 POP
-@ "template.gaz" 172
+@ "template.gaz" 197
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "template.gaz" 171
+@ "template.gaz" 196
 PUSH null
 RET
 
 fn gazlang::TemplateTranslator.fail 2 2
 locals $message $line
-@ "template.gaz" 179
+@ "template.gaz" 204
 LOAD 0
 LOAD_FIELD file
 LOAD 1
 NEW gazlang::ParseError 3
 THROW
-@ "template.gaz" 178
+@ "template.gaz" 203
 PUSH null
 RET
 
@@ -7009,19 +7113,19 @@ method flush_text gazlang::TemplateLine
 method append gazlang::TemplateLine
 method fail gazlang::TemplateLine
 locals $#argument_0 $#argument_1 $#argument_2
-@ "template.gaz" 188
+@ "template.gaz" 213
 NEW_ARRAY
-@ "template.gaz" 187
+@ "template.gaz" 212
 SET_FIELD statements
 POP
-@ "template.gaz" 189
+@ "template.gaz" 214
 PUSH ""
-@ "template.gaz" 187
+@ "template.gaz" 212
 SET_FIELD text
 POP
-@ "template.gaz" 190
+@ "template.gaz" 215
 PUSH 0
-@ "template.gaz" 187
+@ "template.gaz" 212
 SET_FIELD at
 POP
 CALL_CONSTRUCTOR gazlang::TemplateLine
@@ -7031,7 +7135,7 @@ RET
 
 fn gazlang::TemplateLine._ 3 3
 locals $line $number $file
-@ "template.gaz" 192
+@ "template.gaz" 217
 LOAD 0
 SET_FIELD line
 POP
@@ -7047,67 +7151,67 @@ RET
 fn gazlang::TemplateLine.source 0 0
 locals
 LABEL WHILE_0
-@ "template.gaz" 195
+@ "template.gaz" 220
 LOAD_FIELD at
 LOAD_FIELD line
 CALL_BUILTIN len 1
 LT
 JZ ENDWHILE_0
-@ "template.gaz" 196
+@ "template.gaz" 221
 LOAD_THIS
 GET_METHOD step
 CALL_METHOD 0 step
 POP
-@ "template.gaz" 195
+@ "template.gaz" 220
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "template.gaz" 198
+@ "template.gaz" 223
 LOAD_THIS
 GET_METHOD flush_text
 CALL_METHOD 0 flush_text
 POP
-@ "template.gaz" 200
+@ "template.gaz" 225
 LOAD_FIELD statements
 PUSH " "
 CALL_BUILTIN join 2
 RET
-@ "template.gaz" 194
+@ "template.gaz" 219
 PUSH null
 RET
 
 fn gazlang::TemplateLine.step 0 0
 locals $next $#destructure_1 $at $opening $#match_3
-@ "template.gaz" 205
+@ "template.gaz" 230
 LOAD_THIS
 GET_METHOD next_opening
 CALL_METHOD 0 next_opening
 STORE 0
 LOAD 0
 POP
-@ "template.gaz" 206
+@ "template.gaz" 231
 LOAD 0
 PUSH null
 EQUALS
 JZ ELSE_0
-@ "template.gaz" 207
+@ "template.gaz" 232
 LOAD_FIELD line
 LOAD_FIELD at
 CALL_BUILTIN slice 2
 SET_PATH_THIS .text..=
 POP
-@ "template.gaz" 208
+@ "template.gaz" 233
 LOAD_FIELD line
 CALL_BUILTIN len 1
 SET_FIELD at
 POP
-@ "template.gaz" 210
+@ "template.gaz" 235
 PUSH null
 RET
-@ "template.gaz" 206
+@ "template.gaz" 231
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "template.gaz" 212
+@ "template.gaz" 237
 LOAD 0
 DESTRUCTURE 2
 STORE 1
@@ -7125,7 +7229,7 @@ LOAD 3
 POP
 LOAD 1
 POP
-@ "template.gaz" 213
+@ "template.gaz" 238
 LOAD_FIELD line
 LOAD_FIELD at
 LOAD 2
@@ -7134,55 +7238,55 @@ SUB
 CALL_BUILTIN slice 3
 SET_PATH_THIS .text..=
 POP
-@ "template.gaz" 214
+@ "template.gaz" 239
 LOAD 2
 SET_FIELD at
 POP
-@ "template.gaz" 215
+@ "template.gaz" 240
 LOAD 3
 STORE 4
 LOAD 4
-@ "template.gaz" 216
+@ "template.gaz" 241
 PUSH "@{{"
-@ "template.gaz" 215
+@ "template.gaz" 240
 EQUALS
 NOT
 JZ MATCH_ARM_1_0
 LOAD 4
-@ "template.gaz" 217
+@ "template.gaz" 242
 PUSH "{{--"
-@ "template.gaz" 215
+@ "template.gaz" 240
 EQUALS
 NOT
 JZ MATCH_ARM_1_1
 LOAD 4
-@ "template.gaz" 218
+@ "template.gaz" 243
 PUSH "{!!"
-@ "template.gaz" 215
+@ "template.gaz" 240
 EQUALS
 NOT
 JZ MATCH_ARM_1_2
 JMP MATCH_ARM_1_3
 LABEL MATCH_ARM_1_0
-@ "template.gaz" 216
+@ "template.gaz" 241
 LOAD_THIS
 GET_METHOD literal_braces
 CALL_METHOD 0 literal_braces
 POP
-@ "template.gaz" 215
+@ "template.gaz" 240
 PUSH null
 JMP MATCH_END_1
 LABEL MATCH_ARM_1_1
-@ "template.gaz" 217
+@ "template.gaz" 242
 LOAD_THIS
 GET_METHOD comment
 CALL_METHOD 0 comment
 POP
-@ "template.gaz" 215
+@ "template.gaz" 240
 PUSH null
 JMP MATCH_END_1
 LABEL MATCH_ARM_1_2
-@ "template.gaz" 218
+@ "template.gaz" 243
 LOAD_THIS
 GET_METHOD expression
 PUSH "{!!"
@@ -7190,11 +7294,11 @@ PUSH "!!}"
 PUSH false
 CALL_METHOD 3 expression
 POP
-@ "template.gaz" 215
+@ "template.gaz" 240
 PUSH null
 JMP MATCH_END_1
 LABEL MATCH_ARM_1_3
-@ "template.gaz" 219
+@ "template.gaz" 244
 LOAD_THIS
 GET_METHOD expression
 PUSH "{{"
@@ -7202,23 +7306,23 @@ PUSH "}}"
 PUSH true
 CALL_METHOD 3 expression
 POP
-@ "template.gaz" 215
+@ "template.gaz" 240
 PUSH null
 JMP MATCH_END_1
 LABEL MATCH_END_1
 POP
-@ "template.gaz" 204
+@ "template.gaz" 229
 PUSH null
 RET
 
 fn gazlang::TemplateLine.next_opening 0 0
 locals $best $#foreach_array_0 $#foreach_position_0 $opening $at
-@ "template.gaz" 225
+@ "template.gaz" 250
 PUSH null
 STORE 0
 LOAD 0
 POP
-@ "template.gaz" 226
+@ "template.gaz" 251
 PUSH ["@{{", "{{--", "{!!", "{{"]
 FOREACH_CHECK
 STORE 1
@@ -7227,7 +7331,7 @@ STORE 2
 LABEL FOREACH_0
 FOREACH_NEXT 1 2 ENDFOREACH_0
 STORE 3
-@ "template.gaz" 227
+@ "template.gaz" 252
 LOAD_FIELD line
 LOAD 3
 LOAD_FIELD at
@@ -7235,7 +7339,7 @@ CALL_BUILTIN index_of 3
 STORE 4
 LOAD 4
 POP
-@ "template.gaz" 228
+@ "template.gaz" 253
 LOAD 4
 PUSH null
 NOT_EQUALS
@@ -7264,7 +7368,7 @@ LABEL AND_FALSE_2
 PUSH false
 LABEL AND_END_2
 JZ ELSE_1
-@ "template.gaz" 229
+@ "template.gaz" 254
 NEW_ARRAY
 LOAD 4
 ARRAY_PUSH
@@ -7273,40 +7377,40 @@ ARRAY_PUSH
 STORE 0
 LOAD 0
 POP
-@ "template.gaz" 228
+@ "template.gaz" 253
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "template.gaz" 226
+@ "template.gaz" 251
 JMP FOREACH_0
 LABEL ENDFOREACH_0
-@ "template.gaz" 233
+@ "template.gaz" 258
 LOAD 0
 RET
-@ "template.gaz" 224
+@ "template.gaz" 249
 PUSH null
 RET
 
 fn gazlang::TemplateLine.literal_braces 0 0
 locals
-@ "template.gaz" 237
+@ "template.gaz" 262
 PUSH "{{"
 SET_PATH_THIS .text..=
 POP
-@ "template.gaz" 238
+@ "template.gaz" 263
 LOAD_THIS
 GET_PROPERTY_EXISTING at
 PUSH 3
 ADD
 SET_FIELD at
 POP
-@ "template.gaz" 236
+@ "template.gaz" 261
 PUSH null
 RET
 
 fn gazlang::TemplateLine.comment 0 0
 locals $end
-@ "template.gaz" 242
+@ "template.gaz" 267
 LOAD_THIS
 GET_METHOD closing
 PUSH "{{--"
@@ -7315,19 +7419,19 @@ CALL_METHOD 2 closing
 STORE 0
 LOAD 0
 POP
-@ "template.gaz" 243
+@ "template.gaz" 268
 LOAD 0
 PUSH 4
 ADD
 SET_FIELD at
 POP
-@ "template.gaz" 241
+@ "template.gaz" 266
 PUSH null
 RET
 
 fn gazlang::TemplateLine.expression 3 3
 locals $opening $closing $escaped $end $code
-@ "template.gaz" 247
+@ "template.gaz" 272
 LOAD_THIS
 GET_METHOD closing
 LOAD 0
@@ -7336,7 +7440,7 @@ CALL_METHOD 2 closing
 STORE 3
 LOAD 3
 POP
-@ "template.gaz" 248
+@ "template.gaz" 273
 LOAD_FIELD line
 LOAD_FIELD at
 LOAD 0
@@ -7353,12 +7457,12 @@ CALL_BUILTIN trim 1
 STORE 4
 LOAD 4
 POP
-@ "template.gaz" 249
+@ "template.gaz" 274
 LOAD 4
 PUSH ""
 EQUALS
 JZ ELSE_0
-@ "template.gaz" 250
+@ "template.gaz" 275
 LOAD_THIS
 GET_METHOD fail
 PUSH ""
@@ -7372,19 +7476,19 @@ PUSH " holds nothing"
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "template.gaz" 249
+@ "template.gaz" 274
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "template.gaz" 252
+@ "template.gaz" 277
 LOAD_THIS
 GET_METHOD flush_text
 CALL_METHOD 0 flush_text
 POP
-@ "template.gaz" 253
+@ "template.gaz" 278
 LOAD 2
 JZ ELSE_1
-@ "template.gaz" 254
+@ "template.gaz" 279
 LOAD_THIS
 GET_METHOD append
 PUSH "Html::escape("
@@ -7394,10 +7498,10 @@ PUSH ")"
 CONCAT
 CALL_METHOD 1 append
 POP
-@ "template.gaz" 253
+@ "template.gaz" 278
 JMP ENDIF_1
 LABEL ELSE_1
-@ "template.gaz" 256
+@ "template.gaz" 281
 LOAD_THIS
 GET_METHOD append
 PUSH "to_string(("
@@ -7408,20 +7512,20 @@ CONCAT
 CALL_METHOD 1 append
 POP
 LABEL ENDIF_1
-@ "template.gaz" 258
+@ "template.gaz" 283
 LOAD 3
 LOAD 1
 CALL_BUILTIN len 1
 ADD
 SET_FIELD at
 POP
-@ "template.gaz" 246
+@ "template.gaz" 271
 PUSH null
 RET
 
 fn gazlang::TemplateLine.closing 2 2
 locals $opening $closing $end
-@ "template.gaz" 263
+@ "template.gaz" 288
 LOAD_FIELD line
 LOAD 1
 LOAD_FIELD at
@@ -7432,12 +7536,12 @@ CALL_BUILTIN index_of 3
 STORE 2
 LOAD 2
 POP
-@ "template.gaz" 264
+@ "template.gaz" 289
 LOAD 2
 PUSH null
 EQUALS
 JZ ELSE_0
-@ "template.gaz" 265
+@ "template.gaz" 290
 LOAD_THIS
 GET_METHOD fail
 PUSH ""
@@ -7451,25 +7555,25 @@ PUSH " on its line"
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "template.gaz" 264
+@ "template.gaz" 289
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "template.gaz" 268
+@ "template.gaz" 293
 LOAD 2
 RET
-@ "template.gaz" 262
+@ "template.gaz" 287
 PUSH null
 RET
 
 fn gazlang::TemplateLine.flush_text 0 0
 locals
-@ "template.gaz" 272
+@ "template.gaz" 297
 LOAD_FIELD text
 PUSH ""
 NOT_EQUALS
 JZ ELSE_0
-@ "template.gaz" 273
+@ "template.gaz" 298
 LOAD_THIS
 GET_METHOD append
 NEW_ARRAY
@@ -7482,21 +7586,21 @@ NEG
 CALL_BUILTIN slice 3
 CALL_METHOD 1 append
 POP
-@ "template.gaz" 274
+@ "template.gaz" 299
 PUSH ""
 SET_FIELD text
 POP
-@ "template.gaz" 272
+@ "template.gaz" 297
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "template.gaz" 271
+@ "template.gaz" 296
 PUSH null
 RET
 
 fn gazlang::TemplateLine.append 1 1
 locals $source
-@ "template.gaz" 279
+@ "template.gaz" 304
 PUSH "$#html"
 PUSH " ..= "
 CONCAT
@@ -7506,19 +7610,19 @@ PUSH ";"
 CONCAT
 SET_PATH_THIS .statements[]
 POP
-@ "template.gaz" 278
+@ "template.gaz" 303
 PUSH null
 RET
 
 fn gazlang::TemplateLine.fail 1 1
 locals $message
-@ "template.gaz" 283
+@ "template.gaz" 308
 LOAD 0
 LOAD_FIELD file
 LOAD_FIELD number
 NEW gazlang::ParseError 3
 THROW
-@ "template.gaz" 282
+@ "template.gaz" 307
 PUSH null
 RET
 

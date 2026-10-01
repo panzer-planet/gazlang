@@ -1,0 +1,26 @@
+/*
+ * A template that starts with `namespace name;` is in that namespace as a file is: its function is
+ * `name::template`, its parameters' types are looked up there, and it is private unless it is
+ * written `@template pub`. The error lines count the namespace line.
+ */
+namespace shop;
+
+include "std/test.gaz" use expect, throws;
+include "views/shop_card.gazml";
+include "views/shop_badge.gazml";
+
+kind Product {
+    fn _(pub string #name, pub int #price) {}
+}
+
+$lamp = Product("lamp", 150);
+$pen = Product("pen", 2);
+
+expect("a template in the namespace is called by its bare name", card($lamp, "on sale").text,
+    "<div class=\"card\">\n<b>lamp</b> on sale\n<em>premium</em>\n</div>\n");
+expect("and by its qualified one", shop::card($pen).text, "<div class=\"card\">\n<b>pen</b> \n</div>\n");
+expect("a type in its parameters is the namespace's kind", type_of($lamp), "object");
+throws("a parameter typed with it is checked", () -> card("not a product"), "shop::card() expects \$product to be shop::Product|null, got string");
+expect("the pub one", badge("new").text, "<span>new</span>\n");
+expect("text in it is escaped as in any template", badge("<b>&").text, "<span>&lt;b&gt;&amp;</span>\n");
+expect("the template is a function of the namespace", [type_of(card), type_of(shop::badge)], ["function", "function"]);

@@ -48,20 +48,28 @@ is never written back. That is the kind of detail that is each app's own to get 
   docs as a worked example that is copied. The risk of the glue being each app's own is that it
   is where the security bugs live.
 
-## 2. Templates can't be part of a namespaced program
+## 2. Templates can't be part of a namespaced program  (resolved: a `namespace` line in a template)
 
-A `.gazml` file is read as a file with no namespace and no way to `include`. So:
-(a) its function (`layout`, `login_page`) is **global**, not `todo::layout`, however the app is
-organised; (b) its parameters **can't be typed with a kind of the app** (`?User $user` is
-`Undefined type: User`, and `?todo::User` is `Namespace todo is not included here`), only with builtin
-types; (c) it can't `include` anything. The app's templates therefore take untyped
-`$user`/`$form` and have names chosen not to collide (`register_page`, `todos_page`).
+A `.gazml` file was read as a file with no namespace and no way to `include`. So:
+(a) its function (`layout`, `login_page`) was **global**, not `todo::layout`, however the app was
+organised; (b) its parameters **couldn't be typed with a kind of the app** (`?User $user` was
+`Undefined type: User`, and `?todo::User` was `Namespace todo is not included here`), only with builtin
+types; (c) it couldn't `include` anything. The app's templates took untyped `$user`/`$form` and had names
+chosen not to collide.
 
-- **Today**: untyped parameters, distinctive names.
-- **Options**: a `namespace todo;` line allowed first in a template (it is then `todo::layout`, and
-  resolves `User` as the including namespace does); or a template takes the namespace of the file
-  that includes it; or `@include`/`@use` lines. The first is the smallest and matches how every
-  other file works. This is the one that decides whether templates fit a real app.
+- **Done**: a template may start with `namespace todo;` (and `@template pub name(...)` makes one
+  `pub`), so the functions are `todo::layout` and the parameters are typed with `User`,
+  `RegistrationForm`, `LoginForm` and `TodoForm`. The app's five templates use it; its tests pass
+  unchanged.
+- **Left**: a template still can't `include` or `use` anything, and "a file can only name what it
+  includes itself", so it can name no *other* namespace at all, whoever includes the library:
+  `{{ format::number($x, 2) }}` is `Namespace format is not included here`. It can call builtins
+  and its own namespace's functions, so the way round is a function of your own that calls the
+  library (`{{ money($x) }}`, `fn money` in a file that includes `std/format.gaz`; the app does not
+  need one yet).
+- **Options for that**: an `@include "std/format.gaz" use number;` directive in the template, which
+  is the same rule as for any file; or accept the wrapper. It is the next thing a real page hits
+  (`format::`, `text::`, `web::html"..."` inside a template).
 
 ## 3. A database connection must not cross `workers()`, and nothing says so
 

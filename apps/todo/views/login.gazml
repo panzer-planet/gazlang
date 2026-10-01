@@ -1,4 +1,5 @@
-@template login_page(string $csrf, $form, map $errors)
+namespace todo;
+@template login_page(string $csrf, LoginForm $form, map $errors)
 <h1>Log in</h1>
 <form method="post" action="/login" novalidate>
 <input type="hidden" name="_csrf" value="{{ $csrf }}">

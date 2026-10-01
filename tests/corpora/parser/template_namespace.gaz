@@ -1,0 +1,9 @@
+namespace shop;
+
+include "templates/namespaced.gazml";
+
+kind Product {
+    fn _(pub string #name) {}
+}
+
+$html = product_card(Product("Lamp"), "on sale");

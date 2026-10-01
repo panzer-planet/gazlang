@@ -1,0 +1,8 @@
+namespace shop;
+@template pub product_card(?Product $product, string $note = "")
+<div class="card">
+<b>{{ $product.name }}</b>
+@if ($note != "")
+<p>{{ $note }}</p>
+@endif
+</div>

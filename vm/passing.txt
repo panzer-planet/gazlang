@@ -879,6 +879,7 @@ tests/corpora/codegen/statements.gaz
 tests/corpora/codegen/statics.gaz
 tests/corpora/codegen/tagged.gaz
 tests/corpora/codegen/template.gaz
+tests/corpora/codegen/template_namespace.gaz
 tests/corpora/codegen/throw.gaz
 tests/corpora/codegen/types.gaz
 tests/corpora/codegen/write_through_call.gaz
@@ -953,6 +954,7 @@ tests/corpora/parser/tagged_names.gaz
 tests/corpora/parser/tagged_nested.gaz
 tests/corpora/parser/tagged_plain.gaz
 tests/corpora/parser/template.gaz
+tests/corpora/parser/template_namespace.gaz
 tests/corpora/parser/throw.gaz
 tests/corpora/parser/try.gaz
 tests/corpora/parser/types.gaz
@@ -1069,6 +1071,7 @@ tests/gaz/strings/interpolation_test.gaz
 tests/gaz/strings/tagged_test.gaz
 tests/gaz/strings/utf8_test.gaz
 tests/gaz/templates/html_concat_test.gaz
+tests/gaz/templates/namespaced_test.gaz
 tests/gaz/templates/templates_test.gaz
 tests/gaz/templates/web_html_test.gaz
 tests/programs/cat_facts.gaz

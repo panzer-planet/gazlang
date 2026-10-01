@@ -1,0 +1,3 @@
+namespace shop;
+@template pub badge(string $text)
+<span>{{ $text }}</span>

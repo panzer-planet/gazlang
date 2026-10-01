@@ -1,0 +1,620 @@
+Compound
+  statements:
+@ "<builtin>"
+    0: KindDeclaration 12
+      name: "Html"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods:
+        escape: FunctionDeclaration 20
+          name: "Html::escape"
+          params: ["\$value"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: IfStatement 21
+                condition: BinOp 21
+                  left: BinOp 21
+                    left: FunctionCall 21
+                      name: "type_of"
+                      args:
+                        0: Variable 21
+                          token: 21 VAR_IDENTIFIER $value
+                          value: "\$value"
+                    token: 21 EQUALS ==
+                    op: 21 EQUALS ==
+                    right: String 21
+                      token: 21 STRING "object"
+                      value: "object"
+                  token: 21 AND &&
+                  op: 21 AND &&
+                  right: FunctionCall 21
+                    name: "is_a"
+                    args:
+                      0: Variable 21
+                        token: 21 VAR_IDENTIFIER $value
+                        value: "\$value"
+                      1: FunctionRef 21
+                        name: "Html"
+                        constant: false
+                        value: null
+                        static_name: null
+                if_body: Compound
+                  statements:
+                    0: ReturnStatement 22
+                      expr: Property 22
+                        target: Variable 22
+                          token: 22 VAR_IDENTIFIER $value
+                          value: "\$value"
+                        name: "text"
+                        field: false
+                        constant: false
+                        value: null
+                        static_name: null
+                else_if: null
+                else_body: null
+              1: Statement 24
+                expr: Assign 24
+                  left: Variable 24
+                    token: 24 VAR_IDENTIFIER $text
+                    value: "\$text"
+                  token: 24 ASSIGN =
+                  right: FunctionCall 24
+                    name: "to_string"
+                    args:
+                      0: Variable 24
+                        token: 24 VAR_IDENTIFIER $value
+                        value: "\$value"
+              2: ForeachStatement 25
+                iterable: ArrayLiteral 25
+                  entries:
+                    0:
+                      0: null
+                      1: ArrayLiteral 25
+                        entries:
+                          0:
+                            0: null
+                            1: String 25
+                              token: 25 STRING "&"
+                              value: "&"
+                          1:
+                            0: null
+                            1: String 25
+                              token: 25 STRING "&amp;"
+                              value: "&amp;"
+                        map: false
+                    1:
+                      0: null
+                      1: ArrayLiteral 25
+                        entries:
+                          0:
+                            0: null
+                            1: String 25
+                              token: 25 STRING "<"
+                              value: "<"
+                          1:
+                            0: null
+                            1: String 25
+                              token: 25 STRING "&lt;"
+                              value: "&lt;"
+                        map: false
+                    2:
+                      0: null
+                      1: ArrayLiteral 25
+                        entries:
+                          0:
+                            0: null
+                            1: String 25
+                              token: 25 STRING ">"
+                              value: ">"
+                          1:
+                            0: null
+                            1: String 25
+                              token: 25 STRING "&gt;"
+                              value: "&gt;"
+                        map: false
+                    3:
+                      0: null
+                      1: ArrayLiteral 25
+                        entries:
+                          0:
+                            0: null
+                            1: String 25
+                              token: 25 STRING "\""
+                              value: "\""
+                          1:
+                            0: null
+                            1: String 25
+                              token: 25 STRING "&quot;"
+                              value: "&quot;"
+                        map: false
+                    4:
+                      0: null
+                      1: ArrayLiteral 25
+                        entries:
+                          0:
+                            0: null
+                            1: String 25
+                              token: 25 STRING "'"
+                              value: "'"
+                          1:
+                            0: null
+                            1: String 25
+                              token: 25 STRING "&#39;"
+                              value: "&#39;"
+                        map: false
+                  map: false
+                key: null
+                value: ListPattern 25
+                  targets:
+                    0: Variable 25
+                      token: 25 VAR_IDENTIFIER $from
+                      value: "\$from"
+                    1: Variable 25
+                      token: 25 VAR_IDENTIFIER $to
+                      value: "\$to"
+                body: Compound
+                  statements:
+                    0: Statement 26
+                      expr: Assign 26
+                        left: Variable 26
+                          token: 26 VAR_IDENTIFIER $text
+                          value: "\$text"
+                        token: 26 ASSIGN =
+                        right: FunctionCall 26
+                          name: "replace"
+                          args:
+                            0: Variable 26
+                              token: 26 VAR_IDENTIFIER $text
+                              value: "\$text"
+                            1: Variable 26
+                              token: 26 VAR_IDENTIFIER $from
+                              value: "\$from"
+                            2: Variable 26
+                              token: 26 VAR_IDENTIFIER $to
+                              value: "\$to"
+              3: ReturnStatement 29
+                expr: Variable 29
+                  token: 29 VAR_IDENTIFIER $text
+                  value: "\$text"
+          arity: 1
+          kind: "Html"
+          abstract: false
+      static_owners: {"escape" => "Html"}
+      static_is_method: {"escape" => true}
+      vis: {"text" => "pub", "_" => "pub", "to_string" => "pub", "escape" => "pub"}
+      fields: {"text" => null}
+      field_lines: {"text" => 13}
+      methods:
+        _: FunctionDeclaration 13
+          name: "_"
+          params: ["\$text"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 13
+                expr: Assign 13
+                  left: Property 13
+                    target: This 13
+                    name: "text"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 13 ASSIGN =
+                  right: Variable 13
+                    token: 13 VAR_IDENTIFIER $text
+                    value: "\$text"
+          arity: 1
+          kind: "Html"
+          abstract: false
+        to_string: FunctionDeclaration 15
+          name: "to_string"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 16
+                expr: Property 16
+                  target: This 16
+                  name: "text"
+                  field: true
+                  constant: false
+                  value: null
+                  static_name: null
+          arity: 0
+          kind: "Html"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"text" => "Html"}
+      members: {"_" => "Html", "to_string" => "Html"}
+      abstract_methods: []
+      slots: [["text", "Html", "pub"]]
+      method_table: [["_", "Html", "pub", "Html"], ["to_string", "Html", "pub", "Html"]]
+      owner_vis: {"escape" => "pub", "text" => "pub", "_" => "pub", "to_string" => "pub"}
+      declared_at: {"_" => "Html", "to_string" => "Html"}
+      hidden: []
+      hidden_fields: []
+    1: FunctionDeclaration 20
+      name: "Html::escape"
+      params: ["\$value"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: IfStatement 21
+            condition: BinOp 21
+              left: BinOp 21
+                left: FunctionCall 21
+                  name: "type_of"
+                  args:
+                    0: Variable 21
+                      token: 21 VAR_IDENTIFIER $value
+                      value: "\$value"
+                token: 21 EQUALS ==
+                op: 21 EQUALS ==
+                right: String 21
+                  token: 21 STRING "object"
+                  value: "object"
+              token: 21 AND &&
+              op: 21 AND &&
+              right: FunctionCall 21
+                name: "is_a"
+                args:
+                  0: Variable 21
+                    token: 21 VAR_IDENTIFIER $value
+                    value: "\$value"
+                  1: FunctionRef 21
+                    name: "Html"
+                    constant: false
+                    value: null
+                    static_name: null
+            if_body: Compound
+              statements:
+                0: ReturnStatement 22
+                  expr: Property 22
+                    target: Variable 22
+                      token: 22 VAR_IDENTIFIER $value
+                      value: "\$value"
+                    name: "text"
+                    field: false
+                    constant: false
+                    value: null
+                    static_name: null
+            else_if: null
+            else_body: null
+          1: Statement 24
+            expr: Assign 24
+              left: Variable 24
+                token: 24 VAR_IDENTIFIER $text
+                value: "\$text"
+              token: 24 ASSIGN =
+              right: FunctionCall 24
+                name: "to_string"
+                args:
+                  0: Variable 24
+                    token: 24 VAR_IDENTIFIER $value
+                    value: "\$value"
+          2: ForeachStatement 25
+            iterable: ArrayLiteral 25
+              entries:
+                0:
+                  0: null
+                  1: ArrayLiteral 25
+                    entries:
+                      0:
+                        0: null
+                        1: String 25
+                          token: 25 STRING "&"
+                          value: "&"
+                      1:
+                        0: null
+                        1: String 25
+                          token: 25 STRING "&amp;"
+                          value: "&amp;"
+                    map: false
+                1:
+                  0: null
+                  1: ArrayLiteral 25
+                    entries:
+                      0:
+                        0: null
+                        1: String 25
+                          token: 25 STRING "<"
+                          value: "<"
+                      1:
+                        0: null
+                        1: String 25
+                          token: 25 STRING "&lt;"
+                          value: "&lt;"
+                    map: false
+                2:
+                  0: null
+                  1: ArrayLiteral 25
+                    entries:
+                      0:
+                        0: null
+                        1: String 25
+                          token: 25 STRING ">"
+                          value: ">"
+                      1:
+                        0: null
+                        1: String 25
+                          token: 25 STRING "&gt;"
+                          value: "&gt;"
+                    map: false
+                3:
+                  0: null
+                  1: ArrayLiteral 25
+                    entries:
+                      0:
+                        0: null
+                        1: String 25
+                          token: 25 STRING "\""
+                          value: "\""
+                      1:
+                        0: null
+                        1: String 25
+                          token: 25 STRING "&quot;"
+                          value: "&quot;"
+                    map: false
+                4:
+                  0: null
+                  1: ArrayLiteral 25
+                    entries:
+                      0:
+                        0: null
+                        1: String 25
+                          token: 25 STRING "'"
+                          value: "'"
+                      1:
+                        0: null
+                        1: String 25
+                          token: 25 STRING "&#39;"
+                          value: "&#39;"
+                    map: false
+              map: false
+            key: null
+            value: ListPattern 25
+              targets:
+                0: Variable 25
+                  token: 25 VAR_IDENTIFIER $from
+                  value: "\$from"
+                1: Variable 25
+                  token: 25 VAR_IDENTIFIER $to
+                  value: "\$to"
+            body: Compound
+              statements:
+                0: Statement 26
+                  expr: Assign 26
+                    left: Variable 26
+                      token: 26 VAR_IDENTIFIER $text
+                      value: "\$text"
+                    token: 26 ASSIGN =
+                    right: FunctionCall 26
+                      name: "replace"
+                      args:
+                        0: Variable 26
+                          token: 26 VAR_IDENTIFIER $text
+                          value: "\$text"
+                        1: Variable 26
+                          token: 26 VAR_IDENTIFIER $from
+                          value: "\$from"
+                        2: Variable 26
+                          token: 26 VAR_IDENTIFIER $to
+                          value: "\$to"
+          3: ReturnStatement 29
+            expr: Variable 29
+              token: 29 VAR_IDENTIFIER $text
+              value: "\$text"
+      arity: 1
+      kind: "Html"
+      abstract: false
+@ "tests/corpora/parser/templates/namespaced.gazml"
+    2: FunctionDeclaration 2
+      name: "shop::product_card"
+      params: ["\$product", "\$note"]
+      defaults:
+        0: null
+        1: String 2
+          token: 2 STRING ""
+          value: ""
+      body: Compound
+        statements:
+          0: Statement 2
+            expr: Assign 2
+              left: Variable 2
+                token: 2 VAR_IDENTIFIER $#html
+                value: "$#html"
+              token: 2 ASSIGN =
+              right: String 2
+                token: 2 STRING ""
+                value: ""
+          1: Statement 3
+            expr: Assign 3
+              left: Variable 3
+                token: 3 VAR_IDENTIFIER $#html
+                value: "$#html"
+              token: 3 CONCAT_ASSIGN ..=
+              right: String 3
+                token: 3 STRING "<div class=\"card\">\n"
+                value: "<div class=\"card\">\n"
+          2: Statement 4
+            expr: Assign 4
+              left: Variable 4
+                token: 4 VAR_IDENTIFIER $#html
+                value: "$#html"
+              token: 4 CONCAT_ASSIGN ..=
+              right: String 4
+                token: 4 STRING "<b>"
+                value: "<b>"
+          3: Statement 4
+            expr: Assign 4
+              left: Variable 4
+                token: 4 VAR_IDENTIFIER $#html
+                value: "$#html"
+              token: 4 CONCAT_ASSIGN ..=
+              right: FunctionCall 4
+                name: "Html::escape"
+                args:
+                  0: Property 4
+                    target: Variable 4
+                      token: 4 VAR_IDENTIFIER $product
+                      value: "\$product"
+                    name: "name"
+                    field: false
+                    constant: false
+                    value: null
+                    static_name: null
+          4: Statement 4
+            expr: Assign 4
+              left: Variable 4
+                token: 4 VAR_IDENTIFIER $#html
+                value: "$#html"
+              token: 4 CONCAT_ASSIGN ..=
+              right: String 4
+                token: 4 STRING "</b>\n"
+                value: "</b>\n"
+          5: IfStatement 5
+            condition: BinOp 5
+              left: Variable 5
+                token: 5 VAR_IDENTIFIER $note
+                value: "\$note"
+              token: 5 NOT_EQUALS !=
+              op: 5 NOT_EQUALS !=
+              right: String 5
+                token: 5 STRING ""
+                value: ""
+            if_body: Compound
+              statements:
+                0: Statement 6
+                  expr: Assign 6
+                    left: Variable 6
+                      token: 6 VAR_IDENTIFIER $#html
+                      value: "$#html"
+                    token: 6 CONCAT_ASSIGN ..=
+                    right: String 6
+                      token: 6 STRING "<p>"
+                      value: "<p>"
+                1: Statement 6
+                  expr: Assign 6
+                    left: Variable 6
+                      token: 6 VAR_IDENTIFIER $#html
+                      value: "$#html"
+                    token: 6 CONCAT_ASSIGN ..=
+                    right: FunctionCall 6
+                      name: "Html::escape"
+                      args:
+                        0: Variable 6
+                          token: 6 VAR_IDENTIFIER $note
+                          value: "\$note"
+                2: Statement 6
+                  expr: Assign 6
+                    left: Variable 6
+                      token: 6 VAR_IDENTIFIER $#html
+                      value: "$#html"
+                    token: 6 CONCAT_ASSIGN ..=
+                    right: String 6
+                      token: 6 STRING "</p>\n"
+                      value: "</p>\n"
+            else_if: null
+            else_body: null
+          6: Statement 8
+            expr: Assign 8
+              left: Variable 8
+                token: 8 VAR_IDENTIFIER $#html
+                value: "$#html"
+              token: 8 CONCAT_ASSIGN ..=
+              right: String 8
+                token: 8 STRING "</div>\n"
+                value: "</div>\n"
+          7: ReturnStatement 9
+            expr: FunctionCall 9
+              name: "Html"
+              args:
+                0: Variable 9
+                  token: 9 VAR_IDENTIFIER $#html
+                  value: "$#html"
+      arity: [1, 2]
+      param_types:
+        0: Type 2
+          names: ["shop::Product", "null"]
+        1: Type 2
+          names: ["string"]
+      kind: null
+      abstract: false
+@ "tests/corpora/parser/template_namespace.gaz"
+    3: KindDeclaration 5
+      name: "shop::Product"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"name" => "pub", "_" => "pub"}
+      fields: {"name" => null}
+      field_types:
+        name: Type 6
+          names: ["string"]
+      field_lines: {"name" => 6}
+      methods:
+        _: FunctionDeclaration 6
+          name: "_"
+          params: ["\$name"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 6
+                expr: Assign 6
+                  left: Property 6
+                    target: This 6
+                    name: "name"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 6 ASSIGN =
+                  right: Variable 6
+                    token: 6 VAR_IDENTIFIER $name
+                    value: "\$name"
+          arity: 1
+          param_types:
+            0: Type 6
+              names: ["string"]
+          kind: "shop::Product"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"name" => "shop::Product"}
+      members: {"_" => "shop::Product"}
+      abstract_methods: []
+      slots: [["name", "shop::Product", "pub"]]
+      method_table: [["_", "shop::Product", "pub", "shop::Product"]]
+      owner_vis: {"name" => "pub", "_" => "pub"}
+      declared_at: {"_" => "shop::Product"}
+      hidden: []
+      hidden_fields: []
+    4: Statement 9
+      expr: Assign 9
+        left: Variable 9
+          token: 9 VAR_IDENTIFIER $html
+          value: "\$html"
+        token: 9 ASSIGN =
+        right: FunctionCall 9
+          name: "shop::product_card"
+          args:
+            0: FunctionCall 9
+              name: "shop::Product"
+              args:
+                0: String 9
+                  token: 9 STRING "Lamp"
+                  value: "Lamp"
+            1: String 9
+              token: 9 STRING "on sale"
+              value: "on sale"

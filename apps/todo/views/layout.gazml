@@ -1,4 +1,5 @@
-@template layout(string $title, ?string $flash, $user, string $csrf, Html $body)
+namespace todo;
+@template layout(string $title, ?string $flash, ?User $user, string $csrf, Html $body)
 <!doctype html>
 <html lang="en">
 <head>

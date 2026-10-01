@@ -1,0 +1,3 @@
+include "templates/namespace_private.gazml";
+
+$html = shop::card("x");

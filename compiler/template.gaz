@@ -4,12 +4,16 @@
  * learn nothing. Each line of the template becomes one line of the source, so every error in
  * it, the parser's or the running program's, is reported at the template's own line.
  *
+ *   namespace shop;                           namespace shop;
  *   @template user_page($user, $posts)        fn user_page($user, $posts) { $#html = "";
  *   <h1>{{ $user.name }}</h1>                 $#html ..= "<h1>"; $#html ..= Html::escape(...); ...
  *   @foreach ($posts as $post)                foreach ($posts as $post) {
  *   @endforeach                               }
  *   (after the last line)                     return Html($#html); }
  *
+ * - The first line may be `namespace name;`, as in any file: the template's function is then
+ *   `name::user_page`, and the types in its parameters are looked up there. `@template pub
+ *   user_page(...)` makes it `pub`, as for a function. Without a namespace line it is global.
  * - {{ expression }} is escaped as HTML, unless it is an Html (another template's result), which
  *   goes in as it is; {!! expression !!} goes in as it is whatever it is, through to_string(),
  *   since ..= refuses an Html.
@@ -41,9 +45,16 @@ kind TemplateTranslator {
 
     // The template as GazLang source, with as many lines
     pub fn translate() {
-        $source = [#header(#lines[0])];
+        $source = [];
+        $first = 0;
+        if (#is_namespace_line(#lines[0])) {
+            // Passed on as it is: the parser reads it as the first line of the file, so it checks the name
+            $source[] = trim(#lines[0]);
+            $first = 1;
+        }
+        $source[] = #header(#lines[$first] ?? "", $first + 1);
         $last = len(#lines) - 1;
-        for ($i = 1; $i <= $last; $i++) {
+        for ($i = $first + 1; $i <= $last; $i++) {
             $source[] = #line(#lines[$i], $i + 1, $i < $last);
         }
         #check_closed();
@@ -52,14 +63,28 @@ kind TemplateTranslator {
         return join($source, "\n");
     }
 
-    // "@template name($a, $b)" as the function it declares, with its output starting empty
-    fn header($text) {
+    // Whether a line is "namespace name;", which a template may start with, as any file may
+    fn is_namespace_line($text) {
+        $trimmed = trim($text);
+
+        return $trimmed == "namespace" || starts_with($trimmed, "namespace ");
+    }
+
+    // "@template name($a, $b)" (or "@template pub name(...)") as the function it declares, with its
+    // output starting empty
+    fn header($text, $number) {
         $trimmed = trim($text);
         if (!starts_with($trimmed, "@template ")) {
-            #fail("A template starts with @template and the function it is, like @template page(\$title)", 1);
+            #fail("A template starts with @template and the function it is, like @template page(\$title)", $number);
+        }
+        $declaration = trim(slice($trimmed, 10));
+        $marker = "";
+        if (starts_with($declaration, "pub ")) {
+            $marker = "pub ";
+            $declaration = trim(slice($declaration, 4));
         }
 
-        return "fn " .. trim(slice($trimmed, 10)) .. " { " .. TEMPLATE_BUFFER .. " = \"\";";
+        return $marker .. "fn " .. $declaration .. " { " .. TEMPLATE_BUFFER .. " = \"\";";
     }
 
     // One line of the template as a line of source: a directive, or text with what it holds

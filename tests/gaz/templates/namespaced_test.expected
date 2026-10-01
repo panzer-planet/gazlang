@@ -1,0 +1,7 @@
+ok a template in the namespace is called by its bare name
+ok and by its qualified one
+ok a type in its parameters is the namespace's kind
+ok a parameter typed with it is checked
+ok the pub one
+ok text in it is escaped as in any template
+ok the template is a function of the namespace

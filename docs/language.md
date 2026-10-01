@@ -1374,6 +1374,16 @@ http::serve($listener, $request -> ({"body" => user_page($user, $posts)}));
 - The first line is `@template name($parameters)`: the function the template becomes, with
   parameters as a function's, defaults and types included (`@template page(User $user, list
   $posts): Html`). Its file name doesn't matter.
+- **A template can be in a namespace**: a first line of `namespace shop;`, as any file may start
+  with, puts it there, so the function is `shop::page`, and the types in its parameters (`User`
+  above) are looked up in `shop`, which a template with no namespace line can't do (a template
+  can't `include`, so it has no other way to name a kind of yours). The `@template` line is then
+  the second. A template is private to its namespace, as a function is, unless it is written
+  `@template pub page(...)`. Without a namespace line it is global, as before. Lines are counted
+  from the file's first, the namespace line included, so an error is where an editor shows it. A
+  template can't `include`, so it can call builtins and its own namespace's functions and no other
+  namespace's: to use a library (`format::number`) write a function of your own that does, and call
+  that from the template.
 - `{{ expression }}` writes the value as `echo` prints it, **escaped for HTML** (`& < > " '`).
   `{!! expression !!}` writes it as it is: only for HTML you trust.
 - A template gives an `Html`, which `{{ }}` writes as it is, so templates include each other

@@ -1520,6 +1520,18 @@ turns a mistake into a message and an exit.
   so a library could only offer logic-less templates.
 - **The first line declares it**: `@template name($params)`, so a template has real parameters
   (defaults included), a wrong call is caught when the program is read, and its file name is free.
+  - **A template may start with `namespace name;`** (`is_namespace_line()` in `template.gaz`), passed on
+    as the first line of the generated source so the parser checks the name and the rest of the
+    file is read in that namespace: the function is `name::template`, its parameters' types resolve
+    there, and it is private to it unless written `@template pub name(...)`. A template can't
+    `include`, so before this it could name no kind of a namespaced program (`?User $user` was
+    `Undefined type`, and `?todo::User` was `Namespace todo is not included here`) and every template
+    was a global function; both were found by `apps/todo`. Still one line of source per line of
+    template, the namespace line included. `ponytail:` a template still can't `include` or `use`, so it
+    names no other namespace (`format::number` in one is `Namespace format is not included here`, even
+    if the program includes it): a function of its own namespace that calls the library is the way
+    round, and an `@include` directive the lift. Tested by `tests/gaz/templates/namespaced_test.gaz` and the
+    `template_namespace` and `error_template_*` corpora.
 - **Blade's syntax**: `{{ }}` escapes, `{!! !!}` doesn't, `@if`/`@elseif`/`@else`/`@endif` and
   `@foreach`/`@endforeach` alone on their lines (a line holding one writes nothing, and a line
   holding only a `{{-- comment --}}` nothing either), `@{{` for a literal `{{`. Another `@word`
