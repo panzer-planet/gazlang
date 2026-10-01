@@ -7,6 +7,8 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/random.h>
+#include <unistd.h>
 
 /* ---- Memory ---------------------------------------------------------------------------- */
 
@@ -170,13 +172,25 @@ int str_cmp(const Str *a, const Str *b) {
     return a->len < b->len ? -1 : a->len > b->len;
 }
 
-/* FNV-1a, 64 bits; never 0, which means "not worked out yet" */
-static uint64_t hash_bytes(const char *data, size_t len) {
-    uint64_t h = 14695981039346656037ULL;
-    for (size_t i = 0; i < len; i++) {
-        h ^= (unsigned char)data[i];
-        h *= 1099511628211ULL;
+/* The key every hash in this process is drawn with, from the system's generator the first time
+   one is needed. Fixed from then on, forks included: a string or map made before a fork holds
+   hashes worked out under it, so a worker must not draw its own. It is why someone choosing the
+   keys of a map (a JSON object, a query string) can't aim at one bucket. */
+static uint64_t hash_key[2];
+static bool hash_key_drawn;
+
+static void draw_hash_key(void) {
+    if (getentropy(hash_key, sizeof hash_key) != 0) {
+        perror("gazvm: getentropy");
+        exit(70);
     }
+    hash_key_drawn = true;
+}
+
+/* SipHash-1-3 under the process's key; never 0, which means "not worked out yet" */
+static uint64_t hash_bytes(const char *data, size_t len) {
+    if (!hash_key_drawn) draw_hash_key();
+    uint64_t h = siphash13((const unsigned char *)data, len, hash_key[0], hash_key[1]);
     return h ? h : 1;
 }
 
@@ -333,8 +347,10 @@ List *list_unique(Value *slot) {
 
 static uint64_t key_hash(Value key) {
     if (key.type == T_STRING) return str_hash(key.s);
-    /* splitmix64's finaliser: spreads consecutive ints across the buckets */
-    uint64_t x = (uint64_t)key.i;
+    /* splitmix64's finaliser, which spreads consecutive ints across the buckets, after the key
+       is mixed in: alone it can be run backwards to find ints that share a bucket */
+    if (!hash_key_drawn) draw_hash_key();
+    uint64_t x = (uint64_t)key.i ^ hash_key[0];
     x ^= x >> 30;
     x *= 0xbf58476d1ce4e5b9ULL;
     x ^= x >> 27;

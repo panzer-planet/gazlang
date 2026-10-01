@@ -444,6 +444,7 @@ Str *str_append(Str *s, const char *data, size_t len);  /* s must be unshared; m
 bool str_eq(const Str *a, const Str *b);
 int str_cmp(const Str *a, const Str *b);
 uint64_t str_hash(Str *s);
+uint64_t siphash13(const unsigned char *data, size_t len, uint64_t k0, uint64_t k1);  /* siphash.c */
 
 /* A growable buffer for building text. Zero-initialised (the usual `Buf b = {0}`), it grows on
    the heap exactly as before. A caller that expects a short result can instead point `data` at

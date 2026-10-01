@@ -108,7 +108,7 @@ composer ci                         # what CI runs, cold: phpstan with no result
 - `vm/`: the VM in C. `gazvm.h` says which file does what: `value.c` and `ops.c` are what values
   mean (operators, truthiness, printing, keys, indexing, write paths), `builtins.c` the builtins
   and their arities (`builtin_info[]`), `load.c` reading and checking bytecode, `vm.c` running it
-  and the CLI, `gc.c` the cycle collector, `net.c` sockets and TLS, `db.c` with `sqlite.c` and `pg.c` databases, `term.c` raw mode and keys, `workers.c` `workers()`, `watch.c` `gaz --watch`, `crypto.c` random bytes, hashes and password hashes.
+  and the CLI, `gc.c` the cycle collector, `net.c` sockets and TLS, `db.c` with `sqlite.c` and `pg.c` databases, `term.c` raw mode and keys, `workers.c` `workers()`, `watch.c` `gaz --watch`, `crypto.c` random bytes, hashes and password hashes, `siphash.c` the hash behind every map.
 - `lib/`: the standard library in GazLang. `examples/`: sample programs that nothing tests
   (see "Programs are tests or examples"). `tests/programs/`: programs the tests do run.
   `games/`: programs built on the language, each with tests of its own (see "A game is neither").
@@ -2003,6 +2003,19 @@ try {
   most lists are one malloc: 4 is what the first push allocated anyway, so a list of one to four
   costs the memory it did, and 6 or 8 saved a point or two more allocations for 32 or 64 more
   bytes on every list. A `List` is never copied as a struct, since `items` points into it.
+  - **Keys are hashed under a key drawn for each process** (`siphash.c`, SipHash-1-3 for strings,
+    splitmix64's finaliser after an xor with the key for ints), since a map's keys are often
+    someone else's (a JSON object, a query string, a form) and an unkeyed hash lets them choose
+    ones that all share a bucket: 20000 such keys took nine times as long to decode as ordinary
+    ones, and the cost grows with the square. Nothing a program can see depends on it (a map keeps
+    insertion order, so output is the same whatever the key), which is why it may differ between
+    runs where the rest of the language must not. **Drawn once and kept through a `fork()`**:
+    a string or map made before one holds hashes worked out under the key, so `workers()` must
+    not draw again, as it does reseed `rand_*`. `tests/SipHashTest.php` checks the function
+    against CPython's, which is SipHash-1-3 too; it costs about 6% on a loop that does nothing
+    but make and look up new string keys and nothing measurable elsewhere. `ponytail:` not
+    constant-time and not for secrets; a program that must cap what a client can send still
+    wants `max_body`.
 - **Frames live on one value stack**: a call's pushed arguments become the callee's first
   locals, and its stack is sized by the loader's walk. The one use of the C stack is a method
   or a builtin's callback run from inside an instruction (`call_method()`, `call_value()`), which
