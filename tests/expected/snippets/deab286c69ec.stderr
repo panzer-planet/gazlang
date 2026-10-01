@@ -1,8 +1,8 @@
 Error: Invalid JSON: unexpected end of input at position 1
-  json::Reader.fail at lib/json.gaz:101
-  json::Reader.parse_value at lib/json.gaz:142
-  json::Reader.parse_array at lib/json.gaz:175
-  json::Reader.parse_value at lib/json.gaz:125
-  json::Reader.parse at lib/json.gaz:91
+  json::Reader.fail at lib/json.gaz:121
+  json::Reader.parse_value at lib/json.gaz:162
+  json::Reader.parse_array at lib/json.gaz:195
+  json::Reader.parse_value at lib/json.gaz:145
+  json::Reader.parse at lib/json.gaz:111
   json::decode at lib/json.gaz:31
   top level on line 1

@@ -32,11 +32,28 @@ pub fn decode($text) {
 }
 
 pub fn encode($value) {
-    return write($value, {});
+    return write($value, OpenObjects());
 }
 
-// $open holds the object_id() of each object being written around this value, so an object that
-// comes back inside its own to_json() is an error rather than a loop until the calls run out
+// The object_id() of each object being written around the value in hand, so an object that
+// comes back inside its own to_json() is an error rather than a loop until the calls run out.
+// A handle, not a map passed down: a copy for each level made a deep value quadratic.
+kind OpenObjects {
+    #ids = {};
+
+    pub fn contains($id) {
+        return has_key(#ids, $id);
+    }
+
+    pub fn enter($id) {
+        #ids[$id] = true;
+    }
+
+    pub fn leave($id) {
+        delete #ids[$id];
+    }
+}
+
 fn write($value, $open) {
     $type = type_of($value);
     if ($type == "string") {
@@ -47,11 +64,14 @@ fn write($value, $open) {
     }
     if ($type == "object") {
         $id = object_id($value);
-        if (has_key($open, $id)) {
+        if ($open.contains($id)) {
             throw "Cannot encode " .. kind_name($value) .. " as JSON: its to_json() comes back to itself";
         }
-        $open[$id] = true;
-        return write($value.to_json(), $open);
+        $open.enter($id);
+        $text = write($value.to_json(), $open);
+        $open.leave($id);
+
+        return $text;
     }
     if ($type != "list" && $type != "map") {
         // null, true, false, ints and floats are already written the way JSON writes them

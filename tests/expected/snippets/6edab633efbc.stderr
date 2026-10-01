@@ -1,7 +1,7 @@
 Error: Invalid JSON: expected a digit after the decimal point at position 2
-  json::Reader.fail at lib/json.gaz:101
-  json::Reader.parse_number at lib/json.gaz:335
-  json::Reader.parse_value at lib/json.gaz:131
-  json::Reader.parse at lib/json.gaz:91
+  json::Reader.fail at lib/json.gaz:121
+  json::Reader.parse_number at lib/json.gaz:355
+  json::Reader.parse_value at lib/json.gaz:151
+  json::Reader.parse at lib/json.gaz:111
   json::decode at lib/json.gaz:31
   top level on line 1
