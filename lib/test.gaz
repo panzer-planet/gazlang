@@ -404,7 +404,9 @@ fn snapshot_path($label) {
 
 // $value as the literal that reads back as it: quote() has no builtin yet, so a value wrapped in
 // a one-element list prints itself as a literal, and slicing off the brackets is the inverse of
-// reading one (the same trick the self-hosted front end uses; see CLAUDE.md).
+// reading one (the same trick the self-hosted front end uses; see CLAUDE.md). It is text::quote(),
+// which this file doesn't include: every test includes this one, and one that loads a library file by
+// path would then find text.gaz declared twice, by path and as std/text.gaz.
 fn literal($value) {
     return slice(to_string([$value]), 1, -1);
 }

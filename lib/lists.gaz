@@ -2,6 +2,8 @@
 // that doesn't include this file
 namespace lists;
 
+include "text.gaz" use quote;
+
 // The elements of a list of lists, in order, one level deep: [[1, 2], [], [3]] is [1, 2, 3]
 pub fn flatten($lists) {
     if (type_of($lists) != "list") {
@@ -69,7 +71,7 @@ fn expect_list($xs, $name) {
 
 fn expect_count($n, $name, $least) {
     if (type_of($n) != "int" || $n < $least) {
-        throw "lists::{$name}() expects an int of {$least} or more, got " .. slice(to_string([$n]), 1, -1);
+        throw "lists::{$name}() expects an int of {$least} or more, got " .. quote($n);
     }
 }
 

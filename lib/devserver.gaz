@@ -13,6 +13,7 @@ namespace devserver;
 
 include "http.gaz";
 include "cli.gaz";
+include "text.gaz" use quote;
 
 pub fn main() {
     $cli = cli::Command("gaz -S", "Serve static files from a directory over HTTP");
@@ -37,7 +38,7 @@ fn address($text) {
     $parts = split($text, ":");
     $port = len($parts) == 2 ? to_int($parts[1], null) : null;
     if ($port == null) {
-        throw "expected host:port, got " .. slice(to_string([$text]), 1, -1);
+        throw "expected host:port, got " .. quote($text);
     }
 
     return [$parts[0], $port];

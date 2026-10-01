@@ -32,3 +32,13 @@ pub fn lines($text) {
 
     return $lines;
 }
+
+/*
+ * A value as the literal that reads back as it, for a message: a string quoted, so a space, a
+ * quote or a NUL byte shows, and a number, list or map as echo prints it.
+ * ponytail: written as the list's text without its brackets, so a string is quoted by the same
+ * code that prints every other value.
+ */
+pub fn quote($value) {
+    return slice(to_string([$value]), 1, -1);
+}

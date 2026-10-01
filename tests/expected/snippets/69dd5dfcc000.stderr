@@ -1,5 +1,5 @@
 Error: HTTP error: bad URL: "http://[::1/"
-  http::parse_url at lib/http.gaz:157
-  http::request at lib/http.gaz:56
-  http::get at lib/http.gaz:31
+  http::parse_url at lib/http.gaz:158
+  http::request at lib/http.gaz:57
+  http::get at lib/http.gaz:32
   top level on line 1

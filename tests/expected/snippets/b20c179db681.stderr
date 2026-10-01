@@ -1,4 +1,4 @@
 Error: HTTP error: header X has a line break or NUL byte in its value
-  http::request at lib/http.gaz:49
-  http::get at lib/http.gaz:31
+  http::request at lib/http.gaz:50
+  http::get at lib/http.gaz:32
   top level on line 1

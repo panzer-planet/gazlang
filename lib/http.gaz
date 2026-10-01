@@ -23,6 +23,7 @@ include "chars.gaz" use is_alnum, is_digit, is_hex_digit;
 include "date.gaz";
 include "crypto.gaz";
 include "json.gaz";
+include "text.gaz" use quote;
 
 const MAX_REDIRECTS = 20;
 const MAX_HEAD = 65536;      // a request's line and headers, in bytes
@@ -113,7 +114,7 @@ fn parse_url($url) {
     if (type_of($url) != "string") {
         throw "HTTP error: a URL must be a string, got " .. type_of($url);
     }
-    $shown = slice(to_string([$url]), 1, -1);
+    $shown = quote($url);
     // Nothing a request line can't carry: no space or control character
     foreach (split($url, "") as $c) {
         if (ord($c) <= 32 || ord($c) == 127) {
@@ -345,7 +346,7 @@ fn read_response($reader, $method) {
         // "HTTP/1.1 200 OK"
         $words = split($lines[0], " ");
         if (len($words) < 2 || !starts_with($words[0], "HTTP/1.") || len($words[1]) != 3 || !all_digits($words[1])) {
-            throw "HTTP error: not an HTTP response: " .. slice(to_string([slice($lines[0], 0, 100)]), 1, -1);
+            throw "HTTP error: not an HTTP response: " .. quote(slice($lines[0], 0, 100));
         }
         $status = to_int($words[1]);
         $headers = {};
@@ -374,7 +375,7 @@ fn read_response($reader, $method) {
 
 fn content_length($text) {
     if ($text == "" || len($text) > 18 || !all_digits($text)) {
-        throw "HTTP error: bad Content-Length: " .. slice(to_string([$text]), 1, -1);
+        throw "HTTP error: bad Content-Length: " .. quote($text);
     }
     return to_int($text);
 }
@@ -407,13 +408,13 @@ fn read_chunked($reader, $limit = null) {
         check_chunk_line($line);
         $size_text = trim(split($line, ";")[0]);
         if ($size_text == "" || len($size_text) > 15) {
-            throw "HTTP error: bad chunk size: " .. slice(to_string([$line]), 1, -1);
+            throw "HTTP error: bad chunk size: " .. quote($line);
         }
         $size = 0;
         foreach (split(lower($size_text), "") as $c) {
             $digit = index_of("0123456789abcdef", $c);
             if ($digit == null) {
-                throw "HTTP error: bad chunk size: " .. slice(to_string([$line]), 1, -1);
+                throw "HTTP error: bad chunk size: " .. quote($line);
             }
             $size = $size * 16 + $digit;
         }
@@ -451,11 +452,11 @@ fn all_digits($text) {
 // A method or header name must be an HTTP token, which keeps it from ending a line
 fn check_token($what, $name) {
     if (type_of($name) != "string" || $name == "") {
-        throw "HTTP error: bad $what: " .. slice(to_string([$name]), 1, -1);
+        throw "HTTP error: bad $what: " .. quote($name);
     }
     foreach (split($name, "") as $c) {
         if (!is_alnum($c) && !contains('!#$%&\'*+-.^_`|~', $c)) {
-            throw "HTTP error: bad $what: " .. slice(to_string([$name]), 1, -1);
+            throw "HTTP error: bad $what: " .. quote($name);
         }
     }
 }
@@ -676,11 +677,11 @@ fn server_options($options) {
     $options = with_defaults("http::serve()", $options, SERVER_OPTIONS);
     $idle = $options["idle_timeout"];
     if (!in_array(type_of($idle), ["int", "float"]) || $idle <= 0) {
-        throw "http::serve() expects an idle_timeout above 0 seconds, got " .. slice(to_string([$idle]), 1, -1);
+        throw "http::serve() expects an idle_timeout above 0 seconds, got " .. quote($idle);
     }
     $most = $options["requests_per_connection"];
     if (type_of($most) != "int" || $most < 1) {
-        throw "http::serve() expects a requests_per_connection of 1 or more, got " .. slice(to_string([$most]), 1, -1);
+        throw "http::serve() expects a requests_per_connection of 1 or more, got " .. quote($most);
     }
     return $options;
 }
@@ -820,14 +821,14 @@ fn write_response($response, $head, $close = true) {
     }
     foreach ($response as $key => $value) {
         if (!in_array($key, ["status", "headers", "body"])) {
-            throw "a response has status, headers and body, not " .. slice(to_string([$key]), 1, -1);
+            throw "a response has status, headers and body, not " .. quote($key);
         }
     }
     $status = $response["status"] ?? 200;
     $body = $response["body"] ?? "";
     $headers = $response["headers"] ?? {};
     if (type_of($status) != "int" || $status < 200 || $status > 599) {
-        throw "a response's status must be an int from 200 to 599, got " .. slice(to_string([$status]), 1, -1);
+        throw "a response's status must be an int from 200 to 599, got " .. quote($status);
     }
     if (type_of($headers) != "map") {
         throw "a response's headers must be a map, got " .. type_of($headers);
@@ -1202,7 +1203,7 @@ kind Route {
 // A pattern's segments, checked: "/users/:id" is ["users", ":id"]
 fn pattern_segments($pattern) {
     if (type_of($pattern) != "string" || !starts_with($pattern, "/")) {
-        throw "A route's pattern starts with /, got " .. slice(to_string([$pattern]), 1, -1);
+        throw "A route's pattern starts with /, got " .. quote($pattern);
     }
     $segments = segments($pattern);
     $names = [];
@@ -1360,7 +1361,7 @@ fn escaped_byte($text, $percent) {
     $digits = slice($text, $percent + 1, 2);
     if (len($digits) < 2 || !is_hex_digit($digits[0]) || !is_hex_digit($digits[1])) {
         $escape = slice($text, $percent, 3);
-        throw "bad percent-escape " .. slice(to_string([$escape]), 1, -1) .. " at $percent";
+        throw "bad percent-escape " .. quote($escape) .. " at $percent";
     }
 
     return chr(hex_digit($digits[0]) * 16 + hex_digit($digits[1]));
@@ -1417,7 +1418,7 @@ fn last_values($all) {
 fn check_form_type($request) {
     if (media_type($request) != FORM_TYPE) {
         $type = $request["headers"]["content-type"] ?? "";
-        throw "http::form() needs a body sent as " .. FORM_TYPE .. ", not " .. slice(to_string([$type]), 1, -1);
+        throw "http::form() needs a body sent as " .. FORM_TYPE .. ", not " .. quote($type);
     }
 }
 
@@ -1516,7 +1517,7 @@ fn with_defaults($who, $options, $defaults) {
     }
     foreach ($options as $name => $value) {
         if (!has_key($defaults, $name)) {
-            throw "$who has no option " .. slice(to_string([$name]), 1, -1) .. ": only " .. join(keys($defaults), ", ");
+            throw "$who has no option " .. quote($name) .. ": only " .. join(keys($defaults), ", ");
         }
     }
 
@@ -1617,7 +1618,7 @@ fn security_header_values($options) {
     foreach ($options as $name => $value) {
         check_token("header name", $name);
         if ($value != null && type_of($value) != "string") {
-            throw "http::security_headers() takes a string or null for " .. slice(to_string([$name]), 1, -1) .. ", not " .. type_of($value);
+            throw "http::security_headers() takes a string or null for " .. quote($name) .. ", not " .. type_of($value);
         }
         $headers = without_key($headers, header_key($headers, $name) ?? $name);
         if ($value != null) {

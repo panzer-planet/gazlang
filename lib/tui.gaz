@@ -19,6 +19,7 @@
 namespace tui;
 
 include "term.gaz";
+include "text.gaz" use quote;
 
 /* Corners top left, top right, bottom left, bottom right, then across and down */
 const BORDERS = {
@@ -190,7 +191,7 @@ pub kind Screen {
                 $text = trim_end(join(map(slice($row, $start, $c - $start), $cell -> $cell[0]), ""));
                 if ($style != "" && has_word($text)) {
                     $runs[] = format_row($r + 1, $margin) .. " " .. ($start + 1) .. "-" .. $c .. "  " .. $style
-                        .. "  " .. slice(to_string([$text]), 1, -1) .. "\n";
+                        .. "  " .. quote($text) .. "\n";
                 }
                 $start = $c;
             }

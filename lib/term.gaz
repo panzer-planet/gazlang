@@ -12,6 +12,8 @@
  */
 namespace term;
 
+include "text.gaz" use quote;
+
 const ESC = "\e";
 const CSI = "\e[";
 pub const RESET = "\e[0m";
@@ -587,7 +589,7 @@ kind Script {
      * a newline is that key, not the byte); the first carries the text as it was written
      */
     fn type_text($text) {
-        $word = slice(to_string([$text]), 1, -1);
+        $word = quote($text);
         foreach (chars($text) as $char) {
             $key = decode($char == "\n" ? "\r" : $char, true)["keys"][0];
             #add(Step("press", $word, $key));
@@ -701,7 +703,7 @@ fn key_named($word) {
 }
 
 fn unknown_word($word) {
-    $shown = slice(to_string([$word]), 1, -1);
+    $shown = quote($word);
     return "no key is called {$shown} (text to type goes in double quotes: \"...\"; "
         .. "a key is a character or " .. join(KEY_NAMES, " ") .. ", after ctrl+ alt+ or shift+ if held)";
 }

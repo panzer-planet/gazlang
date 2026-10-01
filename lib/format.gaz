@@ -2,6 +2,8 @@
 // format::pad_right() and format::sprintf().
 namespace format;
 
+include "text.gaz" use quote;
+
 // $number with $decimals digits after the point and thousands separated:
 // format::number(1234.5) is "1,234.50", format::number(-0.004) is "0.00".
 // Rounds like round($number, $decimals), so it gives "1.01" for 1.005, with halves
@@ -286,7 +288,7 @@ fn number_or($digits, $default) {
 // The placeholder from $from to $to, quoted, and why it can't be
 fn refuse($template, $from, $to, $why) {
     $placeholder = slice($template, $from, $to - $from);
-    throw "sprintf: " .. slice(to_string([$placeholder]), 1, -1) .. ": " .. $why;
+    throw "sprintf: " .. quote($placeholder) .. ": " .. $why;
 }
 
 // Zeros between a number's sign and its digits

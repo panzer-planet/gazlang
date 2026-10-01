@@ -19,3 +19,11 @@ expect("a \\r\\n and nothing else is one empty line", text::lines("\r\n"), [""])
 expect("spaces are kept", text::lines("  a \n b"), ["  a ", " b"]);
 expect("bytes past ASCII pass through", text::lines("é\nü\n"), ["é", "ü"]);
 throws("a list is an error", () -> text::lines(["a"]), "text::lines() expects a string, got list");
+
+expect("a string is quoted", text::quote("a b"), "\"a b\"");
+expect("so a quote shows", text::quote("say \"hi\""), "\"say \\\"hi\\\"\"");
+expect("and a NUL byte and a line break", text::quote("a\0b\n"), "\"a\\x00b\\n\"");
+expect("an empty string is two quotes", text::quote(""), "\"\"");
+expect("a number is as echo prints it", text::quote(1.5), "1.5");
+expect("so is null", text::quote(null), "null");
+expect("a list is a literal, strings inside quoted", text::quote(["a", 1]), "[\"a\", 1]");

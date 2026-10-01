@@ -11,6 +11,8 @@
  */
 namespace crypto;
 
+include "text.gaz" use quote;
+
 const SALT_BYTES = 16;
 const HASH_BYTES = 32;
 const TOKEN_BYTES = 32;
@@ -105,11 +107,11 @@ fn limits_with($limits) {
     $all = LIMITS;
     foreach ($limits as $algorithm => $caps) {
         if (!has_key($all, $algorithm)) {
-            throw "crypto: unknown algorithm " .. show($algorithm) .. " in the limits, expected argon2id, scrypt or pbkdf2-sha256";
+            throw "crypto: unknown algorithm " .. quote($algorithm) .. " in the limits, expected argon2id, scrypt or pbkdf2-sha256";
         }
         foreach ($caps as $name => $value) {
             if (!has_key($all[$algorithm], $name) || type_of($value) != "int") {
-                throw "crypto: {$algorithm}'s limits are ints for " .. join(keys($all[$algorithm]), ", ") .. ", got " .. show($name) .. " => " .. show($value);
+                throw "crypto: {$algorithm}'s limits are ints for " .. join(keys($all[$algorithm]), ", ") .. ", got " .. quote($name) .. " => " .. quote($value);
             }
             $all[$algorithm][$name] = $value;
         }
@@ -123,13 +125,13 @@ kind Settings {
 
     pub static fn from_options($options) {
         $algorithm = $options["algorithm"] ?? DEFAULT_ALGORITHM;
-        $params = ALGORITHMS[$algorithm] ?? throw "crypto: unknown algorithm " .. show($algorithm) .. ", expected argon2id, scrypt or pbkdf2-sha256";
+        $params = ALGORITHMS[$algorithm] ?? throw "crypto: unknown algorithm " .. quote($algorithm) .. ", expected argon2id, scrypt or pbkdf2-sha256";
         foreach ($options as $name => $value) {
             if ($name == "algorithm") {
                 continue;
             }
             if (!has_key($params, $name)) {
-                throw "crypto: {$algorithm} has no parameter " .. show($name) .. ", expected " .. join(keys($params), ", ");
+                throw "crypto: {$algorithm} has no parameter " .. quote($name) .. ", expected " .. join(keys($params), ", ");
             }
             if (type_of($value) != "int") {
                 throw "crypto: {$algorithm}'s {$name} must be an int, got " .. type_of($value);
@@ -346,7 +348,7 @@ pub fn from_hex(string $text): string {
    table lookup would lift both */
 fn hex_digit($text, $at) {
     return index_of(HEX_DIGITS, lower($text[$at]))
-        ?? throw "crypto::from_hex() expects hex digits, got " .. show($text[$at]) .. " at {$at}";
+        ?? throw "crypto::from_hex() expects hex digits, got " .. quote($text[$at]) .. " at {$at}";
 }
 
 /* Base64 (RFC 4648, section 4), padded with = to a multiple of 4 characters */
@@ -453,10 +455,5 @@ fn decode_group($body, $at, $alphabet, $name) {
    lookup in C would lift it */
 fn sextet($body, $at, $alphabet, $name) {
     return index_of($alphabet, $body[$at])
-        ?? throw "crypto::from_{$name}() expects {$name} characters, got " .. show($body[$at]) .. " at {$at}";
-}
-
-/* A value as a literal, for messages: a string quoted, so a space or a NUL shows */
-fn show($value) {
-    return slice(to_string([$value]), 1, -1);
+        ?? throw "crypto::from_{$name}() expects {$name} characters, got " .. quote($body[$at]) .. " at {$at}";
 }

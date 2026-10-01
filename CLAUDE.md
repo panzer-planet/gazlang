@@ -781,9 +781,12 @@ that must find nothing to do.
     - Handing the client's address to a handler (`$request["remote_address"]`, from `socket_peer()`,
       which exists), for logs and rate limits; behind a proxy `X-Forwarded-For` is the one that matters,
       and whether to trust it is the program's.
-    - A `quote($value)` builtin, the value as a literal: `value.c` has it, and
-      `slice(to_string([$x]), 1, -1)` stands in for it fourteen times in `http.gaz` and once in
-      most compiler files; a builtin takes its name from every program, so the name is the question.
+    - `quote($value)` as a builtin (`value.c` has the function): `text::quote()` in `lib/text.gaz`
+      is the idiom `slice(to_string([$x]), 1, -1)` with a name, used by the library; the compiler
+      still spells it out, since it includes only its own sources, and `lib/test.gaz` keeps a helper
+      of its own (every test includes it, and one loading a library file by path would find
+      `text.gaz` declared twice). A builtin takes its name from every program, so it waits for a
+      program that needs the speed or the bare name.
     - Measured once already, against PHP's built-in server across no-opcache/opcache/opcache+JIT
       (`ab`, `workers(1)` each side): gaz matches PHP with every performance feature on for an
       ordinary handler (build data, encode it), and only loses on a tight arithmetic loop inside
@@ -1394,7 +1397,7 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   outcome, not a bug) and `contains_by` (`in_array`'s predicate-based sibling). A list helper goes here
   rather than into the builtins, since a builtin takes its name from every program and a namespace only
   from those that include it),
-  `text.gaz` (`text::lines`: what `read_line()` reads, as a list, so `text::lines(read_stdin())` is a
+  `text.gaz` (`text::quote`: a value as a literal for a message; `text::lines`: what `read_line()` reads, as a list, so `text::lines(read_stdin())` is a
   `gaz -e` one-liner's input: `split($s, "\n")` leaves a trailing `""` after a final newline, and "\r\n" is
   stripped only where a "\n" follows, as `read_line()` and `file_read_line()` do),
   `format.gaz` (`format::number`, `format::pad_left`/`pad_right`

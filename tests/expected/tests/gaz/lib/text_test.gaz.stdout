@@ -16,3 +16,10 @@ ok a \r\n and nothing else is one empty line
 ok spaces are kept
 ok bytes past ASCII pass through
 ok a list is an error
+ok a string is quoted
+ok so a quote shows
+ok and a NUL byte and a line break
+ok an empty string is two quotes
+ok a number is as echo prints it
+ok so is null
+ok a list is a literal, strings inside quoted
