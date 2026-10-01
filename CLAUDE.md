@@ -696,8 +696,9 @@ that must find nothing to do.
     workers running (Linux's `PR_SET_PDEATHSIG` would end them, macOS has nothing like it). No TLS
     on the server side: a proxy in front does it.
   - **Next, when a program asks** (the order they would be built in):
-    - The client's address (`socket_peer($socket)`, for logs and rate limits), though behind a
-      proxy `X-Forwarded-For` is the one that matters.
+    - Handing the client's address to a handler (`$request["remote_address"]`, from `socket_peer()`,
+      which exists), for logs and rate limits; behind a proxy `X-Forwarded-For` is the one that matters,
+      and whether to trust it is the program's.
     - A `quote($value)` builtin, the value as a literal: `value.c` has it, and
       `slice(to_string([$x]), 1, -1)` stands in for it fourteen times in `http.gaz` and once in
       most compiler files; a builtin takes its name from every program, so the name is the question.
@@ -1096,6 +1097,12 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   `examples/brainfuck.gaz` had a `run()`.
 - Sockets (`net.c`): `socket_listen($host, $port, $backlog = 128)` (port 0 the system's pick,
   `socket_port()` says which), `socket_accept($listener, $timeout = 30)` (waits for good; the timeout
+  `socket_peer($socket)` gives `{"address", "port"}` of a connection's other end (an error for a
+  listener, a closed socket and an inherited one). **The address text is `ipaddr.c`'s, not
+  `inet_ntop()`'s**, whose IPv6 spelling differs between systems: IPv4 dotted, IPv6 lowercase groups
+  with the longest run of two or more zero groups as `::` (RFC 5952), and IPv4-mapped IPv6 as plain IPv4 so a
+  client has one spelling however it came; checked against Python's `ipaddress` on 295 addresses
+  (`tests/IpTextTest.php`, on its own so no network is needed) and by `tests/gaz/sockets/peer_test.gaz`.
   is the connection's), both plain TCP. `workers($n)` (`workers.c`) forks the program for a server;
   see "Serving HTTP", and for why a connection made before it can't be used in a worker while a
   listener can. The fuzzer skips `workers` with the socket builtins.

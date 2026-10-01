@@ -27,7 +27,9 @@ throws("a file", () -> file_read_line($file), "file_read_line(): this file " .. 
 throws("reading a connection", () -> socket_read($client), "socket_read(): this socket " .. INHERITED);
 throws("writing to a connection", () -> socket_write($client, "x"), "socket_write(): this socket " .. INHERITED);
 throws("a connection's port", () -> socket_port($client), "socket_port(): this socket " .. INHERITED);
+throws("a connection's peer", () -> socket_peer($client), "socket_peer(): this socket " .. INHERITED);
 throws("an accepted connection", () -> socket_read($accepted), "socket_read(): this socket " .. INHERITED);
+throws("an accepted connection's peer", () -> socket_peer($accepted), "socket_peer(): this socket " .. INHERITED);
 
 // A listener is shared on purpose: this worker connects to it and accepts what it connected
 $port = socket_port($listener);

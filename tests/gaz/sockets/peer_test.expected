@@ -1,0 +1,12 @@
+ok the server sees the client's address
+ok and the client's own port, which the client knows as its port
+ok the client sees the server's address
+ok and the listener's port
+ok it is a map of an address and a port
+ok an address is text and a port a number
+ok a second connection is another port
+ok and is the second client's
+ok a listener has no peer
+ok not a socket
+ok a closed socket
+ok a closed accepted socket

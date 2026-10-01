@@ -110,7 +110,7 @@ plain stylesheet wait 0.39s behind them, so on a fixed pool anyone can saturate 
 requests a second. The app counts failures per email in a table and refuses the sixth without
 hashing; that stops a guesser on one email and not one trying many, and lets anyone lock a known
 email out for 15 minutes. A per-client limit needs the client's address, which a handler can't see
-(`socket_peer()` is on the roadmap "when a program asks": this is asking).
+(`socket_peer()` now exists; handing it to a handler as part of the request is the next step).
 
 - **Today**: `throttle.gaz`, per email, in the database so every worker agrees.
 - **Options**: `$request["remote_address"]` from `socket_peer()`, with the proxy's

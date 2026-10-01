@@ -449,6 +449,11 @@ bool str_eq(const Str *a, const Str *b);
 int str_cmp(const Str *a, const Str *b);
 uint64_t str_hash(Str *s);
 uint64_t siphash13(const unsigned char *data, size_t len, uint64_t k0, uint64_t k1);  /* siphash.c */
+/* An address as text (ipaddr.c): out holds IP_TEXT_MAX bytes, the text is NUL-terminated and its length is returned */
+#define IP_V4 4
+#define IP_V6 6
+#define IP_TEXT_MAX 46
+size_t ip_text(int family, const unsigned char *bytes, char *out);
 
 /* A growable buffer for building text. Zero-initialised (the usual `Buf b = {0}`), it grows on
    the heap exactly as before. A caller that expects a short result can instead point `data` at
@@ -590,6 +595,7 @@ bool net_open(Str *host, int64_t port, bool tls, double timeout, Value *out);
 bool net_listen(Str *host, int64_t port, int64_t backlog, Value *out);
 bool net_accept(Socket *listener, double timeout, Value *out);
 bool net_port(Socket *s, Value *out);
+bool net_peer(Socket *s, Value *out);
 bool net_read(Socket *s, Value *out);
 bool net_write(Socket *s, Str *data);
 void net_close(Socket *s);

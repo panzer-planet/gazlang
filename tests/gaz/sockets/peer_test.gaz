@@ -1,0 +1,25 @@
+/* socket_peer(): who is at the other end of a connection, from either end, and what it refuses */
+include "std/test.gaz" use expect, throws;
+
+$listener = socket_listen("127.0.0.1", 0);
+$port = socket_port($listener);
+$client = socket_open("127.0.0.1", $port);
+$served = socket_accept($listener);
+
+expect("the server sees the client's address", socket_peer($served)["address"], "127.0.0.1");
+expect("and the client's own port, which the client knows as its port", socket_peer($served)["port"], socket_port($client));
+expect("the client sees the server's address", socket_peer($client)["address"], "127.0.0.1");
+expect("and the listener's port", socket_peer($client)["port"], $port);
+expect("it is a map of an address and a port", [type_of(socket_peer($served)), keys(socket_peer($served))], ["map", ["address", "port"]]);
+expect("an address is text and a port a number", [type_of(socket_peer($served)["address"]), type_of(socket_peer($served)["port"])], ["string", "int"]);
+$second_client = socket_open("127.0.0.1", $port);
+$second = socket_accept($listener);
+expect("a second connection is another port", socket_peer($second)["port"] != socket_peer($served)["port"], true);
+expect("and is the second client's", socket_peer($second)["port"], socket_port($second_client));
+
+throws("a listener has no peer", () -> socket_peer($listener), "socket_peer() on a listening socket: it has no peer, socket_accept() a connection");
+throws("not a socket", () -> socket_peer("127.0.0.1"), "socket_peer() expects socket, got string");
+socket_close($client);
+throws("a closed socket", () -> socket_peer($client), "socket_peer() on a closed socket");
+socket_close($served);
+throws("a closed accepted socket", () -> socket_peer($served), "socket_peer() on a closed socket");

@@ -65,7 +65,7 @@ const BuiltinInfo builtin_info[] = {
     {"flush_output", 0, 0}, {"worker_recycle", 0, 0},
     {"term_is_virtual", 0, 0},
     {"file_open", 1, 1}, {"file_read_line", 1, 1}, {"file_close", 1, 1},
-    {"utf8_valid", 1, 1}, {"utf8_length", 1, 1}, {"utf8_chars", 1, 1},
+    {"utf8_valid", 1, 1}, {"utf8_length", 1, 1}, {"utf8_chars", 1, 1}, {"socket_peer", 1, 1},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -90,7 +90,7 @@ enum {
     B_FLUSH_OUTPUT, B_WORKER_RECYCLE,
     B_TERM_IS_VIRTUAL,
     B_FILE_OPEN, B_FILE_READ_LINE, B_FILE_CLOSE,
-    B_UTF8_VALID, B_UTF8_LENGTH, B_UTF8_CHARS,
+    B_UTF8_VALID, B_UTF8_LENGTH, B_UTF8_CHARS, B_SOCKET_PEER,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -1500,6 +1500,9 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     case B_SOCKET_PORT:
         if (!want(index, a, M(T_SOCKET))) return false;
         return net_port(a.sock, out);
+    case B_SOCKET_PEER:
+        if (!want(index, a, M(T_SOCKET))) return false;
+        return net_peer(a.sock, out);
     case B_WORKERS:
         if (!want(index, a, INT)) return false;
         return start_workers(a.i, out);

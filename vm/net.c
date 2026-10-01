@@ -283,6 +283,41 @@ bool net_port(Socket *s, Value *out) {
     return true;
 }
 
+/* socket_peer($socket): who is at the other end of a connection, as {"address" => text, "port" => int}.
+   Ask right after socket_accept(): once the client has gone some systems no longer know. */
+bool net_peer(Socket *s, Value *out) {
+    if (s->fd < 0) return raisef("socket_peer() on a closed socket");
+    if (s->listening) return raisef("socket_peer() on a listening socket: it has no peer, socket_accept() a connection");
+    if (s->owner != vm_process) return refuse_inherited("socket_peer", "socket");
+    struct sockaddr_storage addr;
+    socklen_t len = sizeof addr;
+    if (getpeername(s->fd, (struct sockaddr *)&addr, &len) != 0) return raisef("socket_peer() failed: %s", strerror(errno));
+    char text[IP_TEXT_MAX];
+    int port;
+    if (addr.ss_family == AF_INET6) {
+        struct sockaddr_in6 *in6 = (struct sockaddr_in6 *)&addr;
+        ip_text(IP_V6, in6->sin6_addr.s6_addr, text);
+        port = ntohs(in6->sin6_port);
+    } else if (addr.ss_family == AF_INET) {
+        struct sockaddr_in *in4 = (struct sockaddr_in *)&addr;
+        ip_text(IP_V4, (const unsigned char *)&in4->sin_addr, text);
+        port = ntohs(in4->sin_port);
+    } else {
+        return raisef("socket_peer(): the other end has an address of a kind GazLang doesn't read (family %d)", addr.ss_family);
+    }
+    Map *m = map_new();
+    Value address_key = v_str(str_cstr("address"));
+    Value address = v_str(str_cstr(text));
+    Value port_key = v_str(str_cstr("port"));
+    /* map_set() keeps the key it is given but takes over the value, so only the keys are let go */
+    map_set(m, address_key, address);
+    map_set(m, port_key, v_int(port));
+    decref(address_key);
+    decref(port_key);
+    *out = v_map(m);
+    return true;
+}
+
 /* socket_read($socket): what has arrived, up to 64KB, waiting for something; "" at the end */
 bool net_read(Socket *s, Value *out) {
     if (s->fd < 0) return raisef("socket_read() on a closed socket");

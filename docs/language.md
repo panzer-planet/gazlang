@@ -995,6 +995,7 @@ leaves one out, and `db_open` of that scheme is then an error.
 | `socket_listen($host, $port, $backlog = 128)` | A `socket` listening for connections |
 | `socket_accept($listener, $timeout = 30)` | Waits for the next connection, and gives it as a `socket` |
 | `socket_port($socket)` | The port this end of the socket has |
+| `socket_peer($socket)` | Who is at the other end of a connection: `{"address" => "192.0.2.7", "port" => 54321}` |
 
 A socket is a connection over TCP, or TLS for `$tls = true`:
 
@@ -1017,6 +1018,16 @@ A server listens and accepts:
   and gives it as a `socket`; `$timeout` bounds each read and write on it. In a worker that has been
   asked to stop (see `workers()`), `null`.
 - `socket_port($socket)` — the port this end has, which is how a listener on port 0 says which.
+- `socket_peer($socket)` — who is at the other end of a connection, from `socket_accept()` or
+  `socket_open()`, as a map of `"address"` (text) and `"port"` (an int): a server's way to know a
+  client, for a log or a limit. The address is written as one spelling for one address: IPv4 as four
+  numbers with dots; IPv6 as lowercase hexadecimal groups without leading zeros, the longest run of
+  two or more zero groups as `::` (the first of two as long), as RFC 5952 says; and an IPv4-mapped IPv6
+  address (`::ffff:192.0.2.7`, which is how an IPv4 client looks to a listener that takes both) as the
+  IPv4 address. A listener has no peer, and a closed socket is an error; ask right after
+  `socket_accept()`, since a client that has gone may no longer be known to the system. Behind a
+  proxy the address is the proxy's: the client's is in its `X-Forwarded-For` header, which the program
+  decides whether to trust.
 
 A listener only accepts: reading or writing one is an error. No TLS on this side; put a proxy
 (Caddy, nginx) in front for https.
