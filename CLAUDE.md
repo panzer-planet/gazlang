@@ -963,7 +963,7 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
 
 - Strings: `len`, `slice($x, $start, $length)` (strings and lists, PHP's rules including
   negatives), `lower`, `upper`, `trim` (the lexer's whitespace only), `split` (empty separator:
-  characters; a third argument, an int of 1 or more or null, caps the parts, the last holding the
+  bytes, one string each; a third argument, an int of 1 or more or null, caps the parts, the last holding the
   rest), `join` (elements converted like echo), `replace` (every occurrence; empty search
   is an error), `contains`, `ends_with`, `starts_with($s, $prefix, $offset = 0)` (whether the
   prefix is there at the offset, so a scanner asks without slicing off what it has read),
@@ -971,6 +971,22 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   from the end, and one outside the string is an error (the end itself is fine to
   `starts_with`, which finds only an empty prefix there), `repeat`, `chr` (0 to 255), `ord` (one
   byte), `to_int` (ints, bools, decimal strings with an optional `-`), `to_float`, `to_string`.
+- **UTF-8**: `utf8_valid($s)`, `utf8_length($s)` and `utf8_chars($s)`. **Strings stay bytes**:
+  `len`, `slice`, `reverse` and `split($s, "")` count and cut bytes and can cut a character in half,
+  and nothing converts or checks a string by itself; a text type would split every API in two.
+  `utf8_valid` is RFC 3629 written out in C (`utf8_character()` in `builtins.c`, no locale): a lead
+  byte says how many continuation bytes follow, and a narrower range for the first of them after
+  E0, ED, F0 and F4 leaves out overlong forms, surrogates and anything above U+10FFFF; C0, C1 and
+  F5 to FF never lead. **Builtins, not a library**: a check belongs on every request path, over
+  every byte of a form field, which is C's work, and all three share the one decoder so they can't
+  disagree. **`utf8_length` and `utf8_chars` are errors on text that isn't well formed**, naming
+  the byte where the first bad character starts, since a count of something that isn't characters
+  is a wrong answer; a caller asks `utf8_valid` first or catches. `tests/Utf8Test.php` checks all
+  three against PCRE's UTF-8, which shares no code with them, on random and hand-made bytes.
+  **JSON is strict at both ends** (`lib/json.gaz`): RFC 8259 requires UTF-8, so `json::encode`
+  refuses a string or key that isn't well formed (it would write invalid JSON), and `json::decode`
+  refuses a document that isn't (one `utf8_valid` before parsing) and an escape naming half a
+  surrogate pair, so it never hands back text the rest of a program can't trust.
 - Lists and maps: `in_array` (`==`), `has_key`, `keys`, `values`, `last` (an empty list is an
   error), `reverse` (lists, strings by byte, and maps, which keep their keys), and `map`, `filter`
   (truthiness, as `if`), `reduce($x, $f, $initial)` and `sort` (stable; the comparator must return

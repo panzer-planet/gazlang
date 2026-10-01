@@ -29,7 +29,7 @@ multi-way branch — read as themselves rather than as nested calls or `if`/`els
   digits on both sides of the dot, so `1.` and `.5` are errors. Printing gives the shortest
   digits that read back as the same float (`0.30000000000000004`, `1.0`, `-0.0`).
 - **Strings**: byte strings, so `len("é")` is 2 and `upper` is ASCII. UTF-8 passes through
-  untouched.
+  untouched, and `utf8_valid`, `utf8_length` and `utf8_chars` read it as characters (see "Builtins").
 - **Booleans**: `true` and `false`. A bool is not a number: `true == 1` is false, and
   `true + 1` is an error. Use `to_int(true)`.
 - **`null`**: a keyword. It equals only itself, so `null == 0` and `null == false` are false.
@@ -637,6 +637,9 @@ kind's fields, methods and constants across its hierarchy.
 | `repeat($s, $count)` | The string `$count` times over |
 | `chr($byte)` | The one-byte string with that byte value, 0 to 255 |
 | `ord($char)` | The byte value of a one-byte string |
+| `utf8_valid($s)` | Whether `$s` is well formed UTF-8 |
+| `utf8_length($s)` | The number of characters in well formed UTF-8; anything else is an error |
+| `utf8_chars($s)` | The characters of well formed UTF-8, each a string of 1 to 4 bytes; anything else is an error |
 
 The builtins for strings are `len`, `slice($x, $start, $length)`, `lower`, `upper`, `trim`, `split($s, $sep, $limit)`,
 `join($list, $sep)`, `replace($s, $search, $replacement)`, `contains`, `ends_with`,
@@ -645,6 +648,29 @@ The builtins for strings are `len`, `slice($x, $start, $length)`, `lower`, `uppe
 holding the rest: `split("a=b=c", "=", 2)` is `["a", "b=c"]`. Both offsets are optional and count from the end when negative; one outside the string is
 an error. `starts_with` at the end of the string (`$offset` = `len($s)`) is true only for an empty
 prefix.
+
+**Strings are bytes**, and every builtin above counts and cuts bytes: `len`, `slice`, `reverse` and
+`split($s, "")` (which gives the bytes, one string each) can cut a character in half. Three builtins
+read a string as UTF-8 instead:
+
+```gaz
+echo [len("café"), utf8_length("café")];
+echo utf8_chars("é€😀");
+echo [utf8_valid("café"), utf8_valid("caf\xe9")];
+```
+```
+[5, 4]
+["é", "€", "😀"]
+[true, false]
+```
+
+`utf8_valid` follows RFC 3629: no character written in more bytes than it needs, no surrogates
+(U+D800 to U+DFFF), nothing above U+10FFFF, and no character cut short; `""` is valid, and so is
+`"\0"`. `utf8_length` and `utf8_chars` refuse text that isn't, naming the byte where the first bad
+character starts (`utf8_length() expects well formed UTF-8, but byte 3 doesn't start a well formed
+character`), since a count of something that isn't characters would be a wrong answer, not an
+answer. **Check text from outside with `utf8_valid` first**: a form field, a query string, a file
+or a socket can hold any bytes, and a database or a JSON document refuses what isn't UTF-8.
 
 ### Numbers
 
@@ -1450,7 +1476,7 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `sorting.gaz` | `sorting::values`, `sorting::by` |
 | `lists.gaz` | Plain functions over plain lists, the list always first so each reads well after `\|>`; a key or predicate function is called once per element, with the element alone (`map()` and `filter()` pass an index too, these don't). `lists::flatten($lists)` (one level deep), `lists::unique($xs)` (each element once, in the order they first come, compared with `==`), `lists::max_by($xs, $key)` and `lists::min_by` (the element whose `$key($x)` is largest or smallest, the first on a tie; a list of keys breaks ties in order), `lists::group_by($xs, $key)` (a map from each key, an int or a string, to the list of elements with it, in the order the keys first come), `lists::count_by($xs, $key)` (the same with counts), `lists::partition($xs, $predicate)` (`[$matching, $rest]`), `lists::chunk($xs, $size)`, `lists::zip($a, $b)` (pairs, as many as the shorter list has), `lists::take($xs, $n)` and `lists::drop($xs, $n)` (`$n` is 0 or more; more than the list has is fine), `lists::pluck($xs, $key)` (that key of each map), `lists::sum_by($xs, $key)`, `lists::avg($xs)` and `lists::avg_by($xs, $key)` (a float; an error for an empty list), `lists::first($xs)` (an error for an empty list, as `last()` is), `lists::find($xs, $predicate)` (the first element it is true for, or `null`) and `lists::contains_by($xs, $predicate)` |
 | `text.gaz` | `text::lines($text)`: the lines of a string as `read_line()` reads them (`"\n"` or `"\r\n"` ends one, a last line needs no end), without the empty line `split($text, "\n")` leaves after a final newline; `text::lines(read_stdin())` is a one-liner's whole input |
-| `json.gaz` | `json::decode`, `json::encode`; an object is encoded as what its `pub fn to_json()` returns (a map, say: a value, not JSON text), and one without it is an error. Decoding gives maps and lists, never objects: a kind reads itself back with a `static fn from_json($data)` of its own, by convention |
+| `json.gaz` | `json::decode`, `json::encode`; JSON is UTF-8, so decoding refuses a document that isn't well formed UTF-8 or that escapes half a surrogate pair, and encoding refuses a string or key that isn't well formed UTF-8; an object is encoded as what its `pub fn to_json()` returns (a map, say: a value, not JSON text), and one without it is an error. Decoding gives maps and lists, never objects: a kind reads itself back with a `static fn from_json($data)` of its own, by convention |
 | `csv.gaz` | `csv::parse`, `csv::records` (RFC 4180) |
 | `db.gaz` | `db::open($url)` (a `Db`), `db::sql"..."`, `db::raw($text)` and `db::ident($name)`; see "Databases" under Builtins |
 | `crypto.gaz` | `crypto::hash_password`, `crypto::verify_password`, `crypto::needs_rehash`, `crypto::token`, `crypto::sign($value, $secret)` and `crypto::unsign($signed, $secret)` (tamper-evident values, for cookies), `crypto::equals`, hex and base64; see "Cryptography" under Builtins |

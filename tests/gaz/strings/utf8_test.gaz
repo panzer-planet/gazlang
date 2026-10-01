@@ -1,0 +1,85 @@
+include "std/test.gaz" use expect, throws;
+
+/*
+ * utf8_valid(), utf8_length() and utf8_chars(): strings are bytes, and these read them as UTF-8
+ * (RFC 3629). Each size of character at both ends of its range, then each way bytes can fail to
+ * be one: a byte that can't lead, an overlong form, a surrogate, a code point above U+10FFFF, a
+ * continuation byte where none belongs, and a character cut short.
+ */
+
+// Well formed: the first and last code point of each size
+expect("empty", utf8_valid(""), true);
+expect("NUL is a character", utf8_valid("\0"), true);
+expect("U+007F, the last one-byte character", utf8_valid("\x7f"), true);
+expect("U+0080, the first two-byte character", utf8_valid("\xc2\x80"), true);
+expect("U+07FF, the last two-byte character", utf8_valid("\xdf\xbf"), true);
+expect("U+0800, the first three-byte character", utf8_valid("\xe0\xa0\x80"), true);
+expect("U+D7FF, just below the surrogates", utf8_valid("\xed\x9f\xbf"), true);
+expect("U+E000, just above the surrogates", utf8_valid("\xee\x80\x80"), true);
+expect("U+FFFF, the last three-byte character", utf8_valid("\xef\xbf\xbf"), true);
+expect("U+10000, the first four-byte character", utf8_valid("\xf0\x90\x80\x80"), true);
+expect("U+10FFFF, the last character", utf8_valid("\xf4\x8f\xbf\xbf"), true);
+expect("text in several sizes", utf8_valid("caf\u{e9} \u{20ac}5 \u{1F600}"), true);
+
+// Bytes that never lead a character
+expect("a lone continuation byte", utf8_valid("\x80"), false);
+expect("the last continuation byte", utf8_valid("\xbf"), false);
+expect("C0 only starts an overlong form", utf8_valid("\xc0\x80"), false);
+expect("C1 only starts an overlong form", utf8_valid("\xc1\xbf"), false);
+expect("F5 only starts what is above U+10FFFF", utf8_valid("\xf5\x80\x80\x80"), false);
+expect("FF", utf8_valid("\xff"), false);
+
+// Overlong forms: a character written in more bytes than it needs
+expect("a slash in two bytes", utf8_valid("\xc0\xaf"), false);
+expect("U+07FF in three bytes", utf8_valid("\xe0\x9f\xbf"), false);
+expect("U+FFFF in four bytes", utf8_valid("\xf0\x8f\xbf\xbf"), false);
+
+// Surrogates, which only UTF-16 has
+expect("U+D800, the first surrogate", utf8_valid("\xed\xa0\x80"), false);
+expect("U+DFFF, the last surrogate", utf8_valid("\xed\xbf\xbf"), false);
+expect("a surrogate pair written as two characters", utf8_valid("\xed\xa0\xbd\xed\xb8\x80"), false);
+
+// Above U+10FFFF
+expect("U+110000", utf8_valid("\xf4\x90\x80\x80"), false);
+
+// A lead byte without what it promised
+expect("two bytes cut to one", utf8_valid("\xc3"), false);
+expect("three bytes cut to two", utf8_valid("\xe2\x82"), false);
+expect("four bytes cut to three", utf8_valid("\xf0\x9f\x98"), false);
+expect("cut short before ASCII", utf8_valid("\xc3a"), false);
+expect("a bad second continuation byte", utf8_valid("\xe2\x82a"), false);
+expect("a bad last continuation byte", utf8_valid("\xf0\x9f\x98a"), false);
+expect("well formed text and then a bad byte", utf8_valid("caf\u{e9}\xff"), false);
+
+// Counting characters
+expect("length of empty", utf8_length(""), 0);
+expect("length of ASCII", utf8_length("hello"), 5);
+expect("length counts characters, not bytes", utf8_length("caf\u{e9}"), 4);
+expect("one of each size", utf8_length("a\u{e9}\u{20ac}\u{1F600}"), 4);
+expect("NUL counts", utf8_length("a\0b"), 3);
+expect("200 emoji are 200 characters", utf8_length(repeat("\u{1F600}", 200)), 200);
+expect("in 800 bytes", len(repeat("\u{1F600}", 200)), 800);
+
+// Not well formed: an error naming the byte where the first bad character starts
+throws("a bad byte at the start", () -> utf8_length("\xff"),
+    "utf8_length() expects well formed UTF-8, but byte 0 doesn't start a well formed character");
+throws("after a two-byte character", () -> utf8_length("\u{e9}\xff"),
+    "utf8_length() expects well formed UTF-8, but byte 2 doesn't start a well formed character");
+throws("a character cut short names where it starts", () -> utf8_length("ab\xe2\x82"),
+    "utf8_length() expects well formed UTF-8, but byte 2 doesn't start a well formed character");
+throws("a surrogate", () -> utf8_length("abc\xed\xa0\x80"),
+    "utf8_length() expects well formed UTF-8, but byte 3 doesn't start a well formed character");
+throws("a string, not anything else", () -> utf8_length(5), "utf8_length() expects string, got int");
+throws("utf8_valid() takes a string too", () -> utf8_valid(null), "utf8_valid() expects string, got null");
+
+// Taking text apart into characters
+expect("chars of empty", utf8_chars(""), []);
+expect("chars of ASCII", utf8_chars("abc"), ["a", "b", "c"]);
+expect("chars of accented text", utf8_chars("caf\u{e9}"), ["c", "a", "f", "\u{e9}"]);
+expect("chars of every size", utf8_chars("\0\u{7F}\u{80}\u{7FF}\u{800}\u{FFFF}\u{10000}\u{10FFFF}"),
+    ["\0", "\u{7F}", "\u{80}", "\u{7FF}", "\u{800}", "\u{FFFF}", "\u{10000}", "\u{10FFFF}"]);
+expect("chars of emoji", utf8_chars("\u{1F600}\u{1F44D}"), ["\u{1F600}", "\u{1F44D}"]);
+expect("the bytes of each are the text's", join(utf8_chars("a\u{e9}\u{20ac}\u{1F600}"), ""), "a\u{e9}\u{20ac}\u{1F600}");
+expect("split() takes bytes instead", len(split("\u{e9}", "")), 2);
+throws("chars of text that isn't well formed", () -> utf8_chars("ok\xc0\xaf"),
+    "utf8_chars() expects well formed UTF-8, but byte 2 doesn't start a well formed character");

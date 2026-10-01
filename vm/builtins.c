@@ -65,6 +65,7 @@ const BuiltinInfo builtin_info[] = {
     {"flush_output", 0, 0}, {"worker_recycle", 0, 0},
     {"term_is_virtual", 0, 0},
     {"file_open", 1, 1}, {"file_read_line", 1, 1}, {"file_close", 1, 1},
+    {"utf8_valid", 1, 1}, {"utf8_length", 1, 1}, {"utf8_chars", 1, 1},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -89,6 +90,7 @@ enum {
     B_FLUSH_OUTPUT, B_WORKER_RECYCLE,
     B_TERM_IS_VIRTUAL,
     B_FILE_OPEN, B_FILE_READ_LINE, B_FILE_CLOSE,
+    B_UTF8_VALID, B_UTF8_LENGTH, B_UTF8_CHARS,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -349,6 +351,78 @@ static bool slice(Value *args, int argc, Value *out) {
 static const char *find(const char *hay, size_t hay_len, const char *needle, size_t needle_len) {
     if (needle_len == 0) return hay;
     return memmem(hay, hay_len, needle, needle_len);
+}
+
+/*
+ * UTF-8 as RFC 3629 defines it, written out here rather than asked of the C library, whose answer
+ * depends on the locale. A character is a lead byte and as many continuation bytes (0x80 to 0xBF)
+ * as the lead says: none below 0x80, one after C2 to DF, two after E0 to EF, three after F0 to F4.
+ * The first continuation byte has a narrower range after four leads, which is what leaves out the
+ * three things a plain count of bytes would let through:
+ *   E0 A0..BF   not E0 80..9F, which would spell a character that fits in two bytes (overlong)
+ *   ED 80..9F   not ED A0..BF, which would be a surrogate, U+D800 to U+DFFF
+ *   F0 90..BF   not F0 80..8F, overlong again
+ *   F4 80..8F   not F4 90..BF, which would be above U+10FFFF
+ * C0 and C1 could only start an overlong two-byte form and F5 to FF something above U+10FFFF, so
+ * they never lead. utf8_valid(), utf8_length() and utf8_chars() all read text through this.
+ */
+static size_t utf8_character(const unsigned char *text, size_t len, size_t at) {
+    unsigned char lead = text[at];
+    size_t followers;
+    unsigned char lowest = 0x80;
+    unsigned char highest = 0xBF;
+    if (lead < 0x80) return 1;
+    if (lead >= 0xC2 && lead <= 0xDF) {
+        followers = 1;
+    } else if (lead >= 0xE0 && lead <= 0xEF) {
+        followers = 2;
+        if (lead == 0xE0) lowest = 0xA0;
+        if (lead == 0xED) highest = 0x9F;
+    } else if (lead >= 0xF0 && lead <= 0xF4) {
+        followers = 3;
+        if (lead == 0xF0) lowest = 0x90;
+        if (lead == 0xF4) highest = 0x8F;
+    } else {
+        return 0;
+    }
+    if (len - at <= followers) return 0;   /* cut short: the string ends inside the character */
+    if (text[at + 1] < lowest || text[at + 1] > highest) return 0;
+    for (size_t i = 2; i <= followers; i++) {
+        if (text[at + i] < 0x80 || text[at + i] > 0xBF) return 0;
+    }
+    return followers + 1;
+}
+
+/* Where the first character that isn't well formed starts, or the string's length if none */
+static size_t utf8_first_bad(Str *s) {
+    const unsigned char *text = (const unsigned char *)s->data;
+    size_t at = 0;
+    while (at < s->len) {
+        size_t size = utf8_character(text, s->len, at);
+        if (size == 0) return at;
+        at += size;
+    }
+    return at;
+}
+
+/* utf8_length() and utf8_chars(): the characters counted, or made into a list of strings */
+static bool utf8_characters(int index, Str *s, Value *out) {
+    size_t bad = utf8_first_bad(s);
+    if (bad < s->len) {
+        return raisef("%s() expects well formed UTF-8, but byte %zu doesn't start a well formed character",
+                      builtin_info[index].name, bad);
+    }
+    const unsigned char *text = (const unsigned char *)s->data;
+    List *chars = index == B_UTF8_CHARS ? list_new(0) : NULL;
+    int64_t count = 0;
+    for (size_t at = 0; at < s->len; count++) {
+        size_t size = utf8_character(text, s->len, at);
+        if (chars && size == 1) list_push(chars, v_str(str_byte(text[at])));
+        else if (chars) list_push(chars, v_string(s->data + at, size));
+        at += size;
+    }
+    *out = chars ? v_list(chars) : v_int(count);
+    return true;
 }
 
 /* split($s, $sep, $limit): at most $limit parts, the last holding the rest of the string */
@@ -1488,6 +1562,14 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     case B_FILE_READ_LINE:
         if (!want(index, a, M(T_FILE))) return false;
         return read_file_line(a.file, out);
+    case B_UTF8_VALID:
+        if (!want(index, a, STRING)) return false;
+        *out = v_bool(utf8_first_bad(a.s) == a.s->len);
+        return true;
+    case B_UTF8_LENGTH:
+    case B_UTF8_CHARS:
+        if (!want(index, a, STRING)) return false;
+        return utf8_characters(index, a.s, out);
     case B_FILE_CLOSE:
         if (!want(index, a, M(T_FILE))) return false;
         file_close(a.file);

@@ -1,4 +1,4 @@
-Error: Invalid JSON: unexpected "]" at position 3
+Error: Invalid JSON: unexpected "é" at position 1
   json::Reader.fail at lib/json.gaz:128
   json::Reader.parse_value at lib/json.gaz:180
   json::Reader.parse_array at lib/json.gaz:213

@@ -73,6 +73,7 @@ class JsonTest extends GazLangTestCase
             'exponent' => ['1e+', 'Invalid JSON: expected a digit in the exponent at position 3'],
             'fraction' => ['1.x', 'Invalid JSON: expected a digit after the decimal point at position 2'],
             'too deep' => [str_repeat('[', 512), 'Invalid JSON: nesting deeper than 511 levels at position 511'],
+            'a character named whole' => ["[\u{e9}]", "Invalid JSON: unexpected \"\u{e9}\" at position 1"],
         ];
     }
 

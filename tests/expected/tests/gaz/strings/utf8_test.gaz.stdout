@@ -1,0 +1,53 @@
+ok empty
+ok NUL is a character
+ok U+007F, the last one-byte character
+ok U+0080, the first two-byte character
+ok U+07FF, the last two-byte character
+ok U+0800, the first three-byte character
+ok U+D7FF, just below the surrogates
+ok U+E000, just above the surrogates
+ok U+FFFF, the last three-byte character
+ok U+10000, the first four-byte character
+ok U+10FFFF, the last character
+ok text in several sizes
+ok a lone continuation byte
+ok the last continuation byte
+ok C0 only starts an overlong form
+ok C1 only starts an overlong form
+ok F5 only starts what is above U+10FFFF
+ok FF
+ok a slash in two bytes
+ok U+07FF in three bytes
+ok U+FFFF in four bytes
+ok U+D800, the first surrogate
+ok U+DFFF, the last surrogate
+ok a surrogate pair written as two characters
+ok U+110000
+ok two bytes cut to one
+ok three bytes cut to two
+ok four bytes cut to three
+ok cut short before ASCII
+ok a bad second continuation byte
+ok a bad last continuation byte
+ok well formed text and then a bad byte
+ok length of empty
+ok length of ASCII
+ok length counts characters, not bytes
+ok one of each size
+ok NUL counts
+ok 200 emoji are 200 characters
+ok in 800 bytes
+ok a bad byte at the start
+ok after a two-byte character
+ok a character cut short names where it starts
+ok a surrogate
+ok a string, not anything else
+ok utf8_valid() takes a string too
+ok chars of empty
+ok chars of ASCII
+ok chars of accented text
+ok chars of every size
+ok chars of emoji
+ok the bytes of each are the text's
+ok split() takes bytes instead
+ok chars of text that isn't well formed
