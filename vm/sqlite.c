@@ -13,11 +13,21 @@
 
 #include <math.h>
 #include <sqlite3.h>
+#include <stdlib.h>
 #include <string.h>
 
 static bool open_sqlite(Str *url, void **conn) {
     const char *path = url->data + strlen("sqlite:");
     if (!*path) return raisef("sqlite: no path: write sqlite:FILE or sqlite::memory:");
+#ifdef __APPLE__
+    /* Apple's libsqlite3 makes an os_signpost on every open, and libtrace's state (its preferences,
+       shared memory mapped once per process) does not survive a fork: a worker that opens a database
+       after workers() crashes inside os_signpost_enabled when the master opened one before it
+       (migrations at start-up). Switching os_activity off keeps that code from reading the state.
+       It is read when libtrace first runs, so this is before the first open.
+       ponytail: inherited by programs started with run(); lifted if libtrace gets a fork handler. */
+    setenv("OS_ACTIVITY_MODE", "disable", 0);
+#endif
     sqlite3 *db;
     int rc = sqlite3_open_v2(path, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL);
     if (rc != SQLITE_OK) {

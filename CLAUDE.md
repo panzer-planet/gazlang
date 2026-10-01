@@ -532,7 +532,11 @@ that must find nothing to do.
     at `/dev/null` before `fclose()`, whose seek back to its own position would move the shared
     offset (nothing can read it after the fork today, but a `parallel()` parent would); SQLite's is
     never closed in a worker (a close can roll back the owner's journal), only kept reachable, a
-    `ponytail:` in `sqlite.c`. The per-driver part is `DbDriver.abandon`. The master never returns
+    `ponytail:` in `sqlite.c`. **On macOS `open_sqlite()` sets `OS_ACTIVITY_MODE=disable`**
+    first: Apple's libsqlite3 makes an `os_signpost` on every open, and libtrace's state doesn't
+    survive a fork, so a worker opening a database after a master that had opened one (migrations
+    at start-up) crashed in `os_signpost_enabled` about one run in six on Apple silicon (found by
+    CI; 0 of 80 with it, 7 of 40 without); a worker with no earlier open in the master never did. The per-driver part is `DbDriver.abandon`. The master never returns
     from `workers()` and ends with `exit()`, so its copy of a PostgreSQL connection stays open and
     idle until the server stops. Tested by `tests/gaz/workers/inherited_test.gaz` (under the
     sanitizers, each worker's `GAZVM_STATS` line checked by `CVM::leaks()`) and `DbPgTest`.
