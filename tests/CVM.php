@@ -356,6 +356,9 @@ final class CVM
      */
     private static function leaks(array $result): array
     {
+        // LeakSanitizer (Linux only) says this of a process that forked, for the master and for each
+        // worker, after the program's own last line: it reports no leak, and macOS has no such line
+        $result[1] = (string) preg_replace('/^==\d+==Running thread \d+ was not suspended\. False leaks are possible\.\n/m', '', $result[1]);
         $stats = null;
         // The last line, though not always at the start of one: a program's standard error needn't end in a newline
         if (preg_match('/gazvm: ([^\n]*)\n\z/', $result[1], $match, PREG_OFFSET_CAPTURE)) {
