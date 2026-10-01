@@ -1,0 +1,20 @@
+/* A handler is told who the client is: the request's "remote_address", from socket_peer() */
+include "std/test.gaz" use expect;
+include "../../../lib/http.gaz";
+
+$listener = socket_listen("127.0.0.1", 0);
+$client = socket_open("127.0.0.1", socket_port($listener));
+socket_write($client, "GET /who HTTP/1.1\r\nHost: example.test\r\n\r\n");
+$served = socket_accept($listener);
+
+shared $seen = null;
+http::handle($served, $request -> {
+    $seen = $request;
+
+    return {"body" => "ok"};
+});
+
+expect("the handler is given the client's address", $seen["remote_address"], "127.0.0.1");
+expect("it is the last key, after the ones that were always there", keys($seen), ["method", "path", "query", "headers", "body", "remote_address"]);
+expect("the rest of the request is as before", [$seen["method"], $seen["path"], $seen["headers"]], ["GET", "/who", {"host" => "example.test"}]);
+expect("and the client got its answer", contains(socket_read($client), "200 OK"), true);

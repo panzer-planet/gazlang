@@ -519,6 +519,20 @@ fn server_options($options) {
     return {...SERVER_OPTIONS, ...$options};
 }
 
+/*
+ * The address of the client on a connection, as socket_peer() writes it, or null: a client that has
+ * already gone may no longer be known to the system, and a handler is not to fail for that. Behind a
+ * proxy this is the proxy's address; the client's is in its X-Forwarded-For header, which only the
+ * program knows whether to trust.
+ */
+fn remote_address($socket) {
+    try {
+        return socket_peer($socket)["address"];
+    } catch (Error $e) {
+        return null;
+    }
+}
+
 // The request on a connection, or null if it closed before sending anything
 fn read_request($reader, $socket, $max_body) {
     $head = $reader.line("\r\n\r\n", MAX_HEAD);
@@ -564,6 +578,7 @@ fn read_request($reader, $socket, $max_body) {
         "query" => $query == null ? "" : slice($target, $query + 1),
         "headers" => $headers,
         "body" => "",
+        "remote_address" => remote_address($socket),
     };
     $chunked = has_key($headers, "transfer-encoding");
     $length = has_key($headers, "content-length") ? content_length($headers["content-length"]) : 0;

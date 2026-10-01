@@ -129,7 +129,7 @@ class HttpServerTest extends GazLangTestCase
     public function test_the_handler_sees_the_method_path_query_headers_and_body()
     {
         $request = json_decode(self::get('/echo?a=1&b=%20')['body'], true);
-        $this->assertSame(['method' => 'GET', 'path' => '/echo', 'query' => 'a=1&b=%20', 'headers' => ['host' => 'localhost'], 'body' => ''], $request);
+        $this->assertSame(['method' => 'GET', 'path' => '/echo', 'query' => 'a=1&b=%20', 'headers' => ['host' => 'localhost'], 'body' => '', 'remote_address' => '127.0.0.1'], $request);
 
         $response = self::exchange("POST /echo HTTP/1.1\r\nHost: localhost\r\nX-Twice: a\r\nx-twice: b\r\nContent-Length: 5\r\n\r\nhello");
         $request = json_decode(self::response($response)['body'], true);

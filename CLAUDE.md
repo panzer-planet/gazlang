@@ -563,7 +563,8 @@ that must find nothing to do.
   - `http::serve` refuses what isn't well formed before the handler sees it (the statuses are in
     `docs/language.md`), both `Content-Length` and `Transfer-Encoding` included, as the way requests
     are smuggled past a proxy; handler errors are a 500 and a line on stderr. Request and response
-    are maps, like the client's response. `HttpServerTest` runs `tests/programs/web_server.gaz` and
+    are maps, like the client's response; the request carries `"remote_address"` (from `socket_peer()`, `null`
+    if the client is already gone, the proxy's behind one: reading `X-Forwarded-For` is the program's decision). `HttpServerTest` runs `tests/programs/web_server.gaz` and
     speaks to it over raw sockets, so requests no client would send can be sent.
   - **A request has a deadline** (`"request_timeout"`, 30s, a 408) as well as the per-read
     `"timeout"`, which alone let a client trickling a byte every few seconds hold a worker for hours.

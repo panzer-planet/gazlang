@@ -1548,12 +1548,18 @@ header names lowercased and a repeated header's values joined with `", "`.
 `socket_listen()` listener for ever, calling `$handler($request)` for each request with
 
 ```gaz
-{"method" => "GET", "path" => "/users/7", "query" => "tab=posts", "headers" => {...}, "body" => ""}
+{"method" => "GET", "path" => "/users/7", "query" => "tab=posts", "headers" => {...}, "body" => "",
+ "remote_address" => "192.0.2.7"}
 ```
 
 and writing the map it returns: `"status"` (200 if left out), `"headers"` and `"body"` (a string,
 `""` if left out). Header names are lowercased and a repeated header's values joined with `", "`,
 as in a response; the path and query are as the client sent them, not decoded.
+
+`"remote_address"` is the client's address as `socket_peer()` writes it (or `null` if the client has
+already gone and the system no longer knows). Behind a proxy it is the proxy's: the client's is in the
+`X-Forwarded-For` header the proxy adds, and whether to believe that header is the program's
+decision, since a client can send one of its own.
 
 To send the client somewhere else a handler returns `http::redirect($to, $status = 303)`: 303 See
 Other by default, which a browser follows with a GET, as a form's POST wants; 301 and 308 are the
