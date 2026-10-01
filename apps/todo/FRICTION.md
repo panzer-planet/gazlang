@@ -2,7 +2,7 @@
 
 Each entry says what hurt, what the app does about it today, and the options for fixing it in the
 language or the library. Nothing here is decided: it is evidence. The app is registration, login and
-logout, and per-user todos, on PostgreSQL: 824 lines of GazLang, 115 of templates, and 395 of tests (152 checks). It was
+logout, and per-user todos, on PostgreSQL: 752 lines of GazLang, 115 of templates, and 360 of tests (119 checks). It was
 written by someone who knows the language, working from the library's own documentation.
 
 Ordered by how much each would matter to a stranger writing their first web app.
@@ -81,17 +81,15 @@ because the language will not.
   `http::serve` take a function that makes the handler, called once per worker, so the natural place
   to open a connection is inside it.
 
-## 4. No UTF-8 validation, and `len()` counts bytes
+## 4. No UTF-8 validation, and `len()` counts bytes (resolved)
 
 PostgreSQL refuses text that isn't well formed UTF-8, so an `%ff` in a form was a **500 with a stack
-trace in the log**, found by the hostile-input pass, not by writing the validation. There is no
-`is_utf8()`, so `utf8.gaz` (60 lines, checked against Python's decoder on 418 byte strings) is the app's.
-It also gave "200 characters" its real meaning: `len()` counts bytes, so a title of 200 emoji was 800.
+trace in the log**, found by the hostile-input pass, not by writing the validation. There was no
+`is_utf8()`, so the app first carried a validator of its own in GazLang. It also gave "200
+characters" its real meaning: `len()` counts bytes, so a title of 200 emoji was 800.
 
-- **Today**: `apps/todo/utf8.gaz` (`utf8_valid`, `utf8_length`).
-- **Options**: a `utf8` library (`utf8::valid`, `utf8::length`, perhaps `utf8::slice` by characters)
-  in `lib/`, written in GazLang from RFC 3629, or the two as builtins in C (they are loops over every
-  byte of a form field). Every app that accepts text and stores it hits this on its first fuzz.
+- **Resolved** by three builtins in C, `utf8_valid()`, `utf8_length()` and `utf8_chars()`, which
+  `forms.gaz` calls; strings stay bytes.
 
 ## 5. No rate limiting, and no client address
 

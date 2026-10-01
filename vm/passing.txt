@@ -1065,6 +1065,7 @@ tests/gaz/site/round_trip_test.gaz
 tests/gaz/site/verify_test.gaz
 tests/gaz/strings/interpolation_test.gaz
 tests/gaz/strings/tagged_test.gaz
+tests/gaz/strings/utf8_test.gaz
 tests/gaz/templates/html_concat_test.gaz
 tests/gaz/templates/templates_test.gaz
 tests/gaz/templates/web_html_test.gaz

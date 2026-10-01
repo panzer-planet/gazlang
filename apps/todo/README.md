@@ -51,7 +51,7 @@ reads like a person using the site, with no server running.
 | `main.gaz` | reads the environment, migrates, listens, and gives each worker its own connection |
 | `app.gaz` | the pages and what they do (`Handlers`), and `build_app()`, which wires them to the router |
 | `middleware.gaz` | security headers, the session, the CSRF and `Origin` checks, who is logged in |
-| `forms.gaz`, `utf8.gaz` | what a form sends, read and checked; well-formed text and its length in characters |
+| `forms.gaz` | what a form sends, read and checked: well-formed text on one line, its length in characters |
 | `auth.gaz`, `throttle.gaz` | registering and logging in; refusing the sixth wrong password for an email |
 | `users.gaz`, `todos.gaz` | the rows as kinds, and the queries (every todo query names its owner) |
 | `database.gaz`, `migrations/` | opening the database; the schema as numbered `.sql` files, each applied once |

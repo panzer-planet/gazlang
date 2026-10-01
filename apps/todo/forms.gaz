@@ -7,7 +7,6 @@ namespace todo;
 
 include "std/http.gaz";
 include "std/regex.gaz";
-include "utf8.gaz";
 include "todos.gaz";
 
 const MINIMUM_PASSWORD_LENGTH = 10;
