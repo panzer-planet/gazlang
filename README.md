@@ -221,6 +221,7 @@ $app.get("/books/:id", $request -> {
 
 $listener = socket_listen("localhost", 8080);
 echo "Listening on http://localhost:8080";
+workers(4);
 http::serve($listener, $app.handler());
 ```
 
@@ -234,9 +235,33 @@ curl http://localhost:8080/books/9
 {"error":"no such book"}
 ```
 
-No frameworks, no build step, no `async`/`await`: `http::serve` forks worker processes
-(`workers()`), restarts one if it crashes, and drains connections gracefully on Ctrl-C — all in
-the standard library, all readable in [`lib/http.gaz`](lib/http.gaz).
+No frameworks, no build step, no `async`/`await`. `workers(4)` is the whole concurrency story.
+
+### How it serves: prefork
+
+This is the model PHP-FPM and Puma's cluster mode (or Unicorn, or Gunicorn's sync workers) use: a
+pool of processes started up front, all accepting connections on the one listening socket, each
+answering one request at a time.
+
+- **`workers(4)` forks the program into four processes** at that line, each carrying on with a
+  copy of everything, and the kernel hands each new connection to whichever is free. A request
+  that is slow, or crashes, holds up one worker and no one else.
+- **A master supervises them, written in C and running no GazLang.** If a worker dies of an error
+  or a signal it starts another, so the pool stays four wide. On SIGTERM it stops them all
+  gracefully: each finishes the request it's in, and one still running after 10 seconds is
+  killed. Ctrl-C ends them at once.
+- **Workers share nothing.** Each has its own memory and, since lists and maps are values, there
+  is nothing to lock and no data race to have. State that must outlive a request belongs in a
+  database or a cookie, as it does behind FPM.
+- **A worker can retire itself.** `http::serve($listener, $handler, {"max_requests" => 1000})`
+  ends a worker after that many requests and the master starts a fresh one, which throws away
+  whatever it built up over its life: FPM's `pm.max_requests`.
+
+What it is not, today: there are no threads inside a worker (Puma's other half) and no event loop
+(Node's), so the pool's size is how many requests run at once, and the pool is a fixed size
+rather than growing under load (FPM's `pm = dynamic`). There's no keep-alive and no TLS on the
+server side, so put nginx or Caddy in front for HTTPS, as you would in front of FPM. All of it is
+in [`lib/http.gaz`](lib/http.gaz) and the C of [`vm/workers.c`](vm/workers.c).
 
 ## What comes with it
 
