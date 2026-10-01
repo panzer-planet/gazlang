@@ -574,8 +574,12 @@ fn connection($socket, $listener, $handler, $options, $left) {
  * An idle connection would hold a whole worker, so the worker watches its listener too, and gives
  * the connection up when a new client is waiting there that no free worker takes: it gives its own
  * client YIELD_GRACE to say something first, then looks again, and a client still waiting means
- * none is free. While a worker is free keep-alive costs nothing, and when none is, a new client
- * waits YIELD_GRACE more than it would with a connection per request.
+ * none is free. The grace is between one and two times YIELD_GRACE, drawn by each worker (the
+ * generator is seeded again in each), since idle workers that all looked again at the same moment
+ * would all see the client still waiting and all give up their connections: with four idle workers
+ * and one new client, two or three did, where one is enough. While a worker is free keep-alive
+ * costs nothing, and when none is, a new client waits up to twice YIELD_GRACE more than it would
+ * with a connection per request.
  *
  * ponytail: a request pipelined before a stop is still answered (bounded by
  * "requests_per_connection" and the master's grace), and a response written after a stop doesn't
@@ -599,7 +603,7 @@ fn another_request($reader, $socket, $listener, $options) {
         if ($ready == OWN_CLIENT) {
             return true;
         }
-        if (socket_wait([$socket], YIELD_GRACE) != null) {
+        if (socket_wait([$socket], YIELD_GRACE * (1 + rand_float())) != null) {
             return true;
         }
         if (socket_wait([$listener], 0) != null) {

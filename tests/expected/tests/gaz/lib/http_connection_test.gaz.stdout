@@ -1,3 +1,15 @@
-ok the handler is called for the first request only
-ok one response comes back
-ok saying the connection closes
+ok two requests, the second asking to close: two responses, Connection: close on the second only
+ok two pipelined in one write are answered in order, then the quiet connection is closed with nothing more
+ok a request asking to close gets one response, and the one behind it is never read
+ok close is found among the Connection header's options, in any case
+ok an HTTP/1.0 request closes
+ok a refused request closes, and what was pipelined behind it is never answered
+ok a body too large closes, and its bytes are never read as a request
+ok after a 204 and a HEAD, neither with a body, the next request is read where it starts
+ok requests_per_connection: the last it allows says the connection closes
+ok requests_per_connection 1 is a request per connection
+ok a handler's Connection: close closes it, written once
+ok empty lines before a request line are skipped
+ok but no more than four
+ok a connection that sends nothing is closed with nothing said
+ok one that sends part of a request and goes quiet is still a 400

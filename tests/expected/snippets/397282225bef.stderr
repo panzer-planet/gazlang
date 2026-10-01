@@ -1,0 +1,4 @@
+Error: http::serve() expects an idle_timeout above 0 seconds, got 0
+  http::server_options at lib/http.gaz:652
+  http::serve at lib/http.gaz:509
+  top level on line 1

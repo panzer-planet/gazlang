@@ -636,11 +636,15 @@ that must find nothing to do.
       default in a prefork pool, where each idle connection would otherwise hold a whole worker for
       `idle_timeout` (a browser opens up to six). Between requests (never before a connection's
       first) a worker waits on its socket and its listener together; when the listener is ready it
-      gives its own client `YIELD_GRACE` (10ms), then looks at the listener again: a client still
-      queued means no worker is free, so it closes the idle connection quietly and returns to
-      `socket_accept()`; one gone means a free worker took it, and it waits out the rest of its idle
-      time (a deadline, not a fresh wait each time round). Free capacity makes keep-alive cost
-      nothing; without it the worst case is a connection per request plus about 10ms.
+      gives its own client between one and two times `YIELD_GRACE` (10ms), then looks at the
+      listener again: a client still queued means no worker is free, so it closes the idle
+      connection quietly and returns to `socket_accept()`; one gone means a free worker took it,
+      and it waits out the rest of its idle time (a deadline, not a fresh wait each time round).
+      The grace is drawn by each worker because idle workers that look again together all see the
+      client still queued and all give up their connections (with four idle workers and one new
+      client, 2.4 on average did, where one is enough; with the draw 1.25). Free capacity makes
+      keep-alive cost nothing; without it the worst case is a connection per request plus up to
+      20ms.
       `http::handle()` has no listener and waits on its socket alone.
     - **Up to four empty lines before a request line are skipped** (`MAX_EMPTY_LINES`), as RFC 9112
       asks of a server, bounded so a client can't hold a worker with them; a fifth is a 400.
