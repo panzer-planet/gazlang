@@ -1517,17 +1517,70 @@ turns a mistake into a message and an exit.
   a `to_string()` concatenates as before.
 - **`web::html"..."`** (`lib/web.gaz`, `namespace web`; not the `Html` kind and not a global
   `html`, so it takes no name from a program) is an `Html` from a tagged string, for markup built
-  in code: the text parts as they are, since the program wrote them, and each value through
-  `Html::escape()`, so an `Html` is kept (fragments nest) and anything else is echo's text
-  escaped (`& < > " '`, `null`/`true`/`12` as echo prints them). A list is its elements joined with
-  nothing between, each by the same rule, which is how a list of fragments becomes a `<ul>`; a map
-  and a list inside a list are errors (`web::html can't put a map in markup: ...`), having no one
-  obvious text. It builds a plain string of the text and escaped strings and makes one `Html` at
-  the end, so it concatenates no `Html` itself. A direct call is checked for what a tagged string
-  gives (strings, one more than the values). Only text and quoted attributes are safe contexts,
-  as in templates, which its header comment and `docs/language.md` say; context-aware escaping
-  (URLs, `<script>`) waits for a program that needs it. Tested by `tests/gaz/lib/web_test.gaz`,
-  and with templates by `tests/gaz/templates/web_html_test.gaz`.
+  in code: the text parts as they are, since the program wrote them, and each value written for the
+  place it lands. **The tag gets the text and the values apart, so it reads the text as a browser
+  would** (`Scanner`, in the same file, over the tokenizer's states: text, tags, attribute names and
+  quoted, unquoted values, comments, declarations, raw-text elements, `<textarea>` and `<title>`,
+  `<svg>` and `<math>` as foreign content) to find where each value falls. No VM or parser change.
+  - **Text and `<textarea>`/`<title>`**: an `Html` as it is (so fragments nest) and anything else
+    echo's text escaped (`& < > " '`); a list is its elements joined with nothing between, each by
+    the same rule; a map and a list inside a list are errors (`web::html can't put a map in markup:
+    ...`), having no one obvious text. **A quoted attribute and a comment**: escaped, never markup,
+    so an `Html` there is an error (an `Html` holding a `"` would end the attribute), and so is a
+    list or a map.
+  - **A URL attribute** (`href`, `src`, `action`, `formaction`, `poster`, `cite`, `data` and the
+    like): at its start the value is escaped and must be relative or `http`, `https`, `mailto` or
+    `tel`, **else it is `about:invalid#blocked`**, not an error, since a bad link typed into a
+    profile field shouldn't 500 the page and the result is still safe (Go's `html/template`, Angular
+    and templ all neutralise too). The scheme is read as a browser reads it: tabs and line breaks
+    removed, leading spaces and control characters skipped (`"java\tscript:"` is `javascript:`). After
+    the start (the program's text before the value holds a `/`, `?`, `#` or `:`) it is
+    **percent-encoded** byte by byte, an int as it is. **Whether a value is at the start is read
+    from the program's text, not from earlier values**, so the scan doesn't depend on what a value
+    holds and can be kept: with other text before it and no delimiter (`href="java{$x}"`) or two
+    values together at the start it is refused, since the value could finish a scheme. **A value at
+    the start of a URL is refused too when the text right after it begins with a `:` or an `&`** (a
+    character reference can be a colon): `href="{$a}:{$b}"` with `javascript` and `alert(1)` is two
+    harmless values that make a script URL once a browser percent-decodes the second, which the
+    scheme check on the first can't see (`after_start`, checked as the next text is read).
+  - **Refused**, each saying why: a value in an unquoted attribute, in `<script>`, `<style>`,
+    `<xmp>`, `<iframe>`, `<noembed>`, `<noframes>` or `<plaintext>`, in an event handler (`on...`) or
+    a `style`, `srcdoc`, `srcset` or `ping` attribute, in a tag or attribute name or between
+    attributes, in an end tag or a declaration, right after a `<`, `</`, `<!` or `<!-` or inside the
+    end tag of a `<textarea>` or `<title>` (it could finish one), in a URL that loads code or a
+    document (`script src`, an svg `script`'s `href` or `xlink:href`, `iframe src`, `frame src`, `embed
+    src`, `object data`, `link href`, `base href`, where a URL isn't enough to trust), or in a URL whose program text already starts with
+    another scheme (`href="javascript:{$x}"`), and, without a value at all, **a `<script>` holding both
+    `<!--` and `<script`**, which a browser doesn't end at the first `</script>` and the end tag search
+    here would. A comment ends at `--!>` as well as `-->`, and an `=` where an attribute name should
+    start is part of the name, as the tokenizer reads them. **Each tagged string is read from the start as text
+    and must end as text**; an `Html` value is taken to be whole markup. Errors are the call's, at
+    run time, as `db::sql`'s checks are; the way round is deliberate: write the text in the program
+    or build an `Html` and pass it in.
+  - **Scanned once for each tagged string** (`Scans::of`, a static map keyed by the parts as a
+    literal, which tells `["a\0b", "c"]` from `["a", "b\0c"]`, emptied at 2000), since the parts are
+    literals in the source: a tag site costs one scan, and a call costs about a microsecond more
+    than plain escaping (a loop of links measured +4%, text-heavy +15%). Percent-encoding was the
+    slow part (a call per byte); `contains()` against the whole allowed string and an int fast path
+    brought it level.
+  - **Checked against an HTML5 parser that shares no code with it** (`tests/HtmlContextTest.php`,
+    PHP's `Dom\HTMLDocument`): each template with ~45 hostile values must give a page of the same
+    shape as with a harmless value (same elements, attribute names and comments), with no URL that
+    runs script because of a value, and a text value read back exactly; the refused templates must
+    be refused for every value; and **templates stitched together at random from pieces of markup
+    must be refused or written safely**. That test only sees unsafe *acceptance* (refusing more is
+    always safe), so the hand-written cases cover over-refusal; each rule was broken on purpose and
+    caught, and the first version of the random one missed seven of twelve such breaks until its
+    pieces and count grew. **Its templates use one value for every placeholder, so it can't see two
+    harmless values make something together**: `test_two_values_cannot_make_a_script_url_between_them`
+    fills two-value URL templates with every pair of 22 scheme fragments. URLs are compared with the
+    harmless page's where the template writes a `javascript:` link itself.
+    `tests/gaz/lib/web_context_test.gaz` has the rules and every message written out, and
+    `tests/gaz/lib/web_test.gaz` and `tests/gaz/templates/web_html_test.gaz` the rest.
+  - `ponytail:` no `<script>` or `<style>` data (a `web::json` helper is the way, when a program
+    needs one); a `<meta http-equiv="refresh" content="0;url={$u}">` isn't read as a URL; text
+    split across a value (`</scr{$x}ipt>` in a part that a browser would read as one tag) is
+    only refused where a value could finish it; `<noscript>` is read as markup.
 - **`Html` is a builtin kind in `BUILTIN_SOURCE`**, like `Error` and `Shared`, compiled into a
   program that includes a template or names `Html` itself (not because its own code does). It is
   the first builtin kind with a static method, which `program()` places itself, since only
@@ -1536,6 +1589,15 @@ turns a mistake into a message and an exit.
   source translated from a template (`Lexer($text, true)`).
 - `ponytail:` an expression ends at the first `}}` or `!!}`, so it can't hold one, and none spans
   lines; escaping is for HTML text and quoted attributes, not JavaScript or URLs inside a page.
+- **Templates are frozen for now**: no new template features until a real web app has used them
+  (the repository's own use is the website's seven, about 130 lines, and `.gazml` costs
+  `compiler/template.gaz`, include handling, a docs section and some thirty corpus files). They are
+  the right shape for whole pages, with loops, conditions and layouts that `web::html` would make
+  nested `map` calls, and their errors are at the template's own line, so they stay; but they don't
+  read the markup around a value, so **a URL in one isn't checked** (`web::html` does). If the app
+  keeps them, the compile-time version of the same scan (the text is known when the program is read,
+  so each `{{ }}` can pick its escaper at no run-time cost, and a mistake can be an error then) is
+  the next piece, sharing the scanner with `web.gaz`; if it never reaches for them, delete them.
 
 ## match
 

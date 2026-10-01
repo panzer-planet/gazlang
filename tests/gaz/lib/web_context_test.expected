@@ -1,0 +1,77 @@
+ok a link to https://example.com/a?b=c&d=e
+ok a link to http://example.com
+ok a link to mailto:a@b.c
+ok a link to tel:+1555
+ok a link to /rooted
+ok a link to relative/path
+ok a link to ?query
+ok a link to #fragment
+ok a link to //host/path
+ok a link to 
+ok a link to a/b:c
+ok blocked "javascript:alert(1)"
+ok blocked "JaVaScRiPt:alert(1)"
+ok blocked " javascript:alert(1)"
+ok blocked "\tjavascript:alert(1)"
+ok blocked "java\tscript:alert(1)"
+ok blocked "java\nscript:alert(1)"
+ok blocked "\x01javascript:alert(1)"
+ok blocked "vbscript:x"
+ok blocked "data:text/html,<b>"
+ok blocked "file:///etc/passwd"
+ok blocked "x:y"
+ok blocked "about:blank"
+ok every URL attribute that takes a link
+ok a URL attribute's name in any case
+ok an svg link
+ok a query
+ok an int in a path
+ok a float's + is encoded
+ok null and true are echo's text
+ok a fragment
+ok after a scheme in the text
+ok a start, then a path, then a query
+ok the start of a URL is checked wherever its value is
+ok a value's escapes in a start
+ok a double quoted attribute
+ok a single quoted attribute
+ok several values in one attribute
+ok a comment
+ok markup in an attribute
+ok markup in a URL
+ok a list in an attribute
+ok a map in a URL
+ok markup in text
+ok after a script, a style, a comment, a doctype and a self-closing tag
+ok after a < that is only text
+ok in <textarea> and <title>, text
+ok an svg's title is an ordinary element, so a tag after it is read
+ok an end tag in any case closes a textarea
+ok a script
+ok a style
+ok an unquoted attribute
+ok an event handler
+ok a style attribute
+ok a script's src
+ok a tag name
+ok between attributes
+ok a doctype
+ok an end tag
+ok the end tag of a textarea
+ok a URL a value could finish
+ok two values together in a URL
+ok a script scheme in the text
+ok text that ends in a tag
+ok text that ends in a comment
+ok text that ends in a script
+ok text that ends in a tag name
+ok text that is only text
+ok a value that would be the scheme
+ok a colon as a character reference after a value
+ok an & after a value, which could be one
+ok a value, then a / ? or # first
+ok an attribute name that starts with =
+ok the same tagged string, run 1
+ok the same tagged string, run 2
+ok the same tagged string, run 3
+ok one site, a safe value then an unsafe one

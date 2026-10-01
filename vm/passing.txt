@@ -1038,6 +1038,7 @@ tests/gaz/lib/test_test.gaz
 tests/gaz/lib/text_test.gaz
 tests/gaz/lib/time_test.gaz
 tests/gaz/lib/tui_test.gaz
+tests/gaz/lib/web_context_test.gaz
 tests/gaz/lib/web_test.gaz
 tests/gaz/lists/delete_test.gaz
 tests/gaz/lists/pattern_test.gaz

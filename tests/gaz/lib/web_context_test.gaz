@@ -1,0 +1,120 @@
+/*
+ * web::html"...": each value is written for where it lands, which the tag reads from the text as a
+ * browser would; what escaping can't make safe is refused. HtmlContextTest checks this against an
+ * HTML parser; these are the rules written out, and the words of each refusal.
+ */
+include "std/test.gaz" use expect, throws;
+include "../../../lib/web.gaz";
+
+fn text($html) {
+    return $html.text;
+}
+
+$js = "javascript:alert(1)";
+$name = "<Ann & 'Bo'>";
+
+/* The start of a URL: relative, or a scheme links may have; anything else is blocked */
+$ok_urls = ["https://example.com/a?b=c&d=e", "http://example.com", "mailto:a@b.c", "tel:+1555", "/rooted", "relative/path",
+    "?query", "#fragment", "//host/path", "", "a/b:c"];
+foreach ($ok_urls as $url) {
+    expect("a link to {$url}", text(web::html"<a href=\"{$url}\">x</a>"), "<a href=\"" .. replace($url, "&", "&amp;") .. "\">x</a>");
+}
+$blocked = [$js, "JaVaScRiPt:alert(1)", " javascript:alert(1)", "\tjavascript:alert(1)", "java\tscript:alert(1)", "java\nscript:alert(1)",
+    "\x01javascript:alert(1)", "vbscript:x", "data:text/html,<b>", "file:///etc/passwd", "x:y", "about:blank"];
+foreach ($blocked as $url) {
+    expect("blocked " .. quote_for_label($url), text(web::html"<a href=\"{$url}\">x</a>"), "<a href=\"about:invalid#blocked\">x</a>");
+}
+fn quote_for_label($text) {
+    return slice(to_string([$text]), 1, -1);
+}
+expect("every URL attribute that takes a link", [
+    text(web::html"<img src=\"{$js}\">"), text(web::html"<form action=\"{$js}\">"), text(web::html"<video poster=\"{$js}\">"),
+    text(web::html"<button formaction=\"{$js}\">"), text(web::html"<blockquote cite=\"{$js}\">"),
+], ["<img src=\"about:invalid#blocked\">", "<form action=\"about:invalid#blocked\">", "<video poster=\"about:invalid#blocked\">",
+    "<button formaction=\"about:invalid#blocked\">", "<blockquote cite=\"about:invalid#blocked\">"]);
+expect("a URL attribute's name in any case", text(web::html"<A HREF=\"{$js}\">x</A>"), "<A HREF=\"about:invalid#blocked\">x</A>");
+expect("an svg link", text(web::html"<svg><a xlink:href=\"{$js}\"></a></svg>"), "<svg><a xlink:href=\"about:invalid#blocked\"></a></svg>");
+
+/* After the start, a value is a piece of a path or a query: percent-encoded, byte by byte */
+$piece = "a b&c=d/e?f#g\u{e9}~-._";
+expect("a query", text(web::html"<a href=\"/s?q={$piece}\">x</a>"), "<a href=\"/s?q=a%20b%26c%3Dd%2Fe%3Ff%23g%C3%A9~-._\">x</a>");
+$id = 42;
+$negative = -7;
+expect("an int in a path", text(web::html"<a href=\"/u/{$id}/{$negative}\">x</a>"), "<a href=\"/u/42/-7\">x</a>");
+$float = 1.5e25;
+expect("a float's + is encoded", text(web::html"<a href=\"/f/{$float}\">x</a>"), "<a href=\"/f/1.5E%2B25\">x</a>");
+$nothing = null;
+$yes = true;
+expect("null and true are echo's text", text(web::html"<a href=\"/n/{$nothing}/{$yes}\">x</a>"), "<a href=\"/n/null/true\">x</a>");
+expect("a fragment", text(web::html"<a href=\"#{$piece}\">x</a>"), "<a href=\"#a%20b%26c%3Dd%2Fe%3Ff%23g%C3%A9~-._\">x</a>");
+expect("after a scheme in the text", text(web::html"<a href=\"mailto:{$piece}\">x</a>"), "<a href=\"mailto:a%20b%26c%3Dd%2Fe%3Ff%23g%C3%A9~-._\">x</a>");
+$base = "https://example.com";
+expect("a start, then a path, then a query", text(web::html"<a href=\"{$base}/u/{$id}?n={$piece}\">x</a>"),
+    "<a href=\"https://example.com/u/42?n=a%20b%26c%3Dd%2Fe%3Ff%23g%C3%A9~-._\">x</a>");
+expect("the start of a URL is checked wherever its value is", text(web::html"<a href=\"{$js}/u/{$id}\">x</a>"), "<a href=\"about:invalid#blocked/u/42\">x</a>");
+expect("a value's escapes in a start", text(web::html"<a href=\"{$name}\">x</a>"), "<a href=\"&lt;Ann &amp; &#39;Bo&#39;&gt;\">x</a>");
+
+/* A quoted attribute and a comment take text, escaped, never markup */
+expect("a double quoted attribute", text(web::html"<p title=\"{$name}\">x</p>"), "<p title=\"&lt;Ann &amp; &#39;Bo&#39;&gt;\">x</p>");
+expect("a single quoted attribute", text(web::html"<p title='{$name}'>x</p>"), "<p title='&lt;Ann &amp; &#39;Bo&#39;&gt;'>x</p>");
+expect("several values in one attribute", text(web::html"<p class=\"a {$id} b {$id}\">x</p>"), "<p class=\"a 42 b 42\">x</p>");
+expect("a comment", text(web::html"<!-- {$name} -->"), "<!-- &lt;Ann &amp; &#39;Bo&#39;&gt; -->");
+$fragment = Html("<b>hi</b>");
+throws("markup in an attribute", () -> web::html"<p title=\"{$fragment}\">x</p>", "web::html can't put markup (an Html) in an attribute or a comment: give it the text");
+throws("markup in a URL", () -> web::html"<a href=\"{$fragment}\">x</a>", "web::html can't put markup (an Html) in a URL: give it the text");
+$list = ["a", "b"];
+throws("a list in an attribute", () -> web::html"<p title=\"{$list}\">x</p>", "web::html can't put a list in an attribute or a comment: it has no one obvious text");
+$map = {"k" => "v"};
+throws("a map in a URL", () -> web::html"<a href=\"/{$map}\">x</a>", "web::html can't put a map in a URL: it has no one obvious text");
+
+/* In text it is as it was: markup kept, a list joined, escaped otherwise */
+expect("markup in text", text(web::html"<p>{$fragment}</p>"), "<p><b>hi</b></p>");
+expect("after a script, a style, a comment, a doctype and a self-closing tag", text(web::html"<!DOCTYPE html><!-- c --><script>var a = 1 < 2;</script><style>p { }</style><br/><p>{$name}</p>"),
+    "<!DOCTYPE html><!-- c --><script>var a = 1 < 2;</script><style>p { }</style><br/><p>&lt;Ann &amp; &#39;Bo&#39;&gt;</p>");
+expect("after a < that is only text", text(web::html"<p>1 < 2 {$name}</p>"), "<p>1 < 2 &lt;Ann &amp; &#39;Bo&#39;&gt;</p>");
+expect("in <textarea> and <title>, text", text(web::html"<textarea>{$name}</textarea><title>{$name}</title>"),
+    "<textarea>&lt;Ann &amp; &#39;Bo&#39;&gt;</textarea><title>&lt;Ann &amp; &#39;Bo&#39;&gt;</title>");
+expect("an svg's title is an ordinary element, so a tag after it is read", text(web::html"<svg><title><a href=\"{$js}\">x</a></title></svg>"),
+    "<svg><title><a href=\"about:invalid#blocked\">x</a></title></svg>");
+expect("an end tag in any case closes a textarea", text(web::html"<textarea>x</TEXTAREA ><p>{$name}</p>"), "<textarea>x</TEXTAREA ><p>&lt;Ann &amp; &#39;Bo&#39;&gt;</p>");
+
+/* What is refused, and why */
+$unsafe = "x";
+throws("a script", () -> web::html"<script>var x = {$unsafe};</script>", "web::html can't put a value inside <script>: HTML escaping doesn't make a value safe in script; write what it needs into a quoted data- attribute and read it from there, or build the element yourself and pass it as an Html");
+throws("a style", () -> web::html"<style>p { color: {$unsafe} }</style>", "web::html can't put a value inside <style>: HTML escaping doesn't make a value safe in style; write what it needs into a quoted data- attribute and read it from there, or build the element yourself and pass it as an Html");
+throws("an unquoted attribute", () -> web::html"<p title={$unsafe}>x</p>", "web::html can't put a value in an unquoted attribute: put the value in quotes");
+throws("an event handler", () -> web::html"<a onclick=\"{$unsafe}\">x</a>", "web::html can't put a value in the onclick attribute of <a>: it holds code or a document, which HTML escaping doesn't make safe");
+throws("a style attribute", () -> web::html"<p style=\"{$unsafe}\">x</p>", "web::html can't put a value in the style attribute of <p>: it holds code or a document, which HTML escaping doesn't make safe");
+throws("a script's src", () -> web::html"<script src=\"{$unsafe}\"></script>", "web::html can't put a value in the src attribute of <script>: it loads code or a document into the page, so a URL isn't enough to trust");
+throws("a tag name", () -> web::html"<{$unsafe}>x", "web::html can't put a value right after a <: it could make a tag; write the whole tag in the text");
+throws("between attributes", () -> web::html"<p {$unsafe}>x</p>", "web::html can't put a value as an attribute or between attributes: only text and quoted attribute values take a value");
+throws("a doctype", () -> web::html"<!DOCTYPE {$unsafe}>", "web::html can't put a value in a declaration: only text and quoted attribute values take a value");
+throws("an end tag", () -> web::html"<p>x</p {$unsafe}>", "web::html can't put a value in an end tag: only text and quoted attribute values take a value");
+throws("the end tag of a textarea", () -> web::html"<textarea></text{$unsafe}>", "web::html can't put a value inside the end tag of <textarea>: write the whole end tag in the text");
+throws("a URL a value could finish", () -> web::html"<a href=\"java{$unsafe}\">x</a>", "web::html can't put a value in the href attribute of <a>: with other text before it and no / ? # or : between, the value could finish a scheme: put the value first, or after a /");
+throws("two values together in a URL", () -> web::html"<a href=\"{$unsafe}{$unsafe}\">x</a>", "web::html can't put a value in the href attribute of <a>: with other text before it and no / ? # or : between, the value could finish a scheme: put the value first, or after a /");
+throws("a script scheme in the text", () -> web::html"<a href=\"javascript:{$unsafe}\">x</a>", "web::html can't put a value in the href attribute of <a>: the URL starts javascript:");
+throws("text that ends in a tag", () -> web::html"<a href=\"", "web::html's text ends inside an attribute: a tagged string must be whole markup");
+throws("text that ends in a comment", () -> web::html"<!-- x", "web::html's text ends inside a comment: a tagged string must be whole markup");
+throws("text that ends in a script", () -> web::html"<script>x", "web::html's text ends inside <script>: a tagged string must be whole markup");
+throws("text that ends in a tag name", () -> web::html"<div", "web::html's text ends inside a tag: a tagged string must be whole markup");
+expect("text that is only text", text(web::html"a < b"), "a < b");
+throws("a value that would be the scheme", () -> web::html"<a href=\"{$unsafe}:{$unsafe}\">x</a>", "web::html can't put a value in the href attribute of <a>: the value and the text after it would make the scheme; put the whole URL in the value");
+throws("a colon as a character reference after a value", () -> web::html"<a href=\"{$unsafe}&colon;x\">x</a>", "web::html can't put a value in the href attribute of <a>: the value and the text after it would make the scheme; put the whole URL in the value");
+throws("an & after a value, which could be one", () -> web::html"<a href=\"{$unsafe}&x=1\">x</a>", "web::html can't put a value in the href attribute of <a>: the value and the text after it would make the scheme; put the whole URL in the value");
+$base = "https://example.com";
+expect("a value, then a / ? or # first", [text(web::html"<a href=\"{$base}/a\">x</a>"), text(web::html"<a href=\"{$base}?a=1\">x</a>"), text(web::html"<a href=\"{$base}#a\">x</a>")],
+    ["<a href=\"https://example.com/a\">x</a>", "<a href=\"https://example.com?a=1\">x</a>", "<a href=\"https://example.com#a\">x</a>"]);
+throws("an attribute name that starts with =", () -> web::html"<p =\"{$unsafe}\">x</p>", "web::html can't put a value as an attribute or between attributes: only text and quoted attribute values take a value");
+
+/* The reading is of the text, and is kept: the same text with other values reads the same */
+foreach ([1, 2, 3] as $n) {
+    $v = "v{$n}<";
+    expect("the same tagged string, run {$n}", text(web::html"<a href=\"/x/{$v}\" title=\"{$v}\">{$v}</a>"),
+        "<a href=\"/x/v{$n}%3C\" title=\"v{$n}&lt;\">v{$n}&lt;</a>");
+}
+fn same_text_different_state($v) {
+    return text(web::html"<a href=\"{$v}\">x</a>");
+}
+expect("one site, a safe value then an unsafe one", [same_text_different_state("/ok"), same_text_different_state($js)],
+    ["<a href=\"/ok\">x</a>", "<a href=\"about:invalid#blocked\">x</a>"]);

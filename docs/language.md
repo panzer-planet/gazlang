@@ -1371,9 +1371,10 @@ http::serve($listener, $request -> ({"body" => user_page($user, $posts)}));
   handler such as `onclick` needs checking or building by the program.
 
 **HTML built in code** is `web::html"..."` (`include "std/web.gaz";`), a tagged string that gives
-an `Html`: its text is markup as written, and each value is escaped as `{{ }}` escapes it, an
-`Html` kept as it is. A list is its elements one after another, each by the same rule, so a list
-of fragments makes a list in the page:
+an `Html`: its text is markup as written, and each value is written for the place in the markup
+it lands. The tag reads the text as a browser would, so a value in text is escaped, one in a quoted
+attribute is escaped, and one in a URL is checked, which is where escaping alone is not enough. A
+list of fragments makes a list in the page:
 
 ```gaz
 include "std/web.gaz";
@@ -1387,11 +1388,49 @@ echo web::html"<ul class=\"names\">{$items}</ul>";
 <ul class="names"><li>Tom &amp; Jerry</li><li>&lt;script&gt;</li></ul>
 ```
 
-A value prints as `echo` prints it (`null`, `true`, `12`, `1.5`, an object's `to_string()`)
-before it is escaped. A map, or a list inside a list, is an error (`web::html can't put a map in
-markup: interpolate its values one at a time`). The result goes into `{{ }}` and into another
-`web::html"..."` as it is, and is refused by `..` like any `Html`. The same contexts are safe as
-in templates.
+Where a value lands decides what is done with it:
+
+- **In text**: an `Html` as it is, so fragments nest; anything else escaped (`& < > " '`). A list is
+  its elements one after another, each by the same rule. This is also how `<textarea>`, `<title>`
+  and a comment are read, except that a comment takes no markup.
+- **In a quoted attribute**: escaped, and never markup: an `Html` is an error, since markup is not
+  an attribute's value. A list or a map is an error too.
+- **At the start of a URL** (`href="{$url}"`, and `src`, `action`, `formaction`, `poster`, `cite`
+  and the like): escaped, unless it is a scheme that isn't `http`, `https`, `mailto` or `tel`, which
+  becomes `about:invalid#blocked`. Relative URLs are fine. A browser drops tabs and line breaks
+  and skips leading spaces before it reads a scheme, and so does the tag, so `"java\tscript:..."`
+  is blocked.
+- **Later in a URL** (`href="/users/{$id}?tab={$tab}"`, after a `/`, `?`, `#` or `:`): percent-encoded,
+  byte by byte, so a value is one piece of a path or a query and can't end it.
+
+```gaz
+$url = "javascript:alert(1)";
+$tab = "a b&c";
+echo web::html"<a href=\"{$url}\">profile</a> <a href=\"/search?q={$tab}\">search</a>";
+```
+
+```
+<a href="about:invalid#blocked">profile</a> <a href="/search?q=a%20b%26c">search</a>
+```
+
+A value goes **nowhere else**: in an unquoted attribute, in `<script>` or `<style>` (or the other
+elements whose content is raw text), in an event handler (`onclick`) or a `style`, `srcdoc` or
+`srcset` attribute, in a tag or attribute name, right after a `<`, or in a URL that loads code or a
+document (`<script src>`, an svg `<script href>`, `<iframe src>`, `<link href>`, `<base href>`) is an error that says why, since
+HTML escaping doesn't make a value safe there. So is a value that could be part of a URL's scheme:
+text before it with no `/`, `?`, `#` or `:` between (`href="java{$x}"`), two values side by side at
+the start, or text right after a first value that begins with a `:` or an `&` (`href="{$scheme}:{$rest}"`,
+where two harmless values make `javascript:`). Put the whole URL in one value. Write the text in the program,
+or build an `Html` yourself and pass it in, which is the deliberate way to say a piece of markup is
+trusted. A tagged string is read from the start as text and must end as text, so a tag isn't
+opened in one string and closed in another; an `Html` value is taken to be whole markup.
+
+A value prints as `echo` prints it (`null`, `true`, `12`, `1.5`, an object's `to_string()`) before it
+is written. A map, or a list inside a list, is an error (`web::html can't put a map in markup:
+interpolate its values one at a time`). The result goes into `{{ }}` and into another
+`web::html"..."` as it is, and is refused by `..` like any `Html`. Templates (`.gazml`) escape text
+and quoted attributes as before and don't read the markup around a value, so a URL in one is
+checked by the program.
 
 ## Libraries
 
@@ -1420,7 +1459,7 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `cli.gaz` | `cli::Command($name, $summary)`, command line arguments with a generated `--help`; see below |
 | `test.gaz` | `test::expect($label, $actual, $expected)`, `test::throws($label, $thunk, $message)`, `test::snapshot($label, $actual)` and `test::done()`, for `gaz test`; see below |
 | `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins, a server, `http::serve($listener, $handler, $options = {})`, `http::handle($socket, $handler, $options = {})` (one connection), `http::http_date($time)`, `http::Router()` for routing requests to handlers, `http::serve_static($dir)`, a handler that serves files under `$dir`, and cookies and signed sessions (`http::cookies`, `http::set_cookie`, `http::session`, `http::session_cookie`, `http::csrf_token`, `http::verify_csrf`); see below |
-| `web.gaz` | `web::html"..."`, an `Html` from a tagged string: the text as markup, each value escaped as `{{ }}` escapes it, an `Html` kept and a list joined; see "Templates" |
+| `web.gaz` | `web::html"..."`, an `Html` from a tagged string: the text as markup, each value written for where it lands (escaped in text and quoted attributes, checked in a URL, refused where HTML escaping is not enough); see "Templates" |
 | `date.gaz` | `date::days($year, $month, $day)` (a date as a whole number of days, day 0 being 1 January 1970: an impossible date is an error), `date::civil($days)` (`[year, month, day]`), `date::year`/`month`/`day`, `date::weekday` (0 Monday to 6 Sunday), `date::next_weekday($days, $weekday)`, `date::add_months`, `date::is_leap`, `date::days_in_month`, and `date::format` (`Sat 8 Aug 2026`), `date::short` (`8 Aug`) and `date::iso` (`2026-08-08`). There is no `today()`: a date is a plain number of days, so a program that needs today's date works it out (`intdiv(time(), 86400)` is today in UTC), which also keeps date code testable with fixed dates |
 | `random.gaz` | `random::shuffle` (a shuffled copy of a list or string), `random::pick` (an element of a list or value of a map), `random::key`, `random::chance($p)`, `random::weighted` (from `[item, weight]` pairs) |
 | `regex.gaz` | `regex::matches($s, $pattern)` (full match), `regex::search($s, $pattern)` (found anywhere), `regex::find($s, $pattern)` (the start index, or null), `regex::groups($s, $pattern)` (the first match and what each `(...)` in it took, a group that took no part `null`, or `null` for no match), `regex::replace($s, $pattern, $with)` (every match, left to right, by `$with` as it is, so `"$1"` is two bytes; an empty match moves on a byte: `replace("abc", "x*", "-")` is `"-a-b-c-"`); literals, `.`, `* + ?` (greedy), `\|` (the first that matches wins), `(...)`, `[...]`/`[^...]` with ranges, `^ $`, `\` escapes; the leftmost match, and there the greedy repetition and the earlier alternative; no backreferences, no backtracking |

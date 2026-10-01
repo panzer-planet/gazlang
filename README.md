@@ -50,8 +50,9 @@ Three things you won't find together elsewhere.
 A name touching a string, `sql"..."` or `html"..."`, hands the function of that name the text and
 the values *separately*. That's all a **tagged string** is, and it's what makes injection a
 mistake the language can see: `db::sql"..."` sends every value to the database as a bound
-parameter, `web::html"..."` escapes every value as HTML, and a plain string where a query is
-expected is an error.
+parameter, `web::html"..."` reads the markup around each value and writes it for the place it lands
+(escaped in text and in quoted attributes, checked in a URL, refused where HTML escaping isn't
+enough), and a plain string where a query is expected is an error.
 
 ```gaz
 include "std/db.gaz";
@@ -65,6 +66,8 @@ $db.exec(db::sql"insert into notes (body) values ({$body})");
 
 $items = map($db.query(db::sql"select body from notes"), $row -> web::html"<li>{$row["body"]}</li>");
 echo web::html"<ul>{$items}</ul>";
+$profile = "javascript:alert(1)";
+echo web::html"<a href=\"{$profile}\">profile</a>";
 echo $db.value(db::sql"select count(*) from notes") .. " note, table intact";
 
 try {
@@ -76,13 +79,15 @@ try {
 
 ```
 <ul><li>&lt;script&gt;alert(1)&lt;/script&gt; &#39;); drop table notes; --</li></ul>
+<a href="about:invalid#blocked">profile</a>
 1 note, table intact
 Db.query() takes db::sql"...", not a string: write db::sql"select ... where id = {$id}", or db::raw($text) for SQL built some other way
 ```
 
-A value reaches the database as a value, never spliced into the SQL, and reaches the page
-escaped, so there is nothing to remember at each use. Fragments nest (a query inside a query, an `Html` inside an `Html`), a list becomes
-`in (?, ?)` or a row of `<li>`s, and `.gazml` templates give the same escaping to whole pages.
+A value reaches the database as a value, never spliced into the SQL, and reaches the page written
+for where it lands, so there is nothing to remember at each use. Fragments nest (a query inside a
+query, an `Html` inside an `Html`), a list becomes `in (?, ?)` or a row of `<li>`s, and `.gazml`
+templates escape the text and quoted attributes of whole pages.
 Both work on SQLite and PostgreSQL, and you can write your own tags: any function of two lists.
 
 ### Regular expressions that can't hang

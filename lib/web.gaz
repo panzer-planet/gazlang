@@ -1,6 +1,6 @@
 /*
  * HTML built in code, safely: `web::html"..."` is an `Html`, as a template's result is, with its
- * text taken as markup and every value escaped as `{{ }}` escapes it.
+ * text taken as markup and each value written for the place in the markup it lands.
  *
  *   include "std/web.gaz";
  *
@@ -8,40 +8,109 @@
  *   $list = web::html"<ul class=\"names\">{$items}</ul>";
  *   echo $list;          // <ul class="names"><li>Tom &amp; Jerry</li><li>&lt;script&gt;</li></ul>
  *
+ * The tag is given the text and the values apart, so it can read the text, as a browser would,
+ * to find where each value lands, and writes it as that place needs:
+ *
+ * - in text, an `Html` as it is and anything else escaped;
+ * - in a quoted attribute, or a comment, escaped, never markup;
+ * - at the start of a URL (`href="{$url}"`), escaped, and blocked unless it is relative or
+ *   starts http:, https:, mailto: or tel: (a `javascript:` URL becomes about:invalid#blocked);
+ * - later in a URL (`href="/users/{$id}?tab={$tab}"`), percent-encoded;
+ * - nowhere else: a value in an unquoted attribute, `<script>`, `<style>`, an event handler
+ *   (`onclick`) or `style` attribute, a tag or attribute name, or a URL that loads code or a
+ *   document (`<script src>`, `<iframe src>`) is an error that says why, since HTML escaping
+ *   doesn't make a value safe there. Write the text yourself, or build an `Html` deliberately.
+ *
+ * Each tagged string is read from the start as text and must end as text, so a tag can't be
+ * opened in one string and closed in another. An `Html` value is taken to be whole markup.
+ *
  * An `Html` can't be concatenated (`..` refuses one), so fragments are put together by
  * interpolating them into another `web::html"..."`, which keeps them as they are, or by passing
  * them to a template's `{{ }}`, which does the same.
- *
- * Escaping is for HTML text and attribute values in double or single quotes. It doesn't make a
- * value safe in an unquoted attribute, as a URL (`href="{$url}"` takes a `javascript:` URL as it
- * is), inside `<script>` or `<style>`, or in an event handler such as `onclick`: check or build
- * those values yourself.
  */
 namespace web;
 
+include "chars.gaz" use char_at, is_alnum, is_alpha;
+
+// Where a value lands, which is how it is written
+const MARKUP = "markup";
+const PLAIN = "plain";
+const URL_START = "url start";
+const URL_PART = "url part";
+
+// What the scanner is in the middle of reading, as the HTML tokenizer is
+const DATA = "data";
+const RC_DATA = "rcdata";
+const RAW_TEXT = "rawtext";
+const TAG_NAME = "tag name";
+const BEFORE_ATTRIBUTE = "before attribute";
+const ATTRIBUTE_NAME = "attribute name";
+const AFTER_ATTRIBUTE_NAME = "after attribute name";
+const BEFORE_VALUE = "before value";
+const DOUBLE_QUOTED = "double quoted";
+const SINGLE_QUOTED = "single quoted";
+const UNQUOTED = "unquoted";
+const END_TAG = "end tag";
+const DECLARATION = "declaration";
+const COMMENT = "comment";
+
+// Elements whose content is text up to their end tag: raw text, where nothing is decoded, so
+// escaping would be wrong and is no help; and text where character references are decoded
+const RAW_TEXT_TAGS = ["script", "style", "xmp", "iframe", "noembed", "noframes", "plaintext"];
+const RC_DATA_TAGS = ["textarea", "title"];
+const FOREIGN_TAGS = ["svg", "math"];
+
+const SPACE = [" ", "\t", "\n", "\f", "\r"];
+// Attributes that hold code or a document, or a list of URLs, whatever the tag
+const CODE_ATTRIBUTES = ["style", "srcdoc", "srcset", "ping"];
+const URL_ATTRIBUTES = ["href", "src", "action", "formaction", "cite", "poster", "data", "background",
+    "longdesc", "manifest", "codebase", "usemap", "xlink:href"];
+// A tag and its URL attribute that load code or a document into the page, so a link's rules are
+// not enough for them
+const RESOURCE_URLS = [["script", "src"], ["script", "href"], ["script", "xlink:href"], ["iframe", "src"],
+    ["frame", "src"], ["embed", "src"], ["object", "data"], ["link", "href"], ["base", "href"]];
+const ALLOWED_SCHEMES = ["http", "https", "mailto", "tel"];
+const URL_DELIMITERS = ["/", "?", "#", ":"];
+const BLOCKED_URL = "about:invalid#blocked";
+// What a URL may hold anywhere without being percent-encoded: letters, digits and - . _ ~
+const UNRESERVED = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
+const HEX = "0123456789ABCDEF";
+// How much of the text read so far is kept to see whether a value follows the start of a tag
+const RECENT = 12;
+// How many tagged strings' scans are kept, which is more than a program has: a limit only for
+// one that makes up its text parts as it runs
+const SCANS_KEPT = 2000;
+
 /*
  * An `Html` from a tagged string: its text as it is, since it was written in the program, and
- * each value by what it is:
- *
- * - an `Html` as it is, so fragments nest;
- * - a list, each of its elements by these rules, one after another with nothing between;
- * - anything else as `echo` prints it (`null`, `true`, `12`, `1.5`, or an object's
- *   `to_string()`), escaped: `&` `<` `>` `"` `'` become `&amp;` `&lt;` `&gt;` `&quot;` `&#39;`.
- *
- * A map, and a list inside a list, are errors: neither has one obvious text.
+ * each value written for where it lands (see above). A value prints as `echo` prints it (`null`,
+ * `true`, `12`, `1.5`, or an object's `to_string()`). In text a list is its elements, each by
+ * the same rule, one after another with nothing between; a map and a list inside a list are
+ * errors, having no one obvious text.
  */
 pub fn html(list $strings, list $values): Html {
     check_parts($strings, $values);
+    $placements = Scans::of($strings);
     $text = $strings[0];
     foreach ($values as $i => $value) {
-        $text ..= markup($value);
+        $text ..= written($value, $placements[$i]);
         $text ..= $strings[$i + 1];
     }
 
     return Html($text);
 }
 
-// A value's markup: a list's elements one after another, anything else as {{ }} writes it
+// A value as its place needs it
+fn written($value, $placement) {
+    return match ($placement) {
+        MARKUP => markup($value),
+        PLAIN => plain($value),
+        URL_START => url_start($value),
+        URL_PART => url_part($value),
+    };
+}
+
+// A value in text: a list's elements one after another, anything else as {{ }} writes it
 fn markup($value) {
     if (type_of($value) != "list") {
         return piece($value);
@@ -66,6 +135,24 @@ fn piece($value) {
     return Html::escape($value);
 }
 
+// A value in a quoted attribute or a comment: its text, escaped
+fn plain($value) {
+    return Html::escape(text_of($value, "an attribute or a comment"));
+}
+
+// A value's text, where only text will do
+fn text_of($value, $where) {
+    $type = type_of($value);
+    if ($type == "list" || $type == "map") {
+        throw "web::html can't put a {$type} in {$where}: it has no one obvious text";
+    }
+    if ($type == "object" && is_a($value, Html)) {
+        throw "web::html can't put markup (an Html) in {$where}: give it the text";
+    }
+
+    return to_string($value);
+}
+
 // What a tagged string gives, which a direct call might not: one more text part than values
 fn check_parts($strings, $values) {
     foreach ($strings as $part) {
@@ -75,5 +162,594 @@ fn check_parts($strings, $values) {
     }
     if (len($strings) != len($values) + 1) {
         throw "web::html takes one more text part than values, got " .. len($strings) .. " and " .. len($values);
+    }
+}
+
+// --- URLs ---
+
+// A value at the start of a URL: itself, if it is relative or its scheme is one a link may have
+fn url_start($value) {
+    $url = text_of($value, "a URL");
+    if (!scheme_allowed($url)) {
+        return BLOCKED_URL;
+    }
+
+    return Html::escape($url);
+}
+
+// A value after the start of a URL, where it is a piece of a path or a query: percent-encoded
+fn url_part($value) {
+    // An int is digits and perhaps a -, which are all as they are
+    if (type_of($value) == "int") {
+        return to_string($value);
+    }
+    $encoded = "";
+    foreach (split(text_of($value, "a URL"), "") as $byte) {
+        $encoded ..= contains(UNRESERVED, $byte) ? $byte : percent($byte);
+    }
+
+    return $encoded;
+}
+
+fn percent($byte) {
+    $code = ord($byte);
+
+    return "%" .. HEX[intdiv($code, 16)] .. HEX[$code % 16];
+}
+
+// Whether a URL is relative or has a scheme links may have
+fn scheme_allowed($url) {
+    $scheme = url_scheme($url);
+
+    return $scheme == null || in_array($scheme, ALLOWED_SCHEMES);
+}
+
+/*
+ * The scheme a browser would find at the start of a URL, lower case, or null for none. It takes
+ * the tabs and line breaks out of the URL and skips what leads it, as browsers do, so that
+ * "java\tscript:" and " javascript:" are the scheme they would be read as.
+ */
+fn url_scheme($url) {
+    $clean = url_start_text($url);
+    $colon = index_of($clean, ":");
+    if ($colon == null) {
+        return null;
+    }
+    $head = slice($clean, 0, $colon);
+
+    return is_scheme($head) ? lower($head) : null;
+}
+
+// A URL without the tabs and line breaks a browser removes, and without the spaces and control
+// characters it skips at the start
+fn url_start_text($url) {
+    $clean = replace(replace(replace($url, "\t", ""), "\n", ""), "\r", "");
+    $start = 0;
+    while ($start < len($clean) && ord($clean[$start]) <= 32) {
+        $start++;
+    }
+
+    return slice($clean, $start);
+}
+
+// A letter, then letters, digits, + - and .
+fn is_scheme($text) {
+    if ($text == "" || !is_alpha($text[0])) {
+        return false;
+    }
+    foreach (split($text, "") as $byte) {
+        if (!is_alnum($byte) && !contains("+-.", $byte)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+// --- Reading the text to find where the values are ---
+
+/*
+ * What each value of a tagged string's text parts lands in, which is worked out once for each
+ * (the parts are written in the program, so there are only so many) and kept.
+ */
+kind Scans {
+    static #kept = {};
+
+    pub static fn of($strings) {
+        // The list as a literal, so that parts holding what another would join them with differ
+        $key = to_string($strings);
+        if (!has_key(#kept, $key)) {
+            if (len(#kept) >= SCANS_KEPT) {
+                #kept = {};
+            }
+            #kept[$key] = Scanner::placements($strings);
+        }
+
+        return #kept[$key];
+    }
+}
+
+/*
+ * Reads text as the HTML tokenizer does, as far as telling where a value would land needs:
+ * which of its states the text is in when a value comes. It is told the text one part at a
+ * time, and asked where a value goes between the parts. What it can't place safely it refuses,
+ * with a reason, so a wrong guess is an error and not a hole.
+ */
+kind Scanner {
+    #state = DATA;
+    // The part being read, and where in it
+    #text = "";
+    #at = 0;
+    // The tag being read, lower case, and whether it is an end tag or ends itself (<br/>)
+    #tag = "";
+    #closing = false;
+    #self_closing = false;
+    #attribute = "";
+    // The program's text in the attribute value being read, and how many values are in it
+    #attribute_text = "";
+    #attribute_values = 0;
+    // Whether the value just placed is the start of a URL, so the text after it is checked
+    #after_start = false;
+    // How many <svg> and <math> are open, where <title> and <textarea> are ordinary tags
+    #foreign = 0;
+    // The last of the text read, for a value that follows the start of a tag
+    #recent = "";
+
+    // Where each value of these text parts goes, in order
+    pub static fn placements($strings): list {
+        $scanner = Scanner();
+        $placements = [];
+        $last = len($strings) - 1;
+        foreach ($strings as $i => $part) {
+            $scanner.feed($part);
+            if ($i < $last) {
+                $placements[] = $scanner.place();
+            }
+        }
+        $scanner.finish();
+
+        return $placements;
+    }
+
+    // Read the next part of the text
+    pub fn feed($text) {
+        #text = $text;
+        #at = 0;
+        while (#at < len(#text)) {
+            #step();
+        }
+        #recent = slice(#recent .. $text, -RECENT);
+    }
+
+    // The text must end as text: a tag opened in one tagged string is not closed in another
+    pub fn finish() {
+        if (#state != DATA) {
+            throw "web::html's text ends inside " .. #describe() .. ": a tagged string must be whole markup";
+        }
+    }
+
+    // Where a value goes now, or an error saying why it can't
+    pub fn place() {
+        match (#state) {
+            DATA => { return #markup_placement(); }
+            RC_DATA => { return #text_element_placement(); }
+            COMMENT => { return PLAIN; }
+            DOUBLE_QUOTED, SINGLE_QUOTED => { return #attribute_placement(); }
+            RAW_TEXT => { #refuse("inside <" .. #tag .. ">", "HTML escaping doesn't make a value safe in " .. #tag .. "; write what it needs into a quoted data- attribute and read it from there, or build the element yourself and pass it as an Html"); }
+            UNQUOTED, BEFORE_VALUE => { #refuse("in an unquoted attribute", "put the value in quotes"); }
+            TAG_NAME => { #refuse("in a tag name", "only text and quoted attribute values take a value"); }
+            BEFORE_ATTRIBUTE, ATTRIBUTE_NAME, AFTER_ATTRIBUTE_NAME => { #refuse("as an attribute or between attributes", "only text and quoted attribute values take a value"); }
+            END_TAG => { #refuse("in an end tag", "only text and quoted attribute values take a value"); }
+            DECLARATION => { #refuse("in a declaration", "only text and quoted attribute values take a value"); }
+        }
+    }
+
+    // --- Where a value goes ---
+
+    fn refuse($where, $why) {
+        throw "web::html can't put a value " .. $where .. ": " .. $why;
+    }
+
+    // In text a value is markup or text, but not straight after a < that it could finish into a tag
+    fn markup_placement() {
+        $tail = #after_last_open();
+        if ($tail != null && in_array($tail, ["", "/", "!", "!-"])) {
+            #refuse("right after a <", "it could make a tag; write the whole tag in the text");
+        }
+
+        return MARKUP;
+    }
+
+    // In <title> and <textarea> a value is text, but not where it could finish the end tag
+    fn text_element_placement() {
+        $tail = #after_last_open();
+        if ($tail != null && starts_with("/" .. #tag, lower($tail))) {
+            #refuse("inside the end tag of <" .. #tag .. ">", "write the whole end tag in the text");
+        }
+
+        return MARKUP;
+    }
+
+    // What follows the last < in the text read just before this value, or null if there is none
+    fn after_last_open() {
+        $pieces = split(#recent, "<");
+        if (len($pieces) == 1) {
+            return null;
+        }
+
+        return last($pieces);
+    }
+
+    fn attribute_placement() {
+        $name = #attribute;
+        $where = "in the {$name} attribute of <" .. #tag .. ">";
+        if (starts_with($name, "on") || in_array($name, CODE_ATTRIBUTES)) {
+            #refuse($where, "it holds code or a document, which HTML escaping doesn't make safe");
+        }
+        if (in_array([#tag, $name], RESOURCE_URLS)) {
+            #refuse($where, "it loads code or a document into the page, so a URL isn't enough to trust");
+        }
+        $placement = in_array($name, URL_ATTRIBUTES) ? #url_placement($where) : PLAIN;
+        #attribute_values++;
+
+        return $placement;
+    }
+
+    /*
+     * A value in a URL is at its start, where the scheme is, or after it. Whether it is at the
+     * start is read from the program's text before it, since the values before it are not
+     * known when the text is read: with none in the way, an empty text is the start; a /, ?, #
+     * or : in the text puts the value after it. What is left, text with no such mark, could be
+     * finished into a scheme by the value ("java" and "script:alert(1)"), so it is refused.
+     */
+    fn url_placement($where) {
+        $text = #attribute_text;
+        if (#attribute_values == 0) {
+            if (url_start_text($text) == "") {
+                #after_start = true;
+
+                return URL_START;
+            }
+            $scheme = url_scheme($text);
+            if ($scheme != null && !in_array($scheme, ALLOWED_SCHEMES)) {
+                #refuse($where, "the URL starts " .. $scheme .. ":");
+            }
+        }
+        if (!#has_delimiter($text)) {
+            #refuse($where, "with other text before it and no / ? # or : between, the value could finish a scheme: put the value first, or after a /");
+        }
+
+        return URL_PART;
+    }
+
+    /*
+     * The text right after a value at the start of a URL decides what the value is: "javascript"
+     * is harmless until a ":" follows it. So if the first thing after the value that ends a scheme
+     * is a ":", or a character reference that could be one (&colon;, &#58;), the value would be
+     * the scheme, and it can't be checked: put the whole URL in the value.
+     */
+    fn check_after_start($segment) {
+        #after_start = false;
+        foreach (split($segment, "") as $c) {
+            if ($c == "&" || $c == ":") {
+                #refuse("in the {#attribute} attribute of <" .. #tag .. ">", "the value and the text after it would make the scheme; put the whole URL in the value");
+            }
+            if (in_array($c, URL_DELIMITERS)) {
+                return;
+            }
+        }
+    }
+
+    fn has_delimiter($text) {
+        foreach (URL_DELIMITERS as $delimiter) {
+            if (contains($text, $delimiter)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // What the scanner is in, for an error
+    fn describe() {
+        return match (#state) {
+            RAW_TEXT, RC_DATA => "<" .. #tag .. ">",
+            COMMENT => "a comment",
+            DOUBLE_QUOTED, SINGLE_QUOTED, UNQUOTED, BEFORE_VALUE => "an attribute",
+            default => "a tag",
+        };
+    }
+
+    // --- Reading ---
+
+    // Read some of the text in the state the scanner is in; each goes forward or changes the state
+    fn step() {
+        match (#state) {
+            DATA => #read_data(),
+            RC_DATA, RAW_TEXT => #read_text_element(),
+            TAG_NAME => #read_tag_name(),
+            BEFORE_ATTRIBUTE => #read_between_attributes(),
+            ATTRIBUTE_NAME => #read_attribute_name(),
+            AFTER_ATTRIBUTE_NAME => #read_after_attribute_name(),
+            BEFORE_VALUE => #read_before_value(),
+            DOUBLE_QUOTED => #read_quoted("\""),
+            SINGLE_QUOTED => #read_quoted("'"),
+            UNQUOTED => #read_unquoted(),
+            END_TAG, DECLARATION => #skip_to_tag_end(),
+            COMMENT => #read_comment(),
+        }
+    }
+
+    // Text up to the next <, and what that < starts
+    fn read_data() {
+        $open = index_of(#text, "<", #at);
+        if ($open == null) {
+            #at = len(#text);
+
+            return;
+        }
+        $next = char_at(#text, $open + 1);
+        if ($next == "/" && is_alpha(char_at(#text, $open + 2))) {
+            #begin_tag($open + 2, true);
+        } else if (is_alpha($next)) {
+            #begin_tag($open + 1, false);
+        } else if (starts_with(#text, "!--", $open + 1)) {
+            #at = $open + 4;
+            #state = COMMENT;
+            #skip_empty_comment();
+        } else if ($next == "!" || $next == "?") {
+            #at = $open + 2;
+            #state = DECLARATION;
+        } else {
+            #at = $open + 1;
+        }
+    }
+
+    fn begin_tag($at, $closing) {
+        #at = $at;
+        #tag = "";
+        #closing = $closing;
+        #self_closing = false;
+        #state = TAG_NAME;
+    }
+
+    // <!--> and <!---> are comments that end where they start
+    fn skip_empty_comment() {
+        if (starts_with(#text, ">", #at)) {
+            #at++;
+            #state = DATA;
+        } else if (starts_with(#text, "->", #at)) {
+            #at += 2;
+            #state = DATA;
+        }
+    }
+
+    // A comment ends at --> or at --!>, whichever comes first
+    fn read_comment() {
+        $end = index_of(#text, "-->", #at);
+        $bang = index_of(#text, "--!>", #at);
+        if ($bang != null && ($end == null || $bang < $end)) {
+            #at = $bang + 4;
+            #state = DATA;
+
+            return;
+        }
+        if ($end == null) {
+            #at = len(#text);
+
+            return;
+        }
+        #at = $end + 3;
+        #state = DATA;
+    }
+
+    fn read_tag_name() {
+        $start = #at;
+        while (#at < len(#text) && !#ends_name(#text[#at])) {
+            #at++;
+        }
+        #tag ..= lower(slice(#text, $start, #at - $start));
+        if (#at == len(#text)) {
+            return;
+        }
+        if (#closing) {
+            #end_tag_named();
+        } else {
+            #state = BEFORE_ATTRIBUTE;
+        }
+    }
+
+    fn ends_name($c) {
+        return in_array($c, SPACE) || $c == "/" || $c == ">";
+    }
+
+    fn end_tag_named() {
+        if (in_array(#tag, FOREIGN_TAGS)) {
+            #foreign = max(#foreign - 1, 0);
+        }
+        #state = END_TAG;
+    }
+
+    // The ends of a tag, a declaration and an end tag: up to its >
+    fn skip_to_tag_end() {
+        $end = index_of(#text, ">", #at);
+        if ($end == null) {
+            #at = len(#text);
+
+            return;
+        }
+        #at = $end + 1;
+        #state = DATA;
+    }
+
+    fn read_between_attributes() {
+        $c = #text[#at];
+        if (in_array($c, SPACE)) {
+            #at++;
+        } else if ($c == "/") {
+            #self_closing = char_at(#text, #at + 1) == ">";
+            #at++;
+        } else if ($c == ">") {
+            #at++;
+            #finish_start_tag();
+        } else if ($c == "=") {
+            // An = where a name should start is part of the name, as the tokenizer reads it
+            #attribute = "=";
+            #at++;
+            #state = ATTRIBUTE_NAME;
+        } else {
+            #attribute = "";
+            #state = ATTRIBUTE_NAME;
+        }
+    }
+
+    fn read_attribute_name() {
+        $start = #at;
+        while (#at < len(#text) && !#ends_attribute_name(#text[#at])) {
+            #at++;
+        }
+        #attribute ..= lower(slice(#text, $start, #at - $start));
+        if (#at == len(#text)) {
+            return;
+        }
+        if (#text[#at] == "=") {
+            #at++;
+            #state = BEFORE_VALUE;
+        } else {
+            #state = AFTER_ATTRIBUTE_NAME;
+        }
+    }
+
+    fn ends_attribute_name($c) {
+        return in_array($c, SPACE) || $c == "/" || $c == ">" || $c == "=";
+    }
+
+    fn read_after_attribute_name() {
+        $c = #text[#at];
+        if (in_array($c, SPACE)) {
+            #at++;
+        } else if ($c == "=") {
+            #at++;
+            #state = BEFORE_VALUE;
+        } else if ($c == "/" || $c == ">") {
+            #state = BEFORE_ATTRIBUTE;
+        } else {
+            #attribute = "";
+            #state = ATTRIBUTE_NAME;
+        }
+    }
+
+    fn read_before_value() {
+        $c = #text[#at];
+        if (in_array($c, SPACE)) {
+            #at++;
+        } else if ($c == "\"") {
+            #at++;
+            #begin_value(DOUBLE_QUOTED);
+        } else if ($c == "'") {
+            #at++;
+            #begin_value(SINGLE_QUOTED);
+        } else if ($c == ">") {
+            #state = BEFORE_ATTRIBUTE;
+        } else {
+            #state = UNQUOTED;
+        }
+    }
+
+    fn begin_value($state) {
+        #state = $state;
+        #attribute_text = "";
+        #attribute_values = 0;
+    }
+
+    fn read_quoted($quote) {
+        $end = index_of(#text, $quote, #at);
+        $stop = $end ?? len(#text);
+        $segment = slice(#text, #at, $stop - #at);
+        if (#after_start) {
+            #check_after_start($segment);
+        }
+        #attribute_text ..= $segment;
+        if ($end == null) {
+            #at = len(#text);
+
+            return;
+        }
+        #at = $end + 1;
+        #state = BEFORE_ATTRIBUTE;
+    }
+
+    fn read_unquoted() {
+        while (#at < len(#text) && !in_array(#text[#at], SPACE) && #text[#at] != ">") {
+            #at++;
+        }
+        if (#at < len(#text)) {
+            #state = BEFORE_ATTRIBUTE;
+        }
+    }
+
+    // The > of a start tag: what its content is, if it is one that has its own rules
+    fn finish_start_tag() {
+        if (in_array(#tag, FOREIGN_TAGS) && !#self_closing) {
+            #foreign++;
+        }
+        #self_closing = false;
+        if (in_array(#tag, RAW_TEXT_TAGS)) {
+            #state = RAW_TEXT;
+        } else if (in_array(#tag, RC_DATA_TAGS) && #foreign == 0) {
+            #state = RC_DATA;
+        } else {
+            #state = DATA;
+        }
+    }
+
+    // The content of <script>, <title> and the rest, up to the end tag that closes them
+    fn read_text_element() {
+        $end = #end_tag_at();
+        if (#tag == "script") {
+            #check_script_content($end);
+        }
+        if ($end == null) {
+            #at = len(#text);
+
+            return;
+        }
+        #at = $end + 2 + len(#tag);
+        #state = END_TAG;
+    }
+
+    /*
+     * A script holding both <!-- and <script is in the state where a browser doesn't end it at
+     * the first </script>, which the end tag search here would, so what follows would be read
+     * as markup and be code. It isn't read at all.
+     */
+    fn check_script_content($end) {
+        $stop = $end ?? len(#text);
+        $content = lower(slice(#text, #at, $stop - #at));
+        if (contains($content, "<!--") && contains($content, "<script")) {
+            throw "web::html can't read a <script> that holds both <!-- and <script: a browser ends it at a different </script> there";
+        }
+    }
+
+    // Where the end tag of the element being read starts, or null: what ends it is </name and
+    // then a space, / or >, or the end of the text
+    fn end_tag_at() {
+        if (#tag == "plaintext") {
+            return null;
+        }
+        $needle = "</" .. #tag;
+        $lower = lower(#text);
+        $from = #at;
+        while (true) {
+            $found = index_of($lower, $needle, $from);
+            if ($found == null) {
+                return null;
+            }
+            $after = char_at(#text, $found + len($needle));
+            if ($after == "" || #ends_name($after)) {
+                return $found;
+            }
+            $from = $found + 1;
+        }
     }
 }
