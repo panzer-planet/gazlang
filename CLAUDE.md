@@ -1123,6 +1123,17 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   after, as curl does: per socket only macOS can turn it off, and ignoring it for good would
   change what a program writing to a closed pipe does. OpenSSL reports a socket timeout as
   wanting to read; `net.c` says `timed out`.
+  `socket_wait($sockets, $seconds)` gives the index of the first socket in the list with something
+  to read (data or the end on a connection, a queued connection on a listener; a hang-up or error
+  counts, since `socket_read()` won't wait on either, and bytes OpenSSL already decrypted count
+  without asking `poll()`), or `null` once `$seconds` pass or at once in a worker asked to stop. It
+  exists for kept-alive connections: a worker idle on one must see a stop (`socket_read()` retries
+  on `EINTR`, so a stop never interrupts it) and a client waiting on the shared listener, and both
+  are one `poll()`, waited a second at a time as `socket_accept()` does. Closed and inherited
+  sockets are refused as `socket_read()` refuses them, listeners exempt. Tested by
+  `tests/gaz/sockets/wait_test.gaz`, `inherited_test.gaz` and `HttpServerTest` (a SIGTERM during a
+  60-second wait ends it). `ponytail:` at most 16 sockets, a fixed array; a TLS record only partly
+  arrived reads as ready and `socket_read()` then waits for the rest.
 - Databases (`db.c`, drivers `sqlite.c` and `pg.c`): `db_open($url)` gives a `db` handle (refcounted
   like a socket, closed when the last reference goes), `db_run($db, $sql, $params = [])` gives
   `{"rows", "changes"}`, `db_close($db)`. **Three builtins whatever the drivers**, since a builtin takes

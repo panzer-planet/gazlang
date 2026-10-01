@@ -996,6 +996,7 @@ leaves one out, and `db_open` of that scheme is then an error.
 | `socket_accept($listener, $timeout = 30)` | Waits for the next connection, and gives it as a `socket` |
 | `socket_port($socket)` | The port this end of the socket has |
 | `socket_peer($socket)` | Who is at the other end of a connection: `{"address" => "192.0.2.7", "port" => 54321}` |
+| `socket_wait($sockets, $seconds)` | The index of the first socket in the list with something to read, or `null` |
 
 A socket is a connection over TCP, or TLS for `$tls = true`:
 
@@ -1028,6 +1029,12 @@ A server listens and accepts:
   `socket_accept()`, since a client that has gone may no longer be known to the system. Behind a
   proxy the address is the proxy's: the client's is in its `X-Forwarded-For` header, which the program
   decides whether to trust.
+- `socket_wait($sockets, $seconds)` — waits until one of a list of up to 16 sockets has something
+  to read, and gives the index of the first in the list that has: data, or the end, on a connection;
+  a connection waiting to be accepted on a listener. Nothing is read, so the next `socket_read()` or
+  `socket_accept()` on it doesn't wait. `null` if nothing came within `$seconds` (an int or a float,
+  0 to only look), and `null` at once in a worker that has been asked to stop (see `workers()`), so
+  a worker holding a quiet connection open still stops in about a second.
 
 A listener only accepts: reading or writing one is an error. No TLS on this side; put a proxy
 (Caddy, nginx) in front for https.

@@ -1,7 +1,7 @@
 /*
  * Sockets: socket_open(), socket_read(), socket_write() and socket_close(), plain TCP or TLS, and
  * socket_listen(), socket_accept() and socket_port() for a server, plain TCP only (TLS is a proxy's
- * job in front of it).
+ * job in front of it), and socket_wait() for whichever of several has something to read.
  *
  * TLS is OpenSSL's, built in unless make is given TLS=0 (GAZ_TLS says which). It checks the
  * server's certificate against the system's trusted ones (or the file SSL_CERT_FILE names) and
@@ -19,6 +19,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <time.h>
 #include <unistd.h>
 
 #ifdef GAZ_TLS
@@ -268,6 +269,78 @@ bool net_accept(Socket *listener, double timeout, Value *out) {
     connection_options(fd, ms);
     *out = v_socket(socket_new(fd, false, ms));
     return true;
+}
+
+/* Seconds on a clock that never goes back, for a deadline */
+static double monotonic_seconds(void) {
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return (double)t.tv_sec + (double)t.tv_nsec / 1e9;
+}
+
+/* Whether a socket has bytes OpenSSL has already decrypted, which poll() can't see */
+static bool tls_pending(Socket *s) {
+#ifdef GAZ_TLS
+    if (s->tls) return SSL_pending(s->tls) > 0;
+#else
+    (void)s;
+#endif
+    return false;
+}
+
+/*
+ * socket_wait($sockets, $seconds): the index of the first socket in the list with something to
+ * read (data or the end on a connection, a connection queued on a listener), or null once $seconds
+ * pass, or at once in a worker asked to stop. Like socket_accept(), it waits in poll() a second at
+ * a time and takes an interruption as a reason to look at the stop flag again, so a worker idle on
+ * a kept-alive connection still stops within about a second.
+ *
+ * A hang-up or an error counts as something to read, since socket_read() won't wait on either: it
+ * gives "" or the error. Linux reports a closed peer as POLLIN, macOS as POLLIN or POLLHUP.
+ */
+bool net_wait(List *sockets, double seconds, Value *out) {
+    if (sockets->len == 0) return raisef("socket_wait() expects at least one socket");
+    if (sockets->len > SOCKET_WAIT_MAX) {
+        return raisef("socket_wait() takes at most %d sockets, got %zu", SOCKET_WAIT_MAX, sockets->len);
+    }
+    struct pollfd polls[SOCKET_WAIT_MAX];
+    bool pending[SOCKET_WAIT_MAX];
+    size_t n = sockets->len;
+    for (size_t i = 0; i < n; i++) {
+        Value v = sockets->items[i];
+        if (v.type != T_SOCKET) return raisef("socket_wait() expects a list of sockets, got %s at %zu", type_name(v), i);
+        Socket *s = v.sock;
+        if (s->fd < 0) return raisef("socket_wait() on a closed socket");
+        if (!s->listening && s->owner != vm_process) return refuse_inherited("socket_wait", "socket");
+        polls[i] = (struct pollfd){.fd = s->fd, .events = POLLIN};
+    }
+    double deadline = monotonic_seconds() + seconds;
+    for (;;) {
+        if (workers_stopping()) {
+            *out = v_null();
+            return true;
+        }
+        bool any_pending = false;
+        for (size_t i = 0; i < n; i++) {
+            pending[i] = tls_pending(sockets->items[i].sock);
+            any_pending = any_pending || pending[i];
+        }
+        double left = deadline - monotonic_seconds();
+        /* Bytes already decrypted are ready now: poll() only to see whether one before them is too */
+        int ms = any_pending || left <= 0 ? 0 : left >= 1 ? 1000 : (int)(left * 1000) + 1;
+        int ready = poll(polls, (nfds_t)n, ms);
+        if (ready < 0 && errno != EINTR) return raisef("socket_wait() failed: %s", strerror(errno));
+        for (size_t i = 0; ready >= 0 && i < n; i++) {
+            if (pending[i] || (ready > 0 && (polls[i].revents & (POLLIN | POLLHUP | POLLERR)))) {
+                *out = v_int((int64_t)i);
+                return true;
+            }
+        }
+        if (ready >= 0 && left <= 0) {
+            *out = v_null();
+            return true;
+        }
+    }
 }
 
 /* socket_port($socket): the port this end has, which is how a listener on port 0 says which */
