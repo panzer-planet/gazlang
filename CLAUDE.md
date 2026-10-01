@@ -283,13 +283,35 @@ that must find nothing to do.
   and signed sessions, `gaz test`, the list helpers in `lib/lists.gaz` and tagged literals, with
   `db::sql"..."` and `web::html"..."` on them, are done and described below):
   1. **Rest patterns** in destructuring, `[$first, ...$rest] = $list`, when JSON handling asks.
+  2. **HTTP keep-alive** in `http::serve` (`ponytail:` in "Serving HTTP"): on by default with
+     `idle_timeout` and `requests_per_connection`, an idle worker giving its connection up when a
+     client is waiting on the listener, and `socket_wait($sockets, $seconds)` so an idle wait sees
+     SIGTERM. It is the prerequisite for server-side TLS and anything after it.
+  3. **Files for command line tools**: `file_open` is read only, and there is no append, rename, copy,
+     modification time or size, `mkdir -p`, or glob; `trim` takes no character set. Found by comparing
+     with PHP's file functions, not yet by a program. A builtin takes its name from every program, so
+     decide the set before adding any (a mode on `file_open`, `file_write`, `rename_file`,
+     `file_info`).
+  4. **Dates from a clock**: `date.gaz` counts days and `time()` gives seconds, but nothing formats
+     a moment, parses ISO 8601 or knows a time zone (`apps/todo` shows timestamps as text). The rules
+     are GazLang's, written out as `round()` is, never the platform's.
+  5. **Regex shorthands and groups in a replacement**: `\d`, `\w`, `\s` and `$1` in `regex::replace`,
+     the two things every reader expects first. Still a Thompson NFA, so no backreferences or
+     lookaround.
+  6. **A cause on `Error`**, so code that catches a database error and throws its own keeps the
+     original (`#cause`, printed under the trace).
   - **On demand**: dumping the raw bytes of a request that got a 500, to replay it (the small
     version of record and replay); `parallel($thunks, $max)` over forked processes, giving plain
     data only, its child raising `vm_process` as a worker does so the handles it inherited are
     refused and abandoned (see "Serving HTTP"); `std/money`, amounts as integer cents; shape
     patterns in `match`, only with a syntax that can't be read as today's `==` arms (a map there
     already means "equals this map"); `db::join($fragments, $separator)`, not designed yet, for a
-    bulk insert of many rows as one statement.
+    bulk insert of many rows as one statement; lazy iteration (a
+    generator or an iterator protocol, so a large file or a result set needn't be a list first); an
+    `enum` (token types are strings on purpose, and a status field in an app is a string constant
+    today); `multipart/form-data` for uploads (`http::form()` refuses anything but urlencoded); a
+    child process with pipes (`run()` waits for the end and returns everything); Unicode case
+    mapping and slicing by characters (`upper`/`lower` are ASCII, `len` counts bytes).
   - **Not building**: taint mode (a mark on strings leaks, since one-byte strings are shared and
     `url_decode()` rebuilds text with `chr()`; Ruby removed taint as useless; tagged literals
     prevent the bug instead), contracts (types and a guard line cover them),
