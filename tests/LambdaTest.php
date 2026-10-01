@@ -291,7 +291,7 @@ Undefined variable: $n
         $code = '@f = () -> @f(); @f();';
         [$output, $exit_code] = self::cli([], $code);
 
-        $this->assertSame('Error: Maximum call depth of 10000 exceeded calling -> on line 1 on line 1', $output[0]);
+        $this->assertSame('Error: Maximum call depth of 100000 exceeded calling -> on line 1 on line 1', $output[0]);
         $this->assertSame(1, $exit_code);
     }
 

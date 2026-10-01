@@ -34,7 +34,7 @@ throws("a kind of its own", () -> throw NotFound("x"), NotFound, "Not found: x")
 throws("a kind alone", () -> throw NotFound("x"), NotFound);
 throws("a thrown value that isn't an Error", () -> throw [1, "a"], [1, "a"]);
 throws("a message after something that is not a kind", () -> throws("x", () -> { throw "y"; }, null, "m"), "test::throws() takes a kind before a message, not null");
-throws("running out of call depth", () -> deeper(0), "Maximum call depth of 10000 exceeded calling deeper");
+throws("running out of call depth", () -> deeper(0), "Maximum call depth of 100000 exceeded calling deeper");
 
 /* What fails, and what done() makes of it */
 [$lines, $status] = ran(["tests/fixtures/test_library/failures.gaz"]);

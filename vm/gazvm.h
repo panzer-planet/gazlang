@@ -33,7 +33,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define MAX_CALL_DEPTH 10000
+#define MAX_CALL_DEPTH 100000
 
 /* ---- Values ---------------------------------------------------------------------------- */
 

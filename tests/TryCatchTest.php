@@ -9,7 +9,7 @@ class TryCatchTest extends GazLangTestCase
     public function test_running_out_of_call_depth_can_be_caught()
     {
         $this->assertSame(
-            "Maximum call depth of 10000 exceeded calling recurse\nstill running\n",
+            "Maximum call depth of 100000 exceeded calling recurse\nstill running\n",
             $this->executeCode('fn recurse() { return recurse(); } try { recurse(); } catch ($e) { echo $e.message; } echo "still running";')
         );
     }

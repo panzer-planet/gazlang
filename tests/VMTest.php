@@ -16,7 +16,7 @@ class VMTest extends GazLangTestCase
     public function test_call_depth_limit_on_the_vm_can_be_caught()
     {
         $this->assertSame(
-            "Maximum call depth of 10000 exceeded calling forever\n",
+            "Maximum call depth of 100000 exceeded calling forever\n",
             $this->executeCode('fn forever() { return forever(); } try { forever(); } catch ($e) { echo $e.message; }')
         );
     }

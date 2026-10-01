@@ -451,7 +451,7 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     bug — found the hard way, by CI actually failing on it, the day it was added), an included
     file's text included, which is sound because a builtin is reached only by its name.
 - **Known limits**:
-  - The self-hosted parser runs out of call depth on source nested past about 900 levels
+  - The self-hosted parser runs out of call depth on source nested past about 9000 levels
     (recursive descent is about eleven calls a level), as an internal error. Its tree walks use
     an explicit stack for that reason.
   - A `make compiler` stage's own runtime errors name `vm/build/bootstrap/` as the source
@@ -929,7 +929,12 @@ Names are ASCII.
   function can't read top-level `$x`. Parameters are `$` only, or a list pattern of `$`
   variables (below). `return` outside a function is a
   parse error; no return gives `null`. Variables holding `null` are still defined.
-- Calls are capped at 10000 deep (`MAX_CALL_DEPTH` in `gazvm.h`), a catchable GazLang error.
+- Calls are capped at 100000 deep (`MAX_CALL_DEPTH` in `gazvm.h`), a catchable GazLang error.
+  The cap is bounded by the C stack, not the value stack: a callback (`map`, `sort`, `to_string()`)
+  nests on the 1GB thread stack, about 5KB a level in a release build and 36KB or more in a
+  sanitized one, where every local of `call_builtin()`'s `switch` gets a slot of its own. So **no
+  stack buffer belongs in `call_builtin()`**: a big one goes in a `noinline` function (`read_stream()`),
+  and `-Wframe-larger-than=4096` on a sanitized build names any that crept back.
 - `include "path.gaz";` is top level only, takes a string literal relative to the including
   file (the working directory for piped source), and is resolved at parse time by splicing the
   file's statements in; each file is included once (the main file counts), by real path, which also breaks cycles.

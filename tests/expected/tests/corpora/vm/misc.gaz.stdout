@@ -19,10 +19,10 @@ Cannot use - on string
 Cannot use ~ on float
 {"a" => 3, "b" => 2}
 [1.5, "slice() expects int or null, got string", "slice() expects int, got string"]
-Maximum call depth of 10000 exceeded calling Child.go
-Maximum call depth of 10000 exceeded calling Base.go
-Maximum call depth of 10000 exceeded calling Again
-Maximum call depth of 10000 exceeded calling Again._
+Maximum call depth of 100000 exceeded calling Child.go
+Maximum call depth of 100000 exceeded calling Base.go
+Maximum call depth of 100000 exceeded calling Again
+Maximum call depth of 100000 exceeded calling Again._
 [0, 2, "index_of() offset -4 is outside the string", "none"]
 [-9223372036854775808, "to_int() cannot convert 9.223372036854776E+18", 0, 1000000000000000000]
 [false, false, true, false]

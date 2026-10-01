@@ -111,11 +111,11 @@ class FunctionTest extends GazLangTestCase
         // Through the CLI, which prints the capped trace under the message
         [$output, $exit_code] = self::cli([], 'fn inf() { return inf(); } echo inf();');
 
-        $this->assertSame('Error: Maximum call depth of 10000 exceeded calling inf on line 1', $output[0]);
+        $this->assertSame('Error: Maximum call depth of 100000 exceeded calling inf on line 1', $output[0]);
         // The trace under it is capped: 10 innermost calls, a line saying what was left out, 10 outermost
         $this->assertSame(22, count($output));
         $this->assertSame('  inf on line 1', $output[1]);
-        $this->assertSame('  ... 9981 more', $output[11]);
+        $this->assertSame('  ... 99981 more', $output[11]);
         $this->assertSame(1, $exit_code);
     }
 
@@ -132,7 +132,7 @@ class FunctionTest extends GazLangTestCase
                 .' try { '.$start.' } catch (Error $e) {'
                 .' echo $e.message; echo len($e.trace); echo $e.trace[0]; echo $e.trace[1]; echo $e.trace[20]; }';
             $this->assertSame(
-                "Maximum call depth of 10000 exceeded calling {$callee}\n21\n{$innermost}\n{$next}\ntop level on line 1\n",
+                "Maximum call depth of 100000 exceeded calling {$callee}\n21\n{$innermost}\n{$next}\ntop level on line 1\n",
                 $this->executeCode($program),
                 $start
             );

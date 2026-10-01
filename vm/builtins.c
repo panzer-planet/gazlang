@@ -803,6 +803,23 @@ static bool write_text(FILE *stream, Value v) {
     return true;
 }
 
+/* A buffer on the stack belongs in a function of its own, not in call_builtin(): its frame is
+   paid for at every level of a recursive call (map or filter calling back into GazLang, say),
+   and a sanitized build gives each case's locals a slot of their own, so four 64KB chunks and a
+   PATH_MAX buffer made it 200KB. noinline, so the compiler can't fold them back in. */
+__attribute__((noinline)) static void read_stream(FILE *f, Buf *text) {
+    char chunk[65536];
+    size_t n;
+    while ((n = fread(chunk, 1, sizeof chunk, f)) > 0) buf_add(text, chunk, n);
+}
+
+/* The working directory as a string, or null when it can't be read */
+__attribute__((noinline)) static Str *working_directory(void) {
+    char dir[PATH_MAX];
+    if (!getcwd(dir, sizeof dir)) return NULL;
+    return str_cstr(dir);
+}
+
 bool call_builtin(int index, Value *args, int argc, Value *out) {
     const unsigned STRING = M(T_STRING), INT = M(T_INT);
     Value a = argc > 0 ? args[0] : v_null(), b = argc > 1 ? args[1] : v_null(), c = argc > 2 ? args[2] : v_null();
@@ -1181,9 +1198,7 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         }
         if (!f) return raisef("Cannot read file: %s", a.s->data);
         Buf text = {0};
-        char chunk[65536];
-        size_t n;
-        while ((n = fread(chunk, 1, sizeof chunk, f)) > 0) buf_add(&text, chunk, n);
+        read_stream(f, &text);
         fclose(f);
         *out = v_str(buf_to_str(&text));
         return true;
@@ -1247,9 +1262,9 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         return true;
     }
     case B_CWD: {
-        char dir[PATH_MAX];
-        if (!getcwd(dir, sizeof dir)) return raisef("Cannot get the working directory");
-        *out = v_str(str_cstr(dir));
+        Str *dir = working_directory();
+        if (!dir) return raisef("Cannot get the working directory");
+        *out = v_str(dir);
         return true;
     }
     case B_PRINT:
@@ -1269,9 +1284,7 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
             *out = v_str(buf_to_str(&text));
             return true;
         }
-        char chunk[65536];
-        size_t n;
-        while ((n = fread(chunk, 1, sizeof chunk, stdin)) > 0) buf_add(&text, chunk, n);
+        read_stream(stdin, &text);
         *out = v_str(buf_to_str(&text));
         return true;
     }
@@ -1519,9 +1532,7 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
             free(path.data);
             if (!f) return true;
             Buf text = {0};
-            char chunk[65536];
-            size_t n;
-            while ((n = fread(chunk, 1, sizeof chunk, f)) > 0) buf_add(&text, chunk, n);
+            read_stream(f, &text);
             fclose(f);
             *out = v_str(buf_to_str(&text));
             return true;

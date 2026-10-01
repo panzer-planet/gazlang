@@ -1,4 +1,4 @@
-Error: Maximum call depth of 10000 exceeded calling Loop at tests/corpora/vm/depth_uncaught.gaz:1
+Error: Maximum call depth of 100000 exceeded calling Loop at tests/corpora/vm/depth_uncaught.gaz:1
   Loop._ at tests/corpora/vm/depth_uncaught.gaz:1
   new Loop at tests/corpora/vm/depth_uncaught.gaz:1
   Loop._ at tests/corpora/vm/depth_uncaught.gaz:1
@@ -9,7 +9,7 @@ Error: Maximum call depth of 10000 exceeded calling Loop at tests/corpora/vm/dep
   new Loop at tests/corpora/vm/depth_uncaught.gaz:1
   Loop._ at tests/corpora/vm/depth_uncaught.gaz:1
   new Loop at tests/corpora/vm/depth_uncaught.gaz:1
-  ... 9981 more
+  ... 99981 more
   new Loop at tests/corpora/vm/depth_uncaught.gaz:1
   Loop._ at tests/corpora/vm/depth_uncaught.gaz:1
   new Loop at tests/corpora/vm/depth_uncaught.gaz:1

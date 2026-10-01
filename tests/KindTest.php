@@ -566,8 +566,8 @@ class KindTest extends GazLangTestCase
     {
         // Constructing takes two levels (the object's initialiser, then _), so the limit lands on either
         return [
-            'on the constructor' => ["kind A {\n fn _(\$n) {\n  A(\$n + 1);\n }\n}\nfn h() {\n return A(1);\n}\nh();", 'Error: Maximum call depth of 10000 exceeded calling A._ on line 3'],
-            'on the initialiser' => ["kind A {\n fn _(\$n) {\n  A(\$n + 1);\n }\n}\nA(1);", 'Error: Maximum call depth of 10000 exceeded calling A on line 3'],
+            'on the constructor' => ["kind A {\n fn _(\$n) {\n  A(\$n + 1);\n }\n}\nfn h() {\n return A(1);\n}\nh();", 'Error: Maximum call depth of 100000 exceeded calling A._ on line 3'],
+            'on the initialiser' => ["kind A {\n fn _(\$n) {\n  A(\$n + 1);\n }\n}\nA(1);", 'Error: Maximum call depth of 100000 exceeded calling A on line 3'],
         ];
     }
 
@@ -576,7 +576,7 @@ class KindTest extends GazLangTestCase
         $code = 'kind Loop { pub fn to_string() { return "{#}"; } } echo Loop();';
         [$output, $exit_code] = self::cli([], $code);
 
-        $this->assertSame('Error: Maximum call depth of 10000 exceeded calling Loop.to_string on line 1', $output[0]);
+        $this->assertSame('Error: Maximum call depth of 100000 exceeded calling Loop.to_string on line 1', $output[0]);
         $this->assertSame(1, $exit_code);
     }
 

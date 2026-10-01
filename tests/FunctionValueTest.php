@@ -136,7 +136,7 @@ class FunctionValueTest extends GazLangTestCase
         $code = 'fn inf() { $f = inf; return $f(); } echo inf();';
         [$output, $exit_code] = self::cli([], $code);
 
-        $this->assertSame('Error: Maximum call depth of 10000 exceeded calling inf on line 1', $output[0]);
+        $this->assertSame('Error: Maximum call depth of 100000 exceeded calling inf on line 1', $output[0]);
         $this->assertSame(1, $exit_code);
     }
 

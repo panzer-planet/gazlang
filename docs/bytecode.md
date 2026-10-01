@@ -256,7 +256,7 @@ Every one means what `vm/ops.c` says, including the error messages.
 ### Calls
 
 A call gives the callee a frame whose first slots are the arguments, and `RET` returns a value
-to the caller. Every call fails with "Maximum call depth of 10000 exceeded calling x" when the
+to the caller. Every call fails with "Maximum call depth of 100000 exceeded calling x" when the
 depth limit is reached.
 
 | Instruction | Stack | What it does |
