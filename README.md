@@ -260,7 +260,10 @@ answering one request at a time.
 What it is not, today: there are no threads inside a worker (Puma's other half) and no event loop
 (Node's), so the pool's size is how many requests run at once, and the pool is a fixed size
 rather than growing under load (FPM's `pm = dynamic`). There's no keep-alive and no TLS on the
-server side, so put nginx or Caddy in front for HTTPS, as you would in front of FPM. All of it is
+server side, so put nginx or Caddy in front for HTTPS, as you would in front of FPM. The same proxy
+is your protection against slow clients: one that opens a connection and trickles bytes holds a
+worker until the request's 30 second deadline, so a proxy that buffers whole requests before
+passing them on keeps a handful of slow connections from using up the pool. All of it is
 in [`lib/http.gaz`](lib/http.gaz) and the C of [`vm/workers.c`](vm/workers.c).
 
 ## What comes with it
