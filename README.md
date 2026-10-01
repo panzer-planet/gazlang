@@ -41,7 +41,11 @@ cake: $6.0
 no price for tea
 ```
 
-## SQL and HTML you can't get wrong
+## What's different
+
+Three things you won't find together elsewhere.
+
+### SQL and HTML you can't get wrong
 
 A name touching a string, `sql"..."` or `html"..."`, hands the function of that name the text and
 the values *separately*. That's all a **tagged string** is, and it's what makes injection a
@@ -81,11 +85,63 @@ escaped, so there is nothing to remember at each use. Fragments nest (a query in
 `in (?, ?)` or a row of `<li>`s, and `.gazml` templates give the same escaping to whole pages.
 Both work on SQLite and PostgreSQL, and you can write your own tags: any function of two lists.
 
+### Regular expressions that can't hang
+
+`regex.gaz` runs a pattern as a Thompson NFA, one pass over the input however the pattern is
+written, so there is no backtracking and no catastrophic case: a pattern from a user, a config
+file or a request can't take your server down. This is the textbook one, on the input that makes
+a backtracking engine run for longer than you'll wait:
+
+```gaz
+include "std/regex.gaz";
+
+$input = repeat("a", 5000) .. "!";
+echo regex::matches($input, "(a+)+$");
+```
+
+```
+false
+```
+
+It answers at once, and the price is stated: no backreferences, and no `\d`/`\w` shorthands
+(`std/chars.gaz` has those as functions). The match is the leftmost, repetition is greedy, and the
+first alternative that matches wins.
+
+### A terminal program you can run without a terminal
+
+`gaz --tty app.gaz` runs a full-screen program on a pretend terminal: standard input is its keys,
+and it prints the screen wherever the keys say `snap`. The same keys always print the same screens
+(the clock is pretend too, and moves only on `wait`), so a script, a test or an AI agent can build
+and check a terminal UI from plain shell calls:
+
+```bash
+gaz --tty=60x11 examples/dashboard.gaz <<< 'down + + snap'
+```
+
+```
+=== after: down + + ===
+           10        20        30        40        50        60
+ 1 ┌─ Tasks ──────────────────────────────────────────────────┐
+ 2 │                                                          │
+ 3 │   Write the lexer            ██████████████████████ 100% │
+ 4 │ > Write the parser           ██████████████████████ 100% │
+ 5 │   Write the code generator   ███████████░░░░░░░░░░░  50% │
+ 6 │   Write the VM               ███████░░░░░░░░░░░░░░░  30% │
+ 7 │   Write the docs             ░░░░░░░░░░░░░░░░░░░░░░   0% │
+ 8 │                                                          │
+ 9 │ up/down pick   +/- change   q quit                       │
+10 └──────────────────────────────────────────────────────────┘
+11
+styles:
+ 4  3-30  bold  "> Write the parser"
+ 9  3-58  dim  "up/down pick   +/- change   q quit"
+```
+
+Every screen is the program's own grid, not a guess at its escape codes, and which cells are bold
+or dim is listed under it. [The keys and clock are written out here](docs/language.md#without-a-terminal-gaz---tty).
+
 ## Why you might like it
 
-- **SQL and HTML that can't inject.** Tagged strings, `db::sql"... {$id}"` and
-  `web::html"<li>{$name}</li>"`, bind or escape every value for you, and a plain string where a
-  query is expected is an error ([above](#sql-and-html-you-cant-get-wrong)).
 - **Loud, precise errors.** `"5" + 5` is an error, not `10` or `"55"`. A missing key is an
   error unless you ask for a default with `??`. A runtime error names its file and line, with a
   stack trace.
