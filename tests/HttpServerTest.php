@@ -463,6 +463,27 @@ class HttpServerTest extends GazLangTestCase
         }
     }
 
+    public function test_a_worker_waiting_on_an_idle_connection_stops_within_about_a_second()
+    {
+        // The worker waits on a connection nothing is sent on, for longer than the master's grace
+        $code = '$l = socket_listen("127.0.0.1", 0); workers(1); $c = socket_open("127.0.0.1", socket_port($l)); '
+            .'$s = socket_accept($l); print("waiting\n"); flush_output(); echo socket_wait([$s], 60); echo "stopped";';
+        $server = proc_open([self::binary(), '-e', $code], [['file', '/dev/null', 'r'], ['pipe', 'w'], ['file', '/dev/null', 'w']], $pipes, self::ROOT);
+        $this->assertNotFalse($server);
+        try {
+            $this->assertSame("waiting\n", fgets($pipes[1]));
+            usleep(200000);
+            $start = microtime(true);
+            proc_terminate($server);
+            $out = (string) stream_get_contents($pipes[1]);
+            $this->assertLessThan(2.5, microtime(true) - $start);
+            $this->assertSame("null\nstopped\n", $out);
+        } finally {
+            proc_terminate($server, SIGKILL);
+            proc_close($server);
+        }
+    }
+
     public function test_workers_ends_when_every_worker_has_ended()
     {
         [$out, $err, $code] = self::gazlang([], 'print("before\n"); echo workers(3);');

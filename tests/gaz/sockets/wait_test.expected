@@ -1,0 +1,21 @@
+ok nothing to read, at once
+ok nothing to read in a twentieth of a second
+ok which it waited for, and no more than a second
+ok data waiting
+ok only the second has data
+ok data on the other too
+ok the first of two that have data
+ok whichever comes first in the list
+ok waiting reads nothing
+ok so the other still has its data
+ok a listener with a connection queued
+ok the other end gone
+ok which reads as the end
+ok an empty list
+ok not a list
+ok not a socket
+ok too many
+ok seconds below 0
+ok seconds below 0, a float
+ok seconds not a number
+ok a closed socket

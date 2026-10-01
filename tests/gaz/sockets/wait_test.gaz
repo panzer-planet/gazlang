@@ -1,0 +1,52 @@
+/* socket_wait(): which of several sockets has something to read, and what it refuses */
+include "std/test.gaz" use expect, throws;
+
+$listener = socket_listen("127.0.0.1", 0);
+$port = socket_port($listener);
+$client = socket_open("127.0.0.1", $port);
+$served = socket_accept($listener);
+$other_client = socket_open("127.0.0.1", $port);
+$other = socket_accept($listener);
+
+expect("nothing to read, at once", socket_wait([$served, $other], 0), null);
+$start = monotonic_time();
+expect("nothing to read in a twentieth of a second", socket_wait([$served, $other], 0.05), null);
+$waited = monotonic_time() - $start;
+expect("which it waited for, and no more than a second", $waited >= 0.04 && $waited < 1.0, true);
+
+socket_write($client, "hello");
+expect("data waiting", socket_wait([$served], 5), 0);
+expect("only the second has data", socket_wait([$other, $served], 5), 1);
+socket_write($other_client, "hello");
+expect("data on the other too", socket_wait([$other], 5), 0);
+expect("the first of two that have data", socket_wait([$other, $served], 5), 0);
+expect("whichever comes first in the list", socket_wait([$served, $other], 5), 0);
+expect("waiting reads nothing", socket_read($served), "hello");
+expect("so the other still has its data", socket_wait([$served, $other], 0), 1);
+socket_read($other);
+
+$third_client = socket_open("127.0.0.1", $port);
+expect("a listener with a connection queued", socket_wait([$served, $listener], 5), 1);
+$third = socket_accept($listener);
+
+socket_close($client);
+expect("the other end gone", socket_wait([$other, $served], 5), 1);
+expect("which reads as the end", socket_read($served), "");
+
+throws("an empty list", () -> socket_wait([], 1), "socket_wait() expects at least one socket");
+throws("not a list", () -> socket_wait($served, 1), "socket_wait() expects list, got socket");
+throws("not a socket", () -> socket_wait([$other, "x"], 1), "socket_wait() expects a list of sockets, got string at 1");
+throws("too many", () -> socket_wait(map(range(17), $i -> $other), 1), "socket_wait() takes at most 16 sockets, got 17");
+throws("seconds below 0", () -> socket_wait([$other], -1), "socket_wait() expects 0 seconds or more, got -1");
+throws("seconds below 0, a float", () -> socket_wait([$other], -0.5), "socket_wait() expects 0 seconds or more, got -0.5");
+throws("seconds not a number", () -> socket_wait([$other], "1"), "socket_wait() expects int or float, got string");
+socket_close($served);
+throws("a closed socket", () -> socket_wait([$other, $served], 1), "socket_wait() on a closed socket");
+
+fn range($n) {
+    $list = [];
+    for ($i = 0; $i < $n; $i++) {
+        $list[] = $i;
+    }
+    return $list;
+}

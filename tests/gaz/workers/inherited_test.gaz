@@ -30,11 +30,14 @@ throws("a connection's port", () -> socket_port($client), "socket_port(): this s
 throws("a connection's peer", () -> socket_peer($client), "socket_peer(): this socket " .. INHERITED);
 throws("an accepted connection", () -> socket_read($accepted), "socket_read(): this socket " .. INHERITED);
 throws("an accepted connection's peer", () -> socket_peer($accepted), "socket_peer(): this socket " .. INHERITED);
+throws("waiting on a connection", () -> socket_wait([$client], 0), "socket_wait(): this socket " .. INHERITED);
+throws("waiting on an accepted connection", () -> socket_wait([$listener, $accepted], 0), "socket_wait(): this socket " .. INHERITED);
 
 // A listener is shared on purpose: this worker connects to it and accepts what it connected
 $port = socket_port($listener);
 expect("a listener's port", $port > 0, true);
 $mine = socket_open("127.0.0.1", $port);
+expect("a listener can be waited on", socket_wait([$listener], 5), 0);
 $theirs = socket_accept($listener, 5);
 socket_write($mine, "hello");
 expect("a listener accepts", socket_read($theirs), "hello");

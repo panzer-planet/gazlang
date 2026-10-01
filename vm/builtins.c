@@ -66,6 +66,7 @@ const BuiltinInfo builtin_info[] = {
     {"term_is_virtual", 0, 0},
     {"file_open", 1, 1}, {"file_read_line", 1, 1}, {"file_close", 1, 1},
     {"utf8_valid", 1, 1}, {"utf8_length", 1, 1}, {"utf8_chars", 1, 1}, {"socket_peer", 1, 1},
+    {"socket_wait", 2, 2},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -91,6 +92,7 @@ enum {
     B_TERM_IS_VIRTUAL,
     B_FILE_OPEN, B_FILE_READ_LINE, B_FILE_CLOSE,
     B_UTF8_VALID, B_UTF8_LENGTH, B_UTF8_CHARS, B_SOCKET_PEER,
+    B_SOCKET_WAIT,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -1503,6 +1505,18 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     case B_SOCKET_PEER:
         if (!want(index, a, M(T_SOCKET))) return false;
         return net_peer(a.sock, out);
+    case B_SOCKET_WAIT: {
+        if (!want(index, a, M(T_LIST)) || !want(index, b, INT | M(T_FLOAT))) return false;
+        double seconds = b.type == T_INT ? (double)b.i : b.f;
+        if (seconds < 0) {
+            Buf m = {0};
+            append_string(b, &m);
+            raisef("socket_wait() expects 0 seconds or more, got %s", m.data);
+            free(m.data);
+            return false;
+        }
+        return net_wait(a.l, seconds, out);
+    }
     case B_WORKERS:
         if (!want(index, a, INT)) return false;
         return start_workers(a.i, out);
