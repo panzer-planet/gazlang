@@ -41,8 +41,51 @@ cake: $6.0
 no price for tea
 ```
 
+## SQL and HTML you can't get wrong
+
+A name touching a string, `sql"..."` or `html"..."`, hands the function of that name the text and
+the values *separately*. That's all a **tagged string** is, and it's what makes injection a
+mistake the language can see: `db::sql"..."` sends every value to the database as a bound
+parameter, `web::html"..."` escapes every value as HTML, and a plain string where a query is
+expected is an error.
+
+```gaz
+include "std/db.gaz";
+include "std/web.gaz";
+
+$db = db::open("sqlite::memory:");
+$db.run(db::sql"create table notes (id integer primary key, body text)");
+
+$body = "<script>alert(1)</script> '); drop table notes; --";
+$db.exec(db::sql"insert into notes (body) values ({$body})");
+
+$items = map($db.query(db::sql"select body from notes"), $row -> web::html"<li>{$row["body"]}</li>");
+echo web::html"<ul>{$items}</ul>";
+echo $db.value(db::sql"select count(*) from notes") .. " note, table intact";
+
+try {
+    $db.query("select * from notes where body = '" .. $body .. "'");
+} catch (Error $e) {
+    echo $e.message;
+}
+```
+
+```
+<ul><li>&lt;script&gt;alert(1)&lt;/script&gt; &#39;); drop table notes; --</li></ul>
+1 note, table intact
+Db.query() takes db::sql"...", not a string: write db::sql"select ... where id = {$id}", or db::raw($text) for SQL built some other way
+```
+
+A value reaches the database as a value, never spliced into the SQL, and reaches the page
+escaped, so there is nothing to remember at each use. Fragments nest (a query inside a query, an `Html` inside an `Html`), a list becomes
+`in (?, ?)` or a row of `<li>`s, and `.gazml` templates give the same escaping to whole pages.
+Both work on SQLite and PostgreSQL, and you can write your own tags: any function of two lists.
+
 ## Why you might like it
 
+- **SQL and HTML that can't inject.** Tagged strings, `db::sql"... {$id}"` and
+  `web::html"<li>{$name}</li>"`, bind or escape every value for you, and a plain string where a
+  query is expected is an error ([above](#sql-and-html-you-cant-get-wrong)).
 - **Loud, precise errors.** `"5" + 5` is an error, not `10` or `"55"`. A missing key is an
   error unless you ask for a default with `??`. A runtime error names its file and line, with a
   stack trace.
