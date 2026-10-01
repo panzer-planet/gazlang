@@ -726,7 +726,8 @@ pub fn http_date($time) {
  *
  * - The path is percent-decoded and split into segments, as a Router's is; a segment of ".."
  *   is refused the same way a missing file is, a 404, rather than resolved and hoped to land
- *   inside $dir: the two look alike to whoever asked, which is the point.
+ *   inside $dir: the two look alike to whoever asked, which is the point. So is a segment that
+ *   decodes to hold a "/" (%2F is never a separator here), or "..%2f" would be a ".." too.
  * - A path ending in "/", or one naming a directory, looks for "index.html" inside it.
  * - Content-Type comes from the extension (CONTENT_TYPES); anything else is
  *   application/octet-stream.
@@ -743,7 +744,7 @@ const CONTENT_TYPES = {
 pub fn serve_static($dir) {
     return $request -> {
         $segments = decoded_segments($request["path"]);
-        if ($segments == null || in_array("..", $segments)) {
+        if ($segments == null || leaves_directory($segments)) {
             return plain(404, "Not Found");
         }
         $path = len($segments) == 0 ? $dir : $dir .. "/" .. join($segments, "/");
@@ -758,6 +759,19 @@ pub fn serve_static($dir) {
 
         return {"status" => 200, "headers" => {"Content-Type" => file_content_type($path)}, "body" => read_file($path)};
     };
+}
+
+// Whether decoded segments could name anything but a path down from the directory: a segment of
+// ".." goes up, and a segment holding a "/" (it was %2F) is several, so "..%2f" is a ".." the
+// check on whole segments never sees
+fn leaves_directory($segments) {
+    foreach ($segments as $segment) {
+        if ($segment == ".." || contains($segment, "/")) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 // The extension after the last "."; none of the table's is application/octet-stream

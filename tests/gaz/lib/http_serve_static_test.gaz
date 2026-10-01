@@ -33,3 +33,13 @@ expect("a missing file", $serve(request("/nope.txt")), {
 expect("literal .. is refused", $serve(request("/../style.css"))["status"], 404);
 expect("percent-encoded .. is refused", $serve(request("/%2e%2e/style.css"))["status"], 404);
 expect("a bad escape is a 404 too", $serve(request("/%zz"))["status"], 404);
+
+/*
+ * A %2F decodes to a / inside one segment, so ..%2f is a .. the segment check never sees; each of
+ * these would reach tests/fixtures/read_me.txt, a file that exists outside the directory served
+ */
+expect("..%2f is refused", $serve(request("/..%2fread_me.txt"))["status"], 404);
+expect("%2e%2e%2f is refused", $serve(request("/%2e%2e%2fread_me.txt"))["status"], 404);
+expect("..%2f after a directory is refused", $serve(request("/sub/..%2f..%2fread_me.txt"))["status"], 404);
+expect("a / inside one segment is refused", $serve(request("/sub%2f..%2f..%2fread_me.txt"))["status"], 404);
+expect("%2F is never a separator, even for a file that is there", $serve(request("/sub%2findex.html"))["status"], 404);

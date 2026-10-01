@@ -604,7 +604,10 @@ that must find nothing to do.
     `http::serve()` directly or a `Router`'s `not_found()`, answering from files under `$dir`.
     The path is percent-decoded and split into segments, as a `Router`'s is; a segment of `..`
     is refused as a 404, the same answer a missing file gets, rather than resolved and hoped to
-    stay inside `$dir`. A path ending in `/`, or one naming a directory, looks for `index.html`
+    stay inside `$dir`, and so is a segment that decodes to hold a `/` (`..%2f` is a `..` the
+    segment check never sees; `%2F` is never a separator here). The regression tests aim at a file
+    that exists above the served directory, since a 404 alone can't tell a refusal from a miss.
+    A path ending in `/`, or one naming a directory, looks for `index.html`
     inside it; Content-Type comes from a small extension table, `application/octet-stream`
     otherwise. `gaz -S host:port [--docroot DIR]` (`std/devserver.gaz`, run by `vm.c`'s `-S`)
     is a zero-config preview server built on it, `php -S`'s equivalent: no router script

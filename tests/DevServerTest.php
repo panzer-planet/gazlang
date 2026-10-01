@@ -117,5 +117,11 @@ class DevServerTest extends GazLangTestCase
     {
         $this->assertSame(404, self::get('/../devserver_test.php')['status']);
         $this->assertSame(404, self::get('/%2e%2e/devserver_test.php')['status']);
+
+        // A %2F is a / inside one segment, so ..%2f is a .. the segment check never saw; read_me.txt
+        // is a file that exists one directory above the one served
+        $this->assertSame(404, self::get('/..%2fread_me.txt')['status']);
+        $this->assertSame(404, self::get('/%2e%2e%2fread_me.txt')['status']);
+        $this->assertSame(404, self::get('/sub/..%2f..%2fread_me.txt')['status']);
     }
 }
