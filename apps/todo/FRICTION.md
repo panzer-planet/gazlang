@@ -89,7 +89,8 @@ trace in the log**, found by the hostile-input pass, not by writing the validati
 characters" its real meaning: `len()` counts bytes, so a title of 200 emoji was 800.
 
 - **Resolved** by three builtins in C, `utf8_valid()`, `utf8_length()` and `utf8_chars()`, which
-  `forms.gaz` calls; strings stay bytes.
+  `forms.gaz` calls; strings stay bytes. `json::encode` and `json::decode` became strict about
+  UTF-8 at the same time, since the same bytes wrote invalid JSON.
 
 ## 5. No rate limiting, and no client address
 

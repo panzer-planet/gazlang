@@ -33,6 +33,20 @@ expect("surrogate pair", json::decode("\"" .. $u .. "d83d" .. $u .. "de00\""), c
 expect("escaped NUL", json::decode("\"" .. $u .. "0000\""), chr(0));
 expect("raw UTF-8 passes through", json::decode("\"caf" .. chr(195) .. chr(169) .. "\""), "caf" .. chr(195) .. chr(169));
 
+// Decoding: JSON text is UTF-8, so bytes that aren't well formed UTF-8 are refused wherever they are
+throws("a stray byte in a string", () -> json::decode("[\"caf\xff\"]"), "Invalid JSON: not well formed UTF-8");
+throws("a character cut short", () -> json::decode("\"caf\xc3\""), "Invalid JSON: not well formed UTF-8");
+throws("a surrogate written as UTF-8", () -> json::decode("\"\xed\xa0\x80\""), "Invalid JSON: not well formed UTF-8");
+throws("in a key", () -> json::decode("{\"caf\xe9\": 1}"), "Invalid JSON: not well formed UTF-8");
+throws("outside a string", () -> json::decode("[1]\xff"), "Invalid JSON: not well formed UTF-8");
+throws("a lone high surrogate escape", () -> json::decode("\"" .. $u .. "d800\""), "Invalid JSON: unpaired UTF-16 surrogate at position 7");
+throws("a lone low surrogate escape", () -> json::decode("\"" .. $u .. "dc00\""), "Invalid JSON: unpaired UTF-16 surrogate at position 7");
+throws("a high surrogate escape before another", () -> json::decode("\"" .. $u .. "d800" .. $u .. "0041\""), "Invalid JSON: unpaired UTF-16 surrogate at position 7");
+expect("the last surrogate pair", json::decode("\"" .. $u .. "dbff" .. $u .. "dfff\""), "\u{10FFFF}");
+// A character where a value should be is named whole
+throws("an unexpected character", () -> json::decode("[\u{e9}]"), "Invalid JSON: unexpected \"\u{e9}\" at position 1");
+throws("an unexpected four byte character", () -> json::decode("1 \u{1F600}"), "Invalid JSON: unexpected \"\u{1F600}\" after the value at position 2");
+
 // Encoding
 expect("encode scalars", json::encode([1, -2, 1.5, 1.0, true, false, null]), "[1,-2,1.5,1.0,true,false,null]");
 expect("encode exact floats", json::encode([0.1 + 0.2, 1e25]), "[0.30000000000000004,1.0E+25]");
@@ -43,6 +57,11 @@ expect("encode string escapes", json::encode("\"\\/\n\r\t\f" .. chr(8)), "\"\\\"
 expect("encode other control bytes", json::encode(chr(1) .. chr(31)), "\"" .. $u .. "0001" .. $u .. "001f\"");
 expect("encode UTF-8 as is", json::encode("caf" .. chr(195) .. chr(169)), "\"caf" .. chr(195) .. chr(169) .. "\"");
 expect("encode $ and { literally", json::encode('{$x} $y'), '"{$x} $y"');
+expect("encode every size of character", json::encode("\u{7F}\u{80}\u{7FF}\u{800}\u{FFFF}\u{10000}\u{10FFFF}"), "\"\u{7F}\u{80}\u{7FF}\u{800}\u{FFFF}\u{10000}\u{10FFFF}\"");
+throws("encoding text that isn't UTF-8 is an error", () -> json::encode("caf\xe9"), "Cannot encode text that isn't well formed UTF-8 as JSON");
+throws("inside a list", () -> json::encode([1, "\xc3"]), "Cannot encode text that isn't well formed UTF-8 as JSON");
+throws("as a key", () -> json::encode({"\xff" => 1}), "Cannot encode text that isn't well formed UTF-8 as JSON");
+throws("a surrogate written as UTF-8", () -> json::encode("\xed\xb0\x80"), "Cannot encode text that isn't well formed UTF-8 as JSON");
 
 // Round trips
 $document = {"name" => "Gaz", "tags" => ["a", "b"], "n" => -12, "f" => 0.1, "nested" => [[], {"k" => false}]};

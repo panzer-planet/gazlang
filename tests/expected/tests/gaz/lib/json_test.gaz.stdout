@@ -21,6 +21,17 @@ ok three byte UTF-8
 ok surrogate pair
 ok escaped NUL
 ok raw UTF-8 passes through
+ok a stray byte in a string
+ok a character cut short
+ok a surrogate written as UTF-8
+ok in a key
+ok outside a string
+ok a lone high surrogate escape
+ok a lone low surrogate escape
+ok a high surrogate escape before another
+ok the last surrogate pair
+ok an unexpected character
+ok an unexpected four byte character
 ok encode scalars
 ok encode exact floats
 ok encode object
@@ -30,6 +41,11 @@ ok encode string escapes
 ok encode other control bytes
 ok encode UTF-8 as is
 ok encode $ and { literally
+ok encode every size of character
+ok encoding text that isn't UTF-8 is an error
+ok inside a list
+ok as a key
+ok a surrogate written as UTF-8
 ok decode undoes encode
 ok encode undoes decode for compact JSON
 ok encoding a function is an error

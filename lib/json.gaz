@@ -9,12 +9,14 @@
 // - nesting deeper than 511 arrays or objects is an error.
 // Invalid JSON raises "Invalid JSON: <what> at position <byte offset>", which try/catch
 // can catch.
-// A number too large for a float is an error, since GazLang has no infinity, and
-// strings are not checked for valid UTF-8.
+// A number too large for a float is an error, since GazLang has no infinity. JSON text is
+// UTF-8, so a document that isn't well formed UTF-8 is invalid ("Invalid JSON: not well formed
+// UTF-8"), as is an escape naming half a surrogate pair, and every string decoded is well formed.
 //
 // Encoding writes compact JSON: a list is a JSON array and a map an object, with int keys
 // written as strings. Strings are written as UTF-8, escaping only what JSON requires, and
-// floats keep their exact digits (1.0, 0.30000000000000004, 1.0E+25).
+// floats keep their exact digits (1.0, 0.30000000000000004, 1.0E+25). A string or key that
+// isn't well formed UTF-8 is an error, since the JSON written would be invalid.
 //
 // An object is written as what its pub to_json() returns, which is a value to encode (a map, say),
 // not JSON text, and may hold objects itself; one without it is an error ("Team has no member
@@ -26,6 +28,8 @@
 namespace json;
 
 include "chars.gaz" use char_at, is_digit, is_hex_digit, is_space;
+
+const MAXIMUM_CHARACTER_BYTES = 4;
 
 pub fn decode($text) {
     return Reader($text).parse();
@@ -107,6 +111,9 @@ kind Reader {
 
     // The whole document: one value, then nothing but whitespace
     pub fn parse() {
+        if (!utf8_valid(#text)) {
+            throw "Invalid JSON: not well formed UTF-8";
+        }
         #skip_whitespace();
         $value = #parse_value();
         #skip_whitespace();
@@ -123,11 +130,22 @@ kind Reader {
 
     // The character at the current position, quoted, or "end of input"
     fn describe_char() {
-        $c = char_at(#text, #pos);
-        if ($c == "") {
+        if (#pos >= len(#text)) {
             return "end of input";
         }
-        return encode_string($c);
+        return encode_string(#character());
+    }
+
+    /*
+     * The whole character at the current position, which is where one starts, as every token
+     * before it is ASCII: the shortest piece of the text from here that is well formed UTF-8
+     */
+    fn character() {
+        $size = 1;
+        while ($size < MAXIMUM_CHARACTER_BYTES && !utf8_valid(slice(#text, #pos, $size))) {
+            $size++;
+        }
+        return slice(#text, #pos, $size);
     }
 
     fn skip_whitespace() {
@@ -422,6 +440,9 @@ fn utf8($code_point) {
 
 // A string as a JSON string: quote, backslash and control characters escaped
 fn encode_string($string) {
+    if (!utf8_valid($string)) {
+        throw "Cannot encode text that isn't well formed UTF-8 as JSON";
+    }
     $escapes = {"\"" => "\\\"", "\\" => "\\\\", "\n" => "\\n", "\r" => "\\r", "\t" => "\\t", "\f" => "\\f", chr(8) => "\\b"};
     $hex = "0123456789abcdef";
     $result = "";

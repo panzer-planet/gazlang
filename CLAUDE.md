@@ -977,6 +977,10 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   the byte where the first bad character starts, since a count of something that isn't characters
   is a wrong answer; a caller asks `utf8_valid` first or catches. `tests/Utf8Test.php` checks all
   three against PCRE's UTF-8, which shares no code with them, on random and hand-made bytes.
+  **JSON is strict at both ends** (`lib/json.gaz`): RFC 8259 requires UTF-8, so `json::encode`
+  refuses a string or key that isn't well formed (it would write invalid JSON), and `json::decode`
+  refuses a document that isn't (one `utf8_valid` before parsing) and an escape naming half a
+  surrogate pair, so it never hands back text the rest of a program can't trust.
 - Lists and maps: `in_array` (`==`), `has_key`, `keys`, `values`, `last` (an empty list is an
   error), `reverse` (lists, strings by byte, and maps, which keep their keys), and `map`, `filter`
   (truthiness, as `if`), `reduce($x, $f, $initial)` and `sort` (stable; the comparator must return
