@@ -8,7 +8,10 @@ ok a connection's port
 ok a connection's peer
 ok an accepted connection
 ok an accepted connection's peer
+ok waiting on a connection
+ok waiting on an accepted connection
 ok a listener's port
+ok a listener can be waited on
 ok a listener accepts
 ok a db opened in the worker
 ok a file opened in the worker
