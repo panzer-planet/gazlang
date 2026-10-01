@@ -5,6 +5,8 @@
 
 **A scripting language that would rather stop than guess.**
 
+**Hostile input welcome.**
+
 ```gaz
 kind NotFound extends Error {
     fn _(pub string #item) {
