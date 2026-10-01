@@ -62,7 +62,7 @@ kind Handlers {
 
     pub fn register_form(map $request): map {
         if ($request["user"] != null) {
-            return redirect("/");
+            return http::redirect("/");
         }
 
         return render($request, "Register", register_page(csrf_token($request), RegistrationForm("", "", ""), {}));
@@ -74,7 +74,7 @@ kind Handlers {
         if (len($errors) == 0) {
             $user = #auth.register($form);
             if ($user != null) {
-                return with_session(redirect("/"), login_session($user.id, "Welcome! Your account is ready."));
+                return with_session(http::redirect("/"), login_session($user.id, "Welcome! Your account is ready."));
             }
             $errors["taken"] = "An account with that email already exists";
         }
@@ -84,7 +84,7 @@ kind Handlers {
 
     pub fn login_form(map $request): map {
         if ($request["user"] != null) {
-            return redirect("/");
+            return http::redirect("/");
         }
 
         return render($request, "Log in", login_page(csrf_token($request), LoginForm("", ""), {}));
@@ -101,7 +101,7 @@ kind Handlers {
             if ($user != null) {
                 #throttle.clear($form.email);
 
-                return with_session(redirect("/"), login_session($user.id, "You are logged in."));
+                return with_session(http::redirect("/"), login_session($user.id, "You are logged in."));
             }
             #throttle.record_failure($form.email);
             $errors["login"] = "Wrong email or password";
@@ -111,7 +111,7 @@ kind Handlers {
     }
 
     pub fn logout(map $request): map {
-        return with_session(redirect("/login"), {"csrf_token" => crypto::token(), "flash" => "You have been logged out."});
+        return with_session(http::redirect("/login"), {"csrf_token" => crypto::token(), "flash" => "You have been logged out."});
     }
 
     // --- Todos ---
@@ -134,21 +134,21 @@ kind Handlers {
         }
         #todos.add($request["user"].id, $form.title);
 
-        return with_session(redirect("/"), flashing($request, "Added."));
+        return with_session(http::redirect("/"), flashing($request, "Added."));
     }
 
     pub fn toggle(map $request): map {
         $id = #todo_id($request);
         $todo = $id == null ? null : #todos.toggle($request["user"].id, $id);
 
-        return $todo == null ? not_found($request) : redirect("/");
+        return $todo == null ? not_found($request) : http::redirect("/");
     }
 
     pub fn remove(map $request): map {
         $id = #todo_id($request);
         $removed = $id != null && #todos.remove($request["user"].id, $id);
 
-        return $removed ? with_session(redirect("/"), flashing($request, "Deleted.")) : not_found($request);
+        return $removed ? with_session(http::redirect("/"), flashing($request, "Deleted.")) : not_found($request);
     }
 
     pub fn edit_form(map $request): map {
@@ -173,7 +173,7 @@ kind Handlers {
         }
         $todo = #todos.rename($request["user"].id, $id, $form.title);
 
-        return $todo == null ? not_found($request) : with_session(redirect("/"), flashing($request, "Saved."));
+        return $todo == null ? not_found($request) : with_session(http::redirect("/"), flashing($request, "Saved."));
     }
 
     // The id in the path, or null if it isn't a whole number

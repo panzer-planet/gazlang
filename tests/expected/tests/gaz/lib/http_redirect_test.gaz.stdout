@@ -1,0 +1,10 @@
+ok a redirect is a 303 with a Location
+ok the other statuses
+ok a full URL is written as given
+ok a query and a fragment
+ok nowhere to go
+ok a line break would split the response
+ok a bare line feed too
+ok a NUL byte
+ok a status that isn't a redirect
+ok a location that isn't a string

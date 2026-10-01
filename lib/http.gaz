@@ -706,6 +706,30 @@ fn describe_error($e) {
     return $text;
 }
 
+const REDIRECT_STATUSES = [301, 302, 303, 307, 308];
+
+/*
+ * A response that sends the client somewhere else: `return http::redirect("/login");`. 303 See
+ * Other is the default, which a browser follows with a GET, as a form's POST wants; 301 and 308
+ * are the permanent moves, 302 and 307 the temporary ones that keep the method as 308 does. $to
+ * is written as given, so a path of your own is safe, and one from a request (a `next` parameter)
+ * must be checked by the caller, or it is an open redirect. A $to with a line break or a NUL byte
+ * is an error here, where it would otherwise be a 500 while the response is written.
+ */
+pub fn redirect(string $to, int $status = 303): map {
+    if ($to == "") {
+        throw "http::redirect() needs somewhere to go, got an empty string";
+    }
+    if (contains($to, "\r") || contains($to, "\n") || contains($to, "\0")) {
+        throw "http::redirect() can't send a location with a line break or NUL byte in it";
+    }
+    if (!in_array($status, REDIRECT_STATUSES)) {
+        throw "http::redirect() expects a status of " .. join(REDIRECT_STATUSES, ", ") .. ", got " .. $status;
+    }
+
+    return {"status" => $status, "headers" => {"Location" => $to}, "body" => ""};
+}
+
 // Seconds since 1970 as HTTP writes a date: "Sat, 08 Aug 2026 14:02:09 GMT"
 pub fn http_date($time) {
     $days = intdiv($time, 86400);
@@ -884,7 +908,7 @@ pub kind Router {
     fn elsewhere($request, $segments) {
         $other = other_spelling($request["path"]);
         if ($other != null && #has_path(decoded_segments($other))) {
-            return redirect($other, $request["query"]);
+            return spelling_redirect($other, $request["query"]);
         }
         if (#not_found_handler != null) {
             return (#not_found_handler)($request);
@@ -1014,7 +1038,8 @@ fn wrap($middleware, $next) {
     return $request -> $middleware($request, $next);
 }
 
-fn redirect($path, $query) {
+// The 308 to a path's other spelling, with its query kept
+fn spelling_redirect($path, $query) {
     $location = $path;
     if ($query != "") {
         $location ..= "?" .. $query;

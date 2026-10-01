@@ -153,8 +153,8 @@ hostile request from a bug except by catching every `Error`.
 
 ## 10. Smaller things
 
-- **Redirects**: no public `http::redirect($to)`; the router has a private one. Every app writes
-  `{"status" => 303, "headers" => {"Location" => $to}, "body" => ""}`. (`responses.gaz`)
+- **Redirects** (resolved: `http::redirect($to, $status = 303)`): the router had a private one and
+  every app would have written `{"status" => 303, "headers" => {"Location" => $to}, "body" => ""}` itself.
 - **PostgreSQL NOTICEs** go to standard error and can't be quieted: `create table if not exists`
   and `truncate ... cascade` print a line each, on every start and between test checks.
   The driver could set `client_min_messages = warning` on connect.

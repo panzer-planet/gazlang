@@ -1,0 +1,14 @@
+/* http::redirect(): a response that sends the client elsewhere, and what it refuses */
+include "std/test.gaz" use expect, throws;
+include "../../../lib/http.gaz";
+
+expect("a redirect is a 303 with a Location", http::redirect("/login"), {"status" => 303, "headers" => {"Location" => "/login"}, "body" => ""});
+expect("the other statuses", map([301, 302, 307, 308], $status -> http::redirect("/x", $status)["status"]), [301, 302, 307, 308]);
+expect("a full URL is written as given", http::redirect("https://example.com/a?b=c&d=e")["headers"]["Location"], "https://example.com/a?b=c&d=e");
+expect("a query and a fragment", http::redirect("/search?q=a%20b#top")["headers"]["Location"], "/search?q=a%20b#top");
+throws("nowhere to go", () -> http::redirect(""), "http::redirect() needs somewhere to go, got an empty string");
+throws("a line break would split the response", () -> http::redirect("/x\r\nSet-Cookie: a=b"), "http::redirect() can't send a location with a line break or NUL byte in it");
+throws("a bare line feed too", () -> http::redirect("/x\nHeader: y"), "http::redirect() can't send a location with a line break or NUL byte in it");
+throws("a NUL byte", () -> http::redirect("/x\0y"), "http::redirect() can't send a location with a line break or NUL byte in it");
+throws("a status that isn't a redirect", () -> http::redirect("/x", 200), "http::redirect() expects a status of 301, 302, 303, 307, 308, got 200");
+throws("a location that isn't a string", () -> http::redirect(5), "http::redirect() expects \$to to be string, got int");

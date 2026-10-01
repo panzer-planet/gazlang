@@ -605,6 +605,12 @@ that must find nothing to do.
     works either way and a page has one URL; a bad escape is a 400; the rest a 404 or what
     `not_found()` was given. Middleware is `($request, $next) -> response` and wraps the whole
     dispatch, 404s included, the first added outermost. Tested by `tests/gaz/lib/router_test.gaz`.
+  - **`http::redirect($to, $status = 303)`** is the response that sends a client elsewhere, public
+    because every handler that answers a form needs one (the router's own 308 to a path's other spelling
+    is a separate private function). 303 by default, since a browser follows it with a GET after a POST;
+    301, 302, 307 and 308 are the others. A `$to` is written as given, so one taken from a request
+    must be checked by the caller (an open redirect), and one with a line break or NUL byte is an error
+    at the call, not a 500 when the response is written. Tested by `tests/gaz/lib/http_redirect_test.gaz`.
   - **Static files are `http::serve_static($dir)`, in `http.gaz` too**: a handler, for
     `http::serve()` directly or a `Router`'s `not_found()`, answering from files under `$dir`.
     The path is percent-decoded and split into segments, as a `Router`'s is; a segment of `..`

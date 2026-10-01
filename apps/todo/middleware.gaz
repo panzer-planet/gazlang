@@ -94,5 +94,5 @@ fn authentication(Users $users) {
 
 // A handler only a logged in user reaches; anyone else is sent to log in
 fn authenticated($handler) {
-    return $request -> $request["user"] == null ? redirect("/login") : $handler($request);
+    return $request -> $request["user"] == null ? http::redirect("/login") : $handler($request);
 }

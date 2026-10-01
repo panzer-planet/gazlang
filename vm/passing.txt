@@ -1025,6 +1025,7 @@ tests/gaz/lib/db_test.gaz
 tests/gaz/lib/format_test.gaz
 tests/gaz/lib/functional_test.gaz
 tests/gaz/lib/http_decode_test.gaz
+tests/gaz/lib/http_redirect_test.gaz
 tests/gaz/lib/http_serve_static_test.gaz
 tests/gaz/lib/http_session_test.gaz
 tests/gaz/lib/json_test.gaz
