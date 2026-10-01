@@ -1188,11 +1188,17 @@ fn last_values($all) {
 }
 
 fn check_form_type($request) {
-    $type = $request["headers"]["content-type"] ?? "";
-    $media_type = lower(trim(split($type, ";")[0]));
-    if ($media_type != FORM_TYPE) {
+    if (media_type($request) != FORM_TYPE) {
+        $type = $request["headers"]["content-type"] ?? "";
         throw "http::form() needs a body sent as " .. FORM_TYPE .. ", not " .. slice(to_string([$type]), 1, -1);
     }
+}
+
+// The request's Content-Type without its parameters, lowercased
+fn media_type($request) {
+    $type = $request["headers"]["content-type"] ?? "";
+
+    return lower(trim(split($type, ";")[0]));
 }
 
 /*
@@ -1273,13 +1279,21 @@ fn cookie_header($name, $value, $options) {
 }
 
 fn cookie_options($options) {
+    return with_defaults("http::set_cookie()", $options, COOKIE_OPTIONS);
+}
+
+// $options over $defaults, refusing a name $defaults doesn't have, in $who's words
+fn with_defaults($who, $options, $defaults) {
+    if (type_of($options) != "map") {
+        throw "$who expects a map of options, got " .. type_of($options);
+    }
     foreach ($options as $name => $value) {
-        if (!has_key(COOKIE_OPTIONS, $name)) {
-            throw "http::set_cookie() has no option " .. slice(to_string([$name]), 1, -1) .. ": only " .. join(keys(COOKIE_OPTIONS), ", ");
+        if (!has_key($defaults, $name)) {
+            throw "$who has no option " .. slice(to_string([$name]), 1, -1) .. ": only " .. join(keys($defaults), ", ");
         }
     }
 
-    return {...COOKIE_OPTIONS, ...$options};
+    return {...$defaults, ...$options};
 }
 
 pub fn session($request, $secret) {
@@ -1317,4 +1331,204 @@ pub fn verify_csrf($session, $submitted) {
     $token = $session["csrf_token"] ?? null;
 
     return $token != null && type_of($submitted) == "string" && crypto::equals($token, $submitted);
+}
+
+/*
+ * Middleware for a web app's Router, added in this order, the first outermost:
+ *
+ *   $app.use(http::security_headers());
+ *   $app.use(http::sessions($secret, {"secure" => true}));
+ *   $app.use(http::csrf());
+ *   $app.use($authentication);              // the app's own: only it knows what a user is
+ *
+ * - http::security_headers($options = {}) adds SECURITY_HEADERS to every response that doesn't set
+ *   them itself (a route can give its own Content-Security-Policy). $options maps a header name to
+ *   the value to send instead, or to null to send none; names are matched ignoring case.
+ * - http::sessions($secret, $options = {}) gives the handler $request["session"], the session from
+ *   its signed cookie with a CSRF token always in it, and $request["flash"], the message the last
+ *   request left for this one (null if none), which is not in the session. A handler changes the
+ *   session by adding "session" to its response (http::with_session()); the middleware takes that
+ *   key out again and writes the cookie only if the session differs from what the cookie held, so a
+ *   flash is shown once: the next session has none unless the handler set one. $secret must be at
+ *   least 32 bytes. $options are http::set_cookie()'s, "max_age" two weeks by default.
+ * - http::csrf($options = {}) refuses a POST, PUT, PATCH or DELETE with a 403 unless it carries the
+ *   session's token, in the form field "_csrf" or the X-CSRF-Token header, and, if the browser sent
+ *   an Origin, that Origin is this host. $options: "field", the form field's name, and "failure", a
+ *   function from the request to the response to answer with instead. It needs http::sessions()
+ *   before it, and says so on the first request otherwise.
+ * - http::with_session($response, $session) is $response asking for $session to be kept, and
+ *   http::flash($request, $message) this request's session with a message for the next page.
+ *
+ * A login builds a new session map rather than changing the old one, with a fresh crypto::token() as
+ * its "csrf_token", so nothing planted before it carries over: that is the app's to write, since
+ * only the app knows what logging in is.
+ */
+
+const SECURITY_HEADERS = {
+    "Content-Security-Policy" => "default-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+    "X-Content-Type-Options" => "nosniff",
+    "Referrer-Policy" => "same-origin",
+};
+const MINIMUM_SECRET = 32;
+const SESSION_MAX_AGE = 1209600;      // two weeks, in seconds
+const UNSAFE_METHODS = ["POST", "PUT", "PATCH", "DELETE"];
+const CSRF_OPTIONS = {"field" => "_csrf", "failure" => null};
+const CSRF_HEADER = "x-csrf-token";
+const CSRF_REFUSAL = "Forbidden: this form has expired. Go back, reload the page and try again.";
+
+pub fn security_headers($options = {}) {
+    $headers = security_header_values($options);
+
+    return ($request, $next) -> with_missing_headers($next($request), $headers);
+}
+
+fn security_header_values($options) {
+    if (type_of($options) != "map") {
+        throw "http::security_headers() expects a map of options, got " .. type_of($options);
+    }
+    $headers = SECURITY_HEADERS;
+    foreach ($options as $name => $value) {
+        check_token("header name", $name);
+        if ($value != null && type_of($value) != "string") {
+            throw "http::security_headers() takes a string or null for " .. slice(to_string([$name]), 1, -1) .. ", not " .. type_of($value);
+        }
+        $headers = without_key($headers, header_key($headers, $name) ?? $name);
+        if ($value != null) {
+            $headers[$name] = $value;
+        }
+    }
+
+    return $headers;
+}
+
+// $response with each of $headers it doesn't already set, whatever the case of its own names
+fn with_missing_headers($response, $headers) {
+    if (type_of($response) != "map") {
+        return $response;
+    }
+    $given = $response["headers"] ?? {};
+    foreach ($headers as $name => $value) {
+        if (header_key($given, $name) == null) {
+            $given[$name] = $value;
+        }
+    }
+    $response["headers"] = $given;
+
+    return $response;
+}
+
+// The key $headers spells $name with, ignoring case, or null
+fn header_key($headers, $name) {
+    foreach (keys($headers) as $key) {
+        if (lower($key) == lower($name)) {
+            return $key;
+        }
+    }
+
+    return null;
+}
+
+pub fn sessions(string $secret, $options = {}) {
+    if (len($secret) < MINIMUM_SECRET) {
+        throw "http::sessions() needs a secret of at least " .. MINIMUM_SECRET .. " bytes, not " .. len($secret) .. ": a short one can be guessed, and every session forged with it";
+    }
+    $cookie_options = with_defaults("http::sessions()", $options, {...COOKIE_OPTIONS, "max_age" => SESSION_MAX_AGE});
+
+    return ($request, $next) -> around_session($request, $next, $secret, $cookie_options);
+}
+
+fn around_session($request, $next, $secret, $cookie_options) {
+    $stored = session($request, $secret);
+    $started = csrf_token($stored);
+    $request["flash"] = $started["flash"] ?? null;
+    $request["session"] = without_key($started, "flash");
+    $response = $next($request);
+    if (type_of($response) != "map") {
+        return $response;
+    }
+    $kept = $response["session"] ?? $request["session"];
+    if (type_of($kept) != "map") {
+        throw "a response's \"session\" is a map, not " .. type_of($kept);
+    }
+    $response = without_key($response, "session");
+    // Against the cookie as it came, not $started: a new visitor's token is a change to keep
+    if ($kept == $stored) {
+        return $response;
+    }
+
+    return session_cookie($response, $kept, $secret, $cookie_options);
+}
+
+fn without_key($map, $key) {
+    if (has_key($map, $key)) {
+        delete $map[$key];
+    }
+
+    return $map;
+}
+
+pub fn with_session(map $response, map $session): map {
+    return {...$response, "session" => $session};
+}
+
+pub fn flash(map $request, string $message): map {
+    $session = $request["session"];
+    $session["flash"] = $message;
+
+    return $session;
+}
+
+pub fn csrf($options = {}) {
+    $options = with_defaults("http::csrf()", $options, CSRF_OPTIONS);
+    $field = $options["field"];
+    if (type_of($field) != "string") {
+        throw "http::csrf() takes a string for \"field\", not " .. type_of($field);
+    }
+    $failure = $options["failure"] ?? ($request -> plain(403, CSRF_REFUSAL));
+    if (type_of($failure) != "function") {
+        throw "http::csrf() takes a function for \"failure\", not " .. type_of($failure);
+    }
+
+    return ($request, $next) -> {
+        if (!has_key($request, "session")) {
+            throw "http::csrf() needs the session: add http::sessions() to the Router before it";
+        }
+        if (in_array($request["method"], UNSAFE_METHODS) && !from_this_site($request, $field)) {
+            return $failure($request);
+        }
+
+        return $next($request);
+    };
+}
+
+// Whether a request that changes something carries the session's token and, if it says, our Origin
+fn from_this_site($request, $field) {
+    $submitted = $request["headers"][CSRF_HEADER] ?? form_field($request, $field);
+
+    return verify_csrf($request["session"], $submitted) && same_origin($request);
+}
+
+// A form's field, or null for a body that isn't a form, so a hostile request is refused, not a 500
+fn form_field($request, $field) {
+    if (media_type($request) != FORM_TYPE) {
+        return null;
+    }
+    try {
+        $fields = form($request);
+    } catch (Error $e) {
+        return null;      // a bad percent-escape
+    }
+
+    return $fields[$field] ?? null;
+}
+
+// Whether the Origin the browser sent, if it sent one, is the host it sent the request to
+fn same_origin($request) {
+    $origin = $request["headers"]["origin"] ?? null;
+    if ($origin == null) {
+        return true;
+    }
+    $host = $request["headers"]["host"] ?? "";
+
+    return $origin == "http://" .. $host || $origin == "https://" .. $host;
 }

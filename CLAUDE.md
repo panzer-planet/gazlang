@@ -661,6 +661,34 @@ that must find nothing to do.
     RFC 6265 forbids joining several with a comma (an `Expires` attribute has one of its own);
     `write_response()` writes any header's list value that way, not only `Set-Cookie`'s. Tested by
     `tests/gaz/lib/http_session_test.gaz` and end to end by `HttpServerTest`.
+  - **Middleware for a web app**, in `http.gaz` too, the glue the todo app proved (`apps/todo`,
+    whose tests passed unchanged on it): `http::security_headers($options)`, `http::sessions($secret,
+    $options)`, `http::csrf($options)`, added in that order (headers outermost, so a 403 and a
+    redirect get them too; sessions before csrf, which reads the token), then the app's own
+    `authentication`. Library middleware because the glue is where the security bugs live, and each
+    app writing its own gets them its own way. Tested by `tests/gaz/lib/http_sessions_test.gaz`.
+    - **A handler asks for a session change by adding `"session"` to its response**
+      (`http::with_session()`), which the middleware takes out, since `write_response()` refuses
+      any other key: the response is the one thing a handler returns, so no global, mutable request
+      or second return value is needed. `$request["session"]` always has a `"csrf_token"`;
+      `$request["flash"]` is the last request's message, kept out of the session so a handler that
+      passes the session on doesn't show it again (`http::flash()`).
+    - **The cookie is written only when the session differs from the one the cookie held**, so a
+      page view sends no `Set-Cookie` and a flash is cleared by the same rule. The comparison is
+      against the cookie as it came, *before* the token is added: compared with the session after,
+      a new visitor's token is never written and every form of theirs is a 403. A test plants
+      exactly that mutation.
+    - **`http::csrf()` checks the `Origin` as well as the token** (when one is sent; `null` is
+      foreign), a second, independent line that holds if a token leaks; a body that isn't a form
+      carries no token, so a hostile non-form POST is a 403, not a 500. Without `http::sessions()`
+      before it, every request is an error, since a wiring mistake that answered 403 for ever would
+      look like a user's problem.
+    - **The secret must be 32 bytes or more**, an error when the middleware is made: a short signing
+      secret is the program's mistake, and one that can be guessed forges every session.
+    - **Who the user is stays the app's** (`authentication`, and the login that builds a *new*
+      session with a fresh `crypto::token()` so nothing planted before it survives, the
+      session-fixation defence): the library doesn't know what a user is, and a login that kept the
+      old map would undo the defence however good the middleware.
   - `ponytail:` no keep-alive; writing a response has only the per-write timeout; the stop grace
     is fixed; while workers drain, new connections queue in the listener's backlog (the master
     holds it too) and are reset when the program ends, where closing the listeners first would

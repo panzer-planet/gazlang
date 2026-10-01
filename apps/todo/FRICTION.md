@@ -30,9 +30,9 @@ Ordered by how much each would matter to a stranger writing their first web app.
 - **Breaking the tests on purpose caught every planted bug**: an unscoped query, no CSRF check, no
   Origin check, a missing UTF-8 check, a login that keeps the old session.
 
-## 1. A web app writes about 100 lines of middleware that every web app will write
+## 1. A web app writes about 100 lines of middleware that every web app will write  (resolved: `http::sessions()`, `http::csrf()`, `http::security_headers()`)
 
-`middleware.gaz` is sessions (read the signed cookie, make sure a CSRF token is in it, write it back
+`middleware.gaz` was sessions (read the signed cookie, make sure a CSRF token is in it, write it back
 only if it changed), flash messages, the CSRF check on POST, an `Origin` check, security headers,
 "who is logged in", and "this route needs a user". The library has the pieces (`http::session`,
 `http::session_cookie`, `http::csrf_token`, `http::verify_csrf`) but not the glue, so each app
@@ -41,12 +41,15 @@ middleware strips, since a response with an unknown key is an error), and the ob
 a trap: comparing the session with the one the token was just added to means a new visitor's token
 is never written back. That is the kind of detail that is each app's own to get right or wrong.
 
-- **Today**: `middleware.gaz`.
-- **Options**: `http::sessions($secret, $options)` as a library middleware, with the convention
-  documented (`$request["session"]`, a response's `"session"`, `$request["flash"]`); `http::csrf()` and
-  `http::security_headers()` beside it. Or leave the library at the pieces and put the glue in the
-  docs as a worked example that is copied. The risk of the glue being each app's own is that it
-  is where the security bugs live.
+- **Done**: the glue moved into `std/http.gaz` as middleware, with the convention documented:
+  `http::security_headers($options)`, `http::sessions($secret, $options)` (`$request["session"]`,
+  `$request["flash"]`, a response's `"session"`, the cookie written only on a change, measured
+  against the cookie as it came, so the trap is the library's to avoid once), `http::csrf($options)`
+  (the token and the `Origin`), and `http::with_session()`/`http::flash()` for handlers. The app's
+  tests pass unchanged.
+- **Left the app's**: `authentication()` and `authenticated()` (only the app knows what a user is) and
+  `login_session()`, the new session a login builds with a fresh token, which is the session-fixation
+  defence. `middleware.gaz` went from 98 lines to 23.
 
 ## 2. Templates can't be part of a namespaced program  (resolved: a `namespace` line in a template)
 

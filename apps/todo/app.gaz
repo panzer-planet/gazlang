@@ -3,7 +3,7 @@
  * in a Router that http::serve() takes as its handler.
  *
  * A handler is a method that takes the request and gives a response. To change the session it adds
- * "session" to the response (see middleware.gaz).
+ * "session" to the response (http::with_session(), see http::sessions()).
  */
 namespace todo;
 
@@ -38,21 +38,9 @@ fn not_found(map $request): map {
     return render($request, "Not found", web::html"<h1>Not found</h1><p><a href=\"/\">Back to your todos</a></p>", 404);
 }
 
-fn with_session(map $response, map $session): map {
-    return {...$response, "session" => $session};
-}
-
 // A new session for a user who has just proved who they are: nothing of the old one is kept
 fn login_session(int $user_id, string $message): map {
     return {"user_id" => $user_id, "csrf_token" => crypto::token(), "flash" => $message};
-}
-
-// This request's session with a message for the next page
-fn flashing(map $request, string $message): map {
-    $session = $request["session"];
-    $session["flash"] = $message;
-
-    return $session;
 }
 
 kind Handlers {
@@ -74,7 +62,7 @@ kind Handlers {
         if (len($errors) == 0) {
             $user = #auth.register($form);
             if ($user != null) {
-                return with_session(http::redirect("/"), login_session($user.id, "Welcome! Your account is ready."));
+                return http::with_session(http::redirect("/"), login_session($user.id, "Welcome! Your account is ready."));
             }
             $errors["taken"] = "An account with that email already exists";
         }
@@ -101,7 +89,7 @@ kind Handlers {
             if ($user != null) {
                 #throttle.clear($form.email);
 
-                return with_session(http::redirect("/"), login_session($user.id, "You are logged in."));
+                return http::with_session(http::redirect("/"), login_session($user.id, "You are logged in."));
             }
             #throttle.record_failure($form.email);
             $errors["login"] = "Wrong email or password";
@@ -111,7 +99,7 @@ kind Handlers {
     }
 
     pub fn logout(map $request): map {
-        return with_session(http::redirect("/login"), {"csrf_token" => crypto::token(), "flash" => "You have been logged out."});
+        return http::with_session(http::redirect("/login"), {"csrf_token" => crypto::token(), "flash" => "You have been logged out."});
     }
 
     // --- Todos ---
@@ -134,7 +122,7 @@ kind Handlers {
         }
         #todos.add($request["user"].id, $form.title);
 
-        return with_session(http::redirect("/"), flashing($request, "Added."));
+        return http::with_session(http::redirect("/"), http::flash($request, "Added."));
     }
 
     pub fn toggle(map $request): map {
@@ -148,7 +136,7 @@ kind Handlers {
         $id = #todo_id($request);
         $removed = $id != null && #todos.remove($request["user"].id, $id);
 
-        return $removed ? with_session(http::redirect("/"), flashing($request, "Deleted.")) : not_found($request);
+        return $removed ? http::with_session(http::redirect("/"), http::flash($request, "Deleted.")) : not_found($request);
     }
 
     pub fn edit_form(map $request): map {
@@ -173,7 +161,7 @@ kind Handlers {
         }
         $todo = #todos.rename($request["user"].id, $id, $form.title);
 
-        return $todo == null ? not_found($request) : with_session(http::redirect("/"), flashing($request, "Saved."));
+        return $todo == null ? not_found($request) : http::with_session(http::redirect("/"), http::flash($request, "Saved."));
     }
 
     // The id in the path, or null if it isn't a whole number
@@ -187,9 +175,9 @@ pub fn build_app(Config $config, $db) {
     $users = Users($db);
     $handlers = Handlers(Todos($db), Auth($users, $config.password_options), LoginThrottle($db));
     $app = http::Router();
-    $app.use(security_headers);
-    $app.use(sessions($config.secret, $config.secure_cookies));
-    $app.use(csrf_protection);
+    $app.use(http::security_headers());
+    $app.use(http::sessions($config.secret, {"secure" => $config.secure_cookies}));
+    $app.use(http::csrf());
     $app.use(authentication($users));
 
     $app.get("/", authenticated($handlers.home));

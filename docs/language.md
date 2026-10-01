@@ -1505,7 +1505,7 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `format.gaz` | `format::number`, `format::pad_left`, `format::pad_right`, and `format::sprintf($template, $args)` with the arguments as a list: `%s` (as echo prints it), `%d` (an int), `%f` (an int or float, 6 decimals or `%.2f`'s, rounded as `round()` does), `%x` (an int of 0 or more, lowercase hex), `%%`; a width, `-` to pad on the right and `0` to pad a number with zeros after its sign (`%-8s`, `%05.1f`). A count of arguments that isn't the placeholders', a type `%d`, `%f` or `%x` can't take, and a placeholder it doesn't know are errors |
 | `cli.gaz` | `cli::Command($name, $summary)`, command line arguments with a generated `--help`; see below |
 | `test.gaz` | `test::expect($label, $actual, $expected)`, `test::throws($label, $thunk, $message)`, `test::snapshot($label, $actual)` and `test::done()`, for `gaz test`; see below |
-| `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins, a server, `http::serve($listener, $handler, $options = {})`, `http::handle($socket, $handler, $options = {})` (one connection), `http::http_date($time)`, `http::redirect($to, $status = 303)` (a response that sends the client elsewhere), `http::Router()` for routing requests to handlers, `http::serve_static($dir)`, a handler that serves files under `$dir`, and cookies and signed sessions (`http::cookies`, `http::set_cookie`, `http::session`, `http::session_cookie`, `http::csrf_token`, `http::verify_csrf`); see below |
+| `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins, a server, `http::serve($listener, $handler, $options = {})`, `http::handle($socket, $handler, $options = {})` (one connection), `http::http_date($time)`, `http::redirect($to, $status = 303)` (a response that sends the client elsewhere), `http::Router()` for routing requests to handlers, `http::serve_static($dir)`, a handler that serves files under `$dir`, and cookies and signed sessions (`http::cookies`, `http::set_cookie`, `http::session`, `http::session_cookie`, `http::csrf_token`, `http::verify_csrf`), with middleware for a web app (`http::security_headers`, `http::sessions`, `http::csrf`, `http::with_session`, `http::flash`); see below |
 | `web.gaz` | `web::html"..."`, an `Html` from a tagged string: the text as markup, each value written for where it lands (escaped in text and quoted attributes, checked in a URL, refused where HTML escaping is not enough); see "Templates" |
 | `date.gaz` | `date::days($year, $month, $day)` (a date as a whole number of days, day 0 being 1 January 1970: an impossible date is an error), `date::civil($days)` (`[year, month, day]`), `date::year`/`month`/`day`, `date::weekday` (0 Monday to 6 Sunday), `date::next_weekday($days, $weekday)`, `date::add_months`, `date::is_leap`, `date::days_in_month`, and `date::format` (`Sat 8 Aug 2026`), `date::short` (`8 Aug`) and `date::iso` (`2026-08-08`). There is no `today()`: a date is a plain number of days, so a program that needs today's date works it out (`intdiv(time(), 86400)` is today in UTC), which also keeps date code testable with fixed dates |
 | `random.gaz` | `random::shuffle` (a shuffled copy of a list or string), `random::pick` (an element of a list or value of a map), `random::key`, `random::chance($p)`, `random::weighted` (from `[item, weight]` pairs) |
@@ -1702,6 +1702,46 @@ $response = http::session_cookie({"body" => "..."}, $session, SECRET);
   with it set (a handler saves the result with `session_cookie()`, as any other session change);
   `http::verify_csrf($session, $submitted)` checks one a form sent back, with `crypto::equals()`,
   as a signature is checked.
+
+**Middleware for a web app** puts those pieces together for a `Router`, added in this order, the
+first outermost:
+
+```gaz
+$app = http::Router();
+$app.use(http::security_headers());
+$app.use(http::sessions($secret, {"secure" => true}));
+$app.use(http::csrf());
+$app.use(authentication($users));              // your own: only your app knows what a user is
+$app.post("/todos", $request -> http::with_session(http::redirect("/"), http::flash($request, "Added.")));
+```
+
+- `http::security_headers($options = {})` adds `Content-Security-Policy: default-src 'self';
+  form-action 'self'; frame-ancestors 'none'; base-uri 'none'`, `X-Content-Type-Options: nosniff`
+  and `Referrer-Policy: same-origin` to every response that doesn't set them itself, so one route
+  can send a policy of its own. `$options` maps a header name to the value to send instead, or to
+  `null` to send none. Names are matched ignoring case.
+- `http::sessions($secret, $options = {})` gives the handler `$request["session"]`, the session
+  from its signed cookie, always with a `"csrf_token"` in it, and `$request["flash"]`, the message
+  the last request left for this one, or `null`; the flash is not in `$request["session"]`. A
+  handler changes the session by adding `"session" => $map` to its response, which the middleware
+  takes out again before the response is written. The cookie is written only when the session
+  differs from what the cookie held, so a page that changes nothing sends no `Set-Cookie`, and a
+  flash is shown once: the next session has none unless the handler sets one. `$secret` must be at
+  least 32 bytes, or making the middleware is an error. `$options` are `http::set_cookie()`'s,
+  with `"max_age"` two weeks unless given.
+- `http::csrf($options = {})` answers a POST, PUT, PATCH or DELETE with a 403 unless it carries
+  the session's token, in the form field `_csrf` or an `X-CSRF-Token` header, and, when the
+  browser sent an `Origin` header, that it names the request's own host (`Origin: null` doesn't).
+  A body that isn't a form carries no token. `$options`: `"field"`, the form field's name, and
+  `"failure"`, a function from the request to the response to send instead of the 403. Without
+  `http::sessions()` before it, a request is an error saying so.
+- `http::with_session($response, $session)` is `$response` with `"session"` set, and
+  `http::flash($request, $message)` is this request's session with `$message` to show on the next
+  page.
+- **A login builds a new session** rather than changing the old one, with a fresh
+  `crypto::token()` as its `"csrf_token"` (`{"user_id" => $id, "csrf_token" => crypto::token()}`),
+  so nothing an attacker planted in the session before it carries over. That is your app's code, as
+  is deciding who `"user_id"` is.
 
 ```gaz
 include "std/http.gaz";

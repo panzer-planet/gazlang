@@ -1,0 +1,182 @@
+include "std/test.gaz" use expect, throws;
+include "../../../lib/http.gaz";
+include "../../../lib/crypto.gaz";
+
+/*
+ * The middleware for a web app, driven with request maps and a handler that records what it saw:
+ * no server. A request carries the cookie the last response set, as a browser would.
+ */
+
+const SECRET = "a secret for the tests, long enough to sign with";
+const FORM = "application/x-www-form-urlencoded";
+
+kind Seen {
+    pub static #request = null;
+}
+
+// A handler that remembers its request and answers $response
+fn handler($response = {"body" => "ok"}) {
+    return $request -> {
+        Seen::request = $request;
+
+        return $response;
+    };
+}
+
+fn request($method, $headers = {}, $body = "") {
+    return {"method" => $method, "path" => "/", "query" => "", "headers" => {"host" => "app.example", ...$headers}, "body" => $body};
+}
+
+// The cookie header a browser would send back after $response, or {} if it set none
+fn cookie_from($response) {
+    $set = $response["headers"]["Set-Cookie"] ?? null;
+    if ($set == null) {
+        return {};
+    }
+    $first = $set[0];
+
+    return {"cookie" => slice($first, 0, index_of($first, ";"))};
+}
+
+fn sets_cookie($response) {
+    return has_key($response["headers"] ?? {}, "Set-Cookie");
+}
+
+$sessions = http::sessions(SECRET);
+
+/* A new visitor: a token in the session, and a cookie to keep it in */
+$first = $sessions(request("GET"), handler());
+expect("a new visitor's session has a CSRF token", type_of(Seen::request["session"]["csrf_token"]), "string");
+expect("and no flash", Seen::request["flash"], null);
+expect("a new visitor is given a cookie, so the token is kept", sets_cookie($first), true);
+$token = Seen::request["session"]["csrf_token"];
+$browser = cookie_from($first);
+expect("the cookie holds the session with its token", http::session({"headers" => $browser}, SECRET), {"csrf_token" => $token});
+expect("the cookie lasts two weeks, http only, same site", contains($first["headers"]["Set-Cookie"][0], "Max-Age=1209600; HttpOnly; SameSite=Lax"), true);
+
+/* A returning visitor whose session didn't change gets no cookie */
+$again = $sessions(request("GET", $browser), handler());
+expect("a returning visitor keeps the token", Seen::request["session"]["csrf_token"], $token);
+expect("an unchanged session writes no cookie", sets_cookie($again), false);
+expect("the response is the handler's", $again, {"body" => "ok"});
+
+/* A handler that changes the session */
+$changed = $sessions(request("GET", $browser), $request -> http::with_session({"body" => "in"}, {...$request["session"], "user_id" => 7}));
+expect("a changed session is written", http::session({"headers" => cookie_from($changed)}, SECRET), {"csrf_token" => $token, "user_id" => 7});
+expect("the \"session\" key never reaches the response", has_key($changed, "session"), false);
+expect("the rest of the response is the handler's", $changed["body"], "in");
+$browser = cookie_from($changed);
+
+/* A flash is shown once */
+$flashed = $sessions(request("POST", $browser), $request -> http::with_session(http::redirect("/"), http::flash($request, "Saved.")));
+expect("flash() keeps the rest of the session", http::session({"headers" => cookie_from($flashed)}, SECRET), {"csrf_token" => $token, "user_id" => 7, "flash" => "Saved."});
+$browser = cookie_from($flashed);
+$shown = $sessions(request("GET", $browser), handler());
+expect("the next request sees the flash", Seen::request["flash"], "Saved.");
+expect("and not in its session", has_key(Seen::request["session"], "flash"), false);
+expect("showing it clears it, so the cookie is written", sets_cookie($shown), true);
+expect("without the flash", http::session({"headers" => cookie_from($shown)}, SECRET), {"csrf_token" => $token, "user_id" => 7});
+$browser = cookie_from($shown);
+$after = $sessions(request("GET", $browser), handler());
+expect("the request after has no flash", Seen::request["flash"], null);
+expect("and nothing to write", sets_cookie($after), false);
+
+/* A cookie that doesn't check out is a fresh session */
+$tampered = {"cookie" => replace($browser["cookie"], "session=", "session=x")};
+$sessions(request("GET", $tampered), handler());
+expect("a tampered cookie is a fresh session", has_key(Seen::request["session"], "user_id"), false);
+expect("with a new token", Seen::request["session"]["csrf_token"] != $token, true);
+$other = http::sessions("another secret that is also long enough");
+$other(request("GET", $browser), handler());
+expect("a cookie signed with another secret is a fresh session", has_key(Seen::request["session"], "user_id"), false);
+
+/* Options */
+$secure = http::sessions(SECRET, {"secure" => true, "max_age" => 60, "same_site" => "Strict"});
+$set = $secure(request("GET"), handler())["headers"]["Set-Cookie"][0];
+expect("cookie options pass through", slice($set, index_of($set, ";")), "; Path=/; Max-Age=60; Secure; HttpOnly; SameSite=Strict");
+throws("a short secret", () -> http::sessions("too short"), "http::sessions() needs a secret of at least 32 bytes, not 9: a short one can be guessed, and every session forged with it");
+throws("an unknown option", () -> http::sessions(SECRET, {"secret" => 1}), "http::sessions() has no option \"secret\": only path, http_only, secure, same_site, max_age");
+throws("a session that isn't a map", () -> $sessions(request("GET"), handler({"session" => 5})), "a response's \"session\" is a map, not int");
+
+/* CSRF: a request that changes something carries the session's token, and comes from this site */
+$csrf = http::csrf();
+$session = {"csrf_token" => $token};
+
+// The request as http::sessions() hands it on
+fn with_session_in($request, $session) {
+    return {...$request, "session" => $session, "flash" => null};
+}
+
+fn status($middleware, $request) {
+    return $middleware($request, handler())["status"] ?? 200;
+}
+
+fn form_post($fields, $headers = {}) {
+    return request("POST", {"content-type" => FORM, ...$headers}, $fields);
+}
+
+expect("a GET needs no token", status($csrf, with_session_in(request("GET"), $session)), 200);
+expect("a POST without a token is refused", status($csrf, with_session_in(form_post("a=1"), $session)), 403);
+expect("a POST with a wrong token is refused", status($csrf, with_session_in(form_post("_csrf=wrong"), $session)), 403);
+expect("a POST with the token passes", status($csrf, with_session_in(form_post("_csrf=" .. http::url_encode($token)), $session)), 200);
+expect("the token in the header passes", status($csrf, with_session_in(request("POST", {"x-csrf-token" => $token}), $session)), 200);
+expect("PUT, PATCH and DELETE are checked", map(["PUT", "PATCH", "DELETE"], $m -> status($csrf, with_session_in(request($m), $session))), [403, 403, 403]);
+expect("a body that isn't a form is refused, not an error", status($csrf, with_session_in(request("POST", {"content-type" => "application/json"}, "{}"), $session)), 403);
+expect("a form with a bad escape is refused, not an error", status($csrf, with_session_in(form_post("_csrf=%zz"), $session)), 403);
+$good = "_csrf=" .. http::url_encode($token);
+expect("another site's Origin is refused", status($csrf, with_session_in(form_post($good, {"origin" => "https://evil.example"}), $session)), 403);
+expect("Origin null is refused", status($csrf, with_session_in(form_post($good, {"origin" => "null"}), $session)), 403);
+expect("our own Origin passes", status($csrf, with_session_in(form_post($good, {"origin" => "https://app.example"}), $session)), 200);
+expect("over http too", status($csrf, with_session_in(form_post($good, {"origin" => "http://app.example"}), $session)), 200);
+expect("no Origin passes", status($csrf, with_session_in(form_post($good), $session)), 200);
+$refused = $csrf(with_session_in(form_post("a=1"), $session), handler());
+expect("the refusal says what to do", $refused["body"], "Forbidden: this form has expired. Go back, reload the page and try again.\n");
+throws("without http::sessions() first", () -> $csrf(request("GET"), handler()), "http::csrf() needs the session: add http::sessions() to the Router before it");
+
+$custom = http::csrf({"field" => "token", "failure" => $request -> ({"status" => 419, "body" => "expired"})});
+expect("a field of another name", status($custom, with_session_in(form_post("token=" .. http::url_encode($token)), $session)), 200);
+expect("and _csrf is no longer it", status($custom, with_session_in(form_post($good), $session)), 419);
+expect("the failure's response", $custom(with_session_in(form_post("a=1"), $session), handler()), {"status" => 419, "body" => "expired"});
+throws("an unknown CSRF option", () -> http::csrf({"fields" => "x"}), "http::csrf() has no option \"fields\": only field, failure");
+throws("a failure that isn't a function", () -> http::csrf({"failure" => "no"}), "http::csrf() takes a function for \"failure\", not string");
+
+/* Security headers */
+$headers = http::security_headers();
+$plain = $headers(request("GET"), handler())["headers"];
+expect("the security headers", $plain, {
+    "Content-Security-Policy" => "default-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+    "X-Content-Type-Options" => "nosniff",
+    "Referrer-Policy" => "same-origin",
+});
+$own = $headers(request("GET"), handler({"headers" => {"Content-Security-Policy" => "default-src *"}}))["headers"];
+expect("the handler's own header wins", $own["Content-Security-Policy"], "default-src *");
+$own = $headers(request("GET"), handler({"headers" => {"content-security-policy" => "default-src *"}}))["headers"];
+expect("the handler's own header wins, whatever its case", $own["content-security-policy"], "default-src *");
+expect("and isn't sent twice", has_key($own, "Content-Security-Policy"), false);
+expect("the others are still added", $own["X-Content-Type-Options"], "nosniff");
+$tuned = http::security_headers({"referrer-policy" => "no-referrer", "X-Content-Type-Options" => null, "Permissions-Policy" => "camera=()"});
+expect("options override, remove and add", $tuned(request("GET"), handler())["headers"], {
+    "Content-Security-Policy" => "default-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+    "referrer-policy" => "no-referrer",
+    "Permissions-Policy" => "camera=()",
+});
+throws("a header value that isn't a string", () -> http::security_headers({"Referrer-Policy" => 1}), "http::security_headers() takes a string or null for \"Referrer-Policy\", not int");
+throws("a header name that isn't one", () -> http::security_headers({"bad name" => "x"}), "HTTP error: bad header name: \"bad name\"");
+
+/* All of them in a Router, in order: a form posted back with its token after a page */
+$app = http::Router();
+$app.use(http::security_headers());
+$app.use(http::sessions(SECRET));
+$app.use(http::csrf());
+$app.get("/", $request -> ({"body" => "token " .. $request["session"]["csrf_token"] .. ", flash " .. ($request["flash"] ?? "none")}));
+$app.post("/save", $request -> http::with_session(http::redirect("/"), http::flash($request, "Saved.")));
+$serve = $app.handler();
+$page = $serve(request("GET"));
+$browser = cookie_from($page);
+$token = slice($page["body"], 6, index_of($page["body"], ",") - 6);
+expect("a page has the security headers", $page["headers"]["X-Content-Type-Options"], "nosniff");
+expect("a form without the token is refused", $serve({...request("POST"), "path" => "/save"})["status"], 403);
+$saved = $serve({...form_post("_csrf=" .. http::url_encode($token), $browser), "path" => "/save"});
+expect("with it, it is saved", $saved["status"], 303);
+expect("the redirect has the security headers too", $saved["headers"]["Referrer-Policy"], "same-origin");
+expect("and the next page shows the flash", $serve(request("GET", cookie_from($saved)))["body"], "token $token, flash Saved.");

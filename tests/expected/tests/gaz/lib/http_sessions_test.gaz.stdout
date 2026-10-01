@@ -1,0 +1,58 @@
+ok a new visitor's session has a CSRF token
+ok and no flash
+ok a new visitor is given a cookie, so the token is kept
+ok the cookie holds the session with its token
+ok the cookie lasts two weeks, http only, same site
+ok a returning visitor keeps the token
+ok an unchanged session writes no cookie
+ok the response is the handler's
+ok a changed session is written
+ok the "session" key never reaches the response
+ok the rest of the response is the handler's
+ok flash() keeps the rest of the session
+ok the next request sees the flash
+ok and not in its session
+ok showing it clears it, so the cookie is written
+ok without the flash
+ok the request after has no flash
+ok and nothing to write
+ok a tampered cookie is a fresh session
+ok with a new token
+ok a cookie signed with another secret is a fresh session
+ok cookie options pass through
+ok a short secret
+ok an unknown option
+ok a session that isn't a map
+ok a GET needs no token
+ok a POST without a token is refused
+ok a POST with a wrong token is refused
+ok a POST with the token passes
+ok the token in the header passes
+ok PUT, PATCH and DELETE are checked
+ok a body that isn't a form is refused, not an error
+ok a form with a bad escape is refused, not an error
+ok another site's Origin is refused
+ok Origin null is refused
+ok our own Origin passes
+ok over http too
+ok no Origin passes
+ok the refusal says what to do
+ok without http::sessions() first
+ok a field of another name
+ok and _csrf is no longer it
+ok the failure's response
+ok an unknown CSRF option
+ok a failure that isn't a function
+ok the security headers
+ok the handler's own header wins
+ok the handler's own header wins, whatever its case
+ok and isn't sent twice
+ok the others are still added
+ok options override, remove and add
+ok a header value that isn't a string
+ok a header name that isn't one
+ok a page has the security headers
+ok a form without the token is refused
+ok with it, it is saved
+ok the redirect has the security headers too
+ok and the next page shows the flash
