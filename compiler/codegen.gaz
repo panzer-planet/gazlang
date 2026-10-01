@@ -189,7 +189,7 @@ kind CodeGenerator {
     fn write_root($target) {
         $root = path_root($target);
         if ($root != null) {
-            return $root;
+            return #static_start($target) ?? $root;
         }
         // Walk in past the elements and fields to the call the path starts at
         $call = $target;
@@ -202,10 +202,31 @@ kind CodeGenerator {
         return $hidden;
     }
 
-    // The steps of a path of elements and fields, from its root outwards
+    // The static field a path of elements and fields starts at, written with a # (#rows[0] = 1),
+    // as the node that names it, or null: the path goes through its slot, as it does when the
+    // field is named Kind::rows, and not through #, which a static method hasn't got
+    fn static_start($target) {
+        for ($node = $target; is_a($node, IndexAST) || is_a($node, PropertyAST); $node = $node.target) {
+            if (#names_static($node)) {
+                return $node;
+            }
+        }
+
+        return null;
+    }
+
+    fn names_static($node) {
+        return is_a($node, PropertyAST) && $node.static_name != null && is_a($node.target, ThisAST);
+    }
+
+    // The steps of a path of elements and fields, from its root outwards: a static field named
+    // with a # is the root, not a step
     fn steps($target) {
         $steps = [];
         for ($node = $target; is_a($node, IndexAST) || is_a($node, PropertyAST); $node = $node.target) {
+            if (#names_static($node)) {
+                break;
+            }
             // Met from the end, so each goes in front
             $steps = [$node, ...$steps];
         }

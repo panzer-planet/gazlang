@@ -701,11 +701,13 @@ that must find nothing to do.
     running one would bring initialisation order and bytecode before the top level. It is
     required, since a slot with nothing in it would need the quiet load a static never wants.
   - **Assigned from anywhere it escapes to** (`Counter::count = 1`, `#count++`,
-    `Counter::rows[] = $r`): a `pub static` from anywhere, one that says nothing only from
-    inside the kind, so a static needs no rule of its own to protect it. Both
-    spellings compile to the same instruction, since `::` resolves when it is parsed; the cost
-    was a fifth root for `store_path()` next to a local, a global, a capture and `#`, and the
-    check refusing `Kind::NAME = ...` that mirrors the one refusing `#NAME[0] = 1`.
+    `Counter::rows[] = $r`, `#rows[] = $r`): a `pub static` from anywhere, one that says nothing
+    only from inside the kind, so a static needs no rule of its own to protect it. Both
+    spellings compile to the same instruction, since `::` resolves when it is parsed (a path
+    written with a `#` takes the static as its root, `static_start()` in `codegen.gaz`, not `#`,
+    which a static method hasn't got); the cost was a fifth root for `store_path()` next to a local,
+    a global, a capture and `#`, and the check refusing `Kind::NAME = ...` that mirrors the one
+    refusing `#NAME[0] = 1`.
   - **In a static method `#name` is the kind's**, so `#count` is the static field and
     `#helper()` another static method; naming an instance member is a parse error, as is `#`
     on its own, since there is no object and members are declared.

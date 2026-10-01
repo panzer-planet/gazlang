@@ -54,6 +54,38 @@ class StaticTest extends GazLangTestCase
         );
     }
 
+    public function test_a_static_field_is_written_through_by_hash_inside_the_kind()
+    {
+        // #rows[...] is a path through the static's slot, from a static method and from an
+        // object's method alike, as Reg::rows[...] is from outside
+        $this->assertSame(
+            "[\"a\", \"b\"]\n{\"x\" => 2, \"y\" => {\"z\" => 1}}\n[\"b\"]\n[\"b\", \"c\"]\n{\"x\" => 3, \"y\" => {\"z\" => 1}}\nab!\n",
+            $this->executeCode('kind Reg {
+                    pub static #rows = [];
+                    pub static #counts = {};
+                    pub static #name = "";
+                    pub static fn add($row) { #rows[] = $row; return #rows; }
+                    pub static fn count($key) {
+                        #counts[$key] = (#counts[$key] ?? 0) + 1;
+                        #counts[$key] += 0;
+                        #counts["y"] = {};
+                        #counts["y"]["z"] = 1;
+                        return #counts;
+                    }
+                    pub static fn drop() { delete #rows[0]; return #rows; }
+                    pub fn also($row) { #rows[] = $row; return #rows; }
+                    pub fn again($key) { #counts[$key]++; return #counts; }
+                    pub static fn say($text) { #name ..= $text; return #name; }
+                }
+                Reg::add("a"); echo Reg::add("b");
+                Reg::count("x"); echo Reg::count("x");
+                echo Reg::drop();
+                echo Reg().also("c");
+                echo Reg().again("x");
+                Reg::say("a"); Reg::say("b"); echo Reg::say("!");')
+        );
+    }
+
     public function test_a_static_method_needs_no_object_and_reaches_the_kind_by_hash()
     {
         $this->assertSame(
