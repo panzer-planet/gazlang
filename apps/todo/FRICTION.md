@@ -96,9 +96,12 @@ on the shared socket.
 - **Left**: `http::serve` taking a function that makes the handler, once per worker, would make
   the right place to open a connection the natural one; nothing asks for it now that the wrong place
   fails loudly.
-- **Still open, found while fixing it**: a worker blocked inside a PostgreSQL query ignores the
-  graceful stop (SIGTERM is only noticed in `socket_accept()`), so a deploy that stops the master waits
-  out the 10 second grace and kills it; and a master killed with SIGKILL leaves such a worker running.
+- **Checked, not a bug**: a worker blocked inside a PostgreSQL query does not ignore the graceful
+  stop. SIGTERM waits for the request in hand: a 4 second `pg_sleep` was answered with a 200, the
+  worker then left `http::serve()`, and the master was gone 3 seconds after the signal. Only a
+  query still running when the 10 second grace ends is killed, which is what the grace is for.
+  Still open: a master killed with SIGKILL leaves its workers running (macOS has no
+  `PR_SET_PDEATHSIG`).
 
 ## 4. No UTF-8 validation, and `len()` counts bytes (resolved)
 
