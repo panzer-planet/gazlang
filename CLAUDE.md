@@ -632,11 +632,21 @@ that must find nothing to do.
       without waiting, in order. `ponytail:` such a request is answered even after a stop (bounded by
       `requests_per_connection` and the master's grace), and the response written after a stop can't
       say `Connection: close`; a `worker_stopping()` builtin would let it.
+    - **An idle connection yields to a waiting client**, which is what makes keep-alive safe on by
+      default in a prefork pool, where each idle connection would otherwise hold a whole worker for
+      `idle_timeout` (a browser opens up to six). Between requests (never before a connection's
+      first) a worker waits on its socket and its listener together; when the listener is ready it
+      gives its own client `YIELD_GRACE` (10ms), then looks at the listener again: a client still
+      queued means no worker is free, so it closes the idle connection quietly and returns to
+      `socket_accept()`; one gone means a free worker took it, and it waits out the rest of its idle
+      time (a deadline, not a fresh wait each time round). Free capacity makes keep-alive cost
+      nothing; without it the worst case is a connection per request plus about 10ms.
+      `http::handle()` has no listener and waits on its socket alone.
     - **Up to four empty lines before a request line are skipped** (`MAX_EMPTY_LINES`), as RFC 9112
       asks of a server, bounded so a client can't hold a worker with them; a fifth is a 400.
     - Tested by `tests/gaz/lib/http_connection_test.gaz` (`http::handle()` over a socket pair,
       responses compared byte for byte without the `Date` line) and `HttpServerTest` (idle close,
-      stop while idle, `max_requests` on one connection, a 500 closing).
+      stop while idle, `max_requests` on one connection, a 500 closing, the yield both ways).
   - **`"max_requests"` jitter, not built: a small edge PHP-FPM doesn't have out of the box.** Every
     worker in an FPM pool shares one exact `pm.max_requests`, so under steady traffic the workers
     that started closest together drift toward recycling close together too — a real, documented

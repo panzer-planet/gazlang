@@ -634,6 +634,93 @@ class HttpServerTest extends GazLangTestCase
         }
     }
 
+    /**
+     * A connection that has had its response and is kept open, on a server
+     *
+     * @return resource
+     */
+    private static function keptOpen(int $port)
+    {
+        $socket = self::connect($port);
+        fwrite($socket, "GET / HTTP/1.1\r\nHost: x\r\n\r\n");
+        $response = self::response(self::readResponse($socket));
+        if ($response['status'] !== 200 || isset($response['headers']['connection'])) {
+            throw new \RuntimeException('The connection was not kept open');
+        }
+
+        return $socket;
+    }
+
+    public function test_an_idle_connection_gives_its_worker_up_to_a_client_that_would_wait()
+    {
+        // One worker, and an idle timeout far longer than anyone waits here
+        [$server, $port] = self::startSmallServer(1, '{"idle_timeout" => 30}');
+        try {
+            $idle = self::keptOpen($port);
+            usleep(100000);
+
+            $start = microtime(true);
+            $response = self::response(self::exchange("GET / HTTP/1.1\r\nHost: x\r\n\r\n", $port));
+            $this->assertSame(200, $response['status']);
+            $this->assertLessThan(0.5, microtime(true) - $start);
+
+            // The idle connection was closed for it, without a word
+            [$seconds, $rest] = self::untilClosed($idle);
+            fclose($idle);
+            $this->assertSame('', $rest);
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+        }
+    }
+
+    public function test_an_idle_connection_stays_open_when_a_free_worker_takes_the_new_client()
+    {
+        [$server, $port] = self::startSmallServer(2, '{"idle_timeout" => 30}');
+        try {
+            /*
+             * The free worker has YIELD_GRACE (10ms) to accept the new client before the idle one
+             * gives way: a busy machine can miss that now and then, which is harmless in a server
+             * but not in a test, so one success in three tries is what is asked
+             */
+            $kept = false;
+            for ($try = 0; $try < 3 && ! $kept; $try++) {
+                $idle = self::keptOpen($port);
+                usleep(100000);
+                $this->assertSame(200, self::response(self::exchange("GET / HTTP/1.1\r\nHost: x\r\n\r\n", $port))['status']);
+                usleep(100000);
+                fwrite($idle, "GET / HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n");
+                $kept = str_starts_with((string) stream_get_contents($idle), 'HTTP/1.1 200 OK');
+                fclose($idle);
+            }
+            $this->assertTrue($kept, 'the idle connection gave way though a free worker took the new client');
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+        }
+    }
+
+    public function test_new_clients_taken_by_another_worker_do_not_extend_an_idle_wait()
+    {
+        [$server, $port] = self::startSmallServer(2, '{"idle_timeout" => 1}');
+        try {
+            $idle = self::keptOpen($port);
+            $start = microtime(true);
+            // A new client every 0.3s for 2.4s: each wakes the idle worker, which must not start over
+            for ($i = 0; $i < 8; $i++) {
+                usleep(300000);
+                self::exchange("GET / HTTP/1.1\r\nHost: x\r\n\r\n", $port);
+            }
+            stream_set_blocking($idle, false);
+            $closed = fread($idle, 1) === '' && feof($idle);
+            fclose($idle);
+            $this->assertTrue($closed, 'the idle connection was still open after '.round(microtime(true) - $start, 1).'s');
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+        }
+    }
+
     public function test_max_requests_counts_the_requests_on_one_connection()
     {
         $log = (string) tempnam(sys_get_temp_dir(), 'gazlang-server');

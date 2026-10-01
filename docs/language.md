@@ -1591,6 +1591,9 @@ the caller, or it is an open redirect; one with a line break or a NUL byte is an
   It also closes, without a word, when the client sends nothing for `idle_timeout` seconds, or
   `timeout` before its first request, or the worker is asked to stop. Up to four empty lines before
   a request line are skipped.
+- While a connection is idle its worker watches the listener too: when a new client is waiting and
+  no other worker takes it within 10 milliseconds, the idle connection is closed and the new client
+  answered, so open connections never keep a small pool of workers from serving.
 - A request that isn't well formed never reaches the handler: 400 (a bad request line or header
   line, no `Host` in HTTP/1.1, both `Content-Length` and `Transfer-Encoding`, a body cut short),
   408 (the request took longer than `request_timeout`), 413 (a body over `max_body`), 431 (a request line and headers over 64KB), 417 (an `Expect` other

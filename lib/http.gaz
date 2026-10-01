@@ -464,7 +464,8 @@ fn check_token($what, $name) {
  *   can't be trusted to start a request), the handler asked to close, or it was the connection's
  *   "requests_per_connection"th or the worker's last before "max_requests". Up to four empty lines
  *   before a request line are skipped. A connection that sends nothing, before its first request or
- *   between two, is closed without a word once its wait is over.
+ *   between two, is closed without a word once its wait is over, or sooner when a new client is
+ *   waiting for a worker (see another_request()).
  * - Options: "timeout", seconds each read and write may wait, and a connection's first request
  *   (10); "request_timeout", seconds a whole request may take to arrive (30), after which it is
  *   answered 408, so a client trickling a byte at a time can't hold a worker; "max_body", in bytes
@@ -492,6 +493,8 @@ const SERVER_OPTIONS = {
     "idle_timeout" => 5, "requests_per_connection" => 100,
 };
 const MAX_EMPTY_LINES = 4;   // skipped before a request line, as RFC 9112 asks; more is a 400
+const YIELD_GRACE = 0.01;    // seconds an idle connection's client has before its worker gives way
+const OWN_CLIENT = 0;        // socket_wait()'s answer for an idle connection's own socket
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -567,7 +570,14 @@ fn connection($socket, $listener, $handler, $options, $left) {
  * Whether a kept-open connection has another request coming: one already read in part (pipelined)
  * is answered at once, and otherwise the wait is "idle_timeout", or less if the worker is asked to
  * stop, which socket_wait() notices within a second.
- * ponytail: so a request pipelined before a stop is still answered (bounded by
+ *
+ * An idle connection would hold a whole worker, so the worker watches its listener too, and gives
+ * the connection up when a new client is waiting there that no free worker takes: it gives its own
+ * client YIELD_GRACE to say something first, then looks again, and a client still waiting means
+ * none is free. While a worker is free keep-alive costs nothing, and when none is, a new client
+ * waits YIELD_GRACE more than it would with a connection per request.
+ *
+ * ponytail: a request pipelined before a stop is still answered (bounded by
  * "requests_per_connection" and the master's grace), and a response written after a stop doesn't
  * say Connection: close; a worker_stopping() builtin would let it.
  */
@@ -575,7 +585,27 @@ fn another_request($reader, $socket, $listener, $options) {
     if ($reader.pending()) {
         return true;
     }
-    return socket_wait([$socket], $options["idle_timeout"]) != null;
+    $deadline = monotonic_time() + $options["idle_timeout"];
+    $watched = $listener == null ? [$socket] : [$socket, $listener];
+    while (true) {
+        $left = $deadline - monotonic_time();
+        if ($left <= 0) {
+            return false;
+        }
+        $ready = socket_wait($watched, $left);
+        if ($ready == null) {
+            return false;
+        }
+        if ($ready == OWN_CLIENT) {
+            return true;
+        }
+        if (socket_wait([$socket], YIELD_GRACE) != null) {
+            return true;
+        }
+        if (socket_wait([$listener], 0) != null) {
+            return false;
+        }
+    }
 }
 
 /*
