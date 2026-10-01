@@ -60,4 +60,22 @@ class EditorGrammarTest extends GazLangTestCase
             $this->assertSame($operator, $match[0] ?? null, "{$operator} as one operator");
         }
     }
+
+    public function test_the_template_grammar_names_exactly_the_directives()
+    {
+        $grammar = (string) file_get_contents(self::ROOT.'/editors/gazml/gazml.tmLanguage');
+        $this->assertNotFalse(simplexml_load_string($grammar), 'a well formed property list');
+        $this->assertStringContainsString('<string>text.html.gazml</string>', $grammar);
+        $this->assertStringContainsString('<string>gazml</string>', $grammar);
+        preg_match_all('/\(@\(\?:([a-z|]+)\)\)/', $grammar, $rules);
+        $named = explode('|', implode('|', $rules[1]));
+        // The directives are the match in directive() in compiler/template.gaz, and @template
+        $source = (string) file_get_contents(self::ROOT.'/compiler/template.gaz');
+        $this->assertSame(1, preg_match('/return match \(\$word\) \{(.*?)default =>/s', $source, $arms));
+        preg_match_all('/"([a-z]+)" =>/', $arms[1], $words);
+        $this->assertGreaterThan(5, count($words[1]));
+        $this->assertSame([], array_values(array_diff($words[1], $named)), 'directives the grammar is missing');
+        $this->assertSame([], array_values(array_diff($named, $words[1])), 'names the grammar highlights that are not directives');
+        $this->assertStringContainsString('(@template)', $grammar);
+    }
 }

@@ -117,9 +117,12 @@ composer ci                         # what CI runs, cold: phpstan with no result
   what the library and language lack, in the order a stranger would meet it). Its tests need a
   PostgreSQL database and run from the app's directory, so CI doesn't: `cd apps/todo &&
   ../../bin/gaz test tests`.
-- `editors/`: TextMate grammars, `gaz/gaz.tmLanguage` for source and `gzb/gzb.tmLanguage` for
-  bytecode (VS Code, Sublime and most editors read them). `EditorGrammarTest` fails when the
-  first misses a builtin or keyword, or the second doesn't name exactly `INFO`'s instructions in
+- `editors/`: TextMate grammars, `gaz/gaz.tmLanguage` for source, `gzb/gzb.tmLanguage` for
+  bytecode and `gazml/gazml.tmLanguage` for templates (HTML with GazLang embedded: `{{ }}`,
+  `{!! !!}` and the directive lines, also inside tags and attribute values; VS Code, Sublime and
+  most editors read them). `EditorGrammarTest` fails when the
+  first misses a builtin or keyword, the template grammar's directives differ from `directive()`'s in
+  `compiler/template.gaz`, or the second doesn't name exactly `INFO`'s instructions in
   `vm/load.c`, so a new instruction needs a word in the grammar; the bytecode grammar marks what
   doesn't fit a line's shape as invalid, and accepts all the loader reads (comments,
   single-quoted strings and hex in a `PUSH`), not only what the compiler writes.
