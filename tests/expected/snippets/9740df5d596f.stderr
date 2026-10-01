@@ -1,5 +1,5 @@
 Error: Invalid JSON: unexpected "1" after the value at position 1
-  json::Reader.fail at lib/json.gaz:128
-  json::Reader.parse at lib/json.gaz:121
-  json::decode at lib/json.gaz:35
+  json::Reader.fail at lib/json.gaz:129
+  json::Reader.parse at lib/json.gaz:122
+  json::decode at lib/json.gaz:36
   top level on line 1

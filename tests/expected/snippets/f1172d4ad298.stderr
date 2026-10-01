@@ -1,7 +1,7 @@
 Error: Invalid JSON: expected : but found "1" at position 5
-  json::Reader.fail at lib/json.gaz:128
-  json::Reader.parse_object at lib/json.gaz:247
-  json::Reader.parse_value at lib/json.gaz:160
-  json::Reader.parse at lib/json.gaz:118
-  json::decode at lib/json.gaz:35
+  json::Reader.fail at lib/json.gaz:129
+  json::Reader.parse_object at lib/json.gaz:248
+  json::Reader.parse_value at lib/json.gaz:161
+  json::Reader.parse at lib/json.gaz:119
+  json::decode at lib/json.gaz:36
   top level on line 1
