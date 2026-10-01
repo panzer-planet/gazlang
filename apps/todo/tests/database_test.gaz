@@ -1,0 +1,44 @@
+/* Migrations: applied in order, once each, and a broken one leaves nothing behind */
+namespace todo;
+
+include "std/test.gaz" use expect, throws;
+include "std/db.gaz";
+include "support.gaz";
+
+$db = connect(getenv("TODO_TEST_DATABASE_URL") ?? TEST_DATABASE);
+$db.exec(db::raw("drop table if exists users, todos, login_failures, schema_migrations cascade"));
+
+$files = filter(list_dir("migrations"), $file -> ends_with($file, ".sql"));
+expect("there are migrations to apply", len($files) >= 3, true);
+$applied = migrate($db, "migrations");
+expect("every migration is applied on a new database, in name order", $applied, $files);
+$tables = map($db.query(db::sql"select table_name from information_schema.tables where table_schema = 'public' order by 1"), $row -> $row["table_name"]);
+expect("and the tables are there", $tables, ["login_failures", "schema_migrations", "todos", "users"]);
+expect("nothing is applied twice", migrate($db, "migrations"), []);
+expect("each is recorded", $db.value(db::sql"select count(*) from schema_migrations"), len($files));
+
+/* The schema's own rules, which the app leans on */
+$db.exec(db::sql"insert into users (email, password_hash) values ('a@b.co', 'x')");
+throws("an email is unique", () -> $db.exec(db::sql"insert into users (email, password_hash) values ('a@b.co', 'y')"), "postgres: duplicate key value violates unique constraint \"users_email_key\"");
+throws("a title can't be empty", () -> $db.exec(db::sql"insert into todos (user_id, title) values (1, '')"), "postgres: new row for relation \"todos\" violates check constraint \"todos_title_check\"");
+throws("a todo needs its user", () -> $db.exec(db::sql"insert into todos (user_id, title) values (999, 'x')"), "postgres: insert or update on table \"todos\" violates foreign key constraint \"todos_user_id_fkey\"");
+$db.exec(db::sql"insert into todos (user_id, title) values (1, 'x')");
+$db.exec(db::sql"delete from users");
+expect("a user's todos go with them", $db.value(db::sql"select count(*) from todos"), 0);
+
+/* A migration that fails is rolled back whole, and not recorded */
+$directory = "tests/.migrations_" .. rand_int(100000, 999999);
+make_dir($directory);
+write_file($directory .. "/001_ok.sql", "create table scratch_ok (id int);");
+write_file($directory .. "/002_broken.sql", "create table scratch_half (id int); select nonsense_column from scratch_ok;");
+$db.exec(db::raw("drop table if exists scratch_ok, scratch_half, schema_migrations_scratch cascade"));
+throws("a broken migration raises", () -> migrate($db, $directory), "postgres: column \"nonsense_column\" does not exist");
+expect("the one before it was kept", $db.value(db::sql"select count(*) from information_schema.tables where table_name = 'scratch_ok'"), 1);
+expect("the broken one left nothing", $db.value(db::sql"select count(*) from information_schema.tables where table_name = 'scratch_half'"), 0);
+expect("and was not recorded", $db.value(db::sql"select count(*) from schema_migrations where version like '%broken%'"), 0);
+$db.exec(db::raw("drop table scratch_ok"));
+$db.exec(db::sql"delete from schema_migrations where version = '001_ok.sql'");
+delete_file($directory .. "/001_ok.sql");
+delete_file($directory .. "/002_broken.sql");
+delete_dir($directory);
+test::done();

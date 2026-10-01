@@ -1,0 +1,39 @@
+/*
+ * Limiting how often one email can be tried: after MAX_FAILURES wrong logins within the window the
+ * login is refused without checking the password at all, which also keeps the work of hashing it
+ * off the workers. The failures are rows, so every worker sees the same count.
+ *
+ * ponytail: it is per email, not per client, since the app can't see the client's address, so
+ * someone can lock a known email out for the window and a guesser can try as many emails as they
+ * like. A per-address limit would lift both, and wants socket_peer() and the proxy's
+ * X-Forwarded-For.
+ */
+namespace todo;
+
+include "std/db.gaz";
+
+const MAX_FAILURES = 5;
+
+kind LoginThrottle {
+    fn _(#db) {}
+
+    pub fn blocked(string $email): bool {
+        $failures = #db.value(db::sql"select count(*) from login_failures where email = {$email} and failed_at > now() - interval '15 minutes'");
+
+        return $failures >= MAX_FAILURES;
+    }
+
+    pub fn record_failure(string $email) {
+        #db.exec(db::sql"insert into login_failures (email) values ({$email})");
+    }
+
+    // A login that worked starts the count again
+    pub fn clear(string $email) {
+        #db.exec(db::sql"delete from login_failures where email = {$email}");
+    }
+
+    // Forget what is too old to count
+    pub fn purge() {
+        #db.exec(db::raw("delete from login_failures where failed_at < now() - interval '1 day'"));
+    }
+}

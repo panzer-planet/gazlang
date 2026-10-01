@@ -1,0 +1,16 @@
+@template login_page(string $csrf, $form, map $errors)
+<h1>Log in</h1>
+<form method="post" action="/login" novalidate>
+<input type="hidden" name="_csrf" value="{{ $csrf }}">
+@if (has_key($errors, "login"))
+<p class="error">{{ $errors["login"] }}</p>
+@endif
+<label>Email
+<input type="email" name="email" value="{{ $form.email }}" autocomplete="email" required autofocus>
+</label>
+<label>Password
+<input type="password" name="password" autocomplete="current-password" required>
+</label>
+<button type="submit">Log in</button>
+</form>
+<p>New here? <a href="/register">Create an account</a></p>

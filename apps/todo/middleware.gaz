@@ -1,0 +1,98 @@
+/*
+ * What wraps every request, outermost first: security headers on every response, the session (read
+ * from its signed cookie and written back if it changed), the check that a form came from this
+ * site, and who is logged in. A handler sees $request["session"], $request["flash"] (what the last
+ * request left for this one) and $request["user"], and asks for a session change by adding
+ * "session" to its response.
+ */
+namespace todo;
+
+include "std/http.gaz";
+
+const SESSION_MAX_AGE = 1209600;
+const CSRF_FIELD = "_csrf";
+const UNSAFE_METHODS = ["POST", "PUT", "PATCH", "DELETE"];
+const SECURITY_HEADERS = {
+    "Content-Security-Policy" => "default-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+    "X-Content-Type-Options" => "nosniff",
+    "Referrer-Policy" => "same-origin",
+};
+
+fn without(map $map, string $key): map {
+    $rest = {};
+    foreach ($map as $name => $value) {
+        if ($name != $key) {
+            $rest[$name] = $value;
+        }
+    }
+
+    return $rest;
+}
+
+fn security_headers(map $request, $next): map {
+    $response = $next($request);
+    $response["headers"] = {...($response["headers"] ?? {}), ...SECURITY_HEADERS};
+
+    return $response;
+}
+
+/*
+ * The session from its cookie, with a CSRF token in it, for the handler; whatever it puts in its
+ * response's "session" is written back, and the flash message it was shown is not kept.
+ */
+fn sessions(string $secret, bool $secure) {
+    $cookie_options = {"secure" => $secure, "max_age" => SESSION_MAX_AGE};
+
+    return ($request, $next) -> {
+        $stored = http::session($request, $secret);
+        $started = http::csrf_token($stored);
+        $request["flash"] = $started["flash"] ?? null;
+        $request["session"] = without($started, "flash");
+        $response = $next($request);
+        $session = $response["session"] ?? $request["session"];
+        $response = without($response, "session");
+        if ($session == $stored) {
+            return $response;
+        }
+
+        return http::session_cookie($response, $session, $secret, $cookie_options);
+    };
+}
+
+// A form can only come from this site: its token is the session's, and a browser's Origin is ours
+fn csrf_protection(map $request, $next): map {
+    if (!in_array($request["method"], UNSAFE_METHODS)) {
+        return $next($request);
+    }
+    $submitted = form_fields($request)[CSRF_FIELD] ?? "";
+    if (!http::verify_csrf($request["session"], $submitted) || !same_origin($request)) {
+        return plain(403, "Forbidden: this form has expired. Go back, reload the page and try again.");
+    }
+
+    return $next($request);
+}
+
+// Whether the Origin the browser sent, if it sent one, is the host it was sent to
+fn same_origin(map $request): bool {
+    $origin = $request["headers"]["origin"] ?? null;
+    if ($origin == null) {
+        return true;
+    }
+    $host = $request["headers"]["host"] ?? "";
+
+    return $origin == "http://" .. $host || $origin == "https://" .. $host;
+}
+
+fn authentication(Users $users) {
+    return ($request, $next) -> {
+        $id = $request["session"]["user_id"] ?? null;
+        $request["user"] = type_of($id) == "int" ? $users.find($id) : null;
+
+        return $next($request);
+    };
+}
+
+// A handler only a logged in user reaches; anyone else is sent to log in
+fn authenticated($handler) {
+    return $request -> $request["user"] == null ? redirect("/login") : $handler($request);
+}

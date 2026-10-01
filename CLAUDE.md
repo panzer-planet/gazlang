@@ -112,6 +112,11 @@ composer ci                         # what CI runs, cold: phpstan with no result
 - `lib/`: the standard library in GazLang. `examples/`: sample programs that nothing tests
   (see "Programs are tests or examples"). `tests/programs/`: programs the tests do run.
   `games/`: programs built on the language, each with tests of its own (see "A game is neither").
+  `apps/`: web apps built to find what hurts, in the repository for the same reason as the games
+  (`apps/todo`: registration, login and todos on PostgreSQL, with `FRICTION.md`, the evidence for
+  what the library and language lack, in the order a stranger would meet it). Its tests need a
+  PostgreSQL database and run from the app's directory, so CI doesn't: `cd apps/todo &&
+  ../../bin/gaz test tests`.
 - `editors/`: TextMate grammars, `gaz/gaz.tmLanguage` for source and `gzb/gzb.tmLanguage` for
   bytecode (VS Code, Sublime and most editors read them). `EditorGrammarTest` fails when the
   first misses a builtin or keyword, or the second doesn't name exactly `INFO`'s instructions in

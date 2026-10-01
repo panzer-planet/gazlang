@@ -1,0 +1,11 @@
+@template edit_page(string $csrf, int $id, $form, map $errors)
+<h1>Edit todo</h1>
+<form method="post" action="/todos/{{ $id }}" class="add">
+<input type="hidden" name="_csrf" value="{{ $csrf }}">
+<input type="text" name="title" value="{{ $form.title }}" maxlength="200" required autofocus>
+<button type="submit">Save</button>
+</form>
+@if (has_key($errors, "title"))
+<p class="error">{{ $errors["title"] }}</p>
+@endif
+<p><a href="/">Back to the list</a></p>

@@ -1,0 +1,155 @@
+/*
+ * The app as a person uses it: registering, logging in and out, and keeping todos, through the
+ * router with a Browser, against the test database. Needs PostgreSQL (TODO_TEST_DATABASE_URL, or
+ * postgres:///gaz_todo_test).
+ */
+namespace todo;
+
+include "std/test.gaz" use expect, throws;
+include "std/db.gaz";
+include "support.gaz";
+
+$db = fresh_database();
+$config = test_config();
+$password = "correct horse battery";
+
+fn register($browser, $email, $password) {
+    $form = $browser.get("/register");
+
+    return $browser.post("/register", {"_csrf" => token_in($form), "email" => $email, "password" => $password, "confirmation" => $password});
+}
+
+/* --- Anyone arriving is sent to log in, and every page carries a fresh CSRF token and the security headers --- */
+$visitor = Browser($db, $config);
+$home = $visitor.get("/");
+expect("the home page sends a visitor to log in", [$home["status"], location_of($home)], [303, "/login"]);
+expect("a visitor is given a session cookie", $visitor.cookie("session") != null, true);
+$login_page = $visitor.get("/login");
+expect("the login page", [$login_page["status"], contains(text_of($login_page), "<h1>Log in</h1>")], [200, true]);
+expect("pages are not cached", $login_page["headers"]["Cache-Control"], "no-store");
+expect("a content security policy", $login_page["headers"]["Content-Security-Policy"], "default-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
+expect("the session cookie can't be read by scripts", contains(join($home["headers"]["Set-Cookie"], "|"), "HttpOnly"), true);
+
+/* --- Registering --- */
+$browser = Browser($db, $config);
+$form = $browser.get("/register");
+$token = token_in($form);
+$refused = $browser.post("/register", {"email" => "ada@example.com", "password" => $password, "confirmation" => $password});
+expect("a form without its token is refused", $refused["status"], 403);
+$bad = $browser.post("/register", {"_csrf" => $token, "email" => "nope", "password" => "short", "confirmation" => "x"});
+expect("bad details are shown, not saved", [$bad["status"], contains(text_of($bad), "That doesn&#39;t look like an email address"), contains(text_of($bad), "Use at least 10 characters")], [422, true, true]);
+$mismatch = $browser.post("/register", {"_csrf" => $token, "email" => "ada@example.com", "password" => $password, "confirmation" => "something else entirely"});
+expect("a mismatched confirmation", [$mismatch["status"], contains(text_of($mismatch), "The two passwords are not the same")], [422, true]);
+$ok = register($browser, "  Ada@Example.COM ", $password);
+expect("registering logs in and goes home", [$ok["status"], location_of($ok)], [303, "/"]);
+$home = $browser.get("/");
+expect("the first page shows the welcome, once", [$home["status"], contains(text_of($home), "Welcome! Your account is ready.")], [200, true]);
+expect("the email is kept as a lower case address", contains(text_of($home), "ada@example.com"), true);
+expect("the welcome is gone the next time", contains(text_of($browser.get("/")), "Welcome!"), false);
+expect("a user is stored once, with a hashed password", $db.row(db::sql"select email, password_hash like '\$argon2id\$%' as hashed from users"), {"email" => "ada@example.com", "hashed" => true});
+$again = register(Browser($db, $config), "ADA@example.com", $password);
+expect("the same email can't register twice", [$again["status"], contains(text_of($again), "An account with that email already exists")], [422, true]);
+expect("a logged in user is sent home from the login page", location_of($browser.get("/login")), "/");
+
+/* --- Todos --- */
+$token = token_in($browser.get("/"));
+$added = $browser.post("/todos", {"_csrf" => $token, "title" => "<script>alert(1)</script> write the app"});
+expect("adding a todo goes home", [$added["status"], location_of($added)], [303, "/"]);
+$list = text_of($browser.get("/"));
+expect("a todo is shown escaped", [contains($list, "&lt;script&gt;alert(1)&lt;/script&gt; write the app"), contains($list, "<script>alert(1)")], [true, false]);
+expect("the add is acknowledged", contains($list, "Added."), true);
+$blank = $browser.post("/todos", {"_csrf" => $token, "title" => "   "});
+expect("a blank todo is refused", [$blank["status"], contains(text_of($blank), "Write something to do")], [422, true]);
+$long = $browser.post("/todos", {"_csrf" => $token, "title" => repeat("x", 201)});
+expect("a title over 200 characters is refused", $long["status"], 422);
+expect("200 multibyte characters are fine", $browser.post("/todos", {"_csrf" => $token, "title" => repeat("\u{1f600}", 200)})["status"], 303);
+expect("invalid UTF-8 is refused, not a server error", $browser.post("/todos", {"_csrf" => $token, "title" => "\xff\xfe"})["status"], 422);
+expect("a NUL byte is refused", $browser.post("/todos", {"_csrf" => $token, "title" => "a\0b"})["status"], 422);
+$id = $db.value(db::sql"select id from todos where title like '%write the app'");
+$toggled = $browser.post("/todos/{$id}/toggle", {"_csrf" => $token});
+expect("toggling goes home", [$toggled["status"], location_of($toggled)], [303, "/"]);
+expect("the todo is done", $db.value(db::sql"select done from todos where id = {$id}"), true);
+expect("done todos go below the open ones", $db.query(db::sql"select title from todos order by done, created_at desc, id desc")[0]["title"], repeat("\u{1f600}", 200));
+$edit = $browser.get("/todos/{$id}/edit");
+expect("the edit page holds the title", [$edit["status"], contains(text_of($edit), "write the app")], [200, true]);
+$saved = $browser.post("/todos/{$id}", {"_csrf" => $token, "title" => "renamed"});
+expect("saving goes home", [$saved["status"], $db.value(db::sql"select title from todos where id = {$id}")], [303, "renamed"]);
+expect("an empty rename is refused", $browser.post("/todos/{$id}", {"_csrf" => $token, "title" => ""})["status"], 422);
+expect("a todo that isn't there", [$browser.post("/todos/999999/toggle", {"_csrf" => $token})["status"], $browser.get("/todos/999999/edit")["status"]], [404, 404]);
+expect("an id that isn't a number", $browser.post("/todos/abc/toggle", {"_csrf" => $token})["status"], 404);
+expect("an id too large for an int", $browser.post("/todos/9223372036854775808/toggle", {"_csrf" => $token})["status"], 404);
+$wrong_method = $browser.get("/todos/{$id}/toggle");
+expect("toggling needs a POST", [$wrong_method["status"], $wrong_method["headers"]["Allow"]], [405, "POST"]);
+
+/* --- One user can't reach another's todos --- */
+$bob = Browser($db, $config);
+register($bob, "bob@example.com", "another long password");
+$bob_token = token_in($bob.get("/"));
+expect("Bob can't toggle Ada's todo", $bob.post("/todos/{$id}/toggle", {"_csrf" => $bob_token})["status"], 404);
+expect("Bob can't open it", $bob.get("/todos/{$id}/edit")["status"], 404);
+expect("Bob can't rename it", $bob.post("/todos/{$id}", {"_csrf" => $bob_token, "title" => "mine now"})["status"], 404);
+expect("Bob can't delete it", $bob.post("/todos/{$id}/delete", {"_csrf" => $bob_token})["status"], 404);
+expect("and it is unchanged", $db.row(db::sql"select title, done from todos where id = {$id}"), {"title" => "renamed", "done" => true});
+expect("Bob sees none of Ada's todos", contains(text_of($bob.get("/")), "Nothing to do"), true);
+
+/* --- Deleting --- */
+$deleted = $browser.post("/todos/{$id}/delete", {"_csrf" => $token});
+expect("Ada deletes her todo", [$deleted["status"], $db.value(db::sql"select count(*) from todos where id = {$id}")], [303, 0]);
+
+/* --- Logging in and out --- */
+$caller = Browser($db, $config);
+$caller_token = token_in($caller.get("/login"));
+$wrong = $caller.post("/login", {"_csrf" => $caller_token, "email" => "ada@example.com", "password" => "not the password"});
+$unknown = $caller.post("/login", {"_csrf" => $caller_token, "email" => "nobody@example.com", "password" => "not the password"});
+expect("a wrong password", [$wrong["status"], contains(text_of($wrong), "Wrong email or password")], [401, true]);
+expect("an unknown email says the same", [$unknown["status"], contains(text_of($unknown), "Wrong email or password")], [401, true]);
+expect("blank fields", $caller.post("/login", {"_csrf" => $caller_token, "email" => "", "password" => ""})["status"], 401);
+expect("an email with invalid UTF-8 is a login failure, not an error", $caller.post("/login", {"_csrf" => $caller_token, "email" => "\xff@x.co", "password" => "x"})["status"], 401);
+expect("SQL in the email is only text", $caller.post("/login", {"_csrf" => $caller_token, "email" => "' or 1=1 --", "password" => "x"})["status"], 401);
+$before = $caller.cookie("session");
+$logged_in = $caller.post("/login", {"_csrf" => $caller_token, "email" => "ada@example.com", "password" => $password});
+expect("logging in goes home", [$logged_in["status"], location_of($logged_in)], [303, "/"]);
+expect("logging in gives a new session", $caller.cookie("session") != $before, true);
+expect("and the old token no longer works", $caller.post("/todos", {"_csrf" => $caller_token, "title" => "x"})["status"], 403);
+$token = token_in($caller.get("/"));
+$out = $caller.post("/logout", {"_csrf" => $token});
+expect("logging out goes to the login page", [$out["status"], location_of($out)], [303, "/login"]);
+expect("and the home page asks again", location_of($caller.get("/")), "/login");
+expect("logging out needs the token too", $caller.post("/logout", {})["status"], 403);
+
+/* --- Guessing: five wrong passwords lock an email for a while, whoever is right --- */
+$guesser = Browser($db, $config);
+$guess_token = token_in($guesser.get("/login"));
+foreach ([1, 2, 3, 4, 5] as $attempt) {
+    expect("wrong password number {$attempt}", $guesser.post("/login", {"_csrf" => $guess_token, "email" => "ada@example.com", "password" => "guess {$attempt} guess"})["status"], 401);
+}
+$locked = $guesser.post("/login", {"_csrf" => $guess_token, "email" => "ada@example.com", "password" => $password});
+expect("the sixth attempt is refused, even with the right password", [$locked["status"], contains(text_of($locked), "Too many attempts")], [429, true]);
+expect("other emails are not locked", $guesser.post("/login", {"_csrf" => $guess_token, "email" => "bob@example.com", "password" => "another long password"})["status"], 303);
+$stranger = Browser($db, $config);
+$counted = $db.value(db::sql"select count(*) from login_failures where email = 'nobody@example.com'");
+expect("an email nobody has is counted too, so it can't be told apart", [
+    $stranger.post("/login", {"_csrf" => token_in($stranger.get("/login")), "email" => "nobody@example.com", "password" => "x"})["status"],
+    $db.value(db::sql"select count(*) from login_failures where email = 'nobody@example.com'") - $counted,
+], [401, 1]);
+$db.exec(db::sql"update login_failures set failed_at = now() - interval '16 minutes' where email = 'ada@example.com'");
+$returning = Browser($db, $config);
+expect("after the window the email can log in again", $returning.post("/login", {"_csrf" => token_in($returning.get("/login")), "email" => "ada@example.com", "password" => $password})["status"], 303);
+expect("and a good login clears the count", $db.value(db::sql"select count(*) from login_failures where email = 'ada@example.com'"), 0);
+
+/* --- Hostile requests --- */
+$evil = Browser($db, $config);
+$evil_token = token_in($evil.get("/login"));
+expect("a form from another site", $evil.post("/login", {"_csrf" => $evil_token, "email" => "a", "password" => "b"}, {"origin" => "http://evil.example"})["status"], 403);
+expect("a form from this site", $evil.post("/login", {"_csrf" => $evil_token, "email" => "a", "password" => "b"}, {"origin" => "http://example.test"})["status"], 401);
+$evil.forget("session");
+expect("a token from another session", $evil.post("/login", {"_csrf" => $evil_token, "email" => "a", "password" => "b"})["status"], 403);
+$forged = Browser($db, $config);
+$forged.get("/login");
+expect("a session the app didn't sign", $forged.get("/", {"cookie" => "session=%7B%22user_id%22%3A1%7D.AAAA"})["status"], 303);
+expect("a body that isn't a form", Browser($db, $config).post("/login", {}, {"content-type" => "application/json"})["status"], 403);
+expect("a path out of the static directory", Browser($db, $config).get("/..%2fmain.gaz")["status"], 404);
+expect("the stylesheet", [Browser($db, $config).get("/style.css")["status"], Browser($db, $config).get("/style.css")["headers"]["Content-Type"]], [200, "text/css"]);
+expect("a page that doesn't exist", Browser($db, $config).get("/nothing-here")["status"], 404);
+
+test::done();

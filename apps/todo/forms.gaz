@@ -1,0 +1,136 @@
+/*
+ * What a form sends, read and checked: a kind for each form, built from the request, with errors()
+ * giving a map of field to message, empty when the form is good. A request that isn't a form at
+ * all reads as one with every field blank, so it fails the same checks and nothing else.
+ */
+namespace todo;
+
+include "std/http.gaz";
+include "std/regex.gaz";
+include "utf8.gaz";
+include "todos.gaz";
+
+const MINIMUM_PASSWORD_LENGTH = 10;
+const MAXIMUM_PASSWORD_LENGTH = 256;
+const MAXIMUM_EMAIL_LENGTH = 254;
+const EMAIL_PATTERN = '[^@ ]+@[^@ ]+\.[^@ ]+';
+
+// The fields of a form body, or none if the body isn't one
+fn form_fields(map $request): map {
+    try {
+        return http::form($request);
+    } catch (Error $e) {
+        return {};
+    }
+}
+
+fn field(map $fields, string $name): string {
+    $value = $fields[$name] ?? "";
+
+    return type_of($value) == "string" ? $value : "";
+}
+
+fn has_control_character(string $text): bool {
+    foreach (split($text, "") as $byte) {
+        if (ord($byte) < 32 || ord($byte) == 127) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// Text a person typed on one line: well formed UTF-8, since the database refuses anything else, and no control characters
+fn is_plain_text(string $text): bool {
+    return utf8_valid($text) && !has_control_character($text);
+}
+
+kind RegistrationForm {
+    fn _(pub string #email, pub string #password, pub string #confirmation) {}
+
+    pub static fn from_request(map $request): RegistrationForm {
+        $fields = form_fields($request);
+
+        return RegistrationForm(lower(trim(field($fields, "email"))), field($fields, "password"), field($fields, "confirmation"));
+    }
+
+    pub fn errors(): map {
+        $errors = {};
+        $email = #email_error();
+        if ($email != null) {
+            $errors["email"] = $email;
+        }
+        $password = #password_error();
+        if ($password != null) {
+            $errors["password"] = $password;
+        }
+        if ($password == null && #confirmation != #password) {
+            $errors["confirmation"] = "The two passwords are not the same";
+        }
+
+        return $errors;
+    }
+
+    fn email_error(): ?string {
+        if (#email == "") {
+            return "Enter your email address";
+        }
+        if (len(#email) > MAXIMUM_EMAIL_LENGTH || !is_plain_text(#email) || !regex::matches(#email, EMAIL_PATTERN)) {
+            return "That doesn't look like an email address";
+        }
+
+        return null;
+    }
+
+    fn password_error(): ?string {
+        if (!utf8_valid(#password)) {
+            return "Use letters, digits and symbols only";
+        }
+        if (utf8_length(#password) < MINIMUM_PASSWORD_LENGTH) {
+            return "Use at least " .. MINIMUM_PASSWORD_LENGTH .. " characters";
+        }
+        if (len(#password) > MAXIMUM_PASSWORD_LENGTH) {
+            return "Use at most " .. MAXIMUM_PASSWORD_LENGTH .. " characters";
+        }
+
+        return null;
+    }
+}
+
+kind LoginForm {
+    fn _(pub string #email, pub string #password) {}
+
+    pub static fn from_request(map $request): LoginForm {
+        $fields = form_fields($request);
+
+        return LoginForm(lower(trim(field($fields, "email"))), field($fields, "password"));
+    }
+
+    // Blank fields only: whether the pair is right is the login's to say, and it says the same thing for both
+    pub fn errors(): map {
+        if (#email == "" || #password == "" || len(#password) > MAXIMUM_PASSWORD_LENGTH || !is_plain_text(#email)) {
+            return {"login" => "Enter your email address and password"};
+        }
+
+        return {};
+    }
+}
+
+kind TodoForm {
+    fn _(pub string #title) {}
+
+    pub static fn from_request(map $request): TodoForm {
+        return TodoForm(trim(field(form_fields($request), "title")));
+    }
+
+    pub fn errors(): map {
+        if (#title == "") {
+            return {"title" => "Write something to do"};
+        }
+        if (!is_plain_text(#title) || utf8_length(#title) > MAX_TITLE_LENGTH) {
+            return {"title" => "Keep it to " .. MAX_TITLE_LENGTH .. " characters on one line"};
+        }
+
+        return {};
+    }
+}

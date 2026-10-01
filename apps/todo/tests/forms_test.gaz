@@ -1,0 +1,55 @@
+/* What the forms accept and say, without a request in the way */
+namespace todo;
+
+include "std/test.gaz" use expect;
+include "../forms.gaz";
+
+fn form_request($body) {
+    return {"method" => "POST", "path" => "/", "query" => "", "headers" => {"content-type" => "application/x-www-form-urlencoded"}, "body" => $body};
+}
+
+fn registration($email, $password, $confirmation = null) {
+    return RegistrationForm($email, $password, $confirmation ?? $password);
+}
+
+/* Registration */
+expect("a good registration", registration("ada@example.com", "correct horse battery").errors(), {});
+expect("an email is needed", registration("", "correct horse battery").errors(), {"email" => "Enter your email address"});
+foreach (["nope", "a@b", "@example.com", "a b@example.com", "a@@example.com", "ada@example.", "a\x07@example.com", "\xff@example.com", repeat("a", 250) .. "@example.com"] as $email) {
+    expect("not an email: " .. slice(to_string([$email]), 1, -1), registration($email, "correct horse battery").errors(), {"email" => "That doesn't look like an email address"});
+}
+expect("a password under ten characters", registration("ada@example.com", "123456789").errors(), {"password" => "Use at least 10 characters"});
+expect("ten characters, counted as characters", registration("ada@example.com", repeat("\xc3\xa9", 10)).errors(), {});
+expect("nine multibyte characters are nine", registration("ada@example.com", repeat("\xc3\xa9", 9)).errors(), {"password" => "Use at least 10 characters"});
+expect("a password over 256 bytes", registration("ada@example.com", repeat("x", 257)).errors(), {"password" => "Use at most 256 characters"});
+expect("a password that isn't text", registration("ada@example.com", "\xff\xfe\xff\xfe\xff\xfe\xff\xfe\xff\xfe").errors(), {"password" => "Use letters, digits and symbols only"});
+expect("the confirmation must match", registration("ada@example.com", "correct horse battery", "correct horse batter").errors(), {"confirmation" => "The two passwords are not the same"});
+
+/* Reading a request */
+$read = RegistrationForm::from_request(form_request("email=%20Ada%40Example.COM%20&password=correct+horse&confirmation=x"));
+expect("an email is trimmed and lower cased, a password is not", [$read.email, $read.password], ["ada@example.com", "correct horse"]);
+$blank = RegistrationForm::from_request({"method" => "POST", "path" => "/", "query" => "", "headers" => {"content-type" => "application/json"}, "body" => "{\"email\":\"ada@example.com\"}"});
+expect("a body that isn't a form has every field blank", [$blank.email, $blank.password], ["", ""]);
+$array = RegistrationForm::from_request(form_request("email[]=a&email[]=b"));
+expect("email[] is another key, so the field is blank", $array.email, "");
+$twice = RegistrationForm::from_request(form_request("email=a%40b.co&email=c%40d.co"));
+expect("a field given twice keeps the last value", $twice.email, "c@d.co");
+$missing = TodoForm::from_request(form_request(""));
+expect("a missing field is blank", $missing.title, "");
+
+/* Login */
+expect("a login with both fields", LoginForm("ada@example.com", "x").errors(), {});
+expect("a blank login", LoginForm("", "").errors(), {"login" => "Enter your email address and password"});
+expect("an email that isn't text is a failed login, not an error", LoginForm("\xff", "x").errors(), {"login" => "Enter your email address and password"});
+expect("a huge password isn't hashed", LoginForm("a@b.co", repeat("x", 257)).errors(), {"login" => "Enter your email address and password"});
+
+/* Todos */
+expect("a title", TodoForm("buy milk").errors(), {});
+expect("a title is needed", TodoForm("").errors(), {"title" => "Write something to do"});
+expect("200 characters", TodoForm(repeat("x", 200)).errors(), {});
+expect("201 characters", TodoForm(repeat("x", 201)).errors(), {"title" => "Keep it to 200 characters on one line"});
+expect("200 emoji", TodoForm(repeat("\xf0\x9f\x98\x80", 200)).errors(), {});
+foreach (["a\nb", "a\tb", "a\0b", "a\x7fb", "\xff"] as $title) {
+    expect("not a title: " .. slice(to_string([$title]), 1, -1), TodoForm($title).errors(), {"title" => "Keep it to 200 characters on one line"});
+}
+test::done();

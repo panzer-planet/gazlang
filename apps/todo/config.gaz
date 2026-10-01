@@ -1,0 +1,27 @@
+/*
+ * What the app is told by its environment: where the database is, the secret that signs sessions,
+ * and how to listen. Nothing is read anywhere else, so a test builds a Config by hand.
+ */
+namespace todo;
+
+const DEFAULT_PORT = 8080;
+const DEFAULT_WORKERS = 4;
+const MINIMUM_SECRET_LENGTH = 32;
+
+kind Config {
+    fn _(pub string #database_url, pub string #secret, pub string #host, pub int #port, pub int #workers, pub bool #secure_cookies, pub map #password_options = {}) {}
+
+    // The Config the environment describes, or an error saying what is missing
+    pub static fn from_environment(): Config {
+        $database_url = getenv("DATABASE_URL") ?? throw "DATABASE_URL is not set, e.g. postgres:///gaz_todo";
+        $secret = getenv("SESSION_SECRET") ?? throw "SESSION_SECRET is not set: use a long random string";
+        if (len($secret) < MINIMUM_SECRET_LENGTH) {
+            throw "SESSION_SECRET must be at least " .. MINIMUM_SECRET_LENGTH .. " bytes";
+        }
+        $host = getenv("HOST") ?? "127.0.0.1";
+        $port = to_int(getenv("PORT") ?? DEFAULT_PORT, null) ?? throw "PORT is not a whole number";
+        $workers = to_int(getenv("WORKERS") ?? DEFAULT_WORKERS, null) ?? throw "WORKERS is not a whole number";
+
+        return Config($database_url, $secret, $host, $port, $workers, getenv("SECURE_COOKIES") == "1");
+    }
+}

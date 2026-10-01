@@ -1,0 +1,47 @@
+/*
+ * Users: the User a row of the users table is, and the Users repository that finds and makes them.
+ * A row is turned into a User by hand, in one place (User::from_row), and nothing is fetched behind
+ * a program's back.
+ */
+namespace todo;
+
+include "std/db.gaz";
+
+kind User {
+    fn _(pub int #id, pub string #email, pub string #password_hash, pub string #created_at) {}
+
+    pub static fn from_row(map $row): User {
+        return User($row["id"], $row["email"], $row["password_hash"], $row["created_at"]);
+    }
+}
+
+kind Users {
+    fn _(#db) {}
+
+    fn columns() {
+        return db::raw("id, email, password_hash, created_at::text as created_at");
+    }
+
+    pub fn find(int $id): ?User {
+        $columns = #columns();
+        $row = #db.row(db::sql"select {$columns} from users where id = {$id}");
+
+        return $row == null ? null : User::from_row($row);
+    }
+
+    pub fn find_by_email(string $email): ?User {
+        $columns = #columns();
+        $row = #db.row(db::sql"select {$columns} from users where email = {$email}");
+
+        return $row == null ? null : User::from_row($row);
+    }
+
+    // The new User, or null when the email is taken: the database decides, so two at once can't both win
+    pub fn create(string $email, string $password_hash): ?User {
+        $columns = #columns();
+        $row = #db.row(db::sql"insert into users (email, password_hash) values ({$email}, {$password_hash})
+            on conflict (email) do nothing returning {$columns}");
+
+        return $row == null ? null : User::from_row($row);
+    }
+}

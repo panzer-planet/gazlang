@@ -1,0 +1,47 @@
+/*
+ * The database: opening it, and bringing its schema up to date from the .sql files in a directory,
+ * in name order, each once, recorded in schema_migrations. A migration runs in a transaction, so
+ * one that fails leaves nothing half done.
+ */
+namespace todo;
+
+include "std/db.gaz";
+
+const MIGRATIONS_TABLE = "schema_migrations";
+
+pub fn connect(string $url) {
+    return db::open($url);
+}
+
+// Apply the migrations in $directory that have not been applied; gives the names it applied
+pub fn migrate($db, string $directory): list {
+    $db.exec(db::raw("create table if not exists " .. MIGRATIONS_TABLE .. " (version text primary key, applied_at timestamptz not null default now())"));
+    $applied = applied_versions($db);
+    $now_applied = [];
+    foreach (list_dir($directory) as $file) {
+        if (!ends_with($file, ".sql") || has_key($applied, $file)) {
+            continue;
+        }
+        apply($db, $file, read_file($directory .. "/" .. $file));
+        $now_applied[] = $file;
+    }
+
+    return $now_applied;
+}
+
+// The versions already applied, as a map for asking has_key
+fn applied_versions($db): map {
+    $versions = {};
+    foreach ($db.query(db::raw("select version from " .. MIGRATIONS_TABLE)) as $row) {
+        $versions[$row["version"]] = true;
+    }
+
+    return $versions;
+}
+
+fn apply($db, string $version, string $script) {
+    $db.transaction($db -> {
+        $db.exec(db::raw($script));
+        $db.exec(db::sql"insert into schema_migrations (version) values ({$version})");
+    });
+}

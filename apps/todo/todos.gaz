@@ -1,0 +1,65 @@
+/*
+ * Todos: the Todo a row of the todos table is, and the Todos repository. Every query that names a
+ * todo also names the user it belongs to, so a todo can't be reached through another user's id.
+ */
+namespace todo;
+
+include "std/db.gaz";
+
+const MAX_TITLE_LENGTH = 200;
+
+kind Todo {
+    fn _(pub int #id, pub int #user_id, pub string #title, pub bool #done, pub string #created_at) {}
+
+    pub static fn from_row(map $row): Todo {
+        return Todo($row["id"], $row["user_id"], $row["title"], $row["done"], $row["created_at"]);
+    }
+}
+
+kind Todos {
+    fn _(#db) {}
+
+    fn columns() {
+        return db::raw("id, user_id, title, done, created_at::text as created_at");
+    }
+
+    pub fn for_user(int $user_id): list {
+        $columns = #columns();
+        $rows = #db.query(db::sql"select {$columns} from todos where user_id = {$user_id} order by done, created_at desc, id desc");
+
+        return map($rows, $row -> Todo::from_row($row));
+    }
+
+    pub fn find(int $user_id, int $id): ?Todo {
+        $columns = #columns();
+        $row = #db.row(db::sql"select {$columns} from todos where user_id = {$user_id} and id = {$id}");
+
+        return $row == null ? null : Todo::from_row($row);
+    }
+
+    pub fn add(int $user_id, string $title): Todo {
+        $columns = #columns();
+
+        return Todo::from_row(#db.row(db::sql"insert into todos (user_id, title) values ({$user_id}, {$title}) returning {$columns}"));
+    }
+
+    // The todo with its done flag turned over, or null if the user has no such todo
+    pub fn toggle(int $user_id, int $id): ?Todo {
+        $columns = #columns();
+        $row = #db.row(db::sql"update todos set done = not done where user_id = {$user_id} and id = {$id} returning {$columns}");
+
+        return $row == null ? null : Todo::from_row($row);
+    }
+
+    pub fn rename(int $user_id, int $id, string $title): ?Todo {
+        $columns = #columns();
+        $row = #db.row(db::sql"update todos set title = {$title} where user_id = {$user_id} and id = {$id} returning {$columns}");
+
+        return $row == null ? null : Todo::from_row($row);
+    }
+
+    // Whether there was such a todo to remove
+    pub fn remove(int $user_id, int $id): bool {
+        return #db.exec(db::sql"delete from todos where user_id = {$user_id} and id = {$id}") > 0;
+    }
+}

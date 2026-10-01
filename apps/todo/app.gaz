@@ -1,0 +1,209 @@
+/*
+ * The app: its pages and what they do, and build_app(), which puts them behind the middleware
+ * in a Router that http::serve() takes as its handler.
+ *
+ * A handler is a method that takes the request and gives a response. To change the session it adds
+ * "session" to the response (see middleware.gaz).
+ */
+namespace todo;
+
+include "std/http.gaz";
+include "std/web.gaz";
+include "std/crypto.gaz";
+include "config.gaz";
+include "database.gaz";
+include "users.gaz";
+include "todos.gaz";
+include "forms.gaz";
+include "auth.gaz";
+include "throttle.gaz";
+include "responses.gaz";
+include "middleware.gaz";
+include "views/layout.gazml";
+include "views/register.gazml";
+include "views/login.gazml";
+include "views/todos.gazml";
+include "views/edit.gazml";
+
+// A page inside the layout
+fn render(map $request, string $title, Html $body, int $status = 200): map {
+    return page(layout($title, $request["flash"], $request["user"], $request["session"]["csrf_token"], $body), $status);
+}
+
+fn csrf_token(map $request): string {
+    return $request["session"]["csrf_token"];
+}
+
+fn not_found(map $request): map {
+    return render($request, "Not found", web::html"<h1>Not found</h1><p><a href=\"/\">Back to your todos</a></p>", 404);
+}
+
+fn with_session(map $response, map $session): map {
+    return {...$response, "session" => $session};
+}
+
+// A new session for a user who has just proved who they are: nothing of the old one is kept
+fn login_session(int $user_id, string $message): map {
+    return {"user_id" => $user_id, "csrf_token" => crypto::token(), "flash" => $message};
+}
+
+// This request's session with a message for the next page
+fn flashing(map $request, string $message): map {
+    $session = $request["session"];
+    $session["flash"] = $message;
+
+    return $session;
+}
+
+kind Handlers {
+    fn _(#todos, #auth, #throttle) {}
+
+    // --- Accounts ---
+
+    pub fn register_form(map $request): map {
+        if ($request["user"] != null) {
+            return redirect("/");
+        }
+
+        return render($request, "Register", register_page(csrf_token($request), RegistrationForm("", "", ""), {}));
+    }
+
+    pub fn register(map $request): map {
+        $form = RegistrationForm::from_request($request);
+        $errors = $form.errors();
+        if (len($errors) == 0) {
+            $user = #auth.register($form);
+            if ($user != null) {
+                return with_session(redirect("/"), login_session($user.id, "Welcome! Your account is ready."));
+            }
+            $errors["taken"] = "An account with that email already exists";
+        }
+
+        return render($request, "Register", register_page(csrf_token($request), $form, $errors), 422);
+    }
+
+    pub fn login_form(map $request): map {
+        if ($request["user"] != null) {
+            return redirect("/");
+        }
+
+        return render($request, "Log in", login_page(csrf_token($request), LoginForm("", ""), {}));
+    }
+
+    pub fn login(map $request): map {
+        $form = LoginForm::from_request($request);
+        $errors = $form.errors();
+        if (len($errors) == 0 && #throttle.blocked($form.email)) {
+            return render($request, "Log in", login_page(csrf_token($request), $form, {"login" => "Too many attempts. Try again in a few minutes."}), 429);
+        }
+        if (len($errors) == 0) {
+            $user = #auth.authenticate($form);
+            if ($user != null) {
+                #throttle.clear($form.email);
+
+                return with_session(redirect("/"), login_session($user.id, "You are logged in."));
+            }
+            #throttle.record_failure($form.email);
+            $errors["login"] = "Wrong email or password";
+        }
+
+        return render($request, "Log in", login_page(csrf_token($request), $form, $errors), 401);
+    }
+
+    pub fn logout(map $request): map {
+        return with_session(redirect("/login"), {"csrf_token" => crypto::token(), "flash" => "You have been logged out."});
+    }
+
+    // --- Todos ---
+
+    pub fn home(map $request): map {
+        return #list($request, TodoForm(""), {}, 200);
+    }
+
+    fn list(map $request, TodoForm $form, map $errors, int $status): map {
+        $todos = #todos.for_user($request["user"].id);
+
+        return render($request, "Your todos", todos_page(csrf_token($request), $todos, $form, $errors), $status);
+    }
+
+    pub fn create(map $request): map {
+        $form = TodoForm::from_request($request);
+        $errors = $form.errors();
+        if (len($errors) > 0) {
+            return #list($request, $form, $errors, 422);
+        }
+        #todos.add($request["user"].id, $form.title);
+
+        return with_session(redirect("/"), flashing($request, "Added."));
+    }
+
+    pub fn toggle(map $request): map {
+        $id = #todo_id($request);
+        $todo = $id == null ? null : #todos.toggle($request["user"].id, $id);
+
+        return $todo == null ? not_found($request) : redirect("/");
+    }
+
+    pub fn remove(map $request): map {
+        $id = #todo_id($request);
+        $removed = $id != null && #todos.remove($request["user"].id, $id);
+
+        return $removed ? with_session(redirect("/"), flashing($request, "Deleted.")) : not_found($request);
+    }
+
+    pub fn edit_form(map $request): map {
+        $id = #todo_id($request);
+        $todo = $id == null ? null : #todos.find($request["user"].id, $id);
+        if ($todo == null) {
+            return not_found($request);
+        }
+
+        return render($request, "Edit todo", edit_page(csrf_token($request), $todo.id, TodoForm($todo.title), {}));
+    }
+
+    pub fn update(map $request): map {
+        $id = #todo_id($request);
+        $form = TodoForm::from_request($request);
+        $errors = $form.errors();
+        if ($id == null) {
+            return not_found($request);
+        }
+        if (len($errors) > 0) {
+            return render($request, "Edit todo", edit_page(csrf_token($request), $id, $form, $errors), 422);
+        }
+        $todo = #todos.rename($request["user"].id, $id, $form.title);
+
+        return $todo == null ? not_found($request) : with_session(redirect("/"), flashing($request, "Saved."));
+    }
+
+    // The id in the path, or null if it isn't a whole number
+    fn todo_id(map $request): ?int {
+        return to_int($request["params"]["id"], null);
+    }
+}
+
+// The Router for the app, to be given to http::serve()
+pub fn build_app(Config $config, $db) {
+    $users = Users($db);
+    $handlers = Handlers(Todos($db), Auth($users, $config.password_options), LoginThrottle($db));
+    $app = http::Router();
+    $app.use(security_headers);
+    $app.use(sessions($config.secret, $config.secure_cookies));
+    $app.use(csrf_protection);
+    $app.use(authentication($users));
+
+    $app.get("/", authenticated($handlers.home));
+    $app.get("/register", $handlers.register_form);
+    $app.post("/register", $handlers.register);
+    $app.get("/login", $handlers.login_form);
+    $app.post("/login", $handlers.login);
+    $app.post("/logout", $handlers.logout);
+    $app.post("/todos", authenticated($handlers.create));
+    $app.get("/todos/:id/edit", authenticated($handlers.edit_form));
+    $app.post("/todos/:id", authenticated($handlers.update));
+    $app.post("/todos/:id/toggle", authenticated($handlers.toggle));
+    $app.post("/todos/:id/delete", authenticated($handlers.remove));
+    $app.not_found(http::serve_static("public"));
+
+    return $app;
+}

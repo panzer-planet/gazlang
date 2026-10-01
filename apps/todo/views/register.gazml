@@ -1,0 +1,28 @@
+@template register_page(string $csrf, $form, map $errors)
+<h1>Create an account</h1>
+<form method="post" action="/register" novalidate>
+<input type="hidden" name="_csrf" value="{{ $csrf }}">
+<label>Email
+<input type="email" name="email" value="{{ $form.email }}" autocomplete="email" required autofocus>
+</label>
+@if (has_key($errors, "email"))
+<p class="error">{{ $errors["email"] }}</p>
+@endif
+<label>Password
+<input type="password" name="password" autocomplete="new-password" required>
+</label>
+@if (has_key($errors, "password"))
+<p class="error">{{ $errors["password"] }}</p>
+@endif
+<label>Password again
+<input type="password" name="confirmation" autocomplete="new-password" required>
+</label>
+@if (has_key($errors, "confirmation"))
+<p class="error">{{ $errors["confirmation"] }}</p>
+@endif
+@if (has_key($errors, "taken"))
+<p class="error">{{ $errors["taken"] }}</p>
+@endif
+<button type="submit">Register</button>
+</form>
+<p>Already have an account? <a href="/login">Log in</a></p>

@@ -1,0 +1,37 @@
+/*
+ * The todo app. Run it from this directory, with the environment saying where things are:
+ *
+ *   DATABASE_URL=postgres:///gaz_todo SESSION_SECRET=<32 or more random bytes> ../../bin/gaz main.gaz
+ *
+ * Also read: HOST (127.0.0.1), PORT (8080), WORKERS (4), SECURE_COOKIES (1 to mark the session
+ * cookie Secure, for use behind HTTPS) and MIGRATIONS (migrations, a directory of .sql files).
+ * The schema is brought up to date before it listens.
+ */
+namespace todo;
+
+include "std/http.gaz";
+include "app.gaz";
+
+const REQUEST_BODY_LIMIT = 32768;
+const REQUESTS_PER_WORKER = 5000;
+
+$config = Config::from_environment();
+
+// Migrate on a connection of its own, closed before the workers start
+$setup = connect($config.database_url);
+foreach (migrate($setup, getenv("MIGRATIONS") ?? "migrations") as $migration) {
+    echo "migrated " .. $migration;
+}
+LoginThrottle($setup).purge();
+$setup.close();
+
+$listener = socket_listen($config.host, $config.port);
+echo "listening on http://" .. $config.host .. ":" .. socket_port($listener);
+workers($config.workers);
+
+// Each worker has a connection of its own: one opened before the fork would be shared by all of them
+$db = connect($config.database_url);
+http::serve($listener, build_app($config, $db).handler(), {
+    "max_body" => REQUEST_BODY_LIMIT,
+    "max_requests" => REQUESTS_PER_WORKER,
+});

@@ -1,0 +1,106 @@
+/*
+ * What the app's tests share: a database made fresh, and a Browser that talks to the app's router
+ * as one does, keeping the cookies it is given, so a test reads like a person using the site.
+ * Nothing here is a test (it isn't named *_test.gaz), so `gaz test` doesn't run it.
+ */
+namespace todo;
+
+include "std/http.gaz";
+include "std/regex.gaz";
+include "std/db.gaz";
+include "../app.gaz";
+
+const TEST_DATABASE = "postgres:///gaz_todo_test";
+const CHEAP_PASSWORDS = {"m" => 64, "t" => 1, "p" => 1};
+const TEST_SECRET = "a-secret-for-tests-that-is-long-enough";
+
+// The test database with the schema up to date and no rows
+fn fresh_database() {
+    $db = connect(getenv("TODO_TEST_DATABASE_URL") ?? TEST_DATABASE);
+    migrate($db, "migrations");
+    $db.exec(db::raw("truncate users, login_failures restart identity cascade"));
+
+    return $db;
+}
+
+fn test_config(): Config {
+    return Config("unused", TEST_SECRET, "127.0.0.1", 0, 1, false, CHEAP_PASSWORDS);
+}
+
+kind Browser {
+    #handler;
+    #cookies = {};
+
+    fn _($db, Config $config) {
+        #handler = build_app($config, $db).handler();
+    }
+
+    pub fn get(string $target, map $headers = {}): map {
+        return #send("GET", $target, null, $headers);
+    }
+
+    pub fn post(string $target, map $fields, map $headers = {}): map {
+        return #send("POST", $target, $fields, $headers);
+    }
+
+    // A request made with the cookies this browser has, and the cookies the response sets kept
+    fn send(string $method, string $target, ?map $fields, map $headers): map {
+        $question = index_of($target, "?");
+        $path = $question == null ? $target : slice($target, 0, $question);
+        $query = $question == null ? "" : slice($target, $question + 1);
+        $headers = {...$headers, "host" => "example.test"};
+        if (len(#cookies) > 0) {
+            $headers["cookie"] = join(map(keys(#cookies), $name -> $name .. "=" .. #cookies[$name]), "; ");
+        }
+        $body = "";
+        if ($fields != null) {
+            $headers["content-type"] = "application/x-www-form-urlencoded";
+            $body = join(map(keys($fields), $name -> http::url_encode($name) .. "=" .. http::url_encode($fields[$name])), "&");
+        }
+        $handler = #handler;
+        $response = $handler({"method" => $method, "path" => $path, "query" => $query, "headers" => $headers, "body" => $body});
+        #keep_cookies($response);
+
+        return $response;
+    }
+
+    fn keep_cookies(map $response) {
+        $set = $response["headers"]["Set-Cookie"] ?? [];
+        foreach (type_of($set) == "list" ? $set : [$set] as $line) {
+            $pair = split($line, ";")[0];
+            $equals = index_of($pair, "=");
+            #cookies[slice($pair, 0, $equals)] = slice($pair, $equals + 1);
+        }
+    }
+
+    // The session cookie, as the browser holds it
+    pub fn cookie(string $name): ?string {
+        return #cookies[$name] ?? null;
+    }
+
+    // Take a cookie away, as a browser does when the site is cleared
+    pub fn forget(string $name) {
+        delete #cookies[$name];
+    }
+}
+
+// What a response's body says, as text
+fn text_of(map $response): string {
+    $body = $response["body"] ?? "";
+
+    return type_of($body) == "object" ? $body.text : $body;
+}
+
+fn location_of(map $response): ?string {
+    return $response["headers"]["Location"] ?? null;
+}
+
+// The CSRF token a page's forms carry
+fn token_in(map $response): string {
+    $groups = regex::groups(text_of($response), 'name="_csrf" value="([^"]*)"');
+    if ($groups == null) {
+        throw "no CSRF token on the page";
+    }
+
+    return $groups[1];
+}

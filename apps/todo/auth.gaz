@@ -1,0 +1,30 @@
+/*
+ * Registering and logging in. A login for an email nobody has costs the same as one for a real
+ * user, since it checks the password against a hash made at start-up, so how long it takes
+ * doesn't say which emails have accounts.
+ */
+namespace todo;
+
+include "std/crypto.gaz";
+
+kind Auth {
+    #dummy_hash;
+
+    fn _(#users, #password_options) {
+        #dummy_hash = crypto::hash_password("nobody's password", #password_options);
+    }
+
+    // The new User, or null when the email already has an account
+    pub fn register(RegistrationForm $form): ?User {
+        return #users.create($form.email, crypto::hash_password($form.password, #password_options));
+    }
+
+    // The User whose password this is, or null: the same answer for a wrong password and an unknown email
+    pub fn authenticate(LoginForm $form): ?User {
+        $user = #users.find_by_email($form.email);
+        $stored = $user == null ? #dummy_hash : $user.password_hash;
+        $correct = crypto::verify_password($form.password, $stored);
+
+        return $correct && $user != null ? $user : null;
+    }
+}

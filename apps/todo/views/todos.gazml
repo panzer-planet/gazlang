@@ -1,0 +1,30 @@
+@template todos_page(string $csrf, list $todos, $form, map $errors)
+<h1>Your todos</h1>
+<form method="post" action="/todos" class="add">
+<input type="hidden" name="_csrf" value="{{ $csrf }}">
+<input type="text" name="title" value="{{ $form.title }}" maxlength="200" placeholder="What needs doing?" required>
+<button type="submit">Add</button>
+</form>
+@if (has_key($errors, "title"))
+<p class="error">{{ $errors["title"] }}</p>
+@endif
+@if (len($todos) == 0)
+<p class="empty">Nothing to do. Enjoy it.</p>
+@else
+<ul class="todos">
+@foreach ($todos as $todo)
+<li class="{{ $todo.done ? "done" : "open" }}">
+<form method="post" action="/todos/{{ $todo.id }}/toggle" class="inline">
+<input type="hidden" name="_csrf" value="{{ $csrf }}">
+<button type="submit" class="check" aria-label="{{ $todo.done ? "Mark as not done" : "Mark as done" }}">{{ $todo.done ? "[x]" : "[ ]" }}</button>
+</form>
+<span class="title">{{ $todo.title }}</span>
+<a href="/todos/{{ $todo.id }}/edit">Edit</a>
+<form method="post" action="/todos/{{ $todo.id }}/delete" class="inline">
+<input type="hidden" name="_csrf" value="{{ $csrf }}">
+<button type="submit" class="link danger">Delete</button>
+</form>
+</li>
+@endforeach
+</ul>
+@endif

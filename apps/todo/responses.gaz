@@ -1,0 +1,18 @@
+/*
+ * The responses handlers give: a page, a redirect, a plain error. A response is a map, and an
+ * Html body is sent as text/html.
+ */
+namespace todo;
+
+fn page(Html $body, int $status = 200): map {
+    return {"status" => $status, "body" => $body, "headers" => {"Cache-Control" => "no-store"}};
+}
+
+// See Other, so a browser follows a POST with a GET
+fn redirect(string $to, int $status = 303): map {
+    return {"status" => $status, "headers" => {"Location" => $to}, "body" => ""};
+}
+
+fn plain(int $status, string $text): map {
+    return {"status" => $status, "headers" => {"Content-Type" => "text/plain; charset=utf-8"}, "body" => $text .. "\n"};
+}

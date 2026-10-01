@@ -1,0 +1,30 @@
+@template layout(string $title, ?string $flash, $user, string $csrf, Html $body)
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ $title }} - Todo</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="site">
+<a class="brand" href="/">Todo</a>
+@if ($user != null)
+<form method="post" action="/logout" class="inline">
+<input type="hidden" name="_csrf" value="{{ $csrf }}">
+<span class="who">{{ $user.email }}</span>
+<button type="submit" class="link">Log out</button>
+</form>
+@else
+<nav><a href="/login">Log in</a> <a href="/register">Register</a></nav>
+@endif
+</header>
+<main>
+@if ($flash != null)
+<p class="flash" role="status">{{ $flash }}</p>
+@endif
+{{ $body }}
+</main>
+</body>
+</html>
