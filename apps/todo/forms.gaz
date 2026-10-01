@@ -39,6 +39,12 @@ fn has_control_character(string $text): bool {
     return false;
 }
 
+// Whether well formed text is longer than a limit, counted in characters as the messages say. Text that
+// isn't well formed has no length, so it counts as too long: callers ask for validity first for the message
+fn longer_than(string $text, int $maximum): bool {
+    return !utf8_valid($text) || utf8_length($text) > $maximum;
+}
+
 // Text a person typed on one line: well formed UTF-8, since the database refuses anything else, and no control characters
 fn is_plain_text(string $text): bool {
     return utf8_valid($text) && !has_control_character($text);
@@ -74,7 +80,7 @@ kind RegistrationForm {
         if (#email == "") {
             return "Enter your email address";
         }
-        if (len(#email) > MAXIMUM_EMAIL_LENGTH || !is_plain_text(#email) || !regex::matches(#email, EMAIL_PATTERN)) {
+        if (!is_plain_text(#email) || longer_than(#email, MAXIMUM_EMAIL_LENGTH) || !regex::matches(#email, EMAIL_PATTERN)) {
             return "That doesn't look like an email address";
         }
 
@@ -88,7 +94,7 @@ kind RegistrationForm {
         if (utf8_length(#password) < MINIMUM_PASSWORD_LENGTH) {
             return "Use at least " .. MINIMUM_PASSWORD_LENGTH .. " characters";
         }
-        if (len(#password) > MAXIMUM_PASSWORD_LENGTH) {
+        if (longer_than(#password, MAXIMUM_PASSWORD_LENGTH)) {
             return "Use at most " .. MAXIMUM_PASSWORD_LENGTH .. " characters";
         }
 
@@ -107,7 +113,7 @@ kind LoginForm {
 
     // Blank fields only: whether the pair is right is the login's to say, and it says the same thing for both
     pub fn errors(): map {
-        if (#email == "" || #password == "" || len(#password) > MAXIMUM_PASSWORD_LENGTH || !is_plain_text(#email)) {
+        if (#email == "" || #password == "" || longer_than(#password, MAXIMUM_PASSWORD_LENGTH) || !is_plain_text(#email)) {
             return {"login" => "Enter your email address and password"};
         }
 
@@ -126,7 +132,7 @@ kind TodoForm {
         if (#title == "") {
             return {"title" => "Write something to do"};
         }
-        if (!is_plain_text(#title) || utf8_length(#title) > MAX_TITLE_LENGTH) {
+        if (!is_plain_text(#title) || longer_than(#title, MAX_TITLE_LENGTH)) {
             return {"title" => "Keep it to " .. MAX_TITLE_LENGTH .. " characters on one line"};
         }
 

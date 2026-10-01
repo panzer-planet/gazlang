@@ -21,7 +21,10 @@ foreach (["nope", "a@b", "@example.com", "a b@example.com", "a@@example.com", "a
 expect("a password under ten characters", registration("ada@example.com", "123456789").errors(), {"password" => "Use at least 10 characters"});
 expect("ten characters, counted as characters", registration("ada@example.com", repeat("\xc3\xa9", 10)).errors(), {});
 expect("nine multibyte characters are nine", registration("ada@example.com", repeat("\xc3\xa9", 9)).errors(), {"password" => "Use at least 10 characters"});
-expect("a password over 256 bytes", registration("ada@example.com", repeat("x", 257)).errors(), {"password" => "Use at most 256 characters"});
+expect("a password over 256 characters", registration("ada@example.com", repeat("x", 257)).errors(), {"password" => "Use at most 256 characters"});
+expect("256 multibyte characters are allowed", registration("ada@example.com", repeat("\xc3\xa9", 256)).errors(), {});
+expect("257 multibyte characters are not", registration("ada@example.com", repeat("\xc3\xa9", 257)).errors(), {"password" => "Use at most 256 characters"});
+expect("an email of 254 characters", registration(repeat("a", 242) .. "@example.com", "correct horse battery").errors(), {});
 expect("a password that isn't text", registration("ada@example.com", "\xff\xfe\xff\xfe\xff\xfe\xff\xfe\xff\xfe").errors(), {"password" => "Use letters, digits and symbols only"});
 expect("the confirmation must match", registration("ada@example.com", "correct horse battery", "correct horse batter").errors(), {"confirmation" => "The two passwords are not the same"});
 
@@ -41,6 +44,7 @@ expect("a missing field is blank", $missing.title, "");
 expect("a login with both fields", LoginForm("ada@example.com", "x").errors(), {});
 expect("a blank login", LoginForm("", "").errors(), {"login" => "Enter your email address and password"});
 expect("an email that isn't text is a failed login, not an error", LoginForm("\xff", "x").errors(), {"login" => "Enter your email address and password"});
+expect("a long password in characters is a login to try", LoginForm("a@b.co", repeat("\xc3\xa9", 256)).errors(), {});
 expect("a huge password isn't hashed", LoginForm("a@b.co", repeat("x", 257)).errors(), {"login" => "Enter your email address and password"});
 
 /* Todos */
