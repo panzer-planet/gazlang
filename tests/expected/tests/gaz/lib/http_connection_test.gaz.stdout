@@ -1,0 +1,3 @@
+ok the handler is called for the first request only
+ok one response comes back
+ok saying the connection closes

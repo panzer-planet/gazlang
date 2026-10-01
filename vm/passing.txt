@@ -1027,6 +1027,7 @@ tests/gaz/lib/date_test.gaz
 tests/gaz/lib/db_test.gaz
 tests/gaz/lib/format_test.gaz
 tests/gaz/lib/functional_test.gaz
+tests/gaz/lib/http_connection_test.gaz
 tests/gaz/lib/http_decode_test.gaz
 tests/gaz/lib/http_redirect_test.gaz
 tests/gaz/lib/http_remote_address_test.gaz
