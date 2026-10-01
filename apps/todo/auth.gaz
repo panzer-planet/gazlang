@@ -6,6 +6,8 @@
 namespace todo;
 
 include "std/crypto.gaz";
+include "forms.gaz";
+include "users.gaz";
 
 kind Auth {
     #dummy_hash;
