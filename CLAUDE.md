@@ -245,7 +245,9 @@ code generator, so it differs by design when code generation changes, but a comp
 output depends on how it was itself compiled has a bug. Only then is stage 2 copied over
 `gazlang.gzb` and `bin/gaz` rebuilt, so a broken edit fails at stage 1 or 2 and leaves a
 binary that can compile its fix. Nothing changed means nothing rebuilt.
-`test_make_compiler_rebuilds_the_compiler_without_php` runs it on a copy.
+`test_make_compiler_rebuilds_the_compiler_without_php` runs it on a copy, including an edit that
+changes the code generated (the only way to tell stage 1 checked in from stage 2) and a second run
+that must find nothing to do.
 
 - **`compiler/gazlang.gzb` is checked in because it is the seed**: a fresh clone has nothing else that can
   compile `compiler/`, and the bootstrap should need only a C compiler. It is marked generated in
@@ -459,8 +461,6 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
   - A main file given by an absolute path through a symlinked directory (macOS's `/var`) gives
     include locations that climb to the root and back through the real path.
   - The keyword hint misses `IF (1) { }`, where the error lands at the `{`, past the name.
-  - `CVMTest` doesn't catch `make compiler` checking in stage 1 instead of stage 2: that only
-    shows when an edit changes code generation; a test for it needs a second rebuild and is wanted.
   - Naming a private INSTANCE method through a kind's name (`Tally::m()`, where `m` is a method
     of `Counter` and not a static one) says `Counter::m is not pub`, when the real mistake is that
     `m` is not a static member.

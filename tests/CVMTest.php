@@ -125,6 +125,26 @@ class CVMTest extends TestCase
             $this->assertSame([$rebuilt, '', 0], CVM::processes([["{$dir}/bin/gaz", '-f', '../compiler/gazlang.gzb', '--', 'code', '../compiler/gazlang.gaz']], cwd: "{$dir}/vm")[0]);
             // The VM holds the compiler's bytes as they are, in a C array
             $this->assertStringContainsString($rebuilt, file_get_contents("{$dir}/bin/gaz"), 'bin/gaz was not rebuilt');
+
+            // One that changes the bytecode written (an extra blank line, which the loader
+            // ignores): stage 1 is written by the old code generator, so it differs from stage 2,
+            // and it is stage 2 that is checked in; a second run finds it at its fixed point
+            $codegen = file_get_contents(CVM::ROOT.'/compiler/codegen.gaz');
+            $note = '        // Left out by a program with no static fields';
+            $this->assertStringContainsString($note, $codegen);
+            file_put_contents("{$dir}/compiler/codegen.gaz", str_replace($note, "        \$out ..= \"\\n\";\n".$note, $codegen));
+            [, $err, $code] = $make();
+            $this->assertSame([0, ''], [$code, $err]);
+            $stages = array_map(fn ($n) => file_get_contents("{$dir}/vm/build/bootstrap/stage{$n}.gzb"), [1, 2, 3]);
+            $this->assertNotSame($stages[0], $stages[1], 'the edit should change the code generated');
+            $this->assertSame($stages[1], $stages[2]);
+            $checkedIn = file_get_contents($compiler);
+            $this->assertSame($stages[1], $checkedIn, 'compiler/gazlang.gzb must be stage 2, not stage 1');
+            $this->assertNotSame($rebuilt, $checkedIn);
+            $mtime = filemtime("{$dir}/bin/gaz");
+            [$out, $err, $code] = $make();
+            $this->assertSame([0, '', 'compiler/gazlang.gzb is up to date'.PHP_EOL], [$code, $err, $out]);
+            $this->assertSame([$checkedIn, $mtime], [file_get_contents($compiler), filemtime("{$dir}/bin/gaz")]);
         } finally {
             exec('rm -rf '.escapeshellarg($dir));
         }
