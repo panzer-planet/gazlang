@@ -13,3 +13,9 @@ ok empty lines before a request line are skipped
 ok but no more than four
 ok a connection that sends nothing is closed with nothing said
 ok one that sends part of a request and goes quiet is still a 400
+ok a chunked body with a bare line feed in a chunk extension is refused, and the connection closes
+ok so is a bare carriage return
+ok so is one in a trailer
+ok a good chunked body is read, and the connection goes on
+ok a CRLF after a body, then silence, is answered once and closed quietly
+ok after the idle timeout and not the read timeout

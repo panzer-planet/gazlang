@@ -296,7 +296,7 @@ static bool tls_pending(Socket *s) {
  * a kept-alive connection still stops within about a second.
  *
  * A hang-up or an error counts as something to read, since socket_read() won't wait on either: it
- * gives "" or the error. Linux reports a closed peer as POLLIN, macOS as POLLIN or POLLHUP.
+ * gives "" or the error (so does a descriptor poll() calls invalid, which would otherwise spin). Linux reports a closed peer as POLLIN, macOS as POLLIN or POLLHUP.
  */
 bool net_wait(List *sockets, double seconds, Value *out) {
     if (sockets->len == 0) return raisef("socket_wait() expects at least one socket");
@@ -331,7 +331,7 @@ bool net_wait(List *sockets, double seconds, Value *out) {
         int ready = poll(polls, (nfds_t)n, ms);
         if (ready < 0 && errno != EINTR) return raisef("socket_wait() failed: %s", strerror(errno));
         for (size_t i = 0; ready >= 0 && i < n; i++) {
-            if (pending[i] || (ready > 0 && (polls[i].revents & (POLLIN | POLLHUP | POLLERR)))) {
+            if (pending[i] || (ready > 0 && (polls[i].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)))) {
                 *out = v_int((int64_t)i);
                 return true;
             }

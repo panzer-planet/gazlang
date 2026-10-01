@@ -598,7 +598,9 @@ that must find nothing to do.
     worker has put its own handlers back would only set its copy of the master's flag.
   - `http::serve` refuses what isn't well formed before the handler sees it (the statuses are in
     `docs/language.md`), both `Content-Length` and `Transfer-Encoding` included, as the way requests
-    are smuggled past a proxy; handler errors are a 500 and a line on stderr. Request and response
+    are smuggled past a proxy, and a chunk size line or trailer with a lone CR or LF in it (a line
+    end to some proxies, so the same request would be two; found by the review of keep-alive, where
+    a connection carries on with what follows); handler errors are a 500 and a line on stderr. Request and response
     are maps, like the client's response; the request carries `"remote_address"` (from `socket_peer()`, `null`
     if the client is already gone, the proxy's behind one: reading `X-Forwarded-For` is the program's decision). `HttpServerTest` runs `tests/programs/web_server.gaz` and
     speaks to it over raw sockets, so requests no client would send can be sent.

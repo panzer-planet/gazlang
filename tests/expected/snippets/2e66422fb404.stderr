@@ -1,5 +1,5 @@
 Error: http::serve() expects a map of options, got list
-  http::with_defaults at lib/http.gaz:1488
-  http::server_options at lib/http.gaz:649
-  http::serve at lib/http.gaz:509
+  http::with_defaults at lib/http.gaz:1515
+  http::server_options at lib/http.gaz:676
+  http::serve at lib/http.gaz:533
   top level on line 1

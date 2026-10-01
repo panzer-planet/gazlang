@@ -123,3 +123,32 @@ expect("a connection that sends nothing is closed with nothing said",
 expect("one that sends part of a request and goes quiet is still a 400",
     exchange(["GET /part HTTP/1.1\r\n"], {}, 0.2),
     [[], refused(400, "Bad Request")]);
+
+/*
+ * Lines of a chunked body end in CRLF and nothing else: a bare line feed or carriage return in a
+ * chunk size's extension or in a trailer is a line end to some programs and not to this one, which is
+ * how a request is smuggled past a proxy, and the connection would carry on with what follows
+ */
+$chunked = "POST /chunked HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n";
+expect("a chunked body with a bare line feed in a chunk extension is refused, and the connection closes",
+    exchange([$chunked .. "5;e\nz\r\nhello\r\n0\r\n\r\n" .. get("/after")]),
+    [[], refused(400, "Bad Request")]);
+expect("so is a bare carriage return",
+    exchange([$chunked .. "5;e\rz\r\nhello\r\n0\r\n\r\n" .. get("/after")]),
+    [[], refused(400, "Bad Request")]);
+expect("so is one in a trailer",
+    exchange([$chunked .. "5\r\nhello\r\n0\r\nX: a\nGET /hidden HTTP/1.1\r\n\r\n" .. get("/after")]),
+    [[], refused(400, "Bad Request")]);
+expect("a good chunked body is read, and the connection goes on",
+    exchange([$chunked .. "5;ext=1\r\nhello\r\n0\r\nX: a\r\n\r\n" .. get("/after", $close)]),
+    [["/chunked", "/after"], ok("/chunked") .. ok("/after", true)]);
+
+/*
+ * A stray CRLF after a body (some clients send one) is not another request coming: the wait for the
+ * next one is the idle wait, and it ends in a quiet close, not a 400 after the longer read timeout
+ */
+$started = monotonic_time();
+$stray = exchange(["POST /post HTTP/1.1\r\nHost: x\r\nContent-Length: 3\r\n\r\nabc\r\n"], {"timeout" => 2});
+$waited = monotonic_time() - $started;
+expect("a CRLF after a body, then silence, is answered once and closed quietly", $stray, [["/post"], ok("/post")]);
+expect("after the idle timeout and not the read timeout", $waited > 0.1 && $waited < 1.0, true);

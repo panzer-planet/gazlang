@@ -231,6 +231,15 @@ kind Reader {
         #heard = #data != "";
     }
 
+    // Up to $most empty lines (a bare CRLF each) dropped from the start of what has been read, without reading more
+    pub fn drop_empty_lines($most) {
+        $dropped = 0;
+        while ($dropped < $most && starts_with(#data, "\r\n")) {
+            #data = slice(#data, 2);
+            $dropped++;
+        }
+    }
+
     // Whether anything has been read but not taken
     pub fn pending() {
         return #data != "";
@@ -375,6 +384,17 @@ fn content_length($text) {
  * and trailer lines, which are skipped. With a $limit (a server's), a body that adds up to more
  * is refused (413), and so is a size or trailer line past a few KB.
  */
+/*
+ * A chunk size line or a trailer ends in CRLF and holds no other line break: a lone line feed or
+ * carriage return is a line end to some programs, a proxy among them, and not to this one, which is
+ * how a request is smuggled past it, and the connection would go on with what follows
+ */
+fn check_chunk_line($line) {
+    if (contains($line, "\n") || contains($line, "\r")) {
+        throw "HTTP error: a line break that is not CRLF in a chunked body";
+    }
+}
+
 fn read_chunked($reader, $limit = null) {
     $parts = [];
     $total = 0;
@@ -384,6 +404,7 @@ fn read_chunked($reader, $limit = null) {
         if ($line == null) {
             throw "HTTP error: the connection closed in the middle of the body";
         }
+        check_chunk_line($line);
         $size_text = trim(split($line, ";")[0]);
         if ($size_text == "" || len($size_text) > 15) {
             throw "HTTP error: bad chunk size: " .. slice(to_string([$line]), 1, -1);
@@ -403,6 +424,9 @@ fn read_chunked($reader, $limit = null) {
         if ($size == 0) {
             while (true) {
                 $trailer = $reader.line("\r\n", $line_limit);
+                if ($trailer != null) {
+                    check_chunk_line($trailer);
+                }
                 if ($trailer == null || $trailer == "") {
                     return join($parts, "");
                 }
@@ -586,10 +610,13 @@ fn connection($socket, $listener, $handler, $options, $left) {
  * say Connection: close; a worker_stopping() builtin would let it.
  */
 fn another_request($reader, $socket, $listener, $options) {
+    // The empty line some clients send after a body is not a request coming
+    $reader.drop_empty_lines(MAX_EMPTY_LINES);
     if ($reader.pending()) {
         return true;
     }
     $deadline = monotonic_time() + $options["idle_timeout"];
+    // OWN_CLIENT is this socket's place in the list
     $watched = $listener == null ? [$socket] : [$socket, $listener];
     while (true) {
         $left = $deadline - monotonic_time();
