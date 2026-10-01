@@ -64,20 +64,106 @@ class HttpServerTest extends GazLangTestCase
     }
 
     /**
-     * Send bytes and give everything that comes back until the server closes
+     * Start a server of a few lines run with -e, with some workers, http::serve() options and a
+     * handler written as GazLang (answering "ok" to everything unless given), and give it and its port
+     *
+     * @return array{resource, int}
      */
-    private static function exchange(string $request, ?int $port = null): string
+    private static function startSmallServer(int $workers, string $options, string $handler = '$r -> ({"body" => "ok"})'): array
+    {
+        $code = 'include "lib/http.gaz"; $l = socket_listen("127.0.0.1", 0); echo "listening on " .. socket_port($l); '
+            ."workers({$workers}); http::serve(\$l, {$handler}, {$options});";
+        $server = proc_open([self::binary(), '-e', $code], [['file', '/dev/null', 'r'], ['pipe', 'w'], ['file', '/dev/null', 'w']], $pipes, self::ROOT);
+        if ($server === false) {
+            throw new \RuntimeException('Cannot start a server');
+        }
+        $line = trim((string) fgets($pipes[1]));
+        if (! preg_match('/^listening on (\d+)$/', $line, $m)) {
+            throw new \RuntimeException("The server never listened: {$line}");
+        }
+
+        return [$server, (int) $m[1]];
+    }
+
+    /**
+     * A connection to a port, waiting 5 seconds at most for each read
+     *
+     * @return resource
+     */
+    private static function connect(?int $port = null)
     {
         $socket = stream_socket_client('tcp://127.0.0.1:'.($port ?? self::$port), $errno, $error, 5);
         if ($socket === false) {
             throw new \RuntimeException("Cannot connect: {$error}");
         }
         stream_set_timeout($socket, 5);
+
+        return $socket;
+    }
+
+    /**
+     * Send bytes, say nothing more will come, and give everything that comes back until the server
+     * closes: a connection is kept open for another request until the client is done
+     */
+    private static function exchange(string $request, ?int $port = null): string
+    {
+        $socket = self::connect($port);
         fwrite($socket, $request);
+        stream_socket_shutdown($socket, STREAM_SHUT_WR);
         $response = (string) stream_get_contents($socket);
         fclose($socket);
 
         return $response;
+    }
+
+    /**
+     * One response read off a connection that stays open: its head, then as many bytes as its
+     * Content-Length says
+     *
+     * @param  resource  $socket
+     */
+    private static function readResponse($socket): string
+    {
+        $head = '';
+        while (! str_ends_with($head, "\r\n\r\n")) {
+            $line = fgets($socket);
+            if ($line === false) {
+                throw new \RuntimeException("The connection ended in a response's head: {$head}");
+            }
+            $head .= $line;
+        }
+        $length = (int) (self::response($head)['headers']['content-length'] ?? 0);
+
+        return $head.($length > 0 ? (string) fread($socket, $length) : '');
+    }
+
+    /**
+     * Seconds until the server closes a connection, and what it sent before it did
+     *
+     * @param  resource  $socket
+     * @return array{float, string}
+     */
+    private static function untilClosed($socket): array
+    {
+        $start = microtime(true);
+        $rest = (string) stream_get_contents($socket);
+
+        return [microtime(true) - $start, $rest];
+    }
+
+    /**
+     * Wait for a process to end, and give its status
+     *
+     * @param  resource  $process
+     * @return array<string, mixed>
+     */
+    private static function ended($process): array
+    {
+        for ($wait = 0; ($status = proc_get_status($process))['running'] && $wait < 100; $wait++) {
+            usleep(50000);
+        }
+
+        return $status;
     }
 
     /**
@@ -114,7 +200,8 @@ class HttpServerTest extends GazLangTestCase
         $this->assertMatchesRegularExpression('/^hello from worker [12]\n$/', $response['body']);
         $this->assertSame('text/plain', $response['headers']['content-type']);
         $this->assertSame('20', $response['headers']['content-length']);
-        $this->assertSame('close', $response['headers']['connection']);
+        // Kept open, which HTTP/1.1 assumes without a header
+        $this->assertArrayNotHasKey('connection', $response['headers']);
         // The Date header is time() as HTTP writes it, give or take the moment it took
         $date = strtotime($response['headers']['date']);
         $this->assertSame(gmdate('D, d M Y H:i:s', $date).' GMT', $response['headers']['date']);
@@ -176,6 +263,7 @@ class HttpServerTest extends GazLangTestCase
         $this->assertSame("HTTP/1.1 100 Continue\r\n", fgets($socket));
         $this->assertSame("\r\n", fgets($socket));
         fwrite($socket, 'body');
+        stream_socket_shutdown($socket, STREAM_SHUT_WR);
         $response = self::response((string) stream_get_contents($socket));
         fclose($socket);
         $this->assertSame([200, 'body'], [$response['status'], json_decode($response['body'], true)['body']]);
@@ -227,6 +315,33 @@ class HttpServerTest extends GazLangTestCase
         $lines = array_values(array_filter(explode("\r\n", $head), fn ($line) => str_starts_with($line, 'Set-Cookie:')));
 
         $this->assertSame(['Set-Cookie: a=1; Path=/; HttpOnly; SameSite=Lax', 'Set-Cookie: b=2; Path=/; HttpOnly; SameSite=Lax'], $lines);
+    }
+
+    public function test_a_500_closes_the_connection_and_what_was_pipelined_behind_it_is_never_answered()
+    {
+        $response = self::exchange("GET /fail HTTP/1.1\r\nHost: x\r\n\r\nGET / HTTP/1.1\r\nHost: x\r\n\r\n");
+
+        $this->assertSame(1, substr_count($response, 'HTTP/1.1 '));
+        $this->assertSame([500, 'close'], [self::response($response)['status'], self::response($response)['headers']['connection']]);
+    }
+
+    public function test_a_handler_may_ask_to_close_the_connection_and_nothing_else()
+    {
+        $handler = '$r -> ({"headers" => {"Connection" => $r["path"] == "/close" ? "Close" : "keep-alive"}, "body" => "ok"})';
+        [$server, $port] = self::startSmallServer(1, '{}', $handler);
+        try {
+            $request = "GET /close HTTP/1.1\r\nHost: x\r\n\r\nGET /close HTTP/1.1\r\nHost: x\r\n\r\n";
+            $response = self::exchange($request, $port);
+            $this->assertSame(1, substr_count($response, 'HTTP/1.1 '));
+            $this->assertSame(1, substr_count($response, "\r\nConnection: close\r\n"));
+            $this->assertSame([200, 'ok'], [self::response($response)['status'], self::response($response)['body']]);
+
+            $response = self::response(self::exchange("GET /keep HTTP/1.1\r\nHost: x\r\n\r\n", $port));
+            $this->assertSame([500, 'close'], [$response['status'], $response['headers']['connection']]);
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+        }
     }
 
     public function test_a_handler_that_fails_is_a_500_and_a_line_on_standard_error()
@@ -448,9 +563,17 @@ class HttpServerTest extends GazLangTestCase
             usleep(300000);
             // The busy worker waits for the rest of its request, and answers it
             fwrite($socket, "Host: x\r\n\r\n");
-            $response = self::response((string) stream_get_contents($socket));
+            [$seconds, $rest] = self::untilClosed($socket);
+            $response = self::response($rest);
             fclose($socket);
             $this->assertSame(200, $response['status']);
+            /*
+             * Then the connection closes, though the client didn't ask, without waiting for the
+             * idle timeout; the response can't say Connection: close, since nothing tells a worker
+             * it was asked to stop until it next waits
+             */
+            $this->assertLessThan(2, $seconds);
+            $this->assertArrayNotHasKey('connection', $response['headers']);
 
             for ($wait = 0; ($status = proc_get_status($server))['running'] && $wait < 100; $wait++) {
                 usleep(50000);
@@ -460,6 +583,84 @@ class HttpServerTest extends GazLangTestCase
         } finally {
             proc_terminate($server);
             proc_close($server);
+        }
+    }
+
+    public function test_a_connection_carries_requests_until_it_is_idle_too_long_and_then_closes_without_a_word()
+    {
+        [$server, $port] = self::startSmallServer(1, '{"idle_timeout" => 1, "request_timeout" => 0.5}');
+        try {
+            $socket = self::connect($port);
+            for ($i = 0; $i < 3; $i++) {
+                // Longer than request_timeout, which starts again with each request
+                if ($i > 0) {
+                    usleep(600000);
+                }
+                fwrite($socket, "GET / HTTP/1.1\r\nHost: x\r\n\r\n");
+                $response = self::response(self::readResponse($socket));
+                $this->assertSame([200, 'ok'], [$response['status'], $response['body']]);
+                $this->assertArrayNotHasKey('connection', $response['headers']);
+            }
+            [$seconds, $rest] = self::untilClosed($socket);
+            fclose($socket);
+            $this->assertSame('', $rest);
+            $this->assertGreaterThan(0.8, $seconds);
+            $this->assertLessThan(3, $seconds);
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+        }
+    }
+
+    public function test_a_worker_idle_on_a_kept_open_connection_stops_within_about_a_second()
+    {
+        [$server, $port] = self::startSmallServer(1, '{"idle_timeout" => 30}');
+        try {
+            $socket = self::connect($port);
+            fwrite($socket, "GET / HTTP/1.1\r\nHost: x\r\n\r\n");
+            $this->assertSame(200, self::response(self::readResponse($socket))['status']);
+            usleep(200000);
+            proc_terminate($server);
+            [$seconds, $rest] = self::untilClosed($socket);
+            fclose($socket);
+            $this->assertSame('', $rest);
+            $this->assertLessThan(2, $seconds);
+
+            $status = self::ended($server);
+            $this->assertSame([false, true, SIGTERM], [$status['running'], $status['signaled'], $status['termsig']]);
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+        }
+    }
+
+    public function test_max_requests_counts_the_requests_on_one_connection()
+    {
+        $log = (string) tempnam(sys_get_temp_dir(), 'gazlang-server');
+        [$server, $port] = self::startServer(1, $log, 3);
+        try {
+            $socket = self::connect($port);
+            $connections = [];
+            for ($i = 0; $i < 3; $i++) {
+                fwrite($socket, "GET / HTTP/1.1\r\nHost: x\r\n\r\n");
+                $response = self::response(self::readResponse($socket));
+                $this->assertSame(200, $response['status']);
+                $connections[] = $response['headers']['connection'] ?? null;
+            }
+            // The worker's last request says so, and the connection closes before it recycles
+            $this->assertSame([null, null, 'close'], $connections);
+            $this->assertSame('', (string) stream_get_contents($socket));
+            fclose($socket);
+
+            for ($wait = 0; ! str_contains((string) file_get_contents($log), 'recycled') && $wait < 100; $wait++) {
+                usleep(20000);
+            }
+            $this->assertMatchesRegularExpression('/^gaz: worker 1 recycled; starting another$/m', (string) file_get_contents($log));
+            $this->assertSame(200, self::response(self::exchange("GET / HTTP/1.1\r\nHost: x\r\n\r\n", $port))['status']);
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+            @unlink($log);
         }
     }
 
@@ -550,6 +751,10 @@ class HttpServerTest extends GazLangTestCase
             'too many workers' => ['workers(1025);', 'workers() expects 1 to 1024 workers, got 1025'],
             'options not a map' => ['include "'.self::ROOT.'/lib/http.gaz"; http::serve(null, null, []);', 'http::serve() expects a map of options, got list'],
             'an option there is not' => ['include "'.self::ROOT.'/lib/http.gaz"; http::serve(null, null, {"port" => 1});', 'http::serve() has no option "port": only timeout, request_timeout, max_body'],
+            'no idle timeout' => ['include "'.self::ROOT.'/lib/http.gaz"; http::serve(null, null, {"idle_timeout" => 0});', 'http::serve() expects an idle_timeout above 0 seconds, got 0'],
+            'an idle timeout not a number' => ['include "'.self::ROOT.'/lib/http.gaz"; http::serve(null, null, {"idle_timeout" => "5"});', 'http::serve() expects an idle_timeout above 0 seconds, got "5"'],
+            'no requests on a connection' => ['include "'.self::ROOT.'/lib/http.gaz"; http::serve(null, null, {"requests_per_connection" => 0});', 'http::serve() expects a requests_per_connection of 1 or more, got 0'],
+            'a fraction of a request' => ['include "'.self::ROOT.'/lib/http.gaz"; http::serve(null, null, {"requests_per_connection" => 1.5});', 'http::serve() expects a requests_per_connection of 1 or more, got 1.5'],
         ];
     }
 

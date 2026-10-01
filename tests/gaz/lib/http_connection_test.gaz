@@ -1,28 +1,125 @@
 /*
- * A connection carries one request: http::handle() answers it and closes the connection, even
- * with a second request already sent behind it (keep-alive is off)
+ * A connection carries requests until something says to close it (keep-alive): http::handle()
+ * answers what was written to it before it ran, in order, and the bytes it sends back are compared
+ * whole, with the Date line taken out (a 500 closes too: HttpServerTest, since it writes to stderr)
  */
 include "std/test.gaz" use expect;
 include "../../../lib/http.gaz";
 
-$listener = socket_listen("127.0.0.1", 0);
-$client = socket_open("127.0.0.1", socket_port($listener));
-$request = "GET /one HTTP/1.1\r\nHost: example.test\r\n\r\n";
-socket_write($client, $request .. replace($request, "/one", "/two"));
-$served = socket_accept($listener);
+const IDLE = 0.2;        // seconds http::handle() waits for another request here
 
-shared $paths = [];
-http::handle($served, $request -> {
-    $paths[] = $request["path"];
+@paths = [];
 
-    return {"body" => "ok"};
-});
-
-$received = "";
-while (($chunk = socket_read($client)) != "") {
-    $received ..= $chunk;
+// The handler: a request's path as the body, and a few paths that do something else
+fn answer_path($request) {
+    @paths[] = $request["path"];
+    return match ($request["path"]) {
+        "/empty" => {"status" => 204},
+        "/close" => {"headers" => {"Connection" => "Close"}, "body" => "bye"},
+        default => {"body" => $request["path"]},
+    };
 }
 
-expect("the handler is called for the first request only", $paths, ["/one"]);
-expect("one response comes back", len(split($received, "HTTP/1.1 ")) - 1, 1);
-expect("saying the connection closes", contains($received, "\r\nConnection: close\r\n"), true);
+/*
+ * The paths the handler saw and what came back, when $writes are written to a connection, one
+ * socket_write() each, before http::handle() answers it
+ */
+fn exchange($writes, $options = {}, $timeout = 5) {
+    @paths = [];
+    $listener = socket_listen("127.0.0.1", 0);
+    $client = socket_open("127.0.0.1", socket_port($listener));
+    foreach ($writes as $bytes) {
+        socket_write($client, $bytes);
+    }
+    $served = socket_accept($listener, $timeout);
+    http::handle($served, answer_path, {"idle_timeout" => IDLE, ...$options});
+    $received = "";
+    while (($chunk = socket_read($client)) != "") {
+        $received ..= $chunk;
+    }
+    socket_close($client);
+    socket_close($listener);
+    return [@paths, without_dates($received)];
+}
+
+fn without_dates($text) {
+    $lines = [];
+    foreach (split($text, "\r\n") as $line) {
+        if (!starts_with($line, "Date: ")) {
+            $lines[] = $line;
+        }
+    }
+    return join($lines, "\r\n");
+}
+
+fn get($path, $headers = "") {
+    return "GET $path HTTP/1.1\r\nHost: example.test\r\n$headers\r\n";
+}
+
+// A 200 with $body as the server writes it, saying the connection closes if $close
+fn ok($body, $close = false) {
+    $connection = $close ? "Connection: close\r\n" : "";
+    return "HTTP/1.1 200 OK\r\n{$connection}Content-Length: " .. len($body) .. "\r\n\r\n$body";
+}
+
+// What the server answers when it refuses a request itself, and closes
+fn refused($status, $reason) {
+    return "HTTP/1.1 $status $reason\r\nConnection: close\r\nContent-Type: text/plain\r\nContent-Length: "
+        .. len($reason) + 1 .. "\r\n\r\n$reason\n";
+}
+
+$close = "Connection: close\r\n";
+
+expect("two requests, the second asking to close: two responses, Connection: close on the second only",
+    exchange([get("/one"), get("/two", $close)]),
+    [["/one", "/two"], ok("/one") .. ok("/two", true)]);
+expect("two pipelined in one write are answered in order, then the quiet connection is closed with nothing more",
+    exchange([get("/one") .. get("/two")]),
+    [["/one", "/two"], ok("/one") .. ok("/two")]);
+expect("a request asking to close gets one response, and the one behind it is never read",
+    exchange([get("/one", $close) .. get("/two")]),
+    [["/one"], ok("/one", true)]);
+expect("close is found among the Connection header's options, in any case",
+    exchange([get("/one", "Connection: keep-alive\r\nConnection: Upgrade, CLOSE\r\n") .. get("/two")]),
+    [["/one"], ok("/one", true)]);
+expect("an HTTP/1.0 request closes",
+    exchange(["GET /old HTTP/1.0\r\n\r\n" .. get("/two")]),
+    [["/old"], ok("/old", true)]);
+
+expect("a refused request closes, and what was pipelined behind it is never answered",
+    exchange(["GET /nohost HTTP/1.1\r\n\r\n" .. get("/two")]),
+    [[], refused(400, "Bad Request")]);
+expect("a body too large closes, and its bytes are never read as a request",
+    exchange(["POST /big HTTP/1.1\r\nHost: x\r\nContent-Length: 20\r\n\r\n" .. get("/hidden")], {"max_body" => 10}),
+    [[], refused(413, "Content Too Large")]);
+
+$no_content = "HTTP/1.1 204 No Content\r\n\r\n";
+$head = "HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\n";
+expect("after a 204 and a HEAD, neither with a body, the next request is read where it starts",
+    exchange([get("/empty") .. "HEAD /head HTTP/1.1\r\nHost: x\r\n\r\n" .. get("/after", $close)]),
+    [["/empty", "/head", "/after"], $no_content .. $head .. ok("/after", true)]);
+
+expect("requests_per_connection: the last it allows says the connection closes",
+    exchange([get("/one") .. get("/two") .. get("/three")], {"requests_per_connection" => 2}),
+    [["/one", "/two"], ok("/one") .. ok("/two", true)]);
+expect("requests_per_connection 1 is a request per connection",
+    exchange([get("/one") .. get("/two")], {"requests_per_connection" => 1}),
+    [["/one"], ok("/one", true)]);
+
+expect("a handler's Connection: close closes it, written once",
+    exchange([get("/close") .. get("/two")]),
+    [["/close"], ok("bye", true)]);
+
+expect("empty lines before a request line are skipped",
+    exchange(["\r\n\r\n" .. get("/one") .. "\r\n" .. get("/two", $close)]),
+    [["/one", "/two"], ok("/one") .. ok("/two", true)]);
+expect("but no more than four",
+    exchange([repeat("\r\n", 5) .. get("/one")]),
+    [[], refused(400, "Bad Request")]);
+
+expect("a connection that sends nothing is closed with nothing said",
+    exchange([], {}, 0.2),
+    [[], ""]);
+expect("one that sends part of a request and goes quiet is still a 400",
+    exchange(["GET /part HTTP/1.1\r\n"], {}, 0.2),
+    [[], refused(400, "Bad Request")]);

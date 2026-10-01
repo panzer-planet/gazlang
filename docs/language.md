@@ -1579,20 +1579,33 @@ permanent moves and 302 and 307 the temporary ones that keep the method. `$to` i
 so a path of your own is safe, and one taken from a request (a `next` parameter) must be checked by
 the caller, or it is an open redirect; one with a line break or a NUL byte is an error at the call.
 
-- One request per connection (`Connection: close`). `Content-Length`, `Connection` and `Date` are
-  written for you (giving one is an error); no `Content-Type` unless given. A HEAD request gets the
-  headers without the body; a 204 or 304 can't have one.
+- `Content-Length`, `Date` and `Connection` are written for you (giving one is an error, except
+  `"Connection" => "close"`, in any case, which asks for the connection to close after this
+  response); no `Content-Type` unless given. A HEAD request gets the headers without the body; a 204
+  or 304 can't have one.
+- A connection stays open for the client's next request, and a worker answers them in turn, in
+  order when several come at once. It closes after a response that says `Connection: close`, which
+  is one to an HTTP/1.0 request or to one that says `Connection: close`, one the server refused or
+  a handler failed (the bytes after it can't be trusted to start a request), one whose handler
+  asked, the connection's `requests_per_connection`th, and the worker's last before `max_requests`.
+  It also closes, without a word, when the client sends nothing for `idle_timeout` seconds, or
+  `timeout` before its first request, or the worker is asked to stop. Up to four empty lines before
+  a request line are skipped.
 - A request that isn't well formed never reaches the handler: 400 (a bad request line or header
   line, no `Host` in HTTP/1.1, both `Content-Length` and `Transfer-Encoding`, a body cut short),
   408 (the request took longer than `request_timeout`), 413 (a body over `max_body`), 431 (a request line and headers over 64KB), 417 (an `Expect` other
   than `100-continue`, which is answered before the body is read), 501 (a transfer coding other than
-  chunked), 505 (not HTTP/1.x). A connection that closes before sending anything gets nothing.
+  chunked), 505 (not HTTP/1.x). A connection that closes, or goes quiet, before sending anything
+  gets nothing.
 - A handler that raises, or returns a response that can't be written (a status outside 200 to 599,
   a header value with a line break), is a 500, and the error and its trace go to standard error.
   The worker carries on.
-- Options: `"timeout"`, seconds each read and write may wait (10); `"request_timeout"`, seconds the
-  whole request may take to arrive (30), after which it is a 408, so a client sending a byte at a
-  time can't hold a worker; `"max_body"` in bytes (1048576); and `"max_requests"` (unset, no limit),
+- Options: `"timeout"`, seconds each read and write may wait, and the wait for a connection's first
+  request (10); `"request_timeout"`, seconds each request may take to arrive (30), after which it is
+  a 408, so a client sending a byte at a time can't hold a worker; `"max_body"` in bytes (1048576);
+  `"idle_timeout"`, seconds to wait for the next request on an open connection (5);
+  `"requests_per_connection"` (100; 1 closes every connection after its first request); and
+  `"max_requests"` (unset, no limit), requests answered, however many connections they came on,
   after which the worker calls `worker_recycle()` instead of accepting another connection, so a long-
   lived worker's accumulated state doesn't outlive it.
 - It returns when its worker is asked to stop, after answering the request in hand.

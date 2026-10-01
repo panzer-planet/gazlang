@@ -221,17 +221,41 @@ fn resolve($target, $location) {
 kind Reader {
     #data = "";         // read but not taken yet, kept from one message to the next
     #deadline = null;   // a monotonic_time() after which a read is refused (408), or null
+    #heard = false;     // whether any of the message being read has come
 
     fn _(#socket);
 
     // Give the message about to be read until $deadline, a monotonic_time()
     pub fn start($deadline) {
         #deadline = $deadline;
+        #heard = #data != "";
     }
 
     // Whether anything has been read but not taken
     pub fn pending() {
         return #data != "";
+    }
+
+    // Whether any byte of the message being read has come, since start()
+    pub fn heard_anything() {
+        return #heard;
+    }
+
+    // Up to $most empty lines (a bare CRLF each) dropped from where the next message starts
+    pub fn skip_empty_lines($most) {
+        $skipped = 0;
+        while ($skipped < $most) {
+            while (len(#data) < 2) {
+                if (!#more()) {
+                    return;
+                }
+            }
+            if (!starts_with(#data, "\r\n")) {
+                return;
+            }
+            #data = slice(#data, 2);
+            $skipped++;
+        }
     }
 
     // Read more; false at the end of the stream
@@ -244,6 +268,7 @@ kind Reader {
             return false;
         }
         #data ..= $chunk;
+        #heard = true;
         return true;
     }
 
@@ -413,8 +438,7 @@ fn check_token($what, $name) {
 
 /*
  * The server: http::serve($listener, $handler, $options = {}) answers connections on a
- * socket_listen() listener for ever, one request per connection, each by calling
- * $handler($request) with
+ * socket_listen() listener for ever, each request by calling $handler($request) with
  *
  *   {"method" => "GET", "path" => "/users/7", "query" => "tab=posts", "headers" => {...}, "body" => ""}
  *
@@ -431,15 +455,24 @@ fn check_token($what, $name) {
  *   refused too, as the way requests are smuggled past a proxy.
  * - A handler that raises, or returns what can't be written (a header with a line break in it, a
  *   Content-Length of its own), is answered 500, and the error goes to standard error.
- * - Content-Length, Connection and Date are written here. No Content-Type unless given.
+ * - Content-Length and Date are written here, and so is Connection: close when the connection is
+ *   about to close; a handler may ask for that with a Connection header of "close", and any other
+ *   Connection header of its own is an error. No Content-Type unless given.
  * - A HEAD request gets the headers the body would have, without it.
- * - Options: "timeout", seconds each read and write may wait (10); "request_timeout", seconds the
- *   whole request may take to arrive (30), after which it is answered 408, so a client trickling a
- *   byte at a time can't hold a worker; and "max_body", in bytes (1MB).
+ * - A connection is kept open for the next request (HTTP/1.1's keep-alive) unless the request is
+ *   HTTP/1.0 or says Connection: close, it was refused or the handler failed (the bytes after it
+ *   can't be trusted to start a request), the handler asked to close, or it was the connection's
+ *   "requests_per_connection"th or the worker's last before "max_requests". Up to four empty lines
+ *   before a request line are skipped. A connection that sends nothing, before its first request or
+ *   between two, is closed without a word once its wait is over.
+ * - Options: "timeout", seconds each read and write may wait, and a connection's first request
+ *   (10); "request_timeout", seconds a whole request may take to arrive (30), after which it is
+ *   answered 408, so a client trickling a byte at a time can't hold a worker; "max_body", in bytes
+ *   (1MB); "idle_timeout", seconds to wait for a connection's next request (5);
+ *   "requests_per_connection" (100; 1 never keeps one open); and "max_requests" (see serve()).
  * - It returns when its worker is asked to stop (SIGTERM, see workers()), once the request in hand
  *   is answered.
- * - ponytail: one request per connection (Connection: close), keep-alive waiting for a program that
- *   needs it. The request's deadline is checked before each read, so it can overrun by one
+ * - ponytail: the request's deadline is checked before each read, so it can overrun by one
  *   "timeout"; writing the response has only the per-write timeout. TLS is a proxy's job in front.
  */
 
@@ -454,7 +487,11 @@ const REASONS = {
     500 => "Internal Server Error", 501 => "Not Implemented", 502 => "Bad Gateway",
     503 => "Service Unavailable", 504 => "Gateway Timeout", 505 => "HTTP Version Not Supported",
 };
-const SERVER_OPTIONS = {"timeout" => 10, "request_timeout" => 30, "max_body" => 1048576, "max_requests" => null};
+const SERVER_OPTIONS = {
+    "timeout" => 10, "request_timeout" => 30, "max_body" => 1048576, "max_requests" => null,
+    "idle_timeout" => 5, "requests_per_connection" => 100,
+};
+const MAX_EMPTY_LINES = 4;   // skipped before a request line, as RFC 9112 asks; more is a 400
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -486,7 +523,7 @@ pub fn serve($listener, $handler, $options = {}) {
     }
 }
 
-// One connection: its request read, answered and the connection closed, whatever happens
+// One connection: its requests read and answered, and the connection closed, whatever happens
 pub fn handle($socket, $handler, $options = {}) {
     connection($socket, null, $handler, server_options($options), null);
 }
@@ -495,16 +532,22 @@ pub fn handle($socket, $handler, $options = {}) {
  * Answer the requests on a connection, then close it, whatever happens; gives how many were
  * answered. $left is how many more this worker may answer (null: no limit), and $listener the
  * one it accepted from (null for handle()), which an idle connection will yield to.
- * ponytail: one request per connection, since answer() never keeps one open.
  */
 fn connection($socket, $listener, $handler, $options, $left) {
+    $most = $options["requests_per_connection"];
+    if ($left != null) {
+        $most = min($most, $left);
+    }
     $answered = 0;
     try {
         $reader = Reader($socket);
         $address = remote_address($socket);
         $keep = true;
-        while ($keep && ($left == null || $answered < $left)) {
-            $answer = answer($reader, $socket, $handler, $address, $options);
+        while ($keep) {
+            if ($answered > 0 && !another_request($reader, $socket, $listener, $options)) {
+                break;
+            }
+            $answer = answer($reader, $socket, $handler, $address, $options, $answered + 1 == $most);
             if ($answer == null) {
                 break;
             }
@@ -521,45 +564,64 @@ fn connection($socket, $listener, $handler, $options, $left) {
 }
 
 /*
- * The next request on a connection read and answered: [the response's bytes, whether to keep
- * the connection open for another], or null if it closed before asking anything.
+ * Whether a kept-open connection has another request coming: one already read in part (pipelined)
+ * is answered at once, and otherwise the wait is "idle_timeout", or less if the worker is asked to
+ * stop, which socket_wait() notices within a second.
+ * ponytail: so a request pipelined before a stop is still answered (bounded by
+ * "requests_per_connection" and the master's grace), and a response written after a stop doesn't
+ * say Connection: close; a worker_stopping() builtin would let it.
  */
-fn answer($reader, $socket, $handler, $address, $options) {
+fn another_request($reader, $socket, $listener, $options) {
+    if ($reader.pending()) {
+        return true;
+    }
+    return socket_wait([$socket], $options["idle_timeout"]) != null;
+}
+
+/*
+ * The next request on a connection read and answered: [the response's bytes, whether to keep
+ * the connection open for another], or null if it closed, or went quiet, before asking anything.
+ * $last says the connection closes after this one whatever the request says.
+ */
+fn answer($reader, $socket, $handler, $address, $options, $last) {
     $reader.start(monotonic_time() + $options["request_timeout"]);
     try {
-        $request = read_request($reader, $socket, $address, $options["max_body"]);
-    } catch (Refusal $e) {
-        return [refusal($e.status), false];
+        $read = read_request($reader, $socket, $address, $options["max_body"]);
     } catch (Error $e) {
-        // Cut off, timed out or malformed: say so, if anyone is still listening
-        return [refusal(400), false];
+        // Refused, cut off, timed out or malformed: say so, unless nothing came at all
+        if (!$reader.heard_anything()) {
+            return null;
+        }
+        $status = is_a($e, Refusal) ? $e.status : 400;
+        return [refusal($status), false];
     }
-    if ($request == null) {
+    if ($read == null) {
         return null;
     }
+    [$request, $persistent] = $read;
+    $close = $last || !$persistent;
     $head = $request["method"] == "HEAD";
-    $response = null;
     try {
-        $response = write_response($handler($request), $head);
+        return write_response($handler($request), $head, $close);
     } catch (Error $e) {
         print_error("http::serve: {$request["method"]} {$request["path"]}: " .. describe_error($e) .. "\n");
     } catch ($e) {
         print_error("http::serve: {$request["method"]} {$request["path"]}: the handler raised $e\n");
     }
-    // Never kept yet: whether a connection stays open is for keep-alive to decide
-    return [$response ?? refusal(500, $head), false];
+    return [refusal(500, $head), false];
 }
 
 fn server_options($options) {
-    if (type_of($options) != "map") {
-        throw "http::serve() expects a map of options, got " .. type_of($options);
+    $options = with_defaults("http::serve()", $options, SERVER_OPTIONS);
+    $idle = $options["idle_timeout"];
+    if (!in_array(type_of($idle), ["int", "float"]) || $idle <= 0) {
+        throw "http::serve() expects an idle_timeout above 0 seconds, got " .. slice(to_string([$idle]), 1, -1);
     }
-    foreach ($options as $name => $value) {
-        if (!has_key(SERVER_OPTIONS, $name)) {
-            throw "http::serve() has no option " .. slice(to_string([$name]), 1, -1) .. ": only " .. join(keys(SERVER_OPTIONS), ", ");
-        }
+    $most = $options["requests_per_connection"];
+    if (type_of($most) != "int" || $most < 1) {
+        throw "http::serve() expects a requests_per_connection of 1 or more, got " .. slice(to_string([$most]), 1, -1);
     }
-    return {...SERVER_OPTIONS, ...$options};
+    return $options;
 }
 
 /*
@@ -576,8 +638,12 @@ fn remote_address($socket) {
     }
 }
 
-// The request on a connection from $address, or null if it closed before sending anything
+/*
+ * The request on a connection from $address and whether its client would keep the connection
+ * open after it, or null if it closed before sending anything
+ */
 fn read_request($reader, $socket, $address, $max_body) {
+    $reader.skip_empty_lines(MAX_EMPTY_LINES);
     $head = $reader.line("\r\n\r\n", MAX_HEAD);
     if ($head == null) {
         if ($reader.pending()) {
@@ -634,8 +700,9 @@ fn read_request($reader, $socket, $address, $max_body) {
     if ($length > $max_body) {
         throw Refusal(413, "HTTP error: a body of more than $max_body bytes");
     }
+    $persistent = keeps_open($version, $headers);
     if (!$chunked && $length == 0) {
-        return $request;
+        return [$request, $persistent];
     }
     // A client that waits to hear the body is wanted before sending it
     if (has_key($headers, "expect")) {
@@ -645,7 +712,21 @@ fn read_request($reader, $socket, $address, $max_body) {
         socket_write($socket, "HTTP/1.1 100 Continue\r\n\r\n");
     }
     $request["body"] = $chunked ? read_chunked($reader, $max_body) : $reader.bytes($length);
-    return $request;
+    return [$request, $persistent];
+}
+
+// Whether a client would keep its connection open: HTTP/1.1's default, unless it says close
+fn keeps_open($version, $headers) {
+    if ($version == "HTTP/1.0") {
+        return false;
+    }
+    // Repeated Connection headers came joined with ", "
+    foreach (split($headers["connection"] ?? "", ",") as $option) {
+        if (lower(trim($option)) == "close") {
+            return false;
+        }
+    }
+    return true;
 }
 
 fn check_request_token($name) {
@@ -667,8 +748,12 @@ fn has_control($text, $spaces = false) {
     return false;
 }
 
-// The bytes of a handler's response, which is checked as a request's headers are
-fn write_response($response, $head) {
+/*
+ * A handler's response, which is checked as a request's headers are: [its bytes, whether the
+ * connection stays open after it]. It closes if $close says so or the handler asked to, and then
+ * says Connection: close, which this is the one place to write.
+ */
+fn write_response($response, $head, $close = true) {
     if (type_of($response) != "map") {
         throw "the handler returned " .. type_of($response) .. ", not a map of status, headers and body";
     }
@@ -697,10 +782,15 @@ fn write_response($response, $head) {
     if ($bodiless && $body != "") {
         throw "a $status response has no body";
     }
-    $lines = [status_line($status), "Date: " .. http_date(time()), "Connection: close"];
+    $lines = [];
     foreach ($headers as $name => $value) {
         check_token("header name", $name);
-        if (in_array(lower($name), ["content-length", "connection", "transfer-encoding", "date"])) {
+        if (lower($name) == "connection") {
+            check_close($name, $value);
+            $close = true;
+            continue;
+        }
+        if (in_array(lower($name), ["content-length", "transfer-encoding", "date"])) {
             throw "HTTP error: header $name is written by http::serve";
         }
         // A list writes one line per value, since a repeated header (Set-Cookie above all,
@@ -717,7 +807,19 @@ fn write_response($response, $head) {
     if (!$bodiless) {
         $lines[] = "Content-Length: " .. len($body);
     }
-    return join($lines, "\r\n") .. "\r\n\r\n" .. ($head ? "" : $body);
+    $first = [status_line($status), "Date: " .. http_date(time())];
+    if ($close) {
+        $first[] = "Connection: close";
+    }
+    $bytes = join([...$first, ...$lines], "\r\n") .. "\r\n\r\n" .. ($head ? "" : $body);
+    return [$bytes, !$close];
+}
+
+// A handler's own Connection header may only ask for the connection to close
+fn check_close($name, $value) {
+    if (type_of($value) != "string" || lower(trim($value)) != "close") {
+        throw "HTTP error: header $name is written by http::serve; a handler may only give \"close\"";
+    }
 }
 
 // A template's result, the builtin kind Html (which only a program using it has)
@@ -737,10 +839,11 @@ fn with_html_type($headers) {
     return $headers;
 }
 
-// A response the server writes itself: the status and its reason, as plain text
+// A response the server writes itself, the status and its reason as plain text, before it closes
 fn refusal($status, $head = false) {
     $text = (REASONS[$status] ?? "Error") .. "\n";
-    return write_response({"status" => $status, "headers" => {"Content-Type" => "text/plain"}, "body" => $text}, $head);
+    $response = {"status" => $status, "headers" => {"Content-Type" => "text/plain"}, "body" => $text};
+    return write_response($response, $head)[0];
 }
 
 fn status_line($status) {

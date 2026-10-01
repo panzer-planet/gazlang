@@ -283,10 +283,8 @@ that must find nothing to do.
   and signed sessions, `gaz test`, the list helpers in `lib/lists.gaz` and tagged literals, with
   `db::sql"..."` and `web::html"..."` on them, are done and described below):
   1. **Rest patterns** in destructuring, `[$first, ...$rest] = $list`, when JSON handling asks.
-  2. **HTTP keep-alive** in `http::serve` (`ponytail:` in "Serving HTTP"): on by default with
-     `idle_timeout` and `requests_per_connection`, an idle worker giving its connection up when a
-     client is waiting on the listener, and `socket_wait($sockets, $seconds)` so an idle wait sees
-     SIGTERM. It is the prerequisite for server-side TLS and anything after it.
+  2. **HTTP keep-alive** in `http::serve` is done (see "Serving HTTP"); server-side TLS and HTTP/2,
+     which it was the prerequisite for, remain open.
   3. **Files for command line tools**: `file_open` is read only, and there is no append, rename, copy,
      modification time or size, `mkdir -p`, or glob; `trim` takes no character set. Found by comparing
      with PHP's file functions, not yet by a program. A builtin takes its name from every program, so
@@ -534,11 +532,11 @@ that must find nothing to do.
   linked by default and optional (`make TLS=0`), so the bootstrap still needs only a C compiler.
   Not curl through `run()`: a process per request, the headers visible in `ps`, and curl as a
   runtime dependency; not TLS of our own, which would be thousands of lines of crypto whose bugs
-  no output shows. One connection per request; keep-alive, proxies, compression and HTTP/2 wait
-  for a program that needs them.
+  no output shows. The client makes one connection per request; keep-alive, proxies, compression
+  and HTTP/2 wait for a program that needs them.
 - **Serving HTTP is `http::serve()` in the same file, in `workers()` processes**, the PHP-FPM
   model rather than Node's: a server is `socket_listen()`, `workers($n)`, then a loop of
-  `socket_accept()` and one request per connection. **Prefork, not an event loop**: share-nothing
+  `socket_accept()` and the requests on each connection. **Prefork, not an event loop**: share-nothing
   processes suit value semantics and refcounting, need no locks, and a crash takes one request, where
   an event loop needs non-blocking sockets and callbacks or coroutines the language doesn't have.
   - `workers($n)` is one builtin, not `fork()`/`wait()`/`kill()`, so no program can leave zombies or
@@ -607,9 +605,38 @@ that must find nothing to do.
   - **A request has a deadline** (`"request_timeout"`, 30s, a 408) as well as the per-read
     `"timeout"`, which alone let a client trickling a byte every few seconds hold a worker for hours.
     `Reader` checks it before each read, so it can overrun by one read's timeout.
-  - **`"max_requests"`** (unset, no limit) calls `worker_recycle()` once the worker's accept loop has
-    handled that many, instead of looping back to `socket_accept()`: an opt-in policy, since forcing
-    it by default would be gaz second-guessing an app that has no accumulating state to worry about.
+  - **`"max_requests"`** (unset, no limit) calls `worker_recycle()` once the worker has answered that
+    many requests, however many connections they came on, instead of looping back to
+    `socket_accept()`: an opt-in policy, since forcing it by default would be gaz second-guessing an
+    app that has no accumulating state to worry about. The last one says `Connection: close`, and the
+    connection closes before the worker recycles.
+  - **Keep-alive is on by default**, since every browser and proxy expects it and a TCP handshake
+    per request is the cost it saves. `"idle_timeout"` (5s) is the wait for a connection's next
+    request, `"timeout"` still the wait for its first; `"requests_per_connection"` (100) bounds one
+    connection, 1 being the old one-request-per-connection server, so there is no on/off flag.
+    `"request_timeout"` restarts with each request.
+    - **What closes it**: an HTTP/1.0 request (no HTTP/1.0 keep-alive, the rarer the path the fewer
+      its bugs: `ab -k` gets a connection per request); a request whose `Connection` header's options
+      include `close`; any refusal and any read error, since the bytes after a request that couldn't
+      be read can't be trusted to start the next (the smuggling the strict checks are for); a
+      handler's 500; a handler's own `"Connection" => "close"` (the one value of that header it may
+      give, any case; anything else is still the error); `requests_per_connection`; the worker's last
+      request before `max_requests`. A closing response says `Connection: close`, written by
+      `write_response()` alone; one kept open says nothing, HTTP/1.1's default. Every response is
+      framed by `Content-Length`, but a 204, a 304 and a HEAD's, which have no body by rule.
+    - **A quiet connection is closed without a word**: one that sends nothing before its first
+      request's `"timeout"`, or between requests within `"idle_timeout"`, gets no 400 or 408, which
+      nobody would read (`Reader.heard_anything()`); one that sent part of a request still does.
+    - **The idle wait is `socket_wait()`**, which sees a stop within a second, so a worker holding an
+      idle connection still stops promptly; a request already read in part (pipelined) is answered
+      without waiting, in order. `ponytail:` such a request is answered even after a stop (bounded by
+      `requests_per_connection` and the master's grace), and the response written after a stop can't
+      say `Connection: close`; a `worker_stopping()` builtin would let it.
+    - **Up to four empty lines before a request line are skipped** (`MAX_EMPTY_LINES`), as RFC 9112
+      asks of a server, bounded so a client can't hold a worker with them; a fifth is a 400.
+    - Tested by `tests/gaz/lib/http_connection_test.gaz` (`http::handle()` over a socket pair,
+      responses compared byte for byte without the `Date` line) and `HttpServerTest` (idle close,
+      stop while idle, `max_requests` on one connection, a 500 closing).
   - **`"max_requests"` jitter, not built: a small edge PHP-FPM doesn't have out of the box.** Every
     worker in an FPM pool shares one exact `pm.max_requests`, so under steady traffic the workers
     that started closest together drift toward recycling close together too — a real, documented
@@ -728,7 +755,7 @@ that must find nothing to do.
       session with a fresh `crypto::token()` so nothing planted before it survives, the
       session-fixation defence): the library doesn't know what a user is, and a login that kept the
       old map would undo the defence however good the middleware.
-  - `ponytail:` no keep-alive; writing a response has only the per-write timeout; the stop grace
+  - `ponytail:` writing a response has only the per-write timeout; the stop grace
     is fixed; while workers drain, new connections queue in the listener's backlog (the master
     holds it too) and are reset when the program ends, where closing the listeners first would
     need `workers()` to know which sockets are listeners; a master killed with SIGKILL leaves its
