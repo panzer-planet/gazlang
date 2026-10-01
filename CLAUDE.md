@@ -282,8 +282,8 @@ that must find nothing to do.
   1. **Rest patterns** in destructuring, `[$first, ...$rest] = $list`, when JSON handling asks.
   - **On demand**: dumping the raw bytes of a request that got a 500, to replay it (the small
     version of record and replay); `parallel($thunks, $max)` over forked processes, giving plain
-    data only and refusing handles a child inherited (a SQLite or PostgreSQL connection must not be
-    used across a fork; check what libpq does first); `std/money`, amounts as integer cents; shape
+    data only, its child raising `vm_process` as a worker does so the handles it inherited are
+    refused and abandoned (see "Serving HTTP"); `std/money`, amounts as integer cents; shape
     patterns in `match`, only with a syntax that can't be read as today's `==` arms (a map there
     already means "equals this map"); `db::join($fragments, $separator)`, not designed yet, for a
     bulk insert of many rows as one statement.
@@ -515,6 +515,27 @@ that must find nothing to do.
     accepted a connection* stops the lot with its code, as a startup bug would otherwise respawn for
     ever; one that accepted first died of a request and is started again. Workers say so in a page
     of shared memory (`mmap`, a byte each), not a pipe, since the master only reads it when one dies.
+  - **A handle made before `workers()` is the process's that made it**: a fork copies a `db`,
+    `socket` or `file` along with the connection or file offset under it, shared with every other
+    process. Two workers on one PostgreSQL connection garble each other's replies and hang, and
+    SQLite forbids a connection crossing a fork. So every `Db`, `Socket` and `File` records
+    `vm_process` (`workers.c`: 0 at start, raised in each worker's child by `fork_worker()`; a
+    counter, since `getpid()` would be a system call on every `file_read_line()`) as its owner, and
+    using another process's is a catchable error (`db_run(): this db was opened before workers(), and
+    workers can't share one: open one after workers()`). **Listeners are exempt**, sharing one being
+    the point of prefork. **Releasing one is an abandon, not a close**, in the paths every release
+    takes (`db_close()`, `net_close()`, `file_close()`: decref, the collector, the end of the
+    program and an explicit close, which is silent): a close says goodbye on the shared connection
+    and ends it for its owner too, which even a worker that never touched it did, just by ending.
+    PostgreSQL's socket is pointed at `/dev/null` (`abandon_fd()`) before `PQfinish()`, so its
+    Terminate goes nowhere; TLS skips `SSL_shutdown()`'s close_notify; a file's descriptor is pointed
+    at `/dev/null` before `fclose()`, whose seek back to its own position would move the shared
+    offset (nothing can read it after the fork today, but a `parallel()` parent would); SQLite's is
+    never closed in a worker (a close can roll back the owner's journal), only kept reachable, a
+    `ponytail:` in `sqlite.c`. The per-driver part is `DbDriver.abandon`. The master never returns
+    from `workers()` and ends with `exit()`, so its copy of a PostgreSQL connection stays open and
+    idle until the server stops. Tested by `tests/gaz/workers/inherited_test.gaz` (under the
+    sanitizers, each worker's `GAZVM_STATS` line checked by `CVM::leaks()`) and `DbPgTest`.
   - **`worker_recycle()` is a third case**, neither the graceful "clean exit(0), shrink the pool" nor
     the generic "died, log a failure, restart": a worker retiring itself on purpose (PHP-FPM's
     `pm.max_requests`, see `http::serve`'s `"max_requests"` below), which must be replaced like a
@@ -1020,8 +1041,8 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   builtins, not `read_line($f)`**: an optional handle would make `read_line`'s meaning depend on an
   argument's type, and a handle that could later take a mode (`"w"`, `"a"`) has room. Only a
   directory is refused (`EISDIR`, written out as `delete_file` does): a pipe or `/dev/stdin` is
-  what streaming is for, where `read_file()` insists on a regular file. Close-on-exec, as a socket is; opened before `workers()` a file shares its
-  offset but not its buffer across the fork, so one worker reads it. `ponytail:` read only, no
+  what streaming is for, where `read_file()` insists on a regular file. Close-on-exec, as a socket is; one opened before `workers()` can't be
+  read in a worker (see "Serving HTTP"). `ponytail:` read only, no
   seek, no bytes; a file being appended to stops at the first `null` (C's end-of-file flag sticks); a `foreach` can't be lazy, so a program loops on `file_read_line()`.
 - Directories: `list_dir()` (sorted with `str_cmp`, byte by byte, since `readdir()`'s order is
   the file system's), `is_dir()` (through symlinks, as `file_exists`), `make_dir()` (one level),
@@ -1048,7 +1069,8 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
 - Sockets (`net.c`): `socket_listen($host, $port, $backlog = 128)` (port 0 the system's pick,
   `socket_port()` says which), `socket_accept($listener, $timeout = 30)` (waits for good; the timeout
   is the connection's), both plain TCP. `workers($n)` (`workers.c`) forks the program for a server;
-  see "Serving HTTP". The fuzzer skips `workers` with the socket builtins.
+  see "Serving HTTP", and for why a connection made before it can't be used in a worker while a
+  listener can. The fuzzer skips `workers` with the socket builtins.
   `socket_open($host, $port, $tls = false, $timeout = 30)` gives a `socket`,
   a reference-counted handle closed when the last reference goes (so a forgotten close leaks no
   descriptor), `socket_read()` up to 64KB or `""` at the end, `socket_write()` all of it,

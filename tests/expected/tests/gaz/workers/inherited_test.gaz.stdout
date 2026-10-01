@@ -1,0 +1,14 @@
+ok the first worker is 1
+ok a db
+ok through lib/db.gaz
+ok a file
+ok reading a connection
+ok writing to a connection
+ok a connection's port
+ok an accepted connection
+ok a listener's port
+ok a listener accepts
+ok a db opened in the worker
+ok a file opened in the worker
+ok closed, it is closed
+ok closed, a file is closed

@@ -34,6 +34,7 @@
 #include "gazvm.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
@@ -48,6 +49,39 @@
 #define STOP_GRACE 10.0     /* seconds a worker has to finish its request once asked to stop */
 
 bool vm_worker;
+
+/*
+ * Which process this is, as a generation: 0 in the one the program started in, raised in each
+ * worker as it is forked (and in the child of anything else that forks a running program, such as
+ * a parallel() if one is ever built). A db, socket or file records it as its owner when it is
+ * made, and a fork copies the handle with the old number in it, so a worker can tell a handle it
+ * inherited from one it made itself. A counter rather than getpid(), which would be a system call
+ * on every file_read_line().
+ *
+ * Another process's handle can't be used: the connection or file offset under it is shared with
+ * that process, so two of them talking on one PostgreSQL connection garble each other's replies,
+ * and SQLite forbids carrying a connection across a fork at all. Releasing one abandons it rather
+ * than closing it (db_close(), net_close(), file_close()), since a close says goodbye on the
+ * shared connection, or moves the shared offset, for the process that still uses it. Listeners
+ * are the exception: sharing one is what a worker pool is.
+ */
+int vm_process;
+
+bool refuse_inherited(const char *builtin, const char *type) {
+    return raisef("%s(): this %s was opened before workers(), and workers can't share one: open one after workers()", builtin, type);
+}
+
+/* dup2() swaps what fd refers to for /dev/null, keeping the number, so a library that writes its
+   goodbye to fd as it closes writes it nowhere, and the connection or file it was is left alone
+   for the process that still has it. Only this process's descriptor changes: the other process's
+   copy of the descriptor is its own. */
+void abandon_fd(int fd) {
+    if (fd < 0) return;
+    int null = open("/dev/null", O_RDWR | O_CLOEXEC);
+    if (null < 0) return;
+    dup2(null, fd);
+    close(null);
+}
 
 static const int STOP_SIGNALS[] = {SIGINT, SIGTERM, SIGHUP};
 #define NSTOP (int)(sizeof STOP_SIGNALS / sizeof STOP_SIGNALS[0])
@@ -100,6 +134,7 @@ static pid_t fork_worker(int number, volatile unsigned char *served, Value *out)
     pid_t pid = fork();
     if (pid == 0) {
         vm_worker = true;
+        vm_process++;
         restore_signals();
         accepted = &served[number - 1];
         /* Not SA_RESTART, so a socket_accept() waiting is woken to give null */

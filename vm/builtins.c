@@ -788,7 +788,7 @@ static bool open_file(Str *path, Value *out) {
     fcntl(fileno(fp), F_SETFD, FD_CLOEXEC);
     File *f = xmalloc(sizeof *f);
     counted++;
-    *f = (File){.rc = 1, .fp = fp};
+    *f = (File){.rc = 1, .fp = fp, .owner = vm_process};
     *out = v_file(f);
     return true;
 }
@@ -797,6 +797,7 @@ static bool open_file(Str *path, Value *out) {
    read_line() gives one of standard input */
 static bool read_file_line(File *f, Value *out) {
     if (!f->fp) return raisef("file_read_line() on a closed file");
+    if (f->owner != vm_process) return refuse_inherited("file_read_line", "file");
     char *line = NULL;
     size_t cap = 0;
     ssize_t n = getline(&line, &cap, f->fp);
@@ -817,9 +818,14 @@ static bool read_file_line(File *f, Value *out) {
     return true;
 }
 
-/* file_close($file), and what freeing one does; closing twice does nothing */
+/* file_close($file), and what freeing one does; closing twice does nothing. A file a worker
+   inherited shares its offset with the process that opened it, and fclose() may move that offset
+   back to where this process's reading had got to (POSIX asks it to for a file being read, and
+   macOS does), moving it for the other process too, so its descriptor is pointed at /dev/null
+   first (see workers.c). */
 void file_close(File *f) {
     if (!f->fp) return;
+    if (f->owner != vm_process) abandon_fd(fileno(f->fp));
     fclose(f->fp);
     f->fp = NULL;
 }

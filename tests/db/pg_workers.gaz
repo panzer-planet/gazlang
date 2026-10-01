@@ -1,0 +1,38 @@
+/*
+ * Run by DbPgTest against a real server: gaz pg_workers.gaz URL drop|share. A connection opened
+ * before workers() is shared with every worker, so a worker can't use it and must leave it working
+ * for the process that opened it when it lets go of it.
+ *
+ * drop: the one worker drops its copy, then watches the master's session for a second from a
+ * connection of its own: it must still be there, as it wouldn't be had the worker said goodbye on
+ * the shared socket.
+ * share: three workers try the inherited connection; each must be refused every time, promptly,
+ * rather than garble the others' replies and hang.
+ */
+include "../../lib/db.gaz";
+
+[$url, $mode] = args();
+$db = db::open($url);
+$backend = $db.value(db::sql"select pg_backend_pid()");
+$n = workers($mode == "drop" ? 1 : 3);
+
+if ($mode == "drop") {
+    $db = null;
+    $mine = db::open($url);
+    for ($look = 0; $look < 5; $look++) {
+        echo "master's session " .. $mine.value(db::sql"select count(*) from pg_stat_activity where pid = {$backend}");
+        sleep(0.2);
+    }
+} else {
+    $refused = 0;
+    for ($i = 0; $i < 100; $i++) {
+        try {
+            $db.value(db::sql"select {$i}::int");
+        } catch (Error $e) {
+            if (contains($e.message, "opened before workers()")) {
+                $refused++;
+            }
+        }
+    }
+    echo "worker refused {$refused}";
+}

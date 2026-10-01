@@ -43,6 +43,15 @@ static bool open_pg(Str *url, void **conn) {
 
 static void close_pg(void *conn) { PQfinish(conn); }
 
+/* PQfinish() sends the server Terminate (and, over TLS, TLS's goodbye) before it closes the socket,
+   and the server would end the session for the process that opened it too, since the socket is
+   one connection shared by both; with the socket pointed at /dev/null first, the goodbye goes
+   nowhere and PQfinish() only frees what this process holds */
+static void abandon_pg(void *conn) {
+    abandon_fd(PQsocket(conn));
+    PQfinish(conn);
+}
+
 /* A parameter as the text libpq sends; *owned is set when it must be freed */
 static bool param_text(size_t i, Value v, const char **text, char **owned) {
     *owned = NULL;
@@ -153,4 +162,4 @@ static bool run_pg(void *conn, Str *sql, List *params, Value *out) {
     return true;
 }
 
-const DbDriver pg_driver = {"pg", open_pg, run_pg, close_pg};
+const DbDriver pg_driver = {"pg", open_pg, run_pg, close_pg, abandon_pg};

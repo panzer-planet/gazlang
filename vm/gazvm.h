@@ -185,6 +185,7 @@ struct Socket {
     bool listening;     /* a listener, which only accepts */
     void *tls;          /* OpenSSL's SSL *, or NULL for plain TCP: void, so only net.c needs OpenSSL */
     int timeout_ms;     /* for each read and write */
+    int owner;          /* the vm_process that made it (see workers.c) */
 };
 
 /* One database driver: what db_open() picks by the URL's scheme. sqlite.c and pg.c each supply
@@ -194,6 +195,7 @@ typedef struct DbDriver {
     bool (*open)(Str *url, void **conn);
     bool (*run)(void *conn, Str *sql, List *params, Value *out);
     void (*close)(void *conn);
+    void (*abandon)(void *conn);   /* let go of a connection another process made, leaving it working there */
 } DbDriver;
 
 /* A connection made by db_open(): a handle, so copies share it */
@@ -201,12 +203,14 @@ struct Db {
     int64_t rc;
     const DbDriver *driver;
     void *conn;         /* the driver's own, NULL once closed */
+    int owner;          /* the vm_process that opened it (see workers.c) */
 };
 
 /* A file made by file_open(), read a line at a time: a handle, so copies share the position */
 struct File {
     int64_t rc;
     FILE *fp;           /* NULL once closed */
+    int owner;          /* the vm_process that opened it (see workers.c) */
 };
 
 /* An error on its way up. */
@@ -593,6 +597,9 @@ void net_close(Socket *s);
 /* ---- workers.c ------------------------------------------------------------------------- */
 
 extern bool vm_worker;   /* this process is one of workers()'s, which ends the program itself */
+extern int vm_process;   /* which process this is, for a handle's owner: 0 until a fork */
+bool refuse_inherited(const char *builtin, const char *type);   /* the error for using another process's handle */
+void abandon_fd(int fd);       /* point fd at /dev/null, so what is written to it on closing goes nowhere */
 bool start_workers(int64_t count, Value *out);
 bool workers_stopping(void);   /* a worker has been asked to stop: socket_accept() gives null */
 void worker_accepted(void);    /* a worker has taken a connection, so it did start */

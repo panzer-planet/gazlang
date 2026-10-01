@@ -164,7 +164,7 @@ static bool tls_start(Socket *s, const char *host) {
 static Socket *socket_new(int fd, bool listening, int ms) {
     Socket *s = xmalloc(sizeof *s);
     counted++;
-    *s = (Socket){.rc = 1, .fd = fd, .listening = listening, .tls = NULL, .timeout_ms = ms};
+    *s = (Socket){.rc = 1, .fd = fd, .listening = listening, .tls = NULL, .timeout_ms = ms, .owner = vm_process};
     return s;
 }
 
@@ -273,6 +273,7 @@ bool net_accept(Socket *listener, double timeout, Value *out) {
 /* socket_port($socket): the port this end has, which is how a listener on port 0 says which */
 bool net_port(Socket *s, Value *out) {
     if (s->fd < 0) return raisef("socket_port() on a closed socket");
+    if (!s->listening && s->owner != vm_process) return refuse_inherited("socket_port", "socket");
     struct sockaddr_storage addr;
     socklen_t len = sizeof addr;
     if (getsockname(s->fd, (struct sockaddr *)&addr, &len) != 0) return raisef("socket_port() failed: %s", strerror(errno));
@@ -286,6 +287,7 @@ bool net_port(Socket *s, Value *out) {
 bool net_read(Socket *s, Value *out) {
     if (s->fd < 0) return raisef("socket_read() on a closed socket");
     if (s->listening) return raisef("socket_read() on a listening socket: socket_accept() a connection");
+    if (s->owner != vm_process) return refuse_inherited("socket_read", "socket");
     char chunk[65536];
     ssize_t n;
     sigpipe_ignore();
@@ -318,6 +320,7 @@ bool net_read(Socket *s, Value *out) {
 bool net_write(Socket *s, Str *data) {
     if (s->fd < 0) return raisef("socket_write() on a closed socket");
     if (s->listening) return raisef("socket_write() on a listening socket: socket_accept() a connection");
+    if (s->owner != vm_process) return refuse_inherited("socket_write", "socket");
     sigpipe_ignore();
     for (size_t done = 0; done < data->len;) {
         ssize_t n;
@@ -348,14 +351,16 @@ bool net_write(Socket *s, Str *data) {
     return true;
 }
 
-/* socket_close($socket), and what freeing one does; closing twice does nothing */
+/* socket_close($socket), and what freeing one does; closing twice does nothing. Closing only
+   this process's descriptor never ends a connection another process still has, but TLS's goodbye
+   would, so a worker lets go of a TLS connection it inherited without one (see workers.c). */
 void net_close(Socket *s) {
     if (s->fd < 0) return;
     sigpipe_ignore();
 #ifdef GAZ_TLS
     if (s->tls) {
         /* TLS's goodbye, sent without waiting for the other side's */
-        SSL_shutdown(s->tls);
+        if (s->owner == vm_process) SSL_shutdown(s->tls);
         SSL_free(s->tls);
         s->tls = NULL;
     }

@@ -71,23 +71,23 @@ chosen not to collide.
   is the same rule as for any file; or accept the wrapper. It is the next thing a real page hits
   (`format::`, `text::`, `web::html"..."` inside a template).
 
-## 3. A database connection must not cross `workers()`, and nothing says so
+## 3. A database connection must not cross `workers()`, and nothing says so  (resolved)
 
-Each worker needs a connection of its own, opened after the fork; migrations run on one that is
-closed first. A program that opens `db::open` before `workers()` shares one socket between the
-workers. Measured: with one worker it **works perfectly** (400 queries, no errors, one backend), so it
-passes in development; with three, libpq reports `message type 0x31 arrived from server while idle`
-on standard error as the protocol stream is corrupted, and the workers did not finish their 400
-queries in 8 seconds, where one worker needs under one. A program that fails only under concurrency
-and says nothing about why is the worst kind. `main.gaz` does it right and explains in a comment,
-because the language will not.
+A program that opened `db::open` before `workers()` shared one socket between the workers. Measured:
+with one worker it worked (so it passed in development); with three, libpq reported `message type
+0x31 arrived from server while idle` as the protocol stream was corrupted, and the workers hung,
+ignoring the graceful stop. Worse, a worker that never touched the connection still killed it for
+the master and its siblings just by ending or dropping it: closing it sent PostgreSQL's Terminate
+on the shared socket.
 
-- **Today**: a comment and the order of lines in `main.gaz`.
-- **Options**: `workers()` marks every `db` (and `socket`) handle the parent holds as inherited in
-  each child, so using one is an error naming it ("opened before workers(); open it after"); this
-  is the rule `parallel()` needs too (see the roadmap) and could share its code. Or have
-  `http::serve` take a function that makes the handler, called once per worker, so the natural place
-  to open a connection is inside it.
+- **Done**: a `db`, `socket` (not a listener) or `file` made before `workers()` belongs to the
+  process that made it. Using one in a worker is an error (`db_run(): this db was opened before
+  workers(), and workers can't share one: open one after workers()`), at the first query, in
+  development too, and letting go of one in a worker abandons it without the goodbye, so the
+  owner's session lives on. `main.gaz` opens each worker's connection after `workers()`, as before.
+- **Left**: `http::serve` taking a function that makes the handler, once per worker, would make
+  the right place to open a connection the natural one; nothing asks for it now that the wrong place
+  fails loudly.
 
 ## 4. No UTF-8 validation, and `len()` counts bytes (resolved)
 

@@ -32,6 +32,20 @@ static bool open_sqlite(Str *url, void **conn) {
 
 static void close_sqlite(void *conn) { sqlite3_close(conn); }
 
+/* Connections let go of in a worker, kept where LeakSanitizer sees them as reachable */
+static void **abandoned;
+static size_t nabandoned;
+
+/* A connection a worker inherited is never closed there: SQLite forbids using one across a fork,
+   closing included, since closing can roll back or delete a journal that belongs to the process
+   that opened it. So it is left as it is.
+   ponytail: one connection's memory per inherited handle per worker, freed when the worker ends;
+   lifted if SQLite ever offers a way to drop a connection without touching its files. */
+static void abandon_sqlite(void *conn) {
+    abandoned = xrealloc(abandoned, (nabandoned + 1) * sizeof *abandoned);
+    abandoned[nabandoned++] = conn;
+}
+
 static bool bind_params(sqlite3 *db, sqlite3_stmt *st, List *params) {
     int wanted = sqlite3_bind_parameter_count(st);
     if ((size_t)wanted != params->len) {
@@ -149,4 +163,4 @@ static bool run_sqlite(void *conn, Str *sql, List *params, Value *out) {
     return true;
 }
 
-const DbDriver sqlite_driver = {"sqlite", open_sqlite, run_sqlite, close_sqlite};
+const DbDriver sqlite_driver = {"sqlite", open_sqlite, run_sqlite, close_sqlite, abandon_sqlite};

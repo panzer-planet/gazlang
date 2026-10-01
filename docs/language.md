@@ -820,8 +820,7 @@ handle, as a socket is: copies share the position, `==` is identity, it prints a
 nothing; reading a closed file, a path that can't be opened and a directory are errors
 (`Cannot open "path": No such file or directory`). A pipe or `/dev/stdin` opens too, and lines
 arrive as they are written. A file is not inherited by a program started with `run()`, and one
-opened before `workers()` must be read by one worker only: they would share its position but not
-its buffer, and lines would come back twice or not at all.
+opened before `workers()` can't be read in a worker (see `workers()`): open it after.
 
 `read_stdin_bytes($n)` reads exactly `$n` bytes, leaving the rest of the stream for the next
 call, which is what a protocol framed by a byte count (a `Content-Length` header) needs: unlike
@@ -909,7 +908,8 @@ on three builtins, so a driver adds no names to a program:
 - `db_run($db, $sql, $params = [])` — gives `{"rows" => [...], "changes" => N}`: each row a map from
   column name to value (a repeated name keeps the last), and `changes` the rows an insert, update or
   delete changed (0 for a query). `db_close($db)` closes it; a `db` no variable holds any more is
-  closed too.
+  closed too. One opened before `workers()` can't be used in a worker (see `workers()`): each worker
+  opens its own after it.
 - Parameters are a list, sent apart from the SQL. The builtin takes the database's own placeholders
   (`?` for SQLite, `$1` for PostgreSQL) and a plain string, since it is the layer underneath:
   programs write `db::sql"..."`, below, which writes them. With parameters the SQL is one statement;
@@ -1024,7 +1024,8 @@ A listener only accepts: reading or writing one is an error. No TLS on this side
 A socket is a handle: copies share the connection, `==` is identity, and it prints as `socket`
 (`socket (listening)`, `socket (closed)`). Failing to find the host or connect, a certificate that doesn't check out,
 a timeout, and reading or writing a closed socket are errors. A gaz built with `make TLS=0`
-has no TLS, and `$tls = true` is an error.
+has no TLS, and `$tls = true` is an error. A connection made before `workers()` can't be used in a
+worker (see `workers()`); a listener can.
 
 ### The terminal
 
@@ -1081,6 +1082,16 @@ too and ends them at once. A signal the program was started ignoring stays ignor
 SIGHUP). Workers share nothing after the call, a
 `socket_listen()` listener made before it aside, which is the point: they all accept on one port.
 Each draws its own random numbers. At most 1024, and a worker can't start workers of its own.
+
+A database connection, a socket connection or a file made before `workers()` can't be used in a
+worker, since every worker would share the one connection or file position under it: their queries
+and replies would interleave on one PostgreSQL connection, and SQLite forbids carrying a connection
+into a new process at all. Using one is an error (`db_run(): this db was opened before workers(), and
+workers can't share one: open one after workers()`), so a worker opens its own after `workers()`.
+Letting go of one is fine, by closing it, dropping it or ending: a worker does that without
+disturbing the connection or file for the others. The process that called `workers()` keeps its own
+copy until it ends, so a PostgreSQL connection opened before it stays open, idle, as long as the
+server runs.
 
 `worker_recycle()` retires the calling worker on purpose (`http::serve()`'s `max_requests`): it
 flushes standard output, then ends the process, and the master replaces it at once, so the pool

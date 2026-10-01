@@ -1074,6 +1074,7 @@ tests/gaz/templates/html_concat_test.gaz
 tests/gaz/templates/namespaced_test.gaz
 tests/gaz/templates/templates_test.gaz
 tests/gaz/templates/web_html_test.gaz
+tests/gaz/workers/inherited_test.gaz
 tests/programs/cat_facts.gaz
 tests/programs/csv_report.gaz
 tests/programs/errors.gaz

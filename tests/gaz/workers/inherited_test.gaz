@@ -1,0 +1,53 @@
+include "std/test.gaz" use expect, throws;
+include "../../../lib/db.gaz";
+
+/*
+ * A db, file or socket made before workers() can't be used in a worker, since the connection or
+ * file offset under it is shared with every other process that has it; a listener can, since
+ * sharing one is what workers are for. Letting go of one in a worker is no error. One worker, so
+ * what it prints is all there is: the master prints nothing and ends when it does.
+ */
+const INHERITED = "was opened before workers(), and workers can't share one: open one after workers()";
+
+$db = db::open("sqlite::memory:");
+$raw = db_open("sqlite::memory:");
+$file = file_open("tests/corpora/cli/lines.txt");
+$listener = socket_listen("127.0.0.1", 0);
+$client = socket_open("127.0.0.1", socket_port($listener));
+$accepted = socket_accept($listener);
+// Something to read, so a worker allowed to read would get it rather than wait
+socket_write($accepted, "waiting");
+socket_write($client, "waiting");
+
+expect("the first worker is 1", workers(1), 1);
+
+throws("a db", () -> db_run($raw, "select 1"), "db_run(): this db " .. INHERITED);
+throws("through lib/db.gaz", () -> $db.value(db::sql"select 1"), "db_run(): this db " .. INHERITED);
+throws("a file", () -> file_read_line($file), "file_read_line(): this file " .. INHERITED);
+throws("reading a connection", () -> socket_read($client), "socket_read(): this socket " .. INHERITED);
+throws("writing to a connection", () -> socket_write($client, "x"), "socket_write(): this socket " .. INHERITED);
+throws("a connection's port", () -> socket_port($client), "socket_port(): this socket " .. INHERITED);
+throws("an accepted connection", () -> socket_read($accepted), "socket_read(): this socket " .. INHERITED);
+
+// A listener is shared on purpose: this worker connects to it and accepts what it connected
+$port = socket_port($listener);
+expect("a listener's port", $port > 0, true);
+$mine = socket_open("127.0.0.1", $port);
+$theirs = socket_accept($listener, 5);
+socket_write($mine, "hello");
+expect("a listener accepts", socket_read($theirs), "hello");
+
+// What a worker opens itself is its own
+$fresh = db::open("sqlite::memory:");
+expect("a db opened in the worker", $fresh.value(db::sql"select 42"), 42);
+$again = file_open("tests/corpora/cli/lines.txt");
+expect("a file opened in the worker", file_read_line($again), "first");
+
+// Letting go: closed explicitly, dropped, or held to the end
+db_close($raw);
+db_close($raw);
+file_close($file);
+socket_close($client);
+$db = null;
+throws("closed, it is closed", () -> db_run($raw, "select 1"), "db_run() on a closed database");
+expect("closed, a file is closed", type_of($file) .. " " .. $file, "file file (closed)");

@@ -29,7 +29,7 @@ $listener = socket_listen($config.host, $config.port);
 echo "listening on http://" .. $config.host .. ":" .. socket_port($listener);
 workers($config.workers);
 
-// Each worker has a connection of its own: one opened before the fork would be shared by all of them
+// Each worker opens its own: one opened before workers() can't be used in a worker
 $db = connect($config.database_url);
 http::serve($listener, build_app($config, $db).handler(), {
     "max_body" => REQUEST_BODY_LIMIT,

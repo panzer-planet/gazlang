@@ -347,7 +347,9 @@ final class CVM
     /**
      * Take the line GAZVM_STATS adds out of the C VM's standard error, and add what it said as a
      * fourth element: "0 values leaked, at most ..." or "leaks not checked: ...", or null when
-     * the line is missing (the VM crashed or was killed)
+     * the line is missing (the VM crashed or was killed). A workers() program's workers each print
+     * a line of their own before the master's; those are taken out too, and one that leaked is the
+     * one reported.
      *
      * @param  array{0: string, 1: string, 2: int}  $result
      * @return array{0: string, 1: string, 2: int, 3: string|null}
@@ -359,6 +361,14 @@ final class CVM
         if (preg_match('/gazvm: ([^\n]*)\n\z/', $result[1], $match, PREG_OFFSET_CAPTURE)) {
             $stats = $match[1][0];
             $result[1] = substr($result[1], 0, $match[0][1]);
+        }
+        if ($stats !== null && preg_match_all('/gazvm: (\d+ values leaked[^\n]*)\n/', $result[1], $workers)) {
+            $result[1] = (string) preg_replace('/gazvm: \d+ values leaked[^\n]*\n/', '', $result[1]);
+            foreach ($workers[1] as $line) {
+                if (! str_starts_with($line, '0 values leaked')) {
+                    $stats = $line;
+                }
+            }
         }
 
         return [...$result, $stats];

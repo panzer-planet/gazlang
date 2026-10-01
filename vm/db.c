@@ -44,7 +44,7 @@ bool db_open(Str *url, Value *out) {
     void *conn;
     if (!want->open(url, &conn)) return false;
     Db *d = xmalloc(sizeof *d);
-    *d = (Db){.rc = 1, .driver = want, .conn = conn};
+    *d = (Db){.rc = 1, .driver = want, .conn = conn, .owner = vm_process};
     counted++;
     *out = v_db(d);
     return true;
@@ -52,13 +52,17 @@ bool db_open(Str *url, Value *out) {
 
 bool db_run(Db *d, Str *sql, List *params, Value *out) {
     if (!d->conn) return raisef("db_run() on a closed database");
+    if (d->owner != vm_process) return refuse_inherited("db_run", "db");
     return d->driver->run(d->conn, sql, params, out);
 }
 
-/* Also what freeing the last reference does, so closing twice is fine */
+/* Also what freeing the last reference does, so closing twice is fine. A worker lets go of a
+   connection it inherited without closing it, which would end it for the process that opened it
+   (see workers.c). */
 void db_close(Db *d) {
     if (!d->conn) return;
-    d->driver->close(d->conn);
+    if (d->owner != vm_process) d->driver->abandon(d->conn);
+    else d->driver->close(d->conn);
     d->conn = NULL;
 }
 
