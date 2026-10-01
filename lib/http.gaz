@@ -219,10 +219,15 @@ fn resolve($target, $location) {
 
 // Reads a message from a socket: lines up to a delimiter, a count of bytes, or the rest
 kind Reader {
-    #data = "";         // read but not taken yet
+    #data = "";         // read but not taken yet, kept from one message to the next
+    #deadline = null;   // a monotonic_time() after which a read is refused (408), or null
 
-    // With a $deadline (a monotonic_time()), a read that would start after it is refused (408)
-    fn _(#socket, #deadline = null);
+    fn _(#socket);
+
+    // Give the message about to be read until $deadline, a monotonic_time()
+    pub fn start($deadline) {
+        #deadline = $deadline;
+    }
 
     // Whether anything has been read but not taken
     pub fn pending() {
@@ -465,11 +470,16 @@ pub fn serve($listener, $handler, $options = {}) {
     // PHP-FPM's pm.max_requests: retiring a worker after N requests throws away whatever state it
     // built up over its life, belt and suspenders next to the process boundary between workers
     $max_requests = $options["max_requests"];
+    /*
+     * Requests answered, not connections accepted: a connection may carry more than one request
+     * once it is kept open, and a limit on requests is what retiring a worker is about. A
+     * connection that closes before asking anything counts for nothing.
+     */
     $served = 0;
     // Null once a worker is asked to stop: the request in hand has been answered
     while (($socket = socket_accept($listener, $options["timeout"])) != null) {
-        handle($socket, $handler, $options);
-        $served++;
+        $left = $max_requests == null ? null : $max_requests - $served;
+        $served += connection($socket, $listener, $handler, $options, $left);
         if ($max_requests != null && $served >= $max_requests) {
             worker_recycle();
         }
@@ -478,33 +488,66 @@ pub fn serve($listener, $handler, $options = {}) {
 
 // One connection: its request read, answered and the connection closed, whatever happens
 pub fn handle($socket, $handler, $options = {}) {
-    $options = server_options($options);
+    connection($socket, null, $handler, server_options($options), null);
+}
+
+/*
+ * Answer the requests on a connection, then close it, whatever happens; gives how many were
+ * answered. $left is how many more this worker may answer (null: no limit), and $listener the
+ * one it accepted from (null for handle()), which an idle connection will yield to.
+ * ponytail: one request per connection, since answer() never keeps one open.
+ */
+fn connection($socket, $listener, $handler, $options, $left) {
+    $answered = 0;
     try {
-        $request = null;
-        try {
-            $deadline = monotonic_time() + $options["request_timeout"];
-            $request = read_request(Reader($socket, $deadline), $socket, $options["max_body"]);
-        } catch (Refusal $e) {
-            send_quietly($socket, refusal($e.status));
-        } catch (Error $e) {
-            // Cut off, timed out or malformed: say so, if anyone is still listening
-            send_quietly($socket, refusal(400));
-        }
-        if ($request != null) {
-            $head = $request["method"] == "HEAD";
-            $response = null;
-            try {
-                $response = write_response($handler($request), $head);
-            } catch (Error $e) {
-                print_error("http::serve: {$request["method"]} {$request["path"]}: " .. describe_error($e) .. "\n");
-            } catch ($e) {
-                print_error("http::serve: {$request["method"]} {$request["path"]}: the handler raised $e\n");
+        $reader = Reader($socket);
+        $address = remote_address($socket);
+        $keep = true;
+        while ($keep && ($left == null || $answered < $left)) {
+            $answer = answer($reader, $socket, $handler, $address, $options);
+            if ($answer == null) {
+                break;
             }
-            send_quietly($socket, $response ?? refusal(500, $head));
+            [$bytes, $keep] = $answer;
+            $answered++;
+            if (!send_quietly($socket, $bytes)) {
+                break;
+            }
         }
     } finally {
         socket_close($socket);
     }
+    return $answered;
+}
+
+/*
+ * The next request on a connection read and answered: [the response's bytes, whether to keep
+ * the connection open for another], or null if it closed before asking anything.
+ */
+fn answer($reader, $socket, $handler, $address, $options) {
+    $reader.start(monotonic_time() + $options["request_timeout"]);
+    try {
+        $request = read_request($reader, $socket, $address, $options["max_body"]);
+    } catch (Refusal $e) {
+        return [refusal($e.status), false];
+    } catch (Error $e) {
+        // Cut off, timed out or malformed: say so, if anyone is still listening
+        return [refusal(400), false];
+    }
+    if ($request == null) {
+        return null;
+    }
+    $head = $request["method"] == "HEAD";
+    $response = null;
+    try {
+        $response = write_response($handler($request), $head);
+    } catch (Error $e) {
+        print_error("http::serve: {$request["method"]} {$request["path"]}: " .. describe_error($e) .. "\n");
+    } catch ($e) {
+        print_error("http::serve: {$request["method"]} {$request["path"]}: the handler raised $e\n");
+    }
+    // Never kept yet: whether a connection stays open is for keep-alive to decide
+    return [$response ?? refusal(500, $head), false];
 }
 
 fn server_options($options) {
@@ -533,8 +576,8 @@ fn remote_address($socket) {
     }
 }
 
-// The request on a connection, or null if it closed before sending anything
-fn read_request($reader, $socket, $max_body) {
+// The request on a connection from $address, or null if it closed before sending anything
+fn read_request($reader, $socket, $address, $max_body) {
     $head = $reader.line("\r\n\r\n", MAX_HEAD);
     if ($head == null) {
         if ($reader.pending()) {
@@ -578,7 +621,7 @@ fn read_request($reader, $socket, $max_body) {
         "query" => $query == null ? "" : slice($target, $query + 1),
         "headers" => $headers,
         "body" => "",
-        "remote_address" => remote_address($socket),
+        "remote_address" => $address,
     };
     $chunked = has_key($headers, "transfer-encoding");
     $length = has_key($headers, "content-length") ? content_length($headers["content-length"]) : 0;
@@ -704,12 +747,17 @@ fn status_line($status) {
     return "HTTP/1.1 $status " .. (REASONS[$status] ?? "");
 }
 
-// Sent if the other end still listens; a client that has gone away is no error of the server's
+/*
+ * Sent if the other end still listens; a client that has gone away is no error of the server's.
+ * Gives whether it was sent.
+ */
 fn send_quietly($socket, $bytes) {
     try {
         socket_write($socket, $bytes);
     } catch (Error $e) {
+        return false;
     }
+    return true;
 }
 
 fn describe_error($e) {

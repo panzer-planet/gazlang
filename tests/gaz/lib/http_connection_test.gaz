@@ -1,0 +1,28 @@
+/*
+ * A connection carries one request: http::handle() answers it and closes the connection, even
+ * with a second request already sent behind it (keep-alive is off)
+ */
+include "std/test.gaz" use expect;
+include "../../../lib/http.gaz";
+
+$listener = socket_listen("127.0.0.1", 0);
+$client = socket_open("127.0.0.1", socket_port($listener));
+$request = "GET /one HTTP/1.1\r\nHost: example.test\r\n\r\n";
+socket_write($client, $request .. replace($request, "/one", "/two"));
+$served = socket_accept($listener);
+
+shared $paths = [];
+http::handle($served, $request -> {
+    $paths[] = $request["path"];
+
+    return {"body" => "ok"};
+});
+
+$received = "";
+while (($chunk = socket_read($client)) != "") {
+    $received ..= $chunk;
+}
+
+expect("the handler is called for the first request only", $paths, ["/one"]);
+expect("one response comes back", len(split($received, "HTTP/1.1 ")) - 1, 1);
+expect("saying the connection closes", contains($received, "\r\nConnection: close\r\n"), true);
