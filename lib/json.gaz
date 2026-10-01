@@ -8,7 +8,8 @@
 //   pairs joined into one code point written as UTF-8;
 // - nesting deeper than 511 arrays or objects is an error.
 // Invalid JSON raises "Invalid JSON: <what> at position <byte offset>", which try/catch
-// can catch.
+// can catch, except that a document that isn't well formed UTF-8 is refused whole, before it is
+// read, so that error has no position.
 // A number too large for a float is an error, since GazLang has no infinity. JSON text is
 // UTF-8, so a document that isn't well formed UTF-8 is invalid ("Invalid JSON: not well formed
 // UTF-8"), as is an escape naming half a surrogate pair, and every string decoded is well formed.
