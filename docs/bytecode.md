@@ -307,7 +307,7 @@ block and not in another.
 | --- | --- | --- |
 | `PUSH_KIND kind` | `-- c` | Pushes a kind as a value. |
 | `NEW kind count` | `… -- o` | Makes an object of that kind with that many arguments: the kind's block sets the field defaults, calls the constructor and returns the object. |
-| `CALL_CONSTRUCTOR kind` | `-- v` | In a kind's block: runs that kind's `_` on the object being made, with the same arguments. |
+| `CALL_CONSTRUCTOR kind` | `-- v` | In a kind's block: runs that kind's `_` on the object being made, with the same arguments. A kind with no constructor is an error when it runs, as the loader doesn't know which methods a kind answers to. |
 | `LOAD_THIS` | `-- o` | Pushes the object the running method or initialiser is on. |
 | `LOAD_FIELD member` | `-- v` | Pushes a field of that object. Fails with "Property x of C is not set". |
 | `SET_FIELD member` | `v -- v` | Sets a field of that object, leaving the value. A field with a type checks the value first, as `SET_PATH` does. |
@@ -316,7 +316,7 @@ block and not in another.
 | `GET_PROPERTY_EXISTING member` | `o -- v` | The same as `GET_PROPERTY`, for a compound update. |
 | `GET_METHOD member` | `o -- o m` | Pushes the object again with the method to run on it, or the member's value with nothing when it isn't a method. |
 | `CALL_METHOD count member` | `o m … -- v` | Calls what `GET_METHOD` found, or the value as `CALL_VALUE` would. Fails with "Method C.m expects 2 arguments, 1 given". |
-| `CALL_PARENT kind member count` | `… -- v` | Runs that kind's version of a method on the running object (`##name(...)`). |
+| `CALL_PARENT kind member count` | `… -- v` | Runs that kind's version of a method on the running object (`##name(...)`). There must be a block `kind.member`, which the loader checks. |
 | `BIND_PARENT kind member` | `-- f` | Pushes that kind's version of a method, bound to the running object (`##name`). |
 
 ### Errors

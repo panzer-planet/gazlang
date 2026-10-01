@@ -1,0 +1,1 @@
+Error: CALL_PARENT names Parent.missing, which has no block in 'new Child'

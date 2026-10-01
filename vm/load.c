@@ -1239,6 +1239,11 @@ static void check_block(Block *b) {
                 }
                 }
             }
+            /* The block it calls, which a kind's method table lists but a call to a parent's
+               method names outright: there must be one, or the call has nothing to run */
+            if (r->op == OP_CALL_PARENT && !find_function(method_key(r->names[0], r->names[1]))) {
+                FAIL("CALL_PARENT names %s.%s, which has no block", r->names[0]->data, r->names[1]->data);
+            }
             if (b->objectless && (r->op == OP_LOAD_FIELD || r->op == OP_SET_FIELD || r->op == OP_CALL_PARENT ||
                                   r->op == OP_BIND_PARENT || r->op == OP_CALL_CONSTRUCTOR)) {
                 FAIL("%s can run without an object", info->name);

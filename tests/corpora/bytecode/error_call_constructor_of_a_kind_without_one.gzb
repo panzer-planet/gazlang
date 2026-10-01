@@ -1,0 +1,17 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+NEW Child 0
+POP
+
+kind Plain
+locals
+LOAD_THIS
+RET
+
+kind Child
+locals
+CALL_CONSTRUCTOR Plain
+RET

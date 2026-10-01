@@ -1275,6 +1275,12 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         case OP_CALL_CONSTRUCTOR: {
             Kind *c = in->p;
             Function *f = method_function(c, constructor_name());
+            /* The compiler writes this for a kind that has a constructor; hand-written bytecode
+               can name one that hasn't, and no walk of the instructions knows the kind's methods */
+            if (!f) {
+                raisef("CALL_CONSTRUCTOR names kind %s, which has no constructor", c->name->data);
+                goto error;
+            }
             if (fp - frames == MAX_CALL_DEPTH) {
                 /* Located where the object is being made, not in the initialiser */
                 Buf what = {0};

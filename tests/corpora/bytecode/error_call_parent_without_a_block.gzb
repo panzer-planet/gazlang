@@ -1,0 +1,17 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+NEW Child 0
+POP
+
+kind Parent
+locals
+LOAD_THIS
+RET
+
+kind Child extends Parent
+locals
+CALL_PARENT Parent missing 0
+RET

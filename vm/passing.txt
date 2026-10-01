@@ -725,7 +725,9 @@ tests/corpora/bytecode/error_array_extend_into_an_int.gzb
 tests/corpora/bytecode/error_array_push_onto_a_float.gzb
 tests/corpora/bytecode/error_bad_path.gzb
 tests/corpora/bytecode/error_call_a_builtin.gzb
+tests/corpora/bytecode/error_call_constructor_of_a_kind_without_one.gzb
 tests/corpora/bytecode/error_call_method_of_a_number.gzb
+tests/corpora/bytecode/error_call_parent_without_a_block.gzb
 tests/corpora/bytecode/error_capture_slot.gzb
 tests/corpora/bytecode/error_capture_where.gzb
 tests/corpora/bytecode/error_catch_match_of_a_string.gzb

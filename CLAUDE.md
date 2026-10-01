@@ -1903,7 +1903,7 @@ try {
   puts one there itself), and a file that can catch needs a kind `Error`, which is what a
   caught error is made as. What a value *is* stays the VM's to check
   when it runs: `CATCH_VALUE`, `CATCH_MATCH` and `RETHROW` ask whether the top is a raised
-  error, `CALL_METHOD` whether it has a method entry over an object, and `ARRAY_PUSH`,
+  error, `CALL_METHOD` whether it has a method entry over an object, `CALL_CONSTRUCTOR` whether the kind has a constructor (a method table isn't built when the instructions are walked, and visibility decides what an entry is), and `ARRAY_PUSH`,
   `ARRAY_EXTEND` and `MAP_SET` whether they are building a list or a map, as `ADD` asks what
   it is adding, because a finally block stores the error in a local and loads it back. Peephole rewrites belong to loaders, not the format.
 - **A stack machine**, not registers: the compiler is the part written in GazLang, a stack
