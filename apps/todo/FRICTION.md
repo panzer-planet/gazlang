@@ -2,10 +2,15 @@
 
 Each entry says what hurt, what the app does about it today, and the options for fixing it in the
 language or the library. Nothing here is decided: it is evidence. The app is registration, login and
-logout, and per-user todos, on PostgreSQL: 752 lines of GazLang, 115 of templates, and 360 of tests (119 checks). It was
-written by someone who knows the language, working from the library's own documentation.
+logout, and per-user todos, on PostgreSQL: 656 lines of GazLang, 120 of templates, 22 of SQL, and 360
+of tests (119 checks). It was written by someone who knows the language, working from the library's own
+documentation, and it has been changed since only by moving what it needed into the library.
 
 Ordered by how much each would matter to a stranger writing their first web app.
+
+**Status.** Resolved: 1 (middleware, now in `std/http.gaz`), 2 (a `namespace` line in a template), 3
+(handles across `workers()`), 4 (UTF-8), and the redirect in 10. Half done: 5 (`socket_peer()` exists;
+handlers can't see it yet). Open: the rate limit in 5, 6, 7, 8, 9, and the rest of 10.
 
 ## What worked, so it is not lost
 
@@ -91,6 +96,9 @@ on the shared socket.
 - **Left**: `http::serve` taking a function that makes the handler, once per worker, would make
   the right place to open a connection the natural one; nothing asks for it now that the wrong place
   fails loudly.
+- **Still open, found while fixing it**: a worker blocked inside a PostgreSQL query ignores the
+  graceful stop (SIGTERM is only noticed in `socket_accept()`), so a deploy that stops the master waits
+  out the 10 second grace and kills it; and a master killed with SIGKILL leaves such a worker running.
 
 ## 4. No UTF-8 validation, and `len()` counts bytes (resolved)
 
@@ -121,7 +129,7 @@ email out for 15 minutes. A per-client limit needs the client's address, which a
 
 ## 6. Calling a handler's helpers needs a test client that doesn't exist
 
-The tests drive the real router through a `Browser` kind (`tests/support.gaz`, 70 lines): it builds
+The tests drive the real router through a `Browser` kind (`tests/support.gaz`, 106 lines with the test database): it builds
 request maps, keeps the cookies a response sets, form-encodes bodies, and finds the CSRF token in a
 page. Every web app's tests will want this, and the request shape (`method`, `path`, `query`,
 lower-cased `headers`, `body`) is only written down in `http.gaz`'s source.
@@ -152,14 +160,16 @@ relative to where the program was started, and nothing says where the main file 
 
 ## 9. The request is a plain map, so each helper parses it again
 
-`http::form($request)` decodes the body each time: the CSRF check does, then the handler's form kind
-does. It is cheap here (a few fields) and it is a wrapper (`form_fields()`) that turns the error a
-non-form body raises into "no fields", since `form()` raises a string and the caller can't tell a
-hostile request from a bug except by catching every `Error`.
+`http::form($request)` decodes the body each time: `http::csrf()` does, then the handler's form kind
+does. It is cheap here (a few fields). The library's `csrf()` now checks the Content-Type first and
+wraps only the bad-escape case, so it catches no more than it means to; the app's own `form_fields()`
+(`forms.gaz`) still turns the error a non-form body raises into "no fields" with a
+`try`/`catch (Error)`, since `form()` raises a string and the caller can't tell a hostile request from
+a bug otherwise, and that `catch (Error)` would also catch running out of call depth.
 
-- **Today**: parse twice; `try`/`catch (Error)` in `form_fields()`.
+- **Today**: parse twice; `try`/`catch (Error)` in the app's `form_fields()`.
 - **Options**: the middleware stores `$request["form"]` once; or `http::form($request, $default)`
-  (as `to_int($x, $default)` does) so bad input needs no `try`.
+  (as `to_int($x, $default)` does) so bad input needs no `try`, which would remove the last `catch`.
 
 ## 10. Smaller things
 
@@ -177,6 +187,12 @@ hostile request from a bug except by catching every `Error`.
   appears in 7 places in the templates, two of them inside the todo list, so a page of 40 todos
   carries 82 tokens. A `@csrf` directive, or a `form` helper, would remove it (and is a thing a
   template can get wrong; this app's test checks each form).
+- **Every first visit gets a session cookie, even for the stylesheet or a 404.** `http::sessions()`
+  creates the CSRF token as soon as a request has no cookie, and writes it back, so a visitor's
+  first response always carries a `Set-Cookie` (checked: `/style.css`, `/login` and a 404 all do), and
+  so does a bot's. A shared cache won't keep a response that sets a cookie. Options: make the token
+  lazy, made only when a handler asks for it (so `$request["session"]` is read-only until something
+  needs a token, and only then written); or leave sessions off the static routes.
 - **Static files** have no `Cache-Control`/`ETag`, so every page load refetches the stylesheet.
 - **No access log**: `http::serve` prints errors and nothing else (it is on the roadmap as a line per
   request "when a program asks"). Checking the live server, the only record of what was asked
