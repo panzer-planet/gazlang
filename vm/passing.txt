@@ -914,6 +914,7 @@ tests/corpora/parser/list_pattern_empty_slots.gaz
 tests/corpora/parser/lists_and_maps.gaz
 tests/corpora/parser/literals.gaz
 tests/corpora/parser/locations.gaz
+tests/corpora/parser/lost_index_write_ok.gaz
 tests/corpora/parser/map_spread.gaz
 tests/corpora/parser/match.gaz
 tests/corpora/parser/namespaces/included_twice.gaz

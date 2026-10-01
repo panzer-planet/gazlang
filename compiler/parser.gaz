@@ -230,6 +230,10 @@ kind Parser {
     #plain = {};
     // The parameters of the function or lambda being parsed, which can't be shared
     #bound = {};
+    // The parameters of the function or lambda being parsed that are written through an index
+    // ($list[] = 1), each with how many times and where first, so leave_scope() can refuse a
+    // write that is lost
+    #index_writes = {};
     // Whether any shared variable was declared, so the program needs the Shared kind
     #shares = false;
     // Whether a template has been included, whose code uses the builtin kind Html
@@ -514,12 +518,13 @@ kind Html {
     // $inherit (a lambda) the shared variables around it stay visible. Gives what leave_scope()
     // puts back, and $params are the names the body starts out using.
     fn enter_scope($params, $inherit) {
-        $saved = [#shared, #plain, #bound];
+        $saved = [#shared, #plain, #bound, #index_writes];
         if (!$inherit) {
             #shared = {};
         }
         #plain = {};
         #bound = {};
+        #index_writes = {};
         foreach ($params as $param) {
             #bound[$param] = true;
         }
@@ -528,7 +533,36 @@ kind Html {
     }
 
     fn leave_scope($saved) {
-        [#shared, #plain, #bound] = $saved;
+        #check_lost_writes();
+        [#shared, #plain, #bound, #index_writes] = $saved;
+    }
+
+    // Note that a path is written through an index on a parameter: $list[] = 1 changes the
+    // call's own copy, since a parameter is a value
+    //
+    // A path with a field in it could be an object's, which a write does reach, so it is not noted.
+    fn note_index_write($target) {
+        $root = $target;
+        while (is_a($root, IndexAST)) {
+            $root = $root.target;
+        }
+        if ($root == $target || !is_a($root, VariableAST) || !has_key(#bound, $root.value)) {
+            return;
+        }
+        if (!has_key(#index_writes, $root.value)) {
+            #index_writes[$root.value] = [0, $target.file, $target.line];
+        }
+        #index_writes[$root.value][0]++;
+    }
+
+    // Refuse a parameter whose every use in the body is a write through an index: the write
+    // lands in a copy no one reads, so the function does nothing
+    fn check_lost_writes() {
+        foreach (#index_writes as $name => [$count, $file, $line]) {
+            if ((#plain[$name] ?? 0) == $count) {
+                #fail_at("{$name} is a copy, so writing to its elements changes nothing the caller sees: return it, or keep the list in an object", $file, $line);
+            }
+        }
     }
 
     // Take back one use of each of these names: a lambda's parameters, which variable() counted
@@ -1608,6 +1642,7 @@ kind Html {
                 #member_uses[$node.use][3] = true;
             }
             #written($node);
+            #note_index_write($node);
 
             return $node;
         }

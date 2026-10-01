@@ -330,6 +330,15 @@ $sum    = ($a, $b = 1) -> $a + $b;
 $noop   = () -> { return 42; };          // a block body returns only through return
 ```
 
+A parameter is a copy, so writing to its elements changes nothing the caller sees. A function
+whose only use of a parameter is such a write is refused when the program is read; return the
+list, or keep it in an object, which is shared:
+
+```gaz
+fn with_item($list) { $list[] = 1; return $list; }     // the caller takes the result
+fn add_to($list) { $list[] = 1; }                      // error: $list is a copy
+```
+
 A parameter can be a list pattern, which takes its argument apart as `[$a, $b] = $x` would
 (exactly that many elements, or an error), in a lambda, a function or a method. A lambda whose
 only parameter is a pattern needs no parentheses, and an empty slot takes an element and ignores it:

@@ -1,0 +1,152 @@
+Compound
+  statements:
+@ "tests/corpora/parser/lost_index_write_ok.gaz"
+    0: KindDeclaration 1
+      name: "Bag"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"items" => "pub"}
+      fields:
+        items: ArrayLiteral 2
+          entries: []
+          map: false
+      field_lines: {"items" => 2}
+      methods: []
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"items" => "Bag"}
+      members: []
+      abstract_methods: []
+      slots: [["items", "Bag", "pub"]]
+      method_table: []
+      owner_vis: {"items" => "pub"}
+      declared_at: []
+      hidden: []
+      hidden_fields: []
+    1: FunctionDeclaration 5
+      name: "returned"
+      params: ["\$list"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: Statement 6
+            expr: Assign 6
+              left: Index 6
+                target: Variable 6
+                  token: 6 VAR_IDENTIFIER $list
+                  value: "\$list"
+                index: null
+              token: 6 ASSIGN =
+              right: Num 6
+                token: 6 INTEGER 1
+                value: 1
+          1: ReturnStatement 8
+            expr: Variable 8
+              token: 8 VAR_IDENTIFIER $list
+              value: "\$list"
+      arity: 1
+      kind: null
+      abstract: false
+    2: FunctionDeclaration 11
+      name: "through_object"
+      params: ["\$bag", "\$rows"]
+      defaults: [null, null]
+      body: Compound
+        statements:
+          0: Statement 12
+            expr: Assign 12
+              left: Index 12
+                target: Property 12
+                  target: Variable 12
+                    token: 12 VAR_IDENTIFIER $bag
+                    value: "\$bag"
+                  name: "items"
+                  field: false
+                  constant: false
+                  value: null
+                  static_name: null
+                index: null
+              token: 12 ASSIGN =
+              right: Num 12
+                token: 12 INTEGER 1
+                value: 1
+          1: Statement 13
+            expr: Assign 13
+              left: Property 13
+                target: Index 13
+                  target: Variable 13
+                    token: 13 VAR_IDENTIFIER $rows
+                    value: "\$rows"
+                  index: Num 13
+                    token: 13 INTEGER 0
+                    value: 0
+                name: "count"
+                field: false
+                constant: false
+                value: null
+                static_name: null
+              token: 13 ASSIGN =
+              right: Num 13
+                token: 13 INTEGER 2
+                value: 2
+      arity: 2
+      kind: null
+      abstract: false
+    3: FunctionDeclaration 16
+      name: "read_too"
+      params: ["\$list"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: Statement 17
+            expr: Assign 17
+              left: Index 17
+                target: Variable 17
+                  token: 17 VAR_IDENTIFIER $list
+                  value: "\$list"
+                index: null
+              token: 17 ASSIGN =
+              right: FunctionCall 17
+                name: "len"
+                args:
+                  0: Variable 17
+                    token: 17 VAR_IDENTIFIER $list
+                    value: "\$list"
+      arity: 1
+      kind: null
+      abstract: false
+    4: FunctionDeclaration 20
+      name: "reassigned"
+      params: ["\$list"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: Statement 21
+            expr: Assign 21
+              left: Variable 21
+                token: 21 VAR_IDENTIFIER $list
+                value: "\$list"
+              token: 21 ASSIGN =
+              right: ArrayLiteral 21
+                entries: []
+                map: false
+          1: Statement 22
+            expr: Assign 22
+              left: Index 22
+                target: Variable 22
+                  token: 22 VAR_IDENTIFIER $list
+                  value: "\$list"
+                index: null
+              token: 22 ASSIGN =
+              right: Num 22
+                token: 22 INTEGER 1
+                value: 1
+      arity: 1
+      kind: null
+      abstract: false

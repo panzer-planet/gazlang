@@ -1,0 +1,6 @@
+kind Bag {
+    pub fn fill($items, $n) {
+        $items[$n]["seen"] = true;
+        $items[$n]["count"]++;
+    }
+}

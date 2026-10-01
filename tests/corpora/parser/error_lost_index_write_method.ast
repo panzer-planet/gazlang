@@ -1,0 +1,1 @@
+Error: $items is a copy, so writing to its elements changes nothing the caller sees: return it, or keep the list in an object at tests/corpora/parser/error_lost_index_write_method.gaz:3

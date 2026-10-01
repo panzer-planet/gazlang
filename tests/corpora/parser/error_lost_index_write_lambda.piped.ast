@@ -1,0 +1,1 @@
+Error: $list is a copy, so writing to its elements changes nothing the caller sees: return it, or keep the list in an object on line 2

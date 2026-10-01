@@ -465,11 +465,15 @@ binary that can compile its fix. Nothing changed means nothing rebuilt.
     of `Counter` and not a static one) says `Counter::m is not pub`, when the real mistake is that
     `m` is not a static member.
 - **Language gaps**, closed in the order real code shows what shape each needs:
-  - Appending to a list parameter silently does nothing (`fn add_to($l) { $l[] = 1; }`), and
-    the parser can't tell it from a function that returns the list. Mutable state belongs in
-    an object, or, for closures, in a `shared` variable. Open: a parse error for a parameter
-    written through an index and never read, or explicit by-reference parameters (which break
-    "values, not references": a parameter would alias the caller's variable).
+  - Appending to a list parameter changes only the call's copy. **A parameter whose every use
+    in the body is a write through an index is a parse error** (`fn add_to($l) { $l[] = 1; }`,
+    `check_lost_writes()` in `parser.gaz`, at the first such write), in functions, methods and
+    lambdas. Conservative on purpose: any other use (`return $l`, a read, a reassignment) lets it
+    pass, and a path with a field in it (`$bag.items[] = 1`, `$rows[0].n = 1`) is never noted,
+    since it could reach an object. `ponytail:` `$l[] = len($l);` with no other use still passes.
+    Mutable state belongs in an object, or, for closures, in a `shared` variable. Explicit
+    by-reference parameters stay refused ("values, not references": a parameter would alias the
+    caller's variable).
   - A private field can't be set from outside its kind, so restoring saved state (a played match's
     score, a league's fixtures) takes a static factory written in the kind (`Fixture::played()`,
     `League::from_json()`); there is no way to construct an object with some fields already set.

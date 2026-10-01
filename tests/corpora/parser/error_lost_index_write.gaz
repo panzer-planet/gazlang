@@ -1,0 +1,5 @@
+fn add_to($list) {
+    $list[] = 1;
+}
+
+add_to([]);

@@ -1,0 +1,23 @@
+kind Bag {
+    pub #items = [];
+}
+
+fn returned($list) {
+    $list[] = 1;
+
+    return $list;
+}
+
+fn through_object($bag, $rows) {
+    $bag.items[] = 1;
+    $rows[0].count = 2;
+}
+
+fn read_too($list) {
+    $list[] = len($list);
+}
+
+fn reassigned($list) {
+    $list = [];
+    $list[] = 1;
+}
