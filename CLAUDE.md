@@ -300,6 +300,15 @@ that must find nothing to do.
      lookaround.
   6. **A cause on `Error`**, so code that catches a database error and throws its own keeps the
      original (`#cause`, printed under the trace).
+  7. **Interfaces**: `interface` and `implements` (reserved now), a parse-time check that a kind
+     has every method an interface names, with matching arities and types as an override's, and
+     `is_a($x, Shape)` true for an implementer. See "Decided, not built"; `final` follows with it
+     or after it.
+  8. **Enums**: a closed set of named values for a status or a kind of token, in place of string
+     constants that nothing checks. Not designed: whether a case is a value or an object, whether
+     it can carry data or methods, how `match` and `json::encode` see one, and what `type_of` says.
+     Typed fields and parameters (`Status $status`) should be the point, so a misspelt case is an
+     error when the program is read.
   - **On demand**: dumping the raw bytes of a request that got a 500, to replay it (the small
     version of record and replay); `parallel($thunks, $max)` over forked processes, giving plain
     data only, its child raising `vm_process` as a worker does so the handles it inherited are
@@ -307,11 +316,10 @@ that must find nothing to do.
     patterns in `match`, only with a syntax that can't be read as today's `==` arms (a map there
     already means "equals this map"); `db::join($fragments, $separator)`, not designed yet, for a
     bulk insert of many rows as one statement; lazy iteration (a
-    generator or an iterator protocol, so a large file or a result set needn't be a list first); an
-    `enum` (token types are strings on purpose, and a status field in an app is a string constant
-    today); `multipart/form-data` for uploads (`http::form()` refuses anything but urlencoded); a
-    child process with pipes (`run()` waits for the end and returns everything); Unicode case
-    mapping and slicing by characters (`upper`/`lower` are ASCII, `len` counts bytes).
+    generator or an iterator protocol, so a large file or a result set needn't be a list first);
+    `multipart/form-data` for uploads (`http::form()` refuses anything but urlencoded); a child
+    process with pipes (`run()` waits for the end and returns everything); Unicode case mapping and
+    slicing by characters (`upper`/`lower` are ASCII, `len` counts bytes).
   - **Not building**: taint mode (a mark on strings leaks, since one-byte strings are shared and
     `url_decode()` rebuilds text with `chr()`; Ruby removed taint as useless; tagged literals
     prevent the bug instead), contracts (types and a guard line cover them),
@@ -520,7 +528,8 @@ that must find nothing to do.
     children, so a domain error can't declare its own `#line` or `#message`.
   - No copy-with-change for objects, no `catch (A | B $e)`.
   - `match ($x)` is a linear chain of `EQUALS`; no jump table.
-  - No enum: token types are strings on purpose (they are the `--tokens` format).
+  - No enum (roadmap item 8); the lexer's token types stay strings on purpose, being the
+    `--tokens` format.
 - **HTTP is HTTP/1.1 in GazLang (`lib/http.gaz`) on socket builtins, TLS through OpenSSL**,
   linked by default and optional (`make TLS=0`), so the bootstrap still needs only a C compiler.
   Not curl through `run()`: a process per request, the headers visible in `ps`, and curl as a
@@ -740,8 +749,8 @@ that must find nothing to do.
       the pool-sizing or JIT-adjacent work above lands.
     - An access log line per request
       (`http::http_date(time())`, method, path, status, bytes, `monotonic_time()` for how long).
-- **Decided, not built**: `interface`/`implements` (a parse-time check that the methods exist,
-  plus `is_a`), and `final`. The keywords are reserved.
+- **Decided, not built** (roadmap item 7): `interface`/`implements` (a parse-time check
+  that the methods exist, plus `is_a`), and `final`. The keywords are reserved.
 - **Namespaces** are resolved by the parser, so the VM never learns the word and bytecode only
   sees longer names: functions and kinds carry `::`, while a method block stays
   `Kind.method`, which is what lets the loader tell the two apart. Resolution is one pass
