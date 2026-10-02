@@ -1399,7 +1399,9 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   from those that include it),
   `text.gaz` (`text::quote`: a value as a literal for a message; `text::lines`: what `read_line()` reads, as a list, so `text::lines(read_stdin())` is a
   `gaz -e` one-liner's input: `split($s, "\n")` leaves a trailing `""` after a final newline, and "\r\n" is
-  stripped only where a "\n" follows, as `read_line()` and `file_read_line()` do),
+  stripped only where a "\n" follows, as `read_line()` and `file_read_line()` do; `text::indentation`
+  and `text::unindented`, a line's leading spaces and tabs, which the website's Markdown and highlighter
+  read),
   `format.gaz` (`format::number`, `format::pad_left`/`pad_right`
   convert like echo: display helpers take any value, string functions stay strict;
   `format::sprintf($template, $args)`, a list since there are no variadic calls: `%s` echo's

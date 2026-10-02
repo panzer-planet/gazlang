@@ -16,7 +16,7 @@
 namespace highlight;
 
 include "../compiler/lexer.gaz" use Lexer, LexError;
-include "text.gaz";
+include "std/text.gaz";
 
 // The class of text shown plain: whitespace, punctuation, and anything not recognised
 const PLAIN = "";

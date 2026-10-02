@@ -11,7 +11,7 @@
 namespace library;
 
 include "highlight.gaz";
-include "text.gaz";
+include "std/text.gaz";
 
 // What a declaration is, for the page to say
 const FUNCTION = "function";

@@ -16,6 +16,16 @@ ok a \r\n and nothing else is one empty line
 ok spaces are kept
 ok bytes past ASCII pass through
 ok a list is an error
+ok no indentation
+ok spaces count
+ok tabs count, mixed with spaces
+ok other whitespace doesn't
+ok a blank line is all indentation
+ok the empty line has none
+ok indentation wants a string
+ok unindented drops the spaces and tabs
+ok unindented keeps a line without any
+ok a blank line unindented is empty
 ok a string is quoted
 ok so a quote shows
 ok and a NUL byte and a line break

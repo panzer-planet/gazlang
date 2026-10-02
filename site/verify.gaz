@@ -14,7 +14,6 @@
 namespace verify;
 
 include "markdown.gaz" use unescape;
-include "text.gaz";
 
 // The attributes that link to something
 const ATTRIBUTES = ["href", "src"];

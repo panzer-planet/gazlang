@@ -13,7 +13,7 @@
  */
 namespace markdown;
 
-include "text.gaz" use indentation;
+include "std/text.gaz" use indentation;
 
 // What a backslash can escape: ASCII punctuation
 const ESCAPABLE = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~";

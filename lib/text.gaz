@@ -1,6 +1,7 @@
 /*
  * Text as lines. text::lines(read_stdin()) is what a one-liner wants: the lines of what was piped
  * in, without the empty one that splitting on "\n" leaves after a last line that ends in one.
+ * And a line's indentation, for reading text laid out by it.
  */
 namespace text;
 
@@ -31,6 +32,21 @@ pub fn lines($text) {
     }
 
     return $lines;
+}
+
+// How many spaces and tabs a line starts with
+pub fn indentation(string $line): int {
+    $count = 0;
+    while ($count < len($line) && ($line[$count] == " " || $line[$count] == "\t")) {
+        $count++;
+    }
+
+    return $count;
+}
+
+// A line without the spaces and tabs it starts with
+pub fn unindented(string $line): string {
+    return slice($line, indentation($line));
 }
 
 /*

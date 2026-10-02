@@ -20,6 +20,17 @@ expect("spaces are kept", text::lines("  a \n b"), ["  a ", " b"]);
 expect("bytes past ASCII pass through", text::lines("é\nü\n"), ["é", "ü"]);
 throws("a list is an error", () -> text::lines(["a"]), "text::lines() expects a string, got list");
 
+expect("no indentation", text::indentation("a b"), 0);
+expect("spaces count", text::indentation("   a"), 3);
+expect("tabs count, mixed with spaces", text::indentation("\t \ta"), 3);
+expect("other whitespace doesn't", text::indentation("\r a"), 0);
+expect("a blank line is all indentation", text::indentation("  "), 2);
+expect("the empty line has none", text::indentation(""), 0);
+throws("indentation wants a string", () -> text::indentation(1), "text::indentation() expects \$line to be string, got int");
+expect("unindented drops the spaces and tabs", text::unindented(" \t a b "), "a b ");
+expect("unindented keeps a line without any", text::unindented("a"), "a");
+expect("a blank line unindented is empty", text::unindented("  \t"), "");
+
 expect("a string is quoted", text::quote("a b"), "\"a b\"");
 expect("so a quote shows", text::quote("say \"hi\""), "\"say \\\"hi\\\"\"");
 expect("and a NUL byte and a line break", text::quote("a\0b\n"), "\"a\\x00b\\n\"");
