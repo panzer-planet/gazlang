@@ -117,6 +117,9 @@ composer ci                         # what CI runs, cold: phpstan with no result
   what the library and language lack, in the order a stranger would meet it). Its tests need a
   PostgreSQL database and run from the app's directory, so CI doesn't: `cd apps/todo &&
   ../../bin/gaz test tests`.
+- `gaz.json` (`{"name": "..."}`) marks a project's root: the repository's, `apps/todo`'s and
+  `games/football`'s. Nothing reads one yet; `import` will resolve paths from it
+  (`docs/design/modules.md`).
 - `editors/`: TextMate grammars, `gaz/gaz.tmLanguage` for source, `gzb/gzb.tmLanguage` for
   bytecode and `gazml/gazml.tmLanguage` for templates (HTML with GazLang embedded: `{{ }}`,
   `{!! !!}` and the directive lines, also inside tags and attribute values; VS Code, Sublime and
