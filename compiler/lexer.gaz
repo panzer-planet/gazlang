@@ -224,7 +224,7 @@ pub kind Lexer {
         #fail("Unterminated block comment", $start_line);
     }
 
-    // An INTEGER (42, 0xFF) or a FLOAT (1.5, 1e10, 2.5E-3)
+    // An INTEGER (42, 0xFF, 0o755) or a FLOAT (1.5, 1e10, 2.5E-3)
     fn number() {
         $text = #read_digits();
         $is_float = false;
@@ -239,6 +239,9 @@ pub kind Lexer {
             }
 
             return Token("INTEGER", #hex_value($hex) ?? #fail("Integer literal too large: {$text}"));
+        }
+        if ($text == "0" && #char == "o" && #is_octal_digit(#peek())) {
+            return #octal();
         }
 
         if (#char == "." && is_digit(#peek())) {
@@ -278,12 +281,41 @@ pub kind Lexer {
         return Token($is_float ? "FLOAT" : "INTEGER", $value);
     }
 
+    /*
+     * An octal INTEGER, 0o755, from the "o" on: the digits 0 to 7 and nothing glued after them,
+     * so a digit 8 or 9, a letter, a dot or an exponent makes the whole literal invalid rather
+     * than a second token. Lowercase "o" only, since "0O" is hard to tell from "00".
+     */
+    fn octal() {
+        #skip(1);
+        $digits = #read_while("01234567");
+        $text = "0o" .. $digits;
+        if (#char == "." && (is_digit(#peek()) || #is_name_start(#peek()))) {
+            #skip(1);
+            $text ..= ".";
+        }
+        if (is_digit(#char) || #is_name_start(#char)) {
+            #fail("Invalid number literal: " .. $text .. #read_word());
+        }
+
+        return Token("INTEGER", #digits_value($digits, 8) ?? #fail("Integer literal too large: {$text}"));
+    }
+
+    fn is_octal_digit($c) {
+        return is_digit($c) && $c <= "7";
+    }
+
     // The int written by some hex digits, or null if it doesn't fit
     fn hex_value($hex) {
+        return #digits_value($hex, 16);
+    }
+
+    // The int written by some digits in $base (8 or 16), or null if it doesn't fit
+    fn digits_value($digits, $base) {
         $value = 0;
         try {
-            foreach (split(lower($hex), "") as $digit) {
-                $value = $value * 16 + index_of("0123456789abcdef", $digit);
+            foreach (split(lower($digits), "") as $digit) {
+                $value = $value * $base + index_of("0123456789abcdef", $digit);
             }
         } catch (Error $e) {
             return null;

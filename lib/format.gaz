@@ -64,14 +64,15 @@ pub fn pad_right($value, $width, $pad = " ") {
  *   %d  an int
  *   %f  an int or float with the precision's digits, rounded as round() does (format::number)
  *   %x  an int of 0 or more in lowercase hex
+ *   %o  an int of 0 or more in octal (a mode, 0o755, is "755")
  *   %%  a %
- * As many placeholders as arguments, a type %d, %f or %x can't take, and a placeholder this
+ * As many placeholders as arguments, a type %d, %f, %x or %o can't take, and a placeholder this
  * doesn't know are errors, raised before anything is formatted.
  */
-const CONVERSIONS = ["s", "d", "f", "x", "%"];
+const CONVERSIONS = ["s", "d", "f", "x", "o", "%"];
 const DEFAULT_PRECISION = 6;
 const MAX_PRECISION = 18;
-const HEX_DIGITS = "0123456789abcdef";
+const DIGITS = "0123456789abcdef";
 
 pub fn sprintf($template, $args) {
     check_arguments($template, $args);
@@ -193,7 +194,7 @@ kind Placeholder {
         if (!#accepts($type)) {
             throw "sprintf: {#text} expects " .. #expected() .. ", got {$type} (argument {$position})";
         }
-        if (#conversion == "x" && $value < 0) {
+        if ((#conversion == "x" || #conversion == "o") && $value < 0) {
             throw "sprintf: {#text} expects an int of 0 or more, got {$value} (argument {$position})";
         }
         // ponytail: format::number() scales to an int, which caps %f at 9.2E+18 over 10^precision
@@ -204,7 +205,7 @@ kind Placeholder {
 
     fn accepts($type) {
         return match (#conversion) {
-            "d", "x" => $type == "int",
+            "d", "x", "o" => $type == "int",
             "f" => $type == "int" || $type == "float",
             default => true,
         };
@@ -222,7 +223,8 @@ kind Placeholder {
         return match (#conversion) {
             "s", "d" => to_string($value),
             "f" => number($value, #precision, ""),
-            default => hex($value),
+            "o" => in_base($value, 8),
+            default => in_base($value, 16),
         };
     }
 
@@ -301,13 +303,13 @@ fn zero_pad($text, $missing) {
     return $sign .. repeat("0", $missing) .. slice($text, len($sign));
 }
 
-// A non-negative int in lowercase hex
-fn hex($n) {
+// A non-negative int in $base, 8 or 16, with lowercase digits
+fn in_base($n, $base) {
     $text = "";
-    while ($n >= 16) {
-        $text = HEX_DIGITS[$n % 16] .. $text;
-        $n = intdiv($n, 16);
+    while ($n >= $base) {
+        $text = DIGITS[$n % $base] .. $text;
+        $n = intdiv($n, $base);
     }
 
-    return HEX_DIGITS[$n] .. $text;
+    return DIGITS[$n] .. $text;
 }

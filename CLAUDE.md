@@ -1019,9 +1019,13 @@ version.
 64-bit ints and floats, always finite (no INF or NAN).
 
 - Literals: `42`, `1.5`, `1e10`, `2.5E-3`; digits on both sides of a dot (`1.` and `.5` are
-  errors). `0xFF` is an int (hex has no exponent: `0x1e5` is 485); strings are never read as
-  hex. `parse_number()` in `value.c` reads the same syntax for `to_float()`, and JSON numbers are
-  valid.
+  errors). `0xFF` is an int (hex has no exponent: `0x1e5` is 485), and so is `0o755`, octal,
+  since permission bits are written in octal everywhere and 493 is unreadable: a lowercase `o`
+  only (`0O` is hard to tell from `00`), and the digits 0 to 7 with nothing glued after them, so
+  `0o78`, `0o7.5` and `0o7e5` are each one invalid literal rather than two tokens (`octal()` in
+  `lexer.gaz`); a leading zero alone stays decimal (`007` is 7). No `0b`. Strings are never read
+  as hex or octal. `parse_number()` in `value.c` reads the same syntax for `to_float()`, and
+  JSON numbers are valid.
 - **Nothing overflows silently**: an int that doesn't fit is `Integer overflow` (PHP would
   switch to a float), an infinite float literal is a lexer error, an infinite result is `Float
   overflow`. Division by zero is an error.
@@ -1538,7 +1542,7 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   `format.gaz` (`format::number`, `format::pad_left`/`pad_right`
   convert like echo: display helpers take any value, string functions stay strict;
   `format::sprintf($template, $args)`, a list since there are no variadic calls: `%s` echo's
-  text, `%d` and `%x` ints only (`%x` of a negative is an error, not two's complement), `%f`
+  text, `%d`, `%x` and `%o` ints only (`%x` or `%o` of a negative is an error, not two's complement), `%f`
   through `format::number()` so it rounds as `round()` does and never by the platform's printf,
   which caps it at an int's worth of digits and 18 decimals (`ponytail:`); `-` beats `0`, as in C;
   every placeholder is read and the count checked before anything is formatted),

@@ -33,6 +33,8 @@ expect("%f rounds as round() does", format::sprintf("%.2f %.0f %.0f %.3f", [1.00
 expect("%f of an int", format::sprintf("%.1f", [3]), "3.0");
 expect("%f of a tiny negative shows no sign", format::sprintf("%.2f", [-0.001]), "0.00");
 expect("%x", format::sprintf("%x %x %x", [0, 255, 9223372036854775807]), "0 ff 7fffffffffffffff");
+expect("%o", format::sprintf("%o %o %o %o", [0, 8, 0o755, 9223372036854775807]), "0 10 755 777777777777777777777");
+expect("%o pads", format::sprintf("[%4o][%-4o][%04o]", [0o644, 7, 0o7]), "[ 644][7   ][0007]");
 expect("widths pad on the left", format::sprintf("[%4d][%4s][%6.2f][%4x]", [42, "ab", 3.14159, 255]), "[  42][  ab][  3.14][  ff]");
 expect("- pads on the right", format::sprintf("[%-4d][%-4s][%-6.1f]", [42, "ab", 2.5]), "[42  ][ab  ][2.5   ]");
 expect("0 pads after the sign", format::sprintf("[%05d][%05d][%07.2f][%04x]", [42, -42, -2.5, 10]), "[00042][-0042][-002.50][000a]");
@@ -43,7 +45,7 @@ expect("the largest precision", format::sprintf("%.18f", [0.5]), "0.500000000000
 $failures = [];
 foreach ([
     ["%d", []], ["%d %s", [1]], ["x", [1]],
-    ["%d", [1.0]], ["%d", ["1"]], ["%d", [true]], ["%f", ["1.5"]], ["%f", [null]], ["%x", [1.5]], ["%x", [-1]],
+    ["%d", [1.0]], ["%d", ["1"]], ["%d", [true]], ["%f", ["1.5"]], ["%f", [null]], ["%x", [1.5]], ["%x", [-1]], ["%o", ["8"]], ["%o", [-8]],
     ["%q", [1]], ["50%", []], ["%5", [1]], ["%.f", [1]], ["%.2d", [1]], ["%.2s", ["a"]], ["%.19f", [1]],
     ["%05s", ["a"]], ["%5%", []], ["%f", [1e300]], ["%.2f", [1e17]],
     ["%s", "a"], [["%s"], ["a"]],
@@ -65,6 +67,8 @@ expect("what sprintf refuses", $failures, [
     "sprintf: %f expects an int or float, got null (argument 1)",
     "sprintf: %x expects an int, got float (argument 1)",
     "sprintf: %x expects an int of 0 or more, got -1 (argument 1)",
+    "sprintf: %o expects an int, got string (argument 1)",
+    "sprintf: %o expects an int of 0 or more, got -8 (argument 1)",
     "sprintf: \"%q\": there is no %q",
     "sprintf: \"%\": the template ends in the middle of a placeholder",
     "sprintf: \"%5\": the template ends in the middle of a placeholder",

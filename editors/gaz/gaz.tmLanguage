@@ -271,6 +271,12 @@
 				</dict>
 				<dict>
 					<key>name</key>
+					<string>constant.numeric.octal.gaz</string>
+					<key>match</key>
+					<string>\b0o[0-7]+\b</string>
+				</dict>
+				<dict>
+					<key>name</key>
 					<string>constant.numeric.float.gaz</string>
 					<key>match</key>
 					<string>\b\d+(\.\d+([eE][+-]?\d+)?|[eE][+-]?\d+)\b</string>

@@ -23,8 +23,12 @@ multi-way branch — read as themselves rather than as nested calls or `if`/`els
 
 ## Values
 
-- **Ints**: `42`, `-7`, `0xFF`. 64-bit, and they never silently overflow — a literal or a
+- **Ints**: `42`, `-7`, `0xFF`, `0o755`. 64-bit, and they never silently overflow — a literal or a
   result that will not fit is an `Integer overflow` error, never a quiet switch to a float.
+  `0x` is hexadecimal and `0o` (a lowercase `o`) octal, for permission bits as `chmod()` takes
+  them; a leading zero alone is still decimal (`007` is 7), and a digit 8 or 9, a dot or an
+  exponent after `0o` is an error. Strings are never read as hex or octal: `to_int("0o17")` and
+  `to_int("0x1F")` are errors, as any other text that isn't decimal is.
 - **Floats**: `1.5`, `2e-3`, `3E+2`. Always finite; there is no INF or NAN. A float needs
   digits on both sides of the dot, so `1.` and `.5` are errors. Printing gives the shortest
   digits that read back as the same float (`0.30000000000000004`, `1.0`, `-0.0`).
@@ -1642,7 +1646,7 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `db.gaz` | `db::open($url)` (a `Db`), `db::sql"..."`, `db::raw($text)` and `db::ident($name)`; see "Databases" under Builtins |
 | `crypto.gaz` | `crypto::hash_password`, `crypto::verify_password`, `crypto::needs_rehash`, `crypto::token`, `crypto::sign($value, $secret)` and `crypto::unsign($signed, $secret)` (tamper-evident values, for cookies), `crypto::equals`, hex and base64; see "Cryptography" under Builtins |
 | `chars.gaz` | `chars::char_at`, `chars::is_char` (a one-character string), `chars::is_digit`, `chars::is_alpha`, `chars::is_alnum`, `chars::is_space`, `chars::is_hex_digit`, `chars::span($s, $i, $predicate)` (how many characters from `$i` satisfy the predicate: `slice($s, $i, chars::span($s, $i, chars::is_digit))` is the number at `$i`) |
-| `format.gaz` | `format::number`, `format::pad_left`, `format::pad_right`, and `format::sprintf($template, $args)` with the arguments as a list: `%s` (as echo prints it), `%d` (an int), `%f` (an int or float, 6 decimals or `%.2f`'s, rounded as `round()` does), `%x` (an int of 0 or more, lowercase hex), `%%`; a width, `-` to pad on the right and `0` to pad a number with zeros after its sign (`%-8s`, `%05.1f`). A count of arguments that isn't the placeholders', a type `%d`, `%f` or `%x` can't take, and a placeholder it doesn't know are errors |
+| `format.gaz` | `format::number`, `format::pad_left`, `format::pad_right`, and `format::sprintf($template, $args)` with the arguments as a list: `%s` (as echo prints it), `%d` (an int), `%f` (an int or float, 6 decimals or `%.2f`'s, rounded as `round()` does), `%x` (an int of 0 or more, lowercase hex), `%o` (an int of 0 or more, octal, so a mode `0o755` is `755`), `%%`; a width, `-` to pad on the right and `0` to pad a number with zeros after its sign (`%-8s`, `%05.1f`). A count of arguments that isn't the placeholders', a type `%d`, `%f`, `%x` or `%o` can't take, and a placeholder it doesn't know are errors |
 | `cli.gaz` | `cli::Command($name, $summary)`, command line arguments with a generated `--help`; see below |
 | `test.gaz` | `test::expect($label, $actual, $expected)`, `test::throws($label, $thunk, $message)`, `test::snapshot($label, $actual)` and `test::done()`, for `gaz test`; see below |
 | `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins, a server, `http::serve($listener, $handler, $options = {})`, `http::handle($socket, $handler, $options = {})` (one connection), `http::http_date($time)`, `http::redirect($to, $status = 303)` (a response that sends the client elsewhere), `http::Router()` for routing requests to handlers, `http::serve_static($dir)`, a handler that serves files under `$dir`, and cookies and signed sessions (`http::cookies`, `http::set_cookie`, `http::session`, `http::session_cookie`, `http::csrf_token`, `http::verify_csrf`), with middleware for a web app (`http::security_headers`, `http::sessions`, `http::csrf`, `http::with_session`, `http::flash`); see below |
