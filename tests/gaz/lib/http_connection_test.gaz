@@ -4,7 +4,7 @@
  * whole, with the Date line taken out (a 500 closes too: HttpServerTest, since it writes to stderr)
  */
 include "std/test.gaz" use expect;
-include "../../../lib/http.gaz";
+include "std/http.gaz";
 
 const IDLE = 0.2;        // seconds http::handle() waits for another request here
 

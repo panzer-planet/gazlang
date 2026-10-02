@@ -3,7 +3,7 @@
  * what a Db sends is Sql.render()'s text and parameters, so these are what reaches the driver.
  */
 include "std/test.gaz" use expect, throws;
-include "../../../lib/db.gaz";
+include "std/db.gaz";
 
 fn sqlite($sql) {
     return $sql.render($n -> "?");
@@ -108,7 +108,7 @@ throws("a tag is called with lists", () -> db::sql("select 1", []), "db::sql() e
  * Sql isn't pub, so a program can't build one from a string by accident. A constructor is always
  * reachable through kind_of(), which is deliberate, and still checks what it is given.
  */
-$outside = run([program_path(), "-e", 'include "lib/db.gaz"; echo db::Sql(["select 1"], []);']);
+$outside = run([program_path(), "-e", 'include "std/db.gaz"; echo db::Sql(["select 1"], []);']);
 expect("Sql can't be named outside its namespace", [$outside["status"], $outside["stderr"]],
     [1, "Error: db::Sql is not pub, so only namespace db can use it on line 1\n"]);
 $make = kind_of($query);

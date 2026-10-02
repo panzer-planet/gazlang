@@ -783,10 +783,9 @@ that must find nothing to do.
       and whether to trust it is the program's.
     - `quote($value)` as a builtin (`value.c` has the function): `text::quote()` in `lib/text.gaz`
       is the idiom `slice(to_string([$x]), 1, -1)` with a name, used by the library; the compiler
-      still spells it out, since it includes only its own sources, and `lib/test.gaz` keeps a helper
-      of its own (every test includes it, and one loading a library file by path would find
-      `text.gaz` declared twice). A builtin takes its name from every program, so it waits for a
-      program that needs the speed or the bare name.
+      still spells it out and `lib/test.gaz` keeps a helper of its own, both of which can use it now
+      that nothing loads the library by path. A builtin takes its name from every program, so it
+      waits for a program that needs the speed or the bare name.
     - Measured once already, against PHP's built-in server across no-opcache/opcache/opcache+JIT
       (`ab`, `workers(1)` each side): gaz matches PHP with every performance feature on for an
       ordinary handler (build data, encode it), and only loses on a tight arithmetic loop inside
@@ -1377,10 +1376,12 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   wrong and no skew between a binary and the library it runs; the cost, a rebuild after editing `lib/`
   (a few seconds; the tests build it themselves), is met by `GAZLIB=lib`, a directory `std/` reads
   instead of the built-in copy, for working on the library. `std/` is reserved as a first path
-  component; `./std/x.gaz` is a directory of your own. The repository's own `lib/` files are still
-  tested by path (`tests/gaz`), and `compiler/` includes `lib/chars.gaz` by path, so the compiler
-  builds with nothing but its own sources; the games and examples use `std/`, as any other program
-  would. `StdLibraryTest` checks that what is built in equals `lib/`.
+  component; `./std/x.gaz` is a directory of your own. Everything in the repository loads the
+  library by `std/`, as any other program would: the tests (`tests/gaz/lib` tests the built-in copy,
+  which the tests build from `lib/`), the games, the website, the language server and `compiler/`,
+  whose `std/chars.gaz` is the built-in copy of the `bin/gaz` that compiles it. Loading a library
+  file by path as well would declare its names twice. `StdLibraryTest` checks that what is built in
+  equals `lib/`.
 - In GazLang instead, each its own namespace, so only what a file marks `pub` escapes it:
   `chars.gaz` (character classes), `sorting.gaz` (`sorting::values`, `sorting::by`, on `sort`),
   `lists.gaz` (plain functions over plain lists, not a wrapping object: a `Collection` kind would have to be a

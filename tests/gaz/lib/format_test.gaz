@@ -1,5 +1,5 @@
 include "std/test.gaz" use expect;
-include "../../../lib/format.gaz" use number as format_number, pad_left, pad_right;
+include "std/format.gaz" use number as format_number, pad_left, pad_right;
 
 expect("two decimals by default", format_number(1234.5), "1,234.50");
 expect("thousands", format_number(1234567.891, 1), "1,234,567.9");

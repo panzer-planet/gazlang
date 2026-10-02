@@ -1,0 +1,5 @@
+Error: HTTP error: no host in URL: "http:///x"
+  http::parse_url at <std>/http.gaz:183
+  http::request at <std>/http.gaz:57
+  http::get at <std>/http.gaz:32
+  top level on line 1

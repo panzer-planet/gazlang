@@ -1,6 +1,6 @@
 /* A handler is told who the client is: the request's "remote_address", from socket_peer() */
 include "std/test.gaz" use expect;
-include "../../../lib/http.gaz";
+include "std/http.gaz";
 
 $listener = socket_listen("127.0.0.1", 0);
 $client = socket_open("127.0.0.1", socket_port($listener));

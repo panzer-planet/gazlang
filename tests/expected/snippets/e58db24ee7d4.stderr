@@ -1,5 +1,0 @@
-Error: HTTP error: bad header name: "X-A: b\r\nX-B"
-  http::check_token at lib/http.gaz:459
-  http::request at lib/http.gaz:47
-  http::get at lib/http.gaz:32
-  top level on line 1

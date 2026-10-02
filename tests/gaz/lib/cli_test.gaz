@@ -1,5 +1,5 @@
 include "std/test.gaz" use expect;
-include "../../../lib/cli.gaz";
+include "std/cli.gaz";
 
 fn tool() {
     $cli = cli::Command("tool", "Does things");

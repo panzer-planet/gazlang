@@ -1,6 +1,6 @@
 /* http::redirect(): a response that sends the client elsewhere, and what it refuses */
 include "std/test.gaz" use expect, throws;
-include "../../../lib/http.gaz";
+include "std/http.gaz";
 
 expect("a redirect is a 303 with a Location", http::redirect("/login"), {"status" => 303, "headers" => {"Location" => "/login"}, "body" => ""});
 expect("the other statuses", map([301, 302, 307, 308], $status -> http::redirect("/x", $status)["status"]), [301, 302, 307, 308]);

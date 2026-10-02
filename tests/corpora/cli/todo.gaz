@@ -1,5 +1,5 @@
 /* A command line tool on lib/cli.gaz, for CliTest: what --help, a mistake and a run print, and exit with */
-include "../../../lib/cli.gaz";
+include "std/cli.gaz";
 
 $cli = cli::Command("todo", "Keep a list of things to do");
 $cli.flag("verbose", "v", "Say more");

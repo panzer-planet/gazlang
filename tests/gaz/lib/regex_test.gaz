@@ -1,5 +1,5 @@
 include "std/test.gaz" use expect, throws;
-include "../../../lib/regex.gaz";
+include "std/regex.gaz";
 
 expect("literal match", regex::matches("cat", "cat"), true);
 expect("literal too long fails full match", regex::matches("cats", "cat"), false);

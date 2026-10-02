@@ -1,5 +1,0 @@
-Error: HTTP error: only http and https URLs, got "file:///etc/passwd"
-  http::parse_url at lib/http.gaz:130
-  http::request at lib/http.gaz:57
-  http::get at lib/http.gaz:32
-  top level on line 1

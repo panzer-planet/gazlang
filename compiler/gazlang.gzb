@@ -218,7 +218,7 @@ LABEL ENDIF_5
 
 fn chars::char_at 2 2
 locals $s $i
-@ "../lib/chars.gaz" 11
+@ "<std>/chars.gaz" 11
 LOAD 1
 PUSH 0
 GE
@@ -234,43 +234,43 @@ LABEL AND_FALSE_1
 PUSH false
 LABEL AND_END_1
 JZ ELSE_0
-@ "../lib/chars.gaz" 12
+@ "<std>/chars.gaz" 12
 LOAD 0
 LOAD 1
 INDEX_GET
 RET
-@ "../lib/chars.gaz" 11
+@ "<std>/chars.gaz" 11
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "../lib/chars.gaz" 14
+@ "<std>/chars.gaz" 14
 PUSH ""
 RET
-@ "../lib/chars.gaz" 10
+@ "<std>/chars.gaz" 10
 PUSH null
 RET
 
 fn chars::span 3 3
 locals $s $i $predicate $at
-@ "../lib/chars.gaz" 24
+@ "<std>/chars.gaz" 24
 LOAD 1
 PUSH 0
 LT
 JZ ELSE_0
-@ "../lib/chars.gaz" 25
+@ "<std>/chars.gaz" 25
 PUSH 0
 RET
-@ "../lib/chars.gaz" 24
+@ "<std>/chars.gaz" 24
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "../lib/chars.gaz" 27
+@ "<std>/chars.gaz" 27
 LOAD 1
 STORE 3
 LOAD 3
 POP
 LABEL WHILE_1
-@ "../lib/chars.gaz" 28
+@ "<std>/chars.gaz" 28
 LOAD 3
 LOAD 0
 CALL_BUILTIN len 1
@@ -288,27 +288,27 @@ LABEL AND_FALSE_2
 PUSH false
 LABEL AND_END_2
 JZ ENDWHILE_1
-@ "../lib/chars.gaz" 29
+@ "<std>/chars.gaz" 29
 LOAD 3
 INC
 STORE 3
 LOAD 3
 POP
-@ "../lib/chars.gaz" 28
+@ "<std>/chars.gaz" 28
 JMP WHILE_1
 LABEL ENDWHILE_1
-@ "../lib/chars.gaz" 31
+@ "<std>/chars.gaz" 31
 LOAD 3
 LOAD 1
 SUB
 RET
-@ "../lib/chars.gaz" 23
+@ "<std>/chars.gaz" 23
 PUSH null
 RET
 
 fn chars::is_char 1 1
 locals $c
-@ "../lib/chars.gaz" 36
+@ "<std>/chars.gaz" 36
 LOAD 0
 CALL_BUILTIN type_of 1
 PUSH "string"
@@ -325,13 +325,13 @@ LABEL AND_FALSE_0
 PUSH false
 LABEL AND_END_0
 RET
-@ "../lib/chars.gaz" 35
+@ "<std>/chars.gaz" 35
 PUSH null
 RET
 
 fn chars::is_digit 1 1
 locals $c
-@ "../lib/chars.gaz" 41
+@ "<std>/chars.gaz" 41
 LOAD 0
 CALL chars::is_char 1
 JZ AND_FALSE_1
@@ -355,13 +355,13 @@ LABEL AND_FALSE_0
 PUSH false
 LABEL AND_END_0
 RET
-@ "../lib/chars.gaz" 40
+@ "<std>/chars.gaz" 40
 PUSH null
 RET
 
 fn chars::is_hex_digit 1 1
 locals $c
-@ "../lib/chars.gaz" 46
+@ "<std>/chars.gaz" 46
 LOAD 0
 CALL chars::is_digit 1
 NOT
@@ -418,13 +418,13 @@ LABEL OR_TRUE_0
 PUSH true
 LABEL OR_END_0
 RET
-@ "../lib/chars.gaz" 45
+@ "<std>/chars.gaz" 45
 PUSH null
 RET
 
 fn chars::is_alpha 1 1
 locals $c
-@ "../lib/chars.gaz" 51
+@ "<std>/chars.gaz" 51
 LOAD 0
 CALL chars::is_char 1
 JZ AND_FALSE_0
@@ -470,13 +470,13 @@ LABEL AND_FALSE_0
 PUSH false
 LABEL AND_END_0
 RET
-@ "../lib/chars.gaz" 50
+@ "<std>/chars.gaz" 50
 PUSH null
 RET
 
 fn chars::is_alnum 1 1
 locals $c
-@ "../lib/chars.gaz" 55
+@ "<std>/chars.gaz" 55
 LOAD 0
 CALL chars::is_alpha 1
 NOT
@@ -491,18 +491,18 @@ LABEL OR_TRUE_0
 PUSH true
 LABEL OR_END_0
 RET
-@ "../lib/chars.gaz" 54
+@ "<std>/chars.gaz" 54
 PUSH null
 RET
 
 fn chars::is_space 1 1
 locals $c
-@ "../lib/chars.gaz" 60
+@ "<std>/chars.gaz" 60
 LOAD 0
 PUSH [" ", "\t", "\n", "\r"]
 CALL_BUILTIN in_array 2
 RET
-@ "../lib/chars.gaz" 59
+@ "<std>/chars.gaz" 59
 PUSH null
 RET
 

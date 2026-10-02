@@ -3,7 +3,7 @@
  * go with the connection, so nothing is left behind.
  */
 include "std/test.gaz" use expect, throws;
-include "../../lib/db.gaz";
+include "std/db.gaz";
 
 fn failure($f) {
     try {

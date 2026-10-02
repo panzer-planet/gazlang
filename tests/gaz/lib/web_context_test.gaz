@@ -4,7 +4,7 @@
  * HTML parser; these are the rules written out, and the words of each refusal.
  */
 include "std/test.gaz" use expect, throws;
-include "../../../lib/web.gaz";
+include "std/web.gaz";
 
 fn text($html) {
     return $html.text;

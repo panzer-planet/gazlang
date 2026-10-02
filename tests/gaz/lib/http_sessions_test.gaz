@@ -1,6 +1,6 @@
 include "std/test.gaz" use expect, throws;
-include "../../../lib/http.gaz";
-include "../../../lib/crypto.gaz";
+include "std/http.gaz";
+include "std/crypto.gaz";
 
 /*
  * The middleware for a web app, driven with request maps and a handler that records what it saw:

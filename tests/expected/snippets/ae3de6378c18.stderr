@@ -1,0 +1,5 @@
+Error: HTTP error: a URL can't carry credentials; send an Authorization header: "http://me:pw@localhost/"
+  http::parse_url at <std>/http.gaz:151
+  http::request at <std>/http.gaz:57
+  http::get at <std>/http.gaz:32
+  top level on line 1

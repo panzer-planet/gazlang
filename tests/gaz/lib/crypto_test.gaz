@@ -1,6 +1,6 @@
 include "std/test.gaz" use expect, throws;
-include "../../../lib/crypto.gaz" use hex;
-include "../../../lib/lists.gaz";
+include "std/crypto.gaz" use hex;
+include "std/lists.gaz";
 
 /* A string of bytes from a list of their values */
 fn bytes($values) {

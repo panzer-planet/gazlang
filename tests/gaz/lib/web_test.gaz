@@ -3,7 +3,7 @@
  * list joined, a map and a list in a list refused
  */
 include "std/test.gaz" use expect, throws;
-include "../../../lib/web.gaz";
+include "std/web.gaz";
 
 // The text of an Html, which is what these compare
 fn text($html) {

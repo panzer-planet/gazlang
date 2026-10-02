@@ -1,5 +1,5 @@
 include "std/test.gaz" use expect, throws;
-include "../../../lib/term.gaz";
+include "std/term.gaz";
 
 // The keys in $bytes, named
 fn names($bytes, $flush = false) {

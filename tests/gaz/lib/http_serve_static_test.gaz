@@ -1,5 +1,5 @@
 include "std/test.gaz" use expect;
-include "../../../lib/http.gaz";
+include "std/http.gaz";
 
 fn request($path) {
     return {"method" => "GET", "path" => $path, "query" => "", "headers" => {}, "body" => ""};

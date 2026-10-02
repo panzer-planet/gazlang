@@ -1,0 +1,5 @@
+Error: Invalid JSON: unexpected "1" after the value at position 1
+  json::Reader.fail at <std>/json.gaz:129
+  json::Reader.parse at <std>/json.gaz:122
+  json::decode at <std>/json.gaz:36
+  top level on line 1

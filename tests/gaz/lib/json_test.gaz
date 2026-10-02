@@ -1,5 +1,5 @@
 include "std/test.gaz" use expect, throws;
-include "../../../lib/json.gaz";
+include "std/json.gaz";
 
 // Unicode escapes are built from parts so they stay escapes in this source file
 $u = "\\" .. "u";

@@ -20,8 +20,8 @@
  * Without a port it prints this usage and serves nothing.
  */
 
-include "../../lib/http.gaz";
-include "../../lib/json.gaz";
+include "std/http.gaz";
+include "std/json.gaz";
 include "views/hello.gazml";
 
 const SESSION_SECRET = "the web_server.gaz test's session secret";

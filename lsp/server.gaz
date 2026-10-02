@@ -7,16 +7,11 @@
  */
 namespace gazlang;
 
-/*
- * By path, not "std/json.gaz": that would pull in a second, differently-pathed copy of
- * chars.gaz alongside the one compiler/lexer.gaz already includes, and namespace privacy is
- * per namespace, not per file, so chars::char_at would be declared twice.
- */
 include "../compiler/parser.gaz";
-include "../lib/json.gaz" use decode, encode;
-include "../lib/chars.gaz" use char_at, is_alnum, span;
-include "../lib/regex.gaz";
-include "../lib/http.gaz";
+include "std/json.gaz" use decode, encode;
+include "std/chars.gaz" use char_at, is_alnum, span;
+include "std/regex.gaz";
+include "std/http.gaz";
 
 /*
  * The lexer's own keywords (Lexer::KEYWORDS), in its order, minus the ones the parser only

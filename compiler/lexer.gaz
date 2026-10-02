@@ -10,7 +10,7 @@ namespace gazlang;
 // write, which only source translated from a template may use
 const TEMPLATE_BUFFER = "$#html";
 
-include "../lib/chars.gaz" use char_at, is_digit, is_hex_digit;
+include "std/chars.gaz" use char_at, is_digit, is_hex_digit;
 
 kind Token {
     pub #type;

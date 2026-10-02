@@ -1,7 +1,7 @@
 /*
  * Every key term::Input reads from standard input, by name and a line each, until the input ends
  */
-include "../../lib/term.gaz";
+include "std/term.gaz";
 
 $input = term::Input();
 while (true) {

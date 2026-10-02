@@ -19,15 +19,15 @@
  * the squads are always the same, and the same seed always plays the same seasons. Seasons
  * are named from 2026/27 whatever the seed; the Nth is played with SEED + N - 1.
  */
-include "../../lib/format.gaz" use pad_left, pad_right;
+include "std/format.gaz" use pad_left, pad_right;
 include "football/players.gaz" use Goalkeeper;
 include "football/teams.gaz" use InvalidLineup, Team, Formation, Scout;
 include "football/matches.gaz" use Fixture;
 include "football/league.gaz" use League, Commentator;
 include "football/money.gaz";
 include "football/cup.gaz" use Cup;
-include "../../lib/lists.gaz" use flatten, max_by, min_by;
-include "../../lib/json.gaz";
+include "std/lists.gaz" use flatten, max_by, min_by;
+include "std/json.gaz";
 
 // The clubs, strongest first: name, level (the squad's typical rating) and formation. The
 // first CLUBS make the First Division, the next CLUBS the Second, and so on down

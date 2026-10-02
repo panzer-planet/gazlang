@@ -9,7 +9,7 @@
  * share: three workers try the inherited connection; each must be refused every time, promptly,
  * rather than garble the others' replies and hang.
  */
-include "../../lib/db.gaz";
+include "std/db.gaz";
 
 [$url, $mode] = args();
 $db = db::open($url);

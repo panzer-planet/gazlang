@@ -1,0 +1,6 @@
+Error: Invalid JSON: unexpected end of input at position 0
+  json::Reader.fail at <std>/json.gaz:129
+  json::Reader.parse_value at <std>/json.gaz:181
+  json::Reader.parse at <std>/json.gaz:119
+  json::decode at <std>/json.gaz:36
+  top level on line 1

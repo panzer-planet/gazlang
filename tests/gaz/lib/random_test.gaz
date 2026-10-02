@@ -1,5 +1,5 @@
 include "std/test.gaz" use expect, throws;
-include "../../../lib/random.gaz";
+include "std/random.gaz";
 
 // Unseeded, only the kind of result can be checked
 $shuffled = random::shuffle([1, 2, 3, 4, 5]);
