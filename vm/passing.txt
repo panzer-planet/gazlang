@@ -882,7 +882,9 @@ tests/corpora/codegen/power.gaz
 tests/corpora/codegen/private_method_names_reused.gaz
 tests/corpora/codegen/shared.gaz
 tests/corpora/codegen/statements.gaz
+tests/corpora/codegen/static_in_an_included_file.gaz
 tests/corpora/codegen/statics.gaz
+tests/corpora/codegen/statics/counter.gaz
 tests/corpora/codegen/tagged.gaz
 tests/corpora/codegen/template.gaz
 tests/corpora/codegen/template_namespace.gaz

@@ -1,0 +1,6 @@
+// A static field declared in an included file, its default on a line of its own
+kind Counter {
+
+
+    pub static #count = 10;
+}

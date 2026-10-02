@@ -3201,7 +3201,11 @@ kind Html {
                 #check_constant_expression($expr, $kind);
                 #statics["{$kind.name}::{$name}"] = len(#static_defaults);
                 #static_defaults[] = #fold($expr, $kind);
-                $inits[] = #at(StaticInitAST("{$kind.name}::{$name}", last(#static_defaults)), $expr);
+                $init = StaticInitAST("{$kind.name}::{$name}", last(#static_defaults));
+                // At the default's own file and line: #at() would take the file being read now
+                $init.line = $expr.line;
+                $init.file = $expr.file;
+                $inits[] = $init;
             }
         }
         $root.statements = [...$inits, ...$root.statements];
