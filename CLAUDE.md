@@ -287,15 +287,18 @@ that must find nothing to do.
 - **The roadmap**, in build order (optional types, `gaz --watch`, the pipe, cryptography, cookies
   and signed sessions, `gaz test`, the list helpers in `lib/lists.gaz` and tagged literals, with
   `db::sql"..."` and `web::html"..."` on them, modules (`import`, replacing `include`) and files
-  for command line tools (file handles that write and seek, `file_info`, `rename_file`, `make_dir`
-  with parents, `trim` with a set, and `std/fs.gaz`) are done and described below):
+  for command line tools (file handles that write, seek and sync, `file_info`, `rename_file`,
+  `chmod`, links, `chdir`, `make_dir` with parents and a mode, `trim` with a set, octal literals and
+  `std/fs.gaz`) are done and described below):
   1. **Rest patterns** in destructuring, `[$first, ...$rest] = $list`, when JSON handling asks.
   2. **HTTP keep-alive** in `http::serve` is done (see "Serving HTTP"); server-side TLS and HTTP/2,
      which it was the prerequisite for, remain open.
   3. **Files for command line tools** is done: what three tools written on the old API had to work
      round (`examples/du.gaz`, `backup.gaz`, `sitecopy.gaz`, whose first versions in git ran `test
-     -L` for every entry, read whole files to count them and called `mv`) decided the set. See
-     "File handles", `file_info`, `rename_file` and `fs.gaz` below.
+     -L` for every entry, read whole files to count them and called `mv`) decided the set, and
+     `chmod`, `symlink`/`readlink`, `file_sync`/`sync_dir`, `file_truncate`, `set_mtime`, `chdir`
+     and `0o` literals followed, so a copy keeps modes, links and times and a replaced file is
+     durable. See "File handles", `file_info`, `rename_file`, `chmod` and `fs.gaz` below.
   4. **Dates from a clock**: `date.gaz` counts days and `time()` gives seconds, but nothing formats
      a moment, parses ISO 8601 or knows a time zone (`apps/todo` shows timestamps as text). The rules
      are GazLang's, written out as `round()` is, never the platform's.
@@ -1558,23 +1561,30 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   read; `text::trim_start`/`trim_end($s, $chars = whitespace)`, `trim()`'s two halves, in GazLang
   rather than two more builtins, since a path's trailing slash is the one place they are needed),
   `fs.gaz` (files and directories for command line tools, on the file builtins: `fs::copy` (in
-  64KB pieces, so any size; onto itself an error, since opening the target would empty it),
-  `fs::copy_tree` (gives the paths it left out, links and anything not a file or directory, rather
-  than failing or quietly dropping them), `fs::walk` (relative paths, depth first, each directory
+  64KB pieces, so any size; onto itself an error, since opening the target would empty it; the
+  mode kept, chmod'ed to its permission bits before a byte is written, so a private file's copy is
+  never readable by others, and exactly once written, since a write clears setuid on Linux;
+  `$keep_time` keeps the modification time too),
+  `fs::copy_tree` (directories with their modes, set deepest first once everything is in so a
+  read-only one is filled first, and links made again with the same text, never followed; gives
+  the paths it left out, anything not a file, directory or link, rather than failing or quietly
+  dropping them), `fs::walk` (relative paths, depth first, each directory
   sorted, a directory before its contents, links listed and never followed), `fs::glob` (`*`, `?`,
   `[abc]`, `[a-z]`, `[!abc]`, `**` as a whole name; a hidden name only by a pattern name starting
   with a dot; a link the pattern names is followed, one `**` finds never is, so no loop;
   sorted; each `*` matched by the two-pointer method, backing up only to the last star, so never
-  exponential), `fs::write_atomic` (a hidden temporary beside the file, closed, renamed over it,
+  exponential), `fs::write_atomic` (a hidden temporary beside the file, synced, closed, given the
+  mode of the file it replaces, renamed over it, and the directory synced, so durable end to end;
   removed if anything fails), `fs::remove_tree` (a link is removed itself, never followed),
-  `fs::temp_dir($prefix)` (`$TMPDIR` or `/tmp`, random hex from `random_bytes`) and `fs::parent`
+  `fs::touch` (`"a"` and closed, so never emptied, then `set_mtime` to `time()`),
+  `fs::temp_dir($prefix)` (`$TMPDIR` or `/tmp`, random hex from `random_bytes`, 0700 as `mkdtemp`
+  makes one) and `fs::parent`
   (the one path helper the examples needed). **Paths only, no path kind**: strings joined with
   `"/"`, as every builtin takes them. **No kinds-with-the-walk**: `fs::walk` gives paths, and a
   caller wanting sizes or times asks `file_info()` again, a second `lstat` per entry, which the
-  examples didn't notice next to what the walk costs. `ponytail:` no chmod, symlink, fsync or chdir
-  builtins, so a copy doesn't keep its mode, a link in a tree isn't copied, `write_atomic` doesn't
-  sync (a power cut can leave the rename without the data), and `temp_dir` is as private as the
-  umask makes it (often readable by everyone, where `mkdtemp` gives 0700); each would be one builtin.
+  examples didn't notice next to what the walk costs. **No `fs::mode_string`** (`rwxr-xr-x`): no
+  example lists modes, and `format::sprintf("%o", $mode)` shows one. `ponytail:` a copy onto a
+  read-only file is an error (`fopen` can't write it) where `cp -f` would remove it first.
   **A glob in a block comment nests**: `/*` inside a `/* */` opens another comment (they nest, on
   purpose), so a doc comment can't write a path ending in a `**` name followed by a slash: the
   library's comments describe such patterns by their names instead. Tested by

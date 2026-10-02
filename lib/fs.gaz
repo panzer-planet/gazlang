@@ -1,7 +1,7 @@
 /*
  * Files and directories for command line tools, on the file builtins: copying a file or a tree,
- * walking a tree, matching a glob, replacing a file in one step, removing a tree, and a
- * directory of one's own for scratch work.
+ * walking a tree, matching a glob, replacing a file in one step, removing a tree, touching a
+ * file, and a directory of one's own for scratch work.
  *
  *   import "std/fs.gaz";
  *   foreach (fs::glob("*.md") as $page) { ... }
@@ -19,33 +19,43 @@ import "./text.gaz" use trim_end;
 const CHUNK = 65536;            // bytes a copy reads at a time
 const TEMP_NAME_BYTES = 8;      // random bytes in a temporary name, as hex
 const DEFAULT_TEMP = "/tmp";
+const PRIVATE = 0o700;          // a temporary directory's mode: its owner's alone
+const PERMISSIONS = 0o777;      // the bits a file may have while it is written: no setuid, setgid or sticky
 
 /*
  * Copy the file at $from to $to, replacing a file there. It is read and written a piece at a
  * time, so a file of any size takes little memory, and its bytes come out exactly. $to gets
- * a new file's permissions, not $from's; copying a file onto itself is an error, since opening
- * $to to write it would empty $from.
- * ponytail: the mode isn't copied, since there is no chmod builtin; one would lift it.
+ * $from's mode, and with $keep_time its modification time too; copying a file onto itself is an
+ * error, since opening $to to write it would empty $from.
  */
-pub fn copy(string $from, string $to): null {
+pub fn copy(string $from, string $to, bool $keep_time = false): null {
     $source = file_open($from);
     if (file_exists($to) && real_path($to) == real_path($from)) {
         throw "fs::copy(): " .. text::quote($from) .. " and " .. text::quote($to) .. " are the same file";
     }
+    $info = file_info($from);
     $target = file_open($to, "w");
+    // Before any byte is written, so a private file's copy is never readable by others
+    chmod($to, $info["mode"] & PERMISSIONS);
     while (($piece = file_read($source, CHUNK)) != "") {
         file_write($target, $piece);
     }
     file_close($source);
     file_close($target);
+    // Again once written, since a write clears setuid and setgid on Linux
+    chmod($to, $info["mode"]);
+    if ($keep_time) {
+        set_mtime($to, $info["mtime"]);
+    }
 }
 
 /*
  * Copy everything under the directory $from into $to, made if it isn't there (with its
- * parents), as copy() copies each file. A symbolic link, or anything that is neither a file
- * nor a directory (a pipe, a socket), is left out, and the list it gives is those paths,
- * relative to $from, so a caller can say what it left behind.
- * ponytail: a link is left out, not copied, since there is no builtin that makes one.
+ * parents): each file as copy() copies it, each directory with its mode, and each symbolic link
+ * as a link with the same text, never followed, so a link that pointed within the tree points
+ * within the copy and one to elsewhere still does. Anything else (a pipe, a socket, a device) is
+ * left out, and the list it gives is those paths, relative to $from, so a caller can say what it
+ * left behind. A link already where one goes is replaced, as a file is.
  */
 pub fn copy_tree(string $from, string $to): list {
     if (!is_dir($from)) {
@@ -53,15 +63,25 @@ pub fn copy_tree(string $from, string $to): list {
     }
     make_dir($to, true);
     $left_out = [];
+    $dirs = [""];
     foreach (walk($from) as $path) {
-        $kind = file_info(joined($from, $path), false)["kind"];
+        $source = joined($from, $path);
+        $target = joined($to, $path);
+        $kind = file_info($source, false)["kind"];
         if ($kind == "dir") {
-            make_dir(joined($to, $path), true);
+            make_dir($target, true);
+            $dirs[] = $path;
         } else if ($kind == "file") {
-            copy(joined($from, $path), joined($to, $path));
+            copy($source, $target);
+        } else if ($kind == "link") {
+            copy_link($source, $target);
         } else {
             $left_out[] = $path;
         }
+    }
+    // Deepest first and once everything is in, so a directory without write permission is filled
+    foreach (reverse($dirs) as $path) {
+        chmod(joined($to, $path), file_info(joined($from, $path))["mode"]);
     }
 
     return $left_out;
@@ -115,19 +135,29 @@ pub fn glob(string $pattern): list {
 }
 
 /*
- * Write $data to $path in one step: into a new file beside it, which is closed (an error if the
- * writing failed) and then renamed over $path, so whoever opens $path sees the old contents or
- * the new ones, never part of either. If anything fails, the new file is removed.
- * ponytail: nothing is synced to the disk (there is no fsync builtin), so after a power cut the
- * rename can be there before the data; one would lift it.
+ * Write $data to $path in one step: into a new file beside it, which is synced to the disk,
+ * closed (an error if the writing failed) and then renamed over $path, whose directory is synced
+ * too, so whoever opens $path sees the old contents or the new ones, never part of either, and
+ * after a power cut it is still one or the other. A file that was there keeps its mode; a new
+ * one gets a new file's. If anything fails, the new file is removed.
  */
 pub fn write_atomic(string $path, string $data): null {
-    $temporary = joined(parent($path), "." .. base_name($path) .. "." .. random_hex() .. ".tmp");
+    $directory = parent($path);
+    $temporary = joined($directory, "." .. base_name($path) .. "." .. random_hex() .. ".tmp");
+    $existing = file_info($path);
     try {
         $file = file_open($temporary, "w");
+        if ($existing != null) {
+            chmod($temporary, $existing["mode"] & PERMISSIONS);
+        }
         file_write($file, $data);
+        file_sync($file);
         file_close($file);
+        if ($existing != null) {
+            chmod($temporary, $existing["mode"]);
+        }
         rename_file($temporary, $path);
+        sync_dir($directory);
     } catch ($e) {
         if (file_info($temporary, false) != null) {
             delete_file($temporary);
@@ -154,9 +184,8 @@ pub fn remove_tree(string $path): null {
 
 /*
  * A new, empty directory of its own under $TMPDIR (or /tmp), named $prefix and random hex
- * ("/tmp/gaz-3f9a0c61b2d4e5f7"), for scratch work; remove it with remove_tree() when done.
- * ponytail: its permissions are what the umask leaves (often readable by everyone), since there
- * is no chmod builtin to make it the owner's alone; one would lift it.
+ * ("/tmp/gaz-3f9a0c61b2d4e5f7"), for scratch work, which only its owner can read or enter
+ * (0o700); remove it with remove_tree() when done.
  */
 pub fn temp_dir(string $prefix = "gaz"): string {
     $base = trim_end(getenv("TMPDIR") ?? DEFAULT_TEMP, "/");
@@ -164,9 +193,19 @@ pub fn temp_dir(string $prefix = "gaz"): string {
         $base = DEFAULT_TEMP;
     }
     $dir = $base .. "/" .. $prefix .. "-" .. random_hex();
-    make_dir($dir);
+    make_dir($dir, false, PRIVATE);
 
     return $dir;
+}
+
+/*
+ * Make $path an empty file if nothing is there, and set its modification time to now either way,
+ * through a link as set_mtime() goes: what touch does, for a build tool's stamp files. Its
+ * contents are never changed.
+ */
+pub fn touch(string $path): null {
+    file_close(file_open($path, "a"));
+    set_mtime($path, time());
 }
 
 /*
@@ -198,6 +237,14 @@ fn joined(string $dir, string $name): string {
     }
 
     return $dir .. "/" .. $name;
+}
+
+// The link at $source made again at $target with the same text, replacing what is there unless a directory
+fn copy_link(string $source, string $target): null {
+    if (file_info($target, false) != null) {
+        delete_file($target);
+    }
+    symlink(readlink($source), $target);
 }
 
 // A directory itself, not a symbolic link to one

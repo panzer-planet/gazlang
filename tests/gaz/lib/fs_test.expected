@@ -4,6 +4,7 @@ ok each is new
 ok named by the prefix
 ok and gaz by default
 ok under TMPDIR
+ok and its owner's alone
 ok a file's directory
 ok a name alone
 ok at the root
@@ -47,16 +48,42 @@ ok which leaves it alone
 ok from nothing
 ok a directory
 ok a tree, made with its parents
-ok links are left out and said
+ok nothing is left out
+ok links are links again
+ok with the same text
+ok so one within the tree points within the copy
 ok its files' contents
 ok again, into a tree that is there
+ok whose links are made again
 ok a tree from a file
+ok a copy keeps the mode
+ok but not the time unless asked
+ok and with keep_time, the time too
+ok a setuid bit survives the writing
+ok a fifo is still left out, and said
+ok modes in a tree
+ok the top directory's too
+ok a link to nothing is copied as a link
+ok and a link to that link
+ok touch makes an empty file
+ok and on one that is there, sets the time to now
+ok leaving its contents
+ok a missing directory
+ok a walk lists each link once and goes through none
+ok ** goes through no link, however many lead on
+ok a pattern naming a link to a link follows it
+ok a broken link is no directory to go into
+ok nor is one to a broken link
+ok removing goes through no link either
 ok written
 ok replaced
 ok nothing is left beside it
 ok into a missing directory
 ok a rename that fails is the error
 ok and the new file is removed
+ok a file that was there keeps its mode
+ok with the new contents
+ok a new one gets a new file's
 ok a tree goes
 ok a link in it goes, not what it points at
 ok a link given itself goes, not what it points at

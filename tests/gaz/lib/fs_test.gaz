@@ -5,7 +5,7 @@ import "std/text.gaz";
 /*
  * std/fs.gaz: copying, walking, globbing, replacing a file in one step and removing a tree, in a
  * directory of this run's own made by fs::temp_dir() and removed at the end however the checks
- * went. Links are made with ln -s, which the language can't do itself.
+ * went.
  */
 fn every_byte(): string {
     $bytes = "";
@@ -26,9 +26,9 @@ fn plant(string $root): null {
     write_file($root .. "/src/lib/deep/c.gaz", "c");
     write_file($root .. "/src/.hidden.gaz", "hidden");
     write_file($root .. "/.cache/x.gaz", "x");
-    run(["ln", "-s", "..", $root .. "/src/lib/up"]);
-    run(["ln", "-s", "main.gaz", $root .. "/src/link.gaz"]);
-    run(["ln", "-s", "src/lib/deep", $root .. "/shortcut"]);
+    symlink("..", $root .. "/src/lib/up");
+    symlink("main.gaz", $root .. "/src/link.gaz");
+    symlink("src/lib/deep", $root .. "/shortcut");
 }
 
 fn temp_dirs(): null {
@@ -40,6 +40,7 @@ fn temp_dirs(): null {
     expect("named by the prefix", starts_with(last(split($two, "/")), "mine-"), true);
     expect("and gaz by default", starts_with(last(split($one, "/")), "gaz-"), true);
     expect("under TMPDIR", fs::parent($one), text::trim_end(getenv("TMPDIR") ?? "/tmp", "/"));
+    expect("and its owner's alone", file_info($one)["mode"], 0o700);
     delete_dir($one);
     delete_dir($two);
 }
@@ -106,13 +107,88 @@ fn copying(string $root): null {
     throws("a directory", () -> fs::copy($root .. "/src", $root .. "/x"), "Cannot open \"{$root}/src\": Is a directory");
     $left_out = fs::copy_tree($root .. "/src", $root .. "/copied/src");
     expect("a tree, made with its parents", fs::walk($root .. "/copied"), [
-        "src", "src/.hidden.gaz", "src/lib", "src/lib/a.gaz", "src/lib/b.txt", "src/lib/deep", "src/lib/deep/c.gaz", "src/main.gaz",
+        "src", "src/.hidden.gaz", "src/lib", "src/lib/a.gaz", "src/lib/b.txt", "src/lib/deep", "src/lib/deep/c.gaz", "src/lib/up",
+        "src/link.gaz", "src/main.gaz",
     ]);
-    expect("links are left out and said", $left_out, ["lib/up", "link.gaz"]);
+    expect("nothing is left out", $left_out, []);
+    expect("links are links again", [file_info($root .. "/copied/src/lib/up", false)["kind"], file_info($root .. "/copied/src/link.gaz", false)["kind"]], ["link", "link"]);
+    expect("with the same text", [readlink($root .. "/copied/src/lib/up"), readlink($root .. "/copied/src/link.gaz")], ["..", "main.gaz"]);
+    expect("so one within the tree points within the copy", real_path($root .. "/copied/src/link.gaz"), real_path($root .. "/copied/src/main.gaz"));
     expect("its files' contents", read_file($root .. "/copied/src/lib/deep/c.gaz"), "c");
     fs::copy_tree($root .. "/src", $root .. "/copied/src");
     expect("again, into a tree that is there", read_file($root .. "/copied/src/main.gaz"), "main");
+    expect("whose links are made again", readlink($root .. "/copied/src/link.gaz"), "main.gaz");
     throws("a tree from a file", () -> fs::copy_tree($root .. "/README.md", $root .. "/x"), "fs::copy_tree(): \"{$root}/README.md\" is not a directory");
+}
+
+// What copy() and copy_tree() keep: modes, times when asked, and what they leave out
+fn keeping(string $root): null {
+    $from = $root .. "/keep";
+    make_dir($from .. "/locked", true);
+    write_file($from .. "/script.sh", "#!/bin/sh");
+    chmod($from .. "/script.sh", 0o755);
+    write_file($from .. "/secret", "secret");
+    chmod($from .. "/secret", 0o600);
+    write_file($from .. "/locked/read-only", "r");
+    chmod($from .. "/locked/read-only", 0o444);
+    write_file($from .. "/setuid", "s");
+    chmod($from .. "/setuid", 0o4755);
+    chmod($from .. "/locked", 0o555);
+    set_mtime($from .. "/secret", 1000000000);
+    fs::copy($from .. "/secret", $root .. "/secret-copy");
+    expect("a copy keeps the mode", file_info($root .. "/secret-copy")["mode"], 0o600);
+    expect("but not the time unless asked", file_info($root .. "/secret-copy")["mtime"] != 1000000000, true);
+    fs::copy($from .. "/secret", $root .. "/timed-copy", true);
+    expect("and with keep_time, the time too", file_info($root .. "/timed-copy")["mtime"], 1000000000);
+    fs::copy($from .. "/setuid", $root .. "/setuid-copy");
+    expect("a setuid bit survives the writing", file_info($root .. "/setuid-copy")["mode"], 0o4755);
+    run(["mkfifo", $from .. "/fifo"]);
+    $left_out = fs::copy_tree($from, $root .. "/kept");
+    expect("a fifo is still left out, and said", $left_out, ["fifo"]);
+    expect("modes in a tree", map(["script.sh", "secret", "locked", "locked/read-only", "setuid"], $p -> file_info($root .. "/kept/" .. $p)["mode"]),
+        [0o755, 0o600, 0o555, 0o444, 0o4755]);
+    expect("the top directory's too", file_info($root .. "/kept")["mode"], file_info($from)["mode"]);
+    chmod($from .. "/locked", 0o755);
+    chmod($root .. "/kept/locked", 0o755);
+    symlink("nowhere", $from .. "/dangling");
+    symlink("dangling", $from .. "/to-dangling");
+    fs::copy_tree($from, $root .. "/kept-links");
+    expect("a link to nothing is copied as a link", readlink($root .. "/kept-links/dangling"), "nowhere");
+    expect("and a link to that link", readlink($root .. "/kept-links/to-dangling"), "dangling");
+}
+
+fn touching(string $root): null {
+    $path = $root .. "/touched";
+    fs::touch($path);
+    expect("touch makes an empty file", read_file($path), "");
+    write_file($path, "kept");
+    set_mtime($path, 1000000000);
+    fs::touch($path);
+    expect("and on one that is there, sets the time to now", abs(file_info($path)["mtime"] - time()) < 60, true);
+    expect("leaving its contents", read_file($path), "kept");
+    throws("a missing directory", () -> fs::touch($root .. "/nope/x"), "Cannot open \"{$root}/nope/x\": No such file or directory");
+}
+
+// Links to links and links to nothing, in a walk and a glob: listed, never followed
+fn link_chains(string $root): null {
+    $tree = $root .. "/chains";
+    make_dir($tree .. "/real", true);
+    write_file($tree .. "/real/file.txt", "x");
+    symlink("real", $tree .. "/first");
+    symlink("first", $tree .. "/second");
+    symlink("missing", $tree .. "/broken");
+    symlink("broken", $tree .. "/to-broken");
+    symlink("..", $tree .. "/real/up");
+    expect("a walk lists each link once and goes through none", fs::walk($tree),
+        ["broken", "first", "real", "real/file.txt", "real/up", "second", "to-broken"]);
+    $at = len($tree) + 1;
+    expect("** goes through no link, however many lead on", map(fs::glob($tree .. "/**"), $p -> slice($p, $at)),
+        ["broken", "first", "real", "real/file.txt", "real/up", "second", "to-broken"]);
+    expect("a pattern naming a link to a link follows it", map(fs::glob($tree .. "/second/*.txt"), $p -> slice($p, $at)), ["second/file.txt"]);
+    expect("a broken link is no directory to go into", fs::glob($tree .. "/broken/*"), []);
+    expect("nor is one to a broken link", fs::glob($tree .. "/to-broken/*"), []);
+    fs::remove_tree($tree);
+    expect("removing goes through no link either", file_exists($tree), false);
 }
 
 fn atomic_writes(string $root): null {
@@ -135,6 +211,14 @@ fn atomic_writes(string $root): null {
         expect("a rename that fails is the error", starts_with($e.message, "Cannot rename"), true);
     }
     expect("and the new file is removed", list_dir($root), $before);
+    $private = $root .. "/private.txt";
+    write_file($private, "old");
+    chmod($private, 0o600);
+    fs::write_atomic($private, "new");
+    expect("a file that was there keeps its mode", file_info($private)["mode"], 0o600);
+    expect("with the new contents", read_file($private), "new");
+    fs::write_atomic($root .. "/fresh.txt", "x");
+    expect("a new one gets a new file's", file_info($root .. "/fresh.txt")["mode"], file_info($root .. "/README.md")["mode"]);
 }
 
 fn removing(string $root): null {
@@ -143,10 +227,10 @@ fn removing(string $root): null {
     make_dir($root .. "/outside");
     write_file($root .. "/outside/keep.txt", "keep");
     make_dir($root .. "/doomed");
-    run(["ln", "-s", "../outside", $root .. "/doomed/link"]);
+    symlink("../outside", $root .. "/doomed/link");
     fs::remove_tree($root .. "/doomed");
     expect("a link in it goes, not what it points at", read_file($root .. "/outside/keep.txt"), "keep");
-    run(["ln", "-s", "outside", $root .. "/top-link"]);
+    symlink("outside", $root .. "/top-link");
     fs::remove_tree($root .. "/top-link");
     expect("a link given itself goes, not what it points at", [file_info($root .. "/top-link", false), is_dir($root .. "/outside")], [null, true]);
     fs::remove_tree($root .. "/outside/keep.txt");
@@ -171,6 +255,9 @@ try {
     walking($root);
     globbing($root);
     copying($root);
+    keeping($root);
+    touching($root);
+    link_chains($root);
     atomic_writes($root);
     removing($root);
 } finally {
