@@ -1,0 +1,4 @@
+// What include.gaz includes: an included file only declares, and its includer calls
+fn show_args() {
+    echo args();
+}

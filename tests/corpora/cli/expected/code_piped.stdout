@@ -3,9 +3,18 @@ globals
 
 top
 locals
-@ "args.gaz" 1
-CALL_BUILTIN args 0
-PRINT
 @ 2
+CALL show_args 0
+POP
+@ 3
 PUSH "included"
 PRINT
+
+fn show_args 0 0
+locals
+@ "show_args.gaz" 3
+CALL_BUILTIN args 0
+PRINT
+@ "show_args.gaz" 2
+PUSH null
+RET

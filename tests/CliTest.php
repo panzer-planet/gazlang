@@ -66,7 +66,7 @@ class CliTest extends GazLangTestCase
         '-e a runtime error' => [['-e', 'echo 1 / 0;']],
         '-e exits with the program\'s code' => [['-e', 'exit(3);']],
         '-e with no code' => [['-e', '']],
-        '-e includes from the working directory' => [['-e', 'include "args.gaz";']],
+        '-e includes from the working directory' => [['-e', 'include "show_args.gaz"; show_args();']],
         '-e includes the standard library' => [['-e', 'include "std/lists.gaz"; echo lists::take([1, 2, 3], 2);']],
         '-e without the include says which one' => [['-e', 'echo lists::first([1]);']],
         '-c -e' => [['-c', '-e', 'echo 1;']],

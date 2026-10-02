@@ -1,12 +1,25 @@
 Compound
   statements:
-@ "args.gaz"
-    0: EchoStatement 1
-      expr: FunctionCall 1
-        name: "args"
-        args: []
+@ "show_args.gaz"
+    0: FunctionDeclaration 2
+      name: "show_args"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: EchoStatement 3
+            expr: FunctionCall 3
+              name: "args"
+              args: []
+      arity: 0
+      kind: null
+      abstract: false
 @ "include.gaz"
-    1: EchoStatement 2
-      expr: String 2
-        token: 2 STRING "included"
+    1: Statement 2
+      expr: FunctionCall 2
+        name: "show_args"
+        args: []
+    2: EchoStatement 3
+      expr: String 3
+        token: 3 STRING "included"
         value: "included"
