@@ -124,6 +124,22 @@ class LspTest extends GazLangTestCase
         $this->assertStringContainsString("broken.gaz:4: Expected ';'", $diagnostics[0]['message']);
     }
 
+    /** A comment that says an import is not the import: the error is shown at the real one */
+    public function test_an_error_in_an_imported_file_is_not_shown_at_a_comment_that_names_it()
+    {
+        $path = realpath(self::ROOT.'/tests/fixtures/lsp/broken_importer.gaz');
+        $text = "// import \"./broken.gaz\"; once, long ago\n\nimport \"./broken.gaz\";\n\necho broken();\n";
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'method' => 'textDocument/didOpen', 'params' => [
+                'textDocument' => ['uri' => 'file://'.$path, 'text' => $text],
+            ]],
+        ]);
+
+        $diagnostics = $messages[0]['params']['diagnostics'];
+        $this->assertCount(1, $diagnostics);
+        $this->assertSame(2, $diagnostics[0]['range']['start']['line']);
+    }
+
     /**
      * A module is checked as the compiler checks it alone: what it names resolves through its
      * own imports, so one opened on its own gets the answer it gets in any program

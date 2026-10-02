@@ -1,0 +1,12 @@
+Compound
+  statements:
+@ "tests/corpora/parser/modules/projects/requires/peer.gaz"
+    0: FunctionDeclaration 2
+      name: "peer"
+      params: []
+      defaults: []
+      body: Compound
+        statements: []
+      arity: 0
+      kind: null
+      abstract: false

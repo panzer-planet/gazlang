@@ -1,0 +1,1 @@
+Error: Undefined function: values (shadow::values is declared in tests/corpora/parser/modules/lib/shadow/mine.gaz, which this file doesn't import: add import "./mine.gaz";) at tests/corpora/parser/modules/lib/shadow/other.gaz:5

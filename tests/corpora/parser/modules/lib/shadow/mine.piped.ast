@@ -1,0 +1,16 @@
+Compound
+  statements:
+@ null
+    0: FunctionDeclaration 4
+      name: "shadow::values"
+      params: ["\$list"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: ReturnStatement 5
+            expr: String 5
+              token: 5 STRING "the namespace's"
+              value: "the namespace's"
+      arity: 1
+      kind: null
+      abstract: false

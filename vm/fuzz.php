@@ -76,6 +76,7 @@ $generator = new ProgramGenerator($rng, builtins());
 printf("fuzz: %d programs and %d bytecode files to mutate\n", count($seeds), count($gzbSeeds));
 
 $start = microtime(true);
+sweepStale();
 $count = 0;
 $failed = [];
 $timeouts = 0;
@@ -394,6 +395,20 @@ function builtins(): array
     ksort($builtins);
 
     return $builtins;
+}
+
+/**
+ * Mutants a killed run left next to their originals (.fuzz-* older than ten minutes: a run
+ * running now keeps its own, which are younger)
+ */
+function sweepStale(): void
+{
+    $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(CVM::ROOT.'/tests', FilesystemIterator::SKIP_DOTS));
+    foreach ($files as $file) {
+        if (str_starts_with($file->getFilename(), '.fuzz-') && $file->getMTime() < time() - 600) {
+            @unlink($file->getPathname());
+        }
+    }
 }
 
 /**
@@ -747,10 +762,16 @@ function seeded(string $text): string
 {
     $lines = explode("\n", $text);
     $last = null;
+    // Inside an import that goes on over lines (a long use clause), up to its semicolon
+    $open = false;
     foreach ($lines as $i => $line) {
         $trimmed = trim($line);
-        if (str_starts_with($trimmed, 'import "') || str_starts_with($trimmed, 'namespace ')) {
+        if ($open) {
             $last = $i;
+            $open = ! str_ends_with($trimmed, ';');
+        } elseif (str_starts_with($trimmed, 'import "') || str_starts_with($trimmed, 'namespace ')) {
+            $last = $i;
+            $open = ! str_ends_with($trimmed, ';');
         } elseif ($trimmed !== '' && ! preg_match('#^(//|/\*|\*)#', $trimmed)) {
             // Past the comments at the top (roughly: a wrong guess only makes a mutant fail)
             break;

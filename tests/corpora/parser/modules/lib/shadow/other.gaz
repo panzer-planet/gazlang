@@ -1,0 +1,6 @@
+// Same namespace as mine.gaz, which it doesn't import
+namespace shadow;
+
+pub fn show() {
+    return values([1, 2]);
+}

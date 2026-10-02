@@ -29,8 +29,10 @@
  */
 namespace gazlang;
 
-// TEMPLATE_BUFFER, and ParseError; the parser imports this file too, which a cycle of imports
-// allows, each file being read once
+/*
+ * TEMPLATE_BUFFER, and ParseError; the parser imports this file too, which a cycle of imports
+ * allows, each file being read once
+ */
 import "./lexer.gaz";
 import "./parser.gaz";
 
@@ -321,8 +323,10 @@ kind TemplateLine {
     }
 }
 
-// Whether a line is an import (import "..."), which a template may have before its @template
-// line, as any file has at its top
+/*
+ * Whether a line is an import (import "..."), which a template may have before its @template
+ * line, as any file has at its top
+ */
 fn is_import_line($text) {
     return starts_with(trim($text), "import \"");
 }

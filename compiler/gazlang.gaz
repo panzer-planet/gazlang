@@ -1,8 +1,10 @@
 // The self-hosted front end, as gaz prints it: MODE is code (the bytecode, as -c prints
 // it; see docs/bytecode.md), tokens (one LINE TYPE VALUE per line, as --tokens) or ast (the
 // tree, as --ast; see Dumper below for the format). Without a FILE the source is read from
-// standard input, as gaz reads piped source: no file in its locations, and imports
-// from the working directory and its project.
+/*
+ * standard input, as gaz reads piped source: no file in its locations, and imports
+ * from the working directory and its project.
+ */
 // bin/gaz compiler/gazlang.gaz MODE [FILE]
 namespace gazlang;
 

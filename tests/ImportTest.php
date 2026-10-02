@@ -131,4 +131,57 @@ class ImportTest extends GazLangTestCase
         $this->assertSame(1, $code);
         $this->assertStringStartsWith('Error: Namespace text is std/text.gaz\'s: lib/text.gaz can\'t declare it too (a namespace belongs to one project) at lib/text.gaz:', $err);
     }
+
+    /**
+     * A link inside the project that leads out of it is not a way to import what lies outside:
+     * the real path must be inside the root, as a path with .. is refused
+     */
+    public function test_a_link_cannot_lead_out_of_the_project()
+    {
+        $outside = self::scratch('outside');
+        $project = self::scratch('project');
+        file_put_contents("{$outside}/secret.gaz", "fn secret() { return 1; }\n");
+        file_put_contents("{$project}/main.gaz", "import \"./out/secret.gaz\";\necho secret();\n");
+        @symlink($outside, "{$project}/out");
+
+        [, $err, $code] = self::gazlang(['-f', "{$project}/main.gaz"]);
+
+        $this->assertSame(1, $code);
+        $this->assertStringContainsString('is outside the project at', $err);
+        $this->assertStringContainsString('a link leads out of it', $err);
+    }
+
+    /**
+     * A gaz.json is read when a program first imports a file of its own project, so one above a
+     * script that never imports anything, or only the standard library, can't make it fail
+     */
+    public function test_a_gaz_json_nothing_imports_from_is_not_read()
+    {
+        $project = self::scratch('unread');
+        file_put_contents("{$project}/gaz.json", '{"name": "x", "requires": {}}');
+        file_put_contents("{$project}/std.gaz", "import \"std/text.gaz\";\necho text::quote(\"a\");\n");
+        file_put_contents("{$project}/plain.gaz", "echo 1;\n");
+        file_put_contents("{$project}/other.gaz", "fn other() {}\n");
+        file_put_contents("{$project}/own.gaz", "import \"other.gaz\";\necho 2;\n");
+
+        $this->assertSame("\"a\"\n", self::succeed(['-f', "{$project}/std.gaz"]));
+        $this->assertSame("1\n", self::succeed(['-f', "{$project}/plain.gaz"]));
+
+        [, $err, $code] = self::gazlang(['-f', "{$project}/own.gaz"]);
+        $this->assertSame(1, $code);
+        $this->assertStringContainsString('"requires" isn\'t read yet', $err);
+    }
+
+    /** A directory of this process's own outside the checkout, so that no gaz.json of the repository is above it */
+    private static function scratch(string $name): string
+    {
+        $directory = sys_get_temp_dir().'/gaz-import-'.getmypid().'-'.$name;
+        if (is_dir($directory)) {
+            exec('rm -rf '.escapeshellarg($directory));
+        }
+        mkdir($directory, 0777, true);
+        register_shutdown_function(fn () => exec('rm -rf '.escapeshellarg($directory)));
+
+        return realpath($directory);
+    }
 }

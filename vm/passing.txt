@@ -935,6 +935,8 @@ tests/corpora/parser/modules/lib/deep/helper.gaz
 tests/corpora/parser/modules/lib/directory.gaz/inside.gaz
 tests/corpora/parser/modules/lib/link.gaz
 tests/corpora/parser/modules/lib/runs_code.gaz
+tests/corpora/parser/modules/lib/shadow/mine.gaz
+tests/corpora/parser/modules/lib/shadow/other.gaz
 tests/corpora/parser/modules/lib/shapes.gaz
 tests/corpora/parser/modules/lib/shop/a.gaz
 tests/corpora/parser/modules/lib/shop/b.gaz
@@ -943,6 +945,9 @@ tests/corpora/parser/modules/main.gaz
 tests/corpora/parser/modules/nested/helper.gaz
 tests/corpora/parser/modules/nested/inside.gaz
 tests/corpora/parser/modules/private_kind.gaz
+tests/corpora/parser/modules/projects/list/peer.gaz
+tests/corpora/parser/modules/projects/nameless/peer.gaz
+tests/corpora/parser/modules/projects/requires/peer.gaz
 tests/corpora/parser/modules/same_file_spelt_two_ways.gaz
 tests/corpora/parser/modules/symlink_is_the_file_it_points_to.gaz
 tests/corpora/parser/modules/template_imports.gaz

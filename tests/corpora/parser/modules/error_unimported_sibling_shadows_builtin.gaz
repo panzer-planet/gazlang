@@ -1,0 +1,8 @@
+// other.gaz calls values(), which its namespace declares in mine.gaz, a file other.gaz doesn't
+// import: a missing import, never quietly the builtin of the name
+namespace shadow;
+
+import "./lib/shadow/mine.gaz";
+import "./lib/shadow/other.gaz";
+
+echo show();

@@ -56,9 +56,11 @@ kind Connection {
     }
 }
 
-// A file:// URI to the real path it names, for the parser to resolve its imports from, or null
-// (piped-source rules: imports from the server's own working directory and its project) for
-// anything else, an unsaved document included
+/*
+ * A file:// URI to the real path it names, for the parser to resolve its imports from, or null
+ * (piped-source rules: imports from the server's own working directory and its project) for
+ * anything else, an unsaved document included
+ */
 fn path_from_uri($uri) {
     if (!starts_with($uri, "file://")) {
         return null;
@@ -240,8 +242,10 @@ fn import_line($lines, $path, $file) {
         return 0;
     }
     $target = real_path($file);
+    $root = root_of($path);
     foreach ($lines as $i => $line) {
-        if (in_array($target, imported_paths($path, $line, root_of($path)))) {
+        // Only a line that is an import: not a comment or a string that says one
+        if (starts_with(trim($line), "import ") && in_array($target, imported_paths($path, $line, $root))) {
             return $i;
         }
     }

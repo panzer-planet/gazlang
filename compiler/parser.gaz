@@ -27,8 +27,10 @@ kind ParseError extends Error {
     }
 }
 
-// The directory of the standard library's files, which are built in: never a real directory,
-// so a path starting with it is never rewritten in bytecode
+/*
+ * The directory of the standard library's files, which are built in: never a real directory,
+ * so a path starting with it is never rewritten in bytecode
+ */
 const STD_DIRECTORY = "<std>";
 
 /*
@@ -61,8 +63,10 @@ kind Module {
     }
 }
 
-// Where an import's path leads, from the path alone: a file of the standard library, a path to
-// look for, or why the path is refused. The language server follows imports with it too.
+/*
+ * Where an import's path leads, from the path alone: a file of the standard library, a path to
+ * look for, or why the path is refused. The language server follows imports with it too.
+ */
 kind ImportTarget {
     pub #std = null;
     pub #path = null;
@@ -121,17 +125,21 @@ fn path_refusal($written) {
 fn project_root($directory) {
     $at = $directory;
     while (!file_exists(join_path($at, "gaz.json"))) {
-        if ($at == "/") {
+        $parent = directory_of($at);
+        // The top, or a directory that isn't a real path and has no parent to climb to
+        if ($at == "/" || $parent == $at) {
             return null;
         }
-        $at = directory_of($at);
+        $at = $parent;
     }
 
     return $at;
 }
 
-// The directory a real path is in, as PHP's dirname(): a real path has no "." or ".." steps,
-// doubled slashes or trailing slash to get wrong
+/*
+ * The directory a real path is in, as PHP's dirname(): a real path has no "." or ".." steps,
+ * doubled slashes or trailing slash to get wrong
+ */
 fn directory_of($path) {
     $steps = split($path, "/");
     if (len($steps) == 1) {
@@ -232,19 +240,25 @@ kind Parser {
     #file;
     // The main file's path as given, or null for source with no file
     #path;
-    // The file being parsed as a module (see Module), and every module read so far by key, so
-    // each is read once however its path is spelt, which is also what ends a cycle of imports
+    /*
+     * The file being parsed as a module (see Module), and every module read so far by key, so
+     * each is read once however its path is spelt, which is also what ends a cycle of imports
+     */
     #module = null;
     #modules = {};
     // The main file's project root, which a file with no gaz.json above it shares
     #main_root = null;
     // Each gaz.json read, by the directory it marks, so each is checked once
     #projects = {};
-    // The real path of GAZLIB, the directory std/ is read from instead of the built-in copy, or
-    // null: a file in it is the standard library's, so std/x.gaz and that file are one module
+    /*
+     * The real path of GAZLIB, the directory std/ is read from instead of the built-in copy, or
+     * null: a file in it is the standard library's, so std/x.gaz and that file are one module
+     */
     #library = null;
-    // The line of the main file's first statement, and the place a module imports the main
-    // file, which together are a statement in an imported file
+    /*
+     * The line of the main file's first statement, and the place a module imports the main
+     * file, which together are a statement in an imported file
+     */
     #main_statement = null;
     #main_imported = null;
 
@@ -302,25 +316,33 @@ kind Parser {
     // off when it becomes one, and any left when the program is read is an error
     #gaps = [];
 
-    // Every module in the order it was entered, since a name is only resolved when the whole
-    // program is read, against what the file it is written in sees. #scope is the current
-    // file's index here, and 0 is the builtin kinds' (see program()).
+    /*
+     * Every module in the order it was entered, since a name is only resolved when the whole
+     * program is read, against what the file it is written in sees. #scope is the current
+     * file's index here, and 0 is the builtin kinds' (see program()).
+     */
     #scopes = [];
     #scope = 0;
-    // Every namespace any file declares, with the project root its first module is in and how
-    // that module is shown, since a namespace belongs to one project
+    /*
+     * Every namespace any file declares, with the project root its first module is in and how
+     * that module is shown, since a namespace belongs to one project
+     */
     #namespaces = {};
-    // The namespace each declared top level name is in, the module that declares it, and which
-    // of them are pub
+    /*
+     * The namespace each declared top level name is in, the module that declares it, and which
+     * of them are pub
+     */
     #declared_in = {};
     #declared_module = {};
     #public = {};
     // Every kind's parent and every catch clause's kind, as [kind or node, scope], since
     // both name a kind that is resolved once the whole program is read
     #parent_names = [];
-    // Every name an `import ... use` clause brought in, as [qualified name, file, line, scope,
-    // the imported module, the path as written], checked once the whole program is read as
-    // any other use of it is
+    /*
+     * Every name an `import ... use` clause brought in, as [qualified name, file, line, scope,
+     * the imported module, the path as written], checked once the whole program is read as
+     * any other use of it is
+     */
     #alias_uses = [];
 
     // Every catch clause that names a kind, as [try node, which catch, line, file, scope]:
@@ -467,9 +489,11 @@ kind Html {
         "STRING" => "a string", "COLON" => "':'", "ARROW" => "'->'", "DOUBLE_ARROW" => "'=>'", "ASSIGN" => "'='",
     };
 
-    // $path is the file the source came from, if any; its imports resolve from it (see
-    // main_module()). A path with nothing there, like a name given to inline source, is no
-    // file: its imports resolve from the working directory, as without a path.
+    /*
+     * $path is the file the source came from, if any; its imports resolve from it (see
+     * main_module()). A path with nothing there, like a name given to inline source, is no
+     * file: its imports resolve from the working directory, as without a path.
+     */
     fn _($lexer, $path = null) {
         // The main file is shown as the user gave it; imported files relative to the working directory
         #file = $path;
@@ -2471,8 +2495,10 @@ kind Html {
         return #module.namespace == "" ? $name : "{#module.namespace}::{$name}";
     }
 
-    // Record a top level declaration's namespace, the module it is in, and whether it escapes
-    // its namespace
+    /*
+     * Record a top level declaration's namespace, the module it is in, and whether it escapes
+     * its namespace
+     */
     fn declare($name, $pub) {
         #declared_in[$name] = #module.namespace;
         #declared_module[$name] = #module.key;
@@ -2502,8 +2528,10 @@ kind Html {
         return $statements;
     }
 
-    // The main file as a module: its imports are from its own directory and project, or, for
-    // source with no file, from the working directory's
+    /*
+     * The main file as a module: its imports are from its own directory and project, or, for
+     * source with no file, from the working directory's
+     */
     fn main_module() {
         $real = #path != null && file_exists(#path) ? real_path(#path) : null;
         if ($real == null) {
@@ -2529,8 +2557,10 @@ kind Html {
         return starts_with($key, STD_DIRECTORY .. "/");
     }
 
-    // How a file is known as a module: its real path, except that a file of GAZLIB is the
-    // standard library's, so std/x.gaz and GAZLIB's x.gaz are one module, not two
+    /*
+     * How a file is known as a module: its real path, except that a file of GAZLIB is the
+     * standard library's, so std/x.gaz and GAZLIB's x.gaz are one module, not two
+     */
     fn module_key($real) {
         if (#library != null && starts_with($real, #library .. "/")) {
             return STD_DIRECTORY .. "/" .. slice($real, len(#library) + 1);
@@ -2549,15 +2579,21 @@ kind Html {
         return real_path($directory);
     }
 
-    // The nearest directory at or above $directory with a gaz.json, its gaz.json checked, or null
+    // The nearest directory at or above $directory with a gaz.json, or null
     fn find_root($directory) {
-        $root = project_root($directory);
-        if ($root != null && !has_key(#projects, $root)) {
-            #check_project($root);
-            #projects[$root] = true;
-        }
+        return project_root($directory);
+    }
 
-        return $root;
+    /*
+     * Check a project's gaz.json, once, when a program first imports a file of its own: a program
+     * that imports only the standard library, or nothing, is not made to fail by a gaz.json it
+     * never reads, one in a directory above a script, say.
+     */
+    fn trust_project($root) {
+        if (!has_key(#projects, $root) && file_exists(join_path($root, "gaz.json"))) {
+            #check_project($root);
+        }
+        #projects[$root] = true;
     }
 
     /*
@@ -2625,24 +2661,31 @@ kind Html {
 
             return $name;
         }
-        // A builtin of the name is what it means when the namespace's own declaration isn't imported
-        if ($own_declared && !has_key(#builtins, $head)) {
+        /*
+         * The namespace's own name wins over a builtin of it, so a declaration that isn't imported
+         * is a missing import, never quietly the builtin
+         */
+        if ($own_declared) {
             #check_imported($name, $own, $module, $what, $file, $line);
         }
 
         return $name;
     }
 
-    // Whether a module sees the declaration a name is part of: one in itself or a module it
-    // imports, or a builtin kind
+    /*
+     * Whether a module sees the declaration a name is part of: one in itself or a module it
+     * imports, or a builtin kind
+     */
     fn sees($module, $name) {
         $declarer = #declaring_module($name);
 
         return $declarer == null || $declarer == Parser::BUILTIN_FILE || has_key($module.imports, $declarer);
     }
 
-    // The module that declares the top level name a name is part of (json::Reader::EOF is
-    // json::Reader's), or null
+    /*
+     * The module that declares the top level name a name is part of (json::Reader::EOF is
+     * json::Reader's), or null
+     */
     fn declaring_module($name) {
         $entity = #declared_name($name);
 
@@ -2661,16 +2704,20 @@ kind Html {
         return $name;
     }
 
-    // Refuse a name whose declaration is in a module this one doesn't import, saying which
-    // import is missing. $declared is the declared name it would mean.
+    /*
+     * Refuse a name whose declaration is in a module this one doesn't import, saying which
+     * import is missing. $declared is the declared name it would mean.
+     */
     fn check_imported($written, $declared, $module, $what, $file, $line) {
         if (!#sees($module, $declared)) {
             #fail_at("{$what}: {$written}" .. #import_hint($declared, $module), $file, $line);
         }
     }
 
-    // " (x is declared in forms.gaz, which this file doesn't import: add import "forms.gaz";)"
-    // for a name declared in a module $module doesn't import, or ""
+    /*
+     * " (x is declared in forms.gaz, which this file doesn't import: add import "forms.gaz";)"
+     * for a name declared in a module $module doesn't import, or ""
+     */
     fn import_hint($name, $module) {
         $entity = #declared_name($name);
         if ($entity == null || #sees($module, $entity)) {
@@ -2681,8 +2728,10 @@ kind Html {
         return " ({$entity} is declared in {$other.file}, which this file doesn't import: add import \"" .. #import_spelling($other, $module) .. "\";)";
     }
 
-    // How $from would write an import of $module: std/ for the standard library, ./ for a file
-    // in its own directory or below when that isn't the project root, else from the root
+    /*
+     * How $from would write an import of $module: std/ for the standard library, ./ for a file
+     * in its own directory or below when that isn't the project root, else from the root
+     */
     fn import_spelling($module, $from) {
         $key = $module.key;
         if (#is_std($key)) {
@@ -2775,8 +2824,10 @@ kind Html {
         return $resolved;
     }
 
-    // A use clause's name must be declared in the module its path names, not merely in that
-    // module's namespace
+    /*
+     * A use clause's name must be declared in the module its path names, not merely in that
+     * module's namespace
+     */
     fn check_use_from($name, $imported, $path, $file, $line) {
         $declarer = #declaring_module($name);
         if ($declarer != null && $declarer != $imported) {
@@ -2805,8 +2856,10 @@ kind Html {
         };
     }
 
-    // A name that is one of the standard library's files says to import it: `lists::first()`
-    // without the import reads as a kind that isn't there
+    /*
+     * A name that is one of the standard library's files says to import it: `lists::first()`
+     * without the import reads as a kind that isn't there
+     */
     fn library_hint($name) {
         if (contains($name, "::") || std_source($name .. ".gaz") == null) {
             return "";
@@ -3459,7 +3512,8 @@ kind Html {
         $root = CompoundAST();
         $root.statements = #top_level();
         if (#main_imported != null && #main_statement != null) {
-            #fail_at(#STATEMENT_IN_MODULE, #path, #main_statement);
+            [$importer, $imported_line, $written] = #main_imported;
+            #fail_at("Cannot import \"{$written}\": it is the program's main file, which has a statement on line " .. #main_statement .. ", and an imported file only declares (fn, kind, const)", $importer, $imported_line);
         }
         // Every name a file wrote becomes the name a declaration made, before anything below
         // is checked, so only this pass ever learns that namespaces exist
@@ -4077,8 +4131,10 @@ kind Html {
         return "{$what} expects {$expected}, {$argc} given";
     }
 
-    // Parse top level items until the end of the current file
-    // ([namespace_declaration] import_statement* (function_declaration | kind_declaration | constant_declaration | statement)*)
+    /*
+     * Parse top level items until the end of the current file
+     * ([namespace_declaration] import_statement* (function_declaration | kind_declaration | constant_declaration | statement)*)
+     */
     fn top_level() {
         $statements = [];
         while (#current_token.type != "EOF") {
@@ -4086,12 +4142,16 @@ kind Html {
             if ($type == "NAMESPACE") {
                 #namespace_declaration();
             } else if ($type == "IMPORT") {
-                $statements = [...$statements, ...#import_statement()];
+                foreach (#import_statement() as $imported) {
+                    $statements[] = $imported;
+                }
             } else if ($type == "INCLUDE") {
                 #include_is_gone();
             } else if ($type == "PUB" || $type == "FN" || $type == "KIND" || $type == "ABSTRACT" || $type == "CONST") {
                 #module.declaring = true;
-                $statements = [...$statements, ...#declaration()];
+                foreach (#declaration() as $declared) {
+                    $statements[] = $declared;
+                }
             } else {
                 #module.declaring = true;
                 #check_statement_allowed();
@@ -4103,8 +4163,10 @@ kind Html {
         return $statements;
     }
 
-    // Parse a top level declaration ([PUB] (function_declaration | kind_declaration | constant_declaration)),
-    // giving what it adds to the program's statements
+    /*
+     * Parse a top level declaration ([PUB] (function_declaration | kind_declaration | constant_declaration)),
+     * giving what it adds to the program's statements
+     */
     fn declaration() {
         $pub = #current_token.type == "PUB";
         if ($pub) {
@@ -4133,9 +4195,11 @@ kind Html {
         #fail("Expected a function (fn), a kind or a constant (const) after pub but found " .. #describe(#current_token));
     }
 
-    // Only the main file runs code: an imported file only declares, so importing one can't do
-    // anything. The main file may be imported too (a cycle back to it), and is then refused
-    // once the whole program is read, since its statements can come after the import.
+    /*
+     * Only the main file runs code: an imported file only declares, so importing one can't do
+     * anything. The main file may be imported too (a cycle back to it), and is then refused
+     * once the whole program is read, since its statements can come after the import.
+     */
     fn check_statement_allowed() {
         if (!#module.entry) {
             #fail(#STATEMENT_IN_MODULE);
@@ -4146,9 +4210,11 @@ kind Html {
     // Parse a namespace declaration (NAMESPACE IDENTIFIER SEMICOLON)
     //
     // At most one, first in its file, and optional: a file without one declares its names
-    // with no namespace. Privacy is per namespace, not per file, so several files of a project
-    // can declare the same one and see everything of each other's they import. A namespace
-    // belongs to one project, so no other can join it and reach what it keeps private.
+    /*
+     * with no namespace. Privacy is per namespace, not per file, so several files of a project
+     * can declare the same one and see everything of each other's they import. A namespace
+     * belongs to one project, so no other can join it and reach what it keeps private.
+     */
     fn namespace_declaration() {
         $token = #current_token;
         #eat("NAMESPACE");
@@ -4229,7 +4295,7 @@ kind Html {
             }
             $statements = #read_module($known, $text, $template);
         } else if ($known.entry) {
-            #main_imported ??= $path_token.line;
+            #main_imported ??= [#file, $path_token.line, $written];
         }
         #module.imports[$key] = true;
         if ($known.namespace != "") {
@@ -4281,18 +4347,27 @@ kind Html {
             #fail_at("Cannot import \"{$written}\": it can't be read", #file, $line);
         }
         if (!#is_std($key)) {
+            #trust_project(#module.root);
             #check_same_project($written, $real, $line);
         }
 
         return [$key, $text];
     }
 
-    // A path can't reach into another project, one with its own gaz.json: that is a package
+    /*
+     * A path can't reach into another project, one with its own gaz.json (that is a package), or
+     * out of its own by a link: the real path must lie inside the root the importing file's
+     * imports are from
+     */
     fn check_same_project($written, $real, $line) {
         $root = #find_root(directory_of($real));
         if ($root != null && $root != #module.root) {
             #fail_at("Cannot import \"{$written}\": " .. #display_path($real) .. " belongs to the project at " .. #display_path($root)
                 .. " (it has its own gaz.json): a project can't import another's files", #file, $line);
+        }
+        if (#module.root != "/" && !starts_with($real, #module.root .. "/")) {
+            #fail_at("Cannot import \"{$written}\": " .. #display_path($real) .. " is outside the project at " .. #display_path(#module.root)
+                .. " (a link leads out of it)", #file, $line);
         }
     }
 

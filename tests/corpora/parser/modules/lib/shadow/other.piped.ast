@@ -1,0 +1,29 @@
+Compound
+  statements:
+@ null
+    0: FunctionDeclaration 4
+      name: "shadow::show"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 5
+            expr: FunctionCall 5
+              name: "values"
+              args:
+                0: ArrayLiteral 5
+                  entries:
+                    0:
+                      0: null
+                      1: Num 5
+                        token: 5 INTEGER 1
+                        value: 1
+                    1:
+                      0: null
+                      1: Num 5
+                        token: 5 INTEGER 2
+                        value: 2
+                  map: false
+      arity: 0
+      kind: null
+      abstract: false

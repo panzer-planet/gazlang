@@ -1,0 +1,6 @@
+// Declares values(), a builtin's name, in its namespace
+namespace shadow;
+
+pub fn values($list) {
+    return "the namespace's";
+}

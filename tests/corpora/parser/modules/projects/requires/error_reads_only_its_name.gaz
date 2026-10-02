@@ -1,1 +1,4 @@
+// The project's gaz.json is read when a program imports one of its files
+import "peer.gaz";
+
 echo 1;

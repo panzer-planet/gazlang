@@ -1,1 +1,1 @@
-Error: An imported file only declares (fn, kind, const): move this statement into a function, or into the program's main file at tests/corpora/parser/modules/error_main_file_imported_back.gaz:4
+Error: Cannot import "tests/corpora/parser/modules/error_main_file_imported_back.gaz": it is the program's main file, which has a statement on line 4, and an imported file only declares (fn, kind, const) at tests/corpora/parser/modules/lib/error_imports_the_main_file.gaz:1

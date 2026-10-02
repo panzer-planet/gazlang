@@ -1,0 +1,2 @@
+// A module of the project: importing it is what makes the program read the project's gaz.json
+fn peer() {}
