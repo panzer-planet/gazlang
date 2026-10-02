@@ -1,0 +1,197 @@
+/*
+ * du: what a directory tree holds. Files, directories and bytes in all, the bytes and count of
+ * each file extension, and the largest files.
+ *
+ *   gaz examples/du.gaz lib
+ *   gaz examples/du.gaz --top 5 ~/projects
+ *
+ * Symbolic links are counted, never followed, so a link back up the tree can't loop.
+ */
+import "std/cli.gaz";
+import "std/format.gaz";
+
+const DEFAULT_TOP = "10";
+const NO_EXTENSION = "(none)";
+const EXTENSION_WIDTH = 12;
+const NUMBER_WIDTH = 10;
+
+kind SizedFile {
+    fn _(pub string #path, pub int #size) {}
+}
+
+kind Extension {
+    pub int #files = 0;
+    pub int #bytes = 0;
+
+    pub fn add(int $size): null {
+        #files++;
+        #bytes += $size;
+    }
+}
+
+kind Summary {
+    pub int #files = 0;
+    pub int #directories = 0;
+    pub int #links = 0;
+    pub int #bytes = 0;
+    pub list #unreadable = [];
+    pub map #extensions = {};
+    pub list #sized = [];
+
+    pub fn add_file(string $path, string $name, int $size): null {
+        #files++;
+        #bytes += $size;
+        #sized[] = SizedFile($path, $size);
+        $extension = extension_of($name);
+        #extensions[$extension] ??= Extension();
+        #extensions[$extension].add($size);
+    }
+
+    pub fn add_directory(): null {
+        #directories++;
+    }
+
+    pub fn add_link(): null {
+        #links++;
+    }
+
+    pub fn add_unreadable(string $path): null {
+        #unreadable[] = $path;
+    }
+
+    pub fn largest(int $count): list {
+        $by_size = sort(#sized, ($a, $b) -> [$b.size, $a.path] <=> [$a.size, $b.path]);
+        return slice($by_size, 0, $count);
+    }
+}
+
+// "md" for "README.md"; a name that starts with its only dot (".bashrc") has none
+fn extension_of(string $name): string {
+    $parts = split($name, ".");
+    if (len($parts) < 2 || $parts == ["", last($parts)]) {
+        return NO_EXTENSION;
+    }
+
+    return lower(last($parts));
+}
+
+fn walk(string $dir, Summary $summary): null {
+    $names = [];
+    try {
+        $names = list_dir($dir);
+    } catch (Error $e) {
+        $summary.add_unreadable($dir);
+        return;
+    }
+    foreach ($names as $name) {
+        visit($dir .. "/" .. $name, $name, $summary);
+    }
+}
+
+fn visit(string $path, string $name, Summary $summary): null {
+    if (is_link($path)) {
+        $summary.add_link();
+    } else if (is_dir($path)) {
+        $summary.add_directory();
+        walk($path, $summary);
+    } else {
+        $size = size_of($path);
+        if ($size == null) {
+            $summary.add_unreadable($path);
+        } else {
+            $summary.add_file($path, $name, $size);
+        }
+    }
+}
+
+/*
+ * Whether $path is a symbolic link. is_dir() follows a link, so without asking first a link to a
+ * parent directory walks for ever. Nothing in the language can ask (no lstat), so this starts a
+ * program for every entry of the tree.
+ */
+fn is_link(string $path): bool {
+    return run(["test", "-L", $path])["status"] == 0;
+}
+
+/*
+ * The size of a file in bytes, or null if it can't be read. Nothing gives a size, so the whole
+ * file is read into memory to count it, and a file that isn't regular (a fifo, a socket) can't
+ * be read at all.
+ */
+fn size_of(string $path): ?int {
+    try {
+        return len(read_file($path));
+    } catch (Error $e) {
+        return null;
+    }
+}
+
+// "lib/" and "lib" are the same directory; "/" stays itself
+fn without_trailing_slashes(string $dir): string {
+    while (len($dir) > 1 && ends_with($dir, "/")) {
+        $dir = slice($dir, 0, -1);
+    }
+
+    return $dir;
+}
+
+fn print_totals(string $dir, Summary $summary): null {
+    $bytes = format::number($summary.bytes, 0);
+    echo "{$dir}: {$bytes} bytes in {$summary.files} files, "
+        .. "{$summary.directories} directories, {$summary.links} links";
+}
+
+fn print_extensions(Summary $summary): null {
+    echo "";
+    echo format::pad_right("extension", EXTENSION_WIDTH) .. format::pad_left("files", NUMBER_WIDTH)
+        .. format::pad_left("bytes", NUMBER_WIDTH + 4);
+    $names = sort(keys($summary.extensions), ($a, $b) ->
+        $summary.extensions[$b].bytes <=> $summary.extensions[$a].bytes);
+    foreach ($names as $name) {
+        $extension = $summary.extensions[$name];
+        echo format::pad_right($name, EXTENSION_WIDTH) .. format::pad_left($extension.files, NUMBER_WIDTH)
+            .. format::pad_left(format::number($extension.bytes, 0), NUMBER_WIDTH + 4);
+    }
+}
+
+fn print_largest(Summary $summary, int $count): null {
+    echo "";
+    echo "largest files:";
+    foreach ($summary.largest($count) as $file) {
+        echo format::pad_left(format::number($file.size, 0), NUMBER_WIDTH + 4) .. "  " .. $file.path;
+    }
+}
+
+fn print_unreadable(Summary $summary): null {
+    if (len($summary.unreadable) == 0) {
+        return;
+    }
+    echo "";
+    echo "could not read:";
+    foreach ($summary.unreadable as $path) {
+        echo "  " .. $path;
+    }
+}
+
+$cli = cli::Command("du", "Summarise a directory tree: sizes, extensions and the largest files");
+$cli.option("top", "n", "How many of the largest files to show", DEFAULT_TOP);
+$cli.optional("dir", "The directory to summarise", ".");
+$options = $cli.parse(args());
+
+$top = to_int($options["top"], null);
+if ($top == null || $top < 0) {
+    print_error("du: --top wants a whole number, got {$options["top"]}\n");
+    exit(2);
+}
+$dir = without_trailing_slashes($options["dir"]);
+if (!is_dir($dir)) {
+    print_error("du: {$dir} is not a directory\n");
+    exit(1);
+}
+
+$summary = Summary();
+walk($dir, $summary);
+print_totals($dir, $summary);
+print_extensions($summary);
+print_largest($summary, $top);
+print_unreadable($summary);

@@ -1,0 +1,195 @@
+/*
+ * backup: copy a directory tree into a new folder named for the moment, write a manifest of
+ * what was copied (size and SHA-256 of every file), and keep only the newest backups.
+ *
+ *   gaz examples/backup.gaz ~/notes /backups/notes
+ *   gaz examples/backup.gaz --keep 3 ~/notes /backups/notes
+ *
+ * Each backup is DESTINATION/2026-10-02T143005; the manifest, MANIFEST.txt inside it, is written
+ * last and atomically, so a backup without one was interrupted. Symbolic links are skipped and
+ * listed, never followed.
+ */
+import "std/cli.gaz";
+import "std/crypto.gaz";
+import "std/date.gaz";
+import "std/format.gaz";
+
+const DEFAULT_KEEP = "5";
+const MANIFEST = "MANIFEST.txt";
+const SECONDS_PER_DAY = 86400;
+const SECONDS_PER_HOUR = 3600;
+const SECONDS_PER_MINUTE = 60;
+const STAMP_LENGTH = 17;           // "2026-10-02T143005"
+
+kind Manifest {
+    list #lines = [];
+    pub list #skipped = [];
+    pub int #files = 0;
+    pub int #bytes = 0;
+
+    pub fn add_file(string $path, string $data): null {
+        #files++;
+        #bytes += len($data);
+        #lines[] = crypto::hex(sha256($data)) .. "  " .. len($data) .. "  " .. $path;
+    }
+
+    pub fn skip(string $path, string $why): null {
+        #skipped[] = "{$path} ({$why})";
+    }
+
+    pub fn text(): string {
+        $text = join(#lines, "\n") .. "\n";
+        foreach (#skipped as $skipped) {
+            $text ..= "skipped  " .. $skipped .. "\n";
+        }
+
+        return $text;
+    }
+}
+
+// "2026-10-02T143005", in UTC: names that sort in the order they were made
+fn stamp(int $now): string {
+    $seconds = $now % SECONDS_PER_DAY;
+    $hours = intdiv($seconds, SECONDS_PER_HOUR);
+    $minutes = intdiv($seconds % SECONDS_PER_HOUR, SECONDS_PER_MINUTE);
+
+    return date::iso(intdiv($now, SECONDS_PER_DAY)) .. "T" .. two_digits($hours)
+        .. two_digits($minutes) .. two_digits($seconds % SECONDS_PER_MINUTE);
+}
+
+fn two_digits(int $n): string {
+    return format::pad_left($n, 2, "0");
+}
+
+/*
+ * Copy what is in $from into $to, which exists, adding each file to the manifest under its path
+ * relative to the backup.
+ */
+fn copy_tree(string $from, string $to, string $relative, Manifest $manifest): null {
+    foreach (list_dir($from) as $name) {
+        $source = $from .. "/" .. $name;
+        $target = $to .. "/" .. $name;
+        $path = $relative == "" ? $name : $relative .. "/" .. $name;
+        if (is_link($source)) {
+            $manifest.skip($path, "a symbolic link");
+        } else if (is_dir($source)) {
+            make_dir($target);
+            copy_tree($source, $target, $path, $manifest);
+        } else {
+            copy_file($source, $target, $path, $manifest);
+        }
+    }
+}
+
+/*
+ * Nothing copies a file, so it is read whole into memory and written out again. Its permissions
+ * aren't copied (an executable script comes back without its x bit) and nothing could keep
+ * them, short of running cp -p.
+ */
+fn copy_file(string $source, string $target, string $path, Manifest $manifest): null {
+    try {
+        $data = read_file($source);
+    } catch (Error $e) {
+        $manifest.skip($path, "can't be read");
+        return;
+    }
+    write_file($target, $data);
+    $manifest.add_file($path, $data);
+}
+
+// is_dir() follows links and nothing else can see one, so: a process per entry
+fn is_link(string $path): bool {
+    return run(["test", "-L", $path])["status"] == 0;
+}
+
+/*
+ * The manifest goes in place in one step, so a reader sees all of it or none: written beside it,
+ * then renamed. There is no rename, so mv does it.
+ */
+fn write_atomically(string $path, string $text): null {
+    $temporary = $path .. ".partial";
+    write_file($temporary, $text);
+    $moved = run(["mv", "-f", $temporary, $path]);
+    if ($moved["status"] != 0) {
+        throw "Cannot move {$temporary} to {$path}: " .. trim($moved["stderr"]);
+    }
+}
+
+// make_dir() makes one level, so a destination like /backups/notes needs each level made
+fn make_dirs(string $path): null {
+    $so_far = starts_with($path, "/") ? "" : ".";
+    foreach (split($path, "/") as $part) {
+        if ($part == "") {
+            continue;
+        }
+        $so_far ..= "/" .. $part;
+        if (!is_dir($so_far)) {
+            make_dir($so_far);
+        }
+    }
+}
+
+// The backups made in $root, oldest first: their names are stamps, so they sort by time
+fn backups_in(string $root): list {
+    return filter(list_dir($root), $name -> len($name) == STAMP_LENGTH && $name[10] == "T");
+}
+
+fn rotate(string $root, int $keep): null {
+    $backups = backups_in($root);
+    $old = slice($backups, 0, max(len($backups) - $keep, 0));
+    foreach ($old as $name) {
+        remove_tree($root .. "/" .. $name);
+        echo "removed old backup {$name}";
+    }
+}
+
+/*
+ * Everything in $path, then $path. Never through a link: is_dir() would follow one into the tree
+ * it points at and delete that, so a link is asked about first, by running test(1).
+ */
+fn remove_tree(string $path): null {
+    if (is_link($path) || !is_dir($path)) {
+        delete_file($path);
+        return;
+    }
+    foreach (list_dir($path) as $name) {
+        remove_tree($path .. "/" .. $name);
+    }
+    delete_dir($path);
+}
+
+$cli = cli::Command("backup", "Copy a directory into a new dated backup and keep the newest few");
+$cli.option("keep", "k", "How many backups to keep", DEFAULT_KEEP);
+$cli.argument("source", "The directory to back up");
+$cli.argument("destination", "Where the backups go, each in a folder of its own");
+$options = $cli.parse(args());
+
+$keep = to_int($options["keep"], null);
+if ($keep == null || $keep < 1) {
+    print_error("backup: --keep wants a whole number of 1 or more, got {$options["keep"]}\n");
+    exit(2);
+}
+$source = $options["source"];
+if (!is_dir($source)) {
+    print_error("backup: {$source} is not a directory\n");
+    exit(1);
+}
+
+$root = $options["destination"];
+make_dirs($root);
+$name = stamp(time());
+$target = $root .. "/" .. $name;
+if (file_exists($target)) {
+    print_error("backup: {$target} already exists; try again in a second\n");
+    exit(1);
+}
+make_dir($target);
+
+$manifest = Manifest();
+copy_tree($source, $target, "", $manifest);
+write_atomically($target .. "/" .. MANIFEST, $manifest.text());
+echo "backed up {$manifest.files} files, " .. format::number($manifest.bytes, 0) .. " bytes, to {$target}";
+foreach ($manifest.skipped as $skipped) {
+    echo "skipped {$skipped}";
+}
+rotate($root, $keep);

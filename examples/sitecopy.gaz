@@ -1,0 +1,212 @@
+/*
+ * sitecopy: copy the files of a tree that match a pattern into another tree, making folders as
+ * needed, and skip each file whose copy is already as new as it is. What a static site's deploy
+ * step does.
+ *
+ *   gaz examples/sitecopy.gaz site public/'**' /var/www/site
+ *   gaz examples/sitecopy.gaz --dry-run docs '**' '*.md' /tmp/docs
+ *
+ * Patterns are relative to the source: * and ? match within one name, [abc] one of a set, and
+ * ** as a whole segment any number of folders. A name starting with a dot is matched only by a
+ * pattern segment that starts with one.
+ */
+import "std/cli.gaz";
+import "std/regex.gaz";
+
+kind Plan {
+    pub list #copied = [];
+    pub list #fresh = [];
+}
+
+/*
+ * Every file under $dir, as paths relative to it, sorted. Nothing walks a tree, so this does,
+ * asking test(1) about every entry, since is_dir() follows links and nothing else can see one.
+ */
+fn files_under(string $dir, string $relative = ""): list {
+    $files = [];
+    foreach (list_dir(joined($dir, $relative)) as $name) {
+        $path = joined($relative, $name);
+        $full = joined($dir, $path);
+        if (is_link($full)) {
+            continue;
+        }
+        if (is_dir($full)) {
+            $files = [...$files, ...files_under($dir, $path)];
+        } else {
+            $files[] = $path;
+        }
+    }
+
+    return $files;
+}
+
+fn joined(string $dir, string $name): string {
+    if ($dir == "") {
+        return $name;
+    }
+    if ($name == "") {
+        return $dir;
+    }
+
+    return $dir .. "/" .. $name;
+}
+
+fn is_link(string $path): bool {
+    return run(["test", "-L", $path])["status"] == 0;
+}
+
+/*
+ * A glob as a regular expression for regex::matches(), one segment at a time, since nothing
+ * matches a glob: ** alone is any number of folders, * and ? stay inside a name, and anything
+ * else is itself. A segment that doesn't start with a dot can't match a hidden name.
+ */
+fn glob_regex(string $pattern): string {
+    $regex = "";
+    $segments = split($pattern, "/");
+    foreach ($segments as $index => $segment) {
+        $last = $index == len($segments) - 1;
+        if ($segment == "**") {
+            $regex ..= $last ? "([^./][^/]*(/[^./][^/]*)*)?" : "([^./][^/]*/)*";
+            continue;
+        }
+        $regex ..= segment_regex($segment);
+        if (!$last) {
+            $regex ..= "/";
+        }
+    }
+
+    return $regex;
+}
+
+fn segment_regex(string $segment): string {
+    $regex = "";
+    $in_class = false;
+    foreach (split($segment, "") as $index => $char) {
+        if ($in_class) {
+            $in_class = $char != "]";
+            $regex ..= $char == "!" && ends_with($regex, "[") ? "^" : $char;
+        } else if ($char == "[") {
+            $in_class = true;
+            $regex ..= $char;
+        } else {
+            $regex ..= char_regex($char, $index == 0);
+        }
+    }
+
+    return $regex;
+}
+
+// A name's first character can't be a hidden name's dot unless the pattern says so
+fn char_regex(string $char, bool $first): string {
+    return match ($char) {
+        "*" => $first ? "([^./][^/]*)?" : "[^/]*",
+        "?" => $first ? "[^./]" : "[^/]",
+        default => contains(".+*?()[]|^$\\{}", $char) ? "\\" .. $char : $char,
+    };
+}
+
+/*
+ * Whether $target is missing or older than $source. Nothing tells a file's modification time,
+ * and stat(1) takes different options on Linux and macOS, so test(1)'s -nt compares them.
+ */
+fn needs_copy(string $source, string $target): bool {
+    if (!file_exists($target)) {
+        return true;
+    }
+
+    return run(["test", $source, "-nt", $target])["status"] == 0;
+}
+
+// make_dir() makes one level, so a copy's folders are made a level at a time
+fn make_dirs(string $path): null {
+    $so_far = starts_with($path, "/") ? "" : ".";
+    foreach (split($path, "/") as $part) {
+        if ($part == "") {
+            continue;
+        }
+        $so_far ..= "/" .. $part;
+        if (!is_dir($so_far)) {
+            make_dir($so_far);
+        }
+    }
+}
+
+// The folder a path is in, "" for a name alone
+fn parent_of(string $path): string {
+    $parts = split($path, "/");
+    if (len($parts) == 1) {
+        return "";
+    }
+
+    return join(slice($parts, 0, -1), "/");
+}
+
+/*
+ * Read whole and written whole, since nothing copies a file; its permissions and modification
+ * time aren't kept, so the copy is always newer than its source, which is what needs_copy() asks.
+ */
+fn copy_file(string $source, string $target): null {
+    $folder = parent_of($target);
+    if ($folder != "") {
+        make_dirs($folder);
+    }
+    write_file($target, read_file($source));
+}
+
+fn plan_and_copy(string $from, list $patterns, string $to, bool $dry_run): Plan {
+    $plan = Plan();
+    $regexes = map($patterns, glob_regex);
+    foreach (files_under($from) as $path) {
+        if (!matches_any($path, $regexes)) {
+            continue;
+        }
+        $source = joined($from, $path);
+        $target = joined($to, $path);
+        if (!needs_copy($source, $target)) {
+            $plan.fresh[] = $path;
+            continue;
+        }
+        if (!$dry_run) {
+            copy_file($source, $target);
+        }
+        $plan.copied[] = $path;
+    }
+
+    return $plan;
+}
+
+fn matches_any(string $path, list $regexes): bool {
+    foreach ($regexes as $regex) {
+        if (regex::matches($path, $regex)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+$cli = cli::Command("sitecopy", "Copy the files matching patterns into another tree, newer files only");
+$cli.flag("dry-run", "n", "Say what would be copied, and copy nothing");
+$cli.argument("source", "The tree to copy from");
+$cli.rest("patterns", "Glob patterns, relative to the source, then the destination last");
+$options = $cli.parse(args());
+
+$rest = $options["patterns"];
+if (len($rest) < 2) {
+    print_error("sitecopy: give at least one pattern and a destination\n");
+    exit(2);
+}
+$from = $options["source"];
+$to = last($rest);
+$patterns = slice($rest, 0, -1);
+if (!is_dir($from)) {
+    print_error("sitecopy: {$from} is not a directory\n");
+    exit(1);
+}
+
+$plan = plan_and_copy($from, $patterns, $to, $options["dry-run"]);
+$verb = $options["dry-run"] ? "would copy" : "copied";
+foreach ($plan.copied as $path) {
+    echo "{$verb} {$path}";
+}
+echo "{$verb} " .. len($plan.copied) .. " files, " .. len($plan.fresh) .. " already up to date";
