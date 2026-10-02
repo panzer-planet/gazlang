@@ -1,0 +1,34 @@
+ok 0o755 is 493
+ok 0o644 is 420
+ok 0o7777 is every permission bit
+ok a leading zero alone is decimal
+ok octal is an int
+ok and takes part in expressions
+ok a string is never read as octal
+ok chmod gives null
+ok and file_info agrees
+ok a setuid bit is kept
+ok no bits at all
+ok a sticky directory
+ok chmod of a link changes what it points at
+ok and the link is still a link
+ok a link to nothing
+ok nothing there
+ok a NUL byte
+ok through a file
+ok a mode past 0o7777
+ok a negative mode
+ok a mode is an int
+ok a path is a string
+ok make_dir with a mode
+ok less the umask, as mkdir(2) does
+ok no mode is 0o777 less the umask
+ok and so is null
+ok with its parents, the last level gets the mode
+ok and the levels above it the default, as mkdir -p -m does
+ok a trailing slash still marks the last level
+ok a directory that is there keeps its mode
+ok a mode past 0o7777
+ok a mode is an int or null
+ok and nothing was made
+ok the scratch directory is gone

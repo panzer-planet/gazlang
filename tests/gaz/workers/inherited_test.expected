@@ -6,6 +6,8 @@ ok a file's bytes
 ok seeking a file
 ok writing a file
 ok seeking a file being written
+ok syncing a file
+ok cutting a file
 ok reading a connection
 ok writing to a connection
 ok a connection's port

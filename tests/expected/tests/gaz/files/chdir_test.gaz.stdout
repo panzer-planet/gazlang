@@ -1,0 +1,18 @@
+ok chdir gives null
+ok cwd() follows it
+ok a relative read is from there
+ok and so is a write
+ok and file_info
+ok and list_dir
+ok a program run() starts begins there
+ok a relative chdir
+ok through a link, cwd() is where it leads
+ok and back
+ok nothing there
+ok a file
+ok the empty path
+ok a NUL byte
+ok a path is a string
+ok a refused chdir stays put
+ok the scratch directory is gone
+ok this test ends where it began

@@ -1,0 +1,14 @@
+ok set_mtime gives null
+ok and file_info reads it back
+ok an hour ahead is fine
+ok 1970 itself
+ok a directory
+ok through a link, what it points at changes
+ok and the link itself doesn't
+ok the contents are untouched
+ok a link to nothing
+ok nothing there
+ok a NUL byte
+ok seconds are an int
+ok a path is a string
+ok the scratch directory is gone

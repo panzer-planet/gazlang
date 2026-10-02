@@ -495,7 +495,8 @@ that must find nothing to do.
     program, which is why shrinking takes the time, not the run.
   - **Nothing opens a socket, starts a program, exits, waits or writes a file**: a program naming
     `run`, `exit`, `workers`, `worker_recycle`, `write_file`, `read_stdin` (or `read_stdin_bytes`),
-    `read_line`, `sleep`, `getenv`, a directory builtin, `rename_file`, a `term_` builtin, a `file_` builtin
+    `read_line`, `sleep`, `getenv`, a directory builtin, `rename_file`, `chmod`, `symlink`, `readlink`,
+    `sync_dir`, `set_mtime`, `chdir`, a `term_` builtin, a `file_` builtin
     (`/dev/stdin` waits and `/dev/zero` never ends) or a `socket_` builtin is skipped (`getenv`
     since what it gives isn't the seed's; `worker_recycle` since it ends the process by an unhandled
     signal, which prints no `GAZVM_STATS` line and would fail the harness for a reason that isn't a
@@ -1221,7 +1222,7 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   `file/..` are nothing, where platforms disagree), `file_exists()`.
 - **File handles**: `file_open($path, $mode = "r")`, `file_read_line($file)`, `file_read($file,
   $length)`, `file_write($file, $data)`, `file_seek($file, $offset, $from = "start")`,
-  `file_close($file)`. A `file` is a handle like a `socket` or a `db` (`T_FILE`, refcounted, closed
+  `file_sync($file)`, `file_truncate($file, $length)`, `file_close($file)`. A `file` is a handle like a `socket` or a `db` (`T_FILE`, refcounted, closed
   when the last reference goes, closing twice fine), holding its path for messages (`Cannot write
   "out.txt": ...`). **Modes are one argument, not more names**: `"r"`, `"w"` (create or truncate),
   `"a"` (create or append) and `"r+"` (read and write an existing file), anything else an error
@@ -1246,6 +1247,17 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
     `decref`), so a file written and dropped without `file_close()` loses such an error: the docs
     say to close what you wrote, and `fs::write_atomic` does. `ponytail:` a `finally`-shaped
     release that could raise would lift it.
+  - **`file_sync()` is GazLang's rule, not the platform's**: `fflush`, then `fcntl(F_FULLFSYNC)`
+    where the system has it (macOS, whose `fsync()` stops at the drive's cache, so a power cut can
+    still lose what it "synced"), `fsync()` where it hasn't or where `F_FULLFSYNC` fails (a file
+    system without it), `sync_fd()` in `builtins.c`. Only on a handle open for writing, a reader
+    being a mistake to name, not a no-op. Nothing outside the kernel can see that it reached the
+    disk, so the tests check that it succeeds, writes the buffer out (a second handle reads it
+    before any close), reports a failed write out (`ulimit -f`) and refuses what it should; the
+    `F_FULLFSYNC` branch itself is checked by reading the code.
+  - **`file_truncate($file, $length)`** is `fflush` then `ftruncate`, the position left alone (so
+    a write after cutting below it leaves a hole of zero bytes, as on every system): with `"r+"`,
+    how a file is overwritten in place. A negative length is an error of its own.
   - **Three builtins, not `read_line($f)`**: an optional handle would make `read_line`'s meaning
     depend on an argument's type. Only a directory is refused, in every mode (`EISDIR`, written
     out as `delete_file` does, after an `fstat()` of what `fopen()` opened, since it opens one for
@@ -1263,14 +1275,42 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   `"other"`; `"mtime"` whole seconds, an int, so it compares with `time()` (nanoseconds wait for a
   program that needs them); `"mode"` the permission bits (`st_mode & 07777`). **One builtin and a
   map, not `file_size`/`file_mtime`/`is_link`**: one name, one system call, and room for a field.
+- `chmod($path, $mode)`: `chmod(2)`, following a link (there is no `lchmod` on Linux, and a link's
+  own bits mean nothing there); `$mode` is 0 to `0o7777`, the bits `file_info()` gives, setuid,
+  setgid and sticky included (`check_mode()`, shared with `make_dir`), anything else `chmod() mode
+  must be 0 to 0o7777, got N`. `Cannot change the mode of "p": strerror`.
+- `set_mtime($path, $seconds)`: `utimensat()` with both times set to whole seconds, following a
+  link; an int, as `file_info()`'s `"mtime"` and `time()` are, so a copy keeps its source's time
+  exactly as far as anything in the language can see. `Cannot set the time of "p": strerror`.
+  `ponytail:` whole seconds, so a tool comparing times can't tell two writes in one second apart;
+  nanoseconds in `file_info()` and here would lift it.
+- `symlink($target, $link)` and `readlink($path)`: the link's text exactly as given, never
+  resolved or tidied, a missing target fine and an existing `$link` (even a link) `Cannot make link
+  "l" to "t": File exists`; an empty target is `ENOENT`, written out, since systems differ on it.
+  `readlink` reads into a heap buffer that doubles until the text fits, and says what isn't a link
+  in words of its own (`it is not a symbolic link`), since `EINVAL`'s are "Invalid argument". Named
+  as the system calls are, since every reader knows them, where `make_link`/`read_link` would be
+  a fourth spelling to learn.
+- `sync_dir($path)`: `open(O_DIRECTORY)` and the same `sync_fd()` as `file_sync()`, since a rename
+  or a new file is durable only once its directory is, and `file_open()` refuses a directory.
+  **A builtin of its own rather than `file_sync()` taking a path too**: an argument whose type
+  changes what a builtin is would be the `read_line($f)` mistake again.
+- `chdir($path)`: `chdir(2)`, the working directory of the process, which `cwd()` reads afresh
+  (`getcwd()`, never cached), relative paths and `run()`'s children follow, and imports never do,
+  being resolved before the program runs. `Cannot change directory to "p": strerror`. A worker's is
+  its own, being a process (`tests/gaz/workers/chdir_test.gaz`: a worker moves and recycles itself,
+  and the next one the master forks is where the master is).
 - `rename_file($from, $to)`: `rename(2)`, atomic, replacing a file at `$to`; `Cannot rename "a" to
   "b": strerror`, except between file systems, written out (`they are on different file systems`)
   since `EXDEV`'s words differ between Linux and macOS. No copy-and-delete fallback: a move that
   can't be atomic shouldn't pretend to be.
 - Directories: `list_dir()` (sorted with `str_cmp`, byte by byte, since `readdir()`'s order is
-  the file system's), `is_dir()` (through symlinks, as `file_exists`), `make_dir($path, $parents = false)` (one
-  level, or with `true` every missing level and an existing directory fine, a file in the way
-  `ENOTDIR`: `make_dirs()`, on a heap copy of the path it cuts up),
+  the file system's), `is_dir()` (through symlinks, as `file_exists`), `make_dir($path, $parents =
+  false, $mode = null)` (one level, or with `true` every missing level and an existing directory
+  fine, a file in the way `ENOTDIR`: `make_dirs()`, on a heap copy of the path it cuts up; `$mode`
+  before the umask as `mkdir(2)` takes it, null 0777, and with parents only the last level, as `mkdir
+  -p -m` does, since a level above without its owner's `0o700` would refuse the next; a directory
+  already there keeps its mode),
   `delete_dir()` (empty only), `delete_file()` (not a directory: its reason is written out as
   `EISDIR`, since `unlink()` says EPERM on macOS). A failure is `Cannot VERB "path": strerror`,
   the path quoted so a NUL byte shows; a NUL byte in a path is `ENOENT`, as no name holds one.

@@ -1,0 +1,77 @@
+import "std/test.gaz" use expect, throws;
+import "std/fs.gaz";
+
+/*
+ * Symbolic links: symlink() makes one whose text is exactly what it was given, and readlink()
+ * reads that text back. In a directory of this run's own made by fs::temp_dir(), removed at the
+ * end however the checks went.
+ */
+fn making(string $dir): null {
+    write_file($dir .. "/target.txt", "target");
+    expect("symlink gives null", symlink("target.txt", $dir .. "/relative"), null);
+    expect("a link is a link", file_info($dir .. "/relative", false)["kind"], "link");
+    expect("its text is what it was given", readlink($dir .. "/relative"), "target.txt");
+    expect("a relative target is read from the link's directory", read_file($dir .. "/relative"), "target");
+    symlink($dir .. "/target.txt", $dir .. "/absolute");
+    expect("an absolute target", readlink($dir .. "/absolute"), $dir .. "/target.txt");
+    expect("reads through", read_file($dir .. "/absolute"), "target");
+    symlink("./sub/../target.txt", $dir .. "/winding");
+    expect("the text isn't tidied", readlink($dir .. "/winding"), "./sub/../target.txt");
+    symlink("no such file", $dir .. "/dangling");
+    expect("a target needn't exist", readlink($dir .. "/dangling"), "no such file");
+    expect("and the link leads nowhere", file_info($dir .. "/dangling"), null);
+    expect("though it is there itself", file_info($dir .. "/dangling", false)["kind"], "link");
+    make_dir($dir .. "/folder");
+    write_file($dir .. "/folder/inside.txt", "inside");
+    symlink("folder", $dir .. "/to-folder");
+    expect("a link to a directory", is_dir($dir .. "/to-folder"), true);
+    expect("lists what it points at", list_dir($dir .. "/to-folder"), ["inside.txt"]);
+    symlink("relative", $dir .. "/second");
+    expect("a link to a link holds the first link's name", readlink($dir .. "/second"), "relative");
+    expect("and reads through both", read_file($dir .. "/second"), "target");
+    symlink("loop-b", $dir .. "/loop-a");
+    symlink("loop-a", $dir .. "/loop-b");
+    expect("a loop is two links", readlink($dir .. "/loop-a"), "loop-b");
+    expect("which lead nowhere", file_exists($dir .. "/loop-a"), false);
+    throws("and can't be followed", () -> file_info($dir .. "/loop-a"),
+        "Cannot get information about \"{$dir}/loop-a\": Too many levels of symbolic links");
+    $long = repeat("x", 300);
+    symlink($long, $dir .. "/long");
+    expect("a text longer than a first guess", readlink($dir .. "/long"), $long);
+    symlink("bytes \n\t\x01", $dir .. "/odd");
+    expect("any bytes but NUL", readlink($dir .. "/odd"), "bytes \n\t\x01");
+}
+
+fn refusing(string $dir): null {
+    throws("a name that is taken", () -> symlink("elsewhere", $dir .. "/target.txt"),
+        "Cannot make link \"{$dir}/target.txt\" to \"elsewhere\": File exists");
+    throws("by a link too", () -> symlink("elsewhere", $dir .. "/dangling"),
+        "Cannot make link \"{$dir}/dangling\" to \"elsewhere\": File exists");
+    expect("which is left alone", readlink($dir .. "/dangling"), "no such file");
+    throws("in a missing directory", () -> symlink("x", $dir .. "/no/link"),
+        "Cannot make link \"{$dir}/no/link\" to \"x\": No such file or directory");
+    throws("an empty target", () -> symlink("", $dir .. "/empty"),
+        "Cannot make link \"{$dir}/empty\" to \"\": No such file or directory");
+    throws("a NUL byte in the target", () -> symlink("a\0b", $dir .. "/nul"),
+        "Cannot make link \"{$dir}/nul\" to \"a\\x00b\": No such file or directory");
+    throws("or in the link", () -> symlink("x", $dir .. "/nul\0"),
+        "Cannot make link \"{$dir}/nul\\x00\" to \"x\": No such file or directory");
+    expect("nothing was made", filter(list_dir($dir), $n -> starts_with($n, "nul") || $n == "empty"), []);
+    throws("readlink of a file", () -> readlink($dir .. "/target.txt"),
+        "Cannot read link \"{$dir}/target.txt\": it is not a symbolic link");
+    throws("of a directory", () -> readlink($dir .. "/folder"), "Cannot read link \"{$dir}/folder\": it is not a symbolic link");
+    throws("of nothing", () -> readlink($dir .. "/nope"), "Cannot read link \"{$dir}/nope\": No such file or directory");
+    throws("of a NUL byte", () -> readlink($dir .. "/relative\0"), "Cannot read link \"{$dir}/relative\\x00\": No such file or directory");
+    throws("a target is a string", () -> symlink(1, $dir .. "/x"), "symlink() expects string, got int");
+    throws("and so is a link", () -> symlink("x", 1), "symlink() expects string, got int");
+    throws("and readlink's path", () -> readlink(null), "readlink() expects string, got null");
+}
+
+$dir = fs::temp_dir("link-test");
+try {
+    making($dir);
+    refusing($dir);
+} finally {
+    fs::remove_tree($dir);
+}
+expect("the scratch directory is gone", file_exists($dir), false);

@@ -83,7 +83,7 @@ fn globbing(string $root): null {
     expect("an unclosed [ is itself", fs::glob($root .. "/src/[a"), []);
     expect("a doubled ** still finds each once", $relative(fs::glob($root .. "/src/**/**/c.gaz")), ["src/lib/deep/c.gaz"]);
     $here = cwd();
-    expect("a relative pattern, from the working directory, gives relative paths", fs::glob("tests/gaz/files/*_test.gaz"),
+    expect("a relative pattern, from the working directory, gives relative paths", fs::glob("tests/gaz/files/[hi]*_test.gaz"),
         ["tests/gaz/files/handle_test.gaz", "tests/gaz/files/info_test.gaz"]);
     expect("absolute is absolute", fs::glob($here .. "/tests/gaz/lib/fs_test.gaz"), [$here .. "/tests/gaz/lib/fs_test.gaz"]);
 }

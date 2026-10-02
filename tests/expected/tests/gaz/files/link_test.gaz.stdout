@@ -1,0 +1,35 @@
+ok symlink gives null
+ok a link is a link
+ok its text is what it was given
+ok a relative target is read from the link's directory
+ok an absolute target
+ok reads through
+ok the text isn't tidied
+ok a target needn't exist
+ok and the link leads nowhere
+ok though it is there itself
+ok a link to a directory
+ok lists what it points at
+ok a link to a link holds the first link's name
+ok and reads through both
+ok a loop is two links
+ok which lead nowhere
+ok and can't be followed
+ok a text longer than a first guess
+ok any bytes but NUL
+ok a name that is taken
+ok by a link too
+ok which is left alone
+ok in a missing directory
+ok an empty target
+ok a NUL byte in the target
+ok or in the link
+ok nothing was made
+ok readlink of a file
+ok of a directory
+ok of nothing
+ok of a NUL byte
+ok a target is a string
+ok and so is a link
+ok and readlink's path
+ok the scratch directory is gone

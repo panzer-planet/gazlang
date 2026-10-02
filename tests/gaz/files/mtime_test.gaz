@@ -1,0 +1,44 @@
+import "std/test.gaz" use expect, throws;
+import "std/fs.gaz";
+
+/*
+ * set_mtime(): a path's modification time, in whole seconds as file_info() and time() count
+ * them. In a directory of this run's own made by fs::temp_dir(), removed at the end however the
+ * checks went.
+ */
+const MILLENNIUM = 946684800;       // 2000-01-01T00:00:00Z
+const BILLION = 1000000000;         // 2001-09-09T01:46:40Z
+
+fn setting(string $dir): null {
+    $path = $dir .. "/file.txt";
+    write_file($path, "x");
+    expect("set_mtime gives null", set_mtime($path, MILLENNIUM), null);
+    expect("and file_info reads it back", file_info($path)["mtime"], MILLENNIUM);
+    set_mtime($path, time() + 3600);
+    expect("an hour ahead is fine", file_info($path)["mtime"] > time(), true);
+    set_mtime($path, 0);
+    expect("1970 itself", file_info($path)["mtime"], 0);
+    make_dir($dir .. "/folder");
+    set_mtime($dir .. "/folder", BILLION);
+    expect("a directory", file_info($dir .. "/folder")["mtime"], BILLION);
+    symlink("file.txt", $dir .. "/link");
+    $link_before = file_info($dir .. "/link", false)["mtime"];
+    set_mtime($dir .. "/link", BILLION);
+    expect("through a link, what it points at changes", file_info($path)["mtime"], BILLION);
+    expect("and the link itself doesn't", file_info($dir .. "/link", false)["mtime"], $link_before);
+    expect("the contents are untouched", read_file($path), "x");
+    symlink("nowhere", $dir .. "/dangling");
+    throws("a link to nothing", () -> set_mtime($dir .. "/dangling", 0), "Cannot set the time of \"{$dir}/dangling\": No such file or directory");
+    throws("nothing there", () -> set_mtime($dir .. "/nope", 0), "Cannot set the time of \"{$dir}/nope\": No such file or directory");
+    throws("a NUL byte", () -> set_mtime($path .. "\0", 0), "Cannot set the time of \"{$path}\\x00\": No such file or directory");
+    throws("seconds are an int", () -> set_mtime($path, 1.5), "set_mtime() expects int, got float");
+    throws("a path is a string", () -> set_mtime(1, 0), "set_mtime() expects string, got int");
+}
+
+$dir = fs::temp_dir("mtime-test");
+try {
+    setting($dir);
+} finally {
+    fs::remove_tree($dir);
+}
+expect("the scratch directory is gone", file_exists($dir), false);

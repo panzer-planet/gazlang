@@ -1,0 +1,110 @@
+import "std/test.gaz" use expect, throws;
+import "std/fs.gaz";
+import "std/text.gaz";
+
+/*
+ * Making writes durable (file_sync(), sync_dir()) and cutting a file to a length
+ * (file_truncate()). That data reached the disk can't be seen from here, so what is checked is
+ * that a sync succeeds, writes out the buffer first (a second handle reads it without a close),
+ * and reports what it can't do. In a directory of this run's own made by fs::temp_dir(),
+ * removed at the end however the checks went.
+ */
+fn syncing(string $dir): null {
+    $path = $dir .. "/synced.txt";
+    $writer = file_open($path, "w");
+    file_write($writer, "buffered");
+    $reader = file_open($path);
+    expect("a write waits in the buffer", file_read($reader, 100), "");
+    expect("file_sync gives null", file_sync($writer), null);
+    expect("and writes the buffer out, the file still open", file_read($reader, 100), "buffered");
+    file_write($writer, " more");
+    file_sync($writer);
+    expect("again", file_read($reader, 100), " more");
+    file_close($writer);
+    $appender = file_open($path, "a");
+    file_write($appender, "!");
+    file_sync($appender);
+    expect("a file opened with a", file_read($reader, 100), "!");
+    file_close($appender);
+    $both = file_open($path, "r+");
+    expect("r+ after a read", file_read($both, 3), "buf");
+    file_write($both, "FER");
+    file_sync($both);
+    expect("writes where the reading stopped", read_file($path), "bufFERed more!");
+    file_close($both);
+    throws("a file opened with r can't be synced", () -> file_sync($reader),
+        "file_sync() on a file opened with \"r\", which can't be written");
+    file_close($reader);
+    throws("nor a closed one", () -> file_sync($writer), "file_sync() on a closed file");
+    throws("it takes a file", () -> file_sync($path), "file_sync() expects file, got string");
+}
+
+fn syncing_directories(string $dir): null {
+    expect("sync_dir gives null", sync_dir($dir), null);
+    write_file($dir .. "/plain.txt", "x");
+    throws("a file isn't a directory", () -> sync_dir($dir .. "/plain.txt"), "Cannot sync \"{$dir}/plain.txt\": Not a directory");
+    throws("nothing there", () -> sync_dir($dir .. "/nope"), "Cannot sync \"{$dir}/nope\": No such file or directory");
+    throws("a NUL byte", () -> sync_dir($dir .. "\0"), "Cannot sync \"{$dir}\\x00\": No such file or directory");
+    make_dir($dir .. "/real");
+    symlink("real", $dir .. "/to-real");
+    expect("a link to a directory is followed", sync_dir($dir .. "/to-real"), null);
+    throws("it takes a path", () -> sync_dir(1), "sync_dir() expects string, got int");
+}
+
+fn truncating(string $dir): null {
+    $path = $dir .. "/cut.txt";
+    $file = file_open($path, "w");
+    file_write($file, "0123456789");
+    expect("file_truncate gives null", file_truncate($file, 4), null);
+    expect("what was buffered is written out first, then cut", read_file($path), "0123");
+    expect("the position stays where it was", file_seek($file, 0, "current"), 10);
+    file_truncate($file, 6);
+    expect("growing adds zero bytes", read_file($path), "0123\0\0");
+    file_truncate($file, 0);
+    expect("to nothing", read_file($path), "");
+    file_write($file, "x");
+    file_close($file);
+    expect("a write past the end after a cut leaves a hole of zero bytes", read_file($path), repeat("\0", 10) .. "x");
+    write_file($path, "old contents, long");
+    $over = file_open($path, "r+");
+    file_write($over, "new");
+    file_truncate($over, file_seek($over, 0, "current"));
+    file_close($over);
+    expect("r+ then truncate overwrites in place", read_file($path), "new");
+    $reader = file_open($path);
+    throws("a file opened with r can't be cut", () -> file_truncate($reader, 0),
+        "file_truncate() on a file opened with \"r\", which can't be written");
+    expect("and wasn't", read_file($path), "new");
+    file_close($reader);
+    throws("nor a closed one", () -> file_truncate($over, 0), "file_truncate() on a closed file");
+    $writer = file_open($path, "a");
+    throws("a negative length", () -> file_truncate($writer, -1), "file_truncate() length must be 0 or more, got -1");
+    throws("a length is an int", () -> file_truncate($writer, 1.5), "file_truncate() expects int, got float");
+    throws("it takes a file", () -> file_truncate($path, 0), "file_truncate() expects file, got string");
+    file_close($writer);
+}
+
+/*
+ * A file limited to one 512-byte block by ulimit -f, with SIGXFSZ ignored so the write fails
+ * rather than killing the process: the error a full disk would give, from each builtin
+ */
+fn failing(string $dir): null {
+    $limited = 'trap "" XFSZ; ulimit -f 1; exec "$0" -e "$1"';
+    $at_sync = '$f = file_open(PATH, "w"); file_write($f, repeat("x", 2000)); try { file_sync($f); } catch (Error $e) { print($e.message); }';
+    $synced = run(["sh", "-c", $limited, program_path(), replace($at_sync, "PATH", text::quote($dir .. "/big.txt"))]);
+    expect("a sync whose buffer can't be written says so", $synced["stdout"], "Cannot sync \"{$dir}/big.txt\": File too large");
+    $at_cut = '$f = file_open(PATH, "w"); try { file_truncate($f, 100000); } catch (Error $e) { print($e.message); }';
+    $cut = run(["sh", "-c", $limited, program_path(), replace($at_cut, "PATH", text::quote($dir .. "/grown.txt"))]);
+    expect("a length past the limit says so", $cut["stdout"], "Cannot truncate \"{$dir}/grown.txt\": File too large");
+}
+
+$dir = fs::temp_dir("sync-test");
+try {
+    syncing($dir);
+    syncing_directories($dir);
+    truncating($dir);
+    failing($dir);
+} finally {
+    fs::remove_tree($dir);
+}
+expect("the scratch directory is gone", file_exists($dir), false);

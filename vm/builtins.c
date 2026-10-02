@@ -57,7 +57,7 @@ const BuiltinInfo builtin_info[] = {
     {"socket_listen", 2, 3}, {"socket_accept", 1, 2}, {"socket_port", 1, 1}, {"workers", 1, 1},
     {"time", 0, 0}, {"kind_name", 1, 1}, {"sqrt", 1, 1},
     {"getenv", 1, 1}, {"sleep", 1, 1},
-    {"list_dir", 1, 1}, {"is_dir", 1, 1}, {"make_dir", 1, 2}, {"delete_file", 1, 1}, {"delete_dir", 1, 1},
+    {"list_dir", 1, 1}, {"is_dir", 1, 1}, {"make_dir", 1, 3}, {"delete_file", 1, 1}, {"delete_dir", 1, 1},
     {"read_line", 0, 0},
     {"random_bytes", 1, 1}, {"sha256", 1, 1}, {"hmac_sha256", 2, 2}, {"pbkdf2_sha256", 4, 4},
     {"scrypt", 6, 6}, {"argon2id", 6, 8},
@@ -69,6 +69,8 @@ const BuiltinInfo builtin_info[] = {
     {"socket_wait", 2, 2},
     {"file_read", 2, 2}, {"file_write", 2, 2}, {"file_seek", 2, 3}, {"file_info", 1, 2},
     {"rename_file", 2, 2},
+    {"chmod", 2, 2}, {"symlink", 2, 2}, {"readlink", 1, 1}, {"file_sync", 1, 1}, {"sync_dir", 1, 1},
+    {"file_truncate", 2, 2}, {"set_mtime", 2, 2}, {"chdir", 1, 1},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -97,6 +99,8 @@ enum {
     B_SOCKET_WAIT,
     B_FILE_READ, B_FILE_WRITE, B_FILE_SEEK, B_FILE_INFO,
     B_RENAME_FILE,
+    B_CHMOD, B_SYMLINK, B_READLINK, B_FILE_SYNC, B_SYNC_DIR,
+    B_FILE_TRUNCATE, B_SET_MTIME, B_CHDIR,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -1020,20 +1024,159 @@ static bool rename_path(Str *from, Str *to) {
     return raise_str(buf_to_str(&m));
 }
 
+/* Whether a path names nothing because it holds a NUL byte, which no name can */
+static bool has_nul(const Str *path) {
+    return memchr(path->data, '\0', path->len) != NULL;
+}
+
+/* Permission bits as chmod() and make_dir() take them: what file_info()'s "mode" gives, the
+   setuid, setgid and sticky bits included, 0 to 0o7777 */
+#define MODE_BITS 07777
+
+static bool check_mode(const char *builtin, int64_t mode) {
+    if (mode < 0 || mode > MODE_BITS) return raisef("%s() mode must be 0 to 0o7777, got %lld", builtin, (long long)mode);
+    return true;
+}
+
+/* chmod($path, $mode): chmod(2), which follows a symbolic link to what it points at */
+static bool change_mode(Str *path, int64_t mode) {
+    if (!check_mode("chmod", mode)) return false;
+    int err = has_nul(path) ? ENOENT : chmod(path->data, (mode_t)mode) == 0 ? 0 : errno;
+    if (err) return raise_path("Cannot change the mode of", path, err);
+    return true;
+}
+
+/* 'Cannot make link "l" to "t": File exists', both quoted as rename_file() quotes its two */
+static bool raise_link(Str *link, Str *target, int err) {
+    Buf m = {0};
+    buf_adds(&m, "Cannot make link ");
+    quote(link, &m);
+    buf_adds(&m, " to ");
+    quote(target, &m);
+    buf_adds(&m, ": ");
+    buf_adds(&m, strerror(err));
+    return raise_str(buf_to_str(&m));
+}
+
+/* symlink($target, $link): a symbolic link at $link whose text is $target exactly as given, which
+   needn't exist and is resolved from the link's directory when it is followed. An empty target is
+   ENOENT, written out, since systems differ on it. */
+static bool make_link(Str *target, Str *link) {
+    int err = 0;
+    if (has_nul(target) || has_nul(link) || target->len == 0) err = ENOENT;
+    else if (symlink(target->data, link->data) != 0) err = errno;
+    if (err) return raise_link(link, target, err);
+    return true;
+}
+
+/* readlink($path): a symbolic link's text, as symlink() was given it. Read into a heap buffer
+   that grows until the text fits, since a link's length isn't limited to PATH_MAX everywhere.
+   What isn't a link is said in words of its own, as strerror()'s EINVAL is "Invalid argument". */
+static bool read_link(Str *path, Value *out) {
+    int err = has_nul(path) ? ENOENT : 0;
+    size_t cap = 256;
+    char *text = NULL;
+    ssize_t n = -1;
+    while (!err) {
+        text = xrealloc(text, cap);
+        n = readlink(path->data, text, cap);
+        if (n < 0) err = errno;
+        else if ((size_t)n < cap) break;
+        else cap *= 2;
+    }
+    if (err) {
+        free(text);
+        if (err != EINVAL) return raise_path("Cannot read link", path, err);
+        Buf m = {0};
+        buf_adds(&m, "Cannot read link ");
+        quote(path, &m);
+        buf_adds(&m, ": it is not a symbolic link");
+        return raise_str(buf_to_str(&m));
+    }
+    *out = v_str(str_new(text, (size_t)n));
+    free(text);
+    return true;
+}
+
+/*
+ * Making what was written durable, GazLang's rule rather than each system's: fsync(2) on Linux,
+ * but on macOS fsync() only hands the data to the drive, which may keep it in its own cache
+ * through a power cut, so there it is fcntl(F_FULLFSYNC), which asks the drive to write it out,
+ * and fsync() only where F_FULLFSYNC fails (a file system that doesn't support it). 0 or errno.
+ */
+static int sync_fd(int fd) {
+#ifdef F_FULLFSYNC
+    if (fcntl(fd, F_FULLFSYNC) == 0) return 0;
+#endif
+    return fsync(fd) == 0 ? 0 : errno;
+}
+
+/* file_sync($file): what is in stdio's buffer is written out, and then made durable */
+static bool sync_file(File *f) {
+    if (!usable_file("file_sync", f, true)) return false;
+    int err = fflush(f->fp) == 0 ? 0 : errno;
+    if (!err) err = sync_fd(fileno(f->fp));
+    if (err) return raise_file("Cannot sync", f, err);
+    return true;
+}
+
+/* sync_dir($path): a directory's entries made durable, so a file just made or renamed into it is
+   still there after a power cut. file_open() refuses a directory, so this opens it itself. */
+static bool sync_dir(Str *path) {
+    int fd = has_nul(path) ? -1 : open(path->data, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    int err = has_nul(path) ? ENOENT : fd < 0 ? errno : sync_fd(fd);
+    if (fd >= 0) close(fd);
+    if (err) return raise_path("Cannot sync", path, err);
+    return true;
+}
+
+/* file_truncate($file, $length): the file cut to $length bytes, or grown to it with zero bytes,
+   after what is buffered is written out; the position stays where it was */
+static bool truncate_file(File *f, int64_t length) {
+    if (length < 0) return raisef("file_truncate() length must be 0 or more, got %lld", (long long)length);
+    if (!usable_file("file_truncate", f, true)) return false;
+    int err = fflush(f->fp) == 0 ? 0 : errno;
+    if (!err && ftruncate(fileno(f->fp), (off_t)length) != 0) err = errno;
+    if (err) return raise_file("Cannot truncate", f, err);
+    return true;
+}
+
+/* set_mtime($path, $seconds): the access and modification times both set to $seconds since 1970,
+   following a symbolic link, as file_info() reads them */
+static bool set_mtime(Str *path, int64_t seconds) {
+    struct timespec times[2] = {{.tv_sec = (time_t)seconds}, {.tv_sec = (time_t)seconds}};
+    int err = has_nul(path) ? ENOENT : utimensat(AT_FDCWD, path->data, times, 0) == 0 ? 0 : errno;
+    if (err) return raise_path("Cannot set the time of", path, err);
+    return true;
+}
+
+/* chdir($path): the working directory of this process, and so of the programs run() starts; a
+   worker's is its own, since each is a process */
+static bool change_dir(Str *path) {
+    int err = has_nul(path) ? ENOENT : chdir(path->data) == 0 ? 0 : errno;
+    if (err) return raise_path("Cannot change directory to", path, err);
+    return true;
+}
+
 /* make_dir($path, true): every directory along $path that isn't there, a level at a time, and one
    that is there already is fine. 0, or the errno that stopped it, ENOTDIR for something in the
-   way that isn't a directory. The copy it cuts up is on the heap, not in call_builtin()'s frame. */
-static int make_dirs(const Str *path) {
+   way that isn't a directory. The copy it cuts up is on the heap, not in call_builtin()'s frame.
+   Only the last level gets $mode, as mkdir -p -m does: a level above with fewer bits than 0700
+   would refuse the next one inside it. */
+static int make_dirs(const Str *path, mode_t mode) {
     char *copy = xmalloc(path->len + 1);
     memcpy(copy, path->data, path->len);
     copy[path->len] = '\0';
     int err = 0;
+    /* Where the last level ends, before any trailing slashes */
+    size_t last = path->len;
+    while (last > 1 && copy[last - 1] == '/') last--;
     /* Each '/' after the first byte ends a level, and so does the end of the path */
     for (size_t end = 1; end <= path->len && !err; end++) {
         if (end < path->len && copy[end] != '/') continue;
         copy[end] = '\0';
         struct stat st;
-        if (mkdir(copy, 0777) != 0) {
+        if (mkdir(copy, end >= last ? mode : 0777) != 0) {
             err = errno;
             if (err == EEXIST) err = stat(copy, &st) == 0 && S_ISDIR(st.st_mode) ? 0 : ENOTDIR;
         }
@@ -1551,9 +1694,14 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         struct stat st;
         Value parents = index == B_MAKE_DIR && argc > 1 ? b : v_bool(false);
         if (!want(index, parents, M(T_BOOL))) return false;
+        /* make_dir()'s $mode, before the umask as mkdir(2) takes it; null is 0777 */
+        Value mode = index == B_MAKE_DIR && argc > 2 ? c : v_null();
+        if (!want(index, mode, INT | M(T_NULL))) return false;
+        if (mode.type == T_INT && !check_mode("make_dir", mode.i)) return false;
+        mode_t bits = mode.type == T_INT ? (mode_t)mode.i : 0777;
         if (memchr(a.s->data, '\0', a.s->len) || (parents.b && a.s->len == 0)) err = ENOENT;
-        else if (parents.b) err = make_dirs(a.s);
-        else if (index == B_MAKE_DIR) err = mkdir(a.s->data, 0777) == 0 ? 0 : errno;
+        else if (parents.b) err = make_dirs(a.s, bits);
+        else if (index == B_MAKE_DIR) err = mkdir(a.s->data, bits) == 0 ? 0 : errno;
         else if (index == B_DELETE_DIR) err = rmdir(a.s->data) == 0 ? 0 : errno;
         else if (lstat(a.s->data, &st) == 0 && S_ISDIR(st.st_mode)) err = EISDIR;
         else err = unlink(a.s->data) == 0 ? 0 : errno;
@@ -1829,6 +1977,37 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     case B_FILE_READ_LINE:
         if (!want(index, a, M(T_FILE))) return false;
         return read_file_line(a.file, out);
+    case B_CHMOD:
+        if (!want(index, a, STRING) || !want(index, b, INT)) return false;
+        *out = v_null();
+        return change_mode(a.s, b.i);
+    case B_SYMLINK:
+        if (!want(index, a, STRING) || !want(index, b, STRING)) return false;
+        *out = v_null();
+        return make_link(a.s, b.s);
+    case B_READLINK:
+        if (!want(index, a, STRING)) return false;
+        return read_link(a.s, out);
+    case B_FILE_SYNC:
+        if (!want(index, a, M(T_FILE))) return false;
+        *out = v_null();
+        return sync_file(a.file);
+    case B_SYNC_DIR:
+        if (!want(index, a, STRING)) return false;
+        *out = v_null();
+        return sync_dir(a.s);
+    case B_FILE_TRUNCATE:
+        if (!want(index, a, M(T_FILE)) || !want(index, b, INT)) return false;
+        *out = v_null();
+        return truncate_file(a.file, b.i);
+    case B_SET_MTIME:
+        if (!want(index, a, STRING) || !want(index, b, INT)) return false;
+        *out = v_null();
+        return set_mtime(a.s, b.i);
+    case B_CHDIR:
+        if (!want(index, a, STRING)) return false;
+        *out = v_null();
+        return change_dir(a.s);
     case B_UTF8_VALID:
         if (!want(index, a, STRING)) return false;
         *out = v_bool(utf8_first_bad(a.s) == a.s->len);

@@ -1,0 +1,92 @@
+import "std/test.gaz" use expect, throws;
+import "std/fs.gaz";
+
+/*
+ * Permission bits: chmod() and make_dir()'s mode, as file_info() reads them back, written as
+ * octal literals. In a directory of this run's own made by fs::temp_dir(), removed at the end
+ * however the checks went.
+ */
+fn octal_literals(): null {
+    expect("0o755 is 493", 0o755, 493);
+    expect("0o644 is 420", 0o644, 420);
+    expect("0o7777 is every permission bit", 0o7777, 4095);
+    expect("a leading zero alone is decimal", 0755, 755);
+    expect("octal is an int", type_of(0o17), "int");
+    expect("and takes part in expressions", 0o755 & ~0o22, 0o755);
+    throws("a string is never read as octal", () -> to_int("0o17"), "to_int() cannot convert \"0o17\"");
+}
+
+// The umask this process has, read from a shell, since nothing else says it
+fn umask(): int {
+    return octal(trim(run(["sh", "-c", "umask"])["stdout"]));
+}
+
+// A string of octal digits as an int, the way the lexer reads them after 0o
+fn octal(string $digits): int {
+    $value = 0;
+    foreach (split($digits, "") as $digit) {
+        $value = $value * 8 + to_int($digit);
+    }
+    return $value;
+}
+
+fn changing(string $dir): null {
+    $path = $dir .. "/file";
+    write_file($path, "x");
+    expect("chmod gives null", chmod($path, 0o640), null);
+    expect("and file_info agrees", file_info($path)["mode"], 0o640);
+    chmod($path, 0o4755);
+    expect("a setuid bit is kept", file_info($path)["mode"], 0o4755);
+    chmod($path, 0);
+    expect("no bits at all", file_info($path)["mode"], 0);
+    chmod($path, 0o600);
+    make_dir($dir .. "/sticky");
+    chmod($dir .. "/sticky", 0o1777);
+    expect("a sticky directory", file_info($dir .. "/sticky")["mode"], 0o1777);
+    symlink("file", $dir .. "/link");
+    chmod($dir .. "/link", 0o604);
+    expect("chmod of a link changes what it points at", file_info($path)["mode"], 0o604);
+    expect("and the link is still a link", file_info($dir .. "/link", false)["kind"], "link");
+    symlink("nowhere", $dir .. "/dangling");
+    throws("a link to nothing", () -> chmod($dir .. "/dangling", 0o600),
+        "Cannot change the mode of \"{$dir}/dangling\": No such file or directory");
+    throws("nothing there", () -> chmod($dir .. "/nope", 0o600), "Cannot change the mode of \"{$dir}/nope\": No such file or directory");
+    throws("a NUL byte", () -> chmod($path .. "\0", 0o600), "Cannot change the mode of \"{$path}\\x00\": No such file or directory");
+    throws("through a file", () -> chmod($path .. "/x", 0o600), "Cannot change the mode of \"{$path}/x\": Not a directory");
+    throws("a mode past 0o7777", () -> chmod($path, 0o10000), "chmod() mode must be 0 to 0o7777, got 4096");
+    throws("a negative mode", () -> chmod($path, -1), "chmod() mode must be 0 to 0o7777, got -1");
+    throws("a mode is an int", () -> chmod($path, "755"), "chmod() expects int, got string");
+    throws("a path is a string", () -> chmod(1, 0o600), "chmod() expects string, got int");
+}
+
+fn making(string $dir): null {
+    $mask = umask();
+    make_dir($dir .. "/private", false, 0o700);
+    expect("make_dir with a mode", file_info($dir .. "/private")["mode"], 0o700);
+    make_dir($dir .. "/open", false, 0o777);
+    expect("less the umask, as mkdir(2) does", file_info($dir .. "/open")["mode"], 0o777 & ~$mask);
+    make_dir($dir .. "/default");
+    expect("no mode is 0o777 less the umask", file_info($dir .. "/default")["mode"], 0o777 & ~$mask);
+    make_dir($dir .. "/null", false, null);
+    expect("and so is null", file_info($dir .. "/null")["mode"], 0o777 & ~$mask);
+    make_dir($dir .. "/a/b/c", true, 0o700);
+    expect("with its parents, the last level gets the mode", file_info($dir .. "/a/b/c")["mode"], 0o700);
+    expect("and the levels above it the default, as mkdir -p -m does", file_info($dir .. "/a")["mode"], 0o777 & ~$mask);
+    make_dir($dir .. "/x/y/", true, 0o711);
+    expect("a trailing slash still marks the last level", file_info($dir .. "/x/y")["mode"], 0o711 & ~$mask);
+    make_dir($dir .. "/a/b/c", true, 0o755);
+    expect("a directory that is there keeps its mode", file_info($dir .. "/a/b/c")["mode"], 0o700);
+    throws("a mode past 0o7777", () -> make_dir($dir .. "/big", false, 0o10000), "make_dir() mode must be 0 to 0o7777, got 4096");
+    throws("a mode is an int or null", () -> make_dir($dir .. "/big", false, "0700"), "make_dir() expects int or null, got string");
+    expect("and nothing was made", file_exists($dir .. "/big"), false);
+}
+
+octal_literals();
+$dir = fs::temp_dir("mode-test");
+try {
+    changing($dir);
+    making($dir);
+} finally {
+    fs::remove_tree($dir);
+}
+expect("the scratch directory is gone", file_exists($dir), false);

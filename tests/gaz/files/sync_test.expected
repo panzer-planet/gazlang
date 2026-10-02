@@ -1,0 +1,32 @@
+ok a write waits in the buffer
+ok file_sync gives null
+ok and writes the buffer out, the file still open
+ok again
+ok a file opened with a
+ok r+ after a read
+ok writes where the reading stopped
+ok a file opened with r can't be synced
+ok nor a closed one
+ok it takes a file
+ok sync_dir gives null
+ok a file isn't a directory
+ok nothing there
+ok a NUL byte
+ok a link to a directory is followed
+ok it takes a path
+ok file_truncate gives null
+ok what was buffered is written out first, then cut
+ok the position stays where it was
+ok growing adds zero bytes
+ok to nothing
+ok a write past the end after a cut leaves a hole of zero bytes
+ok r+ then truncate overwrites in place
+ok a file opened with r can't be cut
+ok and wasn't
+ok nor a closed one
+ok a negative length
+ok a length is an int
+ok it takes a file
+ok a sync whose buffer can't be written says so
+ok a length past the limit says so
+ok the scratch directory is gone

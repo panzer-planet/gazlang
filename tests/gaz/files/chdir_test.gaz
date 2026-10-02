@@ -1,0 +1,51 @@
+import "std/test.gaz" use expect, throws;
+import "std/fs.gaz";
+
+/*
+ * chdir(): the working directory, which cwd() shows, relative paths are resolved from and run()
+ * starts programs in. The test goes back to where it started before it checks anything else, so
+ * its other checks and the cleanup see the directory it was run from. In a directory of this
+ * run's own made by fs::temp_dir(), removed at the end however the checks went.
+ */
+fn moving(string $dir, string $start): null {
+    make_dir($dir .. "/inner");
+    write_file($dir .. "/inner/here.txt", "here");
+    expect("chdir gives null", chdir($dir .. "/inner"), null);
+    expect("cwd() follows it", cwd(), real_path($dir .. "/inner"));
+    expect("a relative read is from there", read_file("here.txt"), "here");
+    write_file("written.txt", "written");
+    expect("and so is a write", read_file($dir .. "/inner/written.txt"), "written");
+    expect("and file_info", file_info("here.txt")["size"], 4);
+    expect("and list_dir", list_dir("."), ["here.txt", "written.txt"]);
+    expect("a program run() starts begins there", trim(run(["pwd", "-P"])["stdout"]), real_path($dir .. "/inner"));
+    chdir("..");
+    expect("a relative chdir", cwd(), real_path($dir));
+    symlink("inner", $dir .. "/link");
+    chdir("link");
+    expect("through a link, cwd() is where it leads", cwd(), real_path($dir .. "/inner"));
+    chdir($start);
+    expect("and back", cwd(), $start);
+}
+
+fn refusing(string $dir): null {
+    $before = cwd();
+    throws("nothing there", () -> chdir($dir .. "/nope"), "Cannot change directory to \"{$dir}/nope\": No such file or directory");
+    write_file($dir .. "/file", "");
+    throws("a file", () -> chdir($dir .. "/file"), "Cannot change directory to \"{$dir}/file\": Not a directory");
+    throws("the empty path", () -> chdir(""), "Cannot change directory to \"\": No such file or directory");
+    throws("a NUL byte", () -> chdir($dir .. "\0"), "Cannot change directory to \"{$dir}\\x00\": No such file or directory");
+    throws("a path is a string", () -> chdir(null), "chdir() expects string, got null");
+    expect("a refused chdir stays put", cwd(), $before);
+}
+
+$start = cwd();
+$dir = fs::temp_dir("chdir-test");
+try {
+    moving($dir, $start);
+    refusing($dir);
+} finally {
+    chdir($start);
+    fs::remove_tree($dir);
+}
+expect("the scratch directory is gone", file_exists($dir), false);
+expect("this test ends where it began", cwd(), $start);

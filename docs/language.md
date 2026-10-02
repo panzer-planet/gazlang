@@ -785,6 +785,8 @@ objects as `$seen[object_id($x)] = true`).
 | `file_read($file, $length)` | Up to `$length` bytes of the file, or `""` at its end |
 | `file_write($file, $string)` | Writes the string to the file |
 | `file_seek($file, $offset, $from = "start")` | Moves to `$offset` from the `"start"`, the `"current"` position or the `"end"`, and gives the new position |
+| `file_sync($file)` | Writes out what is waiting and makes it durable, on the disk itself |
+| `file_truncate($file, $length)` | Cuts the file to `$length` bytes, or grows it with zero bytes |
 | `file_close($file)` | Writes out what is waiting and closes the file |
 | `flush_output()` | Writes standard output's buffer out now, instead of waiting |
 | `args()` | The program's arguments, as a list of strings |
@@ -846,6 +848,17 @@ is waiting and closes the file, and **is an error when the writing fails** (`Can
 file no variable holds any more is closed by itself, as a socket is, but nothing can report an
 error then: close a file you wrote. Closing again does nothing.
 
+**`file_sync($file)` makes what was written durable**: what is waiting is written out, and the
+system is asked to put it on the disk itself, so it survives a power cut (on macOS that takes
+`F_FULLFSYNC`, which gaz asks for, since a plain sync there stops at the drive's own cache). It is
+slow, a disk's round trip, so it is for the moments that matter: a file about to be renamed into
+place, a record that must not be lost. A new file's name is in its directory, which needs its own
+sync: `sync_dir($path)` (see "Directories"). `file_truncate($file, $length)` writes out what is
+waiting and then cuts the file to `$length` bytes, or grows it with zero bytes, leaving the
+position where it was; with `"r+"` it is how a file is overwritten in place (write the new
+contents from the start, then cut at `file_seek($f, 0, "current")`). Both want a file opened for
+writing, and their failures name the file (`Cannot sync "out.txt": No space left on device`).
+
 A file is a handle, as a socket is: copies share the position, `==` is identity, and it prints as
 `file` (or `file (closed)`). Reading or writing a closed file, reading a file opened with `"w"` or
 `"a"`, writing one opened with `"r"`, a path that can't be opened and a directory are errors
@@ -869,11 +882,16 @@ before a server's first `socket_accept()`.
 | --- | --- |
 | `list_dir($path)` | The names of what a directory holds, sorted byte by byte |
 | `is_dir($path)` | Whether there is a directory at `$path` |
-| `make_dir($path, $parents = false)` | Makes a directory, and with `true` every one along the way |
+| `make_dir($path, $parents = false, $mode = null)` | Makes a directory, and with `true` every one along the way |
 | `delete_dir($path)` | Removes an empty directory |
 | `delete_file($path)` | Removes a file or a symlink |
 | `rename_file($from, $to)` | Moves a file or directory to a new name, replacing a file there |
 | `file_info($path, $follow = true)` | What is at `$path`: its kind, size, modification time and mode, or `null` |
+| `chmod($path, $mode)` | Sets the permission bits (`0o644`) |
+| `set_mtime($path, $seconds)` | Sets the modification (and access) time |
+| `symlink($target, $link)` | Makes a symbolic link at `$link` whose text is `$target` |
+| `readlink($path)` | The text of a symbolic link |
+| `sync_dir($path)` | Makes a directory's entries durable, as `file_sync()` does a file's |
 
 `list_dir($path)` is the names of what a directory holds, without `.` and
 `..`, sorted byte by byte (so `"10"` before `"9"` and `"Z"` before `"a"`), the same on every
@@ -884,6 +902,11 @@ makes every directory along the path that isn't there, and one that is there alr
 empty one; `delete_file($path)` removes a file (or a symlink), never a directory. Each gives
 `null`, and what it can't do is an error naming the path and the system's reason:
 `Cannot make directory "out": File exists`.
+`make_dir($path, $parents, $mode)` gives the new directory the permission bits `$mode` (as
+`chmod()` takes them) less the umask, as the system makes it; with `$parents` only the last
+directory gets them and the ones above it the default, since a directory without its owner's
+`0o700` couldn't have the next one made inside it. A directory that was there already keeps its
+mode.
 
 `rename_file($from, $to)` gives a file or directory a new name, replacing a file already at `$to`,
 in one step: whoever opens `$to` gets the old file or the new one, never part of either, which is
@@ -908,20 +931,48 @@ null
 
 `"kind"` is `"file"`, `"dir"`, `"link"` or `"other"` (a pipe, a socket, a device); `"size"` the size
 in bytes; `"mtime"` when it was last changed, in whole seconds since 1970 as `time()` counts them;
-`"mode"` its permission bits as an int (`420` is `0644`, read and write for its owner and read
-for everyone else). It follows a symbolic link to what it points at (and a link to nothing is
-`null`); with `$follow` `false` the link is itself, `"link"`, which is how a walk through a tree
-keeps out of a loop.
+`"mode"` its permission bits as an int (`0o644`, which is 420: read and write for its owner and
+read for everyone else; `format::sprintf("%o", $mode)` shows it as `644`). It follows a symbolic
+link to what it points at (and a link to nothing is `null`); with `$follow` `false` the link is
+itself, `"link"`, which is how a walk through a tree keeps out of a loop.
+
+`chmod($path, $mode)` sets the permission bits, 0 to `0o7777` (setuid `0o4000`, setgid `0o2000`
+and sticky `0o1000` included, as `file_info()` gives them back), following a symbolic link to what
+it points at: `chmod("deploy.sh", 0o755)`. `set_mtime($path, $seconds)` sets the modification time
+(and the access time with it) to whole seconds since 1970, also through a link, so a copy can keep
+its source's time (`set_mtime($to, file_info($from)["mtime"])`) and a build tool can touch a file.
+What they can't do is an error naming the path: `Cannot change the mode of "x": Operation not
+permitted`, `Cannot set the time of "x": No such file or directory`.
+
+`symlink($target, $link)` makes a symbolic link at `$link` whose text is `$target` exactly as
+given. The target needn't exist, and a relative one is read from the link's directory when the
+link is followed, not from the working directory: `symlink("v2", "releases/current")` points at
+`releases/v2`. A name that is taken, even by a link, is an error (`Cannot make link "current" to
+"v2": File exists`): remove it first, or make the link under a new name and `rename_file()` it over
+the old one, which replaces it in one step. `readlink($path)` is a link's text, as `symlink()` was
+given it, and an error for anything that isn't a link (`Cannot read link "notes.txt": it is not a
+symbolic link`).
+
+`sync_dir($path)` makes a directory's entries durable, as `file_sync()` does a file's contents: a
+file made or renamed into a directory is there after a power cut only once the directory is synced
+too. `fs::write_atomic()` does both.
 
 ### Paths
 
 | Builtin | What it does |
 | --- | --- |
 | `cwd()` | The working directory |
+| `chdir($path)` | Changes the working directory |
 | `real_path($path)` | The absolute path, with every symlink, `.` and `..` resolved |
 | `file_exists($path)` | Whether there is anything at `$path` |
 
-`cwd()` is the working directory, which relative paths are resolved from.
+`cwd()` is the working directory, which relative paths are resolved from. `chdir($path)` changes
+it, for the rest of the program and the programs `run()` starts (`Cannot change directory to
+"build": No such file or directory` when it can't). A program's imports were read before it ran,
+so they never move with it. It is the process's: a worker's `chdir()` changes only that worker
+(see `workers()`). `program_path()` relative to where the program started stops naming gaz after a
+`chdir()`, so a program that runs itself again works out `real_path(program_path())` first when
+it was invoked by a relative path.
 `real_path($path)` is the absolute path with every symlink, `.` and `..` resolved (a directory
 too), and an error when there is nothing there; `file_exists($path)` is whether there is, so
 `file_exists("a/../b")` is false when `a` is missing, as the system sees it.

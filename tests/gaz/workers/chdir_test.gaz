@@ -1,0 +1,28 @@
+import "std/test.gaz" use expect;
+import "std/fs.gaz";
+import "std/text.gaz";
+
+/*
+ * A worker's chdir() is its own: the working directory belongs to a process, and each worker is
+ * one. The worker moves, then retires itself with worker_recycle(); the master starts another
+ * from its own state, and that one is still where the master is. A program of its own, run with
+ * run(), since the master never returns from workers().
+ */
+$dir = fs::temp_dir("worker-chdir");
+$mark = $dir .. "/first-life-done";
+$program = '
+    workers(1);
+    if (!file_exists(MARK)) {
+        write_file(MARK, "");
+        chdir(DIR);
+        print("first " .. cwd() .. "\n");
+        worker_recycle();
+    }
+    print("second " .. cwd() .. "\n");
+';
+$program = replace(replace($program, "MARK", text::quote($mark)), "DIR", text::quote($dir));
+$result = run([program_path(), "-e", $program]);
+expect("the first worker moved", text::lines($result["stdout"])[0], "first " .. real_path($dir));
+expect("the next one starts where the master is", text::lines($result["stdout"])[1], "second " .. cwd());
+expect("and the master ended cleanly", $result["status"], 0);
+fs::remove_tree($dir);
