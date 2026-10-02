@@ -38,3 +38,16 @@ expect("an empty string is two quotes", text::quote(""), "\"\"");
 expect("a number is as echo prints it", text::quote(1.5), "1.5");
 expect("so is null", text::quote(null), "null");
 expect("a list is a literal, strings inside quoted", text::quote(["a", 1]), "[\"a\", 1]");
+
+expect("trim_start takes a set off the start", text::trim_start("00120", "0"), "120");
+expect("and leaves the end", text::trim_start("//a//", "/"), "a//");
+expect("whitespace by default", text::trim_start(" \t\n\ra "), "a ");
+expect("all of it", text::trim_start("xxx", "x"), "");
+expect("an empty set takes nothing", text::trim_start("  a", ""), "  a");
+expect("the empty string", text::trim_start("", "x"), "");
+expect("trim_end takes a set off the end", text::trim_end("dir///", "/"), "dir");
+expect("and leaves the start", text::trim_end("//a//", "/"), "//a");
+expect("whitespace by default, at the end", text::trim_end(" a \r\n"), " a");
+expect("bytes, not characters", text::trim_end("aé", "\xa9"), "a\xc3");
+expect("a NUL byte is a byte", text::trim_end("a\0\0", "\0"), "a");
+throws("trim_end wants a string", () -> text::trim_end(5, "x"), "text::trim_end() expects \$s to be string, got int");

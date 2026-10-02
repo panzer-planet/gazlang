@@ -33,3 +33,15 @@ ok an empty string is two quotes
 ok a number is as echo prints it
 ok so is null
 ok a list is a literal, strings inside quoted
+ok trim_start takes a set off the start
+ok and leaves the end
+ok whitespace by default
+ok all of it
+ok an empty set takes nothing
+ok the empty string
+ok trim_end takes a set off the end
+ok and leaves the start
+ok whitespace by default, at the end
+ok bytes, not characters
+ok a NUL byte is a byte
+ok trim_end wants a string

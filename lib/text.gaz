@@ -1,9 +1,11 @@
 /*
  * Text as lines. text::lines(read_stdin()) is what a one-liner wants: the lines of what was piped
  * in, without the empty one that splitting on "\n" leaves after a last line that ends in one.
- * And a line's indentation, for reading text laid out by it.
+ * And a line's indentation, for reading text laid out by it, and trimming one end of a string.
  */
 namespace text;
+
+const WHITESPACE = " \t\n\r";      // what trim() takes off without a set
 
 /*
  * The lines of a string, as read_line() reads them: "\n" or "\r\n" ends a line and is not part of
@@ -57,4 +59,28 @@ pub fn unindented(string $line): string {
  */
 pub fn quote($value) {
     return slice(to_string([$value]), 1, -1);
+}
+
+/*
+ * A string without the bytes of $chars at its start: trim()'s other halves, for a path's
+ * trailing slashes or a number's leading zeros. Bytes, as trim() takes them, so a character of
+ * more than one byte isn't one of them; without $chars, the whitespace trim() takes off.
+ */
+pub fn trim_start(string $s, string $chars = WHITESPACE): string {
+    $from = 0;
+    while ($from < len($s) && contains($chars, $s[$from])) {
+        $from++;
+    }
+
+    return slice($s, $from);
+}
+
+// The same at its end: trim_end("dir///", "/") is "dir"
+pub fn trim_end(string $s, string $chars = WHITESPACE): string {
+    $to = len($s);
+    while ($to > 0 && contains($chars, $s[$to - 1])) {
+        $to--;
+    }
+
+    return slice($s, 0, $to);
 }

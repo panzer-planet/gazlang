@@ -1,0 +1,179 @@
+import "std/test.gaz" use expect, throws;
+import "std/fs.gaz";
+import "std/text.gaz";
+
+/*
+ * std/fs.gaz: copying, walking, globbing, replacing a file in one step and removing a tree, in a
+ * directory of this run's own made by fs::temp_dir() and removed at the end however the checks
+ * went. Links are made with ln -s, which the language can't do itself.
+ */
+fn every_byte(): string {
+    $bytes = "";
+    for ($b = 0; $b < 256; $b++) {
+        $bytes ..= chr($b);
+    }
+    return $bytes;
+}
+
+// A small tree: files, a hidden file and directory, a nested directory and links
+fn plant(string $root): null {
+    make_dir($root .. "/src/lib/deep", true);
+    make_dir($root .. "/.cache");
+    write_file($root .. "/README.md", "readme");
+    write_file($root .. "/src/main.gaz", "main");
+    write_file($root .. "/src/lib/a.gaz", "a");
+    write_file($root .. "/src/lib/b.txt", "b");
+    write_file($root .. "/src/lib/deep/c.gaz", "c");
+    write_file($root .. "/src/.hidden.gaz", "hidden");
+    write_file($root .. "/.cache/x.gaz", "x");
+    run(["ln", "-s", "..", $root .. "/src/lib/up"]);
+    run(["ln", "-s", "main.gaz", $root .. "/src/link.gaz"]);
+    run(["ln", "-s", "src/lib/deep", $root .. "/shortcut"]);
+}
+
+fn temp_dirs(): null {
+    $one = fs::temp_dir();
+    $two = fs::temp_dir("mine");
+    expect("a temporary directory is made", is_dir($one), true);
+    expect("and is empty", list_dir($one), []);
+    expect("each is new", $one != $two, true);
+    expect("named by the prefix", starts_with(last(split($two, "/")), "mine-"), true);
+    expect("and gaz by default", starts_with(last(split($one, "/")), "gaz-"), true);
+    expect("under TMPDIR", fs::parent($one), text::trim_end(getenv("TMPDIR") ?? "/tmp", "/"));
+    delete_dir($one);
+    delete_dir($two);
+}
+
+fn walking(string $root): null {
+    expect("every path, depth first, a directory before what it holds", fs::walk($root), [
+        ".cache", ".cache/x.gaz", "README.md", "shortcut", "src", "src/.hidden.gaz", "src/lib", "src/lib/a.gaz",
+        "src/lib/b.txt", "src/lib/deep", "src/lib/deep/c.gaz", "src/lib/up", "src/link.gaz", "src/main.gaz",
+    ]);
+    expect("a link to a directory is one entry", in_array("shortcut/c.gaz", fs::walk($root)), false);
+    expect("a link to a directory isn't followed", fs::walk($root .. "/src/lib"), ["a.gaz", "b.txt", "deep", "deep/c.gaz", "up"]);
+    expect("an empty directory", fs::walk($root .. "/src/lib/deep"), ["c.gaz"]);
+    throws("a file isn't a directory", () -> fs::walk($root .. "/README.md"), "Cannot list directory \"{$root}/README.md\": Not a directory");
+}
+
+fn globbing(string $root): null {
+    $at = len($root) + 1;
+    $relative = $paths -> map($paths, $p -> slice($p, $at));
+    expect("a name in a directory", $relative(fs::glob($root .. "/src/*.gaz")), ["src/link.gaz", "src/main.gaz"]);
+    expect("** for any depth", $relative(fs::glob($root .. "/src/**/*.gaz")),
+        ["src/lib/a.gaz", "src/lib/deep/c.gaz", "src/link.gaz", "src/main.gaz"]);
+    expect("** at the end is everything below", $relative(fs::glob($root .. "/src/lib/**")),
+        ["src/lib/a.gaz", "src/lib/b.txt", "src/lib/deep", "src/lib/deep/c.gaz", "src/lib/up"]);
+    expect("** goes through no link", $relative(fs::glob($root .. "/**/c.gaz")), ["src/lib/deep/c.gaz"]);
+    expect("a link the pattern names is followed", $relative(fs::glob($root .. "/shortcut/**")), ["shortcut/c.gaz"]);
+    expect("nor into a hidden directory", fs::glob($root .. "/**/x.gaz"), []);
+    expect("hidden names need a dot", $relative(fs::glob($root .. "/**/.*")), [".cache", "src/.hidden.gaz"]);
+    expect("a literal hidden name", $relative(fs::glob($root .. "/.cache/*")), [".cache/x.gaz"]);
+    expect("? is one byte", $relative(fs::glob($root .. "/src/lib/?.*")), ["src/lib/a.gaz", "src/lib/b.txt"]);
+    expect("a set", $relative(fs::glob($root .. "/src/lib/[ab].gaz")), ["src/lib/a.gaz"]);
+    expect("a range", $relative(fs::glob($root .. "/src/lib/[a-b].*")), ["src/lib/a.gaz", "src/lib/b.txt"]);
+    expect("not in a set", $relative(fs::glob($root .. "/src/lib/[!a]*")), ["src/lib/b.txt", "src/lib/deep", "src/lib/up"]);
+    expect("a wildcard name in the middle", $relative(fs::glob($root .. "/*/lib/*.txt")), ["src/lib/b.txt"]);
+    expect("nothing matching", fs::glob($root .. "/*.nothing"), []);
+    expect("a missing directory", fs::glob($root .. "/nope/*"), []);
+    expect("a plain path", $relative(fs::glob($root .. "/README.md")), ["README.md"]);
+    expect("a missing plain path", fs::glob($root .. "/README.txt"), []);
+    expect("a name doesn't continue through a file", fs::glob($root .. "/README.md/*"), []);
+    expect("a star matching nothing", $relative(fs::glob($root .. "/src/main*.gaz")), ["src/main.gaz"]);
+    expect("several stars", $relative(fs::glob($root .. "/src/*a*i*")), ["src/main.gaz"]);
+    expect("an unclosed [ is itself", fs::glob($root .. "/src/[a"), []);
+    expect("a doubled ** still finds each once", $relative(fs::glob($root .. "/src/**/**/c.gaz")), ["src/lib/deep/c.gaz"]);
+    $here = cwd();
+    expect("a relative pattern, from the working directory, gives relative paths", fs::glob("tests/gaz/files/*_test.gaz"),
+        ["tests/gaz/files/handle_test.gaz", "tests/gaz/files/info_test.gaz"]);
+    expect("absolute is absolute", fs::glob($here .. "/tests/gaz/lib/fs_test.gaz"), [$here .. "/tests/gaz/lib/fs_test.gaz"]);
+}
+
+fn copying(string $root): null {
+    $bytes = repeat(every_byte(), 1000);
+    write_file($root .. "/bytes.bin", $bytes);
+    fs::copy($root .. "/bytes.bin", $root .. "/copy.bin");
+    expect("a copy has the same bytes", read_file($root .. "/copy.bin") == $bytes, true);
+    write_file($root .. "/copy.bin", "something else, longer than nothing");
+    fs::copy($root .. "/README.md", $root .. "/copy.bin");
+    expect("a copy replaces what was there", read_file($root .. "/copy.bin"), "readme");
+    write_file($root .. "/empty", "");
+    fs::copy($root .. "/empty", $root .. "/empty-copy");
+    expect("an empty file copies", read_file($root .. "/empty-copy"), "");
+    throws("onto itself", () -> fs::copy($root .. "/README.md", $root .. "/README.md"),
+        "fs::copy(): \"{$root}/README.md\" and \"{$root}/README.md\" are the same file");
+    expect("which leaves it alone", read_file($root .. "/README.md"), "readme");
+    throws("from nothing", () -> fs::copy($root .. "/nope", $root .. "/x"), "Cannot open \"{$root}/nope\": No such file or directory");
+    throws("a directory", () -> fs::copy($root .. "/src", $root .. "/x"), "Cannot open \"{$root}/src\": Is a directory");
+    $left_out = fs::copy_tree($root .. "/src", $root .. "/copied/src");
+    expect("a tree, made with its parents", fs::walk($root .. "/copied"), [
+        "src", "src/.hidden.gaz", "src/lib", "src/lib/a.gaz", "src/lib/b.txt", "src/lib/deep", "src/lib/deep/c.gaz", "src/main.gaz",
+    ]);
+    expect("links are left out and said", $left_out, ["lib/up", "link.gaz"]);
+    expect("its files' contents", read_file($root .. "/copied/src/lib/deep/c.gaz"), "c");
+    fs::copy_tree($root .. "/src", $root .. "/copied/src");
+    expect("again, into a tree that is there", read_file($root .. "/copied/src/main.gaz"), "main");
+    throws("a tree from a file", () -> fs::copy_tree($root .. "/README.md", $root .. "/x"), "fs::copy_tree(): \"{$root}/README.md\" is not a directory");
+}
+
+fn atomic_writes(string $root): null {
+    $path = $root .. "/atomic.txt";
+    fs::write_atomic($path, "first");
+    expect("written", read_file($path), "first");
+    fs::write_atomic($path, "second");
+    expect("replaced", read_file($path), "second");
+    expect("nothing is left beside it", filter(list_dir($root), $n -> contains($n, "atomic")), ["atomic.txt"]);
+    try {
+        fs::write_atomic($root .. "/nope/x.txt", "x");
+    } catch (Error $e) {
+        expect("into a missing directory", starts_with($e.message, "Cannot open \"{$root}/nope/.x.txt."), true);
+    }
+    make_dir($root .. "/in-the-way");
+    $before = list_dir($root);
+    try {
+        fs::write_atomic($root .. "/in-the-way", "x");
+    } catch (Error $e) {
+        expect("a rename that fails is the error", starts_with($e.message, "Cannot rename"), true);
+    }
+    expect("and the new file is removed", list_dir($root), $before);
+}
+
+fn removing(string $root): null {
+    fs::remove_tree($root .. "/copied");
+    expect("a tree goes", file_exists($root .. "/copied"), false);
+    make_dir($root .. "/outside");
+    write_file($root .. "/outside/keep.txt", "keep");
+    make_dir($root .. "/doomed");
+    run(["ln", "-s", "../outside", $root .. "/doomed/link"]);
+    fs::remove_tree($root .. "/doomed");
+    expect("a link in it goes, not what it points at", read_file($root .. "/outside/keep.txt"), "keep");
+    run(["ln", "-s", "outside", $root .. "/top-link"]);
+    fs::remove_tree($root .. "/top-link");
+    expect("a link given itself goes, not what it points at", [file_info($root .. "/top-link", false), is_dir($root .. "/outside")], [null, true]);
+    fs::remove_tree($root .. "/outside/keep.txt");
+    expect("a file", file_exists($root .. "/outside/keep.txt"), false);
+    throws("nothing there", () -> fs::remove_tree($root .. "/nope"), "Cannot delete file \"{$root}/nope\": No such file or directory");
+}
+
+fn parents(): null {
+    expect("a file's directory", fs::parent("a/b/c.txt"), "a/b");
+    expect("a name alone", fs::parent("c.txt"), ".");
+    expect("at the root", fs::parent("/x"), "/");
+    expect("a trailing slash", fs::parent("a/b/"), "a");
+    expect("the root itself", fs::parent("/"), "/");
+    expect("absolute", fs::parent("/usr/local/bin"), "/usr/local");
+}
+
+temp_dirs();
+parents();
+$root = fs::temp_dir("fs-test");
+try {
+    plant($root);
+    walking($root);
+    globbing($root);
+    copying($root);
+    atomic_writes($root);
+    removing($root);
+} finally {
+    fs::remove_tree($root);
+}
+expect("the scratch directory is gone", file_exists($root), false);

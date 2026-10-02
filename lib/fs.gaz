@@ -1,0 +1,374 @@
+/*
+ * Files and directories for command line tools, on the file builtins: copying a file or a tree,
+ * walking a tree, matching a glob, replacing a file in one step, removing a tree, and a
+ * directory of one's own for scratch work.
+ *
+ *   import "std/fs.gaz";
+ *   foreach (fs::glob("*.md") as $page) { ... }
+ *   fs::write_atomic("out/manifest.txt", $text);
+ *   fs::remove_tree(fs::temp_dir("build"));
+ *
+ * Nothing here follows a symbolic link into a directory, so a link back up a tree can't loop
+ * and removing a tree never removes what a link points at. Paths are joined with "/".
+ */
+namespace fs;
+
+import "./crypto.gaz";
+import "./text.gaz" use trim_end;
+
+const CHUNK = 65536;            // bytes a copy reads at a time
+const TEMP_NAME_BYTES = 8;      // random bytes in a temporary name, as hex
+const DEFAULT_TEMP = "/tmp";
+
+/*
+ * Copy the file at $from to $to, replacing a file there. It is read and written a piece at a
+ * time, so a file of any size takes little memory, and its bytes come out exactly. $to gets
+ * a new file's permissions, not $from's; copying a file onto itself is an error, since opening
+ * $to to write it would empty $from.
+ * ponytail: the mode isn't copied, since there is no chmod builtin; one would lift it.
+ */
+pub fn copy(string $from, string $to): null {
+    $source = file_open($from);
+    if (file_exists($to) && real_path($to) == real_path($from)) {
+        throw "fs::copy(): " .. text::quote($from) .. " and " .. text::quote($to) .. " are the same file";
+    }
+    $target = file_open($to, "w");
+    while (($piece = file_read($source, CHUNK)) != "") {
+        file_write($target, $piece);
+    }
+    file_close($source);
+    file_close($target);
+}
+
+/*
+ * Copy everything under the directory $from into $to, made if it isn't there (with its
+ * parents), as copy() copies each file. A symbolic link, or anything that is neither a file
+ * nor a directory (a pipe, a socket), is left out, and the list it gives is those paths,
+ * relative to $from, so a caller can say what it left behind.
+ * ponytail: a link is left out, not copied, since there is no builtin that makes one.
+ */
+pub fn copy_tree(string $from, string $to): list {
+    if (!is_dir($from)) {
+        throw "fs::copy_tree(): " .. text::quote($from) .. " is not a directory";
+    }
+    make_dir($to, true);
+    $left_out = [];
+    foreach (walk($from) as $path) {
+        $kind = file_info(joined($from, $path), false)["kind"];
+        if ($kind == "dir") {
+            make_dir(joined($to, $path), true);
+        } else if ($kind == "file") {
+            copy(joined($from, $path), joined($to, $path));
+        } else {
+            $left_out[] = $path;
+        }
+    }
+
+    return $left_out;
+}
+
+/*
+ * Every path under the directory $dir, relative to it: depth first, each directory's names
+ * sorted byte by byte as list_dir() sorts them, and a directory before what it holds
+ * (["a", "a/x", "b"]). A symbolic link is listed but never followed, so a link to a
+ * directory is one entry and a link back up the tree can't loop. Hidden names are included.
+ */
+pub fn walk(string $dir): list {
+    $paths = [];
+    foreach (list_dir($dir) as $name) {
+        $paths[] = $name;
+        if (is_real_dir(joined($dir, $name))) {
+            foreach (walk(joined($dir, $name)) as $below) {
+                $paths[] = $name .. "/" .. $below;
+            }
+        }
+    }
+
+    return $paths;
+}
+
+/*
+ * The paths matching $pattern, sorted byte by byte. A pattern is names separated by "/",
+ * relative to the working directory or, starting with "/", absolute, and gives paths written the
+ * same way. In a name, * matches any bytes and ? any one byte, [abc] one of a set, [a-z] one of
+ * a range and [!abc] one not in it. "**" as a whole name matches any number of directories, none
+ * included, so the names "src", "**" and "*.gaz" find every .gaz file under src; as the last
+ * name it is everything below. A name starting with a dot is matched only by a pattern name that
+ * starts with one, so * and "**" leave hidden files and directories alone. "**" never follows a
+ * symbolic link, so it can't loop. Nothing matching is [].
+ * ponytail: no escape for a literal *, ? or [, and no {a,b}; add them when a program needs one.
+ */
+pub fn glob(string $pattern): list {
+    $absolute = starts_with($pattern, "/");
+    $segments = filter(split($pattern, "/"), $s -> $s != "");
+    $found = [$absolute ? "/" : ""];
+    foreach ($segments as $index => $segment) {
+        $last = $index == len($segments) - 1;
+        $found = glob_step($found, $segment, $last);
+    }
+    $unique = {};
+    foreach ($found as $path) {
+        $unique[$path] = true;
+    }
+
+    return sort(filter(keys($unique), $path -> $path != "" && $path != "/"));
+}
+
+/*
+ * Write $data to $path in one step: into a new file beside it, which is closed (an error if the
+ * writing failed) and then renamed over $path, so whoever opens $path sees the old contents or
+ * the new ones, never part of either. If anything fails, the new file is removed.
+ * ponytail: nothing is synced to the disk (there is no fsync builtin), so after a power cut the
+ * rename can be there before the data; one would lift it.
+ */
+pub fn write_atomic(string $path, string $data): null {
+    $temporary = joined(parent($path), "." .. base_name($path) .. "." .. random_hex() .. ".tmp");
+    try {
+        $file = file_open($temporary, "w");
+        file_write($file, $data);
+        file_close($file);
+        rename_file($temporary, $path);
+    } catch ($e) {
+        if (file_info($temporary, false) != null) {
+            delete_file($temporary);
+        }
+        throw $e;
+    }
+}
+
+/*
+ * Remove $path and, if it is a directory, everything under it. A symbolic link is removed
+ * itself, never what it points at, wherever it is in the tree. Nothing there is an error, as
+ * delete_file() says it.
+ */
+pub fn remove_tree(string $path): null {
+    if (!is_real_dir($path)) {
+        delete_file($path);
+        return;
+    }
+    foreach (list_dir($path) as $name) {
+        remove_tree(joined($path, $name));
+    }
+    delete_dir($path);
+}
+
+/*
+ * A new, empty directory of its own under $TMPDIR (or /tmp), named $prefix and random hex
+ * ("/tmp/gaz-3f9a0c61b2d4e5f7"), for scratch work; remove it with remove_tree() when done.
+ * ponytail: its permissions are what the umask leaves (often readable by everyone), since there
+ * is no chmod builtin to make it the owner's alone; one would lift it.
+ */
+pub fn temp_dir(string $prefix = "gaz"): string {
+    $base = trim_end(getenv("TMPDIR") ?? DEFAULT_TEMP, "/");
+    if ($base == "") {
+        $base = DEFAULT_TEMP;
+    }
+    $dir = $base .. "/" .. $prefix .. "-" .. random_hex();
+    make_dir($dir);
+
+    return $dir;
+}
+
+/*
+ * The directory a path is in: "a/b" for "a/b/c.txt", "." for a name alone, "/" for "/x". A
+ * trailing "/" names the same directory, so "a/b/" is in "a".
+ */
+pub fn parent(string $path): string {
+    $names = split(trim_end($path, "/"), "/");
+    if (len($names) == 1) {
+        return starts_with($path, "/") ? "/" : ".";
+    }
+    $dir = join(slice($names, 0, -1), "/");
+
+    return $dir == "" ? "/" : $dir;
+}
+
+// The last name in a path: "c.txt" for "a/b/c.txt"
+fn base_name(string $path): string {
+    return last(split(trim_end($path, "/"), "/"));
+}
+
+// $dir and $name with a "/" between, "" being where a relative path starts
+fn joined(string $dir, string $name): string {
+    if ($dir == "") {
+        return $name;
+    }
+    if (ends_with($dir, "/")) {
+        return $dir .. $name;
+    }
+
+    return $dir .. "/" .. $name;
+}
+
+// A directory itself, not a symbolic link to one
+fn is_real_dir(string $path): bool {
+    $info = file_info($path, false);
+
+    return $info != null && $info["kind"] == "dir";
+}
+
+fn random_hex(): string {
+    return crypto::hex(random_bytes(TEMP_NAME_BYTES));
+}
+
+// What one pattern name makes of the paths found so far
+fn glob_step(list $bases, string $segment, bool $last): list {
+    $found = [];
+    foreach ($bases as $base) {
+        $more = match {
+            $segment == "**" => below($base, $last),
+            !has_wildcard($segment) => named($base, $segment, $last),
+            default => listed($base, $segment, $last),
+        };
+        $found = [...$found, ...$more];
+    }
+
+    return $found;
+}
+
+/*
+ * "**": the base and every directory below it, not hidden and not through a link, or as the
+ * last name every path below it that isn't hidden
+ */
+fn below(string $base, bool $last): list {
+    $found = $last ? [] : [$base];
+    $dir = $base == "" ? "." : $base;
+    // A base the pattern named is followed, link or not; what "**" finds below it never is
+    if (!is_dir($dir)) {
+        return [];
+    }
+    foreach (list_dir($dir) as $name) {
+        if (starts_with($name, ".")) {
+            continue;
+        }
+        $path = joined($base, $name);
+        if (is_real_dir($path)) {
+            $found = [...$found, ...below($path, $last)];
+            if ($last) {
+                $found[] = $path;
+            }
+        } else if ($last) {
+            $found[] = $path;
+        }
+    }
+
+    return $found;
+}
+
+// A name without wildcards is there or not, hidden or not, with no need to list the directory
+fn named(string $base, string $name, bool $last): list {
+    $path = joined($base, $name);
+    $info = file_info($path);
+    if ($info == null || (!$last && $info["kind"] != "dir")) {
+        return [];
+    }
+
+    return [$path];
+}
+
+fn listed(string $base, string $segment, bool $last): list {
+    $dir = $base == "" ? "." : $base;
+    if (!is_dir($dir)) {
+        return [];
+    }
+    $found = [];
+    foreach (list_dir($dir) as $name) {
+        $path = joined($base, $name);
+        if (name_matches($name, $segment) && ($last || is_dir($path))) {
+            $found[] = $path;
+        }
+    }
+
+    return $found;
+}
+
+fn has_wildcard(string $segment): bool {
+    return contains($segment, "*") || contains($segment, "?") || contains($segment, "[");
+}
+
+/*
+ * Whether $name matches one pattern name. A * is tried as short as it can be and grown when what
+ * follows doesn't match, going back only to the last *, which is enough since a * can take
+ * anything: time in proportion to the name times the pattern, never exponential.
+ */
+fn name_matches(string $name, string $pattern): bool {
+    if (starts_with($name, ".") && !starts_with($pattern, ".")) {
+        return false;
+    }
+    $n = 0;
+    $p = 0;
+    $star = null;       // where the last * in the pattern was, and where in the name it took up
+    $resume = 0;
+    while ($n < len($name)) {
+        $step = $p < len($pattern) ? pattern_step($pattern, $p, $name[$n]) : null;
+        if ($p < len($pattern) && $pattern[$p] == "*") {
+            $star = $p;
+            $resume = $n;
+            $p++;
+        } else if ($step != null && $step[0]) {
+            $p = $step[1];
+            $n++;
+        } else if ($star != null) {
+            $resume++;
+            $n = $resume;
+            $p = $star + 1;
+        } else {
+            return false;
+        }
+    }
+    while ($p < len($pattern) && $pattern[$p] == "*") {
+        $p++;
+    }
+
+    return $p == len($pattern);
+}
+
+/*
+ * Whether the pattern at $p matches the byte $char, and where the pattern goes on after it:
+ * [whether, next]. ? is any byte, [...] a set, anything else itself; a [ with no ] after it is
+ * itself too.
+ */
+fn pattern_step(string $pattern, int $p, string $char): list {
+    $c = $pattern[$p];
+    if ($c == "?") {
+        return [true, $p + 1];
+    }
+    $close = $c == "[" ? class_end($pattern, $p) : null;
+    if ($close != null) {
+        return [in_class(slice($pattern, $p + 1, $close - $p - 1), $char), $close + 1];
+    }
+
+    return [$c == $char, $p + 1];
+}
+
+// Where the set opened at $open ends, or null: a "]" first in it (after the "!") is a member
+fn class_end(string $pattern, int $open): ?int {
+    $first = $open + 1;
+    if ($first < len($pattern) && $pattern[$first] == "!") {
+        $first++;
+    }
+    if ($first + 1 >= len($pattern)) {
+        return null;
+    }
+
+    return index_of($pattern, "]", $first + 1);
+}
+
+// Whether $char is in a set's text: "abc", "a-z", or "!abc" for not in it
+fn in_class(string $class, string $char): bool {
+    $negated = starts_with($class, "!");
+    $members = $negated ? slice($class, 1) : $class;
+    $found = false;
+    $i = 0;
+    while ($i < len($members)) {
+        if ($i + 2 < len($members) && $members[$i + 1] == "-") {
+            $found = $found || (ord($char) >= ord($members[$i]) && ord($char) <= ord($members[$i + 2]));
+            $i += 3;
+        } else {
+            $found = $found || $members[$i] == $char;
+            $i++;
+        }
+    }
+
+    return $found != $negated;
+}

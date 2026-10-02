@@ -1,0 +1,65 @@
+ok a temporary directory is made
+ok and is empty
+ok each is new
+ok named by the prefix
+ok and gaz by default
+ok under TMPDIR
+ok a file's directory
+ok a name alone
+ok at the root
+ok a trailing slash
+ok the root itself
+ok absolute
+ok every path, depth first, a directory before what it holds
+ok a link to a directory is one entry
+ok a link to a directory isn't followed
+ok an empty directory
+ok a file isn't a directory
+ok a name in a directory
+ok ** for any depth
+ok ** at the end is everything below
+ok ** goes through no link
+ok a link the pattern names is followed
+ok nor into a hidden directory
+ok hidden names need a dot
+ok a literal hidden name
+ok ? is one byte
+ok a set
+ok a range
+ok not in a set
+ok a wildcard name in the middle
+ok nothing matching
+ok a missing directory
+ok a plain path
+ok a missing plain path
+ok a name doesn't continue through a file
+ok a star matching nothing
+ok several stars
+ok an unclosed [ is itself
+ok a doubled ** still finds each once
+ok a relative pattern, from the working directory, gives relative paths
+ok absolute is absolute
+ok a copy has the same bytes
+ok a copy replaces what was there
+ok an empty file copies
+ok onto itself
+ok which leaves it alone
+ok from nothing
+ok a directory
+ok a tree, made with its parents
+ok links are left out and said
+ok its files' contents
+ok again, into a tree that is there
+ok a tree from a file
+ok written
+ok replaced
+ok nothing is left beside it
+ok into a missing directory
+ok a rename that fails is the error
+ok and the new file is removed
+ok a tree goes
+ok a link in it goes, not what it points at
+ok a link given itself goes, not what it points at
+ok a file
+ok nothing there
+ok the scratch directory is gone

@@ -12,6 +12,7 @@ lib/date.gaz
 lib/db.gaz
 lib/devserver.gaz
 lib/format.gaz
+lib/fs.gaz
 lib/http.gaz
 lib/json.gaz
 lib/lists.gaz
@@ -1062,6 +1063,7 @@ tests/gaz/lib/crypto_test.gaz
 tests/gaz/lib/date_test.gaz
 tests/gaz/lib/db_test.gaz
 tests/gaz/lib/format_test.gaz
+tests/gaz/lib/fs_test.gaz
 tests/gaz/lib/functional_test.gaz
 tests/gaz/lib/http_connection_test.gaz
 tests/gaz/lib/http_decode_test.gaz

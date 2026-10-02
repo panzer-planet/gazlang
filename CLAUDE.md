@@ -1511,7 +1511,30 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   `gaz -e` one-liner's input: `split($s, "\n")` leaves a trailing `""` after a final newline, and "\r\n" is
   stripped only where a "\n" follows, as `read_line()` and `file_read_line()` do; `text::indentation`
   and `text::unindented`, a line's leading spaces and tabs, which the website's Markdown and highlighter
-  read),
+  read; `text::trim_start`/`trim_end($s, $chars = whitespace)`, `trim()`'s two halves, in GazLang
+  rather than two more builtins, since a path's trailing slash is the one place they are needed),
+  `fs.gaz` (files and directories for command line tools, on the file builtins: `fs::copy` (in
+  64KB pieces, so any size; onto itself an error, since opening the target would empty it),
+  `fs::copy_tree` (gives the paths it left out, links and anything not a file or directory, rather
+  than failing or quietly dropping them), `fs::walk` (relative paths, depth first, each directory
+  sorted, a directory before its contents, links listed and never followed), `fs::glob` (`*`, `?`,
+  `[abc]`, `[a-z]`, `[!abc]`, `**` as a whole name; a hidden name only by a pattern name starting
+  with a dot; a link the pattern names is followed, one `**` finds never is, so no loop;
+  sorted; each `*` matched by the two-pointer method, backing up only to the last star, so never
+  exponential), `fs::write_atomic` (a hidden temporary beside the file, closed, renamed over it,
+  removed if anything fails), `fs::remove_tree` (a link is removed itself, never followed),
+  `fs::temp_dir($prefix)` (`$TMPDIR` or `/tmp`, random hex from `random_bytes`) and `fs::parent`
+  (the one path helper the examples needed). **Paths only, no path kind**: strings joined with
+  `"/"`, as every builtin takes them. **No kinds-with-the-walk**: `fs::walk` gives paths, and a
+  caller wanting sizes or times asks `file_info()` again, a second `lstat` per entry, which the
+  examples didn't notice next to what the walk costs. `ponytail:` no chmod, symlink, fsync or chdir
+  builtins, so a copy doesn't keep its mode, a link in a tree isn't copied, `write_atomic` doesn't
+  sync (a power cut can leave the rename without the data), and `temp_dir` is as private as the
+  umask makes it (often readable by everyone, where `mkdtemp` gives 0700); each would be one builtin.
+  **A glob in a block comment nests**: `/*` inside a `/* */` opens another comment (they nest, on
+  purpose), so a doc comment can't write a path ending in a `**` name followed by a slash: the
+  library's comments describe such patterns by their names instead. Tested by
+  `tests/gaz/lib/fs_test.gaz` on a tree it plants with links in it.
   `format.gaz` (`format::number`, `format::pad_left`/`pad_right`
   convert like echo: display helpers take any value, string functions stay strict;
   `format::sprintf($template, $args)`, a list since there are no variadic calls: `%s` echo's
