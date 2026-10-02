@@ -286,16 +286,16 @@ that must find nothing to do.
   (Windows, a registry and a playground wait for someone to ask).
 - **The roadmap**, in build order (optional types, `gaz --watch`, the pipe, cryptography, cookies
   and signed sessions, `gaz test`, the list helpers in `lib/lists.gaz` and tagged literals, with
-  `db::sql"..."` and `web::html"..."` on them, and modules (`import`, replacing `include`) are
-  done and described below):
+  `db::sql"..."` and `web::html"..."` on them, modules (`import`, replacing `include`) and files
+  for command line tools (file handles that write and seek, `file_info`, `rename_file`, `make_dir`
+  with parents, `trim` with a set, and `std/fs.gaz`) are done and described below):
   1. **Rest patterns** in destructuring, `[$first, ...$rest] = $list`, when JSON handling asks.
   2. **HTTP keep-alive** in `http::serve` is done (see "Serving HTTP"); server-side TLS and HTTP/2,
      which it was the prerequisite for, remain open.
-  3. **Files for command line tools**: `file_open` is read only, and there is no append, rename, copy,
-     modification time or size, `mkdir -p`, or glob; `trim` takes no character set. Found by comparing
-     with PHP's file functions, not yet by a program. A builtin takes its name from every program, so
-     decide the set before adding any (a mode on `file_open`, `file_write`, `rename_file`,
-     `file_info`).
+  3. **Files for command line tools** is done: what three tools written on the old API had to work
+     round (`examples/du.gaz`, `backup.gaz`, `sitecopy.gaz`, whose first versions in git ran `test
+     -L` for every entry, read whole files to count them and called `mv`) decided the set. See
+     "File handles", `file_info`, `rename_file` and `fs.gaz` below.
   4. **Dates from a clock**: `date.gaz` counts days and `time()` gives seconds, but nothing formats
      a moment, parses ISO 8601 or knows a time zone (`apps/todo` shows timestamps as text). The rules
      are GazLang's, written out as `round()` is, never the platform's.

@@ -6,13 +6,17 @@
  *   gaz examples/backup.gaz --keep 3 ~/notes /backups/notes
  *
  * Each backup is DESTINATION/2026-10-02T143005; the manifest, MANIFEST.txt inside it, is written
- * last and atomically, so a backup without one was interrupted. Symbolic links are skipped and
- * listed, never followed.
+ * last and atomically, so a backup without one was interrupted.
+ *
+ * What it shows: fs::copy_tree() (which leaves symbolic links out and says which), fs::walk(),
+ * fs::write_atomic() for a file that is all there or not at all, fs::remove_tree() for the old
+ * backups, and make_dir() with its parents.
  */
 import "std/cli.gaz";
 import "std/crypto.gaz";
 import "std/date.gaz";
 import "std/format.gaz";
+import "std/fs.gaz";
 
 const DEFAULT_KEEP = "5";
 const MANIFEST = "MANIFEST.txt";
@@ -27,14 +31,16 @@ kind Manifest {
     pub int #files = 0;
     pub int #bytes = 0;
 
-    pub fn add_file(string $path, string $data): null {
+    // ponytail: the file is read whole to hash it, since sha256() takes a string, not a stream
+    pub fn add_file(string $path, string $full_path): null {
+        $data = read_file($full_path);
         #files++;
         #bytes += len($data);
         #lines[] = crypto::hex(sha256($data)) .. "  " .. len($data) .. "  " .. $path;
     }
 
-    pub fn skip(string $path, string $why): null {
-        #skipped[] = "{$path} ({$why})";
+    pub fn skip(string $path): null {
+        #skipped[] = $path;
     }
 
     pub fn text(): string {
@@ -61,72 +67,18 @@ fn two_digits(int $n): string {
     return format::pad_left($n, 2, "0");
 }
 
-/*
- * Copy what is in $from into $to, which exists, adding each file to the manifest under its path
- * relative to the backup.
- */
-fn copy_tree(string $from, string $to, string $relative, Manifest $manifest): null {
-    foreach (list_dir($from) as $name) {
-        $source = $from .. "/" .. $name;
-        $target = $to .. "/" .. $name;
-        $path = $relative == "" ? $name : $relative .. "/" .. $name;
-        if (is_link($source)) {
-            $manifest.skip($path, "a symbolic link");
-        } else if (is_dir($source)) {
-            make_dir($target);
-            copy_tree($source, $target, $path, $manifest);
-        } else {
-            copy_file($source, $target, $path, $manifest);
+fn back_up(string $source, string $target): Manifest {
+    $manifest = Manifest();
+    foreach (fs::copy_tree($source, $target) as $left_out) {
+        $manifest.skip($left_out);
+    }
+    foreach (fs::walk($target) as $path) {
+        if (file_info($target .. "/" .. $path, false)["kind"] == "file") {
+            $manifest.add_file($path, $target .. "/" .. $path);
         }
     }
-}
 
-/*
- * Nothing copies a file, so it is read whole into memory and written out again. Its permissions
- * aren't copied (an executable script comes back without its x bit) and nothing could keep
- * them, short of running cp -p.
- */
-fn copy_file(string $source, string $target, string $path, Manifest $manifest): null {
-    try {
-        $data = read_file($source);
-    } catch (Error $e) {
-        $manifest.skip($path, "can't be read");
-        return;
-    }
-    write_file($target, $data);
-    $manifest.add_file($path, $data);
-}
-
-// is_dir() follows links and nothing else can see one, so: a process per entry
-fn is_link(string $path): bool {
-    return run(["test", "-L", $path])["status"] == 0;
-}
-
-/*
- * The manifest goes in place in one step, so a reader sees all of it or none: written beside it,
- * then renamed. There is no rename, so mv does it.
- */
-fn write_atomically(string $path, string $text): null {
-    $temporary = $path .. ".partial";
-    write_file($temporary, $text);
-    $moved = run(["mv", "-f", $temporary, $path]);
-    if ($moved["status"] != 0) {
-        throw "Cannot move {$temporary} to {$path}: " .. trim($moved["stderr"]);
-    }
-}
-
-// make_dir() makes one level, so a destination like /backups/notes needs each level made
-fn make_dirs(string $path): null {
-    $so_far = starts_with($path, "/") ? "" : ".";
-    foreach (split($path, "/") as $part) {
-        if ($part == "") {
-            continue;
-        }
-        $so_far ..= "/" .. $part;
-        if (!is_dir($so_far)) {
-            make_dir($so_far);
-        }
-    }
+    return $manifest;
 }
 
 // The backups made in $root, oldest first: their names are stamps, so they sort by time
@@ -138,24 +90,9 @@ fn rotate(string $root, int $keep): null {
     $backups = backups_in($root);
     $old = slice($backups, 0, max(len($backups) - $keep, 0));
     foreach ($old as $name) {
-        remove_tree($root .. "/" .. $name);
+        fs::remove_tree($root .. "/" .. $name);
         echo "removed old backup {$name}";
     }
-}
-
-/*
- * Everything in $path, then $path. Never through a link: is_dir() would follow one into the tree
- * it points at and delete that, so a link is asked about first, by running test(1).
- */
-fn remove_tree(string $path): null {
-    if (is_link($path) || !is_dir($path)) {
-        delete_file($path);
-        return;
-    }
-    foreach (list_dir($path) as $name) {
-        remove_tree($path .. "/" .. $name);
-    }
-    delete_dir($path);
 }
 
 $cli = cli::Command("backup", "Copy a directory into a new dated backup and keep the newest few");
@@ -176,20 +113,17 @@ if (!is_dir($source)) {
 }
 
 $root = $options["destination"];
-make_dirs($root);
-$name = stamp(time());
-$target = $root .. "/" .. $name;
+make_dir($root, true);
+$target = $root .. "/" .. stamp(time());
 if (file_exists($target)) {
     print_error("backup: {$target} already exists; try again in a second\n");
     exit(1);
 }
-make_dir($target);
 
-$manifest = Manifest();
-copy_tree($source, $target, "", $manifest);
-write_atomically($target .. "/" .. MANIFEST, $manifest.text());
+$manifest = back_up($source, $target);
+fs::write_atomic($target .. "/" .. MANIFEST, $manifest.text());
 echo "backed up {$manifest.files} files, " .. format::number($manifest.bytes, 0) .. " bytes, to {$target}";
 foreach ($manifest.skipped as $skipped) {
-    echo "skipped {$skipped}";
+    echo "left out {$skipped}, which is a link or not a file";
 }
 rotate($root, $keep);
