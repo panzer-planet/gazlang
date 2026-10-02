@@ -305,13 +305,15 @@ static const char *OPERATORS[][2] = {
     {"^", "BIT_XOR"}, {"<", "LESS_THAN"}, {">", "GREATER_THAN"}, {"=", "ASSIGN"}, {"!", "NOT"}, {"?", "QUESTION"},
     {"(", "LEFT_PAREN"}, {")", "RIGHT_PAREN"}, {";", "SEMICOLON"}, {":", "COLON"}, {"~", "BIT_NOT"},
 };
+/* The lexer's keywords (Lexer::KEYWORDS in compiler/lexer.gaz), but true, false and null, read above */
 static const char *KEYWORDS[][2] = {
     {"echo", "ECHO"}, {"if", "IF"}, {"else", "ELSE"}, {"while", "WHILE"}, {"for", "FOR"}, {"foreach", "FOREACH"},
-    {"as", "AS"}, {"break", "BREAK"}, {"continue", "CONTINUE"}, {"fn", "FN"}, {"function", "FUNCTION"},
-    {"return", "RETURN"}, {"delete", "DELETE"}, {"match", "MATCH"}, {"default", "DEFAULT"}, {"const", "CONST"},
-    {"include", "INCLUDE"}, {"try", "TRY"}, {"catch", "CATCH"}, {"finally", "FINALLY"}, {"kind", "KIND"}, {"class", "CLASS"},
+    {"as", "AS"}, {"break", "BREAK"}, {"continue", "CONTINUE"}, {"fn", "FN"}, {"return", "RETURN"},
+    {"delete", "DELETE"}, {"match", "MATCH"}, {"default", "DEFAULT"}, {"const", "CONST"}, {"include", "INCLUDE"},
+    {"try", "TRY"}, {"catch", "CATCH"}, {"finally", "FINALLY"}, {"throw", "THROW"}, {"kind", "KIND"},
     {"extends", "EXTENDS"}, {"abstract", "ABSTRACT"}, {"interface", "INTERFACE"}, {"implements", "IMPLEMENTS"},
-    {"final", "FINAL"}, {"public", "PUBLIC"}, {"private", "PRIVATE"}, {"protected", "PROTECTED"},
+    {"final", "FINAL"}, {"namespace", "NAMESPACE"}, {"use", "USE"}, {"pub", "PUB"}, {"kin", "KIN"},
+    {"static", "STATIC"}, {"shared", "SHARED"},
 };
 
 static bool is_word(char c) { return is_alpha(c) || is_digit(c) || c == '_'; }

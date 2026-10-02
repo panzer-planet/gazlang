@@ -824,6 +824,7 @@ tests/corpora/bytecode/error_value_comment_unterminated.gzb
 tests/corpora/bytecode/error_value_decrement.gzb
 tests/corpora/bytecode/error_value_escape.gzb
 tests/corpora/bytecode/error_value_float_too_large.gzb
+tests/corpora/bytecode/error_value_former_keyword.gzb
 tests/corpora/bytecode/error_value_hash.gzb
 tests/corpora/bytecode/error_value_hex_empty.gzb
 tests/corpora/bytecode/error_value_hex_escape.gzb
@@ -835,6 +836,7 @@ tests/corpora/bytecode/error_value_list_without_comma.gzb
 tests/corpora/bytecode/error_value_map_float_key.gzb
 tests/corpora/bytecode/error_value_map_without_arrow.gzb
 tests/corpora/bytecode/error_value_minus_string.gzb
+tests/corpora/bytecode/error_value_newer_keyword.gzb
 tests/corpora/bytecode/error_value_octal.gzb
 tests/corpora/bytecode/error_value_operator.gzb
 tests/corpora/bytecode/error_value_parent.gzb
